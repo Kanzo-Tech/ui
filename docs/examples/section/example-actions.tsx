@@ -1,27 +1,27 @@
 import { DatabaseIcon, PlusIcon } from "lucide-react";
 import {
   Button,
+  SectionActions,
+  SectionDescription,
   SectionHeader,
-  SectionHeaderActions,
-  SectionHeaderContent,
-  SectionHeaderDescription,
-  SectionHeaderIcon,
-  SectionHeaderTitle,
+  SectionIcon,
+  SectionTitle,
+  SectionTitleGroup,
 } from "@kanzo-tech/ui";
 
 export default function Example() {
   return (
     <SectionHeader className="w-full">
-      <SectionHeaderIcon>
+      <SectionIcon>
         <DatabaseIcon />
-      </SectionHeaderIcon>
-      <SectionHeaderContent>
-        <SectionHeaderTitle>Connections</SectionHeaderTitle>
-        <SectionHeaderDescription>
+      </SectionIcon>
+      <SectionTitleGroup>
+        <SectionTitle>Connections</SectionTitle>
+        <SectionDescription>
           Sources this workspace reads from.
-        </SectionHeaderDescription>
-      </SectionHeaderContent>
-      <SectionHeaderActions>
+        </SectionDescription>
+      </SectionTitleGroup>
+      <SectionActions>
         <Button size="sm" variant="outline">
           View all
         </Button>
@@ -29,7 +29,7 @@ export default function Example() {
           <PlusIcon />
           New connection
         </Button>
-      </SectionHeaderActions>
+      </SectionActions>
     </SectionHeader>
   );
 }

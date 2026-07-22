@@ -8,17 +8,13 @@ import {
   ComingSoon,
   EmptyState,
   InstanceSwitcher,
-  PageShell,
-  PageShellActions,
-  PageShellContent,
-  PageShellDescription,
-  PageShellHeader,
-  PageShellTitle,
+  SectionActions,
+  SectionBody,
+  SectionDescription,
   SectionHeader,
-  SectionHeaderActions,
-  SectionHeaderContent,
-  SectionHeaderDescription,
-  SectionHeaderTitle,
+  SectionRoot,
+  SectionTitle,
+  SectionTitleGroup,
   Sidebar,
   SidebarContent,
   SidebarFooter,
@@ -192,21 +188,21 @@ export function AppShellBlock() {
         </header>
 
         <div className="flex-1">
-          <PageShell>
-            <PageShellHeader>
-              <PageShellTitle>Dashboard</PageShellTitle>
-              <PageShellDescription>
+          <SectionRoot>
+            <SectionHeader scale="page">
+              <SectionTitle level={1} scale="page">Dashboard</SectionTitle>
+              <SectionDescription>
                 Everything this workspace publishes, at a glance.
-              </PageShellDescription>
-              <PageShellActions>
+              </SectionDescription>
+              <SectionActions>
                 <Button size="sm">
                   <PlusIcon />
                   New connection
                 </Button>
-              </PageShellActions>
-            </PageShellHeader>
+              </SectionActions>
+            </SectionHeader>
 
-            <PageShellContent>
+            <SectionBody scale="page">
               <div className="space-y-8">
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <StatCard href="#/app/settings/cloud" status="success">
@@ -252,18 +248,18 @@ export function AppShellBlock() {
                 </div>
 
                 <section className="space-y-3">
-                  <SectionHeader>
-                    <SectionHeaderContent>
-                      <SectionHeaderTitle>Connections</SectionHeaderTitle>
-                      <SectionHeaderDescription>
+                  <SectionHeader scale="page">
+                    <SectionTitleGroup>
+                      <SectionTitle level={1} scale="page">Connections</SectionTitle>
+                      <SectionDescription>
                         Sources this workspace reads from.
-                      </SectionHeaderDescription>
-                    </SectionHeaderContent>
-                    <SectionHeaderActions>
+                      </SectionDescription>
+                    </SectionTitleGroup>
+                    <SectionActions>
                       <Button size="sm" variant="outline">
                         View all
                       </Button>
-                    </SectionHeaderActions>
+                    </SectionActions>
                   </SectionHeader>
 
                   <Tabs defaultValue="data">
@@ -308,13 +304,13 @@ export function AppShellBlock() {
                 </section>
 
                 <section className="space-y-3">
-                  <SectionHeader>
-                    <SectionHeaderContent>
-                      <SectionHeaderTitle>Scheduled runs</SectionHeaderTitle>
-                      <SectionHeaderDescription>
+                  <SectionHeader scale="page">
+                    <SectionTitleGroup>
+                      <SectionTitle level={1} scale="page">Scheduled runs</SectionTitle>
+                      <SectionDescription>
                         Not available yet in this workspace.
-                      </SectionHeaderDescription>
-                    </SectionHeaderContent>
+                      </SectionDescription>
+                    </SectionTitleGroup>
                   </SectionHeader>
                   <ComingSoon>
                     <div className="flex items-center justify-between rounded-lg border border-border p-4">
@@ -331,8 +327,8 @@ export function AppShellBlock() {
                   </ComingSoon>
                 </section>
               </div>
-            </PageShellContent>
-          </PageShell>
+            </SectionBody>
+          </SectionRoot>
         </div>
       </SidebarInset>
 

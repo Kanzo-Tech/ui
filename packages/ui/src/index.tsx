@@ -149,15 +149,6 @@ export type { ComingSoonProps } from "./simples/ComingSoon.js";
 export type { LinkComponent } from "./composites/link.js";
 export { DefaultLink } from "./composites/link.js";
 export {
-  PageShell,
-  PageShellActions,
-  PageShellContent,
-  PageShellDescription,
-  PageShellFooter,
-  PageShellHeader,
-  PageShellTitle,
-} from "./layouts/PageShell.js";
-export {
   ShellRoot,
   ShellHeader,
   ShellBody,
@@ -168,14 +159,25 @@ export {
 } from "./layouts/shell.js";
 export type { ShellAsideProps } from "./layouts/shell.js";
 export {
+  SectionRoot,
   SectionHeader,
-  SectionHeaderActions,
-  SectionHeaderContent,
-  SectionHeaderDescription,
-  SectionHeaderIcon,
-  SectionHeaderTitle,
-} from "./composites/SectionHeader.js";
-export type { SectionHeaderProps, SectionHeaderTitleProps } from "./composites/SectionHeader.js";
+  SectionIcon,
+  SectionTitleGroup,
+  SectionTitle,
+  SectionDescription,
+  SectionActions,
+  SectionBody,
+  SectionFooter,
+  sectionHeaderVariants,
+  sectionTitleVariants,
+  sectionBodyVariants,
+} from "./layouts/section.js";
+export type {
+  SectionRootProps,
+  SectionHeaderProps,
+  SectionTitleProps,
+  SectionBodyProps,
+} from "./layouts/section.js";
 export {
   StatCard,
   StatCardDescription,
