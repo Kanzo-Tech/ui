@@ -50,14 +50,16 @@ import {
  *   <Preferences.Root>
  *     <Preferences.Trigger />
  *     <Preferences.Panel>
- *       <Preferences.Appearance /> <Preferences.Accent /> <Preferences.Radius />
- *       <Preferences.Font /> <Preferences.MonoFont /> <Preferences.Density />
+ *       <Preferences.Appearance /> <Preferences.Accent /> <Preferences.Base />
+ *       <Preferences.Radius /> <Preferences.Font /> <Preferences.MonoFont />
+ *       <Preferences.Density />
  *     </Preferences.Panel>
  *   </Preferences.Root>
  *
- * or the all-in-one <Preferences />. `Preferences.Base` is exported for opt-in (default panel
- * omits it — neutral base). The exhaustive base×accent picker + copy-theme live in the
- * playground theme-editor, not here. Open with `t`, close with Escape.
+ * or the all-in-one <Preferences />. Those seven sections ARE the default panel body, plus a
+ * footer of Reset · Copy CSS · Done. (This comment used to claim `Base` was opt-in and omitted
+ * by default; the panel has rendered it for some time — the code is the authority.) Open with
+ * `t`, close with Escape.
  */
 
 const RADII: KanzoRadius[] = ["none", "xs", "sm", "md", "lg"];
@@ -202,8 +204,16 @@ function PreferencesPanel({
             </Button>
           </DialogClose>
 
-          {/* Body — scrolls independently of the pinned header/footer. */}
-          <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-5 pb-5">
+          {/* Body — scrolls independently of the pinned header/footer.
+              `[&>*]:shrink-0` is load-bearing, not hygiene. This is a COLUMN flex container
+              inside a `max-h`-constrained panel, so its children are flex items that default
+              to `flex-shrink: 1`. Once the sections are taller than the panel, the browser
+              satisfies the constraint by SQUASHING every section rather than scrolling this
+              box — sections collapse to a fraction of their height, their controls overlap
+              and clip, and the lower ones become unreadable. That is the "renders wrong /
+              does not show all its fields" bug: the panel was never scrolling at all.
+              Pinning the items at their natural height is what makes `overflow-y-auto` real. */}
+          <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-5 pb-5 [&>*]:shrink-0">
             {children ?? (
               <>
                 <AppearanceSection />
