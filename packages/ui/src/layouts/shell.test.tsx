@@ -3,7 +3,15 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { ToggleGroup, ToggleGroupItem } from "../simples/toggle-group.js";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../simples/tooltip.js";
-import { ShellBar, ShellBarEnd, ShellBarStart } from "./shell.js";
+import {
+  ShellAside,
+  ShellBar,
+  ShellBarEnd,
+  ShellBarStart,
+  ShellBody,
+  ShellMain,
+  ShellRoot,
+} from "./shell.js";
 
 /**
  * `ShellBar` itself is presentational and has nothing to assert beyond its slots. What is
@@ -104,5 +112,60 @@ describe("a ToggleGroup composed inside a ShellBar", () => {
 
     expect(screen.getByRole("button", { name: "Search" }).getAttribute("data-state")).toBe("on");
     expect(screen.getByRole("button", { name: "Files" }).getAttribute("data-state")).toBe("off");
+  });
+});
+
+describe("the shell regions", () => {
+  it("renders exactly one <main>, and it is ShellMain", () => {
+    render(
+      <ShellRoot>
+        <ShellBar position="top">chrome</ShellBar>
+        <ShellBody>
+          <ShellAside aria-label="Navigation" side="start" width={240} />
+          <ShellMain>content</ShellMain>
+          <ShellAside aria-label="Inspector" side="end" width={280} />
+        </ShellBody>
+      </ShellRoot>,
+    );
+
+    // Two <main> elements are an HTML conformance error and make "skip to main content"
+    // ambiguous. The regions around it are <aside>, which is why they can repeat.
+    expect(screen.getAllByRole("main")).toHaveLength(1);
+    expect(screen.getByRole("main").getAttribute("data-slot")).toBe("shell-main");
+  });
+
+  it("lets both asides coexist as distinguishable landmarks", () => {
+    render(
+      <ShellBody>
+        <ShellAside aria-label="Navigation" side="start" />
+        <ShellAside aria-label="Inspector" side="end" />
+      </ShellBody>,
+    );
+
+    // <aside> is a complementary landmark, so two of them need labels to be told apart.
+    expect(screen.getByRole("complementary", { name: "Navigation" })).toBeTruthy();
+    expect(screen.getByRole("complementary", { name: "Inspector" })).toBeTruthy();
+  });
+
+  it("uses logical borders so the shell mirrors under RTL", () => {
+    render(
+      <ShellBody>
+        <ShellAside aria-label="Navigation" side="start" />
+      </ShellBody>,
+    );
+
+    // border-e / border-s, never border-r / border-l: one code path for both directions.
+    const aside = screen.getByRole("complementary", { name: "Navigation" });
+    expect(aside.className).toContain("border-e");
+    expect(aside.className).not.toContain("border-r");
+  });
+
+  it("applies a docked width but never an overlay one", () => {
+    const { rerender } = render(<ShellAside aria-label="Dock" width={240} />);
+    expect(screen.getByRole("complementary").style.width).toBe("240px");
+
+    // An overlay fills its container via `inset-0`; a width would fight it.
+    rerender(<ShellAside aria-label="Dock" overlay width={240} />);
+    expect(screen.getByRole("complementary").style.width).toBe("");
   });
 });

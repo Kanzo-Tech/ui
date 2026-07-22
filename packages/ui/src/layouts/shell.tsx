@@ -110,3 +110,117 @@ export function ShellBarEnd({ className, ...rest }: ComponentProps<typeof ark.di
   );
 }
 ShellBarEnd.displayName = "ShellBarEnd";
+
+// ── Root ─────────────────────────────────────────────────────────────────────
+
+/**
+ * The outermost region: a full-height column that bars and the body stack inside.
+ *
+ * `h-dvh` rather than `h-screen`: on mobile browsers `100vh` includes the retracting URL bar,
+ * so a shell sized with it is taller than the visible viewport and its bottom bar sits off
+ * screen. `min-h-0` is what lets the body shrink and its own regions scroll instead of the
+ * page growing.
+ */
+export function ShellRoot({ className, ...rest }: ComponentProps<typeof ark.div>) {
+  return (
+    <ark.div
+      className={cn("flex h-dvh min-h-0 flex-col overflow-hidden", className)}
+      data-slot="shell-root"
+      {...rest}
+    />
+  );
+}
+ShellRoot.displayName = "ShellRoot";
+
+/** The horizontal band between the bars: asides and main sit here as siblings, in the order
+ *  the caller writes them — which is also what makes the layout mirror correctly in RTL. */
+export function ShellBody({ className, ...rest }: ComponentProps<typeof ark.div>) {
+  return (
+    <ark.div
+      className={cn("relative flex min-h-0 flex-1", className)}
+      data-slot="shell-body"
+      {...rest}
+    />
+  );
+}
+ShellBody.displayName = "ShellBody";
+
+/**
+ * The primary content region. Renders the `<main>` landmark.
+ *
+ * EXACTLY ONE per page. Two `<main>` elements are an HTML conformance error and make
+ * "skip to main content" ambiguous, so nothing nested inside may render another — nestable
+ * containers use `<section>`.
+ */
+export function ShellMain({ className, ...rest }: ComponentProps<typeof ark.main>) {
+  return (
+    <ark.main
+      className={cn("flex min-w-0 flex-1 flex-col overflow-auto", className)}
+      data-slot="shell-main"
+      {...rest}
+    />
+  );
+}
+ShellMain.displayName = "ShellMain";
+
+// ── Aside ────────────────────────────────────────────────────────────────────
+
+export const shellAsideVariants = tv({
+  base: "flex flex-col bg-card",
+  variants: {
+    side: { start: "", end: "" },
+    /** Docked (false) sits in the flow and carries the divider. Overlay (true) floats over
+     *  the content — a narrow-viewport drawer — so it has no divider. */
+    overlay: {
+      true: "absolute inset-0 z-5",
+      false: "min-w-0 shrink-0",
+    },
+  },
+  compoundVariants: [
+    // The divider belongs to the edge the aside is docked against.
+    { overlay: false, side: "start", class: "border-e border-border" },
+    { overlay: false, side: "end", class: "border-s border-border" },
+  ],
+  defaultVariants: { side: "start", overlay: false },
+});
+
+export interface ShellAsideProps
+  extends ComponentProps<typeof ark.aside>,
+    VariantProps<typeof shellAsideVariants> {
+  /** Docked width in px. Ignored when `overlay`, where the aside fills its container. */
+  width?: number;
+}
+
+/**
+ * A side region — navigation, a dock, an inspector. Renders `<aside>`, so it is a
+ * complementary landmark: give it an `aria-label` when a page has more than one.
+ *
+ * Logical properties throughout (`border-e` / `border-s`, `side="start" | "end"`), not
+ * physical left/right, so the whole shell mirrors under RTL without a second code path.
+ *
+ * For a RESIZABLE aside, compose Ark's Splitter around it rather than reaching for a prop —
+ * the drag behaviour, keyboard resizing and ARIA come from the machine, and this component
+ * stays presentational.
+ */
+export function ShellAside({
+  className,
+  side,
+  overlay,
+  width,
+  style,
+  ...rest
+}: ShellAsideProps) {
+  return (
+    <ark.aside
+      className={cn(shellAsideVariants({ side, overlay }), className)}
+      data-slot="shell-aside"
+      data-side={side ?? "start"}
+      // `width` is a genuinely computed value the caller owns (and drives from drag state),
+      // which is the sanctioned inline-style exception. An overlay fills its container, so
+      // applying it there would fight the `inset-0`.
+      style={overlay ? style : { width, ...style }}
+      {...rest}
+    />
+  );
+}
+ShellAside.displayName = "ShellAside";

@@ -158,13 +158,18 @@ export {
   PageShellTitle,
 } from "./layouts/PageShell.js";
 export {
+  ShellRoot,
+  ShellBody,
+  ShellMain,
+  ShellAside,
   ShellBar,
   ShellBarStart,
   ShellBarCenter,
   ShellBarEnd,
   shellBarVariants,
+  shellAsideVariants,
 } from "./layouts/shell.js";
-export type { ShellBarProps } from "./layouts/shell.js";
+export type { ShellBarProps, ShellAsideProps } from "./layouts/shell.js";
 export {
   SectionHeader,
   SectionHeaderActions,
