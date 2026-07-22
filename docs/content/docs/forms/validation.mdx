@@ -1,0 +1,114 @@
+---
+title: Validation
+description: How errors are displayed, who owns producing them, and why the library deliberately stops at the boundary.
+---
+
+## The library displays errors. It does not produce them.
+
+This is a deliberate boundary, and it is the reason these components work equally well with a
+form library, with plain `useState`, or with a validation engine that has never heard of React.
+
+```tsx
+<Field invalid={Boolean(error)}>
+  <FieldLabel>Endpoint</FieldLabel>
+  <Input />
+  <FieldError>{error}</FieldError>
+</Field>
+```
+
+`Field` takes a boolean and a message. Where they came from is your business — a zod schema,
+a server response, a SHACL engine, an `if` statement. The library never sees your schema.
+
+## Displaying errors
+
+Three rules, and they are the whole contract:
+
+1. **`invalid` goes on the root**, not on the control. It colours the label, tints the control,
+   reveals the error and sets `aria-invalid` — one prop, four effects.
+2. **Leave `FieldError` in the tree unconditionally.** It renders only while the field is
+   invalid. Writing `{error && <FieldError>…</FieldError>}` yourself adds nothing and creates
+   the failure mode where a field can be invalid with nothing on screen explaining why.
+3. **Never let a disabled submit button be the only signal.** If the button is disabled, some
+   field should be saying why. Rule 2 makes that the default rather than something to remember.
+
+## When to show them
+
+The library does not decide this, because it depends on the form. The usual pattern is to hold
+errors back until the user has interacted with a field, so a form does not open covered in red:
+
+```tsx
+const showError = touched && Boolean(error);
+
+<Field invalid={showError}>
+  <FieldLabel>Endpoint</FieldLabel>
+  <Input onBlur={() => setTouched(true)} />
+  <FieldError>{error}</FieldError>
+</Field>
+```
+
+Gate on `touched` for inline errors, and drop the gate on submit so nothing stays hidden when
+the user tries to save.
+
+## Which form library?
+
+None is required, and none is bundled. `Field` is a presentational component — it works with:
+
+- **Plain `useState`** — fine for a handful of fields.
+- **A schema library** (zod, valibot, arktype) — validate on submit, map issues to fields.
+- **A form library** (TanStack Form) — recommended once a form has enough fields that manual
+  state becomes boilerplate.
+
+If you use a schema library, the mapping is short and belongs in your product, not here:
+
+```tsx
+const result = schema.safeParse(values);
+const errors = result.success
+  ? {}
+  : Object.fromEntries(
+      result.error.issues.map((i) => [i.path.join("."), i.message]),
+    );
+```
+
+## Why the boundary is where it is
+
+It would be easy to add a `severity` prop, a `FieldError` type, or to adopt a validation
+library's error shape directly into `Field`. We deliberately have not, and the reason is worth
+stating because it will come up again.
+
+Our own two consumers validate in ways that have almost nothing in common:
+
+|  | Schema-based (zod / TanStack) | Graph-based (SHACL / ShEx) |
+|---|---|---|
+| Who validates | validators declared beside the form | an external engine, over a whole RDF graph |
+| Error key | `items[0].email` | a pair of RDF terms |
+| Severity | binary | tri-state: violation / warning / info |
+| Message | from the schema | already resolved and localised by the engine |
+| Cardinality | one per field | several per field |
+
+Any model rich enough for both would be **shaped by whichever consumer shouted loudest**, and
+any model shaped by one excludes the other. A boolean and a `ReactNode` exclude neither.
+
+So the split is: **the library owns presentation; the product owns production.** Anything
+engine-specific — severity ladders, localisation catalogues, constraint identifiers — stays in
+the product, and reaches `Field` as a rendered message.
+
+<Callout type="info">
+If non-blocking field messages (a warning that does not mark the field invalid) turn out to be
+a real, repeated need, the answer will be a new **part** — `FieldWarning`, alongside the
+thirteen that already exist — and not a `severity` prop. That keeps the idiom the rest of the
+library already uses. It is not built yet because nothing has needed it twice.
+</Callout>
+
+## Form-level errors
+
+For an error that belongs to the whole form rather than one field — a failed request, a
+conflict — use an `Alert` above the actions rather than a `FieldError`:
+
+```tsx
+{submitError && (
+  <Alert variant="destructive">
+    <AlertTitle>Could not save</AlertTitle>
+    <AlertDescription>{submitError}</AlertDescription>
+  </Alert>
+)}
+```

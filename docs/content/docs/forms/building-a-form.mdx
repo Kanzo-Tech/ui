@@ -1,0 +1,184 @@
+---
+title: Building a form, step by step
+description: From one field to a complete form. Each step adds exactly one idea, and nothing is skipped.
+---
+
+Seven steps, each one adding a single idea to the previous. If you follow it top to bottom you
+end up with an accessible, grouped, validated form and you will have written no wiring code.
+
+## Step 1 — one field
+
+The smallest useful unit is a label, a control and the wrapper that connects them.
+
+```tsx
+import { Field, FieldLabel, Input } from "@kanzo-tech/ui";
+
+<Field>
+  <FieldLabel>Dataset name</FieldLabel>
+  <Input placeholder="e.g. air-quality-2024" />
+</Field>
+```
+
+The label and input are already associated — clicking the label focuses the input. You did not
+write an `id`.
+
+## Step 2 — explain the field
+
+Two components do this, and the difference matters.
+
+```tsx
+<Field>
+  <FieldLabel>Dataset name</FieldLabel>
+  <Input />
+  <FieldDescription>Lowercase letters, numbers and hyphens.</FieldDescription>
+</Field>
+```
+
+- **`FieldDescription`** — always-visible help text. Use it for guidance the user needs *before*
+  they type. It is `pointer-events-none`, so it never steals a click from the control.
+- **`FieldHelper`** — also help text, but wired into the control's accessible description. Use
+  it when the text must be *announced* to a screen-reader user on focus.
+
+If you are unsure, use `FieldDescription`.
+
+## Step 3 — mark it required
+
+```tsx
+<Field required>
+  <FieldLabel>
+    Dataset name
+    <FieldRequiredIndicator />
+  </FieldLabel>
+  <Input />
+</Field>
+```
+
+`required` goes on the **root**, and `FieldRequiredIndicator` reads it from context. The
+indicator renders `*` by default and is `aria-hidden`, because the control is already marked
+required for assistive tech — the asterisk is a visual convention, not the semantic signal.
+
+## Step 4 — show an error
+
+```tsx
+<Field invalid={Boolean(error)} required>
+  <FieldLabel>Dataset name</FieldLabel>
+  <Input />
+  <FieldError>{error}</FieldError>
+</Field>
+```
+
+This is the step people get wrong, so it is worth being explicit:
+
+**Leave `FieldError` in the tree unconditionally.** Do not write
+`{error && <FieldError>…</FieldError>}`. `FieldError` renders only while the field is invalid,
+so the conditional is already handled — and doing it yourself is how a field ends up able to be
+invalid without ever showing why. The single most common form bug in our own products is a
+disabled submit button and no explanation anywhere on screen.
+
+`invalid` on the root is what colours the label, tints the control, reveals the error, and sets
+`aria-invalid`. One prop, four effects.
+
+## Step 5 — lay it out
+
+`orientation` on the `Field` controls where the label sits:
+
+- `vertical` (default) — label above the control. Right for almost everything.
+- `horizontal` — label and control on one line. Right for switches and compact settings panels.
+- `responsive` — starts vertical, becomes horizontal when there is room.
+
+```tsx
+<Field orientation="horizontal">
+  <FieldLabel>Enable notifications</FieldLabel>
+  <Switch />
+</Field>
+```
+
+<Callout type="warn">
+`responsive` switches on a **container query**, not the viewport — and the container is
+`FieldGroup`. A `responsive` field with no `FieldGroup` ancestor will never switch. This is
+deliberate: a form inside a narrow side panel should stay stacked even on a wide screen.
+</Callout>
+
+## Step 6 — group the fields
+
+`FieldGroup` handles spacing and is the container-query root. `FieldSet` + `FieldLegend` add a
+semantic grouping with a heading — use it whenever a set of fields shares a purpose.
+
+```tsx
+<FieldSet>
+  <FieldLegend>Connection</FieldLegend>
+  <FieldDescription>Where the dataset is pulled from.</FieldDescription>
+
+  <FieldGroup>
+    <Field>
+      <FieldLabel>Endpoint</FieldLabel>
+      <Input />
+    </Field>
+
+    <Field>
+      <FieldLabel>API key</FieldLabel>
+      <SecretField />
+    </Field>
+  </FieldGroup>
+</FieldSet>
+```
+
+`FieldSet` renders a real `<fieldset>` and `FieldLegend` a real `<legend>`, so the grouping is
+announced, not just drawn. For radio and checkbox groups this is not optional — the legend is
+what tells a screen-reader user what the options are *for*.
+
+## Step 7 — submit it
+
+The library does not own form state, so this part is ordinary React (or your form library of
+choice — see [Validation](/docs/forms/validation)).
+
+```tsx
+<form onSubmit={handleSubmit}>
+  <FieldSet>
+    <FieldLegend>Connection</FieldLegend>
+    <FieldGroup>{/* fields… */}</FieldGroup>
+  </FieldSet>
+
+  <Button type="submit" disabled={submitting}>
+    {submitting ? "Saving…" : "Save"}
+  </Button>
+</form>
+```
+
+<Callout type="info">
+A disabled submit button must never be the **only** signal that something is wrong. If the
+button is disabled, at least one field should be showing an error explaining why. Step 4 is
+what makes that automatic.
+</Callout>
+
+## The finished shape
+
+```tsx
+<form onSubmit={handleSubmit}>
+  <FieldSet>
+    <FieldLegend>Connection</FieldLegend>
+    <FieldDescription>Where the dataset is pulled from.</FieldDescription>
+
+    <FieldGroup>
+      <Field invalid={Boolean(errors.endpoint)} required>
+        <FieldLabel>
+          Endpoint
+          <FieldRequiredIndicator />
+        </FieldLabel>
+        <Input value={endpoint} onChange={(e) => setEndpoint(e.target.value)} />
+        <FieldDescription>The base URL, without a trailing slash.</FieldDescription>
+        <FieldError>{errors.endpoint}</FieldError>
+      </Field>
+
+      <Field orientation="horizontal">
+        <FieldLabel>Verify TLS certificates</FieldLabel>
+        <Switch checked={verifyTls} onCheckedChange={setVerifyTls} />
+      </Field>
+    </FieldGroup>
+  </FieldSet>
+
+  <Button type="submit">Save</Button>
+</form>
+```
+
+Next: [every control and how it composes](/docs/forms/controls).

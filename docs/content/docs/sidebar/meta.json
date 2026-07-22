@@ -1,0 +1,4 @@
+{
+  "title": "Sidebar",
+  "pages": ["index", "sidebar", "sidebar-nav", "section-nav", "sidebar-user", "sidebar-identity"]
+}

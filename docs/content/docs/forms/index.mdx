@@ -1,0 +1,101 @@
+---
+title: Forms
+description: One wrapper does the wiring for every control in the library. Start here before reading any individual input page.
+---
+
+Every form in this library is built from one component — `Field` — plus whichever control you
+need inside it. There is no separate form system to learn, and no per-control API to memorise:
+a `Checkbox` inside a `Field` works exactly like an `Input` inside a `Field`.
+
+This is the page the individual component pages assume you have read. If you have been looking
+at an input page wondering what the "with field" example is for, **this is what it is for**.
+
+## The one thing to understand
+
+`Field` is not a layout wrapper. It is the piece that **wires a control to its label, its
+description and its error message**, and it does that through context — so you set state once,
+on the `Field`, and everything inside inherits it.
+
+```tsx
+<Field invalid required>
+  <FieldLabel>Dataset name</FieldLabel>
+  <Input />
+  <FieldError>Names cannot contain spaces.</FieldError>
+</Field>
+```
+
+Look at what you did **not** have to write:
+
+- No `htmlFor` on the label and no matching `id` on the input — `Field` generates the id and
+  connects them. Clicking the label focuses the control.
+- No `aria-invalid` on the `Input`. `invalid` on the root reaches it through context.
+- No `aria-describedby` pointing at the error text. `Field` wires that too, so a screen reader
+  announces the error when the control takes focus.
+- No conditional around `FieldError`. It renders **only while the field is invalid**, so you
+  can leave it in the tree unconditionally.
+- No asterisk element. `required` on the root is what `FieldRequiredIndicator` reads.
+
+That list is the entire reason `Field` exists. Writing those five things by hand, per control,
+per form, is where accessible forms go to die — and skipping them is invisible until someone
+uses a screen reader.
+
+## Anatomy
+
+```text
+FieldSet                      ← a titled group of related fields
+├── FieldLegend               ← the group's heading
+├── FieldDescription          ← help text for the whole group
+└── FieldGroup                ← the layout container (and the container-query root)
+    └── Field                 ← one control's worth of chrome; owns invalid/disabled/required
+        ├── FieldLabel
+        │   └── FieldRequiredIndicator
+        ├── FieldContent      ← for checkbox/radio: title + description beside the control
+        │   └── FieldTitle
+        ├── <control>         ← Input, Select, Checkbox, Combobox… any of them
+        ├── FieldDescription  ← persistent help text
+        ├── FieldHelper       ← help text tied to the control's described-by
+        ├── FieldError        ← renders only while invalid
+        └── FieldSeparator
+```
+
+You will rarely use all of it. The common case is four lines: `Field`, `FieldLabel`, a control,
+`FieldError`.
+
+## The four states you set on the root
+
+These are the whole state API, and they all propagate to the control inside:
+
+| Prop | What it does |
+|---|---|
+| `invalid` | Colours the label, control and error text; reveals `FieldError`; sets `aria-invalid` |
+| `required` | Reveals `FieldRequiredIndicator`; marks the control required |
+| `disabled` | Dims the field and disables the control |
+| `readOnly` | Marks the control read-only without dimming it |
+
+Set them on the `Field`, never on the control. Setting `invalid` on an `Input` directly works,
+but then the label and error text do not know about it, and you are back to hand-wiring.
+
+## Where to go next
+
+<Cards>
+  <Card
+    href="/docs/forms/building-a-form"
+    title="Building a form, step by step"
+    description="From one field to a complete, submittable form — each step adding exactly one idea."
+  />
+  <Card
+    href="/docs/forms/controls"
+    title="Controls"
+    description="Every input in the library and how it composes with Field. One page instead of a repeated example on twelve."
+  />
+  <Card
+    href="/docs/forms/validation"
+    title="Validation"
+    description="How errors get displayed, who owns producing them, and why the library deliberately does not."
+  />
+  <Card
+    href="/docs/simples/field"
+    title="Field reference"
+    description="The full prop and part reference for Field itself."
+  />
+</Cards>

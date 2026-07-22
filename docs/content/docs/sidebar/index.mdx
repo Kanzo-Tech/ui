@@ -1,0 +1,112 @@
+---
+title: Sidebar
+description: One assembly, six pages. Start here to see how the parts fit together and which ones you actually need.
+---
+
+The sidebar is not one component — it is a provider, twenty-three parts, and four composites
+built on top. Documented one page at a time it reads as a pile of unrelated exports, which is
+why this page exists: **it shows where each piece is used, so you can ignore the ones you are
+not using.**
+
+## What you almost always want
+
+Most applications need four things, in this order:
+
+```tsx
+<SidebarProvider>
+  <Sidebar>
+    <SidebarHeader>
+      <InstanceSwitcher {/* … */} />   {/* who/what am I looking at */}
+    </SidebarHeader>
+
+    <SidebarContent>
+      <SidebarNav items={navItems} />   {/* the navigation itself */}
+    </SidebarContent>
+
+    <SidebarFooter>
+      <SidebarUser {/* … */} />         {/* who am I */}
+    </SidebarFooter>
+  </Sidebar>
+
+  <SidebarInset>
+    {children}                          {/* the page — this owns the <main> */}
+  </SidebarInset>
+</SidebarProvider>
+```
+
+That is a complete, working sidebar. Everything below is detail you can reach for later.
+
+<Callout type="info">
+`SidebarInset` renders the `<main>` landmark. The library allows **exactly one `<main>` per
+page**, so nothing inside it should render another — nested containers use `<section>`.
+</Callout>
+
+## The three layers
+
+| Layer | What it is | When you touch it |
+|---|---|---|
+| **`SidebarProvider`** | Owns open/collapsed state, the `⌘B` shortcut and the mobile swap to a `Sheet`. Read it with `useSidebar()`. | Always — wrap once, near the root. |
+| **The parts** (`Sidebar`, `SidebarHeader`, `SidebarMenu`, `SidebarMenuButton`…) | The primitive vocabulary, vendored from Shark. Twenty-three of them. | When you are building a navigation shape the composites do not cover. |
+| **The composites** (`SidebarNav`, `SectionNav`, `SidebarUser`, `SidebarIdentity`) | Our pre-assembled arrangements of those parts. | Most of the time. Start here. |
+
+The relationship is the same one the [forms guide](/docs/forms/controls) describes: the parts
+are the primitive, the composites are the convenience. **Default to the composites.**
+
+## Which navigation component?
+
+Two composites both render navigation, and the difference is structural:
+
+| Component | Shape | Use it for |
+|---|---|---|
+| `SidebarNav` | A flat list, where any entry may expand into sub-items | Application navigation — the main menu |
+| `SectionNav` | Several titled groups, each a headed block | Settings-style navigation, or a long list that needs headings |
+
+Both are **domain-free and router-free**. Neither imports `next/link` or reads the current URL:
+`SidebarNav` takes `isActive` per item, `SectionNav` takes an `activePath` and computes it.
+Your product injects its router through the `linkComponent` seam.
+
+## Which identity component?
+
+| Component | Where it goes | What it shows |
+|---|---|---|
+| `SidebarUser` | `SidebarFooter` | The signed-in person: avatar, name, email, and a dropdown |
+| `InstanceSwitcher` | `SidebarHeader` | The thing being worked on — workspace, tenant, project — with a switcher |
+| `SidebarIdentity` | inside either | The shared "icon + name + subtitle" block both are built from |
+
+You will rarely use `SidebarIdentity` directly. It exists because the other two needed the same
+collapse-aware block, and it carries `responsive`/`collapsed` down by context so the avatar
+resizes and the text column disappears when the sidebar collapses.
+
+<Callout type="warn">
+`SidebarUser` has no logout prop, deliberately. Log out is an ordinary entry in `menuItems` with
+`variant: "destructive"`, and your product owns the confirmation dialog and its wording — an
+auth flow does not belong in a library whose admission rule excludes auth.
+</Callout>
+
+## Collapsing
+
+`SidebarProvider` owns the state; `SidebarTrigger` toggles it and `⌘B` is bound for you. On
+narrow viewports the whole sidebar becomes a `Sheet` instead of collapsing in place — that swap
+is automatic and is why the provider must wrap both the sidebar and the content.
+
+Read the state anywhere below the provider:
+
+```tsx
+const { open, isMobile, toggleSidebar } = useSidebar();
+```
+
+<Callout type="warn">
+`useSidebar()` is a hook, so any component calling it is a client component. Calling it from a
+server component is the single most common mistake with this API.
+</Callout>
+
+## Where to go next
+
+<Cards>
+  <Card href="/docs/sidebar/sidebar" title="Sidebar parts" description="The full reference for the provider and all twenty-three parts." />
+  <Card href="/docs/sidebar/sidebar-nav" title="SidebarNav" description="Flat application navigation with expandable entries." />
+  <Card href="/docs/sidebar/section-nav" title="SectionNav" description="Grouped, headed navigation for settings-style screens." />
+  <Card href="/docs/sidebar/sidebar-user" title="SidebarUser" description="The signed-in user footer and its dropdown." />
+  <Card href="/docs/sidebar/sidebar-identity" title="SidebarIdentity" description="The shared collapse-aware identity block." />
+  <Card href="/docs/layouts/app-shell" title="AppShell" description="The page scaffolding a sidebar normally sits inside." />
+</Cards>

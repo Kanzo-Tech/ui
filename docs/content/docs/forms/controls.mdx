@@ -1,0 +1,167 @@
+---
+title: Controls
+description: Every input in the library, how it composes with Field, and which of the confusing pairs to reach for.
+---
+
+Every control on this page goes inside a `Field` the same way. That is the point — once you
+know the [Field pattern](/docs/forms), there is no per-control API to learn.
+
+## The naming rule that explains half the library
+
+If you have ever wondered why there is both an `Input` and a `TextField`, or a `DatePicker` and
+a `DateField`, there is a single rule behind all of them:
+
+<Callout type="info">
+**`kebab-case` is the primitive. `PascalCase` is our pre-assembled convenience built on top of
+it.** The lowercase file is the compound Ark/Shark component with all its parts exposed; the
+PascalCase one wires those parts into the arrangement we use most, so you do not have to.
+</Callout>
+
+Verifiable in the source — `SecretField` imports `password-input`, `TextField` imports `input`
+and `input-group`, `DateField` imports `date-picker` and `calendar`. They are not competitors;
+one is built from the other.
+
+| Reach for the primitive when… | Reach for the assembly when… |
+|---|---|
+| You need to rearrange the parts, or drop one | You want the standard arrangement |
+| You are building a new pattern on top | You are filling in a form |
+
+So: **default to the PascalCase one.** Drop to the primitive when it does not fit.
+
+## Text
+
+```tsx
+<Field>
+  <FieldLabel>Dataset name</FieldLabel>
+  <Input placeholder="air-quality-2024" />
+</Field>
+```
+
+| Component | Use it for |
+|---|---|
+| `Input` | The primitive. A bare text input. |
+| `TextField` | `Input` plus `size`, `iconStart` / `iconEnd` adornments. The everyday choice. |
+| `NumberField` | Numeric entry, from the same file as `TextField`. |
+| `Textarea` | Multi-line text. |
+
+`TextField` also accepts its own `invalid` prop. Inside a `Field`, **do not use it** — set
+`invalid` on the `Field` instead, so the label and error text learn about it too. The prop
+exists for the standalone case where there is no `Field` around.
+
+## Secrets
+
+```tsx
+<Field>
+  <FieldLabel>API key</FieldLabel>
+  <SecretField hasStoredValue={isEditing} />
+</Field>
+```
+
+| Component | Use it for |
+|---|---|
+| `PasswordInput` | The primitive. A password input with a reveal toggle. Use it for **entering** a password — sign-in, sign-up, confirm-password. |
+| `SecretField` | Built on it, and adds the *stored-credential* semantics. Use it for **editing** a credential that already exists server-side. |
+
+The distinction is not cosmetic. `SecretField` renders **empty even when a secret exists**,
+because the secret never reaches the client — and submitting it empty means *"keep the stored
+value"*. `hasStoredValue` is what swaps the placeholder to say so. A `PasswordInput` in that
+situation would imply the field is blank, and the user would think they had cleared it.
+
+## Choosing from a list
+
+Three components, genuinely different, and the difference is about **how many options** and
+**whether the user can type**:
+
+| Component | Options | Can type to filter? | Use it for |
+|---|---|---|---|
+| `NativeSelect` | few | no | Short, boring lists. Uses the OS picker, so it is the best choice on mobile. |
+| `Select` | few to many | no | When you need custom option rendering — icons, descriptions, groups. |
+| `Combobox` | many | **yes** | Long lists where scanning is impractical. Also the one that accepts free text. |
+
+```tsx
+<Field>
+  <FieldLabel>Region</FieldLabel>
+  <NativeSelect>
+    <NativeSelectOption value="eu-west">EU West</NativeSelectOption>
+    <NativeSelectOption value="us-east">US East</NativeSelectOption>
+  </NativeSelect>
+</Field>
+```
+
+Rule of thumb: **under ~7 options, `NativeSelect`. Over ~15, `Combobox`.** In between, `Select`
+if you need the options to look like anything other than plain text.
+
+## Booleans
+
+```tsx
+<Field orientation="horizontal">
+  <FieldLabel>Verify TLS certificates</FieldLabel>
+  <Switch />
+</Field>
+```
+
+| Component | Use it for |
+|---|---|
+| `Switch` | A setting that takes effect immediately. Reads as "on/off". |
+| `Checkbox` | A value that is part of the form and submitted with it. Reads as "included/excluded". |
+| `CheckboxGroup` | Several related checkboxes sharing one value array. |
+
+Both usually want `orientation="horizontal"`. For a checkbox with a description underneath,
+wrap the text in `FieldContent`:
+
+```tsx
+<Field orientation="horizontal">
+  <Checkbox />
+  <FieldContent>
+    <FieldTitle>Send weekly digest</FieldTitle>
+    <FieldDescription>A summary of new datasets every Monday.</FieldDescription>
+  </FieldContent>
+</Field>
+```
+
+## One of several
+
+| Component | Use it for |
+|---|---|
+| `RadioGroup` | The standard case. Always inside a `FieldSet` with a `FieldLegend`. |
+| `CardRadioGroup` | The same semantics, rendered as selectable cards — for choices that need an icon, a description or a preview. |
+| `SegmentGroup` | A compact inline switch between a few options. Visual, not a form control by nature — but it carries radio semantics. |
+
+Radio groups **need** the `FieldSet` + `FieldLegend` wrapper. Without a legend, a screen-reader
+user hears the options but never hears what they are choosing between.
+
+```tsx
+<FieldSet>
+  <FieldLegend>Update frequency</FieldLegend>
+  <RadioGroup>{/* items… */}</RadioGroup>
+</FieldSet>
+```
+
+## Dates
+
+| Component | Use it for |
+|---|---|
+| `DatePicker` | The primitive — the compound parts, so you can rearrange the trigger, content and calendar. |
+| `DateField` | Built on it. A date input with a calendar popover, assembled. **Start here.** |
+| `Calendar` | The month grid on its own — for an always-visible calendar, not for picking a value in a form. |
+
+To answer the question directly: in a form, you almost always want `DateField`. `Calendar` is
+not the form control — it is the surface `DateField` shows inside its popover.
+
+## Repeating fields
+
+`FieldArray` renders N rows with a remove button each and an add button, and it is deliberately
+stateless — the caller owns the values.
+
+<Callout type="warn">
+`rowKey` is required and must be **stable across a commit**. If a row's key changes when the
+value is first saved, React remounts the input and the user loses focus mid-typing. Do not
+"simplify" it to the array index.
+</Callout>
+
+## Everything else
+
+`Slider`, `ColorPicker`, `SegmentGroup` and the rest compose the same way: put them inside a
+`Field`, label them with `FieldLabel`, and set state on the root.
+
+Next: [how errors get displayed](/docs/forms/validation).
