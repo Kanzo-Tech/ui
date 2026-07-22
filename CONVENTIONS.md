@@ -73,7 +73,7 @@ The library is consumed by RSC hosts, so this is load-bearing, not hygiene.
 
 - A file gets `"use client"` **iff** it calls a React hook, registers an event listener, or imports a module that does.
 - Hook-free presentational components must **not** have it, so they stay server-renderable.
-- The build must preserve the directives: `preserveModules` + `rollup-plugin-preserve-directives`. Rollup strips them when it merges modules, and that failure is invisible in the playground — Vite ignores `"use client"` entirely. `pnpm smoke` is what catches it.
+- The build must preserve the directives: `preserveModules` + `rollup-plugin-preserve-directives`. Rollup strips them when it merges modules, and that failure is invisible to any Vite-based harness, because Vite ignores `"use client"` entirely. `pnpm smoke` and the `docs/` App Router build are what catch it.
 - Components that need an **optional peer** (`@codemirror/*`, `@tanstack/react-table`) never go in the root barrel: they live on their own subpath (`/editor`, `/table`). A static import of an optional peer from the root entry breaks `import { Button }` for everyone who did not install it.
 
 ## Testing

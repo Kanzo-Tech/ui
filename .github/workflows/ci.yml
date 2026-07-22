@@ -33,8 +33,8 @@ jobs:
       # that every check above passes straight through.
       - run: pnpm smoke
       # The docs app is the RSC fixture: every documented component is prerendered inside a
-      # real App Router server tree, which the Vite playground structurally cannot do (Vite
-      # ignores "use client" outright).
+      # real App Router server tree. No Vite-based harness can do this: Vite ignores
+      # "use client" outright.
       #
       # Scope it honestly: verified by experiment, removing "use client" from a thin Ark
       # wrapper does NOT fail this build, because Ark ships the directive on 341 of its own

@@ -41,8 +41,16 @@ pnpm lint
 pnpm changeset   # record a version bump before merging
 ```
 
-The playground (`playground/`) is a throwaway gallery that exercises every component;
-run its dev server to review changes visually.
+The docs site (`docs/`) is where components are reviewed visually — `pnpm --filter
+@kanzo-tech/docs dev`, then http://localhost:3100. It is a Next.js App Router app on
+fumadocs, mirroring Shark UI's docs stack, and each example's source is read off disk at
+build time so the code shown can never drift from the component rendered above it.
+
+It is also the library's **RSC fixture**, and that is the load-bearing part: every documented
+component is prerendered inside a real server tree in CI. No Vite-based harness can verify
+that, because Vite ignores `"use client"` entirely — which is how a build that stripped all 60
+directives went unnoticed. The fixture found a broken `Object.assign` compound export on its
+first run.
 
 ## Consuming apps
 

@@ -15,7 +15,7 @@
     "smoke": "node scripts/smoke-install.mjs",
     "//check:generated": "themes.css and theme-data.json are generated. Regenerate and fail if the checked-in copies differ, so a hand-edit or a stale commit cannot ship.",
     "check:generated": "pnpm --filter @kanzo-tech/theme gen && git diff --exit-code -- packages/theme/themes.css packages/theme/theme-data.json",
-    "//release": "Scoped to packages/*: the playground is a disposable dev harness and must never sit on the publish path.",
+    "//release": "Scoped to packages/*: the docs app must never sit on the publish path.",
     "release": "pnpm -r --filter \"./packages/*\" build && changeset publish"
   },
   "devDependencies": {
