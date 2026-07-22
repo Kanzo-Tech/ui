@@ -53,6 +53,12 @@ the first paragraph of both pages, and cross-links.
 - `Select` vs `Combobox` (genuinely different, but the difference must be obvious)
 - `Table` vs `DataTable`
 - `Tabs` vs `SegmentGroup`
+- **`Heading`** — *"¿el tema de headings se hace así en Shark UI?"*. **Answer: no.** Shark has
+  no `heading.tsx` and no `text.tsx` at all — it ships `prose.tsx` for typography. Our `Heading`
+  and `Text` are **bespoke Kanzo**, which puts them in the same provenance bucket as `layouts/`:
+  our own code, written without the discipline the vendored simples inherited. Decide whether to
+  keep them (and hold them to the conventions) or adopt `prose`. *(This item was dropped when the
+  walkthrough was first written up; recovered from the original comments.)*
 
 **The forms story is the biggest one.** "With field" reads as a duplicate of the plain example
 and explains nothing. Forms need a single guide page that says when to reach for `Field`, what

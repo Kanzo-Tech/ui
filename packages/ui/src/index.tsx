@@ -109,6 +109,7 @@ export * from "./simples/tabs.js";
 export * from "./simples/textarea.js";
 export * from "./simples/toast.js";
 export * from "./simples/toggle.js";
+export * from "./simples/toggle-group.js";
 export * from "./simples/tooltip.js";
 export * from "./simples/tour.js";
 export * from "./simples/tree-view.js";
@@ -223,7 +224,7 @@ export {
   TopBarTitleGroup,
   TopBarUtility,
 } from "./layouts/TopBar.js";
-export { SidePanel } from "./layouts/SidePanel.js";
+export { SidePanel, sidePanelVariants, type SidePanelProps } from "./layouts/SidePanel.js";
 // EditorShell → `@kanzo-tech/ui/editor` (see the GhostEditor note above).
 export { StatusBar, StatusBarCenter, StatusBarEnd, StatusBarStart } from "./layouts/StatusBar.js";
 export type { StatusBarProps, StatusBarPanelButton } from "./layouts/StatusBar.js";
