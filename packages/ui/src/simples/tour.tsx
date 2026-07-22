@@ -192,7 +192,13 @@ export const TourContent = (props: TourContentProps) => {
           {children}
 
           {!!showCloseButton && (
-            <TourClose asChild className="absolute top-4 right-4">
+            // Positioned by the GLYPH, not by the button box. The button is `size-8` (32px)
+            // around a 16px icon, so an 8px inset lands the X on the same 16px grid line as
+            // the header's `p-(--space)` title — the close and the title then share a corner.
+            // At Shark's `top-4 right-4` the box is on the grid and the glyph is 8px inside
+            // it, which reads as the X sagging down and in. Same reasoning as
+            // `DialogContent`'s `inset-e-2.5 top-2.5` (28px button, 24px `--space`).
+            <TourClose asChild className="absolute inset-e-2 top-2">
               <Button
                 className="size-8 border-none opacity-70 hover:opacity-100"
                 size="icon-md"

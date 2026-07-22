@@ -15,6 +15,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarHeader,
+  SidebarInset,
   SidebarMenu,
   SidebarMenuBadge,
   SidebarMenuButton,
@@ -25,8 +26,12 @@ import {
 
 export default function Example() {
   return (
-    <SidebarProvider className="min-h-0 w-64">
-      <Sidebar className="rounded-lg border" collapsible="none">
+    // The provider wraps BOTH the sidebar and the content — that pairing is the whole
+    // point, and a sidebar rendered on its own reads as a floating panel rather than as
+    // navigation for something. `h-96` gives the shell a definite height; in a real app
+    // that comes from the viewport.
+    <SidebarProvider className="h-96 min-h-0 w-full overflow-hidden rounded-lg border">
+      <Sidebar className="border-e" collapsible="none">
         <SidebarHeader>
           <span className="px-2 font-semibold text-sm">Kanzo</span>
         </SidebarHeader>
@@ -91,6 +96,15 @@ export default function Example() {
           </span>
         </SidebarFooter>
       </Sidebar>
+
+      {/* SidebarInset owns the `<main>` landmark. Left deliberately empty: this page is
+          about the sidebar, and the point of showing the region at all is that you can
+          see what the navigation is navigating. */}
+      <SidebarInset className="bg-muted/24">
+        <div className="flex h-full items-center justify-center">
+          <span className="text-muted-foreground text-sm">Page content</span>
+        </div>
+      </SidebarInset>
     </SidebarProvider>
   );
 }

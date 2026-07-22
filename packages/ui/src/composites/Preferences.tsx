@@ -138,7 +138,21 @@ function PreferencesTrigger({ className }: { className?: string }) {
         // `m-0`: a fixed FAB must not inherit a parent's flow spacing (`space-y-*`).
         // `bg-card`: `outline` is transparent by design, which reads as broken once the
         // button floats over arbitrary page content — a FAB needs an opaque surface.
-        className={cn("fixed bottom-4 right-4 z-40 m-0 rounded-full bg-card shadow-lg", className)}
+        //
+        // The `data-state` pair is load-bearing, not decoration. The panel is `modal={false}`
+        // with `closeOnInteractOutside={false}`, so it stays open while you work elsewhere —
+        // and without an open state on the trigger, nothing on screen says so. Ark's
+        // Dialog.Trigger already emits `data-state="open"`, so this needs no extra state.
+        //
+        // Deliberately NOT a `Toggle`: `Dialog.Trigger` gives `aria-expanded` +
+        // `aria-haspopup="dialog"`, which is the disclosure pattern this is. A toggle button
+        // would report `aria-pressed` instead and drop the haspopup — worse semantics for a
+        // control that reveals a panel. What was missing was the visual state, not the role.
+        className={cn(
+          "fixed right-4 bottom-4 z-40 m-0 rounded-full bg-card shadow-lg",
+          "data-[state=open]:bg-accent data-[state=open]:text-accent-foreground",
+          className,
+        )}
       >
         <PaletteIcon />
       </Button>
