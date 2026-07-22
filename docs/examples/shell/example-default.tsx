@@ -2,17 +2,16 @@ import { ArrowLeftIcon, PlayIcon } from "lucide-react";
 import {
   Breadcrumbs,
   Button,
-  ShellBar,
-  ShellBarCenter,
-  ShellBarEnd,
-  ShellBarStart,
+  ShellHeader,
 } from "@kanzo-tech/ui";
 
 export default function Example() {
   return (
     <div className="w-full overflow-hidden rounded-lg border">
-      <ShellBar>
-        <ShellBarStart>
+      {/* The IDE density is the CALLER's — the region imposes no height, surface or
+          typography. See DESIGN.md, "The layout layer". */}
+      <ShellHeader className="h-8 flex-row items-center gap-2 bg-card px-2 text-[11px] text-muted-foreground">
+        <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
           <Button aria-label="Back" size="icon-xs" variant="ghost">
             <ArrowLeftIcon />
           </Button>
@@ -24,11 +23,11 @@ export default function Example() {
               { label: "aemet.fossil" },
             ]}
           />
-        </ShellBarStart>
+        </div>
 
-        <ShellBarCenter>fossil</ShellBarCenter>
+        <div className="shrink-0">fossil</div>
 
-        <ShellBarEnd>
+        <div className="flex shrink-0 items-center gap-1.5">
           <Button size="xs" variant="ghost">
             Format
           </Button>
@@ -36,8 +35,8 @@ export default function Example() {
             <PlayIcon />
             Run
           </Button>
-        </ShellBarEnd>
-      </ShellBar>
+        </div>
+      </ShellHeader>
     </div>
   );
 }

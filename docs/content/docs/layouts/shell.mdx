@@ -1,0 +1,91 @@
+---
+title: Shell
+description: The window regions — root, header, body, aside, main, footer. Structure only, no aesthetic.
+---
+
+<ComponentPreview componentName="shell" />
+
+## Usage
+
+```tsx
+import {
+  ShellRoot, ShellHeader, ShellBody, ShellAside, ShellMain, ShellFooter,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<ShellRoot>
+  <ShellHeader>{/* app chrome */}</ShellHeader>
+
+  <ShellBody>
+    <ShellAside aria-label="Navigation" side="start" width={240} />
+    <ShellMain>{/* the page */}</ShellMain>
+    <ShellAside aria-label="Inspector" side="end" width={280} />
+  </ShellBody>
+
+  <ShellFooter>{/* status */}</ShellFooter>
+</ShellRoot>
+```
+
+## The regions carry no aesthetic
+
+This is the design decision that matters most here, and it is deliberate.
+
+A region **places** its children and **separates** itself from its neighbour. It has no height,
+no surface, no typography, no font size. Everything you can see inside one is yours.
+
+<Callout type="info">
+There is no `Toolbar` and no `StatusBar`. They were two of three copies of the same thing — a
+thin strip with start/center/end clusters — and merging them into a generic bar would only have
+worked if the bar also carried their IDE aesthetic, which is a product decision, not a system
+one. A dense strip is **something you put in a region**. The [workspace
+block](/docs/blocks/workspace) shows one; copy it if you want that look.
+</Callout>
+
+So a status strip is ordinary composition:
+
+```tsx
+<ShellFooter
+  aria-label="Status"
+  className="h-[1.625rem] flex-row items-center gap-2 bg-card px-1.5 text-[11px] text-muted-foreground"
+  role="contentinfo"
+>
+  <span className="min-w-0 flex-1">Ready</span>
+  <ToggleGroup aria-label="Panels" multiple onValueChange={onToggle} value={active}>
+    {/* … */}
+  </ToggleGroup>
+</ShellFooter>
+```
+
+## Rules
+
+**Exactly one `<main>` per page.** `ShellMain` renders it. Nested containers use `<section>` —
+two `<main>` elements are a conformance error and make "skip to main content" ambiguous.
+
+**Asides are landmarks.** `ShellAside` renders `<aside>`, so two of them need `aria-label` to be
+told apart. That is also why asides may repeat where `<main>` may not.
+
+**Logical properties, never physical.** `side="start" | "end"` and `border-e` / `border-s`, never
+left/right — one code path mirrors correctly under RTL.
+
+**No region declares a role.** A top region is often `banner`, a bottom one often `contentinfo`,
+a strip is neither, and a shell may have several — so assuming a landmark would mint duplicates.
+Pass `role` and `aria-label` at the call site.
+
+**`ShellRoot` uses `h-dvh`, not `h-screen`.** On mobile browsers `100vh` includes the retracting
+URL bar, so a shell sized with it is taller than the visible viewport and its bottom region sits
+off screen.
+
+## Asides
+
+`side` decides which edge carries the divider. `width` is the docked width in px — a computed
+value the caller owns, which is why it is inline style rather than a class.
+
+`overlay` turns the aside into a full-container drawer that floats over the content, for narrow
+viewports. It has no divider, and `width` is ignored: it fills its container via `inset-0`.
+
+<Callout type="warn">
+Resizing is **composed, not a prop**. Wrap Ark's Splitter around the aside and the drag,
+keyboard resizing and ARIA come from the machine. A `resizable` prop would mean re-implementing
+behaviour Ark already ships.
+</Callout>
