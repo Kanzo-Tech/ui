@@ -3,6 +3,22 @@ title: Data Table
 description: A sortable, filterable, paginated table over TanStack Table — on its own entry point.
 ---
 
+<Callout type="info">
+**Data Table vs [Table](/docs/simples/table):** `Table` is markup only — semantic elements,
+tokenised chrome, no data layer, in the root barrel. This is that table plus TanStack Table for
+sorting, filtering and pagination.
+
+That is a real dependency, which is why it sits on its own entry point:
+
+```tsx
+import { DataTable } from "@kanzo-tech/ui/table";
+```
+
+`@tanstack/react-table` is an **optional peer**, so `import { Button }` keeps working for
+everyone who has not installed it. Reach for `Table` when you are laying out rows you already
+have; reach for `DataTable` when the user needs to sort, filter or page through them.
+</Callout>
+
 <ComponentPreview componentName="data-table" />
 
 ## Usage
