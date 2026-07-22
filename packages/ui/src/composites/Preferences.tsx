@@ -11,6 +11,7 @@ import { useKanzoTheme, type ThemePrefs } from "../theme/KanzoThemeProvider.js";
 import { cn } from "../lib/cn.js";
 import { customBaseVars, readableForeground } from "../lib/color.js";
 import { Button } from "../simples/button.js";
+import { Field, FieldLabel } from "../simples/field.js";
 import {
   Dialog,
   DialogClose,
@@ -264,11 +265,23 @@ function PreferencesFooter() {
 }
 
 // ── Section building blocks ──────────────────────────────────────────────────
-function GroupTitle({ children }: { children: React.ReactNode }) {
+/**
+ * A titled preferences row. This used to be a bare `<div>` plus a hand-rolled `GroupTitle` —
+ * fixed typography, no `htmlFor`, no association with the control it titled, and in the
+ * segmented cases the label was written TWICE (once visibly, once as `aria-label`).
+ *
+ * `Field` is precisely this, wired: it generates the id, connects the label to the control and
+ * carries the state by context. The forms guide says so; the library's own flagship composite
+ * was the one place not taking its own advice.
+ */
+function PrefField({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="mb-2 text-[length:var(--kanzo-font-size-small)] font-medium uppercase tracking-wide text-muted-foreground">
+    <Field>
+      <FieldLabel className="text-[length:var(--kanzo-font-size-small)] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </FieldLabel>
       {children}
-    </div>
+    </Field>
   );
 }
 
@@ -306,8 +319,7 @@ function Segmented<T extends string>({
 function AppearanceSection() {
   const { appearance, setAppearance } = useKanzoTheme();
   return (
-    <div>
-      <GroupTitle>Appearance</GroupTitle>
+    <PrefField label="Appearance">
       <Segmented
         label="Appearance"
         value={appearance}
@@ -317,7 +329,7 @@ function AppearanceSection() {
           { value: "dark", label: <><MoonIcon className="size-4" /> Dark</> },
         ]}
       />
-    </div>
+    </PrefField>
   );
 }
 
@@ -368,10 +380,9 @@ const ACCENT_PRESETS = ["#525252", "#2563eb", "#16a34a", "#7c3aed", "#ea580c", "
 function AccentSection() {
   const { primary, set } = useKanzoTheme();
   return (
-    <div>
-      <GroupTitle>Accent</GroupTitle>
+    <PrefField label="Accent">
       <ColorField value={primary ?? "#2563eb"} onValueChange={(hex) => set({ primary: hex })} presets={ACCENT_PRESETS} />
-    </div>
+    </PrefField>
   );
 }
 
@@ -379,8 +390,7 @@ function RadiusSection() {
   const { radius, set } = useKanzoTheme();
   const index = Math.max(0, RADII.indexOf(radius));
   return (
-    <div>
-      <GroupTitle>Radius</GroupTitle>
+    <PrefField label="Radius">
       <Slider
         aria-label={["Radius"]}
         min={0}
@@ -391,7 +401,7 @@ function RadiusSection() {
         showMarkers
         markerLabels={[...RADII]}
       />
-    </div>
+    </PrefField>
   );
 }
 
@@ -435,20 +445,18 @@ function FontPicker({
 function FontSection() {
   const { font, fonts, set } = useKanzoTheme();
   return (
-    <div>
-      <GroupTitle>Font</GroupTitle>
+    <PrefField label="Font">
       <FontPicker value={font} options={fonts} onSelect={(v) => set({ font: v })} />
-    </div>
+    </PrefField>
   );
 }
 
 function MonoFontSection() {
   const { monoFont, monoFonts, set } = useKanzoTheme();
   return (
-    <div>
-      <GroupTitle>Mono font</GroupTitle>
+    <PrefField label="Mono font">
       <FontPicker value={monoFont} options={monoFonts} onSelect={(v) => set({ monoFont: v })} />
-    </div>
+    </PrefField>
   );
 }
 
@@ -460,8 +468,7 @@ const DENSITY_PX: Record<string, string> = themeData.densities;
 function DensitySection() {
   const { density, set } = useKanzoTheme();
   return (
-    <div>
-      <GroupTitle>Density</GroupTitle>
+    <PrefField label="Density">
       <div className="flex gap-2">
         {DENSITIES.map((o) => {
           const active = o.value === density;
@@ -492,7 +499,7 @@ function DensitySection() {
           );
         })}
       </div>
-    </div>
+    </PrefField>
   );
 }
 
@@ -505,8 +512,7 @@ function BaseSection() {
   const { base = "neutral", baseTint, set } = useKanzoTheme();
   const value = baseTint ?? BASE_PRESETS.find((p) => p.name === base)?.hex ?? "#737373";
   return (
-    <div>
-      <GroupTitle>Base · neutral surface</GroupTitle>
+    <PrefField label="Base · neutral surface">
       <ColorField
         value={value}
         presets={BASE_PRESETS.map((p) => p.hex)}
@@ -519,7 +525,7 @@ function BaseSection() {
       <p className="mt-1.5 text-[length:var(--kanzo-font-size-small)] text-muted-foreground">
         Presets pick a curated scale; any other colour tints the neutral ramp.
       </p>
-    </div>
+    </PrefField>
   );
 }
 

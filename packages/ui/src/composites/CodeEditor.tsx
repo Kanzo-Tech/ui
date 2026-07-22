@@ -92,8 +92,12 @@ export const kanzoHighlighting: Extension = syntaxHighlighting(kanzoHighlightSty
 
 const baseTheme = EditorView.theme({
   "&": { fontSize: "var(--kanzo-font-size-base, 14px)", backgroundColor: "transparent", height: "100%" },
+  // Horizontal padding only. Vertical padding here shifts every CONTENT line down while the
+  // gutter stays put, so line 5's number no longer sits beside line 5 — and the active-line and
+  // hover highlights in the gutter land between two lines of text. The vertical padding is on
+  // `.cm-gutters` too, below, so both columns move together.
   ".cm-content": {
-    padding: "0.5rem",
+    padding: "0.5rem 0.5rem",
     color: "var(--foreground)",
     caretColor: "var(--foreground)",
   },
@@ -112,6 +116,8 @@ const baseTheme = EditorView.theme({
   // chrome via the tokenised `--kanzo-gutter-bg` tint, with a hairline `--border` edge and
   // dim `--kanzo-gutter-foreground` ink for the numbers.
   ".cm-gutters": {
+    // Must match `.cm-content`'s vertical padding exactly — see the note there.
+    paddingBlock: "0.5rem",
     background: "var(--kanzo-gutter-bg)",
     border: "none",
     borderInlineEnd: "1px solid var(--border)",
@@ -130,8 +136,10 @@ const baseTheme = EditorView.theme({
   },
   // A line number is a click target (it selects the line), so it has to answer the
   // pointer — without this the whole column reads as inert decoration.
+  // Quieter than the active line on purpose: this is a hover affordance, and at equal
+  // strength the two read as the same state and the column flickers as the pointer moves.
   ".cm-lineNumbers .cm-gutterElement:hover": {
-    backgroundColor: "var(--kanzo-editor-active-line)",
+    backgroundColor: "color-mix(in srgb, var(--kanzo-editor-active-line) 60%, transparent)",
     color: "var(--foreground)",
   },
   ".cm-foldGutter .cm-gutterElement:hover": { color: "var(--foreground)" },
