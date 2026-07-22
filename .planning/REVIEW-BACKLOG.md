@@ -97,8 +97,21 @@ it adds (label/description/error wiring), and how every input composes with it �
 
 ---
 
+## 7. Does the code honour its own philosophy?
+
+Raised last and the sharpest of the lot: *"no podemos decir que tenemos una filosofía y de
+repente…"*. We claim three layers — Ark owns behaviour, tokens own appearance, we own the API
+vocabulary — and nobody has ever audited whether the code lives up to it. An audit is running;
+it writes `.planning/ARK-USAGE-AUDIT.md`.
+
+**Read it before starting §2.** If we are hand-rolling behaviour Ark already ships, the fix to
+the layout layer is to delete code, not to redesign it.
+
+---
+
 ## Suggested order
 
+0. **Read `ARK-USAGE-AUDIT.md`.** It may reframe §2 entirely.
 1. **Taxonomy moves** (§1) — an hour, zero risk, makes everything else read better.
 2. **Preview variants + components index** (§6) — unblocks judging everything else honestly.
 3. **Visual bugs** (§4) — each is small and independent; Tour and Calendar first.
