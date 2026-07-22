@@ -78,6 +78,18 @@ it adds (label/description/error wiring), and how every input composes with it �
 - **`StatCard`**: needs a fixed height so a row of them lines up.
 - **`Sidebar`**: examples are ugly; the dot on the left is unexplained. Check Shark's sidebar.
 
+## 4b. `CodeEditor` — needs a real pass
+
+Owner: *"creo que CodeEditor en general se puede mejorar MUCHO"*. Raised after the rename from
+`EditorShell` (which was never a layout). Not yet diagnosed — the docs example was reported as
+showing nothing, but the page prerenders the editor host correctly (`min-height:180px`, the
+rounded container), so the empty preview is most likely a stale dev-server bundle from the
+rename rather than a component fault. Verify against a restarted server before treating it as
+a bug.
+
+Separately and definitely true: **`GhostEditor` has no docs page and no examples at all.** It is
+an exported component with zero documentation and appears in no navigation.
+
 ## 5. Examples that need more, or better
 
 - **`Alert`** — variants and the colour story.
