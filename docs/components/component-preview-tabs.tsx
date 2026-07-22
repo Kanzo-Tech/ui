@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger, cn } from "@kanzo-tech/ui";
 interface ComponentPreviewTabsProps {
   component: ReactNode;
   source: ReactNode;
+  fullBleed?: boolean;
   hasMaxHeight?: boolean;
   showBorders?: boolean;
 }
@@ -19,10 +20,15 @@ interface ComponentPreviewTabsProps {
  *
  * The backdrop is four dashed 1px guides inset from each edge — Shark's padding guides — not
  * a dot grid. `inset-s-*` / `inset-e-*` are logical, so it mirrors correctly in RTL.
+ *
+ * `fullBleed` drops all of that — frame, padding, centring and height cap — for components the
+ * frame actively hides: a shell, a workspace, a panel. Those examples bring their own container,
+ * so the outer border moves to the code pane rather than doubling up around theirs.
  */
 export const ComponentPreviewTabs = ({
   component,
   source,
+  fullBleed = false,
   hasMaxHeight = true,
   showBorders = true,
 }: ComponentPreviewTabsProps) => (
@@ -32,17 +38,16 @@ export const ComponentPreviewTabs = ({
       <TabsTrigger value="code">Code</TabsTrigger>
     </TabsList>
 
-    <div className="relative overflow-hidden rounded-2xl border">
+    <div className={cn("relative overflow-hidden rounded-2xl", !fullBleed && "border")}>
       <TabsContent data-slot="tab-preview" value="preview">
         <div
           className={cn(
             hasMaxHeight && "h-[450px]",
             "relative w-full",
-            "p-4 sm:p-10",
-            "flex items-center justify-center",
-            "overflow-y-auto",
+            !fullBleed && "flex items-center justify-center overflow-y-auto p-4 sm:p-10",
           )}
           data-slot="preview"
+          data-full-bleed={fullBleed || undefined}
         >
           {showBorders && (
             <>
@@ -61,6 +66,7 @@ export const ComponentPreviewTabs = ({
           className={cn(
             "overflow-hidden **:[figure]:m-0! **:[figure]:border-0 **:[pre]:h-[450px]",
             !hasMaxHeight && "min-h-[450px]",
+            fullBleed && "rounded-2xl border",
           )}
           data-slot="code"
         >

@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ComponentPreviewTabs } from "./component-preview-tabs";
 import { CodeBlock } from "./code-block";
+import { isFullBleedComponent } from "@/lib/component-groups";
 
 const EXAMPLES_PATH = "examples";
 
@@ -10,6 +11,13 @@ export interface ComponentPreviewProps {
   componentName: string;
   /** File basename, no extension. */
   fileName?: string;
+  /**
+   * Render the example whole: no frame padding, no centring, no fixed height, no guides.
+   *
+   * Left undefined it is **derived** — a page in the `layouts` or `blocks` group is full-bleed,
+   * everything else is framed. Pass it explicitly only to override that for one example.
+   */
+  fullBleed?: boolean;
   /** Preview pane is a fixed 450px so switching tabs never makes the page jump. */
   hasMaxHeight?: boolean;
   /** The dashed padding guides around the preview. */
@@ -26,12 +34,14 @@ export interface ComponentPreviewProps {
  * It runs at build time.
  */
 export const ComponentPreview = async (props: ComponentPreviewProps) => {
-  const {
-    componentName,
-    fileName = "example-default",
-    hasMaxHeight = true,
-    showBorders = true,
-  } = props;
+  const { componentName, fileName = "example-default" } = props;
+
+  // A shell cannot be judged inside a 450px centred box with dashed padding guides — that frame
+  // is built for a button. Which components need the frame is not a property of the example, so
+  // it is not an MDX prop by default: it is read off the group the component's page sits in.
+  const fullBleed = props.fullBleed ?? isFullBleedComponent(componentName);
+  const hasMaxHeight = props.hasMaxHeight ?? !fullBleed;
+  const showBorders = props.showBorders ?? !fullBleed;
 
   const Example = await import(`../examples/${componentName}/${fileName}.tsx`);
   if (!Example.default) {
@@ -44,6 +54,7 @@ export const ComponentPreview = async (props: ComponentPreviewProps) => {
   return (
     <ComponentPreviewTabs
       component={<Example.default />}
+      fullBleed={fullBleed}
       hasMaxHeight={hasMaxHeight}
       showBorders={showBorders}
       source={<CodeBlock code={forDisplay(source)} lang="tsx" />}

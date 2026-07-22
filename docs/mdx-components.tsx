@@ -8,6 +8,7 @@ import { Tab, Tabs } from "fumadocs-ui/components/tabs";
 import { TypeTable } from "fumadocs-ui/components/type-table";
 import type { MDXComponents } from "mdx/types";
 import { ComponentPreview } from "@/components/component-preview";
+import { ComponentsList } from "@/components/components-list";
 import { PreviewIframe } from "@/components/preview-iframe";
 
 /**
@@ -32,6 +33,7 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     Tabs,
     TypeTable,
     ComponentPreview,
+    ComponentsList,
     PreviewIframe,
     ...components,
   };
