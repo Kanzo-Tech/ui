@@ -1,4 +1,12 @@
 {
   "title": "Sidebar",
-  "pages": ["index", "sidebar", "sidebar-nav", "section-nav", "sidebar-user", "sidebar-identity"]
+  "pages": [
+    "index",
+    "sidebar",
+    "sidebar-nav",
+    "section-nav",
+    "instance-switcher",
+    "sidebar-user",
+    "sidebar-identity"
+  ]
 }
