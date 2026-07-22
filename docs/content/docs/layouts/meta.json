@@ -1,14 +1,10 @@
 {
   "title": "Layouts",
   "pages": [
-    "app-shell",
     "workspace-layout",
     "page-shell",
-    "two-pane-layout",
     "shell",
-    "top-bar",
     "status-bar",
-    "side-panel",
     "..."
   ]
 }

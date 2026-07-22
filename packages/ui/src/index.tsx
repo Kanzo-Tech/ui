@@ -192,8 +192,6 @@ export type {
 } from "./composites/StatCard.js";
 export { MadeWithKanzo } from "./composites/MadeWithKanzo.js";
 export type { MadeWithKanzoProps } from "./composites/MadeWithKanzo.js";
-export { TwoPaneLayout } from "./layouts/TwoPaneLayout.js";
-export type { TwoPaneLayoutProps } from "./layouts/TwoPaneLayout.js";
 export { Breadcrumbs } from "./composites/Breadcrumbs.js";
 export type {
   BreadcrumbsProps,
@@ -223,17 +221,6 @@ export { SectionNav } from "./composites/SectionNav.js";
 export type { SectionNavProps, NavSection } from "./composites/SectionNav.js";
 
 // ── Level 2 — shells / patterns (domain-free composites) ─────────────────────
-export { AppShell, AppShellBody, AppShellMain } from "./layouts/AppShell.js";
-export {
-  TopBar,
-  TopBarActions,
-  TopBarMain,
-  TopBarSubtitle,
-  TopBarTitle,
-  TopBarTitleGroup,
-  TopBarUtility,
-} from "./layouts/TopBar.js";
-export { SidePanel, sidePanelVariants, type SidePanelProps } from "./layouts/SidePanel.js";
 // CodeEditor → `@kanzo-tech/ui/editor` (see the GhostEditor note above).
 export { StatusBar, StatusBarCenter, StatusBarEnd, StatusBarStart } from "./layouts/StatusBar.js";
 export type { StatusBarProps, StatusBarPanelButton } from "./layouts/StatusBar.js";
