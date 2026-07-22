@@ -1,10 +1,8 @@
 {
   "title": "Layouts",
   "pages": [
-    "workspace-layout",
     "page-shell",
     "shell",
-    "status-bar",
     "..."
   ]
 }

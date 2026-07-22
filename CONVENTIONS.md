@@ -1,5 +1,8 @@
 # Kanzo UI — conventions
 
+How to write code in this system. **`DESIGN.md` is the companion: what the system *is*** — the
+three axes, the layers, the admission rules, and why the layout layer looks the way it does.
+
 The design system separates **three concerns**. Every component follows the same recipe so the library stays consistent and re-themeable, and never drifts back into "scattered" ad-hoc styling.
 
 ## The three layers
@@ -10,14 +13,14 @@ The source is organised to match, one directory per layer:
 |---|---|
 | `src/simples/` | Single-purpose components — Button, Input, Dialog, Select. |
 | `src/composites/` | Assemblies of simples that still fit inside a page — SidebarUser, StatCard, Breadcrumbs. |
-| `src/layouts/` | Page-level scaffolding — AppShell, WorkspaceLayout, StatusBar, TopBar. |
+| `src/layouts/` | Window scaffolding — the Shell regions. **Structure only, no appearance** (see `DESIGN.md`). |
 
-The public barrel is flat regardless (`import { Button, AppShell } from "@kanzo-tech/ui"`), so
+The public barrel is flat regardless (`import { Button, ShellRoot } from "@kanzo-tech/ui"`), so
 moving a component between layers is never a breaking change for consumers.
 
 ## The three concerns
 
-1. **Behaviour (headless)** — [Ark UI](https://ark-ui.com) (`@ark-ui/react`). State, accessibility (WAI-ARIA), keyboard, focus. Compound parts, `X.RootProvider` + `useX` hooks for controlled state, and the `ark.*` polymorphic factory with **`asChild`**. Composites with their own state (Sidebar, WorkspaceLayout) use our own React Context providers/hooks. **No appearance here.**
+1. **Behaviour (headless)** — [Ark UI](https://ark-ui.com) (`@ark-ui/react`). State, accessibility (WAI-ARIA), keyboard, focus. Compound parts, `X.RootProvider` + `useX` hooks for controlled state, and the `ark.*` polymorphic factory with **`asChild`**. Composites with their own state (Sidebar) use our own React Context providers/hooks. **No appearance here.**
 2. **Appearance** — design tokens (`@kanzo-tech/theme/tokens.css`) + **`tailwind-variants`** recipes over token-backed Tailwind v4 utilities, compiled to `@kanzo-tech/ui/styles.css` (cascade layers). The look lives entirely here. **Nothing themeable is decided inside a component `.tsx` beyond picking recipe variants** — see "Themeable vs structural" below for where that line falls.
 3. **API** — a semantic vocabulary (`variant` / `size` / state / composition) that stays stable across upstream refactors. We use **`variant`**, matching Shark/shadcn and consumer expectation. (This document used to prescribe `intent`; no component ever exposed one.)
 
@@ -84,7 +87,7 @@ lint rule to enforce it.)
   - **Where Ark has none**, the bespoke part must **document its ARIA contract in a comment** and be **covered by a test** — and must never declare a composite role (`toolbar`, `listbox`, `tree`, `grid`, `tablist`) without implementing that role's keyboard contract. A `role="toolbar"` whose items are each independently tabbable, with no arrow-key roving, is worse than no role at all: it promises assistive tech a navigation model that isn't there.
 - **`ark.*` on every part that renders a DOM element** — simples, composites *and* layouts, with no exemption. `<ark.div>` renders a `div` and forwards everything, so it costs nothing at runtime; what it adds is **`asChild`**, universally. This rule used to be implied by the recipe and observed only in `simples/`, which let `Toolbar` ship a doc comment promising `asChild` support it did not have. Type props as `React.ComponentProps<typeof ark.div>`, never as `ComponentProps<"div">`.
 - **`data-slot` on every targetable part.** Every element a consumer might style or query carries `data-slot="<component>-<part>"`. It is not decoration: our own recipes depend on it (`in-[[data-slot=popover-content]:has([data-slot=popover-body])]:pb-3`), and it is the escape hatch consumers get instead of class-name guessing.
-- **Exactly one `<main>` per page.** `AppShell` / `SidebarInset` own it. Every nestable container (`PageShell`, `WorkspaceLayout`, `TwoPaneLayout`) uses `<section>` — two `<main>` elements are an HTML conformance error and make "skip to main content" ambiguous.
+- **Exactly one `<main>` per page.** `ShellMain` / `SidebarInset` own it. Every nestable container (`PageShell`) uses `<section>` — two `<main>` elements are an HTML conformance error and make "skip to main content" ambiguous.
 - **File naming: kebab-case** (`alert-dialog.tsx`, `scroll-area.tsx`), matching Shark. Some older files are PascalCase; new files are kebab-case and the rest converge over time. Never rely on case-insensitive resolution — CI is case-sensitive even though macOS is not.
 
 ## Client boundary

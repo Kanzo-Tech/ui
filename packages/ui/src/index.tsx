@@ -222,13 +222,3 @@ export type { SectionNavProps, NavSection } from "./composites/SectionNav.js";
 
 // ── Level 2 — shells / patterns (domain-free composites) ─────────────────────
 // CodeEditor → `@kanzo-tech/ui/editor` (see the GhostEditor note above).
-export { StatusBar, StatusBarCenter, StatusBarEnd, StatusBarStart } from "./layouts/StatusBar.js";
-export type { StatusBarProps, StatusBarPanelButton } from "./layouts/StatusBar.js";
-export {
-  WorkspaceLayout,
-  WorkspaceFloatingControls,
-  WorkspaceStatusStart,
-  PanelHeader,
-  useWorkspacePanel,
-} from "./layouts/WorkspaceLayout.js";
-export type { WorkspaceLayoutProps, PanelDef } from "./layouts/WorkspaceLayout.js";
