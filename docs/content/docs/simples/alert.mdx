@@ -10,3 +10,26 @@ description: An inline message that needs attention but not a dialog.
 ```tsx
 import { Alert, AlertDescription, AlertTitle } from "@kanzo-tech/ui";
 ```
+
+## Variants
+
+Five, and the colours are the point: they come from the status token families
+(`destructive` / `info` / `success` / `warning`), so an alert re-skins with the theme and never
+carries a raw palette colour.
+
+<ComponentPreview componentName="alert" fileName="example-variants" />
+
+Choosing between them is about **what the reader must do**, not about how bad it feels:
+
+| Variant | Use when |
+|---|---|
+| `default` | Nothing is wrong. Context, a tip, a neutral notice. |
+| `info` | Useful context the user did not ask for. |
+| `success` | Something finished. There is nothing to do. |
+| `warning` | Proceeding is allowed, but it has a consequence. |
+| `destructive` | Something failed, or is about to be lost. |
+
+<Callout type="info">
+For an error that belongs to one **field**, use [`FieldError`](/docs/forms/validation) instead —
+an Alert above the form cannot tell the user which input is wrong.
+</Callout>

@@ -21,3 +21,25 @@ Card
 ├── CardContent
 └── CardFooter
 ```
+
+## Variants
+
+The variants live on **`CardMedia`**, not on `Card`. That is why they were hard to find: the
+card itself is just a surface, and what changes is how the media slot at its top behaves.
+
+<ComponentPreview componentName="card" fileName="example-variants" />
+
+| Variant | What it does |
+|---|---|
+| `default` | Transparent. The slot holds whatever you put in it. |
+| `icon` | Sizes the glyph and keeps the card's own padding. |
+| `image` | Bleeds to the edges, clips to the radius, and fills. |
+
+## Actions
+
+`CardAction` and `CardFooter` both hold controls, and both exist because "an action on a card"
+means two different placements: `CardAction` sits in the header opposite the title — for a badge,
+a menu, a single icon button — while `CardFooter` sits at the bottom, for the actions the card
+is *for*.
+
+<ComponentPreview componentName="card" fileName="example-actions" />

@@ -95,3 +95,19 @@ Renders `ComboboxControl` and an `InputGroup` around `Combobox.Input`. Use
 | `heading` | `string \| React.ReactNode` | — |
 
 `Combobox` defaults `openOnClick`, `lazyMount` and `unmountOnExit` to `true`.
+
+## Multiple selection
+
+Yes — one prop.
+
+<ComponentPreview componentName="combobox" fileName="example-multiple" />
+
+Setting `multiple` also switches Ark's `selectionBehavior` to `clear`, so the input empties
+after each pick and the list is immediately ready for the next one. Picking five things does not
+mean clearing your query five times.
+
+<Callout type="info">
+The chips showing what is selected are the **caller's**. The component owns the value; how you
+display it is a presentation decision, and a row of badges is only one answer — a summary line
+or a removable-token input are others.
+</Callout>

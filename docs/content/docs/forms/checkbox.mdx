@@ -12,3 +12,26 @@ links:
 ```tsx
 import { Checkbox } from "@kanzo-tech/ui";
 ```
+
+## States
+
+<ComponentPreview componentName="checkbox" fileName="example-states" />
+
+<Callout type="info">
+`indeterminate` is a real third state, not a styling trick — pass it as the `checked` value.
+It is the state a plain boolean cannot represent, which is why a parent checkbox built without
+it usually ends up needing two booleans.
+</Callout>
+
+## Groups
+
+`CheckboxGroup` holds one value **array** for several checkboxes, so what you submit is the
+group rather than N independent booleans you have to reassemble.
+
+<ComponentPreview componentName="checkbox" fileName="example-group" />
+
+<Callout type="warn">
+A group of checkboxes needs a `FieldSet` and a `FieldLegend` around it in a real form. Without
+a legend a screen-reader user hears the options but never hears what they are choosing between —
+see [Building a form](/docs/forms/building-a-form).
+</Callout>
