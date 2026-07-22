@@ -91,6 +91,7 @@ export * from "./simples/password-input.js";
 export * from "./simples/context-menu.js";
 export * from "./simples/popover.js";
 export * from "./simples/progress.js";
+export * from "./simples/prose.js";
 export * from "./simples/radio-group.js";
 export * from "./simples/segment-group.js";
 export * from "./simples/resizable.js";
@@ -123,12 +124,8 @@ export type { EmptyStateProps } from "./simples/EmptyState.js";
 // @codemirror/*, which is an OPTIONAL peer. Re-exporting them here made the root barrel
 // statically import CodeMirror, so `import { Button } from "@kanzo-tech/ui"` failed outright
 // for every consumer that had not installed it. Do not add them back.
-export { Heading } from "./simples/Heading.js";
-export type { HeadingProps } from "./simples/Heading.js";
 export { Link } from "./simples/Link.js";
 export type { LinkProps } from "./simples/Link.js";
-export { Text } from "./simples/Text.js";
-export type { TextProps } from "./simples/Text.js";
 export { TextField, NumberField } from "./simples/TextField.js";
 export type { TextFieldProps, NumberFieldProps } from "./simples/TextField.js";
 export { SuggestMenu } from "./simples/SuggestMenu.js";
