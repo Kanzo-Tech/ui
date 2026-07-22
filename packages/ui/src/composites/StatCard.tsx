@@ -52,9 +52,21 @@ export function StatCard({
         // depended on whether a description existed and how many lines it ran to, so a
         // one-line tile centred differently from a two-line one. Here the figure block
         // grows and centres its own content, and the description is measured out of it.
-        "group/stat-card flex h-full flex-col gap-0 rounded-lg px-5 py-4 shadow-none",
+        //
+        // `min-h-32`, NOT `h-full`. A row of tiles has to line up even when one of them
+        // has no description, and `h-full` cannot deliver that: it is a percentage of the
+        // parent, so it is redundant inside a grid (grid items already stretch) and wrong
+        // everywhere else — in a centred flex container it inflated a 122px tile to the
+        // full height of the container. The floor sits just above the natural height of a
+        // full tile (icon row + figure + one description line), so `StatCardValue`'s
+        // `flex-1` absorbs the slack on the short ones and every figure lands on the same
+        // baseline.
+        "group/stat-card flex min-h-32 flex-col gap-0 rounded-lg px-5 py-4 shadow-none",
         href != null &&
-          "transition-colors group-hover/stat:border-primary/40 group-focus-visible/stat:border-primary",
+          // Only inside the link wrapper: there the anchor is the grid item that stretches,
+          // and the card has to fill it. The anchor is height-auto otherwise, so this
+          // resolves to auto and cannot inflate a standalone tile.
+          "h-full transition-colors group-hover/stat:border-primary/40 group-focus-visible/stat:border-primary",
         className
       )}
       data-slot="stat-card"
@@ -67,7 +79,9 @@ export function StatCard({
 
   return (
     <Link
-      className="group/stat block h-full rounded-lg outline-none"
+      // No `h-full` here either — as a grid item the anchor stretches on its own, and
+      // anywhere else the percentage resolved against the container and blew the tile up.
+      className="group/stat block rounded-lg outline-none"
       href={href}
     >
       {card}

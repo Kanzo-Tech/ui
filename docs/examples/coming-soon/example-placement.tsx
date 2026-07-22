@@ -12,7 +12,8 @@ export default function Example() {
       <ComingSoon placement="inline">
         <Card>
           <CardContent className="text-muted-foreground text-sm">
-            Inline — centred on the trailing edge, for rows whose right side is free.
+            Inline — the badge sits in the flow at the trailing edge and takes its own
+            space, so it never covers the content it annotates.
           </CardContent>
         </Card>
       </ComingSoon>

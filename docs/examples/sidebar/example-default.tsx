@@ -1,9 +1,17 @@
 "use client";
 
-import { BoxesIcon, DatabaseIcon, HouseIcon, ShieldCheckIcon } from "lucide-react";
+import {
+  BoxesIcon,
+  DatabaseIcon,
+  HouseIcon,
+  SettingsIcon,
+  ShieldCheckIcon,
+  UsersIcon,
+} from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
   SidebarHeader,
@@ -24,6 +32,8 @@ export default function Example() {
         </SidebarHeader>
         <SidebarSeparator />
         <SidebarContent>
+          {/* Two groups, because a single flat list never shows what `SidebarGroupLabel`
+              is for or how groups are spaced apart. */}
           <SidebarGroup>
             <SidebarGroupLabel>Platform</SidebarGroupLabel>
             <SidebarMenu>
@@ -54,7 +64,32 @@ export default function Example() {
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroup>
+
+          <SidebarGroup>
+            <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton>
+                  <UsersIcon />
+                  <span>Members</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton>
+                  <SettingsIcon />
+                  <span>Settings</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroup>
         </SidebarContent>
+
+        <SidebarSeparator />
+        <SidebarFooter>
+          <span className="px-2 text-muted-foreground text-xs">
+            aemet · production
+          </span>
+        </SidebarFooter>
       </Sidebar>
     </SidebarProvider>
   );

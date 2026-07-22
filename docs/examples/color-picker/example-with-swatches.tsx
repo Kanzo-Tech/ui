@@ -41,8 +41,12 @@ export default function Example() {
         <ColorPickerSwatchGroup>
           {PRESETS.map((color) => (
             <ColorPickerSwatchTrigger key={color} value={color}>
-              <ColorPickerSwatch value={color} />
-              <ColorPickerSwatchIndicator />
+              {/* The indicator is a CHILD of the swatch, not a sibling: `Swatch` is what
+                  provides the swatch context the indicator reads, so hoisting it up to the
+                  trigger throws at render time. */}
+              <ColorPickerSwatch value={color}>
+                <ColorPickerSwatchIndicator />
+              </ColorPickerSwatch>
             </ColorPickerSwatchTrigger>
           ))}
         </ColorPickerSwatchGroup>

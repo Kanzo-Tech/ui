@@ -2,7 +2,14 @@
 
 import { useEffect, useRef, useState, type Ref } from "react";
 import { Button } from "./button.js";
-import { Popover, PopoverContent, PopoverTrigger } from "./popover.js";
+import {
+  Popover,
+  PopoverBody,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "./popover.js";
 import { Spinner } from "./spinner.js";
 import { Wand, XIcon } from "lucide-react";
 import type { Suggestion } from "./types.js";
@@ -140,39 +147,48 @@ export function SuggestMenu(props: SuggestMenuProps) {
           <Wand />
         </Button>
       </PopoverTrigger>
+      {/* Header + body, not bare children: `PopoverContent` owns only the surface — the
+          `--space` padding lives on `PopoverHeader` / `PopoverBody`, so anything dropped
+          straight into the content sits flush against the border. */}
       <PopoverContent className="w-80 max-w-[90vw]">
-        {loading && items.length === 0 && (
-          <div className="flex items-center gap-2 px-2 py-1">
-            <Spinner />
-            <span className="text-xs text-muted-foreground">Thinking…</span>
-          </div>
-        )}
-        {error && <span className="block px-2 py-1 text-xs text-destructive">{error}</span>}
-        {!loading && !error && items.length === 0 && (
-          <span className="block px-2 py-1 text-xs text-muted-foreground">No suggestions</span>
-        )}
-        <div className="flex flex-col gap-1">
+        <PopoverHeader>
+          <PopoverTitle className="text-sm">Suggestions</PopoverTitle>
+        </PopoverHeader>
+
+        <PopoverBody className="flex flex-col gap-1">
+          {loading && items.length === 0 && (
+            <div className="flex items-center gap-2 p-2">
+              <Spinner />
+              <span className="text-muted-foreground text-xs">Thinking…</span>
+            </div>
+          )}
+          {error && <span className="block p-2 text-destructive text-xs">{error}</span>}
+          {!loading && !error && items.length === 0 && (
+            <span className="block p-2 text-muted-foreground text-xs">No suggestions</span>
+          )}
+
           {items.map((item, index) => (
             <div key={`${item.value}-${index}`} className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => pick(item.value)}
-                className="flex min-w-0 flex-1 flex-col gap-1 rounded-md p-2 text-start transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex min-w-0 flex-1 flex-col gap-1 rounded-md p-2 text-start transition-colors hover:bg-accent hover:text-accent-foreground outline-none focus-visible:ring-[3px] focus-visible:ring-ring/32 motion-reduce:transition-none!"
               >
                 <span className="text-sm">{item.label ?? item.value}</span>
-                {item.rationale && <span className="text-xs text-muted-foreground">{item.rationale}</span>}
+                {item.rationale && <span className="text-muted-foreground text-xs">{item.rationale}</span>}
               </button>
               <Button size="icon-sm" variant="ghost" aria-label="Dismiss suggestion" onClick={() => dismiss(index)}>
                 <XIcon />
               </Button>
             </div>
           ))}
-        </div>
-        {loading && items.length > 0 && (
-          <div className="flex items-center justify-center pt-2">
-            <Spinner />
-          </div>
-        )}
+
+          {loading && items.length > 0 && (
+            <div className="flex items-center justify-center pt-2">
+              <Spinner />
+            </div>
+          )}
+        </PopoverBody>
       </PopoverContent>
     </Popover>
   );
