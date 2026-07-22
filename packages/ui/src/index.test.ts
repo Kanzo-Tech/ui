@@ -22,7 +22,7 @@ describe("@kanzo-tech/ui public surface", () => {
     // statically import CodeMirror, so `import { Button }` threw for anyone without it.
     // They live on @kanzo-tech/ui/editor.
     const surface = UI as Record<string, unknown>;
-    expect(surface.EditorShell).toBeUndefined();
+    expect(surface.CodeEditor).toBeUndefined();
     expect(surface.GhostEditor).toBeUndefined();
   });
 });

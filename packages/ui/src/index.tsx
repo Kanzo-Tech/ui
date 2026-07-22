@@ -119,7 +119,7 @@ export { DateField } from "./simples/DateField.js";
 export type { DateFieldProps } from "./simples/DateField.js";
 export { EmptyState } from "./simples/EmptyState.js";
 export type { EmptyStateProps } from "./simples/EmptyState.js";
-// GhostEditor / EditorShell deliberately live ONLY on the `/editor` subpath: they import
+// GhostEditor / CodeEditor deliberately live ONLY on the `/editor` subpath: they import
 // @codemirror/*, which is an OPTIONAL peer. Re-exporting them here made the root barrel
 // statically import CodeMirror, so `import { Button } from "@kanzo-tech/ui"` failed outright
 // for every consumer that had not installed it. Do not add them back.
@@ -225,7 +225,7 @@ export {
   TopBarUtility,
 } from "./layouts/TopBar.js";
 export { SidePanel, sidePanelVariants, type SidePanelProps } from "./layouts/SidePanel.js";
-// EditorShell → `@kanzo-tech/ui/editor` (see the GhostEditor note above).
+// CodeEditor → `@kanzo-tech/ui/editor` (see the GhostEditor note above).
 export { StatusBar, StatusBarCenter, StatusBarEnd, StatusBarStart } from "./layouts/StatusBar.js";
 export type { StatusBarProps, StatusBarPanelButton } from "./layouts/StatusBar.js";
 export {

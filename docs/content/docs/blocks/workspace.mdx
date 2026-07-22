@@ -26,6 +26,6 @@ docs/blocks/workspace/
 └── data.tsx      — the document open on the canvas
 ```
 
-`EditorShell` comes from `@kanzo-tech/ui/editor`, a subpath rather than the root barrel:
+`CodeEditor` comes from `@kanzo-tech/ui/editor`, a subpath rather than the root barrel:
 CodeMirror is an optional peer, and re-exporting the editor from the barrel would make
 `import { Button } from "@kanzo-tech/ui"` fail for anyone who had not installed it.

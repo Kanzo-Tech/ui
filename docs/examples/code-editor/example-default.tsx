@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { json } from "@codemirror/lang-json";
-import { EditorShell } from "@kanzo-tech/ui/editor";
+import { CodeEditor } from "@kanzo-tech/ui/editor";
 
 const SAMPLE = `{
   "dataset": "aemet.fossil",
@@ -17,7 +17,7 @@ export default function Example() {
     // CodeMirror's own `.cm-scroller` does the scrolling; the shell needs a bounded height
     // to scroll inside, which `maxHeight` gives it here.
     <div className="w-full">
-      <EditorShell
+      <CodeEditor
         extensions={json()}
         lineNumbers
         maxHeight="260px"

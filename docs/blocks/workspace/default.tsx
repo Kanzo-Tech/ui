@@ -35,7 +35,7 @@ import {
   createTreeCollection,
   toast,
 } from "@kanzo-tech/ui";
-import { EditorShell } from "@kanzo-tech/ui/editor";
+import { CodeEditor } from "@kanzo-tech/ui/editor";
 import { json } from "@codemirror/lang-json";
 import {
   ArrowLeftIcon,
@@ -258,7 +258,7 @@ export function WorkspaceBlock() {
                 a second scroller collapses the editor to its content height and leaves the
                 canvas half empty. */}
             <div className="min-h-0 min-w-0 flex-1">
-              <EditorShell
+              <CodeEditor
                 chrome={false}
                 className="h-full"
                 extensions={json()}

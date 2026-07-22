@@ -1,16 +1,16 @@
 ---
-title: EditorShell
+title: CodeEditor
 description: A CodeMirror 6 host wired to the Kanzo tokens, with the language left to you.
 ---
 
-<ComponentPreview componentName="editor-shell" />
+<ComponentPreview componentName="code-editor" />
 
 ## Installation
 
-`EditorShell` is imported from a subpath, not the root barrel:
+`CodeEditor` is imported from a subpath, not the root barrel:
 
 ```tsx
-import { EditorShell } from "@kanzo-tech/ui/editor";
+import { CodeEditor } from "@kanzo-tech/ui/editor";
 ```
 
 CodeMirror is an optional peer dependency and it is large. Keeping the editor out of
@@ -25,7 +25,7 @@ pnpm add @codemirror/lang-json
 ## Usage
 
 ```tsx
-<EditorShell extensions={json()} lineNumbers onChange={setValue} value={value} />
+<CodeEditor extensions={json()} lineNumbers onChange={setValue} value={value} />
 ```
 
 The shell owns the chrome, the theme and the document lifecycle; `extensions` is the language

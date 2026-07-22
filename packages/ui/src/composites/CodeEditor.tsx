@@ -245,7 +245,7 @@ const baseTheme = EditorView.theme({
   ".cm-foldPlaceholder": { background: "var(--muted)", border: "1px solid var(--border)", color: "var(--muted-foreground)", borderRadius: "var(--radius-sm)", padding: "0 4px" },
 });
 
-export interface EditorShellProps {
+export interface CodeEditorProps {
   value: string;
   onChange?: (value: string) => void;
   /** The language brain — CodeMirror extensions injected by the consumer (LSP,
@@ -271,7 +271,7 @@ export interface EditorShellProps {
   onView?: (view: EditorView | null) => void;
 }
 
-export function EditorShell(p: EditorShellProps) {
+export function CodeEditor(p: CodeEditorProps) {
   const container = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView>(undefined);
   const [focused, setFocused] = useState(false);
