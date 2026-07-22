@@ -4,12 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { Annotation, Compartment, EditorState, type Extension } from "@codemirror/state";
 import {
   EditorView,
+  crosshairCursor,
   drawSelection,
+  dropCursor,
   highlightActiveLine,
   highlightActiveLineGutter,
+  highlightSpecialChars,
   keymap,
   lineNumbers as cmLineNumbers,
   placeholder as cmPlaceholder,
+  rectangularSelection,
 } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import {
@@ -20,7 +24,7 @@ import {
   indentOnInput,
   syntaxHighlighting,
 } from "@codemirror/language";
-import { closeBrackets, closeBracketsKeymap, completionKeymap } from "@codemirror/autocomplete";
+import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap } from "@codemirror/autocomplete";
 import { highlightSelectionMatches, searchKeymap } from "@codemirror/search";
 import { tags as t } from "@lezer/highlight";
 
@@ -49,34 +53,60 @@ const External = Annotation.define<boolean>();
  * the same palette. Inert until the caller injects a language (there's no tree to tag).
  */
 export const kanzoHighlightStyle = HighlightStyle.define([
-  { tag: [t.keyword, t.operatorKeyword, t.controlKeyword, t.definitionKeyword, t.moduleKeyword, t.atom, t.bool, t.self], color: "var(--kanzo-syntax-keyword)" },
+  { tag: [t.keyword, t.operatorKeyword, t.controlKeyword, t.definitionKeyword, t.moduleKeyword, t.self], color: "var(--kanzo-syntax-keyword)" },
+  { tag: [t.atom, t.bool, t.constant(t.name), t.standard(t.name)], color: "var(--kanzo-syntax-constant)" },
   { tag: [t.string, t.special(t.string), t.docString, t.character, t.regexp], color: "var(--kanzo-syntax-string)" },
+  // An escape sequence inside a string used to fall through to --foreground, so `\n` rendered
+  // as plain text mid-string. `t.escape`'s parent is `literal`, which was unmapped.
+  { tag: [t.escape, t.special(t.brace)], color: "var(--kanzo-syntax-number)" },
   { tag: [t.number, t.integer, t.float, t.unit], color: "var(--kanzo-syntax-number)" },
   { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: "var(--kanzo-syntax-comment)", fontStyle: "italic" },
-  { tag: [t.variableName, t.propertyName, t.attributeName, t.definition(t.variableName)], color: "var(--kanzo-syntax-identifier)" },
+  // Object keys and attribute names. These used to be grouped with `variableName`, which
+  // resolved to a token byte-identical to --foreground — so every key in a JSON document
+  // rendered as unstyled text and the whole sample looked near-monochrome.
+  { tag: [t.propertyName, t.attributeName], color: "var(--kanzo-syntax-property)" },
+  { tag: [t.function(t.variableName), t.function(t.propertyName), t.macroName], color: "var(--kanzo-syntax-function)" },
+  // Declarations are coloured; plain variable USES inherit --foreground, as in most themes.
+  { tag: [t.definition(t.variableName), t.definition(t.propertyName)], color: "var(--kanzo-syntax-identifier)" },
   { tag: [t.operator, t.derefOperator, t.arithmeticOperator, t.logicOperator, t.bitwiseOperator, t.compareOperator, t.updateOperator], color: "var(--kanzo-syntax-operator)" },
   { tag: [t.punctuation, t.separator, t.bracket, t.angleBracket, t.squareBracket, t.paren, t.brace], color: "var(--kanzo-syntax-punctuation)" },
-  { tag: [t.typeName, t.className, t.namespace, t.tagName, t.labelName, t.macroName], color: "var(--kanzo-syntax-type)" },
+  { tag: [t.typeName, t.className, t.namespace, t.tagName, t.labelName], color: "var(--kanzo-syntax-type)" },
+  { tag: [t.meta, t.annotation, t.processingInstruction, t.documentMeta], color: "var(--kanzo-syntax-comment)" },
   { tag: [t.url, t.link], color: "var(--kanzo-syntax-url)", textDecoration: "underline" },
+  // Markdown: only `heading` was mapped, so prose rendered flat.
   { tag: t.heading, color: "var(--kanzo-syntax-keyword)", fontWeight: "bold" },
-  { tag: t.invalid, color: "var(--destructive)" },
+  { tag: t.emphasis, fontStyle: "italic" },
+  { tag: t.strong, fontWeight: "bold" },
+  { tag: t.strikethrough, textDecoration: "line-through" },
+  { tag: [t.monospace, t.list], color: "var(--kanzo-syntax-string)" },
+  { tag: t.quote, color: "var(--kanzo-syntax-comment)" },
+  // Diff.
+  { tag: t.inserted, color: "var(--success)" },
+  { tag: t.deleted, color: "var(--destructive)" },
+  { tag: t.changed, color: "var(--warning)" },
+  { tag: t.invalid, color: "var(--kanzo-syntax-invalid)" },
 ]);
 
 /** The Kanzo highlight style as a ready-to-drop extension. */
 export const kanzoHighlighting: Extension = syntaxHighlighting(kanzoHighlightStyle, { fallback: true });
 
-const sel = (pct: number) => `color-mix(in srgb, var(--primary) ${pct}%, transparent)`;
-const acc = (pct: number) => `color-mix(in srgb, var(--accent) ${pct}%, transparent)`;
-
 const baseTheme = EditorView.theme({
   "&": { fontSize: "var(--kanzo-font-size-base, 14px)", backgroundColor: "transparent", height: "100%" },
   ".cm-content": {
-    fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)",
     padding: "0.5rem",
     color: "var(--foreground)",
     caretColor: "var(--foreground)",
   },
-  ".cm-scroller": { lineHeight: "1.5", overflow: "auto" },
+  // The font belongs on `.cm-scroller`, not `.cm-content`: the GUTTER is a child of the
+  // scroller, and CodeMirror's base sets `.cm-scroller { font-family: monospace }`. With the
+  // family only on the content, line numbers rendered in the browser's generic monospace —
+  // Courier on many systems — beside content in the Kanzo stack. It also made the gutter's
+  // `min-width: 2.25ch` compute against the wrong font.
+  ".cm-scroller": {
+    fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)",
+    lineHeight: "1.5",
+    overflow: "auto",
+  },
   "&.cm-focused": { outline: "none" },
   // Two distinct surfaces: the content is the `--background` "paper"; the gutter reads as
   // chrome via the tokenised `--kanzo-gutter-bg` tint, with a hairline `--border` edge and
@@ -101,11 +131,15 @@ const baseTheme = EditorView.theme({
   // A line number is a click target (it selects the line), so it has to answer the
   // pointer — without this the whole column reads as inert decoration.
   ".cm-lineNumbers .cm-gutterElement:hover": {
-    backgroundColor: acc(70),
+    backgroundColor: "var(--kanzo-editor-active-line)",
     color: "var(--foreground)",
   },
   ".cm-foldGutter .cm-gutterElement:hover": { color: "var(--foreground)" },
   ".cm-placeholder": { color: "var(--muted-foreground)" },
+  // `highlightSpecialChars` ships its own `&light`/`&dark` rule at a raw `red` / `#f78`. Same
+  // trap as the selection: this theme declares no `{dark}`, so the LIGHT rule would apply in
+  // both modes. Tokenised here, at equal specificity and later in the sheet, so ours wins.
+  ".cm-specialChar": { color: "var(--kanzo-syntax-invalid)" },
 
   // ── Floating surfaces ─────────────────────────────────────────────────────────
   // CodeMirror ships its own light-mode chrome for tooltips, autocomplete and the
@@ -191,13 +225,13 @@ const baseTheme = EditorView.theme({
   // Search hits: the current one is the primary-tinted anchor, the rest are quieter so
   // "where am I" stays readable at a glance.
   ".cm-searchMatch": {
-    backgroundColor: acc(90),
+    backgroundColor: "var(--kanzo-editor-search-match)",
     outline: "1px solid var(--border)",
     borderRadius: "2px",
   },
   ".cm-searchMatch.cm-searchMatch-selected": {
-    backgroundColor: sel(30),
-    outline: `1px solid ${sel(60)}`,
+    backgroundColor: "var(--kanzo-editor-search-active)",
+    outline: "1px solid var(--warning)",
   },
 
   // Lint diagnostics — semantic tokens, so severity survives a re-theme.
@@ -229,18 +263,30 @@ const baseTheme = EditorView.theme({
   ".cm-scroller::-webkit-scrollbar-corner": { background: "transparent" },
   // Tokenised selection (drawSelection), active line, matching bracket, search matches.
   ".cm-cursor, .cm-dropCursor": { borderLeftColor: "var(--foreground)" },
-  "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": { backgroundColor: sel(22) },
-  ".cm-activeLine": { backgroundColor: acc(45) },
+  // The full child chain is LOAD-BEARING. CodeMirror's base theme ships
+  // `&light.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground`
+  // (@codemirror/view), which compiles to specificity 0,5,0. A flat
+  // `&.cm-focused .cm-selectionBackground` is 0,3,0 and LOSES — so the focused selection
+  // rendered in CodeMirror's stock lavender (#d7d4f0) instead of a Kanzo token. Worse, that
+  // base rule is `&light`, and this theme is registered without `{dark}`, so the `darkTheme`
+  // facet stays false and the light lavender applied in dark mode too.
+  "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": {
+    backgroundColor: "var(--kanzo-editor-selection)",
+  },
+  ".cm-selectionBackground, .cm-content ::selection": {
+    backgroundColor: "var(--kanzo-editor-selection)",
+  },
+  ".cm-activeLine": { backgroundColor: "var(--kanzo-editor-active-line)" },
   // The active line's gutter cell is emphasised beyond the row: stronger tint, full-strength
   // ink and a weight bump so the current line number stands out from the dim column.
   ".cm-activeLineGutter": {
-    backgroundColor: acc(70),
+    backgroundColor: "var(--kanzo-editor-active-line)",
     color: "var(--foreground)",
     fontWeight: "600",
   },
-  ".cm-matchingBracket, &.cm-focused .cm-matchingBracket": { backgroundColor: sel(16), outline: `1px solid ${sel(40)}` },
+  ".cm-matchingBracket, &.cm-focused .cm-matchingBracket": { backgroundColor: "var(--kanzo-editor-selection)", outline: "1px solid var(--primary)" },
   ".cm-nonmatchingBracket": { backgroundColor: "color-mix(in srgb, var(--destructive) 20%, transparent)" },
-  ".cm-selectionMatch": { backgroundColor: acc(60) },
+  ".cm-selectionMatch": { backgroundColor: "var(--kanzo-editor-search-match)" },
   ".cm-foldGutter .cm-gutterElement": { cursor: "pointer", color: "var(--kanzo-gutter-foreground)" },
   ".cm-foldPlaceholder": { background: "var(--muted)", border: "1px solid var(--border)", color: "var(--muted-foreground)", borderRadius: "var(--radius-sm)", padding: "0 4px" },
 });
@@ -304,6 +350,17 @@ export function CodeEditor(p: CodeEditorProps) {
           ]),
           EditorView.lineWrapping,
           drawSelection(),
+          dropCursor(),
+          // `completionKeymap` was already bound below, but the extension itself was never
+          // installed — so Ctrl-Space did nothing and the ~25 lines of
+          // `.cm-tooltip-autocomplete` styling in this theme were dead CSS.
+          autocompletion(),
+          // Makes NBSP, zero-width and control characters visible. Without it they are
+          // invisible in the document, which is a real footgun when editing data.
+          highlightSpecialChars(),
+          // Alt-drag column selection, and the crosshair cursor that signals it is available.
+          rectangularSelection(),
+          crosshairCursor(),
           highlightActiveLine(),
           bracketMatching(),
           closeBrackets(),
@@ -318,6 +375,8 @@ export function CodeEditor(p: CodeEditorProps) {
       state: EditorState.create({
         doc: props.current.value ?? "",
         extensions: [
+          // Multiple cursors. Off by default in CodeMirror, and table stakes in an editor.
+          EditorState.allowMultipleSelections.of(true),
           ...batteries,
           ...(props.current.lineNumbers ? [cmLineNumbers()] : []),
           ...(basics && props.current.lineNumbers ? [highlightActiveLineGutter(), foldGutter()] : []),

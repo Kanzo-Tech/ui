@@ -197,11 +197,28 @@
   --kanzo-syntax-string: var(--color-emerald-700);
   --kanzo-syntax-number: var(--color-amber-700);
   --kanzo-syntax-comment: var(--color-neutral-500);
-  --kanzo-syntax-identifier: var(--color-neutral-800);
+  /* Declarations only. Plain variable USES inherit --foreground, as they do in most themes —
+     this used to be neutral-800, i.e. byte-identical to --foreground, so it styled nothing. */
+  --kanzo-syntax-identifier: var(--color-teal-700);
+  /* Object keys / attribute names. Their absence is why JSON rendered near-monochrome: keys
+     fell through to the identifier rule and therefore to plain foreground. */
+  --kanzo-syntax-property: var(--color-sky-700);
+  --kanzo-syntax-function: var(--color-rose-700);
+  --kanzo-syntax-constant: var(--color-orange-700);
   --kanzo-syntax-operator: var(--color-neutral-600);
-  --kanzo-syntax-punctuation: var(--color-neutral-500);
+  /* Distinct from comment, which it used to equal exactly (both neutral-500). */
+  --kanzo-syntax-punctuation: var(--color-neutral-400);
   --kanzo-syntax-type: var(--color-blue-700);
   --kanzo-syntax-url: var(--color-indigo-700);
+  --kanzo-syntax-invalid: var(--destructive);
+
+  /* Editor highlight affordances. These are NOT derived from --accent: it is already a 6%
+     tint, so mixing it again produced ~3% deltas — an active line and a search hit that were
+     both invisible and indistinguishable from each other. */
+  --kanzo-editor-active-line: var(--accent);
+  --kanzo-editor-selection: color-mix(in srgb, var(--primary) 30%, transparent);
+  --kanzo-editor-search-match: color-mix(in srgb, var(--warning) 35%, transparent);
+  --kanzo-editor-search-active: color-mix(in srgb, var(--warning) 70%, transparent);
 
   /* Editor gutter surface + dim line-number ink (tokenised — was a hand-tuned magic mix). */
   --kanzo-gutter-bg: color-mix(in srgb, var(--foreground) 6%, var(--background));
@@ -259,11 +276,20 @@
   --kanzo-syntax-string: var(--color-emerald-400);
   --kanzo-syntax-number: var(--color-amber-400);
   --kanzo-syntax-comment: var(--color-neutral-400);
-  --kanzo-syntax-identifier: var(--color-neutral-200);
+  --kanzo-syntax-identifier: var(--color-teal-300);
+  --kanzo-syntax-property: var(--color-sky-300);
+  --kanzo-syntax-function: var(--color-rose-300);
+  --kanzo-syntax-constant: var(--color-orange-300);
   --kanzo-syntax-operator: var(--color-neutral-400);
   --kanzo-syntax-punctuation: var(--color-neutral-500);
   --kanzo-syntax-type: var(--color-blue-400);
   --kanzo-syntax-url: var(--color-indigo-300);
+  --kanzo-syntax-invalid: var(--destructive);
+
+  --kanzo-editor-active-line: var(--accent);
+  --kanzo-editor-selection: color-mix(in srgb, var(--primary) 30%, transparent);
+  --kanzo-editor-search-match: color-mix(in srgb, var(--warning) 35%, transparent);
+  --kanzo-editor-search-active: color-mix(in srgb, var(--warning) 70%, transparent);
 
   --kanzo-gutter-bg: color-mix(in srgb, var(--foreground) 6%, var(--background));
   --kanzo-gutter-foreground: color-mix(in srgb, var(--muted-foreground) 70%, var(--background));
