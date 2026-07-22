@@ -19,7 +19,7 @@ import type { Suggestion } from "./types.js";
  * Suggestions stream in one at a time and are deduped live against `existing` and each
  * other; dismissing a row (✕) regenerates another to keep {@link VISIBLE} on screen.
  * Fetched once per open-cycle (cached across reopen); Esc / click-away closes. Domain-free
- * and source-agnostic — the caller passes a plain async iterable `fetch(signal)`.
+ * and source-agnostic — the caller passes a plain async iterable `suggest(signal)`.
  */
 
 /** Case-insensitive key for deduping suggestion values. */
@@ -30,7 +30,9 @@ const norm = (v: string) => v.trim().toLowerCase();
 const VISIBLE = 3;
 
 export interface SuggestMenuProps {
-  fetch: (signal?: AbortSignal) => AsyncIterable<Suggestion>;
+  /** Streamed candidates. Named `suggest` to sit alongside `GhostEditor`'s `complete`, and
+   *  because `fetch` shadowed the global while saying nothing about what it returns. */
+  suggest: (signal?: AbortSignal) => AsyncIterable<Suggestion>;
   /** Current values — suggestions equal to one of these (case-insensitive) are dropped. */
   existing: string[];
   onPick: (value: string) => void;
@@ -72,7 +74,7 @@ export function SuggestMenu(props: SuggestMenuProps) {
       if (res.done) {
         if (retried.current) return (iter.current = null);
         retried.current = true;
-        iter.current = props.fetch(ctrl.current!.signal)[Symbol.asyncIterator]();
+        iter.current = props.suggest(ctrl.current!.signal)[Symbol.asyncIterator]();
         continue;
       }
       const k = norm(res.value.value);
@@ -107,7 +109,7 @@ export function SuggestMenu(props: SuggestMenuProps) {
     seen.current = new Set(props.existing.map(norm).filter(Boolean));
     retried.current = false;
     shown.current = 0;
-    iter.current = props.fetch(c.signal)[Symbol.asyncIterator]();
+    iter.current = props.suggest(c.signal)[Symbol.asyncIterator]();
     setItems([]);
     setError(null);
     void fill();

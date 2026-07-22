@@ -12,10 +12,10 @@ import { SuggestMenu } from "@kanzo-tech/ui";
 ```
 
 ```tsx
-<SuggestMenu fetch={suggest} existing={keywords} onPick={add} />
+<SuggestMenu suggest={suggest} existing={keywords} onPick={add} />
 ```
 
-`fetch` is a plain `(signal?) => AsyncIterable<Suggestion>`, so the component is
+`suggest` is a plain `(signal?) => AsyncIterable<Suggestion>`, so the component is
 source-agnostic: a real call site yields straight from a streaming model response, a test
 yields from an array.
 
@@ -32,7 +32,7 @@ the `AbortSignal` and refetches fresh next time.
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `fetch` | `(signal?: AbortSignal) => AsyncIterable<Suggestion>` | — |
+| `suggest` | `(signal?: AbortSignal) => AsyncIterable<Suggestion>` | — |
 | `existing` | `string[]` | — |
 | `onPick` | `(value: string) => void` | — |
 | `disabled` | `boolean` | `false` |

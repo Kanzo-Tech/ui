@@ -2,11 +2,11 @@
   "title": "Sidebar",
   "pages": [
     "index",
-    "sidebar",
     "sidebar-nav",
     "section-nav",
-    "instance-switcher",
     "sidebar-user",
+    "instance-switcher",
+    "sidebar",
     "sidebar-identity"
   ]
 }

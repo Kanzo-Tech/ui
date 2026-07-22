@@ -35,7 +35,7 @@ export default function Example() {
       </div>
       <SuggestMenu
         existing={keywords}
-        fetch={suggest}
+        suggest={suggest}
         onPick={(value) => setKeywords((prev) => [...prev, value])}
       />
     </div>
