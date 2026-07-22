@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { AppShellBlock } from "@/blocks/app-shell/default";
+import { PreferencesBlock } from "@/blocks/preferences/default";
 import { WorkspaceBlock } from "@/blocks/workspace/default";
 
 /**
@@ -12,6 +13,9 @@ import { WorkspaceBlock } from "@/blocks/workspace/default";
 const BLOCKS = {
   "app-shell": AppShellBlock,
   workspace: WorkspaceBlock,
+  // Not a shell like the other two, but it needs the same treatment: the Preferences panel is
+  // Portal-ed and `position: fixed`, so it can only be shown honestly in its own viewport.
+  preferences: PreferencesBlock,
 } as const;
 
 type BlockName = keyof typeof BLOCKS;

@@ -3,7 +3,15 @@ title: Preferences
 description: A live theming selector that drives the theme attributes on the document.
 ---
 
-<ComponentPreview componentName="preferences" />
+{/* An iframe, not a ComponentPreview. The panel is Portal-ed and `position: fixed`, so in a
+    framed preview box it escapes to the viewport and lands on top of this page. The example
+    used to work around that by rendering the eight sections loose in a div — which shows the
+    controls but not the component: no trigger, no drawer, none of the behaviour. */}
+<PreviewIframe className="h-[42rem]" name="preferences" title="Preferences" />
+
+The panel opens on arrival so there is something to look at. Toggle the palette in the corner
+to see the rest of it: the drawer is **non-modal** and does not close when you click outside,
+so the form behind it stays usable while the theme changes live.
 
 ## Usage
 
@@ -52,6 +60,17 @@ canvas.
 Every section is exported, so the same controls can live in a product's settings page instead
 of a floating drawer. `Base` tints the whole neutral canvas: the preset swatches select a
 curated 50→950 scale, any other colour tints the neutral ramp toward it.
+
+All eight, stacked the way the panel itself lays them out:
+
+<ComponentPreview componentName="preferences" fileName="example-default" />
+
+<Callout type="warn">
+Use the **flat** parts (`PreferencesAccent`), not the `Preferences.Accent` statics. The
+namespace is built with `Object.assign`, and statics are lost when a module becomes a client
+reference under RSC — `Preferences.Accent` reads back as `undefined` there. We hit this for
+real.
+</Callout>
 
 <ComponentPreview componentName="preferences" fileName="example-fonts" />
 
