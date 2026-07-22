@@ -42,6 +42,13 @@ export const ComponentPreviewTabs = ({
       <TabsContent data-slot="tab-preview" value="preview">
         <div
           className={cn(
+            // `not-prose` is load-bearing, not hygiene. The preview renders inside the MDX
+            // prose container, so without it fumadocs' typography styles reach INTO the
+            // rendered component: `<ul>` gets `list-style: disc`, links get underlines,
+            // headings get margins. That is where the unexplained bullet down the left of
+            // the Sidebar examples came from — `SidebarMenu` is a `<ul>`, byte-identical to
+            // Shark's, and the dot was never part of the component at all.
+            "not-prose",
             hasMaxHeight && "h-[450px]",
             "relative w-full",
             !fullBleed && "flex items-center justify-center overflow-y-auto p-4 sm:p-10",

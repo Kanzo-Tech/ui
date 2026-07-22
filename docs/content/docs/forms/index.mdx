@@ -35,6 +35,8 @@ Look at what you did **not** have to write:
   can leave it in the tree unconditionally.
 - No asterisk element. `required` on the root is what `FieldRequiredIndicator` reads.
 
+<ComponentPreview componentName="forms" fileName="example-anatomy" />
+
 That list is the entire reason `Field` exists. Writing those five things by hand, per control,
 per form, is where accessible forms go to die — and skipping them is invisible until someone
 uses a screen reader.
@@ -71,6 +73,8 @@ These are the whole state API, and they all propagate to the control inside:
 | `required` | Reveals `FieldRequiredIndicator`; marks the control required |
 | `disabled` | Dims the field and disables the control |
 | `readOnly` | Marks the control read-only without dimming it |
+
+<ComponentPreview componentName="forms" fileName="example-states" />
 
 Set them on the `Field`, never on the control. Setting `invalid` on an `Input` directly works,
 but then the label and error text do not know about it, and you are back to hand-wiring.
