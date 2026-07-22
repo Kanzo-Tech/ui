@@ -8,6 +8,7 @@ import {
   SectionHeader,
   SectionRoot,
   SectionTitle,
+  SectionTitleGroup,
 } from "@kanzo-tech/ui";
 
 export default function Example() {
@@ -17,10 +18,18 @@ export default function Example() {
     <div className="flex h-[380px] w-full overflow-hidden rounded-lg border bg-background">
       <SectionRoot>
         <SectionHeader scale="page">
-          <SectionTitle level={1} scale="page">Dashboard</SectionTitle>
-          <SectionDescription>
-            Everything this workspace publishes, at a glance.
-          </SectionDescription>
+          {/* The title and description go inside SectionTitleGroup, not straight into the
+              header: the header is a flex ROW, so loose children would sit side by side. The
+              group is also what carries `min-w-0`, which lets a long title truncate instead of
+              pushing the actions off the row. */}
+          <SectionTitleGroup>
+            <SectionTitle level={1} scale="page">
+              Dashboard
+            </SectionTitle>
+            <SectionDescription>
+              Everything this workspace publishes, at a glance.
+            </SectionDescription>
+          </SectionTitleGroup>
           <SectionActions>
             <Button size="sm">
               <PlusIcon />
