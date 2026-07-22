@@ -1,0 +1,18 @@
+---
+title: Showcases
+description: Whole arrangements built from the library — the specific shapes that are examples, not components.
+full: true
+---
+
+A showcase is an arrangement someone actually builds: an application shell, an IDE workspace.
+They are **examples, not components**, and that distinction is the point.
+
+The library ships a generic vocabulary — regions, sections, controls. A specific arrangement of
+them does not have to become a component; it has to become an example. `AppShell` and
+`WorkspaceLayout` used to be components, and both read as "the product they were extracted
+from" rather than as a design system. They are showcases now, and the library is smaller for it.
+
+Each renders in its own viewport, because a shell judged inside a 450px centred box tells you
+nothing.
+
+<ShowcasesList />

@@ -10,6 +10,7 @@ import type { MDXComponents } from "mdx/types";
 import { ComponentPreview } from "@/components/component-preview";
 import { ComponentsList } from "@/components/components-list";
 import { PreviewIframe } from "@/components/preview-iframe";
+import { ShowcasesList } from "@/components/showcases-list";
 
 /**
  * The single MDX component map, per fumadocs convention — pages get these without importing
@@ -35,6 +36,7 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     ComponentPreview,
     ComponentsList,
     PreviewIframe,
+    ShowcasesList,
     ...components,
   };
 }

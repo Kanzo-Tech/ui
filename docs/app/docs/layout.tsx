@@ -10,7 +10,7 @@ import { source } from "@/lib/source";
  * The filter is applied to the *sidebar* tree only. `source.pageTree` keeps them, which is what
  * lets `/docs/components` still generate their cards and keeps every showcases page prerendered.
  */
-const BLOCKS_URL_PREFIX = "/docs/showcases/";
+const SHOWCASES_URL_PREFIX = "/docs/showcases/";
 
 const sidebarTree = {
   ...source.pageTree,
@@ -20,7 +20,7 @@ const sidebarTree = {
         node.type === "folder" &&
         node.children.length > 0 &&
         node.children.every(
-          (child) => child.type === "page" && child.url.startsWith(BLOCKS_URL_PREFIX),
+          (child) => child.type === "page" && child.url.startsWith(SHOWCASES_URL_PREFIX),
         )
       ),
   ),
@@ -31,7 +31,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     <DocsLayout
       links={[
         { text: "Components", url: "/docs/components" },
-        { text: "Showcases", url: "/docs/showcases/app-shell" },
+        { text: "Showcases", url: "/docs/showcases" },
       ]}
       nav={{ title: "Kanzo UI" }}
       tree={sidebarTree}
