@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../primitives/tooltip.js";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../simples/tooltip.js";
 
 /** An icon toggle in the status bar's right cluster (a dock panel switch). */
 export interface StatusBarPanelButton {

@@ -4,6 +4,19 @@ The design system separates **three concerns**. Every component follows the same
 
 ## The three layers
 
+The source is organised to match, one directory per layer:
+
+| Directory | What lives there |
+|---|---|
+| `src/simples/` | Single-purpose components — Button, Input, Dialog, Select. |
+| `src/composites/` | Assemblies of simples that still fit inside a page — SidebarUser, StatCard, Breadcrumbs. |
+| `src/layouts/` | Page-level scaffolding — AppShell, WorkspaceLayout, StatusBar, TopBar. |
+
+The public barrel is flat regardless (`import { Button, AppShell } from "@kanzo-tech/ui"`), so
+moving a component between layers is never a breaking change for consumers.
+
+## The three concerns
+
 1. **Behaviour (headless)** — [Ark UI](https://ark-ui.com) (`@ark-ui/react`). State, accessibility (WAI-ARIA), keyboard, focus. Compound parts, `X.RootProvider` + `useX` hooks for controlled state, and the `ark.*` polymorphic factory with **`asChild`**. Composites with their own state (Sidebar, WorkspaceLayout) use our own React Context providers/hooks. **No appearance here.**
 2. **Appearance** — design tokens (`@kanzo-tech/theme/tokens.css`) + **`tailwind-variants`** recipes over token-backed Tailwind v4 utilities, compiled to `@kanzo-tech/ui/styles.css` (cascade layers). The look lives entirely here. **No appearance decisions inside component `.tsx` beyond picking recipe variants.**
 3. **API** — a semantic vocabulary (`variant` / `size` / state / composition) that stays stable across upstream refactors. We use **`variant`**, matching Shark/shadcn and consumer expectation. (This document used to prescribe `intent`; no component ever exposed one.)
@@ -41,7 +54,7 @@ export const Foo = (props: FooProps) => {
 };
 ```
 
-Reference implementation: `packages/ui/src/primitives/button.tsx` (lowercase).
+Reference implementation: `packages/ui/src/simples/button.tsx` (lowercase).
 
 **React 19, not 18.** Our React peer is `>=19`, where `ref` is an ordinary prop. Use
 `React.ComponentProps<…>` (which includes `ref`) and a plain function component. Do **not** use

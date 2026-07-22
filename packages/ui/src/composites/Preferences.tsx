@@ -10,20 +10,20 @@ import { themeData, type KanzoBase, type KanzoRadius } from "@kanzo-tech/theme";
 import { useKanzoTheme, type ThemePrefs } from "../theme/KanzoThemeProvider.js";
 import { cn } from "../lib/cn.js";
 import { customBaseVars, readableForeground } from "../lib/color.js";
-import { Button } from "../primitives/button.js";
+import { Button } from "../simples/button.js";
 import {
   Dialog,
   DialogClose,
   DialogDescription,
   DialogTitle,
   DialogTrigger,
-} from "../primitives/dialog.js";
+} from "../simples/dialog.js";
 import {
   SegmentGroup,
   SegmentGroupItem,
   SegmentGroupItemText,
-} from "../primitives/segment-group.js";
-import { Slider } from "../primitives/slider.js";
+} from "../simples/segment-group.js";
+import { Slider } from "../simples/slider.js";
 import {
   ColorPicker,
   ColorPickerArea,
@@ -39,7 +39,7 @@ import {
   ColorPickerSwatchTrigger,
   ColorPickerTrigger,
   ColorPickerValue,
-} from "../primitives/color-picker.js";
+} from "../simples/color-picker.js";
 
 /**
  * Preferences — a live theming selector (composite) for PRODUCT settings. A non-modal drawer

@@ -26,14 +26,14 @@ export default tseslint.config(
     },
   },
   {
-    // Level-1 primitives are adopted from Shark UI verbatim (we own the source now, but
+    // Level-1 simples are adopted from Shark UI verbatim (we own the source now, but
     // keep it byte-faithful for easy diffing). These three rules only ever fire on
     // Shark's own conventions, none of which are real defects:
     //  · empty extension interfaces (`interface XProps extends Y {}`),
     //  · context hooks named `_useX` and re-exported as `useX` (a rules-of-hooks
     //    false positive — the leading `_` hides the `use` prefix from the linter),
     //  · a `className` deliberately destructured out so it can't leak onto an Ark part.
-    files: ["packages/ui/src/primitives/*.tsx"],
+    files: ["packages/ui/src/simples/*.tsx"],
     rules: {
       "@typescript-eslint/no-empty-object-type": "off",
       "@typescript-eslint/no-unused-vars": "off",

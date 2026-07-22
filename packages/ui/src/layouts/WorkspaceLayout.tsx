@@ -9,9 +9,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Resizable, ResizablePanel, ResizableResizeTrigger, useResizable } from "../primitives/resizable.js";
+import { Resizable, ResizablePanel, ResizableResizeTrigger, useResizable } from "../simples/resizable.js";
 import { XIcon } from "lucide-react";
-import { Button } from "../primitives/button.js";
+import { Button } from "../simples/button.js";
 import { StatusBar, type StatusBarPanelButton } from "./StatusBar.js";
 
 /** A dockable side panel: an icon toggle in the status bar + its content. */

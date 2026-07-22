@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn.js";
-import { Card } from "../primitives/card.js";
-import { Skeleton } from "../primitives/skeleton.js";
+import { Card } from "../simples/card.js";
+import { Skeleton } from "../simples/skeleton.js";
 import { DefaultLink, type LinkComponent } from "./link.js";
 
 export type StatCardStatus = "neutral" | "success" | "warning" | "danger";

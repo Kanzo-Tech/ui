@@ -1,6 +1,6 @@
 import * as React from "react";
 import { ChevronRight } from "lucide-react";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../primitives/collapsible.js";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../simples/collapsible.js";
 import {
   SidebarGroup,
   SidebarMenu,
@@ -11,7 +11,7 @@ import {
   SidebarMenuSubItem,
   SidebarGroupLabel,
   useSidebar,
-} from "../primitives/sidebar.js";
+} from "../simples/sidebar.js";
 import { DefaultLink, type LinkComponent } from "./link.js";
 
 /** A navigation entry: either a leaf (has `href`) or a group with `items`. */

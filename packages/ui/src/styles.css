@@ -13,7 +13,7 @@
 @import "@kanzo-tech/theme/themes.css";
 /* Bespoke keyframes that JS-imported CSS used to carry (the vite CSS-merge is clobbered
    by build:css, so Tailwind must own them). shell.css = SidePanel `kz-aside-*` slide. */
-@import "./shells/shell.css";
+@import "./layouts/shell.css";
 
 /* Dark mode is class-based (`.dark` on an ancestor or the element itself). */
 @custom-variant dark (&:is(.dark, .dark *));

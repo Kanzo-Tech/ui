@@ -6,14 +6,14 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "../primitives/breadcrumb.js";
+} from "../simples/breadcrumb.js";
 import { DefaultLink, type LinkComponent } from "./link.js";
 
 /**
  * One trail entry.
  *
  * Named `BreadcrumbEntry`, not `BreadcrumbItem`: the latter is the Shark/Ark *component*
- * re-exported from `primitives/breadcrumb`, and a type and a component cannot share a
+ * re-exported from `simples/breadcrumb`, and a type and a component cannot share a
  * name in the public barrel.
  */
 export interface BreadcrumbEntry {

@@ -1,6 +1,6 @@
 // @kanzo-tech/ui — the shared design-system surface.
 //
-// Level 1 (primitives) are Shark UI components, vendored as-is (the shadcn-style
+// Level 1 (simples) are Shark UI components, vendored as-is (the shadcn-style
 // registry model) and re-exported flat. Level 2 (composites / shells) are our
 // domain-free patterns composed over them. Everything runs on Ark UI +
 // tailwind-variants + tokens + tw-animate-css.
@@ -64,85 +64,85 @@ export type { ListCollection, CollectionItem } from "@ark-ui/react/collection";
 export { useFilter } from "@ark-ui/react/locale";
 
 // ── Level 1 — primitives (Shark UI, vendored as-is; flat compound API) ───────
-export * from "./primitives/action-bar.js";
-export * from "./primitives/alert.js";
-export * from "./primitives/alert-dialog.js";
-export * from "./primitives/avatar.js";
-export * from "./primitives/badge.js";
-export * from "./primitives/breadcrumb.js";
-export * from "./primitives/button.js";
-export * from "./primitives/calendar.js";
-export * from "./primitives/card.js";
-export * from "./primitives/checkbox.js";
-export * from "./primitives/color-picker.js";
-export * from "./primitives/collapsible.js";
-export * from "./primitives/combobox.js";
-export * from "./primitives/command.js";
-export * from "./primitives/date-picker.js";
-export * from "./primitives/dialog.js";
-export * from "./primitives/field.js";
-export * from "./primitives/hover-card.js";
-export * from "./primitives/input.js";
-export * from "./primitives/input-group.js";
-export * from "./primitives/kbd.js";
-export * from "./primitives/menu.js";
-export * from "./primitives/native-select.js";
-export * from "./primitives/password-input.js";
-export * from "./primitives/context-menu.js";
-export * from "./primitives/popover.js";
-export * from "./primitives/progress.js";
-export * from "./primitives/radio-group.js";
-export * from "./primitives/segment-group.js";
-export * from "./primitives/resizable.js";
-export * from "./primitives/scroll-area.js";
-export * from "./primitives/select.js";
-export * from "./primitives/sheet.js";
-export * from "./primitives/separator.js";
-export * from "./primitives/skeleton.js";
-export * from "./primitives/slider.js";
-export * from "./primitives/spinner.js";
-export * from "./primitives/status.js";
-export * from "./primitives/steps.js";
-export * from "./primitives/switch.js";
-export * from "./primitives/table.js";
-export * from "./primitives/tabs.js";
-export * from "./primitives/textarea.js";
-export * from "./primitives/toast.js";
-export * from "./primitives/toggle.js";
-export * from "./primitives/tooltip.js";
-export * from "./primitives/tour.js";
-export * from "./primitives/tree-view.js";
+export * from "./simples/action-bar.js";
+export * from "./simples/alert.js";
+export * from "./simples/alert-dialog.js";
+export * from "./simples/avatar.js";
+export * from "./simples/badge.js";
+export * from "./simples/breadcrumb.js";
+export * from "./simples/button.js";
+export * from "./simples/calendar.js";
+export * from "./simples/card.js";
+export * from "./simples/checkbox.js";
+export * from "./simples/color-picker.js";
+export * from "./simples/collapsible.js";
+export * from "./simples/combobox.js";
+export * from "./simples/command.js";
+export * from "./simples/date-picker.js";
+export * from "./simples/dialog.js";
+export * from "./simples/field.js";
+export * from "./simples/hover-card.js";
+export * from "./simples/input.js";
+export * from "./simples/input-group.js";
+export * from "./simples/kbd.js";
+export * from "./simples/menu.js";
+export * from "./simples/native-select.js";
+export * from "./simples/password-input.js";
+export * from "./simples/context-menu.js";
+export * from "./simples/popover.js";
+export * from "./simples/progress.js";
+export * from "./simples/radio-group.js";
+export * from "./simples/segment-group.js";
+export * from "./simples/resizable.js";
+export * from "./simples/scroll-area.js";
+export * from "./simples/select.js";
+export * from "./simples/sheet.js";
+export * from "./simples/separator.js";
+export * from "./simples/skeleton.js";
+export * from "./simples/slider.js";
+export * from "./simples/spinner.js";
+export * from "./simples/status.js";
+export * from "./simples/steps.js";
+export * from "./simples/switch.js";
+export * from "./simples/table.js";
+export * from "./simples/tabs.js";
+export * from "./simples/textarea.js";
+export * from "./simples/toast.js";
+export * from "./simples/toggle.js";
+export * from "./simples/tooltip.js";
+export * from "./simples/tour.js";
+export * from "./simples/tree-view.js";
 
 // ── Level 1 — bespoke atoms (no Shark equivalent; token-native, ours) ────────
-export { DateField } from "./primitives/DateField.js";
-export type { DateFieldProps } from "./primitives/DateField.js";
-export { EmptyState } from "./primitives/EmptyState.js";
-export type { EmptyStateProps } from "./primitives/EmptyState.js";
+export { DateField } from "./simples/DateField.js";
+export type { DateFieldProps } from "./simples/DateField.js";
+export { EmptyState } from "./simples/EmptyState.js";
+export type { EmptyStateProps } from "./simples/EmptyState.js";
 // GhostEditor / EditorShell deliberately live ONLY on the `/editor` subpath: they import
 // @codemirror/*, which is an OPTIONAL peer. Re-exporting them here made the root barrel
 // statically import CodeMirror, so `import { Button } from "@kanzo-tech/ui"` failed outright
 // for every consumer that had not installed it. Do not add them back.
-export { Heading } from "./primitives/Heading.js";
-export type { HeadingProps } from "./primitives/Heading.js";
-export { Link } from "./primitives/Link.js";
-export type { LinkProps } from "./primitives/Link.js";
-export { Text } from "./primitives/Text.js";
-export type { TextProps } from "./primitives/Text.js";
-export { TextField, NumberField } from "./primitives/TextField.js";
-export type { TextFieldProps, NumberFieldProps } from "./primitives/TextField.js";
-export { SuggestMenu } from "./primitives/SuggestMenu.js";
-export type { Suggestion } from "./primitives/types.js";
-export { SecretField } from "./primitives/SecretField.js";
-export type { SecretFieldProps } from "./primitives/SecretField.js";
-export { FieldArray } from "./primitives/FieldArray.js";
-export type { FieldArrayProps } from "./primitives/FieldArray.js";
-export { CardRadioGroup } from "./primitives/CardRadioGroup.js";
+export { Heading } from "./simples/Heading.js";
+export type { HeadingProps } from "./simples/Heading.js";
+export { Link } from "./simples/Link.js";
+export type { LinkProps } from "./simples/Link.js";
+export { Text } from "./simples/Text.js";
+export type { TextProps } from "./simples/Text.js";
+export { TextField, NumberField } from "./simples/TextField.js";
+export type { TextFieldProps, NumberFieldProps } from "./simples/TextField.js";
+export { SuggestMenu } from "./simples/SuggestMenu.js";
+export type { Suggestion } from "./simples/types.js";
+export { SecretField } from "./simples/SecretField.js";
+export type { SecretFieldProps } from "./simples/SecretField.js";
+export { FieldArray } from "./simples/FieldArray.js";
+export type { FieldArrayProps } from "./simples/FieldArray.js";
+export { CardRadioGroup } from "./simples/CardRadioGroup.js";
 export type {
   CardRadioGroupProps,
   CardRadioOption,
-} from "./primitives/CardRadioGroup.js";
-export { ComingSoon } from "./primitives/ComingSoon.js";
-export type { ComingSoonProps } from "./primitives/ComingSoon.js";
+} from "./simples/CardRadioGroup.js";
+export { ComingSoon } from "./simples/ComingSoon.js";
+export type { ComingSoonProps } from "./simples/ComingSoon.js";
 
 // ── Level 2 — composites (domain-free, token-native; sourced from keasy) ──────
 export type { LinkComponent } from "./composites/link.js";
@@ -163,7 +163,7 @@ export type {
   BreadcrumbsProps,
   BreadcrumbEntry,
 } from "./composites/Breadcrumbs.js";
-export * from "./primitives/sidebar.js";
+export * from "./simples/sidebar.js";
 export { SidebarNav } from "./composites/SidebarNav.js";
 export type { SidebarNavProps, SidebarNavItem } from "./composites/SidebarNav.js";
 export { SidebarUser } from "./composites/SidebarUser.js";
@@ -180,11 +180,11 @@ export { SectionNav } from "./composites/SectionNav.js";
 export type { SectionNavProps, NavSection } from "./composites/SectionNav.js";
 
 // ── Level 2 — shells / patterns (domain-free composites) ─────────────────────
-export { AppShell } from "./shells/AppShell.js";
-export { TopBar } from "./shells/TopBar.js";
-export { SidePanel } from "./shells/SidePanel.js";
+export { AppShell } from "./layouts/AppShell.js";
+export { TopBar } from "./layouts/TopBar.js";
+export { SidePanel } from "./layouts/SidePanel.js";
 // EditorShell → `@kanzo-tech/ui/editor` (see the GhostEditor note above).
-export { StatusBar } from "./shells/StatusBar.js";
-export type { StatusBarProps, StatusBarPanelButton } from "./shells/StatusBar.js";
-export { WorkspaceLayout, PanelHeader, useWorkspacePanel } from "./shells/WorkspaceLayout.js";
-export type { WorkspaceLayoutProps, PanelDef } from "./shells/WorkspaceLayout.js";
+export { StatusBar } from "./layouts/StatusBar.js";
+export type { StatusBarProps, StatusBarPanelButton } from "./layouts/StatusBar.js";
+export { WorkspaceLayout, PanelHeader, useWorkspacePanel } from "./layouts/WorkspaceLayout.js";
+export type { WorkspaceLayoutProps, PanelDef } from "./layouts/WorkspaceLayout.js";

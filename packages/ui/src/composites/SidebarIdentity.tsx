@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "../primitives/avatar.js";
+import { Avatar, AvatarFallback, AvatarImage } from "../simples/avatar.js";
 import { cn } from "../lib/cn.js";
 
 /** The visual identity shown in a sidebar switcher trigger / menu header: an avatar (or a square

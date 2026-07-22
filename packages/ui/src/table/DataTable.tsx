@@ -17,8 +17,8 @@ import {
   SearchIcon,
 } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
-import { Button } from "../primitives/button.js";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "../primitives/input-group.js";
+import { Button } from "../simples/button.js";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "../simples/input-group.js";
 import {
   Table,
   TableBody,
@@ -26,7 +26,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../primitives/table.js";
+} from "../simples/table.js";
 
 export interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];

@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import { ChevronsUpDownIcon } from "lucide-react";
-import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "../primitives/menu.js";
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "../primitives/sidebar.js";
+import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "../simples/menu.js";
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "../simples/sidebar.js";
 import { SidebarIdentity, type IdentityData } from "./SidebarIdentity.js";
 import { DefaultLink, type LinkComponent } from "./link.js";
 
