@@ -11,7 +11,7 @@ import {
   SidebarMenuSubItem,
   SidebarGroupLabel,
   useSidebar,
-} from "../simples/sidebar.js";
+} from "./sidebar.js";
 import { DefaultLink, type LinkComponent } from "./link.js";
 
 /** A navigation entry: either a leaf (has `href`) or a group with `items`. */

@@ -156,7 +156,7 @@ export {
   PageShellFooter,
   PageShellHeader,
   PageShellTitle,
-} from "./composites/PageShell.js";
+} from "./layouts/PageShell.js";
 export { Toolbar, ToolbarStart, ToolbarCenter, ToolbarEnd } from "./composites/Toolbar.js";
 export {
   SectionHeader,
@@ -183,14 +183,14 @@ export type {
 } from "./composites/StatCard.js";
 export { MadeWithKanzo } from "./composites/MadeWithKanzo.js";
 export type { MadeWithKanzoProps } from "./composites/MadeWithKanzo.js";
-export { TwoPaneLayout } from "./composites/TwoPaneLayout.js";
-export type { TwoPaneLayoutProps } from "./composites/TwoPaneLayout.js";
+export { TwoPaneLayout } from "./layouts/TwoPaneLayout.js";
+export type { TwoPaneLayoutProps } from "./layouts/TwoPaneLayout.js";
 export { Breadcrumbs } from "./composites/Breadcrumbs.js";
 export type {
   BreadcrumbsProps,
   BreadcrumbEntry,
 } from "./composites/Breadcrumbs.js";
-export * from "./simples/sidebar.js";
+export * from "./composites/sidebar.js";
 export { SidebarNav } from "./composites/SidebarNav.js";
 export type { SidebarNavProps, SidebarNavItem } from "./composites/SidebarNav.js";
 export { SidebarUser } from "./composites/SidebarUser.js";

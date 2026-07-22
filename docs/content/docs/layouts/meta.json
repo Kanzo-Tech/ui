@@ -2,11 +2,13 @@
   "title": "Layouts",
   "pages": [
     "app-shell",
+    "editor-shell",
+    "workspace-layout",
+    "page-shell",
+    "two-pane-layout",
     "top-bar",
     "status-bar",
     "side-panel",
-    "workspace-layout",
-    "editor-shell",
     "..."
   ]
 }

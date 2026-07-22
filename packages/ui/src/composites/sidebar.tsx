@@ -5,22 +5,22 @@ import { PanelLeftIcon } from "lucide-react";
 import React from "react";
 import type { VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
-import { Button, buttonVariants } from "./button";
-import { Input } from "./input";
-import { ScrollArea } from "./scroll-area";
-import { Separator } from "./separator";
+import { Button, buttonVariants } from "../simples/button";
+import { Input } from "../simples/input";
+import { ScrollArea } from "../simples/scroll-area";
+import { Separator } from "../simples/separator";
 import {
   Sheet,
   SheetContent,
   SheetHeader,
-} from "./sheet";
-import { Skeleton } from "./skeleton";
+} from "../simples/sheet";
+import { Skeleton } from "../simples/skeleton";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "./tooltip";
-import { useIsMobile } from "./use-is-mobile";
+} from "../simples/tooltip";
+import { useIsMobile } from "../simples/use-is-mobile";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;

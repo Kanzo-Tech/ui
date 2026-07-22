@@ -3,7 +3,7 @@
 import * as React from "react";
 import { ChevronsUpDownIcon } from "lucide-react";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "../simples/menu.js";
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "../simples/sidebar.js";
+import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "./sidebar.js";
 import {
   SidebarIdentity,
   SidebarIdentityAvatar,

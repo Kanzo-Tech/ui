@@ -5,7 +5,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "../simples/sidebar.js";
+} from "./sidebar.js";
 import { DefaultLink, type LinkComponent } from "./link.js";
 
 export interface NavSection {
