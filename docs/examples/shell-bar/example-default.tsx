@@ -2,17 +2,17 @@ import { ArrowLeftIcon, PlayIcon } from "lucide-react";
 import {
   Breadcrumbs,
   Button,
-  Toolbar,
-  ToolbarCenter,
-  ToolbarEnd,
-  ToolbarStart,
+  ShellBar,
+  ShellBarCenter,
+  ShellBarEnd,
+  ShellBarStart,
 } from "@kanzo-tech/ui";
 
 export default function Example() {
   return (
     <div className="w-full overflow-hidden rounded-lg border">
-      <Toolbar>
-        <ToolbarStart>
+      <ShellBar>
+        <ShellBarStart>
           <Button aria-label="Back" size="icon-xs" variant="ghost">
             <ArrowLeftIcon />
           </Button>
@@ -24,11 +24,11 @@ export default function Example() {
               { label: "aemet.fossil" },
             ]}
           />
-        </ToolbarStart>
+        </ShellBarStart>
 
-        <ToolbarCenter>fossil</ToolbarCenter>
+        <ShellBarCenter>fossil</ShellBarCenter>
 
-        <ToolbarEnd>
+        <ShellBarEnd>
           <Button size="xs" variant="ghost">
             Format
           </Button>
@@ -36,8 +36,8 @@ export default function Example() {
             <PlayIcon />
             Run
           </Button>
-        </ToolbarEnd>
-      </Toolbar>
+        </ShellBarEnd>
+      </ShellBar>
     </div>
   );
 }

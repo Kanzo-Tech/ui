@@ -19,9 +19,9 @@ import {
   SidebarRail,
   SidebarTrigger,
   Toaster,
-  Toolbar,
-  ToolbarEnd,
-  ToolbarStart,
+  ShellBar,
+  ShellBarEnd,
+  ShellBarStart,
   TreeView,
   TreeViewBranch,
   TreeViewBranchContent,
@@ -219,8 +219,8 @@ export function WorkspaceBlock() {
           </WorkspaceStatusStart>
 
           <div className="flex h-full flex-col">
-            <Toolbar>
-              <ToolbarStart>
+            <ShellBar>
+              <ShellBarStart>
                 {/* Back lives here, in the chrome — legible, in the tab order, and not sitting
                     on top of the code it would otherwise cover. */}
                 <Button aria-label="Back to dashboard" asChild size="icon-xs" variant="ghost">
@@ -238,9 +238,9 @@ export function WorkspaceBlock() {
                     { label: "aemet.fossil" },
                   ]}
                 />
-              </ToolbarStart>
+              </ShellBarStart>
 
-              <ToolbarEnd>
+              <ShellBarEnd>
                 <span>fossil</span>
                 <Button size="xs" variant="ghost">
                   Format
@@ -252,8 +252,8 @@ export function WorkspaceBlock() {
                   <PlayIcon />
                   Run
                 </Button>
-              </ToolbarEnd>
-            </Toolbar>
+              </ShellBarEnd>
+            </ShellBar>
             {/* No `overflow-auto` here: CodeMirror's own `.cm-scroller` scrolls. Wrapping it in
                 a second scroller collapses the editor to its content height and leaves the
                 canvas half empty. */}

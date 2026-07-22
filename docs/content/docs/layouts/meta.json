@@ -5,6 +5,7 @@
     "workspace-layout",
     "page-shell",
     "two-pane-layout",
+    "shell-bar",
     "top-bar",
     "status-bar",
     "side-panel",

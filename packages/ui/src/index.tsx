@@ -157,7 +157,14 @@ export {
   PageShellHeader,
   PageShellTitle,
 } from "./layouts/PageShell.js";
-export { Toolbar, ToolbarStart, ToolbarCenter, ToolbarEnd } from "./composites/Toolbar.js";
+export {
+  ShellBar,
+  ShellBarStart,
+  ShellBarCenter,
+  ShellBarEnd,
+  shellBarVariants,
+} from "./layouts/shell.js";
+export type { ShellBarProps } from "./layouts/shell.js";
 export {
   SectionHeader,
   SectionHeaderActions,
