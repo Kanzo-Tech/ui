@@ -1,9 +1,9 @@
 import { cn } from "@kanzo-tech/ui";
 
 /**
- * Full-page block preview, matching Shark UI's `PreviewIframe`.
+ * Full-page showcase preview, matching Shark UI's `PreviewIframe`.
  *
- * Blocks are whole screens — an app shell, an IDE workspace — and they only tell you anything
+ * Showcases are whole screens — an app shell, an IDE workspace — and they only tell you anything
  * at full viewport. An iframe gives them their own layout context so the docs chrome around
  * them does not distort what you are judging.
  */
@@ -19,7 +19,7 @@ export const PreviewIframe = ({
 }) => (
   <iframe
     className={cn("min-h-[450px] w-full rounded-2xl border", className)}
-    src={`/view/blocks/${name}`}
-    title={title ?? `${name} block preview`}
+    src={`/view/showcases/${name}`}
+    title={title ?? `${name} showcase preview`}
   />
 );

@@ -3,14 +3,14 @@ import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import { source } from "@/lib/source";
 
 /**
- * Blocks are not components, and once layouts had their own group the sidebar was listing them
+ * Showcases are not components, and once layouts had their own group the sidebar was listing them
  * as if they were a fifth layer. They are whole screens — demonstrations of the other four
  * together — so they come out of the component nav and get a top-level link instead.
  *
  * The filter is applied to the *sidebar* tree only. `source.pageTree` keeps them, which is what
- * lets `/docs/components` still generate their cards and keeps every blocks page prerendered.
+ * lets `/docs/components` still generate their cards and keeps every showcases page prerendered.
  */
-const BLOCKS_URL_PREFIX = "/docs/blocks/";
+const BLOCKS_URL_PREFIX = "/docs/showcases/";
 
 const sidebarTree = {
   ...source.pageTree,
@@ -31,7 +31,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     <DocsLayout
       links={[
         { text: "Components", url: "/docs/components" },
-        { text: "Blocks", url: "/docs/blocks/app-shell" },
+        { text: "Showcases", url: "/docs/showcases/app-shell" },
       ]}
       nav={{ title: "Kanzo UI" }}
       tree={sidebarTree}

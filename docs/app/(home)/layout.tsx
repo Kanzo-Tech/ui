@@ -8,7 +8,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       links={[
         { text: "Docs", url: "/docs" },
         { text: "Components", url: "/docs/simples/button" },
-        { text: "Blocks", url: "/docs/blocks/app-shell" },
+        { text: "Showcases", url: "/docs/showcases/app-shell" },
       ]}
     >
       {children}

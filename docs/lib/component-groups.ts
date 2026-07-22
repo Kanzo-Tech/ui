@@ -18,7 +18,7 @@ export interface ComponentEntry {
   title: string;
   description: string;
   url: string;
-  /** Group slug the page sits under — `simples`, `composites`, `layouts`, `blocks`. */
+  /** Group slug the page sits under — `simples`, `composites`, `layouts`, `showcases`. */
   group: string;
 }
 
@@ -36,7 +36,7 @@ export interface ComponentGroup {
  * This is a policy about *groups*, not an allow-list of components: a new layout page is
  * full-bleed the moment it exists, without being registered anywhere.
  */
-const FULL_BLEED_GROUPS = new Set(["layouts", "blocks", "sidebar"]);
+const FULL_BLEED_GROUPS = new Set(["layouts", "showcases", "sidebar"]);
 
 /** `/docs/simples/button` → `["simples", "button"]`; a root page like `/docs/installation` → `["installation"]`. */
 function segmentsAfterBase(url: string): string[] {

@@ -121,7 +121,7 @@ function connectionColumns(onDelete: (c: Connection) => void): ColumnDef<Connect
  * A realistic product screen at full viewport — the shell as a consumer actually assembles
  * it: Sidebar (switcher + nav + user) around a SidebarInset holding a real page.
  */
-export function AppShellBlock() {
+export function AppShellShowcase() {
   const [instance, setInstance] = useState("kanzo");
   const columns = useMemo(
     () =>
@@ -190,10 +190,12 @@ export function AppShellBlock() {
         <div className="flex-1">
           <SectionRoot>
             <SectionHeader scale="page">
-              <SectionTitle level={1} scale="page">Dashboard</SectionTitle>
-              <SectionDescription>
-                Everything this workspace publishes, at a glance.
-              </SectionDescription>
+              <SectionTitleGroup>
+                <SectionTitle level={1} scale="page">Dashboard</SectionTitle>
+                <SectionDescription>
+                  Everything this workspace publishes, at a glance.
+                </SectionDescription>
+              </SectionTitleGroup>
               <SectionActions>
                 <Button size="sm">
                   <PlusIcon />
@@ -337,4 +339,4 @@ export function AppShellBlock() {
   );
 }
 
-export default AppShellBlock;
+export default AppShellShowcase;

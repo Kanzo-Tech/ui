@@ -37,7 +37,7 @@ import {
  * and toggling it is the thing to try: the panel is non-modal and does not close on outside
  * click, so you can keep editing the form behind it while the theme changes live.
  */
-export function PreferencesBlock() {
+export function PreferencesShowcase() {
   return (
     <div className="min-h-svh bg-background p-8">
       <SectionRoot>
@@ -94,4 +94,4 @@ export function PreferencesBlock() {
   );
 }
 
-export default PreferencesBlock;
+export default PreferencesShowcase;

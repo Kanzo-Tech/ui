@@ -113,7 +113,7 @@ function PanelHeader({ title }: { title: string }) {
   );
 }
 
-export function WorkspaceBlock() {
+export function WorkspaceShowcase() {
   const [source, setSource] = useState(SAMPLE_MAPPING);
   // Panel state is the SHOWCASE's, not the library's. WorkspaceLayout used to own this plus
   // localStorage persistence, a portal into the status bar and a global Escape listener — all
@@ -356,4 +356,4 @@ const TreeNode = (props: ComponentProps<typeof TreeViewNode>) => {
   );
 };
 
-export default WorkspaceBlock;
+export default WorkspaceShowcase;
