@@ -1,0 +1,93 @@
+---
+title: AI-assisted fields
+description: Two controls take suggestions from a model. Neither of them knows what a model is — you pass a stream.
+---
+
+Two fields in this library can be filled by a model: [`GhostEditor`](/docs/forms/ghost-editor)
+completes as you type, [`SuggestMenu`](/docs/forms/suggest-menu) offers candidates on demand.
+They share one contract, and it is worth understanding once rather than twice.
+
+## The library never calls a model
+
+Both take a **function that returns an async iterable**, and cancel it with an `AbortSignal`:
+
+```tsx
+// GhostEditor — yields continuation chunks of one value
+complete: (value: string, signal?: AbortSignal) => AsyncIterable<string>
+
+// SuggestMenu — yields discrete candidates
+suggest: (signal?: AbortSignal) => AsyncIterable<Suggestion>
+```
+
+No API key, no provider, no prompt, no model name anywhere in the library. That is not an
+oversight — it is what keeps these components domain-free. Your product owns the model, the
+prompt, the auth and the cost; the component owns the interaction.
+
+It also means they work with anything that streams: a hosted model, a local one, a plain
+`fetch` of a cached list, or a hard-coded array in a test.
+
+## Why an async iterable
+
+Because suggestions arrive over time and the user keeps typing while they do. An async iterable
+is the smallest contract that gets both right:
+
+- **Partial results render immediately.** The first chunk is on screen before the last one
+  exists, which is the difference between a completion feeling instant and feeling broken.
+- **Cancellation is built in.** Every keystroke invalidates the request in flight. Both
+  components abort the previous stream before starting the next, so a slow response for text the
+  user has already changed can never overwrite what they are typing now.
+
+<Callout type="warn">
+**Honour the `AbortSignal`.** If your implementation ignores it, stale responses keep arriving
+and the components cannot protect you from them — you get suggestions for text that no longer
+exists. Pass it straight through to `fetch`, or check `signal.aborted` between yields.
+</Callout>
+
+## Writing one
+
+```tsx
+async function* complete(value: string, signal?: AbortSignal) {
+  const res = await fetch("/api/complete", {
+    method: "POST",
+    body: JSON.stringify({ prefix: value }),
+    signal,                                  // <- the whole cancellation story
+  });
+
+  const reader = res.body!.pipeThrough(new TextDecoderStream()).getReader();
+  while (true) {
+    const { done, value: chunk } = await reader.read();
+    if (done) break;
+    yield chunk;                             // <- continuation, not the full text
+  }
+}
+```
+
+<Callout type="info">
+`GhostEditor` yields **continuation chunks** — what comes *after* the current text, not the
+whole value rewritten. `SuggestMenu` yields **whole candidates**, one object per row. The
+difference is why the two signatures are not identical: one is completing a single value, the
+other is producing a list.
+</Callout>
+
+## Which one
+
+| | `GhostEditor` | `SuggestMenu` |
+|---|---|---|
+| Shape | A textarea | A button beside a field |
+| Trigger | Types as you type | Opens on click |
+| Output | One inline continuation | A list of candidates |
+| Accepting | Tab | Click a row |
+| Use for | Prose, descriptions, free text | Picking a value: a term, a class, an identifier |
+
+Reach for `GhostEditor` when the user is writing and a continuation helps. Reach for
+`SuggestMenu` when the user is choosing and needs options they did not have to think of.
+
+## What neither of them does
+
+- **They do not validate.** A suggestion is a value like any other; the field's own validation
+  applies unchanged. See [Validation](/docs/forms/validation).
+- **They do not persist or debounce your commit.** `GhostEditor` debounces its *request*, not
+  your save. What you do with the value is yours.
+- **They do not explain themselves to assistive tech beyond the basics.** If a suggestion is
+  material to the task, announce it — an `aria-live` region alongside the field is the usual
+  answer.

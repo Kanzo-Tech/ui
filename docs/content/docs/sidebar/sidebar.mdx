@@ -35,10 +35,10 @@ import {
 `SidebarProvider` owns the open state, persists it to a `sidebar_state` cookie, and binds
 <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>B</kbd> to toggle. Everything below reads that state through
 `useSidebar`, which throws outside the provider — including
-[`SidebarNav`](/docs/composites/sidebar-nav),
-[`SidebarUser`](/docs/composites/sidebar-user),
-[`InstanceSwitcher`](/docs/composites/instance-switcher) and
-[`SectionNav`](/docs/composites/section-nav).
+[`SidebarNav`](/docs/sidebar/sidebar-nav),
+[`SidebarUser`](/docs/sidebar/sidebar-user),
+[`InstanceSwitcher`](/docs/sidebar/instance-switcher) and
+[`SectionNav`](/docs/sidebar/section-nav).
 
 Below the `md` breakpoint the sidebar becomes a Sheet drawer instead of a rail, which is why
 the navigating composites close it on click.

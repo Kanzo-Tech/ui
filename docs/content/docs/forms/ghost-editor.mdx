@@ -1,0 +1,93 @@
+---
+title: GhostEditor
+description: A text field that completes as you type. Tab accepts, Esc dismisses — and the library never calls a model.
+---
+
+<Callout type="warn">
+`GhostEditor` is imported from a subpath, not the root barrel:
+
+```tsx
+import { GhostEditor } from "@kanzo-tech/ui/editor";
+```
+
+It is built on CodeMirror, whose packages are **optional peers**. A static import from the root
+entry would break `import { Button }` for everyone who has not installed them. That is a
+distribution constraint, not a statement about what the component is — see below.
+</Callout>
+
+## What it is
+
+**A textarea with streaming inline completion.** Not a code editor: no line numbers, no gutter,
+no syntax highlighting, and `font-family: inherit`, so it renders as body text and sits in a
+form beside `Input` and `Textarea`.
+
+It uses CodeMirror as an engine — the ghost text is a real `Decoration.widget` flowing inside
+the document, so it wraps and scrolls with the text instead of floating over it as an overlay.
+That is the whole reason for the dependency, and it is why the import path points at `/editor`
+while the component itself belongs here, in Forms.
+
+<Callout type="info">
+If you want a **code** surface — line numbers, a gutter, syntax highlighting, a language —
+you want [`CodeEditor`](/docs/composites/code-editor). The two share an engine and nothing else.
+</Callout>
+
+## Usage
+
+```tsx
+<GhostEditor
+  complete={complete}
+  onChange={setDescription}
+  placeholder="Describe the dataset…"
+  value={description}
+/>
+```
+
+## The interaction
+
+- **It asks after you pause.** 350 ms of quiet, and at least 4 characters — a completion for two
+  letters is noise.
+- **Tab accepts** the suggestion, **Esc dismisses** it. The hint appears only while a suggestion
+  exists.
+- **Any edit or cursor move invalidates it.** The stream in flight is aborted and the ghost
+  cleared, so a slow response can never land on text the user has since changed.
+- **Blur aborts** whatever is in flight.
+
+## The value contract
+
+`value` is `string | null`, shaped for a nullable form field.
+
+<Callout type="warn">
+Commits are **debounced by 250 ms**, and an empty string commits as `null`. Blur force-commits
+immediately, so nothing is lost if the user tabs away mid-pause — but if you read the value from
+somewhere other than `onChange`, be aware it can lag a keystroke behind.
+</Callout>
+
+## The `complete` contract
+
+```tsx
+complete: (value: string, signal?: AbortSignal) => AsyncIterable<string>
+```
+
+Yields **continuation chunks** — what comes after the current text, not the whole value
+rewritten. The full contract, and why it is an async iterable, is in
+[AI-assisted fields](/docs/forms/ai).
+
+<Callout type="warn">
+The component strips a leading echo of the current value from the suggestion, case-insensitively,
+so a model that restates the prompt does not produce duplicated text. A model that restates it
+only **partially** will still show duplication — worth checking against your own prompt.
+</Callout>
+
+## Accessibility
+
+The ghost is a widget inside the `contenteditable`, which means a screen reader encounters it as
+document content with nothing marking it as a suggestion rather than as text the user wrote.
+
+<Callout type="warn">
+If a suggestion is material to the task, announce it yourself — an `aria-live` region beside
+the field is the usual answer. This is a real gap in the component, recorded rather than hidden.
+</Callout>
+
+## Sizing
+
+The editor is `84px` at minimum and scrolls past `320px`. Both are currently fixed.
