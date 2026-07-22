@@ -5,6 +5,7 @@ import {
   Sidebar,
   SidebarContent,
   SidebarNav,
+  SidebarInset,
   SidebarProvider,
   type SidebarNavItem,
 } from "@kanzo-tech/ui";
@@ -34,12 +35,20 @@ const items: SidebarNavItem[] = [
 
 export default function Example() {
   return (
-    <SidebarProvider className="min-h-0 w-64">
-      <Sidebar className="rounded-lg border" collapsible="none">
+    <SidebarProvider className="h-96 min-h-0 w-full overflow-hidden rounded-lg border">
+      <Sidebar className="border-e" collapsible="none">
         <SidebarContent>
           <SidebarNav items={items} label="Platform" />
         </SidebarContent>
       </Sidebar>
+
+      {/* SidebarInset owns the `<main>` landmark. Near-empty on purpose: this page is about
+          the navigation, and the region exists so you can see what it navigates. */}
+      <SidebarInset className="bg-muted/24">
+        <div className="flex h-full items-center justify-center">
+          <span className="text-muted-foreground text-sm">Page content</span>
+        </div>
+      </SidebarInset>
     </SidebarProvider>
   );
 }

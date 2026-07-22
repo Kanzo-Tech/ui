@@ -1,7 +1,7 @@
 "use client";
 
 import { BotIcon, BriefcaseIcon, CloudIcon, UserIcon } from "lucide-react";
-import { SectionNav, SidebarProvider, type NavSection } from "@kanzo-tech/ui";
+import { SectionNav, SidebarInset, SidebarProvider, type NavSection } from "@kanzo-tech/ui";
 
 const sections: NavSection[] = [
   {
@@ -22,10 +22,20 @@ const sections: NavSection[] = [
 
 export default function Example() {
   return (
-    <SidebarProvider className="min-h-0 w-60 rounded-lg border bg-sidebar">
-      {/* `activePath` is the caller's current route: `#/settings/cloud` is active here, and
-          so would be any path nested under it. */}
-      <SectionNav activePath="#/settings/cloud" sections={sections} />
+    <SidebarProvider className="h-96 min-h-0 w-full overflow-hidden rounded-lg border">
+      <div className="w-60 shrink-0 border-e bg-sidebar">
+        {/* `activePath` is the caller's current route: `#/settings/cloud` is active here, and
+            so would be any path nested under it. */}
+        <SectionNav activePath="#/settings/cloud" sections={sections} />
+      </div>
+
+      {/* SidebarInset owns the `<main>` landmark. Near-empty on purpose: this page is about
+          the navigation, and the region exists so you can see what it navigates. */}
+      <SidebarInset className="bg-muted/24">
+        <div className="flex h-full items-center justify-center">
+          <span className="text-muted-foreground text-sm">Page content</span>
+        </div>
+      </SidebarInset>
     </SidebarProvider>
   );
 }
