@@ -1,0 +1,46 @@
+---
+title: Status
+description: A small coloured dot for a live state.
+links:
+  doc: https://ark-ui.com/docs/simples/factory
+---
+
+<ComponentPreview componentName="status" />
+
+## Usage
+
+```tsx
+import { Status } from "@kanzo-tech/ui";
+```
+
+```tsx
+<Status variant="success" />
+```
+
+`Status` is `aria-hidden` — a bare colour is not an accessible state. Always pair it with the
+text it decorates, as in the example above.
+
+## Variants
+
+<ComponentPreview componentName="status" fileName="example-variants" />
+
+## Sizes
+
+<ComponentPreview componentName="status" fileName="example-sizes" />
+
+## As an overlay
+
+The recipe includes `ring-2 ring-background`, so the dot cuts a halo out of whatever it sits
+on instead of blending into it.
+
+<ComponentPreview componentName="status" fileName="example-with-avatar" />
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `variant` | `"default" \| "success" \| "info" \| "warning" \| "destructive"` | `"default"` |
+| `size` | `"sm" \| "md" \| "lg"` | `"md"` |
+
+Extends `React.ComponentProps<typeof ark.span>`. `statusVariants` is exported if you need the
+same treatment on another element.

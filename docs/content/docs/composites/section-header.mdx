@@ -1,0 +1,81 @@
+---
+title: SectionHeader
+description: A title, description and action cluster for panels, forms and page sections.
+---
+
+<ComponentPreview componentName="section-header" />
+
+## Usage
+
+```tsx
+import {
+  SectionHeader,
+  SectionHeaderIcon,
+  SectionHeaderContent,
+  SectionHeaderTitle,
+  SectionHeaderDescription,
+  SectionHeaderActions,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<SectionHeader>
+  <SectionHeaderContent>
+    <SectionHeaderTitle>Connections</SectionHeaderTitle>
+    <SectionHeaderDescription>Sources this workspace reads from.</SectionHeaderDescription>
+  </SectionHeaderContent>
+</SectionHeader>
+```
+
+## Anatomy
+
+```text
+SectionHeader
+├── SectionHeaderIcon
+├── SectionHeaderContent
+│   ├── SectionHeaderTitle
+│   └── SectionHeaderDescription
+└── SectionHeaderActions
+```
+
+`SectionHeaderContent` is the text column and the only part that flexes, so the title
+truncates and `SectionHeaderActions` keeps its width.
+
+## Actions
+
+`SectionHeaderActions` is pushed to the inline end and never wraps under the title, so a long
+description cannot push the controls out of reach.
+
+<ComponentPreview componentName="section-header" fileName="example-actions" />
+
+## Heading level
+
+It renders a real `<header>` landmark with a real heading. `level` on `SectionHeaderTitle`
+sets which one, so the header slots into the surrounding document outline instead of asserting
+`h2` everywhere. `bordered` on the root draws the separator underneath — it styles the header
+itself rather than filling a region, so it stays a prop.
+
+<ComponentPreview componentName="section-header" fileName="example-bordered" />
+
+## API Reference
+
+### SectionHeader
+
+Renders a `<header>`; takes its props.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `bordered` | `boolean` | `false` |
+
+### SectionHeaderTitle
+
+Renders `h1`–`h6` per `level`; takes the heading's props.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `level` | `1 \| 2 \| 3 \| 4 \| 5 \| 6` | `2` |
+
+### Other parts
+
+`SectionHeaderIcon`, `SectionHeaderContent` and `SectionHeaderActions` render a `div` and
+`SectionHeaderDescription` a `p`; each takes that element's props and nothing more.

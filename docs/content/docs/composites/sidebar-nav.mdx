@@ -1,0 +1,58 @@
+---
+title: SidebarNav
+description: The primary sidebar nav list, with collapsible sub-items.
+---
+
+<ComponentPreview componentName="sidebar-nav" />
+
+## Usage
+
+```tsx
+import { SidebarNav } from "@kanzo-tech/ui";
+```
+
+```tsx
+<SidebarContent>
+  <SidebarNav items={items} label="Platform" />
+</SidebarContent>
+```
+
+It must be rendered inside a [`SidebarProvider`](/docs/simples/sidebar) — it reads the
+sidebar's state to close the mobile drawer when an entry is followed.
+
+An item with `items` becomes a collapsible group, open by default when it is `isActive`;
+an item with `href` is a leaf. Navigation goes through the injected `linkComponent`, so the
+design system never imports a router.
+
+## Anatomy
+
+```text
+SidebarNav
+└── SidebarGroup
+    ├── SidebarGroupLabel        (label)
+    └── SidebarMenu
+        └── SidebarMenuItem
+            ├── SidebarMenuButton        (leaf)
+            └── Collapsible              (group)
+                └── SidebarMenuSub
+                    └── SidebarMenuSubItem
+                        └── SidebarMenuSubButton
+```
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `items` | `SidebarNavItem[]` | — |
+| `label` | `ReactNode` | — |
+| `linkComponent` | `LinkComponent` | `DefaultLink` |
+
+### SidebarNavItem
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `title` | `string` | — |
+| `href` | `string` | — |
+| `icon` | `ReactNode` | — |
+| `isActive` | `boolean` | `false` |
+| `items` | `{ title: string; href: string; isActive?: boolean }[]` | — |

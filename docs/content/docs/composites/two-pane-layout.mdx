@@ -1,0 +1,37 @@
+---
+title: TwoPaneLayout
+description: A fixed-width scrolling aside next to a flexible main column.
+---
+
+<ComponentPreview componentName="two-pane-layout" />
+
+## Usage
+
+```tsx
+import { TwoPaneLayout } from "@kanzo-tech/ui";
+```
+
+```tsx
+<TwoPaneLayout nav={<SectionNav sections={sections} activePath={pathname} />}>
+  <PageShell>…</PageShell>
+</TwoPaneLayout>
+```
+
+The settings shape: a [`SectionNav`](/docs/composites/section-nav) on the left, a
+[`PageShell`](/docs/composites/page-shell) on the right. Both regions are slots, so nothing
+about the content is assumed.
+
+The aside is `20%` wide but clamped between 200px and 250px, which keeps the nav readable on a
+laptop without letting it eat half an ultrawide. Each pane scrolls independently.
+
+Like PageShell, the main column is a `<section>` rather than a `<main>` — this layout always
+sits inside a shell that already declared the page's `<main>`.
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `nav` | `ReactNode` | — |
+| `children` | `ReactNode` | — |
+| `asideWidth` | `string` | `"20%"` |
+| `asideStyle` | `CSSProperties` | — |

@@ -1,0 +1,49 @@
+---
+title: SidePanel
+description: A docked aside that becomes a full-screen overlay on narrow viewports.
+---
+
+<ComponentPreview componentName="side-panel" />
+
+## Usage
+
+```tsx
+import { SidePanel } from "@kanzo-tech/ui";
+```
+
+```tsx
+<SidePanel side="left" width={220}>…</SidePanel>
+```
+
+One component covers both layouts: docked at a fixed width on wide viewports, or a full-screen
+overlay sliding in from its own edge on narrow ones. Toggle `narrow` from your own media query
+— the panel does not measure the viewport itself, so a consumer that already knows its
+breakpoints does not fight a second, disagreeing one.
+
+`closing` plays the slide-out animation instead of the slide-in. Keep the panel mounted while
+it runs and unmount it from `onAnimationEnd`, or the exit never renders.
+
+It is an `<aside>`: the app's primary content is the `<main>` next to it. For a resizable dock
+rather than a fixed one, use [`WorkspaceLayout`](/docs/layouts/workspace-layout).
+
+## Sizing
+
+`width` is a number of pixels and it is required, because the panel is a flex child with
+`flex-shrink: 0` — the caller owns the width, including any drag-to-resize. The height comes
+from the flex row the panel sits in, so that row needs a resolved height.
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `side` | `"left" \| "right"` | — |
+| `width` | `number` | — |
+| `narrow` | `boolean` | `false` |
+| `closing` | `boolean` | `false` |
+| `onAnimationEnd` | `() => void` | — |
+| `children` | `ReactNode` | — |
+
+`side` is physical here rather than logical, because it names the viewport edge the overlay
+animates in from and the edge that carries the border — not a position in the reading order.
+Placement in an [`AppShellBody`](/docs/layouts/app-shell) is decided by child order, which is
+what mirrors in RTL.

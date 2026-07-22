@@ -1,0 +1,55 @@
+---
+title: AppShell
+description: The IDE-style shell — a fixed top bar over a full-height workspace whose regions scroll independently.
+---
+
+<ComponentPreview componentName="app-shell" />
+
+## Usage
+
+```tsx
+import { AppShell, AppShellBody, AppShellMain } from "@kanzo-tech/ui";
+```
+
+```tsx
+<AppShell>
+  <TopBar>…</TopBar>
+  <AppShellBody>
+    <SidePanel side="left" width={220}>…</SidePanel>
+    <AppShellMain>…</AppShellMain>
+    <SidePanel side="right" width={280}>…</SidePanel>
+  </AppShellBody>
+</AppShell>
+```
+
+`AppShell` is `h-screen` with `overflow-hidden`: it owns the viewport, and each region inside
+scrolls on its own rather than the page scrolling as a whole. That is what keeps the top bar
+and the asides fixed while the main column moves.
+
+The asides are plain children of `AppShellBody`, not `left`/`right` props. Their order is the
+caller's, which is what lets the whole layout mirror in RTL — there is no "left" region for the
+component to place, only the order you wrote.
+
+`AppShellMain` renders the page's single `<main>` landmark, so nothing nested inside it should
+render another one. The asides are `<aside>`, via [`SidePanel`](/docs/layouts/side-panel).
+
+## Anatomy
+
+```text
+AppShell
+├── TopBar            (or any fixed-height chrome)
+└── AppShellBody
+    ├── SidePanel     (start aside — order is yours)
+    ├── AppShellMain
+    └── SidePanel     (end aside)
+```
+
+## API Reference
+
+Every part takes the props of the element it renders. None of them carry options of their own.
+
+| Part | Element |
+| --- | --- |
+| `AppShell` | `div` |
+| `AppShellBody` | `div` |
+| `AppShellMain` | `main` |

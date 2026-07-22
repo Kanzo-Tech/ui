@@ -1,0 +1,55 @@
+---
+title: Radio Group
+description: A set of options where exactly one can be chosen.
+links:
+  doc: https://ark-ui.com/docs/simples/radio-group
+---
+
+<ComponentPreview componentName="radio-group" />
+
+## Usage
+
+```tsx
+import { RadioGroup, RadioGroupItem, RadioGroupLabel } from "@kanzo-tech/ui";
+```
+
+```tsx
+<RadioGroup defaultValue="ttl">
+  <RadioGroupItem value="ttl">Turtle</RadioGroupItem>
+</RadioGroup>
+```
+
+## Anatomy
+
+```text
+RadioGroup
+├── RadioGroupLabel
+└── RadioGroupItem
+    └── RadioGroupText
+```
+
+## With label
+
+<ComponentPreview componentName="radio-group" fileName="example-with-label" />
+
+## Horizontal
+
+`orientation` tells the machine which arrow keys move the selection; the row layout itself is
+a class, because the group is vertical by default.
+
+<ComponentPreview componentName="radio-group" fileName="example-horizontal" />
+
+## Invalid
+
+<ComponentPreview componentName="radio-group" fileName="example-invalid" />
+
+## Disabled
+
+<ComponentPreview componentName="radio-group" fileName="example-disabled" />
+
+## API Reference
+
+No props beyond Ark's. `RadioGroup` extends `RadioGroup.Root` (`value`, `defaultValue`,
+`onValueChange`, `orientation`, `disabled`, `invalid`, `readOnly`, `required`, `name`,
+`form`), and `RadioGroupItem` extends `RadioGroup.Item` (`value`, `disabled`, `invalid`) —
+the control, the item text and the hidden input are rendered for you.

@@ -28,7 +28,7 @@ export default function HomePage() {
             <Link href="/docs">Get started</Link>
           </Button>
           <Button asChild size="lg" variant="outline">
-            <Link href="/docs/components/button">Browse components</Link>
+            <Link href="/docs/simples/button">Browse components</Link>
           </Button>
         </div>
       </section>

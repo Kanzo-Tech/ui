@@ -1,0 +1,75 @@
+---
+title: EditorShell
+description: A CodeMirror 6 host wired to the Kanzo tokens, with the language left to you.
+---
+
+<ComponentPreview componentName="editor-shell" />
+
+## Installation
+
+`EditorShell` is imported from a subpath, not the root barrel:
+
+```tsx
+import { EditorShell } from "@kanzo-tech/ui/editor";
+```
+
+CodeMirror is an optional peer dependency and it is large. Keeping the editor out of
+`@kanzo-tech/ui` means every consumer that does not embed a code editor — most of them — never
+pays for it. Install the peers yourself, plus whatever language you need:
+
+```bash
+pnpm add @codemirror/state @codemirror/view @codemirror/commands @codemirror/language @codemirror/search
+pnpm add @codemirror/lang-json
+```
+
+## Usage
+
+```tsx
+<EditorShell extensions={json()} lineNumbers onChange={setValue} value={value} />
+```
+
+The shell owns the chrome, the theme and the document lifecycle; `extensions` is the language
+brain, injected by you. That is the split: an LSP client, a StreamParser, autocompletion or
+linting are the consumer's business, and the shell reconfigures live when the extension
+changes rather than tearing the editor down.
+
+`value` is reconciled without clobbering the cursor, so the editor is safe to drive from state
+you also write to from elsewhere.
+
+## Sizing
+
+CodeMirror's own `.cm-scroller` does the scrolling. Bound the height with `minHeight` /
+`maxHeight`, or give the host a resolved height and use `chrome={false}` — but never wrap it in
+a second `overflow-auto` container, which collapses the editor to its content height and
+leaves the surrounding pane half empty.
+
+## Theming
+
+`kanzoHighlightStyle` and `kanzoHighlighting` are exported from the same subpath. They read
+the Kanzo tokens, so a theme change re-skins the syntax colours along with everything else.
+They are included when `basics` is on; import them directly if you set `basics={false}` and
+still want the token palette.
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `value` | `string` | — |
+| `onChange` | `(value: string) => void` | — |
+| `extensions` | `Extension` | — |
+| `readOnly` | `boolean` | `false` |
+| `lineNumbers` | `boolean` | `false` |
+| `invalid` | `boolean` | `false` |
+| `placeholder` | `string` | — |
+| `minHeight` | `string` | — |
+| `maxHeight` | `string` | — |
+| `basics` | `boolean` | `true` |
+| `chrome` | `boolean` | `true` |
+| `className` | `string` | — |
+| `onView` | `(view: EditorView \| null) => void` | — |
+
+`basics` bundles history, the default keymap, line wrapping and the Kanzo token theme. Turn it
+off when your `extensions` own all behaviour and theming. `chrome` wraps the editor in the
+styled focus-ring surface; turn it off for a bare host, which is when `className` applies.
+`onView` hands you the `EditorView` on mount and `null` on unmount, for side-wiring such as
+pushing LSP notifications.

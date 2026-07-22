@@ -1,0 +1,63 @@
+---
+title: SidebarUser
+description: The avatar, name and email footer with its account dropdown.
+---
+
+<ComponentPreview componentName="sidebar-user" />
+
+## Usage
+
+```tsx
+import { SidebarUser } from "@kanzo-tech/ui";
+```
+
+```tsx
+<SidebarFooter>
+  <SidebarUser user={user} menuItems={items} />
+</SidebarFooter>
+```
+
+Render it inside a [`SidebarProvider`](/docs/simples/sidebar): it reads the collapse state
+to swap the trigger for a bare avatar, and flips the menu's placement on mobile.
+
+## Log out is a menu item
+
+`menuItems` is the only mechanism. There used to be a second, hard-coded one —
+`onLogout` / `logoutLabel` / `confirmLogout`, plus a built-in confirmation dialog carrying
+untranslatable English copy — which put an auth flow inside a library whose admission rule
+excludes auth. **Those props are gone.** Log out is now an ordinary entry with
+`variant: "destructive"` and usually `separatorBefore: true`; the product owns the flow, the
+wording and whether there is a confirmation at all.
+
+```tsx
+{
+  label: "Log out",
+  icon: <LogOutIcon />,
+  variant: "destructive",
+  separatorBefore: true,
+  onSelect: () => signOut(),
+}
+```
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `user` | `{ name: string; email?: string; avatarUrl?: string }` | — |
+| `menuItems` | `SidebarUserMenuItem[]` | `[]` |
+| `linkComponent` | `LinkComponent` | `DefaultLink` |
+
+Initials for the avatar fallback are derived from `user.name`.
+
+### SidebarUserMenuItem
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `label` | `ReactNode` | — |
+| `icon` | `ReactNode` | — |
+| `href` | `string` | — |
+| `onSelect` | `() => void` | — |
+| `variant` | `"default" \| "destructive"` | `"default"` |
+| `separatorBefore` | `boolean` | `false` |
+
+An entry with `href` navigates through `linkComponent`; otherwise it is a plain action item.

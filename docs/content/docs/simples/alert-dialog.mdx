@@ -1,0 +1,82 @@
+---
+title: Alert Dialog
+description: A dialog for a destructive or irreversible confirmation, which cannot be dismissed by accident.
+links:
+  doc: https://ark-ui.com/docs/simples/dialog
+---
+
+<ComponentPreview componentName="alert-dialog" />
+
+## Usage
+
+```tsx
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogBody,
+  AlertDialogCancel,
+  AlertDialogClose,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTrigger,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<AlertDialog>
+  <AlertDialogTrigger asChild>
+    <Button variant="outline">Delete</Button>
+  </AlertDialogTrigger>
+  <AlertDialogContent size="sm">
+    <AlertDialogHeader title="Delete customers.ttl?" description="This cannot be undone." />
+    <AlertDialogFooter>
+      <AlertDialogCancel>Cancel</AlertDialogCancel>
+      <AlertDialogClose asChild>
+        <AlertDialogAction variant="destructive">Delete</AlertDialogAction>
+      </AlertDialogClose>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
+```
+
+This is Dialog with `role="alertdialog"` and `showCloseButton={false}` — the X is removed on
+purpose, so the only way out is an explicit Cancel or Confirm. Use it when dismissing by
+reflex would be the wrong outcome; use `Dialog` for everything else.
+
+## Anatomy
+
+```text
+AlertDialog
+├── AlertDialogTrigger
+└── AlertDialogContent
+    ├── AlertDialogHeader
+    │   ├── AlertDialogTitle
+    │   └── AlertDialogDescription
+    ├── AlertDialogBody
+    └── AlertDialogFooter
+        ├── AlertDialogCancel     (outline Button + close trigger)
+        └── AlertDialogAction     (default or destructive Button)
+```
+
+`AlertDialogCancel` already wraps itself in a close trigger. `AlertDialogAction` does not —
+it is a plain Button, because the confirm path usually runs an async handler and decides for
+itself when to close. Wrap it in `AlertDialogClose asChild` when it should close immediately.
+
+## Variants
+
+<ComponentPreview componentName="alert-dialog" fileName="example-variants" />
+
+## API Reference
+
+### AlertDialogAction
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `variant` | `"default" \| "destructive"` | `"default"` |
+
+Narrowed from the full Button variant scale — a confirmation only ever affirms or destroys.
+Every other Button prop (`size`, `isLoading`, …) still passes through.
+
+`AlertDialog`, `AlertDialogContent`, `AlertDialogHeader` and `AlertDialogBody` take the same
+props as their Dialog counterparts, minus `showCloseButton`, which is forced off.

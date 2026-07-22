@@ -4,7 +4,15 @@ import * as React from "react";
 import { CheckIcon, ChevronsUpDownIcon } from "lucide-react";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "../simples/menu.js";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "../simples/sidebar.js";
-import { SidebarIdentity, type IdentityData } from "./SidebarIdentity.js";
+import {
+  SidebarIdentity,
+  SidebarIdentityAvatar,
+  SidebarIdentityDescription,
+  SidebarIdentityIcon,
+  SidebarIdentityLabel,
+  SidebarIdentityText,
+} from "./SidebarIdentity.js";
+import { AvatarFallback, AvatarImage } from "../simples/avatar.js";
 import { cn } from "../lib/cn.js";
 import { DefaultLink, type LinkComponent } from "./link.js";
 
@@ -37,14 +45,39 @@ export interface InstanceSwitcherProps {
   linkComponent?: LinkComponent;
 }
 
-function toIdentity(inst: Instance): IdentityData {
-  return {
-    label: inst.label,
-    description: inst.description,
-    avatarUrl: inst.avatarUrl,
-    icon: inst.icon,
-    fallback: typeof inst.label === "string" ? inst.label.slice(0, 2).toUpperCase() : undefined,
-  };
+/** Renders one instance as a {@link SidebarIdentity}: an icon tile when it has one, else an
+ *  avatar falling back to initials from a string label. */
+function Identity({
+  inst,
+  responsive = false,
+  collapsed = false,
+}: {
+  inst: Instance;
+  responsive?: boolean;
+  collapsed?: boolean;
+}) {
+  return (
+    <SidebarIdentity responsive={responsive} collapsed={collapsed}>
+      {inst.icon != null ? (
+        <SidebarIdentityIcon>{inst.icon}</SidebarIdentityIcon>
+      ) : (
+        <SidebarIdentityAvatar>
+          {inst.avatarUrl != null && (
+            <AvatarImage src={inst.avatarUrl} alt={typeof inst.label === "string" ? inst.label : ""} />
+          )}
+          <AvatarFallback>
+            {typeof inst.label === "string" ? inst.label.slice(0, 2).toUpperCase() : undefined}
+          </AvatarFallback>
+        </SidebarIdentityAvatar>
+      )}
+      <SidebarIdentityText>
+        <SidebarIdentityLabel>{inst.label}</SidebarIdentityLabel>
+        {inst.description != null && (
+          <SidebarIdentityDescription>{inst.description}</SidebarIdentityDescription>
+        )}
+      </SidebarIdentityText>
+    </SidebarIdentity>
+  );
 }
 
 /**
@@ -78,7 +111,7 @@ export function InstanceSwitcher({
                 active != null && active.icon == null && "group-data-[collapsible=icon]:rounded-full",
               )}
             >
-              {active != null && <SidebarIdentity data={toIdentity(active)} responsive collapsed={collapsed} />}
+              {active != null && <Identity inst={active} responsive collapsed={collapsed} />}
               <ChevronsUpDownIcon className="ml-auto group-data-[collapsible=icon]:hidden" />
             </SidebarMenuButton>
           </MenuTrigger>
@@ -101,7 +134,7 @@ export function InstanceSwitcher({
                   setOpenMobile(false);
                 }}
               >
-                <SidebarIdentity data={toIdentity(inst)} />
+                <Identity inst={inst} />
                 {inst.id === activeId && <CheckIcon className="ml-auto" />}
               </MenuItem>
             ))}

@@ -20,6 +20,8 @@ import {
   SidebarTrigger,
   Toaster,
   Toolbar,
+  ToolbarEnd,
+  ToolbarStart,
   TreeView,
   TreeViewBranch,
   TreeViewBranchContent,
@@ -29,6 +31,7 @@ import {
   TreeViewNode,
   TreeViewTree,
   WorkspaceLayout,
+  WorkspaceStatusStart,
   createTreeCollection,
   toast,
 } from "@kanzo-tech/ui";
@@ -207,34 +210,24 @@ export function WorkspaceBlock() {
               ),
             },
           ]}
-          statusLeft={<span>aemet.fossil · 1,204 triples</span>}
         >
+          {/* Portals into the status bar's start cluster — the bar belongs to
+              WorkspaceLayout (it renders the panel toggles), so this is written where it
+              reads, next to the canvas whose state it describes. */}
+          <WorkspaceStatusStart>
+            <span>aemet.fossil · 1,204 triples</span>
+          </WorkspaceStatusStart>
+
           <div className="flex h-full flex-col">
-            <Toolbar
-              actions={
-                <>
-                  <Button size="xs" variant="ghost">
-                    Format
-                  </Button>
-                  <Button
-                    onClick={() => toast.create({ title: "Run started", type: "info" })}
-                    size="xs"
-                  >
-                    <PlayIcon />
-                    Run
-                  </Button>
-                </>
-              }
-              // Back lives here, in the chrome — legible, in the tab order, and not sitting on
-              // top of the code it would otherwise cover.
-              leading={
+            <Toolbar>
+              <ToolbarStart>
+                {/* Back lives here, in the chrome — legible, in the tab order, and not sitting
+                    on top of the code it would otherwise cover. */}
                 <Button aria-label="Back to dashboard" asChild size="icon-xs" variant="ghost">
                   <a href="#/app">
                     <ArrowLeftIcon />
                   </a>
                 </Button>
-              }
-              left={
                 <Breadcrumbs
                   // Shrunk to the toolbar's own scale — the primitive keeps the `text-sm`
                   // default, and the thin IDE strip opts down to 11px.
@@ -245,9 +238,22 @@ export function WorkspaceBlock() {
                     { label: "aemet.fossil" },
                   ]}
                 />
-              }
-              right={<span>fossil</span>}
-            />
+              </ToolbarStart>
+
+              <ToolbarEnd>
+                <span>fossil</span>
+                <Button size="xs" variant="ghost">
+                  Format
+                </Button>
+                <Button
+                  onClick={() => toast.create({ title: "Run started", type: "info" })}
+                  size="xs"
+                >
+                  <PlayIcon />
+                  Run
+                </Button>
+              </ToolbarEnd>
+            </Toolbar>
             {/* No `overflow-auto` here: CodeMirror's own `.cm-scroller` scrolls. Wrapping it in
                 a second scroller collapses the editor to its content height and leaves the
                 canvas half empty. */}

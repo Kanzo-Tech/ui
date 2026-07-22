@@ -1,0 +1,75 @@
+---
+title: PageShell
+description: The page header, scrolling body and pinned footer every product repeats.
+---
+
+<ComponentPreview componentName="page-shell" />
+
+## Usage
+
+```tsx
+import {
+  PageShell,
+  PageShellHeader,
+  PageShellTitle,
+  PageShellDescription,
+  PageShellActions,
+  PageShellContent,
+  PageShellFooter,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<PageShell>
+  <PageShellHeader>
+    <PageShellTitle>Dashboard</PageShellTitle>
+    <PageShellDescription>…</PageShellDescription>
+    <PageShellActions><Button>New</Button></PageShellActions>
+  </PageShellHeader>
+  <PageShellContent>…</PageShellContent>
+  <PageShellFooter>…</PageShellFooter>
+</PageShell>
+```
+
+`PageShellContent` is the only region that scrolls, so the header and footer stay put while a
+long table moves under them. That only works if the shell has a resolved height — give the flex
+parent one (a `SidebarInset` already does).
+
+`PageShellContent` renders a `<section>`, not a `<main>`: PageShell is nested by construction
+inside an app shell that already owns the page's single `<main>` landmark, and two of them make
+"skip to main content" ambiguous.
+
+The parts are flat exports rather than statics on `PageShell`. React Server Components drop a
+module's statics when it becomes a client reference, so `PageShell.Header` reads back as
+`undefined` there — it no longer exists.
+
+## Anatomy
+
+```text
+PageShell
+├── PageShellHeader
+│   ├── PageShellTitle
+│   ├── PageShellDescription
+│   └── PageShellActions
+├── PageShellContent
+└── PageShellFooter
+```
+
+`PageShellHeader` is a two-column grid: the title and description stack in the first column
+with no wrapper of their own, and `PageShellActions` spans both rows in the second — which is
+why a long description never pushes the actions out of reach.
+
+## API Reference
+
+Every part takes the props of the element it renders (`className`, `style`, `id`, event
+handlers). None of them carry options of their own.
+
+| Part | Element |
+| --- | --- |
+| `PageShell` | `div` |
+| `PageShellHeader` | `header` |
+| `PageShellTitle` | `h1` |
+| `PageShellDescription` | `p` |
+| `PageShellActions` | `div` |
+| `PageShellContent` | `section` |
+| `PageShellFooter` | `footer` |

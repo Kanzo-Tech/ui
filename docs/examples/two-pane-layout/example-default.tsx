@@ -3,6 +3,10 @@
 import { BotIcon, BriefcaseIcon, CloudIcon, UserIcon } from "lucide-react";
 import {
   PageShell,
+  PageShellContent,
+  PageShellDescription,
+  PageShellHeader,
+  PageShellTitle,
   SectionNav,
   SidebarProvider,
   TwoPaneLayout,
@@ -31,10 +35,13 @@ export default function Example() {
     <SidebarProvider className="h-[380px] min-h-0 w-full overflow-hidden rounded-lg border bg-background">
       <TwoPaneLayout nav={<SectionNav activePath="#/settings/cloud" sections={sections} />}>
         <PageShell>
-          <PageShell.Header description="Where this workspace stores its data." title="Cloud accounts" />
-          <PageShell.Content>
+          <PageShellHeader>
+            <PageShellTitle>Cloud accounts</PageShellTitle>
+            <PageShellDescription>Where this workspace stores its data.</PageShellDescription>
+          </PageShellHeader>
+          <PageShellContent>
             <div className="h-48 rounded-lg border border-border border-dashed" />
-          </PageShell.Content>
+          </PageShellContent>
         </PageShell>
       </TwoPaneLayout>
     </SidebarProvider>

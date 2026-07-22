@@ -4,7 +4,14 @@ import * as React from "react";
 import { ChevronsUpDownIcon } from "lucide-react";
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "../simples/menu.js";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "../simples/sidebar.js";
-import { SidebarIdentity, type IdentityData } from "./SidebarIdentity.js";
+import {
+  SidebarIdentity,
+  SidebarIdentityAvatar,
+  SidebarIdentityDescription,
+  SidebarIdentityLabel,
+  SidebarIdentityText,
+} from "./SidebarIdentity.js";
+import { AvatarFallback, AvatarImage } from "../simples/avatar.js";
 import { DefaultLink, type LinkComponent } from "./link.js";
 
 export interface SidebarUserMenuItem {
@@ -54,12 +61,22 @@ export function SidebarUser({
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed" && !isMobile;
 
-  const identity: IdentityData = {
-    label: user.name,
-    description: user.email,
-    avatarUrl: user.avatarUrl,
-    fallback: initials(user.name),
-  };
+  // One description of the user, rendered twice (trigger + menu header) with different
+  // collapse behaviour — so it is a local element factory, not a shared node.
+  const identity = (responsive: boolean) => (
+    <SidebarIdentity responsive={responsive} collapsed={responsive && collapsed}>
+      <SidebarIdentityAvatar>
+        {user.avatarUrl != null && <AvatarImage src={user.avatarUrl} alt={user.name} />}
+        <AvatarFallback>{initials(user.name)}</AvatarFallback>
+      </SidebarIdentityAvatar>
+      <SidebarIdentityText>
+        <SidebarIdentityLabel>{user.name}</SidebarIdentityLabel>
+        {user.email != null && (
+          <SidebarIdentityDescription>{user.email}</SidebarIdentityDescription>
+        )}
+      </SidebarIdentityText>
+    </SidebarIdentity>
+  );
 
   return (
     <SidebarMenu>
@@ -73,13 +90,13 @@ export function SidebarUser({
               size="lg"
               className="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-full"
             >
-              <SidebarIdentity data={identity} responsive collapsed={collapsed} />
+              {identity(true)}
               <ChevronsUpDownIcon className="ml-auto group-data-[collapsible=icon]:hidden" />
             </SidebarMenuButton>
           </MenuTrigger>
           <MenuContent className="w-(--reference-width) min-w-56">
             <div className="px-2 py-1.5">
-              <SidebarIdentity data={identity} />
+              {identity(false)}
             </div>
             {menuItems.length > 0 && <MenuSeparator />}
             {menuItems.map((item, i) => (

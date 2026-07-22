@@ -1,27 +1,21 @@
 import { ArrowLeftIcon, PlayIcon } from "lucide-react";
-import { Breadcrumbs, Button, Toolbar } from "@kanzo-tech/ui";
+import {
+  Breadcrumbs,
+  Button,
+  Toolbar,
+  ToolbarCenter,
+  ToolbarEnd,
+  ToolbarStart,
+} from "@kanzo-tech/ui";
 
 export default function Example() {
   return (
     <div className="w-full overflow-hidden rounded-lg border">
-      <Toolbar
-        actions={
-          <>
-            <Button size="xs" variant="ghost">
-              Format
-            </Button>
-            <Button size="xs">
-              <PlayIcon />
-              Run
-            </Button>
-          </>
-        }
-        leading={
+      <Toolbar>
+        <ToolbarStart>
           <Button aria-label="Back" size="icon-xs" variant="ghost">
             <ArrowLeftIcon />
           </Button>
-        }
-        left={
           <Breadcrumbs
             className="text-[length:var(--kanzo-font-size-small)]"
             items={[
@@ -30,10 +24,20 @@ export default function Example() {
               { label: "aemet.fossil" },
             ]}
           />
-        }
-        right={<span>fossil</span>}
-      />
-      <div className="h-24 bg-background" />
+        </ToolbarStart>
+
+        <ToolbarCenter>fossil</ToolbarCenter>
+
+        <ToolbarEnd>
+          <Button size="xs" variant="ghost">
+            Format
+          </Button>
+          <Button size="xs">
+            <PlayIcon />
+            Run
+          </Button>
+        </ToolbarEnd>
+      </Toolbar>
     </div>
   );
 }

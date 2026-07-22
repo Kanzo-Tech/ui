@@ -147,13 +147,39 @@ export type { ComingSoonProps } from "./simples/ComingSoon.js";
 // ── Level 2 — composites (domain-free, token-native; sourced from keasy) ──────
 export type { LinkComponent } from "./composites/link.js";
 export { DefaultLink } from "./composites/link.js";
-export { PageShell } from "./composites/PageShell.js";
-export { Toolbar } from "./composites/Toolbar.js";
-export type { ToolbarProps } from "./composites/Toolbar.js";
-export { SectionHeader } from "./composites/SectionHeader.js";
-export type { SectionHeaderProps } from "./composites/SectionHeader.js";
-export { StatCard } from "./composites/StatCard.js";
-export type { StatCardProps, StatCardStatus } from "./composites/StatCard.js";
+export {
+  PageShell,
+  PageShellActions,
+  PageShellContent,
+  PageShellDescription,
+  PageShellFooter,
+  PageShellHeader,
+  PageShellTitle,
+} from "./composites/PageShell.js";
+export { Toolbar, ToolbarStart, ToolbarCenter, ToolbarEnd } from "./composites/Toolbar.js";
+export {
+  SectionHeader,
+  SectionHeaderActions,
+  SectionHeaderContent,
+  SectionHeaderDescription,
+  SectionHeaderIcon,
+  SectionHeaderTitle,
+} from "./composites/SectionHeader.js";
+export type { SectionHeaderProps, SectionHeaderTitleProps } from "./composites/SectionHeader.js";
+export {
+  StatCard,
+  StatCardDescription,
+  StatCardHeader,
+  StatCardIcon,
+  StatCardLabel,
+  StatCardValue,
+} from "./composites/StatCard.js";
+export type {
+  StatCardProps,
+  StatCardStatus,
+  StatCardValueProps,
+  StatCardDescriptionProps,
+} from "./composites/StatCard.js";
 export { MadeWithKanzo } from "./composites/MadeWithKanzo.js";
 export type { MadeWithKanzoProps } from "./composites/MadeWithKanzo.js";
 export { TwoPaneLayout } from "./composites/TwoPaneLayout.js";
@@ -174,17 +200,38 @@ export type {
   Instance,
   InstanceSwitcherAction,
 } from "./composites/InstanceSwitcher.js";
-export { SidebarIdentity } from "./composites/SidebarIdentity.js";
-export type { IdentityData } from "./composites/SidebarIdentity.js";
+export {
+  SidebarIdentity,
+  SidebarIdentityAvatar,
+  SidebarIdentityDescription,
+  SidebarIdentityIcon,
+  SidebarIdentityLabel,
+  SidebarIdentityText,
+} from "./composites/SidebarIdentity.js";
+export type { SidebarIdentityProps } from "./composites/SidebarIdentity.js";
 export { SectionNav } from "./composites/SectionNav.js";
 export type { SectionNavProps, NavSection } from "./composites/SectionNav.js";
 
 // ── Level 2 — shells / patterns (domain-free composites) ─────────────────────
-export { AppShell } from "./layouts/AppShell.js";
-export { TopBar } from "./layouts/TopBar.js";
+export { AppShell, AppShellBody, AppShellMain } from "./layouts/AppShell.js";
+export {
+  TopBar,
+  TopBarActions,
+  TopBarMain,
+  TopBarSubtitle,
+  TopBarTitle,
+  TopBarTitleGroup,
+  TopBarUtility,
+} from "./layouts/TopBar.js";
 export { SidePanel } from "./layouts/SidePanel.js";
 // EditorShell → `@kanzo-tech/ui/editor` (see the GhostEditor note above).
-export { StatusBar } from "./layouts/StatusBar.js";
+export { StatusBar, StatusBarCenter, StatusBarEnd, StatusBarStart } from "./layouts/StatusBar.js";
 export type { StatusBarProps, StatusBarPanelButton } from "./layouts/StatusBar.js";
-export { WorkspaceLayout, PanelHeader, useWorkspacePanel } from "./layouts/WorkspaceLayout.js";
+export {
+  WorkspaceLayout,
+  WorkspaceFloatingControls,
+  WorkspaceStatusStart,
+  PanelHeader,
+  useWorkspacePanel,
+} from "./layouts/WorkspaceLayout.js";
 export type { WorkspaceLayoutProps, PanelDef } from "./layouts/WorkspaceLayout.js";

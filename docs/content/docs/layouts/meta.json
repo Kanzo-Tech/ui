@@ -1,0 +1,12 @@
+{
+  "title": "Layouts",
+  "pages": [
+    "app-shell",
+    "top-bar",
+    "status-bar",
+    "side-panel",
+    "workspace-layout",
+    "editor-shell",
+    "..."
+  ]
+}

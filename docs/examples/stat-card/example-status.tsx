@@ -1,36 +1,59 @@
 import { BoxesIcon, BriefcaseIcon, CloudIcon, DatabaseIcon } from "lucide-react";
-import { StatCard } from "@kanzo-tech/ui";
+import {
+  StatCard,
+  StatCardDescription,
+  StatCardHeader,
+  StatCardIcon,
+  StatCardLabel,
+  StatCardValue,
+} from "@kanzo-tech/ui";
 
 export default function Example() {
   return (
     <div className="grid w-full gap-3 sm:grid-cols-2">
-      <StatCard
-        description="catalogs generated"
-        icon={<BoxesIcon />}
-        label="DCAT Catalogs"
-        value="7"
-      />
-      <StatCard
-        description="accounts configured"
-        icon={<CloudIcon />}
-        label="Cloud Accounts"
-        status="success"
-        value="3"
-      />
-      <StatCard
-        description="waiting on review"
-        icon={<DatabaseIcon />}
-        label="Drafts"
-        status="warning"
-        value="2"
-      />
-      <StatCard
-        description="last run failed"
-        icon={<BriefcaseIcon />}
-        label="Jobs"
-        status="danger"
-        value="12"
-      />
+      <StatCard>
+        <StatCardHeader>
+          <StatCardIcon>
+            <BoxesIcon />
+          </StatCardIcon>
+          <StatCardLabel>DCAT Catalogs</StatCardLabel>
+        </StatCardHeader>
+        <StatCardValue>7</StatCardValue>
+        <StatCardDescription>catalogs generated</StatCardDescription>
+      </StatCard>
+
+      <StatCard status="success">
+        <StatCardHeader>
+          <StatCardIcon>
+            <CloudIcon />
+          </StatCardIcon>
+          <StatCardLabel>Cloud Accounts</StatCardLabel>
+        </StatCardHeader>
+        <StatCardValue>3</StatCardValue>
+        <StatCardDescription>accounts configured</StatCardDescription>
+      </StatCard>
+
+      <StatCard status="warning">
+        <StatCardHeader>
+          <StatCardIcon>
+            <DatabaseIcon />
+          </StatCardIcon>
+          <StatCardLabel>Drafts</StatCardLabel>
+        </StatCardHeader>
+        <StatCardValue>2</StatCardValue>
+        <StatCardDescription>waiting on review</StatCardDescription>
+      </StatCard>
+
+      <StatCard status="danger">
+        <StatCardHeader>
+          <StatCardIcon>
+            <BriefcaseIcon />
+          </StatCardIcon>
+          <StatCardLabel>Jobs</StatCardLabel>
+        </StatCardHeader>
+        <StatCardValue>12</StatCardValue>
+        <StatCardDescription>last run failed</StatCardDescription>
+      </StatCard>
     </div>
   );
 }

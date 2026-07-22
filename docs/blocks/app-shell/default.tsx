@@ -9,7 +9,16 @@ import {
   EmptyState,
   InstanceSwitcher,
   PageShell,
+  PageShellActions,
+  PageShellContent,
+  PageShellDescription,
+  PageShellHeader,
+  PageShellTitle,
   SectionHeader,
+  SectionHeaderActions,
+  SectionHeaderContent,
+  SectionHeaderDescription,
+  SectionHeaderTitle,
   Sidebar,
   SidebarContent,
   SidebarFooter,
@@ -21,6 +30,11 @@ import {
   SidebarTrigger,
   SidebarUser,
   StatCard,
+  StatCardDescription,
+  StatCardHeader,
+  StatCardIcon,
+  StatCardLabel,
+  StatCardValue,
   Tabs,
   TabsContent,
   TabsList,
@@ -179,63 +193,78 @@ export function AppShellBlock() {
 
         <div className="flex-1">
           <PageShell>
-            <PageShell.Header
-              actions={
+            <PageShellHeader>
+              <PageShellTitle>Dashboard</PageShellTitle>
+              <PageShellDescription>
+                Everything this workspace publishes, at a glance.
+              </PageShellDescription>
+              <PageShellActions>
                 <Button size="sm">
                   <PlusIcon />
                   New connection
                 </Button>
-              }
-              description="Everything this workspace publishes, at a glance."
-              title="Dashboard"
-            />
+              </PageShellActions>
+            </PageShellHeader>
 
-            <PageShell.Content>
+            <PageShellContent>
               <div className="space-y-8">
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <StatCard
-                    description="accounts configured"
-                    href="#/app/settings/cloud"
-                    icon={<CloudIcon />}
-                    label="Cloud Accounts"
-                    status="success"
-                    value="3"
-                  />
-                  <StatCard
-                    description="connections configured"
-                    href="#/app/connections"
-                    icon={<DatabaseIcon />}
-                    label="Connections"
-                    status="success"
-                    value="4"
-                  />
-                  <StatCard
-                    description="last run failed"
-                    href="#/app/jobs"
-                    icon={<BriefcaseIcon />}
-                    label="Jobs"
-                    status="danger"
-                    value="12"
-                  />
-                  <StatCard
-                    description="catalogs generated"
-                    href="#/app/catalog"
-                    icon={<BoxesIcon />}
-                    label="DCAT Catalogs"
-                    value="7"
-                  />
+                  <StatCard href="#/app/settings/cloud" status="success">
+                    <StatCardHeader>
+                      <StatCardIcon>
+                        <CloudIcon />
+                      </StatCardIcon>
+                      <StatCardLabel>Cloud Accounts</StatCardLabel>
+                    </StatCardHeader>
+                    <StatCardValue>3</StatCardValue>
+                    <StatCardDescription>accounts configured</StatCardDescription>
+                  </StatCard>
+                  <StatCard href="#/app/connections" status="success">
+                    <StatCardHeader>
+                      <StatCardIcon>
+                        <DatabaseIcon />
+                      </StatCardIcon>
+                      <StatCardLabel>Connections</StatCardLabel>
+                    </StatCardHeader>
+                    <StatCardValue>4</StatCardValue>
+                    <StatCardDescription>connections configured</StatCardDescription>
+                  </StatCard>
+                  <StatCard href="#/app/jobs" status="danger">
+                    <StatCardHeader>
+                      <StatCardIcon>
+                        <BriefcaseIcon />
+                      </StatCardIcon>
+                      <StatCardLabel>Jobs</StatCardLabel>
+                    </StatCardHeader>
+                    <StatCardValue>12</StatCardValue>
+                    <StatCardDescription>last run failed</StatCardDescription>
+                  </StatCard>
+                  <StatCard href="#/app/catalog">
+                    <StatCardHeader>
+                      <StatCardIcon>
+                        <BoxesIcon />
+                      </StatCardIcon>
+                      <StatCardLabel>DCAT Catalogs</StatCardLabel>
+                    </StatCardHeader>
+                    <StatCardValue>7</StatCardValue>
+                    <StatCardDescription>catalogs generated</StatCardDescription>
+                  </StatCard>
                 </div>
 
                 <section className="space-y-3">
-                  <SectionHeader
-                    actions={
+                  <SectionHeader>
+                    <SectionHeaderContent>
+                      <SectionHeaderTitle>Connections</SectionHeaderTitle>
+                      <SectionHeaderDescription>
+                        Sources this workspace reads from.
+                      </SectionHeaderDescription>
+                    </SectionHeaderContent>
+                    <SectionHeaderActions>
                       <Button size="sm" variant="outline">
                         View all
                       </Button>
-                    }
-                    description="Sources this workspace reads from."
-                    title="Connections"
-                  />
+                    </SectionHeaderActions>
+                  </SectionHeader>
 
                   <Tabs defaultValue="data">
                     <TabsList>
@@ -279,10 +308,14 @@ export function AppShellBlock() {
                 </section>
 
                 <section className="space-y-3">
-                  <SectionHeader
-                    description="Not available yet in this workspace."
-                    title="Scheduled runs"
-                  />
+                  <SectionHeader>
+                    <SectionHeaderContent>
+                      <SectionHeaderTitle>Scheduled runs</SectionHeaderTitle>
+                      <SectionHeaderDescription>
+                        Not available yet in this workspace.
+                      </SectionHeaderDescription>
+                    </SectionHeaderContent>
+                  </SectionHeader>
                   <ComingSoon>
                     <div className="flex items-center justify-between rounded-lg border border-border p-4">
                       <div>
@@ -298,7 +331,7 @@ export function AppShellBlock() {
                   </ComingSoon>
                 </section>
               </div>
-            </PageShell.Content>
+            </PageShellContent>
           </PageShell>
         </div>
       </SidebarInset>

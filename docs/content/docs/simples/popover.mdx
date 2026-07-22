@@ -1,0 +1,92 @@
+---
+title: Popover
+description: A floating panel anchored to a trigger, for secondary controls that do not warrant a dialog.
+links:
+  doc: https://ark-ui.com/docs/simples/popover
+---
+
+<ComponentPreview componentName="popover" />
+
+## Usage
+
+```tsx
+import {
+  Popover,
+  PopoverBody,
+  PopoverContent,
+  PopoverFooter,
+  PopoverHeader,
+  PopoverTrigger,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<Popover>
+  <PopoverTrigger asChild>
+    <Button variant="outline">Filters</Button>
+  </PopoverTrigger>
+  <PopoverContent className="w-72">
+    <PopoverHeader title="Filters" description="Narrow the rows shown." />
+    <PopoverBody>…</PopoverBody>
+  </PopoverContent>
+</Popover>
+```
+
+`PopoverContent` supplies its own `Portal` and positioner. The content has no fixed width —
+it is `w-auto min-w-32` — so size it with a `className` when the panel holds a form.
+
+## Anatomy
+
+```text
+Popover
+├── PopoverTrigger      (or PopoverAnchor, to position against something else)
+└── PopoverContent      (portal + positioner)
+    ├── PopoverArrow
+    ├── PopoverHeader
+    │   ├── PopoverTitle
+    │   └── PopoverDescription
+    ├── PopoverBody
+    ├── PopoverFooter
+    └── PopoverClose
+```
+
+Use `PopoverAnchor` when the panel should be positioned against an element other than the one
+that opens it — a highlighted table row opened from a toolbar button, for instance.
+
+## With a close button
+
+Unlike Dialog, the X is off by default: a popover already closes on outside click and Escape,
+so the button is only worth its space when the panel holds a form the user might be mid-way
+through. When it is on, `PopoverTitle` reserves inline-end padding so the two never collide.
+
+<ComponentPreview componentName="popover" fileName="example-with-close" />
+
+## Placement
+
+<ComponentPreview componentName="popover" fileName="example-placement" />
+
+## API Reference
+
+### Popover
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `modal` | `boolean` | `true` |
+| `lazyMount` | `boolean` | `true` |
+| `unmountOnExit` | `boolean` | `true` |
+
+Extends `React.ComponentProps<typeof ArkPopover.Root>`, so `positioning`, `open`,
+`onOpenChange` and the rest of the Ark API pass through.
+
+### PopoverContent
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `showCloseButton` | `boolean` | `false` |
+
+### PopoverHeader
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `title` | `string` | — |
+| `description` | `string` | — |

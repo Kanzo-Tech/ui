@@ -1,0 +1,90 @@
+---
+title: StatCard
+description: A single headline figure with its label, status tint and an optional description.
+---
+
+<ComponentPreview componentName="stat-card" />
+
+## Usage
+
+```tsx
+import {
+  StatCard,
+  StatCardHeader,
+  StatCardIcon,
+  StatCardLabel,
+  StatCardValue,
+  StatCardDescription,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<StatCard>
+  <StatCardHeader>
+    <StatCardIcon><DatabaseIcon /></StatCardIcon>
+    <StatCardLabel>Connections</StatCardLabel>
+  </StatCardHeader>
+  <StatCardValue>4</StatCardValue>
+  <StatCardDescription>connections configured</StatCardDescription>
+</StatCard>
+```
+
+## Anatomy
+
+```text
+StatCard
+├── StatCardHeader
+│   ├── StatCardIcon
+│   └── StatCardLabel
+├── StatCardValue
+└── StatCardDescription
+```
+
+## Status
+
+`status` stays a prop on the root: it is state, not content, and it has to be read by the icon
+disc, which picks the tint off the root's `data-status` rather than through context — so the
+part needs no client boundary. A theme change re-skins the whole dashboard row without
+touching a call site.
+
+<ComponentPreview componentName="stat-card" fileName="example-status" />
+
+## Loading
+
+`loading` sits on `StatCardValue` and `StatCardDescription` — the two parts that actually swap
+for a skeleton. The label and icon are known before the figure is, so they keep rendering. The
+skeleton is sized to the rendered text, so the tile does not jump when the number arrives.
+
+<ComponentPreview componentName="stat-card" fileName="example-loading" />
+
+## As a link
+
+With `href` the whole card becomes one link target — a single tab stop, which is what a tile
+should be. Without it the card is inert. Pass `linkComponent` to route through your router.
+
+<ComponentPreview componentName="stat-card" fileName="example-link" />
+
+## API Reference
+
+### StatCard
+
+Renders a `Card` (`div`); takes its props.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `status` | `"neutral" \| "success" \| "warning" \| "danger"` | `"neutral"` |
+| `href` | `string` | — |
+| `linkComponent` | `LinkComponent` | `DefaultLink` |
+
+### StatCardValue / StatCardDescription
+
+`StatCardValue` renders a `div`, `StatCardDescription` a `p`.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `loading` | `boolean` | `false` |
+
+### Other parts
+
+`StatCardHeader` and `StatCardIcon` render a `div` and `StatCardLabel` a `span`; each takes
+that element's props and nothing more.

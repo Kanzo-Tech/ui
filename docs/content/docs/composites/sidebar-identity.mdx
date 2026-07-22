@@ -1,0 +1,86 @@
+---
+title: SidebarIdentity
+description: The collapse-aware avatar-plus-name block shared by the sidebar switchers.
+---
+
+<ComponentPreview componentName="sidebar-identity" />
+
+## Usage
+
+```tsx
+import {
+  SidebarIdentity,
+  SidebarIdentityIcon,
+  SidebarIdentityAvatar,
+  SidebarIdentityText,
+  SidebarIdentityLabel,
+  SidebarIdentityDescription,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<SidebarIdentity>
+  <SidebarIdentityIcon><BoxesIcon /></SidebarIdentityIcon>
+  <SidebarIdentityText>
+    <SidebarIdentityLabel>Kanzo</SidebarIdentityLabel>
+    <SidebarIdentityDescription>Owner</SidebarIdentityDescription>
+  </SidebarIdentityText>
+</SidebarIdentity>
+```
+
+This is the block [`SidebarUser`](/docs/composites/sidebar-user) and
+[`InstanceSwitcher`](/docs/composites/instance-switcher) both render in their trigger and in
+their menu header — extracted so the two cannot drift apart. Reach for it directly when you
+build a third switcher of your own.
+
+`SidebarIdentityIcon` swaps the round avatar for a square tile: round reads as a person, square
+as a workspace or org. Use one or the other, not both.
+
+## Anatomy
+
+```text
+SidebarIdentity
+├── SidebarIdentityIcon      (workspaces / orgs)
+├── SidebarIdentityAvatar    (people)
+│   ├── AvatarImage
+│   └── AvatarFallback
+└── SidebarIdentityText
+    ├── SidebarIdentityLabel
+    └── SidebarIdentityDescription
+```
+
+`SidebarIdentityAvatar` takes the real [`Avatar`](/docs/simples/avatar) parts as children, so
+an image, initials, a badge or a presence dot are all available — where a `avatarUrl` +
+`fallback` pair could only ever produce an `<img>` and some letters.
+
+## Collapsing
+
+`responsive` and `collapsed` stay props on the root because they are behaviour, and the parts
+read them from context rather than having them repeated on each one — which is why this
+component is `"use client"`.
+
+`responsive` gates the `group-data-[collapsible=icon]` variants: the text column and the gap
+collapse away and the avatar grows to fill the 32px square. Leave it off for the portaled menu
+header, which is never collapsed. `collapsed` tells the avatar which semantic size to use, so
+badges and icons inside it stay correctly scaled — it is derived from the sidebar state, so
+`SidebarIdentityAvatar` does not accept a `size` of its own.
+
+## API Reference
+
+### SidebarIdentity
+
+Renders a `div`; takes its props.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `responsive` | `boolean` | `false` |
+| `collapsed` | `boolean` | `false` |
+
+### SidebarIdentityAvatar
+
+Takes [`Avatar`](/docs/simples/avatar)'s props except `size`.
+
+### Other parts
+
+`SidebarIdentityIcon` and `SidebarIdentityText` render a `div`; `SidebarIdentityLabel` and
+`SidebarIdentityDescription` render a `span`. Each takes that element's props and nothing more.

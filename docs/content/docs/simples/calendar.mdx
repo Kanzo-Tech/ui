@@ -1,0 +1,80 @@
+---
+title: Calendar
+description: An inline month grid — the surface the date picker opens.
+links:
+  doc: https://ark-ui.com/docs/simples/date-picker
+---
+
+<ComponentPreview componentName="calendar" />
+
+## Usage
+
+```tsx
+import {
+  Calendar,
+  CalendarTable,
+  CalendarTableDays,
+  CalendarView,
+  CalendarViewControl,
+  CalendarWeekDays,
+} from "@kanzo-tech/ui";
+```
+
+`Calendar` is Ark's DatePicker with `inline` fixed on, so the grid is always visible and
+there is no trigger or popover. It is the same machine the
+[Date Picker](/docs/simples/date-picker) uses, which is why the parts are shared: the grid
+is a real `role="grid"` with roving tabindex, arrow-key navigation and month/year quick-nav.
+
+`CalendarTableDays` and `CalendarWeekDays` read the weeks and weekday names off the machine,
+so a locale change re-flows the grid without any work on your side.
+
+## Anatomy
+
+```text
+Calendar
+└── CalendarView
+    ├── CalendarViewControl
+    │   ├── CalendarPrevTrigger
+    │   ├── CalendarMonthSelect
+    │   ├── CalendarYearSelect
+    │   ├── CalendarViewDate
+    │   └── CalendarNextTrigger
+    └── CalendarTable
+        ├── CalendarWeekDays
+        ├── CalendarTableDays
+        └── CalendarTableNextMonth
+```
+
+## Range
+
+<ComponentPreview componentName="calendar" fileName="example-range" />
+
+## Two months
+
+`CalendarTableNextMonth` renders the month `months` ahead of the visible one, so a two-month
+range picker is two tables in one view rather than two calendars.
+
+<ComponentPreview componentName="calendar" fileName="example-two-months" />
+
+## With actions
+
+<ComponentPreview componentName="calendar" fileName="example-with-actions" />
+
+## API Reference
+
+### CalendarWeekDays
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `format` | `"narrow" \| "short" \| "long"` | `"narrow"` |
+
+### CalendarTableNextMonth
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `months` | `number` | `1` |
+
+`Calendar` extends `DatePicker.Root` from Ark, so `value`, `defaultValue`, `onValueChange`,
+`selectionMode`, `numOfMonths`, `min`, `max`, `locale`, `startOfWeek`, `fixedWeeks`,
+`isDateUnavailable`, `disabled` and `readOnly` pass through. `lazyMount` and `unmountOnExit`
+default to `true`.

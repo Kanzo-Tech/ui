@@ -1,0 +1,89 @@
+---
+title: Field
+description: The chrome around a control — label, description, helper and error text, wired together.
+links:
+  doc: https://ark-ui.com/docs/simples/field
+---
+
+<ComponentPreview componentName="field" />
+
+## Usage
+
+```tsx
+import { Field, FieldDescription, FieldLabel } from "@kanzo-tech/ui";
+```
+
+```tsx
+<Field invalid>
+  <FieldLabel>Dataset name</FieldLabel>
+  <Input />
+  <FieldError>Names cannot contain spaces.</FieldError>
+</Field>
+```
+
+## Anatomy
+
+```text
+FieldSet
+├── FieldLegend
+├── FieldDescription
+└── FieldGroup
+    └── Field
+        ├── FieldLabel
+        │   └── FieldRequiredIndicator
+        ├── FieldContent
+        │   └── FieldTitle
+        ├── <control>
+        ├── FieldDescription
+        ├── FieldHelper
+        ├── FieldError
+        └── FieldSeparator
+```
+
+## Orientation
+
+`vertical` stacks label above control, `horizontal` puts them on one line, and `responsive`
+starts vertical and becomes horizontal once the surrounding `FieldGroup` container is wide
+enough — the switch is a container query, so a field in a narrow panel stays stacked.
+
+<ComponentPreview componentName="field" fileName="example-orientation" />
+
+## Invalid
+
+`invalid` on the root is what colours the label, the control and `FieldError` at once, and
+`FieldError` only renders while the field is invalid.
+
+<ComponentPreview componentName="field" fileName="example-invalid" />
+
+## Required
+
+<ComponentPreview componentName="field" fileName="example-required" />
+
+## Disabled
+
+<ComponentPreview componentName="field" fileName="example-disabled" />
+
+## Field set
+
+`FieldSet` renders a real `fieldset`/`legend`, so a group of related fields is announced as a
+group rather than as loose controls.
+
+<ComponentPreview componentName="field" fileName="example-field-set" />
+
+## API Reference
+
+### Field
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `orientation` | `"vertical" \| "horizontal" \| "responsive"` | `"vertical"` |
+| `reverse` | `boolean` | `false` |
+
+Extends `Field.Root` from Ark, so `invalid`, `disabled`, `required`, `readOnly` and `id` pass
+through.
+
+### FieldLegend
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `variant` | `"legend" \| "label"` | `"legend"` |

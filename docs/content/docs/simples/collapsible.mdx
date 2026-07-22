@@ -1,0 +1,64 @@
+---
+title: Collapsible
+description: A region that animates its height open and closed.
+links:
+  doc: https://ark-ui.com/docs/simples/collapsible
+---
+
+<ComponentPreview componentName="collapsible" />
+
+## Usage
+
+```tsx
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleIndicator,
+  CollapsibleTrigger,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<Collapsible defaultOpen>
+  <CollapsibleTrigger asChild>
+    <Button variant="outline">Toggle details</Button>
+  </CollapsibleTrigger>
+  <CollapsibleContent>…</CollapsibleContent>
+</Collapsible>
+```
+
+`CollapsibleContent` puts your `className` on an inner wrapper, not on the animating element —
+padding and margins on the content therefore do not fight the height transition.
+
+## Anatomy
+
+```text
+<Collapsible>
+  <CollapsibleTrigger>
+    <CollapsibleIndicator />   ← optional chevron
+  <CollapsibleContent>
+    <div className={…}>        ← your className lands here
+```
+
+## With indicator
+
+<ComponentPreview componentName="collapsible" fileName="example-with-indicator" />
+
+## Partial collapse
+
+Give `collapsedHeight` and the closed state keeps that much visible instead of hiding
+everything — a "read more". Since the content must exist to be measured, this mode also
+forces `lazyMount` and `unmountOnExit` off.
+
+<ComponentPreview componentName="collapsible" fileName="example-partial" />
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `collapsedHeight` | `number \| string` | — |
+| `lazyMount` | `boolean` | `true` (forced `false` with `collapsedHeight`) |
+| `unmountOnExit` | `boolean` | `true` (forced `false` with `collapsedHeight`) |
+
+`open`, `defaultOpen`, `onOpenChange` and `disabled` are Ark's `Collapsible.Root`.
+`useCollapsible` re-exports Ark's `useCollapsibleContext`.

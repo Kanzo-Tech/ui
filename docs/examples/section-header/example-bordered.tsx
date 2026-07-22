@@ -1,18 +1,26 @@
-import { Button, SectionHeader } from "@kanzo-tech/ui";
+import {
+  Button,
+  SectionHeader,
+  SectionHeaderActions,
+  SectionHeaderContent,
+  SectionHeaderDescription,
+  SectionHeaderTitle,
+} from "@kanzo-tech/ui";
 
 export default function Example() {
   return (
-    <SectionHeader
-      actions={
+    <SectionHeader bordered className="w-full">
+      <SectionHeaderContent>
+        <SectionHeaderTitle level={3}>Job defaults</SectionHeaderTitle>
+        <SectionHeaderDescription>
+          Applies to every job in this workspace.
+        </SectionHeaderDescription>
+      </SectionHeaderContent>
+      <SectionHeaderActions>
         <Button size="sm" variant="outline">
           Edit
         </Button>
-      }
-      bordered
-      className="w-full"
-      description="Applies to every job in this workspace."
-      headingLevel={3}
-      title="Job defaults"
-    />
+      </SectionHeaderActions>
+    </SectionHeader>
   );
 }

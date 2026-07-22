@@ -1,18 +1,25 @@
-import type { ReactNode } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "../simples/avatar.js";
+"use client";
+
+import { createContext, useContext, type ComponentProps } from "react";
+import { Avatar } from "../simples/avatar.js";
 import { cn } from "../lib/cn.js";
 
-/** The visual identity shown in a sidebar switcher trigger / menu header: an avatar (or a square
- *  icon tile, for instances/workspaces) + a label and optional description. */
-export interface IdentityData {
-  label: ReactNode;
-  description?: ReactNode;
-  /** Avatar image URL (people). */
-  avatarUrl?: string;
-  /** Avatar fallback (initials) when there's no image. */
-  fallback?: ReactNode;
-  /** A square icon tile instead of an avatar (instances / workspaces / orgs). */
-  icon?: ReactNode;
+/**
+ * `responsive`/`collapsed` are behaviour, so they stay props on the root — but the parts need
+ * them too (the avatar's semantic size, the text column's collapse). Context carries them
+ * down instead of the caller repeating them on every part. This is why the file is
+ * `"use client"`; both consumers ({@link SidebarUser}, {@link InstanceSwitcher}) already are.
+ */
+const IdentityCtx = createContext<{ responsive: boolean; collapsed: boolean }>({
+  responsive: false,
+  collapsed: false,
+});
+
+export interface SidebarIdentityProps extends ComponentProps<"div"> {
+  /** Gate the `group-data-[collapsible=icon]` variants (false for the portaled menu header). */
+  responsive?: boolean;
+  /** Whether the sidebar is currently collapsed (drives the avatar's semantic size). */
+  collapsed?: boolean;
 }
 
 /**
@@ -20,47 +27,115 @@ export interface IdentityData {
  * {@link SidebarUser} and {@link InstanceSwitcher}. When `responsive`, the text column and gap
  * collapse in the sidebar's icon state and the avatar grows to fill the 32px square (its
  * `data-size` grows to `md` too, so badges/icons stay correctly scaled).
+ *
+ * The content is CHILDREN, not an `IdentityData` object prop. A record of `ReactNode`s
+ * (`label`/`description`/`avatarUrl`/`fallback`/`icon`) is a layout tree written as an
+ * attribute: you cannot reorder it, wrap a region, spread props onto one, or use `asChild` —
+ * and the avatar could only ever be an `<img src>` plus initials, never a badge or a status
+ * dot. Composition gives all of that back, and matches how every simple in this library
+ * already works — `CardHeader`, not `<Card header={…} />`.
+ *
+ *   <SidebarIdentity responsive collapsed={collapsed}>
+ *     <SidebarIdentityAvatar>
+ *       <AvatarImage src={url} alt={name} />
+ *       <AvatarFallback>{initials}</AvatarFallback>
+ *     </SidebarIdentityAvatar>
+ *     <SidebarIdentityText>
+ *       <SidebarIdentityLabel>{name}</SidebarIdentityLabel>
+ *       <SidebarIdentityDescription>{email}</SidebarIdentityDescription>
+ *     </SidebarIdentityText>
+ *   </SidebarIdentity>
  */
 export function SidebarIdentity({
-  data,
   responsive = false,
   collapsed = false,
-}: {
-  data: IdentityData;
-  /** Gate the `group-data-[collapsible=icon]` variants (false for the portaled menu header). */
-  responsive?: boolean;
-  /** Whether the sidebar is currently collapsed (drives the avatar's semantic size). */
-  collapsed?: boolean;
-}) {
+  className,
+  children,
+  ...rest
+}: SidebarIdentityProps) {
+  return (
+    <IdentityCtx.Provider value={{ responsive, collapsed }}>
+      <div
+        className={cn(
+          "flex min-w-0 flex-1 items-center gap-2 text-left",
+          // Collapsed, the avatar/tile (32px) is slightly larger than the ghost button's content
+          // box (32px minus its 1px transparent border), so `justify-start` would left-align it and
+          // clip the right edge — reading as off-centre. Centre it so the overflow is symmetric.
+          responsive && "group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0",
+          className,
+        )}
+        data-slot="sidebar-identity"
+        {...rest}
+      >
+        {children}
+      </div>
+    </IdentityCtx.Provider>
+  );
+}
+SidebarIdentity.displayName = "SidebarIdentity";
+
+/** A square icon tile instead of an avatar (instances / workspaces / orgs). */
+export function SidebarIdentityIcon({ className, ...rest }: ComponentProps<"div">) {
+  const { responsive } = useContext(IdentityCtx);
   return (
     <div
       className={cn(
-        "flex min-w-0 flex-1 items-center gap-2 text-left",
-        // Collapsed, the avatar/tile (32px) is slightly larger than the ghost button's content
-        // box (32px minus its 1px transparent border), so `justify-start` would left-align it and
-        // clip the right edge — reading as off-centre. Centre it so the overflow is symmetric.
-        responsive && "group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0",
+        "flex size-6 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground [&_svg]:size-4",
+        responsive && "group-data-[collapsible=icon]:size-8",
+        className,
       )}
-    >
-      {data.icon != null ? (
-        <div
-          className={cn(
-            "flex size-6 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground [&_svg]:size-4",
-            responsive && "group-data-[collapsible=icon]:size-8",
-          )}
-        >
-          {data.icon}
-        </div>
-      ) : (
-        <Avatar size={responsive && collapsed ? "md" : "sm"}>
-          {data.avatarUrl != null && <AvatarImage src={data.avatarUrl} alt={typeof data.label === "string" ? data.label : ""} />}
-          <AvatarFallback>{data.fallback}</AvatarFallback>
-        </Avatar>
-      )}
-      <div className={cn("flex min-w-0 flex-col leading-tight", responsive && "group-data-[collapsible=icon]:hidden")}>
-        <span className="truncate text-sm font-medium">{data.label}</span>
-        {data.description != null && <span className="truncate text-xs text-muted-foreground">{data.description}</span>}
-      </div>
-    </div>
+      data-slot="sidebar-identity-icon"
+      {...rest}
+    />
   );
 }
+SidebarIdentityIcon.displayName = "SidebarIdentityIcon";
+
+/**
+ * The avatar (people). Takes `AvatarImage` / `AvatarFallback` as children; its `size` is
+ * derived from the sidebar state, so it is not overridable here.
+ */
+export function SidebarIdentityAvatar(props: Omit<ComponentProps<typeof Avatar>, "size">) {
+  const { responsive, collapsed } = useContext(IdentityCtx);
+  return <Avatar data-slot="sidebar-identity-avatar" size={responsive && collapsed ? "md" : "sm"} {...props} />;
+}
+SidebarIdentityAvatar.displayName = "SidebarIdentityAvatar";
+
+/** The text column. Hidden entirely in the sidebar's icon state when `responsive`. */
+export function SidebarIdentityText({ className, ...rest }: ComponentProps<"div">) {
+  const { responsive } = useContext(IdentityCtx);
+  return (
+    <div
+      className={cn(
+        "flex min-w-0 flex-col leading-tight",
+        responsive && "group-data-[collapsible=icon]:hidden",
+        className,
+      )}
+      data-slot="sidebar-identity-text"
+      {...rest}
+    />
+  );
+}
+SidebarIdentityText.displayName = "SidebarIdentityText";
+
+export function SidebarIdentityLabel({ className, ...rest }: ComponentProps<"span">) {
+  return (
+    <span
+      className={cn("truncate text-sm font-medium", className)}
+      data-slot="sidebar-identity-label"
+      {...rest}
+    />
+  );
+}
+SidebarIdentityLabel.displayName = "SidebarIdentityLabel";
+
+export function SidebarIdentityDescription({ className, ...rest }: ComponentProps<"span">) {
+  return (
+    <span
+      className={cn("truncate text-xs text-muted-foreground", className)}
+      data-slot="sidebar-identity-description"
+      {...rest}
+    />
+  );
+}
+SidebarIdentityDescription.displayName = "SidebarIdentityDescription";

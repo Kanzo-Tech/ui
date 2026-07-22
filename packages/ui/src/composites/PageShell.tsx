@@ -1,60 +1,119 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { ComponentProps } from "react";
+import { cn } from "../lib/cn.js";
 
 /**
- * PageShell — the "page header + body + footer" pattern every product repeats.
- * Domain-free: title/description/actions are slots. Token-styled (was keasy's Tailwind
- * `layout/page-shell.tsx`).
+ * PageShell — the "page header + body + footer" pattern every product repeats. Domain-free,
+ * token-styled (was keasy's Tailwind `layout/page-shell.tsx`).
  *
  *   <PageShell>
- *     <PageShell.Header title="Catalog" description="…" actions={<Button/>} />
- *     <PageShell.Content> … </PageShell.Content>
- *     <PageShell.Footer> … </PageShell.Footer>
+ *     <PageShellHeader>
+ *       <PageShellTitle>Catalog</PageShellTitle>
+ *       <PageShellDescription>…</PageShellDescription>
+ *       <PageShellActions><Button/></PageShellActions>
+ *     </PageShellHeader>
+ *     <PageShellContent> … </PageShellContent>
+ *     <PageShellFooter> … </PageShellFooter>
  *   </PageShell>
+ *
+ * The header's regions are CHILDREN, not props. They used to be `title`/`description`/
+ * `actions` `ReactNode` attributes, which is a layout tree written as attributes: you cannot
+ * reorder it, wrap a region, spread props onto one, or use `asChild`.
+ *
+ * The parts are FLAT exports, not `Object.assign(PageShell, { Header })`. Statics are lost
+ * when a module becomes a client reference under React Server Components, so `PageShell.Header`
+ * reads back as `undefined` there — a bug we hit for real with `Preferences`.
  */
-function PageShellRoot({ children, style }: { children: ReactNode; style?: CSSProperties }) {
+export function PageShell({ className, ...rest }: ComponentProps<"div">) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col" style={style}>
-      {children}
-    </div>
+    <div
+      className={cn("flex min-h-0 flex-1 flex-col", className)}
+      data-slot="page-shell"
+      {...rest}
+    />
   );
 }
+PageShell.displayName = "PageShell";
 
-function Header({
-  title,
-  description,
-  actions,
-}: {
-  title: ReactNode;
-  description?: ReactNode;
-  actions?: ReactNode;
-}) {
+/**
+ * A two-column grid rather than a flex row: it lets the title and description stack in the
+ * first column with no wrapper element around them, while `PageShellActions` spans both rows
+ * in the second (see its own placement classes).
+ */
+export function PageShellHeader({ className, ...rest }: ComponentProps<"header">) {
   return (
-    <header className="flex items-center justify-between px-4 pb-2 pt-4">
-      <div>
-        <h1 className="text-lg font-bold text-foreground">{title}</h1>
-        {description != null && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
-      </div>
-      {actions}
-    </header>
+    <header
+      className={cn(
+        "grid auto-rows-min grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 px-4 pb-2 pt-4",
+        className,
+      )}
+      data-slot="page-shell-header"
+      {...rest}
+    />
   );
 }
+PageShellHeader.displayName = "PageShellHeader";
 
-// `<section>` (not `<main>`) so PageShell can safely nest inside an AppShell that already
-// owns the page's single `<main>` landmark.
-function Content({ children, style }: { children: ReactNode; style?: CSSProperties }) {
+export function PageShellTitle({ className, ...rest }: ComponentProps<"h1">) {
   return (
-    <section className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4" style={style}>
-      {children}
-    </section>
+    <h1
+      className={cn("col-start-1 text-lg font-bold text-foreground", className)}
+      data-slot="page-shell-title"
+      {...rest}
+    />
   );
 }
+PageShellTitle.displayName = "PageShellTitle";
 
-function Footer({ children, style }: { children: ReactNode; style?: CSSProperties }) {
+export function PageShellDescription({ className, ...rest }: ComponentProps<"p">) {
   return (
-    <footer className="shrink-0 border-t border-border bg-card px-4 py-3" style={style}>
+    <p
+      className={cn("col-start-1 mt-1 text-sm text-muted-foreground", className)}
+      data-slot="page-shell-description"
+      {...rest}
+    />
+  );
+}
+PageShellDescription.displayName = "PageShellDescription";
+
+/** End-aligned header controls. Spans both header rows so it centres against the whole block. */
+export function PageShellActions({ className, ...rest }: ComponentProps<"div">) {
+  return (
+    <div
+      className={cn(
+        "col-start-2 row-span-2 row-start-1 flex items-center gap-2 self-center justify-self-end",
+        className,
+      )}
+      data-slot="page-shell-actions"
+      {...rest}
+    />
+  );
+}
+PageShellActions.displayName = "PageShellActions";
+
+/**
+ * `<section>` (not `<main>`) so PageShell can safely nest inside an AppShell that already
+ * owns the page's single `<main>` landmark.
+ */
+export function PageShellContent({ className, ...rest }: ComponentProps<"section">) {
+  return (
+    <section
+      className={cn("flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4", className)}
+      data-slot="page-shell-content"
+      {...rest}
+    />
+  );
+}
+PageShellContent.displayName = "PageShellContent";
+
+export function PageShellFooter({ className, children, ...rest }: ComponentProps<"footer">) {
+  return (
+    <footer
+      className={cn("shrink-0 border-t border-border bg-card px-4 py-3", className)}
+      data-slot="page-shell-footer"
+      {...rest}
+    >
       <div className="flex items-center justify-between">{children}</div>
     </footer>
   );
 }
-
-export const PageShell = Object.assign(PageShellRoot, { Header, Content, Footer });
+PageShellFooter.displayName = "PageShellFooter";

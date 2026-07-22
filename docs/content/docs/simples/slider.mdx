@@ -1,0 +1,75 @@
+---
+title: Slider
+description: A draggable value along a track, with one thumb or two.
+links:
+  doc: https://ark-ui.com/docs/simples/slider
+---
+
+<ComponentPreview componentName="slider" />
+
+## Usage
+
+```tsx
+import { Slider, SliderLabel, SliderValue } from "@kanzo-tech/ui";
+```
+
+```tsx
+<Slider defaultValue={[40]} max={100} />
+```
+
+The value is always an array, and the number of thumbs follows its length. Pass a
+`defaultValue` even for a single-thumb slider — with neither `value` nor `defaultValue` the
+component falls back to `[min, max]` and renders two thumbs.
+
+The control, track, range and thumbs are rendered for you; anything you pass as children is
+placed above them, which is where the label and value go.
+
+## Anatomy
+
+```text
+Slider
+├── SliderLabel
+├── SliderValue
+└── (control, track, range, thumbs, markers — rendered internally)
+```
+
+## With label
+
+<ComponentPreview componentName="slider" fileName="example-with-label" />
+
+## Range
+
+`minStepsBetweenThumbs` keeps the two thumbs from crossing or landing on the same value.
+
+<ComponentPreview componentName="slider" fileName="example-range" />
+
+## Markers
+
+`showMarkers` draws one marker per step from `min` to `max`, so keep `max` small. Ticks whose
+index is not a multiple of `markerInterval` keep the tick and drop the label.
+
+<ComponentPreview componentName="slider" fileName="example-markers" />
+
+### Marker labels
+
+<ComponentPreview componentName="slider" fileName="example-marker-labels" />
+
+## Vertical
+
+<ComponentPreview componentName="slider" fileName="example-vertical" />
+
+## Disabled
+
+<ComponentPreview componentName="slider" fileName="example-disabled" />
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `showMarkers` | `boolean` | `false` |
+| `markerInterval` | `number` | `1` |
+| `markerLabels` | `string[]` | `[]` |
+
+Extends `Slider.Root` from Ark, so `value`, `defaultValue`, `onValueChange`,
+`onValueChangeEnd`, `min`, `max`, `step`, `minStepsBetweenThumbs`, `orientation`, `disabled`,
+`readOnly`, `invalid`, `name` and `form` pass through.

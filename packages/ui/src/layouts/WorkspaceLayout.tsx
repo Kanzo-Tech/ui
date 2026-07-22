@@ -7,12 +7,15 @@ import {
   useEffect,
   useRef,
   useState,
+  type ComponentProps,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { Resizable, ResizablePanel, ResizableResizeTrigger, useResizable } from "../simples/resizable.js";
 import { XIcon } from "lucide-react";
 import { Button } from "../simples/button.js";
-import { StatusBar, type StatusBarPanelButton } from "./StatusBar.js";
+import { cn } from "../lib/cn.js";
+import { StatusBar, StatusBarStart, type StatusBarPanelButton } from "./StatusBar.js";
 
 /** A dockable side panel: an icon toggle in the status bar + its content. */
 export interface PanelDef {
@@ -24,17 +27,14 @@ export interface PanelDef {
 }
 
 export interface WorkspaceLayoutProps {
-  /** The canvas (editor, graph, map …). Shrinks side-by-side when the dock opens. */
-  children: ReactNode;
   /**
-   * Canvas-anchored controls (zoom, fit-to-screen, a run action for a graph view).
-   * Reserved for things that act ON the canvas — navigation belongs in the page chrome,
-   * not floating over the content.
+   * The canvas (editor, graph, map …). Shrinks side-by-side when the dock opens.
+   * Put {@link WorkspaceFloatingControls} and {@link WorkspaceStatusStart} in here too — they
+   * used to be the `floatingControls` / `statusLeft` slot props.
    */
-  floatingControls?: ReactNode;
-  /** Right dock panels — toggled from the status bar. */
+  children: ReactNode;
+  /** Right dock panels — toggled from the status bar. DATA + behaviour, not a slot. */
   panels: PanelDef[];
-  statusLeft?: ReactNode;
   defaultPanel?: string;
   /** Initial dock width as a % of the workspace (Splitter remembers it across toggles). */
   defaultDockSize?: number;
@@ -46,10 +46,46 @@ export interface WorkspaceLayoutProps {
 }
 
 // ── PanelHeader (reads the close action from context) ─────────────────────
-const WorkspaceCtx = createContext<{ closePanel: () => void }>({ closePanel: () => {} });
+const WorkspaceCtx = createContext<{
+  closePanel: () => void;
+  /** The status bar's start cluster, once mounted — {@link WorkspaceStatusStart} portals into it. */
+  statusStartEl: HTMLElement | null;
+}>({ closePanel: () => {}, statusStartEl: null });
 export function useWorkspacePanel() {
   return useContext(WorkspaceCtx);
 }
+
+/**
+ * Canvas-anchored controls (zoom, fit-to-screen, a run action for a graph view). Reserved for
+ * things that act ON the canvas — navigation belongs in the page chrome, not floating over
+ * the content. Was the `floatingControls` slot prop; write it as a child of the canvas
+ * instead, which is the box it anchors to.
+ *
+ * `end-3` (logical), not `right-3`: the controls hug the inline end, so they mirror in RTL.
+ */
+export function WorkspaceFloatingControls({ className, ...rest }: ComponentProps<"div">) {
+  return (
+    <div
+      className={cn("absolute bottom-3 end-3 z-30", className)}
+      data-slot="workspace-floating-controls"
+      {...rest}
+    />
+  );
+}
+WorkspaceFloatingControls.displayName = "WorkspaceFloatingControls";
+
+/**
+ * Content for the start cluster of the workspace's {@link StatusBar} (was the `statusLeft`
+ * slot prop). The bar is owned by {@link WorkspaceLayout} — it has to be, since it renders
+ * the panel toggles from `panels` — so this is written as a child anywhere inside the layout
+ * and portals into the bar. Renders nothing until the bar is mounted, so keep it to status
+ * text, not content that must be in the server-rendered HTML.
+ */
+export function WorkspaceStatusStart({ children }: { children: ReactNode }) {
+  const { statusStartEl } = useWorkspacePanel();
+  return statusStartEl ? createPortal(children, statusStartEl) : null;
+}
+WorkspaceStatusStart.displayName = "WorkspaceStatusStart";
 
 export function PanelHeader({ title }: { title: ReactNode }) {
   const { closePanel } = useWorkspacePanel();
@@ -111,8 +147,6 @@ function DockSync({ open, openSize }: { open: boolean; openSize: number }) {
 export function WorkspaceLayout({
   children,
   panels,
-  statusLeft,
-  floatingControls,
   defaultPanel = panels[0]?.id,
   defaultDockSize = 28,
   maxDockSize = 55,
@@ -122,6 +156,7 @@ export function WorkspaceLayout({
   const [activePanel, setActivePanel] = useState<string | null>(() =>
     loadPanel(storageKey, defaultPanel),
   );
+  const [statusStartEl, setStatusStartEl] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     try {
@@ -167,13 +202,14 @@ export function WorkspaceLayout({
   // already provides the page's single `<main>` landmark.
   const canvas = (
     <section aria-label="Canvas" className="relative size-full min-w-0 overflow-hidden">
+      {/* `absolute inset-0`: the canvas content fills the section without needing to know its
+          size. `WorkspaceFloatingControls` sits in here too and anchors to the same box. */}
       <div className="absolute inset-0 z-0">{children}</div>
-      {floatingControls && <div className="absolute bottom-3 right-3 z-30">{floatingControls}</div>}
     </section>
   );
 
   return (
-    <WorkspaceCtx.Provider value={{ closePanel }}>
+    <WorkspaceCtx.Provider value={{ closePanel, statusStartEl }}>
       {/* `min-w-0`: as a flex child this box defaults to `min-width:auto`, so the canvas
           content sets a floor the shell cannot shrink below — on a narrowing viewport the
           layout keeps its old width and overflows instead of reflowing. */}
@@ -208,7 +244,11 @@ export function WorkspaceLayout({
           </Resizable>
         </div>
 
-        <StatusBar left={statusLeft} panels={statusPanels} activePanel={activePanel} onPanelToggle={togglePanel} />
+        <StatusBar panels={statusPanels} activePanel={activePanel} onPanelToggle={togglePanel}>
+          {/* Always rendered (even empty) so it keeps the start cluster's flex-1 width and
+              gives `WorkspaceStatusStart` a stable portal target. */}
+          <StatusBarStart ref={setStatusStartEl} />
+        </StatusBar>
       </div>
     </WorkspaceCtx.Provider>
   );
