@@ -1,0 +1,26 @@
+@import "tailwindcss";
+/* The design system's own tokens + compiled sheet — the docs eat the published artifact. */
+@import "@kanzo-tech/theme/tokens.css";
+@import "@kanzo-tech/theme/themes.css";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+
+/*
+ * Our Shiki output is rendered by `components/code-block.tsx`, not by fumadocs' MDX pipeline,
+ * so fumadocs' own codeblock rules land on it and paint a background box behind every line.
+ * Scope the reset to our figure only — MDX-authored fences must keep fumadocs' styling.
+ */
+[data-code-figure] pre,
+[data-code-figure] code,
+[data-code-figure] .shiki,
+[data-code-figure] [data-line] {
+  background: transparent !important;
+}
+
+[data-code-figure] .shiki span {
+  color: var(--shiki-light);
+}
+
+.dark [data-code-figure] .shiki span {
+  color: var(--shiki-dark);
+}

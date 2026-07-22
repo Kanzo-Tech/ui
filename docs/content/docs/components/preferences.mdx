@@ -1,0 +1,91 @@
+---
+title: Preferences
+description: A live theming selector that drives the theme attributes on the document.
+---
+
+<ComponentPreview componentName="preferences" />
+
+## Usage
+
+```tsx
+import { Preferences } from "@kanzo-tech/ui";
+```
+
+```tsx
+<Preferences hotkey="t" />
+```
+
+The all-in-one renders a floating trigger plus the drawer. It writes through `useKanzoTheme`,
+which sets `data-*` attributes on `<html>` — that is why every component re-skins, including
+Ark's portaled overlays, which render into `document.body` and would miss a wrapper element.
+Dark mode is delegated to the appearance controller (next-themes, or the provider's fallback).
+
+The panel is deliberately **non-modal** and does not close on outside interaction: you keep
+using the app while it re-skins live behind the drawer, which is the only way to judge a theme.
+
+There is no default hotkey. `hotkey` registers a bare, unmodified key on `window` (ignored
+while you are typing in a field), and a design system must not claim one in its host's keymap
+without being asked.
+
+## Anatomy
+
+```text
+Preferences.Root
+├── Preferences.Trigger
+└── Preferences.Panel
+    ├── Preferences.Appearance
+    ├── Preferences.Accent
+    ├── Preferences.Base
+    ├── Preferences.Radius
+    ├── Preferences.Font
+    ├── Preferences.MonoFont
+    ├── Preferences.Density
+    └── Preferences.CopyTheme
+```
+
+`Panel` renders the canonical product set when given no children. Pass children to choose your
+own — `Base` is omitted from the default panel because most products want one fixed neutral
+canvas.
+
+## Sections on their own
+
+Every section is exported, so the same controls can live in a product's settings page instead
+of a floating drawer. `Base` tints the whole neutral canvas: the preset swatches select a
+curated 50→950 scale, any other colour tints the neutral ramp toward it.
+
+<ComponentPreview componentName="preferences" fileName="example-fonts" />
+
+`CopyTheme` emits the current selection as a paste-ready `:root` / `.dark` CSS block — the
+handoff from picking a theme to committing one.
+
+## API Reference
+
+### Preferences
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `hotkey` | `string` | — |
+| `defaultOpen` | `boolean` | `false` |
+| `triggerClassName` | `string` | — |
+
+### Preferences.Root
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `children` | `ReactNode` | — |
+| `hotkey` | `string` | — |
+| `defaultOpen` | `boolean` | `false` |
+
+### Preferences.Panel
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `children` | `ReactNode` | the canonical section set |
+| `title` | `string` | `"Preferences"` |
+| `hint` | `string` | `"Applied live · saved to this browser."` |
+
+### Preferences.Trigger
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `className` | `string` | — |

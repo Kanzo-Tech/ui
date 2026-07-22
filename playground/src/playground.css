@@ -1,0 +1,31 @@
+/* Playground-only rules (the harness is disposable). */
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+/* Chromeless editor fills its canvas. */
+.pg-editor,
+.pg-editor .cm-editor {
+  height: 100%;
+}
+.pg-editor .cm-scroller {
+  padding: 12px 16px;
+}
+.pg-editor .cm-gutters {
+  padding-right: 8px;
+}
+
+/* Component-gallery preview canvas: a subtle dotted surface the demo sits on, the way
+   shadcn / Radix / Ark docs frame each example. Tokens keep it correct in light + dark. */
+.kz-preview {
+  background-color: color-mix(in srgb, var(--muted) 30%, var(--background));
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--foreground) 12%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 16px 16px;
+  background-position: -8px -8px;
+}

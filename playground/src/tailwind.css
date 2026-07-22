@@ -1,0 +1,32 @@
+/*
+ * Playground Tailwind entry.
+ *
+ * ONE source of truth for the CSS contract: import the design system's canonical stylesheet
+ * rather than re-deriving it. That single import carries tailwindcss + tw-animate-css (the
+ * overlay enter/exit animations) + the theme token & data-attribute layers + the shell
+ * keyframes + the dark variant + the base defaults + the @source scan of the DS components.
+ * Re-listing those by hand is exactly how the "dead clicks" bug happened — a hand-rolled
+ * copy drifted and dropped tw-animate-css. Consumers (this playground, keasy) import; they
+ * never reconstruct.
+ */
+@import "../../packages/ui/src/styles.css";
+
+/* Playground-only additions below — nothing that belongs to the DS contract. */
+
+/* Webfont vars the host supplies; the DS `data-font` / `data-mono-font` stacks read these
+   (`var(--font-geist-sans, …)`). Fonts are loaded in gallery-main.tsx via @fontsource. */
+:root {
+  --font-geist-sans: "Geist Sans";
+  --font-inter: "Inter";
+  --font-geist-mono: "Geist Mono";
+  --font-jetbrains-mono: "JetBrains Mono";
+}
+
+@layer base {
+  body {
+    @apply min-h-svh;
+  }
+}
+
+/* Scan the playground's own source too (the DS entry already scans the DS components). */
+@source "./**/*.{ts,tsx}";

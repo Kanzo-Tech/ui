@@ -1,0 +1,31 @@
+---
+title: Workspace
+description: An IDE-like workspace — file tree, CodeMirror editor, dockable panels and a status bar.
+full: true
+---
+
+<PreviewIframe name="workspace" title="Workspace block" className="h-[820px]" />
+
+The other shape a shell takes: no page, no scroll, a canvas that fills whatever is left. The
+sidebar becomes a file explorer over `TreeView`, `WorkspaceLayout` splits the remainder into
+canvas plus a resizable right dock, and the `StatusBar` at the bottom is what toggles the
+panels.
+
+The canvas here is a real CodeMirror instance, not a screenshot — the point is to check that
+the editor sizes against a flex shell rather than collapsing to its content height, which is
+the failure mode every nested-scroller layout has.
+
+Worth exercising in the frame: drag the dock divider, toggle Outline / Issues / Preview from
+the status bar, collapse the explorer to icons, and edit the document.
+
+## Source
+
+```text
+docs/blocks/workspace/
+├── default.tsx   — the workspace
+└── data.tsx      — the document open on the canvas
+```
+
+`EditorShell` comes from `@kanzo-tech/ui/editor`, a subpath rather than the root barrel:
+CodeMirror is an optional peer, and re-exporting the editor from the barrel would make
+`import { Button } from "@kanzo-tech/ui"` fail for anyone who had not installed it.

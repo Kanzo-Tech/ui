@@ -1,0 +1,107 @@
+---
+title: Styling
+description: How a component is written, and how you restyle one from outside.
+---
+
+## The recipe
+
+Every component follows this shape. Deviating from it is how a design system rots.
+
+```tsx title="packages/ui/src/primitives/foo.tsx"
+"use client"; // only if this file uses hooks or listeners
+
+import { ark } from "@ark-ui/react/factory";
+import { tv, type VariantProps } from "tailwind-variants";
+import { cn } from "../lib/cn.js";
+
+export const fooVariants = tv({
+  base: "…token-backed utilities…",
+  variants: { variant: {}, size: {} },
+  defaultVariants: { variant: "default", size: "md" },
+});
+
+export interface FooProps
+  extends React.ComponentProps<typeof ark.button>,
+    VariantProps<typeof fooVariants> {}
+
+export const Foo = (props: FooProps) => {
+  const { variant = "default", size = "md", className, ...rest } = props;
+  return (
+    <ark.button
+      className={cn(fooVariants({ variant, size }), className)}
+      data-slot="foo"
+      {...rest}
+    />
+  );
+};
+```
+
+<Callout title="React 19, not 18">
+  The React peer is `>=19`, where `ref` is an ordinary prop. Use `React.ComponentProps<…>`,
+  which already includes it, and a plain function component. `forwardRef` still works but is
+  redundant, and `ComponentPropsWithoutRef` silently drops `ref`.
+</Callout>
+
+## Restyling from outside
+
+Three escape hatches, in order of preference.
+
+<Steps>
+
+<Step>
+
+### Change a token
+
+The whole system re-skins. `--radius: 0` makes every corner square; a new `--primary` restains
+every brand surface. Nothing about the components changes.
+
+</Step>
+
+<Step>
+
+### Target a `data-slot`
+
+Every element you might want to reach carries `data-slot="<component>-<part>"`. It is a real
+contract, not decoration — our own recipes depend on it:
+
+```css
+[data-slot="popover-content"] {
+  border-radius: 0;
+}
+```
+
+This is what you get instead of guessing at generated class names.
+
+</Step>
+
+<Step>
+
+### Pass `className`
+
+Merged with `tailwind-merge`, so your utility wins over the recipe's rather than fighting it
+on specificity.
+
+</Step>
+
+</Steps>
+
+## Rules
+
+- Never inline `style` for variant appearance. One-off structural style (a computed width) is
+  fine.
+- Only token-backed utilities. No raw hex, no raw palette classes.
+- Focus rings are Shark's utilities, not a token:
+  `outline-none focus-visible:ring-[3px] focus-visible:ring-ring/32`.
+- Exactly one `<main>` per page — `AppShell` / `SidebarInset` own it. Nestable containers use
+  `<section>`.
+- Files are kebab-case.
+
+## Compound components
+
+Parts are exported flat, not as namespaces:
+
+```tsx
+import { Dialog, DialogContent, DialogTitle } from "@kanzo-tech/ui";
+```
+
+Not `Dialog.Content`. Flat exports tree-shake per part and match Shark.

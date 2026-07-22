@@ -1,0 +1,54 @@
+name: Release
+
+# Turns accumulated changesets into version bumps + npm publishes.
+# Publishing uses npm Trusted Publishing (OIDC) — no long-lived NPM_TOKEN.
+# Each @kanzo-tech/* package must have a Trusted Publisher configured on
+# npmjs.com pointing at this repo + workflow (same setup as @kanzo-tech/rudof-wasm).
+
+on:
+  push:
+    branches: [main]
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  release:
+    name: Version or publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      # OIDC token for npm Trusted Publishing.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: "https://registry.npmjs.org"
+      # Trusted Publishing (OIDC) requires npm >= 11.5.1.
+      - name: Upgrade npm
+        run: npm install -g npm@latest
+      - run: pnpm install --frozen-lockfile
+      # Gate the publish. `changesets/action` pushes to npm, and npm versions are immutable
+      # after 72 hours — a red build must never get that far.
+      # Build first — packages typecheck against each other's emitted `.d.ts`, so on a clean
+      # checkout the type-check cannot resolve them until dist/ exists.
+      - run: pnpm -r --filter "./packages/*" build
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm check:generated
+      - run: pnpm test
+      - run: pnpm size
+      - run: pnpm smoke
+      - name: Create release PR or publish
+        uses: changesets/action@v1
+        with:
+          version: pnpm version-packages
+          publish: pnpm release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

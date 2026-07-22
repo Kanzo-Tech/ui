@@ -1,0 +1,270 @@
+/*
+ * @kanzo-tech/theme — design tokens for the Kanzo design system.
+ *
+ * Architecture (APPEARANCE layer): the single source of truth for the look.
+ * These are Shark UI's canonical tokens adopted verbatim — a NEUTRAL palette built
+ * on Tailwind v4's named colours (`--color-neutral-*`) composited with `color-mix`,
+ * mapped to semantic tokens (`--background`, `--primary`, …) via `@theme inline` so
+ * utilities like `bg-primary` / `text-muted-foreground` resolve to tokens and theme
+ * live. Default radius is `0.5rem` with an additive scale, matching Shark/shadcn.
+ *
+ * Theming has two colour axes (written to `<html>` by `KanzoThemeProvider`): a base neutral
+ * scale, and an ACCENT that
+ * overrides ONLY 6 tokens (`--primary(-foreground)`, `--ring`, `--sidebar-primary
+ * (-foreground)`, `--sidebar-ring`) — it never touches `--accent`, which (as in Shark)
+ * is the neutral hover/subtle surface, not a brand hue. `.dark` is a third axis.
+ *
+ * For the NEUTRAL and BRAND families the base name is the FILL and the same name with
+ * `-foreground` is the text/icon colour meant to sit ON that fill. Change a token and the whole
+ * system re-skins.
+ *
+ * The STATUS families (destructive/info/success/warning) do NOT follow that rule, and this is
+ * inherited from Shark UI verbatim — do not "fix" it, it would fork us from upstream. There,
+ * `-foreground` is a *darker/lighter variant of the same hue*, readable against the page
+ * background: `--destructive` is red-500 and `--destructive-foreground` is red-700 in light,
+ * red-400 in dark. It is for error text, invalid rings and destructive menu items — never for
+ * text on the fill. Shark itself proves the intent: its Status recipe writes
+ * `dark:bg-destructive-foreground`, using it as a BACKGROUND.
+ *
+ * Consequently, on-fill text over a status fill is a literal `text-white` in both Shark and
+ * here (Button destructive, Status dots). That is the one sanctioned exception to the
+ * "token-backed utilities only" rule.
+ */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* Multiplicative radius scale — Shark's exact ratios (verified against its compiled
+     CSS). Every step is a multiple of the single `--radius` knob, so the whole system
+     scales proportionally at any knob setting and `--radius: 0` collapses cleanly to
+     square. (An additive `calc(--radius - Npx)` scale diverges from Shark off the
+     default and clamps small corners to 0 at low radius — that was the bug.) */
+  --radius-xs: calc(var(--radius) * 0.25);
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-md: calc(var(--radius) * 0.75);
+  --radius-lg: calc(var(--radius) * 1);
+  --radius-xl: calc(var(--radius) * 1.5);
+  --radius-2xl: calc(var(--radius) * 2);
+  --radius-3xl: calc(var(--radius) * 3);
+  --radius-4xl: calc(var(--radius) * 4);
+
+  /* Fonts — the app fills `--font-sans` / `--font-heading` / `--font-mono`; these are
+     the fallbacks (Shark convention). */
+  --font-sans: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+  --font-heading: var(--font-heading, ui-sans-serif, system-ui, sans-serif);
+  --font-mono: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+
+  /* Height-based expand/collapse for Ark Collapsible / TreeView. Ark supplies `--height`
+     at runtime (tw-animate-css can't measure it), so we ship the `expand`/`collapse` pair
+     its components reference. These live in the TOKEN layer, not the bundled `styles.css`,
+     because Tailwind-native consumers (the playground, keasy) scan the DS source and emit
+     `animate-expand` / `animate-[collapse_…]` themselves — they import these tokens, not
+     the compiled sheet. Without the keyframes here the exit animation never runs, so Ark's
+     `unmountOnExit` never fires its `animationend` and collapsed branches stay mounted. */
+  --animate-expand: expand 200ms ease-out;
+  --animate-collapse: collapse 200ms ease-out;
+}
+
+@keyframes expand {
+  from { height: 0; }
+  to { height: var(--height); }
+}
+@keyframes collapse {
+  from { height: var(--height); }
+  to { height: 0; }
+}
+
+/* Element-level base defaults that the COMPONENTS depend on (Shark's canonical base
+   layer). These live in the token layer — not the bundled `styles.css` — because Shark's
+   primitives write bare `border` / `border-t` (no colour) and rely on this rule to paint
+   them with `--border`; without it, Tailwind v4 falls back to `currentColor`, so every
+   card/dialog/table border inherits the (dark) text colour instead. Tailwind-native
+   consumers (the playground, keasy) import these tokens, not the compiled sheet, so the
+   rule must ship here for their borders + focus outlines to resolve correctly.
+   Document/app-shell defaults (`html`, `body`) stay in `styles.css` — a library shouldn't
+   impose page background on a Tailwind-native consumer. */
+@layer base {
+  *,
+  ::after,
+  ::before {
+    @apply border-border outline-ring/50;
+  }
+  ::selection {
+    @apply bg-primary/80 text-primary-foreground;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+:root {
+  /* Shark neutral theme (default accent = neutral). The `data-*` attributes on <html>
+     override --radius and the 6 accent tokens when a brand accent / base / radius is chosen. */
+  --radius: 0.5rem;
+
+  --background: var(--color-neutral-50);
+  --foreground: var(--color-neutral-800);
+  --card: var(--color-neutral-50);
+  --card-foreground: var(--color-neutral-800);
+  --popover: var(--color-neutral-50);
+  --popover-foreground: var(--color-neutral-800);
+
+  --primary: var(--color-neutral-800);
+  --primary-foreground: var(--color-neutral-50);
+  --secondary: color-mix(in srgb, var(--color-neutral-950) 6%, var(--background));
+  --secondary-foreground: var(--color-neutral-800);
+  --muted: color-mix(in srgb, var(--color-neutral-950) 6%, var(--background));
+  --muted-foreground: color-mix(in srgb, var(--color-neutral-500) 80%, var(--color-neutral-950));
+  --accent: color-mix(in srgb, var(--color-neutral-950) 6%, var(--background));
+  --accent-foreground: var(--color-neutral-800);
+  --destructive: var(--color-red-500);
+  --destructive-foreground: var(--color-red-700);
+  --info: var(--color-blue-500);
+  --info-foreground: var(--color-blue-700);
+  --success: var(--color-emerald-500);
+  --success-foreground: var(--color-emerald-700);
+  --warning: var(--color-amber-500);
+  --warning-foreground: var(--color-amber-700);
+
+  --border: color-mix(in srgb, var(--color-neutral-950) 12%, var(--background));
+  --input: color-mix(in srgb, var(--color-neutral-950) 13%, var(--background));
+  --ring: var(--color-neutral-400);
+
+  --sidebar: var(--color-neutral-50);
+  --sidebar-foreground: color-mix(in srgb, var(--color-neutral-800) 64%, var(--sidebar));
+  --sidebar-primary: var(--color-neutral-800);
+  --sidebar-primary-foreground: var(--color-neutral-50);
+  --sidebar-accent: color-mix(in srgb, var(--color-neutral-950) 6%, var(--sidebar));
+  --sidebar-accent-foreground: var(--color-neutral-800);
+  --sidebar-border: color-mix(in srgb, var(--color-neutral-950) 11%, var(--sidebar));
+  --sidebar-ring: var(--color-neutral-400);
+
+  --chart-1: var(--color-orange-600);
+  --chart-2: var(--color-teal-600);
+  --chart-3: var(--color-cyan-900);
+  --chart-4: var(--color-amber-400);
+  --chart-5: var(--color-amber-500);
+
+  /* ── Kanzo extras (not in Shark; only what Tailwind/Shark don't cover + is used) ── */
+  --kanzo-font-size-base: 0.8125rem;   /* 13px — IDE base (below Tailwind text-xs) */
+  --kanzo-font-size-small: 0.6875rem;  /* 11px */
+  --kanzo-font-size-xs: 0.625rem;      /* 10px */
+  /* No `--kanzo-focus-ring`: it was defined here and consumed by zero components, while all 38
+     focus rings use Shark's utilities directly — `focus-visible:ring-[3px] ring-ring/32`. That
+     is the convention; a token nothing reads only invited drift, and this block's own contract
+     is "only what Tailwind/Shark don't cover + is used". */
+
+  /* Syntax highlighting — consumed by the editor's HighlightStyle (→ --kanzo-syntax-*). */
+  --kanzo-syntax-keyword: var(--color-purple-700);
+  --kanzo-syntax-string: var(--color-emerald-700);
+  --kanzo-syntax-number: var(--color-amber-700);
+  --kanzo-syntax-comment: var(--color-neutral-500);
+  --kanzo-syntax-identifier: var(--color-neutral-800);
+  --kanzo-syntax-operator: var(--color-neutral-600);
+  --kanzo-syntax-punctuation: var(--color-neutral-500);
+  --kanzo-syntax-type: var(--color-blue-700);
+  --kanzo-syntax-url: var(--color-indigo-700);
+
+  /* Editor gutter surface + dim line-number ink (tokenised — was a hand-tuned magic mix). */
+  --kanzo-gutter-bg: color-mix(in srgb, var(--foreground) 6%, var(--background));
+  --kanzo-gutter-foreground: color-mix(in srgb, var(--muted-foreground) 70%, var(--background));
+}
+
+.dark {
+  --background: var(--color-neutral-950);
+  --foreground: var(--color-neutral-100);
+  --card: color-mix(in srgb, var(--background) 98%, var(--color-neutral-50));
+  --card-foreground: var(--color-neutral-100);
+  --popover: color-mix(in srgb, var(--background) 96%, var(--color-neutral-50));
+  --popover-foreground: var(--color-neutral-100);
+
+  --primary: var(--color-neutral-100);
+  --primary-foreground: var(--color-neutral-800);
+  /* Surface mixes match gen-theme.mjs' baseDark("neutral") EXACTLY (Shark's math), so the
+     shipped default == data-base="neutral" == the "Copy theme CSS" export. Previously drifted
+     (secondary used white 10%; border/input/accent used different percentages). */
+  --secondary: color-mix(in srgb, var(--color-neutral-50) 8%, var(--background));
+  --secondary-foreground: var(--color-neutral-100);
+  --muted: color-mix(in srgb, var(--color-neutral-50) 8%, var(--background));
+  --muted-foreground: color-mix(in srgb, var(--color-neutral-500) 70%, var(--color-neutral-50));
+  --accent: color-mix(in srgb, var(--color-neutral-50) 8%, var(--background));
+  --accent-foreground: var(--color-neutral-100);
+  --destructive: color-mix(in srgb, var(--color-red-600) 90%, var(--color-neutral-50));
+  --destructive-foreground: var(--color-red-400);
+  --info: var(--color-blue-500);
+  --info-foreground: var(--color-blue-400);
+  --success: var(--color-emerald-500);
+  --success-foreground: var(--color-emerald-400);
+  --warning: var(--color-amber-500);
+  --warning-foreground: var(--color-amber-400);
+
+  --border: color-mix(in srgb, var(--color-neutral-50) 12%, var(--background));
+  --input: color-mix(in srgb, var(--color-neutral-50) 13%, var(--background));
+  --ring: var(--color-neutral-500);
+
+  --sidebar: color-mix(in srgb, var(--color-neutral-950) 97%, var(--color-neutral-50));
+  --sidebar-foreground: color-mix(in srgb, var(--color-neutral-100) 64%, var(--sidebar));
+  --sidebar-primary: var(--color-neutral-100);
+  --sidebar-primary-foreground: var(--color-neutral-800);
+  --sidebar-accent: color-mix(in srgb, var(--color-neutral-50) 8%, var(--sidebar));
+  --sidebar-accent-foreground: var(--color-neutral-100);
+  --sidebar-border: color-mix(in srgb, var(--color-neutral-50) 11%, var(--sidebar));
+  --sidebar-ring: var(--color-neutral-500);
+
+  --chart-1: var(--color-blue-700);
+  --chart-2: var(--color-emerald-500);
+  --chart-3: var(--color-amber-500);
+  --chart-4: var(--color-purple-500);
+  --chart-5: var(--color-rose-500);
+
+  --kanzo-syntax-keyword: var(--color-purple-400);
+  --kanzo-syntax-string: var(--color-emerald-400);
+  --kanzo-syntax-number: var(--color-amber-400);
+  --kanzo-syntax-comment: var(--color-neutral-400);
+  --kanzo-syntax-identifier: var(--color-neutral-200);
+  --kanzo-syntax-operator: var(--color-neutral-400);
+  --kanzo-syntax-punctuation: var(--color-neutral-500);
+  --kanzo-syntax-type: var(--color-blue-400);
+  --kanzo-syntax-url: var(--color-indigo-300);
+
+  --kanzo-gutter-bg: color-mix(in srgb, var(--foreground) 6%, var(--background));
+  --kanzo-gutter-foreground: color-mix(in srgb, var(--muted-foreground) 70%, var(--background));
+}

@@ -1,0 +1,106 @@
+---
+title: Color Picker
+description: Picks a colour from an area, channel sliders, swatches or the eyedropper.
+links:
+  doc: https://ark-ui.com/docs/components/color-picker
+---
+
+<ComponentPreview componentName="color-picker" />
+
+## Usage
+
+```tsx
+import {
+  ColorPicker,
+  ColorPickerArea,
+  ColorPickerAreaThumb,
+  ColorPickerContent,
+  ColorPickerControl,
+  ColorPickerSlider,
+  ColorPickerTrigger,
+  ColorPickerValue,
+  ColorPickerValueSwatch,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<ColorPicker defaultValue="#7c3aed">
+  <ColorPickerControl>
+    <ColorPickerTrigger asChild>
+      <Button variant="outline">
+        <ColorPickerValueSwatch className="size-4" />
+        <ColorPickerValue />
+      </Button>
+    </ColorPickerTrigger>
+  </ColorPickerControl>
+  <ColorPickerContent>
+    <ColorPickerArea>
+      <ColorPickerAreaThumb />
+    </ColorPickerArea>
+    <ColorPickerSlider channel="hue" />
+  </ColorPickerContent>
+</ColorPicker>
+```
+
+`value` and `defaultValue` are plain strings here — Ark wants a parsed `Color` object, and
+this wrapper runs `parseColor` for you. `parseColor` is re-exported if you need one directly.
+A hidden input is rendered inside the root, so the picker submits with a surrounding form.
+
+## Anatomy
+
+```text
+<ColorPicker>
+  <ColorPickerControl>
+    <ColorPickerTrigger />
+    <ColorPickerEyeDropperTrigger />
+    <ColorPickerInput channel="hex" />
+  <ColorPickerContent>          ← portalled + positioned for you
+    <ColorPickerArea>
+      <ColorPickerAreaThumb />
+    <ColorPickerSlider channel />
+    <ColorPickerSwatchGroup>
+      <ColorPickerSwatchTrigger value>
+        <ColorPickerSwatch value />
+        <ColorPickerSwatchIndicator />
+```
+
+## Swatches and eyedropper
+
+<ComponentPreview componentName="color-picker" fileName="example-with-swatches" />
+
+`ColorPickerEyeDropperTrigger` renders a `Button`, so it takes `variant` and `size`. The
+browser's EyeDropper API is not universal — the trigger is a convenience, never the only path
+to a colour.
+
+## API Reference
+
+### ColorPicker
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `value` | `string` | — |
+| `defaultValue` | `string` | — |
+| `positioning` | `PositioningOptions` | `{ placement: "top-start" }` |
+| `lazyMount` | `boolean` | `true` |
+| `unmountOnExit` | `boolean` | `true` |
+
+### ColorPickerArea
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `showDots` | `boolean` | `false` |
+
+### ColorPickerInput
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `channel` | `ExtendedColorChannel` | `"hex"` |
+
+### ColorPickerEyeDropperTrigger
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `variant` | `ButtonProps["variant"]` | `"outline"` |
+| `size` | `ButtonProps["size"]` | `"icon-md"` |
+
+`useColorPicker` re-exports Ark's `useColorPickerContext`.

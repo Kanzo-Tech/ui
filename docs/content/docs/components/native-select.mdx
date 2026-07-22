@@ -1,0 +1,57 @@
+---
+title: Native Select
+description: The browser's own select, styled to match the input scale.
+links:
+  doc: https://ark-ui.com/docs/components/field
+---
+
+<ComponentPreview componentName="native-select" />
+
+## Usage
+
+```tsx
+import {
+  NativeSelect,
+  NativeSelectOptGroup,
+  NativeSelectOption,
+} from "@kanzo-tech/ui";
+```
+
+Prefer this over [Select](/docs/components/select) when the options are short, static and
+plentiful: it costs no JavaScript, and on mobile it opens the platform picker. Reach for
+`Select` when you need icons, rich item content or multi-selection.
+
+## Anatomy
+
+```text
+NativeSelect
+├── NativeSelectOptGroup
+│   └── NativeSelectOption
+└── NativeSelectOption
+```
+
+## Sizes
+
+<ComponentPreview componentName="native-select" fileName="example-sizes" />
+
+## Groups
+
+<ComponentPreview componentName="native-select" fileName="example-groups" />
+
+## Invalid
+
+<ComponentPreview componentName="native-select" fileName="example-invalid" />
+
+## Disabled
+
+<ComponentPreview componentName="native-select" fileName="example-disabled" />
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `size` | `"sm" \| "md" \| "lg"` | `"md"` |
+| `invalid` | `boolean` | — |
+
+Extends `Field.Select` from Ark, so every native `select` prop passes through. An option with
+`value=""` renders in the muted placeholder colour.

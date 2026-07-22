@@ -1,0 +1,60 @@
+---
+title: Button
+description: Triggers an action or navigates, with a semantic variant and size scale.
+links:
+  doc: https://ark-ui.com/docs/components/factory
+---
+
+<ComponentPreview componentName="button" />
+
+## Usage
+
+```tsx
+import { Button } from "@kanzo-tech/ui";
+```
+
+```tsx
+<Button variant="outline" size="sm">
+  Search
+</Button>
+```
+
+## Variants
+
+<ComponentPreview componentName="button" fileName="example-variants" />
+
+## Sizes
+
+<ComponentPreview componentName="button" fileName="example-sizes" />
+
+## With icon
+
+Icons are plain children — the recipe sizes any `svg` that has no explicit `size-*` and
+disables its pointer events, so no wrapper or `icon` prop is needed. Use `size="icon-*"` and an
+`aria-label` for an icon-only button.
+
+<ComponentPreview componentName="button" fileName="example-with-icon" />
+
+## Loading
+
+`isLoading` keeps the button's width by rendering the label invisibly behind the spinner, so
+the layout never shifts mid-action. It also sets `aria-busy` and `aria-disabled`.
+
+<ComponentPreview componentName="button" fileName="example-loading" />
+
+## Disabled
+
+<ComponentPreview componentName="button" fileName="example-disabled" />
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `variant` | `"default" \| "secondary" \| "outline" \| "ghost" \| "destructive" \| "link"` | `"default"` |
+| `size` | `"xs" \| "sm" \| "md" \| "lg" \| "xl" \| "icon-xs" \| "icon-sm" \| "icon-md" \| "icon-lg" \| "icon-xl"` | `"md"` |
+| `isLoading` | `boolean` | `false` |
+| `clickEffect` | `boolean` | `true` |
+| `pill` | `boolean` | `false` |
+
+Extends `React.ComponentProps<typeof ark.button>`, so `ref` and every native button prop pass
+through.

@@ -1,0 +1,38 @@
+{
+  "name": "@kanzo-tech/docs",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Kanzo UI documentation — Next.js App Router + fumadocs, mirroring Shark UI's docs stack. Doubles as the RSC fixture: Vite ignores \"use client\", so this is the only place the library's client/server boundary is actually exercised.",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --port 3100",
+    "build": "next build",
+    "start": "next start --port 3100",
+    "typecheck": "tsc --noEmit",
+    "postinstall": "fumadocs-mdx"
+  },
+  "dependencies": {
+    "@codemirror/lang-json": "^6.0.2",
+    "@kanzo-tech/theme": "workspace:*",
+    "@kanzo-tech/ui": "workspace:*",
+    "@tanstack/react-table": "^8.21.3",
+    "fumadocs-core": "16.9.3",
+    "fumadocs-mdx": "15.0.11",
+    "fumadocs-ui": "16.9.3",
+    "lucide-react": "^1.23.0",
+    "next": "16.2.7",
+    "next-themes": "^0.4.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "shiki": "^4.2.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4",
+    "@types/mdx": "^2.0.14",
+    "@types/node": "^20",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "tailwindcss": "4",
+    "typescript": "^5.7.3"
+  }
+}

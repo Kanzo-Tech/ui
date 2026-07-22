@@ -1,0 +1,41 @@
+---
+title: Heading
+description: The heading atom — the design system owns the type scale.
+---
+
+<ComponentPreview componentName="heading" />
+
+## Usage
+
+```tsx
+import { Heading } from "@kanzo-tech/ui";
+```
+
+```tsx
+<Heading as="h1" size="2xl">
+  Datasets
+</Heading>
+```
+
+`as` and `size` are independent on purpose: the tag is the document outline, `size` is the
+type scale. That is what lets a page's `h1` be visually small, or a section's `h3` be the
+biggest thing on screen, without either choice corrupting the other.
+
+## Sizes
+
+<ComponentPreview componentName="heading" fileName="example-sizes" />
+
+## Semantics
+
+<ComponentPreview componentName="heading" fileName="example-semantics" />
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `as` | `"h1" \| "h2" \| "h3" \| "h4" \| "h5" \| "h6"` | `"h2"` |
+| `size` | `"sm" \| "md" \| "lg" \| "xl" \| "2xl"` | `"lg"` |
+| `weight` | `"medium" \| "semibold" \| "bold"` | `"semibold"` |
+
+Extends `React.ComponentProps<"h2">`, so `ref`, `id` and every native attribute pass through.
+`headingRecipe` is exported for composing the same scale elsewhere.

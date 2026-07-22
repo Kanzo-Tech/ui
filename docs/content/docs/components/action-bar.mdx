@@ -1,0 +1,75 @@
+---
+title: Action Bar
+description: A floating toolbar that rises when a selection exists.
+---
+
+<ComponentPreview componentName="action-bar" />
+
+## Usage
+
+```tsx
+import {
+  ActionBar,
+  ActionBarClose,
+  ActionBarContent,
+  ActionBarSeparator,
+  ActionBarValue,
+  Button,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<ActionBar open={selected > 0} onOpenChange={(open) => !open && setSelected(0)}>
+  <ActionBarContent>
+    <ActionBarValue count={selected} label={`${selected} selected`} />
+    <ActionBarSeparator />
+    <Button size="sm" variant="ghost">Delete</Button>
+  </ActionBarContent>
+</ActionBar>
+```
+
+`open` is normally derived from the selection rather than held as its own state — the bar
+exists because something is selected. Uncontrolled use (`defaultOpen` plus `ActionBarTrigger`)
+is supported but rarely what a selection toolbar wants.
+
+`ActionBarContent` portals to the body and is fixed to the viewport, so the bar is never
+clipped by the scroll container the selection lives in. Escape closes it.
+
+## Anatomy
+
+```text
+<ActionBar open>
+  <ActionBarTrigger />          ← optional, for uncontrolled use
+  <ActionBarContent>            ← portalled, role="toolbar"
+    <ActionBarValue count />
+    <ActionBarSeparator />
+    <ActionBarBody />           ← optional grouping
+    <ActionBarClose />
+```
+
+## Placement
+
+<ComponentPreview componentName="action-bar" fileName="example-placement" />
+
+## API Reference
+
+### ActionBar
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `open` | `boolean` | — |
+| `defaultOpen` | `boolean` | `false` |
+| `onOpenChange` | `(open: boolean) => void` | — |
+| `positioning` | `{ placement?: "bottom" \| "bottom-start" \| "bottom-end"; gutter?: string }` | `{ placement: "bottom", gutter: "16px" }` |
+| `closeOnEscape` | `boolean` | `true` |
+| `lazyMount` | `boolean` | `true` |
+| `unmountOnExit` | `boolean` | `true` |
+
+### ActionBarValue
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `count` | `number` | `0` |
+| `label` | `string` | — |
+
+Extends `Badge`; renders `children ?? label ?? count`.

@@ -1,0 +1,29 @@
+---
+title: Introduction
+description: Ark UI behaviour, design tokens, and one recipe every component follows.
+---
+
+Kanzo UI is the shared design system behind Kanzo's products. It is not a component grab-bag:
+every component is assembled the same way, so the whole surface re-themes from tokens and none
+of it drifts back into ad-hoc styling.
+
+<Cards>
+  <Card title="Installation" href="/docs/installation" description="Two packages, one stylesheet, one provider." />
+  <Card title="Philosophy" href="/docs/philosophy" description="The three layers, and what each is allowed to decide." />
+  <Card title="Theming" href="/docs/theming" description="Attributes on <html>, and why a wrapper cannot work." />
+  <Card title="Components" href="/docs/components/button" description="Primitives, composites and shells." />
+</Cards>
+
+## What it is built on
+
+**[Ark UI](https://ark-ui.com)** supplies behaviour — state, WAI-ARIA, keyboard, focus
+management — and nothing about appearance. **[Shark UI](https://shark.vini.one)** supplies the
+component recipes, vendored as-is in the shadcn-style registry model. Appearance is entirely
+design tokens plus `tailwind-variants` recipes over Tailwind v4.
+
+<Callout title="These docs are also a test">
+  The library is consumed by React Server Component hosts, and a Vite playground structurally
+  cannot verify that: Vite ignores `"use client"` entirely. This site is a real App Router app
+  that prerenders every documented component on the server, so the boundary is exercised here
+  or nowhere. It runs in CI.
+</Callout>

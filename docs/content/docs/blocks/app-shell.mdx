@@ -1,0 +1,33 @@
+---
+title: App shell
+description: A complete product dashboard — sidebar, switcher, nav, user menu, breadcrumbs, stat cards and a data table.
+full: true
+---
+
+<PreviewIframe name="app-shell" title="App shell block" className="h-[820px]" />
+
+Every level-2 composite in one screen, arranged the way a real product arranges them: an
+`InstanceSwitcher` in the sidebar header, `SidebarNav` in its content, `SidebarUser` in its
+footer, and a `SidebarInset` holding breadcrumbs above a `PageShell` of `StatCard`s and a
+`DataTable`.
+
+It exists because the pieces only prove themselves together. A `StatCard` looks fine in a
+384px box; whether four of them sit correctly under a page header, next to a sidebar that
+collapses to icons, is a different question — and the one a consumer actually has.
+
+Worth exercising in the frame: collapse the sidebar with <kbd>⌘</kbd>+<kbd>B</kbd> and watch
+the switcher and user rows fall back to bare avatars, sort and filter the table, and open the
+account menu to see log out as an ordinary destructive `menuItems` entry rather than a
+built-in auth flow.
+
+## Source
+
+```text
+docs/blocks/app-shell/
+├── default.tsx   — the screen
+└── data.tsx      — one fake tenant's instances, nav and connections
+```
+
+Imports come from two entry points: `@kanzo-tech/ui` for the shell and composites, and
+`@kanzo-tech/ui/table` for `DataTable` — a subpath, so the base bundle never carries TanStack
+Table for consumers who do not use it.

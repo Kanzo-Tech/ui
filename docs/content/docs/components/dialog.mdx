@@ -1,0 +1,111 @@
+---
+title: Dialog
+description: A modal surface that interrupts the flow to ask for input or confirmation.
+links:
+  doc: https://ark-ui.com/docs/components/dialog
+---
+
+<ComponentPreview componentName="dialog" />
+
+## Usage
+
+```tsx
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTrigger,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<Dialog>
+  <DialogTrigger asChild>
+    <Button variant="outline">Edit</Button>
+  </DialogTrigger>
+  <DialogContent>
+    <DialogHeader title="Edit dataset" description="Changes apply immediately." />
+    <DialogBody>…</DialogBody>
+  </DialogContent>
+</Dialog>
+```
+
+`DialogContent` renders its own `Portal`, overlay and positioner, so a page never has to
+assemble them. It is also `lazyMount` + `unmountOnExit` by default — the body is not in the
+tree at all until the dialog opens, which keeps forms inside it from mounting on page load.
+
+## Anatomy
+
+```text
+Dialog
+├── DialogTrigger
+└── DialogContent          (portal + overlay + positioner)
+    ├── DialogHeader
+    │   ├── DialogTitle
+    │   └── DialogDescription
+    ├── DialogBody
+    ├── DialogFooter
+    │   └── DialogClose
+    └── DialogClose        (the built-in X)
+```
+
+`DialogHeader` accepts `title` and `description` as props and renders the title/description
+sub-components for you, so the common case is one line. Pass children instead when the header
+needs more than text.
+
+## Sizes
+
+<ComponentPreview componentName="dialog" fileName="example-sizes" />
+
+## Controlled
+
+`onOpenChange` receives a details object, not a boolean — read `details.open`.
+
+<ComponentPreview componentName="dialog" fileName="example-controlled" />
+
+## API Reference
+
+### Dialog
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `modal` | `boolean` | `true` |
+| `lazyMount` | `boolean` | `true` |
+| `unmountOnExit` | `boolean` | `true` |
+
+Extends `React.ComponentProps<typeof ArkDialog.Root>`. `modal={false}` also suppresses
+`DialogOverlay`, so a non-modal dialog does not dim the page behind it.
+
+### DialogContent
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `size` | `"sm" \| "md" \| "lg" \| "xl" \| "2xl" \| "3xl" \| "4xl" \| "5xl" \| "6xl" \| "fullscreen"` | `"md"` |
+| `bottomStickOnMobile` | `boolean` | `true` |
+| `showCloseButton` | `boolean` | `true` |
+
+`bottomStickOnMobile` turns the dialog into a bottom sheet below the `sm` breakpoint —
+square top corners, full width, slide-up entrance — which is where a centred modal reads worst.
+
+The close button is absolutely positioned, so `DialogTitle` adds inline-end padding whenever a
+close trigger is present in the content. That is why a long title wraps early instead of
+running under the X — and why setting `showCloseButton={false}` gives the padding back.
+
+### DialogHeader
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `title` | `string` | — |
+| `description` | `string` | — |
+
+### DialogBody
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `scrollFade` | `boolean` | `false` |
+
+The body is wrapped in a `ScrollArea`, so long content scrolls inside the dialog while the
+header and footer stay pinned. `scrollFade` adds the mask at the scroll edges.

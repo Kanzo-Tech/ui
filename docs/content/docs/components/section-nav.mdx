@@ -1,0 +1,51 @@
+---
+title: SectionNav
+description: A grouped, headed navigation column for settings-style pages.
+---
+
+<ComponentPreview componentName="section-nav" />
+
+## Usage
+
+```tsx
+import { SectionNav } from "@kanzo-tech/ui";
+```
+
+```tsx
+<SectionNav sections={sections} activePath={usePathname()} linkComponent={Link} />
+```
+
+It builds on the sidebar menu primitives, so it must render inside a
+[`SidebarProvider`](/docs/components/sidebar) — usually as the `nav` slot of a
+[`TwoPaneLayout`](/docs/components/two-pane-layout) that already lives in one.
+
+Active state is computed from the caller-supplied `activePath`: a link is active when it
+equals `activePath` or is a prefix of it, so `/settings/cloud` stays lit on
+`/settings/cloud/azure`. Route awareness stays in the product — the design system never calls
+`usePathname`.
+
+## Anatomy
+
+```text
+SectionNav
+└── SidebarGroup            (one per section)
+    ├── SidebarGroupLabel   (heading)
+    └── SidebarMenu
+        └── SidebarMenuItem
+            └── SidebarMenuButton
+```
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `sections` | `NavSection[]` | — |
+| `activePath` | `string` | — |
+| `linkComponent` | `LinkComponent` | `DefaultLink` |
+
+### NavSection
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `heading` | `ReactNode` | — |
+| `items` | `{ href: string; label: ReactNode; icon?: ReactNode }[]` | — |

@@ -1,0 +1,29 @@
+{
+  "name": "@kanzo-tech/theme",
+  "version": "0.0.0",
+  "description": "Kanzo design tokens — Shark UI's exact theme sets (base colour / accent / radius / density / dark), driven by data-* attributes on <html>.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": ["**/*.css"],
+  "files": ["dist", "tokens.css", "themes.css", "theme-data.json", "README.md"],
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./tokens.css": "./tokens.css",
+    "./themes.css": "./themes.css",
+    "./theme-data.json": "./theme-data.json",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "vite build",
+    "gen": "node scripts/gen-theme.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "//deps": "No React peer: this package ships tokens, the axis table and types. The provider that consumes them lives in @kanzo-tech/ui.",
+  "devDependencies": {}
+}

@@ -1,0 +1,65 @@
+---
+title: Philosophy
+description: Three layers, and what each one is allowed to decide.
+---
+
+Every component in this library is assembled the same way. That uniformity is the product —
+it is what lets a token change re-skin ninety components, and what stops the surface drifting
+back into scattered one-off styling.
+
+## The three layers
+
+<Cards>
+  <Card title="Behaviour" description="Ark UI. State, WAI-ARIA, keyboard, focus. No appearance." />
+  <Card title="Appearance" description="Design tokens + tailwind-variants recipes. No behaviour." />
+  <Card title="API" description="Our semantic vocabulary: variant, size, composition." />
+</Cards>
+
+### 1. Behaviour — headless
+
+[Ark UI](https://ark-ui.com) owns state machines, accessibility, keyboard handling and focus.
+We do not reimplement any of it. Components with their own state that Ark does not cover
+(Sidebar, WorkspaceLayout) use our own React context, never ad-hoc prop drilling.
+
+### 2. Appearance — tokens and recipes
+
+Every visual decision lives in a `tv()` recipe over token-backed Tailwind utilities. No inline
+`style` for variant appearance, no raw hex, no raw palette classes like `bg-slate-700`.
+
+A component's `.tsx` picks recipe variants. It does not decide what they look like.
+
+### 3. API — a stable vocabulary
+
+Components expose `variant`, `size` and composition, not Ark or Tailwind internals. That
+insulation is the point: upstream can refactor and consumer code does not move.
+
+## Adopt, don't rebuild
+
+Prefer bringing a Shark UI or Ark component and rebranding it to our tokens over hand-rolling.
+The only genuinely bespoke code is the CodeMirror editors, which neither upstream covers.
+
+<Callout title="Match the reference, don't invent">
+  When something looks odd, check the reference before "fixing" it. The status tokens are a
+  standing example: `--destructive` is red-500 and `--destructive-foreground` is red-700, which
+  reads like a contrast bug until you find that Shark defines exactly the same pair and uses
+  the second as a *background*. Renaming it would have forked us from upstream for nothing.
+</Callout>
+
+## Domain-free
+
+The library knows nothing about RDF, SHACL, fossil, graphs or auth. Product-specific screens
+live in the products. This is enforced by review, not by tooling — the most recent breach was
+a hard-coded log-out flow with untranslatable copy inside `SidebarUser`, which is now just an
+entry in `menuItems`.
+
+## The client boundary
+
+The library is consumed by React Server Component hosts, so this is load-bearing:
+
+- A file gets `"use client"` **iff** it calls a hook, registers a listener, or imports a module
+  that does.
+- Hook-free presentational components must **not** carry it, so they stay server-renderable.
+- Components needing an optional peer live on their own subpath, never the root barrel.
+
+These docs are the fixture that proves it: every documented component is prerendered inside a
+real App Router server tree in CI.

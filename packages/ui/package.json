@@ -1,0 +1,142 @@
+{
+  "name": "@kanzo-tech/ui",
+  "version": "0.0.0",
+  "description": "Kanzo shared UI — Ark UI + tailwind-variants primitives (Level 1) and domain-free shells (Level 2), token-themed.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./editor": {
+      "types": "./dist/editor.d.ts",
+      "import": "./dist/editor.js"
+    },
+    "./table": {
+      "types": "./dist/table.d.ts",
+      "import": "./dist/table.js"
+    },
+    "./styles.css": "./dist/styles.css",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "vite build && pnpm build:css",
+    "build:css": "tailwindcss -i src/styles.css -o dist/styles.css --minify",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "size": "size-limit"
+  },
+  "peerDependencies": {
+    "@codemirror/autocomplete": ">=6",
+    "@codemirror/commands": ">=6",
+    "@codemirror/language": ">=6",
+    "@codemirror/search": ">=6",
+    "@codemirror/state": ">=6",
+    "@codemirror/view": ">=6",
+    "@lezer/highlight": ">=1",
+    "@tanstack/react-table": ">=8",
+    "lucide-react": ">=1",
+    "react": ">=19",
+    "react-dom": ">=19"
+  },
+  "peerDependenciesMeta": {
+    "@tanstack/react-table": {
+      "optional": true
+    },
+    "@codemirror/autocomplete": {
+      "optional": true
+    },
+    "@codemirror/commands": {
+      "optional": true
+    },
+    "@codemirror/language": {
+      "optional": true
+    },
+    "@codemirror/search": {
+      "optional": true
+    },
+    "@codemirror/state": {
+      "optional": true
+    },
+    "@codemirror/view": {
+      "optional": true
+    },
+    "@lezer/highlight": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@ark-ui/react": "^5.37.2",
+    "@internationalized/date": "^3.12.2",
+    "@kanzo-tech/theme": "workspace:*",
+    "clsx": "^2.1.1",
+    "tailwind-merge": "^3.6.0",
+    "tailwind-variants": "^3.2.2"
+  },
+  "devDependencies": {
+    "@codemirror/autocomplete": "^6.18.6",
+    "@codemirror/commands": "^6.10.3",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/search": "^6.5.11",
+    "@codemirror/state": "^6.6.0",
+    "@codemirror/view": "^6.43.1",
+    "@lezer/highlight": "^1.2.3",
+    "@tailwindcss/cli": "4",
+    "@tanstack/react-table": "^8.21.3",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "jsdom": "^29.1.1",
+    "lucide-react": "^1.23.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "rollup-plugin-preserve-directives": "^0.4.0",
+    "tailwindcss": "4",
+    "tw-animate-css": "^1.4.0"
+  },
+  "//size-limit": "Budgets OUR shipped code only. `ignore` mirrors the build's `external` list in vite.config.ts — anything externalised resolves from the consumer's node_modules, so counting it here measures the ecosystem, not us; keep the two lists in sync. Barrel measured at 35.27 kB brotlied, budget set just above so real growth trips the gate.",
+  "size-limit": [
+    {
+      "name": "root barrel (JS)",
+      "path": "dist/index.js",
+      "limit": "38 kB",
+      "ignore": [
+        "react",
+        "react-dom",
+        "react/jsx-runtime",
+        "@kanzo-tech/theme",
+        "@ark-ui/react",
+        "@internationalized/date",
+        "lucide-react",
+        "tailwind-variants",
+        "tailwind-merge",
+        "clsx",
+        "@codemirror/state",
+        "@codemirror/view",
+        "@codemirror/commands",
+        "@codemirror/language",
+        "@codemirror/search",
+        "@codemirror/autocomplete",
+        "@lezer/highlight",
+        "@tanstack/react-table"
+      ]
+    },
+    {
+      "name": "stylesheet",
+      "path": "dist/styles.css",
+      "limit": "40 kB"
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+*.log
+.DS_Store
+.turbo/
+
+# Next.js / fumadocs (docs app)
+.next/
+out/
+next-env.d.ts
+.source/

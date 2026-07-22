@@ -1,0 +1,65 @@
+---
+title: Segment Group
+description: A segmented control — one of a few views, with a sliding indicator.
+links:
+  doc: https://ark-ui.com/docs/components/segment-group
+---
+
+<ComponentPreview componentName="segment-group" />
+
+## Usage
+
+```tsx
+import {
+  SegmentGroup,
+  SegmentGroupItem,
+  SegmentGroupItemText,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<SegmentGroup defaultValue="list">
+  <SegmentGroupItem value="list">
+    <SegmentGroupItemText>List</SegmentGroupItemText>
+  </SegmentGroupItem>
+</SegmentGroup>
+```
+
+Underneath it is a radio group, so arrow keys move the selection and a screen reader
+announces "1 of 3" — which is right for switching between views, and wrong for a set of
+independent actions. Use buttons for those.
+
+`SegmentGroup` renders its own indicator; the sliding rectangle is positioned from the
+measured item, so the container carries the rounding and background you want it to inherit.
+
+## Anatomy
+
+```text
+SegmentGroup
+├── SegmentGroupIndicator   (rendered internally)
+└── SegmentGroupItem
+    └── SegmentGroupItemText
+```
+
+## Underline
+
+<ComponentPreview componentName="segment-group" fileName="example-underline" />
+
+## Vertical
+
+<ComponentPreview componentName="segment-group" fileName="example-vertical" />
+
+## Disabled
+
+<ComponentPreview componentName="segment-group" fileName="example-disabled" />
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `variant` | `"default" \| "underline"` | `"default"` |
+| `orientation` | `"horizontal" \| "vertical"` | `"horizontal"` |
+
+Extends `SegmentGroup.Root` from Ark, so `value`, `defaultValue`, `onValueChange`,
+`disabled`, `readOnly`, `invalid`, `name` and `form` pass through. `SegmentGroupItem` takes
+`value` and `disabled`, and renders its own control and hidden input.

@@ -1,0 +1,114 @@
+---
+title: Installation
+description: Two packages, one stylesheet, one provider.
+---
+
+<Steps>
+
+<Step>
+
+### Install the packages
+
+`@kanzo-tech/ui` depends on `@kanzo-tech/theme`, so installing the first brings the second.
+
+<Tabs items={["pnpm", "npm", "yarn", "bun"]}>
+  <Tab value="pnpm">```bash pnpm add @kanzo-tech/ui ```</Tab>
+  <Tab value="npm">```bash npm install @kanzo-tech/ui ```</Tab>
+  <Tab value="yarn">```bash yarn add @kanzo-tech/ui ```</Tab>
+  <Tab value="bun">```bash bun add @kanzo-tech/ui ```</Tab>
+</Tabs>
+
+</Step>
+
+<Step>
+
+### Install the peers
+
+React 19 or later, plus `lucide-react` for icons.
+
+<Tabs items={["pnpm", "npm", "yarn", "bun"]}>
+  <Tab value="pnpm">```bash pnpm add react react-dom lucide-react ```</Tab>
+  <Tab value="npm">```bash npm install react react-dom lucide-react ```</Tab>
+  <Tab value="yarn">```bash yarn add react react-dom lucide-react ```</Tab>
+  <Tab value="bun">```bash bun add react react-dom lucide-react ```</Tab>
+</Tabs>
+
+Two peers are **optional**, needed only if you import the matching subpath:
+
+| Subpath | Optional peer |
+| --- | --- |
+| `@kanzo-tech/ui/table` | `@tanstack/react-table` |
+| `@kanzo-tech/ui/editor` | `@codemirror/*`, `@lezer/highlight` |
+
+<Callout type="info">
+  The base entry never imports them. That is deliberate — a static import of an optional peer
+  from the root barrel makes `import { Button }` throw for everyone who did not install it.
+</Callout>
+
+</Step>
+
+<Step>
+
+### Import the stylesheet once, at the root
+
+```tsx title="app/layout.tsx"
+import "@kanzo-tech/ui/styles.css";
+```
+
+This one sheet carries the tokens, the generated themes and every component's compiled CSS.
+There is no runtime style injection, so no flash of unstyled content.
+
+</Step>
+
+<Step>
+
+### Wrap the app in the provider
+
+```tsx title="app/layout.tsx"
+import { KanzoThemeProvider } from "@kanzo-tech/ui";
+
+export default function RootLayout({ children }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <body>
+        <KanzoThemeProvider>{children}</KanzoThemeProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+</Step>
+
+<Step>
+
+### Use a component
+
+```tsx
+import { Button } from "@kanzo-tech/ui";
+
+export default function Page() {
+  return <Button>Get started</Button>;
+}
+```
+
+</Step>
+
+</Steps>
+
+## Server-side rendering
+
+Render `themeScript()` in `<head>` so the theme attributes land before first paint, and pair it
+with `cookieStorageAdapter()` so the server reads the same source the client writes. Without
+both, the first frame paints with default theme and then corrects itself.
+
+```tsx title="app/layout.tsx"
+import { KanzoThemeProvider, themeScript, cookieStorageAdapter } from "@kanzo-tech/ui";
+
+<head>
+  <script dangerouslySetInnerHTML={{ __html: themeScript() }} />
+</head>
+<KanzoThemeProvider storage={cookieStorageAdapter()}>{children}</KanzoThemeProvider>
+```
+
+See [Theming](/docs/theming) for dark mode and the full axis list.

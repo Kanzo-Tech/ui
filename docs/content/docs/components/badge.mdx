@@ -1,0 +1,29 @@
+---
+title: Badge
+description: A compact status or category label.
+---
+
+<ComponentPreview componentName="badge" />
+
+## Usage
+
+```tsx
+import { Badge } from "@kanzo-tech/ui";
+```
+
+```tsx
+<Badge variant="success">Mapped</Badge>
+```
+
+## Variants
+
+The status variants (`success` / `warning` / `destructive` / `info`) read their hue from the
+status tokens, so a theme change re-skins them without touching the component.
+
+<ComponentPreview componentName="badge" fileName="example-variants" />
+
+## Sizes
+
+`xs` is the micro-badge used for inline counters.
+
+<ComponentPreview componentName="badge" fileName="example-sizes" />

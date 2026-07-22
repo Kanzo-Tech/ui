@@ -1,0 +1,57 @@
+---
+title: Date Field
+description: A date or datetime input whose value is a plain ISO string.
+links:
+  doc: https://ark-ui.com/docs/components/date-picker
+---
+
+<ComponentPreview componentName="date-field" />
+
+## Usage
+
+```tsx
+import { DateField } from "@kanzo-tech/ui";
+```
+
+```tsx
+<DateField value={value} onChange={setValue} />
+```
+
+The whole point is the contract: `value` and `onChange` speak `YYYY-MM-DD` (or
+`YYYY-MM-DDTHH:mm` with `withTime`), never Ark's `DateValue` objects. A form library, a JSON
+payload and a SHACL constraint all already speak that, so nothing upstream has to learn a
+date library.
+
+Everything else — the grid, roving focus, month/year quick-nav — comes from
+[Date Picker](/docs/components/date-picker); reach for that directly when you need ranges,
+presets or a custom grid.
+
+## With time
+
+<ComponentPreview componentName="date-field" fileName="example-with-time" />
+
+## With field
+
+<ComponentPreview componentName="date-field" fileName="example-with-field" />
+
+## Sizes
+
+<ComponentPreview componentName="date-field" fileName="example-sizes" />
+
+## Invalid and disabled
+
+<ComponentPreview componentName="date-field" fileName="example-invalid" />
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `value` | `string \| null` | — |
+| `onChange` | `(value: string \| null) => void` | — |
+| `withTime` | `boolean` | `false` |
+| `size` | `"sm" \| "md" \| "lg"` | `"md"` |
+| `invalid` | `boolean` | — |
+| `disabled` | `boolean` | — |
+
+An unparseable `value` renders as an empty selection rather than throwing, so a half-typed or
+malformed string from a form never takes the page down.

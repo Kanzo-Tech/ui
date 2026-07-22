@@ -1,0 +1,84 @@
+---
+title: Table
+description: The presentational table primitive — semantic elements, tokenised chrome, no data layer.
+links:
+  doc: https://ark-ui.com/docs/components/factory
+---
+
+<ComponentPreview componentName="table" />
+
+## Usage
+
+```tsx
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<Table>
+  <TableHeader>
+    <TableRow>
+      <TableHead>Dataset</TableHead>
+    </TableRow>
+  </TableHeader>
+  <TableBody>
+    <TableRow>
+      <TableCell>customers</TableCell>
+    </TableRow>
+  </TableBody>
+</Table>
+```
+
+This is the markup layer only. For sorting, filtering and pagination, use
+[`DataTable`](/docs/components/data-table) — it composes these same parts over TanStack Table
+on a separate entry point.
+
+## Anatomy
+
+```text
+<Table>
+  <TableCaption />
+  <TableHeader>
+    <TableRow>
+      <TableHead />
+  <TableBody>
+    <TableRow>
+      <TableCell />
+  <TableFooter>
+    <TableRow>
+      <TableCell />
+```
+
+`Table` renders its own `overflow-auto` wrapper, so a wide table scrolls inside itself rather
+than pushing the page sideways.
+
+## Striped
+
+`variant` and `isHoverable` land as `data-*` attributes on the `<table>`; the rows read them
+through a group selector, so no row has to be told which variant it is in.
+
+<ComponentPreview componentName="table" fileName="example-striped" />
+
+## With footer
+
+<ComponentPreview componentName="table" fileName="example-with-footer" />
+
+## API Reference
+
+### Table
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `variant` | `"plain" \| "striped"` | `"plain"` |
+| `isHoverable` | `boolean` | `true` |
+
+Every part extends the matching `ark.*` element (`ark.table`, `ark.thead`, `ark.tr`, …), so
+`ref` and all native table attributes — `colSpan`, `scope`, `align` — pass through.

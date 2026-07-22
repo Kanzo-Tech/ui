@@ -1,0 +1,42 @@
+---
+title: Empty State
+description: The centred zero-state placeholder for lists and panels.
+---
+
+<ComponentPreview componentName="empty-state" />
+
+## Usage
+
+```tsx
+import { EmptyState } from "@kanzo-tech/ui";
+```
+
+```tsx
+<EmptyState
+  icon={<InboxIcon />}
+  title="No datasets yet"
+  description="Connect a source to start ingesting records."
+/>
+```
+
+This is a props component, not a compound one — the shape of an empty state is fixed, so
+there is nothing to compose.
+
+## With an action
+
+`headingLevel` sets the tag for the title so it slots into the surrounding document outline;
+an empty state inside a section under an `h2` should be an `h3`, which is the default.
+
+<ComponentPreview componentName="empty-state" fileName="example-with-action" />
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `title` | `ReactNode` | — |
+| `description` | `ReactNode` | — |
+| `icon` | `ReactNode` | — |
+| `action` | `ReactNode` | — |
+| `headingLevel` | `2 \| 3 \| 4 \| 5 \| 6` | `3` |
+| `className` | `string` | — |
+| `ref` | `Ref<HTMLDivElement>` | — |

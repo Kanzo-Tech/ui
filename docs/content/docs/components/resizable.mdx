@@ -1,0 +1,57 @@
+---
+title: Resizable
+description: Panels the user can resize by dragging the divider between them.
+links:
+  doc: https://ark-ui.com/docs/components/splitter
+---
+
+<ComponentPreview componentName="resizable" />
+
+## Usage
+
+```tsx
+import { Resizable, ResizablePanel, ResizableResizeTrigger } from "@kanzo-tech/ui";
+```
+
+```tsx
+<div className="h-64">
+  <Resizable panels={[{ id: "list" }, { id: "detail" }]} defaultSize={[35, 65]}>
+    <ResizablePanel id="list">…</ResizablePanel>
+    <ResizableResizeTrigger id="list:detail" withHandle />
+    <ResizablePanel id="detail">…</ResizablePanel>
+  </Resizable>
+</div>
+```
+
+Two things are easy to get wrong. The root is `size-full`, so the parent decides the height —
+without one the panels collapse to nothing. And the trigger's id is the two panel ids it sits
+between, joined by a colon (`"list:detail"`); that pairing is how the machine knows which
+panels a drag redistributes between.
+
+`panels` declares the constraints (`minSize`, `maxSize`, `collapsible`); `defaultSize` sets
+the starting split.
+
+## Anatomy
+
+```text
+<Resizable panels defaultSize>
+  <ResizablePanel id="a" />
+  <ResizableResizeTrigger id="a:b" />
+  <ResizablePanel id="b" />
+```
+
+## Vertical
+
+<ComponentPreview componentName="resizable" fileName="example-vertical" />
+
+## API Reference
+
+### ResizableResizeTrigger
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `withHandle` | `boolean` | `false` |
+| `id` | `` `${PanelId}:${PanelId}` `` | — |
+
+`panels`, `size` / `defaultSize`, `orientation`, `onResize` and the rest are Ark's
+`Splitter.Root`. `useResizable` re-exports Ark's `useSplitterContext`.

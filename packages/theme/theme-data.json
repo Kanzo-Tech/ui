@@ -1,0 +1,848 @@
+{
+  "bases": {
+    "slate": {
+      "light": {
+        "--background": "var(--color-slate-50)",
+        "--foreground": "var(--color-slate-800)",
+        "--card": "var(--color-slate-50)",
+        "--card-foreground": "var(--color-slate-800)",
+        "--popover": "var(--color-slate-50)",
+        "--popover-foreground": "var(--color-slate-800)",
+        "--secondary": "color-mix(in srgb, var(--color-slate-950) 6%, var(--background))",
+        "--secondary-foreground": "var(--color-slate-800)",
+        "--muted": "color-mix(in srgb, var(--color-slate-950) 6%, var(--background))",
+        "--muted-foreground": "color-mix(in srgb, var(--color-slate-500) 80%, var(--color-slate-950))",
+        "--accent": "color-mix(in srgb, var(--color-slate-950) 6%, var(--background))",
+        "--accent-foreground": "var(--color-slate-800)",
+        "--border": "color-mix(in srgb, var(--color-slate-950) 12%, var(--background))",
+        "--input": "color-mix(in srgb, var(--color-slate-950) 13%, var(--background))",
+        "--sidebar": "var(--color-slate-50)",
+        "--sidebar-foreground": "color-mix(in srgb, var(--color-slate-800) 64%, var(--sidebar))",
+        "--sidebar-accent": "color-mix(in srgb, var(--color-slate-950) 6%, var(--sidebar))",
+        "--sidebar-accent-foreground": "var(--color-slate-800)",
+        "--sidebar-border": "color-mix(in srgb, var(--color-slate-950) 11%, var(--sidebar))"
+      },
+      "dark": {
+        "--background": "var(--color-slate-950)",
+        "--foreground": "var(--color-slate-100)",
+        "--card": "color-mix(in srgb, var(--background) 98%, var(--color-slate-50))",
+        "--card-foreground": "var(--color-slate-100)",
+        "--popover": "color-mix(in srgb, var(--background) 96%, var(--color-slate-50))",
+        "--popover-foreground": "var(--color-slate-100)",
+        "--secondary": "color-mix(in srgb, var(--color-slate-50) 8%, var(--background))",
+        "--secondary-foreground": "var(--color-slate-100)",
+        "--muted": "color-mix(in srgb, var(--color-slate-50) 8%, var(--background))",
+        "--muted-foreground": "color-mix(in srgb, var(--color-slate-500) 70%, var(--color-slate-50))",
+        "--accent": "color-mix(in srgb, var(--color-slate-50) 8%, var(--background))",
+        "--accent-foreground": "var(--color-slate-100)",
+        "--border": "color-mix(in srgb, var(--color-slate-50) 12%, var(--background))",
+        "--input": "color-mix(in srgb, var(--color-slate-50) 13%, var(--background))",
+        "--destructive": "color-mix(in srgb, var(--color-red-600) 90%, var(--color-slate-50))",
+        "--destructive-foreground": "var(--color-red-400)",
+        "--sidebar": "color-mix(in srgb, var(--color-slate-950) 97%, var(--color-slate-50))",
+        "--sidebar-foreground": "color-mix(in srgb, var(--color-slate-100) 64%, var(--sidebar))",
+        "--sidebar-accent": "color-mix(in srgb, var(--color-slate-50) 8%, var(--sidebar))",
+        "--sidebar-accent-foreground": "var(--color-slate-100)",
+        "--sidebar-border": "color-mix(in srgb, var(--color-slate-50) 11%, var(--sidebar))"
+      }
+    },
+    "gray": {
+      "light": {
+        "--background": "var(--color-gray-50)",
+        "--foreground": "var(--color-gray-800)",
+        "--card": "var(--color-gray-50)",
+        "--card-foreground": "var(--color-gray-800)",
+        "--popover": "var(--color-gray-50)",
+        "--popover-foreground": "var(--color-gray-800)",
+        "--secondary": "color-mix(in srgb, var(--color-gray-950) 6%, var(--background))",
+        "--secondary-foreground": "var(--color-gray-800)",
+        "--muted": "color-mix(in srgb, var(--color-gray-950) 6%, var(--background))",
+        "--muted-foreground": "color-mix(in srgb, var(--color-gray-500) 80%, var(--color-gray-950))",
+        "--accent": "color-mix(in srgb, var(--color-gray-950) 6%, var(--background))",
+        "--accent-foreground": "var(--color-gray-800)",
+        "--border": "color-mix(in srgb, var(--color-gray-950) 12%, var(--background))",
+        "--input": "color-mix(in srgb, var(--color-gray-950) 13%, var(--background))",
+        "--sidebar": "var(--color-gray-50)",
+        "--sidebar-foreground": "color-mix(in srgb, var(--color-gray-800) 64%, var(--sidebar))",
+        "--sidebar-accent": "color-mix(in srgb, var(--color-gray-950) 6%, var(--sidebar))",
+        "--sidebar-accent-foreground": "var(--color-gray-800)",
+        "--sidebar-border": "color-mix(in srgb, var(--color-gray-950) 11%, var(--sidebar))"
+      },
+      "dark": {
+        "--background": "var(--color-gray-950)",
+        "--foreground": "var(--color-gray-100)",
+        "--card": "color-mix(in srgb, var(--background) 98%, var(--color-gray-50))",
+        "--card-foreground": "var(--color-gray-100)",
+        "--popover": "color-mix(in srgb, var(--background) 96%, var(--color-gray-50))",
+        "--popover-foreground": "var(--color-gray-100)",
+        "--secondary": "color-mix(in srgb, var(--color-gray-50) 8%, var(--background))",
+        "--secondary-foreground": "var(--color-gray-100)",
+        "--muted": "color-mix(in srgb, var(--color-gray-50) 8%, var(--background))",
+        "--muted-foreground": "color-mix(in srgb, var(--color-gray-500) 70%, var(--color-gray-50))",
+        "--accent": "color-mix(in srgb, var(--color-gray-50) 8%, var(--background))",
+        "--accent-foreground": "var(--color-gray-100)",
+        "--border": "color-mix(in srgb, var(--color-gray-50) 12%, var(--background))",
+        "--input": "color-mix(in srgb, var(--color-gray-50) 13%, var(--background))",
+        "--destructive": "color-mix(in srgb, var(--color-red-600) 90%, var(--color-gray-50))",
+        "--destructive-foreground": "var(--color-red-400)",
+        "--sidebar": "color-mix(in srgb, var(--color-gray-950) 97%, var(--color-gray-50))",
+        "--sidebar-foreground": "color-mix(in srgb, var(--color-gray-100) 64%, var(--sidebar))",
+        "--sidebar-accent": "color-mix(in srgb, var(--color-gray-50) 8%, var(--sidebar))",
+        "--sidebar-accent-foreground": "var(--color-gray-100)",
+        "--sidebar-border": "color-mix(in srgb, var(--color-gray-50) 11%, var(--sidebar))"
+      }
+    },
+    "zinc": {
+      "light": {
+        "--background": "var(--color-zinc-50)",
+        "--foreground": "var(--color-zinc-800)",
+        "--card": "var(--color-zinc-50)",
+        "--card-foreground": "var(--color-zinc-800)",
+        "--popover": "var(--color-zinc-50)",
+        "--popover-foreground": "var(--color-zinc-800)",
+        "--secondary": "color-mix(in srgb, var(--color-zinc-950) 6%, var(--background))",
+        "--secondary-foreground": "var(--color-zinc-800)",
+        "--muted": "color-mix(in srgb, var(--color-zinc-950) 6%, var(--background))",
+        "--muted-foreground": "color-mix(in srgb, var(--color-zinc-500) 80%, var(--color-zinc-950))",
+        "--accent": "color-mix(in srgb, var(--color-zinc-950) 6%, var(--background))",
+        "--accent-foreground": "var(--color-zinc-800)",
+        "--border": "color-mix(in srgb, var(--color-zinc-950) 12%, var(--background))",
+        "--input": "color-mix(in srgb, var(--color-zinc-950) 13%, var(--background))",
+        "--sidebar": "var(--color-zinc-50)",
+        "--sidebar-foreground": "color-mix(in srgb, var(--color-zinc-800) 64%, var(--sidebar))",
+        "--sidebar-accent": "color-mix(in srgb, var(--color-zinc-950) 6%, var(--sidebar))",
+        "--sidebar-accent-foreground": "var(--color-zinc-800)",
+        "--sidebar-border": "color-mix(in srgb, var(--color-zinc-950) 11%, var(--sidebar))"
+      },
+      "dark": {
+        "--background": "var(--color-zinc-950)",
+        "--foreground": "var(--color-zinc-100)",
+        "--card": "color-mix(in srgb, var(--background) 98%, var(--color-zinc-50))",
+        "--card-foreground": "var(--color-zinc-100)",
+        "--popover": "color-mix(in srgb, var(--background) 96%, var(--color-zinc-50))",
+        "--popover-foreground": "var(--color-zinc-100)",
+        "--secondary": "color-mix(in srgb, var(--color-zinc-50) 8%, var(--background))",
+        "--secondary-foreground": "var(--color-zinc-100)",
+        "--muted": "color-mix(in srgb, var(--color-zinc-50) 8%, var(--background))",
+        "--muted-foreground": "color-mix(in srgb, var(--color-zinc-500) 70%, var(--color-zinc-50))",
+        "--accent": "color-mix(in srgb, var(--color-zinc-50) 8%, var(--background))",
+        "--accent-foreground": "var(--color-zinc-100)",
+        "--border": "color-mix(in srgb, var(--color-zinc-50) 12%, var(--background))",
+        "--input": "color-mix(in srgb, var(--color-zinc-50) 13%, var(--background))",
+        "--destructive": "color-mix(in srgb, var(--color-red-600) 90%, var(--color-zinc-50))",
+        "--destructive-foreground": "var(--color-red-400)",
+        "--sidebar": "color-mix(in srgb, var(--color-zinc-950) 97%, var(--color-zinc-50))",
+        "--sidebar-foreground": "color-mix(in srgb, var(--color-zinc-100) 64%, var(--sidebar))",
+        "--sidebar-accent": "color-mix(in srgb, var(--color-zinc-50) 8%, var(--sidebar))",
+        "--sidebar-accent-foreground": "var(--color-zinc-100)",
+        "--sidebar-border": "color-mix(in srgb, var(--color-zinc-50) 11%, var(--sidebar))"
+      }
+    },
+    "neutral": {
+      "light": {
+        "--background": "var(--color-neutral-50)",
+        "--foreground": "var(--color-neutral-800)",
+        "--card": "var(--color-neutral-50)",
+        "--card-foreground": "var(--color-neutral-800)",
+        "--popover": "var(--color-neutral-50)",
+        "--popover-foreground": "var(--color-neutral-800)",
+        "--secondary": "color-mix(in srgb, var(--color-neutral-950) 6%, var(--background))",
+        "--secondary-foreground": "var(--color-neutral-800)",
+        "--muted": "color-mix(in srgb, var(--color-neutral-950) 6%, var(--background))",
+        "--muted-foreground": "color-mix(in srgb, var(--color-neutral-500) 80%, var(--color-neutral-950))",
+        "--accent": "color-mix(in srgb, var(--color-neutral-950) 6%, var(--background))",
+        "--accent-foreground": "var(--color-neutral-800)",
+        "--border": "color-mix(in srgb, var(--color-neutral-950) 12%, var(--background))",
+        "--input": "color-mix(in srgb, var(--color-neutral-950) 13%, var(--background))",
+        "--sidebar": "var(--color-neutral-50)",
+        "--sidebar-foreground": "color-mix(in srgb, var(--color-neutral-800) 64%, var(--sidebar))",
+        "--sidebar-accent": "color-mix(in srgb, var(--color-neutral-950) 6%, var(--sidebar))",
+        "--sidebar-accent-foreground": "var(--color-neutral-800)",
+        "--sidebar-border": "color-mix(in srgb, var(--color-neutral-950) 11%, var(--sidebar))"
+      },
+      "dark": {
+        "--background": "var(--color-neutral-950)",
+        "--foreground": "var(--color-neutral-100)",
+        "--card": "color-mix(in srgb, var(--background) 98%, var(--color-neutral-50))",
+        "--card-foreground": "var(--color-neutral-100)",
+        "--popover": "color-mix(in srgb, var(--background) 96%, var(--color-neutral-50))",
+        "--popover-foreground": "var(--color-neutral-100)",
+        "--secondary": "color-mix(in srgb, var(--color-neutral-50) 8%, var(--background))",
+        "--secondary-foreground": "var(--color-neutral-100)",
+        "--muted": "color-mix(in srgb, var(--color-neutral-50) 8%, var(--background))",
+        "--muted-foreground": "color-mix(in srgb, var(--color-neutral-500) 70%, var(--color-neutral-50))",
+        "--accent": "color-mix(in srgb, var(--color-neutral-50) 8%, var(--background))",
+        "--accent-foreground": "var(--color-neutral-100)",
+        "--border": "color-mix(in srgb, var(--color-neutral-50) 12%, var(--background))",
+        "--input": "color-mix(in srgb, var(--color-neutral-50) 13%, var(--background))",
+        "--destructive": "color-mix(in srgb, var(--color-red-600) 90%, var(--color-neutral-50))",
+        "--destructive-foreground": "var(--color-red-400)",
+        "--sidebar": "color-mix(in srgb, var(--color-neutral-950) 97%, var(--color-neutral-50))",
+        "--sidebar-foreground": "color-mix(in srgb, var(--color-neutral-100) 64%, var(--sidebar))",
+        "--sidebar-accent": "color-mix(in srgb, var(--color-neutral-50) 8%, var(--sidebar))",
+        "--sidebar-accent-foreground": "var(--color-neutral-100)",
+        "--sidebar-border": "color-mix(in srgb, var(--color-neutral-50) 11%, var(--sidebar))"
+      }
+    },
+    "stone": {
+      "light": {
+        "--background": "var(--color-stone-50)",
+        "--foreground": "var(--color-stone-800)",
+        "--card": "var(--color-stone-50)",
+        "--card-foreground": "var(--color-stone-800)",
+        "--popover": "var(--color-stone-50)",
+        "--popover-foreground": "var(--color-stone-800)",
+        "--secondary": "color-mix(in srgb, var(--color-stone-950) 6%, var(--background))",
+        "--secondary-foreground": "var(--color-stone-800)",
+        "--muted": "color-mix(in srgb, var(--color-stone-950) 6%, var(--background))",
+        "--muted-foreground": "color-mix(in srgb, var(--color-stone-500) 80%, var(--color-stone-950))",
+        "--accent": "color-mix(in srgb, var(--color-stone-950) 6%, var(--background))",
+        "--accent-foreground": "var(--color-stone-800)",
+        "--border": "color-mix(in srgb, var(--color-stone-950) 12%, var(--background))",
+        "--input": "color-mix(in srgb, var(--color-stone-950) 13%, var(--background))",
+        "--sidebar": "var(--color-stone-50)",
+        "--sidebar-foreground": "color-mix(in srgb, var(--color-stone-800) 64%, var(--sidebar))",
+        "--sidebar-accent": "color-mix(in srgb, var(--color-stone-950) 6%, var(--sidebar))",
+        "--sidebar-accent-foreground": "var(--color-stone-800)",
+        "--sidebar-border": "color-mix(in srgb, var(--color-stone-950) 11%, var(--sidebar))"
+      },
+      "dark": {
+        "--background": "var(--color-stone-950)",
+        "--foreground": "var(--color-stone-100)",
+        "--card": "color-mix(in srgb, var(--background) 98%, var(--color-stone-50))",
+        "--card-foreground": "var(--color-stone-100)",
+        "--popover": "color-mix(in srgb, var(--background) 96%, var(--color-stone-50))",
+        "--popover-foreground": "var(--color-stone-100)",
+        "--secondary": "color-mix(in srgb, var(--color-stone-50) 8%, var(--background))",
+        "--secondary-foreground": "var(--color-stone-100)",
+        "--muted": "color-mix(in srgb, var(--color-stone-50) 8%, var(--background))",
+        "--muted-foreground": "color-mix(in srgb, var(--color-stone-500) 70%, var(--color-stone-50))",
+        "--accent": "color-mix(in srgb, var(--color-stone-50) 8%, var(--background))",
+        "--accent-foreground": "var(--color-stone-100)",
+        "--border": "color-mix(in srgb, var(--color-stone-50) 12%, var(--background))",
+        "--input": "color-mix(in srgb, var(--color-stone-50) 13%, var(--background))",
+        "--destructive": "color-mix(in srgb, var(--color-red-600) 90%, var(--color-stone-50))",
+        "--destructive-foreground": "var(--color-red-400)",
+        "--sidebar": "color-mix(in srgb, var(--color-stone-950) 97%, var(--color-stone-50))",
+        "--sidebar-foreground": "color-mix(in srgb, var(--color-stone-100) 64%, var(--sidebar))",
+        "--sidebar-accent": "color-mix(in srgb, var(--color-stone-50) 8%, var(--sidebar))",
+        "--sidebar-accent-foreground": "var(--color-stone-100)",
+        "--sidebar-border": "color-mix(in srgb, var(--color-stone-50) 11%, var(--sidebar))"
+      }
+    },
+    "mauve": {
+      "light": {
+        "--background": "var(--color-mauve-50)",
+        "--foreground": "var(--color-mauve-800)",
+        "--card": "var(--color-mauve-50)",
+        "--card-foreground": "var(--color-mauve-800)",
+        "--popover": "var(--color-mauve-50)",
+        "--popover-foreground": "var(--color-mauve-800)",
+        "--secondary": "color-mix(in srgb, var(--color-mauve-950) 6%, var(--background))",
+        "--secondary-foreground": "var(--color-mauve-800)",
+        "--muted": "color-mix(in srgb, var(--color-mauve-950) 6%, var(--background))",
+        "--muted-foreground": "color-mix(in srgb, var(--color-mauve-500) 80%, var(--color-mauve-950))",
+        "--accent": "color-mix(in srgb, var(--color-mauve-950) 6%, var(--background))",
+        "--accent-foreground": "var(--color-mauve-800)",
+        "--border": "color-mix(in srgb, var(--color-mauve-950) 12%, var(--background))",
+        "--input": "color-mix(in srgb, var(--color-mauve-950) 13%, var(--background))",
+        "--sidebar": "var(--color-mauve-50)",
+        "--sidebar-foreground": "color-mix(in srgb, var(--color-mauve-800) 64%, var(--sidebar))",
+        "--sidebar-accent": "color-mix(in srgb, var(--color-mauve-950) 6%, var(--sidebar))",
+        "--sidebar-accent-foreground": "var(--color-mauve-800)",
+        "--sidebar-border": "color-mix(in srgb, var(--color-mauve-950) 11%, var(--sidebar))"
+      },
+      "dark": {
+        "--background": "var(--color-mauve-950)",
+        "--foreground": "var(--color-mauve-100)",
+        "--card": "color-mix(in srgb, var(--background) 98%, var(--color-mauve-50))",
+        "--card-foreground": "var(--color-mauve-100)",
+        "--popover": "color-mix(in srgb, var(--background) 96%, var(--color-mauve-50))",
+        "--popover-foreground": "var(--color-mauve-100)",
+        "--secondary": "color-mix(in srgb, var(--color-mauve-50) 8%, var(--background))",
+        "--secondary-foreground": "var(--color-mauve-100)",
+        "--muted": "color-mix(in srgb, var(--color-mauve-50) 8%, var(--background))",
+        "--muted-foreground": "color-mix(in srgb, var(--color-mauve-500) 70%, var(--color-mauve-50))",
+        "--accent": "color-mix(in srgb, var(--color-mauve-50) 8%, var(--background))",
+        "--accent-foreground": "var(--color-mauve-100)",
+        "--border": "color-mix(in srgb, var(--color-mauve-50) 12%, var(--background))",
+        "--input": "color-mix(in srgb, var(--color-mauve-50) 13%, var(--background))",
+        "--destructive": "color-mix(in srgb, var(--color-red-600) 90%, var(--color-mauve-50))",
+        "--destructive-foreground": "var(--color-red-400)",
+        "--sidebar": "color-mix(in srgb, var(--color-mauve-950) 97%, var(--color-mauve-50))",
+        "--sidebar-foreground": "color-mix(in srgb, var(--color-mauve-100) 64%, var(--sidebar))",
+        "--sidebar-accent": "color-mix(in srgb, var(--color-mauve-50) 8%, var(--sidebar))",
+        "--sidebar-accent-foreground": "var(--color-mauve-100)",
+        "--sidebar-border": "color-mix(in srgb, var(--color-mauve-50) 11%, var(--sidebar))"
+      }
+    },
+    "olive": {
+      "light": {
+        "--background": "var(--color-olive-50)",
+        "--foreground": "var(--color-olive-800)",
+        "--card": "var(--color-olive-50)",
+        "--card-foreground": "var(--color-olive-800)",
+        "--popover": "var(--color-olive-50)",
+        "--popover-foreground": "var(--color-olive-800)",
+        "--secondary": "color-mix(in srgb, var(--color-olive-950) 6%, var(--background))",
+        "--secondary-foreground": "var(--color-olive-800)",
+        "--muted": "color-mix(in srgb, var(--color-olive-950) 6%, var(--background))",
+        "--muted-foreground": "color-mix(in srgb, var(--color-olive-500) 80%, var(--color-olive-950))",
+        "--accent": "color-mix(in srgb, var(--color-olive-950) 6%, var(--background))",
+        "--accent-foreground": "var(--color-olive-800)",
+        "--border": "color-mix(in srgb, var(--color-olive-950) 12%, var(--background))",
+        "--input": "color-mix(in srgb, var(--color-olive-950) 13%, var(--background))",
+        "--sidebar": "var(--color-olive-50)",
+        "--sidebar-foreground": "color-mix(in srgb, var(--color-olive-800) 64%, var(--sidebar))",
+        "--sidebar-accent": "color-mix(in srgb, var(--color-olive-950) 6%, var(--sidebar))",
+        "--sidebar-accent-foreground": "var(--color-olive-800)",
+        "--sidebar-border": "color-mix(in srgb, var(--color-olive-950) 11%, var(--sidebar))"
+      },
+      "dark": {
+        "--background": "var(--color-olive-950)",
+        "--foreground": "var(--color-olive-100)",
+        "--card": "color-mix(in srgb, var(--background) 98%, var(--color-olive-50))",
+        "--card-foreground": "var(--color-olive-100)",
+        "--popover": "color-mix(in srgb, var(--background) 96%, var(--color-olive-50))",
+        "--popover-foreground": "var(--color-olive-100)",
+        "--secondary": "color-mix(in srgb, var(--color-olive-50) 8%, var(--background))",
+        "--secondary-foreground": "var(--color-olive-100)",
+        "--muted": "color-mix(in srgb, var(--color-olive-50) 8%, var(--background))",
+        "--muted-foreground": "color-mix(in srgb, var(--color-olive-500) 70%, var(--color-olive-50))",
+        "--accent": "color-mix(in srgb, var(--color-olive-50) 8%, var(--background))",
+        "--accent-foreground": "var(--color-olive-100)",
+        "--border": "color-mix(in srgb, var(--color-olive-50) 12%, var(--background))",
+        "--input": "color-mix(in srgb, var(--color-olive-50) 13%, var(--background))",
+        "--destructive": "color-mix(in srgb, var(--color-red-600) 90%, var(--color-olive-50))",
+        "--destructive-foreground": "var(--color-red-400)",
+        "--sidebar": "color-mix(in srgb, var(--color-olive-950) 97%, var(--color-olive-50))",
+        "--sidebar-foreground": "color-mix(in srgb, var(--color-olive-100) 64%, var(--sidebar))",
+        "--sidebar-accent": "color-mix(in srgb, var(--color-olive-50) 8%, var(--sidebar))",
+        "--sidebar-accent-foreground": "var(--color-olive-100)",
+        "--sidebar-border": "color-mix(in srgb, var(--color-olive-50) 11%, var(--sidebar))"
+      }
+    },
+    "mist": {
+      "light": {
+        "--background": "var(--color-mist-50)",
+        "--foreground": "var(--color-mist-800)",
+        "--card": "var(--color-mist-50)",
+        "--card-foreground": "var(--color-mist-800)",
+        "--popover": "var(--color-mist-50)",
+        "--popover-foreground": "var(--color-mist-800)",
+        "--secondary": "color-mix(in srgb, var(--color-mist-950) 6%, var(--background))",
+        "--secondary-foreground": "var(--color-mist-800)",
+        "--muted": "color-mix(in srgb, var(--color-mist-950) 6%, var(--background))",
+        "--muted-foreground": "color-mix(in srgb, var(--color-mist-500) 80%, var(--color-mist-950))",
+        "--accent": "color-mix(in srgb, var(--color-mist-950) 6%, var(--background))",
+        "--accent-foreground": "var(--color-mist-800)",
+        "--border": "color-mix(in srgb, var(--color-mist-950) 12%, var(--background))",
+        "--input": "color-mix(in srgb, var(--color-mist-950) 13%, var(--background))",
+        "--sidebar": "var(--color-mist-50)",
+        "--sidebar-foreground": "color-mix(in srgb, var(--color-mist-800) 64%, var(--sidebar))",
+        "--sidebar-accent": "color-mix(in srgb, var(--color-mist-950) 6%, var(--sidebar))",
+        "--sidebar-accent-foreground": "var(--color-mist-800)",
+        "--sidebar-border": "color-mix(in srgb, var(--color-mist-950) 11%, var(--sidebar))"
+      },
+      "dark": {
+        "--background": "var(--color-mist-950)",
+        "--foreground": "var(--color-mist-100)",
+        "--card": "color-mix(in srgb, var(--background) 98%, var(--color-mist-50))",
+        "--card-foreground": "var(--color-mist-100)",
+        "--popover": "color-mix(in srgb, var(--background) 96%, var(--color-mist-50))",
+        "--popover-foreground": "var(--color-mist-100)",
+        "--secondary": "color-mix(in srgb, var(--color-mist-50) 8%, var(--background))",
+        "--secondary-foreground": "var(--color-mist-100)",
+        "--muted": "color-mix(in srgb, var(--color-mist-50) 8%, var(--background))",
+        "--muted-foreground": "color-mix(in srgb, var(--color-mist-500) 70%, var(--color-mist-50))",
+        "--accent": "color-mix(in srgb, var(--color-mist-50) 8%, var(--background))",
+        "--accent-foreground": "var(--color-mist-100)",
+        "--border": "color-mix(in srgb, var(--color-mist-50) 12%, var(--background))",
+        "--input": "color-mix(in srgb, var(--color-mist-50) 13%, var(--background))",
+        "--destructive": "color-mix(in srgb, var(--color-red-600) 90%, var(--color-mist-50))",
+        "--destructive-foreground": "var(--color-red-400)",
+        "--sidebar": "color-mix(in srgb, var(--color-mist-950) 97%, var(--color-mist-50))",
+        "--sidebar-foreground": "color-mix(in srgb, var(--color-mist-100) 64%, var(--sidebar))",
+        "--sidebar-accent": "color-mix(in srgb, var(--color-mist-50) 8%, var(--sidebar))",
+        "--sidebar-accent-foreground": "var(--color-mist-100)",
+        "--sidebar-border": "color-mix(in srgb, var(--color-mist-50) 11%, var(--sidebar))"
+      }
+    },
+    "taupe": {
+      "light": {
+        "--background": "var(--color-taupe-50)",
+        "--foreground": "var(--color-taupe-800)",
+        "--card": "var(--color-taupe-50)",
+        "--card-foreground": "var(--color-taupe-800)",
+        "--popover": "var(--color-taupe-50)",
+        "--popover-foreground": "var(--color-taupe-800)",
+        "--secondary": "color-mix(in srgb, var(--color-taupe-950) 6%, var(--background))",
+        "--secondary-foreground": "var(--color-taupe-800)",
+        "--muted": "color-mix(in srgb, var(--color-taupe-950) 6%, var(--background))",
+        "--muted-foreground": "color-mix(in srgb, var(--color-taupe-500) 80%, var(--color-taupe-950))",
+        "--accent": "color-mix(in srgb, var(--color-taupe-950) 6%, var(--background))",
+        "--accent-foreground": "var(--color-taupe-800)",
+        "--border": "color-mix(in srgb, var(--color-taupe-950) 12%, var(--background))",
+        "--input": "color-mix(in srgb, var(--color-taupe-950) 13%, var(--background))",
+        "--sidebar": "var(--color-taupe-50)",
+        "--sidebar-foreground": "color-mix(in srgb, var(--color-taupe-800) 64%, var(--sidebar))",
+        "--sidebar-accent": "color-mix(in srgb, var(--color-taupe-950) 6%, var(--sidebar))",
+        "--sidebar-accent-foreground": "var(--color-taupe-800)",
+        "--sidebar-border": "color-mix(in srgb, var(--color-taupe-950) 11%, var(--sidebar))"
+      },
+      "dark": {
+        "--background": "var(--color-taupe-950)",
+        "--foreground": "var(--color-taupe-100)",
+        "--card": "color-mix(in srgb, var(--background) 98%, var(--color-taupe-50))",
+        "--card-foreground": "var(--color-taupe-100)",
+        "--popover": "color-mix(in srgb, var(--background) 96%, var(--color-taupe-50))",
+        "--popover-foreground": "var(--color-taupe-100)",
+        "--secondary": "color-mix(in srgb, var(--color-taupe-50) 8%, var(--background))",
+        "--secondary-foreground": "var(--color-taupe-100)",
+        "--muted": "color-mix(in srgb, var(--color-taupe-50) 8%, var(--background))",
+        "--muted-foreground": "color-mix(in srgb, var(--color-taupe-500) 70%, var(--color-taupe-50))",
+        "--accent": "color-mix(in srgb, var(--color-taupe-50) 8%, var(--background))",
+        "--accent-foreground": "var(--color-taupe-100)",
+        "--border": "color-mix(in srgb, var(--color-taupe-50) 12%, var(--background))",
+        "--input": "color-mix(in srgb, var(--color-taupe-50) 13%, var(--background))",
+        "--destructive": "color-mix(in srgb, var(--color-red-600) 90%, var(--color-taupe-50))",
+        "--destructive-foreground": "var(--color-red-400)",
+        "--sidebar": "color-mix(in srgb, var(--color-taupe-950) 97%, var(--color-taupe-50))",
+        "--sidebar-foreground": "color-mix(in srgb, var(--color-taupe-100) 64%, var(--sidebar))",
+        "--sidebar-accent": "color-mix(in srgb, var(--color-taupe-50) 8%, var(--sidebar))",
+        "--sidebar-accent-foreground": "var(--color-taupe-100)",
+        "--sidebar-border": "color-mix(in srgb, var(--color-taupe-50) 11%, var(--sidebar))"
+      }
+    },
+    "custom": {
+      "light": {
+        "--background": "var(--color-custom-50)",
+        "--foreground": "var(--color-custom-800)",
+        "--card": "var(--color-custom-50)",
+        "--card-foreground": "var(--color-custom-800)",
+        "--popover": "var(--color-custom-50)",
+        "--popover-foreground": "var(--color-custom-800)",
+        "--secondary": "color-mix(in srgb, var(--color-custom-950) 6%, var(--background))",
+        "--secondary-foreground": "var(--color-custom-800)",
+        "--muted": "color-mix(in srgb, var(--color-custom-950) 6%, var(--background))",
+        "--muted-foreground": "color-mix(in srgb, var(--color-custom-500) 80%, var(--color-custom-950))",
+        "--accent": "color-mix(in srgb, var(--color-custom-950) 6%, var(--background))",
+        "--accent-foreground": "var(--color-custom-800)",
+        "--border": "color-mix(in srgb, var(--color-custom-950) 12%, var(--background))",
+        "--input": "color-mix(in srgb, var(--color-custom-950) 13%, var(--background))",
+        "--sidebar": "var(--color-custom-50)",
+        "--sidebar-foreground": "color-mix(in srgb, var(--color-custom-800) 64%, var(--sidebar))",
+        "--sidebar-accent": "color-mix(in srgb, var(--color-custom-950) 6%, var(--sidebar))",
+        "--sidebar-accent-foreground": "var(--color-custom-800)",
+        "--sidebar-border": "color-mix(in srgb, var(--color-custom-950) 11%, var(--sidebar))"
+      },
+      "dark": {
+        "--background": "var(--color-custom-950)",
+        "--foreground": "var(--color-custom-100)",
+        "--card": "color-mix(in srgb, var(--background) 98%, var(--color-custom-50))",
+        "--card-foreground": "var(--color-custom-100)",
+        "--popover": "color-mix(in srgb, var(--background) 96%, var(--color-custom-50))",
+        "--popover-foreground": "var(--color-custom-100)",
+        "--secondary": "color-mix(in srgb, var(--color-custom-50) 8%, var(--background))",
+        "--secondary-foreground": "var(--color-custom-100)",
+        "--muted": "color-mix(in srgb, var(--color-custom-50) 8%, var(--background))",
+        "--muted-foreground": "color-mix(in srgb, var(--color-custom-500) 70%, var(--color-custom-50))",
+        "--accent": "color-mix(in srgb, var(--color-custom-50) 8%, var(--background))",
+        "--accent-foreground": "var(--color-custom-100)",
+        "--border": "color-mix(in srgb, var(--color-custom-50) 12%, var(--background))",
+        "--input": "color-mix(in srgb, var(--color-custom-50) 13%, var(--background))",
+        "--destructive": "color-mix(in srgb, var(--color-red-600) 90%, var(--color-custom-50))",
+        "--destructive-foreground": "var(--color-red-400)",
+        "--sidebar": "color-mix(in srgb, var(--color-custom-950) 97%, var(--color-custom-50))",
+        "--sidebar-foreground": "color-mix(in srgb, var(--color-custom-100) 64%, var(--sidebar))",
+        "--sidebar-accent": "color-mix(in srgb, var(--color-custom-50) 8%, var(--sidebar))",
+        "--sidebar-accent-foreground": "var(--color-custom-100)",
+        "--sidebar-border": "color-mix(in srgb, var(--color-custom-50) 11%, var(--sidebar))"
+      }
+    }
+  },
+  "accents": {
+    "neutral": {
+      "light": {
+        "--primary": "var(--color-neutral-800)",
+        "--primary-foreground": "var(--color-neutral-50)",
+        "--ring": "var(--color-neutral-400)",
+        "--sidebar-primary": "var(--color-neutral-800)",
+        "--sidebar-primary-foreground": "var(--color-neutral-50)",
+        "--sidebar-ring": "var(--color-neutral-400)"
+      },
+      "dark": {
+        "--primary": "var(--color-neutral-100)",
+        "--primary-foreground": "var(--color-neutral-800)",
+        "--ring": "var(--color-neutral-500)",
+        "--sidebar-primary": "var(--color-neutral-100)",
+        "--sidebar-primary-foreground": "var(--color-neutral-800)",
+        "--sidebar-ring": "var(--color-neutral-500)"
+      }
+    },
+    "red": {
+      "light": {
+        "--primary": "var(--color-red-600)",
+        "--primary-foreground": "var(--color-red-50)",
+        "--ring": "var(--color-red-500)",
+        "--sidebar-primary": "var(--color-red-600)",
+        "--sidebar-primary-foreground": "var(--color-red-50)",
+        "--sidebar-ring": "var(--color-red-500)"
+      },
+      "dark": {
+        "--primary": "var(--color-red-700)",
+        "--primary-foreground": "var(--color-red-50)",
+        "--ring": "var(--color-red-900)",
+        "--sidebar-primary": "var(--color-red-700)",
+        "--sidebar-primary-foreground": "var(--color-red-50)",
+        "--sidebar-ring": "var(--color-red-900)"
+      }
+    },
+    "orange": {
+      "light": {
+        "--primary": "var(--color-orange-600)",
+        "--primary-foreground": "var(--color-orange-50)",
+        "--ring": "var(--color-orange-400)",
+        "--sidebar-primary": "var(--color-orange-600)",
+        "--sidebar-primary-foreground": "var(--color-orange-50)",
+        "--sidebar-ring": "var(--color-orange-400)"
+      },
+      "dark": {
+        "--primary": "var(--color-orange-700)",
+        "--primary-foreground": "var(--color-orange-50)",
+        "--ring": "var(--color-orange-900)",
+        "--sidebar-primary": "var(--color-orange-700)",
+        "--sidebar-primary-foreground": "var(--color-orange-50)",
+        "--sidebar-ring": "var(--color-orange-900)"
+      }
+    },
+    "amber": {
+      "light": {
+        "--primary": "var(--color-amber-600)",
+        "--primary-foreground": "var(--color-amber-50)",
+        "--ring": "var(--color-amber-500)",
+        "--sidebar-primary": "var(--color-amber-600)",
+        "--sidebar-primary-foreground": "var(--color-amber-50)",
+        "--sidebar-ring": "var(--color-amber-500)"
+      },
+      "dark": {
+        "--primary": "var(--color-amber-700)",
+        "--primary-foreground": "var(--color-amber-50)",
+        "--ring": "var(--color-amber-900)",
+        "--sidebar-primary": "var(--color-amber-700)",
+        "--sidebar-primary-foreground": "var(--color-amber-50)",
+        "--sidebar-ring": "var(--color-amber-900)"
+      }
+    },
+    "yellow": {
+      "light": {
+        "--primary": "var(--color-yellow-600)",
+        "--primary-foreground": "var(--color-yellow-50)",
+        "--ring": "var(--color-yellow-500)",
+        "--sidebar-primary": "var(--color-yellow-600)",
+        "--sidebar-primary-foreground": "var(--color-yellow-50)",
+        "--sidebar-ring": "var(--color-yellow-500)"
+      },
+      "dark": {
+        "--primary": "var(--color-yellow-700)",
+        "--primary-foreground": "var(--color-yellow-50)",
+        "--ring": "var(--color-yellow-900)",
+        "--sidebar-primary": "var(--color-yellow-700)",
+        "--sidebar-primary-foreground": "var(--color-yellow-50)",
+        "--sidebar-ring": "var(--color-yellow-900)"
+      }
+    },
+    "lime": {
+      "light": {
+        "--primary": "var(--color-lime-600)",
+        "--primary-foreground": "var(--color-lime-50)",
+        "--ring": "var(--color-lime-600)",
+        "--sidebar-primary": "var(--color-lime-600)",
+        "--sidebar-primary-foreground": "var(--color-lime-50)",
+        "--sidebar-ring": "var(--color-lime-600)"
+      },
+      "dark": {
+        "--primary": "var(--color-lime-700)",
+        "--primary-foreground": "var(--color-lime-50)",
+        "--ring": "var(--color-lime-900)",
+        "--sidebar-primary": "var(--color-lime-700)",
+        "--sidebar-primary-foreground": "var(--color-lime-50)",
+        "--sidebar-ring": "var(--color-lime-900)"
+      }
+    },
+    "green": {
+      "light": {
+        "--primary": "var(--color-green-600)",
+        "--primary-foreground": "var(--color-green-50)",
+        "--ring": "var(--color-green-600)",
+        "--sidebar-primary": "var(--color-green-600)",
+        "--sidebar-primary-foreground": "var(--color-green-50)",
+        "--sidebar-ring": "var(--color-green-600)"
+      },
+      "dark": {
+        "--primary": "var(--color-green-700)",
+        "--primary-foreground": "var(--color-green-50)",
+        "--ring": "var(--color-green-900)",
+        "--sidebar-primary": "var(--color-green-700)",
+        "--sidebar-primary-foreground": "var(--color-green-50)",
+        "--sidebar-ring": "var(--color-green-900)"
+      }
+    },
+    "emerald": {
+      "light": {
+        "--primary": "var(--color-emerald-600)",
+        "--primary-foreground": "var(--color-emerald-50)",
+        "--ring": "var(--color-emerald-600)",
+        "--sidebar-primary": "var(--color-emerald-600)",
+        "--sidebar-primary-foreground": "var(--color-emerald-50)",
+        "--sidebar-ring": "var(--color-emerald-600)"
+      },
+      "dark": {
+        "--primary": "var(--color-emerald-700)",
+        "--primary-foreground": "var(--color-emerald-50)",
+        "--ring": "var(--color-emerald-900)",
+        "--sidebar-primary": "var(--color-emerald-700)",
+        "--sidebar-primary-foreground": "var(--color-emerald-50)",
+        "--sidebar-ring": "var(--color-emerald-900)"
+      }
+    },
+    "teal": {
+      "light": {
+        "--primary": "var(--color-teal-600)",
+        "--primary-foreground": "var(--color-teal-50)",
+        "--ring": "var(--color-teal-600)",
+        "--sidebar-primary": "var(--color-teal-600)",
+        "--sidebar-primary-foreground": "var(--color-teal-50)",
+        "--sidebar-ring": "var(--color-teal-600)"
+      },
+      "dark": {
+        "--primary": "var(--color-teal-700)",
+        "--primary-foreground": "var(--color-teal-50)",
+        "--ring": "var(--color-teal-900)",
+        "--sidebar-primary": "var(--color-teal-700)",
+        "--sidebar-primary-foreground": "var(--color-teal-50)",
+        "--sidebar-ring": "var(--color-teal-900)"
+      }
+    },
+    "cyan": {
+      "light": {
+        "--primary": "var(--color-cyan-600)",
+        "--primary-foreground": "var(--color-cyan-50)",
+        "--ring": "var(--color-cyan-600)",
+        "--sidebar-primary": "var(--color-cyan-600)",
+        "--sidebar-primary-foreground": "var(--color-cyan-50)",
+        "--sidebar-ring": "var(--color-cyan-600)"
+      },
+      "dark": {
+        "--primary": "var(--color-cyan-700)",
+        "--primary-foreground": "var(--color-cyan-50)",
+        "--ring": "var(--color-cyan-900)",
+        "--sidebar-primary": "var(--color-cyan-700)",
+        "--sidebar-primary-foreground": "var(--color-cyan-50)",
+        "--sidebar-ring": "var(--color-cyan-900)"
+      }
+    },
+    "sky": {
+      "light": {
+        "--primary": "var(--color-sky-600)",
+        "--primary-foreground": "var(--color-sky-50)",
+        "--ring": "var(--color-sky-600)",
+        "--sidebar-primary": "var(--color-sky-600)",
+        "--sidebar-primary-foreground": "var(--color-sky-50)",
+        "--sidebar-ring": "var(--color-sky-600)"
+      },
+      "dark": {
+        "--primary": "var(--color-sky-700)",
+        "--primary-foreground": "var(--color-sky-50)",
+        "--ring": "var(--color-sky-900)",
+        "--sidebar-primary": "var(--color-sky-700)",
+        "--sidebar-primary-foreground": "var(--color-sky-50)",
+        "--sidebar-ring": "var(--color-sky-900)"
+      }
+    },
+    "blue": {
+      "light": {
+        "--primary": "var(--color-blue-600)",
+        "--primary-foreground": "var(--color-blue-50)",
+        "--ring": "var(--color-blue-400)",
+        "--sidebar-primary": "var(--color-blue-600)",
+        "--sidebar-primary-foreground": "var(--color-blue-50)",
+        "--sidebar-ring": "var(--color-blue-400)"
+      },
+      "dark": {
+        "--primary": "var(--color-blue-600)",
+        "--primary-foreground": "var(--color-blue-50)",
+        "--ring": "var(--color-blue-900)",
+        "--sidebar-primary": "var(--color-blue-600)",
+        "--sidebar-primary-foreground": "var(--color-blue-50)",
+        "--sidebar-ring": "var(--color-blue-900)"
+      }
+    },
+    "indigo": {
+      "light": {
+        "--primary": "var(--color-indigo-600)",
+        "--primary-foreground": "var(--color-indigo-50)",
+        "--ring": "var(--color-indigo-400)",
+        "--sidebar-primary": "var(--color-indigo-600)",
+        "--sidebar-primary-foreground": "var(--color-indigo-50)",
+        "--sidebar-ring": "var(--color-indigo-400)"
+      },
+      "dark": {
+        "--primary": "var(--color-indigo-500)",
+        "--primary-foreground": "var(--color-indigo-50)",
+        "--ring": "var(--color-indigo-900)",
+        "--sidebar-primary": "var(--color-indigo-500)",
+        "--sidebar-primary-foreground": "var(--color-indigo-50)",
+        "--sidebar-ring": "var(--color-indigo-900)"
+      }
+    },
+    "violet": {
+      "light": {
+        "--primary": "var(--color-violet-600)",
+        "--primary-foreground": "var(--color-violet-50)",
+        "--ring": "var(--color-violet-400)",
+        "--sidebar-primary": "var(--color-violet-600)",
+        "--sidebar-primary-foreground": "var(--color-violet-50)",
+        "--sidebar-ring": "var(--color-violet-400)"
+      },
+      "dark": {
+        "--primary": "var(--color-violet-500)",
+        "--primary-foreground": "var(--color-violet-50)",
+        "--ring": "var(--color-violet-900)",
+        "--sidebar-primary": "var(--color-violet-500)",
+        "--sidebar-primary-foreground": "var(--color-violet-50)",
+        "--sidebar-ring": "var(--color-violet-900)"
+      }
+    },
+    "purple": {
+      "light": {
+        "--primary": "var(--color-purple-600)",
+        "--primary-foreground": "var(--color-purple-50)",
+        "--ring": "var(--color-purple-400)",
+        "--sidebar-primary": "var(--color-purple-600)",
+        "--sidebar-primary-foreground": "var(--color-purple-50)",
+        "--sidebar-ring": "var(--color-purple-400)"
+      },
+      "dark": {
+        "--primary": "var(--color-purple-500)",
+        "--primary-foreground": "var(--color-purple-50)",
+        "--ring": "var(--color-purple-900)",
+        "--sidebar-primary": "var(--color-purple-500)",
+        "--sidebar-primary-foreground": "var(--color-purple-50)",
+        "--sidebar-ring": "var(--color-purple-900)"
+      }
+    },
+    "fuchsia": {
+      "light": {
+        "--primary": "var(--color-fuchsia-600)",
+        "--primary-foreground": "var(--color-fuchsia-50)",
+        "--ring": "var(--color-fuchsia-400)",
+        "--sidebar-primary": "var(--color-fuchsia-600)",
+        "--sidebar-primary-foreground": "var(--color-fuchsia-50)",
+        "--sidebar-ring": "var(--color-fuchsia-400)"
+      },
+      "dark": {
+        "--primary": "var(--color-fuchsia-500)",
+        "--primary-foreground": "var(--color-fuchsia-50)",
+        "--ring": "var(--color-fuchsia-900)",
+        "--sidebar-primary": "var(--color-fuchsia-500)",
+        "--sidebar-primary-foreground": "var(--color-fuchsia-50)",
+        "--sidebar-ring": "var(--color-fuchsia-900)"
+      }
+    },
+    "pink": {
+      "light": {
+        "--primary": "var(--color-pink-600)",
+        "--primary-foreground": "var(--color-pink-50)",
+        "--ring": "var(--color-pink-400)",
+        "--sidebar-primary": "var(--color-pink-600)",
+        "--sidebar-primary-foreground": "var(--color-pink-50)",
+        "--sidebar-ring": "var(--color-pink-400)"
+      },
+      "dark": {
+        "--primary": "var(--color-pink-500)",
+        "--primary-foreground": "var(--color-pink-50)",
+        "--ring": "var(--color-pink-900)",
+        "--sidebar-primary": "var(--color-pink-500)",
+        "--sidebar-primary-foreground": "var(--color-pink-50)",
+        "--sidebar-ring": "var(--color-pink-900)"
+      }
+    },
+    "rose": {
+      "light": {
+        "--primary": "var(--color-rose-600)",
+        "--primary-foreground": "var(--color-rose-50)",
+        "--ring": "var(--color-rose-400)",
+        "--sidebar-primary": "var(--color-rose-600)",
+        "--sidebar-primary-foreground": "var(--color-rose-50)",
+        "--sidebar-ring": "var(--color-rose-400)"
+      },
+      "dark": {
+        "--primary": "var(--color-rose-500)",
+        "--primary-foreground": "var(--color-rose-50)",
+        "--ring": "var(--color-rose-900)",
+        "--sidebar-primary": "var(--color-rose-500)",
+        "--sidebar-primary-foreground": "var(--color-rose-50)",
+        "--sidebar-ring": "var(--color-rose-900)"
+      }
+    }
+  },
+  "radii": {
+    "none": "0rem",
+    "xs": "0.125rem",
+    "sm": "0.25rem",
+    "md": "0.5rem",
+    "lg": "0.625rem"
+  },
+  "fonts": {
+    "system": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif",
+    "geist": "var(--font-geist-sans, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif)",
+    "inter": "var(--font-inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, \"Helvetica Neue\", Arial, sans-serif)"
+  },
+  "monoFonts": {
+    "system": "ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace",
+    "geist-mono": "var(--font-geist-mono, ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace)",
+    "jetbrains-mono": "var(--font-jetbrains-mono, ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, Consolas, \"Liberation Mono\", monospace)"
+  },
+  "densities": {
+    "default": "16px",
+    "compact": "14px",
+    "comfortable": "18px"
+  },
+  "curatedAccents": [
+    "neutral",
+    "blue",
+    "green",
+    "violet",
+    "orange",
+    "rose"
+  ],
+  "staticLight": {
+    "--destructive": "var(--color-red-500)",
+    "--destructive-foreground": "var(--color-red-700)",
+    "--info": "var(--color-blue-500)",
+    "--info-foreground": "var(--color-blue-700)",
+    "--success": "var(--color-emerald-500)",
+    "--success-foreground": "var(--color-emerald-700)",
+    "--warning": "var(--color-amber-500)",
+    "--warning-foreground": "var(--color-amber-700)",
+    "--chart-1": "var(--color-orange-600)",
+    "--chart-2": "var(--color-teal-600)",
+    "--chart-3": "var(--color-cyan-900)",
+    "--chart-4": "var(--color-amber-400)",
+    "--chart-5": "var(--color-amber-500)"
+  },
+  "staticDark": {
+    "--info": "var(--color-blue-500)",
+    "--info-foreground": "var(--color-blue-400)",
+    "--success": "var(--color-emerald-500)",
+    "--success-foreground": "var(--color-emerald-400)",
+    "--warning": "var(--color-amber-500)",
+    "--warning-foreground": "var(--color-amber-400)",
+    "--chart-1": "var(--color-blue-700)",
+    "--chart-2": "var(--color-emerald-500)",
+    "--chart-3": "var(--color-amber-500)",
+    "--chart-4": "var(--color-purple-500)",
+    "--chart-5": "var(--color-rose-500)"
+  }
+}

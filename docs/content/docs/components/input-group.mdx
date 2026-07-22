@@ -1,0 +1,81 @@
+---
+title: Input Group
+description: An input with adornments glued to its edges, sharing one border and focus ring.
+---
+
+<ComponentPreview componentName="input-group" />
+
+## Usage
+
+```tsx
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+  InputGroupText,
+  InputGroupTextarea,
+} from "@kanzo-tech/ui";
+```
+
+The border, the focus ring and the invalid state live on the group, not on the input — that
+is why an icon or a button sitting next to the field reads as part of it rather than as a
+neighbour. `InputGroupInput` and `InputGroupTextarea` are the same `Input` / `Textarea` with
+their own chrome stripped off.
+
+This is the base the `Combobox`, `PasswordInput`, `DatePicker` and `TextField` controls are
+all built on.
+
+## Anatomy
+
+```text
+InputGroup
+├── InputGroupAddon
+│   ├── InputGroupText
+│   └── InputGroupButton
+├── InputGroupInput
+└── InputGroupTextarea
+```
+
+## Addons
+
+`align` places an addon on either inline edge, or on a block edge — the block variants turn
+the group into a column, which is how a send button sits under a textarea.
+
+<ComponentPreview componentName="input-group" fileName="example-addons" />
+
+## With button
+
+<ComponentPreview componentName="input-group" fileName="example-with-button" />
+
+## Sizes
+
+<ComponentPreview componentName="input-group" fileName="example-sizes" />
+
+## Textarea
+
+<ComponentPreview componentName="input-group" fileName="example-textarea" />
+
+## API Reference
+
+### InputGroup
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `size` | `"sm" \| "md" \| "lg"` | `"md"` |
+
+### InputGroupAddon
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `align` | `"inline-start" \| "inline-end" \| "block-start" \| "block-end"` | `"inline-start"` |
+
+Clicking an addon focuses the input, unless the click landed on a button inside it.
+
+### InputGroupButton
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `size` | `"xs" \| "sm" \| "icon-xs" \| "icon-sm"` | `"xs"` |
+| `variant` | inherited from `Button` | `"ghost"` |
+| `type` | `string` | `"button"` |

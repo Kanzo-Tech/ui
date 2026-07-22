@@ -1,0 +1,41 @@
+---
+title: Kbd
+description: Renders a keyboard key in running text.
+links:
+  doc: https://ark-ui.com/docs/components/factory
+---
+
+<ComponentPreview componentName="kbd" />
+
+## Usage
+
+```tsx
+import { Kbd, KbdGroup } from "@kanzo-tech/ui";
+```
+
+```tsx
+<Kbd>⌘</Kbd> <Kbd>K</Kbd>
+```
+
+`Kbd` is `pointer-events-none`: it is a label, never a target, so it cannot swallow a click
+meant for the button it sits inside.
+
+## Variants
+
+<ComponentPreview componentName="kbd" fileName="example-variants" />
+
+## Group
+
+`KbdGroup` is the spacing wrapper for a chord — it keeps the keys of one shortcut together
+when several shortcuts share a line.
+
+<ComponentPreview componentName="kbd" fileName="example-group" />
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `variant` | `"default" \| "outline"` | `"default"` |
+
+Extends `React.ComponentProps<typeof ark.kbd>`. Inside a `TooltipContent` the recipe inverts
+its own colours, so a shortcut hint in a tooltip needs no override.

@@ -1,0 +1,62 @@
+---
+title: Field Array
+description: Repeatable rows — N controls, a remove per row, and one add below.
+---
+
+<ComponentPreview componentName="field-array" />
+
+## Usage
+
+```tsx
+import { FieldArray } from "@kanzo-tech/ui";
+```
+
+```tsx
+<FieldArray
+  count={values.length}
+  rowKey={(index) => `keyword#${index}`}
+  onAdd={() => …}
+  onRemove={(index) => …}
+>
+  {(index) => <Input value={values[index]} onChange={…} />}
+</FieldArray>
+```
+
+Deliberately stateless and unaware of cardinality: it renders exactly `count` rows and
+reports intent. Whoever owns the data decides what "add" means and whether another row is
+allowed — which is what lets the same component sit on a form library, a plain array or a
+graph.
+
+`rowKey` is required, and must never be the bare index. A row that is only a UI placeholder
+has to already carry the key it will have once committed; if the key changes on commit, React
+remounts the input and the user loses focus and caret mid-typing.
+
+## Limits
+
+`canAdd` and `canRemove` hide the controls rather than disabling them — a maximum that is
+already reached does not need a dead button.
+
+<ComponentPreview componentName="field-array" fileName="example-limits" />
+
+## Block rows
+
+`align="start"` for rows whose content is a block — a textarea, or a nested form — so the
+remove control sits at the top rather than floating in the middle.
+
+<ComponentPreview componentName="field-array" fileName="example-align-start" />
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `count` | `number` | — |
+| `rowKey` | `(index: number) => string` | — |
+| `children` | `(index: number) => ReactNode` | — |
+| `onAdd` | `() => void` | — |
+| `onRemove` | `(index: number) => void` | — |
+| `canAdd` | `boolean` | `true` |
+| `canRemove` | `boolean` | `true` |
+| `addLabel` | `ReactNode` | `"Add"` |
+| `removeLabel` | `string` | `"Remove"` |
+| `align` | `"center" \| "start"` | `"center"` |
+| `className` | `string` | — |

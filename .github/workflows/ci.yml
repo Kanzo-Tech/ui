@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    name: typecheck · lint · test · build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Build FIRST. Packages typecheck against each other's emitted `.d.ts` (the exports map
+      # points at dist/), so on a clean checkout `typecheck` cannot resolve @kanzo-tech/theme
+      # at all — it only ever passed locally because a stale dist/ happened to be lying around.
+      - run: pnpm build
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm check:generated
+      - run: pnpm test
+      - run: pnpm size
+      # Packs the real tarballs and installs them without the optional peers. Catches the
+      # src-vs-dist failures (stripped directives, leaked optional imports, bad exports maps)
+      # that every check above passes straight through.
+      - run: pnpm smoke
+      # The docs app is the RSC fixture: every documented component is prerendered inside a
+      # real App Router server tree, which the Vite playground structurally cannot do (Vite
+      # ignores "use client" outright).
+      #
+      # Scope it honestly: verified by experiment, removing "use client" from a thin Ark
+      # wrapper does NOT fail this build, because Ark ships the directive on 341 of its own
+      # files and establishes the boundary one level down. What this gate catches is a
+      # component with its OWN hooks, listeners or browser globals reaching the server tree —
+      # and any component that throws during prerender.
+      - name: RSC fixture (docs app prerenders every documented component)
+        run: pnpm --filter @kanzo-tech/docs build
+      - name: Package export correctness
+        run: |
+          pnpm --filter @kanzo-tech/ui exec publint
+          pnpm --filter @kanzo-tech/theme exec publint

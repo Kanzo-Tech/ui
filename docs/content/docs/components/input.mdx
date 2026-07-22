@@ -1,0 +1,27 @@
+---
+title: Input
+description: A single-line text field.
+links:
+  doc: https://ark-ui.com/docs/components/field
+---
+
+<ComponentPreview componentName="input" />
+
+## Usage
+
+```tsx
+import { Input } from "@kanzo-tech/ui";
+```
+
+## States
+
+### Invalid
+
+`aria-invalid` drives the styling — there is no `invalid` prop, so the same attribute that
+tells assistive tech also paints the field.
+
+<ComponentPreview componentName="input" fileName="example-invalid" />
+
+### Disabled
+
+<ComponentPreview componentName="input" fileName="example-disabled" />

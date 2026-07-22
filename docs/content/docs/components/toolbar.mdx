@@ -1,0 +1,36 @@
+---
+title: Toolbar
+description: The thin top strip that bookends a canvas with the status bar.
+---
+
+<ComponentPreview componentName="toolbar" />
+
+## Usage
+
+```tsx
+import { Toolbar } from "@kanzo-tech/ui";
+```
+
+```tsx
+<Toolbar left={<Breadcrumbs items={trail} />} actions={<Button size="xs">Run</Button>} />
+```
+
+Toolbar mirrors `StatusBar` — same compact IDE aesthetic, same
+card surface, same small type — but sits at the *top* of a view and is bordered below, so the
+two frame the canvas between them. It is a `role="toolbar"` landmark and every region is a
+slot, so it carries no domain of its own.
+
+Put navigation here rather than floating it over the canvas: in the chrome it stays legible,
+stays in the tab order, and never covers the content it would take you away from.
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `leading` | `ReactNode` | — |
+| `left` | `ReactNode` | — |
+| `center` | `ReactNode` | — |
+| `right` | `ReactNode` | — |
+| `actions` | `ReactNode` | — |
+| `aria-label` | `string` | `"Toolbar"` |
+| `className` | `string` | — |

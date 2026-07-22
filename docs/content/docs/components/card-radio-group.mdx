@@ -1,0 +1,87 @@
+---
+title: Card Radio Group
+description: A radio group whose options are selectable cards.
+links:
+  doc: https://ark-ui.com/docs/components/radio-group
+---
+
+<ComponentPreview componentName="card-radio-group" />
+
+## Usage
+
+```tsx
+import { CardRadioGroup } from "@kanzo-tech/ui";
+```
+
+```tsx
+<CardRadioGroup
+  defaultValue="openai"
+  options={[
+    { value: "openai", label: "OpenAI", icon: <BotIcon /> },
+    { value: "anthropic", label: "Anthropic", badge: "Recommended" },
+  ]}
+/>
+```
+
+Full radio semantics come from Ark — roving focus, arrow-key selection, hidden inputs — so
+the card is purely how the option looks, never how it behaves.
+
+Options are data, not children: an `options` array keeps the label, description, icon, badge
+and preview of each choice in one place, which is what stops the same three-card layout from
+being hand-rolled per screen. The icon is a node you pass, because a design system should not
+pick your icon library.
+
+## Horizontal
+
+`showIndicator` puts the radio dot back on the card. Leave it off when the selected border
+and fill already say enough.
+
+<ComponentPreview componentName="card-radio-group" fileName="example-horizontal" />
+
+## Preview
+
+`preview` is an arbitrary node — a type specimen, a swatch, a mini chart.
+
+<ComponentPreview componentName="card-radio-group" fileName="example-preview" />
+
+## Controlled
+
+<ComponentPreview componentName="card-radio-group" fileName="example-controlled" />
+
+## Disabled and invalid
+
+`badge` is free of any coupling to `disabled` — it can mark a recommended option just as
+easily as an unavailable one.
+
+<ComponentPreview componentName="card-radio-group" fileName="example-disabled" />
+
+## API Reference
+
+### CardRadioGroup
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `options` | `readonly CardRadioOption[]` | — |
+| `value` | `string` | — |
+| `defaultValue` | `string` | — |
+| `onValueChange` | `(value: string) => void` | — |
+| `columns` | `number \| "auto"` | `"auto"` |
+| `orientation` | `"vertical" \| "horizontal"` | `"vertical"` |
+| `showIndicator` | `boolean` | `false` |
+| `name` | `string` | — |
+| `disabled` | `boolean` | — |
+| `invalid` | `boolean` | — |
+| `readOnly` | `boolean` | — |
+| `className` | `string` | — |
+
+### CardRadioOption
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `value` | `string` | — |
+| `label` | `ReactNode` | — |
+| `description` | `ReactNode` | — |
+| `icon` | `ReactNode` | — |
+| `badge` | `ReactNode` | — |
+| `preview` | `ReactNode` | — |
+| `disabled` | `boolean` | — |

@@ -1,0 +1,36 @@
+---
+title: Link
+description: A token-styled anchor.
+---
+
+<ComponentPreview componentName="link" />
+
+## Usage
+
+```tsx
+import { Link } from "@kanzo-tech/ui";
+```
+
+```tsx
+<Link href="/datasets">View the dataset</Link>
+```
+
+This is a plain `<a>`. For router navigation, either spread it onto your framework's link or
+go through the product's `linkComponent` seam — the design system deliberately knows nothing
+about any router.
+
+## Variants
+
+`plain` inherits the surrounding colour and only underlines on hover, for links inside a
+sentence that should not be four blue words.
+
+<ComponentPreview componentName="link" fileName="example-variants" />
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `variant` | `"default" \| "subtle" \| "plain"` | `"default"` |
+
+Extends `React.ComponentProps<"a">`, so `href`, `target`, `rel` and `ref` pass through.
+`linkRecipe` is exported for applying the same treatment to a router link component.

@@ -1,0 +1,43 @@
+---
+title: SectionHeader
+description: A title, description and action cluster for panels, forms and page sections.
+---
+
+<ComponentPreview componentName="section-header" />
+
+## Usage
+
+```tsx
+import { SectionHeader } from "@kanzo-tech/ui";
+```
+
+```tsx
+<SectionHeader title="Connections" description="Sources this workspace reads from." />
+```
+
+## Actions
+
+`actions` is right-aligned and never wraps under the title, so a long description cannot push
+the controls out of reach.
+
+<ComponentPreview componentName="section-header" fileName="example-actions" />
+
+## Heading level
+
+It renders a real `<header>` landmark with a real heading. `headingLevel` sets which one, so
+the header slots into the surrounding document outline instead of asserting `h2` everywhere.
+`bordered` draws the separator underneath.
+
+<ComponentPreview componentName="section-header" fileName="example-bordered" />
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `title` | `ReactNode` | — |
+| `description` | `ReactNode` | — |
+| `actions` | `ReactNode` | — |
+| `icon` | `ReactNode` | — |
+| `headingLevel` | `1 \| 2 \| 3 \| 4 \| 5 \| 6` | `2` |
+| `bordered` | `boolean` | `false` |
+| `className` | `string` | — |

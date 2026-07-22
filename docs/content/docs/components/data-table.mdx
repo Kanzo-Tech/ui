@@ -1,0 +1,62 @@
+---
+title: Data Table
+description: A sortable, filterable, paginated table over TanStack Table — on its own entry point.
+---
+
+<ComponentPreview componentName="data-table" />
+
+## Usage
+
+`DataTable` lives on the `@kanzo-tech/ui/table` subpath, not the root barrel, because
+`@tanstack/react-table` is an **optional** peer dependency. Keeping it off the root means
+`import { Button } from "@kanzo-tech/ui"` never pulls TanStack into the bundle — only the
+apps that actually render a data table pay for it.
+
+```tsx
+import { type ColumnDef, DataTable, sortableHeader } from "@kanzo-tech/ui/table";
+```
+
+Install the peer alongside the library:
+
+```bash
+pnpm add @tanstack/react-table
+```
+
+```tsx
+<DataTable columns={columns} data={data} searchKey="name" />
+```
+
+`ColumnDef`, `Row` and `CellContext` are re-exported from the same subpath, so a consumer
+types its columns without a direct TanStack import.
+
+## Sorting and toolbar
+
+Sorting is opt-in per column. TanStack marks every column sortable by default, but a column
+only becomes clickable when its `header` is built with `sortableHeader` — a plain-string
+header stays inert.
+
+<ComponentPreview componentName="data-table" fileName="example-sortable" />
+
+`searchKey` filters on a single column id and, together with `toolbarActions`, is what makes
+the toolbar row appear at all; with neither, no toolbar is rendered. Pagination hides itself
+whenever there is only one page.
+
+## Empty state
+
+<ComponentPreview componentName="data-table" fileName="example-empty" />
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `columns` | `ColumnDef<TData, TValue>[]` | — |
+| `data` | `TData[]` | — |
+| `searchKey` | `string` | — |
+| `searchPlaceholder` | `string` | `"Search…"` |
+| `onRowClick` | `(row: TData) => void` | — |
+| `toolbarActions` | `ReactNode` | — |
+| `pageSize` | `number` | `20` |
+| `empty` | `ReactNode` | `"No results."` |
+
+`sortableHeader(label: ReactNode)` returns a TanStack header renderer — use it as a column's
+`header`.
