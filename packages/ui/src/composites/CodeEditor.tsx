@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { cn } from "../lib/cn.js";
 import { Annotation, Compartment, EditorState, type Extension } from "@codemirror/state";
 import {
   EditorView,
@@ -91,13 +92,23 @@ export const kanzoHighlightStyle = HighlightStyle.define([
 export const kanzoHighlighting: Extension = syntaxHighlighting(kanzoHighlightStyle, { fallback: true });
 
 const baseTheme = EditorView.theme({
-  "&": { fontSize: "var(--kanzo-font-size-base, 14px)", backgroundColor: "transparent", height: "100%" },
+  // `flex: 1`, not `height: 100%`: the chrome surface sizes with `min-height`/`max-height`, and
+  // a percentage height does not resolve against a `min-height`'d parent — so the editor stayed
+  // at content height and the field's extra `min-height` showed as dead space below the last
+  // line. As a flex child of the flex-column surface it fills the field; `min-height: 0` lets it
+  // shrink so `.cm-scroller` scrolls once content passes `max-height`.
+  "&": { fontSize: "var(--kanzo-font-size-base, 14px)", backgroundColor: "transparent", flex: "1 1 auto", minHeight: 0 },
   // Horizontal padding only. Vertical padding here shifts every CONTENT line down while the
   // gutter stays put, so line 5's number no longer sits beside line 5 — and the active-line and
   // hover highlights in the gutter land between two lines of text. The vertical padding is on
   // `.cm-gutters` too, below, so both columns move together.
+  // Horizontal padding is the field rhythm — 0.75rem is Textarea's `px-3`, so code sits on the
+  // same inset as an input's text (rem-based, so it tracks the density preference).
+  // The VERTICAL padding lives only here: CodeMirror measures each `.cm-line`'s position and
+  // lays its gutter number at the same y, this padding included — so the gutter must NOT add
+  // its own (see the note there), or every number drops one padding-step below its line.
   ".cm-content": {
-    padding: "0.5rem 0.5rem",
+    padding: "0.5rem 0.75rem",
     color: "var(--foreground)",
     caretColor: "var(--foreground)",
   },
@@ -110,17 +121,22 @@ const baseTheme = EditorView.theme({
     fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)",
     lineHeight: "1.5",
     overflow: "auto",
+    // Fill the editor so clicking the empty area below the last line still lands the caret,
+    // rather than leaving dead surface — see the `&` note.
+    flexGrow: 1,
+    minHeight: 0,
   },
   "&.cm-focused": { outline: "none" },
-  // Two distinct surfaces: the content is the `--background` "paper"; the gutter reads as
-  // chrome via the tokenised `--kanzo-gutter-bg` tint, with a hairline `--border` edge and
-  // dim `--kanzo-gutter-foreground` ink for the numbers.
+  // One surface, like a Textarea — the gutter is transparent, not a tinted IDE column with a
+  // divider. A `--kanzo-gutter-bg` fill only spans as tall as the content, so on a short
+  // document it stopped mid-field and read as a stray horizontal border; the divider stopped
+  // there too. Dim `--kanzo-gutter-foreground` ink is enough to set the numbers apart.
   ".cm-gutters": {
-    // Must match `.cm-content`'s vertical padding exactly — see the note there.
-    paddingBlock: "0.5rem",
-    background: "var(--kanzo-gutter-bg)",
+    // NO vertical padding: CodeMirror already lays each number at its (padded) content line's
+    // y, so repeating the padding here drops every number one step too low. Verified: with
+    // this present the numbers sat a constant 9px below their lines.
+    background: "transparent",
     border: "none",
-    borderInlineEnd: "1px solid var(--border)",
     color: "var(--kanzo-gutter-foreground)",
   },
   // Line numbers: tabular figures (no jitter across 9→10→100), right-aligned with breathing
@@ -438,32 +454,30 @@ export function CodeEditor(p: CodeEditorProps) {
     return <div data-slot="code-editor" ref={container} className={p.className} style={{ minHeight: p.minHeight, maxHeight: p.maxHeight }} />;
   }
 
-  // Borderless surface on the app's main background (the gutter's own right border
-  // separates the line numbers). Rounded corners clip the content (overflow hidden). The
-  // focus / invalid ring is drawn with `outline` + a negative offset — NOT an inset
-  // box-shadow, which the gutter's own background paints over on the left edge (leaving the
-  // ring visibly missing down one side). `outline` paints above children and follows the
-  // border-radius, so it hugs the whole rounded rect cleanly.
-  const ring = p.invalid
-    ? { color: "var(--destructive)", width: 1 }
-    : focused
-      ? { color: "var(--ring)", width: 2 }
-      : null;
+  // A field, not an IDE pane: the surface wears the exact chrome as Textarea/Input — a
+  // hairline `--input` border, `rounded-lg`, the transparent/`--input`-tinted surface, a
+  // faint shadow, and the same focus/invalid treatment (border shifts colour + a 3px ring).
+  // The ring is a `box-shadow` (Tailwind `ring`), drawn OUTSIDE the border box, so it is not
+  // clipped by `overflow-hidden` and the gutter's own background cannot paint over it — the
+  // failure the old inset approach worked around. Focus is driven off `data-focused`
+  // (CodeMirror's contenteditable holds focus, not this wrapper, so `:focus-visible` can't).
   return (
     <div data-slot="code-editor" style={{ flex: 1, width: "100%" }}>
       <div
         data-slot="code-editor-surface"
+        data-focused={focused || undefined}
+        data-invalid={p.invalid || undefined}
         ref={container}
-        style={{
-          width: "100%",
-          borderRadius: "var(--radius-md)",
-          background: "var(--background)",
-          outline: ring ? `${ring.width}px solid ${ring.color}` : undefined,
-          outlineOffset: ring ? `-${ring.width}px` : undefined,
-          overflow: "hidden",
-          minHeight: p.minHeight,
-          maxHeight: p.maxHeight,
-        }}
+        className={cn(
+          "flex w-full flex-col overflow-hidden",
+          "rounded-lg border border-input bg-transparent shadow-xs/5 dark:bg-input/30",
+          "transition-[color,box-shadow]",
+          "data-focused:border-primary data-focused:ring-[3px] data-focused:ring-ring/32",
+          "data-invalid:border-destructive data-invalid:ring-[3px] data-invalid:ring-destructive/24",
+          "dark:data-invalid:border-destructive-foreground dark:data-invalid:ring-destructive-foreground/40",
+          "motion-reduce:transition-none!"
+        )}
+        style={{ minHeight: p.minHeight, maxHeight: p.maxHeight }}
       />
     </div>
   );
