@@ -6,6 +6,9 @@ import {
 	Breadcrumbs,
 	Button,
 	InstanceSwitcher,
+	Resizable,
+	ResizablePanel,
+	ResizableResizeTrigger,
 	ScrollArea,
 	ShellAside,
 	ShellBody,
@@ -72,14 +75,16 @@ import {
  *   ├─ ShellHeader              breadcrumb (Jobs › aemet.fossil › Discover) + ⌘B sidebar trigger
  *   ├─ ShellBody
  *   │  ├─ Sidebar (start)       the app rail — workspace switcher / Platform nav / user
- *   │  ├─ ShellMain             the graph canvas + bottom-start legend + bottom-end zoom controls
- *   │  └─ ShellAside end        the DOCKED analysis panel (flush, thin border, no glass/shadow)
+ *   │  └─ Resizable             ShellMain graph  ⟷  the docked ShellAside end analysis panel
  *   └─ ShellFooter             status bar: node/edge count at start, panel-tab icons at end
  *
- * Panels (Info · Ask · Rules · Analysis · Settings) are switched IDE-style from the footer icon
- * strip, not from an in-panel tab bar. The library ships the regions and the parts; the graph and
- * the panel bodies are placeholders — the design system has no graph engine or chart runtime, and
- * that boundary is the point of a showcase.
+ * The dock is drag-resizable: per DESIGN.md ("resizing is composed, not a prop") the canvas and the
+ * aside are the two panels of a `Resizable` (our Ark Splitter wrapper), so the drag, keyboard resize
+ * and ARIA all come from the machine. The Sidebar stays OUTSIDE the splitter. Panels (Info · Ask ·
+ * Rules · Analysis · Settings) are switched IDE-style from the footer icon strip, not an in-panel
+ * tab bar; collapsing the dock drops its panel + trigger and hands the canvas the full width. The
+ * library ships the regions and the parts; the graph and the panel bodies are placeholders — the
+ * design system has no graph engine or chart runtime, and that boundary is the point of a showcase.
  */
 
 const KIND_FILL: Record<NodeKind, string> = {
@@ -471,7 +476,28 @@ const PANEL_BODY: Record<PanelId, () => React.ReactElement> = {
 	settings: SettingsTab,
 };
 
-const PANEL_WIDTH = 360;
+/** The graph region — one `<main>`, filling whichever box holds it (a splitter panel, or the whole
+ *  body when the dock is collapsed). */
+function DiscoveryCanvas() {
+	return (
+		<ShellMain className="relative size-full bg-background">
+			<GraphCanvas />
+			<GraphLegend />
+			{/* Zoom controls — decorative, like the graph itself; pinned bottom-end. */}
+			<div className="absolute end-2 bottom-2 z-10 flex flex-col overflow-hidden rounded-md border bg-card/80 backdrop-blur-sm">
+				<Button aria-label="Zoom in" size="icon-sm" variant="ghost">
+					<PlusIcon />
+				</Button>
+				<Button aria-label="Zoom out" size="icon-sm" variant="ghost">
+					<MinusIcon />
+				</Button>
+				<Button aria-label="Fit to view" size="icon-sm" variant="ghost">
+					<MaximizeIcon />
+				</Button>
+			</div>
+		</ShellMain>
+	);
+}
 
 export function WorkspaceShowcase() {
 	const [active, setActive] = useState<PanelId>("info");
@@ -555,57 +581,68 @@ export function WorkspaceShowcase() {
 						<SidebarRail />
 					</Sidebar>
 
-					<ShellMain className="relative bg-background">
-						<GraphCanvas />
-						<GraphLegend />
-						{/* Zoom controls — decorative, like the graph itself; pinned bottom-end. */}
-						<div className="absolute end-2 bottom-2 z-10 flex flex-col overflow-hidden rounded-md border bg-card/80 backdrop-blur-sm">
-							<Button aria-label="Zoom in" size="icon-sm" variant="ghost">
-								<PlusIcon />
-							</Button>
-							<Button aria-label="Zoom out" size="icon-sm" variant="ghost">
-								<MinusIcon />
-							</Button>
-							<Button aria-label="Fit to view" size="icon-sm" variant="ghost">
-								<MaximizeIcon />
-							</Button>
-						</div>
-					</ShellMain>
-
-					{/* The docked analysis panel — a real region, flush to the trailing edge with the
-					    aside's own separating border. Switched from the footer strip below. */}
-					{panelOpen && (
-						<ShellAside
-							aria-label={`${activeLabel} panel`}
-							className="min-h-0"
-							side="end"
-							width={PANEL_WIDTH}
-						>
-							<div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
-								<span className="font-medium text-sm">{activeLabel}</span>
-								<div className="ms-auto flex items-center gap-1">
-									{active === "rules" && (
-										<Button className="h-6 gap-1 text-xs" size="sm">
-											<PlayIcon className="size-3" />
-											Run
-										</Button>
-									)}
-									<Button
-										aria-label="Close panel"
-										className="-me-1"
-										onClick={() => setPanelOpen(false)}
-										size="icon-sm"
-										variant="ghost"
+					{/* The canvas and the docked panel are the two sides of a splitter, so drag- and
+					    keyboard-resize come from Ark's machine (DESIGN.md: resizing is composed, not a
+					    prop). The Sidebar stays outside it. Collapsing the dock drops the second panel
+					    and its trigger, and the lone canvas takes the full width. */}
+					<div className="relative flex min-h-0 min-w-0 flex-1">
+						{panelOpen ? (
+							<Resizable
+								className="min-h-0"
+								defaultSize={[72, 28]}
+								panels={[
+									{ id: "canvas", minSize: 40 },
+									{ id: "dock", minSize: 18 },
+								]}
+							>
+								<ResizablePanel
+									className="relative min-w-0 overflow-hidden"
+									id="canvas"
+								>
+									<DiscoveryCanvas />
+								</ResizablePanel>
+								<ResizableResizeTrigger id="canvas:dock" withHandle />
+								<ResizablePanel
+									className="flex min-h-0 min-w-0 flex-col"
+									id="dock"
+								>
+									{/* The dock is still a ShellAside end (complementary landmark, bg-card); the
+									    trigger draws the divider, so the aside drops its own border-s. */}
+									<ShellAside
+										aria-label={`${activeLabel} panel`}
+										className="size-full min-h-0 border-s-0"
+										side="end"
 									>
-										<XIcon />
-									</Button>
-								</div>
-							</div>
-							<div className="min-h-0 flex-1">
-								<ActiveBody />
-							</div>
-						</ShellAside>
-					)}
+										<div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
+											<span className="font-medium text-sm">{activeLabel}</span>
+											<div className="ms-auto flex items-center gap-1">
+												{active === "rules" && (
+													<Button className="h-6 gap-1 text-xs" size="sm">
+														<PlayIcon className="size-3" />
+														Run
+													</Button>
+												)}
+												<Button
+													aria-label="Close panel"
+													className="-me-1"
+													onClick={() => setPanelOpen(false)}
+													size="icon-sm"
+													variant="ghost"
+												>
+													<XIcon />
+												</Button>
+											</div>
+										</div>
+										<div className="min-h-0 flex-1">
+											<ActiveBody />
+										</div>
+									</ShellAside>
+								</ResizablePanel>
+							</Resizable>
+						) : (
+							<DiscoveryCanvas />
+						)}
+					</div>
 				</ShellBody>
 
 				{/* Status bar — node/edge count at the start, IDE panel-tab icons at the end. */}
