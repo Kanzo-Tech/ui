@@ -15,14 +15,13 @@ import {
 	SectionRoot,
 	SectionTitle,
 	SectionTitleGroup,
-	ShellBody,
 	ShellHeader,
 	ShellMain,
-	ShellRoot,
 	Sidebar,
 	SidebarContent,
 	SidebarFooter,
 	SidebarHeader,
+	SidebarInset,
 	SidebarNav,
 	SidebarProvider,
 	SidebarRail,
@@ -129,10 +128,9 @@ function connectionColumns(
 }
 
 /**
- * A realistic product screen at full viewport, built on the Shell regions the docs preach:
- * `ShellRoot` › `ShellBody` › (`SidebarProvider` with the collapsing `Sidebar` + `ShellMain`),
- * where `ShellMain` holds a `ShellHeader` above a real page. The Sidebar (switcher + nav + user)
- * and its ⌘B collapse are unchanged — Shell places it, the Sidebar family runs it.
+ * A realistic product screen at full viewport. `SidebarProvider` is the app frame; the content
+ * shell lives inside `SidebarInset` (a neutral offset column): a `ShellHeader` above `ShellMain`
+ * (the one `<main>`). The Sidebar (switcher + nav + user) and its ⌘B collapse run the rail.
  */
 export function AppShellShowcase() {
 	const [instance, setInstance] = useState("kanzo");
@@ -145,241 +143,239 @@ export function AppShellShowcase() {
 	);
 
 	return (
-		<ShellRoot>
-			<ShellBody>
-				<SidebarProvider className="min-h-0 flex-1">
-					<Sidebar collapsible="icon">
-						<SidebarHeader>
-							<InstanceSwitcher
-								actions={[
-									{
-										label: "Create workspace",
-										icon: <PlusIcon />,
-										onSelect: () =>
-											toast.create({ title: "New workspace", type: "info" }),
-									},
-								]}
-								activeId={instance}
-								instances={INSTANCES}
-								label="Workspaces"
-								onSelect={setInstance}
-							/>
-						</SidebarHeader>
+		<SidebarProvider className="h-dvh min-h-0 overflow-hidden">
+			<Sidebar collapsible="icon">
+				<SidebarHeader>
+					<InstanceSwitcher
+						actions={[
+							{
+								label: "Create workspace",
+								icon: <PlusIcon />,
+								onSelect: () =>
+									toast.create({ title: "New workspace", type: "info" }),
+							},
+						]}
+						activeId={instance}
+						instances={INSTANCES}
+						label="Workspaces"
+						onSelect={setInstance}
+					/>
+				</SidebarHeader>
 
-						<SidebarContent>
-							<SidebarNav items={NAV} label="Platform" />
-						</SidebarContent>
+				<SidebarContent>
+					<SidebarNav items={NAV} label="Platform" />
+				</SidebarContent>
 
-						<SidebarFooter>
-							<SidebarUser
-								menuItems={[
-									{
-										label: "Profile",
-										icon: <UserIcon />,
-										onSelect: () =>
-											toast.create({ title: "Profile", type: "info" }),
-									},
-									{
-										label: "Settings",
-										icon: <SettingsIcon />,
-										onSelect: () =>
-											toast.create({ title: "Settings", type: "info" }),
-									},
-									// Log out is just another item — the product owns the flow, the copy and any
-									// confirmation. The library no longer ships an auth mechanism.
-									{
-										label: "Log out",
-										icon: <LogOutIcon />,
-										variant: "destructive",
-										separatorBefore: true,
-										onSelect: () =>
-											toast.create({ title: "Logged out", type: "info" }),
-									},
-								]}
-								user={USER}
-							/>
-						</SidebarFooter>
-						<SidebarRail />
-					</Sidebar>
+				<SidebarFooter>
+					<SidebarUser
+						menuItems={[
+							{
+								label: "Profile",
+								icon: <UserIcon />,
+								onSelect: () =>
+									toast.create({ title: "Profile", type: "info" }),
+							},
+							{
+								label: "Settings",
+								icon: <SettingsIcon />,
+								onSelect: () =>
+									toast.create({ title: "Settings", type: "info" }),
+							},
+							// Log out is just another item — the product owns the flow, the copy and any
+							// confirmation. The library no longer ships an auth mechanism.
+							{
+								label: "Log out",
+								icon: <LogOutIcon />,
+								variant: "destructive",
+								separatorBefore: true,
+								onSelect: () =>
+									toast.create({ title: "Logged out", type: "info" }),
+							},
+						]}
+						user={USER}
+					/>
+				</SidebarFooter>
+				<SidebarRail />
+			</Sidebar>
 
-					<ShellMain className="overflow-hidden bg-background">
-						<ShellHeader className="h-12 flex-row items-center gap-2 px-3">
-							<SidebarTrigger />
-							<Breadcrumbs
-								items={[
-									{ label: "Kanzo", href: "#/app" },
-									{ label: "Dashboard" },
-								]}
-							/>
-						</ShellHeader>
+			<SidebarInset>
+				<ShellHeader className="h-12 flex-row items-center gap-2 px-3">
+					<SidebarTrigger />
+					<Breadcrumbs
+						items={[
+							{ label: "Kanzo", href: "#/app" },
+							{ label: "Dashboard" },
+						]}
+					/>
+				</ShellHeader>
 
-						<SectionRoot>
-							<SectionHeader scale="page">
-								<SectionTitleGroup>
-									<SectionTitle level={1} scale="page">
-										Dashboard
-									</SectionTitle>
-									<SectionDescription>
-										Everything this workspace publishes, at a glance.
-									</SectionDescription>
-								</SectionTitleGroup>
-								<SectionActions>
-									<Button size="sm">
-										<PlusIcon />
-										New connection
-									</Button>
-								</SectionActions>
-							</SectionHeader>
+				<ShellMain className="overflow-hidden bg-background">
+					<SectionRoot>
+						<SectionHeader scale="page">
+							<SectionTitleGroup>
+								<SectionTitle level={1} scale="page">
+									Dashboard
+								</SectionTitle>
+								<SectionDescription>
+									Everything this workspace publishes, at a glance.
+								</SectionDescription>
+							</SectionTitleGroup>
+							<SectionActions>
+								<Button size="sm">
+									<PlusIcon />
+									New connection
+								</Button>
+							</SectionActions>
+						</SectionHeader>
 
-							<SectionBody scale="page">
-								<div className="space-y-8">
-									<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-										<MetricCard href="#/app/settings/cloud" status="success">
-											<MetricCardHeader>
-												<MetricCardIcon>
-													<CloudIcon />
-												</MetricCardIcon>
-												<MetricCardLabel>Cloud Accounts</MetricCardLabel>
-											</MetricCardHeader>
-											<MetricCardValue>3</MetricCardValue>
-											<MetricCardDescription>
-												accounts configured
-											</MetricCardDescription>
-										</MetricCard>
-										<MetricCard href="#/app/connections" status="success">
-											<MetricCardHeader>
-												<MetricCardIcon>
-													<DatabaseIcon />
-												</MetricCardIcon>
-												<MetricCardLabel>Connections</MetricCardLabel>
-											</MetricCardHeader>
-											<MetricCardValue>4</MetricCardValue>
-											<MetricCardDescription>
-												connections configured
-											</MetricCardDescription>
-										</MetricCard>
-										<MetricCard href="#/app/jobs" status="danger">
-											<MetricCardHeader>
-												<MetricCardIcon>
-													<BriefcaseIcon />
-												</MetricCardIcon>
-												<MetricCardLabel>Jobs</MetricCardLabel>
-											</MetricCardHeader>
-											<MetricCardValue>12</MetricCardValue>
-											<MetricCardDescription>
-												last run failed
-											</MetricCardDescription>
-										</MetricCard>
-										<MetricCard href="#/app/catalog">
-											<MetricCardHeader>
-												<MetricCardIcon>
-													<BoxesIcon />
-												</MetricCardIcon>
-												<MetricCardLabel>DCAT Catalogs</MetricCardLabel>
-											</MetricCardHeader>
-											<MetricCardValue>7</MetricCardValue>
-											<MetricCardDescription>
-												catalogs generated
-											</MetricCardDescription>
-										</MetricCard>
-									</div>
+						<SectionBody scale="page">
+							<div className="space-y-8">
+								<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+									<MetricCard href="#/app/settings/cloud" status="success">
+										<MetricCardHeader>
+											<MetricCardIcon>
+												<CloudIcon />
+											</MetricCardIcon>
+											<MetricCardLabel>Cloud Accounts</MetricCardLabel>
+										</MetricCardHeader>
+										<MetricCardValue>3</MetricCardValue>
+										<MetricCardDescription>
+											accounts configured
+										</MetricCardDescription>
+									</MetricCard>
+									<MetricCard href="#/app/connections" status="success">
+										<MetricCardHeader>
+											<MetricCardIcon>
+												<DatabaseIcon />
+											</MetricCardIcon>
+											<MetricCardLabel>Connections</MetricCardLabel>
+										</MetricCardHeader>
+										<MetricCardValue>4</MetricCardValue>
+										<MetricCardDescription>
+											connections configured
+										</MetricCardDescription>
+									</MetricCard>
+									<MetricCard href="#/app/jobs" status="danger">
+										<MetricCardHeader>
+											<MetricCardIcon>
+												<BriefcaseIcon />
+											</MetricCardIcon>
+											<MetricCardLabel>Jobs</MetricCardLabel>
+										</MetricCardHeader>
+										<MetricCardValue>12</MetricCardValue>
+										<MetricCardDescription>
+											last run failed
+										</MetricCardDescription>
+									</MetricCard>
+									<MetricCard href="#/app/catalog">
+										<MetricCardHeader>
+											<MetricCardIcon>
+												<BoxesIcon />
+											</MetricCardIcon>
+											<MetricCardLabel>DCAT Catalogs</MetricCardLabel>
+										</MetricCardHeader>
+										<MetricCardValue>7</MetricCardValue>
+										<MetricCardDescription>
+											catalogs generated
+										</MetricCardDescription>
+									</MetricCard>
+								</div>
 
-									<section className="space-y-3">
-										<SectionHeader scale="page">
-											<SectionTitleGroup>
-												<SectionTitle level={2} scale="page">
-													Connections
-												</SectionTitle>
-												<SectionDescription>
-													Sources this workspace reads from.
-												</SectionDescription>
-											</SectionTitleGroup>
-											<SectionActions>
-												<Button size="sm" variant="outline">
-													View all
-												</Button>
-											</SectionActions>
-										</SectionHeader>
+								<section className="space-y-3">
+									<SectionHeader scale="page">
+										<SectionTitleGroup>
+											<SectionTitle level={2} scale="page">
+												Connections
+											</SectionTitle>
+											<SectionDescription>
+												Sources this workspace reads from.
+											</SectionDescription>
+										</SectionTitleGroup>
+										<SectionActions>
+											<Button size="sm" variant="outline">
+												View all
+											</Button>
+										</SectionActions>
+									</SectionHeader>
 
-										<Tabs defaultValue="data">
-											<TabsList>
-												<TabsTrigger value="data">Data</TabsTrigger>
-												<TabsTrigger value="vocab">Vocabularies</TabsTrigger>
-											</TabsList>
+									<Tabs defaultValue="data">
+										<TabsList>
+											<TabsTrigger value="data">Data</TabsTrigger>
+											<TabsTrigger value="vocab">Vocabularies</TabsTrigger>
+										</TabsList>
 
-											<TabsContent value="data">
-												<DataTable
-													columns={columns}
-													data={CONNECTIONS}
-													onRowClick={(c) =>
-														toast.create({ title: c.name, type: "info" })
-													}
-													pageSize={6}
-													searchKey="name"
-													searchPlaceholder="Search connections…"
-													toolbarActions={
-														<Button size="sm">
+										<TabsContent value="data">
+											<DataTable
+												columns={columns}
+												data={CONNECTIONS}
+												onRowClick={(c) =>
+													toast.create({ title: c.name, type: "info" })
+												}
+												pageSize={6}
+												searchKey="name"
+												searchPlaceholder="Search connections…"
+												toolbarActions={
+													<Button size="sm">
+														<PlusIcon />
+														New connection
+													</Button>
+												}
+											/>
+										</TabsContent>
+
+										<TabsContent value="vocab">
+											<div className="rounded-lg border border-border">
+												<EmptyState
+													action={
+														<Button size="sm" variant="outline">
 															<PlusIcon />
-															New connection
+															Add vocabulary
 														</Button>
 													}
+													description="Vocabulary connections resolve the terms your mappings reference."
+													icon={<BoxesIcon />}
+													title="No vocabulary connections"
 												/>
-											</TabsContent>
-
-											<TabsContent value="vocab">
-												<div className="rounded-lg border border-border">
-													<EmptyState
-														action={
-															<Button size="sm" variant="outline">
-																<PlusIcon />
-																Add vocabulary
-															</Button>
-														}
-														description="Vocabulary connections resolve the terms your mappings reference."
-														icon={<BoxesIcon />}
-														title="No vocabulary connections"
-													/>
-												</div>
-											</TabsContent>
-										</Tabs>
-									</section>
-
-									<section className="space-y-3">
-										<SectionHeader scale="page">
-											<SectionTitleGroup>
-												<SectionTitle level={2} scale="page">
-													Scheduled runs
-												</SectionTitle>
-												<SectionDescription>
-													Not available yet in this workspace.
-												</SectionDescription>
-											</SectionTitleGroup>
-										</SectionHeader>
-										<Ribbon disabled label="Coming soon">
-											<div className="flex items-center justify-between rounded-lg border border-border p-4">
-												<div>
-													<p className="font-medium text-sm">
-														Run on a schedule
-													</p>
-													<p className="text-muted-foreground text-xs">
-														Trigger this workspace&apos;s jobs on a cron
-														expression.
-													</p>
-												</div>
-												<Button size="sm" variant="outline">
-													Configure
-												</Button>
 											</div>
-										</Ribbon>
-									</section>
-								</div>
-							</SectionBody>
-						</SectionRoot>
-					</ShellMain>
-				</SidebarProvider>
-				<Toaster />
-			</ShellBody>
-		</ShellRoot>
+										</TabsContent>
+									</Tabs>
+								</section>
+
+								<section className="space-y-3">
+									<SectionHeader scale="page">
+										<SectionTitleGroup>
+											<SectionTitle level={2} scale="page">
+												Scheduled runs
+											</SectionTitle>
+											<SectionDescription>
+												Not available yet in this workspace.
+											</SectionDescription>
+										</SectionTitleGroup>
+									</SectionHeader>
+									<Ribbon disabled label="Coming soon">
+										<div className="flex items-center justify-between rounded-lg border border-border p-4">
+											<div>
+												<p className="font-medium text-sm">
+													Run on a schedule
+												</p>
+												<p className="text-muted-foreground text-xs">
+													Trigger this workspace&apos;s jobs on a cron
+													expression.
+												</p>
+											</div>
+											<Button size="sm" variant="outline">
+												Configure
+											</Button>
+										</div>
+									</Ribbon>
+								</section>
+							</div>
+						</SectionBody>
+					</SectionRoot>
+				</ShellMain>
+			</SidebarInset>
+			<Toaster />
+		</SidebarProvider>
 	);
 }
 

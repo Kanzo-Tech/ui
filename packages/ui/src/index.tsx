@@ -38,6 +38,7 @@ export {
   PreferencesRoot,
   PreferencesTrigger,
   PreferencesPanel,
+  PreferencesField,
   PreferencesAppearance,
   PreferencesAccent,
   PreferencesRadius,

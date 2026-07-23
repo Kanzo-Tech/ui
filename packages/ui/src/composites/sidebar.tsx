@@ -344,13 +344,15 @@ export const SidebarRail = (props: React.ComponentProps<typeof ark.button>) => {
   );
 };
 
-export const SidebarInset = (props: React.ComponentProps<typeof ark.main>) => {
+// A neutral offset column, not `<main>`: the content shell goes inside it and `ShellMain` owns
+// the landmark (one `<main>` per page; DESIGN.md "a region declares no role").
+export const SidebarInset = (props: React.ComponentProps<typeof ark.div>) => {
   const { className, ...rest } = props;
 
   return (
-    <ark.main
+    <ark.div
       className={cn(
-        "relative flex w-full flex-1 flex-col bg-background",
+        "relative flex w-full min-w-0 flex-1 flex-col bg-background",
         "md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ms-2",
         "md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ms-0",
         "md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm",

@@ -2,6 +2,7 @@
   "title": "Showcases",
   "pages": [
     "app-shell",
-    "workspace"
+    "workspace",
+    "metadata-form"
   ]
 }

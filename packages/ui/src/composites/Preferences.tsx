@@ -644,6 +644,7 @@ export {
   PreferencesRoot,
   PreferencesTrigger,
   PreferencesPanel,
+  PrefField as PreferencesField,
   AppearanceSection as PreferencesAppearance,
   AccentSection as PreferencesAccent,
   RadiusSection as PreferencesRadius,

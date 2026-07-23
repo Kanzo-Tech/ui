@@ -16,11 +16,11 @@ import {
 	ShellFooter,
 	ShellHeader,
 	ShellMain,
-	ShellRoot,
 	Sidebar,
 	SidebarContent,
 	SidebarFooter,
 	SidebarHeader,
+	SidebarInset,
 	SidebarNav,
 	SidebarProvider,
 	SidebarRail,
@@ -70,12 +70,12 @@ import {
  * keasy's discovery screen, at full viewport and end-to-end in our vocabulary. The whole point is
  * the mapping: it is an IDE-docked layout, not a floating overlay, so every region is one of ours.
  *
- *   ShellRoot
- *   ├─ ShellHeader              breadcrumb (Jobs › aemet.fossil › Discover) + ⌘B sidebar trigger
- *   ├─ ShellBody
- *   │  ├─ Sidebar (start)       the app rail — workspace switcher / Platform nav / user
- *   │  └─ Resizable             ShellMain graph  ⟷  the docked ShellAside end analysis panel
- *   └─ ShellFooter             status bar: node/edge count at start, panel-tab icons at end
+ *   SidebarProvider             app frame + collapse context (⌘B)
+ *   ├─ Sidebar                  the app rail — workspace switcher / Platform nav / user
+ *   └─ SidebarInset             neutral offset column; the content shell lives inside it
+ *      ├─ ShellHeader           breadcrumb (Jobs › aemet.fossil › Discover) + ⌘B trigger
+ *      ├─ ShellBody             Resizable: ShellMain graph  ⟷  docked ShellAside end panel
+ *      └─ ShellFooter           status bar: node/edge count at start, panel-tab icons at end
  *
  * The dock is drag-resizable: per DESIGN.md ("resizing is composed, not a prop") the canvas and the
  * aside are the two panels of a `Resizable` (our Ark Splitter wrapper), so the drag, keyboard resize
@@ -464,11 +464,57 @@ export function WorkspaceShowcase() {
 	const activeLabel = PANELS.find((p) => p.id === active)?.label ?? "";
 
 	return (
-		<ShellRoot>
-			{/* `contents` dissolves the provider's own box, so ShellHeader / ShellBody / ShellFooter
-			    stay the direct children ShellRoot stacks — while the whole shell still sits inside the
-			    sidebar context the header's ⌘B trigger needs. */}
-			<SidebarProvider className="contents">
+		<SidebarProvider className="h-dvh min-h-0 overflow-hidden">
+			<Sidebar collapsible="icon">
+				<SidebarHeader>
+					<InstanceSwitcher
+						activeId="dev"
+						instances={INSTANCES}
+						label="Workspaces"
+						onSelect={() =>
+							toast.create({ title: "Switch workspace", type: "info" })
+						}
+					/>
+				</SidebarHeader>
+
+				<SidebarContent>
+					<SidebarNav items={NAV} label="Platform" />
+				</SidebarContent>
+
+				<SidebarFooter>
+					<SidebarUser
+						menuItems={[
+							{
+								label: "Profile",
+								icon: <UserIcon />,
+								onSelect: () =>
+									toast.create({ title: "Profile", type: "info" }),
+							},
+							{
+								label: "Settings",
+								icon: <SettingsIcon />,
+								onSelect: () =>
+									toast.create({ title: "Settings", type: "info" }),
+							},
+							{
+								label: "Log out",
+								icon: <LogOutIcon />,
+								variant: "destructive",
+								separatorBefore: true,
+								onSelect: () =>
+									toast.create({ title: "Logged out", type: "info" }),
+							},
+						]}
+						user={USER}
+					/>
+				</SidebarFooter>
+				<SidebarRail />
+			</Sidebar>
+
+			{/* SidebarInset is a neutral offset column; the content shell lives inside it so ShellMain
+			    owns the one <main> and the fixed rail never overlaps the header (a fixed sidebar and a
+			    full-width top region are mutually exclusive — DESIGN.md). */}
+			<SidebarInset>
 				<ShellHeader className="h-12 flex-row items-center gap-2 px-3">
 					<SidebarTrigger />
 					<Breadcrumbs
@@ -480,118 +526,63 @@ export function WorkspaceShowcase() {
 					/>
 				</ShellHeader>
 
-				<ShellBody>
-					<Sidebar collapsible="icon">
-						<SidebarHeader>
-							<InstanceSwitcher
-								activeId="dev"
-								instances={INSTANCES}
-								label="Workspaces"
-								onSelect={() =>
-									toast.create({ title: "Switch workspace", type: "info" })
-								}
-							/>
-						</SidebarHeader>
-
-						<SidebarContent>
-							<SidebarNav items={NAV} label="Platform" />
-						</SidebarContent>
-
-						<SidebarFooter>
-							<SidebarUser
-								menuItems={[
-									{
-										label: "Profile",
-										icon: <UserIcon />,
-										onSelect: () =>
-											toast.create({ title: "Profile", type: "info" }),
-									},
-									{
-										label: "Settings",
-										icon: <SettingsIcon />,
-										onSelect: () =>
-											toast.create({ title: "Settings", type: "info" }),
-									},
-									{
-										label: "Log out",
-										icon: <LogOutIcon />,
-										variant: "destructive",
-										separatorBefore: true,
-										onSelect: () =>
-											toast.create({ title: "Logged out", type: "info" }),
-									},
-								]}
-								user={USER}
-							/>
-						</SidebarFooter>
-						<SidebarRail />
-					</Sidebar>
-
-					{/* The canvas and the docked panel are the two sides of a splitter, so drag- and
-					    keyboard-resize come from Ark's machine (DESIGN.md: resizing is composed, not a
-					    prop). The Sidebar stays outside it. Collapsing the dock drops the second panel
-					    and its trigger, and the lone canvas takes the full width. */}
-					<div className="relative flex min-h-0 min-w-0 flex-1">
-						{panelOpen ? (
-							<Resizable
-								className="min-h-0"
-								defaultSize={[72, 28]}
-								panels={[
-									{ id: "canvas", minSize: 40 },
-									{ id: "dock", minSize: 18 },
-								]}
+				<ShellBody className="min-w-0">
+					{panelOpen ? (
+						<Resizable
+							className="min-h-0"
+							defaultSize={[72, 28]}
+							panels={[
+								{ id: "canvas", minSize: 40 },
+								{ id: "dock", minSize: 18 },
+							]}
+						>
+							<ResizablePanel
+								className="relative min-w-0 overflow-hidden"
+								id="canvas"
 							>
-								<ResizablePanel
-									className="relative min-w-0 overflow-hidden"
-									id="canvas"
+								<DiscoveryCanvas />
+							</ResizablePanel>
+							<ResizableResizeTrigger id="canvas:dock" withHandle />
+							<ResizablePanel
+								className="flex min-h-0 min-w-0 flex-col"
+								id="dock"
+							>
+								<ShellAside
+									aria-label={`${activeLabel} panel`}
+									className="size-full min-h-0 border-s-0"
+									side="end"
 								>
-									<DiscoveryCanvas />
-								</ResizablePanel>
-								<ResizableResizeTrigger id="canvas:dock" withHandle />
-								<ResizablePanel
-									className="flex min-h-0 min-w-0 flex-col"
-									id="dock"
-								>
-									{/* The dock is still a ShellAside end (complementary landmark, bg-card); the
-									    trigger draws the divider, so the aside drops its own border-s. */}
-									<ShellAside
-										aria-label={`${activeLabel} panel`}
-										className="size-full min-h-0 border-s-0"
-										side="end"
-									>
-										<div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
-											<span className="font-medium text-sm">{activeLabel}</span>
-											<div className="ms-auto flex items-center gap-1">
-												{active === "rules" && (
-													<Button className="h-6 gap-1 text-xs" size="sm">
-														<PlayIcon className="size-3" />
-														Run
-													</Button>
-												)}
-												<Button
-													aria-label="Close panel"
-													className="-me-1"
-													onClick={() => setPanelOpen(false)}
-													size="icon-sm"
-													variant="ghost"
-												>
-													<XIcon />
+									<div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
+										<span className="font-medium text-sm">{activeLabel}</span>
+										<div className="ms-auto flex items-center gap-1">
+											{active === "rules" && (
+												<Button className="h-6 gap-1 text-xs" size="sm">
+													<PlayIcon className="size-3" />
+													Run
 												</Button>
-											</div>
+											)}
+											<Button
+												aria-label="Close panel"
+												className="-me-1"
+												onClick={() => setPanelOpen(false)}
+												size="icon-sm"
+												variant="ghost"
+											>
+												<XIcon />
+											</Button>
 										</div>
-										<div className="min-h-0 flex-1">
-											<ActiveBody />
-										</div>
-									</ShellAside>
-								</ResizablePanel>
-							</Resizable>
-						) : (
-							<DiscoveryCanvas />
-						)}
-					</div>
+									</div>
+									<div className="min-h-0 flex-1">
+										<ActiveBody />
+									</div>
+								</ShellAside>
+							</ResizablePanel>
+						</Resizable>
+					) : (
+						<DiscoveryCanvas />
+					)}
 				</ShellBody>
 
-				{/* Status bar — node/edge count at the start, IDE panel-tab icons at the end. */}
 				<ShellFooter className="h-7 flex-row items-center justify-between px-3">
 					<span className="text-muted-foreground text-xs tabular-nums">
 						5,021 nodes · 4,997 edges
@@ -617,9 +608,9 @@ export function WorkspaceShowcase() {
 						})}
 					</div>
 				</ShellFooter>
-				<Toaster />
-			</SidebarProvider>
-		</ShellRoot>
+			</SidebarInset>
+			<Toaster />
+		</SidebarProvider>
 	);
 }
 

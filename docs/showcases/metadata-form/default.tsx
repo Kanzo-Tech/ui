@@ -30,6 +30,7 @@ import {
   PreferencesDensity,
   PreferencesFont,
   PreferencesMonoFont,
+  PreferencesField,
   PreferencesPanel,
   PreferencesRadius,
   PreferencesRoot,
@@ -1086,13 +1087,8 @@ export function MetadataFormShowcase() {
                 </Button>
               </DialogTrigger>
               <PreferencesPanel>
-                {/* Custom section. `PrefField` is not a public export, so its uppercase-label row
-                    is replicated here with `Field`. */}
                 <div className="flex flex-col gap-3">
-                  <div className="flex flex-col gap-1.5">
-                    <span className="font-medium text-[length:var(--kanzo-font-size-small)] text-muted-foreground uppercase tracking-wide">
-                      Layout
-                    </span>
+                  <PreferencesField label="Layout">
                     <SegmentGroup
                       aria-label="Form layout"
                       className="w-full rounded-md bg-muted p-1"
@@ -1113,7 +1109,7 @@ export function MetadataFormShowcase() {
                         </SegmentGroupItem>
                       ))}
                     </SegmentGroup>
-                  </div>
+                  </PreferencesField>
 
                   <Field orientation="horizontal">
                     <FieldLabel className="w-fit flex-1">Show field descriptions</FieldLabel>
