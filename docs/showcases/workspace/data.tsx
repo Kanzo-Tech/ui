@@ -3,6 +3,39 @@
 // mirror keasy's discovery screen (graph + floating inspector + distributions) without the real
 // cosmos.gl viewer or a DuckDB coordinator behind it.
 
+import {
+	DatabaseIcon,
+	HouseIcon,
+	LayersIcon,
+	WorkflowIcon,
+} from "lucide-react";
+import type { Instance, SidebarNavItem } from "@kanzo-tech/ui";
+
+// --- App-shell chrome, matching keasy's real discovery screen (which lives INSIDE the shell). ---
+
+/** The workspace switcher's tenants. keasy shows a single "Dev Workspace / Member" tile. */
+export const INSTANCES: Instance[] = [
+	{
+		id: "dev",
+		label: "Dev Workspace",
+		description: "Member",
+		icon: <LayersIcon />,
+	},
+];
+
+/** Platform nav — Dashboard / Connections / Jobs, with Jobs active (discovery opens from a job). */
+export const NAV: SidebarNavItem[] = [
+	{ title: "Dashboard", href: "#/app", icon: <HouseIcon /> },
+	{ title: "Connections", href: "#/app/connections", icon: <DatabaseIcon /> },
+	{ title: "Jobs", href: "#/app/jobs", icon: <WorkflowIcon />, isActive: true },
+];
+
+/** The signed-in member shown in the sidebar footer. */
+export const USER = {
+	name: "Ángel Iglesias",
+	email: "member@keasy.local",
+};
+
 export type NodeKind = "dataset" | "distribution" | "keyword" | "entity";
 
 export interface GraphNode {
@@ -67,6 +100,14 @@ export const GRAPH_EDGES: GraphEdge[] = [
 	{ from: "station", to: "kw-weather" },
 	{ from: "dist-graphar", to: "obs" },
 	{ from: "dist-graphar", to: "theme" },
+];
+
+/** Bottom-start legend, keyed to the node kinds. Counts are the real tallies in GRAPH_NODES. */
+export const GRAPH_LEGEND: { kind: NodeKind; label: string; count: number }[] = [
+	{ kind: "dataset", label: "Dataset", count: 1 },
+	{ kind: "distribution", label: "Distribution", count: 3 },
+	{ kind: "entity", label: "Entity", count: 4 },
+	{ kind: "keyword", label: "Keyword", count: 3 },
 ];
 
 /** The node the inspector shows selected — mirrors discovery's Info tab. */
