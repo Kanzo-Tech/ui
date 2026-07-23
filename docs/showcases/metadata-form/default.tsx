@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  createContext,
-  type ReactNode,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { createContext, Fragment, type ReactNode, useContext, useMemo, useState } from "react";
 import {
   Badge,
   Button,
@@ -16,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
   cn,
+  DialogTrigger,
   Field,
   FieldArray,
   FieldDescription,
@@ -30,12 +24,18 @@ import {
   NativeSelect,
   NativeSelectOption,
   NumberField,
-  Popover,
-  PopoverBody,
-  PopoverContent,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverTrigger,
+  PreferencesAccent,
+  PreferencesAppearance,
+  PreferencesBase,
+  PreferencesDensity,
+  PreferencesFont,
+  PreferencesMonoFont,
+  PreferencesPanel,
+  PreferencesRadius,
+  PreferencesRoot,
+  Resizable,
+  ResizablePanel,
+  ResizableResizeTrigger,
   ScrollArea,
   SegmentGroup,
   SegmentGroupItem,
@@ -90,6 +90,7 @@ import {
   type GroupId,
   HEALTH_CATEGORIES,
   type Issue,
+  SHAPE_COUNT,
   SHAPES_TTL,
   suggestKeywords,
   toJsonLd,
@@ -105,7 +106,6 @@ import {
 
 type Counts = { violations: number; warnings: number; infos: number };
 type Layout = "cards" | "tabs" | "steps";
-type PanelId = "source" | "output";
 type EntryKey = "descriptions" | "keywords" | "themes" | "healthThemes" | "codingSystems";
 
 const SEVERITY_TEXT: Record<Issue["severity"], string> = {
@@ -244,17 +244,52 @@ function GroupBadge({ counts }: { counts: Counts }) {
   return <CheckIcon aria-label="No issues" className="size-3.5 text-success" />;
 }
 
+/** The chrome shared by both docked asides — a titled header with a close control, over a
+ *  scrolling body. */
+function PanelShell({
+  title,
+  subtitle,
+  onClose,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <>
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
+        <span className="font-medium text-sm">{title}</span>
+        <span className="text-muted-foreground text-xs">{subtitle}</span>
+        <Button
+          aria-label={`Close ${title}`}
+          className="ms-auto text-muted-foreground"
+          onClick={onClose}
+          size="icon-sm"
+          variant="ghost"
+        >
+          <XIcon />
+        </Button>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto p-3">{children}</div>
+    </>
+  );
+}
+
 /**
  * The metadata-form showcase — a HealthDCAT-AP editor built as a Workspace, exactly like the
  * discovery showcase: the Shell regions carry it. `ShellHeader` holds the utility strip, the
- * title, and the Source / Output / validation / Preferences controls; `ShellMain` is the single
- * `<main>` with the sequential-Card form; and a docked `ShellAside side="end"` slides in the
- * Source (serialised RDF) or Output (validation) panel — an IDE side dock, not an overlay.
+ * title, and the Source / Output / validation / Preferences controls. Below it a THREE-COLUMN
+ * `Resizable` workspace reads left→right like the breadcrumb — SHACL **Source** (a leading
+ * `ShellAside`) → the editable form (`ShellMain`, the single `<main>`) → generated **Output**
+ * (a trailing `ShellAside`, Turtle & JSON-LD). Each side column toggles independently from its
+ * header button and is drag-resizable; validation stays in the header badge.
  *
  * It is MOSTLY COMPOSITION — `Field`, `FieldArray`, `DateField`, `SuggestMenu`,
- * `CompletionField`, `Steps`, `Tabs`, `NativeSelect` — over a FAKED SHACL engine in `data.tsx`.
- * The form's layout (Sequential / Tabs / Steps) and display prefs are chosen live in the
- * product's OWN Preferences popover, dogfooding our `Popover` + `SegmentGroup` + `Switch`.
+ * `CompletionField`, `Steps`, `Tabs`, `NativeSelect`, `Resizable` — over a FAKED SHACL engine in
+ * `data.tsx`. The form's layout (Sequential / Tabs / Steps) and display prefs are chosen live in
+ * the library's own `Preferences` drawer, extended here with a custom Layout section.
  */
 export function MetadataFormShowcase() {
   const [datasetId, setDatasetId] = useState("empty");
@@ -264,10 +299,11 @@ export function MetadataFormShowcase() {
   const [layout, setLayout] = useState<Layout>("cards");
   const [showDescriptions, setShowDescriptions] = useState(true);
   const [showPredicates, setShowPredicates] = useState(false);
-  const [prefsOpen, setPrefsOpen] = useState(false);
 
-  // The docked side panel: which of Source / Output is showing (or none).
-  const [panel, setPanel] = useState<PanelId | null>(null);
+  // Two independent docked panels: SHACL Source on the leading edge, serialised Output on the
+  // trailing edge. Either, both, or neither — the form takes whatever width is left.
+  const [sourceOpen, setSourceOpen] = useState(false);
+  const [outputOpen, setOutputOpen] = useState(false);
 
   // Tabs / Steps share the active group so the step nav stays in sync with the tab bar.
   const [activeGroup, setActiveGroup] = useState<GroupId>("general");
@@ -292,24 +328,6 @@ export function MetadataFormShowcase() {
   const valid = violations === 0;
   const fieldIssues = (field: string) => issuesByField[field] ?? [];
 
-  // The `P` hotkey toggles the product Preferences popover (ignored while typing) — the real
-  // app's "Preferences [P]" affordance, wired the way our library's own Preferences does it.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey || e.key.toLowerCase() !== "p") return;
-      const el = document.activeElement;
-      if (
-        el instanceof HTMLElement &&
-        (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable)
-      )
-        return;
-      e.preventDefault();
-      setPrefsOpen((o) => !o);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
-
   // ── State updates ──────────────────────────────────────────────────────────
 
   const loadDataset = (id: string) => {
@@ -330,8 +348,6 @@ export function MetadataFormShowcase() {
     }));
   const removeEntry = (key: EntryKey, i: number) =>
     setValues((p) => ({ ...p, [key]: p[key].filter((_: Entry, idx: number) => idx !== i) }));
-
-  const togglePanel = (p: PanelId) => setPanel((cur) => (cur === p ? null : p));
 
   // ── Field renderers, one per group ───────────────────────────────────────────
   // These are plain functions CALLED during render (not `<Component/>` elements) so the inputs
@@ -915,80 +931,36 @@ export function MetadataFormShowcase() {
 
   const body = layout === "cards" ? cardsBody : layout === "tabs" ? tabsBody : stepsBody;
 
-  // ── The docked side panel (Source / Output) ──────────────────────────────────
+  // ── The two docked panels ────────────────────────────────────────────────────
+  // Left→right, the workspace reads exactly like the breadcrumb:
+  //   SHACL shapes (Source)  →  editable form (Main)  →  Turtle & JSON-LD (Output).
 
+  // Source (leading aside) = the SHACL shapes that DEFINE the form. Static fixture.
   const sourcePanel = (
-    <Tabs className="min-h-0 flex-1" defaultValue="turtle">
+    <pre className="overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-muted-foreground text-xs leading-relaxed">
+      {SHAPES_TTL}
+    </pre>
+  );
+
+  // Output (trailing aside) = what the form GENERATES, serialised live from the values. Raw
+  // <pre> until the read-only CodeBlock lands — CodeEditor is for editing, not this view.
+  const outputPanel = (
+    <Tabs className="min-h-0 flex-1" defaultValue="jsonld">
       <TabsList>
-        <TabsTrigger value="turtle">Turtle</TabsTrigger>
         <TabsTrigger value="jsonld">JSON-LD</TabsTrigger>
-        <TabsTrigger value="shapes">Shapes</TabsTrigger>
+        <TabsTrigger value="turtle">Turtle</TabsTrigger>
       </TabsList>
-      {/* Raw <pre> until the read-only CodeBlock lands — CodeEditor is for editing, not this. */}
-      <TabsContent value="turtle">
-        <pre className="overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs leading-relaxed">
-          {toTurtle(values)}
-        </pre>
-      </TabsContent>
       <TabsContent value="jsonld">
         <pre className="overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs leading-relaxed">
           {toJsonLd(values)}
         </pre>
       </TabsContent>
-      <TabsContent value="shapes">
-        <pre className="overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-muted-foreground text-xs leading-relaxed">
-          {SHAPES_TTL}
+      <TabsContent value="turtle">
+        <pre className="overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs leading-relaxed">
+          {toTurtle(values)}
         </pre>
       </TabsContent>
     </Tabs>
-  );
-
-  const outputPanel = (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={valid ? "success" : "destructive"}>
-          {valid ? "Valid" : `${violations} ${violations === 1 ? "violation" : "violations"}`}
-        </Badge>
-        <span className="text-muted-foreground text-xs tabular-nums">
-          {report.length} {report.length === 1 ? "message" : "messages"} · {tripleCount(values)} triples
-        </span>
-      </div>
-      {report.length === 0 ? (
-        <div className="flex items-center gap-2 rounded-lg border border-success/24 bg-success/8 p-3 text-sm">
-          <CheckIcon className="size-4 shrink-0 text-success" />
-          Every shape constraint is satisfied — ready to publish.
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {GROUPS.filter((g) => report.some((iss) => iss.group === g.id)).map((g) => (
-            <div className="flex flex-col gap-1.5" key={g.id}>
-              <p className="font-medium text-muted-foreground text-xs">{g.label}</p>
-              {report
-                .filter((iss) => iss.group === g.id)
-                .map((iss, i) => (
-                  <div className="flex items-start gap-2 rounded-md border p-2" key={i}>
-                    <span
-                      aria-hidden
-                      className={cn(
-                        "mt-1.5 size-1.5 shrink-0 rounded-full",
-                        iss.severity === "violation"
-                          ? "bg-destructive"
-                          : iss.severity === "warning"
-                            ? "bg-warning"
-                            : "bg-info",
-                      )}
-                    />
-                    <div className="min-w-0">
-                      <p className="font-medium text-xs">{iss.label}</p>
-                      <p className={cn("text-xs", SEVERITY_TEXT[iss.severity])}>{iss.message}</p>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
   );
 
   // ── Chrome ───────────────────────────────────────────────────────────────────
@@ -1035,31 +1007,31 @@ export function MetadataFormShowcase() {
           </div>
 
           <div className="ms-auto flex items-center gap-1.5">
-            {/* Source — the serialised RDF. Toggles the docked aside. */}
+            {/* Source — the SHACL shapes. Toggles the LEADING aside, independently. */}
             <Button
               className="gap-1.5"
-              onClick={() => togglePanel("source")}
+              onClick={() => setSourceOpen((o) => !o)}
               size="sm"
-              variant={panel === "source" ? "secondary" : "outline"}
+              variant={sourceOpen ? "secondary" : "outline"}
             >
               <FileTextIcon />
               Source
               <Badge size="xs" variant="secondary">
-                {tripleCount(values)}
+                {SHAPE_COUNT}
               </Badge>
             </Button>
 
-            {/* Output — the validation output. Toggles the docked aside. */}
+            {/* Output — the generated serialisation. Toggles the TRAILING aside, independently. */}
             <Button
               className="gap-1.5"
-              onClick={() => togglePanel("output")}
+              onClick={() => setOutputOpen((o) => !o)}
               size="sm"
-              variant={panel === "output" ? "secondary" : "outline"}
+              variant={outputOpen ? "secondary" : "outline"}
             >
               <Code2Icon />
               Output
-              <Badge size="xs" variant={valid ? "success" : "destructive"}>
-                {report.length}
+              <Badge size="xs" variant="secondary">
+                {tripleCount(values)}
               </Badge>
             </Button>
 
@@ -1101,27 +1073,30 @@ export function MetadataFormShowcase() {
               </HoverCardContent>
             </HoverCard>
 
-            {/* Preferences — the PRODUCT's own display prefs (layout + display), chosen live.
-                Its own panel, separate from the docs-wide theme customiser: a Popover dogfooding
-                our Popover + SegmentGroup + Switch, opened from here or the `P` hotkey. */}
-            <Popover onOpenChange={(d) => setPrefsOpen(d.open)} open={prefsOpen} positioning={{ placement: "bottom-end" }}>
-              <PopoverTrigger asChild>
+            {/* Preferences — OUR `Preferences` composite, EXTENDED. `PreferencesRoot` gives the
+                non-modal drawer + `P` hotkey; `PreferencesPanel` renders `{children ?? default}`,
+                so passing children keeps the pinned Reset·Copy·Done footer (this IS the theme
+                drawer) while leading with a custom Layout + display section. Flat exports, per the
+                RSC note in the component — `Preferences.X` statics do not survive the boundary. */}
+            <PreferencesRoot hotkey="p">
+              <DialogTrigger asChild>
                 <Button className="gap-1.5" size="sm" variant="ghost">
                   Preferences
                   <Kbd>P</Kbd>
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-72">
-                <PopoverHeader>
-                  <PopoverTitle className="text-sm">Preferences</PopoverTitle>
-                </PopoverHeader>
-                <PopoverBody className="flex flex-col gap-4">
+              </DialogTrigger>
+              <PreferencesPanel>
+                {/* Custom section. `PrefField` is not a public export, so its uppercase-label row
+                    is replicated here with `Field`. */}
+                <div className="flex flex-col gap-3">
                   <div className="flex flex-col gap-1.5">
-                    <span className="font-medium text-sm">Layout</span>
+                    <span className="font-medium text-[length:var(--kanzo-font-size-small)] text-muted-foreground uppercase tracking-wide">
+                      Layout
+                    </span>
                     <SegmentGroup
                       aria-label="Form layout"
                       className="w-full rounded-md bg-muted p-1"
-                      onValueChange={(d) => setLayout(d.value as Layout)}
+                      onValueChange={(d) => d.value && setLayout(d.value as Layout)}
                       value={layout}
                     >
                       {(
@@ -1154,52 +1129,88 @@ export function MetadataFormShowcase() {
                       onCheckedChange={(d) => setShowPredicates(d.checked)}
                     />
                   </Field>
-                </PopoverBody>
-              </PopoverContent>
-            </Popover>
+                </div>
+
+                {/* The library's own theme axes, flat. */}
+                <PreferencesAppearance />
+                <PreferencesAccent />
+                <PreferencesBase />
+                <PreferencesRadius />
+                <PreferencesFont />
+                <PreferencesMonoFont />
+                <PreferencesDensity />
+              </PreferencesPanel>
+            </PreferencesRoot>
           </div>
         </div>
       </ShellHeader>
 
       <ShellBody>
-        {/* The single <main> — the sequential-Card form. */}
-        <ShellMain className="bg-background">
-          <FormPrefsContext.Provider value={{ showDescriptions, showPredicates }}>
-            <div className="mx-auto w-full max-w-3xl px-6 py-8">{body}</div>
-          </FormPrefsContext.Provider>
-        </ShellMain>
+        {/* A three-column workspace: SHACL Source (leading) · the form · Output (trailing),
+            each column an independently resizable `Resizable` panel. The `<main>` is always the
+            middle column; the two side columns are `<aside>` landmarks (`ShellAside side`). Only
+            the open panels render, and the splitter is keyed on the open-set so Ark re-inits its
+            panel model cleanly. Logical throughout — start/end, never left/right. */}
+        {(() => {
+          const columns: ("source" | "form" | "output")[] = [
+            ...(sourceOpen ? (["source"] as const) : []),
+            "form",
+            ...(outputOpen ? (["output"] as const) : []),
+          ];
 
-        {/* The docked panel — Source or Output — an IDE side dock, not an overlay. Collapsed
-            (unrendered) when neither is active, so the form takes the full width. */}
-        {panel && (
-          <ShellAside
-            aria-label={panel === "source" ? "Source" : "Output"}
-            className="min-h-0"
-            side="end"
-            width={440}
-          >
-            <div className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
-              <span className="font-medium text-sm">
-                {panel === "source" ? "Source" : "Output"}
-              </span>
-              <span className="text-muted-foreground text-xs">
-                {panel === "source" ? "Serialised RDF" : "Validation output"}
-              </span>
-              <Button
-                aria-label="Close panel"
-                className="ms-auto text-muted-foreground"
-                onClick={() => setPanel(null)}
-                size="icon-sm"
-                variant="ghost"
-              >
-                <XIcon />
-              </Button>
-            </div>
-            <div className="flex min-h-0 flex-1 flex-col overflow-auto p-3">
-              {panel === "source" ? sourcePanel : outputPanel}
-            </div>
-          </ShellAside>
-        )}
+          const formMain = (
+            <ShellMain className="bg-background">
+              <FormPrefsContext.Provider value={{ showDescriptions, showPredicates }}>
+                <div className="mx-auto w-full max-w-3xl px-6 py-8">{body}</div>
+              </FormPrefsContext.Provider>
+            </ShellMain>
+          );
+
+          // No aside open → the form owns the body; no splitter needed.
+          if (columns.length === 1) return formMain;
+
+          const columnNode = (id: (typeof columns)[number]) => {
+            if (id === "form") return formMain;
+            if (id === "source")
+              return (
+                <ShellAside aria-label="Source" className="min-h-0 flex-1 border-e-0" side="start">
+                  <PanelShell onClose={() => setSourceOpen(false)} subtitle="SHACL shapes" title="Source">
+                    {sourcePanel}
+                  </PanelShell>
+                </ShellAside>
+              );
+            return (
+              <ShellAside aria-label="Output" className="min-h-0 flex-1 border-s-0" side="end">
+                <PanelShell onClose={() => setOutputOpen(false)} subtitle="Turtle & JSON-LD" title="Output">
+                  {outputPanel}
+                </PanelShell>
+              </ShellAside>
+            );
+          };
+
+          const panels = columns.map((id) => ({ id, minSize: id === "form" ? 34 : 16 }));
+          const defaultSize =
+            columns.length === 3
+              ? [24, 52, 24]
+              : columns[0] === "form"
+                ? [72, 28]
+                : [28, 72];
+
+          return (
+            <Resizable defaultSize={defaultSize} key={columns.join("-")} panels={panels}>
+              {columns.map((id, i) => (
+                <Fragment key={id}>
+                  {i > 0 && (
+                    <ResizableResizeTrigger id={`${columns[i - 1]}:${id}`} withHandle />
+                  )}
+                  <ResizablePanel className="flex min-w-0 flex-col overflow-hidden" id={id}>
+                    {columnNode(id)}
+                  </ResizablePanel>
+                </Fragment>
+              ))}
+            </Resizable>
+          );
+        })()}
       </ShellBody>
     </ShellRoot>
   );
