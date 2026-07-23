@@ -7,6 +7,17 @@ links:
 
 <ComponentPreview componentName="toggle" />
 
+A toggle holds a boolean that stays on until pressed again — the formatting toolbar above is
+the archetype. Control it (`pressed` + `onPressedChange`) whenever the state is real, which is
+almost always.
+
+## A single toggle
+
+On its own it reads as on/off. Pair it with `ToggleIndicator` and it shows what it will do
+rather than what it did.
+
+<ComponentPreview componentName="toggle" fileName="example-single" />
+
 ## Usage
 
 ```tsx
