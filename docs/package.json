@@ -5,8 +5,8 @@
   "description": "Kanzo UI documentation — Next.js App Router + fumadocs, mirroring Shark UI's docs stack. Doubles as the RSC fixture: Vite ignores \"use client\", so this is the only place the library's client/server boundary is actually exercised.",
   "type": "module",
   "scripts": {
-    "dev": "next dev --port 3100",
-    "build": "next build",
+    "dev": "next dev --webpack --port 3100",
+    "build": "next build --webpack",
     "start": "next start --port 3100",
     "typecheck": "tsc --noEmit",
     "postinstall": "fumadocs-mdx"
