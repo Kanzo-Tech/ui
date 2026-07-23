@@ -196,6 +196,28 @@ And one rule about *not* building:
 `field.tsx` ships thirteen parts and had no consumer while four rounds of design went into a
 fourteenth. The highest-value move was adoption, not design.
 
+### Reach for a new component last
+
+A new component is the most expensive answer. Walk this ladder first — each rung is cheaper than
+the next, and every reference except Ant (React Aria's RFC is the clearest) reserves a new
+component for genuinely new **behaviour** or **DOM structure**, never a new look:
+
+1. **A prop / variant.** A different appearance of the same machine is a `tv()` variant, not a
+   file. "Card radio" is `RadioGroup` styled off `data-state`, not a `CardRadioGroup`.
+2. **Composition + `data-*`.** Every state is mirrored to `data-*` (Ark already does this), so a
+   caller restyles a list into cards or swatches with CSS alone — no fork.
+3. **`asChild` / render prop.** Absorb the caller's own markup — a link, a card, a `Button` —
+   instead of minting `CardButton` / `LinkButton` per case.
+4. **A provider / slot.** Reuse a standalone part inside a composite by injecting props through
+   context, the way React Aria's `Select` reuses `Popover` (there is no `SelectPopover`). Ark's
+   `RootProvider` + `useX` hook lifts state out of the tree when it must live elsewhere.
+5. **A new component.** Only now, and only for new behaviour or a new DOM shape.
+
+Providers earn their place for **cross-cutting** state — theme (`KanzoThemeProvider`), locale /
+direction, a Field context — and for composite reuse. Not for "this input has completion": that
+is a prop (`complete` / `suggest`), and the UIs differ, so a provider would unify nothing.
+Everyone but Ant composes card-radios; our monolithic `CardRadioGroup` is the outlier to unwind.
+
 ---
 
 ## Where specificity is allowed to live

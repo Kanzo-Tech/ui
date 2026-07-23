@@ -4,6 +4,7 @@ import { RadioGroup as ArkRadioGroup } from "@ark-ui/react/radio-group";
 import type { CSSProperties, ReactNode } from "react";
 import { cn } from "../lib/cn.js";
 import { Badge } from "./badge.js";
+import { RadioGroup, RadioGroupCard, RadioGroupIndicator } from "./radio-group.js";
 
 export interface CardRadioOption {
   value: string;
@@ -38,10 +39,8 @@ export interface CardRadioGroupProps {
 }
 
 /**
- * A radio group whose options are selectable cards.
- *
- * Full radio semantics come from Ark — roving focus, arrow-key selection and the hidden
- * inputs — so the card is purely how the option looks, never how it behaves.
+ * Terse `options` sugar over the compound `RadioGroup` + `RadioGroupCard` — the uniform-list
+ * case in one call. For rich or custom cards, compose `RadioGroupCard` directly.
  */
 export function CardRadioGroup({
   options,
@@ -60,7 +59,7 @@ export function CardRadioGroup({
   const vertical = orientation === "vertical";
 
   return (
-    <ArkRadioGroup.Root
+    <RadioGroup
       className={cn(
         "grid gap-3",
         columns === "auto"
@@ -83,36 +82,24 @@ export function CardRadioGroup({
       value={value}
     >
       {options.map((option) => (
-        <ArkRadioGroup.Item
-          className={cn(
-            "relative flex gap-2",
-            "rounded-lg border border-input bg-transparent p-3",
-            "cursor-pointer transition-colors",
-            "hover:bg-accent/50",
-            "data-[state=checked]:border-primary data-[state=checked]:bg-accent",
-            "data-disabled:pointer-events-none data-disabled:opacity-64",
-            "has-data-focus-visible:border-primary has-data-focus-visible:ring-[3px] has-data-focus-visible:ring-ring/32",
-            "data-invalid:border-destructive",
+        <RadioGroupCard
+          className={
             vertical
               ? "flex-col items-center justify-center text-center"
               : "flex-row items-start text-start"
-          )}
-          data-slot="card-radio-item"
+          }
           disabled={option.disabled}
           key={option.value}
           value={option.value}
         >
           {option.preview != null && (
-            <div className="flex items-center justify-center">
-              {option.preview}
-            </div>
+            <div className="flex items-center justify-center">{option.preview}</div>
           )}
 
           {option.icon != null && (
             <div
               className={cn(
-                "shrink-0 text-muted-foreground",
-                "[&_svg]:size-5",
+                "shrink-0 text-muted-foreground [&_svg]:size-5",
                 vertical ? undefined : "mt-0.5"
               )}
             >
@@ -147,22 +134,13 @@ export function CardRadioGroup({
           </div>
 
           {showIndicator && (
-            <ArkRadioGroup.ItemControl
-              className={cn(
-                "inline-flex size-4 shrink-0 items-center justify-center",
-                "rounded-full border border-input bg-input/30 shadow-xs/5",
-                "before:size-1.5 before:rounded-full",
-                "data-[state=checked]:bg-primary data-[state=checked]:before:bg-primary-foreground",
-                vertical ? "absolute end-2 top-2" : "order-last ms-auto mt-0.5"
-              )}
-              data-slot="card-radio-item-control"
+            <RadioGroupIndicator
+              className={vertical ? "absolute end-2 top-2" : "order-last ms-auto mt-0.5"}
             />
           )}
-
-          <ArkRadioGroup.ItemHiddenInput />
-        </ArkRadioGroup.Item>
+        </RadioGroupCard>
       ))}
-    </ArkRadioGroup.Root>
+    </RadioGroup>
   );
 }
 CardRadioGroup.displayName = "CardRadioGroup";

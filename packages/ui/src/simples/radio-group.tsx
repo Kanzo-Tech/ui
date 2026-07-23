@@ -71,6 +71,54 @@ export const RadioGroupItem = (
   );
 };
 
+// A card-shaped option: raw children (compose label/description/preview/indicator yourself),
+// full radio semantics from Ark, the selected look driven by `data-[state=checked]`. This is
+// what "card radio" is — the same machine styled as a card, not a separate component.
+export const RadioGroupCard = (
+  props: React.ComponentProps<typeof ArkRadioGroup.Item>
+) => {
+  const { tabIndex, className, children, ...rest } = props;
+
+  return (
+    <ArkRadioGroup.Item
+      className={cn(
+        "relative flex cursor-pointer gap-2 rounded-lg border border-input bg-transparent p-3 transition-colors",
+        "hover:bg-accent/50",
+        "data-[state=checked]:border-primary data-[state=checked]:bg-accent",
+        "data-disabled:pointer-events-none data-disabled:opacity-64",
+        "has-data-focus-visible:border-primary has-data-focus-visible:ring-[3px] has-data-focus-visible:ring-ring/32",
+        "data-invalid:border-destructive",
+        className
+      )}
+      data-slot="radio-group-card"
+      {...rest}
+    >
+      {children}
+      <ArkRadioGroup.ItemHiddenInput tabIndex={tabIndex} />
+    </ArkRadioGroup.Item>
+  );
+};
+
+// The visual radio dot, no semantics of its own — drop it inside a card to show selection.
+export const RadioGroupIndicator = (
+  props: React.ComponentProps<typeof ArkRadioGroup.ItemControl>
+) => {
+  const { className, ...rest } = props;
+
+  return (
+    <ArkRadioGroup.ItemControl
+      className={cn(
+        "inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-input bg-input/30 shadow-xs/5",
+        "before:size-1.5 before:rounded-full",
+        "data-[state=checked]:bg-primary data-[state=checked]:before:bg-primary-foreground",
+        className
+      )}
+      data-slot="radio-group-indicator"
+      {...rest}
+    />
+  );
+};
+
 export const RadioGroupText = (
   props: React.ComponentProps<typeof ArkRadioGroup.ItemText>
 ) => {

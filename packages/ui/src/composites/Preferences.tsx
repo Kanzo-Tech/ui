@@ -24,6 +24,8 @@ import {
   SegmentGroupItem,
   SegmentGroupItemText,
 } from "../simples/segment-group.js";
+import { RadioGroup as ArkRadioGroup } from "@ark-ui/react/radio-group";
+import { RadioGroup, RadioGroupCard } from "../simples/radio-group.js";
 import { Slider } from "../simples/slider.js";
 import {
   ColorPicker,
@@ -417,29 +419,27 @@ function FontPicker({
   onSelect: (v: string) => void;
 }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <RadioGroup
+      aria-label="Font"
+      className="flex-row flex-wrap gap-2"
+      onValueChange={(d) => d.value && onSelect(d.value)}
+      value={value}
+    >
       {options.map((o) => (
-        <button
+        <RadioGroupCard
+          className="min-w-0 flex-1 basis-20 flex-col items-center gap-1 px-2 py-2"
           key={o.value}
-          type="button"
-          aria-pressed={o.value === value}
-          onClick={() => onSelect(o.value)}
-          className={cn(
-            "flex min-w-0 flex-1 basis-20 flex-col items-center gap-1 rounded-md border px-2 py-2 outline-none transition",
-            "focus-visible:ring-[3px] focus-visible:ring-ring/32",
-            o.value === value ? "border-primary bg-accent" : "border-border hover:bg-accent/50",
-          )}
+          value={o.value}
         >
-          <span
-            className="text-xl leading-none text-foreground"
-            style={{ fontFamily: o.preview }}
-          >
+          <span className="text-xl leading-none text-foreground" style={{ fontFamily: o.preview }}>
             Ag
           </span>
-          <span className="w-full truncate text-center text-xs text-muted-foreground">{o.label}</span>
-        </button>
+          <ArkRadioGroup.ItemText className="w-full truncate text-center text-muted-foreground text-xs">
+            {o.label}
+          </ArkRadioGroup.ItemText>
+        </RadioGroupCard>
       ))}
-    </div>
+    </RadioGroup>
   );
 }
 
