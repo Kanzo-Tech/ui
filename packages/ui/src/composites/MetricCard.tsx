@@ -4,18 +4,18 @@ import { Card } from "../simples/card.js";
 import { Skeleton } from "../simples/skeleton.js";
 import { DefaultLink, type LinkComponent } from "./link.js";
 
-export type StatCardStatus = "neutral" | "success" | "warning" | "danger";
+export type MetricCardStatus = "neutral" | "success" | "warning" | "danger";
 
-export interface StatCardProps extends ComponentProps<"div"> {
+export interface MetricCardProps extends ComponentProps<"div"> {
   /** Token-backed semantic state. Default "neutral". Tints the icon disc via `data-status`. */
-  status?: StatCardStatus;
+  status?: MetricCardStatus;
   /** Makes the whole card a link. Omit for a plain, non-navigating surface. */
   href?: string;
   linkComponent?: LinkComponent;
 }
 
 /**
- * StatCard — a single headline figure with its label, an optional status tint and an optional
+ * MetricCard — a single headline figure with its label, an optional status tint and an optional
  * description: the tile a dashboard is built from.
  *
  * Navigation is opt-in: with `href` the whole card becomes one link target (a single tab
@@ -27,24 +27,24 @@ export interface StatCardProps extends ComponentProps<"div"> {
  * Composition gives all of that back, and matches how every simple in this library already
  * works — `CardHeader`, not `<Card header={…} />`. `status`, `href` and `linkComponent` stay
  * props: they are state and behaviour, not content. `loading` moved to the parts that
- * actually swap for a skeleton ({@link StatCardValue}, {@link StatCardDescription}).
+ * actually swap for a skeleton ({@link MetricCardValue}, {@link MetricCardDescription}).
  *
- *   <StatCard status="success" href="/jobs">
- *     <StatCardHeader>
- *       <StatCardIcon><CheckIcon/></StatCardIcon>
- *       <StatCardLabel>Completed</StatCardLabel>
- *     </StatCardHeader>
- *     <StatCardValue loading={pending}>1,204</StatCardValue>
- *     <StatCardDescription>in the last 24h</StatCardDescription>
- *   </StatCard>
+ *   <MetricCard status="success" href="/jobs">
+ *     <MetricCardHeader>
+ *       <MetricCardIcon><CheckIcon/></MetricCardIcon>
+ *       <MetricCardLabel>Completed</MetricCardLabel>
+ *     </MetricCardHeader>
+ *     <MetricCardValue loading={pending}>1,204</MetricCardValue>
+ *     <MetricCardDescription>in the last 24h</MetricCardDescription>
+ *   </MetricCard>
  */
-export function StatCard({
+export function MetricCard({
   status = "neutral",
   href,
   linkComponent: Link = DefaultLink,
   className,
   ...rest
-}: StatCardProps) {
+}: MetricCardProps) {
   const card = (
     <Card
       className={cn(
@@ -58,18 +58,18 @@ export function StatCard({
         // parent, so it is redundant inside a grid (grid items already stretch) and wrong
         // everywhere else — in a centred flex container it inflated a 122px tile to the
         // full height of the container. The floor sits just above the natural height of a
-        // full tile (icon row + figure + one description line), so `StatCardValue`'s
+        // full tile (icon row + figure + one description line), so `MetricCardValue`'s
         // `flex-1` absorbs the slack on the short ones and every figure lands on the same
         // baseline.
-        "group/stat-card flex min-h-32 flex-col gap-0 rounded-lg px-5 py-4 shadow-none",
+        "group/metric-card flex min-h-32 flex-col gap-0 rounded-lg px-5 py-4 shadow-none",
         href != null &&
           // Only inside the link wrapper: there the anchor is the grid item that stretches,
           // and the card has to fill it. The anchor is height-auto otherwise, so this
           // resolves to auto and cannot inflate a standalone tile.
-          "h-full transition-colors group-hover/stat:border-primary/40 group-focus-visible/stat:border-primary",
+          "h-full transition-colors group-hover/metric:border-primary/40 group-focus-visible/metric:border-primary",
         className
       )}
-      data-slot="stat-card"
+      data-slot="metric-card"
       data-status={status}
       {...rest}
     />
@@ -81,71 +81,71 @@ export function StatCard({
     <Link
       // No `h-full` here either — as a grid item the anchor stretches on its own, and
       // anywhere else the percentage resolved against the container and blew the tile up.
-      className="group/stat block rounded-lg outline-none"
+      className="group/metric block rounded-lg outline-none"
       href={href}
     >
       {card}
     </Link>
   );
 }
-StatCard.displayName = "StatCard";
+MetricCard.displayName = "MetricCard";
 
 /** The icon + label row above the figure. */
-export function StatCardHeader({ className, ...rest }: ComponentProps<"div">) {
+export function MetricCardHeader({ className, ...rest }: ComponentProps<"div">) {
   return (
     <div
       className={cn("flex min-w-0 items-center gap-2", className)}
-      data-slot="stat-card-header"
+      data-slot="metric-card-header"
       {...rest}
     />
   );
 }
-StatCardHeader.displayName = "StatCardHeader";
+MetricCardHeader.displayName = "MetricCardHeader";
 
 /**
  * The tinted disc that carries the status colour. The tint is read off the root's
  * `data-status` rather than passed down, so the status stays a single prop on the card and
  * this part needs no context (and no `"use client"`).
  */
-export function StatCardIcon({ className, ...rest }: ComponentProps<"div">) {
+export function MetricCardIcon({ className, ...rest }: ComponentProps<"div">) {
   return (
     <div
       className={cn(
         "shrink-0 rounded-full bg-muted p-1.5 text-muted-foreground [&_svg]:size-3.5",
-        "group-data-[status=success]/stat-card:bg-success/10 group-data-[status=success]/stat-card:text-success",
-        "group-data-[status=warning]/stat-card:bg-warning/10 group-data-[status=warning]/stat-card:text-warning",
-        "group-data-[status=danger]/stat-card:bg-destructive/10 group-data-[status=danger]/stat-card:text-destructive",
+        "group-data-[status=success]/metric-card:bg-success/10 group-data-[status=success]/metric-card:text-success",
+        "group-data-[status=warning]/metric-card:bg-warning/10 group-data-[status=warning]/metric-card:text-warning",
+        "group-data-[status=danger]/metric-card:bg-destructive/10 group-data-[status=danger]/metric-card:text-destructive",
         className
       )}
-      data-slot="stat-card-icon"
+      data-slot="metric-card-icon"
       {...rest}
     />
   );
 }
-StatCardIcon.displayName = "StatCardIcon";
+MetricCardIcon.displayName = "MetricCardIcon";
 
-export function StatCardLabel({ className, ...rest }: ComponentProps<"span">) {
+export function MetricCardLabel({ className, ...rest }: ComponentProps<"span">) {
   return (
     <span
       className={cn("min-w-0 truncate font-medium text-muted-foreground text-sm", className)}
-      data-slot="stat-card-label"
+      data-slot="metric-card-label"
       {...rest}
     />
   );
 }
-StatCardLabel.displayName = "StatCardLabel";
+MetricCardLabel.displayName = "MetricCardLabel";
 
-export interface StatCardValueProps extends ComponentProps<"div"> {
+export interface MetricCardValueProps extends ComponentProps<"div"> {
   /** Explicit — never infer loading from an undefined value. */
   loading?: boolean;
 }
 
 /** The headline figure. Grows to fill the tile so one- and two-line cards align. */
-export function StatCardValue({ loading = false, className, children, ...rest }: StatCardValueProps) {
+export function MetricCardValue({ loading = false, className, children, ...rest }: MetricCardValueProps) {
   return (
     <div
       className={cn("flex flex-1 items-start pt-3", className)}
-      data-slot="stat-card-value"
+      data-slot="metric-card-value"
       {...rest}
     >
       {loading ? (
@@ -157,26 +157,26 @@ export function StatCardValue({ loading = false, className, children, ...rest }:
     </div>
   );
 }
-StatCardValue.displayName = "StatCardValue";
+MetricCardValue.displayName = "MetricCardValue";
 
-export interface StatCardDescriptionProps extends ComponentProps<"p"> {
+export interface MetricCardDescriptionProps extends ComponentProps<"p"> {
   loading?: boolean;
 }
 
-export function StatCardDescription({
+export function MetricCardDescription({
   loading = false,
   className,
   children,
   ...rest
-}: StatCardDescriptionProps) {
+}: MetricCardDescriptionProps) {
   return (
     <p
       className={cn("pt-2 text-muted-foreground text-sm", className)}
-      data-slot="stat-card-description"
+      data-slot="metric-card-description"
       {...rest}
     >
       {loading ? <Skeleton className="h-4 w-28" /> : children}
     </p>
   );
 }
-StatCardDescription.displayName = "StatCardDescription";
+MetricCardDescription.displayName = "MetricCardDescription";

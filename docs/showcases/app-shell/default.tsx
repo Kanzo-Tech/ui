@@ -25,12 +25,12 @@ import {
   SidebarRail,
   SidebarTrigger,
   SidebarUser,
-  StatCard,
-  StatCardDescription,
-  StatCardHeader,
-  StatCardIcon,
-  StatCardLabel,
-  StatCardValue,
+  MetricCard,
+  MetricCardDescription,
+  MetricCardHeader,
+  MetricCardIcon,
+  MetricCardLabel,
+  MetricCardValue,
   Tabs,
   TabsContent,
   TabsList,
@@ -207,46 +207,46 @@ export function AppShellShowcase() {
             <SectionBody scale="page">
               <div className="space-y-8">
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                  <StatCard href="#/app/settings/cloud" status="success">
-                    <StatCardHeader>
-                      <StatCardIcon>
+                  <MetricCard href="#/app/settings/cloud" status="success">
+                    <MetricCardHeader>
+                      <MetricCardIcon>
                         <CloudIcon />
-                      </StatCardIcon>
-                      <StatCardLabel>Cloud Accounts</StatCardLabel>
-                    </StatCardHeader>
-                    <StatCardValue>3</StatCardValue>
-                    <StatCardDescription>accounts configured</StatCardDescription>
-                  </StatCard>
-                  <StatCard href="#/app/connections" status="success">
-                    <StatCardHeader>
-                      <StatCardIcon>
+                      </MetricCardIcon>
+                      <MetricCardLabel>Cloud Accounts</MetricCardLabel>
+                    </MetricCardHeader>
+                    <MetricCardValue>3</MetricCardValue>
+                    <MetricCardDescription>accounts configured</MetricCardDescription>
+                  </MetricCard>
+                  <MetricCard href="#/app/connections" status="success">
+                    <MetricCardHeader>
+                      <MetricCardIcon>
                         <DatabaseIcon />
-                      </StatCardIcon>
-                      <StatCardLabel>Connections</StatCardLabel>
-                    </StatCardHeader>
-                    <StatCardValue>4</StatCardValue>
-                    <StatCardDescription>connections configured</StatCardDescription>
-                  </StatCard>
-                  <StatCard href="#/app/jobs" status="danger">
-                    <StatCardHeader>
-                      <StatCardIcon>
+                      </MetricCardIcon>
+                      <MetricCardLabel>Connections</MetricCardLabel>
+                    </MetricCardHeader>
+                    <MetricCardValue>4</MetricCardValue>
+                    <MetricCardDescription>connections configured</MetricCardDescription>
+                  </MetricCard>
+                  <MetricCard href="#/app/jobs" status="danger">
+                    <MetricCardHeader>
+                      <MetricCardIcon>
                         <BriefcaseIcon />
-                      </StatCardIcon>
-                      <StatCardLabel>Jobs</StatCardLabel>
-                    </StatCardHeader>
-                    <StatCardValue>12</StatCardValue>
-                    <StatCardDescription>last run failed</StatCardDescription>
-                  </StatCard>
-                  <StatCard href="#/app/catalog">
-                    <StatCardHeader>
-                      <StatCardIcon>
+                      </MetricCardIcon>
+                      <MetricCardLabel>Jobs</MetricCardLabel>
+                    </MetricCardHeader>
+                    <MetricCardValue>12</MetricCardValue>
+                    <MetricCardDescription>last run failed</MetricCardDescription>
+                  </MetricCard>
+                  <MetricCard href="#/app/catalog">
+                    <MetricCardHeader>
+                      <MetricCardIcon>
                         <BoxesIcon />
-                      </StatCardIcon>
-                      <StatCardLabel>DCAT Catalogs</StatCardLabel>
-                    </StatCardHeader>
-                    <StatCardValue>7</StatCardValue>
-                    <StatCardDescription>catalogs generated</StatCardDescription>
-                  </StatCard>
+                      </MetricCardIcon>
+                      <MetricCardLabel>DCAT Catalogs</MetricCardLabel>
+                    </MetricCardHeader>
+                    <MetricCardValue>7</MetricCardValue>
+                    <MetricCardDescription>catalogs generated</MetricCardDescription>
+                  </MetricCard>
                 </div>
 
                 <section className="space-y-3">

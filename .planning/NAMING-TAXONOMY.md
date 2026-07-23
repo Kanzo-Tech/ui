@@ -188,3 +188,29 @@ clips (`hasMaxHeight={false}`).
 
 **Small examples still pending:** Avatar with real photos; Preferences "sections on their own"
 examples should match the first's architecture (verify wrappers + PrefField usage line up).
+
+---
+
+## Round 3 (2026-07-23, later) — the "variant?" decisions, resolved against the reference
+
+Owner confirmed all three, each anchored to the code/reference rather than taste. The unifying
+test articulated this round: **"a machine with a switch → variant/mode; a new content contract
+assembled on a primitive → Pascal composite."**
+
+- **AlertDialog → a MODE of Dialog.** Verified: `AlertDialog` is literally `<Dialog
+  role="alertdialog" />` (`simples/alert-dialog.tsx:18-20`) — one Ark machine, a `role` switch,
+  plus a convention layer (Action/Cancel parts, `showCloseButton={false}`). Same shape as
+  Menu/ContextMenu. Ark models alertdialog as a *role*, not a separate primitive (Radix separates
+  them because there they ARE two primitives). **Do:** one page presenting "Dialog in alertdialog
+  mode"; keep the Action/Cancel exports (real API). Folds into the Overlays group.
+- **StatCard → stays a COMPOSITE (owner's variant instinct overturned, with the source).** It
+  spans all three axes — structure (`StatCard*` parts), content contract, behaviour (`href` single
+  tab-stop, `loading` skeletons). `card` is the primitive, `StatCard` the Pascal assembly on it,
+  exactly like Breadcrumbs/TextField. `Card variant="stat"` would break both the single-axis rule
+  and the kebab/Pascal rule. **Do:** keep as composite, add a "built on Card" note on the page.
+- **New "Primitives" nav group.** Separator + Collapsible (and candidates Kbd, ScrollArea) move
+  there. **SegmentGroup → Navigation** (beside Tabs; it is a view-switcher). Resolves the three
+  placement doubts at once. Group count goes 7 → 8 (+ Forms, Sidebar).
+
+**Executable without the running app:** all three above (docs-nav + one doc note). **Still needs
+the app:** CodeEditor aesthetics, app-shell showcase on Shell, Getting Started truth pass.

@@ -176,19 +176,19 @@ export type {
   SectionBodyProps,
 } from "./layouts/section.js";
 export {
-  StatCard,
-  StatCardDescription,
-  StatCardHeader,
-  StatCardIcon,
-  StatCardLabel,
-  StatCardValue,
-} from "./composites/StatCard.js";
+  MetricCard,
+  MetricCardDescription,
+  MetricCardHeader,
+  MetricCardIcon,
+  MetricCardLabel,
+  MetricCardValue,
+} from "./composites/MetricCard.js";
 export type {
-  StatCardProps,
-  StatCardStatus,
-  StatCardValueProps,
-  StatCardDescriptionProps,
-} from "./composites/StatCard.js";
+  MetricCardProps,
+  MetricCardStatus,
+  MetricCardValueProps,
+  MetricCardDescriptionProps,
+} from "./composites/MetricCard.js";
 export { MadeWith } from "./composites/MadeWith.js";
 export type { MadeWithProps } from "./composites/MadeWith.js";
 export { Breadcrumbs } from "./composites/Breadcrumbs.js";

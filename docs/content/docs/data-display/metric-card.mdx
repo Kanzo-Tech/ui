@@ -1,43 +1,43 @@
 ---
-title: StatCard
+title: MetricCard
 description: A single headline figure with its label, status tint and an optional description.
 ---
 
-<ComponentPreview componentName="stat-card" />
+<ComponentPreview componentName="metric-card" />
 
 ## Usage
 
 ```tsx
 import {
-  StatCard,
-  StatCardHeader,
-  StatCardIcon,
-  StatCardLabel,
-  StatCardValue,
-  StatCardDescription,
+  MetricCard,
+  MetricCardHeader,
+  MetricCardIcon,
+  MetricCardLabel,
+  MetricCardValue,
+  MetricCardDescription,
 } from "@kanzo-tech/ui";
 ```
 
 ```tsx
-<StatCard>
-  <StatCardHeader>
-    <StatCardIcon><DatabaseIcon /></StatCardIcon>
-    <StatCardLabel>Connections</StatCardLabel>
-  </StatCardHeader>
-  <StatCardValue>4</StatCardValue>
-  <StatCardDescription>connections configured</StatCardDescription>
-</StatCard>
+<MetricCard>
+  <MetricCardHeader>
+    <MetricCardIcon><DatabaseIcon /></MetricCardIcon>
+    <MetricCardLabel>Connections</MetricCardLabel>
+  </MetricCardHeader>
+  <MetricCardValue>4</MetricCardValue>
+  <MetricCardDescription>connections configured</MetricCardDescription>
+</MetricCard>
 ```
 
 ## Anatomy
 
 ```text
-StatCard
-├── StatCardHeader
-│   ├── StatCardIcon
-│   └── StatCardLabel
-├── StatCardValue
-└── StatCardDescription
+MetricCard
+├── MetricCardHeader
+│   ├── MetricCardIcon
+│   └── MetricCardLabel
+├── MetricCardValue
+└── MetricCardDescription
 ```
 
 ## Status
@@ -47,26 +47,26 @@ disc, which picks the tint off the root's `data-status` rather than through cont
 part needs no client boundary. A theme change re-skins the whole dashboard row without
 touching a call site.
 
-<ComponentPreview componentName="stat-card" fileName="example-status" />
+<ComponentPreview componentName="metric-card" fileName="example-status" />
 
 ## Loading
 
-`loading` sits on `StatCardValue` and `StatCardDescription` — the two parts that actually swap
+`loading` sits on `MetricCardValue` and `MetricCardDescription` — the two parts that actually swap
 for a skeleton. The label and icon are known before the figure is, so they keep rendering. The
 skeleton is sized to the rendered text, so the tile does not jump when the number arrives.
 
-<ComponentPreview componentName="stat-card" fileName="example-loading" />
+<ComponentPreview componentName="metric-card" fileName="example-loading" />
 
 ## As a link
 
 With `href` the whole card becomes one link target — a single tab stop, which is what a tile
 should be. Without it the card is inert. Pass `linkComponent` to route through your router.
 
-<ComponentPreview componentName="stat-card" fileName="example-link" />
+<ComponentPreview componentName="metric-card" fileName="example-link" />
 
 ## API Reference
 
-### StatCard
+### MetricCard
 
 Renders a `Card` (`div`); takes its props.
 
@@ -76,9 +76,9 @@ Renders a `Card` (`div`); takes its props.
 | `href` | `string` | — |
 | `linkComponent` | `LinkComponent` | `DefaultLink` |
 
-### StatCardValue / StatCardDescription
+### MetricCardValue / MetricCardDescription
 
-`StatCardValue` renders a `div`, `StatCardDescription` a `p`.
+`MetricCardValue` renders a `div`, `MetricCardDescription` a `p`.
 
 | Prop | Type | Default |
 | --- | --- | --- |
@@ -86,5 +86,5 @@ Renders a `Card` (`div`); takes its props.
 
 ### Other parts
 
-`StatCardHeader` and `StatCardIcon` render a `div` and `StatCardLabel` a `span`; each takes
+`MetricCardHeader` and `MetricCardIcon` render a `div` and `MetricCardLabel` a `span`; each takes
 that element's props and nothing more.
