@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import { source } from "@/lib/source";
+import { DocsPreferences } from "@/components/docs-preferences";
 
 /**
  * Showcases are not components, and once layouts had their own group the sidebar was listing them
@@ -35,6 +36,10 @@ export default function Layout({ children }: { children: ReactNode }) {
       ]}
       nav={{ title: "Kanzo UI" }}
       tree={sidebarTree}
+      // The live theme customizer sits in the sidebar footer, directly under the theme toggle —
+      // the idiomatic fumadocs chrome slot for a persistent control. It is the library's own
+      // `Preferences` panel (see `docs-preferences.tsx`); opening it re-themes every inline example.
+      sidebar={{ footer: <DocsPreferences /> }}
     >
       {children}
     </DocsLayout>
