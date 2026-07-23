@@ -214,3 +214,46 @@ assembled on a primitive → Pascal composite."**
 
 **Executable without the running app:** all three above (docs-nav + one doc note). **Still needs
 the app:** CodeEditor aesthetics, app-shell showcase on Shell, Getting Started truth pass.
+
+---
+
+## Round 3 EXECUTED (2026-07-23) — everything doable without the running app
+
+Unifying test applied throughout: **machine + switch → mode/variant; new content contract on a
+primitive → Pascal composite.** All shipped as atomic commits, each verified build ui →
+typecheck → docs build.
+
+- **StatCard → MetricCard** (rename). Stays a composite. "Metric" is more precise than "stat"
+  (ambiguous with status/statistic) and keeps the Card suffix honest; avoids Tremor's `Metric`
+  (which is only the figure). `5524261`.
+- **Primitives nav group added.** Separator + Collapsible (axis 2 / axis 3, not layout) join Kbd
+  (a display primitive, not an action). ScrollArea stays in Layout (axis 1, owns scroll).
+  **SegmentGroup → Navigation** beside Tabs (view-switcher), row kept in the Forms controls table
+  repointed. `3608eac`.
+- **AlertDialog folded into Dialog** as an "Alert mode" section; separate page removed, exports
+  kept. It is literally `<Dialog role="alertdialog" showCloseButton={false}>`. `81aa10d`.
+- **ContextMenu folded into Menu** as a "Context trigger" section; same shape (`<Menu
+  data-slot="context-menu">` + ContextTrigger). Page removed, exports kept. `2b7221a`.
+- **ComingSoon → Ribbon** (rename + widened abstraction). Reference is Ant Design `Badge.Ribbon`
+  (no Shark/Ark/Radix equivalent). `label` now required and free (Beta/New/Coming soon/Pro),
+  `variant` added, and the dim+`inert` gating became **opt-in via `disabled`** instead of forced
+  — so a "Beta" ribbon leaves its feature usable (the old always-inert code disabled the Beta
+  button in the placement example). `f39343b`.
+
+**Already found done (no work needed):** Table/DataTable and Breadcrumb/Breadcrumbs pair Callouts
+(kebab→Pascal relationship stated in-group, cross-links repointed); MetricCard "built on Card"
+note (in its API section).
+
+**Open micro-decision:** Ribbon still sits in the Feedback group; now that it is a generic status
+ribbon its home may want revisiting (next to Badge in Data display, or in Primitives). Left in
+place — a 2-minute move once decided.
+
+**Remaining, ALL need the running app (next session):**
+1. CodeEditor aesthetics — hands-on visual pass (defer-not-drop reconcile, folding/wrapping
+   opt-in, richer palette, gutter/active-line/spacing/chrome).
+2. Read-only `CodeBlock` (Shiki) — new component for docs/AI output, separate from CodeEditor.
+3. Showcases full review + rebuild app-shell on the `Shell` regions (currently SidebarProvider/
+   SidebarInset).
+4. Getting Started truth pass — the "layouts vendored from Shark" implication is false (bespoke,
+   Ark-idiom).
+5. Avatar with real photos; Preferences "sections on their own" examples architecture.
