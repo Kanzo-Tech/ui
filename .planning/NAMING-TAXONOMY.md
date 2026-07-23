@@ -116,3 +116,27 @@ end and make every claim checkable against the regrouped surface.
 3. App-shell showcase on Shell regions (#6).
 4. Getting Started truth pass (#6).
 5. StatCard / pair relationship notes (#4) — folded into the regroup.
+
+---
+
+## Status (2026-07-23)
+
+**Done:**
+- Renames: `GhostEditor`→`CompletionField`, `MadeWithKanzo`→`MadeWith`. Sidebar nav titled by
+  function (Menu/Sections). Owner confirmed all.
+- Use-based nav regroup: **owner confirmed the direction** (group by use, not by source layer).
+  NOT yet executed — this is the next big step.
+
+**Held / needs a decision:**
+- `ComingSoon` rename: owner noted it also covers beta/deprecated and questioned whether it is
+  "a badge with positioning". `Unavailable` is too narrow. Rethink: it is a dimming availability
+  veil (`inert` + `opacity` + a labelled badge). Decide the true abstraction before renaming.
+- Menu/ContextMenu one-page merge, Table/DataTable + Breadcrumb pair grouping, Dialog/AlertDialog
+  cross-links, StatCard "built on Card" note — all fold INTO the use-based nav regroup.
+- App-shell showcase should be rebuilt on the `Shell` regions (currently on SidebarProvider/
+  SidebarInset), and Getting Started reread for truth, once the regroup lands.
+
+**Research delivered:** CodeEditor improvements (defer-not-drop focused reconcile; line-wrapping
+and folding as opt-ins; form a11y via `contentAttributes`; add `local(variableName)` to the
+palette; `basicSetup: boolean | Options`). A second agent on CodeMirror *alternatives*
+(Monaco/Shiki/Prism) is still running.
