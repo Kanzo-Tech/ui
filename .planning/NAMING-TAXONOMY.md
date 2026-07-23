@@ -292,3 +292,51 @@ Sidebar (→ Navigation), Feedback (→ Overlays, now "Overlays & feedback"), Pr
 display; separator/collapsible → Layout), Content & theming (prose/code-editor → Data display;
 preferences/made-with → Layout). Within-group `---dividers---` keep the sub-structure legible.
 Six component groups: Forms, Actions, Navigation, Overlays & feedback, Data display, Layout.
+
+---
+
+## Round 5 IN PROGRESS / HAND-OFF (2026-07-23, late) — showcases + Mosaic
+
+**Done & committed this round:**
+- **FloatingPanel** (`packages/ui/src/simples/floating-panel.tsx`, `1b2ed1e`): generic glass overlay
+  surface + `FloatingPanelResizeHandle` (drag edge, side start/end), controlled/uncontrolled width,
+  caller positions it. Doc page under Layout. Promoted from the workspace showcase's hand-roll.
+- **Workspace showcase → discovery mirror** (`d47884a`): rebuilt as a keasy-discovery-style graph
+  explorer (faux graph canvas + FloatingPanel inspector w/ Info/Ask/Rules/Settings tabs +
+  Distributions strip + toggle), on ShellRoot/ShellHeader/ShellMain. Retitled "Discovery".
+
+**NEXT (big, needs fresh context):**
+
+1. **Mosaic integration — FULL, with crossfilter** (owner confirmed "entera, como en keasy, con
+   cross query"). No live keasy (no data uploaded / insufficient permissions), so build FROM CODE.
+   Reference patterns reverse-engineered from `keasy/web/src/components/discovery/`:
+   - Runtime: `keasy .../discovery/store.tsx` boots DuckDB-WASM via Mosaic `wasmConnector` +
+     `Coordinator` (mosaic-core); `Selection.crossfilter()` shared (discovery-view.tsx).
+   - Charts: `field-histogram.tsx` uses `@uwdata/vgplot` — DUAL LAYER (dimmed background = all data
+     `#94a3b8` opacity .3, foreground = `filterBy: selection` `steelblue`), `vg.intervalX({as:sel})`
+     (numeric brush) or `vg.toggleX({as:sel})` (categorical), mounted via `containerRef.replaceChildren(vg.plot(...))`.
+   - DS plan (mirror ./editor & ./table pattern): new subpath `@kanzo-tech/ui/charts`, optional peers
+     `@uwdata/vgplot` `@uwdata/mosaic-core` `@uwdata/mosaic-sql` (registry: vgplot 0.29.2, mosaic-core
+     0.29.2, mosaic-sql 0.29.0, @duckdb/duckdb-wasm 1.33.1-dev). Ship: a MosaicProvider (coordinator +
+     crossfilter Selection context; bring-your-own-coordinator like CodeEditor's bring-your-own-lang)
+     + tokenized `Histogram`/`BarChart` (map vgplot's hardcoded colors → `--muted-foreground`/`--primary`,
+     the way CodeEditor themes CodeMirror). Then rewire the discovery showcase's Distributions strip to
+     real crossfilter charts. RISK: DuckDB-WASM is client-only — chart components must be "use client" +
+     useEffect-mounted; the RSC docs prerender a skeleton, hydrate the chart. Docs example needs
+     DuckDB-WASM + sample data to render. Files touched: packages/ui/package.json (exports+peers+size-limit),
+     vite.config.ts (new entry + externals), packages/ui/src/charts/*.
+2. **Wrap the discovery showcase in the app shell** — owner: "workspace no se parece a shell". keasy's
+   real discovery sits INSIDE the app shell (Sidebar: Dev Workspace switcher + Dashboard/Connections/Jobs
+   nav + user footer; breadcrumb header) — verified live at localhost:3000/jobs, and it looks just like
+   our app-shell showcase. Wrap the discovery canvas in that Sidebar + ShellHeader.
+3. **metadata-form showcase** — owner wants it. Full build spec delivered by agent (in this session's
+   transcript). Key: it's MOSTLY COMPOSITION — kanzo-ui already has 1:1 ports (SuggestMenu, CompletionField,
+   DateField, FieldArray, Steps, Tabs, Field). Fake the RDF/SHACL engine with fixtures (like the graph).
+   Model the HealthDCAT-AP shape: groups General/Provenance/Health/Distributions, layouts
+   sequential(Card)/tabs/steps, a floating assistant Card (mood + "Next: field"), a ValidationSummary
+   Badge+HoverCard, GroupIssuesBadge dots. Build docs/showcases/<name>/{default,data}.tsx.
+
+**Reference videos** (owner-provided, keasy in action): original zip
+`/Users/angel.ip/Downloads/drive-download-20260723T103514Z-1-001.zip` — 4 .mov: conversacional1,
+conversacional2, validacion, demo. Extract frames (ffmpeg) next session to match the look/interaction
+(the conversacional/validacion ones look like metadata-form's assistant + validation).
