@@ -66,6 +66,59 @@ needs more than text.
 
 <ComponentPreview componentName="dialog" fileName="example-controlled" />
 
+## Alert mode
+
+`AlertDialog` is the same dialog machine in a different role: `Dialog` with
+`role="alertdialog"` and `showCloseButton={false}`. The X is removed on purpose, so the only
+way out is an explicit Cancel or Confirm — reach for it when dismissing by reflex would be the
+wrong outcome, and plain `Dialog` for everything else.
+
+<ComponentPreview componentName="alert-dialog" />
+
+```tsx
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogClose,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTrigger,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<AlertDialog>
+  <AlertDialogTrigger asChild>
+    <Button variant="outline">Delete</Button>
+  </AlertDialogTrigger>
+  <AlertDialogContent size="sm">
+    <AlertDialogHeader title="Delete customers.ttl?" description="This cannot be undone." />
+    <AlertDialogFooter>
+      <AlertDialogCancel>Cancel</AlertDialogCancel>
+      <AlertDialogClose asChild>
+        <AlertDialogAction variant="destructive">Delete</AlertDialogAction>
+      </AlertDialogClose>
+    </AlertDialogFooter>
+  </AlertDialogContent>
+</AlertDialog>
+```
+
+The parts mirror their Dialog counterparts one-to-one, with two additions in the footer:
+
+```text
+AlertDialogFooter
+├── AlertDialogCancel     (outline Button + close trigger)
+└── AlertDialogAction     (default or destructive Button)
+```
+
+`AlertDialogCancel` already wraps itself in a close trigger. `AlertDialogAction` does not — it
+is a plain Button, because the confirm path usually runs an async handler and decides for itself
+when to close; wrap it in `AlertDialogClose asChild` when it should close immediately.
+
+<ComponentPreview componentName="alert-dialog" fileName="example-variants" />
+
 ## API Reference
 
 ### Dialog
@@ -109,3 +162,13 @@ running under the X — and why setting `showCloseButton={false}` gives the padd
 
 The body is wrapped in a `ScrollArea`, so long content scrolls inside the dialog while the
 header and footer stay pinned. `scrollFade` adds the mask at the scroll edges.
+
+### AlertDialogAction
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `variant` | `"default" \| "destructive"` | `"default"` |
+
+Narrowed from the full Button scale — a confirmation only ever affirms or destroys; every other
+Button prop still passes through. The remaining `AlertDialog*` parts take the same props as their
+Dialog counterparts, minus `showCloseButton`, which is forced off.
