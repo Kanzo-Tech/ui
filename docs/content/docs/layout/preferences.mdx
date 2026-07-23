@@ -55,24 +55,85 @@ Preferences.Root
 own — `Base` is omitted from the default panel because most products want one fixed neutral
 canvas.
 
-## Sections on their own
+## Choosing the sections
 
-Every section is exported, so the same controls can live in a product's settings page instead
-of a floating drawer. `Base` tints the whole neutral canvas: the preset swatches select a
-curated 50→950 scale, any other colour tints the neutral ramp toward it.
+`Panel` renders the canonical set when given no children. Pass children to choose your own — and
+the pinned Reset · Copy · Done footer stays. A typography-only panel, for instance: the two font
+axes over the neutral base. Same real drawer, floating over the page, in its own viewport.
 
-All eight, stacked the way the panel itself lays them out:
+<PreviewIframe className="h-[42rem]" name="preferences-fonts" source="preferences/fonts" title="Typography preferences" />
 
-<ComponentPreview componentName="preferences" fileName="example-default" />
+```tsx
+<PreferencesRoot hotkey="t">
+  <PreferencesTrigger />
+  <PreferencesPanel title="Typography">
+    <PreferencesFont />
+    <PreferencesMonoFont />
+    <PreferencesBase />
+    <PreferencesCopyTheme />
+  </PreferencesPanel>
+</PreferencesRoot>
+```
 
 <Callout type="warn">
-Use the **flat** parts (`PreferencesAccent`), not the `Preferences.Accent` statics. The
-namespace is built with `Object.assign`, and statics are lost when a module becomes a client
-reference under RSC — `Preferences.Accent` reads back as `undefined` there. We hit this for
-real.
+Use the **flat** parts (`PreferencesFont`), not the `Preferences.Font` statics. The namespace is
+built with `Object.assign`, and statics are lost when a module becomes a client reference under
+RSC — `Preferences.Font` reads back as `undefined` there. We hit this for real.
 </Callout>
 
-<ComponentPreview componentName="preferences" fileName="example-fonts" />
+## Extending the panel
+
+The children are yours, so a product can lead with its **own** preferences and then fall back to
+the library's theme axes — one drawer, product prefs and theme prefs together, all live. Here a
+product `Sidebar side` control sits above the theme sections. This is the move the
+[metadata-form showcase](/docs/showcases/metadata-form) uses for its Layout picker.
+
+<PreviewIframe className="h-[42rem]" name="preferences-extended" source="preferences/extended" title="Extended preferences" />
+
+```tsx
+<PreferencesRoot hotkey="t">
+  <PreferencesTrigger />
+  <PreferencesPanel>
+    {/* the product's own section, on top — the extension point */}
+    <PreferencesField label="Sidebar side">
+      <SegmentGroup value={side} onValueChange={(d) => d.value && setSide(d.value)}>
+        <SegmentGroupItem value="start">
+          <SegmentGroupItemText>Start</SegmentGroupItemText>
+        </SegmentGroupItem>
+        <SegmentGroupItem value="end">
+          <SegmentGroupItemText>End</SegmentGroupItemText>
+        </SegmentGroupItem>
+      </SegmentGroup>
+    </PreferencesField>
+
+    {/* the library's theme axes, flat, below the product's */}
+    <PreferencesAppearance />
+    <PreferencesAccent />
+    <PreferencesRadius />
+    <PreferencesDensity />
+  </PreferencesPanel>
+</PreferencesRoot>
+```
+
+## Sections in your own page
+
+Every section is exported flat, so the same controls can live **inline** in a product's own
+settings page instead of the floating drawer — they edit the same live theme either way. `Base`
+tints the whole neutral canvas: the preset swatches select a curated 50→950 scale, any other
+colour tints the neutral ramp toward it.
+
+```tsx
+<div className="flex w-80 flex-col gap-6">
+  <PreferencesAppearance />
+  <PreferencesAccent />
+  <PreferencesBase />
+  <PreferencesRadius />
+  <PreferencesFont />
+  <PreferencesMonoFont />
+  <PreferencesDensity />
+  <PreferencesCopyTheme />
+</div>
+```
 
 `CopyTheme` emits the current selection as a paste-ready `:root` / `.dark` CSS showcase — the
 handoff from picking a theme to committing one.
