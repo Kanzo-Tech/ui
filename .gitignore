@@ -11,3 +11,4 @@ coverage/
 out/
 next-env.d.ts
 .source/
+.claude/
