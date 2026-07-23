@@ -140,3 +140,51 @@ end and make every claim checkable against the regrouped surface.
 and folding as opt-ins; form a11y via `contentAttributes`; add `local(variableName)` to the
 palette; `basicSetup: boolean | Options`). A second agent on CodeMirror *alternatives*
 (Monaco/Shiki/Prism) is still running.
+
+---
+
+## Round 2 (2026-07-23, later) — open items from the second walkthrough
+
+**Concrete, DONE this round:** nav regrouped by use (7 groups); Alert variants preview no longer
+clips (`hasMaxHeight={false}`).
+
+**CodeEditor:**
+- Owner: it is *always* an editor, never just static examples — so the Shiki proposal is for a
+  SEPARATE read-only `CodeBlock` (docs/display/AI output), NOT a replacement. CodeEditor stays
+  the editor.
+- "La estética de CodeEditor hay que mejorarla" — still not satisfied after the 5 theme fixes.
+  Needs a hands-on visual pass against a real render, applying the research report's remaining
+  items (defer-not-drop focused reconcile, folding/wrapping opt-in, richer palette incl.
+  `local(variableName)`), plus a critical look at spacing, gutter, active-line, and the overall
+  chrome. Do this with the app running, not blind.
+
+**Taxonomy — owner is pushing toward "these are variants":**
+- **AlertDialog vs Dialog** — "¿no son variantes?" AlertDialog is built on Ark's dialog directly
+  (not our Dialog). Decision: keep as sibling components (both in Overlays now) OR make
+  AlertDialog a `Dialog` mode/variant. Reference libs (Radix/shadcn) keep them separate. Needs a
+  decision.
+- **StatCard vs Card** — "¿no es una variante?" (asked twice). StatCard renders Card internally.
+  Decision: keep as composite (my rec, per single-axis rule) OR expose as `Card variant="stat"`.
+  Owner leans variant.
+
+**Group placement doubts (quick moves once decided):**
+- **SegmentGroup** — "¿es de forms seguro?" It has radiogroup semantics but is used as a view
+  switcher like Tabs. Candidate move: Navigation (beside Tabs), or keep in Forms.
+- **Separator** — "¿es layout?" It is a divider primitive; maybe belongs in a Primitives/Utility
+  group rather than Layout.
+- **Collapsible** — "¿es layout?" A disclosure primitive; not obviously Layout. Candidate:
+  Overlays (disclosure) or Primitives.
+  → These three suggest a **Primitives/Utilities** group may be missing (Separator, Collapsible,
+  maybe Kbd, ScrollArea).
+
+**Renames / references:**
+- **ComingSoon** — "que sea lo más de referencia posible": align with how reference libraries
+  model an "unavailable/beta/gated" wrapper. Still unrenamed pending the abstraction decision.
+
+**Reviews (need fresh context + running app):**
+- **Showcases** — "revisamos totalmente". Includes rebuilding app-shell on the Shell regions.
+- **Getting Started** — "revisado". Reread every claim against the regrouped surface; the
+  "layouts vendored from Shark" implication is false (they are bespoke, Ark-idiom).
+
+**Small examples still pending:** Avatar with real photos; Preferences "sections on their own"
+examples should match the first's architecture (verify wrappers + PrefField usage line up).
