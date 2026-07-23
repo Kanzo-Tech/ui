@@ -1,0 +1,34 @@
+---
+title: Highlight
+description: Wraps matching substrings of running text in a token-themed mark.
+links:
+  doc: https://ark-ui.com/docs/components/highlight
+---
+
+<ComponentPreview componentName="highlight" />
+
+## Usage
+
+```tsx
+import { Highlight } from "@kanzo-tech/ui";
+```
+
+```tsx
+<Highlight query={["Tailwind", "token"]} text="Ark UI + Tailwind, token-themed" />
+```
+
+`Highlight` splits `text` and wraps every match in a `<mark>` styled from our tokens, so it
+never falls back to the browser's yellow default. `text` must be a string; pass one query or a
+list.
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `text` | `string` | — |
+| `query` | `string \| string[]` | — |
+| `ignoreCase` | `boolean` | `false` |
+| `matchAll` | `boolean` | `false` |
+
+Extends `React.ComponentProps<"mark">`; forwarded props (including `className`) land on each
+match.

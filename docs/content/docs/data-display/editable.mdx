@@ -1,0 +1,60 @@
+---
+title: Editable
+description: An edit-in-place text field that swaps a preview for an input.
+links:
+  doc: https://ark-ui.com/docs/components/editable
+---
+
+<ComponentPreview componentName="editable" />
+
+## Usage
+
+```tsx
+import {
+  Editable,
+  EditableArea,
+  EditableCancelTrigger,
+  EditableContext,
+  EditableControl,
+  EditableEditTrigger,
+  EditableInput,
+  EditablePreview,
+  EditableSubmitTrigger,
+} from "@kanzo-tech/ui";
+```
+
+The `EditableContext` render prop exposes `api.editing`, so you can swap the
+edit trigger for the submit/cancel pair while the field is being edited.
+
+## Anatomy
+
+```tsx
+<Editable>
+  <EditableLabel />
+  <EditableArea>
+    <EditablePreview />
+    <EditableInput />
+  </EditableArea>
+  <EditableControl>
+    <EditableContext>
+      {(editable) =>
+        editable.editing ? (
+          <>
+            <EditableSubmitTrigger />
+            <EditableCancelTrigger />
+          </>
+        ) : (
+          <EditableEditTrigger />
+        )
+      }
+    </EditableContext>
+  </EditableControl>
+</Editable>
+```
+
+## API
+
+`Editable` (Root) accepts `defaultValue` / `value`, `activationMode`
+(`focus` | `dblclick` | `click`) and `submitMode` (`blur` | `enter` | `both` |
+`none`). `EditablePreview` matches the `Input` padding and height; the triggers
+are `Button`s. `useEditable` reads the machine state from inside the tree.

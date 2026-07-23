@@ -1,0 +1,54 @@
+---
+title: Accordion
+description: A stack of headings that each reveal a region of content.
+links:
+  doc: https://ark-ui.com/docs/components/accordion
+---
+
+<ComponentPreview componentName="accordion" />
+
+## Usage
+
+```tsx
+import {
+  Accordion,
+  AccordionItem,
+  AccordionItemContent,
+  AccordionItemTrigger,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<Accordion collapsible defaultValue={["item-1"]}>
+  <AccordionItem value="item-1">
+    <AccordionItemTrigger>Section one</AccordionItemTrigger>
+    <AccordionItemContent>…</AccordionItemContent>
+  </AccordionItem>
+</Accordion>
+```
+
+By default only one panel is open at a time; pass `multiple` to allow several. `collapsible`
+lets the open panel close again. `AccordionItemContent` puts your `className` on an inner
+wrapper, so padding does not fight the height transition, and `AccordionItemTrigger` renders
+its own rotating chevron.
+
+## Anatomy
+
+```text
+<Accordion>
+  <AccordionItem value="…">
+    <AccordionItemTrigger>       ← full-width row + chevron indicator
+    <AccordionItemContent>
+      <div className={…}>        ← your className lands here
+```
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `multiple` | `boolean` | `false` |
+| `collapsible` | `boolean` | `false` |
+| `value` / `defaultValue` | `string[]` | — |
+
+`disabled`, `orientation`, `onValueChange` and the per-item `value` / `disabled` are Ark's
+`Accordion.Root` / `Accordion.Item`. `useAccordion` re-exports Ark's `useAccordionContext`.

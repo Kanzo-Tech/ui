@@ -1,0 +1,50 @@
+---
+title: Pin Input
+description: A sequence of single-character cells for one-time passwords and verification codes.
+links:
+  doc: https://ark-ui.com/docs/components/pin-input
+---
+
+<ComponentPreview componentName="pin-input" />
+
+## Usage
+
+```tsx
+import {
+  PinInput,
+  PinInputControl,
+  PinInputInput,
+  PinInputLabel,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<PinInput otp>
+  <PinInputLabel>Verification code</PinInputLabel>
+  <PinInputControl>
+    {Array.from({ length: 6 }, (_, index) => (
+      <PinInputInput key={index} index={index} />
+    ))}
+  </PinInputControl>
+</PinInput>
+```
+
+Each cell is one `PinInputInput`, wired to the machine by its `index`. Render as many as the code
+is long. `otp` sets the inputs' `autocomplete` so the browser and OS offer the incoming code.
+
+## Anatomy
+
+```text
+PinInput
+├── PinInputLabel
+└── PinInputControl
+    └── PinInputInput   (one per index)
+```
+
+## API Reference
+
+No props beyond Ark's, plus a `size` (`sm` · `md` · `lg`) on `PinInputInput` matching `Input`.
+`PinInput` extends `PinInput.Root` (`value`, `defaultValue`, `onValueChange`, `otp`, `mask`,
+`type` — `numeric` · `alphanumeric` · `alphabetic`, `placeholder`, `disabled`, `invalid`,
+`readOnly`, `required`, `blurOnComplete`, `name`, `form`), and each `PinInputInput` takes the
+`index` of the cell it renders. `usePinInput` exposes the machine context for controlled state.

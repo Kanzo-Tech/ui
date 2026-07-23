@@ -1,0 +1,79 @@
+---
+title: Pagination
+description: Splits a long list across pages and moves between them.
+links:
+  doc: https://ark-ui.com/docs/components/pagination
+---
+
+<ComponentPreview componentName="pagination" />
+
+## Usage
+
+```tsx
+import {
+  Pagination,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationNextTrigger,
+  PaginationPrevTrigger,
+  usePagination,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<Pagination count={100} pageSize={10}>
+  <PaginationPrevTrigger />
+  <Pages /> {/* reads usePagination().pages and maps them */}
+  <PaginationNextTrigger />
+</Pagination>
+```
+
+`count` is the **total number of items**, not pages — the machine derives the page count from
+`count` and `pageSize`. The computed `pages` array (page numbers interleaved with ellipsis
+markers) is read from `usePagination()` in a descendant and mapped to `PaginationItem` /
+`PaginationEllipsis`:
+
+```tsx
+function Pages() {
+  const { pages } = usePagination();
+  return pages.map((page, index) =>
+    page.type === "page" ? (
+      <PaginationItem key={page.value} type="page" value={page.value}>
+        {page.value}
+      </PaginationItem>
+    ) : (
+      <PaginationEllipsis key={`ellipsis-${index}`} index={index} />
+    )
+  );
+}
+```
+
+The current page carries `data-selected` and `aria-current="page"`, so it renders filled while
+the rest stay ghost — nothing to wire by hand.
+
+## Anatomy
+
+```text
+<Pagination>              ← <nav aria-label="Pagination">
+  <PaginationPrevTrigger />
+  <PaginationItem />      ← one per page; current carries data-selected
+  <PaginationEllipsis />  ← gap marker between page ranges
+  <PaginationNextTrigger />
+```
+
+`siblingCount` controls how many pages flank the active one; `boundaryCount` how many pin to each
+end. Ellipsis markers fill the gaps the machine leaves between those ranges.
+
+## API Reference
+
+### Pagination
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `count` | `number` | `1` |
+| `pageSize` | `number` | `10` |
+| `siblingCount` | `number` | `1` |
+
+Everything else — `page`, `defaultPage`, `onPageChange`, `pageSize` / `defaultPageSize`,
+`onPageSizeChange`, `boundaryCount` — is Ark's `Pagination.Root`. `usePagination` re-exports
+Ark's `usePaginationContext` for reading the computed `pages` from a descendant.

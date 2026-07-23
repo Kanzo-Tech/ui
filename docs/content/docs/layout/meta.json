@@ -1,4 +1,4 @@
 {
   "title": "Layout",
-  "pages": ["shell", "section", "resizable", "scroll-area", "floating-panel", "---Utilities---", "separator", "collapsible", "preferences", "made-with"]
+  "pages": ["shell", "section", "resizable", "scroll-area", "floating-panel", "---Utilities---", "separator", "accordion", "collapsible", "preferences", "made-with"]
 }

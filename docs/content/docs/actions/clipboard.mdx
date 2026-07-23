@@ -1,0 +1,74 @@
+---
+title: Clipboard
+description: A copy-to-clipboard control whose trigger flips to a check on copy.
+links:
+  doc: https://ark-ui.com/docs/components/clipboard
+---
+
+<ComponentPreview componentName="clipboard" />
+
+## Usage
+
+```tsx
+import {
+  Clipboard,
+  ClipboardControl,
+  ClipboardIndicator,
+  ClipboardInput,
+  ClipboardLabel,
+  ClipboardTrigger,
+  useClipboard,
+} from "@kanzo-tech/ui";
+```
+
+`Clipboard` wraps Ark's clipboard machine: you give the root a `value`, and the trigger writes
+it to the system clipboard and enters a `copied` state for `timeout` milliseconds. The
+copied-vs-idle icon swap lives in `ClipboardIndicator` — pass `copied` for the confirmed icon
+and `children` for the idle one; both default to a check and a copy glyph, so the common shape
+is just an empty `<ClipboardTrigger />`.
+
+```tsx
+<Clipboard value="https://kanzo.tech/share/…" timeout={1200}>
+  <ClipboardControl>
+    <ClipboardInput readOnly />
+    <ClipboardTrigger />
+  </ClipboardControl>
+</Clipboard>
+```
+
+Everything below the root reads its state through context; `useClipboard` (Ark's
+`useClipboardContext`) exposes `copied` and `copy()` for a bespoke trigger.
+
+## Anatomy
+
+```text
+<Clipboard value>
+  <ClipboardLabel />
+  <ClipboardControl>
+    <ClipboardInput />
+    <ClipboardTrigger>
+      <ClipboardIndicator copied children />
+```
+
+`ClipboardTrigger` is styled as a ghost icon `Button` and defaults its child to a
+`ClipboardIndicator`, so a lone trigger already flips on copy.
+
+## API
+
+### Clipboard
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `value` | `string` | — |
+| `timeout` | `number` | `3000` |
+| `onValueChange` | `(details) => void` | — |
+| `onStatusChange` | `(details) => void` | — |
+
+Ark's `Clipboard.Root` props pass through.
+
+### ClipboardIndicator
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `copied` | `ReactNode` | `<CheckIcon />` |
+| `children` | `ReactNode` | `<CopyIcon />` |

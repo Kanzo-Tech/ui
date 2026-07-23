@@ -1,0 +1,51 @@
+---
+title: Rating
+description: Rate something on a fixed scale of stars.
+links:
+  doc: https://ark-ui.com/docs/components/rating-group
+---
+
+<ComponentPreview componentName="rating" />
+
+## Usage
+
+```tsx
+import {
+  Rating,
+  RatingContext,
+  RatingControl,
+  RatingItem,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<Rating count={5} defaultValue={3}>
+  <RatingControl>
+    <RatingContext>
+      {(api) =>
+        api.items.map((index) => <RatingItem index={index} key={index} />)
+      }
+    </RatingContext>
+  </RatingControl>
+</Rating>
+```
+
+## Anatomy
+
+```text
+Rating
+├── RatingLabel
+├── RatingControl
+│   └── RatingContext        renders one star per item
+│       └── RatingItem
+└── RatingHiddenInput
+```
+
+## API
+
+Props pass straight through to Ark. `Rating` extends `RatingGroup.Root` (`count`, `value` /
+`defaultValue`, `onValueChange`, `allowHalf`, `readOnly`, `disabled`, `required`, `name`,
+`form`), so control it with `value` + `onValueChange` or leave it uncontrolled with
+`defaultValue`. Stars are iterated with the `RatingContext` render prop over `api.items`, and
+each `RatingItem` takes its `index`; the star fills on `data-highlighted` and half-fills on
+`data-half` (from `allowHalf`).

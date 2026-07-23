@@ -1,0 +1,64 @@
+---
+title: File Upload
+description: A dropzone and file list for selecting and previewing uploads.
+links:
+  doc: https://ark-ui.com/docs/components/file-upload
+---
+
+<ComponentPreview componentName="file-upload" />
+
+## Usage
+
+```tsx
+import {
+  FileUpload,
+  FileUploadDropzone,
+  FileUploadHiddenInput,
+  FileUploadItem,
+  FileUploadItemDeleteTrigger,
+  FileUploadItemGroup,
+  FileUploadItemName,
+  FileUploadItemPreview,
+  FileUploadItemSizeText,
+  FileUploadTrigger,
+  useFileUpload,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<FileUpload accept="image/*" maxFiles={3}>
+  <FileUploadDropzone>
+    Drag images here
+    <FileUploadTrigger size="sm">Browse files</FileUploadTrigger>
+  </FileUploadDropzone>
+  <FileUploadHiddenInput />
+</FileUpload>
+```
+
+The accepted files live on the machine. Read them with `useFileUpload` inside the
+`FileUpload` provider to render the list.
+
+## Anatomy
+
+```text
+FileUpload
+├── FileUploadLabel
+├── FileUploadDropzone
+│   └── FileUploadTrigger
+├── FileUploadItemGroup
+│   └── FileUploadItem
+│       ├── FileUploadItemPreview
+│       ├── FileUploadItemName
+│       ├── FileUploadItemSizeText
+│       └── FileUploadItemDeleteTrigger
+└── FileUploadHiddenInput
+```
+
+## API
+
+No props beyond Ark's. `FileUpload` extends `FileUpload.Root` (`accept`, `maxFiles`,
+`maxFileSize`, `disabled`, `invalid`, `required`, `name`, `directory`, `onFileChange`,
+`onFileAccept`, `onFileReject`); `FileUploadItem` takes the `file` it renders.
+`FileUploadTrigger` and `FileUploadItemDeleteTrigger` are `Button`s, so they accept
+`variant` and `size`. `useFileUpload` is `useFileUploadContext` — it exposes
+`acceptedFiles`, `rejectedFiles` and the imperative `setFiles` / `clearFiles`.

@@ -1,0 +1,71 @@
+---
+title: Tags Input
+description: Enter a list of values as removable chips.
+links:
+  doc: https://ark-ui.com/docs/components/tags-input
+---
+
+<ComponentPreview componentName="tags-input" />
+
+## Usage
+
+```tsx
+import {
+  TagsInput,
+  TagsInputContext,
+  TagsInputControl,
+  TagsInputInput,
+  TagsInputItem,
+  TagsInputItemDeleteTrigger,
+  TagsInputItemInput,
+  TagsInputItemPreview,
+  TagsInputItemText,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<TagsInput defaultValue={["design", "systems"]}>
+  <TagsInputControl>
+    <TagsInputContext>
+      {(api) =>
+        api.value.map((value, index) => (
+          <TagsInputItem index={index} key={index} value={value}>
+            <TagsInputItemPreview>
+              <TagsInputItemText>{value}</TagsInputItemText>
+              <TagsInputItemDeleteTrigger />
+            </TagsInputItemPreview>
+            <TagsInputItemInput />
+          </TagsInputItem>
+        ))
+      }
+    </TagsInputContext>
+    <TagsInputInput placeholder="Add tag…" />
+  </TagsInputControl>
+</TagsInput>
+```
+
+## Anatomy
+
+```text
+TagsInput
+├── TagsInputLabel
+├── TagsInputControl
+│   ├── TagsInputContext        renders one item per value
+│   │   └── TagsInputItem
+│   │       ├── TagsInputItemPreview
+│   │       │   ├── TagsInputItemText
+│   │       │   └── TagsInputItemDeleteTrigger
+│   │       └── TagsInputItemInput
+│   ├── TagsInputInput
+│   └── TagsInputClearTrigger
+└── TagsInputHiddenInput
+```
+
+## API
+
+Props pass straight through to Ark. `TagsInput` extends `TagsInput.Root` (`value` /
+`defaultValue`, `onValueChange`, `max`, `allowOverflow`, `editable`, `disabled`, `invalid`,
+`readOnly`, `name`, `form`), so control it with `value` + `onValueChange` or leave it
+uncontrolled with `defaultValue`. `TagsInputControl` adds a `size` variant (`sm` · `md` · `lg`);
+the item text, delete trigger and hidden input are wired for you. Items are iterated with the
+`TagsInputContext` render prop over `api.value`.
