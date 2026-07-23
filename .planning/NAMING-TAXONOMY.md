@@ -257,3 +257,38 @@ place — a 2-minute move once decided.
 4. Getting Started truth pass — the "layouts vendored from Shark" implication is false (bespoke,
    Ark-idiom).
 5. Avatar with real photos; Preferences "sections on their own" examples architecture.
+
+---
+
+## Round 4 EXECUTED (2026-07-23, later) — running-app pass + nav re-consolidation
+
+All against the running docs app (port 3100), each an atomic commit, docs build green (90 pages).
+
+**CodeEditor — made it read as a Kanzo field (was a bare CodeMirror pane):**
+- Chrome matches the Textarea recipe (border-input, rounded-lg, shadow-xs/5, transparent/input-30,
+  same focus/invalid ring via `data-focused`).
+- Line-number/line misalignment fixed: it was a constant +9px (the gutter double-counted the
+  content's vertical padding). Verified delta 0 by DOM measurement. Removed the gutter's own
+  `paddingBlock`; CodeMirror already aligns numbers to the padded content lines.
+- Fills its field via flex (not `height:100%`, which won't resolve against a `min-height` parent),
+  so a min-height taller than the content no longer leaves dead surface.
+- Example sizes to content: `minHeight` is a small floor (4rem), `maxHeight` the scroll ceiling.
+- Gutter is a fixed `--muted` column (owner wanted the numbers on a solid background). Painted on
+  `.cm-scroller` (which flex-fills) with the content's `--background` on top, so it reaches the
+  field bottom every time — a fill on `.cm-gutters` only spans the content and cut off mid-field.
+
+**DataTable footer:** wired `getFooterGroups()` → `<tfoot>`, guarded so it only renders when a
+column defines `footer`. Added an example + a "Footer vs caption" doc section (they were confused:
+footer = `<tfoot>` summary row; caption = `<caption>` whole-table label).
+
+**App-shell showcase → Shell regions:** rebuilt on `ShellRoot`/`ShellBody`/`ShellMain`/`ShellHeader`
+(replacing `SidebarProvider`/`SidebarInset` + hand-rolled header), keeping the Sidebar + ⌘B collapse.
+One `<main>`, fits the viewport. Nested subsection titles dropped to `level={2}`. Workspace showcase
+checked — already on Shell, no stale renames.
+
+**Nav consolidation 10 → 6 (this REVERSES the Round-3 Primitives group):** owner felt the nav was
+too separated; the reference trend is fewer/broader groups (shadcn flat, Radix ~2). Dissolved
+Sidebar (→ Navigation), Feedback (→ Overlays, now "Overlays & feedback"), Primitives (kbd → Data
+display; separator/collapsible → Layout), Content & theming (prose/code-editor → Data display;
+preferences/made-with → Layout). Within-group `---dividers---` keep the sub-structure legible.
+Six component groups: Forms, Actions, Navigation, Overlays & feedback, Data display, Layout.
