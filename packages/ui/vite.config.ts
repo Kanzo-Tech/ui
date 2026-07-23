@@ -24,6 +24,10 @@ export default defineConfig({
         // Optional subpath: DataTable over TanStack Table. Kept out of the root barrel so
         // the base bundle never pays for @tanstack/react-table.
         table: resolve(__dirname, "src/table.ts"),
+        // Optional subpath: tokenized Mosaic/vgplot crossfilter charts. Bring-your-own
+        // Coordinator — the package never imports DuckDB-WASM; @uwdata/* + @duckdb/* are
+        // optional peers, so the base bundle never pays for the analytics stack.
+        charts: resolve(__dirname, "src/charts.ts"),
       },
       formats: ["es"],
     },
@@ -45,6 +49,10 @@ export default defineConfig({
         /^@codemirror\//.test(id) ||
         /^@lezer\//.test(id) ||
         /^@tanstack\//.test(id) ||
+        // The Mosaic/vgplot + DuckDB-WASM analytics stack — optional peers of the /charts
+        // subpath, never bundled, never in the base barrel.
+        /^@uwdata\//.test(id) ||
+        /^@duckdb\//.test(id) ||
         id === "lucide-react" ||
         id === "tailwind-variants" ||
         id === "tailwind-merge" ||

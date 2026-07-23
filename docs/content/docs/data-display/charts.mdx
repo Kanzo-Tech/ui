@@ -1,0 +1,133 @@
+---
+title: Charts
+description: Tokenized Mosaic/vgplot crossfilter charts — bring-your-own DuckDB coordinator, on their own entry point.
+---
+
+<Callout type="info">
+These charts wrap **[Mosaic](https://idl.uw.edu/mosaic/) / vgplot** the way
+[CodeEditor](/docs/data-display/code-editor) wraps CodeMirror: the library ships tokenized chart
+marks and a crossfilter context, and it is **bring-your-own-coordinator**. The package never
+imports DuckDB-WASM and never builds a `Coordinator` — you wire DuckDB in a `"use client"` island
+and pass the coordinator in. That is what keeps the whole analytics stack out of the base bundle
+and out of every React Server Component.
+
+```tsx
+import { MosaicProvider, Histogram, BarChart } from "@kanzo-tech/ui/charts";
+```
+
+`@uwdata/vgplot`, `@uwdata/mosaic-core`, `@uwdata/mosaic-sql` and `@duckdb/duckdb-wasm` are all
+**optional peers**, so `import { Button }` keeps working for everyone who has not installed them.
+</Callout>
+
+<ComponentPreview componentName="charts" />
+
+Four chart types over **one** table, wired to **one** shared crossfilter `Selection`: drag an
+interval across the histogram or the hourly line, click a region bar, or drag a box on the
+scatter — each publishes to the selection, so brushing any one filters all the others. The dimmed
+layer is always the full distribution; the solid `--primary` layer is the current filtered subset.
+
+## Installation
+
+The charts live on the `@kanzo-tech/ui/charts` subpath, never the root barrel, because the
+Mosaic/DuckDB stack is heavy and optional. Install the peers alongside the library:
+
+```bash
+pnpm add @uwdata/vgplot @uwdata/mosaic-core @uwdata/mosaic-sql @duckdb/duckdb-wasm
+```
+
+## Bring your own coordinator
+
+The library never touches DuckDB-WASM. The consumer builds the `Coordinator` — over
+`wasmConnector()`, a socket/REST connector, or a shared worker — and hands it to
+`MosaicProvider`, which registers it as vgplot's active coordinator and shares a
+`Selection.crossfilter()` with every chart beneath it. Because DuckDB-WASM is browser-only, do
+the boot in a `"use client"` island's `useEffect`, render a skeleton until it is ready, and let
+the chart hydrate:
+
+```tsx
+"use client";
+
+import { useEffect, useState } from "react";
+import { loadObjects } from "@uwdata/mosaic-sql";
+import { Coordinator, MosaicProvider, Histogram, BarChart, wasmConnector } from "@kanzo-tech/ui/charts";
+
+export function Distributions() {
+  const [coordinator, setCoordinator] = useState<Coordinator | null>(null);
+
+  useEffect(() => {
+    const coord = new Coordinator(wasmConnector());
+    coord.exec(loadObjects("telemetry", rows)).then(() => setCoordinator(coord));
+  }, []);
+
+  if (!coordinator) return <Skeleton className="h-32 w-full" />;
+
+  return (
+    <MosaicProvider coordinator={coordinator}>
+      <Histogram table="telemetry" column="latency" />
+      <BarChart table="telemetry" column="region" />
+    </MosaicProvider>
+  );
+}
+```
+
+`Coordinator`, `Selection`, `coordinator` and `wasmConnector` are re-exported from the subpath,
+so you wire the backend without a direct `@uwdata` import.
+
+## Pick the chart by the column
+
+Every chart is the same dual-layer crossfilter idea — a dimmed `--muted-foreground` layer for the
+full data and a `--primary` layer, `filterBy` the shared selection, for the subset on top. What
+differs is the mark and the brush:
+
+- **`Histogram`** bins a **numeric or temporal** column (`rectY` + `bin`) and drags an interval
+  brush (`intervalX`) into the selection.
+- **`BarChart`** groups a **categorical** column (`barY`) and toggles a category (`toggleX`) into
+  the selection. Bars are sorted by descending count and capped at `limit`.
+- **`LineChart`** traces a count over an **ordered / temporal** column (`lineY`) and drags an
+  interval (`intervalX`). A line is *stroked* rather than filled, so the tokens map to `stroke`.
+- **`ScatterPlot`** plots two **numeric** columns (`dot`) and drags a 2-D rectangle
+  (`intervalXY`) into the selection.
+
+## Theming
+
+vgplot hard-codes its fills; these charts read `--primary` and `--muted-foreground` off the live
+DOM instead, so a theme change re-colours the marks along with everything else — the vgplot
+analogue of how `kanzoHighlighting` re-skins CodeMirror. Axis text inherits `--foreground` through
+`currentColor`, so it stays legible in light and dark. Sharing one `Selection` across charts
+(explicitly via the `selection` prop, or implicitly through the provider) is what wires the
+crossfilter.
+
+## API Reference
+
+### MosaicProvider
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `coordinator` | `Coordinator` | — |
+| `crossfilter` | `Selection` | `Selection.crossfilter()` |
+
+`useMosaic()` returns `{ coordinator, crossfilter }`; `useCrossfilter()` returns the shared
+`Selection`. Both throw outside a `MosaicProvider`.
+
+### Histogram / BarChart / LineChart
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `table` | `string` | — |
+| `column` | `string` | — |
+| `selection` | `Selection` | provider's crossfilter |
+| `height` | `number` | `120` |
+| `limit` *(BarChart)* | `number` | `8` |
+| `className` | `string` | — |
+
+### ScatterPlot
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `table` | `string` | — |
+| `x` | `string` | — |
+| `y` | `string` | — |
+| `selection` | `Selection` | provider's crossfilter |
+| `height` | `number` | `120` |
+| `radius` | `number` | `2` |
+| `className` | `string` | — |
