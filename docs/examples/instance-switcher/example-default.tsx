@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
 import { PlusIcon } from "lucide-react";
 import {
   InstanceSwitcher,
   Sidebar,
   SidebarHeader,
+  SidebarInset,
   SidebarProvider,
   type Instance,
 } from "@kanzo-tech/ui";
+import { useState } from "react";
 
 const instances: Instance[] = [
   { id: "kanzo", label: "Kanzo", description: "Owner" },
@@ -16,12 +17,18 @@ const instances: Instance[] = [
   { id: "eu-open", label: "EU Open Data", description: "Member" },
 ];
 
+/**
+ * Shown in a real shell, not a floating header — the switcher sits at the top of a sidebar, so
+ * that is where you have to see it to judge it. The sidebar is otherwise empty on purpose: a
+ * navigation menu below would compete for attention and blur what this page is about. Open the
+ * switcher to change the active workspace.
+ */
 export default function Example() {
   const [active, setActive] = useState("kanzo");
 
   return (
-    <SidebarProvider className="min-h-0 w-64">
-      <Sidebar className="rounded-lg border" collapsible="none">
+    <SidebarProvider className="h-96 min-h-0 w-full overflow-hidden rounded-lg border">
+      <Sidebar className="border-e" collapsible="none">
         <SidebarHeader>
           <InstanceSwitcher
             actions={[{ label: "Create workspace", icon: <PlusIcon />, href: "#" }]}
@@ -32,6 +39,12 @@ export default function Example() {
           />
         </SidebarHeader>
       </Sidebar>
+
+      <SidebarInset className="bg-muted/24">
+        <div className="flex h-full items-center justify-center">
+          <span className="text-muted-foreground text-sm">{active}</span>
+        </div>
+      </SidebarInset>
     </SidebarProvider>
   );
 }
