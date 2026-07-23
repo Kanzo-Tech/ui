@@ -6,10 +6,12 @@ full: true
 
 <PreviewIframe name="app-shell" title="App shell showcase" className="h-[820px]" />
 
-Every level-2 composite in one screen, arranged the way a real product arranges them: an
-`InstanceSwitcher` in the sidebar header, `SidebarNav` in its content, `SidebarUser` in its
-footer, and a `SidebarInset` holding breadcrumbs above a `Section` of `MetricCard`s and a
-`DataTable`.
+Every level-2 composite in one screen, arranged the way a real product arranges them, and built
+on the Shell regions the docs preach: `ShellRoot` › `ShellBody` wrap a `SidebarProvider`, whose
+collapsing `Sidebar` (an `InstanceSwitcher` in its header, `SidebarNav` in its content,
+`SidebarUser` in its footer) sits beside a `ShellMain`. `ShellMain` holds a `ShellHeader` with
+the breadcrumbs above a `Section` of `MetricCard`s and a `DataTable`. The Shell regions place
+everything; the Sidebar family runs the collapse.
 
 It exists because the pieces only prove themselves together. A `MetricCard` looks fine in a
 384px box; whether four of them sit correctly under a page header, next to a sidebar that
