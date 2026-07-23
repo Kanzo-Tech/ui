@@ -209,7 +209,7 @@ export function AppShellShowcase() {
 					/>
 				</ShellHeader>
 
-				<ShellMain className="overflow-hidden bg-background">
+				<ShellMain className="bg-background">
 					<SectionRoot>
 						<SectionHeader scale="page">
 							<SectionTitleGroup>

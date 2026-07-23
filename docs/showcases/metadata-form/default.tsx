@@ -46,6 +46,11 @@ import {
   ResizablePanel,
   ResizableResizeTrigger,
   ScrollArea,
+  SectionActions,
+  SectionDescription,
+  SectionHeader,
+  SectionTitle,
+  SectionTitleGroup,
   SegmentGroup,
   SegmentGroupItem,
   SegmentGroupItemText,
@@ -1050,15 +1055,17 @@ export function MetadataFormShowcase() {
         </div>
 
         {/* Title + Source / Output / validation / Preferences. */}
-        <div className="flex items-center gap-4 px-6 py-3">
-          <div className="min-w-0">
-            <h1 className="truncate font-bold font-heading text-lg">metadata-form</h1>
-            <p className="truncate text-muted-foreground text-xs">
+        <SectionHeader className="px-6 py-3" scale="page">
+          <SectionTitleGroup>
+            <SectionTitle className="font-heading" level={1} scale="page">
+              metadata-form
+            </SectionTitle>
+            <SectionDescription className="truncate text-xs">
               SHACL shapes → editable RDF form → Turtle &amp; JSON-LD
-            </p>
-          </div>
+            </SectionDescription>
+          </SectionTitleGroup>
 
-          <div className="ms-auto flex items-center gap-1.5">
+          <SectionActions className="gap-1.5">
             {/* Source — the SHACL shapes. Toggles the LEADING aside, independently. */}
             <Button
               className="gap-1.5"
@@ -1190,8 +1197,8 @@ export function MetadataFormShowcase() {
                 <PreferencesDensity />
               </PreferencesPanel>
             </PreferencesRoot>
-          </div>
-        </div>
+          </SectionActions>
+        </SectionHeader>
       </ShellHeader>
 
       <ShellBody>

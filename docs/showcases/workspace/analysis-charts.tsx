@@ -81,12 +81,12 @@ function sampleRows(): WeatherRow[] {
 
 /** The Analysis panel's chart cards, each bound to a column of the shared crossfilter table. */
 const CHARTS = [
-	{ name: "temperature (°C)", render: () => <Histogram column="temperature" height={84} table="weather" /> },
-	{ name: "windSpeed (m/s)", render: () => <Histogram column="windSpeed" height={84} table="weather" /> },
-	{ name: "dataProvider", render: () => <BarChart column="dataProvider" height={84} table="weather" /> },
-	{ name: "region", render: () => <BarChart column="region" height={84} table="weather" /> },
-	{ name: "observations by hour", render: () => <LineChart column="hour" height={84} table="weather" /> },
-	{ name: "temperature × windSpeed", render: () => <ScatterPlot height={84} table="weather" x="temperature" y="windSpeed" /> },
+	{ name: "temperature (°C)", render: () => <Histogram column="temperature" height={120} table="weather" /> },
+	{ name: "windSpeed (m/s)", render: () => <Histogram column="windSpeed" height={120} table="weather" /> },
+	{ name: "dataProvider", render: () => <BarChart column="dataProvider" height={120} table="weather" /> },
+	{ name: "region", render: () => <BarChart column="region" height={120} table="weather" /> },
+	{ name: "observations by hour", render: () => <LineChart column="hour" height={120} table="weather" /> },
+	{ name: "temperature × windSpeed", render: () => <ScatterPlot height={120} table="weather" x="temperature" y="windSpeed" /> },
 ] as const;
 
 export default function AnalysisCharts() {
