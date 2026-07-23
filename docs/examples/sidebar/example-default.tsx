@@ -30,7 +30,7 @@ export default function Example() {
     // point, and a sidebar rendered on its own reads as a floating panel rather than as
     // navigation for something. `h-96` gives the shell a definite height; in a real app
     // that comes from the viewport.
-    <SidebarProvider className="h-96 min-h-0 w-full overflow-hidden rounded-lg border">
+    <SidebarProvider className="h-[28rem] min-h-0 w-full overflow-hidden">
       <Sidebar className="border-e" collapsible="none">
         <SidebarHeader>
           <span className="px-2 font-semibold text-sm">Kanzo</span>

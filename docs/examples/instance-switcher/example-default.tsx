@@ -27,7 +27,7 @@ export default function Example() {
   const [active, setActive] = useState("kanzo");
 
   return (
-    <SidebarProvider className="h-96 min-h-0 w-full overflow-hidden rounded-lg border">
+    <SidebarProvider className="h-[28rem] min-h-0 w-full overflow-hidden">
       <Sidebar className="border-e" collapsible="none">
         <SidebarHeader>
           <InstanceSwitcher

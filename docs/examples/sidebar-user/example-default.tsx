@@ -5,7 +5,7 @@ import { Sidebar, SidebarFooter, SidebarInset, SidebarProvider, SidebarUser } fr
 
 export default function Example() {
   return (
-    <SidebarProvider className="h-96 min-h-0 w-full overflow-hidden rounded-lg border">
+    <SidebarProvider className="h-[28rem] min-h-0 w-full overflow-hidden">
       <Sidebar className="justify-end border-e" collapsible="none">
         <SidebarFooter>
           <SidebarUser

@@ -13,7 +13,7 @@ import {
 
 export default function Example() {
   return (
-    <SidebarProvider className="h-96 min-h-0 w-full overflow-hidden rounded-lg border">
+    <SidebarProvider className="h-[28rem] min-h-0 w-full overflow-hidden">
       <Sidebar className="border-e" collapsible="none">
         <SidebarContent>
           <SidebarGroup>

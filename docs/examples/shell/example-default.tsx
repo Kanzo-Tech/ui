@@ -21,7 +21,7 @@ export default function Example() {
   return (
     // `h-[26rem]` rather than ShellRoot's own `h-dvh`: this is a framed demo inside a docs
     // page, not a shell that owns the viewport. A real one keeps `h-dvh`.
-    <ShellRoot className="h-[26rem] w-full rounded-lg border">
+    <ShellRoot className="h-[26rem] w-full">
       <ShellHeader className="h-11 flex-row items-center justify-between gap-2 bg-card px-3">
         <span className="font-medium text-sm">ShellHeader</span>
         <div className="flex items-center gap-1">

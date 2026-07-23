@@ -22,7 +22,7 @@ const sections: NavSection[] = [
 
 export default function Example() {
   return (
-    <SidebarProvider className="h-96 min-h-0 w-full overflow-hidden rounded-lg border">
+    <SidebarProvider className="h-[28rem] min-h-0 w-full overflow-hidden">
       <div className="w-60 shrink-0 border-e bg-sidebar">
         {/* `activePath` is the caller's current route: `#/settings/cloud` is active here, and
             so would be any path nested under it. */}
