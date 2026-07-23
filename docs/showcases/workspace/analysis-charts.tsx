@@ -11,8 +11,7 @@ import {
 	ScatterPlot,
 	wasmConnector,
 } from "@kanzo-tech/ui/charts";
-import { Button, ScrollArea, Skeleton } from "@kanzo-tech/ui";
-import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { ScrollArea, Skeleton } from "@kanzo-tech/ui";
 
 /**
  * The Analysis panel's body, wired to REAL crossfilter charts from `@kanzo-tech/ui/charts`.
@@ -125,31 +124,13 @@ export default function AnalysisCharts() {
 				<div className="space-y-2 p-1.5">
 					{CHARTS.map((c) => (
 						<div
-							className="group overflow-hidden rounded-sm border border-border bg-card"
+							className="overflow-hidden rounded-sm border border-border bg-card"
 							key={c.name}
 						>
-							<div className="flex h-6 items-center justify-between px-2">
+							<div className="flex h-6 items-center px-2">
 								<span className="truncate text-[10px] text-muted-foreground">
 									{c.name}
 								</span>
-								<div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-									<Button
-										aria-label="Edit chart"
-										className="size-4"
-										size="icon-sm"
-										variant="ghost"
-									>
-										<PencilIcon className="size-2.5" />
-									</Button>
-									<Button
-										aria-label="Delete chart"
-										className="size-4 text-muted-foreground hover:text-destructive"
-										size="icon-sm"
-										variant="ghost"
-									>
-										<Trash2Icon className="size-2.5" />
-									</Button>
-								</div>
 							</div>
 							{/* WIRE POINT (now live): the faux stacked-bar body is replaced by a real
 							    tokenized crossfilter chart. Brushing/toggling one refilters the rest. */}
@@ -158,14 +139,6 @@ export default function AnalysisCharts() {
 							</div>
 						</div>
 					))}
-					<Button
-						className="h-6 gap-1 text-[10px] text-muted-foreground"
-						size="sm"
-						variant="link"
-					>
-						<PlusIcon className="size-2.5" />
-						Add chart
-					</Button>
 				</div>
 			</ScrollArea>
 		</MosaicProvider>
