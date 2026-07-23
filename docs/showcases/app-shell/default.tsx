@@ -5,7 +5,7 @@ import {
   Badge,
   Breadcrumbs,
   Button,
-  ComingSoon,
+  Ribbon,
   EmptyState,
   InstanceSwitcher,
   SectionActions,
@@ -314,7 +314,7 @@ export function AppShellShowcase() {
                       </SectionDescription>
                     </SectionTitleGroup>
                   </SectionHeader>
-                  <ComingSoon>
+                  <Ribbon disabled label="Coming soon">
                     <div className="flex items-center justify-between rounded-lg border border-border p-4">
                       <div>
                         <p className="font-medium text-sm">Run on a schedule</p>
@@ -326,7 +326,7 @@ export function AppShellShowcase() {
                         Configure
                       </Button>
                     </div>
-                  </ComingSoon>
+                  </Ribbon>
                 </section>
               </div>
             </SectionBody>

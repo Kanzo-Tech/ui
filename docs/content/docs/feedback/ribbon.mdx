@@ -1,0 +1,51 @@
+---
+title: Ribbon
+description: Pins a status badge onto a region — Beta, New, Coming soon — optionally gating it.
+---
+
+<ComponentPreview componentName="ribbon" />
+
+## Usage
+
+```tsx
+import { Ribbon } from "@kanzo-tech/ui";
+```
+
+```tsx
+<Ribbon label="Beta" variant="info">
+  <Button variant="outline">Export to Parquet</Button>
+</Ribbon>
+```
+
+Modelled on Ant Design's `Badge.Ribbon`: it wraps a region and pins a status badge on it. By
+default it only annotates — the content stays live — so it fits "Beta", "New" or "Pro" just as
+well as "Coming soon". The `label` is whatever state you are flagging.
+
+## Gating
+
+Pass `disabled` to gate the region as well as label it: the content is dimmed and made `inert`,
+so an unavailable feature stays visible — still telling the user it exists — without being
+operable. `inert` rather than `aria-hidden` keeps it readable, just unreachable. Reach for a
+plain `Badge` when the content still works and you only want to tag it.
+
+<ComponentPreview componentName="ribbon" fileName="example-disabled" />
+
+## Placement
+
+The corner badge deliberately overhangs the wrapper so it reads as a tag pinned *on* the thing.
+That overhang is clipped by any ancestor that scrolls or hides overflow — leave the wrapper
+room, or use `placement="inline"`, which puts the badge in the flow at the trailing edge so it
+takes its own space instead of covering the content.
+
+<ComponentPreview componentName="ribbon" fileName="example-placement" />
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `children` | `ReactNode` | — |
+| `label` | `ReactNode` | — (required) |
+| `variant` | `BadgeVariant` | — |
+| `placement` | `"corner" \| "inline"` | `"corner"` |
+| `disabled` | `boolean` | `false` |
+| `className` | `string` | — |

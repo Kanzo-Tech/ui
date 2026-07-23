@@ -139,8 +139,8 @@ export type {
   CardRadioGroupProps,
   CardRadioOption,
 } from "./simples/CardRadioGroup.js";
-export { ComingSoon } from "./simples/ComingSoon.js";
-export type { ComingSoonProps } from "./simples/ComingSoon.js";
+export { Ribbon } from "./simples/Ribbon.js";
+export type { RibbonProps } from "./simples/Ribbon.js";
 
 // ── Level 2 — composites (domain-free, token-native; sourced from keasy) ──────
 export type { LinkComponent } from "./composites/link.js";
