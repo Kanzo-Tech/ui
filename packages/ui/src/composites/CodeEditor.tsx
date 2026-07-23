@@ -435,7 +435,7 @@ export function CodeEditor(p: CodeEditorProps) {
 
   // Bare surface (caller owns theme/chrome).
   if (p.chrome === false) {
-    return <div ref={container} className={p.className} style={{ minHeight: p.minHeight, maxHeight: p.maxHeight }} />;
+    return <div data-slot="code-editor" ref={container} className={p.className} style={{ minHeight: p.minHeight, maxHeight: p.maxHeight }} />;
   }
 
   // Borderless surface on the app's main background (the gutter's own right border
@@ -450,8 +450,9 @@ export function CodeEditor(p: CodeEditorProps) {
       ? { color: "var(--ring)", width: 2 }
       : null;
   return (
-    <div style={{ flex: 1, width: "100%" }}>
+    <div data-slot="code-editor" style={{ flex: 1, width: "100%" }}>
       <div
+        data-slot="code-editor-surface"
         ref={container}
         style={{
           width: "100%",

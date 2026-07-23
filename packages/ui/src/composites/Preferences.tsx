@@ -177,6 +177,7 @@ function PreferencesPanel({
     <Portal>
       <ArkDialog.Positioner className="pointer-events-none fixed inset-0 z-50 flex items-start justify-end p-4">
         <ArkDialog.Content
+          data-slot="preferences-panel"
           className={cn(
             "pointer-events-auto relative flex max-h-[calc(100dvh-2rem)] w-80 flex-col overflow-hidden",
             "rounded-lg border border-border bg-popover text-popover-foreground shadow-xl",

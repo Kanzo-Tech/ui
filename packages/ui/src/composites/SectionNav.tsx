@@ -33,7 +33,7 @@ export function SectionNav({ sections, linkComponent: Link = DefaultLink, active
   const isActive = (href: string) =>
     activePath != null && (activePath === href || activePath.startsWith(href + "/"));
   return (
-    <nav>
+    <nav data-slot="section-nav">
       {sections.map((section, i) => (
         <SidebarGroup key={i}>
           <SidebarGroupLabel>{section.heading}</SidebarGroupLabel>

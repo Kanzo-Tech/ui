@@ -16,7 +16,7 @@ export type LinkComponent = React.ComponentType<
 export const DefaultLink: LinkComponent = React.forwardRef<HTMLAnchorElement, { href: string } & React.AnchorHTMLAttributes<HTMLAnchorElement>>(
   function DefaultLink({ href, children, ...rest }, ref) {
     return (
-      <a ref={ref} href={href} {...rest}>
+      <a ref={ref} data-slot="link" href={href} {...rest}>
         {children}
       </a>
     );

@@ -41,7 +41,7 @@ export function SidebarNav({ items, label, linkComponent: Link = DefaultLink }: 
   const { setOpenMobile } = useSidebar();
   const close = () => setOpenMobile(false);
   return (
-    <nav aria-label={typeof label === "string" ? label : "Sidebar"}>
+    <nav aria-label={typeof label === "string" ? label : "Sidebar"} data-slot="sidebar-nav">
     <SidebarGroup>
       {label != null && <SidebarGroupLabel>{label}</SidebarGroupLabel>}
       <SidebarMenu>

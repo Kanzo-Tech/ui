@@ -28,6 +28,7 @@ export function sortableHeader<TData, TValue>(label: ReactNode) {
     return (
       <button
         className="-ms-1 inline-flex h-7 items-center gap-1 rounded-md px-1 font-medium text-muted-foreground transition-colors hover:text-foreground"
+        data-slot="sortable-header"
         onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         type="button"
       >

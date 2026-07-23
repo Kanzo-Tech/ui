@@ -248,8 +248,9 @@ export function GhostEditor(p: GhostEditorProps) {
   // outline, and the surface background — so it reads as the same family of input.
   const ring = p.invalid ? "var(--destructive)" : "var(--ring)";
   return (
-    <div className="w-full">
+    <div className="w-full" data-slot="ghost-editor">
       <div
+        data-slot="ghost-editor-surface"
         ref={container}
         style={{
           width: "100%",
