@@ -1,1 +1,8 @@
-{ "title": "Showcases", "pages": ["app-shell", "workspace"] }
+{
+  "title": "Showcases",
+  "pages": [
+    "index",
+    "app-shell",
+    "workspace"
+  ]
+}
