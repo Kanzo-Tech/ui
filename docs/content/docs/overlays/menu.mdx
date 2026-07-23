@@ -6,10 +6,9 @@ links:
 ---
 
 <Callout type="info">
-**Menu vs [Context Menu](/docs/overlays/context-menu):** they are the *same menu*. `ContextMenu`
-renders `Menu` and swaps one part — the trigger. Use `Menu` when a visible control opens it
-(a button, an avatar, a "⋯"); use `ContextMenu` when the trigger is a *region* you right-click.
-Everything below applies to both.
+**One menu, two triggers.** Use the default `MenuTrigger` when a visible control opens it
+(a button, an avatar, a "⋯"); use the [context trigger](#context-trigger) when the thing you
+open from is a *region* you right-click. Everything on this page applies to both.
 </Callout>
 
 <ComponentPreview componentName="menu" />
@@ -82,6 +81,41 @@ after the first one and the user has to reopen it for each column.
 
 <ComponentPreview componentName="menu" fileName="example-submenu" />
 
+## Context trigger
+
+`ContextMenu` is this same menu with one part swapped: a `ContextMenuTrigger` that opens on
+right-click at the pointer, instead of a `MenuTrigger` anchored to a control. Every other part
+is the Menu part under a `ContextMenu*` name, so anything true of `MenuItem` is true of
+`ContextMenuItem`.
+
+<ComponentPreview componentName="context-menu" />
+
+```tsx
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<ContextMenu>
+  <ContextMenuTrigger asChild>
+    <div>Right-click here</div>
+  </ContextMenuTrigger>
+  <ContextMenuContent>
+    <ContextMenuItem value="edit">Edit</ContextMenuItem>
+  </ContextMenuContent>
+</ContextMenu>
+```
+
+Reach for it when the target is an area rather than a control — a row, a canvas, a file in a
+tree. But right-click is not reachable by keyboard on its own, so a context menu should never be
+the only route to an action: mirror the items in a toolbar `Menu`.
+
+<ComponentPreview componentName="context-menu" fileName="example-submenu" />
+
 ## API Reference
 
 ### Menu
@@ -115,3 +149,8 @@ Extends `React.ComponentProps<typeof ArkMenu.Root>`.
 variable. Clamping to the measured space feeds the element's own resize back into the
 positioner — content shrinks, the scrollbar toggles, the available space changes, recompute —
 and that loop hard-freezes the tab. A fixed cap is decoupled from the measurement.
+
+### ContextMenu parts
+
+Each `ContextMenu*` part forwards to its `Menu` counterpart unchanged — `ContextMenuItem` takes
+the same `variant`, `ContextMenuGroup` the same `heading`. Only the trigger differs.
