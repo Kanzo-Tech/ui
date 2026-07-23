@@ -1,4 +1,13 @@
 @import "tailwindcss";
+/*
+ * Scan the design system's component source so the docs' own (last-loaded) Tailwind sheet emits
+ * the SAME utilities the components use — notably the Sidebar's responsive `md:block`/`md:flex`.
+ * Without this the docs sheet had `.hidden` but no `.md:block`, and since it loads AFTER
+ * @kanzo-tech/ui/styles.css, that late `.hidden` won the cascade over the library sheet's
+ * `md:block` — the desktop sidebar computed display:none at every width. Emitting md:* here (sorted
+ * after `.hidden` within this sheet) makes the last sheet authoritative and correctly ordered.
+ */
+@source "../../packages/ui/src/**/*.{ts,tsx}";
 /* The design system's own tokens + compiled sheet — the docs eat the published artifact. */
 @import "@kanzo-tech/theme/tokens.css";
 @import "@kanzo-tech/theme/themes.css";
