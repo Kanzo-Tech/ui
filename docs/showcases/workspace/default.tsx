@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 import {
 	Badge,
@@ -25,6 +26,7 @@ import {
 	SidebarRail,
 	SidebarTrigger,
 	SidebarUser,
+	Skeleton,
 	Slider,
 	Switch,
 	Toaster,
@@ -38,7 +40,6 @@ import {
 	MaximizeIcon,
 	MessageCircleIcon,
 	MinusIcon,
-	PencilIcon,
 	PlayIcon,
 	PlusIcon,
 	SearchIcon,
@@ -47,7 +48,6 @@ import {
 	SettingsIcon,
 	ShieldCheckIcon,
 	SparklesIcon,
-	Trash2Icon,
 	UserIcon,
 	XIcon,
 } from "lucide-react";
@@ -56,7 +56,6 @@ import {
 	GRAPH_EDGES,
 	GRAPH_LEGEND,
 	GRAPH_NODES,
-	HISTOGRAM_FIELDS,
 	INSTANCES,
 	NAV,
 	type NodeKind,
@@ -83,8 +82,11 @@ import {
  * and ARIA all come from the machine. The Sidebar stays OUTSIDE the splitter. Panels (Info · Ask ·
  * Rules · Analysis · Settings) are switched IDE-style from the footer icon strip, not an in-panel
  * tab bar; collapsing the dock drops its panel + trigger and hands the canvas the full width. The
- * library ships the regions and the parts; the graph and the panel bodies are placeholders — the
- * design system has no graph engine or chart runtime, and that boundary is the point of a showcase.
+ * library ships the regions and the parts; the graph canvas is a placeholder (the design system has
+ * no graph engine), but the **Analysis** panel is live — it renders real tokenized crossfilter
+ * charts from the `@kanzo-tech/ui/charts` subpath, loaded client-only from `./analysis-charts` so the
+ * DuckDB/vgplot stack never touches the RSC prerender. That split — placeholder graph, real charts —
+ * is the point of a showcase: it shows exactly how far the library reaches.
  */
 
 const KIND_FILL: Record<NodeKind, string> = {
@@ -308,81 +310,25 @@ function RulesTab() {
 }
 
 /**
- * A placeholder chart body. The two stacked bar layers mimic Mosaic's crossfilter look — a dimmed
- * "all data" layer under a highlighted "current selection" layer — so the intent reads correctly.
- * WIRE POINT: replace this whole body with a real crossfilter chart from the `@kanzo-tech/ui/charts`
- * subpath once it lands (target it via `data-slot="analysis-chart-placeholder"`).
+ * The Analysis panel is the one live region: it renders REAL tokenized crossfilter charts from the
+ * `@kanzo-tech/ui/charts` subpath, not faux bars. The whole panel (DuckDB boot, sample table,
+ * `MosaicProvider` and the chart cards) lives in `./analysis-charts`, loaded client-only so the
+ * Mosaic/vgplot/DuckDB module tree is NEVER evaluated during the RSC prerender — the boundary
+ * `docs/examples/charts/example-default.tsx` documents. Importing `@kanzo-tech/ui/charts` at the top
+ * of this file would evaluate vgplot during prerender (a TDZ), so it must stay behind `ssr: false`.
  */
-function FauxChart({ bars }: { bars: number[] }) {
-	return (
-		<div className="h-24 px-2 pb-2" data-slot="analysis-chart-placeholder">
-			{/* Each column is full-height so the bars' percentage heights have a definite box to
-			    resolve against; the two stacked bars give the dimmed-vs-selected crossfilter look. */}
-			<div className="flex h-full gap-0.5">
-				{bars.map((h, i) => (
-					<div className="relative h-full flex-1" key={i}>
-						<div
-							className="absolute inset-x-0 bottom-0 rounded-t-[1px] bg-muted-foreground/30"
-							style={{ height: `${Math.max(6, h * 100)}%` }}
-						/>
-						<div
-							className="absolute inset-x-0 bottom-0 rounded-t-[1px] bg-primary"
-							style={{ height: `${Math.max(4, h * 68)}%` }}
-						/>
-					</div>
-				))}
-			</div>
-		</div>
-	);
-}
-
-function AnalysisTab() {
-	return (
+const AnalysisTab = dynamic(() => import("./analysis-charts"), {
+	ssr: false,
+	loading: () => (
 		<ScrollArea className="h-full">
 			<div className="space-y-2 p-1.5">
-				{HISTOGRAM_FIELDS.map((f) => (
-					<div
-						className="group overflow-hidden rounded-sm border border-border bg-card"
-						key={f.name}
-					>
-						<div className="flex h-6 items-center justify-between px-2">
-							<span className="truncate text-[10px] text-muted-foreground">
-								{f.name}
-							</span>
-							<div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-								<Button
-									aria-label="Edit chart"
-									className="size-4"
-									size="icon-sm"
-									variant="ghost"
-								>
-									<PencilIcon className="size-2.5" />
-								</Button>
-								<Button
-									aria-label="Delete chart"
-									className="size-4 text-muted-foreground hover:text-destructive"
-									size="icon-sm"
-									variant="ghost"
-								>
-									<Trash2Icon className="size-2.5" />
-								</Button>
-							</div>
-						</div>
-						<FauxChart bars={f.bars} />
-					</div>
+				{Array.from({ length: 6 }).map((_, i) => (
+					<Skeleton className="h-[7.5rem] w-full rounded-sm" key={i} />
 				))}
-				<Button
-					className="h-6 gap-1 text-[10px] text-muted-foreground"
-					size="sm"
-					variant="link"
-				>
-					<PlusIcon className="size-2.5" />
-					Add chart
-				</Button>
 			</div>
 		</ScrollArea>
-	);
-}
+	),
+});
 
 function SettingsTab() {
 	const [sim, setSim] = useState<Record<SimKey, number>>(
@@ -468,7 +414,7 @@ const PANELS = [
 
 type PanelId = (typeof PANELS)[number]["id"];
 
-const PANEL_BODY: Record<PanelId, () => React.ReactElement> = {
+const PANEL_BODY: Record<PanelId, React.ComponentType> = {
 	info: InfoTab,
 	ask: AskTab,
 	rules: RulesTab,
