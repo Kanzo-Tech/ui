@@ -6,7 +6,7 @@ import { source } from "./source";
  *
  * Everything here is derived from `source.pageTree`, which fumadocs builds from the MDX files
  * and `meta.json` on disk. There is deliberately **no list of components** in this file: adding
- * `content/docs/simples/foo.mdx` puts Foo in the index, and deleting it removes it. Shark UI's
+ * `content/docs/<group>/foo.mdx` puts Foo in the index, and deleting it removes it. Shark UI's
  * equivalent grid is driven off the page tree too, but gates each entry on a hand-kept thumbnail
  * map — so a component missing from that map disappears from the grid with no error. That is the
  * failure mode this module exists to make impossible.
@@ -36,9 +36,9 @@ export interface ComponentGroup {
  * This is a policy about *groups*, not an allow-list of components: a new layout page is
  * full-bleed the moment it exists, without being registered anywhere.
  */
-const FULL_BLEED_GROUPS = new Set(["layouts", "showcases", "sidebar"]);
+const FULL_BLEED_GROUPS = new Set(["showcases", "sidebar"]);
 
-/** `/docs/simples/button` → `["simples", "button"]`; a root page like `/docs/installation` → `["installation"]`. */
+/** `/docs/overlays/dialog` → `["overlays", "dialog"]`; a root page like `/docs/installation` → `["installation"]`. */
 function segmentsAfterBase(url: string): string[] {
   return url.split("/").filter(Boolean).slice(1);
 }

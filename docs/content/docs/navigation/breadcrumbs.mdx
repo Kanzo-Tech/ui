@@ -1,0 +1,73 @@
+---
+title: Breadcrumbs
+description: A data-driven trail over the Breadcrumb parts.
+---
+
+<Callout type="info">
+**Breadcrumbs vs [Breadcrumb](/docs/navigation/breadcrumb):** this is the data-driven one — pass an
+`items` array and it renders the trail, the separators and the collapse for you. It is built on
+the `Breadcrumb*` parts and is what you want in almost every case.
+
+Drop to the parts when a crumb needs to be something other than a link: a menu, a status badge,
+an editable field.
+</Callout>
+
+<ComponentPreview componentName="breadcrumbs" />
+
+## Usage
+
+```tsx
+import { Breadcrumbs } from "@kanzo-tech/ui";
+```
+
+```tsx
+<Breadcrumbs
+  items={[{ label: "Kanzo", href: "/" }, { label: "Connections" }]}
+/>
+```
+
+Pass a trail and you get the landmark, the list semantics, the separators and `aria-current`
+on the last entry. Compose the `Breadcrumb` parts directly when a trail needs something
+unusual — an ellipsis collapse, a dropdown mid-trail.
+
+An entry renders as the current page when it is last or when it has no `href`.
+
+## Anatomy
+
+```text
+Breadcrumbs
+└── Breadcrumb
+    └── BreadcrumbList
+        ├── BreadcrumbItem
+        │   ├── BreadcrumbLink   (entries with href)
+        │   └── BreadcrumbPage   (the last entry)
+        └── BreadcrumbSeparator
+```
+
+## Icons
+
+<ComponentPreview componentName="breadcrumbs" fileName="example-icons" />
+
+## Separator
+
+<ComponentPreview componentName="breadcrumbs" fileName="example-separator" />
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `items` | `BreadcrumbEntry[]` | — |
+| `linkComponent` | `LinkComponent` | `DefaultLink` |
+| `separator` | `ReactNode` | chevron |
+| `className` | `string` | — |
+
+`className` lands on the *list*, not the nav — that is where the `text-sm` default is set, so
+it is the element where a size override actually resolves.
+
+### BreadcrumbEntry
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `label` | `ReactNode` | — |
+| `href` | `string` | — |
+| `icon` | `ReactNode` | — |

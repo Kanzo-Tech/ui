@@ -1,0 +1,10 @@
+{
+  "title": "Buttons & actions",
+  "pages": [
+    "button",
+    "toggle",
+    "action-bar",
+    "command",
+    "kbd"
+  ]
+}

@@ -7,7 +7,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       nav={{ title: "Kanzo UI" }}
       links={[
         { text: "Docs", url: "/docs" },
-        { text: "Components", url: "/docs/simples/button" },
+        { text: "Components", url: "/docs/components" },
         { text: "Showcases", url: "/docs/showcases/app-shell" },
       ]}
     >

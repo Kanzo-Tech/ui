@@ -1,0 +1,89 @@
+---
+title: Tree View
+description: A keyboard-navigable hierarchy of branches and leaves.
+links:
+  doc: https://ark-ui.com/docs/data-display/tree-view
+---
+
+<ComponentPreview componentName="tree-view" />
+
+## Usage
+
+```tsx
+import {
+  TreeView,
+  TreeViewBranch,
+  TreeViewBranchContent,
+  TreeViewBranchItem,
+  TreeViewContent,
+  TreeViewItem,
+  TreeViewNode,
+  TreeViewTree,
+  createTreeCollection,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+const collection = createTreeCollection({ rootNode: tree });
+
+<TreeView collection={collection} defaultExpandedValue={["shapes"]}>
+  <TreeViewTree>{/* recursive nodes */}</TreeViewTree>
+</TreeView>;
+```
+
+`createTreeCollection` wraps Ark's with `nodeToValue: node => node.id` and
+`nodeToString: node => node.name` already filled in, so a tree of `{ id, name, children }`
+needs no adapter.
+
+## Anatomy
+
+```text
+<TreeView collection>
+  <TreeViewLabel />
+  <TreeViewTree>
+    <TreeViewNode node indexPath>       ← recursive
+      branch:  <TreeViewBranch>
+                 <TreeViewBranchItem />  ← indicator + folder icon + text
+                 <TreeViewBranchContent> ← children, plus the indent guide
+      leaf:    <TreeViewContent>
+                 <TreeViewItem />
+```
+
+The node renderer is recursive and you write it: a node with `children` becomes a
+`TreeViewBranch`, everything else a `TreeViewContent`. `indexPath` is how Ark locates the
+node in the collection, so it must be threaded through each level.
+
+## File icons
+
+Leaf icons resolve from the file extension, so a node never carries its own icon. Pass a map
+built with `createFileIcons`; anything unmatched falls back to `TreeViewItem`'s `icon`.
+
+<ComponentPreview componentName="tree-view" fileName="example-file-icons" />
+
+## API Reference
+
+### TreeView
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `fileIcons` | `Record<string, ElementType \| null>` | — |
+| `lazyMount` | `boolean` | `true` |
+| `unmountOnExit` | `boolean` | `true` |
+
+### TreeViewBranchItem
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `icon` | `ElementType \| null` | `FolderIcon` |
+| `expandedIcon` | `ElementType \| null` | `FolderOpenIcon` |
+
+### TreeViewItem
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `icon` | `ElementType` | `FileIcon` |
+
+Passing `null` for an icon removes it entirely rather than falling back to the default.
+`collection`, `selectionMode`, `expandedValue` and the rest come from Ark's `TreeView.Root`;
+`TreeViewCheckbox` is available for `selectionMode="multiple"`, and `useTreeView` re-exports
+Ark's context hook.

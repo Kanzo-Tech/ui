@@ -85,7 +85,7 @@ a third switcher of your own.
 
 `SidebarIdentityIcon` swaps the round avatar for a square tile: round reads as a person, square
 as a workspace or org. Use one or the other, not both. `SidebarIdentityAvatar` takes the real
-[`Avatar`](/docs/simples/avatar) parts as children, so an image, initials, a badge or a presence
+[`Avatar`](/docs/data-display/avatar) parts as children, so an image, initials, a badge or a presence
 dot are all available — where an `avatarUrl` + `fallback` pair could only ever produce an
 `<img>` and some letters.
 
@@ -116,6 +116,6 @@ menu header, which is never collapsed. `collapsed` is derived from the sidebar s
 | Part | Renders | Props |
 | --- | --- | --- |
 | `SidebarIdentity` | `div` | `responsive`, `collapsed` (both `boolean`, default `false`) |
-| `SidebarIdentityAvatar` | [`Avatar`](/docs/simples/avatar) | Avatar's props except `size` |
+| `SidebarIdentityAvatar` | [`Avatar`](/docs/data-display/avatar) | Avatar's props except `size` |
 | `SidebarIdentityIcon` / `SidebarIdentityText` | `div` | that element's props |
 | `SidebarIdentityLabel` / `SidebarIdentityDescription` | `span` | that element's props |

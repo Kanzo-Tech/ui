@@ -1,0 +1,14 @@
+{
+  "title": "Data display",
+  "pages": [
+    "table",
+    "data-table",
+    "tree-view",
+    "card",
+    "stat-card",
+    "status",
+    "badge",
+    "avatar",
+    "progress"
+  ]
+}

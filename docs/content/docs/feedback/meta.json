@@ -1,0 +1,10 @@
+{
+  "title": "Feedback",
+  "pages": [
+    "alert",
+    "spinner",
+    "skeleton",
+    "empty-state",
+    "coming-soon"
+  ]
+}

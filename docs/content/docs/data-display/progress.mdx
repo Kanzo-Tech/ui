@@ -1,0 +1,50 @@
+---
+title: Progress
+description: Shows how far along a determinate — or indeterminate — task is.
+links:
+  doc: https://ark-ui.com/docs/data-display/progress
+---
+
+<ComponentPreview componentName="progress" />
+
+## Usage
+
+```tsx
+import { Progress, ProgressValue } from "@kanzo-tech/ui";
+```
+
+```tsx
+<Progress value={64}>
+  <ProgressValue />
+</Progress>
+```
+
+`Progress` renders its own track and range after whatever children you give it, so the
+children slot is for labels only — you never place `ProgressTrack` yourself.
+
+## Anatomy
+
+```text
+<Progress value>
+  <ProgressValue />   ← optional, your children
+  <ProgressTrack>     ← rendered for you
+    <ProgressRange />
+```
+
+## Indeterminate
+
+`indeterminate` sends `null` to Ark rather than a number, which is what makes the bar report
+"unknown" to assistive tech instead of "0%".
+
+<ComponentPreview componentName="progress" fileName="example-indeterminate" />
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `value` | `number` | `0` |
+| `indeterminate` | `boolean` | `false` |
+| `orientation` | `"horizontal" \| "vertical"` | `"horizontal"` |
+
+`min`, `max`, `translations` and the rest are Ark's `Progress.Root`. `useProgress` re-exports
+Ark's `useProgressContext`.

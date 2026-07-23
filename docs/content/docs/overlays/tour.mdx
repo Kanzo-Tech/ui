@@ -1,0 +1,121 @@
+---
+title: Tour
+description: A guided walkthrough that spotlights elements on the page, step by step.
+links:
+  doc: https://ark-ui.com/docs/overlays/tour
+---
+
+<ComponentPreview componentName="tour" />
+
+## Usage
+
+```tsx
+import {
+  Tour,
+  TourActions,
+  TourContent,
+  TourDescription,
+  TourHeader,
+  TourProgressText,
+  TourTitle,
+  TourTrigger,
+  type TourStepType,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+const steps: TourStepType[] = [
+  {
+    id: "intro",
+    type: "dialog",
+    title: "Welcome",
+    description: "A quick tour.",
+    actions: [{ label: "Start", action: "next" }],
+  },
+  {
+    id: "name",
+    type: "tooltip",
+    target: () => document.getElementById("tour-name"),
+    title: "Name your dataset",
+    description: "It becomes the graph id.",
+    actions: [
+      { label: "Back", action: "prev" },
+      { label: "Next", action: "next" },
+    ],
+  },
+];
+```
+
+The content is written once and driven by the step data — `TourTitle`, `TourDescription` and
+`TourProgressText` read from the active step themselves, so there is nothing to map over.
+
+`target` is a function rather than a ref because it is called when the step is shown, not when
+the tour is defined: the element may not have mounted yet, or may be inside a panel the
+previous step just opened.
+
+## Anatomy
+
+```text
+Tour                         (owns the tour machine)
+├── TourTrigger              (starts it)
+└── TourContent              (portal + overlay + positioner + spotlight)
+    ├── TourHeader
+    │   ├── TourTitle
+    │   └── TourDescription
+    ├── TourBody
+    ├── TourProgressText
+    ├── TourActions          (renders the step's `actions` array)
+    │   ├── TourPreviousStep
+    │   └── TourNextStep
+    └── TourClose
+```
+
+`TourActions` renders whatever the current step declares, mapping `prev`/`dismiss` to outline
+buttons and `next` to a filled one. Use `TourPreviousStep` and `TourNextStep` directly when a
+step needs its navigation laid out among other footer content.
+
+## Step types
+
+| `type` | Behaviour |
+| --- | --- |
+| `dialog` | Centred modal card with a backdrop. No target. |
+| `tooltip` | Anchored to `target`, which the spotlight cuts out of the backdrop. |
+| `floating` | Positioned on the page, unanchored. |
+| `wait` | Advances on an effect rather than a click. |
+
+## API Reference
+
+### Tour
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `steps` | `TourStepType[]` | `[]` |
+| `keyboardNavigation` | `boolean` | — |
+| `onStepChange` | `(details: { stepId: string \| null }) => void` | — |
+| `onStatusChange` | `(details: { status: string }) => void` | — |
+| `lazyMount` | `boolean` | `true` |
+| `unmountOnExit` | `boolean` | `true` |
+
+`Tour` creates the tour machine internally, so unlike Ark's root it takes `steps` instead of a
+`tour` instance. `useTourContext()` exposes that instance and `handleStart` to descendants.
+
+### TourStepType
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `id` | `string` | Required, unique. |
+| `type` | `"dialog" \| "tooltip" \| "floating" \| "wait"` | See above. |
+| `target` | `() => HTMLElement \| null` | Resolved when the step is shown. |
+| `title` / `description` | `ReactNode` | Rendered by `TourTitle` / `TourDescription`. |
+| `actions` | `{ label: string; action?: "next" \| "prev" \| "dismiss" \| "skip" }[]` | Footer buttons. |
+| `placement` | `Placement \| "center"` | Relative to `target`. |
+| `backdrop` | `boolean` | Dim the page behind this step. |
+
+### TourContent
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `showCloseButton` | `boolean` | `true` |
+
+Like Dialog, `TourTitle` reserves inline-end padding whenever the close trigger is present, so
+a long step title wraps instead of running under the X.
