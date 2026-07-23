@@ -76,7 +76,19 @@ through a group selector, so no row has to be told which variant it is in.
 
 <ComponentPreview componentName="table" fileName="example-striped" />
 
-## With footer
+## Footer vs caption
+
+Two parts sit at the bottom of a table and are easy to mix up:
+
+- **`TableFooter`** is a `<tfoot>` — a **row of the table**, for a summary the columns add up
+  to: a total, a count. It lines up with the columns above it (right-align a figure, `colSpan`
+  a label), and reads as the emphasised last row.
+- **`TableCaption`** is a `<caption>` — a **label for the whole table**, not a row and not tied
+  to the columns. It names what the table *is* ("Datasets ingested this week") and, via
+  `caption-bottom`, renders beneath it.
+
+So a bottom row of totals is the footer; a sentence describing the table is the caption. If you
+reached for a footer and got descriptive text, you wanted the caption — and the other way round.
 
 <ComponentPreview componentName="table" fileName="example-with-footer" />
 
