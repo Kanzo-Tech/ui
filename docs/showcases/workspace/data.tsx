@@ -137,6 +137,29 @@ export const HISTOGRAM_FIELDS: { name: string; bars: number[] }[] = [
 	{ name: "obs.value", bars: [0.15, 0.4, 0.7, 1, 0.8, 0.55, 0.3, 0.12] },
 ];
 
+/** Suggested-question chips for the Ask panel's empty state (mirrors keasy's demo). */
+export const ASK_SUGGESTIONS = [
+	"What are the most common attributes?",
+	"How many WeatherObserved entities are there?",
+	"Which datasets mention weather?",
+	"What is the average temperature?",
+];
+
+/** One row of the Rules filter builder: a conjunction + field/op/value dropdowns. */
+export interface RuleFilter {
+	conj: "Where" | "And";
+	entity: string;
+	field: string;
+	op: string;
+	value?: string;
+}
+
+/** The faux Where/And filter stack shown in the Rules panel (mirrors the validation frames). */
+export const RULE_FILTERS: RuleFilter[] = [
+	{ conj: "Where", entity: "WeatherObserved", field: "dataProvider", op: "Must have value" },
+	{ conj: "And", entity: "Attribute", field: "hasValue", op: "Minimum", value: "Select value" },
+];
+
 /** Force-simulation sliders in the Settings tab. */
 export const SIM_PARAMS = [
 	{
