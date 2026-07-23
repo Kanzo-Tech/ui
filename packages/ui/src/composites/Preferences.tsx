@@ -305,10 +305,11 @@ function Segmented<T extends string>({
       value={value}
       onValueChange={(d) => d.value && onValueChange(d.value as T)}
       aria-label={label}
-      className="flex flex-wrap rounded-md bg-muted p-1"
+      className="flex-wrap"
+      variant="solid"
     >
       {options.map((o) => (
-        <SegmentGroupItem key={o.value} value={o.value} className="flex-1 px-3 py-1.5">
+        <SegmentGroupItem key={o.value} value={o.value} className="px-3 py-1.5">
           <SegmentGroupItemText className="flex items-center justify-center gap-2 text-sm font-medium">
             {o.label}
           </SegmentGroupItemText>

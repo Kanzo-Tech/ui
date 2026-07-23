@@ -9,7 +9,7 @@ import { cn } from "../lib/cn";
 
 export const useSegmentGroup = useSegmentGroupContext;
 
-type SegmentGroupVariant = "default" | "underline";
+type SegmentGroupVariant = "default" | "underline" | "solid";
 
 interface SegmentGroupProps
   extends React.ComponentProps<typeof ArkSegmentGroup.Root> {
@@ -41,6 +41,9 @@ export const SegmentGroup = (props: SegmentGroupProps) => {
         "data-[variant=underline]:gap-1 data-[variant=underline]:border-input",
         "data-[orientation=horizontal]:data-[variant=underline]:border-b",
         "data-[orientation=vertical]:data-[variant=underline]:border-l",
+        // `solid`: a filled `bg-muted` track with equal-width segments — the contained
+        // "segmented control" look, so consumers stop hand-rolling the track each time.
+        "data-[variant=solid]:rounded-md data-[variant=solid]:bg-muted data-[variant=solid]:p-1",
         className
       )}
       data-slot="segment-group"
@@ -66,6 +69,7 @@ export const SegmentGroupItem = (
         "relative",
         "cursor-pointer",
         "data-[orientation=vertical]:w-full data-[orientation=vertical]:justify-start",
+        "group-data-[variant=solid]/segment-group:flex-1 group-data-[variant=solid]/segment-group:justify-center",
         "rounded-[inherit] border border-transparent",
         "outline-none data-focus-visible:border-primary data-focus-visible:ring-[3px] data-focus-visible:ring-ring/32",
         "data-disabled:pointer-events-none data-disabled:opacity-64",

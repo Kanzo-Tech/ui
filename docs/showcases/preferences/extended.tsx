@@ -38,9 +38,10 @@ export function PreferencesExtendedShowcase() {
             <PreferencesField label="Sidebar side">
               <SegmentGroup
                 aria-label="Sidebar side"
-                className="w-full rounded-md bg-muted p-1"
+                className="w-full"
                 onValueChange={(d) => d.value && setSidebarSide(d.value as SidebarSide)}
                 value={sidebarSide}
+                variant="solid"
               >
                 {(
                   [
@@ -48,11 +49,7 @@ export function PreferencesExtendedShowcase() {
                     ["end", "End"],
                   ] as const
                 ).map(([value, label]) => (
-                  <SegmentGroupItem
-                    className="flex-1 justify-center px-2 py-1"
-                    key={value}
-                    value={value}
-                  >
+                  <SegmentGroupItem className="px-2 py-1" key={value} value={value}>
                     <SegmentGroupItemText className="font-medium text-xs">
                       {label}
                     </SegmentGroupItemText>
