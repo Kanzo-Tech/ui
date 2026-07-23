@@ -70,6 +70,15 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  TagsInput,
+  TagsInputContext,
+  TagsInputControl,
+  TagsInputInput,
+  TagsInputItem,
+  TagsInputItemDeleteTrigger,
+  TagsInputItemInput,
+  TagsInputItemPreview,
+  TagsInputItemText,
   Textarea,
   TextField,
 } from "@kanzo-tech/ui";
@@ -454,27 +463,36 @@ export function MetadataFormShowcase() {
         label="Keywords"
         predicate="dcat:keyword"
       >
-        {() => (
-          <div className="flex flex-col gap-2">
-            {values.keywords.length > 0 && (
-              <FieldArray
-                canAdd={false}
-                count={values.keywords.length}
-                onAdd={() => addEntry("keywords", "k")}
-                onRemove={(i) => removeEntry("keywords", i)}
-                rowKey={(i) => values.keywords[i].id}
-              >
-                {(i) => (
-                  <TextField
-                    onChange={(e) => setEntry("keywords", i, e.target.value)}
-                    placeholder="keyword"
-                    value={values.keywords[i].value}
-                  />
-                )}
-              </FieldArray>
-            )}
-            <AddButton onClick={() => addEntry("keywords", "k")} />
-          </div>
+        {(invalid) => (
+          // TagsInput owns the chips + add; the SuggestMenu above writes into the same
+          // `keywords` state, so the ✨ and typing feed one list. No hand-rolled FieldArray.
+          <TagsInput
+            invalid={invalid}
+            onValueChange={(d) =>
+              setValues((p) => ({
+                ...p,
+                keywords: d.value.map((v) => ({ id: uid("k"), value: v })),
+              }))
+            }
+            value={values.keywords.map((k) => k.value)}
+          >
+            <TagsInputControl>
+              <TagsInputContext>
+                {(api) =>
+                  api.value.map((value, index) => (
+                    <TagsInputItem index={index} key={`${value}-${index}`} value={value}>
+                      <TagsInputItemPreview>
+                        <TagsInputItemText>{value}</TagsInputItemText>
+                        <TagsInputItemDeleteTrigger />
+                      </TagsInputItemPreview>
+                      <TagsInputItemInput />
+                    </TagsInputItem>
+                  ))
+                }
+              </TagsInputContext>
+              <TagsInputInput placeholder="Add keyword…" />
+            </TagsInputControl>
+          </TagsInput>
         )}
       </FieldFrame>
 
