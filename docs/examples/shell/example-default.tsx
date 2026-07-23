@@ -1,23 +1,23 @@
+"use client";
+
 import { PanelLeftIcon, PanelRightIcon } from "lucide-react";
+import { useState } from "react";
 import {
-  Button,
   ShellAside,
   ShellBody,
   ShellFooter,
   ShellHeader,
   ShellMain,
   ShellRoot,
+  Toggle,
 } from "@kanzo-tech/ui";
 
-/**
- * All six regions at once, each labelled with what it is — the page documents the vocabulary,
- * so the example has to show the whole vocabulary rather than one strip of it.
- *
- * Every visible style here (heights, the surfaces, the type) is applied at THIS call site. The
- * regions themselves impose none of it: they place their children and draw the border that
- * separates them from their neighbour, and nothing else.
- */
+// All six regions at once; the two header Toggles show/hide the side asides. Every visible style
+// is applied at THIS call site — the regions place their children and draw the border, nothing more.
 export default function Example() {
+  const [navOpen, setNavOpen] = useState(true);
+  const [inspectorOpen, setInspectorOpen] = useState(true);
+
   return (
     // `h-[26rem]` rather than ShellRoot's own `h-dvh`: this is a framed demo inside a docs
     // page, not a shell that owns the viewport. A real one keeps `h-dvh`.
@@ -25,28 +25,40 @@ export default function Example() {
       <ShellHeader className="h-11 flex-row items-center justify-between gap-2 bg-card px-3">
         <span className="font-medium text-sm">ShellHeader</span>
         <div className="flex items-center gap-1">
-          <Button aria-label="Toggle navigation" size="icon-sm" variant="ghost">
+          <Toggle
+            aria-label="Toggle navigation"
+            onPressedChange={setNavOpen}
+            pressed={navOpen}
+            size="sm"
+          >
             <PanelLeftIcon />
-          </Button>
-          <Button aria-label="Toggle inspector" size="icon-sm" variant="ghost">
+          </Toggle>
+          <Toggle
+            aria-label="Toggle inspector"
+            onPressedChange={setInspectorOpen}
+            pressed={inspectorOpen}
+            size="sm"
+          >
             <PanelRightIcon />
-          </Button>
+          </Toggle>
         </div>
       </ShellHeader>
 
       <ShellBody>
-        <ShellAside
-          aria-label="Navigation"
-          className="justify-center p-3 text-center"
-          side="start"
-          width={180}
-        >
-          <span className="font-medium text-muted-foreground text-xs">
-            ShellAside
-            <br />
-            side=&quot;start&quot;
-          </span>
-        </ShellAside>
+        {navOpen && (
+          <ShellAside
+            aria-label="Navigation"
+            className="justify-center p-3 text-center"
+            side="start"
+            width={180}
+          >
+            <span className="font-medium text-muted-foreground text-xs">
+              ShellAside
+              <br />
+              side=&quot;start&quot;
+            </span>
+          </ShellAside>
+        )}
 
         {/* The one <main> on the page. Nested containers use <section> — see Section. */}
         <ShellMain className="items-center justify-center bg-muted/24 p-4">
@@ -56,18 +68,20 @@ export default function Example() {
           </span>
         </ShellMain>
 
-        <ShellAside
-          aria-label="Inspector"
-          className="justify-center p-3 text-center"
-          side="end"
-          width={180}
-        >
-          <span className="font-medium text-muted-foreground text-xs">
-            ShellAside
-            <br />
-            side=&quot;end&quot;
-          </span>
-        </ShellAside>
+        {inspectorOpen && (
+          <ShellAside
+            aria-label="Inspector"
+            className="justify-center p-3 text-center"
+            side="end"
+            width={180}
+          >
+            <span className="font-medium text-muted-foreground text-xs">
+              ShellAside
+              <br />
+              side=&quot;end&quot;
+            </span>
+          </ShellAside>
+        )}
       </ShellBody>
 
       <ShellFooter className="h-7 flex-row items-center bg-card px-3">

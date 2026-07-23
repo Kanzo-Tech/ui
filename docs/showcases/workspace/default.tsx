@@ -6,6 +6,10 @@ import {
 	Badge,
 	Breadcrumbs,
 	Button,
+	InputGroup,
+	InputGroupAddon,
+	InputGroupButton,
+	InputGroupInput,
 	InstanceSwitcher,
 	Resizable,
 	ResizablePanel,
@@ -29,8 +33,11 @@ import {
 	Skeleton,
 	Slider,
 	Switch,
+	TextField,
 	Toaster,
 	toast,
+	ToggleGroup,
+	ToggleGroupItem,
 } from "@kanzo-tech/ui";
 import {
 	BarChart3Icon,
@@ -191,13 +198,11 @@ function InfoTab() {
 	return (
 		<div className="flex h-full flex-col">
 			<div className="shrink-0 border-b border-border p-2">
-				<div className="flex items-center gap-1.5 rounded-md border border-input bg-background px-2.5">
-					<SearchIcon className="size-3.5 shrink-0 text-muted-foreground" />
-					<input
-						className="min-w-0 flex-1 bg-transparent py-1.5 text-xs outline-none placeholder:text-muted-foreground/64"
-						placeholder="Search entities…"
-					/>
-				</div>
+				<TextField
+					iconStart={<SearchIcon className="size-3.5" />}
+					placeholder="Search entities…"
+					size="sm"
+				/>
 			</div>
 			<ScrollArea className="min-h-0 flex-1 p-3">
 				<div className="space-y-3">
@@ -235,27 +240,22 @@ function AskTab() {
 					<p className="text-muted-foreground text-xs">Ask about your data</p>
 					<div className="flex flex-wrap justify-center gap-1.5">
 						{ASK_SUGGESTIONS.map((s) => (
-							<button
-								className="rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
-								key={s}
-								type="button"
-							>
+							<Button key={s} pill size="sm" variant="outline">
 								{s}
-							</button>
+							</Button>
 						))}
 					</div>
 				</div>
 			</ScrollArea>
 			<div className="shrink-0 border-t border-border p-2">
-				<div className="flex items-center gap-1 rounded-md border border-input bg-background ps-2.5">
-					<input
-						className="min-w-0 flex-1 bg-transparent py-1.5 text-xs outline-none placeholder:text-muted-foreground/64"
-						placeholder="Ask about your data…"
-					/>
-					<Button size="icon-sm" variant="ghost">
-						<SendIcon />
-					</Button>
-				</div>
+				<InputGroup size="sm">
+					<InputGroupInput placeholder="Ask about your data…" />
+					<InputGroupAddon align="inline-end">
+						<InputGroupButton aria-label="Send" variant="ghost">
+							<SendIcon />
+						</InputGroupButton>
+					</InputGroupAddon>
+				</InputGroup>
 			</div>
 		</div>
 	);
@@ -449,17 +449,6 @@ export function WorkspaceShowcase() {
 	const [active, setActive] = useState<PanelId>("info");
 	const [panelOpen, setPanelOpen] = useState(true);
 
-	// IDE toggle: clicking the active panel's footer icon collapses the dock; clicking another
-	// switches to it (opening the dock if it was collapsed).
-	const selectPanel = (id: PanelId) => {
-		if (panelOpen && id === active) {
-			setPanelOpen(false);
-		} else {
-			setActive(id);
-			setPanelOpen(true);
-		}
-	};
-
 	const ActiveBody = PANEL_BODY[active];
 	const activeLabel = PANELS.find((p) => p.id === active)?.label ?? "";
 
@@ -583,30 +572,37 @@ export function WorkspaceShowcase() {
 					)}
 				</ShellBody>
 
-				<ShellFooter className="h-7 flex-row items-center justify-between px-3">
-					<span className="text-muted-foreground text-xs tabular-nums">
+				<ShellFooter className="h-8 flex-row items-center justify-between px-2">
+					<span className="px-1 text-muted-foreground text-xs tabular-nums">
 						5,021 nodes · 4,997 edges
 					</span>
-					<div className="flex items-center gap-0.5">
-						{PANELS.map((p) => {
-							const isActive = panelOpen && p.id === active;
-							return (
-								<Button
-									aria-label={p.label}
-									aria-pressed={isActive}
-									className={
-										isActive ? "text-foreground" : "text-muted-foreground"
-									}
-									key={p.id}
-									onClick={() => selectPanel(p.id)}
-									size="icon-sm"
-									variant="ghost"
-								>
-									<p.icon />
-								</Button>
-							);
-						})}
-					</div>
+					{/* The panel switcher is a single-select, DESELECTABLE ToggleGroup, not a Button
+					    row and not Tabs: one panel shows at a time and clicking the active icon again
+					    collapses the dock (value → none) — a state Tabs cannot express. The machine
+					    owns the pressed state and roving focus; the old Button row hand-rolled
+					    `aria-pressed`. `value` mirrors the two state atoms: `[active]` open, `[]` shut. */}
+					<ToggleGroup
+						aria-label="Panels"
+						multiple={false}
+						onValueChange={(d) => {
+							const next = d.value[0] as PanelId | undefined;
+							if (next) {
+								setActive(next);
+								setPanelOpen(true);
+							} else {
+								setPanelOpen(false);
+							}
+						}}
+						size="sm"
+						spacing={2}
+						value={panelOpen ? [active] : []}
+					>
+						{PANELS.map((p) => (
+							<ToggleGroupItem aria-label={p.label} key={p.id} value={p.id}>
+								<p.icon />
+							</ToggleGroupItem>
+						))}
+					</ToggleGroup>
 				</ShellFooter>
 			</SidebarInset>
 			<Toaster />

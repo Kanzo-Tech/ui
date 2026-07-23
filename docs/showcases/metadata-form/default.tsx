@@ -1,6 +1,14 @@
 "use client";
 
-import { createContext, Fragment, type ReactNode, useContext, useMemo, useState } from "react";
+import {
+  createContext,
+  Fragment,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   Badge,
   Button,
@@ -261,8 +269,10 @@ function PanelShell({
   return (
     <>
       <div className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
-        <span className="font-medium text-sm">{title}</span>
-        <span className="text-muted-foreground text-xs">{subtitle}</span>
+        <div className="flex min-w-0 items-baseline gap-2">
+          <span className="font-medium text-sm">{title}</span>
+          <span className="truncate text-muted-foreground text-xs">{subtitle}</span>
+        </div>
         <Button
           aria-label={`Close ${title}`}
           className="ms-auto text-muted-foreground"
@@ -305,6 +315,29 @@ export function MetadataFormShowcase() {
   // trailing edge. Either, both, or neither — the form takes whatever width is left.
   const [sourceOpen, setSourceOpen] = useState(false);
   const [outputOpen, setOutputOpen] = useState(false);
+
+  // `s` / `o` toggle the two panels — bare-key hotkeys, the same convention `PreferencesRoot`
+  // uses for `p` (ignored while a field is focused so typing an "s" never opens a drawer).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = document.activeElement;
+      const typing =
+        el instanceof HTMLElement &&
+        (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+      if (typing) return;
+      const key = e.key.toLowerCase();
+      if (key === "s") {
+        e.preventDefault();
+        setSourceOpen((o) => !o);
+      } else if (key === "o") {
+        e.preventDefault();
+        setOutputOpen((o) => !o);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // Tabs / Steps share the active group so the step nav stays in sync with the tab bar.
   const [activeGroup, setActiveGroup] = useState<GroupId>("general");
@@ -1020,6 +1053,7 @@ export function MetadataFormShowcase() {
               <Badge size="xs" variant="secondary">
                 {SHAPE_COUNT}
               </Badge>
+              <Kbd>S</Kbd>
             </Button>
 
             {/* Output — the generated serialisation. Toggles the TRAILING aside, independently. */}
@@ -1034,6 +1068,7 @@ export function MetadataFormShowcase() {
               <Badge size="xs" variant="secondary">
                 {tripleCount(values)}
               </Badge>
+              <Kbd>O</Kbd>
             </Button>
 
             {/* Validation summary — a Badge that reveals every failing field on hover. */}
