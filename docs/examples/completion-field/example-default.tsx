@@ -1,6 +1,6 @@
 "use client";
 
-import { GhostEditor } from "@kanzo-tech/ui/editor";
+import { CompletionField } from "@kanzo-tech/ui/editor";
 import { useState } from "react";
 
 // A canned continuation, streamed a few characters at a time. A real call site yields straight
@@ -27,7 +27,7 @@ export default function Example() {
 
   return (
     <div className="w-full max-w-md">
-      <GhostEditor
+      <CompletionField
         complete={complete}
         onChange={setValue}
         placeholder="Describe the dataset…"

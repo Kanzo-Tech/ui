@@ -1,13 +1,13 @@
 ---
-title: GhostEditor
+title: CompletionField
 description: A text field that completes as you type. Tab accepts, Esc dismisses — and the library never calls a model.
 ---
 
 <Callout type="warn">
-`GhostEditor` is imported from a subpath, not the root barrel:
+`CompletionField` is imported from a subpath, not the root barrel:
 
 ```tsx
-import { GhostEditor } from "@kanzo-tech/ui/editor";
+import { CompletionField } from "@kanzo-tech/ui/editor";
 ```
 
 It is built on CodeMirror, whose packages are **optional peers**. A static import from the root
@@ -15,7 +15,7 @@ entry would break `import { Button }` for everyone who has not installed them. T
 distribution constraint, not a statement about what the component is — see below.
 </Callout>
 
-<ComponentPreview componentName="ghost-editor" />
+<ComponentPreview componentName="completion-field" />
 
 ## What it is
 
@@ -36,7 +36,7 @@ you want [`CodeEditor`](/docs/composites/code-editor). The two share an engine a
 ## Usage
 
 ```tsx
-<GhostEditor
+<CompletionField
   complete={complete}
   onChange={setDescription}
   placeholder="Describe the dataset…"

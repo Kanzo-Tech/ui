@@ -10,7 +10,7 @@
 // with its own state, chrome and optional batteries.
 export { CodeEditor, kanzoHighlightStyle, kanzoHighlighting } from "./composites/CodeEditor.js";
 export type { CodeEditorProps } from "./composites/CodeEditor.js";
-// GhostEditor is CodeMirror-backed too, so it belongs behind the same optional-peer boundary
+// CompletionField is CodeMirror-backed too, so it belongs behind the same optional-peer boundary
 // rather than in the root barrel.
-export { GhostEditor } from "./composites/GhostEditor.js";
-export type { GhostEditorProps } from "./composites/GhostEditor.js";
+export { CompletionField } from "./composites/CompletionField.js";
+export type { CompletionFieldProps } from "./composites/CompletionField.js";

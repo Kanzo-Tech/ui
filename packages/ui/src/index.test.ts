@@ -23,6 +23,6 @@ describe("@kanzo-tech/ui public surface", () => {
     // They live on @kanzo-tech/ui/editor.
     const surface = UI as Record<string, unknown>;
     expect(surface.CodeEditor).toBeUndefined();
-    expect(surface.GhostEditor).toBeUndefined();
+    expect(surface.CompletionField).toBeUndefined();
   });
 });

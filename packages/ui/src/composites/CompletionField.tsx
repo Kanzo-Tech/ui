@@ -111,7 +111,7 @@ const theme = EditorView.theme({
   ".cm-placeholder": { color: "var(--muted-foreground)" },
 });
 
-export interface GhostEditorProps {
+export interface CompletionFieldProps {
   value: string | null;
   onChange: (value: string | null) => void;
   /** Streaming inline completion — yields continuation chunks; pass an `AbortSignal`
@@ -122,7 +122,7 @@ export interface GhostEditorProps {
   placeholder?: string;
 }
 
-export function GhostEditor(p: GhostEditorProps) {
+export function CompletionField(p: CompletionFieldProps) {
   const container = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView>(undefined);
   const [focused, setFocused] = useState(false);

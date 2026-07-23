@@ -64,8 +64,8 @@ Two composites both render navigation, and the difference is structural:
 
 | Component | Shape | Use it for |
 |---|---|---|
-| [`SidebarNav`](/docs/sidebar/sidebar-nav) | A flat list, where any entry may expand into sub-items | Application navigation — the main menu |
-| [`SectionNav`](/docs/sidebar/section-nav) | Several titled groups, each a headed block | Settings-style navigation, or a long list that needs headings |
+| [`SidebarNav`](/docs/sidebar/sidebar-nav) — the **Menu** | A flat list, where any entry may expand into sub-items | Application navigation — the main menu |
+| [`SectionNav`](/docs/sidebar/section-nav) — **Sections** | Several titled groups, each a headed block | Settings-style navigation, or a long list that needs headings |
 
 Both are **domain-free and router-free**. Neither imports `next/link` or reads the current URL:
 `SidebarNav` takes `isActive` per item, `SectionNav` takes an `activePath` and computes it.

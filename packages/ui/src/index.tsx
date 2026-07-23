@@ -189,8 +189,8 @@ export type {
   StatCardValueProps,
   StatCardDescriptionProps,
 } from "./composites/StatCard.js";
-export { MadeWithKanzo } from "./composites/MadeWithKanzo.js";
-export type { MadeWithKanzoProps } from "./composites/MadeWithKanzo.js";
+export { MadeWith } from "./composites/MadeWith.js";
+export type { MadeWithProps } from "./composites/MadeWith.js";
 export { Breadcrumbs } from "./composites/Breadcrumbs.js";
 export type {
   BreadcrumbsProps,

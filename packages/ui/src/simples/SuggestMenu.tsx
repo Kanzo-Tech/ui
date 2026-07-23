@@ -30,7 +30,7 @@ const norm = (v: string) => v.trim().toLowerCase();
 const VISIBLE = 3;
 
 export interface SuggestMenuProps {
-  /** Streamed candidates. Named `suggest` to sit alongside `GhostEditor`'s `complete`, and
+  /** Streamed candidates. Named `suggest` to sit alongside `CompletionField`'s `complete`, and
    *  because `fetch` shadowed the global while saying nothing about what it returns. */
   suggest: (signal?: AbortSignal) => AsyncIterable<Suggestion>;
   /** Current values — suggestions equal to one of these (case-insensitive) are dropped. */

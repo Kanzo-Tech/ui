@@ -3,7 +3,7 @@ title: AI-assisted fields
 description: Two controls take suggestions from a model. Neither of them knows what a model is — you pass a stream.
 ---
 
-Two fields in this library can be filled by a model: [`GhostEditor`](/docs/forms/ghost-editor)
+Two fields in this library can be filled by a model: [`CompletionField`](/docs/forms/completion-field)
 completes as you type, [`SuggestMenu`](/docs/forms/suggest-menu) offers candidates on demand.
 They share one contract, and it is worth understanding once rather than twice.
 
@@ -12,7 +12,7 @@ They share one contract, and it is worth understanding once rather than twice.
 Both take a **function that returns an async iterable**, and cancel it with an `AbortSignal`:
 
 ```tsx
-// GhostEditor — yields continuation chunks of one value
+// CompletionField — yields continuation chunks of one value
 complete: (value: string, signal?: AbortSignal) => AsyncIterable<string>
 
 // SuggestMenu — yields discrete candidates
@@ -63,7 +63,7 @@ async function* complete(value: string, signal?: AbortSignal) {
 ```
 
 <Callout type="info">
-`GhostEditor` yields **continuation chunks** — what comes *after* the current text, not the
+`CompletionField` yields **continuation chunks** — what comes *after* the current text, not the
 whole value rewritten. `SuggestMenu` yields **whole candidates**, one object per row. The
 difference is why the two signatures are not identical: one is completing a single value, the
 other is producing a list.
@@ -71,7 +71,7 @@ other is producing a list.
 
 ## Which one
 
-| | `GhostEditor` | `SuggestMenu` |
+| | `CompletionField` | `SuggestMenu` |
 |---|---|---|
 | Shape | A textarea | A button beside a field |
 | Trigger | Types as you type | Opens on click |
@@ -79,14 +79,14 @@ other is producing a list.
 | Accepting | Tab | Click a row |
 | Use for | Prose, descriptions, free text | Picking a value: a term, a class, an identifier |
 
-Reach for `GhostEditor` when the user is writing and a continuation helps. Reach for
+Reach for `CompletionField` when the user is writing and a continuation helps. Reach for
 `SuggestMenu` when the user is choosing and needs options they did not have to think of.
 
 ## What neither of them does
 
 - **They do not validate.** A suggestion is a value like any other; the field's own validation
   applies unchanged. See [Validation](/docs/forms/validation).
-- **They do not persist or debounce your commit.** `GhostEditor` debounces its *request*, not
+- **They do not persist or debounce your commit.** `CompletionField` debounces its *request*, not
   your save. What you do with the value is yours.
 - **They do not explain themselves to assistive tech beyond the basics.** If a suggestion is
   material to the task, announce it — an `aria-live` region alongside the field is the usual
