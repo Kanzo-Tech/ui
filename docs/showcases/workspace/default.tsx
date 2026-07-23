@@ -1,359 +1,449 @@
 "use client";
 
-import { useState, type ComponentProps } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
-  Badge,
-  Breadcrumbs,
-  Button,
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarRail,
-  SidebarTrigger,
-  Toaster,
-  Resizable,
-  ResizablePanel,
-  ResizableResizeTrigger,
-  ShellFooter,
-  ShellHeader,
-  ToggleGroup,
-  ToggleGroupItem,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  TreeView,
-  TreeViewBranch,
-  TreeViewBranchContent,
-  TreeViewBranchItem,
-  TreeViewContent,
-  TreeViewItem,
-  TreeViewNode,
-  TreeViewTree,
-  createTreeCollection,
-  toast,
+	Badge,
+	Breadcrumbs,
+	Button,
+	ScrollArea,
+	ShellHeader,
+	ShellMain,
+	ShellRoot,
+	Slider,
+	Switch,
+	Tabs,
+	TabsContent,
+	TabsList,
+	TabsTrigger,
 } from "@kanzo-tech/ui";
-import { CodeEditor } from "@kanzo-tech/ui/editor";
-import { json } from "@codemirror/lang-json";
 import {
-  ArrowLeftIcon,
-  CodeIcon,
-  DatabaseIcon,
-  FileTextIcon,
-  ListIcon,
-  PlayIcon,
-  SearchIcon,
-  TriangleAlertIcon,
+	ArrowLeftIcon,
+	BarChart3Icon,
+	ChevronDownIcon,
+	ChevronUpIcon,
+	InfoIcon,
+	MessageCircleIcon,
+	PanelRightCloseIcon,
+	PanelRightOpenIcon,
+	SendIcon,
+	Settings2Icon,
+	ShieldCheckIcon,
 } from "lucide-react";
-import { SAMPLE_MAPPING } from "./data";
-
-interface Node {
-  id: string;
-  name: string;
-  children?: Node[];
-}
-
-const tree = createTreeCollection<Node>({
-  nodeToValue: (n) => n.id,
-  nodeToString: (n) => n.name,
-  rootNode: {
-    id: "ROOT",
-    name: "",
-    children: [
-      {
-        id: "shapes",
-        name: "shapes",
-        children: [
-          { id: "dataset.shex", name: "dataset.shex" },
-          { id: "distribution.shex", name: "distribution.shex" },
-        ],
-      },
-      {
-        id: "mappings",
-        name: "mappings",
-        children: [
-          { id: "aemet.fossil", name: "aemet.fossil" },
-          { id: "crm.fossil", name: "crm.fossil" },
-        ],
-      },
-      { id: "catalog.ttl", name: "catalog.ttl" },
-    ],
-  },
-});
+import {
+	GRAPH_EDGES,
+	GRAPH_NODES,
+	HISTOGRAM_FIELDS,
+	type NodeKind,
+	SELECTED_NODE,
+	SIM_PARAMS,
+	type SimKey,
+} from "./data";
 
 /**
- * The two-sided IDE at full viewport: the Sidebar as the explorer, a canvas plus resizable
- * dock built from Ark's Splitter, a real CodeMirror editor on the canvas, and a status strip
- * driving the panels.
- *
- * This used to be the `WorkspaceLayout` component. It is a SHOWCASE now, which is the point:
- * the arrangement is specific to an IDE-shaped product, and so are the things it carries —
- * panel state, the dense 11px chrome, which panel is open. The library ships the regions; this
- * file shows one way to arrange them.
+ * A data-discovery workspace at full viewport, mirroring keasy's discovery screen: a graph canvas
+ * fills the frame, a floating glass inspector overlays it on the trailing edge (resizable, with
+ * Info / Ask / Rules / Settings tabs), and a collapsible distributions strip sits along the
+ * bottom. The library ships the regions and the parts; the graph itself is a placeholder — the
+ * design system has no graph engine, and that boundary is the point of a showcase.
  */
-const PANELS = [
-  { id: "outline", icon: <ListIcon />, label: "Outline" },
-  { id: "issues", icon: <TriangleAlertIcon />, label: "Issues" },
-  { id: "preview", icon: <DatabaseIcon />, label: "Preview" },
-];
 
-/** The dock's own header strip. Was `PanelHeader` in WorkspaceLayout, which duplicated the
- *  toolbar recipe by copy; here it is just the same classes, in the one place that uses them. */
-function PanelHeader({ title }: { title: string }) {
-  return (
-    <ShellHeader className="h-8 flex-row items-center px-2 text-[11px] text-muted-foreground">
-      <span className="font-medium">{title}</span>
-    </ShellHeader>
-  );
+const KIND_FILL: Record<NodeKind, string> = {
+	dataset: "var(--primary)",
+	distribution: "var(--info)",
+	keyword: "var(--muted-foreground)",
+	entity: "var(--foreground)",
+};
+
+function GraphCanvas() {
+	const byId = useMemo(() => new Map(GRAPH_NODES.map((n) => [n.id, n])), []);
+	return (
+		<div
+			className="absolute inset-0"
+			style={{
+				backgroundImage:
+					"radial-gradient(var(--border) 0.5px, transparent 0.5px)",
+				backgroundSize: "18px 18px",
+			}}
+		>
+			<svg
+				className="h-full w-full"
+				preserveAspectRatio="xMidYMid meet"
+				role="img"
+				aria-label="Knowledge graph"
+				viewBox="0 0 200 140"
+			>
+				{GRAPH_EDGES.map((e) => {
+					const a = byId.get(e.from);
+					const b = byId.get(e.to);
+					if (!a || !b) return null;
+					return (
+						<line
+							key={`${e.from}-${e.to}`}
+							stroke="var(--border)"
+							strokeWidth={0.6}
+							x1={a.x}
+							x2={b.x}
+							y1={a.y}
+							y2={b.y}
+						/>
+					);
+				})}
+				{GRAPH_NODES.map((n) => (
+					<g key={n.id}>
+						{n.id === "dataset" && (
+							// The selected vertex — a primary ring, the same node the Info tab inspects.
+							<circle
+								cx={n.x}
+								cy={n.y}
+								fill="none"
+								r={n.r + 3}
+								stroke="var(--primary)"
+								strokeWidth={1}
+							/>
+						)}
+						<circle
+							cx={n.x}
+							cy={n.y}
+							fill={KIND_FILL[n.kind]}
+							opacity={n.kind === "keyword" ? 0.7 : 0.9}
+							r={n.r}
+						/>
+						<text
+							className="text-[5px]"
+							fill="var(--muted-foreground)"
+							textAnchor="middle"
+							x={n.x}
+							y={n.y + n.r + 5}
+						>
+							{n.label}
+						</text>
+					</g>
+				))}
+			</svg>
+		</div>
+	);
+}
+
+function MiniHistogram({ name, bars }: { name: string; bars: number[] }) {
+	return (
+		<div className="w-40 shrink-0 rounded-md border bg-card p-2">
+			<p className="mb-1.5 truncate font-medium text-[10px] text-muted-foreground">
+				{name}
+			</p>
+			<div className="flex h-10 items-end gap-0.5">
+				{bars.map((h, i) => (
+					<div
+						className="flex-1 rounded-t-[1px] bg-primary/70"
+						key={i}
+						style={{ height: `${Math.max(6, h * 100)}%` }}
+					/>
+				))}
+			</div>
+		</div>
+	);
+}
+
+function InfoTab() {
+	return (
+		<ScrollArea className="h-full p-3">
+			<div className="space-y-3">
+				<div>
+					<p className="truncate font-medium text-sm">{SELECTED_NODE.label}</p>
+					<p className="mt-0.5 break-all text-muted-foreground text-xs">
+						{SELECTED_NODE.id}
+					</p>
+					<Badge className="mt-1 text-[10px]" size="xs" variant="outline">
+						{SELECTED_NODE.type}
+					</Badge>
+				</div>
+				<dl className="space-y-2 text-sm">
+					{SELECTED_NODE.properties.map((p) => (
+						<div className="flex flex-col gap-0.5" key={p.predicate}>
+							<dt className="font-medium text-muted-foreground text-xs">
+								{p.predicate}
+							</dt>
+							<dd className="break-all">{p.value}</dd>
+						</div>
+					))}
+				</dl>
+			</div>
+		</ScrollArea>
+	);
+}
+
+function AskTab() {
+	return (
+		<div className="flex h-full flex-col">
+			<ScrollArea className="flex-1 p-3">
+				<div className="space-y-2 text-xs">
+					<div className="ms-auto w-fit max-w-[85%] rounded-lg rounded-ee-sm bg-primary px-3 py-1.5 text-primary-foreground">
+						Which datasets mention weather?
+					</div>
+					<div className="w-fit max-w-[90%] rounded-lg rounded-es-sm bg-muted px-3 py-1.5">
+						Three datasets are tagged <code>weather</code>. Highlighted on the
+						graph.
+					</div>
+				</div>
+			</ScrollArea>
+			<div className="border-t p-2">
+				<div className="flex items-center gap-1 rounded-md border bg-background ps-2.5">
+					<input
+						className="min-w-0 flex-1 bg-transparent py-1.5 text-xs outline-none placeholder:text-muted-foreground/64"
+						placeholder="Ask about your graph…"
+					/>
+					<Button size="icon-sm" variant="ghost">
+						<SendIcon />
+					</Button>
+				</div>
+			</div>
+		</div>
+	);
+}
+
+function RulesTab() {
+	const rules = [
+		"Every Dataset has a dct:title",
+		"dcat:keyword is not empty",
+		"dct:issued is a valid xsd:date",
+	];
+	return (
+		<ScrollArea className="h-full p-3">
+			<div className="space-y-2">
+				<p className="text-muted-foreground text-xs">
+					Validation rules run over the graph.
+				</p>
+				{rules.map((r) => (
+					<div
+						className="flex items-center gap-2 rounded-md border p-2 text-xs"
+						key={r}
+					>
+						<ShieldCheckIcon className="size-3.5 shrink-0 text-success" />
+						<span className="min-w-0 flex-1">{r}</span>
+						<Badge size="xs" variant="success">
+							pass
+						</Badge>
+					</div>
+				))}
+			</div>
+		</ScrollArea>
+	);
+}
+
+function SettingsTab() {
+	const [sim, setSim] = useState<Record<SimKey, number>>(
+		() =>
+			Object.fromEntries(SIM_PARAMS.map((p) => [p.key, p.default])) as Record<
+				SimKey,
+				number
+			>,
+	);
+	const [showLinks, setShowLinks] = useState(true);
+	const [scaleOnZoom, setScaleOnZoom] = useState(true);
+
+	return (
+		<ScrollArea className="h-full p-3">
+			<div className="space-y-4">
+				<p className="font-medium text-muted-foreground text-xs">Simulation</p>
+				{SIM_PARAMS.map((p) => (
+					<div className="space-y-1" key={p.key}>
+						<div className="flex items-center justify-between">
+							<span className="text-xs">{p.label}</span>
+							<span className="text-[10px] text-muted-foreground tabular-nums">
+								{sim[p.key].toFixed(p.step >= 1 ? 0 : 2)}
+							</span>
+						</div>
+						<Slider
+							max={p.max}
+							min={p.min}
+							onValueChange={(d) =>
+								setSim((prev) => ({ ...prev, [p.key]: d.value[0] }))
+							}
+							step={p.step}
+							value={[sim[p.key]]}
+						/>
+					</div>
+				))}
+
+				<div className="space-y-3 pt-2">
+					<p className="font-medium text-muted-foreground text-xs">Display</p>
+					<div className="flex items-center justify-between">
+						<span className="text-xs">Show links</span>
+						<Switch
+							checked={showLinks}
+							onCheckedChange={(d) => setShowLinks(d.checked)}
+						/>
+					</div>
+					<div className="flex items-center justify-between">
+						<span className="text-xs">Scale on zoom</span>
+						<Switch
+							checked={scaleOnZoom}
+							onCheckedChange={(d) => setScaleOnZoom(d.checked)}
+						/>
+					</div>
+				</div>
+
+				<Button
+					className="w-full text-xs"
+					onClick={() => {
+						setSim(
+							Object.fromEntries(
+								SIM_PARAMS.map((p) => [p.key, p.default]),
+							) as Record<SimKey, number>,
+						);
+						setShowLinks(true);
+						setScaleOnZoom(true);
+					}}
+					size="sm"
+					variant="outline"
+				>
+					Reset defaults
+				</Button>
+			</div>
+		</ScrollArea>
+	);
 }
 
 export function WorkspaceShowcase() {
-  const [source, setSource] = useState(SAMPLE_MAPPING);
-  // Panel state is the SHOWCASE's, not the library's. WorkspaceLayout used to own this plus
-  // localStorage persistence, a portal into the status bar and a global Escape listener — all
-  // product concerns, which is why they live here now and not behind a component API.
-  const [panel, setPanel] = useState<string | null>("outline");
+	const [panelOpen, setPanelOpen] = useState(true);
+	const [panelWidth, setPanelWidth] = useState(360);
+	const [histOpen, setHistOpen] = useState(true);
+	const dragRef = useRef<{ startX: number; startW: number } | null>(null);
 
-  return (
-    // `h-svh`: SidebarProvider defaults to `min-h-svh` (right for page-scrolling apps), but a
-    // shell that owns the viewport needs a RESOLVED height — the splitter sizes itself with
-    // `height: 100%`, and a percentage against an auto-height parent falls back to auto,
-    // collapsing the splitter and the editor to content height.
-    <SidebarProvider className="h-svh">
-      <Sidebar collapsible="icon">
-        <SidebarHeader>
-          <div className="flex items-center gap-2 px-1">
-            <SidebarTrigger />
-            <span className="font-semibold text-sm group-data-[collapsible=icon]:hidden">
-              Explorer
-            </span>
-          </div>
-        </SidebarHeader>
+	// Floating-panel resize — a left-edge drag handle, clamped. Hand-rolled because the panel
+	// overlays the canvas rather than splitting it, which `Resizable` (a splitter) does not model.
+	const startResize = (e: React.PointerEvent) => {
+		e.preventDefault();
+		dragRef.current = { startX: e.clientX, startW: panelWidth };
+		const onMove = (ev: PointerEvent) => {
+			if (!dragRef.current) return;
+			const delta = dragRef.current.startX - ev.clientX;
+			setPanelWidth(
+				Math.max(280, Math.min(560, dragRef.current.startW + delta)),
+			);
+		};
+		const onUp = () => {
+			dragRef.current = null;
+			document.removeEventListener("pointermove", onMove);
+			document.removeEventListener("pointerup", onUp);
+		};
+		document.addEventListener("pointermove", onMove);
+		document.addEventListener("pointerup", onUp);
+	};
 
-        <SidebarContent>
-          <SidebarGroup>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton isActive tooltip="Files">
-                  <FileTextIcon />
-                  <span>Files</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton tooltip="Search">
-                  <SearchIcon />
-                  <span>Search</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton tooltip="Queries">
-                  <CodeIcon />
-                  <span>Queries</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroup>
+	return (
+		<ShellRoot>
+			<ShellHeader className="h-12 flex-row items-center gap-2 px-3">
+				<Button aria-label="Back" asChild size="icon-sm" variant="ghost">
+					<a href="#/app/jobs">
+						<ArrowLeftIcon />
+					</a>
+				</Button>
+				<Breadcrumbs
+					items={[
+						{ label: "Kanzo", href: "#/app" },
+						{ label: "jobs", href: "#/app/jobs" },
+						{ label: "aemet.fossil", href: "#/app/jobs/aemet" },
+						{ label: "Discover" },
+					]}
+				/>
+				<span className="ms-auto shrink-0 text-muted-foreground text-xs tabular-nums">
+					12,480 vertices · 31,204 edges
+				</span>
+			</ShellHeader>
 
-          <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-            <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-            <div className="px-1">
-              <TreeView
-                aria-label="Workspace files"
-                collection={tree}
-                defaultExpandedValue={["mappings"]}
-              >
-                <TreeViewTree>
-                  {tree.rootNode.children?.map((node, index) => (
-                    <TreeNode indexPath={[index]} key={node.id} node={node} />
-                  ))}
-                </TreeViewTree>
-              </TreeView>
-            </div>
-          </SidebarGroup>
-        </SidebarContent>
-        <SidebarRail />
-      </Sidebar>
+			<ShellMain className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
+				{/* Canvas — always full-bleed. */}
+				<div className="relative min-h-0 flex-1">
+					<GraphCanvas />
+				</div>
 
-      {/* `min-w-0` so the inset can shrink below its content's intrinsic width (a flex child
-          defaults to `min-width:auto`), `min-h-0` so it does not grow past the viewport, and
-          `overflow-hidden` so the shell scrolls internally. */}
-      <SidebarInset className="min-h-0 min-w-0 overflow-hidden">
-        {/* Canvas + dock, composed from Ark's Splitter directly. WorkspaceLayout used to
-            wrap this; it drove the same `useResizable()` API underneath, so nothing behavioural
-            is lost by composing it here — only the component that hid it. */}
-        <Resizable
-          className="min-h-0 flex-1"
-          defaultSize={panel ? [70, 30] : [100, 0]}
-          panels={[{ id: "canvas", minSize: 40 }, { id: "dock", minSize: 0 }]}
-        >
-          <ResizablePanel className="flex min-w-0 flex-col" id="canvas">
-            <ShellHeader className="h-8 flex-row items-center gap-2 bg-card px-2 text-[11px] text-muted-foreground">
-              <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-                {/* Back lives here, in the chrome — legible, in the tab order, and not sitting
-                    on top of the code it would otherwise cover. */}
-                <Button aria-label="Back to dashboard" asChild size="icon-xs" variant="ghost">
-                  <a href="#/app">
-                    <ArrowLeftIcon />
-                  </a>
-                </Button>
-                <Breadcrumbs
-                  className="text-[length:var(--kanzo-font-size-small)]"
-                  items={[
-                    { label: "Kanzo", href: "#/app" },
-                    { label: "mappings", href: "#/workspace" },
-                    { label: "aemet.fossil" },
-                  ]}
-                />
-              </div>
+				{/* Distributions — the bottom strip. */}
+				<div className="border-t bg-background">
+					<Button
+						className="h-7 w-full gap-1.5 rounded-none text-muted-foreground text-xs hover:text-foreground"
+						onClick={() => setHistOpen((v) => !v)}
+						size="sm"
+						variant="ghost"
+					>
+						<BarChart3Icon />
+						Distributions ({HISTOGRAM_FIELDS.length})
+						{histOpen ? <ChevronDownIcon /> : <ChevronUpIcon />}
+					</Button>
+					{histOpen && (
+						<ScrollArea className="w-full">
+							<div className="flex gap-2 px-2 pb-2">
+								{HISTOGRAM_FIELDS.map((f) => (
+									<MiniHistogram bars={f.bars} key={f.name} name={f.name} />
+								))}
+							</div>
+						</ScrollArea>
+					)}
+				</div>
 
-              <div className="flex shrink-0 items-center gap-1.5">
-                <span>fossil</span>
-                <Button size="xs" variant="ghost">
-                  Format
-                </Button>
-                <Button
-                  onClick={() => toast.create({ title: "Run started", type: "info" })}
-                  size="xs"
-                >
-                  <PlayIcon />
-                  Run
-                </Button>
-              </div>
-            </ShellHeader>
+				{/* Floating inspector — overlays the canvas on the trailing edge. */}
+				{panelOpen && (
+					<div
+						className="absolute inset-y-2 end-2 z-20 flex overflow-hidden rounded-lg border bg-background/95 shadow-lg backdrop-blur-sm"
+						style={{ width: panelWidth }}
+					>
+						<div
+							className="w-1.5 shrink-0 cursor-col-resize transition-colors hover:bg-accent/50 active:bg-accent"
+							onPointerDown={startResize}
+						/>
+						<div className="flex min-w-0 flex-1 flex-col">
+							<Tabs
+								className="flex min-h-0 flex-1 flex-col"
+								defaultValue="info"
+							>
+								<TabsList className="h-9 w-full shrink-0 justify-start rounded-none border-b px-1">
+									<TabsTrigger className="gap-1 text-xs" value="info">
+										<InfoIcon className="size-3" />
+										Info
+									</TabsTrigger>
+									<TabsTrigger className="gap-1 text-xs" value="ask">
+										<MessageCircleIcon className="size-3" />
+										Ask
+									</TabsTrigger>
+									<TabsTrigger className="gap-1 text-xs" value="rules">
+										<ShieldCheckIcon className="size-3" />
+										Rules
+									</TabsTrigger>
+									<TabsTrigger className="gap-1 text-xs" value="settings">
+										<Settings2Icon className="size-3" />
+										Settings
+									</TabsTrigger>
+								</TabsList>
+								<TabsContent className="m-0 min-h-0 flex-1" value="info">
+									<InfoTab />
+								</TabsContent>
+								<TabsContent className="m-0 min-h-0 flex-1" value="ask">
+									<AskTab />
+								</TabsContent>
+								<TabsContent className="m-0 min-h-0 flex-1" value="rules">
+									<RulesTab />
+								</TabsContent>
+								<TabsContent className="m-0 min-h-0 flex-1" value="settings">
+									<SettingsTab />
+								</TabsContent>
+							</Tabs>
+						</div>
+					</div>
+				)}
 
-            {/* No `overflow-auto` here: CodeMirror's own `.cm-scroller` scrolls. Wrapping it in
-                a second scroller collapses the editor to its content height and leaves the
-                canvas half empty. */}
-            <div className="min-h-0 min-w-0 flex-1">
-              <CodeEditor
-                chrome={false}
-                className="h-full"
-                extensions={json()}
-                lineNumbers
-                onChange={setSource}
-                value={source}
-              />
-            </div>
-          </ResizablePanel>
-
-          <ResizableResizeTrigger
-            className={panel ? undefined : "pointer-events-none opacity-0"}
-            id="canvas:dock"
-          />
-
-          <ResizablePanel className="flex min-w-0 flex-col border-s border-border bg-card" id="dock">
-            {panel === "outline" && (
-              <>
-                <PanelHeader title="Outline" />
-                <div className="space-y-1 p-3 text-sm">
-                  <p className="font-medium">Dataset</p>
-                  <ul className="space-y-1 ps-3 text-muted-foreground text-xs">
-                    <li>dct:title</li>
-                    <li>dct:issued</li>
-                    <li>dcat:keyword</li>
-                  </ul>
-                </div>
-              </>
-            )}
-            {panel === "issues" && (
-              <>
-                <PanelHeader title="Issues" />
-                <div className="space-y-2 p-3 text-sm">
-                  <div className="flex items-start gap-2">
-                    <Badge size="xs" variant="warning">
-                      warn
-                    </Badge>
-                    <span className="text-muted-foreground text-xs">
-                      <code>.keywords[]</code> has no declared datatype.
-                    </span>
-                  </div>
-                </div>
-              </>
-            )}
-            {panel === "preview" && (
-              <>
-                <PanelHeader title="Preview" />
-                <div className="p-3 font-mono text-muted-foreground text-xs">
-                  21 vertices · 61 edges
-                </div>
-              </>
-            )}
-          </ResizablePanel>
-        </Resizable>
-
-        {/* The status strip. The IDE density is the SHOWCASE's — ShellFooter imposes no
-            height, surface or typography. The panel toggles are an Ark ToggleGroup composed
-            here, which is where StatusBar's `panels` prop went. */}
-        <ShellFooter
-          aria-label="Status"
-          className="h-[1.625rem] flex-row items-center gap-2 bg-card px-1.5 text-[11px] text-muted-foreground"
-          role="contentinfo"
-        >
-          <span className="min-w-0 flex-1 truncate">aemet.fossil · 1,204 triples</span>
-
-          <ToggleGroup
-            aria-label="Panels"
-            className="shrink-0 gap-0.5 rounded-none"
-            multiple
-            onValueChange={({ value }) => {
-              const hit = value.find((id) => id !== panel) ?? panel;
-              setPanel(hit === panel ? null : (hit ?? null));
-            }}
-            spacing={0.5}
-            value={panel ? [panel] : []}
-          >
-            {PANELS.map(({ id, icon, label }) => (
-              // ToggleGroupItem must be OUTER and the tooltip trigger its asChild. Invert it
-              // and the tooltip overwrites the item's data-scope/data-part, zag collects zero
-              // items, and roving focus dies silently.
-              <Tooltip key={id} positioning={{ placement: "top" }}>
-                <ToggleGroupItem
-                  aria-label={label}
-                  asChild
-                  className="h-[22px] w-[26px] min-w-0 rounded-sm px-0 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground [&_svg]:size-4"
-                  value={id}
-                >
-                  <TooltipTrigger>{icon}</TooltipTrigger>
-                </ToggleGroupItem>
-                <TooltipContent>{label}</TooltipContent>
-              </Tooltip>
-            ))}
-          </ToggleGroup>
-        </ShellFooter>
-      </SidebarInset>
-
-      <Toaster />
-    </SidebarProvider>
-  );
+				{/* Panel toggle — floats clear of the panel's leading edge. */}
+				<Button
+					aria-label={panelOpen ? "Hide inspector" : "Show inspector"}
+					className="absolute top-2 z-30 bg-background/80 backdrop-blur-sm"
+					onClick={() => setPanelOpen((v) => !v)}
+					size="icon-sm"
+					style={{ right: panelOpen ? panelWidth + 16 : 8 }}
+					variant="outline"
+				>
+					{panelOpen ? <PanelRightCloseIcon /> : <PanelRightOpenIcon />}
+				</Button>
+			</ShellMain>
+		</ShellRoot>
+	);
 }
-
-// Recursive node renderer — the canonical TreeView composition (branch vs leaf).
-const TreeNode = (props: ComponentProps<typeof TreeViewNode>) => {
-  const { node, indexPath } = props;
-  return (
-    <TreeViewNode indexPath={indexPath} node={node}>
-      {node.children ? (
-        <TreeViewBranch>
-          <TreeViewBranchItem>{node.name}</TreeViewBranchItem>
-          <TreeViewBranchContent>
-            {node.children.map((child: Node, index: number) => (
-              <TreeNode indexPath={[...indexPath, index]} key={child.id} node={child} />
-            ))}
-          </TreeViewBranchContent>
-        </TreeViewBranch>
-      ) : (
-        <TreeViewContent>
-          <TreeViewItem>{node.name}</TreeViewItem>
-        </TreeViewContent>
-      )}
-    </TreeViewNode>
-  );
-};
 
 export default WorkspaceShowcase;

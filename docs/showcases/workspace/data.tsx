@@ -1,13 +1,143 @@
-/** The document open on the canvas — the same fake tenant as the app-shell block. */
-export const SAMPLE_MAPPING = `prefix dcat: <http://www.w3.org/ns/dcat#>
-prefix dct:  <http://purl.org/dc/terms/>
+// Placeholder data for the discovery showcase. The design system ships no graph engine, so the
+// canvas is a hand-laid faux knowledge graph and the panels read from these fixtures — enough to
+// mirror keasy's discovery screen (graph + floating inspector + distributions) without the real
+// cosmos.gl viewer or a DuckDB coordinator behind it.
 
-{ Dataset } := io.rdf("abfss://raw@kanzo/aemet", schema = shex)
+export type NodeKind = "dataset" | "distribution" | "keyword" | "entity";
 
-Dataset {
-  a             dcat:Dataset
-  dct:title     .title
-  dct:issued    .issued^^xsd:date
-  dcat:keyword  .keywords[]
+export interface GraphNode {
+	id: string;
+	x: number; // in the 0..200 viewBox
+	y: number; // in the 0..140 viewBox
+	r: number;
+	kind: NodeKind;
+	label: string;
 }
-`;
+
+export interface GraphEdge {
+	from: string;
+	to: string;
+}
+
+export const GRAPH_NODES: GraphNode[] = [
+	{
+		id: "dataset",
+		x: 100,
+		y: 70,
+		r: 9,
+		kind: "dataset",
+		label: "aemet.fossil",
+	},
+	{
+		id: "dist-parquet",
+		x: 55,
+		y: 42,
+		r: 5.5,
+		kind: "distribution",
+		label: "parquet",
+	},
+	{ id: "dist-csv", x: 150, y: 40, r: 5.5, kind: "distribution", label: "csv" },
+	{
+		id: "dist-graphar",
+		x: 158,
+		y: 96,
+		r: 5.5,
+		kind: "distribution",
+		label: "graphar",
+	},
+	{ id: "kw-weather", x: 30, y: 88, r: 4, kind: "keyword", label: "weather" },
+	{ id: "kw-spain", x: 62, y: 114, r: 4, kind: "keyword", label: "spain" },
+	{ id: "kw-climate", x: 120, y: 116, r: 4, kind: "keyword", label: "climate" },
+	{ id: "pub", x: 100, y: 22, r: 6, kind: "entity", label: "AEMET" },
+	{ id: "theme", x: 178, y: 66, r: 5, kind: "entity", label: "ENVI" },
+	{ id: "station", x: 40, y: 60, r: 4.5, kind: "entity", label: "station" },
+	{ id: "obs", x: 178, y: 122, r: 4.5, kind: "entity", label: "observation" },
+];
+
+export const GRAPH_EDGES: GraphEdge[] = [
+	{ from: "dataset", to: "dist-parquet" },
+	{ from: "dataset", to: "dist-csv" },
+	{ from: "dataset", to: "dist-graphar" },
+	{ from: "dataset", to: "kw-weather" },
+	{ from: "dataset", to: "kw-spain" },
+	{ from: "dataset", to: "kw-climate" },
+	{ from: "dataset", to: "pub" },
+	{ from: "dataset", to: "theme" },
+	{ from: "dataset", to: "station" },
+	{ from: "station", to: "kw-weather" },
+	{ from: "dist-graphar", to: "obs" },
+	{ from: "dist-graphar", to: "theme" },
+];
+
+/** The node the inspector shows selected — mirrors discovery's Info tab. */
+export const SELECTED_NODE = {
+	label: "aemet.fossil",
+	id: "urn:dataset:aemet.fossil",
+	type: "Dataset",
+	properties: [
+		{ predicate: "dct:title", value: "AEMET fossil observations" },
+		{ predicate: "dct:issued", value: "2026-01-14" },
+		{ predicate: "dcat:keyword", value: "weather, spain, climate" },
+		{ predicate: "dct:publisher", value: "Agencia Estatal de Meteorología" },
+		{
+			predicate: "dcat:theme",
+			value: "http://publications.europa.eu/resource/authority/data-theme/ENVI",
+		},
+	],
+};
+
+/** Distribution bars for the bottom strip. Heights are 0..1. */
+export const HISTOGRAM_FIELDS: { name: string; bars: number[] }[] = [
+	{ name: "dct:issued", bars: [0.2, 0.35, 0.5, 0.8, 1, 0.7, 0.45, 0.3] },
+	{ name: "dcat:keyword", bars: [1, 0.6, 0.4, 0.3, 0.25, 0.2, 0.15, 0.1] },
+	{ name: "station.elevation", bars: [0.1, 0.3, 0.6, 1, 0.9, 0.6, 0.35, 0.15] },
+	{ name: "obs.temperature", bars: [0.05, 0.2, 0.55, 0.9, 1, 0.85, 0.5, 0.2] },
+	{ name: "dct:format", bars: [0.9, 0.7, 0.5, 0.35, 0.2, 0.15, 0.1, 0.05] },
+	{ name: "obs.value", bars: [0.15, 0.4, 0.7, 1, 0.8, 0.55, 0.3, 0.12] },
+];
+
+/** Force-simulation sliders in the Settings tab. */
+export const SIM_PARAMS = [
+	{
+		key: "repulsion",
+		label: "Repulsion",
+		min: 0,
+		max: 2,
+		step: 0.05,
+		default: 0.5,
+	},
+	{
+		key: "friction",
+		label: "Friction",
+		min: 0,
+		max: 1,
+		step: 0.05,
+		default: 0.5,
+	},
+	{
+		key: "gravity",
+		label: "Gravity",
+		min: 0,
+		max: 1,
+		step: 0.05,
+		default: 0.25,
+	},
+	{
+		key: "linkDistance",
+		label: "Link distance",
+		min: 1,
+		max: 100,
+		step: 1,
+		default: 20,
+	},
+	{
+		key: "pointSize",
+		label: "Point size",
+		min: 0.5,
+		max: 5,
+		step: 0.1,
+		default: 1.1,
+	},
+] as const;
+
+export type SimKey = (typeof SIM_PARAMS)[number]["key"];

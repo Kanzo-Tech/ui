@@ -1,31 +1,32 @@
 ---
-title: Workspace
-description: An IDE-like workspace — file tree, CodeMirror editor, dockable panels and a status bar.
+title: Discovery
+description: A data-discovery workspace — a knowledge graph, a floating inspector, and distributions.
 full: true
 ---
 
-<PreviewIframe name="workspace" title="Workspace showcase" className="h-[820px]" />
+<PreviewIframe name="workspace" title="Discovery showcase" className="h-[820px]" />
 
-The other shape a shell takes: no page, no scroll, a canvas that fills whatever is left. The
-sidebar becomes a file explorer over `TreeView`, Ark's Splitter divides the remainder into
-canvas plus a resizable right dock, and a `ShellFooter` at the bottom is what toggles the
-panels.
+The other shape a shell takes: no page, no scroll, a canvas that fills whatever is left — here a
+knowledge-graph explorer modelled on keasy's discovery screen. `ShellMain` holds the canvas
+full-bleed; a floating glass inspector overlays its trailing edge with Info / Ask / Rules /
+Settings tabs (drag its left edge to resize); a collapsible distributions strip runs along the
+bottom; and a toggle floats clear of the panel.
 
-The canvas here is a real CodeMirror instance, not a screenshot — the point is to check that
-the editor sizes against a flex shell rather than collapsing to its content height, which is
-the failure mode every nested-scroller layout has.
+The graph itself is a placeholder — the design system ships no graph engine, and that boundary is
+the point of a showcase. Everything around it is library parts — `Tabs`, `Slider`, `Switch`,
+`ScrollArea`, `Badge`, `Button` — composed inside the `Shell` regions.
 
-Worth exercising in the frame: drag the dock divider, toggle Outline / Issues / Preview from
-the status bar, collapse the explorer to icons, and edit the document.
+Worth exercising in the frame: switch inspector tabs, drag the panel's leading edge to resize it,
+toggle it shut, collapse the distributions strip, and move the Settings sliders.
 
 ## Source
 
 ```text
 docs/showcases/workspace/
-├── default.tsx   — the workspace
-└── data.tsx      — the document open on the canvas
+├── default.tsx   — the discovery workspace
+└── data.tsx      — the placeholder graph, node inspector and distributions
 ```
 
-`CodeEditor` comes from `@kanzo-tech/ui/editor`, a subpath rather than the root barrel:
-CodeMirror is an optional peer, and re-exporting the editor from the barrel would make
-`import { Button } from "@kanzo-tech/ui"` fail for anyone who had not installed it.
+The mini distribution charts and the faux graph are hand-rolled here rather than pulled from the
+library — a showcase is allowed a product-specific part, and neither is a design-system component
+(yet).
