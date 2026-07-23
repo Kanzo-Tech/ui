@@ -127,15 +127,11 @@ export const SELECTED_NODE = {
 	],
 };
 
-/** Distribution bars for the bottom strip. Heights are 0..1. */
-export const HISTOGRAM_FIELDS: { name: string; bars: number[] }[] = [
-	{ name: "dct:issued", bars: [0.2, 0.35, 0.5, 0.8, 1, 0.7, 0.45, 0.3] },
-	{ name: "dcat:keyword", bars: [1, 0.6, 0.4, 0.3, 0.25, 0.2, 0.15, 0.1] },
-	{ name: "station.elevation", bars: [0.1, 0.3, 0.6, 1, 0.9, 0.6, 0.35, 0.15] },
-	{ name: "obs.temperature", bars: [0.05, 0.2, 0.55, 0.9, 1, 0.85, 0.5, 0.2] },
-	{ name: "dct:format", bars: [0.9, 0.7, 0.5, 0.35, 0.2, 0.15, 0.1, 0.05] },
-	{ name: "obs.value", bars: [0.15, 0.4, 0.7, 1, 0.8, 0.55, 0.3, 0.12] },
-];
+/**
+ * The Analysis panel no longer reads a bars fixture: it renders REAL crossfilter charts over a live
+ * DuckDB table, and that table + its schema live in the client-only island (`./analysis-charts`),
+ * not here — the same rule as the rest of the sample data on the /charts subpath.
+ */
 
 /** Suggested-question chips for the Ask panel's empty state (mirrors keasy's demo). */
 export const ASK_SUGGESTIONS = [
