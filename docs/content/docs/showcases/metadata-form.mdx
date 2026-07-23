@@ -6,22 +6,27 @@ full: true
 
 <PreviewIframe name="metadata-form" title="Metadata form showcase" className="h-[820px]" />
 
-A realistic RDF metadata editor at full viewport, mirroring keasy's real `metadata-form` screen:
-a top utility strip (**Shape** · **Data** switcher · **Share** · the `MadeWith` attribution), a
-header carrying **Source**, **Output**, a validation summary and **Preferences**, and a
-sequential Card-per-group form in a centred column. Four groups in order — **General**,
-**Provenance**, **Health-specific**, **Distributions** — each a `Card`.
+A realistic RDF metadata editor at full viewport, mirroring keasy's real `metadata-form` screen —
+and, like the discovery showcase, **built as a Workspace on the Shell regions**. `ShellHeader`
+carries the utility strip (**Shape** · **Data** switcher · **Share** · the `MadeWith`
+attribution), the title, and the **Source** / **Output** / validation / **Preferences** controls;
+`ShellMain` is the single `<main>` holding the sequential Card-per-group form — **General**,
+**Provenance**, **Health-specific**, **Distributions**; and a docked **`ShellAside side="end"`**
+slides the Source or Output panel in beside it, an IDE side dock rather than an overlay.
 
 It exists to answer the question a single field never can: does a whole *form* hold together —
 required markers, repeatable rows, nested objects, dates, AI assistance and validation — without
 the library growing a domain. Switch the **Data** selector from _Empty_ to _COVID-19 registry_ to
-watch the header flip from **3 issues** to **Valid**, and hover the badge to see every failing
-field.
+watch the header flip from **3 issues** to **Valid**, hover the badge to see every failing field,
+and toggle **Source** / **Output** to dock the serialisation or the validation report.
 
 ## What it composes
 
 Almost nothing here is new — it is existing parts, arranged:
 
+- **`ShellRoot` / `ShellHeader` / `ShellBody` / `ShellMain` / `ShellAside`** — the Workspace
+  frame. One `<main>`; the Source/Output dock is a docked `ShellAside side="end"` (logical, RTL-safe)
+  that collapses to give the form full width when neither is active.
 - **`Field` · `FieldLabel` · `FieldError`** — every row. A required field shows a red `*`
   (`FieldRequiredIndicator`); an invalid one gets `Field`'s own error channel.
 - **`FieldArray`** — the repeatable fields (descriptions, keywords, themes, contacts,
@@ -31,11 +36,12 @@ Almost nothing here is new — it is existing parts, arranged:
 - **`CompletionField`** — each Description literal, with Tab-to-accept inline completion. It is
   CodeMirror-backed, so it is imported from the `@kanzo-tech/ui/editor` subpath, never the root
   barrel.
-- **`Steps` / `Tabs` / `SegmentGroup`** — the **Layout** switch demonstrates the same form as
-  sequential Cards, Tabs, or a Steps wizard.
-- **`HoverCard` + `Badge`** — the header validation summary; **`Sheet` + `Tabs`** — the Source
-  and Output code panels; **`Preferences`** — the real theming panel, opened from the header with
-  the `P` hotkey.
+- **`Steps` / `Tabs`** — the form re-lays-out live as sequential Cards, Tabs, or a Steps wizard.
+- **`Popover` + `SegmentGroup` + `Switch`** — the product's OWN Preferences panel (its
+  "Preferences [P]" button), where **Layout** and the display toggles are chosen and applied to the
+  `ShellMain` form in real time. This is app chrome, deliberately separate from the docs-wide theme
+  customiser.
+- **`HoverCard` + `Badge`** — the header validation summary, listing every failing field.
 
 ## Where the domain lives
 
@@ -51,7 +57,8 @@ engine, in the product a real one over the whole RDF graph — is never the libr
 
 ```text
 docs/showcases/metadata-form/
-├── default.tsx   — the editor: chrome, the four groups, the three layouts
+├── default.tsx   — the Workspace: Shell chrome, the docked Source/Output aside, the four
+│                   groups, and the three live layouts driven by the Preferences popover
 └── data.tsx      — the faked SHACL engine, two seeded datasets, controlled vocabularies,
                     a toy Turtle / JSON-LD serialiser, and the faked AI streams
 ```
