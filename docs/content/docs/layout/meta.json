@@ -4,8 +4,6 @@
     "shell",
     "section",
     "resizable",
-    "scroll-area",
-    "separator",
-    "collapsible"
+    "scroll-area"
   ]
 }
