@@ -1,0 +1,61 @@
+---
+title: Metadata form
+description: A HealthDCAT-AP metadata editor — grouped Cards, repeatable and nested fields, live serialisation, and a faked SHACL engine that only ever hands the library a boolean and a node.
+full: true
+---
+
+<PreviewIframe name="metadata-form" title="Metadata form showcase" className="h-[820px]" />
+
+A realistic RDF metadata editor at full viewport, mirroring keasy's real `metadata-form` screen:
+a top utility strip (**Shape** · **Data** switcher · **Share** · the `MadeWith` attribution), a
+header carrying **Source**, **Output**, a validation summary and **Preferences**, and a
+sequential Card-per-group form in a centred column. Four groups in order — **General**,
+**Provenance**, **Health-specific**, **Distributions** — each a `Card`.
+
+It exists to answer the question a single field never can: does a whole *form* hold together —
+required markers, repeatable rows, nested objects, dates, AI assistance and validation — without
+the library growing a domain. Switch the **Data** selector from _Empty_ to _COVID-19 registry_ to
+watch the header flip from **3 issues** to **Valid**, and hover the badge to see every failing
+field.
+
+## What it composes
+
+Almost nothing here is new — it is existing parts, arranged:
+
+- **`Field` · `FieldLabel` · `FieldError`** — every row. A required field shows a red `*`
+  (`FieldRequiredIndicator`); an invalid one gets `Field`'s own error channel.
+- **`FieldArray`** — the repeatable fields (descriptions, keywords, themes, contacts,
+  distributions), each row keyed by a stable id so editing never steals focus.
+- **`DateField`** — the release / modification dates, ISO in, calendar out.
+- **`SuggestMenu`** — the ✨ beside Keywords, streaming deduped suggestions.
+- **`CompletionField`** — each Description literal, with Tab-to-accept inline completion. It is
+  CodeMirror-backed, so it is imported from the `@kanzo-tech/ui/editor` subpath, never the root
+  barrel.
+- **`Steps` / `Tabs` / `SegmentGroup`** — the **Layout** switch demonstrates the same form as
+  sequential Cards, Tabs, or a Steps wizard.
+- **`HoverCard` + `Badge`** — the header validation summary; **`Sheet` + `Tabs`** — the Source
+  and Output code panels; **`Preferences`** — the real theming panel, opened from the header with
+  the `P` hotkey.
+
+## Where the domain lives
+
+The library is domain-free, so **the entire SHACL/ShEx engine is faked in `data.tsx`** — a plain
+`validate(values)` that walks a HealthDCAT-AP-shaped object and returns `Issue[]` with resolved,
+tri-state (violation / warning / info) messages. That is the forms decision made visible: the
+library models validation as a **boolean + a `ReactNode`** and nothing more, so a _violation_
+flows through `Field`'s `invalid` + `FieldError`, while the non-blocking severities the library
+deliberately does not model are product-rendered nodes. Where the boolean came from — here a fake
+engine, in the product a real one over the whole RDF graph — is never the library's business.
+
+## Source
+
+```text
+docs/showcases/metadata-form/
+├── default.tsx   — the editor: chrome, the four groups, the three layouts
+└── data.tsx      — the faked SHACL engine, two seeded datasets, controlled vocabularies,
+                    a toy Turtle / JSON-LD serialiser, and the faked AI streams
+```
+
+Imports come from two entry points: `@kanzo-tech/ui` for the form and chrome, and
+`@kanzo-tech/ui/editor` for `CompletionField` — a subpath, so the base bundle never carries
+CodeMirror for consumers who do not use it.
