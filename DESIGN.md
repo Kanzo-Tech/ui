@@ -79,6 +79,13 @@ fit.**
 
 ## The layout layer
 
+**Ark ships no layout.** It is a behaviour library (Zag machines); the one layout-adjacent
+primitive is `Splitter` (our `Resizable`). So "idiomatic to Ark" for layout is a category error —
+there is nothing to match. The references for *layout* are the app-shell libraries built on a
+headless core — **shadcn, Mantine, Ant**; Ark supplies only the authoring idiom (Root + named
+parts + `ark.*` + `data-slot`) and the Splitter machine. Full grounding:
+`.planning/LAYOUT-ARK-NATIVE-REVIEW.md`.
+
 ### Regions, and nothing else
 
 ```
@@ -107,7 +114,19 @@ lives in the workspace showcase where anyone who wants that look can copy it.
 ### Rules that survive any refactor
 
 - **Exactly one `<main>` per page.** `ShellMain` owns it. Nested containers use `<section>`; two
-  `<main>` elements are a conformance error and make "skip to main content" ambiguous.
+  `<main>` elements are a conformance error and make "skip to main content" ambiguous. This is why
+  **`SidebarInset` is a neutral offset `<div>`, not a `<main>`** — it is a styling wrapper (the
+  inset margin/rounded/shadow), so it carries no landmark; the `ShellMain` you place inside it does.
+  (shadcn makes `SidebarInset` the `<main>` because it has no separate region layer; we do.)
+- **A fixed sidebar and a full-width top/bottom region are mutually exclusive.** A `fixed` rail
+  (`collapsible="icon" | "offcanvas"`) starts at viewport top and paints *over* any header that
+  spans across it. Two legal shapes: put the header/footer *inside* `SidebarInset`, right of the
+  rail (the shadcn model — canonical), or use an in-flow sidebar (`collapsible="none"`, or a
+  `ShellAside`) so a spanning header/footer is legitimate (the Ant / IDE model). Never mix them.
+- **`ShellRoot`'s `h-dvh` is the standalone-frame case.** It is correct only when `ShellRoot` is the
+  outermost element (a shell with no rail). Inside a `SidebarProvider`, the provider is the viewport
+  frame and `SidebarInset` is the content column — place `ShellHeader` / `ShellBody` / `ShellFooter`
+  directly in the inset; do **not** nest a second `ShellRoot` (its `h-dvh` would double-count).
 - **Logical properties, never physical.** `border-e` / `border-s`, `side="start" | "end"` — never
   left/right. One code path mirrors correctly under RTL.
 - **Asides are `<aside>`**, i.e. complementary landmarks, which is why they may repeat where
