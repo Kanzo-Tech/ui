@@ -14,14 +14,15 @@ export default function Example() {
   const [value, setValue] = useState(SAMPLE);
 
   return (
-    // CodeMirror's own `.cm-scroller` does the scrolling; the shell needs a bounded height
-    // to scroll inside, which `maxHeight` gives it here.
+    // Sizes to the code, like a Textarea: `minHeight` is a small floor so an empty editor is
+    // still clickable, `maxHeight` the ceiling past which `.cm-scroller` scrolls. Between them
+    // it takes the height of its content — no dead space under the last line.
     <div className="w-full">
       <CodeEditor
         extensions={json()}
         lineNumbers
-        maxHeight="260px"
-        minHeight="180px"
+        maxHeight="24rem"
+        minHeight="4rem"
         onChange={setValue}
         value={value}
       />
