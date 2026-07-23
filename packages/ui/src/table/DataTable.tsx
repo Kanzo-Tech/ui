@@ -23,6 +23,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -155,6 +156,27 @@ export function DataTable<TData, TValue>({
               </TableRow>
             )}
           </TableBody>
+
+          {/* Only render a <tfoot> when a column actually defines a `footer` — TanStack's
+              getFooterGroups() always returns groups, so an unguarded map would emit an empty
+              footer row on every table. */}
+          {table
+            .getFooterGroups()
+            .some((fg) => fg.headers.some((h) => h.column.columnDef.footer)) && (
+            <TableFooter>
+              {table.getFooterGroups().map((fg) => (
+                <TableRow key={fg.id}>
+                  {fg.headers.map((header) => (
+                    <TableCell key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(header.column.columnDef.footer, header.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableFooter>
+          )}
         </Table>
       </div>
 

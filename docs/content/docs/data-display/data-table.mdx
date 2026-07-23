@@ -61,6 +61,14 @@ whenever there is only one page.
 
 <ComponentPreview componentName="data-table" fileName="example-empty" />
 
+## Footer
+
+Give a column a `footer` and the table renders a `<tfoot>` — totals, counts, a summary row.
+Columns without one leave an empty footer cell; if no column defines a footer, no `<tfoot>` is
+emitted at all.
+
+<ComponentPreview componentName="data-table" fileName="example-footer" />
+
 ## API Reference
 
 | Prop | Type | Default |
