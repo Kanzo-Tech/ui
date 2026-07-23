@@ -1,14 +1,4 @@
 {
   "title": "Data display",
-  "pages": [
-    "table",
-    "data-table",
-    "tree-view",
-    "card",
-    "metric-card",
-    "status",
-    "badge",
-    "avatar",
-    "progress"
-  ]
+  "pages": ["table", "data-table", "tree-view", "card", "metric-card", "status", "badge", "avatar", "progress", "---Content---", "prose", "code-editor", "kbd"]
 }

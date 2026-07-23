@@ -1,9 +1,4 @@
 {
-  "title": "Buttons & actions",
-  "pages": [
-    "button",
-    "toggle",
-    "action-bar",
-    "command"
-  ]
+  "title": "Actions",
+  "pages": ["button", "toggle", "action-bar", "command"]
 }

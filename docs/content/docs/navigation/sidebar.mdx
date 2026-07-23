@@ -1,5 +1,5 @@
 ---
-title: Overview
+title: Sidebar
 description: The provider, the parts and the composites — how a sidebar fits together, and the full reference.
 ---
 
@@ -64,8 +64,8 @@ Two composites both render navigation, and the difference is structural:
 
 | Component | Shape | Use it for |
 |---|---|---|
-| [`SidebarNav`](/docs/sidebar/sidebar-nav) — the **Menu** | A flat list, where any entry may expand into sub-items | Application navigation — the main menu |
-| [`SectionNav`](/docs/sidebar/section-nav) — **Sections** | Several titled groups, each a headed block | Settings-style navigation, or a long list that needs headings |
+| [`SidebarNav`](/docs/navigation/sidebar-nav) — the **Menu** | A flat list, where any entry may expand into sub-items | Application navigation — the main menu |
+| [`SectionNav`](/docs/navigation/section-nav) — **Sections** | Several titled groups, each a headed block | Settings-style navigation, or a long list that needs headings |
 
 Both are **domain-free and router-free**. Neither imports `next/link` or reads the current URL:
 `SidebarNav` takes `isActive` per item, `SectionNav` takes an `activePath` and computes it.
@@ -75,9 +75,9 @@ Your product injects its router through the `linkComponent` seam.
 
 | Component | Where it goes | What it shows |
 |---|---|---|
-| [`SidebarUser`](/docs/sidebar/sidebar-user) | `SidebarFooter` | The signed-in person: avatar, name, email, and a dropdown |
-| [`InstanceSwitcher`](/docs/sidebar/instance-switcher) | `SidebarHeader` | The thing being worked on — workspace, tenant, project — with a switcher |
-| `SidebarIdentity` | inside either | The shared "icon + name + subtitle" block both are built from — documented on the [User footer](/docs/sidebar/sidebar-user#the-identity-block) page |
+| [`SidebarUser`](/docs/navigation/sidebar-user) | `SidebarFooter` | The signed-in person: avatar, name, email, and a dropdown |
+| [`InstanceSwitcher`](/docs/navigation/instance-switcher) | `SidebarHeader` | The thing being worked on — workspace, tenant, project — with a switcher |
+| `SidebarIdentity` | inside either | The shared "icon + name + subtitle" block both are built from — documented on the [User footer](/docs/navigation/sidebar-user#the-identity-block) page |
 
 <Callout type="warn">
 `SidebarUser` has no logout prop, deliberately. Log out is an ordinary entry in `menuItems` with
