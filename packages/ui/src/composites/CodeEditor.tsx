@@ -111,6 +111,9 @@ const baseTheme = EditorView.theme({
     padding: "0.5rem 0.75rem",
     color: "var(--foreground)",
     caretColor: "var(--foreground)",
+    // Paper. Sits on top of the scroller's `--muted` tint (below), so the tint shows only
+    // where the content does not — i.e. the gutter strip reads as a `--muted` column.
+    background: "var(--background)",
   },
   // The font belongs on `.cm-scroller`, not `.cm-content`: the GUTTER is a child of the
   // scroller, and CodeMirror's base sets `.cm-scroller { font-family: monospace }`. With the
@@ -125,12 +128,17 @@ const baseTheme = EditorView.theme({
     // rather than leaving dead surface — see the `&` note.
     flexGrow: 1,
     minHeight: 0,
+    // The gutter tint lives here, not on `.cm-gutters`: a background on the gutter element only
+    // spans the content rows, so on a short document it stopped mid-field and read as a stray
+    // horizontal border. The scroller fills the whole field (flexGrow above), so tinting it and
+    // laying the content's `--background` paper on top gives a `--muted` gutter column that
+    // reaches the bottom every time.
+    background: "var(--muted)",
   },
   "&.cm-focused": { outline: "none" },
-  // One surface, like a Textarea — the gutter is transparent, not a tinted IDE column with a
-  // divider. A `--kanzo-gutter-bg` fill only spans as tall as the content, so on a short
-  // document it stopped mid-field and read as a stray horizontal border; the divider stopped
-  // there too. Dim `--kanzo-gutter-foreground` ink is enough to set the numbers apart.
+  // Transparent: the `--muted` gutter column is painted by the scroller behind it (see there),
+  // which fills the whole field — so unlike a fill on this element, it never cuts off mid-field.
+  // No divider; the tint step from `--muted` to the content's `--background` is the separation.
   ".cm-gutters": {
     // NO vertical padding: CodeMirror already lays each number at its (padded) content line's
     // y, so repeating the padding here drops every number one step too low. Verified: with
