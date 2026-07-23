@@ -4,7 +4,7 @@ description: Three layers, and what each one is allowed to decide.
 ---
 
 Every component in this library is assembled the same way. That uniformity is the product —
-it is what lets a token change re-skin ninety components, and what stops the surface drifting
+it is what lets a token change re-skin the whole surface, and what stops it drifting
 back into scattered one-off styling.
 
 ## The three layers
@@ -36,7 +36,9 @@ insulation is the point: upstream can refactor and consumer code does not move.
 ## Adopt, don't rebuild
 
 Prefer bringing a Shark UI or Ark component and rebranding it to our tokens over hand-rolling.
-The only genuinely bespoke code is the CodeMirror editors, which neither upstream covers.
+The bespoke code is the layout layer — `Shell` and `Section`, which no upstream ships — and the
+CodeMirror editors; both are built to the same Ark idiom (`ark.*` factory, `data-slot`, flat
+compound parts) as everything else.
 
 <Callout title="Match the reference, don't invent">
   When something looks odd, check the reference before "fixing" it. The status tokens are a
