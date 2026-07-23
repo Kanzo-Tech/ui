@@ -3,6 +3,39 @@
 // mirror keasy's discovery screen (graph + floating inspector + distributions) without the real
 // cosmos.gl viewer or a DuckDB coordinator behind it.
 
+import {
+	DatabaseIcon,
+	HouseIcon,
+	LayersIcon,
+	WorkflowIcon,
+} from "lucide-react";
+import type { Instance, SidebarNavItem } from "@kanzo-tech/ui";
+
+// --- App-shell chrome, matching keasy's real discovery screen (which lives INSIDE the shell). ---
+
+/** The workspace switcher's tenants. keasy shows a single "Dev Workspace / Member" tile. */
+export const INSTANCES: Instance[] = [
+	{
+		id: "dev",
+		label: "Dev Workspace",
+		description: "Member",
+		icon: <LayersIcon />,
+	},
+];
+
+/** Platform nav — Dashboard / Connections / Jobs, with Jobs active (discovery opens from a job). */
+export const NAV: SidebarNavItem[] = [
+	{ title: "Dashboard", href: "#/app", icon: <HouseIcon /> },
+	{ title: "Connections", href: "#/app/connections", icon: <DatabaseIcon /> },
+	{ title: "Jobs", href: "#/app/jobs", icon: <WorkflowIcon />, isActive: true },
+];
+
+/** The signed-in member shown in the sidebar footer. */
+export const USER = {
+	name: "Ángel Iglesias",
+	email: "member@keasy.local",
+};
+
 export type NodeKind = "dataset" | "distribution" | "keyword" | "entity";
 
 export interface GraphNode {
@@ -69,6 +102,14 @@ export const GRAPH_EDGES: GraphEdge[] = [
 	{ from: "dist-graphar", to: "theme" },
 ];
 
+/** Bottom-start legend, keyed to the node kinds. Counts are the real tallies in GRAPH_NODES. */
+export const GRAPH_LEGEND: { kind: NodeKind; label: string; count: number }[] = [
+	{ kind: "dataset", label: "Dataset", count: 1 },
+	{ kind: "distribution", label: "Distribution", count: 3 },
+	{ kind: "entity", label: "Entity", count: 4 },
+	{ kind: "keyword", label: "Keyword", count: 3 },
+];
+
 /** The node the inspector shows selected — mirrors discovery's Info tab. */
 export const SELECTED_NODE = {
 	label: "aemet.fossil",
@@ -86,14 +127,33 @@ export const SELECTED_NODE = {
 	],
 };
 
-/** Distribution bars for the bottom strip. Heights are 0..1. */
-export const HISTOGRAM_FIELDS: { name: string; bars: number[] }[] = [
-	{ name: "dct:issued", bars: [0.2, 0.35, 0.5, 0.8, 1, 0.7, 0.45, 0.3] },
-	{ name: "dcat:keyword", bars: [1, 0.6, 0.4, 0.3, 0.25, 0.2, 0.15, 0.1] },
-	{ name: "station.elevation", bars: [0.1, 0.3, 0.6, 1, 0.9, 0.6, 0.35, 0.15] },
-	{ name: "obs.temperature", bars: [0.05, 0.2, 0.55, 0.9, 1, 0.85, 0.5, 0.2] },
-	{ name: "dct:format", bars: [0.9, 0.7, 0.5, 0.35, 0.2, 0.15, 0.1, 0.05] },
-	{ name: "obs.value", bars: [0.15, 0.4, 0.7, 1, 0.8, 0.55, 0.3, 0.12] },
+/**
+ * The Analysis panel no longer reads a bars fixture: it renders REAL crossfilter charts over a live
+ * DuckDB table, and that table + its schema live in the client-only island (`./analysis-charts`),
+ * not here — the same rule as the rest of the sample data on the /charts subpath.
+ */
+
+/** Suggested-question chips for the Ask panel's empty state (mirrors keasy's demo). */
+export const ASK_SUGGESTIONS = [
+	"What are the most common attributes?",
+	"How many WeatherObserved entities are there?",
+	"Which datasets mention weather?",
+	"What is the average temperature?",
+];
+
+/** One row of the Rules filter builder: a conjunction + field/op/value dropdowns. */
+export interface RuleFilter {
+	conj: "Where" | "And";
+	entity: string;
+	field: string;
+	op: string;
+	value?: string;
+}
+
+/** The faux Where/And filter stack shown in the Rules panel (mirrors the validation frames). */
+export const RULE_FILTERS: RuleFilter[] = [
+	{ conj: "Where", entity: "WeatherObserved", field: "dataProvider", op: "Must have value" },
+	{ conj: "And", entity: "Attribute", field: "hasValue", op: "Minimum", value: "Select value" },
 ];
 
 /** Force-simulation sliders in the Settings tab. */

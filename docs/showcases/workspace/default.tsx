@@ -1,52 +1,92 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
 import {
 	Badge,
 	Breadcrumbs,
 	Button,
-	FloatingPanel,
-	FloatingPanelResizeHandle,
+	InstanceSwitcher,
+	Resizable,
+	ResizablePanel,
+	ResizableResizeTrigger,
 	ScrollArea,
+	ShellAside,
+	ShellBody,
+	ShellFooter,
 	ShellHeader,
 	ShellMain,
 	ShellRoot,
+	Sidebar,
+	SidebarContent,
+	SidebarFooter,
+	SidebarHeader,
+	SidebarNav,
+	SidebarProvider,
+	SidebarRail,
+	SidebarTrigger,
+	SidebarUser,
+	Skeleton,
 	Slider,
 	Switch,
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
+	Toaster,
+	toast,
 } from "@kanzo-tech/ui";
 import {
-	ArrowLeftIcon,
 	BarChart3Icon,
 	ChevronDownIcon,
-	ChevronUpIcon,
 	InfoIcon,
+	LogOutIcon,
+	MaximizeIcon,
 	MessageCircleIcon,
-	PanelRightCloseIcon,
-	PanelRightOpenIcon,
+	MinusIcon,
+	PlayIcon,
+	PlusIcon,
+	SearchIcon,
 	SendIcon,
 	Settings2Icon,
+	SettingsIcon,
 	ShieldCheckIcon,
+	SparklesIcon,
+	UserIcon,
+	XIcon,
 } from "lucide-react";
 import {
+	ASK_SUGGESTIONS,
 	GRAPH_EDGES,
+	GRAPH_LEGEND,
 	GRAPH_NODES,
-	HISTOGRAM_FIELDS,
+	INSTANCES,
+	NAV,
 	type NodeKind,
+	RULE_FILTERS,
 	SELECTED_NODE,
 	SIM_PARAMS,
 	type SimKey,
+	USER,
 } from "./data";
 
 /**
- * A data-discovery workspace at full viewport, mirroring keasy's discovery screen: a graph canvas
- * fills the frame, a floating glass inspector overlays it on the trailing edge (resizable, with
- * Info / Ask / Rules / Settings tabs), and a collapsible distributions strip sits along the
- * bottom. The library ships the regions and the parts; the graph itself is a placeholder — the
- * design system has no graph engine, and that boundary is the point of a showcase.
+ * keasy's discovery screen, at full viewport and end-to-end in our vocabulary. The whole point is
+ * the mapping: it is an IDE-docked layout, not a floating overlay, so every region is one of ours.
+ *
+ *   ShellRoot
+ *   ├─ ShellHeader              breadcrumb (Jobs › aemet.fossil › Discover) + ⌘B sidebar trigger
+ *   ├─ ShellBody
+ *   │  ├─ Sidebar (start)       the app rail — workspace switcher / Platform nav / user
+ *   │  └─ Resizable             ShellMain graph  ⟷  the docked ShellAside end analysis panel
+ *   └─ ShellFooter             status bar: node/edge count at start, panel-tab icons at end
+ *
+ * The dock is drag-resizable: per DESIGN.md ("resizing is composed, not a prop") the canvas and the
+ * aside are the two panels of a `Resizable` (our Ark Splitter wrapper), so the drag, keyboard resize
+ * and ARIA all come from the machine. The Sidebar stays OUTSIDE the splitter. Panels (Info · Ask ·
+ * Rules · Analysis · Settings) are switched IDE-style from the footer icon strip, not an in-panel
+ * tab bar; collapsing the dock drops its panel + trigger and hands the canvas the full width. The
+ * library ships the regions and the parts; the graph canvas is a placeholder (the design system has
+ * no graph engine), but the **Analysis** panel is live — it renders real tokenized crossfilter
+ * charts from the `@kanzo-tech/ui/charts` subpath, loaded client-only from `./analysis-charts` so the
+ * DuckDB/vgplot stack never touches the RSC prerender. That split — placeholder graph, real charts —
+ * is the point of a showcase: it shows exactly how far the library reaches.
  */
 
 const KIND_FILL: Record<NodeKind, string> = {
@@ -126,72 +166,91 @@ function GraphCanvas() {
 	);
 }
 
-function MiniHistogram({ name, bars }: { name: string; bars: number[] }) {
+function GraphLegend() {
 	return (
-		<div className="w-40 shrink-0 rounded-md border bg-card p-2">
-			<p className="mb-1.5 truncate font-medium text-[10px] text-muted-foreground">
-				{name}
-			</p>
-			<div className="flex h-10 items-end gap-0.5">
-				{bars.map((h, i) => (
-					<div
-						className="flex-1 rounded-t-[1px] bg-primary/70"
-						key={i}
-						style={{ height: `${Math.max(6, h * 100)}%` }}
-					/>
+		<div className="absolute bottom-2 start-2 z-10 rounded-md border bg-card/80 px-2.5 py-1.5 backdrop-blur-sm">
+			<ul className="space-y-1">
+				{GRAPH_LEGEND.map((l) => (
+					<li className="flex items-center gap-2 text-xs" key={l.kind}>
+						<span
+							className="size-2 shrink-0 rounded-full"
+							style={{ background: KIND_FILL[l.kind] }}
+						/>
+						<span>{l.label}</span>
+						<span className="ms-auto ps-4 text-muted-foreground tabular-nums">
+							{l.count}
+						</span>
+					</li>
 				))}
-			</div>
+			</ul>
 		</div>
 	);
 }
 
 function InfoTab() {
 	return (
-		<ScrollArea className="h-full p-3">
-			<div className="space-y-3">
-				<div>
-					<p className="truncate font-medium text-sm">{SELECTED_NODE.label}</p>
-					<p className="mt-0.5 break-all text-muted-foreground text-xs">
-						{SELECTED_NODE.id}
-					</p>
-					<Badge className="mt-1 text-[10px]" size="xs" variant="outline">
-						{SELECTED_NODE.type}
-					</Badge>
+		<div className="flex h-full flex-col">
+			<div className="shrink-0 border-b border-border p-2">
+				<div className="flex items-center gap-1.5 rounded-md border border-input bg-background px-2.5">
+					<SearchIcon className="size-3.5 shrink-0 text-muted-foreground" />
+					<input
+						className="min-w-0 flex-1 bg-transparent py-1.5 text-xs outline-none placeholder:text-muted-foreground/64"
+						placeholder="Search entities…"
+					/>
 				</div>
-				<dl className="space-y-2 text-sm">
-					{SELECTED_NODE.properties.map((p) => (
-						<div className="flex flex-col gap-0.5" key={p.predicate}>
-							<dt className="font-medium text-muted-foreground text-xs">
-								{p.predicate}
-							</dt>
-							<dd className="break-all">{p.value}</dd>
-						</div>
-					))}
-				</dl>
 			</div>
-		</ScrollArea>
+			<ScrollArea className="min-h-0 flex-1 p-3">
+				<div className="space-y-3">
+					<div>
+						<p className="truncate font-medium text-sm">{SELECTED_NODE.label}</p>
+						<p className="mt-0.5 break-all text-muted-foreground text-xs">
+							{SELECTED_NODE.id}
+						</p>
+						<Badge className="mt-1 text-[10px]" size="xs" variant="outline">
+							{SELECTED_NODE.type}
+						</Badge>
+					</div>
+					<dl className="space-y-2 text-sm">
+						{SELECTED_NODE.properties.map((p) => (
+							<div className="flex flex-col gap-0.5" key={p.predicate}>
+								<dt className="font-medium text-muted-foreground text-xs">
+									{p.predicate}
+								</dt>
+								<dd className="break-all">{p.value}</dd>
+							</div>
+						))}
+					</dl>
+				</div>
+			</ScrollArea>
+		</div>
 	);
 }
 
 function AskTab() {
 	return (
 		<div className="flex h-full flex-col">
-			<ScrollArea className="flex-1 p-3">
-				<div className="space-y-2 text-xs">
-					<div className="ms-auto w-fit max-w-[85%] rounded-lg rounded-ee-sm bg-primary px-3 py-1.5 text-primary-foreground">
-						Which datasets mention weather?
-					</div>
-					<div className="w-fit max-w-[90%] rounded-lg rounded-es-sm bg-muted px-3 py-1.5">
-						Three datasets are tagged <code>weather</code>. Highlighted on the
-						graph.
+			<ScrollArea className="min-h-0 flex-1">
+				<div className="flex flex-col items-center gap-3 p-4 text-center">
+					<SparklesIcon className="size-5 text-muted-foreground" />
+					<p className="text-muted-foreground text-xs">Ask about your data</p>
+					<div className="flex flex-wrap justify-center gap-1.5">
+						{ASK_SUGGESTIONS.map((s) => (
+							<button
+								className="rounded-full border border-border px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+								key={s}
+								type="button"
+							>
+								{s}
+							</button>
+						))}
 					</div>
 				</div>
 			</ScrollArea>
-			<div className="border-t p-2">
-				<div className="flex items-center gap-1 rounded-md border bg-background ps-2.5">
+			<div className="shrink-0 border-t border-border p-2">
+				<div className="flex items-center gap-1 rounded-md border border-input bg-background ps-2.5">
 					<input
 						className="min-w-0 flex-1 bg-transparent py-1.5 text-xs outline-none placeholder:text-muted-foreground/64"
-						placeholder="Ask about your graph…"
+						placeholder="Ask about your data…"
 					/>
 					<Button size="icon-sm" variant="ghost">
 						<SendIcon />
@@ -202,34 +261,74 @@ function AskTab() {
 	);
 }
 
+function FilterChip({
+	children,
+	muted,
+}: {
+	children: React.ReactNode;
+	muted?: boolean;
+}) {
+	return (
+		<span
+			className={`inline-flex items-center gap-1 rounded-md border border-input px-2 py-1 ${
+				muted ? "text-muted-foreground" : ""
+			}`}
+		>
+			{children}
+			<ChevronDownIcon className="size-3 text-muted-foreground" />
+		</span>
+	);
+}
+
 function RulesTab() {
-	const rules = [
-		"Every Dataset has a dct:title",
-		"dcat:keyword is not empty",
-		"dct:issued is a valid xsd:date",
-	];
 	return (
 		<ScrollArea className="h-full p-3">
-			<div className="space-y-2">
-				<p className="text-muted-foreground text-xs">
-					Validation rules run over the graph.
-				</p>
-				{rules.map((r) => (
+			<div className="space-y-2 text-xs">
+				{RULE_FILTERS.map((f) => (
 					<div
-						className="flex items-center gap-2 rounded-md border p-2 text-xs"
-						key={r}
+						className="flex flex-wrap items-center gap-1.5"
+						key={`${f.conj}-${f.entity}-${f.field}`}
 					>
-						<ShieldCheckIcon className="size-3.5 shrink-0 text-success" />
-						<span className="min-w-0 flex-1">{r}</span>
-						<Badge size="xs" variant="success">
-							pass
-						</Badge>
+						<span className="w-10 shrink-0 text-muted-foreground">{f.conj}</span>
+						<FilterChip>{f.entity}</FilterChip>
+						<FilterChip>{f.field}</FilterChip>
+						<FilterChip>{f.op}</FilterChip>
+						{f.value && <FilterChip muted>{f.value}</FilterChip>}
 					</div>
 				))}
+				<Button
+					className="h-7 gap-1.5 text-muted-foreground text-xs"
+					size="sm"
+					variant="ghost"
+				>
+					<PlusIcon />
+					Add filter
+				</Button>
 			</div>
 		</ScrollArea>
 	);
 }
+
+/**
+ * The Analysis panel is the one live region: it renders REAL tokenized crossfilter charts from the
+ * `@kanzo-tech/ui/charts` subpath, not faux bars. The whole panel (DuckDB boot, sample table,
+ * `MosaicProvider` and the chart cards) lives in `./analysis-charts`, loaded client-only so the
+ * Mosaic/vgplot/DuckDB module tree is NEVER evaluated during the RSC prerender — the boundary
+ * `docs/examples/charts/example-default.tsx` documents. Importing `@kanzo-tech/ui/charts` at the top
+ * of this file would evaluate vgplot during prerender (a TDZ), so it must stay behind `ssr: false`.
+ */
+const AnalysisTab = dynamic(() => import("./analysis-charts"), {
+	ssr: false,
+	loading: () => (
+		<ScrollArea className="h-full">
+			<div className="space-y-2 p-1.5">
+				{Array.from({ length: 6 }).map((_, i) => (
+					<Skeleton className="h-[7.5rem] w-full rounded-sm" key={i} />
+				))}
+			</div>
+		</ScrollArea>
+	),
+});
 
 function SettingsTab() {
 	const [sim, setSim] = useState<Record<SimKey, number>>(
@@ -305,123 +404,221 @@ function SettingsTab() {
 	);
 }
 
+const PANELS = [
+	{ id: "info", label: "Info", icon: InfoIcon },
+	{ id: "ask", label: "Ask", icon: MessageCircleIcon },
+	{ id: "rules", label: "Rules", icon: ShieldCheckIcon },
+	{ id: "analysis", label: "Analysis", icon: BarChart3Icon },
+	{ id: "settings", label: "Settings", icon: Settings2Icon },
+] as const;
+
+type PanelId = (typeof PANELS)[number]["id"];
+
+const PANEL_BODY: Record<PanelId, React.ComponentType> = {
+	info: InfoTab,
+	ask: AskTab,
+	rules: RulesTab,
+	analysis: AnalysisTab,
+	settings: SettingsTab,
+};
+
+/** The graph region — one `<main>`, filling whichever box holds it (a splitter panel, or the whole
+ *  body when the dock is collapsed). */
+function DiscoveryCanvas() {
+	return (
+		<ShellMain className="relative size-full bg-background">
+			<GraphCanvas />
+			<GraphLegend />
+			{/* Zoom controls — decorative, like the graph itself; pinned bottom-end. */}
+			<div className="absolute end-2 bottom-2 z-10 flex flex-col overflow-hidden rounded-md border bg-card/80 backdrop-blur-sm">
+				<Button aria-label="Zoom in" size="icon-sm" variant="ghost">
+					<PlusIcon />
+				</Button>
+				<Button aria-label="Zoom out" size="icon-sm" variant="ghost">
+					<MinusIcon />
+				</Button>
+				<Button aria-label="Fit to view" size="icon-sm" variant="ghost">
+					<MaximizeIcon />
+				</Button>
+			</div>
+		</ShellMain>
+	);
+}
+
 export function WorkspaceShowcase() {
+	const [active, setActive] = useState<PanelId>("info");
 	const [panelOpen, setPanelOpen] = useState(true);
-	const [panelWidth, setPanelWidth] = useState(360);
-	const [histOpen, setHistOpen] = useState(true);
+
+	// IDE toggle: clicking the active panel's footer icon collapses the dock; clicking another
+	// switches to it (opening the dock if it was collapsed).
+	const selectPanel = (id: PanelId) => {
+		if (panelOpen && id === active) {
+			setPanelOpen(false);
+		} else {
+			setActive(id);
+			setPanelOpen(true);
+		}
+	};
+
+	const ActiveBody = PANEL_BODY[active];
+	const activeLabel = PANELS.find((p) => p.id === active)?.label ?? "";
 
 	return (
 		<ShellRoot>
-			<ShellHeader className="h-12 flex-row items-center gap-2 px-3">
-				<Button aria-label="Back" asChild size="icon-sm" variant="ghost">
-					<a href="#/app/jobs">
-						<ArrowLeftIcon />
-					</a>
-				</Button>
-				<Breadcrumbs
-					items={[
-						{ label: "Kanzo", href: "#/app" },
-						{ label: "jobs", href: "#/app/jobs" },
-						{ label: "aemet.fossil", href: "#/app/jobs/aemet" },
-						{ label: "Discover" },
-					]}
-				/>
-				<span className="ms-auto shrink-0 text-muted-foreground text-xs tabular-nums">
-					12,480 vertices · 31,204 edges
-				</span>
-			</ShellHeader>
+			{/* `contents` dissolves the provider's own box, so ShellHeader / ShellBody / ShellFooter
+			    stay the direct children ShellRoot stacks — while the whole shell still sits inside the
+			    sidebar context the header's ⌘B trigger needs. */}
+			<SidebarProvider className="contents">
+				<ShellHeader className="h-12 flex-row items-center gap-2 px-3">
+					<SidebarTrigger />
+					<Breadcrumbs
+						items={[
+							{ label: "Jobs", href: "#/app/jobs" },
+							{ label: "aemet.fossil", href: "#/app/jobs/aemet" },
+							{ label: "Discover" },
+						]}
+					/>
+				</ShellHeader>
 
-			<ShellMain className="relative flex min-h-0 flex-1 flex-col overflow-hidden bg-background">
-				{/* Canvas — always full-bleed. */}
-				<div className="relative min-h-0 flex-1">
-					<GraphCanvas />
-				</div>
+				<ShellBody>
+					<Sidebar collapsible="icon">
+						<SidebarHeader>
+							<InstanceSwitcher
+								activeId="dev"
+								instances={INSTANCES}
+								label="Workspaces"
+								onSelect={() =>
+									toast.create({ title: "Switch workspace", type: "info" })
+								}
+							/>
+						</SidebarHeader>
 
-				{/* Distributions — the bottom strip. */}
-				<div className="border-t bg-background">
-					<Button
-						className="h-7 w-full gap-1.5 rounded-none text-muted-foreground text-xs hover:text-foreground"
-						onClick={() => setHistOpen((v) => !v)}
-						size="sm"
-						variant="ghost"
-					>
-						<BarChart3Icon />
-						Distributions ({HISTOGRAM_FIELDS.length})
-						{histOpen ? <ChevronDownIcon /> : <ChevronUpIcon />}
-					</Button>
-					{histOpen && (
-						<ScrollArea className="w-full">
-							<div className="flex gap-2 px-2 pb-2">
-								{HISTOGRAM_FIELDS.map((f) => (
-									<MiniHistogram bars={f.bars} key={f.name} name={f.name} />
-								))}
-							</div>
-						</ScrollArea>
-					)}
-				</div>
+						<SidebarContent>
+							<SidebarNav items={NAV} label="Platform" />
+						</SidebarContent>
 
-				{/* Floating inspector — overlays the canvas on the trailing edge. */}
-				{panelOpen && (
-					<FloatingPanel
-						className="absolute inset-y-2 end-2 z-20"
-						maxWidth={560}
-						minWidth={280}
-						onWidthChange={setPanelWidth}
-						width={panelWidth}
-					>
-						<FloatingPanelResizeHandle side="start" />
-						<div className="flex min-w-0 flex-1 flex-col">
-							<Tabs
-								className="flex min-h-0 flex-1 flex-col"
-								defaultValue="info"
+						<SidebarFooter>
+							<SidebarUser
+								menuItems={[
+									{
+										label: "Profile",
+										icon: <UserIcon />,
+										onSelect: () =>
+											toast.create({ title: "Profile", type: "info" }),
+									},
+									{
+										label: "Settings",
+										icon: <SettingsIcon />,
+										onSelect: () =>
+											toast.create({ title: "Settings", type: "info" }),
+									},
+									{
+										label: "Log out",
+										icon: <LogOutIcon />,
+										variant: "destructive",
+										separatorBefore: true,
+										onSelect: () =>
+											toast.create({ title: "Logged out", type: "info" }),
+									},
+								]}
+								user={USER}
+							/>
+						</SidebarFooter>
+						<SidebarRail />
+					</Sidebar>
+
+					{/* The canvas and the docked panel are the two sides of a splitter, so drag- and
+					    keyboard-resize come from Ark's machine (DESIGN.md: resizing is composed, not a
+					    prop). The Sidebar stays outside it. Collapsing the dock drops the second panel
+					    and its trigger, and the lone canvas takes the full width. */}
+					<div className="relative flex min-h-0 min-w-0 flex-1">
+						{panelOpen ? (
+							<Resizable
+								className="min-h-0"
+								defaultSize={[72, 28]}
+								panels={[
+									{ id: "canvas", minSize: 40 },
+									{ id: "dock", minSize: 18 },
+								]}
 							>
-								<TabsList className="h-9 w-full shrink-0 justify-start rounded-none border-b px-1">
-									<TabsTrigger className="gap-1 text-xs" value="info">
-										<InfoIcon className="size-3" />
-										Info
-									</TabsTrigger>
-									<TabsTrigger className="gap-1 text-xs" value="ask">
-										<MessageCircleIcon className="size-3" />
-										Ask
-									</TabsTrigger>
-									<TabsTrigger className="gap-1 text-xs" value="rules">
-										<ShieldCheckIcon className="size-3" />
-										Rules
-									</TabsTrigger>
-									<TabsTrigger className="gap-1 text-xs" value="settings">
-										<Settings2Icon className="size-3" />
-										Settings
-									</TabsTrigger>
-								</TabsList>
-								<TabsContent className="m-0 min-h-0 flex-1" value="info">
-									<InfoTab />
-								</TabsContent>
-								<TabsContent className="m-0 min-h-0 flex-1" value="ask">
-									<AskTab />
-								</TabsContent>
-								<TabsContent className="m-0 min-h-0 flex-1" value="rules">
-									<RulesTab />
-								</TabsContent>
-								<TabsContent className="m-0 min-h-0 flex-1" value="settings">
-									<SettingsTab />
-								</TabsContent>
-							</Tabs>
-						</div>
-					</FloatingPanel>
-				)}
+								<ResizablePanel
+									className="relative min-w-0 overflow-hidden"
+									id="canvas"
+								>
+									<DiscoveryCanvas />
+								</ResizablePanel>
+								<ResizableResizeTrigger id="canvas:dock" withHandle />
+								<ResizablePanel
+									className="flex min-h-0 min-w-0 flex-col"
+									id="dock"
+								>
+									{/* The dock is still a ShellAside end (complementary landmark, bg-card); the
+									    trigger draws the divider, so the aside drops its own border-s. */}
+									<ShellAside
+										aria-label={`${activeLabel} panel`}
+										className="size-full min-h-0 border-s-0"
+										side="end"
+									>
+										<div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
+											<span className="font-medium text-sm">{activeLabel}</span>
+											<div className="ms-auto flex items-center gap-1">
+												{active === "rules" && (
+													<Button className="h-6 gap-1 text-xs" size="sm">
+														<PlayIcon className="size-3" />
+														Run
+													</Button>
+												)}
+												<Button
+													aria-label="Close panel"
+													className="-me-1"
+													onClick={() => setPanelOpen(false)}
+													size="icon-sm"
+													variant="ghost"
+												>
+													<XIcon />
+												</Button>
+											</div>
+										</div>
+										<div className="min-h-0 flex-1">
+											<ActiveBody />
+										</div>
+									</ShellAside>
+								</ResizablePanel>
+							</Resizable>
+						) : (
+							<DiscoveryCanvas />
+						)}
+					</div>
+				</ShellBody>
 
-				{/* Panel toggle — floats clear of the panel's leading edge. */}
-				<Button
-					aria-label={panelOpen ? "Hide inspector" : "Show inspector"}
-					className="absolute top-2 z-30 bg-background/80 backdrop-blur-sm"
-					onClick={() => setPanelOpen((v) => !v)}
-					size="icon-sm"
-					style={{ right: panelOpen ? panelWidth + 16 : 8 }}
-					variant="outline"
-				>
-					{panelOpen ? <PanelRightCloseIcon /> : <PanelRightOpenIcon />}
-				</Button>
-			</ShellMain>
+				{/* Status bar — node/edge count at the start, IDE panel-tab icons at the end. */}
+				<ShellFooter className="h-7 flex-row items-center justify-between px-3">
+					<span className="text-muted-foreground text-xs tabular-nums">
+						5,021 nodes · 4,997 edges
+					</span>
+					<div className="flex items-center gap-0.5">
+						{PANELS.map((p) => {
+							const isActive = panelOpen && p.id === active;
+							return (
+								<Button
+									aria-label={p.label}
+									aria-pressed={isActive}
+									className={
+										isActive ? "text-foreground" : "text-muted-foreground"
+									}
+									key={p.id}
+									onClick={() => selectPanel(p.id)}
+									size="icon-sm"
+									variant="ghost"
+								>
+									<p.icon />
+								</Button>
+							);
+						})}
+					</div>
+				</ShellFooter>
+				<Toaster />
+			</SidebarProvider>
 		</ShellRoot>
 	);
 }

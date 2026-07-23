@@ -1,0 +1,73 @@
+---
+title: Metadata form
+description: A HealthDCAT-AP metadata editor — grouped Cards, repeatable and nested fields, live serialisation, and a faked SHACL engine that only ever hands the library a boolean and a node.
+full: true
+---
+
+<PreviewIframe name="metadata-form" title="Metadata form showcase" className="h-[820px]" />
+
+A realistic RDF metadata editor at full viewport, mirroring keasy's real `metadata-form` screen —
+and, like the discovery showcase, **built as a Workspace on the Shell regions**. `ShellHeader`
+carries the utility strip (**Shape** · **Data** switcher · **Share** · the `MadeWith`
+attribution), the title, and the **Source** / **Output** / validation / **Preferences** controls.
+Below it a **three-column `Resizable` workspace** reads left→right exactly like the breadcrumb:
+SHACL **Source** (a leading `ShellAside`) → the editable **form** (`ShellMain`, the single
+`<main>`, groups **General** · **Provenance** · **Health-specific** · **Distributions**) →
+generated **Output** (a trailing `ShellAside`). Each side column toggles independently from its
+header button and is drag-resizable.
+
+It exists to answer the question a single field never can: does a whole *form* hold together —
+required markers, repeatable rows, nested objects, dates, AI assistance and validation — without
+the library growing a domain. Switch the **Data** selector from _Empty_ to _COVID-19 registry_ to
+watch the header badge flip from **3 issues** to **Valid** and the **Output** column reserialise
+live; open **Source** and **Output** together and drag the splitters to rebalance the three
+columns.
+
+## What it composes
+
+Almost nothing here is new — it is existing parts, arranged:
+
+- **`ShellRoot` / `ShellHeader` / `ShellBody` / `ShellMain` / `ShellAside`** + **`Resizable`** —
+  the Workspace frame. Exactly one `<main>`; the Source and Output columns are `<aside>` landmarks
+  (`ShellAside side="start"` / `side="end"`, logical and RTL-safe) rendered only when open, sized
+  by a drag-resizable `Resizable` splitter keyed on the open-set.
+- **`Field` · `FieldLabel` · `FieldError`** — every row. A required field shows a red `*`
+  (`FieldRequiredIndicator`); an invalid one gets `Field`'s own error channel.
+- **`FieldArray`** — the repeatable fields (descriptions, keywords, themes, contacts,
+  distributions), each row keyed by a stable id so editing never steals focus.
+- **`DateField`** — the release / modification dates, ISO in, calendar out.
+- **`SuggestMenu`** — the ✨ beside Keywords, streaming deduped suggestions.
+- **`CompletionField`** — each Description literal, with Tab-to-accept inline completion. It is
+  CodeMirror-backed, so it is imported from the `@kanzo-tech/ui/editor` subpath, never the root
+  barrel.
+- **`Steps` / `Tabs`** — the form re-lays-out live as sequential Cards, Tabs, or a Steps wizard.
+- **`Preferences` (extended)** — the library's own `PreferencesRoot` + `PreferencesPanel`
+  (its "Preferences [P]" drawer) is reused as-is and given custom `children`: a **Layout**
+  `SegmentGroup` and display `Switch`es that drive the `ShellMain` form live, above the library's
+  own theme axes. Flat exports, per the RSC boundary.
+- **`HoverCard` + `Badge`** — the header validation summary, listing every failing field. The
+  **Output** column is the *generated* JSON-LD / Turtle, kept distinct from validation.
+
+## Where the domain lives
+
+The library is domain-free, so **the entire SHACL/ShEx engine is faked in `data.tsx`** — a plain
+`validate(values)` that walks a HealthDCAT-AP-shaped object and returns `Issue[]` with resolved,
+tri-state (violation / warning / info) messages. That is the forms decision made visible: the
+library models validation as a **boolean + a `ReactNode`** and nothing more, so a _violation_
+flows through `Field`'s `invalid` + `FieldError`, while the non-blocking severities the library
+deliberately does not model are product-rendered nodes. Where the boolean came from — here a fake
+engine, in the product a real one over the whole RDF graph — is never the library's business.
+
+## Source
+
+```text
+docs/showcases/metadata-form/
+├── default.tsx   — the Workspace: Shell chrome, the resizable Source/form/Output columns, the
+│                   four groups, and the three live layouts driven by the Preferences drawer
+└── data.tsx      — the faked SHACL engine, two seeded datasets, controlled vocabularies,
+                    a toy Turtle / JSON-LD serialiser, and the faked AI streams
+```
+
+Imports come from two entry points: `@kanzo-tech/ui` for the form and chrome, and
+`@kanzo-tech/ui/editor` for `CompletionField` — a subpath, so the base bundle never carries
+CodeMirror for consumers who do not use it.
