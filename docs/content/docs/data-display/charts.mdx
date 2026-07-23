@@ -21,9 +21,10 @@ import { MosaicProvider, Histogram, BarChart } from "@kanzo-tech/ui/charts";
 
 <ComponentPreview componentName="charts" />
 
-Drag an interval across the histogram, or click the region bars — each chart publishes to a
-shared crossfilter `Selection`, so brushing one filters the others. The dimmed layer is always
-the full distribution; the solid `--primary` layer is the current filtered subset.
+Four chart types over **one** table, wired to **one** shared crossfilter `Selection`: drag an
+interval across the histogram or the hourly line, click a region bar, or drag a box on the
+scatter — each publishes to the selection, so brushing any one filters all the others. The dimmed
+layer is always the full distribution; the solid `--primary` layer is the current filtered subset.
 
 ## Installation
 
@@ -72,17 +73,20 @@ export function Distributions() {
 `Coordinator`, `Selection`, `coordinator` and `wasmConnector` are re-exported from the subpath,
 so you wire the backend without a direct `@uwdata` import.
 
-## Numeric vs categorical
+## Pick the chart by the column
 
-Pick the chart by the column's type — the difference is the brush, not the styling:
+Every chart is the same dual-layer crossfilter idea — a dimmed `--muted-foreground` layer for the
+full data and a `--primary` layer, `filterBy` the shared selection, for the subset on top. What
+differs is the mark and the brush:
 
 - **`Histogram`** bins a **numeric or temporal** column (`rectY` + `bin`) and drags an interval
   brush (`intervalX`) into the selection.
 - **`BarChart`** groups a **categorical** column (`barY`) and toggles a category (`toggleX`) into
   the selection. Bars are sorted by descending count and capped at `limit`.
-
-Both are dual-layer: a dimmed `--muted-foreground` layer draws the full distribution and a
-`--primary` layer, `filterBy` the shared selection, draws the crossfilter subset on top.
+- **`LineChart`** traces a count over an **ordered / temporal** column (`lineY`) and drags an
+  interval (`intervalX`). A line is *stroked* rather than filled, so the tokens map to `stroke`.
+- **`ScatterPlot`** plots two **numeric** columns (`dot`) and drags a 2-D rectangle
+  (`intervalXY`) into the selection.
 
 ## Theming
 
@@ -105,7 +109,7 @@ crossfilter.
 `useMosaic()` returns `{ coordinator, crossfilter }`; `useCrossfilter()` returns the shared
 `Selection`. Both throw outside a `MosaicProvider`.
 
-### Histogram / BarChart
+### Histogram / BarChart / LineChart
 
 | Prop | Type | Default |
 | --- | --- | --- |
@@ -114,4 +118,16 @@ crossfilter.
 | `selection` | `Selection` | provider's crossfilter |
 | `height` | `number` | `120` |
 | `limit` *(BarChart)* | `number` | `8` |
+| `className` | `string` | — |
+
+### ScatterPlot
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `table` | `string` | — |
+| `x` | `string` | — |
+| `y` | `string` | — |
+| `selection` | `Selection` | provider's crossfilter |
+| `height` | `number` | `120` |
+| `radius` | `number` | `2` |
 | `className` | `string` | — |

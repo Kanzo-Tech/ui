@@ -12,7 +12,9 @@ import { Skeleton } from "@kanzo-tech/ui";
 const CrossfilterDemo = dynamic(() => import("./crossfilter-demo"), {
   ssr: false,
   loading: () => (
-    <div className="w-full max-w-md space-y-4">
+    <div className="grid w-full max-w-2xl grid-cols-1 gap-5 sm:grid-cols-2">
+      <Skeleton className="h-32 w-full" />
+      <Skeleton className="h-32 w-full" />
       <Skeleton className="h-32 w-full" />
       <Skeleton className="h-32 w-full" />
     </div>

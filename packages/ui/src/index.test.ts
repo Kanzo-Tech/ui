@@ -34,5 +34,7 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(surface.MosaicProvider).toBeUndefined();
     expect(surface.Histogram).toBeUndefined();
     expect(surface.BarChart).toBeUndefined();
+    expect(surface.LineChart).toBeUndefined();
+    expect(surface.ScatterPlot).toBeUndefined();
   });
 });

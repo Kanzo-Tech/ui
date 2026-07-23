@@ -17,6 +17,10 @@ export { Histogram } from "./charts/histogram.js";
 export type { HistogramProps } from "./charts/histogram.js";
 export { BarChart } from "./charts/bar-chart.js";
 export type { BarChartProps } from "./charts/bar-chart.js";
+export { LineChart } from "./charts/line-chart.js";
+export type { LineChartProps } from "./charts/line-chart.js";
+export { ScatterPlot } from "./charts/scatter-plot.js";
+export type { ScatterPlotProps } from "./charts/scatter-plot.js";
 
 // Re-exported so a consumer wires a coordinator + crossfilter without a direct @uwdata import,
 // the way `/table` re-exports its TanStack types.
