@@ -1,12 +1,13 @@
 ---
 title: Overview
-description: Start here — how the provider, the parts and the composites fit together.
+description: The provider, the parts and the composites — how a sidebar fits together, and the full reference.
 ---
 
 The sidebar is not one component — it is a provider, twenty-three parts, and four composites
-built on top. Documented one page at a time it reads as a pile of unrelated exports, which is
-why this page exists: **it shows where each piece is used, so you can ignore the ones you are
-not using.**
+built on top. This page is both the guide (how the pieces fit, which one to reach for) and the
+reference for the base parts; the composites have their own pages.
+
+<ComponentPreview componentName="sidebar" />
 
 ## What you almost always want
 
@@ -41,12 +42,17 @@ That is a complete, working sidebar. Everything below is detail you can reach fo
 page**, so nothing inside it should render another — nested containers use `<section>`.
 </Callout>
 
+`SidebarProvider` owns the open state, persists it to a `sidebar_state` cookie, and binds
+<kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>B</kbd> to toggle. Everything below reads that state through
+`useSidebar`, which throws outside the provider. Below the `md` breakpoint the sidebar becomes a
+Sheet drawer instead of a rail, which is why the navigating composites close it on click.
+
 ## The three layers
 
 | Layer | What it is | When you touch it |
 |---|---|---|
 | **`SidebarProvider`** | Owns open/collapsed state, the `⌘B` shortcut and the mobile swap to a `Sheet`. Read it with `useSidebar()`. | Always — wrap once, near the root. |
-| **The parts** (`Sidebar`, `SidebarHeader`, `SidebarMenu`, `SidebarMenuButton`…) | The primitive vocabulary, vendored from Shark. Twenty-three of them. | When you are building a navigation shape the composites do not cover. |
+| **The parts** (`Sidebar`, `SidebarHeader`, `SidebarMenu`, `SidebarMenuButton`…) | The primitive vocabulary, vendored from Shark. Twenty-three of them, documented below. | When you are building a navigation shape the composites do not cover. |
 | **The composites** (`SidebarNav`, `SectionNav`, `SidebarUser`, `SidebarIdentity`) | Our pre-assembled arrangements of those parts. | Most of the time. Start here. |
 
 The relationship is the same one the [forms guide](/docs/forms/controls) describes: the parts
@@ -58,8 +64,8 @@ Two composites both render navigation, and the difference is structural:
 
 | Component | Shape | Use it for |
 |---|---|---|
-| `SidebarNav` | A flat list, where any entry may expand into sub-items | Application navigation — the main menu |
-| `SectionNav` | Several titled groups, each a headed block | Settings-style navigation, or a long list that needs headings |
+| [`SidebarNav`](/docs/sidebar/sidebar-nav) | A flat list, where any entry may expand into sub-items | Application navigation — the main menu |
+| [`SectionNav`](/docs/sidebar/section-nav) | Several titled groups, each a headed block | Settings-style navigation, or a long list that needs headings |
 
 Both are **domain-free and router-free**. Neither imports `next/link` or reads the current URL:
 `SidebarNav` takes `isActive` per item, `SectionNav` takes an `activePath` and computes it.
@@ -69,19 +75,52 @@ Your product injects its router through the `linkComponent` seam.
 
 | Component | Where it goes | What it shows |
 |---|---|---|
-| `SidebarUser` | `SidebarFooter` | The signed-in person: avatar, name, email, and a dropdown |
-| `InstanceSwitcher` | `SidebarHeader` | The thing being worked on — workspace, tenant, project — with a switcher |
-| `SidebarIdentity` | inside either | The shared "icon + name + subtitle" block both are built from |
-
-You will rarely use `SidebarIdentity` directly. It exists because the other two needed the same
-collapse-aware block, and it carries `responsive`/`collapsed` down by context so the avatar
-resizes and the text column disappears when the sidebar collapses.
+| [`SidebarUser`](/docs/sidebar/sidebar-user) | `SidebarFooter` | The signed-in person: avatar, name, email, and a dropdown |
+| [`InstanceSwitcher`](/docs/sidebar/instance-switcher) | `SidebarHeader` | The thing being worked on — workspace, tenant, project — with a switcher |
+| `SidebarIdentity` | inside either | The shared "icon + name + subtitle" block both are built from — documented on the [User footer](/docs/sidebar/sidebar-user#the-identity-block) page |
 
 <Callout type="warn">
 `SidebarUser` has no logout prop, deliberately. Log out is an ordinary entry in `menuItems` with
 `variant: "destructive"`, and your product owns the confirmation dialog and its wording — an
 auth flow does not belong in a library whose admission rule excludes auth.
 </Callout>
+
+## Anatomy
+
+```text
+SidebarProvider
+├── Sidebar
+│   ├── SidebarHeader
+│   ├── SidebarContent
+│   │   └── SidebarGroup
+│   │       ├── SidebarGroupLabel
+│   │       ├── SidebarGroupAction
+│   │       └── SidebarGroupContent
+│   │           └── SidebarMenu
+│   │               └── SidebarMenuItem
+│   │                   ├── SidebarMenuButton
+│   │                   ├── SidebarMenuAction
+│   │                   ├── SidebarMenuBadge
+│   │                   └── SidebarMenuSub
+│   │                       └── SidebarMenuSubItem
+│   │                           └── SidebarMenuSubButton
+│   ├── SidebarSeparator
+│   ├── SidebarFooter
+│   └── SidebarRail
+├── SidebarTrigger
+└── SidebarInset
+```
+
+## Sub-menus
+
+`SidebarMenuSub` is hidden outright when the sidebar collapses to icons — a nested list has no
+readable form at 48px, so it is dropped rather than squeezed.
+
+<ComponentPreview componentName="sidebar" fileName="example-submenu" />
+
+## Loading
+
+<ComponentPreview componentName="sidebar" fileName="example-skeleton" />
 
 ## Collapsing
 
@@ -100,14 +139,67 @@ const { open, isMobile, toggleSidebar } = useSidebar();
 server component is the single most common mistake with this API.
 </Callout>
 
-## Where to go next
+## API Reference
 
-<Cards>
-  <Card href="/docs/sidebar/sidebar-nav" title="Navigation" description="The main menu — SidebarNav." />
-  <Card href="/docs/sidebar/section-nav" title="Grouped navigation" description="Titled groups for settings-style screens — SectionNav." />
-  <Card href="/docs/sidebar/sidebar-user" title="User footer" description="The signed-in person and their dropdown — SidebarUser." />
-  <Card href="/docs/sidebar/instance-switcher" title="Instance switcher" description="Workspace, tenant or project — InstanceSwitcher." />
-  <Card href="/docs/sidebar/sidebar" title="Parts" description="The provider and all twenty-three parts." />
-  <Card href="/docs/sidebar/sidebar-identity" title="Identity block" description="Shared by the two switchers — SidebarIdentity." />
-  <Card href="/docs/layouts/shell" title="Shell" description="The window regions a sidebar sits inside — it composes into a ShellAside." />
-</Cards>
+### SidebarProvider
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `defaultOpen` | `boolean` | `true` |
+| `open` | `boolean` | — |
+| `onOpenChange` | `(open: boolean) => void` | — |
+
+Extends `React.ComponentProps<"div">`.
+
+### Sidebar
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `collapsible` | `"offcanvas" \| "icon" \| "none"` | `"offcanvas"` |
+| `placement` | `"left" \| "right"` | `"left"` |
+| `variant` | `"sidebar" \| "floating" \| "inset"` | `"sidebar"` |
+| `className` | `string` | — |
+
+`collapsible="none"` renders a plain static `<aside>` in normal flow — the right choice when
+the sidebar is embedded in a panel rather than pinned to the viewport.
+
+### SidebarMenuButton
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `isActive` | `boolean` | `false` |
+| `tooltip` | `string \| TooltipContentProps` | — |
+| `size` | `"xs" \| "sm" \| "md" \| "lg" \| …` | `"md"` |
+| `variant` | Button variant | `"ghost"` |
+
+The tooltip only shows while the sidebar is collapsed and not on mobile, so labelled buttons
+never get a redundant one.
+
+### SidebarContent
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `scrollFade` | `boolean` | `false` |
+
+### SidebarMenuAction
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `showOnHover` | `boolean` | `false` |
+
+### SidebarMenuSkeleton
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `showIcon` | `boolean` | `false` |
+
+### SidebarMenuSubButton
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `isActive` | `boolean` | `false` |
+| `size` | Button size | `"md"` |
+
+### useSidebar
+
+Returns `{ state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar }`.

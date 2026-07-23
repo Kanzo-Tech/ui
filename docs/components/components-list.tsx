@@ -15,7 +15,9 @@ import { getComponentGroups } from "@/lib/component-groups";
  * source of truth by construction — the point of this page is that there is only one.
  */
 export const ComponentsList = ({ className, ...rest }: React.ComponentProps<"div">) => {
-  const groups = getComponentGroups();
+  // Showcases are whole arrangements, not components — they have their own index next to this
+  // one (`/docs/showcases`), so they are excluded here rather than listed as a fifth group.
+  const groups = getComponentGroups().filter((g) => g.slug !== "showcases");
 
   return (
     <div className={cn("flex flex-col gap-12", className)} {...rest}>

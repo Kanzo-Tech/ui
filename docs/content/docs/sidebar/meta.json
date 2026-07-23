@@ -5,8 +5,6 @@
     "sidebar-nav",
     "section-nav",
     "sidebar-user",
-    "instance-switcher",
-    "sidebar",
-    "sidebar-identity"
+    "instance-switcher"
   ]
 }
