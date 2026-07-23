@@ -26,6 +26,10 @@
       "types": "./dist/table.d.ts",
       "import": "./dist/table.js"
     },
+    "./charts": {
+      "types": "./dist/charts.d.ts",
+      "import": "./dist/charts.js"
+    },
     "./styles.css": "./dist/styles.css",
     "./package.json": "./package.json"
   },
@@ -45,12 +49,28 @@
     "@codemirror/view": ">=6",
     "@lezer/highlight": ">=1",
     "@tanstack/react-table": ">=8",
+    "@uwdata/vgplot": "^0.29.2",
+    "@uwdata/mosaic-core": "^0.29.2",
+    "@uwdata/mosaic-sql": "^0.29.0",
+    "@duckdb/duckdb-wasm": "^1.33.1-dev57.0",
     "lucide-react": ">=1",
     "react": ">=19",
     "react-dom": ">=19"
   },
   "peerDependenciesMeta": {
     "@tanstack/react-table": {
+      "optional": true
+    },
+    "@uwdata/vgplot": {
+      "optional": true
+    },
+    "@uwdata/mosaic-core": {
+      "optional": true
+    },
+    "@uwdata/mosaic-sql": {
+      "optional": true
+    },
+    "@duckdb/duckdb-wasm": {
       "optional": true
     },
     "@codemirror/autocomplete": {
@@ -95,6 +115,9 @@
     "@tailwindcss/typography": "^0.5.20",
     "@tanstack/react-table": "^8.21.3",
     "@testing-library/dom": "^10.4.1",
+    "@uwdata/vgplot": "^0.29.2",
+    "@uwdata/mosaic-core": "^0.29.2",
+    "@uwdata/mosaic-sql": "^0.29.0",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@types/react": "^19.0.0",
@@ -132,6 +155,23 @@
         "@codemirror/autocomplete",
         "@lezer/highlight",
         "@tanstack/react-table"
+      ]
+    },
+    {
+      "name": "charts subpath (JS)",
+      "path": "dist/charts.js",
+      "limit": "4 kB",
+      "ignore": [
+        "react",
+        "react-dom",
+        "react/jsx-runtime",
+        "@kanzo-tech/theme",
+        "tailwind-merge",
+        "clsx",
+        "@uwdata/vgplot",
+        "@uwdata/mosaic-core",
+        "@uwdata/mosaic-sql",
+        "@duckdb/duckdb-wasm"
       ]
     },
     {
