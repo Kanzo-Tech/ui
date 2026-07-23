@@ -81,6 +81,7 @@ export * from "./simples/command.js";
 export * from "./simples/date-picker.js";
 export * from "./simples/dialog.js";
 export * from "./simples/field.js";
+export * from "./simples/floating-panel.js";
 export * from "./simples/hover-card.js";
 export * from "./simples/input.js";
 export * from "./simples/input-group.js";

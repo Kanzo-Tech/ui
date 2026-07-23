@@ -1,0 +1,63 @@
+---
+title: FloatingPanel
+description: A glass surface that floats over content, with an optional drag-to-resize edge.
+---
+
+<ComponentPreview componentName="floating-panel" />
+
+## Usage
+
+```tsx
+import { FloatingPanel, FloatingPanelResizeHandle } from "@kanzo-tech/ui";
+```
+
+```tsx
+<div className="relative">
+  <Canvas />
+  <FloatingPanel className="absolute inset-y-2 end-2" defaultWidth={320}>
+    <FloatingPanelResizeHandle side="start" />
+    <div className="min-w-0 flex-1">…</div>
+  </FloatingPanel>
+</div>
+```
+
+It owns the surface — an elevated `--popover` tint, a backdrop blur, a border, a shadow and
+rounded corners — and the resize behaviour. The **caller owns where it floats**: it sets no
+position of its own, so you place it with `className` (over a canvas, a map, a graph) exactly
+where you want.
+
+## Resizing
+
+Drop a `FloatingPanelResizeHandle` inside and the panel gains a drag edge. `side="start"` (the
+default) puts the handle on the leading edge and grows the panel as you drag inward; `side="end"`
+puts it on the trailing edge. Width runs uncontrolled from `defaultWidth`, or controlled with
+`width` + `onWidthChange`, and is always clamped to `minWidth`/`maxWidth`. Omit the handle for a
+fixed-width panel.
+
+## Anatomy
+
+```text
+FloatingPanel                     (the glass surface — position it yourself)
+├── FloatingPanelResizeHandle     (optional — the drag edge)
+└── …                             (your content, a flex sibling)
+```
+
+## API Reference
+
+### FloatingPanel
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `width` | `number` | — (uncontrolled) |
+| `defaultWidth` | `number` | `320` |
+| `onWidthChange` | `(width: number) => void` | — |
+| `minWidth` | `number` | `240` |
+| `maxWidth` | `number` | `640` |
+
+Renders a `div` and takes its props; set `position` through `className`.
+
+### FloatingPanelResizeHandle
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `side` | `"start" \| "end"` | `"start"` |

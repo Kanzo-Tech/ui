@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import {
 	Badge,
 	Breadcrumbs,
 	Button,
+	FloatingPanel,
+	FloatingPanelResizeHandle,
 	ScrollArea,
 	ShellHeader,
 	ShellMain,
@@ -307,28 +309,6 @@ export function WorkspaceShowcase() {
 	const [panelOpen, setPanelOpen] = useState(true);
 	const [panelWidth, setPanelWidth] = useState(360);
 	const [histOpen, setHistOpen] = useState(true);
-	const dragRef = useRef<{ startX: number; startW: number } | null>(null);
-
-	// Floating-panel resize — a left-edge drag handle, clamped. Hand-rolled because the panel
-	// overlays the canvas rather than splitting it, which `Resizable` (a splitter) does not model.
-	const startResize = (e: React.PointerEvent) => {
-		e.preventDefault();
-		dragRef.current = { startX: e.clientX, startW: panelWidth };
-		const onMove = (ev: PointerEvent) => {
-			if (!dragRef.current) return;
-			const delta = dragRef.current.startX - ev.clientX;
-			setPanelWidth(
-				Math.max(280, Math.min(560, dragRef.current.startW + delta)),
-			);
-		};
-		const onUp = () => {
-			dragRef.current = null;
-			document.removeEventListener("pointermove", onMove);
-			document.removeEventListener("pointerup", onUp);
-		};
-		document.addEventListener("pointermove", onMove);
-		document.addEventListener("pointerup", onUp);
-	};
 
 	return (
 		<ShellRoot>
@@ -382,14 +362,14 @@ export function WorkspaceShowcase() {
 
 				{/* Floating inspector — overlays the canvas on the trailing edge. */}
 				{panelOpen && (
-					<div
-						className="absolute inset-y-2 end-2 z-20 flex overflow-hidden rounded-lg border bg-background/95 shadow-lg backdrop-blur-sm"
-						style={{ width: panelWidth }}
+					<FloatingPanel
+						className="absolute inset-y-2 end-2 z-20"
+						maxWidth={560}
+						minWidth={280}
+						onWidthChange={setPanelWidth}
+						width={panelWidth}
 					>
-						<div
-							className="w-1.5 shrink-0 cursor-col-resize transition-colors hover:bg-accent/50 active:bg-accent"
-							onPointerDown={startResize}
-						/>
+						<FloatingPanelResizeHandle side="start" />
 						<div className="flex min-w-0 flex-1 flex-col">
 							<Tabs
 								className="flex min-h-0 flex-1 flex-col"
@@ -427,7 +407,7 @@ export function WorkspaceShowcase() {
 								</TabsContent>
 							</Tabs>
 						</div>
-					</div>
+					</FloatingPanel>
 				)}
 
 				{/* Panel toggle — floats clear of the panel's leading edge. */}
