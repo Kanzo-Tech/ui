@@ -1,4 +1,4 @@
 {
   "title": "Actions",
-  "pages": ["button", "button-group", "toggle", "action-bar", "command", "clipboard"]
+  "pages": ["button", "button-group", "toggle", "action-bar", "command", "clipboard", "download-trigger"]
 }

@@ -81,7 +81,10 @@ export function SidebarUser({
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <Menu positioning={{ placement: isMobile ? "bottom" : "right-end" }}>
+        {/* Anchored like Shark's nav-user menu: beside the rail (align to its bottom) on desktop,
+            below the trigger on mobile, with a 4px gutter (shadcn `sideOffset={4}`, tighter than
+            Ark's default 8). */}
+        <Menu positioning={{ placement: isMobile ? "bottom-end" : "right-end", gutter: 4 }}>
           <MenuTrigger asChild>
             {/* Collapsed, the button is a 32px square the avatar fills edge-to-edge; round the
                 button too so its `overflow-hidden` clip matches the circular avatar (otherwise

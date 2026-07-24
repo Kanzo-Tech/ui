@@ -32,6 +32,12 @@ import {
   NativeSelect,
   NativeSelectOption,
   NumberField,
+  Popover,
+  PopoverBody,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
   PreferencesAccent,
   PreferencesAppearance,
   PreferencesBase,
@@ -59,6 +65,7 @@ import {
   ShellHeader,
   ShellMain,
   ShellRoot,
+  Spinner,
   Steps,
   StepsContent,
   StepsIndicator,
@@ -69,7 +76,6 @@ import {
   StepsSeparator,
   StepsTitle,
   StepsTrigger,
-  SuggestMenu,
   Switch,
   Tabs,
   TabsContent,
@@ -86,18 +92,22 @@ import {
   TagsInputItemText,
   Textarea,
   TextField,
+  useSuggestions,
 } from "@kanzo-tech/ui";
 import { DateField } from "@kanzo-tech/ui";
-// CompletionField is CodeMirror-backed, so it lives behind the optional-peer boundary on the
+import { JsonTreeView } from "@kanzo-tech/ui";
+// CodeEditor is CodeMirror-backed, so it lives behind the optional-peer boundary on the
 // `/editor` subpath — never the root barrel. The showcase route already imports subpaths
-// (app-shell pulls `@kanzo-tech/ui/table`), so this is the established pattern.
-import { CompletionField } from "@kanzo-tech/ui/editor";
+// (app-shell pulls `@kanzo-tech/ui/table`), so this is the established pattern. Its `complete`
+// prop is the inline ghost-completion surface (was the standalone `CompletionField`).
+import { CodeEditor } from "@kanzo-tech/ui/editor";
 import {
   CheckIcon,
   Code2Icon,
   FileTextIcon,
   Share2Icon,
   ShapesIcon,
+  SparklesIcon,
   XIcon,
 } from "lucide-react";
 import {
@@ -175,7 +185,7 @@ function FieldFrame({
   predicate?: string;
   required?: boolean;
   issues: Issue[];
-  /** A trailing control on the label row (e.g. a `SuggestMenu`). */
+  /** A trailing control on the label row (e.g. the ✨ suggestions popover). */
   action?: ReactNode;
   children: (invalid: boolean) => ReactNode;
 }) {
@@ -302,6 +312,82 @@ function PanelShell({
   );
 }
 
+/** The ✨ suggestions affordance — composition, not a component: a `Popover` + a ghost `Button`
+ *  trigger + the headless `useSuggestions`. Streams deduped candidate keywords into a fixed
+ *  window (dismissing one refills it); fetched once per open-cycle, cancelled on interrupted
+ *  load. Feeds the same `keywords` state the TagsInput edits. */
+function SuggestKeywords({
+  existing,
+  onPick,
+}: {
+  existing: string[];
+  onPick: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const { items, loading, error, start, cancel, dismiss } = useSuggestions({
+    existing,
+    suggest: suggestKeywords,
+  });
+
+  const onOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (next) start();
+    else if (loading) cancel(); // interrupted mid-load: stop the stream, refetch fresh next time
+  };
+
+  const pick = (value: string) => {
+    onPick(value);
+    setOpen(false);
+  };
+
+  return (
+    <Popover onOpenChange={(d) => onOpenChange(d.open)} open={open} positioning={{ placement: "bottom-end" }}>
+      <PopoverTrigger asChild>
+        <Button aria-label="Suggest keywords" size="icon-sm" type="button" variant="ghost">
+          <SparklesIcon />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 max-w-[90vw]">
+        <PopoverHeader>
+          <PopoverTitle className="text-sm">Suggestions</PopoverTitle>
+        </PopoverHeader>
+        <PopoverBody className="flex flex-col gap-1">
+          {loading && items.length === 0 && (
+            <div className="flex items-center gap-2 p-2">
+              <Spinner />
+              <span className="text-muted-foreground text-xs">Thinking…</span>
+            </div>
+          )}
+          {error && <span className="block p-2 text-destructive text-xs">{error}</span>}
+          {!loading && !error && items.length === 0 && (
+            <span className="block p-2 text-muted-foreground text-xs">No suggestions</span>
+          )}
+          {items.map((item, index) => (
+            <div className="flex items-center gap-2" key={`${item.value}-${index}`}>
+              <button
+                className="flex min-w-0 flex-1 flex-col gap-1 rounded-md p-2 text-start outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/32 motion-reduce:transition-none!"
+                onClick={() => pick(item.value)}
+                type="button"
+              >
+                <span className="text-sm">{item.label ?? item.value}</span>
+                {item.rationale && <span className="text-muted-foreground text-xs">{item.rationale}</span>}
+              </button>
+              <Button aria-label="Dismiss suggestion" onClick={() => dismiss(index)} size="icon-sm" variant="ghost">
+                <XIcon />
+              </Button>
+            </div>
+          ))}
+          {loading && items.length > 0 && (
+            <div className="flex items-center justify-center pt-2">
+              <Spinner />
+            </div>
+          )}
+        </PopoverBody>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 /**
  * The metadata-form showcase — a HealthDCAT-AP editor built as a Workspace, exactly like the
  * discovery showcase: the Shell regions carry it. `ShellHeader` holds the utility strip, the
@@ -311,8 +397,9 @@ function PanelShell({
  * (a trailing `ShellAside`, Turtle & JSON-LD). Each side column toggles independently from its
  * header button and is drag-resizable; validation stays in the header badge.
  *
- * It is MOSTLY COMPOSITION — `Field`, `FieldArray`, `DateField`, `SuggestMenu`,
- * `CompletionField`, `Steps`, `Tabs`, `NativeSelect`, `Resizable` — over a FAKED SHACL engine in
+ * It is MOSTLY COMPOSITION — `Field`, `FieldArray`, `DateField`, a `Popover` + `useSuggestions`
+ * ✨ menu, `CodeEditor` (its `complete` prop = inline ghost completion), `Steps`, `Tabs`,
+ * `NativeSelect`, `Resizable` — over a FAKED SHACL engine in
  * `data.tsx`. The form's layout (Sequential / Tabs / Steps) and display prefs are chosen live in
  * the library's own `Preferences` drawer, extended here with a custom Layout section.
  */
@@ -441,9 +528,12 @@ export function MetadataFormShowcase() {
               rowKey={(i) => values.descriptions[i].id}
             >
               {(i) => (
-                <CompletionField
+                // The rich "complex Textarea": CodeEditor with its `complete` prop wired to the
+                // faked stream — inline ghost text, Tab to accept. Was the standalone CompletionField.
+                <CodeEditor
                   complete={completeDescription}
-                  onChange={(v) => setEntry("descriptions", i, v ?? "")}
+                  minHeight="84px"
+                  onChange={(v) => setEntry("descriptions", i, v)}
                   placeholder="Describe the dataset — press Tab to accept the suggestion…"
                   value={values.descriptions[i].value}
                 />
@@ -455,12 +545,11 @@ export function MetadataFormShowcase() {
 
       <FieldFrame
         action={
-          <SuggestMenu
+          <SuggestKeywords
             existing={values.keywords.map((k) => k.value)}
             onPick={(value) =>
               setValues((p) => ({ ...p, keywords: [...p.keywords, { id: uid("k"), value }] }))
             }
-            suggest={suggestKeywords}
           />
         }
         description="Keywords or tags describing the dataset."
@@ -469,7 +558,7 @@ export function MetadataFormShowcase() {
         predicate="dcat:keyword"
       >
         {(invalid) => (
-          // TagsInput owns the chips + add; the SuggestMenu above writes into the same
+          // TagsInput owns the chips + add; the ✨ suggestions above write into the same
           // `keywords` state, so the ✨ and typing feed one list. No hand-rolled FieldArray.
           <TagsInput
             invalid={invalid}
@@ -1008,9 +1097,9 @@ export function MetadataFormShowcase() {
         <TabsTrigger value="turtle">Turtle</TabsTrigger>
       </TabsList>
       <TabsContent value="jsonld">
-        <pre className="overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs leading-relaxed">
-          {toJsonLd(values)}
-        </pre>
+        <div className="overflow-auto rounded-lg border bg-muted/40 p-3">
+          <JsonTreeView data={JSON.parse(toJsonLd(values))} />
+        </div>
       </TabsContent>
       <TabsContent value="turtle">
         <pre className="overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs leading-relaxed">

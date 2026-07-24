@@ -29,6 +29,13 @@ Float positions itself against the **nearest positioned ancestor**. Give that an
 on an avatar, a "New" tag on a card. It is pure box model (no client boundary), and it pins the
 child; the offset and the child are yours. `Ribbon` is built on it.
 
+## On a card corner
+
+Pin a "New" / "Coming soon" tag to a card. The card is the positioned ancestor, and a negative
+offset lets the badge straddle the edge.
+
+<ComponentPreview componentName="float" fileName="example-card" />
+
 ## Placements
 
 Nine cells of a 3×3 grid. The vertical middle is **`middle-*`** (not `center-*`); the horizontal

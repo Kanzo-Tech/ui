@@ -1,0 +1,37 @@
+---
+title: Client Only
+description: Renders its children only after mount — an SSR/hydration escape hatch.
+links:
+  doc: https://ark-ui.com/docs/utilities/client-only
+---
+
+<ComponentPreview componentName="client-only" />
+
+## Usage
+
+```tsx
+import { ClientOnly } from "@kanzo-tech/ui";
+```
+
+`ClientOnly` defers its children until the component has mounted on the client, showing
+`fallback` in the meantime. Reach for it when a subtree depends on a browser-only API
+(`window`, `matchMedia`, a non-deterministic value) that would either crash SSR or mismatch
+during hydration.
+
+```tsx
+<ClientOnly fallback={<Skeleton className="h-5 w-48" />}>
+  <ViewportWidth />
+</ClientOnly>
+```
+
+It is transparent: it renders `children` (which may also be a function) directly, adding no
+wrapper element of its own.
+
+## API Reference
+
+### ClientOnly
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `children` | `ReactNode \| (() => ReactNode)` | — |
+| `fallback` | `ReactNode` | — |

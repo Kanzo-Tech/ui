@@ -8,9 +8,7 @@
 // its props are `value` / `onChange` / `extensions` / `readOnly`, i.e. a control, and the
 // name made the whole layout layer read as incoherent. It is a composite — an assembly
 // with its own state, chrome and optional batteries.
+// Inline ghost completion is now a prop of `CodeEditor` (`complete`), not a standalone
+// `CompletionField` — one rich surface, driven by the headless `useCompletion` (root barrel).
 export { CodeEditor, kanzoHighlightStyle, kanzoHighlighting } from "./composites/CodeEditor.js";
 export type { CodeEditorProps } from "./composites/CodeEditor.js";
-// CompletionField is CodeMirror-backed too, so it belongs behind the same optional-peer boundary
-// rather than in the root barrel.
-export { CompletionField } from "./composites/CompletionField.js";
-export type { CompletionFieldProps } from "./composites/CompletionField.js";

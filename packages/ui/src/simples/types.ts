@@ -4,7 +4,7 @@ export interface ComboboxOption {
   label: string;
 }
 
-/** A streamed value candidate shown in {@link SuggestMenu}. */
+/** A streamed value candidate produced by `useSuggestions`. */
 export interface Suggestion {
   /** Primitive value committed when the row is picked. */
   value: string;

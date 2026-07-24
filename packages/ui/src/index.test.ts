@@ -16,6 +16,10 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.useAiStream).toBeTypeOf("function");
     expect(UI.useCompletion).toBeTypeOf("function");
     expect(UI.useSuggestions).toBeTypeOf("function");
+    expect(UI.ClientOnly).toBeTypeOf("function");
+    expect(UI.DownloadTrigger).toBeTypeOf("function");
+    expect(UI.Show).toBeTypeOf("function");
+    expect(UI.JsonTreeView).toBeTypeOf("function");
   });
 
   it("exposes exactly one themer", () => {
@@ -31,6 +35,8 @@ describe("@kanzo-tech/ui public surface", () => {
     const surface = UI as Record<string, unknown>;
     expect(surface.MetricCard).toBeUndefined();
     expect(surface.SecretField).toBeUndefined();
+    // SuggestMenu dissolved into a Popover + useSuggestions composition.
+    expect(surface.SuggestMenu).toBeUndefined();
   });
 
   it("keeps CodeMirror-backed components off the root barrel", () => {

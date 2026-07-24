@@ -55,6 +55,20 @@ field with no steppers, [`NumberField`](/docs/forms/text-field) (a `type="number
 
 <ComponentPreview componentName="number-input" fileName="example-controlled" />
 
+## Scrubbing
+
+Wrap `NumberInputScrubber` around the label (or an icon) and dragging it left/right scrubs the
+value — the pointer capture, delta and clamping come from Ark.
+
+<ComponentPreview componentName="number-input" fileName="example-scrubber" />
+
+## Formatting
+
+`formatOptions` is forwarded to `Intl.NumberFormat`, so the value stays a number while the display
+becomes a currency, percent or unit.
+
+<ComponentPreview componentName="number-input" fileName="example-format" />
+
 ## Anatomy
 
 ```text

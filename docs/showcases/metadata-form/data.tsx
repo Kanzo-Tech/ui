@@ -349,7 +349,7 @@ export function tripleCount(v: FormValues): number {
   return toTurtle(v).split("\n").filter((l) => /[;.]$/.test(l.trim())).length;
 }
 
-// ── Faked AI streams (SuggestMenu + CompletionField) ─────────────────────────
+// ── Faked AI streams (✨ useSuggestions + CodeEditor `complete`) ──────────────
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -364,7 +364,7 @@ const KEYWORD_POOL: Suggestion[] = [
   { value: "comorbidity", rationale: "Clinical qualifier" },
 ];
 
-/** SuggestMenu's `suggest` — streams candidate keywords one at a time. */
+/** `useSuggestions`' `suggest` — streams candidate keywords one at a time. */
 export async function* suggestKeywords(
   signal?: AbortSignal,
 ): AsyncIterable<Suggestion> {
@@ -375,7 +375,7 @@ export async function* suggestKeywords(
   }
 }
 
-/** CompletionField's `complete` — streams a canned continuation for a description literal. */
+/** CodeEditor's `complete` — streams a canned continuation for a description literal. */
 export async function* completeDescription(
   value: string,
   signal?: AbortSignal,

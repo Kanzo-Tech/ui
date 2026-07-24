@@ -1,0 +1,41 @@
+---
+title: JSON Tree View
+description: An expandable, syntax-coloured tree view of any JSON value.
+links:
+  doc: https://ark-ui.com/docs/utilities/json-tree-view
+---
+
+<ComponentPreview componentName="json-tree-view" />
+
+## Usage
+
+```tsx
+import { JsonTreeView } from "@kanzo-tech/ui";
+```
+
+Pass any JSON-serialisable value to `data`; the component builds the tree with Ark's
+`json-tree-view` machine — no collection to assemble. Objects and arrays become expandable
+branches, primitives become leaves, and each value is coloured by its type (string, number,
+boolean, null).
+
+```tsx
+<JsonTreeView data={value} defaultExpandedDepth={2} />
+```
+
+Branches lazy-mount and unmount on collapse by default (`lazyMount` / `unmountOnExit`), so a
+large document stays cheap until the reader opens it.
+
+## API Reference
+
+### JsonTreeView
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `data` | `unknown` | — |
+| `defaultExpandedDepth` | `number` | — |
+| `renderValue` | `(details) => ReactNode` | — |
+| `lazyMount` | `boolean` | `true` |
+| `unmountOnExit` | `boolean` | `true` |
+
+`renderValue` overrides how a single leaf value is printed. Everything else comes from Ark's
+`JsonTreeView.Root`.

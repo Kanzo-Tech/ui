@@ -6,11 +6,17 @@ import {
 	Badge,
 	Breadcrumbs,
 	Button,
+	ButtonGroup,
 	InputGroup,
 	InputGroupAddon,
 	InputGroupButton,
 	InputGroupInput,
 	InstanceSwitcher,
+	NumberInput,
+	NumberInputControl,
+	NumberInputDecrementTrigger,
+	NumberInputIncrementTrigger,
+	NumberInputInput,
 	Resizable,
 	ResizablePanel,
 	ResizableResizeTrigger,
@@ -340,6 +346,7 @@ function SettingsTab() {
 	);
 	const [showLinks, setShowLinks] = useState(true);
 	const [scaleOnZoom, setScaleOnZoom] = useState(true);
+	const [depth, setDepth] = useState("2");
 
 	return (
 		<ScrollArea className="h-full p-3">
@@ -381,6 +388,24 @@ function SettingsTab() {
 							onCheckedChange={(d) => setScaleOnZoom(d.checked)}
 						/>
 					</div>
+					{/* A bounded integer (how many hops out from the selected node to render) — a
+					    spinbutton, not a slider: the user types or steps an exact count. */}
+					<div className="flex items-center justify-between">
+						<span className="text-xs">Neighbour depth</span>
+						<NumberInput
+							className="w-24"
+							max={6}
+							min={1}
+							onValueChange={(d) => setDepth(d.value)}
+							value={depth}
+						>
+							<NumberInputControl size="sm">
+								<NumberInputInput />
+								<NumberInputIncrementTrigger />
+								<NumberInputDecrementTrigger />
+							</NumberInputControl>
+						</NumberInput>
+					</div>
 				</div>
 
 				<Button
@@ -393,6 +418,7 @@ function SettingsTab() {
 						);
 						setShowLinks(true);
 						setScaleOnZoom(true);
+						setDepth("2");
 					}}
 					size="sm"
 					variant="outline"
@@ -429,18 +455,24 @@ function DiscoveryCanvas() {
 		<ShellMain className="relative size-full bg-background">
 			<GraphCanvas />
 			<GraphLegend />
-			{/* Zoom controls — decorative, like the graph itself; pinned bottom-end. */}
-			<div className="absolute end-2 bottom-2 z-10 flex flex-col overflow-hidden rounded-md border bg-card/80 backdrop-blur-sm">
-				<Button aria-label="Zoom in" size="icon-sm" variant="ghost">
+			{/* Zoom / fit — an ACTION cluster (three independent commands, not a choice), so a
+			    vertical ButtonGroup: it collapses the shared borders into one segmented control and
+			    keeps each button's focus ring un-clipped. */}
+			<ButtonGroup
+				aria-label="Zoom and fit"
+				className="absolute end-2 bottom-2 z-10 bg-card/80 backdrop-blur-sm"
+				orientation="vertical"
+			>
+				<Button aria-label="Zoom in" size="icon-sm" variant="outline">
 					<PlusIcon />
 				</Button>
-				<Button aria-label="Zoom out" size="icon-sm" variant="ghost">
+				<Button aria-label="Zoom out" size="icon-sm" variant="outline">
 					<MinusIcon />
 				</Button>
-				<Button aria-label="Fit to view" size="icon-sm" variant="ghost">
+				<Button aria-label="Fit to view" size="icon-sm" variant="outline">
 					<MaximizeIcon />
 				</Button>
-			</div>
+			</ButtonGroup>
 		</ShellMain>
 	);
 }

@@ -55,7 +55,7 @@ export const SegmentGroup = (props: SegmentGroupProps) => {
         "data-[orientation=vertical]:data-[variant=underline]:border-l",
         // `solid`: a filled `bg-muted` track with equal-width segments — the contained
         // "segmented control" look, so consumers stop hand-rolling the track each time.
-        "data-[variant=solid]:rounded-md data-[variant=solid]:bg-muted data-[variant=solid]:p-1",
+        "data-[variant=solid]:rounded-lg data-[variant=solid]:border data-[variant=solid]:border-border/60 data-[variant=solid]:bg-muted data-[variant=solid]:p-1",
         className
       )}
       data-slot="segment-group"
@@ -91,8 +91,11 @@ export const SegmentGroupItem = (
   return (
     <ArkSegmentGroup.Item
       className={cn(
-        "relative",
-        "cursor-pointer",
+        "relative z-1",
+        "inline-flex items-center justify-center gap-2",
+        "cursor-pointer select-none",
+        "text-sm font-medium text-muted-foreground transition-colors",
+        "hover:text-foreground data-[state=checked]:text-foreground",
         "data-[orientation=vertical]:w-full data-[orientation=vertical]:justify-start",
         "group-data-[variant=solid]/segment-group:flex-1 group-data-[variant=solid]/segment-group:justify-center",
         "rounded-[inherit] border border-transparent",
@@ -136,10 +139,13 @@ export const SegmentGroupIndicator = (
         "absolute top-(--top) left-(--left) z-0",
         "h-(--height) w-(--width)",
         "rounded-[inherit]",
-        "bg-input",
+        // The moving "pill": an elevated surface with a hairline border and a soft shadow, so
+        // the selected segment reads as a raised chip on the muted track (crisp, not flat).
+        "border border-border/60 bg-background shadow-sm",
         "transition-[width,height,left,top] duration-150 ease-out",
         "[transition-property:var(--transition-property,width,height,left,top)]",
-        "group-data-[variant=underline]/segment-group:bg-primary",
+        // `underline` is a bar, not a pill: drop the chrome and paint the accent.
+        "group-data-[variant=underline]/segment-group:border-transparent group-data-[variant=underline]/segment-group:bg-primary group-data-[variant=underline]/segment-group:shadow-none",
         "data-[orientation=horizontal]:group-data-[variant=underline]/segment-group:top-[calc(var(--top)+var(--height)-1px)]",
         "data-[orientation=vertical]:group-data-[variant=underline]/segment-group:right-[calc(var(--left)+var(--width)-1px)]",
         "data-[orientation=vertical]:group-data-[variant=underline]/segment-group:-translate-x-px",

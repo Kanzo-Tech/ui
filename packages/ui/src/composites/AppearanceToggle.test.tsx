@@ -42,34 +42,35 @@ describe("AppearanceToggle", () => {
     document.documentElement.classList.remove("dark");
   });
 
-  it("opens a 3-state radio menu", async () => {
+  it("flips to dark on click, applying `.dark` and storing the preference", async () => {
     const user = userEvent.setup();
     setup();
 
-    await user.click(screen.getByRole("button", { name: "Appearance" }));
-
-    expect(await screen.findByRole("menuitemradio", { name: /Light/ })).toBeTruthy();
-    expect(screen.getByRole("menuitemradio", { name: /Dark/ })).toBeTruthy();
-    expect(screen.getByRole("menuitemradio", { name: /System/ })).toBeTruthy();
-  });
-
-  it("applies `.dark` and stores the preference when Dark is chosen", async () => {
-    const user = userEvent.setup();
-    setup();
-
-    await user.click(screen.getByRole("button", { name: "Appearance" }));
-    await user.click(await screen.findByRole("menuitemradio", { name: /Dark/ }));
+    await user.click(screen.getByRole("button", { name: "Toggle appearance" }));
 
     expect(document.documentElement.classList.contains("dark")).toBe(true);
     expect(localStorage.getItem(APPEARANCE_KEY)).toBe("dark");
   });
 
-  it("stores `system` when System is chosen", async () => {
+  it("flips back to light on a second click", async () => {
     const user = userEvent.setup();
     setup();
 
-    await user.click(screen.getByRole("button", { name: "Appearance" }));
-    await user.click(await screen.findByRole("menuitemradio", { name: /System/ }));
+    const button = screen.getByRole("button", { name: "Toggle appearance" });
+    await user.click(button);
+    await user.click(button);
+
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+    expect(localStorage.getItem(APPEARANCE_KEY)).toBe("light");
+  });
+
+  it("reaches `system` via Shift-click (the secondary affordance)", async () => {
+    const user = userEvent.setup();
+    setup();
+
+    await user.keyboard("[ShiftLeft>]");
+    await user.click(screen.getByRole("button", { name: "Toggle appearance" }));
+    await user.keyboard("[/ShiftLeft]");
 
     expect(localStorage.getItem(APPEARANCE_KEY)).toBe("system");
     // matchMedia stub reports light, so `system` resolves to no `.dark`.

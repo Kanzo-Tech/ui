@@ -1,0 +1,44 @@
+---
+title: Download Trigger
+description: A trigger that serialises data to a file and downloads it on click.
+links:
+  doc: https://ark-ui.com/docs/utilities/download-trigger
+---
+
+<ComponentPreview componentName="download-trigger" />
+
+## Usage
+
+```tsx
+import { Button, DownloadTrigger } from "@kanzo-tech/ui";
+```
+
+`DownloadTrigger` wraps Ark's `download-trigger` machine: give it the `data` (a string, `Blob`,
+`File`, or a function/promise returning one), a `fileName` and a `mimeType`, and it builds an
+object URL and clicks it for you. It renders a `<button>`, so compose our `Button` through
+`asChild` rather than restyling it:
+
+```tsx
+<DownloadTrigger
+  asChild
+  data={JSON.stringify(schema, null, 2)}
+  fileName="schema.json"
+  mimeType="application/json"
+>
+  <Button variant="outline">Download schema.json</Button>
+</DownloadTrigger>
+```
+
+`data` may defer: pass `() => fetch(url).then((r) => r.blob())` to resolve the content only when
+the user clicks.
+
+## API Reference
+
+### DownloadTrigger
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `data` | `string \| Blob \| File \| (() => MaybePromise<...>)` | — |
+| `fileName` | `string` | — |
+| `mimeType` | `FileMimeType` | — |
+| `asChild` | `boolean` | — |

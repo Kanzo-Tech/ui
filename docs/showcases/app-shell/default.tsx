@@ -1,13 +1,22 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import {
 	Badge,
 	Breadcrumbs,
 	Button,
-	Ribbon,
 	EmptyState,
+	Float,
 	InstanceSwitcher,
+	Item,
+	ItemActions,
+	ItemContent,
+	ItemDescription,
+	ItemGroup,
+	ItemMedia,
+	ItemSeparator,
+	ItemTitle,
+	Ribbon,
 	SectionActions,
 	SectionBody,
 	SectionDescription,
@@ -27,6 +36,7 @@ import {
 	SidebarRail,
 	SidebarTrigger,
 	SidebarUser,
+	Switch,
 	Tabs,
 	TabsContent,
 	TabsList,
@@ -40,8 +50,10 @@ import {
 	sortableHeader,
 } from "@kanzo-tech/ui/table";
 import {
+	BellIcon,
 	BoxesIcon,
 	BriefcaseIcon,
+	CalendarClockIcon,
 	CloudIcon,
 	DatabaseIcon,
 	LogOutIcon,
@@ -58,7 +70,14 @@ import {
 	MetricCardLabel,
 	MetricCardValue,
 } from "@/showcases/metric-card/metric-card";
-import { type Connection, CONNECTIONS, INSTANCES, NAV, USER } from "./data";
+import {
+	type Connection,
+	CONNECTIONS,
+	INSTANCES,
+	NAV,
+	SCHEDULES,
+	USER,
+} from "./data";
 
 const STATUS_VARIANT = {
 	ready: "success",
@@ -209,6 +228,25 @@ export function AppShellShowcase() {
 							{ label: "Dashboard" },
 						]}
 					/>
+					{/* A notification count pinned to the bell corner — the canonical Float
+					    use: the wrapper is the positioned ancestor, Float anchors the badge to it. */}
+					<div className="relative ms-auto">
+						<Button
+							aria-label="Notifications"
+							onClick={() =>
+								toast.create({ title: "3 new notifications", type: "info" })
+							}
+							size="icon-sm"
+							variant="ghost"
+						>
+							<BellIcon />
+						</Button>
+						<Float className="-end-0.5 -top-0.5" placement="top-end">
+							<Badge className="rounded-full" size="xs" variant="destructive">
+								3
+							</Badge>
+						</Float>
+					</div>
 				</ShellHeader>
 
 				<ShellMain className="bg-background">
@@ -354,21 +392,32 @@ export function AppShellShowcase() {
 											</SectionDescription>
 										</SectionTitleGroup>
 									</SectionHeader>
+									{/* Ribbon gates the whole region (dim + `inert`) while flagging it "Coming
+									    soon"; the rows themselves are an ItemGroup — the row counterpart to
+									    a Card, one Item per scheduled run. */}
 									<Ribbon disabled label="Coming soon">
-										<div className="flex items-center justify-between rounded-lg border border-border p-4">
-											<div>
-												<p className="font-medium text-sm">
-													Run on a schedule
-												</p>
-												<p className="text-muted-foreground text-xs">
-													Trigger this workspace&apos;s jobs on a cron
-													expression.
-												</p>
-											</div>
-											<Button size="sm" variant="outline">
-												Configure
-											</Button>
-										</div>
+										<ItemGroup className="rounded-lg border border-border">
+											{SCHEDULES.map((s, i) => (
+												<Fragment key={s.id}>
+													{i > 0 && <ItemSeparator />}
+													<Item>
+														<ItemMedia>
+															<CalendarClockIcon />
+														</ItemMedia>
+														<ItemContent>
+															<ItemTitle>{s.name}</ItemTitle>
+															<ItemDescription>
+																{s.cadence} ·{" "}
+																<code className="font-mono text-xs">{s.cron}</code>
+															</ItemDescription>
+														</ItemContent>
+														<ItemActions>
+															<Switch defaultChecked={i === 0} />
+														</ItemActions>
+													</Item>
+												</Fragment>
+											))}
+										</ItemGroup>
 									</Ribbon>
 								</section>
 							</div>

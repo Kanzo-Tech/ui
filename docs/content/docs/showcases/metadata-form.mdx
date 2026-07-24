@@ -36,9 +36,10 @@ Almost nothing here is new — it is existing parts, arranged:
 - **`FieldArray`** — the repeatable fields (descriptions, keywords, themes, contacts,
   distributions), each row keyed by a stable id so editing never steals focus.
 - **`DateField`** — the release / modification dates, ISO in, calendar out.
-- **`SuggestMenu`** — the ✨ beside Keywords, streaming deduped suggestions.
-- **`CompletionField`** — each Description literal, with Tab-to-accept inline completion. It is
-  CodeMirror-backed, so it is imported from the `@kanzo-tech/ui/editor` subpath, never the root
+- **`useSuggestions` + `Popover`** — the ✨ beside Keywords, streaming deduped suggestions as a
+  composition (no bespoke component).
+- **`CodeEditor` with `complete`** — each Description literal, with Tab-to-accept inline completion.
+  It is CodeMirror-backed, so it is imported from the `@kanzo-tech/ui/editor` subpath, never the root
   barrel.
 - **`Steps` / `Tabs`** — the form re-lays-out live as sequential Cards, Tabs, or a Steps wizard.
 - **`Preferences` (extended)** — the library's own `PreferencesRoot` + `PreferencesPanel`
@@ -69,5 +70,5 @@ docs/showcases/metadata-form/
 ```
 
 Imports come from two entry points: `@kanzo-tech/ui` for the form and chrome, and
-`@kanzo-tech/ui/editor` for `CompletionField` — a subpath, so the base bundle never carries
+`@kanzo-tech/ui/editor` for `CodeEditor` — a subpath, so the base bundle never carries
 CodeMirror for consumers who do not use it.

@@ -53,6 +53,21 @@ export interface Connection {
   rows: number;
 }
 
+export interface Schedule {
+  id: string;
+  name: string;
+  cadence: string;
+  cron: string;
+}
+
+// The "coming soon" scheduled-runs list — a few plausible cron jobs so the locked section reads
+// as a real feature preview rather than a single placeholder row.
+export const SCHEDULES: Schedule[] = [
+  { id: "s1", name: "Nightly full sync", cadence: "Every day at 02:00 UTC", cron: "0 2 * * *" },
+  { id: "s2", name: "Hourly incremental", cadence: "Every hour", cron: "0 * * * *" },
+  { id: "s3", name: "Weekly catalog rebuild", cadence: "Sundays at 04:00 UTC", cron: "0 4 * * 0" },
+];
+
 // Enough rows that sorting, filtering and pagination all have something to bite on.
 export const CONNECTIONS: Connection[] = [
   { id: "c1", name: "aemet-observations", location: "Azure — production", url: "abfss://raw@kanzo/aemet", status: "ready", rows: 1_204_882 },

@@ -286,9 +286,14 @@ function PrefField({ label, children }: { label: React.ReactNode; children: Reac
 
 // ── Sections ──────────────────────────────────────────────────────────────────
 function AppearanceSection() {
+  // `Field` stretches its direct children (`*:w-full`), which would blow the icon button up to
+  // full width. A flex wrapper takes that stretch instead, leaving the toggle at its natural
+  // size, aligned to the start.
   return (
     <PrefField label="Appearance">
-      <AppearanceToggle variant="outline" size="icon-md" />
+      <div className="flex">
+        <AppearanceToggle variant="outline" size="icon-md" />
+      </div>
     </PrefField>
   );
 }

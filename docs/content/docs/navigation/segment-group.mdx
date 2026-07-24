@@ -43,6 +43,9 @@ independent actions. Use buttons for those.
 `SegmentGroup` renders its own indicator; the sliding rectangle is positioned from the
 measured item, so the container carries the rounding and background you want it to inherit.
 
+Pass `options` for the data-driven shorthand — each `{ value, label, disabled? }` becomes an
+item, rendered before any explicit `children` (the two APIs are additive).
+
 ## Anatomy
 
 ```text
@@ -51,6 +54,13 @@ SegmentGroup
 └── SegmentGroupItem
     └── SegmentGroupItemText
 ```
+
+## Solid
+
+A filled `bg-muted` track with equal-width segments — the contained "segmented control" look,
+built in so consumers stop hand-rolling the track. Shown here driven by `options`.
+
+<ComponentPreview componentName="segment-group" fileName="example-solid" />
 
 ## Underline
 
@@ -68,8 +78,10 @@ SegmentGroup
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `variant` | `"default" \| "underline"` | `"default"` |
+| `variant` | `"default" \| "solid" \| "underline"` | `"default"` |
 | `orientation` | `"horizontal" \| "vertical"` | `"horizontal"` |
+| `options` | `{ value, label, disabled? }[]` | — |
+| `itemClassName` | `string` | — |
 
 Extends `SegmentGroup.Root` from Ark, so `value`, `defaultValue`, `onValueChange`,
 `disabled`, `readOnly`, `invalid`, `name` and `form` pass through. `SegmentGroupItem` takes

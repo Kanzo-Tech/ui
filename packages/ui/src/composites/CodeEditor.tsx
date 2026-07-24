@@ -2,6 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cn } from "../lib/cn.js";
+import { Kbd } from "../simples/kbd.js";
+import { useCompletion } from "../simples/use-ai.js";
+import { ghostExtension, ghostText, setGhost } from "./cm-ghost.js";
 import { Annotation, Compartment, EditorState, type Extension } from "@codemirror/state";
 import {
   EditorView,
@@ -347,7 +350,19 @@ export interface CodeEditorProps {
   /** Receives the `EditorView` on mount and `null` on unmount — for side-wiring
    *  (e.g. pushing LSP notifications). */
   onView?: (view: EditorView | null) => void;
+  /** Streaming inline completion (ghost text). When set, the editor paints a greyed
+   *  continuation as you type — **Tab** accepts, **Esc** dismisses. Yields continuation
+   *  chunks; honour the `AbortSignal` to drop a superseded run. Absent → no ghost, zero
+   *  overhead. Read once on mount, like `basics` / `chrome`. */
+  complete?: (value: string, signal?: AbortSignal) => AsyncIterable<string>;
+  /** Show the `Tab accept · Esc dismiss` hint below the field while a ghost is present.
+   *  Only meaningful with `complete`. Default true. */
+  completionHint?: boolean;
 }
+
+/** A `complete` stand-in so `useCompletion` can be called unconditionally; it never runs
+ *  because the driving `setValue` is only wired when a real `complete` is present. */
+async function* noComplete(): AsyncIterable<string> {}
 
 export function CodeEditor(p: CodeEditorProps) {
   const container = useRef<HTMLDivElement>(null);
@@ -357,18 +372,45 @@ export function CodeEditor(p: CodeEditorProps) {
   const props = useRef(p);
   props.current = p;
 
+  // The inline-completion engine (headless, no CodeMirror). Called unconditionally so the hook
+  // order stays stable; it only streams when a real `complete` drives it via `setValue`.
+  const hasComplete = !!p.complete;
+  const completion = useCompletion({ complete: p.complete ?? noComplete });
+  const api = useRef(completion);
+  api.current = completion;
+
   const langSlot = useRef(new Compartment());
   const editable = useRef(new Compartment());
 
   // Build the editor once; long-lived callbacks read the latest props via the ref.
   useEffect(() => {
     const basics = props.current.basics ?? true;
+    const ghostOn = !!props.current.complete;
     const updateListener = EditorView.updateListener.of((u) => {
       if (u.focusChanged) setFocused(u.view.hasFocus);
       if (!u.docChanged) return;
       if (u.transactions.some((t) => t.annotation(External))) return; // our own reconcile
-      props.current.onChange?.(u.state.doc.toString());
+      const doc = u.state.doc.toString();
+      props.current.onChange?.(doc);
+      if (ghostOn) api.current.setValue(doc); // debounced request; the ghost mirrors back
     });
+    // Ghost text: Tab accepts / Esc dismisses, blur drops any pending suggestion. Only when a
+    // `complete` is set — otherwise the StateField/decoration/keymap are never installed.
+    const ghost: Extension[] = ghostOn
+      ? [
+          ghostExtension(
+            () => api.current.accept(),
+            () => api.current.dismiss(),
+          ),
+          EditorView.domEventHandlers({
+            blur: () => {
+              api.current.clear();
+              view.current?.dispatch({ effects: setGhost.of("") });
+              return false;
+            },
+          }),
+        ]
+      : [];
     const batteries: Extension[] = basics
       ? [
           history(),
@@ -413,6 +455,7 @@ export function CodeEditor(p: CodeEditorProps) {
           ...(props.current.lineNumbers ? [cmLineNumbers()] : []),
           ...(basics && props.current.lineNumbers ? [highlightActiveLineGutter(), foldGutter()] : []),
           ...(props.current.placeholder ? [cmPlaceholder(props.current.placeholder)] : []),
+          ...ghost,
           updateListener,
           langSlot.current.of(props.current.extensions ?? []),
           editable.current.of([
@@ -457,9 +500,38 @@ export function CodeEditor(p: CodeEditorProps) {
     });
   }, [p.readOnly]);
 
+  // Mirror the hook's ghost into CM — only when they differ, so this never feeds back:
+  // `setGhost` mutates no doc/selection, so the updateListener's `docChanged` guard skips it.
+  // A no-ghost editor never installs `ghostText`, so `field` is "" and this is inert.
+  useEffect(() => {
+    const v = view.current;
+    if (!v) return;
+    const field = v.state.field(ghostText, false) ?? "";
+    if (field !== completion.ghost) v.dispatch({ effects: setGhost.of(completion.ghost) });
+  }, [completion.ghost]);
+
+  // Only present while there's a suggestion — it pushes content down rather than reserving an
+  // always-empty gap. Absent without `complete`, so a plain CodeEditor renders nothing extra.
+  const hint =
+    hasComplete && (p.completionHint ?? true) && completion.hasGhost ? (
+      <div className="mt-1 flex items-center gap-3 text-muted-foreground text-xs">
+        <span className="flex items-center gap-1">
+          <Kbd>Tab</Kbd> accept
+        </span>
+        <span className="flex items-center gap-1">
+          <Kbd>Esc</Kbd> dismiss
+        </span>
+      </div>
+    ) : null;
+
   // Bare surface (caller owns theme/chrome).
   if (p.chrome === false) {
-    return <div data-slot="code-editor" ref={container} className={p.className} style={{ minHeight: p.minHeight, maxHeight: p.maxHeight }} />;
+    return (
+      <>
+        <div data-slot="code-editor" ref={container} className={p.className} style={{ minHeight: p.minHeight, maxHeight: p.maxHeight }} />
+        {hint}
+      </>
+    );
   }
 
   // A field, not an IDE pane: the surface wears the exact chrome as Textarea/Input — a
@@ -487,6 +559,7 @@ export function CodeEditor(p: CodeEditorProps) {
         )}
         style={{ minHeight: p.minHeight, maxHeight: p.maxHeight }}
       />
+      {hint}
     </div>
   );
 }

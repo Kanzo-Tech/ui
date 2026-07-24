@@ -1,10 +1,11 @@
 "use client";
 
-// Headless AI-assist engine — the shared streaming machinery behind `CompletionField`
-// (inline ghost text) and `SuggestMenu` (a windowed candidate list). Domain-free and
-// source-agnostic: a consumer passes a function returning an async iterable and cancels it
-// with an `AbortSignal`. This file imports **no** `@codemirror/*`, which is what keeps the
-// hooks in the root barrel while `CompletionField` stays behind the `/editor` peer boundary.
+// Headless AI-assist engine — the shared streaming machinery behind inline ghost completion
+// (`CodeEditor`'s `complete` prop, via `useCompletion`) and a composed candidate menu (a
+// `Popover` + `useSuggestions`). Domain-free and source-agnostic: a consumer passes a function
+// returning an async iterable and cancels it with an `AbortSignal`. This file imports **no**
+// `@codemirror/*`, which is what keeps the hooks in the root barrel while the CodeMirror ghost
+// surface stays behind the `/editor` peer boundary.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Suggestion } from "./types.js";

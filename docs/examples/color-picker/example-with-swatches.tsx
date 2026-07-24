@@ -11,6 +11,7 @@ import {
   ColorPickerSwatchGroup,
   ColorPickerSwatchIndicator,
   ColorPickerSwatchTrigger,
+  ColorPickerTransparencyGrid,
   ColorPickerTrigger,
   ColorPickerValue,
   ColorPickerValueSwatch,
@@ -28,15 +29,20 @@ export default function Example() {
             <ColorPickerValue />
           </Button>
         </ColorPickerTrigger>
-        <ColorPickerEyeDropperTrigger />
       </ColorPickerControl>
 
       <ColorPickerContent>
         <ColorPickerArea>
           <ColorPickerAreaThumb />
         </ColorPickerArea>
+
+        {/* The alpha slider carries a TransparencyGrid so its track reads against a
+            checkerboard. */}
+        <ColorPickerEyeDropperTrigger />
         <ColorPickerSlider channel="hue" />
-        <ColorPickerSlider channel="alpha" />
+        <ColorPickerSlider channel="alpha">
+          <ColorPickerTransparencyGrid />
+        </ColorPickerSlider>
 
         <ColorPickerSwatchGroup>
           {PRESETS.map((color) => (

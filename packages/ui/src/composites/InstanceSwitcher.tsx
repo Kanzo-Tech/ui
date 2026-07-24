@@ -109,7 +109,12 @@ export function InstanceSwitcher({
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <Menu positioning={{ placement: isMobile ? "bottom" : "right-start" }}>
+        {/* Anchored like Shark's team switcher: beside the rail (align to its top) on desktop,
+            below the trigger on mobile, with a 4px gutter (shadcn `sideOffset={4}`, tighter than
+            Ark's default 8). */}
+        <Menu
+          positioning={{ placement: isMobile ? "bottom-start" : "right-start", gutter: 4 }}
+        >
           <MenuTrigger asChild>
             {/* Round the collapsed button to match a circular avatar so its clip doesn't square
                 it off; a square icon tile keeps the default rounding. */}
