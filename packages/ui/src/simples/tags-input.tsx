@@ -252,6 +252,6 @@ export const TagsInputClearTrigger = (
 
 export const TagsInputHiddenInput = (
   props: React.ComponentProps<typeof ArkTagsInput.HiddenInput>
-) => {
-  return <ArkTagsInput.HiddenInput {...props} />;
-};
+) => (
+  <ArkTagsInput.HiddenInput data-slot="tags-input-hidden-input" {...props} />
+);

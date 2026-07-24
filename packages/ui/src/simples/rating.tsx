@@ -108,6 +108,6 @@ export const RatingItem = (
 
 export const RatingHiddenInput = (
   props: React.ComponentProps<typeof ArkRatingGroup.HiddenInput>
-) => {
-  return <ArkRatingGroup.HiddenInput {...props} />;
-};
+) => (
+  <ArkRatingGroup.HiddenInput data-slot="rating-hidden-input" {...props} />
+);
