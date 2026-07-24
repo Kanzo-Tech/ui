@@ -11,14 +11,17 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  SearchIcon,
-} from "lucide-react";
+import { SearchIcon } from "lucide-react";
 import { type ReactNode, useMemo, useState } from "react";
-import { Button } from "../simples/button.js";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "../simples/input-group.js";
+import {
+  Pagination,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationNextTrigger,
+  PaginationPrevTrigger,
+  usePagination,
+} from "../simples/pagination.js";
 import {
   Table,
   TableBody,
@@ -180,33 +183,40 @@ export function DataTable<TData, TValue>({
         </Table>
       </div>
 
-      {/* Pagination only earns its space once there is more than one page. */}
+      {/* Pagination only earns its space once there is more than one page. Ark is 1-based, so
+          page = pageIndex + 1 and setPageIndex(page - 1) closes the loop. */}
       {multiPage && (
-        <div className="flex items-center justify-between">
-          <p className="text-muted-foreground text-sm">
-            Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-          </p>
-          <div className="flex items-center gap-1">
-            <Button
-              disabled={!table.getCanPreviousPage()}
-              onClick={() => table.previousPage()}
-              size="icon-sm"
-              variant="outline"
-            >
-              <ChevronLeftIcon />
-            </Button>
-            <Button
-              disabled={!table.getCanNextPage()}
-              onClick={() => table.nextPage()}
-              size="icon-sm"
-              variant="outline"
-            >
-              <ChevronRightIcon />
-            </Button>
-          </div>
-        </div>
+        <Pagination
+          className="justify-end"
+          count={table.getRowCount()}
+          onPageChange={(d) => table.setPageIndex(d.page - 1)}
+          page={table.getState().pagination.pageIndex + 1}
+          pageSize={table.getState().pagination.pageSize}
+        >
+          <PaginationPrevTrigger />
+          <DataTablePages />
+          <PaginationNextTrigger />
+        </Pagination>
       )}
     </div>
   );
 }
 DataTable.displayName = "DataTable";
+
+function DataTablePages() {
+  const pagination = usePagination();
+
+  return (
+    <>
+      {pagination.pages.map((page, index) =>
+        page.type === "page" ? (
+          <PaginationItem key={page.value} type="page" value={page.value}>
+            {page.value}
+          </PaginationItem>
+        ) : (
+          <PaginationEllipsis key={`ellipsis-${index}`} index={index} />
+        ),
+      )}
+    </>
+  );
+}

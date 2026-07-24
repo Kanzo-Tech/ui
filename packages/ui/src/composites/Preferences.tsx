@@ -191,18 +191,26 @@ function PreferencesPanel({
               {hint}
             </DialogDescription>
           </div>
-          <DialogClose asChild>
-            <Button
-              type="button"
+          {/* Header controls, top-end: the appearance toggle is one compact icon — it lives here
+              beside the close rather than taking a full body row of its own. */}
+          <div className="absolute inset-e-3.5 top-3.5 flex items-center gap-0.5">
+            <AppearanceToggle
               size="icon-sm"
               variant="ghost"
-              aria-label="Close preferences"
-              // Aligned to this panel's 20px padding (px-5/pt-5): 20 − 6px icon inset = 14px.
-              className="absolute inset-e-3.5 top-3.5 opacity-64 hover:opacity-100"
-            >
-              <XIcon />
-            </Button>
-          </DialogClose>
+              className="opacity-64 hover:opacity-100"
+            />
+            <DialogClose asChild>
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                aria-label="Close preferences"
+                className="opacity-64 hover:opacity-100"
+              >
+                <XIcon />
+              </Button>
+            </DialogClose>
+          </div>
 
           {/* Body — scrolls independently of the pinned header/footer.
               `[&>*]:shrink-0` is load-bearing, not hygiene. This is a COLUMN flex container
@@ -216,7 +224,6 @@ function PreferencesPanel({
           <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-5 pb-5 [&>*]:shrink-0">
             {children ?? (
               <>
-                <AppearanceSection />
                 <AccentSection />
                 <BaseSection />
                 <RadiusSection />

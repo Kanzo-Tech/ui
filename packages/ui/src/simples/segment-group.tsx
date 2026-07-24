@@ -92,7 +92,7 @@ export const SegmentGroupItem = (
     <ArkSegmentGroup.Item
       className={cn(
         "relative z-1",
-        "inline-flex items-center justify-center gap-2",
+        "inline-flex items-center justify-center",
         "cursor-pointer select-none",
         "text-sm font-medium text-muted-foreground transition-colors",
         "hover:text-foreground data-[state=checked]:text-foreground",

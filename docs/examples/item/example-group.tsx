@@ -8,6 +8,7 @@ import {
   ItemTitle,
 } from "@kanzo-tech/ui";
 import { CloudIcon, DatabaseIcon, KeyIcon } from "lucide-react";
+import { Fragment } from "react";
 
 const ROWS = [
   { icon: DatabaseIcon, title: "Postgres", description: "eu-west-1" },
@@ -17,9 +18,9 @@ const ROWS = [
 
 export default function Example() {
   return (
-    <ItemGroup className="w-96 rounded-lg border">
+    <ItemGroup className="w-96 gap-0 rounded-lg border">
       {ROWS.map(({ icon: Icon, title, description }, i) => (
-        <div key={title}>
+        <Fragment key={title}>
           {i > 0 && <ItemSeparator />}
           <Item>
             <ItemMedia>
@@ -30,7 +31,7 @@ export default function Example() {
               <ItemDescription>{description}</ItemDescription>
             </ItemContent>
           </Item>
-        </div>
+        </Fragment>
       ))}
     </ItemGroup>
   );
