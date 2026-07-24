@@ -375,6 +375,20 @@ export async function* suggestKeywords(
   }
 }
 
+/** `<Input aiComplete>`'s completion source — a canned single-line continuation for the title. */
+export async function* completeTitle(
+  value: string,
+  signal?: AbortSignal,
+): AsyncIterable<string> {
+  const continuation = " (Spain, 2020–2023)";
+  const words = continuation.split(/(?<=\s)/);
+  for (const w of words) {
+    await sleep(60);
+    if (signal?.aborted) return;
+    yield w;
+  }
+}
+
 /** CodeEditor's `complete` — streams a canned continuation for a description literal. */
 export async function* completeDescription(
   value: string,

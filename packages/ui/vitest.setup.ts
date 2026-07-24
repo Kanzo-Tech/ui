@@ -27,3 +27,19 @@ if (typeof globalThis.ResizeObserver === "undefined") {
     disconnect() {}
   } as unknown as typeof ResizeObserver;
 }
+
+// zag's ScrollArea (used inside PopoverContent) tracks viewport visibility with
+// IntersectionObserver, which jsdom omits — without it the machine throws on mount.
+if (typeof globalThis.IntersectionObserver === "undefined") {
+  globalThis.IntersectionObserver = class {
+    root = null;
+    rootMargin = "";
+    thresholds = [];
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() {
+      return [];
+    }
+  } as unknown as typeof IntersectionObserver;
+}

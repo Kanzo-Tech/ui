@@ -218,6 +218,15 @@ direction, a Field context — and for composite reuse. Not for "this input has 
 is a prop (`complete` / `suggest`), and the UIs differ, so a provider would unify nothing.
 Everyone but Ant composes card-radios; our monolithic `CardRadioGroup` is the outlier to unwind.
 
+**`AiAssist` is the rung-4 exception, deliberately kept thin.** `complete` / `suggest` stay
+props on `Field`; the provider exists only to *decouple* the capability from `Field` so a bare
+`Input`, `Textarea`, or `Combobox` can opt in via `useAiFieldOptional()` instead of the AI being
+imprisoned in Field's tree. It is **pure context over the two existing hooks** (`useCompletion` +
+`useSuggestions`) — no state machine, no policy, no value ownership — and surfaces contribute only
+the surface-specific ghost *rendering* (`Input`/`Textarea` mirror overlays, `FieldSuggest`'s
+menu). With one consumer (metadata-form) that is all it should be: **gate any expansion —
+per-surface config, a completion cache, richer routing — on a real second consumer.**
+
 ---
 
 ## Where specificity is allowed to live

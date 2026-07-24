@@ -1,15 +1,17 @@
 ---
 title: AI-assisted fields
-description: Model suggestions attach to a field you already have — a prop on CodeEditor, or a Popover you compose. The library never knows what a model is; you pass a stream.
+description: Model assistance is two props on a Field you already have — complete for an inline ghost, suggest for a candidate menu. The library never knows what a model is; you pass a stream.
 ---
 
-There is no "AI component". Model assistance in this library is two things you add to a field you
-already have:
+There is no "AI component". Model assistance in this library is two props you declare on a
+[`Field`](/docs/forms/field), each backed by a thin `AiAssist` provider that any control inside
+the field can pick up:
 
-- **Inline ghost completion** — a **prop on [`CodeEditor`](/docs/data-display/code-editor)**
-  (`complete`). The rich editing surface grows a greyed continuation as you type; Tab accepts.
-- **Candidate suggestions** — **composition**: a `Popover`, a ✨ `Button`, and the headless
-  `useSuggestions` hook. There is no `SuggestMenu` to import; you assemble the menu you want.
+- **Inline ghost completion** — `<Field complete>`. The surface opts in with `aiComplete`
+  (`Input` for one line, `Textarea` for prose) and grows a greyed continuation as you type; Tab
+  accepts, Esc dismisses.
+- **Candidate suggestions** — `<Field suggest existing onPick>` plus a **`FieldSuggest`** part: a
+  ✨ button that opens a streamed menu of candidates, reading the source from the provider.
 
 Both rest on one engine, `useAiStream`, and one contract — a function returning an async
 iterable, cancelled by an `AbortSignal`. That contract is worth understanding once.
@@ -20,10 +22,10 @@ Everything takes a **function that returns an async iterable**, and cancels it w
 `AbortSignal`:
 
 ```tsx
-// CodeEditor `complete` — yields continuation chunks of one value
+// `complete` — yields continuation chunks of one value
 complete: (value: string, signal?: AbortSignal) => AsyncIterable<string>
 
-// useSuggestions `suggest` — yields discrete candidates
+// `suggest` — yields discrete candidates
 suggest: (signal?: AbortSignal) => AsyncIterable<Suggestion>
 ```
 
@@ -77,41 +79,44 @@ the two signatures are not identical: one is completing a single value, the othe
 list.
 </Callout>
 
-## Inline completion — `CodeEditor`'s `complete` prop
+## Inline completion — `<Field complete>` + `aiComplete`
 
-Pass `complete` to `CodeEditor` and it paints a greyed continuation at the cursor as you type —
-a real widget flowing in the document, so it wraps and scrolls with the text rather than floating
-over it. **Tab accepts, Esc dismisses**, and a `Tab · Esc` hint appears only while a suggestion
-exists. Without `complete`, `CodeEditor` behaves exactly as before — no ghost, no overhead.
+Declare `complete` on the `Field` and opt the surface in with `aiComplete`: `Input` for a single
+line, `Textarea` for prose. The surface paints a greyed continuation at the caret via an
+`aria-hidden` mirror that tracks its own metrics — the `Input` overlay stays on one line; the
+`Textarea` mirror wraps with the field. **Tab accepts, Esc dismisses.** The ghost shows only at
+the end of the value (where the mirror can align); elsewhere the `Tab · Esc` hint carries it. The
+control stays oblivious — it is a controlled `Input`/`Textarea`, nothing more.
 
-<ComponentPreview componentName="ai" fileName="example-code-editor" />
+<ComponentPreview componentName="ai" fileName="example-field-complete" />
 
 ```tsx
-import { CodeEditor } from "@kanzo-tech/ui/editor";
-
-<CodeEditor complete={complete} value={value} onChange={setValue} minHeight="84px" />
+<Field complete={complete}>
+  <FieldLabel>Title</FieldLabel>
+  <Input aiComplete value={value} onChange={(e) => setValue(e.target.value)} />
+</Field>
 ```
 
 <Callout type="info">
-`CodeEditor` lives on the `/editor` subpath because CodeMirror is an optional peer. It is the
-one rich surface: line numbers, a gutter, syntax highlighting and now inline completion are all
-facets of the same editor rather than separate components. The streaming itself is headless
-(`useCompletion`, below) and pulls in no CodeMirror — so it also attaches to a plain input.
+`aiComplete` requires a **controlled** `value`, and with no `complete` in context it is a no-op —
+`Input` / `Textarea` render exactly as before, no overlay, no extra hooks. The streaming itself is
+headless (`useCompletion`, below) and pulls in no editor dependency.
 </Callout>
 
-## Candidate suggestions — compose a Popover
+## Candidate suggestions — `<Field suggest>` + `FieldSuggest`
 
-A ✨ menu of streamed candidates is a `Popover` + a `Button` + `useSuggestions`. The hook owns
-the streaming, the live dedup against what's already chosen, and the fixed window that refills as
-you dismiss rows; you own the markup, so the menu matches your product instead of a component's
-opinion.
+Declare `suggest` (plus `existing` for the live dedup and `onPick` for where a chosen value goes)
+on the `Field`, then drop a `FieldSuggest` wherever the ✨ affordance belongs — usually the label
+row. It reads the source from the provider, owns only its open state, and renders the streamed
+menu (loading / error / empty / list, each row pickable or dismissable).
 
 <ComponentPreview componentName="ai" fileName="example-suggestions" />
 
 The stream is fetched once per open-cycle and cached across reopen, so browsing away and back
 does not re-bill the model. Closing the popover mid-load aborts the in-flight request through the
 `AbortSignal` and refetches fresh next time. Candidates matching what's already chosen — or each
-other, case-insensitively — are dropped before they are ever shown.
+other, case-insensitively — are dropped before they are ever shown. Pass `renderItem` to control
+a row's content, or `title` / `placement` / `label` for the chrome.
 
 ## The headless hooks
 
@@ -121,9 +126,14 @@ pre-assemble.
 
 | Hook | Drives | What it gives you |
 |---|---|---|
-| `useCompletion({ complete })` | `CodeEditor`'s `complete`, and any input | `ghost` / `hasGhost`, `setValue` (debounced request), `request` (immediate, the ✨), `accept()`, `dismiss()`, `clear()` |
-| `useSuggestions({ suggest, existing })` | your suggestions `Popover` | `items`, `loading`, `start()`, `cancel()`, `dismiss(i)` — a deduped, windowed candidate list |
+| `useCompletion({ complete })` | `Input` / `Textarea` `aiComplete`, and any input | `ghost` / `hasGhost`, `setValue` (debounced request), `request` (immediate, the ✨), `accept()`, `dismiss()`, `clear()` |
+| `useSuggestions({ suggest, existing })` | `FieldSuggest`, or a `Popover` you compose | `items`, `loading`, `start()`, `cancel()`, `dismiss(i)` — a deduped, windowed candidate list |
 | `useAiStream()` | both of the above | the raw engine: `start` / `restart` / `next` / `idle` / `abort` — reach for it only to build a third interaction |
+
+The `AiAssist` provider that `Field` mounts is nothing more than these two hooks run once and
+handed down through context, so a control reads whichever it needs (`useAiFieldOptional()`) without
+the field owning its value. You can mount `<AiAssist>` directly to give a bare `Combobox` or
+`InputGroup` the same capability without a `Field`.
 
 The contract is exactly the one above — a function returning an async iterable, cancelled by an
 `AbortSignal`. The hooks add the debounce, the min-length gate, the dedup and the abort
@@ -131,16 +141,16 @@ bookkeeping; they do **not** call a model and do **not** own your input's value.
 
 <Callout type="info">
 `useCompletion` deliberately does not hold the text. Your input owns it; `accept()` **returns**
-the continuation string for you to insert where you want. That is what lets the same hook drive a
-`CodeEditor`, a textarea, or an inline `Editable` without any of them fighting over state.
+the continuation string for you to insert where you want. That is what lets the same hook drive an
+`Input`, a `Textarea`, or an inline `Editable` without any of them fighting over state.
 </Callout>
 
 ### Attach `useCompletion` to any input
 
-`CodeEditor` is the batteries-included home for inline completion, but the hook is not tied to
-it. Here it drives an `InputGroup`: the ✨ requests a completion, and the ghost preview with the
-`Tab` / `Esc` hints lives in a `block-end` addon (honest about being alongside the field rather
-than inside it — the in-place ghost is what `CodeEditor` buys you).
+`Input` / `Textarea` `aiComplete` is the batteries-included home for inline completion, but the
+hook is not tied to it. Here it drives an `InputGroup`: the ✨ requests a completion, and the ghost
+preview with the `Tab` / `Esc` hints lives in a `block-end` addon (honest about being alongside the
+field rather than inside it — the aligned overlay ghost is what `aiComplete` buys you).
 
 <ComponentPreview componentName="ai" fileName="example-input-group" />
 

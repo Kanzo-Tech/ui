@@ -16,6 +16,10 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.useAiStream).toBeTypeOf("function");
     expect(UI.useCompletion).toBeTypeOf("function");
     expect(UI.useSuggestions).toBeTypeOf("function");
+    expect(UI.AiAssist).toBeTypeOf("function");
+    expect(UI.useAiField).toBeTypeOf("function");
+    expect(UI.useAiFieldOptional).toBeTypeOf("function");
+    expect(UI.FieldSuggest).toBeTypeOf("function");
     expect(UI.ClientOnly).toBeTypeOf("function");
     expect(UI.DownloadTrigger).toBeTypeOf("function");
     expect(UI.Show).toBeTypeOf("function");

@@ -24,20 +24,16 @@ import {
   FieldError,
   FieldLabel,
   FieldRequiredIndicator,
+  FieldSuggest,
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
+  Input,
   Kbd,
   MadeWith,
   NativeSelect,
   NativeSelectOption,
   NumberField,
-  Popover,
-  PopoverBody,
-  PopoverContent,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverTrigger,
   PreferencesAccent,
   PreferencesAppearance,
   PreferencesBase,
@@ -60,12 +56,12 @@ import {
   SegmentGroup,
   SegmentGroupItem,
   SegmentGroupItemText,
+  type Suggestion,
   ShellAside,
   ShellBody,
   ShellHeader,
   ShellMain,
   ShellRoot,
-  Spinner,
   Steps,
   StepsContent,
   StepsIndicator,
@@ -92,27 +88,21 @@ import {
   TagsInputItemText,
   Textarea,
   TextField,
-  useSuggestions,
 } from "@kanzo-tech/ui";
 import { DateField } from "@kanzo-tech/ui";
 import { JsonTreeView } from "@kanzo-tech/ui";
-// CodeEditor is CodeMirror-backed, so it lives behind the optional-peer boundary on the
-// `/editor` subpath — never the root barrel. The showcase route already imports subpaths
-// (app-shell pulls `@kanzo-tech/ui/table`), so this is the established pattern. Its `complete`
-// prop is the inline ghost-completion surface (was the standalone `CompletionField`).
-import { CodeEditor } from "@kanzo-tech/ui/editor";
 import {
   CheckIcon,
   Code2Icon,
   FileTextIcon,
   Share2Icon,
   ShapesIcon,
-  SparklesIcon,
   XIcon,
 } from "lucide-react";
 import {
   ACCESS_RIGHTS,
   completeDescription,
+  completeTitle,
   DATA_THEMES,
   DATASETS,
   EMPTY_DATASET,
@@ -177,6 +167,10 @@ function FieldFrame({
   required,
   issues,
   action,
+  complete,
+  suggest,
+  existing,
+  onPick,
   children,
 }: {
   label: string;
@@ -185,14 +179,27 @@ function FieldFrame({
   predicate?: string;
   required?: boolean;
   issues: Issue[];
-  /** A trailing control on the label row (e.g. the ✨ suggestions popover). */
+  /** A trailing control on the label row (e.g. the ✨ `FieldSuggest` popover). */
   action?: ReactNode;
+  /** Inline ghost-completion source — threaded to `Field` so an `aiComplete` surface picks it up. */
+  complete?: (value: string, signal?: AbortSignal) => AsyncIterable<string>;
+  /** Candidate source + dedup set + router — threaded to `Field` so a `FieldSuggest` picks it up. */
+  suggest?: (signal?: AbortSignal) => AsyncIterable<Suggestion>;
+  existing?: string[];
+  onPick?: (value: string) => void;
   children: (invalid: boolean) => ReactNode;
 }) {
   const { showDescriptions, showPredicates } = useContext(FormPrefsContext);
   const invalid = issues.some((iss) => iss.severity === "violation");
   return (
-    <Field className="gap-1.5" invalid={invalid}>
+    <Field
+      className="gap-1.5"
+      complete={complete}
+      existing={existing}
+      invalid={invalid}
+      onPick={onPick}
+      suggest={suggest}
+    >
       <div className="flex min-h-6 items-center gap-2">
         <FieldLabel className="w-fit">
           {label}
@@ -312,82 +319,6 @@ function PanelShell({
   );
 }
 
-/** The ✨ suggestions affordance — composition, not a component: a `Popover` + a ghost `Button`
- *  trigger + the headless `useSuggestions`. Streams deduped candidate keywords into a fixed
- *  window (dismissing one refills it); fetched once per open-cycle, cancelled on interrupted
- *  load. Feeds the same `keywords` state the TagsInput edits. */
-function SuggestKeywords({
-  existing,
-  onPick,
-}: {
-  existing: string[];
-  onPick: (value: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const { items, loading, error, start, cancel, dismiss } = useSuggestions({
-    existing,
-    suggest: suggestKeywords,
-  });
-
-  const onOpenChange = (next: boolean) => {
-    setOpen(next);
-    if (next) start();
-    else if (loading) cancel(); // interrupted mid-load: stop the stream, refetch fresh next time
-  };
-
-  const pick = (value: string) => {
-    onPick(value);
-    setOpen(false);
-  };
-
-  return (
-    <Popover onOpenChange={(d) => onOpenChange(d.open)} open={open} positioning={{ placement: "bottom-end" }}>
-      <PopoverTrigger asChild>
-        <Button aria-label="Suggest keywords" size="icon-sm" type="button" variant="ghost">
-          <SparklesIcon />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-80 max-w-[90vw]">
-        <PopoverHeader>
-          <PopoverTitle className="text-sm">Suggestions</PopoverTitle>
-        </PopoverHeader>
-        <PopoverBody className="flex flex-col gap-1">
-          {loading && items.length === 0 && (
-            <div className="flex items-center gap-2 p-2">
-              <Spinner />
-              <span className="text-muted-foreground text-xs">Thinking…</span>
-            </div>
-          )}
-          {error && <span className="block p-2 text-destructive text-xs">{error}</span>}
-          {!loading && !error && items.length === 0 && (
-            <span className="block p-2 text-muted-foreground text-xs">No suggestions</span>
-          )}
-          {items.map((item, index) => (
-            <div className="flex items-center gap-2" key={`${item.value}-${index}`}>
-              <button
-                className="flex min-w-0 flex-1 flex-col gap-1 rounded-md p-2 text-start outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/32 motion-reduce:transition-none!"
-                onClick={() => pick(item.value)}
-                type="button"
-              >
-                <span className="text-sm">{item.label ?? item.value}</span>
-                {item.rationale && <span className="text-muted-foreground text-xs">{item.rationale}</span>}
-              </button>
-              <Button aria-label="Dismiss suggestion" onClick={() => dismiss(index)} size="icon-sm" variant="ghost">
-                <XIcon />
-              </Button>
-            </div>
-          ))}
-          {loading && items.length > 0 && (
-            <div className="flex items-center justify-center pt-2">
-              <Spinner />
-            </div>
-          )}
-        </PopoverBody>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
 /**
  * The metadata-form showcase — a HealthDCAT-AP editor built as a Workspace, exactly like the
  * discovery showcase: the Shell regions carry it. `ShellHeader` holds the utility strip, the
@@ -397,9 +328,10 @@ function SuggestKeywords({
  * (a trailing `ShellAside`, Turtle & JSON-LD). Each side column toggles independently from its
  * header button and is drag-resizable; validation stays in the header badge.
  *
- * It is MOSTLY COMPOSITION — `Field`, `FieldArray`, `DateField`, a `Popover` + `useSuggestions`
- * ✨ menu, `CodeEditor` (its `complete` prop = inline ghost completion), `Steps`, `Tabs`,
- * `NativeSelect`, `Resizable` — over a FAKED SHACL engine in
+ * It is MOSTLY COMPOSITION — `Field` (its `complete` / `suggest` AI props), `FieldArray`,
+ * `DateField`, `FieldSuggest` (the ✨ candidate menu), inline ghost completion on
+ * `Input`/`Textarea` (`aiComplete`), `Steps`, `Tabs`, `NativeSelect`, `Resizable` — over a
+ * FAKED SHACL engine in
  * `data.tsx`. The form's layout (Sequential / Tabs / Steps) and display prefs are chosen live in
  * the library's own `Preferences` drawer, extended here with a custom Layout section.
  */
@@ -484,6 +416,14 @@ export function MetadataFormShowcase() {
   const removeEntry = (key: EntryKey, i: number) =>
     setValues((p) => ({ ...p, [key]: p[key].filter((_: Entry, idx: number) => idx !== i) }));
 
+  // Description is a single language-tagged literal here (a Textarea, not the CodeEditor). Empty
+  // clears the entry so `nonEmpty` still reports the required-field violation.
+  const setDescription = (value: string) =>
+    setValues((p) => ({
+      ...p,
+      descriptions: value ? [{ id: p.descriptions[0]?.id ?? uid("d"), value }] : [],
+    }));
+
   // ── Field renderers, one per group ───────────────────────────────────────────
   // These are plain functions CALLED during render (not `<Component/>` elements) so the inputs
   // they return keep their identity across keystrokes — a component boundary redefined each
@@ -492,6 +432,7 @@ export function MetadataFormShowcase() {
   const generalFields = (): ReactNode => (
     <>
       <FieldFrame
+        complete={completeTitle}
         description="A name given to the dataset."
         issues={fieldIssues("title")}
         label="Title"
@@ -499,8 +440,11 @@ export function MetadataFormShowcase() {
         required
       >
         {(invalid) => (
-          <TextField
-            invalid={invalid}
+          // Inline ghost completion via the surrounding `<Field complete>` — Tab accepts, Esc
+          // dismisses. The overlay ghost shows only at end-of-value; the caller stays oblivious.
+          <Input
+            aiComplete
+            aria-invalid={invalid || undefined}
             onChange={(e) => setScalar("title", e.target.value)}
             placeholder="e.g. COVID-19 case registry"
             value={values.title}
@@ -509,53 +453,36 @@ export function MetadataFormShowcase() {
       </FieldFrame>
 
       <FieldFrame
+        complete={completeDescription}
         description="A free-text account of the dataset."
         issues={fieldIssues("descriptions")}
         label="Description"
         predicate="dct:description"
         required
       >
-        {() =>
-          values.descriptions.length === 0 ? (
-            <AddButton onClick={() => addEntry("descriptions", "d")} />
-          ) : (
-            <FieldArray
-              addLabel="Add"
-              align="start"
-              count={values.descriptions.length}
-              onAdd={() => addEntry("descriptions", "d")}
-              onRemove={(i) => removeEntry("descriptions", i)}
-              rowKey={(i) => values.descriptions[i].id}
-            >
-              {(i) => (
-                // The rich "complex Textarea": CodeEditor with its `complete` prop wired to the
-                // faked stream — inline ghost text, Tab to accept. Was the standalone CompletionField.
-                <CodeEditor
-                  complete={completeDescription}
-                  minHeight="84px"
-                  onChange={(v) => setEntry("descriptions", i, v)}
-                  placeholder="Describe the dataset — press Tab to accept the suggestion…"
-                  value={values.descriptions[i].value}
-                />
-              )}
-            </FieldArray>
-          )
-        }
+        {() => (
+          // Multi-line inline ghost completion via the surrounding `<Field complete>` — the
+          // `aiComplete` overlay mirror wraps with the textarea; Tab accepts, Esc dismisses.
+          <Textarea
+            aiComplete
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Describe the dataset — press Tab to accept the suggestion…"
+            value={values.descriptions[0]?.value ?? ""}
+          />
+        )}
       </FieldFrame>
 
       <FieldFrame
-        action={
-          <SuggestKeywords
-            existing={values.keywords.map((k) => k.value)}
-            onPick={(value) =>
-              setValues((p) => ({ ...p, keywords: [...p.keywords, { id: uid("k"), value }] }))
-            }
-          />
-        }
+        action={<FieldSuggest label="Suggest keywords" title="Suggested keywords" />}
         description="Keywords or tags describing the dataset."
+        existing={values.keywords.map((k) => k.value)}
         issues={fieldIssues("keywords")}
         label="Keywords"
+        onPick={(value) =>
+          setValues((p) => ({ ...p, keywords: [...p.keywords, { id: uid("k"), value }] }))
+        }
         predicate="dcat:keyword"
+        suggest={suggestKeywords}
       >
         {(invalid) => (
           // TagsInput owns the chips + add; the ✨ suggestions above write into the same
