@@ -8,6 +8,14 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.KanzoThemeProvider).toBeTypeOf("function");
     expect(UI.useKanzoTheme).toBeTypeOf("function");
     expect(UI.themeScript).toBeTypeOf("function");
+    expect(UI.ButtonGroup).toBeTypeOf("function");
+    expect(UI.NumberInput).toBeTypeOf("function");
+    expect(UI.Item).toBeTypeOf("function");
+    expect(UI.Float).toBeTypeOf("function");
+    expect(UI.AppearanceToggle).toBeTypeOf("function");
+    expect(UI.useAiStream).toBeTypeOf("function");
+    expect(UI.useCompletion).toBeTypeOf("function");
+    expect(UI.useSuggestions).toBeTypeOf("function");
   });
 
   it("exposes exactly one themer", () => {
@@ -15,6 +23,14 @@ describe("@kanzo-tech/ui public surface", () => {
     // portaled overlays. Re-exporting it beside the real provider gave callers no way to tell
     // which was which — a repo-wide grep found zero JSX usages and one working provider.
     expect((UI as Record<string, unknown>).KanzoTheme).toBeUndefined();
+  });
+
+  it("drops components superseded by composition or a merge", () => {
+    // MetricCard → a Card+Skeleton showcase composition; SecretField → folded into password-input
+    // (an API key is a password). Neither is a library export any more.
+    const surface = UI as Record<string, unknown>;
+    expect(surface.MetricCard).toBeUndefined();
+    expect(surface.SecretField).toBeUndefined();
   });
 
   it("keeps CodeMirror-backed components off the root barrel", () => {

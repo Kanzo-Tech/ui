@@ -2,33 +2,30 @@ import type { ReactNode } from "react";
 import { tv } from "tailwind-variants";
 import { cn } from "../lib/cn.js";
 import { Badge, type BadgeVariant } from "./badge.js";
+import { Float } from "./float.js";
 
 const ribbonVariants = tv({
   slots: {
-    root: "relative",
+    root: "",
     content: "",
-    badge: "",
   },
   variants: {
     placement: {
       /**
-       * Overlaid, straddling the corner so it reads as a tag pinned ON the thing rather
-       * than a label sitting inside it. Note the overhang: an ancestor that scrolls or
-       * hides overflow will clip it, so give the wrapper room.
+       * Overlaid, straddling the corner so it reads as a tag pinned ON the thing. The overhang
+       * comes from `Float` plus a negative offset — an ancestor that scrolls or hides overflow
+       * will clip it, so give the wrapper room.
        */
       corner: {
-        badge: "absolute -end-2 -top-2",
+        root: "relative",
       },
       /**
-       * In the flow, not over it. The badge is a flex sibling of the content and takes
-       * its own width, so it can never land on top of the text it annotates — which is
-       * exactly what an absolutely-positioned "inline" badge used to do to any row whose
-       * trailing edge was not, in fact, free.
+       * In the flow, not over it. The badge is a flex sibling that takes its own width, so it
+       * can never land on top of the content it annotates.
        */
       inline: {
         root: "flex items-center gap-2",
         content: "min-w-0 flex-1",
-        badge: "shrink-0",
       },
     },
     /** Gating is opt-in: only a `disabled` ribbon dims and inert-locks its region. */
@@ -51,9 +48,9 @@ export interface RibbonProps {
   /** Badge tone. Defaults to the neutral Badge variant. */
   variant?: BadgeVariant;
   /**
-   * Where the ribbon sits. Default "corner" — overlaid on the top-inline-end corner, which
-   * reads as a label ON the thing. "inline" puts it in the flow at the trailing edge, so it
-   * takes its own space instead of covering the content.
+   * Where the ribbon sits. Default "corner" — overlaid on the top-inline-end corner via
+   * `Float`, which reads as a label ON the thing. "inline" puts it in the flow at the trailing
+   * edge, so it takes its own space instead of covering the content.
    */
   placement?: "corner" | "inline";
   /**
@@ -69,14 +66,13 @@ export interface RibbonProps {
 
 /**
  * Ribbon — pins a status badge onto a whole region, the way Ant Design's `Badge.Ribbon` does.
- * The label is whatever state you are flagging: Beta, New, Coming soon, Pro.
+ * A thin wrapper over `Float` (corner placement) + `Badge`. The label is whatever state you are
+ * flagging: Beta, New, Coming soon, Pro.
  *
  * By default it only annotates — the content stays live. Pass `disabled` to also gate it: the
- * region is dimmed and made `inert`, so an unavailable feature can stay visible without being
- * operable. `inert` rather than `aria-hidden` keeps the content readable, just unreachable.
- *
- * Reach for a plain `Badge` when you only need to tag something inline; reach for this when the
- * marker belongs to a region rather than a line of text.
+ * region is dimmed and made `inert`. `inert` rather than `aria-hidden` keeps it readable, just
+ * unreachable. Reach for a plain `Badge` to tag something inline; reach for this when the marker
+ * belongs to a region rather than a line of text.
  */
 export function Ribbon({
   children,
@@ -87,6 +83,12 @@ export function Ribbon({
   className,
 }: RibbonProps) {
   const styles = ribbonVariants({ placement, disabled });
+
+  const badge = (
+    <Badge size="xs" variant={variant}>
+      {label}
+    </Badge>
+  );
 
   return (
     <div
@@ -99,9 +101,13 @@ export function Ribbon({
         {children}
       </div>
 
-      <Badge className={styles.badge()} size="xs" variant={variant}>
-        {label}
-      </Badge>
+      {placement === "corner" ? (
+        <Float className="-end-2 -top-2" placement="top-end">
+          {badge}
+        </Float>
+      ) : (
+        <span className="shrink-0">{badge}</span>
+      )}
     </div>
   );
 }

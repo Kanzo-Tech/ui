@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Kbd } from "../simples/kbd.js";
+import { useCompletion } from "../simples/use-ai.js";
 import { Annotation, Compartment, EditorState, Prec, StateEffect, StateField } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType, keymap, placeholder as cmPlaceholder } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
@@ -9,9 +10,10 @@ import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 /**
  * Streaming inline completion (ghost text) on **CodeMirror 6** — the canonical way to
  * paint a greyed continuation: the ghost is a real `Decoration.widget` flowing in the
- * document (so it wraps/scrolls with the text), never an absolute overlay. It consumes
- * a plain `complete(text, signal)` async stream: each keystroke aborts the prior stream
- * and clears the ghost, every chunk extends it, **Tab** accepts, **Esc** dismisses.
+ * document (so it wraps/scrolls with the text), never an absolute overlay. The streaming
+ * itself lives in the headless {@link useCompletion} (no CodeMirror); this file is the CM
+ * surface that renders its ghost and feeds it keystrokes. Each keystroke aborts the prior
+ * stream and clears the ghost, every chunk extends it, **Tab** accepts, **Esc** dismisses.
  * Domain-free and source-agnostic — Kanzo tokens only.
  */
 
@@ -58,44 +60,6 @@ const ghostDeco = EditorView.decorations.compute([ghostText], (state) => {
   return Decoration.set([Decoration.widget({ widget: new GhostWidget(text), side: 1 }).range(pos)]);
 });
 
-/** Tab accepts the ghost (insert at cursor), Esc dismisses — both no-op (fall through)
- * when there's no ghost, so Tab still moves focus and Esc still does its normal thing. */
-const ghostKeymap = Prec.highest(
-  keymap.of([
-    {
-      key: "Tab",
-      run: (view) => {
-        const text = view.state.field(ghostText, false);
-        if (!text) return false;
-        const pos = view.state.selection.main.head;
-        view.dispatch({
-          changes: { from: pos, insert: text },
-          selection: { anchor: pos + text.length },
-          effects: setGhost.of(""),
-        });
-        return true;
-      },
-    },
-    {
-      key: "Escape",
-      run: (view) => {
-        if (!view.state.field(ghostText, false)) return false;
-        view.dispatch({ effects: setGhost.of("") });
-        return true;
-      },
-    },
-  ]),
-);
-
-/** The continuation is meant to be appended verbatim. The only safety net: if the model
- * restated the whole value first, drop that one unambiguous full-value echo — no
- * character-level surgery, which used to mangle coincidental overlaps. Kanzo tokens only. */
-function cleanGhost(base: string, cont: string): string {
-  const b = base.trimEnd();
-  if (b && cont.toLowerCase().startsWith(b.toLowerCase())) return cont.slice(b.length);
-  return cont;
-}
-
 const theme = EditorView.theme({
   "&": { fontSize: "var(--kanzo-font-size-base, 14px)", backgroundColor: "transparent" },
   ".cm-content": {
@@ -126,16 +90,20 @@ export function CompletionField(p: CompletionFieldProps) {
   const container = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView>(undefined);
   const [focused, setFocused] = useState(false);
-  const [hasGhost, setHasGhost] = useState(false); // drives the Tab hint below the editor
+
+  const completion = useCompletion({ complete: p.complete });
 
   // Latest props for the long-lived (created-once) CM callbacks.
   const props = useRef(p);
   props.current = p;
 
+  // The hook's callbacks, read through a ref so the build-once keymap / updateListener never
+  // capture a stale `completion` closure.
+  const api = useRef(completion);
+  api.current = completion;
+
   const dirty = useRef(false);
   const commitTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const askTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const stream = useRef<AbortController>(undefined);
   const editable = useRef(new Compartment());
 
   // Debounce commits, null on empty.
@@ -144,48 +112,55 @@ export function CompletionField(p: CompletionFieldProps) {
     props.current.onChange(v === "" ? null : v);
   };
 
-  // Request a fresh continuation (debounced); abort the prior stream, clear the ghost,
-  // then extend it chunk by chunk. 350ms ask, min length 4.
-  const askGhost = (text: string) => {
-    clearTimeout(askTimer.current);
-    stream.current?.abort();
-    view.current?.dispatch({ effects: setGhost.of("") });
-    if (text.trim().length < 4) return;
-    askTimer.current = setTimeout(async () => {
-      const ctrl = new AbortController();
-      stream.current = ctrl;
-      let raw = "";
-      try {
-        for await (const chunk of props.current.complete(text, ctrl.signal)) {
-          if (ctrl.signal.aborted) return;
-          raw += chunk;
-          view.current?.dispatch({ effects: setGhost.of(cleanGhost(text, raw)) });
-        }
-      } catch {
-        /* aborted or failed — keep whatever streamed (or nothing) */
-      }
-    }, 350);
-  };
-
-  // Build the editor once. The callbacks above only touch refs, so the closure stays correct.
+  // Build the editor once. The callbacks only touch refs, so the closure stays correct.
   useEffect(() => {
+    // Tab accepts the ghost, Esc dismisses — both no-op (fall through) when there's no
+    // ghost, so Tab still moves focus and Esc still does its normal thing. Tab reads the
+    // ghost from the CM StateField (stale-safe) and tells the hook to clear via `accept()`.
+    const ghostKeymap = Prec.highest(
+      keymap.of([
+        {
+          key: "Tab",
+          run: (v) => {
+            const text = v.state.field(ghostText, false);
+            if (!text) return false;
+            const pos = v.state.selection.main.head;
+            v.dispatch({
+              changes: { from: pos, insert: text },
+              selection: { anchor: pos + text.length },
+              effects: setGhost.of(""),
+            });
+            api.current.accept();
+            return true;
+          },
+        },
+        {
+          key: "Escape",
+          run: (v) => {
+            if (!v.state.field(ghostText, false)) return false;
+            v.dispatch({ effects: setGhost.of("") });
+            api.current.dismiss();
+            return true;
+          },
+        },
+      ]),
+    );
+
     const updateListener = EditorView.updateListener.of((u) => {
       if (u.focusChanged) setFocused(u.view.hasFocus);
-      setHasGhost(u.state.field(ghostText).length > 0);
       if (!u.docChanged) return;
       if (u.transactions.some((t) => t.annotation(External))) return; // our own reconcile
-      const v = u.state.doc.toString();
+      const doc = u.state.doc.toString();
       dirty.current = true;
       clearTimeout(commitTimer.current);
-      commitTimer.current = setTimeout(() => commit(v), 250);
-      askGhost(v);
+      commitTimer.current = setTimeout(() => commit(doc), 250);
+      api.current.setValue(doc);
     });
     const onBlur = EditorView.domEventHandlers({
       blur: () => {
         if (dirty.current) commit(view.current!.state.doc.toString());
         // Leaving the field dismisses any pending suggestion.
-        clearTimeout(askTimer.current);
-        stream.current?.abort();
+        api.current.clear();
         view.current?.dispatch({ effects: setGhost.of("") });
         return false;
       },
@@ -215,11 +190,18 @@ export function CompletionField(p: CompletionFieldProps) {
     view.current = v;
     return () => {
       clearTimeout(commitTimer.current);
-      clearTimeout(askTimer.current);
-      stream.current?.abort();
       v.destroy();
     };
   }, []);
+
+  // Mirror the hook's ghost into CM — only when they differ, so this never feeds back:
+  // `setGhost` mutates no doc/selection, so the updateListener's `docChanged` guard skips it.
+  useEffect(() => {
+    const v = view.current;
+    if (!v) return;
+    const field = v.state.field(ghostText, false) ?? "";
+    if (field !== completion.ghost) v.dispatch({ effects: setGhost.of(completion.ghost) });
+  }, [completion.ghost]);
 
   // Reconcile external value changes — but never clobber active typing.
   useEffect(() => {
@@ -264,7 +246,7 @@ export function CompletionField(p: CompletionFieldProps) {
       />
       {/* Only present while there's a suggestion — it pushes content down rather than
           reserving an always-empty gap (which read as dead space). */}
-      {hasGhost && (
+      {completion.hasGhost && (
         <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
           <span className="flex items-center gap-1">
             <Kbd>Tab</Kbd> accept

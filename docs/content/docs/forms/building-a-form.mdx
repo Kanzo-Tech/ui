@@ -117,7 +117,12 @@ semantic grouping with a heading — use it whenever a set of fields shares a pu
 
     <Field>
       <FieldLabel>API key</FieldLabel>
-      <SecretField />
+      <PasswordInput>
+        <PasswordInputGroup>
+          <PasswordInputInput hasStoredValue />
+          <PasswordInputTrigger />
+        </PasswordInputGroup>
+      </PasswordInput>
     </Field>
   </FieldGroup>
 </FieldSet>

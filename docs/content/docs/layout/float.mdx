@@ -1,0 +1,47 @@
+---
+title: Float
+description: Positions a child over a corner or edge of its positioned ancestor.
+---
+
+<ComponentPreview componentName="float" />
+
+## Usage
+
+```tsx
+import { Float } from "@kanzo-tech/ui";
+```
+
+```tsx
+<div className="relative">
+  {/* … */}
+  <Float placement="top-end">
+    <Badge>3</Badge>
+  </Float>
+</div>
+```
+
+<Callout type="warn">
+Float positions itself against the **nearest positioned ancestor**. Give that ancestor
+`position: relative` (Tailwind's `relative`) or the float escapes to the viewport.
+</Callout>
+
+`Float` is the primitive under corner adornments — a notification count on an icon, a status dot
+on an avatar, a "New" tag on a card. It is pure box model (no client boundary), and it pins the
+child; the offset and the child are yours. `Ribbon` is built on it.
+
+## Placements
+
+Nine cells of a 3×3 grid. The vertical middle is **`middle-*`** (not `center-*`); the horizontal
+centre is **`*-center`**. Insets are logical, so every placement mirrors correctly under RTL.
+
+<ComponentPreview componentName="float" fileName="example-placements" />
+
+## API Reference
+
+### Float
+
+Renders a `div`.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `placement` | `"top-start" \| "top-center" \| "top-end" \| "middle-start" \| "middle-center" \| "middle-end" \| "bottom-start" \| "bottom-center" \| "bottom-end"` | `"top-end"` |

@@ -6,7 +6,7 @@ import {
   MetricCardIcon,
   MetricCardLabel,
   MetricCardValue,
-} from "@kanzo-tech/ui";
+} from "@/showcases/metric-card/metric-card";
 
 export default function Example() {
   return (

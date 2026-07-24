@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type { Appearance, KanzoAccent } from "@kanzo-tech/theme";
+import type { Appearance, KanzoAccent, ResolvedAppearance } from "@kanzo-tech/theme";
 import { CUSTOM_BASE_SHADES, customBaseVars, readableForeground } from "../lib/color.js";
 import {
   APPEARANCE_KEY,
@@ -45,6 +45,9 @@ export interface FontOption {
  * built-in fallback toggles `.dark` on `<html>` and persists it. Shape matches next-themes.
  */
 export interface AppearanceController {
+  /** The preference (`light` | `dark` | `system`); next-themes exposes this as `theme`. */
+  theme?: string;
+  /** The applied value (`light` | `dark`) after `system` is resolved. */
   resolvedTheme?: string;
   setTheme: (theme: string) => void;
 }
@@ -123,7 +126,10 @@ interface ThemeContextValue extends ThemePrefs {
   fonts: FontOption[];
   monoFonts: FontOption[];
   accents: KanzoAccent[];
+  /** The appearance PREFERENCE (`light` | `dark` | `system`). */
   appearance: Appearance;
+  /** The APPLIED appearance (`light` | `dark`) after `system` is resolved. */
+  resolvedAppearance: ResolvedAppearance;
   setAppearance: (appearance: Appearance) => void;
 }
 
@@ -250,27 +256,47 @@ export function KanzoThemeProvider({
   );
 
   // ── Appearance: delegate to the host controller, else a built-in `.dark` fallback ──
-  const [fallbackDark, setFallbackDark] = React.useState(
-    () => typeof document !== "undefined" && document.documentElement.classList.contains("dark"),
-  );
-  // Restore the fallback appearance from storage on mount (only when the host doesn't own it).
-  React.useEffect(() => {
-    if (appearance) return;
+  // The fallback STORES the preference (light/dark/system); default is `system`.
+  const [fallbackPref, setFallbackPref] = React.useState<Appearance>(() => {
+    if (typeof localStorage === "undefined") return "system";
     try {
       const saved = localStorage.getItem(APPEARANCE_KEY);
-      if (saved === "dark" || saved === "light") {
-        const dark = saved === "dark";
-        setFallbackDark(dark);
-        document.documentElement.classList.toggle("dark", dark);
-      }
+      if (saved === "dark" || saved === "light" || saved === "system") return saved;
     } catch {
       /* storage unavailable — non-fatal */
     }
-  }, [appearance]);
+    return "system";
+  });
+  const [systemDark, setSystemDark] = React.useState(
+    () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-color-scheme: dark)").matches,
+  );
 
+  const resolvedFallback: ResolvedAppearance =
+    fallbackPref === "system" ? (systemDark ? "dark" : "light") : fallbackPref;
+
+  // Track the OS scheme with a live listener while the preference is `system`.
+  React.useEffect(() => {
+    if (appearance || fallbackPref !== "system" || typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => setSystemDark(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [appearance, fallbackPref]);
+
+  // Mirror the resolved fallback onto `.dark` (only when the host doesn't own appearance).
+  React.useEffect(() => {
+    if (appearance) return;
+    document.documentElement.classList.toggle("dark", resolvedFallback === "dark");
+  }, [appearance, resolvedFallback]);
+
+  const hostPref = appearance ? appearance.theme ?? appearance.resolvedTheme : undefined;
   const currentAppearance: Appearance = appearance
+    ? hostPref === "dark" || hostPref === "system" ? hostPref : "light"
+    : fallbackPref;
+  const resolvedAppearance: ResolvedAppearance = appearance
     ? appearance.resolvedTheme === "dark" ? "dark" : "light"
-    : fallbackDark ? "dark" : "light";
+    : resolvedFallback;
 
   const setAppearance = React.useCallback(
     (next: Appearance) => {
@@ -278,8 +304,7 @@ export function KanzoThemeProvider({
         appearance.setTheme(next);
         return;
       }
-      setFallbackDark(next === "dark");
-      document.documentElement.classList.toggle("dark", next === "dark");
+      setFallbackPref(next);
       try {
         localStorage.setItem(APPEARANCE_KEY, next);
       } catch {
@@ -290,8 +315,8 @@ export function KanzoThemeProvider({
   );
 
   const ctx = React.useMemo<ThemeContextValue>(
-    () => ({ ...prefs, set, fonts, monoFonts, accents, appearance: currentAppearance, setAppearance }),
-    [prefs, set, fonts, monoFonts, accents, currentAppearance, setAppearance],
+    () => ({ ...prefs, set, fonts, monoFonts, accents, appearance: currentAppearance, resolvedAppearance, setAppearance }),
+    [prefs, set, fonts, monoFonts, accents, currentAppearance, resolvedAppearance, setAppearance],
   );
 
   return <ThemeContext.Provider value={ctx}>{children}</ThemeContext.Provider>;

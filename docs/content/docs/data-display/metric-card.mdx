@@ -5,17 +5,29 @@ description: A single headline figure with its label, status tint and an optiona
 
 <ComponentPreview componentName="metric-card" />
 
-## Usage
+<Callout type="info">
+**A metric card is a composition, not a library component.** A dashboard tile is a
+[Card](/docs/data-display/card) with a status tint, a [Skeleton](/docs/data-display/status)-swapping
+figure and an optional link — no new behaviour, so per the design system it lives as an
+arrangement you copy into your app, not an import from `@kanzo-tech/ui`. The snippet below is the
+whole thing; the examples on this page render that exact composition.
+</Callout>
+
+## Compose it from Card
 
 ```tsx
-import {
-  MetricCard,
-  MetricCardHeader,
-  MetricCardIcon,
-  MetricCardLabel,
-  MetricCardValue,
-  MetricCardDescription,
-} from "@kanzo-tech/ui";
+import { Card, cn, DefaultLink, type LinkComponent, Skeleton } from "@kanzo-tech/ui";
+
+export function MetricCard({ status = "neutral", href, className, ...rest }) {
+  return (
+    <Card
+      className={cn("flex min-h-32 flex-col gap-0 px-5 py-4 shadow-none", className)}
+      data-status={status}
+      {...rest}
+    />
+  );
+}
+// …plus small MetricCardHeader / Icon / Label / Value / Description parts — see the copy below.
 ```
 
 ```tsx

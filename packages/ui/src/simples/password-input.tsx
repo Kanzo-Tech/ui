@@ -58,13 +58,47 @@ export const PasswordInputGroup = (
   );
 };
 
-export const PasswordInputInput = (
-  props: React.ComponentProps<typeof ArkPasswordInput.Input>
-) => (
-  <ArkPasswordInput.Input asChild data-slot="password-input-input" {...props}>
-    <InputGroupInput />
-  </ArkPasswordInput.Input>
-);
+export interface PasswordInputInputProps
+  extends React.ComponentProps<typeof ArkPasswordInput.Input> {
+  /**
+   * A secret already exists on the server. The field still renders EMPTY — submitting it empty
+   * means "keep the stored value". This is the canonical credential-editing shape: the secret
+   * is never sent to the client, so there is nothing to prefill. Opt-in.
+   */
+  hasStoredValue?: boolean;
+  /** Placeholder shown while a stored secret is untouched. */
+  storedPlaceholder?: string;
+}
+
+export const PasswordInputInput = (props: PasswordInputInputProps) => {
+  const {
+    hasStoredValue = false,
+    storedPlaceholder = "Leave empty to keep current",
+    placeholder,
+    value,
+    defaultValue,
+    ...rest
+  } = props;
+
+  // The stored-value hint only makes sense while the field is untouched; once the user types,
+  // the submitted value replaces the secret and the hint would be a lie.
+  const untouched = !value && !defaultValue;
+  const shown = hasStoredValue && untouched ? storedPlaceholder : placeholder;
+
+  return (
+    <ArkPasswordInput.Input
+      asChild
+      data-has-stored-value={hasStoredValue || undefined}
+      data-slot="password-input-input"
+      defaultValue={defaultValue}
+      placeholder={shown}
+      value={value}
+      {...rest}
+    >
+      <InputGroupInput />
+    </ArkPasswordInput.Input>
+  );
+};
 
 export const PasswordInputTrigger = (
   props: React.ComponentProps<typeof ArkPasswordInput.VisibilityTrigger>

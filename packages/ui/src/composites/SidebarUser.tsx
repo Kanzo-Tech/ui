@@ -86,16 +86,20 @@ export function SidebarUser({
             {/* Collapsed, the button is a 32px square the avatar fills edge-to-edge; round the
                 button too so its `overflow-hidden` clip matches the circular avatar (otherwise
                 the avatar is clipped to the button's rounded-square and looks non-round). */}
+            {/* `aria-label` only, no `tooltip`: MenuTrigger's asChild wins the single button
+                node, so a nested SidebarMenuButton tooltip never binds (verified). aria-label
+                still names the collapsed rail. */}
             <SidebarMenuButton
               size="lg"
-              className="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-full"
+              aria-label={user.name}
+              className="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-full data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               {identity(true)}
               <ChevronsUpDownIcon className="ml-auto group-data-[collapsible=icon]:hidden" />
             </SidebarMenuButton>
           </MenuTrigger>
           <MenuContent className="w-(--reference-width) min-w-56">
-            <div className="px-2 py-1.5">
+            <div className="px-2 py-1.5" data-slot="sidebar-user-menu-header">
               {identity(false)}
             </div>
             {menuItems.length > 0 && <MenuSeparator />}

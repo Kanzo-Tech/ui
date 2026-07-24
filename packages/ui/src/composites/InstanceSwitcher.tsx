@@ -2,7 +2,15 @@
 
 import * as React from "react";
 import { CheckIcon, ChevronsUpDownIcon } from "lucide-react";
-import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from "../simples/menu.js";
+import {
+  Menu,
+  MenuContent,
+  MenuGroup,
+  MenuGroupLabel,
+  MenuItem,
+  MenuSeparator,
+  MenuTrigger,
+} from "../simples/menu.js";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "./sidebar.js";
 import {
   SidebarIdentity,
@@ -96,6 +104,7 @@ export function InstanceSwitcher({
   const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed" && !isMobile;
   const active = instances.find((i) => i.id === activeId) ?? instances[0];
+  const activeLabel = active != null && typeof active.label === "string" ? active.label : undefined;
 
   return (
     <SidebarMenu>
@@ -104,10 +113,16 @@ export function InstanceSwitcher({
           <MenuTrigger asChild>
             {/* Round the collapsed button to match a circular avatar so its clip doesn't square
                 it off; a square icon tile keeps the default rounding. */}
+            {/* `aria-label` only, no `tooltip`: MenuTrigger's asChild wins the single button
+                node, so a nested SidebarMenuButton tooltip never binds its trigger (verified —
+                the button carries the menu scope, never a tooltip one). aria-label still gives
+                the collapsed rail an accessible name. */}
             <SidebarMenuButton
               size="lg"
+              aria-label={activeLabel}
               className={cn(
                 "group-data-[collapsible=icon]:justify-center",
+                "data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground",
                 active != null && active.icon == null && "group-data-[collapsible=icon]:rounded-full",
               )}
             >
@@ -119,25 +134,26 @@ export function InstanceSwitcher({
               so the menu reads as anchored to the button instead of floating beside the rail.
               Same as Shark's sidebar block. */}
           <MenuContent className="w-(--reference-width) min-w-60">
-            {/* A plain label, NOT MenuGroupLabel: Ark's ItemGroupLabel requires an
-                ItemGroup ancestor and throws without one — which crashes the whole menu on
-                open. Only use MenuGroupLabel inside <MenuGroup>. */}
-            {label != null && (
-              <div className="px-2 py-1.5 text-muted-foreground text-xs">{label}</div>
-            )}
-            {instances.map((inst) => (
-              <MenuItem
-                key={inst.id}
-                value={inst.id}
-                onClick={() => {
-                  onSelect?.(inst.id);
-                  setOpenMobile(false);
-                }}
-              >
-                <Identity inst={inst} />
-                {inst.id === activeId && <CheckIcon className="ml-auto" />}
-              </MenuItem>
-            ))}
+            {/* MenuGroup renders the ItemGroup ancestor MenuGroupLabel requires, so the
+                heading is associated with the instances for assistive tech. */}
+            <MenuGroup heading={typeof label === "string" ? label : undefined}>
+              {label != null && typeof label !== "string" && (
+                <MenuGroupLabel>{label}</MenuGroupLabel>
+              )}
+              {instances.map((inst) => (
+                <MenuItem
+                  key={inst.id}
+                  value={inst.id}
+                  onClick={() => {
+                    onSelect?.(inst.id);
+                    setOpenMobile(false);
+                  }}
+                >
+                  <Identity inst={inst} />
+                  {inst.id === activeId && <CheckIcon className="ml-auto" />}
+                </MenuItem>
+              ))}
+            </MenuGroup>
             {actions.length > 0 && <MenuSeparator />}
             {actions.map((action, i) =>
               action.href != null ? (

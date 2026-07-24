@@ -34,8 +34,11 @@ export type ThemeData = typeof themeDataJson;
  * Requires `@kanzo-tech/ui/styles.css` (or the raw token/theme CSS) imported once at the root.
  */
 
-/** Light/dark, as reported and set by the host's appearance controller. */
-export type Appearance = "light" | "dark";
+/** Appearance PREFERENCE — light, dark, or `system` (follow the OS). */
+export type Appearance = "light" | "dark" | "system";
+
+/** The APPLIED appearance, after `system` is resolved against the OS. */
+export type ResolvedAppearance = "light" | "dark";
 
 /** Base neutral scale — the full set (surfaced only in the playground theme-editor). */
 export type KanzoBase =

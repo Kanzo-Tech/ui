@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Dialog as ArkDialog } from "@ark-ui/react/dialog";
 import { Portal } from "@ark-ui/react/portal";
-import { MoonIcon, PaletteIcon, SunIcon, XIcon } from "lucide-react";
+import { PaletteIcon, XIcon } from "lucide-react";
 // Via the theme package's JS entry, not its raw `.json` subpath: a direct JSON subpath import
 // needs `with { type: "json" }` at runtime, and Rollup strips that attribute when bundling.
 import { themeData, type KanzoBase, type KanzoRadius } from "@kanzo-tech/theme";
@@ -19,11 +19,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "../simples/dialog.js";
-import {
-  SegmentGroup,
-  SegmentGroupItem,
-  SegmentGroupItemText,
-} from "../simples/segment-group.js";
+import { AppearanceToggle } from "./AppearanceToggle.js";
 import { RadioGroup as ArkRadioGroup } from "@ark-ui/react/radio-group";
 import { RadioGroup, RadioGroupCard } from "../simples/radio-group.js";
 import { Slider } from "../simples/slider.js";
@@ -288,51 +284,11 @@ function PrefField({ label, children }: { label: React.ReactNode; children: Reac
   );
 }
 
-/** A pill segmented control (appearance / fonts / density). */
-function Segmented<T extends string>({
-  value,
-  onValueChange,
-  label,
-  options,
-}: {
-  value: T;
-  onValueChange: (v: T) => void;
-  label: string;
-  options: readonly { value: T; label: React.ReactNode }[];
-}) {
-  return (
-    <SegmentGroup
-      value={value}
-      onValueChange={(d) => d.value && onValueChange(d.value as T)}
-      aria-label={label}
-      className="flex-wrap"
-      variant="solid"
-    >
-      {options.map((o) => (
-        <SegmentGroupItem key={o.value} value={o.value} className="px-3 py-1.5">
-          <SegmentGroupItemText className="flex items-center justify-center gap-2 text-sm font-medium">
-            {o.label}
-          </SegmentGroupItemText>
-        </SegmentGroupItem>
-      ))}
-    </SegmentGroup>
-  );
-}
-
 // ── Sections ──────────────────────────────────────────────────────────────────
 function AppearanceSection() {
-  const { appearance, setAppearance } = useKanzoTheme();
   return (
     <PrefField label="Appearance">
-      <Segmented
-        label="Appearance"
-        value={appearance}
-        onValueChange={setAppearance}
-        options={[
-          { value: "light", label: <><SunIcon className="size-4" /> Light</> },
-          { value: "dark", label: <><MoonIcon className="size-4" /> Dark</> },
-        ]}
-      />
+      <AppearanceToggle variant="outline" size="icon-md" />
     </PrefField>
   );
 }

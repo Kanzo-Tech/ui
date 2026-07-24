@@ -11,6 +11,12 @@ export const useSegmentGroup = useSegmentGroupContext;
 
 type SegmentGroupVariant = "default" | "underline" | "solid";
 
+export interface SegmentGroupOption {
+  value: string;
+  label: React.ReactNode;
+  disabled?: boolean;
+}
+
 interface SegmentGroupProps
   extends React.ComponentProps<typeof ArkSegmentGroup.Root> {
   /**
@@ -19,12 +25,18 @@ interface SegmentGroupProps
    * @default "default"
    */
   variant?: SegmentGroupVariant;
+  /** Data-driven items rendered before `children` (additive with the compound API). */
+  options?: readonly SegmentGroupOption[];
+  /** Extra classes applied to each `options`-rendered item. */
+  itemClassName?: string;
 }
 
 export const SegmentGroup = (props: SegmentGroupProps) => {
   const {
     orientation = "horizontal",
     variant = "default",
+    options,
+    itemClassName,
     className,
     children,
     ...rest
@@ -52,6 +64,19 @@ export const SegmentGroup = (props: SegmentGroupProps) => {
       {...rest}
     >
       <SegmentGroupIndicator />
+
+      {options?.map((o) => (
+        <SegmentGroupItem
+          key={o.value}
+          value={o.value}
+          disabled={o.disabled}
+          className={cn("px-3 py-1.5", itemClassName)}
+        >
+          <SegmentGroupItemText className="flex items-center justify-center gap-2 text-sm font-medium">
+            {o.label}
+          </SegmentGroupItemText>
+        </SegmentGroupItem>
+      ))}
 
       {children}
     </ArkSegmentGroup.Root>

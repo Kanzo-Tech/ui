@@ -13,6 +13,7 @@
 // Select, Tooltip…) — those render into document.body, outside any wrapper element.
 export type {
   Appearance,
+  ResolvedAppearance,
   KanzoBase,
   KanzoRadius,
   KanzoAccent,
@@ -49,6 +50,8 @@ export {
   PreferencesCopyTheme,
 } from "./composites/Preferences.js";
 export type { PreferencesProps, PreferencesRootProps } from "./composites/Preferences.js";
+export { AppearanceToggle } from "./composites/AppearanceToggle.js";
+export type { AppearanceToggleProps, AppearanceToggleLabels } from "./composites/AppearanceToggle.js";
 
 // ── Utilities ────────────────────────────────────────────────────────────────
 export { cn } from "./lib/cn.js";
@@ -73,6 +76,7 @@ export * from "./simples/avatar.js";
 export * from "./simples/badge.js";
 export * from "./simples/breadcrumb.js";
 export * from "./simples/button.js";
+export * from "./simples/button-group.js";
 export * from "./simples/calendar.js";
 export * from "./simples/card.js";
 export * from "./simples/checkbox.js";
@@ -87,14 +91,17 @@ export * from "./simples/editable.js";
 export * from "./simples/field.js";
 export * from "./simples/fieldset.js";
 export * from "./simples/file-upload.js";
+export * from "./simples/float.js";
 export * from "./simples/floating-panel.js";
 export * from "./simples/highlight.js";
 export * from "./simples/hover-card.js";
 export * from "./simples/input.js";
 export * from "./simples/input-group.js";
+export * from "./simples/item.js";
 export * from "./simples/kbd.js";
 export * from "./simples/menu.js";
 export * from "./simples/native-select.js";
+export * from "./simples/number-input.js";
 export * from "./simples/pagination.js";
 export * from "./simples/password-input.js";
 export * from "./simples/context-menu.js";
@@ -126,6 +133,7 @@ export * from "./simples/toggle-group.js";
 export * from "./simples/tooltip.js";
 export * from "./simples/tour.js";
 export * from "./simples/tree-view.js";
+export * from "./simples/use-ai.js";
 
 // ── Level 1 — bespoke atoms (no Shark equivalent; token-native, ours) ────────
 export { DateField } from "./simples/DateField.js";
@@ -142,8 +150,6 @@ export { TextField, NumberField } from "./simples/TextField.js";
 export type { TextFieldProps, NumberFieldProps } from "./simples/TextField.js";
 export { SuggestMenu } from "./simples/SuggestMenu.js";
 export type { Suggestion } from "./simples/types.js";
-export { SecretField } from "./simples/SecretField.js";
-export type { SecretFieldProps } from "./simples/SecretField.js";
 export { FieldArray } from "./simples/FieldArray.js";
 export type { FieldArrayProps } from "./simples/FieldArray.js";
 export { CardRadioGroup } from "./simples/CardRadioGroup.js";
@@ -187,20 +193,6 @@ export type {
   SectionTitleProps,
   SectionBodyProps,
 } from "./layouts/section.js";
-export {
-  MetricCard,
-  MetricCardDescription,
-  MetricCardHeader,
-  MetricCardIcon,
-  MetricCardLabel,
-  MetricCardValue,
-} from "./composites/MetricCard.js";
-export type {
-  MetricCardProps,
-  MetricCardStatus,
-  MetricCardValueProps,
-  MetricCardDescriptionProps,
-} from "./composites/MetricCard.js";
 export { MadeWith } from "./composites/MadeWith.js";
 export type { MadeWithProps } from "./composites/MadeWith.js";
 export { Breadcrumbs } from "./composites/Breadcrumbs.js";

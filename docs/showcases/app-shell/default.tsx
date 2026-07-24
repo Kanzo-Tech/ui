@@ -27,12 +27,6 @@ import {
 	SidebarRail,
 	SidebarTrigger,
 	SidebarUser,
-	MetricCard,
-	MetricCardDescription,
-	MetricCardHeader,
-	MetricCardIcon,
-	MetricCardLabel,
-	MetricCardValue,
 	Tabs,
 	TabsContent,
 	TabsList,
@@ -56,6 +50,14 @@ import {
 	Trash2Icon,
 	UserIcon,
 } from "lucide-react";
+import {
+	MetricCard,
+	MetricCardDescription,
+	MetricCardHeader,
+	MetricCardIcon,
+	MetricCardLabel,
+	MetricCardValue,
+} from "@/showcases/metric-card/metric-card";
 import { type Connection, CONNECTIONS, INSTANCES, NAV, USER } from "./data";
 
 const STATUS_VARIANT = {

@@ -1,0 +1,73 @@
+---
+title: Button Group
+description: A cluster of related actions rendered as one visual unit.
+---
+
+<ComponentPreview componentName="button-group" />
+
+## Usage
+
+```tsx
+import { Button, ButtonGroup } from "@kanzo-tech/ui";
+```
+
+```tsx
+<ButtonGroup aria-label="Text alignment">
+  <Button variant="outline">Left</Button>
+  <Button variant="outline">Center</Button>
+  <Button variant="outline">Right</Button>
+</ButtonGroup>
+```
+
+The buttons are **children** — `ButtonGroup` only groups them: it collapses the inner corner
+radii, overlaps the shared borders by a pixel, and lifts the focused button above its neighbours
+so its ring is never clipped.
+
+A group of independent actions is not a labelled region on its own, so — like a `<fieldset>` —
+it needs an accessible name. `role="group"` plus a **required** `aria-label` (or
+`aria-labelledby`) is enforced at the type level: leave both off and it will not compile.
+
+For a single-select choice (one option active at a time) reach for
+[Segment Group](/docs/forms/segment-group) instead — that is a different machine with roving
+focus and `aria-checked`. A Button Group is for independent actions sitting shoulder to shoulder.
+
+## Vertical
+
+<ComponentPreview componentName="button-group" fileName="example-vertical" />
+
+## Text and separators
+
+`ButtonGroupText` is a non-interactive label inside the cluster (a prefix, a unit).
+`ButtonGroupSeparator` divides two sub-clusters — vertical by default, since the group runs
+along the inline axis.
+
+<ComponentPreview componentName="button-group" fileName="example-text" />
+
+## Anatomy
+
+```text
+ButtonGroup
+├── ButtonGroupText
+├── Button (child)
+├── ButtonGroupSeparator
+└── Button (child)
+```
+
+## API Reference
+
+### ButtonGroup
+
+Renders a `div` with `role="group"`.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `orientation` | `"horizontal" \| "vertical"` | `"horizontal"` |
+| `aria-label` \| `aria-labelledby` | `string` | — (one is **required**) |
+
+### ButtonGroupText
+
+Renders a `span`. Mirrors `InputGroupText`.
+
+### ButtonGroupSeparator
+
+A thin wrapper over [Separator](/docs/layout/separator); `orientation` defaults to `"vertical"`.

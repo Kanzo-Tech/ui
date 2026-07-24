@@ -10,8 +10,6 @@ import {
   PreferencesRoot,
   PreferencesTrigger,
   SegmentGroup,
-  SegmentGroupItem,
-  SegmentGroupItemText,
 } from "@kanzo-tech/ui";
 import { useState } from "react";
 import { SettingsBackdrop } from "./backdrop";
@@ -42,20 +40,12 @@ export function PreferencesExtendedShowcase() {
                 onValueChange={(d) => d.value && setSidebarSide(d.value as SidebarSide)}
                 value={sidebarSide}
                 variant="solid"
-              >
-                {(
-                  [
-                    ["start", "Start"],
-                    ["end", "End"],
-                  ] as const
-                ).map(([value, label]) => (
-                  <SegmentGroupItem className="px-2 py-1" key={value} value={value}>
-                    <SegmentGroupItemText className="font-medium text-xs">
-                      {label}
-                    </SegmentGroupItemText>
-                  </SegmentGroupItem>
-                ))}
-              </SegmentGroup>
+                options={[
+                  { value: "start", label: "Start" },
+                  { value: "end", label: "End" },
+                ]}
+                itemClassName="px-2 py-1"
+              />
             </PreferencesField>
 
             <PreferencesAppearance />

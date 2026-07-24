@@ -1,0 +1,85 @@
+---
+title: Number Input
+description: A numeric input with stepper triggers, backed by the Ark machine.
+links:
+  doc: https://ark-ui.com/docs/forms/number-input
+---
+
+<ComponentPreview componentName="number-input" />
+
+## Usage
+
+```tsx
+import {
+  NumberInput,
+  NumberInputControl,
+  NumberInputDecrementTrigger,
+  NumberInputIncrementTrigger,
+  NumberInputInput,
+  NumberInputLabel,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<NumberInput defaultValue="3" min={0} max={99}>
+  <NumberInputLabel>Quantity</NumberInputLabel>
+  <NumberInputControl>
+    <NumberInputInput />
+    <NumberInputIncrementTrigger />
+    <NumberInputDecrementTrigger />
+  </NumberInputControl>
+</NumberInput>
+```
+
+The clamping, keyboard (arrow keys, page up/down), scrubbing and `role="spinbutton"` wiring all
+come from Ark's machine. `NumberInputControl` is the bordered shell — Ark ships no `Group` part,
+so the shell lives on the Control and the two stepper triggers float at the inline-end edge.
+
+<Callout type="info">
+The value is a **string**. `onValueChange` fires with `{ value, valueAsNumber }`, so you get the
+parsed number without re-parsing the string yourself.
+</Callout>
+
+### When to use which
+
+`NumberInput` is a spinbutton with steppers and drag-to-change — reach for it when the user
+nudges a bounded quantity (a count, a page size, a replica number). For a plain numeric text
+field with no steppers, [`NumberField`](/docs/forms/text-field) (a `type="number"` facade over
+`TextField`) is lighter.
+
+## Sizes
+
+<ComponentPreview componentName="number-input" fileName="example-sizes" />
+
+## Controlled
+
+<ComponentPreview componentName="number-input" fileName="example-controlled" />
+
+## Anatomy
+
+```text
+NumberInput
+├── NumberInputLabel
+├── NumberInputControl
+│   ├── NumberInputInput
+│   ├── NumberInputIncrementTrigger
+│   └── NumberInputDecrementTrigger
+├── NumberInputScrubber
+└── NumberInputValueText
+```
+
+## API Reference
+
+### NumberInput
+
+Extends `NumberInput.Root` from Ark — `value` / `defaultValue` (string), `onValueChange`, `min`,
+`max`, `step`, `disabled`, `invalid`, `readOnly`, `required`, `name`, `formatOptions`,
+`allowMouseWheel` and the rest pass through.
+
+### NumberInputControl
+
+Renders `NumberInput.Control` as the input shell.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `size` | `"sm" \| "md" \| "lg"` | `"md"` |

@@ -9,8 +9,8 @@ link for its own page.
 
 <Callout type="info">
 **The naming rule that explains half of these.** Where you see both a `kebab-case` and a
-`PascalCase` name (`input` / `TextField`, `password-input` / `SecretField`,
-`date-picker` / `DateField`), the lowercase one is the **vendored primitive** — the compound
+`PascalCase` name (`input` / `TextField`, `date-picker` / `DateField`), the lowercase one is the
+**vendored primitive** — the compound
 with all its parts exposed — and the PascalCase one is **our pre-assembled convenience** built
 on it. Default to the PascalCase one; drop to the primitive when you need to rearrange the parts.
 </Callout>
@@ -62,7 +62,7 @@ options need to look like more than plain text.
 | Control | What it is | Reach for it when |
 |---|---|---|
 | [`PasswordInput`](/docs/forms/password-input) | A password input with a reveal toggle. | **Entering** a password — sign-in, sign-up. |
-| [`SecretField`](/docs/forms/secret-field) | Built on it, with stored-credential semantics: renders empty when a secret exists, and submitting empty means "keep it". | **Editing** a credential that already lives server-side. |
+| [`PasswordInput` + `hasStoredValue`](/docs/forms/password-input#editing-a-stored-credential) | The same input in stored-credential mode: renders empty when a secret exists, and submitting empty means "keep it". | **Editing** a credential that already lives server-side. |
 
 ## Repeating
 

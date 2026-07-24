@@ -82,6 +82,44 @@ other is producing a list.
 Reach for `CompletionField` when the user is writing and a continuation helps. Reach for
 `SuggestMenu` when the user is choosing and needs options they did not have to think of.
 
+## Headless hooks — attach completion to any input
+
+`CompletionField` and `SuggestMenu` are the batteries-included answers. Underneath, the
+streaming is a set of **headless hooks** you can attach to an input we did not pre-assemble —
+an `InputGroup`, an `Editable`, your own control. They own the model interaction and nothing
+else: no markup, no value, no styling.
+
+| Hook | The convenience built on it | What it gives you |
+|---|---|---|
+| `useCompletion({ complete })` | `CompletionField` | `ghost` / `hasGhost`, `setValue` (debounced request), `request` (immediate, the ✨), `accept()`, `dismiss()`, `clear()` |
+| `useSuggestions({ suggest, existing })` | `SuggestMenu` | `items`, `loading`, `start()`, `cancel()`, `dismiss(i)` — a deduped, windowed candidate list |
+| `useAiStream()` | both of the above | the raw engine: `start` / `restart` / `next` / `idle` / `abort` — reach for it only to build a third interaction |
+
+The contract is exactly the one above — a function returning an async iterable, cancelled by
+an `AbortSignal`. The hooks add the debounce, the min-length gate, the dedup and the abort
+bookkeeping; they do **not** call a model and do **not** own your input's value.
+
+<Callout type="info">
+`useCompletion` deliberately does not hold the text. Your input owns it; `accept()` **returns**
+the continuation string for you to insert where you want. That is what lets the same hook drive a
+textarea, an inline `Editable`, or a code editor without any of them fighting over state.
+</Callout>
+
+### On an `InputGroup`
+
+The ✨ button requests a completion; the ghost preview, `Tab` and `Esc` hints live in a
+`block-end` addon. (An inline, in-place ghost is what `CompletionField`'s CodeMirror engine
+buys you — here the preview is honest about being alongside the field, not inside it.)
+
+<ComponentPreview componentName="ai" fileName="example-input-group" />
+
+### On an inline `Editable`
+
+The same hook, wired to Ark's `Editable`: type to edit, and `Tab` appends the streamed
+continuation to the name.
+
+<ComponentPreview componentName="ai" fileName="example-editable" />
+
 ## What neither of them does
 
 - **They do not validate.** A suggestion is a value like any other; the field's own validation
