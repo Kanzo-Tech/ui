@@ -10,7 +10,7 @@ import {
   ChartWaffleY,
   type ChartConfig,
   count,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // A bar chart that counts out loud: one cell per `unit` rows. Map `fill` to a column and the cells

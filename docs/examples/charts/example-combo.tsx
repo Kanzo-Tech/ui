@@ -13,7 +13,7 @@ import {
   count,
   sql,
   sum,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // Bars and a line in the SAME plot — the thing five parallel preset components could not express.

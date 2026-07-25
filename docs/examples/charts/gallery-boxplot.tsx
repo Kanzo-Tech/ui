@@ -11,7 +11,7 @@ import {
   ChartToggleX,
   median,
   quantile,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // Plot has no box-plot mark, and it does not need one: a box plot is three marks over four

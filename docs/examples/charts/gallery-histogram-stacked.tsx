@@ -10,7 +10,7 @@ import {
   type ChartConfig,
   bin,
   count,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // The histogram, split by a series. `bin()` keeps the x scale continuous, which is what makes the

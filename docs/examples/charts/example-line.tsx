@@ -8,7 +8,7 @@ import {
   ChartLineY,
   ChartRoot,
   count,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // A count over an ordered axis. A line is stroked rather than filled, so the token lands on

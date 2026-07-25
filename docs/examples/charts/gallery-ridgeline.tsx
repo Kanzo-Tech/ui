@@ -10,7 +10,7 @@ import {
   ChartRoot,
   bin,
   count,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // One distribution per row, panels overlapping. `fy` makes the rows; the overlap is the y scale's

@@ -6,7 +6,7 @@ import {
   ChartContour,
   ChartDot,
   ChartRoot,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // The kernel density of a pair of columns, drawn as iso-lines over the raw points. The smoothing

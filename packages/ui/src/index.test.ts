@@ -64,7 +64,7 @@ describe("@kanzo-tech/ui public surface", () => {
   it("keeps the Mosaic/vgplot charts off the root barrel", () => {
     // They import @uwdata/vgplot + @uwdata/mosaic-core, OPTIONAL peers that drag in the whole
     // DuckDB/Mosaic analytics stack. Re-exporting them here would make `import { Button }` throw
-    // for everyone who has not installed it. They live on @kanzo-tech/ui/charts.
+    // for everyone who has not installed it. They live on @kanzo-tech/ui/analytics.
     const surface = UI as Record<string, unknown>;
     expect(surface.MosaicProvider).toBeUndefined();
     expect(surface.ChartRoot).toBeUndefined();

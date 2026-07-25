@@ -10,7 +10,7 @@ import {
   ChartToggleColor,
   type ChartConfig,
   count,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // Stacked bars by a series column. A column-valued `fill` is also the stacking key: the layer

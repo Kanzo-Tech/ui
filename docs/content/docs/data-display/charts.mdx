@@ -9,7 +9,7 @@ This is a **grammar**, not a set of chart types. `ChartRoot` compiles its childr
 chart you need is the one you write — there is no `BarChart` to fork.
 
 ```tsx
-import { ChartRoot, ChartBarY, ChartToggleX, count } from "@kanzo-tech/ui/charts";
+import { ChartRoot, ChartBarY, ChartToggleX, count } from "@kanzo-tech/ui/analytics";
 ```
 
 Like [CodeEditor](/docs/data-display/code-editor) with CodeMirror, the library wraps the engine and
@@ -88,7 +88,7 @@ There is no `ChartTip`: the tooltip is a mark option, so it is the `tip` prop on
 
 ## Installation
 
-The charts live on the `@kanzo-tech/ui/charts` subpath, never the root barrel, because the
+The charts live on the `@kanzo-tech/ui/analytics` subpath, never the root barrel, because the
 Mosaic/DuckDB stack is heavy and optional. Install the peers alongside the library:
 
 ```bash
@@ -109,7 +109,7 @@ a skeleton until it is ready, and let the chart hydrate:
 
 import { useEffect, useState } from "react";
 import { loadObjects } from "@uwdata/mosaic-sql";
-import { Coordinator, MosaicProvider, wasmConnector } from "@kanzo-tech/ui/charts";
+import { Coordinator, MosaicProvider, wasmConnector } from "@kanzo-tech/ui/analytics";
 
 export default function Analytics({ children }: { children: React.ReactNode }) {
   const [coordinator, setCoordinator] = useState<Coordinator | null>(null);
@@ -398,7 +398,7 @@ no behaviour, so they are arrangements you copy. The ones these docs use are in 
 
 ```tsx
 import { StatTile } from "@kanzo-tech/ui";
-import { ChartStat, count } from "@kanzo-tech/ui/charts";
+import { ChartStat, count } from "@kanzo-tech/ui/analytics";
 
 <DashboardGrid minColumnWidth={280}>
   {/* a number you already have */}

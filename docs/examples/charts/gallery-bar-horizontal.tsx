@@ -8,7 +8,7 @@ import {
   ChartRoot,
   ChartToggleY,
   count,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // Horizontal bars are `ChartBarX` with the roles swapped: the category on `y`, the measure on `x`.

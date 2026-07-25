@@ -8,7 +8,7 @@ import {
   ChartIntervalXY,
   ChartRoot,
   count,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // A scatter that does not overplot: DuckDB bins the pairs into hexagons and returns one row per

@@ -8,7 +8,7 @@ import {
   ChartRoot,
   avg,
   count,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // A sparkline is a plot with the furniture removed: `anchor={null}` drops each axis but keeps its

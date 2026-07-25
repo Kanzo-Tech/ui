@@ -6,7 +6,7 @@ import {
   ChartCell,
   ChartRoot,
   count,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // Two categorical axes and a measure in the cell. The magnitude rides on `fillOpacity` rather than

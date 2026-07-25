@@ -8,7 +8,7 @@ import {
   ChartRoot,
   type ChartConfig,
   count,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // The stacked area, one prop later. `offset="normalize"` is Plot's stack option, passed straight

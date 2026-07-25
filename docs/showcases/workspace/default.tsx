@@ -101,7 +101,7 @@ import {
  *
  * The library ships the regions and the parts; the graph canvas is a placeholder (the design system
  * has no graph engine), but the **Analysis** view is live — a full crossfilter dashboard over a real
- * DuckDB relation, built from the `@kanzo-tech/ui/charts` subpath and loaded client-only from
+ * DuckDB relation, built from the `@kanzo-tech/ui/analytics` subpath and loaded client-only from
  * `./analysis-charts` so the DuckDB/vgplot stack never touches the RSC prerender. That split —
  * placeholder graph, real charts — is the point of a showcase: it shows how far the library reaches.
  */
@@ -321,12 +321,12 @@ function RulesTab() {
 
 /**
  * The Analysis view is the one live region: a real crossfilter dashboard over a real DuckDB
- * relation, built entirely from the `@kanzo-tech/ui/charts` subpath. It occupies `ShellMain` rather
+ * relation, built entirely from the `@kanzo-tech/ui/analytics` subpath. It occupies `ShellMain` rather
  * than the dock because a dashboard needs the width — a KPI row, six faceted panels and a table do
  * not fit in a 320px inspector, and cramming them there would demonstrate the opposite of what the
  * layer can do.
  *
- * It stays client-only: importing `@kanzo-tech/ui/charts` at the top of this file would evaluate
+ * It stays client-only: importing `@kanzo-tech/ui/analytics` at the top of this file would evaluate
  * vgplot during the RSC prerender (a TDZ), so it lives behind `ssr: false` — the boundary
  * `docs/examples/charts/mosaic-demo.tsx` documents.
  */

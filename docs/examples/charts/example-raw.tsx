@@ -10,7 +10,7 @@ import {
   ChartRoot,
   ChartToggleY,
   count,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // The layer wraps every mark vgplot ships but six: `axisX`, `axisY`, `axisFx`, `axisFy`, `gridFx`

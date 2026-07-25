@@ -8,7 +8,7 @@ import {
   ChartRoot,
   ChartToggleX,
   count,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // Categorical bars: group by a string column, sort by descending count, click a bar to toggle that

@@ -9,7 +9,7 @@ import {
   ChartRoot,
   type ChartConfig,
   count,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // Map `fill` to a column and the areas stack by it: the layer copies a column-valued `fill` to `z`,

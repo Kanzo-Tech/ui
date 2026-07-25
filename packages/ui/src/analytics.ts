@@ -1,4 +1,8 @@
-// @kanzo-tech/ui/charts — a thin composable layer over Mosaic/vgplot.
+// @kanzo-tech/ui/analytics — a thin composable layer over Mosaic/vgplot.
+//
+// Named for the capability, not the engine, the way `/editor` is not `/codemirror` — and not
+// `/charts`, because the subpath also holds the controls that filter them and the figures that
+// read the same relation. The components stay `Chart*`: those are charts.
 //
 // Kept off the root barrel so the base bundle never carries the DuckDB/Mosaic analytics stack.
 // `@uwdata/vgplot`, `@uwdata/mosaic-core`, `@uwdata/mosaic-sql` and `@duckdb/duckdb-wasm` are all

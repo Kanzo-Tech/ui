@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { makeClient } from "@uwdata/mosaic-core";
 import { Query } from "@uwdata/mosaic-sql";
 import { Badge, Skeleton } from "@kanzo-tech/ui";
-import { sql, useMosaic } from "@kanzo-tech/ui/charts";
+import { sql, useMosaic } from "@kanzo-tech/ui/analytics";
 import {
   DataTableContent,
   DataTableFacetFilter,

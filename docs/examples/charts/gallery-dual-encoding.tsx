@@ -15,7 +15,7 @@ import {
   count,
   sql,
   sum,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // Three variables, one plot: bar height is the request count, bar opacity is the mean latency, and

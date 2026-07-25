@@ -27,7 +27,7 @@ export default defineConfig({
         // Optional subpath: tokenized Mosaic/vgplot crossfilter charts. Bring-your-own
         // Coordinator — the package never imports DuckDB-WASM; @uwdata/* + @duckdb/* are
         // optional peers, so the base bundle never pays for the analytics stack.
-        charts: resolve(__dirname, "src/charts.ts"),
+        analytics: resolve(__dirname, "src/analytics.ts"),
       },
       formats: ["es"],
     },

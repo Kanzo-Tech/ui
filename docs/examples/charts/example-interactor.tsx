@@ -14,7 +14,7 @@ import {
   ChartToggleX,
   count,
   useSelected,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // The interactor is a child, not a hardcoded line inside a preset: swapping click-to-toggle for

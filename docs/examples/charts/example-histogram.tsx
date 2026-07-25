@@ -8,7 +8,7 @@ import {
   ChartRoot,
   bin,
   count,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // Histogram: `bin()` on a numeric (or temporal) column, an interval brush, and the dual layer —

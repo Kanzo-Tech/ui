@@ -6,7 +6,7 @@ import {
   ChartDot,
   ChartIntervalXY,
   ChartRoot,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // Two numeric columns and a 2-D brush. `ChartIntervalXY` publishes the dragged rectangle into the

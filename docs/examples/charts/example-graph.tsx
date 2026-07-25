@@ -20,7 +20,7 @@ import {
   count,
   useCrossfilter,
   type ChartConfig,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { GraphDemo } from "./graph-demo";
 
 // A node-link view with no node-link component in it.

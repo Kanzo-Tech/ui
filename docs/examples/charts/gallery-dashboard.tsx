@@ -20,7 +20,7 @@ import {
   bin,
   count,
   useMosaic,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { ChartCard } from "@/lib/chart-card";
 import { DashboardGrid } from "@/lib/dashboard-grid";
 import { MosaicDemo } from "./mosaic-demo";

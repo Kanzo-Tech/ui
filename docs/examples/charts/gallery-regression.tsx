@@ -6,7 +6,7 @@ import {
   ChartDot,
   ChartRegressionY,
   ChartRoot,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // The fit is a SQL aggregate: DuckDB returns the slope, the intercept and the sums of squares, and

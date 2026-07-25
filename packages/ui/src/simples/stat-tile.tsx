@@ -16,6 +16,11 @@ export interface StatTileDelta {
   value: number;
   /** The comparison period, e.g. "vs last month". */
   label?: string;
+  /**
+   * Unit for the magnitude — `"%"`, `"pp"`, `"ms"`, `"°C"`. Sits against the number, before the
+   * label, because "+8.2 vs last week" is a different claim from "+8.2% vs last week".
+   */
+  unit?: string;
   /** Whether an increase is good (green) or bad (red). Default `true`. */
   goodWhenUp?: boolean;
 }
@@ -91,6 +96,7 @@ export function StatTile({ label, value, prefix, delta, trend, className }: Stat
           <DeltaIcon className="size-3.5" />
           {delta.value > 0 ? "+" : ""}
           {compact(delta.value)}
+          {delta.unit}
           {delta.label && <span className="text-muted-foreground font-normal">{delta.label}</span>}
         </span>
       )}

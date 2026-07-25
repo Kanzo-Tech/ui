@@ -15,7 +15,7 @@ import {
   ChartToggleX,
   bin,
   count,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // Four plots, one table, one shared crossfilter: `ChartRoot` defaults `filterBy` and `as` to the

@@ -13,7 +13,7 @@ import {
   Selection,
   bin,
   count,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // The provider's crossfilter is a default, not a cage. Here the example owns both selections: the

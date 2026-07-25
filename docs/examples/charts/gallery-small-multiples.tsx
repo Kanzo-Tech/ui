@@ -9,7 +9,7 @@ import {
   ChartLineY,
   ChartRoot,
   count,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // `fx` on a mark is all a small multiple is: one panel per distinct value, one shared pair of

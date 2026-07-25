@@ -17,7 +17,7 @@ import {
   count,
   useCrossfilter,
   type ChartConfig,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { GraphDemo } from "./graph-demo";
 import type { GraphStats } from "./graph-boot";
 

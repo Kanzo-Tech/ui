@@ -11,7 +11,7 @@ import {
   ChartToggleColor,
   type ChartConfig,
   count,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
 
 // Grouped bars are faceted bars: `fx` splits the plot into one panel per region, `x` puts the

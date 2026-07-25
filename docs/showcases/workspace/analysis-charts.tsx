@@ -34,7 +34,7 @@ import {
   useMosaic,
   wasmConnector,
   type ChartConfig,
-} from "@kanzo-tech/ui/charts";
+} from "@kanzo-tech/ui/analytics";
 import { ChartCard } from "@/lib/chart-card";
 import { DashboardGrid } from "@/lib/dashboard-grid";
 import {
@@ -381,7 +381,7 @@ function Plots({ picks }: { picks: Picks }) {
       </div>
 
       <ChartCard
-        description="one panel per region, one shared pair of scales · drag to pick a period"
+        description="one shared pair of scales, so the panels compare · Galicia takes ~17× Andalucía, which is why the dry ones are flat"
         title="Monthly rainfall by region (mm)"
       >
         <ChartRoot
