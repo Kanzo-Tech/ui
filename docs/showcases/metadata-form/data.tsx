@@ -349,7 +349,7 @@ export function tripleCount(v: FormValues): number {
   return toTurtle(v).split("\n").filter((l) => /[;.]$/.test(l.trim())).length;
 }
 
-// ── Faked AI streams (✨ useSuggestions + CodeEditor `complete`) ──────────────
+// ── Faked AI streams (✨ Suggest `suggest` + Complete `complete`) ────
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -375,7 +375,7 @@ export async function* suggestKeywords(
   }
 }
 
-/** `<Input aiComplete>`'s completion source — a canned single-line continuation for the title. */
+/** The `Input` `complete` source — a canned single-line continuation for the title. */
 export async function* completeTitle(
   value: string,
   signal?: AbortSignal,
@@ -389,7 +389,7 @@ export async function* completeTitle(
   }
 }
 
-/** CodeEditor's `complete` — streams a canned continuation for a description literal. */
+/** The `Textarea` `complete` source — streams a canned continuation for a description literal. */
 export async function* completeDescription(
   value: string,
   signal?: AbortSignal,

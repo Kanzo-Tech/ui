@@ -17,6 +17,11 @@ import {
   CardHeader,
   CardTitle,
   cn,
+  CompleteGhost,
+  CompleteHint,
+  CompleteInput,
+  CompleteRoot,
+  CompleteTextarea,
   DialogTrigger,
   Field,
   FieldArray,
@@ -24,7 +29,6 @@ import {
   FieldError,
   FieldLabel,
   FieldRequiredIndicator,
-  FieldSuggest,
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
@@ -35,7 +39,6 @@ import {
   NativeSelectOption,
   NumberField,
   PreferencesAccent,
-  PreferencesAppearance,
   PreferencesBase,
   PreferencesDensity,
   PreferencesFont,
@@ -44,6 +47,8 @@ import {
   PreferencesPanel,
   PreferencesRadius,
   PreferencesRoot,
+  RadioGroup,
+  RadioGroupCard,
   Resizable,
   ResizablePanel,
   ResizableResizeTrigger,
@@ -53,10 +58,6 @@ import {
   SectionHeader,
   SectionTitle,
   SectionTitleGroup,
-  SegmentGroup,
-  SegmentGroupItem,
-  SegmentGroupItemText,
-  type Suggestion,
   ShellAside,
   ShellBody,
   ShellHeader,
@@ -72,6 +73,9 @@ import {
   StepsSeparator,
   StepsTitle,
   StepsTrigger,
+  SuggestContent,
+  SuggestRoot,
+  SuggestTrigger,
   Switch,
   Tabs,
   TabsContent,
@@ -95,6 +99,9 @@ import {
   CheckIcon,
   Code2Icon,
   FileTextIcon,
+  GalleryVerticalIcon,
+  LayoutPanelTopIcon,
+  ListOrderedIcon,
   Share2Icon,
   ShapesIcon,
   XIcon,
@@ -167,10 +174,6 @@ function FieldFrame({
   required,
   issues,
   action,
-  complete,
-  suggest,
-  existing,
-  onPick,
   children,
 }: {
   label: string;
@@ -179,27 +182,14 @@ function FieldFrame({
   predicate?: string;
   required?: boolean;
   issues: Issue[];
-  /** A trailing control on the label row (e.g. the ✨ `FieldSuggest` popover). */
+  /** A trailing control on the label row (e.g. the ✨ `Suggest` popover). */
   action?: ReactNode;
-  /** Inline ghost-completion source — threaded to `Field` so an `aiComplete` surface picks it up. */
-  complete?: (value: string, signal?: AbortSignal) => AsyncIterable<string>;
-  /** Candidate source + dedup set + router — threaded to `Field` so a `FieldSuggest` picks it up. */
-  suggest?: (signal?: AbortSignal) => AsyncIterable<Suggestion>;
-  existing?: string[];
-  onPick?: (value: string) => void;
   children: (invalid: boolean) => ReactNode;
 }) {
   const { showDescriptions, showPredicates } = useContext(FormPrefsContext);
   const invalid = issues.some((iss) => iss.severity === "violation");
   return (
-    <Field
-      className="gap-1.5"
-      complete={complete}
-      existing={existing}
-      invalid={invalid}
-      onPick={onPick}
-      suggest={suggest}
-    >
+    <Field className="gap-1.5" invalid={invalid}>
       <div className="flex min-h-6 items-center gap-2">
         <FieldLabel className="w-fit">
           {label}
@@ -328,10 +318,10 @@ function PanelShell({
  * (a trailing `ShellAside`, Turtle & JSON-LD). Each side column toggles independently from its
  * header button and is drag-resizable; validation stays in the header badge.
  *
- * It is MOSTLY COMPOSITION — `Field` (its `complete` / `suggest` AI props), `FieldArray`,
- * `DateField`, `FieldSuggest` (the ✨ candidate menu), inline ghost completion on
- * `Input`/`Textarea` (`aiComplete`), `Steps`, `Tabs`, `NativeSelect`, `Resizable` — over a
- * FAKED SHACL engine in
+ * It is MOSTLY COMPOSITION — `Field`, `FieldArray`, `DateField`, the ✨ `Suggest` compound
+ * (`Root`/`Trigger`/`Content`, given its own `suggest` / `existing` / `onPick`), inline ghost
+ * completion via the `Complete` compound composed over a pure `Input`/`Textarea`, `Steps`, `Tabs`,
+ * `NativeSelect`, `Resizable` — over a FAKED SHACL engine in
  * `data.tsx`. The form's layout (Sequential / Tabs / Steps) and display prefs are chosen live in
  * the library's own `Preferences` drawer, extended here with a custom Layout section.
  */
@@ -432,7 +422,6 @@ export function MetadataFormShowcase() {
   const generalFields = (): ReactNode => (
     <>
       <FieldFrame
-        complete={completeTitle}
         description="A name given to the dataset."
         issues={fieldIssues("title")}
         label="Title"
@@ -440,20 +429,20 @@ export function MetadataFormShowcase() {
         required
       >
         {(invalid) => (
-          // Inline ghost completion via the surrounding `<Field complete>` — Tab accepts, Esc
-          // dismisses. The overlay ghost shows only at end-of-value; the caller stays oblivious.
-          <Input
-            aiComplete
-            aria-invalid={invalid || undefined}
-            onChange={(e) => setScalar("title", e.target.value)}
-            placeholder="e.g. COVID-19 case registry"
+          <CompleteRoot
+            complete={completeTitle}
+            onValueChange={(v) => setScalar("title", v)}
             value={values.title}
-          />
+          >
+            <CompleteInput>
+              <Input aria-invalid={invalid || undefined} placeholder="e.g. COVID-19 case registry" />
+            </CompleteInput>
+            <CompleteGhost />
+          </CompleteRoot>
         )}
       </FieldFrame>
 
       <FieldFrame
-        complete={completeDescription}
         description="A free-text account of the dataset."
         issues={fieldIssues("descriptions")}
         label="Description"
@@ -461,28 +450,36 @@ export function MetadataFormShowcase() {
         required
       >
         {() => (
-          // Multi-line inline ghost completion via the surrounding `<Field complete>` — the
-          // `aiComplete` overlay mirror wraps with the textarea; Tab accepts, Esc dismisses.
-          <Textarea
-            aiComplete
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Describe the dataset — press Tab to accept the suggestion…"
+          <CompleteRoot
+            complete={completeDescription}
+            onValueChange={setDescription}
             value={values.descriptions[0]?.value ?? ""}
-          />
+          >
+            <CompleteTextarea>
+              <Textarea placeholder="Describe the dataset — press Tab to accept the suggestion…" />
+            </CompleteTextarea>
+            <CompleteHint />
+          </CompleteRoot>
         )}
       </FieldFrame>
 
       <FieldFrame
-        action={<FieldSuggest label="Suggest keywords" title="Suggested keywords" />}
+        action={
+          <SuggestRoot
+            existing={values.keywords.map((k) => k.value)}
+            onPick={(value) =>
+              setValues((p) => ({ ...p, keywords: [...p.keywords, { id: uid("k"), value }] }))
+            }
+            suggest={suggestKeywords}
+          >
+            <SuggestTrigger label="Suggest keywords" />
+            <SuggestContent title="Suggested keywords" />
+          </SuggestRoot>
+        }
         description="Keywords or tags describing the dataset."
-        existing={values.keywords.map((k) => k.value)}
         issues={fieldIssues("keywords")}
         label="Keywords"
-        onPick={(value) =>
-          setValues((p) => ({ ...p, keywords: [...p.keywords, { id: uid("k"), value }] }))
-        }
         predicate="dcat:keyword"
-        suggest={suggestKeywords}
       >
         {(invalid) => (
           // TagsInput owns the chips + add; the ✨ suggestions above write into the same
@@ -1165,27 +1162,29 @@ export function MetadataFormShowcase() {
               <PreferencesPanel>
                 <div className="flex flex-col gap-3">
                   <PreferencesField label="Layout">
-                    <SegmentGroup
+                    <RadioGroup
                       aria-label="Form layout"
-                      className="w-full"
+                      className="flex-row flex-wrap gap-2"
                       onValueChange={(d) => d.value && setLayout(d.value as Layout)}
                       value={layout}
-                      variant="solid"
                     >
                       {(
                         [
-                          ["cards", "Sequential"],
-                          ["tabs", "Tabs"],
-                          ["steps", "Steps"],
+                          ["cards", "Sequential", GalleryVerticalIcon],
+                          ["tabs", "Tabs", LayoutPanelTopIcon],
+                          ["steps", "Steps", ListOrderedIcon],
                         ] as const
-                      ).map(([value, label]) => (
-                        <SegmentGroupItem className="px-2 py-1" key={value} value={value}>
-                          <SegmentGroupItemText className="font-medium text-xs">
-                            {label}
-                          </SegmentGroupItemText>
-                        </SegmentGroupItem>
+                      ).map(([value, label, Icon]) => (
+                        <RadioGroupCard
+                          className="min-w-0 flex-1 basis-16 flex-col items-center gap-1.5 px-2 py-2"
+                          key={value}
+                          value={value}
+                        >
+                          <Icon className="size-4 text-muted-foreground" />
+                          <span className="font-medium text-xs">{label}</span>
+                        </RadioGroupCard>
                       ))}
-                    </SegmentGroup>
+                    </RadioGroup>
                   </PreferencesField>
 
                   <Field orientation="horizontal">
@@ -1204,8 +1203,7 @@ export function MetadataFormShowcase() {
                   </Field>
                 </div>
 
-                {/* The library's own theme axes, flat. */}
-                <PreferencesAppearance />
+                {/* The library's own theme axes, flat. Appearance lives in the panel header. */}
                 <PreferencesAccent />
                 <PreferencesBase />
                 <PreferencesRadius />

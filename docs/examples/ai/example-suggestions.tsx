@@ -1,11 +1,21 @@
 "use client";
 
 import {
-  Badge,
   Field,
   FieldLabel,
-  FieldSuggest,
+  SuggestContent,
+  SuggestRoot,
+  SuggestTrigger,
   type Suggestion,
+  TagsInput,
+  TagsInputContext,
+  TagsInputControl,
+  TagsInputInput,
+  TagsInputItem,
+  TagsInputItemDeleteTrigger,
+  TagsInputItemInput,
+  TagsInputItemPreview,
+  TagsInputItemText,
 } from "@kanzo-tech/ui";
 import { useState } from "react";
 
@@ -18,8 +28,6 @@ const POOL: Suggestion[] = [
   { value: "temperature", rationale: "Present in 92% of rows." },
 ];
 
-// Source-agnostic: any async iterable that honours the signal. A real call site yields straight
-// from a streaming model response.
 async function* suggest(signal?: AbortSignal): AsyncIterable<Suggestion> {
   for (const item of POOL) {
     await new Promise((r) => setTimeout(r, 240));
@@ -28,30 +36,40 @@ async function* suggest(signal?: AbortSignal): AsyncIterable<Suggestion> {
   }
 }
 
-// `suggest` / `existing` / `onPick` are declared once on `Field`; `FieldSuggest` is the ✨ menu
-// that reads them from the provider. The hook underneath owns the streaming, the live dedup
-// against what's already chosen, and the fixed window that refills as you dismiss rows.
 export default function Example() {
   const [keywords, setKeywords] = useState<string[]>(["climate"]);
 
   return (
-    <Field
-      className="w-72"
-      existing={keywords}
-      onPick={(value) => setKeywords((prev) => [...prev, value])}
-      suggest={suggest}
-    >
+    <Field className="w-72">
       <FieldLabel>
         Keywords
-        <FieldSuggest className="ms-auto" label="Suggest keywords" />
+        <SuggestRoot
+          existing={keywords}
+          onPick={(value) => setKeywords((prev) => [...prev, value])}
+          suggest={suggest}
+        >
+          <SuggestTrigger className="ms-auto" label="Suggest keywords" />
+          <SuggestContent />
+        </SuggestRoot>
       </FieldLabel>
-      <div className="flex min-h-9 flex-wrap items-center gap-1 rounded-md border px-2 py-1">
-        {keywords.map((k) => (
-          <Badge key={k} size="sm" variant="secondary">
-            {k}
-          </Badge>
-        ))}
-      </div>
+      <TagsInput onValueChange={(d) => setKeywords(d.value)} value={keywords}>
+        <TagsInputControl>
+          <TagsInputContext>
+            {(api) =>
+              api.value.map((value, index) => (
+                <TagsInputItem index={index} key={`${value}-${index}`} value={value}>
+                  <TagsInputItemPreview>
+                    <TagsInputItemText>{value}</TagsInputItemText>
+                    <TagsInputItemDeleteTrigger />
+                  </TagsInputItemPreview>
+                  <TagsInputItemInput />
+                </TagsInputItem>
+              ))
+            }
+          </TagsInputContext>
+          <TagsInputInput placeholder="Add keyword…" />
+        </TagsInputControl>
+      </TagsInput>
     </Field>
   );
 }

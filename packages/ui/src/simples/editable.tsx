@@ -1,81 +1,70 @@
 "use client";
 
-import {
-  Editable as ArkEditable,
-  useEditableContext,
-} from "@ark-ui/react/editable";
-import { CheckIcon, PencilIcon, XIcon } from "lucide-react";
+import { Editable as ArkEditable, useEditableContext } from "@ark-ui/react/editable";
 import type React from "react";
 import { cn } from "../lib/cn";
-import { buttonVariants } from "./button";
-import { FieldLabel } from "./field";
-import { inputVariants } from "./input";
+import { type ButtonProps, buttonVariants } from "./button";
 
 export const useEditable = useEditableContext;
 
-export const EditableContext = ArkEditable.Context;
+export interface EditableProps extends React.ComponentProps<typeof ArkEditable.Root> {
+  orientation?: "horizontal" | "vertical";
+}
 
-export const Editable = (props: React.ComponentProps<typeof ArkEditable.Root>) => {
-  const { className, ...rest } = props;
+export const Editable = (props: EditableProps) => {
+  const { orientation = "horizontal", className, ...rest } = props;
 
   return (
     <ArkEditable.Root
-      className={cn("flex flex-col gap-1.5", className)}
+      className={cn(
+        "group/editable",
+        "relative",
+        "w-full",
+        "data-[orientation=vertical]:items-end",
+        "flex items-center gap-2",
+        className,
+      )}
+      data-orientation={orientation}
       data-slot="editable"
       {...rest}
     />
   );
 };
 
-export const EditableLabel = (
-  props: React.ComponentProps<typeof ArkEditable.Label>
-) => (
-  <FieldLabel asChild>
-    <ArkEditable.Label data-slot="editable-label" {...props} />
-  </FieldLabel>
+export const EditableArea = (props: React.ComponentProps<typeof ArkEditable.Area>) => {
+  const { className, ...rest } = props;
+
+  return (
+    <ArkEditable.Area className={cn("w-full", className)} data-slot="editable-area" {...rest} />
+  );
+};
+
+export interface EditableInputProps
+  extends Omit<React.ComponentProps<typeof ArkEditable.Input>, "size"> {}
+
+export const EditableInput = (props: EditableInputProps) => (
+  <ArkEditable.Input data-slot="editable-input" {...props} />
 );
 
-export const EditableArea = (
-  props: React.ComponentProps<typeof ArkEditable.Area>
-) => {
-  const { className, ...rest } = props;
+interface EditablePreviewProps extends React.ComponentProps<typeof ArkEditable.Preview> {
+  size?: ButtonProps["size"];
+  variant?: ButtonProps["variant"];
+}
 
-  return (
-    <ArkEditable.Area
-      className={cn("inline-flex min-w-0", className)}
-      data-slot="editable-area"
-      {...rest}
-    />
-  );
-};
-
-export const EditableInput = (
-  props: React.ComponentProps<typeof ArkEditable.Input>
-) => {
-  const { className, ...rest } = props;
-
-  return (
-    <ArkEditable.Input
-      className={cn(inputVariants({ size: "md" }), className)}
-      data-slot="editable-input"
-      {...rest}
-    />
-  );
-};
-
-export const EditablePreview = (
-  props: React.ComponentProps<typeof ArkEditable.Preview>
-) => {
-  const { className, ...rest } = props;
+export const EditablePreview = (props: EditablePreviewProps) => {
+  const { variant = "outline", size = "md", className, ...rest } = props;
 
   return (
     <ArkEditable.Preview
       className={cn(
-        "inline-flex h-8 min-w-0 items-center px-3",
-        "cursor-text truncate rounded-lg text-base md:text-sm",
-        "data-placeholder-shown:text-muted-foreground/64",
-        "hover:bg-accent hover:text-accent-foreground",
-        className
+        buttonVariants({ variant, size, clickEffect: false }),
+        "w-full justify-start",
+        "px-3",
+        "whitespace-pre-wrap font-normal text-base sm:text-sm",
+        "dark:hover:bg-input/32",
+        "data-placeholder-shown:text-muted-foreground",
+        "in-[[data-slot=editable-area]:has(textarea)]:items-start",
+        className,
       )}
       data-slot="editable-preview"
       {...rest}
@@ -83,14 +72,16 @@ export const EditablePreview = (
   );
 };
 
-export const EditableControl = (
-  props: React.ComponentProps<typeof ArkEditable.Control>
-) => {
+export const EditableControl = (props: React.ComponentProps<typeof ArkEditable.Control>) => {
   const { className, ...rest } = props;
 
   return (
     <ArkEditable.Control
-      className={cn("flex items-center gap-1.5", className)}
+      className={cn(
+        "group-data-[orientation=vertical]/editable:flex-col",
+        "inline-flex items-center gap-2",
+        className,
+      )}
       data-slot="editable-control"
       {...rest}
     />
@@ -98,58 +89,13 @@ export const EditableControl = (
 };
 
 export const EditableEditTrigger = (
-  props: React.ComponentProps<typeof ArkEditable.EditTrigger>
-) => {
-  const { className, children = <PencilIcon />, ...rest } = props;
-
-  return (
-    <ArkEditable.EditTrigger
-      className={cn(
-        buttonVariants({ variant: "ghost", size: "icon-sm" }),
-        className
-      )}
-      data-slot="editable-edit-trigger"
-      {...rest}
-    >
-      {children}
-    </ArkEditable.EditTrigger>
-  );
-};
-
-export const EditableSubmitTrigger = (
-  props: React.ComponentProps<typeof ArkEditable.SubmitTrigger>
-) => {
-  const { className, children = <CheckIcon />, ...rest } = props;
-
-  return (
-    <ArkEditable.SubmitTrigger
-      className={cn(
-        buttonVariants({ variant: "outline", size: "icon-sm" }),
-        className
-      )}
-      data-slot="editable-submit-trigger"
-      {...rest}
-    >
-      {children}
-    </ArkEditable.SubmitTrigger>
-  );
-};
+  props: React.ComponentProps<typeof ArkEditable.EditTrigger>,
+) => <ArkEditable.EditTrigger data-slot="editable-edit-trigger" {...props} />;
 
 export const EditableCancelTrigger = (
-  props: React.ComponentProps<typeof ArkEditable.CancelTrigger>
-) => {
-  const { className, children = <XIcon />, ...rest } = props;
+  props: React.ComponentProps<typeof ArkEditable.CancelTrigger>,
+) => <ArkEditable.CancelTrigger data-slot="editable-cancel-trigger" {...props} />;
 
-  return (
-    <ArkEditable.CancelTrigger
-      className={cn(
-        buttonVariants({ variant: "ghost", size: "icon-sm" }),
-        className
-      )}
-      data-slot="editable-cancel-trigger"
-      {...rest}
-    >
-      {children}
-    </ArkEditable.CancelTrigger>
-  );
-};
+export const EditableSubmitTrigger = (
+  props: React.ComponentProps<typeof ArkEditable.SubmitTrigger>,
+) => <ArkEditable.SubmitTrigger data-slot="editable-submit-trigger" {...props} />;

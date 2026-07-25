@@ -1,17 +1,17 @@
 ---
 title: AI-assisted fields
-description: Model assistance is two props on a Field you already have — complete for an inline ghost, suggest for a candidate menu. The library never knows what a model is; you pass a stream.
+description: Model assistance is two composed compounds — Complete for an inline ghost, Suggest for a candidate menu — over pure inputs. The library never knows what a model is; you pass a stream.
 ---
 
-There is no "AI component". Model assistance in this library is two props you declare on a
-[`Field`](/docs/forms/field), each backed by a thin `AiAssist` provider that any control inside
-the field can pick up:
+There is no "AI component", and no provider. Model assistance is two compounds you compose over a
+field you already have, leaving the primitive untouched:
 
-- **Inline ghost completion** — `<Field complete>`. The surface opts in with `aiComplete`
-  (`Input` for one line, `Textarea` for prose) and grows a greyed continuation as you type; Tab
-  accepts, Esc dismisses.
-- **Candidate suggestions** — `<Field suggest existing onPick>` plus a **`FieldSuggest`** part: a
-  ✨ button that opens a streamed menu of candidates, reading the source from the provider.
+- **Inline ghost completion** — the **`Complete`** compound: `CompleteRoot` owns the value and the
+  stream, `CompleteInput` / `CompleteTextarea` delegate to a pure `Input` / `Textarea` via
+  `asChild`, and `CompleteGhost` (overlay, one line) / `CompleteHint` (below the field, for prose)
+  render the preview. Tab accepts, Esc dismisses.
+- **Candidate suggestions** — the **`Suggest`** compound: `SuggestRoot` / `SuggestTrigger` /
+  `SuggestContent` / `SuggestItem`, a ✨ button that opens a streamed candidate popover.
 
 Both rest on one engine, `useAiStream`, and one contract — a function returning an async
 iterable, cancelled by an `AbortSignal`. That contract is worth understanding once.
@@ -79,44 +79,49 @@ the two signatures are not identical: one is completing a single value, the othe
 list.
 </Callout>
 
-## Inline completion — `<Field complete>` + `aiComplete`
+## Inline completion — the `Complete` compound
 
-Declare `complete` on the `Field` and opt the surface in with `aiComplete`: `Input` for a single
-line, `Textarea` for prose. The surface paints a greyed continuation at the caret via an
-`aria-hidden` mirror that tracks its own metrics — the `Input` overlay stays on one line; the
-`Textarea` mirror wraps with the field. **Tab accepts, Esc dismisses.** The ghost shows only at
-the end of the value (where the mirror can align); elsewhere the `Tab · Esc` hint carries it. The
-control stays oblivious — it is a controlled `Input`/`Textarea`, nothing more.
+Compose `Complete` over a pure `Input` (single line) or `Textarea` (prose). `CompleteRoot` owns the
+controlled value and runs the stream; `CompleteInput` / `CompleteTextarea` delegate to the bare
+primitive via `asChild`. For `Input`, `CompleteGhost` paints a greyed continuation at the caret via
+an `aria-hidden` overlay that copies the field's real metrics, so it aligns at any size; for
+`Textarea`, `CompleteHint` streams the suggestion below the field. **Tab accepts, Esc dismisses.**
+The overlay shows only at the end of the value (where it can align); elsewhere Tab/Esc still work.
 
 <ComponentPreview componentName="ai" fileName="example-field-complete" />
 
 ```tsx
-<Field complete={complete}>
-  <FieldLabel>Title</FieldLabel>
-  <Input aiComplete value={value} onChange={(e) => setValue(e.target.value)} />
-</Field>
+<CompleteRoot complete={complete} value={value} onValueChange={setValue}>
+  <CompleteInput>
+    <Input />
+  </CompleteInput>
+  <CompleteGhost />
+</CompleteRoot>
 ```
 
 <Callout type="info">
-`aiComplete` requires a **controlled** `value`, and with no `complete` in context it is a no-op —
-`Input` / `Textarea` render exactly as before, no overlay, no extra hooks. The streaming itself is
-headless (`useCompletion`, below) and pulls in no editor dependency.
+`CompleteRoot` requires a **controlled** `value` — it owns it, so accepting a ghost is a plain
+`onValueChange`. The `Input` / `Textarea` you pass stay byte-identical to the bare primitive; the
+streaming is headless (`useCompletion`, below) and pulls in no editor dependency.
 </Callout>
 
-## Candidate suggestions — `<Field suggest>` + `FieldSuggest`
+## Candidate suggestions — the `Suggest` compound
 
-Declare `suggest` (plus `existing` for the live dedup and `onPick` for where a chosen value goes)
-on the `Field`, then drop a `FieldSuggest` wherever the ✨ affordance belongs — usually the label
-row. It reads the source from the provider, owns only its open state, and renders the streamed
-menu (loading / error / empty / list, each row pickable or dismissable).
+Compose `Suggest` wherever the ✨ affordance belongs — usually the label row. `SuggestRoot` takes
+`suggest` (plus `existing` for the live dedup and `onPick` for where a chosen value goes) and owns
+the `useSuggestions` engine and its open state; `SuggestTrigger` is the ✨ button and
+`SuggestContent` renders the streamed popover (loading / error / empty / candidates, each row
+pickable or dismissable). Feed `onPick` into the same `TagsInput` (or list) you type into, so the ✨
+and typing write one value.
 
 <ComponentPreview componentName="ai" fileName="example-suggestions" />
 
 The stream is fetched once per open-cycle and cached across reopen, so browsing away and back
 does not re-bill the model. Closing the popover mid-load aborts the in-flight request through the
 `AbortSignal` and refetches fresh next time. Candidates matching what's already chosen — or each
-other, case-insensitively — are dropped before they are ever shown. Pass `renderItem` to control
-a row's content, or `title` / `placement` / `label` for the chrome.
+other, case-insensitively — are dropped before they are ever shown. Pass children to
+`SuggestContent` (or a custom `SuggestItem`) to control a row's content, or `title` / `placement`
+for the chrome.
 
 ## The headless hooks
 
@@ -126,14 +131,13 @@ pre-assemble.
 
 | Hook | Drives | What it gives you |
 |---|---|---|
-| `useCompletion({ complete })` | `Input` / `Textarea` `aiComplete`, and any input | `ghost` / `hasGhost`, `setValue` (debounced request), `request` (immediate, the ✨), `accept()`, `dismiss()`, `clear()` |
-| `useSuggestions({ suggest, existing })` | `FieldSuggest`, or a `Popover` you compose | `items`, `loading`, `start()`, `cancel()`, `dismiss(i)` — a deduped, windowed candidate list |
+| `useCompletion({ complete })` | the `Complete` compound, and any input | `ghost` / `hasGhost`, `setValue` (debounced request), `request` (immediate, the ✨), `accept()`, `dismiss()`, `clear()` |
+| `useSuggestions({ suggest, existing })` | the `Suggest` compound, or a `Popover` you compose | `items`, `loading`, `start()`, `cancel()`, `dismiss(i)` — a deduped, windowed candidate list |
 | `useAiStream()` | both of the above | the raw engine: `start` / `restart` / `next` / `idle` / `abort` — reach for it only to build a third interaction |
 
-The `AiAssist` provider that `Field` mounts is nothing more than these two hooks run once and
-handed down through context, so a control reads whichever it needs (`useAiFieldOptional()`) without
-the field owning its value. You can mount `<AiAssist>` directly to give a bare `Combobox` or
-`InputGroup` the same capability without a `Field`.
+There is no provider: the `Complete` and `Suggest` compounds each run the hook they need directly,
+and you reach for the hooks yourself to give a bare `Combobox`, `InputGroup` or `Editable` the same
+capability.
 
 The contract is exactly the one above — a function returning an async iterable, cancelled by an
 `AbortSignal`. The hooks add the debounce, the min-length gate, the dedup and the abort
@@ -147,10 +151,10 @@ the continuation string for you to insert where you want. That is what lets the 
 
 ### Attach `useCompletion` to any input
 
-`Input` / `Textarea` `aiComplete` is the batteries-included home for inline completion, but the
+`Input` / `Textarea` `complete` is the batteries-included home for inline completion, but the
 hook is not tied to it. Here it drives an `InputGroup`: the ✨ requests a completion, and the ghost
 preview with the `Tab` / `Esc` hints lives in a `block-end` addon (honest about being alongside the
-field rather than inside it — the aligned overlay ghost is what `aiComplete` buys you).
+field rather than inside it — the aligned overlay ghost is what the `Complete` compound buys you).
 
 <ComponentPreview componentName="ai" fileName="example-input-group" />
 

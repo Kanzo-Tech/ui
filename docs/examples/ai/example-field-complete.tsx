@@ -1,6 +1,11 @@
 "use client";
 
 import {
+  CompleteGhost,
+  CompleteHint,
+  CompleteInput,
+  CompleteRoot,
+  CompleteTextarea,
   Field,
   FieldDescription,
   FieldLabel,
@@ -9,10 +14,7 @@ import {
 } from "@kanzo-tech/ui";
 import { useState } from "react";
 
-// Inline ghost completion is declared ONCE on `Field` (`complete`), and the surface opts in with
-// `aiComplete` — `Input` for a single line, `Textarea` for prose. Both paint a muted continuation
-// at the caret; Tab accepts, Esc dismisses. The control stays oblivious to the model.
-async function* completeTitle(value: string, signal?: AbortSignal) {
+async function* completeTitle(_value: string, signal?: AbortSignal) {
   const rest = " (Spain, 2020–2023)";
   for (const chunk of rest.split(/(?<=\s)/)) {
     await new Promise((r) => setTimeout(r, 60));
@@ -21,7 +23,7 @@ async function* completeTitle(value: string, signal?: AbortSignal) {
   }
 }
 
-async function* completeSummary(value: string, signal?: AbortSignal) {
+async function* completeSummary(_value: string, signal?: AbortSignal) {
   const rest =
     " The dataset is refreshed weekly and covers every autonomous community, with demographic breakdowns for secondary research.";
   for (const chunk of rest.split(/(?<=\s)/)) {
@@ -37,26 +39,26 @@ export default function Example() {
 
   return (
     <div className="flex w-full max-w-md flex-col gap-6">
-      <Field complete={completeTitle}>
+      <Field>
         <FieldLabel>Title</FieldLabel>
-        <Input
-          aiComplete
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="e.g. COVID-19 case registry"
-          value={title}
-        />
+        <CompleteRoot complete={completeTitle} onValueChange={setTitle} value={title}>
+          <CompleteInput>
+            <Input placeholder="e.g. COVID-19 case registry" />
+          </CompleteInput>
+          <CompleteGhost />
+        </CompleteRoot>
         <FieldDescription>Single line — Tab accepts the greyed continuation.</FieldDescription>
       </Field>
 
-      <Field complete={completeSummary}>
+      <Field>
         <FieldLabel>Description</FieldLabel>
-        <Textarea
-          aiComplete
-          onChange={(e) => setSummary(e.target.value)}
-          placeholder="Describe the dataset…"
-          value={summary}
-        />
-        <FieldDescription>Multi-line — the ghost wraps with the textarea.</FieldDescription>
+        <CompleteRoot complete={completeSummary} onValueChange={setSummary} value={summary}>
+          <CompleteTextarea>
+            <Textarea placeholder="Describe the dataset…" />
+          </CompleteTextarea>
+          <CompleteHint />
+        </CompleteRoot>
+        <FieldDescription>Multi-line — the suggestion streams as a hint below.</FieldDescription>
       </Field>
     </div>
   );

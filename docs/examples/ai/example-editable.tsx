@@ -1,21 +1,23 @@
 "use client";
 
-import { useState } from "react";
 import {
+  Button,
   Editable,
   EditableArea,
   EditableCancelTrigger,
   EditableControl,
-  EditableEditTrigger,
   EditableInput,
-  EditableLabel,
   EditablePreview,
   EditableSubmitTrigger,
+  Field,
+  FieldLabel,
+  Input,
   Kbd,
   useCompletion,
 } from "@kanzo-tech/ui";
+import { CheckIcon, XIcon } from "lucide-react";
+import { useState } from "react";
 
-// A fake `complete` — swap for your model's stream. It honours the signal.
 async function* complete(value: string, signal?: AbortSignal) {
   const rest = " (Spain, 2020–2023)";
   for (const chunk of rest.split(/(?<=\s)/)) {
@@ -30,46 +32,58 @@ export default function Example() {
   const completion = useCompletion({ complete });
 
   return (
-    <Editable
-      activationMode="click"
-      onValueChange={(d) => {
-        setValue(d.value);
-        completion.setValue(d.value);
-      }}
-      placeholder="Name this dataset…"
-      value={value}
-    >
-      <EditableLabel>Dataset name</EditableLabel>
-      <EditableArea>
-        <EditablePreview />
-        <EditableInput
-          onBlur={() => completion.clear()}
-          onKeyDown={(e) => {
-            if (e.key === "Tab" && completion.hasGhost) {
-              e.preventDefault();
-              const text = completion.accept();
-              if (text) setValue((v) => v + text);
-            } else if (e.key === "Escape" && completion.hasGhost) {
-              completion.dismiss();
-            }
-          }}
-        />
-      </EditableArea>
-      <EditableControl>
-        <EditableEditTrigger />
-        <EditableSubmitTrigger />
-        <EditableCancelTrigger />
-      </EditableControl>
+    <Field className="w-full max-w-sm">
+      <FieldLabel>Dataset name</FieldLabel>
+      <Editable
+        activationMode="click"
+        onValueChange={(d) => {
+          setValue(d.value);
+          completion.setValue(d.value);
+        }}
+        placeholder="Name this dataset…"
+        value={value}
+      >
+        <EditableArea>
+          <EditableInput
+            asChild
+            onBlur={() => completion.clear()}
+            onKeyDown={(e) => {
+              if (e.key === "Tab" && completion.hasGhost) {
+                e.preventDefault();
+                const text = completion.accept();
+                if (text) setValue((v) => v + text);
+              } else if (e.key === "Escape" && completion.hasGhost) {
+                completion.dismiss();
+              }
+            }}
+          >
+            <Input className="w-full" />
+          </EditableInput>
+          <EditablePreview />
+        </EditableArea>
+        <EditableControl>
+          <EditableSubmitTrigger asChild>
+            <Button aria-label="Save" size="icon-md" variant="outline">
+              <CheckIcon />
+            </Button>
+          </EditableSubmitTrigger>
+          <EditableCancelTrigger asChild>
+            <Button aria-label="Cancel" size="icon-md" variant="ghost">
+              <XIcon />
+            </Button>
+          </EditableCancelTrigger>
+        </EditableControl>
+      </Editable>
       {completion.hasGhost && (
-        <p className="flex items-center gap-2 text-muted-foreground text-xs">
-          <span className="truncate italic">
-            Append <span className="not-italic">“{completion.ghost}”</span>
+        <p className="flex min-w-0 items-center gap-2 text-muted-foreground text-xs">
+          <span className="min-w-0 flex-1 truncate italic">
+            Append <span className="not-italic">“{completion.ghost.replace(/^\s+/, "")}”</span>
           </span>
           <span className="flex shrink-0 items-center gap-1">
             <Kbd>Tab</Kbd> accept
           </span>
         </p>
       )}
-    </Editable>
+    </Field>
   );
 }

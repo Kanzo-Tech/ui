@@ -14,7 +14,6 @@ import {
   Editable,
   EditableArea,
   EditableCancelTrigger,
-  EditableContext,
   EditableControl,
   EditableEditTrigger,
   EditableInput,
@@ -23,38 +22,51 @@ import {
 } from "@kanzo-tech/ui";
 ```
 
-The `EditableContext` render prop exposes `api.editing`, so you can swap the
-edit trigger for the submit/cancel pair while the field is being edited.
+`EditableInput` and the triggers render bare — compose them over a styled
+`Input` (or `Textarea`) and `Button` with `asChild`, and wrap the field in a
+`Field` for its label.
 
 ## Anatomy
 
 ```tsx
-<Editable>
-  <EditableLabel />
-  <EditableArea>
-    <EditablePreview />
-    <EditableInput />
-  </EditableArea>
-  <EditableControl>
-    <EditableContext>
-      {(editable) =>
-        editable.editing ? (
-          <>
-            <EditableSubmitTrigger />
-            <EditableCancelTrigger />
-          </>
-        ) : (
-          <EditableEditTrigger />
-        )
-      }
-    </EditableContext>
-  </EditableControl>
-</Editable>
+<Field>
+  <FieldLabel>Name</FieldLabel>
+  <Editable defaultValue="Kanzo UI">
+    <EditableArea>
+      <EditableInput asChild>
+        <Input className="w-full" />
+      </EditableInput>
+      <EditablePreview />
+    </EditableArea>
+    <EditableControl>
+      <EditableEditTrigger asChild>
+        <Button size="icon-md" variant="ghost">
+          <PencilIcon />
+        </Button>
+      </EditableEditTrigger>
+      <EditableSubmitTrigger asChild>
+        <Button size="icon-md" variant="outline">
+          <CheckIcon />
+        </Button>
+      </EditableSubmitTrigger>
+      <EditableCancelTrigger asChild>
+        <Button size="icon-md" variant="ghost">
+          <XIcon />
+        </Button>
+      </EditableCancelTrigger>
+    </EditableControl>
+  </Editable>
+</Field>
 ```
+
+Ark shows the edit trigger while idle and the submit/cancel pair while editing —
+no conditional needed.
 
 ## API
 
-`Editable` (Root) accepts `defaultValue` / `value`, `activationMode`
-(`focus` | `dblclick` | `click`) and `submitMode` (`blur` | `enter` | `both` |
-`none`). `EditablePreview` matches the `Input` padding and height; the triggers
-are `Button`s. `useEditable` reads the machine state from inside the tree.
+`Editable` (Root) accepts `defaultValue` / `value`, `orientation`
+(`horizontal` | `vertical`), `activationMode` (`focus` | `dblclick` | `click`)
+and `submitMode` (`blur` | `enter` | `both` | `none`). `EditableInput` and the
+triggers render bare — pass a styled `Input`/`Textarea` or `Button` via
+`asChild`; `EditablePreview` takes `size` / `variant`. `useEditable` reads the
+machine state from inside the tree.
