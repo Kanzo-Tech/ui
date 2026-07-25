@@ -5,8 +5,11 @@ import { describe, expect, it } from "vitest";
 import {
   Combobox,
   ComboboxContent,
+  ComboboxControl,
+  ComboboxFieldInput,
   ComboboxInput,
   ComboboxItem,
+  ComboboxTrigger,
 } from "./combobox.js";
 
 const datasets = createListCollection({
@@ -65,5 +68,19 @@ describe("Combobox input controls", () => {
 
     expect(document.querySelector("button button")).toBeNull();
     expect(document.querySelector("[data-slot=combobox-clear]")).not.toBeNull();
+  });
+
+  it("keeps its own data-slot when composed inside another trigger", () => {
+    // The `asChild` merge used to inject the wrapper's slot over ours, so `combobox-trigger`
+    // matched nothing in the DOM — an escape hatch consumers are told to rely on.
+    const { container } = render(
+      <Combobox collection={datasets}>
+        <ComboboxControl>
+          <ComboboxFieldInput />
+          <ComboboxTrigger />
+        </ComboboxControl>
+      </Combobox>,
+    );
+    expect(container.querySelector("[data-slot=combobox-trigger]")).not.toBeNull();
   });
 });

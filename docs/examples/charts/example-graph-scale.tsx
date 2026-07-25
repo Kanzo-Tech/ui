@@ -1,14 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { from, link } from "@uwdata/vgplot";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SegmentGroup } from "@kanzo-tech/ui";
 import {
   ChartAxisX,
   ChartAxisY,
   ChartBrushX,
   ChartDot,
-  ChartRaw,
+  ChartLink,
   ChartRectY,
   ChartRegion,
   ChartRoot,
@@ -22,8 +21,8 @@ import { GraphDemo } from "./graph-demo";
 import type { GraphStats } from "./graph-boot";
 
 // The same node-link view, instrumented. Observable Plot emits SVG, so the ceiling is a DOM
-// ceiling: this counts the elements the plot actually produced and times the round trip from
-// "the crossfilter changed" to "the plot has been rebuilt".
+// ceiling: this counts the elements the plot actually produced, times the first paint, and times
+// the round trip from "the crossfilter changed" to "the plot has been rebuilt".
 //
 // The ghost layers of the readable example are gone — one link mark and one dot mark, so the
 // element count is the honest floor for a graph of this size.
@@ -78,15 +77,6 @@ function Bench({ prefix, stats }: { prefix: string; stats: GraphStats | null }) 
   const host = useRef<HTMLDivElement | null>(null);
   const [measured, setMeasured] = useState<Measurement | null>(null);
 
-  const ghostEdges = useMemo(
-    () =>
-      link(from(`${prefix}_edges`), {
-        x1: "x", y1: "y", x2: "x2", y2: "y2",
-        stroke: "currentColor", strokeOpacity: 0.3, strokeWidth: 0.5,
-      }),
-    [prefix],
-  );
-
   useEffect(() => {
     const node = host.current;
     if (!node) return;
@@ -122,7 +112,7 @@ function Bench({ prefix, stats }: { prefix: string; stats: GraphStats | null }) 
 
   return (
     <div className="flex w-full flex-col gap-4">
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
         <Stat label="nodes / edges" value={stats ? `${stats.nodes} / ${stats.edges}` : "…"} />
         <Stat label="layout (force sim)" value={stats ? `${stats.layoutMs} ms` : "…"} />
         <Stat label="csv → duckdb" value={stats ? `${stats.loadMs} ms` : "…"} />
@@ -136,7 +126,16 @@ function Bench({ prefix, stats }: { prefix: string; stats: GraphStats | null }) 
 
       <div ref={host}>
         <ChartRoot config={CLUSTERS} height={420} margin={8} table={`${prefix}_nodes`}>
-          <ChartRaw spec={ghostEdges} />
+          <ChartLink
+            stroke="currentColor"
+            strokeOpacity={0.3}
+            strokeWidth={0.5}
+            table={`${prefix}_edges`}
+            x1="x"
+            x2="x2"
+            y1="y"
+            y2="y2"
+          />
           <ChartDot channels={{ id: "id" }} fill="category" r={2.4} x="x" y="y" />
           <ChartRegion channels={["id"]} />
           <ChartAxisX anchor={null} domain={[0, 1]} label={null} />

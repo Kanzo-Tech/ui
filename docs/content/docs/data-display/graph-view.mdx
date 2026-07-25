@@ -39,8 +39,10 @@ graph.
 
 <ComponentPreview componentName="charts" fileName="example-graph" hasMaxHeight={false} />
 
-The only thing the grammar could not express directly is the second relation: a mark reads
-`ChartRoot`'s single `table`, so the edges go through `ChartRaw` with a `vg.link(vg.from(…))`.
+No escape hatch anywhere in it. The two relations meet in one plot because a mark may name its own
+`table`, so the edges are `<ChartLink table="graph_edges" x1="x" y1="y" x2="x2" y2="y2" />` and the
+nodes are a `<ChartDot>` over the root's table. Everything else — the lasso, the dimming, the
+tooltip, the legend — is vocabulary that already existed.
 
 ## Where it stops scaling
 

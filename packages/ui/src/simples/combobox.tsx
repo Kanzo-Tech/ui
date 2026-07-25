@@ -135,8 +135,11 @@ export const ComboboxTrigger = (
   return (
     <ArkCombobox.Trigger
       className={cn("absolute inset-e-1 inset-y-0", className)}
-      data-slot="combobox-trigger"
       {...rest}
+      // After `rest`, not before: composed inside an `InputGroupButton asChild`, the merge injects
+      // the wrapper's own slot and `data-slot=combobox-trigger` matched nothing. `ComboboxClear`
+      // already ordered it this way, so the pair was inconsistent too.
+      data-slot="combobox-trigger"
       asChild
     >
       {children ?? (
