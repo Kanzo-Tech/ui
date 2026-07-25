@@ -82,10 +82,9 @@ export type { ChartStatProps } from "./charts/chart-stat.js";
 // For anything that is not a plot but must still follow the brush — a KPI, a readout, a table.
 export { useChartQuery, Query } from "./charts/use-chart-query.js";
 export type { ChartQueryOptions, ChartQueryResult, ChartQueryRow } from "./charts/use-chart-query.js";
-export { ChartCard } from "./charts/chart-card.js";
-export type { ChartCardProps } from "./charts/chart-card.js";
-export { DashboardGrid } from "./charts/dashboard-grid.js";
-export type { DashboardGridProps } from "./charts/dashboard-grid.js";
+// `ChartCard` and `DashboardGrid` are gone: a titled frame and a responsive grid are arrangements
+// with no behaviour, so per DESIGN.md's ladder they are copied, not imported. They live in
+// `docs/lib/` for the showcases that use them.
 
 // For a descriptor of your own: `chartDescriptor` mints one, the rest is the compiler's contract.
 export {

@@ -8,7 +8,6 @@ import {
   ChartAxisX,
   ChartAxisY,
   ChartBarX,
-  ChartCard,
   ChartHighlight,
   ChartLegend,
   ChartMenu,
@@ -17,12 +16,13 @@ import {
   ChartSearch,
   ChartSlider,
   ChartToggleY,
-  DashboardGrid,
   type ChartConfig,
   bin,
   count,
   useMosaic,
 } from "@kanzo-tech/ui/charts";
+import { ChartCard } from "@/lib/chart-card";
+import { DashboardGrid } from "@/lib/dashboard-grid";
 import { MosaicDemo } from "./mosaic-demo";
 
 // The composition pieces, wired to the same crossfilter as the plots: `ChartMenu`, `ChartSearch`

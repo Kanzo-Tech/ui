@@ -379,16 +379,32 @@ referentially stable.
 
 ## Dashboards
 
-Beyond the crossfilter widgets, the subpath ships the pieces a dashboard is composed from:
-`StatTile` for a headline figure (with an optional delta and trend sparkline), `ChartCard` for a
-titled frame with a legend slot, and `DashboardGrid`, which auto-fits its columns. `ChartMenu`,
-`ChartSearch` and `ChartSlider` go with them — real DOM controls that publish Mosaic clauses
-without being charts, so they filter every plot below. The
-[gallery](/docs/data-display/chart-gallery#dashboard) wires all six together.
+A dashboard is not only plots, and the pieces divide by whether they need the engine.
+
+`ChartMenu`, `ChartSearch` and `ChartSlider` are real DOM controls that publish Mosaic clauses
+without being charts, so they filter every plot below them. `ChartStat` is a headline figure read
+from the relation under the same crossfilter, and `useChartQuery` is what it is built on — reach
+for it whenever something that is not a plot has to move with the brush. A widget that runs a plain
+`coordinator.query()` in an effect will sit there reporting unfiltered totals next to filtered
+charts, which reads as a bug in the crossfilter.
+
+Its presentational half, **`StatTile`, is in the root barrel** — it takes a number, so making it
+cost DuckDB-WASM would be absurd. That split is [the engine rule](/docs/philosophy), the same one
+behind `Table` and `DataTable`.
+
+The frame and the grid are **not** library components: a titled card and an auto-fitting grid add
+no behaviour, so they are arrangements you copy. The ones these docs use are in `docs/lib/`. The
+[gallery](/docs/data-display/chart-gallery#dashboard) wires the whole thing together.
 
 ```tsx
+import { StatTile } from "@kanzo-tech/ui";
+import { ChartStat, count } from "@kanzo-tech/ui/charts";
+
 <DashboardGrid minColumnWidth={280}>
+  {/* a number you already have */}
   <StatTile label="Requests" value={12_402} delta={{ value: 4.2, label: "vs last week" }} />
+  {/* a number the relation answers, and re-answers on every brush */}
+  <ChartStat label="Selected" table="telemetry" value={count()} />
   <ChartCard title="Latency" description="p50 by hour" legend={<ChartLegend config={config} />}>
     <ChartRoot table="telemetry">…</ChartRoot>
   </ChartCard>

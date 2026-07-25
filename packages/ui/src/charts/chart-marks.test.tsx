@@ -111,3 +111,21 @@ describe("stacking series key", () => {
     expect(optionsOf(<markModule.ChartLineY stroke="host" x="ts" />).z).toBeUndefined();
   });
 });
+
+describe("per-mark relation", () => {
+  const optionsOf = (node: Parameters<typeof compileChartSpec>[0]) =>
+    (compileChartSpec(node, context()) as ChartMarkDirective[])[0]!;
+
+  it("lets a mark read a relation other than the root's, keeping the shared filter", () => {
+    const d = optionsOf(<markModule.ChartLink table="graph_edges" x1="x" y1="y" x2="x2" y2="y2" />);
+    expect(d.source).toEqual({ kind: "table", table: "graph_edges", filterBy: shared });
+    // `table` chooses the source; it is never a mark option.
+    expect(d.options.table).toBeUndefined();
+  });
+
+  it("falls back to the root's table", () => {
+    expect(optionsOf(<markModule.ChartDot x="a" y="b" />).source).toEqual({
+      kind: "table", table: "telemetry", filterBy: shared,
+    });
+  });
+});

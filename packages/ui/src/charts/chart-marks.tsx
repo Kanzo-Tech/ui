@@ -23,6 +23,12 @@ export interface ChartMarkProps {
    * — the dimmed background layer of a crossfilter pair.
    */
   filterBy?: Selection | null;
+  /**
+   * A different relation for this mark alone. The root's `table` is the default, which is right
+   * until a plot needs two — a node-link view draws nodes from one relation and edges from
+   * another, and both still filter by the same selection.
+   */
+  table?: string;
   /** Literal rows instead of the root's table. */
   data?: readonly unknown[];
   /** Positions a rule/tick without a table: `at={0}` is the zero line. */
@@ -74,10 +80,11 @@ function markSource(props: ChartMarkProps, ctx: ChartSpecContext, decorator: boo
   if (decorator) return null;
   if (props.data !== undefined) return { kind: "values", values: props.data };
   if (props.at !== undefined) return { kind: "values", values: Array.isArray(props.at) ? props.at : [props.at] };
-  if (ctx.table === undefined) return { kind: "values", values: [{}] };
+  const table = props.table ?? ctx.table;
+  if (table === undefined) return { kind: "values", values: [{}] };
   return {
     kind: "table",
-    table: ctx.table,
+    table,
     filterBy: props.filterBy === undefined ? ctx.filterBy : props.filterBy,
   };
 }
@@ -88,6 +95,7 @@ function markDirective(mark: string, props: ChartMarkProps, ctx: ChartSpecContex
   delete channels.filterBy;
   delete channels.data;
   delete channels.at;
+  delete channels.table;
   // Read the series key before the colour channels are resolved to `rgb(...)` strings.
   if (STACKING_MARKS.has(mark) && !("z" in channels)) {
     const series = [channels.fill, channels.stroke].find(

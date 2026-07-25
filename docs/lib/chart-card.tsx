@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { cn } from "../lib/cn.js";
+import { cn } from "@kanzo-tech/ui";
 
 export interface ChartCardProps {
   /** Names the chart — for a single series this is the identity (no legend needed). */

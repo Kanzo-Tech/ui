@@ -13,7 +13,6 @@ import {
   ChartBarY,
   ChartBrushX,
   ChartBrushXY,
-  ChartCard,
   ChartDot,
   ChartFacetX,
   ChartHighlight,
@@ -27,7 +26,6 @@ import {
   ChartSearch,
   ChartSlider,
   Coordinator,
-  DashboardGrid,
   MosaicProvider,
   Selection,
   count,
@@ -37,6 +35,8 @@ import {
   wasmConnector,
   type ChartConfig,
 } from "@kanzo-tech/ui/charts";
+import { ChartCard } from "@/lib/chart-card";
+import { DashboardGrid } from "@/lib/dashboard-grid";
 import {
   CheckCircle2Icon,
   ClockIcon,
