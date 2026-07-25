@@ -40,7 +40,6 @@ export {
   PreferencesTrigger,
   PreferencesPanel,
   PreferencesField,
-  PreferencesAppearance,
   PreferencesAccent,
   PreferencesRadius,
   PreferencesFont,
@@ -137,7 +136,8 @@ export * from "./simples/toggle-group.js";
 export * from "./simples/tooltip.js";
 export * from "./simples/tour.js";
 export * from "./simples/tree-view.js";
-export * from "./simples/ai-assist.js";
+export * from "./simples/complete.js";
+export * from "./simples/suggest.js";
 export * from "./simples/use-ai.js";
 
 // ── Level 1 — bespoke atoms (no Shark equivalent; token-native, ours) ────────

@@ -16,10 +16,12 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.useAiStream).toBeTypeOf("function");
     expect(UI.useCompletion).toBeTypeOf("function");
     expect(UI.useSuggestions).toBeTypeOf("function");
-    expect(UI.AiAssist).toBeTypeOf("function");
-    expect(UI.useAiField).toBeTypeOf("function");
-    expect(UI.useAiFieldOptional).toBeTypeOf("function");
-    expect(UI.FieldSuggest).toBeTypeOf("function");
+    expect(UI.CompleteRoot).toBeTypeOf("function");
+    expect(UI.CompleteInput).toBeTypeOf("function");
+    expect(UI.CompleteGhost).toBeTypeOf("function");
+    expect(UI.SuggestRoot).toBeTypeOf("function");
+    expect(UI.SuggestTrigger).toBeTypeOf("function");
+    expect(UI.SuggestContent).toBeTypeOf("function");
     expect(UI.ClientOnly).toBeTypeOf("function");
     expect(UI.DownloadTrigger).toBeTypeOf("function");
     expect(UI.Show).toBeTypeOf("function");
@@ -41,6 +43,13 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(surface.SecretField).toBeUndefined();
     // SuggestMenu dissolved into a Popover + useSuggestions composition.
     expect(surface.SuggestMenu).toBeUndefined();
+    // The AiAssist provider was over-engineered for one consumer, and a `complete` prop plus the
+    // monolithic FieldSuggest violated core purity. AI-assist is now two composed compounds —
+    // `Complete` (over a pure Input/Textarea) and `Suggest` — with the engine hooks headless.
+    expect(surface.AiAssist).toBeUndefined();
+    expect(surface.useAiField).toBeUndefined();
+    expect(surface.useAiFieldOptional).toBeUndefined();
+    expect(surface.FieldSuggest).toBeUndefined();
   });
 
   it("keeps CodeMirror-backed components off the root barrel", () => {
@@ -58,9 +67,19 @@ describe("@kanzo-tech/ui public surface", () => {
     // for everyone who has not installed it. They live on @kanzo-tech/ui/charts.
     const surface = UI as Record<string, unknown>;
     expect(surface.MosaicProvider).toBeUndefined();
-    expect(surface.Histogram).toBeUndefined();
-    expect(surface.BarChart).toBeUndefined();
-    expect(surface.LineChart).toBeUndefined();
-    expect(surface.ScatterPlot).toBeUndefined();
+    expect(surface.ChartRoot).toBeUndefined();
+    expect(surface.ChartBarY).toBeUndefined();
+    expect(surface.ChartIntervalX).toBeUndefined();
+    expect(surface.useChart).toBeUndefined();
+  });
+
+  it("keeps the TanStack Table layer off the root barrel", () => {
+    // Same contract as the two above: @tanstack/react-table is an OPTIONAL peer, so every part
+    // of the data-table layer lives on @kanzo-tech/ui/table.
+    const surface = UI as Record<string, unknown>;
+    expect(surface.DataTable).toBeUndefined();
+    expect(surface.useDataTable).toBeUndefined();
+    expect(surface.DataTableRoot).toBeUndefined();
+    expect(surface.selectColumn).toBeUndefined();
   });
 });

@@ -16,6 +16,7 @@
     "@duckdb/duckdb-wasm": "1.33.1-dev57.0",
     "@kanzo-tech/theme": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",
+    "@tanstack/react-form": "^1.33.2",
     "@tanstack/react-table": "^8.21.3",
     "@uwdata/mosaic-core": "^0.29.2",
     "@uwdata/mosaic-sql": "^0.29.0",
@@ -28,7 +29,8 @@
     "next-themes": "^0.4.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "shiki": "^4.2.0"
+    "shiki": "^4.2.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4",
