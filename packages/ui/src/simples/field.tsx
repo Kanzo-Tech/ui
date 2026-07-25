@@ -9,7 +9,6 @@ import { Fieldset as ArkFieldset } from "@ark-ui/react/fieldset";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
-import { AiAssist, type AiAssistProps } from "./ai-assist";
 import { Separator } from "./separator";
 
 export const useField = useArkFieldContext;
@@ -55,51 +54,10 @@ const fieldVariants = tv({
 
 interface FieldProps
   extends React.ComponentProps<typeof ArkField.Root>,
-    VariantProps<typeof fieldVariants>,
-    Pick<
-      AiAssistProps,
-      | "complete"
-      | "debounceMs"
-      | "minLength"
-      | "suggest"
-      | "existing"
-      | "window"
-      | "onPick"
-    > {}
+    VariantProps<typeof fieldVariants> {}
 
 export const Field = (props: FieldProps) => {
-  const {
-    orientation = "vertical",
-    reverse = false,
-    className,
-    complete,
-    debounceMs,
-    minLength,
-    suggest,
-    existing,
-    window,
-    onPick,
-    children,
-    ...rest
-  } = props;
-
-  // Any AI prop present → mount the thin provider; none → render exactly as before, no overhead.
-  const ai = complete ?? suggest ?? onPick ?? existing;
-  const body = ai ? (
-    <AiAssist
-      complete={complete}
-      debounceMs={debounceMs}
-      minLength={minLength}
-      suggest={suggest}
-      existing={existing}
-      window={window}
-      onPick={onPick}
-    >
-      {children}
-    </AiAssist>
-  ) : (
-    children
-  );
+  const { orientation = "vertical", reverse = false, className, ...rest } = props;
 
   return (
     <ArkField.Root
@@ -107,9 +65,7 @@ export const Field = (props: FieldProps) => {
       data-orientation={orientation}
       data-slot="field"
       {...rest}
-    >
-      {body}
-    </ArkField.Root>
+    />
   );
 };
 

@@ -49,13 +49,14 @@ import {
  *   <Preferences.Root>
  *     <Preferences.Trigger />
  *     <Preferences.Panel>
- *       <Preferences.Appearance /> <Preferences.Accent /> <Preferences.Base />
+ *       <Preferences.Accent /> <Preferences.Base />
  *       <Preferences.Radius /> <Preferences.Font /> <Preferences.MonoFont />
  *       <Preferences.Density />
  *     </Preferences.Panel>
  *   </Preferences.Root>
  *
- * or the all-in-one <Preferences />. Those seven sections ARE the default panel body, plus a
+ * or the all-in-one <Preferences />. Those six sections ARE the default panel body (appearance is
+ * the header toggle beside the close), plus a
  * footer of Reset · Copy CSS · Done. (This comment used to claim `Base` was opt-in and omitted
  * by default; the panel has rendered it for some time — the code is the authority.) Open with
  * `t`, close with Escape.
@@ -150,7 +151,7 @@ function PreferencesTrigger({ className }: { className?: string }) {
         // would report `aria-pressed` instead and drop the haspopup — worse semantics for a
         // control that reveals a panel. What was missing was the visual state, not the role.
         className={cn(
-          "fixed right-4 bottom-4 z-40 m-0 rounded-full bg-card shadow-lg",
+          "fixed end-4 bottom-4 z-40 m-0 rounded-full bg-card shadow-lg",
           "data-[state=open]:bg-accent data-[state=open]:text-accent-foreground",
           className,
         )}
@@ -221,7 +222,10 @@ function PreferencesPanel({
               and clip, and the lower ones become unreadable. That is the "renders wrong /
               does not show all its fields" bug: the panel was never scrolling at all.
               Pinning the items at their natural height is what makes `overflow-y-auto` real. */}
-          <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-5 pb-5 [&>*]:shrink-0">
+          <form
+            className="flex flex-1 flex-col gap-6 overflow-y-auto px-5 pb-5 [&>*]:shrink-0"
+            onSubmit={(e) => e.preventDefault()}
+          >
             {children ?? (
               <>
                 <AccentSection />
@@ -232,7 +236,7 @@ function PreferencesPanel({
                 <DensitySection />
               </>
             )}
-          </div>
+          </form>
 
           {/* Footer — canonical Shark actions bar: top separator + muted surface. */}
           <PreferencesFooter />
@@ -292,19 +296,6 @@ function PrefField({ label, children }: { label: React.ReactNode; children: Reac
 }
 
 // ── Sections ──────────────────────────────────────────────────────────────────
-function AppearanceSection() {
-  // `Field` stretches its direct children (`*:w-full`), which would blow the icon button up to
-  // full width. A flex wrapper takes that stretch instead, leaving the toggle at its natural
-  // size, aligned to the start.
-  return (
-    <PrefField label="Appearance">
-      <div className="flex">
-        <AppearanceToggle variant="outline" size="icon-md" />
-      </div>
-    </PrefField>
-  );
-}
-
 /** The shared colour-picker control (Shark's, controlled) used by BOTH accent and base:
  *  a trigger swatch + value, and a popover with area/hue/hex + a row of preset swatches. */
 function ColorField({
@@ -439,36 +430,34 @@ function DensitySection() {
   const { density, set } = useKanzoTheme();
   return (
     <PrefField label="Density">
-      <div className="flex gap-2">
-        {DENSITIES.map((o) => {
-          const active = o.value === density;
-          return (
-            <button
-              key={o.value}
-              type="button"
-              aria-pressed={active}
-              onClick={() => set({ density: o.value })}
-              className={cn(
-                "flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-md border px-2 py-2 outline-none transition",
-                "focus-visible:ring-[3px] focus-visible:ring-ring/32",
-                active ? "border-primary bg-accent" : "border-border hover:bg-accent/50",
-              )}
+      <RadioGroup
+        aria-label="Density"
+        className="flex-row flex-wrap gap-2"
+        onValueChange={(d) => d.value && set({ density: d.value as (typeof DENSITIES)[number]["value"] })}
+        value={density}
+      >
+        {DENSITIES.map((o) => (
+          <RadioGroupCard
+            className="min-w-0 flex-1 basis-20 flex-col items-center gap-1.5 px-2 py-2"
+            key={o.value}
+            value={o.value}
+          >
+            {/* `em` scales relative to this card's fixed font-size → a true preview. */}
+            <span
+              className="flex items-center gap-1 leading-none text-foreground"
+              style={{ fontSize: DENSITY_PX[o.value] }}
             >
-              {/* `em` scales relative to this container's fixed font-size → a true preview. */}
-              <span
-                className="flex items-center gap-1 leading-none text-foreground"
-                style={{ fontSize: DENSITY_PX[o.value] }}
-              >
-                <span className="rounded-[0.25em] bg-primary px-[0.4em] py-[0.15em] text-[0.7em] font-medium text-primary-foreground">
-                  Aa
-                </span>
-                <span className="text-[0.8em]">abc</span>
+              <span className="rounded-[0.25em] bg-primary px-[0.4em] py-[0.15em] text-[0.7em] font-medium text-primary-foreground">
+                Aa
               </span>
-              <span className="w-full truncate text-center text-xs text-muted-foreground">{o.label}</span>
-            </button>
-          );
-        })}
-      </div>
+              <span className="text-[0.8em]">abc</span>
+            </span>
+            <ArkRadioGroup.ItemText className="w-full truncate text-center text-muted-foreground text-xs">
+              {o.label}
+            </ArkRadioGroup.ItemText>
+          </RadioGroupCard>
+        ))}
+      </RadioGroup>
     </PrefField>
   );
 }
@@ -565,7 +554,7 @@ function CopyTheme({ className }: { className?: string } = {}) {
 }
 
 export interface PreferencesProps extends Omit<PreferencesRootProps, "children"> {
-  /** Restyle or reposition the floating trigger (it is `fixed bottom-4 right-4` by default). */
+  /** Restyle or reposition the floating trigger (it is `fixed bottom-4 end-4` by default). */
   triggerClassName?: string;
 }
 
@@ -589,7 +578,6 @@ export const Preferences = Object.assign(
     Root: PreferencesRoot,
     Trigger: PreferencesTrigger,
     Panel: PreferencesPanel,
-    Appearance: AppearanceSection,
     Accent: AccentSection,
     Radius: RadiusSection,
     Font: FontSection,
@@ -614,7 +602,6 @@ export {
   PreferencesTrigger,
   PreferencesPanel,
   PrefField as PreferencesField,
-  AppearanceSection as PreferencesAppearance,
   AccentSection as PreferencesAccent,
   RadiusSection as PreferencesRadius,
   FontSection as PreferencesFont,

@@ -57,7 +57,7 @@ export function SidebarIdentity({
     <IdentityCtx.Provider value={{ responsive, collapsed }}>
       <div
         className={cn(
-          "flex min-w-0 flex-1 items-center gap-2 text-left",
+          "flex min-w-0 flex-1 items-center gap-2 text-start",
           // Collapsed, the avatar/tile (32px) is slightly larger than the ghost button's content
           // box (32px minus its 1px transparent border), so `justify-start` would left-align it and
           // clip the right edge — reading as off-centre. Centre it so the overflow is symmetric.

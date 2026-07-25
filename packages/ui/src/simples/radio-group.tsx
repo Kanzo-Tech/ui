@@ -1,5 +1,6 @@
 "use client";
 
+import { type UseFieldContext, useFieldContext } from "@ark-ui/react/field";
 import {
   RadioGroup as ArkRadioGroup,
   useRadioGroupContext,
@@ -10,10 +11,26 @@ import { FieldLabel } from "./field";
 
 export const useRadioGroup = useRadioGroupContext;
 
+// Divergence from Shark, declared: Ark 5.37.2's `useRadioGroup` bridges `useFieldsetContext`
+// (disabled/invalid/legend id) but NOT `useFieldContext` — grep `dist/components` and radio-group
+// is one of only two form machines with zero `useFieldContext` imports (Slider is the other; the
+// thirteen single-control machines all have one). Ark's Field docs only claim "most" components
+// support the context and there is no upstream issue, so this reads as an unfilled gap, not a
+// decision. Shark neither bridges nor documents it: its docs say "use the `invalid` prop on
+// RadioGroup", and its own TanStack example wraps `<Field invalid>` around a RadioGroup that
+// never turns red. We bridge it, so `invalid` is stated once on the Field.
+//
+// State flags only, never `field.ids`: Field addresses ONE control, and a radio group has one
+// hidden input per item, so there is no single id for its label to point at — `FieldSet` +
+// `FieldLegend` remains the right labelling container. Explicit props still win, and with no
+// `Field` ancestor every flag is `undefined`, which Ark strips before it reaches the machine, so
+// the built-in Fieldset bridge is untouched.
 export const RadioGroup = (
   props: React.ComponentProps<typeof ArkRadioGroup.Root>
 ) => {
   const { className, children, ...rest } = props;
+
+  const field: UseFieldContext | undefined = useFieldContext();
 
   return (
     <ArkRadioGroup.Root
@@ -23,6 +40,10 @@ export const RadioGroup = (
         className
       )}
       data-slot="radio-group"
+      disabled={field?.disabled}
+      invalid={field?.invalid}
+      readOnly={field?.readOnly}
+      required={field?.required}
       {...rest}
     >
       {children}

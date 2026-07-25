@@ -46,7 +46,7 @@ export const DatePickerTrigger = (
       <ArkDatePicker.Trigger
         className={cn(
           "justify-start",
-          "text-left data-placeholder-shown:[&>span]:text-muted-foreground",
+          "text-start data-placeholder-shown:[&>span]:text-muted-foreground",
           "active:scale-100",
           "[&_svg:not([class*='text-'])]:opacity-64",
           className

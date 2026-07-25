@@ -3,6 +3,7 @@
 import {
   ColorPicker as ArkColorPicker,
   type ColorPickerValueChangeDetails,
+  type Color,
   parseColor as parseColorArk,
   useColorPickerContext,
 } from "@ark-ui/react/color-picker";
@@ -12,25 +13,71 @@ import { CheckIcon, Pipette } from "lucide-react";
 import React from "react";
 import { cn } from "../lib/cn";
 import { Button, type ButtonProps } from "./button";
+import { FieldLabel } from "./field";
 
 export const parseColor = parseColorArk;
 export const useColorPicker = useColorPickerContext;
 
+/**
+ * `parseColor` that returns `undefined` instead of throwing on a blank or unparseable string.
+ */
+export const safeParseColor = (value?: string): Color | undefined => {
+  if (!value?.trim()) {
+    return undefined;
+  }
+
+  try {
+    return parseColorArk(value);
+  } catch {
+    return undefined;
+  }
+};
+
+export interface ColorPickerChangeDetails
+  extends ColorPickerValueChangeDetails {
+  /**
+   * The value as a hex string. The machine's `format` is `"rgba" | "hsla" | "hsba"` — there is
+   * no `"hex"` member — so `valueAsString` is never hex, which is the one format most consumers
+   * actually store.
+   */
+  valueAsHex: string;
+}
+
 export interface ColorPickerProps
   extends Omit<
     React.ComponentProps<typeof ArkColorPicker.Root>,
-    "defaultValue" | "value"
+    "defaultValue" | "onValueChange" | "value"
   > {
   /**
-   * The default value of the color picker.
+   * The default value of the color picker. A blank or unparseable string is treated as "no
+   * value" rather than throwing.
    */
   defaultValue?: string;
   /**
-   * The value of the color picker.
+   * The value of the color picker. A blank or unparseable string is treated as "no value"
+   * rather than throwing.
    */
   value?: string;
+  /**
+   * Called when the value changes, with `valueAsHex` added to Ark's details.
+   */
+  onValueChange?: (details: ColorPickerChangeDetails) => void;
 }
 
+// Divergence from Shark (whose ColorPicker this file otherwise matches part for part) on two
+// points, both inherited defects rather than deliberate design:
+//
+//  1. Shark calls `parseColor(value)` on every render, and Ark's `parseColor` THROWS on `""` or
+//     on any half-typed string. That makes an optional colour field impossible and crashes any
+//     form that binds `value` to raw user input. We parse defensively; an unparseable string
+//     leaves the machine on its own last value instead of blowing up.
+//  2. Shark only forwards `onValueChange` when the picker is controlled, so an uncontrolled
+//     `<ColorPicker defaultValue onValueChange>` silently never fires. We always forward, and
+//     drop the mirror state that existed only to feed `defaultValue` back to a machine that
+//     reads it once.
+//
+// Ark's `useColorPicker` already bridges `useFieldContext`, so `<Field invalid>` reaches this
+// control with no help from us — unlike RadioGroup and Slider.
 export const ColorPicker = (props: ColorPickerProps) => {
   const {
     value,
@@ -46,34 +93,47 @@ export const ColorPicker = (props: ColorPickerProps) => {
     ...rest
   } = props;
 
-  const [internalValue, setInternalValue] = React.useState(defaultValue);
+  const parsedValue = React.useMemo(() => safeParseColor(value), [value]);
 
-  const isControlled = value !== undefined;
+  const parsedDefaultValue = React.useMemo(
+    () => safeParseColor(defaultValue),
+    [defaultValue]
+  );
 
-  const handleValueChange = (e: ColorPickerValueChangeDetails) => {
-    if (isControlled) {
-      onValueChange?.(e);
-    } else {
-      setInternalValue(e.valueAsString);
-    }
+  const handleValueChange = (details: ColorPickerValueChangeDetails) => {
+    onValueChange?.({ ...details, valueAsHex: details.value.toString("hex") });
   };
 
   return (
     <ArkColorPicker.Root
       className={cn("group/color-picker", "w-fit", "flex gap-2", className)}
       data-slot="color-picker"
-      defaultValue={internalValue ? parseColor(internalValue) : undefined}
+      defaultValue={parsedDefaultValue}
       lazyMount={lazyMount}
       onValueChange={handleValueChange}
       positioning={positioning}
       unmountOnExit={unmountOnExit}
-      value={isControlled ? parseColor(value) : undefined}
+      value={parsedValue}
       {...rest}
     >
       {children}
 
       <ArkColorPicker.HiddenInput />
     </ArkColorPicker.Root>
+  );
+};
+
+export const ColorPickerLabel = (
+  props: React.ComponentProps<typeof ArkColorPicker.Label>
+) => {
+  const { children, ...rest } = props;
+
+  return (
+    <FieldLabel asChild>
+      <ArkColorPicker.Label data-slot="color-picker-label" {...rest}>
+        {children}
+      </ArkColorPicker.Label>
+    </FieldLabel>
   );
 };
 
@@ -416,6 +476,56 @@ export const ColorPickerInput = (
     <ArkColorPicker.ChannelInput
       channel={channel}
       data-slot="color-picker-input"
+      {...rest}
+    />
+  );
+};
+
+// Ark ships FormatTrigger/FormatSelect and Shark exposes neither, which is why every hex-shaped
+// call site is stuck on whichever format the initial colour happened to parse as. Exposed here so
+// the format is switchable at runtime; the machine's set is `rgba | hsla | hsba`.
+interface ColorPickerFormatTriggerProps
+  extends React.ComponentProps<typeof ArkColorPicker.FormatTrigger>,
+    ButtonProps {}
+
+export const ColorPickerFormatTrigger = (
+  props: ColorPickerFormatTriggerProps
+) => {
+  const { variant = "ghost", size = "sm", children, ...rest } = props;
+
+  return (
+    <ArkColorPicker.FormatTrigger
+      data-slot="color-picker-format-trigger"
+      {...rest}
+      asChild
+    >
+      <Button size={size} variant={variant}>
+        {children}
+      </Button>
+    </ArkColorPicker.FormatTrigger>
+  );
+};
+
+export const ColorPickerFormatSelect = (
+  props: React.ComponentProps<typeof ArkColorPicker.FormatSelect>
+) => {
+  const { className, ...rest } = props;
+
+  return (
+    <ArkColorPicker.FormatSelect
+      className={cn(
+        "appearance-none",
+        "h-7 min-w-0 ps-2 pe-2",
+        "select-none text-sm",
+        "bg-transparent dark:bg-input/30",
+        "rounded-lg border border-input shadow-xs/5",
+        "transition-colors",
+        "outline-none focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/32",
+        "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-64",
+        "motion-reduce:transition-none!",
+        className
+      )}
+      data-slot="color-picker-format-select"
       {...rest}
     />
   );

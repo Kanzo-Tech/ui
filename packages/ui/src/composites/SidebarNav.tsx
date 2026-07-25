@@ -1,9 +1,11 @@
 import * as React from "react";
 import { ChevronRight } from "lucide-react";
+import { cn } from "../lib/cn.js";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "../simples/collapsible.js";
 import {
   SidebarGroup,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenuSub,
@@ -14,6 +16,15 @@ import {
 } from "./sidebar.js";
 import { DefaultLink, type LinkComponent } from "./link.js";
 
+/** A sub-entry of a collapsible group. Always a leaf. */
+export interface SidebarNavSubItem {
+  title: string;
+  href: string;
+  isActive?: boolean;
+  /** Trailing count/status ("3", "beta"). Rendered inside the row, so it never covers the title. */
+  badge?: React.ReactNode;
+}
+
 /** A navigation entry: either a leaf (has `href`) or a group with `items`. */
 export interface SidebarNavItem {
   title: string;
@@ -21,8 +32,20 @@ export interface SidebarNavItem {
   /** Pre-rendered icon (icon-library agnostic — the DS never imports lucide). */
   icon?: React.ReactNode;
   isActive?: boolean;
-  items?: { title: string; href: string; isActive?: boolean }[];
+  /** Trailing count/status ("3", "beta"). Rendered inside the row, so it never covers the title. */
+  badge?: React.ReactNode;
+  items?: SidebarNavSubItem[];
 }
+
+/**
+ * `placement="inline"` throughout: every row here ends in either a chevron (groups) or a
+ * truncating title, and the default overlay badge would sit on top of both.
+ */
+const NavBadge = ({ children }: { children: React.ReactNode }) => (
+  <SidebarMenuBadge asChild placement="inline">
+    <span>{children}</span>
+  </SidebarMenuBadge>
+);
 
 export interface SidebarNavProps {
   items: SidebarNavItem[];
@@ -53,7 +76,8 @@ export function SidebarNav({ items, label, linkComponent: Link = DefaultLink }: 
               <SidebarMenuButton asChild isActive={item.isActive} tooltip={item.title}>
                 <Link href={item.href ?? "#"} onClick={close}>
                   {item.icon}
-                  <span>{item.title}</span>
+                  <span className="truncate">{item.title}</span>
+                  {item.badge != null && <NavBadge>{item.badge}</NavBadge>}
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -72,8 +96,11 @@ function CollapsibleItem({ item, Link, onNavigate }: { item: SidebarNavItem; Lin
         <CollapsibleTrigger asChild>
           <SidebarMenuButton tooltip={item.title} className="[&[data-state=open]>svg:last-child]:rotate-90">
             {item.icon}
-            <span>{item.title}</span>
-            <ChevronRight className="ml-auto shrink-0 transition-transform duration-200" />
+            <span className="truncate">{item.title}</span>
+            {item.badge != null && <NavBadge>{item.badge}</NavBadge>}
+            <ChevronRight
+              className={cn("shrink-0 transition-transform duration-200", item.badge == null && "ms-auto")}
+            />
           </SidebarMenuButton>
         </CollapsibleTrigger>
         <CollapsibleContent>
@@ -82,7 +109,8 @@ function CollapsibleItem({ item, Link, onNavigate }: { item: SidebarNavItem; Lin
               <SidebarMenuSubItem key={sub.title}>
                 <SidebarMenuSubButton asChild isActive={sub.isActive}>
                   <Link href={sub.href} onClick={onNavigate}>
-                    <span>{sub.title}</span>
+                    <span className="truncate">{sub.title}</span>
+                    {sub.badge != null && <NavBadge>{sub.badge}</NavBadge>}
                   </Link>
                 </SidebarMenuSubButton>
               </SidebarMenuSubItem>

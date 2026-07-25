@@ -15,6 +15,11 @@ const ribbonVariants = tv({
        * Overlaid, straddling the corner so it reads as a tag pinned ON the thing. The overhang
        * comes from `Float` plus a negative offset — an ancestor that scrolls or hides overflow
        * will clip it, so give the wrapper room.
+       *
+       * The badge anchors to the ROOT, not to the content box, so it sits outside the root's
+       * padding: `className="p-3"` moves the content and leaves the badge where it was, still
+       * overlapping the row above. Space a corner ribbon with MARGIN (`mt-3`) — that moves the
+       * root, and the badge goes with it.
        */
       corner: {
         root: "relative",

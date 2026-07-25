@@ -1,6 +1,8 @@
 import { APPEARANCE_KEY } from "@kanzo-tech/theme";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { hydrateRoot } from "react-dom/client";
+import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { KanzoThemeProvider } from "../theme/KanzoThemeProvider.js";
 import { AppearanceToggle } from "./AppearanceToggle.js";
@@ -75,5 +77,54 @@ describe("AppearanceToggle", () => {
     expect(localStorage.getItem(APPEARANCE_KEY)).toBe("system");
     // matchMedia stub reports light, so `system` resolves to no `.dark`.
     expect(document.documentElement.classList.contains("dark")).toBe(false);
+  });
+
+  // Regression: the server cannot know the persisted appearance, so it used to emit
+  // `aria-pressed="false" data-appearance="light"` while the client hydrated `dark` —
+  // a mismatch React reports and does NOT patch.
+  describe("SSR hydration", () => {
+    // A host theme manager (next-themes): nothing on the server, `dark` on the client.
+    const server = { resolvedTheme: undefined, setTheme: () => {} };
+    const client = { theme: "dark", resolvedTheme: "dark", setTheme: () => {} };
+
+    it("hydrates a dark-themed host without a mismatch", async () => {
+      const errors: unknown[] = [];
+      const spy = vi.spyOn(console, "error").mockImplementation((...args) => errors.push(args));
+
+      const container = document.createElement("div");
+      container.innerHTML = renderToString(
+        <KanzoThemeProvider appearance={server}>
+          <AppearanceToggle />
+        </KanzoThemeProvider>,
+      );
+      document.body.append(container);
+
+      await act(async () => {
+        hydrateRoot(
+          container,
+          <KanzoThemeProvider appearance={client}>
+            <AppearanceToggle />
+          </KanzoThemeProvider>,
+        );
+      });
+
+      spy.mockRestore();
+      expect(errors).toEqual([]);
+      // …and once mounted it does report the real state.
+      const button = container.querySelector("button");
+      expect(button?.getAttribute("aria-pressed")).toBe("true");
+      expect(button?.getAttribute("data-appearance")).toBe("dark");
+      container.remove();
+    });
+
+    it("withholds the state attributes on the server rather than guessing `light`", () => {
+      const html = renderToString(
+        <KanzoThemeProvider appearance={server}>
+          <AppearanceToggle />
+        </KanzoThemeProvider>,
+      );
+      expect(html).not.toContain("aria-pressed");
+      expect(html).not.toContain("data-appearance");
+    });
   });
 });

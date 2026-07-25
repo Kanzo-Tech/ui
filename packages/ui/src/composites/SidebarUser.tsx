@@ -98,7 +98,7 @@ export function SidebarUser({
               className="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-full data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               {identity(true)}
-              <ChevronsUpDownIcon className="ml-auto group-data-[collapsible=icon]:hidden" />
+              <ChevronsUpDownIcon className="ms-auto group-data-[collapsible=icon]:hidden" />
             </SidebarMenuButton>
           </MenuTrigger>
           <MenuContent className="w-(--reference-width) min-w-56">

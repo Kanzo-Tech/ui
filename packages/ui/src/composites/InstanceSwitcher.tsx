@@ -132,7 +132,7 @@ export function InstanceSwitcher({
               )}
             >
               {active != null && <Identity inst={active} responsive collapsed={collapsed} />}
-              <ChevronsUpDownIcon className="ml-auto group-data-[collapsible=icon]:hidden" />
+              <ChevronsUpDownIcon className="ms-auto group-data-[collapsible=icon]:hidden" />
             </SidebarMenuButton>
           </MenuTrigger>
           {/* `w-(--reference-width)` matches the trigger width (Ark exposes it on the positioner),
@@ -155,7 +155,7 @@ export function InstanceSwitcher({
                   }}
                 >
                   <Identity inst={inst} />
-                  {inst.id === activeId && <CheckIcon className="ml-auto" />}
+                  {inst.id === activeId && <CheckIcon className="ms-auto" />}
                 </MenuItem>
               ))}
             </MenuGroup>

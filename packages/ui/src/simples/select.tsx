@@ -5,7 +5,7 @@ import { ark } from "@ark-ui/react/factory";
 import { Select as ArkSelect, useSelectContext } from "@ark-ui/react/select";
 import { CheckIcon, ChevronsUpDownIcon, XIcon } from "lucide-react";
 import type React from "react";
-import type { VariantProps } from "tailwind-variants";
+import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
 import { inputVariants } from "./input";
 import { Separator } from "./separator";
@@ -31,6 +31,53 @@ export const Select: ArkSelect.RootComponent = (props) => {
   );
 };
 
+// Divergence from Shark, declared: Shark renders `Select.ClearTrigger` *inside*
+// `Select.Trigger`, i.e. a <button> inside a <button>. That is invalid HTML (React logs
+// `validateDOMNesting`), the inner button is not reliably reachable by keyboard or screen
+// reader, and the clear click bubbles into the trigger, so clearing also opened the listbox.
+// Ark's anatomy is `Select.Control > Select.Trigger + Select.ClearTrigger` — the clear is a
+// SIBLING — so that is what we render. The look is unchanged: the trigger's indicator group
+// keeps reserving the room the clear used to occupy inline, and the clear is pulled back over
+// that room with a negative inline-start margin (logical, so RTL flips with it).
+const selectTriggerVariants = tv({
+  slots: {
+    trigger: [
+      "w-fit",
+      "flex items-center gap-2",
+      "text-sm",
+      "data-placeholder-shown:text-muted-foreground/64",
+      "data-[state=open]:border-primary data-[state=open]:ring-[3px] data-[state=open]:ring-ring/32",
+      "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground",
+    ],
+    indicators: "ms-auto flex items-center gap-1 rtl:me-auto",
+    // Pulled back over the room `indicators` reserves, so the clear lands exactly where it
+    // rendered as a child of the trigger: 3 (trigger padding) + 4 (indicator) + 1 (gap) +
+    // 4 (clear) spacing units, plus the trigger's 1px border. The matching positive
+    // margin-inline-end cancels the negative one (-12u-1px + 4u + 8u+1px = 0), so the clear
+    // still contributes nothing to the control's intrinsic width and a shrink-to-fit parent
+    // keeps measuring the trigger alone. `[&_svg]:size-4` restates the icon rule the trigger
+    // used to cascade onto this icon from the outside.
+    clear: [
+      "relative shrink-0",
+      "ms-[calc(var(--spacing)*-12-1px)] me-[calc(var(--spacing)*8+1px)]",
+      "[&_svg]:size-4",
+    ],
+  },
+  variants: {
+    showClear: {
+      // The room the clear overlays: its own 4 units plus the group's 1-unit gap. Reserved
+      // only while the clear is on screen — Ark hides it with `hidden` when nothing is
+      // selected, and inline it then took no room either, so a `w-fit` trigger keeps sizing
+      // exactly as it did.
+      true: {
+        indicators:
+          "group-has-[[data-slot=select-clear-trigger]:not([hidden])]/select-control:ps-5",
+      },
+    },
+  },
+  defaultVariants: { showClear: false },
+});
+
 interface SelectTriggerProps
   extends React.ComponentProps<typeof ArkSelect.Trigger>,
     VariantProps<typeof inputVariants> {
@@ -51,35 +98,32 @@ export const SelectTrigger = (props: SelectTriggerProps) => {
     ...rest
   } = props;
 
+  const styles = selectTriggerVariants({ showClear });
+
   return (
-    <ArkSelect.Control data-slot="select-control">
+    <ArkSelect.Control
+      className="group/select-control relative flex items-center"
+      data-slot="select-control"
+    >
       <ArkSelect.Trigger
-        className={cn(
-          inputVariants({ size }),
-          "w-fit",
-          "flex items-center gap-2",
-          "text-sm",
-          "data-placeholder-shown:text-muted-foreground/64",
-          "data-[state=open]:border-primary data-[state=open]:ring-[3px] data-[state=open]:ring-ring/32",
-          "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground",
-          className
-        )}
+        className={cn(inputVariants({ size }), styles.trigger(), className)}
         data-slot="select-trigger"
         {...rest}
       >
         {children}
 
-        <div className="ms-auto flex items-center gap-1 rtl:me-auto">
-          {showClear && (
-            <SelectClearTrigger>
-              <XIcon />
-            </SelectClearTrigger>
-          )}
+        <div className={styles.indicators()}>
           <ArkSelect.Indicator data-slot="select-indicator">
             <ChevronsUpDownIcon />
           </ArkSelect.Indicator>
         </div>
       </ArkSelect.Trigger>
+
+      {showClear && (
+        <SelectClearTrigger className={styles.clear()}>
+          <XIcon />
+        </SelectClearTrigger>
+      )}
     </ArkSelect.Control>
   );
 };

@@ -13,6 +13,12 @@ interface ActionBarPositioning {
   /**
    * The gutter from the edge in pixels.
    *
+   * The bar is `fixed` to the VIEWPORT bottom, so the gutter is measured from the window edge
+   * and knows nothing about your layout: over a `ShellFooter` (or any other bottom region) the
+   * default 16px lands the bar ON TOP of it. Raise the gutter past the region's height —
+   * `gutter: "calc(var(--footer-height) + 16px)"` — or render the actions inside the footer
+   * instead.
+   *
    * @default '16px'
    */
   gutter?: string;

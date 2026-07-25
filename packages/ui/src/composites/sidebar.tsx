@@ -3,7 +3,7 @@
 import { ark } from "@ark-ui/react/factory";
 import { PanelLeftIcon } from "lucide-react";
 import React from "react";
-import type { VariantProps } from "tailwind-variants";
+import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
 import { Button, buttonVariants } from "../simples/button";
 import { Input } from "../simples/input";
@@ -679,29 +679,47 @@ export const SidebarMenuAction = (props: SidebarMenuActionProps) => {
   );
 };
 
-export const SidebarMenuBadge = (
-  props: React.ComponentProps<typeof ark.div>
-) => {
-  const { className, ...rest } = props;
-
-  return (
-    <ark.div
-      className={cn(
-        "absolute inset-e-1",
-        "flex items-center justify-center",
-        "px-1",
-        "h-5 min-w-5",
-        "rounded-md",
-        "select-none font-medium text-sidebar-foreground text-xs tabular-nums",
-        "pointer-events-none",
+export const sidebarMenuBadgeVariants = tv({
+  base: [
+    "flex items-center justify-center",
+    "px-1",
+    "h-5 min-w-5",
+    "rounded-md",
+    "select-none font-medium text-sidebar-foreground text-xs tabular-nums",
+    "group-data-[collapsible=icon]:hidden",
+  ],
+  variants: {
+    placement: {
+      /** Overlaid on the row's trailing edge, sized off the peer button (Shark/shadcn default). */
+      overlay: [
+        "pointer-events-none absolute inset-e-1",
         "peer-hover/menu-button:text-sidebar-accent-foreground",
         "peer-data-[active=true]/menu-button:text-sidebar-accent-foreground",
         "peer-data-[size=lg]/menu-button:top-2.5",
         "peer-data-[size=md]/menu-button:top-1.5",
         "peer-data-[size=sm]/menu-button:top-1",
-        "group-data-[collapsible=icon]:hidden",
-        className
-      )}
+      ],
+      /**
+       * In the flow, INSIDE the row. Required whenever the row already ends in something else
+       * (a chevron, a `SidebarMenuAction`): the overlay placement would stack on top of it.
+       */
+      inline: "ms-auto shrink-0",
+    },
+  },
+  defaultVariants: { placement: "overlay" },
+});
+
+export interface SidebarMenuBadgeProps
+  extends React.ComponentProps<typeof ark.div>,
+    VariantProps<typeof sidebarMenuBadgeVariants> {}
+
+export const SidebarMenuBadge = (props: SidebarMenuBadgeProps) => {
+  const { className, placement = "overlay", ...rest } = props;
+
+  return (
+    <ark.div
+      className={cn(sidebarMenuBadgeVariants({ placement }), className)}
+      data-placement={placement}
       data-sidebar="menu-badge"
       data-slot="sidebar-menu-badge"
       {...rest}

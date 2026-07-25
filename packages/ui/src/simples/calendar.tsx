@@ -375,8 +375,8 @@ export const CalendarTableCell = (
         "relative",
         "h-(--cell-size) w-full",
         "select-none text-center",
-        "[&:first-child[aria-selected=true]_div]:rounded-l-lg",
-        "[&:last-child[aria-selected=true]_div]:rounded-r-lg"
+        "[&:first-child[aria-selected=true]_div]:rounded-s-lg",
+        "[&:last-child[aria-selected=true]_div]:rounded-e-lg"
       )}
       data-slot="calendar-table-cell"
       value={value}
@@ -396,8 +396,8 @@ export const CalendarTableCell = (
           "data-unavailable:pointer-events-none data-unavailable:line-through data-unavailable:opacity-64",
           "data-[view=day]:data-in-range:rounded-none data-[view=day]:data-in-range:not-[data-selected]:bg-primary/10",
           "data-selected:bg-primary! data-selected:text-primary-foreground!",
-          "data-hover-range-start:rounded-l-lg! data-range-start:rounded-l-lg!",
-          "data-hover-range-end:rounded-r-lg! data-range-end:rounded-r-lg!",
+          "data-hover-range-start:rounded-s-lg! data-range-start:rounded-s-lg!",
+          "data-hover-range-end:rounded-e-lg! data-range-end:rounded-e-lg!",
           "[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
           className
         )}

@@ -12,6 +12,13 @@
 //
 // Pair with `cookieStorageAdapter(storageKey)` on the provider so client writes land where the
 // script (and the server) read from.
+//
+// MANDATORY under SSR, not an optimisation. Skipping it costs more than a flash: any control
+// whose markup depends on the resolved theme (`AppearanceToggle`) renders one value on the
+// server and another on hydration, which React reports as a mismatch and does not patch.
+//
+// Hosting a theme manager already (next-themes)? Point `appearanceKey` at ITS storage key —
+// both scripts then compute the same `.dark` from the same value instead of racing.
 
 import { CUSTOM_BASE_KEEP, CUSTOM_BASE_SHADES } from "../lib/color.js";
 import { APPEARANCE_KEY, AXES, STORAGE_KEY } from "./prefs-config.js";

@@ -1,6 +1,6 @@
 "use client";
 
-import type React from "react";
+import * as React from "react";
 import { MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
 import { cn } from "../lib/cn.js";
 import { Button, type ButtonProps } from "../simples/button.js";
@@ -33,6 +33,13 @@ const DEFAULT_LABELS: AppearanceToggleLabels = {
  * The sun/moon crossfade is keyed off `.dark` in CSS, so the icon always shows the RESOLVED
  * appearance. Shift- or Alt-click reaches `system`, the third state the underlying
  * {@link useKanzoTheme} model still supports; a small monitor badge marks that auto state.
+ *
+ * **SSR.** The resolved appearance is only knowable in the browser (localStorage / cookie /
+ * `matchMedia`), so the state-bearing attributes (`aria-pressed`, `data-appearance`, `title`)
+ * are withheld until mount — otherwise the server would emit `light`, the client would hydrate
+ * `dark`, and React would report a hydration mismatch it does not patch. This costs no FOUC:
+ * what paints is the sun/moon crossfade, and that is keyed off `.dark` in CSS, which
+ * `themeScript` sets on `<html>` before the first paint. Inject it — it is not optional.
  */
 export const AppearanceToggle = ({
   className,
@@ -43,6 +50,8 @@ export const AppearanceToggle = ({
 }: AppearanceToggleProps = {}) => {
   const { appearance, resolvedAppearance, setAppearance } = useKanzoTheme();
   const l = { ...DEFAULT_LABELS, ...labels };
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
 
   const onClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (e.shiftKey || e.altKey) {
@@ -58,9 +67,9 @@ export const AppearanceToggle = ({
       size={size}
       variant={variant}
       aria-label={label}
-      aria-pressed={resolvedAppearance === "dark"}
-      data-appearance={appearance}
-      title={`Appearance: ${l[appearance]} · Shift-click for system`}
+      aria-pressed={mounted ? resolvedAppearance === "dark" : undefined}
+      data-appearance={mounted ? appearance : undefined}
+      title={mounted ? `Appearance: ${l[appearance]} · Shift-click for system` : label}
       className={cn("group", className)}
       onClick={onClick}
     >

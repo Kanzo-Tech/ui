@@ -1,5 +1,6 @@
 "use client";
 
+import { type UseFieldContext, useFieldContext } from "@ark-ui/react/field";
 import { Slider as ArkSlider, useSliderContext } from "@ark-ui/react/slider";
 import React from "react";
 import { cn } from "../lib/cn";
@@ -28,6 +29,20 @@ interface SliderProps extends React.ComponentProps<typeof ArkSlider.Root> {
   showMarkers?: boolean;
 }
 
+// Divergence from Shark, declared: Ark 5.37.2's `useSlider` reads NO ambient context at all —
+// not Field, not even Fieldset (RadioGroup at least gets the Fieldset bridge) — so a
+// `<Field invalid>` ancestor never reached this control and the flag had to be stated twice.
+// Shark neither bridges it nor styles an invalid slider at all: its own TanStack example wraps
+// `<Field invalid>` around a slider that stays visually pristine. We bridge the state flags and
+// give the control an invalid look consistent with `input.tsx` / `checkbox.tsx`.
+//
+// Two sub-divergences worth knowing:
+//  - `required` is bridged for RadioGroup but not here: the slider machine has no `required`
+//    prop (only `disabled`, `readOnly`, `invalid`), and a slider always has a value anyway.
+//  - zag puts `data-invalid` on root/label/control/track/range but NOT on the thumb, which is
+//    the element carrying `role="slider"`. So an invalid slider announced nothing. We set
+//    `aria-invalid` on the thumb ourselves and hang the thumb's invalid styling off it, the
+//    same way `input.tsx` styles `aria-invalid`.
 export const Slider = (props: SliderProps) => {
   const {
     value,
@@ -37,11 +52,20 @@ export const Slider = (props: SliderProps) => {
     markerInterval = 1,
     showMarkers = false,
     markerLabels = [],
+    disabled,
+    invalid,
+    readOnly,
     tabIndex,
     className,
     children,
     ...rest
   } = props;
+
+  const field: UseFieldContext | undefined = useFieldContext();
+
+  const isDisabled = disabled ?? field?.disabled;
+  const isInvalid = invalid ?? field?.invalid;
+  const isReadOnly = readOnly ?? field?.readOnly;
 
   const _values = React.useMemo(() => {
     if (Array.isArray(value)) {
@@ -63,8 +87,11 @@ export const Slider = (props: SliderProps) => {
       )}
       data-slot="slider"
       defaultValue={defaultValue}
+      disabled={isDisabled}
+      invalid={isInvalid}
       max={max}
       min={min}
+      readOnly={isReadOnly}
       value={value}
       {...rest}
     >
@@ -88,7 +115,9 @@ export const Slider = (props: SliderProps) => {
             "rounded-full",
             "select-none overflow-hidden",
             "data-[orientation=horizontal]:h-2 data-[orientation=horizontal]:w-full",
-            "data-[orientation=vertical]:h-full data-[orientation=vertical]:w-2"
+            "data-[orientation=vertical]:h-full data-[orientation=vertical]:w-2",
+            "data-invalid:bg-destructive/24",
+            "dark:data-invalid:bg-destructive-foreground/24"
           )}
           data-slot="slider-track"
         >
@@ -98,7 +127,9 @@ export const Slider = (props: SliderProps) => {
               "bg-primary",
               "select-none",
               "data-[orientation=horizontal]:h-full",
-              "data-[orientation=vertical]:w-full data-[orientation=vertical]:not-[[class^='h-']]:not-[[class*='_h-']]:self-stretch"
+              "data-[orientation=vertical]:w-full data-[orientation=vertical]:not-[[class^='h-']]:not-[[class*='_h-']]:self-stretch",
+              "data-invalid:bg-destructive",
+              "dark:data-invalid:bg-destructive-foreground"
             )}
             data-slot="slider-range"
           />
@@ -109,6 +140,7 @@ export const Slider = (props: SliderProps) => {
 
           return (
             <ArkSlider.Thumb
+              aria-invalid={isInvalid || undefined}
               className={cn(
                 "relative",
                 "shrink-0",
@@ -119,6 +151,10 @@ export const Slider = (props: SliderProps) => {
                 "transition-[color,box-shadow,transform]",
                 "focus-visible:border-primary focus-visible:outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring/32",
                 "origin-left data-dragging:scale-110 data-dragging:cursor-grabbing data-dragging:border-primary data-dragging:ring-[3px] data-dragging:ring-ring/32",
+                "aria-invalid:border-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/24",
+                "aria-invalid:focus-visible:border-destructive aria-invalid:focus-visible:ring-destructive/48",
+                "aria-invalid:data-dragging:border-destructive aria-invalid:data-dragging:ring-destructive/48",
+                "dark:aria-invalid:border-destructive-foreground dark:aria-invalid:ring-destructive-foreground/40",
                 "pointer-coarse:after:absolute pointer-coarse:after:h-full pointer-coarse:after:min-h-11",
                 "motion-reduce:transition-none!"
               )}
