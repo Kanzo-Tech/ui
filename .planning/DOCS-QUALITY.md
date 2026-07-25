@@ -11,10 +11,13 @@ Status key: **FIXED** · **OPEN** · **DECISION** (needs the owner)
 
 ## 0. Method note
 
-The running server on `:3100` is `next start` over a **production build**, not `next dev` — it
-serves hashed CSS and never recompiles, so edits appear to do nothing. A second dev server was
-started on `:3101` (`next dev --webpack --port 3101`) for this pass. Anyone continuing this work
-should use `:3101`, or restart `:3100` as a real dev server.
+The server found running on `:3100` was `next start` over a **production build**, not `next dev`
+— it serves hashed CSS and never recompiles, so edits appeared to do nothing for the first
+twenty minutes of this pass. A dev server on `:3101` was used for the actual iteration.
+
+At the end of the pass `pnpm -C docs build` was run and `:3100` was **restarted** against the
+new build, so it now serves everything below. If you continue this work, run a real dev server
+(`pnpm -C docs dev`) instead — otherwise your edits will silently not appear.
 
 ---
 
@@ -153,9 +156,12 @@ of the component is scrupulously logical (`inset-e-0`), so this looks like an ov
 
 ## 6. Dark mode
 
-Spot-checked the homepage, philosophy, components, avatar and spinner in both themes. Everything
-inspected is token-driven and reads correctly in both; the §1.1 underline defect was present in
-both and is now gone from both. **Not exhaustive** — the long tail in §3 was not dark-checked.
+Checked in **dark**: homepage, avatar, badge. Checked in **light**: homepage, philosophy,
+components, avatar, spinner. Everything inspected is token-driven and reads correctly; the §1.1
+underline defect was present in both themes and is gone from both.
+
+**Not exhaustive** — the long tail in §3 was not dark-checked, and no page outside the ones
+listed above was compared side by side. A dedicated dark-mode sweep is still outstanding.
 
 ---
 

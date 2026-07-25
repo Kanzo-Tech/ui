@@ -51,3 +51,20 @@ removed, instrumented with the element count, the first paint and the time from 
 change to a rebuilt plot.
 
 <ComponentPreview componentName="charts" fileName="example-graph-scale" hasMaxHeight={false} />
+
+Measured in Chrome on an M-series laptop, warm (DuckDB booted, relations already built):
+
+| nodes / edges | force layout | csv → duckdb | svg elements | first paint | filter → repaint | scroll |
+| --- | --- | --- | --- | --- | --- | --- |
+| 200 / 395 | 36 ms | 25 ms | 609 | 141 ms | 5 ms | 60 fps |
+| 2 000 / 4 018 | 168 ms | 17 ms | 6 032 | 71 ms | 27 ms | 60 fps |
+| 20 000 / 40 256 | 999 ms | 49 ms | 60 270 | 148 ms | 237–281 ms | 60 fps |
+
+Nothing here is the wall. 60 000 SVG elements still scroll at 60 fps, a lasso's hit test over 40 256
+elements costs 15 ms, and a crossfilter repaint stays under a third of a second. What actually
+breaks is **legibility**: by 2 000 nodes the edge layer is already a fog, and at 20 000 the picture
+is three coloured blobs joined by a white haze. The graph stops being readable an order of magnitude
+before it stops being fast.
+
+The one cost that grows superlinearly is the layout itself — and in a system that stores positions
+as a column, that cost is paid once, offline, not by the browser.
