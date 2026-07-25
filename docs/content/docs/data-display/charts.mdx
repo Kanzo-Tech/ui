@@ -200,47 +200,42 @@ A crossfilter is defined by **hiding a clause from the client that published it*
   degrades to "everything matches", and nothing is dimmed.
 
 The chart that publishes the click is therefore the only one that cannot read it back. The fix is
-one selection more, not a fork — publish into a **non-cross** selection and relay it into the
-crossfilter with `include` — so `MosaicProvider` builds that pair itself:
+one selection more, not a fork — publish into a **non-cross** selection and relay it onward — and
+`ChartRoot` builds that selection for you, **one per chart**:
 
 ```tsx
-const selected = Selection.union();                              // interactors publish here…
-const crossfilter = Selection.crossfilter({ include: selected }); // …marks filter by this
+// inside every ChartRoot, for you
+const own = Selection.union();     // interactors publish here; ChartHighlight reads it
+// relayed on, into the provider's `selected`, and from there into the crossfilter the marks use
 ```
 
-`ChartRoot` defaults `as` to `selected` and `filterBy` to `crossfilter`, which is the whole reason
-the bare children work. Every clause published to `selected` is relayed into the crossfilter, so
-the other charts filter exactly as before; the source chart still does not filter itself, because
-the skip looks at `clause.clients` and the relayed clause keeps its origin; and `ChartHighlight`,
-reading `selected` — a plain union, which hides nothing from anyone — finally sees it.
+Per chart, not per page, and that part is load-bearing. `ChartHighlight` does not filter: it appends
+its predicate to the mark's **own** query as an extra output column, and on an aggregating mark that
+query has a `GROUP BY`. So a predicate naming a column *this* plot does not group by is
+`Binder Error: column "provider" must appear in the GROUP BY clause` — the query dies, vgplot
+swallows it, and **the plot keeps its previous render**. No error on screen, no empty state, just a
+chart frozen one state behind while its neighbours move.
 
-`useMosaic()` returns both, `useSelected()` the publishing half on its own. That is the one to
-`reset()` when you [swap an interactor](#swap-the-interactor).
+A page-wide publish target guarantees that the moment a second chart filters by a second column,
+which is the ordinary case. A per-chart selection cannot: the only clauses in it are the ones this
+plot's own interactors published, over the columns its own marks group by.
+
+`useMosaic()` gives you `crossfilter` (what marks filter by), `selected` (every chart clause on the
+page, flattened — a read model for a filter-chip row, **not** a publish target) and `reset()`.
+Use `reset()` for a "Clear filters" button: `Selection.reset()` travels downstream only, so
+resetting the crossfilter alone leaves every chart still holding its own pick.
 
 ### When you do wire it yourself
 
 - **You pass your own `crossfilter` to `MosaicProvider`.** `include` is constructor-only, so a
-  selection handed in cannot be relayed into after the fact: `selected` falls back to the same
-  object, and the self-feedback goes with it. Build the pair and pass the cross-filtered half.
-
-  ```tsx
-  const [picked] = useState(() => Selection.single());
-  const [crossfilter] = useState(() => Selection.crossfilter({ include: picked }));
-
-  <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
-    <ChartRoot table="telemetry">
-      <ChartBarY x="region" y={count()} fill="var(--primary)" />
-      <ChartToggleX as={picked} />     {/* publishes into picked… */}
-      <ChartHighlight by={picked} />   {/* …which this one can actually read */}
-    </ChartRoot>
-  </MosaicProvider>
-  ```
-
-- **Two toggling charts must not dim each other.** `selected` is shared, so one chart's pick
-  highlights against the other's marks. Give each its own selection through `as` / `by`.
-- **A click should replace the previous pick, not add to it.** `Selection.single()` keeps one
-  clause where the default union accumulates (shift/⌘-click adding to a pick is `Toggle`'s own
-  behaviour, not ours).
+  selection handed in cannot be relayed into after the fact — the provider relays into it instead of
+  constructing it, and everything below keeps working.
+- **You pass your own `as` to a `ChartRoot`.** Then you own its wiring: nothing is relayed for you,
+  though `reset()` still clears it. Pair it with a matching `by` on the highlight, and keep to the
+  rule above — one selection per plot, naming only columns that plot groups by.
+- **A click should replace the previous pick, not add to it.** `Selection.single()` keeps one clause
+  where the default union accumulates (shift/⌘-click adding to a pick is `Toggle`'s own behaviour,
+  not ours).
 
 Notes that hold either way:
 

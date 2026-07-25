@@ -321,4 +321,16 @@ describe("chartSpecSignature", () => {
     const withOther = compileChartSpec(<ChartBarY x="a" filterBy={other} />, context());
     expect(chartSpecSignature(build("a"))).not.toBe(chartSpecSignature(withOther));
   });
+
+  it("legends the channel it is asked for, defaulting to colour", () => {
+    const spec = compileChartSpec(
+      <>
+        <ChartColorLegend />
+        <ChartColorLegend channel="symbol" />
+      </>,
+      context(),
+    );
+    const legends = spec.filter((d) => d.kind === "legend");
+    expect(legends.map((d) => (d as { channel: string }).channel)).toEqual(["color", "symbol"]);
+  });
 });

@@ -126,7 +126,12 @@ export interface ChartMargin {
  * (`<ChartBarY fx="region" />`); per-scale options go on `ChartFacetX` / `ChartFacetY`.
  */
 export interface ChartFacetOptions {
-  /** Space around each facet panel — the gutter between small multiples. */
+  /**
+   * Space around each facet panel — the gutter *between* small multiples.
+   *
+   * Not where the panel titles go: those are drawn in the **plot's** top margin, so a `margin`
+   * with a small `top` renders them into nothing and the panels come out anonymous. Leave ~26px.
+   */
   facetMargin?: number | ChartMargin;
   /** Draw the grid across the facet panels. */
   facetGrid?: boolean;

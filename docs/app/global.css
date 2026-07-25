@@ -26,6 +26,25 @@
   background: transparent !important;
 }
 
+/*
+ * Fumadocs names its content wrapper `.prose`, and so does @tailwindcss/typography — which
+ * `@kanzo-tech/ui/styles.css` ships for the `Prose` component. The plugin's
+ * `.prose :where(a)` rule outranks Preflight, so it repainted anchors fumadocs owns
+ * structurally rather than as prose: every heading (fumadocs wraps heading text in an `<a>`)
+ * rendered as a blue underlined link, and every Card grew an underline on its title and
+ * description. Body links are genuinely prose and keep the plugin's styling.
+ */
+.prose :is(h1, h2, h3, h4, h5, h6) a {
+  color: inherit;
+  font-weight: inherit;
+  text-decoration: none;
+}
+
+.prose a[data-card] {
+  font-weight: inherit;
+  text-decoration: none;
+}
+
 [data-code-figure] .shiki span {
   color: var(--shiki-light);
 }

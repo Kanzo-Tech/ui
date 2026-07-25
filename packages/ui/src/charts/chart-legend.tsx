@@ -62,8 +62,13 @@ export interface ChartColorLegendProps {
    * filter; pass `null` for a static key.
    */
   as?: Selection | null;
-  /** The column the swatches map to, when it cannot be inferred from the colour channel. */
+  /** The column the swatches map to, when it cannot be inferred from the channel. */
   field?: string;
+  /**
+   * Which scale the swatches read. `color` is the usual one; `opacity` and `symbol` legend a plot
+   * that encodes its series on those channels instead — a scatter keyed by shape, say.
+   */
+  channel?: "color" | "opacity" | "symbol";
   /** Any other vgplot legend option (`label`, `columns`, `tickSize`, `width`…). */
   [option: string]: unknown;
 }
@@ -74,6 +79,6 @@ export interface ChartColorLegendProps {
  * DOM and the config's labels and icons; use this one when you want click-to-filter.
  */
 export const ChartColorLegend = chartDescriptor<ChartColorLegendProps>("ChartColorLegend", (props, ctx) => {
-  const { as, ...rest } = props;
-  return { kind: "legend", channel: "color", options: { ...rest, as: as === undefined ? ctx.as : as } };
+  const { as, channel = "color", ...rest } = props;
+  return { kind: "legend", channel, options: { ...rest, as: as === undefined ? ctx.as : as } };
 });
