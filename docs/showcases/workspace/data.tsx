@@ -128,9 +128,9 @@ export const SELECTED_NODE = {
 };
 
 /**
- * The Analysis panel no longer reads a bars fixture: it renders REAL crossfilter charts over a live
- * DuckDB table, and that table + its schema live in the client-only island (`./analysis-charts`),
- * not here — the same rule as the rest of the sample data on the /charts subpath.
+ * The Analysis view reads no fixture from here: it renders REAL crossfilter charts over a live
+ * DuckDB relation, and that relation lives in `./analysis-data`, next to the client-only island that
+ * loads it — the same rule as the rest of the sample data on the /charts subpath.
  */
 
 /** Suggested-question chips for the Ask panel's empty state (mirrors keasy's demo). */

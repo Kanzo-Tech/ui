@@ -2,7 +2,6 @@
 
 import {
   PreferencesAccent,
-  PreferencesAppearance,
   PreferencesDensity,
   PreferencesField,
   PreferencesPanel,
@@ -48,7 +47,6 @@ export function PreferencesExtendedShowcase() {
               />
             </PreferencesField>
 
-            <PreferencesAppearance />
             <PreferencesAccent />
             <PreferencesRadius />
             <PreferencesDensity />

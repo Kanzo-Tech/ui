@@ -1,433 +1,444 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useState } from "react";
 import {
-	Badge,
-	Breadcrumbs,
-	Button,
-	EmptyState,
-	Float,
-	InstanceSwitcher,
-	Item,
-	ItemActions,
-	ItemContent,
-	ItemDescription,
-	ItemGroup,
-	ItemMedia,
-	ItemSeparator,
-	ItemTitle,
-	Ribbon,
-	SectionActions,
-	SectionBody,
-	SectionDescription,
-	SectionHeader,
-	SectionRoot,
-	SectionTitle,
-	SectionTitleGroup,
-	ShellHeader,
-	ShellMain,
-	Sidebar,
-	SidebarContent,
-	SidebarFooter,
-	SidebarHeader,
-	SidebarInset,
-	SidebarNav,
-	SidebarProvider,
-	SidebarRail,
-	SidebarTrigger,
-	SidebarUser,
-	Switch,
-	Tabs,
-	TabsContent,
-	TabsList,
-	TabsTrigger,
-	Toaster,
-	toast,
+  AppearanceToggle,
+  Avatar,
+  AvatarFallback,
+  Badge,
+  Breadcrumbs,
+  Button,
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  EmptyState,
+  Float,
+  InstanceSwitcher,
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemSeparator,
+  ItemTitle,
+  MadeWith,
+  Preferences,
+  Ribbon,
+  SectionActions,
+  SectionBody,
+  SectionDescription,
+  SectionHeader,
+  SectionRoot,
+  SectionTitle,
+  SectionTitleGroup,
+  Separator,
+  ShellFooter,
+  ShellHeader,
+  ShellMain,
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarInset,
+  SidebarNav,
+  SidebarProvider,
+  SidebarRail,
+  SidebarTrigger,
+  SidebarUser,
+  Status,
+  Steps,
+  StepsDescription,
+  StepsIndicator,
+  StepsItem,
+  StepsList,
+  StepsSeparator,
+  StepsTitle,
+  StepsTrigger,
+  Switch,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Toaster,
+  Tour,
+  TourActions,
+  TourContent,
+  TourDescription,
+  TourHeader,
+  TourProgressText,
+  type TourStepType,
+  TourTitle,
+  TourTrigger,
+  toast,
 } from "@kanzo-tech/ui";
+import { StatTile } from "@kanzo-tech/ui/charts";
 import {
-	type ColumnDef,
-	DataTable,
-	sortableHeader,
-} from "@kanzo-tech/ui/table";
-import {
-	BellIcon,
-	BoxesIcon,
-	BriefcaseIcon,
-	CalendarClockIcon,
-	CloudIcon,
-	DatabaseIcon,
-	LogOutIcon,
-	PlusIcon,
-	SettingsIcon,
-	Trash2Icon,
-	UserIcon,
+  ArchiveIcon,
+  BellIcon,
+  CalendarClockIcon,
+  CompassIcon,
+  LogOutIcon,
+  PlusIcon,
+  SettingsIcon,
+  UserIcon,
 } from "lucide-react";
-import {
-	MetricCard,
-	MetricCardDescription,
-	MetricCardHeader,
-	MetricCardIcon,
-	MetricCardLabel,
-	MetricCardValue,
-} from "@/showcases/metric-card/metric-card";
-import {
-	type Connection,
-	CONNECTIONS,
-	INSTANCES,
-	NAV,
-	SCHEDULES,
-	USER,
-} from "./data";
+import { CommandPalette } from "./command-palette";
+import { ACTIVITY, INSTANCES, KPIS, NAV, SCHEDULES, SETUP, SUPPORT, USER } from "./data";
+import { RunsTable } from "./runs-table";
 
-const STATUS_VARIANT = {
-	ready: "success",
-	syncing: "info",
-	failed: "destructive",
-} as const;
-
-const numberFmt = new Intl.NumberFormat("en-US");
-
-function connectionColumns(
-	onDelete: (c: Connection) => void,
-): ColumnDef<Connection>[] {
-	return [
-		{
-			accessorKey: "name",
-			header: sortableHeader("Name"),
-			cell: ({ getValue }) => (
-				<span className="font-medium">{getValue<string>()}</span>
-			),
-		},
-		{
-			accessorKey: "location",
-			header: "Location",
-			cell: ({ getValue }) => (
-				<span className="text-muted-foreground">{getValue<string>()}</span>
-			),
-		},
-		{
-			accessorKey: "rows",
-			header: sortableHeader("Rows"),
-			// Numeric column: right-aligned, so magnitudes line up when sorted.
-			cell: ({ getValue }) => (
-				<span className="block text-right font-mono text-muted-foreground text-xs tabular-nums">
-					{numberFmt.format(getValue<number>())}
-				</span>
-			),
-		},
-		{
-			accessorKey: "status",
-			header: "Status",
-			cell: ({ getValue }) => {
-				const s = getValue<Connection["status"]>();
-				return (
-					<Badge size="sm" variant={STATUS_VARIANT[s]}>
-						{s}
-					</Badge>
-				);
-			},
-		},
-		{
-			id: "actions",
-			cell: ({ row }) => (
-				<div className="text-right">
-					<Button
-						aria-label="Delete"
-						onClick={(e) => {
-							e.stopPropagation();
-							onDelete(row.original);
-						}}
-						size="icon-sm"
-						variant="ghost"
-					>
-						<Trash2Icon />
-					</Button>
-				</div>
-			),
-		},
-	];
-}
+const TOUR_STEPS: TourStepType[] = [
+  {
+    id: "intro",
+    type: "dialog",
+    title: "Welcome to Kanzo",
+    description: "Four stops around the screen you land on every morning.",
+    actions: [{ label: "Start", action: "next" }],
+  },
+  {
+    id: "workspace",
+    type: "tooltip",
+    target: () => document.getElementById("tour-workspace"),
+    title: "Your workspaces",
+    description: "Switch tenant here. ⌘B collapses the whole rail to icons.",
+    actions: [
+      { label: "Back", action: "prev" },
+      { label: "Next", action: "next" },
+    ],
+  },
+  {
+    id: "kpis",
+    type: "tooltip",
+    target: () => document.getElementById("tour-kpis"),
+    title: "The week in four numbers",
+    description: "Each tile carries its own trend and a delta against last week.",
+    actions: [
+      { label: "Back", action: "prev" },
+      { label: "Next", action: "next" },
+    ],
+  },
+  {
+    id: "runs",
+    type: "tooltip",
+    target: () => document.getElementById("tour-runs-toolbar"),
+    title: "Work the queue",
+    description: "Search, facet by status or environment, hide columns, then select rows to act on them.",
+    actions: [
+      { label: "Back", action: "prev" },
+      { label: "Done", action: "dismiss" },
+    ],
+  },
+];
 
 /**
- * A realistic product screen at full viewport. `SidebarProvider` is the app frame; the content
- * shell lives inside `SidebarInset` (a neutral offset column): a `ShellHeader` above `ShellMain`
- * (the one `<main>`). The Sidebar (switcher + nav + user) and its ⌘B collapse run the rail.
+ * The screen a product opens on: a collapsing rail, a header, a KPI row, one actionable table
+ * and a rail of supporting cards.
+ *
+ * The layout follows the shadcn model DESIGN.md calls canonical — `SidebarProvider` is the
+ * viewport frame, and the header and footer live INSIDE `SidebarInset`, to the inline end of the
+ * fixed rail, never spanning it. `ShellMain` owns the page's single `<main>`; everything nested
+ * under it is a `<section>`.
  */
 export function AppShellShowcase() {
-	const [instance, setInstance] = useState("kanzo");
-	const columns = useMemo(
-		() =>
-			connectionColumns((c) =>
-				toast.create({ title: `Delete ${c.name}?`, type: "warning" }),
-			),
-		[],
-	);
+  const [instance, setInstance] = useState("kanzo");
 
-	return (
-		<SidebarProvider className="h-dvh min-h-0 overflow-hidden">
-			<Sidebar collapsible="icon">
-				<SidebarHeader>
-					<InstanceSwitcher
-						actions={[
-							{
-								label: "Create workspace",
-								icon: <PlusIcon />,
-								onSelect: () =>
-									toast.create({ title: "New workspace", type: "info" }),
-							},
-						]}
-						activeId={instance}
-						instances={INSTANCES}
-						label="Workspaces"
-						onSelect={setInstance}
-					/>
-				</SidebarHeader>
+  return (
+    <Tour steps={TOUR_STEPS}>
+      <SidebarProvider className="h-dvh min-h-0 overflow-hidden">
+        <Sidebar collapsible="icon">
+          <SidebarHeader>
+            <div id="tour-workspace">
+              <InstanceSwitcher
+                actions={[
+                  {
+                    label: "Create workspace",
+                    icon: <PlusIcon />,
+                    onSelect: () => toast.create({ title: "New workspace", type: "info" }),
+                  },
+                ]}
+                activeId={instance}
+                instances={INSTANCES}
+                label="Workspaces"
+                onSelect={setInstance}
+              />
+            </div>
+          </SidebarHeader>
 
-				<SidebarContent>
-					<SidebarNav items={NAV} label="Platform" />
-				</SidebarContent>
+          <SidebarContent>
+            <SidebarNav items={NAV} label="Platform" />
+            <SidebarNav items={SUPPORT} label="Support" />
+          </SidebarContent>
 
-				<SidebarFooter>
-					<SidebarUser
-						menuItems={[
-							{
-								label: "Profile",
-								icon: <UserIcon />,
-								onSelect: () =>
-									toast.create({ title: "Profile", type: "info" }),
-							},
-							{
-								label: "Settings",
-								icon: <SettingsIcon />,
-								onSelect: () =>
-									toast.create({ title: "Settings", type: "info" }),
-							},
-							// Log out is just another item — the product owns the flow, the copy and any
-							// confirmation. The library no longer ships an auth mechanism.
-							{
-								label: "Log out",
-								icon: <LogOutIcon />,
-								variant: "destructive",
-								separatorBefore: true,
-								onSelect: () =>
-									toast.create({ title: "Logged out", type: "info" }),
-							},
-						]}
-						user={USER}
-					/>
-				</SidebarFooter>
-				<SidebarRail />
-			</Sidebar>
+          <SidebarFooter>
+            <SidebarUser
+              menuItems={[
+                {
+                  label: "Profile",
+                  icon: <UserIcon />,
+                  onSelect: () => toast.create({ title: "Profile", type: "info" }),
+                },
+                {
+                  label: "Settings",
+                  icon: <SettingsIcon />,
+                  onSelect: () => toast.create({ title: "Settings", type: "info" }),
+                },
+                {
+                  label: "Log out",
+                  icon: <LogOutIcon />,
+                  variant: "destructive",
+                  separatorBefore: true,
+                  onSelect: () => toast.create({ title: "Logged out", type: "info" }),
+                },
+              ]}
+              user={USER}
+            />
+          </SidebarFooter>
+          <SidebarRail />
+        </Sidebar>
 
-			<SidebarInset>
-				<ShellHeader className="h-12 flex-row items-center gap-2 px-3">
-					<SidebarTrigger />
-					<Breadcrumbs
-						items={[
-							{ label: "Kanzo", href: "#/app" },
-							{ label: "Dashboard" },
-						]}
-					/>
-					{/* A notification count pinned to the bell corner — the canonical Float
-					    use: the wrapper is the positioned ancestor, Float anchors the badge to it. */}
-					<div className="relative ms-auto">
-						<Button
-							aria-label="Notifications"
-							onClick={() =>
-								toast.create({ title: "3 new notifications", type: "info" })
-							}
-							size="icon-sm"
-							variant="ghost"
-						>
-							<BellIcon />
-						</Button>
-						<Float className="-end-0.5 -top-0.5" placement="top-end">
-							<Badge className="rounded-full" size="xs" variant="destructive">
-								3
-							</Badge>
-						</Float>
-					</div>
-				</ShellHeader>
+        <SidebarInset>
+          <ShellHeader className="h-12 flex-row items-center gap-2 px-3">
+            <SidebarTrigger />
+            <Separator className="h-4" orientation="vertical" />
+            <Breadcrumbs items={[{ label: "Kanzo", href: "#/app" }, { label: "Overview" }]} />
 
-				<ShellMain className="bg-background">
-					<SectionRoot>
-						<SectionHeader scale="page">
-							<SectionTitleGroup>
-								<SectionTitle level={1} scale="page">
-									Dashboard
-								</SectionTitle>
-								<SectionDescription>
-									Everything this workspace publishes, at a glance.
-								</SectionDescription>
-							</SectionTitleGroup>
-							<SectionActions>
-								<Button size="sm">
-									<PlusIcon />
-									New connection
-								</Button>
-							</SectionActions>
-						</SectionHeader>
+            <div className="ms-auto flex items-center gap-1.5">
+              <CommandPalette />
+              {/* The canonical Float use: the wrapper is the positioned ancestor, Float pins
+                  the count to its corner. */}
+              <div className="relative">
+                <Button
+                  aria-label="Notifications"
+                  onClick={() => toast.create({ title: "3 new notifications", type: "info" })}
+                  size="icon-sm"
+                  variant="ghost"
+                >
+                  <BellIcon />
+                </Button>
+                <Float className="-end-0.5 -top-0.5" placement="top-end">
+                  <Badge className="rounded-full" size="xs" variant="destructive">
+                    3
+                  </Badge>
+                </Float>
+              </div>
+              <AppearanceToggle size="icon-sm" />
+            </div>
+          </ShellHeader>
 
-						<SectionBody scale="page">
-							<div className="space-y-8">
-								<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-									<MetricCard href="#/app/settings/cloud" status="success">
-										<MetricCardHeader>
-											<MetricCardIcon>
-												<CloudIcon />
-											</MetricCardIcon>
-											<MetricCardLabel>Cloud Accounts</MetricCardLabel>
-										</MetricCardHeader>
-										<MetricCardValue>3</MetricCardValue>
-										<MetricCardDescription>
-											accounts configured
-										</MetricCardDescription>
-									</MetricCard>
-									<MetricCard href="#/app/connections" status="success">
-										<MetricCardHeader>
-											<MetricCardIcon>
-												<DatabaseIcon />
-											</MetricCardIcon>
-											<MetricCardLabel>Connections</MetricCardLabel>
-										</MetricCardHeader>
-										<MetricCardValue>4</MetricCardValue>
-										<MetricCardDescription>
-											connections configured
-										</MetricCardDescription>
-									</MetricCard>
-									<MetricCard href="#/app/jobs" status="danger">
-										<MetricCardHeader>
-											<MetricCardIcon>
-												<BriefcaseIcon />
-											</MetricCardIcon>
-											<MetricCardLabel>Jobs</MetricCardLabel>
-										</MetricCardHeader>
-										<MetricCardValue>12</MetricCardValue>
-										<MetricCardDescription>
-											last run failed
-										</MetricCardDescription>
-									</MetricCard>
-									<MetricCard href="#/app/catalog">
-										<MetricCardHeader>
-											<MetricCardIcon>
-												<BoxesIcon />
-											</MetricCardIcon>
-											<MetricCardLabel>DCAT Catalogs</MetricCardLabel>
-										</MetricCardHeader>
-										<MetricCardValue>7</MetricCardValue>
-										<MetricCardDescription>
-											catalogs generated
-										</MetricCardDescription>
-									</MetricCard>
-								</div>
+          <ShellMain className="bg-background">
+            <SectionRoot>
+              <SectionHeader scale="page">
+                <SectionTitleGroup>
+                  <SectionTitle level={1} scale="page">
+                    Overview
+                  </SectionTitle>
+                  <SectionDescription>
+                    Everything this workspace ran in the last seven days.
+                  </SectionDescription>
+                </SectionTitleGroup>
+                <SectionActions>
+                  <TourTrigger asChild>
+                    <Button size="sm" variant="ghost">
+                      <CompassIcon />
+                      Take the tour
+                    </Button>
+                  </TourTrigger>
+                  <Button size="sm">
+                    <PlusIcon />
+                    New pipeline
+                  </Button>
+                </SectionActions>
+              </SectionHeader>
 
-								<section className="space-y-3">
-									<SectionHeader scale="page">
-										<SectionTitleGroup>
-											<SectionTitle level={2} scale="page">
-												Connections
-											</SectionTitle>
-											<SectionDescription>
-												Sources this workspace reads from.
-											</SectionDescription>
-										</SectionTitleGroup>
-										<SectionActions>
-											<Button size="sm" variant="outline">
-												View all
-											</Button>
-										</SectionActions>
-									</SectionHeader>
+              <SectionBody scale="page">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" id="tour-kpis">
+                  {KPIS.map((kpi) => (
+                    <StatTile key={kpi.label} {...kpi} />
+                  ))}
+                </div>
 
-									<Tabs defaultValue="data">
-										<TabsList>
-											<TabsTrigger value="data">Data</TabsTrigger>
-											<TabsTrigger value="vocab">Vocabularies</TabsTrigger>
-										</TabsList>
+                <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+                  <section className="min-w-0 space-y-3">
+                    <SectionHeader>
+                      <SectionTitleGroup>
+                        <SectionTitle level={2}>Pipeline runs</SectionTitle>
+                        <SectionDescription>
+                          Every execution across both environments.
+                        </SectionDescription>
+                      </SectionTitleGroup>
+                      <SectionActions>
+                        <Button size="sm" variant="outline">
+                          View all
+                        </Button>
+                      </SectionActions>
+                    </SectionHeader>
 
-										<TabsContent value="data">
-											<DataTable
-												columns={columns}
-												data={CONNECTIONS}
-												onRowClick={(c) =>
-													toast.create({ title: c.name, type: "info" })
-												}
-												pageSize={6}
-												searchKey="name"
-												searchPlaceholder="Search connections…"
-												toolbarActions={
-													<Button size="sm">
-														<PlusIcon />
-														New connection
-													</Button>
-												}
-											/>
-										</TabsContent>
+                    <Tabs defaultValue="active">
+                      <TabsList>
+                        <TabsTrigger value="active">Active</TabsTrigger>
+                        <TabsTrigger value="archived">Archived</TabsTrigger>
+                      </TabsList>
 
-										<TabsContent value="vocab">
-											<div className="rounded-lg border border-border">
-												<EmptyState
-													action={
-														<Button size="sm" variant="outline">
-															<PlusIcon />
-															Add vocabulary
-														</Button>
-													}
-													description="Vocabulary connections resolve the terms your mappings reference."
-													icon={<BoxesIcon />}
-													title="No vocabulary connections"
-												/>
-											</div>
-										</TabsContent>
-									</Tabs>
-								</section>
+                      <TabsContent value="active">
+                        <RunsTable />
+                      </TabsContent>
 
-								<section className="space-y-3">
-									<SectionHeader scale="page">
-										<SectionTitleGroup>
-											<SectionTitle level={2} scale="page">
-												Scheduled runs
-											</SectionTitle>
-											<SectionDescription>
-												Not available yet in this workspace.
-											</SectionDescription>
-										</SectionTitleGroup>
-									</SectionHeader>
-									{/* Ribbon gates the whole region (dim + `inert`) while flagging it "Coming
-									    soon"; the rows themselves are an ItemGroup — the row counterpart to
-									    a Card, one Item per scheduled run. */}
-									<Ribbon disabled label="Coming soon">
-										<ItemGroup className="rounded-lg border border-border">
-											{SCHEDULES.map((s, i) => (
-												<Fragment key={s.id}>
-													{i > 0 && <ItemSeparator />}
-													<Item>
-														<ItemMedia>
-															<CalendarClockIcon />
-														</ItemMedia>
-														<ItemContent>
-															<ItemTitle>{s.name}</ItemTitle>
-															<ItemDescription>
-																{s.cadence} ·{" "}
-																<code className="font-mono text-xs">{s.cron}</code>
-															</ItemDescription>
-														</ItemContent>
-														<ItemActions>
-															<Switch defaultChecked={i === 0} />
-														</ItemActions>
-													</Item>
-												</Fragment>
-											))}
-										</ItemGroup>
-									</Ribbon>
-								</section>
-							</div>
-						</SectionBody>
-					</SectionRoot>
-				</ShellMain>
-			</SidebarInset>
-			<Toaster />
-		</SidebarProvider>
-	);
+                      <TabsContent value="archived">
+                        <div className="rounded-lg border border-border">
+                          <EmptyState
+                            action={
+                              <Button size="sm" variant="outline">
+                                Browse runs
+                              </Button>
+                            }
+                            description="Runs you archive are kept for 90 days and stay searchable from here."
+                            icon={<ArchiveIcon />}
+                            title="Nothing archived yet"
+                          />
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+
+                    {/* Ribbon gates the whole card: dimmed and `inert`, so the feature is
+                        visible but unusable. */}
+                    <Ribbon className="mt-6" disabled label="Coming soon">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-base">Scheduled runs</CardTitle>
+                          <CardDescription>Cadences you will set per pipeline.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="px-3">
+                          <ItemGroup className="gap-0">
+                            {SCHEDULES.map((schedule, index) => (
+                              <Fragment key={schedule.id}>
+                                {index > 0 && <ItemSeparator className="my-0" />}
+                                <Item>
+                                  <ItemMedia>
+                                    <CalendarClockIcon />
+                                  </ItemMedia>
+                                  <ItemContent>
+                                    <ItemTitle>{schedule.name}</ItemTitle>
+                                    <ItemDescription>
+                                      {schedule.cadence} ·{" "}
+                                      <code className="font-mono text-xs">{schedule.cron}</code>
+                                    </ItemDescription>
+                                  </ItemContent>
+                                  <ItemActions>
+                                    <Switch defaultChecked={index === 0} />
+                                  </ItemActions>
+                                </Item>
+                              </Fragment>
+                            ))}
+                          </ItemGroup>
+                        </CardContent>
+                      </Card>
+                    </Ribbon>
+                  </section>
+
+                  <div className="min-w-0 space-y-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Finish setting up</CardTitle>
+                        <CardDescription>Two steps left before the first schedule.</CardDescription>
+                        <CardAction>
+                          <Badge size="sm" variant="secondary">
+                            2/4
+                          </Badge>
+                        </CardAction>
+                      </CardHeader>
+                      <CardContent>
+                        <Steps count={SETUP.length} defaultStep={2} orientation="vertical">
+                          <StepsList>
+                            {SETUP.map((step, index) => (
+                              <StepsItem
+                                className="[&:not(:last-child)]:min-h-16"
+                                index={index}
+                                key={step.title}
+                              >
+                                <StepsTrigger>
+                                  <StepsIndicator>{index + 1}</StepsIndicator>
+                                  <span className="flex flex-col items-start gap-0.5">
+                                    <StepsTitle>{step.title}</StepsTitle>
+                                    <StepsDescription>{step.description}</StepsDescription>
+                                  </span>
+                                </StepsTrigger>
+                                <StepsSeparator />
+                              </StepsItem>
+                            ))}
+                          </StepsList>
+                        </Steps>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Recent activity</CardTitle>
+                        <CardAction>
+                          <Button size="sm" variant="ghost">
+                            View all
+                          </Button>
+                        </CardAction>
+                      </CardHeader>
+                      <CardContent className="px-3">
+                        <ItemGroup className="gap-0">
+                          {ACTIVITY.map((entry) => (
+                            <Item key={entry.id}>
+                              <ItemMedia>
+                                <Avatar>
+                                  <AvatarFallback>{entry.initials}</AvatarFallback>
+                                </Avatar>
+                              </ItemMedia>
+                              <ItemContent>
+                                <ItemTitle>{entry.who}</ItemTitle>
+                                <ItemDescription>
+                                  {entry.action}{" "}
+                                  <span className="font-medium text-foreground">{entry.target}</span>
+                                </ItemDescription>
+                              </ItemContent>
+                              <ItemActions>
+                                <span className="whitespace-nowrap text-muted-foreground text-xs">
+                                  {entry.when}
+                                </span>
+                              </ItemActions>
+                            </Item>
+                          ))}
+                        </ItemGroup>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              </SectionBody>
+            </SectionRoot>
+          </ShellMain>
+
+          <ShellFooter className="h-9 flex-row items-center gap-2 px-3 text-muted-foreground text-xs">
+            <Status size="sm" variant="success" />
+            All systems operational
+            <span className="ms-auto tabular-nums">v2.4.0</span>
+            <Separator className="h-3" orientation="vertical" />
+            <MadeWith href="#/about" />
+          </ShellFooter>
+        </SidebarInset>
+
+        <Toaster />
+      </SidebarProvider>
+
+      <TourContent>
+        <TourHeader className="pb-0">
+          <TourTitle />
+          <TourDescription />
+        </TourHeader>
+        <TourProgressText className="px-(--space)" />
+        <TourActions />
+      </TourContent>
+
+      {/* The library's own live-theming drawer, raised clear of the footer. */}
+      <Preferences hotkey="t" triggerClassName="bottom-12" />
+    </Tour>
+  );
 }
 
 export default AppShellShowcase;

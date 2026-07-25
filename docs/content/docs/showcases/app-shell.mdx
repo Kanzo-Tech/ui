@@ -1,35 +1,47 @@
 ---
 title: App shell
-description: A complete product dashboard — sidebar, switcher, nav, user menu, breadcrumbs, metric cards and a data table.
+description: The screen a product opens on — collapsing rail, header, KPI row, an actionable table and a rail of supporting cards.
 full: true
 ---
 
 <PreviewIframe name="app-shell" title="App shell showcase" className="h-[820px]" />
 
-Every level-2 composite in one screen, arranged the way a real product arranges them, and built
-on the Shell regions the docs preach: `ShellRoot` › `ShellBody` wrap a `SidebarProvider`, whose
-collapsing `Sidebar` (an `InstanceSwitcher` in its header, `SidebarNav` in its content,
-`SidebarUser` in its footer) sits beside a `ShellMain`. `ShellMain` holds a `ShellHeader` with
-the breadcrumbs above a `Section` of `MetricCard`s and a `DataTable`. The Shell regions place
-everything; the Sidebar family runs the collapse.
+A product's first screen, not a component catalogue: something that summarises state (four
+`StatTile`s), something actionable (the runs table, with selection driving an `ActionBar`) and
+something navigable (the rail: a `Steps` checklist, an activity list of `Item`s, and a
+`Ribbon`-gated preview of a feature that is not shipped yet).
 
-It exists because the pieces only prove themselves together. A `MetricCard` looks fine in a
-384px box; whether four of them sit correctly under a page header, next to a sidebar that
-collapses to icons, is a different question — and the one a consumer actually has.
+The layout is the shadcn model DESIGN.md calls canonical, and it is the whole reason a fixed rail
+and a full-width header are mutually exclusive: `SidebarProvider` is the viewport frame, and
+`ShellHeader` / `ShellMain` / `ShellFooter` live **inside** `SidebarInset`, to the inline end of
+the rail — never spanning it. `SidebarInset` carries no landmark; `ShellMain` owns the page's
+single `<main>`, and every block nested under it is a `<section>`.
 
-Worth exercising in the frame: collapse the sidebar with <kbd>⌘</kbd>+<kbd>B</kbd> and watch
-the switcher and user rows fall back to bare avatars, sort and filter the table, and open the
-account menu to see log out as an ordinary destructive `menuItems` entry rather than a
-built-in auth flow.
+It exists because the pieces only prove themselves together. A `StatTile` looks fine in a 384px
+box; whether four of them sit correctly under a page header, beside a table whose toolbar has to
+survive the rail collapsing to icons, is a different question — and the one a consumer has.
+
+Worth exercising in the frame:
+
+- <kbd>⌘</kbd>+<kbd>B</kbd> collapses the rail to icons; the switcher and user rows fall back to
+  bare avatars and the header does not shift under it.
+- <kbd>⌘</kbd>+<kbd>K</kbd> opens the `Command` palette; <kbd>T</kbd> opens the `Preferences`
+  drawer and re-themes the screen live.
+- Tick rows in the table — the `ActionBar` rises with the count. Facet-filter by status or
+  environment, hide columns from **View**, sort, page.
+- **Take the tour** runs a four-step `Tour` over the rail, the KPI row and the table toolbar.
 
 ## Source
 
 ```text
 docs/showcases/app-shell/
-├── default.tsx   — the screen
-└── data.tsx      — one fake tenant's instances, nav and connections
+├── default.tsx          — the screen
+├── runs-table.tsx       — the table, built from the /table parts (selection, facets, view options)
+├── command-palette.tsx  — the ⌘K palette behind the header's search button
+└── data.tsx             — one fake tenant's workspaces, nav, KPIs, runs and activity
 ```
 
-Imports come from two entry points: `@kanzo-tech/ui` for the shell and composites, and
-`@kanzo-tech/ui/table` for `DataTable` — a subpath, so the base bundle never carries TanStack
-Table for consumers who do not use it.
+Three entry points: `@kanzo-tech/ui` for the shell and composites, `@kanzo-tech/ui/table` for the
+data table (a subpath, so the base bundle never carries TanStack Table) and `@kanzo-tech/ui/charts`
+for `StatTile` — the one tile form that needs no Mosaic coordinator, which is why this screen
+carries no chart: four headline numbers are a KPI row, not a plot.

@@ -53,6 +53,7 @@ import {
 	MaximizeIcon,
 	MessageCircleIcon,
 	MinusIcon,
+	NetworkIcon,
 	PlayIcon,
 	PlusIcon,
 	SearchIcon,
@@ -86,20 +87,23 @@ import {
  *   SidebarProvider             app frame + collapse context (⌘B)
  *   ├─ Sidebar                  the app rail — workspace switcher / Platform nav / user
  *   └─ SidebarInset             neutral offset column; the content shell lives inside it
- *      ├─ ShellHeader           breadcrumb (Jobs › aemet.fossil › Discover) + ⌘B trigger
- *      ├─ ShellBody             Resizable: ShellMain graph  ⟷  docked ShellAside end panel
+ *      ├─ ShellHeader           breadcrumb (Jobs › aemet.fossil › Discover) + ⌘B + view switcher
+ *      ├─ ShellBody             Resizable: ShellMain view  ⟷  docked ShellAside inspector
  *      └─ ShellFooter           status bar: node/edge count at start, panel-tab icons at end
  *
- * The dock is drag-resizable: per DESIGN.md ("resizing is composed, not a prop") the canvas and the
- * aside are the two panels of a `Resizable` (our Ark Splitter wrapper), so the drag, keyboard resize
- * and ARIA all come from the machine. The Sidebar stays OUTSIDE the splitter. Panels (Info · Ask ·
- * Rules · Analysis · Settings) are switched IDE-style from the footer icon strip, not an in-panel
- * tab bar; collapsing the dock drops its panel + trigger and hands the canvas the full width. The
- * library ships the regions and the parts; the graph canvas is a placeholder (the design system has
- * no graph engine), but the **Analysis** panel is live — it renders real tokenized crossfilter
- * charts from the `@kanzo-tech/ui/charts` subpath, loaded client-only from `./analysis-charts` so the
- * DuckDB/vgplot stack never touches the RSC prerender. That split — placeholder graph, real charts —
- * is the point of a showcase: it shows exactly how far the library reaches.
+ * The dock is drag-resizable: per DESIGN.md ("resizing is composed, not a prop") the main region and
+ * the aside are the two panels of a `Resizable` (our Ark Splitter wrapper), so the drag, keyboard
+ * resize and ARIA all come from the machine. The Sidebar stays OUTSIDE the splitter.
+ *
+ * Two orthogonal switches, which is the IDE shape: the **header** picks what `ShellMain` shows
+ * (Graph · Analysis), the **footer strip** picks which inspector the dock holds (Info · Ask · Rules
+ * · Settings) and collapses it when you click the active icon again — a state Tabs cannot express.
+ *
+ * The library ships the regions and the parts; the graph canvas is a placeholder (the design system
+ * has no graph engine), but the **Analysis** view is live — a full crossfilter dashboard over a real
+ * DuckDB relation, built from the `@kanzo-tech/ui/charts` subpath and loaded client-only from
+ * `./analysis-charts` so the DuckDB/vgplot stack never touches the RSC prerender. That split —
+ * placeholder graph, real charts — is the point of a showcase: it shows how far the library reaches.
  */
 
 const KIND_FILL: Record<NodeKind, string> = {
@@ -316,23 +320,27 @@ function RulesTab() {
 }
 
 /**
- * The Analysis panel is the one live region: it renders REAL tokenized crossfilter charts from the
- * `@kanzo-tech/ui/charts` subpath, not faux bars. The whole panel (DuckDB boot, sample table,
- * `MosaicProvider` and the chart cards) lives in `./analysis-charts`, loaded client-only so the
- * Mosaic/vgplot/DuckDB module tree is NEVER evaluated during the RSC prerender — the boundary
- * `docs/examples/charts/example-default.tsx` documents. Importing `@kanzo-tech/ui/charts` at the top
- * of this file would evaluate vgplot during prerender (a TDZ), so it must stay behind `ssr: false`.
+ * The Analysis view is the one live region: a real crossfilter dashboard over a real DuckDB
+ * relation, built entirely from the `@kanzo-tech/ui/charts` subpath. It occupies `ShellMain` rather
+ * than the dock because a dashboard needs the width — a KPI row, six faceted panels and a table do
+ * not fit in a 320px inspector, and cramming them there would demonstrate the opposite of what the
+ * layer can do.
+ *
+ * It stays client-only: importing `@kanzo-tech/ui/charts` at the top of this file would evaluate
+ * vgplot during the RSC prerender (a TDZ), so it lives behind `ssr: false` — the boundary
+ * `docs/examples/charts/mosaic-demo.tsx` documents.
  */
-const AnalysisTab = dynamic(() => import("./analysis-charts"), {
+const AnalysisView = dynamic(() => import("./analysis-charts"), {
 	ssr: false,
 	loading: () => (
-		<ScrollArea className="h-full">
-			<div className="space-y-2 p-1.5">
-				{Array.from({ length: 6 }).map((_, i) => (
-					<Skeleton className="h-[7.5rem] w-full rounded-sm" key={i} />
+		<div className="space-y-4 p-4">
+			<Skeleton className="h-16 w-full rounded-lg" />
+			<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+				{Array.from({ length: 4 }).map((_, i) => (
+					<Skeleton className="h-24 w-full rounded-lg" key={i} />
 				))}
 			</div>
-		</ScrollArea>
+		</div>
 	),
 });
 
@@ -434,7 +442,6 @@ const PANELS = [
 	{ id: "info", label: "Info", icon: InfoIcon },
 	{ id: "ask", label: "Ask", icon: MessageCircleIcon },
 	{ id: "rules", label: "Rules", icon: ShieldCheckIcon },
-	{ id: "analysis", label: "Analysis", icon: BarChart3Icon },
 	{ id: "settings", label: "Settings", icon: Settings2Icon },
 ] as const;
 
@@ -444,9 +451,16 @@ const PANEL_BODY: Record<PanelId, React.ComponentType> = {
 	info: InfoTab,
 	ask: AskTab,
 	rules: RulesTab,
-	analysis: AnalysisTab,
 	settings: SettingsTab,
 };
+
+/** What `ShellMain` shows. The dock's panels are orthogonal to it — they inspect either one. */
+const VIEWS = [
+	{ id: "graph", label: "Graph", icon: NetworkIcon },
+	{ id: "analysis", label: "Analysis", icon: BarChart3Icon },
+] as const;
+
+type ViewId = (typeof VIEWS)[number]["id"];
 
 /** The graph region — one `<main>`, filling whichever box holds it (a splitter panel, or the whole
  *  body when the dock is collapsed). */
@@ -477,12 +491,23 @@ function DiscoveryCanvas() {
 	);
 }
 
+/** The analysis region — the other `<main>`; only ever one of the two is mounted. */
+function AnalysisRegion() {
+	return (
+		<ShellMain className="min-h-0 bg-background">
+			<AnalysisView />
+		</ShellMain>
+	);
+}
+
 export function WorkspaceShowcase() {
 	const [active, setActive] = useState<PanelId>("info");
 	const [panelOpen, setPanelOpen] = useState(true);
+	const [view, setView] = useState<ViewId>("graph");
 
 	const ActiveBody = PANEL_BODY[active];
 	const activeLabel = PANELS.find((p) => p.id === active)?.label ?? "";
+	const MainRegion = view === "graph" ? DiscoveryCanvas : AnalysisRegion;
 
 	return (
 		<SidebarProvider className="h-dvh min-h-0 overflow-hidden">
@@ -545,6 +570,29 @@ export function WorkspaceShowcase() {
 							{ label: "Discover" },
 						]}
 					/>
+					{/* Switching to Analysis closes the dock: a dashboard is judged at full width, and the
+					    inspector has nothing to inspect there. Reopen it from the footer strip. */}
+					<ToggleGroup
+						aria-label="View"
+						className="ms-auto"
+						multiple={false}
+						onValueChange={(d) => {
+							const next = d.value[0] as ViewId | undefined;
+							if (!next) return;
+							setView(next);
+							if (next === "analysis") setPanelOpen(false);
+						}}
+						size="sm"
+						spacing={2}
+						value={[view]}
+					>
+						{VIEWS.map((v) => (
+							<ToggleGroupItem key={v.id} value={v.id}>
+								<v.icon />
+								{v.label}
+							</ToggleGroupItem>
+						))}
+					</ToggleGroup>
 				</ShellHeader>
 
 				<ShellBody className="min-w-0">
@@ -561,7 +609,7 @@ export function WorkspaceShowcase() {
 								className="relative min-w-0 overflow-hidden"
 								id="canvas"
 							>
-								<DiscoveryCanvas />
+								<MainRegion />
 							</ResizablePanel>
 							<ResizableResizeTrigger id="canvas:dock" withHandle />
 							<ResizablePanel
@@ -600,7 +648,7 @@ export function WorkspaceShowcase() {
 							</ResizablePanel>
 						</Resizable>
 					) : (
-						<DiscoveryCanvas />
+						<MainRegion />
 					)}
 				</ShellBody>
 

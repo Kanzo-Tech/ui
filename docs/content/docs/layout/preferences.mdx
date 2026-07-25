@@ -41,7 +41,6 @@ without being asked.
 Preferences.Root
 ├── Preferences.Trigger
 └── Preferences.Panel
-    ├── Preferences.Appearance
     ├── Preferences.Accent
     ├── Preferences.Base
     ├── Preferences.Radius
@@ -106,8 +105,7 @@ product `Sidebar side` control sits above the theme sections. This is the move t
       </SegmentGroup>
     </PreferencesField>
 
-    {/* the library's theme axes, flat, below the product's */}
-    <PreferencesAppearance />
+    {/* the library's theme axes, flat, below the product's (appearance lives in the header) */}
     <PreferencesAccent />
     <PreferencesRadius />
     <PreferencesDensity />
@@ -124,7 +122,6 @@ colour tints the neutral ramp toward it.
 
 ```tsx
 <div className="flex w-80 flex-col gap-6">
-  <PreferencesAppearance />
   <PreferencesAccent />
   <PreferencesBase />
   <PreferencesRadius />
