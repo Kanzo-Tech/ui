@@ -1,14 +1,74 @@
 ---
 title: Avatar
-description: A user or entity image with a text fallback.
+description: A user or entity image with a text fallback, a presence badge, and a stacked group.
 links:
   doc: https://ark-ui.com/docs/data-display/avatar
 ---
 
 <ComponentPreview componentName="avatar" />
 
+An avatar is the one component that is **defined by its failure case**. The image is the happy
+path, and it is the path you will see least: it 404s, the user never set one, the entity is a
+dataset rather than a person. So the fallback is not really a fallback here — it is the
+component, and the image is an enhancement layered on top.
+
 ## Usage
 
 ```tsx
 import { Avatar, AvatarFallback, AvatarImage } from "@kanzo-tech/ui";
+
+<Avatar>
+  <AvatarImage src={user.avatarUrl} alt="" />
+  <AvatarFallback>ÁI</AvatarFallback>
+</Avatar>;
 ```
+
+Ark owns the swap: `AvatarFallback` shows until `AvatarImage` reports a successful load, so
+there is no flash of empty circle and no `onError` handler for you to write. Render both
+unconditionally — writing `{url ? <AvatarImage /> : <AvatarFallback />}` yourself re-introduces
+exactly the broken-image state the component exists to absorb.
+
+<Callout type="info">
+Leave `alt` empty. The avatar sits next to the name it belongs to in every layout that matters,
+and a filled `alt` makes a screen reader announce that name twice.
+</Callout>
+
+## Anatomy
+
+| Part | What it is |
+| --- | --- |
+| `Avatar` | The root. Owns the size and the circular clip. |
+| `AvatarImage` | The image. Hidden until it loads. |
+| `AvatarFallback` | Shown until then — initials, or an icon for a non-person. |
+| `AvatarBadge` | A presence dot pinned to the corner. |
+| `AvatarGroup` | Overlaps several avatars into one stack. |
+| `AvatarGroupCount` | The `+n` chip that ends an overflowing stack. |
+
+## Sizes
+
+<ComponentPreview componentName="avatar" fileName="example-sizes" />
+
+Three sizes, and deliberately no more: `sm` for a dense table row, `md` inline with body text,
+`lg` for a header or a card. An avatar is a fixed-size affordance inside a layout someone else
+owns, so an open-ended scale would only produce sizes that line up with nothing.
+
+## Presence
+
+<ComponentPreview componentName="avatar" fileName="example-badge" />
+
+`AvatarBadge` **is** [`Status`](/docs/data-display/status) — the same component, positioned and
+re-sized by the avatar's own size. That matters more than it looks: presence is a status, so the
+dot in the corner of an avatar and the dot beside a connection label read from one set of tokens
+and can never drift to two different greens.
+
+The badge is `aria-hidden`. Colour alone cannot carry meaning, so the state it shows must also
+be available as text somewhere the reader can reach.
+
+## Groups
+
+<ComponentPreview componentName="avatar" fileName="example-group" />
+
+`AvatarGroup` overlaps its children and rings each one in the background colour, so the stack
+stays legible against any surface. Cap the list yourself and close it with `AvatarGroupCount` —
+the component does not truncate, because how many fit is a question about your layout, not about
+the avatar.

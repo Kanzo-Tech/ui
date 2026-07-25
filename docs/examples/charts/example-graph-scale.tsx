@@ -14,7 +14,6 @@ import {
   bin,
   categoricalColor,
   count,
-  useCrossfilter,
   type ChartConfig,
 } from "@kanzo-tech/ui/analytics";
 import { GraphDemo } from "./graph-demo";
@@ -73,42 +72,48 @@ interface Measurement {
 }
 
 function Bench({ prefix, stats }: { prefix: string; stats: GraphStats | null }) {
-  const crossfilter = useCrossfilter();
   const host = useRef<HTMLDivElement | null>(null);
   const [measured, setMeasured] = useState<Measurement | null>(null);
 
+  // "Settled", not "first mutation": vgplot rebuilds the plot in bursts, so the honest number is
+  // the last DOM write of a burst — measured from the gesture that caused it.
   useEffect(() => {
     const node = host.current;
     if (!node) return;
     const mounted = performance.now();
-    let dirtiedAt: number | null = null;
+    let gestureAt: number | null = null;
+    let lastAt = 0;
+    let settle: number | undefined;
 
-    const measure = () => {
+    const snap = () => {
       const svg = node.querySelector("svg");
       if (!svg) return;
       const elements = svg.querySelectorAll("*").length;
       if (elements < 8) return;
       setMeasured((prev) => ({
         elements,
-        firstPaintMs: prev?.firstPaintMs ?? Math.round(performance.now() - mounted),
-        filterMs: dirtiedAt === null ? (prev?.filterMs ?? null) : Math.round(performance.now() - dirtiedAt),
+        firstPaintMs: prev?.firstPaintMs ?? Math.round(lastAt - mounted),
+        filterMs: gestureAt === null ? (prev?.filterMs ?? null) : Math.round(lastAt - gestureAt),
       }));
-      dirtiedAt = null;
     };
 
-    const observer = new MutationObserver(() => queueMicrotask(measure));
+    const observer = new MutationObserver(() => {
+      lastAt = performance.now();
+      clearTimeout(settle);
+      settle = window.setTimeout(snap, 250);
+    });
     observer.observe(node, { childList: true, subtree: true });
-    const onChange = () => {
-      dirtiedAt ??= performance.now();
+    const onUp = () => {
+      gestureAt = performance.now();
     };
-    crossfilter.addEventListener("value", onChange);
-    measure();
+    window.addEventListener("pointerup", onUp, true);
 
     return () => {
       observer.disconnect();
-      crossfilter.removeEventListener("value", onChange);
+      clearTimeout(settle);
+      window.removeEventListener("pointerup", onUp, true);
     };
-  }, [crossfilter]);
+  }, []);
 
   return (
     <div className="flex w-full flex-col gap-4">

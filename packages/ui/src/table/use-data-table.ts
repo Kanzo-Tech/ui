@@ -26,7 +26,9 @@ import { type Dispatch, type SetStateAction, useState } from "react";
 // column whose `header` is a component (a `sortableHeader`), so `DataTableViewOptions` can list it
 // as something other than its raw id.
 declare module "@tanstack/react-table" {
-  // biome-ignore lint/correctness/noUnusedVariables: the two params are the interface's own shape.
+  // The two parameters are TanStack's own signature; an augmentation has to repeat it verbatim
+  // even though this field uses neither.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface ColumnMeta<TData extends RowData, TValue> {
     label?: string;
   }

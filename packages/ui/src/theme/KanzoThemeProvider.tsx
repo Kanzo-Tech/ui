@@ -186,7 +186,13 @@ export function KanzoThemeProvider({
     return stored ? { ...base, ...stored } : base;
   });
 
-  const prefs: ThemePrefs = controlled ? { ...DEFAULT_PREFS, ...defaults, ...value } : internal;
+  // Memoised because it feeds both `set` and the context value: an unstable `prefs` re-renders
+  // every consumer of the theme on every render of the provider. Stable as far as the caller lets
+  // it be — pass `value` / `defaults` as literals and they churn on your side, not ours.
+  const prefs: ThemePrefs = React.useMemo(
+    () => (controlled ? { ...DEFAULT_PREFS, ...defaults, ...value } : internal),
+    [controlled, defaults, value, internal],
+  );
 
   const set = React.useCallback(
     (patch: Partial<ThemePrefs>) => {
@@ -216,6 +222,10 @@ export function KanzoThemeProvider({
       if (v == null || v === def) el.removeAttribute(attr);
       else el.setAttribute(attr, String(v));
     }
+    // Deps are the individual fields on purpose, not `prefs`: in controlled mode `prefs` is a
+    // fresh literal every render, so depending on the object would re-apply every attribute on
+    // every render. exhaustive-deps cannot see through the member access and asks for the object.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefs.base, prefs.accent, prefs.radius, prefs.font, prefs.monoFont, prefs.density, prefs.baseTint]);
 
   // Custom primary colour: override the accent preset via inline vars on <html> (foreground
