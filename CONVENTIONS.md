@@ -89,6 +89,17 @@ lint rule to enforce it.)
 - **`data-slot` on every targetable part.** Every element a consumer might style or query carries `data-slot="<component>-<part>"`. It is not decoration: our own recipes depend on it (`in-[[data-slot=popover-content]:has([data-slot=popover-body])]:pb-3`), and it is the escape hatch consumers get instead of class-name guessing.
 - **Exactly one `<main>` per page.** `ShellMain` / `SidebarInset` own it. Every nestable container (`PageShell`) uses `<section>` — two `<main>` elements are an HTML conformance error and make "skip to main content" ambiguous.
 - **File naming: kebab-case** (`alert-dialog.tsx`, `scroll-area.tsx`), matching Shark. Some older files are PascalCase; new files are kebab-case and the rest converge over time. Never rely on case-insensitive resolution — CI is case-sensitive even though macOS is not.
+- **Export naming: flat, never dot-notation.** Ark publishes namespaced parts (`Accordion.Root`,
+  `Dialog.Trigger`); we flatten them the way Shark does, so the barrel stays flat and a part is
+  greppable by its full name. The root part is named by what it wraps:
+  - **Wrapping an Ark machine → the bare name.** `Accordion`, `Field`, `Pagination`, `Table`,
+    `InputGroup` — the machine *is* the component, so `AccordionRoot` would only add noise. Parts
+    are base + part: `AccordionItem`, `FieldLabel`, `PaginationItem`.
+  - **Our own compound → `*Root`.** `ShellRoot`, `SectionRoot`, `CompleteRoot`, `SuggestRoot`,
+    `ChartRoot`, `DataTableRoot` — the bare name would name a *concept* rather than an element,
+    and several of them have no single machine behind them.
+  A component may only export dot-notation if it also exports the flat names; no component does
+  today, and adding one would make the library speak two dialects.
 
 ## Client boundary
 

@@ -63,6 +63,31 @@ that positions, holding content the caller chose.
 The public barrel is **flat**, so moving between layers never breaks a consumer. That is what
 makes taxonomy mistakes cheap to fix, and why they should be fixed rather than lived with.
 
+### The engine rule
+
+Discovered by noticing we had built it twice without naming it:
+
+> **A component that needs an engine is the presentational one plus the engine — two components,
+> not one. The presentational half lives in the root barrel; the connected half lives on the
+> engine's subpath and renders the first.**
+
+| Presentational (root) | Connected (subpath) | Engine |
+|---|---|---|
+| `Table` — semantic markup, tokenised chrome, no data layer | `DataTable` — sorting, filtering, pagination | TanStack Table (`/table`) |
+| `StatTile` — label, figure, delta, sparkline; takes a number | `ChartStat` — queries a relation, reacts to the crossfilter | Mosaic (`/analytics`) |
+
+**Why it is two and not one.** A subpath entry statically re-exports its engine, so *any* import
+from it resolves an optional peer. Put the presentational half there and showing a number from a
+REST call would require installing DuckDB-WASM. The split is what keeps the common case free.
+
+**Why it is not duplication.** The connected half *renders* the presentational one — the same
+relationship as `TextField` → `input` in the naming rule below. If you find yourself reimplementing
+the markup on the subpath, you have built two components instead of one and a half.
+
+The corollary is a placement test, and `StatTile` failed it for a while by living under `/charts`
+without importing a single line of Mosaic: **a part belongs on a subpath only if it imports that
+subpath's engine.** Thematic neighbourhood is not a reason.
+
 ### The naming rule
 
 Discovered while writing the forms guide, and it explains half the library:
@@ -218,14 +243,16 @@ direction, a Field context — and for composite reuse. Not for "this input has 
 is a prop (`complete` / `suggest`), and the UIs differ, so a provider would unify nothing.
 Everyone but Ant composes card-radios; our monolithic `CardRadioGroup` is the outlier to unwind.
 
-**`AiAssist` is the rung-4 exception, deliberately kept thin.** `complete` / `suggest` stay
-props on `Field`; the provider exists only to *decouple* the capability from `Field` so a bare
-`Input`, `Textarea`, or `Combobox` can opt in via `useAiFieldOptional()` instead of the AI being
-imprisoned in Field's tree. It is **pure context over the two existing hooks** (`useCompletion` +
-`useSuggestions`) — no state machine, no policy, no value ownership — and surfaces contribute only
-the surface-specific ghost *rendering* (`Input`/`Textarea` mirror overlays, `FieldSuggest`'s
-menu). With one consumer (metadata-form) that is all it should be: **gate any expansion —
-per-surface config, a completion cache, richer routing — on a real second consumer.**
+**AI-assist is two composed compounds, not props on the core.** A `complete` prop on `Input` /
+`Textarea` reads cheap on this ladder, but it welds the model into the primitive — the core stops
+being Shark-verbatim and imports the engine. So AI-assist composes *over* the pure inputs instead:
+**`Complete`** (`CompleteRoot` owns the value + `useCompletion`; `CompleteInput` / `CompleteTextarea`
+delegate to the bare primitive via `asChild`; `CompleteGhost` / `CompleteHint` render the preview)
+and **`Suggest`** (`Root`/`Trigger`/`Content`/`Item`, a ✨ candidate popover over `useSuggestions`).
+The primitives stay bare; the engine stays in the two headless hooks, exposed for custom surfaces.
+That is rungs 3–4 of the ladder, not rung 1 — the extra rung buys core purity. There is **no
+`AiAssist` provider, no field context**: a provider would only earn its place to unify state across
+consumers, and there is nothing to unify. **Gate any shared AI state on a real second consumer.**
 
 ---
 
