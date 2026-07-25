@@ -1,5 +1,7 @@
 "use client";
 
+import { StatTile } from "@kanzo-tech/ui";
+
 import { useEffect, useState } from "react";
 import {
   ChartAreaY,
@@ -16,7 +18,6 @@ import {
   ChartSlider,
   ChartToggleY,
   DashboardGrid,
-  StatTile,
   type ChartConfig,
   bin,
   count,

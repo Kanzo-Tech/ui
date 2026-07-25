@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { makeClient } from "@uwdata/mosaic-core";
 import { loadCSV, Query } from "@uwdata/mosaic-sql";
-import { Button, ScrollArea, Skeleton } from "@kanzo-tech/ui";
+import { Button, ScrollArea, Skeleton, StatTile } from "@kanzo-tech/ui";
 import {
   avg,
   ChartAreaY,
@@ -30,7 +30,6 @@ import {
   DashboardGrid,
   MosaicProvider,
   Selection,
-  StatTile,
   count,
   sql,
   sum,

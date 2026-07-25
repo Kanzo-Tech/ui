@@ -74,8 +74,14 @@ export type {
 export { ChartLegend, ChartColorLegend } from "./charts/chart-legend.js";
 export type { ChartLegendProps, ChartColorLegendProps } from "./charts/chart-legend.js";
 
-export { StatTile } from "./charts/stat-tile.js";
-export type { StatTileProps, StatTileDelta } from "./charts/stat-tile.js";
+// The connected half of the tile pair: `StatTile` (root barrel) takes a number, this one queries
+// for it under the crossfilter. See "the engine rule" in DESIGN.md.
+export { ChartStat } from "./charts/chart-stat.js";
+export type { ChartStatProps } from "./charts/chart-stat.js";
+
+// For anything that is not a plot but must still follow the brush — a KPI, a readout, a table.
+export { useChartQuery, Query } from "./charts/use-chart-query.js";
+export type { ChartQueryOptions, ChartQueryResult, ChartQueryRow } from "./charts/use-chart-query.js";
 export { ChartCard } from "./charts/chart-card.js";
 export type { ChartCardProps } from "./charts/chart-card.js";
 export { DashboardGrid } from "./charts/dashboard-grid.js";

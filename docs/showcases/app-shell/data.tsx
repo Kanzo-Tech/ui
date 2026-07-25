@@ -8,8 +8,7 @@ import {
   SettingsIcon,
   ShieldCheckIcon,
 } from "lucide-react";
-import type { Instance, SidebarNavItem } from "@kanzo-tech/ui";
-import type { StatTileProps } from "@kanzo-tech/ui/charts";
+import type { Instance, SidebarNavItem, StatTileProps } from "@kanzo-tech/ui";
 
 /** One fake tenant's worth of data, so the screen reads as a product rather than a catalogue. */
 

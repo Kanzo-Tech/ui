@@ -50,6 +50,7 @@ import {
   SidebarTrigger,
   SidebarUser,
   Status,
+  StatTile,
   Steps,
   StepsDescription,
   StepsIndicator,
@@ -75,7 +76,7 @@ import {
   TourTrigger,
   toast,
 } from "@kanzo-tech/ui";
-import { StatTile } from "@kanzo-tech/ui/charts";
+
 import {
   ArchiveIcon,
   BellIcon,
