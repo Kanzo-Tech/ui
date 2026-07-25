@@ -1,0 +1,596 @@
+---
+title: TanStack Form
+description: Wiring TanStack Form and zod to Field — the setup, the validation modes, and the exact call for every control in the library.
+---
+
+The library ships no form state and no validation. [Validation](/docs/forms/validation) explains
+why: the library owns error *presentation*, your product owns error *production*. This page is
+the other half of that decision — what "your product" actually looks like when the engine is
+[TanStack Form](https://tanstack.com/form) and the schema is [zod](https://zod.dev).
+
+Nothing here is a wrapper we ship. It is all code you write once and copy.
+
+<Callout type="info">
+Both are dependencies of **your app**, not of `@kanzo-tech/ui`. The library never imports either,
+which is what lets the same `Field` sit on a plain `useState`, on TanStack Form, or on a SHACL
+engine.
+</Callout>
+
+## Demo
+
+Two fields, a schema, and a submit. Nothing is red until you try to save; after that, errors
+follow you as you type.
+
+<ComponentPreview componentName="form/tanstack" fileName="example-demo" hasMaxHeight={false} showBorders={false} />
+
+## Approach
+
+- **TanStack Form owns the values.** `useForm` for the form, `form.Field` for each value.
+- **zod owns the rules.** The schema goes straight into `validators` — TanStack speaks
+  [Standard Schema](https://standardschema.dev), and so does zod 4, so there is no adapter.
+- **`Field` owns the chrome.** Label, description, error text, and every `id` /
+  `aria-describedby` / `aria-invalid` between them.
+- **You own three lines of wiring per field**, and this page is mostly about what those three
+  lines are for each control.
+
+## Anatomy
+
+```tsx
+<form.Field name="name">
+  {(field) => (
+    <Field invalid={!field.state.meta.isValid}>
+      <FieldLabel>Dataset name</FieldLabel>
+      <Input
+        name={field.name}
+        onBlur={field.handleBlur}
+        onChange={(event) => field.handleChange(event.target.value)}
+        value={field.state.value}
+      />
+      <FieldError>
+        {field.state.meta.errors.map((issue) => issue?.message).join(", ")}
+      </FieldError>
+    </Field>
+  )}
+</form.Field>
+```
+
+Five things connect the two systems, and they are the same five every time:
+
+| From TanStack | To the library |
+|---|---|
+| `field.state.value` | the control's value prop |
+| `field.handleChange` | the control's change handler |
+| `field.handleBlur` | the control's blur, where it has one |
+| `!field.state.meta.isValid` | `invalid` on the **`Field` root** |
+| `field.state.meta.errors` | the children of `FieldError` |
+
+`field.state.meta.errors` is an array of Standard Schema issues — `{ message, path }` — so the
+message is `issue.message`. It is an array because a field can fail several rules at once.
+
+## Building the form
+
+<Steps>
+
+<Step>
+
+### Write the schema
+
+zod 4, not 3. The differences that bite when you copy an older snippet:
+
+- `z.string().email()` is deprecated — it is `z.email()` now. Same for `z.url()`, `z.uuid()`.
+- Custom messages go in `{ error: "…" }`. `{ message: "…" }` still works in most places, but
+  `error` is the one that works everywhere, including `z.enum` and `z.literal`.
+- `.min(5, "…")` and friends are unchanged.
+
+```tsx title="form.tsx"
+import * as z from "zod";
+
+const schema = z.object({
+  name: z
+    .string()
+    .min(3, "Give the dataset a name of at least 3 characters.")
+    .max(48, "Keep the name under 48 characters."),
+  summary: z.string().min(20, "Describe the dataset in at least 20 characters."),
+});
+```
+
+</Step>
+
+<Step>
+
+### Create the form
+
+`defaultValues` is what gives you end-to-end type inference: every `name` you pass to
+`form.Field` is checked against it, and so is every `handleChange`.
+
+```tsx title="form.tsx"
+import { revalidateLogic, useForm } from "@tanstack/react-form";
+
+const form = useForm({
+  defaultValues: { name: "", summary: "" },
+  validationLogic: revalidateLogic(),
+  validators: { onDynamic: schema },
+  onSubmit: ({ value }) => save(value),
+});
+```
+
+</Step>
+
+<Step>
+
+### Submit through the form
+
+`preventDefault` stops the browser navigating; `stopPropagation` keeps a nested form from
+submitting its parent. `noValidate` turns off the browser's own bubbles so your messages are the
+only ones on screen.
+
+```tsx title="form.tsx"
+<form
+  noValidate
+  onSubmit={(event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    form.handleSubmit();
+  }}
+>
+  {/* fields */}
+</form>
+```
+
+</Step>
+
+<Step>
+
+### Build the fields
+
+One `form.Field` per value, one `Field` inside it. That is the whole shape — see the demo source
+above.
+
+</Step>
+
+</Steps>
+
+## Validation
+
+### The schema is the validator
+
+There is no adapter and no `zodValidator` import. Pass the schema, and TanStack calls it through
+Standard Schema:
+
+```tsx
+const form = useForm({
+  defaultValues: { name: "", summary: "" },
+  validators: { onDynamic: schema },
+});
+```
+
+### When errors appear
+
+This is the decision that makes a form feel considerate or hostile, and it is the one
+[Validation](/docs/forms/validation) says the library refuses to make for you. TanStack has two
+ways to make it.
+
+The plain one is to name the moment on the validator:
+
+| Key | Runs |
+|---|---|
+| `onChange` | on every keystroke |
+| `onBlur` | when the field is left |
+| `onSubmit` | when the form is submitted |
+
+`onChange` alone means the form opens covered in red. `onSubmit` alone means the user fixes one
+error, submits, and discovers the next. Neither is what you want.
+
+The better one is `revalidateLogic`, which changes mode once the user has tried to submit:
+
+```tsx
+import { revalidateLogic } from "@tanstack/react-form";
+
+const form = useForm({
+  validationLogic: revalidateLogic(),   // before submit: nothing. after: on change.
+  validators: { onDynamic: schema },
+});
+```
+
+`revalidateLogic()` defaults to `{ mode: "submit", modeAfterSubmission: "change" }` and reads the
+`onDynamic` validator instead of the named ones. It is the behaviour every example on this page
+uses, and it is what our own guidance — *hold errors back until the user has interacted, then
+drop the gate on submit* — looks like when the form library implements it for you.
+
+<Callout type="info">
+If you would rather gate by hand, `field.state.meta` also carries `isTouched`, `isBlurred`,
+`isDirty` and `isPristine`, so `invalid={field.state.meta.isBlurred && !field.state.meta.isValid}`
+is available. Reach for it when one field needs different timing from the rest — not as the
+default.
+</Callout>
+
+## Displaying errors
+
+The three rules from [Validation](/docs/forms/validation) do not change because a form library
+arrived. They are just easier to break now, because the error is a value with a shape:
+
+1. **`invalid` goes on the `Field` root**, never on the control. One prop colours the label,
+   tints the control, reveals the error and sets `aria-invalid`.
+2. **Leave `FieldError` in the tree unconditionally.** It renders only while the field is
+   invalid. `{!field.state.meta.isValid && <FieldError>…</FieldError>}` adds nothing and creates
+   the failure mode where a field is invalid with nothing on screen.
+3. **Never write `htmlFor` or `id`.** `Field` generates them and hands them to the control
+   through context. `name={field.name}` is worth passing — for form autofill and for a native
+   submit fallback — but it is not what associates the label.
+
+```tsx
+<Field invalid={!field.state.meta.isValid} required>
+  <FieldLabel>
+    Dataset name
+    <FieldRequiredIndicator />
+  </FieldLabel>
+  <Input
+    name={field.name}
+    onBlur={field.handleBlur}
+    onChange={(event) => field.handleChange(event.target.value)}
+    value={field.state.value}
+  />
+  <FieldError>
+    {field.state.meta.errors.map((issue) => issue?.message).join(", ")}
+  </FieldError>
+</Field>
+```
+
+For an error that belongs to the whole form — a rejected request, a conflict — use an `Alert`
+above the actions, not a `FieldError`. The complex example below does this.
+
+## Wiring each control
+
+Here is where the real work is. Most controls in this library are Ark UI machines, and a machine
+does **not** emit a DOM event: it calls `onValueChange` with a **details object**. So
+`event.target.value` is wrong for all but four of them, and the shape of `details` differs per
+control.
+
+The table is the reference; the examples below are the copies.
+
+| Control | Value prop | Handler | The handler receives |
+|---|---|---|---|
+| `Input` | `value: string` | `onChange` | a DOM event → `event.target.value` |
+| `Textarea` | `value: string` | `onChange` | a DOM event → `event.target.value` |
+| `NativeSelect` | `value: string` | `onChange` | a DOM event → `event.target.value` |
+| `Select` | `value: string[]` | `onValueChange` | `{ value: string[], items }` |
+| `Combobox` | `value: string[]` | `onValueChange` | `{ value: string[], items }` |
+| `Checkbox` | `checked: boolean \| "indeterminate"` | `onCheckedChange` | `{ checked }` |
+| `CheckboxGroup` | `value: string[]` | `onValueChange` | **a bare `string[]`** |
+| `RadioGroup` | `value: string` | `onValueChange` | `{ value: string \| null }` |
+| `CardRadioGroup` | `value: string` | `onValueChange` | **a bare `string`** |
+| `Switch` | `checked: boolean` | `onCheckedChange` | `{ checked }` |
+| `NumberInput` | `value: string` | `onValueChange` | `{ value: string, valueAsNumber: number }` |
+| `Slider` | `value: number[]` | `onValueChange` | `{ value: number[] }` |
+| `DatePicker` | `value: DateValue[]` | `onValueChange` | `{ value: DateValue[], valueAsString: string[] }` |
+| `DateField` | `value: string \| null` | **`onChange`** | **a bare `string \| null`** |
+| `PinInput` | `value: string[]` | `onValueChange` | `{ value: string[], valueAsString: string }` |
+| `Rating` | `value: number` | `onValueChange` | `{ value: number }` |
+| `TagsInput` | `value: string[]` | `onValueChange` | `{ value: string[] }` |
+| `FileUpload` | `acceptedFiles: File[]` | **`onFileChange`** | `{ acceptedFiles, rejectedFiles }` |
+| `ColorPicker` | `value: string` | `onValueChange` | `{ value: Color, valueAsString: string }` |
+
+<Callout type="warn">
+**The exceptions to "everything reads `Field`".** Most Ark machines pull `invalid`, `disabled`,
+`readOnly`, `required` and the label id out of `Field`'s context, which is why `invalid` on the
+root is enough — `Input`, `Textarea`, `NativeSelect`, `Select`, `Combobox`, `Checkbox`, `Switch`,
+`NumberInput`, `PinInput`, `Rating`, `TagsInput`, `FileUpload` and `ColorPicker` all do.
+
+`RadioGroup`, `Slider` and the date controls (`DatePicker`, and `DateField` which wraps it) **do
+not**. For those, pass `invalid` to the control as well as to the `Field`; it is the one place the
+house rule needs a second line, and it is a gap in Ark, not a choice of ours.
+</Callout>
+
+### Input
+
+The straightforward case, and the one you will write most: a real `<input>`, so a real DOM event.
+
+<ComponentPreview componentName="form/tanstack" fileName="example-input" hasMaxHeight={false} showBorders={false} />
+
+### Textarea
+
+Identical to `Input`. Both are Ark `Field` parts, so they inherit their `id`, `aria-describedby`
+and `aria-invalid` from the `Field` root with no props from you.
+
+<ComponentPreview componentName="form/tanstack" fileName="example-textarea" hasMaxHeight={false} showBorders={false} />
+
+### NativeSelect
+
+Also a real element — a `<select>` — so also `event.target.value`. Keep `""` as the placeholder
+option's value and let the schema reject it; `z.enum` gives the message.
+
+<ComponentPreview componentName="form/tanstack" fileName="example-native-select" hasMaxHeight={false} showBorders={false} />
+
+### Select
+
+The first machine, and the first surprise: `Select` holds an **array** even when it is
+single-select, because the same machine backs `multiple`. Unwrap on the way in and wrap on the
+way out.
+
+It also has no blur to hook: the listbox is a portal, so focus never leaves the way it does on an
+input. Close is the equivalent moment, which is what `onOpenChange` gives you.
+
+<ComponentPreview componentName="form/tanstack" fileName="example-select" hasMaxHeight={false} showBorders={false} />
+
+### Combobox
+
+Same array-shaped value as `Select`, plus `onInputValueChange` for the filter — which is *not*
+the form value and must not be wired to `handleChange`. The example is multi-select, so the
+form value and the control value are the same `string[]` with no unwrapping at all.
+
+`ComboboxInput` is a real input, so `onBlur={field.handleBlur}` works here.
+
+<ComponentPreview componentName="form/tanstack" fileName="example-combobox" hasMaxHeight={false} showBorders={false} />
+
+### Checkbox
+
+`onCheckedChange` gives `{ checked }`, and `checked` is `boolean | "indeterminate"` — hence
+`details.checked === true` rather than a bare cast. For a "must accept" box, `z.literal(true)`
+says exactly that.
+
+`CheckboxGroup` is the odd one out of the whole library: its callback takes the **value itself**,
+not a details object. Every other Ark control on this page takes an object.
+
+The group's items each get their own `Field orientation="horizontal"` so each checkbox is bound to
+its own label; the outer `Field` carries the group's `invalid` and its `FieldError`.
+
+<ComponentPreview componentName="form/tanstack" fileName="example-checkbox" hasMaxHeight={false} showBorders={false} />
+
+### RadioGroup
+
+`details.value` is `string | null`, so `?? ""` keeps the form value a string.
+
+This is one of the two machines that ignore `Field` context, so `invalid` is passed twice — once
+to the `Field` for the error text, once to the `RadioGroup` for the control's own colour. Use
+`RadioGroupLabel` rather than `FieldLabel` for the group heading: the machine owns the association
+between the group and its name, and `FieldLabel` would point its `htmlFor` at a control that is
+not there.
+
+<ComponentPreview componentName="form/tanstack" fileName="example-radio-group" hasMaxHeight={false} showBorders={false} />
+
+### CardRadioGroup
+
+Ours, not Ark's — the `options` sugar over `RadioGroupCard`. Because it is ours, the callback is a
+plain string, so `onValueChange={field.handleChange}` is the entire wiring. It takes `invalid`
+directly, and `FieldLegend` inside a `FieldSet` gives the group its heading.
+
+<ComponentPreview componentName="form/tanstack" fileName="example-card-radio-group" hasMaxHeight={false} showBorders={false} />
+
+### Switch
+
+`{ checked }`, always a boolean — no indeterminate state. Note the layout idiom rather than the
+wiring: a horizontal `Field` with the label, description and error inside `FieldContent`, and the
+switch as the last child.
+
+<ComponentPreview componentName="form/tanstack" fileName="example-switch" hasMaxHeight={false} showBorders={false} />
+
+### NumberInput
+
+**The machine's value is a `string`.** `details.valueAsNumber` exists, but it is `NaN` while the
+input is empty, and pushing `NaN` back through `String()` puts the text `"NaN"` in the box. So
+keep the form value a string and let the schema convert.
+
+Start that conversion at `z.string()` and `.pipe()` into the number rules —
+`z.coerce.number()` has an input type of `unknown`, which does not match the form's shape and will
+not typecheck. `schema.parse(value)` in `onSubmit` gives you the typed payload.
+
+`onBlur` goes on `NumberInputInput`, not on the root.
+
+<ComponentPreview componentName="form/tanstack" fileName="example-number-input" hasMaxHeight={false} showBorders={false} />
+
+### Slider
+
+The value is a `number[]` — one entry per thumb — even for a single-value slider. There is no
+blur; `onValueChangeEnd` fires when the drag finishes, which is the equivalent.
+
+The second control that ignores `Field` context, and the one where that matters least: `Slider`
+has no invalid styling of its own, so the only signals are the label colour and the `FieldError`.
+Put anything the user has to read in the error, not in the track.
+
+<ComponentPreview componentName="form/tanstack" fileName="example-slider" hasMaxHeight={false} showBorders={false} />
+
+### DateField
+
+`DateField` is ours, and its whole reason to exist is this: a plain ISO string (`YYYY-MM-DD`, or
+`YYYY-MM-DDTHH:mm` with `withTime`) on the outside, `onChange` rather than `onValueChange`, and no
+date objects anywhere in your form state.
+
+<ComponentPreview componentName="form/tanstack" fileName="example-date-field" hasMaxHeight={false} showBorders={false} />
+
+<Callout type="warn">
+**Use `DateField`, not the `DatePicker` compound, for a form value.** `DatePicker` is Ark's
+machine, and its `value` is a `DateValue[]` — objects you can only build with `parseDate` from
+`@internationalized/date`, which the library does not re-export. Driving it from a form means
+adding that package to your app and converting in both directions on every change. Reach for the
+compound when you need to rearrange its parts, and lift the value with `DateField` when you need
+it in a form.
+</Callout>
+
+### PinInput
+
+One string per cell, so the value is a `string[]`. `details.valueAsString` is the joined form if
+you would rather keep a single string in state — pick one and stay with it, because
+`value` expects the array either way.
+
+<ComponentPreview componentName="form/tanstack" fileName="example-pin-input" hasMaxHeight={false} showBorders={false} />
+
+### Rating
+
+A plain number, and `0` means "not rated" — so `z.number().min(1, …)` is the "you have to pick
+one" rule.
+
+<ComponentPreview componentName="form/tanstack" fileName="example-rating" hasMaxHeight={false} showBorders={false} />
+
+### TagsInput
+
+`{ value: string[] }`. `max` on the control stops the user adding a sixth tag, and `.max(5)` in the
+schema says why — keep both: the control prevents, the schema explains.
+
+<ComponentPreview componentName="form/tanstack" fileName="example-tags-input" hasMaxHeight={false} showBorders={false} />
+
+### FileUpload
+
+Different names for everything: the value prop is `acceptedFiles`, and the callback is
+`onFileChange` with `{ acceptedFiles, rejectedFiles }` — it fires for rejections too, which is why
+it is the one to sync from rather than `onFileAccept`.
+
+The form value is `File[]`, so validate the count and let the control's own `accept` / `maxFiles`
+do the per-file work.
+
+<ComponentPreview componentName="form/tanstack" fileName="example-file-upload" hasMaxHeight={false} showBorders={false} />
+
+### ColorPicker
+
+Two traps. First, the value you get back: `details.valueAsString` is rendered in the machine's
+format, which defaults to `rgba` — ask `details.value.toString("hex")` if hex is what you store.
+Second, the value you send in: our wrapper parses it on every render, so it has to stay a valid
+colour. Default it to a real colour, never `""`.
+
+<ComponentPreview componentName="form/tanstack" fileName="example-color-picker" hasMaxHeight={false} showBorders={false} />
+
+### A complex form
+
+Grouped `FieldSet`s, three kinds of choice control, an array of maintainers with two sub-fields
+per row, a form-level `Alert` for a server error, and a submit button that reports its own state
+through `form.Subscribe`.
+
+<ComponentPreview componentName="form/tanstack" fileName="example-complex" hasMaxHeight={false} showBorders={false} />
+
+## Resetting
+
+`form.reset()` puts the values *and* the meta back — `isTouched`, `isDirty`, the error maps and,
+with `revalidateLogic`, the submission counter that decides whether errors show at all.
+
+```tsx
+<Button onClick={() => form.reset()} type="button" variant="outline">
+  Reset
+</Button>
+```
+
+Pass an object to reset to something other than the original defaults —
+`form.reset(serverValues)` after a successful save, so the form is clean against what is now
+stored rather than against what it opened with. Anything outside the form (a submit error, an
+upload preview) is yours to clear alongside it.
+
+## Array fields
+
+`mode="array"` on a `form.Field` turns it into the list's owner: it re-renders when rows are added
+or removed, and it carries the errors that belong to the list rather than to any row.
+
+<ComponentPreview componentName="form/tanstack" fileName="example-array-emails" hasMaxHeight={false} showBorders={false} />
+
+### Structure
+
+The array field wraps a `FieldSet`; each row is a separate `form.Field`.
+
+```tsx
+<form.Field mode="array" name="contacts">
+  {(array) => (
+    <FieldSet>
+      <FieldLegend variant="label">Contacts</FieldLegend>
+      <FieldGroup>
+        {array.state.value.map((contact, index) => (
+          /* one form.Field per row */
+        ))}
+      </FieldGroup>
+    </FieldSet>
+  )}
+</form.Field>
+```
+
+### Nested fields
+
+Reach a row's own values with bracket-and-dot paths. They are type-checked against
+`defaultValues`, so a typo is a compile error rather than a silently undefined field.
+
+```tsx
+<form.Field key={contact.id} name={`contacts[${index}].address`}>
+  {(field) => (
+    <Field invalid={!field.state.meta.isValid}>
+      <FieldContent>
+        <InputGroup>
+          <InputGroupInput
+            name={field.name}
+            onBlur={field.handleBlur}
+            onChange={(event) => field.handleChange(event.target.value)}
+            value={field.state.value}
+          />
+        </InputGroup>
+        <FieldError>
+          {field.state.meta.errors.map((issue) => issue?.message).join(", ")}
+        </FieldError>
+      </FieldContent>
+    </Field>
+  )}
+</form.Field>
+```
+
+<Callout type="warn">
+**Do not key rows by the index.** Remove a row in the middle and every row below it gets a new
+key, React remounts the inputs, and whoever was typing loses focus and caret. Give each row its
+own id when it is created and key on that — the same rule as
+[`FieldArray`'s `rowKey`](/docs/forms/field-array), for the same reason.
+</Callout>
+
+### Adding and removing
+
+`pushValue` and `removeValue` on the array field. Show the remove control only when there is more
+than one row, and disable the add button at the maximum rather than letting the schema explain a
+limit the user cannot cross anyway.
+
+```tsx
+<Button
+  disabled={array.state.value.length >= 5}
+  onClick={() => array.pushValue(newContact())}
+  type="button"
+  variant="outline"
+>
+  Add contact
+</Button>
+```
+
+```tsx
+{array.state.value.length > 1 && (
+  <InputGroupButton
+    aria-label={`Remove contact ${index + 1}`}
+    onClick={() => array.removeValue(index)}
+    size="icon-xs"
+  >
+    <XIcon />
+  </InputGroupButton>
+)}
+```
+
+`insertValue`, `replaceValue`, `swapValues`, `moveValue` and `clearValues` are there too, with the
+signatures you would guess.
+
+### Validating the array itself
+
+`.min()` and `.max()` on the array are errors about the *list*, and they land on the array field's
+own meta — not on any row. They need their own `Field` and `FieldError`, or nobody ever sees them.
+
+```tsx
+const schema = z.object({
+  contacts: z
+    .array(z.object({ id: z.string(), address: z.email("Enter a valid email address.") }))
+    .min(1, "Add at least one contact.")
+    .max(5, "Five contacts at most."),
+});
+```
+
+```tsx
+<Field invalid={!array.state.meta.isValid}>
+  <FieldError>
+    {array.state.meta.errors.map((issue) => issue?.message).join(", ")}
+  </FieldError>
+</Field>
+```
+
+## What the library still does not know
+
+Every line on this page is in your app. The library saw a boolean and a `ReactNode`, which is the
+whole of its validation contract and the reason this guide can exist without a
+`@kanzo-tech/ui/form` package to go with it.
+
+Next: [every control and how it composes](/docs/forms/controls), or the
+[`Field` reference](/docs/forms/field).
