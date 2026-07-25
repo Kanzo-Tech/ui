@@ -1,7 +1,7 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { DataTable } from "./DataTable.js";
 
 interface Row {
@@ -39,5 +39,39 @@ describe("DataTable pagination", () => {
     await user.click(screen.getByRole("button", { name: /page 3/ }));
 
     expect(screen.getByText("Row 20")).toBeTruthy();
+  });
+});
+
+describe("DataTable preset", () => {
+  it("filters on searchKey and resets to the first page", async () => {
+    const user = userEvent.setup();
+    render(<DataTable columns={columns} data={data} pageSize={10} searchKey="name" />);
+
+    await user.click(screen.getByRole("button", { name: /page 3/ }));
+    await user.type(screen.getByPlaceholderText("Search…"), "Row 23");
+
+    expect(screen.getByText("Row 23")).toBeTruthy();
+    expect(screen.getAllByRole("row")).toHaveLength(2);
+  });
+
+  it("renders the toolbar only when it has something to hold", () => {
+    const { unmount } = render(<DataTable columns={columns} data={data} />);
+    expect(document.querySelector("[data-slot=data-table-toolbar]")).toBeNull();
+    unmount();
+
+    render(<DataTable columns={columns} data={data} toolbarActions={<button type="button" />} />);
+    expect(document.querySelector("[data-slot=data-table-toolbar]")).toBeTruthy();
+  });
+
+  it("shows the empty slot and forwards row clicks", async () => {
+    const user = userEvent.setup();
+    const onRowClick = vi.fn();
+    const { unmount } = render(<DataTable columns={columns} data={[]} empty="Nothing here" />);
+    expect(screen.getByText("Nothing here")).toBeTruthy();
+    unmount();
+
+    render(<DataTable columns={columns} data={data.slice(0, 2)} onRowClick={onRowClick} />);
+    await user.click(screen.getAllByRole("row")[1]!);
+    expect(onRowClick).toHaveBeenCalledWith({ name: "Row 0" });
   });
 });
