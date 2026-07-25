@@ -41,7 +41,7 @@ Dos tipos de hijos, y se documentan como tales:
 | | Qué son | Idioma |
 |---|---|---|
 | marcas, interactores, ejes | descriptores **inertes**, sin DOM; `ChartRoot` los compila a `vg.plot(...)` | Recharts / Observable Plot |
-| `ChartRoot`, `ChartLegend`, `ChartTitle`, `ChartEmpty` | DOM real, `ark.*`, `data-slot`, `asChild` | Ark / nuestro |
+| `ChartRoot`, `ChartLegend`, y los inputs (`ChartMenu`/`ChartSearch`/`ChartSlider`) | DOM real, `ark.*`, `data-slot`, `asChild` | Ark / nuestro |
 
 Las marcas **no pueden** ser partes de Ark: vgplot pinta un SVG imperativamente
 (`host.replaceChildren(vg.plot(...))`), así que no hay DOM que una parte pueda poseer. Lo que sí es
@@ -76,7 +76,7 @@ con config, selección y coordinator, para montar una leyenda o un tooltip propi
 |---|---|---|
 | `table` | `string` | la relación registrada en el coordinator |
 | `filterBy` | `Selection \| null` | por defecto el crossfilter del `MosaicProvider`; `null` = sin filtrar |
-| `as` | `Selection` | destino de los interactores hijos; por defecto el mismo crossfilter |
+| `as` | `Selection` | destino de los interactores hijos. **Por defecto, una selección propia de ESTE root**, relayada al provider — no la compartida. Ver abajo: es lo que evita el binder error del highlight |
 | `config` | `ChartConfig` | serie → `{ label, color, icon }` |
 | `height` | `number` | 200 por defecto; el ancho se mide del contenedor |
 | `margin` | `number \| {top,right,bottom,left}` | |
@@ -94,12 +94,14 @@ Los tokens `--chart-1..5` ya existen en `packages/theme/tokens.css` (vendorizado
 paleta validada de 8 hues (`CHART_CATEGORICAL`) sigue siendo el default cuando el config no fija
 colores.
 
-**Marcas** (props = opciones de la marca de vgplot + azúcar común `filterBy`, `data`, `tip`):
+**Marcas** (props = opciones de la marca de vgplot + azúcar común `filterBy`, `table`, `data`, `tip`):
 
-`ChartBarY` `ChartBarX` `ChartLineY` `ChartLineX` `ChartAreaY` `ChartAreaX` `ChartDot`
-`ChartCircle` `ChartHexagon` `ChartRectY` `ChartRectX` `ChartRuleY` `ChartRuleX` `ChartTickX`
-`ChartTickY` `ChartText` `ChartCell` `ChartHeatmap` `ChartDensityY` `ChartRegressionY`
-`ChartHexbin` `ChartErrorbarY` `ChartFrame` `ChartGridX` `ChartGridY`
+Se envolvieron **59** de las ~65 que trae vgplot — las seis que faltan (`axisX/Y/Fx/Fy`,
+`gridFx/Fy`) son decoradoras de eje y llegan por `ChartRaw`. La lista viva está en
+`packages/ui/src/analytics.ts`; repetirla aquí solo sirve para que envejezca.
+
+`table` por marca se añadió después: un node-link dibuja nodos de una relación y aristas de otra,
+filtradas por la misma selección, y sin eso las aristas tenían que colarse por la escotilla.
 
 **Interactores:** `ChartIntervalX` `ChartIntervalY` `ChartIntervalXY` `ChartToggleX` `ChartToggleY`
 `ChartToggleColor` `ChartHighlight` `ChartNearestX` `ChartNearestY` `ChartPanZoom` `ChartRegion`
@@ -112,7 +114,7 @@ colores.
 **Leyendas:** `ChartLegend` (DOM nuestro, del config) y `ChartColorLegend` (la de vgplot,
 interactiva, publica en la selección).
 
-**Agregados** re-exportados desde `charts.ts` para no importar `@uwdata/*` en el consumidor:
+**Agregados** re-exportados desde `analytics.ts` para no importar `@uwdata/*` en el consumidor:
 `count` `sum` `avg` `min` `max` `median` `quantile` `stddev` `mode` `bin` `sql` `Fixed`.
 
 ### Mecanismo
@@ -139,7 +141,7 @@ documentado en el código.
 Fragmentos y arrays se aplanan; `null`/`false` se ignoran (condicionales funcionan). Un descriptor
 envuelto en un componente propio **no** se ve — misma limitación que Recharts, y se documenta.
 
-### Los tres de dashboard — decidido 2026-07-25, pendiente de ejecutar
+### Los tres de dashboard — decidido y **ejecutado** 2026-07-25
 
 La librería se contradecía a sí misma: `MetricCard` fue **retirado** a propósito ("una tarjeta de
 métrica es una composición, no un componente"; su página de docs enseña el copia-pega), mientras
@@ -153,11 +155,21 @@ es verde o rojo) y una sparkline calculada.
 | pieza | destino | por qué |
 |---|---|---|
 | `StatTile` | **barrel raíz** | presentacional, recibe un número, no toca Mosaic — estaba mal colocado. La página de `MetricCard` deja de enseñar un copia-pega y apunta aquí |
-| `ChartStat` (nuevo) | **`/charts`** | lo que el dueño quería de verdad: recibe tabla + agregado, se suscribe al crossfilter, consulta y pinta un `StatTile`. Un KPI que **reacciona al brush** — eso sí es comportamiento, y sí pertenece al subpath |
+| `ChartStat` (nuevo) | **`/analytics`** | lo que el dueño quería de verdad: recibe tabla + agregado, se suscribe al crossfilter, consulta y pinta un `StatTile`. Un KPI que **reacciona al brush** — eso sí es comportamiento, y sí pertenece al subpath |
 | `ChartCard`, `DashboardGrid` | **showcases** | 37 y 31 líneas de tarjeta y rejilla, cero comportamiento. Escalón 5 de la escalera de `DESIGN.md` no se alcanza |
 
-Con eso `/charts` queda con una frontera defendible: **la gramática de Mosaic y lo que se conecta a
+Con eso el subpath queda con una frontera defendible: **la gramática de Mosaic y lo que se conecta a
 ella, nada más.**
+
+Ejecutado tal cual, más una pieza que no estaba prevista: **`useChartQuery`**, el hook sobre el que
+`ChartStat` está construido. Salió de que dos showcases distintos reportaran la misma carencia — un
+dashboard siempre tiene algo que no es un plot (un KPI, una lectura, una tabla) y hacerlo con un
+`coordinator.query()` suelto en un efecto da totales **sin filtrar** al lado de gráficos filtrados,
+que se lee como un crossfilter roto.
+
+Y el subpath pasó a llamarse **`/analytics`**: se nombra la capacidad, no el motor, igual que
+`/editor` no es `/codemirror`. Dejó de ser solo gráficos hace rato — tiene los controles que los
+filtran y las cifras que leen la misma relación. Los componentes siguen siendo `Chart*`.
 
 ### Qué desaparece
 
@@ -231,7 +243,10 @@ el punto 1 de su "qué hacer en su lugar" (adoptar), por fin escrito.
 
 ---
 
-## Reparto y orden
+## Reparto y orden — histórico
+
+> Ejecutado el 2026-07-25. Se conserva porque explica por qué el trabajo se dividió así, no porque
+> quede nada por hacer.
 
 Fase 1 (paralelo, ficheros disjuntos):
 - **A** — `packages/ui/src/charts/*` salvo el barrel.
@@ -244,3 +259,36 @@ navegador (`next dev --webpack`, un coordinator por ruta — ver memoria).
 
 Los barrels, `package.json` y los borrados los toca **solo el orquestador**, para que el árbol
 compile durante la fase paralela.
+
+---
+
+## Lo que la ejecución enseñó, y que no estaba en el contrato
+
+Cinco cosas que solo aparecieron al escribir código y documentación reales. Se registran porque
+todas son del tipo que vuelve a morder si nadie las escribe.
+
+1. **Un fallo que se pinta bien es peor que uno que revienta.** Tres de los defectos más caros del
+   día eran silenciosos: el apilado que apilaba cada fila sobre la anterior, el token fuera de gama
+   que Plot leía como nombre de columna, y el highlight sobre una marca agregada que mata la
+   consulta y deja el plot **congelado en su render anterior**. Ninguno se cae; los tres mienten. De
+   ahí que `ChartRoot` avise en desarrollo y que la regla sea verificar en navegador, no en el
+   editor: un test unitario no puede ver un `Binder Error` de DuckDB.
+
+2. **Escribir la documentación honesta es lo que encuentra los defectos.** La guía de TanStack Form
+   destapó cinco fallos en nuestros controles; montar dos pantallas realistas destapó ocho
+   carencias más. Ninguno salió de leer el código.
+
+3. **"Seguimos a Shark" responde a quién decide el aspecto, no a si el código es correcto.** Cuatro
+   de esos cinco defectos eran suyos, vendorizados verbatim — nuestros ficheros eran idénticos a los
+   suyos salvo rutas de import. Seguir la referencia en *gusto*; verificar contra la anatomía de Ark
+   y la validez del HTML en *corrección*.
+
+4. **Envolver un motor es comodidad, nunca cárcel.** Chakra no envuelve ni una marca de Recharts.
+   Nosotros envolvemos 59 porque la ergonomía lo merece, pero `ChartRaw` y `attributes` existen para
+   que nadie se quede fuera — y las carencias que aparecieron (una marca con su propia relación, la
+   leyenda por canal) se arreglaron ampliando la gramática, no añadiendo componentes.
+
+5. **Un presupuesto de tamaño mide lo que mide.** El del barrel raíz mide la librería entera y no lo
+   que descarga nadie; confundirlos casi lleva a mover código a un subpath para arreglar un número
+   sin cambiar un byte para ningún consumidor. El termómetro que importa es el de un import con
+   tree-shaking: `{ Button }` son 1,08 kB.
