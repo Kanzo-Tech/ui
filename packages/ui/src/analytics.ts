@@ -21,7 +21,7 @@ export { ChartRoot, useChart, useChartOptional } from "./charts/chart-root.js";
 export type { ChartRootProps, ChartContextValue } from "./charts/chart-root.js";
 
 export type { ChartConfig, ChartSeriesConfig, ChartSeriesEntry } from "./charts/chart-config.js";
-export { chartSeriesEntries, chartSeriesColor } from "./charts/chart-config.js";
+export { chartSeriesEntries, chartSeriesColor, isColorValue } from "./charts/chart-config.js";
 
 // Marks. `ChartRaw` takes a `vg.*` directive the layer does not wrap, in source order.
 export {

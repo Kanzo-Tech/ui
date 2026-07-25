@@ -1,7 +1,7 @@
 "use client";
 
 import type { Selection } from "@uwdata/mosaic-core";
-import { isColorToken } from "./chart-config.js";
+import { isColorToken, isColorValue } from "./chart-config.js";
 import {
   chartDescriptor,
   type ChartDescriptor,
@@ -99,7 +99,7 @@ function markDirective(mark: string, props: ChartMarkProps, ctx: ChartSpecContex
   // Read the series key before the colour channels are resolved to `rgb(...)` strings.
   if (STACKING_MARKS.has(mark) && !("z" in channels)) {
     const series = [channels.fill, channels.stroke].find(
-      (v) => typeof v === "string" && !isColorToken(v),
+      (v) => typeof v === "string" && !isColorValue(v),
     );
     if (series !== undefined) channels.z = series;
   }

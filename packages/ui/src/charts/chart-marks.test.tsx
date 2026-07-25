@@ -102,8 +102,12 @@ describe("stacking series key", () => {
     expect(optionsOf(<markModule.ChartBarY fill="status" z={null} />).z).toBeNull();
   });
 
-  it("does not mistake a colour token for a series", () => {
-    expect(optionsOf(<markModule.ChartBarY fill="var(--chart-1)" x="region" />).z).toBeUndefined();
+  it("does not mistake a colour for a series, in any of its spellings", () => {
+    // Reading a colour as a column made the query GROUP BY it, which is a binder error the plot
+    // swallows — it just stops updating. Found by a node-link probe passing `currentColor`.
+    for (const fill of ["var(--chart-1)", "currentColor", "#ff0000", "rgb(1,2,3)", "none", "red"]) {
+      expect(optionsOf(<markModule.ChartBarY fill={fill} x="region" />).z).toBeUndefined();
+    }
   });
 
   it("leaves non-stacking marks untouched", () => {

@@ -47,6 +47,10 @@ export function TokenizedPlot({ render, deps, className }: TokenizedPlotProps) {
   const tick = useThemeTick();
   const [width, setWidth] = useState(0);
 
+  // Charts do not mount in a background tab. The cause is `requestAnimationFrame` in
+  // `@uwdata/mosaic-plot/src/plot.js` (`requestAnimationFrame(() => this.render())`), which a
+  // hidden tab never services — not the ResizeObserver below, which is the obvious suspect and
+  // the wrong one. Verified while benchmarking a 20k-node plot.
   // Size the plot to its container: vgplot needs an explicit width (it defaults to 640), so a
   // bare mount overflows a narrow column. Re-measure on resize and rebuild at the new width.
   useEffect(() => {
