@@ -1,0 +1,51 @@
+---
+title: Graph view (probe)
+description: A node-link view built entirely from the charts grammar — positions are columns, so a graph joins the crossfilter like any other relation.
+---
+
+<Callout type="warn">
+**Feasibility probe, not a documented feature.** This page exists to answer one question: can a
+node-link view participate in the same crossfilter as the rest of the charts, without a new
+rendering client? Nothing here is exported from the library.
+</Callout>
+
+## The premise
+
+A force layout is a function from a graph to two numbers per node. Run it once, store the result as
+`x` and `y` **columns**, and a node-link view stops being a special renderer: it is a scatter plot
+of a node relation with a `link` mark of an edge relation underneath.
+
+Two relations, both plain DuckDB tables in the shared coordinator:
+
+```sql
+-- graph_nodes: id, category, degree, weight, x, y
+
+CREATE OR REPLACE VIEW graph_edges AS
+  SELECT s.id, s.category, s.degree, s.weight, s.x, s.y, t.x AS x2, t.y AS y2
+  FROM graph_edge_pairs e
+  JOIN graph_nodes s ON e.source = s.id
+  JOIN graph_nodes t ON e.target = t.id;
+```
+
+The edge relation carries its **source** endpoint's columns under the node table's own names. That
+is the whole crossfilter trick: a Mosaic clause is SQL over column names, so `weight BETWEEN 30 AND
+50` lands on the edge relation without anyone teaching it what an edge is.
+
+## Crossfilter, both directions
+
+Drag a rectangle over the graph and the histogram and bars redraw — the lasso publishes
+`id IN (…)`. Drag the histogram, or click a cluster bar, and nodes *and* edges drop out of the
+graph.
+
+<ComponentPreview componentName="charts" fileName="example-graph" hasMaxHeight={false} />
+
+The only thing the grammar could not express directly is the second relation: a mark reads
+`ChartRoot`'s single `table`, so the edges go through `ChartRaw` with a `vg.link(vg.from(…))`.
+
+## Where it stops scaling
+
+Observable Plot emits SVG, one element per mark datum. This is the same view with the ghost layers
+removed, instrumented with the element count, the first paint and the time from a crossfilter
+change to a rebuilt plot.
+
+<ComponentPreview componentName="charts" fileName="example-graph-scale" hasMaxHeight={false} />

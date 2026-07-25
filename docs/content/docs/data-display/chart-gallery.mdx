@@ -1,0 +1,202 @@
+---
+title: Chart gallery
+description: Sixteen chart types written with the charts grammar — each one a ChartRoot and a handful of marks, none of them a component.
+---
+
+<Callout type="info">
+Every chart on this page is built from the [charts grammar](/docs/data-display/charts): the same
+`ChartRoot`, the same marks, the same interactors. There is no `HeatmapChart` and no `WaffleChart`
+— a chart *type* is a shape you write, and this page is the proof, one shape at a time.
+
+They all read the one sample relation the charts page uses, `telemetry`: a numeric column
+(`latency`), a second one that correlates with it (`payload`), a category (`region`), an ordered
+axis (`hour`) and a series (`status`).
+</Callout>
+
+## Sparkline
+
+The smallest useful plot: no axes, no margin, no legend. `anchor={null}` removes an axis but keeps
+its scale, which is the difference between hiding the ticks and losing the layout.
+
+<ComponentPreview componentName="charts" fileName="gallery-sparkline" />
+
+## Stacked area
+
+Map `fill` to a column and the areas stack by it — the same rule that stacks bars. `curve` is one
+of the mark options that passes through untouched, so the shape is Observable Plot's.
+
+<ComponentPreview componentName="charts" fileName="gallery-area-stacked" />
+
+<Callout type="warn">
+**A stacked mark still wants an `order`; the `z` it needs is now derived for you.** Plot stacks by
+`z` and normally infers it from `fill` — but through Mosaic the fill arrives as
+`{ value, scale: "color" }`, `maybeZ` cannot read a series name out of that object, and `stackY`
+falls back to piling every row on the one before it. The chart renders, looks plausible and is
+wrong, which is worse than one that throws.
+
+So the layer restores Plot's own default: on `ChartBarY` / `ChartBarX`, `ChartAreaY` / `ChartAreaX`,
+`ChartRectY` / `ChartRectX` and `ChartWaffleY` / `ChartWaffleX`, a **column-valued** `fill` (or
+`stroke`) becomes `z` unless you set one yourself. `z={null}` opts out, the way it does in Plot.
+
+What is still yours is the stacking `order`, because the row order a `GROUP BY` returns is not one:
+
+```tsx
+<ChartAreaY fill="status" order={["ok", "slow", "error"]} x="hour" y={count()} />
+```
+</Callout>
+
+## 100% stacked area
+
+The chart above with `offset="normalize"` added, which is the whole diff: Plot's stack transform
+normalises each column to 1, and `percent` on the y scale reads it back out as 0–100%.
+
+<ComponentPreview componentName="charts" fileName="gallery-area-normalized" />
+
+## Horizontal bars
+
+`ChartBarX` swaps the roles: the category sits on `y`, the measure on `x`. The band scale moves
+with it, so the interactor becomes `ChartToggleY` — and the left margin has to be widened by hand,
+because Plot sizes the plot, not the labels.
+
+<ComponentPreview componentName="charts" fileName="gallery-bar-horizontal" />
+
+## Grouped bars
+
+Grouped bars are faceted bars. `fx` on the mark splits the plot into one panel per region and `x`
+lays the series out side by side inside each panel; `ChartFacetX` configures the resulting facet
+scale exactly as `ChartAxisX` configures the position scale.
+
+<ComponentPreview componentName="charts" fileName="gallery-bar-grouped" />
+
+## Ridgeline
+
+One distribution per row, panels deliberately overlapping. `fy` makes the rows; the overlap is the
+y scale's **range** overshooting its own band, which is the one attribute `ChartAxisY` does not
+wrap — so it goes through `attributes`, hoisted to module scope to keep the plot from rebuilding.
+
+<ComponentPreview componentName="charts" fileName="gallery-ridgeline" />
+
+<Callout type="warn">
+`ChartDensityY` would smooth this properly, and it **cannot be faceted**: Mosaic's density mark
+groups its kernel grids by `fill` / `stroke` / `z` only, so an `fx` or `fy` channel survives into
+the plot spec with no column behind it and the panels come out empty. Facet a binned area (as
+above); reach for the density mark when the categories can share one pair of axes.
+</Callout>
+
+## Heatmap
+
+Two categorical axes and a measure in the cell. The magnitude rides on `fillOpacity` rather than on
+a colour ramp, which keeps the hue a token: a `colorScheme` would be a fixed palette in both
+themes, and `ChartConfig` only pins *categorical* scales.
+
+<ComponentPreview componentName="charts" fileName="gallery-heatmap" />
+
+## Hexbin
+
+A scatter that does not overplot. DuckDB assigns each pair to a hexagon and returns one row per
+bin, so the transfer is bounded by the lattice rather than by the table. `ChartHexgrid` is a
+decorator mark — no data source — so it draws the empty lattice behind everything.
+
+<ComponentPreview componentName="charts" fileName="gallery-hexbin" />
+
+## 2-D density
+
+Kernel density over two columns, drawn as iso-lines above the raw points. The smoothing happens in
+the database: `bandwidth` sets the kernel, `thresholds` the number of contours. `ChartDensity` and
+`ChartRaster` draw the same grid as a cloud or a raster — map a channel to the literal string
+`"density"` (`fillOpacity="density"`) to encode it.
+
+<ComponentPreview componentName="charts" fileName="gallery-density-2d" />
+
+## Regression with a confidence band
+
+The fit is a SQL aggregate — DuckDB returns slope, intercept and sums of squares, and the mark
+turns them into a line plus its band. `ci` is the level, `ci={0}` drops the band, and a `stroke`
+bound to a *column* fits one regression per group.
+
+<ComponentPreview componentName="charts" fileName="gallery-regression" />
+
+## Box plot
+
+Plot has no box-plot mark and does not need one: a box plot is three marks over four quantile
+aggregates. `quantile()` and `median()` run in DuckDB, so the distribution never leaves the
+database — the plot receives five numbers per category.
+
+<ComponentPreview componentName="charts" fileName="gallery-boxplot" />
+
+<Callout type="info">
+`ChartErrorbarY` is the other half of this family, and it is **not** a box plot: it computes the
+mean and a confidence interval from `avg` and `stddev`, not quartiles. Use it for uncertainty about
+a mean, and the quantile marks above for the shape of a distribution.
+</Callout>
+
+## Waffle
+
+A bar chart that counts out loud — one cell per `unit` rows. Mapping `fill` to a column stacks the
+cells by series inside each column, which is where a waffle earns its keep: parts of a whole,
+countable.
+
+<ComponentPreview componentName="charts" fileName="gallery-waffle" />
+
+## Small multiples
+
+`fx` on any mark is the whole feature: one panel per distinct value, one shared pair of scales, so
+the four curves are genuinely comparable. The interval brush spans the panels and publishes one
+clause, as it would on a single plot.
+
+<ComponentPreview componentName="charts" fileName="gallery-small-multiples" />
+
+## Bars, a line, and a third variable
+
+Three variables in one plot. Bar height is the request count, bar **opacity** is the mean latency,
+and the line is the failing subset. The line shares the count scale on purpose: a plot has exactly
+one y scale, so the honest way to add a variable with a different unit is another channel, not a
+second axis.
+
+The interactor is a **toggle**, not a brush: `ChartBarY` makes x a band scale even for an integer
+hour, and an interval over a band throws. `ChartRoot` warns in the console in development if you
+pair the two, because the failure is a runtime throw on hover that blanks the *other* charts on the
+page — see [the limitation](/docs/data-display/charts#limitations).
+
+<ComponentPreview componentName="charts" fileName="gallery-dual-encoding" />
+
+<Callout type="warn">
+**There is no dual-axis combo chart.** Observable Plot exposes one `y` scale per plot, and neither
+the grammar nor `attributes` can add a second one — a right-hand axis in Plot means rescaling the
+second series into the first one's units by hand and relabelling the ticks. Stack two `ChartRoot`s
+sharing an x domain instead, or encode the second variable on colour, opacity or radius.
+</Callout>
+
+## Stacked histogram
+
+`bin()` keeps the x scale continuous, which is exactly what makes the interval brush legal here.
+The same chart with `x="region"` would be a band scale, and brushing it throws inside Mosaic's
+pre-aggregator — see [the limitation](/docs/data-display/charts#limitations).
+
+<ComponentPreview componentName="charts" fileName="gallery-histogram-stacked" />
+
+## Dashboard
+
+The composition pieces, wired to one crossfilter. `ChartMenu`, `ChartSearch` and `ChartSlider` are
+real DOM controls that publish Mosaic clauses without being charts — they connect as clients, ask
+the coordinator for their own values, and filter every plot below. `StatTile`, `ChartCard` and
+`DashboardGrid` are the frame around them.
+
+The tiles show how a DOM part queries alongside the plots: `useMosaic()` hands you the coordinator,
+and one `SELECT` fills all three. They report the **unfiltered** totals — a widget only follows the
+crossfilter if it is a `MosaicClient`, which the inputs are and a plain `useEffect` is not.
+
+<ComponentPreview componentName="charts" fileName="gallery-dashboard" hasMaxHeight={false} />
+
+## What the grammar cannot draw
+
+The honest edges, found by building the page:
+
+| | Why |
+| --- | --- |
+| **Dual y axes** | Plot has one y scale per plot. Not a wrapping gap — an engine constraint. |
+| **Faceted density** | `ChartDensityY` / `ChartDensityX` group their kernel grids by `fill`/`stroke`/`z`; an `fx`/`fy` channel yields empty panels. Facet a binned `ChartAreaY` instead. |
+| **A theme-aware sequential ramp** | `ChartConfig` pins a *categorical* colour domain. A continuous scale needs `vg.colorScheme(…)` through `attributes`, and that palette is fixed in both themes. Encode magnitude on `fillOpacity` with a token hue when it matters. |
+| **An opacity or symbol legend** | `ChartColorLegend` is hard-wired to the colour channel; `vg.opacityLegend()` goes through `ChartRaw`. |
+| **A scale `range`** | `ChartAxisX` / `ChartAxisY` cover the axis, not the whole scale — `range`, `interpolate` and the rest are `attributes`. The ridgeline above needs one. |
+| **Geographic marks** | `ChartGeo`, `ChartSphere` and `ChartGraticule` are wrapped, but a projection is a plot attribute, so a map needs `attributes={[vg.projectionType(…)]}`. Untested here. |

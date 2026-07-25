@@ -1,30 +1,90 @@
 ---
 title: Charts
-description: Tokenized Mosaic/vgplot crossfilter charts — bring-your-own DuckDB coordinator, on their own entry point.
+description: A thin composable layer over Mosaic/vgplot — marks, interactors and axes as JSX, over a bring-your-own DuckDB coordinator.
 ---
 
 <Callout type="info">
-These charts wrap **[Mosaic](https://idl.uw.edu/mosaic/) / vgplot** the way
-[CodeEditor](/docs/data-display/code-editor) wraps CodeMirror: the library ships tokenized chart
-marks and a crossfilter context, and it is **bring-your-own-coordinator**. The package never
-imports DuckDB-WASM and never builds a `Coordinator` — you wire DuckDB in a `"use client"` island
-and pass the coordinator in. That is what keeps the whole analytics stack out of the base bundle
-and out of every React Server Component.
+This is a **grammar**, not a set of chart types. `ChartRoot` compiles its children into one
+`vg.plot(...)`, so a bar and a line share a plot, any interactor pairs with any mark, and the
+chart you need is the one you write — there is no `BarChart` to fork.
 
 ```tsx
-import { MosaicProvider, Histogram, BarChart } from "@kanzo-tech/ui/charts";
+import { ChartRoot, ChartBarY, ChartToggleX, count } from "@kanzo-tech/ui/charts";
 ```
 
+Like [CodeEditor](/docs/data-display/code-editor) with CodeMirror, the library wraps the engine and
+never owns the runtime: it is **bring-your-own-coordinator**. The package never imports DuckDB-WASM
+and never builds a `Coordinator` — you wire one in a `"use client"` island and pass it in, which is
+what keeps the analytics stack out of the base bundle and out of every React Server Component.
 `@uwdata/vgplot`, `@uwdata/mosaic-core`, `@uwdata/mosaic-sql` and `@duckdb/duckdb-wasm` are all
 **optional peers**, so `import { Button }` keeps working for everyone who has not installed them.
 </Callout>
 
 <ComponentPreview componentName="charts" />
 
-Four chart types over **one** table, wired to **one** shared crossfilter `Selection`: drag an
-interval across the histogram or the hourly line, click a region bar, or drag a box on the
-scatter — each publishes to the selection, so brushing any one filters all the others. The dimmed
-layer is always the full distribution; the solid `--primary` layer is the current filtered subset.
+Four plots over **one** table, wired to **one** shared crossfilter `Selection`: drag an interval
+across the histogram or the hourly line, click a region bar, drag a box on the scatter — each
+publishes to the selection, so brushing any one filters the other three. Nothing above is a chart
+component; it is four `ChartRoot`s with two marks and an interactor each.
+
+## Why a grammar
+
+The library used to ship five components — `Histogram`, `BarChart`, `LineChart`, `ScatterPlot`,
+`BarSeriesChart` — five parallel `vg.plot(...)` calls with overlapping props. They were fine until
+you wanted something none of them was: a line on top of bars, a brush where the preset hardcoded a
+toggle, two marks against a selection you own. Every one of those needed a fork, because the plot
+was assembled inside the component.
+
+vgplot is ~40 marks, 19 interactors and ~250 attributes. Five components exposed it as five
+photographs. So the five are gone, and each one is now [ten lines of JSX](#the-five-charts) you can
+copy — which is the only honest proof that the layer is expressive enough.
+
+## Two kinds of children
+
+`ChartRoot` takes children of two different natures, and the distinction is worth internalising
+because it explains everything else on this page:
+
+| | What they are | Idiom |
+| --- | --- | --- |
+| marks, interactors, axes | **inert descriptors** — they render `null` | Recharts / Observable Plot |
+| `ChartRoot`, `ChartLegend`, your own parts | **real DOM** — `ark.*`, `data-slot`, `asChild` | Ark |
+
+A descriptor has no DOM of its own. `ChartRoot` reads the compile function off the element *type*,
+in source order, and turns the lot into a single `vg.plot(...)` — the mark never renders.
+
+**Marks cannot be Ark parts**, and that is not a shortcut. vgplot paints imperatively: it returns
+an SVG node that we mount with `host.replaceChildren(...)`. There is no element for a part to own,
+no ref to forward, no `data-slot` to style. What *is* genuinely Ark here is `ChartRoot` plus
+[`useChart()`](#usechart) — a context carrying the config, the selections and the coordinator, so
+you can build a legend, a tooltip or a readout of your own without forking anything.
+
+The practical consequence: descriptors cannot read context, because they are compiled before React
+would render them. Pass values down from the component that owns the `ChartRoot`.
+
+## Anatomy
+
+```tsx
+<ChartRoot table="telemetry" config={config} height={220}>
+  <ChartBarY x="host" y={count()} fill="host" tip />
+  <ChartRuleY at={0} />
+  <ChartAxisX tickRotate={45} />
+  <ChartAxisY grid />
+  <ChartToggleX />
+  <ChartLegend />        {/* real DOM: reads the config off the context */}
+</ChartRoot>
+```
+
+Three rules cover the ordering:
+
+1. **An interactor binds to the last mark declared before it.** Put `ChartToggleX` after the mark
+   it should drive.
+2. **Axes compile to plot attributes** (`xTickRotate`, `yGrid`), not to vgplot's `axisX`/`axisY`
+   decorator marks — an attribute cannot steal the binding from the interactor that follows it.
+   `ChartFrame`, `ChartGridX` and `ChartGridY` *are* marks and do shift it.
+3. **Fragments and arrays flatten; `null` and `false` vanish.** Conditionals work, which is how you
+   [swap an interactor](#swap-the-interactor) at runtime.
+
+There is no `ChartTip`: the tooltip is a mark option, so it is the `tip` prop on any mark.
 
 ## Installation
 
@@ -37,21 +97,21 @@ pnpm add @uwdata/vgplot @uwdata/mosaic-core @uwdata/mosaic-sql @duckdb/duckdb-wa
 
 ## Bring your own coordinator
 
-The library never touches DuckDB-WASM. The consumer builds the `Coordinator` — over
-`wasmConnector()`, a socket/REST connector, or a shared worker — and hands it to
-`MosaicProvider`, which registers it as vgplot's active coordinator and shares a
-`Selection.crossfilter()` with every chart beneath it. Because DuckDB-WASM is browser-only, do
-the boot in a `"use client"` island's `useEffect`, render a skeleton until it is ready, and let
-the chart hydrate:
+The library never touches DuckDB-WASM. You build the `Coordinator` — over `wasmConnector()`, a
+socket/REST connector, or a shared worker — and hand it to `MosaicProvider`, which registers it as
+vgplot's active coordinator and shares a pair of `Selection`s with every chart beneath it: one the
+interactors publish into, one the marks filter by ([why two](#feedback-on-the-chart-that-filters)).
+DuckDB-WASM is browser-only, so boot it in a `"use client"` island loaded with `ssr: false`, render
+a skeleton until it is ready, and let the chart hydrate:
 
 ```tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { loadObjects } from "@uwdata/mosaic-sql";
-import { Coordinator, MosaicProvider, Histogram, BarChart, wasmConnector } from "@kanzo-tech/ui/charts";
+import { Coordinator, MosaicProvider, wasmConnector } from "@kanzo-tech/ui/charts";
 
-export function Distributions() {
+export default function Analytics({ children }: { children: React.ReactNode }) {
   const [coordinator, setCoordinator] = useState<Coordinator | null>(null);
 
   useEffect(() => {
@@ -59,43 +119,289 @@ export function Distributions() {
     coord.exec(loadObjects("telemetry", rows)).then(() => setCoordinator(coord));
   }, []);
 
-  if (!coordinator) return <Skeleton className="h-32 w-full" />;
+  if (!coordinator) return <Skeleton className="h-40 w-full" />;
 
-  return (
-    <MosaicProvider coordinator={coordinator}>
-      <Histogram table="telemetry" column="latency" />
-      <BarChart table="telemetry" column="region" />
-    </MosaicProvider>
-  );
+  return <MosaicProvider coordinator={coordinator}>{children}</MosaicProvider>;
 }
 ```
 
-`Coordinator`, `Selection`, `coordinator` and `wasmConnector` are re-exported from the subpath,
-so you wire the backend without a direct `@uwdata` import.
+`Coordinator`, `Selection`, `coordinator` and `wasmConnector` are re-exported from the subpath, so
+you wire the backend without a direct `@uwdata` import.
 
-## Pick the chart by the column
+<Callout type="warn">
+**One coordinator per page.** `MosaicProvider` registers its coordinator as vgplot's active one,
+and that setter is process-wide: mount two providers with two different coordinators on the same
+page and the last one wins, leaving the other page's charts empty. Share a single instance (every
+example below does — see `docs/examples/charts/mosaic-boot.tsx`), or keep the demos on separate
+routes. Several `MosaicProvider`s over the *same* coordinator are fine; each still gets its own
+crossfilter `Selection`.
+</Callout>
 
-Every chart is the same dual-layer crossfilter idea — a dimmed `--muted-foreground` layer for the
-full data and a `--primary` layer, `filterBy` the shared selection, for the subset on top. What
-differs is the mark and the brush:
+## The five charts
 
-- **`Histogram`** bins a **numeric or temporal** column (`rectY` + `bin`) and drags an interval
-  brush (`intervalX`) into the selection.
-- **`BarChart`** groups a **categorical** column (`barY`) and toggles a category (`toggleX`) into
-  the selection. Bars are sorted by descending count and capped at `limit`.
-- **`LineChart`** traces a count over an **ordered / temporal** column (`lineY`) and drags an
-  interval (`intervalX`). A line is *stroked* rather than filled, so the tokens map to `stroke`.
-- **`ScatterPlot`** plots two **numeric** columns (`dot`) and drags a 2-D rectangle
-  (`intervalXY`) into the selection.
+The presets that used to be components, rewritten with the grammar. Each is the same shape: a
+dimmed mark for the full relation (`filterBy={null}`), the crossfiltered mark on top, one
+interactor, two axes. Sixteen more shapes — waffle, ridgeline, hexbin, box plot, small multiples —
+are in the [gallery](/docs/data-display/chart-gallery).
+
+### Histogram
+
+`bin()` a numeric or temporal column into `rectY`, and drag an interval into the selection.
+
+<ComponentPreview componentName="charts" fileName="example-histogram" />
+
+### Categorical bars
+
+Group a string column, sort by descending count, click a bar to toggle that category. Give both
+layers the same `sort` (and `limit`, for a high-cardinality column) so they share one x domain. The
+`ChartHighlight` — no props — is what makes the clicked bar visible, and there is a reason it can
+be that terse: see [feedback on the chart that filters](#feedback-on-the-chart-that-filters).
+
+<ComponentPreview componentName="charts" fileName="example-bar" />
+
+### Line over an ordered axis
+
+A line is *stroked*, not filled, so the token lands on `stroke`. The area underneath is simply a
+second mark — "line + area" was never a chart type, it was two marks.
+
+<ComponentPreview componentName="charts" fileName="example-line" />
+
+### Scatter
+
+Two numeric columns and a 2-D brush.
+
+<ComponentPreview componentName="charts" fileName="example-scatter" />
+
+### Stacked series
+
+Map `fill` to a **column** and the bars stack by it — the layer copies a column-valued `fill` to
+`z`, which is the series key Plot stacks on and the one thing Mosaic cannot infer for it
+([the details](/docs/data-display/chart-gallery#stacked-area)). The `config` is what binds a hue to
+an entity: it pins the plot's colour domain, so filtering a series never repaints the survivors,
+and the same object feeds `ChartLegend`.
+
+<ComponentPreview componentName="charts" fileName="example-series" />
+
+## Feedback on the chart that filters
+
+Click a bar and every chart filters, **including a visible response on the chart you clicked** —
+`<ChartToggleX />` and `<ChartHighlight />`, neither carrying a prop, exactly as in
+[categorical bars](#categorical-bars) above. That is the default. It is worth knowing what is
+underneath it, because one misplaced prop takes it away.
+
+A crossfilter is defined by **hiding a clause from the client that published it**:
+
+- `Selection.crossfilter()` is created with `cross: true`.
+- The resolver skips a clause for any client listed in `clause.clients`, and a toggle's clause lists
+  the marks of the plot it came from. That skip is what stops a chart filtering itself into a single
+  bar the moment you click one.
+- `ChartHighlight` resolves its predicate with `selection.predicate(mark)` — without the `noSkip`
+  flag that `filterBy` uses. So against a crossfilter the predicate comes back empty, the test
+  degrades to "everything matches", and nothing is dimmed.
+
+The chart that publishes the click is therefore the only one that cannot read it back. The fix is
+one selection more, not a fork — publish into a **non-cross** selection and relay it into the
+crossfilter with `include` — so `MosaicProvider` builds that pair itself:
+
+```tsx
+const selected = Selection.union();                              // interactors publish here…
+const crossfilter = Selection.crossfilter({ include: selected }); // …marks filter by this
+```
+
+`ChartRoot` defaults `as` to `selected` and `filterBy` to `crossfilter`, which is the whole reason
+the bare children work. Every clause published to `selected` is relayed into the crossfilter, so
+the other charts filter exactly as before; the source chart still does not filter itself, because
+the skip looks at `clause.clients` and the relayed clause keeps its origin; and `ChartHighlight`,
+reading `selected` — a plain union, which hides nothing from anyone — finally sees it.
+
+`useMosaic()` returns both, `useSelected()` the publishing half on its own. That is the one to
+`reset()` when you [swap an interactor](#swap-the-interactor).
+
+### When you do wire it yourself
+
+- **You pass your own `crossfilter` to `MosaicProvider`.** `include` is constructor-only, so a
+  selection handed in cannot be relayed into after the fact: `selected` falls back to the same
+  object, and the self-feedback goes with it. Build the pair and pass the cross-filtered half.
+
+  ```tsx
+  const [picked] = useState(() => Selection.single());
+  const [crossfilter] = useState(() => Selection.crossfilter({ include: picked }));
+
+  <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
+    <ChartRoot table="telemetry">
+      <ChartBarY x="region" y={count()} fill="var(--primary)" />
+      <ChartToggleX as={picked} />     {/* publishes into picked… */}
+      <ChartHighlight by={picked} />   {/* …which this one can actually read */}
+    </ChartRoot>
+  </MosaicProvider>
+  ```
+
+- **Two toggling charts must not dim each other.** `selected` is shared, so one chart's pick
+  highlights against the other's marks. Give each its own selection through `as` / `by`.
+- **A click should replace the previous pick, not add to it.** `Selection.single()` keeps one
+  clause where the default union accumulates (shift/⌘-click adding to a pick is `Toggle`'s own
+  behaviour, not ours).
+
+Notes that hold either way:
+
+- **`ChartHighlight` binds to the last mark declared before it**, like every interactor. In the
+  dual-layer idiom that is the crossfiltered layer, which is the one you want dimmed.
+- Interval brushes need none of this: the brush rectangle is its own feedback.
+
+## What the presets could not do
+
+### Bars and a line in one plot
+
+Two marks, one x scale, one interactor. Under five preset components this needed a sixth component;
+here it is one more child.
+
+The interactor is a `ChartToggleX`, and where it sits matters twice over. It binds to the last mark
+before it, so it goes between the bars and the line; and it is a toggle rather than a brush because
+`ChartBarY` makes x a **band** scale even for an integer hour — an interval over a band throws, and
+takes the rest of the page down with it ([why](#limitations)). Bin the x, or toggle it.
+
+<ComponentPreview componentName="charts" fileName="example-combo" />
+
+### Swap the interactor
+
+Click-to-toggle and drag-to-brush differ by one child. A `false` child compiles to nothing, so the
+plot is rebuilt with the other interactor and the marks stay exactly as written. Removing an
+interactor does not withdraw the clause it already published, so the example calls
+`selection.reset()` on the swap.
+
+<ComponentPreview componentName="charts" fileName="example-interactor" />
+
+### Bring your own selection
+
+The provider's crossfilter is a default, not a cage. Own the `Selection` and wire it explicitly:
+`as` on the chart that publishes, `filterBy` on the ones that read. Everything else on the page
+stays still.
+
+<ComponentPreview componentName="charts" fileName="example-selection" />
+
+### An unwrapped mark
+
+The layer wraps every mark vgplot ships but six: `axisX`, `axisY`, `axisFx`, `axisFy`, `gridFx` and
+`gridFy`, left out on purpose because [axes compile to attributes](#anatomy) and an axis *mark*
+would steal the binding from the interactor after it. A plot therefore draws one x axis — and the
+scale repeated on the opposite edge, which a long bar list wants, is exactly what `ChartRaw` is for.
+
+Both anchors are spelled out in the example, because Plot adds its implicit axis only while the plot
+has no axis mark for that scale: declare one and you own them all. The scale stays `ChartAxisX`'s —
+grid and label come from the descriptor, and the marks inherit them.
+
+A raw directive is otherwise a mark like any other: it takes its place in source order (declare it
+*after* the interactor you did not want it to capture), and it is a function, so hoist it or the
+plot rebuilds on every render. An array is fine — `spec` takes one directive or several.
+
+<ComponentPreview componentName="charts" fileName="example-raw" />
+
+## ChartConfig
+
+`Record<string, { label?, color?, icon? }>` — series key to presentation, in one place:
+
+```tsx
+const config = {
+  ok: { label: "OK", color: "var(--chart-1)" },
+  error: { label: "Error", color: "var(--chart-5)" },
+} satisfies ChartConfig;
+```
+
+A non-empty config pins the plot's colour scale (`colorDomain` = the keys, `colorRange` = the
+colours) and feeds `ChartLegend`. Pinning matters: without it vgplot orders the colour domain by the
+data, so filtering out a series repaints the ones that survive.
+
+`color` takes `var(--chart-1)`, `--primary`, a hex or an `rgb()`. Tokens are resolved against the
+live DOM at mount and on every theme change, because Observable Plot cannot parse `oklch`,
+`color-mix` or `color(srgb …)`. The same resolution applies to the `fill` and `stroke` props of any
+mark — those two channels only, and only when the value looks like a token, so `fill="region"` stays
+the *column* `region`. A series without a colour falls back to its slot in `CHART_CATEGORICAL`, the
+validated eight-hue palette.
+
+## useChart()
+
+The context behind any DOM part you add — a legend, a tooltip, a caption:
+
+```tsx
+function Total({ rows }: { rows: number }) {
+  const { color, formatNumber } = useChart();
+  return <p style={{ color: color("error") }}>{formatNumber(rows)} requests</p>;
+}
+```
+
+| Field | What it is |
+| --- | --- |
+| `color(key)` | the series colour, already resolved to `rgb(...)` — safe in CSS and in Plot |
+| `formatNumber(value, options?)` | the chart's `Intl.NumberFormat`, from the root's `locale` / `numberFormat` — one number vocabulary for axes, legend and tooltip |
+| `config`, `table` | what the root was given |
+| `filterBy`, `as` | the selections the marks read and the interactors write |
+| `coordinator` | for a part that queries alongside the plot |
+
+It throws outside a `ChartRoot`; `useChartOptional()` returns `null` instead, which is how
+`ChartLegend` also works standalone. Descriptors cannot use it — see
+[two kinds of children](#two-kinds-of-children).
+
+## Escape hatches
+
+Two, because wrapping vgplot must stay a convenience:
+
+- **`<ChartRaw spec={…} />`** — a `vg.*` directive (or an array of them) in its source position.
+  You build the source yourself, and `from` is re-exported from the subpath for it:
+  `from("t", { filterBy: selection })`. No token resolution happens here, so pass a Plot-safe
+  colour — `CHART_CATEGORICAL[0]` is exported for exactly this.
+- **`attributes` on `ChartRoot`** — raw directives applied *last*, so they win over anything the
+  layer decided. For the ~225 plot attributes the axes do not cover.
+
+The directive itself still comes from `@uwdata/vgplot` — that is what a hatch is — but nothing
+*around* it does any more: `from` and `plot` sit on the subpath next to `count`, `bin` and `sql`,
+so a raw mark no longer drags in a namespace import just to name its own relation.
+
+Both are keyed by identity: a vgplot directive is a function, so building one inline rebuilds the
+plot on every render. Hoist it to module scope or `useMemo` it, and keep the `attributes` array
+referentially stable.
+
+## Limitations
+
+- **A descriptor wrapped in your own component is invisible.** `ChartRoot` inspects its children's
+  element types, so `<MyBar />` — even when it returns `<ChartBarY />` — compiles to nothing. This
+  is Recharts' limitation and it has the same cause. Write a function that *returns descriptors*
+  and spread them, or make your component wrap the whole `ChartRoot`, as the examples do.
+- **Descriptors cannot read React context**, for the same reason.
+- **The plot rebuilds when the grammar changes.** Props are fingerprinted (SQL expressions by their
+  SQL, so a fresh `count()` is free); functions and selections by identity.
+- **An interval brush needs a continuous scale.** `ChartIntervalX` over a *band* scale — bars
+  grouped by a string, or by an integer Plot bands — throws `Unrecognized scale type: band` inside
+  Mosaic's pre-aggregator the moment the pointer enters the plot. The pre-aggregator belongs to the
+  coordinator, so that one mistake blanks the *other* charts on the page, which report nothing of
+  their own. Brush binned or continuous marks; toggle categorical ones. `ChartRoot` warns to the
+  console in development when it compiles the pairing, because the runtime symptom points anywhere
+  but at the chart that caused it.
+
+## Dashboards
+
+Beyond the crossfilter widgets, the subpath ships the pieces a dashboard is composed from:
+`StatTile` for a headline figure (with an optional delta and trend sparkline), `ChartCard` for a
+titled frame with a legend slot, and `DashboardGrid`, which auto-fits its columns. `ChartMenu`,
+`ChartSearch` and `ChartSlider` go with them — real DOM controls that publish Mosaic clauses
+without being charts, so they filter every plot below. The
+[gallery](/docs/data-display/chart-gallery#dashboard) wires all six together.
+
+```tsx
+<DashboardGrid minColumnWidth={280}>
+  <StatTile label="Requests" value={12_402} delta={{ value: 4.2, label: "vs last week" }} />
+  <ChartCard title="Latency" description="p50 by hour" legend={<ChartLegend config={config} />}>
+    <ChartRoot table="telemetry">…</ChartRoot>
+  </ChartCard>
+</DashboardGrid>
+```
 
 ## Theming
 
-vgplot hard-codes its fills; these charts read `--primary` and `--muted-foreground` off the live
-DOM instead, so a theme change re-colours the marks along with everything else — the vgplot
-analogue of how `kanzoHighlighting` re-skins CodeMirror. Axis text inherits `--foreground` through
-`currentColor`, so it stays legible in light and dark. Sharing one `Selection` across charts
-(explicitly via the `selection` prop, or implicitly through the provider) is what wires the
-crossfilter.
+vgplot hard-codes its fills; these charts read tokens off the live DOM instead, so a theme change
+re-colours the marks along with everything else — the vgplot analogue of how `kanzoHighlighting`
+re-skins CodeMirror. Axis text inherits `--foreground` through `currentColor`, so it stays legible
+in light and dark. Tokens are resolved against the chart's own host element, so a scoped theme
+override wins.
 
 ## API Reference
 
@@ -104,30 +410,99 @@ crossfilter.
 | Prop | Type | Default |
 | --- | --- | --- |
 | `coordinator` | `Coordinator` | — |
-| `crossfilter` | `Selection` | `Selection.crossfilter()` |
+| `crossfilter` | `Selection` | a fresh `Selection.crossfilter({ include: selected })` |
 
-`useMosaic()` returns `{ coordinator, crossfilter }`; `useCrossfilter()` returns the shared
-`Selection`. Both throw outside a `MosaicProvider`.
+`useMosaic()` returns `{ coordinator, crossfilter, selected }`; `useCrossfilter()` and
+`useSelected()` return one half each. All three throw outside a `MosaicProvider`. Passing your own
+`crossfilter` collapses `selected` onto it —
+[what that costs](#feedback-on-the-chart-that-filters).
 
-### Histogram / BarChart / LineChart
-
-| Prop | Type | Default |
-| --- | --- | --- |
-| `table` | `string` | — |
-| `column` | `string` | — |
-| `selection` | `Selection` | provider's crossfilter |
-| `height` | `number` | `120` |
-| `limit` *(BarChart)* | `number` | `8` |
-| `className` | `string` | — |
-
-### ScatterPlot
+### ChartRoot
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `table` | `string` | — |
-| `x` | `string` | — |
-| `y` | `string` | — |
-| `selection` | `Selection` | provider's crossfilter |
-| `height` | `number` | `120` |
-| `radius` | `number` | `2` |
-| `className` | `string` | — |
+| `table` | `string` | — (omit it when every mark carries its own `data`) |
+| `filterBy` | `Selection \| null` | the provider's `crossfilter`; `null` = unfiltered |
+| `as` | `Selection` | the provider's `selected`, relayed into that crossfilter |
+| `config` | `ChartConfig` | `{}` |
+| `height` | `number` | `200` (width is measured from the container) |
+| `margin` | `number \| { top, right, bottom, left }` | vgplot's default |
+| `aspectRatio` | `number` | — |
+| `attributes` | `readonly unknown[]` | — |
+| `locale` | `string` | the runtime locale |
+| `numberFormat` | `Intl.NumberFormatOptions` | — |
+| `className` / `plotClassName` | `string` | — |
+
+### Marks
+
+Props are the vgplot / Observable Plot mark options (`x`, `y`, `z`, `r`, `fill`, `stroke`,
+`opacity`, `sort`, `limit`, `inset`, …) plus the common sugar: `filterBy` (this mark's selection,
+`null` for the full relation), `data` (literal rows instead of the table), `at` (position a rule or
+tick without a table), and `tip`.
+
+One option is filled in for you. On the stacking marks — `ChartBarY`/`X`, `ChartArea`/`Y`/`X`,
+`ChartRect`/`Y`/`X`, `ChartWaffleY`/`X` — a **column-valued** `fill` or `stroke` is copied to `z`
+unless you pass one, because that is Plot's own default and Mosaic breaks it
+([why](/docs/data-display/chart-gallery#stacked-area)). `z={null}` opts out.
+
+`ChartBarY` `ChartBarX` `ChartWaffleY` `ChartWaffleX` `ChartLine` `ChartLineY` `ChartLineX`
+`ChartArea` `ChartAreaY` `ChartAreaX` `ChartDot` `ChartDotX` `ChartDotY` `ChartCircle`
+`ChartHexagon` `ChartImage` `ChartRect` `ChartRectY` `ChartRectX` `ChartCell` `ChartCellX`
+`ChartCellY` `ChartRuleY` `ChartRuleX` `ChartTickX` `ChartTickY` `ChartText` `ChartTextX`
+`ChartTextY` `ChartVector` `ChartVectorX` `ChartVectorY` `ChartSpike` `ChartArrow` `ChartLink`
+`ChartHeatmap` `ChartRaster` `ChartRasterTile` `ChartContour` `ChartDenseLine` `ChartDensity`
+`ChartDensityY` `ChartDensityX` `ChartHexbin` `ChartRegressionY` `ChartErrorbarY` `ChartErrorbarX`
+`ChartVoronoi` `ChartVoronoiMesh` `ChartDelaunayLink` `ChartDelaunayMesh` `ChartHull` `ChartGeo` ·
+decorators: `ChartFrame` `ChartGridX` `ChartGridY` `ChartHexgrid` `ChartSphere` `ChartGraticule` ·
+escape hatch: `ChartRaw`.
+
+Six of vgplot's marks are deliberately absent — `axisX`, `axisY`, `axisFx`, `axisFy`, `gridFx`,
+`gridFy` — because they are [attributes here](#anatomy). `ChartRaw` still takes them.
+
+### Interactors
+
+`as` chooses where the interaction publishes (default: the root's `as`, which is the provider's
+`selected`). Everything else is the vgplot interactor option — `peers`, `brush`, `pixelSize`,
+`empty`, …
+
+`ChartIntervalX` `ChartIntervalY` `ChartIntervalXY` `ChartToggleX` `ChartToggleY`
+`ChartToggleColor` `ChartNearestX` `ChartNearestY` `ChartRegion` `ChartPanZoom`
+
+`ChartHighlight` is the odd one out: it *reads* a selection (`by`) and dims the mark before it
+rather than publishing. It cannot read a crossfilter's own clause, which is why `by` defaults to
+`selected` and not to the crossfilter ([the whole
+story](#feedback-on-the-chart-that-filters)). `ChartPanZoom` carries no selection at all — it
+rewrites the scales.
+
+### Axes
+
+`ChartAxisX` / `ChartAxisY`, each compiling to prefixed plot attributes:
+
+| Prop | Type |
+| --- | --- |
+| `anchor` | `"top" \| "bottom" \| null` (X) · `"left" \| "right" \| null` (Y) — `null` hides the axis, keeps the scale |
+| `label` | `string \| null` |
+| `ticks` | count, interval name, or explicit values |
+| `tickFormat` `tickSize` `tickRotate` | |
+| `grid` `line` `zero` `percent` `nice` `reverse` | `boolean` |
+| `domain` `scale` `inset` `padding` | |
+
+Anything else goes through `ChartRoot`'s `attributes`.
+
+### Legends
+
+- `ChartLegend` — our DOM (`ark.ul`, `data-slot="chart-legend"`). Reads the root's `config`, or
+  takes its own `config` / `series` prop and works standalone. The label carries identity; the
+  swatch is `aria-hidden`, because colour is never the only channel.
+- `ChartColorLegend` — vgplot's, drawn inside the plot and **interactive**: clicking a swatch
+  publishes into the selection. Pass `as={null}` for a static key.
+
+### Helpers
+
+Re-exported so a whole chart is written without a direct `@uwdata` import: `count` `sum` `avg`
+`min` `max` `median` `quantile` `stddev` `mode` `bin` `sql` `Fixed`, plus `from` and `plot` for the
+[escape hatch](#escape-hatches), `Coordinator` `Selection` `coordinator` `wasmConnector`, the
+`CHART_CATEGORICAL` palette and `categoricalColor(i)`.
+
+For a descriptor of your own, `chartDescriptor(displayName, compile)` mints one; `compile` returns
+plain data (`{ kind: "mark", mark: "barY", source, options }`), never a `vg.*` call.

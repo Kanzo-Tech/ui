@@ -1,67 +1,75 @@
 ---
 title: Data Table
-description: A sortable, filterable, paginated table over TanStack Table — on its own entry point.
+description: A thin composable layer over TanStack Table — a preset for the usual shape, parts for everything else.
 ---
 
 <Callout type="info">
-**Data Table vs [Table](/docs/data-display/table):** `Table` is markup only — semantic elements,
-tokenised chrome, no data layer, in the root barrel. This is that table plus TanStack Table for
-sorting, filtering and pagination.
+**Three layers, not two.**
 
-That is a real dependency, which is why it sits on its own entry point:
+- **[`Table`](/docs/data-display/table)** is markup only — semantic elements, tokenised chrome, no
+  data layer, in the root barrel. You bring the rows and render them.
+- **`DataTable`** is the batteries-included preset: that same table plus TanStack Table for
+  sorting, filtering and pagination, wired the way most call sites want it.
+- **The parts** — `useDataTable` plus `DataTableRoot` / `Toolbar` / `Search` / `FacetFilter` /
+  `ViewOptions` / `Content` / `Pagination` — are what the preset is built from. Row selection,
+  column visibility, faceted filters and server-driven paging live here, deliberately not on the
+  preset's prop list.
+
+TanStack Table is a real dependency, which is why all three sit on their own entry point:
 
 ```tsx
 import { DataTable } from "@kanzo-tech/ui/table";
 ```
 
-`@tanstack/react-table` is an **optional peer**, so `import { Button }` keeps working for
-everyone who has not installed it. Reach for `Table` when you are laying out rows you already
-have; reach for `DataTable` when the user needs to sort, filter or page through them.
+`@tanstack/react-table` is an **optional peer**, so `import { Button }` keeps working for everyone
+who has not installed it.
 </Callout>
 
 <ComponentPreview componentName="data-table" />
 
 ## Usage
 
-`DataTable` lives on the `@kanzo-tech/ui/table` subpath, not the root barrel, because
-`@tanstack/react-table` is an **optional** peer dependency. Keeping it off the root means
-`import { Button } from "@kanzo-tech/ui"` never pulls TanStack into the bundle — only the
-apps that actually render a data table pay for it.
-
-```tsx
-import { type ColumnDef, DataTable, sortableHeader } from "@kanzo-tech/ui/table";
-```
-
-Install the peer alongside the library:
+Everything on this page lives on the `@kanzo-tech/ui/table` subpath, not the root barrel. Keeping
+it off the root means `import { Button } from "@kanzo-tech/ui"` never pulls TanStack into the
+bundle — only the apps that actually render a data table pay for it.
 
 ```bash
 pnpm add @tanstack/react-table
 ```
 
 ```tsx
+import { type ColumnDef, DataTable, sortableHeader } from "@kanzo-tech/ui/table";
+```
+
+```tsx
 <DataTable columns={columns} data={data} searchKey="name" />
 ```
 
-`ColumnDef`, `Row` and `CellContext` are re-exported from the same subpath, so a consumer
+`ColumnDef`, `Row`, `CellContext` and `Table` are re-exported from the same subpath, so a consumer
 types its columns without a direct TanStack import.
 
-## Sorting and toolbar
+**Start with the preset.** Move to the parts the moment you need something it does not expose —
+you keep the same columns and the same chrome, you just assemble the row yourself.
 
-Sorting is opt-in per column. TanStack marks every column sortable by default, but a column
-only becomes clickable when its `header` is built with `sortableHeader` — a plain-string
-header stays inert.
+## The preset
+
+### Sorting and toolbar
+
+Sorting is opt-in per column. TanStack marks every column sortable by default, but a column only
+becomes clickable when its `header` is built with `sortableHeader` — a plain-string header stays
+inert.
 
 <ComponentPreview componentName="data-table" fileName="example-sortable" />
 
-`searchKey` filters on a single column id and, together with `toolbarActions`, is what makes
-the toolbar row appear at all; with neither, no toolbar is rendered. Pagination hides itself
-whenever there is only one page.
+`searchKey` filters on a single column id and, together with `toolbarActions`, is what makes the
+toolbar row appear at all; with neither, no toolbar is rendered. Pagination hides itself whenever
+there is only one page.
 
-## Empty state
+### Empty state
 
 <ComponentPreview componentName="data-table" fileName="example-empty" />
 
-## Footer
+### Footer
 
 Give a column a `footer` and the table renders a `<tfoot>` — totals, counts, a summary row.
 Columns without one leave an empty footer cell; if no column defines a footer, no `<tfoot>` is
@@ -69,7 +77,150 @@ emitted at all.
 
 <ComponentPreview componentName="data-table" fileName="example-footer" />
 
+## The parts
+
+`useDataTable` owns the engine — every row model wired, the filter/sort/visibility/selection
+slices held as state, `manualPagination` and friends passed straight through. It returns the
+TanStack `Table` instance and nothing else, so anything the TanStack API can do is still on the
+table. The parts own the chrome and read that instance off React context.
+
+<ComponentPreview componentName="data-table" fileName="example-parts" />
+
+### Anatomy
+
+```text
+const table = useDataTable({ data, columns })
+
+<DataTableRoot table={table}>
+├── <DataTableToolbar>
+│   ├── <DataTableSearch />
+│   ├── <DataTableFacetFilter />
+│   └── <DataTableViewOptions />
+├── <DataTableContent />
+└── <DataTablePagination />
+```
+
+Every part is optional and their order is yours — the toolbar is a plain flex row, so your own
+buttons go in it alongside ours.
+
+`DataTableSearch` with a `column` filters that one column; without it, the table's global filter.
+
+## Row selection
+
+`selectColumn()` returns a ready-made leading checkbox column: the header reflects a partially
+selected page as `indeterminate`, both checkboxes carry a real `aria-label` (the column has no
+header text to borrow), and the cell stops click propagation so it stays inert under
+`onRowClick`. It is excluded from sorting and from the View menu.
+
+Read the selection off the table instance — `getFilteredSelectedRowModel().rows` counts only rows
+that survive the current filters, which is what a bulk action should operate on.
+
+<ComponentPreview componentName="data-table" fileName="example-selection" />
+
+`DataTablePagination` reports the selection count on its own, which is why it appears here even
+though a single page fits.
+
+## Column visibility
+
+<ComponentPreview componentName="data-table" fileName="example-column-visibility" />
+
+`DataTableViewOptions` lists every column whose `getCanHide()` is true, labelling each by its
+`header` **when that header is a string**. A column whose header is `sortableHeader("Records")`
+is a render function, not a label, so the menu falls back to the column id. Keep the plain string
+header, give the column an explicit `id` you are happy to show, or take it out of the menu with
+`enableHiding: false`.
+
+Set `enableHiding: false` on the column that identifies the row: a table whose name column can
+be hidden is a table of anonymous rows. Initial state comes from
+`initialColumnVisibility` on the hook.
+
+## Faceted filters
+
+`DataTableFacetFilter` is a multi-select over a column's faceted values, with live counts. Leave
+`options` out and it offers every distinct value it finds; pass them to fix the order, relabel a
+raw value or give it an icon.
+
+<Callout type="warn">
+**A faceted column must declare `filterFn: facetFilterFn`.**
+
+TanStack's built-in `arrIncludesSome` expects the *cell* to be the array. On a scalar cell it
+degrades to substring matching, so filtering by `"active"` silently keeps `"inactive"` too.
+`facetFilterFn` compares by equality against the selected values, which is what the menu means.
+
+```tsx
+import { facetFilterFn } from "@kanzo-tech/ui/table";
+
+{ accessorKey: "status", header: "Status", filterFn: facetFilterFn }
+```
+</Callout>
+
+<ComponentPreview componentName="data-table" fileName="example-facet-filter" />
+
+Selecting nothing clears the column filter entirely rather than filtering to the empty set, and
+the menu stays open across selections — a filter is a set, not a single choice.
+
+## Pagination
+
+`DataTablePagination` retires itself when there is nothing to say: one page, no selection and no
+size selector means no row of empty chrome. Pass `pageSizes` for a rows-per-page selector, which
+keeps the row alive even on a single page.
+
+<ComponentPreview componentName="data-table" fileName="example-page-size" />
+
+## Server-side pagination and sorting
+
+Hand `useDataTable` any TanStack option and it goes straight to `useReactTable`, so the
+server-driven modes work as documented: `manualPagination` with a `rowCount` tells the table how
+many rows exist beyond the ones you handed it, and the matching row model steps aside.
+`manualSorting` and `manualFiltering` behave the same way.
+
+Read what to fetch off the table instance — `table.getState().pagination` and
+`.sorting` — rather than through `onPaginationChange`, which hands you a TanStack `Updater` (a
+value *or* a function) and leaves you to resolve it against the previous state yourself.
+
+<ComponentPreview componentName="data-table" fileName="example-server" />
+
+## Everything together
+
+Selection, search, two faceted filters, column visibility, sortable headers, row activation and a
+page-size selector — the shape the preset deliberately does not grow props for.
+
+<ComponentPreview componentName="data-table" fileName="example-complete" />
+
+## Your own parts
+
+`useDataTableContext()` returns the table instance of the enclosing `DataTableRoot`, typed by your
+row type, so a custom toolbar control is a component like any other:
+
+```tsx
+function ResetFilters() {
+  const table = useDataTableContext<Dataset>();
+  if (!table.getState().columnFilters.length) return null;
+
+  return (
+    <Button onClick={() => table.resetColumnFilters()} size="sm" variant="ghost">
+      Reset
+    </Button>
+  );
+}
+```
+
+<Callout type="warn">
+**The context value is not memoised, and that is deliberate.**
+
+TanStack keeps a single mutable table instance, so `{ table }` never changes identity on its own.
+Wrapping it in `useMemo` — the reflex an optimisation pass reaches for — freezes any part passed
+down as `children`, whose element reference React reuses, on the state it first rendered with.
+Nothing throws; the table just stops reacting to filters and paging.
+
+`DataTableRoot` therefore allocates a fresh context object on every render. Leave it alone.
+</Callout>
+
 ## API Reference
+
+### DataTable
+
+The preset. Its prop list is unchanged.
 
 | Prop | Type | Default |
 | --- | --- | --- |
@@ -82,5 +233,94 @@ emitted at all.
 | `pageSize` | `number` | `20` |
 | `empty` | `ReactNode` | `"No results."` |
 
+### useDataTable
+
+Returns a TanStack `Table<TData>`.
+
+| Option | Type | Default |
+| --- | --- | --- |
+| `columns` | `ColumnDef<TData, TValue>[]` | — |
+| `data` | `TData[]` | — |
+| `pageSize` | `number` | `20` |
+| `initialSorting` | `SortingState` | `[]` |
+| `initialColumnFilters` | `ColumnFiltersState` | `[]` |
+| `initialColumnVisibility` | `VisibilityState` | `{}` |
+| `initialRowSelection` | `RowSelectionState` | `{}` |
+| `initialGlobalFilter` | `string` | `""` |
+
+Every other `TableOptions` key — `manualPagination`, `rowCount`, `getRowId`, `enableRowSelection`,
+`onSortingChange`, … — is forwarded untouched. Supplied `onXChange` handlers are called *in
+addition to* the hook's own state, never instead of it.
+
+### DataTableRoot
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `table` | `Table<TData>` | — |
+
+Extends `ark.div`. `useDataTableContext<TData>()` reads the instance back out.
+
+### DataTableSearch
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `column` | `string` | — (global filter) |
+| `placeholder` | `string` | `"Search…"` |
+
+`className` sizes the input group — the visible box; every other prop lands on the input.
+
+### DataTableFacetFilter
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `column` | `string` | — |
+| `label` | `ReactNode` | the column id |
+| `options` | `DataTableFacetOption[]` | every faceted value |
+
+`DataTableFacetOption` is `{ value: string; label?: ReactNode; icon?: ComponentType }`.
+
+### DataTableViewOptions
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `label` | `ReactNode` | `"View"` |
+
+### DataTableContent
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `empty` | `ReactNode` | `"No results."` |
+| `onRowClick` | `(row: TData) => void` | — |
+
+`className` styles the bordered box; the remaining props reach the `<table>`, so `variant` and
+`isHoverable` from [`Table`](/docs/data-display/table) pass through. With `onRowClick` the row
+becomes tabbable and Enter/Space activate it — a `<tr>` is not an interactive role, so it has to
+be made one. Activation is skipped when the key lands on a control inside the row.
+
+### DataTablePagination
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `pageSizes` | `number[]` | — (no selector) |
+
+Extends `ark.div`. Renders nothing when there is one page, no selection and no `pageSizes`.
+
+### selectColumn
+
+`selectColumn<TData>(options?): ColumnDef<TData, unknown>`
+
+| Option | Type | Default |
+| --- | --- | --- |
+| `id` | `string` | `"select"` |
+| `headerLabel` | `string` | `"Select all rows on this page"` |
+| `rowLabel` | `(row: Row<TData>) => string` | `` `Select row ${n}` `` |
+
+### sortableHeader
+
 `sortableHeader(label: ReactNode)` returns a TanStack header renderer — use it as a column's
 `header`.
+
+### facetFilterFn
+
+A column `filterFn` that keeps rows whose value is one of the selected facets. Required on any
+column driven by `DataTableFacetFilter`.

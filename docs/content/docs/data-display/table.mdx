@@ -12,6 +12,13 @@ elements with tokenised chrome and no data layer. You bring the rows and render 
 `DataTable` is this table plus TanStack Table: sorting, filtering and pagination. It costs a
 dependency, so it lives on its own entry point (`@kanzo-tech/ui/table`) with the peer marked
 optional — importing it never affects consumers who only want the markup.
+
+This pair is a **rule, not a one-off** — see [the engine rule](/docs/philosophy). A component that
+needs an engine ships as two: the presentational half in the root barrel, the connected half on the
+engine's subpath, rendering the first. `StatTile` (a figure you pass) and
+`ChartStat` (a figure it queries, reacting to the crossfilter) are the same pair over Mosaic. It is
+not duplication: the connected half renders the presentational one. It is what keeps showing a
+number from a REST call free of DuckDB-WASM.
 </Callout>
 
 <ComponentPreview componentName="table" />
