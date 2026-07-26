@@ -25,13 +25,22 @@ export interface DataTableContentProps<TData = unknown>
 }
 
 /**
+ * `clip` rather than `hidden` when the header is pinned, and the difference is the whole fix:
+ * `overflow: hidden` makes this box a scroll container, so a sticky `th` pins to it instead of to
+ * the region that scrolls. `clip` still clips the rounded corners but is not a scroll container,
+ * so the stickiness passes through to whatever owns the scroll.
+ */
+const boxOverflow = (stickyHeader: boolean) =>
+  stickyHeader ? "overflow-clip" : "overflow-hidden";
+
+/**
  * ARIA contract for `onRowClick`: a `<tr>` is not an interactive role, so the row is made
  * reachable (`tabIndex=0`) and activatable (Enter/Space) rather than being a mouse-only
  * target. Activation is ignored when the key lands on a control inside the row, which keeps
  * a button or checkbox cell behaving as itself.
  */
 export function DataTableContent<TData = unknown>(props: DataTableContentProps<TData>) {
-  const { empty = "No results.", onRowClick, className, ...rest } = props;
+  const { empty = "No results.", onRowClick, className, stickyHeader = false, ...rest } = props;
   const table = useDataTableContext<TData>();
 
   const rows = table.getRowModel().rows;
@@ -42,10 +51,10 @@ export function DataTableContent<TData = unknown>(props: DataTableContentProps<T
 
   return (
     <div
-      className={cn("overflow-hidden rounded-lg border border-border", className)}
+      className={cn(boxOverflow(stickyHeader), "rounded-lg border border-border", className)}
       data-slot="data-table-content"
     >
-      <Table {...rest}>
+      <Table stickyHeader={stickyHeader} {...rest}>
         <TableHeader>
           {table.getHeaderGroups().map((group) => (
             <TableRow key={group.id}>

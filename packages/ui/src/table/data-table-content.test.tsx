@@ -17,12 +17,13 @@ function Harness(props: {
   columns: ColumnDef<Item>[];
   data?: Item[];
   onRowClick?: (row: Item) => void;
+  stickyHeader?: boolean;
 }) {
   const table = useDataTable({ columns: props.columns, data: props.data ?? data });
 
   return (
     <DataTableRoot table={table}>
-      <DataTableContent<Item> onRowClick={props.onRowClick} />
+      <DataTableContent<Item> onRowClick={props.onRowClick} stickyHeader={props.stickyHeader} />
     </DataTableRoot>
   );
 }
@@ -35,6 +36,38 @@ describe("DataTableContent", () => {
 
     expect(screen.getByRole("columnheader", { name: "Name" })).toBeTruthy();
     expect(screen.getAllByRole("row")).toHaveLength(3);
+  });
+
+  // jsdom computes no layout, so these assert the thing that DECIDES whether sticky works rather
+  // than sticky itself: whether a box between the header and the scrolling region is a scroll
+  // container. `overflow-hidden` and `overflow-auto` are; `overflow-clip` and `visible` are not.
+  it("keeps its own scroll containers by default, so a sticky header would pin to the table", () => {
+    const { container } = render(<Harness columns={plain} />);
+
+    const box = container.querySelector('[data-slot="data-table-content"]')!;
+    const wrapper = container.querySelector('[data-slot="table-wrapper"]')!;
+
+    expect(box.className).toContain("overflow-hidden");
+    expect(wrapper.className).toContain("overflow-auto");
+    expect(container.querySelector('[data-slot="table"]')!.getAttribute("data-sticky-header")).toBe(
+      "false",
+    );
+  });
+
+  it("gives up both scroll containers when the header is pinned", () => {
+    const { container } = render(<Harness columns={plain} stickyHeader />);
+
+    const box = container.querySelector('[data-slot="data-table-content"]')!;
+    const wrapper = container.querySelector('[data-slot="table-wrapper"]')!;
+
+    // Clips the rounded corners without scrolling — the distinction the fix rests on.
+    expect(box.className).toContain("overflow-clip");
+    expect(box.className).not.toContain("overflow-hidden");
+    expect(wrapper.className).toContain("overflow-visible");
+    expect(wrapper.className).not.toContain("overflow-auto");
+    expect(container.querySelector('[data-slot="table"]')!.getAttribute("data-sticky-header")).toBe(
+      "true",
+    );
   });
 
   it("shows the empty placeholder spanning every visible column", () => {

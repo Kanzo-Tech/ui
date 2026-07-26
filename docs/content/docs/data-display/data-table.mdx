@@ -292,11 +292,29 @@ Extends `ark.div`. `useDataTableContext<TData>()` reads the instance back out.
 | --- | --- | --- |
 | `empty` | `ReactNode` | `"No results."` |
 | `onRowClick` | `(row: TData) => void` | — |
+| `stickyHeader` | `boolean` | `false` |
 
 `className` styles the bordered box; the remaining props reach the `<table>`, so `variant` and
 `isHoverable` from [`Table`](/docs/data-display/table) pass through. With `onRowClick` the row
 becomes tabbable and Enter/Space activate it — a `<tr>` is not an interactive role, so it has to
 be made one. Activation is skipped when the key lands on a control inside the row.
+
+#### Pinning the header
+
+`stickyHeader` keeps the column names in place while the **surrounding** region scrolls. It is not
+just a class on the cells, because two boxes in between are scroll containers and `position:
+sticky` resolves against the nearest one: the bordered box (`overflow-hidden`) and `Table`'s own
+wrapper (`overflow-auto`). Both are exactly as tall as their content, so a sticky `th` inside them
+pins to something that never moves. The prop stands both down — the box to `overflow-clip`, which
+still clips the rounded corners without scrolling — and the header then pins to whatever really
+scrolls: a `ShellMain`, a dialog body, the page.
+
+<Callout type="warn">
+That wrapper's `overflow-auto` is also what lets a table wider than its box scroll sideways, and
+CSS offers no way to keep one axis scrollable while the other stays sticky. With the header pinned,
+the enclosing region has to provide the horizontal scroll. The pinned cells are painted
+`bg-background`; on another surface pass `className="bg-card"` to your `TableHead`.
+</Callout>
 
 ### DataTablePagination
 

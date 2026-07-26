@@ -17,23 +17,66 @@ interface TableProps extends React.ComponentProps<typeof ark.table> {
    * @default "plain"
    */
   variant?: "plain" | "striped";
+  /**
+   * Pin the header row while the SURROUNDING region scrolls.
+   *
+   * This has to change the wrapper, not just the cells. `position: sticky` resolves against the
+   * nearest scroll container, and the wrapper's `overflow-auto` is one — so a sticky `th` inside
+   * it pins to a box that is exactly as tall as its own content and therefore never moves. Turning
+   * the wrapper's overflow off hands the job to whatever actually scrolls (a `ShellMain`, a
+   * dialog body, the page).
+   *
+   * The cost is the reason this is a prop and not the default: that `overflow-auto` is what lets a
+   * table wider than its box scroll sideways. With the header pinned, the enclosing region has to
+   * provide that instead — CSS gives no way to keep one axis scrollable and the other sticky.
+   *
+   * The pinned cells need to be opaque or the rows read through them; `bg-background` assumes the
+   * table sits on the page surface, so on a `Card` pass `className="bg-card"` to `TableHead`.
+   *
+   * @default false
+   */
+  stickyHeader?: boolean;
 }
 
 export const Table = (props: TableProps) => {
-  const { variant = "plain", isHoverable = true, className, ...rest } = props;
+  const {
+    variant = "plain",
+    isHoverable = true,
+    stickyHeader = false,
+    className,
+    ...rest
+  } = props;
 
   return (
-    <div className="relative w-full overflow-auto" data-slot="table-wrapper">
+    <div
+      className={cn("relative w-full", stickyHeader ? "overflow-visible" : "overflow-auto")}
+      data-slot="table-wrapper"
+    >
       <ark.table
         className={cn(
           "group/table",
           "w-full",
           "caption-bottom",
           "text-foreground text-sm",
+          "data-[sticky-header=true]:[&_thead_th]:sticky",
+          "data-[sticky-header=true]:[&_thead_th]:top-0",
+          "data-[sticky-header=true]:[&_thead_th]:z-10",
+          "data-[sticky-header=true]:[&_thead_th]:bg-background",
+          // `top: 0` pins to the scrollport's CONTENT edge, so a scroll region with padding leaves
+          // a band above the header where the rows scroll past in plain sight. The header cannot
+          // know that padding, so it covers it: an opaque strip standing on the cell's top edge,
+          // clipped by the bordered box and therefore invisible at rest, since the header is the
+          // first thing that box contains.
+          "data-[sticky-header=true]:[&_thead_th]:before:absolute",
+          "data-[sticky-header=true]:[&_thead_th]:before:inset-x-0",
+          "data-[sticky-header=true]:[&_thead_th]:before:bottom-full",
+          "data-[sticky-header=true]:[&_thead_th]:before:h-24",
+          "data-[sticky-header=true]:[&_thead_th]:before:bg-background",
           className
         )}
         data-hoverable={isHoverable}
         data-slot="table"
+        data-sticky-header={stickyHeader}
         data-variant={variant}
         {...rest}
       />
