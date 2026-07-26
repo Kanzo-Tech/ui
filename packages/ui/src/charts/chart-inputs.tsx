@@ -714,10 +714,24 @@ export function ChartSlider(props: ChartSliderProps) {
   const [values, setValues] = useState<number[] | null>(
     defaultValue === undefined ? null : [...toValues(defaultValue)],
   );
+  /** Distinguishes "never published" from "published and then cleared" — see the effect below. */
+  const held = useRef(false);
 
   useEffect(() => {
-    if (selected === undefined) return;
-    setValues([...toValues(selected)]);
+    if (selected !== undefined) {
+      held.current = true;
+      setValues([...toValues(selected)]);
+      return;
+    }
+    // The clause is gone: a `Selection.reset()`, a "Clear filters" button, another control
+    // retracting it. Fall back to the extent instead of leaving the thumbs where they were — a
+    // slider that still reads 5–22 while nothing is filtered is a control lying about the state,
+    // which is worse than one that never moved. Gated on `held` so the first render does not
+    // stomp on `defaultValue` before the priming effect has published it.
+    if (held.current) {
+      held.current = false;
+      setValues(null);
+    }
   }, [selected]);
 
   const primed = useRef(false);

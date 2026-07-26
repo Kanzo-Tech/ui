@@ -48,6 +48,19 @@
 /* Scan the component source for the utilities to emit. */
 @source "./**/*.{ts,tsx}";
 
+/* Observable Plot, re-tokenised — the same move as `.kanzo-prose` below, for the same reason.
+   Plot hardcodes `--plot-background: white` on its own `<svg>` and paints every floating surface
+   with it: the `tip` box, `crosshair` text haloes, `marker` fills. Its text is `currentColor`, so
+   the moment the theme goes dark the tooltip is a white box with white text — present, unreadable.
+
+   It has to be set ON the svg, not on our container: Plot's rule is `:where(.plot-…)`, which has
+   zero specificity but is still a declaration on that element, and a declaration always beats an
+   inherited value. Pointing the variable at `--popover` is also why this is CSS and not JS — the
+   token already flips with the theme, so nothing has to re-resolve anything. */
+[data-slot="chart"] [class*="plot-"] {
+  --plot-background: var(--popover);
+}
+
 /* Prose, re-tokenised. The typography plugin ships its own grey palette, which would make
    `Prose` the one component in the library that ignores the theme — including dark mode, where
    its defaults are unreadable. These are the plugin's own variables, so every element rule it

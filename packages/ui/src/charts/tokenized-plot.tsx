@@ -31,6 +31,9 @@ export interface TokenizedPlotProps {
   className?: string;
 }
 
+/** How long a resize has to be quiet before the plot is rebuilt at the new width. */
+const RESIZE_SETTLE_MS = 140;
+
 /**
  * The shared frame under `Histogram` and `BarChart`: resolve the Kanzo tokens to Plot-safe
  * colours, build the vgplot node, and mount it imperatively into a token-coloured container.
@@ -59,12 +62,31 @@ export function TokenizedPlot({ render, deps, className }: TokenizedPlotProps) {
       if (host) setWidth(host.clientWidth);
       return;
     }
+    // The width is a plot option, so every value it takes rebuilds the plot — and a rebuilt plot
+    // builds new Mosaic clients, which re-query the database. Committing every ResizeObserver tick
+    // therefore turns one drag of a splitter or window edge into a query per pixel. The first
+    // measurement lands at once (nothing is on screen yet to keep steady); after that the width
+    // waits for the drag to stop.
+    let settle: ReturnType<typeof setTimeout> | null = null;
+    // A local flag, not the `width` state: the observer is created once, so a closure over `width`
+    // would read 0 forever and every tick would commit immediately.
+    let first = true;
     const ro = new ResizeObserver((entries) => {
       const w = Math.round(entries[0]?.contentRect.width ?? 0);
-      if (w > 0) setWidth(w);
+      if (w <= 0) return;
+      if (first) {
+        first = false;
+        setWidth(w);
+        return;
+      }
+      if (settle) clearTimeout(settle);
+      settle = setTimeout(() => setWidth(w), RESIZE_SETTLE_MS);
     });
     ro.observe(host);
-    return () => ro.disconnect();
+    return () => {
+      if (settle) clearTimeout(settle);
+      ro.disconnect();
+    };
   }, []);
 
   useEffect(() => {

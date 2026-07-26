@@ -338,4 +338,31 @@ describe("ChartSlider", () => {
     expect(crossfilter.clauses[0]?.value).toEqual([1, 100]);
   });
 
+  it("returns its thumbs to the extent when the selection is reset", async () => {
+    const crossfilter = Selection.crossfilter();
+    const { coordinator } = stubCoordinator(() => [{ min: 0, max: 100 }]);
+    const user = userEvent.setup();
+
+    render(
+      <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
+        <ChartSlider column="latency" label="Latency" select="interval" table="telemetry" />
+      </MosaicProvider>,
+    );
+
+    const thumbs = await screen.findAllByRole("slider");
+    thumbs[0]?.focus();
+    await user.keyboard("{ArrowRight}{ArrowRight}");
+    await waitFor(() => expect(crossfilter.clauses).toHaveLength(1));
+    expect(thumbs[0]?.getAttribute("aria-valuenow")).toBe("2");
+
+    // What a "Clear filters" button does. The clause going away is only half of it: a slider still
+    // showing 2–100 while nothing is filtered is a control lying about the state.
+    await act(async () => {
+      crossfilter.reset();
+    });
+
+    expect(crossfilter.clauses).toHaveLength(0);
+    await waitFor(() => expect(thumbs[0]?.getAttribute("aria-valuenow")).toBe("0"));
+    expect(thumbs[1]?.getAttribute("aria-valuenow")).toBe("100");
+  });
 });
