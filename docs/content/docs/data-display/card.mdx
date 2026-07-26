@@ -43,3 +43,35 @@ a menu, a single icon button — while `CardFooter` sits at the bottom, for the 
 is *for*.
 
 <ComponentPreview componentName="card" fileName="example-actions" />
+
+## A metric tile, composed
+
+<Callout type="info">
+**Reach for [`StatTile`](/docs/data-display/charts#dashboards) first.** A dashboard KPI
+— a figure, a delta with its comparison period, a sparkline — is a shipped component in the root
+barrel, and re-composing one from `Card` to get it back is work the library already did.
+
+This section is the other case: a tile `StatTile` does not cover, here one with a status tint and a
+whole-card link. It is a composition, not an import, and the point is the three decisions it takes
+rather than the parts themselves.
+</Callout>
+
+<ComponentPreview componentName="card" fileName="example-metric-default" />
+
+**Status belongs on the root, as a data attribute.** It is state, not content, and the icon disc
+has to read it — off `data-status` rather than through context, so the part needs no client
+boundary. A theme change then re-skins a whole dashboard row without touching a call site.
+
+<ComponentPreview componentName="card" fileName="example-metric-status" />
+
+**Loading belongs on the two parts that actually swap.** The label and the icon are known before
+the figure is, so they keep rendering; only the value and the description become skeletons, sized
+to the text they replace so the tile does not jump when the number arrives.
+
+<ComponentPreview componentName="card" fileName="example-metric-loading" />
+
+**A linked tile is one tab stop, not four.** With `href` the whole card becomes a single link
+target, which is what a tile should be; without it the card is inert. Route it through your own
+router with `linkComponent` — see [Link](/docs/navigation/link).
+
+<ComponentPreview componentName="card" fileName="example-metric-link" />

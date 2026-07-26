@@ -1,4 +1,4 @@
 {
   "title": "Data display",
-  "pages": ["table", "data-table", "charts", "chart-gallery", "graph-view","tree-view", "json-tree-view", "card", "item", "metric-card", "status", "badge", "editable", "avatar", "progress", "---Content---", "prose", "code-editor", "kbd", "highlight"]
+  "pages": ["table", "data-table", "charts", "chart-gallery", "graph-view","tree-view", "json-tree-view", "card", "item", "status", "badge", "avatar", "progress", "---Content---", "prose", "code-editor", "kbd", "highlight"]
 }
