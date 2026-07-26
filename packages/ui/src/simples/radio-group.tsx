@@ -11,6 +11,21 @@ import { FieldLabel } from "./field";
 
 export const useRadioGroup = useRadioGroupContext;
 
+export interface RadioGroupProps
+  extends React.ComponentProps<typeof ArkRadioGroup.Root> {
+  /**
+   * Lay the items out as a grid instead of the default column. `"auto"` fits as many
+   * card-width tracks as the container allows; a number pins the count.
+   *
+   * A declared addition to Shark's file, and the whole of what the deleted `CardRadioGroup`
+   * added over this compound. Distinct from Ark's `orientation`, which is arrow-key direction
+   * and not layout. The count is written to a `--columns` custom property rather than a class,
+   * so a responsive count stays CSS and needs no second prop:
+   * `columns={1} className="sm:[--columns:2] lg:[--columns:4]"`.
+   */
+  columns?: number | "auto";
+}
+
 // Divergence from Shark, declared: Ark 5.37.2's `useRadioGroup` bridges `useFieldsetContext`
 // (disabled/invalid/legend id) but NOT `useFieldContext` — grep `dist/components` and radio-group
 // is one of only two form machines with zero `useFieldContext` imports (Slider is the other; the
@@ -25,17 +40,18 @@ export const useRadioGroup = useRadioGroupContext;
 // `FieldLegend` remains the right labelling container. Explicit props still win, and with no
 // `Field` ancestor every flag is `undefined`, which Ark strips before it reaches the machine, so
 // the built-in Fieldset bridge is untouched.
-export const RadioGroup = (
-  props: React.ComponentProps<typeof ArkRadioGroup.Root>
-) => {
-  const { className, children, ...rest } = props;
+export const RadioGroup = (props: RadioGroupProps) => {
+  const { className, children, columns, style, ...rest } = props;
 
   const field: UseFieldContext | undefined = useFieldContext();
 
   return (
     <ArkRadioGroup.Root
       className={cn(
-        "flex flex-col gap-3",
+        columns === undefined ? "flex flex-col gap-3" : "grid gap-3",
+        columns === "auto" && "grid-cols-[repeat(auto-fit,minmax(8.5rem,1fr))]",
+        typeof columns === "number" &&
+          "grid-cols-[repeat(var(--columns),minmax(0,1fr))]",
         "data-invalid:text-destructive dark:data-invalid:text-destructive-foreground",
         className
       )}
@@ -44,6 +60,11 @@ export const RadioGroup = (
       invalid={field?.invalid}
       readOnly={field?.readOnly}
       required={field?.required}
+      style={
+        typeof columns === "number"
+          ? ({ "--columns": columns, ...style } as React.CSSProperties)
+          : style
+      }
       {...rest}
     >
       {children}

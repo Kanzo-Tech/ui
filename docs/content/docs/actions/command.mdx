@@ -68,7 +68,9 @@ column of fixed height inline, or `CommandDialogContent`.
 
 `CommandDialog` is the Dialog root re-exported, and `CommandDialogContent` supplies the
 sizing plus a screen-reader-only title and description, so the palette is announced properly
-without visible chrome.
+without visible chrome. Because the root is Dialog's, so is the trigger: use `DialogTrigger`
+for an uncontrolled palette, or drive `open` yourself when a `⌘K` handler shares the state, as
+below.
 
 <ComponentPreview componentName="command" fileName="example-dialog" />
 

@@ -165,6 +165,14 @@ export type { FilterExpr } from "@uwdata/mosaic-sql";
 // column when the type allows one, so the fallback is not a nicety.
 export { column, numbers } from "./charts/arrow.js";
 
+// And the client that protocol is usually reached for. A view whose positions are not in the
+// database — a GPU canvas, a map, an imperative widget — cannot publish `weight BETWEEN …`, because
+// there is no column to write the predicate over. It can only enumerate what was hit. That shape is
+// the same every time: fade by the surviving ids, publish a points clause, and decline the
+// self-exemption so the fade reads as the brush.
+export { IdSetClient } from "./charts/id-set-client.js";
+export type { IdSetClientOptions } from "./charts/id-set-client.js";
+
 // The five preset charts (Histogram, BarChart, LineChart, ScatterPlot, BarSeriesChart) are gone —
 // they were five parallel hardcoded `vg.plot(...)` calls that could not be composed. Each one is
 // now a ten-line example in the docs, written with the grammar above.

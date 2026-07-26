@@ -1,6 +1,6 @@
 ---
 title: Menu
-description: The main menu — a flat list where any entry can expand into sub-items.
+description: The navigation column — a list where any entry can expand into sub-items, told what is active either way.
 ---
 
 <ComponentPreview componentName="sidebar-nav" fullBleed />
@@ -20,9 +20,51 @@ import { SidebarNav } from "@kanzo-tech/ui";
 It must be rendered inside a [`SidebarProvider`](/docs/navigation/sidebar) — it reads the
 sidebar's state to close the mobile drawer when an entry is followed.
 
-An item with `items` becomes a collapsible group, open by default when it is `isActive`;
-an item with `href` is a leaf. Navigation goes through the injected `linkComponent`, so the
-design system never imports a router.
+An item with `items` becomes a collapsible group, open by default when it or anything under it
+is active; an item with `href` is a leaf. Navigation goes through the injected `linkComponent`,
+so the design system never imports a router.
+
+## Which row is active
+
+There are two ways to answer that, and the right one depends on where routing knowledge already
+lives in your product.
+
+| | Say it with | Reach for it when |
+|---|---|---|
+| **Per item** | `isActive` on each entry | The caller already computed it — a route config, a `useMatch`, a tab index, a wizard step. The nav is told, not asked. |
+| **Once, derived** | `activePath` on the nav | You have a current path and nothing else. One string in, every row decides for itself. |
+
+```tsx
+// Told: the caller holds the answer.
+<SidebarNav items={[{ title: "Runs", href: "/runs", isActive: true }]} />
+
+// Derived: one path, prefix-matched.
+<SidebarNav activePath={usePathname()} items={items} linkComponent={Link} />
+```
+
+`activePath` matches by **prefix on a path segment**: a row is active when its `href` equals
+`activePath` or `activePath` continues it after a `/`. So `/settings/cloud` stays lit on
+`/settings/cloud/azure` and is *not* lit by `/settings/cloud-archive`. Route awareness stays in
+the product — the design system never calls `usePathname`.
+
+<Callout type="info">
+The two models compose, and **an explicit `isActive` always wins** — including `isActive:
+false`, which is how you veto a prefix match the component would otherwise make. Anything with
+no `isActive` at all falls through to `activePath`. That is why the mixed case needs no rule of
+its own: one item can be pinned by hand inside a nav that derives the rest.
+</Callout>
+
+On a group, `isActive` (or a matching `activePath`) controls whether it starts **open**, not how
+its own row is styled — the row is a disclosure trigger, and the lit row is the leaf inside it.
+
+## Several titled groups
+
+There is no `sections` prop: a settings-style column of headed blocks is one `SidebarNav` per
+heading, which is what the [app shell](/docs/showcases/app-shell) does for its Platform / Support
+split. Each block then carries its own `<nav>` landmark, named from its `label` — two navs
+called "Workspace" and "Account" rather than one anonymous one wrapping both.
+
+<ComponentPreview componentName="sidebar-nav" fullBleed fileName="example-active-path" />
 
 ## Anatomy
 
@@ -45,7 +87,11 @@ SidebarNav
 | --- | --- | --- |
 | `items` | `SidebarNavItem[]` | — |
 | `label` | `ReactNode` | — |
+| `activePath` | `string` | — |
 | `linkComponent` | `LinkComponent` | `DefaultLink` |
+
+`label` doubles as the accessible name of the `<nav>` when it is a string; it falls back to
+`"Sidebar"`.
 
 ### SidebarNavItem
 
@@ -54,5 +100,9 @@ SidebarNav
 | `title` | `string` | — |
 | `href` | `string` | — |
 | `icon` | `ReactNode` | — |
-| `isActive` | `boolean` | `false` |
-| `items` | `{ title: string; href: string; isActive?: boolean }[]` | — |
+| `isActive` | `boolean` | — |
+| `badge` | `ReactNode` | — |
+| `items` | `{ title: string; href: string; isActive?: boolean; badge?: ReactNode }[]` | — |
+
+`title` is a `string`, not a `ReactNode`, because it is also the tooltip text — the row's only
+accessible name once the sidebar collapses to icons.

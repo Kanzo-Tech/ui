@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { loadObjects } from "@uwdata/mosaic-sql";
-import { Coordinator, MosaicProvider, wasmConnector } from "@kanzo-tech/ui/analytics";
+import { Coordinator, MosaicProvider, loadObjects, wasmConnector } from "@kanzo-tech/ui/analytics";
 import { Skeleton } from "@kanzo-tech/ui";
 import { telemetryRows } from "./telemetry";
 

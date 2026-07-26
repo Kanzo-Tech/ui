@@ -14,7 +14,7 @@ export const useNumberInput = useNumberInputContext;
 
 // The Control is the input shell (border, focus ring, invalid, disabled) — Ark ships no `Group`
 // part, so the shell lives here and the stepper triggers float at the inline-end edge.
-export const numberInputControlVariants = tv({
+const numberInputControlVariants = tv({
   base: [
     "group/number-input",
     "relative flex w-full min-w-0 items-stretch",

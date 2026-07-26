@@ -7,7 +7,7 @@ import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
 
-export const floatVariants = tv({
+const floatVariants = tv({
   base: ["absolute z-10", "flex items-center justify-center"],
   variants: {
     // Vertical uses `middle-*` (not `center-*`); horizontal uses `*-center`. The nine cells of

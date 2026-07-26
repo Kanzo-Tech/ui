@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Selection, SelectionClause } from "@uwdata/mosaic-core";
+import type { Selection, SelectionClause } from "@kanzo-tech/ui/analytics";
 import { Badge } from "@kanzo-tech/ui";
 import { XIcon } from "lucide-react";
 

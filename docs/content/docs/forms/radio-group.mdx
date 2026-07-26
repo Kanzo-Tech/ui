@@ -24,8 +24,11 @@ import { RadioGroup, RadioGroupItem, RadioGroupLabel } from "@kanzo-tech/ui";
 ```text
 RadioGroup
 ├── RadioGroupLabel
-└── RadioGroupItem
-    └── RadioGroupText
+├── RadioGroupItem
+│   └── RadioGroupText
+└── RadioGroupCard          — the same item, styled as a card
+    ├── RadioGroupText
+    └── RadioGroupIndicator — optional, place it yourself
 ```
 
 ## With label
@@ -47,9 +50,82 @@ a class, because the group is vertical by default.
 
 <ComponentPreview componentName="radio-group" fileName="example-disabled" />
 
+## Cards
+
+A "card radio" is not another component: it is `RadioGroupCard` — this same machine, this same
+item, with the selected look driven by `data-[state=checked]` instead of a dot. Full radio
+semantics still come from Ark — roving focus, arrow-key selection, hidden inputs — so the card
+is purely how the option looks, never how it behaves.
+
+The contents are **children**, not an options array. A record of `label` / `description` /
+`icon` / `badge` / `preview` nodes is a layout tree written as an attribute: you cannot reorder
+it, wrap a region, spread props onto one, or use `asChild`. Children give all of that back, and
+a badge, an icon or a type specimen is then whatever you render.
+
+<ComponentPreview componentName="radio-group" fileName="example-cards" />
+
+`columns` is the one thing the card layout needs that classes do not already give you:
+`"auto"` fits as many card-width tracks as the container allows, and a number pins the count.
+Without it the group stays the default column. Note that this is layout, and distinct from
+Ark's `orientation`, which is arrow-key direction.
+
+```tsx
+<RadioGroup columns="auto">…</RadioGroup>   {/* as many as fit */}
+<RadioGroup columns={3}>…</RadioGroup>      {/* exactly three */}
+```
+
+The count is written to a `--columns` custom property rather than a class, so a responsive
+count needs no second prop:
+
+```tsx
+<RadioGroup columns={1} className="sm:[--columns:2] lg:[--columns:4]">
+```
+
+The layout *inside* a card is ordinary flex. `RadioGroupCard` is already a `flex` row, so a
+horizontal card is `items-start` and a vertical one is `flex-col items-center text-center` —
+and since the cards are the group's direct children, one `*:` class list on the group beats
+repeating it per card:
+
+```tsx
+<RadioGroup className="text-center *:flex-col *:items-center" columns="auto">
+```
+
+### Rows, and the indicator
+
+`RadioGroupIndicator` is the radio dot with no semantics of its own. Place it inside a card
+when the selected border and fill do not say enough on their own — and place it where you want
+it, which is why it is not a prop.
+
+<ComponentPreview componentName="radio-group" fileName="example-card-horizontal" />
+
+### Previews
+
+Anything can go in a card: a type specimen, a swatch, a mini chart.
+
+<ComponentPreview componentName="radio-group" fileName="example-card-preview" />
+
+### Controlled
+
+<ComponentPreview componentName="radio-group" fileName="example-card-controlled" />
+
+### Disabled and invalid
+
+`disabled` sits on the individual `RadioGroupCard`, `invalid` on the group. A badge is free of
+any coupling to either — it marks a recommended option just as easily as an unavailable one.
+
+<ComponentPreview componentName="radio-group" fileName="example-card-disabled" />
+
 ## API Reference
 
-No props beyond Ark's. `RadioGroup` extends `RadioGroup.Root` (`value`, `defaultValue`,
-`onValueChange`, `orientation`, `disabled`, `invalid`, `readOnly`, `required`, `name`,
-`form`), and `RadioGroupItem` extends `RadioGroup.Item` (`value`, `disabled`, `invalid`) —
-the control, the item text and the hidden input are rendered for you.
+`RadioGroup` extends `RadioGroup.Root` (`value`, `defaultValue`, `onValueChange`,
+`orientation`, `disabled`, `invalid`, `readOnly`, `required`, `name`, `form`) and adds one
+prop:
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `columns` | `number \| "auto"` | — (a column) |
+
+`RadioGroupItem` extends `RadioGroup.Item` (`value`, `disabled`, `invalid`) — the control, the
+item text and the hidden input are rendered for you. `RadioGroupCard` extends the same
+`RadioGroup.Item` and renders only the hidden input, so the card's contents are yours;
+`RadioGroupText` and `RadioGroupIndicator` take no props beyond Ark's.

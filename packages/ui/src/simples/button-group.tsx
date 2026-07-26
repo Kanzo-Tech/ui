@@ -8,7 +8,7 @@ import { tv } from "tailwind-variants";
 import { cn } from "../lib/cn";
 import { Separator } from "./separator";
 
-export const buttonGroupVariants = tv({
+const buttonGroupVariants = tv({
   base: [
     "flex items-center",
     "isolate",

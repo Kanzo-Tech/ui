@@ -10,6 +10,5 @@ and each re-exports its Ark context hook (`useAccordion`, `useTagsInput`, …).
 
 `RadioGroup` gains the card-radio primitives — `RadioGroupCard`, `RadioGroupIndicator`,
 `RadioGroupText` — so a card-shaped option is the same machine styled off `data-[state=checked]`,
-not a separate component. `CardRadioGroup` is now a thin PascalCase convenience composed over
-them instead of a monolith. `SegmentGroup`'s filled-track look becomes a variant instead of
+not a separate component. `SegmentGroup`'s filled-track look becomes a variant instead of
 repeated CSS.

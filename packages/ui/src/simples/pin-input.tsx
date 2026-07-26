@@ -11,7 +11,7 @@ import { FieldLabel } from "./field";
 
 export const usePinInput = usePinInputContext;
 
-export const pinInputInputVariants = tv({
+const pinInputInputVariants = tv({
   base: [
     "shrink-0",
     "text-center tabular-nums",

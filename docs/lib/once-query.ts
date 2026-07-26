@@ -1,8 +1,6 @@
 "use client";
 
-import { MosaicClient } from "@uwdata/mosaic-core";
-import type { Coordinator } from "@kanzo-tech/ui/analytics";
-import type { Query } from "@uwdata/mosaic-sql";
+import { MosaicClient, type Coordinator, type Query } from "@kanzo-tech/ui/analytics";
 
 /**
  * One unfiltered read of a relation, as a throwaway client.

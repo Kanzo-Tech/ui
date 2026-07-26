@@ -38,7 +38,7 @@ export function SectionRoot({ className, ...rest }: SectionRootProps) {
 }
 SectionRoot.displayName = "SectionRoot";
 
-export const sectionHeaderVariants = tv({
+const sectionHeaderVariants = tv({
   base: "flex items-start gap-3",
   variants: {
     /** `page` is the top of a screen; `section` is a block within one. The difference is
@@ -100,7 +100,7 @@ export function SectionTitleGroup({ className, ...rest }: ComponentProps<typeof 
 }
 SectionTitleGroup.displayName = "SectionTitleGroup";
 
-export const sectionTitleVariants = tv({
+const sectionTitleVariants = tv({
   base: "truncate text-foreground",
   variants: {
     scale: {
@@ -158,7 +158,7 @@ export function SectionActions({ className, ...rest }: ComponentProps<typeof ark
 }
 SectionActions.displayName = "SectionActions";
 
-export const sectionBodyVariants = tv({
+const sectionBodyVariants = tv({
   base: "flex min-h-0 flex-1 flex-col gap-4 overflow-auto",
   variants: {
     scale: { page: "p-4", section: "" },

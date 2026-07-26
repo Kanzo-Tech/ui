@@ -87,6 +87,44 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(surface.ContextMenuShortcut).toBeUndefined();
     expect(surface.useContextMenu).toBeUndefined();
     expect(UI.MenuContextTrigger).toBeTypeOf("function");
+    // `CardRadioGroup` was rung-1 layout plus an `options: ReactNode[]` array over a compound that
+    // already existed. The grid moved onto `RadioGroup` as a `columns` prop; the cards are
+    // `RadioGroupCard`, which is what a card radio always was.
+    expect(surface.CardRadioGroup).toBeUndefined();
+    expect(UI.RadioGroupCard).toBeTypeOf("function");
+    // `SectionNav` rendered `SidebarNav`'s tree from a different data shape. The only real
+    // difference — per-item `isActive` versus a prefix-derived `activePath` — is now a prop.
+    expect(surface.SectionNav).toBeUndefined();
+    expect(UI.SidebarNav).toBeTypeOf("function");
+  });
+
+  it("keeps `tv()` recipes off the public surface unless another module needs them", () => {
+    // A variant object is an implementation detail: exported, it freezes a class list as API. The
+    // fourteen with no importer are internal again. The exceptions stay because a *different* module
+    // imports them — `statusVariants` is the one to be careful with: `avatar.tsx` imports it as a
+    // type for `VariantProps<typeof statusVariants>`, which still requires the value to be exported.
+    // A sweep that trusted "used only by its own file" would have broken Avatar.
+    const surface = UI as Record<string, unknown>;
+    for (const name of [
+      "alertVariants",
+      "badgeVariants",
+      "buttonGroupVariants",
+      "floatVariants",
+      "menuContentVariants",
+      "numberInputControlVariants",
+      "pinInputInputVariants",
+      "sectionBodyVariants",
+      "sectionHeaderVariants",
+      "sectionTitleVariants",
+      "shellAsideVariants",
+      "sidebarMenuBadgeVariants",
+      "toggleVariants",
+    ]) {
+      expect(surface[name], name).toBeUndefined();
+    }
+    expect(UI.buttonVariants).toBeTypeOf("function");
+    expect(UI.inputVariants).toBeTypeOf("function");
+    expect(UI.statusVariants).toBeTypeOf("function");
   });
 
   it("keeps CodeMirror-backed components off the root barrel", () => {

@@ -61,9 +61,13 @@ export const ChartHighlight = chartDescriptor<ChartHighlightProps>("ChartHighlig
 
 /**
  * Clearer aliases for the two ways of selecting, because vgplot's own pair mixes criteria:
- * `toggle` names the gesture, `interval` names the result. Both spellings work — the docs teach
- * these, and the vgplot names stay so anyone reading Mosaic's documentation lands on the same
- * component.
+ * `toggle` names the gesture, `interval` names the result. Both spellings work, and the vgplot names
+ * stay so anyone reading Mosaic's documentation lands on the same component.
+ *
+ * This block used to claim "the docs teach these". They did not — a measurement found zero mentions
+ * of any `Pick`/`Brush` name across every `.mdx`, while both spellings ran side by side in examples
+ * and one showcase, sometimes in the same file. The pairing is now a table under
+ * "Interactors" in `charts.mdx`. If you add an alias here, teach it there in the same commit.
  *
  * **Pick** is discrete: click a bar, get `region IN (…)`. Needs a categorical/band scale.
  * **Brush** is continuous: drag the axis, get `latency BETWEEN lo AND hi`. Needs a scale with a

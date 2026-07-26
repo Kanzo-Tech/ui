@@ -679,7 +679,7 @@ export const SidebarMenuAction = (props: SidebarMenuActionProps) => {
   );
 };
 
-export const sidebarMenuBadgeVariants = tv({
+const sidebarMenuBadgeVariants = tv({
   base: [
     "flex items-center justify-center",
     "px-1",

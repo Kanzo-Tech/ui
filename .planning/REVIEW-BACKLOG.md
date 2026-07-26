@@ -95,7 +95,6 @@ an exported component with zero documentation and appears in no navigation.
 
 - **`Alert`** — variants and the colour story.
 - **`Card`** — it has more variants than the page shows; they exist, scattered.
-- **`CardRadioGroup`** — should the options sit on one row?
 - **`Checkbox`** — too thin.
 - **`Combobox`** — is there multi-select? If not, should there be?
 - **`Text`** — the truncate example does not communicate what it does.

@@ -486,6 +486,22 @@ Six of vgplot's marks are deliberately absent — `axisX`, `axisY`, `axisFx`, `a
 `ChartIntervalX` `ChartIntervalY` `ChartIntervalXY` `ChartToggleX` `ChartToggleY`
 `ChartToggleColor` `ChartNearestX` `ChartNearestY` `ChartRegion` `ChartPanZoom`
 
+<Callout type="info">
+**Six of these answer to two names, and both are real.** `pick` and `brush` say what the gesture
+*is* — click a category, drag a range — where vgplot's `toggle` and `interval` say how the machine
+models it. The pairs are the same object, not wrappers:
+
+| Gesture | vgplot's spelling |
+| --- | --- |
+| `ChartPickX` `ChartPickY` `ChartPickColor` | `ChartToggleX` `ChartToggleY` `ChartToggleColor` |
+| `ChartBrushX` `ChartBrushY` `ChartBrushXY` | `ChartIntervalX` `ChartIntervalY` `ChartIntervalXY` |
+
+Reach for the gesture name when you are writing a chart; the vgplot name is there so anyone
+arriving from Mosaic's own documentation lands on the same component. This table exists because the
+alias block claimed the docs taught these and they did not — both spellings were live in code, one
+of them undocumented, which is how a reader ends up believing they are two different interactors.
+</Callout>
+
 `ChartHighlight` is the odd one out: it *reads* a selection (`by`) and dims the mark before it
 rather than publishing. It cannot read a crossfilter's own clause, which is why `by` defaults to
 `selected` and not to the crossfilter ([the whole

@@ -44,8 +44,8 @@ Sheet
 ├── SheetTrigger
 └── SheetContent          (portal + overlay + positioner)
     ├── SheetHeader
-    │   ├── SheetTitle
-    │   └── SheetDescription
+    │   ├── DialogTitle          (or the header's `title` shorthand)
+    │   └── DialogDescription    (or `description`)
     ├── SheetBody
     ├── SheetFooter
     │   └── SheetClose
@@ -80,3 +80,7 @@ below that it stays flush, because a floating card on a phone wastes the width.
 
 Same props as `Dialog`, `DialogHeader` and `DialogBody` — including the header's `title` and
 `description` shorthands and the body's `scrollFade`.
+
+There is no `SheetTitle` or `SheetDescription`: the header's shorthands render `DialogTitle` and
+`DialogDescription`, and those are what to reach for when a header needs more than two strings.
+A sheet is Dialog's machine, so it is Dialog's title too.

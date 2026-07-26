@@ -112,7 +112,7 @@ ShellMain.displayName = "ShellMain";
 
 // ── Aside ────────────────────────────────────────────────────────────────────
 
-export const shellAsideVariants = tv({
+const shellAsideVariants = tv({
   base: "flex flex-col bg-card",
   variants: {
     side: { start: "", end: "" },

@@ -1,6 +1,5 @@
 "use client";
 
-import { axisX } from "@uwdata/vgplot";
 import {
   ChartAxisX,
   ChartAxisY,
@@ -9,6 +8,7 @@ import {
   ChartRaw,
   ChartRoot,
   ChartToggleY,
+  axisX,
   count,
 } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "./mosaic-demo";
@@ -17,7 +17,9 @@ import { MosaicDemo } from "./mosaic-demo";
 // and `gridFy`. That gap is deliberate — `ChartAxisX` and friends compile to plot *attributes*,
 // because an axis mark would steal the binding from the interactor after it — and it is exactly
 // what `ChartRaw` is for. A plot has one `xAxis` attribute, so it draws one x axis; the measure
-// scale repeated at the top, where a long bar list needs it, is the unwrapped `axisX` **mark**.
+// scale repeated at the top, where a long bar list needs it, is the unwrapped `axisX` **mark** —
+// re-exported from the subpath with its five siblings, because a closed set of six that the layer
+// withholds on purpose is not a reason to make the hatch cost an `@uwdata` import.
 //
 // Both anchors are spelled out because Plot only adds its implicit axis when the plot has no axis
 // mark for that scale: declare one and you own them all. The scale itself is still `ChartAxisX`'s —

@@ -13,7 +13,6 @@ import React from "react";
 import { cn } from "../lib/cn";
 import { Button } from "./button";
 import {
-  DialogBody,
   DialogFooter,
   DialogHeader,
   type DialogOverlay,
@@ -218,10 +217,8 @@ export const TourContent = (props: TourContentProps) => {
   );
 };
 
-export const TourBody = (props: React.ComponentProps<typeof DialogBody>) => (
-  <DialogBody data-slot="tour-body" {...props} />
-);
-
+// A step's body is `DialogBody`: the renamed `TourBody` only relabelled the slot, and nothing
+// keys off `tour-body`.
 export const TourSpotlight = (
   props: React.ComponentProps<typeof ArkTour.Spotlight>
 ) => (
@@ -301,18 +298,9 @@ export const TourClose = (
   props: React.ComponentProps<typeof ArkTour.CloseTrigger>
 ) => <ArkTour.CloseTrigger data-slot="tour-close-trigger" {...props} />;
 
-export const TourFooter = (
-  props: React.ComponentProps<typeof DialogFooter>
-) => {
-  const { children, ...rest } = props;
-
-  return (
-    <ArkTour.Control {...rest} asChild>
-      <DialogFooter data-slot="tour-control">{children}</DialogFooter>
-    </ArkTour.Control>
-  );
-};
-
+// `TourFooter` was a second wrapper over the same `ArkTour.Control` that `TourActions` already
+// carries. Ark's `Control` is a bare `ark.div` with static anatomy attrs — no machine wiring —
+// so a caller laying out footer content by hand needs `DialogFooter`, not a tour part.
 export const TourActions = (
   props: React.ComponentProps<typeof DialogFooter>
 ) => {

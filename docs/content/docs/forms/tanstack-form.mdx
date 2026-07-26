@@ -258,7 +258,6 @@ The table is the reference; the examples below are the copies.
 | `Checkbox` | `checked: boolean \| "indeterminate"` | `onCheckedChange` | `{ checked }` |
 | `CheckboxGroup` | `value: string[]` | `onValueChange` | **a bare `string[]`** |
 | `RadioGroup` | `value: string` | `onValueChange` | `{ value: string \| null }` |
-| `CardRadioGroup` | `value: string` | `onValueChange` | **a bare `string`** |
 | `Switch` | `checked: boolean` | `onCheckedChange` | `{ checked }` |
 | `NumberInput` | `value: string` | `onValueChange` | `{ value: string, valueAsNumber: number }` |
 | `Slider` | `value: number[]` | `onValueChange` | `{ value: number[] }` |
@@ -348,13 +347,13 @@ not there.
 
 <ComponentPreview componentName="form/tanstack" fileName="example-radio-group" hasMaxHeight={false} showBorders={false} />
 
-### CardRadioGroup
+### Radio cards
 
-Ours, not Ark's — the `options` sugar over `RadioGroupCard`. Because it is ours, the callback is a
-plain string, so `onValueChange={field.handleChange}` is the entire wiring. It takes `invalid`
-directly, and `FieldLegend` inside a `FieldSet` gives the group its heading.
+The same machine and the same wiring, with `RadioGroupCard` for the items — so `details.value`
+and its `?? ""` are unchanged from above, and `columns` is what lays the cards out. It takes
+`invalid` directly, and `FieldLegend` inside a `FieldSet` gives the group its heading.
 
-<ComponentPreview componentName="form/tanstack" fileName="example-card-radio-group" hasMaxHeight={false} showBorders={false} />
+<ComponentPreview componentName="form/tanstack" fileName="example-radio-cards" hasMaxHeight={false} showBorders={false} />
 
 ### Switch
 

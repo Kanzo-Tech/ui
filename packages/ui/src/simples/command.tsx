@@ -11,7 +11,6 @@ import {
   ComboboxControl,
   ComboboxEmpty,
   ComboboxGroup,
-  ComboboxGroupLabel,
   type ComboboxItem,
   ComboboxList,
   comboboxItemVariants,
@@ -22,7 +21,6 @@ import {
   DialogHeader,
   DialogOverlay,
   DialogPositioner,
-  DialogTrigger,
   dialogContentVariants,
 } from "./dialog";
 import type { InputProps } from "./input";
@@ -36,10 +34,8 @@ import { Separator } from "./separator";
 
 export const CommandDialog = Dialog;
 
-export const CommandDialogTrigger = (
-  props: React.ComponentProps<typeof DialogTrigger>
-) => <DialogTrigger data-slot="command-dialog-trigger" {...props} />;
-
+// `CommandDialog` *is* `Dialog`, so its trigger is `DialogTrigger` — a renamed alias only made
+// the two look like different machines.
 interface CommandDialogContentProps
   extends React.ComponentProps<typeof DialogContent> {
   /**
@@ -206,13 +202,11 @@ export const CommandEmpty = (
   );
 };
 
+// A group's label comes from `heading`, which `ComboboxGroup` renders itself — so the renamed
+// `CommandGroupLabel` was redundant twice over and is gone.
 export const CommandGroup = (
   props: React.ComponentProps<typeof ComboboxGroup>
 ) => <ComboboxGroup data-slot="command-group" {...props} />;
-
-export const CommandGroupLabel = (
-  props: React.ComponentProps<typeof ComboboxGroupLabel>
-) => <ComboboxGroupLabel data-slot="command-group-label" {...props} />;
 
 export const CommandItem = (
   props: React.ComponentProps<typeof ComboboxItem>

@@ -4,7 +4,7 @@ import { ark } from "@ark-ui/react/factory";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
 
-export const badgeVariants = tv({
+const badgeVariants = tv({
   base: [
     "relative",
     "inline-flex items-center justify-center gap-1",

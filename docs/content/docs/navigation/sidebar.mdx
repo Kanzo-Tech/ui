@@ -53,23 +53,22 @@ Sheet drawer instead of a rail, which is why the navigating composites close it 
 |---|---|---|
 | **`SidebarProvider`** | Owns open/collapsed state, the `⌘B` shortcut and the mobile swap to a `Sheet`. Read it with `useSidebar()`. | Always — wrap once, near the root. |
 | **The parts** (`Sidebar`, `SidebarHeader`, `SidebarMenu`, `SidebarMenuButton`…) | The primitive vocabulary, vendored from Shark. Twenty-three of them, documented below. | When you are building a navigation shape the composites do not cover. |
-| **The composites** (`SidebarNav`, `SectionNav`, `SidebarUser`, `SidebarIdentity`) | Our pre-assembled arrangements of those parts. | Most of the time. Start here. |
+| **The composites** (`SidebarNav`, `SidebarUser`, `SidebarIdentity`, `InstanceSwitcher`) | Our pre-assembled arrangements of those parts. | Most of the time. Start here. |
 
 The relationship is the same one the [forms guide](/docs/forms/controls) describes: the parts
 are the primitive, the composites are the convenience. **Default to the composites.**
 
-## Which navigation component?
+## The navigation component
 
-Two composites both render navigation, and the difference is structural:
+There is one: [`SidebarNav`](/docs/navigation/sidebar-nav) — the **Menu**. A labelled list where
+any entry may expand into sub-items. A settings-style column of several titled blocks is several
+of these, one per heading, which is what the app shell does for its Platform / Support split;
+there is no second composite and no `sections` prop.
 
-| Component | Shape | Use it for |
-|---|---|---|
-| [`SidebarNav`](/docs/navigation/sidebar-nav) — the **Menu** | A flat list, where any entry may expand into sub-items | Application navigation — the main menu |
-| [`SectionNav`](/docs/navigation/section-nav) — **Sections** | Several titled groups, each a headed block | Settings-style navigation, or a long list that needs headings |
-
-Both are **domain-free and router-free**. Neither imports `next/link` or reads the current URL:
-`SidebarNav` takes `isActive` per item, `SectionNav` takes an `activePath` and computes it.
-Your product injects its router through the `linkComponent` seam.
+It is **domain-free and router-free**: it never imports `next/link` and never reads the current
+URL. Your product injects its router through the `linkComponent` seam, and tells the nav what is
+active either per item (`isActive`) or once (`activePath`, prefix-matched) — the
+[two models](/docs/navigation/sidebar-nav#which-row-is-active) are documented on its own page.
 
 ## Which identity component?
 

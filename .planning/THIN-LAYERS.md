@@ -232,7 +232,7 @@ validación de arrays).
 
 Los controles a cubrir son los nuestros, y ahí está el valor real: los de Ark usan
 `onValueChange`/`details`, no `onChange`, así que el wiring no es obvio — `Input`, `Textarea`,
-`NativeSelect`, `Select`, `Checkbox`, `RadioGroup`, `CardRadioGroup`, `Switch`, `NumberInput`,
+`NativeSelect`, `Select`, `Checkbox`, `RadioGroup`, `Switch`, `NumberInput`,
 `Slider`, `Combobox`, `DatePicker`, `DateField`, `PinInput`, `Rating`, `TagsInput`, `FileUpload`,
 `ColorPicker`, y un formulario complejo.
 

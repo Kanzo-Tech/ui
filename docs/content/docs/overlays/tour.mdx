@@ -62,7 +62,7 @@ Tour                         (owns the tour machine)
     ├── TourHeader
     │   ├── TourTitle
     │   └── TourDescription
-    ├── TourBody
+    ├── DialogBody           (a step body is Dialog's, not a tour part)
     ├── TourProgressText
     ├── TourActions          (renders the step's `actions` array)
     │   ├── TourPreviousStep
@@ -71,8 +71,10 @@ Tour                         (owns the tour machine)
 ```
 
 `TourActions` renders whatever the current step declares, mapping `prev`/`dismiss` to outline
-buttons and `next` to a filled one. Use `TourPreviousStep` and `TourNextStep` directly when a
-step needs its navigation laid out among other footer content.
+buttons and `next` to a filled one. Use `TourPreviousStep` and `TourNextStep` directly, inside
+your own `DialogFooter`, when a step needs its navigation laid out among other footer content —
+`TourActions` already carries Ark's `Tour.Control`, which is a plain div of anatomy attributes,
+so there is nothing a second tour-shaped footer part would wire up.
 
 ## Step types
 

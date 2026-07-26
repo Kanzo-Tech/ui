@@ -8,7 +8,7 @@ description: An inline message that needs attention but not a dialog.
 ## Usage
 
 ```tsx
-import { Alert, AlertDescription, AlertTitle } from "@kanzo-tech/ui";
+import { Alert, AlertAction, AlertDescription, AlertTitle } from "@kanzo-tech/ui";
 ```
 
 ## Variants
@@ -33,3 +33,31 @@ Choosing between them is about **what the reader must do**, not about how bad it
 For an error that belongs to one **field**, use [`FieldError`](/docs/forms/validation) instead —
 an Alert above the form cannot tell the user which input is wrong.
 </Callout>
+
+## Actions
+
+<ComponentPreview componentName="alert" fileName="example-action" hasMaxHeight={false} />
+
+`AlertAction` is a slot, not a decoration: `Alert` is a grid, and it grows its trailing `auto`
+column only when an `AlertAction` is present. Which column the actions land in follows what
+precedes them — after an icon and a title it is column three, after a description alone it is
+column two — so a leading icon never leaves a hole. Below `sm` the actions wrap under the text
+instead of competing with it for width.
+
+Put `Button`s inside it. `ghost` buttons pick up a hover tint from the alert's own variant, so a
+secondary action in a `destructive` alert does not hover grey.
+
+## API Reference
+
+### Alert
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `variant` | `"default" \| "info" \| "success" \| "warning" \| "destructive"` | `"default"` |
+
+`role` follows `variant`: `destructive` announces as `alert` (assertive), everything else as
+`status` (polite). Pass `role` to override it.
+
+### AlertTitle / AlertDescription / AlertAction
+
+Plain `ark.div`s — they carry no props of their own, only the grid placement described above.

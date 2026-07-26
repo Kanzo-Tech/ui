@@ -1,4 +1,4 @@
 {
   "title": "Navigation",
-  "pages": ["breadcrumb", "breadcrumbs", "tabs", "segment-group", "link", "steps", "pagination", "---Sidebar---", "sidebar", "sidebar-nav", "section-nav", "sidebar-user", "instance-switcher"]
+  "pages": ["breadcrumb", "breadcrumbs", "tabs", "segment-group", "link", "steps", "pagination", "---Sidebar---", "sidebar", "sidebar-nav", "sidebar-user", "instance-switcher"]
 }

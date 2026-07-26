@@ -10,11 +10,9 @@ import { Button } from "./button";
 import {
   Dialog,
   DialogBody,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogOverlay,
-  DialogTitle,
 } from "./dialog";
 
 export const useSheet = useDialogContext;
@@ -189,14 +187,9 @@ export const SheetHeader = (
   props: React.ComponentProps<typeof DialogHeader>
 ) => <DialogHeader data-slot="sheet-header" {...props} />;
 
-export const SheetTitle = (props: React.ComponentProps<typeof DialogTitle>) => (
-  <DialogTitle data-slot="sheet-title" {...props} />
-);
-
-export const SheetDescription = (
-  props: React.ComponentProps<typeof DialogDescription>
-) => <DialogDescription data-slot="sheet-description" {...props} />;
-
+// The title and description are `DialogTitle` / `DialogDescription`, usually reached through
+// `SheetHeader`'s `title` / `description` shorthands, which render exactly those. The renamed
+// pair only relabelled the slot, and nothing keys off `sheet-title`.
 export const SheetBody = (props: React.ComponentProps<typeof DialogBody>) => {
   const { className, ...rest } = props;
 

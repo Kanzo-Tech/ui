@@ -49,20 +49,48 @@ const NavBadge = ({ children }: { children: React.ReactNode }) => (
 
 export interface SidebarNavProps {
   items: SidebarNavItem[];
-  /** Group heading (was hardcoded "Platform"). Omit for no label. */
+  /** Group heading, and the accessible name of the `<nav>` when it is a string. Omit for no label. */
   label?: React.ReactNode;
   /** Router link. Defaults to a plain `<a>`. */
   linkComponent?: LinkComponent;
+  /**
+   * Current path — the second way to say which row is lit. An entry with no explicit
+   * `isActive` is active when its `href` equals `activePath` or is a prefix of it
+   * (`/x` stays lit on `/x/y`). Keeps route-awareness in the product, not the DS.
+   */
+  activePath?: string;
 }
 
+/** `/settings` is active on `/settings/cloud`; it is not active on `/settings-archive`. */
+const matchesPath = (activePath: string | undefined, href: string | undefined) =>
+  activePath != null &&
+  href != null &&
+  (activePath === href || activePath.startsWith(`${href}/`));
+
+type Activatable = Pick<SidebarNavItem, "href" | "isActive">;
+
 /**
- * SidebarNav — the primary nav list with collapsible sub-items (was keasy's
- * `layout/nav-main.tsx`). Domain-free: `label` is a prop, navigation goes through
- * the injected `linkComponent`, and the mobile drawer closes itself on navigate.
+ * SidebarNav — the navigation column, with collapsible sub-items (was keasy's
+ * `layout/nav-main.tsx`, merged with its near-twin `SectionNav`). Domain-free: `label` is a
+ * prop, navigation goes through the injected `linkComponent`, and the mobile drawer closes
+ * itself on navigate.
+ *
+ * Two ways to say what is active, and they compose: per-item `isActive` when the caller
+ * already holds the answer, or one `activePath` the component prefix-matches. An explicit
+ * `isActive` always wins — including `isActive: false`, which is how you veto a match.
+ *
+ * Several *titled* groups are several of these, one per heading — which is what
+ * `docs/showcases/app-shell/default.tsx` does. Each then names its own `<nav>` landmark.
  */
-export function SidebarNav({ items, label, linkComponent: Link = DefaultLink }: SidebarNavProps) {
+export function SidebarNav({
+  items,
+  label,
+  linkComponent: Link = DefaultLink,
+  activePath,
+}: SidebarNavProps) {
   const { setOpenMobile } = useSidebar();
   const close = () => setOpenMobile(false);
+  const isActive = (item: Activatable) => item.isActive ?? matchesPath(activePath, item.href);
   return (
     <nav aria-label={typeof label === "string" ? label : "Sidebar"} data-slot="sidebar-nav">
     <SidebarGroup>
@@ -70,10 +98,16 @@ export function SidebarNav({ items, label, linkComponent: Link = DefaultLink }: 
       <SidebarMenu>
         {items.map((item) =>
           item.items?.length ? (
-            <CollapsibleItem key={item.title} item={item} Link={Link} onNavigate={close} />
+            <CollapsibleItem
+              key={item.title}
+              item={item}
+              Link={Link}
+              onNavigate={close}
+              isActive={isActive}
+            />
           ) : (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton asChild isActive={item.isActive} tooltip={item.title}>
+              <SidebarMenuButton asChild isActive={isActive(item)} tooltip={item.title}>
                 <Link href={item.href ?? "#"} onClick={close}>
                   {item.icon}
                   <span className="truncate">{item.title}</span>
@@ -89,10 +123,23 @@ export function SidebarNav({ items, label, linkComponent: Link = DefaultLink }: 
   );
 }
 
-function CollapsibleItem({ item, Link, onNavigate }: { item: SidebarNavItem; Link: LinkComponent; onNavigate: () => void }) {
+function CollapsibleItem({
+  item,
+  Link,
+  onNavigate,
+  isActive,
+}: {
+  item: SidebarNavItem;
+  Link: LinkComponent;
+  onNavigate: () => void;
+  isActive: (item: Activatable) => boolean;
+}) {
+  // Open when the group is active OR anything under it is: a closed group hides its own
+  // active row, which is the one thing the caller asked to show.
+  const defaultOpen = isActive(item) || item.items!.some(isActive);
   return (
     <SidebarMenuItem>
-      <Collapsible defaultOpen={Boolean(item.isActive)}>
+      <Collapsible defaultOpen={defaultOpen}>
         <CollapsibleTrigger asChild>
           <SidebarMenuButton tooltip={item.title} className="[&[data-state=open]>svg:last-child]:rotate-90">
             {item.icon}
@@ -107,7 +154,7 @@ function CollapsibleItem({ item, Link, onNavigate }: { item: SidebarNavItem; Lin
           <SidebarMenuSub>
             {item.items!.map((sub) => (
               <SidebarMenuSubItem key={sub.title}>
-                <SidebarMenuSubButton asChild isActive={sub.isActive}>
+                <SidebarMenuSubButton asChild isActive={isActive(sub)}>
                   <Link href={sub.href} onClick={onNavigate}>
                     <span className="truncate">{sub.title}</span>
                     {sub.badge != null && <NavBadge>{sub.badge}</NavBadge>}

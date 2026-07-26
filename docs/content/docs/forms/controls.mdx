@@ -36,7 +36,7 @@ on it. Default to the PascalCase one; drop to the primitive when you need to rea
 | [`FacetFilter`](/docs/forms/facet-filter) | A `Listbox` in a popover behind a trigger that counts what is picked. | `multiple` | Narrowing a table or a dashboard, where the options are data and carry counts. |
 | [`TagsInput`](/docs/forms/tags-input) | A list of removable tokens with **no option collection** — the user invents the values. | always | The values do not exist beforehand: free-form tags, keywords, addresses. |
 | [`RadioGroup`](/docs/forms/radio-group) | A few options, all visible at once. | no | One of a few, no popover. |
-| [`CardRadioGroup`](/docs/forms/card-radio-group) | The same, where each option needs an icon or a description. | no | One of a few, where the options need explaining. |
+| [`RadioGroupCard`](/docs/forms/radio-group#cards) | That same item styled as a card, with room for an icon, a description or a preview. | no | One of a few, where the options need explaining. |
 | [`SegmentGroup`](/docs/navigation/segment-group) | 2–4 options as a compact inline switch. Radio semantics, segmented look. | no | Switching a view in place. |
 
 Rule of thumb: under ~7 options, `NativeSelect`; over ~15, `Combobox`, because that is where

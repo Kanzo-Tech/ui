@@ -8,7 +8,7 @@ import { buttonVariants } from "./button";
 
 export const useToggle = useToggleContext;
 
-export const toggleVariants = tv({
+const toggleVariants = tv({
   base: [
     "relative",
     "data-[state=on]:bg-input/64 dark:data-[state=on]:bg-input/64",

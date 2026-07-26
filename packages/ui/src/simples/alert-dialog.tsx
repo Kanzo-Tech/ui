@@ -8,10 +8,8 @@ import {
   DialogBody,
   DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
   DialogTrigger,
 } from "./dialog";
 
@@ -54,14 +52,8 @@ export const AlertDialogHeader = (
   props: React.ComponentProps<typeof DialogHeader>
 ) => <DialogHeader data-slot="alert-dialog-header" {...props} />;
 
-export const AlertDialogTitle = (
-  props: React.ComponentProps<typeof DialogTitle>
-) => <DialogTitle data-slot="alert-dialog-title" {...props} />;
-
-export const AlertDialogDescription = (
-  props: React.ComponentProps<typeof DialogDescription>
-) => <DialogDescription data-slot="alert-dialog-description" {...props} />;
-
+// The title and description are `DialogTitle` / `DialogDescription`: nothing keys off an
+// `alert-dialog-title` slot, so renaming them bought two exports and no behaviour.
 export const AlertDialogClose = (
   props: React.ComponentProps<typeof DialogClose>
 ) => <DialogClose data-slot="alert-dialog-close" {...props} />;

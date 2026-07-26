@@ -20,58 +20,9 @@ export const Skeleton = (props: React.ComponentProps<typeof ark.div>) => {
   );
 };
 
-export const SkeletonCircle = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
-
-  return (
-    <ark.div
-      className={cn(
-        "size-10",
-        "shrink-0",
-        "bg-muted",
-        "rounded-full",
-        "animate-pulse",
-        "motion-reduce:animate-none!",
-        className
-      )}
-      data-slot="skeleton-circle"
-      {...rest}
-    />
-  );
-};
-
-interface SkeletonTextProps extends React.ComponentProps<typeof ark.div> {
-  /**
-   * The number of lines of the skeleton text.
-   *
-   * @default 1
-   */
-  lines?: number;
-}
-
-export const SkeletonText = (props: SkeletonTextProps) => {
-  const { className, lines = 2, ...rest } = props;
-
-  return (
-    <ark.div
-      className={cn(
-        "w-full",
-        "flex flex-col gap-2",
-        "animate-pulse",
-        "**:[div]:h-4",
-        "motion-reduce:animate-none!",
-        className
-      )}
-      data-slot="skeleton-text"
-      {...rest}
-    >
-      {Array.from({ length: lines }).map((_, index) => {
-        const key = `skeleton-text-${index}`;
-
-        return (
-          <div className="w-full rounded-md bg-muted last:w-3/4" key={key} />
-        );
-      })}
-    </ark.div>
-  );
-};
+// There is no `SkeletonCircle` or `SkeletonText`. A circle is `size-10 shrink-0 rounded-full`
+// on this one — rung 1 of the ladder, and `examples/skeleton/example-default.tsx` was already
+// writing it that way rather than importing the part. `SkeletonText` was worse than redundant:
+// it forced every line to `h-4` via `**:[div]:h-4` and the last to `w-3/4`, neither reachable
+// from the root's `className`, so the only shape it could draw is not the one the sole real
+// caller wanted (`h-3`, `w-2/3`). Repeating a `Skeleton` is a `.map`, not an export.

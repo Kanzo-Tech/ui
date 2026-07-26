@@ -156,11 +156,10 @@ export type { TextFieldProps, NumberFieldProps } from "./simples/TextField.js";
 export type { Suggestion } from "./simples/types.js";
 export { FieldArray } from "./simples/FieldArray.js";
 export type { FieldArrayProps } from "./simples/FieldArray.js";
-export { CardRadioGroup } from "./simples/CardRadioGroup.js";
-export type {
-  CardRadioGroupProps,
-  CardRadioOption,
-} from "./simples/CardRadioGroup.js";
+// No `CardRadioGroup`. A card radio is `RadioGroupCard` — `radio-group.tsx`'s own item styled off
+// `data-[state=checked]`, which is rung 1 of the ladder and was already built. The monolith added a
+// grid and an `options: CardRadioOption[]` array over it: a layout tree written as an attribute,
+// which is the shape `SidebarIdentity` argues against in writing. The grid moved to the primitive.
 export { Ribbon } from "./simples/Ribbon.js";
 export type { RibbonProps } from "./simples/Ribbon.js";
 // The one surface behind every facet filter. Lives in the root barrel because both consumers
@@ -179,7 +178,6 @@ export {
   ShellAside,
   ShellMain,
   ShellFooter,
-  shellAsideVariants,
 } from "./layouts/shell.js";
 export type { ShellAsideProps } from "./layouts/shell.js";
 export {
@@ -192,9 +190,6 @@ export {
   SectionActions,
   SectionBody,
   SectionFooter,
-  sectionHeaderVariants,
-  sectionTitleVariants,
-  sectionBodyVariants,
 } from "./layouts/section.js";
 export type {
   SectionRootProps,
@@ -229,8 +224,10 @@ export {
   SidebarIdentityText,
 } from "./composites/SidebarIdentity.js";
 export type { SidebarIdentityProps } from "./composites/SidebarIdentity.js";
-export { SectionNav } from "./composites/SectionNav.js";
-export type { SectionNavProps, NavSection } from "./composites/SectionNav.js";
+// No `SectionNav`. It rendered the same tree as `SidebarNav` from a different data shape — the only
+// real difference being where routing knowledge lives, a per-item `isActive` versus one `activePath`
+// derived by prefix. `SidebarNav` now takes either, so the second component was a second opinion
+// with no second behaviour.
 
 // ── Level 2 — shells / patterns (domain-free composites) ─────────────────────
 // CodeEditor → `@kanzo-tech/ui/editor` (see the GhostEditor note above).

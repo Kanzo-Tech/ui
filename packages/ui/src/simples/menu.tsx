@@ -70,7 +70,7 @@ export const MenuPositioner = (
   );
 };
 
-export const menuContentVariants = tv({
+const menuContentVariants = tv({
   base: [
     "z-[calc(50+var(--nested-layer-count,0))]",
     // A FIXED max-height, not `max-h-(--available-height)`: clamping the content to the
@@ -366,24 +366,7 @@ export const MenuShortcut = (props: React.ComponentProps<typeof ark.span>) => {
   );
 };
 
-export const MenuArrow = (
-  props: React.ComponentProps<typeof ArkMenu.Arrow>
-) => {
-  const { style, ...rest } = props;
-
-  return (
-    <ArkMenu.Arrow
-      style={
-        {
-          "--arrow-background": "var(--popover)",
-          "--arrow-size": "calc(1.5 * var(--spacing))",
-          ...style,
-          left: "20px",
-        } as React.CSSProperties
-      }
-      {...rest}
-    >
-      <ArkMenu.ArrowTip className="border-s border-t" />
-    </ArkMenu.Arrow>
-  );
-};
+// There is no `MenuArrow`. It was the one arrow of the four that carried no `data-slot` and
+// pinned `left: "20px"` *after* the caller's `style`, throwing away the offset the positioner
+// computes — two divergences from the identical `PopoverArrow` / `TooltipArrow` /
+// `HoverCardArrow` that only a renderer would catch, and it never had one.
