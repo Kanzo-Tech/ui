@@ -1,12 +1,34 @@
 import { Parser, type Quad } from "n3";
+import {
+  and,
+  column,
+  eq,
+  gt,
+  isIn,
+  isNull,
+  literal,
+  lt,
+  not,
+  or,
+  regexp_matches,
+  sql,
+  type ExprNode,
+} from "@uwdata/mosaic-sql";
 
 /**
  * SHACL → SQL, for the subset that a column-shaped relation can answer.
  *
  * A shape constraint and a SQL predicate are the same statement in two notations, provided you know
- * which column a property path lands on. That mapping is the only thing this compiler *invents*, and
- * it is declared below rather than guessed: `dcat:keyword` is a `|`-joined column, `dcat:distribution`
- * is a count, `dct:issued` is a DATE. Everything else falls out.
+ * which column a property path lands on. That mapping is the one thing SHACL cannot tell you, so it
+ * arrives as a {@link Binding} argument rather than living here: `dcat:keyword` is a `|`-joined
+ * column, `dcat:distribution` is a count, `dct:issued` is a DATE. Point the same shapes file at
+ * another relation by passing another binding — {@link FOSSIL_BINDING} is simply the one this
+ * showcase loads. Everything else falls out.
+ *
+ * The predicates are expression nodes, never strings. Values come out of somebody's shapes file,
+ * and a compiler that builds SQL by concatenation owns every quote, every escape and every type by
+ * hand — which is where a `DATE` column compared to `''` came from. It also quotes identifiers,
+ * so a column called `order` does not take the report down with it.
  *
  * **What is supported**, because it maps cleanly: `sh:targetClass`, `sh:path`, `sh:minCount`,
  * `sh:maxCount`, `sh:in`, `sh:minInclusive`, `sh:maxInclusive`, `sh:pattern`, `sh:severity`.
@@ -31,8 +53,8 @@ export interface Shape {
   /** The constraint, as a reader of SHACL would write it. */
   constraint: string;
   severity: Severity;
-  /** SQL identifying the nodes that FAIL the constraint. */
-  failing: string;
+  /** The predicate identifying the nodes that FAIL the constraint. */
+  failing: ExprNode;
 }
 
 export interface CompileResult {
@@ -48,64 +70,106 @@ export interface CompileResult {
  * `multi` means the column holds several values joined by `|`, so cardinality is a token count;
  * `count` means the column already *is* the cardinality.
  */
-interface ColumnBinding {
+export interface ColumnBinding {
   column: string;
   kind: "scalar" | "multi" | "count";
-  /** Renders a SQL literal for a value in this column. */
-  literal?: (value: string) => string;
+  /**
+   * How the column stores its values. It decides two things that a `kind` alone cannot: the
+   * literal syntax, and what counts as absent — only text can be blank as well as null.
+   *
+   * @default "text"
+   */
+  datatype?: "text" | "date" | "number";
 }
 
-const PATHS: Record<string, ColumnBinding> = {
-  "dct:issued": { column: "issued", kind: "scalar", literal: (v) => `DATE '${v}'` },
-  "dct:publisher": { column: "publisher", kind: "scalar" },
-  "dcat:theme": { column: "theme", kind: "scalar" },
-  "dct:format": { column: "label", kind: "scalar" },
-  "dcat:keyword": { column: "keywords", kind: "multi" },
-  "dcat:distribution": { column: "distributions", kind: "count" },
-  "kanzo:degree": { column: "degree", kind: "scalar" },
-};
+/**
+ * Everything the compiler would otherwise have to invent.
+ *
+ * SHACL says nothing about columns, so something has to say which column a property path lands on
+ * and which rows a target class selects. Taking it as an argument is what makes this a SHACL
+ * compiler rather than a compiler for one particular table: point it at another relation and the
+ * same shapes file compiles against that.
+ */
+export interface Binding {
+  /** Property path CURIE → the column it lands on. */
+  paths: Record<string, ColumnBinding>;
+  /** Target class CURIE → the value that selects those rows. */
+  targets: Record<string, string>;
+  /** The column carrying the target class. */
+  discriminator: string;
+  /** Namespace IRI → prefix, for reading a shapes file back in its own notation. */
+  prefixes: Record<string, string>;
+}
 
-/** Which `kind` value a target class selects. */
-const TARGETS: Record<string, string> = {
-  "dcat:Dataset": "dataset",
-  "dcat:Distribution": "distribution",
-  "dcat:Resource": "dataset",
-  "dcat:keyword": "keyword",
-  "skos:Concept": "keyword",
-  "foaf:Agent": "entity",
-};
-
-const PREFIXES: Record<string, string> = {
-  "http://www.w3.org/ns/dcat#": "dcat",
-  "http://purl.org/dc/terms/": "dct",
-  "http://xmlns.com/foaf/0.1/": "foaf",
-  "http://www.w3.org/2004/02/skos/core#": "skos",
-  "http://www.w3.org/ns/shacl#": "sh",
-  "https://kanzo.tech/ns#": "kanzo",
+/** The binding for the fossil node relation the workspace showcase loads. */
+export const FOSSIL_BINDING: Binding = {
+  discriminator: "kind",
+  paths: {
+    "dct:issued": { column: "issued", kind: "scalar", datatype: "date" },
+    "dct:publisher": { column: "publisher", kind: "scalar" },
+    "dcat:theme": { column: "theme", kind: "scalar" },
+    "dct:format": { column: "label", kind: "scalar" },
+    "dcat:keyword": { column: "keywords", kind: "multi" },
+    "dcat:distribution": { column: "distributions", kind: "count", datatype: "number" },
+    "kanzo:degree": { column: "degree", kind: "scalar", datatype: "number" },
+  },
+  targets: {
+    "dcat:Dataset": "dataset",
+    "dcat:Distribution": "distribution",
+    "dcat:Resource": "dataset",
+    "dcat:keyword": "keyword",
+    "skos:Concept": "keyword",
+    "foaf:Agent": "entity",
+  },
+  prefixes: {
+    "http://www.w3.org/ns/dcat#": "dcat",
+    "http://purl.org/dc/terms/": "dct",
+    "http://xmlns.com/foaf/0.1/": "foaf",
+    "http://www.w3.org/2004/02/skos/core#": "skos",
+    "http://www.w3.org/ns/shacl#": "sh",
+    "https://kanzo.tech/ns#": "kanzo",
+  },
 };
 
 /** An IRI as the CURIE a shapes file would have written. */
-function curie(iri: string): string {
-  for (const [namespace, prefix] of Object.entries(PREFIXES)) {
+export function curie(iri: string, prefixes = FOSSIL_BINDING.prefixes): string {
+  for (const [namespace, prefix] of Object.entries(prefixes)) {
     if (iri.startsWith(namespace)) return `${prefix}:${iri.slice(namespace.length)}`;
   }
   return iri;
 }
 
-function sqlString(value: string): string {
-  return `'${value.replace(/'/g, "''")}'`;
-}
+const isNumeric = (value: string) => /^-?\d+(\.\d+)?$/.test(value);
 
-/** The number of `|`-joined tokens in a column, as DuckDB counts them. */
-function tokenCount(column: string): string {
-  return `CASE WHEN ${column} IS NULL OR ${column} = '' THEN 0 ELSE len(string_split(${column}, '|')) END`;
+/**
+ * Whether the path has no value at all.
+ *
+ * The blank test is only valid on text. DuckDB does not read `issued = ''` as false on a DATE
+ * column, it reads it as a conversion error — and one such clause fails the whole report, since
+ * every shape's count rides in a single query. That is what an `sh:minCount` on `dct:issued` used
+ * to do: blank every number in the panel.
+ */
+function absent(binding: ColumnBinding): ExprNode {
+  const col = column(binding.column);
+  return (binding.datatype ?? "text") === "text"
+    ? or(isNull(col), eq(col, literal("")))
+    : isNull(col);
 }
 
 /** How many values the path has, per node. */
-function cardinality(binding: ColumnBinding): string {
-  if (binding.kind === "count") return binding.column;
-  if (binding.kind === "multi") return tokenCount(binding.column);
-  return `CASE WHEN ${binding.column} IS NULL OR ${binding.column} = '' THEN 0 ELSE 1 END`;
+function cardinality(binding: ColumnBinding): ExprNode {
+  const col = column(binding.column);
+  if (binding.kind === "count") return col;
+  if (binding.kind === "multi") {
+    return sql`CASE WHEN ${absent(binding)} THEN 0 ELSE len(string_split(${col}, '|')) END`;
+  }
+  return sql`CASE WHEN ${absent(binding)} THEN 0 ELSE 1 END`;
+}
+
+/** A constraint value as the literal its column expects. */
+function valueOf(binding: ColumnBinding, value: string): ExprNode {
+  if (binding.datatype === "date") return sql`DATE ${literal(value)}`;
+  return literal(isNumeric(value) ? Number(value) : value);
 }
 
 interface Constraint {
@@ -114,7 +178,7 @@ interface Constraint {
 }
 
 /** Walk an RDF collection — `sh:in ( "a" "b" )` — into its members. */
-function listMembers(quads: Quad[], head: string): string[] {
+export function listMembers(quads: Quad[], head: string): string[] {
   const out: string[] = [];
   let node = head;
   const seen = new Set<string>();
@@ -145,31 +209,46 @@ const KNOWN_UNSUPPORTED = new Set([
   "nodeKind", "datatype", "class", "minLength", "maxLength", "minExclusive", "maxExclusive",
 ]);
 
-/** The SQL that identifies nodes failing one constraint on one path. */
-function failingSql(target: string, path: string, constraint: Constraint): string | null {
-  const binding = PATHS[path];
-  if (!binding) return null;
-  const kindFilter = `kind = ${sqlString(target)}`;
-  const column = binding.column;
-  // A bare number must not be quoted: `degree < '2'` compares an int to a string.
-  const literal =
-    binding.literal ?? ((v: string) => (/^-?\d+(\.\d+)?$/.test(v) ? v : sqlString(v)));
+/**
+ * The predicate that identifies nodes FAILING one constraint on one path.
+ *
+ * Expression nodes, not a string. The values reaching here come out of somebody's shapes file, and
+ * a compiler that builds SQL by concatenation has to get every quote, every escape and every type
+ * right by hand — which is exactly where `issued = ''` came from. `literal()` knows what a value
+ * is; `column()` knows what an identifier is.
+ */
+function failingExpr(
+  binding: Binding,
+  selects: string,
+  path: string,
+  constraint: Constraint,
+): ExprNode | null {
+  const col = binding.paths[path];
+  if (!col) return null;
+  const isTarget = eq(column(binding.discriminator), literal(selects));
+  const value = String(constraint.value);
 
   switch (constraint.kind) {
     case "minCount":
-      return `${kindFilter} AND ${cardinality(binding)} < ${constraint.value}`;
+      // A cardinality compares against a number or against nothing at all.
+      return isNumeric(value)
+        ? and(isTarget, lt(cardinality(col), literal(Number(value))))
+        : null;
     case "maxCount":
-      return `${kindFilter} AND ${cardinality(binding)} > ${constraint.value}`;
+      return isNumeric(value)
+        ? and(isTarget, gt(cardinality(col), literal(Number(value))))
+        : null;
     case "minInclusive":
-      return `${kindFilter} AND ${column} < ${literal(String(constraint.value))}`;
+      return and(isTarget, lt(column(col.column), valueOf(col, value)));
     case "maxInclusive":
-      return `${kindFilter} AND ${column} > ${literal(String(constraint.value))}`;
+      return and(isTarget, gt(column(col.column), valueOf(col, value)));
     case "pattern":
-      return `${kindFilter} AND NOT regexp_matches(${column}, ${sqlString(String(constraint.value))})`;
-    case "in": {
-      const values = (constraint.value as string[]).map((v) => sqlString(v)).join(", ");
-      return `${kindFilter} AND ${column} NOT IN (${values})`;
-    }
+      return and(isTarget, not(regexp_matches(column(col.column), literal(value))));
+    case "in":
+      return and(
+        isTarget,
+        not(isIn(column(col.column), (constraint.value as string[]).map((v) => literal(v)))),
+      );
     default:
       return null;
   }
@@ -191,7 +270,7 @@ function constraintText(path: string, constraint: Constraint): string {
 }
 
 /** Parse a SHACL shapes graph in Turtle and compile what it can into SQL predicates. */
-export function compileShacl(turtle: string): CompileResult {
+export function compileShacl(turtle: string, binding: Binding = FOSSIL_BINDING): CompileResult {
   const shapes: Shape[] = [];
   const unsupported: string[] = [];
   const errors: string[] = [];
@@ -209,14 +288,14 @@ export function compileShacl(turtle: string): CompileResult {
 
   const nodeShapes = quads
     .filter((q) => q.predicate.value === `${SH}targetClass`)
-    .map((q) => ({ shape: q.subject.value, target: curie(q.object.value) }));
+    .map((q) => ({ shape: q.subject.value, target: curie(q.object.value, binding.prefixes) }));
 
   if (nodeShapes.length === 0) {
     errors.push("No sh:NodeShape with an sh:targetClass — nothing to validate against.");
   }
 
   for (const { shape, target } of nodeShapes) {
-    const kind = TARGETS[target];
+    const kind = binding.targets[target];
     if (!kind) {
       unsupported.push(`${target} — no relation is mapped to this target class`);
       continue;
@@ -232,7 +311,7 @@ export function compileShacl(turtle: string): CompileResult {
         unsupported.push(`${target} — a property shape with no sh:path (or a path expression)`);
         continue;
       }
-      const path = curie(pathNode.value);
+      const path = curie(pathNode.value, binding.prefixes);
       const severity = SEVERITIES[objectOf(property, "severity")?.value ?? ""] ?? "violation";
 
       const constraints = quads.filter(
@@ -255,7 +334,7 @@ export function compileShacl(turtle: string): CompileResult {
         const value: string | string[] =
           kindName === "in" ? listMembers(quads, quad.object.value) : quad.object.value;
         const constraint: Constraint = { kind: kindName, value };
-        const failing = failingSql(kind, path, constraint);
+        const failing = failingExpr(binding, kind, path, constraint);
         if (!failing) {
           unsupported.push(`${path} — no column is mapped to this property path`);
           continue;
@@ -269,7 +348,7 @@ export function compileShacl(turtle: string): CompileResult {
           failing,
         });
       }
-      if (compiled === 0 && PATHS[path] === undefined) {
+      if (compiled === 0 && binding.paths[path] === undefined) {
         unsupported.push(`${path} — no column is mapped to this property path`);
       }
     }
@@ -278,9 +357,23 @@ export function compileShacl(turtle: string): CompileResult {
   return { shapes, unsupported, errors };
 }
 
-/** The mapped property paths, for the panel to show what a shapes file may talk about. */
-export const SUPPORTED_PATHS = Object.keys(PATHS);
-export const SUPPORTED_TARGETS = Object.keys(TARGETS);
+/**
+ * How a path stores its values, for a caller that has to pick a CONTROL for one.
+ *
+ * The builder needs this for the same reason the compiler does: a date is not a number is not a
+ * string, and guessing from the value is how you end up with `DATE ''`.
+ */
+export function pathDatatype(
+  path: string,
+  binding: Binding = FOSSIL_BINDING,
+): "text" | "date" | "number" | undefined {
+  const col = binding.paths[path];
+  return col && (col.datatype ?? "text");
+}
+
+/** What a shapes file may talk about, for a panel that has to offer the choice. */
+export const SUPPORTED_PATHS = Object.keys(FOSSIL_BINDING.paths);
+export const SUPPORTED_TARGETS = Object.keys(FOSSIL_BINDING.targets);
 
 /**
  * The shapes the panel opens with — a real Turtle document, not a JS array dressed up as one, so
