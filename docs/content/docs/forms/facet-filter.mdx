@@ -49,11 +49,64 @@ Two rules that are invisible until they bite, which is why they live here and no
 Both were independently rediscovered in the table layer and the charts layer before this component
 existed. That is the tell for behaviour that belongs to a shared surface rather than to its callers.
 
+## Searching a long list
+
+A column with two hundred values needs a filter field. `searchable` puts one above the list — a
+[`ListboxInput`](/docs/forms/listbox#searchable) inside the same listbox, not a `Combobox` nested in
+the popover, which would be two machines sharing one open-state.
+
+<ComponentPreview componentName="facet-filter" fileName="example-searchable" />
+
+<Callout type="warn">
+**It is a prop, and never a count threshold.** A control that grows a search field once it passes *n*
+values reshapes itself under the cursor: tick something, the crossfilter shrinks the facet, the field
+disappears and every row moves up. The caller knows whether the column is `provider` or
+`subject_uri`; the component only knows how many rows survived the last filter, which is not the same
+question.
+</Callout>
+
+Both rules above survive the query:
+
+- **A ticked value is never hidden by it.** Unticking is the only way back out, and a query that hides
+  the row takes the untick with it.
+- **The surviving rows are still in label order.**
+
+Matching is case- and accent-insensitive — `useFilter({ sensitivity: "base" })`, the same call
+`Combobox` makes — so `coruna` finds `A Coruña`. It matches the row's **label**, falling back to its
+`value` when the label is not a string. The query is forgotten when the popover closes.
+
+The popover opens with the field focused, so you can open it and start typing. That takes an explicit
+`initialFocusEl`: zag aims a popover's opening focus at the content, and late enough that a keystroke
+can arrive first — the key then reaches the list as typeahead and focus moves out from under the
+caret. Without the field, focus lands on the list as before, where typeahead is the right behaviour.
+
+### Two ways to be empty
+
+They are not the same news, so they do not read the same:
+
+| | Means | Prop |
+| --- | --- | --- |
+| `empty` | the facet offers nothing at all — still loading, or no values under the current filters | `"No values."` |
+| `searchEmpty` | your query excluded everything the facet *did* offer | `"No matching values."` |
+
+The second clears itself when you retype; the first does not, which is why an adapter that is still
+fetching passes `empty="Loading…"`.
+
 ## Counts, notes and a cap
 
 `count` on an item draws at the row's end. `note` is a footnote under the list — its reason for
 existing is truncation: a `GROUP BY` over a high-cardinality column answers with thousands of rows,
 so an adapter caps what it offers and says so, rather than pretending the tail is absent.
+
+Truncation is also what makes `searchable` mean different things in the two adapters, and each one
+says which:
+
+- **[`DataTableFacetFilter`](/docs/data-display/data-table#faceted-filters)** — honest and total. The
+  table already holds its rows, so the field narrows every value the column has.
+- **`ChartFilter`** — the field narrows the **fetched page**, the `limit` most frequent values it
+  asked for, and runs no query of its own. When the page is truncated the note and the no-match
+  message name that scope, because a field that answers "no matching values" about a database it never
+  asked is worse than no field. Searching the column is `ChartSearch`, which publishes a match clause.
 
 ## API Reference
 
@@ -66,6 +119,10 @@ so an adapter caps what it offers and says so, rather than pretending the tail i
 | `onValueChange` | `(next: string[]) => void` | — |
 | `label` | `React.ReactNode` | — |
 | `multiple` | `boolean` | `true` |
+| `searchable` | `boolean` | `false` |
+| `searchPlaceholder` | `string` | `"Filter values…"` |
+| `searchLabel` | `string` | `"Filter values"` |
+| `searchEmpty` | `React.ReactNode` | `"No matching values."` |
 | `empty` | `React.ReactNode` | `"No values."` |
 | `note` | `React.ReactNode` | — |
 | `contentClassName` | `string` | — |

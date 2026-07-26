@@ -73,6 +73,12 @@ export { ChartFilter, ChartSearch, ChartSlider } from "./charts/chart-inputs.js"
 export type {
   ChartFilterProps, ChartFilterOption, ChartSearchProps, ChartSliderProps,
 } from "./charts/chart-inputs.js";
+// The engine under those three, on its own. A control is a Mosaic input because it declares a query
+// and publishes a clause carrying its own `source` — not because it looks like one of ours, so a
+// surface we did not think of gets the same conversation instead of reimplementing it. Same move as
+// `useChartQuery` below, and as the AI hooks on the root barrel.
+export { useMosaicInput } from "./charts/chart-inputs.js";
+export type { MosaicInputOptions, MosaicInputState } from "./charts/chart-inputs.js";
 
 // `ChartLegend` is ours (DOM, reads the config); `ChartColorLegend` is vgplot's interactive one.
 export { ChartLegend, ChartColorLegend } from "./charts/chart-legend.js";

@@ -141,6 +141,13 @@ be hidden is a table of anonymous rows. Initial state comes from
 raw value or give it an icon. It is a `FacetFilter` — a popover over a listbox, because a filter is
 a value and not a command — so the rows are ordered by label whichever way they arrive.
 
+`searchable` adds a filter field above the values, for a column with more of them than anyone reads.
+Search is honest and total here: the table already holds its rows, so the field narrows every value
+the column has, rather than a page of them the way
+[a chart's facet filter does](/docs/forms/facet-filter#counts-notes-and-a-cap). It is a prop and not
+a count threshold — a control that grows a field once the facet passes *n* values reshapes itself
+under the cursor.
+
 <Callout type="warn">
 **A faceted column must declare `filterFn: facetFilterFn`.**
 
@@ -277,6 +284,7 @@ Extends `ark.div`. `useDataTableContext<TData>()` reads the instance back out.
 | `column` | `string` | — |
 | `label` | `ReactNode` | the column id |
 | `options` | `DataTableFacetOption[]` | every faceted value |
+| `searchable` | `boolean` | `false` |
 
 `DataTableFacetOption` is `{ value: string; label?: ReactNode; icon?: ComponentType }`.
 

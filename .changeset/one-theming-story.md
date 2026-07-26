@@ -7,7 +7,7 @@ Collapse the theming layer to one story. **Breaking.**
 
 **`KanzoTheme` is removed** from `@kanzo-tech/theme` and from the `@kanzo-tech/ui` barrel.
 It wrote the theme attributes to a wrapper `<div>`, which cannot reach Ark's portaled overlays
-— Dialog, Popover, Menu, Select, Tooltip, Toast, ContextMenu, HoverCard, Command all render
+— Dialog, Popover, Menu, Select, Tooltip, Toast, HoverCard, Command all render
 into `document.body`, outside any wrapper. `density` was broken outright there: it sets the
 root font-size and every size in the system is `rem`. It was nonetheless the *documented*
 entry point, while a repo-wide grep found zero JSX usages.

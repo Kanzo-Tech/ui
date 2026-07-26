@@ -8,7 +8,7 @@ import { CheckIcon } from "lucide-react";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
-import { MenuShortcut } from "./menu";
+import { inputVariants } from "./input";
 
 export const useListbox = useListboxContext;
 
@@ -61,6 +61,37 @@ export const ListboxValueText = (
     <ArkListbox.ValueText
       className={cn("font-normal", className)}
       data-slot="listbox-value-text"
+      {...rest}
+    />
+  );
+};
+
+interface ListboxInputProps
+  extends Omit<React.ComponentProps<typeof ArkListbox.Input>, "size">,
+    VariantProps<typeof inputVariants> {}
+
+// Not in Shark's file, but it is an Ark part (`Listbox.Input`) and the only way a long list
+// grows a filter field without a second machine: nesting a `Combobox` inside the surface a
+// `Listbox` already lives in gives two machines one open-state and one positioner to fight
+// over. Styled from `inputVariants`, so a searchable listbox and a `Combobox` are the same
+// box.
+//
+// **The machine holds no input value and filters nothing.** There is no `inputValue` in
+// `@zag-js/listbox` and no `onInputValueChange`; `getInputProps` returns an uncontrolled
+// `<input>` whose whole job is ARIA (`aria-controls`, `aria-activedescendant`,
+// `aria-autocomplete="list"`) plus forwarding keys to the content — ArrowUp/ArrowDown always,
+// Home/End and ArrowLeft/ArrowRight only under `keyboardPriority="navigate"`, and Enter as a
+// click on the highlighted item. Narrowing the collection is entirely the caller's, exactly as
+// it is in `Combobox`, and rather more so.
+export const ListboxInput = (props: ListboxInputProps) => {
+  const { size = "md", type = "text", className, ...rest } = props;
+
+  return (
+    <ArkListbox.Input
+      className={cn(inputVariants({ size }), className)}
+      data-size={size}
+      data-slot="listbox-input"
+      type={type}
       {...rest}
     />
   );
@@ -279,6 +310,8 @@ export const ListboxEmpty = (
   );
 };
 
-export const ListboxShortcut = (
-  props: React.ComponentProps<typeof MenuShortcut>
-) => <MenuShortcut data-slot="listbox-shortcut" {...props} />;
+// No `ListboxShortcut`. Shark's registry file has one, and vendoring it verbatim shipped a third
+// name for `MenuShortcut`'s span — `MenuShortcut` is the implementation, `CommandShortcut` is
+// already a `data-slot` rename of it, and this one had no renderer anywhere in the repo the day it
+// landed. A keyboard hint inside a facet row is `<MenuShortcut>`; if a listbox ever needs its own
+// slot, the rename is three lines and can be reintroduced with a consumer.

@@ -1,6 +1,6 @@
 ---
 title: Field
-description: The chrome around a control — label, description, helper and error text, wired together.
+description: The chrome around a control — label, description, helper and error text, wired together — and the fieldset that groups several of them under one legend.
 links:
   doc: https://ark-ui.com/docs/forms/field
 ---
@@ -27,17 +27,19 @@ import { Field, FieldDescription, FieldLabel } from "@kanzo-tech/ui";
 FieldSet
 ├── FieldLegend
 ├── FieldDescription
-└── FieldGroup
-    └── Field
-        ├── FieldLabel
-        │   └── FieldRequiredIndicator
-        ├── FieldContent
-        │   └── FieldTitle
-        ├── <control>
-        ├── FieldDescription
-        ├── FieldHelper
-        ├── FieldError
-        └── FieldSeparator
+├── FieldGroup
+│   └── Field
+│       ├── FieldLabel
+│       │   └── FieldRequiredIndicator
+│       ├── FieldContent
+│       │   └── FieldTitle
+│       ├── <control>
+│       ├── FieldDescription
+│       ├── FieldHelper
+│       ├── FieldError
+│       └── FieldSeparator
+├── FieldSetHelper
+└── FieldSetError
 ```
 
 ## Orientation
@@ -70,6 +72,28 @@ group rather than as loose controls.
 
 <ComponentPreview componentName="field" fileName="example-field-set" />
 
+`FieldLegend` defaults to `variant="legend"` — a section heading at `text-base`. Use
+`variant="label"` when the group is one question with several controls (a checkbox group, a
+radio group), so its legend reads at the same size as a `FieldLabel` rather than as a heading
+above it.
+
+### Messages for the whole group
+
+`FieldSetHelper` and `FieldSetError` are the group's own messages, and they are **not** the same
+parts as `FieldHelper` / `FieldError`: those belong to one control and are wired into that
+control's `aria-describedby`, while these are wired into the `fieldset`'s, so a screen reader
+announces them for the group rather than on whichever field happens to be focused. Like
+`FieldError`, `FieldSetError` renders only while its root is `invalid`, so it can stay in the
+tree unconditionally.
+
+<ComponentPreview componentName="field" fileName="example-field-set-messages" />
+
+One asymmetry worth knowing, because it is Ark's and not ours: `disabled` on a `FieldSet`
+**does** reach every `Field` inside it — a real `<fieldset disabled>` disables its controls, and
+Ark's `Field` reads the fieldset's `disabled` as its default. `invalid` does **not** cascade; it
+marks the set and reveals `FieldSetError`, but each `Field` keeps its own `invalid`. Group-level
+and field-level validity are separate claims, so set both if you mean both.
+
 ## API Reference
 
 ### Field
@@ -82,8 +106,22 @@ group rather than as loose controls.
 Extends `Field.Root` from Ark, so `invalid`, `disabled`, `required`, `readOnly` and `id` pass
 through.
 
+### FieldSet
+
+Extends `Fieldset.Root` from Ark, so `disabled`, `invalid` and `id` pass through.
+
 ### FieldLegend
 
 | Prop | Type | Default |
 | --- | --- | --- |
 | `variant` | `"legend" \| "label"` | `"legend"` |
+
+Extends `Fieldset.Legend` from Ark, and renders the real `legend`.
+
+### FieldSetHelper
+
+Muted supporting text for the group, wired into the `fieldset`'s `aria-describedby`.
+
+### FieldSetError
+
+Destructive message for the group; renders only while the `FieldSet` is `invalid`.

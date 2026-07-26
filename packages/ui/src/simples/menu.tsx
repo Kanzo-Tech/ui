@@ -37,6 +37,25 @@ export const MenuTrigger = (
   props: React.ComponentProps<typeof ArkMenu.Trigger>
 ) => <ArkMenu.Trigger data-slot="menu-trigger" {...props} />;
 
+/**
+ * The second way into the same menu: opens on right-click at the pointer instead of anchoring to
+ * a control. `cursor-default` because the region is not a link or a button and must not look like
+ * one — the affordance is the right-click, not the cursor.
+ */
+export const MenuContextTrigger = (
+  props: React.ComponentProps<typeof ArkMenu.ContextTrigger>
+) => {
+  const { className, ...rest } = props;
+
+  return (
+    <ArkMenu.ContextTrigger
+      className={cn("cursor-default", className)}
+      data-slot="menu-context-trigger"
+      {...rest}
+    />
+  );
+};
+
 export const MenuPositioner = (
   props: React.ComponentProps<typeof ArkMenu.Positioner>
 ) => {

@@ -221,6 +221,24 @@ And one rule about *not* building:
 `field.tsx` ships thirteen parts and had no consumer while four rounds of design went into a
 fourteenth. The highest-value move was adoption, not design.
 
+**That was true when it was written and is no longer true — do not cite it as current evidence.**
+Measured against the tree: `Field` is imported by 39 files under `docs/`, `FieldLabel` by 12 modules
+*inside* `packages/ui/src`, and eleven of the thirteen parts are rendered by something other than
+`field.tsx`'s own examples. It is now the most-consumed family in the library. The rule above stands;
+this paragraph is the history of a moment that closed, kept because the *lesson* survived the
+example. The two parts still without a consumer are `FieldSeparator` and `useField`.
+
+The live version of the same measurement, and the one to cite instead: of 733 exported values, 139
+are referenced nowhere in the repo, and **122 appear in exactly one `docs/examples/<slug>/`
+directory and nowhere else** — which is the page proving the part exists, not the second call site
+rule 2 asks for. The concentrations are three: 42 of 56 exported `useX` context aliases, 14 of 21
+`*Variants` objects, and pure `data-slot` renames of another component's part (29 of them, floor not
+ceiling). Before reading that as dead code, note the trap: 69 exports have no *export* consumer
+because their own root renders them (`ProgressTrack`, `CheckboxIndicator`, the `Calendar Table*`
+parts). Deleting those exports is a compatibility question; deleting the symbols breaks the
+component. `ProgressTrack` is the ideal case, not a defect — `data-display/progress.mdx` documents
+that you never place it yourself.
+
 ### Reach for a new component last
 
 A new component is the most expensive answer. Walk this ladder first — each rung is cheaper than
@@ -228,7 +246,9 @@ the next, and every reference except Ant (React Aria's RFC is the clearest) rese
 component for genuinely new **behaviour** or **DOM structure**, never a new look:
 
 1. **A prop / variant.** A different appearance of the same machine is a `tv()` variant, not a
-   file. "Card radio" is `RadioGroup` styled off `data-state`, not a `CardRadioGroup`.
+   file. "Card radio" is `RadioGroup` styled off `data-state` — which is exactly what
+   `RadioGroupCard` (`simples/radio-group.tsx:98`) already is, so this rung is **built**, not
+   aspirational.
 2. **Composition + `data-*`.** Every state is mirrored to `data-*` (Ark already does this), so a
    caller restyles a list into cards or swatches with CSS alone — no fork.
 3. **`asChild` / render prop.** Absorb the caller's own markup — a link, a card, a `Button` —
@@ -241,7 +261,16 @@ component for genuinely new **behaviour** or **DOM structure**, never a new look
 Providers earn their place for **cross-cutting** state — theme (`KanzoThemeProvider`), locale /
 direction, a Field context — and for composite reuse. Not for "this input has completion": that
 is a prop (`complete` / `suggest`), and the UIs differ, so a provider would unify nothing.
-Everyone but Ant composes card-radios; our monolithic `CardRadioGroup` is the outlier to unwind.
+Everyone but Ant composes card-radios; our `CardRadioGroup` is the outlier to unwind — but **not for
+the reason this doc used to give**. It does not duplicate `Card`: it imports zero of it, and composes
+`RadioGroup` + `RadioGroupCard` + `Badge` (`simples/CardRadioGroup.tsx:6-7`). What it actually adds is
+a grid and an `options: CardRadioOption[]` array — rung-1 layout plus a record-of-`ReactNode`s API
+over a compound that already exists, with no state and no new DOM semantics. That is the charge, and
+the library has already argued it against itself and won: `composites/SidebarIdentity.tsx:31-38`
+rejects this shape in writing — *"a layout tree written as an attribute: you cannot reorder it, wrap a
+region, spread props onto one, or use `asChild` … `CardHeader`, not `<Card header={…} />`"*. Against
+unwinding: it has a genuine second call site (`docs/examples/form/tanstack/example-card-radio-group.tsx`),
+and its `preview` / `badge` / `columns` layout would move into every caller.
 
 **AI-assist is two composed compounds, not props on the core.** A `complete` prop on `Input` /
 `Textarea` reads cheap on this ladder, but it welds the model into the primitive — the core stops

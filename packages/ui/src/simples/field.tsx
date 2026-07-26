@@ -79,6 +79,8 @@ export const FieldSet = (
       className={cn(
         "flex flex-col gap-6",
         "has-[>[data-slot=checkbox-group]]:gap-3 has-[>[data-slot=radio-group]]:gap-3",
+        "data-invalid:text-destructive",
+        "dark:data-invalid:text-destructive-foreground",
         className
       )}
       data-slot="field-set"
@@ -293,6 +295,43 @@ export const FieldError = (
         className
       )}
       data-slot="field-error"
+      {...rest}
+    />
+  );
+};
+
+// The two below look like copies of the two above and are not: these are the fieldset machine's
+// message parts, describing the whole `FieldSet`, while `FieldHelper` / `FieldError` come from the
+// field machine and describe one control. Same typography, different scope — and a `FieldSet` needs
+// its own, because a group-level message wired to a single field is announced on the wrong control.
+
+export const FieldSetHelper = (
+  props: React.ComponentProps<typeof ArkFieldset.HelperText>
+) => {
+  const { className, ...rest } = props;
+
+  return (
+    <ArkFieldset.HelperText
+      className={cn("text-muted-foreground text-sm", className)}
+      data-slot="field-set-helper"
+      {...rest}
+    />
+  );
+};
+
+export const FieldSetError = (
+  props: React.ComponentProps<typeof ArkFieldset.ErrorText>
+) => {
+  const { className, ...rest } = props;
+
+  return (
+    <ArkFieldset.ErrorText
+      className={cn(
+        "font-normal text-destructive text-sm",
+        "dark:text-destructive-foreground",
+        className
+      )}
+      data-slot="field-set-error"
       {...rest}
     />
   );

@@ -81,11 +81,18 @@ export interface DataTableFacetFilterProps
    * way — `FacetFilter` draws the rows by label.
    */
   options?: DataTableFacetOption[];
+  /**
+   * Draw a filter field above the values. Honest here: TanStack facets the rows the table already
+   * holds, so the field searches every value the column has, not a fetched page of them.
+   *
+   * @default false
+   */
+  searchable?: boolean;
 }
 
 /** A `FacetFilter` over one column's faceted values: TanStack on one side, the listbox on the other. */
 export const DataTableFacetFilter = (props: DataTableFacetFilterProps) => {
-  const { column, label, options, ...rest } = props;
+  const { column, label, options, searchable, ...rest } = props;
   const table = useDataTableContext();
   const target = table.getColumn(column);
 
@@ -108,6 +115,7 @@ export const DataTableFacetFilter = (props: DataTableFacetFilterProps) => {
       items={items}
       label={label ?? column}
       onValueChange={(next) => target?.setFilterValue(next.length ? next : undefined)}
+      searchable={searchable}
       value={(target?.getFilterValue() as string[] | undefined) ?? []}
     />
   );

@@ -59,15 +59,19 @@ a list you keep coming back to read is a value.
 Listbox
 ├── ListboxLabel                  the accessible name; there is no trigger to borrow one from
 ├── ListboxValueText
+├── ListboxInput                  a filter field over the list; you do the filtering
 └── ListboxContent
     ├── ListboxItemGroup
     │   ├── ListboxItemGroupLabel
     │   └── ListboxItem
     │       ├── ListboxItemText
-    │       ├── ListboxItemIndicator
-    │       └── ListboxShortcut
+    │       └── ListboxItemIndicator
     └── ListboxEmpty
 ```
+
+Shark's listbox also ships a `ListboxShortcut`; we do not. It was a third `data-slot` rename of
+`MenuShortcut`'s span — after `CommandShortcut` — and nothing in the repo ever rendered it. Put a
+`MenuShortcut` in the row if you need a keyboard hint.
 
 `ListboxLabel` matters more here than it looks. A `Select` gets its accessible name from its
 trigger; a standalone listbox has no trigger, so without a label it is an unnamed list to a screen
@@ -81,6 +85,33 @@ should not have to know about <kbd>Cmd</kbd>. `"extended"` is the file-manager b
 the highlight doubles as the shift-click anchor.
 
 <ComponentPreview componentName="listbox" fileName="example-multiple" />
+
+## Searchable
+
+A list long enough to need a filter field does **not** need a `Combobox` nested inside whatever
+surface it already lives in — that is two machines sharing one open-state and one positioner, and
+they fight. `ListboxInput` is the Ark part for it, and it goes inside `Listbox`, above
+`ListboxContent`.
+
+<ComponentPreview componentName="listbox" fileName="example-searchable" />
+
+<Callout type="info">
+**The machine filters nothing. You do.** `@zag-js/listbox` holds no input value — there is no
+`inputValue` on its context and no `onInputValueChange` on its props. `ListboxInput` is an
+uncontrolled `<input>` whose whole job is ARIA (`aria-controls`, `aria-activedescendant`,
+`aria-autocomplete="list"`) plus forwarding keys to the content: <kbd>↑</kbd>/<kbd>↓</kbd> always,
+<kbd>Home</kbd>/<kbd>End</kbd> and <kbd>←</kbd>/<kbd>→</kbd> only under
+`keyboardPriority="navigate"`, and <kbd>Enter</kbd> as a click on the highlighted row. Narrowing
+the collection is yours — the same contract as [`Combobox`](/docs/forms/combobox), and rather more
+so, since there the machine at least holds the query.
+</Callout>
+
+Filter with [`useFilter`](/docs/forms/combobox) rather than `toLowerCase().includes()`: it collates,
+so `coruna` matches `A Coruña`. Hoist its options object — `useFilter` memoises on it by identity, so
+an inline literal returns a fresh `contains` every render and rebuilds the collection with it.
+
+Build the collection from **what you draw**. Ark navigates the collection, so an item filtered out of
+the DOM but left in the collection is a row the arrow keys highlight and nobody can see.
 
 ## Groups
 
@@ -116,6 +147,31 @@ the selection manager only unticks an already-selected value in single mode *whe
 single-select listbox cannot be returned to "nothing chosen" by clicking the chosen row again. It
 changes nothing in `multiple` mode, where toggling always unticks. Pinned by a test, because this is
 the kind of thing a version bump reverses silently.
+</Callout>
+
+### ListboxInput
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `size` | `"sm" \| "md" \| "lg"` | `"md"` |
+| `autoHighlight` | `boolean` | `false` |
+| `keyboardPriority` | `"caret" \| "navigate"` | `"caret"` |
+
+Styled from the same `inputVariants` as [`Input`](/docs/forms/input), so a searchable listbox and a
+`Combobox` are the same box. Everything else passes through to the `<input>` — `value`, `onChange`,
+`placeholder`, `aria-label`. It has no label part of its own; name it, or `ListboxLabel` names the
+list and the field goes unnamed.
+
+`autoHighlight` re-aims the highlight at the collection's first row **every time the collection
+changes**, which for a filter field means the top match sits under <kbd>Enter</kbd> after every
+keystroke. Without it nothing is highlighted until you press <kbd>↓</kbd>. `keyboardPriority` decides
+who owns <kbd>Home</kbd>/<kbd>End</kbd>: `"caret"` leaves them to the text you are editing, which is
+what a filter field wants.
+
+<Callout type="warn">
+**A part Shark's listbox file omits.** Added because a menu-shaped filter has nowhere to grow a search
+field, and the alternative — a `Combobox` inside the `Popover` a `Listbox` already sits in — is two
+machines fighting over one open-state. `ListboxLabel` is the same kind of addition.
 </Callout>
 
 ### ListboxItem

@@ -5,11 +5,13 @@ import type {
 } from "@ark-ui/react/listbox";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useMemo, useState } from "react";
 import { describe, expect, it } from "vitest";
 import {
   Listbox,
   ListboxContent,
   ListboxEmpty,
+  ListboxInput,
   ListboxItem,
   ListboxItemGroup,
   ListboxItemIndicator,
@@ -273,5 +275,133 @@ describe("ListboxItemGroup", () => {
     await user.click(option("React"));
 
     expect(option("React").getAttribute("aria-selected")).toBe("false");
+  });
+});
+
+// `Listbox.Input` is an ARIA-and-keyboard bridge, nothing more: `@zag-js/listbox` has no
+// `inputValue` in its context and no `onInputValueChange` on its props, so narrowing the collection
+// is the caller's, as it is in `Combobox`. This harness is that caller, and the tests below pin
+// which half belongs to whom.
+const Searchable = (props: { autoHighlight?: boolean }) => {
+  const [query, setQuery] = useState("");
+  const collection = useMemo(
+    () =>
+      createListCollection({
+        items: frameworks.items.filter((item) =>
+          item.label.toLowerCase().includes(query.toLowerCase()),
+        ),
+      }),
+    [query],
+  );
+
+  return (
+    <Listbox collection={collection} selectionMode="multiple">
+      <ListboxLabel>Framework</ListboxLabel>
+
+      <ListboxInput
+        aria-label="Filter frameworks"
+        autoHighlight={props.autoHighlight}
+        onChange={(event) => setQuery(event.target.value)}
+        value={query}
+      />
+
+      <ListboxContent>
+        {collection.items.map((item) => (
+          <ListboxItem item={item} key={item.value}>
+            <ListboxItemText>{item.label}</ListboxItemText>
+
+            <ListboxItemIndicator />
+          </ListboxItem>
+        ))}
+
+        <ListboxEmpty>No frameworks</ListboxEmpty>
+      </ListboxContent>
+    </Listbox>
+  );
+};
+
+const field = () => screen.getByRole("textbox", { name: "Filter frameworks" });
+
+describe("ListboxInput", () => {
+  it("is an input wired to the content, not a second machine", () => {
+    render(<Searchable />);
+
+    const input = field();
+    // No `role="combobox"`, no popover, no trigger: the part adds ARIA to the list already there.
+    expect(screen.queryByRole("combobox")).toBeNull();
+    expect(input.getAttribute("aria-autocomplete")).toBe("list");
+    expect(input.getAttribute("aria-controls")).toBe(
+      screen.getByRole("listbox").getAttribute("id"),
+    );
+    expect(input.getAttribute("data-slot")).toBe("listbox-input");
+  });
+
+  it("filters nothing by itself — the caller narrows the collection", async () => {
+    const user = userEvent.setup();
+    render(<Searchable />);
+
+    await user.type(field(), "vu");
+
+    expect(screen.getAllByRole("option").map((el) => el.textContent)).toEqual(["Vue"]);
+  });
+
+  it("forwards the arrows to the list and picks the highlighted row on Enter", async () => {
+    const user = userEvent.setup();
+    render(<Searchable />);
+
+    await user.click(field());
+    await user.keyboard("{ArrowDown}{ArrowDown}");
+    await user.keyboard("{Enter}");
+
+    expect(option("Svelte").getAttribute("aria-selected")).toBe("true");
+    // The keyboard never left the field.
+    expect(document.activeElement).toBe(field());
+  });
+
+  it("leaves Home and End to the text under `keyboardPriority` \"caret\"", async () => {
+    const user = userEvent.setup();
+    render(<Searchable />);
+
+    await user.type(field(), "e");
+    await user.keyboard("{Home}vu");
+
+    // "vu" landed at the caret Home moved, so the query is "vue" — Home edited the text rather than
+    // jumping the list. `keyboardPriority="navigate"` is what forwards it instead.
+    expect((field() as HTMLInputElement).value).toBe("vue");
+  });
+
+  it("highlights the first surviving row on every keystroke with `autoHighlight`", async () => {
+    const user = userEvent.setup();
+    render(<Searchable autoHighlight />);
+
+    await user.type(field(), "v");
+    // Two rows survive "v" — Svelte and Vue — and `autoHighlight` re-aims at the first of them
+    // whenever the collection changes, so Enter takes the top match with no ArrowDown first.
+    await user.keyboard("{Enter}");
+
+    expect(option("Svelte").getAttribute("aria-selected")).toBe("true");
+    expect(option("Vue").getAttribute("aria-selected")).toBe("false");
+  });
+
+  it("highlights nothing until you arrow without `autoHighlight`", async () => {
+    const user = userEvent.setup();
+    render(<Searchable />);
+
+    await user.type(field(), "v");
+    await user.keyboard("{Enter}");
+
+    expect(screen.getAllByRole("option").every((el) => el.getAttribute("aria-selected") === "false")).toBe(
+      true,
+    );
+  });
+
+  it("shows ListboxEmpty when the caller's query leaves nothing", async () => {
+    const user = userEvent.setup();
+    render(<Searchable />);
+
+    await user.type(field(), "zzz");
+
+    expect(screen.queryAllByRole("option")).toHaveLength(0);
+    expect(screen.getByText("No frameworks")).not.toBeNull();
   });
 });

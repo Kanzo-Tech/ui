@@ -48,7 +48,8 @@ the first paragraph of both pages, and cross-links.
 - `Breadcrumb` vs `Breadcrumbs` (the split "no se entiende claramente")
 - `DateField` vs `DatePicker` — and: should `Calendar` just *be* the date input?
 - `Input` vs `Field` vs `TextField`
-- `Menu` vs `ContextMenu`
+- ~~`Menu` vs `ContextMenu`~~ — resolved by deletion: there is one component. A context menu is
+  `Menu` with `MenuContextTrigger` in place of `MenuTrigger`.
 - `SecretField` vs `PasswordInput`
 - `Select` vs `Combobox` (genuinely different, but the difference must be obvious)
 - `Table` vs `DataTable`

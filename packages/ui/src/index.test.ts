@@ -36,6 +36,12 @@ describe("@kanzo-tech/ui public surface", () => {
     // a filter is a value, so its surface is a listbox (DESIGN.md, admission rules).
     expect(UI.FacetFilter).toBeTypeOf("function");
     expect(UI.ListboxItem).toBeTypeOf("function");
+    // The filter field `searchable` draws. An Ark part Shark's listbox omits, so nothing upstream
+    // would notice it going missing.
+    expect(UI.ListboxInput).toBeTypeOf("function");
+    // Deliberately absent: a third `data-slot` rename of MenuShortcut's span, with no renderer.
+    // (A fourth until `ContextMenuShortcut` went, below.)
+    expect((UI as Record<string, unknown>).ListboxShortcut).toBeUndefined();
   });
 
   it("exposes exactly one themer", () => {
@@ -60,6 +66,27 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(surface.useAiField).toBeUndefined();
     expect(surface.useAiFieldOptional).toBeUndefined();
     expect(surface.FieldSuggest).toBeUndefined();
+    // `Fieldset` and `FieldSet` wrapped the same `ArkFieldset.Root` and differed by one capital
+    // letter, with a doc page each teaching it in near-identical sentences. `FieldSet` won — six
+    // consumers to one, and a `variant` prop `FieldsetLegend` hardcoded. The fieldset-*scoped*
+    // messages were the only thing `field.tsx` lacked, and they survive as `FieldSetHelper` /
+    // `FieldSetError`: a different Ark machine from `FieldHelper` / `FieldError`, not a copy.
+    expect(surface.Fieldset).toBeUndefined();
+    expect(surface.FieldsetLegend).toBeUndefined();
+    expect(surface.FieldsetHelperText).toBeUndefined();
+    expect(surface.FieldsetErrorText).toBeUndefined();
+    expect(surface.useFieldset).toBeUndefined();
+    expect(UI.FieldSetHelper).toBeTypeOf("function");
+    expect(UI.FieldSetError).toBeTypeOf("function");
+    // `context-menu.tsx` paid ten exports for rung 2 of the ladder: nine were `data-slot` renames
+    // of `Menu`'s parts and the tenth was the only real one. A context menu is the same `Menu` with
+    // a different trigger, which is what `menu.mdx` already said.
+    expect(surface.ContextMenu).toBeUndefined();
+    expect(surface.ContextMenuItem).toBeUndefined();
+    expect(surface.ContextMenuTrigger).toBeUndefined();
+    expect(surface.ContextMenuShortcut).toBeUndefined();
+    expect(surface.useContextMenu).toBeUndefined();
+    expect(UI.MenuContextTrigger).toBeTypeOf("function");
   });
 
   it("keeps CodeMirror-backed components off the root barrel", () => {

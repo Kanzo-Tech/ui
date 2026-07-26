@@ -70,7 +70,7 @@ class MosaicInputClient extends MosaicClient {
   }
 }
 
-interface MosaicInputOptions<T> {
+export interface MosaicInputOptions<T> {
   /** Filters the widget's own lookup query. `null` = the full relation. */
   filterBy: Selection | null;
   /** Where the widget publishes. `null` = nowhere. */
@@ -86,7 +86,7 @@ interface MosaicInputOptions<T> {
   decode?: (value: unknown) => T;
 }
 
-interface MosaicInputState<T> {
+export interface MosaicInputState<T> {
   /** Lookup rows, or `null` while the query is in flight (or when there is no query). */
   rows: readonly QueryRow[] | null;
   /** The value this widget currently holds in the selection — its observable half. */
@@ -95,7 +95,18 @@ interface MosaicInputState<T> {
   activate: () => void;
 }
 
-function useMosaicInput<T>(options: MosaicInputOptions<T>): MosaicInputState<T> {
+/**
+ * The conversation with Mosaic that every input in this file has: a lookup query that re-runs under
+ * the crossfilter, a clause published with `source` set so a control never filters itself, and a
+ * warm-up so the first interaction is not the first query.
+ *
+ * Exported because the three controls here are surfaces over it, not the only surfaces it allows —
+ * a chip row, a segmented switch or a map lasso is the same conversation with different chrome, and
+ * without this the alternative is reimplementing it.
+ */
+export function useMosaicInput<T>(
+  options: MosaicInputOptions<T>
+): MosaicInputState<T> {
   const { filterBy, as, deps } = options;
   const { coordinator } = useMosaic();
   const latest = useRef(options);
@@ -213,6 +224,17 @@ export interface ChartFilterProps
   defaultValue?: unknown;
   /** Most-frequent values kept; past this the list says so rather than rendering the tail. */
   limit?: number;
+  /**
+   * Draw a filter field above the values.
+   *
+   * It narrows **the fetched page** — the `limit` most frequent values this control asked for — and
+   * runs no query of its own. When the page is truncated the note and the no-match message say so,
+   * because a field that answers "no matching values" about a database it never asked is worse than
+   * no field. Searching the column itself is `ChartSearch`, which publishes a match clause.
+   *
+   * @default false
+   */
+  searchable?: boolean;
   disabled?: boolean;
   size?: ControlSize;
   /** Class for the trigger; `className` styles the wrapper. */
@@ -248,6 +270,13 @@ function toCount(value: unknown): number | undefined {
   if (typeof value === "number") return value;
   if (typeof value === "bigint") return Number(value);
   return undefined;
+}
+
+function truncationNote(truncated: boolean, limit: number, searchable: boolean) {
+  if (!truncated) return undefined;
+  return searchable
+    ? `Top ${limit} values — the field searches these, not the column. Filter further for the rest.`
+    : `Top ${limit} values — filter further to see the rest.`;
 }
 
 function filterEntries(
@@ -297,6 +326,7 @@ export function ChartFilter(props: ChartFilterProps) {
     multiple = true,
     defaultValue,
     limit = FILTER_LIMIT,
+    searchable = false,
     disabled,
     size = "md",
     className,
@@ -372,8 +402,13 @@ export function ChartFilter(props: ChartFilterProps) {
         items={items}
         label={label}
         multiple={multiple}
-        note={truncated ? `Top ${limit} values — filter further to see the rest.` : undefined}
+        // A search field over a truncated list is a half-truth unless it names its own scope, so
+        // both messages change when the tail was dropped: the field covers the fetched page, and a
+        // miss inside it says nothing about the column.
+        note={truncationNote(truncated, limit, searchable)}
         onValueChange={(next) => publish(next.map((key) => (raw.has(key) ? raw.get(key) : key)))}
+        searchEmpty={truncated ? `No match among the top ${limit} values.` : undefined}
+        searchable={searchable}
         size={size}
         value={values.map((value) => String(value))}
       />

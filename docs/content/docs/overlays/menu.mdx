@@ -7,8 +7,9 @@ links:
 
 <Callout type="info">
 **One menu, two triggers.** Use the default `MenuTrigger` when a visible control opens it
-(a button, an avatar, a "⋯"); use the [context trigger](#context-trigger) when the thing you
-open from is a *region* you right-click. Everything on this page applies to both.
+(a button, an avatar, a "⋯"); use [`MenuContextTrigger`](#context-trigger) when the thing you
+open from is a *region* you right-click. There is no separate context-menu component: swapping
+the trigger is the whole difference, so everything on this page applies to both.
 </Callout>
 
 <Callout type="info">
@@ -51,7 +52,7 @@ typeahead navigation matches against.
 
 ```text
 Menu
-├── MenuTrigger
+├── MenuTrigger                 (or MenuContextTrigger — one or the other)
 └── MenuContent                 (portal + positioner)
     ├── MenuGroup
     │   ├── MenuGroupLabel
@@ -89,38 +90,33 @@ after the first one and the user has to reopen it for each column.
 
 ## Context trigger
 
-`ContextMenu` is this same menu with one part swapped: a `ContextMenuTrigger` that opens on
-right-click at the pointer, instead of a `MenuTrigger` anchored to a control. Every other part
-is the Menu part under a `ContextMenu*` name, so anything true of `MenuItem` is true of
-`ContextMenuItem`.
+A context menu is this same `Menu` with one part swapped: `MenuContextTrigger` opens on
+right-click at the pointer, where `MenuTrigger` anchors to a control. Nothing else changes — the
+content, the items, the groups, the submenus and the shortcuts are the parts above, so anything
+true of `MenuItem` is true of an item in a context menu.
 
-<ComponentPreview componentName="context-menu" />
+<ComponentPreview componentName="menu" fileName="example-context-trigger" />
 
 ```tsx
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@kanzo-tech/ui";
+import { Menu, MenuContent, MenuContextTrigger, MenuItem } from "@kanzo-tech/ui";
 ```
 
 ```tsx
-<ContextMenu>
-  <ContextMenuTrigger asChild>
+<Menu>
+  <MenuContextTrigger asChild>
     <div>Right-click here</div>
-  </ContextMenuTrigger>
-  <ContextMenuContent>
-    <ContextMenuItem value="edit">Edit</ContextMenuItem>
-  </ContextMenuContent>
-</ContextMenu>
+  </MenuContextTrigger>
+  <MenuContent>
+    <MenuItem value="edit">Edit</MenuItem>
+  </MenuContent>
+</Menu>
 ```
 
 Reach for it when the target is an area rather than a control — a row, a canvas, a file in a
 tree. But right-click is not reachable by keyboard on its own, so a context menu should never be
 the only route to an action: mirror the items in a toolbar `Menu`.
 
-<ComponentPreview componentName="context-menu" fileName="example-submenu" />
+<ComponentPreview componentName="menu" fileName="example-context-submenu" />
 
 ## API Reference
 
@@ -133,6 +129,13 @@ the only route to an action: mirror the items in a toolbar `Menu`.
 | `unmountOnExit` | `boolean` | `true` |
 
 Extends `React.ComponentProps<typeof ArkMenu.Root>`.
+
+### MenuTrigger / MenuContextTrigger
+
+Neither takes props of its own; both extend their Ark part (`ArkMenu.Trigger`,
+`ArkMenu.ContextTrigger`) and both take `asChild`. `MenuContextTrigger` adds `cursor-default`, so
+the region it wraps does not read as a link or a button — the affordance is the right-click. Use
+one or the other, not both.
 
 ### MenuItem
 
@@ -156,7 +159,8 @@ variable. Clamping to the measured space feeds the element's own resize back int
 positioner — content shrinks, the scrollbar toggles, the available space changes, recompute —
 and that loop hard-freezes the tab. A fixed cap is decoupled from the measurement.
 
-### ContextMenu parts
-
-Each `ContextMenu*` part forwards to its `Menu` counterpart unchanged — `ContextMenuItem` takes
-the same `variant`, `ContextMenuGroup` the same `heading`. Only the trigger differs.
+There used to be a ten-export `ContextMenu*` family here, nine members of which were `data-slot`
+renames of the parts above — `ContextMenuItem` was `<MenuItem data-slot="context-menu-item">` and
+nothing more. Only the trigger was real, and it now lives beside `MenuTrigger` under Ark's own
+name for it. The names are gone with no aliases; a context menu is a `Menu` whose trigger is a
+`MenuContextTrigger`.

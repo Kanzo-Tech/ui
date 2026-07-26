@@ -191,6 +191,47 @@ describe("ChartFilter", () => {
     expect(screen.getByText(/Top 3 values/)).toBeTruthy();
   });
 
+  it("narrows the fetched page when `searchable`, without asking a second question", async () => {
+    const { coordinator, queries } = stubCoordinator(() => HOST_COUNTS);
+    const user = userEvent.setup({ delay: null });
+
+    render(
+      <MosaicProvider coordinator={coordinator}>
+        <ChartFilter column="host" label="Host" searchable table="telemetry" />
+      </MosaicProvider>,
+    );
+
+    await open(user);
+    const asked = queries.length;
+    await user.type(screen.getByRole("textbox", { name: "Filter values" }), "gam");
+
+    expect(screen.getAllByRole("option").map((item) => item.textContent)).toEqual(["gamma1"]);
+    // The field is a client-side narrowing of rows already fetched. Searching the *column* is
+    // `ChartSearch`, which publishes a match clause and does run a query.
+    expect(queries).toHaveLength(asked);
+  });
+
+  // A search field over a truncated list is a half-truth unless it names its own scope: "no
+  // matching values" would otherwise read as a statement about the database it never asked.
+  it("says what a `searchable` truncated list does and does not cover", async () => {
+    const wide = Array.from({ length: 5 }, (_, i) => ({ count: 5 - i, value: `host-${i}` }));
+    const { coordinator } = stubCoordinator(() => wide);
+    const user = userEvent.setup({ delay: null });
+
+    render(
+      <MosaicProvider coordinator={coordinator}>
+        <ChartFilter column="host" label="Host" limit={3} searchable table="telemetry" />
+      </MosaicProvider>,
+    );
+
+    await open(user);
+    expect(screen.getByText(/searches these, not the column/)).toBeTruthy();
+
+    await user.type(screen.getByRole("textbox", { name: "Filter values" }), "host-9");
+
+    expect(screen.getByText("No match among the top 3 values.")).toBeTruthy();
+  });
+
   it("falls back to a single-value point clause when multiple is false", async () => {
     const crossfilter = Selection.crossfilter();
     const { coordinator } = stubCoordinator(() => HOST_COUNTS);

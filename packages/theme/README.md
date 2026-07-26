@@ -27,8 +27,8 @@ static CSS. Change an attribute and every component re-skins, with no per-compon
 | density | `data-font-size` | the root font-size |
 
 **The attributes must be on `<html>`, not a wrapper element.** Ark UI's overlays — Dialog,
-Popover, Menu, Select, Tooltip, Toast, ContextMenu, HoverCard, Command — portal into
-`document.body`, outside any wrapper you render, so tokens set on a wrapper never reach them.
+Popover, Menu, Select, Tooltip, Toast, HoverCard, Command — portal into `document.body`, outside
+any wrapper you render, so tokens set on a wrapper never reach them.
 Density is stricter still: it sets the root font-size, and every size in the system is `rem`.
 
 Writing them is `<KanzoThemeProvider>`'s job, from `@kanzo-tech/ui`:

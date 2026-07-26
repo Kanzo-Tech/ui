@@ -383,6 +383,13 @@ for it whenever something that is not a plot has to move with the brush. A widge
 `coordinator.query()` in an effect will sit there reporting unfiltered totals next to filtered
 charts, which reads as a bug in the crossfilter.
 
+`ChartFilter` is a [`FacetFilter`](/docs/forms/facet-filter) over a `GROUP BY`, and it takes that
+component's `searchable`. Know what the field covers before you turn it on: it narrows the **fetched
+page** — the `limit` most frequent values the control asked for, 50 by default — and asks nothing new
+of DuckDB. When the page is truncated, both the footnote and the no-match message say so, because a
+field that answers *no matching values* about a database it never queried is worse than no field.
+Searching the column itself is `ChartSearch`, which publishes a match clause and does run a query.
+
 Its presentational half, **`StatTile`, is in the root barrel** — it takes a number, so making it
 cost DuckDB-WASM would be absurd. That split is [the engine rule](/docs/philosophy), the same one
 behind `Table` and `DataTable`.

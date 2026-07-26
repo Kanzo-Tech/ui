@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
@@ -214,11 +214,13 @@ describe("FacetFilter empty and note", () => {
   // whose upstream JSDoc describes the opposite of what it does — binds Escape to VALUE.CLEAR, so
   // the key everyone presses to back out of a popover silently discarded the filter instead.
   //
-  // Only the surviving value is asserted. Whether the popover *closes* is Ark's behaviour, not
-  // ours, and it cannot be asserted from here: an `aria-expanded` check passes when this test runs
-  // alone and fails once the twelve above it have run, because `unmountOnExit` waits on an exit
-  // animation jsdom never fires, so every popover those tests opened is still mounted. Verified
-  // separately against a bare `Popover`, which does close.
+  // **The trigger is the only honest witness here**, and this test learned it the hard way: it
+  // originally also asserted the row was still selected, which passed only because the popover's
+  // content was still in the DOM. Neither the closed popover's contents nor `aria-expanded` are
+  // assertable from this file — `unmountOnExit` waits on an exit animation jsdom never fires, so
+  // whether the list is still there depends on how many popovers the tests above happened to leave
+  // mounted. Assert what outlives the surface. That the popover closes at all is Ark's behaviour,
+  // verified separately against a bare `Popover`.
   it("does not discard the filter on Escape", async () => {
     const user = userEvent.setup();
     render(<Harness value={["alpha"]} />);
@@ -228,6 +230,250 @@ describe("FacetFilter empty and note", () => {
     await user.keyboard("{Escape}");
 
     expect(trigger().textContent).toContain("1");
-    expect(await option(/Alpha/)).toHaveProperty("ariaSelected", "true");
+  });
+});
+
+describe("FacetFilter searchable", () => {
+  const stations: FacetFilterItem[] = [
+    { count: 4, label: "A Coruña", value: "leco" },
+    { count: 9, label: "Madrid", value: "lemd" },
+    { count: 2, label: "Málaga", value: "lega" },
+  ];
+
+  const field = () => screen.getByRole("textbox", { name: "Filter values" });
+  const labels = () => screen.getAllByRole("option").map((el) => el.textContent);
+
+  // `delay: null` rather than the default. Every keystroke replaces the collection — that is the
+  // feature — and `autoHighlight` re-aims the highlight in a `queueMicrotask`, so each character
+  // schedules a React update outside `act`. With userEvent's default real-timer delay between
+  // keys, that update lands mid-sequence and React restores the controlled input to the value it
+  // is committing, silently eating characters; the number eaten grows with how much of the file
+  // has already run, so the same test passes alone and fails in place. `delay: null` puts the
+  // whole sequence in one batch. Nothing to fix in a browser, where nothing interleaves.
+  const typist = () => userEvent.setup({ delay: null });
+
+  // `autoHighlight` re-aims the highlight from a `queueMicrotask`, one per collection change — and
+  // every keystroke is a collection change. So a three-letter query leaves a queue of highlight
+  // resets behind it, each of which unconditionally re-selects the first row. A browser drains that
+  // queue in the milliseconds before the next keypress; a test presses the next key in the same
+  // tick, and a reset lands *after* the arrow that was supposed to move off the first row. Drain it
+  // deliberately instead: this is the difference between a test and a user, not a bug.
+  const settle = () => act(async () => void (await new Promise((r) => setTimeout(r, 0))));
+
+  const highlighted = () =>
+    waitFor(() => {
+      const id = screen.getByRole("listbox").getAttribute("aria-activedescendant");
+      expect(id).toBeTruthy();
+      return document.getElementById(id as string);
+    });
+
+  it("draws no field unless asked — it is a prop, not a count threshold", async () => {
+    const user = typist();
+    render(<Harness items={stations} />);
+
+    await open(user);
+
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("narrows the rows on offer to what the query matches", async () => {
+    const user = typist();
+    render(<Harness items={stations} searchable />);
+
+    await open(user);
+    await user.type(field(), "mad");
+
+    expect(labels()).toEqual(["Madrid9"]);
+  });
+
+  it("ignores case and accents, because `useFilter` does", async () => {
+    const user = typist();
+    render(<Harness items={stations} searchable />);
+
+    await open(user);
+    await user.type(field(), "CORUNA");
+
+    // Neither the capitals nor the missing tilde blocks the match: `useFilter({ sensitivity:
+    // "base" })` collates rather than comparing code points, so a hand-rolled `toLowerCase()
+    // .includes()` would have missed this row.
+    expect(labels()).toEqual(["A Coruña4"]);
+  });
+
+  it("matches the value when a row carries no label", async () => {
+    const user = typist();
+    render(<Harness items={[{ value: "eu-west-1" }, { value: "us-east-1" }]} searchable />);
+
+    await open(user);
+    await user.type(field(), "west");
+
+    expect(labels()).toEqual(["eu-west-1"]);
+  });
+
+  // The first of the two rules this component owns, under a query. Hiding a ticked row takes the
+  // untick with it: the value is still in the filter, and nothing on screen can remove it.
+  it("never hides a ticked value behind the query", async () => {
+    const user = typist();
+    const changes: string[][] = [];
+    render(
+      <Harness
+        items={stations}
+        onValueChange={(next) => changes.push(next)}
+        searchable
+        value={["lemd"]}
+      />,
+    );
+
+    await open(user);
+    await user.type(field(), "coru");
+
+    expect(labels()).toEqual(["A Coruña4", "Madrid9"]);
+
+    await user.click(await option(/Madrid/));
+
+    expect(changes).toEqual([[]]);
+  });
+
+  // The second rule, under a query. A filtered list is still a label-ordered list.
+  it("keeps label ordering through the query", async () => {
+    const user = typist();
+    render(
+      <Harness
+        items={[
+          { count: 900, label: "Zulu Alpha", value: "za" },
+          { count: 90, label: "Mike Alpha", value: "ma" },
+          { count: 9, label: "Alpha Alpha", value: "aa" },
+        ]}
+        searchable
+      />,
+    );
+
+    await open(user);
+    await user.type(field(), "alpha");
+
+    expect(labels()).toEqual(["Alpha Alpha9", "Mike Alpha90", "Zulu Alpha900"]);
+  });
+
+  it("drives the list from the field: typing highlights the top match, Enter ticks it", async () => {
+    const user = typist();
+    const changes: string[][] = [];
+    render(
+      <Harness items={stations} onValueChange={(next) => changes.push(next)} searchable />,
+    );
+
+    await open(user);
+    await user.type(field(), "m");
+    await settle();
+    // `autoHighlight` re-aims at the first surviving row on every keystroke, so the top match is
+    // under Enter with no ArrowDown first — "Madrid" here, ahead of "Málaga" by label.
+    expect((await highlighted())?.textContent).toBe("Madrid9");
+
+    await user.keyboard("{Enter}");
+
+    await waitFor(() => expect(changes).toEqual([["lemd"]]));
+    expect(document.activeElement).toBe(field());
+  });
+
+  it("still arrows and Enters down the filtered list", async () => {
+    const user = typist();
+    const changes: string[][] = [];
+    render(
+      <Harness items={stations} onValueChange={(next) => changes.push(next)} searchable />,
+    );
+
+    await open(user);
+    await user.type(field(), "m");
+    await settle();
+    // The arrow reaches the list from inside the field — zag forwards it to the content — and moves
+    // off the row `autoHighlight` had aimed at.
+    await user.keyboard("{ArrowDown}");
+    await settle();
+    expect((await highlighted())?.textContent).toBe("Málaga2");
+
+    await user.keyboard("{Enter}");
+
+    await waitFor(() => expect(changes).toEqual([["lega"]]));
+  });
+
+  // The field is useless if the first thing you type goes somewhere else. Zag's popover aims its
+  // opening focus at the content, and does it late enough that a keystroke can arrive first — the
+  // key then reaches the list as typeahead and focus moves out from under the caret. `FacetFilter`
+  // points `initialFocusEl` at the field instead.
+  it("opens with the field focused, so you can just type", async () => {
+    const user = typist();
+    render(<Harness items={stations} searchable />);
+
+    await open(user);
+
+    await waitFor(() => expect(document.activeElement).toBe(field()));
+  });
+
+  it("forgets the query when the surface closes", async () => {
+    const user = typist();
+    render(<Harness items={stations} searchable />);
+
+    await open(user);
+    await user.type(field(), "mad");
+    expect(labels()).toEqual(["Madrid9"]);
+
+    await user.click(trigger());
+    await user.click(trigger());
+
+    // `Popover` unmounts its content, taking the input's DOM value with it; the query state has to
+    // go too, or a reopened filter shows every row while still believing in "mad".
+    expect((field() as HTMLInputElement).value).toBe("");
+    expect(labels()).toEqual(["A Coruña4", "Madrid9", "Málaga2"]);
+  });
+
+  it("tells 'this facet offers nothing' from 'your query matches nothing'", async () => {
+    const user = typist();
+    const { rerender } = render(<Harness items={stations} searchable />);
+
+    await open(user);
+    await user.type(field(), "zzz");
+
+    expect(screen.queryAllByRole("option")).toHaveLength(0);
+    expect(screen.getByText("No matching values.")).not.toBeNull();
+    expect(screen.queryByText("No values.")).toBeNull();
+
+    // Same emptiness on screen, different news: nothing on offer at all is not a query you can
+    // retype your way out of, and it is usually "still loading".
+    rerender(<Harness items={[]} searchable />);
+
+    expect(screen.getByText("No values.")).not.toBeNull();
+    expect(screen.queryByText("No matching values.")).toBeNull();
+  });
+
+  it("takes the two messages from props", async () => {
+    const user = typist();
+    render(
+      <Harness
+        empty="Loading…"
+        items={stations}
+        searchEmpty="No station by that name."
+        searchable
+      />,
+    );
+
+    await open(user);
+    await user.type(field(), "zzz");
+
+    expect(screen.getByText("No station by that name.")).not.toBeNull();
+  });
+
+  it("names and prompts the field, and takes both from props", async () => {
+    const user = typist();
+    render(
+      <Harness
+        items={stations}
+        searchLabel="Filter stations"
+        searchPlaceholder="Station…"
+        searchable
+      />,
+    );
+
+    await open(user);
+
+    const input = screen.getByRole("textbox", { name: "Filter stations" });
+    expect(input.getAttribute("placeholder")).toBe("Station…");
   });
 });

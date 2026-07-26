@@ -21,6 +21,11 @@ components — but theirs are two distinct primitives. Ours is genuinely one.
 a variant on that page. Keep both exports (the trigger swap is a real API), but stop pretending
 they are two components in the nav. **Owner leaning: yes.**
 
+**Done, and further than the recommendation.** The pages merged first (`2b7221a`); keeping the
+exports turned out to be the half-measure — nine of the ten were `data-slot` renames and one
+(`ContextMenuGroup`) had no consumer at all. `simples/context-menu.tsx` is deleted, with
+`useContextMenu`; the one real part is `MenuContextTrigger` in `menu.tsx`, beside `MenuTrigger`.
+
 ---
 
 ## 2. Dialog vs AlertDialog — "different places"?
@@ -233,7 +238,8 @@ typecheck → docs build.
 - **AlertDialog folded into Dialog** as an "Alert mode" section; separate page removed, exports
   kept. It is literally `<Dialog role="alertdialog" showCloseButton={false}>`. `81aa10d`.
 - **ContextMenu folded into Menu** as a "Context trigger" section; same shape (`<Menu
-  data-slot="context-menu">` + ContextTrigger). Page removed, exports kept. `2b7221a`.
+  data-slot="context-menu">` + ContextTrigger). Page removed, exports kept. `2b7221a`. *(The
+  exports went too, later: the file is deleted and the trigger is now `MenuContextTrigger`.)*
 - **ComingSoon → Ribbon** (rename + widened abstraction). Reference is Ant Design `Badge.Ribbon`
   (no Shark/Ark/Radix equivalent). `label` now required and free (Beta/New/Coming soon/Pro),
   `variant` added, and the dim+`inert` gating became **opt-in via `disabled`** instead of forced

@@ -1,16 +1,17 @@
 import {
   Field,
   FieldLabel,
-  Fieldset,
-  FieldsetHelperText,
-  FieldsetLegend,
+  FieldLegend,
+  FieldSet,
+  FieldSetError,
+  FieldSetHelper,
   TextField,
 } from "@kanzo-tech/ui";
 
 export default function Example() {
   return (
-    <Fieldset className="w-80">
-      <FieldsetLegend>Billing address</FieldsetLegend>
+    <FieldSet className="w-80" invalid>
+      <FieldLegend variant="label">Billing address</FieldLegend>
 
       <Field>
         <FieldLabel>Street</FieldLabel>
@@ -25,7 +26,8 @@ export default function Example() {
         <TextField placeholder="90210" />
       </Field>
 
-      <FieldsetHelperText>Used for invoicing only.</FieldsetHelperText>
-    </Fieldset>
+      <FieldSetHelper>Used for invoicing only.</FieldSetHelper>
+      <FieldSetError>Address is incomplete.</FieldSetError>
+    </FieldSet>
   );
 }

@@ -146,6 +146,40 @@ describe("DataTableFacetFilter", () => {
     expect(items).toHaveLength(1);
     expect(items[0]!.textContent).toBe("Live2");
   });
+
+  it("draws no filter field unless asked", async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness>
+        <DataTableFacetFilter column="status" label="Status" />
+      </Harness>,
+    );
+
+    await open(user);
+
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  // Search is honest and total here: TanStack facets the rows the table already holds, so the field
+  // narrows every value the column has rather than a fetched page of them — unlike `ChartFilter`.
+  it("narrows the values when `searchable`, and still filters the table", async () => {
+    const user = userEvent.setup({ delay: null });
+    render(
+      <Harness>
+        <DataTableFacetFilter column="status" label="Status" searchable />
+      </Harness>,
+    );
+
+    await open(user);
+    await user.type(screen.getByRole("textbox", { name: "Filter values" }), "inact");
+
+    const items = screen.getAllByRole("option");
+    expect(items.map((item) => item.textContent)).toEqual(["inactive1"]);
+
+    await user.click(items[0]!);
+
+    expect(bodyNamesUnderPopover()).toHaveLength(1);
+  });
 });
 
 describe("DataTableViewOptions", () => {
