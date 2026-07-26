@@ -13,6 +13,7 @@ import {
   FieldLabel,
   Input,
   Kbd,
+  Show,
   useCompletion,
 } from "@kanzo-tech/ui";
 import { CheckIcon, XIcon } from "lucide-react";
@@ -74,7 +75,7 @@ export default function Example() {
           </EditableCancelTrigger>
         </EditableControl>
       </Editable>
-      {completion.hasGhost && (
+      <Show when={completion.hasGhost}>
         <p className="flex min-w-0 items-center gap-2 text-muted-foreground text-xs">
           <span className="min-w-0 flex-1 truncate italic">
             Append <span className="not-italic">“{completion.ghost.replace(/^\s+/, "")}”</span>
@@ -83,7 +84,7 @@ export default function Example() {
             <Kbd>Tab</Kbd> accept
           </span>
         </p>
-      )}
+      </Show>
     </Field>
   );
 }

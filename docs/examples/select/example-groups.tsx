@@ -10,6 +10,7 @@ import {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
+  Show,
 } from "@kanzo-tech/ui";
 
 // `groupBy` lets the collection own the grouping, so `collection.group()` returns the
@@ -33,7 +34,9 @@ export default function Example() {
       <SelectContent>
         {formats.group().map(([family, items], index) => (
           <Fragment key={family}>
-            {index > 0 && <SelectSeparator />}
+            <Show when={index > 0}>
+              <SelectSeparator />
+            </Show>
             <SelectGroup heading={family}>
               {items.map((item) => (
                 <SelectItem item={item} key={item.value}>

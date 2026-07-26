@@ -13,6 +13,7 @@ import {
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
+  Show,
 } from "@kanzo-tech/ui";
 import { revalidateLogic, useForm } from "@tanstack/react-form";
 import { XIcon } from "lucide-react";
@@ -77,7 +78,7 @@ export default function Example() {
                             placeholder="name@example.org"
                             value={field.state.value}
                           />
-                          {array.state.value.length > 1 && (
+                          <Show when={array.state.value.length > 1}>
                             <InputGroupAddon align="inline-end">
                               <InputGroupButton
                                 aria-label={`Remove contact ${index + 1}`}
@@ -87,7 +88,7 @@ export default function Example() {
                                 <XIcon />
                               </InputGroupButton>
                             </InputGroupAddon>
-                          )}
+                          </Show>
                         </InputGroup>
                         <FieldError>
                           {field.state.meta.errors

@@ -13,6 +13,7 @@ import {
   CommandItem,
   CommandList,
   Kbd,
+  Show,
   useFilter,
   useListCollection,
 } from "@kanzo-tech/ui";
@@ -39,7 +40,9 @@ export default function Example() {
       <Button onClick={() => setOpen(true)} variant="outline">
         Command palette <Kbd>⌘</Kbd> <Kbd>K</Kbd>
       </Button>
-      {ran && <span className="text-muted-foreground text-sm">Ran: {ran}</span>}
+      <Show when={!!ran}>
+        <span className="text-muted-foreground text-sm">Ran: {ran}</span>
+      </Show>
 
       <CommandDialog onOpenChange={(e) => setOpen(e.open)} open={open}>
         <CommandDialogContent>

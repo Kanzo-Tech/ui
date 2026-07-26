@@ -25,6 +25,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Show,
   Switch,
   Textarea,
 } from "@kanzo-tech/ui";
@@ -273,7 +274,7 @@ export default function Example() {
                       </form.Field>
                     </FieldGroup>
 
-                    {array.state.value.length > 1 && (
+                    <Show when={array.state.value.length > 1}>
                       <Button
                         aria-label={`Remove maintainer ${index + 1}`}
                         onClick={() => array.removeValue(index)}
@@ -283,7 +284,7 @@ export default function Example() {
                       >
                         <XIcon />
                       </Button>
-                    )}
+                    </Show>
                   </div>
                 ))}
               </FieldGroup>
@@ -343,13 +344,13 @@ export default function Example() {
           </form.Field>
         </FieldGroup>
 
-        {submitError && (
+        <Show when={!!submitError}>
           <Alert variant="destructive">
             <AlertCircleIcon />
             <AlertTitle>Could not publish</AlertTitle>
             <AlertDescription>{submitError}</AlertDescription>
           </Alert>
-        )}
+        </Show>
 
         <div className="flex items-center gap-2">
           <form.Subscribe selector={(state) => state.isSubmitting}>

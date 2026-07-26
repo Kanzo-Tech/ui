@@ -9,6 +9,7 @@ import {
   ShellHeader,
   ShellMain,
   ShellRoot,
+  Show,
   Toggle,
 } from "@kanzo-tech/ui";
 
@@ -45,7 +46,7 @@ export default function Example() {
       </ShellHeader>
 
       <ShellBody>
-        {navOpen && (
+        <Show when={navOpen}>
           <ShellAside
             aria-label="Navigation"
             className="justify-center p-3 text-center"
@@ -58,7 +59,7 @@ export default function Example() {
               side=&quot;start&quot;
             </span>
           </ShellAside>
-        )}
+        </Show>
 
         {/* The one <main> on the page. Nested containers use <section> — see Section. */}
         <ShellMain className="items-center justify-center bg-muted/24 p-4">
@@ -68,7 +69,7 @@ export default function Example() {
           </span>
         </ShellMain>
 
-        {inspectorOpen && (
+        <Show when={inspectorOpen}>
           <ShellAside
             aria-label="Inspector"
             className="justify-center p-3 text-center"
@@ -81,7 +82,7 @@ export default function Example() {
               side=&quot;end&quot;
             </span>
           </ShellAside>
-        )}
+        </Show>
       </ShellBody>
 
       <ShellFooter className="h-7 flex-row items-center bg-card px-3">

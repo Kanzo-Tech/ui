@@ -10,6 +10,7 @@ import {
   cn,
   DefaultLink,
   type LinkComponent,
+  Show,
   Skeleton,
 } from "@kanzo-tech/ui";
 
@@ -111,13 +112,11 @@ export function MetricCardValue({
       data-slot="metric-card-value"
       {...rest}
     >
-      {loading ? (
-        <Skeleton className="h-7 w-20" />
-      ) : (
+      <Show fallback={<Skeleton className="h-7 w-20" />} when={!loading}>
         <p className="font-semibold text-2xl leading-none tracking-tight">
           {children}
         </p>
-      )}
+      </Show>
     </div>
   );
 }
@@ -138,7 +137,9 @@ export function MetricCardDescription({
       data-slot="metric-card-description"
       {...rest}
     >
-      {loading ? <Skeleton className="h-4 w-28" /> : children}
+      <Show fallback={<Skeleton className="h-4 w-28" />} when={!loading}>
+        {children}
+      </Show>
     </p>
   );
 }

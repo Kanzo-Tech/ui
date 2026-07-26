@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { cn } from "@kanzo-tech/ui";
+import { cn, Show } from "@kanzo-tech/ui";
 
 export interface ChartCardProps {
   /** Names the chart — for a single series this is the identity (no legend needed). */
@@ -26,12 +26,18 @@ export function ChartCard({ title, description, action, legend, children, classN
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-0.5">
           <h3 className="truncate font-medium text-foreground text-sm">{title}</h3>
-          {description && <p className="text-muted-foreground text-xs">{description}</p>}
+          <Show when={!!description}>
+            <p className="text-muted-foreground text-xs">{description}</p>
+          </Show>
         </div>
-        {action && <div className="shrink-0">{action}</div>}
+        <Show when={!!action}>
+          <div className="shrink-0">{action}</div>
+        </Show>
       </div>
       {children}
-      {legend && <div className="mt-0.5">{legend}</div>}
+      <Show when={!!legend}>
+        <div className="mt-0.5">{legend}</div>
+      </Show>
     </div>
   );
 }

@@ -24,6 +24,7 @@ import {
 	SidebarRail,
 	SidebarTrigger,
 	SidebarUser,
+	Show,
 	Skeleton,
 	Toaster,
 	toast,
@@ -245,7 +246,7 @@ function DiscoveryShell() {
 				</ShellHeader>
 
 				<ShellBody className="min-w-0">
-					{panelOpen ? (
+					<Show fallback={<MainRegion />} when={panelOpen}>
 						<Resizable
 							className="min-h-0"
 							defaultSize={[72, 28]}
@@ -293,9 +294,7 @@ function DiscoveryShell() {
 								</ShellAside>
 							</ResizablePanel>
 						</Resizable>
-					) : (
-						<MainRegion />
-					)}
+					</Show>
 				</ShellBody>
 
 				<ShellFooter className="h-8 flex-row items-center justify-between px-2">

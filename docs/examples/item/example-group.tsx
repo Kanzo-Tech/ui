@@ -6,6 +6,7 @@ import {
   ItemMedia,
   ItemSeparator,
   ItemTitle,
+  Show,
 } from "@kanzo-tech/ui";
 import { CloudIcon, DatabaseIcon, KeyIcon } from "lucide-react";
 import { Fragment } from "react";
@@ -21,7 +22,9 @@ export default function Example() {
     <ItemGroup className="w-96 gap-0 rounded-lg border">
       {ROWS.map(({ icon: Icon, title, description }, i) => (
         <Fragment key={title}>
-          {i > 0 && <ItemSeparator />}
+          <Show when={i > 0}>
+            <ItemSeparator />
+          </Show>
           <Item>
             <ItemMedia>
               <Icon />

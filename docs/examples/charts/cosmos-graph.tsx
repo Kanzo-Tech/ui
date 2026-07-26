@@ -6,8 +6,8 @@ import { Graph } from "@cosmos.gl/graph";
 import { Query } from "@uwdata/mosaic-sql";
 import { useMosaic, type Coordinator } from "@kanzo-tech/ui/analytics";
 import { onceQuery } from "@/lib/once-query";
-import { Button, Skeleton } from "@kanzo-tech/ui";
-import { CosmosClient } from "./cosmos-client";
+import { Button, Show, Skeleton } from "@kanzo-tech/ui";
+import { CosmosClient } from "@/lib/cosmos-client";
 
 // The React half of the probe: lifecycle, the lasso gesture, and the two arrays cosmos.gl wants.
 //
@@ -242,7 +242,7 @@ export function CosmosGraph({ table, edges, palette, height = 420 }: CosmosGraph
         ) : (
           <Skeleton className="size-full" />
         )}
-        {lasso && (
+        <Show when={lasso}>
           <div
             className="absolute inset-0 cursor-crosshair"
             onPointerDown={(event) => {
@@ -269,7 +269,7 @@ export function CosmosGraph({ table, edges, palette, height = 420 }: CosmosGraph
               </svg>
             )}
           </div>
-        )}
+        </Show>
       </div>
     </div>
   );

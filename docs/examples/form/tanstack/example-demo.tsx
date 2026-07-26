@@ -9,6 +9,7 @@ import {
   FieldLabel,
   FieldRequiredIndicator,
   Input,
+  Show,
   Textarea,
 } from "@kanzo-tech/ui";
 import { revalidateLogic, useForm } from "@tanstack/react-form";
@@ -112,9 +113,9 @@ export default function Example() {
         </Button>
       </div>
 
-      {saved && (
+      <Show when={!!saved}>
         <p className="mt-3 font-mono text-muted-foreground text-xs">{saved}</p>
-      )}
+      </Show>
     </form>
   );
 }

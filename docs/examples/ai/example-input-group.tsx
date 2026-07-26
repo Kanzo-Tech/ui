@@ -7,6 +7,7 @@ import {
   InputGroupButton,
   InputGroupTextarea,
   Kbd,
+  Show,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -64,7 +65,7 @@ export default function Example() {
           <SparklesIcon />
           Suggest
         </InputGroupButton>
-        {completion.hasGhost && (
+        <Show when={completion.hasGhost}>
           <span className="ms-auto flex min-w-0 items-center gap-3 text-muted-foreground text-xs">
             {/* Truncated inline; hover reveals the full continuation. */}
             <Tooltip>
@@ -84,7 +85,7 @@ export default function Example() {
               <Kbd>Esc</Kbd> dismiss
             </span>
           </span>
-        )}
+        </Show>
       </InputGroupAddon>
     </InputGroup>
   );

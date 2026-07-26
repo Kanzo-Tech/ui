@@ -49,6 +49,7 @@ import {
   SidebarRail,
   SidebarTrigger,
   SidebarUser,
+  Show,
   Status,
   StatTile,
   Steps,
@@ -315,7 +316,9 @@ export function AppShellShowcase() {
                           <ItemGroup className="gap-0">
                             {SCHEDULES.map((schedule, index) => (
                               <Fragment key={schedule.id}>
-                                {index > 0 && <ItemSeparator className="my-0" />}
+                                <Show when={index > 0}>
+                                  <ItemSeparator className="my-0" />
+                                </Show>
                                 <Item>
                                   <ItemMedia>
                                     <CalendarClockIcon />

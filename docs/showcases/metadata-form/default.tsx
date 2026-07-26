@@ -63,6 +63,7 @@ import {
   ShellHeader,
   ShellMain,
   ShellRoot,
+  Show,
   Steps,
   StepsContent,
   StepsIndicator,
@@ -147,6 +148,17 @@ const SEVERITY_TEXT: Record<Issue["severity"], string> = {
 /** Display preferences the product owns — driven live from its own Preferences popover. */
 const FormPrefsContext = createContext({ showDescriptions: true, showPredicates: false });
 
+/**
+ * When a field is allowed to say what validation found.
+ *
+ * `validate` runs on every keystroke over the whole document, so without a gate an empty form
+ * opens with every required field already red and `aria-invalid` — the shape complaining about
+ * work the user has not started. `revealAll` is the "submit" this editor never has: the point
+ * where the user asks to see everything at once. `generation` bumps when the document is
+ * replaced, so loading a different dataset does not inherit the previous one's touched fields.
+ */
+const RevealContext = createContext({ revealAll: false, generation: 0 });
+
 /** The per-field message list — the `ReactNode` the product hands to the library. Violations
  *  use the real `FieldError` part; the non-blocking severities are plain styled lines. */
 function IssueLines({ issues }: { issues: Issue[] }) {
@@ -187,24 +199,44 @@ function FieldFrame({
   children: (invalid: boolean) => ReactNode;
 }) {
   const { showDescriptions, showPredicates } = useContext(FormPrefsContext);
-  const invalid = issues.some((iss) => iss.severity === "violation");
+  const { revealAll, generation } = useContext(RevealContext);
+
+  // The gate, and the only place it is decided. `touched` is local because the trigger is local:
+  // focus leaving this field. React's `onBlur` is `focusout`, which bubbles, so one handler on the
+  // `Field` covers whatever control the caller rendered inside it — no per-field wiring, and no
+  // field key to keep in sync with `fieldIssues`.
+  const [touched, setTouched] = useState(false);
+  useEffect(() => setTouched(false), [generation]);
+  const reveal = revealAll || touched;
+
+  // Gated too, not just the message: an untouched required field that is already `aria-invalid`
+  // tells a screen reader the user got something wrong before they arrived.
+  const invalid = reveal && issues.some((iss) => iss.severity === "violation");
   return (
-    <Field className="gap-1.5" invalid={invalid}>
+    <Field className="gap-1.5" invalid={invalid} onBlur={() => setTouched(true)}>
       <div className="flex min-h-6 items-center gap-2">
         <FieldLabel className="w-fit">
           {label}
-          {required && <FieldRequiredIndicator />}
-          {showPredicates && predicate && (
+          <Show when={!!required}>
+            <FieldRequiredIndicator />
+          </Show>
+          <Show when={showPredicates && !!predicate}>
             <code className="ms-1.5 rounded bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
               {predicate}
             </code>
-          )}
+          </Show>
         </FieldLabel>
-        {action && <div className="ms-auto">{action}</div>}
+        <Show when={!!action}>
+          <div className="ms-auto">{action}</div>
+        </Show>
       </div>
-      {showDescriptions && description && <FieldDescription>{description}</FieldDescription>}
+      <Show when={showDescriptions && !!description}>
+        <FieldDescription>{description}</FieldDescription>
+      </Show>
       {children(invalid)}
-      <IssueLines issues={issues} />
+      <Show when={reveal}>
+        <IssueLines issues={issues} />
+      </Show>
     </Field>
   );
 }
@@ -334,6 +366,10 @@ export function MetadataFormShowcase() {
   const [showDescriptions, setShowDescriptions] = useState(true);
   const [showPredicates, setShowPredicates] = useState(false);
 
+  // The validation gate — see `RevealContext`. One object, so the provider value below is stable
+  // and a keystroke in a field does not re-render every other field through the context.
+  const [gate, setGate] = useState({ revealAll: false, generation: 0 });
+
   // Two independent docked panels: SHACL Source on the leading edge, serialised Output on the
   // trailing edge. Either, both, or neither — the form takes whatever width is left.
   const [sourceOpen, setSourceOpen] = useState(false);
@@ -391,6 +427,9 @@ export function MetadataFormShowcase() {
     const ds = DATASETS.find((d) => d.id === id) ?? DATASETS[0];
     setDatasetId(ds.id);
     setValues(ds.values);
+    // A different document, so the previous one's touched fields — and its reveal — do not carry
+    // over. Without this, switching to the empty dataset opens it pre-reddened.
+    setGate((g) => ({ revealAll: false, generation: g.generation + 1 }));
   };
 
   const setScalar = <K extends keyof FormValues>(key: K, value: FormValues[K]) =>
@@ -1144,6 +1183,22 @@ export function MetadataFormShowcase() {
                     </ul>
                   </ScrollArea>
                 )}
+                {/* The reveal control. The tally above is always honest about the whole document;
+                    the fields themselves stay quiet until you edit them, so this is how you ask
+                    the form to show its work — what a Submit would do, in an editor that has
+                    none. */}
+                <Show when={report.length > 0}>
+                  <div className="border-t p-2">
+                    <Button
+                      className="w-full"
+                      onClick={() => setGate((g) => ({ ...g, revealAll: !g.revealAll }))}
+                      size="sm"
+                      variant={gate.revealAll ? "secondary" : "outline"}
+                    >
+                      {gate.revealAll ? "Hide until edited" : "Show on the fields"}
+                    </Button>
+                  </div>
+                </Show>
               </HoverCardContent>
             </HoverCard>
 
@@ -1232,7 +1287,9 @@ export function MetadataFormShowcase() {
           const formMain = (
             <ShellMain className="bg-background">
               <FormPrefsContext.Provider value={{ showDescriptions, showPredicates }}>
-                <div className="mx-auto w-full max-w-3xl px-6 py-8">{body}</div>
+                <RevealContext.Provider value={gate}>
+                  <div className="mx-auto w-full max-w-3xl px-6 py-8">{body}</div>
+                </RevealContext.Provider>
               </FormPrefsContext.Provider>
             </ShellMain>
           );
@@ -1271,9 +1328,9 @@ export function MetadataFormShowcase() {
             <Resizable defaultSize={defaultSize} key={columns.join("-")} panels={panels}>
               {columns.map((id, i) => (
                 <Fragment key={id}>
-                  {i > 0 && (
+                  <Show when={i > 0}>
                     <ResizableResizeTrigger id={`${columns[i - 1]}:${id}`} withHandle />
-                  )}
+                  </Show>
                   <ResizablePanel className="flex min-w-0 flex-col overflow-hidden" id={id}>
                     {columnNode(id)}
                   </ResizablePanel>

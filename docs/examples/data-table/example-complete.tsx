@@ -2,7 +2,7 @@
 
 import { PlusIcon, Trash2Icon } from "lucide-react";
 import { useState } from "react";
-import { Badge, Button } from "@kanzo-tech/ui";
+import { Badge, Button, Show } from "@kanzo-tech/ui";
 import {
   type ColumnDef,
   DataTableContent,
@@ -73,12 +73,12 @@ export default function Example() {
           <DataTableFacetFilter column="owner" label="Owner" />
 
           <div className="ms-auto flex items-center gap-2">
-            {selected.length > 0 && (
+            <Show when={selected.length > 0}>
               <Button size="sm" variant="outline">
                 <Trash2Icon />
                 Delete
               </Button>
-            )}
+            </Show>
             <DataTableViewOptions />
             <Button size="sm">
               <PlusIcon />

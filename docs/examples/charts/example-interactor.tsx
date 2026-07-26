@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SegmentGroup } from "@kanzo-tech/ui";
+import { SegmentGroup, Show } from "@kanzo-tech/ui";
 import {
   ChartAreaY,
   ChartAxisX,
@@ -66,7 +66,9 @@ function Swap() {
         <ChartAreaY fill="var(--primary)" fillOpacity={0.12} x="hour" y={count()} />
         <ChartDot fill="var(--primary)" r={3.5} x="hour" y={count()} />
         {mode === "toggle" ? <ChartToggleX /> : <ChartIntervalX />}
-        {mode === "toggle" && <ChartHighlight />}
+        <Show when={mode === "toggle"}>
+          <ChartHighlight />
+        </Show>
         <ChartAxisX label="hour of day" ticks={12} />
         <ChartAxisY grid label={null} />
       </ChartRoot>

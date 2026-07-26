@@ -9,6 +9,7 @@ import {
   CommandItem,
   CommandList,
   CommandShortcut,
+  Show,
   useFilter,
   useListCollection,
 } from "@kanzo-tech/ui";
@@ -44,9 +45,9 @@ export default function Example() {
                 {items.map((item) => (
                   <CommandItem item={item} key={item.value}>
                     {item.label}
-                    {item.shortcut && (
+                    <Show when={!!item.shortcut}>
                       <CommandShortcut>{item.shortcut}</CommandShortcut>
-                    )}
+                    </Show>
                   </CommandItem>
                 ))}
               </CommandGroup>
