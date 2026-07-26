@@ -124,7 +124,7 @@ export function MosaicProvider({ coordinator, crossfilter, children }: MosaicPro
       reset() {
         // Children first: each relays its own removal downstream into `selected` and the
         // crossfilter. The two shared resets then take whatever was published straight into them —
-        // a `ChartMenu`, a `ChartSearch`, a clause the caller seeded.
+        // a `ChartFilter`, a `ChartSearch`, a clause the caller seeded.
         for (const selection of owned) selection.reset();
         selected.reset();
         shared.reset();

@@ -137,15 +137,16 @@ be hidden is a table of anonymous rows. Initial state comes from
 ## Faceted filters
 
 `DataTableFacetFilter` is a multi-select over a column's faceted values, with live counts. Leave
-`options` out and it offers every distinct value it finds; pass them to fix the order, relabel a
-raw value or give it an icon.
+`options` out and it offers every distinct value it finds; pass them to narrow the list, relabel a
+raw value or give it an icon. It is a `FacetFilter` — a popover over a listbox, because a filter is
+a value and not a command — so the rows are ordered by label whichever way they arrive.
 
 <Callout type="warn">
 **A faceted column must declare `filterFn: facetFilterFn`.**
 
 TanStack's built-in `arrIncludesSome` expects the *cell* to be the array. On a scalar cell it
 degrades to substring matching, so filtering by `"active"` silently keeps `"inactive"` too.
-`facetFilterFn` compares by equality against the selected values, which is what the menu means.
+`facetFilterFn` compares by equality against the selected values, which is what the filter means.
 
 ```tsx
 import { facetFilterFn } from "@kanzo-tech/ui/table";
@@ -157,7 +158,7 @@ import { facetFilterFn } from "@kanzo-tech/ui/table";
 <ComponentPreview componentName="data-table" fileName="example-facet-filter" />
 
 Selecting nothing clears the column filter entirely rather than filtering to the empty set, and
-the menu stays open across selections — a filter is a set, not a single choice.
+the popover stays open across selections — a filter is a set, not a single choice.
 
 ## Pagination
 

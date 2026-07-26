@@ -21,23 +21,64 @@ on it. Default to the PascalCase one; drop to the primitive when you need to rea
 |---|---|---|
 | [`Input`](/docs/forms/input) | The bare text-input primitive. | You are composing something custom on top. |
 | [`TextField`](/docs/forms/text-field) | `Input` plus `size` and `iconStart` / `iconEnd` adornments. | The everyday single-line field. |
-| [`NumberField`](/docs/forms/text-field) | Numeric entry with stepper semantics. | A quantity, a count, a price. |
+| [`NumberField`](/docs/forms/text-field) | `TextField` locked to `type="number"`. No steppers — see [`NumberInput`](/docs/forms/number-input) for those. | A number typed straight in: a price, an amount. |
 | [`Textarea`](/docs/forms/textarea) | Multi-line text. | A description, a note, free text. |
 | [`InputGroup`](/docs/forms/input-group) | An input flanked by addons — a prefix, a unit, a button. | The value needs an affix or an inline action. |
 
 ## Choice
 
-| Control | Options | Type to filter? | Reach for it when |
+| Control | What it is | Many | Reach for it when |
 |---|---|---|---|
-| [`NativeSelect`](/docs/forms/native-select) | few | no | Short lists — it uses the OS picker, best on mobile. |
-| [`Select`](/docs/forms/select) | few–many | no | You need custom option rendering: icons, descriptions, groups. |
-| [`Combobox`](/docs/forms/combobox) | many | **yes** | Long lists, or free-text entry. Supports multiple selection. |
-| [`RadioGroup`](/docs/forms/radio-group) | few | — | One of a few, all visible at once. |
-| [`CardRadioGroup`](/docs/forms/card-radio-group) | few | — | One of a few, where each option needs an icon or a description. |
-| [`SegmentGroup`](/docs/navigation/segment-group) | 2–4 | — | A compact inline switch. Radio semantics, segmented look. |
+| [`NativeSelect`](/docs/forms/native-select) | The browser's own `<select>` element, styled to the input scale. | no — it is the OS picker | Few options and plain text: it costs no JavaScript, and on mobile it opens the platform picker. |
+| [`Select`](/docs/forms/select) | A listbox in a popover, driven by a collection. | `multiple` | The options need to look like more than plain text: icons, descriptions, groups. |
+| [`Listbox`](/docs/forms/listbox) | That same listbox with **no popover of its own** — you place it. | `selectionMode` | The list must live somewhere `Select` cannot put it: inline in a panel, or in a popover you own. |
+| [`Combobox`](/docs/forms/combobox) | A text input **plus** that same listbox — typing filters the collection. | `multiple` | The list is long enough that typing beats scrolling. |
+| [`FacetFilter`](/docs/forms/facet-filter) | A `Listbox` in a popover behind a trigger that counts what is picked. | `multiple` | Narrowing a table or a dashboard, where the options are data and carry counts. |
+| [`TagsInput`](/docs/forms/tags-input) | A list of removable tokens with **no option collection** — the user invents the values. | always | The values do not exist beforehand: free-form tags, keywords, addresses. |
+| [`RadioGroup`](/docs/forms/radio-group) | A few options, all visible at once. | no | One of a few, no popover. |
+| [`CardRadioGroup`](/docs/forms/card-radio-group) | The same, where each option needs an icon or a description. | no | One of a few, where the options need explaining. |
+| [`SegmentGroup`](/docs/navigation/segment-group) | 2–4 options as a compact inline switch. Radio semantics, segmented look. | no | Switching a view in place. |
 
-Rule of thumb: under ~7 options, `NativeSelect`; over ~15, `Combobox`; `Select` in between when
-options need to look like more than plain text.
+Rule of thumb: under ~7 options, `NativeSelect`; over ~15, `Combobox`, because that is where
+scrolling starts costing more than typing; `Select` in between, when the options need to look
+like more than plain text. **Multiple selection is not the deciding axis** — `Select` and
+`Combobox` both take `multiple`, and `TagsInput` is multiple by nature. Typing is.
+
+<Callout type="info">
+**Autocomplete is not a control here.** It is the *presentation* of a `Combobox` with no trigger
+button — `showTrigger={false}` — so it opens on type rather than on click. Same machine, same
+props, one page: [Combobox](/docs/forms/combobox#autocomplete). A further face of that same
+machine, [`Command`](/docs/actions/command), is not a form control at all: what it captures is an
+**action**, so it is filed under actions.
+</Callout>
+
+## A menu is a command; a listbox is a value
+
+Half the "which control?" questions here are one question wearing several hats, and the answer is
+an ARIA role, not a look. Two surfaces open a popover over a list, and they are not
+interchangeable. `role="menu"`
+([`Menu`](/docs/overlays/menu), `MenuItem`, `MenuCheckboxItem`) is a list of **commands**: you
+press one, something happens, the surface closes. It is not anybody's data. `role="listbox"`
+(inside [`Select`](/docs/forms/select) and [`Combobox`](/docs/forms/combobox)) is **a value**: it
+lives in state, and the popover is only its editor.
+
+The test, in one line: **if closing the surface leaves state, it is a listbox; if it leaves only
+an effect, it is a menu.**
+
+That is the only axis that matters. The rest of the Choice table is two orthogonal questions on
+top of it — *can you type to filter?* and *how many can you pick?* — which is why these controls
+look alike and are not.
+
+[`Command`](/docs/actions/command) is the honest exception, and reading it clarifies the rule
+rather than breaking it: a palette runs commands yet is built on a combobox, because the role
+follows the **interaction**, not the payload. Type to filter, arrow to highlight, enter to run is
+combobox behaviour, and a menu cannot filter at all. So: *a value needs a listbox; a command needs
+a menu **unless it needs to be searched***.
+
+The rule bites hardest on **filters**, because a filter is a value while the
+popover-with-checkboxes idiom looks like a menu. Getting the role wrong costs more than purity: a
+`menuitemcheckbox` list cannot announce "2 of 5 selected", and a menu has nowhere to grow a search
+field the day the list has 200 values.
 
 ## Boolean
 
@@ -51,11 +92,19 @@ options need to look like more than plain text.
 
 | Control | What it is | Reach for it when |
 |---|---|---|
+| [`NumberInput`](/docs/forms/number-input) | A `spinbutton`: stepper triggers, arrow keys, drag-to-scrub. | A bounded quantity the user nudges — a count, a page size. |
 | [`Slider`](/docs/forms/slider) | A value or range on a track. | A bounded number where the range matters more than the digit. |
+| [`Rating`](/docs/forms/rating) | A row of stars on a fixed scale. | A score out of five. |
 | [`DateField`](/docs/forms/date-field) | A date input with a calendar popover, assembled. | Picking a date in a form. **Start here.** |
 | [`DatePicker`](/docs/forms/date-picker) | The compound date primitive. | You need to rearrange the trigger, content or calendar. |
 | [`Calendar`](/docs/forms/date-picker) | The month grid on its own. | An always-visible calendar, not a form value. |
 | [`ColorPicker`](/docs/forms/color-picker) | Area, hue and hex, with preset swatches. | Picking a colour. |
+
+## Files
+
+| Control | What it is | Reach for it when |
+|---|---|---|
+| [`FileUpload`](/docs/forms/file-upload) | A dropzone plus the list of what was picked, with previews. | The value is a file, not text. |
 
 ## Credentials
 
@@ -63,6 +112,7 @@ options need to look like more than plain text.
 |---|---|---|
 | [`PasswordInput`](/docs/forms/password-input) | A password input with a reveal toggle. | **Entering** a password — sign-in, sign-up. |
 | [`PasswordInput` + `hasStoredValue`](/docs/forms/password-input#editing-a-stored-credential) | The same input in stored-credential mode: renders empty when a secret exists, and submitting empty means "keep it". | **Editing** a credential that already lives server-side. |
+| [`PinInput`](/docs/forms/pin-input) | One cell per character; a pasted code spreads across them. | A one-time password or verification code. |
 
 ## Repeating
 

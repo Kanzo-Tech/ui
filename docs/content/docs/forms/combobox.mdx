@@ -5,6 +5,14 @@ links:
   doc: https://ark-ui.com/docs/forms/combobox
 ---
 
+<Callout type="info">
+**One combobox, two shapes.** The default (`showTrigger` is `true`) is the Select-shaped one: a
+chevron you click to open the whole list, which then narrows as you type. Pass
+[`showTrigger={false}`](#autocomplete) and you have the Autocomplete shape: no button, opens on
+type. Same machine, same props, one page — which is why there is no separate `Autocomplete`
+component to choose between. Everything here applies to both.
+</Callout>
+
 <ComponentPreview componentName="combobox" />
 
 ## Usage
@@ -58,6 +66,30 @@ Combobox
 
 <ComponentPreview componentName="combobox" fileName="example-groups" />
 
+## Autocomplete
+
+Drop the trigger and the control stops advertising a list: it is an input that opens once the
+user types. That is the whole difference between what other libraries ship as a "Select" and as
+an "Autocomplete", so it is one prop here rather than a second component.
+
+<ComponentPreview componentName="combobox" fileName="example-autocomplete" />
+
+Use it when the field reads as a search box and the list would be too long to be worth
+presenting up front. Keep the trigger when the user cannot be expected to know what is in the
+list.
+
+## Custom values
+
+By default the machine owns the value, so it **reverts the input** on blur if what you typed
+matches nothing — the list is a closed set. `allowCustomValue` turns that off and lets the typed
+text stand.
+
+<ComponentPreview componentName="combobox" fileName="example-custom-value" />
+
+The selection is still only ever an item from the collection. A custom value reaches you through
+`onInputValueChange`, and it is yours to keep: push it into the collection, submit it as free
+text, or validate and reject it.
+
 ## Clearable
 
 The clear button only appears once there is something to clear, and it replaces the open
@@ -69,7 +101,39 @@ trigger rather than crowding beside it.
 
 <ComponentPreview componentName="combobox" fileName="example-disabled" />
 
+## Multiple selection
+
+Yes — one prop, and no need to reach for a different component.
+
+<ComponentPreview componentName="combobox" fileName="example-multiple" />
+
+Setting `multiple` also switches Ark's `selectionBehavior` to `clear`, so the input empties
+after each pick and the list is immediately ready for the next one. Picking five things does not
+mean clearing your query five times.
+
+<Callout type="info">
+The chips showing what is selected are the **caller's**. The component owns the value; how you
+display it is a presentation decision, and a row of badges is only one answer — a summary line
+or a removable-token input are others. If the values do not exist beforehand at all, you want
+[`TagsInput`](/docs/forms/tags-input) instead.
+</Callout>
+
 ## API Reference
+
+### Combobox
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `collection` | `ListCollection` | — |
+| `multiple` | `boolean` | `false` |
+| `allowCustomValue` | `boolean` | `false` |
+| `openOnClick` | `boolean` | `true` |
+| `lazyMount` | `boolean` | `true` |
+| `unmountOnExit` | `boolean` | `true` |
+
+Everything else passes through to `Combobox.Root` — `value` / `defaultValue` (always a
+`string[]`), `onValueChange`, `inputValue`, `onInputValueChange`, `name`, `form`, `disabled`,
+`invalid`, `readOnly`, `positioning`.
 
 ### ComboboxInput
 
@@ -94,20 +158,5 @@ Renders `ComboboxControl` and an `InputGroup` around `Combobox.Input`. Use
 | --- | --- | --- |
 | `heading` | `string \| React.ReactNode` | — |
 
-`Combobox` defaults `openOnClick`, `lazyMount` and `unmountOnExit` to `true`.
-
-## Multiple selection
-
-Yes — one prop.
-
-<ComponentPreview componentName="combobox" fileName="example-multiple" />
-
-Setting `multiple` also switches Ark's `selectionBehavior` to `clear`, so the input empties
-after each pick and the list is immediately ready for the next one. Picking five things does not
-mean clearing your query five times.
-
-<Callout type="info">
-The chips showing what is selected are the **caller's**. The component owns the value; how you
-display it is a presentation decision, and a row of badges is only one answer — a summary line
-or a removable-token input are others.
-</Callout>
+`ComboboxFieldInput` is the bare `Combobox.Input` with no control or trigger around it, for when
+you assemble the control yourself.

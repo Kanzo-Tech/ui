@@ -37,6 +37,21 @@ override with `itemToString` / `itemToValue` for any other shape.
 Build the collection once at module scope, or memoise it — a new collection on every render
 resets the machine.
 
+<Callout type="info">
+Type-ahead is not filtering. Typing `pri` **jumps** the highlight to "Private"; the list still
+shows every option. If you want the list to shrink as the user types, that is a
+[`Combobox`](/docs/forms/combobox).
+</Callout>
+
+### When to use which
+
+`Select` is a listbox in a popover with the options in a collection — reach for it when the
+options need to look like more than plain text (icons, descriptions, groups) and the list is
+short enough to scroll. Below that, [`NativeSelect`](/docs/forms/native-select) costs no
+JavaScript and opens the OS picker on mobile; above ~15 options,
+[`Combobox`](/docs/forms/combobox) adds the input that filters them. All three hold **a value** —
+none of them is a [`Menu`](/docs/overlays/menu).
+
 ## Anatomy
 
 ```text
@@ -62,6 +77,13 @@ pairs, so the grouping is defined once with the data.
 
 <ComponentPreview componentName="select" fileName="example-groups" />
 
+## Multiple selection
+
+`multiple` on the root, and the value becomes a list. `SelectValue` joins the selected labels for
+you, and each `SelectItem` grows a check indicator. You do **not** need a `Combobox` for this.
+
+<ComponentPreview componentName="select" fileName="example-multiple" />
+
 ## Clearable
 
 <ComponentPreview componentName="select" fileName="example-clearable" />
@@ -75,6 +97,19 @@ pairs, so the grouping is defined once with the data.
 <ComponentPreview componentName="select" fileName="example-disabled" />
 
 ## API Reference
+
+### Select
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `collection` | `ListCollection` | — |
+| `multiple` | `boolean` | `false` |
+| `lazyMount` | `boolean` | `true` |
+| `unmountOnExit` | `boolean` | `true` |
+
+Everything else passes through to `Select.Root` — `value` / `defaultValue` (always a `string[]`,
+single or multiple), `onValueChange`, `name`, `form`, `disabled`, `invalid`, `readOnly`,
+`positioning`.
 
 ### SelectTrigger
 

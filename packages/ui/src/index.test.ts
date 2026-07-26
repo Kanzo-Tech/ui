@@ -26,6 +26,16 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.DownloadTrigger).toBeTypeOf("function");
     expect(UI.Show).toBeTypeOf("function");
     expect(UI.JsonTreeView).toBeTypeOf("function");
+    expect(UI.Listbox).toBeTypeOf("function");
+  });
+
+  it("exposes the one facet-filter surface, on the root barrel", () => {
+    // Both consumers sit on subpaths that must not import each other — `/table` would pull in
+    // Mosaic, `/analytics` would pull in TanStack. FacetFilter is presentational, so the root
+    // barrel is the only place it can serve both. It is built on `Listbox`, not on `Menu`:
+    // a filter is a value, so its surface is a listbox (DESIGN.md, admission rules).
+    expect(UI.FacetFilter).toBeTypeOf("function");
+    expect(UI.ListboxItem).toBeTypeOf("function");
   });
 
   it("exposes exactly one themer", () => {

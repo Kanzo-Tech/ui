@@ -41,7 +41,7 @@ Dos tipos de hijos, y se documentan como tales:
 | | Qué son | Idioma |
 |---|---|---|
 | marcas, interactores, ejes | descriptores **inertes**, sin DOM; `ChartRoot` los compila a `vg.plot(...)` | Recharts / Observable Plot |
-| `ChartRoot`, `ChartLegend`, y los inputs (`ChartMenu`/`ChartSearch`/`ChartSlider`) | DOM real, `ark.*`, `data-slot`, `asChild` | Ark / nuestro |
+| `ChartRoot`, `ChartLegend`, y los inputs (`ChartFilter`/`ChartSearch`/`ChartSlider`) | DOM real, `ark.*`, `data-slot`, `asChild` | Ark / nuestro |
 
 Las marcas **no pueden** ser partes de Ark: vgplot pinta un SVG imperativamente
 (`host.replaceChildren(vg.plot(...))`), así que no hay DOM que una parte pueda poseer. Lo que sí es

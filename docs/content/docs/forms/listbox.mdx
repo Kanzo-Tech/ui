@@ -1,0 +1,138 @@
+---
+title: Listbox
+description: A list of selectable options with no popover of its own.
+links:
+  doc: https://ark-ui.com/docs/components/listbox
+---
+
+<ComponentPreview componentName="listbox" />
+
+## Usage
+
+```tsx
+import {
+  createListCollection,
+  Listbox,
+  ListboxContent,
+  ListboxItem,
+  ListboxItemIndicator,
+  ListboxItemText,
+  ListboxLabel,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+const formats = createListCollection({
+  items: [
+    { label: "Turtle", value: "ttl" },
+    { label: "N-Triples", value: "nt" },
+  ],
+});
+```
+
+This is [`Select`](/docs/forms/select)'s list without `Select`'s popover, and that is the whole
+point: **you** place it. Inline in a panel, inside a `Popover`, inside a `Sheet` — the component
+owns keyboard, selection and ARIA, and owns no positioning at all. It renders no portal, no
+positioner and no trigger.
+
+`Listbox` takes the same collection as `Select` and `Combobox`, so options are declared once and
+`createListCollection` reads `label` and `value` off each item. Build it at module scope or memoise
+it — a new collection on every render resets the machine.
+
+<Callout type="info">
+**Reach for `Select` first.** It is this listbox plus a trigger and a popover, wired, and it
+submits with a plain form. Drop to `Listbox` when the list must live somewhere `Select` cannot put
+it — which in this library means [`FacetFilter`](/docs/forms/facet-filter), where the same popover
+also holds a footnote and a clear button.
+</Callout>
+
+### When to use which
+
+`Listbox` holds **a value**, like every control on this page — it is not a
+[`Menu`](/docs/overlays/menu), which holds commands. If closing the surface leaves state behind,
+it is a listbox; if it leaves only an effect, it is a menu. The check indicator is the giveaway:
+a list you keep coming back to read is a value.
+
+## Anatomy
+
+```text
+Listbox
+├── ListboxLabel                  the accessible name; there is no trigger to borrow one from
+├── ListboxValueText
+└── ListboxContent
+    ├── ListboxItemGroup
+    │   ├── ListboxItemGroupLabel
+    │   └── ListboxItem
+    │       ├── ListboxItemText
+    │       ├── ListboxItemIndicator
+    │       └── ListboxShortcut
+    └── ListboxEmpty
+```
+
+`ListboxLabel` matters more here than it looks. A `Select` gets its accessible name from its
+trigger; a standalone listbox has no trigger, so without a label it is an unnamed list to a screen
+reader. Ark points the content's `aria-labelledby` at it.
+
+## Multiple selection
+
+`selectionMode="multiple"` and every click accumulates — no modifier key, because a pointer user
+should not have to know about <kbd>Cmd</kbd>. `"extended"` is the file-manager behaviour instead
+(click replaces, <kbd>Shift</kbd> extends); pass `highlightOnHover={false}` with it, since there
+the highlight doubles as the shift-click anchor.
+
+<ComponentPreview componentName="listbox" fileName="example-multiple" />
+
+## Groups
+
+<ComponentPreview componentName="listbox" fileName="example-groups" />
+
+## In a popover
+
+The composition `Select` would have made for you, made by hand — worth seeing once, because it is
+what [`FacetFilter`](/docs/forms/facet-filter) is, and it is the reason `ListboxContent` declares
+no height: scrolling belongs to whoever owns the surface.
+
+<ComponentPreview componentName="listbox" fileName="example-in-popover" />
+
+## API Reference
+
+### Listbox
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `collection` | `ListCollection` | — |
+| `selectionMode` | `"single" \| "multiple" \| "extended"` | `"single"` |
+| `deselectable` | `boolean` | `false` |
+| `orientation` | `"vertical" \| "horizontal"` | `"vertical"` |
+
+Everything else passes through to `Listbox.Root` — `value` / `defaultValue` (always a `string[]`),
+`onValueChange`, `disabled`, `loopFocus`.
+
+<Callout type="warn">
+**`deselectable` does the opposite of what upstream's own JSDoc says.** Zag documents it as
+"whether to disallow empty selection"; the machine does `selection.deselectable = !!prop(...)`, and
+the selection manager only unticks an already-selected value in single mode *when it is true*. So
+`deselectable` **allows** emptying the selection, and it is off by default — without it, a
+single-select listbox cannot be returned to "nothing chosen" by clicking the chosen row again. It
+changes nothing in `multiple` mode, where toggling always unticks. Pinned by a test, because this is
+the kind of thing a version bump reverses silently.
+</Callout>
+
+### ListboxItem
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `item` | `CollectionItem` | — |
+| `variant` | `"default" \| "destructive"` | `"default"` |
+| `highlightOnHover` | `boolean` | `true` |
+
+### ListboxItemGroup
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `heading` | `string \| React.ReactNode` | — |
+
+Items borrow `SelectItem`'s geometry rather than Shark's own listbox look, so a listbox rendered
+beside a `Select` — or inside the same popover — agrees with it about row height, indent and where
+the check lives. The end gutter that reserves room for the indicator is conditional, so an item
+with no `ListboxItemIndicator` carries no dead space.

@@ -23,7 +23,7 @@ import { GraphDemo } from "./graph-demo";
 //   brush the weight → the graph greys out, without re-running the layout
 //
 // Nothing about the charts changed. They do not know a WebGL canvas joined the page, because what
-// joined it is a `MosaicClient` — the same contract `ChartMenu` and `ChartSlider` implement.
+// joined it is a `MosaicClient` — the same contract `ChartFilter` and `ChartSlider` implement.
 
 const CLUSTERS: ChartConfig = {
   A: { label: "Cluster A", color: categoricalColor(0) },

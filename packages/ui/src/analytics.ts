@@ -68,10 +68,10 @@ export type {
 } from "./charts/chart-axes.js";
 
 // Inputs: real DOM controls that publish into a `Selection` without being charts. vgplot renders
-// its own with raw HTML; these are the same clauses wearing our Select / Input / Slider.
-export { ChartMenu, ChartSearch, ChartSlider } from "./charts/chart-inputs.js";
+// its own with raw HTML; these are the same clauses wearing our FacetFilter / Input / Slider.
+export { ChartFilter, ChartSearch, ChartSlider } from "./charts/chart-inputs.js";
 export type {
-  ChartMenuProps, ChartMenuOption, ChartSearchProps, ChartSliderProps,
+  ChartFilterProps, ChartFilterOption, ChartSearchProps, ChartSliderProps,
 } from "./charts/chart-inputs.js";
 
 // `ChartLegend` is ours (DOM, reads the config); `ChartColorLegend` is vgplot's interactive one.

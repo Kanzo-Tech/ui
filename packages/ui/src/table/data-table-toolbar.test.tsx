@@ -48,6 +48,11 @@ const bodyNames = () =>
     .slice(1)
     .map((row) => row.textContent);
 
+// Reads the rows with the filter's popover open — a plain role query, which is the point: the
+// popover is deliberately non-modal, so the table it is filtering stays in the accessibility tree
+// while you tick values. If this ever needs a DOM query again, `FacetFilter` went modal.
+const bodyNamesUnderPopover = bodyNames;
+
 describe("DataTableSearch", () => {
   it("filters a single column when given a column id", async () => {
     const user = userEvent.setup();
@@ -79,9 +84,12 @@ describe("DataTableSearch", () => {
 });
 
 describe("DataTableFacetFilter", () => {
+  // A `FacetFilter`, so the rows are `option`s in a listbox and not `menuitemcheckbox`es: the
+  // filter is the column's value, and a menu leaves only an effect behind. See DESIGN.md,
+  // "A menu is a command; a listbox is a value".
   const open = async (user: ReturnType<typeof userEvent.setup>, name = "Status") => {
     await user.click(screen.getByRole("button", { name: new RegExp(name) }));
-    return screen.findAllByRole("menuitemcheckbox");
+    return screen.findAllByRole("option");
   };
 
   it("offers every faceted value with its count and filters on selection", async () => {
@@ -96,7 +104,8 @@ describe("DataTableFacetFilter", () => {
     expect(items.map((item) => item.textContent)).toEqual(["active2", "inactive1"]);
 
     await user.click(items[0]!);
-    expect(bodyNames()).toHaveLength(2);
+
+    expect(bodyNamesUnderPopover()).toHaveLength(2);
   });
 
   it("stays open across selections and clears back to every row", async () => {
@@ -109,11 +118,15 @@ describe("DataTableFacetFilter", () => {
 
     const items = await open(user);
     await user.click(items[0]!);
-    await user.click(await screen.findByRole("menuitemcheckbox", { name: /inactive/ }));
-    expect(bodyNames()).toHaveLength(3);
+    await user.click(await screen.findByRole("option", { name: /inactive/ }));
+    // Still open, and both values ticked — the surface does not dismiss on a choice, because a
+    // filter is a set and not a single command.
+    expect(screen.getByRole("button", { name: /Status/ }).textContent).toBe("Status2");
+    expect(bodyNamesUnderPopover()).toHaveLength(3);
 
-    await user.click(await screen.findByRole("menuitem", { name: "Clear filter" }));
-    expect(bodyNames()).toHaveLength(3);
+    await user.click(await screen.findByRole("button", { name: "Clear filter" }));
+
+    expect(bodyNamesUnderPopover()).toHaveLength(3);
     expect(screen.queryByRole("button", { name: /Status.*2/ })).toBeNull();
   });
 

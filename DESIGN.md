@@ -254,6 +254,63 @@ That is rungs 3–4 of the ladder, not rung 1 — the extra rung buys core purit
 `AiAssist` provider, no field context**: a provider would only earn its place to unify state across
 consumers, and there is nothing to unify. **Gate any shared AI state on a real second consumer.**
 
+### A menu is a command; a listbox is a value
+
+Half the "which control?" questions in this library are one question wearing four hats, and the
+answer is an ARIA role, not a look. Two surfaces open a popover over a list, and they are not
+interchangeable:
+
+- **`role="menu"`** (`Menu`, `MenuItem`, `MenuCheckboxItem`) is a list of **commands**. You press,
+  something happens, the surface closes. It is not anybody's data.
+- **`role="listbox"`** (inside `Select`, `Listbox`, `Combobox`) is **a value**. It lives in state;
+  the popover is only the editor.
+
+The test, in one line: **if closing the surface leaves state, it is a listbox; if it leaves only an
+effect, it is a menu.**
+
+This is the only axis that matters. The rest of the family is two orthogonal questions on top of
+it — *can you type to filter?* and *how many can you pick?* — which is why the four look alike and
+are not:
+
+| | Type to filter | Options come from | Many |
+|---|---|---|---|
+| `NativeSelect` | no | a closed collection | no — it is the OS picker |
+| `Select` | no | a closed collection | `multiple` |
+| `Listbox` | no | a closed collection | `selectionMode` — and **no popover of its own** |
+| `Combobox` | **yes** | a closed collection, or free with `allowCustomValue` | `multiple` |
+| `TagsInput` | n/a | **there is no collection** — the user invents the values | always |
+
+`TagsInput` is the one that does not belong to the family: it has no options to choose from. If
+the values exist beforehand, it is the wrong answer and `Combobox multiple` is the right one.
+
+**Autocomplete is not a component.** Shark ships three pages — Select, Combobox, Autocomplete —
+over *two* Ark machines: its Autocomplete page links to `ark-ui.com/docs/components/combobox`, and
+there is no `autocomplete` directory in `@ark-ui/react/dist/components/`. The difference is
+presentation — trigger button and open-on-click, versus open-on-type — so it is `showTrigger` on
+`Combobox`, not a fifth file.
+
+**`Command` is the fourth face of that same machine, and the honest exception to the rule above.**
+Its `links.doc` points at `ark-ui.com/docs/forms/combobox` and its own page says it: a combobox
+held permanently open that never closes on select. So a *command* palette is built on a listbox —
+which looks like a contradiction and is not. The role follows the **interaction**, not the payload:
+type to filter, arrow to highlight, enter to run is combobox behaviour, and a menu cannot filter at
+all. Read the rule as *a value needs a listbox; a command needs a menu **unless it needs to be
+searched***. Filed under `actions/`, not `forms/`, because what it captures is an action — which is
+why `forms/controls.mdx` must still cross-link it rather than list it as a control.
+
+The rule bites hardest on **filters**, because a filter is a value and the popover-with-checkboxes
+idiom says menu. `DataTableViewOptions` is a genuine menu — column visibility is a view command
+that is nobody's data. `DataTableFacetFilter` and the chart filter are not, and were built as
+menus anyway. Mis-roling costs more than purity: a `menuitemcheckbox` list cannot announce "2 of
+5 selected", and a menu has nowhere to grow a search field the day the column has 200 values.
+
+Their shared surface is **`FacetFilter`** — trigger, count badge, option counts, clear, and the
+two list rules that were independently rediscovered on both sides: sort alphabetically rather than
+by frequency, or the list reshuffles under the cursor whenever another filter moves; and keep a
+selected value that another filter has faceted away, or it sits in the filter with no way to
+untick it. One surface, two thin adapters — TanStack facets on one side, a Mosaic clause on the
+other. It clears admission rule 2 on the day it is written: both call sites already shipped.
+
 ---
 
 ## Where specificity is allowed to live

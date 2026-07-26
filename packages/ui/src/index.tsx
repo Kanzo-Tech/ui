@@ -101,6 +101,7 @@ export * from "./simples/input-group.js";
 export * from "./simples/item.js";
 export * from "./simples/json-tree-view.js";
 export * from "./simples/kbd.js";
+export * from "./simples/listbox.js";
 export * from "./simples/menu.js";
 export * from "./simples/native-select.js";
 export * from "./simples/number-input.js";
@@ -164,6 +165,11 @@ export type {
 } from "./simples/CardRadioGroup.js";
 export { Ribbon } from "./simples/Ribbon.js";
 export type { RibbonProps } from "./simples/Ribbon.js";
+// The one surface behind every facet filter. Lives in the root barrel because both consumers
+// are on subpaths that must not see each other: `/table` would drag in Mosaic, `/analytics`
+// would drag in TanStack. It is presentational, so it needs neither.
+export { FacetFilter } from "./simples/FacetFilter.js";
+export type { FacetFilterProps, FacetFilterItem } from "./simples/FacetFilter.js";
 
 // ── Level 2 — composites (domain-free, token-native; sourced from keasy) ──────
 export type { LinkComponent } from "./composites/link.js";

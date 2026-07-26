@@ -20,20 +20,10 @@ import {
   Query,
   type FilterExpr,
 } from "@uwdata/mosaic-sql";
-import { ListFilterIcon } from "lucide-react";
 import { cn } from "../lib/cn.js";
-import { Badge } from "../simples/badge.js";
-import { Button } from "../simples/button.js";
+import { FacetFilter, type FacetFilterItem } from "../simples/FacetFilter.js";
 import { Field, FieldLabel } from "../simples/field.js";
 import { Input } from "../simples/input.js";
-import {
-  Menu,
-  MenuCheckboxItem,
-  MenuContent,
-  MenuItem,
-  MenuSeparator,
-  MenuTrigger,
-} from "../simples/menu.js";
 import { Skeleton } from "../simples/skeleton.js";
 import { Slider, SliderLabel, SliderValue } from "../simples/slider.js";
 import { useMosaic } from "./mosaic-provider.js";
@@ -193,16 +183,16 @@ interface SelectionProps {
 
 type ControlSize = "sm" | "md" | "lg";
 
-// ── ChartMenu ────────────────────────────────────────────────────────────────
+// ── ChartFilter ──────────────────────────────────────────────────────────────
 
-/** An explicit menu entry. Bare values work too — they are labelled by `format`. */
-export interface ChartMenuOption {
+/** An explicit entry. Bare values work too — they are labelled by `format`. */
+export interface ChartFilterOption {
   value: unknown;
   label?: string;
   icon?: React.ComponentType<{ className?: string }>;
 }
 
-export interface ChartMenuProps
+export interface ChartFilterProps
   extends Omit<React.ComponentProps<typeof ark.div>, "defaultValue">,
     SelectionProps {
   /** The relation the values and their counts come from. */
@@ -221,7 +211,7 @@ export interface ChartMenuProps
   multiple?: boolean;
   /** Published once, when the control first connects. A bare value or an array of them. */
   defaultValue?: unknown;
-  /** Most-frequent values kept; past this the menu says so rather than rendering the tail. */
+  /** Most-frequent values kept; past this the list says so rather than rendering the tail. */
   limit?: number;
   disabled?: boolean;
   size?: ControlSize;
@@ -232,12 +222,12 @@ export interface ChartMenuProps
 /**
  * A `GROUP BY` over a high-cardinality column can answer with thousands of rows, and neither the
  * wire nor the DOM wants them. The lookup is capped at the *most frequent* values — the ones a
- * facet is for — and the menu owns up to the truncation instead of pretending the tail is absent.
- * Needle-in-a-haystack lookup is `ChartSearch`'s job, not a filter menu's.
+ * facet is for — and the control owns up to the truncation instead of pretending the tail is
+ * absent. Needle-in-a-haystack lookup is `ChartSearch`'s job, not a facet filter's.
  */
-const MENU_LIMIT = 50;
+const FILTER_LIMIT = 50;
 
-interface MenuEntry {
+interface FilterEntry {
   key: string;
   label: string;
   raw: unknown;
@@ -245,7 +235,7 @@ interface MenuEntry {
   icon?: React.ComponentType<{ className?: string }>;
 }
 
-function isOptionObject(value: unknown): value is ChartMenuOption {
+function isOptionObject(value: unknown): value is ChartFilterOption {
   return typeof value === "object" && value !== null && !Array.isArray(value) && "value" in value;
 }
 
@@ -260,11 +250,11 @@ function toCount(value: unknown): number | undefined {
   return undefined;
 }
 
-function menuEntries(
+function filterEntries(
   options: readonly unknown[] | undefined,
   rows: readonly QueryRow[] | null,
   format: (value: unknown) => string,
-): MenuEntry[] {
+): FilterEntry[] {
   if (options) {
     return options.map((entry) => {
       const option = isOptionObject(entry) ? entry : { value: entry };
@@ -285,8 +275,8 @@ function menuEntries(
 }
 
 /**
- * A checkbox filter over a column's values, publishing a **points** clause — the same shape and the
- * same look as `DataTableFacetFilter`, so a dashboard has one filter idiom rather than two.
+ * A facet filter over a column's values, publishing a **points** clause — the same `FacetFilter`
+ * surface as the table's, so a dashboard has one filter idiom rather than two.
  *
  * The values are a query, not a prop: the control connects as a Mosaic client and asks for
  * `SELECT <column>, count(*) … GROUP BY <column>` filtered by `filterBy`. The counts therefore
@@ -294,7 +284,7 @@ function menuEntries(
  * builds the predicate for the clause's own source, and `clausePoints` tags the clause with this
  * client. (A non-crossfilter `filterBy` has no such exemption and would count itself.)
  */
-export function ChartMenu(props: ChartMenuProps) {
+export function ChartFilter(props: ChartFilterProps) {
   const {
     table,
     column,
@@ -306,7 +296,7 @@ export function ChartMenu(props: ChartMenuProps) {
     label = column,
     multiple = true,
     defaultValue,
-    limit = MENU_LIMIT,
+    limit = FILTER_LIMIT,
     disabled,
     size = "md",
     className,
@@ -349,112 +339,44 @@ export function ChartMenu(props: ChartMenuProps) {
   }, [defaultValue, publish]);
 
   const values = selected ?? [];
-  const chosen = new Set(values.map((entry) => String(entry)));
 
-  const fetched = menuEntries(options, rows, format);
+  const fetched = filterEntries(options, rows, format);
   const truncated = fetched.length > limit;
   const entries = truncated ? fetched.slice(0, limit) : fetched;
-  // A ticked value the crossfilter has since faceted away stays listed — otherwise it sits in the
-  // filter with no way to untick it.
-  const listed = new Set(entries.map((entry) => entry.key));
-  for (const entry of values) {
-    const key = String(entry);
-    if (!listed.has(key)) entries.push({ key, label: format(entry), raw: entry });
-  }
-  // Sorted, not in count order: ordering by frequency would reshuffle the menu under the cursor
-  // every time another filter moved.
-  entries.sort((a, b) => a.label.localeCompare(b.label));
+  const items: FacetFilterItem[] = entries.map((entry) => ({
+    count: entry.count,
+    icon: entry.icon,
+    label: entry.label,
+    value: entry.key,
+  }));
 
-  const toggle = (entry: MenuEntry, checked: boolean) => {
-    if (!multiple) {
-      publish(checked ? [entry.raw] : []);
-      return;
-    }
-    const next = values.filter((value) => String(value) !== entry.key);
-    if (checked) next.push(entry.raw);
-    publish(next);
-  };
+  // `FacetFilter` speaks strings; a clause carries the raw value the query answered with, so the
+  // way back from a ticked row to `alpha` / `3` / `true` is this map. The selected values are in it
+  // too: one of them may be a value the crossfilter has since faceted away, which `FacetFilter`
+  // keeps listed so it can still be unticked.
+  const raw = new Map<string, unknown>(entries.map((entry) => [entry.key, entry.raw]));
+  for (const value of values) raw.set(String(value), value);
 
   return (
     <ark.div
       className={cn("w-fit", className)}
-      data-slot="chart-menu"
+      data-slot="chart-filter"
       {...rest}
       {...warmUpHandlers(activate, props)}
     >
-      <Menu>
-        <MenuTrigger asChild>
-          <Button
-            className={controlClassName}
-            data-slot="chart-menu-trigger"
-            disabled={disabled}
-            size={size}
-            variant="outline"
-          >
-            <ListFilterIcon />
-            {label}
-            {chosen.size > 0 && (
-              <Badge size="xs" variant="secondary">
-                {chosen.size}
-              </Badge>
-            )}
-          </Button>
-        </MenuTrigger>
-
-        <MenuContent>
-          {entries.map((entry) => {
-            const Icon = entry.icon;
-
-            return (
-              <MenuCheckboxItem
-                checked={chosen.has(entry.key)}
-                className="[&_[data-part=item-text]]:flex-1"
-                closeOnSelect={!multiple}
-                key={entry.key}
-                onCheckedChange={(checked) => toggle(entry, checked)}
-                value={entry.key}
-              >
-                <span className="flex items-center gap-2">
-                  {Icon && <Icon className="size-3.5 text-muted-foreground" />}
-                  {entry.label}
-                  {entry.count !== undefined && (
-                    <span className="ms-auto ps-4 text-muted-foreground text-xs tabular-nums">
-                      {entry.count}
-                    </span>
-                  )}
-                </span>
-              </MenuCheckboxItem>
-            );
-          })}
-
-          {entries.length === 0 && (
-            <ark.p
-              className="px-2.5 py-1.5 text-muted-foreground text-sm"
-              data-slot="chart-menu-empty"
-            >
-              {lookup && rows === null ? "Loading…" : "No values."}
-            </ark.p>
-          )}
-
-          {truncated && (
-            <ark.p
-              className="px-2.5 py-1.5 text-muted-foreground text-xs"
-              data-slot="chart-menu-truncated"
-            >
-              Top {limit} values — filter further to see the rest.
-            </ark.p>
-          )}
-
-          {chosen.size > 0 && (
-            <>
-              <MenuSeparator />
-              <MenuItem onSelect={() => publish([])} value="__clear">
-                Clear filter
-              </MenuItem>
-            </>
-          )}
-        </MenuContent>
-      </Menu>
+      <FacetFilter
+        className={controlClassName}
+        data-slot="chart-filter-trigger"
+        disabled={disabled}
+        empty={lookup && rows === null ? "Loading…" : "No values."}
+        items={items}
+        label={label}
+        multiple={multiple}
+        note={truncated ? `Top ${limit} values — filter further to see the rest.` : undefined}
+        onValueChange={(next) => publish(next.map((key) => (raw.has(key) ? raw.get(key) : key)))}
+        size={size}
+        value={values.map((value) => String(value))}
+      />
       {children}
     </ark.div>
   );

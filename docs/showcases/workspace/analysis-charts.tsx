@@ -15,10 +15,10 @@ import {
   ChartBrushXY,
   ChartDot,
   ChartFacetX,
+  ChartFilter,
   ChartHighlight,
   ChartLegend,
   ChartLineY,
-  ChartMenu,
   ChartPickX,
   ChartPickY,
   ChartRegressionY,
@@ -353,13 +353,13 @@ function FilterBar({ picks }: { picks: Picks }) {
     <section aria-label="Filters" className="rounded-lg border bg-card">
       <div className="grid gap-x-4 gap-y-3 p-3 sm:grid-cols-2 lg:grid-cols-4">
         {/* The controls' own labels are off: the cell carries them, and a control repeating its
-            header reads as a stutter. `Any` is the menu at rest; the slider's range is not repeated
+            header reads as a stutter. `Any` is the filter at rest; the slider's range is not repeated
             over the track either, because the chip row below reports it. */}
         <FilterCell label="Region">
-          <ChartMenu column="region" label="Any" size="sm" table={T} />
+          <ChartFilter column="region" label="Any" size="sm" table={T} />
         </FilterCell>
         <FilterCell label="Provider">
-          <ChartMenu column="provider" label="Any" size="sm" table={T} />
+          <ChartFilter column="provider" label="Any" size="sm" table={T} />
         </FilterCell>
         <FilterCell label="Station">
           <ChartSearch column="station" placeholder="A Coruña…" size="sm" table={T} />

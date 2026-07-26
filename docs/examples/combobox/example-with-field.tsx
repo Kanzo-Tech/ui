@@ -43,7 +43,7 @@ export default function Example() {
           ))}
         </ComboboxContent>
       </Combobox>
-      <FieldDescription>Autocomplete — filters as you type.</FieldDescription>
+      <FieldDescription>The list narrows as you type.</FieldDescription>
     </Field>
   );
 }

@@ -19,11 +19,9 @@ no data), matching vgplot's own set.
 upstream typo, so the renderer looks up a Plot mark that does not exist. Use `ChartVector`; ours
 starts working the day upstream fixes it.
 
-**Inputs.** `ChartMenu`, `ChartSearch` and `ChartSlider` publish into a `Selection` without being
-charts. vgplot renders its own with raw HTML; these are the same clauses wearing our `Select`,
-`Input` and `Slider`. `ChartMenu` upgrades from `Select` to a searchable `Combobox` above 12
-options, and the decision latches so a shrinking crossfilter cannot swap the control out from under
-an open interaction. `ChartSlider` offers a real two-thumb interval where vgplot only has a
+**Inputs.** `ChartFilter`, `ChartSearch` and `ChartSlider` publish into a `Selection` without being
+charts. vgplot renders its own with raw HTML; these are the same clauses wearing our `FacetFilter`,
+`Input` and `Slider`. `ChartSlider` offers a real two-thumb interval where vgplot only has a
 one-sided range. All three retract their clause on unmount — `Selection.remove()` returns a *clone*,
 so the only way to withdraw from a live selection is to publish an empty clause.
 

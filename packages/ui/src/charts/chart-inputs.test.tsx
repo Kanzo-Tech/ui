@@ -2,7 +2,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { clausePoint, Selection, type Coordinator, type MosaicClient } from "@uwdata/mosaic-core";
-import { ChartMenu, ChartSearch, ChartSlider } from "./chart-inputs.js";
+import { ChartFilter, ChartSearch, ChartSlider } from "./chart-inputs.js";
 import { MosaicProvider } from "./mosaic-provider.js";
 
 /**
@@ -66,14 +66,16 @@ const HOST_COUNTS: Row[] = [
   { count: 1, value: "gamma" },
 ];
 
-describe("ChartMenu", () => {
+describe("ChartFilter", () => {
+  // A `FacetFilter`: the rows are listbox `option`s, because the ticked values are the page's filter
+  // state and not a command. See DESIGN.md, "A menu is a command; a listbox is a value".
   const open = async (user: ReturnType<typeof userEvent.setup>, name = /Host/) => {
     await user.click(screen.getByRole("button", { name }));
-    return screen.findAllByRole("menuitemcheckbox");
+    return screen.findAllByRole("option");
   };
 
   const tick = (user: ReturnType<typeof userEvent.setup>, name: RegExp) =>
-    screen.findByRole("menuitemcheckbox", { name }).then((item) => user.click(item));
+    screen.findByRole("option", { name }).then((item) => user.click(item));
 
   it("groups the column with its counts and publishes every ticked value in one clause", async () => {
     const crossfilter = Selection.crossfilter();
@@ -82,7 +84,7 @@ describe("ChartMenu", () => {
 
     render(
       <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
-        <ChartMenu column="host" label="Host" table="telemetry" />
+        <ChartFilter column="host" label="Host" table="telemetry" />
       </MosaicProvider>,
     );
 
@@ -108,7 +110,7 @@ describe("ChartMenu", () => {
 
     render(
       <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
-        <ChartMenu column="host" label="Host" table="telemetry" />
+        <ChartFilter column="host" label="Host" table="telemetry" />
       </MosaicProvider>,
     );
 
@@ -123,14 +125,14 @@ describe("ChartMenu", () => {
     await waitFor(() => expect(crossfilter.clauses).toHaveLength(0));
   });
 
-  it("clears every ticked value from one menu item", async () => {
+  it("clears every ticked value in one press", async () => {
     const crossfilter = Selection.crossfilter();
     const { coordinator } = stubCoordinator(() => HOST_COUNTS);
     const user = userEvent.setup();
 
     render(
       <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
-        <ChartMenu column="host" label="Host" table="telemetry" />
+        <ChartFilter column="host" label="Host" table="telemetry" />
       </MosaicProvider>,
     );
 
@@ -138,7 +140,7 @@ describe("ChartMenu", () => {
     await tick(user, /alpha/);
     await waitFor(() => expect(crossfilter.clauses).toHaveLength(1));
 
-    await user.click(await screen.findByRole("menuitem", { name: "Clear filter" }));
+    await user.click(await screen.findByRole("button", { name: "Clear filter" }));
 
     await waitFor(() => expect(crossfilter.clauses).toHaveLength(0));
   });
@@ -150,7 +152,7 @@ describe("ChartMenu", () => {
 
     render(
       <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
-        <ChartMenu column="host" label="Host" table="telemetry" />
+        <ChartFilter column="host" label="Host" table="telemetry" />
       </MosaicProvider>,
     );
 
@@ -178,7 +180,7 @@ describe("ChartMenu", () => {
 
     render(
       <MosaicProvider coordinator={coordinator}>
-        <ChartMenu column="host" label="Host" limit={3} table="telemetry" />
+        <ChartFilter column="host" label="Host" limit={3} table="telemetry" />
       </MosaicProvider>,
     );
 
@@ -196,7 +198,7 @@ describe("ChartMenu", () => {
 
     render(
       <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
-        <ChartMenu column="host" label="Host" multiple={false} table="telemetry" />
+        <ChartFilter column="host" label="Host" multiple={false} table="telemetry" />
       </MosaicProvider>,
     );
 
@@ -214,7 +216,7 @@ describe("ChartMenu", () => {
 
     render(
       <MosaicProvider coordinator={coordinator}>
-        <ChartMenu column="host" label="Host" options={[{ label: "Alpha", value: "alpha" }, "beta"]} />
+        <ChartFilter column="host" label="Host" options={[{ label: "Alpha", value: "alpha" }, "beta"]} />
       </MosaicProvider>,
     );
 
@@ -230,7 +232,7 @@ describe("ChartMenu", () => {
 
     const { unmount } = render(
       <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
-        <ChartMenu column="host" label="Host" table="telemetry" />
+        <ChartFilter column="host" label="Host" table="telemetry" />
       </MosaicProvider>,
     );
 

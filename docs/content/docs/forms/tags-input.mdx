@@ -1,6 +1,6 @@
 ---
 title: Tags Input
-description: Enter a list of values as removable chips.
+description: A list of values the user invents, entered as removable chips — the one Choice control with no options to choose from.
 links:
   doc: https://ark-ui.com/docs/components/tags-input
 ---
@@ -23,6 +23,16 @@ import {
 } from "@kanzo-tech/ui";
 ```
 
+This is the one control in the Choice family with **no option collection**. There is nothing to
+choose from: the user types a value, presses Enter, and that keystroke *creates* it. The value is
+a `string[]` the caller had no list for, and every other control on
+[Controls](/docs/forms/controls#choice) starts from a list.
+
+That is also the whole reason the anatomy looks unusual. There are no items to map over, so you
+iterate the **value** with the `TagsInputContext` render prop — each entry gets a preview (its
+text plus a delete trigger) and a hidden input of its own, so editing a tag in place is the same
+markup as showing it.
+
 ```tsx
 <TagsInput defaultValue={["design", "systems"]}>
   <TagsInputControl>
@@ -44,6 +54,18 @@ import {
 </TagsInput>
 ```
 
+### When to use which
+
+Reach for `TagsInput` only when the values **do not exist beforehand** — free-form tags,
+keywords, email addresses, anything the user invents. If the values *are* known, this is the
+wrong control: [`Combobox multiple`](/docs/forms/combobox#multiple-selection) is the right one,
+because it can filter the list, validate against it, and announce what is selected. A tags input
+cannot tell a typo from a new value.
+
+The two look alike once a `Combobox multiple` renders its selection as removable chips, and they
+are not the same: the combobox holds a value **from a collection**, this holds whatever was
+typed.
+
 ## Anatomy
 
 ```text
@@ -61,11 +83,20 @@ TagsInput
 └── TagsInputHiddenInput
 ```
 
-## API
+## With field
+
+Inside a `Field` it behaves like any other control — the label, description and error wiring come
+for free. Add `TagsInputHiddenInput` (and a `name` on the root) when the values have to submit
+with a plain form; it is not rendered for you.
+
+<ComponentPreview componentName="tags-input" fileName="example-with-field" />
+
+## API Reference
 
 Props pass straight through to Ark. `TagsInput` extends `TagsInput.Root` (`value` /
 `defaultValue`, `onValueChange`, `max`, `allowOverflow`, `editable`, `disabled`, `invalid`,
 `readOnly`, `name`, `form`), so control it with `value` + `onValueChange` or leave it
 uncontrolled with `defaultValue`. `TagsInputControl` adds a `size` variant (`sm` · `md` · `lg`);
-the item text, delete trigger and hidden input are wired for you. Items are iterated with the
-`TagsInputContext` render prop over `api.value`.
+the item text, delete trigger and hidden input each come styled and wired to the machine, but you
+place them — including `TagsInputHiddenInput`, which is not rendered for you. Items are iterated
+with the `TagsInputContext` render prop over `api.value`.

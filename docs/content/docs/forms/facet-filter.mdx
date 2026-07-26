@@ -1,0 +1,77 @@
+---
+title: Facet Filter
+description: The one surface behind every faceted filter — a trigger that counts, a listbox of values, and a way out.
+---
+
+<ComponentPreview componentName="facet-filter" />
+
+## Usage
+
+```tsx
+import { FacetFilter } from "@kanzo-tech/ui";
+```
+
+```tsx
+<FacetFilter
+  items={[{ value: "aemet", label: "AEMET", count: 1284 }]}
+  label="Provider"
+  onValueChange={setValue}
+  value={value}
+/>
+```
+
+A facet filter is the control at the top of a table or a dashboard that narrows what you are
+looking at: pick some values, see fewer rows. `FacetFilter` is only the surface. Where the values
+come from and where the choice goes are yours — this library has two adapters over it,
+[`DataTableFacetFilter`](/docs/data-display/data-table) reading TanStack's faceted counts and
+`ChartFilter` publishing a Mosaic clause.
+
+<Callout type="info">
+**It is a listbox, not a menu of checkboxes.** A filter is *a value*, so its surface is a
+[`Listbox`](/docs/forms/listbox) in a `Popover`. The popover-with-checkbox-items idiom is a menu,
+and a menu holds commands — see [Controls](/docs/forms/controls). Clearing, being a command, is the
+one thing here that is a button rather than a row.
+</Callout>
+
+## What it owns for you
+
+Two rules that are invisible until they bite, which is why they live here and not in each adapter:
+
+- **A ticked value that has been faceted away stays listed.** Filter by region, and a provider that
+  does not appear in that region drops out of the data — but if it is still ticked it must stay on
+  screen, or the filter is stuck with nothing to untick.
+- **Rows are ordered by label, never by count.** Ordering by frequency reshuffles the list under the
+  cursor every time another filter moves, so you tick the row that took the place of the one you
+  read.
+
+<ComponentPreview componentName="facet-filter" fileName="example-faceted-away" />
+
+Both were independently rediscovered in the table layer and the charts layer before this component
+existed. That is the tell for behaviour that belongs to a shared surface rather than to its callers.
+
+## Counts, notes and a cap
+
+`count` on an item draws at the row's end. `note` is a footnote under the list — its reason for
+existing is truncation: a `GROUP BY` over a high-cardinality column answers with thousands of rows,
+so an adapter caps what it offers and says so, rather than pretending the tail is absent.
+
+## API Reference
+
+### FacetFilter
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `items` | `readonly FacetFilterItem[]` | — |
+| `value` | `readonly string[]` | — |
+| `onValueChange` | `(next: string[]) => void` | — |
+| `label` | `React.ReactNode` | — |
+| `multiple` | `boolean` | `true` |
+| `empty` | `React.ReactNode` | `"No values."` |
+| `note` | `React.ReactNode` | — |
+| `contentClassName` | `string` | — |
+
+Everything else passes through to the trigger `Button` — `size`, `variant`, `disabled`,
+`className`. `FacetFilterItem` is `{ value, label?, icon?, count? }`.
+
+It is controlled by design: the value belongs to the thing being filtered — a table's column state,
+a crossfilter's clause — not to the control. `multiple={false}` keeps at most one value ticked.

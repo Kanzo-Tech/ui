@@ -8,9 +8,9 @@ import {
   ChartAxisX,
   ChartAxisY,
   ChartBarX,
+  ChartFilter,
   ChartHighlight,
   ChartLegend,
-  ChartMenu,
   ChartRectY,
   ChartRoot,
   ChartSearch,
@@ -25,7 +25,7 @@ import { ChartCard } from "@/lib/chart-card";
 import { DashboardGrid } from "@/lib/dashboard-grid";
 import { MosaicDemo } from "./mosaic-demo";
 
-// The composition pieces, wired to the same crossfilter as the plots: `ChartMenu`, `ChartSearch`
+// The composition pieces, wired to the same crossfilter as the plots: `ChartFilter`, `ChartSearch`
 // and `ChartSlider` publish clauses without being charts, `StatTile` carries a headline figure,
 // `ChartCard` frames a plot and `DashboardGrid` auto-fits the columns.
 
@@ -87,7 +87,7 @@ function Dashboard() {
   return (
     <div className="flex w-full max-w-3xl flex-col gap-4">
       <div className="flex flex-wrap items-end gap-4">
-        <ChartMenu column="status" label="Status" table="telemetry" />
+        <ChartFilter column="status" label="Status" table="telemetry" />
         <ChartSearch column="region" label="Region" placeholder="eu…" table="telemetry" />
         <ChartSlider column="latency" label="Latency (ms)" select="interval" table="telemetry" />
       </div>
