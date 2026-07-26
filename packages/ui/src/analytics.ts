@@ -109,16 +109,61 @@ export type {
 // The validated categorical palette for multi-series marks and legends (fixed, not the accent).
 export { CHART_CATEGORICAL, categoricalColor } from "./charts/theme.js";
 
-// Re-exported so a consumer writes a whole chart without a direct @uwdata import, the way `/table`
-// re-exports its TanStack types. Aggregates and `bin` are what the `y`/`x` channels take.
-export { Coordinator, Selection, coordinator, wasmConnector } from "@uwdata/mosaic-core";
-export {
-  count, sum, avg, min, max, median, quantile, stddev, mode, bin, sql, Fixed,
-} from "@uwdata/vgplot";
+// Re-exported so a consumer writes a whole chart — and boots the coordinator under it — without a
+// direct @uwdata import, the way `/table` re-exports its TanStack types.
+//
+// The list below is drawn on one rule, because the list it replaced was drawn on none: a set is
+// re-exported when it is **closed and named**, and stays a direct import when it is open. vgplot's
+// ~250 plot attributes and mosaic-sql's expression builders are open — `ChartRoot`'s `attributes`
+// takes them raw, and taking them raw is what an escape hatch *is*, so `yRange([72, -18])` on a
+// ridgeline still says `@uwdata/vgplot` and should. Four exports failed that rule and are gone:
+// `coordinator` (vgplot's process-wide active-coordinator setter — `MosaicProvider` is the only
+// thing that should ever call it), `Fixed` (a scale-domain sentinel for the open attribute set, and
+// not even assignable to our own `ChartAxisY domain`), and `from` / `plot`, which claimed to
+// complete the `ChartRaw` hatch and did not: no `ChartRaw` needs either, because `ChartRoot` already
+// owns the `plot(...)` call and the mark's `data` / `filterBy` props already own the source. What a
+// `ChartRaw` actually reaches for is one of the six axis marks below.
 
-// `from` and `plot` complete the escape hatch: without them every `ChartRaw` forced a direct
-// @uwdata import, which is exactly the dependency the rest of this barrel exists to avoid.
-export { from, plot } from "@uwdata/vgplot";
+// Boot: the coordinator, its connector, and the loaders that put a relation in front of it. The
+// "bring your own coordinator" recipe is four lines, and the fourth used to be a direct import.
+export { Coordinator, Selection, wasmConnector } from "@uwdata/mosaic-core";
+export {
+  loadCSV, loadJSON, loadObjects, loadParquet, loadSpatial, loadExtension,
+} from "@uwdata/mosaic-sql";
+
+// Channels: what `x` / `y` / `r` take. The aggregate vocabulary is complete on purpose. `min`,
+// `max`, `mode` and `stddev` are one line each and today nothing imports them — but a vocabulary
+// with holes sends the author to `@uwdata` for the one aggregate we left out, which is precisely the
+// import the rest of this barrel exists to remove, and there is no reading of "a chart author will
+// never want a standard deviation" that survives contact with a chart author. Same argument that
+// keeps the marks in `chart-marks.tsx` that no example draws.
+export { count, sum, avg, min, max, median, quantile, stddev, mode, bin, sql } from "@uwdata/vgplot";
+export type { ExprValue } from "@uwdata/mosaic-sql";
+
+// The six marks the layer withholds on purpose, because axes here compile to plot *attributes* — an
+// axis mark would steal the binding from the interactor after it. They are a closed set the docs
+// enumerate twice, and they are what `ChartRaw` was built for: the measure scale repeated at the top
+// of a long bar list is `axisX({ anchor: "top" })` and nothing else. Reach for `ChartAxisX` first;
+// these six are for the second axis it cannot give you.
+export { axisX, axisY, axisFx, axisFy, gridFx, gridFy } from "@uwdata/vgplot";
+
+// Joining the crossfilter without being one of ours. Subclass `MosaicClient` (or wrap `makeClient`),
+// declare a query, publish one of the five clauses — that is the entire protocol, and it is how a
+// WebGL canvas or an imperative widget becomes a peer of the plots rather than a readout drifting
+// beside them. Our own three DOM controls in `chart-inputs.tsx` are built from nothing else.
+export {
+  MosaicClient, makeClient,
+  clausePoint, clausePoints, clauseInterval, clauseIntervals, clauseMatch,
+} from "@uwdata/mosaic-core";
+export type { SelectionClause } from "@uwdata/mosaic-core";
+export type { FilterExpr } from "@uwdata/mosaic-sql";
+
+// The other half of that protocol, and the half it does not give you. Declaring a query is small
+// and publishing a clause is documented; turning the ANSWER into values is where every client
+// independently writes `as { getChild(name: string): … }` — a cast asserting Arrow's shape rather
+// than checking it, and wrong the first time the query selects a string. Arrow only offers a typed
+// column when the type allows one, so the fallback is not a nicety.
+export { column, numbers } from "./charts/arrow.js";
 
 // The five preset charts (Histogram, BarChart, LineChart, ScatterPlot, BarSeriesChart) are gone —
 // they were five parallel hardcoded `vg.plot(...)` calls that could not be composed. Each one is
