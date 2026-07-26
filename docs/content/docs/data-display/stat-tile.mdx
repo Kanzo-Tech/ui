@@ -1,0 +1,82 @@
+---
+title: StatTile
+description: A headline figure with its label, an optional signed delta and a trend sparkline — for when a single number, not a plot, is the answer.
+---
+
+<ComponentPreview componentName="stat-tile" />
+
+## Usage
+
+```tsx
+import { StatTile } from "@kanzo-tech/ui";
+```
+
+```tsx
+<StatTile label="Pipeline runs" value={1284} delta={{ value: 4.2, unit: "%", label: "vs last week" }} />
+```
+
+It is in the **root barrel**, not on `/analytics`. A tile takes a number, so making it cost
+DuckDB-WASM would be absurd — that split is [the engine rule](/docs/philosophy), the same one behind
+`Table` and `DataTable`. When the number should come from a query instead of a prop, the connected
+half is [`ChartStat`](/docs/data-display/charts#dashboards).
+
+## The value
+
+A numeric `value` is compacted the way a dashboard reads: `1,284` stays itself, `12,400,000` becomes
+`12.4M`. The threshold is ten thousand, so a four-digit count is never abbreviated into ambiguity.
+
+Pass a **string** when the figure carries a unit or a precision the tile should not touch — `"284
+ms"`, `"98.2%"`. `prefix` is for currency and symbols that belong to a numeric value: `prefix="$"`
+with `value={4_200_000}` reads `$4.2M`.
+
+## Delta
+
+<ComponentPreview componentName="stat-tile" fileName="example-delta" />
+
+The delta shows its **magnitude**; the sign picks the colour, and `goodWhenUp` says which direction
+deserves which. Two more failed runs is red, two more connections is green, and both are `+2` — the
+component cannot infer that from the number, which is why the flag exists.
+
+`unit` sits against the magnitude and before the label, because "+8.2 vs last week" and "+8.2% vs
+last week" are different claims. Use `"pp"` for a change in a percentage: a coverage figure going
+from 99.6% to 98.2% moved 1.4 **points**, not 1.4 percent.
+
+<Callout>
+Colour is never the only carrier. Each delta pairs its status colour with a direction icon, so the
+claim survives a monochrome print and a red/green colour deficiency alike.
+</Callout>
+
+## Trend
+
+`trend` takes about a dozen points and draws them as a sparkline with its last value marked. It is
+deliberately unlabelled and unaxised — the shape is the message, and a reader who needs the values
+needs a chart, not a tile. Fewer than two points draws nothing.
+
+## Composing your own
+
+`StatTile` is a closed form on purpose. When the tile you need is a different one — a status tint, a
+whole-card link, an icon disc — build it from [`Card`](/docs/data-display/card#a-metric-tile-composed)
+rather than bending this.
+
+## API Reference
+
+### StatTile
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `label` | `string` | — |
+| `value` | `string \| number` | — |
+| `prefix` | `string` | — |
+| `delta` | `StatTileDelta` | — |
+| `trend` | `readonly number[]` | — |
+
+`label` is sentence case with no trailing colon.
+
+### StatTileDelta
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `value` | `number` | — |
+| `label` | `string` | — |
+| `unit` | `string` | — |
+| `goodWhenUp` | `boolean` | `true` |

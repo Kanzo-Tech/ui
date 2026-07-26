@@ -390,9 +390,9 @@ of DuckDB. When the page is truncated, both the footnote and the no-match messag
 field that answers *no matching values* about a database it never queried is worse than no field.
 Searching the column itself is `ChartSearch`, which publishes a match clause and does run a query.
 
-Its presentational half, **`StatTile`, is in the root barrel** — it takes a number, so making it
-cost DuckDB-WASM would be absurd. That split is [the engine rule](/docs/philosophy), the same one
-behind `Table` and `DataTable`.
+Its presentational half, **[`StatTile`](/docs/data-display/stat-tile), is in the root barrel** — it
+takes a number, so making it cost DuckDB-WASM would be absurd. That split is
+[the engine rule](/docs/philosophy), the same one behind `Table` and `DataTable`.
 
 The frame and the grid are **not** library components: a titled card and an auto-fitting grid add
 no behaviour, so they are arrangements you copy. The ones these docs use are in `docs/lib/`. The
