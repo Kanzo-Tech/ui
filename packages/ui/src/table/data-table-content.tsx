@@ -25,13 +25,14 @@ export interface DataTableContentProps<TData = unknown>
 }
 
 /**
- * `clip` rather than `hidden` when the header is pinned, and the difference is the whole fix:
- * `overflow: hidden` makes this box a scroll container, so a sticky `th` pins to it instead of to
- * the region that scrolls. `clip` still clips the rounded corners but is not a scroll container,
- * so the stickiness passes through to whatever owns the scroll.
+ * `clip` rather than `hidden`, but only when the header pins to the ENCLOSING region: `hidden`
+ * makes this box a scroll container, so a sticky `th` would pin to it instead of to whatever
+ * scrolls. `clip` still clips the rounded corners without being one, so the stickiness passes
+ * through. Given a `maxHeight` the wrapper inside is the scroll container, and this box is back to
+ * being nothing but a border.
  */
-const boxOverflow = (stickyHeader: boolean) =>
-  stickyHeader ? "overflow-clip" : "overflow-hidden";
+const boxOverflow = (regionScrolled: boolean) =>
+  regionScrolled ? "overflow-clip" : "overflow-hidden";
 
 /**
  * ARIA contract for `onRowClick`: a `<tr>` is not an interactive role, so the row is made
@@ -40,8 +41,16 @@ const boxOverflow = (stickyHeader: boolean) =>
  * a button or checkbox cell behaving as itself.
  */
 export function DataTableContent<TData = unknown>(props: DataTableContentProps<TData>) {
-  const { empty = "No results.", onRowClick, className, stickyHeader = false, ...rest } = props;
+  const {
+    empty = "No results.",
+    onRowClick,
+    className,
+    stickyHeader = false,
+    maxHeight,
+    ...rest
+  } = props;
   const table = useDataTableContext<TData>();
+  const regionScrolled = stickyHeader && maxHeight === undefined;
 
   const rows = table.getRowModel().rows;
   const colSpan = table.getVisibleLeafColumns().length || 1;
@@ -51,10 +60,10 @@ export function DataTableContent<TData = unknown>(props: DataTableContentProps<T
 
   return (
     <div
-      className={cn(boxOverflow(stickyHeader), "rounded-lg border border-border", className)}
+      className={cn(boxOverflow(regionScrolled), "rounded-lg border border-border", className)}
       data-slot="data-table-content"
     >
-      <Table stickyHeader={stickyHeader} {...rest}>
+      <Table maxHeight={maxHeight} stickyHeader={stickyHeader} {...rest}>
         <TableHeader>
           {table.getHeaderGroups().map((group) => (
             <TableRow key={group.id}>

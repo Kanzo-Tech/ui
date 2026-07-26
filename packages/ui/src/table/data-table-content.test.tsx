@@ -18,12 +18,17 @@ function Harness(props: {
   data?: Item[];
   onRowClick?: (row: Item) => void;
   stickyHeader?: boolean;
+  maxHeight?: string | number;
 }) {
   const table = useDataTable({ columns: props.columns, data: props.data ?? data });
 
   return (
     <DataTableRoot table={table}>
-      <DataTableContent<Item> onRowClick={props.onRowClick} stickyHeader={props.stickyHeader} />
+      <DataTableContent<Item>
+        maxHeight={props.maxHeight}
+        onRowClick={props.onRowClick}
+        stickyHeader={props.stickyHeader}
+      />
     </DataTableRoot>
   );
 }
@@ -65,6 +70,24 @@ describe("DataTableContent", () => {
     expect(box.className).not.toContain("overflow-hidden");
     expect(wrapper.className).toContain("overflow-visible");
     expect(wrapper.className).not.toContain("overflow-auto");
+    expect(container.querySelector('[data-slot="table"]')!.getAttribute("data-sticky-header")).toBe(
+      "true",
+    );
+  });
+
+  // The defect this pair exists to stop: pinning to the enclosing region costs the wrapper's
+  // horizontal scroll, so a table wider than its box became unreachable. `maxHeight` gives the
+  // wrapper its scroll back and pins the header to that instead.
+  it("keeps the wrapper scrollable when the header pins to the table's own height", () => {
+    const { container } = render(<Harness columns={plain} maxHeight={240} stickyHeader />);
+
+    const box = container.querySelector('[data-slot="data-table-content"]')!;
+    const wrapper = container.querySelector('[data-slot="table-wrapper"]') as HTMLElement;
+
+    expect(wrapper.className).toContain("overflow-auto");
+    expect(wrapper.style.maxHeight).toBe("240px");
+    // The wrapper is the scroll container now, so the box is back to being only a border.
+    expect(box.className).toContain("overflow-hidden");
     expect(container.querySelector('[data-slot="table"]')!.getAttribute("data-sticky-header")).toBe(
       "true",
     );

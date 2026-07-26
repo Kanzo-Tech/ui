@@ -15,8 +15,15 @@ so the header pins to a box that never moves.
 corners but is not a scroll container; the wrapper becomes `overflow-visible`. The header then pins
 to whatever really scrolls — a `ShellMain`, a dialog body, the page.
 
-It is a prop rather than the default because it costs something real: that wrapper's `overflow-auto`
-is what lets a table wider than its box scroll sideways, and CSS gives no way to keep one axis
-scrollable while the other stays sticky. With the header pinned, the enclosing region has to provide
-the horizontal scroll. The pinned cells are painted `bg-background`, so on another surface pass
-`className="bg-card"` to `TableHead`.
+Which scroll container it pins to is what the companion `maxHeight` decides.
+
+Given a height, the wrapper stays a scroll container and simply gains one: the header pins to the
+table's own scrollport and a wide table still scrolls sideways. Without a height the header pins to
+whatever encloses the table, which reads better — one scrollbar instead of two — but gives up that
+sideways scroll, because standing the wrapper's `overflow-auto` down is the same declaration that
+provided it, and CSS cannot keep one axis scrollable while the other stays sticky. Columns past the
+right edge then have nothing to scroll them, which at 430px meant two of them could not be read at
+all. **Set `maxHeight` whenever the columns may not fit.**
+
+The pinned cells are painted `bg-background`, so on another surface pass `className="bg-card"` to
+`TableHead`.

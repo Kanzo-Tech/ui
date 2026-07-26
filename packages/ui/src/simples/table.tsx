@@ -18,17 +18,13 @@ interface TableProps extends React.ComponentProps<typeof ark.table> {
    */
   variant?: "plain" | "striped";
   /**
-   * Pin the header row while the SURROUNDING region scrolls.
+   * Pin the header row while the rows scroll under it.
    *
-   * This has to change the wrapper, not just the cells. `position: sticky` resolves against the
-   * nearest scroll container, and the wrapper's `overflow-auto` is one — so a sticky `th` inside
-   * it pins to a box that is exactly as tall as its own content and therefore never moves. Turning
-   * the wrapper's overflow off hands the job to whatever actually scrolls (a `ShellMain`, a
-   * dialog body, the page).
-   *
-   * The cost is the reason this is a prop and not the default: that `overflow-auto` is what lets a
-   * table wider than its box scroll sideways. With the header pinned, the enclosing region has to
-   * provide that instead — CSS gives no way to keep one axis scrollable and the other sticky.
+   * This has to change the wrapper, not just the cells: `position: sticky` resolves against the
+   * nearest scroll container, and the wrapper's `overflow-auto` is one — so a sticky `th` pins to
+   * a box exactly as tall as its own content, which never moves. WHICH scroll container it should
+   * pin to is what `maxHeight` decides, and the two answers behave differently enough to choose
+   * between deliberately.
    *
    * The pinned cells need to be opaque or the rows read through them; `bg-background` assumes the
    * table sits on the page surface, so on a `Card` pass `className="bg-card"` to `TableHead`.
@@ -36,6 +32,18 @@ interface TableProps extends React.ComponentProps<typeof ark.table> {
    * @default false
    */
   stickyHeader?: boolean;
+  /**
+   * Give the table its own scroll region, and pin the header to that.
+   *
+   * With it, the wrapper stays a scroll container and simply gains a height: the header pins to
+   * the table's own scrollport and a table wider than its box still scrolls sideways. Without it,
+   * `stickyHeader` stands the wrapper's overflow down so the header pins to whatever encloses the
+   * table — a `ShellMain`, a dialog body, the page — which reads better, one scrollbar instead of
+   * two, but gives up that sideways scroll: CSS cannot keep one axis scrollable while the other
+   * stays sticky. Set it whenever the columns may not fit, which on a narrow viewport is most
+   * tables.
+   */
+  maxHeight?: string | number;
 }
 
 export const Table = (props: TableProps) => {
@@ -43,14 +51,19 @@ export const Table = (props: TableProps) => {
     variant = "plain",
     isHoverable = true,
     stickyHeader = false,
+    maxHeight,
     className,
     ...rest
   } = props;
 
+  /** Only a header pinned to the ENCLOSING region needs the wrapper to stop scrolling. */
+  const regionScrolled = stickyHeader && maxHeight === undefined;
+
   return (
     <div
-      className={cn("relative w-full", stickyHeader ? "overflow-visible" : "overflow-auto")}
+      className={cn("relative w-full", regionScrolled ? "overflow-visible" : "overflow-auto")}
       data-slot="table-wrapper"
+      style={maxHeight === undefined ? undefined : { maxHeight }}
     >
       <ark.table
         className={cn(

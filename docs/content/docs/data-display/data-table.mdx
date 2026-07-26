@@ -301,6 +301,7 @@ Extends `ark.div`. `useDataTableContext<TData>()` reads the instance back out.
 | `empty` | `ReactNode` | `"No results."` |
 | `onRowClick` | `(row: TData) => void` | — |
 | `stickyHeader` | `boolean` | `false` |
+| `maxHeight` | `string \| number` | — |
 
 `className` styles the bordered box; the remaining props reach the `<table>`, so `variant` and
 `isHoverable` from [`Table`](/docs/data-display/table) pass through. With `onRowClick` the row
@@ -317,11 +318,22 @@ pins to something that never moves. The prop stands both down — the box to `ov
 still clips the rounded corners without scrolling — and the header then pins to whatever really
 scrolls: a `ShellMain`, a dialog body, the page.
 
+Which scroll container it pins to is what `maxHeight` decides, and the two answers behave
+differently enough to pick between deliberately.
+
+| | `stickyHeader` alone | `stickyHeader` + `maxHeight` |
+| --- | --- | --- |
+| Pins to | the enclosing region | the table's own scrollport |
+| Scrollbars | one — the region's | two, once the rows exceed the height |
+| Table wider than its box | **unreachable** | scrolls sideways |
+
 <Callout type="warn">
-That wrapper's `overflow-auto` is also what lets a table wider than its box scroll sideways, and
-CSS offers no way to keep one axis scrollable while the other stays sticky. With the header pinned,
-the enclosing region has to provide the horizontal scroll. The pinned cells are painted
-`bg-background`; on another surface pass `className="bg-card"` to your `TableHead`.
+**Set `maxHeight` whenever the columns may not fit**, which on a narrow viewport is most tables.
+Pinning to the enclosing region stands the wrapper's `overflow-auto` down, and that is the same
+declaration that let a wide table scroll sideways — CSS cannot keep one axis scrollable while the
+other stays sticky. Without a height, columns past the right edge have nothing to scroll them and
+simply cannot be read. The pinned cells are painted `bg-background`; on another surface pass
+`className="bg-card"` to your `TableHead`.
 </Callout>
 
 ### DataTablePagination

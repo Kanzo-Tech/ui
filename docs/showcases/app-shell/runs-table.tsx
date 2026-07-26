@@ -202,11 +202,14 @@ export function RunsTable() {
         <DataTableViewOptions className="ms-auto" />
       </DataTableToolbar>
 
-      {/* `stickyHeader` because the region that scrolls here is `ShellMain`, not the page: the
-          shell header is its sibling and never moves, so the columns only needed the table to stop
-          being a scroll container of its own. */}
+      {/* `stickyHeader` with a `maxHeight`, which is the pair rather than the prop: pinning to the
+          enclosing region alone costs the wrapper's sideways scroll, and at 430px these six
+          columns are wider than the box — Duration and Started went out of reach. Given a height
+          the wrapper scrolls again on both axes and the header pins to it. 28rem clears six rows,
+          so the vertical scroll only appears once the page size grows. */}
       <DataTableContent<Run>
         empty="No runs match these filters."
+        maxHeight="28rem"
         onRowClick={(run) => toast.create({ title: run.pipeline, description: run.source, type: "info" })}
         stickyHeader
       />
