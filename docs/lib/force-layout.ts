@@ -1,5 +1,5 @@
-// A small seeded force layout, shared by the two places in the docs that turn a graph into columns:
-// the charts probe (`examples/charts/graph.ts`) and the Discovery showcase.
+// A small seeded force layout, for turning a graph into columns. The Discovery showcase uses it to
+// seed the simulation; the charts probe that shared it is gone.
 //
 // d3-force is in the store as a transitive of `d3`, but not a declared dependency of anything we
 // own, so it is not resolvable under pnpm's strict layout. This is the stand-in: grid-bucketed
