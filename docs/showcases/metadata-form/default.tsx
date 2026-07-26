@@ -213,7 +213,15 @@ function FieldFrame({
   // tells a screen reader the user got something wrong before they arrived.
   const invalid = reveal && issues.some((iss) => iss.severity === "violation");
   return (
-    <Field className="gap-1.5" invalid={invalid} onBlur={() => setTouched(true)}>
+    // `required` has to reach the Field, not just the indicator: `FieldRequiredIndicator` reads it
+    // from Ark's field context, so passing it only to the child rendered nothing at all — no
+    // asterisk, and no `aria-required` on the control either.
+    <Field
+      className="gap-1.5"
+      invalid={invalid}
+      onBlur={() => setTouched(true)}
+      required={required}
+    >
       <div className="flex min-h-6 items-center gap-2">
         <FieldLabel className="w-fit">
           {label}
@@ -1148,12 +1156,27 @@ export function MetadataFormShowcase() {
               <Kbd>O</Kbd>
             </Button>
 
-            {/* Validation summary — a Badge that reveals every failing field on hover. */}
+            {/* Validation summary — hover lists every failing field, click shows them on the form.
+                The reveal lives on the badge and not inside the card: a hover card closes as soon
+                as the pointer leaves its trigger, so a control in there is one you cannot reliably
+                click. Hovering reads; clicking acts; the same element owns both. */}
             <HoverCard openDelay={80}>
               <HoverCardTrigger asChild>
-                <Badge className="cursor-default" size="lg" variant={valid ? "success" : "destructive"}>
-                  {valid ? "Valid" : `${violations} ${violations === 1 ? "issue" : "issues"}`}
-                </Badge>
+                <button
+                  aria-label={
+                    gate.revealAll
+                      ? "Hide issues until each field is edited"
+                      : "Show every issue on the form"
+                  }
+                  aria-pressed={gate.revealAll}
+                  disabled={report.length === 0}
+                  onClick={() => setGate((g) => ({ ...g, revealAll: !g.revealAll }))}
+                  type="button"
+                >
+                  <Badge size="lg" variant={valid ? "success" : "destructive"}>
+                    {valid ? "Valid" : `${violations} ${violations === 1 ? "issue" : "issues"}`}
+                  </Badge>
+                </button>
               </HoverCardTrigger>
               <HoverCardContent className="w-80 p-0">
                 <div className="border-b px-3 py-2">
@@ -1183,21 +1206,16 @@ export function MetadataFormShowcase() {
                     </ul>
                   </ScrollArea>
                 )}
-                {/* The reveal control. The tally above is always honest about the whole document;
-                    the fields themselves stay quiet until you edit them, so this is how you ask
-                    the form to show its work — what a Submit would do, in an editor that has
-                    none. */}
+                {/* What the click does, said where the reader is already looking. The tally is
+                    always honest about the whole document; the fields stay quiet until edited, so
+                    this is how you ask the form to show its work — what a Submit would do, in an
+                    editor that has none. */}
                 <Show when={report.length > 0}>
-                  <div className="border-t p-2">
-                    <Button
-                      className="w-full"
-                      onClick={() => setGate((g) => ({ ...g, revealAll: !g.revealAll }))}
-                      size="sm"
-                      variant={gate.revealAll ? "secondary" : "outline"}
-                    >
-                      {gate.revealAll ? "Hide until edited" : "Show on the fields"}
-                    </Button>
-                  </div>
+                  <p className="border-t px-3 py-2 text-muted-foreground text-xs">
+                    {gate.revealAll
+                      ? "Click the badge to hide these again until each field is edited."
+                      : "Click the badge to show these on the fields."}
+                  </p>
                 </Show>
               </HoverCardContent>
             </HoverCard>
