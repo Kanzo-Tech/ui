@@ -202,6 +202,13 @@ export function RunsTable() {
         <DataTableViewOptions className="ms-auto" />
       </DataTableToolbar>
 
+      {/* KNOWN GAP: the page scroll carries this header away, so the columns lose their names
+          exactly when the rows need them. It is not fixable from here. `DataTableContent` wraps the
+          table in `overflow-hidden`, which makes that wrapper the scroll container, so a sticky
+          `thead` pins to a box that never moves; and giving the table its own scroll does nothing
+          while a 6-row page is shorter than any max-height worth setting. The header has to stick to
+          the *page* scroller, which means no clipping ancestor and a `top` equal to the sticky page
+          header — a change to the shell's scroll structure, not to this call site. */}
       <DataTableContent<Run>
         empty="No runs match these filters."
         onRowClick={(run) => toast.create({ title: run.pipeline, description: run.source, type: "info" })}

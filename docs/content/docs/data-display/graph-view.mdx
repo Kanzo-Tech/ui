@@ -68,3 +68,55 @@ before it stops being fast.
 
 The one cost that grows superlinearly is the layout itself — and in a system that stores positions
 as a column, that cost is paid once, offline, not by the browser.
+
+## Above the ceiling: a WebGL renderer on the same crossfilter
+
+Route A ends where a frozen layout does. Two things it structurally cannot do are **live layout** —
+the simulation keeps running, so a filter can reshape the graph rather than just thin it — and
+**continuous pan/zoom**, since Plot rebuilds the whole SVG on every transform.
+
+[`@cosmos.gl/graph`](https://github.com/cosmosgl/graph) does both on the GPU, and it is a renderer,
+not a Mosaic client. Making it one is ~60 lines, because `MosaicClient` asks for exactly two things:
+
+```ts
+class CosmosClient extends MosaicClient {
+  // Observable: which rows survive the page's filters? Everything else is greyed out.
+  query(filter) {
+    return Query.from(this.table).select({ id: this.idField }).where(filter);
+  }
+  queryResult(data) { this.greyOutAllBut(idColumn(data, "id")); return this; }
+
+  // Controllable: the lasso publishes what it hit, and every other chart filters by it.
+  publish(ids) {
+    this.as.update(clausePoints([this.idField], ids?.map((id) => [id]), { source: this }));
+  }
+}
+```
+
+That is the same contract `ChartMenu` and `ChartSlider` implement — a control is Mosaic because it
+declares a query and publishes a clause, not because it draws with Plot.
+
+<ComponentPreview componentName="charts" fileName="example-cosmos" hasMaxHeight={false} />
+
+Two thousand nodes, laid out live. Turn on **Lasso** and drag a loop; brush the histogram and watch
+the graph grey out without the layout restarting.
+
+### Why the lasso can only speak in ids
+
+A Plot brush publishes `weight BETWEEN 30 AND 50` — an interval in data space — because Plot's `x`
+*is* a column. cosmos.gl's `x` is a GPU simulation: the position exists nowhere in the database, so
+no predicate over columns can describe the loop the user drew. Enumerating the hits is the only
+honest translation, and its cost is the length of the `IN` list. That, not the frame rate, is this
+route's ceiling.
+
+### The one thing the greyout changed
+
+A crossfilter normally exempts a client from its own clause, so you can widen a brush after it has
+collapsed the chart underneath it. This client declines the exemption (`clients: new Set()`), because
+cosmos.gl *greys* an excluded point instead of removing it — it is still on screen, still lassoable,
+and the greyout is therefore the only brush the view needs to draw.
+
+<Callout>
+Still a probe. This lives in `docs/examples/`, not in the library: it drags an optional WebGL peer
+and today has one call site, where the [admission rules](/docs/philosophy) ask for two.
+</Callout>

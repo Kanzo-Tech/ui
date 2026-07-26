@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { makeClient } from "@uwdata/mosaic-core";
 import { loadCSV, Query } from "@uwdata/mosaic-sql";
 import { Button, ScrollArea, Skeleton, StatTile } from "@kanzo-tech/ui";
@@ -31,11 +31,12 @@ import {
   count,
   sql,
   sum,
+  useChartQuery,
   useMosaic,
-  wasmConnector,
   type ChartConfig,
 } from "@kanzo-tech/ui/analytics";
 import { ChartCard } from "@/lib/chart-card";
+import { FilterChips, useClauses } from "@/lib/filter-chips";
 import { DashboardGrid } from "@/lib/dashboard-grid";
 import {
   CheckCircle2Icon,
@@ -51,6 +52,7 @@ import {
   REGIONS,
 } from "./analysis-data";
 import { AnalysisDetail } from "./analysis-detail";
+import { ensure } from "./duck";
 
 /**
  * The Analysis view — the discovery showcase's one live region, and the widest thing the charts
@@ -107,23 +109,12 @@ function wirePicks(): Picks {
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
 
-/**
- * Cached across mounts: the view unmounts whenever the shell switches back to the graph (a chart in
- * a hidden box measures zero width and never recovers), so without this every toggle would re-boot
- * DuckDB-WASM and reload the relation.
- */
-let booted: Promise<Coordinator> | null = null;
-
+/** The observations relation, on the coordinator the graph view also uses. See `./duck`. */
 function boot(): Promise<Coordinator> {
-  booted ??= (async () => {
-    const connector = wasmConnector();
-    const coordinator = new Coordinator(connector);
-    const db = await connector.getDuckDB();
+  return ensure(T, async ({ coordinator, db }) => {
     await db.registerFileText(OBSERVATIONS_FILE, observationsCsv());
     await coordinator.exec(loadCSV(T, OBSERVATIONS_FILE));
-    return coordinator;
-  })();
-  return booted;
+  });
 }
 
 // ── The queried tiles ────────────────────────────────────────────────────────
@@ -286,43 +277,108 @@ function Tiles() {
 
 // ── The filter row ───────────────────────────────────────────────────────────
 
-function FilterBar({ picks }: { picks: Picks }) {
+/**
+ * What the crossfilter currently holds, as chips — and what it costs, as a count.
+ *
+ * Every control on this page publishes into one `Selection`, and until this row existed the only way
+ * to find out what was filtered was to look at a chart and infer. The chips come from
+ * `Selection.clauses`, so the bar reports filters it did not publish: a brush, a bar someone
+ * clicked, a menu. See `docs/lib/filter-chips`.
+ */
+function ActiveFilters({ picks }: { picks: Picks }) {
+  const { crossfilter } = useMosaic();
+  const clauses = useClauses(crossfilter);
+
+  const shown = useChartQuery({ query: (filter) => Query.from(T).select({ n: count() }).where(filter) });
+  const all = useChartQuery({ filterBy: null, query: () => Query.from(T).select({ n: count() }) });
+  const rows = Number(shown.row?.n ?? 0);
+  const total = Number(all.row?.n ?? 0);
+
+  const clearAll = () => {
+    // A reset relays downstream, never upstream, so the two picks have to be cleared themselves —
+    // the crossfilter only owns the clauses published straight into it.
+    picks.provider.reset();
+    picks.region.reset();
+    picks.crossfilter.reset();
+  };
+
   return (
-    <div className="flex flex-wrap items-end gap-4 rounded-lg border bg-card p-3">
-      <ChartMenu className="min-w-40" column="region" label="Region" size="sm" table={T} />
-      <ChartMenu className="min-w-40" column="provider" label="Provider" size="sm" table={T} />
-      <ChartSearch
-        className="min-w-44"
-        column="station"
-        label="Station"
-        placeholder="A Coruña…"
-        size="sm"
-        table={T}
-      />
-      <ChartSlider
-        className="min-w-56 max-w-80"
-        column="temperature"
-        label="Temperature (°C)"
-        select="interval"
-        step={0.5}
-        table={T}
-      />
-      {/* A reset relays downstream, never upstream, so the two picks have to be cleared themselves
-          — the crossfilter only owns the clauses published straight into it. */}
+    <div className="flex flex-wrap items-center gap-2 border-t px-3 py-2">
+      <span className="text-muted-foreground text-xs tabular-nums">
+        {all.rows === null
+          ? "Counting…"
+          : rows === total
+            ? `${total.toLocaleString()} records`
+            : `${rows.toLocaleString()} of ${total.toLocaleString()} records`}
+      </span>
+
+      <FilterChips className="flex flex-wrap items-center gap-2" selection={crossfilter} />
+
       <Button
         className="ms-auto"
-        onClick={() => {
-          picks.provider.reset();
-          picks.region.reset();
-          picks.crossfilter.reset();
-        }}
+        disabled={clauses.length === 0}
+        onClick={clearAll}
         size="sm"
-        variant="outline"
+        variant="ghost"
       >
         <RotateCcwIcon />
         Clear filters
       </Button>
     </div>
+  );
+}
+
+/**
+ * One cell per filter: its own header, its own control, stacked.
+ *
+ * The row used to be four controls of three different shapes bottom-aligned — two self-labelling
+ * buttons, a field with its label above it, and a slider with a label *and* a live value above it.
+ * They lined up along one edge and along no other, so the eye had nothing to read across.
+ *
+ * The label lives *inside* the cell rather than in a shared header row, which is what makes the
+ * pairing survive: a two-row grid puts headers in one row and controls in the next only while every
+ * column fits, and the first wrap slides the two apart. A cell cannot come apart from its own label.
+ */
+function FilterCell({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-col justify-end gap-1.5">
+      <span className="font-medium text-muted-foreground text-xs">{label}</span>
+      {children}
+    </div>
+  );
+}
+
+function FilterBar({ picks }: { picks: Picks }) {
+  return (
+    <section aria-label="Filters" className="rounded-lg border bg-card">
+      <div className="grid gap-x-4 gap-y-3 p-3 sm:grid-cols-2 lg:grid-cols-4">
+        {/* The controls' own labels are off: the cell carries them, and a control repeating its
+            header reads as a stutter. `Any` is the menu at rest; the slider's range is not repeated
+            over the track either, because the chip row below reports it. */}
+        <FilterCell label="Region">
+          <ChartMenu column="region" label="Any" size="sm" table={T} />
+        </FilterCell>
+        <FilterCell label="Provider">
+          <ChartMenu column="provider" label="Any" size="sm" table={T} />
+        </FilterCell>
+        <FilterCell label="Station">
+          <ChartSearch column="station" placeholder="A Coruña…" size="sm" table={T} />
+        </FilterCell>
+        <FilterCell label="Temperature (°C)">
+          {/* `h-7` is the `sm` control height. A track is 8px tall, so without a box of the same
+              height as its neighbours the whole cell — header included — sits lower than the rest. */}
+          <ChartSlider
+            className="h-7 min-w-0 justify-center"
+            column="temperature"
+            select="interval"
+            showValue={false}
+            step={0.5}
+            table={T}
+          />
+        </FilterCell>
+      </div>
+      <ActiveFilters picks={picks} />
+    </section>
   );
 }
 
