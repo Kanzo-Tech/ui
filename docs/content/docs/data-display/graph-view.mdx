@@ -137,10 +137,16 @@ look is a `setConfig` and four buffer uploads, so the whole panel of controls co
 trips. The only two gestures that reach SQL are still the lasso and a click.
 
 <Callout>
-Still not in the library. `CosmosClient` now has the two call sites the
-[admission rules](/docs/philosophy) ask for — this page and the showcase — so what holds it out is
-the remaining objection: it drags an optional WebGL peer, and a component that renders nothing
-without one is a poor fit for a design system that has so far promised to work everywhere.
+Half of it went in, and finding out which half was the useful part. The objection on file was that
+this drags an optional WebGL peer — but the client does not. `CosmosClient` imported nothing from
+`@cosmos.gl/graph`; what it modelled was a view whose positions live outside the database, which
+can therefore only ever publish an enumerated set of ids. That is a canvas, a map or any imperative
+widget, so it ships as **`IdSetClient`** on `@kanzo-tech/ui/analytics`, named for what it exchanges
+rather than for the renderer it was first written against.
+
+What genuinely needs the peer is the canvas — the simulation, the looks, the gestures — and a
+component that renders nothing without WebGL is still a poor fit for a design system that has so
+far promised to work everywhere. That stays here.
 </Callout>
 
 ## The Rules panel, in both directions
