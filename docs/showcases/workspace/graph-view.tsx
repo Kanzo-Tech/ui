@@ -1,20 +1,16 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { clausePoints } from "@uwdata/mosaic-core";
-import { asVerbatim, desc, loadCSV } from "@uwdata/mosaic-sql";
+import { desc, sql } from "@uwdata/mosaic-sql";
 import {
   Badge,
   Button,
-  ButtonGroup,
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
   CompleteHint,
   CompleteRoot,
   CompleteTextarea,
@@ -22,512 +18,125 @@ import {
   FileUploadDropzone,
   FileUploadHiddenInput,
   FileUploadTrigger,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupTextarea,
+  NumberField,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  createListCollection,
+  Kbd,
+  KbdGroup,
   ScrollArea,
+  Show,
+  Status,
   Skeleton,
   Slider,
   SuggestContent,
   SuggestRoot,
   SuggestTrigger,
   Switch,
-  Textarea,
+  DateField,
+  TagsInput,
+  TagsInputContext,
+  TagsInputControl,
+  TagsInputInput,
+  TagsInputItem,
+  TagsInputItemDeleteTrigger,
+  TagsInputItemInput,
+  TagsInputItemPreview,
+  TagsInputItemText,
   TextField,
+  useFilter,
+  useListCollection,
   type Suggestion,
 } from "@kanzo-tech/ui";
+import { Query, count, useChartQuery, useMosaic } from "@kanzo-tech/ui/analytics";
 import {
-  ChartAxisX,
-  ChartAxisY,
-  ChartDot,
-  ChartHighlight,
-  ChartLink,
-  ChartRegion,
-  ChartRoot,
-  ChartSearch,
-  Coordinator,
-  MosaicProvider,
-  Query,
-  count,
-  useChartQuery,
-  useMosaic,
-  type ChartConfig,
-} from "@kanzo-tech/ui/analytics";
-import {
+  CrosshairIcon,
   MaximizeIcon,
-  MinusIcon,
-  PlusIcon,
+  RotateCcwIcon,
   SearchIcon,
   SendIcon,
+  PlusIcon,
   UploadCloudIcon,
+  XIcon,
 } from "lucide-react";
 import { cn } from "@kanzo-tech/ui";
-import { FilterChips, useClauses } from "@/lib/filter-chips";
-import { compileShacl, DEFAULT_SHAPES, type Severity, type Shape } from "./shacl";
+import {
+  compileShacl,
+  DEFAULT_SHAPES,
+  pathDatatype,
+  type Severity,
+  type Shape,
+  SUPPORTED_PATHS,
+  SUPPORTED_TARGETS,
+} from "./shacl";
+import {
+  CONSTRAINT_KINDS,
+  type ConstraintKind,
+  isValidValue,
+  members,
+  parseRules,
+  type Rule,
+  toTurtle,
+} from "./rule-builder";
+import { numbers } from "@/lib/arrow";
 import { onceQuery } from "@/lib/once-query";
-import { buildDiscoveryGraph, edgesCsv, nodesCsv } from "./graph-data";
-import { ensure } from "./duck";
+import {
+  DEFAULT_DISPLAY,
+  DEFAULT_SIM,
+  EDGES,
+  KINDS,
+  NODES,
+  useGraphView,
+  type Motion,
+} from "./graph-state";
+import { LOOKS, LOOK_ORDER } from "./graph-looks";
+import { scaleOf } from "./graph-model";
+import type { NodeKind } from "./graph-data";
+import { ShapeGlyph } from "./graph-canvas";
+import { Finding } from "./graph-finding";
 
 /**
- * Discovery, as a query.
+ * The panels around the canvas.
  *
- * This view used to be an SVG with eleven hand-placed circles, under a docstring explaining that
- * the design system "has no graph engine". It does not need one: a force layout is a function from
- * a graph to two numbers per node, so store the result as `x` / `y` **columns** and a node-link
- * view is a scatter plot of a node relation with a link mark of an edge relation underneath. That
- * is the whole of it — no new library code, and the crossfilter, the lasso and the tooltip come
- * with the grammar.
- *
- * What that buys, and what the placeholder could only mime: the legend counts are a `GROUP BY`, the
- * footer counts are a `count(*)` over the live filter, the search publishes a match clause, and
- * lassoing the canvas re-queries the inspector. Every number on screen is answerable.
- *
- * The one thing this route cannot do cheaply is continuous pan/zoom — Plot rebuilds the whole SVG on
- * every transform, and a rebuilt plot re-queries. The camera below buys it anyway, in two stages;
- * what stays out of reach is re-detailing, which is the ceiling the graph-view probe documents and
- * the reason a GPU renderer exists.
+ * Every number any of them shows is a query against the same two relations, and every selection any
+ * of them makes is a clause in the same crossfilter — which is why none of them imports the canvas,
+ * or needs to know that a graph is what the selection is being drawn on.
  */
 
-const NODES = "discovery_nodes";
-const EDGE_PAIRS = "discovery_edge_pairs";
-const EDGES = "discovery_edges";
+export { GraphMosaic, KINDS } from "./graph-state";
+export { GraphCanvas, GraphSelection, GraphToolbar, GraphZoom } from "./graph-canvas";
 
-export const KINDS: ChartConfig = {
-  dataset: { label: "Dataset", color: "var(--primary)" },
-  distribution: { label: "Distribution", color: "var(--info)" },
-  keyword: { label: "Keyword", color: "var(--muted-foreground)" },
-  entity: { label: "Entity", color: "var(--foreground)" },
-};
+// ── Legend and counts ────────────────────────────────────────────────────────
 
+/** The legend draws the glyph the canvas draws, so a look that encodes kind as shape stays legible. */
 /**
- * The edge relation names its **source** endpoint's columns exactly as the node relation does, so a
- * clause published by any chart — SQL over column names — lands on edges with no translation.
- */
-const EDGE_VIEW = `CREATE OR REPLACE VIEW ${EDGES} AS
-  SELECT s.id, s.label, s.kind, s.theme, s.publisher, s.degree, s.x, s.y, t.x AS x2, t.y AS y2
-  FROM ${EDGE_PAIRS} e
-  JOIN ${NODES} s ON e.source = s.id
-  JOIN ${NODES} t ON e.target = t.id`;
-
-function loadGraph(): Promise<Coordinator> {
-  return ensure(NODES, async ({ coordinator, db }) => {
-    const graph = buildDiscoveryGraph();
-    await db.registerFileText("discovery-nodes.csv", nodesCsv(graph));
-    await db.registerFileText("discovery-edges.csv", edgesCsv(graph));
-    await coordinator.exec(loadCSV(NODES, "discovery-nodes.csv", { replace: true }));
-    await coordinator.exec(loadCSV(EDGE_PAIRS, "discovery-edges.csv", { replace: true }));
-    await coordinator.exec(EDGE_VIEW);
-  });
-}
-
-// ── Provider ─────────────────────────────────────────────────────────────────
-
-/**
- * Pan and zoom in two stages: a CSS transform while the gesture is live, a scale **domain** once it
- * settles.
+ * The domain the swatches are drawn against.
  *
- * Neither half works alone. Driving the domain from the wheel rebuilds the plot on every notch, and
- * a rebuilt plot re-queries — a DuckDB round trip per click of the mouse wheel. Leaving it at the
- * transform is worse in a different way: a transform magnifies the picture Plot already drew, so at
- * 4× the dots are blobs and the tooltip is half the screen. So the transform buys the frames during
- * the gesture, and when the gesture stops the camera is converted into a domain window and reset —
- * one query per gesture, and marks that are the right size whenever anyone is looking.
- *
- * `ChartRegion` keeps working through the transform because d3's pointer maps through the screen
- * CTM, which includes it.
+ * `KINDS` is the fixture's declared order, and the canvas colours by the order the *data* turned
+ * out to have. They agree here because the corpus contains all four; they are not guaranteed to,
+ * and that gap is the cross-panel binding problem — Vega-Lite's `resolve: {scale: {color: shared}}`
+ * — which nothing in this showcase declares yet. Keeping the domain in one named place is what
+ * makes it a one-line fix when it does.
  */
-interface Camera {
-  k: number;
-  tx: number;
-  ty: number;
-}
+const LEGEND_DOMAIN = Object.keys(KINDS);
 
-type Extent = [number, number];
-
-interface Domain {
-  x: Extent;
-  y: Extent;
-}
-
-/** What the Settings panel owns. Everything here changes the picture, nothing changes the query. */
-interface Display {
-  links: boolean;
-  nodeSize: number;
-  edgeOpacity: number;
-}
-
-const DEFAULT_DISPLAY: Display = { links: true, nodeSize: 2.6, edgeOpacity: 0.28 };
-
-interface GraphViewValue {
-  ready: boolean;
-  camera: Camera;
-  domain: Domain;
-  /** What the Settings controls show — updated on every keystroke of a drag. */
-  display: Display;
-  /**
-   * What the canvas draws with — the same values, committed once the control settles.
-   *
-   * They are separated because a display option is a *Plot mark option*, and changing one changes
-   * the spec signature, so Mosaic rebuilds the plot with fresh clients and re-queries DuckDB. None
-   * of these settings needs new data — a bigger dot is not a different question — but the rebuild
-   * is not ours to skip. Splitting draft from applied at least makes a slider drag cost one rebuild
-   * instead of one per pixel. Removing the rebuild entirely means styling the rendered SVG instead,
-   * which needs a per-mark `className` to tell the ghost layer from the live one — and `className`
-   * is not in mosaic-plot's constant options, so it would be read as a column name. Same trap as
-   * `label`.
-   */
-  applied: Display;
-  setDisplay: (patch: Partial<Display>) => void;
-  /** `at` is a point in container pixels — the cursor, so the graph zooms where you point. */
-  zoomAt: (factor: number, at?: { x: number; y: number }) => void;
-  panBy: (dx: number, dy: number) => void;
-  fit: () => void;
-  /** The canvas reports its box so the camera can be converted into a domain. */
-  reportViewport: (width: number, height: number) => void;
-}
-
-const IDENTITY: Camera = { k: 1, tx: 0, ty: 0 };
-const FULL: Domain = { x: [0, 1], y: [0, 1] };
-/** Matches `margin` on the `ChartRoot` below — the conversion has to know the frame it maps into. */
-const MARGIN = 10;
-/** Deep enough to read a cluster, shallow enough that the layout still means something. */
-const MIN_SPAN = 0.02;
-const MAX_SPAN = 1;
-
-const GraphViewContext = createContext<GraphViewValue>({
-  ready: false,
-  camera: IDENTITY,
-  domain: FULL,
-  display: DEFAULT_DISPLAY,
-  applied: DEFAULT_DISPLAY,
-  setDisplay: () => {},
-  zoomAt: () => {},
-  panBy: () => {},
-  fit: () => {},
-  reportViewport: () => {},
-});
-
-const useGraphView = () => useContext(GraphViewContext);
-
-/** Keep the point under the cursor fixed while the scale changes around it. */
-function zoomAbout(camera: Camera, factor: number, at: { x: number; y: number }): Camera {
-  const k = camera.k * factor;
-  return {
-    k,
-    tx: at.x - (at.x - camera.tx) * factor,
-    ty: at.y - (at.y - camera.ty) * factor,
-  };
-}
-
-/**
- * The camera, expressed as the data window it is showing.
- *
- * Screen pixel `p` shows pre-transform pixel `(p - t) / k`; Plot maps the frame — the box inset by
- * `MARGIN` — onto the current domain, and `y` runs upwards. Composing those three is what makes the
- * hand-off invisible: the plot redrawn at the new domain lands exactly where the transform had it.
- */
-function toDomain(domain: Domain, camera: Camera, width: number, height: number): Domain {
-  const { k, tx, ty } = camera;
-  const frameX = Math.max(1, width - 2 * MARGIN);
-  const frameY = Math.max(1, height - 2 * MARGIN);
-  const spanX = domain.x[1] - domain.x[0];
-  const spanY = domain.y[1] - domain.y[0];
-
-  const dataX = (px: number) => domain.x[0] + ((px - tx) / k - MARGIN) * (spanX / frameX);
-  const dataY = (py: number) => domain.y[1] - ((py - ty) / k - MARGIN) * (spanY / frameY);
-
-  return { x: [dataX(0), dataX(width)], y: [dataY(height), dataY(0)] };
-}
-
-function clampSpan(domain: Domain): Domain {
-  const fix = ([lo, hi]: Extent): Extent => {
-    const span = Math.min(MAX_SPAN, Math.max(MIN_SPAN, hi - lo));
-    const mid = (lo + hi) / 2;
-    return [mid - span / 2, mid + span / 2];
-  };
-  return { x: fix(domain.x), y: fix(domain.y) };
-}
-
-/**
- * Wraps the whole discovery shell so the canvas, the inspector and the footer all read one
- * crossfilter. Children render immediately — DuckDB-WASM takes a moment, and blanking the shell
- * while it boots would be worse than the parts that need it saying so themselves via `ready`.
- */
-/** Long enough that a flick of the wheel is one gesture, short enough to feel like a settle. */
-const SETTLE_MS = 220;
-
-export function GraphMosaic({ children }: { children: ReactNode }) {
-  const [coordinator, setCoordinator] = useState<Coordinator | null>(null);
-  const [camera, setCamera] = useState<Camera>(IDENTITY);
-  const [domain, setDomain] = useState<Domain>(FULL);
-  const [display, setDisplayState] = useState<Display>(DEFAULT_DISPLAY);
-  const [applied, setApplied] = useState<Display>(DEFAULT_DISPLAY);
-  const displaySettle = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const viewport = useRef({ w: 0, h: 0 });
-  const settle = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // The committing effect needs the values as of the timer firing, not as of the render that
-  // scheduled it.
-  const live = useRef({ camera, domain });
-  live.current = { camera, domain };
-
-  useEffect(() => {
-    let mounted = true;
-    loadGraph().then((instance) => {
-      if (mounted) setCoordinator(instance);
-    });
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  useEffect(
-    () => () => {
-      if (settle.current) clearTimeout(settle.current);
-      if (displaySettle.current) clearTimeout(displaySettle.current);
-    },
-    [],
-  );
-
-  const value = useMemo<GraphViewValue>(() => {
-    /** Hand the gesture over to the scales, and put the camera back at rest. */
-    const commit = () => {
-      const { w, h } = viewport.current;
-      const { camera: cam, domain: dom } = live.current;
-      if (cam.k === 1 && cam.tx === 0 && cam.ty === 0) return;
-      if (w === 0 || h === 0) return;
-      setDomain(clampSpan(toDomain(dom, cam, w, h)));
-      setCamera(IDENTITY);
-    };
-    const schedule = () => {
-      if (settle.current) clearTimeout(settle.current);
-      settle.current = setTimeout(commit, SETTLE_MS);
-    };
-
-    return {
-      ready: coordinator !== null,
-      camera,
-      domain,
-      display,
-      applied,
-      setDisplay: (patch) => {
-        setDisplayState((prev) => {
-          const next = { ...prev, ...patch };
-          if (displaySettle.current) clearTimeout(displaySettle.current);
-          // A switch is a single decision, so it lands at once; a slider is a drag, so it waits.
-          if (typeof patch.links === "boolean") setApplied(next);
-          else displaySettle.current = setTimeout(() => setApplied(next), SETTLE_MS);
-          return next;
-        });
-      },
-      zoomAt: (factor, at) => {
-        const { w, h } = viewport.current;
-        setCamera((prev) => zoomAbout(prev, factor, at ?? { x: w / 2, y: h / 2 }));
-        schedule();
-      },
-      panBy: (dx, dy) => {
-        setCamera((prev) => ({ ...prev, tx: prev.tx + dx, ty: prev.ty + dy }));
-        schedule();
-      },
-      fit: () => {
-        if (settle.current) clearTimeout(settle.current);
-        setCamera(IDENTITY);
-        setDomain(FULL);
-      },
-      reportViewport: (width, height) => {
-        viewport.current = { w: width, h: height };
-      },
-    };
-  }, [coordinator, camera, domain, display, applied]);
-
-  const inner = <GraphViewContext.Provider value={value}>{children}</GraphViewContext.Provider>;
-  if (!coordinator) return inner;
-  return <MosaicProvider coordinator={coordinator}>{inner}</MosaicProvider>;
-}
-
-// ── Canvas ───────────────────────────────────────────────────────────────────
-
-/** `ChartRoot` takes a pixel height and measures its own width, so a full-bleed canvas measures. */
-function useMeasuredHeight(report: (w: number, h: number) => void) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [height, setHeight] = useState(0);
-  const latest = useRef(report);
-  latest.current = report;
-
-  useEffect(() => {
-    const host = ref.current;
-    if (!host) return;
-    // Same debounce as the width inside `TokenizedPlot`, and for the same reason: the height is a
-    // plot option, so committing every tick of a splitter drag re-queries once per pixel. The
-    // viewport report is not debounced — the camera needs the live box to zoom about its centre.
-    let settle: ReturnType<typeof setTimeout> | null = null;
-    let first = true;
-    const observer = new ResizeObserver(([entry]) => {
-      const box = entry?.contentRect;
-      if (!box) return;
-      // The measurement is of the untransformed box: a CSS transform does not affect layout, which
-      // is exactly why the plot keeps its resolution while the camera moves over it.
-      latest.current(box.width, box.height);
-      const next = Math.round(box.height);
-      // A zero must not consume `first`: the container can be measured before layout gives it a
-      // height, and spending the immediate commit on 0 leaves the canvas blank until some later
-      // resize happens to wake it.
-      if (next <= 0) return;
-      if (first) {
-        first = false;
-        setHeight(next);
-        return;
-      }
-      if (settle) clearTimeout(settle);
-      settle = setTimeout(() => setHeight(next), 140);
-    });
-    observer.observe(host);
-    return () => {
-      if (settle) clearTimeout(settle);
-      observer.disconnect();
-    };
-  }, []);
-  return { ref, height };
-}
-
-function Canvas({
-  height,
-  domain,
-  display,
-}: {
-  height: number;
-  domain: Domain;
-  display: Display;
-}) {
+function LegendSwatch({ kind }: { kind: string }) {
+  const { look } = useGraphView();
+  const scale = scaleOf(LOOKS[look], LEGEND_DOMAIN);
   return (
-    <ChartRoot config={KINDS} height={height} margin={MARGIN} table={NODES}>
-      {/* The ghost layers — everything the filter excluded, kept faint so a lasso reads as a
-          selection rather than as data disappearing. */}
-      {display.links && (
-        <ChartLink
-          filterBy={null}
-          stroke="currentColor"
-          strokeOpacity={display.edgeOpacity * 0.25}
-          strokeWidth={0.4}
-          table={EDGES}
-          x1="x"
-          x2="x2"
-          y1="y"
-          y2="y2"
-        />
-      )}
-      {display.links && (
-        <ChartLink
-          stroke="currentColor"
-          strokeOpacity={display.edgeOpacity}
-          strokeWidth={0.5}
-          table={EDGES}
-          x1="x"
-          x2="x2"
-          y1="y"
-          y2="y2"
-        />
-      )}
-      <ChartDot
-        fill="currentColor"
-        fillOpacity={0.1}
-        filterBy={null}
-        r={display.nodeSize * 0.55}
-        x="x"
-        y="y"
-      />
-      <ChartHighlight fillOpacity={0.12} />
-      <ChartDot
-        // `id` is here for `ChartRegion`, not for the tooltip: the lasso publishes the channel it
-        // is told to, and a mark that never exposed it has nothing to publish.
-        //
-        // The channel is `name`, not `label`, and the difference is not cosmetic: mosaic-plot keeps
-        // a list of *constant options* — `label`, `sort`, `anchor`, `curve`, `order`, `reverse`,
-        // the font and stroke settings — and a channel with one of those names is passed to Plot as
-        // a literal string instead of being read as a column. The column then never joins the
-        // query, and Plot dies resolving a channel whose data never arrived.
-        channels={{ id: "id", name: "label", kind: "kind", degree: "degree", publisher: "publisher" }}
-        fill="kind"
-        r={display.nodeSize}
-        stroke="var(--background)"
-        strokeWidth={0.5}
-        tip
-        x="x"
-        y="y"
-      />
-      <ChartRegion channels={["id"]} />
-      <ChartAxisX anchor={null} domain={domain.x} label={null} />
-      <ChartAxisY anchor={null} domain={domain.y} label={null} />
-    </ChartRoot>
+    <ShapeGlyph
+      color={scale.color(kind)}
+      shape={scale.shape(kind)}
+    />
   );
 }
-
-const WHEEL_STEP = 0.0015;
-
-export function GraphCanvas() {
-  const { ready, camera, domain, applied, zoomAt, panBy, reportViewport } = useGraphView();
-  const { ref, height } = useMeasuredHeight(reportViewport);
-  const panning = useRef<{ x: number; y: number } | null>(null);
-
-  // Native listener, not `onWheel`: React attaches wheel passively, and a passive listener may not
-  // call `preventDefault`, so the page would scroll behind the zoom.
-  useEffect(() => {
-    const host = ref.current;
-    if (!host) return;
-    const onWheel = (event: WheelEvent) => {
-      event.preventDefault();
-      const box = host.getBoundingClientRect();
-      zoomAt(Math.exp(-event.deltaY * WHEEL_STEP), {
-        x: event.clientX - box.left,
-        y: event.clientY - box.top,
-      });
-    };
-    host.addEventListener("wheel", onWheel, { passive: false });
-    return () => host.removeEventListener("wheel", onWheel);
-  }, [ref, zoomAt]);
-
-  return (
-    <div
-      className="absolute inset-0 overflow-hidden"
-      onPointerDown={(event) => {
-        // Plain drag belongs to the lasso; panning takes the middle button or Alt.
-        if (event.button !== 1 && !event.altKey) return;
-        event.preventDefault();
-        event.currentTarget.setPointerCapture(event.pointerId);
-        panning.current = { x: event.clientX, y: event.clientY };
-      }}
-      onPointerMove={(event) => {
-        const from = panning.current;
-        if (!from) return;
-        panBy(event.clientX - from.x, event.clientY - from.y);
-        panning.current = { x: event.clientX, y: event.clientY };
-      }}
-      onPointerUp={() => {
-        panning.current = null;
-      }}
-      ref={ref}
-      style={{
-        backgroundImage: "radial-gradient(var(--border) 0.5px, transparent 0.5px)",
-        backgroundSize: "18px 18px",
-        backgroundPosition: `${camera.tx}px ${camera.ty}px`,
-      }}
-    >
-      {ready && height > 0 ? (
-        <div
-          className="size-full"
-          style={{
-            transform: `translate(${camera.tx}px, ${camera.ty}px) scale(${camera.k})`,
-            transformOrigin: "0 0",
-          }}
-        >
-          <Canvas display={applied} domain={domain} height={height} />
-        </div>
-      ) : (
-        <div className="grid size-full place-items-center">
-          <Skeleton className="h-3/4 w-3/4" />
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Legend, counts, search, inspector ────────────────────────────────────────
 
 function LegendRows() {
   const { rows } = useChartQuery({
@@ -540,7 +149,7 @@ function LegendRows() {
     <ul className="space-y-1">
       {Object.entries(KINDS).map(([kind, series]) => (
         <li className="flex items-center gap-2 text-xs" key={kind}>
-          <span className="size-2 shrink-0 rounded-full" style={{ background: series.color }} />
+          <LegendSwatch kind={kind} />
           <span>{series.label}</span>
           <span className="ms-auto ps-4 text-muted-foreground tabular-nums">
             {rows === null ? "—" : (tally.get(kind) ?? 0)}
@@ -561,7 +170,7 @@ export function GraphLegend() {
         <ul className="space-y-1">
           {Object.entries(KINDS).map(([kind, series]) => (
             <li className="flex items-center gap-2 text-xs" key={kind}>
-              <span className="size-2 shrink-0 rounded-full" style={{ background: series.color }} />
+              <LegendSwatch kind={kind} />
               <span>{series.label}</span>
             </li>
           ))}
@@ -573,9 +182,16 @@ export function GraphLegend() {
 
 /** Live totals against the whole corpus — "of" is the crossfilter, not a guess. */
 function CountRow() {
-  const nodes = useChartQuery({ query: (filter) => Query.from(NODES).select({ n: count() }).where(filter) });
-  const total = useChartQuery({ filterBy: null, query: () => Query.from(NODES).select({ n: count() }) });
-  const edges = useChartQuery({ query: (filter) => Query.from(EDGES).select({ n: count() }).where(filter) });
+  const nodes = useChartQuery({
+    query: (filter) => Query.from(NODES).select({ n: count() }).where(filter),
+  });
+  const total = useChartQuery({
+    filterBy: null,
+    query: () => Query.from(NODES).select({ n: count() }),
+  });
+  const edges = useChartQuery({
+    query: (filter) => Query.from(EDGES).select({ n: count() }).where(filter),
+  });
 
   const shown = Number(nodes.row?.n ?? 0);
   const all = Number(total.row?.n ?? 0);
@@ -590,35 +206,46 @@ function CountRow() {
   );
 }
 
+/**
+ * The layout's state, as one badge.
+ *
+ * All three states are named. A converged layout and a paused one are the same still picture, so
+ * leaving either unlabelled — or only ever showing "settling…" — makes the canvas ambiguous exactly
+ * when the reader is wondering whether it is stuck.
+ */
+const MOTION: Record<Motion, { dot: "info" | "success" | "warning"; label: string }> = {
+  running: { dot: "info", label: "Settling" },
+  settled: { dot: "success", label: "Settled" },
+  paused: { dot: "warning", label: "Paused" },
+};
+
+export function MotionBadge({ className }: { className?: string }) {
+  const { motion, ready } = useGraphView();
+  if (!ready) return null;
+  const state = MOTION[motion];
+  return (
+    <Badge className={cn("gap-1.5", className)} size="xs" variant="outline">
+      <Status
+        className={cn("ring-0", motion === "running" && "animate-pulse")}
+        size="sm"
+        variant={state.dot}
+      />
+      {state.label}
+    </Badge>
+  );
+}
+
 export function GraphCounts() {
   const { ready } = useGraphView();
   return (
-    <span className="px-1 text-muted-foreground text-xs tabular-nums">
-      {ready ? <CountRow /> : "Loading the corpus…"}
+    <span className="flex items-center gap-2 px-1 text-muted-foreground text-xs tabular-nums">
+      <span>{ready ? <CountRow /> : "Loading the corpus…"}</span>
+      <MotionBadge />
     </span>
   );
 }
 
-export function GraphZoom() {
-  const { zoomAt, fit } = useGraphView();
-  return (
-    <ButtonGroup
-      aria-label="Zoom and fit"
-      className="absolute end-2 bottom-2 z-10 bg-card/80 backdrop-blur-sm"
-      orientation="vertical"
-    >
-      <Button aria-label="Zoom in" onClick={() => zoomAt(1.4)} size="icon-sm" variant="outline">
-        <PlusIcon />
-      </Button>
-      <Button aria-label="Zoom out" onClick={() => zoomAt(1 / 1.4)} size="icon-sm" variant="outline">
-        <MinusIcon />
-      </Button>
-      <Button aria-label="Fit to view" onClick={fit} size="icon-sm" variant="outline">
-        <MaximizeIcon />
-      </Button>
-    </ButtonGroup>
-  );
-}
+// ── Inspector ────────────────────────────────────────────────────────────────
 
 interface NodeRow {
   id: number;
@@ -630,6 +257,17 @@ interface NodeRow {
   issued: string;
   keywords: string;
 }
+
+const COLUMNS = {
+  id: "id",
+  label: "label",
+  kind: "kind",
+  theme: "theme",
+  publisher: "publisher",
+  degree: "degree",
+  issued: "issued",
+  keywords: "keywords",
+};
 
 /**
  * A cell, as text. Never as whatever DuckDB happened to hand back: `issued` is a CSV column DuckDB
@@ -655,90 +293,434 @@ function properties(node: NodeRow): { predicate: string; value: string }[] {
 }
 
 function InspectorBody() {
-  const { rows } = useChartQuery({
+  const { commands, focused } = useGraphView();
+
+  const selection = useChartQuery({
     query: (filter) =>
-      Query.from(NODES)
-        .select({
-          id: "id", label: "label", kind: "kind", theme: "theme",
-          publisher: "publisher", degree: "degree", issued: "issued", keywords: "keywords",
-        })
-        .where(filter)
-        .orderby(desc("degree"), "label")
-        .limit(12),
+      Query.from(NODES).select(COLUMNS).where(filter).orderby(desc("degree"), "label").limit(12),
+  });
+  // A clicked node outranks the selection's head. Clicking publishes the node *and its
+  // neighbours*, and among those the reader's node is rarely the one with the highest degree — so
+  // ordering alone would answer a different question than the one the click asked.
+  const clicked = useChartQuery({
+    filterBy: null,
+    deps: [focused],
+    query: () =>
+      focused === null ? null : Query.from(NODES).select(COLUMNS).where(`id = ${focused}`),
   });
 
+  const rows = selection.rows;
   if (rows === null) return <Skeleton className="h-24 w-full" />;
   if (rows.length === 0) {
     return <p className="text-muted-foreground text-xs">Nothing in the current selection.</p>;
   }
 
-  const [focused, ...rest] = rows as unknown as NodeRow[];
-  if (!focused) return null;
+  const all = rows as unknown as NodeRow[];
+  const pinned = (clicked.row as unknown as NodeRow | undefined) ?? null;
+  const head = pinned ?? all[0];
+  if (!head) return null;
+  const rest = all.filter((node) => node.id !== head.id);
 
   return (
     <div className="space-y-3">
       <div>
-        <p className="truncate font-medium text-sm">{focused.label}</p>
+        <p className="truncate font-medium text-sm">{head.label}</p>
         <p className="mt-0.5 break-all text-muted-foreground text-xs">
-          urn:{focused.kind}:{focused.label}
+          urn:{head.kind}:{head.label}
         </p>
-        <Badge className="mt-1 text-[10px]" size="xs" variant="outline">
-          {KINDS[focused.kind]?.label ?? focused.kind}
-        </Badge>
+        <div className="mt-1 flex items-center gap-1.5">
+          <Badge className="text-[10px]" size="xs" variant="outline">
+            {KINDS[head.kind]?.label ?? head.kind}
+          </Badge>
+          {/* "Reveal" said nothing about what it reveals or where. It moves the CAMERA: the node
+              is already on screen somewhere, and this brings it into view. */}
+          <Button
+            className="h-5 gap-1 text-[10px]"
+            onClick={() => commands.reveal(head.id)}
+            size="xs"
+            title="Bring this node into view on the canvas"
+            variant="ghost"
+          >
+            <CrosshairIcon className="size-3" />
+            Find on canvas
+          </Button>
+        </div>
       </div>
       <dl className="space-y-2 text-sm">
-        {properties(focused).map((p) => (
+        {properties(head).map((p) => (
           <div className="flex flex-col gap-0.5" key={p.predicate}>
             <dt className="font-medium text-muted-foreground text-xs">{p.predicate}</dt>
             <dd className="break-all">{p.value}</dd>
           </div>
         ))}
       </dl>
-      {rest.length > 0 && (
+      <Show when={rest.length > 0}>
         <div className="border-t pt-2">
-          <p className="mb-1 font-medium text-muted-foreground text-xs">Also in this selection</p>
+          <p className="mb-1 font-medium text-muted-foreground text-xs">
+            {pinned ? "Connected to it" : "Also in this selection"}
+          </p>
           <ul className="space-y-0.5">
             {rest.map((node) => (
-              <li className="flex items-center gap-2 text-xs" key={node.id}>
-                <span
-                  className="size-1.5 shrink-0 rounded-full"
-                  style={{ background: KINDS[node.kind]?.color }}
-                />
-                <span className="truncate">{node.label}</span>
-                <span className="ms-auto ps-2 text-muted-foreground tabular-nums">
-                  {node.degree}
-                </span>
+              <li key={node.id}>
+                <button
+                  className="flex w-full items-center gap-2 rounded-sm px-1 py-0.5 text-start text-xs hover:bg-accent/60"
+                  onClick={() => commands.reveal(node.id)}
+                  type="button"
+                >
+                  <span
+                    className="size-1.5 shrink-0 rounded-full"
+                    style={{ background: KINDS[node.kind]?.color }}
+                  />
+                  <span className="truncate">{node.label}</span>
+                  <span className="ms-auto ps-2 text-muted-foreground tabular-nums">
+                    {node.degree}
+                  </span>
+                </button>
               </li>
             ))}
           </ul>
         </div>
-      )}
+      </Show>
     </div>
   );
 }
 
-// ── Rules and Settings ───────────────────────────────────────────────────────
-
+/** The Info tab: a real search over `label`, and the current selection ranked by degree. */
 /**
- * The Rules panel — a shape-based validator, and the graph is the report.
+ * Find one entity and select it.
  *
- * A conformance report is a list of counts, which is a list of `count(*) FILTER (WHERE …)`, which is
- * one query. So every shape here carries the SQL that identifies the nodes **failing** it, all of
- * them are counted in a single pass over the relation, and the count is the report.
+ * Not `ChartSearch`, and the difference is what the control MEANS. `ChartSearch` publishes a
+ * `clauseMatch` — a substring filter over a column — and offers completions through a native
+ * `<datalist>`. That is the right instrument for "narrow this to everything containing eu-", and
+ * the wrong one for "take me to this node": a datalist cannot be styled, differs in every browser,
+ * has no empty state, shows no context beside a value, and silently stops at its limit.
  *
- * What makes it visual rather than a table: focusing a shape queries the failing ids and publishes
- * them into the crossfilter, so the canvas lights up exactly the offending nodes, the legend
- * retallies by kind, the footer says how many, and the inspector ranks them by degree. The panel
- * does not draw anything or know that any of those exist — it publishes a selection.
- *
- * The counts are read against the whole corpus (`filterBy: null`), not the current view: a
- * validation report that changed as you browsed would be a different question every time you looked.
+ * Picking is a value, so this is a `Combobox`, and what it publishes is that node's id — the
+ * canvas lights it up, the panel below describes it, and the footer retallies. The list is capped
+ * and SAYS it is capped, which is the part the datalist could not do.
  */
+const SEARCH_LIMIT = 50;
+
+function EntitySearch() {
+  const { crossfilter } = useMosaic();
+  const source = useRef({ shape: "entity-search" });
+
+  // The whole corpus, once, against no filter: a search that only finds what is already on screen
+  // cannot take you anywhere. 582 rows is small enough to filter in the browser; a real corpus
+  // would query per keystroke instead.
+  const { rows } = useChartQuery({
+    filterBy: null,
+    query: () =>
+      Query.from(NODES).select({ id: "id", label: "label", kind: "kind" }).orderby(desc("degree")),
+  });
+
+  const items = useMemo(
+    () =>
+      (rows ?? []).map((row) => ({
+        label: String(row.label),
+        value: String(row.id),
+        kind: String(row.kind),
+      })),
+    [rows],
+  );
+
+  const { contains } = useFilter({ sensitivity: "base" });
+  const { collection, filter, set } = useListCollection({
+    filter: contains,
+    initialItems: items,
+    limit: SEARCH_LIMIT,
+  });
+
+  const loaded = useRef(false);
+  useEffect(() => {
+    if (loaded.current || items.length === 0) return;
+    loaded.current = true;
+    set(items);
+  }, [items, set]);
+
+  return (
+    <Combobox
+      collection={collection}
+      onInputValueChange={(details) => filter(details.inputValue)}
+      onValueChange={(details) => {
+        const picked = details.value[0];
+        crossfilter.update(
+          clausePoints(["id"], picked ? [[Number(picked)]] : undefined, {
+            source: source.current,
+          }),
+        );
+      }}
+    >
+      <ComboboxInput placeholder="Find an entity…" size="sm" />
+      <ComboboxContent>
+        <ComboboxEmpty>Nothing by that name.</ComboboxEmpty>
+        {collection.items.map((item) => (
+          <ComboboxItem item={item} key={item.value}>
+            <span className="min-w-0 truncate">{item.label}</span>
+            <span className="ms-auto ps-2 text-muted-foreground text-xs">
+              {KINDS[item.kind as NodeKind]?.label ?? item.kind}
+            </span>
+          </ComboboxItem>
+        ))}
+        <Show when={collection.items.length >= SEARCH_LIMIT}>
+          <p className="border-t px-2 py-1.5 text-muted-foreground text-xs">
+            First {SEARCH_LIMIT}. Keep typing to narrow it.
+          </p>
+        </Show>
+      </ComboboxContent>
+    </Combobox>
+  );
+}
+
+export function GraphInspector() {
+  const { ready } = useGraphView();
+  return (
+    <div className="flex h-full flex-col">
+      <div className="shrink-0 border-b border-border p-2">
+        {ready ? (
+          <EntitySearch />
+        ) : (
+          <TextField
+            disabled
+            iconStart={<SearchIcon className="size-3.5" />}
+            placeholder="Search entities…"
+            size="sm"
+          />
+        )}
+      </div>
+      <ScrollArea className="min-h-0 flex-1 p-3">
+        {ready ? <InspectorBody /> : <Skeleton className="h-24 w-full" />}
+      </ScrollArea>
+    </div>
+  );
+}
+
+// ── Rules ────────────────────────────────────────────────────────────────────
+
 const SEVERITY_DOT: Record<Severity, string> = {
   violation: "bg-destructive",
   warning: "bg-warning",
   info: "bg-info",
 };
+
+/** What a value looks like for each constraint — the placeholder does the explaining. */
+const VALUE_HINT: Record<ConstraintKind, string> = {
+  minCount: "1",
+  maxCount: "5",
+  minInclusive: "2020-01-01",
+  maxInclusive: "100",
+  in: "parquet, csv",
+  pattern: "^eu-",
+};
+
+const SEVERITY_LABEL: Record<Severity, string> = {
+  violation: "Violation",
+  warning: "Warning",
+  info: "Info",
+};
+
+// Built once, outside the component: a collection rebuilt every render gives the Select a new
+// identity on each keystroke elsewhere in the panel.
+const of = (values: readonly string[], label: (v: string) => string = (v) => v) =>
+  createListCollection({ items: values.map((value) => ({ label: label(value), value })) });
+
+const TARGETS_LIST = of(SUPPORTED_TARGETS);
+const PATHS_LIST = of(SUPPORTED_PATHS);
+const KINDS_LIST = of(CONSTRAINT_KINDS, (v) => `sh:${v}`);
+const SEVERITY_LIST = of(
+  Object.keys(SEVERITY_LABEL) as Severity[],
+  (v) => SEVERITY_LABEL[v as Severity],
+);
+
+/** One row of the sentence: a connective and the control that completes it. */
+function RulePart({
+  children,
+  collection,
+  label,
+  mono = true,
+  onChange,
+  value,
+}: {
+  children?: React.ReactNode;
+  collection: ReturnType<typeof of>;
+  label: string;
+  /** The terms are identifiers; the severity is a plain English word. */
+  mono?: boolean;
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="w-16 shrink-0 text-end text-muted-foreground text-xs">{label}</span>
+      <Select
+        className="min-w-0 flex-1"
+        collection={collection}
+        onValueChange={(details) => details.value[0] && onChange(details.value[0])}
+        positioning={{ sameWidth: true }}
+        value={[value]}
+      >
+        {/* Mono for the term, sans for the connective: a CURIE is an identifier and the rules list
+            below already sets it that way, so a sans-serif `dct:issued` in the form and a mono one
+            in the list read as two different things. */}
+        <SelectTrigger aria-label={label} className={cn("h-8 w-full text-xs", mono && "font-mono")}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {collection.items.map((item) => (
+            <SelectItem item={item} key={item.value}>
+              {item.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * The rule builder — menus in, Turtle out.
+ *
+ * It has no model of its own: it appends a `sh:property` to the document the panel already
+ * compiles, so a rule you pick from these menus and a rule you uploaded are the same thing by the
+ * time anything downstream sees either. The menus offer only what `./shacl` can map, which is why
+ * a built rule always compiles.
+ */
+function RuleBuilder({
+  rules,
+  onAdd,
+}: {
+  rules: Rule[];
+  onAdd: (rule: Omit<Rule, "id">) => void;
+}) {
+  const [target, setTarget] = useState(SUPPORTED_TARGETS[0] ?? "dcat:Dataset");
+  const [path, setPath] = useState(SUPPORTED_PATHS[0] ?? "dct:issued");
+  const [kind, setKind] = useState<ConstraintKind>("minCount");
+  const [value, setValue] = useState("1");
+  const [severity, setSeverity] = useState<Severity>("violation");
+
+  // One constraint of a kind per path, because that is all the document can say apart: a second
+  // `sh:minCount` on the same path would compile to a shape with the same identity as the first.
+  const duplicate = rules.some(
+    (rule) => rule.target === target && rule.path === path && rule.kind === kind,
+  );
+  // Two different reasons Add can be off, and the field only owns one of them: marking the value
+  // invalid because the PATH already has this constraint would blame the wrong control.
+  const valueOk = isValidValue(kind, value);
+  const valid = valueOk && !duplicate;
+  /** A bound on a date column is a date — the only place the control needs the path's datatype. */
+  const isDateBound =
+    pathDatatype(path) === "date" && (kind === "minInclusive" || kind === "maxInclusive");
+
+  return (
+    <div className="space-y-1.5 border-t pt-3">
+      <p className="font-medium text-muted-foreground text-xs">Add a rule</p>
+      {/* Read as the sentence a shape actually is — every X must have Y, so-and-so — rather than
+          as five unlabelled dropdowns. The connectives carry the labelling, which is why the
+          controls only need `aria-label`: in a 320px dock a label column would leave nothing for
+          the values. */}
+      <div className="space-y-1.5 rounded-md border bg-muted/24 p-2">
+        <RulePart collection={TARGETS_LIST} label="Every" onChange={setTarget} value={target} />
+        <RulePart collection={PATHS_LIST} label="must have" onChange={setPath} value={path} />
+        <RulePart
+          collection={KINDS_LIST}
+          label="checked by"
+          onChange={(next) => {
+            setKind(next as ConstraintKind);
+            setValue(VALUE_HINT[next as ConstraintKind]);
+          }}
+          value={kind}
+        />
+        <div className="flex items-start gap-1.5">
+          <span className="mt-1.5 w-16 shrink-0 text-end text-muted-foreground text-xs">
+            against
+          </span>
+          {/* The control follows the constraint AND the path, because between them they decide
+              what a value IS. `sh:in` is a set, so it gets tags rather than a line of text with
+              commas in it; a bound on a date column is a date; a cardinality is a number with
+              steppers. Typing "2020-13-01" into a text box and finding out from DuckDB is the
+              version of this the panel used to have. */}
+          <div className="min-w-0 flex-1">
+            {kind === "in" ? (
+              <TagsInput
+                invalid={!valueOk}
+                onValueChange={(details) => setValue(details.value.join(", "))}
+                value={members(value)}
+              >
+                <TagsInputControl>
+                  <TagsInputContext>
+                    {(api) =>
+                      api.value.map((entry, index) => (
+                        <TagsInputItem index={index} key={`${entry}-${index}`} value={entry}>
+                          <TagsInputItemPreview>
+                            <TagsInputItemText>{entry}</TagsInputItemText>
+                            <TagsInputItemDeleteTrigger />
+                          </TagsInputItemPreview>
+                          <TagsInputItemInput />
+                        </TagsInputItem>
+                      ))
+                    }
+                  </TagsInputContext>
+                  <TagsInputInput placeholder="add a value…" />
+                </TagsInputControl>
+              </TagsInput>
+            ) : isDateBound ? (
+              <DateField
+                aria-label="Value"
+                invalid={!valueOk}
+                onChange={(next) => setValue(next ?? "")}
+                value={value}
+              />
+            ) : kind === "minCount" || kind === "maxCount" ? (
+              <NumberField
+                aria-label="Value"
+                className="h-8 w-full font-mono text-xs"
+                invalid={!valueOk}
+                min={0}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder={VALUE_HINT[kind]}
+                value={value}
+              />
+            ) : (
+              <TextField
+                aria-label="Value"
+                className="h-8 w-full font-mono text-xs"
+                invalid={!valueOk}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder={VALUE_HINT[kind]}
+                value={value}
+              />
+            )}
+          </div>
+        </div>
+        <RulePart
+          collection={SEVERITY_LIST}
+          label="or it is a"
+          mono={false}
+          onChange={(next) => setSeverity(next as Severity)}
+          value={severity}
+        />
+
+        <Button
+          className="w-full gap-1"
+          disabled={!valid}
+          onClick={() => onAdd({ target, path, kind, value, severity })}
+          size="sm"
+          variant="secondary"
+        >
+          <PlusIcon className="size-3.5" />
+          Add
+        </Button>
+
+        <Show when={duplicate}>
+          <p className="text-warning text-xs">
+            {target} already carries an sh:{kind} on {path}.
+          </p>
+        </Show>
+      </div>
+    </div>
+  );
+}
 
 /**
  * The Rules panel — a SHACL shapes file, compiled to SQL, with the graph as the report.
@@ -757,21 +739,42 @@ const SEVERITY_DOT: Record<Severity, string> = {
  */
 export function GraphRules() {
   const { ready } = useGraphView();
-  if (!ready) return <div className="p-3"><Skeleton className="h-32 w-full" /></div>;
+  if (!ready) {
+    return (
+      <div className="p-3">
+        <Skeleton className="h-32 w-full" />
+      </div>
+    );
+  }
   return <RulesBody />;
 }
 
 function RulesBody() {
-  const { coordinator, crossfilter } = useMosaic();
-  const clauses = useClauses(crossfilter);
+  const { select } = useGraphView();
+  const { coordinator } = useMosaic();
   const [turtle, setTurtle] = useState(DEFAULT_SHAPES);
   const [fileName, setFileName] = useState("kanzo-shapes.ttl");
-  const [focused, setFocused] = useState<string | null>(null);
   const [showSource, setShowSource] = useState(false);
-  /** One stable clause source: focusing a shape replaces the previous focus rather than stacking. */
-  const source = useRef({ shape: "validator" });
 
   const { shapes, unsupported, errors } = useMemo(() => compileShacl(turtle), [turtle]);
+
+  // The same document, read as rules the builder can write back. `exact` is what makes editing
+  // safe: regenerating the file drops whatever the builder could not read, so when anything would
+  // be lost the panel stays read-only and says what it is protecting.
+  const { rules, exact, lost } = useMemo(() => parseRules(turtle), [turtle]);
+
+  /** A shape that no longer exists must not keep lighting up nodes. */
+  const unfocus = () => select(null);
+
+  const addRule = (rule: Omit<Rule, "id">) => {
+    unfocus();
+    setTurtle(toTurtle([...rules, rule]));
+  };
+
+  const removeRule = (id: string) => {
+    unfocus();
+    setTurtle(toTurtle(rules.filter((rule) => rule.id !== id)));
+  };
 
   // Every shape's failing count, in one pass over the relation.
   const { row } = useChartQuery({
@@ -780,40 +783,32 @@ function RulesBody() {
     query: () =>
       shapes.length === 0
         ? null
-        : // `asVerbatim` is how a trusted SQL fragment becomes an expression node — the same
-          // coercion `where()` applies to a raw string.
+        : // `sql` nests the compiler's predicate as a node rather than pasting its text: the
+          // aggregate is the only SQL written here, and `s.failing` arrives already built.
           Query.from(NODES).select(
             Object.fromEntries(
-              shapes.map((s, i) => [`c${i}`, asVerbatim(`count(*) FILTER (WHERE ${s.failing})`)]),
+              shapes.map((s, i) => [`c${i}`, sql`count(*) FILTER (WHERE ${s.failing})`]),
             ),
           ),
   });
 
   const countOf = (i: number) => Number(row?.[`c${i}`] ?? 0);
+  /** No row yet: the counts are being queried, not zero. */
+  const pending = row === undefined;
   const total = (severity: Severity) =>
     shapes.reduce((n, s, i) => (s.severity === severity ? n + countOf(i) : n), 0);
   const violations = total("violation");
   const warnings = total("warning");
 
-  const focus = async (shape: Shape) => {
-    if (focused === shape.id) {
-      setFocused(null);
-      crossfilter.update(clausePoints(["id"], undefined, { source: source.current }));
-      return;
-    }
-    setFocused(shape.id);
+  const failingIds = async (shape: Shape) => {
     const data = await onceQuery(coordinator, () =>
       Query.from(NODES).select({ id: "id" }).where(shape.failing),
     );
-    const ids = Array.from(
-      (data as { getChild(name: string): { toArray(): ArrayLike<number> } }).getChild("id").toArray(),
-    );
-    crossfilter.update(clausePoints(["id"], ids.map((id) => [id]), { source: source.current }));
+    return numbers(data, "id");
   };
 
   const load = async (file: File) => {
-    setFocused(null);
-    crossfilter.update(clausePoints(["id"], undefined, { source: source.current }));
+    unfocus();
     setFileName(file.name);
     setTurtle(await file.text());
   };
@@ -853,27 +848,27 @@ function RulesBody() {
           >
             {showSource ? "Hide source" : "Source"}
           </Button>
-          {turtle !== DEFAULT_SHAPES && (
+          <Show when={turtle !== DEFAULT_SHAPES}>
             <Button
               className="h-6 shrink-0 text-xs"
               onClick={() => {
                 setTurtle(DEFAULT_SHAPES);
                 setFileName("kanzo-shapes.ttl");
-                setFocused(null);
+                unfocus();
               }}
               size="xs"
               variant="ghost"
             >
               Reset
             </Button>
-          )}
+          </Show>
         </div>
 
-        {showSource && (
+        <Show when={showSource}>
           <pre className="max-h-48 overflow-auto rounded-md border bg-muted/40 p-2 font-mono text-[10px] leading-relaxed">
             {turtle}
           </pre>
-        )}
+        </Show>
 
         {errors.length > 0 ? (
           <div className="space-y-1 rounded-md border border-destructive/40 p-2">
@@ -890,49 +885,86 @@ function RulesBody() {
         ) : (
           <p className="text-xs">
             <span className="text-destructive">{violations} violations</span>
-            {warnings > 0 && <span className="text-muted-foreground"> · {warnings} warnings</span>}
+            <Show when={warnings > 0}>
+              <span className="text-muted-foreground"> · {warnings} warnings</span>
+            </Show>
           </p>
         )}
 
         <ul className="space-y-1">
           {shapes.map((shape, i) => {
             const n = countOf(i);
-            const clean = n === 0;
+            // `pending` is not `clean`. An absent row means the count is in flight — editing a rule
+            // re-runs the query — and `?? 0` would otherwise put a green tick on every shape,
+            // which is a report claiming conformance it has not measured.
+            const clean = !pending && n === 0;
             return (
-              <li key={shape.id}>
-                <button
-                  aria-pressed={focused === shape.id}
-                  className={cn(
-                    "w-full rounded-md border p-2 text-start transition-colors",
-                    "hover:bg-accent/50 disabled:cursor-default disabled:hover:bg-transparent",
-                    focused === shape.id && "border-primary/50 bg-accent/60",
-                  )}
-                  disabled={clean}
-                  onClick={() => void focus(shape)}
-                  type="button"
+              <li className="flex items-stretch gap-1" key={shape.id}>
+                <Finding
+                  disabled={pending || clean}
+                  label={`${shape.target} ${shape.constraint}`}
+                  load={() => failingIds(shape)}
+                  source="rule"
                 >
                   <span className="flex items-center gap-2">
                     <span
                       className={cn(
                         "size-1.5 shrink-0 rounded-full",
-                        clean ? "bg-success" : SEVERITY_DOT[shape.severity],
+                        pending && "bg-muted-foreground/40",
+                        !pending && (clean ? "bg-success" : SEVERITY_DOT[shape.severity]),
                       )}
                     />
                     <code className="font-mono text-[10px] text-muted-foreground">
                       {shape.target}
                     </code>
-                    <span className="ms-auto text-xs tabular-nums">{clean ? "\u2713" : n}</span>
+                    <span
+                      className={cn(
+                        "ms-auto text-xs tabular-nums",
+                        pending && "text-muted-foreground",
+                      )}
+                    >
+                      {pending ? "…" : clean ? "✓" : n}
+                    </span>
                   </span>
                   <span className="mt-0.5 block truncate font-mono text-[11px]">
                     {shape.constraint}
                   </span>
-                </button>
+                </Finding>
+                <Show when={exact}>
+                  <Button
+                    aria-label={`Remove ${shape.constraint}`}
+                    className="h-auto shrink-0 self-stretch text-muted-foreground"
+                    onClick={() => removeRule(shape.id)}
+                    size="icon-sm"
+                    variant="ghost"
+                  >
+                    <XIcon className="size-3.5" />
+                  </Button>
+                </Show>
               </li>
             );
           })}
         </ul>
 
-        {unsupported.length > 0 && (
+        {/* The builder writes the document it just read, so it only opens when reading was
+            lossless. Editing an inexact file would regenerate it without whatever the builder
+            could not express — which is the failure this whole panel is arguing against. */}
+        {exact ? (
+          <RuleBuilder onAdd={addRule} rules={rules} />
+        ) : (
+          <div className="space-y-1 border-t pt-3">
+            <p className="font-medium text-muted-foreground text-xs">
+              Read-only — this file says more than the builder can write
+            </p>
+            {lost.map((message) => (
+              <p className="font-mono text-[10px] text-muted-foreground" key={message}>
+                {message}
+              </p>
+            ))}
+          </div>
+        )}
+
+        <Show when={unsupported.length > 0}>
           <div className="space-y-1 border-t pt-2">
             <p className="font-medium text-muted-foreground text-xs">
               Not checked — outside the supported subset
@@ -943,136 +975,306 @@ function RulesBody() {
               </p>
             ))}
           </div>
-        )}
+        </Show>
 
-        <div className="space-y-2 border-t pt-3">
-          <div className="flex items-center justify-between">
-            <p className="font-medium text-muted-foreground text-xs">Focused</p>
-            <Button
-              className="h-6 text-xs"
-              disabled={clauses.length === 0}
-              onClick={() => {
-                setFocused(null);
-                crossfilter.reset();
-              }}
-              size="xs"
-              variant="ghost"
-            >
-              Clear
-            </Button>
-          </div>
-          <FilterChips
-            className="flex flex-wrap gap-1.5"
-            empty="Pick a failing shape to light up the nodes that break it."
-            selection={crossfilter}
-          />
-        </div>
+        {/* No "Focused" block here. The selection belongs to ONE place — `GraphSelection`, in the
+            canvas corner — and it was appearing in every dock panel that could publish a clause,
+            so clearing it read as a per-panel action when the thing being cleared is the page's
+            single crossfilter. A shape published from here shows up there, like any other. */}
       </div>
     </ScrollArea>
   );
 }
 
+// ── Settings ─────────────────────────────────────────────────────────────────
+
+function Range({
+  disabled,
+  format,
+  label,
+  max,
+  min,
+  onChange,
+  step,
+  value,
+}: {
+  disabled?: boolean;
+  format?: (value: number) => string;
+  label: string;
+  max: number;
+  min: number;
+  onChange: (value: number) => void;
+  step: number;
+  value: number;
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <span className="text-xs">{label}</span>
+        <span className="text-[10px] text-muted-foreground tabular-nums">
+          {format ? format(value) : value.toFixed(2)}
+        </span>
+      </div>
+      <Slider
+        disabled={disabled}
+        max={max}
+        min={min}
+        onValueChange={(d) => onChange(d.value[0] ?? value)}
+        step={step}
+        value={[value]}
+      />
+    </div>
+  );
+}
+
+const sameDisplay = (a: typeof DEFAULT_DISPLAY, b: typeof DEFAULT_DISPLAY) =>
+  a.links === b.links &&
+  a.labels === b.labels &&
+  a.grid === b.grid &&
+  a.pointScale === b.pointScale &&
+  a.linkOpacity === b.linkOpacity;
+
+const sameSim = (a: typeof DEFAULT_SIM, b: typeof DEFAULT_SIM) =>
+  a.gravity === b.gravity &&
+  a.repulsion === b.repulsion &&
+  a.linkSpring === b.linkSpring &&
+  a.linkDistance === b.linkDistance &&
+  a.friction === b.friction &&
+  a.cluster === b.cluster;
+
 /**
- * The Settings panel — the only things here are the ones that change the picture.
+ * What a gesture does, as a legend rather than a paragraph.
  *
- * It used to carry four "Simulation" sliders (charge, link distance, gravity, friction) wired to
- * `useState` and nothing else. There is no simulation on this route: the layout is computed once and
- * stored as columns, so those sliders could never have done anything. What a reader of a static
- * layout can actually adjust is what gets drawn, and that is what this panel now holds.
+ * The prose version was a run-on sentence with five `<kbd>`s buried in it. A reader scanning for
+ * "how do I select two clusters" wants a table, and the library already ships the parts: `Kbd` for
+ * a key, `KbdGroup` for a chord.
+ */
+const GESTURES: { keys: ReactNode; what: string }[] = [
+  { keys: <Kbd>Drag</Kbd>, what: "Pan the canvas — or move a node, if you grab one" },
+  { keys: <Kbd>Wheel</Kbd>, what: "Zoom where you point" },
+  { keys: <Kbd>Click</Kbd>, what: "Focus a node together with its neighbours" },
+  {
+    keys: (
+      <KbdGroup>
+        <Kbd>Shift</Kbd>
+        <Kbd>Drag</Kbd>
+      </KbdGroup>
+    ),
+    what: "Marquee, without picking a tool first",
+  },
+  { keys: <Kbd>⌘ / Ctrl</Kbd>, what: "Add what you draw to the selection" },
+  { keys: <Kbd>Alt</Kbd>, what: "Remove it from the selection instead" },
+  { keys: <Kbd>Esc</Kbd>, what: "Back out — the drag, then the tool, then the selection" },
+];
+
+/**
+ * The Settings panel, in two halves that never meet.
+ *
+ * **Look** and **Display** change how the picture is drawn — a buffer upload and a `setConfig`, no
+ * query and no restart. **Layout** changes the forces the GPU integrates, so nudging one re-heats
+ * the simulation and the graph reorganises under you. That separation is what the previous canvas
+ * could not offer: with the layout frozen into two columns, simulation sliders were furniture.
  */
 export function GraphSettings() {
-  const { display, setDisplay, fit } = useGraphView();
+  const { commands, display, look, resetSim, setDisplay, setLook, setSim, sim, spec } =
+    useGraphView();
 
   return (
     <ScrollArea className="h-full p-3">
       <div className="space-y-4">
-        <p className="font-medium text-muted-foreground text-xs">Display</p>
-
-        <div className="flex items-center justify-between">
-          <span className="text-xs">Show links</span>
-          <Switch
-            checked={display.links}
-            onCheckedChange={(d) => setDisplay({ links: d.checked === true })}
-          />
+        <div className="space-y-2">
+          <p className="font-medium text-muted-foreground text-xs">Look</p>
+          {LOOK_ORDER.map((id) => (
+            <button
+              aria-pressed={look === id}
+              className={cn(
+                "w-full rounded-md border p-2 text-start transition-colors hover:bg-accent/50",
+                look === id && "border-primary/50 bg-accent/60",
+              )}
+              key={id}
+              onClick={() => setLook(id)}
+              type="button"
+            >
+              <span className="flex items-center gap-2">
+                <span className="font-medium text-xs">{LOOKS[id].label}</span>
+                <span className="ms-auto flex items-center gap-1">
+                  {LEGEND_DOMAIN.map((kind) => {
+                    const preview = scaleOf(LOOKS[id], LEGEND_DOMAIN);
+                    return (
+                      <ShapeGlyph
+                        className="size-2"
+                        color={preview.color(kind)}
+                        key={kind}
+                        shape={preview.shape(kind)}
+                      />
+                    );
+                  })}
+                </span>
+              </span>
+              <span className="mt-0.5 block text-[10px] text-muted-foreground leading-relaxed">
+                {LOOKS[id].blurb}
+              </span>
+            </button>
+          ))}
         </div>
 
-        <div className="space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-xs">Node size</span>
-            <span className="text-[10px] text-muted-foreground tabular-nums">
-              {display.nodeSize.toFixed(1)}
-            </span>
-          </div>
-          <Slider
-            max={6}
-            min={1}
-            onValueChange={(d) => setDisplay({ nodeSize: d.value[0] ?? DEFAULT_DISPLAY.nodeSize })}
-            step={0.2}
-            value={[display.nodeSize]}
-          />
-        </div>
+        <div className="space-y-3 border-t pt-3">
+          <p className="font-medium text-muted-foreground text-xs">Display</p>
 
-        <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-xs">Edge opacity</span>
-            <span className="text-[10px] text-muted-foreground tabular-nums">
-              {display.edgeOpacity.toFixed(2)}
-            </span>
+            <span className="text-xs">Show links</span>
+            <Switch
+              checked={display.links}
+              onCheckedChange={(d) => setDisplay({ links: d.checked === true })}
+            />
           </div>
-          <Slider
+
+          <div className="flex items-center justify-between">
+            <span className="text-xs">Labels</span>
+            <Switch
+              checked={display.labels}
+              onCheckedChange={(d) => setDisplay({ labels: d.checked === true })}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-xs">Dot grid</span>
+            <Switch
+              checked={display.grid}
+              onCheckedChange={(d) => setDisplay({ grid: d.checked === true })}
+            />
+          </div>
+
+          <Range
+            format={(v) => `${v.toFixed(1)}×`}
+            label="Node size"
+            max={2.5}
+            min={0.4}
+            onChange={(pointScale) => setDisplay({ pointScale })}
+            step={0.1}
+            value={display.pointScale}
+          />
+
+          <Range
+            format={(v) => `${v.toFixed(1)}×`}
+            label="Edge opacity"
             disabled={!display.links}
-            max={0.8}
-            min={0.04}
-            onValueChange={(d) =>
-              setDisplay({ edgeOpacity: d.value[0] ?? DEFAULT_DISPLAY.edgeOpacity })
-            }
-            step={0.02}
-            value={[display.edgeOpacity]}
+            max={3}
+            min={0.1}
+            onChange={(linkOpacity) => setDisplay({ linkOpacity })}
+            step={0.1}
+            value={display.linkOpacity}
           />
+
+        </div>
+
+        <div className="space-y-3 border-t pt-3">
+          <div className="flex items-center justify-between">
+            <p className="font-medium text-muted-foreground text-xs">Layout</p>
+            <MotionBadge />
+          </div>
+
+          <Range
+            label="Gravity"
+            max={1}
+            min={0}
+            onChange={(gravity) => setSim({ gravity })}
+            step={0.02}
+            value={sim.gravity}
+          />
+          <Range
+            label="Repulsion"
+            max={2}
+            min={0}
+            onChange={(repulsion) => setSim({ repulsion })}
+            step={0.05}
+            value={sim.repulsion}
+          />
+          <Range
+            label="Link spring"
+            max={2}
+            min={0}
+            onChange={(linkSpring) => setSim({ linkSpring })}
+            step={0.05}
+            value={sim.linkSpring}
+          />
+          <Range
+            format={(v) => v.toFixed(0)}
+            label="Link distance"
+            max={40}
+            min={1}
+            onChange={(linkDistance) => setSim({ linkDistance })}
+            step={1}
+            value={sim.linkDistance}
+          />
+          <Range
+            label="Friction"
+            max={1}
+            min={0.5}
+            onChange={(friction) => setSim({ friction })}
+            step={0.01}
+            value={sim.friction}
+          />
+          {/* The control is named by the spec, not by this corpus. A canvas told which column
+              groups its nodes can say so; one that hardcodes "Theme" only ever had one dataset. */}
+          <Show when={spec.groupField !== undefined}>
+            <Range
+              label="Clustering"
+              max={1}
+              min={0}
+              onChange={(cluster) => setSim({ cluster })}
+              step={0.02}
+              value={sim.cluster}
+            />
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Pulls each node toward its{" "}
+              <code className="font-mono">{spec.groupLabel ?? spec.groupField}</code>. A node with no
+              value there belongs to no cluster, so anything shared drifts between the groups it
+              joins.
+            </p>
+          </Show>
+
         </div>
 
         <div className="space-y-2 border-t pt-3">
           <p className="font-medium text-muted-foreground text-xs">Camera</p>
-          <Button className="w-full" onClick={fit} size="sm" variant="outline">
+          <Button className="w-full" onClick={() => commands.fit()} size="sm" variant="outline">
             <MaximizeIcon />
             Fit to view
           </Button>
-          <p className="text-[10px] text-muted-foreground leading-relaxed">
-            Wheel zooms where you point; Alt-drag or the middle button pans. Plain drag lassoes.
-          </p>
+        </div>
+
+        <div className="space-y-2 border-t pt-3">
+          <p className="font-medium text-muted-foreground text-xs">Gestures</p>
+          <dl className="space-y-1.5">
+            {GESTURES.map((gesture) => (
+              <div className="flex items-baseline gap-2" key={gesture.what}>
+                <dt className="shrink-0">{gesture.keys}</dt>
+                <dd className="text-[11px] text-muted-foreground leading-snug">{gesture.what}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+
+        {/* One reset, and its own block: it restores Display and Layout, so hanging it off Camera
+            would have promised something it does not do. */}
+        <div className="border-t pt-3">
+          <Button
+            className="w-full"
+            disabled={sameDisplay(display, DEFAULT_DISPLAY) && sameSim(sim, DEFAULT_SIM)}
+            onClick={() => {
+              setDisplay(DEFAULT_DISPLAY);
+              resetSim();
+            }}
+            size="sm"
+            variant="ghost"
+          >
+            <RotateCcwIcon />
+            Reset display and layout
+          </Button>
         </div>
       </div>
     </ScrollArea>
-  );
-}
-
-/** The Info tab: a real search over `label`, and the current selection ranked by degree. */
-export function GraphInspector() {
-  const { ready } = useGraphView();
-  return (
-    <div className="flex h-full flex-col">
-      <div className="shrink-0 border-b border-border p-2">
-        {ready ? (
-          <ChartSearch
-            className="w-full min-w-0"
-            column="label"
-            placeholder="Search entities…"
-            size="sm"
-            table={NODES}
-          />
-        ) : (
-          <TextField
-            disabled
-            iconStart={<SearchIcon className="size-3.5" />}
-            placeholder="Search entities…"
-            size="sm"
-          />
-        )}
-      </div>
-      <ScrollArea className="min-h-0 flex-1 p-3">
-        {ready ? <InspectorBody /> : <Skeleton className="h-24 w-full" />}
-      </ScrollArea>
-    </div>
   );
 }
 
@@ -1163,12 +1365,8 @@ async function* completeQuestion(value: string, signal?: AbortSignal) {
 }
 
 /**
- * The intent's own question wins before any keyword does.
- *
- * Keywords alone are not enough and the first version proved it: "Which datasets were published
- * before 2020?" is the canned question for the stale-datasets intent and contains none of its
- * keywords, so picking a suggestion the panel had just offered was answered with "I do not know
- * that one". A suggestion must always resolve to the intent that produced it.
+ * The intent's own question wins before any keyword does — a suggestion the panel just offered must
+ * always resolve to the intent that produced it, and none of them contains its own keywords.
  */
 function match(question: string): Intent | null {
   const asked = question.trim().toLowerCase();
@@ -1179,7 +1377,13 @@ function match(question: string): Intent | null {
 
 export function GraphAsk() {
   const { ready } = useGraphView();
-  if (!ready) return <div className="p-3"><Skeleton className="h-24 w-full" /></div>;
+  if (!ready) {
+    return (
+      <div className="p-3">
+        <Skeleton className="h-24 w-full" />
+      </div>
+    );
+  }
   return <AskBody />;
 }
 
@@ -1189,12 +1393,11 @@ interface Answer {
 }
 
 function AskBody() {
-  const { coordinator, crossfilter } = useMosaic();
+  const { coordinator } = useMosaic();
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [missed, setMissed] = useState(false);
   const [busy, setBusy] = useState(false);
-  const source = useRef({ shape: "ask" });
 
   const submit = async (asked: string) => {
     const intent = match(asked);
@@ -1210,94 +1413,106 @@ function AskBody() {
     setBusy(false);
   };
 
-  const focus = async (intent: Intent) => {
+  const matchingIds = async (intent: Intent) => {
     const data = await onceQuery(coordinator, () =>
       Query.from(NODES).select({ id: "id" }).where(intent.failing),
     );
-    const ids = Array.from(
-      (data as { getChild(name: string): { toArray(): ArrayLike<number> } }).getChild("id").toArray(),
-    );
-    crossfilter.update(clausePoints(["id"], ids.map((id) => [id]), { source: source.current }));
+    return numbers(data, "id");
   };
 
   return (
     <div className="flex h-full flex-col">
       <ScrollArea className="min-h-0 flex-1 p-3">
         <div className="space-y-3">
-          {answer === null && !missed && (
+          <Show when={answer === null && !missed}>
             <p className="text-muted-foreground text-xs">
               Ask about the graph. Every answer is a query — the phrasing is canned, the numbers are
               not.
             </p>
-          )}
+          </Show>
 
-          {missed && (
+          <Show when={missed}>
             <p className="text-warning text-xs">
               That one is outside what this fake stream knows. Try the ✨ suggestions.
             </p>
-          )}
+          </Show>
 
-          {busy && <Skeleton className="h-10 w-full" />}
+          <Show when={busy}>
+            <Skeleton className="h-10 w-full" />
+          </Show>
 
-          {answer && (
-            <div className="space-y-2 rounded-md border p-2">
-              <p className="text-xs leading-relaxed">{answer.intent.answer(answer.count)}</p>
-              <code className="block truncate font-mono text-[10px] text-muted-foreground">
+          {/* The answer IS the control, the same way a rule is. A count you can act on should not
+              need a second widget to say so. */}
+          {answer ? (
+            <Finding
+              disabled={answer.count === 0}
+              label={answer.intent.question}
+              load={() => matchingIds(answer.intent)}
+              source="ask"
+            >
+              <span className="flex items-baseline gap-2">
+                <span className="flex-1 text-xs leading-relaxed">
+                  {answer.intent.answer(answer.count)}
+                </span>
+                <span className="shrink-0 font-medium text-xs tabular-nums">{answer.count}</span>
+              </span>
+              <code className="mt-1.5 block truncate font-mono text-[10px] text-muted-foreground">
                 {answer.intent.failing}
               </code>
-              <Button
-                className="h-6 w-full text-xs"
-                disabled={answer.count === 0}
-                onClick={() => void focus(answer.intent)}
-                size="xs"
-                variant="outline"
-              >
-                Focus these {answer.count}
-              </Button>
-            </div>
-          )}
+            </Finding>
+          ) : null}
 
-          <FilterChips className="flex flex-wrap gap-1.5" selection={crossfilter} />
         </div>
       </ScrollArea>
 
-      <div className="shrink-0 space-y-2 border-t border-border p-2">
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground text-xs">Question</span>
-          <SuggestRoot existing={[]} onPick={(value) => { setQuestion(value); void submit(value); }} suggest={askSuggestions}>
-            <SuggestTrigger label="Suggest a question" />
-            <SuggestContent />
-          </SuggestRoot>
-        </div>
-        {/* Textarea, not Input: a question is prose, and the library's own idiom pairs
-            `CompleteTextarea` with `CompleteHint` (the continuation streams *below* the field) while
-            reserving `CompleteInput` + `CompleteGhost` for single-line values. The cost is Enter:
-            it belongs to the newline now, so submitting is ⌘/Ctrl+Enter or the button. */}
+      {/* The composer, in the library's `InputGroup` idiom: the field is the box, and Suggest and
+          Ask live INSIDE it on the block-end edge. That is what fixes the ✨ popover — it used to
+          hang off a label row above the field and open against the dock's edge, far from the text
+          it writes; anchored to its own trigger inside the group it opens over the composer.
+
+          Textarea, not Input: a question is prose, and the library pairs `CompleteTextarea` with
+          `CompleteHint` (the continuation streams *below* the field) while reserving
+          `CompleteInput` + `CompleteGhost` for single-line values. The cost is Enter: it belongs to
+          the newline now, so submitting is ⌘/Ctrl+Enter or the button. */}
+      <div className="shrink-0 border-t border-border p-2">
         <CompleteRoot complete={completeQuestion} onValueChange={setQuestion} value={question}>
-          <CompleteTextarea>
-            <Textarea
-              className="min-h-16 resize-none text-sm"
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                  event.preventDefault();
-                  void submit(question);
-                }
-              }}
-              placeholder="Ask about your data…"
-            />
-          </CompleteTextarea>
+          <InputGroup>
+            <CompleteTextarea>
+              <InputGroupTextarea
+                className="min-h-16 resize-none text-sm"
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                    event.preventDefault();
+                    void submit(question);
+                  }
+                }}
+                placeholder="Ask about your data…"
+              />
+            </CompleteTextarea>
+            <InputGroupAddon align="block-end">
+              <SuggestRoot
+                existing={[]}
+                onPick={(value) => {
+                  setQuestion(value);
+                  void submit(value);
+                }}
+                suggest={askSuggestions}
+              >
+                <SuggestTrigger label="Suggest a question" />
+                <SuggestContent />
+              </SuggestRoot>
+              <InputGroupButton
+                className="ms-auto"
+                disabled={question.trim().length === 0 || busy}
+                onClick={() => void submit(question)}
+              >
+                <SendIcon />
+                Ask
+              </InputGroupButton>
+            </InputGroupAddon>
+          </InputGroup>
           <CompleteHint />
         </CompleteRoot>
-        <Button
-          className="w-full"
-          disabled={question.trim().length === 0 || busy}
-          onClick={() => void submit(question)}
-          size="sm"
-          variant="outline"
-        >
-          <SendIcon />
-          Ask
-        </Button>
       </div>
     </div>
   );
