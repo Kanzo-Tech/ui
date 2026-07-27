@@ -59,10 +59,41 @@ Breadcrumbs
 | `items` | `BreadcrumbEntry[]` | — |
 | `linkComponent` | `LinkComponent` | `DefaultLink` |
 | `separator` | `ReactNode` | chevron |
+| `maxItems` | `number` | — |
+| `collapsedLabel` | `string` | `"Show the rest of the trail"` |
 | `className` | `string` | — |
 
 `className` lands on the *list*, not the nav — that is where the `text-sm` default is set, so
 it is the element where a size override actually resolves.
+
+## Long trails
+
+`maxItems` collapses the middle once the trail is longer than it: the first entry and the last
+`maxItems - 1` stay, and everything between them moves into a menu behind the ellipsis. A menu
+rather than a bare `…` because a collapsed crumb is still a place you might want to go — the plain
+ellipsis part is `aria-hidden` decoration, so on its own it would hide the middle of the trail
+from everyone rather than tidy it. Values below `2` are ignored; a trail needs a root and a leaf.
+
+## Narrow widths
+
+The list **wraps onto a second line** when it runs out of room. That is inherited from Shark and
+deliberate: `flex-wrap` on the list with `text-nowrap` on each link, so labels never break mid-word
+and the trail reflows instead. In the page body that is the right behaviour.
+
+It is the wrong behaviour in a fixed-height strip — an app-shell header — where a second row has
+nowhere to go. There, override it at the call site, since `className` lands on the list:
+
+```tsx
+<Breadcrumbs
+  className="min-w-0 flex-nowrap overflow-hidden [&_[data-slot=breadcrumb-page]]:truncate"
+  items={trail}
+/>
+```
+
+The trail is what should give, because it is the part a reader can still infer from the page
+around it. `Breadcrumbs` already sets `min-w-0` on the landmark so it can shrink at all — the
+`nav` carries no classes upstream, and without that a flex row refuses to let it below its
+content width and it pushes its neighbours off the edge instead.
 
 ### BreadcrumbEntry
 

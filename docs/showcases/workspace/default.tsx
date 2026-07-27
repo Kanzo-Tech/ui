@@ -5,7 +5,11 @@ import { useState } from "react";
 import {
 	Breadcrumbs,
 	Button,
+	DialogTrigger,
 	InstanceSwitcher,
+	Kbd,
+	PreferencesPanel,
+	PreferencesRoot,
 	Resizable,
 	ResizablePanel,
 	ResizableResizeTrigger,
@@ -56,7 +60,9 @@ import {
 	GraphLegend,
 	GraphMosaic,
 	GraphRules,
+	GraphSelection,
 	GraphSettings,
+	GraphToolbar,
 	GraphZoom,
 } from "./graph-view";
 
@@ -79,11 +85,14 @@ import {
  * (Graph · Analysis), the **footer strip** picks which inspector the dock holds (Info · Ask · Rules
  * · Settings) and collapses it when you click the active icon again — a state Tabs cannot express.
  *
- * The library ships the regions and the parts; the graph canvas is a placeholder (the design system
- * has no graph engine), but the **Analysis** view is live — a full crossfilter dashboard over a real
- * DuckDB relation, built from the `@kanzo-tech/ui/analytics` subpath and loaded client-only from
- * `./analysis-charts` so the DuckDB/vgplot stack never touches the RSC prerender. That split —
- * placeholder graph, real charts — is the point of a showcase: it shows how far the library reaches.
+ * Both regions are live and both read the same DuckDB: **Graph** is cosmos.gl rendering a force
+ * layout on the GPU while a `MosaicClient` keeps it inside the page's crossfilter, and **Analysis**
+ * is a full crossfilter dashboard built from the `@kanzo-tech/ui/analytics` subpath. Both load
+ * client-only, because evaluating vgplot during the RSC prerender is a TDZ.
+ *
+ * What the showcase is demonstrating there is the reach of the vocabulary rather than a graph
+ * widget: the library ships no renderer, and the canvas joins the crossfilter by declaring a query
+ * and publishing a clause — the same contract a brushed histogram honours.
  */
 
 /**
@@ -131,11 +140,17 @@ function DiscoveryCanvas() {
 	return (
 		<ShellMain className="relative size-full bg-background">
 			<GraphCanvas />
+			{/* Chrome, at the four corners: what is selected and the tools that select it on top,
+			    the legend and the camera below. All of it floats over a WebGL surface it never talks
+			    to — each one publishes into the crossfilter or calls a command the canvas registered.
+			    The look lives in Settings, because a canvas you are reading should not carry the
+			    controls for how it was drawn. */}
+			<GraphSelection />
+			<GraphToolbar />
 			<GraphLegend />
 			{/* Zoom / fit — an ACTION cluster (three independent commands, not a choice), so a
 			    vertical ButtonGroup: it collapses the shared borders into one segmented control and
-			    keeps each button's focus ring un-clipped. Plot rebuilds its SVG on every transform, so
-			    these step the scale DOMAIN rather than pan a canvas — see `graph-view`. */}
+			    keeps each button's focus ring un-clipped. */}
 			<GraphZoom />
 		</ShellMain>
 	);
@@ -211,9 +226,21 @@ function DiscoveryShell() {
 			    owns the one <main> and the fixed rail never overlaps the header (a fixed sidebar and a
 			    full-width top region are mutually exclusive — DESIGN.md). */}
 			<SidebarInset>
-				<ShellHeader className="h-12 flex-row items-center gap-2 px-3">
+				{/* `min-w-0` is what lets the trail shrink instead of pushing the strip wide. Every
+				    other region of this showcase already carries it; this one did not, which is
+				    half of why the breadcrumb used to break onto a second line. */}
+				<ShellHeader className="h-12 min-w-0 flex-row items-center gap-2 px-3">
 					<SidebarTrigger />
+					{/* The other half is Shark's `flex-wrap` on the list — deliberate upstream, and
+					    right for a breadcrumb in the page body. A fixed-height header is the case it
+					    is wrong for: a second row has nowhere to go. `className` lands on the list,
+					    so overriding it here is a call-site decision rather than a fork.
+					    `overflow-hidden` plus a truncating leaf is the second half of that: without
+					    it the trail simply refuses to yield (every link is `text-nowrap`) and pushes
+					    the view controls off the right edge instead of wrapping. The trail is what
+					    gives, because it is the part you can still infer from the page. */}
 					<Breadcrumbs
+						className="min-w-0 flex-nowrap overflow-hidden [&_[data-slot=breadcrumb-page]]:truncate"
 						items={[
 							{ label: "Jobs", href: "#/app/jobs" },
 							{ label: "aemet.fossil", href: "#/app/jobs/aemet" },
@@ -243,6 +270,20 @@ function DiscoveryShell() {
 							</ToggleGroupItem>
 						))}
 					</ToggleGroup>
+
+					{/* The library's own theme drawer, unextended. The graph's display controls are
+					    deliberately NOT in here — a look, a node size and a friction coefficient are
+					    properties of this view, and they live in the Settings panel of the dock.
+					    Preferences is for what the whole product looks like. */}
+					<PreferencesRoot hotkey="p">
+						<DialogTrigger asChild>
+							<Button className="gap-1.5" size="sm" variant="ghost">
+								Preferences
+								<Kbd>P</Kbd>
+							</Button>
+						</DialogTrigger>
+						<PreferencesPanel />
+					</PreferencesRoot>
 				</ShellHeader>
 
 				<ShellBody className="min-w-0">
