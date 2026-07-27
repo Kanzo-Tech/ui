@@ -61,6 +61,13 @@ export interface ChartContextValue {
   /**
    * The series colour, normalised to `rgb(...)` so it is safe for both CSS and Plot. `undefined`
    * for a key the config does not name.
+   *
+   * Normalising is what makes it dual-purpose and is also what makes it a **snapshot**: the answer
+   * is read off the DOM when you call it, and nothing re-calls it when the theme or the scheme
+   * changes. `ChartLegend` deliberately does not use this — its only sink is a `style`, so it
+   * passes `var(--chart-N)` through and lets the browser follow the theme for free. Take the same
+   * route for anything that only ends up in CSS; pair this with `useThemeTick` when you need the
+   * literal, which is to say when you are handing it to Plot.
    */
   color: (key: string) => string | undefined;
   /** The chart's locale number formatter — one vocabulary for axes, legend and tooltip. */
