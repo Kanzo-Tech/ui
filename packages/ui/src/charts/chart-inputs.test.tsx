@@ -290,24 +290,50 @@ describe("ChartFilter", () => {
 });
 
 describe("ChartSearch", () => {
-  it("publishes a match clause and lists the queried values for autocomplete", async () => {
+  it("publishes a match clause and offers the queried values as completions", async () => {
     const crossfilter = Selection.crossfilter();
     const { coordinator } = stubCoordinator(() => HOSTS);
     const user = userEvent.setup();
 
-    const { container } = render(
+    render(
       <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
         <ChartSearch column="host" debounce={0} label="Host" table="telemetry" />
       </MosaicProvider>,
     );
 
-    await waitFor(() => expect(container.querySelectorAll("datalist option")).toHaveLength(3));
+    const box = screen.getByPlaceholderText("Search…");
+    await user.click(box);
+    // A real listbox, not a `<datalist>`: the options are in the accessibility tree, which is what
+    // lets them be asserted, styled and narrated at all.
+    await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(3));
 
-    await user.type(screen.getByPlaceholderText("Search…"), "al");
+    await user.type(box, "al");
 
     await waitFor(() => expect(crossfilter.clauses).toHaveLength(1));
     expect(crossfilter.clauses[0]?.meta).toMatchObject({ type: "match", method: "contains" });
     expect(crossfilter.clauses[0]?.value).toBe("al");
+
+    // Typing is a filter over the completions too — the same values, narrowed in the browser.
+    await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(1));
+  });
+
+  it("publishes what you pick, the same clause typing would have published", async () => {
+    const crossfilter = Selection.crossfilter();
+    const { coordinator } = stubCoordinator(() => HOSTS);
+    const user = userEvent.setup();
+
+    render(
+      <MosaicProvider coordinator={coordinator} crossfilter={crossfilter}>
+        <ChartSearch column="host" debounce={0} table="telemetry" />
+      </MosaicProvider>,
+    );
+
+    await user.click(screen.getByPlaceholderText("Search…"));
+    await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(3));
+    await user.click(screen.getAllByRole("option")[0]!);
+
+    await waitFor(() => expect(crossfilter.clauses).toHaveLength(1));
+    expect(crossfilter.clauses[0]?.meta).toMatchObject({ type: "match" });
   });
 
   it("follows the selection when something else changes it", async () => {

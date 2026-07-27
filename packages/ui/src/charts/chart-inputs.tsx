@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type React from "react";
 import { ark } from "@ark-ui/react/factory";
 import {
@@ -20,7 +20,16 @@ import {
   Query,
   type FilterExpr,
 } from "@uwdata/mosaic-sql";
+import { useListCollection } from "@ark-ui/react/collection";
+import { useFilter } from "@ark-ui/react/locale";
 import { cn } from "../lib/cn.js";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+} from "../simples/combobox.js";
 import { FacetFilter, type FacetFilterItem } from "../simples/FacetFilter.js";
 import { Field, FieldLabel } from "../simples/field.js";
 import { Input } from "../simples/input.js";
@@ -476,7 +485,6 @@ export function ChartSearch(props: ChartSearchProps) {
   const target = as === undefined ? crossfilter : as;
   const source = filterBy === undefined ? crossfilter : filterBy;
   const lookup = autocompleteLimit > 0 && Boolean(table && column);
-  const listId = useId();
 
   const { rows, selected, publish, activate } = useMosaicInput<string>({
     as: target,
@@ -495,6 +503,29 @@ export function ChartSearch(props: ChartSearchProps) {
     clause: (client, value) =>
       clauseMatch(field as string, value ?? null, { source: client, method: type, caseSensitive }),
   });
+
+  // The completions, filtered in the browser. The query already asked the database for the
+  // `autocompleteLimit` distinct values of the column; narrowing THOSE as you type is not a second
+  // question, so it does not become a second query.
+  const items = useMemo(
+    () => (rows ?? []).map((row) => ({ label: String(row.value), value: String(row.value) })),
+    [rows],
+  );
+  const capped = items.length >= autocompleteLimit;
+  const { contains } = useFilter({ sensitivity: "base" });
+  const { collection, filter: completions, set } = useListCollection<{
+    label: string;
+    value: string;
+  }>({ filter: contains, initialItems: [] });
+
+  // Keyed on the values, not on the array: `rows` is a fresh array on every settled query, and
+  // setting the collection from an identity-unstable dep is a render loop.
+  const itemsKey = items.map((item) => item.value).join(" ");
+  useEffect(() => {
+    set(items);
+    // `items` is derived from `itemsKey`; depending on it directly is the loop above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [itemsKey, set]);
 
   const [text, setText] = useState(defaultValue ?? "");
   const published = useRef(defaultValue ?? "");
@@ -537,23 +568,55 @@ export function ChartSearch(props: ChartSearchProps) {
       {...warmUpHandlers(activate, props)}
     >
       {label ? <FieldLabel>{label}</FieldLabel> : null}
-      <Input
-        className={controlClassName}
-        disabled={disabled}
-        list={lookup ? listId : undefined}
-        onChange={(event) => change(event.target.value)}
-        placeholder={placeholder}
-        size={size}
-        type="search"
-        value={text}
-      />
       {lookup ? (
-        <ark.datalist data-slot="chart-search-list" id={listId}>
-          {(rows ?? []).map((row) => (
-            <ark.option key={String(row.value)} value={String(row.value)} />
-          ))}
-        </ark.datalist>
-      ) : null}
+        // `allowCustomValue`, because this control is a FILTER and not a picker: what it publishes
+        // is a match clause over whatever you typed, and the list only ever offered completions.
+        // A `<datalist>` was the honest first answer to that and a poor one — unstyleable, different
+        // in every browser, no empty state, and silent about its own cap. Same clause, same
+        // debounce; only the surface changed.
+        <Combobox
+          allowCustomValue
+          collection={collection}
+          data-slot="chart-search-list"
+          disabled={disabled}
+          inputValue={text}
+          onInputValueChange={(details) => {
+            completions(details.inputValue);
+            change(details.inputValue);
+          }}
+          onValueChange={(details) => {
+            const picked = details.value[0];
+            if (picked !== undefined) change(picked);
+          }}
+        >
+          <ComboboxInput className={controlClassName} placeholder={placeholder} size={size} />
+          <ComboboxContent>
+            <ComboboxEmpty>No matching values.</ComboboxEmpty>
+            {collection.items.map((item) => (
+              <ComboboxItem item={item} key={item.value}>
+                {item.label}
+              </ComboboxItem>
+            ))}
+            {/* The cap, said out loud. The datalist could not: it silently stopped at its limit,
+                so "nothing else matches" and "nothing else was asked for" looked identical. */}
+            {capped ? (
+              <p className="border-t px-2 py-1.5 text-muted-foreground text-xs">
+                First {autocompleteLimit}. Keep typing to narrow it.
+              </p>
+            ) : null}
+          </ComboboxContent>
+        </Combobox>
+      ) : (
+        <Input
+          className={controlClassName}
+          disabled={disabled}
+          onChange={(event) => change(event.target.value)}
+          placeholder={placeholder}
+          size={size}
+          type="search"
+          value={text}
+        />
+      )}
       {children}
     </Field>
   );
