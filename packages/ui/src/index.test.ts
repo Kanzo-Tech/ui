@@ -27,6 +27,11 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.Show).toBeTypeOf("function");
     expect(UI.JsonTreeView).toBeTypeOf("function");
     expect(UI.Listbox).toBeTypeOf("function");
+    // The one primitive Ark cannot supply for colour: a strip that only *depicts*. Ark's swatch
+    // parts all require a picker context and compute `checked` against its single value, so a
+    // sixteen-slot palette strip cannot be built from them.
+    expect(UI.Swatch).toBeTypeOf("function");
+    expect(UI.SwatchGroup).toBeTypeOf("function");
   });
 
   it("exposes the one facet-filter surface, on the root barrel", () => {

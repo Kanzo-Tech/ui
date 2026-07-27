@@ -30,6 +30,7 @@ import { AppearanceToggle } from "./AppearanceToggle.js";
 import { RadioGroup as ArkRadioGroup } from "@ark-ui/react/radio-group";
 import { RadioGroup, RadioGroupCard } from "../simples/radio-group.js";
 import { Slider } from "../simples/slider.js";
+import { SwatchGroup } from "../simples/swatch.js";
 import {
   ColorPicker,
   ColorPickerArea,
@@ -468,15 +469,7 @@ function SchemeSection() {
       >
         {entries.map(([name, s]) => (
           <RadioGroupCard className="items-center gap-3 px-2 py-2" key={name} value={name}>
-            <span aria-hidden className="flex gap-0.5">
-              {s[resolvedAppearance].map((hex, i) => (
-                <span
-                  className="size-3 rounded-[2px]"
-                  key={`${name}-${i}`}
-                  style={{ background: hex }}
-                />
-              ))}
-            </span>
+            <SwatchGroup colors={s[resolvedAppearance]} />
             <ArkRadioGroup.ItemText className="truncate text-muted-foreground text-xs">
               {s.label}
               {/* Said here rather than in a doc nobody opens: this scheme is legal but it owes the

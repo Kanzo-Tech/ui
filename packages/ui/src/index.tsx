@@ -123,6 +123,7 @@ export * from "./simples/skeleton.js";
 export * from "./simples/slider.js";
 export * from "./simples/spinner.js";
 export * from "./simples/stat-tile.js";
+export * from "./simples/swatch.js";
 export * from "./simples/status.js";
 export * from "./simples/steps.js";
 export * from "./simples/switch.js";

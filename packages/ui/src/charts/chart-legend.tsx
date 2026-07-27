@@ -4,6 +4,7 @@ import type React from "react";
 import { ark } from "@ark-ui/react/factory";
 import type { Selection } from "@uwdata/mosaic-core";
 import { cn } from "../lib/cn.js";
+import { Swatch } from "../simples/swatch.js";
 import { chartSeriesEntries, type ChartConfig } from "./chart-config.js";
 import { useChartOptional } from "./chart-root.js";
 import { chartDescriptor } from "./chart-spec.js";
@@ -47,7 +48,7 @@ export function ChartLegend(props: ChartLegendProps) {
               <Icon className="size-3" />
             </span>
           ) : (
-            <span aria-hidden className="size-2.5 shrink-0 rounded-[2px]" style={{ background: color }} />
+            <Swatch color={color} size="xs" />
           )}
           {label}
         </ark.li>
