@@ -49,13 +49,13 @@ import {
  *   <Preferences.Root>
  *     <Preferences.Trigger />
  *     <Preferences.Panel>
- *       <Preferences.Accent /> <Preferences.Base />
+ *       <Preferences.Accent /> <Preferences.Base /> <Preferences.Scheme />
  *       <Preferences.Radius /> <Preferences.Font /> <Preferences.MonoFont />
  *       <Preferences.Density />
  *     </Preferences.Panel>
  *   </Preferences.Root>
  *
- * or the all-in-one <Preferences />. Those six sections ARE the default panel body (appearance is
+ * or the all-in-one <Preferences />. Those seven sections ARE the default panel body (appearance is
  * the header toggle beside the close), plus a
  * footer of Reset · Copy CSS · Done. (This comment used to claim `Base` was opt-in and omitted
  * by default; the panel has rendered it for some time — the code is the authority.) Open with
@@ -119,10 +119,25 @@ function PreferencesRoot({ children, hotkey, defaultOpen = false }: PreferencesR
     return () => window.removeEventListener("keydown", onKey);
   }, [hotkey]);
 
-  // Non-modal so the app stays interactive and re-skins live behind the panel;
-  // `closeOnInteractOutside={false}` keeps it open while you click around the app.
+  // Non-modal so the app stays interactive and re-skins live behind the panel — no backdrop, no
+  // scroll lock, no focus trap. But it still closes on an outside click, because that is what a
+  // panel is expected to do and the alternative surprises people far more often than it helps.
+  //
+  // It used to pin `closeOnInteractOutside={false}` so you could click around the app and watch it
+  // re-skin. That case survives: the hotkey reopens it where you left off, and the live preview was
+  // never the reason to keep it open — every change applies on selection, not on close.
+  //
+  // `closeOnInteractOutside` is passed explicitly, and has to be. Zag derives its default from
+  // `modal` (`closeOnInteractOutside: modal && !alertDialog` in dialog.machine.js), so a non-modal
+  // dialog is non-dismissable *by default* — dropping the old explicit `false` changed nothing at
+  // all. The two props look independent and are not.
   return (
-    <Dialog open={open} onOpenChange={(e) => setOpen(e.open)} modal={false} closeOnInteractOutside={false}>
+    <Dialog
+      open={open}
+      onOpenChange={(e) => setOpen(e.open)}
+      modal={false}
+      closeOnInteractOutside={true}
+    >
       {children}
     </Dialog>
   );
@@ -141,10 +156,10 @@ function PreferencesTrigger({ className }: { className?: string }) {
         // `bg-card`: `outline` is transparent by design, which reads as broken once the
         // button floats over arbitrary page content — a FAB needs an opaque surface.
         //
-        // The `data-state` pair is load-bearing, not decoration. The panel is `modal={false}`
-        // with `closeOnInteractOutside={false}`, so it stays open while you work elsewhere —
-        // and without an open state on the trigger, nothing on screen says so. Ark's
-        // Dialog.Trigger already emits `data-state="open"`, so this needs no extra state.
+        // The `data-state` pair is load-bearing, not decoration. The panel is `modal={false}`, so
+        // there is no backdrop dimming the page behind it — without an open state on the trigger,
+        // nothing on screen says the panel is up. Ark's Dialog.Trigger already emits
+        // `data-state="open"`, so this needs no extra state.
         //
         // Deliberately NOT a `Toggle`: `Dialog.Trigger` gives `aria-expanded` +
         // `aria-haspopup="dialog"`, which is the disclosure pattern this is. A toggle button
@@ -640,6 +655,7 @@ export const Preferences = Object.assign(
     MonoFont: MonoFontSection,
     Density: DensitySection,
     Base: BaseSection,
+    Scheme: SchemeSection,
     CopyTheme: CopyTheme,
   },
 );
