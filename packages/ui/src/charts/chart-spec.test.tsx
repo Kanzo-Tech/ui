@@ -275,14 +275,17 @@ describe("buildChartSpec", () => {
     });
   });
 
-  it("turns a non-empty config into a pinned colour scale, falling back to the palette", () => {
+  it("turns a non-empty config into a pinned colour scale, falling back to the scheme slot", () => {
     const spec = buildChartSpec(
       options,
       context({ config: { cpu: { color: "var(--chart-1)" }, mem: { label: "Memory" } } }),
     );
 
+    // The colourless series falls back to a *token*, not to a baked hex. That is what lets one
+    // answer follow both the light/dark flip and whichever scheme the product selected — a literal
+    // could do neither, and the literal it used to return disagreed with `--chart-2` besides.
     expect(attributes(spec).colorDomain).toEqual(["cpu", "mem"]);
-    expect(attributes(spec).colorRange).toEqual(["rgb(var(--chart-1))", "#ea580c"]);
+    expect(attributes(spec).colorRange).toEqual(["rgb(var(--chart-1))", "rgb(var(--chart-2))"]);
   });
 
   it("emits no colour scale for an empty config", () => {

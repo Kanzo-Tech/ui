@@ -180,11 +180,13 @@ describe("ChartRoot selections", () => {
 });
 
 describe("ChartLegend", () => {
-  it("still works standalone from a `series` list, on the categorical palette", () => {
+  it("still works standalone from a `series` list, on the categorical scheme", () => {
     render(<ChartLegend series={["a", "b"]} />);
 
     const items = screen.getAllByRole("listitem");
     expect(items.map((li) => li.textContent)).toEqual(["a", "b"]);
-    expect(items[0]?.querySelector("[aria-hidden]")).toHaveProperty("style.background", "rgb(37, 99, 235)");
+    // The swatch wears the slot token rather than a resolved colour: the browser resolves it, and
+    // that is what makes the legend follow the active scheme and the theme without re-rendering.
+    expect(items[0]?.querySelector("[aria-hidden]")).toHaveProperty("style.background", "var(--chart-1)");
   });
 });

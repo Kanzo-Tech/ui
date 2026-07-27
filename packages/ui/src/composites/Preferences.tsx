@@ -6,7 +6,7 @@ import { Portal } from "@ark-ui/react/portal";
 import { PaletteIcon, XIcon } from "lucide-react";
 // Via the theme package's JS entry, not its raw `.json` subpath: a direct JSON subpath import
 // needs `with { type: "json" }` at runtime, and Rollup strips that attribute when bundling.
-import { themeData, type KanzoBase, type KanzoRadius } from "@kanzo-tech/theme";
+import { DEFAULT_PREFS, SCHEMES, themeData, type KanzoBase, type KanzoRadius } from "@kanzo-tech/theme";
 import { useKanzoTheme, type ThemePrefs } from "../theme/KanzoThemeProvider.js";
 import { cn } from "../lib/cn.js";
 import { customBaseVars, readableForeground } from "../lib/color.js";
@@ -230,6 +230,7 @@ function PreferencesPanel({
               <>
                 <AccentSection />
                 <BaseSection />
+                <SchemeSection />
                 <RadiusSection />
                 <FontSection />
                 <MonoFontSection />
@@ -403,6 +404,53 @@ function FontPicker({
   );
 }
 
+/**
+ * Scheme = the categorical colours, the axis `base` and `accent` never covered.
+ *
+ * A named list rather than a colour picker, and that is the reference's answer, not a shortcut:
+ * a categorical palette is a *set* whose safety comes from fixed hue anchors in a derived order,
+ * so picking one hue and rotating from it collapses under colour-blindness simulation. Plot names
+ * its schemes for the same reason. The escape hatch is the `schemeColors` pref — Vega's
+ * `vega.scheme(name, colors)` registry, expressed through the provider.
+ *
+ * The swatch row is the whole preview: eight slots in slot order, which is the thing being chosen.
+ */
+function SchemeSection() {
+  const { resolvedAppearance, scheme, set } = useKanzoTheme();
+  const entries = Object.entries(SCHEMES);
+  if (entries.length < 2) return null;
+  return (
+    <PrefField label="Chart scheme">
+      <RadioGroup
+        aria-label="Chart scheme"
+        className="gap-2"
+        onValueChange={(d) => d.value && set({ scheme: d.value, schemeColors: undefined })}
+        value={scheme ?? DEFAULT_PREFS.scheme}
+      >
+        {entries.map(([name, s]) => (
+          <RadioGroupCard className="items-center gap-3 px-2 py-2" key={name} value={name}>
+            <span aria-hidden className="flex gap-0.5">
+              {s[resolvedAppearance].map((hex, i) => (
+                <span
+                  className="size-3 rounded-[2px]"
+                  key={`${name}-${i}`}
+                  style={{ background: hex }}
+                />
+              ))}
+            </span>
+            <ArkRadioGroup.ItemText className="truncate text-muted-foreground text-xs">
+              {s.label}
+              {/* Said here rather than in a doc nobody opens: this scheme is legal but it owes the
+                  chart a relief channel in this mode, and the reader is choosing it right now. */}
+              {s.relief[resolvedAppearance] > 0 ? " · needs labels" : null}
+            </ArkRadioGroup.ItemText>
+          </RadioGroupCard>
+        ))}
+      </RadioGroup>
+    </PrefField>
+  );
+}
+
 function FontSection() {
   const { font, fonts, set } = useKanzoTheme();
   return (
@@ -493,7 +541,7 @@ function BaseSection() {
 //    preset (foreground derived by luminance), and non-default font / mono / density are emitted. ──
 type TokenMap = Record<string, string>;
 function buildThemeCss(prefs: ThemePrefs): string {
-  const { base = "neutral", accent, radius, primary, baseTint, font, monoFont, density } = prefs;
+  const { base = "neutral", accent, radius, primary, baseTint, font, monoFont, density, scheme, schemeColors } = prefs;
   const d = themeData as unknown as {
     bases: Record<string, { light: TokenMap; dark: TokenMap }>;
     accents: Record<string, { light: TokenMap; dark: TokenMap }>;
@@ -526,9 +574,17 @@ function buildThemeCss(prefs: ThemePrefs): string {
   if (monoFont && monoFont !== "system" && d.monoFonts[monoFont]) extras["--font-mono"] = d.monoFonts[monoFont];
   if (density && density !== "default" && d.densities[density]) extras["font-size"] = d.densities[density];
 
+  // The categorical scheme, emitted as literal slots in both blocks. It has to be here: it is the
+  // one colour axis a copied theme used to lose entirely, because it was a static block rather than
+  // something anyone chose. `schemeColors` (the runtime registry) wins over the named scheme, the
+  // same precedence the provider applies.
+  const slots = schemeColors ?? SCHEMES[scheme ?? DEFAULT_PREFS.scheme!];
+  const chart = (mode: "light" | "dark"): TokenMap =>
+    Object.fromEntries((slots?.[mode] ?? []).map((hex, i) => [`--chart-${i + 1}`, hex]));
+
   const fmt = (o: TokenMap) => Object.entries(o).map(([k, v]) => `  ${k}: ${v};`).join("\n");
-  const root = { ...customBase, "--radius": d.radii[radius]!, ...b.light, ...(primaryVars ?? a.light), ...d.staticLight, ...extras };
-  const dark = { ...b.dark, ...(primaryVars ?? a.dark), ...d.staticDark };
+  const root = { ...customBase, "--radius": d.radii[radius]!, ...b.light, ...(primaryVars ?? a.light), ...d.staticLight, ...chart("light"), ...extras };
+  const dark = { ...b.dark, ...(primaryVars ?? a.dark), ...d.staticDark, ...chart("dark") };
   return `:root {\n${fmt(root)}\n}\n\n.dark {\n${fmt(dark)}\n}\n`;
 }
 

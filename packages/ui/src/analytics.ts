@@ -106,8 +106,11 @@ export type {
   ChartSpecOptions, ChartMargin, ChartFacetOptions, ChartMarkSource,
 } from "./charts/chart-spec.js";
 
-// The validated categorical palette for multi-series marks and legends (fixed, not the accent).
-export { CHART_CATEGORICAL, categoricalColor } from "./charts/theme.js";
+// The validated categorical scheme for multi-series marks and legends (the theme's, not the accent).
+// `resolveTokenColor` and `useThemeTick` come with it: any surface painting from tokens onto a
+// canvas needs both — resolve the token against the live element, and do it again when the theme
+// moves — and every consumer that re-invented them got one of the two subtly wrong.
+export { CHART_SCHEME, CHART_SLOTS, categoricalColor, resolveTokenColor, useThemeTick } from "./charts/theme.js";
 
 // Re-exported so a consumer writes a whole chart — and boots the coordinator under it — without a
 // direct @uwdata import, the way `/table` re-exports its TanStack types.

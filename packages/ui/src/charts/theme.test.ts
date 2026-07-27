@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
-import { resolveTokenColor } from "./theme.js";
+import { CHART_SCHEME, CHART_SLOTS, categoricalColor, resolveTokenColor } from "./theme.js";
 
 // jsdom's getComputedStyle returns the `color-mix(...)` back unchanged, so the probe path itself
 // is not testable here. What matters — and what broke in a real browser — is the normalisation of
@@ -40,5 +42,42 @@ describe("resolveTokenColor", () => {
 
   it("keeps alpha when present", () => {
     expect(withComputedColor("color(srgb 0 0 0 / 0.5)")).toBe("rgba(0, 0, 0, 0.5)");
+  });
+});
+
+/**
+ * The scheme is defined once and projected twice — into this package's compiled export and into
+ * `--chart-*` in the theme's CSS. Nothing in the type system stops the two drifting, and drift is
+ * exactly the failure this whole change exists to end: the library used to carry eight hardcoded
+ * hues that disagreed with the tokens, so the same series was one colour through `ChartConfig` and
+ * another through a token. These tests are the thing that keeps that from coming back.
+ */
+describe("the categorical scheme", () => {
+  const tokens = readFileSync(
+    createRequire(import.meta.url).resolve("@kanzo-tech/theme/tokens.css"),
+    "utf8",
+  );
+  /** `--chart-N` declarations in source order — light comes first in the file, then `.dark`. */
+  const declared = (mode: "light" | "dark") =>
+    [...tokens.matchAll(/--chart-(\d+):\s*(#[0-9a-f]{6})/gi)]
+      .slice(mode === "light" ? 0 : CHART_SLOTS, mode === "light" ? CHART_SLOTS : undefined)
+      .map(([, , hex]) => (hex as string).toLowerCase());
+
+  it("ships the same slots as literals and as CSS tokens", () => {
+    expect(declared("light")).toEqual(CHART_SCHEME.light);
+    expect(declared("dark")).toEqual(CHART_SCHEME.dark);
+  });
+
+  it("gives both modes the same number of slots", () => {
+    expect(CHART_SCHEME.dark).toHaveLength(CHART_SLOTS);
+    expect(CHART_SLOTS).toBe(8);
+  });
+
+  it("hands out a slot token per series and folds past the last slot", () => {
+    expect(categoricalColor(0)).toBe("var(--chart-1)");
+    expect(categoricalColor(CHART_SLOTS - 1)).toBe(`var(--chart-${CHART_SLOTS})`);
+    // Never cycle: a ninth series wearing slot 1 would claim to be the first one.
+    expect(categoricalColor(CHART_SLOTS)).toBe("var(--muted-foreground)");
+    expect(categoricalColor(-1)).toBe("var(--muted-foreground)");
   });
 });

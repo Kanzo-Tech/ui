@@ -116,6 +116,62 @@ const RADII = [["none", "0rem"], ["xs", "0.125rem"], ["sm", "0.25rem"], ["md", "
 //    The full ACCENTS set stays generated for the playground theme-editor. ──
 const CURATED_ACCENTS = ["neutral", "blue", "green", "violet", "orange", "rose"];
 
+// ── Categorical schemes (data-chart-scheme) ──────────────────────────────────
+//
+// A scheme is the ordered set of colours carrying *identity* — which series, which node kind,
+// which chip. It is the fourth colour axis, and the one Shark has no counterpart for: its theme
+// editor offers neutral, primary and radius only, and it ships no charts.
+//
+// Held as literal values, not as `var(--color-*)` references, because that is what the
+// data-visualisation references do. d3 compiles its schemes as hex strings and Plot's model is that
+// colour belongs to the **scale**, never to the mark — so the `--chart-*` tokens emitted below are
+// a *projection* of this data, and `packages/ui` reads the same entry straight from
+// theme-data.json. One source, two outputs.
+//
+// Eight slots because d3/Plot categorical schemes run 8–12 and never 5; the 5 in the old
+// `--chart-1..5` is shadcn's UI-token convention leaking into data viz.
+//
+// Every scheme here clears all six categorical checks in BOTH modes, measured against the
+// product's real surfaces rather than a validator default. `kanzo`: worst adjacent CVD ΔE 20.9,
+// normal-vision 24.7, all eight at or above 3:1, all-pairs cap 3 slots. It replaces two palettes
+// that did not: the old static tokens failed outright (light `--chart-4`/`--chart-5` were two
+// adjacent ambers at ΔE 7.4, below the 15 floor, and `--chart-3` was below the chroma floor, so it
+// read as grey), and `charts/theme.ts`'s hardcoded eight sat in the CVD warn band at 6.1.
+//
+// Derived by enumerating Tailwind's families × steps × orderings against the validator. **Changing
+// a value here means re-running that derivation, never nudging a hex** — four of the constraints
+// that shaped this set are invisible to the gates: hue-group variants must not reach into a
+// neighbour's arc, ranking must use the normal-vision worst pair (the CVD minimum saturates at
+// eight slots), dark mode does not simply take the lighter steps (yellow-600 is past the dark
+// band), and no leading slot may collide with `--destructive` (red-500) — which is why red sits
+// in slot 8.
+// A scheme varies the STEPS, never the hues or their order: the order is the CVD-safety mechanism
+// and it was derived once, so switching schemes cannot quietly make a chart less readable. Every
+// entry clears all six checks in both modes. `relief` records the slots that fall below 3:1 on
+// their surface — a documented conditional relax rather than a failure, but not a dismissable one:
+// where it is non-zero the chart owes visible direct labels or a table view.
+const SCHEMES = {
+  kanzo: {
+    label: "Kanzo",
+    // Worst adjacent CVD ΔE 20.9 both modes, normal-vision 24.7, every slot at or above 3:1.
+    relief: { light: 0, dark: 0 },
+    light: ["#2b7fff", "#008236", "#7f22fe", "#a65f00", "#0092b8", "#f54a00", "#e12afb", "#ff2056"],
+    dark: ["#2b7fff", "#00a63e", "#7f22fe", "#a65f00", "#0092b8", "#f54a00", "#e12afb", "#c70036"],
+  },
+  vivid: {
+    label: "Vivid",
+    // The same eight hues at the highest chroma that still clears every gate — the register the
+    // graph's Nebula look used to keep to itself, now a product-wide choice that charts and tables
+    // can wear too. CVD ΔE 23.1 light / 20.9 dark, normal-vision 26.8 / 24.7. High chroma means
+    // light steps, and on a light surface three of them land under 3:1, so the relief rule applies
+    // there: pick this one for a dark product, or ship the labels.
+    relief: { light: 3, dark: 0 },
+    light: ["#155dfc", "#00c950", "#7f22fe", "#d08700", "#00b8db", "#f54a00", "#e12afb", "#ec003f"],
+    dark: ["#155dfc", "#00a63e", "#7f22fe", "#a65f00", "#0092b8", "#f54a00", "#e12afb", "#ec003f"],
+  },
+};
+const schemeVars = (colours) => Object.fromEntries(colours.map((hex, i) => [`--chart-${i + 1}`, hex]));
+
 // ── Fonts — the DS ships NO font files. `data-font`/`data-mono-font` point --font-sans/
 //    --font-mono at a stack; `var(--font-*)` keys let a host inject its own webfont var
 //    (e.g. next/font sets --font-geist-sans) with a graceful system fallback. ──
@@ -160,6 +216,14 @@ for (const [a, lp, lr, lpf, dp, dr, dpf] of ACCENTS) {
   out += block(`.dark[data-accent="${a}"], .dark [data-accent="${a}"]`, accentVars(a, dp, dr, dpf));
 }
 
+out += "\n/* ── Categorical scheme (data-chart-scheme) ─────────────────────────────── */\n";
+// `data-chart-scheme`, not `data-scheme`, which would read as CSS `color-scheme` — and `.dark`
+// lives on the same element, so that ambiguity would be paid for daily.
+for (const [name, { light, dark }] of Object.entries(SCHEMES)) {
+  out += block(`[data-chart-scheme="${name}"]`, schemeVars(light));
+  out += block(`.dark[data-chart-scheme="${name}"], .dark [data-chart-scheme="${name}"]`, schemeVars(dark));
+}
+
 out += "\n/* ── Radius (data-radius) ───────────────────────────────────────────────── */\n";
 for (const [r, val] of RADII) out += block(`[data-radius="${r}"]`, { "--radius": val });
 
@@ -183,11 +247,8 @@ const STATIC_LIGHT = {
   "--success-foreground": "var(--color-emerald-700)",
   "--warning": "var(--color-amber-500)",
   "--warning-foreground": "var(--color-amber-700)",
-  "--chart-1": "var(--color-orange-600)",
-  "--chart-2": "var(--color-teal-600)",
-  "--chart-3": "var(--color-cyan-900)",
-  "--chart-4": "var(--color-amber-400)",
-  "--chart-5": "var(--color-amber-500)",
+  // `--chart-*` used to live here, which is exactly why it was never right: static meant no axis
+  // owned it, so `base` and `accent` never reached it and nobody ever chose it. It is a scheme now.
 };
 const STATIC_DARK = {
   // dark --destructive(-foreground) come from the base object; the rest are static.
@@ -197,11 +258,6 @@ const STATIC_DARK = {
   "--success-foreground": "var(--color-emerald-400)",
   "--warning": "var(--color-amber-500)",
   "--warning-foreground": "var(--color-amber-400)",
-  "--chart-1": "var(--color-blue-700)",
-  "--chart-2": "var(--color-emerald-500)",
-  "--chart-3": "var(--color-amber-500)",
-  "--chart-4": "var(--color-purple-500)",
-  "--chart-5": "var(--color-rose-500)",
 };
 const data = {
   bases: Object.fromEntries(BASES.map((c) => [c, { light: baseLight(c), dark: baseDark(c) }])),
@@ -213,6 +269,11 @@ const data = {
   monoFonts: Object.fromEntries(MONO_FONTS.map(([f, v]) => [f, v])),
   densities: Object.fromEntries([["default", "16px"], ...DENSITIES]),
   curatedAccents: CURATED_ACCENTS,
+  // The scheme values as data, which is the point: `packages/ui` imports these rather than
+  // carrying its own copy, so a chart still has colours with no theme CSS loaded and there is
+  // still only one place they are written down.
+  schemes: SCHEMES,
+  defaultScheme: "kanzo",
   staticLight: STATIC_LIGHT,
   staticDark: STATIC_DARK,
 };
@@ -220,5 +281,5 @@ const JSON_OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "theme-data
 writeFileSync(JSON_OUT, JSON.stringify(data, null, 2));
 
 console.log(
-  `Wrote ${OUT} + theme-data.json — ${BASES.length} bases, ${ACCENTS.length} accents, ${RADII.length} radii, ${FONTS.length} fonts, ${MONO_FONTS.length} mono, ${DENSITIES.length + 1} densities.`,
+  `Wrote ${OUT} + theme-data.json — ${BASES.length} bases, ${ACCENTS.length} accents, ${Object.keys(SCHEMES).length} scheme(s), ${RADII.length} radii, ${FONTS.length} fonts, ${MONO_FONTS.length} mono, ${DENSITIES.length + 1} densities.`,
 );

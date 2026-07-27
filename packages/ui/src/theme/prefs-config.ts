@@ -9,9 +9,12 @@
 export {
   AXES,
   APPEARANCE_KEY,
+  CHART_SLOT_VARS,
   DEFAULT_PREFS,
   PRIMARY_FG_OVERRIDE,
   PRIMARY_OVERRIDE,
+  SCHEMES,
   STORAGE_KEY,
+  type SchemeColors,
   type ThemePrefs,
 } from "@kanzo-tech/theme";

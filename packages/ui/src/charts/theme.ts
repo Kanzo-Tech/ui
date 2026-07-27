@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { themeData } from "@kanzo-tech/theme";
 
 /**
  * Convert a browser-computed colour into the plain `rgb(...)` form Observable Plot accepts.
@@ -73,17 +74,32 @@ export function useThemeTick(): number {
 }
 
 /**
- * The chart categorical palette — 8 fixed hues, a validated fixed order, for multi-series marks and
- * legends. Series identity is fixed, NOT the user's accent (dataviz: "colour follows the entity").
- * Passes the dataviz six-checks in light and dark; the green↔pink adjacency sits in the CVD floor
- * band (ΔE 6.1), so multi-series marks must carry secondary encoding — the bar gaps, direct labels
- * or the legend they already ship with. A 9th series folds into "Other"; never cycle past 8.
+ * The default categorical scheme, as literal values.
+ *
+ * This used to be eight hand-written hexes here, which made it a *second* source of truth beside
+ * `--chart-*` — and the two disagreed, so the same series was one colour through `ChartConfig` and
+ * another through a token. It is now the default scheme out of `theme-data.json`, the same entry
+ * the CSS tokens project. Compiled rather than resolved because that is what the references do
+ * (d3 ships its schemes as hex strings) and because it is what lets a chart keep its colours where
+ * the theme CSS is not loaded.
+ *
+ * Both modes clear the dataviz six checks against the product's own surfaces: worst adjacent CVD
+ * ΔE 20.9, normal-vision 24.7, all eight at or above 3:1. The previous set sat in the CVD floor
+ * band at 6.1 and needed secondary encoding to be legal at all.
  */
-export const CHART_CATEGORICAL = [
-  "#2563eb", "#ea580c", "#059669", "#d97706", "#db2777", "#16a34a", "#7c3aed", "#e11d48",
-] as const;
+export const CHART_SCHEME = themeData.schemes[themeData.defaultScheme as keyof typeof themeData.schemes];
 
-/** The categorical hue for series index `i` (0–7); anything beyond the eight slots is "Other". */
-export function categoricalColor(i: number, other = "#94a3b8"): string {
-  return CHART_CATEGORICAL[i] ?? other;
+/** Categorical slots. A 9th series folds into "Other" — never cycle, or identity stops meaning anything. */
+export const CHART_SLOTS = CHART_SCHEME.light.length;
+
+/**
+ * The categorical colour for series index `i`, as a **token**.
+ *
+ * A token and not a literal so one answer covers both jobs: it follows the light/dark flip, and it
+ * follows whichever scheme the product selected — neither of which a baked hex can do. The chart
+ * pipeline already resolves `var(--…)` against the live element, and the DOM resolves it natively
+ * for legends and swatches.
+ */
+export function categoricalColor(i: number, other = "var(--muted-foreground)"): string {
+  return i >= 0 && i < CHART_SLOTS ? `var(--chart-${i + 1})` : other;
 }

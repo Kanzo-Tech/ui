@@ -759,6 +759,48 @@
   --sidebar-ring: var(--color-rose-900);
 }
 
+/* ── Categorical scheme (data-chart-scheme) ─────────────────────────────── */
+[data-chart-scheme="kanzo"] {
+  --chart-1: #2b7fff;
+  --chart-2: #008236;
+  --chart-3: #7f22fe;
+  --chart-4: #a65f00;
+  --chart-5: #0092b8;
+  --chart-6: #f54a00;
+  --chart-7: #e12afb;
+  --chart-8: #ff2056;
+}
+.dark[data-chart-scheme="kanzo"], .dark [data-chart-scheme="kanzo"] {
+  --chart-1: #2b7fff;
+  --chart-2: #00a63e;
+  --chart-3: #7f22fe;
+  --chart-4: #a65f00;
+  --chart-5: #0092b8;
+  --chart-6: #f54a00;
+  --chart-7: #e12afb;
+  --chart-8: #c70036;
+}
+[data-chart-scheme="vivid"] {
+  --chart-1: #155dfc;
+  --chart-2: #00c950;
+  --chart-3: #7f22fe;
+  --chart-4: #d08700;
+  --chart-5: #00b8db;
+  --chart-6: #f54a00;
+  --chart-7: #e12afb;
+  --chart-8: #ec003f;
+}
+.dark[data-chart-scheme="vivid"], .dark [data-chart-scheme="vivid"] {
+  --chart-1: #155dfc;
+  --chart-2: #00a63e;
+  --chart-3: #7f22fe;
+  --chart-4: #a65f00;
+  --chart-5: #0092b8;
+  --chart-6: #f54a00;
+  --chart-7: #e12afb;
+  --chart-8: #ec003f;
+}
+
 /* ── Radius (data-radius) ───────────────────────────────────────────────── */
 [data-radius="none"] {
   --radius: 0rem;

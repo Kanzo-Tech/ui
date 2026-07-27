@@ -817,6 +817,63 @@
     "orange",
     "rose"
   ],
+  "schemes": {
+    "kanzo": {
+      "label": "Kanzo",
+      "relief": {
+        "light": 0,
+        "dark": 0
+      },
+      "light": [
+        "#2b7fff",
+        "#008236",
+        "#7f22fe",
+        "#a65f00",
+        "#0092b8",
+        "#f54a00",
+        "#e12afb",
+        "#ff2056"
+      ],
+      "dark": [
+        "#2b7fff",
+        "#00a63e",
+        "#7f22fe",
+        "#a65f00",
+        "#0092b8",
+        "#f54a00",
+        "#e12afb",
+        "#c70036"
+      ]
+    },
+    "vivid": {
+      "label": "Vivid",
+      "relief": {
+        "light": 3,
+        "dark": 0
+      },
+      "light": [
+        "#155dfc",
+        "#00c950",
+        "#7f22fe",
+        "#d08700",
+        "#00b8db",
+        "#f54a00",
+        "#e12afb",
+        "#ec003f"
+      ],
+      "dark": [
+        "#155dfc",
+        "#00a63e",
+        "#7f22fe",
+        "#a65f00",
+        "#0092b8",
+        "#f54a00",
+        "#e12afb",
+        "#ec003f"
+      ]
+    }
+  },
+  "defaultScheme": "kanzo",
   "staticLight": {
     "--destructive": "var(--color-red-500)",
     "--destructive-foreground": "var(--color-red-700)",
@@ -825,12 +882,7 @@
     "--success": "var(--color-emerald-500)",
     "--success-foreground": "var(--color-emerald-700)",
     "--warning": "var(--color-amber-500)",
-    "--warning-foreground": "var(--color-amber-700)",
-    "--chart-1": "var(--color-orange-600)",
-    "--chart-2": "var(--color-teal-600)",
-    "--chart-3": "var(--color-cyan-900)",
-    "--chart-4": "var(--color-amber-400)",
-    "--chart-5": "var(--color-amber-500)"
+    "--warning-foreground": "var(--color-amber-700)"
   },
   "staticDark": {
     "--info": "var(--color-blue-500)",
@@ -838,11 +890,6 @@
     "--success": "var(--color-emerald-500)",
     "--success-foreground": "var(--color-emerald-400)",
     "--warning": "var(--color-amber-500)",
-    "--warning-foreground": "var(--color-amber-400)",
-    "--chart-1": "var(--color-blue-700)",
-    "--chart-2": "var(--color-emerald-500)",
-    "--chart-3": "var(--color-amber-500)",
-    "--chart-4": "var(--color-purple-500)",
-    "--chart-5": "var(--color-rose-500)"
+    "--warning-foreground": "var(--color-amber-400)"
   }
 }

@@ -65,7 +65,7 @@ export function colorTokenName(value: string): string {
   return (comma === -1 ? inner : inner.slice(0, comma)).trim();
 }
 
-/** The config in slot order; a series without a colour falls back to its `CHART_CATEGORICAL` hue. */
+/** The config in slot order; a series without a colour falls back to its scheme slot token. */
 export function chartSeriesEntries(config: ChartConfig): ChartSeriesEntry[] {
   return Object.entries(config).map(([key, series], i) => ({
     key,
@@ -75,7 +75,7 @@ export function chartSeriesEntries(config: ChartConfig): ChartSeriesEntry[] {
   }));
 }
 
-/** The colour a series wears — its own, or its `CHART_CATEGORICAL` slot. `undefined` if unknown. */
+/** The colour a series wears — its own, or its scheme slot token. `undefined` if unknown. */
 export function chartSeriesColor(config: ChartConfig, key: string): string | undefined {
   const index = Object.keys(config).indexOf(key);
   if (index === -1) return undefined;

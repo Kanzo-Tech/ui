@@ -6,6 +6,7 @@ import { CUSTOM_BASE_SHADES, customBaseVars, readableForeground } from "../lib/c
 import {
   APPEARANCE_KEY,
   AXES,
+  CHART_SLOT_VARS,
   DEFAULT_PREFS,
   PRIMARY_FG_OVERRIDE,
   PRIMARY_OVERRIDE,
@@ -226,7 +227,8 @@ export function KanzoThemeProvider({
     // fresh literal every render, so depending on the object would re-apply every attribute on
     // every render. exhaustive-deps cannot see through the member access and asks for the object.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefs.base, prefs.accent, prefs.radius, prefs.font, prefs.monoFont, prefs.density, prefs.baseTint]);
+  }, [prefs.base, prefs.accent, prefs.radius, prefs.font, prefs.monoFont, prefs.density, prefs.baseTint, prefs.scheme]);
+
 
   // Custom primary colour: override the accent preset via inline vars on <html> (foreground
   // derived by luminance). Cleared → falls back to the `data-accent` preset.
@@ -259,7 +261,7 @@ export function KanzoThemeProvider({
     () => () => {
       const el = document.documentElement;
       for (const { attr } of AXES) el.removeAttribute(attr);
-      for (const k of [...PRIMARY_OVERRIDE, ...PRIMARY_FG_OVERRIDE]) el.style.removeProperty(k);
+      for (const k of [...PRIMARY_OVERRIDE, ...PRIMARY_FG_OVERRIDE, ...CHART_SLOT_VARS]) el.style.removeProperty(k);
       for (const s of CUSTOM_BASE_SHADES) el.style.removeProperty(`--color-custom-${s}`);
     },
     [],
@@ -307,6 +309,22 @@ export function KanzoThemeProvider({
   const resolvedAppearance: ResolvedAppearance = appearance
     ? appearance.resolvedTheme === "dark" ? "dark" : "light"
     : resolvedFallback;
+
+  // A registered scheme: write its slots inline, which beats any `[data-chart-scheme]` rule on the
+  // same element without needing a `custom` attribute value the way `base` does. Mode-aware on
+  // purpose, and the only override here that is — `primary` can be appearance-independent because
+  // it is one hue, but a categorical palette that clears the light lightness band will not clear
+  // the dark one, so both sides are given and this re-runs when the applied appearance changes.
+  // Cleared → falls back to the named scheme. Lives below `resolvedAppearance` because it reads it.
+  React.useEffect(() => {
+    const el = document.documentElement;
+    const slots = prefs.schemeColors?.[resolvedAppearance];
+    if (slots?.length) {
+      slots.forEach((colour, i) => el.style.setProperty(`--chart-${i + 1}`, colour));
+    } else {
+      for (const k of CHART_SLOT_VARS) el.style.removeProperty(k);
+    }
+  }, [prefs.schemeColors, resolvedAppearance]);
 
   const setAppearance = React.useCallback(
     (next: Appearance) => {

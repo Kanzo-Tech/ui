@@ -12,7 +12,7 @@ import { categoricalColor } from "./theme.js";
 export interface ChartLegendProps extends React.ComponentProps<typeof ark.ul> {
   /** Series config. Defaults to the surrounding `<ChartRoot>`'s. */
   config?: ChartConfig;
-  /** Standalone shorthand: labels in slot order, the i-th on its `CHART_CATEGORICAL` hue. */
+  /** Standalone shorthand: labels in slot order, the i-th on its scheme slot. */
   series?: readonly string[];
 }
 

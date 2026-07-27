@@ -70,6 +70,9 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
 
   /* Multiplicative radius scale — Shark's exact ratios (verified against its compiled
      CSS). Every step is a multiple of the single `--radius` knob, so the whole system
@@ -177,11 +180,19 @@
   --sidebar-border: color-mix(in srgb, var(--color-neutral-950) 11%, var(--sidebar));
   --sidebar-ring: var(--color-neutral-400);
 
-  --chart-1: var(--color-orange-600);
-  --chart-2: var(--color-teal-600);
-  --chart-3: var(--color-cyan-900);
-  --chart-4: var(--color-amber-400);
-  --chart-5: var(--color-amber-500);
+  /* The default categorical scheme (`kanzo`), inline for the attribute-absent case — every other
+     scheme is a `[data-chart-scheme]` block in themes.css. Literal hex rather than
+     `var(--color-*)`: the scheme is data, defined once in gen-theme.mjs and projected here and
+     into theme-data.json. Do not hand-edit a slot; it is derived against the palette validator,
+     and the constraints that placed each one are recorded beside the definition. */
+  --chart-1: #2b7fff;
+  --chart-2: #008236;
+  --chart-3: #7f22fe;
+  --chart-4: #a65f00;
+  --chart-5: #0092b8;
+  --chart-6: #f54a00;
+  --chart-7: #e12afb;
+  --chart-8: #ff2056;
 
   /* ── Kanzo extras (not in Shark; only what Tailwind/Shark don't cover + is used) ── */
   --kanzo-font-size-base: 0.8125rem;   /* 13px — IDE base (below Tailwind text-xs) */
@@ -266,11 +277,16 @@
   --sidebar-border: color-mix(in srgb, var(--color-neutral-50) 11%, var(--sidebar));
   --sidebar-ring: var(--color-neutral-500);
 
-  --chart-1: var(--color-blue-700);
-  --chart-2: var(--color-emerald-500);
-  --chart-3: var(--color-amber-500);
-  --chart-4: var(--color-purple-500);
-  --chart-5: var(--color-rose-500);
+  /* The same eight hues stepped for the dark surface — selected, not flipped. Only two slots
+     actually move (green and rose); the rest already sit in the dark lightness band. */
+  --chart-1: #2b7fff;
+  --chart-2: #00a63e;
+  --chart-3: #7f22fe;
+  --chart-4: #a65f00;
+  --chart-5: #0092b8;
+  --chart-6: #f54a00;
+  --chart-7: #e12afb;
+  --chart-8: #c70036;
 
   --kanzo-syntax-keyword: var(--color-purple-400);
   --kanzo-syntax-string: var(--color-emerald-400);

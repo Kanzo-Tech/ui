@@ -64,6 +64,39 @@ export type KanzoFont = "system" | "geist" | "inter" | (string & {});
 /** Mono font key — host-extensible; the DS ships `system`/`geist-mono`/`jetbrains-mono`. */
 export type KanzoMonoFont = "system" | "geist-mono" | "jetbrains-mono" | (string & {});
 
+/**
+ * A categorical scheme by name — the colours that carry *identity* (which series, which node kind,
+ * which chip), as opposed to `accent`, which is the one brand hue.
+ *
+ * Open like the font axes, because schemes are extensible: the reference for that is Vega's
+ * `vega.scheme(name, colors)`, a two-argument registry rather than a plugin system. Here the
+ * registration is `schemeColors` on the prefs, which overrides the named scheme the same way
+ * `primary` overrides `accent` and `baseTint` overrides `base`.
+ */
+export type KanzoScheme = "kanzo" | (string & {});
+
+/**
+ * A scheme's slots, per mode. Both arrays are the same length, and dark is *selected* rather than
+ * derived — an automatic flip of a light palette lands outside the dark lightness band.
+ */
+export interface SchemeColors {
+  light: string[];
+  dark: string[];
+}
+
+/** A built-in scheme: its slots, plus what a panel needs to name it and to warn honestly. */
+export interface Scheme extends SchemeColors {
+  label: string;
+  /**
+   * Slots falling below 3:1 on that mode's surface.
+   *
+   * Not a failure — the contrast check is a documented conditional relax — but not dismissable
+   * either: where this is non-zero the chart owes a relief channel, visible direct labels or the
+   * table view. Surfaced so choosing a scheme is an informed choice rather than a pretty one.
+   */
+  relief: { light: number; dark: number };
+}
+
 // ── The axis table — the single source of truth for how a preference reaches the DOM ────────
 //
 // This lives here, not in @kanzo-tech/ui, because three separate things must agree on it and
@@ -87,6 +120,13 @@ export interface ThemePrefs {
   /** Custom base TINT (any CSS colour). When set it generates a neutral ramp tinted toward this
    *  hue (`--color-custom-*` + `data-base="custom"`), overriding the named `base`. */
   baseTint?: string;
+  /** The categorical scheme by name — `--chart-1..N`, the colours that carry series identity. */
+  scheme?: KanzoScheme;
+  /** A registered scheme's own slots. When set it overrides the named `scheme` by writing
+   *  `--chart-*` inline, picking the array that matches the applied appearance. Unlike `primary`,
+   *  this one is mode-aware: a categorical palette that clears the light lightness band will not
+   *  clear the dark one, so both sides are given rather than derived. */
+  schemeColors?: SchemeColors;
 }
 
 export const DEFAULT_PREFS: ThemePrefs = {
@@ -96,7 +136,16 @@ export const DEFAULT_PREFS: ThemePrefs = {
   monoFont: "system",
   density: "default",
   base: "neutral",
+  scheme: themeDataJson.defaultScheme,
 };
+
+/** The built-in schemes by name. Extend at runtime with `schemeColors` — the registry. */
+export const SCHEMES = themeDataJson.schemes as unknown as Record<string, Scheme>;
+
+/** `--chart-1` … `--chart-N` — the inline custom-scheme override, and what to clean up after it. */
+export const CHART_SLOT_VARS: string[] = (SCHEMES[themeDataJson.defaultScheme] as Scheme).light.map(
+  (_, i) => `--chart-${i + 1}`,
+);
 
 export const STORAGE_KEY = "kanzo_theme_prefs";
 export const APPEARANCE_KEY = "kanzo_appearance";
@@ -112,6 +161,9 @@ export const APPEARANCE_KEY = "kanzo_appearance";
 export const AXES: { key: keyof ThemePrefs; attr: string; def: string }[] = [
   { key: "base", attr: "data-base", def: "neutral" },
   { key: "accent", attr: "data-accent", def: "neutral" },
+  // `data-chart-scheme`, not `data-scheme` — the latter reads as CSS `color-scheme`, and `.dark`
+  // lives on this same element, so the ambiguity would be paid for daily.
+  { key: "scheme", attr: "data-chart-scheme", def: themeDataJson.defaultScheme },
   { key: "radius", attr: "data-radius", def: "md" },
   { key: "font", attr: "data-font", def: "system" },
   { key: "monoFont", attr: "data-mono-font", def: "system" },
