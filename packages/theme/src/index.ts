@@ -31,6 +31,7 @@ export {
   checkScheme,
   contrast as contrastRatio,
   deltaE,
+  hueDistance,
   oklch,
   type CvdKind,
   type Mode,

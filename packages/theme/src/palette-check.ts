@@ -78,10 +78,30 @@ function oklabOf([r = 0, g = 0, b = 0]: number[]): [number, number, number] {
   ];
 }
 
-/** OKLCH lightness and chroma. Hue is not needed by any check, so it is not computed. */
-export function oklch(hex: string): { l: number; c: number } {
+/**
+ * OKLCH lightness, chroma and hue.
+ *
+ * Hue is not used by any of the six checks — they ask how far apart colours are, not where on the
+ * wheel they sit. It is here for the job on the other side: translating a foreign palette. Matching
+ * a borrowed colour to one of the system's hue families has to compare *hue*, because `deltaE`
+ * includes lightness, and a pastel palette is uniformly light enough that lightness dominates the
+ * distance — matching Dracula's accents by `deltaE` answers `purple→sky` and `green→yellow`, which
+ * are not neighbourhoods of anything.
+ *
+ * Hue is always computed and is **meaningless below the chroma floor** — `#737373` answers 89.9°,
+ * which is float noise in `a`/`b`, not a colour. Callers gate on `c`; reporting a fabricated `0`
+ * would look like an answer instead of an absence.
+ */
+export function oklch(hex: string): { l: number; c: number; h: number } {
   const [l, a, b] = oklabOf(linear(hex));
-  return { l, c: Math.hypot(a, b) };
+  const c = Math.hypot(a, b);
+  return { l, c, h: ((Math.atan2(b, a) * 180) / Math.PI + 360) % 360 };
+}
+
+/** Shortest angular distance between two hues, in degrees (0–180). */
+export function hueDistance(a: number, b: number): number {
+  const d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
 }
 
 /** WCAG contrast ratio between two colours, order-independent. */

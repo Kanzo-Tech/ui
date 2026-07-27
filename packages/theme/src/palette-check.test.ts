@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { SCHEMES } from "./index.js";
-import { checkScheme, contrast, deltaE, oklch, SURFACE, type Mode } from "./palette-check.js";
+import {
+  CHROMA_FLOOR,
+  checkScheme,
+  contrast,
+  deltaE,
+  hueDistance,
+  oklch,
+  SURFACE,
+  type Mode,
+} from "./palette-check.js";
 
 const MODES: Mode[] = ["light", "dark"];
 
@@ -12,6 +21,22 @@ describe("colour maths", () => {
     expect(oklch("#2b7fff").l).toBeCloseTo(0.623, 2);
     expect(oklch("#0092b8").c).toBeCloseTo(0.116, 2);
     expect(contrast("#ffffff", "#000000")).toBeCloseTo(21, 1);
+  });
+
+  it("matches a borrowed colour by hue, which deltaE cannot do", () => {
+    // Dracula's purple against two candidate families. `deltaE` picks the wrong one because it
+    // includes lightness and the palette is uniformly pastel; hue picks the right one.
+    const dracPurple = oklch("#bd93f9").h;
+    expect(hueDistance(dracPurple, oklch("#7f22fe").h)).toBeLessThan(
+      hueDistance(dracPurple, oklch("#0084d1").h),
+    );
+    expect(deltaE("#bd93f9", "#0084d1")).toBeLessThan(deltaE("#bd93f9", "#7f22fe"));
+  });
+
+  it("gives a grey a hue that means nothing, and says so through chroma", () => {
+    // `#737373` answers 89.9°, which is float noise in a/b rather than a colour. The chroma is what
+    // tells you not to trust it — a fabricated 0 would read as an answer instead of an absence.
+    expect(oklch("#737373").c).toBeLessThan(CHROMA_FLOOR);
   });
 
   it("measures the collapse simulated vision causes", () => {
