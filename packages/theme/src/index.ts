@@ -47,10 +47,13 @@ export {
  */
 export {
   allPairsCap,
+  deriveOrderedScheme,
   deriveScheme,
   familyOf,
+  leadingClear,
   orderScheme,
   type Derivation,
+  type OrderedDerivation,
   type OrderOptions,
 } from "./derive-scheme.js";
 

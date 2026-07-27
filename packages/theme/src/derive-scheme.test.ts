@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { allPairsCap, deriveScheme, familyOf, orderScheme } from "./derive-scheme.js";
+import {
+  allPairsCap,
+  deriveOrderedScheme,
+  deriveScheme,
+  leadingClear,
+  familyOf,
+  orderScheme,
+} from "./derive-scheme.js";
 import { SCHEMES } from "./index.js";
 import { checkScheme, deltaE } from "./palette-check.js";
 
@@ -25,13 +32,31 @@ describe("familyOf", () => {
 
 describe("deriveScheme", () => {
   for (const mode of ["light", "dark"] as const) {
-    it(`turns Dracula's hues into something that passes in ${mode}`, () => {
+    it(`turns Dracula's hues into legal values in ${mode}, without judging their order`, () => {
+      // The contract this asserts changed deliberately. It used to demand that the *derivation*
+      // pass `checkScheme`, which asks whether neighbours are far enough apart — a question about
+      // an arrangement `deriveScheme` does not make. Honouring it meant the answer depended on the
+      // sequence the source happened to be written in. What this stage owes is band and chroma,
+      // both properties of a value; separation is `deriveOrderedScheme`'s to answer, below.
       const { colours, dropped } = deriveScheme(DRACULA, mode);
       expect(dropped).toEqual([]);
       expect(colours).toHaveLength(DRACULA.length);
-      expect(checkScheme(colours, { mode }).ok).toBe(true);
+      const report = checkScheme(colours, { mode });
+      expect(report.band).toEqual([]);
+      expect(report.chroma).toEqual([]);
     });
   }
+
+  it("does not care what order the source was written in", () => {
+    // The bug, as a test. base16 lists its accents around the hue wheel, so every adjacent pair is
+    // a hue neighbour — and in the dark band no hue-neighbour pair can reach the separation floor
+    // at any step. With the gate applied here, the same six colours derived or refused depending
+    // only on their spelling.
+    const wheel = ["#ff5555", "#ffb86c", "#f1fa8c", "#50fa7b", "#bd93f9", "#ff79c6"];
+    const shuffled = ["#50fa7b", "#ffb86c", "#ff79c6", "#bd93f9", "#ff5555", "#f1fa8c"];
+    expect(deriveScheme(wheel, "dark").colours).toHaveLength(6);
+    expect(deriveScheme(shuffled, "dark").colours).toHaveLength(6);
+  });
 
   it("keeps the palette's hues and not its mood", () => {
     // The whole trade in one assertion: same families, different values. Dracula's green is a
@@ -107,14 +132,113 @@ describe("the pipeline against what we ship", () => {
       // pipeline choose steps and order again. If the hand-run derivation and the function
       // disagree, one of them is wrong — and this is the test that says which.
       const shipped = (SCHEMES.kanzo as { light: string[]; dark: string[] })[mode];
-      const { colours, dropped } = deriveScheme(shipped, mode);
+      const { ordered, dropped } = deriveOrderedScheme(shipped, mode, { avoid: ["#fb2c36"] });
       expect(dropped).toEqual([]);
 
-      const ordered = orderScheme(colours, mode, { avoid: ["#fb2c36"] });
+      // Through `deriveOrderedScheme`, not the two stages by hand. Running them by hand is what
+      // this test used to do, and it is exactly the composition that was wrong: the step-chooser
+      // ranks on a lower bound, so ordering only its leader can lose to a runner-up that arranges
+      // better. Composed properly the round trip clears the shipped scheme again.
       expect(checkScheme(ordered, { mode }).ok).toBe(true);
       expect(checkScheme(ordered, { mode }).cvd.delta).toBeGreaterThanOrEqual(
         checkScheme(shipped, { mode }).cvd.delta,
       );
     });
   }
+});
+
+describe("deriveOrderedScheme", () => {
+  /**
+   * The palettes as base16 writes them: accents around the hue wheel. This is the input the whole
+   * anti-corruption layer exists to serve, and the input the old composition could not handle.
+   */
+  const DRACULA_WHEEL = ["#ff5555", "#ffb86c", "#f1fa8c", "#50fa7b", "#bd93f9", "#ff79c6"];
+
+  for (const mode of ["light", "dark"] as const) {
+    it(`arranges a hue-wheel palette into a passing scheme in ${mode}`, () => {
+      // The regression this whole change is about. Hand-composed, dark returned `[]` for five of
+      // six palettes — not because their colours were unusable, but because base16 lists them in
+      // the one order the adjacent gate cannot survive.
+      const { ordered } = deriveOrderedScheme(DRACULA_WHEEL, mode, { avoid: ["#fb2c36"] });
+      expect(ordered).toHaveLength(DRACULA_WHEEL.length);
+      expect(checkScheme(ordered, { mode }).ok).toBe(true);
+    });
+  }
+
+  it("beats the arrangement of the sequence it was handed", () => {
+    // Ordering is not cosmetic: it is the colour-blindness mechanism. If the composed pipeline did
+    // not improve on the input sequence there would be no reason for the stage to exist.
+    const { colours, ordered } = deriveOrderedScheme(DRACULA_WHEEL, "dark", { avoid: ["#fb2c36"] });
+    expect(checkScheme(ordered, { mode: "dark" }).cvd.delta).toBeGreaterThan(
+      checkScheme(colours, { mode: "dark" }).cvd.delta,
+    );
+  });
+
+  it("refuses honestly when nothing can be arranged", () => {
+    // A refusal must still be reachable — moving the gate must not have made the layer incapable
+    // of saying no. Two greys yield no families at all.
+    const { ordered, colours } = deriveOrderedScheme(["#737373", "#8a8a8a"], "light");
+    expect(colours).toEqual([]);
+    expect(ordered).toEqual([]);
+  });
+
+  it("cannot rescue Nord, and says so", () => {
+    // Seven of eight of Nord's accents sit below the chroma floor. One colour is not a categorical
+    // palette, and the fix to the composition must not paper over that.
+    const { ordered, dropped } = deriveOrderedScheme(NORD, "dark", { avoid: ["#fb2c36"] });
+    expect(dropped.length).toBeGreaterThanOrEqual(NORD.length - 2);
+    expect(ordered).toEqual([]);
+  });
+});
+
+describe("the gates refuse a degenerate scheme", () => {
+  it("does not pass a single colour", () => {
+    // With one colour there are no pairs, so every separation check passed vacuously and both
+    // worst-pair searches reported `Infinity`. Nord — whose eight accents leave exactly one above
+    // the chroma floor — therefore reported a *passing scheme*.
+    const one = checkScheme(["#2b7fff"], { mode: "light" });
+    expect(one.cvd.delta).toBe(Number.POSITIVE_INFINITY);
+    expect(one.ok).toBe(false);
+    expect(checkScheme([], { mode: "light" }).ok).toBe(false);
+    expect(checkScheme(["#2b7fff", "#008236"], { mode: "light" }).ok).toBe(true);
+  });
+});
+
+describe("orderScheme's leading constraint", () => {
+  it("asks for no more leading slots than the input can supply", () => {
+    // `leading` is a constant, and for a small scheme it can be arithmetically impossible: if two
+    // of five slots sit within ΔE 15 of --destructive, only three may lead, so demanding four
+    // demands nothing. That returned `[]`, which reads as "this palette cannot be ordered" — a
+    // much more alarming claim than "it has fewer than four slots that can lead".
+    const near = "#ec003f"; // a rose, ΔE < 15 from red-500
+    const scheme = [near, "#2b7fff", "#008236", "#a65f00"];
+    expect(orderScheme(scheme, "light", { avoid: ["#fb2c36"], leading: 4 })).toHaveLength(4);
+  });
+});
+
+describe("the avoid constraint degrades instead of refusing", () => {
+  const DRACULA_WHEEL = ["#ff5555", "#ffb86c", "#f1fa8c", "#50fa7b", "#bd93f9", "#ff79c6"];
+
+  it("keeps a scheme that cannot hold every leading slot clear", () => {
+    // `avoid` is a preference; the checks are the law. Conflating them refused three of the six
+    // palettes outright — and each of them ordered fine in both modes with `avoid` dropped, so the
+    // separation gate was never what failed. A refusal that says "these colours cannot be told
+    // apart" when the truth is "slot 3 sits near red" is worse than no answer.
+    const { ordered, leading } = deriveOrderedScheme(DRACULA_WHEEL, "light", {
+      avoid: ["#fb2c36"],
+      leading: 4,
+    });
+    expect(ordered).toHaveLength(DRACULA_WHEEL.length);
+    expect(leading).toBeLessThanOrEqual(4);
+    // Whatever it managed, the slots it claims are clear really are.
+    for (const hex of ordered.slice(0, leading)) {
+      expect(deltaE(hex, "#fb2c36")).toBeGreaterThanOrEqual(15);
+    }
+  });
+
+  it("still holds as many as the colours allow, not as few as it can get away with", () => {
+    const relaxed = deriveOrderedScheme(DRACULA_WHEEL, "light", { avoid: ["#fb2c36"], leading: 4 });
+    const none = deriveOrderedScheme(DRACULA_WHEEL, "light", { leading: 0 });
+    expect(relaxed.leading).toBeGreaterThan(leadingClear(none.ordered, ["#fb2c36"]) - 1);
+  });
 });

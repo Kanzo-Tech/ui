@@ -210,7 +210,16 @@ export function checkScheme(
   const normalWorst = worst();
 
   return {
-    ok: !band.length && !chroma.length && state !== "fail" && normalWorst.delta >= NORMAL_FLOOR,
+    // `colours.length >= 2` is not pedantry. With fewer, `pairsOf` is empty, both worst-pair
+    // searches return `Infinity`, and every separation check passes vacuously — so Nord, whose
+    // eight accents leave exactly one above the chroma floor, reported a *passing scheme*. One
+    // colour is not a categorical palette; there are no categories to tell apart.
+    ok:
+      colours.length >= 2 &&
+      !band.length &&
+      !chroma.length &&
+      state !== "fail" &&
+      normalWorst.delta >= NORMAL_FLOOR,
     band,
     chroma,
     cvd: { ...cvdWorst, state },
