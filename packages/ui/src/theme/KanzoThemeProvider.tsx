@@ -227,7 +227,7 @@ export function KanzoThemeProvider({
     // fresh literal every render, so depending on the object would re-apply every attribute on
     // every render. exhaustive-deps cannot see through the member access and asks for the object.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefs.base, prefs.accent, prefs.radius, prefs.font, prefs.monoFont, prefs.density, prefs.baseTint, prefs.scheme]);
+  }, [prefs.palette, prefs.base, prefs.accent, prefs.radius, prefs.font, prefs.monoFont, prefs.density, prefs.baseTint, prefs.scheme]);
 
 
   // Custom primary colour: override the accent preset via inline vars on <html> (foreground

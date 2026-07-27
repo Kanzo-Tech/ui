@@ -8,11 +8,18 @@
  * utilities like `bg-primary` / `text-muted-foreground` resolve to tokens and theme
  * live. Default radius is `0.5rem` with an additive scale, matching Shark/shadcn.
  *
- * Theming has two colour axes (written to `<html>` by `KanzoThemeProvider`): a base neutral
- * scale, and an ACCENT that
+ * Theming's colour axes (written to `<html>` by `KanzoThemeProvider`): a PALETTE — a whole base16
+ * identity that sets the surfaces, the neutrals, the 13 syntax roles and `color-scheme`, and which
+ * wins over the base scale by source order in themes.css; a base neutral scale; an ACCENT that
  * overrides ONLY 6 tokens (`--primary(-foreground)`, `--ring`, `--sidebar-primary
  * (-foreground)`, `--sidebar-ring`) — it never touches `--accent`, which (as in Shark)
- * is the neutral hover/subtle surface, not a brand hue. `.dark` is a third axis.
+ * is the neutral hover/subtle surface, not a brand hue; and a categorical SCHEME for `--chart-*`.
+ * `.dark` remains its own axis for now; the palette's `pairsWith` is what it eventually folds into.
+ *
+ * This block is the `kanzo` palette's light side, and the `.dark` block below is `kanzo-dark` —
+ * they apply when no attribute is set, so they must not drift from the palettes of the same name.
+ * `palettes.test.ts` holds the syntax roles to that; the surfaces differ only in reaching past the
+ * foreground to `-950`/`-50`, where a palette stops at its own ink slot.
  *
  * For the NEUTRAL and BRAND families the base name is the FILL and the same name with
  * `-foreground` is the text/icon colour meant to sit ON that fill. Change a token and the whole
@@ -203,25 +210,27 @@
      is the convention; a token nothing reads only invited drift, and this block's own contract
      is "only what Tailwind/Shark don't cover + is used". */
 
-  /* Syntax highlighting — consumed by the editor's HighlightStyle (→ --kanzo-syntax-*). */
-  --kanzo-syntax-keyword: var(--color-purple-700);
-  --kanzo-syntax-string: var(--color-emerald-700);
-  --kanzo-syntax-number: var(--color-amber-700);
-  --kanzo-syntax-comment: var(--color-neutral-500);
-  /* Declarations only. Plain variable USES inherit --foreground, as they do in most themes —
-     this used to be neutral-800, i.e. byte-identical to --foreground, so it styled nothing. */
-  --kanzo-syntax-identifier: var(--color-teal-700);
+  /* Syntax highlighting — consumed by the editor's HighlightStyle (→ --kanzo-syntax-*).
+     These are the `kanzo` palette's slots through the base16 role mapping, as literal hex for the
+     same reason --chart-* is: the palette is the source, this is a projection of it, and a `var()`
+     reference would be a second spelling of the same fact that nothing could compare. Regenerating
+     is `node scripts/gen-theme.mjs`; the drift guard is in `palettes.test.ts`.
+     Declarations only — plain variable USES inherit --foreground. */
+  --kanzo-syntax-keyword: #8200db;      /* base0E */
+  --kanzo-syntax-string: #007a55;       /* base0B */
+  --kanzo-syntax-number: #ca3500;       /* base09 */
+  --kanzo-syntax-constant: #ca3500;     /* base09 */
+  --kanzo-syntax-comment: #737373;      /* base03 */
+  --kanzo-syntax-type: #a65f00;         /* base0A */
+  --kanzo-syntax-function: #1447e6;     /* base0D */
   /* Object keys / attribute names. Their absence is why JSON rendered near-monochrome: keys
      fell through to the identifier rule and therefore to plain foreground. */
-  --kanzo-syntax-property: var(--color-sky-700);
-  --kanzo-syntax-function: var(--color-rose-700);
-  --kanzo-syntax-constant: var(--color-orange-700);
-  --kanzo-syntax-operator: var(--color-neutral-600);
-  /* Distinct from comment, which it used to equal exactly (both neutral-500). */
-  --kanzo-syntax-punctuation: var(--color-neutral-400);
-  --kanzo-syntax-type: var(--color-blue-700);
-  --kanzo-syntax-url: var(--color-indigo-700);
-  --kanzo-syntax-invalid: var(--destructive);
+  --kanzo-syntax-property: #007595;     /* base0C */
+  --kanzo-syntax-identifier: #c10007;   /* base08 */
+  --kanzo-syntax-operator: #262626;     /* base05 — base16 has no operator slot; they read as ink */
+  --kanzo-syntax-punctuation: #525252;  /* base04 */
+  --kanzo-syntax-url: #1447e6;          /* base0D */
+  --kanzo-syntax-invalid: #c70036;      /* base0F */
 
   /* Editor highlight affordances. These are NOT derived from --accent: it is already a 6%
      tint, so mixing it again produced ~3% deltas — an active line and a search hit that were
@@ -288,19 +297,20 @@
   --chart-7: #e12afb;
   --chart-8: #c70036;
 
-  --kanzo-syntax-keyword: var(--color-purple-400);
-  --kanzo-syntax-string: var(--color-emerald-400);
-  --kanzo-syntax-number: var(--color-amber-400);
-  --kanzo-syntax-comment: var(--color-neutral-400);
-  --kanzo-syntax-identifier: var(--color-teal-300);
-  --kanzo-syntax-property: var(--color-sky-300);
-  --kanzo-syntax-function: var(--color-rose-300);
-  --kanzo-syntax-constant: var(--color-orange-300);
-  --kanzo-syntax-operator: var(--color-neutral-400);
-  --kanzo-syntax-punctuation: var(--color-neutral-500);
-  --kanzo-syntax-type: var(--color-blue-400);
-  --kanzo-syntax-url: var(--color-indigo-300);
-  --kanzo-syntax-invalid: var(--destructive);
+  /* The `kanzo-dark` palette's slots — the light block's counterpart, same mapping. */
+  --kanzo-syntax-keyword: #c27aff;      /* base0E */
+  --kanzo-syntax-string: #00d492;       /* base0B */
+  --kanzo-syntax-number: #ff8904;       /* base09 */
+  --kanzo-syntax-constant: #ff8904;     /* base09 */
+  --kanzo-syntax-comment: #a1a1a1;      /* base03 */
+  --kanzo-syntax-type: #fdc700;         /* base0A */
+  --kanzo-syntax-function: #51a2ff;     /* base0D */
+  --kanzo-syntax-property: #00d3f2;     /* base0C */
+  --kanzo-syntax-identifier: #ff6467;   /* base08 */
+  --kanzo-syntax-operator: #f5f5f5;     /* base05 */
+  --kanzo-syntax-punctuation: #d4d4d4;  /* base04 */
+  --kanzo-syntax-url: #51a2ff;          /* base0D */
+  --kanzo-syntax-invalid: #ff637e;      /* base0F */
 
   --kanzo-editor-active-line: var(--accent);
   --kanzo-editor-selection: color-mix(in srgb, var(--primary) 30%, transparent);

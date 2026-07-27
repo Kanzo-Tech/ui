@@ -1,6 +1,6 @@
 ---
 title: Theming
-description: Six axes as data-* attributes on <html>, plus host-owned dark mode.
+description: Eight axes as data-* attributes on <html>, plus host-owned dark mode.
 ---
 
 Theming is `data-*` attributes on `<html>`, whose token values live in static CSS. Change an
@@ -10,12 +10,17 @@ attribute and every component re-skins, with no per-component work.
 
 | Axis | Attribute | Sets |
 | --- | --- | --- |
+| palette | `data-palette` | a whole base16 identity: surfaces, neutrals, the 13 syntax roles, `color-scheme` |
 | base | `data-base` | the neutral scale (background / card / muted / border) |
 | accent | `data-accent` | the six primary/ring tokens |
+| scheme | `data-chart-scheme` | `--chart-1` … `--chart-8`, the colours that carry series identity |
 | radius | `data-radius` | `--radius`, which drives the whole `rounded-*` scale |
 | font | `data-font` | `--font-sans` |
 | monoFont | `data-mono-font` | `--font-mono` |
 | density | `data-font-size` | the root font-size |
+
+`palette` and `base` overlap: both set the surfaces. A palette wins, because it is the broader
+choice — that precedence is source order in the generated CSS, not a rule you can configure.
 
 <Callout type="warn" title="They must be on <html>, not a wrapper">
   Ark's overlays — Dialog, Popover, Menu, Select, Tooltip, Toast, HoverCard, Command — portal
@@ -57,6 +62,46 @@ import { Preferences } from "@kanzo-tech/ui";
   `Preferences` takes an optional `hotkey`. It has no default on purpose — a design system
   should not claim an unmodified key in its host's global keymap without being asked.
 </Callout>
+
+## Palettes
+
+A palette is the colour *identity* — you pick "Dracula", not a neutral scale crossed with an
+accent. Six ship: `kanzo` and `kanzo-dark`, `dracula`, `nord`, `catppuccin-latte` and
+`catppuccin-mocha`.
+
+```tsx
+<KanzoThemeProvider defaults={{ palette: "dracula" }}>{children}</KanzoThemeProvider>
+```
+
+The shape is [base16](https://github.com/chriskempson/base16): sixteen slots with documented roles,
+`base00`–`base07` neutrals and `base08`–`base0F` accents. The 13 `--kanzo-syntax-*` roles are a
+*mapping* onto those slots, which is what lets one palette dress an editor and a UI at once.
+
+A palette carries its own appearance. It emits `color-scheme`, so a dark one darkens form controls
+and scrollbars without a mode being chosen alongside it, and it declares `pairsWith` — the partner
+palette of the same identity, or `null`. Dracula has no partner: it is dark-first, and this library
+will not invent a light side for it.
+
+<Callout type="warn" title="A palette publishes its contrast, and some of them fail it">
+  Every palette lists the slots that do not clear WCAG AA **as text** on their own background, in
+  `relief`. These are properties of the palettes themselves, not of this mapping: Nord's comments
+  are 1.7:1 in Nord, and Catppuccin Latte is low-contrast by design with eight slots under the bar.
+  Unlike a chart scheme there is no relief channel to trade against, because every slot renders as
+  text. `kanzo` and `kanzo-dark` clear everything.
+
+  ```tsx
+  import { PALETTES } from "@kanzo-tech/theme";
+
+  PALETTES.nord.relief; // ["base03", "base08", "base09", "base0E", "base0F"]
+  ```
+</Callout>
+
+A palette deliberately does not set `accent`, the status colours, or the chart scheme. base16
+nominates no primary, so taking one would invent brand from a syntax slot; its red/yellow/green
+slots mean *strings* and *classes*, so wiring them to destructive/warning/success would let a
+palette say "this succeeded" in whatever hue it uses for literals; and a chart scheme is
+[derived](/docs/data-display/charts) from a palette's hues and then measured, because no named palette passes the
+categorical checks in its own values.
 
 ## Dark mode
 

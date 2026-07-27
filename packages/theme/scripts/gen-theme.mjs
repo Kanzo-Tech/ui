@@ -3,7 +3,8 @@
  * (its `/themes` GRAY_COLORS / PRIMARY_COLORS / BORDER_RADIUS, verbatim colour/radius math).
  *
  * MECHANISM (canonical, matches keasy + tweakcn): theming is driven by `data-*` attributes
- * on <html> (NOT classes). `data-base` sets the neutral scale, `data-accent` overrides the 6
+ * on <html> (NOT classes). `data-palette` sets a whole base16 colour identity (surfaces + syntax +
+ * `color-scheme`), `data-base` sets the neutral scale, `data-accent` overrides the 6
  * accent tokens, `data-radius` sets --radius, `data-font`/`data-mono-font` set the font stacks,
  * and `data-font-size` sets the density (root font-size). Dark is owned by next-themes (`.dark`
  * on <html>); we emit dark overrides matching `.dark` on the same element OR an ancestor
@@ -265,6 +266,299 @@ const schemeVars = (colours) =>
     Array.from({ length: CHART_SLOTS }, (_, i) => [`--chart-${i + 1}`, colours[i] ?? OTHER]),
   );
 
+// ── Palettes (data-palette) — base16 ─────────────────────────────────────────
+//
+// A palette is the colour IDENTITY: one named object from which the neutrals, the surfaces and the
+// syntax colours all follow. The reference is daisyUI, where a theme is the user-facing choice and
+// `color-scheme` is a property OF the theme rather than a second axis crossed with it.
+//
+// Shape is base16 — sixteen slots with documented roles — because that is the interchange format
+// these palettes already exist in, and because `tokens.css` had independently grown 13
+// `--kanzo-syntax-*` roles, which is the exact mapping base16 was designed for. A palette is the
+// data; SYNTAX below is the mapping. That separation is what lets one palette dress an editor and
+// a UI without either owning the other.
+//
+// What a palette does NOT own, and why:
+//  · **accent/primary** — still `data-accent`. base16 nominates no primary, so picking one would be
+//    this file inventing brand from a syntax slot.
+//  · **status** (destructive/info/success/warning) — base16's red/yellow/green slots mean *strings*
+//    and *classes*, not *success* and *warning*; wiring them across would make a palette able to
+//    say "this succeeded" in whatever hue it happens to use for literals. The system's status hues
+//    are emitted into each block instead, stepped for that palette's appearance, so a palette block
+//    is self-sufficient for its own appearance without borrowing meaning it does not have.
+//  · **the chart scheme** — derived, never mapped: `deriveScheme` exists precisely because no named
+//    palette passes the categorical checks in its own values. That derivation is authoring-time and
+//    lands with its measured numbers, the way `vivid` did.
+const SLOT_NAMES = [
+  "base00", "base01", "base02", "base03", "base04", "base05", "base06", "base07",
+  "base08", "base09", "base0A", "base0B", "base0C", "base0D", "base0E", "base0F",
+];
+
+/**
+ * base16 roles → the 13 syntax tokens, following the base16 styling guidelines rather than
+ * `tokens.css`'s previous ad-hoc hues.
+ *
+ * This moves seven of the thirteen (identifier teal→base08, type blue→base0A, function rose→base0D,
+ * property sky→base0C, url indigo→base0D, invalid destructive→base0F, number amber→base09), and the
+ * move is the point: a mapping that follows the convention makes any published base16 palette land
+ * correctly, while one tuned to our own hues would only ever look right in our own palette. base03
+ * and base04 also swap relative to before — the spec orders the neutral ramp monotonically from
+ * background to ink, so comments sit closer to the background than punctuation, where `tokens.css`
+ * had them the other way round in both modes.
+ */
+const SYNTAX = {
+  keyword: "base0E",
+  string: "base0B",
+  number: "base09",
+  constant: "base09",
+  comment: "base03",
+  type: "base0A",
+  function: "base0D",
+  property: "base0C",
+  identifier: "base08",
+  operator: "base05",
+  punctuation: "base04",
+  url: "base0D",
+  invalid: "base0F",
+};
+
+const mix = (a, pct, b) => `color-mix(in srgb, ${a} ${pct}%, ${b})`;
+
+/**
+ * Blend two hexes the way `color-mix(in srgb, …)` does — a plain linear blend of the gamma-encoded
+ * channels. Used only to manufacture the slots a source palette does not document.
+ */
+const blend = (a, b, t) => {
+  const ch = (hex) => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
+  const [x, y] = [ch(a), ch(b)];
+  return `#${x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, "0")).join("")}`;
+};
+
+/**
+ * Normalise a source to all sixteen slots.
+ *
+ * Every palette documents base00–base05 (background, raised surface, selection, comment, dim ink,
+ * ink) and eight accents; almost none documents base06/base07, the two "light foreground / light
+ * background" slots — Dracula defines four greys where base16 wants eight, and Catppuccin's own
+ * base16 port gives up and puts *accents* there. Rather than transcribe an invented hex per
+ * palette, the missing slots are generated by carrying base05 further toward the ink extreme, and
+ * the result records which ones were manufactured. The surface math below never reads base06/07
+ * precisely so that this manufacturing cannot reach a rendered token.
+ */
+const fillSlots = (src, appearance) => {
+  const ink = appearance === "light" ? "#000000" : "#ffffff";
+  const slots = { ...src };
+  const extended = [];
+  for (const [name, t] of [["base06", 0.25], ["base07", 0.5]]) {
+    if (slots[name]) continue;
+    slots[name] = blend(src.base05, ink, t);
+    extended.push(name);
+  }
+  const missing = SLOT_NAMES.filter((s) => !slots[s]);
+  if (missing.length) throw new Error(`palette is missing ${missing.join(", ")}`);
+  return { slots, extended };
+};
+
+/**
+ * A palette's surface tokens.
+ *
+ * Shark's colour math verbatim — the same six/eight/twelve/thirteen-percent mixes `baseLight` and
+ * `baseDark` use — with one substitution: the mix partner is **base05**, the palette's ink, where
+ * the base scales reach past the foreground to `-950`/`-50`. base16 guarantees an ink slot and does
+ * not guarantee a step beyond it, and reading base06/07 here would let a manufactured value into a
+ * border. The cost is measured, not waved: for `kanzo` it moves `--border` by six sRGB values.
+ */
+const paletteLight = (p) => ({
+  "--background": p.base00,
+  "--foreground": p.base05,
+  "--card": p.base00,
+  "--card-foreground": p.base05,
+  "--popover": p.base00,
+  "--popover-foreground": p.base05,
+  "--secondary": mix(p.base05, 6, "var(--background)"),
+  "--secondary-foreground": p.base05,
+  "--muted": mix(p.base05, 6, "var(--background)"),
+  "--muted-foreground": mix(p.base04, 80, p.base05),
+  "--accent": mix(p.base05, 6, "var(--background)"),
+  "--accent-foreground": p.base05,
+  "--border": mix(p.base05, 12, "var(--background)"),
+  "--input": mix(p.base05, 13, "var(--background)"),
+  "--destructive": "var(--color-red-500)",
+  "--destructive-foreground": "var(--color-red-700)",
+  "--info": "var(--color-blue-500)",
+  "--info-foreground": "var(--color-blue-700)",
+  "--success": "var(--color-emerald-500)",
+  "--success-foreground": "var(--color-emerald-700)",
+  "--warning": "var(--color-amber-500)",
+  "--warning-foreground": "var(--color-amber-700)",
+  "--sidebar": p.base00,
+  "--sidebar-foreground": mix(p.base05, 64, "var(--sidebar)"),
+  "--sidebar-accent": mix(p.base05, 6, "var(--sidebar)"),
+  "--sidebar-accent-foreground": p.base05,
+  "--sidebar-border": mix(p.base05, 11, "var(--sidebar)"),
+});
+const paletteDark = (p) => ({
+  "--background": p.base00,
+  "--foreground": p.base05,
+  "--card": mix("var(--background)", 98, p.base05),
+  "--card-foreground": p.base05,
+  "--popover": mix("var(--background)", 96, p.base05),
+  "--popover-foreground": p.base05,
+  "--secondary": mix(p.base05, 8, "var(--background)"),
+  "--secondary-foreground": p.base05,
+  "--muted": mix(p.base05, 8, "var(--background)"),
+  "--muted-foreground": mix(p.base04, 80, p.base05),
+  "--accent": mix(p.base05, 8, "var(--background)"),
+  "--accent-foreground": p.base05,
+  "--border": mix(p.base05, 12, "var(--background)"),
+  "--input": mix(p.base05, 13, "var(--background)"),
+  "--destructive": mix("var(--color-red-600)", 90, p.base05),
+  "--destructive-foreground": "var(--color-red-400)",
+  "--info": "var(--color-blue-500)",
+  "--info-foreground": "var(--color-blue-400)",
+  "--success": "var(--color-emerald-500)",
+  "--success-foreground": "var(--color-emerald-400)",
+  "--warning": "var(--color-amber-500)",
+  "--warning-foreground": "var(--color-amber-400)",
+  "--sidebar": mix(p.base00, 97, p.base05),
+  "--sidebar-foreground": mix(p.base05, 64, "var(--sidebar)"),
+  "--sidebar-accent": mix(p.base05, 8, "var(--sidebar)"),
+  "--sidebar-accent-foreground": p.base05,
+  "--sidebar-border": mix(p.base05, 11, "var(--sidebar)"),
+});
+
+/** Kanzo's own pair, read off the ramps rather than transcribed — no hue is written by hand here. */
+const kanzoSlots = (neutrals, step) => ({
+  ...Object.fromEntries(neutrals.map((shade, i) => [SLOT_NAMES[i], hexOf(`neutral-${shade}`)])),
+  base08: hexOf(`red-${step}`),
+  base09: hexOf(`orange-${step}`),
+  // `yellow`, not `amber`: base09 is already orange, and orange-700/amber-700 are close enough that
+  // a number and a type would have read as the same colour.
+  base0A: hexOf(`yellow-${step}`),
+  base0B: hexOf(`emerald-${step}`),
+  base0C: hexOf(`cyan-${step}`),
+  base0D: hexOf(`blue-${step}`),
+  base0E: hexOf(`purple-${step}`),
+  base0F: hexOf(`rose-${step}`),
+});
+
+/**
+ * Slots that do not clear WCAG AA *as text* on their own `base00`.
+ *
+ * Declared per palette and re-measured by `palettes.test.ts`, the way a scheme's `relief` is: a
+ * number nobody can check is a number nobody believes. It reads differently here than it does for a
+ * scheme, though — a chart slot is a mark, so 3:1 with a relief channel is a documented relax, but
+ * every one of these slots renders as small text, so the bar is 4.5:1 and there is no relief channel
+ * to offer. It is a property of the palette, not a defect introduced by mapping it: Nord's comments
+ * are 1.7:1 in Nord, and Catppuccin Latte is a low-contrast theme by design. Published so choosing
+ * one is an informed choice, and so `kanzo`'s own empty list cannot quietly stop being empty.
+ */
+const PALETTES = {
+  // base00–base05 run background → ink in every entry, which is base16's own ordering for a dark
+  // scheme and its documented inversion for a light one.
+  kanzo: {
+    label: "Kanzo",
+    appearance: "light",
+    pairsWith: "kanzo-dark",
+    // `-500`/`-600` for base03/base04, not `-400`/`-500`: base16 orders the ramp monotonically from
+    // background to ink, and taking the shades `tokens.css` used put comments at 2.5:1 on `-50`.
+    // A comment is small text, so it owes 4.5:1 like any other.
+    relief: [],
+    slots: kanzoSlots([50, 100, 200, 500, 600, 800, 900, 950], 700),
+  },
+  "kanzo-dark": {
+    label: "Kanzo Dark",
+    appearance: "dark",
+    pairsWith: "kanzo",
+    // base07 is white outright: the ramp stops at `-50`, which is already base06, and letting
+    // `fillSlots` manufacture it would land on that same value.
+    // `-400`/`-300`, for the same reason and the same measurement in the other direction: on
+    // `-950`, `-500` leaves a comment at 4.2:1.
+    relief: [],
+    slots: { ...kanzoSlots([950, 900, 800, 400, 300, 100, 50], 400), base07: "#ffffff" },
+  },
+  // Dracula's published spec names four greys and seven accents, so base0F repeats the red (base16
+  // reserves it for "deprecated", which Dracula has no colour for) and base06/07 are manufactured.
+  dracula: {
+    label: "Dracula",
+    appearance: "dark",
+    pairsWith: null,
+    relief: ["base03"],
+    slots: {
+      base00: "#282a36", base01: "#363948", base02: "#44475a", base03: "#6272a4",
+      base04: "#a3a6be", base05: "#f8f8f2",
+      base08: "#ff5555", base09: "#ffb86c", base0A: "#f1fa8c", base0B: "#50fa7b",
+      base0C: "#8be9fd", base0D: "#bd93f9", base0E: "#ff79c6", base0F: "#ff5555",
+    },
+  },
+  // Nord ships sixteen numbered colours and a published base16 port; the neutrals are nord0–nord6
+  // verbatim. Its accents are the reason `deriveScheme` refuses it — six of seven sit below the
+  // chroma floor, so Nord has hues to *look* like and none to chart with.
+  nord: {
+    label: "Nord",
+    appearance: "dark",
+    pairsWith: null,
+    relief: ["base03", "base08", "base09", "base0E", "base0F"],
+    slots: {
+      base00: "#2e3440", base01: "#3b4252", base02: "#434c5e", base03: "#4c566a",
+      base04: "#d8dee9", base05: "#eceff4", base06: "#e5e9f0", base07: "#8fbcbb",
+      base08: "#bf616a", base09: "#d08770", base0A: "#ebcb8b", base0B: "#a3be8c",
+      base0C: "#88c0d0", base0D: "#81a1c1", base0E: "#b48ead", base0F: "#5e81ac",
+    },
+  },
+  "catppuccin-latte": {
+    label: "Catppuccin Latte",
+    appearance: "light",
+    pairsWith: "catppuccin-mocha",
+    relief: [
+      "base03", "base04", "base09", "base0A", "base0B", "base0C", "base0D", "base0F",
+    ],
+    slots: {
+      base00: "#eff1f5", base01: "#e6e9ef", base02: "#ccd0da", base03: "#9ca0b0",
+      base04: "#6c6f85", base05: "#4c4f69",
+      base08: "#d20f39", base09: "#fe640b", base0A: "#df8e1d", base0B: "#40a02b",
+      base0C: "#179299", base0D: "#1e66f5", base0E: "#8839ef", base0F: "#e64553",
+    },
+  },
+  "catppuccin-mocha": {
+    label: "Catppuccin Mocha",
+    appearance: "dark",
+    pairsWith: "catppuccin-latte",
+    relief: ["base03"],
+    slots: {
+      base00: "#1e1e2e", base01: "#313244", base02: "#45475a", base03: "#6c7086",
+      base04: "#9399b2", base05: "#cdd6f4",
+      base08: "#f38ba8", base09: "#fab387", base0A: "#f9e2af", base0B: "#a6e3a1",
+      base0C: "#94e2d5", base0D: "#89b4fa", base0E: "#cba6f7", base0F: "#eba0ac",
+    },
+  },
+};
+
+/** The default palette — at the default the attribute is absent and `tokens.css` `:root` applies. */
+const DEFAULT_PALETTE = "kanzo";
+
+const paletteVars = (entry) => {
+  const { slots, extended } = fillSlots(entry.slots, entry.appearance);
+  const surfaces = entry.appearance === "light" ? paletteLight(slots) : paletteDark(slots);
+  return {
+    slots,
+    extended,
+    vars: {
+      // Declared, not inferred: a dark palette must render dark with no `.dark` in sight, and this
+      // is what tells the browser to darken form controls and scrollbars with it.
+      "color-scheme": entry.appearance,
+      ...surfaces,
+      ...Object.fromEntries(
+        Object.entries(SYNTAX).map(([role, slot]) => [`--kanzo-syntax-${role}`, slots[slot]]),
+      ),
+    },
+  };
+};
+
+const PALETTE_VARS = Object.fromEntries(
+  Object.entries(PALETTES).map(([name, entry]) => [name, paletteVars(entry)]),
+);
+
 // ── Fonts — the DS ships NO font files. `data-font`/`data-mono-font` point --font-sans/
 //    --font-mono at a stack; `var(--font-*)` keys let a host inject its own webfont var
 //    (e.g. next/font sets --font-geist-sans) with a graceful system fallback. ──
@@ -315,6 +609,16 @@ out += "\n/* ── Categorical scheme (data-chart-scheme) ───────
 for (const [name, { light, dark }] of Object.entries(SCHEMES)) {
   out += block(`[data-chart-scheme="${name}"]`, schemeVars(light));
   out += block(`.dark[data-chart-scheme="${name}"], .dark [data-chart-scheme="${name}"]`, schemeVars(dark));
+}
+
+out += "\n/* ── Palette (data-palette) ─────────────────────────────────────────────── */\n";
+// The selector is doubled on purpose. A palette carries its own appearance, so its block must not
+// be scoped under `.dark` — but that puts it at (0,1,0) against the base scale's dark rules at
+// (0,2,0), and `.dark [data-base]` would then win over the palette a user explicitly chose.
+// Repeating the attribute matches specificity, and emitting after the base/accent blocks settles
+// the tie in the palette's favour, which is the intended precedence: a palette replaces a base.
+for (const [name, { vars }] of Object.entries(PALETTE_VARS)) {
+  out += block(`[data-palette="${name}"][data-palette="${name}"]`, vars);
 }
 
 out += "\n/* ── Radius (data-radius) ───────────────────────────────────────────────── */\n";
@@ -387,6 +691,26 @@ const data = {
     ]),
   ),
   defaultScheme: "kanzo",
+  // The palettes as data: the sixteen slots (so a panel can show the strip a base16 palette *is*),
+  // which of them this file had to manufacture, and the tokens the CSS above sets from them.
+  palettes: Object.fromEntries(
+    Object.entries(PALETTES).map(([name, entry]) => [
+      name,
+      {
+        label: entry.label,
+        appearance: entry.appearance,
+        // The partner palette of the same identity, or null. Pairing is what replaces the light/dark
+        // toggle: the OS preference selects the partner rather than inverting a mode, and a palette
+        // with no partner (Dracula) simply pins the appearance, which is the honest answer for a
+        // palette that has no light side and should not have one invented.
+        pairsWith: entry.pairsWith,
+        relief: entry.relief,
+        ...PALETTE_VARS[name],
+      },
+    ]),
+  ),
+  defaultPalette: DEFAULT_PALETTE,
+  syntaxRoles: SYNTAX,
   staticLight: STATIC_LIGHT,
   staticDark: STATIC_DARK,
 };
@@ -394,5 +718,5 @@ const JSON_OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "theme-data
 writeFileSync(JSON_OUT, JSON.stringify(data, null, 2));
 
 console.log(
-  `Wrote ${OUT} + theme-data.json — ${BASES.length} bases, ${ACCENTS.length} accents, ${Object.keys(SCHEMES).length} scheme(s), ${RADII.length} radii, ${FONTS.length} fonts, ${MONO_FONTS.length} mono, ${DENSITIES.length + 1} densities.`,
+  `Wrote ${OUT} + theme-data.json — ${BASES.length} bases, ${ACCENTS.length} accents, ${Object.keys(PALETTES).length} palettes, ${Object.keys(SCHEMES).length} scheme(s), ${RADII.length} radii, ${FONTS.length} fonts, ${MONO_FONTS.length} mono, ${DENSITIES.length + 1} densities.`,
 );

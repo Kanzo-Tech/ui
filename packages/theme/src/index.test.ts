@@ -37,6 +37,7 @@ describe("@kanzo-tech/theme", () => {
 
   it("every axis default is a real value in the generated data", () => {
     const tables: Record<string, Record<string, unknown>> = {
+      palette: themeData.palettes,
       base: themeData.bases,
       accent: themeData.accents,
       scheme: themeData.schemes,

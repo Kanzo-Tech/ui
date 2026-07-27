@@ -30,6 +30,14 @@ export const CVD_FLOOR = 6;
 export const NORMAL_FLOOR = 15;
 /** WCAG ratio against the surface. Sub-3:1 is a documented relax, not a pass. */
 export const CONTRAST_MIN = 3;
+/**
+ * WCAG AA for small text.
+ *
+ * The bar for a *palette* slot rather than a chart slot. `CONTRAST_MIN` is 3 because a mark is not
+ * text and can buy the difference back with a relief channel — direct labels, a table view. Every
+ * base16 slot is rendered as text, so it has neither the excuse nor the remedy.
+ */
+export const TEXT_MIN = 4.5;
 
 /**
  * The surfaces a mark actually lands on with the default base and no tint.
