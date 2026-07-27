@@ -3,22 +3,25 @@
 import * as React from "react";
 import { Dialog as ArkDialog } from "@ark-ui/react/dialog";
 import { Portal } from "@ark-ui/react/portal";
-import { PaletteIcon, XIcon } from "lucide-react";
+import { MonitorIcon, PaletteIcon, XIcon } from "lucide-react";
 // Via the theme package's JS entry, not its raw `.json` subpath: a direct JSON subpath import
 // needs `with { type: "json" }` at runtime, and Rollup strips that attribute when bundling.
 import {
   DEFAULT_PREFS,
+  PALETTES,
   SCHEMES,
+  resolvePalette,
   themeData,
   type KanzoAccent,
   type KanzoBase,
   type KanzoRadius,
+  type PaletteSlot,
 } from "@kanzo-tech/theme";
 import { useKanzoTheme, type ThemePrefs } from "../theme/KanzoThemeProvider.js";
 import { cn } from "../lib/cn.js";
 import { customBaseVars, readableForeground } from "../lib/color.js";
 import { Button } from "../simples/button.js";
-import { Field, FieldLabel } from "../simples/field.js";
+import { Field, FieldLabel, FieldLegend, FieldSet } from "../simples/field.js";
 import {
   Dialog,
   DialogClose,
@@ -29,7 +32,7 @@ import {
 import { AppearanceToggle } from "./AppearanceToggle.js";
 import { RadioGroup as ArkRadioGroup } from "@ark-ui/react/radio-group";
 import { RadioGroup, RadioGroupCard } from "../simples/radio-group.js";
-import { Slider } from "../simples/slider.js";
+import { Slider, SliderLabel } from "../simples/slider.js";
 import { SwatchGroup } from "../simples/swatch.js";
 import {
   ColorPicker,
@@ -57,13 +60,13 @@ import {
  *   <Preferences.Root>
  *     <Preferences.Trigger />
  *     <Preferences.Panel>
- *       <Preferences.Accent /> <Preferences.Base /> <Preferences.Scheme />
- *       <Preferences.Radius /> <Preferences.Font /> <Preferences.MonoFont />
- *       <Preferences.Density />
+ *       <Preferences.Palette /> <Preferences.Accent /> <Preferences.Base />
+ *       <Preferences.Scheme /> <Preferences.Radius /> <Preferences.Font />
+ *       <Preferences.MonoFont /> <Preferences.Density />
  *     </Preferences.Panel>
  *   </Preferences.Root>
  *
- * or the all-in-one <Preferences />. Those seven sections ARE the default panel body (appearance is
+ * or the all-in-one <Preferences />. Those eight sections ARE the default panel body (appearance is
  * the header toggle beside the close), plus a
  * footer of Reset · Copy CSS · Done. (This comment used to claim `Base` was opt-in and omitted
  * by default; the panel has rendered it for some time — the code is the authority.) Open with
@@ -71,6 +74,16 @@ import {
  */
 
 const RADII: KanzoRadius[] = ["none", "xs", "sm", "md", "lg"];
+/**
+ * base16's eight accent slots — the part of a palette that reads as its identity at a glance.
+ *
+ * `base00`–`base07` are the neutral ramp, which every palette spends on surfaces and ink, so a
+ * sixteen-swatch strip in a 320px panel would be half greys. Order is base16's, not sorted: see
+ * `SwatchGroup.colors`.
+ */
+const PALETTE_ACCENT_SLOTS: PaletteSlot[] = [
+  "base08", "base09", "base0A", "base0B", "base0C", "base0D", "base0E", "base0F",
+];
 // The swatch a named axis value shows, and the way back from a picked colour to that name.
 //
 // Generated, not written here. The hand-written tables these replace had drifted to Tailwind **v3**
@@ -246,6 +259,9 @@ function PreferencesPanel({
           >
             {children ?? (
               <>
+                {/* First: the palette is the colour identity, and everything below it is either a
+                    narrower choice (accent, base) or a different axis entirely. */}
+                <PaletteSection />
                 <AccentSection />
                 <BaseSection />
                 <SchemeSection />
@@ -268,16 +284,16 @@ function PreferencesPanel({
 /** Actions bar pinned to the bottom of the panel (Reset · Copy CSS · Done). */
 function PreferencesFooter() {
   const { set } = useKanzoTheme();
+  // The defaults, spread — not a hand-copy of them. The hand-copy listed seven axes and had
+  // silently stopped covering the panel: `scheme`, `schemeColors`, `baseTint`, and then
+  // `palette`/`appearance`, so Reset left a Dracula panel on Dracula. The three overrides are
+  // absent from `DEFAULT_PREFS` (their default is "not set"), so they have to be cleared by name —
+  // spreading alone would leave a custom primary or a registered scheme in place.
+  //
+  // `appearance` comes from the same spread, which also matters: `set` pins the side whenever a
+  // patch carries `palette` without one, and passing both is how you say "back to following the OS".
   const reset = () =>
-    set({
-      accent: "neutral",
-      radius: "md",
-      font: "system",
-      monoFont: "system",
-      density: "default",
-      base: "neutral",
-      primary: undefined,
-    });
+    set({ ...DEFAULT_PREFS, primary: undefined, baseTint: undefined, schemeColors: undefined });
   return (
     <div className="flex items-center gap-2 border-t border-border bg-muted/48 px-4 py-3">
       <Button type="button" variant="ghost" size="sm" onClick={reset}>
@@ -306,25 +322,88 @@ function PreferencesFooter() {
 function PrefField({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
     <Field>
-      <FieldLabel className="text-[length:var(--kanzo-font-size-small)] font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </FieldLabel>
+      <FieldLabel className={cn(PREF_LABEL_SIZE, PREF_LABEL)}>{label}</FieldLabel>
       {children}
     </Field>
   );
 }
 
+// One label look for both containers below, so a `Field`-labelled section and a `FieldSet`-labelled
+// one are indistinguishable. The size is `!` on the legend because `FieldLegend` sets its own
+// through a `data-[variant=…]:` variant — an attribute-qualified selector that outranks a plain
+// class whatever the source order, so a non-important override there silently does nothing.
+const PREF_LABEL = "font-medium uppercase tracking-wide text-muted-foreground";
+const PREF_LABEL_SIZE = "text-[length:var(--kanzo-font-size-small)]";
+
+/**
+ * A titled GROUP of options — the container `PrefField` cannot be.
+ *
+ * `Field` addresses one control, and a radio group has one hidden input per item, so there is no
+ * id for its label to point at; `radio-group.tsx` says exactly this, and says `FieldSet` +
+ * `FieldLegend` is the answer. Five sections had written their name twice in the meantime — once
+ * visibly through `PrefField`, once as an `aria-label` — which is the defect `PrefField`'s own doc
+ * comment claims to have ended. One of the two copies had already drifted: `MonoFont` announced
+ * itself as "Font".
+ *
+ * The legend really is the name, not a decoration beside one: Ark's `useRadioGroup` passes
+ * `ids: { label: fieldset.ids.legend }` into the machine, and zag's root props set
+ * `aria-labelledby` from it.
+ */
+function PrefFieldSet({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <FieldSet className="gap-2">
+      <FieldLegend className={cn(`${PREF_LABEL_SIZE}!`, PREF_LABEL, "mb-2")}>{label}</FieldLegend>
+      {children}
+    </FieldSet>
+  );
+}
+
 // ── Sections ──────────────────────────────────────────────────────────────────
-/** The shared colour-picker control (Shark's, controlled) used by BOTH accent and base:
- *  a trigger swatch + value, and a popover with area/hue/hex + a row of preset swatches. */
+/** A curated option: the hex the swatch paints, and the NAME the reader is choosing. */
+interface ColorPreset {
+  value: string;
+  label: string;
+}
+
+const presetsOf = (table: Record<string, string>): ColorPreset[] =>
+  Object.entries(table).map(([name, value]) => ({
+    value,
+    label: name.charAt(0).toUpperCase() + name.slice(1),
+  }));
+
+/**
+ * The shared colour-picker control (Shark's, controlled) used by BOTH accent and base: the curated
+ * presets inline, a trigger showing the current colour, and a popover with area/hue/hex behind it.
+ *
+ * The presets used to live INSIDE the popover, which made these two the only sections of seven that
+ * hid their options behind a click — the panel read as having three swatch idioms rather than one.
+ * They are legal out here: `ColorPickerSwatchGroup` and `ColorPickerSwatchTrigger` each merge one
+ * call to `useColorPickerContext()`, which `ColorPicker` (the Root) provides; neither touches the
+ * content's presence machinery, and Content is `lazyMount`/`unmountOnExit`, so anything left inside
+ * it does not exist while the popover is shut. The popover keeps what actually needs it — the
+ * custom colour.
+ *
+ * `size-6` + `gap-1.5`, measured rather than guessed: the panel is `w-80` less `px-5`, so 280px,
+ * and the widest set is the nine base scales at 9×24 + 8×6 = 264. Ark's own `size-8`/`gap-2` needs
+ * 352 and wraps to a ragged second row.
+ *
+ * Both accessible names are ours. Ark's swatch group is `role="group"` with no name at all, and
+ * every trigger is labelled `select #155dfc as the color` — the wrong sentence when the reader is
+ * choosing "Blue". A caller-supplied prop wins: both parts end in
+ * `mergeProps(machineProps, callerProps)`, and zag's `mergeProps` takes the later value for
+ * anything that is not a handler, a class or a style.
+ */
 function ColorField({
   value,
   onValueChange,
   presets,
+  presetsLabel,
 }: {
   value: string;
   onValueChange: (hex: string) => void;
-  presets: string[];
+  presets: ColorPreset[];
+  /** Names the preset row — `role="group"` with no name is an unlabelled group. */
+  presetsLabel: string;
 }) {
   return (
     // Hex, not `valueAsString`. Ark serialises to `rgba(21, 93, 252, 1)`, and both callers look the
@@ -335,8 +414,17 @@ function ColorField({
     <ColorPicker
       value={value}
       onValueChange={(e) => onValueChange(e.value.toString("hex"))}
-      className="w-full"
+      className="w-full flex-col gap-2"
     >
+      <ColorPickerSwatchGroup aria-label={presetsLabel} className="gap-1.5">
+        {presets.map((p) => (
+          <ColorPickerSwatchTrigger aria-label={p.label} className="size-6" key={p.value} value={p.value}>
+            <ColorPickerSwatch value={p.value}>
+              <ColorPickerSwatchIndicator />
+            </ColorPickerSwatch>
+          </ColorPickerSwatchTrigger>
+        ))}
+      </ColorPickerSwatchGroup>
       <ColorPickerControl className="w-full">
         <ColorPickerTrigger className="flex w-full items-center gap-2 rounded-md border border-input bg-transparent px-2 py-1.5 text-sm outline-none hover:bg-accent/50 focus-visible:ring-[3px] focus-visible:ring-ring/32">
           <ColorPickerSwatchPreview className="size-5 rounded-full border border-black/10" />
@@ -348,15 +436,6 @@ function ColorField({
           <ColorPickerAreaThumb />
         </ColorPickerArea>
         <ColorPickerSlider channel="hue" />
-        <ColorPickerSwatchGroup>
-          {presets.map((h) => (
-            <ColorPickerSwatchTrigger key={h} value={h}>
-              <ColorPickerSwatch value={h}>
-                <ColorPickerSwatchIndicator />
-              </ColorPickerSwatch>
-            </ColorPickerSwatchTrigger>
-          ))}
-        </ColorPickerSwatchGroup>
         <ColorPickerInput />
       </ColorPickerContent>
     </ColorPicker>
@@ -384,28 +463,33 @@ function AccentSection() {
           if (named) set({ accent: named, primary: undefined });
           else set({ primary: hex });
         }}
-        presets={Object.values(ACCENT_SWATCHES)}
+        presets={presetsOf(ACCENT_SWATCHES)}
+        presetsLabel="Accent presets"
       />
     </PrefField>
   );
 }
 
+// The one section where neither container above applies. A slider is a single control, so it is not
+// a `FieldSet`; and Ark's `useSlider` reads no ambient context at all — not Field, not Fieldset — so
+// a `FieldLabel` could not reach it either, which is why "Radius" was written twice. `SliderLabel`
+// is the machine's own label part: zag points every thumb's `aria-labelledby` at it by default, so
+// the visible label IS the name and there is nothing to repeat.
 function RadiusSection() {
   const { radius, set } = useKanzoTheme();
   const index = Math.max(0, RADII.indexOf(radius));
   return (
-    <PrefField label="Radius">
-      <Slider
-        aria-label={["Radius"]}
-        min={0}
-        max={RADII.length - 1}
-        step={1}
-        value={[index]}
-        onValueChange={(d) => set({ radius: RADII[d.value[0] ?? 3] ?? "md" })}
-        showMarkers
-        markerLabels={[...RADII]}
-      />
-    </PrefField>
+    <Slider
+      min={0}
+      max={RADII.length - 1}
+      step={1}
+      value={[index]}
+      onValueChange={(d) => set({ radius: RADII[d.value[0] ?? 3] ?? "md" })}
+      showMarkers
+      markerLabels={[...RADII]}
+    >
+      <SliderLabel className={cn(PREF_LABEL_SIZE, PREF_LABEL)}>Radius</SliderLabel>
+    </Slider>
   );
 }
 
@@ -420,8 +504,9 @@ function FontPicker({
   onSelect: (v: string) => void;
 }) {
   return (
+    // No `aria-label`: the section's `FieldLegend` is the group's name, and the copy that lived here
+    // was hard-coded "Font" — so the mono-font group announced itself as "Font" too.
     <RadioGroup
-      aria-label="Font"
       className="flex-row flex-wrap gap-2"
       onValueChange={(d) => d.value && onSelect(d.value)}
       value={value}
@@ -460,9 +545,8 @@ function SchemeSection() {
   const entries = Object.entries(SCHEMES);
   if (entries.length < 2) return null;
   return (
-    <PrefField label="Chart scheme">
+    <PrefFieldSet label="Chart scheme">
       <RadioGroup
-        aria-label="Chart scheme"
         className="gap-2"
         onValueChange={(d) => d.value && set({ scheme: d.value, schemeColors: undefined })}
         value={scheme ?? DEFAULT_PREFS.scheme}
@@ -479,25 +563,94 @@ function SchemeSection() {
           </RadioGroupCard>
         ))}
       </RadioGroup>
-    </PrefField>
+    </PrefFieldSet>
+  );
+}
+
+/**
+ * Palette = the colour IDENTITY, and now the panel's first and primary colour choice.
+ *
+ * It was also the only axis with no control: `data-palette` drives the surfaces, the neutrals, the
+ * 13 syntax roles, `color-scheme`, `--primary`/`--ring`, the four status families, and `.dark`
+ * follows from whichever palette applies — and until this section, only the OS could reach a second
+ * one. A `RadioGroup`, not a `ColorPicker`: the value is a NAME, and the eight-slot strip pictures
+ * it rather than being it (`swatch.tsx` states that distinction).
+ *
+ * The value is the APPLIED palette, not the stored preference. Under `system` those differ — the
+ * stored "Kanzo" resolves to Kanzo Dark on a dark OS — and the card that reads as checked has to be
+ * the one on screen. Selecting writes the preference, `set` pins the side, and the two agree again.
+ *
+ * Two facts the data publishes are said here rather than in a doc nobody opens, inside the option's
+ * own text so the accessible name carries them (the shape `SchemeSection` uses for "· needs
+ * labels"): a palette with no partner FIXES the appearance while selected, and non-empty
+ * `relief`/`statusRelief` means slots that miss AA as text on that palette's own ground. Both are
+ * properties of the palette, not defects of the mapping, so the honest move is to show them.
+ */
+function PaletteSection() {
+  const { appearance, appliedPalette, palettePinned, set, setAppearance } = useKanzoTheme();
+  const entries = Object.entries(PALETTES);
+  if (entries.length < 2) return null;
+  const applied = PALETTES[appliedPalette];
+  return (
+    <PrefFieldSet label="Palette">
+      <RadioGroup
+        className="gap-2"
+        onValueChange={(d) => d.value && set({ palette: d.value })}
+        value={appliedPalette}
+      >
+        {entries.map(([name, p]) => (
+          <RadioGroupCard className="flex-col items-start gap-1.5 px-2.5 py-2" key={name} value={name}>
+            <ArkRadioGroup.ItemText className="text-muted-foreground text-xs">
+              {p.label}
+              {p.pairsWith === null ? ` · ${p.appearance} only` : null}
+              {p.relief.length || p.statusRelief.length ? " · low contrast" : null}
+            </ArkRadioGroup.ItemText>
+            <SwatchGroup colors={PALETTE_ACCENT_SLOTS.map((s) => p.slots[s])} size="md" />
+          </RadioGroupCard>
+        ))}
+      </RadioGroup>
+      {/* The appearance control is the header toggle, and it goes dead on a pinned palette by
+          design — so the way back to the OS has to be reachable from the axis that took it. */}
+      <div className="flex items-center gap-2">
+        <p className="min-w-0 flex-1 text-[length:var(--kanzo-font-size-small)] text-muted-foreground">
+          {palettePinned
+            ? `${applied?.label ?? appliedPalette} has no partner: appearance is fixed.`
+            : appearance === "system"
+              ? "Following the OS."
+              : `Holding the ${appearance} side.`}
+        </p>
+        {appearance === "system" ? null : (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="shrink-0 px-2 text-muted-foreground"
+            onClick={() => setAppearance("system")}
+          >
+            <MonitorIcon />
+            Follow the OS
+          </Button>
+        )}
+      </div>
+    </PrefFieldSet>
   );
 }
 
 function FontSection() {
   const { font, fonts, set } = useKanzoTheme();
   return (
-    <PrefField label="Font">
+    <PrefFieldSet label="Font">
       <FontPicker value={font} options={fonts} onSelect={(v) => set({ font: v })} />
-    </PrefField>
+    </PrefFieldSet>
   );
 }
 
 function MonoFontSection() {
   const { monoFont, monoFonts, set } = useKanzoTheme();
   return (
-    <PrefField label="Mono font">
+    <PrefFieldSet label="Mono font">
       <FontPicker value={monoFont} options={monoFonts} onSelect={(v) => set({ monoFont: v })} />
-    </PrefField>
+    </PrefFieldSet>
   );
 }
 
@@ -509,9 +662,8 @@ const DENSITY_PX: Record<string, string> = themeData.densities;
 function DensitySection() {
   const { density, set } = useKanzoTheme();
   return (
-    <PrefField label="Density">
+    <PrefFieldSet label="Density">
       <RadioGroup
-        aria-label="Density"
         className="flex-row flex-wrap gap-2"
         onValueChange={(d) => d.value && set({ density: d.value as (typeof DENSITIES)[number]["value"] })}
         value={density}
@@ -538,7 +690,7 @@ function DensitySection() {
           </RadioGroupCard>
         ))}
       </RadioGroup>
-    </PrefField>
+    </PrefFieldSet>
   );
 }
 
@@ -554,7 +706,8 @@ function BaseSection() {
     <PrefField label="Base · neutral surface">
       <ColorField
         value={value}
-        presets={Object.values(BASE_SWATCHES)}
+        presets={presetsOf(BASE_SWATCHES)}
+        presetsLabel="Base presets"
         onValueChange={(hex) => {
           const named = BASE_HEX_TO_NAME[hex.toLowerCase()];
           if (named) set({ base: named, baseTint: undefined });
@@ -573,7 +726,7 @@ function BaseSection() {
 //    preset (foreground derived by luminance), and non-default font / mono / density are emitted. ──
 type TokenMap = Record<string, string>;
 function buildThemeCss(prefs: ThemePrefs): string {
-  const { base = "neutral", accent, radius, primary, baseTint, font, monoFont, density, scheme, schemeColors } = prefs;
+  const { base = "neutral", accent, radius, primary, baseTint, font, monoFont, density, palette, scheme, schemeColors } = prefs;
   const d = themeData as unknown as {
     bases: Record<string, { light: TokenMap; dark: TokenMap }>;
     accents: Record<string, { light: TokenMap; dark: TokenMap }>;
@@ -614,9 +767,30 @@ function buildThemeCss(prefs: ThemePrefs): string {
   const chart = (mode: "light" | "dark"): TokenMap =>
     Object.fromEntries((slots?.[mode] ?? []).map((hex, i) => [`--chart-${i + 1}`, hex]));
 
+  // The palette, for the same reason the scheme is here and with far more at stake: it is the
+  // LARGEST colour axis — 51 tokens, every surface, the brand, the four status families, the 13
+  // syntax roles and `color-scheme` — and a copied theme used to lose all of it. `Palette.vars` is
+  // documented as exactly what `[data-palette]` sets, so this copies that rule rather than
+  // re-deriving it.
+  //
+  // Per SIDE, not once: `:root` takes the light half of the pair and `.dark` the dark half, which is
+  // the question `resolvePalette` already answers. A palette with no partner returns itself for
+  // both — that IS pinning, spelled out in CSS.
+  //
+  // Nothing is emitted at the default palette, mirroring `AXES`: the provider REMOVES the attribute
+  // there, so the block genuinely does not exist on the page and `data-base`/`data-accent` are what
+  // the reader saw. Emitting it anyway would export a `--ring` the panel never showed.
+  const paletteVars = (mode: "light" | "dark"): TokenMap => {
+    const applied = resolvePalette(palette ?? DEFAULT_PREFS.palette, mode);
+    return applied === DEFAULT_PREFS.palette ? {} : PALETTES[applied]?.vars ?? {};
+  };
+
   const fmt = (o: TokenMap) => Object.entries(o).map(([k, v]) => `  ${k}: ${v};`).join("\n");
-  const root = { ...customBase, "--radius": d.radii[radius]!, ...b.light, ...(primaryVars ?? a.light), ...d.staticLight, ...chart("light"), ...extras };
-  const dark = { ...b.dark, ...(primaryVars ?? a.dark), ...d.staticDark, ...chart("dark") };
+  // Order is the live cascade, flattened. `[data-palette]` is written with a doubled selector and
+  // sits last in themes.css, so it beats base and accent; the inline `--primary` override beats
+  // even that, so it is re-applied after the palette rather than only in the accent's place.
+  const root = { ...customBase, "--radius": d.radii[radius]!, ...b.light, ...(primaryVars ?? a.light), ...d.staticLight, ...paletteVars("light"), ...(primaryVars ?? {}), ...chart("light"), ...extras };
+  const dark = { ...b.dark, ...(primaryVars ?? a.dark), ...d.staticDark, ...paletteVars("dark"), ...(primaryVars ?? {}), ...chart("dark") };
   return `:root {\n${fmt(root)}\n}\n\n.dark {\n${fmt(dark)}\n}\n`;
 }
 
@@ -666,6 +840,7 @@ export const Preferences = Object.assign(
     Root: PreferencesRoot,
     Trigger: PreferencesTrigger,
     Panel: PreferencesPanel,
+    Palette: PaletteSection,
     Accent: AccentSection,
     Radius: RadiusSection,
     Font: FontSection,
@@ -691,6 +866,8 @@ export {
   PreferencesTrigger,
   PreferencesPanel,
   PrefField as PreferencesField,
+  PrefFieldSet as PreferencesFieldSet,
+  PaletteSection as PreferencesPalette,
   AccentSection as PreferencesAccent,
   RadiusSection as PreferencesRadius,
   FontSection as PreferencesFont,
