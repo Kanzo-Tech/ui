@@ -2,38 +2,32 @@
 
 import type { ReactNode } from "react";
 import { useServerInsertedHTML } from "next/navigation";
-import { useTheme } from "next-themes";
 import { KanzoThemeProvider, themeScript } from "@kanzo-tech/ui";
 
-// next-themes' own storage key. Passing it makes `themeScript` read the SAME preference the
-// docs already persist, so the two agree on `.dark` instead of racing to a different answer.
-const NEXT_THEMES_KEY = "theme";
-
 /**
- * Hands fumadocs' theme manager to the design system instead of letting both fight over
- * `.dark` on `<html>`.
+ * The design system owns the theme, appearance included.
  *
- * This is the `appearance` contract the provider was built for — the docs are the first real
- * consumer to exercise it, which is the point of running them on App Router at all.
+ * There is no `appearance` controller here any more. Light/dark is a side of the palette pair, so
+ * `.dark` can only be decided by whatever palette actually resolved — next-themes cannot know
+ * that, and while it was mounted (`RootProvider`, `attribute: "class"`) the two disagreed on every
+ * pinned palette. It is disabled in `app/layout.tsx`; that and this file are one change.
  *
- * `themeScript` is NOT optional for an SSR host. Everything the provider applies (`data-accent`,
- * `data-radius`, `data-density`, the custom tints…) lives in browser storage, so without the
- * script the server paints the default theme and the client re-skins on hydration — a flash,
- * plus a hydration mismatch in every control whose markup depends on the resolved appearance.
- * It runs in `<head>` before the first paint.
+ * The one thing lost: docs visitors' appearance preference used to live under next-themes' `theme`
+ * key. It now lives on the prefs blob (`kanzo_theme_prefs.appearance`), and the migration path
+ * reads the DS's own legacy key, so an existing visitor lands on `system` once and re-picks.
+ *
+ * `themeScript` is NOT optional for an SSR host. Everything the provider applies (`data-palette`,
+ * `data-accent`, `data-radius`, the custom tints…) lives in browser storage, so without the script
+ * the server paints the default theme and the client re-skins on hydration — a flash, plus a
+ * hydration mismatch in every control whose markup depends on the resolved appearance. It runs in
+ * `<head>` before the first paint, and `theme-script.test.ts` holds it to the same `<html>` the
+ * provider produces.
  */
 export const KanzoProvider = ({ children }: { children: ReactNode }) => {
-  const { resolvedTheme, setTheme } = useTheme();
-
   useServerInsertedHTML(() => (
     // biome-ignore lint/security/noDangerouslySetInnerHtml: the anti-FOUC script must be inline.
-    <script
-      dangerouslySetInnerHTML={{ __html: themeScript({ appearanceKey: NEXT_THEMES_KEY }) }}
-      key="kanzo-theme-script"
-    />
+    <script dangerouslySetInnerHTML={{ __html: themeScript() }} key="kanzo-theme-script" />
   ));
 
-  return (
-    <KanzoThemeProvider appearance={{ resolvedTheme, setTheme }}>{children}</KanzoThemeProvider>
-  );
+  return <KanzoThemeProvider>{children}</KanzoThemeProvider>;
 };

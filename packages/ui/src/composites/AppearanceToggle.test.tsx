@@ -1,4 +1,4 @@
-import { APPEARANCE_KEY } from "@kanzo-tech/theme";
+import { STORAGE_KEY, type ThemePrefs } from "@kanzo-tech/theme";
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { hydrateRoot } from "react-dom/client";
@@ -25,23 +25,34 @@ function stubMatchMedia(matches = false) {
   });
 }
 
-function setup() {
+function setup(defaults?: Partial<ThemePrefs>) {
   return render(
-    <KanzoThemeProvider>
+    <KanzoThemeProvider defaults={defaults}>
       <AppearanceToggle />
     </KanzoThemeProvider>,
   );
 }
+
+/**
+ * The preference now lives on the prefs blob, not in the standalone `kanzo_appearance` key.
+ * One source: the pin that `set({palette})` applies writes the same field, so a second key would
+ * be a value nothing reads and everything can contradict. (The old key is still READ once, for
+ * migration — see the provider's tests.)
+ */
+const storedAppearance = () =>
+  (JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as Partial<ThemePrefs>).appearance;
 
 describe("AppearanceToggle", () => {
   beforeEach(() => {
     stubMatchMedia(false);
     localStorage.clear();
     document.documentElement.classList.remove("dark");
+    document.documentElement.removeAttribute("data-palette");
   });
   afterEach(() => {
     localStorage.clear();
     document.documentElement.classList.remove("dark");
+    document.documentElement.removeAttribute("data-palette");
   });
 
   it("flips to dark on click, applying `.dark` and storing the preference", async () => {
@@ -51,7 +62,9 @@ describe("AppearanceToggle", () => {
     await user.click(screen.getByRole("button", { name: "Toggle appearance" }));
 
     expect(document.documentElement.classList.contains("dark")).toBe(true);
-    expect(localStorage.getItem(APPEARANCE_KEY)).toBe("dark");
+    // The click asked for a side; what applied is the dark half of the selected pair.
+    expect(document.documentElement.getAttribute("data-palette")).toBe("kanzo-dark");
+    expect(storedAppearance()).toBe("dark");
   });
 
   it("flips back to light on a second click", async () => {
@@ -63,7 +76,7 @@ describe("AppearanceToggle", () => {
     await user.click(button);
 
     expect(document.documentElement.classList.contains("dark")).toBe(false);
-    expect(localStorage.getItem(APPEARANCE_KEY)).toBe("light");
+    expect(storedAppearance()).toBe("light");
   });
 
   it("reaches `system` via Shift-click (the secondary affordance)", async () => {
@@ -74,9 +87,24 @@ describe("AppearanceToggle", () => {
     await user.click(screen.getByRole("button", { name: "Toggle appearance" }));
     await user.keyboard("[/ShiftLeft]");
 
-    expect(localStorage.getItem(APPEARANCE_KEY)).toBe("system");
+    expect(storedAppearance()).toBe("system");
     // matchMedia stub reports light, so `system` resolves to no `.dark`.
     expect(document.documentElement.classList.contains("dark")).toBe(false);
+  });
+
+  it("disables itself on a palette with no partner, and says which one", async () => {
+    // Dracula pins the appearance while it is selected. Left enabled, this button would write a
+    // preference and repaint nothing — the exact "the toggle is broken" bug report.
+    const user = userEvent.setup();
+    setup({ palette: "dracula" });
+
+    const button = screen.getByRole("button", { name: "Toggle appearance" }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(button.getAttribute("title")).toContain("Dracula");
+
+    await user.click(button);
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+    expect(storedAppearance(), "a disabled button wrote nothing").toBeUndefined();
   });
 
   // Regression: the server cannot know the persisted appearance, so it used to emit

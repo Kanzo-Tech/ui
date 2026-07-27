@@ -5,6 +5,7 @@ import { MonitorIcon, MoonIcon, SunIcon } from "lucide-react";
 import { cn } from "../lib/cn.js";
 import { Button, type ButtonProps } from "../simples/button.js";
 import { useKanzoTheme } from "../theme/KanzoThemeProvider.js";
+import { PALETTES } from "../theme/prefs-config.js";
 
 export interface AppearanceToggleLabels {
   light: string;
@@ -34,6 +35,12 @@ const DEFAULT_LABELS: AppearanceToggleLabels = {
  * appearance. Shift- or Alt-click reaches `system`, the third state the underlying
  * {@link useKanzoTheme} model still supports; a small monitor badge marks that auto state.
  *
+ * **Pinned palettes.** Light/dark is a side of a palette *pair*, so a palette with no partner
+ * (Dracula, Nord) cannot be moved by this control at all. It disables itself there and says which
+ * palette is holding it, rather than staying a live-looking button that repaints nothing. The cost
+ * is real: the preference is still stored and would apply the moment a pairable palette is chosen,
+ * and disabling means it cannot be expressed from here. A dead-looking live button is worse.
+ *
  * **SSR.** The resolved appearance is only knowable in the browser (localStorage / cookie /
  * `matchMedia`), so the state-bearing attributes (`aria-pressed`, `data-appearance`, `title`)
  * are withheld until mount — otherwise the server would emit `light`, the client would hydrate
@@ -48,7 +55,8 @@ export const AppearanceToggle = ({
   label = "Toggle appearance",
   labels,
 }: AppearanceToggleProps = {}) => {
-  const { appearance, resolvedAppearance, setAppearance } = useKanzoTheme();
+  const { appearance, resolvedAppearance, setAppearance, appliedPalette, palettePinned } =
+    useKanzoTheme();
   const l = { ...DEFAULT_LABELS, ...labels };
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
@@ -61,6 +69,11 @@ export const AppearanceToggle = ({
     setAppearance(resolvedAppearance === "dark" ? "light" : "dark");
   };
 
+  // Withheld until mount alongside the other state-bearing attributes: whether the palette pins is
+  // only knowable from browser storage, so emitting it on the server is the same mismatch.
+  const pinned = mounted && palettePinned;
+  const paletteName = PALETTES[appliedPalette]?.label ?? appliedPalette;
+
   return (
     <Button
       type="button"
@@ -69,7 +82,14 @@ export const AppearanceToggle = ({
       aria-label={label}
       aria-pressed={mounted ? resolvedAppearance === "dark" : undefined}
       data-appearance={mounted ? appearance : undefined}
-      title={mounted ? `Appearance: ${l[appearance]} · Shift-click for system` : label}
+      disabled={pinned || undefined}
+      title={
+        pinned
+          ? `Appearance is fixed by the ${paletteName} palette — it has no light/dark partner`
+          : mounted
+            ? `Appearance: ${l[appearance]} · Shift-click for system`
+            : label
+      }
       className={cn("group", className)}
       onClick={onClick}
     >

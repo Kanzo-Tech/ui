@@ -1,8 +1,7 @@
 "use client";
 
 import { SlidersHorizontal } from "lucide-react";
-import { ThemeSwitch } from "fumadocs-ui/layouts/shared/slots/theme-switch";
-import { DialogTrigger, PreferencesPanel, PreferencesRoot } from "@kanzo-tech/ui";
+import { AppearanceToggle, DialogTrigger, PreferencesPanel, PreferencesRoot } from "@kanzo-tech/ui";
 
 /**
  * Live theme customizer for the docs chrome — the appearance toggle and the full Preferences
@@ -15,21 +14,23 @@ import { DialogTrigger, PreferencesPanel, PreferencesRoot } from "@kanzo-tech/ui
  * across the RSC client boundary (the library documents this).
  *
  * Persistence, restore-on-load and the live re-theme are handled upstream by `KanzoThemeProvider`
- * (the docs wrap in it via `kanzo-provider.tsx`): it writes the `data-*` axes to `<html>` and
- * persists them to localStorage, and appearance is delegated to next-themes. Because the attributes
+ * (the docs wrap in it via `kanzo-provider.tsx`): it writes the `data-*` axes to `<html>`, derives
+ * `.dark` from the applied palette, and persists the lot to localStorage. Because the attributes
  * land on the docs root, every inline `ComponentPreview` example re-themes in real time.
  *
- * Layout: the light/dark control and Customize read as one group. The default fumadocs theme
- * toggle is disabled (`themeSwitch={{ enabled: false }}` on the layout) so it does not render in
- * its own row; instead we place fumadocs' own `ThemeSwitch` (next-themes-backed, the identical
- * pill) immediately beside our Customize trigger. The trigger is our own `DialogTrigger` (the same
- * Ark Dialog `PreferencesRoot` provides), styled in fumadocs' `fd-*` chrome tokens; `data-[state=open]`
- * is Ark's — it keeps the button lit while the non-modal panel stays open.
+ * Layout: the appearance control and Customize read as one group. Both fumadocs theme controls are
+ * gone — the one in its own row (`themeSwitch={{ enabled: false }}` on the layout) and the
+ * `ThemeSwitch` that used to sit here. The latter calls `useTheme()`, so with next-themes disabled
+ * it became a button that changes nothing; `AppearanceToggle` is the DS's own, and it is the only
+ * one that knows a pinned palette will refuse the change. The Customize trigger is our own
+ * `DialogTrigger` (the same Ark Dialog `PreferencesRoot` provides), styled in fumadocs' `fd-*`
+ * chrome tokens; `data-[state=open]` is Ark's — it keeps the button lit while the non-modal panel
+ * stays open.
  */
 export function DocsPreferences() {
   return (
     <div className="mt-2 flex items-center gap-2">
-      <ThemeSwitch mode="light-dark" />
+      <AppearanceToggle />
       <PreferencesRoot>
         <DialogTrigger asChild>
           <button

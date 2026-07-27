@@ -223,6 +223,17 @@ export interface ThemePrefs {
    * mapped — see `deriveScheme`, and the measurement that made it necessary.
    */
   palette: KanzoPalette;
+  /**
+   * Which side of a palette *pair* to take. `"system"` follows `prefers-color-scheme`.
+   *
+   * Not an axis — it writes no attribute of its own. It is an input to palette resolution, and the
+   * appearance that results is derived from whichever palette that lands on. It stays a separate
+   * preference rather than being folded into `palette` because folding it destroys `system`: once a
+   * concrete palette name is the only thing stored, nothing is left that says "follow the OS", and
+   * the third state becomes unreachable. Keeping it also means a preference expressed while a
+   * pinned palette ignored it is honoured the moment a pairable one is selected.
+   */
+  appearance: Appearance;
   /** Any of the full accent set; the product panel offers the curated subset. */
   accent: KanzoAccent;
   radius: KanzoRadius;
@@ -248,6 +259,7 @@ export interface ThemePrefs {
 
 export const DEFAULT_PREFS: ThemePrefs = {
   palette: themeDataJson.defaultPalette,
+  appearance: "system",
   accent: "neutral",
   radius: "md",
   font: "system",
@@ -262,6 +274,53 @@ export const SCHEMES = themeDataJson.schemes as unknown as Record<string, Scheme
 
 /** The built-in palettes by name, with their slots, their measured relief, and their pairing. */
 export const PALETTES = themeDataJson.palettes as unknown as Record<string, Palette>;
+
+/**
+ * name → `[appearance, pairsWith]`. The pairing table, small enough to serialise.
+ *
+ * It lives here for the reason `AXES` does: the provider, the pre-hydration script and the
+ * generator must agree about which palettes pair, and there is no type error when they drift. The
+ * SSR script in particular has to resolve a palette *before* it writes the attribute, so it needs
+ * this table inlined — hand-writing a copy there is the failure this export exists to prevent.
+ */
+export const PALETTE_PAIRS: Record<string, [ResolvedAppearance, string | null]> =
+  Object.fromEntries(
+    Object.entries(PALETTES).map(([name, p]) => [name, [p.appearance, p.pairsWith]]),
+  );
+
+/**
+ * The palette actually applied, given the one selected and the side wanted.
+ *
+ * This is what replaces inverting a mode: `prefers-color-scheme: dark` does not flip a switch, it
+ * asks for the dark side of the identity you chose, and pairing answers. Three cases, and the third
+ * is the one worth stating — a palette with no partner **pins** the appearance while it is
+ * selected. Dracula is dark-first and has no light side worth inventing, so asking for light on
+ * Dracula returns Dracula, and the caller has to be honest about that in the UI rather than leaving
+ * a control that changes storage and repaints nothing.
+ *
+ * An unknown name is honoured verbatim: a host may register its own palette, and silently resetting
+ * it to the default would be worse than not knowing its appearance.
+ */
+export function resolvePalette(
+  name: string,
+  want: ResolvedAppearance,
+  pairs: Record<string, [ResolvedAppearance, string | null]> = PALETTE_PAIRS,
+): string {
+  const entry = pairs[name];
+  if (!entry) return name;
+  if (entry[0] === want) return name;
+  const partner = entry[1];
+  return partner && pairs[partner] ? partner : name;
+}
+
+/** The appearance a palette IS — derived, never chosen. `fallback` covers a name we do not know. */
+export function paletteAppearance(
+  name: string,
+  fallback: ResolvedAppearance,
+  pairs: Record<string, [ResolvedAppearance, string | null]> = PALETTE_PAIRS,
+): ResolvedAppearance {
+  return pairs[name]?.[0] ?? fallback;
+}
 
 /** `--chart-1` … `--chart-N` — the inline custom-scheme override, and what to clean up after it. */
 export const CHART_SLOT_VARS: string[] = (SCHEMES[themeDataJson.defaultScheme] as Scheme).light.map(
