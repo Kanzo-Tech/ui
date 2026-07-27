@@ -169,6 +169,19 @@ const hexOf = (name) => {
   return `#${srgbFromOklch(css).map((n) => n.toString(16).padStart(2, "0")).join("")}`;
 };
 
+/**
+ * The chromatic families and the steps a categorical slot can legally take.
+ *
+ * 400–700 covers both lightness bands with room to spare at each end; outside it a step is either
+ * too pale for a light surface or too dark for a dark one, so offering more would only widen a
+ * search that must reject them anyway.
+ */
+const CHROMATIC = [
+  "red", "orange", "amber", "yellow", "lime", "green", "emerald", "teal", "cyan",
+  "sky", "blue", "indigo", "violet", "purple", "fuchsia", "pink", "rose",
+];
+const RAMP_STEPS = [400, 500, 600, 700];
+
 /** A base scale's swatch: the mid-tone that reads as "this is the grey family". */
 const baseSwatch = (name) =>
   CUSTOM_SCALES[name] ? CUSTOM_SCALES[name][500] : hexOf(`${name}-500`);
@@ -333,6 +346,12 @@ const data = {
   curatedAccents: CURATED_ACCENTS,
   // name → the colour a picker should show for it. Both tables exist so no panel has to keep its
   // own copy of what a named axis value looks like.
+  // The chromatic families as hex, so a derivation can run in plain JS. Tailwind publishes them as
+  // `oklch()`, which nothing downstream parses, and only in a CSS file — which is why every table
+  // that needed these values used to be transcribed by hand and then rot.
+  ramps: Object.fromEntries(
+    CHROMATIC.map((hue) => [hue, Object.fromEntries(RAMP_STEPS.map((s) => [s, hexOf(`${hue}-${s}`)]))]),
+  ),
   accentSwatches: Object.fromEntries(CURATED_ACCENTS.map((a) => [a, accentSwatch(a)])),
   baseSwatches: Object.fromEntries(
     BASES.filter((b) => b !== "custom").map((b) => [b, baseSwatch(b)]),

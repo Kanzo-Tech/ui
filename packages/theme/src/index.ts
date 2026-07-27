@@ -40,6 +40,13 @@ export {
 } from "./palette-check.js";
 
 /**
+ * The anti-corruption layer: a named palette contributes hues, the system's ramps contribute
+ * lightness and chroma, and the checks decide. Measured, not assumed — no named palette tested so
+ * far passes as a categorical scheme in its own values.
+ */
+export { deriveScheme, familyOf, type Derivation } from "./derive-scheme.js";
+
+/**
  * `@kanzo-tech/theme` — design tokens, the theme axis table, and the value types. No React.
  *
  * Theming is driven by `data-*` attributes on `<html>`, whose token values live in
