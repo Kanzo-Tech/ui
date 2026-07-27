@@ -238,3 +238,85 @@ describe("status ink", () => {
     }
   });
 });
+
+/**
+ * The brand and status a palette DECLARES.
+ *
+ * Declared rather than derived, so the checks are about honesty as much as contrast: does every
+ * role say where it came from, and does the published relief list match what measuring says?
+ */
+describe("palette roles", () => {
+  const ROLES = ["primary", "destructive", "info", "success", "warning"] as const;
+  const STATUS = ["destructive", "info", "success", "warning"] as const;
+
+  it("declares a brand and four status families, with provenance for each", () => {
+    for (const [name, palette] of entries) {
+      expect(palette.primary.fill, `${name}.primary`).toMatch(/^#[0-9a-f]{6}$/);
+      for (const role of STATUS) {
+        expect(palette.status[role]?.fill, `${name}.${role}`).toMatch(/^#[0-9a-f]{6}$/);
+      }
+      for (const role of ROLES) {
+        expect(["upstream", "ecosystem", "kanzo"], `${name}.${role} provenance`)
+          .toContain(palette.provenance[role]);
+      }
+    }
+  });
+
+  it("interpolates at most one status role per borrowed palette", () => {
+    // What this replaced, and why, because the first attempt looked more rigorous and was wrong: it
+    // asserted that a status colour must not coincide with the base16 slot of the same meaning —
+    // meant to catch a lazy positional mapping. But a well-designed palette's semantics SHOULD line
+    // up with base16's slot hues; both put red at error and green at success. Catppuccin coincides
+    // on all four and is documented upstream on all four. Coincidence is not evidence of anything.
+    //
+    // What is checkable is how much we invented. A source is allowed to be silent about one role —
+    // Nord names no "info", so nord9 is ours — but a palette where most of the semantics are our
+    // guess is not a faithful port of anything, and should not be presented as one.
+    for (const [name, palette] of entries) {
+      if (name.startsWith("kanzo")) continue; // ours; the Kanzo pair's status IS the system's
+      const invented = STATUS.filter((role) => palette.provenance[role] === "kanzo");
+      expect(invented.length, `${name} invents ${invented.length} of its four status roles`)
+        .toBeLessThanOrEqual(1);
+    }
+  });
+
+  describe("statusRelief", () => {
+    const measured = (palette: Palette) =>
+      STATUS.filter((role) => {
+        const r = palette.status[role];
+        return contrast(r.fill, r.content) < TEXT_MIN || contrast(r.fill, palette.slots.base00) < 3;
+      });
+
+    it("is the measured list, for every palette", () => {
+      for (const [name, palette] of entries) {
+        expect(palette.statusRelief, `${name} declares relief it does not have, or hides some`)
+          .toEqual(measured(palette));
+      }
+    });
+
+    it("is empty for the pair the product ships, and for its brand in every palette", () => {
+      // A borrowed palette may fail — Nord's red cannot clear AA on its own ground at any ink — and
+      // publishing that is the point. But a palette whose BRAND is unreadable is not usable at all,
+      // so that one is a hard bar rather than a declared relief.
+      expect(PALETTES.kanzo?.statusRelief).toEqual([]);
+      expect(PALETTES["kanzo-dark"]?.statusRelief).toEqual([]);
+      for (const [name, palette] of entries) {
+        expect(contrast(palette.primary.fill, palette.primary.content), `${name} primary ink`)
+          .toBeGreaterThanOrEqual(TEXT_MIN);
+        expect(contrast(palette.primary.fill, palette.slots.base00), `${name} primary on its ground`)
+          .toBeGreaterThanOrEqual(3);
+      }
+    });
+  });
+
+  it("emits the brand tokens, so selecting a palette overrides the accent axis", () => {
+    // Without these a palette is half-applied: Dracula's surfaces with Tailwind's accent on top.
+    for (const [name, palette] of entries) {
+      for (const token of ["--primary", "--primary-foreground", "--ring", "--sidebar-primary"]) {
+        expect(palette.vars[token], `${name} does not set ${token}`).toBeDefined();
+      }
+      expect(palette.vars["--primary"], name).toBe(palette.primary.fill);
+      expect(palette.vars["--ring"], `${name} ring should follow its brand`).toBe(palette.primary.fill);
+    }
+  });
+});

@@ -100,6 +100,30 @@ export type PaletteSlot =
   | "base00" | "base01" | "base02" | "base03" | "base04" | "base05" | "base06" | "base07"
   | "base08" | "base09" | "base0A" | "base0B" | "base0C" | "base0D" | "base0E" | "base0F";
 
+/** The four status families. base16 has no counterpart for any of them, which is the point. */
+export type StatusRole = "destructive" | "info" | "success" | "warning";
+
+export interface PaletteRole {
+  fill: string;
+  /** The ink that sits ON the fill. */
+  content: string;
+  /**
+   * The readable-on-the-PAGE variant of the same hue — this system's existing status contract, for
+   * error text, invalid rings and destructive menu items. Absent for `primary`, where `content`
+   * already is `--primary-foreground`; that asymmetry is real and is not worth smoothing over.
+   */
+  foreground?: string;
+}
+
+/**
+ * Where a declared value came from. A field, not a comment, because the whole argument for declaring
+ * these instead of deriving them is that "says who?" has an answer.
+ *
+ * `upstream` — the source project's own guidance. `ecosystem` — a port or consumer convention.
+ * `kanzo` — ours, because the source documents no such role.
+ */
+export type RoleProvenance = "upstream" | "ecosystem" | "kanzo";
+
 export interface Palette {
   label: string;
   /**
@@ -136,7 +160,31 @@ export interface Palette {
    * channel to offer in exchange, because these render as text. Published so the choice is informed.
    */
   relief: PaletteSlot[];
-  /** The tokens `[data-palette="…"]` sets — surfaces, the 13 syntax roles, and `color-scheme`. */
+  /**
+   * The palette's brand, declared. This is what makes a palette REPLACE `data-accent` rather than
+   * sit beside it — daisyUI's model, where the theme owns primary and the mode does not exist as a
+   * separate axis. base16 nominates no primary at all, so taking one from a syntax slot would be
+   * this package inventing brand; every value here comes from the source project where it has any.
+   */
+  primary: PaletteRole;
+  /**
+   * The four status families, declared per palette — never mapped from `base08`/`base0A`/`base0B`,
+   * which mean *variables*, *classes* and *strings*. Mapping them across would let a palette say
+   * "this succeeded" in whatever hue it happens to use for literals.
+   */
+  status: Record<StatusRole, PaletteRole>;
+  /** Which of the five declared roles is upstream, which is a port convention, and which is ours. */
+  provenance: Record<"primary" | StatusRole, RoleProvenance>;
+  /**
+   * Status roles whose ink misses AA on their fill, or whose fill misses 3:1 on `base00`.
+   *
+   * Sibling of `relief` and for the same reason: Nord's red is 3.05 against its own ground and even
+   * pure black only reaches 5.13, and three of Catppuccin Latte's five cannot carry AA in its
+   * published values — those are properties of those palettes, not defects of this mapping.
+   * Inventing darker Catppuccin colours would stop it being Catppuccin.
+   */
+  statusRelief: StatusRole[];
+  /** The tokens `[data-palette="…"]` sets — surfaces, brand, status, the 13 syntax roles, `color-scheme`. */
   vars: Record<string, string>;
 }
 

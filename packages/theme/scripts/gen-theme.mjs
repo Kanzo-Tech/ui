@@ -426,7 +426,6 @@ const paletteLight = (p) => ({
   "--accent-foreground": p.base05,
   "--border": mix(p.base05, 12, "var(--background)"),
   "--input": mix(p.base05, 13, "var(--background)"),
-  ...STATUS_LIGHT,
   "--sidebar": p.base00,
   "--sidebar-foreground": mix(p.base05, 64, "var(--sidebar)"),
   "--sidebar-accent": mix(p.base05, 6, "var(--sidebar)"),
@@ -448,8 +447,6 @@ const paletteDark = (p) => ({
   "--accent-foreground": p.base05,
   "--border": mix(p.base05, 12, "var(--background)"),
   "--input": mix(p.base05, 13, "var(--background)"),
-  "--destructive": mix("var(--color-red-600)", 90, p.base05),
-  ...STATUS_DARK,
   "--sidebar": mix(p.base00, 97, p.base05),
   "--sidebar-foreground": mix(p.base05, 64, "var(--sidebar)"),
   "--sidebar-accent": mix(p.base05, 8, "var(--sidebar)"),
@@ -471,6 +468,43 @@ const kanzoSlots = (neutrals, step) => ({
   base0E: hexOf(`purple-${step}`),
   base0F: hexOf(`rose-${step}`),
 });
+
+/**
+ * A palette's brand and status colours — DECLARED, never mapped from the base16 accents.
+ *
+ * daisyUI is the model here, not base16: a theme owns `primary` and the status family, each with an
+ * on-fill ink. base16 nominates no primary at all, and its `base08`/`base0A`/`base0B` mean
+ * *variables*, *classes* and *strings* — so mapping them onto destructive/warning/success would let
+ * a palette say "this succeeded" in whatever hue it happens to use for literals. Every value below
+ * comes from the source project's own guidance where it has any, and `provenance` records which.
+ *
+ * `content` is the ink that sits ON the fill; for the borrowed palettes it is `base00`, which is
+ * Catppuccin's own published rule (`On Accent → Base`) and reads correctly for the others too.
+ * `foreground` — the readable-on-the-page variant, our existing status contract — is the fill
+ * itself for a borrowed palette, and that is not a shortcut: these are syntax palettes, so their
+ * accents were chosen to be read AS TEXT on exactly this background. Where that fails,
+ * `statusRelief` says so rather than a hex being nudged.
+ *
+ * A palette declaring `primary` is what makes it replace `data-accent` rather than sit beside it.
+ */
+const roleVars = (entry) => {
+  const { primary, status } = entry;
+  return {
+    "--primary": primary.fill,
+    "--primary-foreground": primary.content,
+    "--ring": primary.fill,
+    "--sidebar-primary": primary.fill,
+    "--sidebar-primary-foreground": primary.content,
+    "--sidebar-ring": primary.fill,
+    ...Object.fromEntries(
+      Object.entries(status).flatMap(([role, r]) => [
+        [`--${role}`, r.fill],
+        [`--${role}-foreground`, r.foreground ?? r.fill],
+        [`--${role}-content`, r.content],
+      ]),
+    ),
+  };
+};
 
 /**
  * Slots that do not clear WCAG AA *as text* on their own `base00`.
@@ -567,17 +601,118 @@ const PALETTES = {
 /** The default palette — at the default the attribute is absent and `tokens.css` `:root` applies. */
 const DEFAULT_PALETTE = "kanzo";
 
-const paletteVars = (entry) => {
+/**
+ * Brand and status per palette. Kept beside the slots rather than inside them, because these are a
+ * different KIND of fact: the slots are the palette's published strip, these are an interpretation.
+ *
+ * `provenance` records which, per role, and it is a field rather than a comment because the whole
+ * argument for declaring these instead of deriving them is that the question "says who?" has an
+ * answer. `upstream` — the source project's own guidance. `ecosystem` — a port or consumer
+ * convention. `kanzo` — ours, because the source documents no such role.
+ *
+ * Two findings that shaped this and are worth not re-deriving. **Nord designates its own primary**:
+ * `nord.css` says of nord8 "Main color for primary UI elements", so daisyUI's choice of nord10 is
+ * simply wrong, and it fails contrast (3.10) besides. And **Dracula designates no brand at all** —
+ * "primary" and "brand" appear nowhere in its spec, which is scoped to syntax highlighting — so its
+ * pink is an ecosystem convention and is labelled as one.
+ */
+const kanzoStatus = (fgStep) => ({
+  destructive: { fill: hexOf("red-600"), content: "#ffffff", foreground: hexOf(`red-${fgStep}`) },
+  info: { fill: hexOf("blue-600"), content: "#ffffff", foreground: hexOf(`blue-${fgStep}`) },
+  success: {
+    fill: hexOf("emerald-600"),
+    content: hexOf("neutral-950"),
+    foreground: hexOf(`emerald-${fgStep}`),
+  },
+  warning: {
+    fill: hexOf("amber-600"),
+    content: hexOf("neutral-950"),
+    foreground: hexOf(`amber-${fgStep}`),
+  },
+});
+/** A borrowed palette's accents were chosen to be read as text on its own ground — so they are. */
+const borrowed = (bg, roles) =>
+  Object.fromEntries(Object.entries(roles).map(([k, fill]) => [k, { fill, content: bg }]));
+
+const ROLES = {
+  kanzo: {
+    primary: { fill: hexOf("neutral-800"), content: hexOf("neutral-50") },
+    status: kanzoStatus(700),
+    provenance: { primary: "kanzo", destructive: "kanzo", info: "kanzo", success: "kanzo", warning: "kanzo" },
+    statusRelief: [],
+  },
+  "kanzo-dark": {
+    primary: { fill: hexOf("neutral-100"), content: hexOf("neutral-800") },
+    status: kanzoStatus(400),
+    provenance: { primary: "kanzo", destructive: "kanzo", info: "kanzo", success: "kanzo", warning: "kanzo" },
+    statusRelief: [],
+  },
+  dracula: {
+    primary: { fill: "#ff79c6", content: "#282a36" },
+    // Red is Dracula's declared `Error` scope. Green and orange are transitive — the spec has no
+    // Success or Warning, only `DiffInserted: (Green)` and `DiffChanged: (Orange)`. Cyan for info
+    // has no scope of any kind and is daisyUI's. Orange over daisyUI's yellow deliberately: yellow
+    // in the spec means String, and at 12.7 on this ground it reads as a highlighter, not a warning.
+    status: borrowed("#282a36", {
+      destructive: "#ff5555", info: "#8be9fd", success: "#50fa7b", warning: "#ffb86c",
+    }),
+    provenance: { primary: "ecosystem", destructive: "upstream", info: "ecosystem", success: "upstream", warning: "upstream" },
+    statusRelief: [],
+  },
+  nord: {
+    // Four of five straight from Nord's own docs, which describe UI roles first-class. Only `info`
+    // is ours — Nord names no such role — and nord9 is its "secondary UI elements that also require
+    // more visual attention", which is the nearest thing it does name.
+    primary: { fill: "#88c0d0", content: "#2e3440" },
+    status: borrowed("#2e3440", {
+      destructive: "#bf616a", info: "#81a1c1", success: "#a3be8c", warning: "#ebcb8b",
+    }),
+    provenance: { primary: "upstream", destructive: "upstream", info: "kanzo", success: "upstream", warning: "upstream" },
+    // nord11 is a mid-tone: 3.05 against its own ground, and even pure black only reaches 5.13.
+    // A property of Nord, like its 1.7:1 comments — declared, not nudged.
+    statusRelief: ["destructive"],
+  },
+  "catppuccin-latte": {
+    // Mauve is the port default, not the style guide — Catppuccin names no brand role at all.
+    // Content is `base00` by Catppuccin's own published rule: the Typography table's `On Accent → Base`.
+    primary: { fill: "#8839ef", content: "#eff1f5" },
+    status: borrowed("#eff1f5", {
+      destructive: "#d20f39", info: "#1e66f5", success: "#40a02b", warning: "#df8e1d",
+    }),
+    provenance: { primary: "ecosystem", destructive: "upstream", info: "upstream", success: "upstream", warning: "upstream" },
+    // Latte is low-contrast by design and its own guide opens with "Legibility always comes first,
+    // so please use your own judgement." Three of five roles cannot carry AA in its published
+    // values, and inventing darker Catppuccin colours would stop it being Catppuccin.
+    statusRelief: ["info", "success", "warning"],
+  },
+  "catppuccin-mocha": {
+    primary: { fill: "#cba6f7", content: "#1e1e2e" },
+    status: borrowed("#1e1e2e", {
+      destructive: "#f38ba8", info: "#89b4fa", success: "#a6e3a1", warning: "#f9e2af",
+    }),
+    provenance: { primary: "ecosystem", destructive: "upstream", info: "upstream", success: "upstream", warning: "upstream" },
+    statusRelief: [],
+  },
+};
+
+const paletteVars = (name, entry) => {
   const { slots, extended } = fillSlots(entry.slots, entry.appearance);
   const surfaces = entry.appearance === "light" ? paletteLight(slots) : paletteDark(slots);
+  const roles = ROLES[name];
+  if (!roles) throw new Error(`palette "${name}" declares no brand or status roles`);
   return {
     slots,
     extended,
+    ...roles,
     vars: {
       // Declared, not inferred: a dark palette must render dark with no `.dark` in sight, and this
       // is what tells the browser to darken form controls and scrollbars with it.
       "color-scheme": entry.appearance,
       ...surfaces,
+      // After the surfaces, so `--primary`/`--ring` land here rather than wherever `data-accent`
+      // last set them. This is the line that makes a palette REPLACE the accent axis instead of
+      // sitting beside it — the daisyUI model, and the whole point of the exercise.
+      ...roleVars(roles),
       ...Object.fromEntries(
         Object.entries(SYNTAX).map(([role, slot]) => [`--kanzo-syntax-${role}`, slots[slot]]),
       ),
@@ -586,7 +721,7 @@ const paletteVars = (entry) => {
 };
 
 const PALETTE_VARS = Object.fromEntries(
-  Object.entries(PALETTES).map(([name, entry]) => [name, paletteVars(entry)]),
+  Object.entries(PALETTES).map(([name, entry]) => [name, paletteVars(name, entry)]),
 );
 
 // ── Fonts — the DS ships NO font files. `data-font`/`data-mono-font` point --font-sans/
