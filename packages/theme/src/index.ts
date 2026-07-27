@@ -44,7 +44,14 @@ export {
  * lightness and chroma, and the checks decide. Measured, not assumed — no named palette tested so
  * far passes as a categorical scheme in its own values.
  */
-export { deriveScheme, familyOf, type Derivation } from "./derive-scheme.js";
+export {
+  allPairsCap,
+  deriveScheme,
+  familyOf,
+  orderScheme,
+  type Derivation,
+  type OrderOptions,
+} from "./derive-scheme.js";
 
 /**
  * `@kanzo-tech/theme` — design tokens, the theme axis table, and the value types. No React.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { deriveScheme, familyOf } from "./derive-scheme.js";
-import { checkScheme } from "./palette-check.js";
+import { allPairsCap, deriveScheme, familyOf, orderScheme } from "./derive-scheme.js";
+import { checkScheme, deltaE } from "./palette-check.js";
 
 /** Dracula's accents, minus the cyan that carries no usable hue. */
 const DRACULA = ["#50fa7b", "#ffb86c", "#ff79c6", "#bd93f9", "#ff5555", "#f1fa8c"];
@@ -59,5 +59,42 @@ describe("deriveScheme", () => {
 
   it("returns nothing at all rather than a palette that merely looks derived", () => {
     expect(deriveScheme(["#737373", "#8a8a8a"], "light").colours).toEqual([]);
+  });
+});
+
+describe("orderScheme", () => {
+  const derived = deriveScheme(DRACULA, "light").colours;
+
+  it("returns an arrangement that clears every gate", () => {
+    const ordered = orderScheme(derived, "light");
+    expect(ordered).toHaveLength(derived.length);
+    expect([...ordered].sort()).toEqual([...derived].sort());
+    expect(checkScheme(ordered, { mode: "light" }).ok).toBe(true);
+  });
+
+  it("beats or matches the arrangement it was given", () => {
+    // The order IS the colour-blindness mechanism — only neighbours are guaranteed to touch — so a
+    // derivation that chose steps but left the sequence alone has left the gate half shut.
+    const before = checkScheme(derived, { mode: "light" });
+    const after = checkScheme(orderScheme(derived, "light"), { mode: "light" });
+    expect(after.cvd.delta).toBeGreaterThanOrEqual(before.cvd.delta);
+  });
+
+  it("keeps the leading slots clear of a reserved status colour", () => {
+    // `--destructive` is red-500. Without this the winner puts a red in slot 2, on the series
+    // almost every chart uses, where it reads as an error rather than as data.
+    const ordered = orderScheme(derived, "light", { avoid: ["#fb2c36"], leading: 4 });
+    expect(ordered.length).toBeGreaterThan(0);
+    for (const hex of ordered.slice(0, 4)) expect(deltaE(hex, "#fb2c36")).toBeGreaterThanOrEqual(15);
+  });
+
+  it("refuses a slot count it cannot enumerate", () => {
+    expect(() => orderScheme(new Array(9).fill("#2b7fff"), "light")).toThrow(RangeError);
+  });
+
+  it("reports how many leading slots survive the all-pairs list", () => {
+    const cap = allPairsCap(orderScheme(derived, "light"), "light");
+    expect(cap).toBeGreaterThanOrEqual(2);
+    expect(cap).toBeLessThanOrEqual(derived.length);
   });
 });
