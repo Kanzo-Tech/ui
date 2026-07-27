@@ -39,7 +39,9 @@ export const buttonVariants = tv({
       ],
       destructive: [
         "bg-destructive",
-        "text-white",
+        // Was `text-white` at 3.81 on red-500. The fill moved to `-600` and the ink became a token,
+        // because no choice of ink rescued red-500: white 3.81, near-black 4.15, AA needs 4.5.
+        "text-destructive-content",
         "border border-transparent shadow-destructive/24 shadow-sm",
         "hover:bg-destructive/90",
         "focus-visible:border-background focus-visible:ring-destructive-foreground/32",

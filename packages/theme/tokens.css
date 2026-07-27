@@ -28,14 +28,23 @@
  * The STATUS families (destructive/info/success/warning) do NOT follow that rule, and this is
  * inherited from Shark UI verbatim — do not "fix" it, it would fork us from upstream. There,
  * `-foreground` is a *darker/lighter variant of the same hue*, readable against the page
- * background: `--destructive` is red-500 and `--destructive-foreground` is red-700 in light,
- * red-400 in dark. It is for error text, invalid rings and destructive menu items — never for
- * text on the fill. Shark itself proves the intent: its Status recipe writes
+ * background. It is for error text, invalid rings and destructive menu items — never for text on
+ * the fill. Shark itself proves the intent: its Status recipe writes
  * `dark:bg-destructive-foreground`, using it as a BACKGROUND.
  *
- * Consequently, on-fill text over a status fill is a literal `text-white` in both Shark and
- * here (Button destructive, Status dots). That is the one sanctioned exception to the
- * "token-backed utilities only" rule.
+ * On-fill text therefore needs a THIRD token per status family, `--*-content` — daisyUI's word for
+ * exactly this role, borrowed because `-foreground` was already taken here with a different meaning
+ * that ~40 call sites rely on. It used to be a literal `text-white`, described as the one sanctioned
+ * exception to "token-backed utilities only", and the exception is where the defect hid: measured,
+ * it was 2.13:1 on warning, 2.47 on success, 3.76 on info and 3.81 on destructive. No token meant
+ * nothing to measure, and nothing to measure meant no failing test.
+ *
+ * TWO declared divergences from Shark follow, both forced and both measured. The status fills sit at
+ * `-600` rather than `-500`, because red-500 carries neither white (3.81) nor near-black (4.15) at
+ * AA — no choice of ink rescues it — and because emerald-500/amber-500 land at 2.37 and 2.05
+ * against the page, so a filled badge was barely visible AS A SHAPE, below the 3:1 that WCAG asks of
+ * a non-text element. And the ink is split by measurement rather than by rule: destructive and info
+ * hold white, success and warning take near-black. `palettes.test.ts` re-measures all of it.
  */
 
 @theme inline {
@@ -55,12 +64,16 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-content: var(--destructive-content);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
+  --color-info-content: var(--info-content);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
+  --color-success-content: var(--success-content);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-warning-content: var(--warning-content);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -165,14 +178,38 @@
   --muted-foreground: color-mix(in srgb, var(--color-neutral-500) 80%, var(--color-neutral-950));
   --accent: color-mix(in srgb, var(--color-neutral-950) 6%, var(--background));
   --accent-foreground: var(--color-neutral-800);
-  --destructive: var(--color-red-500);
+  /* `-600` across the four, a DECLARED divergence from Shark, forced by two separate measurements.
+     Ink: red-500 carries neither white (3.81) nor near-black (4.15) at AA, so no choice of ink
+     rescues it and the fill had to move. Visibility: emerald-500 and amber-500 sit at 2.37 and 2.05
+     against the page, so a filled badge was barely a shape — WCAG asks 3:1 of a non-text element.
+     At `-600` all four clear both bars. See --*-content below. */
+  --destructive: var(--color-red-600);
   --destructive-foreground: var(--color-red-700);
-  --info: var(--color-blue-500);
+  --info: var(--color-blue-600);
   --info-foreground: var(--color-blue-700);
-  --success: var(--color-emerald-500);
+  --success: var(--color-emerald-600);
   --success-foreground: var(--color-emerald-700);
-  --warning: var(--color-amber-500);
+  --warning: var(--color-amber-600);
   --warning-foreground: var(--color-amber-700);
+
+  /* ON-FILL text. A third token per status family, and the asymmetry with the neutral/brand
+     families is deliberate: there, `-foreground` already IS the on-fill ink. Here it is a readable
+     variant of the same hue meant to sit on the PAGE (see the note at the top of this file), which
+     ~40 call sites depend on — so the on-fill role needed its own name, and daisyUI's `-content` is
+     the reference system's word for exactly it.
+
+     Until now that role was a literal `text-white` in status.tsx and button.tsx, the one sanctioned
+     exception to "token-backed utilities only" — and it was failing AA everywhere nobody could
+     measure it: warning 2.13, success 2.47, info 3.76, destructive 3.81. An exception is where a
+     defect hides, because no token means no test.
+
+     Split by measurement rather than by rule, which is what a declared value is for: the two fills
+     that hold white do, the two that cannot take near-black. Same choice in both modes, so a badge
+     does not change its criterion when the mode flips. */
+  --destructive-content: var(--color-white);   /* on red-600     — 4.77 */
+  --info-content: var(--color-white);          /* on blue-600    — 5.25 */
+  --success-content: var(--color-neutral-950); /* on emerald-600 — 5.42 */
+  --warning-content: var(--color-neutral-950); /* on amber-600   — 6.19 */
 
   --border: color-mix(in srgb, var(--color-neutral-950) 12%, var(--background));
   --input: color-mix(in srgb, var(--color-neutral-950) 13%, var(--background));
@@ -266,12 +303,18 @@
   --accent-foreground: var(--color-neutral-100);
   --destructive: color-mix(in srgb, var(--color-red-600) 90%, var(--color-neutral-50));
   --destructive-foreground: var(--color-red-400);
-  --info: var(--color-blue-500);
+  /* `-600`, matching light: at `-500` this fill takes white at only 3.76. It still clears 3:1
+     against the dark surface at 3.77, which is the bar for a fill rather than for text. */
+  --info: var(--color-blue-600);
   --info-foreground: var(--color-blue-400);
-  --success: var(--color-emerald-500);
+  --success: var(--color-emerald-600);
   --success-foreground: var(--color-emerald-400);
-  --warning: var(--color-amber-500);
+  --warning: var(--color-amber-600);
   --warning-foreground: var(--color-amber-400);
+  --destructive-content: var(--color-white);
+  --info-content: var(--color-white);
+  --success-content: var(--color-neutral-950);
+  --warning-content: var(--color-neutral-950);
 
   --border: color-mix(in srgb, var(--color-neutral-50) 12%, var(--background));
   --input: color-mix(in srgb, var(--color-neutral-50) 13%, var(--background));

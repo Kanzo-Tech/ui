@@ -325,6 +325,49 @@ const SYNTAX = {
 const mix = (a, pct, b) => `color-mix(in srgb, ${a} ${pct}%, ${b})`;
 
 /**
+ * The status families — the system's hues, not the palette's, and stepped for each appearance.
+ *
+ * A palette does not own these: base16's red/yellow/green slots mean *strings* and *classes*, so
+ * borrowing them would let a palette say "this succeeded" in whatever hue it uses for literals.
+ * They are emitted into every palette block anyway, so a block is self-sufficient for its own
+ * appearance rather than depending on `.dark` also being present.
+ *
+ * Three tokens per family, and the third is new. `-foreground` is a readable-on-the-page variant of
+ * the same hue (~40 call sites rely on that, and it is Shark's contract); `-content` is the ink that
+ * sits ON the fill, which until now was a literal `text-white` failing AA at warning 2.13, success
+ * 2.47, info 3.76 and destructive 3.81. destructive and info moved to `-600` because red-500 holds
+ * neither white nor black at AA; success and warning keep their fill and take near-black instead.
+ */
+const STATUS_LIGHT = {
+  "--destructive": "var(--color-red-600)",
+  "--destructive-foreground": "var(--color-red-700)",
+  "--destructive-content": "var(--color-white)",
+  "--info": "var(--color-blue-600)",
+  "--info-foreground": "var(--color-blue-700)",
+  "--info-content": "var(--color-white)",
+  "--success": "var(--color-emerald-600)",
+  "--success-foreground": "var(--color-emerald-700)",
+  "--success-content": "var(--color-neutral-950)",
+  "--warning": "var(--color-amber-600)",
+  "--warning-foreground": "var(--color-amber-700)",
+  "--warning-content": "var(--color-neutral-950)",
+};
+/** Dark `--destructive` is base-derived, so it is set beside this rather than in it. */
+const STATUS_DARK = {
+  "--destructive-foreground": "var(--color-red-400)",
+  "--destructive-content": "var(--color-white)",
+  "--info": "var(--color-blue-600)",
+  "--info-foreground": "var(--color-blue-400)",
+  "--info-content": "var(--color-white)",
+  "--success": "var(--color-emerald-600)",
+  "--success-foreground": "var(--color-emerald-400)",
+  "--success-content": "var(--color-neutral-950)",
+  "--warning": "var(--color-amber-600)",
+  "--warning-foreground": "var(--color-amber-400)",
+  "--warning-content": "var(--color-neutral-950)",
+};
+
+/**
  * Blend two hexes the way `color-mix(in srgb, …)` does — a plain linear blend of the gamma-encoded
  * channels. Used only to manufacture the slots a source palette does not document.
  */
@@ -383,14 +426,7 @@ const paletteLight = (p) => ({
   "--accent-foreground": p.base05,
   "--border": mix(p.base05, 12, "var(--background)"),
   "--input": mix(p.base05, 13, "var(--background)"),
-  "--destructive": "var(--color-red-500)",
-  "--destructive-foreground": "var(--color-red-700)",
-  "--info": "var(--color-blue-500)",
-  "--info-foreground": "var(--color-blue-700)",
-  "--success": "var(--color-emerald-500)",
-  "--success-foreground": "var(--color-emerald-700)",
-  "--warning": "var(--color-amber-500)",
-  "--warning-foreground": "var(--color-amber-700)",
+  ...STATUS_LIGHT,
   "--sidebar": p.base00,
   "--sidebar-foreground": mix(p.base05, 64, "var(--sidebar)"),
   "--sidebar-accent": mix(p.base05, 6, "var(--sidebar)"),
@@ -413,13 +449,7 @@ const paletteDark = (p) => ({
   "--border": mix(p.base05, 12, "var(--background)"),
   "--input": mix(p.base05, 13, "var(--background)"),
   "--destructive": mix("var(--color-red-600)", 90, p.base05),
-  "--destructive-foreground": "var(--color-red-400)",
-  "--info": "var(--color-blue-500)",
-  "--info-foreground": "var(--color-blue-400)",
-  "--success": "var(--color-emerald-500)",
-  "--success-foreground": "var(--color-emerald-400)",
-  "--warning": "var(--color-amber-500)",
-  "--warning-foreground": "var(--color-amber-400)",
+  ...STATUS_DARK,
   "--sidebar": mix(p.base00, 97, p.base05),
   "--sidebar-foreground": mix(p.base05, 64, "var(--sidebar)"),
   "--sidebar-accent": mix(p.base05, 8, "var(--sidebar)"),
@@ -635,27 +665,13 @@ writeFileSync(OUT, out);
 
 // ── Also emit theme-data.json — the same exact data as a runtime module, so the
 //    Preferences "Copy theme" can assemble Shark's :root/.dark export string. ──
-const STATIC_LIGHT = {
-  "--destructive": "var(--color-red-500)",
-  "--destructive-foreground": "var(--color-red-700)",
-  "--info": "var(--color-blue-500)",
-  "--info-foreground": "var(--color-blue-700)",
-  "--success": "var(--color-emerald-500)",
-  "--success-foreground": "var(--color-emerald-700)",
-  "--warning": "var(--color-amber-500)",
-  "--warning-foreground": "var(--color-amber-700)",
-  // `--chart-*` used to live here, which is exactly why it was never right: static meant no axis
-  // owned it, so `base` and `accent` never reached it and nobody ever chose it. It is a scheme now.
-};
-const STATIC_DARK = {
-  // dark --destructive(-foreground) come from the base object; the rest are static.
-  "--info": "var(--color-blue-500)",
-  "--info-foreground": "var(--color-blue-400)",
-  "--success": "var(--color-emerald-500)",
-  "--success-foreground": "var(--color-emerald-400)",
-  "--warning": "var(--color-amber-500)",
-  "--warning-foreground": "var(--color-amber-400)",
-};
+// The same status objects the palette blocks emit — one copy, so a "Copy theme CSS" export and a
+// selected palette cannot disagree about what `--warning-content` is.
+// `--chart-*` used to live here, which is exactly why it was never right: static meant no axis
+// owned it, so `base` and `accent` never reached it and nobody ever chose it. It is a scheme now.
+const STATIC_LIGHT = STATUS_LIGHT;
+// Dark `--destructive(-foreground)` come from the base object; the rest are static.
+const STATIC_DARK = STATUS_DARK;
 const data = {
   bases: Object.fromEntries(BASES.map((c) => [c, { light: baseLight(c), dark: baseDark(c) }])),
   accents: Object.fromEntries(
@@ -711,6 +727,36 @@ const data = {
   ),
   defaultPalette: DEFAULT_PALETTE,
   syntaxRoles: SYNTAX,
+  // The status fill/ink pairs RESOLVED to hex, per mode.
+  //
+  // The CSS keeps `var(--color-red-600)` because that is what makes it themeable, but a `var()`
+  // reference cannot be measured — which is precisely how `text-white` sat at 2.13:1 on the warning
+  // fill without anything noticing. These are the same values, resolved once here so
+  // `palettes.test.ts` can put a number on them.
+  statusInk: Object.fromEntries(
+    ["light", "dark"].map((mode) => {
+      const src = mode === "light" ? STATUS_LIGHT : STATUS_DARK;
+      const ref = (v) => {
+        const m = /var\(--color-([a-z]+)(?:-(\d+))?\)/.exec(v ?? "");
+        if (!m) return null;
+        return m[1] === "white" ? "#ffffff" : hexOf(`${m[1]}-${m[2]}`);
+      };
+      return [
+        mode,
+        Object.fromEntries(
+          ["destructive", "info", "success", "warning"].map((role) => [
+            role,
+            {
+              // Dark `--destructive` is a base-derived mix, so it has no single named step; the
+              // measurement uses red-600, which is what that mix is 90% of.
+              fill: ref(src[`--${role}`]) ?? hexOf("red-600"),
+              content: ref(src[`--${role}-content`]),
+            },
+          ]),
+        ),
+      ];
+    }),
+  ),
   staticLight: STATIC_LIGHT,
   staticDark: STATIC_DARK,
 };

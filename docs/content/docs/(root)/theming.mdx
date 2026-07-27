@@ -126,11 +126,27 @@ Two families, two different rules — this trips people up, so it is worth stati
 **Neutral and brand**: the base name is the FILL, and `-foreground` is the text that sits ON
 that fill. `bg-primary text-primary-foreground` is a readable pair.
 
-**Status** (`destructive` / `info` / `success` / `warning`): `-foreground` is a readable-on-
-**background** variant of the same hue — for error text, invalid rings and destructive menu
-items. `--destructive` is red-500 and `--destructive-foreground` is red-700; that is not a
-contrast bug, it is Shark's convention, adopted verbatim. Text sitting on a status fill is a
-literal `text-white`, in Shark and here.
+**Status** (`destructive` / `info` / `success` / `warning`): three tokens, not two, and the extra
+one is the point. `-foreground` is a readable-on-**background** variant of the same hue — for error
+text, invalid rings and destructive menu items. That it is not readable *on the fill* is not a
+contrast bug; it is Shark's convention, adopted verbatim.
+
+So on-fill text gets its own token, `-content`. `bg-destructive text-destructive-content` is the
+readable pair. It used to be a literal `text-white`, described as the one sanctioned exception to
+"token-backed utilities only" — and the exception is where the defect hid: measured, that white sat
+at 2.13:1 on the warning fill and 3.81 on destructive. With no token there was nothing to measure,
+and with nothing to measure there was no failing test.
+
+<Callout type="warn" title="The status fills sit at -600, which is a declared divergence">
+  Two measurements forced it, and both are re-run by `palettes.test.ts`. red-500 carries neither
+  white (3.81) nor near-black (4.15) at AA, so no choice of ink rescues it — the fill had to move.
+  And emerald-500/amber-500 land at 2.37 and 2.05 against the page, so a filled badge was barely
+  visible *as a shape*, under the 3:1 WCAG asks of a non-text element.
+
+  The ink is then split by measurement rather than by rule: `destructive` and `info` hold white,
+  `success` and `warning` take near-black. Same choice in both modes, so a badge does not change its
+  criterion when the mode flips.
+</Callout>
 
 ## Generated themes
 

@@ -186,3 +186,55 @@ describe("palettes", () => {
       .toBeGreaterThan(themes.indexOf("[data-base="));
   });
 });
+
+/**
+ * The status families' on-fill ink.
+ *
+ * This is the guard that did not exist, and its absence is the whole story: on-fill text was a
+ * literal `text-white` in `status.tsx` and `button.tsx` — the one sanctioned exception to
+ * token-backed utilities — and it was failing AA on every variant, worst at 2.13:1 on the warning
+ * fill. No token meant no measurement, and no measurement meant no failing test. An exception is
+ * where a defect hides.
+ */
+describe("status ink", () => {
+  const ROLES = ["destructive", "info", "success", "warning"] as const;
+  const ink = themeData.statusInk as Record<
+    "light" | "dark",
+    Record<string, { fill: string; content: string }>
+  >;
+
+  for (const mode of ["light", "dark"] as const) {
+    it(`carries AA text on every status fill in ${mode}`, () => {
+      const failing = ROLES.map((role) => {
+        const { fill, content } = ink[mode][role] as { fill: string; content: string };
+        return { role, ratio: contrast(fill, content) };
+      }).filter(({ ratio }) => ratio < TEXT_MIN);
+      expect(failing, `on-fill text below AA: ${JSON.stringify(failing)}`).toEqual([]);
+    });
+
+    it(`keeps every status fill distinguishable from its surface in ${mode}`, () => {
+      // A fill is not text, so the bar is 3:1 — but it still has to be visible as a shape.
+      const surface = mode === "light" ? "#fafafa" : "#0a0a0a";
+      for (const role of ROLES) {
+        const { fill } = ink[mode][role] as { fill: string };
+        expect(contrast(fill, surface), `${mode} ${role} fill on surface`).toBeGreaterThanOrEqual(3);
+      }
+    });
+  }
+
+  it("does not let the two spellings of a status token drift", () => {
+    // The CSS ships `var(--color-red-600)` because that is what makes it themeable; `statusInk`
+    // ships the same value resolved, because a `var()` cannot be measured. Two spellings of one
+    // fact is exactly the shape that rots, so the generated CSS is checked against the data.
+    const themes = readFileSync(resolve(pkgDir, "themes.css"), "utf8");
+    for (const role of ROLES) {
+      expect(themes, `no --${role}-content in the generated CSS`).toContain(`--${role}-content:`);
+    }
+    for (const [name, palette] of entries) {
+      for (const role of ROLES) {
+        expect(palette.vars[`--${role}-content`], `${name} does not set --${role}-content`)
+          .toBeDefined();
+      }
+    }
+  });
+});

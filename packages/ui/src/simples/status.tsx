@@ -15,10 +15,15 @@ export const statusVariants = tv({
   variants: {
     variant: {
       default: "bg-foreground text-background",
-      success: "bg-success text-white",
-      info: "bg-info text-white",
-      warning: "bg-warning text-white",
-      destructive: "bg-destructive text-white dark:bg-destructive-foreground",
+      // `text-*-content`, not `text-white`. The literal was the one sanctioned exception to
+      // token-backed utilities, and it was failing AA on every variant — warning at 2.13, success
+      // at 2.47 — because with no token there was nothing to measure. The ink is now declared per
+      // family by measurement: the fills that hold white keep it, the two that cannot take
+      // near-black instead.
+      success: "bg-success text-success-content",
+      info: "bg-info text-info-content",
+      warning: "bg-warning text-warning-content",
+      destructive: "bg-destructive text-destructive-content dark:bg-destructive-foreground",
     },
     size: {
       sm: "size-2 [&_svg:not([class*='size-'])]:size-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0",
