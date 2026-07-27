@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  SEPARATION_BAR,
   allPairsCap,
   deriveOrderedScheme,
   deriveScheme,
@@ -8,12 +9,23 @@ import {
   orderScheme,
 } from "./derive-scheme.js";
 import { SCHEMES } from "./index.js";
-import { checkScheme, deltaE } from "./palette-check.js";
+import { CVD_TARGET, checkScheme, deltaE } from "./palette-check.js";
 
 /** Dracula's accents, minus the cyan that carries no usable hue. */
 const DRACULA = ["#50fa7b", "#ffb86c", "#ff79c6", "#bd93f9", "#ff5555", "#f1fa8c"];
 /** Nord's Aurora and Frost. Deliberately desaturated, which is the point of the test. */
 const NORD = ["#bf616a", "#d08770", "#ebcb8b", "#a3be8c", "#b48ead", "#88c0d0"];
+/** Catppuccin Latte's eight accents, as base16 writes them. Seven carry a usable hue. */
+const LATTE = [
+  "#d20f39",
+  "#fe640b",
+  "#df8e1d",
+  "#40a02b",
+  "#179299",
+  "#1e66f5",
+  "#8839ef",
+  "#e64553",
+];
 
 describe("familyOf", () => {
   it("matches on hue, where deltaE would not", () => {
@@ -132,8 +144,17 @@ describe("the pipeline against what we ship", () => {
       // pipeline choose steps and order again. If the hand-run derivation and the function
       // disagree, one of them is wrong — and this is the test that says which.
       const shipped = (SCHEMES.kanzo as { light: string[]; dark: string[] })[mode];
-      const { ordered, dropped } = deriveOrderedScheme(shipped, mode, { avoid: ["#fb2c36"] });
+      const { ordered, dropped, crowded } = deriveOrderedScheme(shipped, mode, {
+        avoid: ["#fb2c36"],
+      });
       expect(dropped).toEqual([]);
+
+      // And it keeps all eight. Subsetting exists to stop a palette from spending separation it
+      // does not have; the scheme we ship chose its families by enumeration, so it has the
+      // separation, and a rule that trimmed it anyway would be trimming on principle rather than
+      // on measurement.
+      expect(crowded).toEqual([]);
+      expect(ordered).toHaveLength(shipped.length);
 
       // Through `deriveOrderedScheme`, not the two stages by hand. Running them by hand is what
       // this test used to do, and it is exactly the composition that was wrong: the step-chooser
@@ -159,11 +180,75 @@ describe("deriveOrderedScheme", () => {
       // The regression this whole change is about. Hand-composed, dark returned `[]` for five of
       // six palettes — not because their colours were unusable, but because base16 lists them in
       // the one order the adjacent gate cannot survive.
-      const { ordered } = deriveOrderedScheme(DRACULA_WHEEL, mode, { avoid: ["#fb2c36"] });
-      expect(ordered).toHaveLength(DRACULA_WHEEL.length);
+      //
+      // This used to demand every source colour appear in the result, and that contract is gone
+      // deliberately: a palette hands over the families it has, not the families it can keep apart,
+      // and forcing all of them put Dracula's worst simulated pair at 7.2 against a target of 8.
+      // What a derivation owes is a *legal* scheme and an honest count, not a full one.
+      const { ordered, kept, crowded, dropped } = deriveOrderedScheme(DRACULA_WHEEL, mode, {
+        avoid: ["#fb2c36"],
+      });
+      expect(ordered.length).toBeGreaterThanOrEqual(2);
       expect(checkScheme(ordered, { mode }).ok).toBe(true);
+      expect(kept.length + crowded.length + dropped.length).toBe(DRACULA_WHEEL.length);
     });
   }
+
+  it("names fewer categories rather than ones a colour-blind reader cannot separate", () => {
+    // The hypothesis, as a test, on the palette that shows it most plainly. Forcing all seven of
+    // Latte's usable families lands the worst adjacent pair at 8.3 in dark — a hundredth above the
+    // pass mark, and only because `CVD_TARGET` is where it is. Five families reach 33.4.
+    const forced = deriveOrderedScheme(LATTE, "dark", { avoid: ["#fb2c36"], separation: 0 });
+    const chosen = deriveOrderedScheme(LATTE, "dark", { avoid: ["#fb2c36"] });
+    expect(forced.crowded).toEqual([]);
+    expect(forced.separation).toBeLessThan(SEPARATION_BAR);
+    expect(chosen.ordered.length).toBeLessThan(forced.ordered.length);
+    expect(chosen.separation).toBeGreaterThanOrEqual(SEPARATION_BAR);
+    expect(chosen.separation).toBeGreaterThan(forced.separation);
+  });
+
+  it("tells a colour with no hue apart from one the scheme had no room for", () => {
+    // Two different facts, and a panel that merges them says something false. Latte's teal is
+    // below the chroma floor — there was never anything to use. Its second red and its rose have
+    // perfectly good hues; the scheme simply already spends that arc, and removing some *other*
+    // colour would let them back in. Only the second is the user's to act on.
+    const { kept, crowded, dropped } = deriveOrderedScheme(LATTE, "dark", { avoid: ["#fb2c36"] });
+    expect(dropped).toEqual(["#179299"]);
+    expect(crowded.length).toBeGreaterThan(0);
+    for (const hex of crowded) {
+      expect(dropped).not.toContain(hex);
+      expect(familyOf(hex)).not.toBeNull();
+    }
+    expect(kept.length + crowded.length + dropped.length).toBe(LATTE.length);
+  });
+
+  it("names the families that made the scheme, not the ones the source happened to carry", () => {
+    // `families` is what the source yielded and `kept` is what survived selection. Reading the
+    // first as the second is how a panel ends up listing a category the scheme cannot draw.
+    const { kept, colours, families } = deriveOrderedScheme(LATTE, "dark", { avoid: ["#fb2c36"] });
+    expect(kept).toHaveLength(colours.length);
+    expect(kept.length).toBeLessThan(families.length);
+    for (const family of kept) expect(families).toContain(family);
+  });
+
+  it("settles for the widest legal scheme when no subset can clear the bar", () => {
+    // The bar is a preference, like `avoid`, and a preference that refuses is a bug — that lesson
+    // was already paid for once. With an unreachable bar the answer is still a scheme, and
+    // `separation` says plainly how far short it fell.
+    const { ordered, separation } = deriveOrderedScheme(DRACULA_WHEEL, "dark", {
+      avoid: ["#fb2c36"],
+      separation: 999,
+    });
+    expect(ordered.length).toBeGreaterThanOrEqual(2);
+    expect(separation).toBeLessThan(999);
+    expect(separation).toBeGreaterThanOrEqual(CVD_TARGET);
+    expect(checkScheme(ordered, { mode: "dark" }).ok).toBe(true);
+  });
+
+  it("reports the separation it actually reached, not the one it was asked for", () => {
+    const { ordered, separation } = deriveOrderedScheme(LATTE, "light", { avoid: ["#fb2c36"] });
+    expect(separation).toBeCloseTo(checkScheme(ordered, { mode: "light" }).cvd.delta, 6);
+  });
 
   it("beats the arrangement of the sequence it was handed", () => {
     // Ordering is not cosmetic: it is the colour-blindness mechanism. If the composed pipeline did
@@ -228,7 +313,9 @@ describe("the avoid constraint degrades instead of refusing", () => {
       avoid: ["#fb2c36"],
       leading: 4,
     });
-    expect(ordered).toHaveLength(DRACULA_WHEEL.length);
+    // Not the full source length any more — selection may keep fewer families than the palette
+    // offers — but still a scheme, which is the only thing `avoid` was ever allowed to cost.
+    expect(ordered.length).toBeGreaterThanOrEqual(2);
     expect(leading).toBeLessThanOrEqual(4);
     // Whatever it managed, the slots it claims are clear really are.
     for (const hex of ordered.slice(0, leading)) {

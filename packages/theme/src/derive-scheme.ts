@@ -59,16 +59,20 @@ export interface Derivation {
   dropped: string[];
 }
 
-/** The families a source yields, and the colours that carried no usable hue. */
+/** The families a source yields, the colours they came from, and the ones with no usable hue. */
 function familiesOf(source: readonly string[]) {
   const dropped: string[] = [];
   const families: string[] = [];
+  const usable: string[] = [];
   for (const hex of source) {
     const family = familyOf(hex);
     if (family === null) dropped.push(hex);
-    else families.push(family);
+    else {
+      families.push(family);
+      usable.push(hex);
+    }
   }
-  return { families, dropped };
+  return { families, dropped, usable };
 }
 
 /**
@@ -260,6 +264,40 @@ export function leadingClear(order: readonly string[], avoid: readonly string[])
  */
 const SHORTLIST = 6;
 
+/**
+ * The separation a scheme must still reach before it is allowed one more category.
+ *
+ * A palette hands over the families it happens to have, and taking all of them saturates the space:
+ * measured over the six base16 palettes, forcing every surviving family landed the worst adjacent
+ * pair under simulation at 7.2–15.0 — one hundredth above the `CVD_TARGET` pass mark in two cases —
+ * where the same palettes reach 17.8–32.1 on a subset. That is the whole trade, and the curve says
+ * it is nearly free: for four of the five derivable palettes the drop is a *cliff*, not a slope
+ * (kanzo 28.5 → 11.5, catppuccin-latte 32.1 → 9.2, kanzo-dark 19.5 → 7.7, catppuccin-mocha
+ * 30.2 → 19.7), so any bar between 12 and 19 picks out the same subset and the exact value is not
+ * load-bearing. Dracula is the one that pins it down, because its curve genuinely slopes
+ * (17.8, 14.3, 10.1, 7.2): a bar of 20 costs it two categories to buy headroom over a target of 8,
+ * a bar of 8 keeps six families at 10.1. 15 splits it at four.
+ *
+ * Roughly twice `CVD_TARGET`, and within 3.1 ΔE of the 20.9 the shipped scheme reaches at eight
+ * slots — against 13.7 below it when every family is forced.
+ *
+ * A ceiling on categories is not a loss: `Scheme.slots` is already the *capacity* a scheme claims,
+ * and the tokens past it fold to the muted "Other". Naming five real categories and saying so beats
+ * naming seven that a colour-blind reader sees as five.
+ */
+export const SEPARATION_BAR = 15;
+
+export interface DeriveOptions extends OrderOptions {
+  /**
+   * The bar a subset must clear before another family is admitted. Defaults to `SEPARATION_BAR`.
+   *
+   * Degrades rather than refuses, in the same way `avoid` does: if no subset at any size clears it,
+   * the largest one that merely passes the checks is returned and `separation` reports what it
+   * actually reached, so a panel can say "this palette only manages 9.2" instead of saying nothing.
+   */
+  separation?: number;
+}
+
 export interface OrderedDerivation extends Derivation {
   /** The slots in the order they are handed out, or empty when nothing can be arranged. */
   ordered: string[];
@@ -271,6 +309,34 @@ export interface OrderedDerivation extends Derivation {
    * mistaken for a status colour, which matters most on the early series a chart actually uses.
    */
   leading: number;
+  /** The family behind each entry of `colours` — the subset of `families` that made the scheme. */
+  kept: string[];
+  /**
+   * Source colours left out because the scheme could not stay separable with them in it.
+   *
+   * Deliberately *not* folded into `dropped`. They are different facts and a panel that conflates
+   * them tells the user something false: `dropped` means "this colour carries no hue at all, there
+   * was nothing to use", while this means "its hue was fine, but the palette already spends that
+   * part of the wheel". The first is a property of the colour, the second of the company it keeps —
+   * and only the second changes if the user removes some other colour.
+   */
+  crowded: string[];
+  /** The worst adjacent pair under simulation that the returned arrangement reaches. */
+  separation: number;
+}
+
+/** Index subsets of a given size, in the source's own order. */
+function* combinations(n: number, k: number): Generator<number[]> {
+  const idx = Array.from({ length: k }, (_, i) => i);
+  if (k > n) return;
+  for (;;) {
+    yield [...idx];
+    let i = k - 1;
+    while (i >= 0 && (idx[i] as number) === n - k + i) i -= 1;
+    if (i < 0) return;
+    idx[i] = (idx[i] as number) + 1;
+    for (let j = i + 1; j < k; j++) idx[j] = (idx[j - 1] as number) + 1;
+  }
 }
 
 /**
@@ -284,27 +350,73 @@ export interface OrderedDerivation extends Derivation {
  * in hue-wheel order, so five of six refused in dark for no reason but their spelling.
  *
  * Order matters twice over, so it is decided once, here, and the verdict is taken after it.
+ *
+ * It also decides **how many** categories to name, which is the fourth stage and the one that used
+ * to be skipped. Every surviving family was forced into the scheme, on the assumption that a family
+ * the palette owns is a category the palette can express — and that is not true past a point that
+ * the palette itself does not know. See `SEPARATION_BAR` for the measurement; the families left
+ * over come back as `crowded`, never as `dropped`.
+ *
+ * Subsets are searched largest-first and the first size that clears the bar wins, so the usual case
+ * — a palette whose families all fit — costs one pass and no more than the previous version did.
+ * Measured over the six base16 palettes: 9 ms to 2.9 s to an answer, and 5.9 s for the worst case
+ * there is at eight families, a descent all the way to two. That is what an authoring-time function
+ * may spend. A source with more usable families than `MAX_ORDERED` no longer throws — the descent
+ * simply starts there, which is the one thing subsetting buys for free — but C(n, 8) grows fast:
+ * nine families measured 31 s, and twelve would be minutes.
  */
 export function deriveOrderedScheme(
   source: readonly string[],
   mode: Mode,
-  options: OrderOptions = {},
+  options: DeriveOptions = {},
 ): OrderedDerivation {
-  const { families, dropped } = familiesOf(source);
-  let best: { colours: string[]; ordered: string[]; delta: number } | null = null;
+  const { families, dropped, usable } = familiesOf(source);
+  const { separation = SEPARATION_BAR } = options;
 
-  for (const colours of candidates(families, mode, SHORTLIST)) {
-    const ordered = orderScheme(colours, mode, options);
-    if (!ordered.length) continue;
-    const { delta } = checkScheme(ordered, { mode }).cvd;
-    if (!best || delta > best.delta) best = { colours, ordered, delta };
+  type Pick = { colours: string[]; ordered: string[]; delta: number; picked: number[] };
+  const bestOf = (picked: number[]): Pick | null => {
+    let best: Pick | null = null;
+    for (const colours of candidates(
+      picked.map((i) => families[i] as string),
+      mode,
+      SHORTLIST,
+    )) {
+      const ordered = orderScheme(colours, mode, options);
+      if (!ordered.length) continue;
+      const { delta } = checkScheme(ordered, { mode }).cvd;
+      if (!best || delta > best.delta) best = { colours, ordered, delta, picked };
+    }
+    return best;
+  };
+
+  // Descending, so `widest` is the largest size that passes the checks at all — the answer the
+  // previous version gave — and it stands in when nothing clears the bar. Without it, a preference
+  // would be able to refuse a palette outright, which is the mistake `avoid` already made once.
+  let widest: Pick | null = null;
+  let chosen: Pick | null = null;
+  for (let k = Math.min(usable.length, MAX_ORDERED); k >= 2 && !chosen; k--) {
+    let bestAtK: Pick | null = null;
+    for (const picked of combinations(usable.length, k)) {
+      const pick = bestOf(picked);
+      if (pick && (!bestAtK || pick.delta > bestAtK.delta)) bestAtK = pick;
+    }
+    if (!bestAtK) continue;
+    widest ??= bestAtK;
+    if (bestAtK.delta >= separation) chosen = bestAtK;
   }
 
+  const best = chosen ?? widest;
   const ordered = best?.ordered ?? [];
+  const taken = new Set(best?.picked ?? []);
   return {
     colours: best?.colours ?? candidates(families, mode, 1)[0] ?? [],
     ordered,
     leading: leadingClear(ordered, options.avoid ?? []),
+    kept: best ? best.picked.map((i) => families[i] as string) : families,
+    // Empty when nothing was derived: a refusal rejected no family in particular, and saying it
+    // crowded them out would be a reason where there was only a failure.
+    crowded: best ? usable.filter((_, i) => !taken.has(i)) : [],
+    separation: best?.delta ?? 0,
     families,
     dropped,
   };

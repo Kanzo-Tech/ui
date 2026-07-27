@@ -46,6 +46,7 @@ export {
  * far passes as a categorical scheme in its own values.
  */
 export {
+  SEPARATION_BAR,
   allPairsCap,
   deriveOrderedScheme,
   deriveScheme,
@@ -53,6 +54,7 @@ export {
   leadingClear,
   orderScheme,
   type Derivation,
+  type DeriveOptions,
   type OrderedDerivation,
   type OrderOptions,
 } from "./derive-scheme.js";
