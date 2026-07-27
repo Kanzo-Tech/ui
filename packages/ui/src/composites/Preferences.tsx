@@ -6,7 +6,14 @@ import { Portal } from "@ark-ui/react/portal";
 import { PaletteIcon, XIcon } from "lucide-react";
 // Via the theme package's JS entry, not its raw `.json` subpath: a direct JSON subpath import
 // needs `with { type: "json" }` at runtime, and Rollup strips that attribute when bundling.
-import { DEFAULT_PREFS, SCHEMES, themeData, type KanzoBase, type KanzoRadius } from "@kanzo-tech/theme";
+import {
+  DEFAULT_PREFS,
+  SCHEMES,
+  themeData,
+  type KanzoAccent,
+  type KanzoBase,
+  type KanzoRadius,
+} from "@kanzo-tech/theme";
 import { useKanzoTheme, type ThemePrefs } from "../theme/KanzoThemeProvider.js";
 import { cn } from "../lib/cn.js";
 import { customBaseVars, readableForeground } from "../lib/color.js";
@@ -63,22 +70,17 @@ import {
  */
 
 const RADII: KanzoRadius[] = ["none", "xs", "sm", "md", "lg"];
-// Curated base scales + a representative mid-tone (shade ~500) used as their ColorPicker swatch.
-// Picking one of these exact hexes selects the NAMED scale; any other colour becomes a tint.
-const BASE_PRESETS: { name: KanzoBase; hex: string }[] = [
-  { name: "neutral", hex: "#737373" },
-  { name: "slate", hex: "#64748b" },
-  { name: "gray", hex: "#6b7280" },
-  { name: "zinc", hex: "#71717a" },
-  { name: "stone", hex: "#78716c" },
-  { name: "mauve", hex: "#79697b" },
-  { name: "olive", hex: "#7c7c67" },
-  { name: "mist", hex: "#67787c" },
-  { name: "taupe", hex: "#7c6d67" },
-];
-const BASE_HEX_TO_NAME: Record<string, KanzoBase> = Object.fromEntries(
-  BASE_PRESETS.map((p) => [p.hex.toLowerCase(), p.name]),
-);
+// The swatch a named axis value shows, and the way back from a picked colour to that name.
+//
+// Generated, not written here. The hand-written tables these replace had drifted to Tailwind **v3**
+// while the theme resolves v4 — the panel offered `#2563eb` for "blue" and selecting it produced a
+// different blue in every token. Every curated accent was wrong, and four of the base scales.
+const ACCENT_SWATCHES = themeData.accentSwatches as Record<KanzoAccent, string>;
+const BASE_SWATCHES = themeData.baseSwatches as Record<KanzoBase, string>;
+const byHex = <T extends string>(table: Record<T, string>): Record<string, T> =>
+  Object.fromEntries(Object.entries(table).map(([name, hex]) => [(hex as string).toLowerCase(), name])) as Record<string, T>;
+const BASE_HEX_TO_NAME = byHex(BASE_SWATCHES);
+const ACCENT_HEX_TO_NAME = byHex(ACCENT_SWATCHES);
 const DENSITIES = [
   { value: "default", label: "Default" },
   { value: "compact", label: "Compact" },
@@ -324,7 +326,16 @@ function ColorField({
   presets: string[];
 }) {
   return (
-    <ColorPicker value={value} onValueChange={(e) => onValueChange(e.valueAsString)} className="w-full">
+    // Hex, not `valueAsString`. Ark serialises to `rgba(21, 93, 252, 1)`, and both callers look the
+    // result up in a hex→name table to decide whether a pick is a *named* axis value or a custom
+    // colour. With an `rgba(…)` string that lookup can never hit, so every pick — including the
+    // curated presets — fell through to the custom branch. `Base` carried a comment promising the
+    // opposite behaviour for as long as the picker has existed.
+    <ColorPicker
+      value={value}
+      onValueChange={(e) => onValueChange(e.value.toString("hex"))}
+      className="w-full"
+    >
       <ColorPickerControl className="w-full">
         <ColorPickerTrigger className="flex w-full items-center gap-2 rounded-md border border-input bg-transparent px-2 py-1.5 text-sm outline-none hover:bg-accent/50 focus-visible:ring-[3px] focus-visible:ring-ring/32">
           <ColorPickerSwatchPreview className="size-5 rounded-full border border-black/10" />
@@ -351,16 +362,29 @@ function ColorField({
   );
 }
 
-// Curated accent presets as concrete colours for the ColorPicker's swatch row.
-const ACCENT_PRESETS = ["#525252", "#2563eb", "#16a34a", "#7c3aed", "#ea580c", "#e11d48"];
-
-/** Accent = a real colour picker: curated swatches + custom area/hex. Picking sets a custom
- *  `--primary` (foreground derived); the picker is the reference way. */
+/**
+ * Accent = a real colour picker: curated swatches + custom area/hex.
+ *
+ * Picking a curated swatch selects the **named** accent, the way `Base` already did. It used to
+ * write a custom `primary` for every pick, including the presets — so `data-accent` was generated,
+ * documented and tested, and unreachable from the only panel that offers accents. A custom colour
+ * still becomes a `primary` override; that is what the override is for.
+ */
 function AccentSection() {
-  const { primary, set } = useKanzoTheme();
+  const { accent, primary, set } = useKanzoTheme();
   return (
     <PrefField label="Accent">
-      <ColorField value={primary ?? "#2563eb"} onValueChange={(hex) => set({ primary: hex })} presets={ACCENT_PRESETS} />
+      <ColorField
+        // `accent` is typed open (any hue in the full generated set), while the swatches only cover
+        // the curated six — so an accent set outside the panel falls back rather than showing blank.
+        value={primary ?? ACCENT_SWATCHES[accent] ?? (ACCENT_SWATCHES.neutral as string)}
+        onValueChange={(hex) => {
+          const named = ACCENT_HEX_TO_NAME[hex.toLowerCase()];
+          if (named) set({ accent: named, primary: undefined });
+          else set({ primary: hex });
+        }}
+        presets={Object.values(ACCENT_SWATCHES)}
+      />
     </PrefField>
   );
 }
@@ -532,12 +556,12 @@ function DensitySection() {
  *  other colour sets a `baseTint`. */
 function BaseSection() {
   const { base = "neutral", baseTint, set } = useKanzoTheme();
-  const value = baseTint ?? BASE_PRESETS.find((p) => p.name === base)?.hex ?? "#737373";
+  const value = baseTint ?? BASE_SWATCHES[base] ?? BASE_SWATCHES.neutral;
   return (
     <PrefField label="Base · neutral surface">
       <ColorField
         value={value}
-        presets={BASE_PRESETS.map((p) => p.hex)}
+        presets={Object.values(BASE_SWATCHES)}
         onValueChange={(hex) => {
           const named = BASE_HEX_TO_NAME[hex.toLowerCase()];
           if (named) set({ base: named, baseTint: undefined });

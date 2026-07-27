@@ -12,7 +12,8 @@
  *
  * Run: node packages/theme/scripts/gen-theme.mjs
  */
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -115,6 +116,67 @@ const RADII = [["none", "0rem"], ["xs", "0.125rem"], ["sm", "0.25rem"], ["md", "
 // ── Curated accent set surfaced in the product Preferences panel (keasy's names).
 //    The full ACCENTS set stays generated for the playground theme-editor. ──
 const CURATED_ACCENTS = ["neutral", "blue", "green", "violet", "orange", "rose"];
+
+// ── Swatches — the concrete colour a picker shows for a NAMED axis value ──────
+//
+// Generated, because hand-writing them is how they rot: the panel carried Tailwind **v3** hexes
+// (`#2563eb` for blue) while the theme resolves `--color-blue-600` to v4's `#155dfc`. The swatch
+// and the thing it stands for had quietly become different colours.
+//
+// Tailwind publishes its palette as `oklch()`, which no picker parses, so the values are converted
+// here. Out-of-gamut components are clamped per channel after conversion — the browser gamut-maps
+// more carefully, so a swatch can sit a hair off the rendered colour for the most saturated steps.
+// That is fine for a swatch and would not be fine for a chart slot, which is why the chart schemes
+// are measured hexes rather than anything derived here.
+const TW_THEME = readFileSync(
+  createRequire(import.meta.url).resolve("tailwindcss/theme.css"),
+  "utf8",
+);
+const TW_OKLCH = Object.fromEntries(
+  [...TW_THEME.matchAll(/--color-([a-z]+)-(\d+):\s*(oklch\([^)]*\))/g)].map((m) => [
+    `${m[1]}-${m[2]}`,
+    m[3],
+  ]),
+);
+
+const srgbFromOklch = (css) => {
+  const [lRaw, cRaw, hRaw] = css.slice(6, -1).trim().split(/\s+/);
+  // `none` is CSS Color 4 for a missing component, and Tailwind uses it for the hue of every
+  // achromatic step (`oklch(55.6% 0 none)`) — the whole neutral family. Parsed naively it is NaN,
+  // and NaN propagates all the way to a `#NaNNaNNaN` swatch rather than failing anywhere useful.
+  const num = (raw) => (raw === "none" ? 0 : Number.parseFloat(raw));
+  const L = num(lRaw) / (lRaw.endsWith("%") ? 100 : 1);
+  const C = num(cRaw);
+  const h = (num(hRaw) * Math.PI) / 180;
+  const a = C * Math.cos(h);
+  const b = C * Math.sin(h);
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
+  const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
+  const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+  return [
+    4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
+  ].map((v) => {
+    const clamped = Math.max(0, Math.min(1, v));
+    const srgb = clamped <= 0.0031308 ? 12.92 * clamped : 1.055 * clamped ** (1 / 2.4) - 0.055;
+    return Math.round(srgb * 255);
+  });
+};
+const hexOf = (name) => {
+  const css = TW_OKLCH[name];
+  if (!css) throw new Error(`no Tailwind colour "${name}" — the swatch tables would ship a hole`);
+  return `#${srgbFromOklch(css).map((n) => n.toString(16).padStart(2, "0")).join("")}`;
+};
+
+/** A base scale's swatch: the mid-tone that reads as "this is the grey family". */
+const baseSwatch = (name) =>
+  CUSTOM_SCALES[name] ? CUSTOM_SCALES[name][500] : hexOf(`${name}-500`);
+/** An accent's swatch: the exact shade `--primary` takes in light mode, so it cannot lie. */
+const accentSwatch = (name) => {
+  const row = ACCENTS.find(([a]) => a === name);
+  return hexOf(`${name}-${row[1]}`);
+};
 
 // ── Categorical schemes (data-chart-scheme) ──────────────────────────────────
 //
@@ -269,6 +331,12 @@ const data = {
   monoFonts: Object.fromEntries(MONO_FONTS.map(([f, v]) => [f, v])),
   densities: Object.fromEntries([["default", "16px"], ...DENSITIES]),
   curatedAccents: CURATED_ACCENTS,
+  // name → the colour a picker should show for it. Both tables exist so no panel has to keep its
+  // own copy of what a named axis value looks like.
+  accentSwatches: Object.fromEntries(CURATED_ACCENTS.map((a) => [a, accentSwatch(a)])),
+  baseSwatches: Object.fromEntries(
+    BASES.filter((b) => b !== "custom").map((b) => [b, baseSwatch(b)]),
+  ),
   // The scheme values as data, which is the point: `packages/ui` imports these rather than
   // carrying its own copy, so a chart still has colours with no theme CSS loaded and there is
   // still only one place they are written down.

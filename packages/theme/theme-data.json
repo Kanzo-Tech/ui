@@ -817,6 +817,25 @@
     "orange",
     "rose"
   ],
+  "accentSwatches": {
+    "neutral": "#262626",
+    "blue": "#155dfc",
+    "green": "#00a63e",
+    "violet": "#7f22fe",
+    "orange": "#f54900",
+    "rose": "#ec003f"
+  },
+  "baseSwatches": {
+    "slate": "#62748e",
+    "gray": "#6a7282",
+    "zinc": "#71717b",
+    "neutral": "#737373",
+    "stone": "#79716b",
+    "mauve": "#79697b",
+    "olive": "#7c7c67",
+    "mist": "#67787c",
+    "taupe": "#7c6d67"
+  },
   "schemes": {
     "kanzo": {
       "label": "Kanzo",

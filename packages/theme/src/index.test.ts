@@ -82,4 +82,36 @@ describe("@kanzo-tech/theme", () => {
     }
     expect(drifted, `tokens.css .dark drifted from theme-data:\n${drifted.join("\n")}`).toEqual([]);
   });
+
+  /**
+   * Swatches are the colour a picker shows for a *named* axis value, so a wrong one is a panel
+   * that offers a colour it does not deliver. They were hand-written until they had quietly
+   * drifted to Tailwind v3 while the theme resolved v4 — every curated accent was a different
+   * blue/green/violet from the one selecting it produced.
+   */
+  describe("axis swatches", () => {
+    const HEX = /^#[0-9a-f]{6}$/;
+
+    it("covers every curated accent and every named base", () => {
+      expect(Object.keys(themeData.accentSwatches).sort()).toEqual([...themeData.curatedAccents].sort());
+      for (const base of Object.keys(themeData.bases)) {
+        // `custom` is the runtime tint scale — it has no fixed colour to show.
+        if (base === "custom") continue;
+        expect(themeData.baseSwatches, `no swatch for base "${base}"`).toHaveProperty(base);
+      }
+    });
+
+    it("are real hex, not the wreckage of a failed conversion", () => {
+      // Tailwind writes achromatic steps as `oklch(55.6% 0 none)`. Parsed naively that hue is NaN,
+      // and NaN rides all the way to a `#NaNNaNNaN` swatch instead of failing anywhere useful.
+      const all = { ...themeData.accentSwatches, ...themeData.baseSwatches } as Record<string, string>;
+      const broken = Object.entries(all).filter(([, hex]) => !HEX.test(hex));
+      expect(broken, `not hex: ${JSON.stringify(broken)}`).toEqual([]);
+    });
+
+    it("gives each accent its own colour", () => {
+      const hexes = Object.values(themeData.accentSwatches);
+      expect(new Set(hexes).size, "two accents share a swatch").toBe(hexes.length);
+    });
+  });
 });

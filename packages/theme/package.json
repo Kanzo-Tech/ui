@@ -25,5 +25,7 @@
     "test": "vitest run"
   },
   "//deps": "No React peer: this package ships tokens, the axis table and types. The provider that consumes them lives in @kanzo-tech/ui.",
-  "devDependencies": {}
+  "devDependencies": {
+    "tailwindcss": "4"
+  }
 }
