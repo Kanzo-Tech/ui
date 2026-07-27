@@ -697,5 +697,9 @@ export {
   MonoFontSection as PreferencesMonoFont,
   DensitySection as PreferencesDensity,
   BaseSection as PreferencesBase,
+  // Missing until now, which made the panel's own doc ("every section is exported flat") false and
+  // left the scheme section reachable only as `Preferences.Scheme` — a static that reads back
+  // `undefined` across the RSC boundary, as the note above says.
+  SchemeSection as PreferencesScheme,
   CopyTheme as PreferencesCopyTheme,
 };

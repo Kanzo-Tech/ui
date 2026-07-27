@@ -42,9 +42,12 @@ compound parts) as everything else.
 
 <Callout title="Match the reference, don't invent">
   When something looks odd, check the reference before "fixing" it. The status tokens are a
-  standing example: `--destructive` is red-500 and `--destructive-foreground` is red-700, which
-  reads like a contrast bug until you find that Shark defines exactly the same pair and uses
-  the second as a *background*. Renaming it would have forked us from upstream for nothing.
+  standing example: `--destructive-foreground` is red-700 over a red-600 fill, which reads like
+  a contrast bug until you find that Shark defines exactly the same pair and uses the second as
+  a *background*. Renaming it would have forked us from upstream for nothing — the on-fill ink
+  that was genuinely missing became a third token instead, `--destructive-content`. And the fill
+  moved off Shark's red-500 only once it had been [measured](/docs/theming#tokens), which is the
+  other half of the rule: diverge on evidence, never on taste.
 </Callout>
 
 ## Domain-free

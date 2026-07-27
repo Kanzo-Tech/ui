@@ -100,6 +100,10 @@ field the day the list has 200 values.
 | [`Calendar`](/docs/forms/date-picker) | The month grid on its own. | An always-visible calendar, not a form value. |
 | [`ColorPicker`](/docs/forms/color-picker) | Area, hue and hex, with preset swatches. | Picking a colour. |
 
+A row of colours the user is *not* editing is not a control at all: when the colour merely
+pictures a value that has a name, reach for [`Swatch`](/docs/data-display/swatch), which is
+`aria-hidden` and never focusable.
+
 ## Files
 
 | Control | What it is | Reach for it when |

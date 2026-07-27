@@ -39,6 +39,7 @@ import {
   SuggestContent,
   SuggestRoot,
   SuggestTrigger,
+  Swatch,
   Switch,
   DateField,
   TagsInput,
@@ -367,9 +368,10 @@ function InspectorBody() {
                   onClick={() => commands.reveal(node.id)}
                   type="button"
                 >
-                  <span
-                    className="size-1.5 shrink-0 rounded-full"
-                    style={{ background: KINDS[node.kind]?.color }}
+                  <Swatch
+                    className="size-1.5"
+                    color={KINDS[node.kind]?.color ?? "transparent"}
+                    shape="round"
                   />
                   <span className="truncate">{node.label}</span>
                   <span className="ms-auto ps-2 text-muted-foreground tabular-nums">

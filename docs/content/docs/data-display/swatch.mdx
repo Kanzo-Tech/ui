@@ -1,0 +1,90 @@
+---
+title: Swatch
+description: A colour, drawn — decoration beside the text that names it.
+---
+
+<ComponentPreview componentName="swatch" />
+
+## Usage
+
+```tsx
+import { Swatch, SwatchGroup } from "@kanzo-tech/ui";
+```
+
+```tsx
+<SwatchGroup colors={palette.accents} />
+```
+
+`Swatch` is `aria-hidden`, carries no role and is never focusable — colour is not an identity
+channel on its own, so a swatch always sits beside text that names the thing it depicts. That
+is the whole reason this is a component rather than a `<span style>` at each call site: the
+contract used to live in a comment in `chart-legend`, and the two other hand-rolled strips in
+the library had already drifted to different sizes with no `data-slot` to restyle either of
+them.
+
+`color` is the one sanctioned inline style in the system, because it is **data** — a value the
+user or the palette supplied — not a variant a token could ever name.
+
+## Swatch or ColorPicker
+
+<Callout title="When the colour IS the value, use ColorPicker">
+  Ark's `ColorPickerSwatch*` parts cannot serve as a display strip, and this was checked against
+  the code we ship rather than assumed. All of them call `useColorPickerContext`, which is
+  `strict` and throws outside a picker; `data-state="checked"` is computed as
+  `color.isEqual(value)` against the single colour the machine holds, so in a sixteen-slot
+  palette strip the highlight lands on whichever slot happens to match; and every trigger is a
+  real button labelled `select #2e3440 as the color`, which is the wrong sentence when what the
+  reader is choosing is "Nord". Neutralising them with `readOnly` yields `<button disabled>` —
+  strictly worse for assistive tech than a decorative span.
+</Callout>
+
+So the split is by what the colour *means*. When the colour is the value the user is editing,
+that is [`ColorPicker`](/docs/forms/color-picker). When it merely pictures a value that has a
+name — a palette, a series, a theme — that is `Swatch`, and the name beside it is what the user
+is actually choosing. Wanting a focusable swatch means wanting the other one, or a
+[`RadioGroupCard`](/docs/forms/radio-group) wrapped around this.
+
+## Sizes
+
+<ComponentPreview componentName="swatch" fileName="example-sizes" />
+
+## Shapes
+
+`round` is the legend dot, `square` the palette chip. Both are the same element; nothing else
+changes.
+
+<ComponentPreview componentName="swatch" fileName="example-shapes" />
+
+## Groups
+
+`SwatchGroup` takes the colours as data and lays them out — and **never sorts them**. Order is
+meaning: for a categorical scheme the sequence *is* the colour-blindness mechanism that
+`orderScheme` derives, and for a palette it is base16's slot order. A strip that tidied its
+input would be quietly discarding the reason it was ordered. It also survives a repeated colour
+— Dracula yields seven accents for eight slots, so `base0F` repeats `base08`.
+
+The group is `aria-hidden` as a whole, not merely square by square, so assistive tech reads one
+label rather than a run of nothing.
+
+## API Reference
+
+### Swatch
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `color` | `string` | — (required) |
+| `size` | `"xs" \| "sm" \| "md" \| "lg"` | `"sm"` |
+| `shape` | `"square" \| "round"` | `"square"` |
+
+Extends `React.ComponentProps<typeof ark.span>` minus `color`. `swatchVariants` is exported if
+you need the same treatment on another element.
+
+### SwatchGroup
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `colors` | `readonly string[]` | — (required) |
+| `size` | `"xs" \| "sm" \| "md" \| "lg"` | `"sm"` |
+| `shape` | `"square" \| "round"` | `"square"` |
+
+`size` and `shape` are forwarded to every swatch in the strip.

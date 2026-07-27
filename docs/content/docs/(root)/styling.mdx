@@ -88,8 +88,11 @@ on specificity.
 ## Rules
 
 - Never inline `style` for variant appearance. One-off structural style (a computed width) is
-  fine.
-- Only token-backed utilities. No raw hex, no raw palette classes.
+  fine, and so is a colour that is *data* — the one a user picked, or a palette's own — which is
+  why [`Swatch`](/docs/data-display/swatch) exists rather than a `<span style>` per call site.
+- Only token-backed utilities. No raw hex, no raw palette classes. On a status fill the ink is
+  `text-destructive-content` and its siblings, never `text-white` — see
+  [Theming](/docs/theming#tokens) for why that is a third token and not `-foreground`.
 - Focus rings are Shark's utilities, not a token:
   `outline-none focus-visible:ring-[3px] focus-visible:ring-ring/32`.
 - Exactly one `<main>` per page — `ShellMain` / `SidebarInset` own it. Nestable containers use

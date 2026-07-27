@@ -542,7 +542,8 @@ Anything else goes through `ChartRoot`'s `attributes`.
 
 - `ChartLegend` — our DOM (`ark.ul`, `data-slot="chart-legend"`). Reads the root's `config`, or
   takes its own `config` / `series` prop and works standalone. The label carries identity; the
-  swatch is `aria-hidden`, because colour is never the only channel.
+  key is a [`Swatch`](/docs/data-display/swatch), so it is `aria-hidden` — colour is never the
+  only channel.
 - `ChartColorLegend` — vgplot's, drawn inside the plot and **interactive**: clicking a swatch
   publishes into the selection. Pass `as={null}` for a static key.
 

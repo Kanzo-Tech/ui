@@ -72,6 +72,17 @@ A hidden input is rendered inside the root, so the picker submits with a surroun
 browser's EyeDropper API is not universal — the trigger is a convenience, never the only path
 to a colour.
 
+<Callout title="These parts only work inside a picker">
+  `ColorPickerSwatch` and friends are not a general colour strip, and cannot be borrowed as one:
+  each calls `useColorPickerContext`, which is `strict` and throws outside a root; the
+  indicator's `data-state="checked"` is `color.isEqual(value)` against the single colour the
+  machine holds; and every trigger is a button announced as `select #2e3440 as the color`.
+
+  Use them when the colour **is** the value being edited. When it merely *pictures* a value that
+  has a name — a palette, a series, a theme — that is [`Swatch`](/docs/data-display/swatch),
+  which is `aria-hidden` and never focusable.
+</Callout>
+
 ## API Reference
 
 ### ColorPicker

@@ -43,16 +43,22 @@ Preferences.Root
 └── Preferences.Panel
     ├── Preferences.Accent
     ├── Preferences.Base
+    ├── Preferences.Scheme
     ├── Preferences.Radius
     ├── Preferences.Font
     ├── Preferences.MonoFont
-    ├── Preferences.Density
-    └── Preferences.CopyTheme
+    └── Preferences.Density
 ```
 
-`Panel` renders the canonical product set when given no children. Pass children to choose your
-own — `Base` is omitted from the default panel because most products want one fixed neutral
-canvas.
+`Panel` renders that whole set when given no children; `CopyTheme` sits in the pinned footer
+beside Reset and Done rather than in the scrolling body. Pass children to choose your own set —
+most products keep one fixed neutral canvas and drop `Base`.
+
+`Scheme` is worth a look for how it is built: each option is a
+[`RadioGroupCard`](/docs/forms/radio-group#cards) whose preview is a
+[`SwatchGroup`](/docs/data-display/swatch) in slot order, with the scheme's name beside it. The
+colours are the whole point of the choice and still carry no semantics — the name is what the
+reader is picking, so the strip is `aria-hidden` and the card is the control.
 
 ## Choosing the sections
 
