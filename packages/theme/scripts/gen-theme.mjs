@@ -245,7 +245,25 @@ const SCHEMES = {
     dark: ["#155dfc", "#00a63e", "#7f22fe", "#a65f00", "#0092b8", "#f54a00", "#e12afb", "#ec003f"],
   },
 };
-const schemeVars = (colours) => Object.fromEntries(colours.map((hex, i) => [`--chart-${i + 1}`, hex]));
+/** Token count. Fixed, because a stylesheet cannot have a variable number of custom properties. */
+const CHART_SLOTS = 8;
+/** What a slot past a scheme's own capacity means. Never a colour — "not one of the categories". */
+const OTHER = "var(--muted-foreground)";
+const pad = (colours) => Array.from({ length: CHART_SLOTS }, (_, i) => colours[i] ?? OTHER);
+
+/**
+ * A scheme's slots as CSS, always all eight.
+ *
+ * Padding is the point. A scheme with fewer real colours than there are tokens — a palette that
+ * yields six usable hue families, say — would otherwise leave `--chart-7` and `--chart-8` at their
+ * `:root` defaults, so a chart with seven series would silently mix two schemes and nothing would
+ * say so. Filling the tail with the muted token makes the overflow explicit and correct: past its
+ * capacity a scheme has no more categories, and that is what "Other" is.
+ */
+const schemeVars = (colours) =>
+  Object.fromEntries(
+    Array.from({ length: CHART_SLOTS }, (_, i) => [`--chart-${i + 1}`, colours[i] ?? OTHER]),
+  );
 
 // ── Fonts — the DS ships NO font files. `data-font`/`data-mono-font` point --font-sans/
 //    --font-mono at a stack; `var(--font-*)` keys let a host inject its own webfont var
@@ -359,7 +377,15 @@ const data = {
   // The scheme values as data, which is the point: `packages/ui` imports these rather than
   // carrying its own copy, so a chart still has colours with no theme CSS loaded and there is
   // still only one place they are written down.
-  schemes: SCHEMES,
+  schemes: Object.fromEntries(
+    Object.entries(SCHEMES).map(([name, s]) => [
+      name,
+      // `slots` is the scheme's *capacity* — how many real categories it can name. The arrays stay
+      // eight long so the CSS and the compiled export line up with the token count; a panel or a
+      // doc reads `slots` to say "this scheme carries six series", and a seventh folds to Other.
+      { ...s, slots: s.light.length, light: pad(s.light), dark: pad(s.dark) },
+    ]),
+  ),
   defaultScheme: "kanzo",
   staticLight: STATIC_LIGHT,
   staticDark: STATIC_DARK,

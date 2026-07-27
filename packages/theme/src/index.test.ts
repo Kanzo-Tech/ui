@@ -83,6 +83,30 @@ describe("@kanzo-tech/theme", () => {
     expect(drifted, `tokens.css .dark drifted from theme-data:\n${drifted.join("\n")}`).toEqual([]);
   });
 
+  describe("scheme slots", () => {
+    const OTHER = "var(--muted-foreground)";
+    const tokens = Object.keys(themeData.schemes.kanzo.light).length;
+
+    it("fills every token, whatever a scheme's capacity", () => {
+      // A shorter scheme that left the tail undefined would fall back to the `:root` defaults, so a
+      // chart with more series than the scheme names would mix two schemes and nothing would say so.
+      for (const [name, scheme] of Object.entries(themeData.schemes)) {
+        expect(scheme.light, name).toHaveLength(tokens);
+        expect(scheme.dark, name).toHaveLength(tokens);
+      }
+    });
+
+    it("says how many of those are real, and folds the rest to Other", () => {
+      for (const [name, scheme] of Object.entries(themeData.schemes)) {
+        expect(scheme.slots, name).toBeLessThanOrEqual(tokens);
+        for (const mode of ["light", "dark"] as const) {
+          for (const hex of scheme[mode].slice(scheme.slots)) expect(hex).toBe(OTHER);
+          for (const hex of scheme[mode].slice(0, scheme.slots)) expect(hex).not.toBe(OTHER);
+        }
+      }
+    });
+  });
+
   /**
    * Swatches are the colour a picker shows for a *named* axis value, so a wrong one is a panel
    * that offers a colour it does not deliver. They were hand-written until they had quietly

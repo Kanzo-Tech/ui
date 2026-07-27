@@ -966,7 +966,8 @@
         "#f54a00",
         "#e12afb",
         "#c70036"
-      ]
+      ],
+      "slots": 8
     },
     "vivid": {
       "label": "Vivid",
@@ -993,7 +994,8 @@
         "#f54a00",
         "#e12afb",
         "#ec003f"
-      ]
+      ],
+      "slots": 8
     }
   },
   "defaultScheme": "kanzo",

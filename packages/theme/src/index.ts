@@ -128,6 +128,15 @@ export interface SchemeColors {
 export interface Scheme extends SchemeColors {
   label: string;
   /**
+   * How many real categories this scheme can name.
+   *
+   * The arrays are always as long as there are `--chart-*` tokens; `slots` is the *capacity*. A
+   * palette that yields six usable hue families produces a six-slot scheme whose last two entries
+   * are the muted "Other" token — explicit, rather than left at the `:root` defaults where a
+   * seventh series would silently borrow a colour from a different scheme.
+   */
+  slots: number;
+  /**
    * Slots falling below 3:1 on that mode's surface.
    *
    * Not a failure — the contrast check is a documented conditional relax — but not dismissable
