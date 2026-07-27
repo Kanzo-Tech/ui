@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { allPairsCap, deriveScheme, familyOf, orderScheme } from "./derive-scheme.js";
+import { SCHEMES } from "./index.js";
 import { checkScheme, deltaE } from "./palette-check.js";
 
 /** Dracula's accents, minus the cyan that carries no usable hue. */
@@ -97,4 +98,23 @@ describe("orderScheme", () => {
     expect(cap).toBeGreaterThanOrEqual(2);
     expect(cap).toBeLessThanOrEqual(derived.length);
   });
+});
+
+describe("the pipeline against what we ship", () => {
+  for (const mode of ["light", "dark"] as const) {
+    it(`re-derives the default scheme's own families to something no worse in ${mode}`, () => {
+      // A round trip: take the shipped slots, recover the families they came from, and let the
+      // pipeline choose steps and order again. If the hand-run derivation and the function
+      // disagree, one of them is wrong — and this is the test that says which.
+      const shipped = (SCHEMES.kanzo as { light: string[]; dark: string[] })[mode];
+      const { colours, dropped } = deriveScheme(shipped, mode);
+      expect(dropped).toEqual([]);
+
+      const ordered = orderScheme(colours, mode, { avoid: ["#fb2c36"] });
+      expect(checkScheme(ordered, { mode }).ok).toBe(true);
+      expect(checkScheme(ordered, { mode }).cvd.delta).toBeGreaterThanOrEqual(
+        checkScheme(shipped, { mode }).cvd.delta,
+      );
+    });
+  }
 });
