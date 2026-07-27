@@ -14,6 +14,31 @@ export const themeData = themeDataJson;
 export type ThemeData = typeof themeDataJson;
 
 /**
+ * The categorical-palette checks — the gate every scheme passes before it is registered.
+ *
+ * Exported from the domain because the rule and the data belong together: anything deriving a
+ * scheme (from a named palette's hues, from a customer's ramps) needs the same verdict this
+ * package's own tests apply, not a copy of it.
+ */
+export {
+  BAND,
+  CHROMA_FLOOR,
+  CONTRAST_MIN,
+  CVD_FLOOR,
+  CVD_TARGET,
+  NORMAL_FLOOR,
+  SURFACE,
+  checkScheme,
+  contrast as contrastRatio,
+  deltaE,
+  oklch,
+  type CvdKind,
+  type Mode,
+  type PairList,
+  type SchemeReport,
+} from "./palette-check.js";
+
+/**
  * `@kanzo-tech/theme` — design tokens, the theme axis table, and the value types. No React.
  *
  * Theming is driven by `data-*` attributes on `<html>`, whose token values live in

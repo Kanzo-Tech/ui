@@ -39,6 +39,7 @@ describe("@kanzo-tech/theme", () => {
     const tables: Record<string, Record<string, unknown>> = {
       base: themeData.bases,
       accent: themeData.accents,
+      scheme: themeData.schemes,
       radius: themeData.radii,
       font: themeData.fonts,
       monoFont: themeData.monoFonts,
