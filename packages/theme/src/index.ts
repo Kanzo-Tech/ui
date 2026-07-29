@@ -50,6 +50,7 @@ export {
   allPairsCap,
   deriveOrderedScheme,
   deriveScheme,
+  deriveSchemeColors,
   familyOf,
   leadingClear,
   orderScheme,
@@ -57,6 +58,7 @@ export {
   type DeriveOptions,
   type OrderedDerivation,
   type OrderOptions,
+  type SchemeDerivation,
 } from "./derive-scheme.js";
 
 /**

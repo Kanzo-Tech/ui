@@ -4,11 +4,12 @@ import {
   allPairsCap,
   deriveOrderedScheme,
   deriveScheme,
+  deriveSchemeColors,
   leadingClear,
   familyOf,
   orderScheme,
 } from "./derive-scheme.js";
-import { SCHEMES } from "./index.js";
+import { PALETTES, SCHEMES } from "./index.js";
 import { CVD_TARGET, checkScheme, deltaE } from "./palette-check.js";
 
 /** Dracula's accents, minus the cyan that carries no usable hue. */
@@ -273,6 +274,129 @@ describe("deriveOrderedScheme", () => {
     const { ordered, dropped } = deriveOrderedScheme(NORD, "dark", { avoid: ["#fb2c36"] });
     expect(dropped.length).toBeGreaterThanOrEqual(NORD.length - 2);
     expect(ordered).toEqual([]);
+  });
+});
+
+describe("deriveSchemeColors", () => {
+  const SLOTS = [
+    "base08", "base09", "base0A", "base0B", "base0C", "base0D", "base0E", "base0F",
+  ] as const;
+  /** A palette's eight accents, which is the only part a categorical scheme may take. */
+  const accents = (name: string) =>
+    SLOTS.map((slot) => (PALETTES[name] as { slots: Record<string, string> }).slots[slot] as string);
+  const AVOID = { avoid: ["#fb2c36"], leading: 4 };
+
+  /**
+   * Reconcile two independent per-mode derivations: keep only the families both modes kept, then
+   * re-derive. This is the obvious cheap alternative to a joint search, and the thing to beat.
+   */
+  const reconcile = (source: string[]) => {
+    const light = deriveOrderedScheme(source, "light", AVOID);
+    const dark = deriveOrderedScheme(source, "dark", AVOID);
+    const out = new Set([...light.crowded, ...dark.crowded, ...light.dropped]);
+    const trimmed = source.filter((hex) => !out.has(hex));
+    return {
+      light: deriveOrderedScheme(trimmed, "light", AVOID),
+      dark: deriveOrderedScheme(trimmed, "dark", AVOID),
+    };
+  };
+
+  it("hands both modes the same categories", () => {
+    // The reason this function exists at all. `SchemeColors` is one set of series shown on two
+    // surfaces, so slot 3 must mean the same category in both — and running the per-mode search
+    // twice does not give that: kanzo takes 7 families in light and 5 in dark, Catppuccin Latte 7
+    // and 5, kanzo-dark 7 and 8. Two arrays of different lengths cannot be one scheme, and two of
+    // the same length built from different subsets is worse, because it looks like one.
+    for (const name of ["kanzo", "dracula", "catppuccin-mocha"]) {
+      const { light, dark, kept } = deriveSchemeColors(accents(name), AVOID);
+      expect(light).toHaveLength(kept.length);
+      expect(dark).toHaveLength(kept.length);
+    }
+  });
+
+  it("keeps a category that intersect-then-re-derive throws away", () => {
+    // Measured on the palette that shows it: reconciling afterwards lands Dracula on 3 categories,
+    // searching jointly finds 4. The subsets each mode prefers alone are different subsets, and the
+    // best shared one is neither — so it is not recoverable from two answers that never saw it.
+    const source = accents("dracula");
+    const after = reconcile(source);
+    const joint = deriveSchemeColors(source, AVOID);
+    expect(after.light.ordered.length).toBe(3);
+    expect(joint.light).toHaveLength(4);
+    expect(joint.dark).toHaveLength(4);
+    expect(checkScheme(joint.light, { mode: "light" }).ok).toBe(true);
+    expect(checkScheme(joint.dark, { mode: "dark" }).ok).toBe(true);
+  });
+
+  it("keeps the separation that intersect-then-re-derive spends", () => {
+    // The other half of the same loss, on kanzo, where the category count happens to agree: the
+    // reconciled light scheme reaches 28.1 against the joint search's 32.5 on the same five slots.
+    // A test that only counted categories would call that a tie.
+    const source = accents("kanzo");
+    const after = reconcile(source);
+    const joint = deriveSchemeColors(source, AVOID);
+    expect(joint.light).toHaveLength(after.light.ordered.length);
+    expect(joint.separation.light).toBeGreaterThan(after.light.separation);
+  });
+
+  it("reports each mode's separation, never their minimum", () => {
+    // A scheme is routinely comfortable on one surface and marginal on the other — Catppuccin Mocha
+    // measures 19.7 in light and 25.6 in dark. Collapsing that to `min` would make a panel warn
+    // about the mode that is fine and stay silent about neither, and the two numbers are not
+    // recoverable from the one.
+    const { light, dark, separation } = deriveSchemeColors(accents("catppuccin-mocha"), AVOID);
+    expect(separation.light).toBeCloseTo(checkScheme(light, { mode: "light" }).cvd.delta, 6);
+    expect(separation.dark).toBeCloseTo(checkScheme(dark, { mode: "dark" }).cvd.delta, 6);
+    expect(separation.light).not.toBeCloseTo(separation.dark, 1);
+  });
+
+  it("still cannot rescue Nord, in either mode", () => {
+    // Searching two modes at once must not have found a way to pass by accident. Seven of Nord's
+    // eight accents are below the chroma floor; one colour is not a categorical palette, and the
+    // refusal has to survive every change to how the subsets are chosen.
+    const { light, dark, dropped, separation } = deriveSchemeColors(accents("nord"), AVOID);
+    expect(dropped.length).toBeGreaterThanOrEqual(7);
+    expect(light).toEqual([]);
+    expect(dark).toEqual([]);
+    expect(separation).toEqual({ light: 0, dark: 0 });
+  });
+
+  it("accounts for every source colour exactly once, refusals included", () => {
+    // `kept`, `crowded` and `dropped` are what a panel adds up to explain itself. If they do not
+    // sum to the source, some colour vanished without a reason attached — and the refusal case is
+    // where that is easiest to get wrong, because there is no subset to attribute anything to.
+    for (const name of Object.keys(PALETTES)) {
+      const source = accents(name);
+      const { kept, crowded, dropped } = deriveSchemeColors(source, AVOID);
+      expect(kept.length + crowded.length + dropped.length).toBe(source.length);
+      // Two different facts, never merged: no usable hue at all, versus a hue the scheme had no
+      // room left for. Only the second changes if the user removes some other colour.
+      for (const hex of crowded) expect(dropped).not.toContain(hex);
+    }
+  });
+});
+
+describe("the search's pair index agrees with the gate it stands in for", () => {
+  it("gives allPairsCap the answer checkScheme would", () => {
+    // The searches score through a memoised index of `checkScheme`'s own arithmetic — it is what
+    // makes a two-mode search affordable — and an index that drifts from the gate is the worst
+    // failure available here: every scheme would still be *reported* against the real gate while
+    // being *chosen* against a stale one, so nothing would fail, the answers would just quietly get
+    // worse. `allPairsCap` is the public surface that runs entirely through the index.
+    const spec = (colours: readonly string[], mode: "light" | "dark") => {
+      let n = 2;
+      while (n <= colours.length && checkScheme(colours.slice(0, n), { mode, pairs: "all" }).ok) n += 1;
+      return n - 1;
+    };
+    for (const mode of ["light", "dark"] as const) {
+      const shipped = (SCHEMES.kanzo as { light: string[]; dark: string[] })[mode];
+      expect(allPairsCap(shipped, mode)).toBe(spec(shipped, mode));
+      // Including the degenerate ends, where a vacuous pass is exactly what the index could invent.
+      expect(allPairsCap(shipped.slice(0, 1), mode)).toBe(spec(shipped.slice(0, 1), mode));
+      expect(allPairsCap([], mode)).toBe(spec([], mode));
+      // And a scheme that fails: two greys are out of band and below the chroma floor at once.
+      expect(allPairsCap(["#737373", "#8a8a8a"], mode)).toBe(spec(["#737373", "#8a8a8a"], mode));
+    }
   });
 });
 
