@@ -11,7 +11,7 @@ const textareaBase = [
   "bg-transparent dark:bg-field",
   "text-base md:text-sm",
   "rounded-lg border border-input shadow-xs/5",
-  "placeholder:text-muted-foreground/64",
+  "placeholder:text-faint",
   "transition-[color,box-shadow]",
   "outline-none focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring",
   "aria-invalid:border-destructive aria-invalid:text-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/24",

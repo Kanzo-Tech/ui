@@ -108,7 +108,7 @@ export const TagsInputInput = (
         "bg-transparent",
         "text-base md:text-sm",
         "outline-none",
-        "placeholder:text-muted-foreground/64",
+        "placeholder:text-faint",
         "disabled:pointer-events-none",
         className
       )}

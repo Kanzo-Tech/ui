@@ -182,12 +182,10 @@ function Tenant({ palette: p }: { palette: PaletteView }) {
           <Item className="w-auto max-w-md" variant="muted">
             <ItemContent>
               <ItemTitle>
-                <span className="flex items-center gap-2">
-                  Capacity {p.categorical.capacity} of 8
-                  <Badge size="sm" variant="secondary">
-                    {p.categorical.from}
-                  </Badge>
-                </span>
+                Capacity {p.categorical.capacity} of 8
+                <Badge size="sm" variant="secondary">
+                  {p.categorical.from}
+                </Badge>
               </ItemTitle>
               <ItemDescription className="line-clamp-none">
                 Kept {p.categorical.kept.join(", ") || "—"} — families, because a family is what
@@ -250,14 +248,9 @@ function SeedItem({ color, title, note }: { color: string; title: string; note: 
         <Swatch className="size-10 rounded-lg" color={color} />
       </ItemMedia>
       <ItemContent>
-        {/* The row is laid out here rather than left to `ItemTitle`. Its own `cn` merges
-            `flex … gap-2` against `line-clamp-1`, and tailwind-merge counts line-clamp as a display
-            utility, so the `flex` is dropped and the gap has nothing to measure between. */}
         <ItemTitle>
-          <span className="flex items-center gap-2">
-            {title}
-            <code className="font-mono text-muted-foreground text-xs">{color}</code>
-          </span>
+          {title}
+          <code className="font-mono text-muted-foreground text-xs">{color}</code>
         </ItemTitle>
         <ItemDescription className="line-clamp-none">{note}</ItemDescription>
       </ItemContent>

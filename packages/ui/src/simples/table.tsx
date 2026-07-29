@@ -149,9 +149,18 @@ export const TableRow = (props: React.ComponentProps<typeof ark.tr>) => {
     <ark.tr
       className={cn(
         "border-b",
-        "data-[state=selected]:bg-muted",
+        // Three levels, and they had to move together. The hover was a 48% `bg-muted`, which measures
+        // ΔE 1.50 over a light page, 1.20 over a striped row and 1.40 over a dark card — under the
+        // ramp's own ΔE-2 hover bar, i.e. a hover that is not one. Raising it collided with
+        // `data-[state=selected]:bg-muted`, which is a *solid* and so cannot be trusted either: a
+        // table inside a popover measures ΔE 0.00 in dark, because `--muted` and `--popover` are
+        // the same step there. So rest stays the backdrop, hover takes step 4 and selected step 5,
+        // both as washes because a table does not know what it was dropped onto: hover measures
+        // ΔE 4.82–5.11 (light) and 7.51–7.73 (dark) from rest, striped or not, and selected clears
+        // hover by 3.95–4.27 and 4.15–4.65.
+        "data-[state=selected]:bg-accent-wash",
         "group-data-[variant=striped]/table:even:bg-muted/30",
-        "group-data-[hoverable=true]/table:[&:has(td):hover]:bg-muted/48",
+        "group-data-[hoverable=true]/table:[&:has(td):hover]:bg-secondary-wash",
         className
       )}
       data-slot="table-row"

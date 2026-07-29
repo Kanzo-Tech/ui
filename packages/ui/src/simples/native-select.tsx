@@ -17,7 +17,7 @@ export const nativeSelectVariants = tv({
     "rounded-lg border border-input shadow-xs/5",
     "transition-colors",
     "outline-none",
-    "[&:has(option[value='']:checked)]:text-muted-foreground/64",
+    "[&:has(option[value='']:checked)]:text-faint",
     "disabled:pointer-events-none disabled:cursor-not-allowed",
     "focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring",
     "aria-invalid:border-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/24",

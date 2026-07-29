@@ -102,15 +102,33 @@ than written, because writing them would be wrong for most seeds:
 | `--background` `--card` `--popover` `--sidebar` | `(neutral, 1)` at a per-surface elevation |
 | `--foreground` `--secondary-foreground` `--accent-foreground` | `(neutral, 12)` |
 | `--muted` / `--muted-foreground` | `(neutral, 3)` / `(neutral, 11)` |
+| `--faint` | `(neutral, 10)` |
 | `--secondary` / `--accent` | `(neutral, 4)` / `(neutral, 5)` |
 | `--border` | `(neutral, 6)` |
 | `--input` | `(neutral, boundary)` |
-| `--field` | `(neutral, alpha 3)` |
+| `--field` / `--secondary-wash` / `--accent-wash` | `(neutral, alpha 3 / 4 / 5)` |
 | `--primary` / `--primary-foreground` | `(brand, fill)` / `(brand, on-fill)` |
 | `--ring` | `(brand, boundary)` |
 | `--destructive` / `-foreground` / `-content` | `(destructive, 9)` / `(…, 11)` / `(…, on-fill)` |
+| `--destructive-wash` / `-wash-strong` / `-border` | `(destructive, alpha 3 / 4 / 6)` |
 | `--chart-1` … `--chart-8` | categorical slot *i* |
 | `--kanzo-syntax-*` | fixed — Kanzo's own, cross-checked per tenant |
+
+### A wash is a level, painted onto something you do not own
+
+Eight of those rows are alpha steps, and they exist because a library component does not know
+what it was dropped onto. `bg-accent/50` on an accent backdrop measures ΔE **0.00** from the rest
+state — a hover nobody can see — and solid `bg-secondary` measures 0.00 on a secondary one.
+A percentage fails a second way as well: mapped onto the family's own alpha scale, `/4` is a3 in
+light and a2 in dark, `/10` a4 and a3, `/20` a5 and a4, `/32` a6 and a5, because a tint has to
+work harder against a dark ground. **Every `bg-X/NN` is correct in at most one mode.** A wash is
+resolved against each mode's own ramp at derivation time, so one binding is right in both, and it
+composites back to its own solid over the page by obligation.
+
+The washes are named for the **level**, never for the state — `--accent-wash` is what `--accent`
+is when the backdrop is unknown. The same two values are a card's hover, a calendar day's focus
+and a table row's selected state, and a token named for the first of those would force the second
+to mint a duplicate. `--field` is the a3 member under the name the `--input` split gave it.
 
 `boundary` is the first step reaching 3:1 against step 1, and it is **seed-dependent, not
 mode-determined**: measured over 118 seeds it is 9 in light for 97 of them and 8 for the rest,

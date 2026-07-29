@@ -116,8 +116,7 @@ export const Slider = (props: SliderProps) => {
             "select-none overflow-hidden",
             "data-[orientation=horizontal]:h-2 data-[orientation=horizontal]:w-full",
             "data-[orientation=vertical]:h-full data-[orientation=vertical]:w-2",
-            "data-invalid:bg-destructive/24",
-            "dark:data-invalid:bg-destructive-foreground/24"
+            "data-invalid:bg-destructive-wash"
           )}
           data-slot="slider-track"
         >

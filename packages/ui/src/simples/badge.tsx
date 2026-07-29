@@ -43,40 +43,44 @@ const badgeVariants = tv({
         "[a&]:hover:text-accent-foreground",
       ],
       // The soft status badges read their ink off step 11 (`--X-foreground`), not off the step-9
-      // fill. Measured on their own `/10` fill: `--success` 3.11:1 in light, `--warning` 2.75,
-      // `--info` 3.56 in dark — step 9's obligation is `visible-fill` at 3:1, and a badge label is
-      // small text that owes 4.5. Step 11 measures 6.65–9.04 on the same fill and 5.99–7.88 on the
-      // `/20` hover. This is what the destructive row below already does, and what tokens.css
+      // fill. Measured on their own fill: `--success` 3.11:1 in light, `--warning` 2.75, `--info`
+      // 3.56 in dark — step 9's obligation is `visible-fill` at 3:1, and a badge label is small
+      // text that owes 4.5. Step 11 measures 5.17–6.81 on `--X-wash` and 4.86–6.28 on the
+      // `-wash-strong` hover, across every surface a badge can sit on. This is what tokens.css
       // documents `-foreground` to be for a status family.
+      //
+      // The fills were `bg-X/10` → `bg-X/20`, and the destructive row carried the whole argument
+      // for this change in one class: a 10% `bg-destructive` overridden to 5% in dark, a percentage
+      // hand-corrected per mode because one number cannot serve both.
       success: [
-        "bg-success/10",
+        "bg-success-wash",
         "text-success-foreground",
-        "border-success/20",
+        "border-success-border",
         "focus-visible:border-success focus-visible:ring-success/20",
-        "[a&]:hover:bg-success/20",
+        "[a&]:hover:bg-success-wash-strong",
       ],
       info: [
-        "bg-info/10",
+        "bg-info-wash",
         "text-info-foreground",
-        "border-info/20",
+        "border-info-border",
         "focus-visible:border-info focus-visible:ring-info/50",
-        "[a&]:hover:bg-info/20",
+        "[a&]:hover:bg-info-wash-strong",
       ],
       warning: [
-        "bg-warning/10",
+        "bg-warning-wash",
         "text-warning-foreground",
-        "border-warning/20",
+        "border-warning-border",
         "focus-visible:border-warning focus-visible:ring-warning/20",
         "dark:focus-visible:ring-warning/40",
-        "[a&]:hover:bg-warning/20",
+        "[a&]:hover:bg-warning-wash-strong",
       ],
       destructive: [
-        "bg-destructive/10 dark:bg-destructive/5",
+        "bg-destructive-wash",
         "text-destructive-foreground",
-        "border-destructive-foreground/20",
+        "border-destructive-border",
         "focus-visible:border-destructive focus-visible:ring-destructive/24",
         "dark:focus-visible:ring-destructive/40",
-        "[a&]:hover:bg-destructive/20",
+        "[a&]:hover:bg-destructive-wash-strong",
       ],
     },
     size: {

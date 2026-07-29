@@ -144,6 +144,9 @@ export const ItemContent = (props: React.ComponentProps<typeof ark.div>) => {
   );
 };
 
+// No `line-clamp-1` here, deliberately: it sets `display: -webkit-box`, which cannot coexist
+// with the `flex` this row needs, so tailwind-merge kept one and silently dropped `flex` — and
+// with it the `gap-2` between a title's children. Truncation is opt-in at the call site.
 export const ItemTitle = (props: React.ComponentProps<typeof ark.div>) => {
   const { className, ...rest } = props;
 
@@ -151,7 +154,7 @@ export const ItemTitle = (props: React.ComponentProps<typeof ark.div>) => {
     <ark.div
       className={cn(
         "flex w-fit items-center gap-2",
-        "line-clamp-1 font-medium text-sm leading-snug",
+        "font-medium text-sm leading-snug",
         "underline-offset-4",
         className
       )}

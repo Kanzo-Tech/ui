@@ -45,7 +45,7 @@ const selectTriggerVariants = tv({
       "w-fit",
       "flex items-center gap-2",
       "text-sm",
-      "data-placeholder-shown:text-muted-foreground/64",
+      "data-placeholder-shown:text-faint",
       "data-[state=open]:border-primary data-[state=open]:ring-[3px] data-[state=open]:ring-ring",
       "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-muted-foreground",
     ],

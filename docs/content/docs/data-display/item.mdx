@@ -87,8 +87,20 @@ Owns the `--space` padding variable, so a consumer can retune the row's rhythm i
 `image` gives a 10×10 rounded, clipped frame for a thumbnail; `default` and `icon` size a child
 `svg` to 4×4. Mirrored to `data-variant`.
 
+### ItemTitle
+
+A flex row, so a title can carry a badge or a code span beside its text and they will be spaced.
+It does **not** clamp: `line-clamp` sets `display: -webkit-box`, which would replace that row.
+Where the title is a single unbounded string — something a user named — clamp it at the call site:
+
+```tsx
+<ItemTitle className="line-clamp-1">{schedule.name}</ItemTitle>
+```
+
+That trades the row for the clamp, which is the right trade for a title that is only text.
+
 ### Other parts
 
 `ItemGroup` renders a `role="list"` container; `ItemSeparator` wraps
-[Separator](/docs/layout/separator); `ItemDescription` renders a `<p>`. The remaining parts render
-a `div` and take that element's props.
+[Separator](/docs/layout/separator); `ItemDescription` renders a `<p>` and clamps at two lines
+(`line-clamp-none` to undo it). The remaining parts render a `div` and take that element's props.

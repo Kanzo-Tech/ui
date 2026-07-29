@@ -110,7 +110,7 @@ export const NumberInputInput = (
         "bg-transparent",
         "text-base tabular-nums md:text-sm",
         "rounded-[inherit]",
-        "placeholder:text-muted-foreground/64",
+        "placeholder:text-faint",
         "outline-none",
         "disabled:pointer-events-none disabled:cursor-not-allowed",
         className

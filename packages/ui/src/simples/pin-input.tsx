@@ -18,7 +18,7 @@ const pinInputInputVariants = tv({
     "bg-transparent dark:bg-field",
     "text-base md:text-sm",
     "rounded-lg border border-input shadow-xs/5",
-    "placeholder:text-muted-foreground/64",
+    "placeholder:text-faint",
     "transition-[color,box-shadow]",
     "outline-none focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring",
     "data-invalid:border-destructive data-invalid:text-destructive data-invalid:ring-[3px] data-invalid:ring-destructive/24",

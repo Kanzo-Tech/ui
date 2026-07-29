@@ -172,7 +172,7 @@ export function CompleteGhost({ className }: { className?: string }) {
       <span className="invisible" ref={mirrorRef}>
         {ctx.value}
       </span>
-      <span className="text-muted-foreground/64">{ctx.ghost}</span>
+      <span className="text-faint">{ctx.ghost}</span>
     </div>
   );
 }
@@ -186,7 +186,7 @@ export function CompleteHint({ className }: { className?: string }) {
       className={cn("mt-1.5 whitespace-pre-wrap break-words text-muted-foreground text-sm", className)}
       data-slot="complete-hint"
     >
-      <span className="text-muted-foreground/64">{ctx.ghost.replace(/^\s+/, "")}</span>{" "}
+      <span className="text-faint">{ctx.ghost.replace(/^\s+/, "")}</span>{" "}
       <kbd className="rounded border px-1 text-xs">Tab</kbd>
     </p>
   );

@@ -145,7 +145,7 @@ const baseTheme = EditorView.theme({
     // this present the numbers sat a constant 9px below their lines.
     background: "transparent",
     border: "none",
-    color: "var(--kanzo-gutter-foreground)",
+    color: "var(--faint)",
   },
   // Line numbers: tabular figures (no jitter across 9→10→100), right-aligned with breathing
   // room from the border edge, and a comfortable minimum width.
@@ -317,9 +317,9 @@ const baseTheme = EditorView.theme({
     fontWeight: "600",
   },
   ".cm-matchingBracket, &.cm-focused .cm-matchingBracket": { backgroundColor: "var(--selection)", outline: "1px solid var(--primary)" },
-  ".cm-nonmatchingBracket": { backgroundColor: "color-mix(in srgb, var(--destructive) 20%, transparent)" },
+  ".cm-nonmatchingBracket": { backgroundColor: "var(--destructive-wash-strong)" },
   ".cm-selectionMatch": { backgroundColor: "var(--kanzo-editor-search-match)" },
-  ".cm-foldGutter .cm-gutterElement": { cursor: "pointer", color: "var(--kanzo-gutter-foreground)" },
+  ".cm-foldGutter .cm-gutterElement": { cursor: "pointer", color: "var(--faint)" },
   ".cm-foldPlaceholder": { background: "var(--muted)", border: "1px solid var(--border)", color: "var(--muted-foreground)", borderRadius: "var(--radius-sm)", padding: "0 4px" },
 });
 

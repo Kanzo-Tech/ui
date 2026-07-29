@@ -18,7 +18,7 @@ export const Highlight = (props: HighlightProps) => {
     <ArkHighlight
       className={cn(
         "rounded-sm px-0.5",
-        "bg-warning/24 text-foreground",
+        "bg-warning-wash-strong text-foreground",
         "font-medium",
         className
       )}

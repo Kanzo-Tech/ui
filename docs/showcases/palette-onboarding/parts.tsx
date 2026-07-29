@@ -171,7 +171,7 @@ export function AdjustmentItem({ a }: { a: TaggedAdjustment }) {
         </span>
       </ItemHeader>
       <ItemContent>
-        <ItemTitle className="line-clamp-none">
+        <ItemTitle>
           <MoveSwatches from={a.from} to={a.to} />
         </ItemTitle>
         <ItemDescription className="line-clamp-none text-foreground">
@@ -308,17 +308,13 @@ function NeutralRelief({ palette, rows }: { palette: PaletteView; rows: TaggedRe
   return (
     <Item variant="muted">
       <ItemContent>
-        {/* `ItemTitle`'s own `flex … gap-2` does not survive its `cn` — tailwind-merge counts
-            `line-clamp-1` as a display utility and drops it — so the row is laid out here. */}
         <ItemTitle>
-          <span className="flex items-center gap-2">
-            <span>
-              The neutral ramp reported <code>carries-identity</code>
-            </span>
-            <Badge size="sm" variant="success">
-              expected
-            </Badge>
+          <span>
+            The neutral ramp reported <code>carries-identity</code>
           </span>
+          <Badge size="sm" variant="success">
+            expected
+          </Badge>
         </ItemTitle>
         <ItemDescription className="line-clamp-none">
           A tinted neutral is a low chroma at a hue by definition, so it sits under the floor on

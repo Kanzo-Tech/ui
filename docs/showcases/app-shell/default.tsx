@@ -324,7 +324,8 @@ export function AppShellShowcase() {
                                     <CalendarClockIcon />
                                   </ItemMedia>
                                   <ItemContent>
-                                    <ItemTitle>{schedule.name}</ItemTitle>
+                                    {/* A user names their own schedules, so clamp. */}
+                                    <ItemTitle className="line-clamp-1">{schedule.name}</ItemTitle>
                                     <ItemDescription>
                                       {schedule.cadence} ·{" "}
                                       <code className="font-mono text-xs">{schedule.cron}</code>
@@ -396,7 +397,7 @@ export function AppShellShowcase() {
                                 </Avatar>
                               </ItemMedia>
                               <ItemContent>
-                                <ItemTitle>{entry.who}</ItemTitle>
+                                <ItemTitle className="line-clamp-1">{entry.who}</ItemTitle>
                                 <ItemDescription>
                                   {entry.action}{" "}
                                   <span className="font-medium text-foreground">{entry.target}</span>

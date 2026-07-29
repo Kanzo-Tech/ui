@@ -306,6 +306,21 @@ export const ROLES: readonly Role[] = [
   { token: "--popover-foreground", binding: step("neutral", 12) },
   { token: "--muted", binding: step("neutral", 3) },
   { token: "--muted-foreground", binding: step("neutral", 11) },
+  // The quietest ink the ramp publishes, and it was already bound — as `--kanzo-gutter-foreground`,
+  // a name for the first surface that needed it. A gutter's line numbers and a field's placeholder
+  // are one decision: ink that is present but is not content. Renamed rather than duplicated, the
+  // same call `--selection` took when the graph canvas needed the editor's wash.
+  //
+  // It takes no `-foreground` suffix because there is no `--faint` fill for it to sit on, and
+  // minting one would re-open the wart tokens.css already documents, where `-foreground` means the
+  // ink ON a fill for the neutral and brand families and a readable-on-the-page variant for the
+  // status ones.
+  //
+  // Measured: 5.18:1 in light and 4.74:1 in dark against the page, against `--muted-foreground`'s
+  // 9.19 and 8.52. It is the ten `text-muted-foreground/NN` sites' honest answer — those measure
+  // 3.04–4.00 and are live AA failures — but it is not a blanket one: on a dark input nested in a
+  // popover (`--field` over `--popover`, `#1b1b1b`) it reads 4.13, still short of 4.5. There is no
+  // step between it and 11.
   { token: "--faint", binding: step("neutral", 10) },
   { token: "--secondary", binding: step("neutral", 4) },
   { token: "--secondary-foreground", binding: step("neutral", 12) },
@@ -337,6 +352,17 @@ export const ROLES: readonly Role[] = [
   // symptom out by hand — `bg-destructive/10 dark:bg-destructive/5` on the badge and
   // `bg-destructive/10 dark:bg-destructive-foreground/10` on the menu and the listbox. A step is
   // resolved against each mode's own ramp, so one binding is right in both.
+  //
+  // The steps are the neutral's own, read across: a3 is where `--field` sits, and a6 is where
+  // `--border` sits, so `--X-border` is that family's border and nothing new has to be justified.
+  // `-wash-strong` rather than `-wash-hover` for the same reason the neutral washes are named for
+  // their level: the a4 tint is a badge's hover, a menu item's highlight, an alert action's hover
+  // *and* a `<mark>`, and only one of those is a hover.
+  //
+  // None of the six carries a contrast duty and that is measured, not assumed. Ink on the fills
+  // reads 4.86–6.81 across every surface the theme publishes (`--X-foreground`; `--foreground`
+  // reads 10.08–12.87), and a decorative border is what WCAG 1.4.11 exempts by name. What they owe
+  // is agreement between the modes.
   { token: "--destructive", binding: step("destructive", 9) },
   { token: "--destructive-foreground", binding: step("destructive", 11) },
   { token: "--destructive-content", binding: { kind: "on-fill", ramp: "destructive" } },
