@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { Graph } from "@cosmos.gl/graph";
+import { clusterRing } from "./cluster-ring";
 import { forces, SPACE, type Loaded } from "./graph-model";
 import type { Motion, Sim } from "./graph-state";
 
@@ -66,6 +67,15 @@ export interface CosmosGraphOptions {
     onPointerOut: () => void;
     onPointClick: (graph: Graph, index: number) => void;
     onBackgroundClick: () => void;
+    /**
+     * A node has been let go of, by index.
+     *
+     * cosmos.gl does not say which one. Its drag subject is `{x, y}`, and `store.draggingPointIndex`
+     * is cleared *before* `onDragEnd` is called — so the index is remembered from the hover that
+     * made the drag possible in the first place: the drag behaviour's subject only answers while
+     * `store.hoveredPoint` is set, and hover detection is skipped for the whole gesture.
+     */
+    onDragEnd: (index: number) => void;
     onTick: () => void;
     onZoom: () => void;
   };
@@ -118,20 +128,35 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
       return;
     }
     /**
-     * Put the camera where the layout ended up — once, whoever gets here first, and in practice
-     * that is always `FRAME_BY`.
+     * Put the camera where the layout ended up — once, whoever gets here first.
      *
-     * `onSimulationEnd` fires when alpha crosses `1e-3`, which `simulationDecay` puts at 1,600
-     * frames — ≈ 26.7 s at 60 fps, longer on a throttled tab, and pushed further out by every
-     * re-heat a slider causes. `FRAME_BY` is 6 s. So the settle is not the plan and the timer is
-     * not a floor under it: the timer frames the view, and the settle branch is the case that only
-     * runs if a future decay makes it beat 6 s. `framed` keeps it once-only either way.
+     * The two now genuinely race. `onSimulationEnd` fires when alpha crosses `1e-3`, which
+     * `simulationDecay: 400` puts at 400 rendered frames — 6.7 s at 60 fps, 3.3 s at 120, and the
+     * crossover with `FRAME_BY`'s 6 s is 66.7 fps. Neither is the plan and neither is a floor under
+     * the other, and on any display it is the same picture: the loser is at most 0.7 s behind, and
+     * a graph 6 s into a 6.7 s settle has `0.001^(6/6.7)` ≈ 0.002 of its energy left.
+     *
+     * A tie needs no rule. JavaScript runs one of them to completion first, and whichever that is
+     * sets `framed` before the other is entered — so the second call returns having done nothing.
+     * The camera is never fitted twice and no `fitView` animation is ever cut off by a second one.
+     *
+     * The one case where they are not interchangeable is a backgrounded tab: `requestAnimationFrame`
+     * stops, so no frame is a tick and the settle cannot arrive, while `setTimeout` still fires. The
+     * timer wins on a graph that has barely moved and `framed` makes that final. That was already
+     * true when the timer always won; a faster decay does not fix it, and framing on a settle that
+     * may never come would be worse.
      */
     const frameOnce = () => {
       if (framed.current) return;
       framed.current = true;
       graphRef.current?.fitView(FIT_DURATION, FIT_PADDING);
     };
+
+    // Which node the pointer is on, and which one the current gesture picked up. Locals rather than
+    // refs: they are read and written only by callbacks this closure owns, and they die with the
+    // instance those callbacks belong to.
+    let hovering: number | null = null;
+    let dragging: number | null = null;
 
     let graph: Graph;
     try {
@@ -140,15 +165,22 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
         enableSimulation: true,
         ...forces(applied.current),
         /**
-         * Ticks to convergence — not milliseconds, and not "a handful of seconds".
+         * Frames to convergence — not milliseconds.
          *
-         * `store.alphaDecay` is `α ⇒ 1 − 0.001^(1/α)` and one tick is one rendered frame
-         * (`runSimulationStep` is called from `renderFrame`), so alpha reaches the `1e-3` floor
-         * after exactly `simulationDecay` frames: **1,600 ≈ 26.7 s at 60 fps**. The default of
-         * 5,000 is ≈ 83 s, which is why the badge never reached Settled inside a sitting; this is
-         * a third of that, and still long enough that `FRAME_BY` below is what frames the view.
+         * `store.alphaDecay` is `α ⇒ 1 − 0.001^(1/α)` with `alphaTarget` 0, and one tick is one
+         * rendered frame (`runSimulationStep` is called from `renderFrame`), so alpha decays as
+         * `0.001^(n/α)` and reaches the `1e-3` floor after exactly `simulationDecay` frames. This is
+         * **400 ≈ 6.7 s at 60 fps**, against cosmos.gl's default of 5,000 ≈ 83 s.
+         *
+         * The number that matters more than the first settle is the second: a slider re-heats to
+         * `REHEAT` rather than to 1, and `0.35` reaches the floor in `α·ln(0.001/0.35)/ln(0.001)`
+         * ≈ 339 frames — 5.7 s of reorganising after a nudge, where 1,600 made it 22.6 s and a
+         * reader had no way to tell a slow layout from a stuck one.
+         *
+         * Shorter also means less relaxation, and how settled the picture *looks* at the end of it
+         * is not a number this comment can carry. It was chosen, not measured.
          */
-        simulationDecay: 1600,
+        simulationDecay: 400,
         /**
          * Same seed, same picture. Our positions are already deterministic — `mulberry32` seeds
          * them in `lib/force-layout` — but cosmos.gl's own randomness is not: the per-link distance
@@ -187,8 +219,21 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
           live.current.onTick();
         },
         onZoom: () => live.current.onZoom(),
-        onPointMouseOver: (index) => live.current.onPointerOver(index),
-        onPointMouseOut: () => live.current.onPointerOut(),
+        onPointMouseOver: (index) => {
+          hovering = index;
+          live.current.onPointerOver(index);
+        },
+        onPointMouseOut: () => {
+          hovering = null;
+          live.current.onPointerOut();
+        },
+        onDragStart: () => {
+          dragging = hovering;
+        },
+        onDragEnd: () => {
+          if (dragging !== null) live.current.onDragEnd(dragging);
+          dragging = null;
+        },
         onPointClick: (index) => {
           const instance = graphRef.current;
           if (instance) live.current.onPointClick(instance, index);
@@ -203,6 +248,10 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
     graph.setPointPositions(data.positions);
     graph.setLinks(data.links);
     graph.setPointClusters(data.clusters);
+    // Both, or neither is worth having: clusters without positions is a pull toward a centroid that
+    // moves with its own group. Before `render()`, because that is what flushes the cluster force's
+    // textures — `setClusterPositions` only raises a flag.
+    graph.setClusterPositions(clusterRing(data.clusters));
     graph.render();
     // The simulation is already turning by the time we get here, and construction fires no
     // `onSimulationStart` — so without this the transport opens showing Play over a moving graph.
@@ -244,13 +293,13 @@ const FIT_PADDING = 0.18;
  * When the camera frames the view — 6 s after the graph is built.
  *
  * Late enough that the layout has done its spreading and contracting, early enough that nobody has
- * started reading the wrong framing. It is the one that fires: a settle is 1,600 frames away, so
- * `onSimulationEnd` racing it is theoretical rather than a floor being backed up.
+ * started reading the wrong framing. It is a wall clock, so it is also the answer for a display
+ * that is not running at 60 fps, where the settle at `simulationDecay` frames arrives late.
  */
 const FRAME_BY = 6000;
 
 /**
- * How finely settling progress is reported: twentieths, so a 26-second settle costs 20 renders
- * of everything reading the graph's context rather than 1,600.
+ * How finely settling progress is reported: twentieths, so the settle costs 20 renders of
+ * everything reading the graph's context rather than one per frame.
  */
 const PROGRESS_STEPS = 20;

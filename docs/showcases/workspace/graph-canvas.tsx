@@ -19,6 +19,7 @@ import {
   MaximizeIcon,
   MinusIcon,
   PauseIcon,
+  PinOffIcon,
   PlayIcon,
   PlusIcon,
   RotateCcwIcon,
@@ -157,6 +158,7 @@ function CanvasBody() {
     selection,
     select,
     setCorpus,
+    setPinned,
     register,
   } = useGraphView();
   const { coordinator, crossfilter } = useMosaic();
@@ -186,8 +188,22 @@ function CanvasBody() {
 
   // Callbacks are handed to cosmos.gl once, at construction, so they read the current render
   // through a ref instead of closing over a stale one.
-  const handlers = useRef({ setMotion, setProgress, setFocused, select });
-  handlers.current = { setMotion, setProgress, setFocused, select };
+  const handlers = useRef({ setMotion, setProgress, setFocused, setPinned, select });
+  handlers.current = { setMotion, setProgress, setFocused, setPinned, select };
+
+  /**
+   * The nodes the reader has dropped somewhere and meant it.
+   *
+   * `enableDrag` moves a point while the pointer is down and nothing more — the position shader
+   * integrates velocity again the moment the gesture ends, so a released node springs back to
+   * wherever the forces wanted it and the drag was a gesture with no result. `setPinnedPoints`
+   * makes it one: a pinned point holds its position and still pulls on everything attached to it,
+   * which is what a reader means by putting a node somewhere.
+   *
+   * A ref, and a whole-set call, because cosmos.gl's API is a replacement rather than a toggle —
+   * `setPinnedPoints` overwrites `inputPinnedPoints` outright, so the set has to be ours.
+   */
+  const pins = useRef(new Set<number>());
 
   /**
    * What the layout is doing, mirrored where the imperative side can read it.
@@ -213,6 +229,13 @@ function CanvasBody() {
    */
   const live = useRef<Selection | null>(selection);
   live.current = selection;
+
+  /** Hand the pin set to the GPU and tell the panels how big it is. */
+  const applyPins = useCallback(() => {
+    const indices = [...pins.current];
+    graphRef.current?.setPinnedPoints(indices.length > 0 ? indices : null);
+    handlers.current.setPinned(indices.length);
+  }, []);
 
   /** Drop the focus ring. A ring on a node nobody picked is a claim the selection is not making. */
   const unfocus = useCallback(() => {
@@ -379,7 +402,27 @@ function CanvasBody() {
         if (motionRef.current === "settled") graph.start(REHEAT);
         else graph.unpause();
       },
-      restart: () => graphRef.current?.start(1),
+      /**
+       * Throw the layout away and compute it again — which means letting go of the pins too.
+       *
+       * cosmos.gl would keep them: `inputPinnedPoints` is only ever written by `setPinnedPoints`,
+       * so `start(1)` re-heats around them and the result is the layout of the data *plus your
+       * hand*. The button says Re-run, so it re-runs. It is also the blunt release, and the one
+       * that is there whether or not the reader has noticed the pin count.
+       */
+      restart: () => {
+        pins.current.clear();
+        applyPins();
+        graphRef.current?.start(1);
+      },
+      unpin: () => {
+        if (pins.current.size === 0) return;
+        pins.current.clear();
+        applyPins();
+        // Released nodes are where the drag left them and nothing is pulling on them yet, so
+        // without a nudge the picture keeps the shape the pins gave it and the button looks broken.
+        graphRef.current?.start(REHEAT);
+      },
       /**
        * The same thing a click on the canvas does, plus the camera.
        *
@@ -421,12 +464,18 @@ function CanvasBody() {
       clear: () => commit(null, "node", ""),
     });
     return () => register(null);
-  }, [commit, register, schedule]);
+  }, [applyPins, commit, register, schedule]);
 
   useCosmosGraph({
     data,
     events: {
       onBackgroundClick: () => commit(null, "node", ""),
+      // Dropping a node onto the same node it was already pinned at is a no-op the `Set` absorbs,
+      // and dropping a pinned node somewhere else re-pins it there — both are what the gesture says.
+      onDragEnd: (index) => {
+        pins.current.add(index);
+        applyPins();
+      },
       onPointClick: (instance, index) => {
         const current = dataRef.current;
         if (!current) return;
@@ -465,6 +514,13 @@ function CanvasBody() {
     reportProgress,
     sim,
   });
+
+  // A new corpus is a new `Graph`, and pins live on the instance — so the set that counts them goes
+  // with it rather than outliving it as indices into a relation that no longer exists.
+  useEffect(() => {
+    pins.current.clear();
+    handlers.current.setPinned(0);
+  }, [data]);
 
   // After the constructor, for the same reason `useGraphLook` is: the graph the overlays register
   // against is built by the hook above, and effects run in declaration order. `data` is a dependency
@@ -815,8 +871,12 @@ const TRANSPORT: Record<Motion, { action: "pause" | "resume"; label: string }> =
 };
 
 export function GraphZoom() {
-  const { commands, motion, ready } = useGraphView();
+  const { commands, motion, pinned, ready } = useGraphView();
   const transport = TRANSPORT[motion];
+  // Shown only when there is something to release, and it names the number: a pinned point is drawn
+  // exactly like an unpinned one, so this control is the only place the reader can see that they
+  // are holding part of the layout still.
+  const release = `Release ${pinned} pinned ${pinned === 1 ? "node" : "nodes"}`;
 
   return (
     <div className="absolute end-2 bottom-2 z-10 flex flex-col items-end gap-1.5">
@@ -843,6 +903,18 @@ export function GraphZoom() {
         >
           <RotateCcwIcon />
         </Button>
+        <Show when={pinned > 0}>
+          <ButtonGroupSeparator />
+          <Button
+            aria-label={release}
+            onClick={() => commands.unpin()}
+            size="icon-sm"
+            title={release}
+            variant="ghost"
+          >
+            <PinOffIcon />
+          </Button>
+        </Show>
       </ButtonGroup>
 
       <ButtonGroup

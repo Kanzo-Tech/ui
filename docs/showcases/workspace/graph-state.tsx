@@ -124,7 +124,7 @@ export interface Sim {
   linkSpring: number;
   linkDistance: number;
   friction: number;
-  /** Pull toward the node's theme cluster. Zero lets the links alone decide the shape. */
+  /** Pull toward the node's group position on the cluster ring. Zero lets the links decide alone. */
   cluster: number;
 }
 
@@ -148,7 +148,7 @@ export const DEFAULT_SIM: Sim = {
 /**
  * The selection tools, and the gesture that reaches them without a mode.
  *
- * `null` is the reading posture: drag pans, drag on a node moves it. Picking a tool swaps the drag
+ * `null` is the reading posture: drag pans, drag on a node pins it. Picking a tool swaps the drag
  * for a selection gesture — and holding Shift borrows the marquee for one drag without picking
  * anything, which is how most selections actually get made.
  */
@@ -189,6 +189,8 @@ export interface GraphCommands {
   pause(): void;
   resume(): void;
   restart(): void;
+  /** Let go of every pinned node, so the simulation gets the whole layout back. */
+  unpin(): void;
   /** Centre and select a node by its database id. */
   reveal(id: number): void;
   /** Frame whatever the canvas currently has selected. */
@@ -215,6 +217,16 @@ interface GraphViewValue {
    */
   motion: Motion;
   setMotion: (value: Motion) => void;
+  /**
+   * How many nodes are pinned where you dropped them.
+   *
+   * A count, not the set: nothing outside the canvas needs the indices, and the one thing this has
+   * to support is the release control existing at all. A pin is invisible — cosmos.gl draws a
+   * pinned point exactly like any other — so a reader who forgets they made one has this number and
+   * the button it labels, and Re-run underneath as the blunt way out.
+   */
+  pinned: number;
+  setPinned: (count: number) => void;
   /**
    * How far through settling, `0`–`1`. cosmos.gl's own `graph.progress`, quantised on the way here.
    *
@@ -244,6 +256,7 @@ const NOOP: GraphCommands = {
   pause: () => {},
   resume: () => {},
   restart: () => {},
+  unpin: () => {},
   reveal: () => {},
   frameSelection: () => {},
   clear: () => {},
@@ -261,6 +274,8 @@ const GraphViewContext = createContext<GraphViewValue>({
   resetSim: () => {},
   motion: "settled",
   setMotion: () => {},
+  pinned: 0,
+  setPinned: () => {},
   progress: 0,
   setProgress: () => {},
   focused: null,
@@ -291,6 +306,7 @@ export function GraphMosaic({ children }: { children: ReactNode }) {
   const [display, setDisplayState] = useState<Display>(DEFAULT_DISPLAY);
   const [sim, setSimState] = useState<Sim>(DEFAULT_SIM);
   const [motion, setMotion] = useState<Motion>("running");
+  const [pinned, setPinned] = useState(0);
   const [progress, setProgress] = useState(0);
   const [focused, setFocused] = useState<number | null>(null);
   const [tool, setTool] = useState<Tool>(null);
@@ -321,6 +337,7 @@ export function GraphMosaic({ children }: { children: ReactNode }) {
       pause: () => commandsRef.current?.pause(),
       resume: () => commandsRef.current?.resume(),
       restart: () => commandsRef.current?.restart(),
+      unpin: () => commandsRef.current?.unpin(),
       reveal: (id) => commandsRef.current?.reveal(id),
       frameSelection: () => commandsRef.current?.frameSelection(),
       clear: () => commandsRef.current?.clear(),
@@ -351,6 +368,8 @@ export function GraphMosaic({ children }: { children: ReactNode }) {
       resetSim,
       motion,
       setMotion,
+      pinned,
+      setPinned,
       progress,
       setProgress,
       focused,
@@ -373,6 +392,7 @@ export function GraphMosaic({ children }: { children: ReactNode }) {
       setSim,
       resetSim,
       motion,
+      pinned,
       progress,
       focused,
       tool,

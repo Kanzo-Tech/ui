@@ -16,7 +16,7 @@ export interface GraphNodeRow {
   id: number;
   label: string;
   kind: NodeKind;
-  /** EU data-theme code — the community the layout seeds from, and a real filter. */
+  /** EU data-theme code — what the canvas clusters by, and a real filter. */
   theme: string;
   publisher: string;
   degree: number;
@@ -105,8 +105,11 @@ function build(rand: () => number) {
   // `theme` is deliberately NOT a vertex. It was, and eight vertices carrying an edge to every
   // dataset in their theme turned the picture into one ball: a hub with degree 20+ drags its whole
   // community into the centre, and gravity does the rest. A theme is an *attribute* — it stays a
-  // column, colours nothing, filters everything, and seeds the layout's communities. The rule this
-  // taught: put a value in the graph only when you want to see it pulled on.
+  // column, colours nothing, filters everything, and places the clusters. The rule this taught:
+  // put a value in the graph only when you want to see it pulled on.
+  //
+  // Being an attribute is also why the seed below cannot separate themes and the canvas' cluster
+  // force can: the seed follows edges, and the edges cross themes because keywords are shared.
 
   // Weighted bags: a draw is proportional to how often the value has already been chosen.
   const keywordBag = [...KEYWORDS];
