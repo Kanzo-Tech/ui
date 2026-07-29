@@ -50,8 +50,15 @@ export function Finding({ children, disabled, label, load, source }: FindingProp
       aria-pressed={active}
       className={cn(
         "w-full rounded-md border p-2 text-start transition-colors",
-        "hover:bg-accent/50 disabled:cursor-default disabled:opacity-60 disabled:hover:bg-transparent",
-        active && "border-primary/50 bg-accent/60",
+        "disabled:cursor-default disabled:opacity-60",
+        // Normal / hover / pressed is the ramp's own 3→4→5 progression, written with its names.
+        // Over the card, `bg-accent/50` and `bg-accent/60` composite to ΔE 1.21 (light) / 0.86
+        // (dark) of each other — under the ΔE 2 the ramp makes a hover owe, so the fill was not
+        // carrying the pressed state at all; `--secondary` → `--accent` measures 3.96 / 4.61.
+        // The border was carrying it alone, and only for a grey brand: `--primary` is the ink step
+        // when the seed has no hue, but step 9 for a client's, where `border-primary/50` measures
+        // 1.73–2.32:1 — the failure `stroke-primary/50` had on the canvas. Solid: 3.07–6.07.
+        active ? "border-primary bg-accent" : "hover:bg-secondary disabled:hover:bg-transparent",
       )}
       disabled={disabled || busy}
       onClick={() => void toggle()}

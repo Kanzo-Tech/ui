@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { Graph } from "@cosmos.gl/graph";
-import { useMosaic } from "@kanzo-tech/ui/analytics";
+import { useChartCapacity, useMosaic } from "@kanzo-tech/ui/analytics";
 import {
   Badge,
   Button,
@@ -27,14 +27,14 @@ import {
   XIcon,
 } from "lucide-react";
 import { CosmosClient } from "@/lib/cosmos-client";
-import { LOOKS, SHAPE, SHAPE_PATH, type Look, type ShapeId } from "./graph-looks";
+import { LOOKS, SHAPE_PATH, type ShapeId } from "./graph-looks";
 import {
   load,
   scaleOf,
   type Loaded,
   type NodeRow,
 } from "./graph-model";
-import { useCosmosGraph } from "./use-cosmos-graph";
+import { REHEAT, useCosmosGraph } from "./use-cosmos-graph";
 import { useGraphLook } from "./use-graph-look";
 import { GRID, useGraphOverlays } from "./use-graph-overlays";
 import { cursorChip, useGraphSelection } from "./use-graph-selection";
@@ -57,15 +57,31 @@ import {
  * borders*, and ghost buttons have none to collapse. So the divisions come back as explicit
  * `ButtonGroupSeparator`s. And the radius matches `Button`'s own `rounded-lg` — at `rounded-md` the
  * group's corner and the corner a button reveals on hover were visibly different curves.
+ *
+ * **Solid, not `bg-card/85 backdrop-blur-md`.** A panel is an occluder, not a veil, and a diluted
+ * surface is a function of whatever the layout happened to put behind it: measured over the plane
+ * and the eight slots, `card/85` spans ΔE 9.4–11.1 and the legend's `card/80` spans 12.6–14.0 —
+ * two ramp steps of drift in a token whose whole job is to be one colour, against the ramp's own
+ * `interchangeable` bound of 4. An alpha step cannot rescue it either, and that is measured in the
+ * theme rather than guessed here: at the surface band the alpha reproducing a raised step is 0–8
+ * bytes, so a `--popover` bound to one shows the page's own text through itself.
  */
-const FLOATING = "rounded-lg border bg-card/85 shadow-sm backdrop-blur-md";
+const FLOATING = "rounded-lg border bg-card shadow-sm";
 
 /**
- * The energy a wake puts back into a converged layout — enough to reorganise around a changed
- * force, not so much that the picture you were reading is thrown away. A full `start(1)` is what
- * Re-run is for.
+ * The wash a selection region wears — an **alpha step**, not a diluted solid.
+ *
+ * This is the consumer alpha steps were built for: the canvas draws over arbitrary content, so
+ * `fill-primary/10` composites against whatever is underneath. Measured against the brand's own
+ * step 5 over the canvas plane: the dilution misses by ΔE 2.8 (achromatic seed) to **10.6** (teal
+ * and orange seeds, dark), while the alpha step lands at 0.8–1.5 — which is `alpha-fidelity`, the
+ * obligation it was solved under, doing exactly what it promises.
+ *
+ * `--selection` is `(brand, alpha 5)` — `#0000001f` light, `#ffffff1d` dark in the shipped
+ * document. It is not an editor token that the graph borrows: selecting text and selecting nodes
+ * are one decision, so the role table carries one name for both.
  */
-const REHEAT = 0.35;
+const SELECTION_WASH = "var(--selection)";
 
 /**
  * The canvas: cosmos.gl driving the picture, Mosaic driving the questions.
@@ -77,8 +93,6 @@ const REHEAT = 0.35;
  * crossfilter from a brushed histogram.
  */
 
-// ── Look → buffers ───────────────────────────────────────────────────────────
-
 // ── Canvas ───────────────────────────────────────────────────────────────────
 
 interface Hovered {
@@ -86,40 +100,16 @@ interface Hovered {
   row: NodeRow;
 }
 
-// ── Canvas ───────────────────────────────────────────────────────────────────
-
-interface Hovered {
-  index: number;
-  row: NodeRow;
-}
-
-// ── Canvas ───────────────────────────────────────────────────────────────────
-
-interface Hovered {
-  index: number;
-  row: NodeRow;
-}
-
-// ── Canvas ───────────────────────────────────────────────────────────────────
-
-interface Hovered {
-  index: number;
-  row: NodeRow;
-}
-
-/**
- * The canvas mounts only once DuckDB is up, because everything below it reads the coordinator and
- * `MosaicProvider` is not in the tree until then. Same guard the Rules and Ask panels use.
- */
 /**
  * The canvas before it is a canvas.
  *
  * Not a `Skeleton`: a skeleton stands in for content whose shape you can predict, and a graph has
  * no predictable shape — a big grey slab just tells the reader the page is broken. What it shows
- * instead is the canvas it is about to become, in the current look, with the same dot grid, and one
- * line saying what is taking the time.
+ * instead is the canvas it is about to become, with the same plane and the same dot grid, and one
+ * line saying what is taking the time. It took a `look` and never read it: nothing a look carries
+ * is visible before there are points to draw.
  */
-function CanvasPlaceholder({ look, note }: { look: Look; note: string }) {
+function CanvasPlaceholder({ note }: { note: string }) {
   return (
     <div
       className="absolute inset-0 grid place-items-center overflow-hidden"
@@ -146,9 +136,9 @@ function CanvasPlaceholder({ look, note }: { look: Look; note: string }) {
 }
 
 export function GraphCanvas() {
-  const { look, ready } = useGraphView();
+  const { ready } = useGraphView();
   if (!ready) {
-    return <CanvasPlaceholder look={LOOKS[look]} note="Starting DuckDB…" />;
+    return <CanvasPlaceholder note="Starting DuckDB…" />;
   }
   return <CanvasBody />;
 }
@@ -162,6 +152,7 @@ function CanvasBody() {
     tool,
     setTool,
     setMotion,
+    setProgress,
     setFocused,
     selection,
     select,
@@ -173,8 +164,16 @@ function CanvasBody() {
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const graphAccess = useCallback(() => graphRef.current, []);
-  const { cardRef, gridRef, hostRef, labelRef, schedule, setHovered: trackHovered, setLabelOrder } =
-    useGraphOverlays(graphAccess);
+  const {
+    cardRef,
+    gridRef,
+    hostRef,
+    labelRef,
+    schedule,
+    setHovered: trackHovered,
+    setLabelOrder,
+    track,
+  } = useGraphOverlays(graphAccess);
   const graphRef = useRef<Graph | null>(null);
   const clientRef = useRef<CosmosClient | null>(null);
   const dataRef = useRef<Loaded | null>(null);
@@ -187,8 +186,8 @@ function CanvasBody() {
 
   // Callbacks are handed to cosmos.gl once, at construction, so they read the current render
   // through a ref instead of closing over a stale one.
-  const handlers = useRef({ setMotion, setFocused, select });
-  handlers.current = { setMotion, setFocused, select };
+  const handlers = useRef({ setMotion, setProgress, setFocused, select });
+  handlers.current = { setMotion, setProgress, setFocused, select };
 
   /**
    * What the layout is doing, mirrored where the imperative side can read it.
@@ -202,6 +201,9 @@ function CanvasBody() {
     motionRef.current = next;
     handlers.current.setMotion(next);
   }, []);
+  const reportProgress = useCallback((value: number) => {
+    handlers.current.setProgress(value);
+  }, []);
 
   /**
    * A gesture's result, handed to the shared selection.
@@ -212,16 +214,44 @@ function CanvasBody() {
   const live = useRef<Selection | null>(selection);
   live.current = selection;
 
-  const commit = useCallback((ids: Set<number> | null, source: SelectionSource, label: string) => {
-    if (!ids || ids.size === 0) {
-      setFocusedIndex(null);
-      handlers.current.setFocused(null);
-      graphRef.current?.setConfig({ focusedPointIndex: undefined });
-      handlers.current.select(null);
-      return;
-    }
-    handlers.current.select({ ids: [...ids], source, label });
+  /** Drop the focus ring. A ring on a node nobody picked is a claim the selection is not making. */
+  const unfocus = useCallback(() => {
+    setFocusedIndex(null);
+    handlers.current.setFocused(null);
+    graphRef.current?.setConfig({ focusedPointIndex: undefined });
   }, []);
+
+  const commit = useCallback(
+    (ids: Set<number> | null, source: SelectionSource, label: string) => {
+      if (!ids || ids.size === 0) {
+        unfocus();
+        handlers.current.select(null);
+        return;
+      }
+      // A marquee or a lasso selects without picking a node, so the ring from whatever was clicked
+      // before has nothing left to point at. This used to clear only on the empty branch, which left
+      // a stale ring under every region gesture. The node paths re-focus after this returns.
+      // (Rules and Ask do not come through here — they hand a selection straight to the provider.)
+      if (source !== "node") unfocus();
+      // Dim now, not after the round trip. The authority on what stays lit is `onSurvivors` below —
+      // it resolves this clause against every other filter on the page — but that answer is a
+      // crossfilter update and a DuckDB query away, and the reader drew this loop a frame ago.
+      // Greyout is a texture upload the next frame samples, so the optimistic answer costs nothing
+      // and the correction overwrites it.
+      const graph = graphRef.current;
+      const current = dataRef.current;
+      if (graph && current) {
+        const indices: number[] = [];
+        for (const id of ids) {
+          const index = current.index.get(id);
+          if (index !== undefined) indices.push(index);
+        }
+        graph.selectPointsByIndices(indices);
+      }
+      handlers.current.select({ ids: [...ids], source, label });
+    },
+    [unfocus],
+  );
 
 
   useEffect(() => {
@@ -251,21 +281,25 @@ function CanvasBody() {
       idField: spec.idField,
       filterBy: crossfilter,
       as: crossfilter,
+      // No `render()` after these. Both calls end in `updateGreyoutStatus()` themselves, and the
+      // renderer's rAF loop re-schedules unconditionally and re-samples the greyout texture every
+      // frame — so the picture is already correct on the next one. `render()` would have paid for a
+      // full `GraphData.update()` — an O(n+e) revalidation that rebuilds the adjacency lists and
+      // recomputes every degree — on every crossfilter change.
       onSurvivors: (ids) => {
         const graph = graphRef.current;
         const current = dataRef.current;
         if (!graph || !current) return;
         if (ids.length === current.ids.length) {
           graph.unselectPoints();
-        } else {
-          const indices: number[] = [];
-          for (const id of ids) {
-            const i = current.index.get(Number(id));
-            if (i !== undefined) indices.push(i);
-          }
-          graph.selectPointsByIndices(indices);
+          return;
         }
-        graph.render();
+        const indices: number[] = [];
+        for (const id of ids) {
+          const i = current.index.get(Number(id));
+          if (i !== undefined) indices.push(i);
+        }
+        graph.selectPointsByIndices(indices);
       },
     });
     clientRef.current = client;
@@ -296,9 +330,10 @@ function CanvasBody() {
     // Importance order, and it matters: the declutter pass places labels in this order and drops
     // whichever would collide with one already down, so the hubs win the crowded spots.
     //
-    // The hovered node is deliberately NOT here. Adding it rebuilt the tracked set on every pointer
+    // The hovered node is deliberately NOT here. Adding it rebuilt the *label* list on every pointer
     // move, which re-mounted spans mid-gesture and made the labels flicker — and the hover card
-    // already names the node under the cursor.
+    // already names the node under the cursor. It is in cosmos.gl's tracked set, which is a texture
+    // and not a subtree; that is `track` below.
     const wanted = focusedIndex === null ? [] : [focusedIndex];
     for (const index of data.ranked.slice(0, look.form.labels)) {
       if (index !== focusedIndex) wanted.push(index);
@@ -388,8 +423,6 @@ function CanvasBody() {
     return () => register(null);
   }, [commit, register, schedule]);
 
-  useGraphLook({ data, display, getGraph: graphAccess, hostRef, look, schedule });
-
   useCosmosGraph({
     data,
     events: {
@@ -429,8 +462,22 @@ function CanvasBody() {
     hostRef: canvasRef,
     onFailure: setFailure,
     report,
+    reportProgress,
     sim,
   });
+
+  // After the constructor, for the same reason `useGraphLook` is: the graph the overlays register
+  // against is built by the hook above, and effects run in declaration order. `data` is a dependency
+  // because a new corpus rebuilds the graph, and construction's own `render()` clears the
+  // registration on its way through `setPointPositions`.
+  useEffect(() => {
+    track();
+  }, [data, tracked, hovered, track]);
+
+  // After the constructor, not before it. Effects in one component run in declaration order, so
+  // above this the look's first upload found `graphRef.current` still null and bailed — the picture
+  // only picked up its colours when something else moved (a theme mutation on `<html>`, a slider).
+  useGraphLook({ data, display, getGraph: graphAccess, hostRef, look, schedule });
 
   const gesture = useGraphSelection({
     commit,
@@ -443,8 +490,13 @@ function CanvasBody() {
   const { active, drag, preview } = gesture;
 
   // The same scale the GPU buffers are built from, so the hover card's glyph cannot disagree with
-  // the point it is describing.
-  const scale = useMemo(() => scaleOf(look, data?.categories ?? []), [look, data]);
+  // the point it is describing — including where Other begins, which `buffers` reads off the same
+  // host element.
+  const capacity = useChartCapacity(hostRef);
+  const scale = useMemo(
+    () => scaleOf(look, data?.categories ?? [], capacity),
+    [look, data, capacity],
+  );
 
 
   return (
@@ -473,12 +525,19 @@ function CanvasBody() {
               }}
             />
           </Show>
+          {/* The rim dissolves into the plane. It used to dissolve into `rgba(2,4,10,0.72)`, a
+              hand-written colour, and the measurement says what that cost: at full strength it
+              lands ΔE 2.6–2.9 from `--background` in dark — inside the ramp's own `interchangeable`
+              bound, so in dark it WAS the plane, spelled out by hand — and ΔE 58.2 away in light,
+              where it dropped the slots' contrast against what they sit on from 2.12–6.99 to
+              1.25–4.11 (3.39–5.60 to 1.56–2.57 for a teal tenant). Not an alpha-step case: an alpha
+              step composites back to a ramp *step*, and what a vignette converges to is the page. */}
           <Show when={look.form.vignette}>
             <div
               className="pointer-events-none absolute inset-0"
               style={{
                 background:
-                  "radial-gradient(ellipse 75% 65% at 50% 45%, transparent 30%, rgba(2,4,10,0.72) 100%)",
+                  "radial-gradient(ellipse 75% 65% at 50% 45%, transparent 30%, var(--background) 100%)",
               }}
             />
           </Show>
@@ -495,7 +554,14 @@ function CanvasBody() {
                       // One tone, because there is one plane now. The white variant existed for
                       // Nebula's fixed dark canvas; the halo is the theme's own background, so it
                       // reads on either side of the flip without a look having to say which.
-                      "text-foreground/75 [text-shadow:0_0_3px_var(--background),0_0_6px_var(--background)]",
+                      //
+                      // Solid ink. `/75` was a label drawn in a colour that depends on the node
+                      // behind it: over the eight slots its worst contrast measured 2.15–2.68,
+                      // against 2.63–3.28 for solid `--foreground`. The obvious alternative — the
+                      // solid step the dilution lands on over the page, which is `--muted-foreground`
+                      // at ΔE 1.8 light / 3.8 dark — measures 1.31–1.64 there and was rejected on
+                      // that. Quiet is a job for size and weight, not for thinning the ink.
+                      "text-foreground [text-shadow:0_0_3px_var(--background),0_0_6px_var(--background)]",
                     )}
                     key={index}
                     ref={labelRef(index)}
@@ -508,7 +574,7 @@ function CanvasBody() {
 
             {hovered ? (
               <div
-                className="absolute top-0 left-0 w-max max-w-60 overflow-hidden rounded-lg border bg-popover/95 opacity-0 shadow-lg backdrop-blur-md"
+                className="absolute top-0 left-0 w-max max-w-60 overflow-hidden rounded-lg border bg-popover opacity-0 shadow-lg"
                 ref={cardRef}
               >
                 {/* The glyph is the one the canvas drew for this kind, so the tooltip, the legend
@@ -549,10 +615,11 @@ function CanvasBody() {
                 <svg className="pointer-events-none size-full">
                   {drag?.tool === "rect" ? (
                     <rect
-                      className="fill-primary/10 stroke-primary"
+                      className="stroke-primary"
                       height={Math.abs(drag.to[1] - drag.from[1])}
                       strokeDasharray="4 3"
                       strokeWidth={1}
+                      style={{ fill: SELECTION_WASH }}
                       width={Math.abs(drag.to[0] - drag.from[0])}
                       x={Math.min(drag.from[0], drag.to[0])}
                       y={Math.min(drag.from[1], drag.to[1])}
@@ -561,14 +628,19 @@ function CanvasBody() {
                   {drag?.tool === "lasso" && drag.path.length > 1 ? (
                     <>
                       <polygon
-                        className="fill-primary/10 stroke-primary"
+                        className="stroke-primary"
                         points={drag.path.map(([x, y]) => `${x},${y}`).join(" ")}
                         strokeWidth={1}
+                        style={{ fill: SELECTION_WASH }}
                       />
                       {/* The segment the reader has not drawn yet. Showing it is what makes a
-                          half-finished stroke read as a loop rather than as a line. */}
+                          half-finished stroke read as a loop rather than as a line — and the dashes
+                          are what say "not yet", which is why the stroke is solid. `stroke-primary/50`
+                          measured 1.73:1 against the plane for a teal brand and 1.87:1 for an orange
+                          one, under the 3:1 a line owes; solid clears at 3.00 and 3.72. Same shape as
+                          the `ring-ring/32` failure the theme already removed. */}
                       <line
-                        className="stroke-primary/50"
+                        className="stroke-primary"
                         strokeDasharray="3 4"
                         strokeWidth={1}
                         x1={drag.path[drag.path.length - 1]?.[0]}
@@ -593,7 +665,7 @@ function CanvasBody() {
           </Show>
         </>
       ) : (
-        <CanvasPlaceholder look={look} note="Reading the corpus…" />
+        <CanvasPlaceholder note="Reading the corpus…" />
       )}
     </div>
   );

@@ -11,8 +11,15 @@
 
 export type LookId = "nebula" | "atlas" | "ink";
 
-/** cosmos.gl's `setPointShapes` enum. */
-export const SHAPE = { circle: 0, square: 1, triangle: 2, diamond: 3 } as const;
+/**
+ * cosmos.gl's `setPointShapes` enum — the members this canvas draws.
+ *
+ * The library ships nine: `0` Circle … `4` Pentagon, `5` Hexagon, `6` Star, `7` Cross, `8` None.
+ * `None` is missing here on purpose: the point fragment shader `discard`s a `NONE` point that
+ * carries no image, so "past capacity" spelled as `None` would delete the node from the picture.
+ * A category nobody can name is still a node with edges.
+ */
+export const SHAPE = { circle: 0, square: 1, triangle: 2, diamond: 3, cross: 7 } as const;
 
 export type ShapeId = (typeof SHAPE)[keyof typeof SHAPE];
 
@@ -20,10 +27,22 @@ export type ShapeId = (typeof SHAPE)[keyof typeof SHAPE];
  * The shape scale, in slot order — the sibling of the colour scale.
  *
  * Plot calls this channel `symbol` and gives it its own legend, which is the tell that it is a peer
- * of colour rather than a decoration. Four slots and no cycling: a fifth category cannot wear
- * circle again without claiming to be the first one.
+ * of colour rather than a decoration. Four slots and no cycling: a fifth category cannot wear circle
+ * again without claiming to be the first one. Four, not the eight cosmos.gl could draw, because Ink
+ * puts its size floor at four pixels and a pentagon, a hexagon and a circle are one dot there — a
+ * scale that names more shapes than the mark can carry claims a difference nobody can see, which is
+ * the same mistake `categoricalCapacity` exists to stop colour making.
  */
 export const SHAPE_ORDER: ShapeId[] = [SHAPE.circle, SHAPE.square, SHAPE.triangle, SHAPE.diamond];
+
+/**
+ * What a category past the scale wears — the shape channel's `--muted-foreground`.
+ *
+ * No slot wears it, which is the whole point: it says *not one of the four* rather than repeating
+ * the first one. This is the half that used to be missing, and the comment above was false without
+ * it — `SHAPE_ORDER[4]` is `undefined`, and the fallback was `circle`.
+ */
+export const SHAPE_OTHER: ShapeId = SHAPE.cross;
 
 export interface Look {
   id: LookId;
@@ -137,4 +156,7 @@ export const SHAPE_PATH: Record<ShapeId, string> = {
   [SHAPE.square]: "M2 2h8v8H2Z",
   [SHAPE.triangle]: "M6 1.6 10.6 10H1.4Z",
   [SHAPE.diamond]: "M6 1 11 6l-5 5-5-5Z",
+  // The proportions are cosmos.gl's own `crossDistance`: a plus with arms at 0.8 of the radius and
+  // a bar 0.3 thick, so the legend's glyph is the shape the shader draws.
+  [SHAPE.cross]: "M4.2 1.2h3.6v3h3v3.6h-3v3H4.2v-3h-3V4.2h3Z",
 };

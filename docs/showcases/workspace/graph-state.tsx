@@ -63,11 +63,23 @@ export const DISCOVERY: GraphSpec = {
   yField: "y",
 };
 
+/**
+ * The node kinds, as a chart config — labels and an order, and **no colours**.
+ *
+ * A series without a `color` takes its slot token from `categoricalColor`, which is the one
+ * function that knows where the Other boundary is: past the document's `categorical.capacity` it
+ * hands back the muted role instead of a slot. The four `var(--chart-1..4)` literals that used to
+ * sit here bypassed it — they read the vocabulary directly, so a fifth kind added to this fixture
+ * would have been given `--chart-5` whether or not the tenant's set could tell it apart, and a
+ * reader of the config had no way to know that a slot past capacity is not a category.
+ *
+ * Read the colour with `chartSeriesColor(KINDS, kind)`, never `KINDS[kind].color`.
+ */
 export const KINDS: ChartConfig = {
-  dataset: { label: "Dataset", color: "var(--chart-1)" },
-  distribution: { label: "Distribution", color: "var(--chart-2)" },
-  keyword: { label: "Keyword", color: "var(--chart-3)" },
-  entity: { label: "Entity", color: "var(--chart-4)" },
+  dataset: { label: "Dataset" },
+  distribution: { label: "Distribution" },
+  keyword: { label: "Keyword" },
+  entity: { label: "Entity" },
 };
 
 /**
@@ -203,6 +215,14 @@ interface GraphViewValue {
    */
   motion: Motion;
   setMotion: (value: Motion) => void;
+  /**
+   * How far through settling, `0`–`1`. cosmos.gl's own `graph.progress`, quantised on the way here.
+   *
+   * Only meaningful while `motion` is `running`; it is what makes "Settling" a determinate claim
+   * instead of a spinner that might mean stuck.
+   */
+  progress: number;
+  setProgress: (value: number) => void;
   /** The clicked node, if any — the inspector reads it instead of guessing at the selection. */
   focused: number | null;
   setFocused: (id: number | null) => void;
@@ -241,6 +261,8 @@ const GraphViewContext = createContext<GraphViewValue>({
   resetSim: () => {},
   motion: "settled",
   setMotion: () => {},
+  progress: 0,
+  setProgress: () => {},
   focused: null,
   setFocused: () => {},
   tool: null,
@@ -269,6 +291,7 @@ export function GraphMosaic({ children }: { children: ReactNode }) {
   const [display, setDisplayState] = useState<Display>(DEFAULT_DISPLAY);
   const [sim, setSimState] = useState<Sim>(DEFAULT_SIM);
   const [motion, setMotion] = useState<Motion>("running");
+  const [progress, setProgress] = useState(0);
   const [focused, setFocused] = useState<number | null>(null);
   const [tool, setTool] = useState<Tool>(null);
   const [selection, select] = useState<Selection | null>(null);
@@ -328,6 +351,8 @@ export function GraphMosaic({ children }: { children: ReactNode }) {
       resetSim,
       motion,
       setMotion,
+      progress,
+      setProgress,
       focused,
       setFocused,
       tool,
@@ -348,6 +373,7 @@ export function GraphMosaic({ children }: { children: ReactNode }) {
       setSim,
       resetSim,
       motion,
+      progress,
       focused,
       tool,
       selection,

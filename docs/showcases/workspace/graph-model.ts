@@ -3,9 +3,9 @@ import type { GraphConfigInterface } from "@cosmos.gl/graph";
 import type { Coordinator } from "@kanzo-tech/ui/analytics";
 import { numbers } from "@/lib/arrow";
 import { onceQuery } from "@/lib/once-query";
-import { categoricalColor } from "@kanzo-tech/ui/analytics";
+import { CHART_SLOTS, categoricalCapacity, categoricalColor } from "@kanzo-tech/ui/analytics";
 import { resolveToken, toHex, type Rgba } from "@/lib/css-color";
-import { SHAPE, SHAPE_ORDER, type Look, type ShapeId } from "./graph-looks";
+import { SHAPE, SHAPE_ORDER, SHAPE_OTHER, type Look, type ShapeId } from "./graph-looks";
 import type { Display, Sim } from "./graph-state";
 
 /**
@@ -194,17 +194,26 @@ export async function load(coordinator: Coordinator, spec: GraphSpec): Promise<L
  *
  * `categories` is the data's own first-seen order, so the domain comes from the relation rather
  * than from anything the look declares — point the canvas at another corpus and it still colours.
+ *
+ * `capacity` is where Other begins, and it is the document's number rather than the token
+ * vocabulary's: a set derived from a client's brand names 6 to 8 real categories, not always 8.
+ * The colour past it would come out muted anyway — `compile()` writes `var(--muted-foreground)`
+ * into those slots — but the graph has to *count* the same way, or a legend claims eight kinds it
+ * cannot tell apart.
  */
-export function scaleOf(look: Look, categories: string[]) {
+export function scaleOf(look: Look, categories: string[], capacity = CHART_SLOTS) {
   const mono = look.encode.identity === "shape";
   return {
     color: (category: string): string => {
       if (mono) return "var(--foreground)";
       const index = categories.indexOf(category);
-      return index < 0 ? "var(--muted-foreground)" : categoricalColor(index);
+      return index < 0 ? "var(--muted-foreground)" : categoricalColor(index, undefined, capacity);
     },
+    // `indexOf` answers `-1` for a category the data does not contain and the order runs out at four,
+    // so both the unknown and the fifth land on `SHAPE_OTHER` — which is what makes the scale's claim
+    // true. It used to fall back to `circle`, handing category 5 the glyph category 0 already wore.
     shape: (category: string): ShapeId =>
-      mono ? (SHAPE_ORDER[categories.indexOf(category)] ?? SHAPE.circle) : SHAPE.circle,
+      mono ? (SHAPE_ORDER[categories.indexOf(category)] ?? SHAPE_OTHER) : SHAPE.circle,
   };
 }
 
@@ -216,23 +225,28 @@ export interface Buffers {
 }
 
 /**
- * Every visual attribute the GPU needs, recomputed from a look and the live theme.
+ * Every per-node and per-link attribute the GPU needs, recomputed from a look and the live theme.
  *
  * `host` is the element the tokens are read against, which is what makes `var(--primary)` a legal
  * value in a look: the browser resolves it for the tree the canvas actually sits in, so the same
  * look answers differently in light and in dark.
+ *
+ * `display` is deliberately not an argument. Everything the reader's sliders control is a *global
+ * scalar*, and a global scalar belongs in a uniform — see `appearance` — not multiplied into 582
+ * sizes and 1,092 RGBA quads that then have to be re-uploaded.
  */
-export function buffers(data: Loaded, look: Look, host: Element, display: Display): Buffers {
+export function buffers(data: Loaded, look: Look, host: Element): Buffers {
   /**
    * Category → slot, in first-seen order, straight from the theme's categorical scale.
    *
    * The look no longer answers this. `categoricalColor(i)` is the same function a chart legend and
    * a table chip would call, so the same category is the same colour wherever it appears, and
    * choosing a different scheme in Preferences re-colours the canvas along with everything else.
-   * Past the last slot it hands back the muted token rather than cycling — a ninth category
-   * wearing slot 1 would claim to be the first one.
+   * Past `capacity` it hands back the muted token rather than cycling — a ninth category wearing
+   * slot 1 would claim to be the first one, and a seventh wearing slot 7 on a set that names six
+   * would claim a difference nobody can see.
    */
-  const scale = scaleOf(look, data.categories);
+  const scale = scaleOf(look, data.categories, categoricalCapacity(host));
   const rgba = new Map<string, Rgba>();
   for (const name of data.categories) rgba.set(name, resolveToken(host, scale.color(name)));
   const fallback = resolveToken(host, "var(--muted-foreground)");
@@ -253,21 +267,25 @@ export function buffers(data: Loaded, look: Look, host: Element, display: Displa
     // kind of adjustment a validated palette cannot survive: every slot was measured for lightness
     // band, chroma floor and separation, and nudging one on the way to the GPU voids all three.
     colors.set(rgba.get(row.category) ?? fallback, i * 4);
-    sizes[i] = (look.form.size[0] + t * (look.form.size[1] - look.form.size[0])) * display.pointScale;
+    sizes[i] = look.form.size[0] + t * (look.form.size[1] - look.form.size[0]);
     shapes[i] = scale.shape(row.category);
   }
 
   const count = data.links.length / 2;
   const linkColors = new Float32Array(count * 4);
-  const uniform =
+  const neutral =
     look.encode.links === "source" ? null : resolveToken(host, "var(--muted-foreground)");
-  const alpha = look.form.link.opacity * display.linkOpacity;
   for (let e = 0; e < count; e++) {
     const src = data.links[e * 2] ?? 0;
-    const r = uniform ? uniform[0] : (colors[src * 4] ?? 0.7);
-    const g = uniform ? uniform[1] : (colors[src * 4 + 1] ?? 0.7);
-    const b = uniform ? uniform[2] : (colors[src * 4 + 2] ?? 0.7);
-    linkColors.set([r, g, b, alpha], e * 4);
+    const r = neutral ? neutral[0] : (colors[src * 4] ?? 0.7);
+    const g = neutral ? neutral[1] : (colors[src * 4 + 1] ?? 0.7);
+    const b = neutral ? neutral[2] : (colors[src * 4 + 2] ?? 0.7);
+    // Alpha is 1, and it is *reserved* — for a datum that genuinely differs per link: edge weight,
+    // confidence, recency. It used to carry `look.opacity × display.linkOpacity`, which is the same
+    // number on all 1,092 of them, and paying for that cost a 17,472-byte re-upload of this array
+    // on every tick of the Edge opacity slider. That product is a uniform now (`appearance`), and
+    // the shader multiplies the two: `color.a * linkOpacity * …`. Do not spend this channel again.
+    linkColors.set([r, g, b, 1], e * 4);
   }
 
   return { colors, sizes, shapes, linkColors };
@@ -285,6 +303,14 @@ export function forces(sim: Sim): GraphConfigInterface {
   };
 }
 
+/**
+ * Everything the picture needs that is *one number for the whole canvas* — cosmos.gl's uniforms.
+ *
+ * That is the line between this and `buffers`, and it is the renderer's own: a uniform is read
+ * fresh from the config on every draw, so changing one rebuilds no array and uploads nothing. Both
+ * of the reader's Display sliders live here for exactly that reason, and the shaders fold them into
+ * the same products the buffers used to carry — `color.a * linkOpacity`, `size * sizeScale`.
+ */
 export function appearance(look: Look, host: Element, display: Display): GraphConfigInterface {
   return {
     // Always the theme's surface. Nebula used to pin a near-black of its own, which made it the one
@@ -294,7 +320,11 @@ export function appearance(look: Look, host: Element, display: Display): GraphCo
     // Points hold their screen size in every look. This was a field until all three settled on the
     // same value, at which point it was a field with one possible answer.
     scalePointsOnZoom: false,
+    /** Node size. Multiplies the radius ramp `buffers` wrote, and the hit test scales with it. */
+    pointSizeScale: display.pointScale,
     renderLinks: display.links,
+    /** Edge opacity, the look's own and the reader's. Multiplies each link's buffer alpha. */
+    linkOpacity: look.form.link.opacity * display.linkOpacity,
     linkDefaultWidth: look.form.link.width,
     curvedLinks: look.form.link.curve > 0,
     curvedLinkControlPointDistance: look.form.link.curve,
@@ -303,6 +333,10 @@ export function appearance(look: Look, host: Element, display: Display): GraphCo
     renderHoveredPointRing: true,
     hoveredPointRingColor: toHex(resolveToken(host, "var(--primary)")),
     focusedPointRingColor: toHex(resolveToken(host, "var(--primary)")),
+    // The two greyouts are not the same kind of number, whatever the names suggest. A greyed link
+    // multiplies (`opacity *= greyoutOpacity`), so it stays under the slider; a greyed point takes
+    // this *instead of* `pointOpacity` — the point shader is an if/else. So a global point opacity,
+    // if this canvas ever grows one, would not reach a dimmed node, and its floor would be 0.1 flat.
     pointGreyoutOpacity: 0.1,
     linkGreyoutOpacity: 0.025,
   };

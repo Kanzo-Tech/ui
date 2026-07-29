@@ -56,7 +56,14 @@ import {
   useListCollection,
   type Suggestion,
 } from "@kanzo-tech/ui";
-import { Query, count, useChartQuery, useMosaic } from "@kanzo-tech/ui/analytics";
+import {
+  Query,
+  chartSeriesColor,
+  count,
+  useChartCapacity,
+  useChartQuery,
+  useMosaic,
+} from "@kanzo-tech/ui/analytics";
 import {
   CrosshairIcon,
   MaximizeIcon,
@@ -130,7 +137,8 @@ const LEGEND_DOMAIN = Object.keys(KINDS);
 
 function LegendSwatch({ kind }: { kind: string }) {
   const { look } = useGraphView();
-  const scale = scaleOf(LOOKS[look], LEGEND_DOMAIN);
+  const capacity = useChartCapacity();
+  const scale = scaleOf(LOOKS[look], LEGEND_DOMAIN, capacity);
   return (
     <ShapeGlyph
       color={scale.color(kind)}
@@ -163,8 +171,11 @@ function LegendRows() {
 
 export function GraphLegend() {
   const { ready } = useGraphView();
+  // Solid, like the rest of the canvas chrome: `bg-card/80` measured a ΔE 12.6–14.0 spread across
+  // the plane and the eight slots, so the legend's own surface changed colour with whatever the
+  // layout parked behind it.
   return (
-    <div className="absolute bottom-2 start-2 z-10 rounded-md border bg-card/80 px-2.5 py-1.5 backdrop-blur-sm">
+    <div className="absolute bottom-2 start-2 z-10 rounded-md border bg-card px-2.5 py-1.5">
       {ready ? (
         <LegendRows />
       ) : (
@@ -221,7 +232,7 @@ const MOTION: Record<Motion, { dot: "info" | "success" | "warning"; label: strin
 };
 
 export function MotionBadge({ className }: { className?: string }) {
-  const { motion, ready } = useGraphView();
+  const { motion, progress, ready } = useGraphView();
   if (!ready) return null;
   const state = MOTION[motion];
   return (
@@ -232,6 +243,13 @@ export function MotionBadge({ className }: { className?: string }) {
         variant={state.dot}
       />
       {state.label}
+      {/* Determinate, because cosmos.gl already computes it: `graph.progress` is
+          `√(ALPHA_MIN / alpha)`, so this is the layout's own account of how far it has cooled and
+          not a guess from elapsed time. Only while running — a settled or paused graph is at a
+          state, not a fraction. */}
+      <Show when={motion === "running"}>
+        <span className="tabular-nums">{Math.round(progress * 100)}%</span>
+      </Show>
     </Badge>
   );
 }
@@ -364,13 +382,15 @@ function InspectorBody() {
             {rest.map((node) => (
               <li key={node.id}>
                 <button
-                  className="flex w-full items-center gap-2 rounded-sm px-1 py-0.5 text-start text-xs hover:bg-accent/60"
+                  // `hover:bg-accent/60` composited to `--secondary` exactly (ΔE 0.00, both
+                  // modes): the row hover was the hover surface written as a coincidence.
+                  className="flex w-full items-center gap-2 rounded-sm px-1 py-0.5 text-start text-xs hover:bg-accent"
                   onClick={() => commands.reveal(node.id)}
                   type="button"
                 >
                   <Swatch
                     className="size-1.5"
-                    color={KINDS[node.kind]?.color ?? "transparent"}
+                    color={chartSeriesColor(KINDS, node.kind) ?? "transparent"}
                     shape="round"
                   />
                   <span className="truncate">{node.label}</span>
@@ -621,7 +641,11 @@ function RuleBuilder({
           as five unlabelled dropdowns. The connectives carry the labelling, which is why the
           controls only need `aria-label`: in a 320px dock a label column would leave nothing for
           the values. */}
-      <div className="space-y-1.5 rounded-md border bg-muted/24 p-2">
+      {/* `bg-muted/24` and the source view's `bg-muted/40` composited to ΔE 0.30 (light) / 0.46
+          (dark) of *each other* and within ΔE 1.4 of the card — two numbers for one colour, and
+          that colour was the surface underneath. Solid `--muted` is step 3, a component's normal
+          surface, and clears the card by ΔE 3.30 / 3.22. */}
+      <div className="space-y-1.5 rounded-md border bg-muted p-2">
         <RulePart collection={TARGETS_LIST} label="Every" onChange={setTarget} value={target} />
         <RulePart collection={PATHS_LIST} label="must have" onChange={setPath} value={path} />
         <RulePart
@@ -867,13 +891,16 @@ function RulesBody() {
         </div>
 
         <Show when={showSource}>
-          <pre className="max-h-48 overflow-auto rounded-md border bg-muted/40 p-2 font-mono text-[10px] leading-relaxed">
+          <pre className="max-h-48 overflow-auto rounded-md border bg-muted p-2 font-mono text-[10px] leading-relaxed">
             {turtle}
           </pre>
         </Show>
 
         {errors.length > 0 ? (
-          <div className="space-y-1 rounded-md border border-destructive/40 p-2">
+          // A status border at 40% is a status turned down: 2.09:1 against the card in light and
+          // 1.46:1 in dark, under the 3:1 a border that identifies an error owes — and in dark
+          // fainter than the plain decorative `--border` (1.58:1). Solid: 4.57 / 4.07.
+          <div className="space-y-1 rounded-md border border-destructive p-2">
             {errors.map((message) => (
               <p className="text-destructive text-xs" key={message}>
                 {message}
@@ -912,7 +939,11 @@ function RulesBody() {
                     <span
                       className={cn(
                         "size-1.5 shrink-0 rounded-full",
-                        pending && "bg-muted-foreground/40",
+                        // The dot's siblings are `bg-success` and the severity fills, so it
+                        // identifies state and owes 3:1. At 40% it landed on neutral step 7 —
+                        // the border band — for 2.03:1 in light and 2.26:1 in dark. Solid
+                        // `--muted-foreground` is step 11: 9.19 / 8.37.
+                        pending && "bg-muted-foreground",
                         !pending && (clean ? "bg-success" : SEVERITY_DOT[shape.severity]),
                       )}
                     />
@@ -1090,8 +1121,10 @@ export function GraphSettings() {
             <button
               aria-pressed={look === id}
               className={cn(
-                "w-full rounded-md border p-2 text-start transition-colors hover:bg-accent/50",
-                look === id && "border-primary/50 bg-accent/60",
+                "w-full rounded-md border p-2 text-start transition-colors",
+                // Same card-shaped toggle as `Finding`, so the same measured trio: the card,
+                // `--secondary` on hover, `--accent` + a solid `border-primary` when chosen.
+                look === id ? "border-primary bg-accent" : "hover:bg-secondary",
               )}
               key={id}
               onClick={() => setLook(id)}

@@ -43,6 +43,15 @@ export interface GraphOverlays {
   /** The labelled indices, in the order the declutter pass should place them. */
   setLabelOrder: (indices: number[]) => void;
   setHovered: (index: number | null) => void;
+  /**
+   * Re-register the tracked points with cosmos.gl.
+   *
+   * Call it after the graph exists and whenever the set of overlaid nodes changes. It has to be
+   * driven from outside because effects run in declaration order, so this hook's own effects cannot
+   * see a graph that a later hook is about to construct — and that construction is exactly what
+   * clears the registration.
+   */
+  track: () => void;
   /** Ask for a repaint. Coalesced — many calls in a frame cost one. */
   schedule: () => void;
 }
@@ -58,40 +67,56 @@ export function useGraphOverlays(getGraph: () => Graph | null): GraphOverlays {
   const hoveredRef = useRef<number | null>(null);
   /** The card's box, measured once per hover, for the same reason. */
   const cardSize = useRef<{ width: number; height: number } | null>(null);
+  /** The canvas' own box, kept by a `ResizeObserver` — see the effect below. */
+  const box = useRef<{ width: number; height: number } | null>(null);
   const frame = useRef(0);
+
+  /**
+   * Tell cosmos.gl which points the overlays are watching: the labelled ones, plus the hovered one.
+   *
+   * Registration is *not* self-maintaining. `Points.updatePositions()` ends in an argument-less
+   * `trackPointsByIndices()` that clears it, and that runs whenever `isPointPositionsUpdateNeeded`
+   * is set — which only `setPointPositions` does. So the registration survives every look change and
+   * every slider, and is lost exactly once per graph: at construction, on the `render()` that
+   * follows `setPointPositions`. Hence a caller-driven re-register rather than a one-shot.
+   */
+  const track = useCallback(() => {
+    const graph = getGraph();
+    if (!graph) return;
+    const hovered = hoveredRef.current;
+    const indices =
+      hovered === null || order.current.includes(hovered)
+        ? order.current
+        : [...order.current, hovered];
+    graph.trackPointPositionsByIndices(indices);
+  }, [getGraph]);
 
   const paint = useCallback(() => {
     const graph = getGraph();
     if (!graph) return;
     /**
-     * Positions come from `getPointPositions()`, not from cosmos.gl's tracking API.
+     * Positions come from the tracking API, not from `getPointPositions()`.
      *
-     * Tracking looked like the right tool — register the handful of indices you care about, read
-     * back a small texture — but it keeps hidden state that the library itself destroys: rebuilding
-     * the point buffers ends in an internal `trackPointsByIndices()` with no argument, which clears
-     * the registration outright. Every `setPointColors` / `setPointSizes` silently unsubscribed us,
-     * so labels froze the first time anyone touched a look or a slider.
-     *
-     * This reads the whole position framebuffer instead. One `readPixels` of a 25×25 texture at
-     * this corpus size, no registration to lose, and nothing to keep in sync. It reads *every*
-     * point rather than the labelled few, which is the trade — fine here, and the thing to revisit
-     * long before this canvas reaches a hundred thousand nodes.
+     * The difference is what gets read back per frame. `getPointPositions()` is a synchronous
+     * `readPixels` of the *whole* position framebuffer — 10,000 bytes at this corpus size, plus an
+     * O(n) array build — on every animation frame the simulation runs. Tracking reads a
+     * `ceil(√k)²` texture for the k points that actually carry an overlay: 576 bytes for Atlas'
+     * 26 labels and a hovered node. It also caches while the simulation is stopped, so a settled
+     * graph costs no readback at all until something moves.
      */
     // Read lazily: with labels off and nothing hovered, the only overlay left is the grid, which
     // needs the transform and not the points.
-    let positions: number[] | null = null;
+    let positions: ReadonlyMap<number, [number, number]> | null = null;
     const at = (index: number): [number, number] | null => {
-      positions ??= graph.getPointPositions();
-      const x = positions[index * 2];
-      const y = positions[index * 2 + 1];
-      return x === undefined || y === undefined ? null : [x, y];
+      positions ??= graph.getTrackedPointPositionsMap();
+      return positions.get(index) ?? null;
     };
 
     // Placed boxes, in importance order. A label that would land on one already down is dropped
     // rather than drawn over it — an unreadable pile of overlapping names is worse than a sparser
     // set of legible ones.
     const placed: [number, number, number, number][] = [];
-    const box = hostRef.current?.getBoundingClientRect();
+    const bounds = box.current;
     for (const index of order.current) {
       const element = labelEls.current.get(index);
       if (!element) continue;
@@ -111,7 +136,7 @@ export function useGraphOverlays(getGraph: () => Graph | null): GraphOverlays {
       const y2 = y - LABEL_LIFT;
       const y1 = y2 - LABEL_HEIGHT;
       const offscreen =
-        box !== undefined && (x2 < 0 || y2 < 0 || x1 > box.width || y1 > box.height);
+        bounds !== null && (x2 < 0 || y2 < 0 || x1 > bounds.width || y1 > bounds.height);
       const collides = placed.some((r) => x1 < r[2] && x2 > r[0] && y1 < r[3] && y2 > r[1]);
       if (offscreen || collides) {
         element.style.opacity = "0";
@@ -145,7 +170,7 @@ export function useGraphOverlays(getGraph: () => Graph | null): GraphOverlays {
     // about an edge — and since this layer clips, a node near a border showed half a tooltip.
     const card = cardRef.current;
     const hoveredIndex = hoveredRef.current;
-    if (card && hoveredIndex !== null && box) {
+    if (card && hoveredIndex !== null && bounds) {
       const point = at(hoveredIndex);
       if (point) {
         const [x, y] = graph.spaceToScreenPosition(point);
@@ -158,12 +183,26 @@ export function useGraphOverlays(getGraph: () => Graph | null): GraphOverlays {
         const below = y + CARD_GAP;
         const top = above >= CARD_EDGE ? above : below;
         card.style.transform = `translate(${Math.round(
-          clamp(x - size.width / 2, CARD_EDGE, box.width - size.width - CARD_EDGE),
-        )}px, ${Math.round(clamp(top, CARD_EDGE, box.height - size.height - CARD_EDGE))}px)`;
+          clamp(x - size.width / 2, CARD_EDGE, bounds.width - size.width - CARD_EDGE),
+        )}px, ${Math.round(clamp(top, CARD_EDGE, bounds.height - size.height - CARD_EDGE))}px)`;
         card.style.opacity = "1";
       }
     }
   }, [getGraph]);
+
+  // The canvas' box, measured when it changes rather than when it is read. `getBoundingClientRect()`
+  // inside `paint` was one forced layout per animation frame, in a painter that caches `offsetWidth`
+  // for exactly that reason.
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const observer = new ResizeObserver(([entry]) => {
+      const size = entry?.contentRect;
+      if (size) box.current = { width: size.width, height: size.height };
+    });
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, []);
 
   const schedule = useCallback(() => {
     if (frame.current) return;
@@ -203,5 +242,5 @@ export function useGraphOverlays(getGraph: () => Graph | null): GraphOverlays {
     cardSize.current = null;
   }, []);
 
-  return { hostRef, gridRef, cardRef, labelRef, setLabelOrder, setHovered, schedule };
+  return { hostRef, gridRef, cardRef, labelRef, setLabelOrder, setHovered, track, schedule };
 }

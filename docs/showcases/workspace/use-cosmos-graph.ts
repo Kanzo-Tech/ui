@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { Graph } from "@cosmos.gl/graph";
 import { forces, SPACE, type Loaded } from "./graph-model";
 import type { Motion, Sim } from "./graph-state";
@@ -50,6 +50,15 @@ export interface CosmosGraphOptions {
   sim: Sim;
   /** Where to report what the layout is doing. */
   report: (motion: Motion) => void;
+  /**
+   * How far through settling the layout is, `0`–`1`.
+   *
+   * cosmos.gl computes it every tick as `√(ALPHA_MIN / alpha)` and exposes it as `graph.progress`,
+   * so a determinate badge costs nothing to compute — only to deliver. Quantised before it is
+   * reported, because this is React state read through context and a write per animation frame
+   * would re-render every consumer 60 times a second to move a number by half a percent.
+   */
+  reportProgress: (value: number) => void;
   onFailure: (message: string) => void;
   /** Callbacks handed to cosmos.gl once, at construction. */
   events: {
@@ -63,7 +72,7 @@ export interface CosmosGraphOptions {
 }
 
 export function useCosmosGraph(options: CosmosGraphOptions): void {
-  const { data, events, graphRef, hostRef, onFailure, report, sim } = options;
+  const { data, events, graphRef, hostRef, onFailure, report, reportProgress, sim } = options;
 
   /**
    * The coefficients the graph is currently running with.
@@ -88,6 +97,18 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
    */
   const framed = useRef(false);
 
+  /** The last bucket handed on, so a tick that has not moved the badge costs nothing. */
+  const reported = useRef(-1);
+  const progress = useCallback(
+    (value: number) => {
+      const bucket = Math.round(value * PROGRESS_STEPS);
+      if (bucket === reported.current) return;
+      reported.current = bucket;
+      reportProgress(bucket / PROGRESS_STEPS);
+    },
+    [reportProgress],
+  );
+
   useEffect(() => {
     const host = hostRef.current;
     if (!data || !host) return;
@@ -97,13 +118,14 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
       return;
     }
     /**
-     * Put the camera where the layout ended up — once, whoever gets here first.
+     * Put the camera where the layout ended up — once, whoever gets here first, and in practice
+     * that is always `FRAME_BY`.
      *
-     * `onSimulationEnd` is the right moment and an unreliable one. Measured on this corpus: 582
-     * nodes and 1,092 edges, and the badge is still reading "Settling" a minute in, so a refit hung
-     * only on that event simply never runs and the reader is left with the one-second framing of a
-     * layout that has since contracted. The timer below is a floor, not the plan — `framed` keeps
-     * it once-only either way, so whichever arrives first wins and the other is a no-op.
+     * `onSimulationEnd` fires when alpha crosses `1e-3`, which `simulationDecay` puts at 1,600
+     * frames — ≈ 26.7 s at 60 fps, longer on a throttled tab, and pushed further out by every
+     * re-heat a slider causes. `FRAME_BY` is 6 s. So the settle is not the plan and the timer is
+     * not a floor under it: the timer frames the view, and the settle branch is the case that only
+     * runs if a future decay makes it beat 6 s. `framed` keeps it once-only either way.
      */
     const frameOnce = () => {
       if (framed.current) return;
@@ -117,9 +139,33 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
         spaceSize: SPACE,
         enableSimulation: true,
         ...forces(applied.current),
-        // The default decay (5000) cools so slowly that the layout never reports itself settled
-        // inside a sitting. This converges in a handful of seconds and still looks alive.
+        /**
+         * Ticks to convergence — not milliseconds, and not "a handful of seconds".
+         *
+         * `store.alphaDecay` is `α ⇒ 1 − 0.001^(1/α)` and one tick is one rendered frame
+         * (`runSimulationStep` is called from `renderFrame`), so alpha reaches the `1e-3` floor
+         * after exactly `simulationDecay` frames: **1,600 ≈ 26.7 s at 60 fps**. The default of
+         * 5,000 is ≈ 83 s, which is why the badge never reached Settled inside a sitting; this is
+         * a third of that, and still long enough that `FRAME_BY` below is what frames the view.
+         */
         simulationDecay: 1600,
+        /**
+         * Same seed, same picture. Our positions are already deterministic — `mulberry32` seeds
+         * them in `lib/force-layout` — but cosmos.gl's own randomness is not: the per-link distance
+         * variation and the ±1e-5 jitter the force programs sow read `store.random`, which is
+         * unseeded unless this is set. Without it the layout differs run to run from identical
+         * input. Init-only; `setConfig` cannot change it.
+         */
+        randomSeed: "kanzo-discovery",
+        /**
+         * The device's, not cosmos.gl's literal `2`.
+         *
+         * It sizes the drawing buffer (`canvas.width = width * pixelRatio`) and divides the
+         * hardware point-size limit into `maxPointSize`. Left at the default, a 1× display
+         * supersamples 4× for nothing and a 3× display draws a canvas softer than the page it
+         * sits in.
+         */
+        pixelRatio: window.devicePixelRatio || 1,
         enableDrag: true,
         fitViewOnInit: true,
         fitViewDelay: 900,
@@ -129,12 +175,17 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
         onSimulationStart: () => report("running"),
         onSimulationEnd: () => {
           report("settled");
+          progress(1);
           frameOnce();
           live.current.onTick();
         },
         onSimulationPause: () => report("paused"),
         onSimulationUnpause: () => report("running"),
-        onSimulationTick: () => live.current.onTick(),
+        onSimulationTick: () => {
+          const instance = graphRef.current;
+          if (instance) progress(instance.progress);
+          live.current.onTick();
+        },
         onZoom: () => live.current.onZoom(),
         onPointMouseOver: (index) => live.current.onPointerOver(index),
         onPointMouseOut: () => live.current.onPointerOut(),
@@ -162,7 +213,7 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
       graph.destroy();
       graphRef.current = null;
     };
-  }, [data, graphRef, hostRef, onFailure, report]);
+  }, [data, graphRef, hostRef, onFailure, progress, report]);
 
   // A change in the forces re-heats: the point of a live layout is that you can feel the parameter.
   // Equality on mount is what keeps a re-run for `data` from disturbing a settled graph.
@@ -179,17 +230,27 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
  * The energy a wake puts back into a converged layout — enough to reorganise around a changed
  * force, not so much that the picture you were reading is thrown away. A full `start(1)` is what
  * Re-run is for.
+ *
+ * Exported because the canvas' Resume command needs the same number: this was defined twice, with
+ * the same doc comment, in two files that had to agree.
  */
-const REHEAT = 0.35;
+export const REHEAT = 0.35;
 
 /** The settle fit: long enough to read as the camera moving, and the same air the init fit leaves. */
 const FIT_DURATION = 450;
 const FIT_PADDING = 0.18;
 
 /**
- * When the camera stops waiting for a settle that may not come.
+ * When the camera frames the view — 6 s after the graph is built.
  *
  * Late enough that the layout has done its spreading and contracting, early enough that nobody has
- * started reading the wrong framing — and, being once-only, harmless when the settle beats it.
+ * started reading the wrong framing. It is the one that fires: a settle is 1,600 frames away, so
+ * `onSimulationEnd` racing it is theoretical rather than a floor being backed up.
  */
 const FRAME_BY = 6000;
+
+/**
+ * How finely settling progress is reported: twentieths, so a 26-second settle costs 20 renders
+ * of everything reading the graph's context rather than 1,600.
+ */
+const PROGRESS_STEPS = 20;
