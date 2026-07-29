@@ -232,8 +232,12 @@ function PreferencesFooter() {
   // The defaults, spread — not a hand-copy of them. The hand-copy this replaced listed axes by
   // name and had silently stopped covering the panel more than once.
   const reset = () => set({ ...DEFAULT_PREFS });
+  // No fill on the bar. The panel is `bg-popover`, and in dark `--popover` and `--muted` are the
+  // same value, so a 48% muted wash composited to ΔE ~0 — the background contributed nothing and
+  // the `border-t` was doing all the work. Same defect as the command, popover and dialog footers;
+  // this one survived that sweep by living in `composites/`.
   return (
-    <div className="flex items-center gap-2 border-t border-border bg-muted/48 px-4 py-3">
+    <div className="flex items-center gap-2 border-t border-border px-4 py-3">
       <Button type="button" variant="ghost" size="sm" onClick={reset}>
         Reset
       </Button>
