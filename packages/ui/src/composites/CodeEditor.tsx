@@ -257,12 +257,12 @@ const baseTheme = EditorView.theme({
   // Search hits: the current one is the primary-tinted anchor, the rest are quieter so
   // "where am I" stays readable at a glance.
   ".cm-searchMatch": {
-    backgroundColor: "var(--kanzo-editor-search-match)",
+    backgroundColor: "var(--match)",
     outline: "1px solid var(--border)",
     borderRadius: "2px",
   },
   ".cm-searchMatch.cm-searchMatch-selected": {
-    backgroundColor: "var(--kanzo-editor-search-active)",
+    backgroundColor: "var(--match-active)",
     outline: "1px solid var(--warning)",
   },
 
@@ -318,7 +318,7 @@ const baseTheme = EditorView.theme({
   },
   ".cm-matchingBracket, &.cm-focused .cm-matchingBracket": { backgroundColor: "var(--selection)", outline: "1px solid var(--primary)" },
   ".cm-nonmatchingBracket": { backgroundColor: "var(--destructive-wash-strong)" },
-  ".cm-selectionMatch": { backgroundColor: "var(--kanzo-editor-search-match)" },
+  ".cm-selectionMatch": { backgroundColor: "var(--match)" },
   ".cm-foldGutter .cm-gutterElement": { cursor: "pointer", color: "var(--faint)" },
   ".cm-foldPlaceholder": { background: "var(--muted)", border: "1px solid var(--border)", color: "var(--muted-foreground)", borderRadius: "var(--radius-sm)", padding: "0 4px" },
 });

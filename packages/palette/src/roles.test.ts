@@ -378,17 +378,48 @@ describe("the bindings that are measured rather than written", () => {
     }
   });
 
-  it("solves `--field` as a transparency rather than guessing at one", () => {
-    // The 23 `bg-input/NN` sites, replaced by the thing they were approximating. An alpha step is
-    // solved to composite onto its solid over step 1; `bg-x/60` dilutes the *solid*, so what it
-    // lands on depends on what is underneath and only agrees with the ramp over a white page.
+  it("recedes `--field` from every surface it can sit in, rather than tinting it", () => {
+    // The 23 `bg-input/NN` sites, replaced by the thing they were approximating — but a field is a
+    // *well*, and which value cuts one is a measurement, not a step. In light an alpha step recedes
+    // (it is solved to composite onto its solid over step 1, where `bg-x/60` dilutes the *solid* and
+    // lands wherever the backdrop puts it); in dark every alpha step composites LIGHTER than its
+    // ground, so `a3` raised the field and took `--faint` below AA. See `recessFill`.
     for (const mode of MODES) {
       const values = valuesOf(mode);
-      expect(values["--field"], mode).toMatch(/^#[0-9a-f]{8}$/);
-      expect(
-        deltaE(over(values["--field"] as string, values["--background"] as string), values["--muted"] as string),
-        `${mode} --field does not composite to --muted`,
-      ).toBeLessThanOrEqual(1.5);
+      const field = values["--field"] as string;
+      const page = values["--background"] as string;
+
+      // Never lighter than the page — the whole obligation, stated as the direction it is about.
+      expect(oklch(over(field, page)).l, `${mode} --field does not recede from the page`)
+        .toBeLessThanOrEqual(oklch(page).l);
+
+      // Where a transparency still recedes it is kept, and it is still the a3 solved onto `--muted`.
+      if (field.length === 9) {
+        expect(
+          deltaE(over(field, page), values["--muted"] as string),
+          `${mode} --field does not composite to --muted`,
+        ).toBeLessThanOrEqual(1.5);
+      } else {
+        expect(field, `${mode} --field is neither a transparency nor the page`).toBe(page);
+      }
+    }
+  });
+
+  it("keeps `--faint` at AA on a field, on every surface a field can sit in", () => {
+    // The measurement that moved `--field`. `--faint` is placeholder and gutter ink, so a field is
+    // the one backdrop it MUST clear — and before this it read 4.49 on the page, 4.37 on a card and
+    // 4.13 in a popover. The popover row is the one that proves it was not the fill's fault: with
+    // the fill removed entirely (a1, byte 0) it was still 4.41, because a dark popover is step 3.
+    for (const mode of MODES) {
+      const values = valuesOf(mode);
+      const field = values["--field"] as string;
+      for (const surface of ["--background", "--card", "--popover", "--sidebar"] as const) {
+        const under = values[surface] as string;
+        expect(
+          contrast(values["--faint"] as string, over(field, under)),
+          `${mode} --faint on a field over ${surface}`,
+        ).toBeGreaterThanOrEqual(TEXT_MIN);
+      }
     }
   });
 });

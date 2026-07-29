@@ -96,8 +96,9 @@ on specificity.
 - Focus rings are `outline-none focus-visible:ring-[3px] focus-visible:ring-ring` — solid, never
   `ring-ring/NN`. A diluted ring measured 1.29:1 on the page, and WCAG 1.4.11 names a focus
   indicator first. `bg-field`, the control fill that `border-input` used to double as, is the
-  related case: it is an alpha step and so never takes a `/NN` either — an opacity dilutes a solid
-  toward transparent and lands wherever the thing underneath puts it.
+  related case: it is a recess — an alpha step where one recedes, the page itself where none does —
+  and so never takes a `/NN` either — an opacity dilutes a solid toward transparent and lands
+  wherever the thing underneath puts it.
 - Exactly one `<main>` per page — `ShellMain` / `SidebarInset` own it. Nestable containers use
   `<section>`.
 - Files are kebab-case.

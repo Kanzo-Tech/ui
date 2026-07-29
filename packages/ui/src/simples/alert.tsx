@@ -19,7 +19,10 @@ const alertVariants = tv({
   variants: {
     variant: {
       default: [
-        "bg-field",
+        // A quiet surface on an unknown backdrop, which is what a wash is for. It was
+        // `bg-field`, and a field now recedes to the page — correct for a control identified by
+        // `border-input`, wrong for a panel whose whole job is to sit visibly on top of one.
+        "bg-secondary-wash",
         "[&_svg]:text-muted-foreground",
         "[&_[data-slot=alert-action]_[data-variant=ghost]]:hover:bg-muted",
       ],

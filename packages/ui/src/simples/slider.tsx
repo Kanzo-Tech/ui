@@ -111,7 +111,11 @@ export const Slider = (props: SliderProps) => {
         <ArkSlider.Track
           className={cn(
             "grow",
-            "bg-field",
+            // The unfilled track is a LEVEL on a backdrop the slider does not own, not a
+            // control fill: `--field` recedes to the page in dark, and a track that is the page
+            // is a track nobody can see. a4 measures ΔE 5.11 light / 7.73 dark from every surface
+            // the theme publishes, against `--field`'s 2.40 / 0.00-on-the-page.
+            "bg-secondary-wash",
             "rounded-full",
             "select-none overflow-hidden",
             "data-[orientation=horizontal]:h-2 data-[orientation=horizontal]:w-full",

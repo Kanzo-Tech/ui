@@ -76,6 +76,15 @@ const SRC = dirname(fileURLToPath(import.meta.url));
  *   on the page. `--muted-foreground` itself is step 11 at 9.19 / 8.52, which is why the dilution
  *   existed — the answer is the step between them, not a percentage of the one above.
  *
+ * `--field` is on that list with one wrinkle worth recording here, because this file is where the
+ * `/NN` argument lives: it is no longer an alpha step in *both* modes. `--faint` on a dark field
+ * measured 4.49 on the page, 4.37 on a card and 4.13 in a popover, and no transparency reaches AA —
+ * with the fill removed altogether (a1, byte 0) a popover is still 4.41, because a dark popover is
+ * step 3. A field is a *recess*, and in dark every alpha step composites lighter than its ground, so
+ * the binding takes the alpha step where it recedes and step 1 — the page — where none does. All
+ * three read 4.74 now. The ban is unchanged and stronger: `bg-field/NN` in dark would dilute an
+ * opaque page colour toward whatever is behind it.
+ *
  * `--muted` is deliberately NOT here. Its four remaining dilutions are footers and a table stripe —
  * surfaces, not interaction fills — and no role covers them yet; banning the spelling before the
  * replacement exists would only move the problem into a `className` override.
@@ -88,7 +97,7 @@ const BANNED: [RegExp, string][] = [
   ],
   [
     /\b(?:bg|ring|border|text|outline|fill|stroke|divide|shadow)-field\/\d+(?![\w-])/g,
-    "an alpha step already IS the transparency — drop the `/NN`",
+    "`--field` is already solved against its ground — a transparency in light, the page in dark; a `/NN` re-dilutes it",
   ],
   // Under 50% only. A status fill at a low percentage is a *tint* over a backdrop the component
   // does not own, which is what a wash replaces. At 90% it is the solid being darkened for its own

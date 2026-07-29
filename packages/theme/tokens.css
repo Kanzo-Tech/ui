@@ -91,6 +91,12 @@
      canvas reached for `var(--selection)` by hand. A token nothing can spell is a token that
      invites a second one. */
   --color-selection: var(--selection);
+  /* `--match` for the same reason: a search hit in the editor and a `<mark>` in prose are one
+     decision, and the second consumer needs to be able to spell it. Not `--highlight` — Ark writes
+     `data-highlighted` for menu-item focus throughout, and `bg-highlight` beside
+     `data-highlighted:bg-accent` is exactly the ambiguity the name was chosen to avoid. */
+  --color-match: var(--match);
+  --color-match-active: var(--match-active);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -257,8 +263,8 @@
   --chart-7: #a65f00;
   --chart-8: #0092b8;
   --selection: #0000001f;
-  --kanzo-editor-search-match: #ff4f0030;
-  --kanzo-editor-search-active: #e4520094;
+  --match: #ff4f0030;
+  --match-active: #e4520094;
   --kanzo-editor-active-line: #efefef;
   --kanzo-gutter-bg: #f7f7f7;
   --kanzo-syntax-keyword: #8200db;
@@ -293,7 +299,7 @@
   --accent-foreground: #efefef;
   --border: #353535;
   --input: #737373;
-  --field: #ffffff08;
+  --field: #0a0a0a;
   --secondary-wash: #ffffff12;
   --accent-wash: #ffffff1d;
   --primary: #efefef;
@@ -340,8 +346,8 @@
   --chart-7: #7f22fe;
   --chart-8: #c70036;
   --selection: #ffffff1d;
-  --kanzo-editor-search-match: #ff77003e;
-  --kanzo-editor-search-active: #ff933d9c;
+  --match: #ff77003e;
+  --match-active: #ff933d9c;
   --kanzo-editor-active-line: #141414;
   --kanzo-gutter-bg: #0d0d0d;
   --kanzo-syntax-keyword: #c27aff;

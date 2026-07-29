@@ -94,7 +94,7 @@ active surface, 6–8 are borders, 9 is the solid, 11/12 are ink. Light and dark
 generations, not a flip: a tint has to work harder against a dark ground, and the measured
 chroma profiles say so.
 
-**The role table** binds tokens to `(ramp, step)` — with three things that are *measured* rather
+**The role table** binds tokens to `(ramp, step)` — with four things that are *measured* rather
 than written, because writing them would be wrong for most seeds:
 
 | token | binding |
@@ -106,7 +106,8 @@ than written, because writing them would be wrong for most seeds:
 | `--secondary` / `--accent` | `(neutral, 4)` / `(neutral, 5)` |
 | `--border` | `(neutral, 6)` |
 | `--input` | `(neutral, boundary)` |
-| `--field` / `--secondary-wash` / `--accent-wash` | `(neutral, alpha 3 / 4 / 5)` |
+| `--secondary-wash` / `--accent-wash` | `(neutral, alpha 4 / 5)` |
+| `--field` | `(neutral, recess 3)` — the alpha step if it recedes, else the page |
 | `--primary` / `--primary-foreground` | `(brand, fill)` / `(brand, on-fill)` |
 | `--ring` | `(brand, boundary)` |
 | `--destructive` / `-foreground` / `-content` | `(destructive, 9)` / `(…, 11)` / `(…, on-fill)` |
@@ -128,7 +129,17 @@ composites back to its own solid over the page by obligation.
 The washes are named for the **level**, never for the state — `--accent-wash` is what `--accent`
 is when the backdrop is unknown. The same two values are a card's hover, a calendar day's focus
 and a table row's selected state, and a token named for the first of those would force the second
-to mint a duplicate. `--field` is the a3 member under the name the `--input` split gave it.
+to mint a duplicate.
+
+`--field` used to be the a3 member of that set and is no longer, because a wash sits *on* a
+surface and a field sits *under* one. In light an alpha step recedes; in dark **every** alpha step
+composites lighter than its ground, so a3 raised the field and `--faint` fell to 4.49:1 on the
+page, 4.37 on a card and 4.13 in a popover. Removing the fill entirely does not fix it — at a1
+(byte 0) a popover still reads 4.41, because a dark popover *is* step 3. So the binding names the
+direction and the ramp answers: take the alpha step if it recedes, otherwise take step 1, the page.
+Dark fields are now 4.74:1 on all three, at the cost of being byte-identical to the page when they
+sit on it — identified by `--input` at 4.18:1, which is what 1.4.11 asks. They still separate
+where the surface is raised: ΔE 1.43 on a card and 4.65 in a popover or sidebar.
 
 `boundary` is the first step reaching 3:1 against step 1, and it is **seed-dependent, not
 mode-determined**: measured over 118 seeds it is 9 in light for 97 of them and 8 for the rest,

@@ -11,7 +11,10 @@ export const useToggle = useToggleContext;
 const toggleVariants = tv({
   base: [
     "relative",
-    "data-[state=on]:bg-field",
+    // The pressed state is the ACTIVE level (step 5), painted as a wash because a toggle is
+    // dropped into toolbars, cards and popovers alike. `bg-field` recedes to the page in dark, so
+    // "on" and "off" were about to become the same colour there.
+    "data-[state=on]:bg-accent-wash",
     "pointer-coarse:after:absolute pointer-coarse:after:size-full pointer-coarse:after:min-h-11 pointer-coarse:after:min-w-11",
   ],
   variants: {

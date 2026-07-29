@@ -1,7 +1,7 @@
 import paletteDataJson from "../palette-data.json";
-import type { Mode } from "./palette-check.js";
+import { oklch, type Mode } from "./palette-check.js";
 import type { CategoricalSet, RampName, RampSet } from "./palette-document.js";
-import { RAMP_LENGTH, type Ramp } from "./ramp.js";
+import { over, RAMP_LENGTH, type Ramp } from "./ramp.js";
 
 /**
  * The role table: every colour token, and the one thing it is bound to.
@@ -152,6 +152,67 @@ export function fillStep(ramp: Record<Mode, Ramp>): number {
   return bare ? RAMP_LENGTH : SOLID_STEP;
 }
 
+/**
+ * A control fill that sits *below* the surface it is in — and what to do when no alpha step does.
+ *
+ * **The direction is the rule, not the step.** A field is a recess: a well cut into whatever surface
+ * holds it. An alpha step delivers that in light, where the ramp walks from the page toward the ink
+ * and therefore downward in lightness — `a3` over `#fafafa` is `#f2f2f2`. In dark the ramp walks the
+ * other way, so *every* alpha step composites lighter than its ground and `a3` raises the field
+ * instead of sinking it. That is not a tuning problem to be solved by picking a smaller step; it is
+ * the ramp's construction, and the smaller steps only buy less of the wrong thing.
+ *
+ * So the binding names the direction and the ramp answers, exactly as `boundary` does: take the
+ * alpha step **if it recedes**, and otherwise take step 1 — the page, which is the darkest value the
+ * ramp publishes and the only one that recedes from every surface above it.
+ *
+ * ## What forced it, measured on Kanzo's neutral
+ *
+ * `--faint` (step 10) must clear AA as a field's placeholder, and in dark it does not:
+ *
+ * |               | on the page | on a card | in a popover / sidebar |
+ * |---------------|-------------|-----------|------------------------|
+ * | `a3` (before) | 4.49 ✗      | 4.37 ✗    | 4.13 ✗                 |
+ * | `a2`          | 4.72 ✓      | 4.62 ✓    | 4.37 ✗                 |
+ * | `a1`          | 4.74 ✓      | 4.66 ✓    | 4.41 ✗                 |
+ * | step 1        | 4.74 ✓      | 4.74 ✓    | 4.74 ✓                 |
+ *
+ * The row that matters is `a1`, which is byte 0 — an explicitly transparent field, the fill removed
+ * altogether — and it **still misses AA inside a popover, at 4.41**. So the failure was never the
+ * fill: it is that a dark popover is step 3, and `--faint` on step 3 is 4.41 before anything is
+ * painted on it. No binding of `--field` to a transparency can reach the bar, because a transparency
+ * is defined relative to a ground and the ground is what fails. Only an *absolute* value that returns
+ * to the page does, which is what this rule emits.
+ *
+ * ## What it costs, said plainly
+ *
+ * In dark a field on the page is now byte-identical to the page (ΔE 0.00) and is identified by
+ * `--input` at the boundary step, 4.18:1 — over 1.4.11's 3:1, which is the rule that governs "the
+ * visual information required to identify a control". `bg-field` still separates where the surface
+ * is raised: ΔE 1.43 on a card and **4.65** in a popover or sidebar, against 3.09–3.74 before. So the
+ * token is not emptied — it moves from "always a faint tint" to "a well, deeper the higher the
+ * surface", which is what a recess means. Light is untouched at ΔE 2.40.
+ *
+ * Two things make the cost smaller than it reads. The library already spells this token
+ * `dark:bg-field` at 12 of its 17 sites — over `bg-transparent` or `bg-background`, i.e. over the
+ * page — so the case that converges is the one the light mode already ships as no fill at all. And
+ * the sites that use it bare are inside raised surfaces (`command`'s input sits on `--popover`),
+ * which is exactly where it now separates most.
+ *
+ * ## Why this is not a per-mode row
+ *
+ * The role table is one column on purpose, and this keeps it one: the binding says "recede", and
+ * whether that is an alpha step or the page is a measurement of the ramp, decided the same way in
+ * both modes by the same comparison. It reads as an asymmetry only because the ramps are asymmetric
+ * — `ELEVATION` already records the same fact from the other side, with every light offset 0 because
+ * a light card cannot lighten past a page that is already step 1.
+ */
+export function recessFill(ramp: Ramp, step: number): string {
+  const page = ramp.steps[0] as string;
+  const veil = ramp.alpha[Math.min(Math.max(step, 1), RAMP_LENGTH) - 1] as string;
+  return oklch(over(veil, page)).l < oklch(page).l ? veil : page;
+}
+
 /** `--chart-1` … `--chart-8`. The count is the token vocabulary's, not the palette's capacity. */
 export const CHART_SLOTS = 8;
 
@@ -168,13 +229,14 @@ export const CHART_SLOTS = 8;
 export const OTHER = "var(--muted-foreground)";
 
 /**
- * What a token is bound to. Six kinds, and each earns its place by being unwritable as the others.
+ * What a token is bound to. Seven kinds, and each earns its place by being unwritable as the others.
  *
- * `step` is the ordinary case. `fill`, `on-fill` and `boundary` are *measured* properties of a ramp,
- * not step numbers — see the note on the table above, and `fillStep` for the one that is not simply
- * 9. `alpha` is the transparency scale, which is the only honest way to paint onto content the ramp
- * does not own. `categorical` indexes the chart set. `fixed` is a value this system owns outright,
- * cross-checked per tenant but never derived from a seed.
+ * `step` is the ordinary case. `fill`, `on-fill`, `boundary` and `recess` are *measured* properties
+ * of a ramp, not step numbers — see the note on the table above, `fillStep` for the one that is not
+ * simply 9, and `recessFill` for the one that asks a direction rather than a level. `alpha` is the
+ * transparency scale, which is the only honest way to paint onto content the ramp does not own.
+ * `categorical` indexes the chart set. `fixed` is a value this system owns outright, cross-checked
+ * per tenant but never derived from a seed.
  */
 export type RoleBinding =
   | {
@@ -192,6 +254,12 @@ export type RoleBinding =
       kind: "alpha";
       ramp: RampName;
       /** 1-based. */
+      step: number;
+    }
+  | {
+      kind: "recess";
+      ramp: RampName;
+      /** 1-based. The alpha step to use *if it recedes*; see `recessFill`. */
       step: number;
     }
   | {
@@ -284,8 +352,9 @@ const step = (ramp: RampName, n: number, elevation?: SurfaceName): RoleBinding =
  * names and a second vocabulary for the same two levels is the defect this table exists to remove;
  * they do **not** carry `hover`/`active`, because the same two values are a card's hover *and* a
  * calendar day's focus *and* a table row's selected state, and a token named for the first of those
- * makes the second one either mint a duplicate or borrow a name that lies. `--field` is the a3
- * member of the set under the name decision 11 gave it — one value, one name.
+ * makes the second one either mint a duplicate or borrow a name that lies. `--field` was the a3
+ * member of that set and is no longer: a wash sits *on* a surface and a field sits *under* one, and
+ * in dark those are opposite directions — see `recessFill` for the measurement that separated them.
  *
  * Measured, and this is why a percentage could not do it. Across the six surfaces the theme
  * publishes (page, card, popover, `--muted`, `--secondary`, `--accent`), `--secondary-wash` never
@@ -318,9 +387,14 @@ export const ROLES: readonly Role[] = [
   //
   // Measured: 5.18:1 in light and 4.74:1 in dark against the page, against `--muted-foreground`'s
   // 9.19 and 8.52. It is the ten `text-muted-foreground/NN` sites' honest answer — those measure
-  // 3.04–4.00 and are live AA failures — but it is not a blanket one: on a dark input nested in a
-  // popover (`--field` over `--popover`, `#1b1b1b`) it reads 4.13, still short of 4.5. There is no
-  // step between it and 11.
+  // 3.04–4.00 and are live AA failures.
+  //
+  // It used to miss AA on a field in dark (4.49 on the page, 4.13 in a popover), and the fix was not
+  // here — there is no step between 10 and 11 — but in what a field is: `--field` recedes rather
+  // than tints, so every dark field is the page and `--faint` reads 4.74 on all three. See
+  // `recessFill`. What is still true is that `--faint` is only AA against a surface at or below the
+  // page's own level: on `--muted` (step 3) in dark it is 4.41, so it is placeholder and gutter ink,
+  // not a general quiet text colour.
   { token: "--faint", binding: step("neutral", 10) },
   { token: "--secondary", binding: step("neutral", 4) },
   { token: "--secondary-foreground", binding: step("neutral", 12) },
@@ -328,7 +402,7 @@ export const ROLES: readonly Role[] = [
   { token: "--accent-foreground", binding: step("neutral", 12) },
   { token: "--border", binding: step("neutral", 6) },
   { token: "--input", binding: { kind: "boundary", ramp: "neutral" } },
-  { token: "--field", binding: { kind: "alpha", ramp: "neutral", step: 3 } },
+  { token: "--field", binding: { kind: "recess", ramp: "neutral", step: 3 } },
   { token: "--secondary-wash", binding: { kind: "alpha", ramp: "neutral", step: 4 } },
   { token: "--accent-wash", binding: { kind: "alpha", ramp: "neutral", step: 5 } },
 
@@ -419,8 +493,21 @@ export const ROLES: readonly Role[] = [
   // wash for selected nodes are one decision. Naming it for the first surface that needed it would
   // have had the second one either mint a duplicate token or reach across for a name that lies.
   { token: "--selection", binding: { kind: "alpha", ramp: "brand", step: 5 } },
-  { token: "--kanzo-editor-search-match", binding: { kind: "alpha", ramp: "warning", step: 5 } },
-  { token: "--kanzo-editor-search-active", binding: { kind: "alpha", ramp: "warning", step: 8 } },
+  // `--match` is the same call as `--selection`, one consumer later. A search hit in an editor and a
+  // `<mark>` in prose are one decision — Ark's `Highlight` splits a string by a query and wraps each
+  // hit, CodeMirror's search does the same to a document — so the token is named for the thing both
+  // find. It is **not** `--highlight`: Ark spells menu-item focus `data-highlighted` throughout this
+  // library, and `bg-highlight` beside `data-highlighted:bg-accent` would be the exact ambiguity this
+  // rename exists to remove. Nor `--marked`, which names one consumer's markup — a `<mark>` element —
+  // the same error `--kanzo-editor-` made from the other end, and which is a state adjective of the
+  // shape Ark already owns (`data-checked`, `data-selected`, `data-highlighted`). `--match` is a noun
+  // for what was found, which is what `--field`, `--border` and `--selection` are too.
+  //
+  // `--match-active` is the one you are on, out of N. It keeps a state word where the washes refused
+  // one because here there is exactly one state to name: `-wash-strong` covers a hover *and* a
+  // highlight *and* a selected row, and "the current match" covers nothing else.
+  { token: "--match", binding: { kind: "alpha", ramp: "warning", step: 5 } },
+  { token: "--match-active", binding: { kind: "alpha", ramp: "warning", step: 8 } },
   { token: "--kanzo-editor-active-line", binding: step("neutral", 3) },
   { token: "--kanzo-gutter-bg", binding: step("neutral", 2) },
 
@@ -490,6 +577,9 @@ export function resolveRoles(
         break;
       case "alpha":
         value = alphaAt(of(binding.ramp), binding.step);
+        break;
+      case "recess":
+        value = recessFill(of(binding.ramp), binding.step);
         break;
       case "categorical":
         // `??`, not a length check: `capacity` and the arrays are the same fact, and reading the

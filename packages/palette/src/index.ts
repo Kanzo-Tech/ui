@@ -159,6 +159,7 @@ export {
   SOLID_STEP,
   elevate,
   fillStep,
+  recessFill,
   resolveRoles,
   type ResolvedRole,
   type Role,
