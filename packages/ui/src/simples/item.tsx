@@ -43,7 +43,7 @@ const itemVariants = tv({
     "rounded-xl border text-sm",
     "transition-colors duration-100",
     "[a]:transition-colors [a]:hover:bg-muted",
-    "outline-none focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/32",
+    "outline-none focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring",
     "[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
   ],
   variants: {

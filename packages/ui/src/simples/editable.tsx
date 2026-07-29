@@ -61,7 +61,6 @@ export const EditablePreview = (props: EditablePreviewProps) => {
         "w-full justify-start",
         "px-3",
         "whitespace-pre-wrap font-normal text-base sm:text-sm",
-        "dark:hover:bg-input/32",
         "data-placeholder-shown:text-muted-foreground",
         "in-[[data-slot=editable-area]:has(textarea)]:items-start",
         className,

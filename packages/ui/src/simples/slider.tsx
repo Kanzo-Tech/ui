@@ -111,7 +111,7 @@ export const Slider = (props: SliderProps) => {
         <ArkSlider.Track
           className={cn(
             "grow",
-            "bg-input/64",
+            "bg-field",
             "rounded-full",
             "select-none overflow-hidden",
             "data-[orientation=horizontal]:h-2 data-[orientation=horizontal]:w-full",
@@ -149,8 +149,8 @@ export const Slider = (props: SliderProps) => {
                 "rounded-full border border-input shadow-xs/5",
                 "cursor-grab select-none",
                 "transition-[color,box-shadow,transform]",
-                "focus-visible:border-primary focus-visible:outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring/32",
-                "origin-left data-dragging:scale-110 data-dragging:cursor-grabbing data-dragging:border-primary data-dragging:ring-[3px] data-dragging:ring-ring/32",
+                "focus-visible:border-primary focus-visible:outline-hidden focus-visible:ring-[3px] focus-visible:ring-ring",
+                "origin-left data-dragging:scale-110 data-dragging:cursor-grabbing data-dragging:border-primary data-dragging:ring-[3px] data-dragging:ring-ring",
                 "aria-invalid:border-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/24",
                 "aria-invalid:focus-visible:border-destructive aria-invalid:focus-visible:ring-destructive/48",
                 "aria-invalid:data-dragging:border-destructive aria-invalid:data-dragging:ring-destructive/48",

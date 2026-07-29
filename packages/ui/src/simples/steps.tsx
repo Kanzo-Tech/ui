@@ -99,7 +99,7 @@ export const StepsIndicator = (
         "font-medium text-sm",
         "rounded-full border",
         "transition-colors",
-        "in-focus-visible:ring-[3px] in-focus-visible:ring-ring/32",
+        "in-focus-visible:ring-[3px] in-focus-visible:ring-ring",
         "data-current:border-primary data-current:bg-primary data-current:text-primary-foreground",
         "data-complete:border-primary data-complete:bg-primary data-complete:text-primary-foreground",
         "[&_svg]:size-(--steps-icon-size) [&_svg]:shrink-0",

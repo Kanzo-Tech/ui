@@ -1,4 +1,4 @@
-import themeDataJson from "../theme-data.json";
+import paletteDataJson from "../palette-data.json";
 import {
   BAND,
   CHROMA_FLOOR,
@@ -32,7 +32,7 @@ import {
  * derived Dracula green is `#008236` where Dracula's own is `#50fa7b`.
  */
 
-const RAMPS = themeDataJson.ramps as unknown as Record<string, Record<string, string>>;
+const RAMPS = paletteDataJson.ramps as unknown as Record<string, Record<string, string>>;
 
 /**
  * The same quantities `checkScheme` measures, indexed by colour and by pair.
@@ -138,11 +138,49 @@ function verdict(colours: readonly string[], mode: Mode, pairs: PairList = "adja
   return { cvd, normal, relief, ok: legal && cvd >= CVD_FLOOR && normal >= NORMAL_FLOOR };
 }
 
+/** The step every family's hue is measured at, and the colour that therefore stands for it. */
+const FAMILY_STEP = "600";
+
 /** Every family's hue, measured once off its mid step. */
 const FAMILY_HUES: [string, number][] = Object.entries(RAMPS).map(([name, steps]) => [
   name,
-  oklch(steps["600"] as string).h,
+  oklch(steps[FAMILY_STEP] as string).h,
 ]);
+
+/**
+ * The family whose hue is nearest an angle.
+ *
+ * Split out of `familyOf` because a hue is a thing you can have without having a colour: a wheel
+ * spun off a brand hue asks this question about angles that no source colour occupies. The 17
+ * families are not evenly spaced — see `FAMILY_GAP` — so two nearby angles can answer the same, and
+ * a caller walking a wheel has to expect that rather than assume 17 answers exist.
+ */
+export function familyAtHue(h: number): string {
+  return FAMILY_HUES.reduce((a, b) => (hueDistance(h, b[1]) < hueDistance(h, a[1]) ? b : a))[0];
+}
+
+/**
+ * The colour a family's hue was measured off — what stands for the family when only a name is held.
+ *
+ * The step is not a choice being made about the scheme: `candidates` re-picks a step per family per
+ * mode, so this only ever has to be a colour that lands back on its own family, which by
+ * construction it is.
+ */
+export function familyStandard(name: string): string {
+  const steps = RAMPS[name];
+  if (!steps) throw new RangeError(`no such hue family: ${name}`);
+  return steps[FAMILY_STEP] as string;
+}
+
+/** The widest gap between two adjacent family hues — the spacing below which a wheel self-collides. */
+export const FAMILY_GAP = (() => {
+  const hues = FAMILY_HUES.map(([, h]) => h).sort((a, b) => a - b);
+  let widest = 360 - (hues[hues.length - 1] as number) + (hues[0] as number);
+  for (let i = 1; i < hues.length; i++) {
+    widest = Math.max(widest, (hues[i] as number) - (hues[i - 1] as number));
+  }
+  return widest;
+})();
 
 /**
  * The family whose hue is nearest, or `null` for a colour that has no usable hue.
@@ -156,7 +194,7 @@ export function familyOf(hex: string): string | null {
   // Below the floor there is no hue to match, only float noise in a/b. Nord loses seven of eight
   // colours here, which is why nothing can be derived from it at all.
   if (c < CHROMA_FLOOR) return null;
-  return (FAMILY_HUES.reduce((a, b) => (hueDistance(h, b[1]) < hueDistance(h, a[1]) ? b : a))[0]);
+  return familyAtHue(h);
 }
 
 export interface Derivation {
@@ -405,6 +443,27 @@ export interface DeriveOptions extends OrderOptions {
    * actually reached, so a panel can say "this palette only manages 9.2" instead of saying nothing.
    */
   separation?: number;
+  /**
+   * Families no subset may leave out — the tenant's own, in practice.
+   *
+   * The subset rule is a quality rule: it drops whichever families buy the least separation, and it
+   * has no idea that one of them is the reason the palette exists. Measured on the source this
+   * replaced, a teal brand and a violet brand produced byte-identical light slots and the teal was
+   * the family dropped — a chart with nothing of the client in it.
+   *
+   * A constraint on *membership* only, and deliberately not on order: `orderScheme` sequences by CVD
+   * separation and that still wins, so a required family lands wherever the search puts it. It
+   * removes subsets from the descent rather than adding any, so it can only make the search cheaper
+   * and can only lower the separation reached. Measured over 36 brand wheels, one every 10°, the
+   * unconstrained search never once dropped the brand's own family, so the cost came out at 0.00 ΔE
+   * in both modes with not one set changed — which is what a guarantee is supposed to cost when the
+   * thing it forbids is already rare. It is here for the case that is *not* rare and was shipping:
+   * on the brand-plus-default-scheme source this replaced, a teal brand's own family was dropped.
+   *
+   * Names not present in the source are ignored rather than refused: a family that never arrived
+   * cannot be kept, and there is no subset for which this would be a different answer.
+   */
+  require?: readonly string[];
 }
 
 export interface OrderedDerivation extends Derivation {
@@ -447,6 +506,25 @@ function* combinations(n: number, k: number): Generator<number[]> {
     for (let j = i + 1; j < k; j++) idx[j] = (idx[j - 1] as number) + 1;
   }
 }
+
+/**
+ * `require` as a filter over subsets: one group of positions per named family, at least one taken.
+ *
+ * Grouped rather than pinned to a single position because a source may carry a family twice, and
+ * "the family is in the set" is then true of either occurrence. Names the source never yielded
+ * produce no group, so they constrain nothing.
+ */
+function requiredGroups(families: readonly string[], require: readonly string[]): number[][] {
+  const groups: number[][] = [];
+  for (const name of new Set(require)) {
+    const at = families.flatMap((family, i) => (family === name ? [i] : []));
+    if (at.length) groups.push(at);
+  }
+  return groups;
+}
+
+const holds = (groups: readonly number[][], picked: readonly number[]) =>
+  groups.every((group) => group.some((i) => picked.includes(i)));
 
 interface Arrangement {
   /** The chosen steps, in the step-chooser's order. */
@@ -514,7 +592,8 @@ export function deriveOrderedScheme(
   options: DeriveOptions = {},
 ): OrderedDerivation {
   const { families, dropped, usable } = familiesOf(source);
-  const { separation = SEPARATION_BAR } = options;
+  const { separation = SEPARATION_BAR, require = [] } = options;
+  const groups = requiredGroups(families, require);
 
   type Pick = Arrangement & { picked: number[] };
   const bestOf = (picked: number[]): Pick | null => {
@@ -530,6 +609,7 @@ export function deriveOrderedScheme(
   for (let k = Math.min(usable.length, MAX_ORDERED); k >= 2 && !chosen; k--) {
     let bestAtK: Pick | null = null;
     for (const picked of combinations(usable.length, k)) {
+      if (!holds(groups, picked)) continue;
       const pick = bestOf(picked);
       if (pick && (!bestAtK || pick.delta > bestAtK.delta)) bestAtK = pick;
     }
@@ -621,7 +701,8 @@ export function deriveSchemeColors(
   options: DeriveOptions = {},
 ): SchemeDerivation {
   const { families, dropped, usable } = familiesOf(source);
-  const { separation = SEPARATION_BAR, avoid = [] } = options;
+  const { separation = SEPARATION_BAR, avoid = [], require = [] } = options;
+  const groups = requiredGroups(families, require);
 
   type Joint = { light: Arrangement; dark: Arrangement; picked: number[]; score: number };
   let widest: Joint | null = null;
@@ -629,6 +710,7 @@ export function deriveSchemeColors(
   for (let k = Math.min(usable.length, MAX_ORDERED); k >= 2 && !chosen; k--) {
     let bestAtK: Joint | null = null;
     for (const picked of combinations(usable.length, k)) {
+      if (!holds(groups, picked)) continue;
       const names = picked.map((i) => families[i] as string);
       const light = bestArrangement(names, "light", options);
       if (!light) continue;

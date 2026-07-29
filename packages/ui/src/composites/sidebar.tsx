@@ -604,7 +604,12 @@ export const SidebarMenuButton = ({
         "group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-2!",
         "data-[size=lg]:group-data-[collapsible=icon]:p-0!",
         "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-        "focus-visible:sidebar-ring-[3px] outline-none focus-visible:ring-sidebar-ring/32",
+        // Upstream spells the width `sidebar-ring-[3px]`, which is not a utility — Tailwind emits
+        // nothing for it, so these two buttons set a ring colour and no ring, and the focus
+        // indicator never renders. The colour was the banned dilution besides: measured 1.49:1 in
+        // light and 1.42–1.46 in dark against the surfaces the sidebar sits on, against 4.54 and
+        // 3.89–4.18 solid. Nothing else here changes on focus, so the ring is the whole indicator.
+        "outline-none focus-visible:ring-[3px] focus-visible:ring-sidebar-ring",
         "active:bg-sidebar-accent active:text-sidebar-accent-foreground",
         "data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground",
         "group-has-data-[sidebar=menu-action]/menu-item:pe-8",
@@ -818,7 +823,8 @@ export const SidebarMenuSubButton = (props: SidebarMenuSubButtonProps) => {
         "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
         "active:bg-sidebar-accent active:text-sidebar-accent-foreground",
         "data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground",
-        "focus-visible:sidebar-ring-[3px] outline-none focus-visible:ring-sidebar-ring/32",
+        // Same non-utility width and same diluted ring as SidebarMenuButton — see the note there.
+        "outline-none focus-visible:ring-[3px] focus-visible:ring-sidebar-ring",
         "[&>span:last-child]:truncate",
         "[&_svg]:text-sidebar-accent-foreground",
         className

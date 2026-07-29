@@ -20,11 +20,15 @@ export const Switch = (props: React.ComponentProps<typeof ArkSwitch.Root>) => {
         "rounded-full border border-transparent",
         "transition-all",
         "outline-none [[data-focus-visible],[data-invalid]]:ring-[3px]",
-        "data-focus-visible:border-primary data-focus-visible:ring-ring/32",
+        "data-focus-visible:border-primary data-focus-visible:ring-ring",
         "data-invalid:border-destructive data-invalid:ring-destructive/24",
         "dark:data-invalid:border-destructive-foreground dark:data-invalid:ring-destructive-foreground/20",
         "data-[state=checked]:bg-primary",
-        "data-[state=unchecked]:bg-input dark:data-[state=unchecked]:bg-input",
+        // The track IS this control's boundary — `border` is transparent — and the thumb is
+        // `bg-background`, so the track is the only thing that says the switch is off. A surface
+        // step puts the thumb at ~1.07:1 against it and the off state stops being readable, which
+        // is 1.4.11 asking about a *state*, not about a fill. Boundary contrast, spelled as a fill.
+        "data-[state=unchecked]:bg-input",
         "data-disabled:pointer-events-none data-disabled:opacity-64",
         "motion-reduce:transition-none!",
         className

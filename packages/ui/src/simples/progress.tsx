@@ -63,7 +63,7 @@ export const ProgressTrack = (
 ) => (
   <ArkProgress.Track
     className={cn(
-      "bg-input",
+      "bg-border",
       "rounded-full",
       "overflow-x-hidden",
       "data-[orientation=horizontal]:h-2 data-[orientation=horizontal]:w-full",

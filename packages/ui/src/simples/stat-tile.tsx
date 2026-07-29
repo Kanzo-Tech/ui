@@ -49,8 +49,10 @@ function Sparkline({ points }: { points: readonly number[] }) {
   const last = coords[coords.length - 1] ?? [0, 0];
   return (
     <svg aria-hidden className="overflow-visible" height={h} viewBox={`0 0 ${w} ${h}`} width={w}>
+      {/* A 1.5px trend line is a graphical object carrying information, so it owes 3:1. Diluted it
+          measured 2.91:1 on the light page (3.33–3.35 in dark); step 11 solid is 9.19 and 8.52. */}
       <path
-        className="text-muted-foreground/56"
+        className="text-muted-foreground"
         d={d}
         fill="none"
         stroke="currentColor"

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SCHEMES } from "./index.js";
+import { paletteData } from "./index.js";
 import {
   CHROMA_FLOOR,
   checkScheme,
@@ -12,6 +12,11 @@ import {
 } from "./palette-check.js";
 
 const MODES: Mode[] = ["light", "dark"];
+/** The default categorical scheme, and the one alternative derivation this package ships. */
+const SCHEMES = paletteData.schemes as unknown as Record<
+  string,
+  { light: string[]; dark: string[]; relief: Record<Mode, number> }
+>;
 
 describe("colour maths", () => {
   it("agrees with the reference implementation on known values", () => {

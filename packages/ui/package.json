@@ -110,6 +110,7 @@
     "@codemirror/search": "^6.5.11",
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.43.1",
+    "@kanzo-tech/palette": "workspace:*",
     "@lezer/highlight": "^1.2.3",
     "@tailwindcss/cli": "4",
     "@tailwindcss/typography": "^0.5.20",

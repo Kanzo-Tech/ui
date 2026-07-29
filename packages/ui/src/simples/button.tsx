@@ -11,7 +11,7 @@ export const buttonVariants = tv({
     "whitespace-nowrap font-medium text-sm",
     "rounded-lg",
     "transition-all",
-    "outline-none focus-visible:ring-[3px] focus-visible:ring-ring/32",
+    "outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
     "disabled:pointer-events-none disabled:opacity-64",
     "data-disabled:pointer-events-none data-disabled:opacity-64",
     "aria-disabled:pointer-events-none aria-disabled:opacity-64",
@@ -34,7 +34,11 @@ export const buttonVariants = tv({
         "text-foreground",
         "border border-input shadow-sm/5",
         "hover:bg-accent hover:text-accent-foreground",
-        "dark:bg-input/32 dark:hover:bg-input/64",
+        // The dark rest state and its hover used to be the same solid at two opacities, standing
+        // in for two ramp steps. One alpha token is the rest state; the hover is `bg-accent`,
+        // which is what it already is in light. (Tailwind scans comments, so the old classes are
+        // not quoted here — naming one would emit a live utility for it.)
+        "dark:bg-field",
         "focus-visible:border-primary",
       ],
       destructive: [
@@ -51,7 +55,12 @@ export const buttonVariants = tv({
         "text-secondary-foreground",
         "border border-transparent",
         "focus-visible:border-primary",
-        "hover:bg-secondary/80",
+        // `--secondary` is ramp step 4 and `--accent` is step 5, which is what "hover" means in
+        // this scale. The dilution replaced the fill, so it composited over the *page*, not over
+        // the button: ΔE 1.21 from the rest state in light and 1.73 in dark (0.86 on a popover),
+        // under the ramp's own ΔE-2 bar for a hover. `bg-accent` measures 3.96 and 4.61, and is
+        // already the hover the outline and ghost variants use.
+        "hover:bg-accent",
       ],
       ghost: [
         "hover:bg-accent hover:text-accent-foreground",

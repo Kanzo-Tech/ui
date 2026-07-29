@@ -14,10 +14,7 @@
 export type {
   Appearance,
   ResolvedAppearance,
-  KanzoBase,
   KanzoRadius,
-  KanzoAccent,
-  CuratedAccent,
   KanzoDensity,
   KanzoFont,
   KanzoMonoFont,
@@ -40,13 +37,15 @@ export {
   PreferencesTrigger,
   PreferencesPanel,
   PreferencesField,
-  PreferencesAccent,
+  // Never exported until now, which made the panel's own doc ("every section is exported flat")
+  // false and left `PrefFieldSet` reachable only as an internal.
+  PreferencesFieldSet,
+  // No `PreferencesAppearance`: appearance has ONE control, `AppearanceToggle`, which cycles all
+  // three states in the chrome. A panel section was the same preference wearing a second control.
   PreferencesRadius,
   PreferencesFont,
   PreferencesMonoFont,
   PreferencesDensity,
-  PreferencesBase,
-  PreferencesCopyTheme,
 } from "./composites/Preferences.js";
 export type { PreferencesProps, PreferencesRootProps } from "./composites/Preferences.js";
 export { AppearanceToggle } from "./composites/AppearanceToggle.js";

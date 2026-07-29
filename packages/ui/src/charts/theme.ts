@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { themeData } from "@kanzo-tech/theme";
+import { useEffect, useState, type RefObject } from "react";
+import { CHART_SLOTS } from "@kanzo-tech/theme";
 
 /**
  * Convert a browser-computed colour into the plain `rgb(...)` form Observable Plot accepts.
@@ -74,23 +74,70 @@ export function useThemeTick(): number {
 }
 
 /**
- * The default categorical scheme, as literal values.
+ * How many categorical slots the stylesheet declares. A 9th series folds into "Other" — never
+ * cycle, or identity stops meaning anything.
  *
- * This used to be eight hand-written hexes here, which made it a *second* source of truth beside
- * `--chart-*` — and the two disagreed, so the same series was one colour through `ChartConfig` and
- * another through a token. It is now the default scheme out of `theme-data.json`, the same entry
- * the CSS tokens project. Compiled rather than resolved because that is what the references do
- * (d3 ships its schemes as hex strings) and because it is what lets a chart keep its colours where
- * the theme CSS is not loaded.
+ * This file used to export the scheme's literal values too, first as eight hand-written hexes and
+ * then as the default entry of `theme-data.json`. Both were a *second* source of truth beside
+ * `--chart-*`, and that is the defect this whole colour layer exists to end: the same series was
+ * one colour through `ChartConfig` and another through a token. It is gone, not relocated. The
+ * tenant palette document owns the categorical set, `compile()` projects it onto these tokens, and
+ * a chart reads the token — one answer, which follows the mode and follows the client.
  *
- * Both modes clear the dataviz six checks against the product's own surfaces: worst adjacent CVD
- * ΔE 20.9, normal-vision 24.7, all eight at or above 3:1. The previous set sat in the CVD floor
- * band at 6.1 and needed secondary encoding to be legal at all.
+ * The count stays a compile-time constant because a stylesheet cannot have a variable number of
+ * custom properties. How many of the slots carry a *real* category is the document's `capacity`,
+ * which can be lower: past it, `compile` writes `var(--muted-foreground)`, and a set that carries
+ * fewer categories than it has slots is saying so rather than inventing colours.
  */
-export const CHART_SCHEME = themeData.schemes[themeData.defaultScheme as keyof typeof themeData.schemes];
+export { CHART_SLOTS };
 
-/** Categorical slots. A 9th series folds into "Other" — never cycle, or identity stops meaning anything. */
-export const CHART_SLOTS = CHART_SCHEME.light.length;
+/**
+ * The custom property carrying the document's `categorical.capacity`.
+ *
+ * `compile()` emits it at the head of both blocks — the one declaration in the sheet that is not a
+ * colour, because it is the one fact about the set that the colours cannot carry. A custom property
+ * and not a JS constant: the cascade is the only channel a scoped palette override travels down,
+ * and it is the same channel `--chart-*` itself arrives on. A stylesheet that declares nothing
+ * (anything older than the document, or a test fixture) falls back to `CHART_SLOTS`.
+ */
+export const CHART_CAPACITY_PROPERTY = "--chart-capacity";
+
+/**
+ * How many slots name a real category, read off the live cascade.
+ *
+ * `compile()` writes `var(--muted-foreground)` into every slot past capacity, so the *colour* of a
+ * ninth series is already right without anyone knowing the number. What is not right is the
+ * **count**: a legend that draws a row per slot claims eight distinguishable kinds where a set may
+ * carry six, and any "group the tail into Other" logic folds at the wrong index. Measured over 24
+ * brand hues one every 15° at L 0.62 / C 0.15, capacity came back 6–8 (mean 7.50) with 11 of the 24
+ * under 8 — so this is the common case, not an edge one.
+ *
+ * Read against `host` rather than `<html>` for the same reason `resolveTokenColor` is: a scoped
+ * palette override on an ancestor has to win.
+ */
+export function categoricalCapacity(host: Element): number {
+  if (typeof getComputedStyle === "undefined") return CHART_SLOTS;
+  const raw = getComputedStyle(host).getPropertyValue(CHART_CAPACITY_PROPERTY).trim();
+  const declared = Number.parseInt(raw, 10);
+  if (!Number.isFinite(declared) || declared <= 0) return CHART_SLOTS;
+  return Math.min(declared, CHART_SLOTS);
+}
+
+/**
+ * {@link categoricalCapacity} as a hook, re-read whenever the theme moves.
+ *
+ * `CHART_SLOTS` on the first render so the server and the client agree, then the measured value —
+ * the same shape `useThemeTick` already imposes on anything reading the cascade.
+ */
+export function useChartCapacity(host?: RefObject<Element | null>): number {
+  const tick = useThemeTick();
+  const [capacity, setCapacity] = useState(CHART_SLOTS);
+  useEffect(() => {
+    const element = host?.current ?? (typeof document === "undefined" ? null : document.documentElement);
+    if (element) setCapacity(categoricalCapacity(element));
+  }, [host, tick]);
+  return capacity;
+}
 
 /**
  * The categorical colour for series index `i`, as a **token**.
@@ -99,7 +146,14 @@ export const CHART_SLOTS = CHART_SCHEME.light.length;
  * follows whichever scheme the product selected — neither of which a baked hex can do. The chart
  * pipeline already resolves `var(--…)` against the live element, and the DOM resolves it natively
  * for legends and swatches.
+ *
+ * `capacity` is where the Other boundary sits. It defaults to `CHART_SLOTS` because that is the
+ * only honest answer without a DOM to read — a caller with one passes `categoricalCapacity(host)`.
  */
-export function categoricalColor(i: number, other = "var(--muted-foreground)"): string {
-  return i >= 0 && i < CHART_SLOTS ? `var(--chart-${i + 1})` : other;
+export function categoricalColor(
+  i: number,
+  other = "var(--muted-foreground)",
+  capacity = CHART_SLOTS,
+): string {
+  return i >= 0 && i < Math.min(capacity, CHART_SLOTS) ? `var(--chart-${i + 1})` : other;
 }

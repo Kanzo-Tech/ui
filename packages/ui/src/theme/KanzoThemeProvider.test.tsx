@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { APPEARANCE_KEY, AXES, DEFAULT_PREFS, STORAGE_KEY } from "@kanzo-tech/theme";
+import { APPEARANCE_KEY, AXES, DEFAULT_PREFS, STORAGE_KEY, type ThemePrefs } from "@kanzo-tech/theme";
 import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -47,7 +47,7 @@ function stubMatchMedia(dark = false) {
 
 const html = () => document.documentElement;
 const dark = () => html().classList.contains("dark");
-const paletteAttr = () => html().getAttribute("data-palette");
+const stored = () => JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as Record<string, unknown>;
 
 /**
  * The effect that writes the `data-*` attributes lists its dependencies field by field, because in
@@ -59,30 +59,18 @@ const paletteAttr = () => html().getAttribute("data-palette");
 describe("KanzoThemeProvider axis wiring", () => {
   const source = readFileSync(resolve(__dirname, "KanzoThemeProvider.tsx"), "utf8");
 
-  /**
-   * An axis whose watched expression is not literally `prefs.<key>`.
-   *
-   * `palette` is the only one, and only because it is the one axis that is *resolved* before it
-   * reaches the DOM: what is written is the applied side of the pair, so watching `prefs.palette`
-   * would miss a re-resolution caused by the appearance changing. Declared here rather than
-   * loosening the check, so a NEW axis still has to appear by name.
-   */
-  const WATCHED_AS: Partial<Record<string, string>> = { palette: "appliedPalette" };
+  // Located by a member it must contain rather than by position, so a new effect above it cannot
+  // make this test read the wrong dependency list.
+  const deps = () => source.match(/\}, \[([^\]]*prefs\.density[^\]]*)\]\);/)?.[1] ?? "";
 
   it("watches every axis it claims to apply", () => {
-    // Located by a member it must contain rather than by position — the effect is no longer the
-    // first one in the file, and matching on order made this test lie about which effect it read.
-    const deps = source.match(/\}, \[([^\]]*prefs\.accent[^\]]*)\]\);/)?.[1] ?? "";
-    expect(deps, "could not find the attribute effect's dependency list").not.toBe("");
-    const missing = AXES.map(({ key }) => key).filter(
-      (key) => !deps.includes(WATCHED_AS[key] ?? `prefs.${key}`),
-    );
+    expect(deps(), "could not find the attribute effect's dependency list").not.toBe("");
+    const missing = AXES.map(({ key }) => key).filter((key) => !deps().includes(`prefs.${key}`));
     expect(missing, `axes applied but never watched: ${missing.join(", ")}`).toEqual([]);
   });
 
   it("also watches the resolved appearance, which decides `.dark` in the same effect", () => {
-    const deps = source.match(/\}, \[([^\]]*prefs\.accent[^\]]*)\]\);/)?.[1] ?? "";
-    expect(deps).toContain("resolvedAppearance");
+    expect(deps()).toContain("resolvedAppearance");
   });
 
   it("has a default for every axis, so the attribute can be removed at it", () => {
@@ -90,12 +78,20 @@ describe("KanzoThemeProvider axis wiring", () => {
   });
 
   it("never writes `color-scheme` inline", () => {
-    // An inline declaration outranks every `[data-palette] { color-scheme: … }` rule permanently.
-    // Each palette carries its own; writing one here would freeze form controls and scrollbars at
+    // An inline declaration outranks every rule permanently. Each block of the compiled palette
+    // document carries its own; writing one here would freeze form controls and scrollbars at
     // whichever side happened to be applied first. Matched as an assignment so the prose above the
     // effect — which names the trap — does not count as falling into it.
     expect(source).not.toMatch(/\.colorScheme\s*=/);
     expect(source).not.toMatch(/setProperty\(\s*["']color-scheme/);
+  });
+
+  it("sets no CSS custom property at all", () => {
+    // Colour reaches the page as a compiled stylesheet, so the provider has no inline-var path
+    // left: no `--primary` override, no `--color-custom-*` ramp, no `--chart-N` slots. Without
+    // this, a re-added one would leak past unmount — the cleanup that used to remove them is gone.
+    expect(source).not.toContain("setProperty");
+    expect(source).not.toContain("removeProperty");
   });
 });
 
@@ -152,25 +148,26 @@ describe("KanzoThemeProvider appearance (host controller path)", () => {
 });
 
 /**
- * The palette axis IS the light/dark axis. Every test here fails differently if the resolution
- * order (preference → wanted side → applied palette → derived appearance) is reordered or skipped.
+ * Appearance is a PREFERENCE with `system` resolved against the OS, and nothing else participates.
+ * It used to be an axis of the palette — a partnerless palette could hold `.dark` against the
+ * user's choice — and the tests that pinned that behaviour went with the model: a compiled palette
+ * document publishes both modes, so there is no second opinion left to reconcile.
  */
-describe("KanzoThemeProvider palette resolution", () => {
+describe("KanzoThemeProvider appearance (built-in path)", () => {
   let media: ReturnType<typeof stubMatchMedia>;
 
   beforeEach(() => {
     media = stubMatchMedia(false);
     localStorage.clear();
     html().classList.remove("dark");
-    html().removeAttribute("data-palette");
   });
   afterEach(() => {
     localStorage.clear();
     html().classList.remove("dark");
-    html().removeAttribute("data-palette");
+    for (const { attr } of AXES) html().removeAttribute(attr);
   });
 
-  function mount(defaults?: Parameters<typeof KanzoThemeProvider>[0]["defaults"]) {
+  function mount(defaults?: Partial<ThemePrefs>) {
     let ctx!: ReturnType<typeof useKanzoTheme>;
     const utils = render(
       <KanzoThemeProvider defaults={defaults}>
@@ -180,59 +177,24 @@ describe("KanzoThemeProvider palette resolution", () => {
     return { ...utils, get ctx() { return ctx; } };
   }
 
-  it("takes the dark side of the pair under a dark OS, and derives `.dark` from it", () => {
-    // The whole chain in one: `system` never touches a mode switch, it asks for the dark side of
-    // the chosen identity, and `.dark` is a consequence of the palette that answered.
+  it("resolves `system` against the OS", () => {
     media.set(true);
     const t = mount();
 
-    expect(t.ctx.appliedPalette).toBe("kanzo-dark");
-    expect(paletteAttr()).toBe("kanzo-dark");
-    expect(dark()).toBe(true);
-    expect(t.ctx.palette, "the SELECTION is untouched — only the applied side moved").toBe("kanzo");
-  });
-
-  it("keeps a pinned palette (and its `.dark`) when the appearance preference says otherwise", () => {
-    // Dracula has no light partner. Honouring `light` by un-darkening would leave `.dark` off while
-    // a dark palette paints the surfaces — unreadable text, the worst outcome of the two.
-    const t = mount({ palette: "dracula" });
-    expect(dark()).toBe(true);
-
-    act(() => t.ctx.setAppearance("light"));
-
-    expect(t.ctx.appliedPalette).toBe("dracula");
-    expect(paletteAttr()).toBe("dracula");
-    expect(dark()).toBe(true);
-    expect(t.ctx.appearance, "the preference is still recorded, just not applied").toBe("light");
+    expect(t.ctx.appearance).toBe("system");
     expect(t.ctx.resolvedAppearance).toBe("dark");
-    expect(t.ctx.palettePinned).toBe(true);
+    expect(dark()).toBe(true);
   });
 
-  it("pins the side when a palette is chosen, so a dark palette survives a light OS", () => {
-    // Without the pin, `set({palette})` under `appearance: "light"` resolves mocha straight back to
-    // latte and half the entries in a palette switcher appear to do nothing.
+  it("holds an explicit side against the OS", () => {
+    media.set(true);
     const t = mount({ appearance: "light" });
 
-    act(() => t.ctx.set({ palette: "catppuccin-mocha" }));
-
-    expect(t.ctx.appliedPalette).toBe("catppuccin-mocha");
-    expect(paletteAttr()).toBe("catppuccin-mocha");
-    expect(dark()).toBe(true);
-    expect(t.ctx.appearance).toBe("dark");
-  });
-
-  it("hands the side back to the OS on `system`, resolving to the partner", () => {
-    // The pin is a side effect of choosing, not a lock: `system` must be reachable again, and it
-    // must move the palette to the partner rather than leaving a dark palette under a light OS.
-    const t = mount();
-    act(() => t.ctx.set({ palette: "kanzo-dark" }));
-    expect(t.ctx.appliedPalette).toBe("kanzo-dark");
-
-    act(() => t.ctx.setAppearance("system"));
-
-    expect(t.ctx.appliedPalette).toBe("kanzo");
-    expect(paletteAttr(), "`kanzo` is the axis default, so the attribute is removed").toBeNull();
+    expect(t.ctx.resolvedAppearance).toBe("light");
     expect(dark()).toBe(false);
+
+    act(() => t.ctx.setAppearance("dark"));
+    expect(dark()).toBe(true);
   });
 
   it("re-resolves when the OS scheme flips while the preference is `system`", () => {
@@ -243,8 +205,17 @@ describe("KanzoThemeProvider palette resolution", () => {
 
     act(() => media.set(true));
 
-    expect(t.ctx.appliedPalette).toBe("kanzo-dark");
-    expect(paletteAttr()).toBe("kanzo-dark");
+    expect(t.ctx.resolvedAppearance).toBe("dark");
+    expect(dark()).toBe(true);
+  });
+
+  it("hands the side back to the OS on `system`", () => {
+    media.set(true);
+    const t = mount({ appearance: "light" });
+    expect(dark()).toBe(false);
+
+    act(() => t.ctx.setAppearance("system"));
+
     expect(dark()).toBe(true);
   });
 
@@ -252,12 +223,11 @@ describe("KanzoThemeProvider palette resolution", () => {
     // Pre-migration users have `kanzo_appearance` and no `appearance` in `kanzo_theme_prefs`.
     // Reading only the blob resets every one of them to `system` — a preference that vanishes.
     localStorage.setItem(APPEARANCE_KEY, "dark");
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ accent: "blue" }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ radius: "lg" }));
 
     const t = mount();
 
     expect(t.ctx.appearance).toBe("dark");
-    expect(t.ctx.appliedPalette).toBe("kanzo-dark");
     expect(dark()).toBe(true);
   });
 
@@ -275,27 +245,54 @@ describe("KanzoThemeProvider palette resolution", () => {
     // A host may own the class after we go; removing it repaints the page light for however long
     // the next owner takes to put it back. The attributes are ours and must not outlive us.
     media.set(true);
-    const t = mount();
+    const t = mount({ radius: "lg" });
     expect(dark()).toBe(true);
+    expect(html().getAttribute("data-radius")).toBe("lg");
 
     t.unmount();
 
     expect(dark()).toBe(true);
-    expect(html().hasAttribute("data-palette")).toBe(false);
+    expect(html().hasAttribute("data-radius")).toBe(false);
+  });
+});
+
+/**
+ * The stored blob is merged into state and written back WHOLE, so anything read out of it is
+ * re-persisted on the next change. Retired keys therefore live forever in real browsers unless
+ * reading drops them — and `palette`/`accent`/`baseTint` are in browsers today.
+ */
+describe("KanzoThemeProvider persisted-blob hygiene", () => {
+  beforeEach(() => {
+    stubMatchMedia(false);
+    localStorage.clear();
+    html().classList.remove("dark");
+  });
+  afterEach(() => {
+    localStorage.clear();
+    html().classList.remove("dark");
+    for (const { attr } of AXES) html().removeAttribute(attr);
   });
 
-  it("honours an unregistered palette verbatim, and does not call it pinned", () => {
-    // A host registers its own palette; silently resetting it would be worse than not knowing its
-    // appearance. With no entry there is nothing to override the wanted side, so the toggle lives.
-    const t = mount({ palette: "acme-brand" });
+  it("drops retired keys on read, so the next write cannot carry them forward", () => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ palette: "dracula", accent: "blue", baseTint: "#123456", primary: "#abcdef", radius: "lg" }),
+    );
 
-    expect(paletteAttr()).toBe("acme-brand");
-    expect(t.ctx.palettePinned).toBe(false);
-    expect(t.ctx.resolvedAppearance).toBe("light");
+    let ctx!: ReturnType<typeof useKanzoTheme>;
+    render(
+      <KanzoThemeProvider>
+        <Probe onValue={(v) => (ctx = v)} />
+      </KanzoThemeProvider>,
+    );
 
-    act(() => t.ctx.setAppearance("dark"));
-    expect(t.ctx.resolvedAppearance).toBe("dark");
-    expect(dark()).toBe(true);
-    expect(paletteAttr()).toBe("acme-brand");
+    // The surviving axis still arrives…
+    expect(ctx.radius).toBe("lg");
+    // …and the retired ones never enter the model.
+    expect((ctx as unknown as Record<string, unknown>).palette).toBeUndefined();
+
+    act(() => ctx.set({ density: "compact" }));
+
+    expect(Object.keys(stored()).sort()).toEqual(Object.keys(DEFAULT_PREFS).sort());
   });
 });

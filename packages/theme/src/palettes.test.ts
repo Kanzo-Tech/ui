@@ -1,322 +1,71 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { PALETTES, type Palette, type PaletteSlot, themeData } from "./index";
-import { TEXT_MIN, contrast } from "./palette-check.js";
+import {
+  PALETTE_SEEDS,
+  compile,
+  derivePalette,
+  seedInput,
+  type TenantPalette,
+} from "@kanzo-tech/palette";
+import kanzoJson from "../palettes/kanzo.json";
 
 /**
- * A palette is data this package transcribes from somewhere else, which is the one category of
- * value no type can defend. These are the checks that stand in for that: the slots are complete,
- * the ramp runs the way base16 says it runs, the declared relief is the measured relief, and the
- * two projections of the `kanzo` pair — the generated CSS and `tokens.css`'s hand-written defaults
- * — say the same thing.
+ * The document the product paints with.
+ *
+ * `palettes/kanzo.json` is not a special case — it is a tenant whose document happens to be
+ * committed, and `tokens.css`'s colour half is that document compiled. So the claims here are that
+ * the stored artefact is what its own seeds produce, and that the sheet is what the artefact
+ * compiles to. The old file held nine tests about pairing, appearance, declared brand/status roles
+ * and manufactured slots; none of those concepts exists any more.
+ *
+ * The derivation is imported from `@kanzo-tech/palette`, a **devDependency** — see
+ * `boundary.test.ts`, which is what keeps it one. What the shipped seeds themselves survive is
+ * checked over there.
  */
 
 const pkgDir = resolve(__dirname, "..");
 const tokensCss = readFileSync(resolve(pkgDir, "tokens.css"), "utf8");
+const KANZO = kanzoJson as unknown as TenantPalette;
 
-const NEUTRALS: PaletteSlot[] = ["base00", "base01", "base02", "base03", "base04", "base05"];
-const ACCENTS: PaletteSlot[] = [
-  "base08", "base09", "base0A", "base0B", "base0C", "base0D", "base0E", "base0F",
-];
-const SLOTS: PaletteSlot[] = [...NEUTRALS, "base06", "base07", ...ACCENTS];
-
-const entries = Object.entries(PALETTES) as [string, Palette][];
-const luminance = (hex: string) => contrast(hex, "#000000");
-
-describe("palettes", () => {
-  it("ships the pair the product defaults to", () => {
-    expect(PALETTES[themeData.defaultPalette]).toBeDefined();
-    expect(PALETTES[themeData.defaultPalette]?.appearance).toBe("light");
+describe("the default tenant's document", () => {
+  it("is a tenant like any other, whose document happens to be committed", () => {
+    expect(KANZO.id).toBe("kanzo");
+    expect(KANZO.state).toBe("published");
+    expect(KANZO.seeds.brand).toBe(PALETTE_SEEDS.kanzo?.brand);
+    expect(KANZO.seeds.neutral).toBe(PALETTE_SEEDS.kanzo?.neutral);
   });
 
-  it("fills all sixteen slots with real hex", () => {
-    for (const [name, palette] of entries) {
-      for (const slot of SLOTS) {
-        expect(palette.slots[slot], `${name}.${slot}`).toMatch(/^#[0-9a-f]{6}$/);
-      }
-    }
-  });
-
-  it("runs base00→base05 monotonically from background to ink", () => {
-    // base16 orders the neutral ramp, and every consumer leans on that order: comments sit nearer
-    // the background than punctuation, surfaces stack, and the light schemes are the same ordering
-    // inverted. A palette transcribed out of order would still render — just wrongly, and quietly.
-    for (const [name, palette] of entries) {
-      const lums = NEUTRALS.map((slot) => luminance(palette.slots[slot]));
-      const sorted = [...lums].sort((a, b) => (palette.appearance === "light" ? b - a : a - b));
-      expect(lums, `${name} neutral ramp is not monotone`).toEqual(sorted);
-    }
-  });
-
-  it("declares the appearance it renders, and CSS is told", () => {
-    for (const [name, palette] of entries) {
-      expect(palette.vars["color-scheme"], name).toBe(palette.appearance);
-      // A light palette's background is light. Trivially true of a correct transcription and the
-      // first thing to break in a wrong one.
-      const bg = luminance(palette.slots.base00);
-      const ink = luminance(palette.slots.base05);
-      expect(palette.appearance === "light" ? bg > ink : ink > bg, name).toBe(true);
-    }
-  });
-
-  it("pairs symmetrically, across appearances", () => {
-    // Pairing is what the light/dark toggle folds into: the OS preference picks the partner rather
-    // than inverting a mode. A one-way link would strand a palette the switcher could enter and
-    // never leave.
-    for (const [name, palette] of entries) {
-      if (palette.pairsWith === null) continue;
-      const partner = PALETTES[palette.pairsWith];
-      expect(partner, `${name} pairs with "${palette.pairsWith}", which does not exist`).toBeDefined();
-      expect(partner?.pairsWith, `${palette.pairsWith} does not pair back`).toBe(name);
-      expect(partner?.appearance, `${name} pairs with its own appearance`).not.toBe(palette.appearance);
-    }
-  });
-
-  describe("relief", () => {
-    // Declared in the generator and re-measured here, the way a scheme's relief is. The threshold
-    // is TEXT_MIN, not CONTRAST_MIN: every slot renders as text, so there is no relief channel to
-    // trade contrast against.
-    const measured = (palette: Palette) =>
-      [...NEUTRALS.slice(3), ...ACCENTS].filter(
-        (slot) => contrast(palette.slots[slot], palette.slots.base00) < TEXT_MIN,
-      );
-
-    it("is the measured list, for every palette", () => {
-      for (const [name, palette] of entries) {
-        expect(palette.relief, `${name} declares relief it does not have, or hides relief it does`)
-          .toEqual(measured(palette));
-      }
+  it("is exactly what re-deriving its own seeds produces", () => {
+    // The stored artefact is the thing that was reviewed, so a stale one is not an error — but a
+    // stored one that no longer matches its seeds is, because the seeds are what the file claims it
+    // came from. `derivePalette` is deterministic given `derivedAt`, so this is a byte comparison.
+    const fresh = derivePalette({
+      ...seedInput("kanzo", PALETTE_SEEDS.kanzo as { label: string; brand: string; neutral: string }),
+      state: "published",
+      derivedAt: KANZO.engine.derivedAt,
     });
-
-    it("is empty for the pair the product ships as its default", () => {
-      // A borrowed palette may be low-contrast — Nord's own comments are 1.7:1 — and saying so is
-      // the whole point of publishing this. Ours has no such excuse.
-      expect(PALETTES.kanzo?.relief).toEqual([]);
-      expect(PALETTES["kanzo-dark"]?.relief).toEqual([]);
-    });
+    expect(fresh).toEqual(KANZO);
   });
 
-  describe("manufactured slots", () => {
-    it("are only the two no palette documents", () => {
-      for (const [name, palette] of entries) {
-        for (const slot of palette.extended) {
-          expect(["base06", "base07"], `${name} manufactured ${slot}`).toContain(slot);
-        }
-      }
-    });
-
-    it("never reach a token", () => {
-      // base06/base07 are generated by carrying base05 toward the ink extreme, so they are this
-      // package's invention rather than the palette's word. The surface math is written to read
-      // base05 instead precisely so an invented value cannot end up in a border.
-      for (const [name, palette] of entries) {
-        const declared = new Set(
-          SLOTS.filter((s) => !palette.extended.includes(s)).map((s) => palette.slots[s]),
-        );
-        for (const slot of palette.extended) {
-          const hex = palette.slots[slot];
-          if (declared.has(hex)) continue; // coincides with a real slot; nothing to attribute
-          for (const [token, value] of Object.entries(palette.vars)) {
-            expect(value, `${name}.${token} reads the manufactured ${slot}`).not.toContain(hex);
-          }
-        }
-      }
-    });
+  it("is what tokens.css paints with, byte for byte", () => {
+    // This replaces every hand-written colour block and the three drift guards that used to watch
+    // them. `tokens.css` had a `:root` and a `.dark` that were a manual copy of the generated
+    // neutral scale and of the `kanzo` palette's syntax slots, with nothing tying them together —
+    // so *selecting* Kanzo could recolour an editor that was already showing Kanzo. There is one
+    // copy now, and this is it.
+    const at = tokensCss.indexOf("/* ── GENERATED BELOW");
+    expect(at, "tokens.css has lost its generated-section marker").toBeGreaterThan(0);
+    const generated = tokensCss.slice(tokensCss.indexOf("*/", at) + 2).trimStart();
+    expect(generated).toBe(compile(KANZO));
   });
 
-  describe("syntax roles", () => {
-    const roles = themeData.syntaxRoles as Record<string, PaletteSlot>;
-
-    it("map every one of the thirteen onto a real slot", () => {
-      expect(Object.keys(roles)).toHaveLength(13);
-      for (const [role, slot] of Object.entries(roles)) {
-        expect(SLOTS, `role "${role}" maps to ${slot}`).toContain(slot);
-      }
-    });
-
-    it("are set by every palette, from its own slots", () => {
-      for (const [name, palette] of entries) {
-        for (const [role, slot] of Object.entries(roles)) {
-          expect(palette.vars[`--kanzo-syntax-${role}`], `${name}.${role}`).toBe(palette.slots[slot]);
-        }
-      }
-    });
-
-    /**
-     * `tokens.css` is hand-written, so its syntax block is a second copy of the `kanzo` pair with
-     * nothing tying it to the first. The failure it guards is specific and silent: the block that
-     * applies when no attribute is set would stop matching the palette of the same name, so
-     * *selecting* Kanzo would recolour an editor that was already showing Kanzo.
-     */
-    it("match tokens.css, which is where they apply with no attribute set", () => {
-      const blocks: [string, string][] = [
-        ["kanzo", tokensCss.match(/^:root\s*\{([\s\S]*?)^\}/m)?.[1] ?? ""],
-        ["kanzo-dark", tokensCss.match(/^\.dark\s*\{([\s\S]*?)^\}/m)?.[1] ?? ""],
-      ];
-      for (const [name, block] of blocks) {
-        expect(block, `no block found for ${name}`).not.toBe("");
-        const declared = new Map<string, string>();
-        for (const m of block.matchAll(/^\s*(--kanzo-syntax-[a-z]+)\s*:\s*([^;]+);/gm)) {
-          declared.set(m[1] as string, (m[2] as string).trim());
-        }
-        const palette = PALETTES[name] as Palette;
-        const drifted: string[] = [];
-        for (const role of Object.keys(roles)) {
-          const token = `--kanzo-syntax-${role}`;
-          const expected = palette.vars[token];
-          const actual = declared.get(token);
-          if (actual !== expected) drifted.push(`${token}: tokens.css ${actual ?? "(missing)"} ≠ ${expected}`);
-        }
-        expect(drifted, `tokens.css drifted from the ${name} palette:\n${drifted.join("\n")}`).toEqual([]);
-      }
-    });
-  });
-
-  it("has a generated block for every palette, at a specificity that beats the base scale", () => {
-    // The block cannot be scoped under `.dark` — a palette carries its own appearance — which
-    // leaves it at (0,1,0) against `.dark [data-base]` at (0,2,0). Doubling the attribute matches
-    // specificity so source order can settle it, and source order puts palettes last.
-    const themes = readFileSync(resolve(pkgDir, "themes.css"), "utf8");
-    for (const [name] of entries) {
-      expect(themes, `no doubled selector for palette "${name}"`)
-        .toContain(`[data-palette="${name}"][data-palette="${name}"]`);
-    }
-    expect(themes.indexOf("[data-palette="), "palettes are emitted before the base scale")
-      .toBeGreaterThan(themes.indexOf("[data-base="));
-  });
-});
-
-/**
- * The status families' on-fill ink.
- *
- * This is the guard that did not exist, and its absence is the whole story: on-fill text was a
- * literal `text-white` in `status.tsx` and `button.tsx` — the one sanctioned exception to
- * token-backed utilities — and it was failing AA on every variant, worst at 2.13:1 on the warning
- * fill. No token meant no measurement, and no measurement meant no failing test. An exception is
- * where a defect hides.
- */
-describe("status ink", () => {
-  const ROLES = ["destructive", "info", "success", "warning"] as const;
-  const ink = themeData.statusInk as Record<
-    "light" | "dark",
-    Record<string, { fill: string; content: string }>
-  >;
-
-  for (const mode of ["light", "dark"] as const) {
-    it(`carries AA text on every status fill in ${mode}`, () => {
-      const failing = ROLES.map((role) => {
-        const { fill, content } = ink[mode][role] as { fill: string; content: string };
-        return { role, ratio: contrast(fill, content) };
-      }).filter(({ ratio }) => ratio < TEXT_MIN);
-      expect(failing, `on-fill text below AA: ${JSON.stringify(failing)}`).toEqual([]);
-    });
-
-    it(`keeps every status fill distinguishable from its surface in ${mode}`, () => {
-      // A fill is not text, so the bar is 3:1 — but it still has to be visible as a shape.
-      const surface = mode === "light" ? "#fafafa" : "#0a0a0a";
-      for (const role of ROLES) {
-        const { fill } = ink[mode][role] as { fill: string };
-        expect(contrast(fill, surface), `${mode} ${role} fill on surface`).toBeGreaterThanOrEqual(3);
-      }
-    });
-  }
-
-  it("does not let the two spellings of a status token drift", () => {
-    // The CSS ships `var(--color-red-600)` because that is what makes it themeable; `statusInk`
-    // ships the same value resolved, because a `var()` cannot be measured. Two spellings of one
-    // fact is exactly the shape that rots, so the generated CSS is checked against the data.
-    const themes = readFileSync(resolve(pkgDir, "themes.css"), "utf8");
-    for (const role of ROLES) {
-      expect(themes, `no --${role}-content in the generated CSS`).toContain(`--${role}-content:`);
-    }
-    for (const [name, palette] of entries) {
-      for (const role of ROLES) {
-        expect(palette.vars[`--${role}-content`], `${name} does not set --${role}-content`)
-          .toBeDefined();
-      }
-    }
-  });
-});
-
-/**
- * The brand and status a palette DECLARES.
- *
- * Declared rather than derived, so the checks are about honesty as much as contrast: does every
- * role say where it came from, and does the published relief list match what measuring says?
- */
-describe("palette roles", () => {
-  const ROLES = ["primary", "destructive", "info", "success", "warning"] as const;
-  const STATUS = ["destructive", "info", "success", "warning"] as const;
-
-  it("declares a brand and four status families, with provenance for each", () => {
-    for (const [name, palette] of entries) {
-      expect(palette.primary.fill, `${name}.primary`).toMatch(/^#[0-9a-f]{6}$/);
-      for (const role of STATUS) {
-        expect(palette.status[role]?.fill, `${name}.${role}`).toMatch(/^#[0-9a-f]{6}$/);
-      }
-      for (const role of ROLES) {
-        expect(["upstream", "ecosystem", "kanzo"], `${name}.${role} provenance`)
-          .toContain(palette.provenance[role]);
-      }
-    }
-  });
-
-  it("interpolates at most one status role per borrowed palette", () => {
-    // What this replaced, and why, because the first attempt looked more rigorous and was wrong: it
-    // asserted that a status colour must not coincide with the base16 slot of the same meaning —
-    // meant to catch a lazy positional mapping. But a well-designed palette's semantics SHOULD line
-    // up with base16's slot hues; both put red at error and green at success. Catppuccin coincides
-    // on all four and is documented upstream on all four. Coincidence is not evidence of anything.
-    //
-    // What is checkable is how much we invented. A source is allowed to be silent about one role —
-    // Nord names no "info", so nord9 is ours — but a palette where most of the semantics are our
-    // guess is not a faithful port of anything, and should not be presented as one.
-    for (const [name, palette] of entries) {
-      if (name.startsWith("kanzo")) continue; // ours; the Kanzo pair's status IS the system's
-      const invented = STATUS.filter((role) => palette.provenance[role] === "kanzo");
-      expect(invented.length, `${name} invents ${invented.length} of its four status roles`)
-        .toBeLessThanOrEqual(1);
-    }
-  });
-
-  describe("statusRelief", () => {
-    const measured = (palette: Palette) =>
-      STATUS.filter((role) => {
-        const r = palette.status[role];
-        return contrast(r.fill, r.content) < TEXT_MIN || contrast(r.fill, palette.slots.base00) < 3;
-      });
-
-    it("is the measured list, for every palette", () => {
-      for (const [name, palette] of entries) {
-        expect(palette.statusRelief, `${name} declares relief it does not have, or hides some`)
-          .toEqual(measured(palette));
-      }
-    });
-
-    it("is empty for the pair the product ships, and for its brand in every palette", () => {
-      // A borrowed palette may fail — Nord's red cannot clear AA on its own ground at any ink — and
-      // publishing that is the point. But a palette whose BRAND is unreadable is not usable at all,
-      // so that one is a hard bar rather than a declared relief.
-      expect(PALETTES.kanzo?.statusRelief).toEqual([]);
-      expect(PALETTES["kanzo-dark"]?.statusRelief).toEqual([]);
-      for (const [name, palette] of entries) {
-        expect(contrast(palette.primary.fill, palette.primary.content), `${name} primary ink`)
-          .toBeGreaterThanOrEqual(TEXT_MIN);
-        expect(contrast(palette.primary.fill, palette.slots.base00), `${name} primary on its ground`)
-          .toBeGreaterThanOrEqual(3);
-      }
-    });
-  });
-
-  it("emits the brand tokens, so selecting a palette overrides the accent axis", () => {
-    // Without these a palette is half-applied: Dracula's surfaces with Tailwind's accent on top.
-    for (const [name, palette] of entries) {
-      for (const token of ["--primary", "--primary-foreground", "--ring", "--sidebar-primary"]) {
-        expect(palette.vars[token], `${name} does not set ${token}`).toBeDefined();
-      }
-      expect(palette.vars["--primary"], name).toBe(palette.primary.fill);
-      expect(palette.vars["--ring"], `${name} ring should follow its brand`).toBe(palette.primary.fill);
-    }
+  it("leaves no hand-written colour above the generated section", () => {
+    // The house rule, enforced where it is easiest to break: a hex that is not traceable to a seed
+    // through a published rule is a defect. The hand-written half is Tailwind's utility surface,
+    // the radius scale and the font sizes — no value, no mix, no literal.
+    const head = tokensCss.slice(0, tokensCss.indexOf("/* ── GENERATED BELOW"));
+    const literals = [...head.matchAll(/#[0-9a-fA-F]{3,8}\b|color-mix\(|oklch\(/g)].map((m) => m[0]);
+    expect(literals).toEqual([]);
   });
 });

@@ -74,8 +74,16 @@ for (const leaked of ["EditorShell", "GhostEditor"]) {
 pass("CodeMirror-backed components stay behind the /editor subpath");
 
 const theme = await import("@kanzo-tech/theme");
-if (!theme.themeData?.bases) fail("themeData missing from the theme entry");
+if (!theme.themeData?.radii) fail("themeData missing from the theme entry");
 else pass("themeData reachable from the theme JS entry (not a raw .json subpath)");
+
+// The boundary, proved where it actually matters: in an installed tree, with @kanzo-tech/palette
+// nowhere in it. A tenant document is derived once at onboarding — the categorical search alone
+// costs 0.2-7.4 s — and the runtime only applies one.
+for (const leaked of ["derivePalette", "compile", "deriveRamp", "checkScheme"]) {
+  if (leaked in theme) fail(\`the theme entry re-exports \${leaked} — the derivation is on the runtime path\`);
+}
+pass("the derivation stays in @kanzo-tech/palette, which a consumer never installs");
 
 const html = renderToString(h(ui.Button, null, "Hello"));
 if (!html.includes("Hello")) fail("Button did not server-render");

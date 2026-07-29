@@ -12,7 +12,7 @@ const badgeVariants = tv({
     "rounded-md border border-transparent",
     "overflow-hidden",
     "transition-colors",
-    "outline-none focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/32",
+    "outline-none focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring",
     "[&_svg]:pointer-events-none [&_svg]:size-3 [&_svg]:shrink-0",
     "[button&,a&]:cursor-pointer [button&,a&]:pointer-coarse:after:absolute [button&,a&]:pointer-coarse:after:size-full [button&,a&]:pointer-coarse:after:min-h-11 [button&,a&]:pointer-coarse:after:min-w-11",
     "motion-reduce:transition-none!",
@@ -31,7 +31,10 @@ const badgeVariants = tv({
         "text-secondary-foreground",
         "border-secondary/20",
         "focus-visible:border-foreground focus-visible:ring-foreground/50",
-        "[a&]:hover:bg-secondary/90",
+        // Step 4's hover is step 5, and that is `--accent`. Diluting the fill composited it over
+        // the page rather than over the badge: ΔE 0.61 from the rest state in light, 0.86 in dark.
+        // `bg-accent` measures 3.96 and 4.61 — what the outline variant already uses.
+        "[a&]:hover:bg-accent",
       ],
       outline: [
         "text-foreground",
@@ -39,23 +42,29 @@ const badgeVariants = tv({
         "[a&]:hover:bg-accent",
         "[a&]:hover:text-accent-foreground",
       ],
+      // The soft status badges read their ink off step 11 (`--X-foreground`), not off the step-9
+      // fill. Measured on their own `/10` fill: `--success` 3.11:1 in light, `--warning` 2.75,
+      // `--info` 3.56 in dark — step 9's obligation is `visible-fill` at 3:1, and a badge label is
+      // small text that owes 4.5. Step 11 measures 6.65–9.04 on the same fill and 5.99–7.88 on the
+      // `/20` hover. This is what the destructive row below already does, and what tokens.css
+      // documents `-foreground` to be for a status family.
       success: [
         "bg-success/10",
-        "text-success",
+        "text-success-foreground",
         "border-success/20",
         "focus-visible:border-success focus-visible:ring-success/20",
         "[a&]:hover:bg-success/20",
       ],
       info: [
         "bg-info/10",
-        "text-info",
+        "text-info-foreground",
         "border-info/20",
         "focus-visible:border-info focus-visible:ring-info/50",
         "[a&]:hover:bg-info/20",
       ],
       warning: [
         "bg-warning/10",
-        "text-warning",
+        "text-warning-foreground",
         "border-warning/20",
         "focus-visible:border-warning focus-visible:ring-warning/20",
         "dark:focus-visible:ring-warning/40",

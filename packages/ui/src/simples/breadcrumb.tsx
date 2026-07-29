@@ -59,7 +59,7 @@ export const BreadcrumbLink = (props: React.ComponentProps<typeof ark.a>) => {
         "rounded-md border border-transparent",
         "transition-colors",
         "hover:text-foreground",
-        "outline-none focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/32 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        "outline-none focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         "motion-reduce:transition-none!",
         className
       )}

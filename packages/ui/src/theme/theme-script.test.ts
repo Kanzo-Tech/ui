@@ -9,9 +9,12 @@
  *
  * The script is evaluated for real, not string-matched: it is emitted as concatenated JS and a
  * typo in it is a silently swallowed exception (`try{}catch(e){}`), not a failing build.
+ *
+ * Both sides shrank when colour became a compiled document rather than a set of runtime axes, and
+ * this file is what proves they shrank to the same place.
  */
 import { createElement } from "react";
-import { PALETTE_PAIRS, STORAGE_KEY } from "@kanzo-tech/theme";
+import { AXES, STORAGE_KEY } from "@kanzo-tech/theme";
 import { render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { KanzoThemeProvider } from "./KanzoThemeProvider.js";
@@ -90,17 +93,16 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
     ["nothing stored, dark OS", {}, true],
     ["appearance: dark on a light OS", { prefs: { appearance: "dark" } }, false],
     ["appearance: light on a dark OS", { prefs: { appearance: "light" } }, true],
-    ["a pinned dark palette under a light preference", { prefs: { palette: "dracula", appearance: "light" } }, false],
-    ["a pinned dark palette under a dark OS", { prefs: { palette: "nord", appearance: "system" } }, true],
-    ["a pairable palette asked for the other side", { prefs: { palette: "catppuccin-mocha", appearance: "light" } }, false],
-    ["the same pair under a dark OS", { prefs: { palette: "catppuccin-latte", appearance: "system" } }, true],
-    ["an unregistered palette", { prefs: { palette: "acme-brand", appearance: "dark" } }, false],
-    ["the legacy standalone key, no `appearance` in the blob", { prefs: { accent: "blue" }, legacy: "dark" }, false],
+    ["appearance: system on a dark OS", { prefs: { appearance: "system" } }, true],
+    ["the legacy standalone key, no `appearance` in the blob", { prefs: { radius: "lg" }, legacy: "dark" }, false],
     // No blob at all takes a different branch in the script (the empty-object guard) than a blob
     // missing the field — both must still reach the legacy key.
     ["the legacy standalone key with no blob at all", { legacy: "dark" }, false],
     ["the legacy key losing to the blob once written", { prefs: { appearance: "light" }, legacy: "dark" }, true],
-    ["the other axes alongside a resolved palette", { prefs: { accent: "violet", radius: "lg", density: "compact", appearance: "dark" } }, false],
+    ["every non-colour axis at once", { prefs: { radius: "lg", font: "geist", monoFont: "jetbrains-mono", density: "compact", appearance: "dark" } }, false],
+    // Real browsers hold blobs written before colour left the model. Neither side may act on them,
+    // and the provider must not write them back — see the whitelist test in its own file.
+    ["a retired colour key still in the stored blob", { prefs: { palette: "dracula", accent: "blue", baseTint: "#123456", appearance: "light" } }, true],
   ];
 
   for (const [name, seed, osDark] of cases) {
@@ -110,21 +112,26 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
     });
   }
 
-  it("resolves the pair rather than writing the selection (the case a string match would miss)", () => {
-    // Guards against the script writing `data-palette` before resolution: it would then emit
-    // `catppuccin-latte` while the provider, one paint later, replaces it with `catppuccin-mocha`.
-    const { script } = bothSides({ prefs: { palette: "catppuccin-latte", appearance: "dark" } }, false);
-    expect(script.attrs["data-palette"]).toBe("catppuccin-mocha");
-    expect(script.dark).toBe(true);
+  it("writes nothing for a retired colour axis", () => {
+    // `data-palette`, `data-base`, `data-accent` and `data-chart-scheme` left the product path with
+    // the document. A stored blob that still names one must not resurrect the attribute — no CSS
+    // matches it any more, so what it would produce is a stale selector nothing can clear.
+    const { script, provider } = bothSides(
+      { prefs: { palette: "dracula", base: "slate", accent: "blue", scheme: "vivid" } },
+      false,
+    );
+    for (const attr of ["data-palette", "data-base", "data-accent", "data-chart-scheme"]) {
+      expect(script.attrs[attr], attr).toBeUndefined();
+      expect(provider.attrs[attr], attr).toBeUndefined();
+    }
   });
 
-  it("removes `data-palette` when the resolved palette is the axis default", () => {
-    // Not cosmetic: the provider removes it there, so writing it would be a diff on the very first
-    // load of a default install — the most common case there is.
-    const { script, provider } = bothSides({ prefs: { palette: "kanzo-dark", appearance: "light" } }, false);
-    expect(script.attrs["data-palette"]).toBeUndefined();
-    expect(provider.attrs["data-palette"]).toBeUndefined();
+  it("follows the PREFERENCE for `.dark`, with nothing able to overrule it", () => {
+    // `.dark` used to be derived from the applied palette, so a partnerless palette contradicted
+    // the user. A document carries both modes; the preference is now the whole answer.
+    const { script, provider } = bothSides({ prefs: { appearance: "light", palette: "dracula" } }, true);
     expect(script.dark).toBe(false);
+    expect(provider.dark).toBe(false);
   });
 });
 
@@ -133,9 +140,9 @@ describe("themeScript source", () => {
 
   it("never writes `color-scheme` inline", () => {
     // next-themes 0.4.6 defaults `enableColorScheme: true` and writes
-    // `documentElement.style.colorScheme`. That inline declaration outranks every
-    // `[data-palette][data-palette] { color-scheme: … }` rule permanently — no selector can win
-    // against it — so the palettes' own `color-scheme` would never apply again.
+    // `documentElement.style.colorScheme`. That inline declaration outranks every rule
+    // permanently — no selector can win against it — so the `color-scheme` each block of the
+    // compiled palette document carries would never apply again.
     expect(source).not.toContain("colorScheme");
     expect(source).not.toMatch(/setProperty\(\s*['"]color-scheme/);
     // `prefers-color-scheme` is the media query and is expected — this asserts the property is
@@ -143,13 +150,20 @@ describe("themeScript source", () => {
     expect(source).toContain("prefers-color-scheme");
   });
 
-  it("inlines the real pairing table, not a hand-written copy", () => {
-    // The script has to resolve a palette before it writes the attribute, so it needs the table
-    // in its source. A second copy drifts the moment a palette is added, and the failure is a
-    // wrong palette before hydration only — invisible to every test of the generator.
-    const inlined = source.match(/var PR=(\{.*?\}),pal=/)?.[1];
-    expect(inlined, "the pairing table is no longer inlined under `PR`").toBeTruthy();
-    expect(JSON.parse(inlined as string)).toEqual(PALETTE_PAIRS);
+  it("inlines the real axis table, not a hand-written copy", () => {
+    // The script writes the attributes before hydration, so it needs the table in its source. A
+    // second copy drifts the moment an axis moves, and the failure is a wrong attribute before
+    // hydration only — invisible to every test of the generator.
+    const inlined = source.match(/var A=(\[.*?\]);for/)?.[1];
+    expect(inlined, "the axis table is no longer inlined under `A`").toBeTruthy();
+    expect(JSON.parse(inlined as string)).toEqual(AXES.map((a) => [a.key, a.attr, a.def]));
+  });
+
+  it("sets no CSS custom property at all", () => {
+    // The whole colour half of this script (the base-tint ramp, the primary override and the
+    // hand-rolled luminance function behind it) is gone: colour reaches the page as a compiled
+    // stylesheet the server inlines, which is done before a byte is sent.
+    expect(source).not.toContain("setProperty");
   });
 
   it("stays a single self-contained IIFE", () => {

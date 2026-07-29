@@ -19,7 +19,7 @@ const alertVariants = tv({
   variants: {
     variant: {
       default: [
-        "bg-input/4",
+        "bg-field",
         "[&_svg]:text-muted-foreground",
         "[&_[data-slot=alert-action]_[data-variant=ghost]]:hover:bg-muted",
       ],

@@ -1,11 +1,11 @@
 {
   "name": "@kanzo-tech/theme",
   "version": "0.0.0",
-  "description": "Kanzo design tokens — Shark UI's exact theme sets (base colour / accent / radius / density / dark), driven by data-* attributes on <html>.",
+  "description": "Kanzo design tokens — a tenant palette document compiled to CSS, plus the four non-colour axes (radius / font / mono font / density) driven by data-* attributes on <html>.",
   "type": "module",
   "license": "MIT",
   "sideEffects": ["**/*.css"],
-  "files": ["dist", "tokens.css", "themes.css", "theme-data.json", "README.md"],
+  "files": ["dist", "palettes", "tokens.css", "themes.css", "theme-data.json", "README.md"],
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -16,16 +16,20 @@
     "./tokens.css": "./tokens.css",
     "./themes.css": "./themes.css",
     "./theme-data.json": "./theme-data.json",
+    "./palettes/kanzo.json": "./palettes/kanzo.json",
     "./package.json": "./package.json"
   },
   "scripts": {
     "build": "vite build",
-    "gen": "node scripts/gen-theme.mjs",
+    "//gen": "Three steps, in this order: the derivation made runnable from plain Node (its own tables, then its build), the four non-colour axes, and the default tenant's document compiled into tokens.css.",
+    "gen": "pnpm --filter @kanzo-tech/palette gen && node scripts/gen-theme.mjs && node scripts/gen-palette.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "//deps": "No React peer: this package ships tokens, the axis table and types. The provider that consumes them lives in @kanzo-tech/ui.",
+  "//devDeps": "@kanzo-tech/palette is a devDependency and must stay one — scripts/gen-palette.mjs and the tests derive with it, a browser never does. `boundary.test.ts` fails the build if it moves.",
   "devDependencies": {
+    "@kanzo-tech/palette": "workspace:*",
     "tailwindcss": "4"
   }
 }

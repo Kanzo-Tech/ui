@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { oklch, CHROMA_FLOOR } from "@kanzo-tech/theme";
+import { oklch, CHROMA_FLOOR } from "@kanzo-tech/palette";
 import { describe, expect, it } from "vitest";
 
 /**

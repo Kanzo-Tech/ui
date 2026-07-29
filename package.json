@@ -13,8 +13,8 @@
     "changeset": "changeset",
     "version-packages": "changeset version",
     "smoke": "node scripts/smoke-install.mjs",
-    "//check:generated": "themes.css and theme-data.json are generated. Regenerate and fail if the checked-in copies differ, so a hand-edit or a stale commit cannot ship.",
-    "check:generated": "pnpm --filter @kanzo-tech/theme gen && git diff --exit-code -- packages/theme/themes.css packages/theme/theme-data.json",
+    "//check:generated": "palette-data.json, themes.css, theme-data.json, palettes/ and tokens.css' colour half are generated. Regenerate and fail if the checked-in copies differ, so a hand-edit or a stale commit cannot ship. The theme's own `gen` builds @kanzo-tech/palette first, so one command covers both packages.",
+    "check:generated": "pnpm --filter @kanzo-tech/theme gen && git diff --exit-code -- packages/palette/palette-data.json packages/theme/themes.css packages/theme/theme-data.json packages/theme/tokens.css packages/theme/palettes",
     "//release": "Scoped to packages/*: the docs app must never sit on the publish path.",
     "release": "pnpm -r --filter \"./packages/*\" build && changeset publish"
   },

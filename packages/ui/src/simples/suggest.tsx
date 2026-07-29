@@ -124,7 +124,7 @@ export function SuggestItem(props: {
   return (
     <div className="flex items-center gap-2">
       <button
-        className="flex min-w-0 flex-1 flex-col gap-1 rounded-md p-2 text-start outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/32 motion-reduce:transition-none!"
+        className="flex min-w-0 flex-1 flex-col gap-1 rounded-md p-2 text-start outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring motion-reduce:transition-none!"
         onClick={() => pick(item.value)}
         type="button"
       >

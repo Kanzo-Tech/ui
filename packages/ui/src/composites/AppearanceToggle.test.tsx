@@ -33,11 +33,13 @@ function setup(defaults?: Partial<ThemePrefs>) {
   );
 }
 
+/** The one button on screen, whatever its current name says. */
+const toggle = () => document.querySelector("button")!;
+
 /**
- * The preference now lives on the prefs blob, not in the standalone `kanzo_appearance` key.
- * One source: the pin that `set({palette})` applies writes the same field, so a second key would
- * be a value nothing reads and everything can contradict. (The old key is still READ once, for
- * migration — see the provider's tests.)
+ * The preference lives on the prefs blob, not in the standalone `kanzo_appearance` key. One
+ * source, so nothing can contradict it. (The old key is still READ once, for migration — see the
+ * provider's tests.)
  */
 const storedAppearance = () =>
   (JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as Partial<ThemePrefs>).appearance;
@@ -47,68 +49,102 @@ describe("AppearanceToggle", () => {
     stubMatchMedia(false);
     localStorage.clear();
     document.documentElement.classList.remove("dark");
-    document.documentElement.removeAttribute("data-palette");
   });
   afterEach(() => {
     localStorage.clear();
     document.documentElement.classList.remove("dark");
-    document.documentElement.removeAttribute("data-palette");
   });
 
-  it("flips to dark on click, applying `.dark` and storing the preference", async () => {
+  it("flips light ⇄ dark on plain clicks", async () => {
+    const user = userEvent.setup();
+    setup({ appearance: "light" });
+    const button = toggle();
+
+    await user.click(button);
+    expect(storedAppearance()).toBe("dark");
+    expect(document.documentElement.classList.contains("dark")).toBe(true);
+
+    await user.click(button);
+    expect(storedAppearance()).toBe("light");
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+  });
+
+  it("flips what is APPLIED when nothing is stored, not what is stored", async () => {
+    // From `system` the stored value is not a side, so there is nothing to invert. Inverting the
+    // RESOLVED appearance is the only reading that matches the screen: the matchMedia stub reports
+    // light, the user sees light, one click gives dark. Inverting the stored value would have
+    // needed a rule for what `system` flips to, and any such rule sometimes moves nothing.
     const user = userEvent.setup();
     setup();
+    expect(storedAppearance()).toBe(undefined);
 
-    await user.click(screen.getByRole("button", { name: "Toggle appearance" }));
+    await user.click(toggle());
 
-    expect(document.documentElement.classList.contains("dark")).toBe(true);
-    // The click asked for a side; what applied is the dark half of the selected pair.
-    expect(document.documentElement.getAttribute("data-palette")).toBe("kanzo-dark");
     expect(storedAppearance()).toBe("dark");
   });
 
-  it("flips back to light on a second click", async () => {
-    const user = userEvent.setup();
-    setup();
-
-    const button = screen.getByRole("button", { name: "Toggle appearance" });
-    await user.click(button);
-    await user.click(button);
-
-    expect(document.documentElement.classList.contains("dark")).toBe(false);
-    expect(storedAppearance()).toBe("light");
+  it("still marks the PREFERENCE, which `.dark` cannot say", () => {
+    // `data-appearance` drove the monitor face and now drives no icon at all. It stays because
+    // `.dark` says which side is applied and only this says whether the user pinned it — the
+    // difference between "dark because you asked" and "dark because your OS is".
+    setup({ appearance: "system" });
+    expect(toggle().getAttribute("data-appearance")).toBe("system");
   });
 
-  it("reaches `system` via Shift-click (the secondary affordance)", async () => {
-    const user = userEvent.setup();
-    setup();
+  describe("accessible name", () => {
+    // Not `aria-pressed`, though at two states it would be well-formed. The name already carries
+    // both halves — what is applied, and what one click does — and `aria-pressed` would say the
+    // state a second time, less precisely: "toggle button, pressed" leaves the listener to work
+    // out that pressed means dark. Note the `system` row names LIGHT: the name describes what the
+    // reader is looking at, not what is in storage.
+    it.each([
+      ["light", "Appearance: Light. Switch to dark"],
+      ["dark", "Appearance: Dark. Switch to light"],
+      ["system", "Appearance: Light. Switch to dark"],
+    ] as const)("names %s as its state plus its next action", (appearance, name) => {
+      setup({ appearance });
 
-    await user.keyboard("[ShiftLeft>]");
-    await user.click(screen.getByRole("button", { name: "Toggle appearance" }));
-    await user.keyboard("[/ShiftLeft]");
+      expect(screen.getByRole("button", { name })).toBeTruthy();
+      expect(toggle().getAttribute("title")).toBe(name);
+    });
 
-    expect(storedAppearance()).toBe("system");
-    // matchMedia stub reports light, so `system` resolves to no `.dark`.
-    expect(document.documentElement.classList.contains("dark")).toBe(false);
+    it("carries no `aria-pressed`", () => {
+      setup({ appearance: "system" });
+      expect(toggle().hasAttribute("aria-pressed")).toBe(false);
+    });
+
+    it("takes the state names from `labels`, and the whole frame from `formatName` (i18n)", () => {
+      render(
+        <KanzoThemeProvider defaults={{ appearance: "dark" }}>
+          <AppearanceToggle
+            label="Apariencia"
+            labels={{ dark: "Oscuro", light: "Claro" }}
+            formatName={({ label, current, next }) => `${label}: ${current}. Cambiar a ${next}`}
+          />
+        </KanzoThemeProvider>,
+      );
+
+      expect(screen.getByRole("button", { name: "Apariencia: Oscuro. Cambiar a Claro" })).toBeTruthy();
+    });
   });
 
-  it("disables itself on a palette with no partner, and says which one", async () => {
-    // Dracula pins the appearance while it is selected. Left enabled, this button would write a
-    // preference and repaint nothing — the exact "the toggle is broken" bug report.
+  it("is always live: nothing can pin the appearance any more", async () => {
+    // It used to disable itself on a partnerless palette (Dracula, Nord), because `.dark` was
+    // derived from the applied palette and this control genuinely could not move it. A compiled
+    // palette document publishes both modes, so the preference is the whole answer.
     const user = userEvent.setup();
-    setup({ palette: "dracula" });
+    setup({ appearance: "light" });
 
-    const button = screen.getByRole("button", { name: "Toggle appearance" }) as HTMLButtonElement;
-    expect(button.disabled).toBe(true);
-    expect(button.getAttribute("title")).toContain("Dracula");
+    const button = toggle() as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
 
     await user.click(button);
     expect(document.documentElement.classList.contains("dark")).toBe(true);
-    expect(storedAppearance(), "a disabled button wrote nothing").toBeUndefined();
+    expect(storedAppearance()).toBe("dark");
   });
 
   // Regression: the server cannot know the persisted appearance, so it used to emit
-  // `aria-pressed="false" data-appearance="light"` while the client hydrated `dark` —
+  // `data-appearance="light"` and a `light` state clause while the client hydrated `dark` —
   // a mismatch React reports and does NOT patch.
   describe("SSR hydration", () => {
     // A host theme manager (next-themes): nothing on the server, `dark` on the client.
@@ -140,19 +176,21 @@ describe("AppearanceToggle", () => {
       expect(errors).toEqual([]);
       // …and once mounted it does report the real state.
       const button = container.querySelector("button");
-      expect(button?.getAttribute("aria-pressed")).toBe("true");
+      expect(button?.getAttribute("aria-label")).toBe("Appearance: Dark. Switch to light");
       expect(button?.getAttribute("data-appearance")).toBe("dark");
       container.remove();
     });
 
-    it("withholds the state attributes on the server rather than guessing `light`", () => {
+    it("withholds the state on the server rather than guessing `light`", () => {
       const html = renderToString(
         <KanzoThemeProvider appearance={server}>
           <AppearanceToggle />
         </KanzoThemeProvider>,
       );
-      expect(html).not.toContain("aria-pressed");
       expect(html).not.toContain("data-appearance");
+      expect(html).not.toContain("Switch to");
+      // The bare action name is all the server commits to.
+      expect(html).toContain('aria-label="Appearance"');
     });
   });
 });

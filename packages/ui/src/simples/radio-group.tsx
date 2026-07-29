@@ -93,10 +93,10 @@ export const RadioGroupItem = (
           "inline-flex shrink-0 items-center justify-center",
           "size-4",
           "border border-input shadow-xs/5",
-          "bg-input/30",
+          "bg-field",
           "rounded-full",
           "before:size-1.5 before:rounded-full",
-          "data-focus-visible:border-primary data-focus-visible:ring-[3px] data-focus-visible:ring-ring/32 data-focus-visible:ring-offset-1 data-focus-visible:ring-offset-background",
+          "data-focus-visible:border-primary data-focus-visible:ring-[3px] data-focus-visible:ring-ring data-focus-visible:ring-offset-1 data-focus-visible:ring-offset-background",
           "data-focus-visible:data-invalid:border-destructive/64 data-focus-visible:data-invalid:ring-destructive/48",
           "data-invalid:border-destructive data-invalid:text-destructive data-invalid:ring-[3px] data-invalid:ring-destructive/24",
           "dark:data-invalid:border-destructive-foreground dark:data-invalid:text-destructive dark:data-invalid:ring-[3px] dark:data-invalid:ring-destructive-foreground/20",
@@ -125,10 +125,18 @@ export const RadioGroupCard = (
     <ArkRadioGroup.Item
       className={cn(
         "relative flex cursor-pointer gap-2 rounded-lg border border-input bg-transparent p-3 transition-colors",
+        // Kept as a dilution, and it is the only one in this package that is. The rest state is the
+        // backdrop (`bg-transparent`) and a card can sit anywhere, so no solid is right everywhere:
+        // `bg-secondary` is ΔE 0.00 from the rest state on a secondary backdrop, this is ΔE 0.00 on
+        // an accent one. The honest answer is an alpha step — `(neutral, a4)` never falls below
+        // ΔE 4.32 from the rest state on any surface the theme publishes, against this one's 0.00 —
+        // and the theme has no role for it yet (`--field` is a3 and means a control fill). Measured
+        // where it works: page/card/popover/muted give ΔE 3.33–6.86 from rest, which clears the
+        // ramp's ΔE-2 hover bar, and land on step 4 to within ΔE 1.73 of `--secondary`.
         "hover:bg-accent/50",
         "data-[state=checked]:border-primary data-[state=checked]:bg-accent",
         "data-disabled:pointer-events-none data-disabled:opacity-64",
-        "has-data-focus-visible:border-primary has-data-focus-visible:ring-[3px] has-data-focus-visible:ring-ring/32",
+        "has-data-focus-visible:border-primary has-data-focus-visible:ring-[3px] has-data-focus-visible:ring-ring",
         "data-invalid:border-destructive",
         className
       )}
@@ -150,7 +158,7 @@ export const RadioGroupIndicator = (
   return (
     <ArkRadioGroup.ItemControl
       className={cn(
-        "inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-input bg-input/30 shadow-xs/5",
+        "inline-flex size-4 shrink-0 items-center justify-center rounded-full border border-input bg-field shadow-xs/5",
         "before:size-1.5 before:rounded-full",
         "data-[state=checked]:bg-primary data-[state=checked]:before:bg-primary-foreground",
         className

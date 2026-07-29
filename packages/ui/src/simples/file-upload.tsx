@@ -49,11 +49,11 @@ export const FileUploadDropzone = (
         "px-6 py-8 text-center",
         "cursor-pointer",
         "rounded-lg border border-input border-dashed shadow-xs/5",
-        "bg-transparent dark:bg-input/30",
+        "bg-transparent dark:bg-field",
         "text-muted-foreground text-sm",
         "transition-[color,box-shadow,border-color,background-color]",
         "hover:border-ring hover:bg-accent hover:text-accent-foreground",
-        "outline-none focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring/32",
+        "outline-none focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring",
         "data-dragging:border-primary data-dragging:bg-accent data-dragging:text-accent-foreground",
         "data-disabled:pointer-events-none data-disabled:opacity-64",
         "data-invalid:border-destructive data-invalid:text-destructive data-invalid:ring-[3px] data-invalid:ring-destructive/24",
@@ -107,7 +107,7 @@ export const FileUploadItem = (
         "flex items-center gap-3",
         "px-3 py-2 text-sm",
         "rounded-lg border border-input shadow-xs/5",
-        "bg-transparent dark:bg-input/30",
+        "bg-transparent dark:bg-field",
         "data-disabled:opacity-64",
         className
       )}

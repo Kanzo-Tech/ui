@@ -11,7 +11,7 @@ export const useToggle = useToggleContext;
 const toggleVariants = tv({
   base: [
     "relative",
-    "data-[state=on]:bg-input/64 dark:data-[state=on]:bg-input/64",
+    "data-[state=on]:bg-field",
     "pointer-coarse:after:absolute pointer-coarse:after:size-full pointer-coarse:after:min-h-11 pointer-coarse:after:min-w-11",
   ],
   variants: {

@@ -1,50 +1,44 @@
 /*
  * @kanzo-tech/theme — design tokens for the Kanzo design system.
  *
- * Architecture (APPEARANCE layer): the single source of truth for the look.
- * These are Shark UI's canonical tokens adopted verbatim — a NEUTRAL palette built
- * on Tailwind v4's named colours (`--color-neutral-*`) composited with `color-mix`,
- * mapped to semantic tokens (`--background`, `--primary`, …) via `@theme inline` so
- * utilities like `bg-primary` / `text-muted-foreground` resolve to tokens and theme
- * live. Default radius is `0.5rem` with an additive scale, matching Shark/shadcn.
+ * Architecture (APPEARANCE layer): the single source of truth for the look. Two halves, and the
+ * split is the whole point of this file.
  *
- * Theming's colour axes (written to `<html>` by `KanzoThemeProvider`): a PALETTE — a whole base16
- * identity that sets the surfaces, the neutrals, the 13 syntax roles and `color-scheme`, and which
- * wins over the base scale by source order in themes.css; a base neutral scale; an ACCENT that
- * overrides ONLY 6 tokens (`--primary(-foreground)`, `--ring`, `--sidebar-primary
- * (-foreground)`, `--sidebar-ring`) — it never touches `--accent`, which (as in Shark)
- * is the neutral hover/subtle surface, not a brand hue; and a categorical SCHEME for `--chart-*`.
- * `.dark` remains its own axis for now; the palette's `pairsWith` is what it eventually folds into.
+ * The half below is HAND-WRITTEN and carries no colour: Tailwind's utility surface (`@theme
+ * inline`, which is what makes `bg-primary` / `text-muted-foreground` resolve to tokens and theme
+ * live), the radius scale, the font stacks, the density steps, two keyframes and the element-level
+ * base layer.
  *
- * This block is the `kanzo` palette's light side, and the `.dark` block below is `kanzo-dark` —
- * they apply when no attribute is set, so they must not drift from the palettes of the same name.
- * `palettes.test.ts` holds the syntax roles to that; the surfaces differ only in reaching past the
- * foreground to `-950`/`-50`, where a palette stops at its own ink slot.
+ * The half at the bottom is GENERATED — `compile()` applied to `palettes/kanzo.json`, the tenant
+ * palette document for the identity this system ships as its default. **The default tenant is not a
+ * special case**: it is a tenant whose document happens to be committed, derived from two seeds
+ * (`themeData.seeds.kanzo`) by exactly the code a client's document goes through. Every colour in
+ * it is traceable to a seed through a published rule, which is why there is no hex written by hand
+ * anywhere in this file.
+ *
+ * There is no colour AXIS. `data-base`, `data-accent`, `data-palette` and `data-chart-scheme` are
+ * gone: each was a way to express *part* of a palette at runtime, and a document expresses all of
+ * it at once, before a byte is sent. What `themes.css` still carries is the four things that are
+ * not colour — `data-radius`, `data-font`, `data-mono-font`, `data-font-size`.
+ *
+ * `.dark` remains the mode selector, and each block carries its own `color-scheme` so native
+ * controls, scrollbars and date pickers follow. It is a declaration in a rule, never
+ * `documentElement.style.colorScheme`, because an inline declaration outranks every rule
+ * permanently and there is no way to take it back.
  *
  * For the NEUTRAL and BRAND families the base name is the FILL and the same name with
- * `-foreground` is the text/icon colour meant to sit ON that fill. Change a token and the whole
- * system re-skins.
+ * `-foreground` is the text/icon colour meant to sit ON that fill.
  *
  * The STATUS families (destructive/info/success/warning) do NOT follow that rule, and this is
  * inherited from Shark UI verbatim — do not "fix" it, it would fork us from upstream. There,
- * `-foreground` is a *darker/lighter variant of the same hue*, readable against the page
- * background. It is for error text, invalid rings and destructive menu items — never for text on
- * the fill. Shark itself proves the intent: its Status recipe writes
- * `dark:bg-destructive-foreground`, using it as a BACKGROUND.
- *
- * On-fill text therefore needs a THIRD token per status family, `--*-content` — daisyUI's word for
- * exactly this role, borrowed because `-foreground` was already taken here with a different meaning
- * that ~40 call sites rely on. It used to be a literal `text-white`, described as the one sanctioned
- * exception to "token-backed utilities only", and the exception is where the defect hid: measured,
- * it was 2.13:1 on warning, 2.47 on success, 3.76 on info and 3.81 on destructive. No token meant
- * nothing to measure, and nothing to measure meant no failing test.
- *
- * TWO declared divergences from Shark follow, both forced and both measured. The status fills sit at
- * `-600` rather than `-500`, because red-500 carries neither white (3.81) nor near-black (4.15) at
- * AA — no choice of ink rescues it — and because emerald-500/amber-500 land at 2.37 and 2.05
- * against the page, so a filled badge was barely visible AS A SHAPE, below the 3:1 that WCAG asks of
- * a non-text element. And the ink is split by measurement rather than by rule: destructive and info
- * hold white, success and warning take near-black. `palettes.test.ts` re-measures all of it.
+ * `-foreground` is a *readable-on-the-page variant of the same hue*: error text, invalid rings,
+ * destructive menu items — never text on the fill. On-fill ink is a third token per family,
+ * `--*-content` (daisyUI's word for exactly this role), and the document derives it as
+ * `Ramp.onSolid` — whatever measures highest contrast, with no "prefer white when legal" escape
+ * hatch. It used to be a literal `text-white`, the one sanctioned exception to "token-backed
+ * utilities only", and the exception is where the defect hid: measured, it was 2.13:1 on warning,
+ * 2.47 on success, 3.76 on info and 3.81 on destructive. No token meant nothing to measure, and
+ * nothing to measure meant no failing test.
  */
 
 @theme inline {
@@ -76,6 +70,7 @@
   --color-warning-content: var(--warning-content);
   --color-border: var(--border);
   --color-input: var(--input);
+  --color-field: var(--field);
   --color-ring: var(--ring);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -159,207 +154,160 @@
 }
 
 :root {
-  /* Shark neutral theme (default accent = neutral). The `data-*` attributes on <html>
-     override --radius and the 6 accent tokens when a brand accent / base / radius is chosen. */
+  /* The two knobs that are not colour and not a `data-*` default. `themes.css` re-points
+     `--radius` per `data-radius`; these are the values with the attribute absent. */
   --radius: 0.5rem;
-
-  --background: var(--color-neutral-50);
-  --foreground: var(--color-neutral-800);
-  --card: var(--color-neutral-50);
-  --card-foreground: var(--color-neutral-800);
-  --popover: var(--color-neutral-50);
-  --popover-foreground: var(--color-neutral-800);
-
-  --primary: var(--color-neutral-800);
-  --primary-foreground: var(--color-neutral-50);
-  --secondary: color-mix(in srgb, var(--color-neutral-950) 6%, var(--background));
-  --secondary-foreground: var(--color-neutral-800);
-  --muted: color-mix(in srgb, var(--color-neutral-950) 6%, var(--background));
-  --muted-foreground: color-mix(in srgb, var(--color-neutral-500) 80%, var(--color-neutral-950));
-  --accent: color-mix(in srgb, var(--color-neutral-950) 6%, var(--background));
-  --accent-foreground: var(--color-neutral-800);
-  /* `-600` across the four, a DECLARED divergence from Shark, forced by two separate measurements.
-     Ink: red-500 carries neither white (3.81) nor near-black (4.15) at AA, so no choice of ink
-     rescues it and the fill had to move. Visibility: emerald-500 and amber-500 sit at 2.37 and 2.05
-     against the page, so a filled badge was barely a shape — WCAG asks 3:1 of a non-text element.
-     At `-600` all four clear both bars. See --*-content below. */
-  --destructive: var(--color-red-600);
-  --destructive-foreground: var(--color-red-700);
-  --info: var(--color-blue-600);
-  --info-foreground: var(--color-blue-700);
-  --success: var(--color-emerald-600);
-  --success-foreground: var(--color-emerald-700);
-  --warning: var(--color-amber-600);
-  --warning-foreground: var(--color-amber-700);
-
-  /* ON-FILL text. A third token per status family, and the asymmetry with the neutral/brand
-     families is deliberate: there, `-foreground` already IS the on-fill ink. Here it is a readable
-     variant of the same hue meant to sit on the PAGE (see the note at the top of this file), which
-     ~40 call sites depend on — so the on-fill role needed its own name, and daisyUI's `-content` is
-     the reference system's word for exactly it.
-
-     Until now that role was a literal `text-white` in status.tsx and button.tsx, the one sanctioned
-     exception to "token-backed utilities only" — and it was failing AA everywhere nobody could
-     measure it: warning 2.13, success 2.47, info 3.76, destructive 3.81. An exception is where a
-     defect hides, because no token means no test.
-
-     Split by measurement rather than by rule, which is what a declared value is for: the two fills
-     that hold white do, the two that cannot take near-black. Same choice in both modes, so a badge
-     does not change its criterion when the mode flips. */
-  --destructive-content: var(--color-white);   /* on red-600     — 4.77 */
-  --info-content: var(--color-white);          /* on blue-600    — 5.25 */
-  --success-content: var(--color-neutral-950); /* on emerald-600 — 5.42 */
-  --warning-content: var(--color-neutral-950); /* on amber-600   — 6.19 */
-
-  --border: color-mix(in srgb, var(--color-neutral-950) 12%, var(--background));
-  --input: color-mix(in srgb, var(--color-neutral-950) 13%, var(--background));
-  --ring: var(--color-neutral-400);
-
-  --sidebar: var(--color-neutral-50);
-  --sidebar-foreground: color-mix(in srgb, var(--color-neutral-800) 64%, var(--sidebar));
-  --sidebar-primary: var(--color-neutral-800);
-  --sidebar-primary-foreground: var(--color-neutral-50);
-  --sidebar-accent: color-mix(in srgb, var(--color-neutral-950) 6%, var(--sidebar));
-  --sidebar-accent-foreground: var(--color-neutral-800);
-  --sidebar-border: color-mix(in srgb, var(--color-neutral-950) 11%, var(--sidebar));
-  --sidebar-ring: var(--color-neutral-400);
-
-  /* The default categorical scheme (`kanzo`), inline for the attribute-absent case — every other
-     scheme is a `[data-chart-scheme]` block in themes.css. Literal hex rather than
-     `var(--color-*)`: the scheme is data, defined once in gen-theme.mjs and projected here and
-     into theme-data.json. Do not hand-edit a slot; it is derived against the palette validator,
-     and the constraints that placed each one are recorded beside the definition. */
-  --chart-1: #2b7fff;
-  --chart-2: #008236;
-  --chart-3: #7f22fe;
-  --chart-4: #a65f00;
-  --chart-5: #0092b8;
-  --chart-6: #f54a00;
-  --chart-7: #e12afb;
-  --chart-8: #ff2056;
 
   /* ── Kanzo extras (not in Shark; only what Tailwind/Shark don't cover + is used) ── */
   --kanzo-font-size-base: 0.8125rem;   /* 13px — IDE base (below Tailwind text-xs) */
   --kanzo-font-size-small: 0.6875rem;  /* 11px */
   --kanzo-font-size-xs: 0.625rem;      /* 10px */
-  /* No `--kanzo-focus-ring`: it was defined here and consumed by zero components, while all 38
-     focus rings use Shark's utilities directly — `focus-visible:ring-[3px] ring-ring/32`. That
+  /* No `--kanzo-focus-ring`: it was defined here and consumed by zero components, while every
+     focus ring uses Shark's utilities directly — `focus-visible:ring-[3px] ring-ring`. That
      is the convention; a token nothing reads only invited drift, and this block's own contract
      is "only what Tailwind/Shark don't cover + is used". */
-
-  /* Syntax highlighting — consumed by the editor's HighlightStyle (→ --kanzo-syntax-*).
-     These are the `kanzo` palette's slots through the base16 role mapping, as literal hex for the
-     same reason --chart-* is: the palette is the source, this is a projection of it, and a `var()`
-     reference would be a second spelling of the same fact that nothing could compare. Regenerating
-     is `node scripts/gen-theme.mjs`; the drift guard is in `palettes.test.ts`.
-     Declarations only — plain variable USES inherit --foreground. */
-  --kanzo-syntax-keyword: #8200db;      /* base0E */
-  --kanzo-syntax-string: #007a55;       /* base0B */
-  --kanzo-syntax-number: #ca3500;       /* base09 */
-  --kanzo-syntax-constant: #ca3500;     /* base09 */
-  --kanzo-syntax-comment: #737373;      /* base03 */
-  --kanzo-syntax-type: #a65f00;         /* base0A */
-  --kanzo-syntax-function: #1447e6;     /* base0D */
-  /* Object keys / attribute names. Their absence is why JSON rendered near-monochrome: keys
-     fell through to the identifier rule and therefore to plain foreground. */
-  --kanzo-syntax-property: #007595;     /* base0C */
-  --kanzo-syntax-identifier: #c10007;   /* base08 */
-  --kanzo-syntax-operator: #262626;     /* base05 — base16 has no operator slot; they read as ink */
-  --kanzo-syntax-punctuation: #525252;  /* base04 */
-  --kanzo-syntax-url: #1447e6;          /* base0D */
-  --kanzo-syntax-invalid: #c70036;      /* base0F */
-
-  /* Editor highlight affordances. These are NOT derived from --accent: it is already a 6%
-     tint, so mixing it again produced ~3% deltas — an active line and a search hit that were
-     both invisible and indistinguishable from each other. */
-  --kanzo-editor-active-line: var(--accent);
-  --kanzo-editor-selection: color-mix(in srgb, var(--primary) 30%, transparent);
-  --kanzo-editor-search-match: color-mix(in srgb, var(--warning) 35%, transparent);
-  --kanzo-editor-search-active: color-mix(in srgb, var(--warning) 70%, transparent);
-
-  /* Editor gutter surface + dim line-number ink (tokenised — was a hand-tuned magic mix). */
-  --kanzo-gutter-bg: color-mix(in srgb, var(--foreground) 6%, var(--background));
-  --kanzo-gutter-foreground: color-mix(in srgb, var(--muted-foreground) 70%, var(--background));
 }
 
+/* ── GENERATED BELOW — do not edit by hand ─────────────────────────────────────────────────────
+   `compile(palettes/kanzo.json)`. Regenerate with `node scripts/gen-palette.mjs`; the drift guard
+   is in `palettes.test.ts`, which re-derives the document from its seeds and re-compiles it. */
+
+/* kanzo — @kanzo-tech/theme palette document v2 */
+:root {
+  color-scheme: light;
+  --chart-capacity: 8;
+  --background: #fafafa;
+  --foreground: #0f0f0f;
+  --card: #fafafa;
+  --card-foreground: #0f0f0f;
+  --popover: #fafafa;
+  --popover-foreground: #0f0f0f;
+  --muted: #efefef;
+  --muted-foreground: #454545;
+  --secondary: #e6e6e6;
+  --secondary-foreground: #0f0f0f;
+  --accent: #d9d9d9;
+  --accent-foreground: #0f0f0f;
+  --border: #c9c9c9;
+  --input: #737373;
+  --field: #00000008;
+  --primary: #0f0f0f;
+  --primary-foreground: #fafafa;
+  --ring: #737373;
+  --destructive: #e7000b;
+  --destructive-foreground: #8d0003;
+  --destructive-content: #fef9f8;
+  --warning: #e17100;
+  --warning-foreground: #844000;
+  --warning-content: #1b0700;
+  --success: #009966;
+  --success-foreground: #005b3b;
+  --success-content: #001309;
+  --info: #155dfc;
+  --info-foreground: #0032a7;
+  --info-content: #f8fafe;
+  --sidebar: #fafafa;
+  --sidebar-foreground: #454545;
+  --sidebar-primary: #0f0f0f;
+  --sidebar-primary-foreground: #fafafa;
+  --sidebar-accent: #d9d9d9;
+  --sidebar-accent-foreground: #0f0f0f;
+  --sidebar-border: #c9c9c9;
+  --sidebar-ring: #737373;
+  --chart-1: #00c950;
+  --chart-2: #a800b7;
+  --chart-3: #ff8904;
+  --chart-4: #2b7fff;
+  --chart-5: #ff2056;
+  --chart-6: #7008e7;
+  --chart-7: #a65f00;
+  --chart-8: #0092b8;
+  --selection: #0000001f;
+  --kanzo-editor-search-match: #ff4f0030;
+  --kanzo-editor-search-active: #e4520094;
+  --kanzo-editor-active-line: #efefef;
+  --kanzo-gutter-bg: #f7f7f7;
+  --kanzo-gutter-foreground: #6a6a6a;
+  --kanzo-syntax-keyword: #8200db;
+  --kanzo-syntax-string: #007a55;
+  --kanzo-syntax-number: #ca3500;
+  --kanzo-syntax-constant: #ca3500;
+  --kanzo-syntax-comment: #737373;
+  --kanzo-syntax-type: #a65f00;
+  --kanzo-syntax-function: #1447e6;
+  --kanzo-syntax-property: #007595;
+  --kanzo-syntax-identifier: #c10007;
+  --kanzo-syntax-operator: #262626;
+  --kanzo-syntax-punctuation: #525252;
+  --kanzo-syntax-url: #1447e6;
+  --kanzo-syntax-invalid: #c70036;
+}
 .dark {
-  --background: var(--color-neutral-950);
-  --foreground: var(--color-neutral-100);
-  --card: color-mix(in srgb, var(--background) 98%, var(--color-neutral-50));
-  --card-foreground: var(--color-neutral-100);
-  --popover: color-mix(in srgb, var(--background) 96%, var(--color-neutral-50));
-  --popover-foreground: var(--color-neutral-100);
-
-  --primary: var(--color-neutral-100);
-  --primary-foreground: var(--color-neutral-800);
-  /* Surface mixes match gen-theme.mjs' baseDark("neutral") EXACTLY (Shark's math), so the
-     shipped default == data-base="neutral" == the "Copy theme CSS" export. Previously drifted
-     (secondary used white 10%; border/input/accent used different percentages). */
-  --secondary: color-mix(in srgb, var(--color-neutral-50) 8%, var(--background));
-  --secondary-foreground: var(--color-neutral-100);
-  --muted: color-mix(in srgb, var(--color-neutral-50) 8%, var(--background));
-  --muted-foreground: color-mix(in srgb, var(--color-neutral-500) 70%, var(--color-neutral-50));
-  --accent: color-mix(in srgb, var(--color-neutral-50) 8%, var(--background));
-  --accent-foreground: var(--color-neutral-100);
-  --destructive: color-mix(in srgb, var(--color-red-600) 90%, var(--color-neutral-50));
-  --destructive-foreground: var(--color-red-400);
-  /* `-600`, matching light: at `-500` this fill takes white at only 3.76. It still clears 3:1
-     against the dark surface at 3.77, which is the bar for a fill rather than for text. */
-  --info: var(--color-blue-600);
-  --info-foreground: var(--color-blue-400);
-  --success: var(--color-emerald-600);
-  --success-foreground: var(--color-emerald-400);
-  --warning: var(--color-amber-600);
-  --warning-foreground: var(--color-amber-400);
-  --destructive-content: var(--color-white);
-  --info-content: var(--color-white);
-  --success-content: var(--color-neutral-950);
-  --warning-content: var(--color-neutral-950);
-
-  --border: color-mix(in srgb, var(--color-neutral-50) 12%, var(--background));
-  --input: color-mix(in srgb, var(--color-neutral-50) 13%, var(--background));
-  --ring: var(--color-neutral-500);
-
-  --sidebar: color-mix(in srgb, var(--color-neutral-950) 97%, var(--color-neutral-50));
-  --sidebar-foreground: color-mix(in srgb, var(--color-neutral-100) 64%, var(--sidebar));
-  --sidebar-primary: var(--color-neutral-100);
-  --sidebar-primary-foreground: var(--color-neutral-800);
-  --sidebar-accent: color-mix(in srgb, var(--color-neutral-50) 8%, var(--sidebar));
-  --sidebar-accent-foreground: var(--color-neutral-100);
-  --sidebar-border: color-mix(in srgb, var(--color-neutral-50) 11%, var(--sidebar));
-  --sidebar-ring: var(--color-neutral-500);
-
-  /* The same eight hues stepped for the dark surface — selected, not flipped. Only two slots
-     actually move (green and rose); the rest already sit in the dark lightness band. */
-  --chart-1: #2b7fff;
-  --chart-2: #00a63e;
-  --chart-3: #7f22fe;
-  --chart-4: #a65f00;
-  --chart-5: #0092b8;
-  --chart-6: #f54a00;
-  --chart-7: #e12afb;
+  color-scheme: dark;
+  --chart-capacity: 8;
+  --background: #0a0a0a;
+  --foreground: #efefef;
+  --card: #0d0d0d;
+  --card-foreground: #efefef;
+  --popover: #141414;
+  --popover-foreground: #efefef;
+  --muted: #141414;
+  --muted-foreground: #aaaaaa;
+  --secondary: #1d1d1d;
+  --secondary-foreground: #efefef;
+  --accent: #282828;
+  --accent-foreground: #efefef;
+  --border: #353535;
+  --input: #737373;
+  --field: #ffffff08;
+  --primary: #efefef;
+  --primary-foreground: #0a0a0a;
+  --ring: #737373;
+  --destructive: #e7000b;
+  --destructive-foreground: #ff8677;
+  --destructive-content: #ffffff;
+  --warning: #e17100;
+  --warning-foreground: #ffa264;
+  --warning-content: #100805;
+  --success: #009966;
+  --success-foreground: #66c999;
+  --success-content: #060c08;
+  --info: #155dfc;
+  --info-foreground: #7aa7ff;
+  --info-content: #e8f0ff;
+  --sidebar: #141414;
+  --sidebar-foreground: #aaaaaa;
+  --sidebar-primary: #efefef;
+  --sidebar-primary-foreground: #0a0a0a;
+  --sidebar-accent: #282828;
+  --sidebar-accent-foreground: #efefef;
+  --sidebar-border: #353535;
+  --sidebar-ring: #737373;
+  --chart-1: #e12afb;
+  --chart-2: #a65f00;
+  --chart-3: #0092b8;
+  --chart-4: #f54900;
+  --chart-5: #2b7fff;
+  --chart-6: #00a63e;
+  --chart-7: #7f22fe;
   --chart-8: #c70036;
-
-  /* The `kanzo-dark` palette's slots — the light block's counterpart, same mapping. */
-  --kanzo-syntax-keyword: #c27aff;      /* base0E */
-  --kanzo-syntax-string: #00d492;       /* base0B */
-  --kanzo-syntax-number: #ff8904;       /* base09 */
-  --kanzo-syntax-constant: #ff8904;     /* base09 */
-  --kanzo-syntax-comment: #a1a1a1;      /* base03 */
-  --kanzo-syntax-type: #fdc700;         /* base0A */
-  --kanzo-syntax-function: #51a2ff;     /* base0D */
-  --kanzo-syntax-property: #00d3f2;     /* base0C */
-  --kanzo-syntax-identifier: #ff6467;   /* base08 */
-  --kanzo-syntax-operator: #f5f5f5;     /* base05 */
-  --kanzo-syntax-punctuation: #d4d4d4;  /* base04 */
-  --kanzo-syntax-url: #51a2ff;          /* base0D */
-  --kanzo-syntax-invalid: #ff637e;      /* base0F */
-
-  --kanzo-editor-active-line: var(--accent);
-  --kanzo-editor-selection: color-mix(in srgb, var(--primary) 30%, transparent);
-  --kanzo-editor-search-match: color-mix(in srgb, var(--warning) 35%, transparent);
-  --kanzo-editor-search-active: color-mix(in srgb, var(--warning) 70%, transparent);
-
-  --kanzo-gutter-bg: color-mix(in srgb, var(--foreground) 6%, var(--background));
-  --kanzo-gutter-foreground: color-mix(in srgb, var(--muted-foreground) 70%, var(--background));
+  --selection: #ffffff1d;
+  --kanzo-editor-search-match: #ff77003e;
+  --kanzo-editor-search-active: #ff933d9c;
+  --kanzo-editor-active-line: #141414;
+  --kanzo-gutter-bg: #0d0d0d;
+  --kanzo-gutter-foreground: #7c7c7c;
+  --kanzo-syntax-keyword: #c27aff;
+  --kanzo-syntax-string: #00d492;
+  --kanzo-syntax-number: #ff8904;
+  --kanzo-syntax-constant: #ff8904;
+  --kanzo-syntax-comment: #a1a1a1;
+  --kanzo-syntax-type: #fdc700;
+  --kanzo-syntax-function: #51a2ff;
+  --kanzo-syntax-property: #00d3f2;
+  --kanzo-syntax-identifier: #ff6467;
+  --kanzo-syntax-operator: #f5f5f5;
+  --kanzo-syntax-punctuation: #d4d4d4;
+  --kanzo-syntax-url: #51a2ff;
+  --kanzo-syntax-invalid: #ff637e;
 }

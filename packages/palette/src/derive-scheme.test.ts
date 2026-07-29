@@ -1,16 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
+  FAMILY_GAP,
   SEPARATION_BAR,
   allPairsCap,
   deriveOrderedScheme,
   deriveScheme,
   deriveSchemeColors,
   leadingClear,
+  familyAtHue,
   familyOf,
+  familyStandard,
   orderScheme,
 } from "./derive-scheme.js";
-import { PALETTES, SCHEMES } from "./index.js";
-import { CVD_TARGET, checkScheme, deltaE } from "./palette-check.js";
+import { BASE16_SLOTS, paletteData } from "./index.js";
+import { CVD_TARGET, checkScheme, deltaE, oklch } from "./palette-check.js";
+
+const SCHEMES = paletteData.schemes as unknown as Record<string, { light: string[]; dark: string[] }>;
 
 /** Dracula's accents, minus the cyan that carries no usable hue. */
 const DRACULA = ["#50fa7b", "#ffb86c", "#ff79c6", "#bd93f9", "#ff5555", "#f1fa8c"];
@@ -40,6 +45,37 @@ describe("familyOf", () => {
     // Below the chroma floor the angle is float noise in a/b, not a colour worth matching.
     expect(familyOf("#8be9fd")).toBeNull();
     expect(familyOf("#737373")).toBeNull();
+  });
+
+  it("answers for an angle nothing occupies", () => {
+    // A wheel spun off a brand hue asks about angles no source colour sits at, so the hue half of
+    // the match has to exist without a colour to carry it. Same rule, same answer.
+    for (const hex of ["#bd93f9", "#50fa7b", "#ff79c6", "#ff5555"]) {
+      expect(familyAtHue(oklch(hex).h)).toBe(familyOf(hex));
+    }
+    // And it wraps, rather than treating 359° and 1° as the far ends of a line.
+    expect(familyAtHue(361)).toBe(familyAtHue(1));
+    expect(familyAtHue(-1)).toBe(familyAtHue(359));
+  });
+
+  it("stands a family up as a colour again", () => {
+    // The round trip a wheel depends on: a family named from an angle has to come back as a colour
+    // that lands on that same family, or the source would be asking for a family it does not name.
+    for (const name of ["teal", "violet", "amber", "pink"]) {
+      expect(familyOf(familyStandard(name))).toBe(name);
+    }
+    expect(() => familyStandard("burgundy")).toThrow(RangeError);
+  });
+
+  it("publishes how unevenly the families are spaced", () => {
+    // The 17 families are not a regular polygon — yellow→lime is 61.8° and red→orange is 8.4° — and
+    // that is why a wheel dedupes: at any spacing under the widest gap, two spokes can name one
+    // family. A wheel that assumed 17 evenly spaced hues would silently ship duplicate slots.
+    expect(FAMILY_GAP).toBeGreaterThan(60);
+    expect(FAMILY_GAP).toBeLessThan(62);
+    // Yellow spans 62.5°–102.4°, so two spokes 39° apart both land on it.
+    expect(familyAtHue(63)).toBe("yellow");
+    expect(familyAtHue(102)).toBe("yellow");
   });
 });
 
@@ -283,7 +319,7 @@ describe("deriveSchemeColors", () => {
   ] as const;
   /** A palette's eight accents, which is the only part a categorical scheme may take. */
   const accents = (name: string) =>
-    SLOTS.map((slot) => (PALETTES[name] as { slots: Record<string, string> }).slots[slot] as string);
+    SLOTS.map((slot) => (BASE16_SLOTS[name] as { slots: Record<string, string> }).slots[slot] as string);
   const AVOID = { avoid: ["#fb2c36"], leading: 4 };
 
   /**
@@ -339,6 +375,37 @@ describe("deriveSchemeColors", () => {
     expect(joint.separation.light).toBeGreaterThan(after.light.separation);
   });
 
+  it("keeps a required family the subset rule would otherwise have spent", () => {
+    // The defect this option exists for. The subset rule spends whichever family buys the least
+    // separation — a rule that is not wrong, it just has no opinion about whose palette it is.
+    // Shipped, that dropped a teal brand's own teal from its charts; `derive-palette.test.ts` holds
+    // that instance, which needs all four status fills reserved to reproduce. Dracula shows the same
+    // mechanism for the price of a 6-family search: it names 4 categories and spends yellow.
+    const free = deriveSchemeColors(DRACULA, AVOID);
+    const held = deriveSchemeColors(DRACULA, { ...AVOID, require: ["yellow"] });
+    expect(free.kept).not.toContain("yellow");
+    expect(held.kept).toContain("yellow");
+    // It bought that back for nothing: same number of categories, still passing both gates.
+    expect(held.light).toHaveLength(free.light.length);
+    expect(checkScheme(held.light, { mode: "light" }).ok).toBe(true);
+    expect(checkScheme(held.dark, { mode: "dark" }).ok).toBe(true);
+    // Membership only, in both directions. Held in, yellow does not lead — and lime, held in on the
+    // same source, does. The sequence stays the search's answer either way.
+    expect(familyOf(held.light[0] as string)).not.toBe("yellow");
+    expect(familyOf(deriveSchemeColors(DRACULA, { ...AVOID, require: ["lime"] }).light[0] as string))
+      .toBe("lime");
+    // And the accounting still adds up — a family held in is not a family "crowded" out.
+    expect(held.kept.length + held.crowded.length + held.dropped.length).toBe(DRACULA.length);
+  });
+
+  it("ignores a required family the source never yielded", () => {
+    // A family that never arrived cannot be kept, and there is no subset for which this is a
+    // different answer — so it constrains nothing rather than refusing the derivation.
+    const source = accents("dracula");
+    const held = deriveSchemeColors(source, { ...AVOID, require: ["teal"] });
+    expect(held.light).toEqual(deriveSchemeColors(source, AVOID).light);
+  });
+
   it("reports each mode's separation, never their minimum", () => {
     // A scheme is routinely comfortable on one surface and marginal on the other — Catppuccin Mocha
     // measures 19.7 in light and 25.6 in dark. Collapsing that to `min` would make a panel warn
@@ -365,7 +432,7 @@ describe("deriveSchemeColors", () => {
     // `kept`, `crowded` and `dropped` are what a panel adds up to explain itself. If they do not
     // sum to the source, some colour vanished without a reason attached — and the refusal case is
     // where that is easiest to get wrong, because there is no subset to attribute anything to.
-    for (const name of Object.keys(PALETTES)) {
+    for (const name of Object.keys(BASE16_SLOTS)) {
       const source = accents(name);
       const { kept, crowded, dropped } = deriveSchemeColors(source, AVOID);
       expect(kept.length + crowded.length + dropped.length).toBe(source.length);

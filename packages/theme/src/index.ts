@@ -1,7 +1,7 @@
 import themeDataJson from "../theme-data.json";
 
 /**
- * The generated theme tables (bases, accents, radii, fonts, densities…) as a JS module.
+ * The generated theme tables — the four non-colour axes — as a JS module.
  *
  * Consumers must read them through this export rather than importing
  * `@kanzo-tech/theme/theme-data.json` directly. A raw JSON subpath import is an ESM JSON
@@ -9,65 +9,42 @@ import themeDataJson from "../theme-data.json";
  * that attribute when bundling, so there is no way to make the direct import survive a build.
  * Bundling the data into this package's own JS entry is safe: it is the package that owns the
  * data, so the copy can never skew from the CSS generated alongside it.
+ *
+ * The tables a *derivation* reads are not here. They are inputs to colour maths that runs once at
+ * onboarding, and they live with it, in `@kanzo-tech/palette`.
  */
 export const themeData = themeDataJson;
 export type ThemeData = typeof themeDataJson;
 
 /**
- * The categorical-palette checks — the gate every scheme passes before it is registered.
+ * How many `--chart-*` custom properties the stylesheet declares. A 9th series folds into "Other" —
+ * never cycle, or identity stops meaning anything.
  *
- * Exported from the domain because the rule and the data belong together: anything deriving a
- * scheme (from a named palette's hues, from a customer's ramps) needs the same verdict this
- * package's own tests apply, not a copy of it.
+ * A fact about the SHEET, which is why it is here and not with the derivation that emits it: a
+ * chart resolving `var(--chart-N)` off the cascade needs the count, and a chart runs in a browser
+ * where `@kanzo-tech/palette` deliberately cannot be reached. The count is a compile-time constant
+ * because a stylesheet cannot have a variable number of custom properties.
+ *
+ * How many of the slots carry a *real* category is the document's `capacity`, which can be lower;
+ * it travels down the cascade as `--chart-capacity`, and past it `compile()` writes
+ * `var(--muted-foreground)`.
+ *
+ * `packages/palette` declares the same number, because it is what emits the properties. Neither
+ * copy is trusted: `boundary.test.ts` counts the declarations in the shipped `tokens.css` and
+ * holds both against it.
  */
-export {
-  BAND,
-  CHROMA_FLOOR,
-  CONTRAST_MIN,
-  CVD_FLOOR,
-  CVD_TARGET,
-  NORMAL_FLOOR,
-  SURFACE,
-  TEXT_MIN,
-  checkScheme,
-  contrast as contrastRatio,
-  deltaE,
-  hueDistance,
-  oklch,
-  type CvdKind,
-  type Mode,
-  type PairList,
-  type SchemeReport,
-} from "./palette-check.js";
-
-/**
- * The anti-corruption layer: a named palette contributes hues, the system's ramps contribute
- * lightness and chroma, and the checks decide. Measured, not assumed — no named palette tested so
- * far passes as a categorical scheme in its own values.
- */
-export {
-  SEPARATION_BAR,
-  allPairsCap,
-  deriveOrderedScheme,
-  deriveScheme,
-  deriveSchemeColors,
-  familyOf,
-  leadingClear,
-  orderScheme,
-  type Derivation,
-  type DeriveOptions,
-  type OrderedDerivation,
-  type OrderOptions,
-  type SchemeDerivation,
-} from "./derive-scheme.js";
+export const CHART_SLOTS = 8;
 
 /**
  * `@kanzo-tech/theme` — design tokens, the theme axis table, and the value types. No React.
  *
- * Theming is driven by `data-*` attributes on `<html>`, whose token values live in
- * `themes.css` (generated from Shark's exact colour/radius data):
- * · `data-base`       — the neutral scale (background/card/muted/border/…).
- * · `data-accent`     — overrides only the 6 primary/ring tokens.
+ * **Colour is not an axis.** A tenant's identity is a palette DOCUMENT — two seeds derived and
+ * measured once at onboarding, stored as data, compiled to one stylesheet the server inlines. The
+ * default tenant is not a special case: `palettes/kanzo.json` is a tenant whose document happens to
+ * be committed, and `tokens.css`'s colour half is that document compiled.
+ *
+ * What is still driven by `data-*` attributes on `<html>` is everything that is not colour, whose
+ * values live in `themes.css`:
  * · `data-radius`     — sets `--radius`.
  * · `data-font`       — sets `--font-sans`.
  * · `data-mono-font`  — sets `--font-mono`.
@@ -77,7 +54,7 @@ export {
  * on `document.documentElement` — see the AXES note below for why a wrapper element cannot work.
  *
  * Dark mode is not owned here: the host toggles `.dark` on `<html>` (next-themes or the
- * provider's built-in fallback) and the generated dark rules key off that ancestor.
+ * provider's built-in fallback), and the `.dark` block of the compiled document keys off it.
  *
  * Requires `@kanzo-tech/ui/styles.css` (or the raw token/theme CSS) imported once at the root.
  */
@@ -87,120 +64,6 @@ export type Appearance = "light" | "dark" | "system";
 
 /** The APPLIED appearance, after `system` is resolved against the OS. */
 export type ResolvedAppearance = "light" | "dark";
-
-/**
- * A colour identity by name — Kanzo, Dracula, Nord, Catppuccin.
- *
- * Open like the font and scheme axes, because a product ships its own. The shape a palette must
- * have is base16: sixteen slots with documented roles, which is the interchange format these
- * palettes already exist in and the mapping the 13 `--kanzo-syntax-*` roles were waiting for.
- */
-export type KanzoPalette = "kanzo" | "kanzo-dark" | (string & {});
-
-/** The sixteen base16 slots. `base00`–`base07` neutrals, `base08`–`base0F` accents. */
-export type PaletteSlot =
-  | "base00" | "base01" | "base02" | "base03" | "base04" | "base05" | "base06" | "base07"
-  | "base08" | "base09" | "base0A" | "base0B" | "base0C" | "base0D" | "base0E" | "base0F";
-
-/** The four status families. base16 has no counterpart for any of them, which is the point. */
-export type StatusRole = "destructive" | "info" | "success" | "warning";
-
-export interface PaletteRole {
-  fill: string;
-  /** The ink that sits ON the fill. */
-  content: string;
-  /**
-   * The readable-on-the-PAGE variant of the same hue — this system's existing status contract, for
-   * error text, invalid rings and destructive menu items. Absent for `primary`, where `content`
-   * already is `--primary-foreground`; that asymmetry is real and is not worth smoothing over.
-   */
-  foreground?: string;
-}
-
-/**
- * Where a declared value came from. A field, not a comment, because the whole argument for declaring
- * these instead of deriving them is that "says who?" has an answer.
- *
- * `upstream` — the source project's own guidance. `ecosystem` — a port or consumer convention.
- * `kanzo` — ours, because the source documents no such role.
- */
-export type RoleProvenance = "upstream" | "ecosystem" | "kanzo";
-
-export interface Palette {
-  label: string;
-  /**
-   * The appearance this palette *is*, not one it can be put into.
-   *
-   * A palette carries `color-scheme`, so selecting a dark one darkens form controls and scrollbars
-   * without a mode being chosen alongside it. This is the axis the light/dark toggle folds into.
-   */
-  appearance: ResolvedAppearance;
-  /**
-   * The partner palette of the same identity, or `null`.
-   *
-   * Pairing is what replaces the light/dark dichotomy, following daisyUI: `prefers-color-scheme`
-   * selects the partner rather than inverting a mode, and the manual control becomes a palette
-   * switcher. A palette with no partner — Dracula is dark-first and has no light side worth
-   * inventing — simply pins the appearance while it is selected.
-   */
-  pairsWith: string | null;
-  /** The sixteen slots. */
-  slots: Record<PaletteSlot, string>;
-  /**
-   * Slots this package manufactured because the source palette does not document them.
-   *
-   * Almost no palette defines base06/base07 — Dracula names four greys where base16 wants eight —
-   * so they are generated by carrying `base05` toward the ink extreme. No token reads them; they
-   * exist for base16 completeness, and this field says which ones are not the palette's own word.
-   */
-  extended: PaletteSlot[];
-  /**
-   * Slots below `TEXT_MIN` on this palette's own `base00`.
-   *
-   * A property of the palette rather than of the mapping — Nord's comments are 1.7:1 in Nord, and
-   * Catppuccin Latte is low-contrast by design. Unlike a scheme's `relief` there is no relief
-   * channel to offer in exchange, because these render as text. Published so the choice is informed.
-   */
-  relief: PaletteSlot[];
-  /**
-   * The palette's brand, declared. This is what makes a palette REPLACE `data-accent` rather than
-   * sit beside it — daisyUI's model, where the theme owns primary and the mode does not exist as a
-   * separate axis. base16 nominates no primary at all, so taking one from a syntax slot would be
-   * this package inventing brand; every value here comes from the source project where it has any.
-   */
-  primary: PaletteRole;
-  /**
-   * The four status families, declared per palette — never mapped from `base08`/`base0A`/`base0B`,
-   * which mean *variables*, *classes* and *strings*. Mapping them across would let a palette say
-   * "this succeeded" in whatever hue it happens to use for literals.
-   */
-  status: Record<StatusRole, PaletteRole>;
-  /** Which of the five declared roles is upstream, which is a port convention, and which is ours. */
-  provenance: Record<"primary" | StatusRole, RoleProvenance>;
-  /**
-   * Status roles whose ink misses AA on their fill, or whose fill misses 3:1 on `base00`.
-   *
-   * Sibling of `relief` and for the same reason: Nord's red is 3.05 against its own ground and even
-   * pure black only reaches 5.13, and three of Catppuccin Latte's five cannot carry AA in its
-   * published values — those are properties of those palettes, not defects of this mapping.
-   * Inventing darker Catppuccin colours would stop it being Catppuccin.
-   */
-  statusRelief: StatusRole[];
-  /** The tokens `[data-palette="…"]` sets — surfaces, brand, status, the 13 syntax roles, `color-scheme`. */
-  vars: Record<string, string>;
-}
-
-/** Base neutral scale — the full set (surfaced only in the playground theme-editor). */
-export type KanzoBase =
-  | "slate" | "gray" | "zinc" | "neutral" | "stone" | "mauve" | "olive" | "mist" | "taupe";
-
-/** Accent hues — the full set: `neutral` + the 17 Tailwind hues (playground editor). */
-export type KanzoAccent =
-  | "neutral" | "red" | "orange" | "amber" | "yellow" | "lime" | "green" | "emerald"
-  | "teal" | "cyan" | "sky" | "blue" | "indigo" | "violet" | "purple" | "fuchsia" | "pink" | "rose";
-
-/** Curated accent subset surfaced in the product Preferences panel (keasy's names). */
-export type CuratedAccent = "neutral" | "blue" | "green" | "violet" | "orange" | "rose";
 
 /** Radius steps (`md` = 0.5rem default). */
 export type KanzoRadius = "none" | "xs" | "sm" | "md" | "lg";
@@ -214,48 +77,6 @@ export type KanzoFont = "system" | "geist" | "inter" | (string & {});
 /** Mono font key — host-extensible; the DS ships `system`/`geist-mono`/`jetbrains-mono`. */
 export type KanzoMonoFont = "system" | "geist-mono" | "jetbrains-mono" | (string & {});
 
-/**
- * A categorical scheme by name — the colours that carry *identity* (which series, which node kind,
- * which chip), as opposed to `accent`, which is the one brand hue.
- *
- * Open like the font axes, because schemes are extensible: the reference for that is Vega's
- * `vega.scheme(name, colors)`, a two-argument registry rather than a plugin system. Here the
- * registration is `schemeColors` on the prefs, which overrides the named scheme the same way
- * `primary` overrides `accent` and `baseTint` overrides `base`.
- */
-export type KanzoScheme = "kanzo" | (string & {});
-
-/**
- * A scheme's slots, per mode. Both arrays are the same length, and dark is *selected* rather than
- * derived — an automatic flip of a light palette lands outside the dark lightness band.
- */
-export interface SchemeColors {
-  light: string[];
-  dark: string[];
-}
-
-/** A built-in scheme: its slots, plus what a panel needs to name it and to warn honestly. */
-export interface Scheme extends SchemeColors {
-  label: string;
-  /**
-   * How many real categories this scheme can name.
-   *
-   * The arrays are always as long as there are `--chart-*` tokens; `slots` is the *capacity*. A
-   * palette that yields six usable hue families produces a six-slot scheme whose last two entries
-   * are the muted "Other" token — explicit, rather than left at the `:root` defaults where a
-   * seventh series would silently borrow a colour from a different scheme.
-   */
-  slots: number;
-  /**
-   * Slots falling below 3:1 on that mode's surface.
-   *
-   * Not a failure — the contrast check is a documented conditional relax — but not dismissable
-   * either: where this is non-zero the chart owes a relief channel, visible direct labels or the
-   * table view. Surfaced so choosing a scheme is an informed choice rather than a pretty one.
-   */
-  relief: { light: number; dark: number };
-}
-
 // ── The axis table — the single source of truth for how a preference reaches the DOM ────────
 //
 // This lives here, not in @kanzo-tech/ui, because three separate things must agree on it and
@@ -264,120 +85,30 @@ export interface Scheme extends SchemeColors {
 // drifted there was no type error to catch it — miss the generator and the provider writes an
 // attribute no CSS matches; miss the script and the FOUC it exists to prevent comes back.
 
+/**
+ * The user's preferences. Five, and none of them is a colour.
+ *
+ * Colour left this table entirely: it is client identity, not user preference. `palette`, `base`,
+ * `accent`, `primary`, `baseTint`, `scheme` and `schemeColors` were seven ways to express *part* of
+ * a palette at runtime, and a document expresses all of it at once, before a byte is sent.
+ * `appearance` stays because it is the one colour-adjacent thing a user genuinely chooses, and it
+ * selects between two blocks of one document rather than between two identities.
+ */
 export interface ThemePrefs {
-  /**
-   * The colour identity — surfaces, neutrals and the 13 syntax roles, plus `color-scheme`.
-   *
-   * It does not yet own `accent` or the status colours. base16 nominates no primary, so taking one
-   * would be inventing brand from a syntax slot; and its red/yellow/green slots mean *strings* and
-   * *classes*, so wiring them to destructive/warning/success would let a palette say "this
-   * succeeded" in whatever hue it uses for literals. The chart scheme is derived rather than
-   * mapped — see `deriveScheme`, and the measurement that made it necessary.
-   */
-  palette: KanzoPalette;
-  /**
-   * Which side of a palette *pair* to take. `"system"` follows `prefers-color-scheme`.
-   *
-   * Not an axis — it writes no attribute of its own. It is an input to palette resolution, and the
-   * appearance that results is derived from whichever palette that lands on. It stays a separate
-   * preference rather than being folded into `palette` because folding it destroys `system`: once a
-   * concrete palette name is the only thing stored, nothing is left that says "follow the OS", and
-   * the third state becomes unreachable. Keeping it also means a preference expressed while a
-   * pinned palette ignored it is honoured the moment a pairable one is selected.
-   */
   appearance: Appearance;
-  /** Any of the full accent set; the product panel offers the curated subset. */
-  accent: KanzoAccent;
   radius: KanzoRadius;
   font: KanzoFont;
   monoFont: KanzoMonoFont;
   density: KanzoDensity;
-  /** Supported but not surfaced by the default panel — default neutral. */
-  base?: KanzoBase;
-  /** Custom primary colour (any CSS colour). When set it overrides the `accent` preset by
-   *  writing `--primary`/`--ring`/`--sidebar-primary(-ring)` inline; foreground is derived. */
-  primary?: string;
-  /** Custom base TINT (any CSS colour). When set it generates a neutral ramp tinted toward this
-   *  hue (`--color-custom-*` + `data-base="custom"`), overriding the named `base`. */
-  baseTint?: string;
-  /** The categorical scheme by name — `--chart-1..N`, the colours that carry series identity. */
-  scheme?: KanzoScheme;
-  /** A registered scheme's own slots. When set it overrides the named `scheme` by writing
-   *  `--chart-*` inline, picking the array that matches the applied appearance. Unlike `primary`,
-   *  this one is mode-aware: a categorical palette that clears the light lightness band will not
-   *  clear the dark one, so both sides are given rather than derived. */
-  schemeColors?: SchemeColors;
 }
 
 export const DEFAULT_PREFS: ThemePrefs = {
-  palette: themeDataJson.defaultPalette,
   appearance: "system",
-  accent: "neutral",
   radius: "md",
   font: "system",
   monoFont: "system",
   density: "default",
-  base: "neutral",
-  scheme: themeDataJson.defaultScheme,
 };
-
-/** The built-in schemes by name. Extend at runtime with `schemeColors` — the registry. */
-export const SCHEMES = themeDataJson.schemes as unknown as Record<string, Scheme>;
-
-/** The built-in palettes by name, with their slots, their measured relief, and their pairing. */
-export const PALETTES = themeDataJson.palettes as unknown as Record<string, Palette>;
-
-/**
- * name → `[appearance, pairsWith]`. The pairing table, small enough to serialise.
- *
- * It lives here for the reason `AXES` does: the provider, the pre-hydration script and the
- * generator must agree about which palettes pair, and there is no type error when they drift. The
- * SSR script in particular has to resolve a palette *before* it writes the attribute, so it needs
- * this table inlined — hand-writing a copy there is the failure this export exists to prevent.
- */
-export const PALETTE_PAIRS: Record<string, [ResolvedAppearance, string | null]> =
-  Object.fromEntries(
-    Object.entries(PALETTES).map(([name, p]) => [name, [p.appearance, p.pairsWith]]),
-  );
-
-/**
- * The palette actually applied, given the one selected and the side wanted.
- *
- * This is what replaces inverting a mode: `prefers-color-scheme: dark` does not flip a switch, it
- * asks for the dark side of the identity you chose, and pairing answers. Three cases, and the third
- * is the one worth stating — a palette with no partner **pins** the appearance while it is
- * selected. Dracula is dark-first and has no light side worth inventing, so asking for light on
- * Dracula returns Dracula, and the caller has to be honest about that in the UI rather than leaving
- * a control that changes storage and repaints nothing.
- *
- * An unknown name is honoured verbatim: a host may register its own palette, and silently resetting
- * it to the default would be worse than not knowing its appearance.
- */
-export function resolvePalette(
-  name: string,
-  want: ResolvedAppearance,
-  pairs: Record<string, [ResolvedAppearance, string | null]> = PALETTE_PAIRS,
-): string {
-  const entry = pairs[name];
-  if (!entry) return name;
-  if (entry[0] === want) return name;
-  const partner = entry[1];
-  return partner && pairs[partner] ? partner : name;
-}
-
-/** The appearance a palette IS — derived, never chosen. `fallback` covers a name we do not know. */
-export function paletteAppearance(
-  name: string,
-  fallback: ResolvedAppearance,
-  pairs: Record<string, [ResolvedAppearance, string | null]> = PALETTE_PAIRS,
-): ResolvedAppearance {
-  return pairs[name]?.[0] ?? fallback;
-}
-
-/** `--chart-1` … `--chart-N` — the inline custom-scheme override, and what to clean up after it. */
-export const CHART_SLOT_VARS: string[] = (SCHEMES[themeDataJson.defaultScheme] as Scheme).light.map(
-  (_, i) => `--chart-${i + 1}`,
-);
 
 export const STORAGE_KEY = "kanzo_theme_prefs";
 export const APPEARANCE_KEY = "kanzo_appearance";
@@ -389,21 +120,12 @@ export const APPEARANCE_KEY = "kanzo_appearance";
  * Menu, Select, Tooltip, Toast…) portal to `document.body`, outside any wrapper, so tokens set
  * on a wrapper would not reach them. `density` additionally *must* be on the root: it sets the
  * root font-size and every size in the system is `rem`.
+ *
+ * `appearance` is not here and never was: it writes a class, not an attribute.
  */
 export const AXES: { key: keyof ThemePrefs; attr: string; def: string }[] = [
-  // First, so its generated block is not the one that has to win a specificity tie it did not ask
-  // for — precedence over `data-base` is settled in themes.css by source order, not here.
-  { key: "palette", attr: "data-palette", def: themeDataJson.defaultPalette },
-  { key: "base", attr: "data-base", def: "neutral" },
-  { key: "accent", attr: "data-accent", def: "neutral" },
-  // `data-chart-scheme`, not `data-scheme` — the latter reads as CSS `color-scheme`, and `.dark`
-  // lives on this same element, so the ambiguity would be paid for daily.
-  { key: "scheme", attr: "data-chart-scheme", def: themeDataJson.defaultScheme },
   { key: "radius", attr: "data-radius", def: "md" },
   { key: "font", attr: "data-font", def: "system" },
   { key: "monoFont", attr: "data-mono-font", def: "system" },
   { key: "density", attr: "data-font-size", def: "default" },
 ];
-
-export const PRIMARY_OVERRIDE = ["--primary", "--ring", "--sidebar-primary", "--sidebar-ring"];
-export const PRIMARY_FG_OVERRIDE = ["--primary-foreground", "--sidebar-primary-foreground"];

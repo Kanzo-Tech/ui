@@ -77,7 +77,7 @@ export const RatingItem = (
         "group/rating-item relative",
         "cursor-pointer",
         "rounded-sm",
-        "outline-none data-focus-visible:ring-[3px] data-focus-visible:ring-ring/32",
+        "outline-none data-focus-visible:ring-[3px] data-focus-visible:ring-ring",
         "data-readonly:cursor-default",
         "data-disabled:cursor-default",
         className
@@ -87,10 +87,12 @@ export const RatingItem = (
     >
       {children ?? (
         <>
-          <StarIcon
-            aria-hidden
-            className="size-5 text-muted-foreground/40"
-          />
+          {/* The empty star is what says "out of five", so it owes the 3:1 that identifies a
+              control's unfilled state. Diluted it measured 2.03:1 in light and 2.23 in dark.
+              `--input` is the boundary role — the first ramp step that reaches 3:1 — and lands at
+              4.54 and 4.18 while staying well under step 11, which at 9.19 would out-shout the
+              filled stars (`--warning`, 3.07 in light). Same duty as a switch's unchecked track. */}
+          <StarIcon aria-hidden className="size-5 text-input" />
           <StarIcon
             aria-hidden
             className={cn(

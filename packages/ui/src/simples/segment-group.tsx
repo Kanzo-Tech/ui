@@ -55,7 +55,10 @@ export const SegmentGroup = (props: SegmentGroupProps) => {
         "data-[orientation=vertical]:data-[variant=underline]:border-l",
         // `solid`: a filled `bg-muted` track with equal-width segments — the contained
         // "segmented control" look, so consumers stop hand-rolling the track each time.
-        "data-[variant=solid]:rounded-lg data-[variant=solid]:border data-[variant=solid]:border-border/60 data-[variant=solid]:bg-muted data-[variant=solid]:p-1",
+        // The track border is solid: diluted, it composited to ramp step 5 on every backdrop
+        // (ΔE 0.00–1.65), and step 5 is `--accent`. `--border` moved from 5 to 6 precisely so a
+        // border and a hover surface would stop being the same colour.
+        "data-[variant=solid]:rounded-lg data-[variant=solid]:border data-[variant=solid]:border-border data-[variant=solid]:bg-muted data-[variant=solid]:p-1",
         className
       )}
       data-slot="segment-group"
@@ -99,7 +102,7 @@ export const SegmentGroupItem = (
         "data-[orientation=vertical]:w-full data-[orientation=vertical]:justify-start",
         "group-data-[variant=solid]/segment-group:flex-1 group-data-[variant=solid]/segment-group:justify-center",
         "rounded-[inherit] border border-transparent",
-        "outline-none data-focus-visible:border-primary data-focus-visible:ring-[3px] data-focus-visible:ring-ring/32",
+        "outline-none data-focus-visible:border-primary data-focus-visible:ring-[3px] data-focus-visible:ring-ring",
         "data-disabled:pointer-events-none data-disabled:opacity-64",
         className
       )}
@@ -141,7 +144,8 @@ export const SegmentGroupIndicator = (
         "rounded-[inherit]",
         // The moving "pill": an elevated surface with a hairline border and a soft shadow, so
         // the selected segment reads as a raised chip on the muted track (crisp, not flat).
-        "border border-border/60 bg-background shadow-sm",
+        // Solid for the same reason as the track — diluted it landed on step 5, `--accent`.
+        "border border-border bg-background shadow-sm",
         "transition-[width,height,left,top] duration-150 ease-out",
         "[transition-property:var(--transition-property,width,height,left,top)]",
         // `underline` is a bar, not a pill: drop the chrome and paint the accent.

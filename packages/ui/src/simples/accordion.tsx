@@ -49,7 +49,7 @@ export const AccordionItemTrigger = (
         "flex w-full items-center justify-between gap-4",
         "py-4 text-start font-medium text-sm",
         "cursor-pointer transition-all hover:underline",
-        "rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring/32",
+        "rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
         "data-disabled:pointer-events-none data-disabled:opacity-64",
         className
       )}

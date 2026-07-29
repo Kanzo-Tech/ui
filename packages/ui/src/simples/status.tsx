@@ -23,7 +23,12 @@ export const statusVariants = tv({
       success: "bg-success text-success-content",
       info: "bg-info text-info-content",
       warning: "bg-warning text-warning-content",
-      destructive: "bg-destructive text-destructive-content dark:bg-destructive-foreground",
+      // No `dark:bg-destructive-foreground`, though Shark ships one. It moved the fill and left the
+      // ink, so a glyph inside the dot measured 2.35:1 in dark — the `text-white` defect these
+      // `-content` tokens exist to kill, reappearing through a `dark:` override. Without it every
+      // variant clears AA in both modes; the tightest are this one in light (4.57) and info in dark
+      // (4.58). Five variants, one rule, nothing to remember.
+      destructive: "bg-destructive text-destructive-content",
     },
     size: {
       sm: "size-2 [&_svg:not([class*='size-'])]:size-1.5 [&_svg]:pointer-events-none [&_svg]:shrink-0",

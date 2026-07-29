@@ -63,6 +63,9 @@ importers:
       '@duckdb/duckdb-wasm':
         specifier: 1.33.1-dev57.0
         version: 1.33.1-dev57.0
+      '@kanzo-tech/palette':
+        specifier: workspace:*
+        version: link:../packages/palette
       '@kanzo-tech/theme':
         specifier: workspace:*
         version: link:../packages/theme
@@ -143,8 +146,17 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
+  packages/palette:
+    devDependencies:
+      tailwindcss:
+        specifier: '4'
+        version: 4.3.3
+
   packages/theme:
     devDependencies:
+      '@kanzo-tech/palette':
+        specifier: workspace:*
+        version: link:../palette
       tailwindcss:
         specifier: '4'
         version: 4.3.3
@@ -191,6 +203,9 @@ importers:
       '@codemirror/view':
         specifier: ^6.43.1
         version: 6.43.4
+      '@kanzo-tech/palette':
+        specifier: workspace:*
+        version: link:../palette
       '@lezer/highlight':
         specifier: ^1.2.3
         version: 1.2.3

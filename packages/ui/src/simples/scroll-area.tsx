@@ -90,8 +90,12 @@ export const ScrollAreaScrollbar = (
       orientation={orientation}
       {...rest}
     >
+      {/* The thumb is the whole control — the track is `bg-transparent` — so its fill is the
+          visual information that identifies it, at 3:1. Diluted it measured 1.55:1 on the light
+          page and 1.69–1.78 on the dark surfaces; `--input`, the boundary role, gives 4.54 and
+          3.89–4.18. A fill by spelling, a boundary by duty, like a switch's unchecked track. */}
       <ArkScrollArea.Thumb
-        className="relative flex-1 rounded-full bg-foreground/20"
+        className="relative flex-1 rounded-full bg-input"
         data-slot="scroll-area-thumb"
       />
     </ArkScrollArea.Scrollbar>

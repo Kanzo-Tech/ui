@@ -55,12 +55,12 @@ const tagsInputControlVariants = tv({
     "relative",
     "w-full min-w-0",
     "flex flex-wrap items-center gap-1.5",
-    "bg-background dark:bg-input/30",
+    "bg-background dark:bg-field",
     "rounded-lg border border-input shadow-xs/5",
     "transition-[color,box-shadow]",
     "outline-none",
-    "focus-within:border-primary focus-within:ring-[3px] focus-within:ring-ring/32",
-    "data-focus:border-primary data-focus:ring-[3px] data-focus:ring-ring/32",
+    "focus-within:border-primary focus-within:ring-[3px] focus-within:ring-ring",
+    "data-focus:border-primary data-focus:ring-[3px] data-focus:ring-ring",
     "data-invalid:border-destructive data-invalid:ring-[3px] data-invalid:ring-destructive/24",
     "dark:data-invalid:border-destructive-foreground dark:data-invalid:ring-destructive-foreground/40",
     "data-disabled:pointer-events-none data-disabled:opacity-64",
@@ -150,7 +150,7 @@ export const TagsInputItemPreview = (
         "select-none whitespace-nowrap font-medium text-xs",
         "rounded-md border border-secondary/20",
         "bg-secondary text-secondary-foreground",
-        "data-highlighted:border-primary data-highlighted:ring-[3px] data-highlighted:ring-ring/32",
+        "data-highlighted:border-primary data-highlighted:ring-[3px] data-highlighted:ring-ring",
         "data-disabled:opacity-64",
         className
       )}
@@ -210,7 +210,7 @@ export const TagsInputItemDeleteTrigger = (
         "transition-colors",
         "outline-none",
         "hover:text-secondary-foreground",
-        "focus-visible:ring-[3px] focus-visible:ring-ring/32",
+        "focus-visible:ring-[3px] focus-visible:ring-ring",
         "[&_svg:not([class*='size-'])]:size-3 [&_svg]:pointer-events-none",
         className
       )}
@@ -237,7 +237,7 @@ export const TagsInputClearTrigger = (
         "transition-colors",
         "outline-none",
         "hover:text-foreground",
-        "focus-visible:ring-[3px] focus-visible:ring-ring/32",
+        "focus-visible:ring-[3px] focus-visible:ring-ring",
         "data-disabled:pointer-events-none data-disabled:opacity-64",
         "[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none",
         className

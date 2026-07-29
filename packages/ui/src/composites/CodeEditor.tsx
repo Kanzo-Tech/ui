@@ -303,10 +303,10 @@ const baseTheme = EditorView.theme({
   // base rule is `&light`, and this theme is registered without `{dark}`, so the `darkTheme`
   // facet stays false and the light lavender applied in dark mode too.
   "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": {
-    backgroundColor: "var(--kanzo-editor-selection)",
+    backgroundColor: "var(--selection)",
   },
   ".cm-selectionBackground, .cm-content ::selection": {
-    backgroundColor: "var(--kanzo-editor-selection)",
+    backgroundColor: "var(--selection)",
   },
   ".cm-activeLine": { backgroundColor: "var(--kanzo-editor-active-line)" },
   // The active line's gutter cell is emphasised beyond the row: stronger tint, full-strength
@@ -316,7 +316,7 @@ const baseTheme = EditorView.theme({
     color: "var(--foreground)",
     fontWeight: "600",
   },
-  ".cm-matchingBracket, &.cm-focused .cm-matchingBracket": { backgroundColor: "var(--kanzo-editor-selection)", outline: "1px solid var(--primary)" },
+  ".cm-matchingBracket, &.cm-focused .cm-matchingBracket": { backgroundColor: "var(--selection)", outline: "1px solid var(--primary)" },
   ".cm-nonmatchingBracket": { backgroundColor: "color-mix(in srgb, var(--destructive) 20%, transparent)" },
   ".cm-selectionMatch": { backgroundColor: "var(--kanzo-editor-search-match)" },
   ".cm-foldGutter .cm-gutterElement": { cursor: "pointer", color: "var(--kanzo-gutter-foreground)" },
@@ -463,7 +463,7 @@ export function CodeEditor(p: CodeEditorProps) {
   }
 
   // A field, not an IDE pane: the surface wears the exact chrome as Textarea/Input — a
-  // hairline `--input` border, `rounded-lg`, the transparent/`--input`-tinted surface, a
+  // hairline `--input` border, `rounded-lg`, the transparent/`--field`-tinted surface, a
   // faint shadow, and the same focus/invalid treatment (border shifts colour + a 3px ring).
   // The ring is a `box-shadow` (Tailwind `ring`), drawn OUTSIDE the border box, so it is not
   // clipped by `overflow-hidden` and the gutter's own background cannot paint over it — the
@@ -478,9 +478,9 @@ export function CodeEditor(p: CodeEditorProps) {
         ref={container}
         className={cn(
           "flex w-full flex-col overflow-hidden",
-          "rounded-lg border border-input bg-transparent shadow-xs/5 dark:bg-input/30",
+          "rounded-lg border border-input bg-transparent shadow-xs/5 dark:bg-field",
           "transition-[color,box-shadow]",
-          "data-focused:border-primary data-focused:ring-[3px] data-focused:ring-ring/32",
+          "data-focused:border-primary data-focused:ring-[3px] data-focused:ring-ring",
           "data-invalid:border-destructive data-invalid:ring-[3px] data-invalid:ring-destructive/24",
           "dark:data-invalid:border-destructive-foreground dark:data-invalid:ring-destructive-foreground/40",
           "motion-reduce:transition-none!"

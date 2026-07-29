@@ -10,9 +10,8 @@ describe("@kanzo-tech/theme", () => {
   it("exports the generated theme tables from the JS entry", () => {
     // Not via the raw `.json` subpath: that is an ESM JSON import at runtime, which Node
     // rejects without `with { type: "json" }` — an attribute Rollup strips when bundling.
-    expect(Object.keys(themeData.bases).length).toBeGreaterThan(0);
-    expect(themeData.bases.neutral).toHaveProperty("light");
-    expect(themeData.bases.neutral).toHaveProperty("dark");
+    expect(Object.keys(themeData.radii).length).toBeGreaterThan(0);
+    expect(Object.keys(themeData.densities).length).toBeGreaterThan(0);
   });
 
   it("no longer ships a wrapper-element themer", async () => {
@@ -22,10 +21,24 @@ describe("@kanzo-tech/theme", () => {
     expect(mod.KanzoTheme).toBeUndefined();
   });
 
+  it("has no colour axis left to write", () => {
+    // `data-base`, `data-accent`, `data-palette` and `data-chart-scheme` were four ways to express
+    // *part* of a palette at runtime; a document expresses all of it at once, before a byte is
+    // sent. An attribute surviving here would be a provider writing something no CSS matches.
+    const themes = read("themes.css");
+    for (const attr of ["data-base", "data-accent", "data-palette", "data-chart-scheme"]) {
+      expect(AXES.map((a) => a.attr), attr).not.toContain(attr);
+      expect(themes, `themes.css still emits [${attr}]`).not.toContain(`[${attr}=`);
+    }
+    expect(Object.keys(DEFAULT_PREFS).sort()).toEqual([
+      "appearance", "density", "font", "monoFont", "radius",
+    ]);
+  });
+
   // ── Drift guards ────────────────────────────────────────────────────────────
-  // The axis table, the generated CSS and tokens.css are three copies of the same facts with
-  // nothing tying them together: `AXES` types `attr`/`def` as free-form strings, so a missed
-  // edit produces no type error. It just silently stops theming.
+  // The axis table and the generated CSS are two copies of the same facts with nothing tying them
+  // together: `AXES` types `attr`/`def` as free-form strings, so a missed edit produces no type
+  // error. It just silently stops theming.
 
   it("every axis attribute has matching selectors in themes.css", () => {
     const themes = read("themes.css");
@@ -37,10 +50,6 @@ describe("@kanzo-tech/theme", () => {
 
   it("every axis default is a real value in the generated data", () => {
     const tables: Record<string, Record<string, unknown>> = {
-      palette: themeData.palettes,
-      base: themeData.bases,
-      accent: themeData.accents,
-      scheme: themeData.schemes,
       radius: themeData.radii,
       font: themeData.fonts,
       monoFont: themeData.monoFonts,
@@ -59,84 +68,5 @@ describe("@kanzo-tech/theme", () => {
         `AXES/DEFAULT_PREFS disagree on "${key}"`,
       ).toBe(def);
     }
-  });
-
-  it("tokens.css .dark block matches bases.neutral.dark", () => {
-    // A regenerate-diff cannot catch this one: tokens.css is hand-written, so its dark block is
-    // a manual copy of the generated neutral dark scale and can drift silently.
-    const tokens = read("tokens.css");
-    const block = tokens.match(/^\.dark\s*\{([\s\S]*?)^\}/m)?.[1];
-    if (!block) throw new Error("no .dark block found in tokens.css");
-
-    const declared = new Map<string, string>();
-    for (const m of block.matchAll(/^\s*(--[a-z0-9-]+)\s*:\s*([^;]+);/gm)) {
-      const [, name, value] = m;
-      if (name && value) declared.set(name, value.trim());
-    }
-
-    const drifted: string[] = [];
-    for (const [token, value] of Object.entries(themeData.bases.neutral.dark)) {
-      const actual = declared.get(token);
-      if (actual !== String(value).trim()) {
-        drifted.push(`${token}: tokens.css has ${actual ?? "(missing)"}, theme-data has ${String(value).trim()}`);
-      }
-    }
-    expect(drifted, `tokens.css .dark drifted from theme-data:\n${drifted.join("\n")}`).toEqual([]);
-  });
-
-  describe("scheme slots", () => {
-    const OTHER = "var(--muted-foreground)";
-    const tokens = Object.keys(themeData.schemes.kanzo.light).length;
-
-    it("fills every token, whatever a scheme's capacity", () => {
-      // A shorter scheme that left the tail undefined would fall back to the `:root` defaults, so a
-      // chart with more series than the scheme names would mix two schemes and nothing would say so.
-      for (const [name, scheme] of Object.entries(themeData.schemes)) {
-        expect(scheme.light, name).toHaveLength(tokens);
-        expect(scheme.dark, name).toHaveLength(tokens);
-      }
-    });
-
-    it("says how many of those are real, and folds the rest to Other", () => {
-      for (const [name, scheme] of Object.entries(themeData.schemes)) {
-        expect(scheme.slots, name).toBeLessThanOrEqual(tokens);
-        for (const mode of ["light", "dark"] as const) {
-          for (const hex of scheme[mode].slice(scheme.slots)) expect(hex).toBe(OTHER);
-          for (const hex of scheme[mode].slice(0, scheme.slots)) expect(hex).not.toBe(OTHER);
-        }
-      }
-    });
-  });
-
-  /**
-   * Swatches are the colour a picker shows for a *named* axis value, so a wrong one is a panel
-   * that offers a colour it does not deliver. They were hand-written until they had quietly
-   * drifted to Tailwind v3 while the theme resolved v4 — every curated accent was a different
-   * blue/green/violet from the one selecting it produced.
-   */
-  describe("axis swatches", () => {
-    const HEX = /^#[0-9a-f]{6}$/;
-
-    it("covers every curated accent and every named base", () => {
-      expect(Object.keys(themeData.accentSwatches).sort()).toEqual([...themeData.curatedAccents].sort());
-      for (const base of Object.keys(themeData.bases)) {
-        // `custom` is the runtime tint scale — it has no fixed colour to show.
-        if (base === "custom") continue;
-        expect(themeData.baseSwatches, `no swatch for base "${base}"`).toHaveProperty(base);
-      }
-    });
-
-    it("are real hex, not the wreckage of a failed conversion", () => {
-      // Tailwind writes achromatic steps as `oklch(55.6% 0 none)`. Parsed naively that hue is NaN,
-      // and NaN rides all the way to a `#NaNNaNNaN` swatch instead of failing anywhere useful.
-      const all = { ...themeData.accentSwatches, ...themeData.baseSwatches } as Record<string, string>;
-      const broken = Object.entries(all).filter(([, hex]) => !HEX.test(hex));
-      expect(broken, `not hex: ${JSON.stringify(broken)}`).toEqual([]);
-    });
-
-    it("gives each accent its own colour", () => {
-      const hexes = Object.values(themeData.accentSwatches);
-      expect(new Set(hexes).size, "two accents share a swatch").toBe(hexes.length);
-    });
   });
 });

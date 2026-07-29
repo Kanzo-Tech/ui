@@ -155,7 +155,7 @@ export const CommandInput = (props: CommandInputProps) => {
   return (
     <ComboboxControl className="mb-2">
       <InputGroup
-        className={cn("rounded-xl bg-input/32", className)}
+        className={cn("rounded-xl bg-field", className)}
         size={size}
         {...rest}
       >
@@ -248,7 +248,6 @@ export const CommandFooter = (props: React.ComponentProps<"div">) => {
         "z-10",
         "flex items-center justify-between gap-2",
         "-m-2 mt-2 px-4 py-3",
-        "bg-muted/48",
         "text-muted-foreground text-xs",
         "rounded-b-[calc(var(--radius-2xl,1rem)-1px)] border-t",
         className
