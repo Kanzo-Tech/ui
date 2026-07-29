@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import {
+  AppearanceToggle,
   Badge,
   Button,
   Card,
@@ -38,8 +39,6 @@ import {
   NativeSelect,
   NativeSelectOption,
   NumberField,
-  PreferencesAccent,
-  PreferencesBase,
   PreferencesDensity,
   PreferencesFont,
   PreferencesMonoFont,
@@ -1220,6 +1219,10 @@ export function MetadataFormShowcase() {
               </HoverCardContent>
             </HoverCard>
 
+            {/* Appearance — the one control for it, in the chrome where a one-click preference
+                belongs. It cycles light → dark → system, so the panel needs no section for it. */}
+            <AppearanceToggle size="icon-sm" />
+
             {/* Preferences — OUR `Preferences` composite, EXTENDED. `PreferencesRoot` gives the
                 non-modal drawer + `P` hotkey; `PreferencesPanel` renders `{children ?? default}`,
                 so passing children keeps the pinned Reset·Copy·Done footer (this IS the theme
@@ -1276,13 +1279,12 @@ export function MetadataFormShowcase() {
                   </Field>
                 </div>
 
-                {/* The library's own theme axes, flat. Appearance lives in the panel header. */}
-                <PreferencesAccent />
-                <PreferencesBase />
+                {/* The library's own preference axes, flat — the canonical four, in panel order.
+                    Appearance is not among them: it has one control, the toggle in the header. */}
+                <PreferencesDensity />
                 <PreferencesRadius />
                 <PreferencesFont />
                 <PreferencesMonoFont />
-                <PreferencesDensity />
               </PreferencesPanel>
             </PreferencesRoot>
           </SectionActions>

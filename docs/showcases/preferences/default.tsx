@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AppearanceToggle,
   Badge,
   Button,
   Card,
@@ -25,8 +26,8 @@ import {
  *
  * The docs example could not do this. `PreferencesPanel` is `Portal`ed and `position: fixed`,
  * so inside a framed 450px preview box it escapes to the viewport and lands on top of the
- * documentation. The example therefore cheated: it rendered the eight sections loose in a
- * `div`, which shows the controls but not the component — no trigger, no drawer, none of the
+ * documentation. The example therefore cheated: it rendered the sections loose in a `div`,
+ * which shows the controls but not the component — no trigger, no drawer, none of the
  * behaviour that makes it what it is.
  *
  * An iframe gives it its own viewport, which is the only honest way to show a fixed-position
@@ -48,11 +49,16 @@ export function PreferencesShowcase() {
             </SectionTitle>
             <SectionDescription>
               Ordinary product chrome, here only so the live re-theming has something to act on.
-              Open the palette in the corner and change the accent, radius or density — every
-              control below re-skins without re-rendering.
+              Open the panel in the corner and change the radius or density — every control below
+              re-skins without re-rendering. Appearance is the toggle beside the badge: one button,
+              cycling light → dark → system.
             </SectionDescription>
           </SectionTitleGroup>
-          <Badge variant="info">Live</Badge>
+          {/* Appearance is not in the drawer: it has one control, and this is where it lives. */}
+          <div className="flex items-center gap-2">
+            <AppearanceToggle />
+            <Badge variant="info">Live</Badge>
+          </div>
         </SectionHeader>
 
         <div className="grid gap-4 p-4 sm:grid-cols-2">
@@ -76,7 +82,7 @@ export function PreferencesShowcase() {
           <Card>
             <CardHeader>
               <CardTitle>Actions</CardTitle>
-              <CardDescription>Buttons re-skin with the accent token.</CardDescription>
+              <CardDescription>Buttons re-skin with the radius and density axes.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2">
               <Button>Save</Button>

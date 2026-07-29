@@ -1,26 +1,30 @@
 ---
 title: Theming
-description: Eight axes as data-* attributes on <html>, plus host-owned dark mode.
+description: Four user axes as data-* attributes on <html>, and colour as a per-tenant palette document.
 ---
 
-Theming is `data-*` attributes on `<html>`, whose token values live in static CSS. Change an
-attribute and every component re-skins, with no per-component work.
+Two different things wear the word "theme", and this page is mostly about keeping them apart.
 
-## The axes
+**What a user chooses** is four axes plus appearance: how round, how dense, which typefaces,
+light or dark. Those are `data-*` attributes on `<html>` whose values live in static CSS.
+
+**What a client is** is a colour identity, and that is not an axis at all. It is a **palette
+document** — derived and measured once at onboarding, stored as data, and applied at runtime as
+one compiled stylesheet. Adding a client touches no code and needs no deploy.
+
+## The user axes
 
 | Axis | Attribute | Sets |
 | --- | --- | --- |
-| palette | `data-palette` | a whole base16 identity: surfaces, neutrals, the 13 syntax roles, `color-scheme` |
-| base | `data-base` | the neutral scale (background / card / muted / border) |
-| accent | `data-accent` | the six primary/ring tokens |
-| scheme | `data-chart-scheme` | `--chart-1` … `--chart-8`, the colours that carry series identity |
 | radius | `data-radius` | `--radius`, which drives the whole `rounded-*` scale |
 | font | `data-font` | `--font-sans` |
 | monoFont | `data-mono-font` | `--font-mono` |
-| density | `data-font-size` | the root font-size |
+| density | `data-font-size` | the root font-size, which every `rem` in the system scales from |
 
-`palette` and `base` overlap: both set the surfaces. A palette wins, because it is the broader
-choice — that precedence is source order in the generated CSS, not a rule you can configure.
+Appearance is the fifth preference and the only colour-adjacent one, and it writes a **class**,
+not an attribute: `.dark` on `<html>`. It selects between the two blocks of the compiled
+document rather than between two identities, which is why it is a user preference and a hue
+is not.
 
 <Callout type="warn" title="They must be on <html>, not a wrapper">
   Ark's overlays — Dialog, Popover, Menu, Select, Tooltip, Toast, HoverCard, Command — portal
@@ -33,20 +37,20 @@ choice — that precedence is source order in the generated CSS, not a rule you 
   did nothing at all. It has been removed.
 </Callout>
 
-## Setting them
+### Setting them
 
 `KanzoThemeProvider` owns the preferences and writes the attributes:
 
 ```tsx
 import { KanzoThemeProvider } from "@kanzo-tech/ui";
 
-<KanzoThemeProvider defaults={{ accent: "blue", radius: "md" }}>{children}</KanzoThemeProvider>
+<KanzoThemeProvider defaults={{ radius: "md", density: "compact" }}>{children}</KanzoThemeProvider>
 ```
 
 Read or change them at runtime with `useKanzoTheme()`:
 
 ```tsx
-const { accent, radius, set } = useKanzoTheme();
+const { radius, set } = useKanzoTheme();
 set({ radius: "none" }); // square corners everywhere
 ```
 
@@ -63,51 +67,158 @@ import { Preferences } from "@kanzo-tech/ui";
   should not claim an unmodified key in its host's global keymap without being asked.
 </Callout>
 
-## Palettes
+## Colour: the palette document
 
-A palette is the colour *identity* — you pick "Dracula", not a neutral scale crossed with an
-accent. Six ship: `kanzo` and `kanzo-dark`, `dracula`, `nord`, `catppuccin-latte` and
-`catppuccin-mocha`.
+There is one colour artefact per tenant and everything reads it — `--primary`, the surfaces,
+the charts, the graph, the editor. There is no place to configure a chart's colours; there is a
+palette, and the chart is a reading of it.
 
-```tsx
-<KanzoThemeProvider defaults={{ palette: "dracula" }}>{children}</KanzoThemeProvider>
+```text
+two seeds  →  six ramps × two modes  →  the role table  →  compile()  →  one <style>
+brand      →  brand, neutral,        →  65 tokens       →  ~4 KB      →  :root { … }
+neutral    →  destructive, warning,                                      .dark { … }
+              success, info
 ```
 
-The shape is [base16](https://github.com/chriskempson/base16): sixteen slots with documented roles,
-`base00`–`base07` neutrals and `base08`–`base0F` accents. The 13 `--kanzo-syntax-*` roles are a
-*mapping* onto those slots, which is what lets one palette dress an editor and a UI at once.
+**Two seeds, from the client.** A brand colour and a neutral. The neutral is *tinted* — a low
+chroma at a hue, Radix-style — and it supplies that hue; the brand hue is the fallback when
+none is given. The four status families (`destructive` / `warning` / `success` / `info`) are
+fixed by Kanzo and are not client-overridable, because "this succeeded" must not change meaning
+per client. They are still **re-measured** per tenant: every obligation is graded against the
+surface, and the surface is the tenant's neutral. Constant input, per-tenant verdict.
 
-A palette carries its own appearance. It emits `color-scheme`, so a dark one darkens form controls
-and scrollbars without a mode being chosen alongside it, and it declares `pairsWith` — the partner
-palette of the same identity, or `null`. Dracula has no partner: it is dark-first, and this library
-will not invent a light side for it.
+**Six ramps, twelve steps each, per mode.** Nothing in a ramp is chosen per token: three anchors
+and a growth rate produce twelve values, and each step carries a measured obligation —
+steps 1/2 are the page and its interchangeable twin, 3/4/5 are one component's normal / hover /
+active surface, 6–8 are borders, 9 is the solid, 11/12 are ink. Light and dark are separate
+generations, not a flip: a tint has to work harder against a dark ground, and the measured
+chroma profiles say so.
 
-<Callout type="warn" title="A palette publishes its contrast, and some of them fail it">
-  Every palette lists the slots that do not clear WCAG AA **as text** on their own background, in
-  `relief`. These are properties of the palettes themselves, not of this mapping: Nord's comments
-  are 1.7:1 in Nord, and Catppuccin Latte is low-contrast by design with eight slots under the bar.
-  Unlike a chart scheme there is no relief channel to trade against, because every slot renders as
-  text. `kanzo` and `kanzo-dark` clear everything.
+**The role table** binds tokens to `(ramp, step)` — with three things that are *measured* rather
+than written, because writing them would be wrong for most seeds:
 
-  ```tsx
-  import { PALETTES } from "@kanzo-tech/theme";
+| token | binding |
+| --- | --- |
+| `--background` `--card` `--popover` `--sidebar` | `(neutral, 1)` at a per-surface elevation |
+| `--foreground` `--secondary-foreground` `--accent-foreground` | `(neutral, 12)` |
+| `--muted` / `--muted-foreground` | `(neutral, 3)` / `(neutral, 11)` |
+| `--secondary` / `--accent` | `(neutral, 4)` / `(neutral, 5)` |
+| `--border` | `(neutral, 6)` |
+| `--input` | `(neutral, boundary)` |
+| `--field` | `(neutral, alpha 3)` |
+| `--primary` / `--primary-foreground` | `(brand, fill)` / `(brand, on-fill)` |
+| `--ring` | `(brand, boundary)` |
+| `--destructive` / `-foreground` / `-content` | `(destructive, 9)` / `(…, 11)` / `(…, on-fill)` |
+| `--chart-1` … `--chart-8` | categorical slot *i* |
+| `--kanzo-syntax-*` | fixed — Kanzo's own, cross-checked per tenant |
 
-  PALETTES.nord.relief; // ["base03", "base08", "base09", "base0E", "base0F"]
-  ```
+`boundary` is the first step reaching 3:1 against step 1, and it is **seed-dependent, not
+mode-determined**: measured over 118 seeds it is 9 in light for 97 of them and 8 for the rest,
+8 in dark for 82 and 9 for the rest. A table that hard-coded `--ring: step 8` would be correct
+for most clients and 2.3:1 for the others, with nothing saying so.
+
+`on-fill` is whatever measures highest contrast on the solid, with no "prefer white when legal"
+escape hatch — which is why Kanzo's own `--warning-content` is a near-black.
+
+`fill` is step 9 normally, and step 12 for a ramp that carries no identity — see below.
+
+### Elevation, not more tokens
+
+A raised surface is the same ramp at an offset into the same band, and only in dark: light
+expresses elevation with shadow, dark with value. Measured against the neutral ramp: page +0/+0,
+card +0/+1, popover +0/+2, sidebar +0/+2, clamped at 5 so a raised surface can never climb into
+the border band.
+
+That is what "the sixteen `--sidebar-*` tokens are a surface parameter, not twelve more steps"
+means: a sidebar and a popover are the same thing.
+
+### A failing gate adjusts, and publishes what moved
+
+Never accept-and-warn, never refuse. A client's brand red at 2.1:1 becomes a legal red of the
+same hue, and the document carries the record of that happening — from, to, the rule that forced
+it, ΔE, and the signed OKLCH components, so a person can be told "darker, and slightly less
+saturated" rather than "a different colour".
+
+There is exactly **one** obligation that can never become an adjustment: `carries-identity`,
+which fires when step 9 sits below the chroma floor of 0.1. A colour below the floor has no
+nearest legal value — the nearest chromatic colour would be a hue *we* chose — so it is published
+as **relief** instead.
+
+<Callout type="warn" title="Relief on the neutral ramp is the healthy answer">
+  A tinted neutral is *by definition* below the chroma floor, so `carries-identity` fires on
+  every one of them, by design. On the **brand** seed it is a warning: a monochrome brand has
+  nothing but lightness to spend, so `--primary` takes step 12 (the ramp's ink) rather than
+  step 9 (a mid-tone that reads as nothing). On the **neutral** seed it is the expected answer
+  and means nothing is wrong.
+
+  Distinguish by ramp, never by presence. Kanzo's own document publishes four relief rows and
+  zero adjustments — see the [palette onboarding showcase](/docs/showcases/palette).
 </Callout>
 
-A palette deliberately does not set `accent`, the status colours, or the chart scheme. base16
-nominates no primary, so taking one would invent brand from a syntax slot; its red/yellow/green
-slots mean *strings* and *classes*, so wiring them to destructive/warning/success would let a
-palette say "this succeeded" in whatever hue it uses for literals; and a chart scheme is
-[derived](/docs/data-display/charts) from a palette's hues and then measured, because no named palette passes the
-categorical checks in its own values.
+### One mechanism at runtime
+
+`compile(doc)` emits `:root { color-scheme: light; … }` and `.dark { color-scheme: dark; … }` —
+both modes, every colour token, literal hex, about 4 KB. The tenant is known at request time, so
+the server inlines it as a static `<style>` in `<head>`: the colour maths is finished before a
+byte is sent, and the pre-hydration script shrinks to reading the appearance preference,
+toggling `.dark`, and writing the four non-colour axes.
+
+```tsx
+import { compile, derivePalette } from "@kanzo-tech/palette";
+
+// once, at onboarding — the categorical search alone costs 0.2–7.4 s
+const doc = derivePalette({ id: "acme", label: "Acme", brand: "#8839ef", neutral: "#9ca0b0" });
+
+// every request — just the string
+<style dangerouslySetInnerHTML={{ __html: compile(doc) }} />;
+```
+
+<Callout title="Two packages, because the boundary is the point">
+  The derivation lives in **`@kanzo-tech/palette`** and nothing else does — ramps, the
+  categorical search, the role table, `compile`. **`@kanzo-tech/theme`** is the runtime half:
+  the stylesheets, the four non-colour axes and the preference types. `theme` depends on
+  `palette` as a *devDependency*, so the 0.2–7.4 s search is not merely something a browser
+  should not import — it is something a browser *cannot* reach.
+
+  Install `@kanzo-tech/palette` where you onboard a tenant. A product that only paints with a
+  stored document never needs it.
+</Callout>
+
+<Callout type="warn" title="data-palette, data-base, data-accent and data-chart-scheme are gone">
+  All four were ways to express *part* of a palette at runtime, and a document expresses all of
+  it at once. There is no custom-base-tint path, no custom-primary path, no inline
+  `--color-custom-*` and no inline `--chart-*` override. There is also no palette *pairing*
+  (`pairsWith`, `resolvePalette`, "pinned" palettes): a document carries both modes, so there is
+  no pair to resolve.
+</Callout>
+
+### base16 identities are seeds now
+
+Dracula, Nord and the two Catppuccins ship as `PALETTE_SEEDS`, and they go through
+`derivePalette` exactly as a client does. They are not a second shape — a base16 palette is a
+brand hue and a neutral hue, and two shapes for one idea is the defect this layer exists to
+remove.
+
+```tsx
+import { PALETTE_SEEDS, derivePalette, seedInput } from "@kanzo-tech/palette";
+
+const doc = derivePalette(seedInput("dracula", PALETTE_SEEDS.dracula));
+```
+
+The old rule — "a palette may be dark-only; do not invent a light side for Dracula" — was true
+when a palette was a set of authored hexes. Under derivation it is not: a ramp keeps a foreign
+seed's *hue* and gives up its mood, so a light Dracula is a **reading** rather than an
+invention. Measured: Dracula's brand `#ff79c6` ships as `#e562af` at step 9, moved 7.3 ΔE by the
+`visible-fill` rule.
+
+`BASE16_SLOTS` still holds the sixteen authored slots, and two things read them: the
+thirteen `--kanzo-syntax-*` roles, which are a *mapping* onto base16's slot vocabulary, and the
+[showcase](/docs/showcases/palette) that puts the authored original beside the derived result.
 
 ## Dark mode
 
-Not owned by this library. The host toggles `.dark` on `<html>` and the generated dark rules
-key off that ancestor. If you already run a theme manager, hand it over — the shape matches
-next-themes:
+`.dark` on `<html>` is the only mode selector, and `KanzoThemeProvider` writes it. Hand it to a
+host theme manager if you already run one — the shape matches next-themes:
 
 ```tsx
 import { useTheme } from "next-themes";
@@ -116,8 +227,16 @@ const { resolvedTheme, setTheme } = useTheme();
 <KanzoThemeProvider appearance={{ resolvedTheme, setTheme }}>{children}</KanzoThemeProvider>;
 ```
 
-Omit the prop and the provider's built-in fallback toggles `.dark` itself. These docs use the
-first form, handing fumadocs' theme manager to the provider.
+Omit the prop and the provider's built-in fallback toggles `.dark` itself, which is what these
+docs do.
+
+<Callout type="info" title="Why a class and not light-dark()">
+  Two reasons, both measured. About 150 `dark:` variants need a class to key off; and
+  `light-dark()` makes per-mode values unreadable to `getComputedStyle`, which is exactly how
+  the [charts layer](/docs/data-display/charts) resolves `var(--chart-N)` for Observable Plot.
+  Each compiled block carries its own `color-scheme`. Never write
+  `documentElement.style.colorScheme` — an inline declaration outranks every rule, permanently.
+</Callout>
 
 ## Tokens
 
@@ -127,28 +246,20 @@ Two families, two different rules — this trips people up, so it is worth stati
 that fill. `bg-primary text-primary-foreground` is a readable pair.
 
 **Status** (`destructive` / `info` / `success` / `warning`): three tokens, not two, and the extra
-one is the point. `-foreground` is a readable-on-**background** variant of the same hue — for error
-text, invalid rings and destructive menu items. That it is not readable *on the fill* is not a
-contrast bug; it is Shark's convention, adopted verbatim.
+one is the point. `-foreground` is a readable-on-**background** variant of the same hue (step 11)
+— for error text, invalid rings and destructive menu items. That it is not readable *on the fill*
+is not a contrast bug; it is Shark's convention, adopted verbatim.
 
-So on-fill text gets its own token, `-content`. `bg-destructive text-destructive-content` is the
-readable pair. It used to be a literal `text-white`, described as the one sanctioned exception to
-"token-backed utilities only" — and the exception is where the defect hid: measured, that white sat
-at 2.13:1 on the warning fill and 3.81 on destructive. With no token there was nothing to measure,
-and with nothing to measure there was no failing test.
+So on-fill text gets its own token, `-content`, bound to the ramp's measured `on-fill`.
+`bg-destructive text-destructive-content` is the readable pair. It used to be a literal
+`text-white`, described as the one sanctioned exception to "token-backed utilities only" — and
+the exception is where the defect hid: measured, that white sat at 2.13:1 on the warning fill and
+3.81 on destructive. With no token there was nothing to measure, and with nothing to measure
+there was no failing test.
 
-<Callout type="warn" title="The status fills sit at -600, which is a declared divergence">
-  Two measurements forced it, and both are re-run by `palettes.test.ts`. red-500 carries neither
-  white (3.81) nor near-black (4.15) at AA, so no choice of ink rescues it — the fill had to move.
-  And emerald-500/amber-500 land at 2.37 and 2.05 against the page, so a filled badge was barely
-  visible *as a shape*, under the 3:1 WCAG asks of a non-text element.
+## Generated output
 
-  The ink is then split by measurement rather than by rule: `destructive` and `info` hold white,
-  `success` and `warning` take near-black. Same choice in both modes, so a badge does not change its
-  criterion when the mode flips.
-</Callout>
-
-## Generated themes
-
-`themes.css` and `theme-data.json` are generated by `scripts/gen-theme.mjs` from Shark's exact
-per-hue values. **Edit the generator, not the output** — CI regenerates and fails on any diff.
+`themes.css` and `theme-data.json` are generated by `scripts/gen-theme.mjs`; `palettes/` and the
+colour half of `tokens.css` are generated by `scripts/gen-palette.mjs` — `palettes/kanzo.json` is
+a tenant whose document happens to be committed, nothing more. **Edit the generator, not the
+output** — CI regenerates and fails on any diff.

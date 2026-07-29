@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AppearanceToggle,
   Badge,
   Button,
   Card,
@@ -38,7 +39,11 @@ export function SettingsBackdrop({
             </SectionTitle>
             <SectionDescription>{description}</SectionDescription>
           </SectionTitleGroup>
-          <Badge variant="info">Live</Badge>
+          {/* Appearance is not in the drawer: it has one control, and this is where it lives. */}
+          <div className="flex items-center gap-2">
+            <AppearanceToggle />
+            <Badge variant="info">Live</Badge>
+          </div>
         </SectionHeader>
 
         <div className="grid gap-4 p-4 sm:grid-cols-2">
@@ -62,7 +67,7 @@ export function SettingsBackdrop({
           <Card>
             <CardHeader>
               <CardTitle>Actions</CardTitle>
-              <CardDescription>Buttons re-skin with the accent token.</CardDescription>
+              <CardDescription>Buttons re-skin with the radius and density axes.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2">
               <Button>Save</Button>

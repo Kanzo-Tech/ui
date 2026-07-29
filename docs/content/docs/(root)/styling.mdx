@@ -93,8 +93,11 @@ on specificity.
 - Only token-backed utilities. No raw hex, no raw palette classes. On a status fill the ink is
   `text-destructive-content` and its siblings, never `text-white` — see
   [Theming](/docs/theming#tokens) for why that is a third token and not `-foreground`.
-- Focus rings are Shark's utilities, not a token:
-  `outline-none focus-visible:ring-[3px] focus-visible:ring-ring/32`.
+- Focus rings are `outline-none focus-visible:ring-[3px] focus-visible:ring-ring` — solid, never
+  `ring-ring/NN`. A diluted ring measured 1.29:1 on the page, and WCAG 1.4.11 names a focus
+  indicator first. `bg-field`, the control fill that `border-input` used to double as, is the
+  related case: it is an alpha step and so never takes a `/NN` either — an opacity dilutes a solid
+  toward transparent and lands wherever the thing underneath puts it.
 - Exactly one `<main>` per page — `ShellMain` / `SidebarInset` own it. Nestable containers use
   `<section>`.
 - Files are kebab-case.

@@ -1,8 +1,6 @@
 "use client";
 
 import {
-  PreferencesBase,
-  PreferencesCopyTheme,
   PreferencesFont,
   PreferencesMonoFont,
   PreferencesPanel,
@@ -19,7 +17,7 @@ export function PreferencesFontsShowcase() {
         <>
           A panel is not locked to the canonical section set. Pass your own children to{" "}
           <code>PreferencesPanel</code> and it renders exactly those — here a typography-only
-          panel: the two font axes over the neutral base.
+          panel: the two font axes, and nothing else.
         </>
       }
       panel={
@@ -28,8 +26,6 @@ export function PreferencesFontsShowcase() {
           <PreferencesPanel title="Typography">
             <PreferencesFont />
             <PreferencesMonoFont />
-            <PreferencesBase />
-            <PreferencesCopyTheme />
           </PreferencesPanel>
         </PreferencesRoot>
       }

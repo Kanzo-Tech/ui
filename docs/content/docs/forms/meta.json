@@ -12,6 +12,7 @@
     "input",
     "text-field",
     "textarea",
+    "editable",
     "tags-input",
     "input-group",
     "---Choice---",

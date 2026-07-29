@@ -30,9 +30,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body className="flex min-h-screen flex-col">
         {/* next-themes OFF. `RootProvider` mounts it with `attribute: "class"`, which made two
             writers of `.dark` on <html>; and 0.4.6 defaults `enableColorScheme: true`, writing
-            `documentElement.style.colorScheme` — an inline declaration that outranks every
-            `[data-palette] { color-scheme: … }` rule permanently, so no palette could ever set it.
-            `.dark` is now derived from the applied palette by KanzoThemeProvider, alone. */}
+            `documentElement.style.colorScheme` — an inline declaration that outranks every rule
+            permanently, so the `:root` / `.dark` blocks of a compiled palette document could never
+            set it. `.dark` is written by KanzoThemeProvider, alone. */}
         <RootProvider theme={{ enabled: false }}>
           <KanzoProvider>{children}</KanzoProvider>
         </RootProvider>

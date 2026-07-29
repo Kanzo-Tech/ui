@@ -310,17 +310,23 @@ data, so filtering out a series repaints the ones that survive.
 live DOM at mount and on every theme change, because Observable Plot cannot parse `oklch`,
 `color-mix` or `color(srgb …)`. The same resolution applies to the `fill` and `stroke` props of any
 mark — those two channels only, and only when the value looks like a token, so `fill="region"` stays
-the *column* `region`. A series without a colour falls back to its slot in the active **scheme** —
-as the token `var(--chart-N)`, not as a baked hex, so one answer follows both the light/dark flip
-and whichever scheme the product selected.
+the *column* `region`. A series without a colour falls back to its slot in the categorical set — as
+the token `var(--chart-N)`, not as a baked hex, so one answer follows both the light/dark flip and
+whichever client is being served.
 
-The scheme is the theme's categorical colour axis: eight slots, a fixed order, `{ light, dark }`
-chosen per mode rather than flipped. It is defined once in `@kanzo-tech/theme` and projected twice —
-into `--chart-1..8` and into `CHART_SCHEME` here — so a chart keeps its colours even where the theme
-CSS is not loaded. Both modes clear the six categorical checks against the product's own surfaces
-(worst adjacent CVD ΔE 20.9, normal-vision 24.7, every slot at or above 3:1). Past the eighth
-series, fold into "Other": `categoricalColor(i)` returns the muted token rather than cycling, because
-a ninth series wearing slot 1 would claim to be the first one.
+The categorical set belongs to the [tenant's palette document](/docs/theming#colour-the-palette-document),
+not to this layer: N hues spaced from the brand hue, snapped to hue families, ordered by
+colour-blind separation, and projected onto `--chart-1..8` by `compile()`. A chart reads the token
+and that is the only copy — there used to be a second source of truth here (eight literal hexes,
+then a table in `theme-data.json`), and the same series came out one colour through `ChartConfig`
+and another through a token.
+
+`CHART_SLOTS` is 8 because a stylesheet cannot have a variable number of custom properties. How
+many of those slots carry a *real* category is the document's `capacity`, which can be lower: past
+it `compile` writes `var(--muted-foreground)`, because naming five categories honestly beats naming
+eight that a colour-blind reader sees as five. Past the eighth series, fold into "Other" —
+`categoricalColor(i)` returns the muted token rather than cycling, because a ninth series wearing
+slot 1 would claim to be the first one.
 
 ## useChart()
 
@@ -352,7 +358,8 @@ Two, because wrapping vgplot must stay a convenience:
 - **`<ChartRaw spec={…} />`** — a `vg.*` directive (or an array of them) in its source position.
   You build the source yourself, and `from` is re-exported from the subpath for it:
   `from("t", { filterBy: selection })`. No token resolution happens here, so pass a Plot-safe
-  colour — `CHART_SCHEME.light[0]` is exported for exactly this.
+  colour — `resolveTokenColor(host, "--chart-1")` is exported for exactly this, and reads the
+  live cascade rather than a frozen copy of it.
 - **`attributes` on `ChartRoot`** — raw directives applied *last*, so they win over anything the
   layer decided. For the ~225 plot attributes the axes do not cover.
 
@@ -551,8 +558,8 @@ Anything else goes through `ChartRoot`'s `attributes`.
 
 Re-exported so a whole chart is written without a direct `@uwdata` import: `count` `sum` `avg`
 `min` `max` `median` `quantile` `stddev` `mode` `bin` `sql` `Fixed`, plus `from` and `plot` for the
-[escape hatch](#escape-hatches), `Coordinator` `Selection` `coordinator` `wasmConnector`, the
-`CHART_SCHEME` / `CHART_SLOTS` and `categoricalColor(i)`.
+[escape hatch](#escape-hatches), `Coordinator` `Selection` `coordinator` `wasmConnector`, plus
+`CHART_SLOTS`, `categoricalColor(i)`, `resolveTokenColor` and `useThemeTick`.
 
 For a descriptor of your own, `chartDescriptor(displayName, compile)` mints one; `compile` returns
 plain data (`{ kind: "mark", mark: "barY", source, options }`), never a `vg.*` call.

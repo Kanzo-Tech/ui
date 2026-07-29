@@ -1,17 +1,17 @@
 ---
 title: Preferences
-description: A live theming selector that drives the theme attributes on the document.
+description: A live selector for the four user preferences, driving the theme attributes on the document.
 ---
 
 {/* An iframe, not a ComponentPreview. The panel is Portal-ed and `position: fixed`, so in a
     framed preview box it escapes to the viewport and lands on top of this page. The example
-    used to work around that by rendering the eight sections loose in a div — which shows the
+    used to work around that by rendering the sections loose in a div — which shows the
     controls but not the component: no trigger, no drawer, none of the behaviour. */}
 <PreviewIframe className="h-[42rem]" name="preferences" title="Preferences" />
 
-The panel opens on arrival so there is something to look at. Toggle the palette in the corner
-to see the rest of it: the drawer is **non-modal** and does not close when you click outside,
-so the form behind it stays usable while the theme changes live.
+The panel opens on arrival so there is something to look at. Toggle the trigger in the corner
+to see the rest of it: the drawer is **non-modal**, so the form behind it stays usable while
+the theme changes live.
 
 ## Usage
 
@@ -26,14 +26,36 @@ import { Preferences } from "@kanzo-tech/ui";
 The all-in-one renders a floating trigger plus the drawer. It writes through `useKanzoTheme`,
 which sets `data-*` attributes on `<html>` — that is why every component re-skins, including
 Ark's portaled overlays, which render into `document.body` and would miss a wrapper element.
-Dark mode is delegated to the appearance controller (next-themes, or the provider's fallback).
 
-The panel is deliberately **non-modal** and does not close on outside interaction: you keep
-using the app while it re-skins live behind the drawer, which is the only way to judge a theme.
+The panel is deliberately **non-modal**: you keep using the app while it re-skins live behind
+the drawer, which is the only way to judge a theme. It still closes on an outside click, because
+that is what a panel is expected to do — every change applies on selection, not on close, and the
+hotkey reopens it where you left off.
 
 There is no default hotkey. `hotkey` registers a bare, unmodified key on `window` (ignored
 while you are typing in a field), and a design system must not claim one in its host's keymap
 without being asked.
+
+<Callout type="info" title="Colour is not a preference">
+  Four sections, and none of them is a hue. A client's colour identity is a palette
+  **document** — two seeds derived and measured once at onboarding, compiled to one stylesheet
+  the server inlines. Palette, base, accent, chart scheme and the "Copy CSS" export all left with
+  it; what the export used to do belongs on the [onboarding surface](/docs/showcases/palette),
+  which has a whole document to emit rather than a partial selection.
+</Callout>
+
+<Callout type="info" title="Appearance is in the header, not the body">
+  `appearance` is a preference, but it is not a *section*.
+  [`AppearanceToggle`](/docs/layout/appearance-toggle) sits beside the close button and flips
+  light ⇄ dark in one click. The panel briefly carried a copy of it in the body as well, which is
+  one preference wearing two controls; the button costs the body nothing.
+
+  `system` is not a stop on that flip — it is the **initial value**, `DEFAULT_PREFS.appearance`, so
+  an app with nothing stored follows the OS until the first click. **Reset**, below, is the way
+  back: it spreads `DEFAULT_PREFS`, appearance included.
+
+  Mount it anywhere else you like — the docs sidebar does — since it reads the same preference.
+</Callout>
 
 ## Anatomy
 
@@ -41,30 +63,20 @@ without being asked.
 Preferences.Root
 ├── Preferences.Trigger
 └── Preferences.Panel
-    ├── Preferences.Accent
-    ├── Preferences.Base
-    ├── Preferences.Scheme
+    ├── Preferences.Density
     ├── Preferences.Radius
     ├── Preferences.Font
-    ├── Preferences.MonoFont
-    └── Preferences.Density
+    └── Preferences.MonoFont
 ```
 
-`Panel` renders that whole set when given no children; `CopyTheme` sits in the pinned footer
-beside Reset and Done rather than in the scrolling body. Pass children to choose your own set —
-most products keep one fixed neutral canvas and drop `Base`.
-
-`Scheme` is worth a look for how it is built: each option is a
-[`RadioGroupCard`](/docs/forms/radio-group#cards) whose preview is a
-[`SwatchGroup`](/docs/data-display/swatch) in slot order, with the scheme's name beside it. The
-colours are the whole point of the choice and still carry no semantics — the name is what the
-reader is picking, so the strip is `aria-hidden` and the card is the control.
+`Panel` renders that whole set when given no children, plus a pinned Reset · Done footer that
+stays whatever the children are. Pass children to choose your own set.
 
 ## Choosing the sections
 
-`Panel` renders the canonical set when given no children. Pass children to choose your own — and
-the pinned Reset · Copy · Done footer stays. A typography-only panel, for instance: the two font
-axes over the neutral base. Same real drawer, floating over the page, in its own viewport.
+`Panel` renders the canonical set when given no children. Pass children to choose your own —
+and the pinned footer stays. A typography-only panel, for instance. Same real drawer, floating
+over the page, in its own viewport.
 
 <PreviewIframe className="h-[42rem]" name="preferences-fonts" source="preferences/fonts" title="Typography preferences" />
 
@@ -74,8 +86,6 @@ axes over the neutral base. Same real drawer, floating over the page, in its own
   <PreferencesPanel title="Typography">
     <PreferencesFont />
     <PreferencesMonoFont />
-    <PreferencesBase />
-    <PreferencesCopyTheme />
   </PreferencesPanel>
 </PreferencesRoot>
 ```
@@ -89,7 +99,7 @@ RSC — `Preferences.Font` reads back as `undefined` there. We hit this for real
 ## Extending the panel
 
 The children are yours, so a product can lead with its **own** preferences and then fall back to
-the library's theme axes — one drawer, product prefs and theme prefs together, all live. Here a
+the library's axes — one drawer, product prefs and theme prefs together, all live. Here a
 product `Sidebar side` control sits above the theme sections. This is the move the
 [metadata-form showcase](/docs/showcases/metadata-form) uses for its Layout picker.
 
@@ -111,35 +121,32 @@ product `Sidebar side` control sits above the theme sections. This is the move t
       </SegmentGroup>
     </PreferencesField>
 
-    {/* the library's theme axes, flat, below the product's (appearance lives in the header) */}
-    <PreferencesAccent />
+    {/* the library's own axes, flat, below the product's */}
     <PreferencesRadius />
     <PreferencesDensity />
   </PreferencesPanel>
 </PreferencesRoot>
 ```
 
+`PreferencesField` titles a single control; `PreferencesFieldSet` titles a **group** of them.
+That split is a semantics call, not a styling one. `Field` addresses one control by id, and a
+radio group has one hidden input per item, so there is no id for its label to point at —
+`FieldSet` + `FieldLegend` is the answer, and Ark's `useRadioGroup` reads the legend's id
+straight out of the fieldset context as the group's accessible name.
+
 ## Sections in your own page
 
 Every section is exported flat, so the same controls can live **inline** in a product's own
-settings page instead of the floating drawer — they edit the same live theme either way. `Base`
-tints the whole neutral canvas: the preset swatches select a curated 50→950 scale, any other
-colour tints the neutral ramp toward it.
+settings page instead of the floating drawer — they edit the same live theme either way.
 
 ```tsx
 <div className="flex w-80 flex-col gap-6">
-  <PreferencesAccent />
-  <PreferencesBase />
+  <PreferencesDensity />
   <PreferencesRadius />
   <PreferencesFont />
   <PreferencesMonoFont />
-  <PreferencesDensity />
-  <PreferencesCopyTheme />
 </div>
 ```
-
-`CopyTheme` emits the current selection as a paste-ready `:root` / `.dark` CSS showcase — the
-handoff from picking a theme to committing one.
 
 ## API Reference
 
@@ -163,7 +170,7 @@ handoff from picking a theme to committing one.
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `children` | `ReactNode` | the canonical section set |
+| `children` | `ReactNode` | the canonical four sections |
 | `title` | `string` | `"Preferences"` |
 | `hint` | `string` | `"Applied live · saved to this browser."` |
 
@@ -172,3 +179,23 @@ handoff from picking a theme to committing one.
 | Prop | Type | Default |
 | --- | --- | --- |
 | `className` | `string` | — |
+
+### Sections
+
+Each takes no props — every one reads and writes `useKanzoTheme()` directly.
+
+| Flat export | Static | Axis | Attribute |
+| --- | --- | --- | --- |
+| `PreferencesDensity` | `Preferences.Density` | `density` | `data-font-size` |
+| `PreferencesRadius` | `Preferences.Radius` | `radius` | `data-radius` |
+| `PreferencesFont` | `Preferences.Font` | `font` | `data-font` |
+| `PreferencesMonoFont` | `Preferences.MonoFont` | `monoFont` | `data-mono-font` |
+
+### Containers
+
+For sections of your own, so a product's controls are indistinguishable from the library's.
+
+| Flat export | Props | For |
+| --- | --- | --- |
+| `PreferencesField` | `label`, `children` | one control (`Field` + `FieldLabel`) |
+| `PreferencesFieldSet` | `label`, `children` | a group of controls (`FieldSet` + `FieldLegend`) |

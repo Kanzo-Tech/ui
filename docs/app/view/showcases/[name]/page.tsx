@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { AppShellShowcase } from "@/showcases/app-shell/default";
 import { MetadataFormShowcase } from "@/showcases/metadata-form/default";
+import { Base16Showcase } from "@/showcases/palette-onboarding/base16";
+import { PaletteOnboardingShowcase } from "@/showcases/palette-onboarding/default";
 import { PreferencesShowcase } from "@/showcases/preferences/default";
 import { PreferencesExtendedShowcase } from "@/showcases/preferences/extended";
 import { PreferencesFontsShowcase } from "@/showcases/preferences/fonts";
@@ -24,6 +26,10 @@ const BLOCKS = {
   preferences: PreferencesShowcase,
   "preferences-fonts": PreferencesFontsShowcase,
   "preferences-extended": PreferencesExtendedShowcase,
+  // The colour half of the theme, which is not a panel at all. Both are SERVER components: they
+  // run `derivePalette` at build time, which is where that cost belongs.
+  "palette-onboarding": PaletteOnboardingShowcase,
+  "palette-base16": Base16Showcase,
 } as const;
 
 type BlockName = keyof typeof BLOCKS;

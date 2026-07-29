@@ -7,6 +7,7 @@ import {
   ComboboxEmpty,
   ComboboxInput,
   ComboboxItem,
+  Show,
   useFilter,
   useListCollection,
 } from "@kanzo-tech/ui";
@@ -20,14 +21,6 @@ const DATASETS = [
   { label: "invoices", value: "invoices" },
 ];
 
-/**
- * Multi-select is one prop. Note what Ark does for you once it is on: `selectionBehavior`
- * switches to `clear`, so the input empties after each pick and the list is ready for the next
- * one — picking five things does not mean deleting your query five times.
- *
- * The chips are the CALLER's. The component tracks the value; showing what is selected is a
- * presentation decision, and a row of Badges is only one answer to it.
- */
 export default function Example() {
   const [value, setValue] = useState<string[]>(["orders"]);
 
@@ -57,7 +50,7 @@ export default function Example() {
         </ComboboxContent>
       </Combobox>
 
-      {value.length > 0 && (
+      <Show when={value.length > 0}>
         <div className="flex flex-wrap gap-1">
           {value.map((v) => (
             <Badge key={v} size="xs" variant="secondary">
@@ -65,7 +58,7 @@ export default function Example() {
             </Badge>
           ))}
         </div>
-      )}
+      </Show>
     </div>
   );
 }

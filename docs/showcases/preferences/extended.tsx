@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  PreferencesAccent,
   PreferencesDensity,
   PreferencesField,
   PreferencesPanel,
@@ -47,7 +46,6 @@ export function PreferencesExtendedShowcase() {
               />
             </PreferencesField>
 
-            <PreferencesAccent />
             <PreferencesRadius />
             <PreferencesDensity />
           </PreferencesPanel>

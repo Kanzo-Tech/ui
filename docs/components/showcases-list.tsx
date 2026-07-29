@@ -30,7 +30,7 @@ export const ShowcasesList = ({ className, ...rest }: React.ComponentProps<"div"
           className={cn(
             "group flex flex-col gap-1 rounded-xl border p-5 transition-colors",
             "hover:border-primary/40 hover:bg-accent/40",
-            "outline-none focus-visible:ring-[3px] focus-visible:ring-ring/32",
+            "outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
           )}
           href={showcase.url}
           key={showcase.slug}

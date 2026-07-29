@@ -51,8 +51,3 @@ export function toHex([r, g, b, a]: Rgba): string {
 export function withAlpha([r, g, b]: Rgba, alpha: number): Rgba {
   return [r, g, b, alpha];
 }
-
-/** Toward white, for the tint a hub gets over its kind's colour. */
-export function lighten([r, g, b, a]: Rgba, amount: number): Rgba {
-  return [r + (1 - r) * amount, g + (1 - g) * amount, b + (1 - b) * amount, a];
-}

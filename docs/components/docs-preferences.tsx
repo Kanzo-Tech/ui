@@ -8,24 +8,29 @@ import { AppearanceToggle, DialogTrigger, PreferencesPanel, PreferencesRoot } fr
  * panel, co-located as ONE left-aligned controls cluster in the sidebar footer.
  *
  * The panel is NOT hand-rolled: it is the library's own `Preferences` composite, mounted here via
- * `PreferencesRoot` (the non-modal drawer) + `PreferencesPanel` (the canonical seven-section body:
- * Appearance · Accent · Base · Radius · Font · Mono font · Density, plus Reset · Copy CSS · Done).
- * Composed from the FLAT part exports, not the `Preferences.X` statics, which read back `undefined`
- * across the RSC client boundary (the library documents this).
+ * `PreferencesRoot` (the non-modal drawer) + `PreferencesPanel` (the canonical four-section body:
+ * Density · Radius · Font · Mono font, plus Reset · Done). Composed from the FLAT part exports, not
+ * the `Preferences.X` statics, which read back `undefined` across the RSC client boundary (the
+ * library documents this).
+ *
+ * None of the four is a colour. A tenant's identity is a palette DOCUMENT compiled to one
+ * stylesheet — see [Theming](/docs/theming) — so there is nothing here for a reader to pick a hue
+ * at a time. Appearance is not in there either, for a different reason: it has exactly one
+ * control, the toggle to the left of Customize, which cycles light → dark → system in one click.
  *
  * Persistence, restore-on-load and the live re-theme are handled upstream by `KanzoThemeProvider`
- * (the docs wrap in it via `kanzo-provider.tsx`): it writes the `data-*` axes to `<html>`, derives
- * `.dark` from the applied palette, and persists the lot to localStorage. Because the attributes
- * land on the docs root, every inline `ComponentPreview` example re-themes in real time.
+ * (the docs wrap in it via `kanzo-provider.tsx`): it writes the four non-colour `data-*` axes to
+ * `<html>`, toggles `.dark` from the resolved appearance, and persists the lot to localStorage.
+ * Because the attributes land on the docs root, every inline `ComponentPreview` example re-themes
+ * in real time.
  *
  * Layout: the appearance control and Customize read as one group. Both fumadocs theme controls are
  * gone — the one in its own row (`themeSwitch={{ enabled: false }}` on the layout) and the
  * `ThemeSwitch` that used to sit here. The latter calls `useTheme()`, so with next-themes disabled
- * it became a button that changes nothing; `AppearanceToggle` is the DS's own, and it is the only
- * one that knows a pinned palette will refuse the change. The Customize trigger is our own
- * `DialogTrigger` (the same Ark Dialog `PreferencesRoot` provides), styled in fumadocs' `fd-*`
- * chrome tokens; `data-[state=open]` is Ark's — it keeps the button lit while the non-modal panel
- * stays open.
+ * it became a button that changes nothing; `AppearanceToggle` is the DS's own. The Customize
+ * trigger is our own `DialogTrigger` (the same Ark Dialog `PreferencesRoot` provides), styled in
+ * fumadocs' `fd-*` chrome tokens; `data-[state=open]` is Ark's — it keeps the button lit while the
+ * non-modal panel stays open.
  */
 export function DocsPreferences() {
   return (

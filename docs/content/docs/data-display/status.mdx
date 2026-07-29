@@ -24,9 +24,57 @@ text it decorates, as in the example above.
 
 <ComponentPreview componentName="status" fileName="example-variants" />
 
+Five variants and no `color` prop, which is the one design decision on this page worth
+defending. The vocabulary is closed **because a closed set can be measured**. A dot may hold a
+glyph, so a variant is not a colour — it is a `(fill, ink)` pair, and the pair is the thing that
+either carries contrast or does not. Open it to an arbitrary `color` and there is nothing left
+to assert: the ink no longer has a fill it was measured against.
+
+So the five are measured. `status.test.ts` reads the recipe back rather than trusting it —
+whatever `statusVariants` emits is parsed into a fill and an ink per mode, resolved against the
+shipped `tokens.css`, and asserted at AA. Every variant clears 4.5:1 in both modes; the tightest
+margins are `destructive` in light at **4.57** and `info` in dark at **4.58**.
+
+<Callout type="warn">
+That test exists because the gap was already used. The recipe carried
+`dark:bg-destructive-foreground`, which Shark ships and which reads as unremarkable in review —
+it moved the **fill** and left the **ink**. A glyph on the resulting `#ff8677` under an unchanged
+`--destructive-content` `#ffffff` measured **2.35:1** in dark. That is exactly the `text-white`
+defect the `--*-content` tokens were created to kill, coming back in through a `dark:` override.
+The override is gone, and the test also asserts the *shape*: no variant may repaint its colour in
+one mode only. The class of defect is what is guarded, not the single token that caused it.
+</Callout>
+
 ## Sizes
 
 <ComponentPreview componentName="status" fileName="example-sizes" />
+
+## A glyph inside the dot
+
+A `Status` accepts children, and an icon is auto-sized by the variant recipe. This is the case
+the ink is measured for — at `sm` there is no room for one, so a glyph is really an `lg`
+affordance.
+
+<ComponentPreview componentName="status" fileName="example-glyph" />
+
+The glyph is decoration like the dot around it: the whole element is `aria-hidden`, so a check
+mark inside a green circle still needs the word beside it.
+
+## Status or Swatch
+
+Both draw a small coloured shape, and the boundary is not the shape — it is where the colour
+came from.
+
+**`Status` depicts a meaning, and its colour follows.** You pick `warning`; the token decides
+what that looks like, and this package is on the hook for the result.
+[**`Swatch`**](/docs/data-display/swatch) **depicts a colour that arrived as data** — a tenant's
+palette document resolved at runtime, a chart series, a theme the user chose. Nothing in this
+package can measure that value, because it does not exist until a document is loaded; a
+swatch's obligations are checked upstream, at that document's gates.
+
+That is why these are two components rather than one with a `color` escape hatch. They carry
+different obligations, not different props — and a `color` prop on `Status` would quietly move a
+contrast guarantee from a test in this repo to a call site that has no way to honour it.
 
 ## As an overlay
 

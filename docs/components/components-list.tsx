@@ -45,7 +45,7 @@ export const ComponentsList = ({ className, ...rest }: React.ComponentProps<"div
                 className={cn(
                   "flex flex-col gap-1 rounded-xl border bg-card p-4 no-underline",
                   "text-card-foreground transition-colors hover:bg-accent",
-                  "outline-none focus-visible:ring-[3px] focus-visible:ring-ring/32",
+                  "outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
                 )}
                 href={component.url}
                 key={component.url}

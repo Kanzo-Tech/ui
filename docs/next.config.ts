@@ -9,7 +9,7 @@ const config: NextConfig = {
   // and — more importantly — so this app exercises the REAL client/server boundary of the
   // library. Vite ignores "use client" entirely, which is why the stripped-directive bug
   // survived every hour spent in the old playground.
-  transpilePackages: ["@kanzo-tech/ui", "@kanzo-tech/theme"],
+  transpilePackages: ["@kanzo-tech/ui", "@kanzo-tech/theme", "@kanzo-tech/palette"],
 };
 
 export default withMDX(config);
