@@ -32,9 +32,9 @@ is not.
   wrapper never reach them. Density is stricter still: it sets the root font-size, and every
   size in the system is `rem`.
 
-  This is why there is exactly one provider. An earlier `KanzoTheme` wrapper component wrote
-  the same attributes to a `<div>`; it could not theme a single overlay, and its `density` axis
-  did nothing at all. It has been removed.
+  This is why there is exactly one provider, and why it writes to the document rather than
+  rendering an element. A wrapper that set the same attributes on a `<div>` could not theme a
+  single overlay, and its density axis would do nothing at all.
 </Callout>
 
 ### Setting them
@@ -213,11 +213,11 @@ const doc = derivePalette({ id: "acme", label: "Acme", brand: "#8839ef", neutral
   stored document never needs it.
 </Callout>
 
-<Callout type="warn" title="data-palette, data-base, data-accent and data-chart-scheme are gone">
-  All four were ways to express *part* of a palette at runtime, and a document expresses all of
-  it at once. There is no custom-base-tint path, no custom-primary path, no inline
-  `--color-custom-*` and no inline `--chart-*` override. There is also no palette *pairing*
-  (`pairsWith`, `resolvePalette`, "pinned" palettes): a document carries both modes, so there is
+<Callout type="warn" title="Colour is not a runtime axis">
+  There is no `data-palette`, no `data-base`, no `data-accent`, no `data-chart-scheme`, no
+  custom-base-tint or custom-primary path, and no inline `--color-custom-*` or `--chart-*`
+  override. Each of those expresses *part* of a palette at runtime, and a document expresses all
+  of it at once. Nor is there a palette *pairing*: one document carries both modes, so there is
   no pair to resolve.
 </Callout>
 
@@ -234,11 +234,10 @@ import { PALETTE_SEEDS, derivePalette, seedInput } from "@kanzo-tech/palette";
 const doc = derivePalette(seedInput("dracula", PALETTE_SEEDS.dracula));
 ```
 
-The old rule — "a palette may be dark-only; do not invent a light side for Dracula" — was true
-when a palette was a set of authored hexes. Under derivation it is not: a ramp keeps a foreign
-seed's *hue* and gives up its mood, so a light Dracula is a **reading** rather than an
-invention. Measured: Dracula's brand `#ff79c6` ships as `#e562af` at step 9, moved 7.3 ΔE by the
-`visible-fill` rule.
+A dark-native seed still gets a light side, and that is not an invention: a ramp keeps the
+seed's *hue* and gives up its mood, so a light Dracula is a **reading** of it. Measured —
+Dracula's brand `#ff79c6` ships as `#e562af` at step 9, moved 7.3 ΔE by the `visible-fill`
+rule.
 
 `BASE16_SLOTS` still holds the sixteen authored slots, and two things read them: the
 thirteen `--kanzo-syntax-*` roles, which are a *mapping* onto base16's slot vocabulary, and the
@@ -280,11 +279,10 @@ one is the point. `-foreground` is a readable-on-**background** variant of the s
 is not a contrast bug; it is Shark's convention, adopted verbatim.
 
 So on-fill text gets its own token, `-content`, bound to the ramp's measured `on-fill`.
-`bg-destructive text-destructive-content` is the readable pair. It used to be a literal
-`text-white`, described as the one sanctioned exception to "token-backed utilities only" — and
-the exception is where the defect hid: measured, that white sat at 2.13:1 on the warning fill and
-3.81 on destructive. With no token there was nothing to measure, and with nothing to measure
-there was no failing test.
+`bg-destructive text-destructive-content` is the readable pair. A literal `text-white` is not:
+measured, that white sits at 2.13:1 on the warning fill and 3.81 on destructive. An exception to
+"token-backed utilities only" is where a defect hides — with no token there is nothing to measure,
+and with nothing to measure there is no failing test.
 
 ## Generated output
 

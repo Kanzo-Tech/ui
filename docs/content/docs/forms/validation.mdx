@@ -92,13 +92,6 @@ So the split is: **the library owns presentation; the product owns production.**
 engine-specific — severity ladders, localisation catalogues, constraint identifiers — stays in
 the product, and reaches `Field` as a rendered message.
 
-<Callout type="info">
-If non-blocking field messages (a warning that does not mark the field invalid) turn out to be
-a real, repeated need, the answer will be a new **part** — `FieldWarning`, alongside the
-thirteen that already exist — and not a `severity` prop. That keeps the idiom the rest of the
-library already uses. It is not built yet because nothing has needed it twice.
-</Callout>
-
 ## Form-level errors
 
 For an error that belongs to the whole form rather than one field — a failed request, a

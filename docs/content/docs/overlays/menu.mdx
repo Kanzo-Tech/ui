@@ -159,8 +159,7 @@ variable. Clamping to the measured space feeds the element's own resize back int
 positioner — content shrinks, the scrollbar toggles, the available space changes, recompute —
 and that loop hard-freezes the tab. A fixed cap is decoupled from the measurement.
 
-There used to be a ten-export `ContextMenu*` family here, nine members of which were `data-slot`
-renames of the parts above — `ContextMenuItem` was `<MenuItem data-slot="context-menu-item">` and
-nothing more. Only the trigger was real, and it now lives beside `MenuTrigger` under Ark's own
-name for it. The names are gone with no aliases; a context menu is a `Menu` whose trigger is a
-`MenuContextTrigger`.
+There is no `ContextMenu` family. A context menu is a `Menu` whose trigger is a
+`MenuContextTrigger` — the only part a right-click surface actually needs, since every item,
+separator and group below it is the same part either way. A parallel family would have been nine
+`data-slot` renames and one real trigger.

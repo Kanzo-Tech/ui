@@ -8,9 +8,10 @@ A showcase is an arrangement someone actually builds: an application shell, an I
 They are **examples, not components**, and that distinction is the point.
 
 The library ships a generic vocabulary — regions, sections, controls. A specific arrangement of
-them does not have to become a component; it has to become an example. `AppShell` and
-`WorkspaceLayout` used to be components, and both read as "the product they were extracted
-from" rather than as a design system. They are showcases now, and the library is smaller for it.
+them does not have to become a component; it has to become an example. A whole shell that *is* a
+component reads as the product it was extracted from rather than as a design system, and it makes
+the library bigger without making it able to build more. This is
+[where specificity is allowed to live](/docs/philosophy#where-specificity-is-allowed-to-live).
 
 Each renders in its own viewport, because a shell judged inside a 450px centred box tells you
 nothing.
