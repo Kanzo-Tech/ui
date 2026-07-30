@@ -1,11 +1,6 @@
-import {
-  SegmentGroup as ArkSegmentGroup,
-  useSegmentGroupContext,
-} from "@ark-ui/react/segment-group";
+import { SegmentGroup as ArkSegmentGroup } from "@ark-ui/react/segment-group";
 import type React from "react";
 import { cn } from "../lib/cn";
-
-export const useSegmentGroup = useSegmentGroupContext;
 
 type SegmentGroupVariant = "default" | "underline" | "solid";
 

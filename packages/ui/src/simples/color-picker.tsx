@@ -7,13 +7,11 @@ import {
   parseColor as parseColorArk,
   useColorPickerContext,
 } from "@ark-ui/react/color-picker";
-import { ark } from "@ark-ui/react/factory";
 import { Portal } from "@ark-ui/react/portal";
 import { CheckIcon, Pipette } from "lucide-react";
 import React from "react";
 import { cn } from "../lib/cn";
 import { Button, type ButtonProps } from "./button";
-import { FieldLabel } from "./field";
 
 export const parseColor = parseColorArk;
 export const useColorPicker = useColorPickerContext;
@@ -123,20 +121,6 @@ export const ColorPicker = (props: ColorPickerProps) => {
   );
 };
 
-export const ColorPickerLabel = (
-  props: React.ComponentProps<typeof ArkColorPicker.Label>
-) => {
-  const { children, ...rest } = props;
-
-  return (
-    <FieldLabel asChild>
-      <ArkColorPicker.Label data-slot="color-picker-label" {...rest}>
-        {children}
-      </ArkColorPicker.Label>
-    </FieldLabel>
-  );
-};
-
 export const ColorPickerControl = (
   props: React.ComponentProps<typeof ArkColorPicker.Control>
 ) => {
@@ -203,19 +187,6 @@ export const ColorPickerContent = (
         />
       </ArkColorPicker.Positioner>
     </Portal>
-  );
-};
-
-export const ColorPickerView = (
-  props: React.ComponentProps<typeof ArkColorPicker.View>
-) => {
-  const { className, ...rest } = props;
-  return (
-    <ArkColorPicker.View
-      className={cn("relative flex size-full flex-1 flex-col gap-4", className)}
-      data-slot="color-picker-view"
-      {...rest}
-    />
   );
 };
 
@@ -481,86 +452,3 @@ export const ColorPickerInput = (
   );
 };
 
-// Ark ships FormatTrigger/FormatSelect and Shark exposes neither, which is why every hex-shaped
-// call site is stuck on whichever format the initial colour happened to parse as. Exposed here so
-// the format is switchable at runtime; the machine's set is `rgba | hsla | hsba`.
-interface ColorPickerFormatTriggerProps
-  extends React.ComponentProps<typeof ArkColorPicker.FormatTrigger>,
-    ButtonProps {}
-
-export const ColorPickerFormatTrigger = (
-  props: ColorPickerFormatTriggerProps
-) => {
-  const { variant = "ghost", size = "sm", children, ...rest } = props;
-
-  return (
-    <ArkColorPicker.FormatTrigger
-      data-slot="color-picker-format-trigger"
-      {...rest}
-      asChild
-    >
-      <Button size={size} variant={variant}>
-        {children}
-      </Button>
-    </ArkColorPicker.FormatTrigger>
-  );
-};
-
-export const ColorPickerFormatSelect = (
-  props: React.ComponentProps<typeof ArkColorPicker.FormatSelect>
-) => {
-  const { className, ...rest } = props;
-
-  return (
-    <ArkColorPicker.FormatSelect
-      className={cn(
-        "appearance-none",
-        "h-7 min-w-0 ps-2 pe-2",
-        "select-none text-sm",
-        "bg-transparent dark:bg-field",
-        "rounded-lg border border-input shadow-xs/5",
-        "transition-colors",
-        "outline-none focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring",
-        "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-64",
-        "motion-reduce:transition-none!",
-        className
-      )}
-      data-slot="color-picker-format-select"
-      {...rest}
-    />
-  );
-};
-
-export const ColorPickerSwatchPreview = (
-  props: React.ComponentProps<typeof ark.div>
-) => {
-  const { className, ...rest } = props;
-
-  return (
-    <ark.div
-      className={cn(
-        "relative",
-        "size-8",
-        "shrink-0",
-        "rounded-full border",
-        "pointer-events-none overflow-hidden",
-        "group-data-[size=lg]/input-group:size-5",
-        "group-data-[size=md]/input-group:size-4",
-        "group-data-[size=sm]/input-group:size-3.5",
-        "group-data-disabled/color-input:opacity-64",
-        className
-      )}
-      data-slot="color-picker-input-swatch"
-      {...rest}
-    >
-      <ArkColorPicker.TransparencyGrid
-        className={cn(
-          "size-full rounded-[calc(var(--radius-sm)-0.5px)]",
-          "bg-[linear-gradient(45deg,#e4e4e4_25%,transparent_25%),linear-gradient(-45deg,#e4e4e4_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e4e4e4_75%),linear-gradient(-45deg,transparent_75%,#e4e4e4_75%)]",
-          "bg-position-[0_0,0_4px,4px_-4px,-4px_0] bg-size-(--spacing(2))"
-        )}
-      />
-      <ArkColorPicker.ValueSwatch className="z-1 size-full" />
-    </ark.div>
-  );
-};

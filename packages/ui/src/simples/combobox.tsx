@@ -21,8 +21,6 @@ import {
 
 export const useCombobox = useArkComboboxContext;
 
-export const ComboboxContext = ArkCombobox.Context;
-
 export const Combobox: ArkCombobox.RootComponent = (props) => {
   const {
     openOnClick = true,

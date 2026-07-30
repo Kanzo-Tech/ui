@@ -1,12 +1,7 @@
 import { Portal } from "@ark-ui/react";
-import {
-  HoverCard as ArkHoverCard,
-  useHoverCardContext,
-} from "@ark-ui/react/hover-card";
+import { HoverCard as ArkHoverCard } from "@ark-ui/react/hover-card";
 import type React from "react";
 import { cn } from "../lib/cn";
-
-export const useHoverCard = useHoverCardContext;
 
 interface HoverCardProps
   extends React.ComponentProps<typeof ArkHoverCard.Root> {}

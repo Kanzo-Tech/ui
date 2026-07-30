@@ -1,4 +1,4 @@
-import { Avatar as ArkAvatar, useAvatarContext } from "@ark-ui/react/avatar";
+import { Avatar as ArkAvatar } from "@ark-ui/react/avatar";
 import { ark } from "@ark-ui/react/factory";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
@@ -7,8 +7,6 @@ import {
   Status,
   type statusVariants,
 } from "./status";
-
-export const useAvatar = useAvatarContext;
 
 const avatarVariants = tv({
   base: [

@@ -6,7 +6,6 @@ import React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
 import { Button, buttonVariants } from "../simples/button";
-import { Input } from "../simples/input";
 import { ScrollArea } from "../simples/scroll-area";
 import { Separator } from "../simples/separator";
 import {
@@ -359,19 +358,6 @@ export const SidebarInset = (props: React.ComponentProps<typeof ark.div>) => {
         className
       )}
       data-slot="sidebar-inset"
-      {...rest}
-    />
-  );
-};
-
-export const SidebarInput = (props: React.ComponentProps<typeof Input>) => {
-  const { className, ...rest } = props;
-
-  return (
-    <Input
-      className={cn("h-8 w-full bg-background shadow-none", className)}
-      data-sidebar="input"
-      data-slot="sidebar-input"
       {...rest}
     />
   );

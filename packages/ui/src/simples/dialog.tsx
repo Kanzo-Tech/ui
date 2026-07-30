@@ -1,6 +1,6 @@
 "use client";
 
-import { Dialog as ArkDialog, useDialogContext } from "@ark-ui/react/dialog";
+import { Dialog as ArkDialog } from "@ark-ui/react/dialog";
 import { ark } from "@ark-ui/react/factory";
 import { Portal } from "@ark-ui/react/portal";
 import { XIcon } from "lucide-react";
@@ -9,8 +9,6 @@ import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
 import { Button } from "./button";
 import { ScrollArea } from "./scroll-area";
-
-export const useDialog = useDialogContext;
 
 interface DialogContextProps {
   /**

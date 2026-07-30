@@ -1,7 +1,4 @@
-import {
-  PasswordInput as ArkPasswordInput,
-  usePasswordInputContext,
-} from "@ark-ui/react/password-input";
+import { PasswordInput as ArkPasswordInput } from "@ark-ui/react/password-input";
 import { EyeIcon, EyeOffIcon } from "lucide-react";
 import type React from "react";
 import { cn } from "../lib/cn";
@@ -12,8 +9,6 @@ import {
   InputGroupInput,
   type InputGroupProps,
 } from "./input-group";
-
-export const usePasswordInput = usePasswordInputContext;
 
 interface PasswordInputProps
   extends React.ComponentProps<typeof ArkPasswordInput.Root>,

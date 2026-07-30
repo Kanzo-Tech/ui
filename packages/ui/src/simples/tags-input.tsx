@@ -1,14 +1,9 @@
-import {
-  TagsInput as ArkTagsInput,
-  useTagsInputContext,
-} from "@ark-ui/react/tags-input";
+import { TagsInput as ArkTagsInput } from "@ark-ui/react/tags-input";
 import { XIcon } from "lucide-react";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
 import { FieldLabel } from "./field";
-
-export const useTagsInput = useTagsInputContext;
 
 // Render-prop context used to map the machine's value into styled items.
 export const TagsInputContext = ArkTagsInput.Context;

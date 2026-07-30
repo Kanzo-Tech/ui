@@ -1,10 +1,8 @@
-import { Toggle as ArkToggle, useToggleContext } from "@ark-ui/react/toggle";
+import { Toggle as ArkToggle } from "@ark-ui/react/toggle";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
 import { buttonVariants } from "./button";
-
-export const useToggle = useToggleContext;
 
 const toggleVariants = tv({
   base: [

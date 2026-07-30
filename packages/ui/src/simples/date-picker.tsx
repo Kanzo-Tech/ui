@@ -1,7 +1,4 @@
-import {
-  DatePicker as ArkDatePicker,
-  useDatePickerContext,
-} from "@ark-ui/react/date-picker";
+import { DatePicker as ArkDatePicker } from "@ark-ui/react/date-picker";
 import { Portal } from "@ark-ui/react/portal";
 import { CalendarIcon, ClockIcon } from "lucide-react";
 import type React from "react";
@@ -18,8 +15,6 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "./input-group";
-
-export const useDatePicker = useDatePickerContext;
 
 export const DatePicker = (props: React.ComponentProps<typeof Calendar>) => {
   const { positioning = { placement: "top" }, ...rest } = props;

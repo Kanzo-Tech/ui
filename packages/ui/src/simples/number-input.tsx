@@ -1,14 +1,9 @@
-import {
-  NumberInput as ArkNumberInput,
-  useNumberInputContext,
-} from "@ark-ui/react/number-input";
+import { NumberInput as ArkNumberInput } from "@ark-ui/react/number-input";
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
 import { FieldLabel } from "./field";
-
-export const useNumberInput = useNumberInputContext;
 
 // The Control is the input shell (border, focus ring, invalid, disabled) — Ark ships no `Group`
 // part, so the shell lives here and the stepper triggers float at the inline-end edge.

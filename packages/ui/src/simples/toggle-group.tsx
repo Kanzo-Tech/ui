@@ -1,15 +1,10 @@
 "use client";
 
-import {
-  ToggleGroup as ArkToggleGroup,
-  useToggleGroupContext as useArkToggleGroupContext,
-} from "@ark-ui/react/toggle-group";
+import { ToggleGroup as ArkToggleGroup } from "@ark-ui/react/toggle-group";
 import React from "react";
 import { tv } from "tailwind-variants";
 import { cn } from "../lib/cn";
 import { Toggle, type ToggleProps } from "./toggle";
-
-export const useToggleGroup = useArkToggleGroupContext;
 
 type ToggleGroupContextProps = Pick<ToggleProps, "variant" | "size"> & {
   /**

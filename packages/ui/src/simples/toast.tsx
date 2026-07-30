@@ -4,7 +4,6 @@ import {
   Toaster as ArkToaster,
   createToaster,
   type CreateToasterReturn,
-  useToastContext,
 } from "@ark-ui/react/toast";
 import {
   CircleAlertIcon,
@@ -17,8 +16,6 @@ import type React from "react";
 import { cn } from "../lib/cn";
 import { Button } from "./button";
 import { Spinner } from "./spinner";
-
-export const useToast = useToastContext;
 
 export const toast: CreateToasterReturn = createToaster({
   placement: "bottom-end",

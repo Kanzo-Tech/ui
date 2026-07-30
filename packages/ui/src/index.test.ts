@@ -169,6 +169,36 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.Calendar).toBeTypeOf("function");
   });
 
+  it("drops the Ark context aliases and parts nothing ever rendered", () => {
+    // 32 exports with no reference of any kind anywhere in the repo — not a call site, not a test,
+    // not a sentence of prose. Each `useX` was a one-line `export const useX = useXContext`, a
+    // rename of a symbol the consumer can import from Ark directly; each `*Context` was the same
+    // trick on a component. Renaming somebody else's export is not an API.
+    const surface = UI as Record<string, unknown>;
+    for (const name of [
+      "useAvatar", "useCheckbox", "useDatePicker", "useDialog", "useField", "useHoverCard",
+      "useListbox", "useNumberInput", "usePasswordInput", "usePopover", "useRating",
+      "useSegmentGroup", "useSelect", "useSheet", "useSwitch", "useTagsInput", "useToast",
+      "useToggle", "useToggleGroup", "useTooltip",
+      "ComboboxContext", "ListboxContext", "SelectContext",
+      "CalendarControl", "CalendarLabel", "CalendarTrigger",
+      "ColorPickerLabel", "ColorPickerView", "ColorPickerFormatTrigger",
+      "ColorPickerFormatSelect", "ColorPickerSwatchPreview",
+      "SidebarInput",
+    ]) {
+      expect(surface[name], name).toBeUndefined();
+    }
+    // `useField` and `FieldSeparator` are the two DESIGN.md names as "the parts still without a
+    // consumer". That was written as an argument for patience; it had been true long enough to be
+    // an answer instead.
+    expect(surface.FieldSeparator).toBeUndefined();
+    // Kept, and the reason is the contrast: these have a consumer inside the library.
+    expect(UI.useSidebar).toBeTypeOf("function");
+    expect(UI.useKanzoTheme).toBeTypeOf("function");
+    // `CalendarPresetTrigger` survives its three deleted neighbours — `date-picker.tsx` renders it.
+    expect(UI.CalendarPresetTrigger).toBeTypeOf("function");
+  });
+
   it("exports every compound flat, with no dot-notation namespace", () => {
     // `Preferences` was the one counter-example, via `Object.assign`. Those statics do NOT survive
     // React Server Components: once the module is a client reference `Preferences.Density` reads
