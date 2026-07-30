@@ -25,12 +25,12 @@ export interface FooProps
     VariantProps<typeof fooVariants> {}
 
 export const Foo = (props: FooProps) => {
-  const { variant = "default", size = "md", className, ...rest } = props;
+  const { variant = "default", size = "md", className, slot, ...rest } = props;
   return (
     <ark.button
       className={cn(fooVariants({ variant, size }), className)}
-      data-slot="foo"
       {...rest}
+      data-slot={slot ?? "foo"}
     />
   );
 };
@@ -71,6 +71,15 @@ contract, not decoration — our own recipes depend on it:
 ```
 
 This is what you get instead of guessing at generated class names.
+
+**A part owns its slot**, written after your props, so a stray `data-slot` in what you spread can
+never delete one our recipes select on. To rename one deliberately, pass `slot`:
+
+```tsx
+<TabsContent slot="preview-pane" value="preview">
+```
+
+Every part takes it, and it is React's own `slot` attribute rather than a prop we invented.
 
 </Step>
 

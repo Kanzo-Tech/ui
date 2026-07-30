@@ -31,13 +31,13 @@ export const PreviewIframeTabs = ({ iframe, source, fullUrl }: PreviewIframeTabs
     </div>
 
     <div className="relative overflow-hidden rounded-2xl border">
-      <TabsContent data-slot="tab-preview" value="preview">
+      <TabsContent slot="tab-preview" value="preview">
         {iframe}
       </TabsContent>
       {source && (
         <TabsContent
           className="**:[figure]:m-0! **:[figure]:border-0 **:[pre]:max-h-[820px]"
-          data-slot="tab-code"
+          slot="tab-code"
           value="code"
         >
           {source}

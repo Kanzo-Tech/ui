@@ -39,7 +39,7 @@ export const ComponentPreviewTabs = ({
     </TabsList>
 
     <div className={cn("relative overflow-hidden rounded-2xl", !fullBleed && "border")}>
-      <TabsContent data-slot="tab-preview" value="preview">
+      <TabsContent slot="tab-preview" value="preview">
         <div
           className={cn(
             // `not-prose` is load-bearing, not hygiene. The preview renders inside the MDX
@@ -68,7 +68,7 @@ export const ComponentPreviewTabs = ({
         </div>
       </TabsContent>
 
-      <TabsContent data-slot="tab-code" value="code">
+      <TabsContent slot="tab-code" value="code">
         <div
           className={cn(
             "overflow-hidden **:[figure]:m-0! **:[figure]:border-0 **:[pre]:h-[450px]",
