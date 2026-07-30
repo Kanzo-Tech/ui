@@ -30,7 +30,7 @@ Most applications need four things, in this order:
   </Sidebar>
 
   <SidebarInset>
-    {children}                          {/* the page — this owns the <main> */}
+    <ShellMain>{children}</ShellMain>   {/* the page — ShellMain owns the <main> */}
   </SidebarInset>
 </SidebarProvider>
 ```
@@ -38,8 +38,11 @@ Most applications need four things, in this order:
 That is a complete, working sidebar. Everything below is detail you can reach for later.
 
 <Callout type="info">
-`SidebarInset` renders the `<main>` landmark. The library allows **exactly one `<main>` per
-page**, so nothing inside it should render another — nested containers use `<section>`.
+**`SidebarInset` carries no landmark.** It is the neutral offset column that holds the content
+beside the rail — a `<div>`, and deliberately so. Put a [`ShellMain`](/docs/layout/shell) inside
+it: the library allows **exactly one `<main>` per page** and `ShellMain` is what owns it, so
+nested containers below use `<section>`. (shadcn makes its inset the `<main>` because it has no
+separate region layer; we do.)
 </Callout>
 
 `SidebarProvider` owns the open state, persists it to a `sidebar_state` cookie, and binds

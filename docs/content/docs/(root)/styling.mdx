@@ -99,8 +99,9 @@ on specificity.
   related case: it is a recess — an alpha step where one recedes, the page itself where none does —
   and so never takes a `/NN` either — an opacity dilutes a solid toward transparent and lands
   wherever the thing underneath puts it.
-- Exactly one `<main>` per page — `ShellMain` / `SidebarInset` own it. Nestable containers use
-  `<section>`.
+- Exactly one `<main>` per page, and `ShellMain` owns it. Nestable containers use `<section>`.
+  `SidebarInset` is a neutral offset `<div>` that carries no landmark — the `ShellMain` you place
+  inside it does.
 - Files are kebab-case.
 
 ## Compound components

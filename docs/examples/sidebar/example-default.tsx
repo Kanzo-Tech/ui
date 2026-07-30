@@ -97,9 +97,10 @@ export default function Example() {
         </SidebarFooter>
       </Sidebar>
 
-      {/* SidebarInset owns the `<main>` landmark. Left deliberately empty: this page is
-          about the sidebar, and the point of showing the region at all is that you can
-          see what the navigation is navigating. */}
+      {/* SidebarInset is a neutral offset column and carries no landmark — a real page puts a
+          ShellMain in here, as the app-shell showcase does. This preview renders inside the docs
+          page's own <main>, so adding a second one would be a conformance error. Left
+          deliberately empty: the region is here so you can see what the navigation navigates. */}
       <SidebarInset className="bg-muted/24">
         <div className="flex h-full items-center justify-center">
           <span className="text-muted-foreground text-sm">Page content</span>

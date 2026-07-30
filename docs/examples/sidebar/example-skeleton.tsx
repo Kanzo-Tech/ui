@@ -28,8 +28,10 @@ export default function Example() {
         </SidebarContent>
       </Sidebar>
 
-      {/* SidebarInset owns the `<main>` landmark. Near-empty on purpose: this page is about
-          the navigation, and the region exists so you can see what it navigates. */}
+      {/* SidebarInset is a neutral offset column and carries no landmark — a real page puts a
+          ShellMain in here, as the app-shell showcase does. This preview renders inside the docs
+          page's own <main>, so adding a second one would be a conformance error. Near-empty on
+          purpose: the region exists so you can see what the navigation navigates. */}
       <SidebarInset className="bg-muted/24">
         <div className="flex h-full items-center justify-center">
           <span className="text-muted-foreground text-sm">Page content</span>
