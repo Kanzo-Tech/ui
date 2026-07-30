@@ -20,10 +20,11 @@
   comments, tests.
 - `decisions/` — one record per decision. `Status` `live` is today's rule; anything else is
   history, and you can skip it.
-- Five guard tests are the rules nobody should have to remember. **Read the file, not a summary of
-  it** — each carries its own reasoning: `packages/ui/src/alpha-steps.test.ts` (seven banned token
-  spellings), `no-literal-hues.test.ts`, `logical-properties.test.ts`, `index.test.ts` (the pinned
-  surface and the tombstones), `packages/theme/src/boundary.test.ts`.
+- The repo-wide guard tests are the rules nobody should have to remember. **Read the file, not a
+  summary of it** — each carries its own reasoning: `packages/ui/src/alpha-steps.test.ts` (seven
+  banned token spellings), `no-literal-hues.test.ts`, `logical-properties.test.ts`,
+  `client-boundary.test.ts`, `index.test.ts` (the pinned surface and the tombstones), and
+  `packages/theme/src/boundary.test.ts`.
 
 ## Four one-way doors
 

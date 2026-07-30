@@ -97,13 +97,18 @@ needed, that is the moment to reintroduce one seam — with a lint rule to enfor
 - **`data-slot` on every targetable part**, spelled `<component>-<part>`. It is not decoration: our
   own recipes depend on it — `in-[[data-slot=popover-content]:has([data-slot=popover-body])]:pb-3` —
   and it is the escape hatch consumers get instead of guessing class names.
-  - **The primitive owns its slot: write `data-slot` *after* `{...rest}`, never before.** Before the
-    spread, a caller's `data-slot` wins and the primitive's own disappears, taking every recipe that
-    selects it with no error and no visible symptom. A slot our stylesheet depends on is not a
-    default a caller may override. Enforced by a guard test.
+  - **The primitive owns its slot: write `data-slot={slot ?? "<component>-<part>"}` *after*
+    `{...rest}`, never before.** Before the spread, a caller's `data-slot` wins and the primitive's
+    own disappears, taking every recipe that selects it with no error and no visible symptom. A slot
+    our stylesheet depends on is not a default a caller may override by accident.
+  - **`slot?: string` is the sanctioned way to re-slot a part**, and the only one. A thin rename —
+    `AlertDialogBody` is `DialogBody` under a different slot, and the alert-dialog recipes select
+    the renamed values — is a real and common need, so it gets a declared prop rather than the
+    accident of spread order. Renaming is explicit; erasing is impossible; and a guard test can tell
+    the two apart, which it could not while both were spelled `data-slot`.
   - The consequence, which the ordering now makes impossible: a wrapper cannot erase the slot of a
-    component it renders by passing one down. Passing `data-slot` into another component is still
-    the wrong shape — say what *this* element is, on this element.
+    component it renders by passing one down. Passing a bare `data-slot` into another component is
+    still the wrong shape — say what *this* element is on this element, and re-slot with `slot`.
 - **A layout tree is children, never an attribute.** If a prop's value is markup, it is children. A
   record or array of `ReactNode`s is a layout tree written as an attribute: the caller cannot
   reorder the regions, wrap one, spread `className` / `data-*` / `aria-*` / a handler onto one, or
@@ -150,8 +155,22 @@ needed, that is the moment to reintroduce one seam — with a lint rule to enfor
 
 Consumed by RSC hosts, so this is load-bearing, not hygiene.
 
-- A file gets `"use client"` **iff** it calls a hook, registers a listener, or imports a module that
-  does. Hook-free presentational components must not have it, so they stay server-renderable.
+- **A file gets `"use client"` iff *it itself* is stateful** — it calls a hook (any `useX`, ours as
+  much as React's), calls `createContext`, registers a listener, or touches a browser global outside
+  an effect. **Importing a stateful module is not a reason.** The boundary is established once, by
+  the module the hook is in, and every importer above it stays server-renderable and renders it as a
+  boundary. Ark depends on this: it ships the directive across its own dist, which is the only
+  reason a hook-free wrapper of an Ark machine can be a Server Component at all.
+  - **A missing directive is the dangerous failure.** The module is then a Server Component, and a
+    hook inside one throws at render. `SidebarNav` shipped this way.
+  - **A surplus directive is the cheap one** — the module opts out of server rendering, and drags
+    what it imports into the client bundle, for nothing.
+  - If you find yourself wanting the directive because something you import is stateful and lacks
+    its own, **fix that module instead**. That is the only form of the transitive case, and the
+    first half of the rule makes it impossible.
+  - Both halves are enforced by `packages/ui/src/client-boundary.test.ts`. The one case it cannot
+    see is a browser global reached at module scope; there are none today, and the rule still bans
+    them.
 - The build must preserve the directives: `preserveModules` plus
   `rollup-plugin-preserve-directives`. Rollup strips them when it merges modules, and that failure
   is invisible to any Vite-based harness, because Vite ignores `"use client"` entirely. `pnpm smoke`
@@ -205,7 +224,7 @@ asserts the behaviour its recipe depends on. Two conventions beyond that:
 - **A deleted component gets a tombstone assertion** in `packages/ui/src/index.test.ts`, with the
   reason it went. That is what stops it being rebuilt.
 
-**Five repo-wide guard tests.** Each carries its own reasoning; the document carries the pointer and
+**The repo-wide guard tests.** Each carries its own reasoning; the document carries the pointer and
 never a summary, which is the arrangement that keeps both honest.
 
 | Guard | Enforces |
@@ -214,6 +233,7 @@ never a summary, which is the arrangement that keeps both honest.
 | `packages/ui/src/alpha-steps.test.ts` | the seven banned token spellings above |
 | `packages/ui/src/no-literal-hues.test.ts` | no chromatic literal in the source |
 | `packages/ui/src/logical-properties.test.ts` | no physical direction utility in the three layers, outside a reviewed allowlist with a reason per entry |
+| `packages/ui/src/client-boundary.test.ts` | `"use client"` on every stateful module and on no other |
 | `packages/theme/src/boundary.test.ts` | the palette stays a devDependency, and `CHART_SLOTS` answers to the sheet |
 
 **Logical properties, never physical** — `border-e` / `border-s`, `side="start" | "end"`. One code

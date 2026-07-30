@@ -16,5 +16,7 @@ recipe can read as "used only by its own file" while another module imports it i
 requires the value to be exported.
 
 `ProgressTrack` was held up as the ideal version of this shape — the part a consumer never places.
-It is not. `Progress` renders `ProgressTrack` unconditionally, so a consumer who follows the export
-gets two troughs. The export is the defect, not the model case.
+It was not. `Progress` renders the track unconditionally, so a consumer who followed the export got
+two troughs: the export was the defect, not the model case. Confirmed independently twice, and the
+export has since been removed while the symbol stayed, which is exactly the move this record
+prescribes.
