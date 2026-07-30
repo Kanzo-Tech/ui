@@ -1,14 +1,9 @@
-// The roster — twenty-four members across the five halls.
+// The roster — thirty-five members across the five halls.
 //
-// Hand-authored rather than generated, because names are the one part of a fixture that a reader
-// remembers. "Ravenna Sarkis" recurs in the sidebar, in a table row, on an avatar, as the author
-// of a comment and as the one member a rule keeps rejecting, and that recurrence is what makes the
-// documentation feel like one product instead of ninety-three previews. A generated
-// `Member 17` cannot do that, and neither can `John Doe`.
-//
-// The distribution is uneven on purpose: `ready` outnumbers everything else, one member is
-// `missing`, `copper` is over-represented among recent joiners. Filters and facet counts only
-// prove anything against data that is lumpy.
+// Hand-authored, because names are the part of a fixture a reader remembers: "Ravenna Sarkis"
+// recurring across the sidebar, a table row and an avatar is what makes ninety-three previews feel
+// like one product. The distribution is uneven on purpose — filters and facet counts only prove
+// anything against data that is lumpy.
 
 import { type HallId, type RankId, RANKS, type RoleId, isoDay } from "./world";
 
@@ -99,14 +94,10 @@ export function membersOf(hall: HallId): Member[] {
 }
 
 /**
- * The signed-in viewer: the Amber Hall's quartermaster.
+ * The signed-in viewer, drawn from the roster rather than invented beside it — so "you" appear in
+ * the tables like everyone else and the "this row is mine" case actually occurs.
  *
- * One of the roster rather than a separate fake account, so "you" appear in the tables and the
- * graph like everyone else — an examples corpus where the logged-in user exists nowhere in the
- * data never exercises the "this row is mine" case.
- *
- * The address is on `.example`, which is reserved by RFC 2606 and therefore cannot be someone's
- * real mailbox.
+ * The address is on `.example`, reserved by RFC 2606, so it cannot be a real mailbox.
  */
 export const VIEWER = {
   ...member("ravenna"),

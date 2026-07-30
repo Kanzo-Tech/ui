@@ -19,14 +19,7 @@
 // heavy fixtures import it, never the other way round, so a page that needs one hall's name does
 // not pull a 300 kB CSV into its bundle.
 
-/**
- * The status families a fixture is allowed to name.
- *
- * The five that `Badge`, `Status`, `Alert` and `StatTile` all share. Constraining the world to
- * these means a status in the data always has somewhere to land — the alternative is a fixture
- * inventing a sixth state and every consuming example hand-rolling a colour for it, which is how
- * the untokenised `text-white` got in.
- */
+/** The five status families `Badge`, `Status`, `Alert` and `StatTile` all share. */
 export type Tone = "default" | "success" | "info" | "warning" | "destructive";
 
 /* -------------------------------------------------------------------------------------------- */
@@ -34,16 +27,10 @@ export type Tone = "default" | "success" | "info" | "warning" | "destructive";
 /* -------------------------------------------------------------------------------------------- */
 
 /**
- * A guild hall — the world's tenant, and the reason it is a guild rather than, say, a bakery.
+ * A guild hall — the world's tenant.
  *
- * `heraldry` is a real palette seed pair, not decoration: `brand` and `neutral` are exactly the
- * two inputs `@kanzo-tech/palette`'s `derivePalette` takes, so "this hall's colours" and "this
- * tenant's derived document" are the same sentence. The white-label story the library actually
- * has to tell — a client's colour reaching primary, the charts, the graph and the dashboards —
- * is told here by switching halls, with no fixture that exists only to demonstrate theming.
- *
- * `standing` gives the instance switcher something true to say. A tenant list where every row
- * reads "Member" is a tenant list that never tested its own secondary text.
+ * `heraldry` is a real seed pair: `brand` and `neutral` are the two inputs `derivePalette` takes,
+ * so switching halls IS the white-label story rather than a fixture that demonstrates theming.
  */
 export interface Hall {
   id: string;
@@ -127,14 +114,7 @@ export function hall(id: HallId): Hall {
 /* The places                                                                                    */
 /* -------------------------------------------------------------------------------------------- */
 
-/**
- * Six regions, which is a facet domain more than it is geography.
- *
- * Six because that is the size that makes a `FacetFilter` worth opening — three fits in a row of
- * toggles and needs no search, twenty needs pagination and stops being a facet. It is also the
- * count the validated categorical scheme covers comfortably, so a chart banded by region never
- * has to reach for a seventh slot.
- */
+/** Six — the size that makes a `FacetFilter` worth opening, and one a categorical scheme covers. */
 export const REGIONS = [
   "Thornmarch",
   "Saltmere",
@@ -160,14 +140,7 @@ export const REGION_DISTANCE: Record<Region, number> = {
 /* The people                                                                                    */
 /* -------------------------------------------------------------------------------------------- */
 
-/**
- * What a member does on a contract.
- *
- * Six roles, each with a job that a rule can require — which is the point. `rules.ts` needs to
- * say "a party this size must carry a cantor" and mean something; a role list of
- * "Admin / Editor / Viewer" could not carry that sentence, and permissions are the one domain
- * every design system's examples already use.
- */
+/** Six roles, each with a duty a rule can require — which is what lets `rules.ts` mean something. */
 export const ROLES = [
   { id: "warden", label: "Warden", duty: "Holds the line and signs for the party" },
   { id: "scout", label: "Scout", duty: "Walks it first, alone, and comes back" },
@@ -185,12 +158,7 @@ export function role(id: RoleId) {
   return found;
 }
 
-/**
- * Five ranks, ordered, cheapest first.
- *
- * Ordered so that a progress bar, a slider, a stepper and a sort all have the same idea of
- * "further along" — an unordered enum makes every one of those examples pick its own order.
- */
+/** Five ranks, ordered cheapest first, so a bar, a slider and a sort agree on "further along". */
 export const RANKS = [
   { id: "copper", label: "Copper", tone: "default" },
   { id: "iron", label: "Iron", tone: "info" },
@@ -219,9 +187,7 @@ export type AvailabilityId = (typeof AVAILABILITY)[number]["id"];
 /**
  * The five states a contract passes through, in order.
  *
- * A closed set with a defined order and a tone each, so a status filter, a stepper, a badge and a
- * chart legend all agree — including about which two are terminal, which is what lets an example
- * show a destructive action that is only legal on some rows.
+ * `terminal` is what lets an example show a destructive action legal on only some rows.
  */
 export const QUEST_STATUSES = [
   {
@@ -275,12 +241,7 @@ export function questStatus(id: QuestStatusId) {
   return found;
 }
 
-/**
- * Difficulty, 1 to 5, named.
- *
- * Named as well as numbered because a `Rating` wants the number and a tooltip wants the word, and
- * an example that shows a bare `3` beside five stars has said nothing.
- */
+/** Difficulty 1–5, named as well as numbered: a `Rating` wants the number, a tooltip the word. */
 export const GRADES = [
   { value: 1, label: "Errand", note: "A long walk with a bad smell at the end" },
   { value: 2, label: "Nuisance", note: "One thing, and it is smaller than you" },
@@ -337,11 +298,9 @@ export function beast(id: BeastId) {
 }
 
 /**
- * The board's free tags — a `TagsInput` domain, and a `Combobox` one.
+ * The board's free tags — unordered and overlapping, because that is what a tag vocabulary is.
  *
- * Twenty-odd, unordered and overlapping, because that is what a real tag vocabulary is. The
- * closed enums above are for the things a rule reasons about; this is for the things a poster
- * types.
+ * The closed enums above are what a rule reasons about; this is what a poster types.
  */
 export const TAGS = [
   "escort",
@@ -373,21 +332,14 @@ export type Tag = (typeof TAGS)[number];
 /* -------------------------------------------------------------------------------------------- */
 
 /**
- * The day the world is frozen on.
+ * The day the world is frozen on. Every date derives from it, never from `Date.now()`.
  *
- * Every date in every fixture is derived from this constant, never from `Date.now()`. Two reasons,
- * and the second is the one that bites: a build-time fixture that reads the clock makes the
- * committed output differ from the rebuild, and a date-picker example that opens on "today" cannot
- * be screenshotted twice. Overdue quests stay overdue.
+ * A fixture that reads the clock makes the committed output differ from the rebuild, and a
+ * date-picker example that opens on "today" cannot be screenshotted twice. Overdue stays overdue.
  */
 export const TODAY = new Date("1312-09-14T00:00:00Z");
 
-/**
- * The calendar the world keeps, for date fixtures that need a real `Date`.
- *
- * The year is deliberately not 2026: a reader who sees `1312-09-14` in a date field knows at a
- * glance that it is the example world talking and not their own data.
- */
+/** The year is deliberately not 2026: `1312-09-14` in a field is unmistakably the example world. */
 export function day(offset: number): Date {
   const date = new Date(TODAY);
   date.setUTCDate(date.getUTCDate() + offset);
