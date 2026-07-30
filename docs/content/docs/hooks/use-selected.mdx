@@ -19,7 +19,8 @@ import { useSelected } from "@kanzo-tech/ui/analytics";
 const selected = useSelected();
 ```
 
-Sugar for `useMosaic().selected`, on the `@kanzo-tech/ui/analytics` subpath, and it **throws**
+Sugar for `useMosaic().selected`, on the `@kanzo-tech/ui/analytics` subpath — whose peers are
+[optional](/docs/installation), so nothing installs them unless you import it — and it **throws**
 outside a [`MosaicProvider`](/docs/data-display/charts#bring-your-own-coordinator).
 
 ## A read model

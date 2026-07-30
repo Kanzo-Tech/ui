@@ -14,6 +14,8 @@ Two readings of one relation: the first under the crossfilter, the second delibe
 import { Query, count, useChartQuery } from "@kanzo-tech/ui/analytics";
 ```
 
+The `/analytics` peers are [optional](/docs/installation) — nothing installs them unless you import this subpath.
+
 ```tsx
 const { row } = useChartQuery({
   query: (filter) => Query.from("telemetry").select({ n: count() }).where(filter),

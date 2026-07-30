@@ -15,6 +15,8 @@ the count is what a legend, a tail-folding rule or a "+N more" row is built on.
 import { useChartCapacity } from "@kanzo-tech/ui/analytics";
 ```
 
+The `/analytics` peers are [optional](/docs/installation) — nothing installs them unless you import this subpath.
+
 ```tsx
 const host = useRef<HTMLDivElement>(null);
 const capacity = useChartCapacity(host);

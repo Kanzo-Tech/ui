@@ -15,6 +15,8 @@ falls back to its own `series` prop instead of throwing.
 import { useChartOptional } from "@kanzo-tech/ui/analytics";
 ```
 
+The `/analytics` peers are [optional](/docs/installation) — nothing installs them unless you import this subpath.
+
 ```tsx
 function SeriesKey({ series }: { series?: readonly string[] }) {
   const chart = useChartOptional();
