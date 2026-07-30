@@ -3,7 +3,7 @@ import type { GraphConfigInterface } from "@cosmos.gl/graph";
 import type { Coordinator } from "@kanzo-tech/ui/analytics";
 import { numbers } from "@/lib/arrow";
 import { onceQuery } from "@/lib/once-query";
-import { CHART_SLOTS, categoricalCapacity, categoricalColor } from "@kanzo-tech/ui/analytics";
+import { CHART_SLOTS, categoricalCapacity, categoricalColor } from "@kanzo-tech/ui";
 import { resolveToken, toHex, type Rgba } from "@/lib/css-color";
 import { SHAPE, SHAPE_ORDER, SHAPE_OTHER, type Look, type ShapeId } from "./graph-looks";
 import type { Display, Sim } from "./graph-state";

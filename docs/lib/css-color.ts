@@ -1,6 +1,6 @@
 // Theme colours as numbers a WebGL renderer can take.
 //
-// Resolution is the library's — `resolveTokenColor` from `@kanzo-tech/ui/analytics`. This file used
+// Resolution is the library's — `resolveTokenColor` from `@kanzo-tech/ui`. This file used
 // to carry its own: a 1×1 canvas painted with the colour and read back through `getImageData`. Two
 // implementations of one job, in two packages, sharing nothing and failing differently, for the
 // same underlying reason — the theme is written in `oklch()` and `color-mix()`, cosmos.gl resolves
@@ -10,7 +10,7 @@
 // What stays here is the part that is genuinely the graph's: the library answers `rgb(r, g, b)`
 // because that is what Plot eats, and `setPointColors` wants four floats in 0..1.
 
-import { resolveTokenColor } from "@kanzo-tech/ui/analytics";
+import { resolveTokenColor } from "@kanzo-tech/ui";
 
 export type Rgba = [number, number, number, number];
 

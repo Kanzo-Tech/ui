@@ -3,7 +3,8 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { Graph } from "@cosmos.gl/graph";
-import { useChartCapacity, useMosaic } from "@kanzo-tech/ui/analytics";
+import { useChartCapacity } from "@kanzo-tech/ui";
+import { useMosaic } from "@kanzo-tech/ui/analytics";
 import {
   Badge,
   Button,

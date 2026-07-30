@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import type { Graph } from "@cosmos.gl/graph";
-import { useThemeTick } from "@kanzo-tech/ui/analytics";
+import { useThemeTick } from "@kanzo-tech/ui";
 import { appearance, buffers, type Loaded } from "./graph-model";
 import type { Look } from "./graph-looks";
 import type { Display } from "./graph-state";

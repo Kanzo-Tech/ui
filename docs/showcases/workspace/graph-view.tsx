@@ -54,13 +54,13 @@ import {
   TextField,
   useFilter,
   useListCollection,
+  useChartCapacity,
   type Suggestion,
 } from "@kanzo-tech/ui";
 import {
   Query,
   chartSeriesColor,
   count,
-  useChartCapacity,
   useChartQuery,
   useMosaic,
 } from "@kanzo-tech/ui/analytics";
