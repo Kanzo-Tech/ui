@@ -86,6 +86,15 @@ Three rules cover the ordering:
 
 There is no `ChartTip`: the tooltip is a mark option, so it is the `tip` prop on any mark.
 
+<Callout type="warn">
+**A descriptor must be a direct child, not a child of one of your components.** The compiler walks
+the element tree — it never renders it — so it sees `<YourThing />` and stops, exactly as Recharts
+does. That includes [`Show`](/docs/layout/show): a `<Show>` element's type is `Show`, not a
+`Fragment`, so whatever it wraps is silently never plotted. Conditional marks and interactors are
+the one place in these docs that stays `&&` or a ternary — those compile to `false`, and rule 3 is
+what makes them vanish cleanly.
+</Callout>
+
 ## Installation
 
 The charts live on the `@kanzo-tech/ui/analytics` subpath, never the root barrel, because the

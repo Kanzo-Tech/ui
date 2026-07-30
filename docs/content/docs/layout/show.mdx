@@ -24,6 +24,26 @@ scannable than a nested ternary:
 Because it holds no state and touches no browser API, it stays server-renderable and carries no
 `"use client"` boundary.
 
+## Two places it is the wrong tool
+
+<Callout type="warn">
+**`children` is an ordinary prop, so it is evaluated eagerly.** `when` gates what renders, not
+what is *computed* — a guard that dereferences a possibly-absent value has already thrown by the
+time `Show` sees it. Those stay `&&`:
+
+```tsx
+{user && <Name>{user.profile.displayName}</Name>}
+```
+</Callout>
+
+<Callout type="warn">
+**A chart descriptor cannot be wrapped in it.** `ChartRoot` compiles its children by walking the
+element tree rather than rendering it, and a `<Show>` element's type is `Show` — not a descriptor
+and not a `Fragment` — so the walk stops there and whatever it wraps is silently never plotted.
+Conditional marks and interactors stay `&&` or a ternary, which compile to `false` and vanish
+exactly as the grammar expects. See [Charts](/docs/data-display/charts#anatomy).
+</Callout>
+
 ## API Reference
 
 ### Show
