@@ -57,7 +57,13 @@ out += "/* ── Radius (data-radius) ─────────────�
 for (const [r, val] of RADII) out += block(`[data-radius="${r}"]`, { "--radius": val });
 
 out += "\n/* ── Fonts (data-font / data-mono-font) ─────────────────────────────────── */\n";
-for (const [f, stack] of FONTS) out += block(`[data-font="${f}"]`, { "--font-sans": stack });
+// `--font-heading` moves with `--font-sans`, because there is ONE font axis. It used to be set
+// nowhere at all, so `card.tsx`, `alert.tsx`, `dialog.tsx` and `Preferences.tsx` — every title in
+// the library — sat on the `tokens.css` fallback while body text followed the preference. A
+// product that wants a distinct display face still overrides `--font-heading` on its own, which is
+// what `tokens.css` promises; a second axis is not something anything here has asked for.
+for (const [f, stack] of FONTS)
+  out += block(`[data-font="${f}"]`, { "--font-sans": stack, "--font-heading": stack });
 for (const [f, stack] of MONO_FONTS) out += block(`[data-mono-font="${f}"]`, { "--font-mono": stack });
 
 out += "\n/* ── Density (data-font-size → root font-size rem-scale) ────────────────── */\n";
