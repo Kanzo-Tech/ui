@@ -1,4 +1,16 @@
 {
   "title": "Overlays & feedback",
-  "pages": ["dialog", "popover", "hover-card", "tooltip", "menu", "sheet", "toast", "tour", "---Feedback---", "alert", "spinner", "skeleton"]
+  "pages": [
+    "dialog",
+    "popover",
+    "hover-card",
+    "tooltip",
+    "menu",
+    "sheet",
+    "toast",
+    "tour",
+    "---Feedback---",
+    "alert",
+    "loading"
+  ]
 }

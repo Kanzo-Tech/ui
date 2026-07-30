@@ -1,0 +1,94 @@
+---
+title: Rendering
+description: Show and ClientOnly — the two control-flow helpers that produce no DOM of their own.
+links:
+  doc: https://ark-ui.com/docs/utilities/client-only
+---
+
+Two helpers, no markup between them. Both exist so a condition reads as a condition instead of
+disappearing into a nested ternary, and neither adds an element to the tree.
+
+## Show
+
+<ComponentPreview componentName="show" />
+
+```tsx
+import { Show } from "@kanzo-tech/ui";
+```
+
+`Show` renders `children` when `when` is truthy and `fallback` otherwise. It is thin and
+presentational — no hooks, no DOM of its own — and it keeps a JSX tree flatter and more scannable
+than a nested ternary:
+
+```tsx
+<Show fallback={<Spinner />} when={isReady}>
+  <Content />
+</Show>
+```
+
+Because it holds no state and touches no browser API, it stays server-renderable and carries no
+`"use client"` boundary.
+
+### Three places it is the wrong tool
+
+<Callout type="warn">
+**`children` is an ordinary prop, so it is evaluated eagerly.** `when` gates what renders, not
+what is *computed* — a guard that dereferences a possibly-absent value has already thrown by the
+time `Show` sees it. Those stay `&&`:
+
+```tsx
+{user && <Name>{user.profile.displayName}</Name>}
+```
+</Callout>
+
+<Callout type="warn">
+**A chart descriptor cannot be wrapped in it.** `ChartRoot` compiles its children by walking the
+element tree rather than rendering it, and a `<Show>` element's type is `Show` — not a descriptor
+and not a `Fragment` — so the walk stops there and whatever it wraps is silently never plotted.
+Conditional marks and interactors stay `&&` or a ternary, which compile to `false` and vanish
+exactly as the grammar expects. See [Charts](/docs/data-display/charts#anatomy).
+</Callout>
+
+<Callout type="warn">
+**It cannot be the child of an `asChild`.** Ark's factory calls `Children.only()` and clones what
+it finds; `Show` returns a Fragment, so every merged prop — including the whole `className` —
+lands on the Fragment and vanishes without an error. Branch outside the `asChild`, or use an
+ordinary `if` in the component body.
+</Callout>
+
+### API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `when` | `boolean` | — |
+| `children` | `ReactNode` | — |
+| `fallback` | `ReactNode` | — |
+
+## ClientOnly
+
+<ComponentPreview componentName="client-only" />
+
+```tsx
+import { ClientOnly } from "@kanzo-tech/ui";
+```
+
+`ClientOnly` defers its children until the component has mounted on the client, showing
+`fallback` in the meantime. Reach for it when a subtree depends on a browser-only API
+(`window`, `matchMedia`, a non-deterministic value) that would either crash SSR or mismatch
+during hydration.
+
+```tsx
+<ClientOnly fallback={<Skeleton className="h-5 w-48" />}>
+  <ViewportWidth />
+</ClientOnly>
+```
+
+It is transparent: it renders `children` (which may also be a function) directly, adding no
+wrapper element of its own.
+
+### API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `children` | `ReactNode \| (() => ReactNode)` | — |
+| `fallback` | `ReactNode` | — |

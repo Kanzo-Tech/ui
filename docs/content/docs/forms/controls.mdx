@@ -22,7 +22,7 @@ drop to the primitive when you need to rearrange the parts. The rule in full is 
 |---|---|---|
 | [`Input`](/docs/forms/input) | A single-line text input. | The everyday field. |
 | [`Input`](/docs/forms/input) `type="number"` | The same input, numeric, with a decimal keypad on mobile. No steppers — see [`NumberInput`](/docs/forms/number-input) for those. | A number typed straight in: a price, an amount. |
-| [`Textarea`](/docs/forms/textarea) | Multi-line text. | A description, a note, free text. |
+| [`Textarea`](/docs/forms/input#textarea) | Multi-line text. | A description, a note, free text. |
 | [`InputGroup`](/docs/forms/input-group) | An input flanked by addons — a prefix, a unit, a button. | The value needs an affix or an inline action. |
 | [`Editable`](/docs/forms/editable) | Edit-in-place: a preview that swaps for an input on click. | The value is normally read, and editing it is the exception. |
 
@@ -96,8 +96,8 @@ field the day the list has 200 values.
 | [`NumberInput`](/docs/forms/number-input) | A `spinbutton`: stepper triggers, arrow keys, drag-to-scrub. | A bounded quantity the user nudges — a count, a page size. |
 | [`Slider`](/docs/forms/slider) | A value or range on a track. | A bounded number where the range matters more than the digit. |
 | [`Rating`](/docs/forms/rating) | A row of stars on a fixed scale. | A score out of five. |
-| [`DatePicker`](/docs/forms/date-picker) | A date input with a calendar popover. Takes Ark's `DateValue`; the [ISO-string adapter](/docs/forms/date-picker#an-iso-string-in-and-out) is two functions at your seam. | Picking a date in a form. |
-| [`Calendar`](/docs/forms/calendar) | The same machine `inline`, so the month grid is always visible. | A calendar that is furniture, not a form value. |
+| [`DatePicker`](/docs/forms/dates#the-popover) | A date input with a calendar popover. Takes Ark's `DateValue`; the [ISO-string adapter](/docs/forms/dates#an-iso-string-in-and-out) is two functions at your seam. | Picking a date in a form. |
+| [`Calendar`](/docs/forms/dates#the-month-grid) | The same machine `inline`, so the month grid is always visible. | A calendar that is furniture, not a form value. |
 | [`ColorPicker`](/docs/forms/color-picker) | Area, hue and hex, with preset swatches. | Picking a colour. |
 
 A row of colours the user is *not* editing is not a control at all: when the colour merely

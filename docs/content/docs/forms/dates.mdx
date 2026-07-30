@@ -1,0 +1,131 @@
+---
+title: Dates
+description: One machine with a switch — the month grid inline, or the same grid in a popover.
+links:
+  doc: https://ark-ui.com/docs/components/date-picker
+---
+
+`Calendar` and `DatePicker` are **one Ark machine with `inline` flipped**: `DatePicker` is
+literally `<Calendar inline={false}>`. That is why the grid parts are shared, why the props are
+identical, and why this is one page — a machine with a switch is a variant, not a second
+component.
+
+The grid is a real `role="grid"` with roving tabindex, arrow-key navigation and month/year
+quick-nav, and `CalendarTableDays` / `CalendarWeekDays` read the weeks and weekday names off the
+machine, so a locale change reflows it with no work on your side.
+
+## Usage
+
+```tsx
+import {
+  Calendar,
+  CalendarTable,
+  CalendarTableDays,
+  CalendarView,
+  CalendarViewControl,
+  CalendarWeekDays,
+  DatePicker,
+  DatePickerContent,
+  DatePickerInput,
+} from "@kanzo-tech/ui";
+```
+
+## Anatomy
+
+```text
+Calendar | DatePicker
+├── DatePickerInput          (the picker only: input + calendar button, or…)
+├── DatePickerTrigger        (…a button showing DatePickerValue)
+└── CalendarView             (in DatePickerContent when there is a popover)
+    ├── CalendarViewControl
+    │   ├── CalendarPrevTrigger
+    │   ├── CalendarMonthSelect
+    │   ├── CalendarYearSelect
+    │   ├── CalendarViewDate
+    │   └── CalendarNextTrigger
+    └── CalendarTable
+        ├── CalendarWeekDays
+        ├── CalendarTableDays
+        └── CalendarTableNextMonth
+```
+
+## The month grid
+
+`Calendar` fixes `inline` on, so the grid is always visible and there is no trigger or popover.
+Reach for it when the calendar is furniture — a booking screen, an availability view — rather
+than a form value.
+
+<ComponentPreview componentName="calendar" />
+
+### Range
+
+<ComponentPreview componentName="calendar" fileName="example-range" />
+
+### Two months
+
+`CalendarTableNextMonth` renders the month `months` ahead of the visible one, so a two-month
+range picker is two tables in one view rather than two calendars.
+
+<ComponentPreview componentName="calendar" fileName="example-two-months" />
+
+### With actions
+
+<ComponentPreview componentName="calendar" fileName="example-with-actions" />
+
+## The popover
+
+`DatePicker` is the same grid behind an input and a positioned popover — the form shape.
+
+<ComponentPreview componentName="date-picker" />
+
+### With a trigger button
+
+<ComponentPreview componentName="date-picker" fileName="example-with-trigger" />
+
+### Range
+
+<ComponentPreview componentName="date-picker" fileName="example-range" />
+
+## An ISO string in and out
+
+A form library, a JSON body and a database column all speak `YYYY-MM-DD`; this machine speaks
+Ark's `DateValue`. The adapter between them is two small functions, and it belongs at your seam
+rather than in the library — which side of it your product lives on is a product decision.
+
+<ComponentPreview componentName="date-picker" fileName="example-iso-value" />
+
+Reading a string out is one line, because `onValueChange` hands you both representations. Going
+the other way — hydrating a **stored** string back into the picker — needs `parseDate` from
+`@internationalized/date`, which is a dependency of the library rather than something it
+re-exports, so a product doing that installs it directly. Wrap the parse in a `try`/`catch`: an
+unparseable stored value must leave the calendar empty rather than throw it, or one bad row in a
+table takes down the whole form.
+
+## API Reference
+
+### DatePickerInput
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `size` | `"sm" \| "md" \| "lg"` | `"md"` |
+| `index` | `number` | `0` |
+
+Renders `DatePicker.Control`, an `InputGroup` and the calendar trigger button for you.
+
+### CalendarWeekDays
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `format` | `"narrow" \| "short" \| "long"` | `"narrow"` |
+
+### CalendarTableNextMonth
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `months` | `number` | `1` |
+
+Both roots extend `DatePicker.Root` from Ark, so `value`, `defaultValue`, `onValueChange`,
+`selectionMode`, `numOfMonths`, `min`, `max`, `locale`, `startOfWeek`, `fixedWeeks`,
+`isDateUnavailable`, `open`, `disabled` and `readOnly` pass through. `lazyMount` and
+`unmountOnExit` default to `true`; `DatePicker`'s `positioning` defaults to
+`{ placement: "top" }`.
