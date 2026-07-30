@@ -9,10 +9,20 @@ import {
   useMemo,
   useState,
 } from "react";
+import { parseDate, type DateValue } from "@internationalized/date";
 import {
   AppearanceToggle,
   Badge,
   Button,
+  CalendarMonthSelect,
+  CalendarNextTrigger,
+  CalendarPrevTrigger,
+  CalendarTable,
+  CalendarTableDays,
+  CalendarView,
+  CalendarViewControl,
+  CalendarWeekDays,
+  CalendarYearSelect,
   Card,
   CardContent,
   CardHeader,
@@ -23,6 +33,9 @@ import {
   CompleteInput,
   CompleteRoot,
   CompleteTextarea,
+  DatePicker,
+  DatePickerContent,
+  DatePickerInput,
   DialogTrigger,
   Field,
   FieldArray,
@@ -35,10 +48,8 @@ import {
   HoverCardTrigger,
   Input,
   Kbd,
-  MadeWith,
   NativeSelect,
   NativeSelectOption,
-  NumberField,
   PreferencesDensity,
   PreferencesFont,
   PreferencesMonoFont,
@@ -91,9 +102,7 @@ import {
   TagsInputItemPreview,
   TagsInputItemText,
   Textarea,
-  TextField,
 } from "@kanzo-tech/ui";
-import { DateField } from "@kanzo-tech/ui";
 import { JsonTreeView } from "@kanzo-tech/ui";
 import {
   CheckIcon,
@@ -143,6 +152,51 @@ const SEVERITY_TEXT: Record<Issue["severity"], string> = {
   warning: "text-warning",
   info: "text-info",
 };
+
+// `FormValues` keeps a date as the plain ISO string that Turtle and JSON-LD serialise, while
+// `DatePicker` speaks `DateValue`. These two are the whole seam.
+function toDateValues(iso: string | null): DateValue[] {
+  if (!iso) return [];
+  try {
+    return [parseDate(iso)];
+  } catch {
+    return [];
+  }
+}
+
+function IsoDateInput({
+  invalid,
+  onChange,
+  value,
+}: {
+  invalid?: boolean;
+  onChange: (value: string | null) => void;
+  value: string | null;
+}) {
+  return (
+    <DatePicker
+      onValueChange={(details) => onChange(details.valueAsString[0] ?? null)}
+      positioning={{ placement: "bottom-end" }}
+      value={toDateValues(value)}
+    >
+      <DatePickerInput aria-invalid={invalid || undefined} />
+      <DatePickerContent>
+        <CalendarView view="day">
+          <CalendarViewControl>
+            <CalendarPrevTrigger />
+            <CalendarMonthSelect />
+            <CalendarYearSelect />
+            <CalendarNextTrigger />
+          </CalendarViewControl>
+          <CalendarTable>
+            <CalendarWeekDays />
+            <CalendarTableDays />
+          </CalendarTable>
+        </CalendarView>
+      </DatePickerContent>
+    </DatePicker>
+  );
+}
 
 /** Display preferences the product owns — driven live from its own Preferences popover. */
 const FormPrefsContext = createContext({ showDescriptions: true, showPredicates: false });
@@ -357,7 +411,7 @@ function PanelShell({
  * (a trailing `ShellAside`, Turtle & JSON-LD). Each side column toggles independently from its
  * header button and is drag-resizable; validation stays in the header badge.
  *
- * It is MOSTLY COMPOSITION — `Field`, `FieldArray`, `DateField`, the ✨ `Suggest` compound
+ * It is MOSTLY COMPOSITION — `Field`, `FieldArray`, `DatePicker`, the ✨ `Suggest` compound
  * (`Root`/`Trigger`/`Content`, given its own `suggest` / `existing` / `onPick`), inline ghost
  * completion via the `Complete` compound composed over a pure `Input`/`Textarea`, `Steps`, `Tabs`,
  * `NativeSelect`, `Resizable` — over a FAKED SHACL engine in
@@ -621,13 +675,17 @@ export function MetadataFormShowcase() {
     <>
       <FieldFrame issues={fieldIssues("issued")} label="Release date" predicate="dct:issued">
         {(invalid) => (
-          <DateField invalid={invalid} onChange={(v) => setScalar("issued", v)} value={values.issued} />
+          <IsoDateInput
+            invalid={invalid}
+            onChange={(v) => setScalar("issued", v)}
+            value={values.issued}
+          />
         )}
       </FieldFrame>
 
       <FieldFrame issues={fieldIssues("modified")} label="Modification date" predicate="dct:modified">
         {(invalid) => (
-          <DateField
+          <IsoDateInput
             invalid={invalid}
             onChange={(v) => setScalar("modified", v)}
             value={values.modified}
@@ -652,7 +710,7 @@ export function MetadataFormShowcase() {
                   Name
                   <FieldRequiredIndicator />
                 </FieldLabel>
-                <TextField
+                <Input
                   onChange={(e) =>
                     setScalar("publisher", { ...values.publisher!, name: e.target.value })
                   }
@@ -662,7 +720,7 @@ export function MetadataFormShowcase() {
               </Field>
               <Field>
                 <FieldLabel className="w-fit">Homepage</FieldLabel>
-                <TextField
+                <Input
                   onChange={(e) =>
                     setScalar("publisher", { ...values.publisher!, homepage: e.target.value })
                   }
@@ -672,7 +730,7 @@ export function MetadataFormShowcase() {
               </Field>
               <Field>
                 <FieldLabel className="w-fit">Email</FieldLabel>
-                <TextField
+                <Input
                   onChange={(e) =>
                     setScalar("publisher", { ...values.publisher!, email: e.target.value })
                   }
@@ -728,7 +786,7 @@ export function MetadataFormShowcase() {
                 >
                   <Field>
                     <FieldLabel className="w-fit">Name</FieldLabel>
-                    <TextField
+                    <Input
                       onChange={(e) =>
                         setValues((p) => ({
                           ...p,
@@ -743,7 +801,7 @@ export function MetadataFormShowcase() {
                   </Field>
                   <Field>
                     <FieldLabel className="w-fit">Email</FieldLabel>
-                    <TextField
+                    <Input
                       onChange={(e) =>
                         setValues((p) => ({
                           ...p,
@@ -824,11 +882,13 @@ export function MetadataFormShowcase() {
         predicate="healthdcatap:numberOfRecords"
       >
         {(invalid) => (
-          <NumberField
-            invalid={invalid}
+          <Input
+            aria-invalid={invalid || undefined}
+            inputMode="decimal"
             min={0}
             onChange={(e) => setScalar("numberOfRecords", e.target.value)}
             placeholder="0"
+            type="number"
             value={values.numberOfRecords}
           />
         )}
@@ -851,7 +911,7 @@ export function MetadataFormShowcase() {
               rowKey={(i) => values.codingSystems[i].id}
             >
               {(i) => (
-                <TextField
+                <Input
                   onChange={(e) => setEntry("codingSystems", i, e.target.value)}
                   placeholder="http://purl.bioontology.org/ontology/ICD10"
                   value={values.codingSystems[i].value}
@@ -918,8 +978,8 @@ export function MetadataFormShowcase() {
                         Access URL
                         <FieldRequiredIndicator />
                       </FieldLabel>
-                      <TextField
-                        invalid={urlMissing}
+                      <Input
+                        aria-invalid={urlMissing || undefined}
                         onChange={(e) => set({ accessURL: e.target.value })}
                         placeholder="https://…"
                         value={d.accessURL}
@@ -941,7 +1001,7 @@ export function MetadataFormShowcase() {
                     </Field>
                     <Field>
                       <FieldLabel className="w-fit">License</FieldLabel>
-                      <TextField
+                      <Input
                         onChange={(e) => set({ license: e.target.value })}
                         placeholder="https://creativecommons.org/licenses/by/4.0/"
                         value={d.license}
@@ -1084,7 +1144,7 @@ export function MetadataFormShowcase() {
   return (
     <ShellRoot>
       <ShellHeader>
-        {/* Utility strip — Shape / Data switcher / Share, with the Made-with attribution. */}
+        {/* Utility strip — Shape / Data switcher / Share. */}
         <div className="flex h-9 items-center gap-2.5 border-b px-3 text-xs">
           <span className="flex items-center gap-1.5 text-muted-foreground">
             <ShapesIcon className="size-3.5" />
@@ -1110,7 +1170,6 @@ export function MetadataFormShowcase() {
             <Share2Icon />
             Share
           </Button>
-          <MadeWith className="ms-auto" href="#" />
         </div>
 
         {/* Title + Source / Output / validation / Preferences. */}

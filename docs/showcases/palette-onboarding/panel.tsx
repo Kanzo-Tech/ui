@@ -6,7 +6,6 @@ import {
   ClipboardControl,
   ClipboardLabel,
   ClipboardTrigger,
-  EmptyState,
   Item,
   ItemContent,
   ItemDescription,
@@ -125,11 +124,18 @@ function Tenant({ palette: p }: { palette: PaletteView }) {
         <ReliefVerdict palette={p} />
         <Show
           fallback={
-            <EmptyState
-              description={`Every step of all six ramps met its obligation as generated. ${p.label} needed no repair.`}
-              icon={<CheckCheckIcon />}
-              title="Nothing moved"
-            />
+            <Item className="flex-col text-center">
+              <ItemMedia className="text-muted-foreground">
+                <CheckCheckIcon className="size-8" />
+              </ItemMedia>
+              <ItemContent className="items-center">
+                <ItemTitle>Nothing moved</ItemTitle>
+                <ItemDescription className="line-clamp-none max-w-[420px] text-center">
+                  Every step of all six ramps met its obligation as generated. {p.label} needed no
+                  repair.
+                </ItemDescription>
+              </ItemContent>
+            </Item>
           }
           when={p.adjustments.length > 0}
         >

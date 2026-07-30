@@ -5,55 +5,47 @@
 // pull it from this one file so the composition is written once.
 
 import type { ComponentProps } from "react";
-import {
-  Card,
-  cn,
-  DefaultLink,
-  type LinkComponent,
-  Show,
-  Skeleton,
-} from "@kanzo-tech/ui";
+import { Card, cn, Show, Skeleton } from "@kanzo-tech/ui";
 
 export type MetricCardStatus = "neutral" | "success" | "warning" | "danger";
 
-export interface MetricCardProps extends ComponentProps<"div"> {
+export interface MetricCardProps extends ComponentProps<"article"> {
   /** Token-backed semantic state. Default "neutral". Tints the icon disc via `data-status`. */
   status?: MetricCardStatus;
-  /** Makes the whole card a link. Omit for a plain, non-navigating surface. */
+  /**
+   * Makes the whole card a link. `Card` is `asChild`-swappable, so the anchor *is* the card —
+   * no wrapper element, and no injected link component.
+   */
   href?: string;
-  linkComponent?: LinkComponent;
 }
 
 export function MetricCard({
   status = "neutral",
   href,
-  linkComponent: Link = DefaultLink,
   className,
+  children,
   ...rest
 }: MetricCardProps) {
-  const card = (
-    <Card
-      className={cn(
-        "group/metric-card flex min-h-32 flex-col gap-0 rounded-lg px-5 py-4 shadow-none",
-        href != null &&
-          "h-full transition-colors group-hover/metric:border-primary/40 group-focus-visible/metric:border-primary",
-        className
-      )}
-      data-slot="metric-card"
-      data-status={status}
-      {...rest}
-    />
-  );
+  const shell = {
+    className: cn(
+      "group/metric-card flex min-h-32 flex-col gap-0 rounded-lg px-5 py-4 shadow-none",
+      href != null &&
+        "h-full outline-none transition-colors hover:border-primary/40 focus-visible:border-primary",
+      className
+    ),
+    "data-slot": "metric-card",
+    "data-status": status,
+    ...rest,
+  };
 
-  if (href == null) return card;
+  // `asChild` needs one real element, so the branch is a statement rather than a `Show`:
+  // `Show` returns a Fragment, and `Children.only` would clone that instead of the anchor.
+  if (href == null) return <Card {...shell}>{children}</Card>;
 
   return (
-    <Link
-      className="group/metric block rounded-lg outline-none"
-      href={href}
-    >
-      {card}
-    </Link>
+    <Card asChild {...shell}>
+      <a href={href}>{children}</a>
+    </Card>
   );
 }
 

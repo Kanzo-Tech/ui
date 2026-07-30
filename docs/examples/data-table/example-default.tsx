@@ -1,6 +1,11 @@
 "use client";
 
-import { type ColumnDef, DataTable } from "@kanzo-tech/ui/table";
+import {
+  type ColumnDef,
+  DataTableContent,
+  DataTableRoot,
+  useDataTable,
+} from "@kanzo-tech/ui/table";
 
 interface Dataset {
   name: string;
@@ -14,16 +19,20 @@ const data: Dataset[] = [
   { name: "invoices", records: 412, owner: "finance" },
 ];
 
-const columns: ColumnDef<Dataset, unknown>[] = [
+const columns: ColumnDef<Dataset>[] = [
   { accessorKey: "name", header: "Dataset" },
   { accessorKey: "records", header: "Records" },
   { accessorKey: "owner", header: "Owner" },
 ];
 
 export default function Example() {
+  const table = useDataTable({ columns, data });
+
   return (
     <div className="w-full max-w-xl">
-      <DataTable columns={columns} data={data} />
+      <DataTableRoot table={table}>
+        <DataTableContent />
+      </DataTableRoot>
     </div>
   );
 }

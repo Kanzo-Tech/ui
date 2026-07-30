@@ -2,7 +2,15 @@
 
 import { PlusIcon } from "lucide-react";
 import { Button } from "@kanzo-tech/ui";
-import { type ColumnDef, DataTable, sortableHeader } from "@kanzo-tech/ui/table";
+import {
+  type ColumnDef,
+  DataTableContent,
+  DataTableRoot,
+  DataTableSearch,
+  DataTableToolbar,
+  sortableHeader,
+  useDataTable,
+} from "@kanzo-tech/ui/table";
 
 interface Dataset {
   name: string;
@@ -19,27 +27,28 @@ const data: Dataset[] = [
 
 // Sorting is opt-in per column: only the columns whose header is `sortableHeader(…)`
 // get the toggle, even though TanStack marks every column sortable by default.
-const columns: ColumnDef<Dataset, unknown>[] = [
+const columns: ColumnDef<Dataset>[] = [
   { accessorKey: "name", header: sortableHeader("Dataset") },
   { accessorKey: "records", header: sortableHeader("Records") },
   { accessorKey: "owner", header: "Owner" },
 ];
 
 export default function Example() {
+  const table = useDataTable({ columns, data });
+
   return (
     <div className="w-full max-w-xl">
-      <DataTable
-        columns={columns}
-        data={data}
-        searchKey="name"
-        searchPlaceholder="Filter datasets…"
-        toolbarActions={
-          <Button size="sm">
+      <DataTableRoot table={table}>
+        <DataTableToolbar>
+          <DataTableSearch className="max-w-44" column="name" placeholder="Filter datasets…" />
+          <Button className="ms-auto" size="sm">
             <PlusIcon />
             New
           </Button>
-        }
-      />
+        </DataTableToolbar>
+
+        <DataTableContent />
+      </DataTableRoot>
     </div>
   );
 }

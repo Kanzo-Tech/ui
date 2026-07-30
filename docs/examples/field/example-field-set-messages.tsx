@@ -5,7 +5,7 @@ import {
   FieldSet,
   FieldSetError,
   FieldSetHelper,
-  TextField,
+  Input,
 } from "@kanzo-tech/ui";
 
 export default function Example() {
@@ -15,15 +15,15 @@ export default function Example() {
 
       <Field>
         <FieldLabel>Street</FieldLabel>
-        <TextField placeholder="123 Main St" />
+        <Input placeholder="123 Main St" />
       </Field>
       <Field>
         <FieldLabel>City</FieldLabel>
-        <TextField placeholder="Springfield" />
+        <Input placeholder="Springfield" />
       </Field>
       <Field>
         <FieldLabel>Postal code</FieldLabel>
-        <TextField placeholder="90210" />
+        <Input placeholder="90210" />
       </Field>
 
       <FieldSetHelper>Used for invoicing only.</FieldSetHelper>

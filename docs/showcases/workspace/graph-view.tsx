@@ -1,11 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { parseDate, type DateValue } from "@internationalized/date";
 import { clausePoints } from "@uwdata/mosaic-core";
 import { desc, sql } from "@uwdata/mosaic-sql";
 import {
   Badge,
   Button,
+  CalendarMonthSelect,
+  CalendarNextTrigger,
+  CalendarPrevTrigger,
+  CalendarTable,
+  CalendarTableDays,
+  CalendarView,
+  CalendarViewControl,
+  CalendarWeekDays,
+  CalendarYearSelect,
   Combobox,
   ComboboxContent,
   ComboboxEmpty,
@@ -14,15 +24,19 @@ import {
   CompleteHint,
   CompleteRoot,
   CompleteTextarea,
+  DatePicker,
+  DatePickerContent,
+  DatePickerInput,
   FileUpload,
   FileUploadDropzone,
   FileUploadHiddenInput,
   FileUploadTrigger,
+  Input,
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
+  InputGroupInput,
   InputGroupTextarea,
-  NumberField,
   Select,
   SelectContent,
   SelectItem,
@@ -41,7 +55,6 @@ import {
   SuggestTrigger,
   Swatch,
   Switch,
-  DateField,
   TagsInput,
   TagsInputContext,
   TagsInputControl,
@@ -51,7 +64,6 @@ import {
   TagsInputItemInput,
   TagsInputItemPreview,
   TagsInputItemText,
-  TextField,
   useFilter,
   useListCollection,
   useChartCapacity,
@@ -120,6 +132,53 @@ import { Finding } from "./graph-finding";
 
 export { GraphMosaic, KINDS } from "./graph-state";
 export { GraphCanvas, GraphSelection, GraphToolbar, GraphZoom } from "./graph-canvas";
+
+// A SHACL bound is a plain ISO string — that is what compiles to SQL and what a Turtle document
+// carries — while `DatePicker` speaks `DateValue`. These two are the whole seam.
+function toDateValues(iso: string | null): DateValue[] {
+  if (!iso) return [];
+  try {
+    return [parseDate(iso)];
+  } catch {
+    return [];
+  }
+}
+
+function IsoDateInput({
+  "aria-label": ariaLabel,
+  invalid,
+  onChange,
+  value,
+}: {
+  "aria-label"?: string;
+  invalid?: boolean;
+  onChange: (value: string | null) => void;
+  value: string | null;
+}) {
+  return (
+    <DatePicker
+      onValueChange={(details) => onChange(details.valueAsString[0] ?? null)}
+      positioning={{ placement: "bottom-end" }}
+      value={toDateValues(value)}
+    >
+      <DatePickerInput aria-invalid={invalid || undefined} aria-label={ariaLabel} />
+      <DatePickerContent>
+        <CalendarView view="day">
+          <CalendarViewControl>
+            <CalendarPrevTrigger />
+            <CalendarMonthSelect />
+            <CalendarYearSelect />
+            <CalendarNextTrigger />
+          </CalendarViewControl>
+          <CalendarTable>
+            <CalendarWeekDays />
+            <CalendarTableDays />
+          </CalendarTable>
+        </CalendarView>
+      </DatePickerContent>
+    </DatePicker>
+  );
+}
 
 // ── Legend and counts ────────────────────────────────────────────────────────
 
@@ -502,12 +561,12 @@ export function GraphInspector() {
         {ready ? (
           <EntitySearch />
         ) : (
-          <TextField
-            disabled
-            iconStart={<SearchIcon className="size-3.5" />}
-            placeholder="Search entities…"
-            size="sm"
-          />
+          <InputGroup data-disabled size="sm">
+            <InputGroupAddon align="inline-start">
+              <SearchIcon className="size-3.5" />
+            </InputGroupAddon>
+            <InputGroupInput disabled placeholder="Search entities…" size="sm" />
+          </InputGroup>
         )}
       </div>
       <ScrollArea className="min-h-0 flex-1 p-3">
@@ -691,27 +750,29 @@ function RuleBuilder({
                 </TagsInputControl>
               </TagsInput>
             ) : isDateBound ? (
-              <DateField
+              <IsoDateInput
                 aria-label="Value"
                 invalid={!valueOk}
                 onChange={(next) => setValue(next ?? "")}
                 value={value}
               />
             ) : kind === "minCount" || kind === "maxCount" ? (
-              <NumberField
+              <Input
+                aria-invalid={!valueOk || undefined}
                 aria-label="Value"
                 className="h-8 w-full font-mono text-xs"
-                invalid={!valueOk}
+                inputMode="decimal"
                 min={0}
                 onChange={(e) => setValue(e.target.value)}
                 placeholder={VALUE_HINT[kind]}
+                type="number"
                 value={value}
               />
             ) : (
-              <TextField
+              <Input
+                aria-invalid={!valueOk || undefined}
                 aria-label="Value"
                 className="h-8 w-full font-mono text-xs"
-                invalid={!valueOk}
                 onChange={(e) => setValue(e.target.value)}
                 placeholder={VALUE_HINT[kind]}
                 value={value}
