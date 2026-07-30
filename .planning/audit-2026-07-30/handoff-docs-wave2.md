@@ -45,6 +45,9 @@ Preferences/AppearanceToggle relocation below is deferred rather than done.
 | `2e3a8e5` | `TextField` / `NumberField` / `DateField` substituted at every call site |
 | `60fad39` | the prose fixes, and the two argued relocations |
 | `7aafe30` | the four IA merges |
+| `ab823a8` | `slot` documented; two docs `data-slot` overrides had become no-ops |
+| `359bea3` | `llms.txt` walks the page tree, so the curated order survives |
+| `1bb916a` | `isFullBleedComponent` deleted — it never fired |
 
 **Deleted:** `navigation/{breadcrumbs,sidebar-user,sidebar-nav,instance-switcher}.mdx`,
 `layout/made-with.mdx`, `overlays/{empty-state,ribbon}.mdx`, `forms/{text-field,date-field}.mdx`,
@@ -187,7 +190,14 @@ because it came up again: advice of the form "put a landmark in the example" is 
 `docs/examples/` and right for `docs/showcases/`, which get their own iframe route. Both
 showcases now render exactly one `ShellMain`; no example renders any.
 
-**F-4 — `handoff-cut.md` §1e was slightly incomplete.** It lists the prose sites but not
+**F-4 — two docs `data-slot` overrides had silently become no-ops.** `529c33f` moved `data-slot`
+after the spread on 428 elements, so a caller's `data-slot` no longer wins; both preview wrappers
+were relying on exactly that (`<TabsContent data-slot="tab-preview">`) and had stopped renaming
+anything. They pass `slot` now, and `(root)/styling.mdx` teaches both halves of the rule — a part
+owns its slot, and `slot` is how you rename one — because that page is where the escape hatch is
+documented and the recipe on it is what every new component gets copied from.
+
+**F-5 — `handoff-cut.md` §1e was slightly incomplete.** It lists the prose sites but not
 `(root)/philosophy.mdx:106` (the engine rule's "same relationship as `TextField` to `input`"),
 `forms/input-group.mdx:26`, `showcases/app-shell.mdx:12`, or the naming-rule callout in F-2. All
 are fixed. Its §1b list was otherwise exact.
@@ -209,10 +219,6 @@ call, and `forDisplay` (wave 1, `04ea797`) already tells the reader where to cop
 `ComponentProps<typeof Card>`) also means rewriting `examples/card/example-metric-link.tsx`. Two
 lines, worth doing with L-1.
 
-**L-3 — `llms.txt` still sorts alphabetically within a group**, discarding `meta.json`'s curated
-order, so `Controls` and `Building a form` do not lead Forms and the `---Text---` / `---Choice---`
-structure is lost. The sort should key off the page tree. Unblocked now that the tree has settled.
-
 **L-4 — `<TypeTable>` is still registered in `mdx-components.tsx:35` and used on 0 pages**, as are
 `Accordion`/`Accordions` and `File`/`Files`/`Folder`. Standing decision: adopt and convert, or
 delete the three registrations. It blocks the pages with no API section.
@@ -220,10 +226,6 @@ delete the three registrations. It blocks the pages with no API section.
 **L-5 — `next.config.ts:7-11` still claims the docs consume the library from source.** They
 consume `dist`. `docs/CLAUDE.md` now states the dist rule correctly, so the comment contradicts it
 in a second place.
-
-**L-6 — `FULL_BLEED_GROUPS` in `docs/lib/component-groups.ts:41` still contains `"sidebar"`,
-which is not a group**, and eight pages pass `fullBleed` by hand. Now that the tree has settled
-this is a two-line decision: add `layout` and the sidebar page, or delete the derivation.
 
 **L-7 — cross-linking the remaining orphans.** The whole `overlays/` group is still mutually
 unlinked; Popover ↔ HoverCard ↔ Tooltip is one question asked three times and no page states the
