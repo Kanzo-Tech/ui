@@ -88,7 +88,7 @@ docs/showcases/palette-onboarding/
 ```
 
 Both routes are **server** components, and that split is the point rather than an optimisation.
-Deriving one document costs 0.2–1.6 s — the categorical search dominates — which is fine once at
+Deriving one document costs 0.2–4.0 s — the categorical search dominates — which is fine once at
 onboarding and unacceptable in a browser. It runs at build time; the client halves receive a
 projection of the finished document and never import `derivePalette`.
 

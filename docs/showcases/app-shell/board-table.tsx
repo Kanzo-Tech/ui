@@ -199,7 +199,7 @@ const DATA = board();
  * facet filters and column visibility only exist down here, and the selection then drives an
  * `ActionBar`.
  */
-export function RunsTable() {
+export function BoardTable() {
   const table = useDataTable({ columns: COLUMNS, data: DATA, pageSize: 6 });
   const selected = table.getFilteredSelectedRowModel().rows;
 

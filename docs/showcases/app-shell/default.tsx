@@ -92,7 +92,7 @@ import { overdueQuests } from "@/example/quests";
 import { hall, type HallId, HOME_HALL } from "@/example/world";
 import { CommandPalette } from "./command-palette";
 import { ACTIVITY, INSTANCES, KPIS, NAV, SETUP, SETUP_DONE, STANDING, SUPPORT, USER } from "./data";
-import { RunsTable } from "./runs-table";
+import { BoardTable } from "./board-table";
 
 /** The header's notice count is the board's overdue contracts, not a decoration. */
 const OVERDUE = overdueQuests().length;
@@ -295,7 +295,7 @@ export function AppShellShowcase() {
                       </TabsList>
 
                       <TabsContent value="active">
-                        <RunsTable />
+                        <BoardTable />
                       </TabsContent>
 
                       <TabsContent value="archived">
