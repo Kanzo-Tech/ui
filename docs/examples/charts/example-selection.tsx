@@ -27,7 +27,7 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="grid w-full max-w-2xl grid-cols-1 gap-5 sm:grid-cols-2">
-        <ChartRoot as={picked} filterBy={null} height={140} table="telemetry">
+        <ChartRoot as={picked} filterBy={null} height={140} table="sightings">
           <ChartBarY fill="var(--primary)" x="region" y={count()} />
           <ChartToggleX />
           <ChartHighlight by={picked} />
@@ -35,14 +35,14 @@ export default function Example() {
           <ChartAxisY grid label={null} />
         </ChartRoot>
 
-        <ChartRoot filterBy={filter} height={140} table="telemetry">
-          <ChartRectY fill="var(--muted-foreground)" filterBy={null} opacity={0.25} x={bin("latency")} y={count()} />
-          <ChartRectY fill="var(--primary)" x={bin("latency")} y={count()} />
-          <ChartAxisX label="latency (ms)" />
+        <ChartRoot filterBy={filter} height={140} table="sightings">
+          <ChartRectY fill="var(--muted-foreground)" filterBy={null} opacity={0.25} x={bin("bounty")} y={count()} />
+          <ChartRectY fill="var(--primary)" x={bin("bounty")} y={count()} />
+          <ChartAxisX label="bounty (gold)" />
           <ChartAxisY grid label={null} />
         </ChartRoot>
 
-        <ChartRoot filterBy={filter} height={140} table="telemetry">
+        <ChartRoot filterBy={filter} height={140} table="sightings">
           <ChartLineY filterBy={null} stroke="var(--muted-foreground)" strokeOpacity={0.4} x="hour" y={count()} />
           <ChartLineY stroke="var(--primary)" strokeWidth={2} x="hour" y={count()} />
           <ChartAxisX label="hour of day" ticks={12} />

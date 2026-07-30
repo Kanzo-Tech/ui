@@ -5,6 +5,7 @@ import { MEMBERS, member } from "./people";
 import { QUESTS, overdueQuests, quest } from "./quests";
 import { ROSTER, availableNow, rosterEntry, rosterOf } from "./roster";
 import { RULES_SOURCE, breaches } from "./rules";
+import { BEAST_DOMAIN, VERDICTS, sightingRows } from "./sightings";
 import { BEASTS, HALLS, QUEST_STATUSES, REGIONS, TODAY } from "./world";
 
 // What this guards is not "the data exists" — the docs build proves that by importing it. It is
@@ -193,5 +194,39 @@ describe("the claims the docs make about the world", () => {
   it("resolves a quest by id", () => {
     expect(quest("Q-1041").title).toBe("Something is eating the bell-ropes");
     expect(() => quest("Q-9999")).toThrow();
+  });
+});
+
+describe("the sightings relation", () => {
+  it("is the same table every run", () => {
+    const rows = sightingRows();
+    const digest = [
+      rows.length,
+      ...BEAST_DOMAIN.map((b) => `${b}:${rows.filter((r) => r.beast === b).length}`),
+      ...VERDICTS.map((v) => `${v}:${rows.filter((r) => r.verdict === v).length}`),
+    ].join(" ");
+    expect(digest).toMatchSnapshot();
+  });
+
+  it("reports every beast, so an eight-slot legend has eight entries", () => {
+    const rows = sightingRows();
+    for (const beast of BEAST_DOMAIN) {
+      expect(rows.some((r) => r.beast === beast), beast).toBe(true);
+    }
+  });
+
+  it("has a night curve an hourly axis can show", () => {
+    const rows = sightingRows();
+    const at = (from: number, to: number) =>
+      rows.filter((r) => r.hour >= from && r.hour < to).length;
+    // Most of these things are reported after dark. A flat curve would make the hour axis pointless.
+    expect(at(21, 24) + at(0, 4)).toBeGreaterThan(at(10, 17));
+  });
+
+  it("keeps the region/beast grid sparse", () => {
+    const rows = sightingRows();
+    const pairs = new Set(rows.map((r) => `${r.region}/${r.beast}`));
+    // A full cross-product would be 48 and would read as generated; every region has a range.
+    expect(pairs.size).toBeLessThan(REGIONS.length * BEAST_DOMAIN.length);
   });
 });

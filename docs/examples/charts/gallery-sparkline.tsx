@@ -15,9 +15,9 @@ import { MosaicDemo } from "./mosaic-demo";
 // scale, and `margin={0}` hands the whole box to the marks.
 
 const SERIES = [
-  { label: "Requests", y: count(), color: "var(--chart-1)" },
-  { label: "Latency (ms)", y: avg("latency"), color: "var(--chart-2)" },
-  { label: "Payload (kB)", y: avg("payload"), color: "var(--chart-3)" },
+  { label: "Sightings", y: count(), color: "var(--chart-1)" },
+  { label: "Mean bounty", y: avg("bounty"), color: "var(--chart-2)" },
+  { label: "Leagues out", y: avg("leagues"), color: "var(--chart-3)" },
 ];
 
 export default function Example() {
@@ -27,7 +27,7 @@ export default function Example() {
         {SERIES.map((series) => (
           <div className="flex flex-col gap-2 rounded-lg border bg-card p-3" key={series.label}>
             <p className="font-medium text-muted-foreground text-xs">{series.label}</p>
-            <ChartRoot height={40} margin={0} table="telemetry">
+            <ChartRoot height={40} margin={0} table="sightings">
               <ChartAreaY fill={series.color} fillOpacity={0.16} x="hour" y={series.y} />
               <ChartLineY stroke={series.color} strokeWidth={1.5} x="hour" y={series.y} />
               <ChartAxisX anchor={null} label={null} />

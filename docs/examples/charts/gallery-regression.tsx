@@ -16,11 +16,11 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot height={280} table="telemetry">
-          <ChartDot fill="var(--muted-foreground)" fillOpacity={0.25} r={2} x="latency" y="payload" />
-          <ChartRegressionY ci={0.95} stroke="var(--chart-1)" x="latency" y="payload" />
-          <ChartAxisX label="latency (ms)" />
-          <ChartAxisY grid label="payload (kB)" />
+        <ChartRoot height={280} table="sightings">
+          <ChartDot fill="var(--muted-foreground)" fillOpacity={0.25} r={2} x="bounty" y="leagues" />
+          <ChartRegressionY ci={0.95} stroke="var(--chart-1)" x="bounty" y="leagues" />
+          <ChartAxisX label="bounty (gold)" />
+          <ChartAxisY grid label="leagues from the road" />
         </ChartRoot>
       </div>
     </MosaicDemo>

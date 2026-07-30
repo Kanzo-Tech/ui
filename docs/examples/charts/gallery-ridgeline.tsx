@@ -29,14 +29,14 @@ export default function Example() {
           attributes={OVERLAP}
           height={280}
           margin={{ top: 48, right: 16, bottom: 32, left: 76 }}
-          table="telemetry"
+          table="sightings"
         >
           <ChartAreaY
             curve="basis"
             fill="var(--chart-1)"
             fillOpacity={0.65}
             fy="region"
-            x={bin("latency", { steps: 40 })}
+            x={bin("bounty", { steps: 40 })}
             y={count()}
           />
           <ChartLineY
@@ -44,10 +44,10 @@ export default function Example() {
             fy="region"
             stroke="var(--background)"
             strokeWidth={1}
-            x={bin("latency", { steps: 40 })}
+            x={bin("bounty", { steps: 40 })}
             y={count()}
           />
-          <ChartAxisX label="latency (ms)" />
+          <ChartAxisX label="bounty (gold)" />
           <ChartAxisY anchor={null} label={null} />
           <ChartFacetY label={null} />
         </ChartRoot>

@@ -46,3 +46,5 @@ Q-1082 settled 36 bell+ravenna+nerea
 Q-1083 settled 7 solveig
 Q-1084 open 172 -"
 `;
+
+exports[`the sightings relation > is the same table every run 1`] = `"538 wyrm:44 basilisk:13 grimalkin:116 boghound:43 harpy:33 revenant:159 mimic:96 stoneback:34 confirmed:344 disputed:151 hoax:43"`;

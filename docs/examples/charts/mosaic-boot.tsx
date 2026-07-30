@@ -3,7 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Coordinator, MosaicProvider, loadObjects, wasmConnector } from "@kanzo-tech/ui/analytics";
 import { Skeleton } from "@kanzo-tech/ui";
-import { telemetryRows } from "./telemetry";
+import { SIGHTINGS_TABLE, sightingRows } from "@/example/sightings";
 
 // Bring-your-own-coordinator: the library never imports DuckDB. This island boots DuckDB-WASM,
 // loads the sample table and owns the `Coordinator`.
@@ -18,7 +18,7 @@ let booting: Promise<Coordinator> | null = null;
 function boot(): Promise<Coordinator> {
   booting ??= (async () => {
     const coordinator = new Coordinator(wasmConnector());
-    await coordinator.exec(loadObjects("telemetry", telemetryRows()));
+    await coordinator.exec(loadObjects(SIGHTINGS_TABLE, sightingRows()));
     return coordinator;
   })();
   return booting;
