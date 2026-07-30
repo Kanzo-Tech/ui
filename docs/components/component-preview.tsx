@@ -14,8 +14,9 @@ export interface ComponentPreviewProps {
   /**
    * Render the example whole: no frame padding, no centring, no fixed height, no guides.
    *
-   * Left undefined it is **derived** — a page in the `layouts` or `blocks` group is full-bleed,
-   * everything else is framed. Pass it explicitly only to override that for one example.
+   * Left undefined it is **derived** from the group the component's page sits in, via
+   * `isFullBleedComponent`. Pass it explicitly for a page whose group is otherwise framed —
+   * every sidebar and shell example does.
    */
   fullBleed?: boolean;
   /** Preview pane is a fixed 450px so switching tabs never makes the page jump. */
@@ -63,11 +64,19 @@ export const ComponentPreview = async (props: ComponentPreviewProps) => {
 };
 
 /**
- * Rewrite the source so a reader sees the imports THEY would write. Shark does the same when
- * mapping its registry path onto `@/components/ui`.
+ * Rewrite the source so a reader sees what they would have to write.
+ *
+ * `@kanzo-tech/*` imports are already the reader's own — they pass through untouched. A `@/`
+ * import is not: it resolves inside this site and nowhere else, so the Code tab was showing an
+ * import a reader could copy and never satisfy. Those get an inline note saying where the file
+ * is, because they are arrangements you copy rather than API you install — the same thing the
+ * charts page says in prose about `docs/lib/`.
  */
 function forDisplay(input: string) {
   return input
-    .replace(/^import .*from "@kanzo-tech\/ui";$/gm, (line) => line)
+    .replace(
+      /^(import .*from "@\/(\S+)";)$/gm,
+      (_line, statement: string, path: string) => `${statement} // copy from docs/${path}.tsx`,
+    )
     .replace(/\n+$/, "");
 }
