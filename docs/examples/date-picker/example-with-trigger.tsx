@@ -1,3 +1,5 @@
+"use client";
+
 import { parseDate } from "@internationalized/date";
 import { isoDay } from "@/example/world";
 import { CalendarIcon } from "lucide-react";
