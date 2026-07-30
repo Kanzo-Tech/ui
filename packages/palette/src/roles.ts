@@ -34,9 +34,9 @@ export type SurfaceName = "page" | "card" | "popover" | "sidebar";
  *
  * **Light expresses elevation with shadow; dark expresses it with value.** That is why every light
  * offset is 0 and it is not an oversight — a light card that lightened would have to go past the
- * page, and the page is already step 1. Measured against the neutral ramp, and against what ships:
- * today's dark `--card` is `color-mix(background 98%, neutral-50)` and `--popover` 96%, which land
- * one and two steps up the bottom of the ramp.
+ * page, and the page is already step 1. The numbers come from the hand-written theme this table
+ * replaced, measured against the neutral ramp: its dark `--card` was `color-mix(background 98%,
+ * neutral-50)` and `--popover` 96%, which land one and two steps up the bottom of the ramp.
  *
  * `sidebar` and `popover` share an offset because they are the same kind of thing — a panel that
  * sits above the page — and giving them separate numbers is how sixteen sidebar tokens happened.
@@ -229,7 +229,7 @@ export const CHART_SLOTS = 8;
 export const OTHER = "var(--muted-foreground)";
 
 /**
- * What a token is bound to. Seven kinds, and each earns its place by being unwritable as the others.
+ * What a token is bound to. Eight kinds, and each earns its place by being unwritable as the others.
  *
  * `step` is the ordinary case. `fill`, `on-fill`, `boundary` and `recess` are *measured* properties
  * of a ramp, not step numbers — see the note on the table above, `fillStep` for the one that is not
@@ -314,20 +314,22 @@ const step = (ramp: RampName, n: number, elevation?: SurfaceName): RoleBinding =
 /**
  * Every colour token, in the order it is emitted.
  *
- * Three bindings here are changes from what ships, and each is forced by a measurement:
+ * Three bindings here are changes from the hand-written theme this table replaced, and each is
+ * forced by a measurement of that theme. It is gone, so the numbers are history — kept because each
+ * is the reason its binding is what it is, and a reader who dropped them would move the binding back:
  *
- * · **`--muted` = 3, `--secondary` = 4, `--accent` = 5.** They ship byte-identical — all three are
+ * · **`--muted` = 3, `--secondary` = 4, `--accent` = 5.** All three were byte-identical there —
  *   `color-mix(neutral-950 6%, background)` — because nothing ever forced them to differ. Steps
  *   3/4/5 are one component's normal, hover and active, which is what they were always meant to be.
  *   `bg-accent` keeps meaning "hover surface", so Shark's recipes still paste in.
  *
- * · **`--border` = 6, not 5.** Today's border is step 5 in both modes (shipped `#dddddd` matches
- *   step 5 at ΔE 1.22 in light, `#272727` at ΔE 0.41 in dark). With `--accent` taking step 5, the
- *   old border and the new hover surface would be the same colour by the ramp's own
- *   `interchangeable` bound. Steps 6–8 carry no contrast duty at all — WCAG 1.4.11 exempts
- *   non-interactive separators — which is exactly what a decorative border is.
+ * · **`--border` = 6, not 5.** Its border was step 5 in both modes (`#dddddd` matches step 5 at
+ *   ΔE 1.22 in light, `#272727` at ΔE 0.41 in dark). With `--accent` taking step 5, that border and
+ *   the new hover surface would be the same colour by the ramp's own `interchangeable` bound. Steps
+ *   6–8 carry no contrast duty at all — WCAG 1.4.11 exempts non-interactive separators — which is
+ *   exactly what a decorative border is.
  *
- * · **`--ring` = `(brand, boundary)`.** It ships at 2.48:1 in light, a live 1.4.11 failure.
+ * · **`--ring` = `(brand, boundary)`.** Its ring measured 2.48:1 in light, a 1.4.11 failure.
  *
  * The brand fills are the fourth, and the only one whose step is not a constant: `--primary` and
  * `--sidebar-primary` bind to `fill` rather than to `(brand, 9)`, so a brand with no hue to spend at
@@ -337,8 +339,8 @@ const step = (ramp: RampName, n: number, elevation?: SurfaceName): RoleBinding =
  * measurement it does not make. `palettes.test.ts` measures that they never take it.
  *
  * And one split: **`--input` is the control outline, `--field` is the fill.** They were one token
- * doing both jobs, which is why 23 sites write `bg-input/NN` — a loose opacity, guessing at a
- * transparency. An alpha step already *is* that transparency, solved to composite exactly onto
+ * doing both jobs, which is why the component layer used to dilute it — a loose opacity, guessing at
+ * a transparency. An alpha step already *is* that transparency, solved to composite exactly onto
  * step 3 over step 1, which `bg-x/60` provably cannot do: it dilutes the solid, so what you get
  * depends on what is underneath.
  *
@@ -386,8 +388,9 @@ export const ROLES: readonly Role[] = [
   // status ones.
   //
   // Measured: 5.18:1 in light and 4.74:1 in dark against the page, against `--muted-foreground`'s
-  // 9.19 and 8.52. It is the ten `text-muted-foreground/NN` sites' honest answer — those measure
-  // 3.04–4.00 and are live AA failures.
+  // 9.19 and 8.52. It is the honest answer to the diluted quiet-ink sites this token retired, which
+  // measured 3.04–4.00 — under AA, on text. `packages/ui/src/alpha-steps.test.ts` is what keeps
+  // them retired; the spellings are not quoted here because Tailwind scans comments.
   //
   // It used to miss AA on a field in dark (4.49 on the page, 4.13 in a popover), and the fix was not
   // here — there is no step between 10 and 11 — but in what a field is: `--field` recedes rather

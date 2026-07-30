@@ -42,7 +42,7 @@ const rampsFor = (brand: string, neutral: string): RampSet => {
   ) as RampSet;
 };
 
-/** A tinted neutral, the way a client's actually arrives — a hue at a chroma five times under the floor. */
+/** A tinted neutral, the way a client's actually arrives: `#6e737b` is chroma 0.0138, 7.2× under `CHROMA_FLOOR`. */
 const RAMPS = rampsFor("#7f22fe", "#6e737b");
 
 const CATEGORICAL = (capacity: number): CategoricalSet => {
@@ -379,8 +379,8 @@ describe("the bindings that are measured rather than written", () => {
   });
 
   it("recedes `--field` from every surface it can sit in, rather than tinting it", () => {
-    // The 23 `bg-input/NN` sites, replaced by the thing they were approximating — but a field is a
-    // *well*, and which value cuts one is a measurement, not a step. In light an alpha step recedes
+    // The dilutions of `--input` are replaced by the thing they were approximating — but a field is
+    // a *well*, and which value cuts one is a measurement, not a step. In light an alpha step recedes
     // (it is solved to composite onto its solid over step 1, where `bg-x/60` dilutes the *solid* and
     // lands wherever the backdrop puts it); in dark every alpha step composites LIGHTER than its
     // ground, so `a3` raised the field and took `--faint` below AA. See `recessFill`.
@@ -426,10 +426,8 @@ describe("the bindings that are measured rather than written", () => {
 
 describe("the three tokens that used to be the same colour", () => {
   it("gives normal, hover and active three different surfaces", () => {
-    // `--muted`, `--secondary` and `--accent` ship byte-identical — all three are
-    // `color-mix(neutral-950 6%, background)` — because nothing ever forced them to differ. Steps
-    // 3/4/5 are one component's normal, hover and active, and a hover a user cannot see is not a
-    // hover.
+    // Steps 3/4/5 are one component's normal, hover and active, and a hover a user cannot see is
+    // not a hover. See `ROLES` for the theme these three replaced, where they were byte-identical.
     for (const mode of MODES) {
       const values = valuesOf(mode);
       const [muted, secondary, accent] = ["--muted", "--secondary", "--accent"].map(
@@ -442,9 +440,9 @@ describe("the three tokens that used to be the same colour", () => {
   });
 
   it("moves the border clear of the hover surface it used to be", () => {
-    // Measured, today's `--border` is step 5 in both modes (`#dddddd` at ΔE 1.22 light, `#272727` at
-    // ΔE 0.41 dark). With `--accent` taking step 5 they would be the same colour by the ramp's own
-    // `interchangeable` bound — a border indistinguishable from the surface it encloses.
+    // With `--accent` taking step 5, a border left where the previous theme put it would be the
+    // same colour by the ramp's own `interchangeable` bound — a border indistinguishable from the
+    // surface it encloses. See `ROLES` for that measurement.
     for (const mode of MODES) {
       const values = valuesOf(mode);
       expect(

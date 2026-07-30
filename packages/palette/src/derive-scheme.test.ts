@@ -156,8 +156,12 @@ describe("orderScheme", () => {
   });
 
   it("keeps the leading slots clear of a reserved status colour", () => {
-    // `--destructive` is red-500. Without this the winner puts a red in slot 2, on the series
-    // almost every chart uses, where it reads as an error rather than as data.
+    // `#fb2c36` is red-500, standing in for the reservation. `--destructive` ships red-**600**
+    // `#e7000b` — `derive-palette.ts` seeds all four status ramps at `-600` and says why — and the
+    // two are not interchangeable here: swapped in, red-600 changes the subset Dracula keeps and
+    // the joint search's light count, so this fixture is pinned rather than incidental.
+    // Without any avoid the winner puts a red in slot 2, on the series almost every chart uses,
+    // where it reads as an error rather than as data.
     const ordered = orderScheme(derived, "light", { avoid: ["#fb2c36"], leading: 4 });
     expect(ordered.length).toBeGreaterThan(0);
     for (const hex of ordered.slice(0, 4)) expect(deltaE(hex, "#fb2c36")).toBeGreaterThanOrEqual(15);
@@ -338,7 +342,7 @@ describe("deriveSchemeColors", () => {
   };
 
   it("hands both modes the same categories", () => {
-    // The reason this function exists at all. `SchemeColors` is one set of series shown on two
+    // The reason this function exists at all. A `CategoricalSet` is one set of series shown on two
     // surfaces, so slot 3 must mean the same category in both — and running the per-mode search
     // twice does not give that: kanzo takes 7 families in light and 5 in dark, Catppuccin Latte 7
     // and 5, kanzo-dark 7 and 8. Two arrays of different lengths cannot be one scheme, and two of

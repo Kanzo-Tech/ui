@@ -47,7 +47,10 @@ const SEEDS: [string, string][] = [["neutral", NEUTRAL], ...FAMILIES];
  * Tinted neutrals: a hue given deliberately, at a chroma far under `CHROMA_FLOOR`.
  *
  * The second half of a tenant's palette. Radix's own five (step 9 of mauve, slate, sage, olive,
- * sand) plus Tailwind's tinted greys, which is the range a client's neutral seed will land in.
+ * sand) plus Tailwind's tinted greys at `-500`, which is the range a client's neutral seed will land
+ * in. The Tailwind three are **v4** values, resolved from the same `tailwindcss/theme.css` that
+ * `scripts/gen-data.mjs` reads — v3's gray-500 was `#6b7280`, a whole chroma step away at 0.023
+ * against 0.027, and transcribing a remembered hex here is the rot `gen-data.mjs` refuses to allow.
  */
 const TINTS: [string, string][] = [
   ["mauve", "#8e8c99"],
@@ -55,7 +58,7 @@ const TINTS: [string, string][] = [
   ["sage", "#868e8b"],
   ["olive", "#898e87"],
   ["sand", "#8d8d86"],
-  ["tw-gray", "#6b7280"],
+  ["tw-gray", "#6a7282"],
   ["tw-zinc", "#71717b"],
   ["tw-stone", "#79716b"],
 ];
@@ -359,7 +362,8 @@ describe("a seed that cannot meet an obligation", () => {
     // The achromatic case, which is the hardest one: chroma 0 must still produce a legal ramp. It
     // does — every other obligation is met — and the one it cannot meet is published instead of
     // being papered over with an invented hue. A generator that tinted a grey to pass its own
-    // chroma check would be inventing brand, which is the mistake `Palette.primary` exists to avoid.
+    // chroma check would be inventing brand — the mistake this layer exists to refuse, since the
+    // hue it chose would be ours and the seed is the client's.
     for (const mode of MODES) {
       const ramp = deriveRamp(NEUTRAL, mode);
       expect(ramp.hue).toBeNull();
@@ -513,7 +517,7 @@ describe("what the seed gave up", () => {
     // The one place *adjust and publish* does not apply, and the reason it is a `relief` rather than
     // an `adjustment`: the nearest legal value for a colour below the chroma floor would be a hue,
     // and there is no hue in the seed to move toward. Choosing one is manufacturing brand out of
-    // grey — the thing `Palette.primary` exists to refuse.
+    // grey — the thing this layer refuses to do. See `Ramp.relief`.
     for (const mode of MODES) {
       const ramp = deriveRamp(NEUTRAL, mode);
       expect(ramp.adjustments, mode).toEqual([]);
