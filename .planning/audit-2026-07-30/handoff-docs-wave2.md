@@ -48,6 +48,8 @@ Preferences/AppearanceToggle relocation below is deferred rather than done.
 | `ab823a8` | `slot` documented; two docs `data-slot` overrides had become no-ops |
 | `359bea3` | `llms.txt` walks the page tree, so the curated order survives |
 | `1bb916a` | `isFullBleedComponent` deleted — it never fired |
+| `ce86571` | the last two `linkComponent` claims, and the cut's own archaeology |
+| `b43171a` | Popover / HoverCard / Tooltip — one question, answered once |
 
 **Deleted:** `navigation/{breadcrumbs,sidebar-user,sidebar-nav,instance-switcher}.mdx`,
 `layout/made-with.mdx`, `overlays/{empty-state,ribbon}.mdx`, `forms/{text-field,date-field}.mdx`,
@@ -227,7 +229,10 @@ delete the three registrations. It blocks the pages with no API section.
 consume `dist`. `docs/CLAUDE.md` now states the dist rule correctly, so the comment contradicts it
 in a second place.
 
-**L-7 — cross-linking the remaining orphans.** The whole `overlays/` group is still mutually
-unlinked; Popover ↔ HoverCard ↔ Tooltip is one question asked three times and no page states the
-rule. That is the gap `forms/controls.mdx` closes for the listbox family, and it wants the same
-treatment.
+**L-7 — cross-linking the remaining orphans, partly done.** Popover ↔ HoverCard ↔ Tooltip is
+closed (`b43171a`): the rule is stated once on Popover, with a `warn` callout on each of the other
+two pointing at it, the way `forms/controls.mdx` answers the listbox family. It is drawn from the
+three Zag connect files rather than from taste — `role="tooltip"` + `aria-describedby`, no role at
+all, and `role="dialog"` + `aria-haspopup`/`expanded`/`controls`. **Dialog ↔ Sheet ↔ AlertDialog
+is the same shape and still open**: `overlays/sheet.mdx:81-87` says they are three surfaces over
+one machine, and no page links another.
