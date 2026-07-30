@@ -5,15 +5,6 @@ links:
   doc: https://ark-ui.com/docs/guides/composition
 ---
 
-<Callout type="info">
-**Breadcrumb vs [Breadcrumbs](/docs/navigation/breadcrumbs):** the plural one is built on this
-one. `Breadcrumb*` is the compound vocabulary — you write each item, separator and ellipsis, and
-you can put anything in them.
-
-`Breadcrumbs` takes an `items` array and renders the same parts for you, including the collapse
-when the trail is long. Use it unless you need to control what an individual crumb contains.
-</Callout>
-
 <ComponentPreview componentName="breadcrumb" />
 
 ## Usage
@@ -57,12 +48,63 @@ navigable, because it is the page you are already on.
     <BreadcrumbSeparator />
 ```
 
-## Custom separator and ellipsis
+<Callout type="warn">
+`BreadcrumbSeparator` is a **sibling** of the item it follows, never a child. Both render an
+`li`, and an `li` nested inside another breaks the item count a screen reader announces for the
+list.
+</Callout>
 
-Separators are `aria-hidden` presentation, so swapping the glyph is purely visual. Use
-`BreadcrumbEllipsis` to collapse a deep middle section.
+## A router link
+
+`BreadcrumbLink` renders an `ark.a`, so it takes `asChild` and wears your router's link instead:
+
+```tsx
+<BreadcrumbLink asChild>
+  <NextLink href="/datasets">Datasets</NextLink>
+</BreadcrumbLink>
+```
+
+That is the whole routing seam. The library never imports a router.
+
+## Custom separator
+
+Separators are `aria-hidden` presentation, so swapping the glyph is purely visual.
 
 <ComponentPreview componentName="breadcrumb" fileName="example-with-ellipsis" />
+
+## Long trails
+
+Once a trail is deep enough to wrap, keep the first crumb and the last two and put the middle
+behind the ellipsis — a **menu**, not a bare `…`. A collapsed crumb is still somewhere you might
+want to go, and `BreadcrumbEllipsis` on its own is `aria-hidden` decoration, so unaccompanied it
+would hide the middle of the trail from everyone rather than tidy it.
+
+<ComponentPreview componentName="breadcrumb" fileName="example-collapsed" />
+
+Two details in that example are worth carrying into your own:
+
+- **The accessible name goes on the `Button`**, not on `BreadcrumbEllipsis`. The ellipsis is
+  decoration, and decoration cannot name its own control.
+- **The kept tail is `2`, not `1`.** A trail needs a root and a leaf; collapsing to fewer leaves
+  nothing to orient by.
+
+## Narrow widths
+
+The list **wraps onto a second line** when it runs out of room. That is inherited from Shark and
+deliberate — `flex-wrap` on the list with `text-nowrap` on each link, so labels never break
+mid-word and the trail reflows instead. In the page body that is the right behaviour.
+
+It is the wrong behaviour in a fixed-height strip — an app-shell header — where a second row has
+nowhere to go. There, take the collapse above, or override on the list:
+
+```tsx
+<BreadcrumbList className="flex-nowrap overflow-hidden [&_[data-slot=breadcrumb-page]]:truncate">
+```
+
+The trail is what should give, because it is the part a reader can still infer from the page
+around it. `Breadcrumb` itself carries `min-w-0` for the same reason: inside a flex row a `nav`
+without it refuses to shrink below its content width, so instead of yielding it pushes whatever
+sits beside it off the edge.
 
 ## API Reference
 
@@ -79,5 +121,4 @@ Separators are `aria-hidden` presentation, so swapping the glyph is purely visua
 | `children` | `ReactNode` | `<ChevronRightIcon />` |
 
 Each part extends its `ark.*` element (`ark.nav`, `ark.ol`, `ark.li`, `ark.a`, `ark.span`), so
-`href`, `ref` and the rest pass through. For a data-driven crumb trail with a router link,
-use the `Breadcrumbs` composite instead.
+`href`, `ref`, `asChild` and the rest pass through.

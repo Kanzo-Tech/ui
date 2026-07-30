@@ -23,8 +23,22 @@ import {
 the same `Calendar*` grid parts, now inside a positioned popover. Compose the grid from the
 calendar parts — only the input, trigger, content and timer are specific to the picker.
 
-The value is Ark's `DateValue`, not a `Date`. For a plain ISO string in and out, use
-[Date Field](/docs/forms/date-field), which wraps this component.
+The value is Ark's `DateValue`, not a `Date`.
+
+## An ISO string in and out
+
+A form library, a JSON body and a database column all speak `YYYY-MM-DD`; this machine speaks
+`DateValue`. The adapter between them is two small functions, and it belongs at your seam rather
+than in the library — which side of it your product lives on is a product decision.
+
+<ComponentPreview componentName="date-picker" fileName="example-iso-value" />
+
+Reading a string out is one line, because `onValueChange` hands you both representations. Going
+the other way — hydrating a **stored** string back into the picker — needs
+`parseDate` from `@internationalized/date`, which is a dependency of the library rather than
+something it re-exports, so a product doing that installs it directly. Wrap the parse in a
+`try`/`catch`: an unparseable stored value must leave the calendar empty rather than throw it, or
+one bad row in a table takes down the whole form.
 
 ## Anatomy
 

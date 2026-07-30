@@ -23,8 +23,10 @@ is why an icon or a button sitting next to the field reads as part of it rather 
 neighbour. `InputGroupInput` and `InputGroupTextarea` are the same `Input` / `Textarea` with
 their own chrome stripped off.
 
-This is the base the `Combobox`, `PasswordInput`, `DatePicker` and `TextField` controls are
-all built on.
+This is the base the `Combobox`, `PasswordInput` and `DatePicker` controls are all built on, and
+it is where an everyday field with an icon or a unit comes from: an `InputGroupAddon` on the
+edge you want. There is no separate `TextField` — an input with an adornment is this, and an
+input without one is plain [`Input`](/docs/forms/input).
 
 ## Anatomy
 

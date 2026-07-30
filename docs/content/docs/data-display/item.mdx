@@ -104,3 +104,16 @@ That trades the row for the clamp, which is the right trade for a title that is 
 `ItemGroup` renders a `role="list"` container; `ItemSeparator` wraps
 [Separator](/docs/layout/separator); `ItemDescription` renders a `<p>` and clamps at two lines
 (`line-clamp-none` to undo it). The remaining parts render a `div` and take that element's props.
+
+## An empty state
+
+A zero-state placeholder is a vertical `Item` — the same media · content · actions vocabulary,
+centred — not a component of its own. There is one shape in it worth copying rather than
+re-deriving: cap the description at `max-w-[420px]`, or the sentence stretches the full width of
+whatever table it is standing in for.
+
+<ComponentPreview componentName="item" fileName="example-empty" />
+
+Put the title in the surrounding document outline with `asChild`: an empty state inside a section
+under an `h2` is an `h3`. That is the detail a props-shaped component used to decide for you, and
+the reason it is better decided at the call site is that only the call site knows the outline.
