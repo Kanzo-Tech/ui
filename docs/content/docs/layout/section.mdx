@@ -35,26 +35,15 @@ Different axis, so they never compete. [`Shell`](/docs/layout/shell) positions t
 regions, asides, what scrolls. `Section` positions the **content inside** one of those regions,
 and nests within `ShellMain`.
 
-## One vocabulary where there were three
+## The one header vocabulary
 
-`PageShell`, `SectionHeader` and `TopBarMain` all described the same row — a heading with an
-optional icon, supporting text and end-aligned controls — under three sets of names.
-
-| Was | Now |
-|---|---|
-| `PageShell` | `SectionRoot` |
-| `PageShellHeader` / `SectionHeader` / `TopBarMain` | `SectionHeader` |
-| `PageShellTitle` / `SectionHeaderTitle` / `TopBarTitle` | `SectionTitle` |
-| `PageShellDescription` / `SectionHeaderDescription` / `TopBarSubtitle` | `SectionDescription` |
-| `PageShellActions` / `SectionHeaderActions` / `TopBarActions` | `SectionActions` |
-| `SectionHeaderContent` / `TopBarTitleGroup` | `SectionTitleGroup` |
-| `PageShellContent` | `SectionBody` |
+`Section` is where a heading with an optional icon, supporting text and end-aligned controls is
+described, once, for every screen that needs one.
 
 <Callout type="info">
-`CardHeader` and `DialogHeader` have this same shape and are **not** merged. A header wired to
-a machine belongs to that machine — `DialogHeader` wires Ark's `aria-labelledby`. The precedent
-that the line is right: `TourHeader` *is* `DialogHeader`. Sharing across machines is fine when
-the wiring is shared; merging layout with wiring is not.
+`CardHeader` and `DialogHeader` have this same shape and are **not** part of it — a header wired
+to a machine stays with its machine, and `DialogHeader` wires Ark's `aria-labelledby`. That is
+[the header rule](/docs/philosophy#the-header-rule).
 </Callout>
 
 ## Scale
@@ -83,10 +72,9 @@ because it is large.
 
 ## Layout
 
-`SectionHeader` is a flex row. `PageShellHeader` used a two-column grid so its actions could
-span both text rows; a flex row with `SectionTitleGroup` and `ms-auto` on the actions gets the
-same alignment, handles the optional icon the grid could not, and mirrors under RTL without a
-second code path.
+`SectionHeader` is a flex row, not a grid: `SectionTitleGroup` plus `ms-auto` on the actions
+aligns them without a second code path under RTL, and handles the optional icon a two-column grid
+could not.
 
 `SectionTitleGroup` carries `min-w-0`, which is what lets a long title truncate instead of
 pushing the actions off the row.

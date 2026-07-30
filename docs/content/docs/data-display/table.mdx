@@ -2,7 +2,7 @@
 title: Table
 description: The presentational table primitive — semantic elements, tokenised chrome, no data layer.
 links:
-  doc: https://ark-ui.com/docs/simples/factory
+  doc: https://ark-ui.com/docs/guides/composition
 ---
 
 <Callout type="info">
@@ -13,7 +13,7 @@ elements with tokenised chrome and no data layer. You bring the rows and render 
 dependency, so it lives on its own entry point (`@kanzo-tech/ui/table`) with the peer marked
 optional — importing it never affects consumers who only want the markup.
 
-This pair is a **rule, not a one-off** — see [the engine rule](/docs/philosophy). A component that
+This pair is a **rule, not a one-off** — see [the engine rule](/docs/philosophy#the-engine-rule). A component that
 needs an engine ships as two: the presentational half in the root barrel, the connected half on the
 engine's subpath, rendering the first. `StatTile` (a figure you pass) and
 `ChartStat` (a figure it queries, reacting to the crossfilter) are the same pair over Mosaic. It is
