@@ -1,128 +1,232 @@
 # Kanzo UI — conventions
 
-How to write code in this system. **`DESIGN.md` is the companion: what the system *is*** — the
-three axes, the layers, the admission rules, and why the layout layer looks the way it does.
-
-The design system separates **three concerns**. Every component follows the same recipe so the library stays consistent and re-themeable, and never drifts back into "scattered" ad-hoc styling.
-
-## The three layers
-
-The source is organised to match, one directory per layer:
-
-| Directory | What lives there |
-|---|---|
-| `src/simples/` | Single-purpose components — Button, Input, Dialog, Select. |
-| `src/composites/` | Assemblies of simples that still fit inside a page — SidebarUser, StatCard, Breadcrumbs. |
-| `src/layouts/` | Window scaffolding — the Shell regions. **Structure only, no appearance** (see `DESIGN.md`). |
-
-The public barrel is flat regardless (`import { Button, ShellRoot } from "@kanzo-tech/ui"`), so
-moving a component between layers is never a breaking change for consumers.
+How to write a file. `DESIGN.md` says what the system is and where a thing belongs; `decisions/`
+says why a rule holds and what would reverse it. Nothing here is restated there.
 
 ## The three concerns
 
-1. **Behaviour (headless)** — [Ark UI](https://ark-ui.com) (`@ark-ui/react`). State, accessibility (WAI-ARIA), keyboard, focus. Compound parts, `X.RootProvider` + `useX` hooks for controlled state, and the `ark.*` polymorphic factory with **`asChild`**. Composites with their own state (Sidebar) use our own React Context providers/hooks. **No appearance here.**
-2. **Appearance** — design tokens (`@kanzo-tech/theme/tokens.css`) + **`tailwind-variants`** recipes over token-backed Tailwind v4 utilities, compiled to `@kanzo-tech/ui/styles.css` (cascade layers). The look lives entirely here. **Nothing themeable is decided inside a component `.tsx` beyond picking recipe variants** — see "Themeable vs structural" below for where that line falls.
-3. **API** — a semantic vocabulary (`variant` / `size` / state / composition) that stays stable across upstream refactors. We use **`variant`**, matching Shark/shadcn and consumer expectation. (This document used to prescribe `intent`; no component ever exposed one.)
+1. **Behaviour (headless)** — [Ark UI](https://ark-ui.com). State, WAI-ARIA, keyboard, focus.
+   Compound parts, `X.RootProvider` + `useX` for controlled state, the `ark.*` polymorphic factory
+   with `asChild`. Composites with their own state use our own React context. **No appearance here.**
+2. **Appearance** — tokens (`@kanzo-tech/theme/tokens.css`) plus `tailwind-variants` recipes over
+   token-backed Tailwind v4 utilities, compiled to `@kanzo-tech/ui/styles.css`. **Nothing themeable
+   is decided inside a `.tsx` beyond picking recipe variants.**
+3. **API** — a semantic vocabulary (`variant` / `size` / state / composition) that survives upstream
+   refactors. `variant`, matching Shark and consumer expectation.
 
-**Compositions** (product-specific screens, domain UI) live in the *products*, never in the library. The library is **domain-free**: nothing about RDF / SHACL / fossil / graphs / auth.
+## The recipe
 
-## Writing a component (the recipe)
+`packages/ui/src/simples/button.tsx` is the reference implementation. Read it rather than a summary:
+a `tv()` recipe with semantic `variants` and `defaultVariants`, props extending
+`React.ComponentProps<typeof ark.button>` and `VariantProps<typeof …>`, and a plain function
+component that spreads the rest onto an `ark.*` element. Nobody has ever broken this shape, which is
+why it is a pointer and not a listing.
 
-```tsx
-"use client"; // only if this file uses hooks / listeners — see "Client boundary" below
+**React 19, not 18.** The peer is `>=19`, where `ref` is an ordinary prop. Use
+`React.ComponentProps<…>`, never `ComponentPropsWithoutRef` (it silently drops `ref`), and never
+`forwardRef` — it still works and it is redundant.
 
-import { ark } from "@ark-ui/react/factory";
-import { tv, type VariantProps } from "tailwind-variants";
-import { cn } from "../lib/cn.js";
+**`tailwind-variants` is imported directly**, not through a local shim. A `lib/tv.ts` re-export
+existed, was bypassed by most of its callers, and was deleted. If a shared `twMergeConfig` is ever
+needed, that is the moment to reintroduce one seam — with a lint rule to enforce it.
 
-export const fooVariants = tv({
-  base: "…token-backed utilities…",               // bg-primary text-primary-foreground rounded-md …
-  variants: { variant: { … }, size: { … } },      // semantic variants
-  defaultVariants: { variant: "default", size: "md" },
-});
-
-export interface FooProps
-  extends React.ComponentProps<typeof ark.button>,   // includes `ref` under React 19
-    VariantProps<typeof fooVariants> { /* our extras */ }
-
-export const Foo = (props: FooProps) => {
-  const { variant = "default", size = "md", className, ...rest } = props;
-  return (
-    <ark.button
-      className={cn(fooVariants({ variant, size }), className)}
-      data-slot="foo"
-      {...rest}
-    />
-  );
-};
-```
-
-Reference implementation: `packages/ui/src/simples/button.tsx` (lowercase).
-
-**React 19, not 18.** Our React peer is `>=19`, where `ref` is an ordinary prop. Use
-`React.ComponentProps<…>` (which includes `ref`) and a plain function component. Do **not** use
-`forwardRef` — it still works, but it is redundant — and never `ComponentPropsWithoutRef`, which
-silently drops `ref`.
-
-**`tailwind-variants` is imported directly**, not through a local shim. (There was a `lib/tv.ts`
-re-export that 21 of 24 callers bypassed; it has been deleted. If we ever need a shared
-`twMergeConfig`, that is the moment to reintroduce one seam — together with `lib/cn.ts` — and a
-lint rule to enforce it.)
-
-## Rules
+## Appearance
 
 - **Themeable vs structural.** The invariant is **re-themeability**, not class-name purity.
-  - **Themeable** — anything a token or a theme axis could change: colour (`bg-card`, `text-muted-foreground`, `border-border`), radius, typography, spacing scale, borders, shadows, animation. This **must** live in a `tv()` recipe, including when it is conditional. A ternary assembling `border-r border-border` in the function body is the same violation as an inline `style` — it just wears a different hat.
-  - **Structural** — pure box model that no theme touches: `flex`, `flex-col`, `min-w-0`, `shrink-0`, `absolute inset-0`, `overflow-hidden`. This may sit inline on the element. Wrapping it in a variant-less `tv()` is ceremony, not architecture — a `tv()` with a base and no variants is a string with extra steps.
-  - The test: *if a consumer re-skinned the library through tokens, would they expect this to change?* Yes → recipe. No → inline is fine.
-- **Never** use inline `style={}` for variant appearance. Colours/sizes/radii come from **tokens** via utilities (`bg-primary`, `text-muted-foreground`, `rounded-md`, `h-9`). One-off **computed** structural style (a width derived from a prop or from drag state) is fine; a hard-coded constant is not — `minWidth: 200` belongs in `min-w-[200px]`, where a class can still override it.
-- **Only token-backed utilities.** Use the semantic colour tokens (`background/foreground/card/popover/primary/secondary/muted/accent/destructive/border/input/field/ring` + `info/success/warning` + `sidebar-*` + `chart-*`), the `--radius`-driven `rounded-*` scale, and the Kanzo extras (`--kanzo-font-size-*`, `--kanzo-syntax-*`). No raw hex, no raw palette (`bg-slate-700`) in components.
-- **`border-input` outlines, `bg-field` fills.** They were one token, and WCAG 1.4.11 applies to only one of them: the outline is the visual boundary that identifies a control, a switch track or a progress trough is not. `border-input` is the outline; `bg-field` is the fill, and it is an **alpha step**, so it never carries a `/NN`. An opacity dilutes a solid toward transparent and lands wherever the thing underneath puts it; an alpha step is solved to composite onto its own solid.
-- **Focus rings** are `outline-none focus-visible:ring-[3px] focus-visible:ring-ring`, plus a `focus-visible:border-*` per variant. Shark writes `ring-ring/50` here; ours is **solid**, because the diluted form measured 1.29:1 on the page and 1.4.11 names a focus indicator first. A soft `--ring-soft` alpha token was tried for these 37 sites and dropped — an alpha step composites back to its own solid over step 1, so on a page it was the same colour as `ring-ring` while costing the accent hue `--ring` still carries.
-  - One sanctioned exception: **a colour that is data** — a chart series, a palette slot, a colour the user picked. Use `Swatch` / `SwatchGroup` where it is being depicted, and `ColorPicker` where it is being chosen; a raw `style` is correct in both, because no token can name a value that is not known until runtime.
-  - There used to be a second, `text-white` for text on a status fill, "because there is no on-fill status token". There is now: `text-destructive-content` and its three siblings. The exception is worth remembering as a lesson rather than a rule — while it stood, that white was measured at 2.13:1 on the warning fill and 3.81 on destructive, and nothing caught it, because an untokenised colour is a colour no test can measure. An exception to this rule is where a defect goes to hide.
-- **`-foreground` means two different things.** For neutral/brand families it is the text that sits on the fill. For the status families (`destructive`/`info`/`success`/`warning`) it is a readable-on-**background** variant of the same hue — Shark's convention, adopted verbatim. Do not "fix" it; it would fork us from upstream. `tokens.css` documents both.
-- **Theming = tokens only.** `KanzoThemeProvider` writes the axes as `data-*` attributes on `<html>`; that plus the host's `.dark` class and token overrides re-skin everything (e.g. `--radius: 0` = square borders by default) without touching components. The attributes must be on `<html>`, not a wrapper: Ark overlays portal to `document.body`, and density sets the root font-size the whole `rem` scale resolves against.
-- **Adopt, don't rebuild.** Prefer bringing a [Shark UI](https://shark.vini.one) / Ark component (Splitter, TreeView, Steps, Command, Sidebar, Autocomplete…) and rebranding it to our tokens over hand-rolling. The only bespoke code is the CodeMirror editors (`CodeEditor`/`GhostEditor`), which Ark/Shark do not cover.
-- **Accessibility.** Two clauses, because "accessibility comes from Ark" is not true of this codebase — Ark ships no sidebar, status bar, toolbar, field array or app shell.
-  - **Where Ark ships an equivalent, use it.** Never hand-roll focus, keyboard or ARIA it already provides; check `@ark-ui/react/dist/components/` before writing a state machine.
-  - **Where Ark has none**, the bespoke part must **document its ARIA contract in a comment** and be **covered by a test** — and must never declare a composite role (`toolbar`, `listbox`, `tree`, `grid`, `tablist`) without implementing that role's keyboard contract. A `role="toolbar"` whose items are each independently tabbable, with no arrow-key roving, is worse than no role at all: it promises assistive tech a navigation model that isn't there.
-- **`ark.*` on every part that renders a DOM element** — simples, composites *and* layouts, with no exemption. `<ark.div>` renders a `div` and forwards everything, so it costs nothing at runtime; what it adds is **`asChild`**, universally. This rule used to be implied by the recipe and observed only in `simples/`, which let `Toolbar` ship a doc comment promising `asChild` support it did not have. Type props as `React.ComponentProps<typeof ark.div>`, never as `ComponentProps<"div">`.
-- **`data-slot` on every targetable part.** Every element a consumer might style or query carries `data-slot="<component>-<part>"`. It is not decoration: our own recipes depend on it (`in-[[data-slot=popover-content]:has([data-slot=popover-body])]:pb-3`), and it is the escape hatch consumers get instead of class-name guessing.
-- **Exactly one `<main>` per page.** `ShellMain` / `SidebarInset` own it. Every nestable container (`PageShell`) uses `<section>` — two `<main>` elements are an HTML conformance error and make "skip to main content" ambiguous.
-- **File naming: kebab-case** (`alert-dialog.tsx`, `scroll-area.tsx`), matching Shark. Some older files are PascalCase; new files are kebab-case and the rest converge over time. Never rely on case-insensitive resolution — CI is case-sensitive even though macOS is not.
-- **Export naming: flat, never dot-notation.** Ark publishes namespaced parts (`Accordion.Root`,
-  `Dialog.Trigger`); we flatten them the way Shark does, so the barrel stays flat and a part is
-  greppable by its full name. The root part is named by what it wraps:
+  - **Themeable** — anything a token or a theme axis could change: colour, radius, typography,
+    spacing scale, borders, shadows, animation. This **must** live in a `tv()` recipe, *including
+    when it is conditional*. A ternary assembling `border-e border-border` in the function body is
+    the same violation as an inline `style`; it just wears a different hat.
+  - **Structural** — pure box model no theme touches: `flex`, `min-w-0`, `shrink-0`, `absolute
+    inset-0`, `overflow-hidden`. Inline is fine. A variant-less `tv()` is a string with extra steps.
+  - The test: *if a consumer re-skinned the library through tokens, would they expect this to
+    change?* Yes → recipe. No → inline.
+- **Never** inline `style={}` for variant appearance. A one-off **computed** structural style (a
+  width derived from drag state) is fine; a hard-coded constant is not — `minWidth: 200` belongs in
+  `min-w-[200px]`, where a class can still override it.
+- **Only token-backed utilities.** The semantic families
+  (`background`/`foreground`/`card`/`popover`/`primary`/`secondary`/`muted`/`accent`/`destructive`/
+  `border`/`input`/`field`/`ring`, plus `info`/`success`/`warning`, `sidebar-*` and `chart-*`), the
+  `--radius`-driven `rounded-*` scale, and the Kanzo extras (`--kanzo-font-size-*`,
+  `--kanzo-syntax-*`). No raw hex, no raw palette (`bg-slate-700`). Enforced by
+  `packages/ui/src/no-literal-hues.test.ts`, which bans **chromatic** literals only — an achromatic
+  one belongs to nobody's palette.
+- **A percentage is not an alpha step, and `alpha-steps.test.ts` bans seven spellings.** An opacity
+  dilutes a solid *toward transparent* and lands wherever the thing underneath puts it; and it lands
+  on a different step in each mode, because the dark ramp is deliberately fatter at the bottom. An
+  alpha step is solved to composite onto its own solid. The seven, with what replaces each:
+
+  | Banned | Use |
+  |---|---|
+  | `bg-input/NN` | solid `bg-input` — `--input` is boundary contrast, and diluting it made it a surface |
+  | `ring-ring/NN`, `ring-sidebar-ring/NN` | solid `ring-ring` |
+  | `bg-field/NN` and every other `*-field/NN` | solid `bg-field` |
+  | `bg-destructive/NN`, and `warning`/`success`/`info`, under 50 % | `--X-wash`, `--X-wash-strong` |
+  | `border-destructive/NN`, and its three siblings | `--X-border` |
+  | `bg-accent/NN` | `--secondary-wash`, `--accent-wash` |
+  | `text-muted-foreground/NN` | `--faint` |
+
+  `--muted` is deliberately *not* banned: its remaining dilutions are surfaces, and banning a
+  spelling before its replacement exists only moves the problem into a `className` override.
+- **`border-input` outlines, `bg-field` fills.** They were one token, and WCAG 1.4.11 applies to
+  only one of them: the outline is the visual boundary that identifies a control; a switch track or
+  a progress trough is not. The split is by the contrast a site **owes**, not by the CSS property it
+  uses — so solid `bg-input` is legal where the site owes boundary contrast.
+- **Focus rings are solid**: `outline-none focus-visible:ring-[3px] focus-visible:ring-ring`, plus a
+  `focus-visible:border-*` per variant. Shark writes a diluted ring; ours diverges on a measurement,
+  which is the bar `decisions/match-the-reference.md` sets for diverging at all.
+- **One sanctioned exception to the token rule: a colour that is data** — a chart series, a palette
+  slot, a colour the user picked. `Swatch` / `SwatchGroup` where it is depicted, `ColorPicker` where
+  it is chosen, and a raw `style` in both, because no token can name a value unknown until runtime.
+  There used to be a second, `text-white` on a status fill; `text-destructive-content` and its three
+  siblings now exist. Worth remembering as a lesson: while that exception stood, the white it
+  sanctioned was failing AA on two fills and nothing caught it, because **an untokenised colour is a
+  colour no test can measure. An exception to this rule is where a defect goes to hide.**
+- **`-foreground` means two different things.** For neutral and brand families it is the ink on the
+  fill. For the status families it is a readable-on-**background** variant of the same hue — Shark's
+  convention, adopted verbatim. Do not "fix" it; it was renamed once and fully reverted.
+  `tokens.css` documents both.
+
+## Structure and props
+
+- **`ark.*` on every part that renders a DOM element** — simples, composites *and* layouts, with no
+  exemption. `<ark.div>` renders a `div` and forwards everything, so it costs nothing at runtime;
+  what it adds is `asChild`, universally. Type props as `React.ComponentProps<typeof ark.div>`,
+  never `ComponentProps<"div">`. A component that promises `asChild` in a doc comment without
+  `ark.*` is promising something it does not have.
+- **`data-slot` on every targetable part**, spelled `<component>-<part>`. It is not decoration: our
+  own recipes depend on it — `in-[[data-slot=popover-content]:has([data-slot=popover-body])]:pb-3` —
+  and it is the escape hatch consumers get instead of guessing class names. **A wrapper must not
+  pass a `data-slot` down into another component.** It arrives in that component's rest spread and
+  erases the slot the component writes for itself, which silently breaks every recipe selecting it.
+- **A layout tree is children, never an attribute.** If a prop's value is markup, it is children. A
+  record or array of `ReactNode`s is a layout tree written as an attribute: the caller cannot
+  reorder the regions, wrap one, spread `className` / `data-*` / `aria-*` / a handler onto one, or
+  use `asChild` on one. `CardHeader`, not `<Card header={…} />`.
+  - **The line is what the value *is*, not whether it is an array.** A collection a machine
+    navigates is data and belongs in a prop — Ark's `createListCollection` cannot be built from
+    children, so `FacetFilter`'s `items`, `Tour`'s `steps` and a faceted column's values are
+    correct. Numbers, ids and strings are data. **`ReactNode` in the field type is the tell**, and a
+    `separatorBefore: boolean` is the confession: a separator between children, in a shape that has
+    no children to put one between.
+  - When you want the ergonomics of a list, take a **render prop**:
+    `packages/ui/src/simples/FieldArray.tsx`'s `children: (index) => ReactNode` keeps composition and
+    still owns the loop.
+  - A convenience that flattens a compound into an array is rung 1 of the ladder wearing rung 5's
+    clothes. It goes in `docs/examples/`, where it is a demonstration rather than an API.
+- **Accessibility, two clauses**, because "accessibility comes from Ark" is not true of this
+  codebase: Ark ships no sidebar, app shell, field array or facet filter, and our chart, table and
+  editor layers are ours.
+  - **Where Ark ships an equivalent, use it.** Never hand-roll focus, keyboard or ARIA it already
+    provides. Check `@ark-ui/react/dist/components/` — resolvable from `packages/ui`, not from the
+    repository root — before writing a state machine.
+  - **Where Ark has none**, the bespoke part documents its ARIA contract in a comment and is covered
+    by a test, and **never declares a composite role** (`toolbar`, `listbox`, `tree`, `grid`,
+    `tablist`) without implementing that role's keyboard contract. A `role="toolbar"` whose items are
+    each independently tabbable, with no roving focus, is worse than no role at all: it promises
+    assistive tech a navigation model that is not there.
+
+## Naming
+
+- **Files: kebab-case**, matching Shark. Some older files are PascalCase. Never rely on
+  case-insensitive resolution — CI is case-sensitive even though macOS is not, and the repository
+  already carries one case-colliding pair.
+- **Exports: flat, never dot-notation.** Ark publishes namespaced parts; we flatten them the way
+  Shark does, so the barrel stays flat and a part is greppable by its full name.
   - **Wrapping an Ark machine → the bare name.** `Accordion`, `Field`, `Pagination`, `Table`,
-    `InputGroup` — the machine *is* the component, so `AccordionRoot` would only add noise. Parts
-    are base + part: `AccordionItem`, `FieldLabel`, `PaginationItem`.
-  - **Our own compound → `*Root`.** `ShellRoot`, `SectionRoot`, `CompleteRoot`, `SuggestRoot`,
-    `ChartRoot`, `DataTableRoot` — the bare name would name a *concept* rather than an element,
-    and several of them have no single machine behind them.
-  A component may only export dot-notation if it also exports the flat names; no component does
-  today, and adding one would make the library speak two dialects.
+    `InputGroup`. Parts are base plus part: `AccordionItem`, `FieldLabel`.
+  - **Our own compound → `*Root`.** `ShellRoot`, `SectionRoot`, `CompleteRoot`, `ChartRoot` — the
+    bare name would name a *concept* rather than an element.
+  - A dot-notation namespace is allowed only beside the flat names, and the reason to avoid it is
+    stronger than two dialects: **an `Object.assign` namespace does not survive the RSC client
+    boundary.** `Preferences` learned that the hard way and re-exported its statics flat.
 
 ## Client boundary
 
-The library is consumed by RSC hosts, so this is load-bearing, not hygiene.
+Consumed by RSC hosts, so this is load-bearing, not hygiene.
 
-- A file gets `"use client"` **iff** it calls a React hook, registers an event listener, or imports a module that does.
-- Hook-free presentational components must **not** have it, so they stay server-renderable.
-- The build must preserve the directives: `preserveModules` + `rollup-plugin-preserve-directives`. Rollup strips them when it merges modules, and that failure is invisible to any Vite-based harness, because Vite ignores `"use client"` entirely. `pnpm smoke` and the `docs/` App Router build are what catch it.
-- Components that need an **optional peer** (`@codemirror/*`, `@tanstack/react-table`) never go in the root barrel: they live on their own subpath (`/editor`, `/table`). A static import of an optional peer from the root entry breaks `import { Button }` for everyone who did not install it.
+- A file gets `"use client"` **iff** it calls a hook, registers a listener, or imports a module that
+  does. Hook-free presentational components must not have it, so they stay server-renderable.
+- The build must preserve the directives: `preserveModules` plus
+  `rollup-plugin-preserve-directives`. Rollup strips them when it merges modules, and that failure
+  is invisible to any Vite-based harness, because Vite ignores `"use client"` entirely. `pnpm smoke`
+  and the docs App Router build are what catch it.
+- **A module that needs an optional peer never goes in the root barrel.** `/editor`, `/table`,
+  `/analytics`. A static import of an optional peer from the root entry breaks `import { Button }`
+  for everyone who did not install it.
+
+## Comments
+
+A comment is code that cannot be tested, so it decays silently. Write one only when the code cannot
+carry the fact. **Four are required; everything else is absent by default.**
+
+1. **A measurement.** A contrast ratio, a ΔE, a byte count, a timing. Cite the number and what it
+   was measured against.
+2. **A decision a naive reader would undo.** The reason, not the history. The test: *if this line
+   were deleted, would the next reader change the code back?*
+3. **An ARIA contract**, on every bespoke part where Ark ships no equivalent. Name the roles, the
+   keys, and what is announced.
+4. **A constraint invisible in the code** — that Tailwind scans comments, so a retired class cannot
+   be quoted; that a hoisted object exists because a hook memoises on identity.
+
+**Do not write** what the code says; a `@param` or `@returns` restating a type (we use prose JSDoc,
+with `@default`, `@link` and `@example` as the only tags); an empty banner; commented-out code
+(there is none — keep it that way); or any legacy, migration or back-compat note, because nothing is
+published and such a comment explains code that should not exist.
+
+**Four rules that keep a required comment true.** This repository's comment problem is not ceremony
+— one restating comment in the whole tree, zero commented-out code — it is duplication and
+staleness: one paragraph written out nine times, three copies of which went stale independently.
+
+- **Write one copy.** State a fact where it is enforced, beside the code or the test that would
+  fail, and point at it from everywhere else. A fact in two places goes stale in one.
+- **Date a measurement of something generated.** A ratio read off `tokens.css` is a claim about a
+  build artefact and the next `pnpm check:generated` can falsify it. Write *"measured 2026-07"*, not
+  *"today's border ships"*. A count of call sites rots the same way — prefer a test that counts.
+- **Cite a symbol, never a line.** A line reference moves silently; several in this repository did.
+- **Attach the comment to the thing.** A `/** */` followed by a blank line documents nothing, and no
+  editor will show it.
+
+Keep a "used to be X" only when it names the mistake it prevents, and say which mistake. A record of
+a closed decision belongs in `decisions/`, not beside the code.
 
 ## Testing
 
-`pnpm test` runs vitest with a jsdom environment. The minimum bar for a component is a test
-that renders it and asserts the behaviour its recipe depends on. Guard rails that must not
-regress — the public export surface, the client boundary, optional-peer isolation — belong in
-`packages/ui/src/index.test.ts` and `pnpm smoke`.
+`pnpm test` runs vitest under jsdom. The minimum bar for a component is a test that renders it and
+asserts the behaviour its recipe depends on. Two conventions beyond that:
+
+- **A test is a specification.** `describe("the control fill is an alpha step, not an opacity")`,
+  `it("keeps @kanzo-tech/palette out of dependencies")`. Name the claim, not the function.
+- **A deleted component gets a tombstone assertion** in `packages/ui/src/index.test.ts`, with the
+  reason it went. That is what stops it being rebuilt.
+
+**Five repo-wide guard tests.** Each carries its own reasoning; the document carries the pointer and
+never a summary, which is the arrangement that keeps both honest.
+
+| Guard | Enforces |
+|---|---|
+| `packages/ui/src/index.test.ts` | the pinned public surface, the tombstones, optional-peer isolation |
+| `packages/ui/src/alpha-steps.test.ts` | the seven banned token spellings above |
+| `packages/ui/src/no-literal-hues.test.ts` | no chromatic literal in the source |
+| `packages/ui/src/logical-properties.test.ts` | no physical direction utility in the three layers, outside a reviewed allowlist with a reason per entry |
+| `packages/theme/src/boundary.test.ts` | the palette stays a devDependency, and `CHART_SLOTS` answers to the sheet |
+
+**Logical properties, never physical** — `border-e` / `border-s`, `side="start" | "end"`. One code
+path mirrors correctly under RTL. The test is the rule; if you need an exception, add it to that
+file's allowlist with the reason it does not depend on reading direction.
+
+**When a mistake recurs, write the test, not the paragraph.** See
+`decisions/a-rule-broken-three-times-becomes-a-test.md`.
 
 ## Distribution
 
-- `@kanzo-tech/palette` — the colour derivation: ramps, the categorical search, the role table, `compile`. **Authoring-time only** — a tenant document is derived once at onboarding (the categorical search alone costs 0.2–7.4 s) and the runtime does nothing but apply it. It is a separate package so that promise is structural: out of the browser's dependency graph the search *cannot* be imported, rather than merely should not.
-- `@kanzo-tech/theme` — tokens (`tokens.css`, `themes.css`), the axis table (`AXES`, `DEFAULT_PREFS`) and the value types. **No React, no components, no colour maths.** Depends on `@kanzo-tech/palette` as a **devDependency** — the generator and the tests derive with it, a browser never does, and `packages/theme/src/boundary.test.ts` fails if that moves.
-- The theming runtime lives in `@kanzo-tech/ui`: `KanzoThemeProvider` (the single provider), `useKanzoTheme`, `themeScript` for SSR, `cookieStorageAdapter`, and the `Preferences` panel.
-- `@kanzo-tech/ui` — components (JS, tree-shakeable) + `styles.css` (compiled, cascade-layered) + `/editor` subpath (CodeMirror, brand-agnostic). Consumers import `@kanzo-tech/ui/styles.css` once.
-- Semver via changesets.
+- `@kanzo-tech/palette` — the derivation: ramps, the categorical search, the role table, `compile`.
+  **Authoring-time only**, and structurally so: see `decisions/palette-is-authoring-time.md`.
+- `@kanzo-tech/theme` — `tokens.css`, `themes.css`, the axis table (`AXES`, `DEFAULT_PREFS`) and the
+  value types. **No React, no components, no colour maths.**
+- `@kanzo-tech/ui` — the components, `styles.css` (compiled, cascade-layered), and the three
+  optional-peer subpaths. The theming runtime lives here: `KanzoThemeProvider`, `useKanzoTheme`,
+  `themeScript`, `cookieStorageAdapter`, `Preferences`. Consumers import `styles.css` once.
+- Semver via changesets. **A changeset says what a consumer must do differently**, and its bump
+  matches the commit subject's own claim: a `!` in the subject is a `major`. The reason a decision
+  was taken goes in `decisions/`, not in the changeset.
