@@ -2,11 +2,12 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MEMBERS, member } from "./people";
-import { QUESTS, overdueQuests, quest } from "./quests";
+import { QUESTS, daysOverdue, overdueQuests, partyOf, quest } from "./quests";
 import { ROSTER, availableNow, rosterEntry, rosterOf } from "./roster";
 import { RULES_SOURCE, breaches } from "./rules";
 import { BEAST_DOMAIN, VERDICTS, sightingRows } from "./sightings";
-import { BEASTS, HALLS, QUEST_STATUSES, REGIONS, TODAY } from "./world";
+import { BEASTS, BEAST_KINDS, HALLS, QUEST_STATUSES, REGIONS, TODAY } from "./world";
+import { BESTIARY, flattenBestiary } from "./bestiary";
 
 // What this guards is not "the data exists" — the docs build proves that by importing it. It is
 // the two things a build cannot see: that the fixture still matches the prose written about it,
@@ -189,6 +190,29 @@ describe("the claims the docs make about the world", () => {
     expect(found.some((b) => b.quest.title === "A basilisk, and it knows the route")).toBe(true);
     // Every breach names a rule that exists in the source the editor opens.
     for (const breach of found) expect(RULES_SOURCE).toContain(`rule "${breach.rule}"`);
+  });
+
+  it("still has the basilisk contract six days overdue, as four pages say", () => {
+    // The number is quoted in prose. Deriving it here means a fixture edit breaks the test rather
+    // than quietly making four examples wrong.
+    const cited = QUESTS.find((q) => q.title === "A basilisk, and it knows the route");
+    expect(daysOverdue(cited!)).toBe(6);
+    expect(partyOf(cited!).map((m) => m.name)).toEqual(["Dagfinn Roe", "Solveig Marsh"]);
+  });
+
+  it("classes each beast the same way the bestiary tree does", () => {
+    // Two places say what a basilisk is: `BEASTS[n].kind` and the branch it hangs from in the
+    // tree. They were transcribed by hand once and would drift the moment either moved.
+    const branchOf = new Map<string, string>();
+    for (const branch of BESTIARY) {
+      for (const node of flattenBestiary(branch.children ?? [])) {
+        if (node.beast) branchOf.set(node.beast, branch.label);
+      }
+    }
+    for (const entry of BEASTS) {
+      expect(branchOf.get(entry.id), entry.id).toBe(entry.kind);
+    }
+    expect(BEAST_KINDS.length).toBe(3);
   });
 
   it("resolves a quest by id", () => {

@@ -297,19 +297,31 @@ export type Grade = (typeof GRADES)[number]["value"];
  * Eight is the number of categorical slots the palette checks actually validate, so a chart that
  * colours by beast is the one place in the docs where the data's cardinality and the scheme's
  * capacity are the same number by design rather than by luck.
+ *
+ * `kind` is here rather than only in the `BESTIARY` tree because grouping by class is the most
+ * natural short grouping demo in the corpus, and reaching it through the tree meant two examples
+ * transcribed the classes by hand. A test keeps the two agreeing.
  */
 export const BEASTS = [
-  { id: "wyrm", label: "Wyrm", habit: "Under granaries, following the warmth" },
-  { id: "basilisk", label: "Basilisk", habit: "Quarries and cut stone" },
-  { id: "grimalkin", label: "Grimalkin", habit: "Roofs, and only at the turn of the season" },
-  { id: "boghound", label: "Bog-hound", habit: "Wet ground, in threes" },
-  { id: "harpy", label: "Harpy", habit: "Cliffs above a road" },
-  { id: "revenant", label: "Revenant", habit: "Where a ward was allowed to go out" },
-  { id: "mimic", label: "Mimic", habit: "Anywhere with a door and a lock" },
-  { id: "stoneback", label: "Stoneback", habit: "River fords, mistaken for the ford" },
+  { id: "wyrm", label: "Wyrm", kind: "Cold-blooded", habit: "Under granaries, following the warmth" },
+  { id: "basilisk", label: "Basilisk", kind: "Cold-blooded", habit: "Quarries and cut stone" },
+  { id: "grimalkin", label: "Grimalkin", kind: "Warm-blooded", habit: "Roofs, and only at the turn of the season" },
+  { id: "boghound", label: "Bog-hound", kind: "Warm-blooded", habit: "Wet ground, in threes" },
+  { id: "harpy", label: "Harpy", kind: "Warm-blooded", habit: "Cliffs above a road" },
+  { id: "revenant", label: "Revenant", kind: "Unclassed", habit: "Where a ward was allowed to go out" },
+  { id: "mimic", label: "Mimic", kind: "Unclassed", habit: "Anywhere with a door and a lock" },
+  { id: "stoneback", label: "Stoneback", kind: "Cold-blooded", habit: "River fords, mistaken for the ford" },
 ] as const;
 
 export type BeastId = (typeof BEASTS)[number]["id"];
+export type BeastKind = (typeof BEASTS)[number]["kind"];
+
+/** The three classes, in `BEASTS` order — a grouping demo's outer loop. */
+export const BEAST_KINDS = [...new Set(BEASTS.map((entry) => entry.kind))];
+
+export function beastsOfKind(kind: BeastKind) {
+  return BEASTS.filter((entry) => entry.kind === kind);
+}
 
 export function beast(id: BeastId) {
   const found = BEASTS.find((candidate) => candidate.id === id);

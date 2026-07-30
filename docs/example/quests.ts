@@ -13,7 +13,7 @@
 // enough that pagination is doing something and few enough that the last page is not a stub.
 
 import { rng } from "@/lib/rng";
-import { membersOf, MEMBERS, type Member, type MemberId } from "./people";
+import { member, membersOf, MEMBERS, type Member, type MemberId } from "./people";
 import {
   type BeastId,
   type Grade,
@@ -354,6 +354,36 @@ export function quest(id: string): Quest {
   return found;
 }
 
+function byTitle(title: string): Quest {
+  const found = QUESTS.find((candidate) => candidate.title === title);
+  if (!found) throw new Error(`No contract titled: ${title}`);
+  return found;
+}
+
+/**
+ * The contracts the documentation points at by name.
+ *
+ * Ids are positional — `Q-${1041 + index}` — so an example that hard-codes `"Q-1058"` is really
+ * saying "the eighteenth spec", and inserting a contract above it silently re-points the sentence
+ * at a different one. These are resolved by title, which is authored and stable, so a reorder
+ * either keeps working or throws at import.
+ *
+ * Use these anywhere prose and fixture have to agree.
+ */
+export const FEATURED = {
+  /** Q-1041, the first row on the board: open, claimable, grade 2. */
+  open: byTitle("Something is eating the bell-ropes"),
+  /** The one everything wrong points at: grade 5, six days overdue, two people, no cantor. */
+  overdue: byTitle("A basilisk, and it knows the route"),
+  /** Its opposite: the same grade, staffed properly, borrowed across four halls. */
+  writ: byTitle("The quarry has opened onto something"),
+  /** A failure, and the re-posting that followed it. */
+  failed: byTitle("Map the drowned lane"),
+  reposted: byTitle("Second attempt: the drowned lane"),
+  /** Signed, not yet left. */
+  claimed: byTitle("The children say the well talks"),
+} as const;
+
 /** The board as a hall sees it — every screen that opens on one hall starts here. */
 export function questsOf(hall: HallId): Quest[] {
   return QUESTS.filter((candidate) => candidate.hall === hall);
@@ -363,11 +393,40 @@ export function openQuests(): Quest[] {
   return QUESTS.filter((candidate) => candidate.status === "open");
 }
 
+/**
+ * Out, and past the date it was due back.
+ *
+ * A predicate rather than only a filtered list, because an example filtering a *subset* of the
+ * board cannot reuse `overdueQuests()` and was restating `dueDayOffset < 0` inline instead.
+ */
+export function isOverdue(candidate: Quest): boolean {
+  return candidate.status === "afield" && candidate.dueDayOffset < 0;
+}
+
 /** Afield and past its due date — the row an alert, a toast or a warning cell points at. */
 export function overdueQuests(): Quest[] {
-  return QUESTS.filter(
-    (candidate) => candidate.status === "afield" && candidate.dueDayOffset < 0,
-  );
+  return QUESTS.filter(isOverdue);
+}
+
+/** `Q-1041 · Something is eating the bell-ropes` — the one-line form, assembled once. */
+export function questLabel(candidate: Quest): string {
+  return `${candidate.id} · ${candidate.title}`;
+}
+
+/** The party, resolved. Saves every caller mapping ids through `member()` to print a name. */
+export function partyOf(candidate: Quest): Member[] {
+  return candidate.party.map((id) => member(id));
+}
+
+/**
+ * Days past due, or 0 if it is not.
+ *
+ * Exists because "six days overdue" was hand-written in four examples. It is only
+ * `-dueDayOffset`, but a number typed into prose is exactly the drift `TODAY` was introduced to
+ * prevent: change one contract's date and four pages start lying.
+ */
+export function daysOverdue(candidate: Quest): number {
+  return Math.max(0, -candidate.dueDayOffset);
 }
 
 export function postedOn(candidate: Quest): string {

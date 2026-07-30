@@ -9,23 +9,19 @@ import {
   ListboxItemIndicator,
   ListboxItemText,
 } from "@kanzo-tech/ui";
+import { BEASTS } from "@/example/world";
 
-const formats = createListCollection({
-  items: [
-    { label: "Turtle", value: "ttl", family: "Triples" },
-    { label: "N-Triples", value: "nt", family: "Triples" },
-    { label: "TriG", value: "trig", family: "Quads" },
-    { label: "N-Quads", value: "nq", family: "Quads" },
-  ],
-  groupBy: (item) => item.family,
+const beasts = createListCollection({
+  items: BEASTS.map((beast) => ({ label: beast.label, value: beast.id, kind: beast.kind })),
+  groupBy: (item) => item.kind,
 });
 
 export default function Example() {
   return (
-    <Listbox className="w-56" collection={formats}>
+    <Listbox className="w-56" collection={beasts}>
       <ListboxContent>
-        {formats.group().map(([family, items]) => (
-          <ListboxItemGroup heading={family} key={family}>
+        {beasts.group().map(([kind, items]) => (
+          <ListboxItemGroup heading={kind} key={kind}>
             {items.map((item) => (
               <ListboxItem item={item} key={item.value}>
                 <ListboxItemText>{item.label}</ListboxItemText>

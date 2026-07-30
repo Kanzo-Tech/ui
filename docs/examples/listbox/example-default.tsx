@@ -1,5 +1,6 @@
 "use client";
 
+import { ROLES } from "@/example/world";
 import {
   createListCollection,
   Listbox,
@@ -10,21 +11,16 @@ import {
   ListboxLabel,
 } from "@kanzo-tech/ui";
 
-const formats = createListCollection({
-  items: [
-    { label: "Turtle", value: "ttl" },
-    { label: "N-Triples", value: "nt" },
-    { label: "TriG", value: "trig" },
-    { label: "N-Quads", value: "nq" },
-  ],
+const roles = createListCollection({
+  items: ROLES.map((role) => ({ label: role.label, value: role.id })),
 });
 
 export default function Example() {
   return (
-    <Listbox className="w-56" collection={formats} defaultValue={["ttl"]}>
-      <ListboxLabel>Serialisation</ListboxLabel>
+    <Listbox className="w-56" collection={roles} defaultValue={["warden"]}>
+      <ListboxLabel>Duty on this contract</ListboxLabel>
       <ListboxContent>
-        {formats.items.map((item) => (
+        {roles.items.map((item) => (
           <ListboxItem item={item} key={item.value}>
             <ListboxItemText>{item.label}</ListboxItemText>
             <ListboxItemIndicator />

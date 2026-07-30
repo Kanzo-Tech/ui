@@ -6,12 +6,19 @@
 
 import { HALLS, type HallId, QUEST_STATUSES, REGIONS } from "./world";
 
+/** A leaf always navigates. Typed apart so a consumer never has to write `child.href ?? "#"`. */
+export interface NavLeaf {
+  title: string;
+  href: string;
+  /** Lucide icon *name*, resolved at the call site. */
+  icon?: string;
+}
+
 export interface NavItem {
   title: string;
   href?: string;
-  /** Lucide icon *name*, resolved at the call site. */
   icon?: string;
-  items?: NavItem[];
+  items?: NavLeaf[];
 }
 
 export const NAV: NavItem[] = [
@@ -48,7 +55,7 @@ export const INSTANCES = HALLS.map((entry) => ({
 }));
 
 export interface Command {
-  id: string;
+  value: string;
   label: string;
   group: string;
   /** Lucide icon name. */
@@ -57,14 +64,14 @@ export interface Command {
 }
 
 export const COMMANDS: Command[] = [
-  { id: "post", label: "Post a contract", group: "Board", icon: "Plus", shortcut: "⌘N" },
-  { id: "claim", label: "Claim a contract", group: "Board", icon: "Hand" },
-  { id: "overdue", label: "Show overdue contracts", group: "Board", icon: "Clock" },
-  { id: "roster", label: "Find a member", group: "Roster", icon: "Search", shortcut: "⌘K" },
-  { id: "available", label: "Who is ready today", group: "Roster", icon: "UserCheck" },
-  { id: "bestiary", label: "Open the bestiary", group: "Reference", icon: "BookOpen" },
-  { id: "rules", label: "Edit the party rules", group: "Reference", icon: "FileCode" },
-  { id: "heraldry", label: "Change the hall's colours", group: "Hall", icon: "Palette" },
+  { value: "post", label: "Post a contract", group: "Board", icon: "Plus", shortcut: "⌘N" },
+  { value: "claim", label: "Claim a contract", group: "Board", icon: "Hand" },
+  { value: "overdue", label: "Show overdue contracts", group: "Board", icon: "Clock" },
+  { value: "roster", label: "Find a member", group: "Roster", icon: "Search", shortcut: "⌘K" },
+  { value: "available", label: "Who is ready today", group: "Roster", icon: "UserCheck" },
+  { value: "bestiary", label: "Open the bestiary", group: "Reference", icon: "BookOpen" },
+  { value: "rules", label: "Edit the party rules", group: "Reference", icon: "FileCode" },
+  { value: "heraldry", label: "Change the hall's colours", group: "Hall", icon: "Palette" },
 ];
 
 /** Filter chips / segmented controls that recur: the board's own two axes. */

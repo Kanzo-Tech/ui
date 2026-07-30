@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AVAILABILITY } from "@/example/world";
 import {
   Badge,
   createListCollection,
@@ -13,29 +14,24 @@ import {
   Show,
 } from "@kanzo-tech/ui";
 
-const providers = createListCollection({
-  items: [
-    { label: "AEMET", value: "aemet" },
-    { label: "Copernicus", value: "copernicus" },
-    { label: "NOAA", value: "noaa" },
-    { label: "ECMWF", value: "ecmwf" },
-  ],
+const availability = createListCollection({
+  items: AVAILABILITY.map((state) => ({ label: state.label, value: state.id })),
 });
 
 export default function Example() {
-  const [value, setValue] = useState<string[]>(["aemet", "noaa"]);
+  const [value, setValue] = useState<string[]>(["ready", "resting"]);
 
   return (
     <div className="flex w-56 flex-col gap-3">
       <Listbox
-        collection={providers}
+        collection={availability}
         onValueChange={(details) => setValue(details.value)}
         selectionMode="multiple"
         value={value}
       >
-        <ListboxLabel>Providers</ListboxLabel>
+        <ListboxLabel>Availability</ListboxLabel>
         <ListboxContent>
-          {providers.items.map((item) => (
+          {availability.items.map((item) => (
             <ListboxItem item={item} key={item.value}>
               <ListboxItemText>{item.label}</ListboxItemText>
               <ListboxItemIndicator />
