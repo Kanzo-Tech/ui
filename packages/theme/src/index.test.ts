@@ -8,8 +8,8 @@ const read = (f: string) => readFileSync(resolve(pkgDir, f), "utf8");
 
 describe("@kanzo-tech/theme", () => {
   it("exports the generated theme tables from the JS entry", () => {
-    // Not via the raw `.json` subpath: that is an ESM JSON import at runtime, which Node
-    // rejects without `with { type: "json" }` — an attribute Rollup strips when bundling.
+    // Not via the raw `.json` subpath — see `themeData` in `./index` for why that cannot be made
+    // to survive a build.
     expect(Object.keys(themeData.radii).length).toBeGreaterThan(0);
     expect(Object.keys(themeData.densities).length).toBeGreaterThan(0);
   });

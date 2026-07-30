@@ -12,9 +12,10 @@ const read = (f: string) => readFileSync(resolve(pkgDir, f), "utf8");
  * The one structural promise this package makes: **derivation is not on the runtime path.**
  *
  * A tenant document is derived and measured once, at onboarding — the categorical search alone
- * costs 0.2–7.4 s. The runtime only applies a stored document. That is a promise anyone can break
- * by accident, so it is not left to a reviewer to remember: `@kanzo-tech/palette` is a
- * devDependency, and a `dependencies` entry appearing later fails here.
+ * costs seconds, measured at `WHEEL_SPOKES` in `@kanzo-tech/palette`'s `derive-palette.ts`. The
+ * runtime only applies a stored document. That is a promise anyone can break by accident, so it is
+ * not left to a reviewer to remember: `@kanzo-tech/palette` is a devDependency, and a
+ * `dependencies` entry appearing later fails here.
  */
 describe("the palette boundary", () => {
   it("keeps @kanzo-tech/palette out of dependencies", () => {
@@ -38,11 +39,7 @@ describe("the palette boundary", () => {
   });
 });
 
-/**
- * `CHART_SLOTS` is declared twice on purpose — here, because a chart in a browser needs it and
- * cannot reach the derivation, and in `@kanzo-tech/palette`, because that is what emits the
- * properties. Neither copy is trusted: both are held against the sheet they describe.
- */
+/** Why `CHART_SLOTS` is declared twice is on the constant in `./index`. This is what stops it drifting. */
 describe("CHART_SLOTS", () => {
   it("matches the number of --chart-N properties the sheet declares", () => {
     const tokens = read("tokens.css");
