@@ -1,6 +1,15 @@
-"use client";
+// Token colour resolution — no engine, no hook, no directive.
+//
+// This half used to live in `charts/theme.ts`, which mixed it with two hooks and therefore carried
+// `"use client"`. Two things broke as a result. `chart-config.ts` *calls* `categoricalColor`, so in
+// an RSC graph a public `/analytics` export resolved to a client reference and a Server Component
+// threw. And the placement rule (a part belongs on a subpath only if it imports that subpath's
+// engine) put a twelve-line token resolver behind the DuckDB/Mosaic peer set — a WebGL graph and a
+// docs helper both paid for the whole analytics stack to reach it.
+//
+// So the split is on the client boundary, not on the topic: everything here is pure, and the two
+// hooks that read the live cascade live in `./theme-tick.js`. Both are on the root barrel.
 
-import { useEffect, useState, type RefObject } from "react";
 import { CHART_SLOTS } from "@kanzo-tech/theme";
 
 /**
@@ -38,9 +47,9 @@ function toPlotColor(computed: string): string {
  * So we read the token off the live DOM through an `in srgb` `color-mix` (which pins it to sRGB)
  * and normalise the result to `rgb(...)` via {@link toPlotColor}. The probe is appended to `host`
  * so a scoped theme override (a `data-*` attribute on an ancestor) resolves against the same
- * cascade the chart sits in. Read at mount and re-read on every theme change (see
- * {@link useThemeTick}), so a re-theme re-colours the marks — the vgplot analogue of the way
- * CodeEditor's `var()`-backed theme re-skins CodeMirror.
+ * cascade the chart sits in. Read at mount and re-read on every theme change (see `useThemeTick`),
+ * so a re-theme re-colours the marks — the vgplot analogue of the way CodeEditor's `var()`-backed
+ * theme re-skins CodeMirror.
  */
 export function resolveTokenColor(host: Element, token: string): string {
   const probe = document.createElement("span");
@@ -51,26 +60,6 @@ export function resolveTokenColor(host: Element, token: string): string {
   const resolved = getComputedStyle(probe).color;
   probe.remove();
   return resolved ? toPlotColor(resolved) : token;
-}
-
-/**
- * Re-render the caller when the theme changes.
- *
- * `KanzoThemeProvider` writes the theme axes as `data-*` attributes on `<html>`, next-themes
- * toggles `.dark` there, and a custom base tint writes inline `style` — all on
- * `document.documentElement`. Observing its attributes lets a token-backed chart re-resolve its
- * colours the moment the theme flips, instead of freezing whatever palette was live at mount.
- * Returns a counter to feed into an effect's dependency list.
- */
-export function useThemeTick(): number {
-  const [tick, setTick] = useState(0);
-  useEffect(() => {
-    if (typeof MutationObserver === "undefined") return;
-    const observer = new MutationObserver(() => setTick((t) => t + 1));
-    observer.observe(document.documentElement, { attributes: true });
-    return () => observer.disconnect();
-  }, []);
-  return tick;
 }
 
 /**
@@ -99,6 +88,9 @@ export { CHART_SLOTS };
  * and not a JS constant: the cascade is the only channel a scoped palette override travels down,
  * and it is the same channel `--chart-*` itself arrives on. A stylesheet that declares nothing
  * (anything older than the document, or a test fixture) falls back to `CHART_SLOTS`.
+ *
+ * Module-level only: `categoricalCapacity` is the way to read it, and an export whose whole use is
+ * to be passed straight back into the function beside it is a second way to do one thing.
  */
 export const CHART_CAPACITY_PROPERTY = "--chart-capacity";
 
@@ -121,22 +113,6 @@ export function categoricalCapacity(host: Element): number {
   const declared = Number.parseInt(raw, 10);
   if (!Number.isFinite(declared) || declared <= 0) return CHART_SLOTS;
   return Math.min(declared, CHART_SLOTS);
-}
-
-/**
- * {@link categoricalCapacity} as a hook, re-read whenever the theme moves.
- *
- * `CHART_SLOTS` on the first render so the server and the client agree, then the measured value —
- * the same shape `useThemeTick` already imposes on anything reading the cascade.
- */
-export function useChartCapacity(host?: RefObject<Element | null>): number {
-  const tick = useThemeTick();
-  const [capacity, setCapacity] = useState(CHART_SLOTS);
-  useEffect(() => {
-    const element = host?.current ?? (typeof document === "undefined" ? null : document.documentElement);
-    if (element) setCapacity(categoricalCapacity(element));
-  }, [host, tick]);
-  return capacity;
 }
 
 /**

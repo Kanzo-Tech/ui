@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cn } from "../lib/cn.js";
-import { resolveTokenColor, useThemeTick } from "./theme.js";
+import { resolveTokenColor } from "../lib/token-color.js";
+import { useThemeTick } from "../lib/theme-tick.js";
 
 /**
  * The two tokenised colours a crossfilter chart paints with. Resolved from the live DOM at

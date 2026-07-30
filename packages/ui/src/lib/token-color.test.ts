@@ -7,7 +7,7 @@ import {
   categoricalCapacity,
   categoricalColor,
   resolveTokenColor,
-} from "./theme.js";
+} from "./token-color.js";
 
 // jsdom's getComputedStyle returns the `color-mix(...)` back unchanged, so the probe path itself
 // is not testable here. What matters — and what broke in a real browser — is the normalisation of

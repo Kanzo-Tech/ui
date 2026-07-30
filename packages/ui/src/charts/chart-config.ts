@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from "react";
-import { categoricalColor } from "./theme.js";
+import { categoricalColor } from "../lib/token-color.js";
 
 export interface ChartSeriesConfig {
   /** Rendered by `ChartLegend` and used as the tooltip/legend name. Defaults to the key. */

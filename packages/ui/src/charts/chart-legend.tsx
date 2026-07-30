@@ -8,7 +8,7 @@ import { Swatch } from "../simples/swatch.js";
 import { chartSeriesEntries, type ChartConfig } from "./chart-config.js";
 import { useChartOptional } from "./chart-root.js";
 import { chartDescriptor } from "./chart-spec.js";
-import { categoricalColor } from "./theme.js";
+import { categoricalColor } from "../lib/token-color.js";
 
 export interface ChartLegendProps extends React.ComponentProps<typeof ark.ul> {
   /** Series config. Defaults to the surrounding `<ChartRoot>`'s. */

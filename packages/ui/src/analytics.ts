@@ -106,19 +106,10 @@ export type {
   ChartSpecOptions, ChartMargin, ChartFacetOptions, ChartMarkSource,
 } from "./charts/chart-spec.js";
 
-// The validated categorical scheme for multi-series marks and legends (the theme's, not the accent).
-// `resolveTokenColor` and `useThemeTick` come with it: any surface painting from tokens onto a
-// canvas needs both — resolve the token against the live element, and do it again when the theme
-// moves — and every consumer that re-invented them got one of the two subtly wrong.
-export {
-  CHART_CAPACITY_PROPERTY,
-  CHART_SLOTS,
-  categoricalCapacity,
-  categoricalColor,
-  resolveTokenColor,
-  useChartCapacity,
-  useThemeTick,
-} from "./charts/theme.js";
+// The categorical scheme, `resolveTokenColor` and `useThemeTick` are on the ROOT barrel, not here.
+// They import no engine, and a part belongs on a subpath only if it imports that subpath's engine:
+// a WebGL canvas painting from `--chart-*` was installing DuckDB and Mosaic to reach twelve lines
+// of token arithmetic. They live in `lib/token-color.ts` and `lib/theme-tick.ts`.
 
 // Re-exported so a consumer writes a whole chart — and boots the coordinator under it — without a
 // direct @uwdata import, the way `/table` re-exports its TanStack types.

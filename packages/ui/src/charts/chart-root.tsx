@@ -18,7 +18,7 @@ import {
   type ChartSpecContext,
 } from "./chart-spec.js";
 import { useMosaic } from "./mosaic-provider.js";
-import { resolveTokenColor } from "./theme.js";
+import { resolveTokenColor } from "../lib/token-color.js";
 import { TokenizedPlot } from "./tokenized-plot.js";
 
 /** vgplot ships `any` for every directive; this is the one place we pin a shape to it. */

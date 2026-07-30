@@ -54,6 +54,20 @@ export type { AppearanceToggleProps, AppearanceToggleLabels } from "./composites
 // ── Utilities ────────────────────────────────────────────────────────────────
 export { cn } from "./lib/cn.js";
 
+// Token colour, for any surface that paints from `--*` onto something CSS cannot reach — a canvas,
+// a WebGL graph, a plot. Root barrel and not `/analytics`, because none of it imports an engine:
+// the placement rule is "a part belongs on a subpath only if it imports that subpath's engine", and
+// this used to fail it in the direction that costs the most — a graph installing DuckDB and Mosaic
+// for twelve lines of arithmetic. `resolveTokenColor` and `useThemeTick` are a pair: resolve the
+// token against the live element, and do it again when the theme moves.
+export {
+  CHART_SLOTS,
+  categoricalCapacity,
+  categoricalColor,
+  resolveTokenColor,
+} from "./lib/token-color.js";
+export { useChartCapacity, useThemeTick } from "./lib/theme-tick.js";
+
 // Ark collection helpers — required by consumers to build the `collection` that
 // Select / Combobox demand (Ark's own list-collection utilities, surfaced here so
 // downstreams don't need a direct @ark-ui/react dependency).
