@@ -99,10 +99,21 @@ condemn it. **That argument needs to move into `DESIGN.md` or the exception need
 
 ### Block C — Live defects the audits found on the way past
 
-1. **A class-wide `data-slot` collision.** Components that write `data-slot` *before* `{...rest}` let
-   a caller's value erase the primitive's own. Three confirmed sites (`chart-inputs.tsx:565`, `:408`,
-   `:580`) silently break two `field.tsx` recipes that select `[data-slot=field]`. One-line fix:
-   move `data-slot` after the spread. The pending export audit is counting the full blast radius.
+0. **OUTSTANDING, and nobody owns the file: `hashObligations` digests prose.** It hashes
+   `JSON.stringify(OBLIGATIONS)` with each row's `reason` string included, and the result ships in
+   every stored document as `PaletteEngine.obligations`. So a stale measurement inside a `reason`
+   **cannot be corrected** — fixing it moves the hash and claims the rules themselves changed. One
+   known-wrong tally is sitting in `OBLIGATIONS`' `control-boundary` reason for exactly this reason,
+   with the constraint recorded at `ramp.ts`, `Ramp.boundary`. The fix is to digest `{ step, id }`
+   only, which is what the field's own doc comment says the hash is for. Reasoning, and the one
+   thing it gives up, in `decisions/prose-that-is-hashed-is-data.md`. **`packages/palette` is
+   heavily in-flight in the parallel session; this needs an owner after the rebase.**
+1. ~~**A class-wide `data-slot` collision.**~~ **Resolved 2026-07-30, and reframed on the way.** The
+   three `chart-inputs.tsx` sites were the visible edge of a house-style question: the great majority
+   of sites wrote `data-slot` before the spread, so any of them could be erased by a caller. Moving
+   it past the spread then broke every thin rename, because overriding the wrapped primitive's slot
+   *is* the rename mechanism. Settled as `data-slot={slot ?? "…"}` after the spread, with
+   `slot?: string` as the declared way to rename — `decisions/a-primitive-owns-its-slot.md`.
 2. **`chart-inputs.tsx:523` contains a raw NUL byte**, which makes the file binary to `grep` and
    `file` — it silently excluded the largest chart file from three of the auditor's own searches.
 3. **`ShellAside` carries `bg-card`** — a surface, in the layer whose headline rule (`DESIGN.md:126`)

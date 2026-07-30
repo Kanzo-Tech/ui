@@ -198,15 +198,34 @@ with `@default`, `@link` and `@example` as the only tags); an empty banner; comm
 (there is none — keep it that way); or any legacy, migration or back-compat note, because nothing is
 published and such a comment explains code that should not exist.
 
-**Four rules that keep a required comment true.** This repository's comment problem is not ceremony
+**Six rules that keep a required comment true.** This repository's comment problem is not ceremony
 — one restating comment in the whole tree, zero commented-out code — it is duplication and
 staleness: one paragraph written out nine times, three copies of which went stale independently.
+The volume in `packages/palette` is not that problem: `ramp.ts` and `roles.ts` are mostly
+measurements against Radix's scales or against a shipped ratio, and a measurement about generated
+output rots when the output is regenerated. That is a reason to date them, not to write fewer.
 
-- **Write one copy.** State a fact where it is enforced, beside the code or the test that would
-  fail, and point at it from everywhere else. A fact in two places goes stale in one.
-- **Date a measurement of something generated.** A ratio read off `tokens.css` is a claim about a
-  build artefact and the next `pnpm check:generated` can falsify it. Write *"measured 2026-07"*, not
-  *"today's border ships"*. A count of call sites rots the same way — prefer a test that counts.
+- **Write one copy — one per package that enforces it, and never two inside one package.** State a
+  fact where it is enforced and point at it from everywhere else. Where two packages enforce the
+  same thing independently they each get a copy, because the lower one may not be sent into the
+  other's internals for its reasoning: `@kanzo-tech/palette` keeps its own statement of the
+  `.json`-subpath argument. Two copies inside one file is the version that is never defensible.
+- **Date a measurement, and name the set it was taken over** — by a name that exists in the source.
+  A ratio read off `tokens.css` is a claim about a build artefact and the next `pnpm check:generated`
+  can falsify it, so write *"measured 2026-07"* rather than *"today's border ships"*. And a tally
+  whose corpus has no name cannot be re-derived, only deleted: *"measured over 118 seeds"* cost an
+  hour to reconstruct and turned out to be the system seeds plus every base16 slot value plus the
+  tinted neutrals — a set that had since changed size. A count of call sites rots the same way;
+  prefer a test that counts.
+- **Prose that is hashed, serialised or rendered is data, not a comment.** Correcting it is a code
+  change with a changeset, and it may not be safe at all — see
+  `decisions/prose-that-is-hashed-is-data.md`, where a stale tally cannot be fixed because the
+  string is inside a digest that claims the rules changed. Before editing any string, check whether
+  something downstream reads it.
+- **Fix the code, not the prose — unless the wrong value is pinned.** A comment describing a wrong
+  fixture is usually a wrong fixture. Try the code fix first. When assertions depend on the wrong
+  value, correct the comment *and say in it that the value is pinned and why*, or the next reader
+  makes the same attempt and reverts it.
 - **Cite a symbol, never a line.** A line reference moves silently; several in this repository did.
 - **Attach the comment to the thing.** A `/** */` followed by a blank line documents nothing, and no
   editor will show it.
