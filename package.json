@@ -2,7 +2,7 @@
   "name": "kanzo-ui",
   "private": true,
   "version": "0.0.0",
-  "description": "Kanzo design system — shared Radix Themes primitives & shells for keasy, fossil and metadata-form.",
+  "description": "Kanzo design system — a domain-free component library over Ark UI, the design tokens it is themed by, and the colour derivation behind them.",
   "type": "module",
   "scripts": {
     "build": "pnpm -r build",

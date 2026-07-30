@@ -26,9 +26,11 @@ export default tseslint.config(
     },
   },
   {
-    // Level-1 simples are adopted from Shark UI verbatim (we own the source now, but
-    // keep it byte-faithful for easy diffing). These three rules only ever fire on
-    // Shark's own conventions, none of which are real defects:
+    // The simples are adopted from Shark UI, with declared divergences — the focus ring
+    // is solid where Shark dilutes it, on a measured contrast finding (CONVENTIONS.md).
+    // Do not "restore" a difference to match upstream without reading why it is there.
+    // These three rules only ever fire on Shark's own conventions, none of which are
+    // real defects:
     //  · empty extension interfaces (`interface XProps extends Y {}`),
     //  · context hooks named `_useX` and re-exported as `useX` (a rules-of-hooks
     //    false positive — the leading `_` hides the `use` prefix from the linter),
