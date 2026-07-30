@@ -9,6 +9,15 @@ import { TypeTable } from "fumadocs-ui/components/type-table";
 import type { MDXComponents } from "mdx/types";
 import { ComponentPreview } from "@/components/component-preview";
 import { ComponentsList } from "@/components/components-list";
+import {
+  BestiaryTable,
+  BoardTable,
+  GradesTable,
+  HallsTable,
+  RolesTable,
+  RosterTable,
+  StatusesTable,
+} from "@/components/guild";
 import { PreviewIframe } from "@/components/preview-iframe";
 import { ShowcasesList } from "@/components/showcases-list";
 
@@ -37,6 +46,14 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     ComponentsList,
     PreviewIframe,
     ShowcasesList,
+    // The example world's own tables — `/docs/the-guild` is the one page made of them.
+    BestiaryTable,
+    BoardTable,
+    GradesTable,
+    HallsTable,
+    RolesTable,
+    RosterTable,
+    StatusesTable,
     ...components,
   };
 }
