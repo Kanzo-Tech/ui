@@ -137,6 +137,38 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.Link).toBeTypeOf("function");
   });
 
+  it("drops the pre-arrangements over parts that already ship", () => {
+    const surface = UI as Record<string, unknown>;
+    // `EmptyState` was `icon`/`title`/`description`/`action` as four `ReactNode` props over a raw
+    // `<div>` — no `ark.*`, no recipe. `Item` and its parts compose to exactly this.
+    expect(surface.EmptyState).toBeUndefined();
+    expect(UI.Item).toBeTypeOf("function");
+    expect(UI.ItemMedia).toBeTypeOf("function");
+    expect(UI.ItemTitle).toBeTypeOf("function");
+    expect(UI.ItemDescription).toBeTypeOf("function");
+    expect(UI.ItemActions).toBeTypeOf("function");
+    // `Ribbon`'s whole render was `<div class="relative">{children}<Float><Badge/></Float></div>`.
+    expect(surface.Ribbon).toBeUndefined();
+    expect(UI.Float).toBeTypeOf("function");
+    expect(UI.Badge).toBeTypeOf("function");
+    // `TextField`'s `iconStart`/`iconEnd` were named regions as attributes over `InputGroup` +
+    // `InputGroupAddon`. It also used the forbidden `forwardRef`.
+    expect(surface.TextField).toBeUndefined();
+    expect(UI.InputGroup).toBeTypeOf("function");
+    expect(UI.InputGroupAddon).toBeTypeOf("function");
+    expect(UI.InputGroupInput).toBeTypeOf("function");
+    // `NumberField` was `TextField type="number"` — rung 1 of the ladder minted as a component,
+    // shadowing the Ark machine with the friendlier name and none of its steppers, scrubber,
+    // format or clamping. `type="number"` is the input everybody advises against.
+    expect(surface.NumberField).toBeUndefined();
+    expect(UI.NumberInput).toBeTypeOf("function");
+    // `DateField` pre-arranged `DatePicker` plus nine `Calendar*` parts and took no `className`,
+    // no `ref`, no `...rest`, no `id`/`name`/`aria-*` — strictly less capable than the parts.
+    expect(surface.DateField).toBeUndefined();
+    expect(UI.DatePicker).toBeTypeOf("function");
+    expect(UI.Calendar).toBeTypeOf("function");
+  });
+
   it("keeps `tv()` recipes off the public surface unless another module needs them", () => {
     // A variant object is an implementation detail: exported, it freezes a class list as API. The
     // fourteen with no importer are internal again. The exceptions stay because a *different* module

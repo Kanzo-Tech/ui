@@ -155,18 +155,12 @@ export * from "./simples/suggest.js";
 export * from "./simples/use-ai.js";
 
 // ── Level 1 — bespoke atoms (no Shark equivalent; token-native, ours) ────────
-export { DateField } from "./simples/DateField.js";
-export type { DateFieldProps } from "./simples/DateField.js";
-export { EmptyState } from "./simples/EmptyState.js";
-export type { EmptyStateProps } from "./simples/EmptyState.js";
 // GhostEditor / CodeEditor deliberately live ONLY on the `/editor` subpath: they import
 // @codemirror/*, which is an OPTIONAL peer. Re-exporting them here made the root barrel
 // statically import CodeMirror, so `import { Button } from "@kanzo-tech/ui"` failed outright
 // for every consumer that had not installed it. Do not add them back.
 export { Link } from "./simples/Link.js";
 export type { LinkProps } from "./simples/Link.js";
-export { TextField, NumberField } from "./simples/TextField.js";
-export type { TextFieldProps, NumberFieldProps } from "./simples/TextField.js";
 export type { Suggestion } from "./simples/types.js";
 export { FieldArray } from "./simples/FieldArray.js";
 export type { FieldArrayProps } from "./simples/FieldArray.js";
@@ -174,8 +168,9 @@ export type { FieldArrayProps } from "./simples/FieldArray.js";
 // `data-[state=checked]`, which is rung 1 of the ladder and was already built. The monolith added a
 // grid and an `options: CardRadioOption[]` array over it: a layout tree written as an attribute,
 // which is the shape `SidebarIdentity` argues against in writing. The grid moved to the primitive.
-export { Ribbon } from "./simples/Ribbon.js";
-export type { RibbonProps } from "./simples/Ribbon.js";
+//
+// No `TextField` / `NumberField` / `DateField` / `EmptyState` / `Ribbon` either — five
+// pre-arrangements over parts that all ship. See the tombstones in `index.test.ts` for which parts.
 // The one surface behind every facet filter. Lives in the root barrel because both consumers
 // are on subpaths that must not see each other: `/table` would drag in Mosaic, `/analytics`
 // would drag in TanStack. It is presentational, so it needs neither.
