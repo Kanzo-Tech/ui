@@ -54,17 +54,10 @@ markup as showing it.
 </TagsInput>
 ```
 
-### When to use which
-
-Reach for `TagsInput` only when the values **do not exist beforehand** — free-form tags,
-keywords, email addresses, anything the user invents. If the values *are* known, this is the
-wrong control: [`Combobox multiple`](/docs/forms/combobox#multiple-selection) is the right one,
-because it can filter the list, validate against it, and announce what is selected. A tags input
-cannot tell a typo from a new value.
-
-The two look alike once a `Combobox multiple` renders its selection as removable chips, and they
-are not the same: the combobox holds a value **from a collection**, this holds whatever was
-typed.
+Reach for it only when the values **do not exist beforehand**. A tags input cannot tell a typo
+from a new value; if the values are known,
+[`Combobox multiple`](/docs/forms/combobox#multiple-selection) is the right control, and
+[Controls](/docs/forms/controls#choice) is where that comparison lives.
 
 ## Anatomy
 

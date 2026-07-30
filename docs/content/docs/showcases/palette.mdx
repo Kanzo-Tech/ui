@@ -59,21 +59,16 @@ Three facts about the record are worth knowing before you read one.
 
 ## Authored, and derived
 
-Dracula, Nord and the two Catppuccins ship as `PALETTE_SEEDS` and go through `derivePalette`
-exactly as a client does. They are not a second shape — a base16 palette is a brand hue and a
-neutral hue, and two shapes for one idea is the defect this layer exists to remove.
+The shipped base16 seeds go through `derivePalette` exactly as a client's do — see [base16
+identities are seeds now](/docs/theming#base16-identities-are-seeds-now). This route puts the
+authored original beside the derived result so you can see what the derivation moved.
 
 <PreviewIframe className="h-[900px]" name="palette-base16" source="palette-onboarding/base16" title="base16 seeds, authored beside derived" />
 
-The **This page is wearing** control at the top is the runtime mechanism, whole: `compile(doc)` returns one
-stylesheet with a `:root` block and a `.dark` block, and applying a tenant's identity is appending
-it. There is no `data-palette`, no `data-accent`, no per-token override — all of those were ways to
-express *part* of a palette at runtime, and a document expresses all of it at once.
-
-The old rule — "a palette may be dark-only; do not invent a light side for Dracula" — was true
-when a palette was a set of authored hexes. Under derivation it is not: Dracula's `#ff79c6` ships
-as `#e562af` at step 9, moved 7.3 ΔE by `visible-fill`, with the hue held to 0.12°. Same hue,
-different place. That is a reading, not an invention.
+The **This page is wearing** control at the top is the runtime mechanism, whole: `compile(doc)`
+returns one stylesheet with a `:root` block and a `.dark` block, and applying a tenant's identity
+is appending it. That is the entire runtime — [why there is no `data-palette` and no per-token
+override](/docs/theming#colour-the-palette-document) is on the theming page.
 
 ## Source
 

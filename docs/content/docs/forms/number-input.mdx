@@ -40,12 +40,9 @@ The value is a **string**. `onValueChange` fires with `{ value, valueAsNumber }`
 parsed number without re-parsing the string yourself.
 </Callout>
 
-### When to use which
-
-`NumberInput` is a spinbutton with steppers and drag-to-change — reach for it when the user
-nudges a bounded quantity (a count, a page size, a replica number). For a plain numeric text
-field with no steppers, [`NumberField`](/docs/forms/text-field) (a `type="number"` facade over
-`TextField`) is lighter.
+`NumberInput` is a spinbutton: steppers, arrow keys, drag-to-change, for a bounded quantity the
+user nudges. A number simply typed in is a text field —
+[Controls](/docs/forms/controls#value) has the two side by side.
 
 ## Sizes
 
