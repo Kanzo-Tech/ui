@@ -50,6 +50,7 @@ export function FloatingPanel({
   className,
   style,
   children,
+  slot,
   ...rest
 }: FloatingPanelProps) {
   const [uncontrolledWidth, setUncontrolledWidth] = React.useState(defaultWidth);
@@ -101,9 +102,9 @@ export function FloatingPanel({
         "rounded-lg border bg-popover/95 text-popover-foreground shadow-lg backdrop-blur-sm",
         className,
       )}
-      data-slot="floating-panel"
       style={{ width, ...style }}
       {...rest}
+      data-slot={slot ?? "floating-panel"}
     >
       <FloatingPanelContext.Provider value={context}>{children}</FloatingPanelContext.Provider>
     </div>
@@ -123,6 +124,7 @@ export interface FloatingPanelResizeHandleProps extends React.ComponentProps<"di
 export function FloatingPanelResizeHandle({
   side = "start",
   className,
+  slot,
   ...rest
 }: FloatingPanelResizeHandleProps) {
   const context = React.useContext(FloatingPanelContext);
@@ -142,10 +144,10 @@ export function FloatingPanelResizeHandle({
         className,
       )}
       data-side={side}
-      data-slot="floating-panel-resize-handle"
       onPointerDown={(event) => context?.startResize(event, side === "start" ? -1 : 1)}
       role="separator"
       {...rest}
+      data-slot={slot ?? "floating-panel-resize-handle"}
     />
   );
 }

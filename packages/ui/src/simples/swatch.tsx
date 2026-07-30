@@ -37,13 +37,13 @@ export interface SwatchProps
   color: string;
 }
 
-export const Swatch = ({ color, size, shape, className, style, ...rest }: SwatchProps) => (
+export const Swatch = ({ color, size, shape, className, style, slot, ...rest }: SwatchProps) => (
   <ark.span
     aria-hidden
     className={cn(swatchVariants({ size, shape }), className)}
-    data-slot="swatch"
     style={{ background: color, ...style }}
     {...rest}
+    data-slot={slot ?? "swatch"}
   />
 );
 
@@ -60,12 +60,12 @@ export interface SwatchGroupProps
   colors: readonly string[];
 }
 
-export const SwatchGroup = ({ colors, size, shape, className, ...rest }: SwatchGroupProps) => (
+export const SwatchGroup = ({ colors, size, shape, className, slot, ...rest }: SwatchGroupProps) => (
   <ark.span
     aria-hidden
     className={cn("flex items-center gap-0.5", className)}
-    data-slot="swatch-group"
     {...rest}
+    data-slot={slot ?? "swatch-group"}
   >
     {colors.map((c, i) => (
       <Swatch color={c} key={`${i}-${c}`} shape={shape} size={size} />

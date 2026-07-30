@@ -12,25 +12,25 @@ export const usePagination = usePaginationContext;
 export const Pagination = (
   props: React.ComponentProps<typeof ArkPagination.Root>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkPagination.Root
       aria-label="Pagination"
       className={cn("flex items-center gap-1", className)}
-      data-slot="pagination"
       {...rest}
+      data-slot={slot ?? "pagination"}
     />
   );
 };
 
 export const PaginationPrevTrigger = (
-  props: React.ComponentProps<typeof ArkPagination.PrevTrigger>
+  { slot, ...rest }: React.ComponentProps<typeof ArkPagination.PrevTrigger>
 ) => (
   <ArkPagination.PrevTrigger
     asChild
-    data-slot="pagination-prev-trigger"
-    {...props}
+    {...rest}
+    data-slot={slot ?? "pagination-prev-trigger"}
   >
     <Button aria-label="Previous page" size="icon-md" variant="ghost">
       <ChevronLeftIcon aria-hidden className="rtl:rotate-180" />
@@ -39,12 +39,12 @@ export const PaginationPrevTrigger = (
 );
 
 export const PaginationNextTrigger = (
-  props: React.ComponentProps<typeof ArkPagination.NextTrigger>
+  { slot, ...rest }: React.ComponentProps<typeof ArkPagination.NextTrigger>
 ) => (
   <ArkPagination.NextTrigger
     asChild
-    data-slot="pagination-next-trigger"
-    {...props}
+    {...rest}
+    data-slot={slot ?? "pagination-next-trigger"}
   >
     <Button aria-label="Next page" size="icon-md" variant="ghost">
       <ChevronRightIcon aria-hidden className="rtl:rotate-180" />
@@ -56,12 +56,12 @@ export interface PaginationItemProps
   extends React.ComponentProps<typeof ArkPagination.Item> {}
 
 export const PaginationItem = (props: PaginationItemProps) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   // The current page carries `data-selected` (and `aria-current="page"`) from
   // the machine, so it reads as filled/secondary while the rest stay ghost.
   return (
-    <ArkPagination.Item asChild data-slot="pagination-item" {...rest}>
+    <ArkPagination.Item asChild {...rest} data-slot={slot ?? "pagination-item"}>
       <Button
         className={cn(
           "tabular-nums",
@@ -80,7 +80,7 @@ export const PaginationItem = (props: PaginationItemProps) => {
 export const PaginationEllipsis = (
   props: React.ComponentProps<typeof ArkPagination.Ellipsis>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ArkPagination.Ellipsis
@@ -89,8 +89,8 @@ export const PaginationEllipsis = (
         "text-muted-foreground text-sm",
         className
       )}
-      data-slot="pagination-ellipsis"
       {...rest}
+      data-slot={slot ?? "pagination-ellipsis"}
     >
       {children ?? (
         <>

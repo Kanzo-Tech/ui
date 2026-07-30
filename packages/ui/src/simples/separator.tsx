@@ -11,7 +11,7 @@ interface SeparatorProps extends React.ComponentProps<typeof ark.div> {
 }
 
 export const Separator = (props: SeparatorProps) => {
-  const { orientation = "horizontal", className, ...rest } = props;
+  const { orientation = "horizontal", className, slot, ...rest } = props;
 
   return (
     <ark.div
@@ -24,9 +24,9 @@ export const Separator = (props: SeparatorProps) => {
         className
       )}
       data-orientation={orientation}
-      data-slot="separator"
       role="separator"
       {...rest}
+      data-slot={slot ?? "separator"}
     />
   );
 };

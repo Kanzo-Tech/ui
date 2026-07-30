@@ -49,13 +49,13 @@ const numberInputTriggerVariants = tv({
 export const NumberInput = (
   props: React.ComponentProps<typeof ArkNumberInput.Root>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkNumberInput.Root
       className={cn("flex w-full flex-col items-start gap-2", className)}
-      data-slot="number-input"
       {...rest}
+      data-slot={slot ?? "number-input"}
     />
   );
 };
@@ -63,11 +63,11 @@ export const NumberInput = (
 export const NumberInputLabel = (
   props: React.ComponentProps<typeof ArkNumberInput.Label>
 ) => {
-  const { children, ...rest } = props;
+  const { children, slot, ...rest } = props;
 
   return (
     <FieldLabel asChild>
-      <ArkNumberInput.Label data-slot="number-input-label" {...rest}>
+      <ArkNumberInput.Label {...rest} data-slot={slot ?? "number-input-label"}>
         {children}
       </ArkNumberInput.Label>
     </FieldLabel>
@@ -79,13 +79,13 @@ export interface NumberInputControlProps
     VariantProps<typeof numberInputControlVariants> {}
 
 export const NumberInputControl = (props: NumberInputControlProps) => {
-  const { size = "md", className, ...rest } = props;
+  const { size = "md", className, slot, ...rest } = props;
 
   return (
     <ArkNumberInput.Control
       className={cn(numberInputControlVariants({ size }), className)}
-      data-slot="number-input-control"
       {...rest}
+      data-slot={slot ?? "number-input-control"}
     />
   );
 };
@@ -93,7 +93,7 @@ export const NumberInputControl = (props: NumberInputControlProps) => {
 export const NumberInputInput = (
   props: React.ComponentProps<typeof ArkNumberInput.Input>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkNumberInput.Input
@@ -108,8 +108,8 @@ export const NumberInputInput = (
         "disabled:pointer-events-none disabled:cursor-not-allowed",
         className
       )}
-      data-slot="number-input-input"
       {...rest}
+      data-slot={slot ?? "number-input-input"}
     />
   );
 };
@@ -117,7 +117,7 @@ export const NumberInputInput = (
 export const NumberInputIncrementTrigger = (
   props: React.ComponentProps<typeof ArkNumberInput.IncrementTrigger>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ArkNumberInput.IncrementTrigger
@@ -126,8 +126,8 @@ export const NumberInputIncrementTrigger = (
         "top-0 rounded-se-lg border-b",
         className
       )}
-      data-slot="number-input-increment-trigger"
       {...rest}
+      data-slot={slot ?? "number-input-increment-trigger"}
     >
       {children ?? <ChevronUpIcon />}
     </ArkNumberInput.IncrementTrigger>
@@ -137,13 +137,13 @@ export const NumberInputIncrementTrigger = (
 export const NumberInputDecrementTrigger = (
   props: React.ComponentProps<typeof ArkNumberInput.DecrementTrigger>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ArkNumberInput.DecrementTrigger
       className={cn(numberInputTriggerVariants(), "bottom-0 rounded-ee-lg", className)}
-      data-slot="number-input-decrement-trigger"
       {...rest}
+      data-slot={slot ?? "number-input-decrement-trigger"}
     >
       {children ?? <ChevronDownIcon />}
     </ArkNumberInput.DecrementTrigger>
@@ -155,13 +155,13 @@ export const NumberInputDecrementTrigger = (
 export const NumberInputScrubber = (
   props: React.ComponentProps<typeof ArkNumberInput.Scrubber>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkNumberInput.Scrubber
       className={cn("cursor-ew-resize select-none", className)}
-      data-slot="number-input-scrubber"
       {...rest}
+      data-slot={slot ?? "number-input-scrubber"}
     />
   );
 };
@@ -169,13 +169,13 @@ export const NumberInputScrubber = (
 export const NumberInputValueText = (
   props: React.ComponentProps<typeof ArkNumberInput.ValueText>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkNumberInput.ValueText
       className={cn("tabular-nums", className)}
-      data-slot="number-input-value-text"
       {...rest}
+      data-slot={slot ?? "number-input-value-text"}
     />
   );
 };

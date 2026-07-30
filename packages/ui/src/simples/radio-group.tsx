@@ -41,7 +41,7 @@ export interface RadioGroupProps
 // `Field` ancestor every flag is `undefined`, which Ark strips before it reaches the machine, so
 // the built-in Fieldset bridge is untouched.
 export const RadioGroup = (props: RadioGroupProps) => {
-  const { className, children, columns, style, ...rest } = props;
+  const { className, children, columns, style, slot, ...rest } = props;
 
   const field: UseFieldContext | undefined = useFieldContext();
 
@@ -55,7 +55,6 @@ export const RadioGroup = (props: RadioGroupProps) => {
         "data-invalid:text-destructive dark:data-invalid:text-destructive-foreground",
         className
       )}
-      data-slot="radio-group"
       disabled={field?.disabled}
       invalid={field?.invalid}
       readOnly={field?.readOnly}
@@ -66,6 +65,7 @@ export const RadioGroup = (props: RadioGroupProps) => {
           : style
       }
       {...rest}
+      data-slot={slot ?? "radio-group"}
     >
       {children}
     </ArkRadioGroup.Root>
@@ -75,7 +75,7 @@ export const RadioGroup = (props: RadioGroupProps) => {
 export const RadioGroupItem = (
   props: React.ComponentProps<typeof ArkRadioGroup.Item>
 ) => {
-  const { tabIndex, className, children, ...rest } = props;
+  const { tabIndex, className, children, slot, ...rest } = props;
 
   return (
     <ArkRadioGroup.Item
@@ -84,8 +84,8 @@ export const RadioGroupItem = (
         "data-disabled:opacity-64",
         className
       )}
-      data-slot="radio-group-item"
       {...rest}
+      data-slot={slot ?? "radio-group-item"}
     >
       <ArkRadioGroup.ItemControl
         className={cn(
@@ -121,7 +121,7 @@ export const RadioGroupItem = (
 export const RadioGroupCard = (
   props: React.ComponentProps<typeof ArkRadioGroup.Item>
 ) => {
-  const { tabIndex, className, children, ...rest } = props;
+  const { tabIndex, className, children, slot, ...rest } = props;
 
   return (
     <ArkRadioGroup.Item
@@ -141,8 +141,8 @@ export const RadioGroupCard = (
         "data-invalid:border-destructive",
         className
       )}
-      data-slot="radio-group-card"
       {...rest}
+      data-slot={slot ?? "radio-group-card"}
     >
       {children}
       <ArkRadioGroup.ItemHiddenInput tabIndex={tabIndex} />
@@ -154,7 +154,7 @@ export const RadioGroupCard = (
 export const RadioGroupIndicator = (
   props: React.ComponentProps<typeof ArkRadioGroup.ItemControl>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkRadioGroup.ItemControl
@@ -164,8 +164,8 @@ export const RadioGroupIndicator = (
         "data-[state=checked]:bg-primary data-[state=checked]:before:bg-primary-foreground",
         className
       )}
-      data-slot="radio-group-indicator"
       {...rest}
+      data-slot={slot ?? "radio-group-indicator"}
     />
   );
 };
@@ -173,11 +173,14 @@ export const RadioGroupIndicator = (
 export const RadioGroupText = (
   props: React.ComponentProps<typeof ArkRadioGroup.ItemText>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <FieldLabel asChild>
-      <ArkRadioGroup.ItemText data-slot="radio-group-item-text" {...rest}>
+      <ArkRadioGroup.ItemText
+        {...rest}
+        data-slot={slot ?? "radio-group-item-text"}
+      >
         {children}
       </ArkRadioGroup.ItemText>
     </FieldLabel>
@@ -187,11 +190,11 @@ export const RadioGroupText = (
 export const RadioGroupLabel = (
   props: React.ComponentProps<typeof ArkRadioGroup.Label>
 ) => {
-  const { children, ...rest } = props;
+  const { children, slot, ...rest } = props;
 
   return (
     <FieldLabel asChild>
-      <ArkRadioGroup.Label data-slot="radio-group-label" {...rest}>
+      <ArkRadioGroup.Label {...rest} data-slot={slot ?? "radio-group-label"}>
         {children}
       </ArkRadioGroup.Label>
     </FieldLabel>

@@ -65,6 +65,7 @@ export const SidebarProvider = (props: SidebarProviderProps) => {
     onOpenChange: setOpenProp,
     className,
     style,
+    slot,
     ...rest
   } = props;
 
@@ -137,7 +138,6 @@ export const SidebarProvider = (props: SidebarProviderProps) => {
           "has-data-[variant=inset]:bg-sidebar",
           className
         )}
-        data-slot="sidebar-wrapper"
         style={
           {
             "--sidebar-width": SIDEBAR_WIDTH,
@@ -146,6 +146,7 @@ export const SidebarProvider = (props: SidebarProviderProps) => {
           } as React.CSSProperties
         }
         {...rest}
+        data-slot={slot ?? "sidebar-wrapper"}
       />
     </SidebarContext.Provider>
   );
@@ -153,6 +154,7 @@ export const SidebarProvider = (props: SidebarProviderProps) => {
 
 interface SidebarProps extends React.ComponentProps<typeof Sheet> {
   className?: string;
+  slot?: string;
   collapsible?: "offcanvas" | "icon" | "none";
   placement?: "left" | "right";
   variant?: "sidebar" | "floating" | "inset";
@@ -165,6 +167,7 @@ export const Sidebar = (props: SidebarProps) => {
     variant = "sidebar",
     className,
     children,
+    slot,
     ...rest
   } = props;
 
@@ -180,8 +183,8 @@ export const Sidebar = (props: SidebarProps) => {
           "text-sidebar-foreground",
           className
         )}
-        data-slot="sidebar"
         {...rest}
+        data-slot={slot ?? "sidebar"}
       >
         {children}
       </ark.aside>
@@ -191,7 +194,7 @@ export const Sidebar = (props: SidebarProps) => {
   if (isMobile) {
     return (
       <Sheet
-        {...props}
+        {...rest}
         onOpenChange={({ open }) => setOpenMobile(open)}
         open={openMobile}
       >
@@ -205,7 +208,7 @@ export const Sidebar = (props: SidebarProps) => {
           )}
           data-mobile="true"
           data-sidebar="sidebar"
-          data-slot="sidebar"
+          slot={slot ?? "sidebar"}
           placement={placement === "left" ? "left" : "right"}
           style={
             {
@@ -229,7 +232,7 @@ export const Sidebar = (props: SidebarProps) => {
       className={cn("group peer", "hidden md:block", "text-sidebar-foreground")}
       data-collapsible={state === "collapsed" ? collapsible : ""}
       data-placement={placement}
-      data-slot="sidebar"
+      data-slot={slot ?? "sidebar"}
       data-state={state}
       data-variant={variant}
     >
@@ -264,8 +267,8 @@ export const Sidebar = (props: SidebarProps) => {
           "motion-reduce:transition-none!",
           className
         )}
-        data-slot="sidebar-container"
         {...rest}
+        data-slot="sidebar-container"
       >
         <ark.aside
           className={cn(
@@ -285,7 +288,7 @@ export const Sidebar = (props: SidebarProps) => {
 };
 
 export const SidebarTrigger = (props: React.ComponentProps<typeof Button>) => {
-  const { className, onClick, ...rest } = props;
+  const { className, onClick, slot, ...rest } = props;
 
   const { toggleSidebar } = useSidebar();
 
@@ -293,7 +296,6 @@ export const SidebarTrigger = (props: React.ComponentProps<typeof Button>) => {
     <Button
       className={cn("size-7", className)}
       data-sidebar="trigger"
-      data-slot="sidebar-trigger"
       onClick={(event) => {
         onClick?.(event);
         toggleSidebar();
@@ -301,6 +303,7 @@ export const SidebarTrigger = (props: React.ComponentProps<typeof Button>) => {
       size="icon-md"
       variant="ghost"
       {...rest}
+      slot={slot ?? "sidebar-trigger"}
     >
       <PanelLeftIcon className="rtl:rotate-180" />
       <ark.span className="sr-only">Toggle Sidebar</ark.span>
@@ -309,7 +312,7 @@ export const SidebarTrigger = (props: React.ComponentProps<typeof Button>) => {
 };
 
 export const SidebarRail = (props: React.ComponentProps<typeof ark.button>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   const { toggleSidebar } = useSidebar();
 
@@ -333,12 +336,12 @@ export const SidebarRail = (props: React.ComponentProps<typeof ark.button>) => {
         className
       )}
       data-sidebar="rail"
-      data-slot="sidebar-rail"
       onClick={toggleSidebar}
       tabIndex={-1}
       title="Toggle Sidebar"
       type="button"
       {...rest}
+      data-slot={slot ?? "sidebar-rail"}
     />
   );
 };
@@ -346,7 +349,7 @@ export const SidebarRail = (props: React.ComponentProps<typeof ark.button>) => {
 // A neutral offset column, not `<main>`: the content shell goes inside it and `ShellMain` owns
 // the landmark (one `<main>` per page; DESIGN.md "a region declares no role").
 export const SidebarInset = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
@@ -357,34 +360,34 @@ export const SidebarInset = (props: React.ComponentProps<typeof ark.div>) => {
         "md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm",
         className
       )}
-      data-slot="sidebar-inset"
       {...rest}
+      data-slot={slot ?? "sidebar-inset"}
     />
   );
 };
 
 export const SidebarHeader = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
       className={cn("flex flex-col gap-2 p-2", className)}
       data-sidebar="header"
-      data-slot="sidebar-header"
       {...rest}
+      data-slot={slot ?? "sidebar-header"}
     />
   );
 };
 
 export const SidebarFooter = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
       className={cn("flex flex-col gap-2 p-2", className)}
       data-sidebar="footer"
-      data-slot="sidebar-footer"
       {...rest}
+      data-slot={slot ?? "sidebar-footer"}
     />
   );
 };
@@ -392,14 +395,14 @@ export const SidebarFooter = (props: React.ComponentProps<typeof ark.div>) => {
 export const SidebarSeparator = (
   props: React.ComponentProps<typeof Separator>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <Separator
       className={cn("mx-2 w-auto bg-sidebar-border", className)}
       data-sidebar="separator"
-      data-slot="sidebar-separator"
       {...rest}
+      slot={slot ?? "sidebar-separator"}
     />
   );
 };
@@ -413,7 +416,7 @@ interface SidebarContentProps extends React.ComponentProps<"div"> {
   scrollFade?: boolean;
 }
 export const SidebarContent = (props: SidebarContentProps) => {
-  const { scrollFade = false, className, ...rest } = props;
+  const { scrollFade = false, className, slot, ...rest } = props;
 
   return (
     <ScrollArea
@@ -429,22 +432,22 @@ export const SidebarContent = (props: SidebarContentProps) => {
           className
         )}
         data-sidebar="content"
-        data-slot="sidebar-content"
         {...rest}
+        data-slot={slot ?? "sidebar-content"}
       />
     </ScrollArea>
   );
 };
 
 export const SidebarGroup = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
       className={cn("relative flex w-full min-w-0 flex-col p-2", className)}
       data-sidebar="group"
-      data-slot="sidebar-group"
       {...rest}
+      data-slot={slot ?? "sidebar-group"}
     />
   );
 };
@@ -452,7 +455,7 @@ export const SidebarGroup = (props: React.ComponentProps<typeof ark.div>) => {
 export const SidebarGroupLabel = (
   props: React.ComponentProps<typeof ark.div>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
@@ -470,8 +473,8 @@ export const SidebarGroupLabel = (
         className
       )}
       data-sidebar="group-label"
-      data-slot="sidebar-group-label"
       {...rest}
+      data-slot={slot ?? "sidebar-group-label"}
     />
   );
 };
@@ -479,7 +482,7 @@ export const SidebarGroupLabel = (
 export const SidebarGroupAction = (
   props: React.ComponentProps<typeof ark.button>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.button
@@ -500,9 +503,9 @@ export const SidebarGroupAction = (
         className
       )}
       data-sidebar="group-action"
-      data-slot="sidebar-group-action"
       type="button"
       {...rest}
+      data-slot={slot ?? "sidebar-group-action"}
     />
   );
 };
@@ -510,40 +513,40 @@ export const SidebarGroupAction = (
 export const SidebarGroupContent = (
   props: React.ComponentProps<typeof ark.div>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
       className={cn("w-full text-sm", className)}
       data-sidebar="group-content"
-      data-slot="sidebar-group-content"
       {...rest}
+      data-slot={slot ?? "sidebar-group-content"}
     />
   );
 };
 
 export const SidebarMenu = (props: React.ComponentProps<typeof ark.ul>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.ul
       className={cn("w-full min-w-0", "flex flex-col gap-0", className)}
       data-sidebar="menu"
-      data-slot="sidebar-menu"
       {...rest}
+      data-slot={slot ?? "sidebar-menu"}
     />
   );
 };
 
 export const SidebarMenuItem = (props: React.ComponentProps<typeof ark.li>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.li
       className={cn("group/menu-item relative", className)}
       data-sidebar="menu-item"
-      data-slot="sidebar-menu-item"
       {...rest}
+      data-slot={slot ?? "sidebar-menu-item"}
     />
   );
 };
@@ -571,6 +574,7 @@ export const SidebarMenuButton = ({
     size = "md",
     variant = "ghost",
     className,
+    slot,
     ...rest
   } = props;
 
@@ -607,10 +611,10 @@ export const SidebarMenuButton = ({
       data-active={isActive}
       data-sidebar="menu-button"
       data-size={size}
-      data-slot="sidebar-menu-button"
       size={size}
       variant={variant}
       {...rest}
+      slot={slot ?? "sidebar-menu-button"}
     />
   );
 
@@ -638,7 +642,7 @@ interface SidebarMenuActionProps
 }
 
 export const SidebarMenuAction = (props: SidebarMenuActionProps) => {
-  const { className, showOnHover = false, ...rest } = props;
+  const { className, showOnHover = false, slot, ...rest } = props;
 
   return (
     <ark.button
@@ -663,9 +667,9 @@ export const SidebarMenuAction = (props: SidebarMenuActionProps) => {
         className
       )}
       data-sidebar="menu-action"
-      data-slot="sidebar-menu-action"
       type="button"
       {...rest}
+      data-slot={slot ?? "sidebar-menu-action"}
     />
   );
 };
@@ -705,15 +709,15 @@ export interface SidebarMenuBadgeProps
     VariantProps<typeof sidebarMenuBadgeVariants> {}
 
 export const SidebarMenuBadge = (props: SidebarMenuBadgeProps) => {
-  const { className, placement = "overlay", ...rest } = props;
+  const { className, placement = "overlay", slot, ...rest } = props;
 
   return (
     <ark.div
       className={cn(sidebarMenuBadgeVariants({ placement }), className)}
       data-placement={placement}
       data-sidebar="menu-badge"
-      data-slot="sidebar-menu-badge"
       {...rest}
+      data-slot={slot ?? "sidebar-menu-badge"}
     />
   );
 };
@@ -724,7 +728,7 @@ interface SidebarMenuSkeletonProps
 }
 
 export const SidebarMenuSkeleton = (props: SidebarMenuSkeletonProps) => {
-  const { className, showIcon = false, ...rest } = props;
+  const { className, showIcon = false, slot, ...rest } = props;
 
   const width = React.useMemo(
     () => `${Math.floor(Math.random() * 40) + 50}%`,
@@ -735,8 +739,8 @@ export const SidebarMenuSkeleton = (props: SidebarMenuSkeletonProps) => {
     <ark.div
       className={cn("flex h-8 items-center gap-2 rounded-md px-2", className)}
       data-sidebar="menu-skeleton"
-      data-slot="sidebar-menu-skeleton"
       {...rest}
+      data-slot={slot ?? "sidebar-menu-skeleton"}
     >
       {!!showIcon && (
         <Skeleton
@@ -758,7 +762,7 @@ export const SidebarMenuSkeleton = (props: SidebarMenuSkeletonProps) => {
 };
 
 export const SidebarMenuSub = (props: React.ComponentProps<typeof ark.ul>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.ul
@@ -769,21 +773,22 @@ export const SidebarMenuSub = (props: React.ComponentProps<typeof ark.ul>) => {
         className
       )}
       data-sidebar="menu-sub"
-      data-slot="sidebar-menu-sub"
       {...rest}
+      data-slot={slot ?? "sidebar-menu-sub"}
     />
   );
 };
 
 export const SidebarMenuSubItem = ({
   className,
+  slot,
   ...props
 }: React.ComponentProps<typeof ark.li>) => (
   <ark.li
     className={cn("group/menu-sub-item relative", className)}
     data-sidebar="menu-sub-item"
-    data-slot="sidebar-menu-sub-item"
     {...props}
+    data-slot={slot ?? "sidebar-menu-sub-item"}
   />
 );
 
@@ -794,7 +799,7 @@ interface SidebarMenuSubButtonProps
 }
 
 export const SidebarMenuSubButton = (props: SidebarMenuSubButtonProps) => {
-  const { size = "md", isActive = false, className, ...rest } = props;
+  const { size = "md", isActive = false, className, slot, ...rest } = props;
 
   return (
     <ark.a
@@ -818,8 +823,8 @@ export const SidebarMenuSubButton = (props: SidebarMenuSubButtonProps) => {
       data-active={isActive}
       data-sidebar="menu-sub-button"
       data-size={size}
-      data-slot="sidebar-menu-sub-button"
       {...rest}
+      data-slot={slot ?? "sidebar-menu-sub-button"}
     />
   );
 };

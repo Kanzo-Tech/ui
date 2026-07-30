@@ -26,7 +26,7 @@ export const linkVariants = tv({
 
 export interface LinkProps extends React.ComponentProps<"a">, VariantProps<typeof linkVariants> {}
 
-export function Link({ variant, className, ref, ...rest }: LinkProps) {
-  return <a ref={ref} data-slot="link" className={cn(linkVariants({ variant }), className)} {...rest} />;
+export function Link({ variant, className, ref, slot, ...rest }: LinkProps) {
+  return <a ref={ref} className={cn(linkVariants({ variant }), className)} {...rest} data-slot={slot ?? "link"} />;
 }
 Link.displayName = "Link";

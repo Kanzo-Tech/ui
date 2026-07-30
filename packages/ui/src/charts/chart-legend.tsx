@@ -26,15 +26,15 @@ function seriesConfig(series: readonly string[]): ChartConfig {
  * channel (dataviz): the label text carries identity and the swatch is `aria-hidden`.
  */
 export function ChartLegend(props: ChartLegendProps) {
-  const { config, series, className, ...rest } = props;
+  const { config, series, className, slot, ...rest } = props;
   const chart = useChartOptional();
   const resolved = config ?? (series ? seriesConfig(series) : chart?.config) ?? {};
 
   return (
     <ark.ul
       className={cn("flex flex-wrap items-center gap-x-4 gap-y-1", className)}
-      data-slot="chart-legend"
       {...rest}
+      data-slot={slot ?? "chart-legend"}
     >
       {chartSeriesEntries(resolved).map(({ key, label, color, icon: Icon }) => (
         <ark.li

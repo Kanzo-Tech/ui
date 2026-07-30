@@ -57,6 +57,7 @@ export const CommandDialogContent = (props: CommandDialogContentProps) => {
     description = "Search for a command to run...",
     className,
     children,
+    slot,
     ...rest
   } = props;
 
@@ -72,8 +73,8 @@ export const CommandDialogContent = (props: CommandDialogContentProps) => {
             "border-0 p-0",
             className
           )}
-          data-slot="command-dialog-content"
           {...rest}
+          data-slot={slot ?? "command-dialog-content"}
         >
           <DialogHeader
             className="sr-only"
@@ -128,7 +129,7 @@ interface CommandInputProps
 export const CommandContent = (
   props: React.ComponentProps<typeof ArkCombobox.Content>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkCombobox.Content
@@ -141,8 +142,8 @@ export const CommandContent = (
         "[:not(.has-[+[data-slot=command-footer]])]:rounded-b-2xl [:not(.has-[+[data-slot=command-footer]])]:border-b",
         className
       )}
-      data-slot="command-content"
       {...rest}
+      data-slot={slot ?? "command-content"}
     />
   );
 };
@@ -171,14 +172,14 @@ export const CommandInput = (props: CommandInputProps) => {
 interface CommandListProps extends React.ComponentProps<typeof ComboboxList> {}
 
 export const CommandList = (props: CommandListProps) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <div className="max-h-72 min-h-0 flex-1">
       <ComboboxList
         className={cn("flex-1 pe-2.5", className)}
-        data-slot="command-list"
         {...rest}
+        slot={slot ?? "command-list"}
       />
     </div>
   );
@@ -187,13 +188,13 @@ export const CommandList = (props: CommandListProps) => {
 export const CommandEmpty = (
   props: React.ComponentProps<typeof ComboboxEmpty>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ComboboxEmpty
       className={cn("py-6 text-center text-sm", className)}
-      data-slot="command-empty"
       {...rest}
+      slot={slot ?? "command-empty"}
     >
       {children || "No results found."}
     </ComboboxEmpty>
@@ -203,42 +204,42 @@ export const CommandEmpty = (
 // A group's label comes from `heading`, which `ComboboxGroup` renders itself — so the renamed
 // `CommandGroupLabel` was redundant twice over and is gone.
 export const CommandGroup = (
-  props: React.ComponentProps<typeof ComboboxGroup>
-) => <ComboboxGroup data-slot="command-group" {...props} />;
+  { slot, ...rest }: React.ComponentProps<typeof ComboboxGroup>
+) => <ComboboxGroup {...rest} slot={slot ?? "command-group"} />;
 
 export const CommandItem = (
   props: React.ComponentProps<typeof ComboboxItem>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkCombobox.Item
       className={cn(comboboxItemVariants({ showIndicator: false }), className)}
-      data-slot="command-item"
       persistFocus
       {...rest}
+      data-slot={slot ?? "command-item"}
     />
   );
 };
 
 export const CommandSeparator = (props: React.ComponentProps<"div">) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <Separator
       className={cn("my-2", className)}
-      data-slot="command-separator"
       {...rest}
+      slot={slot ?? "command-separator"}
     />
   );
 };
 
 export const CommandShortcut = (
-  props: React.ComponentProps<typeof MenuShortcut>
-) => <MenuShortcut data-slot="command-shortcut" {...props} />;
+  { slot, ...rest }: React.ComponentProps<typeof MenuShortcut>
+) => <MenuShortcut {...rest} slot={slot ?? "command-shortcut"} />;
 
 export const CommandFooter = (props: React.ComponentProps<"div">) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <div
@@ -250,8 +251,8 @@ export const CommandFooter = (props: React.ComponentProps<"div">) => {
         "rounded-b-[calc(var(--radius-2xl,1rem)-1px)] border-t",
         className
       )}
-      data-slot="command-footer"
       {...rest}
+      data-slot={slot ?? "command-footer"}
     />
   );
 };

@@ -15,7 +15,7 @@ export interface DataTableRootProps<TData> extends React.ComponentProps<typeof a
 }
 
 export function DataTableRoot<TData>(props: DataTableRootProps<TData>) {
-  const { table, className, ...rest } = props;
+  const { table, className, slot, ...rest } = props;
 
   // Deliberately a fresh object per render, never memoised: TanStack keeps ONE table
   // instance and mutates it, so a context value of `table` alone never changes identity and
@@ -23,7 +23,7 @@ export function DataTableRoot<TData>(props: DataTableRootProps<TData>) {
   // rendering the state they first saw.
   return (
     <DataTableContext.Provider value={{ table: table as unknown as Table<unknown> }}>
-      <ark.div className={cn("space-y-3", className)} data-slot="data-table" {...rest} />
+      <ark.div className={cn("space-y-3", className)} {...rest} data-slot={slot ?? "data-table"} />
     </DataTableContext.Provider>
   );
 }

@@ -61,7 +61,7 @@ export const dialogOverlayVariants = tv({
 export const DialogOverlay = (
   props: React.ComponentProps<typeof ArkDialog.Backdrop>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   const { modal } = _useDialog();
 
@@ -72,8 +72,8 @@ export const DialogOverlay = (
   return (
     <ArkDialog.Backdrop
       className={cn(dialogOverlayVariants(), className)}
-      data-slot="dialog-overlay"
       {...rest}
+      data-slot={slot ?? "dialog-overlay"}
     />
   );
 };
@@ -81,7 +81,7 @@ export const DialogOverlay = (
 export const DialogPositioner = (
   props: React.ComponentProps<typeof ArkDialog.Positioner>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkDialog.Positioner
@@ -92,8 +92,8 @@ export const DialogPositioner = (
         "p-4",
         className
       )}
-      data-slot="dialog-positioner"
       {...rest}
+      data-slot={slot ?? "dialog-positioner"}
     />
   );
 };
@@ -171,6 +171,7 @@ export const DialogContent = (props: DialogContentProps) => {
     size = "md",
     className,
     children,
+    slot,
     ...rest
   } = props;
 
@@ -189,8 +190,8 @@ export const DialogContent = (props: DialogContentProps) => {
             dialogContentVariants({ size, bottomStickOnMobile }),
             className
           )}
-          data-slot="dialog-content"
           {...rest}
+          data-slot={slot ?? "dialog-content"}
         >
           {children}
 
@@ -225,7 +226,7 @@ interface DialogBodyProps extends React.ComponentProps<typeof ark.div> {
 }
 
 export const DialogBody = (props: DialogBodyProps) => {
-  const { scrollFade = false, className, ...rest } = props;
+  const { scrollFade = false, className, slot, ...rest } = props;
 
   return (
     <ScrollArea className="min-h-0 flex-1" scrollFade={scrollFade}>
@@ -236,8 +237,8 @@ export const DialogBody = (props: DialogBodyProps) => {
           "in-[[data-slot=dialog-content]:has([data-slot=dialog-footer]:not(.border-t))]:pb-1",
           className
         )}
-        data-slot="dialog-body"
         {...rest}
+        data-slot={slot ?? "dialog-body"}
       />
     </ScrollArea>
   );
@@ -255,7 +256,7 @@ interface DialogHeaderProps extends React.ComponentProps<typeof ark.div> {
 }
 
 export const DialogHeader = (props: DialogHeaderProps) => {
-  const { className, title, description, children, ...rest } = props;
+  const { className, title, description, children, slot, ...rest } = props;
 
   return (
     <ark.div
@@ -266,8 +267,8 @@ export const DialogHeader = (props: DialogHeaderProps) => {
         "in-[[data-slot=dialog-content]:has([data-slot=dialog-body])]:pb-3",
         className
       )}
-      data-slot="dialog-header"
       {...rest}
+      data-slot={slot ?? "dialog-header"}
     >
       {!!title && <DialogTitle>{title}</DialogTitle>}
 
@@ -285,7 +286,7 @@ export const DialogHeader = (props: DialogHeaderProps) => {
 export const DialogTitle = (
   props: React.ComponentProps<typeof ArkDialog.Title>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkDialog.Title
@@ -295,8 +296,8 @@ export const DialogTitle = (
         "in-[[data-slot=dialog-content]:has([data-slot=dialog-close-trigger])]:pe-8",
         className
       )}
-      data-slot="dialog-title"
       {...rest}
+      data-slot={slot ?? "dialog-title"}
     />
   );
 };
@@ -304,23 +305,29 @@ export const DialogTitle = (
 export const DialogDescription = (
   props: React.ComponentProps<typeof ArkDialog.Description>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkDialog.Description
       className={cn("text-muted-foreground text-sm", className)}
-      data-slot="dialog-description"
       {...rest}
+      data-slot={slot ?? "dialog-description"}
     />
   );
 };
 
-export const DialogClose = (
-  props: React.ComponentProps<typeof ArkDialog.CloseTrigger>
-) => <ArkDialog.CloseTrigger data-slot="dialog-close-trigger" {...props} />;
+export const DialogClose = ({
+  slot,
+  ...rest
+}: React.ComponentProps<typeof ArkDialog.CloseTrigger>) => (
+  <ArkDialog.CloseTrigger
+    {...rest}
+    data-slot={slot ?? "dialog-close-trigger"}
+  />
+);
 
 export const DialogFooter = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
@@ -332,8 +339,8 @@ export const DialogFooter = (props: React.ComponentProps<typeof ark.div>) => {
         "border-t",
         className
       )}
-      data-slot="dialog-footer"
       {...rest}
+      data-slot={slot ?? "dialog-footer"}
     />
   );
 };

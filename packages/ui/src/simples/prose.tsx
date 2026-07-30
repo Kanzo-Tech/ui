@@ -16,13 +16,13 @@ import { cn } from "../lib/cn";
  * you did not author, arriving from a markdown renderer or a CMS.
  */
 export const Prose = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
       className={cn("kanzo-prose mx-auto max-w-[65ch]", className)}
-      data-slot="prose"
       {...rest}
+      data-slot={slot ?? "prose"}
     />
   );
 };

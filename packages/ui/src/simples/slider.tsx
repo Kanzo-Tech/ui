@@ -58,6 +58,7 @@ export const Slider = (props: SliderProps) => {
     tabIndex,
     className,
     children,
+    slot,
     ...rest
   } = props;
 
@@ -85,7 +86,6 @@ export const Slider = (props: SliderProps) => {
         "data-[orientation=vertical]:h-full",
         className
       )}
-      data-slot="slider"
       defaultValue={defaultValue}
       disabled={isDisabled}
       invalid={isInvalid}
@@ -94,6 +94,7 @@ export const Slider = (props: SliderProps) => {
       readOnly={isReadOnly}
       value={value}
       {...rest}
+      data-slot={slot ?? "slider"}
     >
       {children}
 
@@ -227,14 +228,14 @@ export const SliderLabel = (props: React.ComponentProps<typeof FieldLabel>) => {
 export const SliderValue = (
   props: React.ComponentProps<typeof ArkSlider.ValueText>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <FieldLabel asChild>
       <ArkSlider.ValueText
         className={cn("ms-auto tabular-nums", className)}
-        data-slot="progress-value"
         {...rest}
+        data-slot={slot ?? "progress-value"}
       />
     </FieldLabel>
   );

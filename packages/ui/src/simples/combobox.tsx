@@ -26,16 +26,17 @@ export const Combobox: ArkCombobox.RootComponent = (props) => {
     openOnClick = true,
     lazyMount = true,
     unmountOnExit = true,
+    slot,
     ...rest
   } = props;
 
   return (
     <ArkCombobox.Root
-      data-slot="combobox"
       lazyMount={lazyMount}
       openOnClick={openOnClick}
       unmountOnExit={unmountOnExit}
       {...rest}
+      data-slot={slot ?? "combobox"}
     />
   );
 };
@@ -43,7 +44,7 @@ export const Combobox: ArkCombobox.RootComponent = (props) => {
 export const ComboboxControl = (
   props: React.ComponentProps<typeof ArkCombobox.Control>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkCombobox.Control
@@ -52,8 +53,8 @@ export const ComboboxControl = (
         "relative flex flex-wrap items-center gap-1",
         className
       )}
-      data-slot="combobox-control"
       {...rest}
+      data-slot={slot ?? "combobox-control"}
     />
   );
 };
@@ -114,7 +115,11 @@ export const ComboboxInput = (props: ComboboxInputProps) => {
           )}
           {showClear && inputValue && (
             <ComboboxClear asChild>
-              <InputGroupButton size="icon-xs" variant="ghost">
+              <InputGroupButton
+                size="icon-xs"
+                slot="combobox-clear"
+                variant="ghost"
+              >
                 <XIcon />
               </InputGroupButton>
             </ComboboxClear>
@@ -134,14 +139,11 @@ export const ComboboxTrigger = (
     <ArkCombobox.Trigger
       className={cn("absolute inset-e-1 inset-y-0", className)}
       {...rest}
-      // After `rest`, not before: composed inside an `InputGroupButton asChild`, the merge injects
-      // the wrapper's own slot and `data-slot=combobox-trigger` matched nothing. `ComboboxClear`
-      // already ordered it this way, so the pair was inconsistent too.
       data-slot="combobox-trigger"
       asChild
     >
       {children ?? (
-        <Button className="size-4" variant="ghost">
+        <Button className="size-4" slot="combobox-trigger" variant="ghost">
           <ChevronsUpDownIcon />
         </Button>
       )}
@@ -149,23 +151,29 @@ export const ComboboxTrigger = (
   );
 };
 
-const ComboboxClear = (
-  props: React.ComponentProps<typeof ArkCombobox.ClearTrigger>
-) => <ArkCombobox.ClearTrigger data-slot="combobox-clear" {...props} />;
+const ComboboxClear = ({
+  slot,
+  ...rest
+}: React.ComponentProps<typeof ArkCombobox.ClearTrigger>) => (
+  <ArkCombobox.ClearTrigger {...rest} data-slot={slot ?? "combobox-clear"} />
+);
 
 /** Composable combobox input for custom controls (e.g. Tags Input). */
 export const ComboboxFieldInput = (
-  props: React.ComponentProps<typeof ArkCombobox.Input>
-) => <ArkCombobox.Input data-slot="combobox-field-input" {...props} />;
+  { slot, ...rest }: React.ComponentProps<typeof ArkCombobox.Input>
+) => <ArkCombobox.Input {...rest} data-slot={slot ?? "combobox-field-input"} />;
 
-const ComboboxPositioner = (
-  props: React.ComponentProps<typeof ArkCombobox.Positioner>
-) => <ArkCombobox.Positioner data-slot="combobox-positioner" {...props} />;
+const ComboboxPositioner = ({
+  slot,
+  ...rest
+}: React.ComponentProps<typeof ArkCombobox.Positioner>) => (
+  <ArkCombobox.Positioner {...rest} data-slot={slot ?? "combobox-positioner"} />
+);
 
 export const ComboboxContent = (
   props: React.ComponentProps<typeof ArkCombobox.Content>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <Portal>
@@ -191,8 +199,8 @@ export const ComboboxContent = (
             "motion-reduce:animate-none!",
             className
           )}
-          data-slot="combobox-content"
           {...rest}
+          data-slot={slot ?? "combobox-content"}
         >
           {children}
         </ArkCombobox.Content>
@@ -210,10 +218,10 @@ interface ComboboxGroupProps
 }
 
 export const ComboboxGroup = (props: ComboboxGroupProps) => {
-  const { heading, children, ...rest } = props;
+  const { heading, children, slot, ...rest } = props;
 
   return (
-    <ArkCombobox.ItemGroup data-slot="combobox-group" {...rest}>
+    <ArkCombobox.ItemGroup {...rest} data-slot={slot ?? "combobox-group"}>
       {!!heading && <ComboboxGroupLabel>{heading}</ComboboxGroupLabel>}
 
       {children}
@@ -224,7 +232,7 @@ export const ComboboxGroup = (props: ComboboxGroupProps) => {
 const ComboboxGroupLabel = (
   props: React.ComponentProps<typeof ArkCombobox.ItemGroupLabel>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkCombobox.ItemGroupLabel
@@ -232,8 +240,8 @@ const ComboboxGroupLabel = (
         "px-2 py-1.5 font-semibold text-muted-foreground text-xs",
         className
       )}
-      data-slot="combobox-group-label"
       {...rest}
+      data-slot={slot ?? "combobox-group-label"}
     />
   );
 };
@@ -269,14 +277,14 @@ interface ComboboxItemProps
     VariantProps<typeof comboboxItemVariants> {}
 
 export const ComboboxItem = (props: ComboboxItemProps) => {
-  const { showIndicator = true, className, children, ...rest } = props;
+  const { showIndicator = true, className, children, slot, ...rest } = props;
 
   return (
     <ArkCombobox.Item
       className={cn(comboboxItemVariants({ showIndicator }), className)}
-      data-slot="combobox-item"
       persistFocus
       {...rest}
+      data-slot={slot ?? "combobox-item"}
     >
       {children}
 
@@ -294,7 +302,7 @@ export const ComboboxItem = (props: ComboboxItemProps) => {
 export const ComboboxEmpty = (
   props: React.ComponentProps<typeof ArkCombobox.Empty>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ArkCombobox.Empty
@@ -303,8 +311,8 @@ export const ComboboxEmpty = (
         "text-center text-muted-foreground text-sm",
         className
       )}
-      data-slot="combobox-empty"
       {...rest}
+      data-slot={slot ?? "combobox-empty"}
     >
       {children || "No results found."}
     </ArkCombobox.Empty>
@@ -314,13 +322,13 @@ export const ComboboxEmpty = (
 export const ComboboxList = (
   props: React.ComponentProps<typeof ArkComboboxList>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkCombobox.List
       className={cn("flex flex-col", className)}
-      data-slot="combobox-list"
       {...rest}
+      data-slot={slot ?? "combobox-list"}
     />
   );
 };

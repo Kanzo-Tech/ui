@@ -2,7 +2,7 @@ import { ark } from "@ark-ui/react/factory";
 import { cn } from "../lib/cn";
 
 export const Skeleton = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
@@ -12,8 +12,8 @@ export const Skeleton = (props: React.ComponentProps<typeof ark.div>) => {
         "motion-reduce:animate-none!",
         className
       )}
-      data-slot="skeleton"
       {...rest}
+      data-slot={slot ?? "skeleton"}
     />
   );
 };

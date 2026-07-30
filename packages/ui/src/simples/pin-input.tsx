@@ -34,13 +34,13 @@ const pinInputInputVariants = tv({
 export const PinInput = (
   props: React.ComponentProps<typeof ArkPinInput.Root>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkPinInput.Root
       className={cn("flex flex-col items-start gap-2", className)}
-      data-slot="pin-input"
       {...rest}
+      data-slot={slot ?? "pin-input"}
     />
   );
 };
@@ -48,11 +48,11 @@ export const PinInput = (
 export const PinInputLabel = (
   props: React.ComponentProps<typeof ArkPinInput.Label>
 ) => {
-  const { children, ...rest } = props;
+  const { children, slot, ...rest } = props;
 
   return (
     <FieldLabel asChild>
-      <ArkPinInput.Label data-slot="pin-input-label" {...rest}>
+      <ArkPinInput.Label {...rest} data-slot={slot ?? "pin-input-label"}>
         {children}
       </ArkPinInput.Label>
     </FieldLabel>
@@ -62,13 +62,13 @@ export const PinInputLabel = (
 export const PinInputControl = (
   props: React.ComponentProps<typeof ArkPinInput.Control>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkPinInput.Control
       className={cn("flex items-center gap-2", className)}
-      data-slot="pin-input-control"
       {...rest}
+      data-slot={slot ?? "pin-input-control"}
     />
   );
 };
@@ -78,13 +78,13 @@ export interface PinInputInputProps
     VariantProps<typeof pinInputInputVariants> {}
 
 export const PinInputInput = (props: PinInputInputProps) => {
-  const { size = "md", className, ...rest } = props;
+  const { size = "md", className, slot, ...rest } = props;
 
   return (
     <ArkPinInput.Input
       className={cn(pinInputInputVariants({ size }), className)}
-      data-slot="pin-input-input"
       {...rest}
+      data-slot={slot ?? "pin-input-input"}
     />
   );
 };

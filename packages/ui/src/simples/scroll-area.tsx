@@ -33,13 +33,13 @@ interface ScrollAreaProps
     VariantProps<typeof scrollAreaVariants> {}
 
 export const ScrollArea = (props: ScrollAreaProps) => {
-  const { scrollFade = false, className, children, ...rest } = props;
+  const { scrollFade = false, className, children, slot, ...rest } = props;
 
   return (
     <ArkScrollArea.Root
       className={cn("size-full min-h-0 [--fade-size:1.5rem]", className)}
-      data-slot="scroll-area"
       {...rest}
+      data-slot={slot ?? "scroll-area"}
     >
       <ArkScrollArea.Viewport
         className={cn(scrollAreaVariants({ scrollFade }))}
@@ -61,7 +61,7 @@ export const ScrollArea = (props: ScrollAreaProps) => {
 const ScrollAreaScrollbar = (
   props: React.ComponentProps<typeof ArkScrollArea.Scrollbar>
 ) => {
-  const { orientation, className, ...rest } = props;
+  const { orientation, className, slot, ...rest } = props;
 
   return (
     <ArkScrollArea.Scrollbar
@@ -79,9 +79,9 @@ const ScrollAreaScrollbar = (
         "motion-reduce:transition-none!",
         className
       )}
-      data-slot="scroll-area-scrollbar"
       orientation={orientation}
       {...rest}
+      data-slot={slot ?? "scroll-area-scrollbar"}
     >
       {/* The thumb is the whole control — the track is `bg-transparent` — so its fill is the
           visual information that identifies it, at 3:1. Diluted it measured 1.55:1 on the light

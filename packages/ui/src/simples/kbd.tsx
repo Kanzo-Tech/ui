@@ -30,25 +30,25 @@ interface KbdProps
     VariantProps<typeof kbdVariants> {}
 
 export const Kbd = (props: KbdProps) => {
-  const { variant = "default", className, ...rest } = props;
+  const { variant = "default", className, slot, ...rest } = props;
 
   return (
     <ark.kbd
       className={cn(kbdVariants({ variant }), className)}
-      data-slot="kbd"
       {...rest}
+      data-slot={slot ?? "kbd"}
     />
   );
 };
 
 export const KbdGroup = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
       className={cn("inline-flex items-center gap-1", className)}
-      data-slot="kbd-group"
       {...rest}
+      data-slot={slot ?? "kbd-group"}
     />
   );
 };

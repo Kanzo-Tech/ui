@@ -32,6 +32,7 @@ export const SegmentGroup = (props: SegmentGroupProps) => {
     itemClassName,
     className,
     children,
+    slot,
     ...rest
   } = props;
 
@@ -54,10 +55,10 @@ export const SegmentGroup = (props: SegmentGroupProps) => {
         "data-[variant=solid]:rounded-lg data-[variant=solid]:border data-[variant=solid]:border-border data-[variant=solid]:bg-muted data-[variant=solid]:p-1",
         className
       )}
-      data-slot="segment-group"
       data-variant={variant}
       orientation={orientation}
       {...rest}
+      data-slot={slot ?? "segment-group"}
     >
       <SegmentGroupIndicator />
 
@@ -82,7 +83,7 @@ export const SegmentGroup = (props: SegmentGroupProps) => {
 export const SegmentGroupItem = (
   props: React.ComponentProps<typeof ArkSegmentGroup.Item>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ArkSegmentGroup.Item
@@ -99,8 +100,8 @@ export const SegmentGroupItem = (
         "data-disabled:pointer-events-none data-disabled:opacity-64",
         className
       )}
-      data-slot="segment-group-item"
       {...rest}
+      data-slot={slot ?? "segment-group-item"}
     >
       {children}
 
@@ -113,13 +114,13 @@ export const SegmentGroupItem = (
 export const SegmentGroupItemText = (
   props: React.ComponentProps<typeof ArkSegmentGroup.ItemText>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkSegmentGroup.ItemText
       className={cn("relative z-1", className)}
-      data-slot="segment-group-item-text"
       {...rest}
+      data-slot={slot ?? "segment-group-item-text"}
     />
   );
 };
@@ -127,7 +128,7 @@ export const SegmentGroupItemText = (
 const SegmentGroupIndicator = (
   props: React.ComponentProps<typeof ArkSegmentGroup.Indicator>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkSegmentGroup.Indicator
@@ -151,8 +152,8 @@ const SegmentGroupIndicator = (
         "motion-reduce:transition-none!",
         className
       )}
-      data-slot="segment-group-indicator"
       {...rest}
+      data-slot={slot ?? "segment-group-indicator"}
     />
   );
 };

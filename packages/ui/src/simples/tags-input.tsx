@@ -11,7 +11,7 @@ export const TagsInputContext = ArkTagsInput.Context;
 export const TagsInput = (
   props: React.ComponentProps<typeof ArkTagsInput.Root>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ArkTagsInput.Root
@@ -20,8 +20,8 @@ export const TagsInput = (
         "data-invalid:text-destructive dark:data-invalid:text-destructive-foreground",
         className
       )}
-      data-slot="tags-input"
       {...rest}
+      data-slot={slot ?? "tags-input"}
     >
       {children}
     </ArkTagsInput.Root>
@@ -31,11 +31,11 @@ export const TagsInput = (
 export const TagsInputLabel = (
   props: React.ComponentProps<typeof ArkTagsInput.Label>
 ) => {
-  const { children, ...rest } = props;
+  const { children, slot, ...rest } = props;
 
   return (
     <FieldLabel asChild>
-      <ArkTagsInput.Label data-slot="tags-input-label" {...rest}>
+      <ArkTagsInput.Label {...rest} data-slot={slot ?? "tags-input-label"}>
         {children}
       </ArkTagsInput.Label>
     </FieldLabel>
@@ -76,14 +76,14 @@ export interface TagsInputControlProps
     VariantProps<typeof tagsInputControlVariants> {}
 
 export const TagsInputControl = (props: TagsInputControlProps) => {
-  const { size = "md", className, ...rest } = props;
+  const { size = "md", className, slot, ...rest } = props;
 
   return (
     <ArkTagsInput.Control
       className={cn(tagsInputControlVariants({ size }), className)}
       data-size={size}
-      data-slot="tags-input-control"
       {...rest}
+      data-slot={slot ?? "tags-input-control"}
     />
   );
 };
@@ -91,7 +91,7 @@ export const TagsInputControl = (props: TagsInputControlProps) => {
 export const TagsInputInput = (
   props: React.ComponentProps<typeof ArkTagsInput.Input>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkTagsInput.Input
@@ -105,8 +105,8 @@ export const TagsInputInput = (
         "disabled:pointer-events-none",
         className
       )}
-      data-slot="tags-input-input"
       {...rest}
+      data-slot={slot ?? "tags-input-input"}
     />
   );
 };
@@ -114,7 +114,7 @@ export const TagsInputInput = (
 export const TagsInputItem = (
   props: React.ComponentProps<typeof ArkTagsInput.Item>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkTagsInput.Item
@@ -123,8 +123,8 @@ export const TagsInputItem = (
         "data-disabled:opacity-64",
         className
       )}
-      data-slot="tags-input-item"
       {...rest}
+      data-slot={slot ?? "tags-input-item"}
     />
   );
 };
@@ -132,7 +132,7 @@ export const TagsInputItem = (
 export const TagsInputItemPreview = (
   props: React.ComponentProps<typeof ArkTagsInput.ItemPreview>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkTagsInput.ItemPreview
@@ -147,8 +147,8 @@ export const TagsInputItemPreview = (
         "data-disabled:opacity-64",
         className
       )}
-      data-slot="tags-input-item-preview"
       {...rest}
+      data-slot={slot ?? "tags-input-item-preview"}
     />
   );
 };
@@ -156,13 +156,13 @@ export const TagsInputItemPreview = (
 export const TagsInputItemText = (
   props: React.ComponentProps<typeof ArkTagsInput.ItemText>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkTagsInput.ItemText
       className={cn("px-0.5", className)}
-      data-slot="tags-input-item-text"
       {...rest}
+      data-slot={slot ?? "tags-input-item-text"}
     />
   );
 };
@@ -170,7 +170,7 @@ export const TagsInputItemText = (
 export const TagsInputItemInput = (
   props: React.ComponentProps<typeof ArkTagsInput.ItemInput>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkTagsInput.ItemInput
@@ -182,8 +182,8 @@ export const TagsInputItemInput = (
         "outline-none",
         className
       )}
-      data-slot="tags-input-item-input"
       {...rest}
+      data-slot={slot ?? "tags-input-item-input"}
     />
   );
 };
@@ -191,7 +191,7 @@ export const TagsInputItemInput = (
 export const TagsInputItemDeleteTrigger = (
   props: React.ComponentProps<typeof ArkTagsInput.ItemDeleteTrigger>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ArkTagsInput.ItemDeleteTrigger
@@ -207,8 +207,8 @@ export const TagsInputItemDeleteTrigger = (
         "[&_svg:not([class*='size-'])]:size-3 [&_svg]:pointer-events-none",
         className
       )}
-      data-slot="tags-input-item-delete-trigger"
       {...rest}
+      data-slot={slot ?? "tags-input-item-delete-trigger"}
     >
       {children ?? <XIcon aria-hidden />}
     </ArkTagsInput.ItemDeleteTrigger>
@@ -218,7 +218,7 @@ export const TagsInputItemDeleteTrigger = (
 export const TagsInputClearTrigger = (
   props: React.ComponentProps<typeof ArkTagsInput.ClearTrigger>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ArkTagsInput.ClearTrigger
@@ -235,16 +235,20 @@ export const TagsInputClearTrigger = (
         "[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none",
         className
       )}
-      data-slot="tags-input-clear-trigger"
       {...rest}
+      data-slot={slot ?? "tags-input-clear-trigger"}
     >
       {children ?? <XIcon aria-hidden />}
     </ArkTagsInput.ClearTrigger>
   );
 };
 
-export const TagsInputHiddenInput = (
-  props: React.ComponentProps<typeof ArkTagsInput.HiddenInput>
-) => (
-  <ArkTagsInput.HiddenInput data-slot="tags-input-hidden-input" {...props} />
+export const TagsInputHiddenInput = ({
+  slot,
+  ...rest
+}: React.ComponentProps<typeof ArkTagsInput.HiddenInput>) => (
+  <ArkTagsInput.HiddenInput
+    {...rest}
+    data-slot={slot ?? "tags-input-hidden-input"}
+  />
 );

@@ -18,13 +18,13 @@ import {
 import { useDataTableContext } from "./data-table-root.js";
 
 export const DataTableToolbar = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
       className={cn("flex items-center gap-2", className)}
-      data-slot="data-table-toolbar"
       {...rest}
+      data-slot={slot ?? "data-table-toolbar"}
     />
   );
 };
@@ -46,7 +46,7 @@ export const DataTableSearch = (props: DataTableSearchProps) => {
     : ((table.getState().globalFilter as string | undefined) ?? "");
 
   return (
-    <InputGroup className={cn("h-8 max-w-xs", className)} data-slot="data-table-search">
+    <InputGroup className={cn("h-8 max-w-xs", className)} slot="data-table-search">
       <InputGroupAddon>
         <SearchIcon />
       </InputGroupAddon>
@@ -92,7 +92,7 @@ export interface DataTableFacetFilterProps
 
 /** A `FacetFilter` over one column's faceted values: TanStack on one side, the listbox on the other. */
 export const DataTableFacetFilter = (props: DataTableFacetFilterProps) => {
-  const { column, label, options, searchable, ...rest } = props;
+  const { column, label, options, searchable, slot, ...rest } = props;
   const table = useDataTableContext();
   const target = table.getColumn(column);
 
@@ -110,8 +110,8 @@ export const DataTableFacetFilter = (props: DataTableFacetFilterProps) => {
 
   return (
     <FacetFilter
-      data-slot="data-table-facet-filter"
       {...rest}
+      slot={slot ?? "data-table-facet-filter"}
       items={items}
       label={label ?? column}
       onValueChange={(next) => target?.setFilterValue(next.length ? next : undefined)}
@@ -134,14 +134,14 @@ const columnLabel = (column: Column<unknown, unknown>) =>
   (typeof column.columnDef.header === "string" ? column.columnDef.header : column.id);
 
 export const DataTableViewOptions = (props: DataTableViewOptionsProps) => {
-  const { label = "View", ...rest } = props;
+  const { label = "View", slot, ...rest } = props;
   const table = useDataTableContext();
   const columns = table.getAllLeafColumns().filter((column) => column.getCanHide());
 
   return (
     <Menu>
       <MenuTrigger asChild>
-        <Button data-slot="data-table-view-options" size="sm" variant="outline" {...rest}>
+        <Button size="sm" variant="outline" {...rest} slot={slot ?? "data-table-view-options"}>
           <Settings2Icon />
           {label}
         </Button>

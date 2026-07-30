@@ -51,6 +51,7 @@ export function SidebarIdentity({
   collapsed = false,
   className,
   children,
+  slot,
   ...rest
 }: SidebarIdentityProps) {
   return (
@@ -64,8 +65,8 @@ export function SidebarIdentity({
           responsive && "group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0",
           className,
         )}
-        data-slot="sidebar-identity"
         {...rest}
+        data-slot={slot ?? "sidebar-identity"}
       >
         {children}
       </div>
@@ -75,7 +76,7 @@ export function SidebarIdentity({
 SidebarIdentity.displayName = "SidebarIdentity";
 
 /** A square icon tile instead of an avatar (instances / workspaces / orgs). */
-export function SidebarIdentityIcon({ className, ...rest }: ComponentProps<"div">) {
+export function SidebarIdentityIcon({ className, slot, ...rest }: ComponentProps<"div">) {
   const { responsive } = useContext(IdentityCtx);
   return (
     <div
@@ -84,8 +85,8 @@ export function SidebarIdentityIcon({ className, ...rest }: ComponentProps<"div"
         responsive && "group-data-[collapsible=icon]:size-8",
         className,
       )}
-      data-slot="sidebar-identity-icon"
       {...rest}
+      data-slot={slot ?? "sidebar-identity-icon"}
     />
   );
 }
@@ -95,14 +96,14 @@ SidebarIdentityIcon.displayName = "SidebarIdentityIcon";
  * The avatar (people). Takes `AvatarImage` / `AvatarFallback` as children; its `size` is
  * derived from the sidebar state, so it is not overridable here.
  */
-export function SidebarIdentityAvatar(props: Omit<ComponentProps<typeof Avatar>, "size">) {
+export function SidebarIdentityAvatar({ slot, ...rest }: Omit<ComponentProps<typeof Avatar>, "size">) {
   const { responsive, collapsed } = useContext(IdentityCtx);
-  return <Avatar data-slot="sidebar-identity-avatar" size={responsive && collapsed ? "md" : "sm"} {...props} />;
+  return <Avatar size={responsive && collapsed ? "md" : "sm"} {...rest} slot={slot ?? "sidebar-identity-avatar"} />;
 }
 SidebarIdentityAvatar.displayName = "SidebarIdentityAvatar";
 
 /** The text column. Hidden entirely in the sidebar's icon state when `responsive`. */
-export function SidebarIdentityText({ className, ...rest }: ComponentProps<"div">) {
+export function SidebarIdentityText({ className, slot, ...rest }: ComponentProps<"div">) {
   const { responsive } = useContext(IdentityCtx);
   return (
     <div
@@ -111,30 +112,30 @@ export function SidebarIdentityText({ className, ...rest }: ComponentProps<"div"
         responsive && "group-data-[collapsible=icon]:hidden",
         className,
       )}
-      data-slot="sidebar-identity-text"
       {...rest}
+      data-slot={slot ?? "sidebar-identity-text"}
     />
   );
 }
 SidebarIdentityText.displayName = "SidebarIdentityText";
 
-export function SidebarIdentityLabel({ className, ...rest }: ComponentProps<"span">) {
+export function SidebarIdentityLabel({ className, slot, ...rest }: ComponentProps<"span">) {
   return (
     <span
       className={cn("truncate text-sm font-medium", className)}
-      data-slot="sidebar-identity-label"
       {...rest}
+      data-slot={slot ?? "sidebar-identity-label"}
     />
   );
 }
 SidebarIdentityLabel.displayName = "SidebarIdentityLabel";
 
-export function SidebarIdentityDescription({ className, ...rest }: ComponentProps<"span">) {
+export function SidebarIdentityDescription({ className, slot, ...rest }: ComponentProps<"span">) {
   return (
     <span
       className={cn("truncate text-xs text-muted-foreground", className)}
-      data-slot="sidebar-identity-description"
       {...rest}
+      data-slot={slot ?? "sidebar-identity-description"}
     />
   );
 }

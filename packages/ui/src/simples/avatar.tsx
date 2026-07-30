@@ -36,14 +36,14 @@ interface AvatarProps
     VariantProps<typeof avatarVariants> {}
 
 export const Avatar = (props: AvatarProps) => {
-  const { size = "md", className, ...rest } = props;
+  const { size = "md", className, slot, ...rest } = props;
 
   return (
     <ArkAvatar.Root
       className={cn(avatarVariants({ size }), className)}
       data-size={size}
-      data-slot="avatar"
       {...rest}
+      data-slot={slot ?? "avatar"}
     />
   );
 };
@@ -51,7 +51,7 @@ export const Avatar = (props: AvatarProps) => {
 export const AvatarImage = (
   props: React.ComponentProps<typeof ArkAvatar.Image>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkAvatar.Image
@@ -61,8 +61,8 @@ export const AvatarImage = (
         "rounded-[inherit]",
         className
       )}
-      data-slot="avatar-image"
       {...rest}
+      data-slot={slot ?? "avatar-image"}
     />
   );
 };
@@ -70,7 +70,7 @@ export const AvatarImage = (
 export const AvatarFallback = (
   props: React.ComponentProps<typeof ArkAvatar.Fallback>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkAvatar.Fallback
@@ -82,8 +82,8 @@ export const AvatarFallback = (
         "[&_svg]:size-4 group-data-[size=lg]/avatar:[&_svg]:size-4.5 group-data-[size=sm]/avatar:[&_svg]:size-3",
         className
       )}
-      data-slot="avatar-fallback"
       {...rest}
+      data-slot={slot ?? "avatar-fallback"}
     />
   );
 };
@@ -93,7 +93,7 @@ interface AvatarBadgeProps
     Pick<VariantProps<typeof statusVariants>, "variant"> {}
 
 export const AvatarBadge = (props: AvatarBadgeProps) => {
-  const { variant, className, ...rest } = props;
+  const { variant, className, slot, ...rest } = props;
 
   return (
     <Status
@@ -105,15 +105,15 @@ export const AvatarBadge = (props: AvatarBadgeProps) => {
         "group-data-[size=lg]/avatar:size-3 group-data-[size=lg]/avatar:[&_svg]:size-2",
         className
       )}
-      data-slot="avatar-badge"
       variant={variant}
       {...rest}
+      slot={slot ?? "avatar-badge"}
     />
   );
 };
 
 export const AvatarGroup = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
@@ -122,8 +122,8 @@ export const AvatarGroup = (props: React.ComponentProps<typeof ark.div>) => {
         "**:data-[slot=avatar]:ring-2 **:data-[slot=avatar]:ring-background",
         className
       )}
-      data-slot="avatar-group"
       {...rest}
+      data-slot={slot ?? "avatar-group"}
     />
   );
 };
@@ -131,7 +131,7 @@ export const AvatarGroup = (props: React.ComponentProps<typeof ark.div>) => {
 export const AvatarGroupCount = (
   props: React.ComponentProps<typeof ark.div>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
@@ -146,8 +146,8 @@ export const AvatarGroupCount = (
         "[&_svg]:size-4",
         className
       )}
-      data-slot="avatar-group-count"
       {...rest}
+      data-slot={slot ?? "avatar-group-count"}
     />
   );
 };

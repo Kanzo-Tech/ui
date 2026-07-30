@@ -17,14 +17,14 @@ import {
 } from "./input-group";
 
 export const DatePicker = (props: React.ComponentProps<typeof Calendar>) => {
-  const { positioning = { placement: "top" }, ...rest } = props;
+  const { positioning = { placement: "top" }, slot, ...rest } = props;
 
   return (
     <Calendar
-      data-slot="date-picker"
       inline={false}
       positioning={positioning}
       {...rest}
+      slot={slot ?? "date-picker"}
     />
   );
 };
@@ -32,7 +32,7 @@ export const DatePicker = (props: React.ComponentProps<typeof Calendar>) => {
 export const DatePickerTrigger = (
   props: React.ComponentProps<typeof ArkDatePicker.Trigger>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ArkDatePicker.Control data-slot="date-picker-control">
@@ -44,8 +44,8 @@ export const DatePickerTrigger = (
           "[&_svg:not([class*='text-'])]:opacity-64",
           className
         )}
-        data-slot="date-picker-trigger"
         {...rest}
+        data-slot={slot ?? "date-picker-trigger"}
       >
         {children}
       </ArkDatePicker.Trigger>
@@ -58,19 +58,23 @@ interface DatePickerInputProps
     InputProps {}
 
 export const DatePickerInput = (props: DatePickerInputProps) => {
-  const { size, className, ...rest } = props;
+  const { size, className, slot, ...rest } = props;
 
   return (
     <ArkDatePicker.Control data-slot="date-picker-control">
       <InputGroup size={size}>
-        <ArkDatePicker.Input asChild data-slot="date-picker-input" {...rest}>
+        <ArkDatePicker.Input
+          asChild
+          {...rest}
+          data-slot={slot ?? "date-picker-input"}
+        >
           <InputGroupInput />
         </ArkDatePicker.Input>
 
         <InputGroupAddon align="inline-end">
           <InputGroupButton
             asChild
-            data-slot="input-group-button"
+            slot="input-group-button"
             size="icon-xs"
             variant="ghost"
           >
@@ -112,7 +116,7 @@ export const DatePickerTimer = (props: React.ComponentProps<typeof Input>) => {
 export const DatePickerContent = (
   props: React.ComponentProps<typeof ArkDatePicker.Content>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <Portal>
@@ -134,8 +138,8 @@ export const DatePickerContent = (
             "motion-reduce:animate-none!",
             className
           )}
-          data-slot="date-picker-content"
           {...rest}
+          data-slot={slot ?? "date-picker-content"}
         />
       </ArkDatePicker.Positioner>
     </Portal>
@@ -145,19 +149,23 @@ export const DatePickerContent = (
 export const DatePickerValue = (
   props: React.ComponentProps<typeof ArkDatePicker.ValueText>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkDatePicker.ValueText
       className={cn("font-medium text-sm", className)}
-      data-slot="date-picker-value"
       {...rest}
+      data-slot={slot ?? "date-picker-value"}
     />
   );
 };
 
-export const DatePickerPresetTrigger = (
-  props: React.ComponentProps<typeof ArkDatePicker.PresetTrigger>
-) => (
-  <CalendarPresetTrigger data-slot="date-picker-preset-trigger" {...props} />
+export const DatePickerPresetTrigger = ({
+  slot,
+  ...rest
+}: React.ComponentProps<typeof ArkDatePicker.PresetTrigger>) => (
+  <CalendarPresetTrigger
+    {...rest}
+    slot={slot ?? "date-picker-preset-trigger"}
+  />
 );

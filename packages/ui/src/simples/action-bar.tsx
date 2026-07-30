@@ -167,7 +167,7 @@ export interface ActionBarTriggerProps
   extends React.ComponentProps<typeof ark.button> {}
 
 export const ActionBarTrigger = (props: ActionBarTriggerProps) => {
-  const { onClick, ...rest } = props;
+  const { onClick, slot, ...rest } = props;
 
   const { onOpen, isOpen } = _useActionBar();
 
@@ -179,11 +179,11 @@ export const ActionBarTrigger = (props: ActionBarTriggerProps) => {
   return (
     <ark.button
       aria-expanded={isOpen}
-      data-slot="action-bar-trigger"
       data-state={isOpen ? "open" : "closed"}
       onClick={handleClick}
       type="button"
       {...rest}
+      data-slot={slot ?? "action-bar-trigger"}
     />
   );
 };
@@ -215,7 +215,7 @@ export interface ActionBarContentProps
   extends React.ComponentProps<typeof ark.div> {}
 
 export const ActionBarContent = (props: ActionBarContentProps) => {
-  const { "aria-labelledby": ariaLabelledby, className, ...rest } = props;
+  const { "aria-labelledby": ariaLabelledby, className, slot, ...rest } = props;
 
   const { isOpen, lazyMount, unmountOnExit, positioning } = _useActionBar();
 
@@ -248,9 +248,9 @@ export const ActionBarContent = (props: ActionBarContentProps) => {
               "pointer-events-auto",
               className
             )}
-            data-slot="action-bar-content"
             role="toolbar"
             {...rest}
+            data-slot={slot ?? "action-bar-content"}
           />
         </ark.div>
       </Presence>
@@ -262,14 +262,14 @@ export interface ActionBarSeparatorProps
   extends React.ComponentProps<typeof Separator> {}
 
 export const ActionBarSeparator = (props: ActionBarSeparatorProps) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <Separator
       className={cn("mx-1 h-1/2", className)}
-      data-slot="action-bar-separator"
       orientation="vertical"
       {...rest}
+      slot={slot ?? "action-bar-separator"}
     />
   );
 };
@@ -278,7 +278,7 @@ export interface ActionBarCloseProps
   extends React.ComponentProps<typeof ark.button> {}
 
 export const ActionBarClose = (props: ActionBarCloseProps) => {
-  const { className, onClick, ...rest } = props;
+  const { className, onClick, slot, ...rest } = props;
 
   const { onClose, isOpen } = _useActionBar();
 
@@ -296,11 +296,11 @@ export const ActionBarClose = (props: ActionBarCloseProps) => {
         "motion-reduce:transition-none!",
         className
       )}
-      data-slot="action-bar-close"
       data-state={isOpen ? "open" : "closed"}
       onClick={handleClick}
       type="button"
       {...rest}
+      data-slot={slot ?? "action-bar-close"}
     />
   );
 };
@@ -318,14 +318,14 @@ export interface ActionBarValueProps
 }
 
 export const ActionBarValue = (props: ActionBarValueProps) => {
-  const { label, count = 0, className, children, ...rest } = props;
+  const { label, count = 0, className, children, slot, ...rest } = props;
 
   return (
     <Badge
       className={cn("shrink-0 font-medium text-sm tabular-nums", className)}
-      data-slot="action-bar-value"
       variant="secondary"
       {...rest}
+      slot={slot ?? "action-bar-value"}
     >
       {children ?? label ?? count}
     </Badge>

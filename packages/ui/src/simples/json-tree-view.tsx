@@ -15,6 +15,7 @@ export const JsonTreeView = (props: JsonTreeViewProps) => {
     unmountOnExit = true,
     className,
     renderValue,
+    slot,
     ...rest
   } = props;
 
@@ -41,10 +42,10 @@ export const JsonTreeView = (props: JsonTreeViewProps) => {
         "[&_[data-part=branch-text]>[data-kind=preview]]:min-w-0 [&_[data-part=branch-text]>[data-kind=preview]]:flex-1 [&_[data-part=branch-text]>[data-kind=preview]]:truncate",
         className
       )}
-      data-slot="json-tree-view"
       lazyMount={lazyMount}
       unmountOnExit={unmountOnExit}
       {...rest}
+      data-slot={slot ?? "json-tree-view"}
     >
       <JsonTreeViewTree renderValue={renderValue} />
     </ArkJsonTreeView.Root>
@@ -54,7 +55,7 @@ export const JsonTreeView = (props: JsonTreeViewProps) => {
 const JsonTreeViewTree = (
   props: React.ComponentProps<typeof ArkJsonTreeView.Tree>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkJsonTreeView.Tree
@@ -71,8 +72,8 @@ const JsonTreeViewTree = (
         "**:data-[kind=colon]:mx-1 **:data-[kind=colon]:text-muted-foreground",
         className
       )}
-      data-slot="json-tree-view-tree"
       {...rest}
+      data-slot={slot ?? "json-tree-view-tree"}
     />
   );
 };

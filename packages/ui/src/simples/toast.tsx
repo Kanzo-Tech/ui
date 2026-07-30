@@ -72,7 +72,7 @@ interface ToastItemProps extends React.ComponentProps<typeof ArkToast.Root> {
 }
 
 const ToastItem = (props: ToastItemProps) => {
-  const { toast: toastData, className, ...rest } = props;
+  const { toast: toastData, className, slot, ...rest } = props;
 
   const ToastIcon = toastData.type
     ? TOAST_ICONS[toastData.type as keyof typeof TOAST_ICONS]
@@ -100,8 +100,8 @@ const ToastItem = (props: ToastItemProps) => {
         "motion-reduce:transition-none!",
         className
       )}
-      data-slot="toast"
       {...rest}
+      data-slot={slot ?? "toast"}
     >
       <div className="flex items-start gap-1.5">
         <div

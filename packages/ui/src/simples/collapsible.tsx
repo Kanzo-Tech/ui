@@ -11,6 +11,7 @@ export const Collapsible = (
     lazyMount = true,
     unmountOnExit = true,
     className,
+    slot,
     ...rest
   } = props;
 
@@ -19,10 +20,10 @@ export const Collapsible = (
       className={cn("group/collapsible", className)}
       collapsedHeight={collapsedHeight}
       data-partial-collapse={collapsedHeight ? "" : undefined}
-      data-slot="collapsible"
       lazyMount={collapsedHeight ? false : lazyMount}
       unmountOnExit={collapsedHeight ? false : unmountOnExit}
       {...rest}
+      data-slot={slot ?? "collapsible"}
     />
   );
 };
@@ -30,7 +31,7 @@ export const Collapsible = (
 export const CollapsibleTrigger = (
   props: React.ComponentProps<typeof ArkCollapsible.Trigger>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkCollapsible.Trigger
@@ -40,8 +41,8 @@ export const CollapsibleTrigger = (
         "has-data-[slot=collapsible-indicator]:[button]:justify-between",
         className
       )}
-      data-slot="collapsible-trigger"
       {...rest}
+      data-slot={slot ?? "collapsible-trigger"}
     />
   );
 };
@@ -49,7 +50,7 @@ export const CollapsibleTrigger = (
 export const CollapsibleContent = (
   props: React.ComponentProps<typeof ArkCollapsible.Content>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ArkCollapsible.Content
@@ -62,8 +63,8 @@ export const CollapsibleContent = (
         "data-[state=closed]:animate-collapse",
         "motion-reduce:animate-none! motion-reduce:transition-none!"
       )}
-      data-slot="collapsible-content"
       {...rest}
+      data-slot={slot ?? "collapsible-content"}
     >
       <div className={className}>{children}</div>
     </ArkCollapsible.Content>
@@ -73,13 +74,13 @@ export const CollapsibleContent = (
 export const CollapsibleIndicator = (
   props: React.ComponentProps<typeof ArkCollapsible.Indicator>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkCollapsible.Indicator
       className={cn("data-[state=open]:[&_svg]:rotate-180", className)}
-      data-slot="collapsible-indicator"
       {...rest}
+      data-slot={slot ?? "collapsible-indicator"}
     >
       <ChevronDownIcon className="transition-transform duration-200 motion-reduce:transition-none!" />
     </ArkCollapsible.Indicator>

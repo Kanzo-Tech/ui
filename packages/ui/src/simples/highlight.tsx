@@ -11,7 +11,7 @@ export interface HighlightProps extends ArkHighlightProps {}
 // never falls back to the browser's yellow default — `bg-match`, the same token
 // the editor paints a search hit with, because they are the same decision.
 export const Highlight = (props: HighlightProps) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkHighlight
@@ -21,8 +21,8 @@ export const Highlight = (props: HighlightProps) => {
         "font-medium",
         className
       )}
-      data-slot="highlight"
       {...rest}
+      data-slot={slot ?? "highlight"}
     />
   );
 };

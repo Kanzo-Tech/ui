@@ -5,7 +5,7 @@ import type React from "react";
 import { cn } from "../lib/cn";
 
 export const Steps = (props: React.ComponentProps<typeof ArkSteps.Root>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkSteps.Root
@@ -14,8 +14,8 @@ export const Steps = (props: React.ComponentProps<typeof ArkSteps.Root>) => {
         "data-[orientation=vertical]:min-h-32 data-[orientation=vertical]:flex-row data-[orientation=vertical]:gap-8",
         className
       )}
-      data-slot="steps"
       {...rest}
+      data-slot={slot ?? "steps"}
     />
   );
 };
@@ -23,7 +23,7 @@ export const Steps = (props: React.ComponentProps<typeof ArkSteps.Root>) => {
 export const StepsList = (
   props: React.ComponentProps<typeof ArkSteps.List>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkSteps.List
@@ -34,8 +34,8 @@ export const StepsList = (
         "data-[orientation=horizontal]:items-center data-[orientation=horizontal]:justify-between",
         className
       )}
-      data-slot="steps-list"
       {...rest}
+      data-slot={slot ?? "steps-list"}
     />
   );
 };
@@ -43,7 +43,7 @@ export const StepsList = (
 export const StepsItem = (
   props: React.ComponentProps<typeof ArkSteps.Item>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkSteps.Item
@@ -55,8 +55,8 @@ export const StepsItem = (
         "last:flex-initial last:**:data-[slot=steps-separator]:hidden",
         className
       )}
-      data-slot="steps-item"
       {...rest}
+      data-slot={slot ?? "steps-item"}
     />
   );
 };
@@ -65,7 +65,7 @@ interface StepsTriggerProps
   extends React.ComponentProps<typeof ArkSteps.Trigger> {}
 
 export const StepsTrigger = (props: StepsTriggerProps) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkSteps.Trigger
@@ -75,8 +75,8 @@ export const StepsTrigger = (props: StepsTriggerProps) => {
         "disabled:pointer-events-none disabled:opacity-64",
         className
       )}
-      data-slot="steps-trigger"
       {...rest}
+      data-slot={slot ?? "steps-trigger"}
     />
   );
 };
@@ -84,7 +84,7 @@ export const StepsTrigger = (props: StepsTriggerProps) => {
 export const StepsIndicator = (
   props: React.ComponentProps<typeof ArkSteps.Indicator>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ArkSteps.Indicator
@@ -102,8 +102,8 @@ export const StepsIndicator = (
         "motion-reduce:transition-none!",
         className
       )}
-      data-slot="steps-indicator"
       {...rest}
+      data-slot={slot ?? "steps-indicator"}
     >
       <span className="group-data-complete/step:hidden">{children}</span>
       <CheckIcon className="hidden group-data-complete/step:block" />
@@ -114,7 +114,7 @@ export const StepsIndicator = (
 export const StepsSeparator = (
   props: React.ComponentProps<typeof ArkSteps.Separator>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkSteps.Separator
@@ -129,20 +129,20 @@ export const StepsSeparator = (
         "motion-reduce:transition-none!",
         className
       )}
-      data-slot="steps-separator"
       {...rest}
+      data-slot={slot ?? "steps-separator"}
     />
   );
 };
 
 export const StepsTitle = (props: React.ComponentProps<typeof ark.span>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.span
       className={cn("font-medium text-sm leading-none", className)}
-      data-slot="steps-title"
       {...rest}
+      data-slot={slot ?? "steps-title"}
     />
   );
 };
@@ -150,13 +150,13 @@ export const StepsTitle = (props: React.ComponentProps<typeof ark.span>) => {
 export const StepsDescription = (
   props: React.ComponentProps<typeof ark.span>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.span
       className={cn("text-muted-foreground text-xs", className)}
-      data-slot="steps-description"
       {...rest}
+      data-slot={slot ?? "steps-description"}
     />
   );
 };
@@ -164,13 +164,13 @@ export const StepsDescription = (
 export const StepsContent = (
   props: React.ComponentProps<typeof ArkSteps.Content>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkSteps.Content
       className={cn("data-[orientation=vertical]:flex-1", className)}
-      data-slot="steps-content"
       {...rest}
+      data-slot={slot ?? "steps-content"}
     />
   );
 };
@@ -178,21 +178,21 @@ export const StepsContent = (
 export const StepsCompletedContent = (
   props: React.ComponentProps<typeof ArkSteps.CompletedContent>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkSteps.CompletedContent
       className={cn("data-[orientation=vertical]:flex-1", className)}
-      data-slot="steps-completed-content"
       {...rest}
+      data-slot={slot ?? "steps-completed-content"}
     />
   );
 };
 
 export const StepsPrevious = (
-  props: React.ComponentProps<typeof ArkSteps.PrevTrigger>
-) => <ArkSteps.PrevTrigger data-slot="steps-previous" {...props} />;
+  { slot, ...rest }: React.ComponentProps<typeof ArkSteps.PrevTrigger>
+) => <ArkSteps.PrevTrigger {...rest} data-slot={slot ?? "steps-previous"} />;
 
 export const StepsNext = (
-  props: React.ComponentProps<typeof ArkSteps.NextTrigger>
-) => <ArkSteps.NextTrigger data-slot="steps-next" {...props} />;
+  { slot, ...rest }: React.ComponentProps<typeof ArkSteps.NextTrigger>
+) => <ArkSteps.NextTrigger {...rest} data-slot={slot ?? "steps-next"} />;

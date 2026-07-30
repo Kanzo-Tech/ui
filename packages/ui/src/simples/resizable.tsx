@@ -6,20 +6,20 @@ import { cn } from "../lib/cn";
 export const Resizable = (
   props: React.ComponentProps<typeof ArkSplitter.Root>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkSplitter.Root
       className={cn("flex size-full", className)}
-      data-slot="resizable"
       {...rest}
+      data-slot={slot ?? "resizable"}
     />
   );
 };
 
 export const ResizablePanel = (
-  props: React.ComponentProps<typeof ArkSplitter.Panel>
-) => <ArkSplitter.Panel data-slot="resizable-panel" {...props} />;
+  { slot, ...rest }: React.ComponentProps<typeof ArkSplitter.Panel>
+) => <ArkSplitter.Panel {...rest} data-slot={slot ?? "resizable-panel"} />;
 
 interface ResizableResizeTriggerProps
   extends React.ComponentProps<typeof ArkSplitter.ResizeTrigger> {
@@ -32,7 +32,7 @@ interface ResizableResizeTriggerProps
 }
 
 export const ResizableResizeTrigger = (props: ResizableResizeTriggerProps) => {
-  const { withHandle = false, className, ...rest } = props;
+  const { withHandle = false, className, slot, ...rest } = props;
 
   return (
     <ArkSplitter.ResizeTrigger
@@ -49,8 +49,8 @@ export const ResizableResizeTrigger = (props: ResizableResizeTriggerProps) => {
         "[&[data-orientation=vertical]>div]:rotate-90",
         className
       )}
-      data-slot="resizable-resize-trigger"
       {...rest}
+      data-slot={slot ?? "resizable-resize-trigger"}
     >
       {withHandle && (
         <div

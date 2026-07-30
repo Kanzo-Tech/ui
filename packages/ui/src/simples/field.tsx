@@ -49,14 +49,14 @@ interface FieldProps
     VariantProps<typeof fieldVariants> {}
 
 export const Field = (props: FieldProps) => {
-  const { orientation = "vertical", reverse = false, className, ...rest } = props;
+  const { orientation = "vertical", reverse = false, className, slot, ...rest } = props;
 
   return (
     <ArkField.Root
       className={cn(fieldVariants({ orientation, reverse }), className)}
       data-orientation={orientation}
-      data-slot="field"
       {...rest}
+      data-slot={slot ?? "field"}
     />
   );
 };
@@ -64,7 +64,7 @@ export const Field = (props: FieldProps) => {
 export const FieldSet = (
   props: React.ComponentProps<typeof ArkFieldset.Root>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkFieldset.Root
@@ -75,8 +75,8 @@ export const FieldSet = (
         "dark:data-invalid:text-destructive-foreground",
         className
       )}
-      data-slot="field-set"
       {...rest}
+      data-slot={slot ?? "field-set"}
     />
   );
 };
@@ -90,7 +90,7 @@ interface FieldLegendProps
 }
 
 export const FieldLegend = (props: FieldLegendProps) => {
-  const { variant = "legend", className, ...rest } = props;
+  const { variant = "legend", className, slot, ...rest } = props;
 
   return (
     <ArkFieldset.Legend
@@ -100,15 +100,15 @@ export const FieldLegend = (props: FieldLegendProps) => {
         "data-[variant=label]:text-sm",
         className
       )}
-      data-slot="field-legend"
       data-variant={variant}
       {...rest}
+      data-slot={slot ?? "field-legend"}
     />
   );
 };
 
 export const FieldGroup = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
@@ -119,14 +119,14 @@ export const FieldGroup = (props: React.ComponentProps<typeof ark.div>) => {
         "*:data-[slot=field-group]:gap-4",
         className
       )}
-      data-slot="field-group"
       {...rest}
+      data-slot={slot ?? "field-group"}
     />
   );
 };
 
 export const FieldContent = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
@@ -136,8 +136,8 @@ export const FieldContent = (props: React.ComponentProps<typeof ark.div>) => {
         "leading-snug",
         className
       )}
-      data-slot="field-content"
       {...rest}
+      data-slot={slot ?? "field-content"}
     />
   );
 };
@@ -145,7 +145,7 @@ export const FieldContent = (props: React.ComponentProps<typeof ark.div>) => {
 export const FieldLabel = (
   props: React.ComponentProps<typeof ArkField.Label>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkField.Label
@@ -159,8 +159,8 @@ export const FieldLabel = (
         "dark:has-data-[state=checked]:bg-primary/10",
         className
       )}
-      data-slot="field-label"
       {...rest}
+      data-slot={slot ?? "field-label"}
     />
   );
 };
@@ -168,7 +168,7 @@ export const FieldLabel = (
 export const FieldRequiredIndicator = (
   props: React.ComponentProps<typeof ark.span>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ArkField.RequiredIndicator
@@ -178,8 +178,8 @@ export const FieldRequiredIndicator = (
         "dark:text-destructive-foreground",
         className
       )}
-      data-slot="field-required-indicator"
       {...rest}
+      data-slot={slot ?? "field-required-indicator"}
     >
       {children ?? "*"}
     </ArkField.RequiredIndicator>
@@ -187,7 +187,7 @@ export const FieldRequiredIndicator = (
 };
 
 export const FieldTitle = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
@@ -198,14 +198,14 @@ export const FieldTitle = (props: React.ComponentProps<typeof ark.div>) => {
         "group-data-[disabled=true]/field:opacity-64",
         className
       )}
-      data-slot="field-title"
       {...rest}
+      data-slot={slot ?? "field-title"}
     />
   );
 };
 
 export const FieldDescription = (props: React.ComponentProps<typeof ark.p>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.p
@@ -219,8 +219,8 @@ export const FieldDescription = (props: React.ComponentProps<typeof ark.p>) => {
         "[&>a:hover]:text-primary [&>a]:underline [&>a]:underline-offset-4",
         className
       )}
-      data-slot="field-description"
       {...rest}
+      data-slot={slot ?? "field-description"}
     />
   );
 };
@@ -228,13 +228,13 @@ export const FieldDescription = (props: React.ComponentProps<typeof ark.p>) => {
 export const FieldHelper = (
   props: React.ComponentProps<typeof ArkField.HelperText>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkField.HelperText
       className={cn("text-muted-foreground text-sm", className)}
-      data-slot="field-helper"
       {...rest}
+      data-slot={slot ?? "field-helper"}
     />
   );
 };
@@ -242,7 +242,7 @@ export const FieldHelper = (
 export const FieldError = (
   props: React.ComponentProps<typeof ArkField.ErrorText>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkField.ErrorText
@@ -251,8 +251,8 @@ export const FieldError = (
         "dark:text-destructive-foreground",
         className
       )}
-      data-slot="field-error"
       {...rest}
+      data-slot={slot ?? "field-error"}
     />
   );
 };
@@ -265,13 +265,13 @@ export const FieldError = (
 export const FieldSetHelper = (
   props: React.ComponentProps<typeof ArkFieldset.HelperText>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkFieldset.HelperText
       className={cn("text-muted-foreground text-sm", className)}
-      data-slot="field-set-helper"
       {...rest}
+      data-slot={slot ?? "field-set-helper"}
     />
   );
 };
@@ -279,7 +279,7 @@ export const FieldSetHelper = (
 export const FieldSetError = (
   props: React.ComponentProps<typeof ArkFieldset.ErrorText>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkFieldset.ErrorText
@@ -288,8 +288,8 @@ export const FieldSetError = (
         "dark:text-destructive-foreground",
         className
       )}
-      data-slot="field-set-error"
       {...rest}
+      data-slot={slot ?? "field-set-error"}
     />
   );
 };

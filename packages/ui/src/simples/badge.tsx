@@ -125,6 +125,7 @@ export const Badge = (props: BadgeProps) => {
     size = "md",
     pill = false,
     className,
+    slot,
     ...rest
   } = props;
 
@@ -132,9 +133,9 @@ export const Badge = (props: BadgeProps) => {
     <ark.span
       className={cn(badgeVariants({ variant, size, pill }), className)}
       data-size={size}
-      data-slot="badge"
       data-variant={variant}
       {...rest}
+      data-slot={slot ?? "badge"}
     />
   );
 };

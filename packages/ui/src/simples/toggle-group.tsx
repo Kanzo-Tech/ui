@@ -43,6 +43,7 @@ export const ToggleGroup = (props: ToggleGroupProps) => {
     spacing = 0,
     className,
     style,
+    slot,
     ...rest
   } = props;
 
@@ -50,7 +51,6 @@ export const ToggleGroup = (props: ToggleGroupProps) => {
     <ToggleGroupContext.Provider value={{ variant, size, spacing }}>
       <ArkToggleGroup.Root
         className={cn(toggleGroupVariants({ orientation }), className)}
-        data-slot="toggle-group"
         multiple={multiple}
         orientation={orientation}
         style={
@@ -60,6 +60,7 @@ export const ToggleGroup = (props: ToggleGroupProps) => {
           } as React.CSSProperties
         }
         {...rest}
+        data-slot={slot ?? "toggle-group"}
       />
     </ToggleGroupContext.Provider>
   );

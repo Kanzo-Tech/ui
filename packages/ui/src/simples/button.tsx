@@ -147,6 +147,7 @@ export const Button = (props: ButtonProps) => {
     isLoading = false,
     className,
     children,
+    slot,
     ...rest
   } = props;
 
@@ -157,11 +158,11 @@ export const Button = (props: ButtonProps) => {
         className
       )}
       data-size={size}
-      data-slot="button"
       data-state={isLoading ? "loading" : "idle"}
       data-variant={variant}
       type="button"
       {...rest}
+      data-slot={slot ?? "button"}
       aria-busy={isLoading}
       aria-disabled={isLoading}
     >

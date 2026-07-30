@@ -45,22 +45,22 @@ export type ButtonGroupProps = Omit<
 } & Labelled;
 
 export const ButtonGroup = (props: ButtonGroupProps) => {
-  const { orientation = "horizontal", className, ...rest } = props;
+  const { orientation = "horizontal", className, slot, ...rest } = props;
 
   return (
     <ark.div
       className={cn(buttonGroupVariants(), className)}
       data-orientation={orientation}
-      data-slot="button-group"
       role="group"
       {...rest}
+      data-slot={slot ?? "button-group"}
     />
   );
 };
 
 // A text label sitting inside the cluster (a unit, a prefix). Mirrors `InputGroupText`.
 export const ButtonGroupText = (props: React.ComponentProps<typeof ark.span>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.span
@@ -71,8 +71,8 @@ export const ButtonGroupText = (props: React.ComponentProps<typeof ark.span>) =>
         "[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none",
         className
       )}
-      data-slot="button-group-text"
       {...rest}
+      data-slot={slot ?? "button-group-text"}
     />
   );
 };
@@ -82,14 +82,14 @@ export const ButtonGroupText = (props: React.ComponentProps<typeof ark.span>) =>
 export const ButtonGroupSeparator = (
   props: React.ComponentProps<typeof Separator>
 ) => {
-  const { orientation = "vertical", className, ...rest } = props;
+  const { orientation = "vertical", className, slot, ...rest } = props;
 
   return (
     <Separator
       className={cn("self-stretch", className)}
-      data-slot="button-group-separator"
       orientation={orientation}
       {...rest}
+      slot={slot ?? "button-group-separator"}
     />
   );
 };

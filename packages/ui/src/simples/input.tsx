@@ -40,15 +40,15 @@ export interface InputProps
     VariantProps<typeof inputVariants> {}
 
 export const Input = (props: InputProps) => {
-  const { size = "md", type = "text", className, ...rest } = props;
+  const { size = "md", type = "text", className, slot, ...rest } = props;
 
   return (
     <FieldInput
       className={cn(inputVariants({ size }), className)}
       data-size={size}
-      data-slot="input"
       type={type}
       {...rest}
+      data-slot={slot ?? "input"}
     />
   );
 };

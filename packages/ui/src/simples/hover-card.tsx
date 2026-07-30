@@ -19,7 +19,6 @@ export const HoverCard = (props: HoverCardProps) => {
   return (
     <ArkHoverCard.Root
       closeDelay={closeDelay}
-      data-slot="hover-card"
       lazyMount={lazyMount}
       openDelay={openDelay}
       positioning={positioning}
@@ -29,14 +28,17 @@ export const HoverCard = (props: HoverCardProps) => {
   );
 };
 
-export const HoverCardTrigger = (
-  props: React.ComponentProps<typeof ArkHoverCard.Trigger>
-) => <ArkHoverCard.Trigger data-slot="hover-card-trigger" {...props} />;
+export const HoverCardTrigger = ({
+  slot,
+  ...rest
+}: React.ComponentProps<typeof ArkHoverCard.Trigger>) => (
+  <ArkHoverCard.Trigger {...rest} data-slot={slot ?? "hover-card-trigger"} />
+);
 
 export const HoverCardContent = (
   props: React.ComponentProps<typeof ArkHoverCard.Content>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <Portal>
@@ -61,8 +63,8 @@ export const HoverCardContent = (
             "motion-reduce:animate-none!",
             className
           )}
-          data-slot="hover-card-content"
           {...rest}
+          data-slot={slot ?? "hover-card-content"}
         >
           {children}
 
@@ -76,11 +78,10 @@ export const HoverCardContent = (
 export const HoverCardArrow = (
   props: React.ComponentProps<typeof ArkHoverCard.Arrow>
 ) => {
-  const { style, ...rest } = props;
+  const { style, slot, ...rest } = props;
 
   return (
     <ArkHoverCard.Arrow
-      data-slot="hover-card-arrow"
       style={
         {
           "--arrow-background": "var(--popover)",
@@ -89,6 +90,7 @@ export const HoverCardArrow = (
         } as React.CSSProperties
       }
       {...rest}
+      data-slot={slot ?? "hover-card-arrow"}
     >
       <ArkHoverCard.ArrowTip className="border-s border-t" />
     </ArkHoverCard.Arrow>

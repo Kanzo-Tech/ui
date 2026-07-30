@@ -20,7 +20,7 @@ export interface DataTablePaginationProps extends React.ComponentProps<typeof ar
 }
 
 export const DataTablePagination = (props: DataTablePaginationProps) => {
-  const { pageSizes, className, ...rest } = props;
+  const { pageSizes, className, slot, ...rest } = props;
   const table = useDataTableContext();
 
   const { pageIndex, pageSize } = table.getState().pagination;
@@ -33,8 +33,8 @@ export const DataTablePagination = (props: DataTablePaginationProps) => {
   return (
     <ark.div
       className={cn("flex items-center gap-3", className)}
-      data-slot="data-table-pagination"
       {...rest}
+      data-slot={slot ?? "data-table-pagination"}
     >
       {selected > 0 && (
         <span className="text-muted-foreground text-sm" data-slot="data-table-selected-count">

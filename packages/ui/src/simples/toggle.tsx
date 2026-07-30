@@ -40,7 +40,7 @@ export interface ToggleProps
 }
 
 export const Toggle = (props: ToggleProps) => {
-  const { variant = "ghost", size = "md", className, ...rest } = props;
+  const { variant = "ghost", size = "md", className, slot, ...rest } = props;
 
   return (
     <ArkToggle.Root
@@ -49,8 +49,8 @@ export const Toggle = (props: ToggleProps) => {
         toggleVariants({ size }),
         className
       )}
-      data-slot="toggle"
       {...rest}
+      data-slot={slot ?? "toggle"}
     />
   );
 };
@@ -58,13 +58,13 @@ export const Toggle = (props: ToggleProps) => {
 export const ToggleIndicator = (
   props: React.ComponentProps<typeof ArkToggle.Indicator>
 ) => {
-  const { children, ...rest } = props;
+  const { children, slot, ...rest } = props;
 
   return (
     <ArkToggle.Indicator
       className="flex items-center gap-2"
-      data-slot="toggle-indicator"
       {...rest}
+      data-slot={slot ?? "toggle-indicator"}
     >
       {children}
     </ArkToggle.Indicator>

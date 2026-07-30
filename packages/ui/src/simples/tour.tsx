@@ -58,7 +58,12 @@ interface TourProps
 }
 
 export const Tour = (props: TourProps) => {
-  const { steps = [], lazyMount = true, unmountOnExit = true, ...rest } = props;
+  const {
+    steps = [],
+    lazyMount = true,
+    unmountOnExit = true,
+    ...rest
+  } = props;
 
   const [isStarted, setIsStarted] = React.useState(false);
 
@@ -84,7 +89,6 @@ export const Tour = (props: TourProps) => {
   return (
     <TourProvider.Provider value={{ tour, handleStart }}>
       <ArkTour.Root
-        data-slot="tour"
         lazyMount={lazyMount}
         tour={tour}
         unmountOnExit={unmountOnExit}
@@ -97,7 +101,7 @@ export const Tour = (props: TourProps) => {
 interface TourTriggerProps extends React.ComponentProps<typeof ark.button> {}
 
 export const TourTrigger = (props: TourTriggerProps) => {
-  const { onClick, ...rest } = props;
+  const { onClick, slot, ...rest } = props;
 
   const { handleStart } = useTourContext();
 
@@ -108,34 +112,38 @@ export const TourTrigger = (props: TourTriggerProps) => {
 
   return (
     <ark.button
-      data-slot="tour-trigger"
       type="button"
       {...rest}
+      data-slot={slot ?? "tour-trigger"}
       onClick={handleClick}
     />
   );
 };
 
-const TourActionTrigger = (
-  props: React.ComponentProps<typeof ArkTour.ActionTrigger>
-) => <ArkTour.ActionTrigger data-slot="tour-action-trigger" {...props} />;
+const TourActionTrigger = ({
+  slot,
+  ...rest
+}: React.ComponentProps<typeof ArkTour.ActionTrigger>) => (
+  <ArkTour.ActionTrigger {...rest} data-slot={slot ?? "tour-action-trigger"} />
+);
 
 const TourOverlay = (
   props: React.ComponentProps<typeof DialogOverlay>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkTour.Backdrop
       className={cn(dialogOverlayVariants(), "duration-initial", className)}
-      data-slot="tour-overlay"
       {...rest}
+      data-slot={slot ?? "tour-overlay"}
     />
   );
 };
-const TourPositioner = (
-  props: React.ComponentProps<typeof ArkTour.Positioner>
-) => (
+const TourPositioner = ({
+  slot,
+  ...rest
+}: React.ComponentProps<typeof ArkTour.Positioner>) => (
   <ArkTour.Positioner
     className={cn(
       "z-50",
@@ -147,8 +155,8 @@ const TourPositioner = (
       "data-[type=dialog]:fixed data-[type=dialog]:inset-0 data-[type=dialog]:p-4",
       "data-[type=tooltip]:absolute"
     )}
-    data-slot="tour-positioner"
-    {...props}
+    {...rest}
+    data-slot={slot ?? "tour-positioner"}
   />
 );
 
@@ -163,7 +171,7 @@ interface TourContentProps
 }
 
 export const TourContent = (props: TourContentProps) => {
-  const { showCloseButton = true, className, children, ...rest } = props;
+  const { showCloseButton = true, className, children, slot, ...rest } = props;
 
   return (
     <Portal>
@@ -185,8 +193,8 @@ export const TourContent = (props: TourContentProps) => {
             "motion-reduce:animate-none!",
             className
           )}
-          data-slot="tour-content"
           {...rest}
+          data-slot={slot ?? "tour-content"}
         >
           {children}
 
@@ -220,23 +228,23 @@ export const TourContent = (props: TourContentProps) => {
 // A step's body is `DialogBody`: the renamed `TourBody` only relabelled the slot, and nothing
 // keys off `tour-body`.
 const TourSpotlight = (
-  props: React.ComponentProps<typeof ArkTour.Spotlight>
+  { slot, ...rest }: React.ComponentProps<typeof ArkTour.Spotlight>
 ) => (
   <ArkTour.Spotlight
     className="z-50 border-2 border-primary"
-    data-slot="tour-spotlight"
-    {...props}
+    {...rest}
+    data-slot={slot ?? "tour-spotlight"}
   />
 );
 
 export const TourHeader = (
-  props: React.ComponentProps<typeof DialogHeader>
-) => <DialogHeader data-slot="tour-header" {...props} />;
+  { slot, ...rest }: React.ComponentProps<typeof DialogHeader>
+) => <DialogHeader {...rest} slot={slot ?? "tour-header"} />;
 
 export const TourTitle = (
   props: React.ComponentProps<typeof ArkTour.Title>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   const { tour } = useTourContext();
 
@@ -250,8 +258,8 @@ export const TourTitle = (
         "in-[[data-slot=tour-content]:has([data-slot=tour-close-trigger])]:pe-8",
         className
       )}
-      data-slot="tour-title"
       {...rest}
+      data-slot={slot ?? "tour-title"}
     >
       {tour.step?.title}
     </ArkTour.Title>
@@ -261,15 +269,15 @@ export const TourTitle = (
 export const TourDescription = (
   props: React.ComponentProps<typeof ArkTour.Description>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   const { tour } = useTourContext();
 
   return (
     <ArkTour.Description
       className={cn("text-muted-foreground text-sm", className)}
-      data-slot="tour-description"
       {...rest}
+      data-slot={slot ?? "tour-description"}
     >
       {tour.step?.description}
     </ArkTour.Description>
@@ -279,24 +287,27 @@ export const TourDescription = (
 export const TourProgressText = (
   props: React.ComponentProps<typeof ArkTour.ProgressText>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   const { tour } = useTourContext();
 
   return (
     <ArkTour.ProgressText
       className={cn("text-muted-foreground text-sm", className)}
-      data-slot="tour-progress-text"
       {...rest}
+      data-slot={slot ?? "tour-progress-text"}
     >
       {tour.getProgressText()}
     </ArkTour.ProgressText>
   );
 };
 
-const TourClose = (
-  props: React.ComponentProps<typeof ArkTour.CloseTrigger>
-) => <ArkTour.CloseTrigger data-slot="tour-close-trigger" {...props} />;
+const TourClose = ({
+  slot,
+  ...rest
+}: React.ComponentProps<typeof ArkTour.CloseTrigger>) => (
+  <ArkTour.CloseTrigger {...rest} data-slot={slot ?? "tour-close-trigger"} />
+);
 
 // `TourFooter` was a second wrapper over the same `ArkTour.Control` that `TourActions` already
 // carries. Ark's `Control` is a bare `ark.div` with static anatomy attrs — no machine wiring —
@@ -318,7 +329,7 @@ export const TourActions = (
     <ArkTour.Control {...rest} asChild>
       <DialogFooter
         className={cn("flex flex-wrap gap-2", className)}
-        data-slot="tour-actions"
+        slot="tour-actions"
       >
         {actions.map((action) => (
           <TourActionTrigger action={action} asChild key={action.label}>
@@ -343,7 +354,7 @@ export const TourActions = (
 export const TourPreviousStep = (
   props: Omit<React.ComponentProps<typeof TourActionTrigger>, "action">
 ) => {
-  const { ...rest } = props;
+  const { slot, ...rest } = props;
 
   const { tour } = useTourContext();
 
@@ -358,8 +369,8 @@ export const TourPreviousStep = (
 
   return (
     <TourActionTrigger
-      data-slot="tour-previous-step"
       {...rest}
+      slot={slot ?? "tour-previous-step"}
       action={prevAction}
       asChild
     >
@@ -374,7 +385,7 @@ export const TourPreviousStep = (
 export const TourNextStep = (
   props: Omit<React.ComponentProps<typeof TourActionTrigger>, "action">
 ) => {
-  const { ...rest } = props;
+  const { slot, ...rest } = props;
 
   const { tour } = useTourContext();
 
@@ -394,8 +405,8 @@ export const TourNextStep = (
 
   return (
     <TourActionTrigger
-      data-slot="tour-next-step"
       {...rest}
+      slot={slot ?? "tour-next-step"}
       action={action}
       asChild
     >

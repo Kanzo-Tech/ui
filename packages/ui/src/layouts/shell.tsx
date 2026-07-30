@@ -35,24 +35,24 @@ import { cn } from "../lib/cn.js";
  * No role is declared. A top region is often `banner` and a bottom one `contentinfo`, but a
  * strip is neither and a shell may have several — the call site passes the landmark.
  */
-export function ShellHeader({ className, ...rest }: ComponentProps<typeof ark.div>) {
+export function ShellHeader({ className, slot, ...rest }: ComponentProps<typeof ark.div>) {
   return (
     <ark.div
       className={cn("flex shrink-0 flex-col border-b border-border", className)}
-      data-slot="shell-header"
       {...rest}
+      data-slot={slot ?? "shell-header"}
     />
   );
 }
 ShellHeader.displayName = "ShellHeader";
 
 /** The region below the body. Structural only — see {@link ShellHeader}. */
-export function ShellFooter({ className, ...rest }: ComponentProps<typeof ark.div>) {
+export function ShellFooter({ className, slot, ...rest }: ComponentProps<typeof ark.div>) {
   return (
     <ark.div
       className={cn("flex shrink-0 flex-col border-t border-border", className)}
-      data-slot="shell-footer"
       {...rest}
+      data-slot={slot ?? "shell-footer"}
     />
   );
 }
@@ -68,12 +68,12 @@ ShellFooter.displayName = "ShellFooter";
  * screen. `min-h-0` is what lets the body shrink and its own regions scroll instead of the
  * page growing.
  */
-export function ShellRoot({ className, ...rest }: ComponentProps<typeof ark.div>) {
+export function ShellRoot({ className, slot, ...rest }: ComponentProps<typeof ark.div>) {
   return (
     <ark.div
       className={cn("flex h-dvh min-h-0 flex-col overflow-hidden", className)}
-      data-slot="shell-root"
       {...rest}
+      data-slot={slot ?? "shell-root"}
     />
   );
 }
@@ -81,12 +81,12 @@ ShellRoot.displayName = "ShellRoot";
 
 /** The horizontal band between the bars: asides and main sit here as siblings, in the order
  *  the caller writes them — which is also what makes the layout mirror correctly in RTL. */
-export function ShellBody({ className, ...rest }: ComponentProps<typeof ark.div>) {
+export function ShellBody({ className, slot, ...rest }: ComponentProps<typeof ark.div>) {
   return (
     <ark.div
       className={cn("relative flex min-h-0 flex-1", className)}
-      data-slot="shell-body"
       {...rest}
+      data-slot={slot ?? "shell-body"}
     />
   );
 }
@@ -99,12 +99,12 @@ ShellBody.displayName = "ShellBody";
  * "skip to main content" ambiguous, so nothing nested inside may render another — nestable
  * containers use `<section>`.
  */
-export function ShellMain({ className, ...rest }: ComponentProps<typeof ark.main>) {
+export function ShellMain({ className, slot, ...rest }: ComponentProps<typeof ark.main>) {
   return (
     <ark.main
       className={cn("flex min-w-0 flex-1 flex-col overflow-auto", className)}
-      data-slot="shell-main"
       {...rest}
+      data-slot={slot ?? "shell-main"}
     />
   );
 }
@@ -155,18 +155,19 @@ export function ShellAside({
   overlay,
   width,
   style,
+  slot,
   ...rest
 }: ShellAsideProps) {
   return (
     <ark.aside
       className={cn(shellAsideVariants({ side, overlay }), className)}
-      data-slot="shell-aside"
       data-side={side ?? "start"}
       // `width` is a genuinely computed value the caller owns (and drives from drag state),
       // which is the sanctioned inline-style exception. An overlay fills its container, so
       // applying it there would fight the `inset-0`.
       style={overlay ? style : { width, ...style }}
       {...rest}
+      data-slot={slot ?? "shell-aside"}
     />
   );
 }

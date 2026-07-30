@@ -165,6 +165,7 @@ export function ChartRoot(props: ChartRootProps) {
     className,
     plotClassName,
     ref,
+    slot,
     ...rest
   } = props;
   const { coordinator, crossfilter, selected, registerSelection } = useMosaic();
@@ -225,12 +226,12 @@ export function ChartRoot(props: ChartRootProps) {
     <ChartContext.Provider value={context}>
       <ark.div
         className={cn("flex w-full flex-col gap-2", className)}
-        data-slot="chart-root"
         ref={(node: HTMLDivElement | null) => {
           host.current = node;
           assignRef(ref, node);
         }}
         {...rest}
+        data-slot={slot ?? "chart-root"}
       >
         <TokenizedPlot
           className={plotClassName}

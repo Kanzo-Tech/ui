@@ -60,7 +60,7 @@ interface AlertProps
     VariantProps<typeof alertVariants> {}
 
 export const Alert = (props: AlertProps) => {
-  const { variant, className, ...rest } = props;
+  const { variant, className, slot, ...rest } = props;
 
   return (
     <ark.div
@@ -68,14 +68,14 @@ export const Alert = (props: AlertProps) => {
       // `role` sits before `...rest` so a consumer can still override it.
       role={variant === "destructive" ? "alert" : "status"}
       className={cn(alertVariants({ variant }), className)}
-      data-slot="alert"
       {...rest}
+      data-slot={slot ?? "alert"}
     />
   );
 };
 
 export const AlertTitle = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
@@ -84,8 +84,8 @@ export const AlertTitle = (props: React.ComponentProps<typeof ark.div>) => {
         "[svg~&]:col-start-2",
         className
       )}
-      data-slot="alert-title"
       {...rest}
+      data-slot={slot ?? "alert-title"}
     />
   );
 };
@@ -93,7 +93,7 @@ export const AlertTitle = (props: React.ComponentProps<typeof ark.div>) => {
 export const AlertDescription = (
   props: React.ComponentProps<typeof ark.div>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
@@ -103,14 +103,14 @@ export const AlertDescription = (
         "[svg~&]:col-start-2",
         className
       )}
-      data-slot="alert-description"
       {...rest}
+      data-slot={slot ?? "alert-description"}
     />
   );
 };
 
 export const AlertAction = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
@@ -125,8 +125,8 @@ export const AlertAction = (props: React.ComponentProps<typeof ark.div>) => {
         "sm:[svg~[data-slot=alert-description]~&]:col-start-3",
         className
       )}
-      data-slot="alert-action"
       {...rest}
+      data-slot={slot ?? "alert-action"}
     />
   );
 };

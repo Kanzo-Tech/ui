@@ -51,6 +51,7 @@ export const Table = (props: TableProps) => {
     stickyHeader = false,
     maxHeight,
     className,
+    slot,
     ...rest
   } = props;
 
@@ -86,23 +87,23 @@ export const Table = (props: TableProps) => {
           className
         )}
         data-hoverable={isHoverable}
-        data-slot="table"
         data-sticky-header={stickyHeader}
         data-variant={variant}
         {...rest}
+        data-slot={slot ?? "table"}
       />
     </div>
   );
 };
 
 export const TableHeader = (props: React.ComponentProps<typeof ark.thead>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.thead
       className={cn("[&_tr]:border-b", className)}
-      data-slot="table-header"
       {...rest}
+      data-slot={slot ?? "table-header"}
     />
   );
 };
@@ -111,19 +112,19 @@ export interface TableBodyProps
   extends React.ComponentProps<typeof ark.tbody> {}
 
 export const TableBody = (props: TableBodyProps) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.tbody
       className={cn("[&_tr:last-child]:border-0", className)}
-      data-slot="table-body"
       {...rest}
+      data-slot={slot ?? "table-body"}
     />
   );
 };
 
 export const TableFooter = (props: React.ComponentProps<typeof ark.tfoot>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.tfoot
@@ -134,14 +135,14 @@ export const TableFooter = (props: React.ComponentProps<typeof ark.tfoot>) => {
         "last:[&>tr]:border-b-0",
         className
       )}
-      data-slot="table-footer"
       {...rest}
+      data-slot={slot ?? "table-footer"}
     />
   );
 };
 
 export const TableRow = (props: React.ComponentProps<typeof ark.tr>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.tr
@@ -161,14 +162,14 @@ export const TableRow = (props: React.ComponentProps<typeof ark.tr>) => {
         "group-data-[hoverable=true]/table:[&:has(td):hover]:bg-secondary-wash",
         className
       )}
-      data-slot="table-row"
       {...rest}
+      data-slot={slot ?? "table-row"}
     />
   );
 };
 
 export const TableHead = (props: React.ComponentProps<typeof ark.th>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.th
@@ -180,14 +181,14 @@ export const TableHead = (props: React.ComponentProps<typeof ark.th>) => {
         "has-[[role=checkbox]]:ps-2 has-[[role=checkbox]]:pe-0",
         className
       )}
-      data-slot="table-head"
       {...rest}
+      data-slot={slot ?? "table-head"}
     />
   );
 };
 
 export const TableCell = (props: React.ComponentProps<typeof ark.td>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.td
@@ -196,8 +197,8 @@ export const TableCell = (props: React.ComponentProps<typeof ark.td>) => {
         "has-[[role=checkbox]]:ps-2 has-[[role=checkbox]]:pe-0",
         className
       )}
-      data-slot="table-cell"
       {...rest}
+      data-slot={slot ?? "table-cell"}
     />
   );
 };
@@ -205,13 +206,13 @@ export const TableCell = (props: React.ComponentProps<typeof ark.td>) => {
 export const TableCaption = (
   props: React.ComponentProps<typeof ark.caption>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.caption
       className={cn("mt-4", "text-muted-foreground text-sm", className)}
-      data-slot="table-caption"
       {...rest}
+      data-slot={slot ?? "table-caption"}
     />
   );
 };

@@ -316,6 +316,7 @@ export function ChartFilter(props: ChartFilterProps) {
     className,
     controlClassName,
     children,
+    slot,
     ...rest
   } = props;
   const { crossfilter } = useMosaic();
@@ -374,13 +375,13 @@ export function ChartFilter(props: ChartFilterProps) {
   return (
     <ark.div
       className={cn("w-fit", className)}
-      data-slot="chart-filter"
       {...rest}
       {...warmUpHandlers(activate, props)}
+      data-slot={slot ?? "chart-filter"}
     >
       <FacetFilter
         className={controlClassName}
-        data-slot="chart-filter-trigger"
+        slot="chart-filter-trigger"
         disabled={disabled}
         empty={lookup && rows === null ? "Loading…" : "No values."}
         items={items}
@@ -454,6 +455,7 @@ export function ChartSearch(props: ChartSearchProps) {
     className,
     controlClassName,
     children,
+    slot,
     ...rest
   } = props;
   const { crossfilter } = useMosaic();
@@ -495,7 +497,7 @@ export function ChartSearch(props: ChartSearchProps) {
 
   // Keyed on the values, not on the array: `rows` is a fresh array on every settled query, and
   // setting the collection from an identity-unstable dep is a render loop.
-  const itemsKey = items.map((item) => item.value).join(" ");
+  const itemsKey = items.map((item) => item.value).join("\u0000");
   useEffect(() => {
     set(items);
     // `items` is derived from `itemsKey`; depending on it directly is the loop above.
@@ -537,10 +539,10 @@ export function ChartSearch(props: ChartSearchProps) {
   return (
     <Field
       className={cn("w-fit min-w-48 gap-1.5", className)}
-      data-slot="chart-search"
       disabled={disabled}
       {...rest}
       {...warmUpHandlers(activate, props)}
+      slot={slot ?? "chart-search"}
     >
       {label ? <FieldLabel>{label}</FieldLabel> : null}
       {lookup ? (
@@ -552,7 +554,7 @@ export function ChartSearch(props: ChartSearchProps) {
         <Combobox
           allowCustomValue
           collection={collection}
-          data-slot="chart-search-list"
+          slot="chart-search-list"
           disabled={disabled}
           inputValue={text}
           onInputValueChange={(details) => {
@@ -661,6 +663,7 @@ export function ChartSlider(props: ChartSliderProps) {
     disabled,
     className,
     children,
+    slot,
     ...rest
   } = props;
   const { crossfilter } = useMosaic();
@@ -746,9 +749,9 @@ export function ChartSlider(props: ChartSliderProps) {
   return (
     <ark.div
       className={cn("flex w-full min-w-48 flex-col gap-1.5", className)}
-      data-slot="chart-slider"
       {...rest}
       {...warmUpHandlers(activate, props)}
+      data-slot={slot ?? "chart-slider"}
     >
       {extent && shown ? (
         <Slider
