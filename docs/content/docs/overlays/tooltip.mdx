@@ -28,6 +28,14 @@ A tooltip is not an accessible name. It is only reachable by hover and focus, so
 trigger still needs its own `aria-label` — the tooltip supplements that label, it does not
 replace it. Never put interactive content inside one; use `Popover` or `HoverCard` for that.
 
+<Callout type="warn">
+**Nothing focusable goes in a tooltip.** It is `role="tooltip"`, wired to the trigger with
+`aria-describedby`, so its text is announced as part of the control — a link inside one is
+unreachable by keyboard and is read out as part of the button's name. Reach for
+[`Popover`](/docs/overlays/popover) when the surface holds controls, and see
+[which of the three](/docs/overlays/popover#popover-hover-card-or-tooltip).
+</Callout>
+
 ## Anatomy
 
 ```text

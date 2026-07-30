@@ -35,6 +35,30 @@ import {
 `PopoverContent` supplies its own `Portal` and positioner. The content has no fixed width —
 it is `w-auto min-w-32` — so size it with a `className` when the panel holds a form.
 
+## Popover, Hover card or Tooltip
+
+Three surfaces float beside a trigger, and the difference is not how much they hold — it is
+**what the machine promises assistive technology**, which is checkable rather than a matter of
+taste:
+
+| | Role | Wiring | Opens on |
+|---|---|---|---|
+| [`Tooltip`](/docs/overlays/tooltip) | `role="tooltip"` | `aria-describedby` on the trigger | hover **and focus** |
+| [`HoverCard`](/docs/overlays/hover-card) | none | none | hover only |
+| `Popover` | `role="dialog"` | `aria-haspopup`, `aria-expanded`, `aria-controls` | click |
+
+Read down the last column and the rule falls out:
+
+- **A tooltip *describes* its trigger.** It is announced as part of the control, so it must be a
+  short label and it must never hold anything focusable — a link inside a `role="tooltip"` is
+  unreachable by keyboard and is read out as part of the button's name.
+- **A hover card carries no semantics at all**, which is the honest shape for a *preview*:
+  content a mouse user gets as a bonus and nobody depends on. If a keyboard user needs it, it is
+  the wrong component.
+- **A popover is a dialog**, so it is the only one of the three that may contain controls — a
+  form, a menu, a button. It opens on click because a surface you can tab into needs an
+  intentional way in and out.
+
 ## Anatomy
 
 ```text

@@ -25,6 +25,12 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@kanzo-tech/ui";
 Hover-only, so the content must be supplementary — anything a keyboard or touch user needs
 belongs in a `Popover` instead, which opens on click.
 
+<Callout type="warn">
+**A hover card is a preview, not content.** It declares no role and wires no `aria-*`, so nothing
+inside it is announced or reachable without a pointer — which is correct for a bonus and wrong
+for anything a reader needs. See [which of the three](/docs/overlays/popover#popover-hover-card-or-tooltip).
+</Callout>
+
 ## Anatomy
 
 ```text
