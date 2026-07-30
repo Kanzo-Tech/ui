@@ -35,3 +35,49 @@ A group of checkboxes needs a `FieldSet` and a `FieldLegend` around it in a real
 a legend a screen-reader user hears the options but never hears what they are choosing between —
 see [Building a form](/docs/forms/building-a-form).
 </Callout>
+
+## API Reference
+
+### Checkbox
+
+No props of its own. It renders Ark's `Control`, both indicators and the `HiddenInput` for you,
+so the API is the machine's:
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `checked` | `boolean \| "indeterminate"` | — |
+| `defaultChecked` | `boolean \| "indeterminate"` | `false` |
+| `onCheckedChange` | `(details) => void` | — |
+| `disabled` | `boolean` | `false` |
+| `invalid` | `boolean` | `false` |
+| `readOnly` | `boolean` | `false` |
+| `required` | `boolean` | `false` |
+
+Extends `React.ComponentProps<typeof ArkCheckbox.Root>`, so `ref`, `name`, `value`, `form` and
+every native prop pass through — except `tabIndex`, which is forwarded to the hidden input where
+the focus actually lives. `checkboxVariants` is exported if you need the same box elsewhere, and
+`useCheckbox` re-exports Ark's `useCheckboxContext`.
+
+### CheckboxGroup
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `value` | `string[]` | — |
+| `defaultValue` | `string[]` | `[]` |
+| `onValueChange` | `(value: string[]) => void` | — |
+| `disabled` | `boolean` | `false` |
+| `readOnly` | `boolean` | `false` |
+| `invalid` | `boolean` | `false` |
+| `maxSelectedValues` | `number` | — |
+
+Extends `React.ComponentProps<typeof ArkCheckbox.Group>`. Each child `Checkbox` needs a `value`
+to appear in the array.
+
+### CheckboxIndicator
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `indeterminate` | `boolean` | `false` |
+
+Rendered for you by `Checkbox` — twice, once per state. The export exists for a bespoke control
+built on the same machine.

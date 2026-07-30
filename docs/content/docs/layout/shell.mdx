@@ -89,3 +89,25 @@ Resizing is **composed, not a prop**. Wrap Ark's Splitter around the aside and t
 keyboard resizing and ARIA come from the machine. A `resizable` prop would mean re-implementing
 behaviour Ark already ships.
 </Callout>
+
+## API Reference
+
+### ShellAside
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `side` | `"start" \| "end"` | `"start"` |
+| `overlay` | `boolean` | `false` |
+| `width` | `number` | — |
+
+Extends `ComponentProps<typeof ark.aside>`. `side` is mirrored to `data-side` and decides which
+edge carries the divider; `width` is applied as an inline style — the sanctioned exception,
+because it is a computed value the caller owns — and is ignored when `overlay`, where the aside
+fills its container.
+
+### The other regions
+
+`ShellRoot`, `ShellHeader`, `ShellBody` and `ShellFooter` have no props of their own and extend
+`ComponentProps<typeof ark.div>`; `ShellMain` extends `ComponentProps<typeof ark.main>`.
+`asChild`, `ref`, `role` and `aria-label` pass through — no region declares a landmark role
+itself, so the call site names them.

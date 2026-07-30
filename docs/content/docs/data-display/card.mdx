@@ -75,3 +75,36 @@ target, which is what a tile should be; without it the card is inert. Route it t
 router with `linkComponent` — see [Link](/docs/navigation/link).
 
 <ComponentPreview componentName="card" fileName="example-metric-link" />
+
+## API Reference
+
+### Card
+
+No props of its own. Extends `React.ComponentProps<typeof ark.article>` — it renders
+`<article>`, and `asChild` swaps that for an `<a>` when the whole card is a link. It owns the
+`--space` padding variable the parts read, so retuning the card's rhythm is one class on the
+root.
+
+### CardMedia
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `variant` | `"default" \| "icon" \| "image"` | `"default"` |
+
+Mirrored to `data-variant`, which is how `Card` knows to drop its own top padding for `image`.
+
+### CardHeader
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `title` | `string` | — |
+| `description` | `string` | — |
+
+Both are shorthands: they render a `CardTitle` and a `CardDescription` for you. A lone string
+child is treated as the title. Extends `React.ComponentProps<typeof ark.div>`.
+
+### Other parts
+
+`CardTitle` renders `<h3>` — `asChild` for another level, so a card contributes to the document
+outline at the right depth. `CardDescription`, `CardAction`, `CardContent` and `CardFooter`
+render a `div` and take that element's props.

@@ -32,3 +32,12 @@ the field.
 ### Disabled
 
 <ComponentPreview componentName="textarea" fileName="example-disabled" />
+
+## API Reference
+
+No props of its own — and deliberately no `size`, unlike [`Input`](/docs/forms/input): the height
+is `field-sizing-content` over a `min-h-16` floor, so the content sizes the box.
+
+Extends `React.ComponentProps<typeof ArkField.Textarea>`, so `ref`, `value` / `defaultValue`,
+`onChange`, `rows`, `placeholder`, `disabled` and `aria-invalid` pass through. Inside a `Field`
+it also picks up `data-invalid` from the machine, which paints the same way `aria-invalid` does.

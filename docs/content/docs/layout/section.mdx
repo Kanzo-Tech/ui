@@ -107,3 +107,41 @@ owns the page's single `<main>` landmark.
 
 `SectionFooter` carries a surface and a top border, unlike the header: it sits against the
 bottom of a scrolling body and has to separate itself from the content sliding under it.
+
+## API Reference
+
+### SectionHeader
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `scale` | `"page" \| "section"` | `"section"` |
+| `bordered` | `boolean` | `false` |
+
+Extends `ComponentProps<typeof ark.header>`, so `asChild`, `ref` and every native prop pass
+through.
+
+### SectionTitle
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `level` | `1 \| 2 \| 3 \| 4 \| 5 \| 6` | `2` |
+| `scale` | `"page" \| "section"` | `"section"` |
+
+Renders `h{level}` directly rather than through the `ark` factory, so it extends
+`ComponentProps<"h2">` with `ref` omitted — and there is no `asChild`, because `level` already
+covers what you would reach for it.
+
+### SectionBody
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `scale` | `"page" \| "section"` | `"section"` |
+
+Renders `<section>`, never `<main>`. Extends `ComponentProps<typeof ark.section>`.
+
+### Other parts
+
+`SectionRoot`, `SectionIcon`, `SectionTitleGroup` and `SectionActions` have no props of their
+own and extend `ComponentProps<typeof ark.div>`; `SectionDescription` is `ark.p` and
+`SectionFooter` is `ark.footer`. All of them take `asChild`, `ref` and their element's native
+props.
