@@ -2,31 +2,20 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cn } from "../lib/cn.js";
-import { resolveTokenColor } from "../lib/token-color.js";
 import { useThemeTick } from "../lib/theme-tick.js";
-
-/**
- * The two tokenised colours a crossfilter chart paints with. Resolved from the live DOM at
- * mount and on every theme change, so the marks re-skin with the rest of the system.
- */
-export interface PlotColors {
-  /** `--primary` — the filtered foreground layer (the current crossfilter subset). */
-  primary: string;
-  /** `--muted-foreground` — the dimmed "all data" background layer (the full distribution). */
-  muted: string;
-}
 
 export interface TokenizedPlotProps {
   /**
-   * Builds the vgplot element from the resolved token colours and the measured container width;
-   * return `vg.plot(..., vg.width(width))`. Re-invoked whenever a `deps` entry, the width or the
-   * theme changes, and the result is mounted via `container.replaceChildren(...)` — the same
-   * imperative mount vgplot needs (it renders an SVG/HTML node, not React).
+   * Builds the vgplot element from the measured container width; return
+   * `vg.plot(..., vg.width(width))`. Re-invoked whenever a `deps` entry, the width or the theme
+   * changes, and the result is mounted via `container.replaceChildren(...)` — the same imperative
+   * mount vgplot needs (it renders an SVG/HTML node, not React).
    *
-   * The third argument is the host element, for resolving further tokens against the cascade the
-   * chart actually sits in (`resolveTokenColor(host, "--chart-1")`).
+   * `host` is for resolving tokens against the cascade the chart actually sits in —
+   * `resolveTokenColor(host, "--chart-1")`. It is the only colour channel this frame offers,
+   * because a fixed pair of colours is a guess about what the plot paints with.
    */
-  render: (colors: PlotColors, width: number, host: HTMLDivElement) => Node;
+  render: (width: number, host: HTMLDivElement) => Node;
   /** Inputs that rebuild the plot when they change (table, column, selection, height…). */
   deps: unknown[];
   className?: string;
@@ -36,8 +25,8 @@ export interface TokenizedPlotProps {
 const RESIZE_SETTLE_MS = 140;
 
 /**
- * The shared frame under `Histogram` and `BarChart`: resolve the Kanzo tokens to Plot-safe
- * colours, build the vgplot node, and mount it imperatively into a token-coloured container.
+ * The frame under `ChartRoot`: measure the container, build the vgplot node, and mount it
+ * imperatively into a token-coloured container.
  *
  * `text-foreground` on the host is load-bearing — Observable Plot draws axis ticks and labels
  * with `currentColor`, so inheriting the foreground token is what keeps the axes legible in both
@@ -93,11 +82,7 @@ export function TokenizedPlot({ render, deps, className }: TokenizedPlotProps) {
   useEffect(() => {
     const host = container.current;
     if (!host || width === 0) return;
-    const colors: PlotColors = {
-      primary: resolveTokenColor(host, "--primary"),
-      muted: resolveTokenColor(host, "--muted-foreground"),
-    };
-    host.replaceChildren(renderRef.current(colors, width, host));
+    host.replaceChildren(renderRef.current(width, host));
     return () => host.replaceChildren();
     // `render` is read through a ref; `tick` re-runs on theme change, `width`/`deps` on resize/input.
     // eslint-disable-next-line react-hooks/exhaustive-deps

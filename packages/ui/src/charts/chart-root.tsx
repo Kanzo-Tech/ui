@@ -42,8 +42,6 @@ function toVgDirective(directive: ChartDirective): VgDirective | null {
       return directives[directive.interactor]?.(directive.options) ?? null;
     case "attribute":
       return directives[directive.name]?.(directive.value) ?? null;
-    case "legend":
-      return directives[`${directive.channel}Legend`]?.(directive.options) ?? null;
     case "raw":
       return directive.value as VgDirective;
   }
@@ -250,7 +248,7 @@ export function ChartRoot(props: ChartRootProps) {
             facetLabel,
             attributes,
           ]}
-          render={(_colors, width, plotHost) => {
+          render={(width, plotHost) => {
             const cache = new Map<string, string>();
             const ctx: ChartSpecContext = {
               table,

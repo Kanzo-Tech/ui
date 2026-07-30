@@ -36,6 +36,7 @@ import { Input } from "../simples/input.js";
 import { Skeleton } from "../simples/skeleton.js";
 import { Slider, SliderLabel, SliderValue } from "../simples/slider.js";
 import { useMosaic } from "./mosaic-provider.js";
+import { ChartQueryClient, type ChartQueryRow as QueryRow } from "./query-client.js";
 
 /**
  * Mosaic **inputs** — controls that publish into a `Selection` without being charts.
@@ -52,32 +53,6 @@ import { useMosaic } from "./mosaic-provider.js";
  * change to the selection flows back into the widget.
  */
 
-type QueryRow = Record<string, unknown>;
-
-/** Bridges React state to the Mosaic client life-cycle: one query in, one row array out. */
-class MosaicInputClient extends MosaicClient {
-  #build: (filter: FilterExpr) => Query | null;
-  #emit: (rows: readonly QueryRow[]) => void;
-
-  constructor(
-    filterBy: Selection | undefined,
-    build: (filter: FilterExpr) => Query | null,
-    emit: (rows: readonly QueryRow[]) => void,
-  ) {
-    super(filterBy);
-    this.#build = build;
-    this.#emit = emit;
-  }
-
-  override query(filter?: FilterExpr | null): Query | null {
-    return this.#build(filter ?? []);
-  }
-
-  override queryResult(data: unknown): this {
-    this.#emit(Array.from(data as Iterable<QueryRow>));
-    return this;
-  }
-}
 
 export interface MosaicInputOptions<T> {
   /** Filters the widget's own lookup query. `null` = the full relation. */
@@ -121,13 +96,13 @@ export function useMosaicInput<T>(
   const latest = useRef(options);
   latest.current = options;
 
-  const clientRef = useRef<MosaicInputClient | null>(null);
-  const [client, setClient] = useState<MosaicInputClient | null>(null);
+  const clientRef = useRef<ChartQueryClient | null>(null);
+  const [client, setClient] = useState<ChartQueryClient | null>(null);
   const [rows, setRows] = useState<readonly QueryRow[] | null>(null);
   const [selected, setSelected] = useState<T | undefined>(undefined);
 
   useEffect(() => {
-    const instance = new MosaicInputClient(
+    const instance = new ChartQueryClient(
       filterBy ?? undefined,
       (filter) => latest.current.build(filter),
       setRows,

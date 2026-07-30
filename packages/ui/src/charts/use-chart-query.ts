@@ -1,9 +1,10 @@
 "use client";
 
-import { MosaicClient, type Selection } from "@uwdata/mosaic-core";
+import type { Selection } from "@uwdata/mosaic-core";
 import { Query, type FilterExpr } from "@uwdata/mosaic-sql";
 import { useEffect, useRef, useState } from "react";
 import { useMosaic } from "./mosaic-provider.js";
+import { ChartQueryClient, type ChartQueryRow } from "./query-client.js";
 
 /**
  * Read a relation from the same coordinator the charts use, and follow the same crossfilter.
@@ -14,7 +15,7 @@ import { useMosaic } from "./mosaic-provider.js";
  * totals sitting next to filtered charts, which reads as a bug in the crossfilter.
  */
 
-export type ChartQueryRow = Record<string, unknown>;
+export type { ChartQueryRow };
 
 export interface ChartQueryOptions {
   /** Builds the query from the crossfilter predicate; return `null` to ask for nothing. */
@@ -30,30 +31,6 @@ export interface ChartQueryResult {
   rows: readonly ChartQueryRow[] | null;
   /** The first row, for the common single-aggregate case. */
   row: ChartQueryRow | undefined;
-}
-
-class ChartQueryClient extends MosaicClient {
-  #build: (filter: FilterExpr) => Query | null;
-  #emit: (rows: readonly ChartQueryRow[]) => void;
-
-  constructor(
-    filterBy: Selection | undefined,
-    build: (filter: FilterExpr) => Query | null,
-    emit: (rows: readonly ChartQueryRow[]) => void,
-  ) {
-    super(filterBy);
-    this.#build = build;
-    this.#emit = emit;
-  }
-
-  override query(filter?: FilterExpr | null): Query | null {
-    return this.#build(filter ?? []);
-  }
-
-  override queryResult(data: unknown): this {
-    this.#emit(Array.from(data as Iterable<ChartQueryRow>));
-    return this;
-  }
 }
 
 export function useChartQuery(options: ChartQueryOptions): ChartQueryResult {

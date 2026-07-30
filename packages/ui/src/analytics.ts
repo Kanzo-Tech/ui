@@ -21,7 +21,9 @@ export { ChartRoot, useChart, useChartOptional } from "./charts/chart-root.js";
 export type { ChartRootProps, ChartContextValue } from "./charts/chart-root.js";
 
 export type { ChartConfig, ChartSeriesConfig, ChartSeriesEntry } from "./charts/chart-config.js";
-export { chartSeriesEntries, chartSeriesColor, isColorValue } from "./charts/chart-config.js";
+// No `chartSeriesEntries` (the config→rows projection `ChartLegend` renders) and no `isColorValue`,
+// whose sibling predicate `isColorToken` was already correctly internal — an inconsistent seam.
+export { chartSeriesColor } from "./charts/chart-config.js";
 
 // Marks. `ChartRaw` takes a `vg.*` directive the layer does not wrap, in source order.
 export {
@@ -96,13 +98,15 @@ export type { ChartQueryOptions, ChartQueryResult, ChartQueryRow } from "./chart
 // with no behaviour, so per DESIGN.md's ladder they are copied, not imported. They live in
 // `docs/lib/` for the showcases that use them.
 
-// For a descriptor of your own: `chartDescriptor` mints one, the rest is the compiler's contract.
-export {
-  chartDescriptor, compileChartSpec, buildChartSpec, chartSpecSignature,
-} from "./charts/chart-spec.js";
+// For a descriptor of your own: `chartDescriptor` mints one, and the types below are the contract
+// it compiles into. `compileChartSpec` / `buildChartSpec` / `chartSpecSignature` are NOT here —
+// they are the compiler `ChartRoot` runs, with no consumer outside `charts/`, and a descriptor
+// author never calls them. Publishing the compiler alongside the thing you write for it is how a
+// grammar's internals become somebody's API.
+export { chartDescriptor } from "./charts/chart-spec.js";
 export type {
   ChartDescriptor, ChartCompile, ChartDirective, ChartMarkDirective, ChartInteractorDirective,
-  ChartAttributeDirective, ChartLegendDirective, ChartRawDirective, ChartSpecContext,
+  ChartAttributeDirective, ChartRawDirective, ChartSpecContext,
   ChartSpecOptions, ChartMargin, ChartFacetOptions, ChartMarkSource,
 } from "./charts/chart-spec.js";
 

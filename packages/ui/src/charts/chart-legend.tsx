@@ -81,5 +81,13 @@ export interface ChartColorLegendProps {
  */
 export const ChartColorLegend = chartDescriptor<ChartColorLegendProps>("ChartColorLegend", (props, ctx) => {
   const { as, channel = "color", ...rest } = props;
-  return { kind: "legend", channel, options: { ...rest, as: as === undefined ? ctx.as : as } };
+  // A `mark` with `source: null`, not a directive kind of its own. That is the decorator path the
+  // compiler already has for `frame` / `gridX` / `gridY` — options in, no data — and
+  // `colorLegend` / `opacityLegend` / `symbolLegend` are vgplot directives like any other.
+  return {
+    kind: "mark",
+    mark: `${channel}Legend`,
+    source: null,
+    options: { ...rest, as: as === undefined ? ctx.as : as },
+  };
 });
