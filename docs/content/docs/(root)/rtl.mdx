@@ -1,0 +1,61 @@
+---
+title: RTL
+description: One code path mirrors, because the components are written in logical properties and a test refuses the physical ones.
+---
+
+<ComponentPreview componentName="rtl" />
+
+The same `Item` twice. Nothing about it is direction-aware — the media, the text and the action
+swap sides because every offset in it is logical.
+
+## Usage
+
+Set `dir` and you are done. There is no RTL build, no mirrored stylesheet and no prop to pass:
+
+```tsx
+<html dir="rtl">
+```
+
+`dir` works at any depth, so a single region can be RTL inside an LTR page — which is what the
+preview above does.
+
+## The rule
+
+Components are written in logical properties, never physical ones:
+
+| Physical | Logical |
+| --- | --- |
+| `ml-*` / `mr-*` | `ms-*` / `me-*` |
+| `pl-*` / `pr-*` | `ps-*` / `pe-*` |
+| `left-*` / `right-*` | `inset-s-*` / `inset-e-*` |
+| `border-l` / `border-r` | `border-s` / `border-e` |
+| `rounded-l-*` / `rounded-r-*` | `rounded-s-*` / `rounded-e-*` |
+| `text-left` / `text-right` | `text-start` / `text-end` |
+
+The same goes for APIs: a component takes `side="start" | "end"`, not `"left" | "right"`.
+
+## What enforces it
+
+A rule nobody can grep is a rule that decays, so this one is a test. `logical-properties.test.ts`
+reads every file in `simples`, `composites` and `layouts`, strips comments, and fails on any
+physical direction utility that is not on a reviewed allowlist. Adding an entry to that allowlist
+means writing down why the value does not depend on reading direction.
+
+`charts/` and `editor/` are out of scope: SVG plot geometry and CodeMirror's own DOM are not
+Tailwind box-model code.
+
+## Where mirroring stops
+
+The allowlist holds six entries, in five shapes, and they are worth knowing because they are the
+places where a mirror is imperfect or delegated:
+
+| Where | What | Why |
+| --- | --- | --- |
+| `InstanceSwitcher`, `SidebarUser` | `right-start`, `right-end` | Ark/floating-ui placements are physical by API — there is no `placement="start"`. |
+| `Calendar` | `left-1/2` | Centring, not sidedness: undone by `-translate-x-1/2`. |
+| `SegmentGroup` | `left-(--left)`, `border-l` | Ark measures the indicator into `--left` / `--width` as physical pixels, so the utility consuming them must be physical too. Mirroring needs Ark to publish logical vars first. |
+| `Table` | `text-left`, `text-right` | The physical default is paired with an explicit `rtl:` override. |
+| `Toast` | `left-[calc(var(--viewport-offset-right)/2)]` | Ark's viewport offsets are physical measurements of the toast region. |
+
+Every one of them is an upstream constraint rather than a choice, and `SegmentGroup` is the only
+one a reader would see: its selected-segment indicator does not mirror.
