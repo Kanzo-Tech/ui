@@ -66,10 +66,23 @@ needs more than text.
 
 <ComponentPreview componentName="dialog" fileName="example-controlled" />
 
+## Three surfaces, one machine
+
+`Dialog`, [`Sheet`](/docs/overlays/sheet) and `AlertDialog` are the same Ark machine wearing
+three shapes, which is why they share a header, a body and a title:
+
+| | What it is | Reach for it when |
+|---|---|---|
+| `Dialog` | a centred modal | the task is short and self-contained |
+| [`Sheet`](/docs/overlays/sheet) | the same modal docked to an edge | the panel wants the full height or width — a filter rail, a detail pane |
+| `AlertDialog` | the same modal as `role="alertdialog"`, with no close button | dismissing by reflex would be the wrong outcome |
+
+A `Sheet` has no `SheetTitle` and an `AlertDialog` has no separate title either: both render
+`DialogTitle`, because one machine has one title.
+
 ## Alert mode
 
-`AlertDialog` is the same dialog machine in a different role: `Dialog` with
-`role="alertdialog"` and `showCloseButton={false}`. The X is removed on purpose, so the only
+`AlertDialog` is `Dialog` with `role="alertdialog"` and `showCloseButton={false}`. The X is removed on purpose, so the only
 way out is an explicit Cancel or Confirm — reach for it when dismissing by reflex would be the
 wrong outcome, and plain `Dialog` for everything else.
 
