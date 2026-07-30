@@ -1,8 +1,15 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { cn } from "@kanzo-tech/ui";
-import { CodeBlock } from "./code-block";
+import type { CodeBlockProps } from "fumadocs-ui/components/codeblock";
+import { ServerCodeBlock } from "fumadocs-ui/components/codeblock.rsc";
 import { PreviewIframeTabs } from "./preview-iframe-tabs";
+
+/** No frame of its own — the tabs wrapper draws one around both panes. */
+const CODE_PANE = {
+  className: "rounded-none border-0 shadow-none",
+  viewportProps: { className: "max-h-[820px]" },
+} satisfies CodeBlockProps;
 
 /**
  * Full-page showcase preview: the live showcase in its own iframe, a Code tab with its source,
@@ -44,7 +51,9 @@ export const PreviewIframe = ({
     <PreviewIframeTabs
       fullUrl={`/view/showcases/${name}`}
       iframe={iframe}
-      source={code ? <CodeBlock code={code} lang="tsx" /> : undefined}
+      source={
+        code ? <ServerCodeBlock code={code} codeblock={CODE_PANE} lang="tsx" /> : undefined
+      }
     />
   );
 };

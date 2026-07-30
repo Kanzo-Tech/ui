@@ -16,7 +16,8 @@ interface ComponentPreviewTabsProps {
  *
  * Tabs rather than a "show code" disclosure: Shark reserves the collapsible for the full
  * component source in its install step, and uses tabs for examples. Both panes are a fixed
- * 450px so switching does not shift the page under the reader.
+ * 450px so switching does not shift the page under the reader — the code pane gets its height
+ * from the codeblock viewport in `component-preview.tsx`.
  *
  * The backdrop is four dashed 1px guides inset from each edge — Shark's padding guides — not
  * a dot grid. `inset-s-*` / `inset-e-*` are logical, so it mirrors correctly in RTL.
@@ -70,11 +71,7 @@ export const ComponentPreviewTabs = ({
 
       <TabsContent data-slot="tab-code" value="code">
         <div
-          className={cn(
-            "overflow-hidden **:[figure]:m-0! **:[figure]:border-0 **:[pre]:h-[450px]",
-            !hasMaxHeight && "min-h-[450px]",
-            fullBleed && "rounded-2xl border",
-          )}
+          className={cn("overflow-hidden", fullBleed && "rounded-2xl border")}
           data-slot="code"
         >
           {source}
