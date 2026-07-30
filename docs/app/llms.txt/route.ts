@@ -1,25 +1,18 @@
+import type { Folder, Node } from "fumadocs-core/page-tree";
 import { source } from "@/lib/source";
 
-// llmstxt.org-style index, generated from the live page tree so it never drifts from the docs.
-const SECTION_TITLES: Record<string, string> = {
-  forms: "Forms",
-  actions: "Actions",
-  navigation: "Navigation",
-  "data-display": "Data display",
-  overlays: "Overlays & feedback",
-  layout: "Layout",
-  showcases: "Showcases",
-};
-const SECTION_ORDER = [
-  "",
-  "forms",
-  "actions",
-  "navigation",
-  "data-display",
-  "overlays",
-  "layout",
-  "showcases",
-];
+/**
+ * llmstxt.org-style index, generated from the live page tree.
+ *
+ * The tree — not `getPages()` — because the tree is where `meta.json`'s curated order lives.
+ * Sorting the flat page list alphabetically discarded it: `Controls` and `Building a form` did
+ * not lead Forms, and the `---Text---` / `---Choice---` structure that makes a 30-page group
+ * navigable was lost entirely. This file's whole audience is machines, and a machine reading a
+ * list has nothing but the order to tell it where to start.
+ *
+ * It also means there is no second list to keep true: a group's title and position come from its
+ * own `meta.json`, so adding or renaming one needs no edit here.
+ */
 
 /**
  * The advertised origin.
@@ -43,36 +36,31 @@ function siteOrigin(request: Request) {
   return new URL(request.url).origin;
 }
 
-/**
- * Which section a page belongs to.
- *
- * Keyed off the source directory, not the slug array: `forms/index.mdx` has a single slug, and
- * keying off slug length filed the Forms overview — the page whose description says "start here
- * before reading any individual input page" — outside Forms. `(root)` is a route group, so it
- * carries no section of its own.
- */
-function sectionKey(path: string) {
-  const [dir] = path.split("/");
-  if (!dir || dir.startsWith("(") || !path.includes("/")) return "";
-  return dir;
+function asText(node: unknown, fallback = ""): string {
+  return typeof node === "string" ? node : fallback;
+}
+
+function linesFor(folder: Folder, origin: string): string[] {
+  const out: string[] = [];
+
+  for (const child of folder.children as Node[]) {
+    if (child.type === "separator") {
+      out.push("", `**${asText(child.name)}**`, "");
+      continue;
+    }
+    if (child.type !== "page") continue;
+
+    const page = source.getNodePage(child);
+    const title = page?.data.title ?? asText(child.name);
+    const description = page?.data.description ?? asText(child.description);
+    out.push(`- [${title}](${origin}${child.url})${description ? `: ${description}` : ""}`);
+  }
+
+  return out;
 }
 
 export function GET(request: Request) {
   const origin = siteOrigin(request);
-  const pages = source.getPages();
-
-  const groups = new Map<string, typeof pages>();
-  for (const page of pages) {
-    const key = sectionKey(page.path);
-    const list = groups.get(key) ?? [];
-    list.push(page);
-    groups.set(key, list);
-  }
-
-  const rank = (key: string) => {
-    const i = SECTION_ORDER.indexOf(key);
-    return i < 0 ? SECTION_ORDER.length : i;
-  };
 
   const out: string[] = [
     "# Kanzo UI",
@@ -94,16 +82,13 @@ export function GET(request: Request) {
     "",
   ];
 
-  for (const key of [...groups.keys()].sort((a, b) => rank(a) - rank(b))) {
-    out.push(`## ${key === "" ? "Getting started" : (SECTION_TITLES[key] ?? key)}`, "");
-    const list = groups
-      .get(key)!
-      .sort((a, b) => (a.data.title ?? "").localeCompare(b.data.title ?? ""));
-    for (const page of list) {
-      const desc = page.data.description ? `: ${page.data.description}` : "";
-      out.push(`- [${page.data.title}](${origin}${page.url})${desc}`);
-    }
-    out.push("");
+  for (const node of source.pageTree.children as Node[]) {
+    if (node.type !== "folder") continue;
+
+    const lines = linesFor(node, origin);
+    if (lines.length === 0) continue;
+
+    out.push(`## ${asText(node.name)}`, "", ...lines, "");
   }
 
   return new Response(out.join("\n"), {
