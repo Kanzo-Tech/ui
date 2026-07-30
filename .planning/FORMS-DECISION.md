@@ -146,7 +146,7 @@ engine-specific stays in the product.
 3. **Observe.** Let the thirteen parts get real use before anyone proposes a fourteenth.
 4. **Only then** revisit `/form` and TanStack, with evidence instead of speculation.
 
-`NEW-COMPONENTS.md` §2.11 stands as written except for its sequencing: wave 3 begins with
+The (now deleted) new-components proposal stands as written except for its sequencing: wave 3 begins with
 adoption, not with `createKanzoForm`.
 
 ---
