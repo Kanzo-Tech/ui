@@ -275,7 +275,7 @@ export const SelectItem = (
   );
 };
 
-export const SelectClearTrigger = (
+const SelectClearTrigger = (
   props: React.ComponentProps<typeof ArkSelect.ClearTrigger>
 ) => {
   const { className, ...rest } = props;

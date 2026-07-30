@@ -10,5 +10,5 @@
 // with its own state, chrome and optional batteries.
 // Inline ghost completion is now a prop of `CodeEditor` (`complete`), not a standalone
 // `CompletionField` — one rich surface, driven by the headless `useCompletion` (root barrel).
-export { CodeEditor, kanzoHighlightStyle, kanzoHighlighting } from "./composites/CodeEditor.js";
+export { CodeEditor, kanzoHighlighting } from "./composites/CodeEditor.js";
 export type { CodeEditorProps } from "./composites/CodeEditor.js";

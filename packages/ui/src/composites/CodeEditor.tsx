@@ -53,7 +53,7 @@ const External = Annotation.define<boolean>();
  * KanzoTheme / `.dark`). Exported so a bring-your-own editor (`basics={false}`) can wire
  * the same palette. Inert until the caller injects a language (there's no tree to tag).
  */
-export const kanzoHighlightStyle = HighlightStyle.define([
+const kanzoHighlightStyle = HighlightStyle.define([
   { tag: [t.keyword, t.operatorKeyword, t.controlKeyword, t.definitionKeyword, t.moduleKeyword, t.self], color: "var(--kanzo-syntax-keyword)" },
   { tag: [t.atom, t.bool, t.constant(t.name), t.standard(t.name)], color: "var(--kanzo-syntax-constant)" },
   { tag: [t.string, t.special(t.string), t.docString, t.character, t.regexp], color: "var(--kanzo-syntax-string)" },

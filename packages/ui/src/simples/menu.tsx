@@ -54,7 +54,7 @@ export const MenuContextTrigger = (
   );
 };
 
-export const MenuPositioner = (
+const MenuPositioner = (
   props: React.ComponentProps<typeof ArkMenu.Positioner>
 ) => {
   const { className, ...rest } = props;

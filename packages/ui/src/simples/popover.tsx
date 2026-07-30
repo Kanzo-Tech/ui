@@ -35,7 +35,7 @@ export const PopoverAnchor = (
   props: React.ComponentProps<typeof ArkPopover.Anchor>
 ) => <ArkPopover.Anchor data-slot="popover-anchor" {...props} />;
 
-export const PopoverPositioner = (
+const PopoverPositioner = (
   props: React.ComponentProps<typeof ArkPopover.Positioner>
 ) => <ArkPopover.Positioner data-slot="popover-positioner" {...props} />;
 
@@ -164,7 +164,7 @@ export const PopoverTitle = (
   );
 };
 
-export const PopoverDescription = (
+const PopoverDescription = (
   props: React.ComponentProps<typeof ArkPopover.Description>
 ) => {
   const { className, ...rest } = props;
@@ -217,7 +217,7 @@ export const PopoverFooter = (props: React.ComponentProps<typeof ark.div>) => {
   );
 };
 
-export const PopoverClose = (
+const PopoverClose = (
   props: React.ComponentProps<typeof ArkPopover.CloseTrigger>
 ) => <ArkPopover.CloseTrigger data-slot="popover-close-trigger" {...props} />;
 

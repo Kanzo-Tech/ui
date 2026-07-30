@@ -113,7 +113,7 @@ export function SuggestContent(props: {
   );
 }
 
-export function SuggestItem(props: {
+function SuggestItem(props: {
   item: Suggestion;
   index: number;
   children?: React.ReactNode;

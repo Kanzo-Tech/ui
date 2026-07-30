@@ -264,7 +264,7 @@ export const ListboxItemGroup = (props: ListboxItemGroupProps) => {
 // Typography from `SelectGroupLabel`, not Shark's `px-2.5 py-2` — the item above already
 // borrows Select's rhythm, and a heading a size larger than the rows it heads is the one
 // place the two lists would still read as different components.
-export const ListboxItemGroupLabel = (
+const ListboxItemGroupLabel = (
   props: React.ComponentProps<typeof ArkListbox.ItemGroupLabel>
 ) => {
   const { className, ...rest } = props;

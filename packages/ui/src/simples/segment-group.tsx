@@ -124,7 +124,7 @@ export const SegmentGroupItemText = (
   );
 };
 
-export const SegmentGroupIndicator = (
+const SegmentGroupIndicator = (
   props: React.ComponentProps<typeof ArkSegmentGroup.Indicator>
 ) => {
   const { className, ...rest } = props;

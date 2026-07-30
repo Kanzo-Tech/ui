@@ -21,7 +21,7 @@ import { cn } from "../lib/cn";
  * happened to match; and every trigger is a button labelled `select #2e3440 as the color`, which is
  * the wrong sentence when what the reader is choosing is "Nord".
  */
-export const swatchVariants = tv({
+const swatchVariants = tv({
   base: "shrink-0",
   variants: {
     size: { xs: "size-2.5", sm: "size-3", md: "size-4", lg: "size-5" },

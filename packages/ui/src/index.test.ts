@@ -199,6 +199,49 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.CalendarPresetTrigger).toBeTypeOf("function");
   });
 
+  it("does not export a part its own root already renders", () => {
+    // 36 parts with no external consumer, because the component places them itself. Un-exported,
+    // symbol kept — removing the export cannot break anything, while keeping it advertises a
+    // composition the root does not allow.
+    //
+    // `ProgressTrack` is the one to read the code for. DESIGN.md:239 holds it up as "the ideal
+    // case, not a defect", on the grounds that the docs tell you never to place it yourself. But
+    // `simples/progress.tsx` renders `<ProgressTrack><ProgressRange /></ProgressTrack>`
+    // unconditionally, *after* `{children}` — so a consumer who follows the export and places one
+    // gets TWO troughs. An export whose documentation is "do not use this" is an export that
+    // should not exist; the ideal case is the symbol existing and the export not.
+    const surface = UI as Record<string, unknown>;
+    for (const name of [
+      "ProgressTrack", "ProgressRange", "CheckboxIndicator", "ClipboardIndicator",
+      "PasswordInputIndicator", "SegmentGroupIndicator", "TreeViewBranchIndicator",
+      "CalendarContext", "CalendarTableHead", "CalendarTableRow", "CalendarTableHeader",
+      "CalendarTableBody", "CalendarTableCell",
+      "ComboboxPositioner", "MenuPositioner", "PopoverPositioner", "SheetPositioner",
+      "TourPositioner",
+      "ComboboxClear", "ComboboxGroupLabel", "useCombobox", "ListboxItemGroupLabel",
+      "PopoverDescription", "PopoverClose", "ScrollAreaScrollbar", "SelectClearTrigger",
+      "SheetOverlay", "SuggestItem", "ToastItem",
+      "TourActionTrigger", "TourOverlay", "TourSpotlight", "TourClose", "useTourContext",
+    ]) {
+      expect(surface[name], name).toBeUndefined();
+    }
+    // The roots that render them are of course still exported — that is the whole point.
+    expect(UI.Progress).toBeTypeOf("function");
+    expect(UI.Checkbox).toBeTypeOf("function");
+    expect(UI.Popover).toBeTypeOf("function");
+  });
+
+  it("keeps the AI engine hooks exported, and the CodeMirror style not", () => {
+    // `useAiStream` looks like the un-export candidates and is not one: DESIGN.md argues the engine
+    // "stays in the two headless hooks, **exposed for custom surfaces**", which is a promise about
+    // a surface we did not write. `kanzoHighlighting` is documented the same way, as reusable
+    // CodeMirror highlighting. `kanzoHighlightStyle` is the raw style array underneath it, with no
+    // consumer and no such promise — it left `@kanzo-tech/ui/editor`.
+    expect(UI.useAiStream).toBeTypeOf("function");
+    expect(UI.useCompletion).toBeTypeOf("function");
+    expect(UI.useSuggestions).toBeTypeOf("function");
+  });
+
   it("exports every compound flat, with no dot-notation namespace", () => {
     // `Preferences` was the one counter-example, via `Object.assign`. Those statics do NOT survive
     // React Server Components: once the module is a client reference `Preferences.Density` reads
@@ -233,6 +276,7 @@ describe("@kanzo-tech/ui public surface", () => {
       "sectionHeaderVariants",
       "sectionTitleVariants",
       "shellAsideVariants",
+      "swatchVariants",
       "sidebarMenuBadgeVariants",
       "toggleVariants",
     ]) {
