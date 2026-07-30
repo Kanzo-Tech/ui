@@ -76,7 +76,11 @@ interface AlertDialogActionProps
 export const AlertDialogAction = (props: AlertDialogActionProps) => {
   const { variant = "default", ...rest } = props;
 
-  return <Button variant={variant} {...rest} />;
+  return (
+    <AlertDialogClose asChild data-slot="alert-dialog-action">
+      <Button variant={variant} {...rest} />
+    </AlertDialogClose>
+  );
 };
 
 interface AlertDialogCancelProps
