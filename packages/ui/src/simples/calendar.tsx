@@ -1,5 +1,3 @@
-"use client";
-
 import { DatePicker as ArkCalendar } from "@ark-ui/react/date-picker";
 import {
   ChevronDownIcon,

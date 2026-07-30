@@ -1,5 +1,3 @@
-"use client";
-
 import { Portal } from "@ark-ui/react";
 import {
   HoverCard as ArkHoverCard,

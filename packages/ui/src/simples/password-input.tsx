@@ -1,5 +1,3 @@
-"use client";
-
 import {
   PasswordInput as ArkPasswordInput,
   usePasswordInputContext,

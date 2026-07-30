@@ -1,5 +1,3 @@
-"use client";
-
 import {
   SegmentGroup as ArkSegmentGroup,
   useSegmentGroupContext,

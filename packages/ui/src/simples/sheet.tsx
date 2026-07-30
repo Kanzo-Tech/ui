@@ -1,5 +1,3 @@
-"use client";
-
 import { Dialog as ArkDialog, useDialogContext } from "@ark-ui/react/dialog";
 import { Portal } from "@ark-ui/react/portal";
 import { XIcon } from "lucide-react";

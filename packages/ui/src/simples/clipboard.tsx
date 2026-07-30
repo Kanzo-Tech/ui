@@ -1,5 +1,3 @@
-"use client";
-
 import {
   Clipboard as ArkClipboard,
   useClipboardContext,

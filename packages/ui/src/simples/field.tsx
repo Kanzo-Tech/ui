@@ -1,5 +1,3 @@
-"use client";
-
 import { ark } from "@ark-ui/react/factory";
 import {
   Field as ArkField,

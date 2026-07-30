@@ -1,5 +1,3 @@
-"use client";
-
 import { ark } from "@ark-ui/react/factory";
 import { cn } from "../lib/cn";
 

@@ -1,5 +1,3 @@
-"use client";
-
 import {
   RatingGroup as ArkRatingGroup,
   useRatingGroupContext,

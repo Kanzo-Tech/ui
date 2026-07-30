@@ -1,5 +1,3 @@
-"use client";
-
 import { JsonTreeView as ArkJsonTreeView } from "@ark-ui/react/json-tree-view";
 import { ChevronRightIcon } from "lucide-react";
 import { cn } from "../lib/cn";

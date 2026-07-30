@@ -1,5 +1,3 @@
-"use client";
-
 import { Switch as ArkSwitch, useSwitchContext } from "@ark-ui/react/switch";
 import type React from "react";
 import { cn } from "../lib/cn";

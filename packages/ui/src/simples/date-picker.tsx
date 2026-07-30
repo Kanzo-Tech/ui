@@ -1,5 +1,3 @@
-"use client";
-
 import {
   DatePicker as ArkDatePicker,
   useDatePickerContext,

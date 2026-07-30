@@ -1,5 +1,3 @@
-"use client";
-
 import { ark } from "@ark-ui/react/factory";
 import { ChevronRightIcon, MoreHorizontalIcon } from "lucide-react";
 import type React from "react";

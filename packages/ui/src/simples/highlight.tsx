@@ -1,5 +1,3 @@
-"use client";
-
 import {
   Highlight as ArkHighlight,
   type HighlightProps as ArkHighlightProps,

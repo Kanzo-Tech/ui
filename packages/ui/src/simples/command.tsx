@@ -1,5 +1,3 @@
-"use client";
-
 import { Portal } from "@ark-ui/react";
 import { Combobox as ArkCombobox } from "@ark-ui/react/combobox";
 import { Dialog as ArkDialog } from "@ark-ui/react/dialog";

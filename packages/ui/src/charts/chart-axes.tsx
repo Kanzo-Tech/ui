@@ -1,5 +1,3 @@
-"use client";
-
 import { chartDescriptor, type ChartAttributeDirective, type ChartDescriptor } from "./chart-spec.js";
 
 /**

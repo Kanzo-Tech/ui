@@ -1,5 +1,3 @@
-"use client";
-
 import { Avatar as ArkAvatar, useAvatarContext } from "@ark-ui/react/avatar";
 import { ark } from "@ark-ui/react/factory";
 import type React from "react";

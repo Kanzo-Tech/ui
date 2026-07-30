@@ -1,5 +1,3 @@
-"use client";
-
 import {
   PinInput as ArkPinInput,
   usePinInputContext,

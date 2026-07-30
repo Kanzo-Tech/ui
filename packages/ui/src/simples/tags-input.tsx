@@ -1,5 +1,3 @@
-"use client";
-
 import {
   TagsInput as ArkTagsInput,
   useTagsInputContext,

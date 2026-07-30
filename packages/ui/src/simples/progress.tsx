@@ -1,5 +1,3 @@
-"use client";
-
 import {
   Progress as ArkProgress,
   useProgressContext,

@@ -1,5 +1,3 @@
-"use client";
-
 import { ark } from "@ark-ui/react/factory";
 import { Steps as ArkSteps, useStepsContext } from "@ark-ui/react/steps";
 import { CheckIcon } from "lucide-react";
