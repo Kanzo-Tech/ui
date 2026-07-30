@@ -50,6 +50,7 @@ Preferences/AppearanceToggle relocation below is deferred rather than done.
 | `1bb916a` | `isFullBleedComponent` deleted — it never fired |
 | `ce86571` | the last two `linkComponent` claims, and the cut's own archaeology |
 | `b43171a` | Popover / HoverCard / Tooltip — one question, answered once |
+| `b0443ef` | Dialog / Sheet / AlertDialog — the same, on the machine |
 
 **Deleted:** `navigation/{breadcrumbs,sidebar-user,sidebar-nav,instance-switcher}.mdx`,
 `layout/made-with.mdx`, `overlays/{empty-state,ribbon}.mdx`, `forms/{text-field,date-field}.mdx`,
@@ -233,6 +234,7 @@ in a second place.
 closed (`b43171a`): the rule is stated once on Popover, with a `warn` callout on each of the other
 two pointing at it, the way `forms/controls.mdx` answers the listbox family. It is drawn from the
 three Zag connect files rather than from taste — `role="tooltip"` + `aria-describedby`, no role at
-all, and `role="dialog"` + `aria-haspopup`/`expanded`/`controls`. **Dialog ↔ Sheet ↔ AlertDialog
-is the same shape and still open**: `overlays/sheet.mdx:81-87` says they are three surfaces over
-one machine, and no page links another.
+all, and `role="dialog"` + `aria-haspopup`/`expanded`/`controls`. Dialog ↔ Sheet ↔ AlertDialog is
+closed the same way (`b0443ef`), on Dialog because Dialog is the machine. **The overlays group now
+has both of the questions a reader actually asks answered once each**, which is what it was
+missing; the remaining orphan pages are a linking pass, not a rule.
