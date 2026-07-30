@@ -401,6 +401,33 @@ the corrected form in both directions, so the prose and the test agree.
 **`DESIGN.md:239-240` argues the wrong way about `ProgressTrack`** — see §3f. That paragraph is the
 only place the "ideal case" framing appears, and the code contradicts it.
 
+### Verification status, at `abc7239`
+
+| Command | Result |
+|---|---|
+| `pnpm build` (the three packages) | pass |
+| `pnpm typecheck` (the three packages) | pass |
+| `pnpm lint` | pass |
+| `pnpm check:generated` | pass |
+| `pnpm test` | pass — 188 + 13 + 380 |
+| `pnpm size` | **fails, and it failed before the cut** |
+| `pnpm smoke` | **fails, and it is environmental** |
+| `pnpm --filter @kanzo-tech/docs build` | fails, on §1 exactly |
+
+**`pnpm size` — pre-existing, and measured, not assumed.** The `analytics subpath (JS)` entry is over
+its 60 kB limit. Built at `e210a59` in a scratch worktree it is over by **6.29 kB**; after the cut it
+is over by **5.99 kB**. So the cut did not cause it and moved it 0.3 kB in the right direction. The
+cause is that this entry's `ignore` list omits `@ark-ui/react`, `lucide-react` and
+`tailwind-variants` while `chart-inputs.tsx` pulls in `FacetFilter`, `Combobox`, `Slider`, `Field`,
+`Input` and `Skeleton` — so the budget is counting the Ark machinery under three real controls.
+Either add those three to the `ignore` list, matching the root-barrel entry, or raise the limit
+deliberately. Do not fold this into an unrelated commit; it is a budget decision.
+
+**`pnpm smoke` — environmental.** It dies in `npm install` with
+`EUNSUPPORTEDPROTOCOL … Unsupported URL Type "workspace:"` before reaching a single assertion, so it
+is proving nothing about any commit right now. Worth fixing alongside the two real defects
+`audit-exports.md` §7b already found in it (below).
+
 **Nobody has run `pnpm --filter @kanzo-tech/docs build` since the cut began.** It will fail, hard,
 on every file in §1. That is expected and it is the docs agent's queue, not a regression.
 `pnpm --filter @kanzo-tech/ui test` and `typecheck` are green at every commit on this branch.
