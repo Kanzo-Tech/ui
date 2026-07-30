@@ -1,3 +1,5 @@
+import { parseDate } from "@internationalized/date";
+import { isoDay } from "@/example/world";
 import {
   Calendar,
   CalendarMonthSelect,
@@ -13,7 +15,7 @@ import {
 
 export default function Example() {
   return (
-    <Calendar>
+    <Calendar defaultValue={[parseDate(isoDay(0))]}>
       <CalendarView view="day">
         <CalendarViewControl>
           <CalendarPrevTrigger />

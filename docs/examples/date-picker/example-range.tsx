@@ -1,3 +1,5 @@
+import { parseDate } from "@internationalized/date";
+import { isoDay } from "@/example/world";
 import {
   CalendarNextTrigger,
   CalendarPrevTrigger,
@@ -15,6 +17,7 @@ import {
 export default function Example() {
   return (
     <DatePicker
+      defaultValue={[parseDate(isoDay(0)), parseDate(isoDay(12))]}
       className="w-72"
       positioning={{ placement: "bottom-end" }}
       selectionMode="range"

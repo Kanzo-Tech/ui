@@ -16,6 +16,7 @@
     "@codemirror/lang-json": "^6.0.2",
     "@cosmos.gl/graph": "^2.6.4",
     "@duckdb/duckdb-wasm": "1.33.1-dev57.0",
+    "@internationalized/date": "^3.12.2",
     "@kanzo-tech/palette": "workspace:*",
     "@kanzo-tech/theme": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",

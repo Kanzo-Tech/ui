@@ -1,3 +1,5 @@
+import { parseDate } from "@internationalized/date";
+import { isoDay } from "@/example/world";
 import {
   CalendarMonthSelect,
   CalendarNextTrigger,
@@ -15,7 +17,11 @@ import {
 
 export default function Example() {
   return (
-    <DatePicker className="w-64" positioning={{ placement: "bottom-end" }}>
+    <DatePicker
+      className="w-64"
+      defaultValue={[parseDate(isoDay(0))]}
+      positioning={{ placement: "bottom-end" }}
+    >
       <DatePickerInput />
       <DatePickerContent>
         <CalendarView view="day">

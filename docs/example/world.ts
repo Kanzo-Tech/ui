@@ -291,6 +291,13 @@ export const GRADES = [
 
 export type Grade = (typeof GRADES)[number]["value"];
 
+/** The sibling of `hall()`, `role()`, `beast()` and `questStatus()`, so grades need no `?.` guard. */
+export function grade(value: Grade) {
+  const found = GRADES.find((candidate) => candidate.value === value);
+  if (!found) throw new Error(`No such grade: ${value}`);
+  return found;
+}
+
 /**
  * Eight beasts — the categorical domain, sized to the eight-slot scheme on purpose.
  *

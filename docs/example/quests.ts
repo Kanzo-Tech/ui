@@ -18,6 +18,8 @@ import {
   type BeastId,
   type Grade,
   type HallId,
+  type Hall,
+  hall,
   HALLS,
   isoDay,
   type QuestStatusId,
@@ -384,9 +386,25 @@ export const FEATURED = {
   claimed: byTitle("The children say the well talks"),
 } as const;
 
+/**
+ * The whole board, mutable.
+ *
+ * `QUESTS` is `readonly` so nothing can edit the fixture in place, but `useDataTable` and most
+ * table APIs take `TData[]`, so every full-board table was writing `[...QUESTS]`. This is that
+ * copy, named.
+ */
+export function board(): Quest[] {
+  return [...QUESTS];
+}
+
 /** The board as a hall sees it — every screen that opens on one hall starts here. */
 export function questsOf(hall: HallId): Quest[] {
   return QUESTS.filter((candidate) => candidate.hall === hall);
+}
+
+/** The twin of `questsOf`, for the other axis. */
+export function questsIn(region: Region): Quest[] {
+  return QUESTS.filter((candidate) => candidate.region === region);
 }
 
 export function openQuests(): Quest[] {
@@ -427,6 +445,26 @@ export function partyOf(candidate: Quest): Member[] {
  */
 export function daysOverdue(candidate: Quest): number {
   return Math.max(0, -candidate.dueDayOffset);
+}
+
+/** The posting hall, resolved — three tables were writing `hall(quest.hall).short` by hand. */
+export function hallOf(candidate: Quest): Hall {
+  return hall(candidate.hall);
+}
+
+/**
+ * Contracts posted per month, oldest first — the small time series the sparklines needed.
+ *
+ * The last bucket is the tallest because open work is recent by construction: a board's history
+ * thins as it recedes, which is what a trend line should show.
+ */
+export function postedByMonth(): number[] {
+  const buckets = new Map<number, number>();
+  for (const candidate of QUESTS) {
+    const month = Math.floor(candidate.postedDayOffset / 30);
+    buckets.set(month, (buckets.get(month) ?? 0) + 1);
+  }
+  return [...buckets.keys()].sort((a, b) => a - b).map((month) => buckets.get(month) ?? 0);
 }
 
 export function postedOn(candidate: Quest): string {
