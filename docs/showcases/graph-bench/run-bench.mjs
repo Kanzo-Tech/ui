@@ -68,7 +68,7 @@ const compact = (value) => {
   return String(value);
 };
 
-function table(samples) {
+function engineTable(samples) {
   const header =
     "| Nodes | Links | Generate | Upload | Per step | Step ceiling | Frames |\n" +
     "|---|---|---|---|---|---|---|";
@@ -84,10 +84,36 @@ function table(samples) {
   return [header, ...rows].join("\n");
 }
 
+function stackTable(samples) {
+  const header =
+    "| Nodes | Links | Query | `load()` | `buffers()` | Upload | Select | **Ours** | _(ingest)_ |\n" +
+    "|---|---|---|---|---|---|---|---|---|";
+  const rows = samples.map((s) => {
+    if (s.failure) return `| ${compact(s.pointCount)} | — | — | — | — | — | — | — | **${s.failure}** |`;
+    const ours = s.queryMs + s.loadMs + s.buffersMs + s.uploadMs + s.selectMs;
+    return (
+      `| ${compact(s.pointCount)} | ${compact(s.linkCount)} | ${s.queryMs.toFixed(0)} ms ` +
+      `| ${s.loadMs.toFixed(0)} ms | ${s.buffersMs.toFixed(0)} ms | ${s.uploadMs.toFixed(0)} ms ` +
+      `| ${s.selectMs.toFixed(0)} ms | **${ours.toFixed(0)} ms** | _${s.ingestMs.toFixed(0)} ms_ |`
+    );
+  });
+  return [header, ...rows].join("\n");
+}
+
 const browser = await chromium.launch({
   // Headed, deliberately. See `assertMeasurable`.
   headless: false,
-  args: ["--use-angle=metal", "--enable-gpu", "--ignore-gpu-blocklist"],
+  args: [
+    "--use-angle=metal",
+    "--enable-gpu",
+    "--ignore-gpu-blocklist",
+    // Playwright's Chromium killed the tab at a million points where the user's Chrome did not.
+    // The default old-space is the difference: generation alone allocates tens of megabytes of
+    // typed arrays and the renderer holds its own copies. Raised so the ceiling being measured is
+    // the renderer's, not the harness's launch flags.
+    "--js-flags=--max-old-space-size=8192",
+    "--disable-dev-shm-usage",
+  ],
 });
 
 try {
@@ -96,29 +122,70 @@ try {
   const renderer = await assertMeasurable(page);
   console.log(`renderer: ${renderer}`);
 
-  await page.getByTestId("run-sweep").click();
-  console.log("sweep running…");
+  /**
+   * Runs one layer and returns the page's own results.
+   *
+   * `which` selects the layer first and waits a beat, because the Run button resolves to a
+   * different sweep depending on it — clicking both in the same tick runs the previous layer, which
+   * is a mistake that looks exactly like the right one until you read the columns.
+   */
+  async function sweep(which) {
+    const label = which === "stack" ? "Our stack" : "Engine";
+    await page.locator("label").filter({ hasText: new RegExp(`^${label}$`) }).click();
+    await page.waitForTimeout(300);
+    await page.getByTestId("run-sweep").click();
+    console.log(`${which} sweep running…`);
 
-  // Polled rather than awaited on a selector: the page publishes each row as it lands, so this can
-  // report progress instead of going quiet for the several minutes the top sizes take.
-  let seen = 0;
-  const started = Date.now();
-  let state;
-  for (;;) {
-    state = await page.evaluate(() => window.__graphBench ?? null);
-    if (state && state.samples.length > seen) {
-      seen = state.samples.length;
-      const last = state.samples[seen - 1];
-      console.log(
-        last.failure
-          ? `  ${compact(last.pointCount)}: ${last.failure}`
-          : `  ${compact(last.pointCount)}: ${last.stepMs.toFixed(2)} ms/step`,
-      );
+    // Polled rather than awaited on a selector: the page publishes each row as it lands, so this
+    // reports progress instead of going quiet for the minutes the top sizes take.
+    let seen = 0;
+    const collected = [];
+    const started = Date.now();
+    for (;;) {
+      /**
+       * A crashed tab is a result, not an exception.
+       *
+       * The size that kills the renderer is the ceiling — the single thing this file exists to
+       * find — and letting the `page.evaluate` rejection escape threw away every row measured
+       * before it. Recorded as a failed row, and the sweep stops there because everything above it
+       * would crash too.
+       */
+      let state;
+      try {
+        state = await page.evaluate(() => window.__graphBench ?? null);
+      } catch (error) {
+        console.log(`  the page died — ${String(error).split("\n")[0]}`);
+        collected.push({
+          pointCount: 0,
+          linkCount: 0,
+          failure: "the renderer process died at this size",
+        });
+        return collected;
+      }
+      const rows = state ? (which === "stack" ? state.stack : state.samples) : [];
+      collected.length = 0;
+      collected.push(...rows);
+      if (rows.length > seen) {
+        seen = rows.length;
+        const last = rows[seen - 1];
+        console.log(
+          last.failure
+            ? `  ${compact(last.pointCount)}: ${last.failure}`
+            : `  ${compact(last.pointCount)}: ${
+                which === "stack"
+                  ? `${(last.queryMs + last.loadMs + last.buffersMs + last.uploadMs + last.selectMs).toFixed(0)} ms ours`
+                  : `${last.stepMs.toFixed(2)} ms/step`
+              }`,
+        );
+      }
+      if (state && state.done && rows.length > 0) return rows;
+      if (Date.now() - started > SWEEP_TIMEOUT) throw new Error(`the ${which} sweep never finished`);
+      await page.waitForTimeout(1000);
     }
-    if (state && state.done) break;
-    if (Date.now() - started > SWEEP_TIMEOUT) throw new Error("the sweep never finished");
-    await page.waitForTimeout(1000);
   }
+
+  const engineRows = await sweep("engine");
+  const stackRows = await sweep("stack");
 
   const body = [
     "# Graph scale",
@@ -129,12 +196,50 @@ try {
     `- **Measured:** ${new Date().toISOString().slice(0, 10)}`,
     "- **Shape:** hyperbolic random graph, mean degree 14, seeded",
     "",
-    "`Per step` is the mean of batched `graph.step()` calls flushed by a `getPointPositions()`",
-    "readback, so it is real GPU work rather than a frame counter pinned to the display's refresh",
-    "rate. `Step ceiling` is what that cost implies on its own; `Frames` is the end-to-end rate with",
-    "links drawn, which is the lower of the two and the one a reader actually experiences.",
+    "## Layer 1 — the engine",
     "",
-    table(state.samples),
+    "`Per step` is the mean of batched `graph.step()` calls flushed by a `getPointPositions()`",
+    "readback, so it is real GPU work. `Step ceiling` is what that cost implies on its own.",
+    "`Frames` counts cosmos.gl's own `onSimulationTick` over a wall-clock window — not our waits:",
+    "counting `requestAnimationFrame` published a flat 60 fps at every size, which is the monitor's",
+    "number, not the graph's.",
+    "",
+    "**Read `Step ceiling`, not `Frames`, to judge whether a layout keeps up.** The two disagree on",
+    "purpose. WebGL commands queue without the CPU waiting, so the loop keeps presenting frames at",
+    "vsync while the GPU falls behind — the picture is smooth and stale at once. Only the readback",
+    "in `Per step` forces the queue to drain, which is why it is the honest one. Where they converge",
+    "(1M) the queue has stopped absorbing the difference.",
+    "",
+    engineTable(engineRows),
+    "",
+    "## Layer 2 — our pipeline",
+    "",
+    "The same graphs arriving the way a real one does. `load()` and `buffers()` are imported from",
+    "`workspace/graph-model.ts`, not reimplemented — a benchmark that measures a copy measures the",
+    "copy. **Ours** is the sum of everything on the interactive path; ingest is timed but excluded,",
+    "because this fixture reaches DuckDB as CSV text where a real corpus arrives as Parquet.",
+    "",
+    stackTable(stackRows),
+    "",
+    "Every row is checked against the graph it was supposed to load before it is timed. That check",
+    "is not ceremony: it caught the whole table being fiction once, when Mosaic served the second",
+    "size from the first size's cached Arrow and every row after 2k described a 2,000-node graph at",
+    "flattering speed.",
+    "",
+    "## What to fix, in order",
+    "",
+    "**DuckDB is not the bottleneck.** The query column stays in single-digit milliseconds while",
+    "everything around it grows. The database was never the thing to worry about.",
+    "",
+    "**`load()` is.** It is the largest cost we own, and it is plain main-thread JavaScript turning",
+    "Arrow into ids, a `Map`, rows, and typed arrays. It belongs in a worker, and much of it belongs",
+    "in SQL — the index and the ordering are things DuckDB would do for free.",
+    "",
+    "**The upload is cosmos.gl's, and it dominates both layers equally.** Layer 1 and layer 2 agree",
+    "on it to within a few per cent for the same data, which is the cross-check that says the",
+    "harness is measuring the same thing twice rather than measuring itself.",
+    "",
+    "**`buffers()` is cheap and can stay where it is.**",
     "",
   ].join("\n");
 

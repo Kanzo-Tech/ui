@@ -50,14 +50,22 @@ export interface StackSample {
  */
 export const STACK_SIZES = [2_000, 10_000, 50_000, 200_000];
 
-const NODES = "bench_nodes";
-const EDGES = "bench_edges";
+/**
+ * A table name per size, because Mosaic caches by SQL text.
+ *
+ * `load()` emits the same `SELECT … FROM bench_nodes ORDER BY id` for every size, so with one
+ * shared table name the coordinator answered the second size from the first size's cached Arrow —
+ * and kept doing it. `CREATE OR REPLACE` had genuinely replaced the table; the query never reached
+ * it. Distinct names make the SQL distinct, which is the only thing the cache keys on.
+ */
+const nodesTable = (n: number) => `bench_nodes_${n}`;
+const edgesTable = (n: number) => `bench_edges_${n}`;
 
 /** The columns `load()` is told to read — the same shape the workspace passes for its own corpus. */
-function spec(): GraphSpec {
+function spec(pointCount: number): GraphSpec {
   return {
-    table: NODES,
-    edges: EDGES,
+    table: nodesTable(pointCount),
+    edges: edgesTable(pointCount),
     idField: "id",
     labelField: "label",
     categoryField: "community",
@@ -152,12 +160,24 @@ export async function measureStack(options: StackOptions): Promise<StackSample> 
 
     const { coordinator, db } = await stage("booting DuckDB", 60_000, options.onStage, () => boot());
 
+    /**
+     * A filename per size, and it is not cosmetic.
+     *
+     * `registerFileText` keys DuckDB-WASM's virtual file system by name and does **not** overwrite
+     * an existing entry, so re-registering `bench-nodes.csv` for the next size silently kept the
+     * first one — `loadCSV(..., { replace: true })` then dutifully replaced the table with the same
+     * 2,000 rows. Every size after the first measured the smallest graph, at flattering and
+     * completely fictional speed, until a row-count assertion caught it.
+     */
+    const nodesFile = `bench-nodes-${pointCount}.csv`;
+    const edgesFile = `bench-edges-${pointCount}.csv`;
+
     const startedIngesting = performance.now();
     await stage("ingesting CSV", 120_000, options.onStage, async () => {
-      await db.registerFileText("bench-nodes.csv", nodesCsv(data));
-      await db.registerFileText("bench-edges.csv", edgesCsv(data));
-      await coordinator.exec(loadCSV(NODES, "bench-nodes.csv", { replace: true }));
-      await coordinator.exec(loadCSV(EDGES, "bench-edges.csv", { replace: true }));
+      await db.registerFileText(nodesFile, nodesCsv(data));
+      await db.registerFileText(edgesFile, edgesCsv(data));
+      await coordinator.exec(loadCSV(nodesTable(pointCount), nodesFile, { replace: true }));
+      await coordinator.exec(loadCSV(edgesTable(pointCount), edgesFile, { replace: true }));
     });
     base.ingestMs = performance.now() - startedIngesting;
     if (cancelled()) return { ...base, failure: "cancelled" };
@@ -171,15 +191,37 @@ export async function measureStack(options: StackOptions): Promise<StackSample> 
      * warm, which is exactly the case a re-filtered view hits.
      */
     const startedQuerying = performance.now();
-    await stage("querying", 60_000, options.onStage, () => warmQuery(coordinator));
+    await stage("querying", 60_000, options.onStage, () => warmQuery(coordinator, pointCount));
     base.queryMs = performance.now() - startedQuerying;
 
     const startedLoading = performance.now();
     const loaded: Loaded = await stage("load()", 120_000, options.onStage, () =>
-      load(coordinator, spec()),
+      load(coordinator, spec(pointCount)),
     );
     base.loadMs = performance.now() - startedLoading;
     if (cancelled()) return { ...base, failure: "cancelled" };
+
+    /**
+     * Did we actually load the graph we think we did?
+     *
+     * Without this the harness reported 200,000 nodes uploading in 56 ms where the engine layer
+     * needed 838 ms for the same data — fifteen times faster, which is not a result, it is a
+     * symptom. A stage that silently processed a fraction of the rows produces beautiful numbers
+     * and describes nothing. The row count is cheap to check and the only thing standing between a
+     * fast path and a wrong one.
+     */
+    if (loaded.rows.length !== data.pointCount) {
+      return {
+        ...base,
+        failure: `load() returned ${loaded.rows.length.toLocaleString("en-US")} of ${data.pointCount.toLocaleString("en-US")} nodes`,
+      };
+    }
+    if (loaded.links.length / 2 !== data.linkCount) {
+      return {
+        ...base,
+        failure: `load() returned ${(loaded.links.length / 2).toLocaleString("en-US")} of ${data.linkCount.toLocaleString("en-US")} links`,
+      };
+    }
 
     const startedBuffers = performance.now();
     const gpu = buffers(loaded, LOOKS.atlas, element);
@@ -239,11 +281,11 @@ export async function measureStack(options: StackOptions): Promise<StackSample> 
 }
 
 /** One warm read of the node relation, so `load`'s share of the query cost is known. */
-async function warmQuery(coordinator: Coordinator): Promise<void> {
+async function warmQuery(coordinator: Coordinator, pointCount: number): Promise<void> {
   const { Query } = await import("@uwdata/mosaic-sql");
   const { onceQuery } = await import("@/lib/once-query");
   await onceQuery(coordinator, () =>
-    Query.from(NODES).select({ id: "id", label: "label", community: "community" }),
+    Query.from(nodesTable(pointCount)).select({ id: "id", label: "label", community: "community" }),
   );
 }
 

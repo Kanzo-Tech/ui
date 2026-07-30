@@ -73,6 +73,15 @@ const FRAME_TIMEOUT = 50;
 const READY_TIMEOUT = 30_000;
 
 /**
+ * How long the frame-rate window runs.
+ *
+ * A duration, not a frame count: at a million points a single tick takes most of half a second, so
+ * "sixty frames" would be half a minute at the top size and a blink at the bottom. Two seconds is
+ * enough to see several ticks even when they are slow.
+ */
+const FPS_WINDOW = 2_000;
+
+/**
  * Whether frame-rate is a question this page can answer right now.
  *
  * A hidden tab renders nothing, so counting frames there measures the timeout above and reports a
@@ -228,14 +237,31 @@ export async function measure(options: RunOptions): Promise<Sample> {
     const stepMs = (performance.now() - startedStepping) / steps;
     if (cancelled()) return { ...base, uploadMs, stepMs, failure: "cancelled" };
 
-    // Now the honest one: hand the loop back and count real frames — if there are any to count.
+    /**
+     * Now the end-to-end rate — counted from the graph's own ticks, never from our waits.
+     *
+     * This was `for (i < frames) await nextFrame()` divided by the elapsed time, and it published
+     * 60, 61, 62, 62, 61 and 52 fps for 2,000 through 1,000,000 points. Flat at the refresh rate
+     * across a range where the step cost grows 300-fold, which is the shape of a number measuring
+     * the display rather than the graph: `requestAnimationFrame` fires on the monitor's schedule
+     * whether or not cosmos.gl did anything in between.
+     *
+     * `onSimulationTick` fires once per frame the renderer actually advanced, so counting those
+     * over a wall-clock window is the rate the picture moves at. A graph too heavy to tick will
+     * report a small number instead of the monitor's.
+     */
     if (!visible()) return { ...base, uploadMs, stepMs, fps: null };
+    let ticks = 0;
+    graph.setConfigPartial({ onSimulationTick: () => void ticks++ });
     graph.start(1);
     const startedDrawing = performance.now();
-    for (let i = 0; i < frames; i++) await nextFrame();
-    // The tab can be backgrounded mid-window, which turns the remaining waits into timeouts and
-    // drags the mean down. Re-asked rather than assumed, so a number is either real or absent.
-    const fps = visible() ? frames / ((performance.now() - startedDrawing) / 1000) : null;
+    const deadline = startedDrawing + FPS_WINDOW;
+    while (performance.now() < deadline) await nextFrame();
+    const elapsed = performance.now() - startedDrawing;
+    graph.setConfigPartial({ onSimulationTick: undefined });
+    // The tab can be backgrounded mid-window, which stops ticks entirely. Re-asked rather than
+    // assumed, so a number is either real or absent.
+    const fps = visible() ? ticks / (elapsed / 1000) : null;
 
     return { ...base, uploadMs, stepMs, fps };
   } catch (error) {
