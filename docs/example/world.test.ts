@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { MEMBERS, member } from "./people";
 import { QUESTS, overdueQuests, quest } from "./quests";
 import { ROSTER, availableNow, rosterEntry, rosterOf } from "./roster";
+import { RULES_SOURCE, breaches } from "./rules";
 import { BEASTS, HALLS, QUEST_STATUSES, REGIONS, TODAY } from "./world";
 
 // What this guards is not "the data exists" — the docs build proves that by importing it. It is
@@ -177,6 +178,16 @@ describe("the claims the docs make about the world", () => {
       (q) => q.party.includes("fenn") && (q.status === "claimed" || q.status === "afield"),
     );
     expect(live.map((q) => q.status)).toEqual(["afield"]);
+  });
+
+  it("is actually in breach of the rules the editor shows", () => {
+    // The rule page says the hall is in breach. If a fixture edit ever made every live contract
+    // compliant, the editor would be showing four rules that do nothing.
+    const found = breaches();
+    expect(found.length).toBeGreaterThan(0);
+    expect(found.some((b) => b.quest.title === "A basilisk, and it knows the route")).toBe(true);
+    // Every breach names a rule that exists in the source the editor opens.
+    for (const breach of found) expect(RULES_SOURCE).toContain(`rule "${breach.rule}"`);
   });
 
   it("resolves a quest by id", () => {
