@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@kanzo-tech/ui";
+import { archiveOf, archiveScale } from "@/example/archive";
 import { initialsOf, member } from "@/example/people";
 import { dueOn, QUESTS } from "@/example/quests";
 import { ROSTER } from "@/example/roster";
@@ -290,3 +291,47 @@ export const BoardTable = () => (
     </TableBody>
   </Table>
 );
+
+/**
+ * The archive's headline numbers, computed rather than quoted.
+ *
+ * Every figure here appears in prose on the page beside it. Prose cannot count, so if these were
+ * typed they would be the first thing in the world to go stale.
+ */
+export const ArchiveFacts = () => {
+  const scale = archiveScale();
+  const busiest = [...ROSTER].sort((a, b) => b.settled - a.settled).slice(0, 3);
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>The archive holds</TableHead>
+          <TableHead className={cellNumeric}>Count</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        <TableRow>
+          <TableCell>Closed contracts</TableCell>
+          <TableCell className={cellNumeric}>{scale.contracts}</TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell>Field reports filed against them</TableCell>
+          <TableCell className={cellNumeric}>{scale.reports}</TableCell>
+        </TableRow>
+        <TableRow>
+          <TableCell>Nodes, once members, beasts, regions and tags join them</TableCell>
+          <TableCell className={cellNumeric}>{scale.nodes}</TableCell>
+        </TableRow>
+        {busiest.map((entry) => (
+          <TableRow key={entry.id}>
+            <TableCell className="text-muted-foreground">
+              …of which {entry.name} closed
+            </TableCell>
+            <TableCell className={cellNumeric}>{archiveOf(entry.id).length}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+};

@@ -10,6 +10,7 @@ import type { MDXComponents } from "mdx/types";
 import { ComponentPreview } from "@/components/component-preview";
 import { ComponentsList } from "@/components/components-list";
 import {
+  ArchiveFacts,
   BestiaryTable,
   BoardTable,
   GradesTable,
@@ -47,6 +48,7 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     PreviewIframe,
     ShowcasesList,
     // The example world's own tables — `/docs/the-guild` is the one page made of them.
+    ArchiveFacts,
     BestiaryTable,
     BoardTable,
     GradesTable,
