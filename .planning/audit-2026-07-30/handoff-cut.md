@@ -300,18 +300,18 @@ names — the same method as `audit-exports.md` §1a.
 
 | | Before (`e210a59`) | After | Δ |
 |---|---:|---:|---:|
-| **Union of the four entries** | **872** | **837** | **−35** |
-| — values | 720 | 703 | −17 |
+| **Union of the four entries** | **872** | **757** | **−115 (−13%)** |
+| — values | 720 | 623 | −97 |
 | — types | 152 | 134 | −18 |
-| `index.tsx` | 649 | 629 | −20 |
+| `index.tsx` | 649 | 550 | −99 |
 | `analytics.ts` | 192 | 179 | −13 |
 | `table.ts` | 28 | 26 | −2 |
-| `editor.ts` | 4 | 4 | 0 |
+| `editor.ts` | 4 | 3 | −1 |
 
 (The audit reported 879/722/157 against the *dirty* main checkout, which carries the identity-axis
-work; 872 is the same measurement against the clean base this branch sits on. The delta is smaller
-than the audit's projected ~690 because step 3 is unfinished — the ~119 single-symbol export
-deletions in `simples/` are still outstanding, see §6.)
+work; 872 is the same measurement against the clean base this branch sits on. The audit projected
+~690; the remaining gap is the ~35 tier C *parts* — as opposed to aliases — that are still
+outstanding, see §6.)
 
 Reproduce with `checker.getExportsOfModule()` over the four entry **source** files, aliases
 resolved, union of distinct names. Do not count by grepping the repo: it contains further full
@@ -322,21 +322,38 @@ exports because every symbol appears to have three consumers.
 
 ## 6. Not finished — what the next agent inherits
 
-I ran out of session before completing the brief. Committed and green:
+Committed and green (`test`, `typecheck`, `lint`, `build`, `check:generated`):
 
-- the `charts/theme.ts` client-boundary split (step 1);
-- the whole 18-row component cut and both relocations (step 2);
-- the chart-layer duplication removal and the `/analytics` internals un-export;
-- `AlertDialogAction`, which was typed to close the dialog and did not.
+- **Step 1** — the `charts/theme.ts` client-boundary split, fixing both the RSC break and the
+  placement failure.
+- **Step 2** — the whole 18-row component cut and both relocations.
+- **Step 3** — tier A (32 dead exports, symbol and all), `FieldSeparator`, tier B (36 un-exported,
+  symbols kept), and 11 further tier C context aliases. The chart-layer duplication removal and the
+  `/analytics` compiler un-export are in here too.
+- **Step 5** — the client boundary: 57 surplus directives removed, and the invariant is now a guard
+  test (`packages/ui/src/client-boundary.test.ts`) asserting both directions.
+- Plus two live defects: `AlertDialogAction`, which was typed to close the dialog and did not, and
+  `--font-heading`, which no `[data-font]` rule ever set.
 
 **Outstanding:**
 
-1. **Step 3 — the remaining export tiers.** `audit-exports.md` §2a (32 delete outright),
-   §2b tier C minus the chart marks, §2c tier B (45 un-export). The chart portion is done; the
-   `simples/` portion is not. Note the two exceptions the audit itself flags: keep `useAiStream`
-   exported (it is the documented headless engine, `index.test.ts:16` asserts it), and un-export
-   `swatchVariants` **into the existing `*Variants` list** in `index.test.ts` rather than inventing
-   a new assertion.
+1. **Step 3, the remainder.** What is left of `audit-exports.md` §2b tier C is the ~35 *parts* with
+   a doc page and no caller — `ActionBarTrigger`, `ActionBarBody`, `ColorPickerInput`,
+   `ComboboxFieldInput`, `CommandSeparator`, `CommandFooter`, `DatePickerPresetTrigger`,
+   `ListboxValueText`, `MenuQuickItem`, `NumberInputValueText`, `PopoverAnchor`,
+   `RatingHiddenInput`, `SelectEmpty`, `TagsInputClearTrigger`, `TourPreviousStep`, `TourNextStep`,
+   `TreeViewLabel`, `TreeViewCheckbox`, `parseColor`, and the three `SidebarGroupAction` /
+   `SidebarGroupContent` / `SidebarMenuAction`. Unlike the aliases these are real components, so
+   each needs a look rather than a sweep, and each deletion orphans a documented part.
+
+   **The trap, hit twice already:** a mechanical multi-line regex over `export const X = (`
+   swallowed the *next* component when `X` was a one-liner — it took out `CalendarPresetTrigger`,
+   which `date-picker.tsx` renders. Typecheck caught it. Delete by locating the closing `};` at
+   column 0, and read the diff's `-export` lines before committing.
+
+   Also note: under `export *`, a module-level export **is** the public surface. Three tier B
+   candidates (`safeParseColor`, `ComboboxTrigger`, `cleanGhost`) stayed exported because their
+   sibling tests import them, and un-exporting would have deleted coverage.
 
 2. **Step 4 — the `data-slot` sweep. Read this before starting; it is not the mechanical codemod
    the brief describes.** Moving `data-slot` after `{...rest}` everywhere **breaks the 38 thin
@@ -363,24 +380,26 @@ I ran out of session before completing the brief. Committed and green:
 
    `simples/combobox.tsx:142` is the single site already in the correct order.
 
-3. **Step 5 — the client boundary.** The 59-file list in `audit-exports.md` §5c is untouched. Two of
-   its entries are now moot (`simples/DateField.tsx` is deleted). Verify transitively, not per file.
-   The audit is honest that removing all 59 in one sweep is **SUSPECTED**, not confirmed, and that
-   the only real test is the `docs/` App Router build.
-
-4. **`--font-heading` never gets set.** It is consumed at `simples/card.tsx:113`, `simples/alert.tsx:85`,
-   `simples/dialog.tsx:295` and `composites/Preferences.tsx:179`, and declared as a self-referencing
-   fallback at `packages/theme/tokens.css:134` — but no `[data-font]` rule in
-   `packages/theme/themes.css` sets it, so the font preference reportedly does not move headings.
-   **I did not verify this myself and it may be wrong.** `themes.css` is generated: fix
-   `packages/theme/scripts/`, re-run `pnpm --filter @kanzo-tech/theme gen`, and `pnpm check:generated`
-   must pass. Do not hand-edit the output.
-
-5. **`scripts/smoke-install.mjs`** (`audit-exports.md` §7b) — it guards two symbols that have never
+3. **`scripts/smoke-install.mjs`** (`audit-exports.md` §7b) — it guards two symbols that have never
    existed (`EditorShell`, `GhostEditor`, `:63`), so the assertion can never fail; and it never
    checks `"use client"` preservation despite its own header (`:19`) naming that as the first bug
    class it exists to catch. Its `renderToString` assertions cannot substitute — `react-dom/server`
    outside an RSC bundler ignores the directive entirely.
+
+### Two findings from doing the work, for whoever writes the rules down
+
+**The client-boundary rule in CONVENTIONS.md is a shade too strong, and that is what caused the 59
+surplus directives.** It says a file gets the directive if it "calls a React hook, registers an
+event listener, **or imports a module that does**". The last clause is not how RSC works: the
+boundary is established *once*, by the module with the hook in it, and every importer above that
+point stays server-renderable. Ark depends on exactly this — it ships the directive on 1,567 of its
+own dist files, which is the only reason a hook-free wrapper of an Ark machine can be a Server
+Component at all. Suggested wording: *"…or imports a module that does **and lacks the directive**"*,
+which is the same rule and cannot be misread. `packages/ui/src/client-boundary.test.ts` now enforces
+the corrected form in both directions, so the prose and the test agree.
+
+**`DESIGN.md:239-240` argues the wrong way about `ProgressTrack`** — see §3f. That paragraph is the
+only place the "ideal case" framing appears, and the code contradicts it.
 
 **Nobody has run `pnpm --filter @kanzo-tech/docs build` since the cut began.** It will fail, hard,
 on every file in §1. That is expected and it is the docs agent's queue, not a regression.
