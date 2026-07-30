@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from "fumadocs-ui/page";
+import { MarkdownCopyButton, ViewOptionsPopover } from "fumadocs-ui/layouts/docs/page";
 import { source } from "@/lib/source";
 import { getMDXComponents } from "@/mdx-components";
+import { UpstreamLinks } from "@/components/upstream-links";
 
 export default async function Page(props: { params: Promise<{ slug?: string[] }> }) {
   const params = await props.params;
@@ -9,11 +11,19 @@ export default async function Page(props: { params: Promise<{ slug?: string[] }>
   if (!page) notFound();
 
   const MDX = page.data.body;
+  const markdownUrl = `${page.url}.mdx`;
 
   return (
     <DocsPage toc={page.data.toc} full={page.data.full}>
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
+      {/* One row, so the badge sizes to its content: as a bare child of DocsPage's flex column
+          it stretched to the full page width. No `githubUrl` — this repo has no remote. */}
+      <div className="flex flex-row flex-wrap items-center gap-2 border-b pt-2 pb-6">
+        <MarkdownCopyButton markdownUrl={markdownUrl} />
+        <ViewOptionsPopover markdownUrl={markdownUrl} />
+        <UpstreamLinks links={page.data.links} />
+      </div>
       <DocsBody>
         <MDX components={getMDXComponents()} />
       </DocsBody>
