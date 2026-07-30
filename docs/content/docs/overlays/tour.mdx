@@ -28,16 +28,16 @@ const steps: TourStepType[] = [
   {
     id: "intro",
     type: "dialog",
-    title: "Welcome",
+    title: "Welcome to the board",
     description: "A quick tour.",
     actions: [{ label: "Start", action: "next" }],
   },
   {
-    id: "name",
+    id: "search",
     type: "tooltip",
-    target: () => document.getElementById("tour-name"),
-    title: "Name your dataset",
-    description: "It becomes the graph id.",
+    target: () => document.getElementById("tour-search"),
+    title: "Find the contract",
+    description: "Titles, regions and beasts all match here.",
     actions: [
       { label: "Back", action: "prev" },
       { label: "Next", action: "next" },

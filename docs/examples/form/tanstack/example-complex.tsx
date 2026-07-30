@@ -33,63 +33,58 @@ import { revalidateLogic, useForm } from "@tanstack/react-form";
 import { AlertCircleIcon, XIcon } from "lucide-react";
 import { useState } from "react";
 import * as z from "zod";
+import { GRADES, REGIONS } from "@/example/world";
 
-const licences = createListCollection({
-  items: [
-    { label: "CC BY 4.0", value: "cc-by-4.0" },
-    { label: "CC BY-SA 4.0", value: "cc-by-sa-4.0" },
-    { label: "CC0 1.0", value: "cc0-1.0" },
-    { label: "Proprietary", value: "proprietary" },
-  ],
+const grades = createListCollection({
+  items: GRADES.map((grade) => ({
+    label: `${grade.value} — ${grade.label}`,
+    value: String(grade.value),
+  })),
 });
 
 const schema = z.object({
-  name: z
+  title: z
     .string()
-    .min(3, "Give the dataset a name of at least 3 characters.")
-    .regex(/^[a-z0-9-]+$/, "Lowercase letters, numbers and hyphens only."),
-  summary: z.string().min(20, "Describe the dataset in at least 20 characters."),
-  region: z.enum(["eu-west", "eu-central", "us-east"], {
-    error: "Pick a region.",
-  }),
-  licence: z.enum(["cc-by-4.0", "cc-by-sa-4.0", "cc0-1.0", "proprietary"], {
-    error: "Pick a licence.",
-  }),
-  maintainers: z
+    .min(10, "Give the contract a title a poster would recognise.")
+    .max(60, "Keep the title under 60 characters."),
+  notice: z.string().min(20, "Say what the party is walking into — at least 20 characters."),
+  region: z.enum(REGIONS, { error: "Pick a region." }),
+  grade: z.enum(["1", "2", "3", "4", "5"], { error: "Pick a grade." }),
+  party: z
     .array(
       z.object({
         id: z.string(),
         name: z.string().min(1, "Name required."),
-        email: z.email("Not an email address."),
+        handle: z.string().regex(/^[a-z]+$/, "Handles are lowercase, one word."),
       })
     )
-    .min(1, "A dataset needs at least one maintainer."),
-  publish: z.boolean(),
-  terms: z.literal(true, { error: "You have to accept the terms." }),
+    .min(1, "A contract needs at least one name on it."),
+  post: z.boolean(),
+  orders: z.literal(true, { error: "You have to accept the standing orders." }),
 });
 
 let counter = 0;
-const newMaintainer = () => ({ id: `m-${++counter}`, name: "", email: "" });
+const newSignatory = () => ({ id: `signatory-${++counter}`, name: "", handle: "" });
 
 export default function Example() {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const form = useForm({
     defaultValues: {
-      name: "",
-      summary: "",
+      title: "",
+      notice: "",
       region: "",
-      licence: "",
-      maintainers: [newMaintainer()],
-      publish: false,
-      terms: false,
+      grade: "",
+      party: [newSignatory()],
+      post: false,
+      orders: false,
     },
     validationLogic: revalidateLogic(),
     validators: { onDynamic: schema },
     onSubmit: async () => {
       setSubmitError(null);
       await new Promise((resolve) => setTimeout(resolve, 600));
-      setSubmitError("The registry rejected the name: it is already taken.");
+      setSubmitError("The board rejected it: a contract with that title is already open.");
     },
   });
 
@@ -108,22 +103,22 @@ export default function Example() {
     >
       <div className="flex flex-col gap-8">
         <FieldSet>
-          <FieldLegend>Identity</FieldLegend>
-          <FieldDescription>How the dataset is listed publicly.</FieldDescription>
+          <FieldLegend>The work</FieldLegend>
+          <FieldDescription>How the contract reads on the board.</FieldDescription>
 
           <FieldGroup>
-            <form.Field name="name">
+            <form.Field name="title">
               {(field) => (
                 <Field invalid={!field.state.meta.isValid} required>
                   <FieldLabel>
-                    Name
+                    Title
                     <FieldRequiredIndicator />
                   </FieldLabel>
                   <Input
                     name={field.name}
                     onBlur={field.handleBlur}
                     onChange={(event) => field.handleChange(event.target.value)}
-                    placeholder="air-quality-2024"
+                    placeholder="A wyrm under the granary"
                     value={field.state.value}
                   />
                   <FieldError>{errorText(field.state.meta.errors)}</FieldError>
@@ -131,11 +126,11 @@ export default function Example() {
               )}
             </form.Field>
 
-            <form.Field name="summary">
+            <form.Field name="notice">
               {(field) => (
                 <Field invalid={!field.state.meta.isValid} required>
                   <FieldLabel>
-                    Summary
+                    Notice
                     <FieldRequiredIndicator />
                   </FieldLabel>
                   <Textarea
@@ -153,7 +148,7 @@ export default function Example() {
         </FieldSet>
 
         <FieldSet>
-          <FieldLegend>Hosting</FieldLegend>
+          <FieldLegend>Where and how bad</FieldLegend>
 
           <FieldGroup>
             <form.Field name="region">
@@ -170,29 +165,27 @@ export default function Example() {
                     onChange={(event) => field.handleChange(event.target.value)}
                     value={field.state.value}
                   >
-                    <NativeSelectOption value="">
-                      Select a region
-                    </NativeSelectOption>
-                    <NativeSelectOption value="eu-west">EU West</NativeSelectOption>
-                    <NativeSelectOption value="eu-central">
-                      EU Central
-                    </NativeSelectOption>
-                    <NativeSelectOption value="us-east">US East</NativeSelectOption>
+                    <NativeSelectOption value="">Select a region</NativeSelectOption>
+                    {REGIONS.map((region) => (
+                      <NativeSelectOption key={region} value={region}>
+                        {region}
+                      </NativeSelectOption>
+                    ))}
                   </NativeSelect>
                   <FieldError>{errorText(field.state.meta.errors)}</FieldError>
                 </Field>
               )}
             </form.Field>
 
-            <form.Field name="licence">
+            <form.Field name="grade">
               {(field) => (
                 <Field invalid={!field.state.meta.isValid} required>
                   <FieldLabel>
-                    Licence
+                    Grade
                     <FieldRequiredIndicator />
                   </FieldLabel>
                   <Select
-                    collection={licences}
+                    collection={grades}
                     name={field.name}
                     onOpenChange={(details) => {
                       if (!details.open) field.handleBlur();
@@ -203,10 +196,10 @@ export default function Example() {
                     value={field.state.value ? [field.state.value] : []}
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select a licence" />
+                      <SelectValue placeholder="Select a grade" />
                     </SelectTrigger>
                     <SelectContent>
-                      {licences.items.map((item) => (
+                      {grades.items.map((item) => (
                         <SelectItem item={item} key={item.value}>
                           {item.label}
                         </SelectItem>
@@ -220,20 +213,20 @@ export default function Example() {
           </FieldGroup>
         </FieldSet>
 
-        <form.Field mode="array" name="maintainers">
+        <form.Field mode="array" name="party">
           {(array) => (
             <FieldSet>
-              <FieldLegend>Maintainers</FieldLegend>
-              <FieldDescription>Who to contact about this dataset.</FieldDescription>
+              <FieldLegend>Party</FieldLegend>
+              <FieldDescription>Who signs for this contract.</FieldDescription>
 
               <FieldGroup>
-                {array.state.value.map((maintainer, index) => (
+                {array.state.value.map((signatory, index) => (
                   <div
                     className="flex items-start gap-2 rounded-lg border p-3"
-                    key={maintainer.id}
+                    key={signatory.id}
                   >
                     <FieldGroup className="gap-3">
-                      <form.Field name={`maintainers[${index}].name`}>
+                      <form.Field name={`party[${index}].name`}>
                         {(field) => (
                           <Field invalid={!field.state.meta.isValid}>
                             <FieldLabel>Name</FieldLabel>
@@ -253,10 +246,10 @@ export default function Example() {
                         )}
                       </form.Field>
 
-                      <form.Field name={`maintainers[${index}].email`}>
+                      <form.Field name={`party[${index}].handle`}>
                         {(field) => (
                           <Field invalid={!field.state.meta.isValid}>
-                            <FieldLabel>Email</FieldLabel>
+                            <FieldLabel>Handle</FieldLabel>
                             <Input
                               name={field.name}
                               onBlur={field.handleBlur}
@@ -276,7 +269,7 @@ export default function Example() {
 
                     <Show when={array.state.value.length > 1}>
                       <Button
-                        aria-label={`Remove maintainer ${index + 1}`}
+                        aria-label={`Remove signatory ${index + 1}`}
                         onClick={() => array.removeValue(index)}
                         size="icon-sm"
                         type="button"
@@ -295,25 +288,25 @@ export default function Example() {
 
               <Button
                 className="w-fit"
-                onClick={() => array.pushValue(newMaintainer())}
+                onClick={() => array.pushValue(newSignatory())}
                 size="sm"
                 type="button"
                 variant="outline"
               >
-                Add maintainer
+                Add member
               </Button>
             </FieldSet>
           )}
         </form.Field>
 
         <FieldGroup>
-          <form.Field name="publish">
+          <form.Field name="post">
             {(field) => (
               <Field orientation="horizontal">
                 <FieldContent>
-                  <FieldLabel>Publish on save</FieldLabel>
+                  <FieldLabel>Post to the board on save</FieldLabel>
                   <FieldDescription>
-                    Anyone with the link will be able to read it.
+                    Any chartered hall will be able to claim it.
                   </FieldDescription>
                 </FieldContent>
                 <Switch
@@ -325,7 +318,7 @@ export default function Example() {
             )}
           </form.Field>
 
-          <form.Field name="terms">
+          <form.Field name="orders">
             {(field) => (
               <Field invalid={!field.state.meta.isValid} orientation="horizontal">
                 <Checkbox
@@ -336,7 +329,7 @@ export default function Example() {
                   }
                 />
                 <FieldContent>
-                  <FieldTitle>Accept the terms of use</FieldTitle>
+                  <FieldTitle>Accept the hall’s standing orders</FieldTitle>
                   <FieldError>{errorText(field.state.meta.errors)}</FieldError>
                 </FieldContent>
               </Field>
@@ -347,7 +340,7 @@ export default function Example() {
         <Show when={!!submitError}>
           <Alert variant="destructive">
             <AlertCircleIcon />
-            <AlertTitle>Could not publish</AlertTitle>
+            <AlertTitle>Could not post the contract</AlertTitle>
             <AlertDescription>{submitError}</AlertDescription>
           </Alert>
         </Show>
@@ -356,7 +349,7 @@ export default function Example() {
           <form.Subscribe selector={(state) => state.isSubmitting}>
             {(isSubmitting) => (
               <Button disabled={isSubmitting} type="submit">
-                {isSubmitting ? "Publishing…" : "Publish"}
+                {isSubmitting ? "Posting…" : "Post"}
               </Button>
             )}
           </form.Subscribe>

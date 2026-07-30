@@ -12,28 +12,25 @@ import {
   TreeViewTree,
   createTreeCollection,
 } from "@kanzo-tech/ui";
+import { BESTIARY, type TreeNode } from "@/example/bestiary";
 
-const collection = createTreeCollection({
-  rootNode: {
-    id: "ROOT",
-    name: "",
-    children: [
-      {
-        id: "shapes",
-        name: "shapes",
-        children: [
-          { id: "customer.ttl", name: "customer.ttl" },
-          { id: "order.ttl", name: "order.ttl" },
-        ],
-      },
-      {
-        id: "queries",
-        name: "queries",
-        children: [{ id: "recent.rq", name: "recent.rq" }],
-      },
-      { id: "README.md", name: "README.md" },
-    ],
-  },
+interface BeastNode {
+  id: string;
+  name: string;
+  children?: BeastNode[];
+}
+
+// The bestiary calls it `label`; the collection wants `name`.
+function toNode(node: TreeNode): BeastNode {
+  return {
+    id: node.id,
+    name: node.label,
+    ...(node.children ? { children: node.children.map(toNode) } : {}),
+  };
+}
+
+const collection = createTreeCollection<BeastNode>({
+  rootNode: { id: "ROOT", name: "", children: BESTIARY.map(toNode) },
 });
 
 // Recursive: a node is a branch when it has children, a leaf otherwise.
@@ -67,10 +64,10 @@ const Node = (props: ComponentProps<typeof TreeViewNode>) => {
 export default function Example() {
   return (
     <TreeView
-      aria-label="Project files"
+      aria-label="The bestiary"
       className="max-w-xs"
       collection={collection}
-      defaultExpandedValue={["shapes"]}
+      defaultExpandedValue={["warm", "warm.flying"]}
     >
       <TreeViewTree>
         {collection.rootNode.children?.map((node, index) => (

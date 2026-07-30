@@ -1,5 +1,6 @@
 import { Badge, Float } from "@kanzo-tech/ui";
 import { BellIcon } from "lucide-react";
+import { overdueQuests } from "@/example/quests";
 
 export default function Example() {
   return (
@@ -8,7 +9,7 @@ export default function Example() {
       <BellIcon className="size-5 text-muted-foreground" />
       <Float className="-end-1.5 -top-1.5" placement="top-end">
         <Badge className="rounded-full" size="xs" variant="destructive">
-          3
+          {overdueQuests().length}
         </Badge>
       </Float>
     </div>

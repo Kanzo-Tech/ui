@@ -12,7 +12,7 @@ export default function Example() {
   return (
     <div className="flex items-center gap-3">
       <Toggle
-        aria-label={muted ? "Unmute notifications" : "Mute notifications"}
+        aria-label={muted ? "Unmute the board" : "Mute the board"}
         onPressedChange={setMuted}
         pressed={muted}
         variant="outline"
@@ -22,7 +22,7 @@ export default function Example() {
         </ToggleIndicator>
       </Toggle>
       <span className="text-muted-foreground text-sm">
-        Notifications {muted ? "muted" : "on"}
+        New postings {muted ? "muted" : "on"}
       </span>
     </div>
   );

@@ -5,12 +5,12 @@ export default function Example() {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button aria-label="About triples" size="icon-md" variant="ghost">
+        <Button aria-label="About grade 5" size="icon-md" variant="ghost">
           <InfoIcon />
         </Button>
       </TooltipTrigger>
 
-      <TooltipContent>A triple is a subject–predicate–object statement.</TooltipContent>
+      <TooltipContent>Grade 5 — a Writ. Requires a hall's seal and a written heir.</TooltipContent>
     </Tooltip>
   );
 }

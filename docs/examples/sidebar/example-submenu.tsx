@@ -1,6 +1,6 @@
 "use client";
 
-import { DatabaseIcon } from "lucide-react";
+import { SwordsIcon } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -24,23 +24,23 @@ export default function Example() {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton>
-                  <DatabaseIcon />
-                  <span>Data</span>
+                  <SwordsIcon />
+                  <span>Contracts</span>
                 </SidebarMenuButton>
                 <SidebarMenuSub>
                   <SidebarMenuSubItem>
                     <SidebarMenuSubButton href="#" isActive>
-                      <span>Connections</span>
+                      <span>Open</span>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
                   <SidebarMenuSubItem>
                     <SidebarMenuSubButton href="#">
-                      <span>Jobs</span>
+                      <span>Afield</span>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
                   <SidebarMenuSubItem>
                     <SidebarMenuSubButton href="#">
-                      <span>Datasets</span>
+                      <span>Settled</span>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
                 </SidebarMenuSub>
@@ -54,7 +54,7 @@ export default function Example() {
           the navigation, and the region exists so you can see what it navigates. */}
       <SidebarInset className="bg-muted/24">
         <div className="flex h-full items-center justify-center">
-          <span className="text-muted-foreground text-sm">Page content</span>
+          <span className="text-muted-foreground text-sm">Open contracts</span>
         </div>
       </SidebarInset>
     </SidebarProvider>

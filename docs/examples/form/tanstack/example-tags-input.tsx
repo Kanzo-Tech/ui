@@ -20,15 +20,15 @@ import { revalidateLogic, useForm } from "@tanstack/react-form";
 import * as z from "zod";
 
 const schema = z.object({
-  keywords: z
-    .array(z.string().min(2, "Keywords need at least two characters."))
-    .min(1, "Add at least one keyword.")
-    .max(5, "Five keywords at most."),
+  tags: z
+    .array(z.string().min(2, "Tags need at least two characters."))
+    .min(1, "Add at least one tag.")
+    .max(5, "Five tags at most."),
 });
 
 export default function Example() {
   const form = useForm({
-    defaultValues: { keywords: ["air-quality"] },
+    defaultValues: { tags: ["night-work"] },
     validationLogic: revalidateLogic(),
     validators: { onDynamic: schema },
     onSubmit: () => {},
@@ -45,7 +45,7 @@ export default function Example() {
       }}
     >
       <FieldGroup>
-        <form.Field name="keywords">
+        <form.Field name="tags">
           {(field) => (
             <Field invalid={!field.state.meta.isValid}>
               <TagsInput
@@ -54,7 +54,7 @@ export default function Example() {
                 onValueChange={(details) => field.handleChange(details.value)}
                 value={field.state.value}
               >
-                <TagsInputLabel>Keywords</TagsInputLabel>
+                <TagsInputLabel>Tags</TagsInputLabel>
                 <TagsInputControl>
                   <TagsInputContext>
                     {(api) =>
@@ -75,7 +75,7 @@ export default function Example() {
                   </TagsInputContext>
                   <TagsInputInput
                     onBlur={field.handleBlur}
-                    placeholder="Add keyword…"
+                    placeholder="Add tag…"
                   />
                 </TagsInputControl>
               </TagsInput>

@@ -8,18 +8,19 @@ export default function Example() {
       <Button
         onClick={() =>
           toast.create({
-            title: "Mapping deleted",
-            description: "customers → Customer",
+            title: "Contract abandoned",
+            description: "Q-1058 · A basilisk, and it knows the route",
             type: "info",
             action: {
               label: "Undo",
-              onClick: () => toast.create({ title: "Restored", type: "success" }),
+              onClick: () =>
+                toast.create({ title: "Back on the board", type: "success" }),
             },
           })
         }
         variant="outline"
       >
-        Delete mapping
+        Abandon contract
       </Button>
 
       <Toaster />

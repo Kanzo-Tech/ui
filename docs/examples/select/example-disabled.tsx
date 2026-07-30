@@ -9,11 +9,12 @@ import {
   SelectValue,
 } from "@kanzo-tech/ui";
 
-const visibility = createListCollection({
+// Lanternwood is only invited, so it cannot sign for a contract yet.
+const halls = createListCollection({
   items: [
-    { label: "Public", value: "public" },
-    { label: "Private", value: "private" },
-    { label: "Restricted", value: "restricted", disabled: true },
+    { label: "The Amber Hall", value: "amber" },
+    { label: "The Order of Salt", value: "salt" },
+    { label: "The Lanternwood Compact", value: "lanternwood", disabled: true },
   ],
   isItemDisabled: (item) => Boolean(item.disabled),
 });
@@ -21,12 +22,12 @@ const visibility = createListCollection({
 export default function Example() {
   return (
     <div className="flex flex-col items-start gap-3">
-      <Select collection={visibility} defaultValue={["private"]} disabled>
+      <Select collection={halls} defaultValue={["amber"]} disabled>
         <SelectTrigger className="w-56">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {visibility.items.map((item) => (
+          {halls.items.map((item) => (
             <SelectItem item={item} key={item.value}>
               {item.label}
             </SelectItem>
@@ -34,12 +35,12 @@ export default function Example() {
         </SelectContent>
       </Select>
 
-      <Select collection={visibility}>
+      <Select collection={halls}>
         <SelectTrigger className="w-56">
           <SelectValue placeholder="One item disabled" />
         </SelectTrigger>
         <SelectContent>
-          {visibility.items.map((item) => (
+          {halls.items.map((item) => (
             <SelectItem item={item} key={item.value}>
               {item.label}
             </SelectItem>

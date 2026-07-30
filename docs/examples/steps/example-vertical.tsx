@@ -12,9 +12,21 @@ import {
 } from "@kanzo-tech/ui";
 
 const steps = [
-  { title: "Connect", description: "Source + credentials", body: "Point at a source." },
-  { title: "Map", description: "Field matching", body: "Match incoming fields." },
-  { title: "Review", description: "Final diff", body: "Check before writing." },
+  {
+    title: "Read the terms",
+    description: "Grade and due date",
+    body: "A writ needs a hall's seal and a written heir.",
+  },
+  {
+    title: "Name a party",
+    description: "Who is going",
+    body: "Only members the board has not already sent out.",
+  },
+  {
+    title: "Sign",
+    description: "Warden and archivist",
+    body: "The archivist reads it; the warden signs for the party.",
+  },
 ];
 
 export default function Example() {
@@ -50,7 +62,7 @@ export default function Example() {
         </StepsContent>
       ))}
       <StepsCompletedContent className="text-muted-foreground text-sm">
-        All steps complete.
+        The contract is claimed.
       </StepsCompletedContent>
     </Steps>
   );

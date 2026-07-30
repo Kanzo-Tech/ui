@@ -9,7 +9,7 @@ import {
 export default function Example() {
   return (
     <InputGroup className="w-80">
-      <InputGroupTextarea placeholder="Describe the mapping…" />
+      <InputGroupTextarea placeholder="Word for the party afield…" />
       <InputGroupAddon align="block-end">
         <InputGroupButton className="ms-auto" size="sm" variant="default">
           <SendIcon />

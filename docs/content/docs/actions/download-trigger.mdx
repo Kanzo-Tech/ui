@@ -21,11 +21,11 @@ object URL and clicks it for you. It renders a `<button>`, so compose our `Butto
 ```tsx
 <DownloadTrigger
   asChild
-  data={JSON.stringify(schema, null, 2)}
-  fileName="schema.json"
-  mimeType="application/json"
+  data={csv}
+  fileName="open-contracts.csv"
+  mimeType="text/csv"
 >
-  <Button variant="outline">Download schema.json</Button>
+  <Button variant="outline">Export the board</Button>
 </DownloadTrigger>
 ```
 

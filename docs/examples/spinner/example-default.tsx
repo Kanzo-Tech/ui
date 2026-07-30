@@ -10,9 +10,9 @@ export default function Example() {
       </div>
       <span className="inline-flex items-center gap-2 text-muted-foreground text-sm">
         <Spinner />
-        Reconciling 1,204 triples…
+        Checking the party against the standing orders…
       </span>
-      <Button isLoading>Publishing</Button>
+      <Button isLoading>Posting</Button>
     </div>
   );
 }

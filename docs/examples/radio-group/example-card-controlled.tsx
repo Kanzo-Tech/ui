@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { REGIONS } from "@/example/world";
 import { RadioGroup, RadioGroupCard, RadioGroupText } from "@kanzo-tech/ui";
 
-const VISIBILITIES = ["Public", "Private", "Restricted"];
-
 export default function Example() {
-  const [value, setValue] = useState("private");
+  const [value, setValue] = useState("Thornmarch");
 
   return (
     <div className="w-96">
@@ -18,9 +17,9 @@ export default function Example() {
         onValueChange={(details) => setValue(details.value ?? "")}
         value={value}
       >
-        {VISIBILITIES.map((label) => (
-          <RadioGroupCard key={label} value={label.toLowerCase()}>
-            <RadioGroupText>{label}</RadioGroupText>
+        {REGIONS.map((region) => (
+          <RadioGroupCard key={region} value={region}>
+            <RadioGroupText>{region}</RadioGroupText>
           </RadioGroupCard>
         ))}
       </RadioGroup>

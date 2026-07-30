@@ -1,14 +1,14 @@
 import { Button, ButtonGroup } from "@kanzo-tech/ui";
-import { MinusIcon, PlusIcon } from "lucide-react";
+import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 
 export default function Example() {
   return (
-    <ButtonGroup aria-label="Zoom" orientation="vertical">
-      <Button aria-label="Zoom in" size="icon-md" variant="outline">
-        <PlusIcon />
+    <ButtonGroup aria-label="Board order" orientation="vertical">
+      <Button aria-label="Raise this contract" size="icon-md" variant="outline">
+        <ChevronUpIcon />
       </Button>
-      <Button aria-label="Zoom out" size="icon-md" variant="outline">
-        <MinusIcon />
+      <Button aria-label="Lower this contract" size="icon-md" variant="outline">
+        <ChevronDownIcon />
       </Button>
     </ButtonGroup>
   );

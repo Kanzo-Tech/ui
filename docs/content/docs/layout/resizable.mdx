@@ -15,17 +15,17 @@ import { Resizable, ResizablePanel, ResizableResizeTrigger } from "@kanzo-tech/u
 
 ```tsx
 <div className="h-64">
-  <Resizable panels={[{ id: "list" }, { id: "detail" }]} defaultSize={[35, 65]}>
-    <ResizablePanel id="list">…</ResizablePanel>
-    <ResizableResizeTrigger id="list:detail" withHandle />
-    <ResizablePanel id="detail">…</ResizablePanel>
+  <Resizable panels={[{ id: "board" }, { id: "contract" }]} defaultSize={[35, 65]}>
+    <ResizablePanel id="board">…</ResizablePanel>
+    <ResizableResizeTrigger id="board:contract" withHandle />
+    <ResizablePanel id="contract">…</ResizablePanel>
   </Resizable>
 </div>
 ```
 
 Two things are easy to get wrong. The root is `size-full`, so the parent decides the height —
 without one the panels collapse to nothing. And the trigger's id is the two panel ids it sits
-between, joined by a colon (`"list:detail"`); that pairing is how the machine knows which
+between, joined by a colon (`"board:contract"`); that pairing is how the machine knows which
 panels a drag redistributes between.
 
 `panels` declares the constraints (`minSize`, `maxSize`, `collapsible`); `defaultSize` sets

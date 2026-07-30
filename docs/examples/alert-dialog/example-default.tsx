@@ -15,21 +15,24 @@ export default function Example() {
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="outline">Delete dataset</Button>
+        <Button variant="outline">Abandon contract</Button>
       </AlertDialogTrigger>
 
       <AlertDialogContent size="sm">
         <AlertDialogHeader
-          description="This removes customers.ttl and its 1,204 triples."
-          title="Delete customers.ttl?"
+          description="Q-1058 is afield with Dagfinn Roe and Solveig Marsh, and six days overdue."
+          title="Abandon “A basilisk, and it knows the route”?"
         />
 
-        <AlertDialogBody>Mappings that reference the graph will start failing.</AlertDialogBody>
+        <AlertDialogBody>
+          The contract is marked Failed, the party is recalled, and Ash &amp; Co. forfeits the
+          190 gold.
+        </AlertDialogBody>
 
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogClose asChild>
-            <AlertDialogAction variant="destructive">Delete</AlertDialogAction>
+            <AlertDialogAction variant="destructive">Abandon</AlertDialogAction>
           </AlertDialogClose>
         </AlertDialogFooter>
       </AlertDialogContent>

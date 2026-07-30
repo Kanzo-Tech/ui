@@ -15,12 +15,12 @@ import { revalidateLogic, useForm } from "@tanstack/react-form";
 import * as z from "zod";
 
 const schema = z.object({
-  quality: z.number().min(1, "Rate the dataset before saving."),
+  grade: z.number().min(1, "Grade the contract before posting it."),
 });
 
 export default function Example() {
   const form = useForm({
-    defaultValues: { quality: 0 },
+    defaultValues: { grade: 0 },
     validationLogic: revalidateLogic(),
     validators: { onDynamic: schema },
     onSubmit: () => {},
@@ -37,7 +37,7 @@ export default function Example() {
       }}
     >
       <FieldGroup>
-        <form.Field name="quality">
+        <form.Field name="grade">
           {(field) => (
             <Field invalid={!field.state.meta.isValid}>
               <Rating
@@ -46,7 +46,7 @@ export default function Example() {
                 onValueChange={(details) => field.handleChange(details.value)}
                 value={field.state.value}
               >
-                <RatingLabel>Data quality</RatingLabel>
+                <RatingLabel>Grade</RatingLabel>
                 <RatingControl>
                   <RatingContext>
                     {(api) =>

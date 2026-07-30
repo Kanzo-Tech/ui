@@ -1,4 +1,5 @@
 import { Avatar, AvatarFallback } from "@kanzo-tech/ui";
+import { initialsOf, VIEWER } from "@/example/people";
 
 export default function Example() {
   return (
@@ -6,7 +7,7 @@ export default function Example() {
       {(["sm", "md", "lg"] as const).map((size) => (
         <div className="flex flex-col items-center gap-2" key={size}>
           <Avatar size={size}>
-            <AvatarFallback>ÁI</AvatarFallback>
+            <AvatarFallback>{initialsOf(VIEWER.name)}</AvatarFallback>
           </Avatar>
           <span className="text-muted-foreground text-xs">{size}</span>
         </div>

@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { DateField } from "@kanzo-tech/ui";
+import { isoDay } from "@/example/world";
 
 export default function Example() {
-  const [value, setValue] = useState<string | null>("2026-03-14T09:30");
+  const [value, setValue] = useState<string | null>(`${isoDay(3)}T19:30`);
 
   return (
     <div className="w-64">

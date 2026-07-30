@@ -1,16 +1,12 @@
 import {
-  Badge,
-  Button,
   Card,
-  CardAction,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardMedia,
   CardTitle,
 } from "@kanzo-tech/ui";
-import { DatabaseIcon } from "lucide-react";
+import { ScrollTextIcon } from "lucide-react";
 
 /**
  * The variants live on `CardMedia`, not on `Card` — which is why they were hard to find. The
@@ -25,13 +21,13 @@ export default function Example() {
           <CardDescription>No media. A surface with content on it.</CardDescription>
         </CardHeader>
         <CardContent className="text-muted-foreground text-sm">
-          1,204 triples · updated today
+          Forty-four contracts, five halls, one board.
         </CardContent>
       </Card>
 
       <Card>
         <CardMedia variant="icon">
-          <DatabaseIcon />
+          <ScrollTextIcon />
         </CardMedia>
         <CardHeader>
           <CardTitle>Icon</CardTitle>

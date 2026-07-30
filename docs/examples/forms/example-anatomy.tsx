@@ -14,12 +14,12 @@ export default function Example() {
     <div className="w-full max-w-sm">
       <Field invalid required>
         <FieldLabel>
-          Dataset name
+          Contract title
           <FieldRequiredIndicator />
         </FieldLabel>
-        <Input defaultValue="air quality 2024" />
-        <FieldDescription>Lowercase letters, numbers and hyphens.</FieldDescription>
-        <FieldError>Names cannot contain spaces.</FieldError>
+        <Input defaultValue="wyrm" />
+        <FieldDescription>What the board shows, in one line.</FieldDescription>
+        <FieldError>Give the contract a title a poster would recognise.</FieldError>
       </Field>
     </div>
   );

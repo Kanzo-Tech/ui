@@ -4,17 +4,17 @@ export default function Example() {
   return (
     <div className="flex flex-col gap-2 text-muted-foreground text-sm">
       <span className="flex items-center gap-2">
-        Command palette
+        Search the board
         <KbdGroup>
           <Kbd>⌘</Kbd>
           <Kbd>K</Kbd>
         </KbdGroup>
       </span>
       <span className="flex items-center gap-2">
-        Toggle sidebar
+        Post a contract
         <KbdGroup>
           <Kbd>⌘</Kbd>
-          <Kbd>B</Kbd>
+          <Kbd>N</Kbd>
         </KbdGroup>
       </span>
     </div>

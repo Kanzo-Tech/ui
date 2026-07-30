@@ -11,17 +11,17 @@ import {
 export default function Example() {
   return (
     <FieldSet className="w-80">
-      <FieldLegend>Endpoint</FieldLegend>
-      <FieldDescription>Where the graph is served from.</FieldDescription>
+      <FieldLegend>Posting</FieldLegend>
+      <FieldDescription>Which hall signs the contract, and where the work is.</FieldDescription>
 
       <FieldGroup>
         <Field>
-          <FieldLabel>Host</FieldLabel>
-          <Input placeholder="api.example.com" />
+          <FieldLabel>Hall</FieldLabel>
+          <Input placeholder="The Amber Hall" />
         </Field>
         <Field>
-          <FieldLabel>Path</FieldLabel>
-          <Input placeholder="/sparql" />
+          <FieldLabel>Region</FieldLabel>
+          <Input placeholder="Thornmarch" />
         </Field>
       </FieldGroup>
     </FieldSet>

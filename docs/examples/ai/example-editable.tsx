@@ -20,7 +20,7 @@ import { CheckIcon, XIcon } from "lucide-react";
 import { useState } from "react";
 
 async function* complete(value: string, signal?: AbortSignal) {
-  const rest = " (Spain, 2020–2023)";
+  const rest = " on the Greenhollow causeway";
   for (const chunk of rest.split(/(?<=\s)/)) {
     await new Promise((r) => setTimeout(r, 60));
     if (signal?.aborted) return;
@@ -29,19 +29,19 @@ async function* complete(value: string, signal?: AbortSignal) {
 }
 
 export default function Example() {
-  const [value, setValue] = useState("COVID-19 case registry");
+  const [value, setValue] = useState("Bog-hounds took the herd dog");
   const completion = useCompletion({ complete });
 
   return (
     <Field className="w-full max-w-sm">
-      <FieldLabel>Dataset name</FieldLabel>
+      <FieldLabel>Contract title</FieldLabel>
       <Editable
         activationMode="click"
         onValueChange={(d) => {
           setValue(d.value);
           completion.setValue(d.value);
         }}
-        placeholder="Name this dataset…"
+        placeholder="Title this contract…"
         value={value}
       >
         <EditableArea>

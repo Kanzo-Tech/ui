@@ -1,22 +1,20 @@
+import { HALLS } from "@/example/world";
 import { RadioGroup, RadioGroupCard, RadioGroupText } from "@kanzo-tech/ui";
-
-const FONTS = [
-  { value: "geist", label: "Geist" },
-  { value: "inter", label: "Inter" },
-  { value: "system", label: "System" },
-];
 
 export default function Example() {
   return (
     <RadioGroup
       className="w-96 text-center *:flex-col *:items-center *:justify-center"
       columns={3}
-      defaultValue="geist"
+      defaultValue="amber"
     >
-      {FONTS.map((font) => (
-        <RadioGroupCard key={font.value} value={font.value}>
-          <span className="text-2xl">Aa</span>
-          <RadioGroupText>{font.label}</RadioGroupText>
+      {HALLS.map((entry) => (
+        <RadioGroupCard key={entry.id} value={entry.id}>
+          <span
+            className="size-6 rounded-full"
+            style={{ background: entry.heraldry.brand }}
+          />
+          <RadioGroupText>{entry.short}</RadioGroupText>
         </RadioGroupCard>
       ))}
     </RadioGroup>

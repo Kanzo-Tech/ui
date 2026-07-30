@@ -9,10 +9,10 @@ export default function Example() {
   return (
     <Field className="w-80" required>
       <FieldLabel>
-        Dataset name
+        Contract title
         <FieldRequiredIndicator />
       </FieldLabel>
-      <Input placeholder="customers" />
+      <Input placeholder="A wyrm under the granary" />
     </Field>
   );
 }

@@ -1,31 +1,35 @@
 "use client";
 
 import { StatTile } from "@kanzo-tech/ui";
+import { boardValue, overdueQuests, QUESTS } from "@/example/quests";
+import { availableNow } from "@/example/roster";
+
+const settled = QUESTS.filter((contract) => contract.status === "settled").length;
 
 export default function Example() {
   return (
     <div className="grid w-full gap-3 sm:grid-cols-2">
-      {/* Up is good here: more connections is more connections. */}
+      {/* Up is good here: more members ready is more members ready. */}
       <StatTile
         delta={{ value: 2, label: "vs last week" }}
-        label="Active connections"
-        value={24}
+        label="Members ready"
+        value={availableNow().length}
       />
       {/* And here it is not — same green/red vocabulary, opposite meaning. */}
       <StatTile
-        delta={{ value: 3, label: "vs last week", goodWhenUp: false }}
-        label="Failed runs"
-        value={7}
+        delta={{ value: 1, label: "vs last week", goodWhenUp: false }}
+        label="Contracts overdue"
+        value={overdueQuests().length}
       />
       <StatTile
-        delta={{ value: -18, unit: "ms", label: "vs last week", goodWhenUp: false }}
-        label="p95 latency"
-        value="284 ms"
+        delta={{ value: -140, unit: " gold", label: "vs last week", goodWhenUp: false }}
+        label="Unclaimed on the board"
+        value={boardValue("open")}
       />
       <StatTile
         delta={{ value: -1.4, unit: "pp", label: "vs last quarter" }}
-        label="Coverage"
-        value="98.2%"
+        label="Board settled"
+        value={`${Math.round((settled / QUESTS.length) * 100)}%`}
       />
     </div>
   );

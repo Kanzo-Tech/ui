@@ -12,34 +12,29 @@ import {
   RadioGroupText,
 } from "@kanzo-tech/ui";
 import { revalidateLogic, useForm } from "@tanstack/react-form";
-import { DatabaseIcon, FileTextIcon, GlobeIcon } from "lucide-react";
+import { FootprintsIcon, MapIcon, SwordsIcon } from "lucide-react";
 import * as z from "zod";
 
 const schema = z.object({
-  source: z.enum(["file", "database", "endpoint"], {
-    error: "Choose where the data comes from.",
+  kind: z.enum(["escort", "bounty", "survey"], {
+    error: "Choose the kind of work.",
   }),
 });
 
-const SOURCES = [
-  { value: "file", label: "File", hint: "CSV or Parquet", Icon: FileTextIcon },
+const KINDS = [
   {
-    value: "database",
-    label: "Database",
-    hint: "Postgres or DuckDB",
-    Icon: DatabaseIcon,
+    value: "escort",
+    label: "Escort",
+    hint: "Somebody walks with them",
+    Icon: FootprintsIcon,
   },
-  {
-    value: "endpoint",
-    label: "Endpoint",
-    hint: "SPARQL or REST",
-    Icon: GlobeIcon,
-  },
+  { value: "bounty", label: "Bounty", hint: "Paid on the body", Icon: SwordsIcon },
+  { value: "survey", label: "Survey", hint: "Walk it and report", Icon: MapIcon },
 ];
 
 export default function Example() {
   const form = useForm({
-    defaultValues: { source: "" },
+    defaultValues: { kind: "" },
     validationLogic: revalidateLogic(),
     validators: { onDynamic: schema },
     onSubmit: () => {},
@@ -56,13 +51,13 @@ export default function Example() {
       }}
     >
       <FieldGroup>
-        <form.Field name="source">
+        <form.Field name="kind">
           {(field) => {
             const invalid = !field.state.meta.isValid;
 
             return (
               <FieldSet>
-                <FieldLegend variant="label">Source</FieldLegend>
+                <FieldLegend variant="label">Kind of work</FieldLegend>
 
                 <Field invalid={invalid}>
                   <RadioGroup
@@ -77,7 +72,7 @@ export default function Example() {
                     }
                     value={field.state.value}
                   >
-                    {SOURCES.map(({ value, label, hint, Icon }) => (
+                    {KINDS.map(({ value, label, hint, Icon }) => (
                       <RadioGroupCard key={value} value={value}>
                         <Icon className="size-5 shrink-0 text-muted-foreground" />
                         <RadioGroupText>{label}</RadioGroupText>

@@ -6,30 +6,22 @@ import {
   TableHeader,
   TableRow,
 } from "@kanzo-tech/ui";
-
-const rows = [
-  { field: "id", type: "xsd:string" },
-  { field: "email", type: "xsd:string" },
-  { field: "createdAt", type: "xsd:dateTime" },
-  { field: "balance", type: "xsd:decimal" },
-];
+import { ROLES } from "@/example/world";
 
 export default function Example() {
   return (
     <Table variant="striped">
       <TableHeader>
         <TableRow>
-          <TableHead>Field</TableHead>
-          <TableHead>Datatype</TableHead>
+          <TableHead>Role</TableHead>
+          <TableHead>Duty</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {rows.map((row) => (
-          <TableRow key={row.field}>
-            <TableCell>{row.field}</TableCell>
-            <TableCell className="font-mono text-muted-foreground">
-              {row.type}
-            </TableCell>
+        {ROLES.map((role) => (
+          <TableRow key={role.id}>
+            <TableCell>{role.label}</TableCell>
+            <TableCell className="text-muted-foreground">{role.duty}</TableCell>
           </TableRow>
         ))}
       </TableBody>

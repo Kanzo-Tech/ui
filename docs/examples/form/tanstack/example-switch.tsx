@@ -14,15 +14,15 @@ import { revalidateLogic, useForm } from "@tanstack/react-form";
 import * as z from "zod";
 
 const schema = z.object({
-  verifyTls: z.boolean(),
-  publish: z.literal(true, {
-    error: "The dataset has to be published for the sync to run.",
+  sendWord: z.boolean(),
+  post: z.literal(true, {
+    error: "The contract has to be posted before anyone can claim it.",
   }),
 });
 
 export default function Example() {
   const form = useForm({
-    defaultValues: { verifyTls: true, publish: false },
+    defaultValues: { sendWord: true, post: false },
     validationLogic: revalidateLogic(),
     validators: { onDynamic: schema },
     onSubmit: () => {},
@@ -39,10 +39,10 @@ export default function Example() {
       }}
     >
       <FieldGroup>
-        <form.Field name="verifyTls">
+        <form.Field name="sendWord">
           {(field) => (
             <Field orientation="horizontal">
-              <FieldLabel>Verify TLS certificates</FieldLabel>
+              <FieldLabel>Send word when it is claimed</FieldLabel>
               <Switch
                 checked={field.state.value}
                 name={field.name}
@@ -52,13 +52,13 @@ export default function Example() {
           )}
         </form.Field>
 
-        <form.Field name="publish">
+        <form.Field name="post">
           {(field) => (
             <Field invalid={!field.state.meta.isValid} orientation="horizontal">
               <FieldContent>
-                <FieldLabel>Publish on save</FieldLabel>
+                <FieldLabel>Post to the board</FieldLabel>
                 <FieldDescription>
-                  Anyone with the link will be able to read it.
+                  Any chartered hall will be able to claim it.
                 </FieldDescription>
                 <FieldError>
                   {field.state.meta.errors.map((issue) => issue?.message).join(", ")}

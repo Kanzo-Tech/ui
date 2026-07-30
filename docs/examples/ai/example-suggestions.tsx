@@ -20,12 +20,12 @@ import {
 import { useState } from "react";
 
 const POOL: Suggestion[] = [
-  { value: "climate", rationale: "Recurs across every AEMET dataset." },
-  { value: "meteorology", rationale: "The domain vocabulary uses this term." },
-  { value: "observations", rationale: "Matches the source table name." },
-  { value: "spain", rationale: "Every record carries an ES region code." },
-  { value: "hourly", rationale: "Sampling interval declared in the schema." },
-  { value: "temperature", rationale: "Present in 92% of rows." },
+  { value: "standing-water", rationale: "Bog-hounds hold wet ground, and the ford is out." },
+  { value: "night-work", rationale: "Both sightings were at dusk." },
+  { value: "bring-rope", rationale: "The causeway is under water below the lane." },
+  { value: "escort", rationale: "The herder walks back with the party." },
+  { value: "cartography", rationale: "Greenhollow has no current map of the lane." },
+  { value: "second-attempt", rationale: "The hall posted this once already and it failed." },
 ];
 
 async function* suggest(signal?: AbortSignal): AsyncIterable<Suggestion> {
@@ -37,22 +37,22 @@ async function* suggest(signal?: AbortSignal): AsyncIterable<Suggestion> {
 }
 
 export default function Example() {
-  const [keywords, setKeywords] = useState<string[]>(["climate"]);
+  const [tags, setTags] = useState<string[]>(["livestock"]);
 
   return (
     <Field className="w-72">
       <FieldLabel>
-        Keywords
+        Tags
         <SuggestRoot
-          existing={keywords}
-          onPick={(value) => setKeywords((prev) => [...prev, value])}
+          existing={tags}
+          onPick={(value) => setTags((prev) => [...prev, value])}
           suggest={suggest}
         >
-          <SuggestTrigger className="ms-auto" label="Suggest keywords" />
+          <SuggestTrigger className="ms-auto" label="Suggest tags" />
           <SuggestContent />
         </SuggestRoot>
       </FieldLabel>
-      <TagsInput onValueChange={(d) => setKeywords(d.value)} value={keywords}>
+      <TagsInput onValueChange={(d) => setTags(d.value)} value={tags}>
         <TagsInputControl>
           <TagsInputContext>
             {(api) =>
@@ -67,7 +67,7 @@ export default function Example() {
               ))
             }
           </TagsInputContext>
-          <TagsInputInput placeholder="Add keyword…" />
+          <TagsInputInput placeholder="Add tag…" />
         </TagsInputControl>
       </TagsInput>
     </Field>

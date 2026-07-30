@@ -11,7 +11,7 @@ import {
 } from "@kanzo-tech/ui";
 
 export default function Example() {
-  const [sort, setSort] = useState("recent");
+  const [sort, setSort] = useState("posted");
 
   return (
     <Menu>
@@ -25,9 +25,10 @@ export default function Example() {
           onValueChange={(details) => setSort(details.value)}
           value={sort}
         >
-          <MenuRadioItem value="recent">Most recent</MenuRadioItem>
-          <MenuRadioItem value="name">Name</MenuRadioItem>
-          <MenuRadioItem value="size">Triple count</MenuRadioItem>
+          <MenuRadioItem value="posted">Recently posted</MenuRadioItem>
+          <MenuRadioItem value="due">Due date</MenuRadioItem>
+          <MenuRadioItem value="grade">Grade</MenuRadioItem>
+          <MenuRadioItem value="reward">Reward</MenuRadioItem>
         </MenuRadioGroup>
       </MenuContent>
     </Menu>

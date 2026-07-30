@@ -16,12 +16,13 @@ import {
   ColorPickerValue,
   ColorPickerValueSwatch,
 } from "@kanzo-tech/ui";
+import { HALLS, hall } from "@/example/world";
 
-const PRESETS = ["#ef4444", "#f59e0b", "#22c55e", "#3b82f6", "#7c3aed"];
+const HERALDRY = HALLS.map((entry) => entry.heraldry.brand);
 
 export default function Example() {
   return (
-    <ColorPicker defaultValue="#3b82f6">
+    <ColorPicker defaultValue={hall("amber").heraldry.brand}>
       <ColorPickerControl>
         <ColorPickerTrigger asChild>
           <Button variant="outline">
@@ -45,7 +46,7 @@ export default function Example() {
         </ColorPickerSlider>
 
         <ColorPickerSwatchGroup>
-          {PRESETS.map((color) => (
+          {HERALDRY.map((color) => (
             <ColorPickerSwatchTrigger key={color} value={color}>
               {/* The indicator is a CHILD of the swatch, not a sibling: `Swatch` is what
                   provides the swatch context the indicator reads, so hoisting it up to the

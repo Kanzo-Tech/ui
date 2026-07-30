@@ -9,7 +9,7 @@ import {
 } from "@kanzo-tech/ui";
 
 /**
- * A share link with a copy button that flips to a check for a moment after copying — the
+ * A contract's link with a copy button that flips to a check for a moment after copying — the
  * whole flip is Ark's machine, so the timing and the reset are not our concern.
  */
 export default function Example() {
@@ -17,12 +17,12 @@ export default function Example() {
     <Clipboard
       className="w-full max-w-sm"
       timeout={1200}
-      value="https://kanzo.tech/share/aGVsbG8ta2Fuem8"
+      value="https://amberhall.example/board/Q-1041"
     >
-      <ClipboardLabel>Share link</ClipboardLabel>
+      <ClipboardLabel>Contract link</ClipboardLabel>
       <ClipboardControl>
         <ClipboardInput readOnly />
-        <ClipboardTrigger aria-label="Copy link" />
+        <ClipboardTrigger aria-label="Copy the contract link" />
       </ClipboardControl>
     </Clipboard>
   );

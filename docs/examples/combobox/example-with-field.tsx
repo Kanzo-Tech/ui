@@ -1,5 +1,6 @@
 "use client";
 
+import { availableNow } from "@/example/roster";
 import {
   Combobox,
   ComboboxContent,
@@ -13,29 +14,28 @@ import {
   useListCollection,
 } from "@kanzo-tech/ui";
 
-const DATASETS = [
-  { label: "customers", value: "customers" },
-  { label: "orders", value: "orders" },
-  { label: "products", value: "products" },
-];
+const READY = availableNow().map((entry) => ({
+  label: entry.name,
+  value: entry.id,
+}));
 
 export default function Example() {
   const { contains } = useFilter({ sensitivity: "base" });
   const { collection, filter } = useListCollection({
-    initialItems: DATASETS,
+    initialItems: READY,
     filter: contains,
   });
 
   return (
     <Field className="w-72">
-      <FieldLabel>Linked dataset</FieldLabel>
+      <FieldLabel>Add to the party</FieldLabel>
       <Combobox
         collection={collection}
         onInputValueChange={(details) => filter(details.inputValue)}
       >
-        <ComboboxInput placeholder="Search datasets…" />
+        <ComboboxInput placeholder="Find a member…" />
         <ComboboxContent>
-          <ComboboxEmpty>No datasets found.</ComboboxEmpty>
+          <ComboboxEmpty>Nobody free by that name.</ComboboxEmpty>
           {collection.items.map((item) => (
             <ComboboxItem item={item} key={item.value}>
               {item.label}
@@ -43,7 +43,7 @@ export default function Example() {
           ))}
         </ComboboxContent>
       </Combobox>
-      <FieldDescription>The list narrows as you type.</FieldDescription>
+      <FieldDescription>Only members who are ready today.</FieldDescription>
     </Field>
   );
 }

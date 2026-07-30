@@ -1,4 +1,7 @@
+import { quest } from "@/example/quests";
 import { Resizable, ResizablePanel, ResizableResizeTrigger } from "@kanzo-tech/ui";
+
+const selected = quest("Q-1041");
 
 export default function Example() {
   return (
@@ -6,20 +9,21 @@ export default function Example() {
     <div className="h-64 w-full max-w-xl overflow-hidden rounded-lg border">
       <Resizable
         defaultSize={[35, 65]}
-        panels={[{ id: "list", minSize: 20 }, { id: "detail", minSize: 30 }]}
+        panels={[{ id: "board", minSize: 20 }, { id: "contract", minSize: 30 }]}
       >
         <ResizablePanel
           className="flex items-center justify-center text-muted-foreground text-sm"
-          id="list"
+          id="board"
         >
-          List
+          The board
         </ResizablePanel>
-        <ResizableResizeTrigger id="list:detail" withHandle />
+        <ResizableResizeTrigger id="board:contract" withHandle />
         <ResizablePanel
-          className="flex items-center justify-center text-muted-foreground text-sm"
-          id="detail"
+          className="flex flex-col items-center justify-center gap-1 px-4 text-center text-sm"
+          id="contract"
         >
-          Detail
+          <span className="font-medium">{selected.id}</span>
+          <span className="text-muted-foreground">{selected.title}</span>
         </ResizablePanel>
       </Resizable>
     </div>

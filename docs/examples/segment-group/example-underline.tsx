@@ -9,10 +9,10 @@ export default function Example() {
     <SegmentGroup
       aria-label="Section"
       className="w-fit"
-      defaultValue="overview"
+      defaultValue="contract"
       variant="underline"
     >
-      {["Overview", "Schema", "Runs"].map((label) => (
+      {["Contract", "Party", "Sightings"].map((label) => (
         <SegmentGroupItem
           className="px-3 py-2"
           key={label}

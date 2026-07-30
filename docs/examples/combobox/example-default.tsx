@@ -1,5 +1,6 @@
 "use client";
 
+import { MEMBERS } from "@/example/people";
 import {
   Combobox,
   ComboboxContent,
@@ -10,20 +11,14 @@ import {
   useListCollection,
 } from "@kanzo-tech/ui";
 
-const DATASETS = [
-  { label: "customers", value: "customers" },
-  { label: "orders", value: "orders" },
-  { label: "products", value: "products" },
-  { label: "suppliers", value: "suppliers" },
-  { label: "invoices", value: "invoices" },
-];
+const ROSTER = MEMBERS.map((entry) => ({ label: entry.name, value: entry.id }));
 
 export default function Example() {
   // `useFilter` is locale-aware — "base" sensitivity means accents and case do not
-  // block a match, which is what a user typing quickly expects.
+  // block a match, so `miren` finds Mirén Costa.
   const { contains } = useFilter({ sensitivity: "base" });
   const { collection, filter } = useListCollection({
-    initialItems: DATASETS,
+    initialItems: ROSTER,
     filter: contains,
   });
 
@@ -32,9 +27,9 @@ export default function Example() {
       collection={collection}
       onInputValueChange={(details) => filter(details.inputValue)}
     >
-      <ComboboxInput className="w-72" placeholder="Search datasets…" />
+      <ComboboxInput className="w-72" placeholder="Find a member…" />
       <ComboboxContent>
-        <ComboboxEmpty>No datasets found.</ComboboxEmpty>
+        <ComboboxEmpty>No member by that name.</ComboboxEmpty>
         {collection.items.map((item) => (
           <ComboboxItem item={item} key={item.value}>
             {item.label}

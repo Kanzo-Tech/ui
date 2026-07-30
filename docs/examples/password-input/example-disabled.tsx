@@ -9,7 +9,7 @@ export default function Example() {
   return (
     <PasswordInput className="w-72" disabled>
       <PasswordInputGroup>
-        <PasswordInputInput defaultValue="hunter2" />
+        <PasswordInputInput defaultValue="count again" />
         <PasswordInputTrigger />
       </PasswordInputGroup>
     </PasswordInput>

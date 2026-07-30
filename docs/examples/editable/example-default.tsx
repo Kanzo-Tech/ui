@@ -19,8 +19,11 @@ import { CheckIcon, PencilIcon, XIcon } from "lucide-react";
 export default function Example() {
   return (
     <Field className="w-full max-w-sm">
-      <FieldLabel>Project name</FieldLabel>
-      <Editable activationMode="dblclick" defaultValue="Kanzo UI">
+      <FieldLabel>Contract title</FieldLabel>
+      <Editable
+        activationMode="dblclick"
+        defaultValue="A wyrm under the granary"
+      >
         <EditableArea>
           <EditableInput asChild>
             <Input className="w-full" />

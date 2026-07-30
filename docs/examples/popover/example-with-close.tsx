@@ -12,19 +12,19 @@ export default function Example() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline">Share graph</Button>
+        <Button variant="outline">Post a contract</Button>
       </PopoverTrigger>
 
       <PopoverContent className="w-80" showCloseButton>
         <PopoverHeader
-          description="Anyone with the link can read this graph."
-          title="Share"
+          description="It goes up as Open, and any chartered hall may claim it."
+          title="Post a contract"
         />
 
-        <PopoverBody>The link expires after 30 days.</PopoverBody>
+        <PopoverBody>Grade, region and reward can still be amended while it is open.</PopoverBody>
 
         <PopoverFooter>
-          <Button size="sm">Copy link</Button>
+          <Button size="sm">Seal and post</Button>
         </PopoverFooter>
       </PopoverContent>
     </Popover>
