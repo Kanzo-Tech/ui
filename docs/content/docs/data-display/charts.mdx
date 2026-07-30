@@ -108,8 +108,7 @@ a skeleton until it is ready, and let the chart hydrate:
 "use client";
 
 import { useEffect, useState } from "react";
-import { loadObjects } from "@uwdata/mosaic-sql";
-import { Coordinator, MosaicProvider, wasmConnector } from "@kanzo-tech/ui/analytics";
+import { Coordinator, MosaicProvider, loadObjects, wasmConnector } from "@kanzo-tech/ui/analytics";
 
 export default function Analytics({ children }: { children: React.ReactNode }) {
   const [coordinator, setCoordinator] = useState<Coordinator | null>(null);
@@ -125,8 +124,10 @@ export default function Analytics({ children }: { children: React.ReactNode }) {
 }
 ```
 
-`Coordinator`, `Selection`, `coordinator` and `wasmConnector` are re-exported from the subpath, so
-you wire the backend without a direct `@uwdata` import.
+`Coordinator`, `Selection` and `wasmConnector` are re-exported from the subpath, along with the
+loaders (`loadObjects`, `loadCSV`, `loadJSON`, `loadParquet`, `loadSpatial`, `loadExtension`), so
+you wire the backend without a direct `@uwdata` import. vgplot's own `coordinator()` setter is
+**not** re-exported: `MosaicProvider` is the only thing that should ever call it.
 
 <Callout type="warn">
 **One coordinator per page.** `MosaicProvider` registers its coordinator as vgplot's active one,
@@ -355,17 +356,19 @@ It throws outside a `ChartRoot`; `useChartOptional()` returns `null` instead, wh
 
 Two, because wrapping vgplot must stay a convenience:
 
-- **`<ChartRaw spec={…} />`** — a `vg.*` directive (or an array of them) in its source position.
-  You build the source yourself, and `from` is re-exported from the subpath for it:
-  `from("t", { filterBy: selection })`. No token resolution happens here, so pass a Plot-safe
+- **`<ChartRaw spec={…} />`** — a `vg.*` directive (or an array of them) in its source position,
+  with the same interactor-binding semantics as a wrapped mark. What it is mostly reached for is
+  one of the six axis marks the axis descriptors compile away from: `axisX({ anchor: "top" })` to
+  repeat the measure scale at the top of a long bar list, `axisFy` to label a facet. Those six are
+  re-exported from the subpath. No token resolution happens inside a raw spec, so pass a Plot-safe
   colour — `resolveTokenColor(host, "--chart-1")` is exported for exactly this, and reads the
   live cascade rather than a frozen copy of it.
 - **`attributes` on `ChartRoot`** — raw directives applied *last*, so they win over anything the
   layer decided. For the ~225 plot attributes the axes do not cover.
 
-The directive itself still comes from `@uwdata/vgplot` — that is what a hatch is — but nothing
-*around* it does any more: `from` and `plot` sit on the subpath next to `count`, `bin` and `sql`,
-so a raw mark no longer drags in a namespace import just to name its own relation.
+Neither hatch needs a source builder: `ChartRoot` already owns the `plot(…)` call, and a mark's
+`data` / `filterBy` props already name its relation. Anything past that — an expression builder, a
+plot attribute — still comes from `@uwdata/vgplot` directly, which is what a hatch is.
 
 Both are keyed by identity: a vgplot directive is a function, so building one inline rebuilds the
 plot on every render. Hoist it to module scope or `useMemo` it, and keep the `attributes` array
@@ -414,7 +417,7 @@ plain search field with no lookup at all.
 
 Its presentational half, **[`StatTile`](/docs/data-display/stat-tile), is in the root barrel** — it
 takes a number, so making it cost DuckDB-WASM would be absurd. That split is
-[the engine rule](/docs/philosophy), the same one behind `Table` and `DataTable`.
+[the engine rule](/docs/philosophy#the-engine-rule), the same one behind `Table` and `DataTable`.
 
 The frame and the grid are **not** library components: a titled card and an auto-fitting grid add
 no behaviour, so they are arrangements you copy. The ones these docs use are in `docs/lib/`. The
@@ -556,10 +559,15 @@ Anything else goes through `ChartRoot`'s `attributes`.
 
 ### Helpers
 
-Re-exported so a whole chart is written without a direct `@uwdata` import: `count` `sum` `avg`
-`min` `max` `median` `quantile` `stddev` `mode` `bin` `sql` `Fixed`, plus `from` and `plot` for the
-[escape hatch](#escape-hatches), `Coordinator` `Selection` `coordinator` `wasmConnector`, plus
-`CHART_SLOTS`, `categoricalColor(i)`, `resolveTokenColor` and `useThemeTick`.
+Re-exported so a whole chart is written without a direct `@uwdata` import: the aggregates
+`count` `sum` `avg` `min` `max` `median` `quantile` `stddev` `mode` `bin` `sql`; the six axis
+marks the descriptors withhold on purpose, `axisX` `axisY` `axisFx` `axisFy` `gridFx` `gridFy`,
+which are what [`ChartRaw`](#escape-hatches) is for; the boot vocabulary `Coordinator` `Selection`
+`wasmConnector` and the `load*` loaders.
+
+A set is re-exported when it is **closed and named**. vgplot's ~250 plot attributes and
+mosaic-sql's expression builders are open, so they stay a direct import — taking them raw is what
+an escape hatch *is*.
 
 For a descriptor of your own, `chartDescriptor(displayName, compile)` mints one; `compile` returns
 plain data (`{ kind: "mark", mark: "barY", source, options }`), never a `vg.*` call.
