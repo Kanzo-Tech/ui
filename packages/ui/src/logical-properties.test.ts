@@ -18,9 +18,6 @@ const PHYSICAL =
  * here is a claim that the value does not depend on reading direction — if you add one, say why.
  */
 const ALLOWED: Record<string, string[]> = {
-  // Ark/floating-ui placements. Physical by API; there is no `placement="start"`.
-  "composites/InstanceSwitcher.tsx": ["right-start"],
-  "composites/SidebarUser.tsx": ["right-end"],
   // Centring, not sidedness: `left-1/2` is undone by `-translate-x-1/2`.
   "simples/calendar.tsx": ["left-1/2"],
   // Ark measures the indicator into `--left`/`--width` as physical pixels, so the utility that

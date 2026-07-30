@@ -7,8 +7,8 @@ import { cn } from "../lib/cn.js";
 /**
  * `responsive`/`collapsed` are behaviour, so they stay props on the root — but the parts need
  * them too (the avatar's semantic size, the text column's collapse). Context carries them
- * down instead of the caller repeating them on every part. This is why the file is
- * `"use client"`; both consumers ({@link SidebarUser}, {@link InstanceSwitcher}) already are.
+ * down instead of the caller repeating them on every part. This context is why the file is
+ * `"use client"`.
  */
 const IdentityCtx = createContext<{ responsive: boolean; collapsed: boolean }>({
   responsive: false,
@@ -23,8 +23,8 @@ export interface SidebarIdentityProps extends ComponentProps<"div"> {
 }
 
 /**
- * SidebarIdentity — the collapse-aware "avatar/icon + name + subtitle" block shared by
- * {@link SidebarUser} and {@link InstanceSwitcher}. When `responsive`, the text column and gap
+ * SidebarIdentity — the collapse-aware "avatar/icon + name + subtitle" block a sidebar header or
+ * footer is built from. When `responsive`, the text column and gap
  * collapse in the sidebar's icon state and the avatar grows to fill the 32px square (its
  * `data-size` grows to `md` too, so badges/icons stay correctly scaled).
  *

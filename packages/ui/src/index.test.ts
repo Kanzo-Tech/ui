@@ -97,10 +97,44 @@ describe("@kanzo-tech/ui public surface", () => {
     // `RadioGroupCard`, which is what a card radio always was.
     expect(surface.CardRadioGroup).toBeUndefined();
     expect(UI.RadioGroupCard).toBeTypeOf("function");
-    // `SectionNav` rendered `SidebarNav`'s tree from a different data shape. The only real
-    // difference — per-item `isActive` versus a prefix-derived `activePath` — is now a prop.
     expect(surface.SectionNav).toBeUndefined();
-    expect(UI.SidebarNav).toBeTypeOf("function");
+  });
+
+  it("drops the components that took a layout tree as an array prop", () => {
+    // The rule `SidebarIdentity.tsx` states in full: if a prop's value is markup, it is children.
+    // A record or array of `ReactNode`s is a layout tree written as an attribute — you cannot
+    // reorder it, wrap a region, spread `className`/`data-*`/a handler onto one entry, or use
+    // `asChild` on one. All five failed it, and their parts all ship.
+    const surface = UI as Record<string, unknown>;
+    // `SidebarNav`'s items were TWO levels deep with `title: string`, so a caller could not bold a
+    // word. `SectionNav` was already merged into it; both are gone. A nav column is `SidebarMenu`
+    // + `SidebarMenuButton asChild`, and the one non-obvious part is exported as `isActivePath`.
+    expect(surface.SidebarNav).toBeUndefined();
+    expect(surface.SidebarNavItem).toBeUndefined();
+    expect(UI.isActivePath).toBeTypeOf("function");
+    // `SidebarUser` and `InstanceSwitcher` were one component under two names — byte-identical
+    // trigger, identity row, menu body and comments. `SidebarUser.user` was *literally* the
+    // `label`/`description`/`avatarUrl` record `SidebarIdentity` names as the shape it rejects,
+    // and `separatorBefore: boolean` was the confession: a separator between children, in a shape
+    // with no children to put one between.
+    expect(surface.SidebarUser).toBeUndefined();
+    expect(surface.InstanceSwitcher).toBeUndefined();
+    expect(UI.SidebarIdentity).toBeTypeOf("function");
+    expect(UI.Menu).toBeTypeOf("function");
+    // `Breadcrumbs` had to invent `BreadcrumbEntry` because `BreadcrumbItem` was taken. A component
+    // that forces a synonym for an existing concept is evidence against itself. Its `min-w-0` moved
+    // onto the primitive; the collapse is a hand-composed example, which is how Shark ships it.
+    expect(surface.Breadcrumbs).toBeUndefined();
+    expect(UI.Breadcrumb).toBeTypeOf("function");
+    expect(UI.BreadcrumbEllipsis).toBeTypeOf("function");
+    // `MadeWith` hard-coded the English "Made with"/"at" and defaulted `by` to the brand name
+    // "Kanzo", in a library whose first admission rule is domain-freedom.
+    expect(surface.MadeWith).toBeUndefined();
+    // The routing seam for all five. `asChild` on the part that renders the anchor reaches every
+    // part, not just the one a `linkComponent` prop was wired to — and `DefaultLink` was a second
+    // component emitting `data-slot="link"`, against `Link`, which is the styled one.
+    expect(surface.DefaultLink).toBeUndefined();
+    expect(UI.Link).toBeTypeOf("function");
   });
 
   it("keeps `tv()` recipes off the public surface unless another module needs them", () => {

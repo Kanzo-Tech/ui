@@ -15,9 +15,20 @@ interface BreadcrumbProps extends React.ComponentProps<typeof ark.nav> {
 }
 
 export const Breadcrumb = (props: BreadcrumbProps) => {
-  const { "aria-label": ariaLabel = "Breadcrumb", ...rest } = props;
+  const { "aria-label": ariaLabel = "Breadcrumb", className, ...rest } = props;
 
-  return <ark.nav aria-label={ariaLabel} data-slot="breadcrumb" {...rest} />;
+  return (
+    <ark.nav
+      aria-label={ariaLabel}
+      // `min-w-0`, which upstream leaves classless. Inside a flex row — a shell header, a toolbar
+      // — a `nav` without it refuses to shrink below its content, so the trail stops yielding and
+      // pushes whatever sits beside it off the edge instead. Additive, and never worse: a landmark
+      // that *can* shrink still only shrinks when the row is short of room.
+      className={cn("min-w-0", className)}
+      data-slot="breadcrumb"
+      {...rest}
+    />
+  );
 };
 
 export const BreadcrumbList = (props: React.ComponentProps<typeof ark.ol>) => {

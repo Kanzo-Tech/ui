@@ -183,8 +183,11 @@ export { FacetFilter } from "./simples/FacetFilter.js";
 export type { FacetFilterProps, FacetFilterItem } from "./simples/FacetFilter.js";
 
 // ── Level 2 — composites (domain-free, token-native; sourced from keasy) ──────
-export type { LinkComponent } from "./composites/link.js";
-export { DefaultLink } from "./composites/link.js";
+// No `LinkComponent` / `DefaultLink`. They were the routing seam for five composites that took a
+// trail, a menu or a nav as an array prop; all five are gone, and the seam a hand-composed nav uses
+// is `asChild` on the part that renders the anchor — which reaches every part, not the one the prop
+// was wired to. `DefaultLink` was also a second component emitting `data-slot="link"`, against
+// `Link`, which is the styled one.
 export {
   ShellRoot,
   ShellHeader,
@@ -211,24 +214,7 @@ export type {
   SectionTitleProps,
   SectionBodyProps,
 } from "./layouts/section.js";
-export { MadeWith } from "./composites/MadeWith.js";
-export type { MadeWithProps } from "./composites/MadeWith.js";
-export { Breadcrumbs } from "./composites/Breadcrumbs.js";
-export type {
-  BreadcrumbsProps,
-  BreadcrumbEntry,
-} from "./composites/Breadcrumbs.js";
 export * from "./composites/sidebar.js";
-export { SidebarNav } from "./composites/SidebarNav.js";
-export type { SidebarNavProps, SidebarNavItem } from "./composites/SidebarNav.js";
-export { SidebarUser } from "./composites/SidebarUser.js";
-export type { SidebarUserProps, SidebarUserMenuItem } from "./composites/SidebarUser.js";
-export { InstanceSwitcher } from "./composites/InstanceSwitcher.js";
-export type {
-  InstanceSwitcherProps,
-  Instance,
-  InstanceSwitcherAction,
-} from "./composites/InstanceSwitcher.js";
 export {
   SidebarIdentity,
   SidebarIdentityAvatar,
@@ -238,10 +224,22 @@ export {
   SidebarIdentityText,
 } from "./composites/SidebarIdentity.js";
 export type { SidebarIdentityProps } from "./composites/SidebarIdentity.js";
-// No `SectionNav`. It rendered the same tree as `SidebarNav` from a different data shape — the only
-// real difference being where routing knowledge lives, a per-item `isActive` versus one `activePath`
-// derived by prefix. `SidebarNav` now takes either, so the second component was a second opinion
-// with no second behaviour.
+// The one piece of a navigation column that is logic rather than markup. The column itself is
+// composed from `SidebarMenu*` — see the note on the deleted composites below.
+export { isActivePath } from "./lib/is-active-path.js";
+// No `SidebarNav`, `SidebarUser`, `InstanceSwitcher`, `Breadcrumbs` or `MadeWith`.
+//
+// Each took its layout tree as an array or record of `ReactNode`s — a shape you cannot reorder,
+// wrap, spread a prop onto, or `asChild`. `SidebarIdentity`'s own doc comment above argues the case
+// in full, and two of the five handed their record straight back into `SidebarIdentity`.
+// `SidebarUser` and `InstanceSwitcher` were additionally the same component under two names, down
+// to a byte-identical chevron and copy-pasted justification comments; `Breadcrumbs` had to invent
+// `BreadcrumbEntry` because `BreadcrumbItem` was taken, which is a component arguing against
+// itself; and `MadeWith` hard-coded English *and* the brand name "Kanzo" in a library whose first
+// admission rule is domain-freedom.
+//
+// What each one did survives: the parts are all exported, `Breadcrumb` now carries the `min-w-0`
+// that only the composite had, and the prefix-match above is the trap nobody should re-derive.
 
 // ── Level 2 — shells / patterns (domain-free composites) ─────────────────────
 // CodeEditor → `@kanzo-tech/ui/editor` (see the GhostEditor note above).
