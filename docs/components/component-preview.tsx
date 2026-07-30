@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ComponentPreviewTabs } from "./component-preview-tabs";
 import { CodeBlock } from "./code-block";
-import { isFullBleedComponent } from "@/lib/component-groups";
 
 const EXAMPLES_PATH = "examples";
 
@@ -14,9 +13,8 @@ export interface ComponentPreviewProps {
   /**
    * Render the example whole: no frame padding, no centring, no fixed height, no guides.
    *
-   * Left undefined it is **derived** from the group the component's page sits in, via
-   * `isFullBleedComponent`. Pass it explicitly for a page whose group is otherwise framed —
-   * every sidebar and shell example does.
+   * Per example, not per group. Two slugs need it — `shell` and `sidebar` — and both sit in
+   * groups whose other pages are single elements, so there is no group rule to derive it from.
    */
   fullBleed?: boolean;
   /** Preview pane is a fixed 450px so switching tabs never makes the page jump. */
@@ -38,9 +36,8 @@ export const ComponentPreview = async (props: ComponentPreviewProps) => {
   const { componentName, fileName = "example-default" } = props;
 
   // A shell cannot be judged inside a 450px centred box with dashed padding guides — that frame
-  // is built for a button. Which components need the frame is not a property of the example, so
-  // it is not an MDX prop by default: it is read off the group the component's page sits in.
-  const fullBleed = props.fullBleed ?? isFullBleedComponent(componentName);
+  // is built for a button.
+  const fullBleed = props.fullBleed ?? false;
   const hasMaxHeight = props.hasMaxHeight ?? !fullBleed;
   const showBorders = props.showBorders ?? !fullBleed;
 
