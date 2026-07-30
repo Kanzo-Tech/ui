@@ -8,8 +8,8 @@ full: true
 
 A realistic RDF metadata editor at full viewport, mirroring keasy's real `metadata-form` screen —
 and, like the discovery showcase, **built as a Workspace on the Shell regions**. `ShellHeader`
-carries the utility strip (**Shape** · **Data** switcher · **Share** · the `MadeWith`
-attribution), the title, and the **Source** / **Output** / validation / **Preferences** controls.
+carries the utility strip (**Shape** · **Data** switcher · **Share**), the title, and the
+**Source** / **Output** / validation / **Preferences** controls.
 Below it a **three-column `Resizable` workspace** reads left→right exactly like the breadcrumb:
 SHACL **Source** (a leading `ShellAside`) → the editable **form** (`ShellMain`, the single
 `<main>`, groups **General** · **Provenance** · **Health-specific** · **Distributions**) →
@@ -35,7 +35,9 @@ Almost nothing here is new — it is existing parts, arranged:
   (`FieldRequiredIndicator`); an invalid one gets `Field`'s own error channel.
 - **`FieldArray`** — the repeatable fields (descriptions, keywords, themes, contacts,
   distributions), each row keyed by a stable id so editing never steals focus.
-- **`DateField`** — the release / modification dates, ISO in, calendar out.
+- **`DatePicker`** — the release / modification dates. The ISO-string adapter the form wants is
+  written out locally in the showcase, which is
+  [where that seam belongs](/docs/forms/date-picker#an-iso-string-in-and-out).
 - **`useSuggestions` + `Popover`** — the ✨ beside Keywords, streaming deduped suggestions as a
   composition (no bespoke component).
 - **`CodeEditor` with `complete`** — each Description literal, with Tab-to-accept inline completion.

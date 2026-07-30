@@ -33,4 +33,18 @@ sentence that should not be four blue words.
 | `variant` | `"default" \| "subtle" \| "plain"` | `"default"` |
 
 Extends `React.ComponentProps<"a">`, so `href`, `target`, `rel` and `ref` pass through.
-`linkRecipe` is exported for applying the same treatment to a router link component.
+
+## A router link
+
+`asChild` is the whole routing seam, here and everywhere else in the library — there is no
+`linkComponent` prop on any component, and nothing imports a router:
+
+```tsx
+<Link asChild>
+  <NextLink href="/datasets">Datasets</NextLink>
+</Link>
+```
+
+The recipe itself is deliberately **not** exported. A link treatment that can be applied to
+arbitrary markup is a second way to spell what `asChild` already does, and two spellings of one
+idea is the thing this library keeps collapsing.

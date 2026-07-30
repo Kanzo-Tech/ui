@@ -262,7 +262,6 @@ The table is the reference; the examples below are the copies.
 | `NumberInput` | `value: string` | `onValueChange` | `{ value: string, valueAsNumber: number }` |
 | `Slider` | `value: number[]` | `onValueChange` | `{ value: number[] }` |
 | `DatePicker` | `value: DateValue[]` | `onValueChange` | `{ value: DateValue[], valueAsString: string[] }` |
-| `DateField` | `value: string \| null` | **`onChange`** | **a bare `string \| null`** |
 | `PinInput` | `value: string[]` | `onValueChange` | `{ value: string[], valueAsString: string }` |
 | `Rating` | `value: number` | `onValueChange` | `{ value: number }` |
 | `TagsInput` | `value: string[]` | `onValueChange` | `{ value: string[] }` |
@@ -275,8 +274,7 @@ The table is the reference; the examples below are the copies.
 root is enough — `Input`, `Textarea`, `NativeSelect`, `Select`, `Combobox`, `Checkbox`, `Switch`,
 `NumberInput`, `PinInput`, `Rating`, `TagsInput`, `FileUpload` and `ColorPicker` all do.
 
-`RadioGroup`, `Slider` and the date controls (`DatePicker`, and `DateField` which wraps it) **do
-not**. For those, pass `invalid` to the control as well as to the `Field`; it is the one place the
+`RadioGroup`, `Slider` and `DatePicker` **do not**. For those, pass `invalid` to the control as well as to the `Field`; it is the one place the
 house rule needs a second line, and it is a gap in Ark, not a choice of ours.
 </Callout>
 
@@ -388,21 +386,21 @@ Put anything the user has to read in the error, not in the track.
 
 <ComponentPreview componentName="form/tanstack" fileName="example-slider" hasMaxHeight={false} showBorders={false} />
 
-### DateField
+### DatePicker
 
-`DateField` is ours, and its whole reason to exist is this: a plain ISO string (`YYYY-MM-DD`, or
-`YYYY-MM-DDTHH:mm` with `withTime`) on the outside, `onChange` rather than `onValueChange`, and no
-date objects anywhere in your form state.
+The only control whose value is not a string, a number or an array of either: `value` is a
+`DateValue[]`. Your form field stays a plain ISO string, and the seam is one line, because
+`onValueChange` hands you both representations at once.
 
 <ComponentPreview componentName="form/tanstack" fileName="example-date-field" hasMaxHeight={false} showBorders={false} />
 
 <Callout type="warn">
-**Use `DateField`, not the `DatePicker` compound, for a form value.** `DatePicker` is Ark's
-machine, and its `value` is a `DateValue[]` — objects you can only build with `parseDate` from
-`@internationalized/date`, which the library does not re-export. Driving it from a form means
-adding that package to your app and converting in both directions on every change. Reach for the
-compound when you need to rearrange its parts, and lift the value with `DateField` when you need
-it in a form.
+**Writing back costs more than reading out.** `details.valueAsString[0]` gets you the string for
+free, but putting a *stored* string back into the picker needs `parseDate` from
+`@internationalized/date` — a dependency of the library, not something it re-exports, so an
+application that hydrates a saved date installs it directly. Wrap the parse in a `try`/`catch`:
+one unparseable row must not take down the form. The full shape is on
+[Date Picker](/docs/forms/date-picker#an-iso-string-in-and-out).
 </Callout>
 
 ### PinInput

@@ -103,7 +103,7 @@ resolves that optional peer. Put the presentational half there and showing a num
 a REST call would require installing DuckDB-WASM. The split is what keeps the common case free.
 
 **Why it is not duplication.** The connected half *renders* the presentational one — the same
-relationship as `TextField` to `input` in [the naming rule](#the-naming-rule). If you find
+relationship as `FacetFilter` to `listbox` in [the naming rule](#the-naming-rule). If you find
 yourself reimplementing the markup on the subpath, you have built two components instead of one
 and a half.
 
@@ -116,10 +116,16 @@ while without importing a line of Mosaic, and cost every consumer of a number a 
 > **`kebab-case` is the vendored primitive. `PascalCase` is our pre-assembled convenience built on
 > top of it.**
 
-Verifiable rather than asserted: `TextField` imports `input` and `input-group`; `DateField`
-imports `date-picker` and `calendar`. They are not competitors — one is built from the other.
-**Default to the PascalCase one; drop to the primitive when it does not fit.** The forms index
+Verifiable rather than asserted: `FacetFilter` imports `listbox` and `popover`; `FieldArray`
+imports `field`. They are not competitors — one is built from the other. **Default to the
+PascalCase one; drop to the primitive when it does not fit.** The forms index
 [applies this to every control](/docs/forms/controls).
+
+The rule cuts both ways, and the second direction is the one that keeps the library small: a
+convenience whose only content is a fixed arrangement of the primitive's parts is an **example**,
+not a component. `TextField` was `InputGroup` with the composition already done, and `DateField`
+was `DatePicker` plus a twenty-line adapter; both are now written out where they are used, which
+is where a reader can see them.
 
 Parts themselves are exported **flat, never as a namespace** — `DialogContent`, not
 `Dialog.Content` — for the reasons on [Styling](/docs/styling#compound-components).

@@ -27,7 +27,8 @@ Float positions itself against the **nearest positioned ancestor**. Give that an
 
 `Float` is the primitive under corner adornments — a notification count on an icon, a status dot
 on an avatar, a "New" tag on a card. It is pure box model (no client boundary), and it pins the
-child; the offset and the child are yours. `Ribbon` is built on it.
+child; the offset and the child are yours — a corner status tag is
+[`Float` plus a `Badge`](/docs/data-display/badge#pinning-one-onto-a-region), not a component.
 
 ## On a card corner
 

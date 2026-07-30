@@ -1,32 +1,22 @@
 ---
 title: Sidebar
-description: The provider, the parts and the composites — how a sidebar fits together, and the full reference.
+description: The provider and the parts — how a sidebar is assembled, and the full reference.
 ---
 
-The sidebar is not one component — it is a provider, twenty-three parts, and four composites
-built on top. This page is both the guide (how the pieces fit, which one to reach for) and the
-reference for the base parts; the composites have their own pages.
+The sidebar is a provider plus a vocabulary of parts. There is no `Sidebar` component that takes
+your navigation as data — a nav is a layout tree, and a layout tree is `children`. This page is
+both the guide and the reference.
 
 <ComponentPreview componentName="sidebar" fullBleed />
 
-## What you almost always want
-
-Most applications need four things, in this order:
+## The shape
 
 ```tsx
 <SidebarProvider>
   <Sidebar>
-    <SidebarHeader>
-      <InstanceSwitcher {/* … */} />   {/* who/what am I looking at */}
-    </SidebarHeader>
-
-    <SidebarContent>
-      <SidebarNav items={navItems} />   {/* the navigation itself */}
-    </SidebarContent>
-
-    <SidebarFooter>
-      <SidebarUser {/* … */} />         {/* who am I */}
-    </SidebarFooter>
+    <SidebarHeader>{/* what am I looking at — a switcher */}</SidebarHeader>
+    <SidebarContent>{/* the navigation itself */}</SidebarContent>
+    <SidebarFooter>{/* who am I */}</SidebarFooter>
   </Sidebar>
 
   <SidebarInset>
@@ -35,7 +25,9 @@ Most applications need four things, in this order:
 </SidebarProvider>
 ```
 
-That is a complete, working sidebar. Everything below is detail you can reach for later.
+Each of those three slots is written out below. The [app shell](/docs/showcases/app-shell) and
+[workspace](/docs/showcases/workspace) showcases have all three in full, wired together — that is
+the place to copy from.
 
 <Callout type="info">
 **`SidebarInset` carries no landmark.** It is the neutral offset column that holds the content
@@ -50,41 +42,75 @@ separate region layer; we do.)
 `useSidebar`, which throws outside the provider. Below the `md` breakpoint the sidebar becomes a
 Sheet drawer instead of a rail, which is why the navigating composites close it on click.
 
-## The three layers
+## The navigation
 
-| Layer | What it is | When you touch it |
-|---|---|---|
-| **`SidebarProvider`** | Owns open/collapsed state, the `⌘B` shortcut and the mobile swap to a `Sheet`. Read it with `useSidebar()`. | Always — wrap once, near the root. |
-| **The parts** (`Sidebar`, `SidebarHeader`, `SidebarMenu`, `SidebarMenuButton`…) | The primitive vocabulary, vendored from Shark. Twenty-three of them, documented below. | When you are building a navigation shape the composites do not cover. |
-| **The composites** (`SidebarNav`, `SidebarUser`, `SidebarIdentity`, `InstanceSwitcher`) | Our pre-assembled arrangements of those parts. | Most of the time. Start here. |
+A nav row is a `SidebarMenuButton` with `asChild` over your router's link. A group that expands
+is a `Collapsible` around a `SidebarMenuSub`:
 
-The relationship is the same one the [forms guide](/docs/forms/controls) describes: the parts
-are the primitive, the composites are the convenience. **Default to the composites.**
+```tsx
+<SidebarGroup>
+  <SidebarGroupLabel>Platform</SidebarGroupLabel>
+  <SidebarMenu>
+    <SidebarMenuItem>
+      <SidebarMenuButton asChild isActive={isActivePath(pathname, "/jobs")} tooltip="Jobs">
+        <NextLink href="/jobs"><PlayIcon />Jobs</NextLink>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  </SidebarMenu>
+</SidebarGroup>
+```
 
-## The navigation component
+Wrap the whole thing in a `<nav aria-label="Platform">`: several labelled blocks is several
+groups, one per heading, and the label is what tells them apart.
 
-There is one: [`SidebarNav`](/docs/navigation/sidebar-nav) — the **Menu**. A labelled list where
-any entry may expand into sub-items. A settings-style column of several titled blocks is several
-of these, one per heading, which is what the app shell does for its Platform / Support split;
-there is no second composite and no `sections` prop.
+<Callout type="info">
+**`isActivePath` is the one piece of that arrangement that is logic rather than markup, so it is
+the one piece the library exports.** It is a prefix match with a boundary: `/settings` is active
+on `/settings/cloud` and **not** on `/settings-archive`. Written inline as `startsWith` it was
+wrong at two of the call sites that had it.
+</Callout>
 
-It is **domain-free and router-free**: it never imports `next/link` and never reads the current
-URL. Your product injects its router through the `linkComponent` seam, and tells the nav what is
-active either per item (`isActive`) or once (`activePath`, prefix-matched) — the
-[two models](/docs/navigation/sidebar-nav#which-row-is-active) are documented on its own page.
+Two behaviours belong to your application rather than to the library, and both are two lines in
+the showcases:
 
-## Which identity component?
+- **A group starts open when one of its children is active** — `defaultOpen={items.some((i) =>
+  isActivePath(pathname, i.href))}` on the `Collapsible`.
+- **Navigating closes the drawer on mobile** — `useSidebar().setOpenMobile(false)` in the row's
+  `onClick`. Below the `md` breakpoint the sidebar is a `Sheet`, and a `Sheet` that stays open
+  over the page you just navigated to is the defect.
 
-| Component | Where it goes | What it shows |
-|---|---|---|
-| [`SidebarUser`](/docs/navigation/sidebar-user) | `SidebarFooter` | The signed-in person: avatar, name, email, and a dropdown |
-| [`InstanceSwitcher`](/docs/navigation/instance-switcher) | `SidebarHeader` | The thing being worked on — workspace, tenant, project — with a switcher |
-| `SidebarIdentity` | inside either | The shared "icon + name + subtitle" block both are built from — documented on the [User footer](/docs/navigation/sidebar-user#the-identity-block) page |
+## The identity blocks
+
+`SidebarIdentity` and its parts are the shared "icon + name + subtitle" row that both a workspace
+switcher and a signed-in-user footer are made of. Put a `Menu` around one and you have either:
+
+```tsx
+<SidebarMenuButton size="lg" asChild>
+  <MenuTrigger>
+    <SidebarIdentity>
+      <SidebarIdentityIcon><BoxIcon /></SidebarIdentityIcon>
+      <SidebarIdentityText>
+        <SidebarIdentityLabel>aemet</SidebarIdentityLabel>
+        <SidebarIdentityDescription>production</SidebarIdentityDescription>
+      </SidebarIdentityText>
+    </SidebarIdentity>
+  </MenuTrigger>
+</SidebarMenuButton>
+```
+
+A square `SidebarIdentityIcon` reads as a *thing*; a round `SidebarIdentityAvatar` reads as a
+*person*. That is the only difference between the two arrangements, and it is why they are one
+vocabulary rather than two components.
+
+<ComponentPreview componentName="sidebar-identity" />
+
+The avatar takes the real `Avatar` parts as children, so an image, initials, a badge or a
+presence dot are all available — not a URL and a fallback string.
 
 <Callout type="warn">
-`SidebarUser` has no logout prop, deliberately. Log out is an ordinary entry in `menuItems` with
-`variant: "destructive"`, and your product owns the confirmation dialog and its wording — an
-auth flow does not belong in a library whose admission rule excludes auth.
+**Log out is an ordinary menu item**, with `variant="destructive"`, and your product owns the
+confirmation dialog and its wording. There is no logout affordance in the library: an auth flow
+does not belong in a library whose [admission rules](/docs/philosophy#admission) exclude auth.
 </Callout>
 
 ## Anatomy
@@ -112,6 +138,9 @@ SidebarProvider
 ├── SidebarTrigger
 └── SidebarInset
 ```
+
+`SidebarHeader` and `SidebarFooter` each usually hold a `Menu` over a `SidebarIdentity`;
+`SidebarContent` holds one `<nav>` per labelled block.
 
 ## Sub-menus
 

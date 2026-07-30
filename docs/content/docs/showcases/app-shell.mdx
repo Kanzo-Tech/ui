@@ -8,8 +8,13 @@ full: true
 
 A product's first screen, not a component catalogue: something that summarises state (four
 `StatTile`s), something actionable (the runs table, with selection driving an `ActionBar`) and
-something navigable (the rail: a `Steps` checklist, an activity list of `Item`s, and a
-`Ribbon`-gated preview of a feature that is not shipped yet).
+something navigable (the rail: a `Steps` checklist, an activity list of `Item`s, and an
+`inert`-gated preview of a feature that is not shipped yet).
+
+It is also where the five sidebar composites the library no longer ships are written out by hand
+— the workspace switcher, the nav with its active-path and mobile-close policy, the user footer,
+the breadcrumb trail with a collapsed middle. That hand-composition **is** the documentation: an
+arrangement does not have to become a component, and here you can read the whole of it.
 
 The layout is the shadcn model DESIGN.md calls canonical, and it is the whole reason a fixed rail
 and a full-width header are mutually exclusive: `SidebarProvider` is the viewport frame, and

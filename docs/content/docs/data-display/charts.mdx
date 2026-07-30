@@ -12,7 +12,7 @@ chart you need is the one you write — there is no `BarChart` to fork.
 import { ChartRoot, ChartBarY, ChartToggleX, count } from "@kanzo-tech/ui/analytics";
 ```
 
-Like [CodeEditor](/docs/data-display/code-editor) with CodeMirror, the library wraps the engine and
+Like [CodeEditor](/docs/forms/code-editor) with CodeMirror, the library wraps the engine and
 never owns the runtime: it is **bring-your-own-coordinator**. The package never imports DuckDB-WASM
 and never builds a `Coordinator` — you wire one in a `"use client"` island and pass it in, which is
 what keeps the analytics stack out of the base bundle and out of every React Server Component.
@@ -424,7 +424,8 @@ plain search field with no lookup at all.
 
 Its presentational half, **[`StatTile`](/docs/data-display/stat-tile), is in the root barrel** — it
 takes a number, so making it cost DuckDB-WASM would be absurd. That split is
-[the engine rule](/docs/philosophy#the-engine-rule), the same one behind `Table` and `DataTable`.
+[the engine rule](/docs/philosophy#the-engine-rule), the same one behind `Table` and
+`DataTableRoot`.
 
 The frame and the grid are **not** library components: a titled card and an auto-fitting grid add
 no behaviour, so they are arrangements you copy. The ones these docs use are in `docs/lib/`. The
