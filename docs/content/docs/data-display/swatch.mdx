@@ -17,10 +17,9 @@ import { Swatch, SwatchGroup } from "@kanzo-tech/ui";
 
 `Swatch` is `aria-hidden`, carries no role and is never focusable — colour is not an identity
 channel on its own, so a swatch always sits beside text that names the thing it depicts. That
-is the whole reason this is a component rather than a `<span style>` at each call site: the
-contract used to live in a comment in `chart-legend`, and the two other hand-rolled strips in
-the library had already drifted to different sizes with no `data-slot` to restyle either of
-them.
+is the whole reason this is a component rather than a `<span style>` at each call site: a rule
+that lives in a comment beside one call site is a rule the next hand-rolled strip does not get,
+and it has no `data-slot` to restyle either.
 
 `color` is the one sanctioned inline style in the system, because it is **data** — a value the
 user or the palette supplied — not a variant a token could ever name.

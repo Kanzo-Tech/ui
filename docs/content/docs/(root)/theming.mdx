@@ -131,8 +131,8 @@ is when the backdrop is unknown. The same two values are a card's hover, a calen
 and a table row's selected state, and a token named for the first of those would force the second
 to mint a duplicate.
 
-`--field` used to be the a3 member of that set and is no longer, because a wash sits *on* a
-surface and a field sits *under* one. In light an alpha step recedes; in dark **every** alpha step
+`--field` is **not** a member of that set, because a wash sits *on* a surface and a field sits
+*under* one. In light an alpha step recedes; in dark **every** alpha step
 composites lighter than its ground, so a3 raised the field and `--faint` fell to 4.49:1 on the
 page, 4.37 on a card and 4.13 in a popover. Removing the fill entirely does not fix it — at a1
 (byte 0) a popover still reads 4.41, because a dark popover *is* step 3. So the binding names the

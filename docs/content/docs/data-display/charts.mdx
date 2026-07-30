@@ -29,15 +29,13 @@ component; it is four `ChartRoot`s with two marks and an interactor each.
 
 ## Why a grammar
 
-The library used to ship five components — `Histogram`, `BarChart`, `LineChart`, `ScatterPlot`,
-`BarSeriesChart` — five parallel `vg.plot(...)` calls with overlapping props. They were fine until
-you wanted something none of them was: a line on top of bars, a brush where the preset hardcoded a
-toggle, two marks against a selection you own. Every one of those needed a fork, because the plot
-was assembled inside the component.
+vgplot is ~40 marks, 19 interactors and ~250 attributes. A chart component — `Histogram`,
+`BarChart`, `ScatterPlot` — exposes that as one photograph of it, and assembles the plot inside
+itself, so the first thing it cannot do needs a fork: a line on top of bars, a brush where the
+preset hardcoded a toggle, two marks against a selection you own.
 
-vgplot is ~40 marks, 19 interactors and ~250 attributes. Five components exposed it as five
-photographs. So the five are gone, and each one is now [ten lines of JSX](#the-five-charts) you can
-copy — which is the only honest proof that the layer is expressive enough.
+A grammar has no such edge. The proof that it is expressive enough is that every shape a preset
+would have covered is [ten lines of JSX](#the-five-charts) you can copy.
 
 ## Two kinds of children
 
@@ -149,7 +147,7 @@ crossfilter `Selection`.
 
 ## The five charts
 
-The presets that used to be components, rewritten with the grammar. Each is the same shape: a
+The five shapes a chart library is expected to ship, written in the grammar. Each is the same: a
 dimmed mark for the full relation (`filterBy={null}`), the crossfiltered mark on top, one
 interactor, two axes. Sixteen more shapes — waffle, ridgeline, hexbin, box plot, small multiples —
 are in the [gallery](/docs/data-display/chart-gallery).
@@ -327,9 +325,9 @@ whichever client is being served.
 The categorical set belongs to the [tenant's palette document](/docs/theming#colour-the-palette-document),
 not to this layer: N hues spaced from the brand hue, snapped to hue families, ordered by
 colour-blind separation, and projected onto `--chart-1..8` by `compile()`. A chart reads the token
-and that is the only copy — there used to be a second source of truth here (eight literal hexes,
-then a table in `theme-data.json`), and the same series came out one colour through `ChartConfig`
-and another through a token.
+and that is the **only** copy. A second source of truth in this layer — eight literal hexes, or a
+table of them — makes the same series come out one colour through `ChartConfig` and another
+through a token.
 
 `CHART_SLOTS` is 8 because a stylesheet cannot have a variable number of custom properties. How
 many of those slots carry a *real* category is the document's `capacity`, which can be lower: past

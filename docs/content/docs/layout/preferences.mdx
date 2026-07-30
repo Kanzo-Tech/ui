@@ -4,9 +4,9 @@ description: A live selector for the four user preferences, driving the theme at
 ---
 
 {/* An iframe, not a ComponentPreview. The panel is Portal-ed and `position: fixed`, so in a
-    framed preview box it escapes to the viewport and lands on top of this page. The example
-    used to work around that by rendering the sections loose in a div — which shows the
-    controls but not the component: no trigger, no drawer, none of the behaviour. */}
+    framed preview box it escapes to the viewport and lands on top of this page. Rendering the
+    sections loose in a div avoids that and shows the controls but not the component: no trigger,
+    no drawer, none of the behaviour. */}
 <PreviewIframe className="h-[42rem]" name="preferences" title="Preferences" />
 
 The panel opens on arrival so there is something to look at. Toggle the trigger in the corner
@@ -39,9 +39,10 @@ without being asked.
 <Callout type="info" title="Colour is not a preference">
   Four sections, and none of them is a hue. A client's colour identity is a palette
   **document** — two seeds derived and measured once at onboarding, compiled to one stylesheet
-  the server inlines. Palette, base, accent, chart scheme and the "Copy CSS" export all left with
-  it; what the export used to do belongs on the [onboarding surface](/docs/showcases/palette),
-  which has a whole document to emit rather than a partial selection.
+  the server inlines. So there is no palette, base, accent or chart-scheme control here, and no
+  "Copy CSS": emitting the stylesheet belongs on the [onboarding
+  surface](/docs/showcases/palette), which has a whole document to emit rather than a partial
+  selection.
 </Callout>
 
 <Callout type="info" title="Appearance is in the header, not the body">
