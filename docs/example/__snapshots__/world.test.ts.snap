@@ -1,5 +1,7 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`the archive explains the roster > is the same archive every run 1`] = `"536 938 1543"`;
+
 exports[`the board is deterministic > draws the same contracts every run 1`] = `
 "Q-1041 open 16 -
 Q-1042 failed 33 emrys+roe+ilse

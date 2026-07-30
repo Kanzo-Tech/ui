@@ -102,32 +102,36 @@ import {
   GalleryVerticalIcon,
   LayoutPanelTopIcon,
   ListOrderedIcon,
+  ScrollTextIcon,
   Share2Icon,
-  ShapesIcon,
   XIcon,
 } from "lucide-react";
+import { RULES_SOURCE } from "@/example/rules";
 import {
-  ACCESS_RIGHTS,
-  completeDescription,
-  completeTitle,
-  DATA_THEMES,
-  DATASETS,
-  EMPTY_DATASET,
+  BEAST_OPTIONS,
+  BLANK,
+  CONTRACTS,
+  DUTY_OPTIONS,
   type Entry,
-  FORMATS,
   type FormValues,
+  GRADE_OPTIONS,
   GROUPS,
   type GroupId,
-  HEALTH_CATEGORIES,
+  HALL_OPTIONS,
   type Issue,
-  SHAPE_COUNT,
-  SHAPES_TTL,
-  suggestKeywords,
-  toJsonLd,
-  toTurtle,
-  tripleCount,
+  ORDER_COUNT,
+  ORDERS_LABEL,
+  PARTY_OPTIONS,
+  REGION_OPTIONS,
+  completeDescription,
+  completeTitle,
+  dutyOf,
+  suggestTags,
+  toRecord,
+  toWrit,
   uid,
   validate,
+  writLines,
 } from "./data";
 
 // The library models validation as a boolean + a node (DESIGN.md, FORMS-DECISION.md). So a
@@ -136,7 +140,7 @@ import {
 
 type Counts = { violations: number; warnings: number; infos: number };
 type Layout = "cards" | "tabs" | "steps";
-type EntryKey = "descriptions" | "keywords" | "themes" | "healthThemes" | "codingSystems";
+type EntryKey = "notices" | "tags" | "beasts" | "invited" | "waypoints";
 
 const SEVERITY_TEXT: Record<Issue["severity"], string> = {
   violation: "text-destructive dark:text-destructive-foreground",
@@ -145,16 +149,16 @@ const SEVERITY_TEXT: Record<Issue["severity"], string> = {
 };
 
 /** Display preferences the product owns — driven live from its own Preferences popover. */
-const FormPrefsContext = createContext({ showDescriptions: true, showPredicates: false });
+const FormPrefsContext = createContext({ showDescriptions: true, showKeys: false });
 
 /**
- * When a field is allowed to say what validation found.
+ * When a field is allowed to say what the board found.
  *
- * `validate` runs on every keystroke over the whole document, so without a gate an empty form
- * opens with every required field already red and `aria-invalid` — the shape complaining about
- * work the user has not started. `revealAll` is the "submit" this editor never has: the point
- * where the user asks to see everything at once. `generation` bumps when the document is
- * replaced, so loading a different dataset does not inherit the previous one's touched fields.
+ * `validate` runs on every keystroke over the whole posting, so without a gate a blank sheet opens
+ * with every required field already red and `aria-invalid` — the orders complaining about work the
+ * user has not started. `revealAll` is the "submit" this editor never has: the point where the user
+ * asks to see everything at once. `generation` bumps when the posting is replaced, so loading a
+ * different contract does not inherit the previous one's touched fields.
  */
 const RevealContext = createContext({ revealAll: false, generation: 0 });
 
@@ -181,7 +185,7 @@ function IssueLines({ issues }: { issues: Issue[] }) {
 function FieldFrame({
   label,
   description,
-  predicate,
+  ledgerKey,
   required,
   issues,
   action,
@@ -189,15 +193,15 @@ function FieldFrame({
 }: {
   label: string;
   description?: string;
-  /** The RDF predicate — revealed as a chip when "Show RDF predicates" is on. */
-  predicate?: string;
+  /** The key this field writes into the board's record — revealed when "Show ledger keys" is on. */
+  ledgerKey?: string;
   required?: boolean;
   issues: Issue[];
   /** A trailing control on the label row (e.g. the ✨ `Suggest` popover). */
   action?: ReactNode;
   children: (invalid: boolean) => ReactNode;
 }) {
-  const { showDescriptions, showPredicates } = useContext(FormPrefsContext);
+  const { showDescriptions, showKeys } = useContext(FormPrefsContext);
   const { revealAll, generation } = useContext(RevealContext);
 
   // The gate, and the only place it is decided. `touched` is local because the trigger is local:
@@ -227,9 +231,9 @@ function FieldFrame({
           <Show when={!!required}>
             <FieldRequiredIndicator />
           </Show>
-          <Show when={showPredicates && !!predicate}>
+          <Show when={showKeys && !!ledgerKey}>
             <code className="ms-1.5 rounded bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
-              {predicate}
+              {ledgerKey}
             </code>
           </Show>
         </FieldLabel>
@@ -260,8 +264,8 @@ function AddButton({ label = "Add", onClick }: { label?: string; onClick: () => 
   );
 }
 
-/** The bordered inner card a compound object (Publisher, a Contact, a Distribution) expands
- *  into, with a close control top-right. */
+/** The bordered inner card a compound object (the Poster, a steward, a signatory) expands into,
+ *  with a close control top-right. */
 function NestedCard({
   title,
   onRemove,
@@ -349,36 +353,37 @@ function PanelShell({
 }
 
 /**
- * The metadata-form showcase — a HealthDCAT-AP editor built as a Workspace, exactly like the
- * discovery showcase: the Shell regions carry it. `ShellHeader` holds the utility strip, the
- * title, and the Source / Output / validation / Preferences controls. Below it a THREE-COLUMN
- * `Resizable` workspace reads left→right like the breadcrumb — SHACL **Source** (a leading
- * `ShellAside`) → the editable form (`ShellMain`, the single `<main>`) → generated **Output**
- * (a trailing `ShellAside`, Turtle & JSON-LD). Each side column toggles independently from its
- * header button and is drag-resizable; validation stays in the header badge.
+ * The metadata-form showcase — posting a contract to the Guild board, built as a Workspace exactly
+ * like the discovery showcase: the Shell regions carry it. `ShellHeader` holds the utility strip,
+ * the title, and the Source / Output / validation / Preferences controls. Below it a THREE-COLUMN
+ * `Resizable` workspace reads left→right like the breadcrumb — the hall's standing **orders** (a
+ * leading `ShellAside`) → the editable posting (`ShellMain`, the single `<main>`) → the **writ**
+ * the board would pin up and the record it would file (a trailing `ShellAside`). Each side column
+ * toggles independently from its header button and is drag-resizable; validation stays in the
+ * header badge.
  *
  * It is MOSTLY COMPOSITION — `Field`, `FieldArray`, `DateField`, the ✨ `Suggest` compound
  * (`Root`/`Trigger`/`Content`, given its own `suggest` / `existing` / `onPick`), inline ghost
  * completion via the `Complete` compound composed over a pure `Input`/`Textarea`, `Steps`, `Tabs`,
- * `NativeSelect`, `Resizable` — over a FAKED SHACL engine in
- * `data.tsx`. The form's layout (Sequential / Tabs / Steps) and display prefs are chosen live in
- * the library's own `Preferences` drawer, extended here with a custom Layout section.
+ * `NativeSelect`, `Resizable` — over a FAKED rule engine in `data.tsx`. The form's layout
+ * (Sequential / Tabs / Steps) and display prefs are chosen live in the library's own `Preferences`
+ * drawer, extended here with a custom Layout section.
  */
 export function MetadataFormShowcase() {
-  const [datasetId, setDatasetId] = useState("empty");
-  const [values, setValues] = useState<FormValues>(EMPTY_DATASET);
+  const [contractId, setContractId] = useState("new");
+  const [values, setValues] = useState<FormValues>(BLANK);
 
   // Product display preferences — chosen in the header Preferences popover, applied live.
   const [layout, setLayout] = useState<Layout>("cards");
   const [showDescriptions, setShowDescriptions] = useState(true);
-  const [showPredicates, setShowPredicates] = useState(false);
+  const [showKeys, setShowKeys] = useState(false);
 
   // The validation gate — see `RevealContext`. One object, so the provider value below is stable
   // and a keystroke in a field does not re-render every other field through the context.
   const [gate, setGate] = useState({ revealAll: false, generation: 0 });
 
-  // Two independent docked panels: SHACL Source on the leading edge, serialised Output on the
-  // trailing edge. Either, both, or neither — the form takes whatever width is left.
+  // Two independent docked panels: the standing orders on the leading edge, what the posting comes
+  // out as on the trailing edge. Either, both, or neither — the form takes whatever width is left.
   const [sourceOpen, setSourceOpen] = useState(false);
   const [outputOpen, setOutputOpen] = useState(false);
 
@@ -406,7 +411,7 @@ export function MetadataFormShowcase() {
   }, []);
 
   // Tabs / Steps share the active group so the step nav stays in sync with the tab bar.
-  const [activeGroup, setActiveGroup] = useState<GroupId>("general");
+  const [activeGroup, setActiveGroup] = useState<GroupId>("work");
 
   const report = useMemo(() => validate(values), [values]);
 
@@ -430,12 +435,12 @@ export function MetadataFormShowcase() {
 
   // ── State updates ──────────────────────────────────────────────────────────
 
-  const loadDataset = (id: string) => {
-    const ds = DATASETS.find((d) => d.id === id) ?? DATASETS[0];
-    setDatasetId(ds.id);
-    setValues(ds.values);
-    // A different document, so the previous one's touched fields — and its reveal — do not carry
-    // over. Without this, switching to the empty dataset opens it pre-reddened.
+  const loadContract = (id: string) => {
+    const next = CONTRACTS.find((c) => c.id === id) ?? CONTRACTS[0];
+    setContractId(next.id);
+    setValues(next.values);
+    // A different posting, so the previous one's touched fields — and its reveal — do not carry
+    // over. Without this, switching to the blank sheet opens it pre-reddened.
     setGate((g) => ({ revealAll: false, generation: g.generation + 1 }));
   };
 
@@ -452,12 +457,12 @@ export function MetadataFormShowcase() {
   const removeEntry = (key: EntryKey, i: number) =>
     setValues((p) => ({ ...p, [key]: p[key].filter((_: Entry, idx: number) => idx !== i) }));
 
-  // Description is a single language-tagged literal here (a Textarea, not the CodeEditor). Empty
-  // clears the entry so `nonEmpty` still reports the required-field violation.
-  const setDescription = (value: string) =>
+  // The notice is one literal here (a Textarea, not the CodeEditor). Empty clears the entry so
+  // `nonEmpty` still reports the required-field violation.
+  const setNotice = (value: string) =>
     setValues((p) => ({
       ...p,
-      descriptions: value ? [{ id: p.descriptions[0]?.id ?? uid("d"), value }] : [],
+      notices: value ? [{ id: p.notices[0]?.id ?? uid("n"), value }] : [],
     }));
 
   // ── Field renderers, one per group ───────────────────────────────────────────
@@ -465,13 +470,13 @@ export function MetadataFormShowcase() {
   // they return keep their identity across keystrokes — a component boundary redefined each
   // render would remount and steal focus mid-typing.
 
-  const generalFields = (): ReactNode => (
+  const workFields = (): ReactNode => (
     <>
       <FieldFrame
-        description="A name given to the dataset."
+        description="How the contract reads on the board."
         issues={fieldIssues("title")}
         label="Title"
-        predicate="dct:title"
+        ledgerKey="writ:title"
         required
       >
         {(invalid) => (
@@ -481,7 +486,10 @@ export function MetadataFormShowcase() {
             value={values.title}
           >
             <CompleteInput>
-              <Input aria-invalid={invalid || undefined} placeholder="e.g. COVID-19 case registry" />
+              <Input
+                aria-invalid={invalid || undefined}
+                placeholder="e.g. A wyrm under the granary"
+              />
             </CompleteInput>
             <CompleteGhost />
           </CompleteRoot>
@@ -489,20 +497,20 @@ export function MetadataFormShowcase() {
       </FieldFrame>
 
       <FieldFrame
-        description="A free-text account of the dataset."
-        issues={fieldIssues("descriptions")}
-        label="Description"
-        predicate="dct:description"
+        description="What the party is walking into, in the poster's own words."
+        issues={fieldIssues("notices")}
+        label="Notice"
+        ledgerKey="writ:notice"
         required
       >
         {() => (
           <CompleteRoot
             complete={completeDescription}
-            onValueChange={setDescription}
-            value={values.descriptions[0]?.value ?? ""}
+            onValueChange={setNotice}
+            value={values.notices[0]?.value ?? ""}
           >
             <CompleteTextarea>
-              <Textarea placeholder="Describe the dataset — press Tab to accept the suggestion…" />
+              <Textarea placeholder="Say what is happening — press Tab to accept the suggestion…" />
             </CompleteTextarea>
             <CompleteHint />
           </CompleteRoot>
@@ -512,33 +520,33 @@ export function MetadataFormShowcase() {
       <FieldFrame
         action={
           <SuggestRoot
-            existing={values.keywords.map((k) => k.value)}
+            existing={values.tags.map((t) => t.value)}
             onPick={(value) =>
-              setValues((p) => ({ ...p, keywords: [...p.keywords, { id: uid("k"), value }] }))
+              setValues((p) => ({ ...p, tags: [...p.tags, { id: uid("t"), value }] }))
             }
-            suggest={suggestKeywords}
+            suggest={suggestTags}
           >
-            <SuggestTrigger label="Suggest keywords" />
-            <SuggestContent title="Suggested keywords" />
+            <SuggestTrigger label="Suggest tags" />
+            <SuggestContent title="Suggested tags" />
           </SuggestRoot>
         }
-        description="Keywords or tags describing the dataset."
-        issues={fieldIssues("keywords")}
-        label="Keywords"
-        predicate="dcat:keyword"
+        description="How the board is filtered. Overlapping and unordered, the way a poster types them."
+        issues={fieldIssues("tags")}
+        label="Tags"
+        ledgerKey="writ:tag"
       >
         {(invalid) => (
           // TagsInput owns the chips + add; the ✨ suggestions above write into the same
-          // `keywords` state, so the ✨ and typing feed one list. No hand-rolled FieldArray.
+          // `tags` state, so the ✨ and typing feed one list. No hand-rolled FieldArray.
           <TagsInput
             invalid={invalid}
             onValueChange={(d) =>
               setValues((p) => ({
                 ...p,
-                keywords: d.value.map((v) => ({ id: uid("k"), value: v })),
+                tags: d.value.map((v) => ({ id: uid("t"), value: v })),
               }))
             }
-            value={values.keywords.map((k) => k.value)}
+            value={values.tags.map((t) => t.value)}
           >
             <TagsInputControl>
               <TagsInputContext>
@@ -554,35 +562,35 @@ export function MetadataFormShowcase() {
                   ))
                 }
               </TagsInputContext>
-              <TagsInputInput placeholder="Add keyword…" />
+              <TagsInputInput placeholder="Add tag…" />
             </TagsInputControl>
           </TagsInput>
         )}
       </FieldFrame>
 
       <FieldFrame
-        description="A category of the dataset (data theme)."
-        issues={fieldIssues("themes")}
-        label="Theme"
-        predicate="dcat:theme"
+        description="What has been reported. Not every contract has something to kill."
+        issues={fieldIssues("beasts")}
+        label="Expect"
+        ledgerKey="writ:beast"
       >
         {() =>
-          values.themes.length === 0 ? (
-            <AddButton onClick={() => addEntry("themes", "t")} />
+          values.beasts.length === 0 ? (
+            <AddButton onClick={() => addEntry("beasts", "b")} />
           ) : (
             <FieldArray
-              count={values.themes.length}
-              onAdd={() => addEntry("themes", "t")}
-              onRemove={(i) => removeEntry("themes", i)}
-              rowKey={(i) => values.themes[i].id}
+              count={values.beasts.length}
+              onAdd={() => addEntry("beasts", "b")}
+              onRemove={(i) => removeEntry("beasts", i)}
+              rowKey={(i) => values.beasts[i].id}
             >
               {(i) => (
                 <NativeSelect
                   className="w-full"
-                  onChange={(e) => setEntry("themes", i, e.target.value)}
-                  value={values.themes[i].value}
+                  onChange={(e) => setEntry("beasts", i, e.target.value)}
+                  value={values.beasts[i].value}
                 >
-                  {DATA_THEMES.map((o) => (
+                  {BEAST_OPTIONS.map((o) => (
                     <NativeSelectOption key={o.value} value={o.value}>
                       {o.label}
                     </NativeSelectOption>
@@ -595,18 +603,39 @@ export function MetadataFormShowcase() {
       </FieldFrame>
 
       <FieldFrame
-        description="Information about who can access the dataset."
-        issues={fieldIssues("accessRights")}
-        label="Access rights"
-        predicate="dct:accessRights"
+        description="Where the work is, and how far a party has to walk to reach it."
+        issues={fieldIssues("region")}
+        label="Region"
+        ledgerKey="writ:region"
       >
         {() => (
           <NativeSelect
             className="w-full"
-            onChange={(e) => setScalar("accessRights", e.target.value)}
-            value={values.accessRights}
+            onChange={(e) => setScalar("region", e.target.value)}
+            value={values.region}
           >
-            {ACCESS_RIGHTS.map((o) => (
+            {REGION_OPTIONS.map((o) => (
+              <NativeSelectOption key={o.value} value={o.value}>
+                {o.label}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        )}
+      </FieldFrame>
+
+      <FieldFrame
+        description="How bad it is, 1 to 5. The standing orders read this before anything else."
+        issues={fieldIssues("grade")}
+        label="Grade"
+        ledgerKey="writ:grade"
+      >
+        {() => (
+          <NativeSelect
+            className="w-full"
+            onChange={(e) => setScalar("grade", e.target.value)}
+            value={values.grade}
+          >
+            {GRADE_OPTIONS.map((o) => (
               <NativeSelectOption key={o.value} value={o.value}>
                 {o.label}
               </NativeSelectOption>
@@ -617,67 +646,67 @@ export function MetadataFormShowcase() {
     </>
   );
 
-  const provenanceFields = (): ReactNode => (
+  const postingFields = (): ReactNode => (
     <>
-      <FieldFrame issues={fieldIssues("issued")} label="Release date" predicate="dct:issued">
+      <FieldFrame issues={fieldIssues("posted")} label="Posted" ledgerKey="writ:posted">
         {(invalid) => (
-          <DateField invalid={invalid} onChange={(v) => setScalar("issued", v)} value={values.issued} />
+          <DateField invalid={invalid} onChange={(v) => setScalar("posted", v)} value={values.posted} />
         )}
       </FieldFrame>
 
-      <FieldFrame issues={fieldIssues("modified")} label="Modification date" predicate="dct:modified">
+      <FieldFrame issues={fieldIssues("due")} label="Due back" ledgerKey="writ:due">
         {(invalid) => (
-          <DateField
-            invalid={invalid}
-            onChange={(v) => setScalar("modified", v)}
-            value={values.modified}
-          />
+          <DateField invalid={invalid} onChange={(v) => setScalar("due", v)} value={values.due} />
         )}
       </FieldFrame>
 
       <FieldFrame
-        description="The entity responsible for making the dataset available."
-        issues={fieldIssues("publisher")}
-        label="Publisher"
-        predicate="dct:publisher"
+        description="The hall that posts it, pays for it, and answers for it."
+        issues={fieldIssues("poster")}
+        label="Poster"
+        ledgerKey="writ:poster"
         required
       >
         {() =>
-          values.publisher === null ? (
-            <AddButton onClick={() => setScalar("publisher", { name: "", homepage: "", email: "" })} />
+          values.poster === null ? (
+            <AddButton onClick={() => setScalar("poster", { hall: "", handle: "", muster: "" })} />
           ) : (
-            <NestedCard onRemove={() => setScalar("publisher", null)} title="Publisher">
+            <NestedCard onRemove={() => setScalar("poster", null)} title="Poster">
               <Field>
                 <FieldLabel className="w-fit">
-                  Name
+                  Hall
                   <FieldRequiredIndicator />
                 </FieldLabel>
+                <NativeSelect
+                  className="w-full"
+                  onChange={(e) => setScalar("poster", { ...values.poster!, hall: e.target.value })}
+                  value={values.poster.hall}
+                >
+                  {HALL_OPTIONS.map((o) => (
+                    <NativeSelectOption key={o.value} value={o.value}>
+                      {o.label}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+              </Field>
+              <Field>
+                <FieldLabel className="w-fit">Signs for it</FieldLabel>
                 <TextField
                   onChange={(e) =>
-                    setScalar("publisher", { ...values.publisher!, name: e.target.value })
+                    setScalar("poster", { ...values.poster!, handle: e.target.value })
                   }
-                  placeholder="Organisation name"
-                  value={values.publisher.name}
+                  placeholder="ravenna"
+                  value={values.poster.handle}
                 />
               </Field>
               <Field>
-                <FieldLabel className="w-fit">Homepage</FieldLabel>
+                <FieldLabel className="w-fit">Muster</FieldLabel>
                 <TextField
                   onChange={(e) =>
-                    setScalar("publisher", { ...values.publisher!, homepage: e.target.value })
+                    setScalar("poster", { ...values.poster!, muster: e.target.value })
                   }
-                  placeholder="https://"
-                  value={values.publisher.homepage}
-                />
-              </Field>
-              <Field>
-                <FieldLabel className="w-fit">Email</FieldLabel>
-                <TextField
-                  onChange={(e) =>
-                    setScalar("publisher", { ...values.publisher!, email: e.target.value })
-                  }
-                  placeholder="name@example.org"
-                  value={values.publisher.email}
+                  placeholder="Where the party reports"
+                  value={values.poster.muster}
                 />
               </Field>
             </NestedCard>
@@ -686,18 +715,18 @@ export function MetadataFormShowcase() {
       </FieldFrame>
 
       <FieldFrame
-        description="A contact point for enquiries about the dataset."
-        issues={fieldIssues("contacts")}
-        label="Contact point"
-        predicate="dcat:contactPoint"
+        description="Who to ask on arrival — an archivist has read it before anyone signs."
+        issues={fieldIssues("stewards")}
+        label="Who to ask"
+        ledgerKey="writ:ask"
       >
         {() =>
-          values.contacts.length === 0 ? (
+          values.stewards.length === 0 ? (
             <AddButton
               onClick={() =>
                 setValues((p) => ({
                   ...p,
-                  contacts: [...p.contacts, { id: uid("c"), fn: "", email: "" }],
+                  stewards: [...p.stewards, { id: uid("ask"), who: "", handle: "" }],
                 }))
               }
             />
@@ -706,25 +735,25 @@ export function MetadataFormShowcase() {
               addLabel="Add"
               align="start"
               canRemove={false}
-              count={values.contacts.length}
+              count={values.stewards.length}
               onAdd={() =>
                 setValues((p) => ({
                   ...p,
-                  contacts: [...p.contacts, { id: uid("c"), fn: "", email: "" }],
+                  stewards: [...p.stewards, { id: uid("ask"), who: "", handle: "" }],
                 }))
               }
               onRemove={() => undefined}
-              rowKey={(i) => values.contacts[i].id}
+              rowKey={(i) => values.stewards[i].id}
             >
               {(i) => (
                 <NestedCard
                   onRemove={() =>
                     setValues((p) => ({
                       ...p,
-                      contacts: p.contacts.filter((_, idx) => idx !== i),
+                      stewards: p.stewards.filter((_, idx) => idx !== i),
                     }))
                   }
-                  title={`Contact ${i + 1}`}
+                  title={`Steward ${i + 1}`}
                 >
                   <Field>
                     <FieldLabel className="w-fit">Name</FieldLabel>
@@ -732,28 +761,28 @@ export function MetadataFormShowcase() {
                       onChange={(e) =>
                         setValues((p) => ({
                           ...p,
-                          contacts: p.contacts.map((c, idx) =>
-                            idx === i ? { ...c, fn: e.target.value } : c,
+                          stewards: p.stewards.map((s, idx) =>
+                            idx === i ? { ...s, who: e.target.value } : s,
                           ),
                         }))
                       }
                       placeholder="Full name"
-                      value={values.contacts[i].fn}
+                      value={values.stewards[i].who}
                     />
                   </Field>
                   <Field>
-                    <FieldLabel className="w-fit">Email</FieldLabel>
+                    <FieldLabel className="w-fit">Handle</FieldLabel>
                     <TextField
                       onChange={(e) =>
                         setValues((p) => ({
                           ...p,
-                          contacts: p.contacts.map((c, idx) =>
-                            idx === i ? { ...c, email: e.target.value } : c,
+                          stewards: p.stewards.map((s, idx) =>
+                            idx === i ? { ...s, handle: e.target.value } : s,
                           ),
                         }))
                       }
-                      placeholder="name@example.org"
-                      value={values.contacts[i].email}
+                      placeholder="vault"
+                      value={values.stewards[i].handle}
                     />
                   </Field>
                 </NestedCard>
@@ -765,31 +794,31 @@ export function MetadataFormShowcase() {
     </>
   );
 
-  const healthFields = (): ReactNode => (
+  const termsFields = (): ReactNode => (
     <>
       <FieldFrame
-        description="Health categories the dataset belongs to."
-        issues={fieldIssues("healthThemes")}
-        label="Health theme"
-        predicate="healthdcatap:healthCategory"
+        description="Which other halls may claim it. Left empty, only the poster's own may."
+        issues={fieldIssues("invited")}
+        label="Halls invited"
+        ledgerKey="writ:invited"
       >
         {() =>
-          values.healthThemes.length === 0 ? (
-            <AddButton onClick={() => addEntry("healthThemes", "h")} />
+          values.invited.length === 0 ? (
+            <AddButton onClick={() => addEntry("invited", "inv")} />
           ) : (
             <FieldArray
-              count={values.healthThemes.length}
-              onAdd={() => addEntry("healthThemes", "h")}
-              onRemove={(i) => removeEntry("healthThemes", i)}
-              rowKey={(i) => values.healthThemes[i].id}
+              count={values.invited.length}
+              onAdd={() => addEntry("invited", "inv")}
+              onRemove={(i) => removeEntry("invited", i)}
+              rowKey={(i) => values.invited[i].id}
             >
               {(i) => (
                 <NativeSelect
                   className="w-full"
-                  onChange={(e) => setEntry("healthThemes", i, e.target.value)}
-                  value={values.healthThemes[i].value}
+                  onChange={(e) => setEntry("invited", i, e.target.value)}
+                  value={values.invited[i].value}
                 >
-                  {HEALTH_CATEGORIES.map((o) => (
+                  {HALL_OPTIONS.map((o) => (
                     <NativeSelectOption key={o.value} value={o.value}>
                       {o.label}
                     </NativeSelectOption>
@@ -802,59 +831,59 @@ export function MetadataFormShowcase() {
       </FieldFrame>
 
       <FieldFrame
-        description="Description of the population covered by the dataset."
-        issues={fieldIssues("populationCoverage")}
-        label="Population coverage"
-        predicate="healthdcatap:populationCoverage"
+        description="Conditions the party is held to, over and above the hall's standing orders."
+        issues={fieldIssues("orders")}
+        label="Orders"
+        ledgerKey="writ:orders"
       >
         {() => (
           <Textarea
-            onChange={(e) => setScalar("populationCoverage", e.target.value)}
-            placeholder="e.g. National — all residents, all ages."
+            onChange={(e) => setScalar("orders", e.target.value)}
+            placeholder="e.g. Do not take the quarry track in daylight."
             rows={3}
-            value={values.populationCoverage}
+            value={values.orders}
           />
         )}
       </FieldFrame>
 
       <FieldFrame
-        description="The number of records in the dataset."
-        issues={fieldIssues("numberOfRecords")}
-        label="Number of records"
-        predicate="healthdcatap:numberOfRecords"
+        description="Gold, on delivery. Grade sets the floor; distance sets the rest."
+        issues={fieldIssues("reward")}
+        label="Reward"
+        ledgerKey="writ:reward"
       >
         {(invalid) => (
           <NumberField
             invalid={invalid}
             min={0}
-            onChange={(e) => setScalar("numberOfRecords", e.target.value)}
+            onChange={(e) => setScalar("reward", e.target.value)}
             placeholder="0"
-            value={values.numberOfRecords}
+            value={values.reward}
           />
         )}
       </FieldFrame>
 
       <FieldFrame
-        description="Coding systems (e.g. ICD-10) used by the dataset."
-        issues={fieldIssues("codingSystems")}
-        label="Coding system"
-        predicate="healthdcatap:hasCodingSystem"
+        description="Where the party is expected to pass, in order."
+        issues={fieldIssues("waypoints")}
+        label="By way of"
+        ledgerKey="writ:waypoint"
       >
         {() =>
-          values.codingSystems.length === 0 ? (
-            <AddButton onClick={() => addEntry("codingSystems", "cs")} />
+          values.waypoints.length === 0 ? (
+            <AddButton onClick={() => addEntry("waypoints", "way")} />
           ) : (
             <FieldArray
-              count={values.codingSystems.length}
-              onAdd={() => addEntry("codingSystems", "cs")}
-              onRemove={(i) => removeEntry("codingSystems", i)}
-              rowKey={(i) => values.codingSystems[i].id}
+              count={values.waypoints.length}
+              onAdd={() => addEntry("waypoints", "way")}
+              onRemove={(i) => removeEntry("waypoints", i)}
+              rowKey={(i) => values.waypoints[i].id}
             >
               {(i) => (
                 <TextField
-                  onChange={(e) => setEntry("codingSystems", i, e.target.value)}
-                  placeholder="http://purl.bioontology.org/ontology/ICD10"
-                  value={values.codingSystems[i].value}
+                  onChange={(e) => setEntry("waypoints", i, e.target.value)}
+                  placeholder="the lower ford, before dusk"
+                  value={values.waypoints[i].value}
                 />
               )}
             </FieldArray>
@@ -864,75 +893,70 @@ export function MetadataFormShowcase() {
     </>
   );
 
-  const distributionFields = (): ReactNode => {
+  const partyFields = (): ReactNode => {
     const add = () =>
       setValues((p) => ({
         ...p,
-        distributions: [
-          ...p.distributions,
-          { id: uid("dist"), accessURL: "", format: "", license: "" },
-        ],
+        party: [...p.party, { id: uid("p"), member: "", duty: "", terms: "" }],
       }));
     return (
       <FieldFrame
-        description="The accessible forms of the dataset (dcat:Distribution)."
-        issues={fieldIssues("distributions")}
-        label="Distributions"
-        predicate="dcat:distribution"
+        description="Who signs. The standing orders count these, and read the duty each is signed for."
+        issues={fieldIssues("party")}
+        label="Party"
+        ledgerKey="writ:party"
       >
         {() =>
-          values.distributions.length === 0 ? (
-            <AddButton label="Add distribution" onClick={add} />
+          values.party.length === 0 ? (
+            <AddButton label="Add a name" onClick={add} />
           ) : (
             <FieldArray
-              addLabel="Add distribution"
+              addLabel="Add a name"
               align="start"
               canRemove={false}
-              count={values.distributions.length}
+              count={values.party.length}
               onAdd={add}
               onRemove={() => undefined}
-              rowKey={(i) => values.distributions[i].id}
+              rowKey={(i) => values.party[i].id}
             >
               {(i) => {
-                const d = values.distributions[i];
-                const set = (patch: Partial<(typeof values.distributions)[number]>) =>
+                const row = values.party[i];
+                const set = (patch: Partial<(typeof values.party)[number]>) =>
                   setValues((p) => ({
                     ...p,
-                    distributions: p.distributions.map((dd, idx) =>
-                      idx === i ? { ...dd, ...patch } : dd,
-                    ),
+                    party: p.party.map((r, idx) => (idx === i ? { ...r, ...patch } : r)),
                   }));
-                const urlMissing = !d.accessURL.trim();
+                const unnamed = !row.member;
                 return (
                   <NestedCard
                     onRemove={() =>
                       setValues((p) => ({
                         ...p,
-                        distributions: p.distributions.filter((_, idx) => idx !== i),
+                        party: p.party.filter((_, idx) => idx !== i),
                       }))
                     }
-                    title={`Distribution ${i + 1}`}
+                    title={`Signatory ${i + 1}`}
                   >
-                    <Field invalid={urlMissing}>
+                    <Field invalid={unnamed}>
                       <FieldLabel className="w-fit">
-                        Access URL
+                        Member
                         <FieldRequiredIndicator />
                       </FieldLabel>
-                      <TextField
-                        invalid={urlMissing}
-                        onChange={(e) => set({ accessURL: e.target.value })}
-                        placeholder="https://…"
-                        value={d.accessURL}
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel className="w-fit">Format</FieldLabel>
                       <NativeSelect
                         className="w-full"
-                        onChange={(e) => set({ format: e.target.value })}
-                        value={d.format}
+                        invalid={unnamed}
+                        // Picking a name fills the duty from the roster, and leaves it editable: a
+                        // hall may sign a scout to hold a line, and the orders read what the
+                        // contract claims. Only an empty duty is filled, so an override survives.
+                        onChange={(e) =>
+                          set({
+                            member: e.target.value,
+                            ...(row.duty ? {} : { duty: dutyOf(e.target.value) }),
+                          })
+                        }
+                        value={row.member}
                       >
-                        {FORMATS.map((o) => (
+                        {PARTY_OPTIONS.map((o) => (
                           <NativeSelectOption key={o.value} value={o.value}>
                             {o.label}
                           </NativeSelectOption>
@@ -940,11 +964,25 @@ export function MetadataFormShowcase() {
                       </NativeSelect>
                     </Field>
                     <Field>
-                      <FieldLabel className="w-fit">License</FieldLabel>
+                      <FieldLabel className="w-fit">Signed for</FieldLabel>
+                      <NativeSelect
+                        className="w-full"
+                        onChange={(e) => set({ duty: e.target.value })}
+                        value={row.duty}
+                      >
+                        {DUTY_OPTIONS.map((o) => (
+                          <NativeSelectOption key={o.value} value={o.value}>
+                            {o.label}
+                          </NativeSelectOption>
+                        ))}
+                      </NativeSelect>
+                    </Field>
+                    <Field>
+                      <FieldLabel className="w-fit">Terms</FieldLabel>
                       <TextField
-                        onChange={(e) => set({ license: e.target.value })}
-                        placeholder="https://creativecommons.org/licenses/by/4.0/"
-                        value={d.license}
+                        onChange={(e) => set({ terms: e.target.value })}
+                        placeholder="half on signing, half on return"
+                        value={row.terms}
                       />
                     </Field>
                   </NestedCard>
@@ -958,10 +996,10 @@ export function MetadataFormShowcase() {
   };
 
   const groupFields: Record<GroupId, ReactNode> = {
-    general: generalFields(),
-    provenance: provenanceFields(),
-    health: healthFields(),
-    distributions: distributionFields(),
+    work: workFields(),
+    posting: postingFields(),
+    terms: termsFields(),
+    party: partyFields(),
   };
 
   // ── Layout bodies ────────────────────────────────────────────────────────────
@@ -1006,9 +1044,7 @@ export function MetadataFormShowcase() {
   const stepsBody = (
     <Steps
       count={GROUPS.length}
-      onStepChange={(d) =>
-        setActiveGroup(GROUPS[Math.min(d.step, GROUPS.length - 1)]?.id ?? "general")
-      }
+      onStepChange={(d) => setActiveGroup(GROUPS[Math.min(d.step, GROUPS.length - 1)]?.id ?? "work")}
       step={activeIndex}
     >
       <StepsList>
@@ -1049,31 +1085,33 @@ export function MetadataFormShowcase() {
 
   // ── The two docked panels ────────────────────────────────────────────────────
   // Left→right, the workspace reads exactly like the breadcrumb:
-  //   SHACL shapes (Source)  →  editable form (Main)  →  Turtle & JSON-LD (Output).
+  //   the standing orders (Source)  →  the posting (Main)  →  writ & record (Output).
 
-  // Source (leading aside) = the SHACL shapes that DEFINE the form. Static fixture.
+  // Source (leading aside) = the rules the board checks a posting against. The world's own fixture,
+  // not a copy of it — `data.tsx` reads the messages under each field out of this same text.
   const sourcePanel = (
     <pre className="overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-muted-foreground text-xs leading-relaxed">
-      {SHAPES_TTL}
+      {RULES_SOURCE}
     </pre>
   );
 
-  // Output (trailing aside) = what the form GENERATES, serialised live from the values. Raw
-  // <pre> until the read-only CodeBlock lands — CodeEditor is for editing, not this view.
+  // Output (trailing aside) = what the posting BECOMES, derived live from the values: the writ a
+  // clerk pins to the board, and the row the board files. Raw <pre> until the read-only CodeBlock
+  // lands — CodeEditor is for editing, not this view.
   const outputPanel = (
-    <Tabs className="min-h-0 flex-1" defaultValue="jsonld">
+    <Tabs className="min-h-0 flex-1" defaultValue="record">
       <TabsList>
-        <TabsTrigger value="jsonld">JSON-LD</TabsTrigger>
-        <TabsTrigger value="turtle">Turtle</TabsTrigger>
+        <TabsTrigger value="record">Record</TabsTrigger>
+        <TabsTrigger value="writ">Writ</TabsTrigger>
       </TabsList>
-      <TabsContent value="jsonld">
+      <TabsContent value="record">
         <div className="overflow-auto rounded-lg border bg-muted/40 p-3">
-          <JsonTreeView data={JSON.parse(toJsonLd(values))} />
+          <JsonTreeView data={JSON.parse(toRecord(values))} />
         </div>
       </TabsContent>
-      <TabsContent value="turtle">
+      <TabsContent value="writ">
         <pre className="overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs leading-relaxed">
-          {toTurtle(values)}
+          {toWrit(values)}
         </pre>
       </TabsContent>
     </Tabs>
@@ -1084,25 +1122,25 @@ export function MetadataFormShowcase() {
   return (
     <ShellRoot>
       <ShellHeader>
-        {/* Utility strip — Shape / Data switcher / Share, with the Made-with attribution. */}
+        {/* Utility strip — Orders / Contract switcher / Share, with the Made-with attribution. */}
         <div className="flex h-9 items-center gap-2.5 border-b px-3 text-xs">
           <span className="flex items-center gap-1.5 text-muted-foreground">
-            <ShapesIcon className="size-3.5" />
-            Shape
+            <ScrollTextIcon className="size-3.5" />
+            Orders
           </span>
-          <NativeSelect className="w-40" defaultValue="healthdcatap" size="sm">
-            <NativeSelectOption value="healthdcatap">HealthDCAT-AP</NativeSelectOption>
+          <NativeSelect className="w-56" defaultValue="amber" size="sm">
+            <NativeSelectOption value="amber">{ORDERS_LABEL}</NativeSelectOption>
           </NativeSelect>
-          <span className="ms-1 text-muted-foreground">Data</span>
+          <span className="ms-1 text-muted-foreground">Contract</span>
           <NativeSelect
-            className="w-48"
-            onChange={(e) => loadDataset(e.target.value)}
+            className="w-72"
+            onChange={(e) => loadContract(e.target.value)}
             size="sm"
-            value={datasetId}
+            value={contractId}
           >
-            {DATASETS.map((d) => (
-              <NativeSelectOption key={d.id} value={d.id}>
-                {d.label}
+            {CONTRACTS.map((c) => (
+              <NativeSelectOption key={c.id} value={c.id}>
+                {c.label}
               </NativeSelectOption>
             ))}
           </NativeSelect>
@@ -1117,15 +1155,15 @@ export function MetadataFormShowcase() {
         <SectionHeader className="px-6 py-3" scale="page">
           <SectionTitleGroup>
             <SectionTitle className="font-heading" level={1} scale="page">
-              metadata-form
+              Post a contract
             </SectionTitle>
             <SectionDescription className="truncate text-xs">
-              SHACL shapes → editable RDF form → Turtle &amp; JSON-LD
+              standing orders → the posting → the writ the board pins up
             </SectionDescription>
           </SectionTitleGroup>
 
           <SectionActions className="gap-1.5">
-            {/* Source — the SHACL shapes. Toggles the LEADING aside, independently. */}
+            {/* Source — the standing orders. Toggles the LEADING aside, independently. */}
             <Button
               className="gap-1.5"
               onClick={() => setSourceOpen((o) => !o)}
@@ -1135,12 +1173,12 @@ export function MetadataFormShowcase() {
               <FileTextIcon />
               Source
               <Badge size="xs" variant="secondary">
-                {SHAPE_COUNT}
+                {ORDER_COUNT}
               </Badge>
               <Kbd>S</Kbd>
             </Button>
 
-            {/* Output — the generated serialisation. Toggles the TRAILING aside, independently. */}
+            {/* Output — the writ and the record. Toggles the TRAILING aside, independently. */}
             <Button
               className="gap-1.5"
               onClick={() => setOutputOpen((o) => !o)}
@@ -1150,7 +1188,7 @@ export function MetadataFormShowcase() {
               <Code2Icon />
               Output
               <Badge size="xs" variant="secondary">
-                {tripleCount(values)}
+                {writLines(values)}
               </Badge>
               <Kbd>O</Kbd>
             </Button>
@@ -1182,14 +1220,14 @@ export function MetadataFormShowcase() {
                   <p className="font-medium text-sm">Validation</p>
                   <p className="text-muted-foreground text-xs">
                     {valid
-                      ? "All shape constraints are satisfied."
-                      : "Fields that do not satisfy the shape."}
+                      ? "The board would take this posting."
+                      : "What the board would send back."}
                   </p>
                 </div>
                 {report.length === 0 ? (
                   <div className="flex items-center gap-2 px-3 py-3 text-sm">
                     <CheckIcon className="size-4 text-success" />
-                    Ready to publish.
+                    Ready to pin up.
                   </div>
                 ) : (
                   <ScrollArea className="max-h-64">
@@ -1206,7 +1244,7 @@ export function MetadataFormShowcase() {
                   </ScrollArea>
                 )}
                 {/* What the click does, said where the reader is already looking. The tally is
-                    always honest about the whole document; the fields stay quiet until edited, so
+                    always honest about the whole posting; the fields stay quiet until edited, so
                     this is how you ask the form to show its work — what a Submit would do, in an
                     editor that has none. */}
                 <Show when={report.length > 0}>
@@ -1271,11 +1309,8 @@ export function MetadataFormShowcase() {
                     />
                   </Field>
                   <Field orientation="horizontal">
-                    <FieldLabel className="w-fit flex-1">Show RDF predicates</FieldLabel>
-                    <Switch
-                      checked={showPredicates}
-                      onCheckedChange={(d) => setShowPredicates(d.checked)}
-                    />
+                    <FieldLabel className="w-fit flex-1">Show ledger keys</FieldLabel>
+                    <Switch checked={showKeys} onCheckedChange={(d) => setShowKeys(d.checked)} />
                   </Field>
                 </div>
 
@@ -1292,11 +1327,11 @@ export function MetadataFormShowcase() {
       </ShellHeader>
 
       <ShellBody>
-        {/* A three-column workspace: SHACL Source (leading) · the form · Output (trailing),
-            each column an independently resizable `Resizable` panel. The `<main>` is always the
-            middle column; the two side columns are `<aside>` landmarks (`ShellAside side`). Only
-            the open panels render, and the splitter is keyed on the open-set so Ark re-inits its
-            panel model cleanly. Logical throughout — start/end, never left/right. */}
+        {/* A three-column workspace: the standing orders (leading) · the posting · writ & record
+            (trailing), each column an independently resizable `Resizable` panel. The `<main>` is
+            always the middle column; the two side columns are `<aside>` landmarks (`ShellAside
+            side`). Only the open panels render, and the splitter is keyed on the open-set so Ark
+            re-inits its panel model cleanly. Logical throughout — start/end, never left/right. */}
         {(() => {
           const columns: ("source" | "form" | "output")[] = [
             ...(sourceOpen ? (["source"] as const) : []),
@@ -1306,7 +1341,7 @@ export function MetadataFormShowcase() {
 
           const formMain = (
             <ShellMain className="bg-background">
-              <FormPrefsContext.Provider value={{ showDescriptions, showPredicates }}>
+              <FormPrefsContext.Provider value={{ showDescriptions, showKeys }}>
                 <RevealContext.Provider value={gate}>
                   <div className="mx-auto w-full max-w-3xl px-6 py-8">{body}</div>
                 </RevealContext.Provider>
@@ -1322,14 +1357,22 @@ export function MetadataFormShowcase() {
             if (id === "source")
               return (
                 <ShellAside aria-label="Source" className="min-h-0 flex-1 border-e-0" side="start">
-                  <PanelShell onClose={() => setSourceOpen(false)} subtitle="SHACL shapes" title="Source">
+                  <PanelShell
+                    onClose={() => setSourceOpen(false)}
+                    subtitle="the standing orders"
+                    title="Source"
+                  >
                     {sourcePanel}
                   </PanelShell>
                 </ShellAside>
               );
             return (
               <ShellAside aria-label="Output" className="min-h-0 flex-1 border-s-0" side="end">
-                <PanelShell onClose={() => setOutputOpen(false)} subtitle="Turtle & JSON-LD" title="Output">
+                <PanelShell
+                  onClose={() => setOutputOpen(false)}
+                  subtitle="writ & record"
+                  title="Output"
+                >
                   {outputPanel}
                 </PanelShell>
               </ShellAside>

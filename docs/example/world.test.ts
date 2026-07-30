@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { ARCHIVE, archiveOf, archiveScale } from "./archive";
 import { MEMBERS, member } from "./people";
 import { QUESTS, daysOverdue, overdueQuests, partyOf, quest } from "./quests";
 import { ROSTER, availableNow, rosterEntry, rosterOf } from "./roster";
@@ -252,5 +253,43 @@ describe("the sightings relation", () => {
     const pairs = new Set(rows.map((r) => `${r.region}/${r.beast}`));
     // A full cross-product would be 48 and would read as generated; every region has a range.
     expect(pairs.size).toBeLessThan(REGIONS.length * BEAST_DOMAIN.length);
+  });
+});
+
+describe("the archive explains the roster", () => {
+  it("gives every member exactly as many closed contracts as they claim settled", () => {
+    // This is the invariant that makes the archive history rather than padding: the `settled`
+    // number on a member had no cause before, and now it has exactly one.
+    for (const entry of MEMBERS) {
+      expect(archiveOf(entry.id).length, entry.name).toBe(entry.settled);
+    }
+  });
+
+  it("is big enough to be worth a WebGL canvas", () => {
+    const scale = archiveScale();
+    expect(scale.nodes).toBeGreaterThan(600);
+  });
+
+  it("shares its hubs, which is what makes it a graph and not a forest of stars", () => {
+    // A member on many contracts, a beast in many regions. Without this the lasso pulls in
+    // nothing you did not already have selected.
+    const busiest = Math.max(...MEMBERS.map((m) => archiveOf(m.id).length));
+    expect(busiest).toBeGreaterThan(50);
+
+    const regionsPerBeast = new Map<string, Set<string>>();
+    for (const entry of ARCHIVE) {
+      if (!entry.beast) continue;
+      const seen = regionsPerBeast.get(entry.beast) ?? new Set();
+      seen.add(entry.region);
+      regionsPerBeast.set(entry.beast, seen);
+    }
+    for (const [beast, regions] of regionsPerBeast) {
+      expect(regions.size, beast).toBeGreaterThan(1);
+    }
+  });
+
+  it("is the same archive every run", () => {
+    const scale = archiveScale();
+    expect(`${ARCHIVE.length} ${scale.reports} ${scale.nodes}`).toMatchSnapshot();
   });
 });

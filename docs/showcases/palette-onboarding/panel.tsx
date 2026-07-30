@@ -34,10 +34,12 @@ import type { PaletteView } from "./derive";
 import { AdjustmentItem, Block, ColorChip, RampRow, ReliefVerdict, hueSource } from "./parts";
 
 /**
- * The onboarding screen for a tenant palette: two seeds in, a measured document out.
+ * The screen a hall sees when it registers its heraldry: two seeds in, a measured document out.
  *
- * Every number here comes from a real `derivePalette` run on the server — see `derive.ts`. Nothing
- * on this page is illustrative.
+ * A hall&rsquo;s `heraldry` is the seed pair — the brand it signs with and the neutral it prints
+ * on — so the tabs are five real identities rather than five ways of demonstrating theming. Every
+ * number here comes from a real `derivePalette` run on the server (see `derive.ts`). Nothing on
+ * this page is illustrative.
  */
 export function PaletteOnboarding({ palettes }: { palettes: PaletteView[] }) {
   return (
@@ -46,12 +48,12 @@ export function PaletteOnboarding({ palettes }: { palettes: PaletteView[] }) {
         <SectionHeader scale="page">
           <SectionTitleGroup>
             <SectionTitle level={1} scale="page">
-              Palette onboarding
+              Registering heraldry
             </SectionTitle>
             <SectionDescription>
-              A client gives two seeds — a brand colour and a neutral. Everything below is derived
-              from that pair once, measured against the tenant&rsquo;s own surfaces, and stored as a
-              document. Runtime only applies it.
+              A hall gives two seeds — the brand it signs with and the neutral it prints on.
+              Everything below is derived from that pair once, measured against the hall&rsquo;s own
+              surfaces, and stored as a document. Runtime only applies it.
             </SectionDescription>
           </SectionTitleGroup>
           <Badge variant="info">derived at build time</Badge>
@@ -63,14 +65,14 @@ export function PaletteOnboarding({ palettes }: { palettes: PaletteView[] }) {
               {palettes.map((p) => (
                 <TabsTrigger key={p.id} value={p.id}>
                   <SwatchGroup colors={[p.brandSeed, p.neutralSeed]} shape="round" size="xs" />
-                  {p.label}
+                  {p.short}
                 </TabsTrigger>
               ))}
             </TabsList>
 
             {palettes.map((p) => (
               <TabsContent className="flex flex-col gap-8 pt-4" key={p.id} value={p.id}>
-                <Tenant palette={p} />
+                <Registration palette={p} />
               </TabsContent>
             ))}
           </Tabs>
@@ -80,16 +82,34 @@ export function PaletteOnboarding({ palettes }: { palettes: PaletteView[] }) {
   );
 }
 
-function Tenant({ palette: p }: { palette: PaletteView }) {
+function Registration({ palette: p }: { palette: PaletteView }) {
   return (
     <>
+      {/* `Show`'s children are eager, so the hall is read through `?.` — the guard picks the
+          sentence, it does not defer the lookup. */}
+      <Show
+        fallback={
+          <p className="text-muted-foreground text-sm">
+            {p.label} belongs to no hall: it is the document the stylesheet already ships with, and
+            what a hall wears until it registers. The same grey stands as both seeds, which makes it
+            the one monochrome pair here — the case the fill rule below is written for.
+          </p>
+        }
+        when={p.hall != null}
+      >
+        <p className="text-muted-foreground text-sm">
+          {p.label} — {p.hall?.standing?.toLowerCase()} since {p.hall?.founded}, seat at{" "}
+          {p.hall?.seat}. <em>{p.hall?.motto}</em>
+        </p>
+      </Show>
+
       <Block
         hint={
           <>
             The neutral supplies the tint hue; the brand hue is the fallback when none is given. The
-            four status families are Kanzo&rsquo;s and are not client-overridable — but they are
-            re-measured here, because every obligation is graded against the surface and the surface
-            is this tenant&rsquo;s.
+            four status families are Kanzo&rsquo;s and are not a hall&rsquo;s to override — but they
+            are re-measured here, because every obligation is graded against the surface and the
+            surface is this hall&rsquo;s.
           </>
         }
         title="The seeds"
@@ -119,7 +139,7 @@ function Tenant({ palette: p }: { palette: PaletteView }) {
       </Block>
 
       <Block
-        hint="A failing gate adjusts and publishes what moved; the one it cannot adjust is published as relief."
+        hint="A failing gate adjusts and publishes what moved; the one it cannot adjust is published as relief. No heraldry on this page moves a step — all five halls' brands are legal exactly where the ramp puts them, so what they publish is relief and nothing else. The base16 page is where a seed pays."
         title="The record"
       >
         <ReliefVerdict palette={p} />
@@ -142,7 +162,7 @@ function Tenant({ palette: p }: { palette: PaletteView }) {
       </Block>
 
       <Block
-        hint="Twelve steps per mode. 1 is the page, 3/4/5 are one component's normal / hover / active surface, 6 is the border, 9 is the solid, 11 and 12 are ink. The bold number is where this tenant's brand fill comes from."
+        hint="Twelve steps per mode. 1 is the page, 3/4/5 are one component's normal / hover / active surface, 6 is the border, 9 is the solid, 11 and 12 are ink. The bold number is where this identity's brand fill comes from."
         title="The ramps"
       >
         <ItemGroup>

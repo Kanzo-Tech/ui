@@ -88,24 +88,29 @@ import {
   SettingsIcon,
   UserIcon,
 } from "lucide-react";
+import { overdueQuests } from "@/example/quests";
+import { hall, type HallId, HOME_HALL } from "@/example/world";
 import { CommandPalette } from "./command-palette";
-import { ACTIVITY, INSTANCES, KPIS, NAV, SCHEDULES, SETUP, SUPPORT, USER } from "./data";
+import { ACTIVITY, INSTANCES, KPIS, NAV, SETUP, SETUP_DONE, STANDING, SUPPORT, USER } from "./data";
 import { RunsTable } from "./runs-table";
+
+/** The header's notice count is the board's overdue contracts, not a decoration. */
+const OVERDUE = overdueQuests().length;
 
 const TOUR_STEPS: TourStepType[] = [
   {
     id: "intro",
     type: "dialog",
-    title: "Welcome to Kanzo",
-    description: "Four stops around the screen you land on every morning.",
+    title: "Welcome to the hall",
+    description: "Four stops around the screen a quartermaster opens every morning.",
     actions: [{ label: "Start", action: "next" }],
   },
   {
-    id: "workspace",
+    id: "halls",
     type: "tooltip",
-    target: () => document.getElementById("tour-workspace"),
-    title: "Your workspaces",
-    description: "Switch tenant here. ⌘B collapses the whole rail to icons.",
+    target: () => document.getElementById("tour-halls"),
+    title: "Your halls",
+    description: "Switch hall here. ⌘B collapses the whole rail to icons.",
     actions: [
       { label: "Back", action: "prev" },
       { label: "Next", action: "next" },
@@ -115,19 +120,19 @@ const TOUR_STEPS: TourStepType[] = [
     id: "kpis",
     type: "tooltip",
     target: () => document.getElementById("tour-kpis"),
-    title: "The week in four numbers",
-    description: "Each tile carries its own trend and a delta against last week.",
+    title: "The board in four numbers",
+    description: "Each tile carries its own trend and a delta against the week before.",
     actions: [
       { label: "Back", action: "prev" },
       { label: "Next", action: "next" },
     ],
   },
   {
-    id: "runs",
+    id: "board",
     type: "tooltip",
-    target: () => document.getElementById("tour-runs-toolbar"),
-    title: "Work the queue",
-    description: "Search, facet by status or environment, hide columns, then select rows to act on them.",
+    target: () => document.getElementById("tour-board-toolbar"),
+    title: "Work the board",
+    description: "Search, facet by state or region, hide columns, then select rows to act on them.",
     actions: [
       { label: "Back", action: "prev" },
       { label: "Done", action: "dismiss" },
@@ -145,33 +150,34 @@ const TOUR_STEPS: TourStepType[] = [
  * under it is a `<section>`.
  */
 export function AppShellShowcase() {
-  const [instance, setInstance] = useState("kanzo");
+  const [instance, setInstance] = useState<HallId>(HOME_HALL);
 
   return (
     <Tour steps={TOUR_STEPS}>
       <SidebarProvider className="h-dvh min-h-0 overflow-hidden">
         <Sidebar collapsible="icon">
           <SidebarHeader>
-            <div id="tour-workspace">
+            <div id="tour-halls">
               <InstanceSwitcher
                 actions={[
                   {
-                    label: "Create workspace",
+                    label: "Charter a hall",
                     icon: <PlusIcon />,
-                    onSelect: () => toast.create({ title: "New workspace", type: "info" }),
+                    onSelect: () => toast.create({ title: "New hall", type: "info" }),
                   },
                 ]}
                 activeId={instance}
                 instances={INSTANCES}
-                label="Workspaces"
-                onSelect={setInstance}
+                label="Halls"
+                onSelect={(id) => setInstance(id as HallId)}
               />
             </div>
           </SidebarHeader>
 
           <SidebarContent>
-            <SidebarNav items={NAV} label="Platform" />
-            <SidebarNav items={SUPPORT} label="Support" />
+            {/* The group heading follows the switcher, so changing hall changes the whole rail. */}
+            <SidebarNav items={NAV} label={hall(instance).short} />
+            <SidebarNav items={SUPPORT} label="Reference" />
           </SidebarContent>
 
           <SidebarFooter>
@@ -205,7 +211,9 @@ export function AppShellShowcase() {
           <ShellHeader className="h-12 flex-row items-center gap-2 px-3">
             <SidebarTrigger />
             <Separator className="h-4" orientation="vertical" />
-            <Breadcrumbs items={[{ label: "Kanzo", href: "#/app" }, { label: "Overview" }]} />
+            <Breadcrumbs
+              items={[{ label: hall(instance).short, href: "#/board" }, { label: "Overview" }]}
+            />
 
             <div className="ms-auto flex items-center gap-1.5">
               <CommandPalette />
@@ -213,8 +221,10 @@ export function AppShellShowcase() {
                   the count to its corner. */}
               <div className="relative">
                 <Button
-                  aria-label="Notifications"
-                  onClick={() => toast.create({ title: "3 new notifications", type: "info" })}
+                  aria-label="Notices"
+                  onClick={() =>
+                    toast.create({ title: `${OVERDUE} contracts overdue`, type: "warning" })
+                  }
                   size="icon-sm"
                   variant="ghost"
                 >
@@ -222,7 +232,7 @@ export function AppShellShowcase() {
                 </Button>
                 <Float className="-end-0.5 -top-0.5" placement="top-end">
                   <Badge className="rounded-full" size="xs" variant="destructive">
-                    3
+                    {OVERDUE}
                   </Badge>
                 </Float>
               </div>
@@ -238,7 +248,7 @@ export function AppShellShowcase() {
                     Overview
                   </SectionTitle>
                   <SectionDescription>
-                    Everything this workspace ran in the last seven days.
+                    Everything on the board today, and everyone the hall can still send.
                   </SectionDescription>
                 </SectionTitleGroup>
                 <SectionActions>
@@ -250,7 +260,7 @@ export function AppShellShowcase() {
                   </TourTrigger>
                   <Button size="sm">
                     <PlusIcon />
-                    New pipeline
+                    Post a contract
                   </Button>
                 </SectionActions>
               </SectionHeader>
@@ -266,9 +276,9 @@ export function AppShellShowcase() {
                   <section className="min-w-0 space-y-3">
                     <SectionHeader>
                       <SectionTitleGroup>
-                        <SectionTitle level={2}>Pipeline runs</SectionTitle>
+                        <SectionTitle level={2}>The board</SectionTitle>
                         <SectionDescription>
-                          Every execution across both environments.
+                          Every contract posted, whichever hall posted it.
                         </SectionDescription>
                       </SectionTitleGroup>
                       <SectionActions>
@@ -280,8 +290,8 @@ export function AppShellShowcase() {
 
                     <Tabs defaultValue="active">
                       <TabsList>
-                        <TabsTrigger value="active">Active</TabsTrigger>
-                        <TabsTrigger value="archived">Archived</TabsTrigger>
+                        <TabsTrigger value="active">Posted</TabsTrigger>
+                        <TabsTrigger value="archived">Archive</TabsTrigger>
                       </TabsList>
 
                       <TabsContent value="active">
@@ -293,10 +303,10 @@ export function AppShellShowcase() {
                           <EmptyState
                             action={
                               <Button size="sm" variant="outline">
-                                Browse runs
+                                Browse the board
                               </Button>
                             }
-                            description="Runs you archive are kept for 90 days and stay searchable from here."
+                            description="Contracts you retire stay in the archive for a season, and remain searchable from here."
                             icon={<ArchiveIcon />}
                             title="Nothing archived yet"
                           />
@@ -309,13 +319,13 @@ export function AppShellShowcase() {
                     <Ribbon className="mt-6" disabled label="Coming soon">
                       <Card>
                         <CardHeader>
-                          <CardTitle className="text-base">Scheduled runs</CardTitle>
-                          <CardDescription>Cadences you will set per pipeline.</CardDescription>
+                          <CardTitle className="text-base">Standing orders</CardTitle>
+                          <CardDescription>Patrols the hall will post on a cadence.</CardDescription>
                         </CardHeader>
                         <CardContent className="px-3">
                           <ItemGroup className="gap-0">
-                            {SCHEDULES.map((schedule, index) => (
-                              <Fragment key={schedule.id}>
+                            {STANDING.map((order, index) => (
+                              <Fragment key={order.id}>
                                 <Show when={index > 0}>
                                   <ItemSeparator className="my-0" />
                                 </Show>
@@ -324,11 +334,11 @@ export function AppShellShowcase() {
                                     <CalendarClockIcon />
                                   </ItemMedia>
                                   <ItemContent>
-                                    {/* A user names their own schedules, so clamp. */}
-                                    <ItemTitle className="line-clamp-1">{schedule.name}</ItemTitle>
+                                    {/* A hall names its own patrols, so clamp. */}
+                                    <ItemTitle className="line-clamp-1">{order.name}</ItemTitle>
                                     <ItemDescription>
-                                      {schedule.cadence} ·{" "}
-                                      <code className="font-mono text-xs">{schedule.cron}</code>
+                                      {order.cadence} ·{" "}
+                                      <code className="font-mono text-xs">#{order.tag}</code>
                                     </ItemDescription>
                                   </ItemContent>
                                   <ItemActions>
@@ -347,15 +357,17 @@ export function AppShellShowcase() {
                     <Card>
                       <CardHeader>
                         <CardTitle className="text-base">Finish setting up</CardTitle>
-                        <CardDescription>Two steps left before the first schedule.</CardDescription>
+                        <CardDescription>
+                          Two steps left before the first party leaves.
+                        </CardDescription>
                         <CardAction>
                           <Badge size="sm" variant="secondary">
-                            2/4
+                            {SETUP_DONE}/{SETUP.length}
                           </Badge>
                         </CardAction>
                       </CardHeader>
                       <CardContent>
-                        <Steps count={SETUP.length} defaultStep={2} orientation="vertical">
+                        <Steps count={SETUP.length} defaultStep={SETUP_DONE} orientation="vertical">
                           <StepsList>
                             {SETUP.map((step, index) => (
                               <StepsItem
@@ -421,8 +433,8 @@ export function AppShellShowcase() {
 
           <ShellFooter className="h-9 flex-row items-center gap-2 px-3 text-muted-foreground text-xs">
             <Status size="sm" variant="success" />
-            All systems operational
-            <span className="ms-auto tabular-nums">v2.4.0</span>
+            The board is open
+            <span className="ms-auto tabular-nums">Chartered {hall(instance).founded}</span>
             <Separator className="h-3" orientation="vertical" />
             <MadeWith href="#/about" />
           </ShellFooter>
