@@ -3,12 +3,16 @@ import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn.js";
 
 /**
- * Link — a token-styled anchor. `variant` picks the treatment; for router links, spread
- * onto a framework link via the product's `linkComponent` seam or `asChild`-style
- * composition. (Generic layout stays in the product via Tailwind — the DS ships no
- * `Flex`/`Box`/`Grid`.)
+ * Link — a token-styled anchor, and the only component in the library emitting
+ * `data-slot="link"`. `variant` picks the treatment; a router link takes the same treatment by
+ * spreading `linkVariants()` onto it. (Generic layout stays in the product via Tailwind — the DS
+ * ships no `Flex`/`Box`/`Grid`.)
+ *
+ * `linkVariants` is module-level and deliberately not on the barrel, which is where every other
+ * recipe with no cross-module importer sits: exported, a variant object freezes a class list as
+ * API. `index.test.ts` pins that.
  */
-export const linkRecipe = tv({
+export const linkVariants = tv({
   base: "rounded-sm underline-offset-4 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
   variants: {
     variant: {
@@ -20,9 +24,9 @@ export const linkRecipe = tv({
   defaultVariants: { variant: "default" },
 });
 
-export interface LinkProps extends React.ComponentProps<"a">, VariantProps<typeof linkRecipe> {}
+export interface LinkProps extends React.ComponentProps<"a">, VariantProps<typeof linkVariants> {}
 
 export function Link({ variant, className, ref, ...rest }: LinkProps) {
-  return <a ref={ref} data-slot="link" className={cn(linkRecipe({ variant }), className)} {...rest} />;
+  return <a ref={ref} data-slot="link" className={cn(linkVariants({ variant }), className)} {...rest} />;
 }
 Link.displayName = "Link";

@@ -20,7 +20,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "../simples/tooltip";
-import { useIsMobile } from "../simples/use-is-mobile";
+import { useIsMobile } from "../lib/use-is-mobile.js";
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state";
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;

@@ -169,6 +169,20 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.Calendar).toBeTypeOf("function");
   });
 
+  it("exports every compound flat, with no dot-notation namespace", () => {
+    // `Preferences` was the one counter-example, via `Object.assign`. Those statics do NOT survive
+    // React Server Components: once the module is a client reference `Preferences.Density` reads
+    // back as `undefined` and React throws "Element type is invalid". A broken API beside the
+    // working one — the flat exports were always the real surface.
+    const preferences = UI.Preferences as unknown as Record<string, unknown>;
+    expect(preferences.Root).toBeUndefined();
+    expect(preferences.Panel).toBeUndefined();
+    expect(preferences.Density).toBeUndefined();
+    expect(UI.PreferencesRoot).toBeTypeOf("function");
+    expect(UI.PreferencesPanel).toBeTypeOf("function");
+    expect(UI.PreferencesDensity).toBeTypeOf("function");
+  });
+
   it("keeps `tv()` recipes off the public surface unless another module needs them", () => {
     // A variant object is an implementation detail: exported, it freezes a class list as API. The
     // fourteen with no importer are internal again. The exceptions stay because a *different* module
@@ -181,6 +195,7 @@ describe("@kanzo-tech/ui public surface", () => {
       "badgeVariants",
       "buttonGroupVariants",
       "floatVariants",
+      "linkVariants",
       "menuContentVariants",
       "numberInputControlVariants",
       "pinInputInputVariants",

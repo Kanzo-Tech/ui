@@ -29,7 +29,7 @@
 // provider reads the legacy key from `APPEARANCE_KEY` only, so a different key here means the two
 // disagree about a migrating user's preference. Prefer disabling the host's class writer instead.
 
-import { APPEARANCE_KEY, AXES, STORAGE_KEY } from "./prefs-config.js";
+import { APPEARANCE_KEY, AXES, STORAGE_KEY } from "@kanzo-tech/theme";
 
 export interface ThemeScriptOptions {
   /** Must match the provider's `storageKey` / the cookie adapter's key. */

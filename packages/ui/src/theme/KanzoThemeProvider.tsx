@@ -8,9 +8,9 @@ import {
   DEFAULT_PREFS,
   STORAGE_KEY,
   type ThemePrefs,
-} from "./prefs-config.js";
+} from "@kanzo-tech/theme";
 
-export type { ThemePrefs } from "./prefs-config.js";
+export type { ThemePrefs } from "@kanzo-tech/theme";
 
 /**
  * KanzoThemeProvider — owns the runtime theme PREFERENCES and applies them as `data-*`

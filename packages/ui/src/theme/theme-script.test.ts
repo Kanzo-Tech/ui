@@ -18,7 +18,7 @@ import { AXES, STORAGE_KEY } from "@kanzo-tech/theme";
 import { render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { KanzoThemeProvider } from "./KanzoThemeProvider.js";
-import { APPEARANCE_KEY } from "./prefs-config.js";
+import { APPEARANCE_KEY } from "@kanzo-tech/theme";
 import { themeScript } from "./theme-script.js";
 
 function stubMatchMedia(dark: boolean) {
