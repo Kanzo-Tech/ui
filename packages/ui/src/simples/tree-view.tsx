@@ -5,7 +5,6 @@ import {
   TreeView as ArkTreeView,
   createTreeCollection as arkCreateTreeCollection,
   type TreeCollection as arkTreeCollection,
-  useTreeViewContext as useArkTreeViewContext,
 } from "@ark-ui/react/tree-view";
 import {
   CheckIcon,
@@ -19,8 +18,6 @@ import React from "react";
 import { tv } from "tailwind-variants";
 import { cn } from "../lib/cn";
 import { checkboxVariants } from "./checkbox";
-
-export const useTreeView = useArkTreeViewContext;
 
 export interface TreeNodeType<T = unknown> {
   children?: TreeNodeType<T>[] | undefined;

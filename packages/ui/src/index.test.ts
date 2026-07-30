@@ -180,6 +180,10 @@ describe("@kanzo-tech/ui public surface", () => {
       "useListbox", "useNumberInput", "usePasswordInput", "usePopover", "useRating",
       "useSegmentGroup", "useSelect", "useSheet", "useSwitch", "useTagsInput", "useToast",
       "useToggle", "useToggleGroup", "useTooltip",
+      // The same alias, on eleven more machines. These had a doc page and still no caller — a
+      // page proving the symbol exists is not the second call site admission rule 2 asks for.
+      "useAccordion", "useClipboard", "useCollapsible", "useEditable", "usePinInput",
+      "useProgress", "useResizable", "useScrollArea", "useSteps", "useTabs", "useTreeView",
       "ComboboxContext", "ListboxContext", "SelectContext",
       "CalendarControl", "CalendarLabel", "CalendarTrigger",
       "ColorPickerLabel", "ColorPickerView", "ColorPickerFormatTrigger",
@@ -193,6 +197,9 @@ describe("@kanzo-tech/ui public surface", () => {
     // an answer instead.
     expect(surface.FieldSeparator).toBeUndefined();
     // Kept, and the reason is the contrast: these have a consumer inside the library.
+    // `useColorPicker` looks identical to the eleven above and stays: `color-picker.test.tsx`
+    // imports it. Matching the pattern is not the test; having a consumer is.
+    expect(UI.useColorPicker).toBeTypeOf("function");
     expect(UI.useSidebar).toBeTypeOf("function");
     expect(UI.useKanzoTheme).toBeTypeOf("function");
     // `CalendarPresetTrigger` survives its three deleted neighbours — `date-picker.tsx` renders it.

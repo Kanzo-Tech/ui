@@ -1,13 +1,8 @@
-import {
-  PinInput as ArkPinInput,
-  usePinInputContext,
-} from "@ark-ui/react/pin-input";
+import { PinInput as ArkPinInput } from "@ark-ui/react/pin-input";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
 import { FieldLabel } from "./field";
-
-export const usePinInput = usePinInputContext;
 
 const pinInputInputVariants = tv({
   base: [
