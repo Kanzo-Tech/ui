@@ -6,9 +6,10 @@ import paletteDataJson from "../palette-data.json";
  * **Authoring-time only.** A tenant's palette is derived and measured ONCE, at onboarding, and
  * stored as data; the runtime does nothing but apply the stored document. That is why this is a
  * package rather than a subpath of `@kanzo-tech/theme`: the categorical search alone costs
- * 0.2–7.4 s, and out of the browser's dependency graph it *cannot* be imported, rather than merely
- * should not. `@kanzo-tech/theme` depends on this package as a **devDependency** — its generator
- * and its tests use it, a browser never does.
+ * **seconds** per tenant — `WHEEL_SPOKES` in `derive-palette.ts` carries the measured table, and is
+ * the one place that figure is written — so out of the browser's dependency graph it *cannot* be
+ * imported, rather than merely should not. `@kanzo-tech/theme` depends on this package as a
+ * **devDependency** — its generator and its tests use it, a browser never does.
  *
  * Nothing here reads the DOM, and nothing here is a React component.
  */

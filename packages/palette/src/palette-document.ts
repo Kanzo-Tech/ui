@@ -113,7 +113,7 @@ export interface TenantSeeds {
 }
 
 export interface PaletteEngine {
-  /** `@kanzo-tech/theme`'s version at derivation time. */
+  /** `@kanzo-tech/palette`'s version at derivation time — `derive-palette.ts` reads `../package.json`. */
   package: string;
   /**
    * A hash over `OBLIGATIONS` — what a step is required to do, not how it is generated.
@@ -127,12 +127,6 @@ export interface PaletteEngine {
   derivedAt: string;
 }
 
-/**
- * The categorical set — `--chart-1..N`, the colours that carry series identity.
- *
- * `capacity` is how many real categories the set can name, not how many `--chart-*` tokens exist.
- * Slots past it fold to the muted "Other", which is the contract `Scheme.slots` already keeps.
- */
 /**
  * Where the hues the set was built from came from.
  *
@@ -154,6 +148,12 @@ export interface CategoricalSource {
   spokes: number;
 }
 
+/**
+ * The categorical set — `--chart-1..N`, the colours that carry series identity.
+ *
+ * `capacity` is how many real categories the set can name, not how many `--chart-*` tokens exist.
+ * Slots past it fold to the muted `OTHER`, which is what `roles.ts` binds them to.
+ */
 export interface CategoricalSet {
   /** The hues this was derived from, and whether they were the tenant's at all. */
   source: CategoricalSource;
@@ -199,7 +199,7 @@ export interface CategoricalSet {
  *
  * What is given up is small and worth naming: the document cannot say *why* a token has its value.
  * That is what `ROLES` is for — it is code, it is one table, and joining a token name to its binding
- * is a lookup a panel can do without the document having to carry 61 copies of it.
+ * is a lookup a panel can do without the document having to carry one copy per role — 79 of them.
  */
 export type RoleValues = Record<string, string>;
 

@@ -113,8 +113,9 @@ describe("compile", () => {
   });
 
   it("stays the size of a thing you can inline in <head>", () => {
-    // The whole runtime is this string, served as a static `<style>` at request time. Measured: 3992
-    // bytes for 61 tokens in two modes. The bound is here so a future addition is a decision rather
+    // The whole runtime is this string, served as a static `<style>` at request time. Measured
+    // 2026-07 off this fixture: 4,746 bytes for 80 custom properties in each of two modes — the 79
+    // `ROLES` plus `--chart-capacity`. The bound is here so a future addition is a decision rather
     // than a drift.
     expect(CSS.length).toBeLessThan(6000);
   });
