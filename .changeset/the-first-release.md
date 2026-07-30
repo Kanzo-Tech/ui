@@ -1,0 +1,50 @@
+---
+"@kanzo-tech/palette": minor
+"@kanzo-tech/theme": minor
+"@kanzo-tech/ui": minor
+---
+
+**The first release.** Three packages, arriving together. Nothing before this was published, so
+this note describes what the packages *are* rather than how they got here.
+
+### `@kanzo-tech/ui`
+
+Ark UI for behaviour, `tailwind-variants` over design tokens for appearance, and a flat export
+surface: `DialogTrigger` and `DialogContent`, never `Dialog.Trigger`. Three layers — single-purpose
+simples, domain-free composites, and the Shell and Section layout regions — all exported flat, so a
+component moving between them is not a breaking change.
+
+Import the compiled stylesheet once: `import "@kanzo-tech/ui/styles.css"`.
+
+### `@kanzo-tech/theme`
+
+The stylesheets, the four axes that are not colour (radius, font, mono font, font size), and the
+value types. No React, no components, no colour maths.
+
+### `@kanzo-tech/palette`
+
+The colour derivation: ramps, the categorical search, the role table, `compile`. A tenant's palette
+is a document derived once at onboarding, and everything downstream — the primary colour, the
+charts, the dashboards — comes from that one artefact.
+
+### The four one-way doors
+
+These are the decisions a consumer cannot work around, so they are the ones worth stating up front.
+
+- **Theme attributes go on `<html>`.** `KanzoThemeProvider` writes them there because Ark's
+  overlays portal to `document.body`, outside any wrapper, and density sets the root font-size the
+  whole `rem` scale resolves against. A wrapper element cannot theme this library.
+- **`@kanzo-tech/palette` is authoring-time.** It is a devDependency of `@kanzo-tech/theme`, not a
+  runtime dependency: the categorical search is measured in seconds and has no first-paint budget.
+  The runtime applies a stored document and derives nothing.
+- **Optional peers live on subpaths.** `@kanzo-tech/ui/editor` needs `@codemirror/*`, `/table` needs
+  `@tanstack/react-table`, `/analytics` needs the DuckDB and Mosaic stack. The root barrel imports
+  none of them, so `import { Button }` works without any of them installed.
+- **Dark mode belongs to the host.** Pass your theme manager in as `appearance={{ resolvedTheme,
+  setTheme }}`, or omit it and the provider toggles `.dark` itself. For SSR, `themeScript()` in
+  `<head>` plus `cookieStorageAdapter()`.
+
+### Colour is not an axis
+
+There is no `base`, no `accent`, no runtime palette attribute. Each of those expressed *part* of a
+palette; a document expresses all of it before a byte is sent.

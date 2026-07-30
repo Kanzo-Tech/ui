@@ -3,10 +3,12 @@
 Written 2026-07-23. A review-only pass (no code changed) answering one question from the owner:
 **should our layout layer be "100% native / idiomatic to Ark UI", and is it?** Every claim below
 is grounded in a URL or a `file:line` in this repo, because the previous audits shipped three
-findings that turned out to be wrong (`.planning/audit-findings-need-verification`).
+findings that turned out to be wrong (`decisions/an-audit-is-a-map-not-an-oracle.md`).
 
-Companion docs: `DESIGN.md` ("The layout layer"), `.planning/LAYOUT-DESIGN.md` (the executed spec).
-This document **amends** one line of `LAYOUT-DESIGN.md` — see §6.1.
+Companion docs: `DESIGN.md` ("The layout layer") and
+`decisions/layout-is-not-ark-native.md`, which is this document's conclusion in five lines.
+`.planning/LAYOUT-DESIGN.md` was the spec it amends at §6.1; that spec was executed and deleted,
+and `packages/ui/src/layouts/shell.tsx` is its outcome.
 
 ---
 
