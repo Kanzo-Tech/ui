@@ -20,7 +20,7 @@ Routed here because I own only the guidance tree. Ordered by consequence.
 | a1 | `packages/ui/src/simples/alert-dialog.tsx:76-80` | **`AlertDialogAction` does not close the dialog.** It types itself `React.ComponentProps<typeof DialogClose>` and renders a plain `<Button variant={variant} {...rest} />`. The type promises the close behaviour and the body does not deliver it. Confirmed by reading both. |
 | a2 | `packages/theme/themes.css` | **The font axis does not move headings.** `--font-heading` is consumed at `simples/card.tsx:113`, `simples/alert.tsx:85`, `simples/dialog.tsx:295` and `composites/Preferences.tsx:179`, and `tokens.css:134` declares it as a self-referencing fallback — but `themes.css` contains zero occurrences of `font-heading`, so no `[data-font]` rule ever sets it. Changing the font axis leaves every heading on the fallback. |
 | a3 | `packages/ui/src/simples/progress.tsx:54` | **`ProgressTrack` is exported and rendered unconditionally by its own root** (`<ProgressTrack><ProgressRange /></ProgressTrack>` inside `Progress`). A consumer who follows the export gets two troughs. Delete the export, keep the symbol. Corrects `DESIGN.md`'s old "ideal case" framing; recorded in `decisions/an-export-needs-a-second-call-site.md`. |
-| a4 | `packages/ui/src/charts/chart-inputs.tsx:565`, `:402`, `:580` | **A `data-slot` passed down into another component erases that component's own slot.** `<Field … data-slot="chart-search" {...rest}>` arrives in `Field`'s rest spread and overwrites `data-slot="field"`, breaking every recipe selecting `[data-slot=field]`. The rule is now written at `CONVENTIONS.md`, "Structure and props"; the sites are not mine. |
+| a4 | library-wide | **Superseded 2026-07-30 — the owner took the broader rule.** This started as a `data-slot` passed down into another component (`chart-inputs.tsx:565`, `:402`, `:580`). The export census reframed it: the great majority of sites write `data-slot` *before* the spread, so a caller can silently erase any of them. The decision is now **the primitive owns its slot** — `data-slot` after `{...rest}`, everywhere, with a guard test. `CONVENTIONS.md` states it, `decisions/a-primitive-owns-its-slot.md` carries the reversal condition, and the cut agent is executing the sweep. |
 | a4b | `packages/ui/src/charts/chart-inputs.tsx:523` | **A raw NUL byte, at byte offset 19443.** Confirmed: `file` reports the source as `data`, not text, so `grep` skips it silently unless forced with `-a`. It excluded the largest chart file from several of the auditors' own searches. |
 
 ### False claims a reader will act on
@@ -105,16 +105,20 @@ Stated plainly, because that is the standing lesson.
    paint-on-`.cm-scroller` reason, at more length than the planning file. Deleted with no
    extraction.
 
-8. **`llms.txt` baking in the build host — not reproduced.** `docs/app/llms.txt/route.ts:25` derives
-   the origin from the incoming request (`new URL(request.url).origin`). It may still resolve to the
-   build host under a static export, but I could not confirm that without running a build, which I
-   was told not to do. Treat the finding as unverified.
+8. **`llms.txt` baking in the build host — withdrawn.** `docs/app/llms.txt/route.ts:25` derives the
+   origin from the incoming request (`new URL(request.url).origin`), so the `localhost:3100` in the
+   output was the auditor's own request origin. The coordinator has confirmed and withdrawn it;
+   `.planning/audit-2026-07-30/README.md` §2 Block C now records it struck through rather than
+   deleted, because a withdrawn finding is the cheapest possible evidence for
+   `decisions/an-audit-is-a-map-not-an-oracle.md`.
 
 9. **The changeset count was 62 in the audit and is 57 here.** The difference is the parallel
    session's in-flight files, which are in the main checkout and not on this branch. `.changeset/`
    now holds `config.json`, `README.md` and one changeset. **If the in-flight session adds its
    changesets back on merge, they will need the same treatment**, including the two that litigate
-   the appearance axis against each other.
+   the appearance axis against each other. That instruction no longer lives only here: it is in
+   `decisions/one-changeset-until-the-first-publish.md` and in `.changeset/README.md`, where
+   whoever runs `pnpm changeset` will meet it.
 
 ---
 
@@ -132,12 +136,16 @@ Stated plainly, because that is the standing lesson.
    sanctioned alternative, and cut its worked examples, which name components that are being
    deleted this week.
 
-3. **I did not ask for a repo-wide `data-slot` reordering.** The taxonomy audit frames the bug as
-   `data-slot` written before `{...rest}`, but that is the ordering in every component including
-   the reference implementation, and in most of them it is harmless. The rule I wrote is narrower
-   and, I think, the true one: a wrapper must not pass a `data-slot` *into another component*. If
-   you want the broader rule instead, it is a real change to `simples/button.tsx` and everything
-   shaped like it.
+3. ~~**I did not ask for a repo-wide `data-slot` reordering.**~~ **Overtaken, and the owner was
+   right.** I wrote the narrow rule — a wrapper must not pass a `data-slot` into another component —
+   on the reasoning that writing it before the spread is the ordering everywhere including the
+   reference implementation, so in most places it is harmless. The census showed *how* everywhere:
+   the overwhelming majority of sites, against a single file that had already reversed itself in
+   place after being bitten (`simples/combobox.tsx`, `ComboboxTrigger`). At that ratio it is one
+   house-style decision, not three bugs, and "harmless in most places" is the wrong test for an
+   attribute a caller can delete without an error. The broad rule is now
+   `decisions/a-primitive-owns-its-slot.md`; my narrow rule survives inside it as the consequence
+   the ordering makes impossible.
 
 4. **`CONVENTIONS.md` no longer prints the recipe.** Twenty-seven lines became a pointer at
    `simples/button.tsx`, on the audit's evidence that no commit has ever fixed a component for not

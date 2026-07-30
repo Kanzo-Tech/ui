@@ -150,12 +150,13 @@ are respectable destinations, not rejections.
 One file each in `decisions/`. `Status` `live` is a rule in force; anything else is history and can
 be skipped.
 
-**Live** — `a-count-belongs-in-a-script`, `a-layout-tree-is-children`, `adoption-before-design`,
-`an-export-needs-a-second-call-site`, `a-machine-with-a-switch-is-a-variant`,
-`a-region-carries-no-aesthetic`, `exactly-one-main`, `a-shell-has-two-legal-shapes`,
-`layout-is-not-ark-native`, `a-filter-is-a-value`, `a-grammar-ships-its-whole-vocabulary`,
-`charts-and-table-ship-code-forms-ship-a-guide`, `a-chart-fails-silently-and-well-painted`,
-`ai-assist-composes-over-pure-inputs`, `one-theme-provider`, `palette-is-authoring-time`,
+**Live** — `a-count-belongs-in-a-script`, `a-layout-tree-is-children`, `a-primitive-owns-its-slot`,
+`adoption-before-design`, `an-export-needs-a-second-call-site`,
+`a-machine-with-a-switch-is-a-variant`, `a-region-carries-no-aesthetic`, `exactly-one-main`,
+`a-shell-has-two-legal-shapes`, `layout-is-not-ark-native`, `a-filter-is-a-value`,
+`a-grammar-ships-its-whole-vocabulary`, `charts-and-table-ship-code-forms-ship-a-guide`,
+`a-chart-fails-silently-and-well-painted`, `ai-assist-composes-over-pure-inputs`,
+`one-theme-provider`, `palette-is-authoring-time`, `one-changeset-until-the-first-publish`,
 `match-the-reference`, `provenance-beats-purity`, `an-audit-is-a-map-not-an-oracle`,
 `a-rule-broken-three-times-becomes-a-test`, `a-docs-defect-is-a-library-defect`,
 `a-generated-index-with-no-second-list`.

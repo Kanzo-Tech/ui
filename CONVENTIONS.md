@@ -96,9 +96,14 @@ needed, that is the moment to reintroduce one seam — with a lint rule to enfor
   `ark.*` is promising something it does not have.
 - **`data-slot` on every targetable part**, spelled `<component>-<part>`. It is not decoration: our
   own recipes depend on it — `in-[[data-slot=popover-content]:has([data-slot=popover-body])]:pb-3` —
-  and it is the escape hatch consumers get instead of guessing class names. **A wrapper must not
-  pass a `data-slot` down into another component.** It arrives in that component's rest spread and
-  erases the slot the component writes for itself, which silently breaks every recipe selecting it.
+  and it is the escape hatch consumers get instead of guessing class names.
+  - **The primitive owns its slot: write `data-slot` *after* `{...rest}`, never before.** Before the
+    spread, a caller's `data-slot` wins and the primitive's own disappears, taking every recipe that
+    selects it with no error and no visible symptom. A slot our stylesheet depends on is not a
+    default a caller may override. Enforced by a guard test.
+  - The consequence, which the ordering now makes impossible: a wrapper cannot erase the slot of a
+    component it renders by passing one down. Passing `data-slot` into another component is still
+    the wrong shape — say what *this* element is, on this element.
 - **A layout tree is children, never an attribute.** If a prop's value is markup, it is children. A
   record or array of `ReactNode`s is a layout tree written as an attribute: the caller cannot
   reorder the regions, wrap one, spread `className` / `data-*` / `aria-*` / a handler onto one, or

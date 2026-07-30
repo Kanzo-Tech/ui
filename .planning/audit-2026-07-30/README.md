@@ -115,8 +115,12 @@ condemn it. **That argument needs to move into `DESIGN.md` or the exception need
 6. **`links: doc:` frontmatter on 55 pages renders nowhere** — `app/docs/[[...slug]]/page.tsx` never
    reads `page.data.links`. Half the site's curated upstream links are invisible, and `DESIGN.md:322`
    cites that frontmatter as evidence for an argument.
-7. **`llms.txt` bakes the build host into all 106 links** (`http://localhost:3100/...`), in the one
-   file whose entire audience is machines.
+7. ~~**`llms.txt` bakes the build host into all 106 links**~~ — **WITHDRAWN 2026-07-30, this finding
+   was wrong.** `docs/app/llms.txt/route.ts:25` derives the origin from the incoming request
+   (`new URL(request.url).origin`), so the `http://localhost:3100/...` seen in the output was the
+   auditor's own request origin, not a baked-in value. Nothing to fix. Recorded rather than deleted
+   because a withdrawn finding is the cheapest evidence for
+   `decisions/an-audit-is-a-map-not-an-oracle.md`.
 8. **A live example is silently dead** — `examples/charts/example-interactor.tsx:69-71` wraps
    `ChartHighlight` in `Show`, and `chart-spec.ts:102-104` skips any descriptor inside a consumer
    component. The house `Show` style and the chart grammar are incompatible and nothing says so.
