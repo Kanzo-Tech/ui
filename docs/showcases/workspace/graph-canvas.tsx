@@ -31,6 +31,7 @@ import { CosmosClient } from "@/lib/cosmos-client";
 import { LOOKS, SHAPE_PATH, type ShapeId } from "./graph-looks";
 import {
   load,
+  neighboursOf,
   scaleOf,
   type Loaded,
   type NodeRow,
@@ -241,7 +242,7 @@ function CanvasBody() {
   const unfocus = useCallback(() => {
     setFocusedIndex(null);
     handlers.current.setFocused(null);
-    graphRef.current?.setConfig({ focusedPointIndex: undefined });
+    graphRef.current?.setConfigPartial({ focusedPointIndex: undefined });
   }, []);
 
   const commit = useCallback(
@@ -269,7 +270,7 @@ function CanvasBody() {
           const index = current.index.get(id);
           if (index !== undefined) indices.push(index);
         }
-        graph.selectPointsByIndices(indices);
+        graph.setConfigPartial({ highlightedPointIndices: indices });
       }
       handlers.current.select({ ids: [...ids], source, label });
     },
@@ -304,17 +305,18 @@ function CanvasBody() {
       idField: spec.idField,
       filterBy: crossfilter,
       as: crossfilter,
-      // No `render()` after these. Both calls end in `updateGreyoutStatus()` themselves, and the
-      // renderer's rAF loop re-schedules unconditionally and re-samples the greyout texture every
-      // frame — so the picture is already correct on the next one. `render()` would have paid for a
-      // full `GraphData.update()` — an O(n+e) revalidation that rebuilds the adjacency lists and
-      // recomputes every degree — on every crossfilter change.
+      // Greyout is a config field, not a call: `highlightedPointIndices` greys everything *not* in
+      // the array, and `undefined` clears it. So the survivor set is stated rather than applied, and
+      // there is no `render()` to pair with it — `setConfigPartial` ends in `requestRender()`, which
+      // is also what wakes the loop now that 3.4.0 stops drawing when nothing changes. A `render()`
+      // here would additionally pay for a full `GraphData.update()` — an O(n+e) revalidation that
+      // rebuilds the adjacency lists and recomputes every degree — on every crossfilter change.
       onSurvivors: (ids) => {
         const graph = graphRef.current;
         const current = dataRef.current;
         if (!graph || !current) return;
         if (ids.length === current.ids.length) {
-          graph.unselectPoints();
+          graph.setConfigPartial({ highlightedPointIndices: undefined });
           return;
         }
         const indices: number[] = [];
@@ -322,7 +324,7 @@ function CanvasBody() {
           const i = current.index.get(Number(id));
           if (i !== undefined) indices.push(i);
         }
-        graph.selectPointsByIndices(indices);
+        graph.setConfigPartial({ highlightedPointIndices: indices });
       },
     });
     clientRef.current = client;
@@ -437,14 +439,14 @@ function CanvasBody() {
         const index = current.index.get(id);
         if (index === undefined) return;
         const ids = new Set([id]);
-        for (const neighbour of graph.getAdjacentIndices(index) ?? []) {
+        for (const neighbour of neighboursOf(graph, index)) {
           const value = current.ids[neighbour];
           if (value !== undefined) ids.add(value);
         }
         commit(ids, "node", current.rows[index]?.label ?? "Node");
         setFocusedIndex(index);
         handlers.current.setFocused(id);
-        graph.setConfig({ focusedPointIndex: index });
+        graph.setConfigPartial({ focusedPointIndex: index });
         graph.zoomToPointByIndex(index, 500, 5, true);
         schedule();
       },
@@ -485,14 +487,14 @@ function CanvasBody() {
         // shape the marquee publishes, so every other panel understands it already.
         const row = current.rows[index];
         const ids = new Set([id]);
-        for (const neighbour of instance.getAdjacentIndices(index) ?? []) {
+        for (const neighbour of neighboursOf(instance, index)) {
           const value = current.ids[neighbour];
           if (value !== undefined) ids.add(value);
         }
         commit(ids, "node", row?.label ?? "Node");
         setFocusedIndex(index);
         handlers.current.setFocused(id);
-        instance.setConfig({ focusedPointIndex: index });
+        instance.setConfigPartial({ focusedPointIndex: index });
       },
       onPointerOut: () => {
         trackHovered(null);

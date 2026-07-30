@@ -62,7 +62,7 @@ export function useGraphLook(options: {
     const graph = getGraph();
     const host = hostRef.current;
     if (!data || !graph || !host) return;
-    graph.setConfig(appearance(look, host, display));
+    graph.setConfigPartial(appearance(look, host, display));
     graph.render();
     schedule();
   }, [data, display, getGraph, hostRef, look, schedule, themeTick]);

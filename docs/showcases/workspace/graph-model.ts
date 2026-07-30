@@ -1,5 +1,5 @@
 import { Query } from "@uwdata/mosaic-sql";
-import type { GraphConfigInterface } from "@cosmos.gl/graph";
+import type { Graph, GraphConfig } from "@cosmos.gl/graph";
 import type { Coordinator } from "@kanzo-tech/ui/analytics";
 import { numbers } from "@/lib/arrow";
 import { onceQuery } from "@/lib/once-query";
@@ -291,8 +291,28 @@ export function buffers(data: Loaded, look: Look, host: Element): Buffers {
   return { colors, sizes, shapes, linkColors };
 }
 
+/**
+ * The points one hop from `index`, in both directions.
+ *
+ * Ours because 3.0 dropped `getAdjacentIndices` and the method that looks like its replacement is
+ * not one: `getConnectedLinkIndices` filters on `n.has(d)`, so it answers only with links whose
+ * *other* endpoint is also in the argument — an induced subgraph, which for a single point is its
+ * self-loops. The adjacency lists themselves are still public on `graph.graph`, and each entry is a
+ * `[otherPointIndex, linkIndex]` pair, so the neighbourhood is the first element of each.
+ *
+ * Undeduplicated, like the method it replaces: a multi-edge counts once per edge, and both callers
+ * pour the result into a `Set` anyway.
+ */
+export function neighboursOf(graph: Graph, index: number): number[] {
+  const { sourceIndexToTargetIndices, targetIndexToSourceIndices } = graph.graph;
+  return [
+    ...(sourceIndexToTargetIndices?.[index] ?? []).map((pair) => pair[0]),
+    ...(targetIndexToSourceIndices?.[index] ?? []).map((pair) => pair[0]),
+  ];
+}
+
 /** The simulation coefficients, in cosmos.gl's spelling. Shared by construction and every change. */
-export function forces(sim: Sim): GraphConfigInterface {
+export function forces(sim: Sim): GraphConfig {
   return {
     simulationGravity: sim.gravity,
     simulationRepulsion: sim.repulsion,
@@ -311,7 +331,7 @@ export function forces(sim: Sim): GraphConfigInterface {
  * of the reader's Display sliders live here for exactly that reason, and the shaders fold them into
  * the same products the buffers used to carry — `color.a * linkOpacity`, `size * sizeScale`.
  */
-export function appearance(look: Look, host: Element, display: Display): GraphConfigInterface {
+export function appearance(look: Look, host: Element, display: Display): GraphConfig {
   return {
     // Always the theme's surface. Nebula used to pin a near-black of its own, which made it the one
     // look that ignored light mode — and put its fixed dark plane at odds with the light chrome

@@ -270,7 +270,7 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
     const graph = graphRef.current;
     if (!data || !graph || applied.current === sim) return;
     applied.current = sim;
-    graph.setConfig(forces(sim));
+    graph.setConfigPartial(forces(sim));
     graph.start(REHEAT);
   }, [data, graphRef, sim]);
 }

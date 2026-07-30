@@ -81,14 +81,14 @@ export function useGraphSelection(options: GraphSelectionOptions): GraphSelectio
         const [[ax, ay], [bx, by]] = [shape.from, shape.to];
         if (Math.abs(bx - ax) < MIN_RECT || Math.abs(by - ay) < MIN_RECT) return [];
         return Array.from(
-          graph.getPointsInRect([
+          graph.findPointsInRect([
             [Math.min(ax, bx), Math.min(ay, by)],
             [Math.max(ax, bx), Math.max(ay, by)],
           ]),
         );
       }
       if (shape.path.length < 3) return [];
-      return Array.from(graph.getPointsInPolygon(shape.path));
+      return Array.from(graph.findPointsInPolygon(shape.path));
     },
     [getGraph],
   );
