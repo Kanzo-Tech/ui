@@ -128,10 +128,10 @@ import {
  * widget: the library ships no renderer, and the canvas joins the crossfilter by declaring a query
  * and publishing a clause — the same contract a brushed histogram honours.
  *
- * The rail is the same argument in miniature. There is no `InstanceSwitcher`, `SidebarNav` or
- * `SidebarUser` to import: those were three arrangements of `Menu*`, `SidebarMenu*` and
- * `SidebarIdentity*`, and an arrangement is what an app decides. They are written out below, and
- * the reading of them is the documentation.
+ * The rail is the same argument in miniature. A workspace switcher, a nav column and a user
+ * footer are three arrangements of `Menu*`, `SidebarMenu*` and `SidebarIdentity*`, and an
+ * arrangement is what an app decides — so all three are written out below, and reading them is
+ * the documentation.
  */
 
 /**
@@ -506,9 +506,9 @@ function DiscoveryShell() {
 			    owns the one <main> and the fixed rail never overlaps the header (a fixed sidebar and a
 			    full-width top region are mutually exclusive — DESIGN.md). */}
 			<SidebarInset>
-				{/* `min-w-0` is what lets the trail shrink instead of pushing the strip wide. Every
-				    other region of this showcase already carries it; this one did not, which is
-				    half of why the breadcrumb used to break onto a second line. */}
+				{/* `min-w-0` is what lets the trail shrink instead of pushing the strip wide. Miss it
+				    on one region and the breadcrumb breaks onto a second line, which a fixed-height
+				    strip has nowhere to put. */}
 				<ShellHeader className="h-12 min-w-0 flex-row items-center gap-2 px-3">
 					<SidebarTrigger />
 					{/* `Breadcrumb` already carries `min-w-0`. The other half is Shark's `flex-wrap` on the

@@ -13,9 +13,9 @@ import type { ReactNode } from "react";
 
 // --- App-shell chrome, matching keasy's real discovery screen (which lives INSIDE the shell). ---
 
-// `Instance` and `SidebarNavItem` used to come from the library. They do not any more: an array of
-// `ReactNode`s is a layout tree written as an attribute, so the arrangement moved to the showcase
-// and the shapes came with it. They describe THIS app's fixtures, nothing wider.
+// `Instance` and `SidebarNavItem` are this app's shapes, not the library's. An array of
+// `ReactNode`s is a layout tree written as an attribute — you cannot reorder it, wrap a region or
+// spread props onto one — so the arrangement lives in the showcase and the shapes live with it.
 
 /** A switchable workspace / tenant. */
 export interface Instance {

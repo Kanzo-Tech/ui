@@ -17,10 +17,9 @@ import type { StatTileProps } from "@kanzo-tech/ui";
 /** One fake tenant's worth of data, so the screen reads as a product rather than a catalogue. */
 
 /**
- * `Instance` and `SidebarNavItem` used to come from the library. The components that consumed them
- * (`InstanceSwitcher`, `SidebarNav`) are gone — a switcher and a nav column are layout trees, so
- * they are hand-composed in `default.tsx` — and with them went any reason for the library to name
- * these shapes. They belong to whoever holds the data, which is this file.
+ * `Instance` and `SidebarNavItem` are this app's shapes. A switcher and a nav column are layout
+ * trees, so they are hand-composed in `default.tsx`, and the library has no reason to name the
+ * data behind an arrangement it does not ship. That belongs to whoever holds it, which is here.
  */
 export interface Instance {
   id: string;

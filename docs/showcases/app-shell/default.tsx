@@ -205,10 +205,9 @@ function initials(name: string) {
  * fixed rail, never spanning it. `ShellMain` owns the page's single `<main>`; everything nested
  * under it is a `<section>`.
  *
- * Every arrangement the library used to ship as a component — the workspace switcher, the nav
- * column, the user footer, the breadcrumb trail, the empty state, the "coming soon" gate — is
- * written out here from parts. That is the point of the file: the library ships a vocabulary, and
- * an arrangement is a showcase.
+ * Every arrangement here is written out from parts — the workspace switcher, the nav column, the
+ * user footer, the breadcrumb trail, the empty state, the "coming soon" gate. That is the point
+ * of the file: the library ships a vocabulary, and an arrangement is a showcase.
  */
 export function AppShellShowcase() {
   return (

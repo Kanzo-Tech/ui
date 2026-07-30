@@ -70,8 +70,9 @@ to the text they replace so the tile does not jump when the number arrives.
 
 <ComponentPreview componentName="card" fileName="example-metric-loading" />
 
-**A linked tile is one tab stop, not four.** With `href` the whole card becomes a single link
-target, which is what a tile should be; without it the card is inert. Route it through your own
-router with `linkComponent` — see [Link](/docs/navigation/link).
+**A linked tile is one tab stop, not four.** `Card` takes `asChild`, so the anchor *is* the
+card: one link target wrapping the whole tile, which is what a tile should be. That is also the
+router seam — put your framework's link in there instead of an `<a>`. See
+[Link](/docs/navigation/link#a-router-link).
 
 <ComponentPreview componentName="card" fileName="example-metric-link" />
