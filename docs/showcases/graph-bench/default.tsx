@@ -17,7 +17,7 @@ import {
   TableRow,
 } from "@kanzo-tech/ui";
 import { categoricalCapacity, categoricalColor } from "@kanzo-tech/ui/analytics";
-import { resolveToken, toHex, type Rgba } from "@/lib/css-color";
+import { resolveToken, toHex, type Rgba } from "@kanzo-tech/graph";
 import type { Generated } from "./generate";
 import { generate, measure, nextFrame, SIZES, SPACE, type Sample, type Shape } from "./measure";
 import { measureStack, STACK_SIZES, type StackSample } from "./measure-stack";

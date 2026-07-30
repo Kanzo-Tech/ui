@@ -3,8 +3,13 @@
 import { Graph } from "@cosmos.gl/graph";
 import { loadCSV, type Coordinator } from "@kanzo-tech/ui/analytics";
 import { boot } from "../workspace/duck";
-import { LOOKS } from "../workspace/graph-looks";
-import { buffers, load, type GraphSpec, type Loaded } from "../workspace/graph-model";
+import {
+  buffers,
+  type GraphSpec,
+  load,
+  type Loaded,
+  LOOKS,
+} from "@kanzo-tech/graph";
 import { generate } from "./measure";
 import { nextFrame, visible } from "./measure";
 import type { Shape } from "./measure";

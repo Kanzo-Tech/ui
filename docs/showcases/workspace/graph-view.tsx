@@ -104,8 +104,11 @@ import {
   useGraphView,
   type Motion,
 } from "./graph-state";
-import { LOOKS, LOOK_ORDER } from "./graph-looks";
-import { scaleOf } from "./graph-model";
+import {
+  LOOK_ORDER,
+  LOOKS,
+  scaleOf,
+} from "@kanzo-tech/graph";
 import type { NodeKind } from "./graph-data";
 import { ShapeGlyph } from "./graph-canvas";
 import { Finding } from "./graph-finding";

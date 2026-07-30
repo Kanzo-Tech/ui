@@ -1,32 +1,7 @@
-"use client";
-
-import { MosaicClient, type Coordinator, type Query } from "@kanzo-tech/ui/analytics";
-
-/**
- * One unfiltered read of a relation, as a throwaway client.
- *
- * A client rather than a bare `coordinator.query()`, which is the rule `useChartQuery` states: a
- * widget that queries outside the client protocol drifts out of the crossfilter. Sometimes the drift
- * is exactly what you want — a fixed topology to draw, the ids failing a shape — and then the client
- * disconnects as soon as it has answered.
- */
-export function onceQuery(coordinator: Coordinator, build: () => Query): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const client = new (class extends MosaicClient {
-      override query() {
-        return build();
-      }
-      override queryResult(data: unknown): this {
-        resolve(data);
-        queueMicrotask(() => coordinator.disconnect(this));
-        return this;
-      }
-      override queryError(error: Error): this {
-        reject(error);
-        queueMicrotask(() => coordinator.disconnect(this));
-        return this;
-      }
-    })();
-    coordinator.connect(client);
-  });
-}
+// Moved into @kanzo-tech/graph, which needed it to load a relation without joining the crossfilter.
+//
+// It is arguably not a graph concern at all — "one unfiltered read as a throwaway `MosaicClient`"
+// is the same shape of helper `arrow.ts` turned out to be, and that one ended up in
+// `@kanzo-tech/ui/analytics`. Left here as a re-export rather than promoted twice in one change:
+// three call sites clear the admission rules, so this is a candidate, not a conclusion.
+export { onceQuery } from "@kanzo-tech/graph";

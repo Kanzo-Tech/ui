@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { Graph } from "@cosmos.gl/graph";
-import { useChartCapacity, useMosaic } from "@kanzo-tech/ui/analytics";
+import { IdSetClient, useChartCapacity, useMosaic } from "@kanzo-tech/ui/analytics";
 import {
   Badge,
   Button,
@@ -27,19 +27,23 @@ import {
   SquareDashedIcon,
   XIcon,
 } from "lucide-react";
-import { CosmosClient } from "@/lib/cosmos-client";
-import { LOOKS, SHAPE_PATH, type ShapeId } from "./graph-looks";
 import {
+  cursorChip,
+  GRID,
   load,
-  neighboursOf,
-  scaleOf,
   type Loaded,
+  LOOKS,
+  neighboursOf,
   type NodeRow,
-} from "./graph-model";
-import { REHEAT, useCosmosGraph } from "./use-cosmos-graph";
-import { useGraphLook } from "./use-graph-look";
-import { GRID, useGraphOverlays } from "./use-graph-overlays";
-import { cursorChip, useGraphSelection } from "./use-graph-selection";
+  REHEAT,
+  scaleOf,
+  SHAPE_PATH,
+  type ShapeId,
+  useCosmosGraph,
+  useGraphLook,
+  useGraphOverlays,
+  useGraphSelection,
+} from "@kanzo-tech/graph";
 import {
   KINDS,
   useGraphView,
@@ -91,7 +95,7 @@ const SELECTION_WASH = "var(--selection)";
  * Nothing here queries on a gesture. The relation is read once into the four typed arrays the GPU
  * wants; after that a zoom, a drag, a look or a force slider is `setConfig` and a buffer upload.
  * Only two things cross back into SQL — the lasso and a click, both as `id IN (…)` — and both go
- * through `CosmosClient`, which is a `MosaicClient` and therefore indistinguishable to the
+ * through `IdSetClient`, which is a `MosaicClient` and therefore indistinguishable to the
  * crossfilter from a brushed histogram.
  */
 
@@ -178,7 +182,7 @@ function CanvasBody() {
     track,
   } = useGraphOverlays(graphAccess);
   const graphRef = useRef<Graph | null>(null);
-  const clientRef = useRef<CosmosClient | null>(null);
+  const clientRef = useRef<IdSetClient | null>(null);
   const dataRef = useRef<Loaded | null>(null);
 
   const [data, setData] = useState<Loaded | null>(null);
@@ -300,7 +304,7 @@ function CanvasBody() {
   // The crossfilter's observable half: whatever survives the page's filters stays lit.
   useEffect(() => {
     if (!data) return;
-    const client = new CosmosClient({
+    const client = new IdSetClient({
       table: spec.table,
       idField: spec.idField,
       filterBy: crossfilter,

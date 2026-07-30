@@ -14,8 +14,18 @@ import { loadCSV } from "@uwdata/mosaic-sql";
 import { Coordinator, MosaicProvider, type ChartConfig } from "@kanzo-tech/ui/analytics";
 import { buildDiscoveryGraph, edgesCsv, nodesCsv } from "./graph-data";
 import { ensure } from "./duck";
-import type { LookId } from "./graph-looks";
-import type { GraphSpec } from "./graph-model";
+import {
+  DEFAULT_DISPLAY,
+  DEFAULT_SIM,
+  type Display,
+  type GraphCommands,
+  type GraphSpec,
+  type LookId,
+  type Motion,
+  type Selection,
+  type Sim,
+  type Tool,
+} from "@kanzo-tech/graph";
 
 /**
  * Discovery, as a query — with the picture on the GPU.
@@ -105,98 +115,23 @@ function loadGraph(): Promise<Coordinator> {
 
 // ── What the panels own ──────────────────────────────────────────────────────
 
-/** Drawing options. None of these changes a number on screen, only how it is drawn. */
-export interface Display {
-  links: boolean;
-  labels: boolean;
-  /** The dot grid behind the graph. It pans and subdivides with the camera. */
-  grid: boolean;
-  /** Multiplies every radius the look computed. */
-  pointScale: number;
-  /** Multiplies the look's link opacity. */
-  linkOpacity: number;
-}
-
-/** Force coefficients, handed straight to the GPU simulation. */
-export interface Sim {
-  gravity: number;
-  repulsion: number;
-  linkSpring: number;
-  linkDistance: number;
-  friction: number;
-  /** Pull toward the node's group position on the cluster ring. Zero lets the links decide alone. */
-  cluster: number;
-}
-
-export const DEFAULT_DISPLAY: Display = {
-  links: true,
-  labels: true,
-  grid: true,
-  pointScale: 1,
-  linkOpacity: 1,
-};
-
-export const DEFAULT_SIM: Sim = {
-  gravity: 0.14,
-  repulsion: 1.1,
-  linkSpring: 0.6,
-  linkDistance: 18,
-  friction: 0.86,
-  cluster: 0.1,
-};
-
 /**
- * The selection tools, and the gesture that reaches them without a mode.
- *
- * `null` is the reading posture: drag pans, drag on a node pins it. Picking a tool swaps the drag
- * for a selection gesture — and holding Shift borrows the marquee for one drag without picking
- * anything, which is how most selections actually get made.
+ * The renderer's vocabulary now lives in `@kanzo-tech/graph`, because it always belonged to the
+ * renderer: `Sim` is cosmos.gl's force coefficients under our names, and `Selection` is the shape
+ * every panel hands the canvas. Re-exported here so this file stays the one import a panel needs.
  */
-export type Tool = "rect" | "lasso" | null;
+export {
+  DEFAULT_DISPLAY,
+  DEFAULT_SIM,
+  type Display,
+  type GraphCommands,
+  type Motion,
+  type Selection,
+  type SelectionSource,
+  type Sim,
+  type Tool,
+} from "@kanzo-tech/graph";
 
-/** `settled` converged on its own; `paused` is waiting for you. */
-export type Motion = "running" | "settled" | "paused";
-
-/**
- * The selection — one value, owned here, published once.
- *
- * Before this there were four ways to say "look at these nodes": the canvas published through its
- * `MosaicClient`, Rules and Ask each owned a private clause with its own source and its own retract
- * rules, and the inspector only moved the camera. Four mechanisms meant four half-answers to "what
- * is selected right now", and a chip on the canvas that knew about one of them.
- *
- * Now a panel does not touch the crossfilter. It hands a selection here, the canvas publishes
- * whatever is here as a single clause, and the corner shows it. Replacing rather than intersecting
- * is the deliberate half of that: one live selection is legible, and the reader can always see the
- * whole of it in one place.
- *
- * A *search* is not a selection and keeps its own clause — filtering narrows the corpus, selecting
- * points at part of it.
- */
-export type SelectionSource = "marquee" | "lasso" | "node" | "rule" | "ask";
-
-export interface Selection {
-  ids: number[];
-  source: SelectionSource;
-  /** What the corner calls it. */
-  label: string;
-}
-
-/** What the canvas can be told to do. Registered by the canvas, called by the panels. */
-export interface GraphCommands {
-  zoomBy(factor: number): void;
-  fit(): void;
-  pause(): void;
-  resume(): void;
-  restart(): void;
-  /** Let go of every pinned node, so the simulation gets the whole layout back. */
-  unpin(): void;
-  /** Centre and select a node by its database id. */
-  reveal(id: number): void;
-  /** Frame whatever the canvas currently has selected. */
-  frameSelection(): void;
-  clear(): void;
-}
 
 interface GraphViewValue {
   ready: boolean;

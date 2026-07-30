@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
 import type { Graph } from "@cosmos.gl/graph";
 import type { Loaded } from "./graph-model";
-import type { Selection, SelectionSource, Tool } from "./graph-state";
+import type { Selection, SelectionSource, Tool } from "./types";
 
 /**
  * Drawing a selection on the canvas: the marquee, the lasso, and the keys that modify them.

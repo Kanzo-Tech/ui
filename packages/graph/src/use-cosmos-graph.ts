@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { Graph } from "@cosmos.gl/graph";
 import { clusterRing } from "./cluster-ring";
 import { forces, SPACE, type Loaded } from "./graph-model";
-import type { Motion, Sim } from "./graph-state";
+import type { Motion, Sim } from "./types";
 
 /**
  * The renderer's whole life: built once from the options cosmos.gl cannot change later, told what

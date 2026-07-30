@@ -1,12 +1,12 @@
 import { Query } from "@uwdata/mosaic-sql";
 import type { Graph, GraphConfig } from "@cosmos.gl/graph";
 import type { Coordinator } from "@kanzo-tech/ui/analytics";
-import { numbers } from "@/lib/arrow";
-import { onceQuery } from "@/lib/once-query";
+import { numbers } from "@kanzo-tech/ui/analytics";
+import { onceQuery } from "./once-query";
 import { CHART_SLOTS, categoricalCapacity, categoricalColor } from "@kanzo-tech/ui/analytics";
-import { resolveToken, toHex, type Rgba } from "@/lib/css-color";
+import { resolveToken, toHex, type Rgba } from "./css-color";
 import { SHAPE, SHAPE_ORDER, SHAPE_OTHER, type Look, type ShapeId } from "./graph-looks";
-import type { Display, Sim } from "./graph-state";
+import type { Display, Sim } from "./types";
 
 /**
  * What the canvas needs to know about a relation, and nothing more.
