@@ -1,0 +1,79 @@
+---
+title: useChartCapacity
+description: How many categorical slots the live palette can actually keep apart, read off the cascade and re-read when the theme moves.
+---
+
+<ComponentPreview componentName="use-chart-capacity" />
+
+Ten series against a scheme with eight slots. The colours past `capacity` are already right without
+this hook — `compile()` writes `var(--muted-foreground)` into them — but the **count** is not, and
+the count is what a legend, a tail-folding rule or a "+N more" row is built on.
+
+## Usage
+
+```tsx
+import { useChartCapacity } from "@kanzo-tech/ui/analytics";
+```
+
+```tsx
+const host = useRef<HTMLDivElement>(null);
+const capacity = useChartCapacity(host);
+
+<Swatch color={categoricalColor(i, "var(--muted-foreground)", capacity)} />;
+```
+
+Pass the element the chart lives in. Omit it and the hook reads `document.documentElement`, which is
+right until a scoped palette override sits on an ancestor — and then it is quietly wrong.
+
+## Slots and capacity are two numbers
+
+`CHART_SLOTS` is a compile-time `8`, because a stylesheet cannot declare a variable number of custom
+properties. How many of those slots name a **real** category is the palette document's `capacity`,
+and it is usually lower: measured over 24 brand hues, one every 15° at L 0.62 / C 0.15, capacity came
+back 6–8 (mean 7.50), with 11 of the 24 under 8. A set that carries six distinguishable categories
+says so rather than inventing two more.
+
+The number travels down the cascade as `--chart-capacity`, the one declaration in the sheet that is
+not a colour — a custom property and not a JS constant, because the cascade is the only channel a
+scoped palette override travels down, and it is the same channel `--chart-*` itself arrives on. A
+stylesheet that declares nothing falls back to `CHART_SLOTS`.
+
+<Callout type="info">
+Past capacity, fold into **Other** — never cycle. A ninth series wearing slot 1 claims to be the
+first one, and identity stops meaning anything. `categoricalColor(i, other, capacity)` already
+returns the muted token past the boundary; `capacity` is how you get the label right too.
+</Callout>
+
+## Why it is a hook
+
+Reading a custom property requires a DOM, and the server has none. So the hook returns `CHART_SLOTS`
+on the first render — server and client agree — then the measured value after mount, and re-measures
+on every [theme tick](/docs/hooks/use-theme-tick), because a palette swap changes the answer without
+changing a prop.
+
+For the one-shot, non-reactive read — inside an effect that already has the element — reach for
+`categoricalCapacity(host)` directly.
+
+## API Reference
+
+```ts
+function useChartCapacity(host?: RefObject<Element | null>): number;
+```
+
+| Parameter | Type | Default |
+| --- | --- | --- |
+| `host` | `RefObject<Element \| null>` | `document.documentElement` |
+
+### Returns
+
+`number` — how many slots name a real category: `--chart-capacity` from the live cascade, clamped to
+`CHART_SLOTS`. `CHART_SLOTS` on the first render, and whenever the property is absent or unparseable.
+
+### Related
+
+| Export | What it is |
+| --- | --- |
+| `CHART_SLOTS` | `8` — how many `--chart-*` properties the stylesheet declares |
+| `CHART_CAPACITY_PROPERTY` | `"--chart-capacity"` — the property this hook reads |
+| `categoricalCapacity(host)` | the same read, once, without the subscription |
+| `categoricalColor(i, other?, capacity?)` | the slot token for series `i`, or `other` past `capacity` |

@@ -1,0 +1,93 @@
+---
+title: useTourContext
+description: Reach the tour instance and its start handler from any control inside a Tour.
+---
+
+<ComponentPreview componentName="use-tour-context" />
+
+## Usage
+
+```tsx
+import { useTourContext } from "@kanzo-tech/ui";
+```
+
+```tsx
+const { tour, handleStart } = useTourContext();
+```
+
+Two things, and the split is the point. `handleStart` is **ours** — it is what `TourTrigger`
+calls, and it does the bookkeeping the trigger would otherwise have to repeat. `tour` is the raw
+Ark instance the `Tour` component created, so anything Ark's tour API can do is reachable without
+lifting a second `useTour()` into your own tree.
+
+It throws outside a `<Tour>`. Every tour part uses it — `TourTitle` and `TourDescription` read
+`tour.step` through it, and `TourActions` reads `tour.step.actions`.
+
+<Callout type="info">
+This is not Ark's hook of the same name. Ours is `@kanzo-tech/ui`'s own context, holding the
+instance **and** the start handler; see [Tour](/docs/overlays/tour) for the components.
+</Callout>
+
+## Starting from somewhere else
+
+`TourTrigger` covers the common case — a button that begins the tour. Reach for the hook when the
+control cannot be a trigger: a menu item, a keyboard shortcut, an effect that opens onboarding the
+first time someone lands on a page.
+
+```tsx
+const { handleStart } = useTourContext();
+
+<MenuItem onSelect={handleStart} value="tour">
+  Take the tour
+</MenuItem>;
+```
+
+## Reading the instance
+
+`tour` is Ark's tour API, so `open`, `step`, `stepIndex`, `totalSteps`, `hasNextStep` and
+`getProgressText()` are all live — enough to draw a progress readout, disable a control, or
+resume at a specific step rather than the first.
+
+<ComponentPreview componentName="use-tour-context" fileName="example-resume" />
+
+<Callout type="warn">
+While a tour is open its backdrop covers the page, so controls **outside** the tour content are
+not clickable. Navigation mid-tour belongs in each step's `actions` (rendered by `TourActions`);
+the hook is for what happens before it starts and after it ends.
+</Callout>
+
+## API Reference
+
+### useTourContext
+
+```ts
+function useTourContext(): { tour: UseTourReturn; handleStart: () => void };
+```
+
+Takes no arguments. Throws `useTour must be used within a TourProvider` when there is no `<Tour>`
+above it.
+
+#### Returns
+
+| Field | Type | What it is |
+| --- | --- | --- |
+| `tour` | `UseTourReturn` | Ark's tour instance, created once by `<Tour>` |
+| `handleStart` | `() => void` | Starts the tour at the first step — what `TourTrigger` calls |
+
+#### The `tour` instance
+
+The fields a control usually wants. The full surface is Ark's `UseTourReturn`.
+
+| Field | Type | What it is |
+| --- | --- | --- |
+| `open` | `boolean` | Whether the tour is showing |
+| `step` | `StepDetails \| null` | The current step |
+| `stepIndex` | `number` | Zero-based index of the current step |
+| `totalSteps` | `number` | How many steps there are |
+| `hasNextStep` / `hasPrevStep` | `boolean` | Whether navigation in that direction is possible |
+| `firstStep` / `lastStep` | `boolean` | Whether the current step is at either end |
+| `start` | `(id?: string) => void` | Starts at a given step, or the first |
+| `next` / `prev` | `() => void` | Moves one step |
+| `setStep` | `(id: string) => void` | Jumps to a step by id |
+| `getProgressText` | `() => string` | The localised "Step 2 of 3" string |
+| `getProgressPercent` | `() => number` | The same as a percentage |

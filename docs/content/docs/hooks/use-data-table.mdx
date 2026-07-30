@@ -1,0 +1,116 @@
+---
+title: useDataTable
+description: The engine behind DataTable — every TanStack row model wired, the state slices held for you, the instance handed back.
+---
+
+<ComponentPreview componentName="use-data-table" />
+
+## Usage
+
+`useDataTable` lives on the `@kanzo-tech/ui/table` subpath, never the root barrel, so
+`import { Button } from "@kanzo-tech/ui"` never pulls TanStack into the bundle.
+`@tanstack/react-table` is an **optional peer**, installed only by the apps that render a table.
+
+```bash
+pnpm add @tanstack/react-table
+```
+
+```tsx
+import { type ColumnDef, useDataTable } from "@kanzo-tech/ui/table";
+```
+
+```tsx
+const table = useDataTable({ columns, data, pageSize: 10 });
+```
+
+It returns a TanStack `Table<TData>` and nothing else — no wrapper, no subset. Hand it to
+[`DataTableRoot`](/docs/data-display/data-table#the-parts) and the parts read it off context, or use
+it directly and render the rows yourself.
+
+## What it wires
+
+`useReactTable` with the six row models a real table needs — core, filtered, sorted, paginated,
+faceted, faceted-unique — and six state slices held in `useState`: sorting, column filters, column
+visibility, row selection, global filter, pagination.
+
+That is the entire value of the hook. Reaching for `useReactTable` directly means wiring the same
+six models and remembering which of them the facet filters need; the
+[preset](/docs/data-display/data-table) is this hook plus chrome, so moving from `DataTable` to the
+parts changes nothing about the engine.
+
+<Callout type="warn">
+**The slices are state, never derived during render**, and that is load-bearing rather than
+stylistic. Handing TanStack a fresh `columnFilters` array on each render makes the filtered row
+model look permanently stale; recomputing it trips `autoReset*`, which resets the page index →
+re-render → new identity → an infinite loop that hard-freezes the tab. React never reports it,
+because the cycle runs through the table's own `onStateChange` rather than a setState during
+render, so there is no "maximum update depth" error to catch.
+</Callout>
+
+## Initial state
+
+Every `initial*` option seeds a slice once and then gets out of the way — the first render is
+sorted, filtered, paged and hidden as you asked, and the user owns every render after it. Which is
+what deep-linking into a table needs.
+
+<ComponentPreview componentName="use-data-table" fileName="example-initial-state" />
+
+They are seeds, not controls: changing an `initial*` value later does nothing. To drive a slice from
+outside, pass TanStack's `state` through instead — it is merged over the hook's own.
+
+## The instance is a TanStack table
+
+Read state with `getState()`, drive it with `setSorting` / `setPageIndex` / `resetColumnFilters`,
+count with the row models. Nothing is hidden behind the hook.
+
+<ComponentPreview componentName="use-data-table" fileName="example-instance" />
+
+Read state **off the instance** rather than through `onXChange`, which hands you a TanStack
+`Updater` — a value *or* a function — and leaves you to resolve it against the previous state
+yourself.
+
+## Server-driven tables
+
+Any `TableOptions` key the hook does not name for itself is forwarded untouched, so the manual modes
+work exactly as TanStack documents them. `manualPagination` with a `rowCount` says how many rows
+exist beyond the ones you handed over, and the matching row model steps aside on its own;
+`manualSorting` and `manualFiltering` behave the same way.
+
+<ComponentPreview componentName="use-data-table" fileName="example-server" />
+
+Supplied `onXChange` handlers are called **in addition to** the hook's own state, never instead of
+it — so a table stays interactive while you also fetch on the change.
+
+## API Reference
+
+`useDataTable<TData, TValue>(options: UseDataTableOptions<TData, TValue>): Table<TData>`
+
+| Option | Type | Default |
+| --- | --- | --- |
+| `columns` | `ColumnDef<TData, TValue>[]` | — |
+| `data` | `TData[]` | — |
+| `pageSize` | `number` | `20` |
+| `initialPage` | `number` | `0` |
+| `initialSorting` | `SortingState` | `[]` |
+| `initialColumnFilters` | `ColumnFiltersState` | `[]` |
+| `initialColumnVisibility` | `VisibilityState` | `{}` |
+| `initialRowSelection` | `RowSelectionState` | `{}` |
+| `initialGlobalFilter` | `string` | `""` |
+
+`UseDataTableOptions` extends `Omit<Partial<TableOptions<TData>>, "columns" | "data">`, so
+`manualPagination`, `rowCount`, `getRowId`, `enableRowSelection`, `onSortingChange`, `state` and
+every other TanStack option are accepted and passed through.
+
+### Returns
+
+A TanStack `Table<TData>`. `ColumnDef`, `Row`, `CellContext`, `HeaderContext` and `Table` are
+re-exported from `@kanzo-tech/ui/table`, so a consumer types its columns without a direct TanStack
+import.
+
+### Related
+
+| | |
+| --- | --- |
+| [`useDataTableContext`](/docs/hooks/use-data-table-context) | reads this instance back out inside a `DataTableRoot` |
+| [`DataTable`](/docs/data-display/data-table) | the preset built from this hook plus the chrome |
+| `facetFilterFn` | the column `filterFn` any `DataTableFacetFilter` column must declare |

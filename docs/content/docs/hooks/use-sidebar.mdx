@@ -1,0 +1,83 @@
+---
+title: useSidebar
+description: Read and drive the sidebar's open state from anywhere below SidebarProvider.
+---
+
+<ComponentPreview componentName="use-sidebar" fullBleed />
+
+## Usage
+
+```tsx
+import { useSidebar } from "@kanzo-tech/ui";
+```
+
+```tsx
+const { open, isMobile, toggleSidebar } = useSidebar();
+```
+
+`SidebarProvider` owns the open state, persists it to a `sidebar_state` cookie and binds
+<kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>B</kbd>. This hook is the only way to read that state — every
+sidebar part uses it, and so does anything of yours that needs to react to it. See
+[Sidebar](/docs/navigation/sidebar) for the parts themselves.
+
+<Callout type="warn">
+It throws outside the provider, and it is a hook — so any component calling it is a client
+component. Calling it from a server component is the single most common mistake with this API.
+</Callout>
+
+## Desktop and mobile are two states
+
+There are two open flags, not one. Below the `md` breakpoint the sidebar stops being a rail and
+becomes a `Sheet` drawer, so `open` (the rail) and `openMobile` (the drawer) are tracked
+separately and never merged. `toggleSidebar` picks the right one for you:
+
+```tsx
+const toggleSidebar = () => (isMobile ? setOpenMobile(!openMobile) : setOpen(!open));
+```
+
+Which is why a navigating component closes the drawer explicitly — clicking a link should dismiss
+the sheet, but must not collapse a desktop rail:
+
+```tsx
+const { isMobile, setOpenMobile } = useSidebar();
+
+const closeDrawer = () => {
+  if (isMobile) setOpenMobile(false);
+};
+
+<SidebarMenuButton onClick={closeDrawer}>
+  <span>Connections</span>
+</SidebarMenuButton>;
+```
+
+<Callout type="info">
+`isMobile` tracks the **viewport**, not the container the sidebar sits in — it is a
+`(max-width: 767px)` media query. In the framed preview above it reports the width of your
+browser window, not the width of the frame.
+</Callout>
+
+## API Reference
+
+### useSidebar
+
+```ts
+function useSidebar(): SidebarContextProps;
+```
+
+Takes no arguments. Throws `useSidebar must be used within a SidebarProvider.` when no provider
+is above it.
+
+#### Returns
+
+| Field | Type | What it is |
+| --- | --- | --- |
+| `state` | `"expanded" \| "collapsed"` | `open` as a string — what the parts key their `data-state` off |
+| `open` | `boolean` | The desktop rail's open state |
+| `setOpen` | `(open: boolean) => void` | Sets the rail state and writes the `sidebar_state` cookie |
+| `openMobile` | `boolean` | The mobile `Sheet` drawer's open state |
+| `setOpenMobile` | `(open: boolean) => void` | Sets the drawer state |
+| `isMobile` | `boolean` | Whether the viewport is below the `md` breakpoint (768px) |
+| `toggleSidebar` | `() => void` | Toggles whichever of the two applies right now |
+
+`setOpen` also accepts an updater — `setOpen((value) => !value)` — but the context type declares
+the boolean form, which is the one to write.

@@ -1,0 +1,84 @@
+---
+title: useSelected
+description: Every chart clause on the page, flattened into one plain union — the read model behind a filter-chip row.
+---
+
+<ComponentPreview componentName="use-selected" />
+
+Brush a chart or click a region and a chip appears — including for a plot the chip row knows nothing
+about. Removing a chip retracts the clause through its own source, so the brush it came from clears
+with it.
+
+## Usage
+
+```tsx
+import { useSelected } from "@kanzo-tech/ui/analytics";
+```
+
+```tsx
+const selected = useSelected();
+```
+
+Sugar for `useMosaic().selected`, on the `@kanzo-tech/ui/analytics` subpath, and it **throws**
+outside a [`MosaicProvider`](/docs/data-display/charts#bring-your-own-coordinator).
+
+## A read model
+
+`selected` is a plain `Selection.union()` that every `ChartRoot` relays its own selection into, and
+which is itself relayed onward into the crossfilter. So it holds one flat list of everything the
+page's charts have published — `selected.clauses` — and that is what a chip row, a readout or an
+"n filters" badge wants. A panel can report a filter it did not publish without subscribing to three
+charts it does not own.
+
+Subscribe to the `"value"` event to re-read it — that is the whole pattern:
+
+```tsx
+const [clauses, setClauses] = useState<readonly SelectionClause[]>([]);
+
+useEffect(() => {
+  const sync = () => setClauses([...selected.clauses]);
+  sync();
+  selected.addEventListener("value", sync);
+  return () => selected.removeEventListener("value", sync);
+}, [selected]);
+```
+
+<Callout type="warn">
+**Not a publish target, and not a highlight source.**
+
+`ChartHighlight` does not filter — it appends its predicate to the mark's *own* query as an extra
+output column, and on an aggregating mark that query has a `GROUP BY`. A page-wide selection names
+columns other charts group by, so the moment a second chart filters by a second column the query
+dies with `Binder Error: column "…" must appear in the GROUP BY clause`. vgplot swallows it and
+**the plot keeps its previous render** — no error on screen, just a chart frozen one state behind.
+
+Publish into the per-chart selection `ChartRoot` mints for you (the default), or one of your own.
+[The long version](/docs/data-display/charts#feedback-on-the-chart-that-filters).
+</Callout>
+
+## Withdrawing a clause
+
+Removing an interactor does not withdraw what it published: the plot is rebuilt, the clause stays,
+and the page is filtered by a control no longer on screen. `selected.reset()` is the withdrawal —
+and it is `selected`, not `crossfilter`, because this is the selection the chart's clause landed in.
+Resetting the crossfilter would clear the downstream copy and leave the upstream original in place.
+
+<ComponentPreview componentName="use-selected" fileName="example-swap" />
+
+For a whole page rather than one chart, use `useMosaic().reset()`: a reset here never reaches the
+per-chart selections upstream of it.
+
+## API Reference
+
+`useSelected(): Selection`
+
+A `Selection.union()`, relayed into by every `ChartRoot` on the page and relayed onward into the
+crossfilter.
+
+| Member | Type | Notes |
+| --- | --- | --- |
+| `clauses` | `SelectionClause[]` | the flat read model — fields, value, source |
+| `addEventListener("value", fn)` | `(type, fn) => void` | fires on every published clause |
+| `reset()` | `() => this` | withdraws the clauses in it, downstream and through each source |
+
+Throws `useMosaic must be used within a <MosaicProvider>.` when there is no provider above it.

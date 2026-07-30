@@ -1,0 +1,66 @@
+---
+title: useIsMobile
+description: A boolean that tracks whether the viewport is below the md breakpoint.
+---
+
+<ComponentPreview componentName="use-is-mobile" />
+
+## Usage
+
+```tsx
+const isMobile = useIsMobile();
+```
+
+One media query — `(max-width: 767px)` — kept in React state and updated on change. It is what
+decides whether the sidebar is a rail or a `Sheet` drawer, and it is the only viewport hook in
+the library.
+
+<Callout type="warn">
+`useIsMobile` is **not on the public barrel** today: it is declared in
+`packages/ui/src/simples/use-is-mobile.tsx` and consumed internally by `SidebarProvider`.
+The value it computes is public through [`useSidebar`](/docs/hooks/use-sidebar), which is what
+the example above reads:
+
+```tsx
+const { isMobile } = useSidebar();
+```
+</Callout>
+
+## It is false on the first render
+
+The state starts `undefined` and the media query is read in an effect, so the hook returns `false`
+on the server **and** on the first client render, then flips to the real value after mount. That
+is deliberate — it is what keeps the markup identical on both sides — but it means the mobile
+branch always renders second:
+
+- Nothing that must not flash may be gated on it alone. Wrap in
+  [`ClientOnly`](/docs/layout/client-only) when the swap would be visible.
+- Layout that can be expressed in CSS should be. A Tailwind `md:` variant costs no render and
+  never flashes; the hook is for when the two branches are *different components*, not different
+  widths.
+
+## It measures the viewport
+
+It is a media query, not an element observer. Inside a narrow panel on a wide screen it still
+reports `false` — the frame around the preview above is 450px tall and much narrower than the
+window, and the readout follows the window. For container-relative behaviour use CSS container
+queries.
+
+## API Reference
+
+### useIsMobile
+
+```ts
+function useIsMobile(): boolean;
+```
+
+Takes no arguments.
+
+#### Returns
+
+| Type | What it is |
+| --- | --- |
+| `boolean` | `true` while the viewport is narrower than 768px; `false` otherwise, including before mount |
+
+The breakpoint is a module constant (`MOBILE_BREAKPOINT = 768`) and matches Tailwind's `md`, so a
+`md:` class and this hook always agree. It is not configurable.

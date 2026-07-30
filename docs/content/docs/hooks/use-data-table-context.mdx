@@ -1,0 +1,82 @@
+---
+title: useDataTableContext
+description: The table instance of the enclosing DataTableRoot, typed by your row type — so a part of your own is a component like any other.
+---
+
+<ComponentPreview componentName="use-data-table-context" />
+
+Two parts written for this example: a Reset button in the toolbar, a totals line under the rows.
+Neither takes `table` as a prop, and neither cares where it sits inside the root.
+
+## Usage
+
+```tsx
+import { useDataTableContext } from "@kanzo-tech/ui/table";
+```
+
+```tsx
+function ResetFilters() {
+  const table = useDataTableContext<Dataset>();
+
+  return (
+    <Button onClick={() => table.resetColumnFilters()} size="sm" variant="ghost">
+      Reset
+    </Button>
+  );
+}
+```
+
+It reads the instance [`DataTableRoot`](/docs/data-display/data-table#the-parts) provides — the same
+one [`useDataTable`](/docs/hooks/use-data-table) returned and every built-in part reads — and
+**throws** outside a root. Lives on the `@kanzo-tech/ui/table` subpath, where TanStack is an
+optional peer.
+
+## Why a context and not a prop
+
+The parts are composed as `children`, so threading `table` down would mean every wrapper in between
+accepting and forwarding it — a toolbar that groups two of your controls, a card that frames the
+table, a fragment that renders conditionally. The context is what lets a part be dropped anywhere
+inside the root and still be talking about the same table.
+
+## The type argument
+
+React contexts cannot be generic, so `DataTableRoot` erases the row type on the way in and this hook
+restores it. Both casts live in the library; no consumer sees the `unknown`.
+
+<ComponentPreview componentName="use-data-table-context" fileName="example-typed" />
+
+Nothing validates the argument — it is an assertion, so name the type the enclosing root was built
+with. Left out it defaults to `unknown`, which is honest but makes `row.original` unusable.
+
+<Callout type="warn">
+**The context value is not memoised, and that is deliberate.**
+
+TanStack keeps a single mutable table instance, so `{ table }` never changes identity on its own.
+Wrapping it in `useMemo` — the reflex an optimisation pass reaches for — freezes any part passed
+down as `children`, whose element reference React reuses, on the state it first rendered with.
+Nothing throws; the table just stops reacting to filters and paging.
+
+`DataTableRoot` therefore allocates a fresh context object on every render. Leave it alone.
+</Callout>
+
+## API Reference
+
+`useDataTableContext<TData = unknown>(): Table<TData>`
+
+| | |
+| --- | --- |
+| Returns | the TanStack `Table<TData>` of the enclosing `DataTableRoot` |
+| Type argument | the row type; an assertion, not a check |
+| Outside a root | throws `useDataTableContext must be used inside <DataTableRoot>` |
+
+The instance is the ordinary TanStack one, so the whole API is available:
+
+| Read | Drive |
+| --- | --- |
+| `getState()` | `setSorting`, `setPageIndex`, `setGlobalFilter` |
+| `getFilteredRowModel().rows` | `resetColumnFilters`, `resetSorting` |
+| `getFilteredSelectedRowModel().rows` | `resetRowSelection`, `toggleAllRowsSelected` |
+| `getAllColumns()` | `getColumn(id)?.setFilterValue(…)` |
+
+Count a selection with `getFilteredSelectedRowModel()`, not `getSelectedRowModel()`: only the first
+excludes rows the current filters have hidden, which is what a bulk action should operate on.

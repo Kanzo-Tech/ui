@@ -1,0 +1,27 @@
+{
+  "title": "Hooks",
+  "pages": [
+    "index",
+    "---Theme---",
+    "use-kanzo-theme",
+    "use-is-mobile",
+    "---Layout---",
+    "use-sidebar",
+    "use-tour-context",
+    "---Charts & data---",
+    "use-chart",
+    "use-chart-optional",
+    "use-chart-capacity",
+    "use-chart-query",
+    "use-theme-tick",
+    "use-mosaic",
+    "use-crossfilter",
+    "use-selected",
+    "use-data-table",
+    "use-data-table-context",
+    "---AI---",
+    "use-ai-stream",
+    "use-completion",
+    "use-suggestions"
+  ]
+}
