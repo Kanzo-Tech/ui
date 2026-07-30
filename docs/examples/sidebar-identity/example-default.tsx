@@ -12,10 +12,9 @@ import {
 } from "@kanzo-tech/ui";
 
 /**
- * Shown as specimens in the standard framed preview — this is the shared sub-part
- * `SidebarUser` and `InstanceSwitcher` are built from, not a shell, so it is presented like a
- * simple. The point of the page is the two SHAPES it takes: a round avatar for a person, a
- * square tile for a workspace.
+ * Two specimens rather than a shell, because the point is the two SHAPES this row takes: a round
+ * avatar reads as a person, a square tile reads as a thing. Put a `Menu` around either and you
+ * have the sidebar's footer or its header switcher.
  */
 export default function Example() {
   return (

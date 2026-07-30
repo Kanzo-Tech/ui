@@ -3,11 +3,26 @@
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import {
-	Breadcrumbs,
+	AvatarFallback,
+	Breadcrumb,
+	BreadcrumbItem,
+	BreadcrumbLink,
+	BreadcrumbList,
+	BreadcrumbPage,
+	BreadcrumbSeparator,
 	Button,
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
 	DialogTrigger,
-	InstanceSwitcher,
+	isActivePath,
 	Kbd,
+	Menu,
+	MenuContent,
+	MenuGroup,
+	MenuItem,
+	MenuSeparator,
+	MenuTrigger,
 	PreferencesPanel,
 	PreferencesRoot,
 	Resizable,
@@ -21,22 +36,38 @@ import {
 	Sidebar,
 	SidebarContent,
 	SidebarFooter,
+	SidebarGroup,
+	SidebarGroupLabel,
 	SidebarHeader,
+	SidebarIdentity,
+	SidebarIdentityAvatar,
+	SidebarIdentityDescription,
+	SidebarIdentityIcon,
+	SidebarIdentityLabel,
+	SidebarIdentityText,
 	SidebarInset,
-	SidebarNav,
+	SidebarMenu,
+	SidebarMenuButton,
+	SidebarMenuItem,
+	SidebarMenuSub,
+	SidebarMenuSubButton,
+	SidebarMenuSubItem,
 	SidebarProvider,
 	SidebarRail,
 	SidebarTrigger,
-	SidebarUser,
 	Show,
 	Skeleton,
 	Toaster,
 	toast,
 	ToggleGroup,
 	ToggleGroupItem,
+	useSidebar,
 } from "@kanzo-tech/ui";
 import {
 	BarChart3Icon,
+	CheckIcon,
+	ChevronRightIcon,
+	ChevronsUpDownIcon,
 	InfoIcon,
 	LogOutIcon,
 	MessageCircleIcon,
@@ -48,8 +79,11 @@ import {
 	XIcon,
 } from "lucide-react";
 import {
+	ACTIVE_PATH,
 	INSTANCES,
+	type Instance,
 	NAV,
+	type SidebarNavItem,
 	USER,
 } from "./data";
 import {
@@ -93,6 +127,11 @@ import {
  * What the showcase is demonstrating there is the reach of the vocabulary rather than a graph
  * widget: the library ships no renderer, and the canvas joins the crossfilter by declaring a query
  * and publishing a clause — the same contract a brushed histogram honours.
+ *
+ * The rail is the same argument in miniature. There is no `InstanceSwitcher`, `SidebarNav` or
+ * `SidebarUser` to import: those were three arrangements of `Menu*`, `SidebarMenu*` and
+ * `SidebarIdentity*`, and an arrangement is what an app decides. They are written out below, and
+ * the reading of them is the documentation.
  */
 
 /**
@@ -165,6 +204,278 @@ function AnalysisRegion() {
 	);
 }
 
+/* ── The sidebar's three blocks, hand-composed ────────────────────────────────────────────────
+ * The library ships the vocabulary — `SidebarIdentity*`, `SidebarMenu*`, `Menu*` — and no
+ * pre-arrangement of it. A workspace switcher, a nav column and a user footer are three
+ * arrangements of the same four parts, and the arrangement is what an app decides. So they are
+ * written out here, where you can read them, rather than imported as a prop-driven wrapper. */
+
+/** First letter of the first two words. The one thing an avatar fallback needs and the DS won't guess. */
+function initials(name: string) {
+	return name
+		.split(/\s+/)
+		.map((part) => part[0])
+		.filter(Boolean)
+		.slice(0, 2)
+		.join("")
+		.toUpperCase();
+}
+
+/** One workspace as an identity block. Rendered in the trigger (collapse-aware) and in each menu row. */
+function WorkspaceIdentity({
+	collapsed = false,
+	instance,
+	responsive = false,
+}: {
+	collapsed?: boolean;
+	instance: Instance;
+	responsive?: boolean;
+}) {
+	return (
+		<SidebarIdentity collapsed={collapsed} responsive={responsive}>
+			<SidebarIdentityIcon>{instance.icon}</SidebarIdentityIcon>
+			<SidebarIdentityText>
+				<SidebarIdentityLabel>{instance.label}</SidebarIdentityLabel>
+				<SidebarIdentityDescription>
+					{instance.description}
+				</SidebarIdentityDescription>
+			</SidebarIdentityText>
+		</SidebarIdentity>
+	);
+}
+
+function WorkspaceSwitcher() {
+	const { isMobile, setOpenMobile, state } = useSidebar();
+	const collapsed = state === "collapsed" && !isMobile;
+	const active = INSTANCES[0];
+
+	return (
+		<SidebarMenu>
+			<SidebarMenuItem>
+				{/* Beside the rail on desktop, below the trigger on mobile, 4px gutter. */}
+				<Menu
+					positioning={{
+						gutter: 4,
+						placement: isMobile ? "bottom-start" : "right-start",
+					}}
+				>
+					<MenuTrigger asChild>
+						{/* `aria-label`, not `tooltip`: `MenuTrigger asChild` claims the single button node,
+						    so a tooltip trigger nested in the same button never binds. The label is what
+						    names the row once the rail collapses to icons. */}
+						<SidebarMenuButton
+							aria-label={active.label}
+							className="group-data-[collapsible=icon]:justify-center data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+							size="lg"
+						>
+							<WorkspaceIdentity
+								collapsed={collapsed}
+								instance={active}
+								responsive
+							/>
+							<ChevronsUpDownIcon className="ms-auto group-data-[collapsible=icon]:hidden" />
+						</SidebarMenuButton>
+					</MenuTrigger>
+					{/* `--reference-width` is the trigger's width, published by Ark on the positioner: the
+					    menu reads as anchored to the button instead of floating beside the rail. */}
+					<MenuContent className="w-(--reference-width) min-w-60">
+						{/* `MenuGroup` is what gives the heading an item-group to label. */}
+						<MenuGroup heading="Workspaces">
+							{INSTANCES.map((instance) => (
+								<MenuItem
+									key={instance.id}
+									onClick={() => {
+										setOpenMobile(false);
+										toast.create({ title: "Switch workspace", type: "info" });
+									}}
+									value={instance.id}
+								>
+									<WorkspaceIdentity instance={instance} />
+									<Show when={instance.id === active.id}>
+										<CheckIcon className="ms-auto" />
+									</Show>
+								</MenuItem>
+							))}
+						</MenuGroup>
+					</MenuContent>
+				</Menu>
+			</SidebarMenuItem>
+		</SidebarMenu>
+	);
+}
+
+function MemberMenu() {
+	const { isMobile, setOpenMobile, state } = useSidebar();
+	const collapsed = state === "collapsed" && !isMobile;
+
+	// One description of the member, rendered twice with different collapse behaviour — in the
+	// trigger, where it follows the rail, and as the menu's header, where it must not. So it is a
+	// local element factory rather than a shared node.
+	const identity = (responsive: boolean) => (
+		<SidebarIdentity collapsed={responsive && collapsed} responsive={responsive}>
+			<SidebarIdentityAvatar>
+				<AvatarFallback>{initials(USER.name)}</AvatarFallback>
+			</SidebarIdentityAvatar>
+			<SidebarIdentityText>
+				<SidebarIdentityLabel>{USER.name}</SidebarIdentityLabel>
+				<SidebarIdentityDescription>{USER.email}</SidebarIdentityDescription>
+			</SidebarIdentityText>
+		</SidebarIdentity>
+	);
+
+	const announce = (title: string) => () => {
+		setOpenMobile(false);
+		toast.create({ title, type: "info" });
+	};
+
+	return (
+		<SidebarMenu>
+			<SidebarMenuItem>
+				<Menu
+					positioning={{
+						gutter: 4,
+						placement: isMobile ? "bottom-end" : "right-end",
+					}}
+				>
+					<MenuTrigger asChild>
+						{/* Collapsed, the button is a 32px square the avatar fills edge to edge, so round the
+						    button too — otherwise its clip squares off a circular avatar. */}
+						<SidebarMenuButton
+							aria-label={USER.name}
+							className="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-full data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+							size="lg"
+						>
+							{identity(true)}
+							<ChevronsUpDownIcon className="ms-auto group-data-[collapsible=icon]:hidden" />
+						</SidebarMenuButton>
+					</MenuTrigger>
+					<MenuContent className="w-(--reference-width) min-w-56">
+						<div className="px-2 py-1.5">{identity(false)}</div>
+						<MenuSeparator />
+						<MenuItem onClick={announce("Profile")} value="profile">
+							<UserIcon />
+							Profile
+						</MenuItem>
+						<MenuItem onClick={announce("Settings")} value="settings">
+							<SettingsIcon />
+							Settings
+						</MenuItem>
+						<MenuSeparator />
+						{/* Log out is an item with a variant, not a prop on a component: the confirmation
+						    and the wording belong to the product. */}
+						<MenuItem
+							onClick={announce("Logged out")}
+							value="logout"
+							variant="destructive"
+						>
+							<LogOutIcon />
+							Log out
+						</MenuItem>
+					</MenuContent>
+				</Menu>
+			</SidebarMenuItem>
+		</SidebarMenu>
+	);
+}
+
+/** A nav leaf. `asChild` on the button is the router seam — a plain `<a>` here, `next/link` in an app. */
+function NavLeaf({
+	item,
+	onNavigate,
+}: {
+	item: SidebarNavItem;
+	onNavigate: () => void;
+}) {
+	return (
+		<SidebarMenuItem>
+			<SidebarMenuButton
+				asChild
+				isActive={isActivePath(ACTIVE_PATH, item.href)}
+				tooltip={item.title}
+			>
+				<a href={item.href} onClick={onNavigate}>
+					{item.icon}
+					<span className="truncate">{item.title}</span>
+				</a>
+			</SidebarMenuButton>
+		</SidebarMenuItem>
+	);
+}
+
+function NavGroup({
+	item,
+	onNavigate,
+}: {
+	item: SidebarNavItem;
+	onNavigate: () => void;
+}) {
+	const items = item.items ?? [];
+	// App policy, not library behaviour: a group opens itself when the live route is one of its
+	// descendants, because a closed group hides the one row that is lit.
+	const defaultOpen = items.some((sub) => isActivePath(ACTIVE_PATH, sub.href));
+
+	return (
+		<SidebarMenuItem>
+			<Collapsible defaultOpen={defaultOpen}>
+				<CollapsibleTrigger asChild>
+					<SidebarMenuButton
+						className="[&[data-state=open]>svg:last-child]:rotate-90"
+						tooltip={item.title}
+					>
+						{item.icon}
+						<span className="truncate">{item.title}</span>
+						<ChevronRightIcon className="ms-auto shrink-0 transition-transform duration-200 motion-reduce:transition-none!" />
+					</SidebarMenuButton>
+				</CollapsibleTrigger>
+				<CollapsibleContent>
+					<SidebarMenuSub>
+						{items.map((sub) => (
+							<SidebarMenuSubItem key={sub.title}>
+								<SidebarMenuSubButton
+									asChild
+									isActive={isActivePath(ACTIVE_PATH, sub.href)}
+								>
+									<a href={sub.href} onClick={onNavigate}>
+										<span className="truncate">{sub.title}</span>
+									</a>
+								</SidebarMenuSubButton>
+							</SidebarMenuSubItem>
+						))}
+					</SidebarMenuSub>
+				</CollapsibleContent>
+			</Collapsible>
+		</SidebarMenuItem>
+	);
+}
+
+/** The navigation column. `<nav>` is ours to write: `SidebarGroup` is a `div`, and a titled group
+ *  that names its own landmark is the only reason there is a heading at all. */
+function PlatformNav() {
+	const { setOpenMobile } = useSidebar();
+	// Below `md` the sidebar is a sheet over the content, so navigating has to dismiss it. Above it,
+	// `setOpenMobile` is inert. Per-app policy again — a library nav could only guess.
+	const close = () => setOpenMobile(false);
+
+	return (
+		<nav aria-label="Platform">
+			<SidebarGroup>
+				<SidebarGroupLabel>Platform</SidebarGroupLabel>
+				<SidebarMenu>
+					{NAV.map((item) => (
+						<Show
+							fallback={<NavLeaf item={item} onNavigate={close} />}
+							key={item.title}
+							when={item.items != null}
+						>
+							<NavGroup item={item} onNavigate={close} />
+						</Show>
+					))}
+				</SidebarMenu>
+			</SidebarGroup>
+		</nav>
+	);
+}
+
 function DiscoveryShell() {
 	const [active, setActive] = useState<PanelId>("info");
 	const [panelOpen, setPanelOpen] = useState(true);
@@ -178,46 +489,15 @@ function DiscoveryShell() {
 		<SidebarProvider className="h-dvh min-h-0 overflow-hidden">
 			<Sidebar collapsible="icon">
 				<SidebarHeader>
-					<InstanceSwitcher
-						activeId="dev"
-						instances={INSTANCES}
-						label="Workspaces"
-						onSelect={() =>
-							toast.create({ title: "Switch workspace", type: "info" })
-						}
-					/>
+					<WorkspaceSwitcher />
 				</SidebarHeader>
 
 				<SidebarContent>
-					<SidebarNav items={NAV} label="Platform" />
+					<PlatformNav />
 				</SidebarContent>
 
 				<SidebarFooter>
-					<SidebarUser
-						menuItems={[
-							{
-								label: "Profile",
-								icon: <UserIcon />,
-								onSelect: () =>
-									toast.create({ title: "Profile", type: "info" }),
-							},
-							{
-								label: "Settings",
-								icon: <SettingsIcon />,
-								onSelect: () =>
-									toast.create({ title: "Settings", type: "info" }),
-							},
-							{
-								label: "Log out",
-								icon: <LogOutIcon />,
-								variant: "destructive",
-								separatorBefore: true,
-								onSelect: () =>
-									toast.create({ title: "Logged out", type: "info" }),
-							},
-						]}
-						user={USER}
-					/>
+					<MemberMenu />
 				</SidebarFooter>
 				<SidebarRail />
 			</Sidebar>
@@ -231,22 +511,36 @@ function DiscoveryShell() {
 				    half of why the breadcrumb used to break onto a second line. */}
 				<ShellHeader className="h-12 min-w-0 flex-row items-center gap-2 px-3">
 					<SidebarTrigger />
-					{/* The other half is Shark's `flex-wrap` on the list — deliberate upstream, and
-					    right for a breadcrumb in the page body. A fixed-height header is the case it
-					    is wrong for: a second row has nowhere to go. `className` lands on the list,
-					    so overriding it here is a call-site decision rather than a fork.
-					    `overflow-hidden` plus a truncating leaf is the second half of that: without
-					    it the trail simply refuses to yield (every link is `text-nowrap`) and pushes
-					    the view controls off the right edge instead of wrapping. The trail is what
-					    gives, because it is the part you can still infer from the page. */}
-					<Breadcrumbs
-						className="min-w-0 flex-nowrap overflow-hidden [&_[data-slot=breadcrumb-page]]:truncate"
-						items={[
-							{ label: "Jobs", href: "#/app/jobs" },
-							{ label: "aemet.fossil", href: "#/app/jobs/aemet" },
-							{ label: "Discover" },
-						]}
-					/>
+					{/* `Breadcrumb` already carries `min-w-0`. The other half is Shark's `flex-wrap` on the
+					    LIST — deliberate upstream, and right for a breadcrumb in the page body. A
+					    fixed-height header is the case it is wrong for: a second row has nowhere to go.
+					    `overflow-hidden` plus the truncating leaf is what makes it yield; without them
+					    the trail refuses to shrink (every link is `text-nowrap`) and pushes the view
+					    controls off the right edge. The trail gives, because it is the part you can
+					    still infer from the page. */}
+					<Breadcrumb>
+						<BreadcrumbList className="min-w-0 flex-nowrap overflow-hidden">
+							<BreadcrumbItem>
+								<BreadcrumbLink asChild>
+									<a href="#/app/jobs">Jobs</a>
+								</BreadcrumbLink>
+							</BreadcrumbItem>
+							{/* The separator is a SIBLING of the item, never a child: both render `li`, and
+							    an `li` inside an `li` breaks the row count screen readers announce. */}
+							<BreadcrumbSeparator />
+							<BreadcrumbItem>
+								<BreadcrumbLink asChild>
+									<a href="#/app/jobs/aemet">aemet.fossil</a>
+								</BreadcrumbLink>
+							</BreadcrumbItem>
+							<BreadcrumbSeparator />
+							<BreadcrumbItem className="min-w-0">
+								{/* `BreadcrumbPage` is the one that carries `aria-current="page"`, so the leaf
+								    is a page and not a link — and it is the one allowed to truncate. */}
+								<BreadcrumbPage className="truncate">Discover</BreadcrumbPage>
+							</BreadcrumbItem>
+						</BreadcrumbList>
+					</Breadcrumb>
 					{/* Switching to Analysis closes the dock: a dashboard is judged at full width, and the
 					    inspector has nothing to inspect there. Reopen it from the footer strip. */}
 					<ToggleGroup

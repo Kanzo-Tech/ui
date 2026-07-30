@@ -9,9 +9,35 @@ import {
 	LayersIcon,
 	WorkflowIcon,
 } from "lucide-react";
-import type { Instance, SidebarNavItem } from "@kanzo-tech/ui";
+import type { ReactNode } from "react";
 
 // --- App-shell chrome, matching keasy's real discovery screen (which lives INSIDE the shell). ---
+
+// `Instance` and `SidebarNavItem` used to come from the library. They do not any more: an array of
+// `ReactNode`s is a layout tree written as an attribute, so the arrangement moved to the showcase
+// and the shapes came with it. They describe THIS app's fixtures, nothing wider.
+
+/** A switchable workspace / tenant. */
+export interface Instance {
+	id: string;
+	label: string;
+	description: string;
+	icon: ReactNode;
+}
+
+/** A leaf under a nav group. */
+export interface SidebarNavSubItem {
+	title: string;
+	href: string;
+}
+
+/** A navigation entry: a leaf with an `href`, or a group with `items`. */
+export interface SidebarNavItem {
+	title: string;
+	href?: string;
+	icon: ReactNode;
+	items?: SidebarNavSubItem[];
+}
 
 /** The workspace switcher's tenants. keasy shows a single "Dev Workspace / Member" tile. */
 export const INSTANCES: Instance[] = [
@@ -23,11 +49,25 @@ export const INSTANCES: Instance[] = [
 	},
 ];
 
-/** Platform nav — Dashboard / Connections / Jobs, with Jobs active (discovery opens from a job). */
+/**
+ * The route the shell is on. One string, prefix-matched by the library's `isActivePath`, rather
+ * than an `isActive` flag per row: the flag has to be kept in sync with the router by hand, and
+ * it cannot tell a group that one of its children is the live one.
+ */
+export const ACTIVE_PATH = "#/app/jobs/aemet";
+
+/** Platform nav — discovery opens from a job, so Jobs is a group and the open job is its live leaf. */
 export const NAV: SidebarNavItem[] = [
 	{ title: "Dashboard", href: "#/app", icon: <HouseIcon /> },
 	{ title: "Connections", href: "#/app/connections", icon: <DatabaseIcon /> },
-	{ title: "Jobs", href: "#/app/jobs", icon: <WorkflowIcon />, isActive: true },
+	{
+		title: "Jobs",
+		icon: <WorkflowIcon />,
+		items: [
+			{ title: "aemet.fossil", href: "#/app/jobs/aemet" },
+			{ title: "ine.census", href: "#/app/jobs/ine" },
+		],
+	},
 ];
 
 /** The signed-in member shown in the sidebar footer. */

@@ -1,21 +1,51 @@
 import {
   ActivityIcon,
   BookOpenIcon,
+  BoxesIcon,
+  Building2Icon,
   DatabaseIcon,
   HouseIcon,
   LayersIcon,
   MessageSquareIcon,
   SettingsIcon,
   ShieldCheckIcon,
+  WindIcon,
 } from "lucide-react";
-import type { Instance, SidebarNavItem, StatTileProps } from "@kanzo-tech/ui";
+import type { ReactNode } from "react";
+import type { StatTileProps } from "@kanzo-tech/ui";
 
 /** One fake tenant's worth of data, so the screen reads as a product rather than a catalogue. */
 
+/**
+ * `Instance` and `SidebarNavItem` used to come from the library. The components that consumed them
+ * (`InstanceSwitcher`, `SidebarNav`) are gone — a switcher and a nav column are layout trees, so
+ * they are hand-composed in `default.tsx` — and with them went any reason for the library to name
+ * these shapes. They belong to whoever holds the data, which is this file.
+ */
+export interface Instance {
+  id: string;
+  label: string;
+  description?: string;
+  /** Square tile, not an avatar: the shape that reads as a workspace rather than a person. */
+  icon: ReactNode;
+}
+
+export interface SidebarNavSubItem {
+  title: string;
+  href: string;
+}
+
+export interface SidebarNavItem {
+  title: string;
+  href?: string;
+  icon: ReactNode;
+  items?: SidebarNavSubItem[];
+}
+
 export const INSTANCES: Instance[] = [
-  { id: "kanzo", label: "Kanzo", description: "Owner" },
-  { id: "acme", label: "ACME Data", description: "Member" },
-  { id: "northwind", label: "Northwind", description: "Member" },
+  { id: "kanzo", label: "Kanzo", description: "Owner", icon: <BoxesIcon /> },
+  { id: "acme", label: "ACME Data", description: "Member", icon: <Building2Icon /> },
+  { id: "northwind", label: "Northwind", description: "Member", icon: <WindIcon /> },
 ];
 
 export const USER = {
@@ -23,8 +53,11 @@ export const USER = {
   email: "angel@kanzo.tech",
 };
 
+/** The route this screen pretends to be on. `isActivePath` prefix-matches every `href` against it. */
+export const ACTIVE_PATH = "#/app";
+
 export const NAV: SidebarNavItem[] = [
-  { title: "Overview", href: "#/app", icon: <HouseIcon />, isActive: true },
+  { title: "Overview", href: "#/app", icon: <HouseIcon /> },
   {
     title: "Data",
     icon: <DatabaseIcon />,
@@ -117,17 +150,17 @@ export const RUNS: Run[] = [
 export interface Activity {
   id: string;
   who: string;
-  initials: string;
   action: string;
   target: string;
   when: string;
 }
 
+// No stored initials: `default.tsx` derives them from the name, the way the sidebar footer does.
 export const ACTIVITY: Activity[] = [
-  { id: "a1", who: "Ana Ruiz", initials: "AR", action: "re-ran", target: "sessions-rollup", when: "4 min ago" },
-  { id: "a2", who: "Marc Oliver", initials: "MO", action: "connected", target: "warehouse-eu", when: "1 h ago" },
-  { id: "a3", who: "Lena Fischer", initials: "LF", action: "published", target: "Revenue by region", when: "3 h ago" },
-  { id: "a4", who: "Ángel Iglesias", initials: "ÁI", action: "invited", target: "sam@northwind.io", when: "yesterday" },
+  { id: "a1", who: "Ana Ruiz", action: "re-ran", target: "sessions-rollup", when: "4 min ago" },
+  { id: "a2", who: "Marc Oliver", action: "connected", target: "warehouse-eu", when: "1 h ago" },
+  { id: "a3", who: "Lena Fischer", action: "published", target: "Revenue by region", when: "3 h ago" },
+  { id: "a4", who: "Ángel Iglesias", action: "invited", target: "sam@northwind.io", when: "yesterday" },
 ];
 
 export interface SetupStep {
