@@ -20,6 +20,7 @@ import { categoricalCapacity, categoricalColor } from "@kanzo-tech/ui/analytics"
 import { resolveToken, toHex, type Rgba } from "@/lib/css-color";
 import type { Generated } from "./generate";
 import { generate, measure, nextFrame, SIZES, SPACE, type Sample, type Shape } from "./measure";
+import { measureStack, STACK_SIZES, type StackSample } from "./measure-stack";
 
 /**
  * How far this renderer goes, in both senses.
@@ -36,9 +37,29 @@ import { generate, measure, nextFrame, SIZES, SPACE, type Sample, type Shape } f
 
 declare global {
   interface Window {
-    __graphBench?: { samples: Sample[]; running: boolean; done: boolean };
+    __graphBench?: {
+      samples: Sample[];
+      stack: StackSample[];
+      running: boolean;
+      done: boolean;
+    };
   }
 }
+
+/**
+ * Which ceiling is being asked about.
+ *
+ * `engine` is cosmos.gl alone, fed typed arrays straight from a generator — the most the GPU can
+ * do. `stack` is the same graph arriving the way a real one does: through DuckDB, through `load()`,
+ * through `buffers()`, then uploaded. The gap between them is ours, and it is the only number here
+ * that tells us what to go and fix.
+ */
+type Layer = "engine" | "stack";
+
+const LAYERS: { id: Layer; label: string }[] = [
+  { id: "engine", label: "Engine" },
+  { id: "stack", label: "Our stack" },
+];
 
 const SHAPES: { id: Shape; label: string; hint: string }[] = [
   { id: "hyperbolic", label: "Hyperbolic", hint: "power-law degree, real communities" },
@@ -82,12 +103,104 @@ function compact(value: number): string {
   return String(value);
 }
 
+/**
+ * The stage breakdown for our own pipeline.
+ *
+ * Ingest is separated from the rest and labelled, because it is the fixture's cost and not the
+ * product's: this corpus reaches DuckDB as CSV text, where a real one arrives as Parquet. Reading
+ * it as though it were our latency would be the benchmark lying in our favour.
+ */
+function StackTable(props: { samples: StackSample[]; running: boolean }) {
+  const { running, samples } = props;
+  return (
+    <Show
+      when={samples.length > 0 || running}
+      fallback={
+        <p className="px-4 py-6 text-sm text-muted-foreground">
+          Run the sweep to push {STACK_SIZES.map(compact).join(" · ")} through the real pipeline —
+          DuckDB, then <code className="font-mono text-xs">load()</code> and{" "}
+          <code className="font-mono text-xs">buffers()</code> as the workspace ships them, then the
+          upload and a half-corpus selection. Stops at {compact(STACK_SIZES.at(-1) ?? 0)}: a live
+          layout is already finished by then, and the fixture reaches DuckDB as CSV text.
+        </p>
+      }
+    >
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Nodes</TableHead>
+            <TableHead>Links</TableHead>
+            <TableHead className="text-right">Ingest</TableHead>
+            <TableHead className="text-right">Query</TableHead>
+            <TableHead className="text-right">load()</TableHead>
+            <TableHead className="text-right">buffers()</TableHead>
+            <TableHead className="text-right">Upload</TableHead>
+            <TableHead className="text-right">Select</TableHead>
+            <TableHead className="text-right">Ours, total</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {samples.map((sample) => (
+            <TableRow key={sample.pointCount}>
+              <TableCell className="font-medium">{compact(sample.pointCount)}</TableCell>
+              <TableCell>{compact(sample.linkCount)}</TableCell>
+              <Show
+                when={!sample.failure}
+                fallback={
+                  <TableCell colSpan={7} className="text-destructive">
+                    {sample.failure}
+                  </TableCell>
+                }
+              >
+                <TableCell className="text-right tabular-nums text-muted-foreground">
+                  {format(sample.ingestMs, 0)} ms
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {format(sample.queryMs, 0)} ms
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {format(sample.loadMs, 0)} ms
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {format(sample.buffersMs, 0)} ms
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {format(sample.uploadMs, 0)} ms
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {format(sample.selectMs, 0)} ms
+                </TableCell>
+                {/* Ingest excluded on purpose — see this component's note. */}
+                <TableCell className="text-right font-medium tabular-nums">
+                  {format(
+                    sample.queryMs +
+                      sample.loadMs +
+                      sample.buffersMs +
+                      sample.uploadMs +
+                      sample.selectMs,
+                    0,
+                  )}{" "}
+                  ms
+                </TableCell>
+              </Show>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Show>
+  );
+}
+
 export function GraphBenchShowcase() {
   const [shape, setShape] = useState<Shape>("hyperbolic");
+  const [layer, setLayer] = useState<Layer>("engine");
   const [previewSize, setPreviewSize] = useState(PREVIEW_SIZES[1] as number);
   const [samples, setSamples] = useState<Sample[]>([]);
+  const [stackSamples, setStackSamples] = useState<StackSample[]>([]);
   const [running, setRunning] = useState(false);
   const [current, setCurrent] = useState<number | null>(null);
+  /** Which stage of the stack sweep is in flight, so a stall says what it is stalled on. */
+  const [stageLabel, setStageLabel] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ points: number; links: number; ms: number } | null>(null);
 
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -152,16 +265,23 @@ export function GraphBenchShowcase() {
     };
   }, [previewLive, previewSize, shape]);
 
-  const publish = useCallback((next: Sample[], isRunning: boolean, done: boolean) => {
-    window.__graphBench = { samples: next, running: isRunning, done };
-  }, []);
+  // One object, both layers, so the headless runner reads a single place and can tell which sweep
+  // produced what without inferring it from the shape of the rows.
+  const published = useRef<{ samples: Sample[]; stack: StackSample[] }>({ samples: [], stack: [] });
+  const publish = useCallback(
+    (next: Partial<{ samples: Sample[]; stack: StackSample[] }>, isRunning: boolean, done: boolean) => {
+      published.current = { ...published.current, ...next };
+      window.__graphBench = { ...published.current, running: isRunning, done };
+    },
+    [],
+  );
 
-  const run = useCallback(async () => {
+  const runEngine = useCallback(async () => {
     stop.current = false;
     setRunning(true);
     setSamples([]);
     setPreviewLive(false);
-    publish([], true, false);
+    publish({ samples: [] }, true, false);
     const collected: Sample[] = [];
     try {
       for (const size of SIZES) {
@@ -178,7 +298,7 @@ export function GraphBenchShowcase() {
         const sample = await measure({ shape, pointCount: size, cancelled: () => stop.current });
         collected.push(sample);
         setSamples([...collected]);
-        publish([...collected], true, false);
+        publish({ samples: [...collected] }, true, false);
         // A size that failed is where the ceiling is. Everything above it fails too, and each
         // attempt costs a GPU context that may not come back.
         if (sample.failure && sample.failure !== "cancelled") break;
@@ -202,9 +322,56 @@ export function GraphBenchShowcase() {
       setCurrent(null);
       setRunning(false);
       setPreviewLive(true);
-      publish(collected, false, true);
+      publish({ samples: collected }, false, true);
     }
   }, [publish, shape]);
+
+  const runStack = useCallback(async () => {
+    stop.current = false;
+    setRunning(true);
+    setStackSamples([]);
+    setPreviewLive(false);
+    publish({ stack: [] }, true, false);
+    const collected: StackSample[] = [];
+    try {
+      for (const size of STACK_SIZES) {
+        if (stop.current) break;
+        setCurrent(size);
+        for (let i = 0; i < 3; i++) await nextFrame();
+        const sample = await measureStack({
+          shape,
+          pointCount: size,
+          cancelled: () => stop.current,
+          onStage: setStageLabel,
+        });
+        collected.push(sample);
+        setStackSamples([...collected]);
+        publish({ stack: [...collected] }, true, false);
+        if (sample.failure && sample.failure !== "cancelled") break;
+      }
+    } catch (error) {
+      collected.push({
+        pointCount: 0,
+        linkCount: 0,
+        ingestMs: 0,
+        queryMs: 0,
+        loadMs: 0,
+        buffersMs: 0,
+        uploadMs: 0,
+        selectMs: 0,
+        failure: `harness: ${String(error)}`,
+      });
+      setStackSamples([...collected]);
+    } finally {
+      setCurrent(null);
+      setStageLabel(null);
+      setRunning(false);
+      setPreviewLive(true);
+      publish({ stack: collected }, false, true);
+    }
+  }, [publish, shape]);
+
+  const run = layer === "engine" ? runEngine : runStack;
 
   return (
     <div className="flex h-dvh flex-col bg-background text-foreground">
@@ -216,8 +383,18 @@ export function GraphBenchShowcase() {
           </p>
         </div>
 
-        {/* Both of these pick one of a set rather than firing independent actions, which is the
+        {/* These pick one of a set rather than firing independent actions, which is the
             line between SegmentGroup and ButtonGroup. */}
+        <SegmentGroup
+          aria-label="Layer"
+          className="w-fit"
+          disabled={running}
+          onValueChange={(details) => setLayer((details.value as Layer) ?? "engine")}
+          options={LAYERS.map((option) => ({ label: option.label, value: option.id }))}
+          value={layer}
+          variant="solid"
+        />
+
         <SegmentGroup
           aria-label="Graph shape"
           className="w-fit"
@@ -266,14 +443,19 @@ export function GraphBenchShowcase() {
       </div>
 
       <section className="max-h-[46%] min-h-0 overflow-auto border-t">
+        <Show when={layer === "stack"}>
+          <StackTable running={running} samples={stackSamples} />
+        </Show>
         <Show
-          when={samples.length > 0 || running}
+          when={layer === "engine" && (samples.length > 0 || running)}
           fallback={
-            <p className="px-4 py-6 text-sm text-muted-foreground">
-              Run the sweep to measure {SIZES.map(compact).join(" · ")}. Each size builds its own
-              graph off-screen, times batches of simulation steps against a GPU readback, then hands
-              the loop back to count real frames.
-            </p>
+            <Show when={layer === "engine"}>
+              <p className="px-4 py-6 text-sm text-muted-foreground">
+                Run the sweep to measure {SIZES.map(compact).join(" · ")}. Each size builds its own
+                graph off-screen, times batches of simulation steps against a GPU readback, then
+                hands the loop back to count real frames.
+              </p>
+            </Show>
           }
         >
           <Table>
@@ -333,7 +515,7 @@ export function GraphBenchShowcase() {
                   <TableCell className="font-medium">{compact(current ?? 0)}</TableCell>
                   <TableCell colSpan={6} className="text-muted-foreground">
                     <span className="inline-flex items-center gap-2">
-                      <Spinner className="size-3" /> measuring…
+                      <Spinner className="size-3" /> {stageLabel ?? "measuring"}…
                     </span>
                   </TableCell>
                 </TableRow>

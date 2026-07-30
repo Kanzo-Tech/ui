@@ -47,6 +47,28 @@ build in JavaScript, on the main thread, before the renderer saw a single float.
 fixtures that is merely slow; for a real corpus it is the same shape of cost `load()` pays turning
 DuckDB rows into typed arrays, and it belongs in a worker.
 
+## Layer 2 — our own pipeline
+
+The route's second layer pushes the same graphs through the path a real one takes: DuckDB, then
+`load()` and `buffers()` **as `workspace/graph-model.ts` exports them**, then the upload and a
+half-corpus selection. It imports those functions rather than reimplementing them, because a
+benchmark that measures a copy measures the copy, and the copy is always the fast one.
+
+**It has not produced numbers yet, and the reason is the finding.** Each stage carries its own
+deadline, and the first run named the stall precisely:
+
+```
+2,000 nodes — FAIL: querying did not finish within 60s
+```
+
+DuckDB booted. The CSV ingested. What never returned was the first `onceQuery` — the Mosaic client
+protocol. So the stall is not the database, it is the coordinator, which batches requests behind one
+animation frame that a hidden tab never delivers. Every stage that touches a `MosaicClient` is
+therefore unmeasurable from a driven browser, while the raw cosmos.gl path above is not.
+
+Run this layer with the window in front and it will fill in. The per-stage budgets stay either way:
+one unbounded `await` produces a blank row and a shrug, and a named deadline produces a diagnosis.
+
 ## The frames column is missing, deliberately
 
 `requestAnimationFrame` does not fire in a background tab — not late, not throttled, never — and
