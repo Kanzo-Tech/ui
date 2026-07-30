@@ -8,7 +8,8 @@ import { BEASTS, type BeastId } from "./world";
 
 export interface TreeNode {
   id: string;
-  label: string;
+  /** `name`, not `label` — this is the key `createTreeCollection` reads. */
+  name: string;
   /** Set on the leaves that are a beast the rest of the world knows about. */
   beast?: BeastId;
   /** Field notes, for a tree that shows a description or a tooltip. */
@@ -21,51 +22,51 @@ const habit = (id: BeastId) => BEASTS.find((entry) => entry.id === id)?.habit;
 export const BESTIARY: TreeNode[] = [
   {
     id: "warm",
-    label: "Warm-blooded",
+    name: "Warm-blooded",
     children: [
       {
         id: "warm.flying",
-        label: "Flying",
+        name: "Flying",
         children: [
-          { id: "harpy", label: "Harpy", beast: "harpy", note: habit("harpy") },
+          { id: "harpy", name: "Harpy", beast: "harpy", note: habit("harpy") },
           {
             id: "warm.flying.lesser",
-            label: "Lesser",
+            name: "Lesser",
             children: [
-              { id: "grimalkin", label: "Grimalkin", beast: "grimalkin", note: habit("grimalkin") },
+              { id: "grimalkin", name: "Grimalkin", beast: "grimalkin", note: habit("grimalkin") },
             ],
           },
         ],
       },
       {
         id: "warm.pack",
-        label: "Pack",
-        children: [{ id: "boghound", label: "Bog-hound", beast: "boghound", note: habit("boghound") }],
+        name: "Pack",
+        children: [{ id: "boghound", name: "Bog-hound", beast: "boghound", note: habit("boghound") }],
       },
     ],
   },
   {
     id: "cold",
-    label: "Cold-blooded",
+    name: "Cold-blooded",
     children: [
-      { id: "wyrm", label: "Wyrm", beast: "wyrm", note: habit("wyrm") },
-      { id: "basilisk", label: "Basilisk", beast: "basilisk", note: habit("basilisk") },
-      { id: "stoneback", label: "Stoneback", beast: "stoneback", note: habit("stoneback") },
+      { id: "wyrm", name: "Wyrm", beast: "wyrm", note: habit("wyrm") },
+      { id: "basilisk", name: "Basilisk", beast: "basilisk", note: habit("basilisk") },
+      { id: "stoneback", name: "Stoneback", beast: "stoneback", note: habit("stoneback") },
     ],
   },
   {
     id: "unclassed",
-    label: "Unclassed",
+    name: "Unclassed",
     note: "The archivists argue about this branch every winter",
     children: [
-      { id: "revenant", label: "Revenant", beast: "revenant", note: habit("revenant") },
-      { id: "mimic", label: "Mimic", beast: "mimic", note: habit("mimic") },
+      { id: "revenant", name: "Revenant", beast: "revenant", note: habit("revenant") },
+      { id: "mimic", name: "Mimic", beast: "mimic", note: habit("mimic") },
       {
         id: "unclassed.disputed",
-        label: "Disputed",
+        name: "Disputed",
         children: [
-          { id: "unclassed.disputed.lantern", label: "The lantern that walks", note: "Three sightings, no body" },
-          { id: "unclassed.disputed.hedge", label: "The moving hedge", note: "Greenhollow only. Probably surveying error." },
+          { id: "unclassed.disputed.lantern", name: "The lantern that walks", note: "Three sightings, no body" },
+          { id: "unclassed.disputed.hedge", name: "The moving hedge", note: "Greenhollow only. Probably surveying error." },
         ],
       },
     ],

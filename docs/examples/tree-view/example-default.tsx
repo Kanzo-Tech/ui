@@ -14,23 +14,8 @@ import {
 } from "@kanzo-tech/ui";
 import { BESTIARY, type TreeNode } from "@/example/bestiary";
 
-interface BeastNode {
-  id: string;
-  name: string;
-  children?: BeastNode[];
-}
-
-// The bestiary calls it `label`; the collection wants `name`.
-function toNode(node: TreeNode): BeastNode {
-  return {
-    id: node.id,
-    name: node.label,
-    ...(node.children ? { children: node.children.map(toNode) } : {}),
-  };
-}
-
-const collection = createTreeCollection<BeastNode>({
-  rootNode: { id: "ROOT", name: "", children: BESTIARY.map(toNode) },
+const collection = createTreeCollection<TreeNode>({
+  rootNode: { id: "ROOT", name: "", children: BESTIARY },
 });
 
 // Recursive: a node is a branch when it has children, a leaf otherwise.

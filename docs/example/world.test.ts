@@ -206,7 +206,7 @@ describe("the claims the docs make about the world", () => {
     const branchOf = new Map<string, string>();
     for (const branch of BESTIARY) {
       for (const node of flattenBestiary(branch.children ?? [])) {
-        if (node.beast) branchOf.set(node.beast, branch.label);
+        if (node.beast) branchOf.set(node.beast, branch.name);
       }
     }
     for (const entry of BEASTS) {
