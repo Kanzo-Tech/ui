@@ -221,6 +221,13 @@ controls and (now) one rendering-helper page. Two of those moves are blocked or 
   decisions made by an agent on a guess are how `layout/` got this way.** I left it and said so
   rather than adding a `---Disclosure---` separator, which would label the mess without fixing it.
 
+  **Owner's decision, 2026-07-31: the whole `layout/` re-cut waits for the identity axis to land.**
+  Not deferral for its own sake — the `preferences` + `appearance-toggle` move is both the one that
+  is blocked and the one that empties `layout/` most, so every remaining question about the group is
+  easier to answer after it. Do the move in the same commit that lands the identity section, then
+  re-read what is left before deciding where `accordion` and `collapsible` go. The trigger is
+  concrete: this branch rebasing onto the identity work.
+
 **N-5 — page count is 93, not the audit's ~82.** Nine came from the cut, four from merges. The
 remaining gap is entirely N-1 through N-4. The brief said the number is not the goal, and I agree
 with the reason given: a catalogue cannot be kept true. Every page removed here was one a reader
