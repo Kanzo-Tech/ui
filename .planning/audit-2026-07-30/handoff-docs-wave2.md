@@ -51,6 +51,7 @@ Preferences/AppearanceToggle relocation below is deferred rather than done.
 | `ce86571` | the last two `linkComponent` claims, and the cut's own archaeology |
 | `b43171a` | Popover / HoverCard / Tooltip — one question, answered once |
 | `b0443ef` | Dialog / Sheet / AlertDialog — the same, on the machine |
+| `59331d3` | ten `## Keyboard` tables, read out of the Zag machines |
 
 **Deleted:** `navigation/{breadcrumbs,sidebar-user,sidebar-nav,instance-switcher}.mdx`,
 `layout/made-with.mdx`, `overlays/{empty-state,ribbon}.mdx`, `forms/{text-field,date-field}.mdx`,
@@ -125,6 +126,57 @@ mention on the whole site is an unnarrated fence at `layout/shell.mdx:54-56`. Ar
 `docs/components/toggle-group`. Whether it gets a page is a component decision.
 
 ---
+
+## 2b. The keyboard pass — what it verified, and the one claim it got wrong
+
+Ten pages gained a `## Keyboard` table (`59331d3`), sourced from the Zag connect keyMaps and
+machine defaults rather than from memory of some other library: `listbox`, `combobox`,
+`tree-view`, `menu`, `tabs`, `select`, `dates`, `command`, `tags-input`, `sidebar`. That takes
+keyboard coverage from 13 of 106 pages to 23 of 93, and every component that declares a composite
+role now has one.
+
+**Two pages have no table deliberately.** `data-display/data-table.mdx` has exactly one binding —
+`Enter`/`Space` on a row, only when `onRowClick` is passed and only when the event target is the
+row itself (`packages/ui/src/table/data-table-content.tsx:88-97`) — and the page already documents
+it correctly in prose; a table would have been one duplicated row. `navigation/steps.mdx` has
+nothing to document, which is D-1 below.
+
+**Verified before landing**, because a keyboard table that documents a contract the component does
+not implement is worse than no table:
+
+- `@zag-js/tabs` really does default to `activationMode: "automatic"` and `loopFocus: true`
+  (`tabs.machine.js:46-47`), which is what makes "an arrow key both moves and selects" true.
+- `@zag-js/listbox` really does bind `Escape` behind `deselectable` (`listbox.connect.js:403`,
+  `listbox.machine.js:129`).
+
+**One claim did not survive checking, and the table is better for it.** The sub-agent reported
+that `F2` rename is unreachable because *"`tree-view.tsx` exports no rename-input part, so the
+machine can enter `renaming` with nothing rendered to type into."* That is wrong.
+`TreeViewNodeInput` is not exported, but it is **rendered unconditionally by the node itself**
+(`packages/ui/src/simples/tree-view.tsx:210,356`), which is the same shape as `ProgressTrack` — a
+part you never place yourself. `TreeViewProps extends ArkTreeView.RootComponentProps` and spreads
+`...rest`, so `canRename` reaches the machine. `F2` works end to end, and the table now says so.
+
+### Defects the pass found — all upstream or `packages/**`
+
+**D-1 — `Steps` declares `role="tablist"` with `role="tab"` triggers and implements no keyboard
+contract at all.** Measured: `@zag-js/steps@1.41.2`'s entire `dist/` contains **zero** `onKeyDown`
+(`cat dist/*.js | grep -c onKeyDown` → 0), while `steps.connect.js:109` sets `role: "tablist"` and
+`:130` sets `role: "tab"`. Arrow keys, `Home` and `End` do nothing on a stepper. This is exactly
+the rule `CONVENTIONS.md` states — *never declare a composite role without implementing that
+role's keyboard contract* — being broken, and it is upstream in Zag rather than ours. Either raise
+it with Ark, or drop the roles in our wrapper: a `tablist` that promises a navigation model it
+does not have is worse than no role.
+
+**D-2 — same file, `steps.connect.js:132`:** `tabIndex: !prop("linear") || itemState.current ? 0 : -1`.
+In non-linear mode **every** trigger is tabbable, so it is not a roving tabindex either. A tablist
+that puts N stops in the tab order is the failure mode roving tabindex exists to prevent.
+
+**D-3 — `TreeView`'s select-all is Meta-only, and disagrees with its own click path.**
+`tree-view.connect.js:233` guards it with `if (!event2.metaKey || …) return`, so <kbd>Ctrl</kbd>+<kbd>A</kbd>
+does not select all on Windows or Linux — while `:298` and `:411`, the pointer handlers in the
+same file, normalise with `event.metaKey || event.ctrlKey`. `@zag-js/listbox` gets it right with
+`isCtrlOrMetaKey` (`listbox.connect.js:391`). Documented as a caveat rather than papered over.
 
 ## 3. Where I did not do what the audit said, and why
 
