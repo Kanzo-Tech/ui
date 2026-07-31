@@ -40,6 +40,18 @@ where there was none; it makes a hover card wait for an answer that used to be a
 property lookup; and it destroys the two things a whole-corpus view gets for free —
 a stable index per node, and a global ordering to spend a label budget from.
 
+**One premise underpins all of it and is worth stating rather than assumed: the
+graph is not edited.** It is a derived artefact — fossil is a compiler and the
+graph is its output, so a change comes from editing the mapping or the source data
+and recompiling, never from writing to the graph. Nobody edits a compiler's output.
+
+That premise is what makes several things here correct rather than merely
+convenient: immutable Parquet written by a batch job is the right shape for a
+compilation target, a read-only verb surface is complete rather than half-built,
+and a render path designed entirely around querying is not missing its other half.
+Written down because the absence of a write path reads like an oversight until you
+know it is a consequence — an hour was spent worrying about it.
+
 ## Decision
 
 We will make the canvas a client of a bounded source, and delete the path that
