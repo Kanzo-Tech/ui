@@ -19,11 +19,11 @@ import {
   useDataTable,
   type ColumnDef,
 } from "@kanzo-tech/ui/table";
-import { OBSERVATIONS_TABLE } from "./analysis-data";
+import { SIGHTINGS_TABLE } from "@/example/sightings";
 
 /**
- * The numbers behind the plots: one row per station and month, aggregated in DuckDB and re-queried
- * whenever the crossfilter moves.
+ * The numbers behind the plots: one row per beast, region and hall, aggregated in DuckDB and
+ * re-queried whenever the crossfilter moves.
  *
  * It follows the selection because it is a real `MosaicClient` (`makeClient` from mosaic-core), not
  * a `useEffect` over `coordinator.query`. That distinction is the whole difference between a widget
@@ -34,22 +34,21 @@ import { OBSERVATIONS_TABLE } from "./analysis-data";
  * browser, and `DataTableFacetFilter`'s counts show what survived the first pass.
  */
 
-export interface StationMonth {
-  station: string;
+export interface BeastPlace {
+  beast: string;
   region: string;
-  provider: string;
-  period: string;
-  records: number;
-  temperature: number;
-  rainfall: number;
-  flagged: number;
+  hall: string;
+  sightings: number;
+  leagues: number;
+  bounty: number;
+  hoaxes: number;
 }
 
-const EMPTY: StationMonth[] = [];
+const EMPTY: BeastPlace[] = [];
 
-function useStationMonths(): StationMonth[] | null {
+function useBeastPlaces(): BeastPlace[] | null {
   const { coordinator, crossfilter } = useMosaic();
-  const [rows, setRows] = useState<StationMonth[] | null>(null);
+  const [rows, setRows] = useState<BeastPlace[] | null>(null);
 
   useEffect(() => {
     const client = makeClient({
@@ -58,31 +57,29 @@ function useStationMonths(): StationMonth[] | null {
       // The group-by domain shrinks with the filter, so the pre-aggregator cannot help here.
       filterStable: false,
       query: (filter) =>
-        Query.from(OBSERVATIONS_TABLE)
+        Query.from(SIGHTINGS_TABLE)
           .select({
-            station: "station",
+            beast: "beast",
             region: "region",
-            provider: "provider",
-            period: sql`strftime(month, '%Y-%m')`,
-            records: sql`count(*)::INT`,
-            temperature: sql`round(avg(temperature), 1)`,
-            rainfall: sql`round(sum(rainfall), 1)`,
-            flagged: sql`CAST(count(*) FILTER (WHERE quality = 'flagged') AS INT)`,
+            hall: "hall",
+            sightings: sql`count(*)::INT`,
+            leagues: sql`round(avg(leagues), 1)`,
+            bounty: sql`sum(bounty)::INT`,
+            hoaxes: sql`CAST(count(*) FILTER (WHERE verdict = 'hoax') AS INT)`,
           })
-          .groupby("station", "region", "provider", "month")
-          .orderby("month", "station")
+          .groupby("beast", "region", "hall")
+          .orderby("beast", "region")
           .where(filter),
       queryResult: (data) => {
         setRows(
           Array.from(data as Iterable<Record<string, unknown>>).map((row) => ({
-            station: String(row.station),
+            beast: String(row.beast),
             region: String(row.region),
-            provider: String(row.provider),
-            period: String(row.period),
-            records: Number(row.records),
-            temperature: Number(row.temperature),
-            rainfall: Number(row.rainfall),
-            flagged: Number(row.flagged),
+            hall: String(row.hall),
+            sightings: Number(row.sightings),
+            leagues: Number(row.leagues),
+            bounty: Number(row.bounty),
+            hoaxes: Number(row.hoaxes),
           })),
         );
       },
@@ -99,52 +96,51 @@ function Numeric({ children }: { children: ReactNode }) {
   return <span className="block text-end tabular-nums">{children}</span>;
 }
 
-const COLUMNS: ColumnDef<StationMonth, unknown>[] = [
-  selectColumn<StationMonth>(),
-  { accessorKey: "station", header: sortableHeader("Station"), meta: { label: "Station" } },
+const COLUMNS: ColumnDef<BeastPlace, unknown>[] = [
+  selectColumn<BeastPlace>(),
+  { accessorKey: "beast", header: sortableHeader("Beast"), meta: { label: "Beast" } },
   { accessorKey: "region", filterFn: facetFilterFn, header: "Region", meta: { label: "Region" } },
-  { accessorKey: "provider", filterFn: facetFilterFn, header: "Provider", meta: { label: "Provider" } },
-  { accessorKey: "period", header: sortableHeader("Month"), meta: { label: "Month" } },
+  { accessorKey: "hall", filterFn: facetFilterFn, header: "Hall", meta: { label: "Hall" } },
   {
-    accessorKey: "records",
-    cell: ({ row }) => <Numeric>{row.original.records}</Numeric>,
-    header: sortableHeader("Records"),
-    meta: { label: "Records" },
+    accessorKey: "sightings",
+    cell: ({ row }) => <Numeric>{row.original.sightings}</Numeric>,
+    header: sortableHeader("Sightings"),
+    meta: { label: "Sightings" },
   },
   {
-    accessorKey: "temperature",
-    cell: ({ row }) => <Numeric>{row.original.temperature.toFixed(1)}</Numeric>,
-    header: sortableHeader("Mean °C"),
-    meta: { label: "Mean °C" },
+    accessorKey: "leagues",
+    cell: ({ row }) => <Numeric>{row.original.leagues.toFixed(1)}</Numeric>,
+    header: sortableHeader("Mean leagues"),
+    meta: { label: "Mean leagues" },
   },
   {
-    accessorKey: "rainfall",
-    cell: ({ row }) => <Numeric>{row.original.rainfall.toFixed(1)}</Numeric>,
-    header: sortableHeader("Rain mm"),
-    meta: { label: "Rain mm" },
+    accessorKey: "bounty",
+    cell: ({ row }) => <Numeric>{row.original.bounty.toLocaleString()}</Numeric>,
+    header: sortableHeader("Gold"),
+    meta: { label: "Gold" },
   },
   {
-    accessorKey: "flagged",
+    accessorKey: "hoaxes",
     cell: ({ row }) =>
-      row.original.flagged > 0 ? (
+      row.original.hoaxes > 0 ? (
         <Badge size="xs" variant="outline">
-          {row.original.flagged}
+          {row.original.hoaxes}
         </Badge>
       ) : (
         <span className="text-muted-foreground">—</span>
       ),
-    header: sortableHeader("Flagged"),
-    meta: { label: "Flagged" },
+    header: sortableHeader("Hoaxes"),
+    meta: { label: "Hoaxes" },
   },
 ];
 
-export function AnalysisDetail() {
-  const rows = useStationMonths();
+export function SightingsDetail() {
+  const rows = useBeastPlaces();
   const data = rows ?? EMPTY;
   const table = useDataTable({
     columns: COLUMNS,
     data,
-    initialSorting: [{ desc: true, id: "records" }],
+    initialSorting: [{ desc: true, id: "sightings" }],
     pageSize: 8,
   });
 
@@ -153,12 +149,12 @@ export function AnalysisDetail() {
   return (
     <DataTableRoot table={table}>
       <DataTableToolbar className="flex-wrap">
-        <DataTableSearch className="w-56" column="station" placeholder="Filter stations…" />
+        <DataTableSearch className="w-56" column="beast" placeholder="Filter beasts…" />
         <DataTableFacetFilter column="region" label="Region" />
-        <DataTableFacetFilter column="provider" label="Provider" />
+        <DataTableFacetFilter column="hall" label="Hall" />
         <DataTableViewOptions className="ms-auto" />
       </DataTableToolbar>
-      <DataTableContent<StationMonth> empty="No rows in the current selection." />
+      <DataTableContent<BeastPlace> empty="No sightings in the current selection." />
       <DataTablePagination pageSizes={[8, 16, 32]} />
     </DataTableRoot>
   );

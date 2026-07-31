@@ -188,7 +188,7 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
          * unseeded unless this is set. Without it the layout differs run to run from identical
          * input. Init-only; `setConfig` cannot change it.
          */
-        randomSeed: "kanzo-discovery",
+        randomSeed: "kanzo-archive",
         /**
          * The device's, not cosmos.gl's literal `2`.
          *

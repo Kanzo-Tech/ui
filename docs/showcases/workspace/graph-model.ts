@@ -11,15 +11,15 @@ import type { Display, Sim } from "./graph-state";
 /**
  * What the canvas needs to know about a relation, and nothing more.
  *
- * The renderer used to read `kind`, `theme`, `publisher` and `degree` by name, and to import the
- * fixture's list of theme codes so it could turn one into a cluster index. That is a graph viewer
- * for exactly one dataset wearing the clothes of a component: point it at another relation and it
- * clusters nothing, colours nothing, and the Settings panel still offers you "Theme clustering".
+ * The renderer used to read the corpus' columns by name, and to import the fixture's own list of
+ * group codes so it could turn one into a cluster index. That is a graph viewer for exactly one
+ * relation wearing the clothes of a component: point it at another and it clusters nothing, colours
+ * nothing, and the Settings panel still offers you the old corpus' word for a group.
  *
  * So the columns are an argument. The canvas asks *which column names a node*, *which one groups
  * them*, and reads what it is told; the vocabulary inside each column is discovered by reading the
- * data, never declared. Everything domain-specific — that this corpus calls its groups `dcat:theme`
- * and its categories `kind` — now lives at the call site, which is where a fixture belongs.
+ * data, never declared. Everything domain-specific — that this corpus calls its groups `hall` and
+ * its categories `kind` — now lives at the call site, which is where a fixture belongs.
  */
 export interface GraphSpec {
   /** The node relation, and the edge relation as raw `source` / `target` id pairs. */
@@ -232,8 +232,8 @@ export interface Buffers {
  * look answers differently in light and in dark.
  *
  * `display` is deliberately not an argument. Everything the reader's sliders control is a *global
- * scalar*, and a global scalar belongs in a uniform — see `appearance` — not multiplied into 582
- * sizes and 1,092 RGBA quads that then have to be re-uploaded.
+ * scalar*, and a global scalar belongs in a uniform — see `appearance` — not multiplied into 1,543
+ * sizes and 4,280 RGBA quads that then have to be re-uploaded.
  */
 export function buffers(data: Loaded, look: Look, host: Element): Buffers {
   /**
@@ -282,7 +282,7 @@ export function buffers(data: Loaded, look: Look, host: Element): Buffers {
     const b = neutral ? neutral[2] : (colors[src * 4 + 2] ?? 0.7);
     // Alpha is 1, and it is *reserved* — for a datum that genuinely differs per link: edge weight,
     // confidence, recency. It used to carry `look.opacity × display.linkOpacity`, which is the same
-    // number on all 1,092 of them, and paying for that cost a 17,472-byte re-upload of this array
+    // number on all 4,280 of them, and paying for that cost a 68,480-byte re-upload of this array
     // on every tick of the Edge opacity slider. That product is a uniform now (`appearance`), and
     // the shader multiplies the two: `color.a * linkOpacity * …`. Do not spend this channel again.
     linkColors.set([r, g, b, 1], e * 4);

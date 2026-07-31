@@ -254,7 +254,7 @@ function CanvasBody() {
       // A marquee or a lasso selects without picking a node, so the ring from whatever was clicked
       // before has nothing left to point at. This used to clear only on the empty branch, which left
       // a stale ring under every region gesture. The node paths re-focus after this returns.
-      // (Rules and Ask do not come through here — they hand a selection straight to the provider.)
+      // (Orders and Ask do not come through here — they hand a selection straight to the provider.)
       if (source !== "node") unfocus();
       // Dim now, not after the round trip. The authority on what stays lit is `onSurvivors` below —
       // it resolves this clause against every other filter on the page — but that answer is a
@@ -802,7 +802,7 @@ const SOURCE_NAME: Record<SelectionSource, string> = {
   marquee: "Marquee",
   lasso: "Lasso",
   node: "Node",
-  rule: "Rule",
+  order: "Order",
   ask: "Ask",
 };
 

@@ -12,17 +12,17 @@ import {
 } from "react";
 import { loadCSV } from "@uwdata/mosaic-sql";
 import { Coordinator, MosaicProvider, type ChartConfig } from "@kanzo-tech/ui/analytics";
-import { buildDiscoveryGraph, edgesCsv, nodesCsv } from "./graph-data";
+import { buildArchiveGraph, edgesCsv, nodesCsv } from "./graph-data";
 import { ensure } from "./duck";
 import type { LookId } from "./graph-looks";
 import type { GraphSpec } from "./graph-model";
 
 /**
- * Discovery, as a query — with the picture on the GPU.
+ * The archive, as a query — with the picture on the GPU.
  *
  * Two relations in the shared DuckDB (nodes and edge pairs) carry everything the page asks
  * questions about: the legend is a `GROUP BY`, the footer a `count(*)` over the live filter, the
- * rules panel a pass of `count(*) FILTER (WHERE …)`, the inspector an `ORDER BY degree`. What is
+ * orders panel a pass of `count(*) FILTER (WHERE …)`, the inspector an `ORDER BY degree`. What is
  * *not* in the database any more is the layout: `x` / `y` seed the simulation on the first frame and
  * are then thrown away, because cosmos.gl keeps position in a texture and moves it every tick.
  *
@@ -32,9 +32,9 @@ import type { GraphSpec } from "./graph-model";
  * of translating a loop on screen into `id IN (…)`, which is the only thing it can honestly say.
  */
 
-const NODES = "discovery_nodes";
-const EDGE_PAIRS = "discovery_edge_pairs";
-const EDGES = "discovery_edges";
+const NODES = "archive_nodes";
+const EDGE_PAIRS = "archive_edge_pairs";
+const EDGES = "archive_edges";
 
 export { NODES, EDGE_PAIRS, EDGES };
 
@@ -43,21 +43,28 @@ export { NODES, EDGE_PAIRS, EDGES };
  *
  * The domain lives here — beside the CSV that defines it — and the canvas reads it from context.
  * That is the whole of the generalisation: a renderer that asks "which column groups these?" can
- * be pointed at any relation, and one that reads `row.theme` can be pointed at exactly one.
+ * be pointed at any relation, and one that reads `row.hall` can be pointed at exactly one.
+ *
+ * `hall` is the group, and that choice is the white-label story told in the graph rather than
+ * described beside it: a hall carries `heraldry`, the same seed pair the palette showcase derives
+ * from, so the arcs on the canvas are the five tenants and nothing else. Region is an ordinary
+ * column — a thing to filter by and a kind of vertex — because a contract happens in one place but
+ * belongs to one hall, and only the second is what a reader is arranging the picture around.
  */
-export const DISCOVERY: GraphSpec = {
+export const ARCHIVE_SPEC: GraphSpec = {
   table: NODES,
   edges: EDGE_PAIRS,
   idField: "id",
   labelField: "label",
   categoryField: "kind",
   sizeField: "degree",
-  groupField: "theme",
-  groupLabel: "dcat:theme",
+  groupField: "hall",
+  groupLabel: "hall",
   detailFields: [
-    { field: "publisher", label: "Publisher" },
-    { field: "theme", label: "Theme" },
-    { field: "issued", label: "Issued" },
+    { field: "hall", label: "Hall" },
+    { field: "region", label: "Region" },
+    { field: "signed", label: "Signed by" },
+    { field: "closed", label: "Closed" },
   ],
   xField: "x",
   yField: "y",
@@ -68,18 +75,26 @@ export const DISCOVERY: GraphSpec = {
  *
  * A series without a `color` takes its slot token from `categoricalColor`, which is the one
  * function that knows where the Other boundary is: past the document's `categorical.capacity` it
- * hands back the muted role instead of a slot. The four `var(--chart-1..4)` literals that used to
- * sit here bypassed it — they read the vocabulary directly, so a fifth kind added to this fixture
- * would have been given `--chart-5` whether or not the tenant's set could tell it apart, and a
- * reader of the config had no way to know that a slot past capacity is not a category.
+ * hands back the muted role instead of a slot. The `var(--chart-1..4)` literals that used to sit
+ * here bypassed it — they read the vocabulary directly, so a fifth kind added to this fixture would
+ * have been given `--chart-5` whether or not the tenant's set could tell it apart, and a reader of
+ * the config had no way to know that a slot past capacity is not a category.
+ *
+ * Six now, where the old corpus had four, and the shape channel is where that shows: `SHAPE_ORDER`
+ * names four glyphs and Ink spends identity on shape, so `member` and `region` — slots 5 and 6 —
+ * both wear `SHAPE_OTHER`. That is the scale telling the truth rather than cycling, and it is the
+ * same boundary `categoricalCapacity` draws for colour; the difference is that colour has eight
+ * validated slots and Ink's four-pixel floor leaves shape with four.
  *
  * Read the colour with `chartSeriesColor(KINDS, kind)`, never `KINDS[kind].color`.
  */
 export const KINDS: ChartConfig = {
-  dataset: { label: "Dataset" },
-  distribution: { label: "Distribution" },
-  keyword: { label: "Keyword" },
-  entity: { label: "Entity" },
+  contract: { label: "Contract" },
+  report: { label: "Field report" },
+  tag: { label: "Tag" },
+  beast: { label: "Beast" },
+  member: { label: "Member" },
+  region: { label: "Region" },
 };
 
 /**
@@ -88,17 +103,17 @@ export const KINDS: ChartConfig = {
  * canvas does not read it; the footer's edge count does.
  */
 const EDGE_VIEW = `CREATE OR REPLACE VIEW ${EDGES} AS
-  SELECT s.id, s.label, s.kind, s.theme, s.publisher, s.degree
+  SELECT s.id, s.label, s.kind, s.hall, s.region, s.signed, s.degree
   FROM ${EDGE_PAIRS} e
   JOIN ${NODES} s ON e.source = s.id`;
 
 function loadGraph(): Promise<Coordinator> {
   return ensure(NODES, async ({ coordinator, db }) => {
-    const graph = buildDiscoveryGraph();
-    await db.registerFileText("discovery-nodes.csv", nodesCsv(graph));
-    await db.registerFileText("discovery-edges.csv", edgesCsv(graph));
-    await coordinator.exec(loadCSV(NODES, "discovery-nodes.csv", { replace: true }));
-    await coordinator.exec(loadCSV(EDGE_PAIRS, "discovery-edges.csv", { replace: true }));
+    const graph = buildArchiveGraph();
+    await db.registerFileText("archive-nodes.csv", nodesCsv(graph));
+    await db.registerFileText("archive-edges.csv", edgesCsv(graph));
+    await coordinator.exec(loadCSV(NODES, "archive-nodes.csv", { replace: true }));
+    await coordinator.exec(loadCSV(EDGE_PAIRS, "archive-edges.csv", { replace: true }));
     await coordinator.exec(EDGE_VIEW);
   });
 }
@@ -161,7 +176,7 @@ export type Motion = "running" | "settled" | "paused";
  * The selection — one value, owned here, published once.
  *
  * Before this there were four ways to say "look at these nodes": the canvas published through its
- * `MosaicClient`, Rules and Ask each owned a private clause with its own source and its own retract
+ * `MosaicClient`, Orders and Ask each owned a private clause with its own source and its own retract
  * rules, and the inspector only moved the camera. Four mechanisms meant four half-answers to "what
  * is selected right now", and a chip on the canvas that knew about one of them.
  *
@@ -173,7 +188,7 @@ export type Motion = "running" | "settled" | "paused";
  * A *search* is not a selection and keeps its own clause — filtering narrows the corpus, selecting
  * points at part of it.
  */
-export type SelectionSource = "marquee" | "lasso" | "node" | "rule" | "ask";
+export type SelectionSource = "marquee" | "lasso" | "node" | "order" | "ask";
 
 export interface Selection {
   ids: number[];
@@ -264,7 +279,7 @@ const NOOP: GraphCommands = {
 
 const GraphViewContext = createContext<GraphViewValue>({
   ready: false,
-  spec: DISCOVERY,
+  spec: ARCHIVE_SPEC,
   look: "atlas",
   setLook: () => {},
   display: DEFAULT_DISPLAY,
@@ -293,7 +308,7 @@ const GraphViewContext = createContext<GraphViewValue>({
 export const useGraphView = () => useContext(GraphViewContext);
 
 /**
- * Wraps the whole discovery shell so the canvas, the inspector and the footer all read one
+ * Wraps the whole archive shell so the canvas, the inspector and the footer all read one
  * crossfilter. Children render immediately — DuckDB-WASM takes a moment, and blanking the shell
  * while it boots would be worse than the parts that need it saying so themselves via `ready`.
  */
@@ -358,7 +373,7 @@ export function GraphMosaic({ children }: { children: ReactNode }) {
   const value = useMemo<GraphViewValue>(
     () => ({
       ready: coordinator !== null,
-      spec: DISCOVERY,
+      spec: ARCHIVE_SPEC,
       look,
       setLook,
       display,
