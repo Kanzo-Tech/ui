@@ -130,8 +130,12 @@ try {
    * is a mistake that looks exactly like the right one until you read the columns.
    */
   async function sweep(which) {
-    const label = which === "stack" ? "Our stack" : "Engine";
-    await page.locator("label").filter({ hasText: new RegExp(`^${label}$`) }).click();
+    const label = which === "stack" ? "+ our pipeline" : "cosmos.gl alone";
+    // Escaped, because both labels contain regex metacharacters — `+ our pipeline` compiles to
+    // `^+ our pipeline$`, which is not a pattern but a syntax error, and `cosmos.gl` would happily
+    // match `cosmosXgl`. Anchored exactly so the two never select each other.
+    const exact = new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+    await page.locator("label").filter({ hasText: exact }).click();
     await page.waitForTimeout(300);
     await page.getByTestId("run-sweep").click();
     console.log(`${which} sweep running…`);

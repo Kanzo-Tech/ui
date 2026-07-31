@@ -49,16 +49,19 @@ declare global {
 /**
  * Which ceiling is being asked about.
  *
- * `engine` is cosmos.gl alone, fed typed arrays straight from a generator — the most the GPU can
- * do. `stack` is the same graph arriving the way a real one does: through DuckDB, through `load()`,
- * through `buffers()`, then uploaded. The gap between them is ours, and it is the only number here
- * that tells us what to go and fix.
+ * Both layers render with cosmos.gl. **There is no engine of ours** — these were labelled "Engine"
+ * and "Our stack", which read to a reader as though we had written a second renderer.
+ *
+ * `engine` is cosmos.gl fed typed arrays straight from a generator: the most the GPU can do with
+ * nothing of ours in the way. `stack` is the same graph arriving as a real one does — through
+ * DuckDB, `load()`, `buffers()`, then uploaded to that same renderer. The gap between them is the
+ * only code we can actually go and fix.
  */
 type Layer = "engine" | "stack";
 
 const LAYERS: { id: Layer; label: string }[] = [
-  { id: "engine", label: "Engine" },
-  { id: "stack", label: "Our stack" },
+  { id: "engine", label: "cosmos.gl alone" },
+  { id: "stack", label: "+ our pipeline" },
 ];
 
 const SHAPES: { id: Shape; label: string; hint: string }[] = [
