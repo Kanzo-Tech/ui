@@ -10,10 +10,13 @@
   renaming a part *is* a real need, and it was being served by the same accident that caused the
   erasure, so the two had to be separated before either could be enforced.
 - **Reversed by** a part whose slot has to vary on something the call site cannot name, which a
-  prop cannot express. None known.
-- **Held by** `packages/ui/src/simples/alert-dialog.tsx`, the thin renames whose own recipes select
-  the renamed values; the `data-slot` guard test in `packages/ui/src`, which is what can now tell a
-  rename from an erasure
+  prop cannot express. The conversion tested this and it held: under `asChild`, a parent can no
+  longer name an element it does not render, because the child now writes its own slot after its
+  own spread and always wins. Three compositions hit it, and all three were expressible — the slot
+  moves down to the child as `slot`, which is the more honest shape anyway. No case survives.
+- **Held by** `packages/ui/src/data-slot.test.tsx`, which is what can now tell a rename from an
+  erasure; `packages/ui/src/simples/alert-dialog.tsx`, the thin renames whose own recipes select
+  the renamed values
 
 **This record was refined by its own reversal condition, which is the format working.** The first
 version said the case that would reopen it was a consumer needing to *re-slot* a primitive as
@@ -25,6 +28,12 @@ once, because overriding the wrapped primitive's slot **is** the rename mechanis
 condition had described the counter-example closely enough to recognise on sight, the decision was
 refined rather than re-argued, and `Status` never had to become `superseded`. A reversal condition
 is worth writing even when — especially when — you believe nothing will meet it.
+
+**One trade, taken knowingly.** `slot` is a real DOM attribute — shadow-DOM slotting — and we now
+consume it rather than forward it. Nothing in this library or in `docs/` uses shadow DOM, and the
+prop needed no new type anywhere because React's `HTMLAttributes` already declares it, which is what
+made the conversion free. A consumer who needs to slot one of our elements into a shadow root is the
+case that would have to be answered, and none exists.
 
 The evidence that made the ordering a house rule rather than a three-site bugfix: the great
 majority of sites wrote the attribute before the spread, and one file had already discovered the

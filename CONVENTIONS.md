@@ -101,14 +101,25 @@ needed, that is the moment to reintroduce one seam — with a lint rule to enfor
     `{...rest}`, never before.** Before the spread, a caller's `data-slot` wins and the primitive's
     own disappears, taking every recipe that selects it with no error and no visible symptom. A slot
     our stylesheet depends on is not a default a caller may override by accident.
-  - **`slot?: string` is the sanctioned way to re-slot a part**, and the only one. A thin rename —
-    `AlertDialogBody` is `DialogBody` under a different slot, and the alert-dialog recipes select
-    the renamed values — is a real and common need, so it gets a declared prop rather than the
-    accident of spread order. Renaming is explicit; erasing is impossible; and a guard test can tell
-    the two apart, which it could not while both were spelled `data-slot`.
-  - The consequence, which the ordering now makes impossible: a wrapper cannot erase the slot of a
-    component it renders by passing one down. Passing a bare `data-slot` into another component is
-    still the wrong shape — say what *this* element is on this element, and re-slot with `slot`.
+  - **`slot?: string` is the sanctioned way to re-slot a part**, and the only one. Destructure it
+    out of props and pass it as the `??` left-hand side. **Never declare a type for it, and never
+    add a `SlotProps` interface** — React's `HTMLAttributes` already carries `slot`, so every
+    `React.ComponentProps<typeof ark.*>` has it and there is nothing to add. The exception is a
+    props type extending an Ark *machine's* props rather than HTML attributes, which has no `slot`
+    to inherit; `SidebarProps` is the one, and it already had to declare `className` for the same
+    reason. A thin rename — `AlertDialogBody` is
+    `DialogBody` under a different slot, and the alert-dialog recipes select the renamed values — is
+    a real and common need, so it gets a declared prop rather than the accident of spread order.
+    Renaming is explicit; erasing is impossible; and a guard test can tell the two apart, which it
+    could not while both were spelled `data-slot`.
+  - **Never write a bare `data-slot` on one of our components** — only on the DOM element itself.
+    TypeScript will not stop you: it does not typecheck a hyphenated JSX attribute, so `data-slot`
+    is accepted on any component and silently does nothing on the ten Ark roots that render no
+    element at all. Asking for `slot` instead is what surfaced those ten in one `tsc` run.
+  - **Under `asChild`, the child wins.** Ark's merge hands the parent's attributes to the child, and
+    the child now writes its own slot after its own spread — so a parent can no longer name an
+    element it does not render. Push the slot down to the child: `<Button slot="combobox-trigger">`,
+    not a `data-slot` on the trigger that wraps it.
 - **A layout tree is children, never an attribute.** If a prop's value is markup, it is children. A
   record or array of `ReactNode`s is a layout tree written as an attribute: the caller cannot
   reorder the regions, wrap one, spread `className` / `data-*` / `aria-*` / a handler onto one, or
@@ -253,7 +264,24 @@ never a summary, which is the arrangement that keeps both honest.
 | `packages/ui/src/no-literal-hues.test.ts` | no chromatic literal in the source |
 | `packages/ui/src/logical-properties.test.ts` | no physical direction utility in the three layers, outside a reviewed allowlist with a reason per entry |
 | `packages/ui/src/client-boundary.test.ts` | `"use client"` on every stateful module and on no other |
+| `packages/ui/src/data-slot.test.tsx` | `data-slot` after the spread, never bare on one of our components, never on a provider-only root |
 | `packages/theme/src/boundary.test.ts` | the palette stays a devDependency, and `CHART_SLOTS` answers to the sheet |
+
+**Three things a guard test owes.**
+
+- **Say what it cannot prove.** `pnpm smoke` compares the bytes of a built artefact, so it catches
+  Rollup dropping a `"use client"` directive and cannot tell you the boundary is in the right
+  *place*; only the docs RSC build evaluates that. A guard that states its own blind spot is one
+  nobody over-trusts.
+- **Mutation-test it.** Write the violation, watch the assertion fail with the message you meant,
+  then remove it. A guard nobody has seen fail is a guard nobody has tested. The leak check in
+  `pnpm smoke` guarded two symbols that had never existed in this repository, so it could not fail
+  and did not, for months.
+- **Parse, do not grep, and never let the corpus shrink silently.** `charts/chart-inputs.tsx`
+  contained a raw NUL byte, which made `file(1)` and every `grep -I` treat the largest file in the
+  chart layer as binary — a grep-based guard would have skipped it and reported a pass. The scan now
+  asserts no source file contains one. The general rule: a guard that can silently *not see* part of
+  its corpus is worse than no guard, because it reports the same green as a real pass.
 
 **Logical properties, never physical** — `border-e` / `border-s`, `side="start" | "end"`. One code
 path mirrors correctly under RTL. The test is the rule; if you need an exception, add it to that

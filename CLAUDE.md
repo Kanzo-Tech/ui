@@ -21,10 +21,10 @@
 - `decisions/` — one record per decision. `Status` `live` is today's rule; anything else is
   history, and you can skip it.
 - The repo-wide guard tests are the rules nobody should have to remember. **Read the file, not a
-  summary of it** — each carries its own reasoning: `packages/ui/src/alpha-steps.test.ts` (seven
-  banned token spellings), `no-literal-hues.test.ts`, `logical-properties.test.ts`,
-  `client-boundary.test.ts`, `index.test.ts` (the pinned surface and the tombstones), and
-  `packages/theme/src/boundary.test.ts`.
+  summary of it** — each carries its own reasoning, and each says what it cannot prove:
+  `packages/ui/src/alpha-steps.test.ts` (seven banned token spellings), `no-literal-hues.test.ts`,
+  `logical-properties.test.ts`, `client-boundary.test.ts`, `data-slot.test.tsx`, `index.test.ts`
+  (the pinned surface and the tombstones), and `packages/theme/src/boundary.test.ts`.
 
 ## Four one-way doors
 
@@ -43,8 +43,11 @@
   `pnpm typecheck` on a clean tree cannot resolve `@kanzo-tech/theme` at all. `docs/` consumes
   `dist/` for the same reason: a rename typechecks clean while the docs build fails.
 - Before calling work done, in this order: `pnpm build`, `typecheck`, `lint`, `check:generated`,
-  `test`, `size`, `smoke`, then `pnpm --filter @kanzo-tech/docs build` — the RSC fixture, and the
-  only thing that catches a stripped `"use client"`, because Vite ignores the directive entirely.
+  `test`, `size`, `smoke`, then `pnpm --filter @kanzo-tech/docs build`. `smoke` packs the real
+  tarballs and installs them without the optional peers, which is the only check that sees the
+  built artefact rather than the source. The docs build is the RSC fixture, and the only thing that
+  *evaluates* the client boundary — Vite ignores the directive entirely, and `smoke` can only
+  compare bytes.
 - Do not hand-edit generated files. `check:generated` regenerates `palette-data.json`,
   `themes.css`, `theme-data.json`, `palettes/` and the colour half of `tokens.css`, and fails on a
   diff.

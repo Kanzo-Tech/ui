@@ -161,7 +161,10 @@ be skipped.
 `a-rule-broken-three-times-becomes-a-test`, `a-docs-defect-is-a-library-defect`,
 `a-generated-index-with-no-second-list`.
 
+Also live — `a-compound-keeps-its-root-even-when-the-root-is-an-alias`.
+
 **Open** — `prose-that-is-hashed-is-data`: the convention holds, the code change it asks for has
-not landed.
+not landed. `steps-claims-a-tab-role-it-cannot-keep`: needs a product decision on `linear` and an
+upstream report.
 
 **Superseded** — `field-has-no-consumer`, by `adoption-before-design`.

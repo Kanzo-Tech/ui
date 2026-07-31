@@ -16,6 +16,18 @@ component moving between them is not a breaking change.
 
 Import the compiled stylesheet once: `import "@kanzo-tech/ui/styles.css"`.
 
+**Every part carries a `data-slot`, and you style against it.** That is the escape hatch you get
+instead of guessing class names, and our own recipes select on it. Two things follow for you:
+
+- **You cannot erase one.** Each part writes its slot after your props, so a stray `data-slot` in a
+  spread cannot silently delete the styling the component depends on.
+- **`slot` renames one.** Pass `slot="…"` to any part to change the value a recipe selects — the
+  declared way to make one instance answer to different styling. Under `asChild` the child's own
+  slot wins, so name the element you actually render.
+
+`slot` is otherwise a real DOM attribute used for shadow-DOM slotting, which these components now
+consume rather than forward.
+
 ### `@kanzo-tech/theme`
 
 The stylesheets, the four axes that are not colour (radius, font, mono font, font size), and the
