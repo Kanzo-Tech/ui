@@ -7,24 +7,34 @@ import { forces, SPACE, type Loaded } from "./graph-model";
 import type { Motion, Sim } from "./types";
 
 /**
- * The renderer's whole life: built once from the options cosmos.gl cannot change later, told what
- * the forces are, and destroyed on the way out.
+ * The renderer's whole life: built once, told what the forces are, destroyed on the way out.
  *
- * Everything else about the picture — colours, sizes, shapes, the look, the camera — is a
- * `setConfig` somewhere else, which is the reason changing a look does not rebuild the graph. Only
- * the options listed in the constructor below are genuinely immutable, and the callbacks are handed
- * over exactly once, which is why every one of them reads the present through a ref rather than a
- * closure.
+ * Everything about the picture — colours, sizes, shapes, the look, the camera, and since 3.0 even
+ * whether a simulation runs at all — is a `setConfigPartial` somewhere else, which is why changing
+ * a look does not rebuild the graph. **Three fields are genuinely init-only**, and they are the
+ * three `preserveInitOnlyFields` restores after every config write: `initialZoomLevel`,
+ * `randomSeed` and `attribution`. This comment used to claim the whole constructor argument was
+ * immutable, which was true of 2.x and is not true of this one.
+ *
+ * The callbacks are handed over exactly once, which is why every one of them reads the present
+ * through a ref rather than a closure.
  */
 
 /**
  * Whether this browser can run the renderer at all.
  *
- * Asked rather than inferred: regl reports a missing context by `console.error` and cosmos.gl draws
- * its own English message into the host element — it never throws. So the `try/catch` around the
- * constructor was catching a case that cannot reach it, and the honest-looking failure branch below
- * it was dead code. The catch stays for real construction faults; this answers the common one, and
- * lets the canvas say so in its own voice.
+ * Asked rather than inferred, because the failure is silent in both directions. cosmos.gl draws its
+ * own English message into the host element rather than throwing, so the `try/catch` around the
+ * constructor was catching a case that cannot reach it. Worse under 3.x: device creation is
+ * asynchronous and `graph.ready` has **no failure path** — when the device cannot be made it does
+ * not reject, it simply never settles, so a caller awaiting it waits forever with nothing on
+ * screen. (The engine benchmark bounds that await for exactly this reason.)
+ *
+ * So the probe stays, and it answers the common case before any of that can happen. The catch stays
+ * for real construction faults.
+ *
+ * One thing here did age: the old wording blamed **regl**, which reported a missing context by
+ * `console.error`. 3.0 replaced regl with luma.gl and there is no `regl` left in the dist.
  */
 function hasWebGL(): boolean {
   if (typeof document === "undefined") return false;
@@ -54,10 +64,13 @@ export interface CosmosGraphOptions {
   /**
    * How far through settling the layout is, `0`–`1`.
    *
-   * cosmos.gl computes it every tick as `√(ALPHA_MIN / alpha)` and exposes it as `graph.progress`,
-   * so a determinate badge costs nothing to compute — only to deliver. Quantised before it is
-   * reported, because this is React state read through context and a write per animation frame
-   * would re-render every consumer 60 times a second to move a number by half a percent.
+   * cosmos.gl computes it every tick as `√(min(1, ALPHA_MIN / alpha))` and exposes it as
+   * `graph.progress`, so a determinate badge costs nothing to compute — only to deliver. Quantised
+   * before it is reported, because this is React state read through context and a write per
+   * animation frame would re-render every consumer 60 times a second to move a number by half a
+   * percent. Re-checked against 3.4.0: the formula survived the luma.gl port, gaining only the
+   * clamp — which matters, because a re-heat raises alpha above the floor and the unclamped
+   * expression would hand a progress bar a number above 1.
    */
   reportProgress: (value: number) => void;
   onFailure: (message: string) => void;
