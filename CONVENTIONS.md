@@ -167,8 +167,14 @@ needed, that is the moment to reintroduce one seam — with a lint rule to enfor
 Consumed by RSC hosts, so this is load-bearing, not hygiene.
 
 - **A file gets `"use client"` iff *it itself* is stateful** — it calls a hook (any `useX`, ours as
-  much as React's), calls `createContext`, registers a listener, or touches a browser global outside
-  an effect. **Importing a stateful module is not a reason.** The boundary is established once, by
+  much as React's), calls `createContext`, registers a listener, **writes an inline JSX event
+  handler**, or touches a browser global outside an effect. **Importing a stateful module is not a
+  reason.**
+  - **A handler prop is the one with no hook in it, and it is the one that catches people out.**
+    `onClick={…}` on a part is a *function* passed to a Client Component, and React refuses to
+    serialise a function across the boundary. A module with no hook anywhere can therefore still
+    need the directive, `tsc` cannot see it, and the failure surfaces layers away in whatever page
+    prerenders it. The boundary is established once, by
   the module the hook is in, and every importer above it stays server-renderable and renders it as a
   boundary. Ark depends on this: it ships the directive across its own dist, which is the only
   reason a hook-free wrapper of an Ark machine can be a Server Component at all.
