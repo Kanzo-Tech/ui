@@ -63,6 +63,25 @@ export { useGraphSelection, cursorChip } from "./use-graph-selection";
 // that was already retired.
 export { onceQuery } from "./once-query";
 
+/**
+ * The bounded render path — a graph you never hold all of.
+ *
+ * A contract, not a format: anything that can answer "what is in this rectangle, at this zoom, in
+ * at most this many marks" is a source. fossil's `viewport` verb is one; a relation with `x`/`y`
+ * and a spatial predicate is another. This package renders and does not learn a storage layout,
+ * which is what keeps `load()`'s ceiling from being the only option.
+ */
+export {
+  BOUNDED_DEFAULTS,
+  shouldSlice,
+  viewportOf,
+  type BoundedSource,
+  type Slice,
+  type SliceMode,
+  type SliceRequest,
+  type Viewport,
+} from "./bounded";
+
 // Cluster seeding — what actually separates communities, as opposed to what looks like it should.
 export { clusterRing } from "./cluster-ring";
 
