@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type RefObject } from "react";
 import { CHART_SLOTS } from "@kanzo-tech/theme";
-import { useKanzoThemeOptional } from "../theme/KanzoThemeProvider.js";
+import { useKanzoThemeOptional } from "../theme/theme-context.js";
 
 /**
  * Convert a browser-computed colour into the plain `rgb(...)` form Observable Plot accepts.
