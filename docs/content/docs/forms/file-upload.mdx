@@ -54,11 +54,46 @@ FileUpload
 └── FileUploadHiddenInput
 ```
 
-## API
+## API Reference
 
-No props beyond Ark's. `FileUpload` extends `FileUpload.Root` (`accept`, `maxFiles`,
-`maxFileSize`, `disabled`, `invalid`, `required`, `name`, `directory`, `onFileChange`,
-`onFileAccept`, `onFileReject`); `FileUploadItem` takes the `file` it renders.
-`FileUploadTrigger` and `FileUploadItemDeleteTrigger` are `Button`s, so they accept
-`variant` and `size`. `useFileUpload` is `useFileUploadContext` — it exposes
-`acceptedFiles`, `rejectedFiles` and the imperative `setFiles` / `clearFiles`.
+### FileUpload
+
+No props of its own — the API is the machine's:
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `accept` | `string \| Record<string, string[]>` | — |
+| `maxFiles` | `number` | `1` |
+| `maxFileSize` | `number` | `Infinity` |
+| `minFileSize` | `number` | `0` |
+| `allowDrop` | `boolean` | `true` |
+| `preventDocumentDrop` | `boolean` | `true` |
+| `directory` | `boolean` | `false` |
+| `disabled` | `boolean` | `false` |
+| `invalid` | `boolean` | `false` |
+| `required` | `boolean` | `false` |
+
+`maxFiles` is `1` by default, so a multi-file dropzone has to say so.
+
+Extends `React.ComponentProps<typeof ArkFileUpload.Root>`, so `acceptedFiles` /
+`defaultAcceptedFiles`, `onFileChange` / `onFileAccept` / `onFileReject`, `validate`,
+`transformFiles`, `capture`, `readOnly`, `name` and `ref` pass through.
+
+### FileUploadTrigger
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `variant` | `ButtonProps["variant"]` | `"outline"` |
+| `size` | `ButtonProps["size"]` | `"md"` (`Button`'s) |
+
+Renders a [`Button`](/docs/actions/button) with `asChild`, so it is a real button carrying the
+machine's click handler.
+
+### Other parts
+
+`FileUploadItem` takes the `file` it renders. `FileUploadItemDeleteTrigger` is a ghost
+`icon-sm` `Button`. The rest — `FileUploadLabel`, `FileUploadDropzone`, `FileUploadItemGroup`,
+`FileUploadItemPreview`, `FileUploadItemName`, `FileUploadItemSizeText` and
+`FileUploadHiddenInput` — take their Ark part's props and add none of their own.
+`useFileUpload` re-exports `useFileUploadContext`: `acceptedFiles`, `rejectedFiles` and the
+imperative `setFiles` / `clearFiles`.

@@ -53,3 +53,13 @@ Never let a spinner be the only thing on screen for a wait you cannot bound. It 
 distinguish "still working" from "stalled", so pair a long operation with text that names what
 is happening — as the middle example above does.
 </Callout>
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `aria-label` | `string` | `"Loading"` |
+
+Extends `React.ComponentProps<"svg">`, so `className`, `ref` and every SVG prop pass through.
+It renders one `Loader2Icon` with `role="status"` at `size-4` in `currentColor` — there is no
+`size` and no `variant`, because both are a utility on the element.

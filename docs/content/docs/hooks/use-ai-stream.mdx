@@ -1,0 +1,101 @@
+---
+title: useAiStream
+description: The streaming engine under every AI surface — one iterator, one abort controller, one status. It never calls a model; you hand it a function returning an async iterable.
+---
+
+<ComponentPreview componentName="use-ai-stream" />
+
+## Usage
+
+```tsx
+import { useAiStream } from "@kanzo-tech/ui";
+```
+
+```tsx
+const engine = useAiStream<string>();
+
+engine.start((signal) => complete(value, signal));
+const chunk = await engine.next();
+```
+
+<Callout type="info">
+Most of the time you want [`useCompletion`](/docs/hooks/use-completion) or
+[`useSuggestions`](/docs/hooks/use-suggestions), which are built on this and add the debounce,
+the min-length gate and the dedup. Reach for `useAiStream` to build a **third** interaction those
+two do not cover. The contract it consumes is explained once in
+[AI-assisted fields](/docs/forms/ai).
+</Callout>
+
+## What it owns
+
+Three things, and nothing else: the **iterator** currently open, the **`AbortController`** that
+cancels it, and the **status**. No markup, no value, no model. That is why the same engine drives
+a per-keystroke completion and a resumable suggestion window without either knowing about the
+other.
+
+`start` takes a *factory* rather than an iterable — `(signal) => AsyncIterable<T>` — because the
+signal has to exist before the source does. Calling it aborts whatever was in flight and opens a
+fresh controller, so a superseded request can never write over a newer one.
+
+## `idle` vs `abort`
+
+The distinction is the reason this hook is separate from its two consumers:
+
+| Call | Iterator | Controller | Status | Use it when |
+| --- | --- | --- | --- | --- |
+| `idle()` | kept | kept | `idle` | the stream is paused but may resume — a later `next()` picks it up |
+| `abort()` | dropped | aborted | unchanged until the next pull | the request is dead — the user closed the surface or typed again |
+
+A suggestion popover closing mid-load wants `abort`. A completion that finished a burst and may
+be asked for more wants `idle`.
+
+## Pull, don't push
+
+`next()` is a serialized single-consumer pull: calls queue behind each other, so a component can
+call it from more than one place without interleaving chunks. It resolves `null` on three
+different endings — exhausted, aborted, or thrown — and only the thrown one sets `status` to
+`"error"`. An abort is not a failure, so it is not reported as one.
+
+```tsx
+for (;;) {
+  const chunk = await engine.next();
+  if (chunk == null) break;
+  append(chunk);
+}
+engine.idle();
+```
+
+## Restarting a dry source
+
+`restart()` re-opens the iterator on the **same** controller. It is the retry for a source that
+ran out before you had enough — `useSuggestions` uses it exactly once per open-cycle to refill a
+window. It is a no-op once the controller is aborted, so a dead stream cannot be resurrected by
+accident.
+
+## API Reference
+
+### Parameters
+
+| Parameter | Type | Default |
+| --- | --- | --- |
+| `errorText` | `string` | `"Something went wrong"` |
+
+The fallback message written to `error` when the source throws without a message of its own.
+
+### Returns
+
+`AiStream<T>`:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `start` | `(source: (signal: AbortSignal) => AsyncIterable<T>) => void` | Abort any prior stream, open a fresh iterator on a new controller |
+| `restart` | `() => void` | Re-open the iterator on the same controller; no-op once aborted |
+| `next` | `() => Promise<T \| null>` | Serialized pull; `null` on exhaust, abort or throw |
+| `idle` | `() => void` | Status → `idle`, iterator kept |
+| `abort` | `() => void` | Abort the controller and drop the iterator |
+| `signal` | `() => AbortSignal \| undefined` | The current signal — check it before writing a chunk |
+| `status` | `"idle" \| "streaming" \| "error"` | Current state |
+| `error` | `string \| null` | Message when `status` is `"error"` |
+
+The hook aborts its controller on unmount, so a stream cannot outlive the component that started
+it.

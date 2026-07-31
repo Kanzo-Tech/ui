@@ -7,9 +7,12 @@ import {
   derivePalette,
   fillStep,
   seedInput,
+  type Identity,
   type RampName,
+  type RampSet,
   type TaggedAdjustment,
   type TaggedRelief,
+  type TenantPalette,
 } from "@kanzo-tech/palette";
 import { HALLS, type Hall } from "@/example/world";
 
@@ -35,6 +38,13 @@ export interface RampView {
   onSolid: { light: string; dark: string };
 }
 
+/**
+ * One tenant, read through **one** identity — the default one, the brand `:root` carries.
+ *
+ * A document stores five shared ramps and a brand ramp per identity, so "the brand ramp" is only a
+ * phrase once an identity is named. Every shipped seed pair publishes exactly one, so this
+ * projection is the whole document; a multi-brand tenant would need one view per identity.
+ */
 export interface PaletteView {
   id: string;
   label: string;
@@ -76,6 +86,12 @@ export interface PaletteView {
 }
 
 function authoredFor(id: string, brand: string, neutral: string): PaletteView["authored"] {
+  // Not for the default tenant, and the direction is the reason: Kanzo's seeds were not lifted from
+  // a base16 palette — Kanzo's base16 palette was derived FROM the seed. `BASE16_SLOTS` carries it
+  // for the syntax roles, so the lookup succeeds and would render "authored, and derived" about a
+  // colour nobody authored elsewhere. Worse, its brand and neutral are the same grey, so both would
+  // report `base03`.
+  if (id === KANZO_ID) return null;
   const source = BASE16_SLOTS[id];
   if (!source) return null;
   const slots = Object.entries(source.slots);
@@ -89,50 +105,83 @@ function authoredFor(id: string, brand: string, neutral: string): PaletteView["a
   };
 }
 
-function view(
-  id: string,
-  seeds: { label: string; brand: string; neutral: string },
-  { short, hall }: { short: string; hall: Hall | null },
+/**
+ * The identity `:root` paints, by name.
+ *
+ * `identities[0]` would be the client's first, which is not the same question: the order is theirs
+ * to choose and `defaultIdentity` is theirs to nominate, and a document may differ on the two.
+ */
+function defaultIdentityOf(doc: TenantPalette): Identity {
+  const identity = doc.identities.find((it) => it.id === doc.defaultIdentity);
+  if (!identity) throw new Error(`${doc.id} names no identity "${doc.defaultIdentity}"`);
+  return identity;
+}
+
+/**
+ * One seed pair, derived and projected — for a shipped palette at build time, for a hall's
+ * heraldry, or for two hex values a visitor typed, through the server action beside this file.
+ *
+ * The same function every way, deliberately: a shipped palette is not a privileged shape, it is a
+ * tenant whose seeds happen to be committed. If the tool ran a different path from the gallery, the
+ * gallery would stop being evidence about the tool.
+ *
+ * The second parameter is presentation only — a tab label, and the hall the seeds belong to when
+ * they belong to one. It defaults, so a caller who has only seeds passes only seeds.
+ */
+export function viewOf(
+  seeds: { id: string; label: string; brand: string; neutral: string },
+  { short, hall }: { short?: string; hall?: Hall | null } = {},
 ): PaletteView {
+  const { id } = seeds;
+  const tab = short ?? seeds.label;
+
   const started = performance.now();
   const doc = derivePalette(seedInput(id, seeds));
   const ms = Math.round(performance.now() - started);
 
+  // The six ramps a *resolution* happens against — the document's five, plus the one brand the
+  // default identity carries. `RampSet` is the type the library already has for exactly this join.
+  const identity = defaultIdentityOf(doc);
+  const ramps: RampSet = { ...doc.ramps, brand: identity.ramp };
+  const categorical = identity.categorical;
+
   return {
     id,
     label: doc.label,
-    short,
-    hall,
+    short: tab,
+    hall: hall ?? null,
     brandSeed: doc.seeds.brand,
     neutralSeed: doc.seeds.neutral,
     neutralHue: doc.seeds.neutralHue,
     neutralHueFrom: doc.seeds.neutralHueFrom,
     // The library's own rule, not a re-derivation of it: 9 normally, 12 for a brand ramp that
     // reports `carries-identity`. That difference is the whole of the monochrome case.
-    fillStep: fillStep(doc.ramps.brand),
+    fillStep: fillStep(identity.ramp),
     primary: { light: doc.roles.light["--primary"] ?? "", dark: doc.roles.dark["--primary"] ?? "" },
     ramps: RAMP_NAMES.map((name) => ({
       name,
-      seed: doc.ramps[name].light.seed,
-      hue: doc.ramps[name].light.hue,
-      light: doc.ramps[name].light.steps,
-      dark: doc.ramps[name].dark.steps,
-      boundary: { light: doc.ramps[name].light.boundary, dark: doc.ramps[name].dark.boundary },
-      onSolid: { light: doc.ramps[name].light.onSolid, dark: doc.ramps[name].dark.onSolid },
+      seed: ramps[name].light.seed,
+      hue: ramps[name].light.hue,
+      light: ramps[name].light.steps,
+      dark: ramps[name].dark.steps,
+      boundary: { light: ramps[name].light.boundary, dark: ramps[name].dark.boundary },
+      onSolid: { light: ramps[name].light.onSolid, dark: ramps[name].dark.onSolid },
     })),
-    adjustments: doc.record.adjustments,
-    relief: doc.record.relief,
+    // Brand rows first, then the shared ones: the record is split by which seed moved, and the
+    // screen is read top-down by a client who came here to see what happened to *their* colour.
+    adjustments: [...identity.record.adjustments, ...doc.record.adjustments],
+    relief: [...identity.record.relief, ...doc.record.relief],
     categorical: {
-      from: doc.categorical.source.from,
-      family: doc.categorical.source.family,
-      capacity: doc.categorical.capacity,
-      families: doc.categorical.families,
-      kept: doc.categorical.kept,
-      crowded: doc.categorical.crowded,
-      dropped: doc.categorical.dropped,
-      light: doc.categorical.light,
-      dark: doc.categorical.dark,
-      separation: doc.categorical.separation,
+      from: categorical.source.from,
+      family: categorical.source.family,
+      capacity: categorical.capacity,
+      families: categorical.families,
+      kept: categorical.kept,
+      crowded: categorical.crowded,
+      dropped: categorical.dropped,
+      light: categorical.light,
+      dark: categorical.dark,
+      separation: categorical.separation,
     },
     authored: authoredFor(id, seeds.brand, seeds.neutral),
     css: compile(doc),
@@ -151,22 +200,20 @@ const memo = new Map<string, PaletteView>();
 function shipped(id: string): PaletteView {
   const seeds = PALETTE_SEEDS[id];
   if (!seeds) throw new Error(`no seed pair named ${id}`);
-  const cached = memo.get(id) ?? view(id, seeds, { short: seeds.label, hall: null });
+  const cached = memo.get(id) ?? viewOf({ id, ...seeds });
   memo.set(id, cached);
   return cached;
 }
 
 /** A hall's heraldry, read as what it is: a `PaletteSeeds` with the hall's name on it. */
 function registered(entry: Hall): PaletteView {
-  return view(
-    entry.id,
-    { label: entry.name, ...entry.heraldry },
+  return viewOf(
+    { id: entry.id, label: entry.name, ...entry.heraldry },
     { short: entry.short, hall: entry },
   );
 }
 
 let registry: PaletteView[] | null = null;
-let shippedSet: PaletteView[] | null = null;
 
 /**
  * The five halls, then Kanzo's own document — derived once per build.
@@ -179,16 +226,4 @@ let shippedSet: PaletteView[] | null = null;
 export function heraldry(): PaletteView[] {
   registry ??= [...HALLS.map(registered), shipped(KANZO_ID)];
   return registry;
-}
-
-/**
- * The shipped seed pairs, derived once per build — the base16 showcase's set, not the world's.
- *
- * Deliberately still `PALETTE_SEEDS`: Dracula, Nord and the Catppuccins are the *package's*
- * borrowed identities, and the claim that page makes is about the derivation digesting a foreign
- * palette. A guild hall cannot make that claim, because its heraldry was never a base16 strip.
- */
-export function palettes(): PaletteView[] {
-  shippedSet ??= Object.keys(PALETTE_SEEDS).map(shipped);
-  return shippedSet;
 }

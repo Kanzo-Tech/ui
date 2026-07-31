@@ -38,7 +38,18 @@ export const PALETTE_SEEDS = paletteDataJson.seeds as Record<string, PaletteSeed
 /** The default tenant's id. It is a tenant whose document happens to be committed, nothing more. */
 export const KANZO_ID = "kanzo";
 
-/** Seeds in, `derivePalette` input out. The showcase and `gen-palette.mjs` use the same call. */
+/**
+ * Seeds in, `derivePalette` input out. The showcase and `gen-palette.mjs` use the same call.
+ *
+ * One identity, and it takes the tenant's own id: a shipped identity *is* the whole tenant, so a
+ * second name for it — `"default"`, `"brand"` — would be a word nobody chose. It never reaches the
+ * stylesheet either, because the default identity is the one `:root` carries.
+ */
 export function seedInput(id: string, seeds: PaletteSeeds): DerivePaletteInput {
-  return { id, label: seeds.label, brand: seeds.brand, neutral: seeds.neutral };
+  return {
+    id,
+    label: seeds.label,
+    identities: [{ id, label: seeds.label, brand: seeds.brand }],
+    neutral: seeds.neutral,
+  };
 }

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Geist, Geist_Mono, Inter, JetBrains_Mono } from "next/font/google";
 import { RootProvider } from "fumadocs-ui/provider/next";
 import { KanzoProvider } from "@/components/kanzo-provider";
+import { defaultPalette, paletteCss, paletteOptions, requestedPalette } from "@/lib/palette";
 import "@kanzo-tech/ui/styles.css";
 import "./global.css";
 
@@ -20,7 +21,12 @@ export const metadata = {
   description: "Ark UI + tailwind-variants primitives over design tokens.",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  // The chosen palette, decided from the request rather than after hydration. `null` for the default
+  // one, whose stylesheet is `tokens.css` and is already imported above.
+  const palette = await requestedPalette();
+  const css = paletteCss(palette);
+
   return (
     <html
       lang="en"
@@ -28,13 +34,22 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${jetbrainsMono.variable}`}
     >
       <body className="flex min-h-screen flex-col">
+        {/* Order-independent on purpose: every non-default document is compiled with `elevate`, so
+            its `:root:root` blocks outrank `tokens.css` on specificity. Whether React hoists this
+            before or after the imported sheet cannot change which palette wins. */}
+        {css ? (
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: a compiled stylesheet, from disk.
+          <style dangerouslySetInnerHTML={{ __html: css }} id="kanzo-palette" />
+        ) : null}
         {/* next-themes OFF. `RootProvider` mounts it with `attribute: "class"`, which made two
             writers of `.dark` on <html>; and 0.4.6 defaults `enableColorScheme: true`, writing
             `documentElement.style.colorScheme` — an inline declaration that outranks every rule
             permanently, so the `:root` / `.dark` blocks of a compiled palette document could never
             set it. `.dark` is written by KanzoThemeProvider, alone. */}
         <RootProvider theme={{ enabled: false }}>
-          <KanzoProvider>{children}</KanzoProvider>
+          <KanzoProvider defaultPalette={defaultPalette} palettes={paletteOptions}>
+            {children}
+          </KanzoProvider>
         </RootProvider>
       </body>
     </html>

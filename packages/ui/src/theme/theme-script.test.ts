@@ -18,7 +18,6 @@ import { AXES, STORAGE_KEY } from "@kanzo-tech/theme";
 import { render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { KanzoThemeProvider } from "./KanzoThemeProvider.js";
-import { APPEARANCE_KEY } from "./prefs-config.js";
 import { themeScript } from "./theme-script.js";
 
 function stubMatchMedia(dark: boolean) {
@@ -58,10 +57,9 @@ function reset() {
 }
 
 /** Seeds storage, runs each side from a clean `<html>`, and returns both snapshots. */
-function bothSides(seed: { prefs?: Record<string, unknown>; legacy?: string }, osDark: boolean) {
+function bothSides(seed: { prefs?: Record<string, unknown> }, osDark: boolean) {
   localStorage.clear();
   if (seed.prefs) localStorage.setItem(STORAGE_KEY, JSON.stringify(seed.prefs));
-  if (seed.legacy) localStorage.setItem(APPEARANCE_KEY, seed.legacy);
   stubMatchMedia(osDark);
 
   reset();
@@ -93,16 +91,38 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
     ["nothing stored, dark OS", {}, true],
     ["appearance: dark on a light OS", { prefs: { appearance: "dark" } }, false],
     ["appearance: light on a dark OS", { prefs: { appearance: "light" } }, true],
-    ["appearance: system on a dark OS", { prefs: { appearance: "system" } }, true],
-    ["the legacy standalone key, no `appearance` in the blob", { prefs: { radius: "lg" }, legacy: "dark" }, false],
-    // No blob at all takes a different branch in the script (the empty-object guard) than a blob
-    // missing the field — both must still reach the legacy key.
-    ["the legacy standalone key with no blob at all", { legacy: "dark" }, false],
-    ["the legacy key losing to the blob once written", { prefs: { appearance: "light" }, legacy: "dark" }, true],
+    // `null` is the stored form of "the OS decides" — what Reset writes — and neither side may read
+    // it as a side. A stored `"system"` is the same case from the other direction: a string from a
+    // vocabulary we do not have, so both drop it and ask the OS.
+    ["appearance: null on a dark OS", { prefs: { appearance: null } }, true],
+    ["appearance: null on a light OS", { prefs: { appearance: null } }, false],
+    ["a stored `system`, from no vocabulary of ours", { prefs: { appearance: "system" } }, true],
+    // A blob missing the field takes a different branch in the script than no blob at all (the
+    // empty-object guard), and both mean the same thing.
+    ["a blob with no appearance at all", { prefs: { radius: "lg" } }, true],
     ["every non-colour axis at once", { prefs: { radius: "lg", font: "geist", monoFont: "jetbrains-mono", density: "compact", appearance: "dark" } }, false],
+    // Identity is the axis the script CANNOT reason about: what a tenant published is in the
+    // compiled document, not in storage. Both sides therefore write the stored id verbatim, and
+    // an id no `[data-identity=…]` block matches is inert — the cascade falls to `:root`.
+    ["an identity the tenant published", { prefs: { identity: "private-gold" } }, false],
+    ["an identity the tenant has since retired", { prefs: { identity: "gone" } }, false],
+    ["identity alongside every other axis", { prefs: { radius: "xs", font: "inter", density: "comfortable", identity: "retail-blue", appearance: "dark" } }, true],
+    // `""` is the default identity — a deferral to `:root`, not a value — so it must take the
+    // same branch as an absent field on both sides.
+    ["identity: \"\", the default identity", { prefs: { identity: "" } }, false],
+    // A blob is JSON from a browser and can hold anything. `String(v)` would write
+    // `data-identity="[object Object]"` on both sides consistently, which is agreement about the
+    // wrong thing; the `typeof` test on both sides is agreement about nothing being written.
+    ["a corrupt identity that is not a string", { prefs: { identity: { id: "gold" } } }, false],
     // Real browsers hold blobs written before colour left the model. Neither side may act on them,
     // and the provider must not write them back — see the whitelist test in its own file.
-    ["a retired colour key still in the stored blob", { prefs: { palette: "dracula", accent: "blue", baseTint: "#123456", appearance: "light" } }, true],
+    ["a retired colour key still in the stored blob", { prefs: { accent: "blue", baseTint: "#123456", appearance: "light" } }, true],
+    // `palette` is a live preference and writes NO attribute: a document is a stylesheet, and which
+    // one to serve is the server's decision from the cookie. So both sides must reach the same
+    // `<html>` while disagreeing about nothing, which is what this case pins — the failure it guards
+    // against is somebody "fixing" the asymmetry by adding an `AXES` row and a `data-palette`.
+    ["a chosen palette, which reaches <html> as nothing at all", { prefs: { palette: "dracula" } }, false],
+    ["a chosen palette beside every axis that IS one", { prefs: { palette: "nord", radius: "lg", identity: "gold", appearance: "dark" } }, false],
   ];
 
   for (const [name, seed, osDark] of cases) {
@@ -116,6 +136,10 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
     // `data-palette`, `data-base`, `data-accent` and `data-chart-scheme` left the product path with
     // the document. A stored blob that still names one must not resurrect the attribute — no CSS
     // matches it any more, so what it would produce is a stale selector nothing can clear.
+    //
+    // `data-palette` stays on this list even though `palette` came BACK as a preference, and that is
+    // the point worth pinning: the preference returned, the attribute did not. A document is served,
+    // never selected in the cascade.
     const { script, provider } = bothSides(
       { prefs: { palette: "dracula", base: "slate", accent: "blue", scheme: "vivid" } },
       false,
@@ -126,10 +150,26 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
     }
   });
 
+  it("writes the identity attribute only for a chosen identity", () => {
+    // The three states of one axis, asserted as attribute presence rather than as equality, so a
+    // regression where BOTH sides start writing `data-identity=""` still fails here. An empty
+    // attribute matches `[data-identity]` and `[data-identity=""]`, neither of which `compile()`
+    // emits — it would be a selector nothing can clear, which is what killed `data-palette`.
+    const chosen = bothSides({ prefs: { identity: "private-gold" } }, false);
+    expect(chosen.script.attrs["data-identity"]).toBe("private-gold");
+    expect(chosen.provider.attrs["data-identity"]).toBe("private-gold");
+
+    for (const seed of [{ prefs: { identity: "" } }, { prefs: { radius: "lg" } }, {}]) {
+      const { script, provider } = bothSides(seed, false);
+      expect(script.attrs["data-identity"], JSON.stringify(seed)).toBeUndefined();
+      expect(provider.attrs["data-identity"], JSON.stringify(seed)).toBeUndefined();
+    }
+  });
+
   it("follows the PREFERENCE for `.dark`, with nothing able to overrule it", () => {
     // `.dark` used to be derived from the applied palette, so a partnerless palette contradicted
     // the user. A document carries both modes; the preference is now the whole answer.
-    const { script, provider } = bothSides({ prefs: { appearance: "light", palette: "dracula" } }, true);
+    const { script, provider } = bothSides({ prefs: { appearance: "light", accent: "blue" } }, true);
     expect(script.dark).toBe(false);
     expect(provider.dark).toBe(false);
   });

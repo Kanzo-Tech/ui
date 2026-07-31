@@ -43,7 +43,9 @@ export default function Layout({ children }: { children: ReactNode }) {
       // The live theme customizer sits in the sidebar footer as a single left-aligned controls
       // cluster (light/dark toggle + Customize). It is the library's own `Preferences` panel (see
       // `docs-preferences.tsx`); opening it re-themes every inline example.
-      sidebar={{ footer: <DocsPreferences /> }}
+      // Keyed because `Sidebar` renders this same node in two arrays — the desktop aside and the
+      // mobile drawer — and React asks for a key on both.
+      sidebar={{ footer: <DocsPreferences key="docs-preferences" /> }}
     >
       {children}
     </DocsLayout>

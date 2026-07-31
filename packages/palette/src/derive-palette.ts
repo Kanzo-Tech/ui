@@ -12,27 +12,30 @@ import {
 } from "./palette-check.js";
 import {
   PALETTE_SCHEMA_VERSION,
-  RAMP_NAMES,
+  SHARED_RAMP_NAMES,
   STATUS_NAMES,
   hashObligations,
   type CategoricalSet,
   type CrossCheck,
   type HueSource,
+  type Identity,
   type PaletteRecord,
   type PaletteState,
-  type RampName,
   type RampSet,
   type RoleValues,
+  type SharedRampName,
+  type SharedRampSet,
   type StatusName,
   type TaggedAdjustment,
   type TaggedRelief,
   type TenantPalette,
 } from "./palette-document.js";
-import { ROLES, resolveRoles } from "./roles.js";
-import { TINT_FLOOR, TINT_REFERENCE, deriveRamp, toHex } from "./ramp.js";
+import { IDENTITY_TOKENS, ROLES, resolveRoles } from "./roles.js";
+import { TINT_FLOOR, TINT_REFERENCE, deriveRamp, toHex, type Ramp } from "./ramp.js";
 
 /**
- * Deriving one tenant's palette document: six ramps, two modes, a categorical set and a record.
+ * Deriving one tenant's palette document: five shared ramps, a brand ramp and a categorical set per
+ * identity, two modes, and a record split the same way.
  *
  * **There is no first-paint budget here.** Runtime only *applies* a stored document, so the maths in
  * this file may be as thorough as quality demands — the categorical search alone measures a median
@@ -199,13 +202,37 @@ export function categoricalSource(
   return source;
 }
 
+/**
+ * One brand a tenant publishes.
+ *
+ * One shape and no shorthand union. A `brand?: string` beside `identities` would give a tenant with
+ * one brand a second way to say the same thing, and every reader downstream — the compiler, the
+ * panel, the record splitter — would carry a branch for a case that is already expressible. A
+ * single-identity tenant writes a one-element array, which is what it is.
+ */
+export interface IdentityInput {
+  /** `/^[a-z0-9][a-z0-9-]*$/`. Interpolated into a CSS attribute selector — see `ID_SHAPE`. */
+  id: string;
+  /** The client's own name for this brand. Never formatted by a host. */
+  label: string;
+  /** The seed. */
+  brand: string;
+}
+
 export interface DerivePaletteInput {
   /** Stable per tenant — what the server looks the document up by at request time. */
   id: string;
   label: string;
-  /** The client's brand colour. */
-  brand: string;
-  /** The client's neutral. Omitted, it is built from the brand hue — see `neutralSeedFor`. */
+  /** At least one, ids unique. Order is the client's. */
+  identities: readonly [IdentityInput, ...IdentityInput[]];
+  /** Defaults to the first identity — the one `:root` carries. Must name one of them. */
+  defaultIdentity?: string;
+  /**
+   * The client's neutral.
+   *
+   * Omitted, it is built from the **default identity's** brand hue — see `neutralSeedFor`. That
+   * carry-over is only available to a single-identity tenant; see the throw in `derivePalette`.
+   */
   neutral?: string;
   /** Defaults to `draft`: a freshly derived document has not been reviewed yet. */
   state?: PaletteState;
@@ -214,34 +241,147 @@ export interface DerivePaletteInput {
 }
 
 /**
+ * The shape a `data-*` attribute value already takes, and the shape an id has to take here.
+ *
+ * Validated at derive time rather than escaped at compile time. An id is interpolated into
+ * `[data-identity="…"]`, and a document that cannot be compiled should not be derivable in the first
+ * place — which is also what keeps `compile` a string join with no escaping rules of its own.
+ */
+const ID_SHAPE = /^[a-z0-9][a-z0-9-]*$/;
+
+/**
  * Seeds in, document out.
  *
- * Four stages, in this order and no other: twelve ramps, the categorical set, the role table
- * resolved per mode, and the record. The order matters once — the categorical set avoids the
- * *derived* status fills, not the seeds, because a fill is what a reader actually sees and step 9 is
- * the seed pulled away from the surface until it reads as a shape.
+ * Two halves. **Once per document**: the neutral seed, the five shared ramps, the status fills a
+ * categorical set must stay clear of, and the record rows and cross-checks about all of them.
+ * **Once per identity**: a brand ramp pair, a categorical set spun off that brand's hue, the role
+ * table resolved against shared + brand, and the record rows about the brand.
+ *
+ * The order matters once, and it is the reason the halves are in this order rather than the other:
+ * every identity's categorical set avoids the *derived* status fills, not the seeds, because a fill
+ * is what a reader actually sees and step 9 is the seed pulled away from the surface until it reads
+ * as a shape.
  */
 export function derivePalette(input: DerivePaletteInput): TenantPalette {
-  const neutral = neutralSeedFor(input.brand, input.neutral);
-  const seeds: Record<RampName, string> = {
-    brand: input.brand,
-    neutral,
-    ...STATUS_SEEDS,
-  };
+  const identities = input.identities;
+  for (const identity of identities) {
+    if (!ID_SHAPE.test(identity.id)) {
+      throw new Error(
+        `identity id "${identity.id}" is not usable in a CSS attribute selector. It has to match ` +
+          `${ID_SHAPE.source} — lower case, digits and hyphens, starting with a letter or digit — ` +
+          `because compile() interpolates it straight into [data-identity="…"].`,
+      );
+    }
+  }
 
+  const ids = identities.map((identity) => identity.id);
+  const duplicate = ids.find((id, i) => ids.indexOf(id) !== i);
+  if (duplicate !== undefined) {
+    throw new Error(
+      `two identities share the id "${duplicate}". They would compile to two blocks with the same ` +
+        `selector, and the second would silently win.`,
+    );
+  }
+
+  const defaultIdentity = input.defaultIdentity ?? (identities[0] as IdentityInput).id;
+  const chosen = identities.find((identity) => identity.id === defaultIdentity);
+  if (!chosen) {
+    throw new Error(
+      `defaultIdentity "${defaultIdentity}" names no identity in this document. It is what :root ` +
+        `carries and what a retired preference falls back to, so it cannot be a value nothing ` +
+        `resolves. Published: ${ids.map((id) => `"${id}"`).join(", ")}.`,
+    );
+  }
+
+  // The one thing a second identity makes compulsory. `neutralSeedFor` carries a *brand* hue into
+  // the neutral when the client gives none — and the neutral is 90% of the pixels, so on a
+  // multi-brand tenant that would tint the whole product with one identity's hue and then paint the
+  // others on top of it. A tenant with several brands has to choose a neutral that serves all of
+  // them, which is the same decision the client already makes, applied to the field where it bites.
+  if (identities.length > 1 && !input.neutral) {
+    throw new Error(
+      `a document with ${identities.length} identities needs an explicit neutral seed. With one ` +
+        `identity the brand hue is carried into the neutral, but the neutral is 90% of the pixels ` +
+        `and there is no reason "${chosen.brand}" should tint the surfaces the other brands are ` +
+        `painted on. Choose a neutral that serves all of them.`,
+    );
+  }
+
+  const neutral = neutralSeedFor(chosen.brand, input.neutral);
+  const sharedSeeds: Record<SharedRampName, string> = { neutral, ...STATUS_SEEDS };
   const ramps = Object.fromEntries(
-    RAMP_NAMES.map((name) => [
+    SHARED_RAMP_NAMES.map((name) => [
       name,
-      Object.fromEntries(MODES.map((mode) => [mode, deriveRamp(seeds[name], mode)])),
+      Object.fromEntries(MODES.map((mode) => [mode, deriveRamp(sharedSeeds[name], mode)])),
     ]),
-  ) as RampSet;
+  ) as SharedRampSet;
 
   // Both modes' fills, deduplicated. A series must not read as a state in *either* mode, and the
   // two sets are usually the same colour anyway — a status seed is already in band and already
-  // clears 3:1, so step 9 rarely moves.
+  // clears 3:1, so step 9 rarely moves. Derived once and handed to every identity: the statuses are
+  // the tenant's, so what a chart has to stay clear of does not vary with the brand.
   const avoid = [
     ...new Set(STATUS_NAMES.flatMap((name) => MODES.map((mode) => ramps[name][mode].steps[8] as string))),
   ];
+
+  const derived = identities.map((identity) => deriveIdentity(identity, ramps, avoid));
+  const primary = derived.find((it) => it.identity.id === defaultIdentity) as DerivedIdentity;
+
+  const neutralRamp = ramps.neutral.light;
+  const neutralHueFrom: HueSource =
+    neutralRamp.hue === null ? "none" : input.neutral ? "neutral-seed" : "brand";
+
+  return {
+    schemaVersion: PALETTE_SCHEMA_VERSION,
+    id: input.id,
+    label: input.label,
+    state: input.state ?? "draft",
+    seeds: {
+      brand: chosen.brand,
+      neutral,
+      neutralHue: neutralRamp.hue,
+      neutralHueFrom,
+      status: { ...STATUS_SEEDS },
+      surfaces: { light: SURFACE.light, dark: SURFACE.dark },
+    },
+    engine: {
+      package: pkg.version,
+      obligations: hashObligations(),
+      derivedAt: input.derivedAt ?? new Date().toISOString(),
+    },
+    ramps,
+    identities: derived.map((it) => it.identity),
+    defaultIdentity,
+    roles: primary.roles,
+    record: sharedRecordOf(ramps, primary.roles),
+  };
+}
+
+// ── One identity ────────────────────────────────────────────────────────────────────────────────
+
+/** An `Identity` plus the full role map it resolved to — which only the default identity keeps. */
+interface DerivedIdentity {
+  identity: Identity;
+  roles: Record<Mode, RoleValues>;
+}
+
+/**
+ * One brand, against the ramps the tenant already has.
+ *
+ * It resolves the **whole** role table rather than the 15 tokens it will keep, because the shared
+ * two-thirds is what the identity's own rows are measured against — a brand fill is graded on the
+ * neutral page, not on its own. The caller keeps the full map for the default identity and throws
+ * the rest away, which is the only work this repeats per identity that is not a per-identity fact.
+ */
+function deriveIdentity(
+  input: IdentityInput,
+  shared: SharedRampSet,
+  avoid: readonly string[],
+): DerivedIdentity {
+  const ramp = Object.fromEntries(
+    MODES.map((mode) => [mode, deriveRamp(input.brand, mode)]),
+  ) as Record<Mode, Ramp>;
+  const ramps: RampSet = { ...shared, brand: ramp };
 
   // The brand's own family is *required*, not merely offered. The subset search chooses on
   // separation, which is a quality question that has no opinion about whose palette it is, so
@@ -251,7 +391,7 @@ export function derivePalette(input: DerivePaletteInput): TenantPalette {
   // without), because it only ever binds when the search was about to make exactly that mistake.
   const own = familyOf(input.brand);
   const derived = deriveSchemeColors(categoricalSource(input.brand), {
-    avoid,
+    avoid: [...avoid],
     leading: CATEGORICAL_LEADING,
     require: own === null ? [] : [own],
   });
@@ -280,45 +420,50 @@ export function derivePalette(input: DerivePaletteInput): TenantPalette {
     ]),
   ) as Record<Mode, RoleValues>;
 
-  const neutralRamp = ramps.neutral.light;
-  const neutralHueFrom: HueSource =
-    neutralRamp.hue === null ? "none" : input.neutral ? "neutral-seed" : "brand";
+  const adjustments: TaggedAdjustment[] = [];
+  const relief: TaggedRelief[] = [];
+  for (const mode of MODES) {
+    for (const move of ramp[mode].adjustments) adjustments.push({ ...move, ramp: "brand", mode });
+    for (const item of ramp[mode].relief) relief.push({ ...item, ramp: "brand", mode });
+  }
 
   return {
-    schemaVersion: PALETTE_SCHEMA_VERSION,
-    id: input.id,
-    label: input.label,
-    state: input.state ?? "draft",
-    seeds: {
+    identity: {
+      id: input.id,
+      label: input.label,
       brand: input.brand,
-      neutral,
-      neutralHue: neutralRamp.hue,
-      neutralHueFrom,
-      status: { ...STATUS_SEEDS },
-      surfaces: { light: SURFACE.light, dark: SURFACE.dark },
+      ramp,
+      categorical,
+      roles: Object.fromEntries(
+        MODES.map((mode) => [
+          mode,
+          Object.fromEntries(IDENTITY_TOKENS.map((token) => [token, roles[mode][token] as string])),
+        ]),
+      ) as Record<Mode, RoleValues>,
+      record: {
+        adjustments,
+        relief,
+        crossChecks: MODES.flatMap((mode) => identityCrossChecks(categorical, roles[mode], mode)),
+      },
     },
-    engine: {
-      package: pkg.version,
-      obligations: hashObligations(),
-      derivedAt: input.derivedAt ?? new Date().toISOString(),
-    },
-    ramps,
-    categorical,
     roles,
-    record: recordOf(ramps, categorical, roles),
   };
 }
 
 // ── The record ──────────────────────────────────────────────────────────────────────────────────
 
-function recordOf(
-  ramps: RampSet,
-  categorical: CategoricalSet,
-  roles: Record<Mode, RoleValues>,
-): PaletteRecord {
+/**
+ * The document's half — everything that is not about a brand.
+ *
+ * It reads the *default* identity's resolved values, and that is not an arbitrary pick: every token
+ * a shared row grades and every token it grades against is a shared one, so any identity's map would
+ * give the same numbers. The default's is the one that is also stored, so the record and
+ * `doc.roles` are provably about the same values.
+ */
+function sharedRecordOf(ramps: SharedRampSet, roles: Record<Mode, RoleValues>): PaletteRecord {
   const adjustments: TaggedAdjustment[] = [];
   const relief: TaggedRelief[] = [];
-  for (const ramp of RAMP_NAMES) {
+  for (const ramp of SHARED_RAMP_NAMES) {
     for (const mode of MODES) {
       const it = ramps[ramp][mode];
       for (const move of it.adjustments) adjustments.push({ ...move, ramp, mode });
@@ -328,7 +473,7 @@ function recordOf(
   return {
     adjustments,
     relief,
-    crossChecks: MODES.flatMap((mode) => crossChecks(categorical, roles[mode], mode)),
+    crossChecks: MODES.flatMap((mode) => sharedCrossChecks(roles[mode], mode)),
   };
 }
 
@@ -353,12 +498,17 @@ const SYNTAX_TOKENS = ROLES.filter(
  * They report and never adjust. The two things a failure could move are the two that must not: a
  * Kanzo-fixed status or syntax value, and a ramp step that is already the nearest legal value inside
  * its own ramp.
+ *
+ * **The split follows the token being graded, not the token it is graded against.** Every row here
+ * grades something against `--background`, `--popover` or nothing at all — all shared — so the
+ * "against" side would put every row on the document. What varies with the brand is the left-hand
+ * side, which is why both halves read a *whole* resolved map: an identity row needs the shared page
+ * to measure its own fill on. A row is the identity's iff the token it grades is in
+ * `IDENTITY_TOKENS`, and `derive-palette.test.ts` asserts exactly that of both lists.
  */
-function crossChecks(categorical: CategoricalSet, values: RoleValues, mode: Mode): CrossCheck[] {
-  const out: CrossCheck[] = [];
-  const read = (token: string) => values[token] as string;
-
-  const check = (
+const grader =
+  (out: CrossCheck[], values: RoleValues, mode: Mode) =>
+  (
     id: string,
     token: string,
     against: string,
@@ -366,14 +516,19 @@ function crossChecks(categorical: CategoricalSet, values: RoleValues, mode: Mode
     reason: string,
     kind: "gate" | "relief" = "gate",
   ) => {
-    const got = contrast(read(token), read(against));
+    const got = contrast(values[token] as string, values[against] as string);
     out.push({ id, mode, token, against, kind, wanted, got, ok: got >= wanted, reason });
   };
 
-  for (const token of ["--primary", ...STATUS_NAMES.map((name) => `--${name}`)]) {
+/** The rows about the four statuses, the neutral outline and the syntax roles. Brand-independent. */
+function sharedCrossChecks(values: RoleValues, mode: Mode): CrossCheck[] {
+  const out: CrossCheck[] = [];
+  const check = grader(out, values, mode);
+
+  for (const name of STATUS_NAMES) {
     check(
       "fill-on-page",
-      token,
+      `--${name}`,
       "--background",
       CONTRAST_MIN,
       "A solid fill must read as a shape against the page the tenant actually renders, which is the " +
@@ -392,24 +547,12 @@ function crossChecks(categorical: CategoricalSet, values: RoleValues, mode: Mode
     );
   }
 
-  for (const token of ["--ring", "--input"]) {
-    check(
-      "boundary-on-page",
-      token,
-      "--background",
-      CONTRAST_MIN,
-      "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component. " +
-        "`--ring` comes from the brand ramp, so on the neutral page this is a new measurement.",
-    );
-  }
-
   check(
-    "boundary-on-elevated",
-    "--ring",
-    "--popover",
+    "boundary-on-page",
+    "--input",
+    "--background",
     CONTRAST_MIN,
-    "A focus ring on a raised surface. In dark the popover sits two steps up the neutral ramp, so " +
-      "it is a different background from the page and 1.4.11 still applies.",
+    "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component.",
   );
 
   for (const token of SYNTAX_TOKENS) {
@@ -422,6 +565,45 @@ function crossChecks(categorical: CategoricalSet, values: RoleValues, mode: Mode
         "measured against the page, and the page is the tenant's.",
     );
   }
+
+  return out;
+}
+
+/** The rows about one brand — its fill, its ring, and its own chart wheel. */
+function identityCrossChecks(
+  categorical: CategoricalSet,
+  values: RoleValues,
+  mode: Mode,
+): CrossCheck[] {
+  const out: CrossCheck[] = [];
+  const check = grader(out, values, mode);
+
+  check(
+    "fill-on-page",
+    "--primary",
+    "--background",
+    CONTRAST_MIN,
+    "A solid fill must read as a shape against the page the tenant actually renders, which is the " +
+      "neutral ramp's step 1 and not this ramp's own.",
+  );
+
+  check(
+    "boundary-on-page",
+    "--ring",
+    "--background",
+    CONTRAST_MIN,
+    "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component. " +
+      "`--ring` comes from the brand ramp, so on the neutral page this is a new measurement.",
+  );
+
+  check(
+    "boundary-on-elevated",
+    "--ring",
+    "--popover",
+    CONTRAST_MIN,
+    "A focus ring on a raised surface. In dark the popover sits two steps up the neutral ramp, so " +
+      "it is a different background from the page and 1.4.11 still applies.",
+  );
 
   for (const role of ROLES) {
     if (role.binding.kind !== "categorical" || role.binding.slot > categorical.capacity) continue;

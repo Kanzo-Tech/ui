@@ -1,0 +1,284 @@
+[
+  {
+    "id": "kanzo",
+    "label": "Kanzo",
+    "isDefault": true,
+    "seeds": {
+      "brand": "#737373",
+      "neutral": "#737373"
+    },
+    "swatches": {
+      "light": [
+        "#fafafa",
+        "#0f0f0f",
+        "#0f0f0f",
+        "#c9c9c9"
+      ],
+      "dark": [
+        "#0a0a0a",
+        "#efefef",
+        "#efefef",
+        "#353535"
+      ]
+    },
+    "capacity": 8,
+    "identities": [
+      {
+        "id": "kanzo",
+        "label": "Kanzo",
+        "swatches": {
+          "light": [
+            "#fafafa",
+            "#0f0f0f",
+            "#0f0f0f",
+            "#c9c9c9"
+          ],
+          "dark": [
+            "#0a0a0a",
+            "#efefef",
+            "#efefef",
+            "#353535"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "dracula",
+    "label": "Dracula",
+    "isDefault": false,
+    "seeds": {
+      "brand": "#ff79c6",
+      "neutral": "#6272a4"
+    },
+    "swatches": {
+      "light": [
+        "#f9fafb",
+        "#090d1f",
+        "#e562af",
+        "#bfc9e3"
+      ],
+      "dark": [
+        "#090a0e",
+        "#e9efff",
+        "#e05daa",
+        "#2d354c"
+      ]
+    },
+    "capacity": 7,
+    "identities": [
+      {
+        "id": "dracula",
+        "label": "Dracula",
+        "swatches": {
+          "light": [
+            "#f9fafb",
+            "#090d1f",
+            "#e562af",
+            "#bfc9e3"
+          ],
+          "dark": [
+            "#090a0e",
+            "#e9efff",
+            "#e05daa",
+            "#2d354c"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "nord",
+    "label": "Nord",
+    "isDefault": false,
+    "seeds": {
+      "brand": "#88c0d0",
+      "neutral": "#4c566a"
+    },
+    "swatches": {
+      "light": [
+        "#f9fafb",
+        "#0c1017",
+        "#6299a9",
+        "#b8bdc8"
+      ],
+      "dark": [
+        "#090a0c",
+        "#edf1fb",
+        "#679eae",
+        "#282d36"
+      ]
+    },
+    "capacity": 8,
+    "identities": [
+      {
+        "id": "nord",
+        "label": "Nord",
+        "swatches": {
+          "light": [
+            "#f9fafb",
+            "#0c1017",
+            "#6299a9",
+            "#b8bdc8"
+          ],
+          "dark": [
+            "#090a0c",
+            "#edf1fb",
+            "#679eae",
+            "#282d36"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "catppuccin-latte",
+    "label": "Catppuccin Latte",
+    "isDefault": false,
+    "seeds": {
+      "brand": "#8839ef",
+      "neutral": "#9ca0b0"
+    },
+    "swatches": {
+      "light": [
+        "#fafafb",
+        "#0c0d12",
+        "#8839ef",
+        "#d2d4dc"
+      ],
+      "dark": [
+        "#0a0a0c",
+        "#eaecf3",
+        "#8839ef",
+        "#404249"
+      ]
+    },
+    "capacity": 8,
+    "identities": [
+      {
+        "id": "catppuccin-latte",
+        "label": "Catppuccin Latte",
+        "swatches": {
+          "light": [
+            "#fafafb",
+            "#0c0d12",
+            "#8839ef",
+            "#d2d4dc"
+          ],
+          "dark": [
+            "#0a0a0c",
+            "#eaecf3",
+            "#8839ef",
+            "#404249"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "catppuccin-mocha",
+    "label": "Catppuccin Mocha",
+    "isDefault": false,
+    "seeds": {
+      "brand": "#cba6f7",
+      "neutral": "#6c7086"
+    },
+    "swatches": {
+      "light": [
+        "#fafafb",
+        "#0d0e16",
+        "#a681d0",
+        "#c5c7d3"
+      ],
+      "dark": [
+        "#0a0a0c",
+        "#edeff9",
+        "#a581cf",
+        "#32343e"
+      ]
+    },
+    "capacity": 8,
+    "identities": [
+      {
+        "id": "catppuccin-mocha",
+        "label": "Catppuccin Mocha",
+        "swatches": {
+          "light": [
+            "#fafafb",
+            "#0d0e16",
+            "#a681d0",
+            "#c5c7d3"
+          ],
+          "dark": [
+            "#0a0a0c",
+            "#edeff9",
+            "#a581cf",
+            "#32343e"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "bank",
+    "label": "Bank",
+    "isDefault": false,
+    "seeds": {
+      "brand": "#2b7fff",
+      "neutral": "#6b7280"
+    },
+    "swatches": {
+      "light": [
+        "#f9fafb",
+        "#0c0f14",
+        "#2b7fff",
+        "#c4c8d0"
+      ],
+      "dark": [
+        "#090a0c",
+        "#eceff6",
+        "#2b7fff",
+        "#31353b"
+      ]
+    },
+    "capacity": 8,
+    "identities": [
+      {
+        "id": "retail",
+        "label": "Retail",
+        "swatches": {
+          "light": [
+            "#f9fafb",
+            "#0c0f14",
+            "#2b7fff",
+            "#c4c8d0"
+          ],
+          "dark": [
+            "#090a0c",
+            "#eceff6",
+            "#2b7fff",
+            "#31353b"
+          ]
+        }
+      },
+      {
+        "id": "private",
+        "label": "Private",
+        "swatches": {
+          "light": [
+            "#f9fafb",
+            "#0c0f14",
+            "#a16207",
+            "#c4c8d0"
+          ],
+          "dark": [
+            "#090a0c",
+            "#eceff6",
+            "#a16207",
+            "#31353b"
+          ]
+        }
+      }
+    ]
+  }
+]

@@ -13,6 +13,17 @@ They all read the one sample relation the charts page uses, `sightings`: a numer
 axis (`hour`) and a series (`verdict`).
 </Callout>
 
+<Callout type="warn">
+Everything here imports from `@kanzo-tech/ui/analytics`, not the root barrel, and that subpath
+needs four **optional peers** installed alongside the library:
+
+```bash
+pnpm add @uwdata/vgplot @uwdata/mosaic-core @uwdata/mosaic-sql @duckdb/duckdb-wasm
+```
+
+You also bring the coordinator — see [Charts](/docs/data-display/charts#bring-your-own-coordinator).
+</Callout>
+
 ## Sparkline
 
 The smallest useful plot: no axes, no margin, no legend. `anchor={null}` removes an axis but keeps
