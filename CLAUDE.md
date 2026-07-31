@@ -16,8 +16,8 @@
 
 - `DESIGN.md` — what the system is: the axes, the layers, the engine and naming rules, admission,
   the taxonomy tests, and the index of decisions.
-- `CONVENTIONS.md` — how to write a file: the recipe, tokens, props, the client boundary, naming,
-  comments, tests.
+- `CONVENTIONS.md` — how to write a file: the reference and what overrules it, the recipe, tokens,
+  props, the client boundary, naming, comments, tests.
 - `decisions/` — one record per decision. `Status` `live` is today's rule; anything else is
   history, and you can skip it.
 - The repo-wide guard tests are the rules nobody should have to remember. **Read the file, not a

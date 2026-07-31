@@ -111,6 +111,11 @@ call site of its own either. The vocabulary a consumer arrives with is the thing
 `decisions/a-name-shark-ships-is-ours.md`, which also says which names Shark does *not* ship and
 therefore neither do we.
 
+That second exception is an instance, not a special case. **A reference system outranks a rule of
+ours; only a measurement outranks the reference.** The order, what counts as a measurement and the
+three places it decides nothing: `decisions/a-measurement-overrules-the-reference.md`, stated as a
+rule in `CONVENTIONS.md`.
+
 ### Reach for a new component last
 
 Each rung is cheaper than the next, and a new component is reserved for genuinely new **behaviour**
@@ -165,7 +170,8 @@ be skipped.
 `one-theme-provider`, `palette-is-authoring-time`, `one-changeset-until-the-first-publish`,
 `match-the-reference`, `provenance-beats-purity`, `an-audit-is-a-map-not-an-oracle`,
 `a-rule-broken-three-times-becomes-a-test`, `a-docs-defect-is-a-library-defect`,
-`a-generated-index-with-no-second-list`, `a-name-shark-ships-is-ours`.
+`a-generated-index-with-no-second-list`, `a-name-shark-ships-is-ours`,
+`a-measurement-overrules-the-reference`.
 
 Also live — `a-compound-keeps-its-root-even-when-the-root-is-an-alias`.
 

@@ -10,7 +10,8 @@
   which is why rule 2 exists to refuse it.
 - **Reversed by** Shark dropping them, or the library gaining a reason to define its own context
   surface rather than re-export Ark's — at which point the names are ours to choose and the
-  reference stops answering the question.
+  reference stops answering the question. The general form of the override this record takes,
+  written after it: `decisions/a-measurement-overrules-the-reference.md`.
 - **Held by** `packages/ui/src/index.test.ts`, `tracks Shark's context aliases and parts, in both
   directions` — which asserts the presences and the absences from the same list
 

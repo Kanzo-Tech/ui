@@ -14,6 +14,43 @@ says why a rule holds and what would reverse it. Nothing here is restated there.
 3. **API** — a semantic vocabulary (`variant` / `size` / state / composition) that survives upstream
    refactors. `variant`, matching Shark and consumer expectation.
 
+## The reference, and what overrules it
+
+Ark for behaviour, Shark UI for appearance and surface — and the export list is surface, because a
+name is the first thing a consumer meets. Two rules of this document once pointed opposite ways over
+that, on identical evidence, and neither yielded. So the order is written down: **the reference
+governs the surface; a measurement governs the reference; nothing else governs either.** What it
+cost to learn: `decisions/a-measurement-overrules-the-reference.md`.
+
+- **A measurement is what a required comment is** — the first of the four under *Comments*: a
+  number, what it was measured against, and a threshold it crosses. The diluted focus ring measured
+  1.29:1 against the 3:1 WCAG 1.4.11 asks of a component state; without the clause it is a fact
+  about a colour, not a reason. A failing test counts when what it asserts is a measurement or an
+  external standard, and does not when it asserts a house preference — that is the preference
+  wearing a test's clothes. The test is: *would the divergence still be right if whoever wanted it
+  left?*
+- **The measurement licenses exactly the divergence it measures**, and no neighbouring one. White
+  on the status fills, measured at 2.13–3.81:1 against AA's 4.5, bought
+  `text-destructive-content` and its three siblings. It bought nothing else in those recipes.
+- **A house principle loses to the reference**, however good it is and however correctly it was
+  applied. `decisions/an-export-needs-a-second-call-site.md` is right everywhere
+  `decisions/a-name-shark-ships-is-ours.md` does not overrule it, and it was overruled while being
+  correct.
+- **A reference that is wrong is still the reference**, and the first move is the fix that is not a
+  divergence — a prop we already own, an upstream report. `Steps` keeps Zag's `role="tab"` with no
+  key handling anywhere in Zag and Shark wrapping it unchanged, because stripping the role leaves
+  `aria-selected` on a non-widget role, and stripping all of it means hand-rolling the ARIA that
+  the accessibility clauses under *Structure and props* forbid. Upstream changes that, or our own
+  `linear` prop. Discomfort does not.
+- **Silence returns the question to the house rules; it does not open it.** Shark ships no
+  `pin-input` at all, so parity neither grants nor refuses `usePinInput`, and admission rule 2
+  decides it like anything else of ours.
+
+**Where this does not decide, the owner does** — the two references disagreeing, a name that matches
+while its binding does not, a product question in accessibility's clothes. Record the case as
+undecided rather than arguing it into a branch. A tie-break claiming more than it settles is the
+same defect as a guard claiming more than it proves.
+
 ## The recipe
 
 `packages/ui/src/simples/button.tsx` is the reference implementation. Read it rather than a summary:
@@ -74,7 +111,7 @@ needed, that is the moment to reintroduce one seam — with a lint rule to enfor
   uses — so solid `bg-input` is legal where the site owes boundary contrast.
 - **Focus rings are solid**: `outline-none focus-visible:ring-[3px] focus-visible:ring-ring`, plus a
   `focus-visible:border-*` per variant. Shark writes a diluted ring; ours diverges on a measurement,
-  which is the bar `decisions/match-the-reference.md` sets for diverging at all.
+  which is the only bar that clears the reference at all.
 - **One sanctioned exception to the token rule: a colour that is data** — a chart series, a palette
   slot, a colour the user picked. `Swatch` / `SwatchGroup` where it is depicted, `ColorPicker` where
   it is chosen, and a raw `style` in both, because no token can name a value unknown until runtime.

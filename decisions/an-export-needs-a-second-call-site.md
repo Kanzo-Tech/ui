@@ -7,7 +7,9 @@
   no compatibility question — nothing is published.
 - **Reversed by** a second independent call site. One carve-out, not a reversal:
   `decisions/a-name-shark-ships-is-ours.md` overrides this for the names Shark UI's registry
-  exports, which ship without one.
+  exports, which ship without one. That carve-out is an instance of a general order —
+  `decisions/a-measurement-overrules-the-reference.md` — under which this rule is the house
+  principle and loses to the reference wherever the reference speaks.
 - **Held by** `packages/ui/src/index.test.ts`, the pinned set and the tombstones
 
 The care this needs is the whole finding: a naive sweep breaks components, because an export can
