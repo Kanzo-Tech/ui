@@ -116,9 +116,11 @@ describe("the palette registry", () => {
     expect(multi[0]?.seeds.neutralHueFrom).not.toBe("brand");
   });
 
-  it("carries the seeds and swatches its own document carries", () => {
-    // What a picker draws has to be what the page will paint, or the swatch is a decoration that
-    // lies. Checked against the stored document, which is checked against its seeds above.
+  it("previews what the page will paint, not what a chart would", () => {
+    // What a picker draws has to be what the page will look like, or the card is a decoration that
+    // lies. It used to draw the CATEGORICAL set — eight colours nobody has seen yet — and six cards
+    // built from chart wheels all read as the same card. Four role colours instead: the surface, the
+    // ink, the brand's own `--primary` and the border, which is what tells Dracula from Nord.
     for (const entry of paletteIndex) {
       const doc = JSON.parse(
         readFileSync(resolve(pkgDir, "palettes", `${entry.id}.json`), "utf8"),
@@ -126,9 +128,36 @@ describe("the palette registry", () => {
       const identity = doc.identities.find((i) => i.id === doc.defaultIdentity);
       expect(entry.label, entry.id).toBe(doc.label);
       expect(entry.seeds, entry.id).toEqual({ brand: doc.seeds.brand, neutral: doc.seeds.neutral });
-      expect(entry.swatches.light, entry.id).toEqual(identity?.categorical.light);
-      expect(entry.swatches.dark, entry.id).toEqual(identity?.categorical.dark);
       expect(entry.capacity, entry.id).toBe(identity?.categorical.capacity);
+
+      for (const mode of ["light", "dark"] as const) {
+        expect(entry.swatches[mode], `${entry.id} ${mode}`).toEqual([
+          doc.roles[mode]["--background"],
+          doc.roles[mode]["--foreground"],
+          identity?.roles[mode]["--primary"],
+          doc.roles[mode]["--border"],
+        ]);
+      }
+    }
+  });
+
+  it("nests each document's brands, default first", () => {
+    // The containment, in the data. `defaultIdentity` has to be FIRST rather than merely present:
+    // the provider reads `children[0]` as the one `:root` paints, which is how an empty preference
+    // resolves to something on screen.
+    for (const entry of paletteIndex) {
+      const doc = JSON.parse(
+        readFileSync(resolve(pkgDir, "palettes", `${entry.id}.json`), "utf8"),
+      ) as TenantPalette;
+      expect(entry.identities.map((i) => i.id), entry.id).toEqual(doc.identities.map((i) => i.id));
+      expect(entry.identities[0]?.id, entry.id).toBe(doc.defaultIdentity);
+      // Each brand previews ITSELF: the wheel is spun from its own hue, so a strip taken from the
+      // document would picture every card identically and the control would look broken.
+      for (const identity of entry.identities) {
+        const source = doc.identities.find((i) => i.id === identity.id);
+        expect(identity.swatches.light[2], `${entry.id}/${identity.id}`)
+          .toBe(source?.roles.light["--primary"]);
+      }
     }
   });
 

@@ -253,14 +253,6 @@ export interface KanzoThemeProviderProps {
   fonts?: FontOption[];
   monoFonts?: FontOption[];
   /**
-   * The identities the TENANT published, mapped from their compiled document on the server. Omit
-   * it and the axis is simply not offered — the stored preference is left alone rather than
-   * treated as retired, because "not wired" and "withdrawn" are indistinguishable from here.
-   */
-  identities?: SwatchOption[];
-  /** The id `:root` paints. Defaults to the first published identity. */
-  defaultIdentity?: string;
-  /**
    * Called once, at most, when the stored identity is no longer published — somebody chose gold
    * and is about to be looking at blue, and silence makes that read as a bug in our product rather
    * than a change in their client's. The provider renders no notice itself; say it where the app
@@ -294,8 +286,6 @@ export function KanzoThemeProvider({
   storageKey = STORAGE_KEY,
   fonts = DEFAULT_FONTS,
   monoFonts = DEFAULT_MONO_FONTS,
-  identities = NO_IDENTITIES,
-  defaultIdentity = identities[0]?.value ?? "",
   onIdentityRetired,
   palettes = NO_PALETTES,
   // The first published one, exactly as `defaultIdentity`. `paletteIndex` carries an `isDefault`
@@ -353,6 +343,10 @@ export function KanzoThemeProvider({
         // across would name a brand the new palette does not publish — inert in the cascade, and a
         // false retirement notice on the way past.
         next.identity = remembered[entering] ?? "";
+        // …unless the caller named one in the same patch. The panel selects a palette and a brand in
+        // one click — "Bank · Private" is one choice — so the memory must not overwrite the very
+        // thing being asked for.
+        if (patch.identity !== undefined) next.identity = patch.identity;
       }
       if (controlled) {
         onChange?.(next);
@@ -404,17 +398,6 @@ export function KanzoThemeProvider({
       ? "dark"
       : "light");
 
-  // ── Identity ────────────────────────────────────────────────────────────────────────────
-  // A preference among the identities the TENANT published, and the id `:root` already paints.
-  // Nothing here validates the preference on its way to the DOM: an attribute selector with no
-  // matching rule is INERT, so an unknown id falls through to `:root`, which is the default
-  // identity. That is what lets the inline SSR script — which cannot know what the tenant
-  // published — write the stored id verbatim and still reach the same `<html>` we do.
-
-  const resolvedIdentity = prefs.identity || defaultIdentity;
-
-  const retiredIdentity = useRetirement("identity", prefs.identity, identities, set, onIdentityRetired);
-
   // ── Palette ─────────────────────────────────────────────────────────────────────────────
   // Which of the DOCUMENTS the tenant published is applied — the coarser of the two colour choices
   // (a document is every colour token; an identity is a brand inside one).
@@ -428,6 +411,22 @@ export function KanzoThemeProvider({
   const resolvedPalette = prefs.palette || defaultPalette;
 
   const retiredPalette = useRetirement("palette", prefs.palette, palettes, set, onPaletteRetired);
+
+  // ── Identity ────────────────────────────────────────────────────────────────────────────
+  // A preference among the identities the TENANT published, and the id `:root` already paints.
+  // Nothing here validates the preference on its way to the DOM: an attribute selector with no
+  // matching rule is INERT, so an unknown id falls through to `:root`, which is the default
+  // identity. That is what lets the inline SSR script — which cannot know what the tenant
+  // published — write the stored id verbatim and still reach the same `<html>` we do.
+
+  // Derived from the selected palette rather than passed beside it: an identity belongs to a
+  // document, so "which identities exist" is not a second question a host can answer independently.
+  // A host that supplied both could disagree with itself, and nothing would catch it.
+  const identities = palettes.find((p) => p.value === resolvedPalette)?.children ?? NO_IDENTITIES;
+  const defaultIdentity = identities[0]?.value ?? "";
+  const resolvedIdentity = prefs.identity || defaultIdentity;
+
+  const retiredIdentity = useRetirement("identity", prefs.identity, identities, set, onIdentityRetired);
 
   // To the DOM: the axes become `data-*` attributes on <html> (set when non-default, removed
   // otherwise), and `.dark` follows the resolved appearance.

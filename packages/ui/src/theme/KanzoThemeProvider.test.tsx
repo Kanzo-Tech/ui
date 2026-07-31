@@ -363,6 +363,7 @@ describe("KanzoThemeProvider persisted-blob hygiene", () => {
  * rather than a change in their client's.
  */
 describe("KanzoThemeProvider identity", () => {
+  const EMPTY = { light: [], dark: [] };
   const IDENTITIES: SwatchOption[] = [
     { value: "retail-blue", label: "Retail", swatches: { light: ["#1d4ed8"], dark: ["#60a5fa"] } },
     { value: "private-gold", label: "Private", swatches: { light: ["#a16207"], dark: ["#fbbf24"] } },
@@ -378,13 +379,23 @@ describe("KanzoThemeProvider identity", () => {
     for (const { attr } of AXES) html().removeAttribute(attr);
   });
 
+  /**
+   * Identities reach the provider as the SELECTED palette's children, because that is what they are:
+   * a brand lives inside a document. `identities` used to be a prop beside `palettes` and a host
+   * could make the two disagree with nothing to catch it.
+   */
+  const within = (children?: SwatchOption[]) =>
+    children ? [{ value: "tenant", label: "Tenant", swatches: EMPTY, children }] : undefined;
+
   function mount(
-    props: Partial<React.ComponentProps<typeof KanzoThemeProvider>> = {},
+    props: Partial<React.ComponentProps<typeof KanzoThemeProvider>> & { identities?: SwatchOption[] } = {},
     { strict = false } = {},
   ) {
+    const { identities, ...rest } = props;
+    const merged = { ...rest, ...(identities ? { palettes: within(identities) } : {}) };
     let ctx!: ReturnType<typeof useKanzoTheme>;
     const tree = (
-      <KanzoThemeProvider {...props}>
+      <KanzoThemeProvider {...merged}>
         <Probe onValue={(v) => (ctx = v)} />
       </KanzoThemeProvider>
     );
@@ -417,7 +428,7 @@ describe("KanzoThemeProvider identity", () => {
   });
 
   it("honours an explicit `defaultIdentity` over the first published one", () => {
-    const t = mount({ identities: IDENTITIES, defaultIdentity: "private-gold" });
+    const t = mount({ identities: [IDENTITIES[1]!, IDENTITIES[0]!] });
 
     expect(t.ctx.resolvedIdentity).toBe("private-gold");
   });
@@ -590,11 +601,12 @@ describe("KanzoThemeProvider palette", () => {
     // discarding it is not right either, because the user did choose it. It is filed under the
     // palette they were in and restored when they return.
     const t = mount({
-      palettes: PALETTES,
-      identities: [
-        { value: "retail", label: "Retail", swatches: { light: [], dark: [] } },
-        { value: "private", label: "Private", swatches: { light: [], dark: [] } },
-      ],
+      palettes: PALETTES.map((p, i) => (i === 0
+        ? { ...p, children: [
+            { value: "retail", label: "Retail", swatches: { light: [], dark: [] } },
+            { value: "private", label: "Private", swatches: { light: [], dark: [] } },
+          ] }
+        : p)),
     });
 
     act(() => t.ctx.set({ identity: "private" }));
@@ -614,8 +626,9 @@ describe("KanzoThemeProvider palette", () => {
     // merged would file the outgoing identity under the incoming palette, so one switch would look
     // right and the trip back would restore the wrong brand.
     const t = mount({
-      palettes: PALETTES,
-      identities: [{ value: "retail", label: "Retail", swatches: { light: [], dark: [] } }],
+      palettes: PALETTES.map((p, i) => (i === 0
+        ? { ...p, children: [{ value: "retail", label: "Retail", swatches: { light: [], dark: [] } }] }
+        : p)),
     });
 
     act(() => t.ctx.set({ identity: "retail" }));
@@ -632,8 +645,9 @@ describe("KanzoThemeProvider palette", () => {
     // helper — so the case that matters is that retiring one does not disturb the other.
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ palette: "withdrawn", identity: "retail-blue" }));
     const t = mount({
-      palettes: PALETTES,
-      identities: [{ value: "retail-blue", label: "Retail", swatches: { light: [], dark: [] } }],
+      palettes: PALETTES.map((p, i) => (i === 0
+        ? { ...p, children: [{ value: "retail-blue", label: "Retail", swatches: { light: [], dark: [] } }] }
+        : p)),
     });
 
     expect(t.ctx.retiredPalette).toBe("withdrawn");

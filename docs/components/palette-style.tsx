@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useKanzoTheme } from "@kanzo-tech/ui";
 
 /**
@@ -29,7 +28,6 @@ const ELEMENT_ID = "kanzo-palette";
 
 export function PaletteStyle({ defaultPalette }: { defaultPalette: string }) {
   const { resolvedPalette } = useKanzoTheme();
-  const router = useRouter();
 
   useEffect(() => {
     // The default document IS `tokens.css`, already imported. Selecting it means removing the
@@ -64,17 +62,6 @@ export function PaletteStyle({ defaultPalette }: { defaultPalette: string }) {
 
     return () => abort.abort();
   }, [resolvedPalette, defaultPalette]);
-
-  // The identities belong to the SELECTED document and are read on the server, so a palette swapped
-  // in the browser leaves that list describing the palette the user just left — a section offering
-  // brands that no longer exist. The stylesheet swap keeps the repaint instant; this brings the
-  // server-computed half back into step without a full reload.
-  //
-  // After the CSS, not before: `refresh` re-renders on the server and can take a moment, and a
-  // palette that arrived late would be visible as a second repaint.
-  useEffect(() => {
-    router.refresh();
-  }, [resolvedPalette, router]);
 
   return null;
 }

@@ -148,166 +148,123 @@ describe("Preferences", () => {
     });
   });
 
-  describe("Palette", () => {
-    // The coarser of the two published axes: a palette is a whole document, an identity is a brand
-    // inside one. Same control, same `SwatchOption`, same "hides itself below two" rule — so what is
-    // worth testing is the ONE way they differ.
-    const PALETTES: SwatchOption[] = [
-      { value: "kanzo", label: "Kanzo", swatches: { light: ["#737373"], dark: ["#a3a3a3"] } },
-      { value: "dracula", label: "Dracula", swatches: { light: ["#e562af"], dark: ["#ff79c6"] } },
-    ];
-    const palettes = () => within(screen.getByRole("radiogroup", { name: "Palette" }));
+  describe("Colour", () => {
+    // One section, because a palette and an identity are one abstraction with a parameter: how much
+    // of the document the choice replaces. A palette that publishes several brands contributes one
+    // entry per brand, and the user makes one choice — which is what they were always doing.
+    const swatches = { light: ["#111111"], dark: ["#eeeeee"] };
+    const BANK = {
+      value: "bank",
+      label: "Bank",
+      swatches,
+      children: [
+        { value: "retail", label: "Retail", swatches },
+        { value: "private", label: "Private", swatches },
+      ],
+    };
+    const DRACULA = { value: "dracula", label: "Dracula", swatches };
+    const colour = () => within(screen.getByRole("radiogroup", { name: "Colour" }));
 
     it.each([
       ["nothing wired", undefined],
-      ["one published", [PALETTES[0]!]],
-    ])("offers no group when the tenant has %s", (_name, list) => {
+      ["one palette with one brand", [DRACULA]],
+      ["one palette with one brand, spelled as a child", [{ ...DRACULA, children: [{ value: "d", label: "D", swatches }] }]],
+    ])("offers no group when the tenant published %s", (_name, list) => {
       setup(undefined, list ? { palettes: list } : {});
 
-      expect(screen.queryByRole("radiogroup", { name: "Palette" })).toBeNull();
+      expect(screen.queryByRole("radiogroup", { name: "Colour" })).toBeNull();
     });
 
-    it("offers the group once there are two to choose between", () => {
-      setup(undefined, { palettes: PALETTES });
+    it("flattens a palette's brands into the one list", () => {
+      setup(undefined, { palettes: [BANK, DRACULA] });
 
-      expect(palettes().getAllByRole("radio")).toHaveLength(2);
+      // Three entries from two palettes: the bank contributes one per brand, Dracula one.
+      expect(colour().getAllByRole("radio")).toHaveLength(3);
+      expect(colour().getByRole("radio", { name: "Bank · Retail" })).toBeTruthy();
+      expect(colour().getByRole("radio", { name: "Bank · Private" })).toBeTruthy();
+      expect(colour().getByRole("radio", { name: "Dracula" })).toBeTruthy();
     });
 
-    it("writes the preference and no attribute — a document is served, not selected", async () => {
-      // This is the whole difference from Identity, and the reason the section says so out loud:
-      // `data-identity` picks a block the document already contains, and there is no block for a
-      // document. Selecting here is a request for the NEXT load, which the server answers from the
-      // cookie. A `data-palette` would match nothing in any compiled sheet.
-      setup(undefined, { palettes: PALETTES });
+    it("drops the prefix when there is only one palette to disambiguate against", () => {
+      // A normal client: one palette, two brands. Their own name twice would be noise.
+      setup(undefined, { palettes: [BANK] });
 
-      await userEvent.setup().click(palettes().getByRole("radio", { name: "Dracula" }));
-
-      expect(stored().palette).toBe("dracula");
-      expect(html().hasAttribute("data-palette")).toBe(false);
+      expect(colour().getByRole("radio", { name: "Retail" })).toBeTruthy();
+      expect(colour().queryByRole("radio", { name: "Bank · Retail" })).toBeNull();
     });
 
-    it("checks the card that is on screen, not the stored preference", () => {
-      // An empty preference is a deferral to the document, so the card that reads as checked has to
-      // be the one being painted — the same split as `appearance` / `resolvedAppearance`.
-      setup(undefined, { palettes: PALETTES });
+    // The labels are the client's, verbatim. The colours only PICTURE the choice, so the strip is
+    // `aria-hidden` and contributes nothing to the name: a brand named by its hex is one a
+    // screen-reader user cannot pick.
+    it("names each card from labels, never from colours", () => {
+      setup(undefined, { palettes: [BANK, DRACULA] });
 
-      expect(palettes().getByRole("radio", { name: "Kanzo" })).toHaveProperty("checked", true);
-      expect(stored().palette).toBeUndefined();
-    });
-
-    it("explains a palette the tenant withdrew, in the panel and not as a toast", () => {
-      // The asymmetry with Identity's retirement, and it follows from where a palette is applied: a
-      // document is served, so the page this user is reading is ALREADY the default one and nothing
-      // is about to change under them. There is no moment to interrupt — only a choice to account
-      // for, which belongs where they would go looking for it.
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ palette: "withdrawn" }));
-
-      setup(undefined, { palettes: PALETTES });
-
-      expect(screen.getByText("Palette updated")).toBeTruthy();
-      expect(screen.getByText(/no longer published/)).toBeTruthy();
-    });
-
-    it("sits above Identity, coarsest first", () => {
-      // Two colour choices at two grains read top-down as one idea. Asserted on order because it is
-      // the kind of thing a later section insertion silently breaks.
-      setup(undefined, { palettes: PALETTES, identities: IDENTITIES });
-      const palette = screen.getByRole("radiogroup", { name: "Palette" });
-      const identity = screen.getByRole("radiogroup", { name: "Identity" });
-
-      // `Node.DOCUMENT_POSITION_FOLLOWING` — the legend labels each group through
-      // `aria-labelledby`, so there is no `aria-label` to sort on and document order is the claim.
-      expect(palette.compareDocumentPosition(identity) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    });
-  });
-
-  describe("Identity", () => {
-    const identities = () => within(screen.getByRole("radiogroup", { name: "Identity" }));
-
-    // The axis only exists when a tenant published a second brand, and the guard is INSIDE the
-    // section rather than at the call site: every section is exported flat for a host's own
-    // settings page, where a call-site guard would be invisible.
-    it.each([
-      ["nothing wired", undefined],
-      ["one published", [IDENTITIES[0]!]],
-    ])("offers no group when the tenant has %s", (_name, list) => {
-      setup(undefined, list ? { identities: list } : {});
-
-      expect(screen.queryByRole("radiogroup", { name: "Identity" })).toBeNull();
-    });
-
-    it("offers the group once there are two to choose between", () => {
-      setup(undefined, { identities: IDENTITIES });
-
-      expect(identities().getAllByRole("radio")).toHaveLength(2);
-    });
-
-    // The label is the client's, verbatim — no formatter over it. The colours only PICTURE the
-    // choice, so the strip is `aria-hidden` and contributes nothing to the name: an identity named
-    // by its hex is an identity a screen-reader user cannot pick.
-    it("names each card from the identity's label, never from its colours", () => {
-      setup(undefined, { identities: IDENTITIES });
-
-      expect(identities().getByRole("radio", { name: "Retail" })).toBeTruthy();
-      expect(identities().getByRole("radio", { name: "Private" })).toBeTruthy();
       for (const strip of document.querySelectorAll("[data-slot=swatch-group]")) {
         expect(strip.getAttribute("aria-hidden")).toBe("true");
       }
     });
 
-    it("checks the RESOLVED identity, which with no preference is the tenant's default", () => {
-      setup(undefined, { identities: IDENTITIES });
+    it("checks the RESOLVED pair, which with no preference is the tenant's default of each", () => {
+      setup(undefined, { palettes: [BANK, DRACULA] });
 
-      expect(stored().identity ?? "").toBe("");
-      expect((identities().getByRole("radio", { name: "Retail" }) as HTMLInputElement).checked).toBe(true);
+      expect(stored().palette ?? "").toBe("");
+      expect((colour().getByRole("radio", { name: "Bank · Retail" }) as HTMLInputElement).checked).toBe(true);
     });
 
-    it("writes the preference on selection", async () => {
-      const user = userEvent.setup();
-      setup(undefined, { identities: IDENTITIES });
+    it("writes both halves in one patch, because it is one choice", async () => {
+      // Separately would let the palette change file and restore a remembered brand over the top of
+      // the one being asked for — the memory would win against the click.
+      setup(undefined, { palettes: [BANK, DRACULA] });
 
-      await user.click(identities().getByRole("radio", { name: "Private" }));
+      await userEvent.setup().click(colour().getByRole("radio", { name: "Bank · Private" }));
 
-      expect(stored().identity).toBe("private-gold");
-      expect(html().getAttribute("data-identity")).toBe("private-gold");
+      expect(stored().palette).toBe("bank");
+      expect(stored().identity).toBe("private");
+      expect(html().getAttribute("data-identity")).toBe("private");
+    });
+
+    it("writes no attribute for the palette half", async () => {
+      // A document is served, never selected in the cascade; only the brand half reaches `<html>`.
+      setup(undefined, { palettes: [BANK, DRACULA] });
+
+      await userEvent.setup().click(colour().getByRole("radio", { name: "Dracula" }));
+
+      expect(stored().palette).toBe("dracula");
+      expect(html().hasAttribute("data-palette")).toBe(false);
     });
 
     it("comes first in the panel body", () => {
-      setup(undefined, { identities: IDENTITIES });
+      setup(undefined, { palettes: [BANK, DRACULA] });
 
       const legends = [...document.querySelectorAll("[data-slot=preferences-panel] legend")];
-      expect(legends[0]?.textContent).toBe("Identity");
+      expect(legends[0]?.textContent).toBe("Colour");
     });
 
-    // Same state as `IdentityNotice`, second surface — and the one that is still there an hour
-    // later, when the toast is long gone and the user opens the panel to find out what happened.
-    it("says so when the tenant retired the identity this user had chosen", () => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ identity: "withdrawn" }));
-      setup(undefined, { identities: IDENTITIES });
+    it("says so when the tenant withdrew what this user had chosen", () => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ palette: "withdrawn" }));
+      setup(undefined, { palettes: [BANK, DRACULA] });
 
-      expect(screen.getByText("Brand updated")).toBeTruthy();
-      expect(screen.getByText(/“withdrawn” is no longer offered here/)).toBeTruthy();
-      // …and it fell back to the default rather than leaving nothing checked.
-      expect((identities().getByRole("radio", { name: "Retail" }) as HTMLInputElement).checked).toBe(true);
+      expect(screen.getByText("Colours updated")).toBeTruthy();
+      expect(screen.getByText(/no longer published/)).toBeTruthy();
     });
 
-    it("says nothing when the stored identity is still published", () => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ identity: "private-gold" }));
-      setup(undefined, { identities: IDENTITIES });
+    it("says nothing when the stored choice is still published", () => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ palette: "dracula" }));
+      setup(undefined, { palettes: [BANK, DRACULA] });
 
-      expect(screen.queryByText("Brand updated")).toBeNull();
+      expect(screen.queryByText("Colours updated")).toBeNull();
     });
   });
 
-  // Tested here rather than beside its own file because it is the SECOND surface of the state the
-  // section above draws — one retirement, two places that say it, and they have to agree.
+
   describe("IdentityNotice", () => {
     // `toast` is a module-level instance shared by every test in this worker, so a spy on it has
     // to be put back.
     afterEach(() => vi.restoreAllMocks());
 
     const mount = (node = <IdentityNotice />, strict = false) => {
-      const tree = <KanzoThemeProvider identities={IDENTITIES}>{node}</KanzoThemeProvider>;
+      const palettes = [{ value: "t", label: "T", swatches: { light: [], dark: [] }, children: IDENTITIES }];
+      const tree = <KanzoThemeProvider palettes={palettes}>{node}</KanzoThemeProvider>;
       return render(strict ? <StrictMode>{tree}</StrictMode> : tree);
     };
 
@@ -365,7 +322,7 @@ describe("Preferences", () => {
       const user = userEvent.setup();
       setup(
         { appearance: "dark", radius: "none", density: "compact", font: "geist", monoFont: "geist-mono", identity: "private-gold" },
-        { identities: IDENTITIES },
+        { palettes: [{ value: "t", label: "T", swatches: { light: [], dark: [] }, children: IDENTITIES }] },
       );
 
       await user.click(screen.getByRole("button", { name: "Reset" }));
@@ -374,8 +331,10 @@ describe("Preferences", () => {
       // …and the DOM agrees: every axis at its default removes its attribute. For identity that
       // default is `""`, which is not "no identity" but "the one the document already paints".
       for (const a of MANAGED_ATTRS) expect(html().hasAttribute(a)).toBe(false);
-      const identities = within(screen.getByRole("radiogroup", { name: "Identity" }));
-      expect((identities.getByRole("radio", { name: "Retail" }) as HTMLInputElement).checked).toBe(true);
+      // One palette, so the entries carry no prefix — and Reset put the choice back on the brand the
+      // document paints by default rather than leaving nothing checked.
+      const colour = within(screen.getByRole("radiogroup", { name: "Colour" }));
+      expect((colour.getByRole("radio", { name: "Retail" }) as HTMLInputElement).checked).toBe(true);
     });
   });
 });

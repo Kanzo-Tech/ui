@@ -50,6 +50,8 @@ export interface PaletteIndexEntry {
   seeds: { brand: string; neutral: string };
   swatches: Record<Appearance, string[]>;
   capacity: number;
+  /** The brands inside this document, **default first**. One entry means there is no choice here. */
+  identities: { id: string; label: string; swatches: Record<Appearance, string[]> }[];
 }
 
 /**
@@ -220,6 +222,21 @@ export interface SwatchOption {
   value: string;
   label: string;
   swatches: Record<Appearance, string[]>;
+  /**
+   * The choices *inside* this one — a palette's brands. **Default first.**
+   *
+   * A palette and an identity turned out to be one abstraction with a parameter: how much of the
+   * document the choice replaces. An identity replaces the brand-derived slice and inherits every
+   * surface; a palette replaces all of it. They already shared this type, the same control, the same
+   * hide-below-two rule and the same retirement machinery — and the giveaway was the behaviour:
+   * changing palette *files and restores* the identity, which is what containment does and what two
+   * sibling axes never would.
+   *
+   * So the containment lives here, in the data, rather than in two parallel props that a caller had
+   * to keep consistent. The panel flattens it into one list of composed entries, because one choice
+   * is what a user makes.
+   */
+  children?: SwatchOption[];
 }
 
 // ── The axis table — the single source of truth for how a preference reaches the DOM ────────

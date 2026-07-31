@@ -77,49 +77,34 @@ export async function requestedPalette(): Promise<string> {
 export const defaultPalette = paletteIndex.find((p) => p.isDefault)?.id ?? "";
 
 /**
- * The registry, narrowed to what a control needs.
+ * The registry, narrowed to what a control needs — with each palette's brands nested inside it.
  *
- * `paletteIndex` also carries seeds and a capacity, which are facts about the derivation and not
- * about offering a choice — the panel draws `label` and a swatch strip and has no use for either.
+ * This is the document → `SwatchOption[]` mapper `@kanzo-tech/theme` says a host writes, and the
+ * nesting is the whole of it: a brand lives *inside* a document, so "which brands exist" is not a
+ * second question answered beside "which palettes exist". The panel flattens the pair into one list
+ * because one choice is what a user makes; the containment stays in the data because it is what
+ * guarantees a tenant's brands share a neutral and remain one product.
+ *
+ * `children` is omitted for a single-brand palette rather than carrying a one-element array: one
+ * entry is not a choice, and the panel would have to special-case it either way.
+ *
+ * Nothing here reads a document from disk any more. Everything a control needs — the labels, the
+ * per-mode preview colours, the brands — is in `palettes/index.json`, generated beside the documents
+ * by the same script. A `TenantPalette` carries seeds, ramps, categorical sets and record rows, and
+ * `boundary.test.ts` keeps that type out of the client graph with a text match; the registry exists
+ * so a host does not have to touch it.
  */
-export const paletteOptions: SwatchOption[] = paletteIndex.map(({ id, label, swatches }) => ({
-  value: id,
-  label,
-  swatches,
+export const paletteOptions: SwatchOption[] = paletteIndex.map((entry) => ({
+  value: entry.id,
+  label: entry.label,
+  swatches: entry.swatches,
+  ...(entry.identities.length > 1
+    ? {
+        children: entry.identities.map((identity) => ({
+          value: identity.id,
+          label: identity.label,
+          swatches: identity.swatches,
+        })),
+      }
+    : {}),
 }));
-
-/**
- * A document's identities, as the panel needs them — the mapper `@kanzo-tech/theme` says a host
- * writes ("a host maps its document to this shape once, on the server") and that nothing had.
- *
- * Its whole job is to NARROW. A document's own `Identity` carries a brand seed, a ramp pair, a
- * categorical set and its record rows, none of which a browser has any use for, and
- * `boundary.test.ts` keeps that type out of the client graph with a text match — so the narrowing is
- * not tidiness, it is the boundary. What crosses is an id, the label the client wrote, and per-mode
- * swatches.
- *
- * The swatches are the identity's OWN categorical set, not the document's: the chart wheel is spun
- * from each brand's hue, so a bank's retail blue and its private gold publish different ones. A strip
- * drawn from the document would picture every card identically and the control would look broken.
- */
-export function identityOptions(paletteId: string): SwatchOption[] {
-  const entry = paletteIndex.find((palette) => palette.id === paletteId);
-  if (!entry) return [];
-  const document = JSON.parse(
-    readFileSync(join(themeDir, "palettes", `${paletteId}.json`), "utf8"),
-  ) as {
-    identities: { id: string; label: string; categorical: Record<string, string[]> }[];
-  };
-  // One identity is not a choice, and the panel hides itself below two anyway — returning `[]` keeps
-  // "the host published nothing" and "the host published one" the same answer, which is what the
-  // provider's retirement guard already assumes.
-  if (document.identities.length < 2) return [];
-  return document.identities.map((identity) => ({
-    value: identity.id,
-    label: identity.label,
-    swatches: {
-      light: identity.categorical.light ?? [],
-      dark: identity.categorical.dark ?? [],
-    },
-  }));
-}

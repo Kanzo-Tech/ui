@@ -154,3 +154,29 @@ Verified live: pick Private Bank → `data-identity="private"`, `--primary: #a16
 - A tenant publishing several palettes **must** persist through `cookieStorageAdapter`: the server
   chooses the stylesheet from the request, and a localStorage-only host would paint the default and
   correct it after hydration.
+
+### One section, because they are one abstraction
+
+`Preferences.Palette` and `Preferences.Identity` are gone; `Preferences.Colour` replaces both.
+
+A palette and an identity turned out to be one abstraction with a parameter — how much of the
+document the choice replaces. An identity replaces the brand-derived slice and inherits every
+surface; a palette replaces all of it. They already shared the option type, the control, the
+hide-below-two rule and the retirement machinery, and the giveaway was the behaviour: changing
+palette *files and restores* the identity, which is what containment does and what two sibling axes
+never would.
+
+So the containment moved into the data — `SwatchOption.children` — and out of two parallel props a
+host had to keep consistent. `identities` and `defaultIdentity` are no longer props: the provider
+reads the selected palette's `children`, so a host cannot make the two disagree. The panel flattens
+the pair into one list of composed entries, `Bank · Retail` and `Bank · Private`, the way VS Code and
+Slack present variants, with the prefix appearing only when there is more than one palette to
+disambiguate against. Selecting writes both halves in one patch, because it is one choice.
+
+### The cards preview the page, not a chart
+
+`paletteIndex[].swatches` was the categorical set — eight colours nobody has seen yet — so six cards
+built from chart wheels all read as the same card. It is now four role colours per mode: the surface,
+the ink, that brand's own `--primary`, and the border. What tells Dracula from Nord at a glance is the
+surface and the brand, which is also why daisyUI's switcher draws four role colours rather than a
+palette's full range.

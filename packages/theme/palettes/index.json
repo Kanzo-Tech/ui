@@ -9,27 +9,39 @@
     },
     "swatches": {
       "light": [
-        "#00c950",
-        "#a800b7",
-        "#ff8904",
-        "#2b7fff",
-        "#ff2056",
-        "#7008e7",
-        "#a65f00",
-        "#0092b8"
+        "#fafafa",
+        "#0f0f0f",
+        "#0f0f0f",
+        "#c9c9c9"
       ],
       "dark": [
-        "#e12afb",
-        "#a65f00",
-        "#0092b8",
-        "#f54900",
-        "#2b7fff",
-        "#00a63e",
-        "#7f22fe",
-        "#c70036"
+        "#0a0a0a",
+        "#efefef",
+        "#efefef",
+        "#353535"
       ]
     },
-    "capacity": 8
+    "capacity": 8,
+    "identities": [
+      {
+        "id": "kanzo",
+        "label": "Kanzo",
+        "swatches": {
+          "light": [
+            "#fafafa",
+            "#0f0f0f",
+            "#0f0f0f",
+            "#c9c9c9"
+          ],
+          "dark": [
+            "#0a0a0a",
+            "#efefef",
+            "#efefef",
+            "#353535"
+          ]
+        }
+      }
+    ]
   },
   {
     "id": "dracula",
@@ -41,25 +53,39 @@
     },
     "swatches": {
       "light": [
-        "#a800b7",
-        "#5ea500",
-        "#0092b8",
-        "#a65f00",
-        "#155dfc",
-        "#c6005c",
-        "#ff6900"
+        "#f9fafb",
+        "#090d1f",
+        "#e562af",
+        "#bfc9e3"
       ],
       "dark": [
-        "#f6339a",
-        "#e12afb",
-        "#5ea500",
-        "#0092b8",
-        "#a65f00",
-        "#2b7fff",
-        "#f54900"
+        "#090a0e",
+        "#e9efff",
+        "#e05daa",
+        "#2d354c"
       ]
     },
-    "capacity": 7
+    "capacity": 7,
+    "identities": [
+      {
+        "id": "dracula",
+        "label": "Dracula",
+        "swatches": {
+          "light": [
+            "#f9fafb",
+            "#090d1f",
+            "#e562af",
+            "#bfc9e3"
+          ],
+          "dark": [
+            "#090a0e",
+            "#e9efff",
+            "#e05daa",
+            "#2d354c"
+          ]
+        }
+      }
+    ]
   },
   {
     "id": "nord",
@@ -71,27 +97,39 @@
     },
     "swatches": {
       "light": [
-        "#00c950",
-        "#a800b7",
-        "#ff8904",
-        "#2b7fff",
-        "#ff2056",
-        "#7008e7",
-        "#a65f00",
-        "#0092b8"
+        "#f9fafb",
+        "#0c1017",
+        "#6299a9",
+        "#b8bdc8"
       ],
       "dark": [
-        "#e12afb",
-        "#a65f00",
-        "#0092b8",
-        "#f54900",
-        "#2b7fff",
-        "#00a63e",
-        "#7f22fe",
-        "#c70036"
+        "#090a0c",
+        "#edf1fb",
+        "#679eae",
+        "#282d36"
       ]
     },
-    "capacity": 8
+    "capacity": 8,
+    "identities": [
+      {
+        "id": "nord",
+        "label": "Nord",
+        "swatches": {
+          "light": [
+            "#f9fafb",
+            "#0c1017",
+            "#6299a9",
+            "#b8bdc8"
+          ],
+          "dark": [
+            "#090a0c",
+            "#edf1fb",
+            "#679eae",
+            "#282d36"
+          ]
+        }
+      }
+    ]
   },
   {
     "id": "catppuccin-latte",
@@ -103,27 +141,39 @@
     },
     "swatches": {
       "light": [
-        "#a800b7",
-        "#a65f00",
-        "#0092b8",
-        "#5ea500",
-        "#7008e7",
-        "#ff6900",
-        "#2b7fff",
-        "#e60076"
+        "#fafafb",
+        "#0c0d12",
+        "#8839ef",
+        "#d2d4dc"
       ],
       "dark": [
-        "#e12afb",
-        "#a65f00",
-        "#0092b8",
-        "#f54900",
-        "#7f22fe",
-        "#e60076",
-        "#2b7fff",
-        "#5ea500"
+        "#0a0a0c",
+        "#eaecf3",
+        "#8839ef",
+        "#404249"
       ]
     },
-    "capacity": 8
+    "capacity": 8,
+    "identities": [
+      {
+        "id": "catppuccin-latte",
+        "label": "Catppuccin Latte",
+        "swatches": {
+          "light": [
+            "#fafafb",
+            "#0c0d12",
+            "#8839ef",
+            "#d2d4dc"
+          ],
+          "dark": [
+            "#0a0a0c",
+            "#eaecf3",
+            "#8839ef",
+            "#404249"
+          ]
+        }
+      }
+    ]
   },
   {
     "id": "catppuccin-mocha",
@@ -135,27 +185,39 @@
     },
     "swatches": {
       "light": [
-        "#ad46ff",
-        "#a65f00",
-        "#0092b8",
-        "#497d00",
-        "#c800de",
-        "#e17100",
-        "#4f39f6",
-        "#e60076"
+        "#fafafb",
+        "#0d0e16",
+        "#a681d0",
+        "#c5c7d3"
       ],
       "dark": [
-        "#c800de",
-        "#e17100",
-        "#7c86ff",
-        "#e60076",
-        "#ad46ff",
-        "#a65f00",
-        "#0092b8",
-        "#497d00"
+        "#0a0a0c",
+        "#edeff9",
+        "#a581cf",
+        "#32343e"
       ]
     },
-    "capacity": 8
+    "capacity": 8,
+    "identities": [
+      {
+        "id": "catppuccin-mocha",
+        "label": "Catppuccin Mocha",
+        "swatches": {
+          "light": [
+            "#fafafb",
+            "#0d0e16",
+            "#a681d0",
+            "#c5c7d3"
+          ],
+          "dark": [
+            "#0a0a0c",
+            "#edeff9",
+            "#a581cf",
+            "#32343e"
+          ]
+        }
+      }
+    ]
   },
   {
     "id": "bank",
@@ -167,26 +229,56 @@
     },
     "swatches": {
       "light": [
-        "#51a2ff",
-        "#8200db",
-        "#ff8904",
-        "#e60076",
-        "#615fff",
-        "#00bba7",
-        "#a65f00",
-        "#0092b8"
+        "#f9fafb",
+        "#0c0f14",
+        "#2b7fff",
+        "#c4c8d0"
       ],
       "dark": [
-        "#9810fa",
-        "#f54900",
-        "#0092b8",
-        "#a65f00",
+        "#090a0c",
+        "#eceff6",
         "#2b7fff",
-        "#e60076",
-        "#615fff",
-        "#009689"
+        "#31353b"
       ]
     },
-    "capacity": 8
+    "capacity": 8,
+    "identities": [
+      {
+        "id": "retail",
+        "label": "Retail",
+        "swatches": {
+          "light": [
+            "#f9fafb",
+            "#0c0f14",
+            "#2b7fff",
+            "#c4c8d0"
+          ],
+          "dark": [
+            "#090a0c",
+            "#eceff6",
+            "#2b7fff",
+            "#31353b"
+          ]
+        }
+      },
+      {
+        "id": "private",
+        "label": "Private",
+        "swatches": {
+          "light": [
+            "#f9fafb",
+            "#0c0f14",
+            "#a16207",
+            "#c4c8d0"
+          ],
+          "dark": [
+            "#090a0c",
+            "#eceff6",
+            "#a16207",
+            "#31353b"
+          ]
+        }
+      }
+    ]
   }
 ]

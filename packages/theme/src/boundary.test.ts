@@ -54,9 +54,13 @@ describe("SwatchOption", () => {
   });
 
   it("carries only what a browser can use", () => {
+    // `children` is the fourth and it is not a widening: it is the same narrowed shape one level
+    // down, which is how a brand inside a document is expressed. What must stay out are the
+    // document's own fields — a seed, a ramp, a categorical set, a record — and the assertion is by
+    // name so adding any of them fails here rather than in whatever bundles it.
     const body = src.match(/export interface SwatchOption \{([^}]*)\}/s)?.[1] ?? "";
     const fields = [...body.matchAll(/^\s*(\w+)[?]?:/gm)].map((m) => m[1]);
-    expect(fields.sort()).toEqual(["label", "swatches", "value"]);
+    expect(fields.sort()).toEqual(["children", "label", "swatches", "value"]);
   });
 });
 

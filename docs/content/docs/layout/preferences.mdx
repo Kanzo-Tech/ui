@@ -41,11 +41,11 @@ without being asked.
   was never true: `appearance` is colour. It is that the user never **authors** a colour value —
   they choose among colours someone already validated.
 
-  So `Palette` and `Identity` are here, and base, accent, chart scheme and the "Copy CSS" export are
-  not. Those let a user compose *part* of a palette a hue at a time; a
-  [palette document](/docs/showcases/palette) is derived and measured once at onboarding and chosen
-  whole. Both sections hide themselves below two published options, so a tenant with one brand and
-  one palette sees the four axis sections and nothing else.
+  So `Colour` is here, and base, accent, chart scheme and the "Copy CSS" export are not. Those let a
+  user compose *part* of a palette a hue at a time; a [palette document](/docs/showcases/palette) is
+  derived and measured once at onboarding and chosen whole. The section hides itself below two
+  published choices, so a tenant with one palette and one brand sees the four axis sections and
+  nothing else.
 </Callout>
 
 <Callout type="info" title="Appearance is in the header, not the body">
@@ -67,8 +67,7 @@ without being asked.
 Preferences.Root
 ├── Preferences.Trigger
 └── Preferences.Panel
-    ├── Preferences.Palette    — only when the tenant publishes two
-    ├── Preferences.Identity   — only when the tenant publishes two
+    ├── Preferences.Colour     — only when the tenant published two choices
     ├── Preferences.Density
     ├── Preferences.Radius
     ├── Preferences.Font
@@ -78,11 +77,21 @@ Preferences.Root
 `Panel` renders that whole set when given no children, plus a pinned Reset · Done footer that
 stays whatever the children are. Pass children to choose your own set.
 
-The two colour sections come first and coarsest-first, so they read top-down as one choice at two
-grains: a **palette** is a whole document (surfaces, statuses, syntax, brand) and an **identity** is
-a brand inside one, sharing the tenant's neutral. Each guards itself rather than being guarded at the
-call site — every section is exported flat for a host's own settings page, where a call-site guard
-would be invisible.
+Colour comes first, and it is **one** section rather than two. A palette and an identity are one
+abstraction with a parameter — how much of the document the choice replaces: an identity replaces the
+brand-derived slice and inherits every surface, a palette replaces all of it. They always shared the
+control, the option type, the hide-below-two rule and the retirement machinery, and the giveaway was
+the behaviour: changing palette *files and restores* the identity, which is containment, not
+siblinghood.
+
+So a palette that publishes several brands contributes one entry per brand — `Bank · Retail`,
+`Bank · Private` — the way VS Code and Slack present variants. The prefix appears only when there is
+more than one palette to disambiguate against, so a client with a single palette and two brands sees
+`Retail` and `Private`. The model keeps the containment, because that is what guarantees a tenant's
+brands share a neutral and stay one product.
+
+It guards itself rather than being guarded at the call site — every section is exported flat for a
+host's own settings page, where a call-site guard would be invisible.
 
 ## Choosing the sections
 
@@ -194,19 +203,19 @@ settings page instead of the floating drawer — they edit the same live theme e
 
 ### Sections
 
-Each reads and writes `useKanzoTheme()` directly. The four axis sections take no props; `Palette` and
-`Identity` take a `label` for their legend, which is their one library-authored string — a palette's
-or an identity's own name was written by the client and passes through verbatim.
+Each reads and writes `useKanzoTheme()` directly. The four axis sections take no props; `Colour` takes
+a `label` for its legend and two strings for the retirement notice, which are its only
+library-authored copy — a palette's or a brand's own name was written by the client and passes
+through verbatim.
 
-`Palette` is the one section that writes a preference and repaints nothing by itself. A document is a
-stylesheet, so the next load is the palette; a live swap is the host's to arrange, as the docs site
-does. That is also why it has no attribute: there is no block in any compiled sheet for a
-`data-palette` to select.
+`Colour` writes **both halves in one patch**, because it is one choice: selecting `Bank · Private`
+sets `palette` and `identity` together. Only the brand half reaches `<html>`. The palette half
+repaints nothing by itself — a document is a stylesheet, so the next load is the palette, and a live
+swap is the host's to arrange, as the docs site does.
 
 | Flat export | Static | Axis | Attribute |
 | --- | --- | --- | --- |
-| `PreferencesPalette` | `Preferences.Palette` | `palette` | **none** — the server serves the stylesheet |
-| `PreferencesIdentity` | `Preferences.Identity` | `identity` | `data-identity` |
+| `PreferencesColor` | `Preferences.Colour` | `palette` + `identity` | `data-identity` for the brand half only — a palette is a stylesheet the server serves |
 | `PreferencesDensity` | `Preferences.Density` | `density` | `data-font-size` |
 | `PreferencesRadius` | `Preferences.Radius` | `radius` | `data-radius` |
 | `PreferencesFont` | `Preferences.Font` | `font` | `data-font` |

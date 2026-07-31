@@ -7,7 +7,7 @@ import { useKanzoTheme } from "../theme/KanzoThemeProvider.js";
 
 /**
  * The copy for "the identity you chose is no longer published", shared by the two surfaces that
- * say it: this toast, and the `Alert` inside `PreferencesIdentity`. One state, said once.
+ * say it: this toast, and the `Alert` inside `Preferences.Colour`. One state, said once.
  *
  * Both strings are **library-authored English**, which is exactly the distinction `AppearanceToggle`
  * draws with its `formatName`: the library wrote "Light" and "Dark", so a caller who translates the
@@ -59,7 +59,7 @@ export interface IdentityNoticeProps extends IdentityRetiredCopy {
  * identity. What is left is that somebody chose gold and is looking at blue, and silence makes that
  * read as a bug in our product rather than a change in their client's.
  *
- * The panel says the same thing in `PreferencesIdentity`, from the same state and the same copy —
+ * The panel says the same thing in `Preferences.Colour`, from the same state —
  * and cannot always say it: that section hides itself below two published identities, so a tenant
  * who retired their way down to one brand has this as the only surface left.
  */

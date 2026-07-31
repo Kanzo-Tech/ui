@@ -36,14 +36,15 @@ export const KanzoProvider = ({
   children,
   palettes,
   defaultPalette,
-  identities,
 }: {
   children: ReactNode;
-  /** What this tenant publishes. The docs site publishes six; a client usually publishes one. */
+  /**
+   * What this tenant publishes, brands nested inside their palette. The docs site publishes six
+   * palettes, one of which has two brands; a client usually publishes one of each and sees no
+   * colour control at all.
+   */
   palettes: SwatchOption[];
   defaultPalette: string;
-  /** The brands inside the SELECTED palette — read per request, since a document owns its own. */
-  identities: SwatchOption[];
 }) => {
   useServerInsertedHTML(() => (
     // biome-ignore lint/security/noDangerouslySetInnerHtml: the anti-FOUC script must be inline.
@@ -53,7 +54,6 @@ export const KanzoProvider = ({
   return (
     <KanzoThemeProvider
       defaultPalette={defaultPalette}
-      identities={identities}
       palettes={palettes}
       storage={cookieStorageAdapter()}
     >

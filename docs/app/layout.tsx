@@ -2,13 +2,7 @@ import type { ReactNode } from "react";
 import { Geist, Geist_Mono, Inter, JetBrains_Mono } from "next/font/google";
 import { RootProvider } from "fumadocs-ui/provider/next";
 import { KanzoProvider } from "@/components/kanzo-provider";
-import {
-  defaultPalette,
-  identityOptions,
-  paletteCss,
-  paletteOptions,
-  requestedPalette,
-} from "@/lib/palette";
+import { defaultPalette, paletteCss, paletteOptions, requestedPalette } from "@/lib/palette";
 import "@kanzo-tech/ui/styles.css";
 import "./global.css";
 
@@ -32,9 +26,6 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   // one, whose stylesheet is `tokens.css` and is already imported above.
   const palette = await requestedPalette();
   const css = paletteCss(palette);
-  // The identities belong to the SELECTED document, so they are read per request beside its
-  // stylesheet. A tenant publishing one brand gets `[]` and the panel's section never renders.
-  const identities = identityOptions(palette);
 
   return (
     <html
@@ -56,11 +47,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             permanently, so the `:root` / `.dark` blocks of a compiled palette document could never
             set it. `.dark` is written by KanzoThemeProvider, alone. */}
         <RootProvider theme={{ enabled: false }}>
-          <KanzoProvider
-            defaultPalette={defaultPalette}
-            identities={identities}
-            palettes={paletteOptions}
-          >
+          <KanzoProvider defaultPalette={defaultPalette} palettes={paletteOptions}>
             {children}
           </KanzoProvider>
         </RootProvider>

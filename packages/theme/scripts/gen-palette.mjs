@@ -46,6 +46,27 @@ const DERIVED_AT = "2026-07-29T00:00:00.000Z";
 
 mkdirSync(join(ROOT, "palettes"), { recursive: true });
 
+/**
+ * The four colours that make a palette recognisable, per mode — what a card in a picker draws.
+ *
+ * **Not the categorical set, which is what this used to be and was the least representative thing
+ * available.** What tells Dracula from Nord at a glance is the surface and the brand; the chart wheel
+ * is eight colours nobody has seen yet, so six cards built from it all looked like the same card.
+ * daisyUI's own switcher draws four role colours for the same reason.
+ *
+ * `--primary` is read from the IDENTITY and the rest from the document, which is exactly the split
+ * the model makes: a brand replaces the brand-derived slice and inherits every surface.
+ */
+function preview(document, identity) {
+  const at = (mode) => [
+    document.roles[mode]["--background"],
+    document.roles[mode]["--foreground"],
+    identity.roles[mode]["--primary"] ?? document.roles[mode]["--primary"],
+    document.roles[mode]["--border"],
+  ];
+  return { light: at("light"), dark: at("dark") };
+}
+
 /** `--flag value` pairs, and nothing cleverer: four flags, no combining, no shorthand. */
 function flags(argv) {
   const out = {};
@@ -121,10 +142,15 @@ for (const [id, seeds] of Object.entries(PALETTE_SEEDS)) {
     label: document.label,
     isDefault,
     seeds: { brand: document.seeds.brand, neutral: document.seeds.neutral },
-    // What a picker draws. The default identity's categorical set, per mode — the same shape
-    // `SwatchOption.swatches` uses, so one vocabulary covers both registries.
-    swatches: { light: identity.categorical.light, dark: identity.categorical.dark },
+    swatches: preview(document, identity),
     capacity: identity.categorical.capacity,
+    // The brands this document publishes, so a picker can offer them as part of the same choice
+    // rather than as a second axis. One entry means "no choice here"; the panel reads it as such.
+    identities: document.identities.map((brand) => ({
+      id: brand.id,
+      label: brand.label,
+      swatches: preview(document, brand),
+    })),
   });
 }
 
@@ -147,7 +173,9 @@ const DEMO = {
   neutral: "#6b7280",
   identities: [
     { id: "retail", label: "Retail", brand: "#2b7fff" },
-    { id: "private", label: "Private Bank", brand: "#a16207" },
+    // "Private", not "Private Bank": the panel composes `${palette} · ${brand}` when a
+    // tenant publishes more than one palette, and "Bank · Private Bank" says it twice.
+    { id: "private", label: "Private", brand: "#a16207" },
   ],
 };
 
@@ -161,8 +189,13 @@ index.push({
   label: demo.label,
   isDefault: false,
   seeds: { brand: demo.seeds.brand, neutral: demo.seeds.neutral },
-  swatches: { light: demoDefault.categorical.light, dark: demoDefault.categorical.dark },
+  swatches: preview(demo, demoDefault),
   capacity: demoDefault.categorical.capacity,
+  identities: demo.identities.map((brand) => ({
+    id: brand.id,
+    label: brand.label,
+    swatches: preview(demo, brand),
+  })),
 });
 
 writeFileSync(join(ROOT, "palettes", "index.json"), `${JSON.stringify(index, null, 2)}\n`);

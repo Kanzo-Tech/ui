@@ -46,8 +46,7 @@ export {
   PreferencesFieldSet,
   // First, and the only section that can vanish: it draws itself only where a tenant published more
   // than one identity. Colour is still not authored here — an identity is a block the client wrote.
-  PreferencesIdentity,
-  PreferencesPalette,
+  PreferencesColor,
   // No `PreferencesAppearance`: appearance has ONE control, `AppearanceToggle`, which cycles all
   // three states in the chrome. A panel section was the same preference wearing a second control.
   PreferencesRadius,
@@ -58,8 +57,7 @@ export {
 export type {
   PreferencesProps,
   PreferencesRootProps,
-  PreferencesIdentityProps,
-  PreferencesPaletteProps,
+  PreferencesColorProps,
 } from "./composites/Preferences.js";
 export { AppearanceToggle } from "./composites/AppearanceToggle.js";
 export type { AppearanceToggleProps, AppearanceToggleLabels } from "./composites/AppearanceToggle.js";
