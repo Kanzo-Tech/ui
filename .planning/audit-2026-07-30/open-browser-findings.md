@@ -41,6 +41,20 @@ server appears to render the addon where the client renders the input. The first
 is that **Ark's `asChild` clone resolves differently during SSR**, so the input child collapses to
 nothing on one side and the addon shifts into its slot. Start at `simples/date-picker.tsx:60-90`.
 
+**The directive sweep is not the cause — tested, not reasoned.** The obvious suspect was `a3a5c98`
+("57 components opted out of server rendering for nothing"): `date-picker.tsx`, `field.tsx` and
+`input.tsx` all carried `"use client"` at `e210a59` and lost it, which would put an `asChild` child
+across the RSC boundary, where Ark clones and merges props onto it. The experiment: restore the
+directive on **all 51** files that lost one, rebuild, reload. **The mismatch survives unchanged.**
+Reverted; the branch is as it was. So the sweep is exonerated and the cause lies elsewhere — most
+likely pre-existing, with the `slot` conversion the only other candidate this branch introduces.
+
+Two hypotheses have now died here, both of them mine and both plausible on the evidence available
+when they were formed. Whoever picks this up should assume a third will too, and reach for the
+experiment earlier than the argument: restoring one directive moved the failure from
+`DatePickerInput` to `DatePickerTrigger` without removing it, which was the first real clue that the
+boundary was not the variable.
+
 What has been ruled out, so nobody repeats it:
 
 - **`InputGroup` does not order or inspect its children.** No `React.Children`, no `sort`, no
