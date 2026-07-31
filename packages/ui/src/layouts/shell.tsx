@@ -94,6 +94,10 @@ ShellBody.displayName = "ShellBody";
  * EXACTLY ONE per page. Two `<main>` elements are an HTML conformance error and make
  * "skip to main content" ambiguous, so nothing nested inside may render another — nestable
  * containers use `<section>`.
+ *
+ * That skip link is `SkipNavLink`, and this is what it lands on: wrap this element in
+ * `<SkipNavContent asChild>` rather than nesting a target inside it —
+ * `decisions/the-skip-target-is-the-main-landmark.md`.
  */
 export function ShellMain({ className, slot, ...rest }: ComponentProps<typeof ark.main>) {
   return (

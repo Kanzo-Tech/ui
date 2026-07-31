@@ -2,6 +2,7 @@
   "title": "Layout",
   "pages": [
     "shell",
+    "skip-nav",
     "section",
     "resizable",
     "scroll-area",

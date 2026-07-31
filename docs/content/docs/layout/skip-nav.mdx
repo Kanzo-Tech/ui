@@ -1,0 +1,84 @@
+---
+title: Skip Nav
+description: The "skip to main content" link, and the main landmark it lands on.
+links:
+  doc: https://www.w3.org/WAI/WCAG22/Understanding/bypass-blocks
+---
+
+<ComponentPreview componentName="skip-nav" fullBleed />
+
+## Usage
+
+```tsx
+import { SkipNavLink, SkipNavContent } from "@kanzo-tech/ui";
+```
+
+```tsx
+<ShellRoot>
+  <SkipNavLink />
+
+  <ShellHeader>{/* app chrome */}</ShellHeader>
+
+  <ShellBody>
+    <ShellAside aria-label="Navigation" side="start" width={240}>{/* … */}</ShellAside>
+
+    <SkipNavContent asChild>
+      <ShellMain>{/* the page */}</ShellMain>
+    </SkipNavContent>
+  </ShellBody>
+</ShellRoot>
+```
+
+Two parts and one shared default id, so neither call site writes a string. `SkipNavLink` renders
+`<a href="#skip-nav-content">`; `SkipNavContent` puts that id, and `tabIndex={-1}`, on the element
+the reader should land on.
+
+## The target is the `<main>` itself
+
+`asChild` hands the id and the `tabIndex` down to `ShellMain`, so the page has **one** element
+where a nested target would have two, and the thing that receives focus is the landmark the reader
+asked for. It also stays out of the region's way: [`ShellMain`](/docs/layout/shell) is a scrolling
+flex column, and a wrapper inside it becomes the flex child every consumer then has to re-declare.
+
+<Callout type="info">
+Without a shell, render it on its own — `<SkipNavContent>{children}</SkipNavContent>` is a plain
+`<div>` with the id and the `tabIndex`. That is the only shape the reference system can offer,
+because it has no layout layer.
+</Callout>
+
+## Why `tabIndex={-1}` is the load-bearing half
+
+A fragment link on its own only **scrolls**. Focus stays on the link, so the reader's next Tab
+walks straight back into the navigation they just asked to skip — the link appears to work and
+changes nothing. `tabIndex={-1}` makes the target programmatically focusable, which is what turns
+the jump into a focus move.
+
+It also means the target is reachable by script and not by Tab, so it never adds a stop of its own.
+That is why it carries `outline-none`: a ring around the whole page body on arrival is noise, not
+an affordance, and [WCAG 2.4.7](https://www.w3.org/WAI/WCAG22/Understanding/focus-visible) asks for
+a visible indicator on components in the keyboard interface, which this is not.
+
+## Hidden, but not from everyone
+
+`sr-only focus:not-sr-only` is the mechanism, and the distinction matters: the link is removed from
+the **visual** tree and kept in the **accessibility** one. `hidden`, `display: none` or
+`aria-hidden` would take it out of both, and there would be nothing left to tab to.
+
+Every other utility on the link sits behind `focus:`, including the ring — the one place in the
+library where a ring is not spelled `focus-visible:`. The recipe describes a single appearance that
+exists under a single condition, and where the two conditions disagree (a pointer or an
+assistive-technology activation matches `:focus` and not `:focus-visible`) a split would show the
+fill with no boundary against the page behind it.
+
+## Rules
+
+**Render it first.** `SkipNavLink` goes above `ShellHeader`, as the first child of `ShellRoot`.
+"First focusable element in the document" is the entire specification; rendered second it is a link
+to content the reader has already tabbed past.
+
+**One target per page**, for the same reason there is [one
+`<main>`](/docs/layout/shell#rules). Two elements answering to `skip-nav-content` is a duplicate id,
+and the browser resolves it to whichever comes first.
+
+**Name your own id when a page needs more than the default.** Pass the same `id` to both parts —
+on `SkipNavLink` it is the target's id and becomes the `href` fragment, not an id on the anchor.

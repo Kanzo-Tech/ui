@@ -70,8 +70,6 @@ export const UNADOPTED: Readonly<Record<string, string>> = {
   presence: "Not built. Ark's presence primitive is used inside the components that need it, never composed by a caller here.",
   "qr-code": "Not built. No renderer in the library or the docs.",
   "signature-pad": "Not built. No renderer in the library or the docs.",
-  "skip-nav":
-    "Undecided — the only unadopted component that is an accessibility affordance rather than a convenience. This library owns the page shell (`ShellRoot` / `ShellMain`, `decisions/exactly-one-main.md`), which is precisely where a skip link belongs, and it ships none. Not a divergence anybody chose.",
   swap: "Not built. No renderer in the library or the docs.",
   timer: "Not built. No renderer in the library or the docs.",
   "toggle-tooltip": "Not built. `Tooltip` plus `Toggle` compose it; nothing here needed the pre-arrangement.",

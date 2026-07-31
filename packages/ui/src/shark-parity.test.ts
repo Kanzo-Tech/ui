@@ -404,7 +404,6 @@ describe("the declared divergences", () => {
       "pagination:PaginationItems",
       "skeleton:SkeletonCircle",
       "skeleton:SkeletonText",
-      "skip-nav",
       "tags-input:TagsInputRootProvider",
       "tags-input:useTagsInputContext",
       "tour:TourBody",

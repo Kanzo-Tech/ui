@@ -60,7 +60,8 @@ So a status strip is ordinary composition:
 ## Rules
 
 **Exactly one `<main>` per page.** `ShellMain` renders it. Nested containers use `<section>` —
-two `<main>` elements are a conformance error and make "skip to main content" ambiguous.
+two `<main>` elements are a conformance error and make "skip to main content" ambiguous. The link
+that phrase names is [`SkipNavLink`](/docs/layout/skip-nav), and `ShellMain` is what it lands on.
 
 **Asides are landmarks.** `ShellAside` renders `<aside>`, so two of them need `aria-label` to be
 told apart. That is also why asides may repeat where `<main>` may not.
