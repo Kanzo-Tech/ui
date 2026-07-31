@@ -16,8 +16,7 @@ the cost is a full client re-render of that subtree and a real error in the cons
 
 The server and client disagree about what sits at one position: the client puts the
 `<input data-slot="input-group-control">`, the server puts a `<div data-slot="input-group-addon">`.
-React's own error text lists the likely causes, and the trace points at the last of them —
-**invalid HTML nesting**. The reported ancestry is:
+It is a **sibling-order** disagreement inside `InputGroup`, not a nesting one.
 
 ```
 <div data-slot="input-group">
@@ -26,10 +25,21 @@ React's own error text lists the likely causes, and the trace points at the last
       <FieldInput data-slot="input-group-control">
 ```
 
-A `<div>` inside a `<p>` is not valid HTML. The parser closes the `<p>` before the `<div>`, so the
-DOM the browser builds is not the DOM React described, and hydration cannot match. That is a
-mechanism, not a guess — but the **source of the `<p>` is not yet identified**, and that is what
-anyone picking this up should find first.
+**Correction, and the reason this paragraph is worth reading twice.** The first version of this file
+read the `<p>` above as a paragraph element and concluded the cause was invalid HTML nesting — a
+`<div>` inside a `<p>`, which a parser relocates. That was wrong, and wrong in the way this whole
+audit exists to catch: a mechanism asserted from a plausible reading, never checked. **`<p>` here is
+a minified *component* name in React's dev stack, not a DOM element.** Its `className="flex-1 bg-…"`
+is `InputGroupInput`'s own, character for character (`input-group.tsx`: `flex-1`, `bg-transparent`,
+`rounded-none border-0 shadow-none`…), and the same trace shows `<T>` and `<G>` — minified siblings.
+The library renders no `<p>` anywhere near this tree; its only `ark.p`s are `FieldDescription`
+(`field.tsx:211`) and `ItemDescription` (`item.tsx:171`). **Invalid nesting is ruled out.**
+
+What is left is the real question: `DatePickerInput` puts exactly two children in the group —
+`<ArkDatePicker.Input asChild>` wrapping `<InputGroupInput />`, then `<InputGroupAddon>` — and the
+server appears to render the addon where the client renders the input. The first hypothesis to test
+is that **Ark's `asChild` clone resolves differently during SSR**, so the input child collapses to
+nothing on one side and the addon shifts into its slot. Start at `simples/date-picker.tsx:60-90`.
 
 What has been ruled out, so nobody repeats it:
 
