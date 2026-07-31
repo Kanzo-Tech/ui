@@ -122,6 +122,23 @@ no height: scrolling belongs to whoever owns the surface.
 
 <ComponentPreview componentName="listbox" fileName="example-in-popover" />
 
+## Keyboard
+
+| Key | Does |
+| --- | --- |
+| <kbd>↓</kbd> / <kbd>↑</kbd> | Moves the highlight to the next / previous option, stopping at the ends unless `loopFocus`. |
+| <kbd>←</kbd> / <kbd>→</kbd> | The same, in a horizontal listbox — ignored in the vertical default. |
+| <kbd>Home</kbd> / <kbd>End</kbd> | Highlights the first / last option. |
+| <kbd>Enter</kbd> | Selects the highlighted option — replacing the value under `"single"` and `"extended"`, toggling it under `"multiple"`. |
+| <kbd>Space</kbd> | The same, unless a typeahead is in progress, where it is one more character. |
+| <kbd>A</kbd>–<kbd>Z</kbd> | Typeahead: highlights the next option whose text starts with what you have typed. |
+| <kbd>Shift</kbd>+<kbd>↓</kbd> / <kbd>↑</kbd> / <kbd>Home</kbd> / <kbd>End</kbd> | Extends the selection from the anchor, under `"multiple"` and `"extended"` only. |
+| <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>A</kbd> | Selects every option, under `"multiple"` and `"extended"`; `disallowSelectAll` turns it off. |
+| <kbd>Esc</kbd> | Clears the selection, when `deselectable` is set. |
+
+With `ListboxInput` the field keeps the caret keys and the letters, so typeahead is gone and
+<kbd>Home</kbd>/<kbd>End</kbd> only reach the list under `keyboardPriority="navigate"`.
+
 ## API Reference
 
 ### Listbox

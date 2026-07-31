@@ -118,6 +118,21 @@ the only route to an action: mirror the items in a toolbar `Menu`.
 
 <ComponentPreview componentName="menu" fileName="example-context-submenu" />
 
+## Keyboard
+
+| Key | Does |
+| --- | --- |
+| <kbd>↓</kbd> / <kbd>↑</kbd> | On the trigger, opens the menu with the first / last item highlighted; inside, moves the highlight. |
+| <kbd>Home</kbd> / <kbd>End</kbd> | Highlights the first / last item. |
+| <kbd>Enter</kbd> / <kbd>Space</kbd> | Runs the highlighted item and closes the menu, or opens its submenu when the item is a `MenuSubTrigger`. |
+| <kbd>A</kbd>–<kbd>Z</kbd> | Typeahead: highlights the next item whose text starts with what you have typed. <kbd>Space</kbd> joins the query once one is in progress. |
+| <kbd>→</kbd> | Opens the highlighted item's submenu and moves into it. |
+| <kbd>←</kbd> | Closes a submenu and returns the highlight to the parent menu. |
+| <kbd>Esc</kbd> | Closes the menu and returns focus to the trigger. |
+
+A checkbox or radio item toggles under <kbd>Enter</kbd> like any other item, and closes the menu
+with it unless you pass `closeOnSelect={false}`.
+
 ## API Reference
 
 ### Menu

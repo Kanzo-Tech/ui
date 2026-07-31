@@ -101,6 +101,21 @@ re-exports, so a product doing that installs it directly. Wrap the parse in a `t
 unparseable stored value must leave the calendar empty rather than throw it, or one bad row in a
 table takes down the whole form.
 
+## Keyboard
+
+| Key | Does |
+| --- | --- |
+| <kbd>←</kbd> / <kbd>→</kbd> | Moves the focused day back / forward one day, crossing into the neighbouring month. |
+| <kbd>↑</kbd> / <kbd>↓</kbd> | Moves it back / forward one week. |
+| <kbd>Home</kbd> / <kbd>End</kbd> | Jumps to the first / last day of the visible range. |
+| <kbd>PageUp</kbd> / <kbd>PageDown</kbd> | Moves back / forward one month. |
+| <kbd>Shift</kbd>+<kbd>PageUp</kbd> / <kbd>PageDown</kbd> | Moves back / forward one year. |
+| <kbd>Enter</kbd> | Selects the focused day; in the month or year view it drills down to the next view instead. |
+| <kbd>Esc</kbd> | Closes the popover without changing the value, and returns focus to the trigger that opened it — `DatePicker` only, since `Calendar` is inline. |
+
+The grid is a roving tabindex: only the focused cell is reachable with <kbd>Tab</kbd>, so
+<kbd>Tab</kbd> leaves the month rather than walking its days.
+
 ## API Reference
 
 ### DatePickerInput

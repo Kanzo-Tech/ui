@@ -170,6 +170,15 @@ const { open, isMobile, toggleSidebar } = useSidebar();
 server component is the single most common mistake with this API.
 </Callout>
 
+## Keyboard
+
+| Key | Does |
+| --- | --- |
+| <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>B</kbd> | Toggles the sidebar — the rail on a wide viewport, the Sheet drawer below `md`. |
+
+This one is ours, not Ark's: `SidebarProvider` listens on `window`, so it fires wherever focus
+is, text fields included.
+
 ## API Reference
 
 ### SidebarProvider

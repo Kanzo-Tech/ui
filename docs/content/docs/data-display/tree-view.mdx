@@ -60,6 +60,25 @@ built with `createFileIcons`; anything unmatched falls back to `TreeViewItem`'s 
 
 <ComponentPreview componentName="tree-view" fileName="example-file-icons" />
 
+## Keyboard
+
+| Key | Does |
+| --- | --- |
+| <kbd>↓</kbd> / <kbd>↑</kbd> | Moves focus to the next / previous visible node, stepping into and out of expanded branches. |
+| <kbd>→</kbd> | Expands the focused branch, or moves to its first child when it is already open; nothing on a leaf. |
+| <kbd>←</kbd> | Collapses the focused branch, or moves to the parent when it is already closed. |
+| <kbd>Home</kbd> / <kbd>End</kbd> | Moves focus to the first / last visible node. |
+| <kbd>Enter</kbd> / <kbd>Space</kbd> | Selects the focused node, and toggles a branch open or closed. |
+| <kbd>*</kbd> | Expands every branch that is a sibling of the focused node. |
+| <kbd>A</kbd>–<kbd>Z</kbd> | Typeahead: moves focus to the next visible node whose label starts with what you have typed. |
+| <kbd>Shift</kbd>+<kbd>↓</kbd> / <kbd>↑</kbd> / <kbd>Home</kbd> / <kbd>End</kbd> | Extends the selection as it moves, under `selectionMode="multiple"`. |
+| <kbd>⌘</kbd>+<kbd>A</kbd> | Selects every node, under `selectionMode="multiple"`. |
+| <kbd>F2</kbd> | Starts renaming the focused node, when the root is given a `canRename` predicate that returns true for it. The rename input is rendered by the node itself. |
+
+Select-all is bound to the Meta key alone, so <kbd>Ctrl</kbd>+<kbd>A</kbd> does not reach it on
+Windows or Linux — while the *click* path in the same machine treats Ctrl and Meta alike, so
+pointer and keyboard disagree about the same modifier.
+
 ## API Reference
 
 ### TreeView

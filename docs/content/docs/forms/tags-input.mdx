@@ -84,6 +84,21 @@ with a plain form; it is not rendered for you.
 
 <ComponentPreview componentName="tags-input" fileName="example-with-field" />
 
+## Keyboard
+
+| Key | Does |
+| --- | --- |
+| <kbd>Enter</kbd> | Turns the typed text into a tag, or starts editing the highlighted tag when one is highlighted. |
+| <kbd>,</kbd> | The same as <kbd>Enter</kbd> — the `delimiter`, which is a comma unless you change it. |
+| <kbd>Backspace</kbd> | With the caret at the start, highlights the last tag; pressing it again deletes that tag and highlights the one before. |
+| <kbd>←</kbd> | With the caret at the start, highlights the last tag, then walks backwards through them. |
+| <kbd>→</kbd> | Walks forwards through the tags, and hands the caret back to the input past the last one. |
+| <kbd>Delete</kbd> | Deletes the highlighted tag and returns to the input. |
+| <kbd>↓</kbd> / <kbd>Esc</kbd> | Drops the highlight and puts the caret back in the input. |
+
+Editing a tag in place needs `TagsInputItemInput` rendered, and commits on <kbd>Enter</kbd> or
+cancels on <kbd>Esc</kbd>; an emptied tag is deleted rather than saved blank.
+
 ## API Reference
 
 Props pass straight through to Ark. `TagsInput` extends `TagsInput.Root` (`value` /
