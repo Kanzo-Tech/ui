@@ -8,9 +8,9 @@ Every chart on this page is built from the [charts grammar](/docs/data-display/c
 `ChartRoot`, the same marks, the same interactors. There is no `HeatmapChart` and no `WaffleChart`
 — a chart *type* is a shape you write, and this page is the proof, one shape at a time.
 
-They all read the one sample relation the charts page uses, `telemetry`: a numeric column
-(`latency`), a second one that correlates with it (`payload`), a category (`region`), an ordered
-axis (`hour`) and a series (`status`).
+They all read the one sample relation the charts page uses, `sightings`: a numeric column
+(`bounty`), a second one that correlates with it (`leagues`), a category (`region`), an ordered
+axis (`hour`) and a series (`verdict`).
 </Callout>
 
 ## Sparkline
@@ -148,7 +148,7 @@ clause, as it would on a single plot.
 
 ## Bars, a line, and a third variable
 
-Three variables in one plot. Bar height is the request count, bar **opacity** is the mean latency,
+Three variables in one plot. Bar height is the sighting count, bar **opacity** is the mean bounty,
 and the line is the failing subset. The line shares the count scale on purpose: a plot has exactly
 one y scale, so the honest way to add a variable with a different unit is another channel, not a
 second axis.
