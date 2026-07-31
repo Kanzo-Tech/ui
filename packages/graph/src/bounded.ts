@@ -5,10 +5,24 @@
  * lot to the renderer. Measured, that costs 389 ms at 200,000 nodes and stops being viable somewhere
  * short of a million — the working set is N, so the ceiling is whatever N the machine can hold.
  *
- * This is the shape that has no such ceiling: the camera asks for a rectangle, the source answers
- * with **at most `limit` points**, and the answer's size is bounded by the question rather than by
- * the corpus. Panning re-asks. Zooming out crosses a threshold and the source starts answering with
- * super-nodes instead of nodes, so a view of everything is still a few thousand marks.
+ * This is the shape that has no such ceiling: something asks a bounded question — a rectangle, or a
+ * neighbourhood a few hops wide — and the source answers with **at most `limit` points**. The
+ * answer's size follows the question rather than the corpus. Moving re-asks. Zooming out crosses a
+ * threshold and the source answers with super-nodes instead of nodes, so a view of everything is
+ * still a few thousand marks.
+ *
+ * **Where the layout comes from, and why it is not settled here.** These positions are precomputed:
+ * a corpus too big to hold is a corpus too big to lay out live, so the coordinates arrive as data.
+ * That leaves a seam worth naming rather than hiding — layout *quality* (how communities separate,
+ * how much a graph breathes) is a visual judgement, and precomputing it puts that judgement in a
+ * batch job upstream. It also breaks under filtering: a subset keeps coordinates computed for the
+ * whole, so it reads as scattered with holes where its neighbours used to be.
+ *
+ * The resolution is available precisely because the path is bounded, and it is worth stating even
+ * though nothing implements it yet: a slice is at most `limit` points, and the engine layer measures
+ * 20,000 points at about 10 ms a simulation step. **A slice is small enough to re-lay-out live.** So
+ * the precomputed coordinates are a map — they say roughly where things are, and which slice you are
+ * looking at — while what is on screen can settle under real forces. The two do not compete.
  *
  * **Deliberately not a format.** A source is anything that can answer that question: GraphAr over
  * Parquet through fossil's `viewport` verb, a plain relation with `x`/`y` columns and a spatial
@@ -34,6 +48,32 @@ export interface Viewport {
   zoom: number;
 }
 
+/**
+ * The two ways of asking for part of a graph, and they are not variants of each other.
+ *
+ * A **region** is a map question: what is inside this rectangle. It suits an overview, a minimap, a
+ * reader panning across a laid-out corpus.
+ *
+ * A **neighbourhood** is the graph question, and the first draft of this contract did not have it —
+ * which was a real design error rather than a missing convenience. A network has no spatial "near";
+ * it has topological near. Real exploration starts somewhere and expands outward, and a rectangle
+ * cannot express "two hops from this node" no matter how it is positioned. fossil's verb surface has
+ * had `find_neighbors` beside `viewport` all along; a render contract that only spoke rectangles was
+ * imposing a map metaphor on a network.
+ *
+ * A source implements what it can. One that only lays out spatially answers regions; one over a
+ * graph store answers both.
+ */
+export type SliceQuery =
+  | { kind: "region"; view: Viewport }
+  | {
+      kind: "neighbourhood";
+      /** Where to start, as source ids — not slice indices, which do not survive a slice. */
+      seeds: number[];
+      /** How many hops out. One is the ego network; beyond three is usually the whole graph. */
+      depth: number;
+    };
+
 export type SliceMode = "detail" | "aggregate";
 
 /**
@@ -46,6 +86,15 @@ export type SliceMode = "detail" | "aggregate";
 export interface Slice {
   mode: SliceMode;
   n: number;
+  /**
+   * The source's own id per returned point, parallel to `positions`.
+   *
+   * Present because slice indices are **not stable across slices**: index 7 is a different node
+   * after a pan. Anything that outlives one slice — a selection, a focused node, a pinned set —
+   * has to be held as ids and re-resolved each time. Leaving this out was how the first draft would
+   * have shipped a selection that silently pointed at the wrong nodes.
+   */
+  ids: Uint32Array;
   /** `[x0, y0, x1, y1, …]`, one pair per returned point. */
   positions: Float32Array;
   /** `[src, dst, …]` as indices into `positions`. */
@@ -60,10 +109,10 @@ export interface Slice {
 }
 
 export interface SliceRequest {
-  view: Viewport;
+  query: SliceQuery;
   /** The most points the source may return. Above it, the source aggregates or truncates. */
   limit: number;
-  /** Zoom below which the source should switch to aggregate mode. */
+  /** Zoom below which a region query should switch to aggregate mode. Ignored by neighbourhoods. */
   lodThreshold: number;
   signal?: AbortSignal;
 }
@@ -71,12 +120,18 @@ export interface SliceRequest {
 /**
  * Anything that can answer "what is in this rectangle, at this zoom, in at most this many marks".
  *
- * One method on purpose. A source that also wants to expose search, neighbours or histograms is
- * describing a query surface, and there is already one of those — fossil's fourteen verbs. This is
- * the render path and nothing else.
+ * One method, two questions. A source that also wants search, aggregation or paths is describing a
+ * query surface rather than a render path, and there is already one of those — fossil's fourteen
+ * verbs. The line: this answers *what should I draw*, and nothing about *what does it mean*.
+ *
+ * `supports` exists because not every source can answer both. A relation with `x`/`y` and a spatial
+ * index answers regions; asking it for a neighbourhood should be a typed refusal rather than a
+ * silently wrong rectangle.
  */
 export interface BoundedSource {
   slice(request: SliceRequest): Promise<Slice>;
+  /** Which query kinds this source can answer. */
+  supports(kind: SliceQuery["kind"]): boolean;
   /**
    * How many vertices there are in total, if the source knows cheaply.
    *

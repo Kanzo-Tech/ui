@@ -22,10 +22,10 @@ in `Per step` forces the queue to drain, which is why it is the honest one. Wher
 
 | Nodes | Links | Generate | Upload | Per step | Step ceiling | Frames |
 |---|---|---|---|---|---|---|
-| 2k | 12.5k | 5 ms | 57 ms | 1.53 ms | 655 fps | 60 fps |
-| 10k | 69.3k | 19 ms | 82 ms | 4.36 ms | 229 fps | 61 fps |
-| 50k | 331.6k | 79 ms | 199 ms | 10.08 ms | 99 fps | 61 fps |
-| 200k | 1.4M | 428 ms | 766 ms | 63.02 ms | 16 fps | 62 fps |
+| 2k | 12.5k | 5 ms | 60 ms | 1.52 ms | 656 fps | 120 fps |
+| 10k | 69.3k | 15 ms | 79 ms | 4.35 ms | 230 fps | 120 fps |
+| 50k | 331.6k | 65 ms | 192 ms | 10.03 ms | 100 fps | 80 fps |
+| 200k | 1.4M | 454 ms | 751 ms | 61.00 ms | 16 fps | 61 fps |
 
 ## Layer 2 — our pipeline
 
@@ -36,10 +36,10 @@ because this fixture reaches DuckDB as CSV text where a real corpus arrives as P
 
 | Nodes | Links | `load()` | ↳ read | ↳ rows | ↳ links | ↳ rank | `buffers()` | Upload | Select | **Ours** |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 2k | 12.5k | 33 ms | _29_ | _1_ | _2_ | _0_ | 1 ms | 64 ms | 0 ms | **113 ms** |
-| 10k | 69.3k | 40 ms | _30_ | _2_ | _7_ | _1_ | 3 ms | 88 ms | 1 ms | **140 ms** |
-| 50k | 331.6k | 102 ms | _54_ | _6_ | _36_ | _6_ | 12 ms | 200 ms | 2 ms | **324 ms** |
-| 200k | 1.4M | 409 ms | _191_ | _23_ | _170_ | _25_ | 45 ms | 778 ms | 8 ms | **1249 ms** |
+| 2k | 12.5k | 23 ms | _19_ | _1_ | _3_ | _0_ | 1 ms | 64 ms | 0 ms | **104 ms** |
+| 10k | 69.3k | 30 ms | _19_ | _2_ | _8_ | _1_ | 2 ms | 79 ms | 1 ms | **120 ms** |
+| 50k | 331.6k | 99 ms | _50_ | _6_ | _37_ | _6_ | 8 ms | 198 ms | 2 ms | **316 ms** |
+| 200k | 1.4M | 386 ms | _192_ | _21_ | _150_ | _24_ | 33 ms | 788 ms | 7 ms | **1225 ms** |
 
 ## Layer 3 — bounded
 
@@ -51,10 +51,10 @@ the trade is worth making.
 
 | Nodes | `total()` | First slice | Upload | **First paint** | Pan | Shown / matched |
 |---|---|---|---|---|---|---|
-| 2k | 21 ms | 45 ms | 27 ms | **93 ms** | 18 ms | 2k / 2k |
-| 10k | 8 ms | 23 ms | 31 ms | **61 ms** | 20 ms | 10k / 10k |
-| 50k | 10 ms | 40 ms | 30 ms | **80 ms** | 19 ms | 20k / 50k |
-| 200k | 14 ms | 67 ms | 28 ms | **109 ms** | 35 ms | 20k / 200k |
+| 2k | 11 ms | 33 ms | 25 ms | **69 ms** | 10 ms | 2k / 2k |
+| 10k | 8 ms | 20 ms | 30 ms | **57 ms** | 10 ms | 10k / 10k |
+| 50k | 8 ms | 33 ms | 31 ms | **72 ms** | 19 ms | 20k / 50k |
+| 200k | 9 ms | 67 ms | 29 ms | **105 ms** | 30 ms | 20k / 200k |
 
 Every row is checked against the graph it was supposed to load before it is timed. That check
 is not ceremony: it caught the whole table being fiction once, when Mosaic served the second

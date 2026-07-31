@@ -2,7 +2,13 @@
 
 import { count, Query } from "@uwdata/mosaic-sql";
 import { numbers, type Coordinator } from "@kanzo-tech/ui/analytics";
-import { onceQuery, type BoundedSource, type Slice, type SliceRequest } from "@kanzo-tech/graph";
+import {
+  onceQuery,
+  type BoundedSource,
+  type Slice,
+  type SliceQuery,
+  type SliceRequest,
+} from "@kanzo-tech/graph";
 
 /**
  * A `BoundedSource` over two ordinary DuckDB relations — the consumer half of the bounded path.
@@ -37,11 +43,24 @@ export function duckBoundedSource(options: DuckSourceOptions): BoundedSource {
       return Number(numbers(rows, "n")[0] ?? 0);
     },
 
+    /**
+     * Regions only. This source is two relations and a spatial predicate — it has no adjacency
+     * index, so a neighbourhood query would mean recursive joins over the whole edge table, which
+     * is the unbounded pattern wearing a bounded interface. A typed refusal is the honest answer;
+     * fossil's `find_neighbors` is the source that should answer it.
+     */
+    supports(kind) {
+      return kind === "region";
+    },
+
     async slice(request: SliceRequest): Promise<Slice> {
-      const { limit, lodThreshold, view } = request;
-      return view.zoom < lodThreshold
+      const { limit, lodThreshold, query } = request;
+      if (query.kind !== "region") {
+        throw new Error("this source answers regions only — see supports()");
+      }
+      return query.view.zoom < lodThreshold
         ? aggregate(coordinator, nodes, edges, limit)
-        : detail(coordinator, nodes, edges, view, limit);
+        : detail(coordinator, nodes, edges, query.view, limit);
     },
   };
 }
@@ -74,7 +93,7 @@ async function detail(
   coordinator: Coordinator,
   nodes: string,
   edges: string,
-  view: SliceRequest["view"],
+  view: Extract<SliceQuery, { kind: "region" }>["view"],
   limit: number,
 ): Promise<Slice> {
   const bbox = `x BETWEEN ${view.xMin} AND ${view.xMax} AND y BETWEEN ${view.yMin} AND ${view.yMax}`;
@@ -88,7 +107,7 @@ async function detail(
    * been about.
    */
   const [points, links, matched] = await Promise.all([
-    onceQuery(coordinator, () => `${cte} SELECT local, x, y, category FROM vis ORDER BY local`),
+    onceQuery(coordinator, () => `${cte} SELECT local, id, x, y, category FROM vis ORDER BY local`),
     // Both endpoints must be visible: an edge with one end off-screen has nowhere to land.
     onceQuery(
       coordinator,
@@ -131,7 +150,7 @@ async function aggregate(
   const [points, links] = await Promise.all([
     onceQuery(
       coordinator,
-      () => `${cte} SELECT local, x, y, category, weight FROM vis ORDER BY local`,
+      () => `${cte} SELECT local, community AS id, x, y, category, weight FROM vis ORDER BY local`,
     ),
     // Edges between communities, deduplicated: at this zoom the question is which groups touch,
     // not how often.
@@ -155,6 +174,7 @@ async function aggregate(
 
 /** Arrow columns to the parallel typed arrays the renderer takes. */
 function arrays(points: unknown, links: unknown): Omit<Slice, "mode" | "n" | "weights"> {
+  const ids = Uint32Array.from(numbers(points, "id"));
   const xs = numbers(points, "x");
   const ys = numbers(points, "y");
   const communities = numbers(points, "category");
@@ -174,5 +194,5 @@ function arrays(points: unknown, links: unknown): Omit<Slice, "mode" | "n" | "we
     edges[e * 2 + 1] = dst[e] as number;
   }
 
-  return { positions, links: edges, categories };
+  return { ids, positions, links: edges, categories };
 }

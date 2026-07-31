@@ -143,7 +143,7 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
     report?.("first slice");
     const startedSlice = performance.now();
     const first: Slice = await source.slice({
-      view,
+      query: { kind: "region", view },
       limit: BOUNDED_DEFAULTS.limit,
       lodThreshold: BOUNDED_DEFAULTS.lodThreshold,
     });
@@ -187,7 +187,10 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
     for (let i = 0; i < PANS; i++) {
       const x = step * (i + 1);
       await source.slice({
-        view: { xMin: x - width / 2, yMin: 0, xMax: x + width / 2, yMax: SPACE, zoom: 1 },
+        query: {
+          kind: "region",
+          view: { xMin: x - width / 2, yMin: 0, xMax: x + width / 2, yMax: SPACE, zoom: 1 },
+        },
         limit: BOUNDED_DEFAULTS.limit,
         lodThreshold: BOUNDED_DEFAULTS.lodThreshold,
       });

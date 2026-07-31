@@ -78,6 +78,7 @@ export {
   type BoundedSource,
   type Slice,
   type SliceMode,
+  type SliceQuery,
   type SliceRequest,
   type Viewport,
 } from "./bounded";
