@@ -24,7 +24,10 @@
   summary of it** — each carries its own reasoning, and each says what it cannot prove:
   `packages/ui/src/alpha-steps.test.ts` (seven banned token spellings), `no-literal-hues.test.ts`,
   `logical-properties.test.ts`, `client-boundary.test.ts`, `data-slot.test.tsx`, `index.test.ts`
-  (the pinned surface and the tombstones), and `packages/theme/src/boundary.test.ts`.
+  (the pinned surface and the tombstones), `documented-exports.test.ts` (a page may not claim a
+  symbol we do not export), `shark-parity.test.ts` (every difference from the reference is
+  declared), `decisions.test.ts`, and `packages/theme/src/{boundary,palettes}.test.ts`.
+  `CONVENTIONS.md` has the table and the three things a guard owes.
 
 ## Four one-way doors
 

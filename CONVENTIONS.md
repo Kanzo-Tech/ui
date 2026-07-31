@@ -308,7 +308,11 @@ never a summary, which is the arrangement that keeps both honest.
 | `packages/ui/src/logical-properties.test.ts` | no physical direction utility in the three layers, outside a reviewed allowlist with a reason per entry |
 | `packages/ui/src/client-boundary.test.ts` | `"use client"` on every stateful module and on no other |
 | `packages/ui/src/data-slot.test.tsx` | `data-slot` after the spread, never bare on one of our components, never on a provider-only root |
+| `packages/ui/src/documented-exports.test.ts` | no docs page claims a symbol the built surface does not export |
+| `packages/ui/src/shark-parity.test.ts` | every difference from Shark's registry is declared, with a reason |
+| `packages/ui/src/decisions.test.ts` | every decision record is well-formed, and `DESIGN.md`'s index agrees with it |
 | `packages/theme/src/boundary.test.ts` | the palette stays a devDependency, and `CHART_SLOTS` answers to the sheet |
+| `packages/theme/src/palettes.test.ts` | the sheet is the committed document compiled, with no colour written above the marker |
 
 **Three things a guard test owes.**
 
