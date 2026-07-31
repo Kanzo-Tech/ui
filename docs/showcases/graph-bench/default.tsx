@@ -6,6 +6,7 @@ import { PlayIcon, SquareIcon } from "lucide-react";
 import {
   Badge,
   Button,
+  Checkbox,
   SegmentGroup,
   Show,
   Spinner,
@@ -19,7 +20,16 @@ import {
 import { categoricalCapacity, categoricalColor } from "@kanzo-tech/ui/analytics";
 import { resolveToken, toHex, type Rgba } from "@kanzo-tech/graph";
 import type { Generated } from "./generate";
-import { generate, measure, nextFrame, SIZES, SPACE, type Sample, type Shape } from "./measure";
+import {
+  generate,
+  measure,
+  nextFrame,
+  SIZES,
+  SPACE,
+  STRESS_SIZES,
+  type Sample,
+  type Shape,
+} from "./measure";
 import { measureStack, STACK_SIZES, type StackSample } from "./measure-stack";
 
 /**
@@ -219,6 +229,15 @@ export function GraphBenchShowcase() {
    */
   const [previewLive, setPreviewLive] = useState(true);
 
+  /**
+   * Whether the sweep goes past 200,000.
+   *
+   * Off by default and labelled, because the two sizes above it are not merely slower — they take
+   * the whole machine down with them for a minute or two. That is a thing to opt into, not to
+   * discover.
+   */
+  const [stress, setStress] = useState(false);
+
   // The preview graph. Rebuilt whenever the shape or the size changes, and torn down on the way
   // out — two live GPU contexts on one page is how a benchmark ends up measuring itself.
   useEffect(() => {
@@ -287,7 +306,8 @@ export function GraphBenchShowcase() {
     publish({ samples: [] }, true, false);
     const collected: Sample[] = [];
     try {
-      for (const size of SIZES) {
+      const sizes = stress ? [...SIZES, ...STRESS_SIZES] : SIZES;
+      for (const size of sizes) {
         if (stop.current) break;
         setCurrent(size);
         // Yielded to three times: the first two let the "measuring 500k" label paint before the
@@ -298,7 +318,14 @@ export function GraphBenchShowcase() {
         // call and it hung the sweep dead at 50k the moment the window lost focus — the two sizes
         // before it had only got through because a click had briefly focused the tab.
         for (let i = 0; i < 3; i++) await nextFrame();
-        const sample = await measure({ shape, pointCount: size, cancelled: () => stop.current });
+        const sample = await measure({
+          shape,
+          pointCount: size,
+          cancelled: () => stop.current,
+          // A breather where it matters, so tearing down half a gigabyte and allocating the next
+          // lot does not happen in the same tick.
+          settleMs: size >= 200_000 ? 750 : 0,
+        });
         collected.push(sample);
         setSamples([...collected]);
         publish({ samples: [...collected] }, true, false);
@@ -327,7 +354,7 @@ export function GraphBenchShowcase() {
       setPreviewLive(true);
       publish({ samples: collected }, false, true);
     }
-  }, [publish, shape]);
+  }, [publish, shape, stress]);
 
   const runStack = useCallback(async () => {
     stop.current = false;
@@ -359,6 +386,7 @@ export function GraphBenchShowcase() {
         ingestMs: 0,
         queryMs: 0,
         loadMs: 0,
+        loadPhases: { query: 0, rows: 0, links: 0, rank: 0 },
         buffersMs: 0,
         uploadMs: 0,
         selectMs: 0,
@@ -417,6 +445,16 @@ export function GraphBenchShowcase() {
           value={String(previewSize)}
           variant="solid"
         />
+
+        <Show when={layer === "engine" && !running}>
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Checkbox
+              checked={stress}
+              onCheckedChange={(details) => setStress(details.checked === true)}
+            />
+            past 200k
+          </label>
+        </Show>
 
         <Show
           when={running}

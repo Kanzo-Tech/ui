@@ -35,6 +35,14 @@ export interface StackSample {
   queryMs: number;
   /** `load()` — Arrow to ids, rows, index Map, positions, clusters, links. All main-thread JS. */
   loadMs: number;
+  /**
+   * Where inside `load()` that went, read from the `performance.measure` entries it emits.
+   *
+   * The whole reason this exists: 455 ms at 200k was a single number, and the plan built on it —
+   * "kill the id→index `Map` with a dense index from SQL" — was arithmetic about the code rather
+   * than a measurement of it. This says whether the `Map` is the cost or a rounding error.
+   */
+  loadPhases: { query: number; rows: number; links: number; rank: number };
   /** `buffers()` — a look and the live theme to colours, sizes, shapes, link colours. */
   buffersMs: number;
   /** Handing all of it to cosmos.gl, flushed by a readback. */
@@ -141,6 +149,18 @@ async function stage<T>(
   return Promise.race([work(), timeout]);
 }
 
+/**
+ * The last `kanzo-graph:load:<name>` measure, in milliseconds.
+ *
+ * Last rather than summed: the preview graph and earlier sizes have each left their own entries
+ * behind, and adding them up would report the whole session's history as this size's cost.
+ */
+function phaseMs(name: string): number {
+  if (typeof performance === "undefined") return 0;
+  const entries = performance.getEntriesByName(`kanzo-graph:load:${name}`, "measure");
+  return entries.length ? (entries[entries.length - 1]?.duration ?? 0) : 0;
+}
+
 export async function measureStack(options: StackOptions): Promise<StackSample> {
   const { pointCount, shape } = options;
   const cancelled = options.cancelled ?? (() => false);
@@ -151,6 +171,7 @@ export async function measureStack(options: StackOptions): Promise<StackSample> 
     ingestMs: 0,
     queryMs: 0,
     loadMs: 0,
+    loadPhases: { query: 0, rows: 0, links: 0, rank: 0 },
     buffersMs: 0,
     uploadMs: 0,
     selectMs: 0,
@@ -204,6 +225,12 @@ export async function measureStack(options: StackOptions): Promise<StackSample> 
       load(coordinator, spec(pointCount)),
     );
     base.loadMs = performance.now() - startedLoading;
+    base.loadPhases = {
+      query: phaseMs("query"),
+      rows: phaseMs("rows"),
+      links: phaseMs("links"),
+      rank: phaseMs("rank"),
+    };
     if (cancelled()) return { ...base, failure: "cancelled" };
 
     /**

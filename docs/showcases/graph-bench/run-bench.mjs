@@ -86,15 +86,17 @@ function engineTable(samples) {
 
 function stackTable(samples) {
   const header =
-    "| Nodes | Links | Query | `load()` | `buffers()` | Upload | Select | **Ours** | _(ingest)_ |\n" +
-    "|---|---|---|---|---|---|---|---|---|";
+    "| Nodes | Links | `load()` | ↳ read | ↳ rows | ↳ links | ↳ rank | `buffers()` | Upload | Select | **Ours** |\n" +
+    "|---|---|---|---|---|---|---|---|---|---|---|";
   const rows = samples.map((s) => {
-    if (s.failure) return `| ${compact(s.pointCount)} | — | — | — | — | — | — | — | **${s.failure}** |`;
+    if (s.failure) return `| ${compact(s.pointCount)} | — | — | — | — | — | — | — | — | — | **${s.failure}** |`;
     const ours = s.queryMs + s.loadMs + s.buffersMs + s.uploadMs + s.selectMs;
+    const p = s.loadPhases ?? { query: 0, rows: 0, links: 0, rank: 0 };
     return (
-      `| ${compact(s.pointCount)} | ${compact(s.linkCount)} | ${s.queryMs.toFixed(0)} ms ` +
-      `| ${s.loadMs.toFixed(0)} ms | ${s.buffersMs.toFixed(0)} ms | ${s.uploadMs.toFixed(0)} ms ` +
-      `| ${s.selectMs.toFixed(0)} ms | **${ours.toFixed(0)} ms** | _${s.ingestMs.toFixed(0)} ms_ |`
+      `| ${compact(s.pointCount)} | ${compact(s.linkCount)} ` +
+      `| ${s.loadMs.toFixed(0)} ms | _${p.query.toFixed(0)}_ | _${p.rows.toFixed(0)}_ | _${p.links.toFixed(0)}_ | _${p.rank.toFixed(0)}_ ` +
+      `| ${s.buffersMs.toFixed(0)} ms | ${s.uploadMs.toFixed(0)} ms ` +
+      `| ${s.selectMs.toFixed(0)} ms | **${ours.toFixed(0)} ms** |`
     );
   });
   return [header, ...rows].join("\n");
@@ -111,7 +113,11 @@ const browser = await chromium.launch({
     // The default old-space is the difference: generation alone allocates tens of megabytes of
     // typed arrays and the renderer holds its own copies. Raised so the ceiling being measured is
     // the renderer's, not the harness's launch flags.
-    "--js-flags=--max-old-space-size=8192",
+    // 4 GB, not the 8 it had. The larger figure was a reaction to a crash at a million points and
+    // it let one Chromium reserve half the machine while the reader's own browser, the dev server
+    // and this Node process were all still running. The stress sizes are opt-in now, so the ceiling
+    // this needs to clear is lower.
+    "--js-flags=--max-old-space-size=4096",
     "--disable-dev-shm-usage",
   ],
 });
@@ -186,6 +192,13 @@ try {
       if (Date.now() - started > SWEEP_TIMEOUT) throw new Error(`the ${which} sweep never finished`);
       await page.waitForTimeout(1000);
     }
+  }
+
+  // `--stress` extends the engine sweep past 200k. Off by default: those two sizes make the whole
+  // machine unpleasant for a minute or two, which is not a thing to do to someone by surprise.
+  if (args.includes("--stress")) {
+    await page.getByLabel("past 200k").check();
+    console.log("stress sizes enabled — this will be slow, and not only for the browser");
   }
 
   const engineRows = await sweep("engine");

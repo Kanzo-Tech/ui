@@ -93,8 +93,21 @@ export const visible = (): boolean => typeof document !== "undefined" && !docume
 
 export const SPACE = 8192;
 
-/** Sizes worth asking about, from "obviously fine" to "probably not". */
-export const SIZES = [2_000, 10_000, 50_000, 200_000, 500_000, 1_000_000];
+/**
+ * The default sweep stops at 200,000, and the two sizes above it are opt-in.
+ *
+ * Not timidity — courtesy. Generating 500k and 1M is several seconds of blocking main-thread
+ * JavaScript and hundreds of megabytes of typed arrays *per size*, on top of a GPU already running
+ * a million-point simulation. It does not merely make the tab slow; it makes the whole machine
+ * slow, which is a bad thing for a page to do to someone who clicked a button labelled "run".
+ *
+ * 200,000 is also where the interesting answer already is: the engine layer shows a live layout is
+ * finished by then, so everything above it is confirming a ceiling rather than finding one.
+ */
+export const SIZES = [2_000, 10_000, 50_000, 200_000];
+
+/** The two that hurt. Appended only when the reader asks for them by name. */
+export const STRESS_SIZES = [500_000, 1_000_000];
 
 export function generate(shape: Shape, pointCount: number): Generated {
   if (shape === "mesh") {
@@ -128,6 +141,8 @@ interface RunOptions {
   frames?: number;
   /** Asked between phases; a `true` answer abandons the run and tears the graph down. */
   cancelled?: () => boolean;
+  /** Idle milliseconds after teardown, so the collector gets a window between big sizes. */
+  settleMs?: number;
 }
 
 export async function measure(options: RunOptions): Promise<Sample> {
@@ -136,6 +151,7 @@ export async function measure(options: RunOptions): Promise<Sample> {
   const warmup = options.warmup ?? 12;
   const frames = options.frames ?? 60;
   const cancelled = options.cancelled ?? (() => false);
+  const settle = options.settleMs ?? 0;
 
   const base: Sample = {
     shape,
@@ -271,5 +287,9 @@ export async function measure(options: RunOptions): Promise<Sample> {
     element.remove();
     // One frame for the context to actually go away, so the next size starts from a clean device.
     await nextFrame();
+    // And, at the big sizes, a moment of nothing. Tearing down half a gigabyte of typed arrays and
+    // immediately allocating the next lot leaves the collector no window to run in, which is how a
+    // sweep stops being slow for the tab and starts being slow for the machine.
+    if (settle > 0) await new Promise((resolve) => setTimeout(resolve, settle));
   }
 }

@@ -87,7 +87,35 @@ function text(value: unknown): string {
   return String(value ?? "");
 }
 
+/**
+ * Phase timings, for anyone asking where `load` actually spends its time.
+ *
+ * `performance.measure` rather than an argument: it changes no signature, costs a microsecond a
+ * call, and the entries show up on the browser's own performance timeline whether or not a
+ * benchmark is reading them. The alternative — a benchmark that re-implements these phases to time
+ * them — measures the re-implementation, and the re-implementation is always the fast one.
+ *
+ * Names are prefixed so a caller can find them without knowing the internals:
+ * `kanzo-graph:load:{query,rows,links,rank}`.
+ */
+function phase(name: string, from: string): void {
+  if (typeof performance === "undefined" || !performance.mark) return;
+  const to = `kanzo-graph:${name}:end`;
+  performance.mark(to);
+  try {
+    performance.measure(`kanzo-graph:load:${name}`, from, to);
+  } catch {
+    // A missing start mark is not worth breaking a load over.
+  }
+}
+
+const mark = (name: string): string => {
+  if (typeof performance !== "undefined" && performance.mark) performance.mark(name);
+  return name;
+};
+
 export async function load(coordinator: Coordinator, spec: GraphSpec): Promise<Loaded> {
+  const started = mark("kanzo-graph:load:start");
   const columns: Record<string, string> = {
     id: spec.idField,
     label: spec.labelField,
@@ -107,6 +135,8 @@ export async function load(coordinator: Coordinator, spec: GraphSpec): Promise<L
   const edges = await onceQuery(coordinator, () =>
     Query.from(spec.edges).select({ source: "source", target: "target" }),
   );
+  phase("query", started);
+  const afterQuery = mark("kanzo-graph:load:rows:start");
 
   const n = raw.length;
   const ids: number[] = new Array(n);
@@ -159,6 +189,9 @@ export async function load(coordinator: Coordinator, spec: GraphSpec): Promise<L
     if (size > maxSize) maxSize = size;
   }
 
+  phase("rows", afterQuery);
+  const afterRows = mark("kanzo-graph:load:links:start");
+
   const source = numbers(edges, "source");
   const target = numbers(edges, "target");
   const links = new Float32Array(source.length * 2);
@@ -167,7 +200,11 @@ export async function load(coordinator: Coordinator, spec: GraphSpec): Promise<L
     links[e * 2 + 1] = index.get(target[e] as number) ?? 0;
   }
 
+  phase("links", afterRows);
+  const afterLinks = mark("kanzo-graph:load:rank:start");
+
   const ranked = rows.map((_, i) => i).sort((a, b) => (rows[b]?.size ?? 0) - (rows[a]?.size ?? 0));
+  phase("rank", afterLinks);
 
   return {
     ids,
