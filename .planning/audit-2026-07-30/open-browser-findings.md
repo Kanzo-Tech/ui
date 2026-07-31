@@ -1,4 +1,21 @@
-# Open — two client-side defects, found in a browser
+# Two client-side defects found in a browser — one closed, one open
+
+> **RESOLVED, and I cannot name the commit that did it.** Re-tested at `8d5002d` with `docs/.next`
+> deleted, a fresh dev server, and `forms/dates.mdx` byte-identical to the version that failed: eight
+> date pickers, three no-store reloads, **no mismatch**. The same procedure at `0c8e850` reproduced it
+> every time. The difference is the three commits between — the 38-name Shark restoration and its
+> composition fixes, the hardened guards, and a roster edit.
+>
+> **I did not bisect that range**, so the mechanism is still unknown; only the symptom is gone.
+> Anyone who wants the answer: check out `0c8e850`, `pnpm build`, delete `docs/.next`, and load
+> `/docs/forms/dates` — then walk forward. Everything below is the investigation as it stood, kept
+> because two of its three hypotheses were wrong and the ruled-out ground is worth more than the
+> conclusion.
+>
+> One thing the bisect *did* establish before it went green: the failure needed the **calendar**
+> previews present. With the four commented out, four date pickers rendered clean; adding them back
+> one at a time never re-triggered it. That is a symptom worth remembering if it returns — it was
+> never one example, it was a combination.
 
 Found by driving the docs app in Chrome against this branch on 2026-07-31, after `build`,
 `typecheck`, `lint`, `check:generated`, `test` and `smoke` were all green. **Neither is visible to
