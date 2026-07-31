@@ -104,5 +104,5 @@ pointer and keyboard disagree about the same modifier.
 
 Passing `null` for an icon removes it entirely rather than falling back to the default.
 `collection`, `selectionMode`, `expandedValue` and the rest come from Ark's `TreeView.Root`;
-`TreeViewCheckbox` is available for `selectionMode="multiple"`, and the machine context comes
-from Ark's own `useTreeViewContext`, imported from `@ark-ui/react`.
+`TreeViewCheckbox` is available for `selectionMode="multiple"`, and `useTreeView` re-exports
+Ark's context hook.

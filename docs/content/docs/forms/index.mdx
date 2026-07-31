@@ -56,7 +56,8 @@ FieldSet                      ← a titled group of related fields
         ├── <control>         ← Input, Select, Checkbox, Combobox… any of them
         ├── FieldDescription  ← persistent help text
         ├── FieldHelper       ← help text tied to the control's described-by
-        └── FieldError        ← renders only while invalid
+        ├── FieldError        ← renders only while invalid
+        └── FieldSeparator
 ```
 
 You will rarely use all of it. The common case is four lines: `Field`, `FieldLabel`, a control,

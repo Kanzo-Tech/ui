@@ -1,7 +1,9 @@
-import { Editable as ArkEditable } from "@ark-ui/react/editable";
+import { Editable as ArkEditable, useEditableContext } from "@ark-ui/react/editable";
 import type React from "react";
 import { cn } from "../lib/cn";
 import { type ButtonProps, buttonVariants } from "./button";
+
+export const useEditable = useEditableContext;
 
 export interface EditableProps extends React.ComponentProps<typeof ArkEditable.Root> {
   orientation?: "horizontal" | "vertical";

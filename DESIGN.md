@@ -98,12 +98,18 @@ A new component enters only if all four hold:
 
 And one rule about *not* building: **do not add a model before the existing parts have a consumer.**
 
-**One standing exception, and it is narrow.** The `/analytics` mark and interactor wrappers are
+**Two standing exceptions, and both are narrow.** The `/analytics` mark and interactor wrappers are
 one-line descriptors over somebody else's grammar, and they stay complete even where no example
 draws one: a vocabulary with holes sends the author to `@uwdata` for the one thing we left out,
 which is the import the layer exists to remove. The exception is priced on the wrappers being one
 line each — `decisions/a-grammar-ships-its-whole-vocabulary.md` — and does not generalise to
 components with bodies.
+
+The second is the same shape one library along: the `useX` context aliases and the Ark parts
+re-exported beside them ship because Shark UI's registry ships them, under the same names, with no
+call site of its own either. The vocabulary a consumer arrives with is the thing being bought —
+`decisions/a-name-shark-ships-is-ours.md`, which also says which names Shark does *not* ship and
+therefore neither do we.
 
 ### Reach for a new component last
 
@@ -159,7 +165,7 @@ be skipped.
 `one-theme-provider`, `palette-is-authoring-time`, `one-changeset-until-the-first-publish`,
 `match-the-reference`, `provenance-beats-purity`, `an-audit-is-a-map-not-an-oracle`,
 `a-rule-broken-three-times-becomes-a-test`, `a-docs-defect-is-a-library-defect`,
-`a-generated-index-with-no-second-list`.
+`a-generated-index-with-no-second-list`, `a-name-shark-ships-is-ours`.
 
 Also live — `a-compound-keeps-its-root-even-when-the-root-is-an-alias`.
 

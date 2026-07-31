@@ -1,9 +1,14 @@
-import { Listbox as ArkListbox } from "@ark-ui/react/listbox";
+import {
+  Listbox as ArkListbox,
+  useListboxContext,
+} from "@ark-ui/react/listbox";
 import { CheckIcon } from "lucide-react";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
 import { inputVariants } from "./input";
+
+export const useListbox = useListboxContext;
 
 export const Listbox: ArkListbox.RootComponent = (props) => {
   const { className, slot, ...rest } = props;

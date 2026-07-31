@@ -5,7 +5,9 @@
   admission rule 2. Delete the export. Keep the symbol when its own root renders it.
 - **Because** an example is the page proving the part exists, not a consumer choosing it. There is
   no compatibility question — nothing is published.
-- **Reversed by** a second independent call site.
+- **Reversed by** a second independent call site. One carve-out, not a reversal:
+  `decisions/a-name-shark-ships-is-ours.md` overrides this for the names Shark UI's registry
+  exports, which ship without one.
 - **Held by** `packages/ui/src/index.test.ts`, the pinned set and the tombstones
 
 The care this needs is the whole finding: a naive sweep breaks components, because an export can

@@ -1,7 +1,12 @@
-import { Splitter as ArkSplitter } from "@ark-ui/react/splitter";
+import {
+  Splitter as ArkSplitter,
+  useSplitterContext,
+} from "@ark-ui/react/splitter";
 import { GripVertical } from "lucide-react";
 import type React from "react";
 import { cn } from "../lib/cn";
+
+export const useResizable = useSplitterContext;
 
 export const Resizable = (
   props: React.ComponentProps<typeof ArkSplitter.Root>

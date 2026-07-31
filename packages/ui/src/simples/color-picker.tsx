@@ -7,6 +7,7 @@ import {
   parseColor as parseColorArk,
   useColorPickerContext,
 } from "@ark-ui/react/color-picker";
+import { ark } from "@ark-ui/react/factory";
 import { Portal } from "@ark-ui/react/portal";
 import { CheckIcon, Pipette } from "lucide-react";
 import React from "react";
@@ -194,6 +195,20 @@ export const ColorPickerContent = (
         />
       </ArkColorPicker.Positioner>
     </Portal>
+  );
+};
+
+export const ColorPickerView = (
+  props: React.ComponentProps<typeof ArkColorPicker.View>
+) => {
+  const { className, slot, ...rest } = props;
+
+  return (
+    <ArkColorPicker.View
+      className={cn("relative flex size-full flex-1 flex-col gap-4", className)}
+      {...rest}
+      data-slot={slot ?? "color-picker-view"}
+    />
   );
 };
 
@@ -465,3 +480,36 @@ export const ColorPickerInput = (
   );
 };
 
+export const ColorPickerSwatchPreview = (
+  props: React.ComponentProps<typeof ark.div>
+) => {
+  const { className, slot, ...rest } = props;
+
+  return (
+    <ark.div
+      className={cn(
+        "relative",
+        "size-8",
+        "shrink-0",
+        "rounded-full border",
+        "pointer-events-none overflow-hidden",
+        "group-data-[size=lg]/input-group:size-5",
+        "group-data-[size=md]/input-group:size-4",
+        "group-data-[size=sm]/input-group:size-3.5",
+        "group-data-disabled/color-input:opacity-64",
+        className
+      )}
+      {...rest}
+      data-slot={slot ?? "color-picker-input-swatch"}
+    >
+      <ArkColorPicker.TransparencyGrid
+        className={cn(
+          "size-full rounded-[calc(var(--radius-sm)-0.5px)]",
+          "bg-[linear-gradient(45deg,#e4e4e4_25%,transparent_25%),linear-gradient(-45deg,#e4e4e4_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e4e4e4_75%),linear-gradient(-45deg,transparent_75%,#e4e4e4_75%)]",
+          "bg-position-[0_0,0_4px,4px_-4px,-4px_0] bg-size-(--spacing(2))"
+        )}
+      />
+      <ArkColorPicker.ValueSwatch className="z-1 size-full" />
+    </ark.div>
+  );
+};

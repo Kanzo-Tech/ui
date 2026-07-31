@@ -1,9 +1,15 @@
 import { ark } from "@ark-ui/react/factory";
-import { Field as ArkField } from "@ark-ui/react/field";
+import {
+  Field as ArkField,
+  useFieldContext as useArkFieldContext,
+} from "@ark-ui/react/field";
 import { Fieldset as ArkFieldset } from "@ark-ui/react/fieldset";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
+import { Separator } from "./separator";
+
+export const useField = useArkFieldContext;
 
 const fieldVariants = tv({
   base: [
@@ -222,6 +228,41 @@ export const FieldDescription = (props: React.ComponentProps<typeof ark.p>) => {
       {...rest}
       data-slot={slot ?? "field-description"}
     />
+  );
+};
+
+export const FieldSeparator = (props: React.ComponentProps<typeof ark.div>) => {
+  const { className, children, slot, ...rest } = props;
+
+  return (
+    <ark.div
+      className={cn(
+        "relative",
+        "h-5",
+        "-my-2 group-data-[variant=outline]/field-group:-mb-2",
+        "text-sm",
+        className
+      )}
+      data-content={!!children}
+      {...rest}
+      data-slot={slot ?? "field-separator"}
+    >
+      <Separator className="absolute inset-0 top-1/2" />
+
+      {!!children && (
+        <span
+          className={cn(
+            "relative block",
+            "w-fit",
+            "mx-auto px-2",
+            "bg-background",
+            "text-muted-foreground text-sm"
+          )}
+        >
+          {children}
+        </span>
+      )}
+    </ark.div>
   );
 };
 

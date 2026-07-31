@@ -10,6 +10,10 @@ import { cn } from "../lib/cn";
 import { inputVariants } from "./input";
 import { Separator } from "./separator";
 
+export const useSelect = useSelectContext;
+
+export const SelectContext = ArkSelect.Context;
+
 export const Select: ArkSelect.RootComponent = (props) => {
   const {
     lazyMount = true,

@@ -1,10 +1,15 @@
-import { Clipboard as ArkClipboard } from "@ark-ui/react/clipboard";
+import {
+  Clipboard as ArkClipboard,
+  useClipboardContext,
+} from "@ark-ui/react/clipboard";
 import { CheckIcon, CopyIcon } from "lucide-react";
 import type React from "react";
 import { cn } from "../lib/cn";
 import { buttonVariants } from "./button";
 import { FieldLabel } from "./field";
 import { inputVariants } from "./input";
+
+export const useClipboard = useClipboardContext;
 
 export const Clipboard = (
   props: React.ComponentProps<typeof ArkClipboard.Root>

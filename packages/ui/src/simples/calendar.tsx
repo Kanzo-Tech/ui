@@ -34,6 +34,41 @@ export const Calendar = (
   );
 };
 
+export const CalendarControl = (
+  props: React.ComponentProps<typeof ArkCalendar.Control>
+) => {
+  const { className, slot, ...rest } = props;
+
+  return (
+    <ArkCalendar.Control
+      className={cn("inline-flex items-center gap-2", className)}
+      {...rest}
+      data-slot={slot ?? "calendar-control"}
+    />
+  );
+};
+
+export const CalendarLabel = (
+  props: React.ComponentProps<typeof ArkCalendar.Label>
+) => {
+  const { className, slot, ...rest } = props;
+
+  return (
+    <ArkCalendar.Label
+      className={cn("font-medium text-sm", className)}
+      {...rest}
+      data-slot={slot ?? "calendar-label"}
+    />
+  );
+};
+
+export const CalendarTrigger = ({
+  slot,
+  ...rest
+}: React.ComponentProps<typeof ArkCalendar.Trigger>) => (
+  <ArkCalendar.Trigger {...rest} data-slot={slot ?? "calendar-trigger"} />
+);
+
 export const CalendarPresetTrigger = ({
   slot,
   ...rest

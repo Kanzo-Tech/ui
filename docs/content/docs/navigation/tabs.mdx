@@ -86,5 +86,5 @@ tabbable, so <kbd>Tab</kbd> leaves the list for the panel.
 | `unmountOnExit` | `boolean` | `true` |
 
 Everything else — `value`, `defaultValue`, `onValueChange`, `orientation`, `activationMode` —
-is Ark's `Tabs.Root`. To read the active tab from a descendant, import `useTabsContext` from
-`@ark-ui/react`.
+is Ark's `Tabs.Root`. `useTabs` re-exports Ark's `useTabsContext` for reading the active tab
+from a descendant.

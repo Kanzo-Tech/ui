@@ -179,40 +179,56 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.Calendar).toBeTypeOf("function");
   });
 
-  it("drops the Ark context aliases and parts nothing ever rendered", () => {
-    // 32 exports with no reference of any kind anywhere in the repo — not a call site, not a test,
-    // not a sentence of prose. Each `useX` was a one-line `export const useX = useXContext`, a
-    // rename of a symbol the consumer can import from Ark directly; each `*Context` was the same
-    // trick on a component. Renaming somebody else's export is not an API.
-    const surface = UI as Record<string, unknown>;
+  it("tracks Shark's context aliases and parts, in both directions", () => {
+    // The rule this guards: a name Shark UI ships is ours, and a name it does not is not. These
+    // were deleted once on the argument that renaming somebody else's export is not an API, and
+    // restored once the reference was actually read — Shark ships them, under these names, as the
+    // same one-line renames. See `decisions/a-name-shark-ships-is-ours.md`.
+    //
+    // Checkable, which is the point of the rule: every name below is one fetch away from
+    // `raw.githubusercontent.com/sharkui-inc/shark-ui/main/registry/react/components/<file>.tsx`.
+    // The seven non-mechanical mappings are the evidence that this is the reference and not a
+    // coincidence — `useResizable` is Ark's `useSplitterContext`, `useRating` its
+    // `useRatingGroupContext`, `useSheet` its `useDialogContext`.
+    expect(UI.useResizable).toBeTypeOf("function");
+    expect(UI.useRating).toBeTypeOf("function");
+    expect(UI.useSheet).toBeTypeOf("function");
     for (const name of [
       "useAvatar", "useCheckbox", "useDatePicker", "useDialog", "useField", "useHoverCard",
-      "useListbox", "useNumberInput", "usePasswordInput", "usePopover", "useRating",
-      "useSegmentGroup", "useSelect", "useSheet", "useSwitch", "useTagsInput", "useToast",
-      "useToggle", "useToggleGroup", "useTooltip",
-      // The same alias, on eleven more machines. These had a doc page and still no caller — a
-      // page proving the symbol exists is not the second call site admission rule 2 asks for.
-      "useAccordion", "useClipboard", "useCollapsible", "useEditable", "usePinInput",
-      "useProgress", "useResizable", "useScrollArea", "useSteps", "useTabs", "useTreeView",
-      "ComboboxContext", "ListboxContext", "SelectContext",
+      "useListbox", "useNumberInput", "usePasswordInput", "usePopover", "useSegmentGroup",
+      "useSelect", "useSwitch", "useTagsInput", "useToast", "useToggle", "useToggleGroup",
+      "useTooltip", "useAccordion", "useClipboard", "useCollapsible", "useEditable",
+      "useProgress", "useScrollArea", "useSteps", "useTabs", "useTreeView",
+      "ComboboxContext", "SelectContext",
       "CalendarControl", "CalendarLabel", "CalendarTrigger",
-      "ColorPickerLabel", "ColorPickerView", "ColorPickerFormatTrigger",
-      "ColorPickerFormatSelect", "ColorPickerSwatchPreview",
-      "SidebarInput",
+      "ColorPickerView", "ColorPickerSwatchPreview",
+      "SidebarInput", "FieldSeparator",
+    ]) {
+      expect(UI[name as keyof typeof UI], name).toBeTypeOf("function");
+    }
+    // And the other direction, which is the half that makes this a rule rather than a preference.
+    // Each of these five was in the same deletion and stays deleted, because Shark's own export
+    // list does not carry it: `ListboxContext` (its `listbox.tsx` exports the hook and no
+    // component context), `ColorPickerLabel`, and the `ColorPickerFormat*` pair we had added
+    // ourselves on the reasoning that Ark ships the parts and Shark exposes neither.
+    const surface = UI as Record<string, unknown>;
+    for (const name of [
+      "ListboxContext",
+      "ColorPickerLabel", "ColorPickerFormatTrigger", "ColorPickerFormatSelect",
     ]) {
       expect(surface[name], name).toBeUndefined();
     }
-    // `useField` and `FieldSeparator` are the two DESIGN.md names as "the parts still without a
-    // consumer". That was written as an argument for patience; it had been true long enough to be
-    // an answer instead.
-    expect(surface.FieldSeparator).toBeUndefined();
-    // Kept, and the reason is the contrast: these have a consumer inside the library.
-    // `useColorPicker` looks identical to the eleven above and stays: `color-picker.test.tsx`
-    // imports it. Matching the pattern is not the test; having a consumer is.
-    expect(UI.useColorPicker).toBeTypeOf("function");
+    // `usePinInput` is the one absence parity cannot argue either way: Shark has no `pin-input`
+    // component at all — it solves the same problem with `input-otp.tsx`, which exports no hook.
+    // So this name was never the reference's, and it goes back to needing a caller of its own.
+    expect(surface.usePinInput).toBeUndefined();
+    expect(UI.PinInput).toBeTypeOf("function");
+    // Ours, not Shark's, and each has a consumer inside the library — the test the aliases above
+    // could never pass and no longer have to.
     expect(UI.useSidebar).toBeTypeOf("function");
     expect(UI.useKanzoTheme).toBeTypeOf("function");
-    // `CalendarPresetTrigger` survives its three deleted neighbours — `date-picker.tsx` renders it.
+    // `useColorPicker` is Shark's *and* has a caller: `color-picker.test.tsx` imports it.
+    expect(UI.useColorPicker).toBeTypeOf("function");
     expect(UI.CalendarPresetTrigger).toBeTypeOf("function");
   });
 

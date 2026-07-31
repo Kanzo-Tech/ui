@@ -1,4 +1,4 @@
-import { Dialog as ArkDialog } from "@ark-ui/react/dialog";
+import { Dialog as ArkDialog, useDialogContext } from "@ark-ui/react/dialog";
 import { Portal } from "@ark-ui/react/portal";
 import { XIcon } from "lucide-react";
 import type React from "react";
@@ -12,6 +12,8 @@ import {
   DialogHeader,
   DialogOverlay,
 } from "./dialog";
+
+export const useSheet = useDialogContext;
 
 export const Sheet = (props: React.ComponentProps<typeof Dialog>) => (
   <Dialog {...props} />
