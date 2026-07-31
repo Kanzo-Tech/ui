@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { render } from "@testing-library/react";
@@ -33,6 +33,23 @@ import { DialogHeader } from "./simples/dialog";
  *    no element of its own, so their `data-slot` was never in the document. TypeScript does not
  *    typecheck a hyphenated JSX attribute, which is why it went unnoticed for the life of the file;
  *    asking for `slot` instead is what surfaced it.
+ *
+ * ## What this guard cannot prove
+ *
+ * - **`PROVIDER_ONLY` is a reading of Ark's dist, not a measurement of it.** Nothing here renders
+ *   those components to check they still emit no element; if Ark starts rendering a `<div>` from
+ *   `Popover.Root`, this file will keep insisting the slot is dead. The entries are checked for
+ *   being *live* — the file exists, the component is still declared — which catches the stale
+ *   half of that risk and not the upstream half.
+ * - **It parses `.tsx` only.** A `data-slot` written through `createElement`, spread in from an
+ *   object, or assembled as a string is invisible; so is anything in a `.ts` file. Every current
+ *   site is a literal JSX attribute, which is what the corpus floor below is defending.
+ * - **"After the spread" is a source-order claim, not a runtime one.** Two spreads with the
+ *   attribute between them, or a spread whose object is built conditionally, are read by position.
+ *   The render tests at the bottom of this file are what check the behaviour rather than the shape,
+ *   and they cover three components, not ninety-nine.
+ * - **It does not know which slots are selected on.** A slot no recipe uses and a slot three
+ *   recipes depend on read identically here.
  */
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)));
@@ -112,9 +129,15 @@ interface Site {
   foreignTag: boolean;
 }
 
+const FILES = sources(SRC).sort();
+
+/** Every directory under `src/` that holds a `.tsx`, named so the walk cannot stop descending. */
+const LAYERS = ["charts", "composites", "layouts", "simples", "table", "theme"];
+
+/** Parsed once. Three assertions ask three questions of the same reading of the same files. */
 function slotSites(): Site[] {
   const sites: Site[] = [];
-  for (const path of sources(SRC)) {
+  for (const path of FILES) {
     const key = relative(SRC, path);
     const file = ts.createSourceFile(
       path,
@@ -123,6 +146,8 @@ function slotSites(): Site[] {
       true,
       ts.ScriptKind.TSX
     );
+    // A file that parses to nothing yields no site, and no site is what a pass looks like.
+    expect(file.statements.length, `${key} parsed to no statements at all`).toBeGreaterThan(0);
     const foreign = foreignNames(file);
     const visit = (node: ts.Node) => {
       if (ts.isJsxSelfClosingElement(node) || ts.isJsxOpeningElement(node)) {
@@ -154,45 +179,109 @@ function slotSites(): Site[] {
       ts.forEachChild(node, visit);
     };
     visit(file);
-    // A file with a NUL byte reads as binary to most tooling and would be skipped by a grep-based
-    // guard without saying so. `readFileSync(…, "utf8")` reads it anyway; this keeps it honest.
-    expect(readFileSync(path).includes(0)).toBe(false);
   }
   return sites;
 }
 
-describe("a part owns its data-slot", () => {
-  it("writes data-slot after the spread, so a caller's cannot erase it", () => {
-    const early = slotSites()
-      .filter((site) => site.beforeSpread)
-      .map((site) => `${site.key} ${site.owner}: <${site.tag} data-slot="${site.value}">`);
+const SITES = slotSites();
 
-    // Failing? Move the attribute below `{...rest}` and give the component `slot?: string`:
-    // `data-slot={slot ?? "the-slot"}`. React already types `slot`, so nothing else changes.
-    expect(early.sort()).toEqual([]);
+describe("a part owns its data-slot", () => {
+  it("reads every .tsx under src/, in every layer, and finds slots in them", () => {
+    // All three assertions below are `toEqual([])`, which is also what an empty corpus produces.
+    // The floors are floors, not counts — they only have to catch a scan that found nothing.
+    expect(FILES.length, "the walk found almost nothing — it is not reaching src/").toBeGreaterThan(
+      80
+    );
+    for (const layer of LAYERS) {
+      expect(
+        FILES.filter((f) => relative(SRC, f).startsWith(`${layer}/`)).length,
+        `${layer}/ contributed no file to the scan`
+      ).toBeGreaterThan(0);
+    }
+    expect(
+      SITES.length,
+      "the parse found no data-slot at all — the reader is broken, not the code"
+    ).toBeGreaterThan(200);
+
+    // A NUL byte reads as binary to `file(1)` and every `grep -I`, so a source carrying one is one
+    // the next reader's first tool skips in silence. `charts/chart-inputs.tsx` held one, and the
+    // three searches that missed it are why this assertion exists. It never said which file.
+    const binary = FILES.filter((f) => readFileSync(f).includes(0)).map((f) => relative(SRC, f));
+    expect(binary, "a NUL byte makes this file invisible to grep — strip it").toEqual([]);
+
+    const empty = FILES.filter((f) => readFileSync(f, "utf8").trim() === "").map((f) =>
+      relative(SRC, f)
+    );
+    expect(empty, "an empty source file is a scan that proves nothing").toEqual([]);
+  });
+
+  it("writes data-slot after the spread, so a caller's cannot erase it", () => {
+    const early = SITES.filter((site) => site.beforeSpread)
+      .map((site) => `${site.key} ${site.owner}: <${site.tag} data-slot="${site.value}">`)
+      .sort();
+
+    expect(
+      early,
+      `A data-slot written before {...rest} is a default the caller can delete, taking every recipe\n` +
+        `that selects it. Move the attribute below the spread and give the component\n` +
+        `\`slot?: string\`: \`data-slot={slot ?? "the-slot"}\`. React already types \`slot\`:\n` +
+        early.join("\n")
+    ).toEqual([]);
   });
 
   it("never passes data-slot into another Kanzo component", () => {
-    const handed = slotSites()
-      .filter((site) => !site.foreignTag)
-      .map((site) => `${site.key} ${site.owner}: <${site.tag} data-slot="${site.value}">`);
+    const handed = SITES.filter((site) => !site.foreignTag)
+      .map((site) => `${site.key} ${site.owner}: <${site.tag} data-slot="${site.value}">`)
+      .sort();
 
-    // Failing? Use `slot="…"` instead. `data-slot` says what *this* element is; the element it
-    // would land on is one the callee owns, and the callee writes its own last regardless.
-    expect(handed.sort()).toEqual([]);
+    expect(
+      handed,
+      `data-slot says what *this* element is. On one of ours it lands on an element the callee\n` +
+        `owns, and the callee writes its own last regardless. Use \`slot="…"\`:\n${handed.join("\n")}`
+    ).toEqual([]);
   });
 
   it("writes no data-slot on a component that renders only an Ark provider", () => {
-    const sites = slotSites();
-    const dead = Object.entries(PROVIDER_ONLY).flatMap(([key, owners]) =>
-      sites
-        .filter((site) => site.key === key && owners.includes(site.owner))
-        .map((site) => `${key} ${site.owner}: "${site.value}"`)
-    );
+    const dead = Object.entries(PROVIDER_ONLY)
+      .flatMap(([key, owners]) =>
+        SITES.filter((site) => site.key === key && owners.includes(site.owner)).map(
+          (site) => `${key} ${site.owner}: "${site.value}"`
+        )
+      )
+      .sort();
 
-    // Failing? The component renders no element, so the slot would not reach the document. Put it
-    // on the part that renders — the content, the trigger, the positioner.
-    expect(dead.sort()).toEqual([]);
+    expect(
+      dead,
+      `The component renders no element of its own, so the slot never reaches the document. Put it\n` +
+        `on the part that renders — the content, the trigger, the positioner:\n${dead.join("\n")}`
+    ).toEqual([]);
+  });
+
+  it("keeps no PROVIDER_ONLY entry that has stopped naming anything", () => {
+    // The list is an assertion of *absence*, which is the shape that rots invisibly: a renamed file
+    // or a renamed component leaves an entry that can never match, and the test above then proves
+    // nothing about it while still reporting green. So each entry has to still name something real.
+    const stale: string[] = [];
+    for (const [key, owners] of Object.entries(PROVIDER_ONLY)) {
+      const path = join(SRC, key);
+      if (!existsSync(path)) {
+        stale.push(`${key}: the file is gone`);
+        continue;
+      }
+      const source = readFileSync(path, "utf8");
+      for (const owner of owners) {
+        if (!new RegExp(`\\b(?:function|const)\\s+${owner}\\b`).test(source)) {
+          stale.push(`${key}: ${owner} is no longer declared there`);
+        }
+      }
+    }
+
+    expect(
+      stale.sort(),
+      `A provider-only entry names a component whose data-slot would render nothing. If the\n` +
+        `component moved, move the entry; if it is gone, delete it — an entry that matches nothing\n` +
+        `is an exemption for a file nobody is checking:\n${stale.join("\n")}`
+    ).toEqual([]);
   });
 });
 

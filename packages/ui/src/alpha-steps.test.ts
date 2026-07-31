@@ -93,6 +93,23 @@ const SRC = dirname(fileURLToPath(import.meta.url));
  * first three are surfaces rather than interaction fills, which is the exemption; the fourth is a
  * fill and is the one that wants a role. None exists yet, and banning the spelling before its
  * replacement exists would only move the problem into a `className` override.
+ *
+ * ## What this guard cannot prove
+ *
+ * - **It reads seven spellings, not the rule.** The rule is "a percentage is not an alpha step";
+ *   what is asserted is a list of token names somebody wrote down. A dilution of a token that is
+ *   not on the list passes, and `--muted` is on the far side of that line **on purpose** — see the
+ *   paragraph above. When a role appears for it, the pattern is what has to change.
+ * - **It reads `.ts` and `.tsx` under `packages/ui/src` and nothing else.** A dilution written in
+ *   `styles.css`, in `packages/theme`, in `docs/`, or by a consumer through `className` is
+ *   invisible. The last of those is not a hole that can be closed from inside the library, which is
+ *   also the argument for not banning a spelling before its replacement exists.
+ * - **It reads literal text.** A class assembled at runtime — a `tv()` variant keyed on a prop, a
+ *   template literal, a `cn()` argument built from fragments — is not seen. Every current call site
+ *   is literal, so the corpus assertions below are what keep that true rather than merely observed.
+ * - **It measures nothing.** Every ratio in this docblock was measured elsewhere and is quoted
+ *   here; nothing in this file re-derives one. A number that goes stale goes stale silently, which
+ *   is why the counts say when they were counted and how to re-count them.
  */
 const BANNED: [RegExp, string][] = [
   [/\bbg-input\/\d+(?![\w-])/g, "`--input` is boundary contrast — diluting it makes it a surface"],
@@ -138,17 +155,93 @@ function* walk(dir: string): Generator<string> {
   }
 }
 
+const FILES = [...walk(SRC)].sort();
+const rel = (file: string) => file.slice(SRC.length).replace(/^\/+/, "");
+
+/**
+ * Every directory under `src/`, named so the scan cannot quietly stop descending.
+ *
+ * `simples/` is where six of the seven bans were written and `composites/` is where the two sidebar
+ * ring dilutions survived a rule spelled against one token name — a walk that reached only the top
+ * level would find no violation in either and report the same green as a real pass.
+ */
+const LAYERS = ["charts", "composites", "layouts", "lib", "simples", "table", "theme"];
+
 describe("the control fill is an alpha step, not an opacity", () => {
+  it("reads every source file under src/, in every layer", () => {
+    expect(FILES.length, "the walk found almost nothing — it is not reaching src/").toBeGreaterThan(
+      100,
+    );
+    for (const layer of LAYERS) {
+      expect(
+        FILES.filter((f) => rel(f).startsWith(`${layer}/`)).length,
+        `${layer}/ contributed no file to the scan`,
+      ).toBeGreaterThan(0);
+    }
+
+    // A NUL byte makes `file(1)` and every `grep -I` treat a source file as binary and skip it in
+    // silence; `charts/chart-inputs.tsx` held one, in the largest file of the layer with the most
+    // colour in it. `readFileSync(…, "utf8")` reads it anyway, so this scan never had that hole —
+    // but the next reader will reach for grep, and a corpus that lies to grep is worth failing on.
+    const binary = FILES.filter((f) => readFileSync(f).includes(0)).map(rel);
+    expect(binary, "a NUL byte makes this file invisible to grep — strip it").toEqual([]);
+
+    const empty = FILES.filter((f) => readFileSync(f, "utf8").trim() === "").map(rel);
+    expect(empty, "an empty source file is a scan that proves nothing").toEqual([]);
+  });
+
   it("keeps the outline and the fill on separate tokens", () => {
     const offenders: string[] = [];
-    for (const file of walk(SRC)) {
+    for (const file of FILES) {
       const source = stripComments(readFileSync(file, "utf8"));
       for (const [pattern, why] of BANNED) {
         for (const [hit] of source.matchAll(pattern)) {
-          offenders.push(`${file.slice(SRC.length).replace(/^\/+/, "")}: ${hit} — ${why}`);
+          offenders.push(`${rel(file)}: ${hit} — ${why}`);
         }
       }
     }
     expect([...new Set(offenders)].sort()).toEqual([]);
+  });
+
+  it("bites on each of the seven, and on nothing next to them", () => {
+    // A guard nobody has seen fail is a guard nobody has tested, and seven patterns are seven
+    // chances to write one that matches nothing. The examples are assembled at runtime: Tailwind's
+    // `@source` in `styles.css` covers the tests, so a literal here would emit a real utility for a
+    // class the rule forbids — the same precaution the `/NN` notation above is taking.
+    const u = (...parts: string[]) => parts.join("-");
+    const dilute = (utility: string, pct: number) => `${utility}/${pct}`;
+
+    const bites = (text: string) => BANNED.some(([pattern]) => pattern.test(text));
+    // `RegExp.test` on a `/g` pattern advances `lastIndex`, so reset before each round.
+    const fresh = () => BANNED.forEach(([pattern]) => (pattern.lastIndex = 0));
+
+    for (const banned of [
+      dilute(u("bg", "input"), 60),
+      dilute(u("ring", "ring"), 40),
+      dilute(u("ring", "sidebar", "ring"), 40),
+      dilute(u("bg", "field"), 32),
+      dilute(u("border", "field"), 32),
+      dilute(u("bg", "destructive"), 10),
+      dilute(u("bg", "warning", "foreground"), 24),
+      dilute(u("border", "success"), 48),
+      dilute(u("bg", "accent"), 50),
+      dilute(u("text", "muted", "foreground"), 64),
+    ]) {
+      fresh();
+      expect(bites(banned), `${banned} is banned and was not caught`).toBe(true);
+    }
+
+    for (const legal of [
+      u("bg", "input"),
+      u("ring", "ring"),
+      dilute(u("bg", "primary"), 90), // a solid darkened for its own hover, not a tint
+      dilute(u("bg", "destructive"), 90), // the same idiom on the status family
+      dilute(u("bg", "muted"), 50), // deliberately not banned — no role exists to replace it
+      dilute(u("bg", "input", "foo"), 60), // a token this rule has never heard of
+    ]) {
+      fresh();
+      expect(bites(legal), `${legal} is legal and was caught`).toBe(false);
+    }
+    fresh();
   });
 });

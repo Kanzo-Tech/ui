@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -23,6 +23,25 @@ import { describe, expect, it } from "vitest";
  * bundler ignores the directive entirely, so the smoke test's `renderToString` passes either way.
  *
  * So the invariant is checked here, statically, the way `alpha-steps` and `no-literal-hues` are.
+ *
+ * ## What this guard cannot prove
+ *
+ * - **It is a shape match, not an evaluation.** Only the docs RSC build *runs* the boundary; this
+ *   asks whether a file looks stateful and whether it says so. `pnpm smoke` compares the bytes of a
+ *   built artefact, so it catches Rollup dropping a directive and cannot tell you the boundary is
+ *   in the right place. Three different checks, three different claims, and this is the weakest of
+ *   them — it is also the only one that runs in under a second.
+ * - **Comments are NOT stripped, on purpose.** A docblock quoting `useSidebar()` will make this
+ *   guard demand the directive on a file that does not need one. That is the safe direction to be
+ *   wrong in: the cost is one file losing server rendering, against a Server Component throwing at
+ *   render. Measured across the current corpus, no file's verdict changes either way.
+ * - **It cannot see a hook reached through a value.** `const h = useSidebar; h()`, a hook behind an
+ *   indirection, or a listener registered by a library on our behalf all read as pure here.
+ * - **The transitive half of the CONVENTIONS.md sentence is not enforced, and must not be** — see
+ *   the note on `needsDirective`. It is safe only because the first assertion below makes a
+ *   hook-bearing module without a directive impossible.
+ * - **It says nothing about `/editor`, `/table` and `/analytics` isolation**, which is
+ *   `index.test.ts`'s claim, nor about whether a client module is *worth* being one.
  */
 
 const SRC = resolve(dirname(fileURLToPath(import.meta.url)));
@@ -57,6 +76,9 @@ function sources(dir: string, out: string[] = []): string[] {
 const files = sources(SRC);
 const text = new Map(files.map((f) => [f, readFileSync(f, "utf8")]));
 
+/** Every directory under `src/`, named so the walk cannot quietly stop descending. */
+const LAYERS = ["charts", "composites", "layouts", "lib", "simples", "table", "theme"];
+
 /**
  * A module needs the directive when **it itself** uses a client feature — not when something it
  * imports does.
@@ -70,24 +92,67 @@ const text = new Map(files.map((f) => [f, readFileSync(f, "utf8")]));
  * The transitive form only bites when a hook-bearing module is *missing* its directive, and the
  * first test below makes that impossible.
  */
-const needsDirective = (file: string) => CLIENT_FEATURE.test(text.get(file) as string);
+const read = (file: string) => {
+  const source = text.get(file);
+  // Without this, a renamed or deleted file reads as the string "undefined", matches nothing, and
+  // every assertion about it passes. That is how a guard survives the disappearance of its subject.
+  if (source === undefined) throw new Error(`${relative(SRC, file)} is not in the scanned corpus`);
+  return source;
+};
 
-const has = (file: string) => /^\s*(?:\/\/[^\n]*\n|\/\*[\s\S]*?\*\/\s*)*["']use client["']/.test(text.get(file) as string);
+const needsDirective = (file: string) => CLIENT_FEATURE.test(read(file));
+
+const has = (file: string) =>
+  /^\s*(?:\/\/[^\n]*\n|\/\*[\s\S]*?\*\/\s*)*["']use client["']/.test(read(file));
+
 const name = (file: string) => relative(SRC, file);
 
 describe("the client boundary", () => {
+  it("reads every source file under src/, in every layer", () => {
+    // A walk that finds nothing reports the same green as a real pass — and both assertions below
+    // are `toEqual([])`, which is exactly what an empty corpus produces. 100 is a floor, not a count.
+    expect(files.length, "the walk found almost nothing — it is not reaching src/").toBeGreaterThan(
+      100,
+    );
+    for (const layer of LAYERS) {
+      expect(
+        files.filter((f) => name(f).startsWith(`${layer}/`)).length,
+        `${layer}/ contributed no file to the scan`,
+      ).toBeGreaterThan(0);
+    }
+
+    // A NUL byte makes `file(1)` and every `grep -I` treat a source file as binary and skip it in
+    // silence; `charts/chart-inputs.tsx` held one. `readFileSync(…, "utf8")` reads it regardless,
+    // so this scan never had that hole — but the next reader will reach for grep first.
+    const binary = files.filter((f) => readFileSync(f).includes(0)).map(name);
+    expect(binary, "a NUL byte makes this file invisible to grep — strip it").toEqual([]);
+
+    const empty = files.filter((f) => read(f).trim() === "").map(name);
+    expect(empty, "an empty source file is a scan that proves nothing").toEqual([]);
+  });
+
   it("puts the directive on every module that is stateful", () => {
     // The failure this catches is the expensive one: without the directive the module is a Server
     // Component, and a hook inside one throws at render.
     const missing = files.filter((f) => needsDirective(f) && !has(f)).map(name);
-    expect(missing).toEqual([]);
+    expect(
+      missing,
+      `These modules use a hook, a listener or a JSX handler and do not say so. In an RSC graph\n` +
+        `each is a Server Component, and the failure surfaces wherever it is rendered — add\n` +
+        `"use client" as the first statement:\n${missing.join("\n")}`,
+    ).toEqual([]);
   });
 
   it("keeps the directive off every module that is not", () => {
     // The cheap failure, 59 times over: a presentational wrapper opting out of server rendering for
     // nothing. Delete the line — the boundary is already established by whatever it imports.
     const surplus = files.filter((f) => !needsDirective(f) && has(f)).map(name);
-    expect(surplus).toEqual([]);
+    expect(
+      surplus,
+      `These modules carry the directive and use no client feature, so each is opting out of server\n` +
+        `rendering for nothing. Delete the line — whatever they import establishes the boundary:\n` +
+        surplus.join("\n"),
+    ).toEqual([]);
   });
 
   it("keeps the pure half of token colour server-reachable", () => {
@@ -95,7 +160,41 @@ describe("the client boundary", () => {
     // public `/analytics` exports. If `lib/token-color.ts` ever becomes a client module again, a
     // Server Component calling `chartSeriesEntries` or `chartSeriesColor` throws.
     for (const file of ["lib/token-color.ts", "charts/chart-config.ts", "charts/chart-spec.ts"]) {
+      // Named, so a rename cannot turn this into three assertions about nothing. `read` throws on
+      // a file outside the corpus for the same reason — a missing file used to read as "undefined",
+      // match no directive, and pass.
+      expect(existsSync(join(SRC, file)), `${file} has moved — this test names it`).toBe(true);
       expect(has(join(SRC, file)), file).toBe(false);
+    }
+  });
+
+  it("recognises each shape of client feature, and no server-safe one", () => {
+    // Four alternations, each of which was added because it had already been missed once.
+    for (const stateful of [
+      "const [x, set] = useState(0);",
+      "const ctx = useSidebar();",
+      "export function useThing() {",
+      "const v = useMemo<string>(() => x, []);",
+      "const C = createContext(null);",
+      "const C = createContext<Thing | null>(null);",
+      "window.addEventListener('resize', onResize);",
+      "<button onClick={handle} />",
+      "<Item onValueChange={next} />",
+    ]) {
+      expect(CLIENT_FEATURE.test(stateful), `${stateful} is a client feature and was missed`).toBe(
+        true,
+      );
+    }
+
+    for (const pure of [
+      "const x = useful(1);", // lowercase after `use` — not a hook
+      "export const user = { name };",
+      "const onclick = 1;", // no capital, not a JSX attribute
+      "const props = { onClick: handle };", // an object literal, not JSX — the callee's problem
+      "element.removeEventListener('resize', onResize);",
+      "<div className={cn('a')} />",
+    ]) {
+      expect(CLIENT_FEATURE.test(pure), `${pure} is server-safe and was caught`).toBe(false);
     }
   });
 });
