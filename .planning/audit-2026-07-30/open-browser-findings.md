@@ -41,6 +41,31 @@ server appears to render the addon where the client renders the input. The first
 is that **Ark's `asChild` clone resolves differently during SSR**, so the input child collapses to
 nothing on one side and the addon shifts into its slot. Start at `simples/date-picker.tsx:60-90`.
 
+**Bisected. It is the docs merge, not the library.** Three runs, each with a rebuilt `dist`:
+
+| `packages/ui` | `docs` | result |
+|---|---|---|
+| `e210a59` | `e210a59` | clean |
+| **HEAD** | `e210a59` | clean |
+| **HEAD** | **HEAD** | **mismatch** |
+
+So nothing in the library causes it — not the cut, not the `slot` conversion, not the directive
+sweep. It arrived with the information-architecture merge that built `forms/dates.mdx`.
+
+**It is not a cache artefact**, which was the next thing worth ruling out given how much `dist`
+swapping the bisect involved: deleting `docs/.next` entirely and starting a fresh dev server
+reproduces it.
+
+Where to look next, in order. `forms/dates.mdx` puts **eight** date-picker and calendar instances on
+one page, where the pages it replaced had a few each. The only *new* example among them is
+`docs/examples/date-picker/example-iso-value.tsx`, which is also the only one passing a **controlled
+`value`**. But note the trace fingers an input carrying `data-placeholder-shown=""` — an *empty* one
+— and the page's three inputs read `["", "", "03/14/2026"]`, so the failing instance is probably not
+the new example itself but one of the pre-existing ones rendered beside it. That points at instance
+count and generated ids (`datepicker:_R_jab3aatpesknelb_`) rather than at any one example's props.
+**Bisect the page**: drop `<ComponentPreview>` blocks from `dates.mdx` one at a time until it goes
+clean.
+
 **The directive sweep is not the cause — tested, not reasoned.** The obvious suspect was `a3a5c98`
 ("57 components opted out of server rendering for nothing"): `date-picker.tsx`, `field.tsx` and
 `input.tsx` all carried `"use client"` at `e210a59` and lost it, which would put an `asChild` child
