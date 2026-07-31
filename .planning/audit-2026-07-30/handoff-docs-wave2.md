@@ -131,9 +131,13 @@ mention on the whole site is an unnarrated fence at `layout/shell.mdx:54-56`. Ar
 
 Ten pages gained a `## Keyboard` table (`59331d3`), sourced from the Zag connect keyMaps and
 machine defaults rather than from memory of some other library: `listbox`, `combobox`,
-`tree-view`, `menu`, `tabs`, `select`, `dates`, `command`, `tags-input`, `sidebar`. That takes
-keyboard coverage from 13 of 106 pages to 23 of 93, and every component that declares a composite
-role now has one.
+`tree-view`, `menu`, `tabs`, `select`, `dates`, `command`, `tags-input`, `sidebar`.
+
+**Measured, not assumed:** `grep -rlE "^#{2,3} (Keyboard|Accessibility|ARIA)"` over
+`docs/content/docs` returns **10** — the ten added here. Before this pass it returned **zero**.
+The audit's "13 of 106" counted pages with accessibility *prose* somewhere in the body, not pages
+with a section a reader can find, which is why the two numbers do not add up and why the second
+one is the honest baseline. Every component that declares a composite role now has a table.
 
 **Two pages have no table deliberately.** `data-display/data-table.mdx` has exactly one binding —
 `Enter`/`Space` on a row, only when `onRowClick` is passed and only when the event target is the
