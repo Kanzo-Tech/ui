@@ -102,6 +102,22 @@ function stackTable(samples) {
   return [header, ...rows].join("\n");
 }
 
+function boundedTable(samples) {
+  const header =
+    "| Nodes | `total()` | First slice | Upload | **First paint** | Pan | Shown / matched |\n" +
+    "|---|---|---|---|---|---|---|";
+  const rows = samples.map((s) => {
+    if (s.failure) return `| ${compact(s.pointCount)} | — | — | — | — | — | **${s.failure}** |`;
+    const paint = s.totalMs + s.firstSliceMs + s.uploadMs;
+    return (
+      `| ${compact(s.pointCount)} | ${s.totalMs.toFixed(0)} ms | ${s.firstSliceMs.toFixed(0)} ms ` +
+      `| ${s.uploadMs.toFixed(0)} ms | **${paint.toFixed(0)} ms** | ${s.panMs.toFixed(0)} ms ` +
+      `| ${compact(s.returned)} / ${compact(s.matched)} |`
+    );
+  });
+  return [header, ...rows].join("\n");
+}
+
 const browser = await chromium.launch({
   // Headed, deliberately. See `assertMeasurable`.
   headless: false,
@@ -136,7 +152,8 @@ try {
    * is a mistake that looks exactly like the right one until you read the columns.
    */
   async function sweep(which) {
-    const label = which === "stack" ? "+ our pipeline" : "cosmos.gl alone";
+    const label =
+      which === "stack" ? "+ our pipeline" : which === "bounded" ? "bounded" : "cosmos.gl alone";
     // Escaped, because both labels contain regex metacharacters — `+ our pipeline` compiles to
     // `^+ our pipeline$`, which is not a pattern but a syntax error, and `cosmos.gl` would happily
     // match `cosmosXgl`. Anchored exactly so the two never select each other.
@@ -172,7 +189,7 @@ try {
         });
         return collected;
       }
-      const rows = state ? (which === "stack" ? state.stack : state.samples) : [];
+      const rows = state ? (state[{ stack: "stack", bounded: "bounded" }[which] ?? "samples"] ?? []) : [];
       collected.length = 0;
       collected.push(...rows);
       if (rows.length > seen) {
@@ -182,9 +199,11 @@ try {
           last.failure
             ? `  ${compact(last.pointCount)}: ${last.failure}`
             : `  ${compact(last.pointCount)}: ${
-                which === "stack"
+                which === "bounded"
+                  ? `${(last.totalMs + last.firstSliceMs + last.uploadMs).toFixed(0)} ms paint, ${last.panMs.toFixed(0)} ms pan`
+                  : which === "stack"
                   ? `${(last.queryMs + last.loadMs + last.buffersMs + last.uploadMs + last.selectMs).toFixed(0)} ms ours`
-                  : `${last.stepMs.toFixed(2)} ms/step`
+                    : `${last.stepMs.toFixed(2)} ms/step`
               }`,
         );
       }
@@ -203,6 +222,7 @@ try {
 
   const engineRows = await sweep("engine");
   const stackRows = await sweep("stack");
+  const boundedRows = await sweep("bounded");
 
   const body = [
     "# Graph scale",
@@ -237,6 +257,16 @@ try {
     "because this fixture reaches DuckDB as CSV text where a real corpus arrives as Parquet.",
     "",
     stackTable(stackRows),
+    "",
+    "## Layer 3 — bounded",
+    "",
+    "The other architecture, not a variant of the one above: the camera asks for a rectangle and the",
+    "answer is capped, so the working set is the window rather than the corpus. `First paint` should",
+    "stop scaling with N. `Pan` is the cost that did not exist before — unbounded moves the camera on",
+    "the GPU for free, this asks the database each time — and it is the number that decides whether",
+    "the trade is worth making.",
+    "",
+    boundedTable(boundedRows),
     "",
     "Every row is checked against the graph it was supposed to load before it is timed. That check",
     "is not ceremony: it caught the whole table being fiction once, when Mosaic served the second",

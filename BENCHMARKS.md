@@ -22,10 +22,10 @@ in `Per step` forces the queue to drain, which is why it is the honest one. Wher
 
 | Nodes | Links | Generate | Upload | Per step | Step ceiling | Frames |
 |---|---|---|---|---|---|---|
-| 2k | 12.5k | 4 ms | 60 ms | 1.46 ms | 687 fps | 120 fps |
-| 10k | 69.3k | 15 ms | 73 ms | 4.20 ms | 238 fps | 121 fps |
-| 50k | 331.6k | 73 ms | 182 ms | 9.94 ms | 101 fps | 60 fps |
-| 200k | 1.4M | 368 ms | 570 ms | 58.29 ms | 17 fps | 61 fps |
+| 2k | 12.5k | 5 ms | 57 ms | 1.53 ms | 655 fps | 60 fps |
+| 10k | 69.3k | 19 ms | 82 ms | 4.36 ms | 229 fps | 61 fps |
+| 50k | 331.6k | 79 ms | 199 ms | 10.08 ms | 99 fps | 61 fps |
+| 200k | 1.4M | 428 ms | 766 ms | 63.02 ms | 16 fps | 62 fps |
 
 ## Layer 2 — our pipeline
 
@@ -36,10 +36,25 @@ because this fixture reaches DuckDB as CSV text where a real corpus arrives as P
 
 | Nodes | Links | `load()` | ↳ read | ↳ rows | ↳ links | ↳ rank | `buffers()` | Upload | Select | **Ours** |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 2k | 12.5k | 33 ms | _30_ | _1_ | _2_ | _0_ | 1 ms | 57 ms | 0 ms | **104 ms** |
-| 10k | 69.3k | 44 ms | _34_ | _2_ | _7_ | _1_ | 2 ms | 75 ms | 1 ms | **131 ms** |
-| 50k | 331.6k | 92 ms | _47_ | _6_ | _34_ | _6_ | 8 ms | 160 ms | 2 ms | **271 ms** |
-| 200k | 1.4M | 377 ms | _182_ | _23_ | _148_ | _24_ | 31 ms | 593 ms | 7 ms | **1017 ms** |
+| 2k | 12.5k | 33 ms | _29_ | _1_ | _2_ | _0_ | 1 ms | 64 ms | 0 ms | **113 ms** |
+| 10k | 69.3k | 40 ms | _30_ | _2_ | _7_ | _1_ | 3 ms | 88 ms | 1 ms | **140 ms** |
+| 50k | 331.6k | 102 ms | _54_ | _6_ | _36_ | _6_ | 12 ms | 200 ms | 2 ms | **324 ms** |
+| 200k | 1.4M | 409 ms | _191_ | _23_ | _170_ | _25_ | 45 ms | 778 ms | 8 ms | **1249 ms** |
+
+## Layer 3 — bounded
+
+The other architecture, not a variant of the one above: the camera asks for a rectangle and the
+answer is capped, so the working set is the window rather than the corpus. `First paint` should
+stop scaling with N. `Pan` is the cost that did not exist before — unbounded moves the camera on
+the GPU for free, this asks the database each time — and it is the number that decides whether
+the trade is worth making.
+
+| Nodes | `total()` | First slice | Upload | **First paint** | Pan | Shown / matched |
+|---|---|---|---|---|---|---|
+| 2k | 21 ms | 45 ms | 27 ms | **93 ms** | 18 ms | 2k / 2k |
+| 10k | 8 ms | 23 ms | 31 ms | **61 ms** | 20 ms | 10k / 10k |
+| 50k | 10 ms | 40 ms | 30 ms | **80 ms** | 19 ms | 20k / 50k |
+| 200k | 14 ms | 67 ms | 28 ms | **109 ms** | 35 ms | 20k / 200k |
 
 Every row is checked against the graph it was supposed to load before it is timed. That check
 is not ceremony: it caught the whole table being fiction once, when Mosaic served the second

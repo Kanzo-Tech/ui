@@ -1,6 +1,6 @@
 "use client";
 
-import { Query } from "@uwdata/mosaic-sql";
+import { count, Query } from "@uwdata/mosaic-sql";
 import { numbers, type Coordinator } from "@kanzo-tech/ui/analytics";
 import { onceQuery, type BoundedSource, type Slice, type SliceRequest } from "@kanzo-tech/graph";
 
@@ -32,7 +32,7 @@ export function duckBoundedSource(options: DuckSourceOptions): BoundedSource {
   return {
     async total() {
       const rows = await onceQuery(coordinator, () =>
-        Query.from(nodes).select({ n: "count(*)" }),
+        Query.from(nodes).select({ n: count() }),
       );
       return Number(numbers(rows, "n")[0] ?? 0);
     },
