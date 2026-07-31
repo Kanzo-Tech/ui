@@ -11,18 +11,19 @@
  * threshold and the source answers with super-nodes instead of nodes, so a view of everything is
  * still a few thousand marks.
  *
- * **Where the layout comes from, and why it is not settled here.** These positions are precomputed:
- * a corpus too big to hold is a corpus too big to lay out live, so the coordinates arrive as data.
- * That leaves a seam worth naming rather than hiding — layout *quality* (how communities separate,
- * how much a graph breathes) is a visual judgement, and precomputing it puts that judgement in a
- * batch job upstream. It also breaks under filtering: a subset keeps coordinates computed for the
- * whole, so it reads as scattered with holes where its neighbours used to be.
+ * **Positions are authority, not suggestion.** The corpus is written once and read many — OLAP, which
+ * is what GraphAr is for — so the coordinates the batch emits are the index every spatial question
+ * is asked against. That settles a tension an earlier draft of this file waved at rather than
+ * resolved: re-laying-out a slice live would move points out from under the very coordinates the
+ * next query is expressed in, and the camera would drift away from the index within one frame of
+ * the first force. **Do not re-lay-out a slice.** If a layout is wrong, it is wrong upstream, and it
+ * is fixed by recompiling — the graph is a compiler's output and so is its geometry.
  *
- * The resolution is available precisely because the path is bounded, and it is worth stating even
- * though nothing implements it yet: a slice is at most `limit` points, and the engine layer measures
- * 20,000 points at about 10 ms a simulation step. **A slice is small enough to re-lay-out live.** So
- * the precomputed coordinates are a map — they say roughly where things are, and which slice you are
- * looking at — while what is on screen can settle under real forces. The two do not compete.
+ * **Dragging is the exception, and it is a local overlay.** A reader can move a node; that changes
+ * where it is *drawn*, never where it is *indexed*. The consequence is small and real: drag a node
+ * far away, pan to where you dropped it, and the spatial query does not know it is there. Which is
+ * why `pinned` exists below — the few points a reader has taken hold of ride along with every
+ * slice, regardless of the rectangle.
  *
  * **Deliberately not a format.** A source is anything that can answer that question: GraphAr over
  * Parquet through fossil's `viewport` verb, a plain relation with `x`/`y` columns and a spatial
@@ -110,6 +111,16 @@ export interface Slice {
 
 export interface SliceRequest {
   query: SliceQuery;
+  /**
+   * Ids that must come back whatever the query says.
+   *
+   * The set a reader has taken hold of — dragged, pinned, selected, focused. Their drawn positions
+   * are a view-local overlay on coordinates that never move, so the index cannot find them where
+   * they now appear. Carrying them explicitly is cheaper and more honest than making the index
+   * mutable: it is a handful of ids, and the alternative is a spatial structure that has to be
+   * rewritten every time somebody drags something.
+   */
+  pinned?: number[];
   /** The most points the source may return. Above it, the source aggregates or truncates. */
   limit: number;
   /** Zoom below which a region query should switch to aggregate mode. Ignored by neighbourhoods. */
