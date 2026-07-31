@@ -131,10 +131,12 @@ function slotSites(): Site[] {
           (p) => ts.isJsxAttribute(p) && p.name.getText(file) === "data-slot"
         );
         if (index >= 0) {
-          const spreads = props
-            .map((p, i) => (ts.isJsxSpreadAttribute(p) ? i : -1))
-            .filter((i) => i >= 0);
+          const lastSpread = props.reduce(
+            (last, p, i) => (ts.isJsxSpreadAttribute(p) ? i : last),
+            -1
+          );
           const tag = node.tagName.getText(file);
+          const [head = tag] = tag.split(".");
           const initializer = (props[index] as ts.JsxAttribute).initializer;
           sites.push({
             key,
@@ -144,8 +146,8 @@ function slotSites(): Site[] {
               initializer && ts.isStringLiteral(initializer)
                 ? initializer.text
                 : initializer?.getText(file) ?? "",
-            beforeSpread: spreads.length > 0 && index < spreads[spreads.length - 1],
-            foreignTag: /^[a-z]/.test(tag) || foreign.has(tag.split(".")[0]),
+            beforeSpread: index < lastSpread,
+            foreignTag: /^[a-z]/.test(tag) || foreign.has(head),
           });
         }
       }
