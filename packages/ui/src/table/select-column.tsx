@@ -1,3 +1,5 @@
+"use client";
+
 import type { ColumnDef, Row } from "@tanstack/react-table";
 import { Checkbox } from "../simples/checkbox.js";
 

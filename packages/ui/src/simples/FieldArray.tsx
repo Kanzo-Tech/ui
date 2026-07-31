@@ -1,3 +1,5 @@
+"use client";
+
 import { PlusIcon, XIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../lib/cn.js";

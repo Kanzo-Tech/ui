@@ -35,8 +35,15 @@ const SRC = resolve(dirname(fileURLToPath(import.meta.url)));
  * fixed list of built-ins misses every custom hook in the repo. The `use[A-Z]` shape is the same
  * signal `eslint-plugin-react-hooks` runs on, so a hook this misses is a hook the linter misses too.
  * A declaration (`export function useX(`) is caught as well, which is correct — it is a hook.
+ *
+ * **A JSX event handler counts, and missing it broke the docs build.** `onClick={…}` on a part is a
+ * function prop, and a Server Component may not pass one to a Client Component — React refuses to
+ * serialise it. `input-group.tsx` lost its directive while holding an inline `onClick`, and the
+ * failure surfaced three layers away, prerendering `/docs/forms/password-input`, with no hook
+ * anywhere in the trace. `tsc` cannot see it either. Six files had this shape.
  */
-const CLIENT_FEATURE = /\buse[A-Z]\w*\s*[(<]|\bcreateContext\s*[(<]|\.addEventListener\s*\(/;
+const CLIENT_FEATURE =
+  /\buse[A-Z]\w*\s*[(<]|\bcreateContext\s*[(<]|\.addEventListener\s*\(|\son[A-Z]\w*=\{/;
 
 function sources(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {

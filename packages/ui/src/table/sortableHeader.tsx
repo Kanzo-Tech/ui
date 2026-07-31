@@ -1,3 +1,5 @@
+"use client";
+
 import type { HeaderContext } from "@tanstack/react-table";
 import {
   ChevronDownIcon,
