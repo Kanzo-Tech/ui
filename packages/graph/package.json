@@ -1,7 +1,7 @@
 {
   "name": "@kanzo-tech/graph",
   "version": "0.0.0",
-  "description": "Kanzo graph rendering — a GPU force layout over cosmos.gl, the DuckDB relation that feeds it, and the Mosaic client that keeps it inside a crossfilter. Sibling of @kanzo-tech/ui, not part of it: DESIGN.md's admission rules exclude graphs from the generic vocabulary by name.",
+  "description": "Kanzo graph rendering \u2014 a GPU force layout over cosmos.gl, the DuckDB relation that feeds it, and the Mosaic client that keeps it inside a crossfilter. Sibling of @kanzo-tech/ui, not part of it: DESIGN.md's admission rules exclude graphs from the generic vocabulary by name.",
   "type": "module",
   "license": "MIT",
   "sideEffects": false,
@@ -23,7 +23,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
-  "//peers": "cosmos.gl is a real, required peer — this package is a renderer and there is nothing left of it without one. The Mosaic/DuckDB half is optional: `load()` and `CosmosClient` need it, the rendering hooks do not, and a consumer drawing a graph from arrays it already has should not pay for a database.",
+  "//peers": "cosmos.gl is a real, required peer \u2014 this package is a renderer and there is nothing left of it without one. The Mosaic/DuckDB half is optional: `load()` and `CosmosClient` need it, the rendering hooks do not, and a consumer drawing a graph from arrays it already has should not pay for a database.",
   "peerDependencies": {
     "@cosmos.gl/graph": "^3.4.0",
     "@kanzo-tech/ui": "workspace:*",
@@ -45,6 +45,7 @@
     "@types/react-dom": "^19.0.0",
     "@uwdata/mosaic-core": "^0.29.2",
     "@uwdata/mosaic-sql": "^0.29.0",
+    "jsdom": "^25.0.0",
     "react": "^19.0.0",
     "rollup-plugin-preserve-directives": "^0.4.0"
   }

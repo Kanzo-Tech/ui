@@ -288,7 +288,7 @@ export async function measureStack(options: StackOptions): Promise<StackSample> 
 /** One warm read of the node relation, so `load`'s share of the query cost is known. */
 async function warmQuery(coordinator: Coordinator, pointCount: number): Promise<void> {
   const { Query } = await import("@uwdata/mosaic-sql");
-  const { onceQuery } = await import("@/lib/once-query");
+  const { onceQuery } = await import("@kanzo-tech/graph");
   await onceQuery(coordinator, () =>
     Query.from(nodesTable(pointCount)).select({ id: "id", label: "label", community: "community" }),
   );

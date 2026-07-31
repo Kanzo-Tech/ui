@@ -1,0 +1,99 @@
+---
+title: Graph
+description: A GPU force layout over cosmos.gl — what @kanzo-tech/graph ships, what it deliberately does not, and how far it scales.
+---
+
+`@kanzo-tech/graph` renders a knowledge graph on the GPU: the DuckDB relation that feeds it, the
+buffers that colour it from the page's own theme, and the hooks that own the renderer's lifetime.
+
+It is a **sibling** of `@kanzo-tech/ui`, not part of it.
+
+## Why it is not in the library
+
+`DESIGN.md`'s first admission rule is *domain-free — nothing about RDF / SHACL / **graphs** / auth*.
+Graphs are excluded by name, and deliberately: `ui` is the generic vocabulary every product shares,
+and a renderer with a **required** WebGL peer would change what that package is. A separate package
+is the same answer `palette` and `theme` already got — ours, shipped, not `ui`.
+
+## There is no canvas component
+
+That is the shape of the package rather than a gap in it.
+
+A graph canvas is a toolbar, a legend, an inspector, a hover card and a search box wired to one
+renderer, and every one of those answers differently per product. What is genuinely shared sits
+underneath: reading a relation into typed arrays, turning a look and the live theme into GPU
+buffers, owning the renderer across React's lifecycle, and keeping a lasso inside a Mosaic
+crossfilter.
+
+Two call sites prove the split rather than assert it — the workspace showcase composes an entire
+application around it, and the benchmark route drives the same `load()` and `buffers()` from
+synthetic generators with no database in sight.
+
+<Cards>
+  <Card title="Workspace" href="/view/showcases/workspace" description="The full arrangement: canvas, legend, inspector, rules, crossfilter." />
+  <Card title="Graph scale" href="/view/showcases/graph-bench" description="The benchmark harness, and the second consumer that earned the extraction." />
+</Cards>
+
+## The two halves
+
+**Data.** `load(coordinator, spec)` reads a node relation and an edge relation into the four typed
+arrays the GPU wants, plus the rows and the id→index map everything else needs. `GraphSpec` names
+the columns, so the canvas never reads a schema by name — pointing it at another corpus is a change
+of argument, not of code.
+
+```ts
+const data = await load(coordinator, {
+  table: "nodes",
+  edges: "edges",
+  idField: "id",
+  labelField: "title",
+  categoryField: "kind",
+  sizeField: "degree",
+  groupField: "theme",
+});
+```
+
+**Appearance.** `buffers(data, look, host)` turns a look and the *live theme* into per-point
+colours, sizes and shapes. A `Look` carries **geometry only** — colour comes from the page's
+categorical scale, because a scale a graph invents is a scale that disagrees with the legend
+explaining it.
+
+`appearance()` is the other side of that line, and it is a performance boundary rather than a
+stylistic one: anything that is *one number for the whole canvas* belongs in a cosmos.gl **uniform**,
+read fresh on every draw. Multiply an opacity slider into half a million per-instance values and
+every tick re-uploads the array; put it in a uniform and the same change costs nothing.
+
+## How far it goes
+
+Measured on an Apple M4 Pro, not quoted. The full table is in `BENCHMARKS.md`, and
+`/view/showcases/graph-bench` re-runs it.
+
+| Nodes | Links | Per simulation step | Ceiling |
+|---|---|---|---|
+| 2,000 | 12.5k | 1.6 ms | 611 fps |
+| 50,000 | 332k | 10.4 ms | 98 fps |
+| 200,000 | 1.4M | 61.6 ms | 16 fps |
+| 1,000,000 | 6.9M | 441 ms | 2 fps |
+
+Nothing failed at any size — a million points initialise, upload and simulate. **The ceiling is not
+the renderer, it is the layout.** A live simulation is comfortable to about 50,000 points and
+finished by 200,000.
+
+**Past that, positions become a column.** Drawing a million points is cheap; solving them sixty
+times a second is not, and no renderer changes that. This is why `load()` accepts `xField` and
+`yField`, and why nothing in the package insists on running a simulation: lay the graph out once,
+store the coordinates, and render.
+
+## Things the source will not tell you twice
+
+These are cosmos.gl behaviours that typecheck perfectly while being wrong.
+
+- **`setConfig` resets everything.** In 3.x it restores defaults and *then* applies the argument.
+  Use `setConfigPartial`. Only three fields are genuinely init-only: `initialZoomLevel`,
+  `randomSeed` and `attribution`.
+- **`getConnectedLinkIndices` is not a neighbourhood.** It returns only links whose *other* endpoint
+  is also in the argument — an induced subgraph, which for a single point means its self-loops. Use
+  `neighboursOf(graph, index)`.
+- **`requestAnimationFrame` never fires in a background tab**, and the simulation is driven by
+  rendered frames. A backgrounded graph is stopped, not slow — and `graph.ready` has no failure
+  path, so a device that cannot be created leaves the promise unsettled rather than rejecting.

@@ -94,7 +94,6 @@ import {
   toTurtle,
 } from "./rule-builder";
 import { numbers } from "@/lib/arrow";
-import { onceQuery } from "@/lib/once-query";
 import {
   DEFAULT_DISPLAY,
   DEFAULT_SIM,
@@ -105,8 +104,9 @@ import {
   type Motion,
 } from "./graph-state";
 import {
-  LOOK_ORDER,
   LOOKS,
+  LOOK_ORDER,
+  onceQuery,
   scaleOf,
 } from "@kanzo-tech/graph";
 import type { NodeKind } from "./graph-data";
