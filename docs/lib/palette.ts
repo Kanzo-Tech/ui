@@ -13,6 +13,17 @@ import { STORAGE_KEY, paletteIndex, type SwatchOption } from "@kanzo-tech/theme"
  * Server-only, and it has to be: `readFileSync` and `cookies()` are both unavailable in a browser,
  * which is exactly the property that keeps `@kanzo-tech/palette` and its 0.2–7.4 s derivation out of
  * the client bundle. The client half never sees a colour value — it sees an id and a swatch strip.
+ *
+ * **Reading the cookie in the root layout makes every page under it dynamic, and that is accepted
+ * rather than overlooked.** `next build` reports `/docs/[[...slug]]` as `ƒ` where its
+ * `generateStaticParams` would otherwise have prerendered it. The alternatives each cost more than
+ * they save: a `<link>` to a cookie-varying CSS route keeps the pages static but spends a blocking
+ * request on every visitor, including the majority on the default palette who need no override at
+ * all; applying in the browser reintroduces exactly the flash this arrangement exists to prevent.
+ *
+ * It is also a cost only a MULTI-palette tenant pays, which is this docs site and nothing else. A
+ * client publishes one document, so their server inlines it unconditionally and reads no cookie —
+ * their site stays as static as it ever was.
  */
 
 /**

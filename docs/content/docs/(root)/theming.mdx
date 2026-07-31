@@ -26,6 +26,18 @@ may publish several, and the user picks:
 Publish one of each and nothing appears — `Preferences.Colour` hides itself below two choices. A
 client wanting a single immutable brand does nothing to get one.
 
+<Callout type="warn" title="Publishing several palettes costs static rendering">
+  Which document to serve is decided from the request, so a host that reads the cookie in its root
+  layout makes every page under it dynamic — this docs site included. It is the right trade here and
+  it is **not** one a normal tenant pays: a client publishes one document, so their server inlines it
+  unconditionally, reads no cookie, and their pages stay static.
+
+  The two ways out both cost more than they save. A `<link>` to a cookie-varying CSS route keeps the
+  pages static and spends a blocking request on every visitor, including the majority on the default
+  palette who need no override. Applying it in the browser reintroduces the flash the arrangement
+  exists to prevent.
+</Callout>
+
 The panel shows them as **one list**: a palette that publishes several brands contributes one entry
 per brand. The two are one abstraction with a parameter — how much of the document the choice
 replaces — and the containment stays in the data, where it is what guarantees a tenant's brands share

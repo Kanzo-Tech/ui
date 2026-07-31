@@ -168,6 +168,19 @@ round — a false tick costs a rebuild, a missed one costs a graph painting a br
 
 **The graph's `Look` is unaffected and stays geometry-only.** Nothing about this reopens colour there.
 
+### One accepted cost, stated
+
+Deciding which document to serve from the request makes every page under that layout dynamic:
+`next build` reports the docs site's `/docs/[[...slug]]` as `ƒ` where its `generateStaticParams`
+would have prerendered it. The alternatives cost more — a `<link>` to a cookie-varying CSS route
+keeps the pages static and spends a blocking request on every visitor including the majority who
+need no override, and applying it in the browser reintroduces the flash the arrangement exists to
+prevent.
+
+It is a cost only a MULTI-palette tenant pays, and this docs site is the only one there will be. A
+client publishes one document, so their server inlines it unconditionally, reads no cookie, and
+their pages stay exactly as static as before.
+
 ### Breaking
 
 - `IdentityOption` → `SwatchOption`.
