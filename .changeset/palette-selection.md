@@ -145,6 +145,29 @@ the script never sees.
 Verified live: pick Private Bank → `data-identity="private"`, `--primary: #a16207`; switch to Dracula
 → attribute gone, `#e05daa`, memory `{bank: "private"}`; switch back → `private` and the gold again.
 
+### A graph and a chart follow the palette again
+
+`useThemeTick` is the seam every token-reading canvas uses — charts through `tokenized-plot`, the
+graph through its buffer and config effects — and it was a `MutationObserver` on the root's
+attributes. That catches a mode flip, a density change and a brand swap, all of which move something
+on `<html>`. It cannot catch a palette: a document is a stylesheet, so switching one replaces a
+`<style>` in `<head>` and every token underneath changes value with the root untouched. A WebGL graph
+holds its colours in buffers, so it kept painting the palette it was mounted with.
+
+It now watches three things. The root's attributes; the provider's `resolvedPalette` (new
+`useKanzoThemeOptional`, so a chart still works without a provider); and **`<head>`**, for children
+and character data, because that is where a document actually lands however a host applies it. The
+third is the one that is easy to leave out and the one that makes the answer right: a preference
+moves on the click, but the stylesheet it selects arrives afterwards, over the network — ticking only
+on the preference re-resolves every token against the document still on the page and never looks
+again.
+
+The trade is stated rather than hidden: a `<head>` mutation is also what a router inserting route CSS
+looks like, so this ticks a little more often than colour strictly changes. That is the correct way
+round — a false tick costs a rebuild, a missed one costs a graph painting a brand nobody selected.
+
+**The graph's `Look` is unaffected and stays geometry-only.** Nothing about this reopens colour there.
+
 ### Breaking
 
 - `IdentityOption` → `SwatchOption`.

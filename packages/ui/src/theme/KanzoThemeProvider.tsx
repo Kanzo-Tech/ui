@@ -233,6 +233,17 @@ interface ThemeContextValue extends ThemePrefs {
 const ThemeContext = React.createContext<ThemeContextValue | null>(null);
 ThemeContext.displayName = "KanzoThemeContext";
 
+/**
+ * The theme, or `null` outside a provider.
+ *
+ * For readers that must work either way — `useThemeTick` is one, because a chart resolving tokens
+ * off the cascade has always been usable without this provider and must not start throwing now that
+ * it also wants to know when the palette moved.
+ */
+export function useKanzoThemeOptional(): ThemeContextValue | null {
+  return React.useContext(ThemeContext);
+}
+
 export function useKanzoTheme(): ThemeContextValue {
   const ctx = React.useContext(ThemeContext);
   if (!ctx) throw new Error("useKanzoTheme must be used within a <KanzoThemeProvider>.");
