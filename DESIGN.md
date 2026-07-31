@@ -172,7 +172,7 @@ be skipped.
 `a-rule-broken-three-times-becomes-a-test`, `a-docs-defect-is-a-library-defect`,
 `a-generated-index-with-no-second-list`, `a-name-shark-ships-is-ours`,
 `a-measurement-overrules-the-reference`, `a-house-principle-withholds-no-name`,
-`the-skip-target-is-the-main-landmark`.
+`the-skip-target-is-the-main-landmark`, `a-part-is-named-by-its-machine`.
 
 Also live — `a-compound-keeps-its-root-even-when-the-root-is-an-alias`.
 

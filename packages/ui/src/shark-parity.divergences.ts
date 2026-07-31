@@ -116,9 +116,10 @@ export const RENAMED: Readonly<Record<string, { readonly ours: string; readonly 
 function ARK_PART_NAME(part: string): string {
   return (
     `Both wrap Ark's \`${part}\`. \`CONVENTIONS.md\`, *Naming*: a part is base plus part, so the ` +
-    `Ark spelling is the one that survives — Shark shortens it instead. The two references disagree ` +
-    `and the house rule picks Ark's; that this is an owner's call and not a settled one is recorded ` +
-    `in BEYOND_THE_SURFACE.`
+    `Ark spelling is the one that survives — Shark shortens it instead. Settled 2026-07-31 in ` +
+    `\`decisions/a-part-is-named-by-its-machine.md\`: a part name is a fact about the machine, so ` +
+    `it belongs to the reference that owns the machine. That record settles these eight and ` +
+    `deliberately not the general case of the two references disagreeing.`
   );
 }
 
