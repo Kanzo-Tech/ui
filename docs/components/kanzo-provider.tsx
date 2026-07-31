@@ -2,7 +2,9 @@
 
 import type { ReactNode } from "react";
 import { useServerInsertedHTML } from "next/navigation";
-import { KanzoThemeProvider, themeScript } from "@kanzo-tech/ui";
+import type { SwatchOption } from "@kanzo-tech/theme";
+import { KanzoThemeProvider, cookieStorageAdapter, themeScript } from "@kanzo-tech/ui";
+import { PaletteStyle } from "./palette-style";
 
 /**
  * The design system owns the theme, appearance included.
@@ -13,22 +15,50 @@ import { KanzoThemeProvider, themeScript } from "@kanzo-tech/ui";
  * disabled in `app/layout.tsx`; that and this file are one change.
  *
  * The one thing lost: docs visitors' appearance preference used to live under next-themes' `theme`
- * key. It now lives on the prefs blob (`kanzo_theme_prefs.appearance`), and the migration path
- * reads the DS's own legacy key, so an existing visitor lands on `system` once and re-picks.
+ * key. It now lives on the prefs blob (`kanzo_theme_prefs.appearance`), so an existing visitor is
+ * unpinned once — following their OS — and re-picks if they want a side held.
+ *
+ * **Storage is the cookie, and for a palette that is a requirement rather than a taste.** A document
+ * is a stylesheet chosen by the SERVER, so the preference has to be readable from the request; a
+ * localStorage-only host would paint the default document and correct it after hydration, which is
+ * the flash this whole layer exists to prevent. The pre-paint script already reads the cookie first
+ * for the same reason.
  *
  * `themeScript` is NOT optional for an SSR host. Everything the provider applies (`data-radius`,
  * `data-font`, `data-mono-font`, `data-font-size` and `.dark`) lives in browser storage, so without
  * the script the server paints the defaults and the client re-skins on hydration — a flash, plus a
  * hydration mismatch in every control whose markup depends on the resolved appearance. It runs in
  * `<head>` before the first paint, and `theme-script.test.ts` holds it to the same `<html>` the
- * provider produces. Colour is not in it: the palette document is a static `<style>` the server
- * inlines, so the colour maths is done before a byte is sent.
+ * provider produces. Colour is not in it, and cannot be: a document is a whole stylesheet, so the
+ * script has nothing to write — `app/layout.tsx` serves the chosen one, already compiled.
  */
-export const KanzoProvider = ({ children }: { children: ReactNode }) => {
+export const KanzoProvider = ({
+  children,
+  palettes,
+  defaultPalette,
+  identities,
+}: {
+  children: ReactNode;
+  /** What this tenant publishes. The docs site publishes six; a client usually publishes one. */
+  palettes: SwatchOption[];
+  defaultPalette: string;
+  /** The brands inside the SELECTED palette — read per request, since a document owns its own. */
+  identities: SwatchOption[];
+}) => {
   useServerInsertedHTML(() => (
     // biome-ignore lint/security/noDangerouslySetInnerHtml: the anti-FOUC script must be inline.
     <script dangerouslySetInnerHTML={{ __html: themeScript() }} key="kanzo-theme-script" />
   ));
 
-  return <KanzoThemeProvider>{children}</KanzoThemeProvider>;
+  return (
+    <KanzoThemeProvider
+      defaultPalette={defaultPalette}
+      identities={identities}
+      palettes={palettes}
+      storage={cookieStorageAdapter()}
+    >
+      <PaletteStyle defaultPalette={defaultPalette} />
+      {children}
+    </KanzoThemeProvider>
+  );
 };

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { STATUS_SEEDS, derivePalette } from "./derive-palette.js";
 import { PALETTE_SEEDS, seedInput } from "./seeds.js";
-import { STATUS_NAMES } from "./palette-document.js";
+import { STATUS_NAMES, type Identity, type TenantPalette } from "./palette-document.js";
 import { CONTRAST_MIN, TEXT_MIN, contrast, type Mode } from "./palette-check.js";
 import { paletteData } from "./index.js";
 
@@ -30,6 +30,16 @@ const NEUTRAL_RAMP = ["base00", "base01", "base02", "base03", "base04", "base05"
 const DERIVED = Object.entries(PALETTE_SEEDS).map(
   ([id, seeds]) => [id, derivePalette({ ...seedInput(id, seeds), derivedAt: DERIVED_AT })] as const,
 );
+
+/** A record is split between the document and its identities, so a sweep has to read both halves. */
+const checksOf = (doc: TenantPalette) => [
+  ...doc.record.crossChecks,
+  ...doc.identities.flatMap((identity) => identity.record.crossChecks),
+];
+const reliefOf = (doc: TenantPalette) => [
+  ...doc.record.relief,
+  ...doc.identities.flatMap((identity) => identity.record.relief),
+];
 
 describe("the base16 sources", () => {
   // They are no longer palettes. Two things still read them — the 13 Kanzo-fixed syntax roles, and
@@ -106,8 +116,13 @@ describe("the seeds", () => {
 describe("every shipped identity, derived", () => {
   it("survives derivation in both modes, with a categorical set that can name something", () => {
     for (const [id, doc] of DERIVED) {
-      expect(doc.categorical.capacity, `${id} can name no categories`).toBeGreaterThan(0);
-      expect(doc.categorical.light.length, id).toBe(doc.categorical.dark.length);
+      // Every shipped seed pair is one identity, so its categorical set is `identities[0]`'s. A
+      // document has no set of its own any more: the chart wheel is spun from a brand hue, and which
+      // brand that is, is exactly what an identity says.
+      const only = doc.identities[0] as Identity;
+      expect(doc.identities, id).toHaveLength(1);
+      expect(only.categorical.capacity, `${id} can name no categories`).toBeGreaterThan(0);
+      expect(only.categorical.light.length, id).toBe(only.categorical.dark.length);
       for (const mode of MODES) expect(Object.keys(doc.roles[mode]).length, `${id} ${mode}`).toBeGreaterThan(50);
     }
   });
@@ -117,7 +132,7 @@ describe("every shipped identity, derived", () => {
     // `gate` is not. A borrowed identity that could not clear the gates would be one this package
     // should not be offering as a seed pair at all.
     for (const [id, doc] of DERIVED) {
-      const failed = doc.record.crossChecks.filter((c) => c.kind === "gate" && !c.ok);
+      const failed = checksOf(doc).filter((c) => c.kind === "gate" && !c.ok);
       expect(failed.map((c) => `${id} ${c.mode} ${c.token}: ${c.got.toFixed(2)} < ${c.wanted}`)).toEqual([]);
     }
   });
@@ -128,7 +143,7 @@ describe("every shipped identity, derived", () => {
     // with. It is the one obligation that can never become an adjustment. Anything else here is a
     // ramp that gave up something nobody asked it to.
     for (const [id, doc] of DERIVED) {
-      const unexpected = doc.record.relief.filter((r) => r.id !== "carries-identity");
+      const unexpected = reliefOf(doc).filter((r) => r.id !== "carries-identity");
       expect(unexpected.map((r) => `${id} ${r.ramp}/${r.mode}: ${r.id}`)).toEqual([]);
     }
   });

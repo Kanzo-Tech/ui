@@ -3,6 +3,7 @@ import { derivePalette } from "./derive-palette.js";
 import {
   PALETTE_SCHEMA_VERSION,
   RAMP_NAMES,
+  SHARED_RAMP_NAMES,
   STATUS_NAMES,
   hashObligations,
 } from "./palette-document.js";
@@ -18,7 +19,7 @@ import { OBLIGATIONS } from "./ramp.js";
 const DOC = derivePalette({
   id: "acme",
   label: "Acme",
-  brand: "#7f22fe",
+  identities: [{ id: "acme", label: "Acme", brand: "#7f22fe" }],
   derivedAt: "2026-07-29T00:00:00.000Z",
 });
 
@@ -49,13 +50,20 @@ describe("the document as stored data", () => {
   });
 
   it("holds one ramp per family per mode, and no more", () => {
-    expect(Object.keys(DOC.ramps).sort()).toEqual([...RAMP_NAMES].sort());
-    for (const name of RAMP_NAMES) {
+    // Five shared, and one brand on each identity. `brand` is the only name that moved, and it is
+    // still in `RAMP_NAMES` because a *resolution* needs all six — see `RampSet` against
+    // `SharedRampSet`.
+    expect(Object.keys(DOC.ramps).sort()).toEqual([...SHARED_RAMP_NAMES].sort());
+    for (const name of SHARED_RAMP_NAMES) {
       expect(Object.keys(DOC.ramps[name]).sort(), name).toEqual(["dark", "light"]);
       expect(DOC.ramps[name].light.mode, name).toBe("light");
       expect(DOC.ramps[name].dark.mode, name).toBe("dark");
     }
-    for (const name of STATUS_NAMES) expect(RAMP_NAMES).toContain(name);
+    for (const name of STATUS_NAMES) expect(SHARED_RAMP_NAMES).toContain(name);
+    expect([...RAMP_NAMES].sort()).toEqual([...SHARED_RAMP_NAMES, "brand"].sort());
+    for (const identity of DOC.identities) {
+      expect(Object.keys(identity.ramp).sort(), identity.id).toEqual(["dark", "light"]);
+    }
   });
 });
 

@@ -1,6 +1,6 @@
 ---
 title: Preferences
-description: A live selector for the four user preferences, driving the theme attributes on the document.
+description: A live selector for the user's preferences — the four axes, and the colour choices a tenant published.
 ---
 
 {/* An iframe, not a ComponentPreview. The panel is Portal-ed and `position: fixed`, so in a
@@ -36,12 +36,16 @@ There is no default hotkey. `hotkey` registers a bare, unmodified key on `window
 while you are typing in a field), and a design system must not claim one in its host's keymap
 without being asked.
 
-<Callout type="info" title="Colour is not a preference">
-  Four sections, and none of them is a hue. A client's colour identity is a palette
-  **document** — two seeds derived and measured once at onboarding, compiled to one stylesheet
-  the server inlines. Palette, base, accent, chart scheme and the "Copy CSS" export all left with
-  it; what the export used to do belongs on the [onboarding surface](/docs/showcases/palette),
-  which has a whole document to emit rather than a partial selection.
+<Callout type="info" title="Colour is a preference — a hue is not">
+  Six sections at most, two of them conditional. The rule is not "the user touches no colour", which
+  was never true: `appearance` is colour. It is that the user never **authors** a colour value —
+  they choose among colours someone already validated.
+
+  So `Palette` and `Identity` are here, and base, accent, chart scheme and the "Copy CSS" export are
+  not. Those let a user compose *part* of a palette a hue at a time; a
+  [palette document](/docs/showcases/palette) is derived and measured once at onboarding and chosen
+  whole. Both sections hide themselves below two published options, so a tenant with one brand and
+  one palette sees the four axis sections and nothing else.
 </Callout>
 
 <Callout type="info" title="Appearance is in the header, not the body">
@@ -50,9 +54,9 @@ without being asked.
   light ⇄ dark in one click. The panel briefly carried a copy of it in the body as well, which is
   one preference wearing two controls; the button costs the body nothing.
 
-  `system` is not a stop on that flip — it is the **initial value**, `DEFAULT_PREFS.appearance`, so
-  an app with nothing stored follows the OS until the first click. **Reset**, below, is the way
-  back: it spreads `DEFAULT_PREFS`, appearance included.
+  There is no third state on that flip: following the OS is `null`, the absence of a pinned side, and
+  `DEFAULT_PREFS.appearance` is `null` — so an app with nothing stored follows the OS until the first
+  click. **Reset**, below, is the way back: it spreads `DEFAULT_PREFS`, appearance included.
 
   Mount it anywhere else you like — the docs sidebar does — since it reads the same preference.
 </Callout>
@@ -63,6 +67,8 @@ without being asked.
 Preferences.Root
 ├── Preferences.Trigger
 └── Preferences.Panel
+    ├── Preferences.Palette    — only when the tenant publishes two
+    ├── Preferences.Identity   — only when the tenant publishes two
     ├── Preferences.Density
     ├── Preferences.Radius
     ├── Preferences.Font
@@ -71,6 +77,12 @@ Preferences.Root
 
 `Panel` renders that whole set when given no children, plus a pinned Reset · Done footer that
 stays whatever the children are. Pass children to choose your own set.
+
+The two colour sections come first and coarsest-first, so they read top-down as one choice at two
+grains: a **palette** is a whole document (surfaces, statuses, syntax, brand) and an **identity** is
+a brand inside one, sharing the tenant's neutral. Each guards itself rather than being guarded at the
+call site — every section is exported flat for a host's own settings page, where a call-site guard
+would be invisible.
 
 ## Choosing the sections
 
@@ -170,7 +182,7 @@ settings page instead of the floating drawer — they edit the same live theme e
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `children` | `ReactNode` | the canonical four sections |
+| `children` | `ReactNode` | the canonical sections |
 | `title` | `string` | `"Preferences"` |
 | `hint` | `string` | `"Applied live · saved to this browser."` |
 
@@ -182,10 +194,19 @@ settings page instead of the floating drawer — they edit the same live theme e
 
 ### Sections
 
-Each takes no props — every one reads and writes `useKanzoTheme()` directly.
+Each reads and writes `useKanzoTheme()` directly. The four axis sections take no props; `Palette` and
+`Identity` take a `label` for their legend, which is their one library-authored string — a palette's
+or an identity's own name was written by the client and passes through verbatim.
+
+`Palette` is the one section that writes a preference and repaints nothing by itself. A document is a
+stylesheet, so the next load is the palette; a live swap is the host's to arrange, as the docs site
+does. That is also why it has no attribute: there is no block in any compiled sheet for a
+`data-palette` to select.
 
 | Flat export | Static | Axis | Attribute |
 | --- | --- | --- | --- |
+| `PreferencesPalette` | `Preferences.Palette` | `palette` | **none** — the server serves the stylesheet |
+| `PreferencesIdentity` | `Preferences.Identity` | `identity` | `data-identity` |
 | `PreferencesDensity` | `Preferences.Density` | `density` | `data-font-size` |
 | `PreferencesRadius` | `Preferences.Radius` | `radius` | `data-radius` |
 | `PreferencesFont` | `Preferences.Font` | `font` | `data-font` |

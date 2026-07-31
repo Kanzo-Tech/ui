@@ -1,0 +1,192 @@
+[
+  {
+    "id": "kanzo",
+    "label": "Kanzo",
+    "isDefault": true,
+    "seeds": {
+      "brand": "#737373",
+      "neutral": "#737373"
+    },
+    "swatches": {
+      "light": [
+        "#00c950",
+        "#a800b7",
+        "#ff8904",
+        "#2b7fff",
+        "#ff2056",
+        "#7008e7",
+        "#a65f00",
+        "#0092b8"
+      ],
+      "dark": [
+        "#e12afb",
+        "#a65f00",
+        "#0092b8",
+        "#f54900",
+        "#2b7fff",
+        "#00a63e",
+        "#7f22fe",
+        "#c70036"
+      ]
+    },
+    "capacity": 8
+  },
+  {
+    "id": "dracula",
+    "label": "Dracula",
+    "isDefault": false,
+    "seeds": {
+      "brand": "#ff79c6",
+      "neutral": "#6272a4"
+    },
+    "swatches": {
+      "light": [
+        "#a800b7",
+        "#5ea500",
+        "#0092b8",
+        "#a65f00",
+        "#155dfc",
+        "#c6005c",
+        "#ff6900"
+      ],
+      "dark": [
+        "#f6339a",
+        "#e12afb",
+        "#5ea500",
+        "#0092b8",
+        "#a65f00",
+        "#2b7fff",
+        "#f54900"
+      ]
+    },
+    "capacity": 7
+  },
+  {
+    "id": "nord",
+    "label": "Nord",
+    "isDefault": false,
+    "seeds": {
+      "brand": "#88c0d0",
+      "neutral": "#4c566a"
+    },
+    "swatches": {
+      "light": [
+        "#00c950",
+        "#a800b7",
+        "#ff8904",
+        "#2b7fff",
+        "#ff2056",
+        "#7008e7",
+        "#a65f00",
+        "#0092b8"
+      ],
+      "dark": [
+        "#e12afb",
+        "#a65f00",
+        "#0092b8",
+        "#f54900",
+        "#2b7fff",
+        "#00a63e",
+        "#7f22fe",
+        "#c70036"
+      ]
+    },
+    "capacity": 8
+  },
+  {
+    "id": "catppuccin-latte",
+    "label": "Catppuccin Latte",
+    "isDefault": false,
+    "seeds": {
+      "brand": "#8839ef",
+      "neutral": "#9ca0b0"
+    },
+    "swatches": {
+      "light": [
+        "#a800b7",
+        "#a65f00",
+        "#0092b8",
+        "#5ea500",
+        "#7008e7",
+        "#ff6900",
+        "#2b7fff",
+        "#e60076"
+      ],
+      "dark": [
+        "#e12afb",
+        "#a65f00",
+        "#0092b8",
+        "#f54900",
+        "#7f22fe",
+        "#e60076",
+        "#2b7fff",
+        "#5ea500"
+      ]
+    },
+    "capacity": 8
+  },
+  {
+    "id": "catppuccin-mocha",
+    "label": "Catppuccin Mocha",
+    "isDefault": false,
+    "seeds": {
+      "brand": "#cba6f7",
+      "neutral": "#6c7086"
+    },
+    "swatches": {
+      "light": [
+        "#ad46ff",
+        "#a65f00",
+        "#0092b8",
+        "#497d00",
+        "#c800de",
+        "#e17100",
+        "#4f39f6",
+        "#e60076"
+      ],
+      "dark": [
+        "#c800de",
+        "#e17100",
+        "#7c86ff",
+        "#e60076",
+        "#ad46ff",
+        "#a65f00",
+        "#0092b8",
+        "#497d00"
+      ]
+    },
+    "capacity": 8
+  },
+  {
+    "id": "bank",
+    "label": "Bank",
+    "isDefault": false,
+    "seeds": {
+      "brand": "#2b7fff",
+      "neutral": "#6b7280"
+    },
+    "swatches": {
+      "light": [
+        "#51a2ff",
+        "#8200db",
+        "#ff8904",
+        "#e60076",
+        "#615fff",
+        "#00bba7",
+        "#a65f00",
+        "#0092b8"
+      ],
+      "dark": [
+        "#9810fa",
+        "#f54900",
+        "#0092b8",
+        "#a65f00",
+        "#2b7fff",
+        "#e60076",
+        "#615fff",
+        "#009689"
+      ]
+    },
+    "capacity": 8
+  }
+]

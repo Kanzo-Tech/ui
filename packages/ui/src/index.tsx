@@ -13,11 +13,15 @@
 // Select, Tooltip…) — those render into document.body, outside any wrapper element.
 export type {
   Appearance,
-  ResolvedAppearance,
+  AppearancePref,
   KanzoRadius,
   KanzoDensity,
   KanzoFont,
   KanzoMonoFont,
+  KanzoIdentity,
+  // Beside the axes rather than beside `FontOption`, because it is a data shape and not a React one:
+  // the pre-hydration script reads the same axis table, and it never sees this package.
+  SwatchOption,
 } from "@kanzo-tech/theme";
 export { KanzoThemeProvider, useKanzoTheme, cookieStorageAdapter } from "./theme/KanzoThemeProvider.js";
 export type {
@@ -40,6 +44,10 @@ export {
   // Never exported until now, which made the panel's own doc ("every section is exported flat")
   // false and left `PrefFieldSet` reachable only as an internal.
   PreferencesFieldSet,
+  // First, and the only section that can vanish: it draws itself only where a tenant published more
+  // than one identity. Colour is still not authored here — an identity is a block the client wrote.
+  PreferencesIdentity,
+  PreferencesPalette,
   // No `PreferencesAppearance`: appearance has ONE control, `AppearanceToggle`, which cycles all
   // three states in the chrome. A panel section was the same preference wearing a second control.
   PreferencesRadius,
@@ -47,9 +55,19 @@ export {
   PreferencesMonoFont,
   PreferencesDensity,
 } from "./composites/Preferences.js";
-export type { PreferencesProps, PreferencesRootProps } from "./composites/Preferences.js";
+export type {
+  PreferencesProps,
+  PreferencesRootProps,
+  PreferencesIdentityProps,
+  PreferencesPaletteProps,
+} from "./composites/Preferences.js";
 export { AppearanceToggle } from "./composites/AppearanceToggle.js";
 export type { AppearanceToggleProps, AppearanceToggleLabels } from "./composites/AppearanceToggle.js";
+// The panel may never be opened, and a retired identity is somebody looking at a brand they did not
+// choose. Opt-in rather than provider-rendered: the provider has no DOM, and two deleted themers say
+// it stays that way.
+export { IdentityNotice } from "./composites/identity-notice.js";
+export type { IdentityNoticeProps, IdentityRetiredCopy } from "./composites/identity-notice.js";
 
 // ── Utilities ────────────────────────────────────────────────────────────────
 export { cn } from "./lib/cn.js";

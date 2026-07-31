@@ -39,6 +39,28 @@ describe("the palette boundary", () => {
 });
 
 /**
+ * `SwatchOption` is the second deliberate re-declaration, and the reason is the import guard
+ * above: it is a text match, so `import type { Identity } from "@kanzo-tech/palette"` fails it too.
+ * That is the right outcome rather than a limitation — the document's `Identity` carries `brand`,
+ * `ramp`, `categorical` and `record`, and a browser has no use for any of them. What the runtime
+ * needs is the narrowing, and a narrowing that quietly grows back toward its source is a narrowing
+ * that has stopped being one.
+ */
+describe("SwatchOption", () => {
+  const src = read("src/index.ts");
+
+  it("is declared here, not re-exported from the derivation", () => {
+    expect(src).toMatch(/export interface SwatchOption \{/);
+  });
+
+  it("carries only what a browser can use", () => {
+    const body = src.match(/export interface SwatchOption \{([^}]*)\}/s)?.[1] ?? "";
+    const fields = [...body.matchAll(/^\s*(\w+)[?]?:/gm)].map((m) => m[1]);
+    expect(fields.sort()).toEqual(["label", "swatches", "value"]);
+  });
+});
+
+/**
  * `CHART_SLOTS` is declared twice on purpose — here, because a chart in a browser needs it and
  * cannot reach the derivation, and in `@kanzo-tech/palette`, because that is what emits the
  * properties. Neither copy is trusted: both are held against the sheet they describe.

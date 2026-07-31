@@ -1,6 +1,6 @@
 ---
 title: Palette
-description: Two seeds in, a measured tenant document out — and the same machinery digesting four borrowed identities.
+description: Two seeds in, a measured tenant document out — and five of them you can put on.
 full: true
 ---
 
@@ -11,6 +11,27 @@ and the editor all read the same artefact, because there is nowhere else to conf
 
 <PreviewIframe className="h-[900px]" name="palette-onboarding" title="Palette onboarding" />
 
+## Deriving your own
+
+The row at the top is the whole claim, exercisable: type two hex seeds, press **Derive**, and a sixth
+tab appears with a document nobody authored — its ramps, its categorical set, its record, its
+stylesheet. The five beside it are the same function run at build time.
+
+It derives on the **server**, through an action, and that is the architecture rather than a detail.
+The categorical search costs 0.2–1.6 s, and `@kanzo-tech/palette` is kept out of the browser graph by
+a test that matches on text — so even `import type` fails there. Derivation is authoring-time; the
+runtime only applies what it produced.
+
+<Callout type="info" title="What it emits is what the system ingests">
+  Under **What ships** there are two artefacts and the smaller one is the source. The stylesheet is
+  what a page loads; the `derivePalette` call is what the system takes *in*, so pasting it back
+  reproduces the document byte for byte.
+
+  That round trip is the table stake we were missing. daisyUI's generator emits the same `@plugin`
+  block its plugin consumes; Material re-imports its own JSON. This page used to copy compiled CSS —
+  and CSS is not our input format. Our input is two colours.
+</Callout>
+
 ## What the screen is for
 
 The gate policy is **adjust and publish** — never accept-and-warn, never refuse. A brand red at
@@ -19,61 +40,36 @@ shows: the rule that forced the move, the colour before and after, the ΔE, and 
 components, because "darker, and slightly less saturated" is a very different thing to hear than
 "a different colour".
 
-Three facts about the record are worth knowing before you read one.
+Two of its rows are read wrong more often than they are read right — a relief row is the *healthy*
+state, and it is not the fill rule — and both are explained where the role table is, in
+[Theming](/docs/theming#reading-a-record).
 
-<Callout type="warn" title="Relief rows are the healthy state, and the ramp is what tells you which is which">
-  `carries-identity` — a step 9 below the chroma floor of 0.1 — is the one obligation that can
-  never become an adjustment. Below the floor there is no nearest legal value; the nearest
-  chromatic colour would be a hue *we* chose. So it is published as **relief** rather than
-  repaired.
+## Wearing one
 
-  A tinted neutral is a low chroma at a hue **by definition**, so it reports this every single
-  time. Every correct two-seed palette in the tabs above has relief rows, and Kanzo's own document
-  has four and zero adjustments. On the **neutral** ramp it is the expected answer; on the
-  **brand** ramp it is something to tell the client.
+The five palettes above are not a gallery — they are what this docs site *publishes*, and you can put
+any of them on. Open **Customize** and pick one under PALETTE: the whole site repaints, and it is
+still that palette after a reload.
 
-  Distinguish by **ramp**, never by presence. A screen that renders any relief as an alert makes
-  every correct palette look broken.
+That is the runtime mechanism, whole, and it is two halves rather than one. The server reads the
+cookie and inlines the chosen document before the first byte, which is what makes a reload
+flash-free; the browser fetches the document and swaps the same `<style>` when you pick another,
+which is what makes the switch immediate. Neither half is optional and neither is the other's
+fallback.
+
+There is no `data-palette`, no `data-accent` and no per-token override. All of those were ways to
+express *part* of a palette at runtime, and a document expresses all of it at once. A palette is
+served, never selected in the cascade — which is why every non-default document is compiled with
+`elevate`, its `:root:root` blocks outranking `tokens.css` on specificity rather than on whichever
+stylesheet the browser happened to see last.
+
+<Callout type="info" title="Dracula cannot be an identity">
+  A tenant publishes two kinds of colour choice, and they are not interchangeable. An **identity** is
+  a brand seed sharing the tenant's neutral, statuses and syntax roles — which is what keeps a bank's
+  retail blue and its private gold one product. A **palette** is a whole document, surfaces included.
+
+  So Dracula-as-identity would be Dracula's pink over Kanzo's grey, which is not Dracula. Borrowed
+  palettes are documents.
 </Callout>
-
-<Callout type="info" title="Relief is not the fill rule, and Nord is why">
-  The consequence people expect from brand relief — `--primary` moving off step 9 onto step 12,
-  the ramp's ink — is **not** what this row triggers. That rule fires on a ramp with no hue at all
-  (`hue === null`, the encoding-noise regime below chroma 0.0035), and `carries-identity` grades
-  step 9 against a much higher bar, 0.1. Two of the ramp's three regimes therefore report it.
-
-  Nord is the case that separates them. Its brand `#88c0d0` reaches chroma 0.063 at step 9 —
-  under the floor, so the row is published — at hue 217.5°, which is unmistakably blue. It keeps
-  step 9: `--primary` is `#6299a9` in light and `#679eae` in dark. Read the relief as the fill rule
-  and it compiled to `#001016` and `#dcf1f7` instead, which is a client's blue thrown away.
-
-  Kanzo's own `#737373` is the other case: no hue, so step 12, `#0f0f0f` and `#efefef`.
-</Callout>
-
-<Callout type="info" title="Only the lightness moves">
-  Across all five shipped seed pairs, every adjustment is a lightness move: chroma shifts by at
-  most 0.001 and hue by under 0.21°. That is the price the system charges — a foreign seed keeps
-  its hue and gives up its place. Nord's brand pays 11.8 ΔE in light and 10.8 in dark, and every
-  point of that is lightness.
-</Callout>
-
-## Authored, and derived
-
-Dracula, Nord and the two Catppuccins ship as `PALETTE_SEEDS` and go through `derivePalette`
-exactly as a client does. They are not a second shape — a base16 palette is a brand hue and a
-neutral hue, and two shapes for one idea is the defect this layer exists to remove.
-
-<PreviewIframe className="h-[900px]" name="palette-base16" source="palette-onboarding/base16" title="base16 seeds, authored beside derived" />
-
-The **This page is wearing** control at the top is the runtime mechanism, whole: `compile(doc)` returns one
-stylesheet with a `:root` block and a `.dark` block, and applying a tenant's identity is appending
-it. There is no `data-palette`, no `data-accent`, no per-token override — all of those were ways to
-express *part* of a palette at runtime, and a document expresses all of it at once.
-
-The old rule — "a palette may be dark-only; do not invent a light side for Dracula" — was true
-when a palette was a set of authored hexes. Under derivation it is not: Dracula's `#ff79c6` ships
-as `#e562af` at step 9, moved 7.3 ΔE by `visible-fill`, with the hue held to 0.12°. Same hue,
-different place. That is a reading, not an invention.
 
 ## Source
 
@@ -82,15 +78,13 @@ docs/showcases/palette-onboarding/
 ├── derive.ts         — every shipped seed pair, through the real derivation, on the server
 ├── default.tsx       — the onboarding screen (server)
 ├── panel.tsx         — its client half
-├── base16.tsx        — authored beside derived (server)
-├── base16-panel.tsx  — its client half
 └── parts.tsx         — the ramp strip, the adjustment row, the relief verdict
 ```
 
-Both routes are **server** components, and that split is the point rather than an optimisation.
+The route is a **server** component, and that split is the point rather than an optimisation.
 Deriving one document costs 0.2–1.6 s — the categorical search dominates — which is fine once at
-onboarding and unacceptable in a browser. It runs at build time; the client halves receive a
-projection of the finished document and never import `derivePalette`.
+onboarding and unacceptable in a browser. It runs at build time; the client half receives a
+projection of the finished document and never imports `derivePalette`.
 
 See [Theming](/docs/theming#colour-the-palette-document) for the role table, the elevation model
 and the rest of the pipeline.

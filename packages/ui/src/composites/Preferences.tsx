@@ -3,13 +3,15 @@
 import * as React from "react";
 import { Dialog as ArkDialog } from "@ark-ui/react/dialog";
 import { Portal } from "@ark-ui/react/portal";
-import { PaletteIcon, XIcon } from "lucide-react";
+import { InfoIcon, PaletteIcon, XIcon } from "lucide-react";
 // Via the theme package's JS entry, not its raw `.json` subpath: a direct JSON subpath import
 // needs `with { type: "json" }` at runtime, and Rollup strips that attribute when bundling.
 import { DEFAULT_PREFS, themeData, type KanzoRadius } from "@kanzo-tech/theme";
 import { useKanzoTheme } from "../theme/KanzoThemeProvider.js";
 import { cn } from "../lib/cn.js";
 import { AppearanceToggle } from "./AppearanceToggle.js";
+import { identityRetiredCopy, type IdentityRetiredCopy } from "./identity-notice.js";
+import { Alert, AlertDescription, AlertTitle } from "../simples/alert.js";
 import { Button } from "../simples/button.js";
 import { Field, FieldLabel, FieldLegend, FieldSet } from "../simples/field.js";
 import {
@@ -22,6 +24,7 @@ import {
 import { RadioGroup as ArkRadioGroup } from "@ark-ui/react/radio-group";
 import { RadioGroup, RadioGroupCard } from "../simples/radio-group.js";
 import { Slider, SliderLabel } from "../simples/slider.js";
+import { SwatchGroup } from "../simples/swatch.js";
 
 /**
  * Preferences — a live theming selector (composite) for PRODUCT settings. A non-modal drawer
@@ -32,23 +35,31 @@ import { Slider, SliderLabel } from "../simples/slider.js";
  *   <Preferences.Root>
  *     <Preferences.Trigger />
  *     <Preferences.Panel>
- *       <Preferences.Density /> <Preferences.Radius />
+ *       <Preferences.Identity /> <Preferences.Density /> <Preferences.Radius />
  *       <Preferences.Font /> <Preferences.MonoFont />
  *     </Preferences.Panel>
  *   </Preferences.Root>
  *
- * or the all-in-one <Preferences />. Those four sections ARE the default panel body, plus a footer
+ * or the all-in-one <Preferences />. Those five sections ARE the default panel body, plus a footer
  * of Reset · Done. Open with `t`, close with Escape.
  *
- * **Colour is not here.** A tenant's identity is a palette DOCUMENT — derived and measured once at
- * onboarding, compiled to one stylesheet the server inlines — not something a user picks a hue at a
- * time. Palette, accent, base, chart scheme and the "Copy CSS" export all left with it; what the
- * export did belongs on the onboarding surface, which has a document to emit.
+ * **No colour is AUTHORED here.** A tenant's identity is a palette DOCUMENT — derived and measured
+ * once at onboarding, compiled to one stylesheet the server inlines — not something a user picks a
+ * hue at a time. Palette, accent, base, chart scheme and the "Copy CSS" export all left with it;
+ * what the export did belongs on the onboarding surface, which has a document to emit.
+ *
+ * `Identity` is not that coming back. It chooses among the blocks the TENANT published — the same
+ * kind of choice `appearance` makes between that one document's two modes, one level up — and it
+ * shows itself only when there are two to choose from.
  *
  * **Appearance is not here either**, and that is a different argument: it is still a preference,
- * but it already has a control. `AppearanceToggle` cycles all three states in one click, in the
+ * but it already has a control. `AppearanceToggle` flips both of its states in one click, in the
  * chrome, where a one-click preference belongs. A section here would be the same preference
  * wearing a second control — the duplication this panel keeps removing everywhere else.
+ *
+ * It has two states and not three: "follow the OS" is `null`, the absence of a pinned side, so the
+ * way back to it is `Reset` — which spreads `DEFAULT_PREFS` and therefore unpins appearance along
+ * with everything else. That is the one thing this panel's footer does that no other control can.
  */
 
 const RADII: KanzoRadius[] = ["none", "xs", "sm", "md", "lg"];
@@ -210,6 +221,12 @@ function PreferencesPanel({
           >
             {children ?? (
               <>
+                {/* Colour first, coarsest first: a palette is the whole document and an identity is
+                    a brand inside it, so they read top-down as the same choice at two grains.
+                    Everything below them is a different axis entirely. Each renders nothing until a
+                    tenant publishes two of its kind, so the common panel is unchanged. */}
+                <PaletteSection />
+                <IdentitySection />
                 <DensitySection />
                 <RadiusSection />
                 <FontSection />
@@ -297,6 +314,157 @@ function PrefFieldSet({ label, children }: { label: React.ReactNode; children: R
 }
 
 // ── Sections ──────────────────────────────────────────────────────────────────
+/**
+ * How many swatches an identity's strip draws. A PANEL-LAYOUT number, and it has to be: the
+ * document's `CategoricalSet.leading` is per-mode (`{light: 2, dark: 1}` in the shipped one), so a
+ * strip sized by it would be two swatches wide and would change length when the user flips
+ * appearance. `leading` is a statement about a chart.
+ *
+ * Measured, not guessed, and every term is `rem` so it holds at any density: the panel is `w-80`
+ * (20rem) less the body's `px-5` (2 × 1.25rem) less the card's `px-2.5` (2 × 0.625rem) = 16.25rem,
+ * 260px at a 16px root. The body always scrolls, so allow ~15px for a classic (non-overlay)
+ * scrollbar → 245px. `size="md"` is 16px and `SwatchGroup`'s `gap-0.5` is 2px, so n swatches need
+ * `18n − 2 ≤ 245` → 13. `SwatchGroup` is a flex row with no `wrap`, so past the fit it would spill
+ * out of the card rather than reflow — the cap is what keeps that from being a host's problem.
+ */
+const IDENTITY_SWATCHES = 13;
+
+/**
+ * The identities a TENANT published — a bank's retail blue and its private gold.
+ *
+ * A `RadioGroup`, not a `ColorPicker`: the value is an **id**, and the strip pictures it rather
+ * than being it, which is the line `swatch.tsx` draws and `CONVENTIONS.md` states.
+ *
+ * The value is `resolvedIdentity`, not the preference. An empty preference is a deferral to the
+ * document, and the card that reads as checked has to be the one on screen — the same split as
+ * `appearance` / `resolvedAppearance`. Selecting writes the preference; `set({ identity: "" })` is
+ * the way back to the default, because `""` is the value that removes the attribute.
+ *
+ * It guards itself rather than being guarded at the call site: every section is exported flat for a
+ * host's own settings page, and a call-site guard is invisible to those callers.
+ */
+export interface PreferencesIdentityProps extends IdentityRetiredCopy {
+  /**
+   * The legend, and the section's ONE library-authored string (i18n).
+   *
+   * An identity's own `label` passes through verbatim and takes no formatter: the client authored
+   * it, at runtime, so a formatter over it would only let a host decorate someone else's brand
+   * name. `AppearanceToggle.formatName` exists for the opposite case — strings the library wrote.
+   */
+  label?: string;
+}
+
+function IdentitySection({ label = "Identity", ...copy }: PreferencesIdentityProps = {}) {
+  const { identities, resolvedAppearance, resolvedIdentity, retiredIdentity, set } = useKanzoTheme();
+  if (identities.length < 2) return null;
+  const retired = retiredIdentity ? identityRetiredCopy(copy, retiredIdentity) : null;
+  return (
+    <PrefFieldSet label={label}>
+      <RadioGroup
+        className="gap-2"
+        onValueChange={(d) => d.value && set({ identity: d.value })}
+        value={resolvedIdentity}
+      >
+        {identities.map((i) => (
+          <RadioGroupCard className="flex-col items-start gap-1.5 px-2.5 py-2" key={i.value} value={i.value}>
+            <ArkRadioGroup.ItemText className="text-muted-foreground text-xs">
+              {i.label}
+            </ArkRadioGroup.ItemText>
+            <SwatchGroup
+              colors={(i.swatches[resolvedAppearance] ?? []).slice(0, IDENTITY_SWATCHES)}
+              size="md"
+            />
+          </RadioGroupCard>
+        ))}
+      </RadioGroup>
+      {/* Same state as `IdentityNotice`, second surface. Both are needed: a toast is gone in five
+          seconds and this panel may be opened an hour later, and this section disappears below two
+          published identities — so a tenant who retired their way down to one brand has only the
+          toast. Neither surface is the other's fallback. */}
+      {retired ? (
+        <Alert variant="info">
+          <InfoIcon />
+          <AlertTitle>{retired.title}</AlertTitle>
+          <AlertDescription>{retired.description}</AlertDescription>
+        </Alert>
+      ) : null}
+    </PrefFieldSet>
+  );
+}
+
+/**
+ * The palettes a TENANT published — the coarser choice, where `Identity` is the finer one.
+ *
+ * A palette is a whole document: surfaces, statuses, syntax and brand. An identity is a brand inside
+ * one. So a tenant may publish several palettes because it wants its users to choose how the product
+ * looks (GitHub's themes), and several identities because it runs more than one brand over one look.
+ * Both are the same offer at different grain, which is why they draw the same control over the same
+ * `SwatchOption`, and why both hide themselves below two.
+ *
+ * **Selecting here does not repaint the page by itself.** A document is a stylesheet the server
+ * serves from the cookie, so this writes a preference and the next load is the palette. Any live
+ * preview is the host's to arrange — see the docs app, which swaps an inlined `<style>` — and the
+ * library deliberately does not, because a provider that injects stylesheets is a themer that draws
+ * its own surface.
+ */
+export interface PreferencesPaletteProps {
+  /** The legend, and one of the section's two library-authored strings (i18n). A palette's own label
+   *  is the tenant's and passes through verbatim, as an identity's does. */
+  label?: string;
+  /** Heading of the notice shown when the tenant withdrew the palette this user had chosen. */
+  retiredTitle?: string;
+  /**
+   * Compose that notice's body. `palette` is the retired **id**, not a label: what the tenant
+   * withdrew is gone from `palettes`, so its label went with it.
+   */
+  formatRetired?: (parts: { palette: string }) => string;
+}
+
+const DEFAULT_RETIRED_TITLE = "Palette updated";
+const DEFAULT_RETIRED = ({ palette }: { palette: string }) =>
+  `The palette you had chosen (${palette}) is no longer published, so this is the default one.`;
+
+function PaletteSection({
+  label = "Palette",
+  retiredTitle = DEFAULT_RETIRED_TITLE,
+  formatRetired = DEFAULT_RETIRED,
+}: PreferencesPaletteProps = {}) {
+  const { palettes, resolvedAppearance, resolvedPalette, retiredPalette, set } = useKanzoTheme();
+  if (palettes.length < 2) return null;
+  return (
+    <PrefFieldSet label={label}>
+      <RadioGroup
+        className="gap-2"
+        onValueChange={(d) => d.value && set({ palette: d.value })}
+        value={resolvedPalette}
+      >
+        {palettes.map((p) => (
+          <RadioGroupCard className="flex-col items-start gap-1.5 px-2.5 py-2" key={p.value} value={p.value}>
+            <ArkRadioGroup.ItemText className="text-muted-foreground text-xs">
+              {p.label}
+            </ArkRadioGroup.ItemText>
+            <SwatchGroup
+              colors={(p.swatches[resolvedAppearance] ?? []).slice(0, IDENTITY_SWATCHES)}
+              size="md"
+            />
+          </RadioGroupCard>
+        ))}
+      </RadioGroup>
+      {/* The palette a tenant withdrew. Unlike an identity's, this has no toast beside it — a
+          document is served by the server, so the page the user is reading is ALREADY the default
+          one and nothing is about to change under them. What is left is explaining why their choice
+          is gone, which is a thing to find in the panel rather than to be interrupted by. */}
+      {retiredPalette ? (
+        <Alert variant="info">
+          <InfoIcon />
+          <AlertTitle>{retiredTitle}</AlertTitle>
+          <AlertDescription>{formatRetired({ palette: retiredPalette })}</AlertDescription>
+        </Alert>
+      ) : null}
+    </PrefFieldSet>
+  );
+}
+
 // The one section where neither container above applies. A slider is a single control, so it is not
 // a `FieldSet`; and Ark's `useSlider` reads no ambient context at all — not Field, not Fieldset — so
 // a `FieldLabel` could not reach it either, which is why "Radius" was written twice. `SliderLabel`
@@ -439,6 +607,8 @@ export const Preferences = Object.assign(
     Root: PreferencesRoot,
     Trigger: PreferencesTrigger,
     Panel: PreferencesPanel,
+    Palette: PaletteSection,
+    Identity: IdentitySection,
     Radius: RadiusSection,
     Font: FontSection,
     MonoFont: MonoFontSection,
@@ -461,6 +631,8 @@ export {
   PreferencesPanel,
   PrefField as PreferencesField,
   PrefFieldSet as PreferencesFieldSet,
+  PaletteSection as PreferencesPalette,
+  IdentitySection as PreferencesIdentity,
   RadiusSection as PreferencesRadius,
   FontSection as PreferencesFont,
   MonoFontSection as PreferencesMonoFont,

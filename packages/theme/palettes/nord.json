@@ -1,13 +1,13 @@
 {
   "schemaVersion": 3,
-  "id": "kanzo",
-  "label": "Kanzo",
+  "id": "nord",
+  "label": "Nord",
   "state": "published",
   "seeds": {
-    "brand": "#737373",
-    "neutral": "#737373",
-    "neutralHue": null,
-    "neutralHueFrom": "none",
+    "brand": "#88c0d0",
+    "neutral": "#4c566a",
+    "neutralHue": 264.13119998151524,
+    "neutralHueFrom": "neutral-seed",
     "status": {
       "destructive": "#e7000b",
       "warning": "#e17100",
@@ -27,46 +27,46 @@
   "ramps": {
     "neutral": {
       "light": {
-        "seed": "#737373",
+        "seed": "#4c566a",
         "mode": "light",
-        "hue": null,
+        "hue": 264.13119998151524,
         "steps": [
-          "#fafafa",
-          "#f7f7f7",
-          "#efefef",
-          "#e6e6e6",
-          "#d9d9d9",
-          "#c9c9c9",
-          "#b3b3b3",
-          "#979797",
-          "#737373",
-          "#6a6a6a",
-          "#454545",
-          "#0f0f0f"
+          "#f9fafb",
+          "#f5f6f8",
+          "#ebedf1",
+          "#dde1e8",
+          "#cdd2db",
+          "#b8bdc8",
+          "#9ca3b0",
+          "#798191",
+          "#4c566a",
+          "#444e61",
+          "#2e3646",
+          "#0c1017"
         ],
         "alpha": [
-          "#fafafa00",
+          "#f9fafb00",
           "#00000001",
-          "#00000008",
-          "#00000011",
-          "#0000001f",
-          "#0000002f",
-          "#00000045",
-          "#00000062",
-          "#00000088",
-          "#00000091",
-          "#000000b7",
-          "#000000ee"
+          "#0000000a",
+          "#00002817",
+          "#00002f28",
+          "#0000263d",
+          "#00012459",
+          "#0003237d",
+          "#000523ab",
+          "#000520b3",
+          "#000317ca",
+          "#000008ef"
         ],
-        "onSolid": "#fafafa",
-        "boundary": 9,
+        "onSolid": "#f9fafb",
+        "boundary": 8,
         "adjustments": [],
         "relief": [
           {
             "step": 9,
             "id": "carries-identity",
             "wanted": 0.1,
-            "got": 2.0706701893915187e-8
+            "got": 0.03521368325749211
           }
         ],
         "drift": {
@@ -77,53 +77,65 @@
         }
       },
       "dark": {
-        "seed": "#737373",
+        "seed": "#4c566a",
         "mode": "dark",
-        "hue": null,
+        "hue": 264.13119998151524,
         "steps": [
-          "#0a0a0a",
-          "#0d0d0d",
-          "#141414",
-          "#1d1d1d",
-          "#282828",
-          "#353535",
-          "#464646",
-          "#5a5a5a",
-          "#737373",
-          "#7c7c7c",
-          "#aaaaaa",
-          "#efefef"
+          "#090a0c",
+          "#0b0c0e",
+          "#101217",
+          "#161921",
+          "#1e222b",
+          "#282d36",
+          "#353a45",
+          "#434a58",
+          "#545e73",
+          "#5d677b",
+          "#959fb2",
+          "#edf1fb"
         ],
         "alpha": [
-          "#0a0a0a00",
+          "#090a0c00",
           "#ffffff01",
-          "#ffffff08",
-          "#ffffff12",
-          "#ffffff1d",
-          "#ffffff2b",
-          "#ffffff3c",
-          "#ffffff51",
-          "#ffffff6b",
-          "#ffffff75",
-          "#ffffffa3",
-          "#ffffffeb"
+          "#ffffff07",
+          "#c1dfff12",
+          "#cfedff1b",
+          "#d4efff27",
+          "#d5e9ff37",
+          "#d1e7ff4a",
+          "#c4dcff66",
+          "#cce2ff6e",
+          "#deecffa8",
+          "#f8fcfff3"
         ],
-        "onSolid": "#ffffff",
+        "onSolid": "#edf1fb",
         "boundary": 9,
-        "adjustments": [],
+        "adjustments": [
+          {
+            "step": 9,
+            "obligation": "in-band",
+            "from": "#4c566a",
+            "to": "#545e73",
+            "reason": "Moved into the dark lightness band, which is the range a fill, a chart slot and the brand already answer to in this system — outside it the rest of the checks would refuse the value.",
+            "deltaE": 2.9114714253675835,
+            "lightness": 0.029093652129779046,
+            "chroma": 0.0009557007833918343,
+            "hue": 0
+          }
+        ],
         "relief": [
           {
             "step": 9,
             "id": "carries-identity",
             "wanted": 0.1,
-            "got": 2.0706701893915187e-8
+            "got": 0.03616938404088394
           }
         ],
         "drift": {
-          "lightness": 0,
-          "chroma": 0,
-          "deltaE": 0,
-          "hue": 0
+          "lightness": 0.029093652129779046,
+          "chroma": 0.0009557007833918343,
+          "deltaE": 2.9114714253675835,
+          "hue": 0.8976656650385735
         }
       }
     },
@@ -482,108 +494,143 @@
   },
   "identities": [
     {
-      "id": "kanzo",
-      "label": "Kanzo",
-      "brand": "#737373",
+      "id": "nord",
+      "label": "Nord",
+      "brand": "#88c0d0",
       "ramp": {
         "light": {
-          "seed": "#737373",
+          "seed": "#88c0d0",
           "mode": "light",
-          "hue": null,
+          "hue": 217.4690166666727,
           "steps": [
-            "#fafafa",
-            "#f7f7f7",
-            "#efefef",
-            "#e6e6e6",
-            "#d9d9d9",
-            "#c9c9c9",
-            "#b3b3b3",
-            "#979797",
-            "#737373",
-            "#6a6a6a",
-            "#454545",
-            "#0f0f0f"
+            "#f9fafb",
+            "#f4f8f9",
+            "#eaf4f7",
+            "#ddeef3",
+            "#cfe5eb",
+            "#bfd9e1",
+            "#aac9d2",
+            "#8cb4c0",
+            "#6299a9",
+            "#5a909f",
+            "#2b5b67",
+            "#001016"
           ],
           "alpha": [
-            "#fafafa00",
+            "#f9fafb00",
             "#00000001",
-            "#00000008",
-            "#00000011",
-            "#0000001f",
-            "#0000002f",
-            "#00000045",
-            "#00000062",
-            "#00000088",
-            "#00000091",
-            "#000000b7",
-            "#000000ee"
+            "#003b7c08",
+            "#00689a15",
+            "#00658a24",
+            "#00587b34",
+            "#004f6c49",
+            "#004d6967",
+            "#004f6b91",
+            "#004a639a",
+            "#003140ca",
+            "#000c12fb"
           ],
-          "onSolid": "#fafafa",
+          "onSolid": "#001016",
           "boundary": 9,
-          "adjustments": [],
+          "adjustments": [
+            {
+              "step": 9,
+              "obligation": "in-band",
+              "from": "#88c0d0",
+              "to": "#86bece",
+              "reason": "Moved into the light lightness band, which is the range a fill, a chart slot and the brand already answer to in this system — outside it the rest of the checks would refuse the value.",
+              "deltaE": 0.6273956422629513,
+              "lightness": -0.006273612465956924,
+              "chroma": 0.00006357302968141437,
+              "hue": 0
+            },
+            {
+              "step": 9,
+              "obligation": "visible-fill",
+              "from": "#86bece",
+              "to": "#6299a9",
+              "reason": "Moved away from the page until the fill reads as a shape at 3:1. A solid below that is barely visible as an object, which is what WCAG asks of a non-text element.",
+              "deltaE": 11.769924964911862,
+              "lightness": -0.117696404784847,
+              "chroma": 0.00026658963828590787,
+              "hue": 0
+            }
+          ],
           "relief": [
             {
               "step": 9,
               "id": "carries-identity",
               "wanted": 0.1,
-              "got": 2.0706701893915187e-8
+              "got": 0.06257879369047468
             }
           ],
           "drift": {
-            "lightness": 0,
-            "chroma": 0,
-            "deltaE": 0,
-            "hue": 0
+            "lightness": -0.12397001725080392,
+            "chroma": 0.00033016266796732224,
+            "deltaE": 12.397297333046977,
+            "hue": 0.7251295625785588
           }
         },
         "dark": {
-          "seed": "#737373",
+          "seed": "#88c0d0",
           "mode": "dark",
-          "hue": null,
+          "hue": 217.4690166666727,
           "steps": [
-            "#0a0a0a",
-            "#0d0d0d",
-            "#141414",
-            "#1d1d1d",
-            "#282828",
-            "#353535",
-            "#464646",
-            "#5a5a5a",
-            "#737373",
-            "#7c7c7c",
-            "#aaaaaa",
-            "#efefef"
+            "#070b0c",
+            "#0a0f10",
+            "#0d191d",
+            "#12262b",
+            "#1e343b",
+            "#2e474e",
+            "#415d66",
+            "#567a84",
+            "#679eae",
+            "#73a7b6",
+            "#95c5d3",
+            "#dcf1f7"
           ],
           "alpha": [
-            "#0a0a0a00",
-            "#ffffff01",
-            "#ffffff08",
-            "#ffffff12",
-            "#ffffff1d",
-            "#ffffff2b",
-            "#ffffff3c",
-            "#ffffff51",
-            "#ffffff6b",
-            "#ffffff75",
-            "#ffffffa3",
-            "#ffffffeb"
+            "#070b0c00",
+            "#ffffff02",
+            "#74ffff0e",
+            "#6fffff1b",
+            "#8cf9ff2c",
+            "#a2faff40",
+            "#adf6ff59",
+            "#aff7ff78",
+            "#9cf0ffa4",
+            "#a7f2ffac",
+            "#b9f5ffcb",
+            "#eaffffef"
           ],
-          "onSolid": "#ffffff",
-          "boundary": 9,
-          "adjustments": [],
+          "onSolid": "#070b0c",
+          "boundary": 8,
+          "adjustments": [
+            {
+              "step": 9,
+              "obligation": "in-band",
+              "from": "#88c0d0",
+              "to": "#679eae",
+              "reason": "Moved into the dark lightness band, which is the range a fill, a chart slot and the brand already answer to in this system — outside it the rest of the checks would refuse the value.",
+              "deltaE": 10.77368961463869,
+              "lightness": -0.10773434611218069,
+              "chroma": 0.00019227045749204558,
+              "hue": 0
+            }
+          ],
           "relief": [
             {
               "step": 9,
               "id": "carries-identity",
               "wanted": 0.1,
-              "got": 2.0706701893915187e-8
+              "got": 0.06244090147999941
             }
           ],
           "drift": {
-            "lightness": 0,
-            "chroma": 0,
-            "deltaE": 0,
-            "hue": 0
+            "lightness": -0.10773434611218069,
+            "chroma": 0.00019227045749204558,
+            "deltaE": 10.77368961463869,
+            "hue": 0.6579133540072064
           }
         }
       },
@@ -648,12 +695,12 @@
       },
       "roles": {
         "light": {
-          "--primary": "#0f0f0f",
-          "--primary-foreground": "#fafafa",
-          "--ring": "#737373",
-          "--sidebar-primary": "#0f0f0f",
-          "--sidebar-primary-foreground": "#fafafa",
-          "--sidebar-ring": "#737373",
+          "--primary": "#6299a9",
+          "--primary-foreground": "#001016",
+          "--ring": "#6299a9",
+          "--sidebar-primary": "#6299a9",
+          "--sidebar-primary-foreground": "#001016",
+          "--sidebar-ring": "#6299a9",
           "--chart-1": "#00c950",
           "--chart-2": "#a800b7",
           "--chart-3": "#ff8904",
@@ -662,15 +709,15 @@
           "--chart-6": "#7008e7",
           "--chart-7": "#a65f00",
           "--chart-8": "#0092b8",
-          "--selection": "#0000001f"
+          "--selection": "#00658a24"
         },
         "dark": {
-          "--primary": "#efefef",
-          "--primary-foreground": "#0a0a0a",
-          "--ring": "#737373",
-          "--sidebar-primary": "#efefef",
-          "--sidebar-primary-foreground": "#0a0a0a",
-          "--sidebar-ring": "#737373",
+          "--primary": "#679eae",
+          "--primary-foreground": "#070b0c",
+          "--ring": "#567a84",
+          "--sidebar-primary": "#679eae",
+          "--sidebar-primary-foreground": "#070b0c",
+          "--sidebar-ring": "#567a84",
           "--chart-1": "#e12afb",
           "--chart-2": "#a65f00",
           "--chart-3": "#0092b8",
@@ -679,17 +726,57 @@
           "--chart-6": "#00a63e",
           "--chart-7": "#7f22fe",
           "--chart-8": "#c70036",
-          "--selection": "#ffffff1d"
+          "--selection": "#8cf9ff2c"
         }
       },
       "record": {
-        "adjustments": [],
+        "adjustments": [
+          {
+            "step": 9,
+            "obligation": "in-band",
+            "from": "#88c0d0",
+            "to": "#86bece",
+            "reason": "Moved into the light lightness band, which is the range a fill, a chart slot and the brand already answer to in this system — outside it the rest of the checks would refuse the value.",
+            "deltaE": 0.6273956422629513,
+            "lightness": -0.006273612465956924,
+            "chroma": 0.00006357302968141437,
+            "hue": 0,
+            "ramp": "brand",
+            "mode": "light"
+          },
+          {
+            "step": 9,
+            "obligation": "visible-fill",
+            "from": "#86bece",
+            "to": "#6299a9",
+            "reason": "Moved away from the page until the fill reads as a shape at 3:1. A solid below that is barely visible as an object, which is what WCAG asks of a non-text element.",
+            "deltaE": 11.769924964911862,
+            "lightness": -0.117696404784847,
+            "chroma": 0.00026658963828590787,
+            "hue": 0,
+            "ramp": "brand",
+            "mode": "light"
+          },
+          {
+            "step": 9,
+            "obligation": "in-band",
+            "from": "#88c0d0",
+            "to": "#679eae",
+            "reason": "Moved into the dark lightness band, which is the range a fill, a chart slot and the brand already answer to in this system — outside it the rest of the checks would refuse the value.",
+            "deltaE": 10.77368961463869,
+            "lightness": -0.10773434611218069,
+            "chroma": 0.00019227045749204558,
+            "hue": 0,
+            "ramp": "brand",
+            "mode": "dark"
+          }
+        ],
         "relief": [
           {
             "step": 9,
             "id": "carries-identity",
             "wanted": 0.1,
-            "got": 2.0706701893915187e-8,
+            "got": 0.06257879369047468,
             "ramp": "brand",
             "mode": "light"
           },
@@ -697,7 +784,7 @@
             "step": 9,
             "id": "carries-identity",
             "wanted": 0.1,
-            "got": 2.0706701893915187e-8,
+            "got": 0.06244090147999941,
             "ramp": "brand",
             "mode": "dark"
           }
@@ -710,7 +797,7 @@
             "against": "--background",
             "kind": "gate",
             "wanted": 3,
-            "got": 18.36490146542823,
+            "got": 3.02240604405704,
             "ok": true,
             "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
           },
@@ -721,7 +808,7 @@
             "against": "--background",
             "kind": "gate",
             "wanted": 3,
-            "got": 4.542848413958314,
+            "got": 3.02240604405704,
             "ok": true,
             "reason": "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component. `--ring` comes from the brand ramp, so on the neutral page this is a new measurement."
           },
@@ -732,7 +819,7 @@
             "against": "--popover",
             "kind": "gate",
             "wanted": 3,
-            "got": 4.542848413958314,
+            "got": 3.02240604405704,
             "ok": true,
             "reason": "A focus ring on a raised surface. In dark the popover sits two steps up the neutral ramp, so it is a different background from the page and 1.4.11 still applies."
           },
@@ -743,7 +830,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 2.1244366668471875,
+            "got": 2.1218739830934084,
             "ok": false,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -754,7 +841,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 6.0080606689138785,
+            "got": 6.000813213761076,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -765,7 +852,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 2.278014912653454,
+            "got": 2.275266969211023,
             "ok": false,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -776,7 +863,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 3.604045852659484,
+            "got": 3.599698333197682,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -787,7 +874,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 3.5972702026440344,
+            "got": 3.592930856571671,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -798,7 +885,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 6.9917854263647765,
+            "got": 6.983351315241736,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -809,7 +896,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 4.724785269607146,
+            "got": 4.719085814951957,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -820,7 +907,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 3.4666668669774086,
+            "got": 3.462485066221281,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -831,7 +918,7 @@
             "against": "--background",
             "kind": "gate",
             "wanted": 3,
-            "got": 17.21792339864869,
+            "got": 6.675830753162117,
             "ok": true,
             "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
           },
@@ -842,7 +929,7 @@
             "against": "--background",
             "kind": "gate",
             "wanted": 3,
-            "got": 4.175355408197547,
+            "got": 4.255885478214129,
             "ok": true,
             "reason": "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component. `--ring` comes from the brand ramp, so on the neutral page this is a new measurement."
           },
@@ -853,7 +940,7 @@
             "against": "--popover",
             "kind": "gate",
             "wanted": 3,
-            "got": 3.885244443460461,
+            "got": 4.025855416870507,
             "ok": true,
             "reason": "A focus ring on a raised surface. In dark the popover sits two steps up the neutral ramp, so it is a different background from the page and 1.4.11 still applies."
           },
@@ -864,7 +951,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 5.586568161041031,
+            "got": 5.5884893745487965,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -875,7 +962,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 4.0145753958083334,
+            "got": 4.015956003053431,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -886,7 +973,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 5.471540076298338,
+            "got": 5.473421731797715,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -897,7 +984,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 5.501539741277353,
+            "got": 5.5034317136224065,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -908,7 +995,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 5.262975963484396,
+            "got": 5.264785894057266,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -919,7 +1006,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 6.150668604073919,
+            "got": 6.152783810988666,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -930,7 +1017,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 3.3584891715526224,
+            "got": 3.359644151600493,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -941,7 +1028,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 3.282429930180224,
+            "got": 3.2835587535541397,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           }
@@ -949,30 +1036,30 @@
       }
     }
   ],
-  "defaultIdentity": "kanzo",
+  "defaultIdentity": "nord",
   "roles": {
     "light": {
-      "--background": "#fafafa",
-      "--foreground": "#0f0f0f",
-      "--card": "#fafafa",
-      "--card-foreground": "#0f0f0f",
-      "--popover": "#fafafa",
-      "--popover-foreground": "#0f0f0f",
-      "--muted": "#efefef",
-      "--muted-foreground": "#454545",
-      "--faint": "#6a6a6a",
-      "--secondary": "#e6e6e6",
-      "--secondary-foreground": "#0f0f0f",
-      "--accent": "#d9d9d9",
-      "--accent-foreground": "#0f0f0f",
-      "--border": "#c9c9c9",
-      "--input": "#737373",
-      "--field": "#00000008",
-      "--secondary-wash": "#00000011",
-      "--accent-wash": "#0000001f",
-      "--primary": "#0f0f0f",
-      "--primary-foreground": "#fafafa",
-      "--ring": "#737373",
+      "--background": "#f9fafb",
+      "--foreground": "#0c1017",
+      "--card": "#f9fafb",
+      "--card-foreground": "#0c1017",
+      "--popover": "#f9fafb",
+      "--popover-foreground": "#0c1017",
+      "--muted": "#ebedf1",
+      "--muted-foreground": "#2e3646",
+      "--faint": "#444e61",
+      "--secondary": "#dde1e8",
+      "--secondary-foreground": "#0c1017",
+      "--accent": "#cdd2db",
+      "--accent-foreground": "#0c1017",
+      "--border": "#b8bdc8",
+      "--input": "#798191",
+      "--field": "#0000000a",
+      "--secondary-wash": "#00002817",
+      "--accent-wash": "#00002f28",
+      "--primary": "#6299a9",
+      "--primary-foreground": "#001016",
+      "--ring": "#6299a9",
       "--destructive": "#e7000b",
       "--destructive-foreground": "#8d0003",
       "--destructive-content": "#fef9f8",
@@ -997,14 +1084,14 @@
       "--info-wash": "#0000ff0a",
       "--info-wash-strong": "#002eff19",
       "--info-border": "#0046ff47",
-      "--sidebar": "#fafafa",
-      "--sidebar-foreground": "#454545",
-      "--sidebar-primary": "#0f0f0f",
-      "--sidebar-primary-foreground": "#fafafa",
-      "--sidebar-accent": "#d9d9d9",
-      "--sidebar-accent-foreground": "#0f0f0f",
-      "--sidebar-border": "#c9c9c9",
-      "--sidebar-ring": "#737373",
+      "--sidebar": "#f9fafb",
+      "--sidebar-foreground": "#2e3646",
+      "--sidebar-primary": "#6299a9",
+      "--sidebar-primary-foreground": "#001016",
+      "--sidebar-accent": "#cdd2db",
+      "--sidebar-accent-foreground": "#0c1017",
+      "--sidebar-border": "#b8bdc8",
+      "--sidebar-ring": "#6299a9",
       "--chart-1": "#00c950",
       "--chart-2": "#a800b7",
       "--chart-3": "#ff8904",
@@ -1013,11 +1100,11 @@
       "--chart-6": "#7008e7",
       "--chart-7": "#a65f00",
       "--chart-8": "#0092b8",
-      "--selection": "#0000001f",
+      "--selection": "#00658a24",
       "--match": "#ff4f0030",
       "--match-active": "#e4520094",
-      "--kanzo-editor-active-line": "#efefef",
-      "--kanzo-gutter-bg": "#f7f7f7",
+      "--kanzo-editor-active-line": "#ebedf1",
+      "--kanzo-gutter-bg": "#f5f6f8",
       "--kanzo-syntax-keyword": "#8200db",
       "--kanzo-syntax-string": "#007a55",
       "--kanzo-syntax-number": "#ca3500",
@@ -1033,27 +1120,27 @@
       "--kanzo-syntax-invalid": "#c70036"
     },
     "dark": {
-      "--background": "#0a0a0a",
-      "--foreground": "#efefef",
-      "--card": "#0d0d0d",
-      "--card-foreground": "#efefef",
-      "--popover": "#141414",
-      "--popover-foreground": "#efefef",
-      "--muted": "#141414",
-      "--muted-foreground": "#aaaaaa",
-      "--faint": "#7c7c7c",
-      "--secondary": "#1d1d1d",
-      "--secondary-foreground": "#efefef",
-      "--accent": "#282828",
-      "--accent-foreground": "#efefef",
-      "--border": "#353535",
-      "--input": "#737373",
-      "--field": "#0a0a0a",
-      "--secondary-wash": "#ffffff12",
-      "--accent-wash": "#ffffff1d",
-      "--primary": "#efefef",
-      "--primary-foreground": "#0a0a0a",
-      "--ring": "#737373",
+      "--background": "#090a0c",
+      "--foreground": "#edf1fb",
+      "--card": "#0b0c0e",
+      "--card-foreground": "#edf1fb",
+      "--popover": "#101217",
+      "--popover-foreground": "#edf1fb",
+      "--muted": "#101217",
+      "--muted-foreground": "#959fb2",
+      "--faint": "#5d677b",
+      "--secondary": "#161921",
+      "--secondary-foreground": "#edf1fb",
+      "--accent": "#1e222b",
+      "--accent-foreground": "#edf1fb",
+      "--border": "#282d36",
+      "--input": "#545e73",
+      "--field": "#090a0c",
+      "--secondary-wash": "#c1dfff12",
+      "--accent-wash": "#cfedff1b",
+      "--primary": "#679eae",
+      "--primary-foreground": "#070b0c",
+      "--ring": "#567a84",
       "--destructive": "#e7000b",
       "--destructive-foreground": "#ff8677",
       "--destructive-content": "#ffffff",
@@ -1078,14 +1165,14 @@
       "--info-wash": "#003dff1e",
       "--info-wash-strong": "#003cff38",
       "--info-border": "#1763ff64",
-      "--sidebar": "#141414",
-      "--sidebar-foreground": "#aaaaaa",
-      "--sidebar-primary": "#efefef",
-      "--sidebar-primary-foreground": "#0a0a0a",
-      "--sidebar-accent": "#282828",
-      "--sidebar-accent-foreground": "#efefef",
-      "--sidebar-border": "#353535",
-      "--sidebar-ring": "#737373",
+      "--sidebar": "#101217",
+      "--sidebar-foreground": "#959fb2",
+      "--sidebar-primary": "#679eae",
+      "--sidebar-primary-foreground": "#070b0c",
+      "--sidebar-accent": "#1e222b",
+      "--sidebar-accent-foreground": "#edf1fb",
+      "--sidebar-border": "#282d36",
+      "--sidebar-ring": "#567a84",
       "--chart-1": "#e12afb",
       "--chart-2": "#a65f00",
       "--chart-3": "#0092b8",
@@ -1094,11 +1181,11 @@
       "--chart-6": "#00a63e",
       "--chart-7": "#7f22fe",
       "--chart-8": "#c70036",
-      "--selection": "#ffffff1d",
+      "--selection": "#8cf9ff2c",
       "--match": "#ff77003e",
       "--match-active": "#ff933d9c",
-      "--kanzo-editor-active-line": "#141414",
-      "--kanzo-gutter-bg": "#0d0d0d",
+      "--kanzo-editor-active-line": "#101217",
+      "--kanzo-gutter-bg": "#0b0c0e",
       "--kanzo-syntax-keyword": "#c27aff",
       "--kanzo-syntax-string": "#00d492",
       "--kanzo-syntax-number": "#ff8904",
@@ -1115,13 +1202,27 @@
     }
   },
   "record": {
-    "adjustments": [],
+    "adjustments": [
+      {
+        "step": 9,
+        "obligation": "in-band",
+        "from": "#4c566a",
+        "to": "#545e73",
+        "reason": "Moved into the dark lightness band, which is the range a fill, a chart slot and the brand already answer to in this system — outside it the rest of the checks would refuse the value.",
+        "deltaE": 2.9114714253675835,
+        "lightness": 0.029093652129779046,
+        "chroma": 0.0009557007833918343,
+        "hue": 0,
+        "ramp": "neutral",
+        "mode": "dark"
+      }
+    ],
     "relief": [
       {
         "step": 9,
         "id": "carries-identity",
         "wanted": 0.1,
-        "got": 2.0706701893915187e-8,
+        "got": 0.03521368325749211,
         "ramp": "neutral",
         "mode": "light"
       },
@@ -1129,7 +1230,7 @@
         "step": 9,
         "id": "carries-identity",
         "wanted": 0.1,
-        "got": 2.0706701893915187e-8,
+        "got": 0.03616938404088394,
         "ramp": "neutral",
         "mode": "dark"
       }
@@ -1142,7 +1243,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 3,
-        "got": 4.569887857534158,
+        "got": 4.564375253862863,
         "ok": true,
         "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
       },
@@ -1153,7 +1254,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 3,
-        "got": 3.0653278613897688,
+        "got": 3.0616301913048107,
         "ok": true,
         "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
       },
@@ -1164,7 +1265,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 3,
-        "got": 3.500039083842122,
+        "got": 3.4958170265609017,
         "ok": true,
         "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
       },
@@ -1175,7 +1276,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 3,
-        "got": 5.025744155156122,
+        "got": 5.019681657225232,
         "ok": true,
         "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
       },
@@ -1186,7 +1287,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 9.428677297195167,
+        "got": 9.41730359116466,
         "ok": true,
         "reason": "The readable-on-the-page variant of a status hue is text — error text, an invalid ring, a destructive menu item — so it owes WCAG AA on the tenant's page."
       },
@@ -1197,7 +1298,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 7.411945604324165,
+        "got": 7.403004658764097,
         "ok": true,
         "reason": "The readable-on-the-page variant of a status hue is text — error text, an invalid ring, a destructive menu item — so it owes WCAG AA on the tenant's page."
       },
@@ -1208,7 +1309,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 7.860433178924881,
+        "got": 7.850951227911867,
         "ok": true,
         "reason": "The readable-on-the-page variant of a status hue is text — error text, an invalid ring, a destructive menu item — so it owes WCAG AA on the tenant's page."
       },
@@ -1219,7 +1320,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 9.988590002643502,
+        "got": 9.976540880293848,
         "ok": true,
         "reason": "The readable-on-the-page variant of a status hue is text — error text, an invalid ring, a destructive menu item — so it owes WCAG AA on the tenant's page."
       },
@@ -1230,7 +1331,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 3,
-        "got": 4.542848413958314,
+        "got": 3.747734142882983,
         "ok": true,
         "reason": "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component."
       },
@@ -1241,7 +1342,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 6.769536192866958,
+        "got": 6.7613701784628555,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1252,7 +1353,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 5.139086647264219,
+        "got": 5.132887425576075,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1263,7 +1364,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 5.00415476905174,
+        "got": 4.998118314151404,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1274,7 +1375,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 5.00415476905174,
+        "got": 4.998118314151404,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1285,7 +1386,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 4.542848413958314,
+        "got": 4.537368427659825,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1296,7 +1397,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 4.724785269607146,
+        "got": 4.719085814951957,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1307,7 +1408,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 6.545738763718676,
+        "got": 6.537842713604291,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1318,7 +1419,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 5.057046950620386,
+        "got": 5.050946692483867,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1329,7 +1430,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 6.151689999397434,
+        "got": 6.144269285819215,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1340,7 +1441,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 14.498978405673947,
+        "got": 14.481488453167264,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1351,7 +1452,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 7.486245829447108,
+        "got": 7.477215256371757,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1362,7 +1463,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 6.545738763718676,
+        "got": 6.537842713604291,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1373,7 +1474,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 5.778647860672243,
+        "got": 5.771677143577,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1384,7 +1485,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 3,
-        "got": 4.15065036280285,
+        "got": 4.152077766051707,
         "ok": true,
         "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
       },
@@ -1395,7 +1496,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 3,
-        "got": 6.187921015810266,
+        "got": 6.190049033780846,
         "ok": true,
         "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
       },
@@ -1406,7 +1507,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 3,
-        "got": 5.419369966869231,
+        "got": 5.421233681135985,
         "ok": true,
         "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
       },
@@ -1417,7 +1518,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 3,
-        "got": 3.774168781429595,
+        "got": 3.7754667131534103,
         "ok": true,
         "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
       },
@@ -1428,7 +1529,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 8.417436939196016,
+        "got": 8.420331684786184,
         "ok": true,
         "reason": "The readable-on-the-page variant of a status hue is text — error text, an invalid ring, a destructive menu item — so it owes WCAG AA on the tenant's page."
       },
@@ -1439,7 +1540,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 9.99726429361604,
+        "got": 10.000702339773884,
         "ok": true,
         "reason": "The readable-on-the-page variant of a status hue is text — error text, an invalid ring, a destructive menu item — so it owes WCAG AA on the tenant's page."
       },
@@ -1450,7 +1551,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 9.785559093572486,
+        "got": 9.78892433458802,
         "ok": true,
         "reason": "The readable-on-the-page variant of a status hue is text — error text, an invalid ring, a destructive menu item — so it owes WCAG AA on the tenant's page."
       },
@@ -1461,7 +1562,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 8.295424595011399,
+        "got": 8.298277380715462,
         "ok": true,
         "reason": "The readable-on-the-page variant of a status hue is text — error text, an invalid ring, a destructive menu item — so it owes WCAG AA on the tenant's page."
       },
@@ -1472,7 +1573,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 3,
-        "got": 4.175355408197547,
+        "got": 3.042046586936102,
         "ok": true,
         "reason": "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component."
       },
@@ -1483,7 +1584,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 7.091205774239949,
+        "got": 7.093644430661404,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1494,7 +1595,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 10.212503857946242,
+        "got": 10.216015924709666,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1505,7 +1606,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 8.326550712413193,
+        "got": 8.329414202348453,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1516,7 +1617,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 8.326550712413193,
+        "got": 8.329414202348453,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1527,7 +1628,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 7.662827876742547,
+        "got": 7.665463113259869,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1538,7 +1639,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 12.582097670173061,
+        "got": 12.586424637159437,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1549,7 +1650,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 7.506323879784945,
+        "got": 7.508905294781736,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1560,7 +1661,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 10.935993401991434,
+        "got": 10.939754275865893,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1571,7 +1672,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 6.854611215825697,
+        "got": 6.856968507686945,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1582,7 +1683,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 18.159588039824865,
+        "got": 18.16583309847838,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1593,7 +1694,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 13.3566741430142,
+        "got": 13.361267485839825,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1604,7 +1705,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 7.506323879784945,
+        "got": 7.508905294781736,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
@@ -1615,7 +1716,7 @@
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 6.918045049684447,
+        "got": 6.9204241563584645,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       }
