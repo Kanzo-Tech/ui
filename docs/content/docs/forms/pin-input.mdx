@@ -47,4 +47,5 @@ No props beyond Ark's, plus a `size` (`sm` · `md` · `lg`) on `PinInputInput` m
 `PinInput` extends `PinInput.Root` (`value`, `defaultValue`, `onValueChange`, `otp`, `mask`,
 `type` — `numeric` · `alphanumeric` · `alphabetic`, `placeholder`, `disabled`, `invalid`,
 `readOnly`, `required`, `blurOnComplete`, `name`, `form`), and each `PinInputInput` takes the
-`index` of the cell it renders. `usePinInput` exposes the machine context for controlled state.
+`index` of the cell it renders. For controlled state from inside the tree, import
+`usePinInputContext` from `@ark-ui/react`.

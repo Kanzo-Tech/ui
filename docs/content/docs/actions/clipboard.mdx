@@ -17,7 +17,6 @@ import {
   ClipboardInput,
   ClipboardLabel,
   ClipboardTrigger,
-  useClipboard,
 } from "@kanzo-tech/ui";
 ```
 
@@ -36,8 +35,8 @@ is just an empty `<ClipboardTrigger />`.
 </Clipboard>
 ```
 
-Everything below the root reads its state through context; `useClipboard` (Ark's
-`useClipboardContext`) exposes `copied` and `copy()` for a bespoke trigger.
+Everything below the root reads its state through context; for a bespoke trigger, import
+`useClipboardContext` from `@ark-ui/react` — it exposes `copied` and `copy()`.
 
 ## Anatomy
 

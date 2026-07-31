@@ -50,5 +50,6 @@ so the fade doubles as the "there is more above/below" signal.
 | --- | --- | --- |
 | `scrollFade` | `boolean` | `false` |
 
-Extends Ark's `ScrollArea.Root`. `useScrollArea` re-exports Ark's `useScrollAreaContext`, and
-`ScrollAreaScrollbar` is exported for the rare case you need to place one yourself.
+Extends Ark's `ScrollArea.Root`, and the machine context is Ark's too — import
+`useScrollAreaContext` from `@ark-ui/react`. The root is the only export: the scrollbars, the
+viewport and the corner are internal, and `ScrollArea` renders all of them.
