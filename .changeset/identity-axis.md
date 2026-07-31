@@ -63,17 +63,17 @@ be told on every render.
 ### New exports
 
 `@kanzo-tech/theme`: the type `KanzoIdentity` (open, the `KanzoFont` case — a host's string, and no
-literals to union with because every value is a client's) and the interface `IdentityOption`
-(`value` / `label` / `swatches: Record<ResolvedAppearance, string[]>`).
+literals to union with because every value is a client's) and the interface `SwatchOption`
+(`value` / `label` / `swatches: Record<Appearance, string[]>`), which both published axes share.
 
-`IdentityOption` is declared fresh rather than imported, the second deliberate re-declaration after
+`SwatchOption` is declared fresh rather than imported, the second deliberate re-declaration after
 `CHART_SLOTS`. The document's own `Identity` carries `brand`, `ramp`, `categorical` and `record`,
 and a browser has no use for any of them; `boundary.test.ts` keeps `@kanzo-tech/palette` out of the
 runtime graph with a *text* match, so even `import type` fails, and rightly. A new guard there holds
 the narrowing to its three fields, because a narrowing that quietly grows back toward its source has
 stopped being one.
 
-`KanzoThemeProvider` takes `identities`, `defaultIdentity` and `onIdentityRetired`; `useKanzoTheme`
-returns `identities`, `defaultIdentity`, `resolvedIdentity` and `retiredIdentity` alongside the
-`identity` preference. The preference/resolved split mirrors `appearance` / `resolvedAppearance`: an
+`KanzoThemeProvider` takes `onIdentityRetired`; `useKanzoTheme` returns `identities`,
+`defaultIdentity`, `resolvedIdentity` and `retiredIdentity` alongside the `identity` preference. The
+identities themselves are the selected palette's `children` rather than a prop of their own. The preference/resolved split mirrors `appearance` / `resolvedAppearance`: an
 empty preference is not a value, it is a deferral to the document.
