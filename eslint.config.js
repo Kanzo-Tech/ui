@@ -20,9 +20,17 @@ export default tseslint.config(
   },
   {
     // Node build scripts (e.g. the theme generator) run under Node, not the browser.
+    // `fetch` is a Node global from 18 and `package.json` requires >=20, so a script that talks to
+    // a network (`packages/ui/scripts/refresh-shark-surface.mjs`) needs no import for it.
     files: ["**/scripts/*.mjs"],
     languageOptions: {
-      globals: { console: "readonly", process: "readonly", URL: "readonly", Buffer: "readonly" },
+      globals: {
+        console: "readonly",
+        process: "readonly",
+        URL: "readonly",
+        Buffer: "readonly",
+        fetch: "readonly",
+      },
     },
   },
   {

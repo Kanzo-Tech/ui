@@ -1,0 +1,848 @@
+{
+  "//": "GENERATED — node packages/ui/scripts/refresh-shark-surface.mjs. Do not hand-edit; a hand-added name is a parity claim nobody can check.",
+  "repo": "sharkui-inc/shark-ui",
+  "ref": "main",
+  "commit": "de39e6c4b35fe969e60f3d33b3787e18067f6bcd",
+  "source": "https://raw.githubusercontent.com/sharkui-inc/shark-ui/main/registry/react/components",
+  "fetchedAt": "2026-07-31",
+  "counts": {
+    "components": 95,
+    "exampleDirs": 95,
+    "names": 643
+  },
+  "components": {
+    "accordion": [
+      "Accordion",
+      "AccordionContent",
+      "AccordionItem",
+      "AccordionTrigger",
+      "useAccordion"
+    ],
+    "action-bar": [
+      "ActionBar",
+      "ActionBarBody",
+      "ActionBarClose",
+      "ActionBarContent",
+      "ActionBarSeparator",
+      "ActionBarTrigger",
+      "ActionBarValue"
+    ],
+    "alert": [
+      "Alert",
+      "AlertAction",
+      "AlertDescription",
+      "AlertTitle",
+      "alertVariants"
+    ],
+    "alert-dialog": [
+      "AlertDialog",
+      "AlertDialogAction",
+      "AlertDialogBody",
+      "AlertDialogCancel",
+      "AlertDialogClose",
+      "AlertDialogContent",
+      "AlertDialogDescription",
+      "AlertDialogFooter",
+      "AlertDialogHeader",
+      "AlertDialogTitle",
+      "AlertDialogTrigger"
+    ],
+    "announcement": [
+      "Announcement",
+      "AnnouncementTitle",
+      "announcementVariants"
+    ],
+    "aspect-ratio": [
+      "AspectRatio"
+    ],
+    "autocomplete": [
+      "Autocomplete",
+      "AutocompleteClear",
+      "AutocompleteCollection",
+      "AutocompleteContent",
+      "AutocompleteControl",
+      "AutocompleteEmpty",
+      "AutocompleteGroup",
+      "AutocompleteGroupLabel",
+      "AutocompleteInput",
+      "AutocompleteItem",
+      "AutocompleteList",
+      "AutocompleteSeparator",
+      "AutocompleteTrigger"
+    ],
+    "avatar": [
+      "Avatar",
+      "AvatarBadge",
+      "AvatarFallback",
+      "AvatarGroup",
+      "AvatarGroupCount",
+      "AvatarImage",
+      "useAvatar"
+    ],
+    "badge": [
+      "Badge",
+      "badgeVariants"
+    ],
+    "bottom-navigation": [
+      "BottomNavigation",
+      "BottomNavigationItem",
+      "BottomNavigationItemIcon",
+      "BottomNavigationItemLabel",
+      "BottomNavigationList"
+    ],
+    "breadcrumb": [
+      "Breadcrumb",
+      "BreadcrumbEllipsis",
+      "BreadcrumbItem",
+      "BreadcrumbLink",
+      "BreadcrumbList",
+      "BreadcrumbPage",
+      "BreadcrumbSeparator"
+    ],
+    "button": [
+      "Button",
+      "buttonVariants"
+    ],
+    "button-group": [
+      "ButtonGroup",
+      "ButtonGroupSeparator",
+      "ButtonGroupText"
+    ],
+    "calendar": [
+      "Calendar",
+      "CalendarClearTrigger",
+      "CalendarContext",
+      "CalendarControl",
+      "CalendarLabel",
+      "CalendarMonthSelect",
+      "CalendarNextTrigger",
+      "CalendarPresetTrigger",
+      "CalendarPrevTrigger",
+      "CalendarTable",
+      "CalendarTableBody",
+      "CalendarTableCell",
+      "CalendarTableDays",
+      "CalendarTableHead",
+      "CalendarTableHeader",
+      "CalendarTableNextMonth",
+      "CalendarTableRow",
+      "CalendarTodayTrigger",
+      "CalendarTrigger",
+      "CalendarView",
+      "CalendarViewControl",
+      "CalendarViewDate",
+      "CalendarWeekDays",
+      "CalendarYearSelect"
+    ],
+    "card": [
+      "Card",
+      "CardAction",
+      "CardContent",
+      "CardDescription",
+      "CardFooter",
+      "CardHeader",
+      "CardMedia",
+      "CardTitle"
+    ],
+    "carousel": [
+      "Carousel",
+      "CarouselContent",
+      "CarouselControl",
+      "CarouselIndicator",
+      "CarouselIndicatorGroup",
+      "CarouselItem",
+      "CarouselNext",
+      "CarouselPrevious",
+      "useCarousel"
+    ],
+    "chart": [
+      "ChartContainer",
+      "ChartLegend",
+      "ChartLegendContent",
+      "ChartStyle",
+      "ChartTooltip",
+      "ChartTooltipContent",
+      "_useChart"
+    ],
+    "checkbox": [
+      "Checkbox",
+      "CheckboxGroup",
+      "CheckboxIndicator",
+      "checkboxVariants",
+      "useCheckbox"
+    ],
+    "circular-progress": [
+      "CircularProgress",
+      "CircularProgressTrack",
+      "CircularProgressValue",
+      "useCircularProgress"
+    ],
+    "circular-slider": [
+      "CircularSlider",
+      "CircularSliderMarker",
+      "CircularSliderMarkerGroup",
+      "CircularSliderThumb",
+      "CircularSliderValue",
+      "useCircularSlider"
+    ],
+    "client-only": [
+      "ClientOnly"
+    ],
+    "clipboard": [
+      "Clipboard",
+      "ClipboardIndicator",
+      "ClipboardInput",
+      "ClipboardTrigger",
+      "ClipboardValue",
+      "useClipboard"
+    ],
+    "collapsible": [
+      "Collapsible",
+      "CollapsibleContent",
+      "CollapsibleIndicator",
+      "CollapsibleTrigger",
+      "useCollapsible"
+    ],
+    "color-picker": [
+      "ColorPicker",
+      "ColorPickerArea",
+      "ColorPickerAreaThumb",
+      "ColorPickerContent",
+      "ColorPickerControl",
+      "ColorPickerEyeDropperTrigger",
+      "ColorPickerInput",
+      "ColorPickerSlider",
+      "ColorPickerSwatch",
+      "ColorPickerSwatchGroup",
+      "ColorPickerSwatchIndicator",
+      "ColorPickerSwatchPreview",
+      "ColorPickerSwatchTrigger",
+      "ColorPickerTransparencyGrid",
+      "ColorPickerTrigger",
+      "ColorPickerValue",
+      "ColorPickerValueSwatch",
+      "ColorPickerView",
+      "parseColor",
+      "useColorPicker"
+    ],
+    "combobox": [
+      "Combobox",
+      "ComboboxClear",
+      "ComboboxContent",
+      "ComboboxContext",
+      "ComboboxControl",
+      "ComboboxEmpty",
+      "ComboboxFieldInput",
+      "ComboboxGroup",
+      "ComboboxGroupLabel",
+      "ComboboxInput",
+      "ComboboxItem",
+      "ComboboxList",
+      "ComboboxPositioner",
+      "ComboboxTrigger",
+      "comboboxItemVariants",
+      "useCombobox"
+    ],
+    "command": [
+      "Command",
+      "CommandContent",
+      "CommandDialog",
+      "CommandDialogContent",
+      "CommandDialogTrigger",
+      "CommandEmpty",
+      "CommandFooter",
+      "CommandGroup",
+      "CommandGroupLabel",
+      "CommandInput",
+      "CommandItem",
+      "CommandList",
+      "CommandSeparator",
+      "CommandShortcut"
+    ],
+    "context-menu": [
+      "ContextMenu",
+      "ContextMenuContent",
+      "ContextMenuGroup",
+      "ContextMenuItem",
+      "ContextMenuSeparator",
+      "ContextMenuShortcut",
+      "ContextMenuSub",
+      "ContextMenuSubContent",
+      "ContextMenuSubTrigger",
+      "ContextMenuTrigger",
+      "useContextMenu"
+    ],
+    "data-list": [
+      "DataList",
+      "DataListItem",
+      "DataListItemLabel",
+      "DataListItemValue"
+    ],
+    "date-input": [
+      "DateInput",
+      "useDateInput",
+      "useDateInputContext"
+    ],
+    "date-picker": [
+      "DatePicker",
+      "DatePickerContent",
+      "DatePickerInput",
+      "DatePickerPresetTrigger",
+      "DatePickerTimer",
+      "DatePickerTrigger",
+      "DatePickerValue",
+      "useDatePicker"
+    ],
+    "dialog": [
+      "Dialog",
+      "DialogBody",
+      "DialogClose",
+      "DialogContent",
+      "DialogDescription",
+      "DialogFooter",
+      "DialogHeader",
+      "DialogOverlay",
+      "DialogPositioner",
+      "DialogTitle",
+      "DialogTrigger",
+      "dialogContentVariants",
+      "dialogOverlayVariants",
+      "useDialog"
+    ],
+    "download-trigger": [
+      "DownloadTrigger"
+    ],
+    "drawer": [
+      "Drawer",
+      "DrawerBody",
+      "DrawerClose",
+      "DrawerContent",
+      "DrawerDescription",
+      "DrawerFooter",
+      "DrawerGrabber",
+      "DrawerHeader",
+      "DrawerOverlay",
+      "DrawerPositioner",
+      "DrawerProvider",
+      "DrawerTitle",
+      "DrawerTrigger",
+      "useDrawer"
+    ],
+    "editable": [
+      "Editable",
+      "EditableArea",
+      "EditableCancelTrigger",
+      "EditableControl",
+      "EditableEditTrigger",
+      "EditableInput",
+      "EditablePreview",
+      "EditableSubmitTrigger",
+      "useEditable"
+    ],
+    "field": [
+      "Field",
+      "FieldContent",
+      "FieldDescription",
+      "FieldError",
+      "FieldGroup",
+      "FieldHelper",
+      "FieldLabel",
+      "FieldLegend",
+      "FieldRequiredIndicator",
+      "FieldSeparator",
+      "FieldSet",
+      "FieldTitle",
+      "useField"
+    ],
+    "file-upload": [
+      "FileUpload",
+      "FileUploadClearTrigger",
+      "FileUploadDescription",
+      "FileUploadDropzone",
+      "FileUploadDropzoneIcon",
+      "FileUploadHelper",
+      "FileUploadItem",
+      "FileUploadItemDeleteTrigger",
+      "FileUploadItemGroup",
+      "FileUploadItemName",
+      "FileUploadItemPreview",
+      "FileUploadItemPreviewImage",
+      "FileUploadItemSize",
+      "FileUploadList",
+      "FileUploadRootProvider",
+      "FileUploadTitle",
+      "FileUploadTrigger",
+      "useFileUpload"
+    ],
+    "float": [
+      "Float"
+    ],
+    "floating-panel": [
+      "FloatingPanel",
+      "FloatingPanelBody",
+      "FloatingPanelCloseTrigger",
+      "FloatingPanelContent",
+      "FloatingPanelControl",
+      "FloatingPanelDragTrigger",
+      "FloatingPanelFooter",
+      "FloatingPanelHeader",
+      "FloatingPanelMaximize",
+      "FloatingPanelMinimize",
+      "FloatingPanelResizeTrigger",
+      "FloatingPanelRestore",
+      "FloatingPanelStageTrigger",
+      "FloatingPanelTitle",
+      "FloatingPanelTrigger",
+      "useFloatingPanel"
+    ],
+    "format": [
+      "FormatByte",
+      "FormatNumber",
+      "FormatRelativeTime"
+    ],
+    "frame": [
+      "Frame",
+      "FrameDescription",
+      "FrameFooter",
+      "FrameHeader",
+      "FramePanel",
+      "FrameTitle"
+    ],
+    "highlight": [
+      "Highlight",
+      "useHighlight"
+    ],
+    "hint": [
+      "Hint",
+      "HintArrow",
+      "HintContent",
+      "HintTrigger"
+    ],
+    "hover-card": [
+      "HoverCard",
+      "HoverCardArrow",
+      "HoverCardContent",
+      "HoverCardTrigger",
+      "useHoverCard"
+    ],
+    "image-cropper": [
+      "ImageCropper",
+      "ImageCropperGrid",
+      "ImageCropperHandle",
+      "ImageCropperImage",
+      "ImageCropperSelection",
+      "useImageCropper"
+    ],
+    "input": [
+      "Input",
+      "inputVariants"
+    ],
+    "input-group": [
+      "InputGroup",
+      "InputGroupAddon",
+      "InputGroupButton",
+      "InputGroupInput",
+      "InputGroupText",
+      "InputGroupTextarea"
+    ],
+    "input-otp": [
+      "InputOTP",
+      "InputOTPSeparator",
+      "InputOTPSlot"
+    ],
+    "item": [
+      "Item",
+      "ItemActions",
+      "ItemContent",
+      "ItemDescription",
+      "ItemFooter",
+      "ItemGroup",
+      "ItemHeader",
+      "ItemMedia",
+      "ItemSeparator",
+      "ItemTitle"
+    ],
+    "json-tree-view": [
+      "JsonTreeView"
+    ],
+    "kbd": [
+      "Kbd",
+      "KbdGroup"
+    ],
+    "link-overlay": [
+      "LinkBox",
+      "LinkOverlay"
+    ],
+    "listbox": [
+      "Listbox",
+      "ListboxContent",
+      "ListboxEmpty",
+      "ListboxItem",
+      "ListboxItemGroup",
+      "ListboxItemGroupLabel",
+      "ListboxItemIndicator",
+      "ListboxItemText",
+      "ListboxShortcut",
+      "ListboxValueText",
+      "useListbox"
+    ],
+    "locale": [
+      "LocaleProvider",
+      "useLocale"
+    ],
+    "marquee": [
+      "Marquee",
+      "MarqueeContent",
+      "MarqueeEdge",
+      "MarqueeItem"
+    ],
+    "menu": [
+      "Menu",
+      "MenuArrow",
+      "MenuCheckboxItem",
+      "MenuContent",
+      "MenuGroup",
+      "MenuGroupLabel",
+      "MenuItem",
+      "MenuPositioner",
+      "MenuQuickItem",
+      "MenuRadioGroup",
+      "MenuRadioItem",
+      "MenuSeparator",
+      "MenuShortcut",
+      "MenuSub",
+      "MenuSubContent",
+      "MenuSubTrigger",
+      "MenuTrigger",
+      "menuContentVariants",
+      "useMenu"
+    ],
+    "native-select": [
+      "NativeSelect",
+      "NativeSelectOptGroup",
+      "NativeSelectOption",
+      "nativeSelectVariants"
+    ],
+    "number-input": [
+      "NumberInput",
+      "NumberInputDecrement",
+      "NumberInputGroup",
+      "NumberInputIncrement",
+      "NumberInputInput",
+      "NumberInputScrubber",
+      "useNumberInput"
+    ],
+    "pagination": [
+      "Pagination",
+      "PaginationEllipsis",
+      "PaginationItem",
+      "PaginationItemLink",
+      "PaginationItems",
+      "PaginationNext",
+      "PaginationPrevious",
+      "usePagination"
+    ],
+    "password-input": [
+      "PasswordInput",
+      "PasswordInputGroup",
+      "PasswordInputIndicator",
+      "PasswordInputInput",
+      "PasswordInputTrigger",
+      "usePasswordInput"
+    ],
+    "popover": [
+      "Popover",
+      "PopoverAnchor",
+      "PopoverArrow",
+      "PopoverBody",
+      "PopoverClose",
+      "PopoverContent",
+      "PopoverDescription",
+      "PopoverFooter",
+      "PopoverHeader",
+      "PopoverPositioner",
+      "PopoverTitle",
+      "PopoverTrigger",
+      "usePopover"
+    ],
+    "presence": [
+      "Presence"
+    ],
+    "progress": [
+      "Progress",
+      "ProgressRange",
+      "ProgressTrack",
+      "ProgressValue",
+      "useProgress"
+    ],
+    "prose": [
+      "Prose"
+    ],
+    "qr-code": [
+      "QrCode",
+      "QrCodeDownload",
+      "QrCodeFrame",
+      "QrCodeOverlay",
+      "useQrCode"
+    ],
+    "radio-group": [
+      "RadioGroup",
+      "RadioGroupItem",
+      "RadioGroupLabel",
+      "RadioGroupText",
+      "useRadioGroup"
+    ],
+    "rating": [
+      "Rating",
+      "RatingItem",
+      "useRating"
+    ],
+    "resizable": [
+      "Resizable",
+      "ResizablePanel",
+      "ResizableResizeTrigger",
+      "useResizable"
+    ],
+    "scroll-area": [
+      "ScrollArea",
+      "ScrollAreaScrollbar",
+      "useScrollArea"
+    ],
+    "segment-group": [
+      "SegmentGroup",
+      "SegmentGroupIndicator",
+      "SegmentGroupItem",
+      "SegmentGroupItemText",
+      "useSegmentGroup"
+    ],
+    "select": [
+      "Select",
+      "SelectClearTrigger",
+      "SelectContent",
+      "SelectContext",
+      "SelectEmpty",
+      "SelectGroup",
+      "SelectGroupLabel",
+      "SelectItem",
+      "SelectSeparator",
+      "SelectTrigger",
+      "SelectValue",
+      "useSelect"
+    ],
+    "separator": [
+      "Separator"
+    ],
+    "sheet": [
+      "Sheet",
+      "SheetBody",
+      "SheetClose",
+      "SheetContent",
+      "SheetDescription",
+      "SheetFooter",
+      "SheetHeader",
+      "SheetOverlay",
+      "SheetPositioner",
+      "SheetTitle",
+      "SheetTrigger",
+      "useSheet"
+    ],
+    "show": [
+      "Show"
+    ],
+    "sidebar": [
+      "Sidebar",
+      "SidebarContent",
+      "SidebarFooter",
+      "SidebarGroup",
+      "SidebarGroupAction",
+      "SidebarGroupContent",
+      "SidebarGroupLabel",
+      "SidebarHeader",
+      "SidebarInput",
+      "SidebarInset",
+      "SidebarMenu",
+      "SidebarMenuAction",
+      "SidebarMenuBadge",
+      "SidebarMenuButton",
+      "SidebarMenuItem",
+      "SidebarMenuSkeleton",
+      "SidebarMenuSub",
+      "SidebarMenuSubButton",
+      "SidebarMenuSubItem",
+      "SidebarProvider",
+      "SidebarRail",
+      "SidebarSeparator",
+      "SidebarTrigger",
+      "useSidebar"
+    ],
+    "signature-pad": [
+      "SignaturePad",
+      "useSignaturePad"
+    ],
+    "skeleton": [
+      "Skeleton",
+      "SkeletonCircle",
+      "SkeletonText"
+    ],
+    "skip-nav": [
+      "SkipNavContent",
+      "SkipNavLink"
+    ],
+    "slider": [
+      "Slider",
+      "SliderLabel",
+      "SliderValue",
+      "useSlider"
+    ],
+    "spinner": [
+      "Spinner"
+    ],
+    "status": [
+      "Status",
+      "statusVariants"
+    ],
+    "steps": [
+      "Steps",
+      "StepsCompletedContent",
+      "StepsContent",
+      "StepsDescription",
+      "StepsIndicator",
+      "StepsItem",
+      "StepsList",
+      "StepsNext",
+      "StepsPrevious",
+      "StepsSeparator",
+      "StepsTitle",
+      "StepsTrigger",
+      "useSteps"
+    ],
+    "swap": [
+      "Swap",
+      "SwapIndicator",
+      "useSwap"
+    ],
+    "switch": [
+      "Switch",
+      "useSwitch"
+    ],
+    "table": [
+      "Table",
+      "TableBody",
+      "TableCaption",
+      "TableCell",
+      "TableFooter",
+      "TableHead",
+      "TableHeader",
+      "TableRow"
+    ],
+    "tabs": [
+      "Tabs",
+      "TabsContent",
+      "TabsList",
+      "TabsTrigger",
+      "useTabs"
+    ],
+    "tags-input": [
+      "TagsInput",
+      "TagsInputClearTrigger",
+      "TagsInputContext",
+      "TagsInputControl",
+      "TagsInputInput",
+      "TagsInputItem",
+      "TagsInputItemDeleteTrigger",
+      "TagsInputItemInput",
+      "TagsInputItemPreview",
+      "TagsInputItemText",
+      "TagsInputRootProvider",
+      "useTagsInput",
+      "useTagsInputContext"
+    ],
+    "textarea": [
+      "Textarea"
+    ],
+    "timer": [
+      "Timer",
+      "TimerActionTrigger",
+      "TimerArea",
+      "TimerControl",
+      "TimerItem",
+      "TimerItemGroup",
+      "TimerItemLabel",
+      "TimerPause",
+      "TimerPlay",
+      "TimerReset",
+      "TimerRestart",
+      "TimerResume",
+      "TimerSeparator",
+      "TimerStart",
+      "remainingMsUntilDate",
+      "useTimer"
+    ],
+    "toast": [
+      "ToastItem",
+      "Toaster",
+      "toast",
+      "useToast"
+    ],
+    "toggle": [
+      "Toggle",
+      "ToggleIndicator",
+      "toggleVariants",
+      "useToggle"
+    ],
+    "toggle-group": [
+      "ToggleGroup",
+      "ToggleGroupItem",
+      "useToggleGroup"
+    ],
+    "toggle-tooltip": [
+      "ToggleTooltip",
+      "ToggleTooltipArrow",
+      "ToggleTooltipContent",
+      "ToggleTooltipTrigger"
+    ],
+    "tooltip": [
+      "Tooltip",
+      "TooltipArrow",
+      "TooltipContent",
+      "TooltipTrigger",
+      "useTooltip"
+    ],
+    "tour": [
+      "Tour",
+      "TourActionTrigger",
+      "TourActions",
+      "TourBody",
+      "TourClose",
+      "TourContent",
+      "TourDescription",
+      "TourFooter",
+      "TourHeader",
+      "TourNextStep",
+      "TourOverlay",
+      "TourPositioner",
+      "TourPreviousStep",
+      "TourProgressText",
+      "TourSpotlight",
+      "TourTitle",
+      "TourTrigger",
+      "useTourContext"
+    ],
+    "tree-view": [
+      "TreeView",
+      "TreeViewBranch",
+      "TreeViewBranchContent",
+      "TreeViewBranchIndicator",
+      "TreeViewBranchItem",
+      "TreeViewCheckbox",
+      "TreeViewContent",
+      "TreeViewItem",
+      "TreeViewLabel",
+      "TreeViewNode",
+      "TreeViewTree",
+      "createFileIcons",
+      "createTreeCollection",
+      "useTreeView"
+    ]
+  }
+}
