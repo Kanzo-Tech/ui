@@ -13,9 +13,11 @@
 // Pair with `cookieStorageAdapter(storageKey)` on the provider so client writes land where the
 // script (and the server) read from.
 //
-// It carries NO colour. The tenant is known at request time, so the server inlines the compiled
-// palette document as a static <style> in <head> — the colour maths is done before a byte is sent,
-// and there is no pairing table, no base tint and no primary override left to resolve here.
+// It carries no colour VALUE. The tenant is known at request time, so the server inlines the
+// compiled palette document as a static <style> in <head> — the colour maths is done before a byte
+// is sent, and there is no pairing table, no base tint and no primary override left to resolve
+// here. `data-identity` is the one colour-adjacent thing it writes, and it writes it as a string
+// off the axis table like any other: choosing among the blocks that document already contains.
 //
 // MANDATORY under SSR, not an optimisation. Skipping it costs more than a flash: any control
 // whose markup depends on the resolved theme (`AppearanceToggle`) renders one value on the
@@ -25,40 +27,40 @@
 // theme-script.test.ts runs both under one set of stubs and diffs `<html>`, because a divergence
 // here IS the FOUC and the hydration mismatch the script exists to prevent.
 //
-// Hosting a theme manager already? Point `appearanceKey` at ITS storage key — but note that the
-// provider reads the legacy key from `APPEARANCE_KEY` only, so a different key here means the two
-// disagree about a migrating user's preference. Prefer disabling the host's class writer instead.
+// Hosting a theme manager already? Disable its class writer rather than pointing this at its
+// storage: two owners of `.dark` fight over the same class, and the loser wins at random.
 
-import { APPEARANCE_KEY, AXES, STORAGE_KEY } from "./prefs-config.js";
+import { AXES, STORAGE_KEY } from "./prefs-config.js";
 
 export interface ThemeScriptOptions {
   /** Must match the provider's `storageKey` / the cookie adapter's key. */
   storageKey?: string;
-  /** The LEGACY standalone appearance key, read only when the prefs blob has no `appearance`. */
-  appearanceKey?: string;
 }
 
 /** Returns the IIFE source (a string) to inline before hydration. Safe to embed in HTML. */
-export function themeScript({ storageKey = STORAGE_KEY, appearanceKey = APPEARANCE_KEY }: ThemeScriptOptions = {}): string {
+export function themeScript({ storageKey = STORAGE_KEY }: ThemeScriptOptions = {}): string {
   // Only the serialisable axis map is needed at runtime.
   const axes = JSON.stringify(AXES.map((a) => [a.key, a.attr, a.def]));
   const sk = JSON.stringify(storageKey);
-  const ak = JSON.stringify(appearanceKey);
   return (
     "(function(){try{" +
     "var d=document.documentElement,P={};" +
     // cookie first (server-readable), then localStorage
     "try{var c=document.cookie.match(new RegExp('(?:^|; )'+" + sk + "+'=([^;]*)'));if(c&&c[1])P=JSON.parse(decodeURIComponent(c[1]));}catch(e){}" +
     "if(!P||!Object.keys(P).length){try{var s=localStorage.getItem(" + sk + ");if(s)P=JSON.parse(s);}catch(e){}}" +
-    // appearance PREFERENCE: the prefs blob, then the legacy standalone key (localStorage, then
-    // cookie). Reading only the blob resets every pre-migration user to `system`.
+    // The appearance PREFERENCE is one field of the blob and has no second home. Anything that is
+    // not an explicit side means "ask the OS" — which is why this line never changed when `"system"`
+    // was removed from the model. It was always the whole resolution; the third value only ever
+    // existed in the React half, and `null` needs no case of its own because it is not `'light'` and
+    // not `'dark'`.
     "var ap=P.appearance;" +
-    "if(ap==null){try{ap=localStorage.getItem(" + ak + ");}catch(e){}}" +
-    "if(ap==null){try{var ca=document.cookie.match(new RegExp('(?:^|; )'+" + ak + "+'=([^;]*)'));if(ca&&ca[1])ap=decodeURIComponent(ca[1]);}catch(e){}}" +
-    // anything that is not an explicit side means "ask the OS".
     "var W=(ap==='light'||ap==='dark')?ap:((window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light');" +
-    // the four non-colour axes
-    "var A=" + axes + ";for(var i=0;i<A.length;i++){var k=A[i][0],at=A[i][1],df=A[i][2],v=P[k];if(v==null||v===df){d.removeAttribute(at);}else{d.setAttribute(at,String(v));}}" +
+    // every axis, from the table itself. `data-identity` needs no case of its own and gets none:
+    // the stored id is written VERBATIM and never checked against what the tenant published,
+    // because an attribute selector with no matching rule is inert and the cascade falls through
+    // to `:root` — which is the default identity. Validating here would mean knowing the document,
+    // and the two sides would stop agreeing the moment they disagreed about it.
+    "var A=" + axes + ";for(var i=0;i<A.length;i++){var k=A[i][0],at=A[i][1],df=A[i][2],v=P[k];if(typeof v!=='string'||v===df){d.removeAttribute(at);}else{d.setAttribute(at,v);}}" +
     // `style.colorScheme` is never written: an inline declaration outranks every rule permanently,
     // and each block of the compiled palette document carries its own `color-scheme`.
     "d.classList.toggle('dark',W==='dark');" +

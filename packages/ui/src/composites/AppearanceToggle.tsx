@@ -36,16 +36,20 @@ const DEFAULT_LABELS: AppearanceToggleLabels = { light: "Light", dark: "Dark" };
 /**
  * Appearance toggle — one compact button that flips light ⇄ dark, sun ⇄ moon.
  *
- * **`system` is not a stop on the flip; it is the initial value.** `prefers-color-scheme` is read
- * either way and that part is not a feature — without it the first visit has to guess, and guessing
- * wrong flashes white at every dark-mode user. So the only real question was whether "follow the OS"
- * is a state you can *return* to, and it is: `DEFAULT_PREFS.appearance` is `"system"`, so an app
- * with nothing stored follows the OS until the first click, and the Preferences panel's Reset
- * spreads `DEFAULT_PREFS` and puts it back. A third face on the cycle bought reachability for a
- * state most people never leave, in the control they touch most.
+ * **Two states, because there are two.** `Appearance` is `"light" | "dark"` and following the OS is
+ * `null` — the preference with no value, the way the token-layer references model it (daisyUI's
+ * `--prefersdark`, `color-scheme: light dark`) rather than the theme-switcher libraries, which make
+ * it a third string. `prefers-color-scheme` is still read: without it the first visit has to guess,
+ * and guessing wrong flashes white at every dark-mode user. `DEFAULT_PREFS.appearance` is `null`, so
+ * an app with nothing stored follows the OS until the first click, and the Preferences panel's Reset
+ * spreads `DEFAULT_PREFS` and unpins it again.
  *
- * `data-appearance` still carries the *preference*, and that is worth keeping now that it drives no
- * icon: `.dark` says which side is applied, and only this says whether the user pinned it.
+ * So the control has nothing to cycle. Clicking pins the side opposite to what is on screen, which
+ * is the only reading of "toggle" that matches what the user is looking at.
+ *
+ * `data-appearance` carries the *preference*, and is ABSENT while nothing is pinned — the same rule
+ * the axis table applies to a default (`data-identity` at `""`). `.dark` says which side is applied;
+ * only this says whether the user chose it.
  *
  * **Accessibility.** No `aria-pressed`, though at two states it would be well-formed. The name
  * already carries both halves of the contract — what the control is in, and what one click will do
@@ -77,8 +81,8 @@ export const AppearanceToggle = ({
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
 
-  // Flips what is APPLIED, not what is stored. From `system` the click pins the opposite of what
-  // the user is looking at, which is the only reading of "toggle" that matches the screen.
+  // Flips what is APPLIED, not what is stored: unpinned, the click pins the opposite of what the
+  // user is looking at, and there is nothing else it could sensibly mean.
   const next: Appearance = resolvedAppearance === "dark" ? "light" : "dark";
   const name = mounted
     ? formatName({ label, current: l[resolvedAppearance], next: l[next] })
@@ -90,7 +94,7 @@ export const AppearanceToggle = ({
       size={size}
       variant={variant}
       aria-label={name}
-      data-appearance={mounted ? appearance : undefined}
+      data-appearance={mounted ? appearance ?? undefined : undefined}
       title={name}
       className={cn("group", className)}
       onClick={() => setAppearance(next)}

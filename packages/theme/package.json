@@ -16,7 +16,8 @@
     "./tokens.css": "./tokens.css",
     "./themes.css": "./themes.css",
     "./theme-data.json": "./theme-data.json",
-    "./palettes/kanzo.json": "./palettes/kanzo.json",
+    "./palettes/*.json": "./palettes/*.json",
+    "./palettes/*.css": "./palettes/*.css",
     "./package.json": "./package.json"
   },
   "scripts": {

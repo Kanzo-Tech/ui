@@ -12,6 +12,25 @@ light or dark. Those are `data-*` attributes on `<html>` whose values live in st
 document** — derived and measured once at onboarding, stored as data, and applied at runtime as
 one compiled stylesheet. Adding a client touches no code and needs no deploy.
 
+**And what a user chooses *within* that** is the part people expect to be forbidden and is not. The
+rule is not "the user touches no colour" — `appearance` is colour, and always was. It is: *the user
+never **authors** a colour value; they choose among colours someone already validated.* So a tenant
+may publish several, and the user picks:
+
+| preference | what changes | attribute |
+| --- | --- | --- |
+| `palette` | a whole document — surfaces, statuses, syntax, brand | **none**: the server serves the stylesheet |
+| `identity` | brand-derived tokens only; neutral and statuses shared | `data-identity` |
+| `appearance` | which of the document's two blocks applies | **none**: it writes `.dark` |
+
+Publish one of each and nothing appears — `Preferences.Colour` hides itself below two choices. A
+client wanting a single immutable brand does nothing to get one.
+
+The panel shows them as **one list**: a palette that publishes several brands contributes one entry
+per brand. The two are one abstraction with a parameter — how much of the document the choice
+replaces — and the containment stays in the data, where it is what guarantees a tenant's brands share
+a neutral and remain one product.
+
 ## The user axes
 
 | Axis | Attribute | Sets |
@@ -244,6 +263,49 @@ invention. Measured: Dracula's brand `#ff79c6` ships as `#e562af` at step 9, mov
 thirteen `--kanzo-syntax-*` roles, which are a *mapping* onto base16's slot vocabulary, and the
 [showcase](/docs/showcases/palette) that puts the authored original beside the derived result.
 
+## Reading a record
+
+A document publishes what the gates did to a client's colours: the rule that forced a move, the
+colour before and after, the ΔE and the signed OKLCH components — because "darker, and slightly less
+saturated" is a very different thing to hear than "a different colour". The
+[palette showcase](/docs/showcases/palette) renders one. Three facts about reading it:
+
+<Callout type="warn" title="Relief rows are the healthy state, and the ramp is what tells you which is which">
+  `carries-identity` — a step 9 below the chroma floor of 0.1 — is the one obligation that can
+  never become an adjustment. Below the floor there is no nearest legal value; the nearest
+  chromatic colour would be a hue *we* chose. So it is published as **relief** rather than
+  repaired.
+
+  A tinted neutral is a low chroma at a hue **by definition**, so it reports this every single
+  time. Every correct two-seed palette in the tabs above has relief rows, and Kanzo's own document
+  has four and zero adjustments. On the **neutral** ramp it is the expected answer; on the
+  **brand** ramp it is something to tell the client.
+
+  Distinguish by **ramp**, never by presence. A screen that renders any relief as an alert makes
+  every correct palette look broken.
+</Callout>
+
+<Callout type="info" title="Relief is not the fill rule, and Nord is why">
+  The consequence people expect from brand relief — `--primary` moving off step 9 onto step 12,
+  the ramp's ink — is **not** what this row triggers. That rule fires on a ramp with no hue at all
+  (`hue === null`, the encoding-noise regime below chroma 0.0035), and `carries-identity` grades
+  step 9 against a much higher bar, 0.1. Two of the ramp's three regimes therefore report it.
+
+  Nord is the case that separates them. Its brand `#88c0d0` reaches chroma 0.063 at step 9 —
+  under the floor, so the row is published — at hue 217.5°, which is unmistakably blue. It keeps
+  step 9: `--primary` is `#6299a9` in light and `#679eae` in dark. Read the relief as the fill rule
+  and it compiled to `#001016` and `#dcf1f7` instead, which is a client's blue thrown away.
+
+  Kanzo's own `#737373` is the other case: no hue, so step 12, `#0f0f0f` and `#efefef`.
+</Callout>
+
+<Callout type="info" title="Only the lightness moves">
+  Across all five shipped seed pairs, every adjustment is a lightness move: chroma shifts by at
+  most 0.001 and hue by under 0.21°. That is the price the system charges — a foreign seed keeps
+  its hue and gives up its place. Nord's brand pays 11.8 ΔE in light and 10.8 in dark, and every
+  point of that is lightness.
+</Callout>
+
 ## Dark mode
 
 `.dark` on `<html>` is the only mode selector, and `KanzoThemeProvider` writes it. Hand it to a
@@ -258,6 +320,11 @@ const { resolvedTheme, setTheme } = useTheme();
 
 Omit the prop and the provider's built-in fallback toggles `.dark` itself, which is what these
 docs do.
+
+The preference is `"light" | "dark" | null`, where `null` means the OS decides — there is no
+`"system"`, and [the toggle's page](/docs/layout/appearance-toggle#there-is-no-system) says which
+reference systems agree and why. A host next-themes speaks `"system"`; the provider translates it to
+`null` on the way in and back on the way out, in one place, so the rest of the library never sees it.
 
 <Callout type="info" title="Why a class and not light-dark()">
   Two reasons, both measured. About 150 `dark:` variants need a class to key off; and

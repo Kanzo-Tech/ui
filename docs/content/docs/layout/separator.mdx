@@ -12,3 +12,14 @@ links:
 ```tsx
 import { Separator } from "@kanzo-tech/ui";
 ```
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `orientation` | `"horizontal" \| "vertical"` | `"horizontal"` |
+
+Extends `React.ComponentProps<typeof ark.div>`, so `ref`, `asChild` and every native div prop
+pass through. It renders a `div` with `role="separator"` and mirrors `orientation` onto both
+`aria-orientation` and `data-orientation`; a vertical separator stretches to its flex parent
+unless you give it an explicit `h-*`.

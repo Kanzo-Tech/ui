@@ -62,11 +62,38 @@ import {
 Ark shows the edit trigger while idle and the submit/cancel pair while editing —
 no conditional needed.
 
-## API
+## API Reference
 
-`Editable` (Root) accepts `defaultValue` / `value`, `orientation`
-(`horizontal` | `vertical`), `activationMode` (`focus` | `dblclick` | `click`)
-and `submitMode` (`blur` | `enter` | `both` | `none`). `EditableInput` and the
-triggers render bare — pass a styled `Input`/`Textarea` or `Button` via
-`asChild`; `EditablePreview` takes `size` / `variant`. `useEditable` reads the
-machine state from inside the tree.
+### Editable
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `orientation` | `"horizontal" \| "vertical"` | `"horizontal"` |
+| `activationMode` | `"focus" \| "dblclick" \| "click"` | `"focus"` |
+| `submitMode` | `"blur" \| "enter" \| "both" \| "none"` | `"both"` |
+| `selectOnFocus` | `boolean` | `true` |
+
+`orientation` is ours — it is mirrored to `data-orientation`, which is what stacks
+`EditableControl` under the area instead of beside it. The rest is Ark's.
+
+Extends `React.ComponentProps<typeof ArkEditable.Root>`, so `value` / `defaultValue`,
+`onValueChange` / `onValueCommit` / `onValueRevert`, `edit` / `defaultEdit` / `onEditChange`,
+`placeholder`, `maxLength`, `autoResize`, `disabled`, `invalid`, `readOnly`, `required`, `name`,
+`form` and `ref` pass through.
+
+### EditablePreview
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `variant` | `ButtonProps["variant"]` | `"outline"` |
+| `size` | `ButtonProps["size"]` | `"md"` |
+
+The idle state is styled with `buttonVariants` at `clickEffect: false`, so it already looks like
+the control it is about to become.
+
+### Other parts
+
+`EditableArea` and `EditableControl` take their Ark part's props. `EditableInput` and the three
+triggers render bare — pass a styled `Input` / `Textarea` or `Button` with `asChild`;
+`EditableInput` omits the native `size` attribute, the way [`Input`](/docs/forms/input) does.
+`useEditable` re-exports Ark's `useEditableContext`.

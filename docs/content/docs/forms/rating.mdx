@@ -41,11 +41,41 @@ Rating
 └── RatingHiddenInput
 ```
 
-## API
+## API Reference
 
-Props pass straight through to Ark. `Rating` extends `RatingGroup.Root` (`count`, `value` /
-`defaultValue`, `onValueChange`, `allowHalf`, `readOnly`, `disabled`, `required`, `name`,
-`form`), so control it with `value` + `onValueChange` or leave it uncontrolled with
-`defaultValue`. Stars are iterated with the `RatingContext` render prop over `api.items`, and
-each `RatingItem` takes its `index`; the star fills on `data-highlighted` and half-fills on
-`data-half` (from `allowHalf`).
+### Rating
+
+No props of its own — the API is the machine's:
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `count` | `number` | `5` |
+| `value` | `number` | — |
+| `defaultValue` | `number` | `-1` |
+| `onValueChange` | `(details) => void` | — |
+| `allowHalf` | `boolean` | `false` |
+| `readOnly` | `boolean` | `false` |
+| `disabled` | `boolean` | `false` |
+| `required` | `boolean` | `false` |
+
+Extends `React.ComponentProps<typeof ArkRatingGroup.Root>`, so `name`, `form`, `onHoverChange`,
+`ref` and every native prop pass through. Control it with `value` + `onValueChange`, or leave it
+uncontrolled with `defaultValue`. There is no `invalid` on this machine; the recipe still styles
+`data-invalid` for a `Field` that sets it.
+
+### RatingItem
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `index` | `number` | — |
+| `children` | `React.ReactNode` | two stacked `StarIcon`s |
+
+The default star reads `data-highlighted` to fill and `data-half` (from `allowHalf`) to clip
+itself in half. Pass `children` to swap the glyph and keep the machine's wiring.
+
+### Other parts
+
+`RatingLabel` renders Ark's `Label` inside a [`FieldLabel`](/docs/forms/field); `RatingControl`
+and `RatingHiddenInput` take their Ark part's props. `RatingContext` is Ark's
+`RatingGroup.Context` render prop — iterate `api.items` with it. `useRating` re-exports
+`useRatingGroupContext`.

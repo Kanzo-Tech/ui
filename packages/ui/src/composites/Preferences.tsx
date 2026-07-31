@@ -3,13 +3,14 @@
 import * as React from "react";
 import { Dialog as ArkDialog } from "@ark-ui/react/dialog";
 import { Portal } from "@ark-ui/react/portal";
-import { PaletteIcon, XIcon } from "lucide-react";
+import { InfoIcon, PaletteIcon, XIcon } from "lucide-react";
 // Via the theme package's JS entry, not its raw `.json` subpath: a direct JSON subpath import
 // needs `with { type: "json" }` at runtime, and Rollup strips that attribute when bundling.
 import { DEFAULT_PREFS, themeData, type KanzoRadius } from "@kanzo-tech/theme";
 import { useKanzoTheme } from "../theme/KanzoThemeProvider.js";
 import { cn } from "../lib/cn.js";
 import { AppearanceToggle } from "./AppearanceToggle.js";
+import { Alert, AlertDescription, AlertTitle } from "../simples/alert.js";
 import { Button } from "../simples/button.js";
 import { Field, FieldLabel, FieldLegend, FieldSet } from "../simples/field.js";
 import {
@@ -22,6 +23,7 @@ import {
 import { RadioGroup as ArkRadioGroup } from "@ark-ui/react/radio-group";
 import { RadioGroup, RadioGroupCard } from "../simples/radio-group.js";
 import { Slider, SliderLabel } from "../simples/slider.js";
+import { SwatchGroup } from "../simples/swatch.js";
 
 /**
  * Preferences — a live theming selector (composite) for PRODUCT settings. A non-modal drawer
@@ -32,23 +34,31 @@ import { Slider, SliderLabel } from "../simples/slider.js";
  *   <Preferences.Root>
  *     <Preferences.Trigger />
  *     <Preferences.Panel>
- *       <Preferences.Density /> <Preferences.Radius />
+ *       <Preferences.Colour /> <Preferences.Density /> <Preferences.Radius />
  *       <Preferences.Font /> <Preferences.MonoFont />
  *     </Preferences.Panel>
  *   </Preferences.Root>
  *
- * or the all-in-one <Preferences />. Those four sections ARE the default panel body, plus a footer
+ * or the all-in-one <Preferences />. Those five sections ARE the default panel body, plus a footer
  * of Reset · Done. Open with `t`, close with Escape.
  *
- * **Colour is not here.** A tenant's identity is a palette DOCUMENT — derived and measured once at
- * onboarding, compiled to one stylesheet the server inlines — not something a user picks a hue at a
- * time. Palette, accent, base, chart scheme and the "Copy CSS" export all left with it; what the
- * export did belongs on the onboarding surface, which has a document to emit.
+ * **No colour is AUTHORED here.** A tenant's identity is a palette DOCUMENT — derived and measured
+ * once at onboarding, compiled to one stylesheet the server inlines — not something a user picks a
+ * hue at a time. Palette, accent, base, chart scheme and the "Copy CSS" export all left with it;
+ * what the export did belongs on the onboarding surface, which has a document to emit.
+ *
+ * `Colour` is not that coming back. It chooses among the things the TENANT published — the same kind
+ * of choice `appearance` makes between one document's two modes, one level up — and it shows itself
+ * only when there are two to choose from.
  *
  * **Appearance is not here either**, and that is a different argument: it is still a preference,
- * but it already has a control. `AppearanceToggle` cycles all three states in one click, in the
+ * but it already has a control. `AppearanceToggle` flips both of its states in one click, in the
  * chrome, where a one-click preference belongs. A section here would be the same preference
  * wearing a second control — the duplication this panel keeps removing everywhere else.
+ *
+ * It has two states and not three: "follow the OS" is `null`, the absence of a pinned side, so the
+ * way back to it is `Reset` — which spreads `DEFAULT_PREFS` and therefore unpins appearance along
+ * with everything else. That is the one thing this panel's footer does that no other control can.
  */
 
 const RADII: KanzoRadius[] = ["none", "xs", "sm", "md", "lg"];
@@ -210,6 +220,11 @@ function PreferencesPanel({
           >
             {children ?? (
               <>
+                {/* Colour first, and ONE section: a palette and a brand are one choice at two
+                    grains, so the panel offers one list and everything below it is a different axis
+                    entirely. It renders nothing until the tenant published two choices, so the
+                    common panel is unchanged. */}
+                <ColorSection />
                 <DensitySection />
                 <RadiusSection />
                 <FontSection />
@@ -297,6 +312,111 @@ function PrefFieldSet({ label, children }: { label: React.ReactNode; children: R
 }
 
 // ── Sections ──────────────────────────────────────────────────────────────────
+/**
+ * COLOUR — every choice the tenant published, as one list.
+ *
+ * **A palette and an identity are one abstraction with a parameter: how much of the document the
+ * choice replaces.** An identity replaces the brand-derived slice and inherits every surface; a
+ * palette replaces all of it. They always shared this control, this option type, the hide-below-two
+ * rule and the retirement machinery — and the giveaway was the behaviour: changing palette *files and
+ * restores* the identity, which is what containment does and what two sibling axes never would.
+ *
+ * So the panel shows one list. A palette that publishes several brands contributes one entry per
+ * brand — `Bank · Retail`, `Bank · Private` — which is how VS Code and Slack present variants, and
+ * which matches what the user is actually doing: making one choice. The model keeps the containment,
+ * because that is what guarantees a tenant's brands share a neutral and stay one product.
+ *
+ * The prefix appears only when there is more than one palette to disambiguate against: a client with
+ * a single palette and two brands sees `Retail` and `Private`, not their own name twice.
+ */
+export interface PreferencesColorProps {
+  /** The legend, and one of the section's two library-authored strings (i18n). */
+  label?: string;
+  /** Heading of the notice shown when the tenant withdrew what this user had chosen. */
+  retiredTitle?: string;
+  /** Compose that notice's body. The argument is the retired **id**; its label went with it. */
+  formatRetired?: (parts: { choice: string }) => string;
+}
+
+const DEFAULT_RETIRED_TITLE = "Colours updated";
+const DEFAULT_RETIRED = ({ choice }: { choice: string }) =>
+  `The colours you had chosen (${choice}) are no longer published, so these are the default ones.`;
+
+/** `palette` on its own, or `palette/identity` when the palette publishes more than one brand. */
+const KEY_SEPARATOR = "/";
+
+function ColorSection({
+  label = "Colour",
+  retiredTitle = DEFAULT_RETIRED_TITLE,
+  formatRetired = DEFAULT_RETIRED,
+}: PreferencesColorProps = {}) {
+  const {
+    palettes,
+    resolvedAppearance,
+    resolvedPalette,
+    resolvedIdentity,
+    retiredPalette,
+    retiredIdentity,
+    set,
+  } = useKanzoTheme();
+
+  const prefixed = palettes.length > 1;
+  const entries = palettes.flatMap((palette) => {
+    const brands = palette.children ?? [];
+    if (brands.length < 2) return [{ key: palette.value, label: palette.label, swatches: palette.swatches }];
+    return brands.map((brand) => ({
+      key: `${palette.value}${KEY_SEPARATOR}${brand.value}`,
+      label: prefixed ? `${palette.label} · ${brand.label}` : brand.label,
+      swatches: brand.swatches,
+    }));
+  });
+
+  if (entries.length < 2) return null;
+
+  const retired = retiredPalette ?? retiredIdentity;
+  // The selection is a pair, so the checked entry is the pair — and it is read from the RESOLVED
+  // values, not the preferences: an empty preference is a deferral to the document, and the entry
+  // that reads as checked has to be the one on screen.
+  const selected = entries.some((entry) => entry.key === resolvedPalette)
+    ? resolvedPalette
+    : `${resolvedPalette}${KEY_SEPARATOR}${resolvedIdentity}`;
+
+  return (
+    <PrefFieldSet label={label}>
+      <RadioGroup
+        className="gap-2"
+        onValueChange={(d) => {
+          if (!d.value) return;
+          const [palette, identity = ""] = d.value.split(KEY_SEPARATOR);
+          // Both in one patch, because it is one choice. `set` files the outgoing brand under the
+          // palette being left and would otherwise restore a remembered one over the top of this.
+          set({ palette: palette ?? "", identity });
+        }}
+        value={selected}
+      >
+        {entries.map((entry) => (
+          <RadioGroupCard className="flex-col items-start gap-1.5 px-2.5 py-2" key={entry.key} value={entry.key}>
+            <ArkRadioGroup.ItemText className="text-muted-foreground text-xs">
+              {entry.label}
+            </ArkRadioGroup.ItemText>
+            <SwatchGroup colors={entry.swatches[resolvedAppearance] ?? []} size="md" />
+          </RadioGroupCard>
+        ))}
+      </RadioGroup>
+      {/* One notice for both, because there is one choice: whichever half the tenant withdrew, what
+          the user lost is the colours they picked. No toast — a document is served, so the page they
+          are reading is already the default one and nothing is about to change under them. */}
+      {retired ? (
+        <Alert variant="info">
+          <InfoIcon />
+          <AlertTitle>{retiredTitle}</AlertTitle>
+          <AlertDescription>{formatRetired({ choice: retired })}</AlertDescription>
+        </Alert>
+      ) : null}
+    </PrefFieldSet>
+  );
+}
+
 // The one section where neither container above applies. A slider is a single control, so it is not
 // a `FieldSet`; and Ark's `useSlider` reads no ambient context at all — not Field, not Fieldset — so
 // a `FieldLabel` could not reach it either, which is why "Radius" was written twice. `SliderLabel`
@@ -439,6 +559,8 @@ export const Preferences = Object.assign(
     Root: PreferencesRoot,
     Trigger: PreferencesTrigger,
     Panel: PreferencesPanel,
+    Colour: ColorSection,
+    Color: ColorSection,
     Radius: RadiusSection,
     Font: FontSection,
     MonoFont: MonoFontSection,
@@ -461,6 +583,7 @@ export {
   PreferencesPanel,
   PrefField as PreferencesField,
   PrefFieldSet as PreferencesFieldSet,
+  ColorSection as PreferencesColor,
   RadiusSection as PreferencesRadius,
   FontSection as PreferencesFont,
   MonoFontSection as PreferencesMonoFont,

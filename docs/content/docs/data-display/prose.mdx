@@ -49,3 +49,11 @@ set would be a second source of truth.
 
 `max-w-[65ch]` and centred by default, which is the readable measure for body text. Override
 with `className` when the container already constrains the line length.
+
+## API Reference
+
+No props of its own, and no variants — the element rules come from the `kanzo-prose` class.
+
+Extends `React.ComponentProps<typeof ark.div>`, so `children`, `dangerouslySetInnerHTML`,
+`className`, `ref` and every native div prop pass through. The only styling it applies is
+`kanzo-prose mx-auto max-w-[65ch]`, all three overridable from `className`.

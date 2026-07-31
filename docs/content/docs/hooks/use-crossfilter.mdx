@@ -1,0 +1,75 @@
+---
+title: useCrossfilter
+description: The shared Selection every mark filters by — so a widget that is not a chart can follow the same brush.
+---
+
+<ComponentPreview componentName="use-crossfilter" />
+
+Two tiles asking the same relation the histogram does. The left one passes the crossfilter, the
+right one passes `null`; only the left one moves when you brush.
+
+## Usage
+
+```tsx
+import { useCrossfilter } from "@kanzo-tech/ui/analytics";
+```
+
+```tsx
+const crossfilter = useCrossfilter();
+```
+
+Sugar for `useMosaic().crossfilter`, on the `@kanzo-tech/ui/analytics` subpath — whose peers are
+[optional](/docs/installation), so nothing installs them unless you import it — and it **throws**
+outside a [`MosaicProvider`](/docs/data-display/charts#bring-your-own-coordinator).
+
+## What it is
+
+The selection every mark on the page **filters by**. `ChartRoot`'s `filterBy` defaults to it, and so
+does [`useChartQuery`](/docs/hooks/use-chart-query)'s — which means most charts never name it. You
+reach for the hook when something has to name it:
+
+- a widget that is **not** a chart and must follow the same brush;
+- a `MosaicClient` of your own — a canvas, a map, an imperative widget — that needs a selection to
+  construct with;
+- one mark inside a plot that opts in while the rest do not.
+
+<Callout type="info">
+It is a crossfilter, so it **exempts a client from its own clause**: the chart you brushed keeps its
+full bars. That is deliberate, and it is why the dual-layer idiom exists — draw the full relation
+dimmed underneath and the filtered layer on top. It also means the chart that publishes a pick
+cannot show that pick by filtering; it shows it with
+[`ChartHighlight`](/docs/data-display/charts#feedback-on-the-chart-that-filters).
+</Callout>
+
+## Publishing is somebody else's job
+
+`useCrossfilter()` hands you the **filter** target. Do not publish into it directly: a clause
+belongs to the selection its own control owns, and the relay carries it here. Charts publish through
+their `ChartRoot`'s selection, controls through `useMosaicInput`, and a client of your own through
+`selection.update(clausePoint(…))` on the selection it was built with.
+
+To clear the page, call `useMosaic().reset()` — `crossfilter.reset()` travels downstream only and
+leaves every chart holding its own pick.
+
+## One layer of a plot
+
+A mark's `filterBy` overrides the root's, in both directions. Here the root opts *out*
+(`filterBy={null}`) and a single mark opts back in with the selection this hook returns — the
+dual-layer idiom written out instead of relying on the default.
+
+<ComponentPreview componentName="use-crossfilter" fileName="example-layers" />
+
+## API Reference
+
+`useCrossfilter(): Selection`
+
+Returns the `Selection` passed to `MosaicProvider` as `crossfilter`, or the
+`Selection.crossfilter()` it minted. `selected` is relayed into it, so it carries every clause the
+page's charts published as well as any the caller seeded.
+
+| Used as | Where |
+| --- | --- |
+| `filterBy` | `ChartRoot`, any mark, `useChartQuery` — all three default to it |
+| a constructor argument | `new MosaicClient(crossfilter)`, `makeClient({ selection })`, `IdSetClient` |
+
+Throws `useMosaic must be used within a <MosaicProvider>.` when there is no provider above it.

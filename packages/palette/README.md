@@ -1,19 +1,37 @@
 # @kanzo-tech/palette
 
-The colour derivation. **Two seeds in, a measured tenant palette document out.**
+The colour derivation. **Seeds in, a measured tenant palette document out.**
 
 ```ts
 import { derivePalette, compile } from "@kanzo-tech/palette";
 
-const doc = derivePalette({ id: "acme", label: "Acme", brand: "#7f22fe", neutral: "#6b7280" });
+const doc = derivePalette({
+  id: "acme",
+  label: "Acme",
+  neutral: "#6b7280",
+  identities: [{ id: "acme", label: "Acme", brand: "#7f22fe" }],
+});
 const css = compile(doc); // :root { … } .dark { … } — both modes, every token, ~4 KB
 ```
 
-`derivePalette` grows six ramps (the client's brand and neutral, plus Kanzo's four fixed status
-families) in both modes, spins a categorical set off the brand hue, resolves the role table, and
-writes down everything that did not go exactly as asked in `doc.record`. The gate policy is
-**adjust and publish** — never accept-and-warn, never refuse, because the record is written to be
-read by a person on an onboarding screen.
+`derivePalette` grows five shared ramps (the client's neutral plus Kanzo's four fixed status
+families) and one brand ramp per identity, in both modes; spins each identity a categorical set off
+its own brand hue; resolves the role table; and writes down everything that did not go exactly as
+asked in `doc.record`. The gate policy is **adjust and publish** — never accept-and-warn, never
+refuse, because the record is written to be read by a person on an onboarding screen.
+
+## Identities
+
+A tenant may publish several brands — a bank's retail blue and its private gold. An identity is a
+brand seed and everything that follows from one: a brand ramp pair, a categorical set, and the 15
+tokens bound to either. The neutral, the four statuses and the syntax roles are the tenant's and are
+shared, which is what keeps several identities one product.
+
+`compile` writes the default identity into `:root` / `.dark` — so a tenant with one brand emits the
+sheet it always did — and every other identity into `[data-identity="…"]`, which the runtime sets
+from a user preference. Ids are validated at derive time because they land in a CSS selector, and a
+document with more than one identity must give an explicit `neutral`: deriving it from one brand's
+hue would tint 90% of the pixels with a colour the other brands are then painted on.
 
 ## Authoring-time only
 
@@ -35,10 +53,10 @@ Nothing here reads the DOM and nothing here is a React component.
 | `ramp` | one seed → twelve steps, each carrying a measured obligation, plus the alpha scale |
 | `palette-check` | the six categorical gates — contrast, CVD separation, hue distance, chroma floor |
 | `derive-scheme` | a hue wheel snapped to families, searched and ordered for CVD separation |
-| `derive-palette` | the whole pipeline: seeds → ramps → categorical set → roles → record |
+| `derive-palette` | the whole pipeline: seeds → shared ramps → one identity at a time → record |
 | `roles` | the role table — which token is bound to which ramp, step, elevation or slot |
 | `palette-document` | the `TenantPalette` schema and its engine hash |
-| `compile` | a document → one stylesheet, literal hex, both modes |
+| `compile` | a document → one stylesheet, literal hex, both modes, one block per extra identity |
 | `seeds` | the shipped seed pairs: Kanzo's own and four borrowed identities |
 
 ## Generated tables

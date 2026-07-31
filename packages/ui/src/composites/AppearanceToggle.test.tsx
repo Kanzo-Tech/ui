@@ -36,11 +36,7 @@ function setup(defaults?: Partial<ThemePrefs>) {
 /** The one button on screen, whatever its current name says. */
 const toggle = () => document.querySelector("button")!;
 
-/**
- * The preference lives on the prefs blob, not in the standalone `kanzo_appearance` key. One
- * source, so nothing can contradict it. (The old key is still READ once, for migration — see the
- * provider's tests.)
- */
+/** The preference lives on the prefs blob and nowhere else. One source, nothing to contradict it. */
 const storedAppearance = () =>
   (JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as Partial<ThemePrefs>).appearance;
 
@@ -69,11 +65,11 @@ describe("AppearanceToggle", () => {
     expect(document.documentElement.classList.contains("dark")).toBe(false);
   });
 
-  it("flips what is APPLIED when nothing is stored, not what is stored", async () => {
-    // From `system` the stored value is not a side, so there is nothing to invert. Inverting the
-    // RESOLVED appearance is the only reading that matches the screen: the matchMedia stub reports
-    // light, the user sees light, one click gives dark. Inverting the stored value would have
-    // needed a rule for what `system` flips to, and any such rule sometimes moves nothing.
+  it("flips what is APPLIED when nothing is pinned, not what is stored", async () => {
+    // Unpinned the stored value is not a side, so there is nothing to invert. Inverting the RESOLVED
+    // appearance is the only reading that matches the screen: the matchMedia stub reports light, the
+    // user sees light, one click gives dark. Inverting the stored value would have needed a rule for
+    // what "no side" flips to, and any such rule sometimes moves nothing.
     const user = userEvent.setup();
     setup();
     expect(storedAppearance()).toBe(undefined);
@@ -83,24 +79,28 @@ describe("AppearanceToggle", () => {
     expect(storedAppearance()).toBe("dark");
   });
 
-  it("still marks the PREFERENCE, which `.dark` cannot say", () => {
-    // `data-appearance` drove the monitor face and now drives no icon at all. It stays because
-    // `.dark` says which side is applied and only this says whether the user pinned it — the
-    // difference between "dark because you asked" and "dark because your OS is".
-    setup({ appearance: "system" });
-    expect(toggle().getAttribute("data-appearance")).toBe("system");
+  it("marks the PREFERENCE, and marks nothing while the OS decides", () => {
+    // `.dark` says which side is applied; only `data-appearance` says whether the user pinned it —
+    // the difference between "dark because you asked" and "dark because your OS is". Unpinned there
+    // is no value to write, so the attribute is absent rather than spelling a third state: the same
+    // rule the axis table applies to every default.
+    setup({ appearance: null });
+    expect(toggle().hasAttribute("data-appearance")).toBe(false);
+
+    setup({ appearance: "light" });
+    expect(document.querySelectorAll("button")[1]?.getAttribute("data-appearance")).toBe("light");
   });
 
   describe("accessible name", () => {
     // Not `aria-pressed`, though at two states it would be well-formed. The name already carries
     // both halves — what is applied, and what one click does — and `aria-pressed` would say the
     // state a second time, less precisely: "toggle button, pressed" leaves the listener to work
-    // out that pressed means dark. Note the `system` row names LIGHT: the name describes what the
+    // out that pressed means dark. Note the unpinned row names LIGHT: the name describes what the
     // reader is looking at, not what is in storage.
     it.each([
       ["light", "Appearance: Light. Switch to dark"],
       ["dark", "Appearance: Dark. Switch to light"],
-      ["system", "Appearance: Light. Switch to dark"],
+      [null, "Appearance: Light. Switch to dark"],
     ] as const)("names %s as its state plus its next action", (appearance, name) => {
       setup({ appearance });
 
@@ -109,7 +109,7 @@ describe("AppearanceToggle", () => {
     });
 
     it("carries no `aria-pressed`", () => {
-      setup({ appearance: "system" });
+      setup({ appearance: null });
       expect(toggle().hasAttribute("aria-pressed")).toBe(false);
     });
 

@@ -27,3 +27,16 @@ status tokens, so a theme change re-skins them without touching the component.
 `xs` is the micro-badge used for inline counters.
 
 <ComponentPreview componentName="badge" fileName="example-sizes" />
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `variant` | `"default" \| "secondary" \| "outline" \| "success" \| "info" \| "warning" \| "destructive"` | `"default"` |
+| `size` | `"xs" \| "sm" \| "md" \| "lg"` | `"md"` |
+| `pill` | `boolean` | `false` |
+
+Extends `React.ComponentProps<typeof ark.span>`, so `ref` and every native span prop pass
+through. `variant` and `size` are mirrored to `data-variant` / `data-size`, and `asChild` turns
+the badge into an `<a>` or a `<button>` — which is what the hover states and the coarse-pointer
+hit target are written for. The `BadgeVariant` type is exported.

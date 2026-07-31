@@ -1,0 +1,96 @@
+---
+title: Hooks
+description: The library's headless surface — hooks we wrote, and thin renames of Ark UI's component context hooks. This page documents the renames; everything we wrote has its own page.
+---
+
+The library exports two kinds of hook, and telling them apart is the only thing you need to know
+before reading the rest of this section.
+
+**Ours** — real code, one page each: theme (`useKanzoTheme`, `useIsMobile`), layout
+(`useSidebar`, `useTourContext`), charts and data (`useChart` and its variants, `useMosaic`,
+`useCrossfilter`, `useSelected`, `useDataTable`), and AI (`useAiStream`, `useCompletion`,
+`useSuggestions`). They are listed in the sidebar.
+
+**Ark UI's, renamed** — the 38 below. Each is literally one line:
+
+```tsx
+export const useSelect = useSelectContext;
+```
+
+They exist so a component and its context hook share a name: you compose `<Select>` and read it
+with `useSelect()`, never `useSelectContext()`. There is no behaviour of ours in any of them, so
+there is nothing of ours to document — the authority is Ark's own page, linked per row.
+
+## Three renames hide the component
+
+Most rows are the same word twice. Three are not, and looking these up under our name in Ark's
+docs finds nothing:
+
+- **`useResizable`** is Ark's **Splitter**. Our Resizable is a Splitter; the hook kept the
+  component's new name.
+- **`useSheet`** is Ark's **Dialog**. A Sheet is a Dialog with edge placement, so it has no
+  context of its own — `useSheet` and `useDialog` are the same function.
+- **`useRating`** is Ark's **RatingGroup**.
+
+## The renames
+
+Return values, arguments and behaviour are Ark's, unchanged. Call each inside its own component's
+provider.
+
+<Callout type="info">
+The Ark column is the export name **in Ark UI**. Four of these (`useCombobox`, `useField`,
+`useToggleGroup`, `useTreeView`) are imported into our source under a local `useArk…` alias to
+avoid clashing with our own export of the same name — that alias is internal and never shipped.
+</Callout>
+
+| Ours | Ark UI | Component |
+| --- | --- | --- |
+| `useAccordion` | `useAccordionContext` | [Accordion](https://ark-ui.com/docs/components/accordion) |
+| `useAvatar` | `useAvatarContext` | [Avatar](https://ark-ui.com/docs/components/avatar) |
+| `useCheckbox` | `useCheckboxContext` | [Checkbox](https://ark-ui.com/docs/components/checkbox) |
+| `useClipboard` | `useClipboardContext` | [Clipboard](https://ark-ui.com/docs/components/clipboard) |
+| `useCollapsible` | `useCollapsibleContext` | [Collapsible](https://ark-ui.com/docs/components/collapsible) |
+| `useColorPicker` | `useColorPickerContext` | [ColorPicker](https://ark-ui.com/docs/components/color-picker) |
+| `useCombobox` | `useComboboxContext` | [Combobox](https://ark-ui.com/docs/components/combobox) |
+| `useDatePicker` | `useDatePickerContext` | [DatePicker](https://ark-ui.com/docs/components/date-picker) |
+| `useDialog` | `useDialogContext` | [Dialog](https://ark-ui.com/docs/components/dialog) |
+| `useEditable` | `useEditableContext` | [Editable](https://ark-ui.com/docs/components/editable) |
+| `useField` | `useFieldContext` | [Field](https://ark-ui.com/docs/components/field) |
+| `useFileUpload` | `useFileUploadContext` | [FileUpload](https://ark-ui.com/docs/components/file-upload) |
+| `useHoverCard` | `useHoverCardContext` | [HoverCard](https://ark-ui.com/docs/components/hover-card) |
+| `useListbox` | `useListboxContext` | [Listbox](https://ark-ui.com/docs/components/listbox) |
+| `useMenu` | `useMenuContext` | [Menu](https://ark-ui.com/docs/components/menu) |
+| `useNumberInput` | `useNumberInputContext` | [NumberInput](https://ark-ui.com/docs/components/number-input) |
+| `usePagination` | `usePaginationContext` | [Pagination](https://ark-ui.com/docs/components/pagination) |
+| `usePasswordInput` | `usePasswordInputContext` | [PasswordInput](https://ark-ui.com/docs/components/password-input) |
+| `usePinInput` | `usePinInputContext` | [PinInput](https://ark-ui.com/docs/components/pin-input) |
+| `usePopover` | `usePopoverContext` | [Popover](https://ark-ui.com/docs/components/popover) |
+| `useProgress` | `useProgressContext` | [Progress](https://ark-ui.com/docs/components/progress-linear) |
+| `useRadioGroup` | `useRadioGroupContext` | [RadioGroup](https://ark-ui.com/docs/components/radio-group) |
+| `useRating` | `useRatingGroupContext` | [RatingGroup](https://ark-ui.com/docs/components/rating-group) |
+| `useResizable` | `useSplitterContext` | [Splitter](https://ark-ui.com/docs/components/splitter) |
+| `useScrollArea` | `useScrollAreaContext` | [ScrollArea](https://ark-ui.com/docs/components/scroll-area) |
+| `useSegmentGroup` | `useSegmentGroupContext` | [SegmentGroup](https://ark-ui.com/docs/components/segment-group) |
+| `useSelect` | `useSelectContext` | [Select](https://ark-ui.com/docs/components/select) |
+| `useSheet` | `useDialogContext` | [Dialog](https://ark-ui.com/docs/components/dialog) |
+| `useSlider` | `useSliderContext` | [Slider](https://ark-ui.com/docs/components/slider) |
+| `useSteps` | `useStepsContext` | [Steps](https://ark-ui.com/docs/components/steps) |
+| `useSwitch` | `useSwitchContext` | [Switch](https://ark-ui.com/docs/components/switch) |
+| `useTabs` | `useTabsContext` | [Tabs](https://ark-ui.com/docs/components/tabs) |
+| `useTagsInput` | `useTagsInputContext` | [TagsInput](https://ark-ui.com/docs/components/tags-input) |
+| `useToast` | `useToastContext` | [Toast](https://ark-ui.com/docs/components/toast) |
+| `useToggle` | `useToggleContext` | [Toggle](https://ark-ui.com/docs/components/toggle) |
+| `useToggleGroup` | `useToggleGroupContext` | [ToggleGroup](https://ark-ui.com/docs/components/toggle-group) |
+| `useTooltip` | `useTooltipContext` | [Tooltip](https://ark-ui.com/docs/components/tooltip) |
+| `useTreeView` | `useTreeViewContext` | [TreeView](https://ark-ui.com/docs/components/tree-view) |
+
+All 38 come from the root barrel:
+
+```tsx
+import { useSelect, useDialog, useTabs } from "@kanzo-tech/ui";
+```
+
+<Callout type="warn">
+A context hook throws when called outside its provider. Read it from a child of the component's
+root — not from the component that renders that root.
+</Callout>

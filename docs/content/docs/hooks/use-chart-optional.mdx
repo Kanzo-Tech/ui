@@ -1,0 +1,65 @@
+---
+title: useChartOptional
+description: The chart context or null — for a part that has to work both inside a ChartRoot and standalone.
+---
+
+<ComponentPreview componentName="use-chart-optional" />
+
+One `SeriesKey`, rendered twice. Inside the `ChartRoot` it inherits the root's config, so the
+swatches match the marks by construction; below the chart, with no root above it, the same component
+falls back to its own `series` prop instead of throwing.
+
+## Usage
+
+```tsx
+import { useChartOptional } from "@kanzo-tech/ui/analytics";
+```
+
+The `/analytics` peers are [optional](/docs/installation) — nothing installs them unless you import this subpath.
+
+```tsx
+function SeriesKey({ series }: { series?: readonly string[] }) {
+  const chart = useChartOptional();
+  const config = chart?.config ?? fromSeries(series ?? []);
+  return <Legend config={config} />;
+}
+```
+
+## When to reach for it
+
+[`useChart`](/docs/hooks/use-chart) throws outside a `ChartRoot`, and that is the right default: a
+tooltip that silently renders without colours is worse than one that fails loudly. This variant is
+for the parts where "no chart above me" is a **supported configuration**, not a mistake:
+
+- `ChartLegend` — reads the root's config when it has one, and takes its own `config` / `series`
+  prop when it does not, so a key can sit in a card header far from its plot.
+- `ChartStat` — a headline figure in a dashboard grid, outside any plot. It falls back to its own
+  `table` prop and throws only when neither is present.
+
+The rule is the same one either way: the fallback has to be a real answer. If your component cannot
+say anything useful without a chart, throw — use `useChart`.
+
+## API Reference
+
+```ts
+function useChartOptional(): ChartContextValue | null;
+```
+
+Takes no arguments. Returns `null` outside a `ChartRoot`; otherwise the same object
+[`useChart`](/docs/hooks/use-chart#returns) returns.
+
+| Field | Type |
+| --- | --- |
+| `color` | `(key: string) => string \| undefined` |
+| `formatNumber` | `(value: number, options?: Intl.NumberFormatOptions) => string` |
+| `config` | `ChartConfig` |
+| `table` | `string \| undefined` |
+| `filterBy` | `Selection \| null` |
+| `as` | `Selection` |
+| `coordinator` | `Coordinator` |
+
+Descriptors (marks, interactors, axes) are no better served by this one than by `useChart`:
+`ChartRoot` reads their props off the element and compiles the plot *before* React renders them, so
+nothing a descriptor could pull out of context reaches the spec. Pass the value down from the
+component that owns the `ChartRoot` — see
+[two kinds of children](/docs/data-display/charts#two-kinds-of-children).

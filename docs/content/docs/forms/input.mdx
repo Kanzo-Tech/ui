@@ -25,3 +25,16 @@ tells assistive tech also paints the field.
 ### Disabled
 
 <ComponentPreview componentName="input" fileName="example-disabled" />
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `size` | `"sm" \| "md" \| "lg"` | `"md"` |
+| `type` | `React.HTMLInputTypeAttribute` | `"text"` |
+
+Extends `React.ComponentProps<typeof FieldInput>` with the native `size` attribute omitted, so
+`ref`, `placeholder`, `disabled`, `aria-invalid` and every other input prop pass through. `size`
+is mirrored to `data-size`, and the three heights match `Button`'s `sm` / `md` / `lg`.
+`inputVariants` is exported for putting the same field on another element — `ClipboardInput` is
+built from it.

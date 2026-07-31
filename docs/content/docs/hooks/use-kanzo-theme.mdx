@@ -1,0 +1,87 @@
+---
+title: useKanzoTheme
+description: Read and write the runtime theme preferences owned by KanzoThemeProvider.
+---
+
+<ComponentPreview componentName="use-kanzo-theme" />
+
+## Usage
+
+```tsx
+import { useKanzoTheme } from "@kanzo-tech/ui";
+```
+
+```tsx
+const { radius, resolvedAppearance, set } = useKanzoTheme();
+```
+
+It throws outside a [`KanzoThemeProvider`](/docs/theming) — there is no silent default,
+because a component reading a theme that nothing applies is a bug, not a fallback.
+
+<Callout type="info">
+The provider writes the preferences to `<html>` as `data-*` attributes and toggles `.dark`. This
+hook is how you **read** that state and **request** a change; it never touches the DOM itself.
+</Callout>
+
+## Preference and resolution
+
+Three of the values come in pairs, because a preference can be the *absence* of one. `appearance`
+is `null` while the user is following the OS; `resolvedAppearance` is always `light` or `dark`.
+Read the resolved value to draw something, and the preference only to say whether it was pinned.
+
+<ComponentPreview componentName="use-kanzo-theme" fileName="example-appearance" />
+
+`identity` / `resolvedIdentity` and `palette` / `resolvedPalette` split the same way: an empty
+preference defers to what the tenant's palette document already paints.
+
+## Changing a preference
+
+`set` takes a partial patch and merges it — pass one axis, not the whole object:
+
+```tsx
+const { set } = useKanzoTheme();
+
+set({ radius: "lg" });
+set({ density: "compact", font: "geist" });
+```
+
+Appearance has its own setter, `setAppearance`, because a host theme manager (next-themes) may own
+that axis. Going through `set({ appearance })` would bypass the host and leave the two disagreeing.
+
+## API Reference
+
+### useKanzoTheme
+
+```ts
+function useKanzoTheme(): ThemeContextValue;
+```
+
+Takes no arguments. Throws `useKanzoTheme must be used within a <KanzoThemeProvider>.` when no
+provider is above it.
+
+#### Returns
+
+| Field | Type | What it is |
+| --- | --- | --- |
+| `appearance` | `AppearancePref` | The pinned side, or `null` while the OS decides |
+| `resolvedAppearance` | `"light" \| "dark"` | The side actually applied — read this to draw |
+| `setAppearance` | `(next: AppearancePref) => void` | Sets appearance, routing through a host theme manager if one is wired |
+| `radius` | `"none" \| "xs" \| "sm" \| "md" \| "lg"` | Corner radius axis |
+| `density` | `"default" \| "compact" \| "comfortable"` | Root font-size axis |
+| `font` | `string` | Sans typeface axis |
+| `monoFont` | `string` | Mono typeface axis |
+| `identity` | `string` | Sub-brand preference; `""` defers to the document |
+| `palette` | `string` | Palette-document preference; `""` defers to the server's default |
+| `set` | `(patch: Partial<ThemePrefs>) => void` | Merges a partial patch into the preferences and persists it |
+| `fonts` | `FontOption[]` | The sans options the host wired, for a selector |
+| `monoFonts` | `FontOption[]` | The mono options the host wired |
+| `identities` | `SwatchOption[]` | The sub-brands the tenant published — `[]`, never `undefined` |
+| `defaultIdentity` | `string` | The id `:root` already paints |
+| `resolvedIdentity` | `string` | `identity` or `defaultIdentity` |
+| `retiredIdentity` | `string \| null` | An id the tenant withdrew out from under this user, held for the session |
+| `palettes` | `SwatchOption[]` | The palette documents the tenant published |
+| `defaultPalette` | `string` | The id the server serves when the preference is empty |
+| `resolvedPalette` | `string` | `palette` or `defaultPalette` |
+| `retiredPalette` | `string \| null` | A palette id the tenant withdrew, held for the session |
+
+The preference fields are exactly `ThemePrefs`, so `set` accepts any subset of them.

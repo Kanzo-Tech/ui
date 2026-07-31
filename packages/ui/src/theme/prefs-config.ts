@@ -6,8 +6,10 @@
 // from silently disagreeing with the CSS. This module re-exports it so the existing import sites
 // here keep working.
 //
-// Colour is not here, and that is the point: a tenant's identity is a palette DOCUMENT compiled to
-// one stylesheet the server inlines, not a set of runtime axes. What is left is the four non-colour
-// attributes plus the appearance preference, which selects between two blocks of one document.
+// A colour VALUE is not here, and that is the point: a tenant's identity is a palette DOCUMENT
+// compiled to one stylesheet the server inlines, not a set of runtime axes. What is left is the
+// four non-colour attributes, the appearance preference (which of the document's two blocks
+// applies), and `identity` — which of the blocks the TENANT published applies. The last is the
+// only axis whose selectors `gen-theme.mjs` does not emit, which is what `AXES.source` records.
 
-export { AXES, APPEARANCE_KEY, DEFAULT_PREFS, STORAGE_KEY, type ThemePrefs } from "@kanzo-tech/theme";
+export { AXES, DEFAULT_PREFS, STORAGE_KEY, type ThemePrefs } from "@kanzo-tech/theme";
