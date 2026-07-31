@@ -102,5 +102,16 @@ Four visual defects rescued from the deleted `.planning/` files were re-checked.
   working month and year selects, prev/next triggers, today outlined. Whatever it described was
   fixed at some point and nobody closed the note. **Delete the claim.**
 
-The other three (`ColorPicker` swatch behaviour, `Tour`'s close button, `Breadcrumb`'s ellipsis)
-were not reached and remain unverified.
+- **`Breadcrumb`'s ellipsis is not mis-positioned.** `/docs/navigation/breadcrumb`, the "Long trails"
+  section, renders `Kanzo › ⋯ › Datasets › customers` with the ellipsis aligned and centred against
+  its separators. **Delete the claim.**
+
+The other two — `ColorPicker`'s swatch click behaviour and `Tour`'s close-button position — remain
+unverified. Both need a browser and neither has a commit touching it since the note was written.
+
+**Two of the four were already fixed and nobody closed the note**, which is the same defect class as
+a stale comment: a claim that outlived its subject and kept costing attention. Whoever verifies the
+last two should delete them from wherever they end up recorded rather than leaving them "open".
+
+Also confirmed working while passing through: the `links.doc` fix renders — the "Ark UI docs" button
+is on the page. 55 pages carried those links in frontmatter and showed none of them.
