@@ -76,7 +76,7 @@ interface ToastItemProps extends React.ComponentProps<typeof ArkToast.Root> {
   toast: ArkToast.Options;
 }
 
-const ToastItem = (props: ToastItemProps) => {
+export const ToastItem = (props: ToastItemProps) => {
   const { toast: toastData, className, slot, ...rest } = props;
 
   const ToastIcon = toastData.type

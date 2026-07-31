@@ -3,7 +3,7 @@ import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
 
-const alertVariants = tv({
+export const alertVariants = tv({
   base: [
     "relative",
     "px-3.5 py-3",

@@ -7,6 +7,7 @@ import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
 import { inputVariants } from "./input";
+import { MenuShortcut } from "./menu";
 
 export const useListbox = useListboxContext;
 
@@ -270,7 +271,7 @@ export const ListboxItemGroup = (props: ListboxItemGroupProps) => {
 // Typography from `SelectGroupLabel`, not Shark's `px-2.5 py-2` — the item above already
 // borrows Select's rhythm, and a heading a size larger than the rows it heads is the one
 // place the two lists would still read as different components.
-const ListboxItemGroupLabel = (
+export const ListboxItemGroupLabel = (
   props: React.ComponentProps<typeof ArkListbox.ItemGroupLabel>
 ) => {
   const { className, slot, ...rest } = props;
@@ -307,8 +308,11 @@ export const ListboxEmpty = (
   );
 };
 
-// No `ListboxShortcut`. Shark's registry file has one, and vendoring it verbatim shipped a third
-// name for `MenuShortcut`'s span — `MenuShortcut` is the implementation, `CommandShortcut` is
-// already a `data-slot` rename of it, and this one had no renderer anywhere in the repo the day it
-// landed. A keyboard hint inside a facet row is `<MenuShortcut>`; if a listbox ever needs its own
-// slot, the rename is three lines and can be reintroduced with a consumer.
+// The third rename of `MenuShortcut`'s span, beside `CommandShortcut`. It had no renderer here and
+// was withheld for it; the reference ships it, and a house principle withholds no name the
+// reference ships — `decisions/a-house-principle-withholds-no-name.md`. The rename is `slot` and
+// not a literal `data-slot`, which is the one thing we do not copy from Shark's version of it:
+// `decisions/a-primitive-owns-its-slot.md`.
+export const ListboxShortcut = (
+  { slot, ...rest }: React.ComponentProps<typeof MenuShortcut>
+) => <MenuShortcut {...rest} slot={slot ?? "listbox-shortcut"} />;

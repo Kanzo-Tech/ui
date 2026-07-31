@@ -1,7 +1,12 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  useCombobox as useArkCombobox,
+  useComboboxContext,
+} from "@ark-ui/react/combobox";
 import { useTagsInputContext } from "@ark-ui/react/tags-input";
+import { useTourContext as useArkTourContext } from "@ark-ui/react/tour";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import * as UI from "./index";
@@ -322,6 +327,24 @@ describe("the Shark UI surface", () => {
     expect(snapshot.components["tags-input"]).toContain("useTagsInput");
     expect(snapshot.components["tags-input"]).toContain("useTagsInputContext");
     expect((UI as Record<string, unknown>).useTagsInputContext).toBeUndefined();
+  });
+
+  it("holds the two hooks restored with the parts to bindings that are not Ark's", () => {
+    // `decisions/a-house-principle-withholds-no-name.md` restored `useCombobox` and
+    // `useTourContext` with the parts, and both are the `useTagsInput` shape a second and a third
+    // time — a name that matches the reference exactly and clashes with **Ark's** export of the
+    // same name. Shark binds each the way we do, so parity is genuinely satisfied and the
+    // comparison above cannot see any of it; what a consumer meets is two `useCombobox` with
+    // incompatible signatures in one dependency tree.
+    expect(UI.useCombobox).toBe(useComboboxContext);
+    expect(UI.useCombobox).not.toBe(useArkCombobox);
+    expect(snapshot.components.combobox).toContain("useCombobox");
+    expect(snapshot.components.combobox).not.toContain("useComboboxContext");
+    // Ark's `useTourContext` returns its machine API; ours returns the `{ tour, handleStart }` of
+    // `tour.tsx`'s own React context, which is what `TourTrigger` reads. Same name, and neither
+    // the same object nor the same shape.
+    expect(UI.useTourContext).not.toBe(useArkTourContext);
+    expect(snapshot.components.tour).toContain("useTourContext");
   });
 });
 

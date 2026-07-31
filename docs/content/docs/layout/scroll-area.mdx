@@ -50,6 +50,7 @@ so the fade doubles as the "there is more above/below" signal.
 | --- | --- | --- |
 | `scrollFade` | `boolean` | `false` |
 
-Extends Ark's `ScrollArea.Root`, and `useScrollArea` re-exports Ark's `useScrollAreaContext`. The
-root is the only export below that: the scrollbars, the viewport and the corner are internal, and
-`ScrollArea` renders all of them.
+Extends Ark's `ScrollArea.Root`, and `useScrollArea` re-exports Ark's `useScrollAreaContext`.
+`ScrollAreaScrollbar` is exported for a custom root of your own; `ScrollArea` already places one per
+axis, so a third one placed inside it is a third scrollbar. The viewport, the content and the corner
+are not exported under any name — they are Ark's parts, and this library styles them in place.

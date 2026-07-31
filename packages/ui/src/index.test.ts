@@ -54,9 +54,11 @@ describe("@kanzo-tech/ui public surface", () => {
     // The filter field `searchable` draws. An Ark part Shark's listbox omits, so nothing upstream
     // would notice it going missing.
     expect(UI.ListboxInput).toBeTypeOf("function");
-    // Deliberately absent: a third `data-slot` rename of MenuShortcut's span, with no renderer.
-    // (A fourth until `ContextMenuShortcut` went, below.)
-    expect((UI as Record<string, unknown>).ListboxShortcut).toBeUndefined();
+    // `ListboxShortcut` was the one name in this file's set that had to be *written* rather than
+    // un-hidden: a third `data-slot` rename of `MenuShortcut`'s span, with no renderer here, deleted
+    // on admission rule 2. Shark's `listbox.tsx` exports it, and a house principle does not overrule
+    // the reference — `decisions/a-house-principle-withholds-no-name.md`.
+    expect(UI.ListboxShortcut).toBeTypeOf("function");
   });
 
   it("exposes exactly one themer", () => {
@@ -232,18 +234,17 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.CalendarPresetTrigger).toBeTypeOf("function");
   });
 
-  it("does not export a part its own root already renders", () => {
-    // 36 parts with no external consumer, because the component places them itself. Un-exported,
-    // symbol kept — removing the export cannot break anything, while keeping it advertises a
-    // composition the root does not allow.
-    //
-    // `ProgressTrack` is the one to read the code for. DESIGN.md:239 holds it up as "the ideal
-    // case, not a defect", on the grounds that the docs tell you never to place it yourself. But
-    // `simples/progress.tsx` renders `<ProgressTrack><ProgressRange /></ProgressTrack>`
-    // unconditionally, *after* `{children}` — so a consumer who follows the export and places one
-    // gets TWO troughs. An export whose documentation is "do not use this" is an export that
-    // should not exist; the ideal case is the symbol existing and the export not.
-    const surface = UI as Record<string, unknown>;
+  it("exports every part Shark's registry exports, including the ones our own root renders", () => {
+    // These were un-exported in one sweep, on the house principle that a part its own root places
+    // needs no export and that exporting one advertises a composition the root does not allow. The
+    // principle is a good one and it lost: `CONVENTIONS.md`, *The reference, and what overrules it*
+    // — the reference governs the surface, and a house principle overrules neither it nor a
+    // measurement. Shark's `registry/react/components/<file>.tsx` exports every name below, so the
+    // whole of this list is one fetch away from being falsified by a source outside this repository,
+    // which is the property the sweep's argument never had.
+    // `decisions/a-house-principle-withholds-no-name.md` carries the composition audit that went
+    // with it: for every one of these, Shark's own root renders the part exactly where ours does.
+    // The double-render is upstream's shape and we match it — the export was never the defect.
     for (const name of [
       "ProgressTrack", "ProgressRange", "CheckboxIndicator", "ClipboardIndicator",
       "PasswordInputIndicator", "SegmentGroupIndicator", "TreeViewBranchIndicator",
@@ -253,15 +254,20 @@ describe("@kanzo-tech/ui public surface", () => {
       "TourPositioner",
       "ComboboxClear", "ComboboxGroupLabel", "useCombobox", "ListboxItemGroupLabel",
       "PopoverDescription", "PopoverClose", "ScrollAreaScrollbar", "SelectClearTrigger",
-      "SheetOverlay", "SuggestItem", "ToastItem",
+      "SheetOverlay", "ToastItem",
       "TourActionTrigger", "TourOverlay", "TourSpotlight", "TourClose", "useTourContext",
     ]) {
-      expect(surface[name], name).toBeUndefined();
+      expect(UI[name as keyof typeof UI], name).toBeTypeOf("function");
     }
-    // The roots that render them are of course still exported — that is the whole point.
+    // The roots that render them are of course still exported — nothing about placement changed.
     expect(UI.Progress).toBeTypeOf("function");
     expect(UI.Checkbox).toBeTypeOf("function");
     expect(UI.Popover).toBeTypeOf("function");
+    // And the other direction, which is what keeps this a rule about the reference rather than a
+    // preference for wide surfaces. `SuggestItem` was in the same sweep and stays un-exported:
+    // Shark ships no `suggest.tsx` at all, so parity neither grants nor refuses the name, and
+    // `decisions/an-export-needs-a-second-call-site.md` decides it like anything else of ours.
+    expect((UI as Record<string, unknown>).SuggestItem).toBeUndefined();
   });
 
   it("keeps the AI engine hooks exported, and the CodeMirror style not", () => {
@@ -289,20 +295,36 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.PreferencesDensity).toBeTypeOf("function");
   });
 
-  it("keeps `tv()` recipes off the public surface unless another module needs them", () => {
-    // A variant object is an implementation detail: exported, it freezes a class list as API. The
-    // fourteen with no importer are internal again. The exceptions stay because a *different* module
-    // imports them — `statusVariants` is the one to be careful with: `avatar.tsx` imports it as a
-    // type for `VariantProps<typeof statusVariants>`, which still requires the value to be exported.
-    // A sweep that trusted "used only by its own file" would have broken Avatar.
+  it("keeps a recipe off the public surface unless the reference or another module ships it", () => {
+    // A variant object exported freezes a class list as API, which is why the default is off. Two
+    // things override it, and only two.
+    //
+    // The reference, for the four Shark's own registry exports. That is the owner's call and it was
+    // taken against a stated reservation — a recipe is a different kind of commitment from a
+    // component, because what it promises is *our* class list rather than a shape. It is recorded
+    // with the condition that would reverse it in
+    // `decisions/a-house-principle-withholds-no-name.md`.
+    expect(UI.alertVariants).toBeTypeOf("function");
+    expect(UI.badgeVariants).toBeTypeOf("function");
+    expect(UI.menuContentVariants).toBeTypeOf("function");
+    expect(UI.toggleVariants).toBeTypeOf("function");
+    // And a *different* module importing one. `statusVariants` is the one to be careful with:
+    // `avatar.tsx` imports it as a type for `VariantProps<typeof statusVariants>`, which still
+    // requires the value to be exported. A sweep that trusted "used only by its own file" would
+    // have broken Avatar.
+    expect(UI.buttonVariants).toBeTypeOf("function");
+    expect(UI.inputVariants).toBeTypeOf("function");
+    expect(UI.statusVariants).toBeTypeOf("function");
+    // Everything else stays internal, and the reason is the same rule read the other way: Shark's
+    // registry exports no recipe under any of these names. For `Link`, `Section*`, `Shell*`,
+    // `Swatch` and `PinInput` it has no file at all; for `float`, `button-group`, `number-input`
+    // and `sidebar` it has one that keeps its own recipe local. Silence returns the question to the
+    // house rules.
     const surface = UI as Record<string, unknown>;
     for (const name of [
-      "alertVariants",
-      "badgeVariants",
       "buttonGroupVariants",
       "floatVariants",
       "linkVariants",
-      "menuContentVariants",
       "numberInputControlVariants",
       "pinInputInputVariants",
       "sectionBodyVariants",
@@ -311,13 +333,9 @@ describe("@kanzo-tech/ui public surface", () => {
       "shellAsideVariants",
       "swatchVariants",
       "sidebarMenuBadgeVariants",
-      "toggleVariants",
     ]) {
       expect(surface[name], name).toBeUndefined();
     }
-    expect(UI.buttonVariants).toBeTypeOf("function");
-    expect(UI.inputVariants).toBeTypeOf("function");
-    expect(UI.statusVariants).toBeTypeOf("function");
   });
 
   it("keeps CodeMirror-backed components off the root barrel", () => {

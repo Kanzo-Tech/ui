@@ -120,14 +120,14 @@ export const TourTrigger = (props: TourTriggerProps) => {
   );
 };
 
-const TourActionTrigger = ({
+export const TourActionTrigger = ({
   slot,
   ...rest
 }: React.ComponentProps<typeof ArkTour.ActionTrigger>) => (
   <ArkTour.ActionTrigger {...rest} data-slot={slot ?? "tour-action-trigger"} />
 );
 
-const TourOverlay = (
+export const TourOverlay = (
   props: React.ComponentProps<typeof DialogOverlay>
 ) => {
   const { className, slot, ...rest } = props;
@@ -140,7 +140,7 @@ const TourOverlay = (
     />
   );
 };
-const TourPositioner = ({
+export const TourPositioner = ({
   slot,
   ...rest
 }: React.ComponentProps<typeof ArkTour.Positioner>) => (
@@ -227,7 +227,7 @@ export const TourContent = (props: TourContentProps) => {
 
 // A step's body is `DialogBody`: the renamed `TourBody` only relabelled the slot, and nothing
 // keys off `tour-body`.
-const TourSpotlight = (
+export const TourSpotlight = (
   { slot, ...rest }: React.ComponentProps<typeof ArkTour.Spotlight>
 ) => (
   <ArkTour.Spotlight
@@ -302,7 +302,7 @@ export const TourProgressText = (
   );
 };
 
-const TourClose = ({
+export const TourClose = ({
   slot,
   ...rest
 }: React.ComponentProps<typeof ArkTour.CloseTrigger>) => (
@@ -419,7 +419,7 @@ export const TourNextStep = (
   );
 };
 
-const useTourContext = () => {
+export const useTourContext = () => {
   const context = React.use(TourProvider);
 
   if (!context) {

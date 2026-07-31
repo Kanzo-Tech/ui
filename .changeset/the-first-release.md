@@ -16,6 +16,13 @@ component moving between them is not a breaking change.
 
 Import the compiled stylesheet once: `import "@kanzo-tech/ui/styles.css"`.
 
+**The export surface tracks Shark UI's registry.** If Shark's `registry/react/components/<file>.tsx`
+exports a name, this package exports it — every part, including the ones a root renders for you, and
+the recipes Shark makes public (`alertVariants`, `badgeVariants`, `menuContentVariants`,
+`toggleVariants`). A part that a root already places is exported so you can build a root of your
+own, not so you can add a second one inside ours: `Progress` places its own track, `ScrollArea` its
+own scrollbars, and putting another inside them renders another.
+
 **Every part carries a `data-slot`, and you style against it.** That is the escape hatch you get
 instead of guessing class names, and our own recipes select on it. Two things follow for you:
 

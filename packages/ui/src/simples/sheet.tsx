@@ -23,7 +23,7 @@ export const SheetTrigger = (
   { slot, ...rest }: React.ComponentProps<typeof ArkDialog.Trigger>
 ) => <ArkDialog.Trigger {...rest} data-slot={slot ?? "sheet-trigger"} />;
 
-const SheetOverlay = (
+export const SheetOverlay = (
   { slot, ...rest }: React.ComponentProps<typeof DialogOverlay>
 ) => <DialogOverlay {...rest} slot={slot ?? "sheet-overlay"} />;
 
@@ -62,7 +62,7 @@ interface SheetPositionerProps
   extends React.ComponentProps<typeof ArkDialog.Positioner>,
     VariantProps<typeof sheetPositionerVariants> {}
 
-const SheetPositioner = (props: SheetPositionerProps) => {
+export const SheetPositioner = (props: SheetPositionerProps) => {
   const { variant = "default", placement, className, slot, ...rest } = props;
 
   return (

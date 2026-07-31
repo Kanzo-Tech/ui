@@ -17,7 +17,11 @@ import { beforeAll, describe, expect, it } from "vitest";
  *   `/analytics` — four names `analytics.ts` had deleted on purpose, with the reasoning written
  *   into the barrel three inches from the deletion.
  * - `layout/scroll-area.mdx` said `ScrollAreaScrollbar` "is exported for the rare case you need to
- *   place one yourself". It is a module-local `const` and has never been exported.
+ *   place one yourself". It was a module-local `const` at the time, and the sentence was deleted
+ *   rather than the export added. The export came later, from the other direction entirely —
+ *   `decisions/a-house-principle-withholds-no-name.md` — which is the thing to notice: the page was
+ *   right about the surface the library should have, and a guard over pages can only ever report
+ *   that the two disagree.
  * - `forms/index.mdx` and `forms/field.mdx` carried `FieldSeparator` in anatomy diagrams after it
  *   was deleted.
  * - `navigation/steps.mdx` documented `useSteps` after the same audit removed it.
@@ -337,27 +341,22 @@ const DELIBERATE: Record<string, string[]> = {
 /**
  * Real defects this guard found on the tree it was written against, recorded rather than fixed:
  * fixing them is a documentation decision, and a decision does not belong in the commit that
- * builds the instrument. Every entry is a name the page presents as a part you can reach, which is
+ * builds the instrument. Every entry was a name a page presents as a part you can reach, which was
  * a module-local `const` in our own source — the `ScrollAreaScrollbar` shape exactly.
+ *
+ * **It is empty, and that is the mechanism working rather than an unused container.** All six —
+ * `ClipboardIndicator` in an import block that therefore did not compile, `ComboboxClear`,
+ * `ComboboxGroupLabel`, `PopoverClose` and `TourClose` in anatomy trees, and `ToastItem` in a
+ * sentence claiming outright that it is exported — resolved in the direction this guard cannot
+ * choose between: the pages were right and the barrel was wrong. Shark's registry exports every
+ * one of them, and `decisions/a-house-principle-withholds-no-name.md` is why that settles it. The
+ * list stays because the next defect of this shape needs somewhere to be written down before
+ * anybody decides which side of it to fix.
  *
  * **Delete the entry with the fix.** The last test below fails on an entry that is no longer
  * needed, so this list cannot outlive the defects in it.
  */
-const KNOWN_DEFECTS: Record<string, string[]> = {
-  // The Usage import block imports it. `simples/clipboard.tsx:68` declares it `const`, unexported,
-  // and `ClipboardTrigger` renders it as its default child. This example does not compile.
-  "actions/clipboard.mdx": ["ClipboardIndicator"],
-  // Anatomy names both; `simples/combobox.tsx` keeps them local — `ComboboxInput` renders the clear
-  // button, `ComboboxGroup` renders the label from its `heading` prop.
-  "forms/combobox.mdx": ["ComboboxClear", "ComboboxGroupLabel"],
-  // Anatomy names it; `simples/popover.tsx:227` is a local const rendered by `PopoverContent`.
-  "overlays/popover.mdx": ["PopoverClose"],
-  // Anatomy names it, and the prose goes further: "`ToastItem` is exported so a custom `Toaster`
-  // can reuse it". `simples/toast.tsx:79` is a local const.
-  "overlays/toast.mdx": ["ToastItem"],
-  // Anatomy names it; `simples/tour.tsx:305` is a local const rendered by `TourContent`.
-  "overlays/tour.mdx": ["TourClose"],
-};
+const KNOWN_DEFECTS: Record<string, string[]> = {};
 
 const excused = (page: string, name: string) =>
   (DELIBERATE[page]?.includes(name) ?? false) || (KNOWN_DEFECTS[page]?.includes(name) ?? false);

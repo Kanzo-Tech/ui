@@ -19,7 +19,7 @@ import {
   InputGroupInput,
 } from "./input-group";
 
-const useCombobox = useArkComboboxContext;
+export const useCombobox = useArkComboboxContext;
 
 export const ComboboxContext = ArkCombobox.Context;
 
@@ -153,7 +153,7 @@ export const ComboboxTrigger = (
   );
 };
 
-const ComboboxClear = ({
+export const ComboboxClear = ({
   slot,
   ...rest
 }: React.ComponentProps<typeof ArkCombobox.ClearTrigger>) => (
@@ -165,7 +165,7 @@ export const ComboboxFieldInput = (
   { slot, ...rest }: React.ComponentProps<typeof ArkCombobox.Input>
 ) => <ArkCombobox.Input {...rest} data-slot={slot ?? "combobox-field-input"} />;
 
-const ComboboxPositioner = ({
+export const ComboboxPositioner = ({
   slot,
   ...rest
 }: React.ComponentProps<typeof ArkCombobox.Positioner>) => (
@@ -231,7 +231,7 @@ export const ComboboxGroup = (props: ComboboxGroupProps) => {
   );
 };
 
-const ComboboxGroupLabel = (
+export const ComboboxGroupLabel = (
   props: React.ComponentProps<typeof ArkCombobox.ItemGroupLabel>
 ) => {
   const { className, slot, ...rest } = props;

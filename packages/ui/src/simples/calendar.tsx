@@ -195,7 +195,7 @@ export const CalendarView = (
   );
 };
 
-const CalendarContext = (
+export const CalendarContext = (
   props: React.ComponentProps<typeof ArkCalendar.Context>
 ) => <ArkCalendar.Context {...props} />;
 
@@ -360,14 +360,14 @@ export const CalendarTableNextMonth = (props: CalendarTableNextMonthProps) => {
   );
 };
 
-const CalendarTableHead = ({
+export const CalendarTableHead = ({
   slot,
   ...rest
 }: React.ComponentProps<typeof ArkCalendar.TableHead>) => (
   <ArkCalendar.TableHead {...rest} data-slot={slot ?? "calendar-table-head"} />
 );
 
-const CalendarTableRow = (
+export const CalendarTableRow = (
   props: React.ComponentProps<typeof ArkCalendar.TableRow>
 ) => {
   const { className, slot, ...rest } = props;
@@ -380,7 +380,7 @@ const CalendarTableRow = (
   );
 };
 
-const CalendarTableHeader = (
+export const CalendarTableHeader = (
   props: React.ComponentProps<typeof ArkCalendar.TableHeader>
 ) => {
   const { className, slot, ...rest } = props;
@@ -400,14 +400,14 @@ const CalendarTableHeader = (
   );
 };
 
-const CalendarTableBody = ({
+export const CalendarTableBody = ({
   slot,
   ...rest
 }: React.ComponentProps<typeof ArkCalendar.TableBody>) => (
   <ArkCalendar.TableBody {...rest} data-slot={slot ?? "calendar-table-body"} />
 );
 
-const CalendarTableCell = (
+export const CalendarTableCell = (
   props: React.ComponentProps<typeof ArkCalendar.TableCell>
 ) => {
   const { value, visibleRange, className, slot, ...rest } = props;

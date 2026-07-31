@@ -53,7 +53,7 @@ export const MenuContextTrigger = (
   );
 };
 
-const MenuPositioner = (
+export const MenuPositioner = (
   props: React.ComponentProps<typeof ArkMenu.Positioner>
 ) => {
   const { className, slot, ...rest } = props;
@@ -67,7 +67,7 @@ const MenuPositioner = (
   );
 };
 
-const menuContentVariants = tv({
+export const menuContentVariants = tv({
   base: [
     "z-[calc(50+var(--nested-layer-count,0))]",
     // A FIXED max-height, not `max-h-(--available-height)`: clamping the content to the

@@ -6,7 +6,7 @@ import { buttonVariants } from "./button";
 
 export const useToggle = useToggleContext;
 
-const toggleVariants = tv({
+export const toggleVariants = tv({
   base: [
     "relative",
     // The pressed state is the ACTIVE level (step 5), painted as a wash because a toggle is

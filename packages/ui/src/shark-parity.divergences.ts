@@ -124,20 +124,6 @@ function ARK_PART_NAME(part: string): string {
   );
 }
 
-const ROOT_RENDERS_IT =
-  "Our own root renders this part, so exporting it advertises a composition the root does not " +
-  "allow — `index.test.ts`, `does not export a part its own root already renders`, which pins the " +
-  "whole set. **Read BEYOND_THE_SURFACE before citing this as settled:** it is a house principle, " +
-  "and `decisions/a-measurement-overrules-the-reference.md` says a house principle does not " +
-  "overrule the reference. Six of the names under this reason are additionally documented as " +
-  "reachable parts on pages that cannot compile — `packages/ui/src/documented-exports.test.ts` " +
-  "found them — so for those the premise is contradicted by our own docs, not only by Shark.";
-
-const RECIPE_NOT_API =
-  "A `tv()` recipe exported is a class list frozen as API — `index.test.ts`, `keeps `tv()` " +
-  "recipes off the public surface unless another module needs them`. Shark exports its recipes; we " +
-  "export the three another module imports and no others. Same standing conflict as ROOT_RENDERS_IT.";
-
 const DIALOG_OWNS_THE_TITLE =
   "`DialogTitle` / `DialogDescription` are the parts, and both components say so in their own " +
   "source: `AlertDialog` is `Dialog` with a role and `Sheet` is `Dialog` with a side, one machine " +
@@ -174,56 +160,14 @@ const UNDECIDED_TOUR =
 /**
  * A name Shark exports that we do not, keyed `"<shark file>:<Name>"`.
  *
- * The largest group by far is the parts sweep in `index.test.ts` — parts whose own root renders
- * them, un-exported so that a caller cannot place a second one. Read BEYOND_THE_SURFACE before
- * treating that group as settled: the sweep is a house principle, and this repository has since
- * written down that a house principle does not overrule the reference.
+ * This map used to be dominated by the parts sweep — thirty-four names withheld because our own
+ * root renders the part, plus four recipes withheld because a class list is not API. Both were
+ * house principles, and `decisions/a-house-principle-withholds-no-name.md` restored all thirty-eight
+ * against `decisions/a-measurement-overrules-the-reference.md`. What is left is the shape a
+ * withheld name is supposed to have: a decision with its own record, or an open question with
+ * nobody's name on it yet.
  */
 export const WITHHELD: Readonly<Record<string, string>> = {
-  // ── The parts sweep: 34 names, one argument ──────────────────────────────────────────────────
-  "calendar:CalendarContext": ROOT_RENDERS_IT,
-  "calendar:CalendarTableBody": ROOT_RENDERS_IT,
-  "calendar:CalendarTableCell": ROOT_RENDERS_IT,
-  "calendar:CalendarTableHead": ROOT_RENDERS_IT,
-  "calendar:CalendarTableHeader": ROOT_RENDERS_IT,
-  "calendar:CalendarTableRow": ROOT_RENDERS_IT,
-  "checkbox:CheckboxIndicator": ROOT_RENDERS_IT,
-  "clipboard:ClipboardIndicator": ROOT_RENDERS_IT,
-  "combobox:ComboboxClear": ROOT_RENDERS_IT,
-  "combobox:ComboboxGroupLabel": ROOT_RENDERS_IT,
-  "combobox:ComboboxPositioner": ROOT_RENDERS_IT,
-  "combobox:useCombobox": ROOT_RENDERS_IT,
-  "listbox:ListboxItemGroupLabel": ROOT_RENDERS_IT,
-  "listbox:ListboxShortcut":
-    "A third `data-slot` rename of `MenuShortcut`'s span, with no renderer anywhere — `index.test.ts`, `exposes the one facet-filter surface, on the root barrel`, which names it as deliberately absent.",
-  "menu:MenuPositioner": ROOT_RENDERS_IT,
-  "password-input:PasswordInputIndicator": ROOT_RENDERS_IT,
-  "popover:PopoverClose": ROOT_RENDERS_IT,
-  "popover:PopoverDescription": ROOT_RENDERS_IT,
-  "popover:PopoverPositioner": ROOT_RENDERS_IT,
-  "progress:ProgressRange": ROOT_RENDERS_IT,
-  "progress:ProgressTrack":
-    "The strongest case in the sweep, and the one to read the code for: `simples/progress.tsx` renders `<ProgressTrack><ProgressRange /></ProgressTrack>` unconditionally and *after* `{children}`, so a caller who follows the export and places one gets two troughs. `index.test.ts`, `does not export a part its own root already renders`.",
-  "scroll-area:ScrollAreaScrollbar": ROOT_RENDERS_IT,
-  "segment-group:SegmentGroupIndicator": ROOT_RENDERS_IT,
-  "select:SelectClearTrigger": ROOT_RENDERS_IT,
-  "sheet:SheetOverlay": ROOT_RENDERS_IT,
-  "sheet:SheetPositioner": ROOT_RENDERS_IT,
-  "toast:ToastItem": ROOT_RENDERS_IT,
-  "tour:TourActionTrigger": ROOT_RENDERS_IT,
-  "tour:TourClose": ROOT_RENDERS_IT,
-  "tour:TourOverlay": ROOT_RENDERS_IT,
-  "tour:TourPositioner": ROOT_RENDERS_IT,
-  "tour:TourSpotlight": ROOT_RENDERS_IT,
-  "tour:useTourContext": ROOT_RENDERS_IT,
-  "tree-view:TreeViewBranchIndicator": ROOT_RENDERS_IT,
-
-  // ── Recipes: a class list is not API ─────────────────────────────────────────────────────────
-  "alert:alertVariants": RECIPE_NOT_API,
-  "badge:badgeVariants": RECIPE_NOT_API,
-  "menu:menuContentVariants": RECIPE_NOT_API,
-  "toggle:toggleVariants": RECIPE_NOT_API,
-
   // ── One dialog machine owns the title and the description ────────────────────────────────────
   "alert-dialog:AlertDialogTitle": DIALOG_OWNS_THE_TITLE,
   "alert-dialog:AlertDialogDescription": DIALOG_OWNS_THE_TITLE,
@@ -354,6 +298,28 @@ export const BEYOND_THE_SURFACE: readonly {
     ],
   },
   {
+    what:
+      "`useCombobox` and `useTourContext` match Shark exactly and collide with Ark's exports of " +
+      "the same names.",
+    why:
+      "Both were withheld under the parts sweep and both came back with it " +
+      "(`decisions/a-house-principle-withholds-no-name.md`). Neither is a divergence from Shark — " +
+      "it binds each one the way we do, and its files export no second hook beside them, so this " +
+      "guard reports parity and is right to. The cost is one nobody had counted: `@ark-ui/react` " +
+      "exports `useCombobox`, the machine hook that takes props, *and* `useComboboxContext`, and " +
+      "ours is the second under the first's name — so a consumer with both packages in scope has " +
+      "two `useCombobox` with incompatible signatures and no error to read. `useTourContext` is " +
+      "the same shape with a sharper edge, because the name ends in `Context` and returns " +
+      "something that is not Ark's tour context at all: `tour.tsx`'s own `{ tour, handleStart }`, " +
+      "whose type is not exported either. This was invisible while the names were withheld, which " +
+      "is the honest reason it is being written down now rather than then.",
+    held: [
+      "decisions/a-house-principle-withholds-no-name.md",
+      "packages/ui/src/shark-parity.test.ts",
+      "packages/ui/src/simples/tour.tsx",
+    ],
+  },
+  {
     what: "`useTagsInput` matches Shark by name and not by binding.",
     why:
       "Ours aliases Ark's `useTagsInputContext`; Shark's aliases Ark's `useTagsInput`, the machine " +
@@ -368,26 +334,23 @@ export const BEYOND_THE_SURFACE: readonly {
   },
   {
     what:
-      "The parts sweep and the reference point opposite ways over 38 names, and the repository has " +
-      "written down which wins.",
+      "Four recipe names match Shark's and the class lists behind them do not, and those class " +
+      "lists are now public.",
     why:
-      "34 entries in WITHHELD cite `does not export a part its own root already renders` and four " +
-      "cite the recipe rule. Both are house principles, correctly applied. " +
-      "`decisions/a-measurement-overrules-the-reference.md` — written after that sweep — says the " +
-      "reference governs the surface and a house principle overrules neither it nor a measurement. " +
-      "Nobody has re-run the sweep against that order. Every one of those entries is therefore a " +
-      "decision waiting, not a settled divergence, and `ScrollAreaScrollbar` is the one that has " +
-      "already been noticed twice without being decided once. Seven of the 38 are further along " +
-      "than the rest: `packages/ui/src/documented-exports.test.ts` found six of them documented as " +
-      "reachable parts, one inside a Usage import block that therefore does not compile, and one " +
-      "in prose that states outright that the symbol is exported so a custom root can reuse it. " +
-      "For those seven the reference and our own documentation agree with each other and against " +
-      "the sweep, which is as close to decided as an open question gets.",
+      "`alertVariants`, `badgeVariants`, `menuContentVariants` and `toggleVariants` were withheld " +
+      "on the house rule that an exported `tv()` freezes a class list as API, and " +
+      "`decisions/a-house-principle-withholds-no-name.md` restored them for parity. The " +
+      "reservation the owner stated while choosing parity anyway is the divergence this guard " +
+      "cannot see: it compares names and never class strings, and every one of these four differs " +
+      "from Shark's in the utilities it holds — `toggleVariants` composes our `buttonVariants` and " +
+      "paints the pressed state as a wash, `menuContentVariants` pins a fixed max-height Shark " +
+      "does not. So the four names agree with the reference and what a consumer can now depend on " +
+      "does not. The reversal condition is in the record: a consumer reaching into one of these in " +
+      "a way that blocks a restyle.",
     held: [
-      "decisions/a-measurement-overrules-the-reference.md",
-      "decisions/a-name-shark-ships-is-ours.md",
+      "decisions/a-house-principle-withholds-no-name.md",
       "packages/ui/src/index.test.ts",
-      "packages/ui/src/documented-exports.test.ts",
+      "packages/ui/src/simples/toggle.tsx",
     ],
   },
   {

@@ -7,7 +7,7 @@
   rule 2 — they ship without a call site of their own.
 - **Because** a consumer arriving from Shark meets the same vocabulary, and that claim is checkable
   against a source outside this repository, today and in a year. "We might need them later" is not,
-  which is why rule 2 exists to refuse it.
+  which is why the second admission rule exists to refuse it.
 - **Reversed by** Shark dropping them, or the library gaining a reason to define its own context
   surface rather than re-export Ark's — at which point the names are ours to choose and the
   reference stops answering the question. The general form of the override this record takes,

@@ -65,7 +65,7 @@ export const ClipboardInput = (
   );
 };
 
-const ClipboardIndicator = (
+export const ClipboardIndicator = (
   props: React.ComponentProps<typeof ArkClipboard.Indicator>
 ) => {
   const {

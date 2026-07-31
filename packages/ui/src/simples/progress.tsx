@@ -57,7 +57,7 @@ export const Progress = (props: ProgressProps) => {
   );
 };
 
-const ProgressTrack = (
+export const ProgressTrack = (
   { slot, ...rest }: React.ComponentProps<typeof ArkProgress.Track>
 ) => (
   <ArkProgress.Track
@@ -73,7 +73,7 @@ const ProgressTrack = (
   />
 );
 
-const ProgressRange = ({
+export const ProgressRange = ({
   slot,
   ...rest
 }: React.ComponentProps<typeof ArkProgress.Range>) => (

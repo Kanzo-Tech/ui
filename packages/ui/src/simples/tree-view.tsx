@@ -240,7 +240,7 @@ const TreeViewBranchTitle = (props: TreeViewBranchTitleProps) => {
   );
 };
 
-const TreeViewBranchIndicator = (
+export const TreeViewBranchIndicator = (
   props: React.ComponentProps<typeof ArkTreeView.BranchIndicator>
 ) => {
   const { className, slot, ...rest } = props;

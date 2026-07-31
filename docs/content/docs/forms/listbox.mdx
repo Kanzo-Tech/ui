@@ -62,13 +62,14 @@ Listbox
     │   ├── ListboxItemGroupLabel
     │   └── ListboxItem
     │       ├── ListboxItemText
-    │       └── ListboxItemIndicator
+    │       ├── ListboxItemIndicator
+    │       └── ListboxShortcut          optional; a keyboard hint at the end of the row
     └── ListboxEmpty
 ```
 
-Shark's listbox also ships a `ListboxShortcut`; we do not. It was a third `data-slot` rename of
-`MenuShortcut`'s span — after `CommandShortcut` — and nothing in the repo ever rendered it. Put a
-`MenuShortcut` in the row if you need a keyboard hint.
+`ListboxShortcut` is exported for a keyboard hint at the end of a row. It is `MenuShortcut` under a
+different `data-slot`, the same way `CommandShortcut` is, so the three are interchangeable in
+appearance and differ only in what a recipe can select.
 
 `ListboxLabel` matters more here than it looks. A `Select` gets its accessible name from its
 trigger; a standalone listbox has no trigger, so without a label it is an unnamed list to a screen

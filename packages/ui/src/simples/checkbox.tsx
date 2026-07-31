@@ -69,7 +69,7 @@ export const Checkbox = (
   );
 };
 
-const CheckboxIndicator = (
+export const CheckboxIndicator = (
   props: React.ComponentProps<typeof ArkCheckbox.Indicator>
 ) => {
   const { className, slot, ...rest } = props;

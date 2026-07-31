@@ -63,7 +63,7 @@ export const ScrollArea = (props: ScrollAreaProps) => {
   );
 };
 
-const ScrollAreaScrollbar = (
+export const ScrollAreaScrollbar = (
   props: React.ComponentProps<typeof ArkScrollArea.Scrollbar>
 ) => {
   const { orientation, className, slot, ...rest } = props;

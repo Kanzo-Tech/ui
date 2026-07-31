@@ -118,7 +118,7 @@ export const PasswordInputTrigger = (
   );
 };
 
-const PasswordInputIndicator = (
+export const PasswordInputIndicator = (
   props: React.ComponentProps<typeof ArkPasswordInput.Indicator>
 ) => {
   const { children, slot, ...rest } = props;
