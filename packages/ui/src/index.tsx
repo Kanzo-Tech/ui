@@ -78,6 +78,16 @@ export type { ListCollection, CollectionItem } from "@ark-ui/react/collection";
 // `useFilter` completes the collection-filtering trio the `Command`/Combobox pattern needs.
 export { useFilter } from "@ark-ui/react/locale";
 
+// The same rule as `createListCollection`, one machine along: `DatePicker` takes a `DateValue[]`,
+// and nothing else in the barrel can build one. `DateField` used to be the only ISO-string
+// adapter and it was cut, which left the machine unusable without a direct
+// `@internationalized/date` dependency — an implementation detail of Ark's date machine, not
+// something a consumer of `Button` should have to install. `parseDate` (`"2026-07-31"`) and the
+// value type are exactly what that adapter needed; nothing more is re-exported until a second
+// caller asks for it.
+export { parseDate } from "@internationalized/date";
+export type { DateValue } from "@internationalized/date";
+
 // ── simples — adopted from Shark UI (flat compound API) ──────────────────────
 export * from "./simples/accordion.js";
 export * from "./simples/action-bar.js";

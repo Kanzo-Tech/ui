@@ -34,6 +34,16 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.SwatchGroup).toBeTypeOf("function");
   });
 
+  it("can build every value its machines demand, from the barrel alone", () => {
+    // A machine whose value cannot be constructed from the barrel is not usable from the barrel.
+    // `Select`/`Combobox` take a collection; `DatePicker` takes a `DateValue[]`, and the ISO
+    // adapter that used to build one went with `DateField`. Both helpers are re-exported here so
+    // a consumer never needs a direct `@ark-ui/react` or `@internationalized/date` dependency.
+    expect(UI.createListCollection).toBeTypeOf("function");
+    expect(UI.parseDate).toBeTypeOf("function");
+    expect(UI.parseDate("2026-07-31").toString()).toBe("2026-07-31");
+  });
+
   it("exposes the one facet-filter surface, on the root barrel", () => {
     // Both consumers sit on subpaths that must not import each other — `/table` would pull in
     // Mosaic, `/analytics` would pull in TanStack. FacetFilter is presentational, so the root

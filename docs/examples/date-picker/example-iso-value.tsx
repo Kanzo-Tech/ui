@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { type DateValue, parseDate } from "@internationalized/date";
 import {
+  type DateValue,
+  parseDate,
   CalendarMonthSelect,
   CalendarNextTrigger,
   CalendarPrevTrigger,
