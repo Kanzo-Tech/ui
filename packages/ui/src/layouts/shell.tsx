@@ -9,14 +9,12 @@ import { cn } from "../lib/cn.js";
  * The library ships composable parts, not named arrangements. `AppShell`, `WorkspaceLayout`
  * and friends were each a specific shape extracted from one product, which is why the layer
  * read as "the metadata view" rather than as a design system. Those arrangements live in
- * `docs/blocks/` as showcases now; what is shipped is the vocabulary they are built from.
+ * `docs/showcases/` now; what is shipped is the vocabulary they are built from.
  *
  * Parts are exported FLAT (`ShellHeader`, not `Shell.Header`). A namespace object built with
  * `Object.assign` does not survive the RSC client boundary — `Preferences` learned that the
  * hard way, and its compound statics had to be re-exported flat.
  */
-
-// ── Header / Footer ──────────────────────────────────────────────────────────
 
 /**
  * The regions above and below the body. STRUCTURAL ONLY — placement, and the border that
@@ -57,8 +55,6 @@ export function ShellFooter({ className, slot, ...rest }: ComponentProps<typeof 
   );
 }
 ShellFooter.displayName = "ShellFooter";
-
-// ── Root ─────────────────────────────────────────────────────────────────────
 
 /**
  * The outermost region: a full-height column that bars and the body stack inside.
@@ -109,8 +105,6 @@ export function ShellMain({ className, slot, ...rest }: ComponentProps<typeof ar
   );
 }
 ShellMain.displayName = "ShellMain";
-
-// ── Aside ────────────────────────────────────────────────────────────────────
 
 const shellAsideVariants = tv({
   base: "flex flex-col bg-card",

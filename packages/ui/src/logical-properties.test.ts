@@ -6,8 +6,9 @@ import { describe, expect, it } from "vitest";
 const SRC = dirname(fileURLToPath(import.meta.url));
 
 // DESIGN.md: "Logical properties, never physical … One code path mirrors correctly under RTL."
-// A rule nobody can grep is a rule that decays, so this is the grep. Layers only — `charts/`
-// (SVG plot geometry) and `editor/` (CodeMirror's own DOM) are not Tailwind box-model code.
+// A rule nobody can grep is a rule that decays, so this is the grep. The three layers only:
+// `charts/` is SVG plot geometry, `table/` and `theme/` are not appearance, and `lib/` has no JSX.
+// `composites/` IS scanned in full, CodeMirror overrides included.
 const LAYERS = ["simples", "composites", "layouts"];
 
 const PHYSICAL =

@@ -1,9 +1,9 @@
 // @kanzo-tech/ui — the shared design-system surface.
 //
-// Level 1 (simples) are Shark UI components, vendored as-is (the shadcn-style
-// registry model) and re-exported flat. Level 2 (composites / shells) are our
-// domain-free patterns composed over them. Everything runs on Ark UI +
-// tailwind-variants + tokens + tw-animate-css.
+// `simples/` are adopted from Shark UI and rebranded to our tokens — adopted, not vendored:
+// where we diverge, CONVENTIONS.md records the measurement that justifies it, and the solid focus
+// ring is not a diff to reconcile. `composites/` and `layouts/` are ours. Everything runs on
+// Ark UI + tailwind-variants + tokens + tw-animate-css.
 //
 // Admission rule: nothing that knows about RDF / SHACL / fossil / graphs / auth.
 
@@ -37,8 +37,7 @@ export {
   PreferencesTrigger,
   PreferencesPanel,
   PreferencesField,
-  // Never exported until now, which made the panel's own doc ("every section is exported flat")
-  // false and left `PrefFieldSet` reachable only as an internal.
+  // Every section is exported flat; `index.test.ts` keeps the list honest.
   PreferencesFieldSet,
   // No `PreferencesAppearance`: appearance has ONE control, `AppearanceToggle`, which cycles all
   // three states in the chrome. A panel section was the same preference wearing a second control.
@@ -79,7 +78,7 @@ export type { ListCollection, CollectionItem } from "@ark-ui/react/collection";
 // `useFilter` completes the collection-filtering trio the `Command`/Combobox pattern needs.
 export { useFilter } from "@ark-ui/react/locale";
 
-// ── Level 1 — primitives (Shark UI, vendored as-is; flat compound API) ───────
+// ── simples — adopted from Shark UI (flat compound API) ──────────────────────
 export * from "./simples/accordion.js";
 export * from "./simples/action-bar.js";
 export * from "./simples/alert.js";
@@ -154,7 +153,7 @@ export * from "./simples/complete.js";
 export * from "./simples/suggest.js";
 export * from "./simples/use-ai.js";
 
-// ── Level 1 — bespoke atoms (no Shark equivalent; token-native, ours) ────────
+// ── simples — bespoke (no Shark equivalent) ─────────────────────────────────
 // GhostEditor / CodeEditor deliberately live ONLY on the `/editor` subpath: they import
 // @codemirror/*, which is an OPTIONAL peer. Re-exporting them here made the root barrel
 // statically import CodeMirror, so `import { Button } from "@kanzo-tech/ui"` failed outright
@@ -177,7 +176,7 @@ export type { FieldArrayProps } from "./simples/FieldArray.js";
 export { FacetFilter } from "./simples/FacetFilter.js";
 export type { FacetFilterProps, FacetFilterItem } from "./simples/FacetFilter.js";
 
-// ── Level 2 — composites (domain-free, token-native; sourced from keasy) ──────
+// ── composites ───────────────────────────────────────────────────────────────
 // No `LinkComponent` / `DefaultLink`. They were the routing seam for five composites that took a
 // trail, a menu or a nav as an array prop; all five are gone, and the seam a hand-composed nav uses
 // is `asChild` on the part that renders the anchor — which reaches every part, not the one the prop
@@ -236,5 +235,5 @@ export { isActivePath } from "./lib/is-active-path.js";
 // What each one did survives: the parts are all exported, `Breadcrumb` now carries the `min-w-0`
 // that only the composite had, and the prefix-match above is the trap nobody should re-derive.
 
-// ── Level 2 — shells / patterns (domain-free composites) ─────────────────────
+// ── layouts ──────────────────────────────────────────────────────────────────
 // CodeEditor → `@kanzo-tech/ui/editor` (see the GhostEditor note above).

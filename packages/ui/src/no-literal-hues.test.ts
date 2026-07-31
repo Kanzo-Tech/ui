@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { oklch, CHROMA_FLOOR } from "@kanzo-tech/palette";
 import { describe, expect, it } from "vitest";
 
@@ -17,9 +18,7 @@ import { describe, expect, it } from "vitest";
  * accents they stood for. Both were hand-written hues, and nothing could tell.
  */
 
-// `process.cwd()` rather than `import.meta.url`: vitest's transform does not hand this module a
-// file: URL, so `fileURLToPath` throws before a single assertion runs.
-const SRC = join(process.cwd(), "src");
+const SRC = dirname(fileURLToPath(import.meta.url));
 
 /** Files whose subject matter *is* colour, where literals are the content rather than a decision. */
 const ALLOWED = new Set(["simples/color-picker.tsx"]);

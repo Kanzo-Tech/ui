@@ -14,8 +14,8 @@ export type { ThemePrefs } from "@kanzo-tech/theme";
 
 /**
  * KanzoThemeProvider — owns the runtime theme PREFERENCES and applies them as `data-*`
- * attributes on `<html>` (the canonical mechanism, matching keasy + tweakcn). It exposes the
- * state via {@link useKanzoTheme} so a `Preferences` selector drives the whole app live.
+ * attributes on `<html>`. It exposes the state via {@link useKanzoTheme} so a `Preferences`
+ * selector drives the whole app live.
  *
  * It is framework-agnostic and works in two modes:
  * · **Controlled** — pass `value` + `onChange` (e.g. keasy bridges its server-persisted prefs).
@@ -218,7 +218,6 @@ export function KanzoThemeProvider({
   appearance,
 }: KanzoThemeProviderProps) {
   const controlled = value !== undefined;
-  // `undefined` → default localStorage adapter; `null` → no persistence.
   const storageAdapter = React.useMemo(
     () => (storage === undefined ? localStorageAdapter(storageKey) : storage),
     [storage, storageKey],

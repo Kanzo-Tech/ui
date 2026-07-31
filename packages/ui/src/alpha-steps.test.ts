@@ -32,7 +32,9 @@ const SRC = dirname(fileURLToPath(import.meta.url));
  *
  * The ring is here for the first half of that rule only. The diluted ring (`/NN` again — same
  * reason) measured **1.29:1** in light, a live 1.4.11 failure on the element 1.4.11 names first, so
- * the dilution is banned and the 37 focus rings are solid `ring-ring`, ~4:1 at the boundary step. A
+ * the dilution is banned and the 36 focus rings are solid `ring-ring`, ~4:1 at the boundary step
+ * (counted 2026-07; a count of call sites rots, so re-run `grep -o 'ring-ring\b'` before trusting
+ * it). A
  * second token,
  * `--ring-soft` = `(brand, alpha[boundary])`, was tried for those sites and **dropped**, because
  * measuring it is what showed it had nothing to do: an alpha step's whole obligation is that it
@@ -40,7 +42,8 @@ const SRC = dirname(fileURLToPath(import.meta.url));
  * `#8e51ff` light, boundary 9: solid `#8e51ff`, alpha `#5500ffa7`, composited `#8e56ff`; the
  * shipped neutral `#737373` light: solid `#737373`, alpha `#00000088`, composited `#757575`. It
  * differed only over content the theme does not own, which a focus ring never needs, and it cost
- * the accent hue — `--ring` is overridden 42 times in `themes.css`, a static alpha is not. Two
+ * the accent hue — `--ring` is a compiled palette role and moves with the tenant's document, a
+ * static alpha does not. Two
  * tokens for one decision is the defect this layer exists to remove; the ban is the rule, the
  * token was not.
  *
@@ -85,8 +88,10 @@ const SRC = dirname(fileURLToPath(import.meta.url));
  * three read 4.74 now. The ban is unchanged and stronger: `bg-field/NN` in dark would dilute an
  * opaque page colour toward whatever is behind it.
  *
- * `--muted` is deliberately NOT here. Its four remaining dilutions are footers and a table stripe —
- * surfaces, not interaction fills — and no role covers them yet; banning the spelling before the
+ * `--muted` is deliberately NOT here. Four dilutions remain (counted 2026-07): two footers
+ * (`card.tsx`, `table.tsx`), a striped row (`table.tsx`) and `Item`'s `muted` variant fill. The
+ * first three are surfaces rather than interaction fills, which is the exemption; the fourth is a
+ * fill and is the one that wants a role. None exists yet, and banning the spelling before its
  * replacement exists would only move the problem into a `className` override.
  */
 const BANNED: [RegExp, string][] = [
