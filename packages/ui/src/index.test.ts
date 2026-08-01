@@ -1,6 +1,58 @@
 import { describe, expect, it } from "vitest";
 import * as UI from "./index";
 
+/**
+ * What `import { … } from "@kanzo-tech/ui"` is allowed to find, and what it must not.
+ *
+ * Two halves, and the second is the one that earns the file. The positive half is a smoke test with
+ * a purpose: an `export *` barrel resolves at runtime, so a module that fails to load, a name two
+ * modules both export — which silently exports neither — and a compound whose statics do not
+ * survive React Server Components are all invisible to `tsc` and visible here. The negative half is
+ * the tombstones: names asserted **absent**, each with the argument that removed it written beside
+ * it. A deletion whose reasoning lives only in a commit message comes back; a deletion with a
+ * failing test in front of it does not. That is why `MetricCard`, `Fieldset`, `SidebarNav` and the
+ * rest are still named in a file about a surface they are not on — and why the one-way doors
+ * CLAUDE.md lists, the optional peers that must stay off the root barrel, are asserted rather than
+ * trusted: a static import of `@codemirror/*` from `index.tsx` breaks `import { Button }` for
+ * everyone who did not install it.
+ *
+ * ## It is an enumeration, not a pin
+ *
+ * Read the assertions rather than the reputation. There is no `Object.keys(UI)` comparison and no
+ * snapshot anywhere below — 141 names asserted present and 63 asserted absent (counted 2026-07-30),
+ * every one typed out by hand. So **adding** an export never fails this file, and **removing** one
+ * fails only if somebody had already written that name down. `Table` is the worked example: ours,
+ * and `@tanstack/react-table`'s as well, and it appears in neither list here, so deleting it would
+ * leave this green.
+ *
+ * The guard that does catch a silent deletion is `shark-parity.test.ts`, for every name the
+ * reference also ships. `ships every name Shark ships, or declares why not` goes red when a name
+ * leaves one of our `simples/` modules; `puts every adopted module's exports on the public barrel`
+ * goes red when it leaves the barrel while staying in its module. Between them they hold the
+ * majority of the surface — but not a name that is ours alone, and not `composites/` or `layouts/`,
+ * which are outside that file's corpus. There, this enumeration is the only thing there is.
+ *
+ * ## What this guard cannot prove
+ *
+ * - **Nothing about the built artefact.** It imports `./index`, which is source. `docs/` resolves
+ *   the package to `dist/`, which is how a rename typechecks clean and breaks the docs build.
+ *   `documented-exports.test.ts` is the file that reads the emitted `.d.ts`; `pnpm smoke` is the
+ *   one that installs the tarball without the optional peers.
+ * - **Nothing about shape.** `toBeTypeOf("function")` is satisfied by any function. A component
+ *   that renders nothing, a hook that throws, a recipe whose variant keys were all renamed — each
+ *   passes. The one binding checked by identity rather than by type is checked in
+ *   `shark-parity.test.ts`, not here.
+ * - **Nothing about types.** `export type` contributes no runtime binding, so the entire type
+ *   surface is outside this file by construction.
+ * - **Nothing about the subpaths.** The three `keeps … off the root barrel` tests assert absence
+ *   from the root and never import `/editor`, `/table` or `/analytics`. A name deleted from a
+ *   subpath satisfies them by being absent, which is precisely what they ask for.
+ * - **It cannot tell a tombstone from a name nobody has written yet.** `expect(surface.X)
+ *   .toBeUndefined()` reads the same for both, so a tombstone whose reason has expired looks like
+ *   every other line. The comment above each is the only thing carrying that reason, and nothing
+ *   checks it — unlike `shark-parity.divergences.ts`, where a declaration that has stopped
+ *   describing a difference fails.
+ */
 describe("@kanzo-tech/ui public surface", () => {
   it("exposes the core surface", () => {
     expect(UI.Button).toBeTypeOf("function");
@@ -189,9 +241,11 @@ describe("@kanzo-tech/ui public surface", () => {
     //
     // Checkable, which is the point of the rule: every name below is one fetch away from
     // `raw.githubusercontent.com/sharkui-inc/shark-ui/main/registry/react/components/<file>.tsx`.
-    // The seven non-mechanical mappings are the evidence that this is the reference and not a
-    // coincidence — `useResizable` is Ark's `useSplitterContext`, `useRating` its
-    // `useRatingGroupContext`, `useSheet` its `useDialogContext`.
+    // Three of them are the evidence that this is the reference and not a coincidence. Of the 36
+    // `export const useX = <ark hook>` lines in `simples/`, 33 just strip `Context` off the Ark
+    // name — a rule anybody could rediscover. The other three could not be: `useSheet` is Ark's
+    // `useDialogContext`, `useResizable` its `useSplitterContext`, `useRating` its
+    // `useRatingGroupContext`.
     expect(UI.useResizable).toBeTypeOf("function");
     expect(UI.useRating).toBeTypeOf("function");
     expect(UI.useSheet).toBeTypeOf("function");

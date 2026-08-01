@@ -12,8 +12,9 @@
 - **Reversed by** a runtime that has to derive rather than apply. None exists: a client's colour is
   a stored document, not a request parameter.
 - **Held by** `packages/theme/src/boundary.test.ts`, which fails if the palette appears in
-  `dependencies`, if shipped source imports it, or if the entry re-exports the derivation;
-  `scripts/smoke-install.mjs`, which asserts the same against a real installed tree
+  `dependencies` or if shipped source imports it; `scripts/smoke-install.mjs`, which asserts both
+  against a real installed tree and adds the one they cannot see from here — that the theme entry
+  re-exports no part of the derivation
 
 The data moved with the maths. The tables the derivation reads — ramps, seeds, schemes, palettes,
 syntax roles, status ink — are inputs to the maths, and shipping them beside a stylesheet a browser

@@ -12,12 +12,12 @@
   source outside this repository, today and in a year — which a ratio is, and a principle, however
   correctly applied, is not.
 - **Reversed by** a divergence that is right and has no number behind it. The concrete shape is a
-  defect in the reference with nothing to count against it, and one is open today:
-  `decisions/steps-claims-a-tab-role-it-cannot-keep.md`, where a `role="tab"` promises a keyboard
-  model nothing implements and no ratio can be put on a promise. If that record closes by our
-  stripping or replacing the role — rather than by upstream shipping key handling, or by the
-  `linear` prop we already own — then this rule was too narrow, and *measurement* has to widen to
-  admit a named clause of an external standard cited with the case that violates it. Separately and
+  defect in the reference with nothing to count against it, and the one candidate has since been
+  settled the other way: `decisions/steps-claims-a-tab-role-it-cannot-keep.md` is live, and the
+  `role="tab"` that promises a keyboard model nothing implements stays on our side. Had that record
+  closed by our stripping or replacing the role — rather than by the `linear` prop we already
+  own — this rule would have been too narrow, and *measurement* would have had to widen to admit a
+  named clause of an external standard cited with the case that violates it. Separately and
   more cheaply: Shark UI ceasing to be a reference we track, at which point it has no surface left
   to govern.
 - **Held by** `packages/ui/src/index.test.ts`, `tracks Shark's context aliases and parts, in both

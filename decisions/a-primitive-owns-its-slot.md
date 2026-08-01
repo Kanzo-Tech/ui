@@ -1,9 +1,11 @@
 # A primitive owns its `data-slot`
 
 - **Status** live — 2026-07-30, refined the same day
-- **Decided** `data-slot={slot ?? "<component>-<part>"}` is written **after** the rest spread, on
-  every part, everywhere. A caller cannot erase a slot by passing one. Re-slotting is a declared
-  `slot?: string` prop, and that is the only way to do it.
+- **Decided** `data-slot` is written **after** the rest spread, on every part. That ordering is the
+  rule and it is the whole of what the guard enforces: a caller cannot erase a slot by passing one.
+  Re-slotting is a declared `slot?: string` prop, spelled `data-slot={slot ?? "<component>-<part>"}`,
+  and that is the only way to do it. Most parts carry it; a part that writes a literal instead is
+  one a caller cannot rename, and nothing checks the spelling.
 - **Because** `data-slot` is not decoration and not a default: our own recipes select on it, so a
   caller who happens to pass one silently deletes styling the component depends on — no error, no
   visible symptom, and nothing to grep for. An escape hatch a caller can unhook is not one. But
@@ -38,6 +40,8 @@ case that would have to be answered, and none exists.
 The evidence that made the ordering a house rule rather than a three-site bugfix: the great
 majority of sites wrote the attribute before the spread, and one file had already discovered the
 problem and reversed itself in place — `packages/ui/src/simples/combobox.tsx`, `ComboboxTrigger`,
-whose comment records that composed inside an `InputGroupButton asChild` the merge injected the
-wrapper's slot and its own matched nothing. A rule one file learns the hard way and the rest of the
-library contradicts is a house-style decision, not a defect.
+which writes its slot past the spread and hands the same value down to the `Button` it renders under
+`asChild`, because composed inside an `InputGroupButton` the merge injected the wrapper's slot and
+its own matched nothing. A rule one file learns the hard way and the rest of the library contradicts
+is a house-style decision, not a defect. `ComboboxTrigger` is also the exception to the paragraph
+above: its slot is a literal, so it is the one trigger a caller cannot rename.

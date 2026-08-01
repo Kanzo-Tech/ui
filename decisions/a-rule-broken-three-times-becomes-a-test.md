@@ -8,9 +8,18 @@
   returned. The rules that are still broken are the ones that exist only as prose. A rule nobody
   can grep is a rule that decays.
 - **Reversed by** nothing. The counter-example would be a guard test that costs more to maintain
-  than the defect costs to fix; none of the five has.
+  than the defect costs to fix; none on the roster has. `CONVENTIONS.md`'s guard table is the set,
+  and it is the thing to recount against — not a number written here.
 - **Held by** `packages/theme/src/boundary.test.ts`, which is the model — the promise, its reason
   and its enforcement in one file; `packages/ui/src/alpha-steps.test.ts`, the same shape at length
 
-The next test to write, on the same evidence: `data-slot`. Three rounds of it being omitted, one
-regression, a written rule, and no enforcement.
+`data-slot` was the case this record was written to argue for — three rounds of it being omitted,
+one regression, a written rule, and no enforcement. `packages/ui/src/data-slot.test.tsx` was written
+in the same commit and parses every `.tsx` under `src/` for the ordering. So the record's own worked
+example closed immediately, which is the outcome it predicts and not an argument against it.
+
+The pattern the rule does not yet cover: a claim that reaches *outside* the file making it. That
+one recurred twenty-six times across the guidance corpus before anything caught it, and the fix was
+the same move a rung further out — `packages/ui/src/decisions.test.ts` now checks that a cited test
+name is a real assertion and that a declared absence is really absent. Prose asking a reader to be
+careful had been in place the whole time.

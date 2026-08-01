@@ -2,9 +2,10 @@
 
 - **Status** live — 2026-07-30
 - **Decided** The chart mark and interactor wrappers stay, and stay complete, even where no example
-  draws one. This is the one standing exception to admission rule 2. It covers `/analytics` only:
-  one-line descriptors over somebody else's grammar, and the re-exported aggregate vocabulary
-  beside them.
+  draws one. This is one of the two standing exceptions to admission rule 2 — the other is the
+  Shark-parity names, `decisions/a-name-shark-ships-is-ours.md` and
+  `decisions/a-house-principle-withholds-no-name.md`. It covers `/analytics` only: one-line
+  descriptors over somebody else's grammar, and the re-exported aggregate vocabulary beside them.
 - **Because** a vocabulary with holes sends the author to `@uwdata` for the one aggregate we left
   out, which is exactly the import this barrel exists to remove — and a mark you write yourself is
   a mark you write wrong. Curating a grammar costs more than cataloguing it.

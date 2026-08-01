@@ -8,5 +8,6 @@
 - **Reversed by** nothing yet; the example closed and the rule did not. The two adoption examples
   that closed it — `ChartStat` and `ChartColorLegend`, each of which had a doc block, a test and a
   documented reason to exist and no renderer at all — are what the rule looks like when applied.
-- **Held by** `packages/ui/src/index.test.ts`, the tombstones and the pinned surface;
+- **Held by** `packages/ui/src/index.test.ts`, the pinned surface and the tombstones `!TextField`,
+  `!NumberField`, `!DateField`;
   `decisions/field-has-no-consumer.md`, which is the example that closed

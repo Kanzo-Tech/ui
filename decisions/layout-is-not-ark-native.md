@@ -3,7 +3,8 @@
 - **Status** live — 2026-07-23
 - **Decided** The layout layer takes its references from the app-shell libraries built on a
   headless core — shadcn, Mantine, Ant. Ark supplies the authoring idiom (Root, named parts,
-  `ark.*`, `data-slot`) and the Splitter machine, and nothing else.
+  `ark.*`) and the Splitter machine, and nothing else. `data-slot` is not Ark's — its dist emits
+  none; that convention comes from Shark and we hand-write it.
 - **Because** Ark is a behaviour library and ships no layout: the one layout-adjacent primitive is
   `Splitter`, which is our `Resizable`. There is nothing upstream to match, so "make it Ark-native"
   asks for conformance to an empty set.

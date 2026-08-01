@@ -32,9 +32,18 @@ const SRC = dirname(fileURLToPath(import.meta.url));
  *
  * The ring is here for the first half of that rule only. The diluted ring (`/NN` again — same
  * reason) measured **1.29:1** in light, a live 1.4.11 failure on the element 1.4.11 names first, so
- * the dilution is banned and the 36 focus rings are solid `ring-ring`, ~4:1 at the boundary step
- * (counted 2026-07; a count of call sites rots, so re-run `grep -o 'ring-ring\b'` before trusting
- * it). A
+ * the dilution is banned and every ring the library draws is a solid `ring-ring`, ~4:1 at the
+ * boundary step — **37** sites over `packages/ui/src` excluding this file (counted 2026-07-30; a
+ * count of call sites rots, and this one already had, from 36). Re-run `grep -o 'ring-ring\b'`
+ * before trusting it, and read what comes back rather than counting it: the grep finds `ring-ring`
+ * *sites*, not focus rings. 27 carry a focus-visible variant; the other 10 do not — three
+ * `focus-within:` where a wrapper rings for a focused child (`input-group.tsx:25`,
+ * `number-input.tsx:22`, `tags-input.tsx:60`), three the machine spells itself
+ * (`tags-input.tsx:61`, `calendar.tsx:436`, `composites/CodeEditor.tsx:483`), a bare `focus:` that
+ * also fires for a mouse (`skip-nav.tsx:85`), and three that are not focus at all:
+ * `data-highlighted:` (`tags-input.tsx:151`), `data-dragging:` (`slider.tsx:157`) and
+ * `data-[state=open]:` (`select.tsx:55`). The ban covers all 37 either way; the *contrast* argument
+ * above was made about focus. A
  * second token,
  * `--ring-soft` = `(brand, alpha[boundary])`, was tried for those sites and **dropped**, because
  * measuring it is what showed it had nothing to do: an alpha step's whole obligation is that it
@@ -96,10 +105,26 @@ const SRC = dirname(fileURLToPath(import.meta.url));
  *
  * ## What this guard cannot prove
  *
- * - **It reads seven spellings, not the rule.** The rule is "a percentage is not an alpha step";
- *   what is asserted is a list of token names somebody wrote down. A dilution of a token that is
- *   not on the list passes, and `--muted` is on the far side of that line **on purpose** — see the
- *   paragraph above. When a role appears for it, the pattern is what has to change.
+ * - **It reads seven spellings, not the rule, and a spelling is a UTILITY and not a token.** The
+ *   rule is "a percentage is not an alpha step"; what is asserted is seven regexes over particular
+ *   utilities. Coverage therefore stops at the prefixes each pattern was written with, and being on
+ *   the list buys a token nothing outside them. `--destructive`, `--warning`, `--success` and
+ *   `--info` are on the list twice over, and still: the `bg-` pattern takes the status family only
+ *   under 50%, the `border-` one puts its `/` straight after the family so
+ *   `border-<status>-foreground/NN` slips past it, and no pattern names `ring-` or `shadow-` for
+ *   that family at all. Measured over `packages/ui/src` (2026-07-30), **45** dilutions of listed
+ *   status tokens pass every pattern here: 43 of the shape
+ *   `ring-{destructive,warning,success,info}(-foreground)?/NN`, one `shadow-destructive/24`, one
+ *   `border-destructive-foreground/64`. The pair worth reading is
+ *   `simples/input.tsx:19` and `:21` — `ring-destructive/24`, overridden by
+ *   `dark:aria-invalid:ring-destructive-foreground/40`: one percentage per mode, onto a different
+ *   token, which is verbatim the symptom the MODE half of this docblock argues the whole rule from.
+ *   `checkbox.tsx:35`, `button.tsx:49` and `badge.tsx:57,64,71,72` are six more. Whether any of
+ *   them SHOULD be banned is a design call nobody has taken, and this file does not take it; what it
+ *   must not do is read as though they were outside the rule. Taking it costs one alternation —
+ *   `--field` above reaches nine utility prefixes that way.
+ * - **A token can also be off the list entirely, and one is on purpose.** `--muted` is the case —
+ *   see the paragraph above. When a role appears for it, the pattern is what has to change.
  * - **It reads `.ts` and `.tsx` under `packages/ui/src` and nothing else.** A dilution written in
  *   `styles.css`, in `packages/theme`, in `docs/`, or by a consumer through `className` is
  *   invisible. The last of those is not a hole that can be closed from inside the library, which is

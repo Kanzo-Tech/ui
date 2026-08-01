@@ -24,11 +24,12 @@
   Shark ships, or declares why not", which is what makes the claim checkable against a source
   outside this repository
 
-**What was withheld, and on what.** Thirty-four names under *does not export a part its own root
-already renders* — a part the component places itself, un-exported so a caller could not place a
-second one — and four under *a class list is not API*: `alertVariants`, `badgeVariants`,
-`menuContentVariants`, `toggleVariants`. Both arguments are good. Neither is checkable by somebody
-who was not in the argument, which is the whole of why they lose:
+**What was withheld, and on what.** Thirty-three names under *does not export a part its own root
+already renders* — thirty-one parts the component places itself, un-exported so a caller could not
+place a second one, plus the two hooks that came back with them — and four under *a class list is
+not API*: `alertVariants`, `badgeVariants`, `menuContentVariants`, `toggleVariants`. Both arguments
+are good. Neither is checkable by somebody who was not in the argument, which is the whole of why
+they lose:
 `decisions/a-measurement-overrules-the-reference.md`.
 
 **Seven were doubly evidenced, and that is what forced the question.** Our own pages documented
@@ -41,7 +42,7 @@ fix. The reference chose.
 
 **The composition audit, which is the new knowledge here.** A name is not the whole of parity; the
 composition is too, and restoring an export blind would have shipped a defect on purpose. So for
-every part in the thirty-four whose root renders it, Shark's own file was fetched and read. **The
+every one of the thirty-one whose root renders it, Shark's own file was fetched and read. **The
 result is that our roots and Shark's render the same parts in the same places, without exception.**
 `Progress` renders `<ProgressTrack><ProgressRange /></ProgressTrack>` unconditionally and after
 `{children}` — and so does Shark's, which exports both anyway. `ScrollArea` places two scrollbars,
@@ -54,7 +55,7 @@ export was a defect, when the reference had drawn the opposite conclusion from t
 what it is given; ours defaults `children` to a `ClipboardIndicator`, which the page documents and
 which a caller overrides simply by passing children. That is a divergence in the trigger's
 defaulting, not a doubled part, so there is nothing to double and nothing to fix — but it is the
-only one of the thirty-four where "Shark's root renders it too" is not the answer, and it is
+only one of the thirty-one where "Shark's root renders it too" is not the answer, and it is
 recorded so the next reader does not have to re-derive it.
 
 **What restoring cost that nobody had counted: two hooks that collide with Ark.** `useCombobox`

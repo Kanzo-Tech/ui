@@ -66,6 +66,18 @@ import {
  * - **Nothing about behaviour**, which comes from Ark. Ark parity is not checked anywhere.
  * - **Only the root barrel.** `@kanzo-tech/ui/editor`, `/table` and `/analytics` are outside the
  *   corpus, so Shark's `chart.tsx` is compared as unadopted rather than against our Mosaic charts.
+ * - **Only `simples/`, plus whatever `MODULE_MAP` names — which is one file.** "Our side" is
+ *   `readdirSync(SRC/simples)` and that map, so everything in `composites/` and `layouts/` except
+ *   `composites/sidebar.tsx` is outside the corpus: **35 value exports across 6 modules** today
+ *   (counted 2026-07-30) — `composites/AppearanceToggle.tsx` (1), `composites/CodeEditor.tsx` (2),
+ *   `composites/Preferences.tsx` (10), `composites/SidebarIdentity.tsx` (6), `layouts/section.tsx`
+ *   (10), `layouts/shell.tsx` (6). Every one of them is the OURS_ALONE category — Shark has no file
+ *   for any of them — so this costs nothing in the direction that iterates Shark's list, which is
+ *   complete: a component Shark ships and we build in `composites/` still fails
+ *   `has one of our modules behind every component` until `MODULE_MAP` or UNADOPTED gains a line.
+ *   What it costs is the other direction. Those 35 names are never asked to declare themselves,
+ *   and `puts every adopted module's exports on the public barrel` never reaches them, so one can
+ *   leave the barrel here without a red test anywhere.
  * - **Only type-free value exports.** `export type` on either side is dropped: a shape is not a
  *   name a consumer calls.
  * - **Only Shark's `registry/react/components/`.** Its 95 example directories are not fetched, so
@@ -161,7 +173,12 @@ function valueExports(file: string): string[] {
 
 /**
  * Our side, keyed the way Shark keys its registry: one file per component, kebab-case.
- * `MODULE_MAP` covers the components that live somewhere else — `sidebar` is a composite here.
+ *
+ * `simples/`, and then whatever `MODULE_MAP` names for a Shark component that lives somewhere else
+ * — which today is one entry, `sidebar`, a composite here because it owns provider state. It is the
+ * seam, not a second layer: `composites/` and `layouts/` are otherwise outside this corpus
+ * altogether, 35 exports' worth, which is the blind spot listed above rather than a gap this map is
+ * closing.
  */
 const ourModules = new Map<string, { path: string; values: string[] }>();
 for (const file of readdirSync(join(SRC, "simples"))) {

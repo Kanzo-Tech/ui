@@ -40,14 +40,22 @@ import { beforeAll, describe, expect, it } from "vitest";
  * - It cannot see a symbol documented by *description* rather than by name. A page that says "the
  *   root re-exports the context hook" without naming it passes.
  * - It cannot see a page that is simply missing. Nothing here maps exports to pages, so a component
- *   with no page at all is invisible; the taxonomy tests in DESIGN.md are the guard for that.
+ *   with no page at all is invisible — and nothing else guards it either. This is the only test
+ *   file in the repository that reads `docs/content/docs` at all, and DESIGN.md's taxonomy test is
+ *   one prose sentence about classifying a component as a variant or a composite; it is not
+ *   executable and it is not about pages. The blind spot is open, not covered.
  * - It cannot see prose that *uses* a name without claiming it exists. Two of the eleven alias
  *   pages read "`useEditable` reads the …" and "`usePinInput` exposes the machine context" — true
  *   sentences about a deleted export, and neither site below fires on them. Widening to all prose
  *   was measured and rejected; see PROSE below.
  * - It cannot see a name that some declared peer also exports. `Table` is ours *and*
- *   `@tanstack/react-table`'s, so deleting ours would not fail here. `index.test.ts` pins the
- *   surface and holds the tombstones; that is the guard for deletion. This one is for drift.
+ *   `@tanstack/react-table`'s, so deleting ours would not fail here. The guard for a silent
+ *   deletion is `shark-parity.test.ts` — `ships every name Shark ships, or declares why not` and
+ *   `puts every adopted module's exports on the public barrel` both go red when a name Shark ships
+ *   stops leaving our barrel. `index.test.ts` is an *enumeration*, not a pin: 141 names asserted
+ *   present and 63 asserted absent, typed out by hand (counted 2026-07-30), with no `Object.keys`
+ *   comparison and no snapshot behind them. It never mentions `Table` in either direction, so
+ *   deleting `Table` would leave it green. This one is for drift.
  */
 
 const SRC = dirname(fileURLToPath(import.meta.url));
@@ -415,7 +423,9 @@ describe("the documented surface", () => {
       expect(bySpec.get(spec)?.has(canary), `${spec} should export ${canary}`).toBe(true);
     }
 
-    // 903 at the time of writing. A floor, not a pin — index.test.ts owns the exact surface.
+    // 903 at the time of writing. A floor, and nothing in the repository holds the exact surface:
+    // `index.test.ts` enumerates names by hand, `shark-parity.test.ts` holds the half of it Shark
+    // also ships. A name that is ours alone can leave the barrel without either going red.
     expect(ours.size).toBeGreaterThan(500);
     // Ark is the peer this guard cannot do without: the pages point at its context hooks by name.
     expect(resolved).toContain("@ark-ui/react");

@@ -2,30 +2,73 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import * as UI from "./index";
 
 /**
  * `decisions/` has rules, and until now nothing enforced any of them.
  *
- * `decisions/README.md` states five: five fields and no prose outside them, a `Status` from a
- * closed set, a `Because` with no number in it, a `Held by` that cites a file and a symbol and
- * never a line, and a superseded record that is edited rather than deleted. `DESIGN.md` carries an
- * index of the same records, grouped by status. Every one of those was a convention held by memory
- * — two audits reported "both record guards re-run clean", and the guards were throwaway scripts in
- * a scratchpad that were never committed. A rule nobody can run is a rule that has already decayed;
- * this is the run.
+ * `decisions/README.md` states five: five fields first and in order, a `Status` from a closed set,
+ * a `Because` with no number in it, a `Held by` that cites a file and a symbol and never a line,
+ * and a superseded record that is edited rather than deleted. `DESIGN.md` carries an index of the
+ * same records, grouped by status. Every one of those was a convention held by memory — two audits
+ * reported "both record guards re-run clean", and the guards were throwaway scripts in a scratchpad
+ * that were never committed. A rule nobody can run is a rule that has already decayed; this is the
+ * run.
  *
  * The rules are not restated here. `decisions/README.md` is the specification, and if this file and
  * that file disagree, that file wins and this one is the bug.
  *
+ * ## Resolution was not enough, and this is what a self-audit cost
+ *
+ * The first version checked that citations *resolve*: the path exists, the symbol appears somewhere
+ * inside it. An audit of ~470 claims across this corpus then found twenty-six false ones, and every
+ * one of them passed here, because a stale claim's path resolves and its symbol still exists. The
+ * shape was unmistakable: **no record was wrong about its own subject — what failed was the
+ * sentence that reaches outward**, and it was usually falsified within two days by the same session
+ * that wrote it. *A test holds this* five times, *this export was removed* twice, *this is the only
+ * one* four times.
+ *
+ * Two of those classes are now checked, and both are checked because a record **declares** the
+ * claim rather than because this file guesses at English:
+ *
+ * - **A cited test name must be a real assertion.** A multi-word citation beside a `*.test.ts(x)`
+ *   path is a test title, and it must match an `it()`/`describe()` in that file. Citing a comment,
+ *   or a title that has since been reworded, now fails. The first run of this found one.
+ * - **A name claimed absent is checked against the barrel.** A record writes `` `!Name` `` in
+ *   `Held by` to mean *this file asserts `Name` is not on the public surface*, and the assertion
+ *   below imports `./index` and requires it. This exists because the corpus's single most expensive
+ *   sentence — "the export has since been removed", written of `ProgressTrack` hours before it was
+ *   restored — was unfalsifiable prose, and a reader who acted on it broke two guards.
+ *
+ * The heuristic alternative was measured and rejected: scanning record prose for claim words
+ * ("removed", "the only", "nothing", "every") fires on 47 of 160 sentences, and most are innocent.
+ * A convention an author follows deliberately beats a parser that guesses.
+ *
  * ## What this guard cannot prove
  *
  * - **It cannot tell you a decision is right, or still true.** It checks that a record is
- *   *shaped* like a decision and that everything it points at exists. A record that is complete,
- *   well-cited and wrong passes every assertion here.
- * - **`Held by` is checked by occurrence, not by meaning.** A symbol counts as held if its text
- *   appears anywhere in the cited file — in a comment, in a string, in an unrelated identifier.
- *   The failure it rules out is the one that actually happens: a rename that leaves the citation
- *   behind. It cannot tell you the cited test still asserts what the record says it asserts.
+ *   *shaped* like a decision and that everything it points at exists or is asserted. A record that
+ *   is complete, well-cited and wrong passes every assertion here.
+ * - **A negative claim is only checked when it is declared.** `!Name` is opt-in, and it covers one
+ *   claim class: presence on `@kanzo-tech/ui`'s root barrel. A record that writes "the export was
+ *   removed" in prose and declares nothing is exactly as unchecked as it was before. Nothing forces
+ *   the declaration, because nothing can read the prose to know it was owed — that is the honest
+ *   limit of this design, and the reason the *authoring* rule in `decisions/README.md` matters more
+ *   than this assertion does. The same goes for "the only" and "nothing enforces": neither is
+ *   expressible here, and both are left to review.
+ * - **A symbol citation is checked by occurrence, not by meaning.** Outside the two cases above, a
+ *   symbol counts as held if its text appears anywhere in the cited file — in a comment, in a
+ *   string, in an unrelated identifier. The failure it rules out is the one that actually happens:
+ *   a rename that leaves the citation behind. It still cannot tell you a cited *non-test* file
+ *   asserts what the record says it asserts.
+ * - **A single-word citation beside a test file is not checked as a title.** `it("renders")` is
+ *   indistinguishable from a symbol name, so it takes the weaker occurrence check. Test titles in
+ *   this repo are sentences, so this costs nothing today and would cost silently if that changed.
+ * - **`UPSTREAM` is keyed by bare basename, and `@scope/…` is excused wholesale.** An entry for
+ *   Shark's `input-otp.tsx` would excuse our own future `input-otp.tsx` from resolving, and
+ *   `cited.startsWith("@")` waves through any scoped specifier including our own packages. Both are
+ *   deliberate — a record legitimately cites a short form — and both are why the staleness
+ *   assertion below exists: the list cannot be allowed to grow silently.
  * - **A path is resolved by suffix.** `simples/suggest.tsx` matches any file whose path ends that
  *   way, because records legitimately cite a short form. Two files with the same tail are
  *   indistinguishable here.
@@ -88,6 +131,31 @@ const resolveCitation = (cited: string) =>
 
 /** Backticked or double-quoted, and looking like a file rather than a symbol. */
 const PATH_SHAPED = /^[\w@.][\w@./-]*\.(?:ts|tsx|js|mjs|cjs|css|json|md)$/;
+
+/** `!Name` in a `Held by`: the record declares that `Name` is not on the root barrel. */
+const ABSENCE_CLAIMED = /^!([A-Za-z_$][\w$]*)$/;
+
+const isTest = (path: string) => /\.test\.tsx?$/.test(path);
+
+/**
+ * Every `it`/`describe`/`test` title in a file, however it is quoted.
+ *
+ * Titles wrap across lines at the print width, so they are flattened the same way record fields
+ * are; a citation and a title that differ only in where the line broke have to compare equal.
+ */
+const titleCache = new Map<string, string[]>();
+function testTitles(path: string): string[] {
+  if (!titleCache.has(path)) {
+    const source = readFileSync(join(ROOT, path), "utf8");
+    titleCache.set(
+      path,
+      [
+        ...source.matchAll(/\b(?:it|test|describe)\s*(?:\.\w+)?\s*\(\s*(["'`])((?:[^\\]|\\.)*?)\1/g),
+      ].map(([, , title = ""]) => flatten(title)),
+    );
+  }
+  return titleCache.get(path) as string[];
+}
 
 interface Record_ {
   slug: string;
@@ -180,7 +248,8 @@ describe("the decisions/ records", () => {
 
     expect(
       wrong.sort(),
-      `decisions/README.md: "Five fields, no prose outside them." A record with a field missing,\n` +
+      `decisions/README.md: "Five fields, first and in order, and nothing else above them." A\n` +
+        `record with a field missing,` +
         `renamed or out of order is one that cannot be read by the thing that reads the rest:\n` +
         wrong.join("\n"),
     ).toEqual([]);
@@ -259,49 +328,140 @@ describe("the decisions/ records", () => {
     ).toEqual([]);
   });
 
-  it("finds every Held by symbol in the file cited beside it", () => {
-    const stale: string[] = [];
+  /**
+   * One pass over every `Held by`, classifying each citation against the path it follows.
+   *
+   * A citation is `path`, then the symbols, quoted test names or `!absences` that belong to it,
+   * until the next path. Backticks inside a quoted name are markdown emphasis and are not content.
+   */
+  const stale: string[] = [];
+  const unasserted: string[] = [];
+  const absences: { slug: string; name: string; path: string }[] = [];
 
-    for (const record of RECORDS) {
-      const held = record.fields["Held by"] ?? "";
-      let path: string | null | "upstream" = null;
+  for (const record of RECORDS) {
+    const held = record.fields["Held by"] ?? "";
+    let path: string | null | "upstream" = null;
 
-      // A citation is `path`, then the symbols or quoted test names that belong to it, until the
-      // next path. Backticks inside a quoted name are markdown emphasis and are not content.
-      for (const match of held.matchAll(/`([^`]+)`|"((?:[^"\\]|\\.)*)"/g)) {
-        const cited = (match[1] ?? match[2] ?? "").replace(/\\"/g, '"').replace(/`/g, "");
+    for (const match of held.matchAll(/`([^`]+)`|"((?:[^"\\]|\\.)*)"/g)) {
+      const cited = (match[1] ?? match[2] ?? "").replace(/\\"/g, '"').replace(/`/g, "");
 
-        if (PATH_SHAPED.test(cited) || cited.startsWith("@")) {
-          if (cited.startsWith("@") || cited in UPSTREAM) {
-            path = "upstream";
-          } else {
-            path = resolveCitation(cited);
-            if (!path) stale.push(`${record.slug}: the file ${cited} does not resolve`);
-          }
-          continue;
+      if (PATH_SHAPED.test(cited) || cited.startsWith("@")) {
+        if (cited.startsWith("@") || cited in UPSTREAM) {
+          path = "upstream";
+        } else {
+          path = resolveCitation(cited);
+          if (!path) stale.push(`${record.slug}: the file ${cited} does not resolve`);
         }
+        continue;
+      }
 
-        if (path === "upstream") continue;
-        const symbol = flatten(cited.replace(/\*$/, "")); // a trailing `*` is a family, not a name
-        if (!symbol) continue;
-        if (!path) {
-          stale.push(`${record.slug}: “${symbol}” names no file`);
-          continue;
+      if (path === "upstream") continue;
+
+      const absent = ABSENCE_CLAIMED.exec(cited.trim());
+      if (absent) {
+        if (!path) stale.push(`${record.slug}: the absence claim ${cited} names no file`);
+        else absences.push({ slug: record.slug, name: absent[1] as string, path });
+        continue;
+      }
+
+      const symbol = flatten(cited.replace(/\*$/, "")); // a trailing `*` is a family, not a name
+      if (!symbol) continue;
+      if (!path) {
+        stale.push(`${record.slug}: “${symbol}” names no file`);
+        continue;
+      }
+
+      // Beside a test file, a multi-word citation is a test title rather than a symbol, and it is
+      // held to the stronger check: an assertion that runs, not a string that happens to be there.
+      if (isTest(path) && symbol.includes(" ")) {
+        const titles = testTitles(path);
+        const named = titles.some((t) => t === symbol || t.includes(symbol) || symbol.includes(t));
+        if (!named) {
+          unasserted.push(
+            `${record.slug}: “${symbol}” is not an assertion in ${path}\n` +
+              `    it/describe there: ${titles.map((t) => `“${t}”`).join(", ")}`,
+          );
         }
-        // A dotted name (`Ramp.boundary`) is a member; the file declares the member, not the pair.
-        const member = symbol.includes(" ") ? symbol : (symbol.split(".").pop() as string);
-        const source = textOf(path);
-        if (!source.includes(symbol) && !source.includes(member)) {
-          stale.push(`${record.slug}: “${symbol}” is not in ${path}`);
-        }
+        continue;
+      }
+
+      // A dotted name (`Ramp.boundary`) is a member; the file declares the member, not the pair.
+      const member = symbol.includes(" ") ? symbol : (symbol.split(".").pop() as string);
+      const source = textOf(path);
+      if (!source.includes(symbol) && !source.includes(member)) {
+        stale.push(`${record.slug}: “${symbol}” is not in ${path}`);
       }
     }
+  }
 
+  it("finds every Held by symbol in the file cited beside it", () => {
     expect(
       stale.sort(),
       `decisions/README.md: "\`Held by\` cites the test, comment or file that fails when the code\n` +
         `stops matching." A citation the code has moved out from under is the failure this field\n` +
         `exists to prevent, silently inverted:\n${stale.join("\n")}`,
+    ).toEqual([]);
+  });
+
+  it("names a real assertion wherever it cites a test by name", () => {
+    // Resolution is not enough. A record that cites a test title is claiming the test *asserts*
+    // this, and the title of a comment — or of an assertion since reworded — resolves just as
+    // happily as a live one. The first run of this found `a-region-carries-no-aesthetic` citing a
+    // `//` comment, which is a claim nothing has ever run.
+    expect(
+      unasserted.sort(),
+      `A test cited by name has to be a test. Quote the \`it()\` or \`describe()\` that fails when\n` +
+        `the decision stops holding — not a comment, and not a title as you remember it:\n` +
+        unasserted.join("\n"),
+    ).toEqual([]);
+  });
+
+  it("keeps no UPSTREAM entry that has stopped excusing anything", () => {
+    // Every other exception list in the repo has one of these — `documented-exports`,
+    // `logical-properties`, `data-slot` and `shark-parity` all fail when an entry stops applying.
+    // This was the only one without, which is how an exemption outlives the citation it was
+    // written for and quietly starts excusing the next thing to land under that name.
+    const cited = new Set(
+      RECORDS.flatMap((r) =>
+        [...r.raw.replace(/\n {2}/g, " ").matchAll(/`([^`\n]+)`/g)].map(([, c = ""]) => c),
+      ),
+    );
+    const unused = Object.keys(UPSTREAM).filter((key) => !cited.has(key));
+
+    expect(
+      unused.sort(),
+      `An UPSTREAM entry excuses a citation from resolving. No record cites these any more, so each\n` +
+        `is a standing exemption for a path nobody has written yet — delete them:\n${unused.join("\n")}`,
+    ).toEqual([]);
+  });
+
+  it("keeps every declared absence absent from the barrel", () => {
+    // The declared form of the outward-reaching negative. `!Name` in a `Held by` says the cited
+    // file asserts that `Name` is off the public surface — the claim that, written as prose about
+    // `ProgressTrack`, survived the export coming back and told readers to delete it again.
+    expect(
+      absences.length,
+      "no record declares an absence, so this assertion is checking nothing — either the `!Name`\n" +
+        "convention has fallen out of use or decisions/README.md no longer describes it",
+    ).toBeGreaterThan(0);
+
+    const surface = UI as Record<string, unknown>;
+    const wrong = absences.flatMap(({ slug, name, path }) => {
+      const found: string[] = [];
+      if (surface[name] !== undefined) {
+        found.push(`${slug}: \`!${name}\` claims it is off the barrel, and @kanzo-tech/ui exports it`);
+      }
+      // The claim also has to be anchored: the file cited beside it is the one that fails.
+      if (!textOf(path).includes(name)) {
+        found.push(`${slug}: \`!${name}\` cites ${path}, which never mentions ${name}`);
+      }
+      return found;
+    });
+
+    expect(
+      wrong.sort(),
+      `A record declaring a name absent is read as licence to delete it. When the name comes back,\n` +
+        `this is what is supposed to fail instead of the next reader:\n${wrong.join("\n")}`,
     ).toEqual([]);
   });
 });

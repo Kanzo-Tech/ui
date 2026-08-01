@@ -50,6 +50,15 @@ import { describe, expect, it } from "vitest";
  * - **`color()` is only understood in the sRGB spaces.** `color(display-p3 …)` and the other
  *   predefined spaces are not parsed; nothing in the repo emits one, and adding a reader for a
  *   space we do not produce would be a claim with no corpus behind it.
+ * - **It does not read CSS, and one CSS file is standing inside the corpus.** The walk descends
+ *   every directory under `src/`, then keeps only `.tsx?` — so `packages/ui/src/styles.css` is
+ *   passed over in silence, by a filter, rather than by a decision anybody took about it. Measured
+ *   (2026-07-30): it holds no hex, no `oklch(`, no `rgb(`/`hsl(` and no `color(` — zero colour
+ *   notations of any kind, so nothing is hiding there today. That is worth writing down for the
+ *   same reason ALLOWED below says why it is empty: an unexamined blind spot and a measured-empty
+ *   one look identical from outside, and only one of them is a finding. A hue added to that file
+ *   tomorrow would still pass. `alpha-steps.test.ts` and `logical-properties.test.ts` declare the
+ *   same limit, from the same walk.
  */
 
 const SRC = dirname(fileURLToPath(import.meta.url));

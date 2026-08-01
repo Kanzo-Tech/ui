@@ -16,8 +16,9 @@
   an element a consumer writes by hand. Also reversed if Ark itself renames a part, in which case
   the exported name follows Ark rather than freezing, because the reason here is the pointer to the
   documentation and not the spelling.
-- **Held by** `packages/ui/src/shark-parity.test.ts`, whose `RENAMED` table declares all eight as a
-  pair — nothing missing and nothing extra, two references disagreeing about spelling; and
+- **Held by** `packages/ui/src/shark-parity.divergences.ts`, whose `RENAMED` table declares all eight
+  as a pair — nothing missing and nothing extra, two references disagreeing about spelling;
+  `packages/ui/src/shark-parity.test.ts`, which is what reads that table and fails; and
   `CONVENTIONS.md`, *Naming*, whose base-plus-part rule this is the reference-level justification for
 
 **This settles eight names, and not the general question.** `decisions/a-measurement-overrules-the-reference.md`
@@ -29,4 +30,7 @@ general question and chose the narrow answer, which is the right size: a tie-bre
 of the cases it must settle is how a rule ends up claiming more than it can prove.
 
 The divergence file said in writing that this was "an owner's call and not a settled one". It was
-settled on 2026-07-31; that sentence is now wrong and is corrected where it stands.
+settled on 2026-07-31, and only half of that file knows it: `RENAMED`'s shared reason now cites this
+record, while the `BEYOND_THE_SURFACE` entry beside it still frames the same eight as never having
+been weighed against parity, the cheapest of the open questions. The correction landed where the
+rule is stated and not where it is listed, which is the other half of the same edit.

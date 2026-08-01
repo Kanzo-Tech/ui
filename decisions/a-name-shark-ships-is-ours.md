@@ -20,7 +20,9 @@ somebody else's export is not an API, tombstoned them, and rewrote eleven doc pa
 Ark's hooks instead. Then the reference was read. Shark ships them, with these names, as the same
 one-line renames — including the ones no mechanical rule would produce: `useResizable` is Ark's
 `useSplitterContext`, `useRating` its `useRatingGroupContext`, `useSheet` its `useDialogContext`.
-Seven such mappings match exactly, which is as close to conclusive as provenance gets.
+Those three are the whole of the non-mechanical set, recountable in `packages/ui/src/simples` as the
+aliases whose right-hand side is not the left plus `Context` — and all three match Shark exactly,
+which is as close to conclusive as provenance gets.
 
 **The conflict with rule 2 is on identical evidence, and saying so is the point.** These aliases
 have no call site inside Shark either — not one across its component files or its examples. So
@@ -39,7 +41,10 @@ ordinary reason a page says what it says.
 component at all — it solves that problem with `input-otp.tsx`, which exports no hook. The name was
 never the reference's, so parity neither grants it nor refuses it, and it falls back to rule 2 like
 anything else of ours. `ListboxContext` and the three `ColorPicker*` parts are the plain case
-instead: Shark's files export the neighbours and not these.
+instead: Shark's files export the neighbours and not these. The rule is bidirectional and the other
+direction is not empty either — `ADDED`, in `packages/ui/src/shark-parity.divergences.ts`, declares
+twenty names we export that Shark's matching file does not, each with the reason it survives, mostly
+a thin root of ours where Shark's pre-arranges.
 
 **The rule is over names, and `useTagsInput` is why that wording is deliberate.** Ours aliases
 Ark's `useTagsInputContext`; Shark's aliases Ark's `useTagsInput`, the machine hook, and ships the

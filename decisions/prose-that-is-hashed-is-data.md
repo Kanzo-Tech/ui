@@ -8,11 +8,11 @@
   stated job is to move when the *rules* change. Taken over the row it also moves when the wording
   changes, so a typo fix asserts to every existing document that the rules it was derived under no
   longer hold. A correction that cannot be made is worse than the error it cannot fix.
-- **Reversed by** the thresholds moving into fields on `Obligation`. Today they are named constants
-  in `ramp.ts` — `DISTINCT`, `INTERCHANGEABLE`, `PERCEPTIBLE`, `CONTRAST_MIN`, `BAND` — which the
-  digest deliberately does not cover, so narrowing it to `{ step, id }` loses nothing the design
-  claims. If a threshold ever becomes a field on the row, it belongs in the digest and this record
-  is re-argued.
+- **Reversed by** the thresholds moving into fields on `Obligation`. Today they are named
+  constants — `DISTINCT`, `INTERCHANGEABLE` and `PERCEPTIBLE` in `ramp.ts`, `CONTRAST_MIN` and
+  `BAND` declared in `palette-check.ts` and imported by it — which the digest deliberately does
+  not cover, so narrowing it to `{ step, id }` loses nothing the design claims. If a threshold ever
+  becomes a field on the row, it belongs in the digest and this record is re-argued.
 - **Held by** `packages/palette/src/palette-document.ts`, `hashObligations` and the
   `PaletteEngine.obligations` doc comment, which already states the intent the implementation misses;
   `packages/palette/src/ramp.ts`, `Ramp.boundary`, which records the constraint at the site of the

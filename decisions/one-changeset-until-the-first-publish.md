@@ -10,7 +10,7 @@
 - **Reversed by** the first publish. After it there is a released version to describe changes
   against, and the normal one-changeset-per-change rule resumes — that is when a bump level starts
   meaning something, and when a `!` in a commit subject must be a `major`.
-- **Held by** `CONVENTIONS.md`, the distribution section; `.changeset/README.md`
+- **Held by** `.changeset/README.md`, which states it beside the changesets themselves
 
 **On merge, this needs doing again.** The parallel identity-axis session is carrying its own
 changesets in the main checkout, and they will arrive here at integration. They get the same

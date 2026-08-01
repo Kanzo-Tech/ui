@@ -14,5 +14,6 @@
   `FacetFilter`'s `items`, `Tour`'s `steps` and a faceted column's values stay props.
 - **Held by** `packages/ui/src/composites/SidebarIdentity.tsx`, the doc comment on
   `SidebarIdentity`, which is the canonical statement; `packages/ui/src/index.test.ts`, the
-  `CardRadioGroup` tombstone; `packages/ui/src/simples/FieldArray.tsx`, `children`, which is the
+  `CardRadioGroup` tombstone and `!SidebarNav`, `!InstanceSwitcher`, `!MadeWith`, the three
+  composites deleted for taking one; `packages/ui/src/simples/FieldArray.tsx`, `children`, which is the
   sanctioned alternative when you want the ergonomics of a list

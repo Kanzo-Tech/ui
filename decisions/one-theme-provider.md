@@ -12,4 +12,4 @@
   providers would also reintroduce the defect that made this a decision — the deleted one was the
   *documented* entry point while a repo-wide grep found zero usages of it.
 - **Held by** `packages/ui/src/index.test.ts`, "exposes exactly one themer";
-  `packages/theme/tokens.css`, the header note; `packages/ui/src/theme/KanzoThemeProvider.tsx`
+  `packages/ui/src/theme/KanzoThemeProvider.tsx`

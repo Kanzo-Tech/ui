@@ -6,9 +6,9 @@
   composite.**
 - **Because** every taxonomy argument in this library reduces to it. `AlertDialog` is `Dialog` with
   `role="alertdialog"` plus a convention layer — one machine, one switch — the same shape as a
-  context menu against `Menu`, which is why neither is a separate primitive. `StatTile` spans
-  structure, a content contract and behaviour over `card`, so it is a composite and not
-  `Card variant="stat"`.
+  context menu against `Menu`, which is why neither is a separate primitive. `Preferences` spans
+  structure, a content contract and behaviour over the dialog, field and radio-group parts, so it is
+  a composite and not `Dialog variant="preferences"`.
 - **Reversed by** nothing found in five rounds of applying it. Where it and the single-axis rule
   disagree, they have always disagreed about a component that should not have existed.
 - **Held by** `packages/ui/src/simples/alert-dialog.tsx`, which is literally `Dialog` with a role;
