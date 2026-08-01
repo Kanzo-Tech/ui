@@ -51,6 +51,15 @@ export interface BoundedSample {
   uploadMs: number;
   /** Mean of several slices at shifted viewports — the cost of moving the camera. */
   panMs: number;
+  /**
+   * Mean cost of one full redraw of the slice on screen, flushed by a readback.
+   *
+   * The renderer's own ceiling, and it is here to be *ruled out*. This path never draws more than
+   * the limit, so the frame rate cannot follow N and the question "how do we make it smoother" has
+   * to be answered somewhere else — `panMs` is where. Measuring only one of the two would let a
+   * display-capped 60 fps stand in for an experience that updates ten times a second.
+   */
+  drawMs: number;
   /** Points the opening slice actually returned. */
   returned: number;
   /** Points that matched it, before the limit. The gap is what the view is not showing. */
@@ -78,6 +87,8 @@ export const FIXTURE_SIZES: Record<Fixture, number[]> = {
 
 const SPACE = 8192;
 const PANS = 6;
+const DRAWS = 30;
+const DRAW_WARMUP = 5;
 
 /**
  * Throw away what the last run remembered, or measure the memory instead of the graph.
@@ -260,6 +271,7 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
     firstSliceMs: 0,
     uploadMs: 0,
     panMs: 0,
+    drawMs: 0,
     returned: 0,
     matched: 0,
   };
@@ -321,6 +333,23 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
     graph.render();
     graph.getPointPositions();
     base.uploadMs = performance.now() - startedUpload;
+    if (cancelled()) return { ...base, failure: "cancelled" };
+
+    /**
+     * What it costs to draw what is already on screen.
+     *
+     * Timed the way layer 1 times a step — a batch of redraws flushed by one `getPointPositions()`
+     * readback — and never by counting `requestAnimationFrame`, which reports the monitor's
+     * schedule whether or not the renderer did anything. There is no simulation here to count ticks
+     * from, so the readback is the only honest flush.
+     */
+    report?.("drawing");
+    for (let i = 0; i < DRAW_WARMUP; i++) graph.render();
+    graph.getPointPositions();
+    const startedDrawing = performance.now();
+    for (let i = 0; i < DRAWS; i++) graph.render();
+    graph.getPointPositions();
+    base.drawMs = (performance.now() - startedDrawing) / DRAWS;
     if (cancelled()) return { ...base, failure: "cancelled" };
 
     /**

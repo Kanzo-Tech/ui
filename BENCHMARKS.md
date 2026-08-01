@@ -69,13 +69,13 @@ the corpus is a GraphAr tree fossil wrote once — two DuckDB **views** over Par
 range request, never a `CREATE TABLE AS`, so the bytes stay on the server and the working set
 stays the window. Measured cold, 2026-08-01, M4 Pro.
 
-| Nodes | Links | Attach | `total()` | First slice | Upload | **First paint** | Pan | Shown / matched |
-|---|---|---|---|---|---|---|---|---|
-| 2k | 12.5k | 130 ms | 14 ms | 61 ms | 25 ms | **100 ms** | 18 ms | 2k / 2k |
-| 10k | 69k | 36 ms | 18 ms | 35 ms | 30 ms | **82 ms** | 19 ms | 10k / 10k |
-| 50k | 332k | 37 ms | 17 ms | 43 ms | 30 ms | **90 ms** | 33 ms | 20k / 50k |
-| 200k | 1.37M | 37 ms | 16 ms | 74 ms | 41 ms | **131 ms** | 48 ms | 20k / 200k |
-| 1M | 6.90M | 70 ms | 17 ms | 217 ms | 24 ms | **258 ms** | 96 ms | 20k / 1M |
+| Nodes | Links | Attach | `total()` | First slice | Upload | **First paint** | Pan | Redraw | Shown / matched |
+|---|---|---|---|---|---|---|---|---|---|
+| 2k | 12.5k | 130 ms | 14 ms | 61 ms | 25 ms | **100 ms** | 21 ms | 0.47 ms | 2k / 2k |
+| 10k | 69k | 36 ms | 18 ms | 35 ms | 30 ms | **86 ms** | 24 ms | 2.98 ms | 10k / 10k |
+| 50k | 332k | 37 ms | 17 ms | 43 ms | 30 ms | **90 ms** | 33 ms | 2.83 ms | 20k / 50k |
+| 200k | 1.37M | 37 ms | 16 ms | 74 ms | 41 ms | **132 ms** | 48 ms | 1.41 ms | 20k / 200k |
+| 1M | 6.90M | 70 ms | 17 ms | 219 ms | 24 ms | **253 ms** | 95 ms | 0.57 ms | 20k / 1M |
 
 **Five hundred times the corpus for 2.6× the first paint**, against 1,225 ms to hold 200,000.
 `matched` is the whole corpus at every size and `shown` never exceeds the limit, so the window
@@ -91,6 +91,44 @@ flat line until it survives a cold start.**
 **The first remote read of the page costs ~21 s, once.** DuckDB-WASM fetches its httpfs
 extension on first use and every read afterwards is in the tens of milliseconds. It is a
 first-use cost, not a corpus cost, and preloading the extension at boot would remove it.
+
+### The renderer is not the limit, and the frame rate is two numbers
+
+`Redraw` is the cost of drawing the slice already on screen, timed as layer 1 times a step — a
+batch flushed by one `getPointPositions()` readback, never by counting `requestAnimationFrame`,
+which reports the monitor's schedule whether or not anything was drawn.
+
+**0.5–3 ms at every size, which is a ceiling of 300–2,000 fps.** It does not follow N and cannot:
+the slice never exceeds the limit. What it does follow is the *link* count in the slice, which is
+why a million is the cheapest row of all — barely any of its edges survive the window (see below).
+
+So "how many frames per second" has two answers and only one of them is interesting:
+
+| Nodes | Redraw ceiling | Pan | **Updates per second** |
+|---|---|---|---|
+| 2k | ~2,100 fps | 21 ms | **48** |
+| 10k | 336 fps | 24 ms | **41** |
+| 50k | 354 fps | 33 ms | **31** |
+| 200k | 708 fps | 48 ms | **21** |
+| 1M | 1,744 fps | 95 ms | **10.5** |
+
+The canvas never waits — `useBoundedGraph` keeps the instance alive and pushes geometry only when
+a slice lands, so the *picture* moves at the display rate throughout. What drops to ten per second
+at a million is how often it becomes **correct**. That is the number to improve, and it is a query
+cost, not a rendering one.
+
+**The obvious lever is not the lever.** Rewriting the million-node vertex file at 8,192-row groups
+cuts rows scanned for a window from 491,520 to 49,152 — and the slice went 219 → 229/244 ms and the
+pan 95 → 109/112 ms over two runs. Slightly worse, never better. A tenfold cut in rows scanned
+changing nothing says the cost was never the scan: 19 MB is small enough that reading it beats
+negotiating 123 row groups. Native DuckDB runs the same two queries locally in 6 ms and 10 ms, so
+what is left is WASM. `--row-group` stays on `build-corpus.mjs` so nobody re-derives this.
+
+**What is left to try, in the order the measurements support:** the edge file is sorted by
+`src_dense`, so every slice joins against all 6.9M rows with nothing to prune — Morton-ordering the
+edges the way the vertices already are is the one structural fix; the `matched` count is a third
+full-predicate query issued on every slice and could be skipped while the camera is moving; and a
+tile cache would make panning back free, which no amount of query tuning can.
 
 ## What the corpus does *not* yet give
 

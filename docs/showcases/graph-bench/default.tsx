@@ -385,6 +385,7 @@ function BoundedTable(props: {
             <TableHead className="text-right">Upload</TableHead>
             <TableHead className="text-right">First paint</TableHead>
             <TableHead className="text-right">Pan</TableHead>
+            <TableHead className="text-right">Redraw</TableHead>
             <TableHead className="text-right">Shown / matched</TableHead>
           </TableRow>
         </TableHeader>
@@ -395,7 +396,7 @@ function BoundedTable(props: {
               <Show
                 when={!sample.failure}
                 fallback={
-                  <TableCell colSpan={6} className="text-destructive">
+                  <TableCell colSpan={7} className="text-destructive">
                     {sample.failure}
                   </TableCell>
                 }
@@ -415,6 +416,12 @@ function BoundedTable(props: {
                 <TableCell className="text-right tabular-nums">
                   {format(sample.panMs, 0)} ms
                 </TableCell>
+                {/* The renderer's own cost, kept beside `Pan` so the two are read together: this
+                    one never follows N because the slice never exceeds the limit, which is what
+                    makes `Pan` the number that decides how the view feels. */}
+                <TableCell className="text-right tabular-nums text-muted-foreground">
+                  {format(sample.drawMs, 1)} ms
+                </TableCell>
                 <TableCell className="text-right tabular-nums text-muted-foreground">
                   {compact(sample.returned)} / {compact(sample.matched)}
                 </TableCell>
@@ -423,7 +430,7 @@ function BoundedTable(props: {
           ))}
           <Show when={running && samples.length < sizes.length}>
             <TableRow>
-              <TableCell colSpan={7} className="text-muted-foreground">
+              <TableCell colSpan={8} className="text-muted-foreground">
                 <span className="inline-flex items-center gap-2">
                   <Spinner className="size-3" /> {stage ?? "measuring"}…
                 </span>
