@@ -78,8 +78,15 @@ const flag = (name) => {
 };
 
 const sizes = flag("sizes")?.split(",").map(Number) ?? DEFAULT_SIZES;
-const fossil =
-  flag("fossil") ?? resolve(HERE, "../../../../../rmlext/target/release/fossil");
+/**
+ * The writer, named rather than guessed.
+ *
+ * An earlier draft resolved a relative path to the sibling fossil checkout and miscounted the
+ * levels — and would have broken anyway the moment anyone's layout differed. `fossil` on `PATH` is
+ * the normal case; `--fossil <path>` or `FOSSIL_BIN` covers a local `cargo build` without pinning
+ * this script to one machine's directory tree.
+ */
+const fossil = flag("fossil") ?? process.env.FOSSIL_BIN ?? "fossil";
 
 console.log(`building ${sizes.length} corpora with ${fossil}`);
 for (const size of sizes) build(size, fossil);

@@ -18,8 +18,24 @@ Node : bench:Node from nodes
     iri = `${bench:}n/${.id}`
     bench:community = .community
 
-// The edge relation names the same vertex type, so the endpoints merge into the vertices above
-// rather than making a second kind of thing. An IRI-valued property is what an edge *is* here.
+// DOES NOT WORK YET, and the error is worth keeping rather than paraphrasing:
+//
+//   execute: Error during planning: UNION queries have different number of columns:
+//   left has 5 columns whereas right has 4 columns
+//
+// Two mappings onto one vertex type are unioned, so they must project the same columns — and these
+// do not: the first carries `community`, this one carries `linksTo`. `fossil check` passes, so this
+// is a runtime shape rule rather than a grammar one.
+//
+// The three candidate shapes, none of them tried:
+//   1. one CSV where each row is an edge carrying the source's own columns — loses isolated nodes;
+//   2. a second vertex type for the endpoints — they would stop merging with the nodes above;
+//   3. whatever fossil's own tests do for a many-to-many over a separate relation
+//      (`crates/fossil-df/tests/execute_graph.rs` puts the edge on the *entity* mapping, where the
+//      foreign key is a column of that entity — which is not the shape a separate edge list has).
+//
+// Read (3) first: if fossil has no idiom for an edge-list relation, that is a finding about the
+// verb surface and not a mistake in this file.
 Node : bench:Node from edges
     iri = `${bench:}n/${.source}`
     bench:linksTo = `${bench:}n/${.target}`
