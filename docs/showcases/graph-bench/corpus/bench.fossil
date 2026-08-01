@@ -1,0 +1,25 @@
+// The benchmark's corpus, compiled rather than generated in the browser.
+//
+// Two CSVs in, a GraphAr tree out: `fossil run` writes the vertex and edge Parquet and then runs
+// the W3 layout pass over it, which fills `x` / `y` / `cluster_id` and rewrites each vertex file
+// Morton-sorted. That last part is the whole reason this exists — a bbox query against a
+// Morton-sorted Parquet prunes on row-group statistics, and that is the larger-than-RAM half
+// ADR-0001 records as unmeasured.
+//
+// The mapping is deliberately thin. A benchmark corpus needs an id, a group to colour by, and the
+// edges; anything else would be measuring how fast we can carry columns nobody reads.
+
+prefix bench: <https://kanzo.tech/bench/>
+
+nodes := io.csv("nodes.csv")
+edges := io.csv("edges.csv")
+
+Node : bench:Node from nodes
+    iri = `${bench:}n/${.id}`
+    bench:community = .community
+
+// The edge relation names the same vertex type, so the endpoints merge into the vertices above
+// rather than making a second kind of thing. An IRI-valued property is what an edge *is* here.
+Node : bench:Node from edges
+    iri = `${bench:}n/${.source}`
+    bench:linksTo = `${bench:}n/${.target}`
