@@ -174,7 +174,7 @@ export type { FilterExpr } from "@uwdata/mosaic-sql";
 // independently writes `as { getChild(name: string): … }` — a cast asserting Arrow's shape rather
 // than checking it, and wrong the first time the query selects a string. Arrow only offers a typed
 // column when the type allows one, so the fallback is not a nicety.
-export { column, numbers } from "./charts/arrow.js";
+export { column, fillColumn, numbers, type NumericArray } from "./charts/arrow.js";
 
 // And the client that protocol is usually reached for. A view whose positions are not in the
 // database — a GPU canvas, a map, an imperative widget — cannot publish `weight BETWEEN …`, because

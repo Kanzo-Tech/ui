@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
 import type { Graph } from "@cosmos.gl/graph";
-import type { Loaded } from "./graph-model";
+import type { Slice } from "./bounded";
 import type { Selection, SelectionSource, Tool } from "./types";
 
 /**
@@ -53,7 +53,14 @@ export interface GraphSelectionGesture {
 
 export interface GraphSelectionOptions {
   getGraph: () => Graph | null;
-  getData: () => Loaded | null;
+  /**
+   * The answer currently drawn — the only thing that can turn a hit-test index into an id.
+   *
+   * A gesture selects positions on screen, and a position is a slice index, which the next slice
+   * reuses for a different node. So the gesture resolves to ids here and now, while the slice that
+   * produced them is still the one on screen.
+   */
+  getSlice: () => Slice | null;
   /** The live selection, for the modifiers to add to or subtract from. */
   getSelection: () => Selection | null;
   commit: (ids: Set<number> | null, source: SelectionSource, label: string) => void;
@@ -67,7 +74,7 @@ const NAME: Record<"rect" | "lasso", { source: SelectionSource; label: string }>
 };
 
 export function useGraphSelection(options: GraphSelectionOptions): GraphSelectionGesture {
-  const { commit, getData, getGraph, getSelection, setTool, tool } = options;
+  const { commit, getGraph, getSelection, getSlice, setTool, tool } = options;
   const [drag, setDrag] = useState<Drag | null>(null);
   const [preview, setPreview] = useState<number | null>(null);
   const [shift, setShift] = useState(false);
@@ -143,11 +150,11 @@ export function useGraphSelection(options: GraphSelectionOptions): GraphSelectio
   const finish = (shape: Drag | null, event: React.PointerEvent) => {
     setDrag(null);
     setPreview(null);
-    const data = getData();
-    if (!shape || !data) return;
+    const slice = getSlice();
+    if (!shape || !slice) return;
     const ids = new Set<number>();
     for (const index of hitTest(shape)) {
-      const id = data.ids[index];
+      const id = slice.ids[index];
       if (id !== undefined) ids.add(id);
     }
     // A gesture that caught nothing and asked for nothing is a misfire, not a request to clear —

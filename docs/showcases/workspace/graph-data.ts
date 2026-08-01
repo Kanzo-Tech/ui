@@ -8,6 +8,7 @@
 // Every column here is a column the view actually queries: the legend groups by `kind`, the footer
 // counts rows, the inspector reads a node's own attributes, and the search matches `label`.
 
+import { SPACE } from "@kanzo-tech/graph";
 import { forceLayout, mulberry32, normalise } from "@/lib/force-layout";
 
 export type NodeKind = "dataset" | "distribution" | "keyword" | "entity";
@@ -203,12 +204,26 @@ export function buildDiscoveryGraph(seed = 20260726): DiscoveryGraph {
   normalise(x);
   normalise(y);
 
+  /**
+   * Written in the space the camera asks in, and that is ADR-0001's premise rather than a detail.
+   *
+   * These used to be normalised to `0..1` and rescaled on the way in — `load()` mapped every seed
+   * into the middle half of cosmos.gl's box. With `load()` gone there is no on-the-way-in, and there
+   * must not be: a bounded source is queried with a *rectangle from the camera*, so the coordinates
+   * the corpus carries have to be the coordinates the camera speaks. A rescale between them would
+   * mean the index and the viewport describe different places, which is the failure this whole
+   * branch exists to remove — and it showed up exactly that way, as a camera over `[1622, 2474]`
+   * asking a corpus that lived inside a 1×1 square at the origin, and getting nothing.
+   *
+   * The middle half, because gravity pulls toward the centre and starting at the full extent would
+   * open with a collapse rather than a layout.
+   */
   const nodes: GraphNodeRow[] = kept.map((node, i) => ({
     ...node,
     id: i,
+    x: Math.round((SPACE * 0.25 + x[i]! * SPACE * 0.5) * 1e5) / 1e5,
+    y: Math.round((SPACE * 0.25 + y[i]! * SPACE * 0.5) * 1e5) / 1e5,
     degree: degree[i]!,
-    x: Math.round(x[i]! * 1e5) / 1e5,
-    y: Math.round(y[i]! * 1e5) / 1e5,
   }));
 
   return { nodes, edges, layoutMs };

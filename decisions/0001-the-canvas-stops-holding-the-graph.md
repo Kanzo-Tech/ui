@@ -1,7 +1,7 @@
 # ADR 0001: The canvas stops holding the graph, and asks instead
 
 **Date:** 2026-07-31
-**Status:** proposed
+**Status:** accepted — implemented 2026-07-31
 **Decider:** Ángel Iglesias (Kanzo)
 **Cite:** `BENCHMARKS.md` (three measured layers, 2026-07-31); `rmlext/decisions/0040-remove-ui-from-fossil.md` (fossil exposes protocols only); `rmlext/decisions/0039-fossil-graph-surface.md` (the fourteen verbs; "Serverless · Larger-than-RAM · Chunking"); `DESIGN.md` (admission rules; the presentational-plus-engine split).
 
@@ -125,6 +125,39 @@ decided here.
 `SliceQuery` has both shapes and `supports()` lets a source refuse honestly, but the
 DuckDB source we measured with answers regions only. Until a neighbourhood source
 exists, the bounded canvas is a map and not yet an explorer.
+
+## What implementing it added
+
+Four things the decision did not anticipate, recorded because each was found by running the thing
+rather than by reading it, and three of them are consequences of "positions are authority" that only
+appear once nothing rescales any more.
+
+**A source's coordinate space *is* the camera's.** The fixture stored `x`/`y` normalised to `0..1`
+and `load()` mapped them into cosmos.gl's 4,096 box on the way in. With `load()` gone that step
+cannot come back: a bounded source is queried with a rectangle *from the camera*, so a rescale
+between the two would mean the index and the viewport describe different places. It failed exactly
+that way — a camera over `[1622, 2474]` asking a corpus that lived inside a 1×1 square at the origin,
+and getting nothing. The corpus is now written in the space it will be asked in, which is the
+premise's real content: a batch job owns the coordinate space, not just the coordinates.
+
+**A rectangle with no bounds is not a rectangle.** `shouldSlice` answers `false` for a graph that
+fits, and the loop then asks for everything — a viewport of `±Infinity`. SQL has no infinity literal,
+so `x BETWEEN -Infinity AND Infinity` binds `Infinity` as a *column name* and fails. An open edge
+contributes no clause and a rectangle open on every side is `TRUE`, which is also the right plan: a
+query that wants every row has nothing to prune.
+
+**"Ask once" has to be enforced where the asking is.** With `refresh` wired to the camera by the call
+site, a graph that fits was answered whole and then immediately re-asked about whatever rectangle the
+reader had zoomed to — replacing a complete answer with an empty one. The promise that panning is
+free exactly when it can be belongs in the hook rather than in every call site remembering not to
+wire it up.
+
+**The canvas element cannot be gated on the first answer.** It was rendered behind
+`data ? … : placeholder`, which under a bounded path is a deadlock: no host element, no renderer, no
+camera, no question, no answer. The waiting state is an overlay over an empty canvas, not a
+substitute for it.
+
+## Consequences (continued)
 
 *The measurements behind this are on an in-memory DuckDB table.* The
 larger-than-RAM half — Parquet over range requests, with row-groups skipped by a

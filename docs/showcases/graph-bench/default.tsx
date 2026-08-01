@@ -30,7 +30,6 @@ import {
   type Sample,
   type Shape,
 } from "./measure";
-import { measureStack, STACK_SIZES, type StackSample } from "./measure-stack";
 import { measureBounded, BOUNDED_SIZES, type BoundedSample } from "./measure-bounded";
 import { BOUNDED_DEFAULTS } from "@kanzo-tech/graph";
 
@@ -51,7 +50,6 @@ declare global {
   interface Window {
     __graphBench?: {
       samples: Sample[];
-      stack: StackSample[];
       bounded: BoundedSample[];
       running: boolean;
       done: boolean;
@@ -66,17 +64,22 @@ declare global {
  * and "Our stack", which read to a reader as though we had written a second renderer.
  *
  * `engine` is cosmos.gl fed typed arrays straight from a generator: the most the GPU can do with
- * nothing of ours in the way. `stack` is the same graph arriving as a real one does — through
- * DuckDB, `load()`, `buffers()`, then uploaded to that same renderer. The gap between them is the
- * only code we can actually go and fix.
+ * nothing of ours in the way. `bounded` is the same graph arriving as a real one does, through a
+ * source that answers rectangles — DuckDB, a slice, `buffers()`, then the upload.
+ *
+ * **There used to be a third, and its absence is the result.** `+ our pipeline` measured `load()`:
+ * the whole relation into typed arrays, every id, an id→index map. ADR-0001 deleted that path, and a
+ * benchmark cannot measure code that is gone — keeping it alive to be measured is the shim the
+ * repository's own rule forbids. Its numbers stay in `BENCHMARKS.md`, dated and attributed to the
+ * machine that produced them, which is what a record is for. The comparison they justified is
+ * settled; what is still worth running is whether the surviving path holds its shape.
  */
-type Layer = "engine" | "stack" | "bounded";
+type Layer = "engine" | "bounded";
 
 const LAYERS: { id: Layer; label: string }[] = [
   { id: "engine", label: "cosmos.gl alone" },
-  { id: "stack", label: "+ our pipeline" },
-  // The third is not a variant of the second — it is the other architecture. Layers one and two
-  // hold the whole graph; this one never does.
+  // Not a variant of the first — it is the architecture. The engine layer holds the whole graph;
+  // this one never does.
   { id: "bounded", label: "bounded" },
 ];
 
@@ -120,94 +123,6 @@ function compact(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(value % 1_000_000 ? 1 : 0)}M`;
   if (value >= 1_000) return `${(value / 1_000).toFixed(value % 1_000 ? 1 : 0)}k`;
   return String(value);
-}
-
-/**
- * The stage breakdown for our own pipeline.
- *
- * Ingest is separated from the rest and labelled, because it is the fixture's cost and not the
- * product's: this corpus reaches DuckDB as CSV text, where a real one arrives as Parquet. Reading
- * it as though it were our latency would be the benchmark lying in our favour.
- */
-function StackTable(props: { samples: StackSample[]; running: boolean }) {
-  const { running, samples } = props;
-  return (
-    <Show
-      when={samples.length > 0 || running}
-      fallback={
-        <p className="px-4 py-6 text-sm text-muted-foreground">
-          Run the sweep to push {STACK_SIZES.map(compact).join(" · ")} through the real pipeline —
-          DuckDB, then <code className="font-mono text-xs">load()</code> and{" "}
-          <code className="font-mono text-xs">buffers()</code> as the workspace ships them, then the
-          upload and a half-corpus selection. Stops at {compact(STACK_SIZES.at(-1) ?? 0)}: a live
-          layout is already finished by then, and the fixture reaches DuckDB as CSV text.
-        </p>
-      }
-    >
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Nodes</TableHead>
-            <TableHead>Links</TableHead>
-            <TableHead className="text-right">Ingest</TableHead>
-            <TableHead className="text-right">Query</TableHead>
-            <TableHead className="text-right">load()</TableHead>
-            <TableHead className="text-right">buffers()</TableHead>
-            <TableHead className="text-right">Upload</TableHead>
-            <TableHead className="text-right">Select</TableHead>
-            <TableHead className="text-right">Ours, total</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {samples.map((sample) => (
-            <TableRow key={sample.pointCount}>
-              <TableCell className="font-medium">{compact(sample.pointCount)}</TableCell>
-              <TableCell>{compact(sample.linkCount)}</TableCell>
-              <Show
-                when={!sample.failure}
-                fallback={
-                  <TableCell colSpan={7} className="text-destructive">
-                    {sample.failure}
-                  </TableCell>
-                }
-              >
-                <TableCell className="text-right tabular-nums text-muted-foreground">
-                  {format(sample.ingestMs, 0)} ms
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {format(sample.queryMs, 0)} ms
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {format(sample.loadMs, 0)} ms
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {format(sample.buffersMs, 0)} ms
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {format(sample.uploadMs, 0)} ms
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {format(sample.selectMs, 0)} ms
-                </TableCell>
-                {/* Ingest excluded on purpose — see this component's note. */}
-                <TableCell className="text-right font-medium tabular-nums">
-                  {format(
-                    sample.queryMs +
-                      sample.loadMs +
-                      sample.buffersMs +
-                      sample.uploadMs +
-                      sample.selectMs,
-                    0,
-                  )}{" "}
-                  ms
-                </TableCell>
-              </Show>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </Show>
-  );
 }
 
 /**
@@ -301,11 +216,10 @@ export function GraphBenchShowcase() {
   const [layer, setLayer] = useState<Layer>("engine");
   const [previewSize, setPreviewSize] = useState(PREVIEW_SIZES[1] as number);
   const [samples, setSamples] = useState<Sample[]>([]);
-  const [stackSamples, setStackSamples] = useState<StackSample[]>([]);
   const [boundedSamples, setBoundedSamples] = useState<BoundedSample[]>([]);
   const [running, setRunning] = useState(false);
   const [current, setCurrent] = useState<number | null>(null);
-  /** Which stage of the stack sweep is in flight, so a stall says what it is stalled on. */
+  /** Which stage of the sweep is in flight, so a stall says what it is stalled on. */
   const [stageLabel, setStageLabel] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ points: number; links: number; ms: number } | null>(null);
 
@@ -382,14 +296,13 @@ export function GraphBenchShowcase() {
 
   // One object, both layers, so the headless runner reads a single place and can tell which sweep
   // produced what without inferring it from the shape of the rows.
-  const published = useRef<{ samples: Sample[]; stack: StackSample[]; bounded: BoundedSample[] }>({
+  const published = useRef<{ samples: Sample[]; bounded: BoundedSample[] }>({
     samples: [],
-    stack: [],
     bounded: [],
   });
   const publish = useCallback(
     (
-      next: Partial<{ samples: Sample[]; stack: StackSample[]; bounded: BoundedSample[] }>,
+      next: Partial<{ samples: Sample[]; bounded: BoundedSample[] }>,
       isRunning: boolean,
       done: boolean,
     ) => {
@@ -457,52 +370,6 @@ export function GraphBenchShowcase() {
     }
   }, [publish, shape, stress]);
 
-  const runStack = useCallback(async () => {
-    stop.current = false;
-    setRunning(true);
-    setStackSamples([]);
-    setPreviewLive(false);
-    publish({ stack: [] }, true, false);
-    const collected: StackSample[] = [];
-    try {
-      for (const size of STACK_SIZES) {
-        if (stop.current) break;
-        setCurrent(size);
-        for (let i = 0; i < 3; i++) await nextFrame();
-        const sample = await measureStack({
-          shape,
-          pointCount: size,
-          cancelled: () => stop.current,
-          onStage: setStageLabel,
-        });
-        collected.push(sample);
-        setStackSamples([...collected]);
-        publish({ stack: [...collected] }, true, false);
-        if (sample.failure && sample.failure !== "cancelled") break;
-      }
-    } catch (error) {
-      collected.push({
-        pointCount: 0,
-        linkCount: 0,
-        ingestMs: 0,
-        queryMs: 0,
-        loadMs: 0,
-        loadPhases: { query: 0, rows: 0, links: 0, rank: 0 },
-        buffersMs: 0,
-        uploadMs: 0,
-        selectMs: 0,
-        failure: `harness: ${String(error)}`,
-      });
-      setStackSamples([...collected]);
-    } finally {
-      setCurrent(null);
-      setStageLabel(null);
-      setRunning(false);
-      setPreviewLive(true);
-      publish({ stack: collected }, false, true);
-    }
-  }, [publish, shape]);
-
   const runBounded = useCallback(async () => {
     stop.current = false;
     setRunning(true);
@@ -535,7 +402,7 @@ export function GraphBenchShowcase() {
     }
   }, [publish, shape]);
 
-  const run = layer === "engine" ? runEngine : layer === "stack" ? runStack : runBounded;
+  const run = layer === "engine" ? runEngine : runBounded;
 
   return (
     <div className="flex h-dvh flex-col bg-background text-foreground">
@@ -617,9 +484,6 @@ export function GraphBenchShowcase() {
       </div>
 
       <section className="max-h-[46%] min-h-0 overflow-auto border-t">
-        <Show when={layer === "stack"}>
-          <StackTable running={running} samples={stackSamples} />
-        </Show>
         <Show when={layer === "bounded"}>
           <BoundedTable running={running} samples={boundedSamples} stage={stageLabel} />
         </Show>

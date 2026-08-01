@@ -1,245 +1,223 @@
 import { describe, expect, it } from "vitest";
-import type { Coordinator } from "@kanzo-tech/ui/analytics";
+import { adaptive } from "./adaptive";
+import { buffers, neighboursOf, scaleOf } from "./graph-model";
 import { LOOKS } from "./graph-looks";
-import {
-  buffers,
-  load,
-  neighboursOf,
-  scaleOf,
-  SPACE,
-  type GraphSpec,
-  type Loaded,
-  type NodeRow,
-} from "./graph-model";
+import { memorySource } from "./memory-source";
+import type { Slice } from "./bounded";
 
 /**
- * What is worth asserting without a GPU, and what is not.
- *
- * `load` and `buffers` are the two functions the benchmark says cost real time, and both are pure
- * arithmetic over arrays — testable, and the place a regression would hide. What is *not* asserted
- * here is colour: jsdom cannot resolve `color-mix(in srgb, var(--token) 100%, transparent)`, so
- * every token comes back as the same fallback. Asserting a hex here would be asserting jsdom's
- * limitations. The browser checks that, on the showcase and on the benchmark route.
+ * A complete `Slice`, because `buffers` takes one and a partial cast does not typecheck — which is
+ * the point: a slice is geometry and every array in it is parallel, so a fixture that leaves one out
+ * is not a smaller slice, it is an inconsistent one.
  */
-
-/**
- * A coordinator that answers each `onceQuery` in turn.
- *
- * `load` issues two reads — nodes, then edges — and Mosaic's client protocol is `connect(client)`
- * followed by `client.queryResult(data)`. Answering in order is enough, and it keeps the fixture
- * from having to parse the SQL to work out which read it is looking at.
- */
-function coordinatorAnswering(...results: unknown[]): Coordinator & { sql: string[] } {
-  let next = 0;
-  const sql: string[] = [];
+function slice(over: Partial<Slice> = {}): Slice {
+  const n = over.positions ? over.positions.length / 2 : 3;
   return {
-    sql,
-    connect(client: { query(): unknown; queryResult(data: unknown): unknown }) {
-      sql.push(String(client.query()));
-      const answer = results[next++];
-      queueMicrotask(() => client.queryResult(answer));
-    },
-    disconnect() {},
-  } as unknown as Coordinator & { sql: string[] };
-}
-
-const SPEC: GraphSpec = {
-  table: "nodes",
-  edges: "edges",
-  idField: "id",
-  labelField: "label",
-  categoryField: "kind",
-  sizeField: "degree",
-  groupField: "team",
-};
-
-/**
- * Rows as the *database* returns them, which is under `load`'s aliases and not the spec's column
- * names: the query is `SELECT kind AS category, degree AS size, …`. Writing the fixture in `kind`
- * and `degree` is how the first draft of this file silently tested nothing — every field read back
- * as `undefined`, and `text()` turned each one into `""` without complaint.
- *
- * Ids are sparse and out of step with position on purpose, because that is what makes the index
- * `Map` do any work at all.
- */
-const NODES = [
-  { id: 10, label: "a", category: "dataset", size: 4, group: "red" },
-  { id: 25, label: "b", category: "keyword", size: 1, group: "blue" },
-  { id: 41, label: "c", category: "dataset", size: 9, group: "" },
-];
-
-const EDGES = [
-  { source: 10, target: 41 },
-  { source: 25, target: 41 },
-];
-
-/**
- * A complete `Loaded`, because `buffers` takes one and a partial cast does not typecheck — which is
- * exactly why `typecheck` runs beside `test`: vitest never looks at the types, so a fixture that
- * lies about its shape passes the suite and fails the compiler.
- */
-function loadedFixture(rows: NodeRow[]): Loaded {
-  const n = rows.length;
-  return {
-    ids: rows.map((r) => r.id),
-    index: new Map(rows.map((r, i) => [r.id, i])),
-    rows,
+    mode: "detail",
+    n,
+    ids: Uint32Array.from({ length: n }, (_, i) => i + 100),
     positions: new Float32Array(n * 2),
-    clusters: rows.map(() => undefined),
-    links: new Float32Array([]),
-    minSize: Math.min(...rows.map((r) => r.size)),
-    maxSize: Math.max(...rows.map((r) => r.size)),
-    ranked: rows.map((_, i) => i),
-    categories: [...new Set(rows.map((r) => r.category))],
+    links: new Float32Array(),
+    categories: new Uint16Array(n),
+    ...over,
   };
 }
 
-describe("load", () => {
-  it("indexes ids to positions, and remaps links through that index", async () => {
-    const data = await load(coordinatorAnswering(NODES, EDGES), SPEC);
-
-    expect(data.ids).toEqual([10, 25, 41]);
-    expect(data.index.get(41)).toBe(2);
-    // The link buffer speaks in *point indices*, never in database ids — the whole reason the Map
-    // exists. `10 → 41` is `0 → 2`.
-    expect(Array.from(data.links)).toEqual([0, 2, 1, 2]);
-  });
-
-  it("treats a blank group as no group rather than group zero", async () => {
-    const data = await load(coordinatorAnswering(NODES, EDGES), SPEC);
-
-    // A vertex shared by every group belongs to none; left unclustered it drifts between the ones
-    // it joins, which is the behaviour `undefined` buys and `0` silently destroys.
-    expect(data.clusters).toEqual([0, 1, undefined]);
-  });
-
-  it("discovers the category vocabulary in first-seen order rather than declaring it", async () => {
-    const data = await load(coordinatorAnswering(NODES, EDGES), SPEC);
-
-    expect(data.categories).toEqual(["dataset", "keyword"]);
-  });
-
-  it("ranks by descending size, because the label budget spends from the front", async () => {
-    const data = await load(coordinatorAnswering(NODES, EDGES), SPEC);
-
-    expect(data.ranked).toEqual([2, 0, 1]);
-    expect(data.minSize).toBe(1);
-    expect(data.maxSize).toBe(9);
-  });
-
-  it("seeds positions into the middle half of the space", async () => {
-    const data = await load(coordinatorAnswering(NODES, EDGES), SPEC);
-
-    // Gravity pulls to the centre, so starting at the full extent would open with a collapse
-    // rather than a layout.
-    for (const value of data.positions) {
-      expect(value).toBeGreaterThanOrEqual(SPACE * 0.25);
-      expect(value).toBeLessThanOrEqual(SPACE * 0.75);
-    }
-  });
-
-  it("renders a DATE cell as text instead of handing React a Date", async () => {
-    // Detail columns are aliased `d_<field>`, so that is the key the row comes back under.
-    const withDate = [{ ...NODES[0], d_issued: new Date("2019-10-02T00:00:00Z") }];
-    const spec: GraphSpec = { ...SPEC, detailFields: [{ field: "issued", label: "Issued" }] };
-
-    const data = await load(coordinatorAnswering(withDate, []), spec);
-
-    // A `Date` reaching JSX crashes with "Objects are not valid as a React child".
-    expect(data.rows[0]?.details).toEqual([{ label: "Issued", value: "2019-10-02" }]);
-  });
-
-  it("reads the spec's column names, never a hardcoded schema", async () => {
-    const coordinator = coordinatorAnswering(NODES, EDGES);
-
-    await load(coordinator, SPEC);
-
-    // The whole point of `GraphSpec`: point the canvas at another relation and it is a change of
-    // argument, not of code. The proof is in the SQL — the domain's names appear there and the
-    // renderer's names do not appear anywhere else.
-    expect(coordinator.sql[0]).toContain("kind");
-    expect(coordinator.sql[0]).toContain("degree");
-    expect(coordinator.sql[0]).toContain("team");
-    expect(coordinator.sql[0]).toContain('FROM "nodes"');
-    expect(coordinator.sql[1]).toContain('FROM "edges"');
-  });
-});
-
 describe("buffers", () => {
-  it("writes one RGBA, one size and one shape per point", () => {
+  it("spreads the size ramp by √value, not linearly", () => {
     const host = document.createElement("div");
     document.body.appendChild(host);
-    const data = {
-      ...loadedFixture(NODES.map((n) => ({ ...n, details: [] }))),
-      links: new Float32Array([0, 2, 1, 2]),
-    };
-
-    const gpu = buffers(data, LOOKS.atlas, host);
-
-    expect(gpu.colors).toHaveLength(3 * 4);
-    expect(gpu.sizes).toHaveLength(3);
-    expect(gpu.shapes).toHaveLength(3);
-    expect(gpu.linkColors).toHaveLength(2 * 4);
-  });
-
-  it("ramps radius by the square root of size, so a heavy tail does not flatten", () => {
-    const host = document.createElement("div");
-    document.body.appendChild(host);
-    const data = loadedFixture(
-      [1, 4, 9].map((size, i) => ({
-        id: i,
-        label: `n${i}`,
-        category: "dataset",
-        size,
-        group: "",
-        details: [],
-      })),
-    );
-
     const [lo, hi] = LOOKS.atlas.form.size;
-    const gpu = buffers(data, LOOKS.atlas, host);
+
+    const gpu = buffers(slice({ sizes: Float32Array.from([1, 4, 9]) }), LOOKS.atlas, host);
 
     // √1 and √9 are the ends; √4 sits at (2−1)/(3−1) = 0.5 of the way, which a linear ramp would
-    // have put at (4−1)/(9−1) = 0.375 — the difference between a readable spread and everything
-    // but the biggest hubs pinned to the floor.
+    // have put at (4−1)/(9−1) = 0.375 — the difference between a readable spread and everything but
+    // the biggest hubs pinned to the floor.
     expect(gpu.sizes[0]).toBeCloseTo(lo, 5);
     expect(gpu.sizes[2]).toBeCloseTo(hi, 5);
     expect(gpu.sizes[1]).toBeCloseTo(lo + 0.5 * (hi - lo), 5);
   });
 
+  it("spends the ramp on cluster weight in aggregate mode", () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    const [lo, hi] = LOOKS.atlas.form.size;
+
+    // `sizes` is present and must be ignored: at this zoom a mark stands for a cluster, and how big
+    // it should read is how many vertices it hides, not what any one of them ranked.
+    const gpu = buffers(
+      slice({
+        mode: "aggregate",
+        weights: Float32Array.from([1, 4, 9]),
+        sizes: Float32Array.from([9, 4, 1]),
+      }),
+      LOOKS.atlas,
+      host,
+    );
+
+    expect(gpu.sizes[0]).toBeCloseTo(lo, 5);
+    expect(gpu.sizes[2]).toBeCloseTo(hi, 5);
+  });
+
+  it("draws one radius when the source sent no ramp at all", () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+
+    // A slice is allowed to be geometry and nothing else. The old path could not express this — it
+    // read `row.size` off every node — and the arithmetic would have divided by an empty span.
+    const gpu = buffers(slice(), LOOKS.atlas, host);
+
+    expect([...gpu.sizes]).toEqual([gpu.sizes[0], gpu.sizes[0], gpu.sizes[0]]);
+    expect(Number.isFinite(gpu.sizes[0])).toBe(true);
+  });
+
   it("leaves link alpha at 1, because that channel is reserved", () => {
     const host = document.createElement("div");
     document.body.appendChild(host);
-    const data = {
-      ...loadedFixture(NODES.map((n) => ({ ...n, details: [] }))),
-      links: new Float32Array([0, 2, 1, 2]),
-    };
 
-    const gpu = buffers(data, LOOKS.atlas, host);
+    const gpu = buffers(slice({ links: Float32Array.from([0, 2, 1, 2]) }), LOOKS.atlas, host);
 
-    // Opacity is a uniform (`appearance`). Multiplying it in here is what once cost a 17,472-byte
-    // re-upload on every tick of a slider, and the channel is kept free for a datum that genuinely
-    // differs per link — weight, confidence, recency.
+    // Opacity is a uniform (`appearance`). Multiplying it in here is what once cost a full re-upload
+    // on every tick of a slider, and the channel is kept free for a datum that genuinely differs per
+    // link — weight, confidence, recency.
     expect(gpu.linkColors[3]).toBe(1);
     expect(gpu.linkColors[7]).toBe(1);
   });
 });
 
 describe("scaleOf", () => {
-  it("gives an unknown category and the overflow one the same Other glyph", () => {
-    const scale = scaleOf(LOOKS.ink, ["a", "b", "c", "d", "e"]);
+  it("gives the overflow ordinal the Other glyph rather than the first one's", () => {
+    const scale = scaleOf(LOOKS.ink);
 
-    // `indexOf` answers −1 for a category the data does not contain and the shape order runs out at
-    // four, so both land on Other. Falling back to `circle` would have handed the fifth category
-    // the glyph the first one already wears.
-    expect(scale.shape("nope")).toBe(scale.shape("e"));
+    // The shape order runs out at four. Falling back to `circle` would have handed the fifth
+    // category the glyph the first one already wears.
+    expect(scale.shape(4)).not.toBe(scale.shape(0));
+    expect(scale.shape(9)).toBe(scale.shape(4));
+  });
+
+  it("mutes past capacity instead of cycling", () => {
+    // A ninth category wearing slot 1 would claim to be the first one.
+    const scale = scaleOf(LOOKS.atlas, 8);
+
+    expect(scale.color(8)).toBe("var(--muted-foreground)");
+    expect(scale.color(0)).not.toBe(scale.color(1));
   });
 
   it("collapses to one colour when the look encodes identity as shape", () => {
-    const scale = scaleOf(LOOKS.ink, ["a", "b"]);
+    const scale = scaleOf(LOOKS.ink);
 
-    expect(scale.color("a")).toBe(scale.color("b"));
-    expect(scale.shape("a")).not.toBe(scale.shape("b"));
+    expect(scale.color(0)).toBe(scale.color(1));
+    expect(scale.shape(0)).not.toBe(scale.shape(1));
+  });
+});
+
+describe("memorySource", () => {
+  /** Two triangles, far apart: 0–1–2 around the origin, 3–4–5 out at 1000. */
+  const graph = {
+    ids: Uint32Array.from([10, 11, 12, 13, 14, 15]),
+    positions: Float32Array.from([0, 0, 1, 0, 0, 1, 1000, 1000, 1001, 1000, 1000, 1001]),
+    links: Float32Array.from([0, 1, 1, 2, 2, 0, 3, 4, 4, 5, 5, 3]),
+    categories: Uint16Array.from([0, 0, 0, 1, 1, 1]),
+  };
+  const request = { limit: 100, lodThreshold: 0.5 };
+
+  it("answers a rectangle with what is inside it, in slice-local indices", async () => {
+    const answer = await memorySource(graph).slice({
+      ...request,
+      query: { kind: "region", view: { xMin: -1, yMin: -1, xMax: 2, yMax: 2, zoom: 1 } },
+    });
+
+    expect([...answer.ids]).toEqual([10, 11, 12]);
+    // The far triangle's edges are gone and the near one's are renumbered onto 0..2 — an edge with
+    // one end off-slice has nowhere to land.
+    expect([...answer.links]).toEqual([0, 1, 1, 2, 2, 0]);
+  });
+
+  it("reports what matched, not what came back, when the limit cuts", async () => {
+    const answer = await memorySource(graph).slice({
+      ...request,
+      limit: 2,
+      query: { kind: "region", view: { xMin: -1, yMin: -1, xMax: 2, yMax: 2, zoom: 1 } },
+    });
+
+    // A truncated slice that claimed to be complete is the failure this whole contract is about.
+    expect(answer.ids.length).toBe(2);
+    expect(answer.n).toBe(3);
+  });
+
+  it("carries pinned ids the rectangle does not hold", async () => {
+    const answer = await memorySource(graph).slice({
+      ...request,
+      pinned: [13],
+      query: { kind: "region", view: { xMin: -1, yMin: -1, xMax: 2, yMax: 2, zoom: 1 } },
+    });
+
+    // A dragged node is drawn where the reader dropped it and indexed where it always was, so the
+    // rectangle cannot find it. Riding along is what keeps it on screen.
+    expect([...answer.ids]).toContain(13);
+  });
+
+  it("expands a neighbourhood by hops, not by distance", async () => {
+    const source = memorySource(graph);
+    const one = await source.slice({ ...request, query: { kind: "neighbourhood", seeds: [10], depth: 1 } });
+    const zero = await source.slice({ ...request, query: { kind: "neighbourhood", seeds: [10], depth: 0 } });
+
+    expect([...one.ids].sort()).toEqual([10, 11, 12]);
+    expect([...zero.ids]).toEqual([10]);
+    // The other triangle is unreachable at any depth — that is the question a rectangle cannot ask.
+    const deep = await source.slice({ ...request, query: { kind: "neighbourhood", seeds: [10], depth: 9 } });
+    expect([...deep.ids]).not.toContain(13);
+  });
+
+  it("answers super-nodes below the level-of-detail threshold", async () => {
+    const answer = await memorySource(graph).slice({
+      ...request,
+      query: { kind: "region", view: { xMin: -1e6, yMin: -1e6, xMax: 1e6, yMax: 1e6, zoom: 0.1 } },
+    });
+
+    expect(answer.mode).toBe("aggregate");
+    // One mark per group, at its centroid, standing for three vertices each.
+    expect(answer.ids.length).toBe(2);
+    expect([...(answer.weights ?? [])]).toEqual([3, 3]);
+    expect(answer.n).toBe(6);
+    // And a view of everything is still a picture: the groups that touch, deduplicated. These two do
+    // not touch, so there is nothing between them.
+    expect(answer.links.length).toBe(0);
+  });
+});
+
+describe("adaptive", () => {
+  it("interpolates continuously, so no size is a visible jump", () => {
+    // Breakpoints snap: a graph crossing a threshold would visibly reorganise, which is the
+    // Cosmograph 1.x failure the continuous lerp exists to avoid. Sampling either side of the
+    // decade boundaries is how that claim is checked rather than asserted.
+    const before = adaptive(9_999).sim.repulsion;
+    const after = adaptive(10_001).sim.repulsion;
+
+    expect(Math.abs(after - before)).toBeLessThan(0.001);
+  });
+
+  it("damps harder and pushes less as the corpus grows", () => {
+    const small = adaptive(10);
+    const large = adaptive(100_000);
+
+    expect(large.sim.repulsion).toBeLessThan(small.sim.repulsion);
+    expect(large.sim.friction).toBeGreaterThan(small.sim.friction);
+    expect(large.display.pointScale).toBeLessThan(small.display.pointScale);
+  });
+
+  it("clamps outside its tuned range instead of extrapolating", () => {
+    // Tuned across 10 to 100,000. One node and ten million are both outside it, and a lerp that
+    // kept going would hand back a negative repulsion at the top end.
+    expect(adaptive(0)).toEqual(adaptive(10));
+    expect(adaptive(10_000_000).sim).toEqual(adaptive(100_000).sim);
+    expect(adaptive(10_000_000).sim.repulsion).toBeGreaterThan(0);
+  });
+
+  it("drops the edge layer only once it is fog", () => {
+    expect(adaptive(200_000).display.links).toBe(true);
+    expect(adaptive(300_000).display.links).toBe(false);
   });
 });
 

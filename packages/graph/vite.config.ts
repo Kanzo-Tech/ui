@@ -19,7 +19,12 @@ export default defineConfig({
   ],
   build: {
     lib: {
-      entry: { index: resolve(__dirname, "src/index.ts") },
+      entry: {
+        index: resolve(__dirname, "src/index.ts"),
+        // A second entry, not a re-export: `@kanzo-tech/graph/duckdb` is where the Mosaic-dependent
+        // source lives, so the main entry stays importable without the optional peer installed.
+        "duck-source": resolve(__dirname, "src/duck-source.ts"),
+      },
       formats: ["es"],
     },
     rollupOptions: {

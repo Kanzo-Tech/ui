@@ -19,7 +19,6 @@ import {
   DEFAULT_SIM,
   type Display,
   type GraphCommands,
-  type GraphSpec,
   type LookId,
   type Motion,
   type Selection,
@@ -51,10 +50,34 @@ export { NODES, EDGE_PAIRS, EDGES };
 /**
  * Which column means what, for this corpus.
  *
- * The domain lives here — beside the CSV that defines it — and the canvas reads it from context.
- * That is the whole of the generalisation: a renderer that asks "which column groups these?" can
- * be pointed at any relation, and one that reads `row.theme` can be pointed at exactly one.
+ * **A local type now, and that is the point.** `@kanzo-tech/graph` used to export this shape,
+ * because `load()` took one and read the relation itself. ADR-0001 deleted that: a source answers
+ * *what should I draw* and the package never sees a column name again. So the description of a
+ * corpus went where it always belonged — beside the CSV that defines it. A renderer that asks
+ * "which column groups these?" can be pointed at any relation; one that knows this answer can be
+ * pointed at exactly one.
  */
+export interface GraphSpec {
+  table: string;
+  edges: string;
+  idField: string;
+  labelField: string;
+  categoryField: string;
+  sizeField: string;
+  /**
+   * The column whose distinct values become cluster groups, if any.
+   *
+   * A blank value means *no group*, not group zero — a vertex shared by every group belongs to none.
+   */
+  groupField?: string;
+  /** How to name that column to a reader, so no control has to hardcode a schema. */
+  groupLabel?: string;
+  /** Extra columns for the hover card, in the order they should read. */
+  detailFields?: { field: string; label: string }[];
+  xField: string;
+  yField: string;
+}
+
 export const DISCOVERY: GraphSpec = {
   table: NODES,
   edges: EDGE_PAIRS,

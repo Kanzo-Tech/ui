@@ -26,8 +26,8 @@ buffers, owning the renderer across React's lifecycle, and keeping a lasso insid
 crossfilter.
 
 Two call sites prove the split rather than assert it — the workspace showcase composes an entire
-application around it, and the benchmark route drives the same `load()` and `buffers()` from
-synthetic generators with no database in sight.
+application around it, and the benchmark route drives the same source and `buffers()` from
+synthetic generators.
 
 <Cards>
   <Card title="Workspace" href="/view/showcases/workspace" description="The full arrangement: canvas, legend, inspector, rules, crossfilter." />
@@ -36,24 +36,30 @@ synthetic generators with no database in sight.
 
 ## The two halves
 
-**Data.** `load(coordinator, spec)` reads a node relation and an edge relation into the four typed
-arrays the GPU wants, plus the rows and the id→index map everything else needs. `GraphSpec` names
-the columns, so the canvas never reads a schema by name — pointing it at another corpus is a change
-of argument, not of code.
+**Data.** A **source** answers one question — *what should I draw* — and `useBoundedGraph` asks it.
+The answer is a `Slice`: at most `limit` points, as parallel typed arrays, whose size follows the
+question rather than the corpus. Moving the camera re-asks; zooming out past `lodThreshold` gets
+super-nodes instead of nodes, so a view of everything is still a few thousand marks.
 
 ```ts
-const data = await load(coordinator, {
-  table: "nodes",
-  edges: "edges",
-  idField: "id",
-  labelField: "title",
-  categoryField: "kind",
-  sizeField: "degree",
-  groupField: "theme",
-});
+const source = duckBoundedSource({ coordinator, nodes: "nodes", edges: "edges" });
+const { slice, refresh } = useBoundedGraph({ source, graphRef, hostRef });
+// …and wire cosmos.gl's `onZoom` to `refresh`.
 ```
 
-**Appearance.** `buffers(data, look, host)` turns a look and the *live theme* into per-point
+A host that already holds its arrays wraps them in `memorySource(...)` instead — same path, no
+database. Under `limit` either source is asked once for everything and never again, so a graph that
+fits pays for nothing.
+
+**There is no `load()`.** It read the whole relation into memory — every id, every row, an id→index
+map — and that made the working set N, so the ceiling was whatever N the machine could hold: 1,225 ms
+of first paint at 200,000 nodes. ADR-0001 deleted it rather than optimising it. Two consequences are
+worth stating because they are losses, not refactors: **a slice carries category ordinals, not names**
+(what an ordinal is *called* is a question for a legend, and a legend asks the source), and **the
+label budget has no global ordering** — "the most important labels" became a property of the answer,
+which is the biggest nodes *here* rather than anywhere.
+
+**Appearance.** `buffers(slice, look, host)` turns a look and the *live theme* into per-point
 colours, sizes and shapes. A `Look` carries **geometry only** — colour comes from the page's
 categorical scale, because a scale a graph invents is a scale that disagrees with the legend
 explaining it.
@@ -80,9 +86,12 @@ the renderer, it is the layout.** A live simulation is comfortable to about 50,0
 finished by 200,000.
 
 **Past that, positions become a column.** Drawing a million points is cheap; solving them sixty
-times a second is not, and no renderer changes that. This is why `load()` accepts `xField` and
-`yField`, and why nothing in the package insists on running a simulation: lay the graph out once,
-store the coordinates, and render.
+times a second is not, and no renderer changes that. So a simulation is **off by default**: the
+coordinates a source hands back are the index the next spatial question is asked against, and a
+force that moves them moves the picture out from under its own index — the camera drifts away from
+the corpus within a frame. Lay the graph out once, store the coordinates, and render. Turn the
+simulation on for the other host: arrays in hand, no layout, few enough points that a live one is
+the cheapest way to get one.
 
 ## Things the source will not tell you twice
 

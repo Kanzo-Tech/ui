@@ -103,6 +103,14 @@ export interface Slice {
   /** Per-point category ordinal, for colour. */
   categories: Uint16Array;
   /**
+   * What the size ramp is spent on, per point — a degree, a count, whatever the corpus ranks by.
+   *
+   * Optional because a source may not have one, and a graph drawn at one radius is a legitimate
+   * picture. But without it a look's `form.size` range has only one end, so a source that can afford
+   * the column should send it: it is the difference between seeing a hub and counting one.
+   */
+  sizes?: Float32Array;
+  /**
    * Aggregate mode only: how many real vertices each super-node stands for. A renderer can size a
    * mark by it, and a reader can tell a cluster of ten thousand from a cluster of three.
    */
@@ -168,7 +176,14 @@ export function shouldSlice(total: number | undefined, limit: number): boolean {
   return total === undefined || total > limit;
 }
 
-/** Sensible defaults, and the reason each one is that number. */
+/**
+ * Sensible defaults, and the reason each one is that number.
+ *
+ * The camera→rectangle conversion that used to live here is gone: cosmos.gl owns the screen↔space
+ * transform and answers it through `screenToSpacePosition`, so deriving the rectangle from the
+ * camera and the space size was a second implementation of the renderer's own maths, free to drift
+ * from it. `useBoundedGraph` asks the renderer instead.
+ */
 export const BOUNDED_DEFAULTS = {
   /**
    * Twenty thousand marks.
@@ -181,25 +196,3 @@ export const BOUNDED_DEFAULTS = {
   /** fossil's `viewport` uses 0.5; matching it means one number to reason about across the seam. */
   lodThreshold: 0.5,
 } as const;
-
-/**
- * The rectangle a cosmos.gl camera is currently over.
- *
- * Kept here rather than in the canvas because it is the one piece of glue every source needs and
- * none of them should write twice. `spaceSize` is the simulation box the positions live in.
- */
-export function viewportOf(
-  screen: { width: number; height: number },
-  camera: { x: number; y: number; k: number },
-  spaceSize: number,
-): Viewport {
-  const halfW = screen.width / (2 * camera.k);
-  const halfH = screen.height / (2 * camera.k);
-  return {
-    xMin: Math.max(0, camera.x - halfW),
-    yMin: Math.max(0, camera.y - halfH),
-    xMax: Math.min(spaceSize, camera.x + halfW),
-    yMax: Math.min(spaceSize, camera.y + halfH),
-    zoom: camera.k,
-  };
-}

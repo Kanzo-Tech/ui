@@ -128,24 +128,31 @@ export { GraphCanvas, GraphSelection, GraphToolbar, GraphZoom } from "./graph-ca
 
 /** The legend draws the glyph the canvas draws, so a look that encodes kind as shape stays legible. */
 /**
- * The domain the swatches are drawn against.
+ * The domain the swatches are drawn against — **sorted**, and that is not a tidy-up.
  *
- * `KINDS` is the fixture's declared order, and the canvas colours by the order the *data* turned
- * out to have. They agree here because the corpus contains all four; they are not guaranteed to,
- * and that gap is the cross-panel binding problem — Vega-Lite's `resolve: {scale: {color: shared}}`
- * — which nothing in this showcase declares yet. Keeping the domain in one named place is what
- * makes it a one-line fix when it does.
+ * A slice carries category *ordinals*, not names, and the ordinal is whatever the source ranked the
+ * column into: `dense_rank() OVER (ORDER BY kind)`, which is alphabetical. `KINDS` is the fixture's
+ * declared order, and the two are not the same list — `keyword` is third here and fourth there. Left
+ * unsorted this legend would name colours the canvas gives to different kinds.
+ *
+ * The gap the old comment called hypothetical — the cross-panel binding problem, Vega-Lite's
+ * `resolve: {scale: {color: shared}}` — is now load-bearing, because the binding is a number crossing
+ * a query boundary rather than a string both sides happen to agree on. Sorting is the whole of the
+ * agreement: the source ranks by value, so the domain is the distinct values in that same order.
  */
-const LEGEND_DOMAIN = Object.keys(KINDS);
+const LEGEND_DOMAIN = Object.keys(KINDS).sort();
+
+/** A category name to the ordinal the canvas knows it by. `-1` for a kind the corpus does not hold. */
+const ordinalOf = (kind: string): number => LEGEND_DOMAIN.indexOf(kind);
 
 function LegendSwatch({ kind }: { kind: string }) {
   const { look } = useGraphView();
   const capacity = useChartCapacity();
-  const scale = scaleOf(LOOKS[look], LEGEND_DOMAIN, capacity);
+  const scale = scaleOf(LOOKS[look], capacity);
   return (
     <ShapeGlyph
-      color={scale.color(kind)}
-      shape={scale.shape(kind)}
+      color={scale.color(ordinalOf(kind))}
+      shape={scale.shape(ordinalOf(kind))}
     />
   );
 }
@@ -1136,14 +1143,14 @@ export function GraphSettings() {
               <span className="flex items-center gap-2">
                 <span className="font-medium text-xs">{LOOKS[id].label}</span>
                 <span className="ms-auto flex items-center gap-1">
-                  {LEGEND_DOMAIN.map((kind) => {
-                    const preview = scaleOf(LOOKS[id], LEGEND_DOMAIN);
+                  {LEGEND_DOMAIN.map((kind, ordinal) => {
+                    const preview = scaleOf(LOOKS[id]);
                     return (
                       <ShapeGlyph
                         className="size-2"
-                        color={preview.color(kind)}
+                        color={preview.color(ordinal)}
                         key={kind}
-                        shape={preview.shape(kind)}
+                        shape={preview.shape(ordinal)}
                       />
                     );
                   })}

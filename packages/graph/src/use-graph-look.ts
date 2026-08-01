@@ -3,7 +3,8 @@
 import { useEffect } from "react";
 import type { Graph } from "@cosmos.gl/graph";
 import { useThemeTick } from "@kanzo-tech/ui/analytics";
-import { appearance, buffers, type Loaded } from "./graph-model";
+import type { Slice } from "./bounded";
+import { appearance, buffers } from "./graph-model";
 import type { Look } from "./graph-looks";
 import type { Display } from "./types";
 
@@ -34,25 +35,26 @@ export function useGraphLook(options: {
   getGraph: () => Graph | null;
   /** The element the tokens are resolved against — inside the canvas' own tree. */
   hostRef: React.RefObject<HTMLElement | null>;
-  data: Loaded | null;
+  /** The answer currently drawn. Every slice is a fresh set of points, so every slice repaints. */
+  slice: Slice | null;
   look: Look;
   display: Display;
   /** Ask the overlays to reposition: point sizes changed, so the labels sit differently. */
   schedule: () => void;
 }): void {
-  const { data, display, getGraph, hostRef, look, schedule } = options;
+  const { display, getGraph, hostRef, look, schedule, slice } = options;
   const themeTick = useThemeTick();
 
   useEffect(() => {
     const graph = getGraph();
     const host = hostRef.current;
-    if (!data || !graph || !host) return;
-    const { colors, linkColors, shapes, sizes } = buffers(data, look, host);
+    if (!slice || !graph || !host) return;
+    const { colors, linkColors, shapes, sizes } = buffers(slice, look, host);
     graph.setPointColors(colors);
     graph.setPointSizes(sizes);
     graph.setPointShapes(shapes);
     graph.setLinkColors(linkColors);
-  }, [data, getGraph, hostRef, look, themeTick]);
+  }, [getGraph, hostRef, look, slice, themeTick]);
 
   // The paint, once, for both. These deps are a superset of the ones above, so whenever the buffers
   // are rebuilt this runs in the same commit and right after — and `setPointColors` and friends only
@@ -61,9 +63,9 @@ export function useGraphLook(options: {
   useEffect(() => {
     const graph = getGraph();
     const host = hostRef.current;
-    if (!data || !graph || !host) return;
+    if (!slice || !graph || !host) return;
     graph.setConfigPartial(appearance(look, host, display));
     graph.render();
     schedule();
-  }, [data, display, getGraph, hostRef, look, schedule, themeTick]);
+  }, [display, getGraph, hostRef, look, schedule, slice, themeTick]);
 }

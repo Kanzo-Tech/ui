@@ -15,22 +15,18 @@
  *
  * **The measurements that shape it** are in `BENCHMARKS.md`: a live simulation is comfortable to
  * about 50,000 points and finished by 200,000, and past that the honest design is positions
- * precomputed once and stored as a column — which is why `load()` takes `xField` / `yField` and
- * why nothing here insists on running a simulation.
+ * precomputed once and stored as a column — which is why a simulation is opt-in here and off by
+ * default, and why the render path is bounded rather than fast.
  */
 
-// The data layer: a relation in, the arrays a renderer wants out.
+// A slice in, the arrays a renderer wants out. `load()` was here and is gone — see ADR-0001.
 export {
-  load,
   buffers,
   scaleOf,
   forces,
   appearance,
   neighboursOf,
   SPACE,
-  type GraphSpec,
-  type Loaded,
-  type NodeRow,
   type Buffers,
 } from "./graph-model";
 
@@ -69,12 +65,17 @@ export { onceQuery } from "./once-query";
  * A contract, not a format: anything that can answer "what is in this rectangle, at this zoom, in
  * at most this many marks" is a source. fossil's `viewport` verb is one; a relation with `x`/`y`
  * and a spatial predicate is another. This package renders and does not learn a storage layout,
- * which is what keeps `load()`'s ceiling from being the only option.
+ * which is what removed the ceiling rather than raising it.
+ *
+ * `useBoundedGraph` is the loop that asks — it observes the camera, debounces, cancels what the
+ * camera has already superseded, and pushes each answer into the renderer. `memorySource` is the
+ * answer for a host that already holds its arrays: every consumer needs a source now, including the
+ * ones bounding buys nothing for, so that one is written here once rather than at each call site
+ * differently.
  */
 export {
   BOUNDED_DEFAULTS,
   shouldSlice,
-  viewportOf,
   type BoundedSource,
   type Slice,
   type SliceMode,
@@ -82,9 +83,22 @@ export {
   type SliceRequest,
   type Viewport,
 } from "./bounded";
+export {
+  useBoundedGraph,
+  type BoundedGraphOptions,
+  type BoundedGraphState,
+} from "./use-bounded-graph";
+export { memorySource, type MemoryGraph } from "./memory-source";
+// The DuckDB source is on `@kanzo-tech/graph/duckdb`, not here: Mosaic is an optional peer and that
+// is the half that needs it. A host drawing arrays it already holds should not import a database to
+// find out it did not need one.
 
 // Cluster seeding — what actually separates communities, as opposed to what looks like it should.
 export { clusterRing } from "./cluster-ring";
+
+// What a graph of a given size wants, for the host that runs a live layout. Absorbed from
+// `@fossil-lang/viewer` per ADR-0040 — see the file for why it is tuning rather than level of detail.
+export { adaptive } from "./adaptive";
 
 // Theme colours as GPU floats. Exported because a host writing its own buffers needs the same
 // resolution path, and two implementations of "what colour is `var(--primary)` here" is how a

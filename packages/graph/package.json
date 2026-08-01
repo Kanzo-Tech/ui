@@ -16,6 +16,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./duckdb": {
+      "types": "./dist/duck-source.d.ts",
+      "import": "./dist/duck-source.js"
+    },
     "./package.json": "./package.json"
   },
   "scripts": {

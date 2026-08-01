@@ -4,7 +4,7 @@ import { Graph } from "@cosmos.gl/graph";
 import { loadCSV } from "@kanzo-tech/ui/analytics";
 import { BOUNDED_DEFAULTS, shouldSlice, type Slice } from "@kanzo-tech/graph";
 import { boot } from "../workspace/duck";
-import { duckBoundedSource } from "./duck-source";
+import { duckBoundedSource } from "@kanzo-tech/graph/duckdb";
 import { generate, nextFrame, type Shape } from "./measure";
 
 /**

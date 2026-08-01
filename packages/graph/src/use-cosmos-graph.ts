@@ -3,18 +3,22 @@
 import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { Graph } from "@cosmos.gl/graph";
 import { clusterRing } from "./cluster-ring";
-import { forces, SPACE, type Loaded } from "./graph-model";
+import { forces, SPACE } from "./graph-model";
 import type { Motion, Sim } from "./types";
 
 /**
  * The renderer's whole life: built once, told what the forces are, destroyed on the way out.
  *
+ * **It no longer knows anything about the data**, and that is the change ADR-0001 forced rather than
+ * a tidy-up. Construction used to depend on a `Loaded`, which was harmless when the data arrived
+ * once; under a bounded path a slice arrives on every camera move, and a construction effect keyed
+ * on it would tear down and rebuild a WebGL context per pan. Geometry is pushed in by
+ * `useBoundedGraph`; the instance outlives every slice it draws.
+ *
  * Everything about the picture — colours, sizes, shapes, the look, the camera, and since 3.0 even
- * whether a simulation runs at all — is a `setConfigPartial` somewhere else, which is why changing
- * a look does not rebuild the graph. **Three fields are genuinely init-only**, and they are the
- * three `preserveInitOnlyFields` restores after every config write: `initialZoomLevel`,
- * `randomSeed` and `attribution`. This comment used to claim the whole constructor argument was
- * immutable, which was true of 2.x and is not true of this one.
+ * whether a simulation runs at all — is a `setConfigPartial` somewhere else. **Three fields are
+ * genuinely init-only**, and they are the three `preserveInitOnlyFields` restores after every config
+ * write: `initialZoomLevel`, `randomSeed` and `attribution`.
  *
  * The callbacks are handed over exactly once, which is why every one of them reads the present
  * through a ref rather than a closure.
@@ -27,14 +31,10 @@ import type { Motion, Sim } from "./types";
  * own English message into the host element rather than throwing, so the `try/catch` around the
  * constructor was catching a case that cannot reach it. Worse under 3.x: device creation is
  * asynchronous and `graph.ready` has **no failure path** — when the device cannot be made it does
- * not reject, it simply never settles, so a caller awaiting it waits forever with nothing on
- * screen. (The engine benchmark bounds that await for exactly this reason.)
+ * not reject, it simply never settles, so a caller awaiting it waits forever with nothing on screen.
  *
  * So the probe stays, and it answers the common case before any of that can happen. The catch stays
  * for real construction faults.
- *
- * One thing here did age: the old wording blamed **regl**, which reported a missing context by
- * `console.error`. 3.0 replaced regl with luma.gl and there is no `regl` left in the dist.
  */
 function hasWebGL(): boolean {
   if (typeof document === "undefined") return false;
@@ -46,18 +46,37 @@ function hasWebGL(): boolean {
   }
 }
 
-
 export interface CosmosGraphOptions {
   /** The element cosmos.gl mounts its canvas into. */
   hostRef: RefObject<HTMLDivElement | null>;
   /**
    * Where to put the instance.
    *
-   * Given rather than returned, because the overlays and the gesture need a way to reach the graph
-   * and this hook needs their callbacks — returning it would make the two declarations circular.
+   * Given rather than returned, because the overlays, the gesture and the query loop all need a way
+   * to reach the graph and this hook needs their callbacks — returning it would make the
+   * declarations circular.
    */
   graphRef: RefObject<Graph | null>;
-  data: Loaded | null;
+  /**
+   * Whether to run a live layout, and it **defaults to off**.
+   *
+   * ADR-0001's premise: positions are authority. A bounded source hands back coordinates that the
+   * next spatial query is expressed in, so a force that moves them moves the picture out from under
+   * its own index — the camera drifts away from the corpus within a frame. Off is therefore the
+   * correct default and not a conservative one.
+   *
+   * On is for the other host: arrays in hand, no precomputed layout, few enough points that a live
+   * simulation is the cheapest way to get one. That host has no spatial index to disagree with.
+   */
+  simulate?: boolean;
+  /**
+   * Cluster assignment per drawn point, when a live layout should group them.
+   *
+   * Only meaningful under `simulate` — it is a force, not a colour. `undefined` at a position means
+   * *no group*, which is not group zero: a vertex shared by every group belongs to none, and left
+   * unclustered it drifts between the ones it joins.
+   */
+  clusters?: (number | undefined)[];
   sim: Sim;
   /** Where to report what the layout is doing. */
   report: (motion: Motion) => void;
@@ -68,9 +87,7 @@ export interface CosmosGraphOptions {
    * `graph.progress`, so a determinate badge costs nothing to compute — only to deliver. Quantised
    * before it is reported, because this is React state read through context and a write per
    * animation frame would re-render every consumer 60 times a second to move a number by half a
-   * percent. Re-checked against 3.4.0: the formula survived the luma.gl port, gaining only the
-   * clamp — which matters, because a re-heat raises alpha above the floor and the unclamped
-   * expression would hand a progress bar a number above 1.
+   * percent.
    */
   reportProgress: (value: number) => void;
   onFailure: (message: string) => void;
@@ -90,33 +107,44 @@ export interface CosmosGraphOptions {
      */
     onDragEnd: (index: number) => void;
     onTick: () => void;
+    /** The camera moved. The query loop is wired here — this is how a bounded graph is asked again. */
     onZoom: () => void;
   };
 }
 
 export function useCosmosGraph(options: CosmosGraphOptions): void {
-  const { data, events, graphRef, hostRef, onFailure, report, reportProgress, sim } = options;
+  const {
+    clusters,
+    events,
+    graphRef,
+    hostRef,
+    onFailure,
+    report,
+    reportProgress,
+    sim,
+    simulate = false,
+  } = options;
 
   /**
    * The coefficients the graph is currently running with.
    *
-   * The constructor takes them and the effect below re-applies them when they move — so this is
-   * not a "first render" flag, it is the answer to *what does the simulation already have?*, which
-   * is the question both places are asking.
+   * The constructor takes them and the effect below re-applies them when they move — so this is not
+   * a "first render" flag, it is the answer to *what does the simulation already have?*, which is
+   * the question both places are asking.
    */
   const applied = useRef(sim);
   const live = useRef(events);
   live.current = events;
 
   /**
-   * Whether the camera has been put where the converged layout is.
+   * Whether the camera has been put where the layout is.
    *
-   * `fitViewOnInit` frames the graph at `fitViewDelay`, a second in, while the simulation is still
+   * `fitViewOnInit` frames the graph at `fitViewDelay`, a second in, while a simulation is still
    * contracting — so by the time it converges the picture has shrunk to a blob in the middle of an
-   * empty canvas and the first thing anyone has to do is reach for Fit to view. The early fit is
-   * still worth having, because a second of *something* beats a second of nothing; it just is not
-   * the last word. This one is: once, at the first settle, and never again — re-framing on later
-   * settles would yank the camera out from under whoever nudged a slider.
+   * empty canvas. The early fit is still worth having, because a second of *something* beats a
+   * second of nothing; it just is not the last word. This one is: once, and never again — re-framing
+   * on later settles would yank the camera out from under whoever nudged a slider, and under a
+   * bounded path it would fight the reader's own panning.
    */
   const framed = useRef(false);
 
@@ -134,31 +162,14 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
 
   useEffect(() => {
     const host = hostRef.current;
-    if (!data || !host) return;
+    if (!host) return;
     framed.current = false;
     if (!hasWebGL()) {
       onFailure("This canvas renders on the GPU, and this browser offers no WebGL context.");
       return;
     }
-    /**
-     * Put the camera where the layout ended up — once, whoever gets here first.
-     *
-     * The two now genuinely race. `onSimulationEnd` fires when alpha crosses `1e-3`, which
-     * `simulationDecay: 400` puts at 400 rendered frames — 6.7 s at 60 fps, 3.3 s at 120, and the
-     * crossover with `FRAME_BY`'s 6 s is 66.7 fps. Neither is the plan and neither is a floor under
-     * the other, and on any display it is the same picture: the loser is at most 0.7 s behind, and
-     * a graph 6 s into a 6.7 s settle has `0.001^(6/6.7)` ≈ 0.002 of its energy left.
-     *
-     * A tie needs no rule. JavaScript runs one of them to completion first, and whichever that is
-     * sets `framed` before the other is entered — so the second call returns having done nothing.
-     * The camera is never fitted twice and no `fitView` animation is ever cut off by a second one.
-     *
-     * The one case where they are not interchangeable is a backgrounded tab: `requestAnimationFrame`
-     * stops, so no frame is a tick and the settle cannot arrive, while `setTimeout` still fires. The
-     * timer wins on a graph that has barely moved and `framed` makes that final. That was already
-     * true when the timer always won; a faster decay does not fix it, and framing on a settle that
-     * may never come would be worse.
-     */
+
+    /** Put the camera where the layout ended up — once, whoever gets here first. */
     const frameOnce = () => {
       if (framed.current) return;
       framed.current = true;
@@ -175,40 +186,30 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
     try {
       graph = new Graph(host, {
         spaceSize: SPACE,
-        enableSimulation: true,
+        enableSimulation: simulate,
         ...forces(applied.current),
         /**
          * Frames to convergence — not milliseconds.
          *
          * `store.alphaDecay` is `α ⇒ 1 − 0.001^(1/α)` with `alphaTarget` 0, and one tick is one
          * rendered frame (`runSimulationStep` is called from `renderFrame`), so alpha decays as
-         * `0.001^(n/α)` and reaches the `1e-3` floor after exactly `simulationDecay` frames. This is
-         * **400 ≈ 6.7 s at 60 fps**, against cosmos.gl's default of 5,000 ≈ 83 s.
-         *
-         * The number that matters more than the first settle is the second: a slider re-heats to
-         * `REHEAT` rather than to 1, and `0.35` reaches the floor in `α·ln(0.001/0.35)/ln(0.001)`
-         * ≈ 339 frames — 5.7 s of reorganising after a nudge, where 1,600 made it 22.6 s and a
-         * reader had no way to tell a slow layout from a stuck one.
-         *
-         * Shorter also means less relaxation, and how settled the picture *looks* at the end of it
-         * is not a number this comment can carry. It was chosen, not measured.
+         * `0.001^(n/α)` and reaches the `1e-3` floor after exactly `simulationDecay` frames — 400 ≈
+         * 6.7 s at 60 fps, against cosmos.gl's default of 5,000 ≈ 83 s.
          */
         simulationDecay: 400,
         /**
-         * Same seed, same picture. Our positions are already deterministic — `mulberry32` seeds
-         * them in `lib/force-layout` — but cosmos.gl's own randomness is not: the per-link distance
-         * variation and the ±1e-5 jitter the force programs sow read `store.random`, which is
-         * unseeded unless this is set. Without it the layout differs run to run from identical
-         * input. Init-only; `setConfig` cannot change it.
+         * Same seed, same picture. cosmos.gl's own randomness is not otherwise deterministic: the
+         * per-link distance variation and the ±1e-5 jitter the force programs sow read
+         * `store.random`, which is unseeded unless this is set. Init-only; `setConfig` cannot change
+         * it.
          */
         randomSeed: "kanzo-discovery",
         /**
          * The device's, not cosmos.gl's literal `2`.
          *
-         * It sizes the drawing buffer (`canvas.width = width * pixelRatio`) and divides the
-         * hardware point-size limit into `maxPointSize`. Left at the default, a 1× display
-         * supersamples 4× for nothing and a 3× display draws a canvas softer than the page it
-         * sits in.
+         * It sizes the drawing buffer (`canvas.width = width * pixelRatio`) and divides the hardware
+         * point-size limit into `maxPointSize`. Left at the default, a 1× display supersamples 4× for
+         * nothing and a 3× display draws a canvas softer than the page it sits in.
          */
         pixelRatio: window.devicePixelRatio || 1,
         enableDrag: true,
@@ -258,43 +259,50 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
       return;
     }
     graphRef.current = graph;
-    graph.setPointPositions(data.positions);
-    graph.setLinks(data.links);
-    graph.setPointClusters(data.clusters);
-    // Both, or neither is worth having: clusters without positions is a pull toward a centroid that
-    // moves with its own group. Before `render()`, because that is what flushes the cluster force's
-    // textures — `setClusterPositions` only raises a flag.
-    graph.setClusterPositions(clusterRing(data.clusters));
     graph.render();
-    // The simulation is already turning by the time we get here, and construction fires no
-    // `onSimulationStart` — so without this the transport opens showing Play over a moving graph.
-    report(graph.isSimulationRunning ? "running" : "settled");
+    // Without a simulation there is nothing to settle and nothing to wait for, so the badge starts
+    // where it ends. With one, construction fires no `onSimulationStart` — the graph is already
+    // turning by the time we get here, and without this the transport opens showing Play over a
+    // moving graph.
+    report(simulate && graph.isSimulationRunning ? "running" : "settled");
     const floor = setTimeout(frameOnce, FRAME_BY);
     return () => {
       clearTimeout(floor);
       graph.destroy();
       graphRef.current = null;
     };
-  }, [data, graphRef, hostRef, onFailure, progress, report]);
+  }, [graphRef, hostRef, onFailure, progress, report, simulate]);
 
-  // A change in the forces re-heats: the point of a live layout is that you can feel the parameter.
-  // Equality on mount is what keeps a re-run for `data` from disturbing a settled graph.
+  /**
+   * Cluster seeding, and only under a live layout — it is a force, not a colour.
+   *
+   * Both calls or neither is worth having: clusters without positions is a pull toward a centroid
+   * that moves with its own group. Neither flushes anything on its own; the next `render()` does,
+   * and the query loop renders on every slice.
+   */
   useEffect(() => {
     const graph = graphRef.current;
-    if (!data || !graph || applied.current === sim) return;
+    if (!graph || !simulate || !clusters) return;
+    graph.setPointClusters(clusters);
+    graph.setClusterPositions(clusterRing(clusters));
+    graph.render();
+  }, [clusters, graphRef, simulate]);
+
+  // A change in the forces re-heats: the point of a live layout is that you can feel the parameter.
+  // Equality on mount is what keeps a re-render from disturbing a settled graph.
+  useEffect(() => {
+    const graph = graphRef.current;
+    if (!graph || !simulate || applied.current === sim) return;
     applied.current = sim;
     graph.setConfigPartial(forces(sim));
     graph.start(REHEAT);
-  }, [data, graphRef, sim]);
+  }, [graphRef, sim, simulate]);
 }
 
 /**
- * The energy a wake puts back into a converged layout — enough to reorganise around a changed
- * force, not so much that the picture you were reading is thrown away. A full `start(1)` is what
- * Re-run is for.
- *
- * Exported because the canvas' Resume command needs the same number: this was defined twice, with
- * the same doc comment, in two files that had to agree.
+ * The energy a wake puts back into a converged layout — enough to reorganise around a changed force,
+ * not so much that the picture you were reading is thrown away. A full `start(1)` is what Re-run is
+ * for.
  */
 export const REHEAT = 0.35;
 
@@ -305,14 +313,14 @@ const FIT_PADDING = 0.18;
 /**
  * When the camera frames the view — 6 s after the graph is built.
  *
- * Late enough that the layout has done its spreading and contracting, early enough that nobody has
- * started reading the wrong framing. It is a wall clock, so it is also the answer for a display
- * that is not running at 60 fps, where the settle at `simulationDecay` frames arrives late.
+ * Late enough that a layout has done its spreading and contracting, early enough that nobody has
+ * started reading the wrong framing. It is a wall clock, so it is also the answer for a display that
+ * is not running at 60 fps, where a settle at `simulationDecay` frames arrives late.
  */
 const FRAME_BY = 6000;
 
 /**
- * How finely settling progress is reported: twentieths, so the settle costs 20 renders of
- * everything reading the graph's context rather than one per frame.
+ * How finely settling progress is reported: twentieths, so a settle costs 20 renders of everything
+ * reading the graph's context rather than one per frame.
  */
 const PROGRESS_STEPS = 20;

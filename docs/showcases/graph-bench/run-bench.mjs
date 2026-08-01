@@ -84,24 +84,6 @@ function engineTable(samples) {
   return [header, ...rows].join("\n");
 }
 
-function stackTable(samples) {
-  const header =
-    "| Nodes | Links | `load()` | ↳ read | ↳ rows | ↳ links | ↳ rank | `buffers()` | Upload | Select | **Ours** |\n" +
-    "|---|---|---|---|---|---|---|---|---|---|---|";
-  const rows = samples.map((s) => {
-    if (s.failure) return `| ${compact(s.pointCount)} | — | — | — | — | — | — | — | — | — | **${s.failure}** |`;
-    const ours = s.queryMs + s.loadMs + s.buffersMs + s.uploadMs + s.selectMs;
-    const p = s.loadPhases ?? { query: 0, rows: 0, links: 0, rank: 0 };
-    return (
-      `| ${compact(s.pointCount)} | ${compact(s.linkCount)} ` +
-      `| ${s.loadMs.toFixed(0)} ms | _${p.query.toFixed(0)}_ | _${p.rows.toFixed(0)}_ | _${p.links.toFixed(0)}_ | _${p.rank.toFixed(0)}_ ` +
-      `| ${s.buffersMs.toFixed(0)} ms | ${s.uploadMs.toFixed(0)} ms ` +
-      `| ${s.selectMs.toFixed(0)} ms | **${ours.toFixed(0)} ms** |`
-    );
-  });
-  return [header, ...rows].join("\n");
-}
-
 function boundedTable(samples) {
   const header =
     "| Nodes | `total()` | First slice | Upload | **First paint** | Pan | Shown / matched |\n" +
@@ -152,11 +134,9 @@ try {
    * is a mistake that looks exactly like the right one until you read the columns.
    */
   async function sweep(which) {
-    const label =
-      which === "stack" ? "+ our pipeline" : which === "bounded" ? "bounded" : "cosmos.gl alone";
-    // Escaped, because both labels contain regex metacharacters — `+ our pipeline` compiles to
-    // `^+ our pipeline$`, which is not a pattern but a syntax error, and `cosmos.gl` would happily
-    // match `cosmosXgl`. Anchored exactly so the two never select each other.
+    const label = which === "bounded" ? "bounded" : "cosmos.gl alone";
+    // Escaped, because a label contains regex metacharacters — `cosmos.gl` would happily match
+    // `cosmosXgl`. Anchored exactly so the two never select each other.
     const exact = new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
     await page.locator("label").filter({ hasText: exact }).click();
     await page.waitForTimeout(300);
@@ -189,7 +169,7 @@ try {
         });
         return collected;
       }
-      const rows = state ? (state[{ stack: "stack", bounded: "bounded" }[which] ?? "samples"] ?? []) : [];
+      const rows = state ? (state[which === "bounded" ? "bounded" : "samples"] ?? []) : [];
       collected.length = 0;
       collected.push(...rows);
       if (rows.length > seen) {
@@ -201,9 +181,7 @@ try {
             : `  ${compact(last.pointCount)}: ${
                 which === "bounded"
                   ? `${(last.totalMs + last.firstSliceMs + last.uploadMs).toFixed(0)} ms paint, ${last.panMs.toFixed(0)} ms pan`
-                  : which === "stack"
-                  ? `${(last.queryMs + last.loadMs + last.buffersMs + last.uploadMs + last.selectMs).toFixed(0)} ms ours`
-                    : `${last.stepMs.toFixed(2)} ms/step`
+                  : `${last.stepMs.toFixed(2)} ms/step`
               }`,
         );
       }
@@ -221,7 +199,6 @@ try {
   }
 
   const engineRows = await sweep("engine");
-  const stackRows = await sweep("stack");
   const boundedRows = await sweep("bounded");
 
   const body = [
@@ -249,22 +226,18 @@ try {
     "",
     engineTable(engineRows),
     "",
-    "## Layer 2 — our pipeline",
+    "## Layer 2 — bounded",
     "",
-    "The same graphs arriving the way a real one does. `load()` and `buffers()` are imported from",
-    "`workspace/graph-model.ts`, not reimplemented — a benchmark that measures a copy measures the",
-    "copy. **Ours** is the sum of everything on the interactive path; ingest is timed but excluded,",
-    "because this fixture reaches DuckDB as CSV text where a real corpus arrives as Parquet.",
-    "",
-    stackTable(stackRows),
-    "",
-    "## Layer 3 — bounded",
-    "",
-    "The other architecture, not a variant of the one above: the camera asks for a rectangle and the",
+    "The same graphs arriving the way a real one does: the camera asks for a rectangle and the",
     "answer is capped, so the working set is the window rather than the corpus. `First paint` should",
-    "stop scaling with N. `Pan` is the cost that did not exist before — unbounded moves the camera on",
-    "the GPU for free, this asks the database each time — and it is the number that decides whether",
-    "the trade is worth making.",
+    "stop scaling with N. `Pan` is the cost that did not exist before — holding the whole graph moves",
+    "the camera on the GPU for free, this asks the database each time — and it is the number that",
+    "decides whether the trade is worth making.",
+    "",
+    "There was a third layer here, measuring `load()` — the whole relation into typed arrays. ADR-0001",
+    "deleted that path, so the layer went with it: a benchmark cannot run code that is gone, and",
+    "keeping it alive to be measured would be keeping it. Its numbers are preserved in the section",
+    "below, as a record of the comparison rather than a thing to re-run.",
     "",
     boundedTable(boundedRows),
     "",
@@ -278,13 +251,9 @@ try {
     "**DuckDB is not the bottleneck.** The query column stays in single-digit milliseconds while",
     "everything around it grows. The database was never the thing to worry about.",
     "",
-    "**`load()` is.** It is the largest cost we own, and it is plain main-thread JavaScript turning",
-    "Arrow into ids, a `Map`, rows, and typed arrays. It belongs in a worker, and much of it belongs",
-    "in SQL — the index and the ordering are things DuckDB would do for free.",
-    "",
-    "**The upload is cosmos.gl's, and it dominates both layers equally.** Layer 1 and layer 2 agree",
-    "on it to within a few per cent for the same data, which is the cross-check that says the",
-    "harness is measuring the same thing twice rather than measuring itself.",
+    "**The upload is cosmos.gl's, and it dominates.** Layer 1 and layer 2 agree on it to within a few",
+    "per cent for the same data, which is the cross-check that says the harness is measuring the same",
+    "thing twice rather than measuring itself.",
     "",
     "**`buffers()` is cheap and can stay where it is.**",
     "",
