@@ -42,16 +42,21 @@ const DEFAULT_SIZES = [2_000, 10_000, 50_000, 200_000, 1_000_000];
 /** cosmos.gl's simulation box, so the written coordinates are already the camera's space. */
 const SPACE = 4096;
 
+/**
+ * One row per edge, carrying the source node's own attributes.
+ *
+ * Denormalised because fossil combines two mappings of one vertex type with a plain UNION ALL, so
+ * they must project identical schemas — a node list and an edge list never can. See `bench.fossil`.
+ * Dedup is by subject IRI, so a node repeated across its edges still becomes one vertex.
+ */
 function csvFor(size) {
   const data = hyperbolic({ pointCount: size, spaceSize: SPACE });
-  const nodes = ["id,community"];
-  for (let i = 0; i < data.pointCount; i++) nodes.push(`${i},${data.community[i]}`);
-
-  const edges = ["source,target"];
+  const rows = ["id,community,target"];
   for (let e = 0; e < data.links.length; e += 2) {
-    edges.push(`${data.links[e]},${data.links[e + 1]}`);
+    const source = data.links[e];
+    rows.push(`${source},${data.community[source]},${data.links[e + 1]}`);
   }
-  return { edges: edges.join("\n"), nodes: nodes.join("\n") };
+  return { rows: rows.join("\n") };
 }
 
 function build(size, fossil) {
@@ -59,10 +64,9 @@ function build(size, fossil) {
   rmSync(dest, { force: true, recursive: true });
   mkdirSync(dest, { recursive: true });
 
-  const { edges, nodes } = csvFor(size);
+  const { rows } = csvFor(size);
   // Beside the mapping, because `io.csv` resolves relative to the program's own directory.
-  writeFileSync(join(HERE, "nodes.csv"), nodes);
-  writeFileSync(join(HERE, "edges.csv"), edges);
+  writeFileSync(join(HERE, "rows.csv"), rows);
 
   const started = Date.now();
   execFileSync(fossil, ["run", join(HERE, "bench.fossil"), "--dest", `file://${dest}`], {

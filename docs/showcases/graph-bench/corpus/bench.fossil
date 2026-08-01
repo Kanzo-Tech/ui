@@ -1,41 +1,49 @@
 // The benchmark's corpus, compiled rather than generated in the browser.
 //
-// Two CSVs in, a GraphAr tree out: `fossil run` writes the vertex and edge Parquet and then runs
-// the W3 layout pass over it, which fills `x` / `y` / `cluster_id` and rewrites each vertex file
+// One CSV in, a GraphAr tree out: `fossil run` writes the vertex and edge Parquet and then runs the
+// W3 layout pass over it, which fills `x` / `y` / `cluster_id` and rewrites each vertex file
 // Morton-sorted. That last part is the whole reason this exists — a bbox query against a
-// Morton-sorted Parquet prunes on row-group statistics, and that is the larger-than-RAM half
-// ADR-0001 records as unmeasured.
+// Morton-sorted Parquet prunes on row-group statistics, which is the larger-than-RAM half ADR-0001
+// records as unmeasured.
 //
-// The mapping is deliberately thin. A benchmark corpus needs an id, a group to colour by, and the
-// edges; anything else would be measuring how fast we can carry columns nobody reads.
+// **One relation, one mapping, and that is forced rather than chosen.** The first draft declared
+// `Node` twice — once over a node list for the attributes, once over an edge list for the links —
+// which `fossil check` accepts and `fossil run` rejects:
+//
+//   UNION queries have different number of columns: left has 5 columns whereas right has 4
+//
+// Two mappings onto one vertex type are combined with a plain UNION ALL
+// (`fossil-df/src/lib.rs`, `union(next.projected)`), so they must project identical schemas. An
+// edge-list relation cannot match a node-list one, because neither has the other's column.
+//
+// So the source is denormalised: one row per edge, carrying the source node's own attributes. That
+// is the ordinary RML shape — one logical source, one subject map, one predicate-object map.
+//
+// **It loses nodes, and by more than expected.** Measured at 2,000: 1,354 vertices written, a third
+// of the corpus gone. The prediction was that isolated nodes would vanish; the truth is that any
+// node which never appears as a *source* vanishes, because only the subject map mints a vertex and
+// a target only ever supplies an IRI. A benchmark corpus that silently drops a third of its nodes
+// is not a corpus, so this needs fixing before the numbers mean anything.
+//
+// Two shapes not yet tried: emit a row per node as well (target pointing at itself, and drop
+// self-edges downstream), or give the endpoints their own mapping whose projection matches this
+// one column for column.
+//
+// Two more things the first written corpus showed:
+//   - `cluster_id` is 0 for every vertex. WCC is a reachability partition and this graph is
+//     connected, so the giant component is the whole thing — which is precisely the case W3.2
+//     (Leiden) exists to split, and until it lands `cluster_id` cannot colour anything here.
+//   - the coordinates come out centred on the origin (−440..437), not in cosmos.gl's 0..4096 box.
+//     That is not a defect: under ADR-0001 the source's space *is* the camera's, and the camera
+//     fits to what it is given. It does mean nothing may rescale them on the way in.
 
 prefix bench: <https://kanzo.tech/bench/>
 
-nodes := io.csv("nodes.csv")
-edges := io.csv("edges.csv")
+rows := io.csv("rows.csv")
 
-Node : bench:Node from nodes
+Node : bench:Node from rows
     iri = `${bench:}n/${.id}`
     bench:community = .community
-
-// DOES NOT WORK YET, and the error is worth keeping rather than paraphrasing:
-//
-//   execute: Error during planning: UNION queries have different number of columns:
-//   left has 5 columns whereas right has 4 columns
-//
-// Two mappings onto one vertex type are unioned, so they must project the same columns — and these
-// do not: the first carries `community`, this one carries `linksTo`. `fossil check` passes, so this
-// is a runtime shape rule rather than a grammar one.
-//
-// The three candidate shapes, none of them tried:
-//   1. one CSV where each row is an edge carrying the source's own columns — loses isolated nodes;
-//   2. a second vertex type for the endpoints — they would stop merging with the nodes above;
-//   3. whatever fossil's own tests do for a many-to-many over a separate relation
-//      (`crates/fossil-df/tests/execute_graph.rs` puts the edge on the *entity* mapping, where the
-//      foreign key is a column of that entity — which is not the shape a separate edge list has).
-//
-// Read (3) first: if fossil has no idiom for an edge-list relation, that is a finding about the
-// verb surface and not a mistake in this file.
-Node : bench:Node from edges
-    iri = `${bench:}n/${.source}`
+    // An IRI-valued property is what an edge *is*: the endpoint merges with the vertex the
+    // subject map produces for that same id, because dedup is by subject IRI.
     bench:linksTo = `${bench:}n/${.target}`
