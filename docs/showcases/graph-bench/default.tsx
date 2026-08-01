@@ -2,36 +2,39 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Graph } from "@cosmos.gl/graph";
-import { PlayIcon, SquareIcon } from "lucide-react";
+import { PlayIcon, SlidersHorizontalIcon, SquareIcon } from "lucide-react";
 import {
   Badge,
   Breadcrumbs,
   Button,
   Checkbox,
+  Sheet,
+  SheetBody,
+  SheetContent,
+  SheetHeader,
+  SheetTrigger,
+  RadioGroup,
+  RadioGroupCard,
+  RadioGroupText,
   SectionBody,
   SectionDescription,
   SectionHeader,
   SectionRoot,
   SectionTitle,
   SectionTitleGroup,
-  SegmentGroup,
-  Separator,
   ShellFooter,
   ShellHeader,
   ShellMain,
   Show,
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarHeader,
-  SidebarInset,
-  SidebarProvider,
-  SidebarRail,
-  SidebarTrigger,
+  Slider,
   Spinner,
   StatTile,
   Status,
   Table,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   TableBody,
   TableCell,
   TableHead,
@@ -97,11 +100,11 @@ declare global {
  */
 type Layer = "engine" | "bounded";
 
-const LAYERS: { id: Layer; label: string }[] = [
-  { id: "engine", label: "cosmos.gl alone" },
-  // Not a variant of the first — it is the architecture. The engine layer holds the whole graph;
-  // this one never does.
-  { id: "bounded", label: "bounded" },
+const LAYERS: { id: Layer; label: string; hint: string }[] = [
+  // Not variants of each other. The first holds the whole graph; the second never does — which is
+  // an architecture, not a setting, and the hint is where that gets said rather than assumed.
+  { id: "bounded", label: "Bounded", hint: "asks for the window, holds nothing" },
+  { id: "engine", label: "cosmos.gl alone", hint: "the GPU with nothing of ours in the way" },
 ];
 
 /**
@@ -416,14 +419,15 @@ export function GraphBenchShowcase() {
   useEffect(() => {
     const element = hostRef.current;
     if (!element || !previewLive) return;
-    let graph: Graph | undefined;
     let live = true;
 
     const started = performance.now();
     const data = generate(shape, previewSize);
     const generated = performance.now() - started;
 
-    graph = new Graph(element, {
+    // `const`, and the `onSimulationEnd` closure below still reaches it: the callback is only
+    // called after this statement has finished binding, so there is no temporal-dead-zone read.
+    const graph = new Graph(element, {
       spaceSize: SPACE,
       // The theme's surface, resolved against this element. Left unset, cosmos.gl pins a dark plane
       // of its own and the canvas becomes the one panel on the page that ignores light mode.
@@ -453,7 +457,7 @@ export function GraphBenchShowcase() {
       // the layout is still spreading, so on its own it frames a graph that no longer exists a
       // second later — the canvas showed the corner of a hairball. This is the same correction
       // `useCosmosGraph` makes for the real canvas, for the same reason.
-      onSimulationEnd: () => graph?.fitView(450, 0.12),
+      onSimulationEnd: () => graph.fitView(450, 0.3),
       pixelRatio: window.devicePixelRatio || 1,
       attribution: "",
     });
@@ -469,7 +473,7 @@ export function GraphBenchShowcase() {
 
     return () => {
       live = false;
-      graph?.destroy();
+      graph.destroy();
     };
   }, [previewLive, previewSize, shape]);
 
@@ -584,45 +588,80 @@ export function GraphBenchShowcase() {
   const run = layer === "engine" ? runEngine : runBounded;
 
   /** The one control cluster, in the rail where a showcase puts its controls. */
+  /**
+   * What parameterises a run, next to the thing it parameterises.
+   *
+   * These lived in the rail for one draft and it was wrong twice over. A rail here is navigation —
+   * that is what it is in every other showcase — and `collapsible="icon"` means anything put in it
+   * has to survive being reduced to an icon, which a segmented control cannot. Collapsing the rail
+   * hid the page's primary axis outright.
+   */
+  /**
+   * What is measured and what is drawn, as two choices and a magnitude.
+   *
+   * Cards rather than segments for the two choices: each carries a hint, and a segmented control
+   * has nowhere to put one — which left the page asking a reader to pick between two words without
+   * saying how they differ. That difference is most of what this benchmark is about.
+   *
+   * The size is a slider because it is not a set, it is a magnitude: 2k to 200k is an ordering, and
+   * a control that reads left-to-right says so where four equal buttons do not.
+   */
   const controls = (
-    <div className="flex flex-col gap-4 px-2 py-1">
-      {/* These pick one of a set rather than firing independent actions, which is the line between
-          SegmentGroup and ButtonGroup. Stacked rather than in a row: a rail is a column, and a
-          segmented control that wraps mid-group stops reading as one choice. */}
-      <div className="space-y-1.5">
+    <div className="flex flex-col gap-5 px-2 py-1">
+      <div className="space-y-2">
         <p className="font-medium text-muted-foreground text-xs">Layer</p>
-        <SegmentGroup
-          aria-label="Layer"
+        <RadioGroup
+          className="gap-2"
           disabled={running}
-          orientation="vertical"
-          onValueChange={(details) => setLayer((details.value as Layer) ?? "engine")}
-          options={LAYERS.map((option) => ({ label: option.label, value: option.id }))}
+          onValueChange={(details) => setLayer((details.value as Layer) ?? "bounded")}
           value={layer}
-          variant="solid"
-        />
+        >
+          {LAYERS.map((option) => (
+            <RadioGroupCard className="flex-col gap-0.5" key={option.id} value={option.id}>
+              <RadioGroupText>{option.label}</RadioGroupText>
+              <span className="text-muted-foreground text-xs">{option.hint}</span>
+            </RadioGroupCard>
+          ))}
+        </RadioGroup>
       </div>
 
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         <p className="font-medium text-muted-foreground text-xs">Shape</p>
-        <SegmentGroup
-          aria-label="Graph shape"
+        <RadioGroup
+          className="gap-2"
           disabled={running}
           onValueChange={(details) => setShape((details.value as Shape) ?? "hyperbolic")}
-          options={SHAPES.map((option) => ({ label: option.label, value: option.id }))}
           value={shape}
-          variant="solid"
-        />
+        >
+          {SHAPES.map((option) => (
+            <RadioGroupCard className="flex-col gap-0.5" key={option.id} value={option.id}>
+              <RadioGroupText>{option.label}</RadioGroupText>
+              <span className="text-muted-foreground text-xs">{option.hint}</span>
+            </RadioGroupCard>
+          ))}
+        </RadioGroup>
       </div>
 
-      <div className="space-y-1.5">
+      <div className="space-y-2 pb-6">
         <p className="font-medium text-muted-foreground text-xs">Preview size</p>
-        <SegmentGroup
-          aria-label="Preview size"
+        {/*
+          The value is the *index*, not the count: the sizes are a decade apart, so a slider over
+          the numbers themselves would spend three quarters of its travel between 50k and 200k and
+          bunch the small end into nothing.
+        */}
+        <Slider
+          // One per thumb, which is Ark's shape for it — this slider has exactly one.
+          aria-label={["Preview size"]}
           disabled={running}
-          onValueChange={(details) => setPreviewSize(Number(details.value) || PREVIEW_SIZES[0]!)}
-          options={PREVIEW_SIZES.map((size) => ({ label: compact(size), value: String(size) }))}
-          value={String(previewSize)}
-          variant="solid"
+          markerLabels={PREVIEW_SIZES.map(compact)}
+          max={PREVIEW_SIZES.length - 1}
+          min={0}
+          onValueChange={(details) =>
+            setPreviewSize(PREVIEW_SIZES[details.value[0] ?? 1] ?? PREVIEW_SIZES[1]!)
+          }
+          showMarkers
+          step={1}
+          value={[Math.max(0, PREVIEW_SIZES.indexOf(previewSize))]}
         />
       </div>
 
@@ -639,76 +678,89 @@ export function GraphBenchShowcase() {
   );
 
   return (
-    <SidebarProvider className="h-dvh min-h-0 overflow-hidden">
-      <Sidebar collapsible="icon">
-        <SidebarHeader>
-          <div className="px-2 py-1">
-            <p className="font-semibold text-sm">Graph scale</p>
-            <p className="text-muted-foreground text-xs">cosmos.gl 3.4.0</p>
-          </div>
-        </SidebarHeader>
+    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground">
+      <ShellHeader className="h-12 flex-row items-center gap-2 border-b px-4">
+        <Breadcrumbs
+          items={[{ label: "Benchmarks", href: "#/benchmarks" }, { label: "Graph scale" }]}
+        />
+        <div className="ms-auto flex items-center gap-2">
+          <Show when={running}>
+            <Status variant="warning">{stageLabel ?? "measuring"}</Status>
+          </Show>
 
-        <SidebarContent>{controls}</SidebarContent>
+          {/*
+            The parameters live behind a dialog rather than beside the picture. They are read once
+            and set once — what is measured, over which fixture, at what size — and a page that
+            keeps them permanently on screen spends its best space on controls nobody is touching
+            while a sweep runs. The same reasoning Preferences is built on.
+          */}
+          <Sheet>
+            <SheetTrigger asChild>
+              <Button size="sm" variant="outline">
+                <SlidersHorizontalIcon /> Parameters
+              </Button>
+            </SheetTrigger>
+            {/* To the side, the way Preferences opens — a panel you set something in and dismiss,
+                not a modal that takes the page hostage while you read the picture behind it. */}
+            <SheetContent placement="right">
+              <SheetHeader
+                description="What is measured, over which fixture, and how much of it the preview draws."
+                title="Parameters"
+              />
+              <SheetBody>{controls}</SheetBody>
+            </SheetContent>
+          </Sheet>
 
-        <SidebarFooter>
           <Show
             when={running}
             fallback={
-              <Button className="w-full" onClick={() => void run()} data-testid="run-sweep" size="sm">
+              <Button onClick={() => void run()} data-testid="run-sweep" size="sm">
                 <PlayIcon /> Run sweep
               </Button>
             }
           >
-            <Button
-              className="w-full"
-              onClick={() => (stop.current = true)}
-              size="sm"
-              variant="outline"
-            >
+            <Button onClick={() => (stop.current = true)} size="sm" variant="outline">
               <SquareIcon /> Stop
             </Button>
           </Show>
-        </SidebarFooter>
-        <SidebarRail />
-      </Sidebar>
+        </div>
+      </ShellHeader>
 
-      <SidebarInset>
-        <ShellHeader className="h-12 flex-row items-center gap-2 px-3">
-          <SidebarTrigger />
-          <Separator className="h-4" orientation="vertical" />
-          <Breadcrumbs
-            items={[{ label: "Benchmarks", href: "#/benchmarks" }, { label: "Graph scale" }]}
-          />
-          <div className="ms-auto flex items-center gap-2">
-            <Show when={running}>
-              <Status variant="warning">{stageLabel ?? "measuring"}</Status>
-            </Show>
-          </div>
-        </ShellHeader>
-
-        <ShellMain className="bg-background">
-          <SectionRoot>
-            <SectionHeader scale="page">
-              <SectionTitleGroup>
-                <SectionTitle level={1} scale="page">
-                  {layer === "bounded" ? "Bounded" : "cosmos.gl alone"}
-                </SectionTitle>
-                <SectionDescription>
-                  {layer === "bounded"
-                    ? "Ask for the window, not the corpus. First paint should stop following N — and panning is the cost that did not exist before."
-                    : "The renderer fed typed arrays straight from a generator: the most the GPU can do with nothing of ours in the way."}
-                </SectionDescription>
-              </SectionTitleGroup>
-            </SectionHeader>
+      <ShellMain className="min-h-0 overflow-auto bg-background px-4 py-3">
+        <SectionRoot>
+          <SectionHeader scale="page">
+            <SectionTitleGroup>
+              <SectionTitle level={1} scale="page">
+                {layer === "bounded" ? "Bounded" : "cosmos.gl alone"}
+              </SectionTitle>
+              <SectionDescription>
+                {layer === "bounded"
+                  ? "Ask for the window, not the corpus. First paint should stop following N — and panning is the cost that did not exist before."
+                  : "The renderer fed typed arrays straight from a generator: the most the GPU can do with nothing of ours in the way."}
+              </SectionDescription>
+            </SectionTitleGroup>
+          </SectionHeader>
 
             <SectionBody scale="page">
-              {/* The claim first, the columns after. */}
+              {/*
+                The claim first, and above the tabs rather than inside one — it is the finding, and
+                a reader should not have to be on the right tab to see what was found.
+              */}
               <Headline bounded={boundedSamples} layer={layer} samples={samples} />
+
+              <Tabs defaultValue="graph">
+                <TabsList>
+                  <TabsTrigger value="graph">Graph</TabsTrigger>
+                  <TabsTrigger value="results">Results</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="graph">
 
               {/*
                 The canvas is evidence, not decoration. A table can say 200,000 points cost 62 ms a
                 step; only the picture can say whether 200,000 points is still a picture of
                 anything. Those two ceilings are different and the lower one is usually legibility.
+
               */}
               <div className="relative h-[58vh] min-h-80 overflow-hidden rounded-lg border">
                 <div ref={hostRef} className="absolute inset-0" />
@@ -723,6 +775,9 @@ export function GraphBenchShowcase() {
                 </div>
               </div>
 
+                </TabsContent>
+
+                <TabsContent value="results">
               <section className="min-w-0 space-y-3">
                 <SectionHeader>
                   <SectionTitleGroup>
@@ -817,11 +872,13 @@ export function GraphBenchShowcase() {
         </Show>
                 </div>
               </section>
+                </TabsContent>
+              </Tabs>
             </SectionBody>
-          </SectionRoot>
-        </ShellMain>
+        </SectionRoot>
+      </ShellMain>
 
-        <ShellFooter className="h-9 flex-row items-center gap-2 px-3 text-muted-foreground text-xs">
+      <ShellFooter className="h-9 flex-row items-center gap-2 border-t px-4 text-muted-foreground text-xs">
           <span>
             Measured in this tab, on this machine. `BENCHMARKS.md` carries the recorded run.
           </span>
@@ -830,8 +887,7 @@ export function GraphBenchShowcase() {
               ? `${BOUNDED_SIZES.map(compact).join(" · ")} nodes`
               : `${(stress ? STRESS_SIZES : SIZES).map(compact).join(" · ")} nodes`}
           </span>
-        </ShellFooter>
-      </SidebarInset>
-    </SidebarProvider>
+      </ShellFooter>
+    </div>
   );
 }
