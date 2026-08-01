@@ -43,20 +43,26 @@ const DEFAULT_SIZES = [2_000, 10_000, 50_000, 200_000, 1_000_000];
 const SPACE = 4096;
 
 /**
- * One row per edge, carrying the source node's own attributes.
+ * A node list and an edge list — the second denormalised onto the first.
  *
- * Denormalised because fossil combines two mappings of one vertex type with a plain UNION ALL, so
- * they must project identical schemas — a node list and an edge list never can. See `bench.fossil`.
- * Dedup is by subject IRI, so a node repeated across its edges still becomes one vertex.
+ * The node list exists because only a subject map mints a vertex: an edge list alone loses every
+ * node that is never a source, which at 2,000 was a third of them. The edge list repeats the
+ * source's `community` because fossil unions the two mappings before deduping, so both must project
+ * the same columns. Dedup is by subject IRI, so a node named once per edge still becomes one vertex.
  */
 function csvFor(size) {
   const data = hyperbolic({ pointCount: size, spaceSize: SPACE });
-  const rows = ["id,community,target"];
+
+  const nodes = ["id,community"];
+  for (let n = 0; n < size; n += 1) nodes.push(`${n},${data.community[n]}`);
+
+  const edges = ["id,community,target"];
   for (let e = 0; e < data.links.length; e += 2) {
     const source = data.links[e];
-    rows.push(`${source},${data.community[source]},${data.links[e + 1]}`);
+    edges.push(`${source},${data.community[source]},${data.links[e + 1]}`);
   }
-  return { rows: rows.join("\n") };
+
+  return { nodes: nodes.join("\n"), edges: edges.join("\n") };
 }
 
 function build(size, fossil) {
@@ -64,12 +70,15 @@ function build(size, fossil) {
   rmSync(dest, { force: true, recursive: true });
   mkdirSync(dest, { recursive: true });
 
-  const { rows } = csvFor(size);
-  // Beside the mapping, because `io.csv` resolves relative to the program's own directory.
-  writeFileSync(join(HERE, "rows.csv"), rows);
+  const { nodes, edges } = csvFor(size);
+  writeFileSync(join(HERE, "nodes.csv"), nodes);
+  writeFileSync(join(HERE, "edges.csv"), edges);
 
   const started = Date.now();
+  // `io.csv` resolves against the process's working directory, not the program's own — so run from
+  // beside the mapping and its bare filenames mean what they read as. `--dest` stays absolute.
   execFileSync(fossil, ["run", join(HERE, "bench.fossil"), "--dest", `file://${dest}`], {
+    cwd: HERE,
     stdio: "inherit",
   });
   console.log(`  ${size}: written in ${((Date.now() - started) / 1000).toFixed(1)}s → ${dest}`);
