@@ -110,8 +110,12 @@ export function ShellMain({ className, slot, ...rest }: ComponentProps<typeof ar
 }
 ShellMain.displayName = "ShellMain";
 
+// No `bg-card`. A region places its children and separates itself from its neighbour; the surface
+// is the caller's, like every other aesthetic in this layer. It carried one until 2026-08-01, which
+// is the same defect this file rejects `ShellBar` for ninety lines above — the rule was written
+// against a bar that kept `bg-card`, and the aside had kept it too.
 const shellAsideVariants = tv({
-  base: "flex flex-col bg-card",
+  base: "flex flex-col",
   variants: {
     side: { start: "", end: "" },
     /** Docked (false) sits in the flow and carries the divider. Overlay (true) floats over

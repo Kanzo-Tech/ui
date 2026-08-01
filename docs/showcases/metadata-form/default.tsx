@@ -1380,14 +1380,14 @@ export function MetadataFormShowcase() {
             if (id === "form") return formMain;
             if (id === "source")
               return (
-                <ShellAside aria-label="Source" className="min-h-0 flex-1 border-e-0" side="start">
+                <ShellAside aria-label="Source" className="min-h-0 flex-1 border-e-0 bg-card" side="start">
                   <PanelShell onClose={() => setSourceOpen(false)} subtitle="SHACL shapes" title="Source">
                     {sourcePanel}
                   </PanelShell>
                 </ShellAside>
               );
             return (
-              <ShellAside aria-label="Output" className="min-h-0 flex-1 border-s-0" side="end">
+              <ShellAside aria-label="Output" className="min-h-0 flex-1 border-s-0 bg-card" side="end">
                 <PanelShell onClose={() => setOutputOpen(false)} subtitle="Turtle & JSON-LD" title="Output">
                   {outputPanel}
                 </PanelShell>
