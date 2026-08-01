@@ -174,10 +174,10 @@ be skipped.
 `a-measurement-overrules-the-reference`, `a-house-principle-withholds-no-name`,
 `the-skip-target-is-the-main-landmark`, `a-part-is-named-by-its-machine`.
 
-Also live — `a-compound-keeps-its-root-even-when-the-root-is-an-alias`.
+Also live — `a-compound-keeps-its-root-even-when-the-root-is-an-alias`,
+`steps-claims-a-tab-role-it-cannot-keep`.
 
 **Open** — `prose-that-is-hashed-is-data`: the convention holds, the code change it asks for has
-not landed. `steps-claims-a-tab-role-it-cannot-keep`: needs a product decision on `linear` and an
-upstream report.
+not landed, and it waits for the rebase because `packages/palette` belongs to another session.
 
 **Superseded** — `field-has-no-consumer`, by `adoption-before-design`.

@@ -1,7 +1,9 @@
 # Steps claims a tab role that nothing keyboard-implements
 
-- **Status** open — 2026-07-31. Needs a product decision on `linear` and an upstream report.
-- **Decided** Not yet. The role stays for now, and it is **not** to be stripped on our side.
+- **Status** live — 2026-08-01. The half we own is decided; the upstream half is a report to file,
+  not a question to answer.
+- **Decided** `linear` keeps the machine's default of `false`, and the role stays — it is **not** to
+  be stripped on our side.
 - **Because** Zag emits `role="tab"` together with the `aria-selected` / `aria-controls` / `id`
   wiring that makes the relationship legible, so removing the role alone leaves `aria-selected` on a
   non-widget role — a second defect on top of the first — and removing all of it means hand-rolling
@@ -23,12 +25,19 @@ roving focus" shape `CONVENTIONS.md` names as worse than no role at all. `linear
 through to the current step only, which is a roving tabindex produced by the machine's own prop
 rather than by us overriding its ARIA.
 
-**The two options, stated so the decision is a product one and not an accessibility one.**
+**Why `linear: true` was rejected, and it is not the reason the record was opened with.** It was
+framed as a product trade — one tab stop, at the cost of jumping ahead to an incomplete step. Then
+`steps.connect.js` turned out to gate a second thing on the same prop: under `linear` the trigger's
+click handler **returns early**. So a non-current trigger goes to `tabIndex: -1`, gets no arrow keys
+because the package has none, *and* stops responding to a pointer — unreachable by either route
+while still announcing `role="tab"`. That is not a smaller accessibility defect than the default, it
+is a larger one, and it closes the only alternative that existed. The decision stopped being a
+product question the moment the second gate was found.
 
-- **Default `linear: true`** — one tab stop that follows the current step. Costs the ability to jump
-  ahead to an incomplete step, which is a statement about what a stepper is for.
-- **Keep `linear: false`** — a user may skip ahead, and every trigger stays a tab stop until Zag
-  ships key handling.
+What remains is "arrow keys and Home/End do nothing", which **no default can fix** — it is upstream's
+and only upstream can close it.
 
-What remains after flipping it is "arrow keys and Home/End do nothing", which no default can fix.
-Whichever is chosen, the page should say which keys work; today it has no accessibility section.
+**Still to do, neither of them a decision.** File the report (drafted, with the same-version
+comparison against `@zag-js/tabs@1.41.2` attached: identical roles, a full arrow/Home/End keymap, a
+real roving tabindex). And give the page an accessibility section saying which keys work, which today
+is none — a page that omits it lets a reader assume the role's contract holds.
