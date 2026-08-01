@@ -403,28 +403,12 @@ describe("the declared divergences", () => {
       .filter(([, reason]) => isUndecided(reason))
       .map(([k]) => k)
       .sort();
+    // Twenty-one until `decisions/adopt-the-part-the-machine-ships.md`, which adopted seven,
+    // declined twelve, and left the tags-input pair open because provenance is not what is in the
+    // way there — the binding is, and that is somebody else's call.
     expect(open).toEqual([
-      "clipboard:ClipboardValue",
-      "command:CommandDialogTrigger",
-      "command:CommandGroupLabel",
-      "file-upload:FileUploadClearTrigger",
-      "file-upload:FileUploadDescription",
-      "file-upload:FileUploadDropzoneIcon",
-      "file-upload:FileUploadHelper",
-      "file-upload:FileUploadItemPreviewImage",
-      "file-upload:FileUploadList",
-      "file-upload:FileUploadRootProvider",
-      "file-upload:FileUploadTitle",
-      "highlight:useHighlight",
-      "menu:MenuArrow",
-      "pagination:PaginationItemLink",
-      "pagination:PaginationItems",
-      "skeleton:SkeletonCircle",
-      "skeleton:SkeletonText",
       "tags-input:TagsInputRootProvider",
       "tags-input:useTagsInputContext",
-      "tour:TourBody",
-      "tour:TourFooter",
     ]);
   });
 });

@@ -102,6 +102,7 @@ export const OURS_ALONE: Readonly<Record<string, string>> = {
  * Keyed `"<shark file>:<Shark's name>"`.
  */
 export const RENAMED: Readonly<Record<string, { readonly ours: string; readonly reason: string }>> = {
+  "clipboard:ClipboardValue": { ours: "ClipboardValueText", reason: ARK_PART_NAME("ValueText") },
   "accordion:AccordionTrigger": { ours: "AccordionItemTrigger", reason: ARK_PART_NAME("ItemTrigger") },
   "accordion:AccordionContent": { ours: "AccordionItemContent", reason: ARK_PART_NAME("ItemContent") },
   "number-input:NumberInputGroup": { ours: "NumberInputControl", reason: ARK_PART_NAME("Control") },
@@ -112,13 +113,13 @@ export const RENAMED: Readonly<Record<string, { readonly ours: string; readonly 
   "file-upload:FileUploadItemSize": { ours: "FileUploadItemSizeText", reason: ARK_PART_NAME("ItemSizeText") },
 };
 
-/** The one rule behind all eight renames, spelled once so it cannot drift into eight variants. */
+/** The one rule behind all nine renames, spelled once so it cannot drift into nine variants. */
 function ARK_PART_NAME(part: string): string {
   return (
     `Both wrap Ark's \`${part}\`. \`CONVENTIONS.md\`, *Naming*: a part is base plus part, so the ` +
     `Ark spelling is the one that survives — Shark shortens it instead. Settled 2026-07-31 in ` +
     `\`decisions/a-part-is-named-by-its-machine.md\`: a part name is a fact about the machine, so ` +
-    `it belongs to the reference that owns the machine. That record settles these eight and ` +
+    `it belongs to the reference that owns the machine. That record settles these nine and ` +
     `deliberately not the general case of the two references disagreeing.`
   );
 }
@@ -129,32 +130,57 @@ const DIALOG_OWNS_THE_TITLE =
   "each (`decisions/a-machine-with-a-switch-is-a-variant.md`). Shark ships the renamed pair anyway. " +
   "The name is missing; the capability is not.";
 
-const UNDECIDED_FILE_UPLOAD =
-  "Undecided — `file-upload` is the widest single gap: Shark exports eighteen names, we export " +
-  "eleven, and the two lists disagree in both directions. Eight of Shark's are absent here " +
-  "(a title, a description, a helper, a dropzone icon, a clear trigger, a list, an item preview " +
-  "image, a root provider) and nothing records a choice about any of them. One decision, not eight.";
+/**
+ * The line `decisions/adopt-the-part-the-machine-ships.md` draws, spelled once.
+ *
+ * It has two named weaknesses, both in the record: a part's provenance says nothing about whether
+ * we need it, and the rule is silent on the case that turned out to be the commonest here — Ark
+ * ships the part, and we already export it under the machine's own name. Those declines say so.
+ */
+const ARK_SHIPS_NO_SUCH_PART = (composed: string): string =>
+  `Declined. Ark's machine ships no such part: ${composed}. ` +
+  `\`decisions/adopt-the-part-the-machine-ships.md\` adopts the names whose part Ark already ` +
+  `ships and declines the ones the reference composed itself.`;
 
-const UNDECIDED_PAGINATION =
-  "Undecided — Shark's `PaginationItems` maps Ark's `Context` over the page range and " +
-  "`PaginationItemLink` is the anchor inside it, so without them every caller hand-writes the loop " +
-  "that turns pagination state into numbered links. `Pagination` is a machine whose whole output is " +
-  "that list.";
+const ALREADY_OURS_UNDER_ARKS_NAME = (part: string): string =>
+  `Declined. Ark ships the part and we already export it, as \`${part}\` — so this is a second ` +
+  `spelling rather than a missing capability, which is the case ` +
+  `\`decisions/adopt-the-part-the-machine-ships.md\` does not reach and says so. The same shape ` +
+  `as the four dialog titles above.`;
 
-const UNDECIDED_SKELETON =
-  "Undecided — `Skeleton` ships alone. Shark's circle and multi-line text variants are the two " +
-  "shapes a loading placeholder actually takes, and both are rung 1 of the ladder here (a recipe " +
-  "variant), so the question is whether they are variants rather than whether they exist.";
+const DECLINED_FILE_UPLOAD = ARK_SHIPS_NO_SUCH_PART(
+  "the file-upload anatomy is root, label, dropzone, trigger, clear trigger, hidden input, item " +
+    "group and the item's own parts, and each of these four is a bare `ark.div` in Shark's file",
+);
+
+const DECLINED_PAGINATION =
+  "Declined. `PaginationItems` maps Ark's `Context` render prop over the page range and " +
+  "`PaginationItemLink` hand-writes an `<a href=\"?page=N\">` — a routing convention, not a part: " +
+  "`Link` is the routing seam here and it goes through `asChild`. Ark's parts are `Item`, " +
+  "`Ellipsis` and `Context`, and all three are on the barrel, so the loop is four lines a caller " +
+  "writes against exports they already have. `decisions/adopt-the-part-the-machine-ships.md`.";
+
+const DECLINED_SKELETON =
+  "Declined. `Skeleton` has no Ark machine at all — it is an `ark.div` with a pulse — so there is " +
+  "no part to adopt, and `decisions/adopt-the-part-the-machine-ships.md` decides it on that. " +
+  "`simples/skeleton.tsx` carries the older half of the argument: a circle is `size-10 shrink-0 " +
+  "rounded-full` on the one export, and `SkeletonText` forced every line to a height its only " +
+  "caller did not want. `packages/ui/src/documented-exports.test.ts` holds " +
+  "`docs/content/docs/overlays/loading.mdx` to saying so, in its DELIBERATE list.";
 
 const UNDECIDED_TAGS_INPUT =
-  "Undecided — and it is the same knot as the `useTagsInput` binding in BEYOND_THE_SURFACE. Shark " +
-  "exports the machine hook, the context hook and the root provider; we export one name bound to " +
-  "the context hook. Closing it means adding two names and changing what a third returns, which is " +
-  "wider than either record that touches it.";
+  "Undecided — the one the new rule does not close. Ark ships all three parts, so provenance says " +
+  "adopt; but our `useTagsInput` is bound to Ark's `useTagsInputContext`, so adopting " +
+  "`useTagsInputContext` beside it gives two names for one hook and still does not match Shark. " +
+  "Coherence needs the binding changed, and " +
+  "`decisions/a-measurement-overrules-the-reference.md` reserves a name-versus-binding mismatch to " +
+  "the owner. A half-closed knot is worse than an open one, so nothing here moved.";
 
-const UNDECIDED_TOUR =
-  "Undecided — Shark's own layout parts for the tour content, not Ark's. Nothing records whether " +
-  "our `Tour` intends callers to compose the body and footer themselves.";
+const DECLINED_TOUR_BODY = ARK_SHIPS_NO_SUCH_PART(
+  "the tour anatomy is title, description, actions, control, progress text, spotlight, backdrop " +
+    "and the triggers, and Shark's `TourBody` is `DialogBody` under a tour slot, which is what " +
+    "`simples/tour.tsx` says in place of it",
+);
 
 /**
  * A name Shark exports that we do not, keyed `"<shark file>:<Name>"`.
@@ -173,29 +199,37 @@ export const WITHHELD: Readonly<Record<string, string>> = {
   "sheet:SheetTitle": DIALOG_OWNS_THE_TITLE,
   "sheet:SheetDescription": DIALOG_OWNS_THE_TITLE,
 
-  // ── Nothing decided these. Each is a gap somebody has to look at ─────────────────────────────
-  "clipboard:ClipboardValue":
-    "Undecided — Ark's `ValueText`. Our `Clipboard` exports `ClipboardInput` and not the read-only rendering of the same value, so a caller who wants to *show* what will be copied has no part for it.",
-  "command:CommandDialogTrigger": "Undecided — `CommandDialog` ships without the trigger Shark pairs it with, so every caller writes the button.",
-  "command:CommandGroupLabel": "Undecided — `CommandGroup` ships without the label part, so a grouped command palette cannot title its groups from the barrel.",
-  "file-upload:FileUploadClearTrigger": UNDECIDED_FILE_UPLOAD,
-  "file-upload:FileUploadDescription": UNDECIDED_FILE_UPLOAD,
-  "file-upload:FileUploadDropzoneIcon": UNDECIDED_FILE_UPLOAD,
-  "file-upload:FileUploadHelper": UNDECIDED_FILE_UPLOAD,
-  "file-upload:FileUploadItemPreviewImage": UNDECIDED_FILE_UPLOAD,
-  "file-upload:FileUploadList": UNDECIDED_FILE_UPLOAD,
-  "file-upload:FileUploadRootProvider": UNDECIDED_FILE_UPLOAD,
-  "file-upload:FileUploadTitle": UNDECIDED_FILE_UPLOAD,
-  "highlight:useHighlight": "Undecided — Shark's is Ark's machine hook, not a context alias, so `decisions/a-name-shark-ships-is-ours.md` covers the name and nobody has applied it here.",
-  "menu:MenuArrow": "Undecided — every other pointer surface in the library (`Tooltip`, `HoverCard`) ships its arrow part; `Menu` does not, and no record says why.",
-  "pagination:PaginationItemLink": UNDECIDED_PAGINATION,
-  "pagination:PaginationItems": UNDECIDED_PAGINATION,
-  "skeleton:SkeletonCircle": UNDECIDED_SKELETON,
-  "skeleton:SkeletonText": UNDECIDED_SKELETON,
+  // ── Declined on Ark provenance ───────────────────────────────────────────────────────────────
+  // `decisions/adopt-the-part-the-machine-ships.md` settled the twenty-one names this map held as
+  // undecided. Seven were adopted and are gone from here; twelve are below; two are still open.
+  "command:CommandDialogTrigger": ALREADY_OURS_UNDER_ARKS_NAME("DialogTrigger"),
+  "command:CommandGroupLabel": ALREADY_OURS_UNDER_ARKS_NAME("ComboboxGroupLabel"),
+  "file-upload:FileUploadDescription": DECLINED_FILE_UPLOAD,
+  "file-upload:FileUploadDropzoneIcon": DECLINED_FILE_UPLOAD,
+  "file-upload:FileUploadHelper": DECLINED_FILE_UPLOAD,
+  "file-upload:FileUploadTitle": DECLINED_FILE_UPLOAD,
+  "file-upload:FileUploadList":
+    "Declined. Not a part in either machine: Shark's `FileUploadList` reads `acceptedFiles` off " +
+    "the context and renders the whole item — preview, name, size, delete button, icon — as a " +
+    "fixed arrangement a caller cannot reorder or wrap. `decisions/a-layout-tree-is-children.md` " +
+    "is the rule it fails, and `decisions/adopt-the-part-the-machine-ships.md` the one that " +
+    "declines it: Ark ships `ItemGroup` and `Item`, which is the composition without the loop.",
+  "pagination:PaginationItemLink": DECLINED_PAGINATION,
+  "pagination:PaginationItems": DECLINED_PAGINATION,
+  "skeleton:SkeletonCircle": DECLINED_SKELETON,
+  "skeleton:SkeletonText": DECLINED_SKELETON,
+  "tour:TourBody": DECLINED_TOUR_BODY,
+  "tour:TourFooter":
+    "Declined. Ark ships `Tour.Control` and `TourActions` already renders it, so this is the " +
+    "second wrapper over one part rather than a missing one — the " +
+    "`ALREADY_OURS_UNDER_ARKS_NAME` case, in the shape the rule does not reach. Ark's `Control` " +
+    "is a bare `ark.div` with static anatomy attributes and no machine wiring, so a caller laying " +
+    "footer content out by hand wants `DialogFooter`. " +
+    "`decisions/adopt-the-part-the-machine-ships.md`.",
+
+  // ── Still nobody's. The one the new rule was not wide enough to close ─────────────────────────
   "tags-input:TagsInputRootProvider": UNDECIDED_TAGS_INPUT,
   "tags-input:useTagsInputContext": UNDECIDED_TAGS_INPUT,
-  "tour:TourBody": UNDECIDED_TOUR,
-  "tour:TourFooter": UNDECIDED_TOUR,
 };
 
 /**
@@ -325,9 +359,13 @@ export const BEYOND_THE_SURFACE: readonly {
       "hook, and ships the context one beside it. A name-level comparison — which is all this guard " +
       "is — reports parity, and the two hooks return different things. The test asserts the binding " +
       "directly against Ark so the mismatch cannot be closed by accident in either direction; the " +
-      "two absent names are in WITHHELD, marked undecided, and closing all three is one decision.",
+      "two absent names are in WITHHELD, marked undecided, and closing all three is one decision. " +
+      "`decisions/adopt-the-part-the-machine-ships.md` was applied to the other nineteen names and " +
+      "explicitly not to these: on provenance alone all three qualify, and provenance is not what " +
+      "is in the way.",
     held: [
       "decisions/a-name-shark-ships-is-ours.md",
+      "decisions/adopt-the-part-the-machine-ships.md",
       "packages/ui/src/simples/tags-input.tsx",
     ],
   },
@@ -364,12 +402,20 @@ export const BEYOND_THE_SURFACE: readonly {
     held: ["decisions/a-name-shark-ships-is-ours.md"],
   },
   {
-    what: "Eight parts spelled with Ark's name where Shark shortens it.",
+    what: "Nine parts spelled with Ark's name where Shark shortens it.",
     why:
       "The two references disagreeing, which `CONVENTIONS.md` assigns to the owner rather than to " +
-      "either rule. The house naming rule (base plus part) picks Ark's spelling and has never been " +
-      "weighed against parity for these eight specifically. Nothing is missing either way — RENAMED " +
-      "carries both halves — so this is the cheapest of the open questions and the least urgent.",
-    held: ["CONVENTIONS.md", "decisions/a-name-shark-ships-is-ours.md"],
+      "either rule — and the owner took it, narrowly, in " +
+      "`decisions/a-part-is-named-by-its-machine.md`: a part name is a fact about the machine. " +
+      "This entry used to read that the eight had never been weighed against parity, which stopped " +
+      "being true the day that record landed and is corrected here. `ClipboardValueText` is the " +
+      "ninth, adopted under the same rule. Nothing is missing either way — RENAMED carries both " +
+      "halves — and what stays open is the general case of the two references colliding, which " +
+      "that record deliberately does not settle.",
+    held: [
+      "CONVENTIONS.md",
+      "decisions/a-part-is-named-by-its-machine.md",
+      "decisions/a-name-shark-ships-is-ours.md",
+    ],
   },
 ];

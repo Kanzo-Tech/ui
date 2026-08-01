@@ -1,8 +1,13 @@
 import {
   Highlight as ArkHighlight,
   type HighlightProps as ArkHighlightProps,
+  useHighlight as useArkHighlight,
 } from "@ark-ui/react/highlight";
 import { cn } from "../lib/cn";
+
+// Ark's machine hook, not a context alias: it takes `{ text, query }` and returns the chunks
+// `Highlight` renders, for a caller marking something other than a `<mark>`.
+export const useHighlight = useArkHighlight;
 
 export interface HighlightProps extends ArkHighlightProps {}
 

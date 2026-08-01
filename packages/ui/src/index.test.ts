@@ -324,6 +324,57 @@ describe("@kanzo-tech/ui public surface", () => {
     expect((UI as Record<string, unknown>).SuggestItem).toBeUndefined();
   });
 
+  it("adopts the Shark names Ark ships a part for, and declines the ones Shark composed", () => {
+    // `decisions/adopt-the-part-the-machine-ships.md` closed the twenty-one names
+    // `shark-parity.divergences.ts` had pinned as undecided. Every name below was one of them, and
+    // the line between the two lists is one question: does `@ark-ui/react`'s own dist ship the part
+    // underneath. `ClipboardValueText` is Shark's `ClipboardValue` under Ark's spelling
+    // (`decisions/a-part-is-named-by-its-machine.md`), which is why the parity file declares it as
+    // a rename and not as an addition.
+    for (const name of [
+      "ClipboardValueText",
+      "FileUploadClearTrigger", "FileUploadItemPreviewImage", "FileUploadRootProvider",
+      "useHighlight", "MenuArrow",
+    ]) {
+      expect(UI[name as keyof typeof UI], name).toBeTypeOf("function");
+    }
+    // And the declines, which are the half that makes this a rule rather than an appetite for
+    // surface. Four shapes: a bare `ark.div` under a component's name (the file-upload four, and
+    // `TourBody`); a component with no Ark machine at all (`Skeleton`); a composition the reference
+    // wrote (`FileUploadList`, `PaginationItems`, `PaginationItemLink`); and a part Ark ships that
+    // we already export under the machine's own name — `DialogTrigger`, `ComboboxGroupLabel`,
+    // `Tour.Control` via `TourActions` — which the record names as the case its line does not
+    // reach.
+    const surface = UI as Record<string, unknown>;
+    for (const name of [
+      "ClipboardValue",
+      "CommandDialogTrigger", "CommandGroupLabel",
+      "FileUploadTitle", "FileUploadDescription", "FileUploadHelper", "FileUploadDropzoneIcon",
+      "FileUploadList",
+      "PaginationItems", "PaginationItemLink",
+      "SkeletonCircle", "SkeletonText",
+      "TourBody", "TourFooter",
+    ]) {
+      expect(surface[name], name).toBeUndefined();
+    }
+    // The names each decline points at instead. A decline that leaves no way to build the thing is
+    // a gap, not a decision.
+    expect(UI.DialogTrigger).toBeTypeOf("function");
+    expect(UI.ComboboxGroupLabel).toBeTypeOf("function");
+    expect(UI.TourActions).toBeTypeOf("function");
+    expect(UI.PaginationItem).toBeTypeOf("function");
+    expect(UI.PaginationEllipsis).toBeTypeOf("function");
+    expect(UI.FileUploadItemGroup).toBeTypeOf("function");
+    expect(UI.Skeleton).toBeTypeOf("function");
+    expect(UI.DialogBody).toBeTypeOf("function");
+    expect(UI.DialogFooter).toBeTypeOf("function");
+    // `tags-input` is the one the record did not close: on provenance all three of Shark's names
+    // qualify, and the binding of `useTagsInput` is what stops it. Nothing there moved, and
+    // `shark-parity.test.ts` still pins the pair as open.
+    expect(surface.TagsInputRootProvider).toBeUndefined();
+    expect(surface.useTagsInputContext).toBeUndefined();
+  });
+
   it("keeps the AI engine hooks exported, and the CodeMirror style not", () => {
     // `useAiStream` looks like the un-export candidates and is not one: DESIGN.md argues the engine
     // "stays in the two headless hooks, **exposed for custom surfaces**", which is a promise about

@@ -62,10 +62,14 @@ Menu
     ├── MenuRadioGroup
     │   └── MenuRadioItem
     ├── MenuSeparator
+    ├── MenuArrow                (optional — the menu draws none by default)
     └── MenuSub
         ├── MenuSubTrigger
         └── MenuSubContent
 ```
+
+`MenuArrow` is the same part `Popover`, `Tooltip` and `HoverCard` ship, under the menu machine:
+place it inside `MenuContent` when the menu should point at what opened it.
 
 ## Groups
 

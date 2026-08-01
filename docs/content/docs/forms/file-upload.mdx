@@ -12,6 +12,7 @@ links:
 ```tsx
 import {
   FileUpload,
+  FileUploadClearTrigger,
   FileUploadDropzone,
   FileUploadHiddenInput,
   FileUploadItem,
@@ -19,7 +20,9 @@ import {
   FileUploadItemGroup,
   FileUploadItemName,
   FileUploadItemPreview,
+  FileUploadItemPreviewImage,
   FileUploadItemSizeText,
+  FileUploadRootProvider,
   FileUploadTrigger,
   useFileUpload,
 } from "@kanzo-tech/ui";
@@ -41,24 +44,33 @@ The accepted files live on the machine. Read them with `useFileUpload` inside th
 ## Anatomy
 
 ```text
-FileUpload
+FileUpload                       (or FileUploadRootProvider, given a useFileUpload value)
 ├── FileUploadLabel
 ├── FileUploadDropzone
 │   └── FileUploadTrigger
 ├── FileUploadItemGroup
 │   └── FileUploadItem
 │       ├── FileUploadItemPreview
+│       │   └── FileUploadItemPreviewImage
 │       ├── FileUploadItemName
 │       ├── FileUploadItemSizeText
 │       └── FileUploadItemDeleteTrigger
+├── FileUploadClearTrigger
 └── FileUploadHiddenInput
 ```
+
+There is no list component. `FileUploadItemGroup` plus a `.map` over `useFileUpload().acceptedFiles`
+is the loop, and it stays yours so the row can be arranged per surface.
 
 ## API
 
 No props beyond Ark's. `FileUpload` extends `FileUpload.Root` (`accept`, `maxFiles`,
 `maxFileSize`, `disabled`, `invalid`, `required`, `name`, `directory`, `onFileChange`,
 `onFileAccept`, `onFileReject`); `FileUploadItem` takes the `file` it renders.
-`FileUploadTrigger` and `FileUploadItemDeleteTrigger` are `Button`s, so they accept
-`variant` and `size`. `useFileUpload` is `useFileUploadContext` — it exposes
-`acceptedFiles`, `rejectedFiles` and the imperative `setFiles` / `clearFiles`.
+`FileUploadTrigger`, `FileUploadItemDeleteTrigger` and `FileUploadClearTrigger` are `Button`s, so
+they accept `variant` and `size`. `FileUploadItemPreviewImage` renders the object URL for an image
+file and takes Ark's `ItemPreviewImage` props. `useFileUpload` is `useFileUploadContext` — it
+exposes `acceptedFiles`, `rejectedFiles` and the imperative `setFiles` / `clearFiles`.
+
+`FileUploadRootProvider` is the controlled root: build the machine yourself with Ark's
+`useFileUpload` hook and pass it as `value` when a surface outside the compound has to drive it.

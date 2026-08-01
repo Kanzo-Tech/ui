@@ -17,6 +17,7 @@ import {
   ClipboardInput,
   ClipboardLabel,
   ClipboardTrigger,
+  ClipboardValueText,
   useClipboard,
 } from "@kanzo-tech/ui";
 ```
@@ -45,13 +46,16 @@ Everything below the root reads its state through context; `useClipboard` (Ark's
 <Clipboard value>
   <ClipboardLabel />
   <ClipboardControl>
-    <ClipboardInput />
+    <ClipboardInput />            (or ClipboardValueText — one or the other)
     <ClipboardTrigger>
       <ClipboardIndicator copied children />
 ```
 
 `ClipboardTrigger` is styled as a ghost icon `Button` and defaults its child to a
 `ClipboardIndicator`, so a lone trigger already flips on copy.
+
+`ClipboardValueText` is the read-only half of the pair: it renders the root's `value` as text in
+the same field box `ClipboardInput` draws, for a share link you show rather than let anyone edit.
 
 ## API
 

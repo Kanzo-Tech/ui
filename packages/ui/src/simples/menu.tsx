@@ -363,7 +363,27 @@ export const MenuShortcut = (props: React.ComponentProps<typeof ark.span>) => {
   );
 };
 
-// There is no `MenuArrow`. It was the one arrow of the four that carried no `data-slot` and
-// pinned `left: "20px"` *after* the caller's `style`, throwing away the offset the positioner
-// computes — two divergences from the identical `PopoverArrow` / `TooltipArrow` /
-// `HoverCardArrow` that only a renderer would catch, and it never had one.
+// Shark's version pins `left: "20px"` *after* the caller's `style`, throwing away the offset
+// the positioner computes. Dropped: this is `PopoverArrow` / `TooltipArrow` / `HoverCardArrow`
+// under a fourth machine, and the three of them are what a reader compares it against.
+export const MenuArrow = (
+  props: React.ComponentProps<typeof ArkMenu.Arrow>
+) => {
+  const { style, slot, ...rest } = props;
+
+  return (
+    <ArkMenu.Arrow
+      style={
+        {
+          "--arrow-background": "var(--popover)",
+          "--arrow-size": "calc(1.5 * var(--spacing))",
+          ...style,
+        } as React.CSSProperties
+      }
+      {...rest}
+      data-slot={slot ?? "menu-arrow"}
+    >
+      <ArkMenu.ArrowTip className="border-s border-t" />
+    </ArkMenu.Arrow>
+  );
+};

@@ -27,6 +27,24 @@ export const FileUpload = (
   );
 };
 
+export const FileUploadRootProvider = (
+  props: React.ComponentProps<typeof ArkFileUpload.RootProvider>
+) => {
+  const { className, slot, ...rest } = props;
+
+  return (
+    <ArkFileUpload.RootProvider
+      className={cn(
+        "flex flex-col gap-2",
+        "data-invalid:text-destructive dark:data-invalid:text-destructive-foreground",
+        className
+      )}
+      {...rest}
+      data-slot={slot ?? "file-upload-root-provider"}
+    />
+  );
+};
+
 export const FileUploadLabel = (
   { slot, ...rest }: React.ComponentProps<typeof ArkFileUpload.Label>
 ) => (
@@ -136,6 +154,20 @@ export const FileUploadItemPreview = (
   );
 };
 
+export const FileUploadItemPreviewImage = (
+  props: React.ComponentProps<typeof ArkFileUpload.ItemPreviewImage>
+) => {
+  const { className, slot, ...rest } = props;
+
+  return (
+    <ArkFileUpload.ItemPreviewImage
+      className={cn("size-full object-cover", className)}
+      {...rest}
+      data-slot={slot ?? "file-upload-item-preview-image"}
+    />
+  );
+};
+
 export const FileUploadItemName = (
   props: React.ComponentProps<typeof ArkFileUpload.ItemName>
 ) => {
@@ -181,6 +213,28 @@ export const FileUploadItemDeleteTrigger = (
         {children}
       </Button>
     </ArkFileUpload.ItemDeleteTrigger>
+  );
+};
+
+export const FileUploadClearTrigger = (
+  props: React.ComponentProps<typeof ArkFileUpload.ClearTrigger> &
+    Pick<ButtonProps, "variant" | "size">
+) => {
+  const { children, variant = "ghost", size = "sm", slot, ...rest } = props;
+
+  // The slot goes on the `Button`, not on the trigger: under `asChild` the child writes its own
+  // last and a `data-slot` here would never reach the document.
+  return (
+    <ArkFileUpload.ClearTrigger asChild>
+      <Button
+        {...rest}
+        size={size}
+        slot={slot ?? "file-upload-clear-trigger"}
+        variant={variant}
+      >
+        {children}
+      </Button>
+    </ArkFileUpload.ClearTrigger>
   );
 };
 

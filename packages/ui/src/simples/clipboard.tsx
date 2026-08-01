@@ -65,6 +65,25 @@ export const ClipboardInput = (
   );
 };
 
+export const ClipboardValueText = (
+  props: React.ComponentProps<typeof ArkClipboard.ValueText>
+) => {
+  const { className, slot, ...rest } = props;
+
+  return (
+    <ArkClipboard.ValueText
+      className={cn(
+        inputVariants({ size: "md" }),
+        "inline-flex items-center overflow-hidden whitespace-nowrap",
+        "text-muted-foreground",
+        className
+      )}
+      {...rest}
+      data-slot={slot ?? "clipboard-value-text"}
+    />
+  );
+};
+
 export const ClipboardIndicator = (
   props: React.ComponentProps<typeof ArkClipboard.Indicator>
 ) => {
