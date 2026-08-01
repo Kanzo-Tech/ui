@@ -36,6 +36,15 @@ import { DialogHeader } from "./simples/dialog";
  *
  * ## What this guard cannot prove
  *
+ * - **Rule 2 has a blind spot, and there are five live instances of it.** The check fires on a
+ *   `data-slot` written onto one of *our* components. It does not fire when the tag is Ark's and
+ *   Ark's `asChild` hands the attribute down to one of ours — the offending element is foreign, so
+ *   the parse walks past it, and the attribute is discarded exactly as rule 2 describes. Proven by
+ *   rendering, not inferred: a `data-slot` written on `ArkFileUpload.Trigger asChild` around our
+ *   `Button` reads back as `"button"`. Live and dead today at `simples/file-upload.tsx:93` and
+ *   `:` its item-delete sibling, and at `simples/pagination.tsx:64` plus the prev/next triggers.
+ *   Each is a slot a recipe or a consumer's query can select and never match. Catching it means
+ *   knowing which foreign tags wrap one of ours, which the parse can be taught — nobody has.
  * - **`PROVIDER_ONLY` is a reading of Ark's dist, not a measurement of it.** Nothing here renders
  *   those components to check they still emit no element; if Ark starts rendering a `<div>` from
  *   `Popover.Root`, this file will keep insisting the slot is dead. The entries are checked for
