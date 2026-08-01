@@ -61,6 +61,63 @@ is not ceremony: it caught the whole table being fiction once, when Mosaic serve
 size from the first size's cached Arrow and every row after 2k described a 2,000-node graph at
 flattering speed.
 
+## Layer 4 — bounded, over a compiled corpus
+
+The same path with the fixture swapped. Layer 3 builds its graph in the tab, which is why it
+stops at 200,000: a million is 8.6 s of main-thread JavaScript before DuckDB sees a byte. Here
+the corpus is a GraphAr tree fossil wrote once — two DuckDB **views** over Parquet fetched by
+range request, never a `CREATE TABLE AS`, so the bytes stay on the server and the working set
+stays the window. Measured cold, 2026-08-01, M4 Pro.
+
+| Nodes | Links | Attach | `total()` | First slice | Upload | **First paint** | Pan | Shown / matched |
+|---|---|---|---|---|---|---|---|---|
+| 2k | 12.5k | 130 ms | 14 ms | 61 ms | 25 ms | **100 ms** | 18 ms | 2k / 2k |
+| 10k | 69k | 36 ms | 18 ms | 35 ms | 30 ms | **82 ms** | 19 ms | 10k / 10k |
+| 50k | 332k | 37 ms | 17 ms | 43 ms | 30 ms | **90 ms** | 33 ms | 20k / 50k |
+| 200k | 1.37M | 37 ms | 16 ms | 74 ms | 41 ms | **131 ms** | 48 ms | 20k / 200k |
+| 1M | 6.90M | 70 ms | 17 ms | 217 ms | 24 ms | **258 ms** | 96 ms | 20k / 1M |
+
+**Five hundred times the corpus for 2.6× the first paint**, against 1,225 ms to hold 200,000.
+`matched` is the whole corpus at every size and `shown` never exceeds the limit, so the window
+is the work. Writing the corpus costs fossil 10.6 s at a million and it is paid once, offline.
+
+**A repeat sweep was measuring the cache.** Run twice on one page it reported a flat 60–71 ms at
+every size including a million: Mosaic caches by SQL text and a second sweep asks the identical
+questions. Each measurement now clears that cache, after which the repeat reproduces the cold
+shape (257 ms at a million against 262). Third time this benchmark has measured its own
+scaffolding — see the frame counter in layer 1 and the cached Arrow in layer 3. **Disbelieve a
+flat line until it survives a cold start.**
+
+**The first remote read of the page costs ~21 s, once.** DuckDB-WASM fetches its httpfs
+extension on first use and every read afterwards is in the tens of milliseconds. It is a
+first-use cost, not a corpus cost, and preloading the extension at boot would remove it.
+
+## What the corpus does *not* yet give
+
+Two facts about the written positions, both measured, both about usefulness rather than speed.
+
+**A window shows the nodes but not the graph.** Take a rectangle holding 3,533 of the million
+nodes: 375 of the 27,244 edges incident to them survive with both endpoints inside — **1.4%**.
+Random placement would give ~86, so the layout is barely four times better than chance. fossil's
+W3.1 `cluster_layout` grids clusters and phyllotaxis-packs each one, but WCC on a connected graph
+returns a single component, so the whole million lands in one spiral whose radius (12·√n ≈ 12,000)
+swallows the 100-unit cluster grid entirely. **The bounded architecture needs position to
+correlate with topology, and here it does not** — which is what W3.2 (Leiden) plus a force
+refinement is for. Until then the compiled route measures latency honestly and draws a dot cloud.
+
+**Morton order prunes, but the row group is too coarse a unit.** For that same window:
+
+| Row-group size | Groups | Read | Rows read for 3,533 |
+|---|---|---|---|
+| 122,880 (the default fossil writes) | 9 | 4 | 491,520 — **139×** |
+| 32,768 | 31 | 6 | 196,608 — 56× |
+| 8,192 | 123 | 6 | 49,152 — **14×** |
+
+The number of groups a window touches stays at 4–6 however many there are, which is the Morton
+locality working; the over-read is set entirely by how big each group is. Over a network that
+factor is bytes fetched. `Node.vertex.yml` already declares `chunk_size: 1024` while the Parquet
+is written at DuckDB's default — the manifest promises a chunking the file does not have.
+
 ## What to fix, in order
 
 **DuckDB is not the bottleneck.** The query column stays in single-digit milliseconds while
