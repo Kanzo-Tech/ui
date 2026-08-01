@@ -4,6 +4,26 @@ Five parallel read-only audits against `e210a59` plus the parallel session's unc
 work. Nothing in `packages/` or `docs/` was edited. The four reports beside this file are the
 evidence; this one is the decision queue.
 
+> ### Reversed since — read before acting on item 4
+>
+> Added 2026-08-01. This file is left as the decision queue of 2026-07-30; two of its items have
+> since been overtaken, and a reader who applies them today breaks the build.
+>
+> - **Item 4, "the 150 zero-consumer capitalised exports", was carried out and then reversed.**
+>   `decisions/a-house-principle-withholds-no-name.md` (Status live) concluded the opposite: every
+>   name Shark UI's registry exports, we export — including a part our own root already renders.
+>   The composition audit that went with it found that our roots and Shark's render the same parts
+>   in the same places, so the doubled trough is upstream's shape and not a defect of ours.
+>   `ProgressTrack`, `CheckboxIndicator`, the `CalendarTable*` parts and the rest are exported
+>   today, pinned by `packages/ui/src/index.test.ts` and `packages/ui/src/shark-parity.test.ts`.
+>   Un-exporting them now fails both guards. What survives of item 4 is the narrower rule in
+>   `decisions/an-export-needs-a-second-call-site.md`, which governs only the names the reference
+>   is silent about.
+> - **Item 3's `Link.tsx`/`link.tsx` case-collision pair is gone.** It was real when this was
+>   written — `composites/link.tsx` shipped in the initial commit — and it was cut. No such pair
+>   exists now, and `CONVENTIONS.md` has been corrected where it had carried the claim forward in
+>   the present tense.
+
 **The criterion applied**, stated by the owner mid-audit and applied retroactively to every finding:
 
 > A minimal system — the fundamental generic pieces to grow from, not a catalogue. Genericity over
@@ -37,13 +57,13 @@ These carry the highest confidence in the set: separate agents, separate scopes,
 
 | # | Finding | Found by | Evidence |
 |---|---|---|---|
-| 1 | **`SidebarInset` does not render `<main>`, and four places say it does.** An accessibility conformance error readers will copy: no landmark, ambiguous skip-link | comments, docs-site, guidance | `CONVENTIONS.md:92`, `navigation/sidebar.mdx:41`, `(root)/styling.mdx:102`, six example pages — all against `composites/sidebar.tsx:347-349` (an `ark.div`) and `DESIGN.md:143`, which are right |
-| 2 | **`DESIGN.md`'s longest argument is about a component that was deleted.** `CardRadioGroup` went in `06a3231`, kept dead by a tombstone assertion, and `DESIGN.md:264-273` still debates unwinding it while citing two paths that no longer exist | taxonomy, comments, guidance | `packages/ui/src/index.test.ts:95-99`; the grid it owned is now `RadioGroup`'s `columns` prop, `simples/radio-group.tsx:26` |
-| 3 | **`DESIGN.md:231-240`'s export census is stale**, and the paragraph presents it as "the live version … the one to cite instead" | taxonomy, guidance | Numbers disagree between audits — see §3 |
-| 4 | **`docs/blocks/` does not exist**; showcases live in `docs/showcases/` | taxonomy, docs-site | `DESIGN.md:24`, `DESIGN.md:349`, `layouts/shell.tsx:12`, `app/view/showcases/[name]/page.tsx:18` |
-| 5 | **One rule is broken seven times and is written only in a doc comment on an unrelated composite** — the array/record-of-`ReactNode`s prop standing in for composition | taxonomy §3, guidance §5 | Stated at `composites/SidebarIdentity.tsx:31-36`; violated by `Breadcrumbs`, `SidebarNav`, `InstanceSwitcher`, `SidebarUser`, `EmptyState`, `Ribbon`, `TextField`. Two hand their record straight back into `SidebarIdentity` itself |
-| 6 | **`README.md` and `packages/ui/README.md` are the stalest files in the repo — and both are the npm landing page.** Six symbols that do not exist | guidance, docs-site | `TopBar`, `StatusBar`, `WorkspaceLayout`, `CommandPalette`, `EditorShell`, `GhostEditor`; plus an `accent` axis deleted in `1975b9a` |
-| 7 | **The design reasoning ships nowhere a consumer looks.** The three axes, admission rules, the ladder, the engine rule and the minimality rule exist only in `DESIGN.md` | docs-site, guidance | Three pages link "the engine rule" to `/docs/philosophy`, which does not contain it: `charts.mdx:417`, `table.mdx:16`, `stat-tile.mdx:19` |
+| 1 | **`SidebarInset` does not render `<main>`, and four places say it does.** An accessibility conformance error readers will copy: no landmark, ambiguous skip-link | comments, docs-site, guidance | `CONVENTIONS.md:92`, `navigation/sidebar.mdx:41`, `(root)/styling.mdx:102`, six example pages — all against `composites/sidebar.tsx:347-349` (an `ark.div`) and `DESIGN.md:143`, which are right. **Closed 2026-08-01** — `composites/sidebar.tsx:SidebarInset` is an `ark.div` carrying the reason inline, `layouts/shell.tsx:ShellMain` owns the sole landmark, and every prose site now says so: `DESIGN.md`, `CLAUDE.md` (four one-way doors), `(root)/styling.mdx`, `navigation/sidebar.mdx`, `showcases/app-shell.mdx`. `CONVENTIONS.md` no longer names the symbol at all |
+| 2 | **`DESIGN.md`'s longest argument is about a component that was deleted.** `CardRadioGroup` went in `06a3231`, kept dead by a tombstone assertion, and `DESIGN.md:264-273` still debates unwinding it while citing two paths that no longer exist | taxonomy, comments, guidance | `packages/ui/src/index.test.ts:95-99`; the grid it owned is now `RadioGroup`'s `columns` prop, `simples/radio-group.tsx:26`. **Closed 2026-08-01** — `DESIGN.md` is 196 lines and names `CardRadioGroup` nowhere; the argument is `decisions/a-layout-tree-is-children.md`, which cites the deletion as its precedent, and the tombstone still stands in `packages/ui/src/index.test.ts` |
+| 3 | **`DESIGN.md:231-240`'s export census is stale**, and the paragraph presents it as "the live version … the one to cite instead" | taxonomy, guidance | Numbers disagree between audits — see §3. **Closed 2026-08-01** — the census is out of `DESIGN.md` entirely; no count survives in it. The rule that replaced it is `decisions/a-count-belongs-in-a-script.md`. The script itself is still unwritten — that residue is `handoff-guidance.md` a14, correctly still open |
+| 4 | **`docs/blocks/` does not exist**; showcases live in `docs/showcases/` | taxonomy, docs-site | `DESIGN.md:24`, `DESIGN.md:349`, `layouts/shell.tsx:12`, `app/view/showcases/[name]/page.tsx:18`. **Closed 2026-08-01** — a repo-wide grep for `docs/blocks` returns hits in this audit directory and nowhere else; `layouts/shell.tsx` cites `docs/showcases/` |
+| 5 | **One rule is broken seven times and is written only in a doc comment on an unrelated composite** — the array/record-of-`ReactNode`s prop standing in for composition | taxonomy §3, guidance §5 | Stated at `composites/SidebarIdentity.tsx:31-36`; violated by `Breadcrumbs`, `SidebarNav`, `InstanceSwitcher`, `SidebarUser`, `EmptyState`, `Ribbon`, `TextField`. Two hand their record straight back into `SidebarIdentity` itself. **Closed 2026-08-01** — all seven violators were cut, and the rule is now written where a reader meets it: `CONVENTIONS.md` states it with `ReactNode`-in-the-field-type as the tell, `decisions/a-layout-tree-is-children.md` carries the argument and the real exemption (a collection a machine navigates), and `packages/ui/src/index.test.ts` holds the `!SidebarNav` / `!InstanceSwitcher` / `!MadeWith` absences |
+| 6 | **`README.md` and `packages/ui/README.md` are the stalest files in the repo — and both are the npm landing page.** Six symbols that do not exist | guidance, docs-site | `TopBar`, `StatusBar`, `WorkspaceLayout`, `CommandPalette`, `EditorShell`, `GhostEditor`; plus an `accent` axis deleted in `1975b9a`. **Closed 2026-08-01** — none of the six names, and no `accent` axis, survives in either file |
+| 7 | **The design reasoning ships nowhere a consumer looks.** The three axes, admission rules, the ladder, the engine rule and the minimality rule exist only in `DESIGN.md` | docs-site, guidance | Three pages link "the engine rule" to `/docs/philosophy`, which does not contain it: `charts.mdx:417`, `table.mdx:16`, `stat-tile.mdx:19`. **Closed 2026-08-01** — `(root)/philosophy.mdx` is 290 lines and carries `## The engine rule`; all three links now resolve, to the anchor `/docs/philosophy#the-engine-rule`, and `installation.mdx` links it a fourth time |
 
 **The single most consequential of these is #7.** The library's value is that it explains itself, and
 the explanation is in a file consumers never open.
@@ -57,17 +77,49 @@ Each block is independently mergeable. Sizes are the auditors' estimates, not me
 ### Block A — Falsehoods. Do first, cheap, and every one is a claim a reader will act on.
 
 1. The `SidebarInset` / `<main>` lie, four sites (#1 above).
+   **Closed 2026-08-01** — see #1.
 2. **53 false comments**, 34 confirmed. Not ceremony — the *load-bearing* ones failed: measurements
    whose subject was regenerated, counts that drifted. `roles.ts:340` says "23 sites write
    `bg-input/NN`"; the only two occurrences of `bg-input/` in the repo are that comment and its twin.
+   **Closed 2026-08-01** — the sweep ran in two halves, and both are recorded as executed rather
+   than proposed: `handoff-comments.md` for `packages/palette` and `packages/theme` (37 corrected,
+   2 deleted, 9 collapsed to a pointer, 1 code fix, **7 findings rejected**), and
+   `handoff-slot.md` §3 for `packages/ui/src` (14 sites, including all four of the named
+   measurements). `bg-input/` now returns zero hits under `packages/`.
 3. **"Vendored as-is" is the most dangerous one.** `index.tsx:3` and `eslint.config.js:29` claim the
    simples are Shark-verbatim; there are 37 solid `ring-ring` and zero `ring-ring/50`, a divergence
    `CONVENTIONS.md:81` took a 1.29:1 contrast measurement to justify. The comment invites the exact
    regression the measurement exists to prevent.
+   **Closed 2026-08-01** at both named sites, and at the `Level 1` banner beside them.
+   `packages/ui/src/index.tsx:3` now reads "adopted from Shark UI and rebranded to our tokens —
+   adopted, not vendored", and points at `CONVENTIONS.md` for where the divergences are declared;
+   `eslint.config.js` says "adopted from Shark UI, with declared divergences" and names the
+   contrast finding. **The phrase survives at two sites this item did not name**, both of them
+   reader-facing: `docs/content/docs/(root)/index.mdx` ("vendored as-is in the shadcn-style
+   registry model") and `packages/ui/README.md` ("the vendored primitive set"). Same claim, same
+   invited regression — see the note under Block A.
 4. **Four dead exports documented on the charts page** — `Fixed`, `from`, `plot`, `coordinator`
    (`charts.mdx:128,559-561`), all deliberately deleted with the reasoning recorded in `analytics.ts`.
+   **Closed 2026-08-01**, and the class is now guarded rather than fixed: none of the four is
+   claimed as an export by `data-display/charts.mdx` (the surviving `coordinator` mentions are the
+   vgplot name in a mapping table and prose about bring-your-own), and
+   `packages/ui/src/documented-exports.test.ts` fails any page that names a symbol we do not
+   export. Its header cites this exact finding as one of five in two days.
 5. `installation.mdx:36` — "Two peers are optional" omits `/analytics` and its four peers, and
    `@kanzo-tech/palette` is absent from a page titled "Two packages".
+   **Closed 2026-08-01** — `(root)/installation.mdx` carries a three-row subpath table
+   (`/table`, `/analytics` with all four peers, `/editor` with all seven), and a step of its own
+   for `@kanzo-tech/palette` explaining why most applications never install it.
+
+> **New, and still open — added 2026-08-01 while closing Block A.** Item 3 was scoped to two source
+> comments and both are fixed, but the sweep stopped at `packages/ui/src`. The two files a
+> *consumer* reads first still carry the claim: `docs/content/docs/(root)/index.mdx` says Shark UI
+> supplies "the component recipes, vendored as-is in the shadcn-style registry model", and
+> `packages/ui/README.md` calls `simples/` "the vendored primitive set". The npm landing page and
+> the docs home now assert something the source comment three inches from the code was corrected
+> for asserting. This is the same defect at a higher blast radius, and nothing guards prose —
+> `handoff-guidance.md` a12, the dead-name guard, would not catch it either, since every backticked
+> name in both sentences resolves.
 
 ### Block B — The cut. 18 deletions and 2 relocations: ~122 files → ~104, 881 exports → ~690.
 

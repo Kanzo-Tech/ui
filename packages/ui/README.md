@@ -11,7 +11,7 @@ import { Button, KanzoThemeProvider } from "@kanzo-tech/ui";
 
 ## What is in it
 
-- **`simples/`** — one component, one job: the vendored primitive set (inputs, overlays, menus,
+- **`simples/`** — one component, one job: the adopted primitive set (inputs, overlays, menus,
   navigation, data display) with a flat compound API — `DialogTrigger` and `DialogContent`, not
   `Dialog.Trigger`.
 - **`composites/`** — assemblies of those that stay domain-free: the sidebar, the code editor, the

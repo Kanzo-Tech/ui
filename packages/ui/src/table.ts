@@ -1,7 +1,7 @@
 // @kanzo-tech/ui/table — a thin composable layer over TanStack Table.
 //
 // Kept out of the root barrel so the base bundle never carries @tanstack/react-table.
-// Consumers: `import { DataTable, useDataTable } from "@kanzo-tech/ui/table"`.
+// Consumers: `import { DataTableRoot, useDataTable } from "@kanzo-tech/ui/table"`.
 //
 // `useDataTable` owns the engine (row models, state slices, the server-side modes); the parts own
 // the chrome. Compose the two — column visibility, facet filters, row selection and manual paging

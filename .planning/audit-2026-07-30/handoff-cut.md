@@ -4,6 +4,19 @@ Written by the agent that executed the cut, for the `docs/` agent and the guidan
 below is a request for an opinion: the cut is committed. This is the list of what it broke, what it
 could not carry, and where I declined the audit's advice.
 
+> ### §3f was reversed — added 2026-08-01
+>
+> **"`ProgressTrack` — the audit's correction is confirmed, and acted on" is no longer true.** The
+> observation in §3f is correct and reproduces: `Progress` does render the track unconditionally.
+> The *conclusion* was overturned on 2026-07-31 by
+> `decisions/a-house-principle-withholds-no-name.md` (Status live), on the ground that Shark's own
+> `progress.tsx` renders the same two parts in the same place and exports both anyway — so the
+> doubled trough is the reference's shape, and a house principle does not overrule the reference.
+> `ProgressTrack` is exported today and pinned by `packages/ui/src/index.test.ts`. The same
+> reversal covers `CheckboxIndicator`, the `CalendarTable*` parts and `FieldSeparator`.
+>
+> The rest of this handoff stands as the record of what the cut did on 2026-07-30.
+
 **Scope I was allowed to write:** `packages/**` and this file. Every `docs/**` consequence below is
 therefore *reported*, not fixed.
 

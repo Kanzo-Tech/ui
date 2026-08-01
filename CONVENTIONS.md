@@ -117,8 +117,9 @@ needed, that is the moment to reintroduce one seam — with a lint rule to enfor
   it is chosen, and a raw `style` in both, because no token can name a value unknown until runtime.
   There used to be a second, `text-white` on a status fill; `text-destructive-content` and its three
   siblings now exist. Worth remembering as a lesson: while that exception stood, the white it
-  sanctioned was failing AA on two fills and nothing caught it, because **an untokenised colour is a
-  colour no test can measure. An exception to this rule is where a defect goes to hide.**
+  sanctioned was failing AA on **every** status fill — the 2.13–3.81:1 range measured above — and
+  nothing caught it, because **an untokenised colour is a colour no test can measure. An exception
+  to this rule is where a defect goes to hide.**
 - **`-foreground` means two different things.** For neutral and brand families it is the ink on the
   fill. For the status families it is a readable-on-**background** variant of the same hue — Shark's
   convention, adopted verbatim. Do not "fix" it; it was renamed once and fully reverted.
@@ -186,9 +187,11 @@ needed, that is the moment to reintroduce one seam — with a lint rule to enfor
 
 ## Naming
 
-- **Files: kebab-case**, matching Shark. Some older files are PascalCase. Never rely on
-  case-insensitive resolution — CI is case-sensitive even though macOS is not, and the repository
-  already carries one case-colliding pair.
+- **Files: kebab-case**, matching Shark. A few older files are PascalCase — drift, not a semantic
+  marker. Never rely on case-insensitive resolution: CI is case-sensitive even though macOS is not,
+  so a case-mismatched import is a failure you cannot reproduce locally. No such pair exists today
+  and none can be added by accident — `tsconfig.base.json` sets `forceConsistentCasingInFileNames`,
+  and two paths differing only by case cannot both be checked out here in the first place.
 - **Exports: flat, never dot-notation.** Ark publishes namespaced parts; we flatten them the way
   Shark does, so the barrel stays flat and a part is greppable by its full name.
   - **Wrapping an Ark machine → the bare name.** `Accordion`, `Field`, `Pagination`, `Table`,
@@ -253,8 +256,10 @@ with `@default`, `@link` and `@example` as the only tags); an empty banner; comm
 published and such a comment explains code that should not exist.
 
 **Six rules that keep a required comment true.** This repository's comment problem is not ceremony
-— one restating comment in the whole tree, zero commented-out code — it is duplication and
-staleness: one paragraph written out nine times, three copies of which went stale independently.
+— there is no commented-out code, and restating comments are rare — it is duplication and
+staleness: one paragraph written out in many places, several copies of which went stale
+independently. (Neither figure is quoted here on purpose: a tally with no corpus and no command is
+what the second rule below forbids, and this paragraph used to break it four times.)
 The volume in `packages/palette` is not that problem: `ramp.ts` and `roles.ts` are mostly
 measurements against Radix's scales or against a shipped ratio, and a measurement about generated
 output rots when the output is regenerated. That is a reason to date them, not to write fewer.
@@ -289,7 +294,8 @@ a closed decision belongs in `decisions/`, not beside the code.
 
 ## Testing
 
-`pnpm test` runs vitest under jsdom. The minimum bar for a component is a test that renders it and
+`pnpm test` runs vitest across the three packages; `packages/ui` sets `environment: "jsdom"`, and
+theme and palette run under node. The minimum bar for a component is a test that renders it and
 asserts the behaviour its recipe depends on. Two conventions beyond that:
 
 - **A test is a specification.** `describe("the control fill is an alpha step, not an opacity")`,
@@ -297,12 +303,13 @@ asserts the behaviour its recipe depends on. Two conventions beyond that:
 - **A deleted component gets a tombstone assertion** in `packages/ui/src/index.test.ts`, with the
   reason it went. That is what stops it being rebuilt.
 
-**The repo-wide guard tests.** Each carries its own reasoning; the document carries the pointer and
-never a summary, which is the arrangement that keeps both honest.
+**The repo-wide guard tests.** Each carries its own reasoning, and this table is a routing aid, not
+a substitute for it — the right-hand column names the subject so you know which file to open, and
+every one of them enforces more, and less, than a row can say. **Read the file.**
 
 | Guard | Enforces |
 |---|---|
-| `packages/ui/src/index.test.ts` | the pinned public surface, the tombstones, optional-peer isolation |
+| `packages/ui/src/index.test.ts` | the enumerated public surface, the tombstones, optional-peer isolation — an enumeration, not an exhaustive pin; `shark-parity.test.ts` is what catches a silent deletion |
 | `packages/ui/src/alpha-steps.test.ts` | the seven banned token spellings above |
 | `packages/ui/src/no-literal-hues.test.ts` | no chromatic literal in the source |
 | `packages/ui/src/logical-properties.test.ts` | no physical direction utility in the three layers, outside a reviewed allowlist with a reason per entry |
@@ -311,6 +318,8 @@ never a summary, which is the arrangement that keeps both honest.
 | `packages/ui/src/documented-exports.test.ts` | no docs page claims a symbol the built surface does not export |
 | `packages/ui/src/shark-parity.test.ts` | every difference from Shark's registry is declared, with a reason |
 | `packages/ui/src/decisions.test.ts` | every decision record is well-formed, and `DESIGN.md`'s index agrees with it |
+| `packages/ui/src/theme/theme-script.test.ts` | the inline script and the provider reach the same `<html>` from the same inputs |
+| `packages/theme/src/index.test.ts` | the axis table, its defaults, and what the entry may not re-export |
 | `packages/theme/src/boundary.test.ts` | the palette stays a devDependency, and `CHART_SLOTS` answers to the sheet |
 | `packages/theme/src/palettes.test.ts` | the sheet is the committed document compiled, with no colour written above the marker |
 

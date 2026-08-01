@@ -41,16 +41,28 @@ a taxonomy mistake cheap to fix, and why it should be fixed rather than lived wi
 
 **The engine rule.** *A component that needs an engine is the presentational one plus the engine —
 two components, not one. The presentational half lives in the root barrel; the connected half lives
-on the engine's subpath and renders the first.* `Table` → `DataTable` on `/table`; `StatTile` →
+on the engine's subpath and renders the first.* `Table` → `DataTableRoot` on `/table`; `StatTile` →
 `ChartStat` on `/analytics`. A subpath entry statically re-exports its engine, so any import from it
 resolves an optional peer; putting the presentational half there would make showing a number from a
 REST call require DuckDB. Hence the placement test: **a part belongs on a subpath only if it imports
 that subpath's engine.** Thematic neighbourhood is not a reason.
 
-**The naming rule.** *`kebab-case` is the vendored primitive; `PascalCase` is our pre-assembled
-convenience built on top of it.* `TextField` imports `input` and `input-group`; `DateField` imports
-`date-picker` and `calendar`. They are not competitors — one is built from the other. Default to the
-PascalCase one; drop to the primitive when it does not fit.
+**The naming rule.** *`kebab-case` is the vendored primitive; `PascalCase` is ours, assembled on
+top of it.* `FacetFilter` imports `listbox` and `popover`; `Preferences` imports `dialog`, `field`
+and `radio-group`. They are not competitors — one is built from the other, so reach for the
+primitive first and take the PascalCase one when it carries a contract the parts do not.
+
+The rule is a reading aid, not a guarantee, and two live files say so: `simples/Link.tsx` is
+PascalCase with no kebab counterpart and no primitive underneath it, and `composites/sidebar.tsx` is
+kebab while being entirely ours. `CONVENTIONS.md` records the file-name convention itself —
+kebab-case, matching Shark — and treats the PascalCase files as drift, not as a marker.
+
+**And the direction that keeps the library small.** A PascalCase name whose whole content is a
+fixed arrangement of the primitive's parts is an **example**, not a component. `TextField`,
+`NumberField`, `DateField`, `EmptyState` and `Ribbon` were exactly that and are gone
+(`packages/ui/src/index.tsx`, and tombstoned in `index.test.ts`); what survived is written out where
+it is used, where a reader can see it. A convenience earns the name by being *more capable* than the
+composition, never by being shorter than it.
 
 **The taxonomy test.** *A machine with a switch → a variant or a mode. A new content contract
 assembled on a primitive → a PascalCase composite.*
@@ -93,7 +105,8 @@ A new component enters only if all four hold:
 1. **Domain-free.** Nothing about RDF, SHACL, fossil, graphs or auth.
 2. **Proven demand.** Two real call sites, not a hypothesis. One `docs/examples/<slug>/` directory
    is not a second call site — it is the page proving the part exists.
-3. **Wraps, does not reinvent.** Check `@ark-ui/react/dist/components/` before writing a machine.
+3. **Wraps, does not reinvent.** Read Ark's shipped machines before writing one — `CONVENTIONS.md`
+   has the path and the one thing about resolving it that catches people out.
 4. **Single axis.**
 
 And one rule about *not* building: **do not add a model before the existing parts have a consumer.**

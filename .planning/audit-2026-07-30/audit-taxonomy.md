@@ -2,6 +2,19 @@
 
 Scope: `packages/ui/src/{simples,composites,layouts,charts,table,theme}`, read against `DESIGN.md`,
 `CONVENTIONS.md` and `.planning/*`. Read-only audit, 2026-07-30, branch `ds-ai-and-shark-alignment`.
+
+> ### Rows 12 and 14, and the surplus table's un-export column — added 2026-08-01
+>
+> **Row 14 and the "un-export, do not delete the symbol" rows of the surplus table were reversed.**
+> `decisions/a-house-principle-withholds-no-name.md` (Status live) restored every name Shark UI's
+> registry exports, `ProgressTrack`, `ProgressRange`, `CheckboxIndicator`, the `CalendarTable*`
+> parts and the `useX` context aliases among them, after reading Shark's own compositions and
+> finding them identical to ours. They are pinned by `packages/ui/src/index.test.ts` and
+> `packages/ui/src/shark-parity.test.ts`; un-exporting them now fails both.
+>
+> **Row 12's case-colliding pair was cut**, so its finding is closed rather than wrong.
+>
+> The taxonomy findings that do not touch the export surface are unaffected.
 Every finding is labelled **CONFIRMED** (verified in source) or **SUSPECTED**, and **IN-FLIGHT** where it
 lands on one of the 27 uncommitted files.
 

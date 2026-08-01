@@ -281,6 +281,13 @@ packages/ui/src/simples/use-ai.ts:48              useAiStream
   imports `swatchVariants`. **Un-export it and add it to that test's `toBeUndefined()` list**, which is
   where the other 13 already live.
 
+> **Reversed 2026-07-31, note added 2026-08-01.** The observation below reproduces; the conclusion
+> did not survive. `decisions/a-house-principle-withholds-no-name.md` (Status live) restored the
+> export, because Shark's own `progress.tsx` renders the same two parts in the same place and
+> exports both — the doubled trough is the reference's shape, and a house principle does not
+> overrule the reference. `ProgressTrack` is exported today and pinned by
+> `packages/ui/src/index.test.ts`. Do not act on the recommendation in this section.
+
 **`ProgressTrack` — DESIGN.md:239 is wrong, CONFIRMED.**
 `Progress` (`simples/progress.tsx:29`) unconditionally renders `<ProgressTrack><ProgressRange /></ProgressTrack>`
 at `progress.tsx:52-54`, *after* `{children}`. A consumer who follows the export and places a
