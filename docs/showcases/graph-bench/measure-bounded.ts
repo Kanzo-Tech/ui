@@ -1,8 +1,14 @@
 "use client";
 
 import { Graph } from "@cosmos.gl/graph";
-import { loadCSV } from "@kanzo-tech/ui/analytics";
-import { BOUNDED_DEFAULTS, shouldSlice, type Slice } from "@kanzo-tech/graph";
+import { type Coordinator, loadCSV, numbers } from "@kanzo-tech/ui/analytics";
+import {
+  BOUNDED_DEFAULTS,
+  type BoundedSource,
+  onceQuery,
+  shouldSlice,
+  type Slice,
+} from "@kanzo-tech/graph";
 import { boot } from "../workspace/duck";
 import { duckBoundedSource } from "@kanzo-tech/graph/duckdb";
 import { generate, nextFrame, type Shape } from "./measure";
@@ -20,12 +26,20 @@ import { generate, nextFrame, type Shape } from "./measure";
  * bounded issues a query per camera move. That is the cost of the trade and the reason it is
  * measured rather than assumed — a bounded path that costs 200 ms a pan is not an improvement, it
  * is a different kind of unusable.
+ *
+ * The same measurement runs over two fixtures, and the second is the point. `generated` builds the
+ * corpus here and hands DuckDB a CSV, which caps the sweep at what a tab can build. `corpus` reads
+ * the GraphAr tree fossil compiled — Parquet over HTTP, never held whole — which is the only route
+ * that reaches a million and the half ADR-0001 records as unmeasured.
  */
 
+export type Fixture = "generated" | "corpus";
+
 export interface BoundedSample {
+  fixture: Fixture;
   pointCount: number;
   linkCount: number;
-  /** Fixture-only, as in layer 2: building CSV and having DuckDB parse it. */
+  /** Getting the relations queryable: parsing a CSV, or opening a Parquet footer. */
   ingestMs: number;
   /** `total()` — the question that decides whether to slice at all. */
   totalMs: number;
@@ -47,11 +61,45 @@ export interface BoundedSample {
 /** Same sizes as layer 2, so the two tables sit beside each other honestly. */
 export const BOUNDED_SIZES = [2_000, 10_000, 50_000, 200_000];
 
+/**
+ * The compiled corpus goes one size further, and that size is the argument.
+ *
+ * A million is absent from `BOUNDED_SIZES` because the generated fixture cannot reach it: building
+ * the graph is 8.6 s of main-thread JavaScript before DuckDB sees a byte. Reading one that fossil
+ * already wrote costs a Parquet footer, so the size that was out of reach becomes just another row —
+ * and if first paint at a million matches first paint at two thousand, the claim is settled.
+ */
+export const CORPUS_SIZES = [2_000, 10_000, 50_000, 200_000, 1_000_000];
+
+export const FIXTURE_SIZES: Record<Fixture, number[]> = {
+  generated: BOUNDED_SIZES,
+  corpus: CORPUS_SIZES,
+};
+
 const SPACE = 8192;
 const PANS = 6;
 
+/**
+ * Throw away what the last run remembered, or measure the memory instead of the graph.
+ *
+ * Mosaic caches results **by SQL text**, and a repeated sweep asks the identical questions — same
+ * view names, same rectangle, same limit. The second run of this page reported 60–71 ms of first
+ * paint at every size including a million, flat and beautiful and entirely a cache. Only the cache
+ * goes: the clients are the harness's own and disconnecting them mid-sweep would strand a slice.
+ *
+ * This is the third time this benchmark has measured its own scaffolding — after a frame counter
+ * that counted its own `await` and a layer 2 that ran the 2,000-node graph at every size. The
+ * pattern is always the same and so is the defence: check the number against something that must
+ * change with N, and disbelieve a flat line until it survives a cold start.
+ */
+async function forget(coordinator: Coordinator): Promise<void> {
+  coordinator.clear({ cache: true, clients: false });
+}
+
 const nodesTable = (n: number) => `bounded_nodes_${n}`;
 const edgesTable = (n: number) => `bounded_edges_${n}`;
+const corpusNodes = (n: number) => `corpus_nodes_${n}`;
+const corpusEdges = (n: number) => `corpus_edges_${n}`;
 
 function nodesCsv(data: ReturnType<typeof generate>): string {
   const rows: string[] = ["id,community,x,y"];
@@ -71,6 +119,115 @@ function edgesCsv(data: ReturnType<typeof generate>): string {
   return rows.join("\n");
 }
 
+/** The rectangle the corpus actually occupies — the camera's space, never rescaled on the way in. */
+interface Extent {
+  xMin: number;
+  yMin: number;
+  xMax: number;
+  yMax: number;
+}
+
+interface Fixtured {
+  source: BoundedSource;
+  extent: Extent;
+  linkCount: number;
+  ingestMs: number;
+}
+
+/**
+ * The generated fixture: build the graph here, hand DuckDB two CSVs.
+ *
+ * Its space is known because this code chose it, so the extent is a constant rather than a query.
+ */
+async function generated(shape: Shape, pointCount: number): Promise<Fixtured> {
+  const data = generate(shape, pointCount);
+  const { coordinator, db } = await boot();
+  await forget(coordinator);
+
+  const started = performance.now();
+  const nodesFile = `bounded-nodes-${pointCount}.csv`;
+  const edgesFile = `bounded-edges-${pointCount}.csv`;
+  await db.registerFileText(nodesFile, nodesCsv(data));
+  await db.registerFileText(edgesFile, edgesCsv(data));
+  await coordinator.exec(loadCSV(nodesTable(pointCount), nodesFile, { replace: true }));
+  await coordinator.exec(loadCSV(edgesTable(pointCount), edgesFile, { replace: true }));
+  const ingestMs = performance.now() - started;
+
+  return {
+    source: duckBoundedSource({
+      coordinator,
+      nodes: nodesTable(pointCount),
+      edges: edgesTable(pointCount),
+    }),
+    extent: { xMin: 0, yMin: 0, xMax: SPACE, yMax: SPACE },
+    linkCount: data.linkCount,
+    ingestMs,
+  };
+}
+
+/**
+ * The compiled fixture: point DuckDB at the GraphAr tree and never hold it.
+ *
+ * A **view**, not a table. `CREATE TABLE AS` would pull the whole corpus into WASM memory, which is
+ * the working set ADR-0001 exists to refuse — at a million that is the 93 MB on disk plus whatever
+ * DuckDB expands it to. A view leaves the bytes on the server and lets every slice fetch the ranges
+ * it needs, which is what makes the bbox predicate a *read* strategy rather than a filter applied
+ * after the fact.
+ *
+ * The column names are GraphAr's rather than ours: `dense_id` is the dense index the contract asks
+ * for by another name, and the edge file speaks `src_dense`/`dst_dense` because it was written
+ * already resolved. Nothing is renamed on the way in — the source takes the names it is given.
+ */
+async function corpus(pointCount: number, report?: (stage: string) => void): Promise<Fixtured> {
+  const { coordinator } = await boot();
+  await forget(coordinator);
+  const base = `${window.location.origin}/bench/${pointCount}`;
+  const nodes = corpusNodes(pointCount);
+  const edges = corpusEdges(pointCount);
+
+  const started = performance.now();
+  report?.("opening the corpus · views");
+  await coordinator.exec(
+    `CREATE OR REPLACE VIEW ${nodes} AS SELECT * FROM read_parquet('${base}/vertex/Node.parquet')`,
+  );
+  await coordinator.exec(
+    `CREATE OR REPLACE VIEW ${edges} AS
+       SELECT * FROM read_parquet('${base}/edge/Node_linksTo_Node/by_source.parquet')`,
+  );
+  /**
+   * The extent, and it costs a scan of two columns.
+   *
+   * The fixture's own cost, not the product's: a real reader takes its space from the manifest, and
+   * GraphAr's `Node.vertex.yml` is where that belongs — it does not carry one today, which is why
+   * this is a query. It stays inside `ingest` so the number is never mistaken for first paint.
+   */
+  report?.("opening the corpus · extent");
+  const bounds = await onceQuery(
+    coordinator,
+    () => `SELECT min(x) AS x0, max(x) AS x1, min(y) AS y0, max(y) AS y1 FROM ${nodes}`,
+  );
+  // Metadata only: Parquet carries per-row-group row counts, so neither count reads a column.
+  report?.("opening the corpus · links");
+  const links = await onceQuery(coordinator, () => `SELECT count(*) AS n FROM ${edges}`);
+  const ingestMs = performance.now() - started;
+
+  const at = (field: string) => Number(numbers(bounds, field)[0] ?? 0);
+  return {
+    source: duckBoundedSource({
+      coordinator,
+      nodes,
+      edges,
+      idField: "dense_id",
+      categoryField: "community",
+      sourceField: "src_dense",
+      targetField: "dst_dense",
+    }),
+    extent: { xMin: at("x0"), yMin: at("y0"), xMax: at("x1"), yMax: at("y1") },
+    linkCount: Number(numbers(links, "n")[0] ?? 0),
+    ingestMs,
+  };
+}
+
 function host(): HTMLDivElement {
   const element = document.createElement("div");
   element.style.cssText =
@@ -80,6 +237,7 @@ function host(): HTMLDivElement {
 }
 
 export interface BoundedOptions {
+  fixture?: Fixture;
   shape: Shape;
   pointCount: number;
   cancelled?: () => boolean;
@@ -88,10 +246,12 @@ export interface BoundedOptions {
 
 export async function measureBounded(options: BoundedOptions): Promise<BoundedSample> {
   const { pointCount, shape } = options;
+  const fixture = options.fixture ?? "generated";
   const cancelled = options.cancelled ?? (() => false);
   const report = options.onStage;
 
   const base: BoundedSample = {
+    fixture,
     pointCount,
     linkCount: 0,
     ingestMs: 0,
@@ -107,28 +267,13 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
   const element = host();
   let graph: Graph | undefined;
   try {
-    report?.("generating");
-    const data = generate(shape, pointCount);
-    base.linkCount = data.linkCount;
+    report?.(fixture === "corpus" ? "opening the corpus" : "generating");
+    const fixtured =
+      fixture === "corpus" ? await corpus(pointCount, report) : await generated(shape, pointCount);
+    const { extent, source } = fixtured;
+    base.linkCount = fixtured.linkCount;
+    base.ingestMs = fixtured.ingestMs;
     if (cancelled()) return { ...base, failure: "cancelled" };
-
-    report?.("ingesting");
-    const { coordinator, db } = await boot();
-    const startedIngesting = performance.now();
-    const nodesFile = `bounded-nodes-${pointCount}.csv`;
-    const edgesFile = `bounded-edges-${pointCount}.csv`;
-    await db.registerFileText(nodesFile, nodesCsv(data));
-    await db.registerFileText(edgesFile, edgesCsv(data));
-    await coordinator.exec(loadCSV(nodesTable(pointCount), nodesFile, { replace: true }));
-    await coordinator.exec(loadCSV(edgesTable(pointCount), edgesFile, { replace: true }));
-    base.ingestMs = performance.now() - startedIngesting;
-    if (cancelled()) return { ...base, failure: "cancelled" };
-
-    const source = duckBoundedSource({
-      coordinator,
-      nodes: nodesTable(pointCount),
-      edges: edgesTable(pointCount),
-    });
 
     report?.("asking the total");
     const startedTotal = performance.now();
@@ -138,7 +283,12 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
 
     // The opening view: the whole space, at a zoom above the threshold so this measures detail mode
     // rather than the aggregate shortcut. Aggregate would flatter the numbers.
-    const view = { xMin: 0, yMin: 0, xMax: SPACE, yMax: SPACE, zoom: 1 };
+    //
+    // The space is the corpus's own, asked rather than assumed. fossil writes coordinates centred on
+    // the origin and scaled to N — ±535 at two thousand, ±11,968 at a million — so a rectangle nailed
+    // to `0..SPACE` would have measured an empty corner at every size but one, and reported a very
+    // fast first paint for showing nothing.
+    const view = { ...extent, zoom: 1 };
 
     report?.("first slice");
     const startedSlice = performance.now();
@@ -182,14 +332,21 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
      */
     report?.("panning");
     const startedPanning = performance.now();
-    const step = SPACE / (PANS + 1);
-    const width = SPACE / 4;
+    const span = extent.xMax - extent.xMin;
+    const step = span / (PANS + 1);
+    const width = span / 4;
     for (let i = 0; i < PANS; i++) {
-      const x = step * (i + 1);
+      const x = extent.xMin + step * (i + 1);
       await source.slice({
         query: {
           kind: "region",
-          view: { xMin: x - width / 2, yMin: 0, xMax: x + width / 2, yMax: SPACE, zoom: 1 },
+          view: {
+            xMin: x - width / 2,
+            yMin: extent.yMin,
+            xMax: x + width / 2,
+            yMax: extent.yMax,
+            zoom: 1,
+          },
         },
         limit: BOUNDED_DEFAULTS.limit,
         lodThreshold: BOUNDED_DEFAULTS.lodThreshold,

@@ -82,7 +82,7 @@ const ENGINE_SERIES: ChartConfig = {
 };
 
 export function ResultsChart(props: {
-  layer: "engine" | "bounded";
+  layer: "engine" | "bounded" | "corpus";
   samples: Sample[];
   bounded: BoundedSample[];
 }) {
@@ -90,7 +90,7 @@ export function ResultsChart(props: {
   const coordinator = useBenchCoordinator();
 
   const { config, data } = useMemo(() => {
-    if (layer === "bounded") {
+    if (layer !== "engine") {
       const rows: Point[] = [];
       for (const s of bounded) {
         if (s.failure) continue;
@@ -114,17 +114,17 @@ export function ResultsChart(props: {
     <MosaicProvider coordinator={coordinator}>
       <div className="rounded-lg border p-4">
         <p className="font-medium text-sm">
-          {layer === "bounded" ? "Cost against corpus" : "Simulation cost against corpus"}
+          {layer === "engine" ? "Simulation cost against corpus" : "Cost against corpus"}
         </p>
         <p className="mb-3 text-muted-foreground text-xs">
-          {layer === "bounded"
-            ? "First paint should stay flat as the corpus grows — that flatness is the finding. Pan is the cost that did not exist before."
-            : "A live layout is finished by about 200,000 points, and this is the curve that says so."}
+          {layer === "engine"
+            ? "A live layout is finished by about 200,000 points, and this is the curve that says so."
+            : "First paint should stay flat as the corpus grows — that flatness is the finding. Pan is the cost that did not exist before."}
         </p>
 
         {/* A legend for two series, none for one — identity is never colour alone, and a title
             already names a single series. */}
-        {layer === "bounded" ? <ChartLegend config={config} /> : null}
+        {layer === "engine" ? null : <ChartLegend config={config} />}
 
         <ChartRoot
           attributes={LOG_X}

@@ -54,7 +54,13 @@ import {
   type Sample,
   type Shape,
 } from "./measure";
-import { measureBounded, BOUNDED_SIZES, type BoundedSample } from "./measure-bounded";
+import {
+  BOUNDED_SIZES,
+  type BoundedSample,
+  type Fixture,
+  FIXTURE_SIZES,
+  measureBounded,
+} from "./measure-bounded";
 import { ResultsChart } from "./results-chart";
 import { BOUNDED_DEFAULTS } from "@kanzo-tech/graph";
 
@@ -99,12 +105,17 @@ declare global {
  * machine that produced them, which is what a record is for. The comparison they justified is
  * settled; what is still worth running is whether the surviving path holds its shape.
  */
-type Layer = "engine" | "bounded";
+type Layer = "engine" | "bounded" | "corpus";
 
 const LAYERS: { id: Layer; label: string; hint: string }[] = [
-  // Not variants of each other. The first holds the whole graph; the second never does — which is
-  // an architecture, not a setting, and the hint is where that gets said rather than assumed.
+  // Not variants of each other. The first two hold nothing; `engine` holds the whole graph — which
+  // is an architecture, not a setting, and the hint is where that gets said rather than assumed.
+  //
+  // `corpus` is `bounded` with the fixture swapped: the same slices, the same limit, the same
+  // upload, over a GraphAr tree fossil compiled instead of one built in this tab. That swap is what
+  // lifts the sweep to a million, because nothing here ever builds a graph.
   { id: "bounded", label: "Bounded", hint: "asks for the window, holds nothing" },
+  { id: "corpus", label: "Bounded, compiled", hint: "the same, over Parquet fossil wrote" },
   { id: "engine", label: "cosmos.gl alone", hint: "the GPU with nothing of ours in the way" },
 ];
 
@@ -159,7 +170,7 @@ function Headline(props: {
 }) {
   const { bounded, layer, samples } = props;
 
-  if (layer === "bounded") {
+  if (layer !== "engine") {
     const done = bounded.filter((sample) => !sample.failure);
     const last = done.at(-1);
     if (!last) {
@@ -173,6 +184,8 @@ function Headline(props: {
                 ((RECORDED.firstPaintMs - HELD_FIRST_PAINT_MS) / HELD_FIRST_PAINT_MS) * 100,
               ),
               goodWhenUp: false,
+              unit: "%",
+              label: ` vs held at ${compact(RECORDED.atNodes)}`,
             }}
           />
           <StatTile label="Per camera move · recorded" value={`${RECORDED.panMs} ms`} />
@@ -192,9 +205,15 @@ function Headline(props: {
           value={`${format(first, 0)} ms`}
           // Down is the good direction here, which is not the tile's default — a first paint that
           // grew would be the whole argument failing.
+          //
+          // The comparison names its own basis, because the compiled sweep ends at a million while
+          // the held figure is a 200,000 one. An unlabelled percentage there would read as
+          // like-for-like and be understating itself by a factor of five.
           delta={{
             value: Math.round(((first - HELD_FIRST_PAINT_MS) / HELD_FIRST_PAINT_MS) * 100),
             goodWhenUp: false,
+            unit: "%",
+            label: ` vs held at ${compact(RECORDED.atNodes)}`,
           }}
           trend={paint}
         />
@@ -332,17 +351,28 @@ function compact(value: number): string {
  * `Shown / matched` is the honesty column. When they differ the view is not showing everything in
  * the rectangle, and a reader is owed that.
  */
-function BoundedTable(props: { samples: BoundedSample[]; running: boolean; stage: string | null }) {
-  const { running, samples, stage } = props;
+function BoundedTable(props: {
+  fixture: Fixture;
+  samples: BoundedSample[];
+  running: boolean;
+  stage: string | null;
+}) {
+  const { fixture, running, samples, stage } = props;
+  const sizes = FIXTURE_SIZES[fixture];
   return (
     <Show
       when={samples.length > 0 || running}
       fallback={
         <p className="px-4 py-6 text-sm text-muted-foreground">
-          Run the sweep to push {BOUNDED_SIZES.map(compact).join(" · ")} through the bounded path —
-          ask the total, take one slice of the visible rectangle capped at{" "}
+          Run the sweep to push {sizes.map(compact).join(" · ")} through the bounded path — ask the
+          total, take one slice of the visible rectangle capped at{" "}
           {compact(BOUNDED_DEFAULTS.limit)} marks, upload it, then pan six times across the space.
           Nothing here ever holds the whole graph.
+          <Show when={fixture === "corpus"}>
+            {" "}
+            The corpus is read from Parquet over HTTP, never built here, which is why the sweep
+            reaches a million.
+          </Show>
         </p>
       }
     >
@@ -391,7 +421,7 @@ function BoundedTable(props: { samples: BoundedSample[]; running: boolean; stage
               </Show>
             </TableRow>
           ))}
-          <Show when={running && samples.length < BOUNDED_SIZES.length}>
+          <Show when={running && samples.length < sizes.length}>
             <TableRow>
               <TableCell colSpan={7} className="text-muted-foreground">
                 <span className="inline-flex items-center gap-2">
@@ -585,7 +615,7 @@ export function GraphBenchShowcase() {
     }
   }, [publish, shape, stress]);
 
-  const runBounded = useCallback(async () => {
+  const runBounded = useCallback(async (fixture: Fixture) => {
     stop.current = false;
     setRunning(true);
     setBoundedSamples([]);
@@ -593,11 +623,12 @@ export function GraphBenchShowcase() {
     publish({ bounded: [] }, true, false);
     const collected: BoundedSample[] = [];
     try {
-      for (const size of BOUNDED_SIZES) {
+      for (const size of FIXTURE_SIZES[fixture]) {
         if (stop.current) break;
         setCurrent(size);
         for (let i = 0; i < 3; i++) await nextFrame();
         const sample = await measureBounded({
+          fixture,
           shape,
           pointCount: size,
           cancelled: () => stop.current,
@@ -617,7 +648,10 @@ export function GraphBenchShowcase() {
     }
   }, [publish, shape]);
 
-  const run = layer === "engine" ? runEngine : runBounded;
+  const run = useCallback(
+    () => (layer === "engine" ? runEngine() : runBounded(layer === "corpus" ? "corpus" : "generated")),
+    [layer, runBounded, runEngine],
+  );
 
   /** The one control cluster, in the rail where a showcase puts its controls. */
   /**
@@ -763,12 +797,14 @@ export function GraphBenchShowcase() {
           <SectionHeader scale="page">
             <SectionTitleGroup>
               <SectionTitle level={1} scale="page">
-                {layer === "bounded" ? "Bounded" : "cosmos.gl alone"}
+                {LAYERS.find((option) => option.id === layer)?.label}
               </SectionTitle>
               <SectionDescription>
-                {layer === "bounded"
-                  ? "Ask for the window, not the corpus. First paint should stop following N — and panning is the cost that did not exist before."
-                  : "The renderer fed typed arrays straight from a generator: the most the GPU can do with nothing of ours in the way."}
+                {layer === "engine"
+                  ? "The renderer fed typed arrays straight from a generator: the most the GPU can do with nothing of ours in the way."
+                  : layer === "corpus"
+                    ? "The same bounded path, over a GraphAr tree fossil compiled. Nothing is built in this tab, so the sweep reaches a million — and first paint should not notice."
+                    : "Ask for the window, not the corpus. First paint should stop following N — and panning is the cost that did not exist before."}
               </SectionDescription>
             </SectionTitleGroup>
           </SectionHeader>
@@ -821,8 +857,13 @@ export function GraphBenchShowcase() {
                 </SectionHeader>
 
                 <div className="overflow-x-auto rounded-lg border">
-        <Show when={layer === "bounded"}>
-          <BoundedTable running={running} samples={boundedSamples} stage={stageLabel} />
+        <Show when={layer !== "engine"}>
+          <BoundedTable
+            fixture={layer === "corpus" ? "corpus" : "generated"}
+            running={running}
+            samples={boundedSamples}
+            stage={stageLabel}
+          />
         </Show>
         <Show
           when={layer === "engine" && (samples.length > 0 || running)}
@@ -914,9 +955,9 @@ export function GraphBenchShowcase() {
             Measured in this tab, on this machine. `BENCHMARKS.md` carries the recorded run.
           </span>
           <span className="ms-auto tabular-nums">
-            {layer === "bounded"
-              ? `${BOUNDED_SIZES.map(compact).join(" · ")} nodes`
-              : `${(stress ? STRESS_SIZES : SIZES).map(compact).join(" · ")} nodes`}
+            {layer === "engine"
+              ? `${(stress ? STRESS_SIZES : SIZES).map(compact).join(" · ")} nodes`
+              : `${FIXTURE_SIZES[layer === "corpus" ? "corpus" : "generated"].map(compact).join(" · ")} nodes`}
           </span>
       </ShellFooter>
     </div>
