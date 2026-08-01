@@ -55,6 +55,7 @@ import {
   type Shape,
 } from "./measure";
 import { measureBounded, BOUNDED_SIZES, type BoundedSample } from "./measure-bounded";
+import { ResultsChart } from "./results-chart";
 import { BOUNDED_DEFAULTS } from "@kanzo-tech/graph";
 
 /**
@@ -255,8 +256,35 @@ const SHAPES: { id: Shape; label: string; hint: string }[] = [
   { id: "mesh", label: "Mesh", hint: "uniform degree, no hubs" },
 ];
 
-/** Sizes the preview offers. Capped below the sweep's top: this one has to stay on screen. */
+/**
+ * Sizes the preview offers — all the way to a million, which is as far as the renderer goes.
+ *
+ * Stopping at 200,000 is a limit of the **fixture**, not of the renderer, and the distinction is
+ * the whole point. Drawing a million precomputed points is cheap — `BENCHMARKS.md` records it.
+ * *Building* a million-node graph in this tab is not: generation is 454 ms at 200,000 and scales
+ * with N, the upload is 751 ms for 1.4M links and there are seven million at a million nodes, and
+ * the preview does both synchronously in an effect that never yields. That is six seconds of frozen
+ * page, and no amount of turning the simulation off fixes it.
+ *
+ * The sweep reaches 500k and 1M because it hands the loop back between stages. The preview does not,
+ * and the honest ceiling is where a reader stops waiting rather than where the GPU stops coping.
+ *
+ * **The real answer is not to build the corpus here at all.** A GraphAr/Parquet corpus written once
+ * by fossil and read through the `viewport` verb never generates anything in the browser — which is
+ * exactly the larger-than-RAM half ADR-0001 records as unmeasured, and what would make a million
+ * nodes cost the same as two thousand.
+ */
 const PREVIEW_SIZES = [2_000, 10_000, 50_000, 200_000];
+
+/**
+ * Where a live layout stops being viable, from `BENCHMARKS.md` — 61 ms a step at 200,000, and
+ * 441 ms at a million.
+ *
+ * Kept as its own number rather than folded into the size list, because it is a fact about the
+ * simulation and not about what the preview offers: the moment a corpus arrives precomputed rather
+ * than generated here, the sizes can grow past it and this does not move.
+ */
+const LIVE_LAYOUT_CEILING = 200_000;
 
 /**
  * One RGBA per point, keyed by community.
@@ -432,9 +460,13 @@ export function GraphBenchShowcase() {
       // The theme's surface, resolved against this element. Left unset, cosmos.gl pins a dark plane
       // of its own and the canvas becomes the one panel on the page that ignores light mode.
       backgroundColor: toHex(resolveToken(element, "var(--background)")),
-      enableSimulation: true,
+      // Off past the ceiling: a simulation that needs half a second a step is not a layout, it is a
+      // stall with a progress bar. The generator's positions are already a real layout.
+      enableSimulation: previewSize <= LIVE_LAYOUT_CEILING,
       fitViewOnInit: true,
-      fitViewDelay: 400,
+      // With no simulation there is no settle to refit on, so the initial fit is the only one and
+      // it can fire as soon as the positions are up.
+      fitViewDelay: previewSize > LIVE_LAYOUT_CEILING ? 100 : 400,
       renderLinks: true,
       // Points win over links, because the question this canvas answers is whether the *nodes* are
       // still distinguishable. At 2px under a 69k-link haze they were not: the picture read as grey
@@ -726,8 +758,8 @@ export function GraphBenchShowcase() {
         </div>
       </ShellHeader>
 
-      <ShellMain className="min-h-0 overflow-auto bg-background px-4 py-3">
-        <SectionRoot>
+      <ShellMain className="flex min-h-0 flex-1 flex-col bg-background px-4 py-3">
+        <SectionRoot className="flex min-h-0 flex-1 flex-col">
           <SectionHeader scale="page">
             <SectionTitleGroup>
               <SectionTitle level={1} scale="page">
@@ -741,20 +773,14 @@ export function GraphBenchShowcase() {
             </SectionTitleGroup>
           </SectionHeader>
 
-            <SectionBody scale="page">
-              {/*
-                The claim first, and above the tabs rather than inside one — it is the finding, and
-                a reader should not have to be on the right tab to see what was found.
-              */}
-              <Headline bounded={boundedSamples} layer={layer} samples={samples} />
-
-              <Tabs defaultValue="graph">
+            <SectionBody className="flex min-h-0 flex-1 flex-col" scale="page">
+              <Tabs className="flex min-h-0 flex-1 flex-col" defaultValue="graph">
                 <TabsList>
                   <TabsTrigger value="graph">Graph</TabsTrigger>
                   <TabsTrigger value="results">Results</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="graph">
+                <TabsContent className="min-h-0 flex-1" value="graph">
 
               {/*
                 The canvas is evidence, not decoration. A table can say 200,000 points cost 62 ms a
@@ -762,7 +788,7 @@ export function GraphBenchShowcase() {
                 anything. Those two ceilings are different and the lower one is usually legibility.
 
               */}
-              <div className="relative h-[58vh] min-h-80 overflow-hidden rounded-lg border">
+              <div className="relative size-full min-h-80 overflow-hidden rounded-lg border">
                 <div ref={hostRef} className="absolute inset-0" />
                 <div className="pointer-events-none absolute top-3 left-3 flex flex-wrap gap-2">
                   {preview && (
@@ -777,8 +803,13 @@ export function GraphBenchShowcase() {
 
                 </TabsContent>
 
-                <TabsContent value="results">
+                <TabsContent className="min-h-0 flex-1 overflow-auto" value="results">
               <section className="min-w-0 space-y-3">
+                {/* The summary, the shape, and the rows are one answer, so they share a tab —
+                    read in that order, because each is the previous one at more resolution. */}
+                <Headline bounded={boundedSamples} layer={layer} samples={samples} />
+                <ResultsChart bounded={boundedSamples} layer={layer} samples={samples} />
+
                 <SectionHeader>
                   <SectionTitleGroup>
                     <SectionTitle level={2}>Every size</SectionTitle>
