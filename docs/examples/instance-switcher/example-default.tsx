@@ -7,42 +7,37 @@ import {
   SidebarHeader,
   SidebarInset,
   SidebarProvider,
-  type Instance,
 } from "@kanzo-tech/ui";
 import { useState } from "react";
-
-const instances: Instance[] = [
-  { id: "kanzo", label: "Kanzo", description: "Owner" },
-  { id: "acme", label: "ACME Data", description: "Member" },
-  { id: "eu-open", label: "EU Open Data", description: "Member" },
-];
+import { INSTANCES } from "@/example/nav";
+import { hall, type HallId, HOME_HALL } from "@/example/world";
 
 /**
  * Shown in a real shell, not a floating header — the switcher sits at the top of a sidebar, so
  * that is where you have to see it to judge it. The sidebar is otherwise empty on purpose: a
  * navigation menu below would compete for attention and blur what this page is about. Open the
- * switcher to change the active workspace.
+ * switcher to change halls.
  */
 export default function Example() {
-  const [active, setActive] = useState("kanzo");
+  const [active, setActive] = useState<HallId>(HOME_HALL);
 
   return (
     <SidebarProvider className="h-[28rem] min-h-0 w-full overflow-hidden">
       <Sidebar className="border-e" collapsible="none">
         <SidebarHeader>
           <InstanceSwitcher
-            actions={[{ label: "Create workspace", icon: <PlusIcon />, href: "#" }]}
+            actions={[{ label: "Charter a hall", icon: <PlusIcon />, href: "#" }]}
             activeId={active}
-            instances={instances}
-            label="Workspaces"
-            onSelect={setActive}
+            instances={INSTANCES}
+            label="Halls"
+            onSelect={(id) => setActive(id as HallId)}
           />
         </SidebarHeader>
       </Sidebar>
 
       <SidebarInset className="bg-muted/24">
         <div className="flex h-full items-center justify-center">
-          <span className="text-muted-foreground text-sm">{active}</span>
+          <span className="text-muted-foreground text-sm">{hall(active).motto}</span>
         </div>
       </SidebarInset>
     </SidebarProvider>

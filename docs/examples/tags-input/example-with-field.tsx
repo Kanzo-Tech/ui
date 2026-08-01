@@ -19,8 +19,8 @@ import {
 export default function Example() {
   return (
     <Field className="w-80">
-      <FieldLabel>Keywords</FieldLabel>
-      <TagsInput defaultValue={["ingestion"]} name="keywords">
+      <FieldLabel>Tags</FieldLabel>
+      <TagsInput defaultValue={["escort"]} name="tags">
         <TagsInputControl>
           <TagsInputContext>
             {(api) =>
@@ -35,11 +35,11 @@ export default function Example() {
               ))
             }
           </TagsInputContext>
-          <TagsInputInput placeholder="Add keyword…" />
+          <TagsInputInput placeholder="Add tag…" />
         </TagsInputControl>
         <TagsInputHiddenInput />
       </TagsInput>
-      <FieldDescription>Whatever you type becomes a value. Enter to add.</FieldDescription>
+      <FieldDescription>Whatever the poster types becomes a tag. Enter to add.</FieldDescription>
     </Field>
   );
 }

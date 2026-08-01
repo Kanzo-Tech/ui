@@ -1,6 +1,6 @@
 "use client";
 
-import { FileCodeIcon, FileJsonIcon, FileTextIcon } from "lucide-react";
+import { FileJsonIcon, FileSpreadsheetIcon, FileTextIcon, ScrollTextIcon } from "lucide-react";
 import type { ComponentProps } from "react";
 import {
   TreeView,
@@ -18,9 +18,10 @@ import {
 // Keyed by extension — the icon is resolved from the leaf's own name, so a node never
 // has to carry its icon.
 const fileIcons = createFileIcons({
+  ".csv": FileSpreadsheetIcon,
   ".json": FileJsonIcon,
   ".md": FileTextIcon,
-  ".ttl": FileCodeIcon,
+  ".rules": ScrollTextIcon,
 });
 
 const collection = createTreeCollection({
@@ -29,12 +30,13 @@ const collection = createTreeCollection({
     name: "",
     children: [
       {
-        id: "workspace",
-        name: "workspace",
+        id: "archive",
+        name: "archive",
         children: [
-          { id: "shapes.ttl", name: "shapes.ttl" },
-          { id: "manifest.json", name: "manifest.json" },
-          { id: "README.md", name: "README.md" },
+          { id: "charter.md", name: "charter.md" },
+          { id: "standing-orders.rules", name: "standing-orders.rules" },
+          { id: "board.csv", name: "board.csv" },
+          { id: "heraldry.json", name: "heraldry.json" },
         ],
       },
     ],
@@ -71,10 +73,10 @@ const Node = (props: ComponentProps<typeof TreeViewNode>) => {
 export default function Example() {
   return (
     <TreeView
-      aria-label="Workspace"
+      aria-label="The Amber Hall's archive"
       className="max-w-xs"
       collection={collection}
-      defaultExpandedValue={["workspace"]}
+      defaultExpandedValue={["archive"]}
       fileIcons={fileIcons}
     >
       <TreeViewTree>

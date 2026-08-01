@@ -17,23 +17,23 @@ import { MosaicDemo } from "./mosaic-demo";
 // stack by series inside each column, which is where a waffle beats a bar — parts of a whole.
 
 const config = {
-  ok: { label: "OK", color: "var(--chart-2)" },
-  slow: { label: "Slow", color: "var(--chart-4)" },
-  error: { label: "Error", color: "var(--destructive)" },
+  confirmed: { label: "Confirmed", color: "var(--chart-2)" },
+  disputed: { label: "Disputed", color: "var(--chart-4)" },
+  hoax: { label: "Hoax", color: "var(--destructive)" },
 } satisfies ChartConfig;
 
-const ORDER = ["ok", "slow", "error"];
+const ORDER = ["confirmed", "disputed", "hoax"];
 
 export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot config={config} height={260} table="telemetry">
-          <ChartWaffleY fill="status" order={ORDER} tip unit={5} x="region" y={count()} />
+        <ChartRoot config={config} height={260} table="sightings">
+          <ChartWaffleY fill="verdict" order={ORDER} tip unit={5} x="region" y={count()} />
           <ChartToggleColor />
           <ChartHighlight />
           <ChartAxisX label={null} />
-          <ChartAxisY grid label="requests (1 cell = 5)" />
+          <ChartAxisY grid label="sightings (1 cell = 5)" />
           <ChartLegend />
         </ChartRoot>
       </div>

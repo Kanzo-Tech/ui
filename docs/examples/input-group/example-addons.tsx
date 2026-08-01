@@ -1,4 +1,4 @@
-import { LinkIcon } from "lucide-react";
+import { UsersIcon } from "lucide-react";
 import {
   InputGroup,
   InputGroupAddon,
@@ -12,16 +12,16 @@ export default function Example() {
     <div className="flex w-80 flex-col gap-3">
       <InputGroup>
         <InputGroupAddon>
-          <InputGroupText>https://</InputGroupText>
+          <InputGroupText>Q-</InputGroupText>
         </InputGroupAddon>
-        <InputGroupInput placeholder="api.example.com/sparql" />
+        <InputGroupInput placeholder="1041" />
       </InputGroup>
 
       <InputGroup>
         <InputGroupAddon>
-          <LinkIcon />
+          <UsersIcon />
         </InputGroupAddon>
-        <InputGroupInput placeholder="Endpoint" />
+        <InputGroupInput placeholder="Find a member" />
         <InputGroupAddon align="inline-end">
           <Kbd>⌘K</Kbd>
         </InputGroupAddon>

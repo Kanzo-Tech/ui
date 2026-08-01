@@ -1,5 +1,6 @@
 "use client";
 
+import { REGIONS } from "@/example/world";
 import {
   createListCollection,
   Select,
@@ -9,22 +10,18 @@ import {
   SelectValue,
 } from "@kanzo-tech/ui";
 
-const visibility = createListCollection({
-  items: [
-    { label: "Public", value: "public" },
-    { label: "Private", value: "private" },
-    { label: "Restricted", value: "restricted" },
-  ],
+const regions = createListCollection({
+  items: REGIONS.map((region) => ({ label: region, value: region })),
 });
 
 export default function Example() {
   return (
-    <Select collection={visibility}>
+    <Select collection={regions}>
       <SelectTrigger className="w-56">
-        <SelectValue placeholder="Select visibility" />
+        <SelectValue placeholder="Select a region" />
       </SelectTrigger>
       <SelectContent>
-        {visibility.items.map((item) => (
+        {regions.items.map((item) => (
           <SelectItem item={item} key={item.value}>
             {item.label}
           </SelectItem>

@@ -36,10 +36,10 @@ follow you as you type.
 ## Anatomy
 
 ```tsx
-<form.Field name="name">
+<form.Field name="title">
   {(field) => (
     <Field invalid={!field.state.meta.isValid}>
-      <FieldLabel>Dataset name</FieldLabel>
+      <FieldLabel>Contract title</FieldLabel>
       <Input
         name={field.name}
         onBlur={field.handleBlur}
@@ -86,11 +86,11 @@ zod 4, not 3. The differences that bite when you copy an older snippet:
 import * as z from "zod";
 
 const schema = z.object({
-  name: z
+  title: z
     .string()
-    .min(3, "Give the dataset a name of at least 3 characters.")
-    .max(48, "Keep the name under 48 characters."),
-  summary: z.string().min(20, "Describe the dataset in at least 20 characters."),
+    .min(10, "Give the contract a title a poster would recognise.")
+    .max(60, "Keep the title under 60 characters."),
+  notice: z.string().min(20, "Say what the party is walking into — at least 20 characters."),
 });
 ```
 
@@ -107,10 +107,10 @@ const schema = z.object({
 import { revalidateLogic, useForm } from "@tanstack/react-form";
 
 const form = useForm({
-  defaultValues: { name: "", summary: "" },
+  defaultValues: { title: "", notice: "" },
   validationLogic: revalidateLogic(),
   validators: { onDynamic: schema },
-  onSubmit: ({ value }) => save(value),
+  onSubmit: ({ value }) => post(value),
 });
 ```
 
@@ -221,7 +221,7 @@ arrived. They are just easier to break now, because the error is a value with a 
 ```tsx
 <Field invalid={!field.state.meta.isValid} required>
   <FieldLabel>
-    Dataset name
+    Contract title
     <FieldRequiredIndicator />
   </FieldLabel>
   <Input
@@ -449,9 +449,9 @@ colour. Default it to a real colour, never `""`.
 
 ### A complex form
 
-Grouped `FieldSet`s, three kinds of choice control, an array of maintainers with two sub-fields
-per row, a form-level `Alert` for a server error, and a submit button that reports its own state
-through `form.Subscribe`.
+Grouped `FieldSet`s, three kinds of choice control, a party array with two sub-fields per row, a
+form-level `Alert` for a server error, and a submit button that reports its own state through
+`form.Subscribe`.
 
 <ComponentPreview componentName="form/tanstack" fileName="example-complex" hasMaxHeight={false} showBorders={false} />
 
@@ -483,12 +483,12 @@ or removed, and it carries the errors that belong to the list rather than to any
 The array field wraps a `FieldSet`; each row is a separate `form.Field`.
 
 ```tsx
-<form.Field mode="array" name="contacts">
+<form.Field mode="array" name="party">
   {(array) => (
     <FieldSet>
-      <FieldLegend variant="label">Contacts</FieldLegend>
+      <FieldLegend variant="label">Party</FieldLegend>
       <FieldGroup>
-        {array.state.value.map((contact, index) => (
+        {array.state.value.map((signatory, index) => (
           /* one form.Field per row */
         ))}
       </FieldGroup>
@@ -503,7 +503,7 @@ Reach a row's own values with bracket-and-dot paths. They are type-checked again
 `defaultValues`, so a typo is a compile error rather than a silently undefined field.
 
 ```tsx
-<form.Field key={contact.id} name={`contacts[${index}].address`}>
+<form.Field key={signatory.id} name={`party[${index}].handle`}>
   {(field) => (
     <Field invalid={!field.state.meta.isValid}>
       <FieldContent>
@@ -540,18 +540,18 @@ limit the user cannot cross anyway.
 ```tsx
 <Button
   disabled={array.state.value.length >= 5}
-  onClick={() => array.pushValue(newContact())}
+  onClick={() => array.pushValue(newSignatory())}
   type="button"
   variant="outline"
 >
-  Add contact
+  Add member
 </Button>
 ```
 
 ```tsx
 {array.state.value.length > 1 && (
   <InputGroupButton
-    aria-label={`Remove contact ${index + 1}`}
+    aria-label={`Remove signatory ${index + 1}`}
     onClick={() => array.removeValue(index)}
     size="icon-xs"
   >
@@ -570,10 +570,10 @@ own meta — not on any row. They need their own `Field` and `FieldError`, or no
 
 ```tsx
 const schema = z.object({
-  contacts: z
-    .array(z.object({ id: z.string(), address: z.email("Enter a valid email address.") }))
-    .min(1, "Add at least one contact.")
-    .max(5, "Five contacts at most."),
+  party: z
+    .array(z.object({ id: z.string(), handle: z.string().min(1, "Name somebody.") }))
+    .min(1, "Somebody has to walk it.")
+    .max(5, "Five to a party at most."),
 });
 ```
 

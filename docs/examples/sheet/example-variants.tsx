@@ -16,7 +16,7 @@ export default function Example() {
         </SheetTrigger>
 
         <SheetContent>
-          <SheetHeader title="Flush to the edge" />
+          <SheetHeader title="Q-1041 · Thornmarch" />
           <SheetBody>Full-bleed against the viewport, with a single border on the inner edge.</SheetBody>
         </SheetContent>
       </Sheet>
@@ -27,7 +27,7 @@ export default function Example() {
         </SheetTrigger>
 
         <SheetContent variant="inset">
-          <SheetHeader title="Inset" />
+          <SheetHeader title="Q-1041 · Thornmarch" />
           <SheetBody>Floats with a margin and rounded corners from the `sm` breakpoint up.</SheetBody>
         </SheetContent>
       </Sheet>

@@ -76,14 +76,14 @@ import {
 } from "lucide-react";
 import { cn } from "@kanzo-tech/ui";
 import {
-  compileShacl,
-  DEFAULT_SHAPES,
+  compileOrders,
+  DEFAULT_ORDERS,
+  type Order,
   pathDatatype,
   type Severity,
-  type Shape,
   SUPPORTED_PATHS,
   SUPPORTED_TARGETS,
-} from "./shacl";
+} from "./orders";
 import {
   CONSTRAINT_KINDS,
   type ConstraintKind,
@@ -91,9 +91,11 @@ import {
   members,
   parseRules,
   type Rule,
-  toTurtle,
-} from "./rule-builder";
+  ruleFrom,
+  toOrders,
+} from "./order-builder";
 import { numbers } from "@/lib/arrow";
+import { HALLS, isoDay } from "@/example/world";
 import {
   DEFAULT_DISPLAY,
   DEFAULT_SIM,
@@ -132,8 +134,9 @@ export { GraphCanvas, GraphSelection, GraphToolbar, GraphZoom } from "./graph-ca
  *
  * A slice carries category *ordinals*, not names, and the ordinal is whatever the source ranked the
  * column into: `dense_rank() OVER (ORDER BY kind)`, which is alphabetical. `KINDS` is the fixture's
- * declared order, and the two are not the same list — `keyword` is third here and fourth there. Left
- * unsorted this legend would name colours the canvas gives to different kinds.
+ * declared order, and the two are not the same list — this corpus has six kinds and `member` sits
+ * fifth here and third alphabetically. Left unsorted this legend would name colours the canvas gives
+ * to different kinds.
  *
  * The gap the old comment called hypothetical — the cross-panel binding problem, Vega-Lite's
  * `resolve: {scale: {color: shared}}` — is now load-bearing, because the binding is a number crossing
@@ -280,26 +283,28 @@ interface NodeRow {
   id: number;
   label: string;
   kind: string;
-  theme: string;
-  publisher: string;
+  hall: string;
+  region: string;
+  signed: string;
   degree: number;
-  issued: string;
-  keywords: string;
+  closed: string;
+  tags: string;
 }
 
 const COLUMNS = {
   id: "id",
   label: "label",
   kind: "kind",
-  theme: "theme",
-  publisher: "publisher",
+  hall: "hall",
+  region: "region",
+  signed: "signed",
   degree: "degree",
-  issued: "issued",
-  keywords: "keywords",
+  closed: "closed",
+  tags: "tags",
 };
 
 /**
- * A cell, as text. Never as whatever DuckDB happened to hand back: `issued` is a CSV column DuckDB
+ * A cell, as text. Never as whatever DuckDB happened to hand back: `closed` is a CSV column DuckDB
  * infers as DATE, so Arrow returns a `Date` object, and rendering one crashes React with "Objects
  * are not valid as a React child". Anything coming out of a query is formatted before it is shown.
  */
@@ -308,17 +313,28 @@ function text(value: unknown): string {
   return String(value ?? "");
 }
 
-/** The predicates a node carries, in the RDF idiom the panel already spoke. */
+/**
+ * What a node carries, named the way the standing orders name it.
+ *
+ * These are the property names in `ARCHIVE_BINDING`, not prettier ones invented for the panel: a
+ * reader who sees `signed` here and writes `require signed at least 1` in the orders is talking
+ * about the same thing, and that is the entire reason the inspector is worth reading beside the
+ * Orders tab.
+ */
 function properties(node: NodeRow): { predicate: string; value: string }[] {
-  const rows = [{ predicate: "rdf:type", value: `dcat:${node.kind}` }];
-  if (node.publisher) rows.push({ predicate: "dct:publisher", value: text(node.publisher) });
-  if (node.theme) rows.push({ predicate: "dcat:theme", value: text(node.theme) });
-  if (node.issued) rows.push({ predicate: "dct:issued", value: text(node.issued) });
-  if (node.keywords) {
-    rows.push({ predicate: "dcat:keyword", value: text(node.keywords).split("|").join(", ") });
-  }
-  rows.push({ predicate: "kanzo:degree", value: text(node.degree) });
+  const rows = [{ predicate: "kind", value: text(node.kind) }];
+  if (node.hall) rows.push({ predicate: "hall", value: hallName(text(node.hall)) });
+  if (node.region) rows.push({ predicate: "region", value: text(node.region) });
+  if (node.signed) rows.push({ predicate: "signed", value: text(node.signed) });
+  if (node.closed) rows.push({ predicate: "closed", value: text(node.closed) });
+  if (node.tags) rows.push({ predicate: "tags", value: text(node.tags).split("|").join(", ") });
+  rows.push({ predicate: "links", value: text(node.degree) });
   return rows;
+}
+
+/** A hall id is what the relation stores; a hall's short name is what a reader knows it by. */
+function hallName(id: string): string {
+  return HALLS.find((entry) => entry.id === id)?.short ?? id;
 }
 
 function InspectorBody() {
@@ -354,8 +370,11 @@ function InspectorBody() {
     <div className="space-y-3">
       <div>
         <p className="truncate font-medium text-sm">{head.label}</p>
-        <p className="mt-0.5 break-all text-muted-foreground text-xs">
-          urn:{head.kind}:{head.label}
+        {/* Where it sits, which is the one thing the badge below cannot say: a contract and the
+            reports hanging off it belong to a hall's arc, and everything the halls share belongs to
+            none — which is why those drift between the arcs they join. */}
+        <p className="mt-0.5 text-muted-foreground text-xs">
+          {head.hall ? hallName(head.hall) : "shared across the halls"}
         </p>
         <div className="mt-1 flex items-center gap-1.5">
           <Badge className="text-[10px]" size="xs" variant="outline">
@@ -419,13 +438,13 @@ function InspectorBody() {
 
 /** The Info tab: a real search over `label`, and the current selection ranked by degree. */
 /**
- * Find one entity and select it.
+ * Find one thing in the archive and select it.
  *
  * Not `ChartSearch`, and the difference is what the control MEANS. `ChartSearch` publishes a
  * `clauseMatch` — a substring filter over a column — and offers completions through a native
- * `<datalist>`. That is the right instrument for "narrow this to everything containing eu-", and
- * the wrong one for "take me to this node": a datalist cannot be styled, differs in every browser,
- * has no empty state, shows no context beside a value, and silently stops at its limit.
+ * `<datalist>`. That is the right instrument for "narrow this to everything mentioning the weir",
+ * and the wrong one for "take me to this node": a datalist cannot be styled, differs in every
+ * browser, has no empty state, shows no context beside a value, and silently stops at its limit.
  *
  * Picking is a value, so this is a `Combobox`, and what it publishes is that node's id — the
  * canvas lights it up, the panel below describes it, and the footer retallies. The list is capped
@@ -433,12 +452,12 @@ function InspectorBody() {
  */
 const SEARCH_LIMIT = 50;
 
-function EntitySearch() {
+function ArchiveSearch() {
   const { crossfilter } = useMosaic();
-  const source = useRef({ shape: "entity-search" });
+  const source = useRef({ shape: "archive-search" });
 
   // The whole corpus, once, against no filter: a search that only finds what is already on screen
-  // cannot take you anywhere. 582 rows is small enough to filter in the browser; a real corpus
+  // cannot take you anywhere. 1,543 rows is small enough to filter in the browser; a real archive
   // would query per keystroke instead.
   const { rows } = useChartQuery({
     filterBy: null,
@@ -483,7 +502,7 @@ function EntitySearch() {
         );
       }}
     >
-      <ComboboxInput placeholder="Find an entity…" size="sm" />
+      <ComboboxInput placeholder="Find anything in the archive…" size="sm" />
       <ComboboxContent>
         <ComboboxEmpty>Nothing by that name.</ComboboxEmpty>
         {collection.items.map((item) => (
@@ -510,12 +529,12 @@ export function GraphInspector() {
     <div className="flex h-full flex-col">
       <div className="shrink-0 border-b border-border p-2">
         {ready ? (
-          <EntitySearch />
+          <ArchiveSearch />
         ) : (
           <TextField
             disabled
             iconStart={<SearchIcon className="size-3.5" />}
-            placeholder="Search entities…"
+            placeholder="Search the archive…"
             size="sm"
           />
         )}
@@ -527,7 +546,7 @@ export function GraphInspector() {
   );
 }
 
-// ── Rules ────────────────────────────────────────────────────────────────────
+// ── Standing orders ──────────────────────────────────────────────────────────
 
 const SEVERITY_DOT: Record<Severity, string> = {
   violation: "bg-destructive",
@@ -537,12 +556,12 @@ const SEVERITY_DOT: Record<Severity, string> = {
 
 /** What a value looks like for each constraint — the placeholder does the explaining. */
 const VALUE_HINT: Record<ConstraintKind, string> = {
-  minCount: "1",
-  maxCount: "5",
-  minInclusive: "2020-01-01",
-  maxInclusive: "100",
-  in: "parquet, csv",
-  pattern: "^eu-",
+  "at least": "1",
+  "at most": "5",
+  "not before": "1305-01-01",
+  "not after": "1312-09-14",
+  "one of": "warden, archivist",
+  matches: "^Wyrm",
 };
 
 const SEVERITY_LABEL: Record<Severity, string> = {
@@ -558,7 +577,7 @@ const of = (values: readonly string[], label: (v: string) => string = (v) => v) 
 
 const TARGETS_LIST = of(SUPPORTED_TARGETS);
 const PATHS_LIST = of(SUPPORTED_PATHS);
-const KINDS_LIST = of(CONSTRAINT_KINDS, (v) => `sh:${v}`);
+const KINDS_LIST = of(CONSTRAINT_KINDS);
 const SEVERITY_LIST = of(
   Object.keys(SEVERITY_LABEL) as Severity[],
   (v) => SEVERITY_LABEL[v as Severity],
@@ -576,7 +595,7 @@ function RulePart({
   children?: React.ReactNode;
   collection: ReturnType<typeof of>;
   label: string;
-  /** The terms are identifiers; the severity is a plain English word. */
+  /** The terms are the document's own words; the severity is a plain English one. */
   mono?: boolean;
   onChange: (value: string) => void;
   value: string;
@@ -591,9 +610,9 @@ function RulePart({
         positioning={{ sameWidth: true }}
         value={[value]}
       >
-        {/* Mono for the term, sans for the connective: a CURIE is an identifier and the rules list
-            below already sets it that way, so a sans-serif `dct:issued` in the form and a mono one
-            in the list read as two different things. */}
+        {/* Mono for the term, sans for the connective: a property is a word out of the document and
+            the list below already sets it that way, so a sans-serif `closed` in the form and a mono
+            one in the list read as two different things. */}
         <SelectTrigger aria-label={label} className={cn("h-8 w-full text-xs", mono && "font-mono")}>
           <SelectValue />
         </SelectTrigger>
@@ -611,43 +630,43 @@ function RulePart({
 }
 
 /**
- * The rule builder — menus in, Turtle out.
+ * The order builder — menus in, standing orders out.
  *
- * It has no model of its own: it appends a `sh:property` to the document the panel already
- * compiles, so a rule you pick from these menus and a rule you uploaded are the same thing by the
- * time anything downstream sees either. The menus offer only what `./shacl` can map, which is why
- * a built rule always compiles.
+ * It has no model of its own: it appends an `order` block to the document the panel already
+ * compiles, so an order you pick from these menus and an order you dropped on the panel are the same
+ * thing by the time anything downstream sees either. The menus offer only what `./orders` can map,
+ * which is why a built order always compiles.
  */
-function RuleBuilder({
+function OrderBuilder({
   rules,
   onAdd,
 }: {
   rules: Rule[];
-  onAdd: (rule: Omit<Rule, "id">) => void;
+  onAdd: (rule: Omit<Rule, "id" | "name" | "message">) => void;
 }) {
-  const [target, setTarget] = useState(SUPPORTED_TARGETS[0] ?? "dcat:Dataset");
-  const [path, setPath] = useState(SUPPORTED_PATHS[0] ?? "dct:issued");
-  const [kind, setKind] = useState<ConstraintKind>("minCount");
+  const [target, setTarget] = useState(SUPPORTED_TARGETS[0] ?? "contract");
+  const [path, setPath] = useState(SUPPORTED_PATHS[0] ?? "closed");
+  const [kind, setKind] = useState<ConstraintKind>("at least");
   const [value, setValue] = useState("1");
   const [severity, setSeverity] = useState<Severity>("violation");
 
-  // One constraint of a kind per path, because that is all the document can say apart: a second
-  // `sh:minCount` on the same path would compile to a shape with the same identity as the first.
+  // One constraint of a kind per property, because that is all the document can say apart: a second
+  // `at least` on the same property would compile to an order with the same identity as the first.
   const duplicate = rules.some(
     (rule) => rule.target === target && rule.path === path && rule.kind === kind,
   );
   // Two different reasons Add can be off, and the field only owns one of them: marking the value
-  // invalid because the PATH already has this constraint would blame the wrong control.
+  // invalid because the PROPERTY already has this constraint would blame the wrong control.
   const valueOk = isValidValue(kind, value);
   const valid = valueOk && !duplicate;
-  /** A bound on a date column is a date — the only place the control needs the path's datatype. */
+  /** A bound on a date column is a date — the only place the control needs the property's datatype. */
   const isDateBound =
-    pathDatatype(path) === "date" && (kind === "minInclusive" || kind === "maxInclusive");
+    pathDatatype(path) === "date" && (kind === "not before" || kind === "not after");
 
   return (
     <div className="space-y-1.5 border-t pt-3">
-      <p className="font-medium text-muted-foreground text-xs">Add a rule</p>
-      {/* Read as the sentence a shape actually is — every X must have Y, so-and-so — rather than
+      <p className="font-medium text-muted-foreground text-xs">Add an order</p>
+      {/* Read as the sentence an order actually is — every X must have Y, so-and-so — rather than
           as five unlabelled dropdowns. The connectives carry the labelling, which is why the
           controls only need `aria-label`: in a 320px dock a label column would leave nothing for
           the values. */}
@@ -671,13 +690,13 @@ function RuleBuilder({
           <span className="mt-1.5 w-16 shrink-0 text-end text-muted-foreground text-xs">
             against
           </span>
-          {/* The control follows the constraint AND the path, because between them they decide
-              what a value IS. `sh:in` is a set, so it gets tags rather than a line of text with
-              commas in it; a bound on a date column is a date; a cardinality is a number with
-              steppers. Typing "2020-13-01" into a text box and finding out from DuckDB is the
-              version of this the panel used to have. */}
+          {/* The control follows the constraint AND the property, because between them they decide
+              what a value IS. `one of` is a set, so it gets tags rather than a line of text with
+              commas in it; a bound on a date column is a date; a count is a number with steppers.
+              Typing "1312-13-01" into a text box and finding out from DuckDB is the version of this
+              the panel used to have. */}
           <div className="min-w-0 flex-1">
-            {kind === "in" ? (
+            {kind === "one of" ? (
               <TagsInput
                 invalid={!valueOk}
                 onValueChange={(details) => setValue(details.value.join(", "))}
@@ -707,7 +726,7 @@ function RuleBuilder({
                 onChange={(next) => setValue(next ?? "")}
                 value={value}
               />
-            ) : kind === "minCount" || kind === "maxCount" ? (
+            ) : kind === "at least" || kind === "at most" ? (
               <NumberField
                 aria-label="Value"
                 className="h-8 w-full font-mono text-xs"
@@ -750,7 +769,7 @@ function RuleBuilder({
 
         <Show when={duplicate}>
           <p className="text-warning text-xs">
-            {target} already carries an sh:{kind} on {path}.
+            The orders already hold “{kind}” on {target} {path}.
           </p>
         </Show>
       </div>
@@ -759,21 +778,22 @@ function RuleBuilder({
 }
 
 /**
- * The Rules panel — a SHACL shapes file, compiled to SQL, with the graph as the report.
+ * The Orders panel — the hall's standing orders, compiled to SQL, with the graph as the report.
  *
- * The shapes are not a constant in this file: they are a Turtle document, parsed with a real Turtle
- * parser and compiled by `./shacl`, and you can drop your own over it. That is what makes the panel
- * a validator rather than a picture of one — the same file could go to any other SHACL engine.
+ * The orders are not a constant in this file: they are a document in the world's own rule language
+ * — the one `@/example/rules` writes the board's copy in — parsed and compiled by `./orders`, and
+ * you can drop your own over it. That is what makes the panel an archivist rather than a picture of
+ * one: the same file, pointed at another binding, reads another relation.
  *
- * A conformance report is a list of counts, which is a list of `count(*) FILTER (WHERE …)`, which is
- * one query. And focusing a shape queries the ids that fail it and publishes them into the
- * crossfilter, so the canvas lights up exactly the offending nodes, the legend retallies by kind and
- * the inspector ranks them — the panel does not draw anything or know those exist.
+ * A report is a list of counts, which is a list of `count(*) FILTER (WHERE …)`, which is one query.
+ * And focusing an order queries the ids that break it and publishes them into the crossfilter, so
+ * the canvas lights up exactly the offending nodes, the legend retallies by kind and the inspector
+ * ranks them — the panel does not draw anything or know those exist.
  *
  * The counts are read against the whole corpus (`filterBy: null`), not the current view: a report
  * that changed as you browsed would be a different question every time you looked.
  */
-export function GraphRules() {
+export function GraphOrders() {
   const { ready } = useGraphView();
   if (!ready) {
     return (
@@ -782,48 +802,48 @@ export function GraphRules() {
       </div>
     );
   }
-  return <RulesBody />;
+  return <OrdersBody />;
 }
 
-function RulesBody() {
+function OrdersBody() {
   const { select } = useGraphView();
   const { coordinator } = useMosaic();
-  const [turtle, setTurtle] = useState(DEFAULT_SHAPES);
-  const [fileName, setFileName] = useState("kanzo-shapes.ttl");
+  const [source, setSource] = useState(DEFAULT_ORDERS);
+  const [fileName, setFileName] = useState("amber-hall.orders");
   const [showSource, setShowSource] = useState(false);
 
-  const { shapes, unsupported, errors } = useMemo(() => compileShacl(turtle), [turtle]);
+  const { orders, unsupported, errors } = useMemo(() => compileOrders(source), [source]);
 
   // The same document, read as rules the builder can write back. `exact` is what makes editing
   // safe: regenerating the file drops whatever the builder could not read, so when anything would
   // be lost the panel stays read-only and says what it is protecting.
-  const { rules, exact, lost } = useMemo(() => parseRules(turtle), [turtle]);
+  const { rules, exact, lost } = useMemo(() => parseRules(source), [source]);
 
-  /** A shape that no longer exists must not keep lighting up nodes. */
+  /** An order that no longer exists must not keep lighting up nodes. */
   const unfocus = () => select(null);
 
-  const addRule = (rule: Omit<Rule, "id">) => {
+  const addRule = (draft: Omit<Rule, "id" | "name" | "message">) => {
     unfocus();
-    setTurtle(toTurtle([...rules, rule]));
+    setSource(toOrders([...rules, ruleFrom(draft)]));
   };
 
   const removeRule = (id: string) => {
     unfocus();
-    setTurtle(toTurtle(rules.filter((rule) => rule.id !== id)));
+    setSource(toOrders(rules.filter((rule) => rule.id !== id)));
   };
 
-  // Every shape's failing count, in one pass over the relation.
+  // Every order's failing count, in one pass over the relation.
   const { row } = useChartQuery({
     filterBy: null,
-    deps: [shapes.map((s) => s.id).join("|")],
+    deps: [orders.map((s) => s.id).join("|")],
     query: () =>
-      shapes.length === 0
+      orders.length === 0
         ? null
         : // `sql` nests the compiler's predicate as a node rather than pasting its text: the
           // aggregate is the only SQL written here, and `s.failing` arrives already built.
           Query.from(NODES).select(
             Object.fromEntries(
-              shapes.map((s, i) => [`c${i}`, sql`count(*) FILTER (WHERE ${s.failing})`]),
+              orders.map((s, i) => [`c${i}`, sql`count(*) FILTER (WHERE ${s.failing})`]),
             ),
           ),
   });
@@ -832,13 +852,13 @@ function RulesBody() {
   /** No row yet: the counts are being queried, not zero. */
   const pending = row === undefined;
   const total = (severity: Severity) =>
-    shapes.reduce((n, s, i) => (s.severity === severity ? n + countOf(i) : n), 0);
+    orders.reduce((n, s, i) => (s.severity === severity ? n + countOf(i) : n), 0);
   const violations = total("violation");
   const warnings = total("warning");
 
-  const failingIds = async (shape: Shape) => {
+  const failingIds = async (order: Order) => {
     const data = await onceQuery(coordinator, () =>
-      Query.from(NODES).select({ id: "id" }).where(shape.failing),
+      Query.from(NODES).select({ id: "id" }).where(order.failing),
     );
     return numbers(data, "id");
   };
@@ -846,14 +866,14 @@ function RulesBody() {
   const load = async (file: File) => {
     unfocus();
     setFileName(file.name);
-    setTurtle(await file.text());
+    setSource(await file.text());
   };
 
   return (
     <ScrollArea className="h-full p-3">
       <div className="space-y-3">
         <FileUpload
-          accept=".ttl,text/turtle"
+          accept=".orders,text/plain"
           maxFiles={1}
           onFileAccept={(details) => {
             const file = details.files[0];
@@ -864,7 +884,7 @@ function RulesBody() {
           <FileUploadDropzone className="min-h-0 gap-1 px-3 py-2.5">
             <UploadCloudIcon className="size-4 text-muted-foreground" />
             <p className="text-center text-muted-foreground text-xs">
-              Drop a <code className="font-mono">.ttl</code> shapes file
+              Drop an <code className="font-mono">.orders</code> file
             </p>
             <FileUploadTrigger asChild>
               <Button className="h-6 text-xs" size="xs" variant="outline">
@@ -884,12 +904,12 @@ function RulesBody() {
           >
             {showSource ? "Hide source" : "Source"}
           </Button>
-          <Show when={turtle !== DEFAULT_SHAPES}>
+          <Show when={source !== DEFAULT_ORDERS}>
             <Button
               className="h-6 shrink-0 text-xs"
               onClick={() => {
-                setTurtle(DEFAULT_SHAPES);
-                setFileName("kanzo-shapes.ttl");
+                setSource(DEFAULT_ORDERS);
+                setFileName("amber-hall.orders");
                 unfocus();
               }}
               size="xs"
@@ -902,7 +922,7 @@ function RulesBody() {
 
         <Show when={showSource}>
           <pre className="max-h-48 overflow-auto rounded-md border bg-muted p-2 font-mono text-[10px] leading-relaxed">
-            {turtle}
+            {source}
           </pre>
         </Show>
 
@@ -920,7 +940,7 @@ function RulesBody() {
         ) : row === undefined ? (
           <Skeleton className="h-4 w-32" />
         ) : violations === 0 ? (
-          <p className="text-success text-xs">Conforms — no violations.</p>
+          <p className="text-success text-xs">In order — nothing in breach.</p>
         ) : (
           <p className="text-xs">
             <span className="text-destructive">{violations} violations</span>
@@ -931,19 +951,19 @@ function RulesBody() {
         )}
 
         <ul className="space-y-1">
-          {shapes.map((shape, i) => {
+          {orders.map((order, i) => {
             const n = countOf(i);
-            // `pending` is not `clean`. An absent row means the count is in flight — editing a rule
-            // re-runs the query — and `?? 0` would otherwise put a green tick on every shape,
-            // which is a report claiming conformance it has not measured.
+            // `pending` is not `clean`. An absent row means the count is in flight — editing an
+            // order re-runs the query — and `?? 0` would otherwise put a green tick on every one,
+            // which is a report claiming order it has not measured.
             const clean = !pending && n === 0;
             return (
-              <li className="flex items-stretch gap-1" key={shape.id}>
+              <li className="flex items-stretch gap-1" key={order.id}>
                 <Finding
                   disabled={pending || clean}
-                  label={`${shape.target} ${shape.constraint}`}
-                  load={() => failingIds(shape)}
-                  source="rule"
+                  label={`${order.target} ${order.constraint}`}
+                  load={() => failingIds(order)}
+                  source="order"
                 >
                   <span className="flex items-center gap-2">
                     <span
@@ -954,11 +974,11 @@ function RulesBody() {
                         // the border band — for 2.03:1 in light and 2.26:1 in dark. Solid
                         // `--muted-foreground` is step 11: 9.19 / 8.37.
                         pending && "bg-muted-foreground",
-                        !pending && (clean ? "bg-success" : SEVERITY_DOT[shape.severity]),
+                        !pending && (clean ? "bg-success" : SEVERITY_DOT[order.severity]),
                       )}
                     />
                     <code className="font-mono text-[10px] text-muted-foreground">
-                      {shape.target}
+                      {order.target}
                     </code>
                     <span
                       className={cn(
@@ -970,14 +990,14 @@ function RulesBody() {
                     </span>
                   </span>
                   <span className="mt-0.5 block truncate font-mono text-[11px]">
-                    {shape.constraint}
+                    {order.constraint}
                   </span>
                 </Finding>
                 <Show when={exact}>
                   <Button
-                    aria-label={`Remove ${shape.constraint}`}
+                    aria-label={`Remove ${order.constraint}`}
                     className="h-auto shrink-0 self-stretch text-muted-foreground"
-                    onClick={() => removeRule(shape.id)}
+                    onClick={() => removeRule(order.id)}
                     size="icon-sm"
                     variant="ghost"
                   >
@@ -993,7 +1013,7 @@ function RulesBody() {
             lossless. Editing an inexact file would regenerate it without whatever the builder
             could not express — which is the failure this whole panel is arguing against. */}
         {exact ? (
-          <RuleBuilder onAdd={addRule} rules={rules} />
+          <OrderBuilder onAdd={addRule} rules={rules} />
         ) : (
           <div className="space-y-1 border-t pt-3">
             <p className="font-medium text-muted-foreground text-xs">
@@ -1023,7 +1043,7 @@ function RulesBody() {
         {/* No "Focused" block here. The selection belongs to ONE place — `GraphSelection`, in the
             canvas corner — and it was appearing in every dock panel that could publish a clause,
             so clearing it read as a per-panel action when the thing being cleared is the page's
-            single crossfilter. A shape published from here shows up there, like any other. */}
+            single crossfilter. An order published from here shows up there, like any other. */}
       </div>
     </ScrollArea>
   );
@@ -1261,7 +1281,7 @@ export function GraphSettings() {
             value={sim.friction}
           />
           {/* The control is named by the spec, not by this corpus. A canvas told which column
-              groups its nodes can say so; one that hardcodes "Theme" only ever had one dataset. */}
+              groups its nodes can say so; one that hardcodes "Hall" only ever had one archive. */}
           <Show when={spec.groupField !== undefined}>
             <Range
               label="Clustering"
@@ -1349,41 +1369,44 @@ interface Intent {
   failing: string;
 }
 
+/** Five years back from the world's own today, which is 14 September 1312 and never the clock. */
+const FIVE_YEARS_BACK = isoDay(-5 * 365);
+
 const INTENTS: Intent[] = [
   {
-    id: "stale",
-    match: ["stale", "old", "2019", "issued", "outdated", "published before"],
-    question: "Which datasets were published before 2020?",
-    answer: (n) => `${n} datasets declare a dct:issued before 2020-01-01.`,
-    failing: "kind = 'dataset' AND issued < DATE '2020-01-01'",
+    id: "old",
+    match: ["old", "oldest", "long ago", "years", "before", "closed before"],
+    question: "What has been in the archive more than five years?",
+    answer: (n) => `${n} contracts were closed before ${FIVE_YEARS_BACK}.`,
+    failing: `kind = 'contract' AND closed < DATE '${FIVE_YEARS_BACK}'`,
   },
   {
     id: "orphan",
-    match: ["orphan", "unused", "keyword", "lonely", "only one dataset"],
-    question: "Are there keywords only one dataset uses?",
-    answer: (n) => `${n} keywords are attached to a single dataset — weak vocabulary.`,
-    failing: "kind = 'keyword' AND degree < 2",
+    match: ["orphan", "unused", "tag", "lonely", "only one contract"],
+    question: "Are there tags only one contract carries?",
+    answer: (n) => `${n} tags were used once and never again — a vocabulary of one.`,
+    failing: "kind = 'tag' AND degree < 2",
   },
   {
-    id: "format",
-    match: ["format", "parquet", "csv", "distribution", "netcdf", "preferred"],
-    question: "Which distributions are not in a preferred format?",
-    answer: (n) => `${n} distributions sit outside parquet / csv / graphar.`,
-    failing: "kind = 'distribution' AND label NOT IN ('parquet', 'csv', 'graphar')",
+    id: "filed",
+    match: ["report", "filed", "who wrote", "cantor", "sapper", "alchemist"],
+    question: "Which reports were filed by someone the orders do not send?",
+    answer: (n) => `${n} field reports were filed by a role other than a warden, archivist or scout.`,
+    failing: "kind = 'report' AND label NOT IN ('warden', 'archivist', 'scout')",
   },
   {
     id: "hubs",
-    match: ["hub", "connected", "degree", "central", "biggest"],
-    question: "What are the most connected nodes?",
-    answer: (n) => `${n} nodes have a degree of 20 or more — the hubs holding the graph together.`,
-    failing: "degree >= 20",
+    match: ["hub", "connected", "busiest", "central", "biggest", "most work"],
+    question: "What holds the archive together?",
+    answer: (n) => `${n} nodes touch 60 others or more — the members, regions and tags everything hangs off.`,
+    failing: "degree >= 60",
   },
   {
-    id: "environment",
-    match: ["climate", "weather", "environment", "envi"],
-    question: "What is in the environment theme?",
-    answer: (n) => `${n} nodes carry dcat:theme ENVI.`,
-    failing: "theme = 'ENVI'",
+    id: "hall",
+    match: ["amber", "hall", "tenant", "whose"],
+    question: "How much of this is the Amber Hall's?",
+    answer: (n) => `${n} nodes sit on the Amber Hall's arc — its contracts and their field reports.`,
+    failing: "hall = 'amber'",
   },
 ];
 

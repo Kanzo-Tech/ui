@@ -32,7 +32,7 @@ export default function Example() {
           the navigation, and the region exists so you can see what it navigates. */}
       <SidebarInset className="bg-muted/24">
         <div className="flex h-full items-center justify-center">
-          <span className="text-muted-foreground text-sm">Page content</span>
+          <span className="text-muted-foreground text-sm">The board</span>
         </div>
       </SidebarInset>
     </SidebarProvider>

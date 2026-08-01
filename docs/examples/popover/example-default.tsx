@@ -16,11 +16,11 @@ export default function Example() {
 
       <PopoverContent className="w-72">
         <PopoverHeader
-          description="Narrow the rows shown in the table."
+          description="Narrow the contracts shown on the board."
           title="Filters"
         />
 
-        <PopoverBody>Filters apply to the current view only.</PopoverBody>
+        <PopoverBody>Status, region and grade apply to this hall's board only.</PopoverBody>
       </PopoverContent>
     </Popover>
   );

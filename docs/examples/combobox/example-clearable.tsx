@@ -1,5 +1,6 @@
 "use client";
 
+import { HALLS } from "@/example/world";
 import {
   Combobox,
   ComboboxContent,
@@ -10,16 +11,12 @@ import {
   useListCollection,
 } from "@kanzo-tech/ui";
 
-const DATASETS = [
-  { label: "customers", value: "customers" },
-  { label: "orders", value: "orders" },
-  { label: "products", value: "products" },
-];
+const HALL_ITEMS = HALLS.map((entry) => ({ label: entry.name, value: entry.id }));
 
 export default function Example() {
   const { contains } = useFilter({ sensitivity: "base" });
   const { collection, filter } = useListCollection({
-    initialItems: DATASETS,
+    initialItems: HALL_ITEMS,
     filter: contains,
   });
 
@@ -28,9 +25,9 @@ export default function Example() {
       collection={collection}
       onInputValueChange={(details) => filter(details.inputValue)}
     >
-      <ComboboxInput className="w-72" placeholder="Filter datasets…" showClear />
+      <ComboboxInput className="w-72" placeholder="Filter by hall…" showClear />
       <ComboboxContent>
-        <ComboboxEmpty>No matching datasets.</ComboboxEmpty>
+        <ComboboxEmpty>No hall by that name.</ComboboxEmpty>
         {collection.items.map((item) => (
           <ComboboxItem item={item} key={item.value}>
             {item.label}

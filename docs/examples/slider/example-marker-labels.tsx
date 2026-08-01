@@ -5,7 +5,7 @@ export default function Example() {
     <Slider
       className="w-72"
       defaultValue={[2]}
-      markerLabels={["None", "Low", "Medium", "High", "Full"]}
+      markerLabels={["Errand", "Nuisance", "Contract", "Hazard", "Writ"]}
       max={4}
       showMarkers
     />

@@ -1,0 +1,295 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+import { ARCHIVE, archiveOf, archiveScale } from "./archive";
+import { MEMBERS, member } from "./people";
+import { QUESTS, daysOverdue, overdueQuests, partyOf, quest } from "./quests";
+import { ROSTER, availableNow, rosterEntry, rosterOf } from "./roster";
+import { RULES_SOURCE, breaches } from "./rules";
+import { BEAST_DOMAIN, VERDICTS, sightingRows } from "./sightings";
+import { BEASTS, BEAST_KINDS, HALLS, QUEST_STATUSES, REGIONS, TODAY } from "./world";
+import { BESTIARY, flattenBestiary } from "./bestiary";
+
+// What this guards is not "the data exists" — the docs build proves that by importing it. It is
+// the two things a build cannot see: that the fixture still matches the prose written about it,
+// and that it is the same fixture on the next run.
+
+describe("the board is deterministic", () => {
+  it("draws the same contracts every run", () => {
+    // A digest rather than a full snapshot: the derived half is what has to be stable, and a
+    // 44-row object dump would be re-approved without being read.
+    const digest = QUESTS.map(
+      (q) => `${q.id} ${q.status} ${q.reward} ${q.party.join("+") || "-"}`,
+    ).join("\n");
+    expect(digest).toMatchSnapshot();
+  });
+
+  it("reads no clock and no unseeded randomness", () => {
+    // The rule that keeps the above true. `Date.now()`, an argument-less `new Date()` or a
+    // `Math.random()` anywhere in the world would make the committed snapshot differ from a
+    // rebuild — and would break a date-picker example that has to open on the same day twice.
+    const dir = __dirname;
+    const offenders: string[] = [];
+
+    for (const file of readdirSync(dir).filter((name) => name.endsWith(".ts"))) {
+      if (file.endsWith(".test.ts")) continue;
+      // Comments stripped first: the modules explain *why* they never call `Date.now()`, and a
+      // scanner that cannot tell an explanation from a call would forbid documenting the rule.
+      const source = readFileSync(join(dir, file), "utf-8")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/\/\/.*$/gm, "");
+      for (const [pattern, what] of [
+        [/Date\.now\(\)/, "Date.now()"],
+        [/new Date\(\s*\)/, "new Date()"],
+        [/Math\.random\(\)/, "Math.random()"],
+      ] as const) {
+        if (pattern.test(source)) offenders.push(`${file}: ${what}`);
+      }
+    }
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("is frozen on a year no reader will mistake for their own data", () => {
+    expect(TODAY.getUTCFullYear()).toBe(1312);
+  });
+});
+
+describe("the board is internally consistent", () => {
+  it("has unique, ascending ids", () => {
+    const ids = QUESTS.map((q) => q.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect([...ids].sort()).toEqual(ids);
+  });
+
+  it("names only members who exist", () => {
+    for (const q of QUESTS) {
+      for (const id of q.party) expect(() => member(id)).not.toThrow();
+    }
+  });
+
+  it("leaves open contracts unclaimed and claimed ones staffed", () => {
+    for (const q of QUESTS) {
+      if (q.status === "open") expect(q.party).toEqual([]);
+      else expect(q.party.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("pays for difficulty", () => {
+    const rewardsBy = (grade: number) =>
+      QUESTS.filter((q) => q.grade === grade).map((q) => q.reward);
+    // Not just "correlated on average": the bands must not overlap, or a reward sort would look
+    // broken to anyone checking it against the grade column.
+    expect(Math.min(...rewardsBy(5))).toBeGreaterThan(Math.max(...rewardsBy(4)));
+    expect(Math.min(...rewardsBy(2))).toBeGreaterThan(Math.max(...rewardsBy(1)));
+  });
+});
+
+describe("every domain is populated", () => {
+  it("fills all five statuses at least twice", () => {
+    for (const status of QUEST_STATUSES) {
+      const count = QUESTS.filter((q) => q.status === status.id).length;
+      expect(count, `status ${status.id}`).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it("fills all eight beasts, so an eight-slot scheme has eight non-empty categories", () => {
+    for (const b of BEASTS) {
+      expect(QUESTS.some((q) => q.beast === b.id), `beast ${b.id}`).toBe(true);
+    }
+  });
+
+  it("fills every region and gives every hall something to post", () => {
+    for (const region of REGIONS) {
+      expect(QUESTS.some((q) => q.region === region), region).toBe(true);
+    }
+    for (const hall of HALLS) {
+      expect(QUESTS.some((q) => q.hall === hall.id), hall.id).toBe(true);
+    }
+  });
+
+  it("keeps a beast-free tail, so `beast` is a genuinely optional column", () => {
+    expect(QUESTS.some((q) => q.beast === undefined)).toBe(true);
+  });
+});
+
+describe("the roster is derived from the board, not authored beside it", () => {
+  it("never shows Ready beside a member the board has committed", () => {
+    const live = QUESTS.filter((q) => q.status === "claimed" || q.status === "afield");
+    const committed = new Set<string>(live.flatMap((q) => q.party));
+    for (const entry of ROSTER) {
+      if (committed.has(entry.id)) expect(entry.availability, entry.id).not.toBe("ready");
+    }
+  });
+
+  it("commits nobody to two live contracts at once", () => {
+    const live = QUESTS.filter((q) => q.status === "claimed" || q.status === "afield");
+    const seen = new Map<string, string>();
+    for (const q of live) {
+      for (const id of q.party) {
+        expect(seen.has(id), `${id} is on ${seen.get(id)} and ${q.id}`).toBe(false);
+        seen.set(id, q.id);
+      }
+    }
+  });
+
+  it("shows Afield only for members the board actually has out", () => {
+    for (const entry of ROSTER) {
+      if (entry.availability === "afield") expect(entry.contract, entry.id).toBeDefined();
+    }
+  });
+
+  it("populates enough of the availability states to be worth filtering", () => {
+    const states = new Set(ROSTER.map((entry) => entry.availability));
+    expect(states.size).toBeGreaterThanOrEqual(4);
+  });
+
+  it("leaves somebody at home in every hall", () => {
+    // Found on screen, not in a test: the Amber Hall posts the most contracts and parties draw
+    // from home first, so its entire roster came back "Afield" — on the hall every showcase opens
+    // on, with nothing left for a "claim this contract" control to offer.
+    for (const entry of HALLS) {
+      const ready = rosterOf(entry.id).filter((m) => m.availability === "ready");
+      expect(ready.length, `${entry.id} has nobody ready`).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it("keeps at least a third of the guild claimable", () => {
+    expect(availableNow().length / ROSTER.length).toBeGreaterThan(1 / 3);
+  });
+});
+
+describe("the claims the docs make about the world", () => {
+  it("has an overdue contract for the alert and toast examples to point at", () => {
+    expect(overdueQuests().length).toBeGreaterThan(0);
+  });
+
+  it("really violates the party rule on the contract the rule page cites", () => {
+    // `rules.ts` rejects a grade-5 contract whose party carries no cantor. If a later edit staffed
+    // a cantor onto this one, the rule example would show a passing rule and prove nothing.
+    const cited = QUESTS.find((q) => q.title === "A basilisk, and it knows the route");
+    expect(cited).toBeDefined();
+    expect(cited?.grade).toBe(5);
+    expect(cited?.party.some((id) => member(id).role === "cantor")).toBe(false);
+  });
+
+  it("keeps the missing scout out afield, so the roster and the board agree", () => {
+    expect(rosterEntry("fenn").availability).toBe("missing");
+    // Settled contracts may name Fenn freely — those are history, and Fenn worked before going
+    // missing. What must hold is the live half: exactly one, and still out.
+    const live = QUESTS.filter(
+      (q) => q.party.includes("fenn") && (q.status === "claimed" || q.status === "afield"),
+    );
+    expect(live.map((q) => q.status)).toEqual(["afield"]);
+  });
+
+  it("is actually in breach of the rules the editor shows", () => {
+    // The rule page says the hall is in breach. If a fixture edit ever made every live contract
+    // compliant, the editor would be showing four rules that do nothing.
+    const found = breaches();
+    expect(found.length).toBeGreaterThan(0);
+    expect(found.some((b) => b.quest.title === "A basilisk, and it knows the route")).toBe(true);
+    // Every breach names a rule that exists in the source the editor opens.
+    for (const breach of found) expect(RULES_SOURCE).toContain(`rule "${breach.rule}"`);
+  });
+
+  it("still has the basilisk contract six days overdue, as four pages say", () => {
+    // The number is quoted in prose. Deriving it here means a fixture edit breaks the test rather
+    // than quietly making four examples wrong.
+    const cited = QUESTS.find((q) => q.title === "A basilisk, and it knows the route");
+    expect(daysOverdue(cited!)).toBe(6);
+    expect(partyOf(cited!).map((m) => m.name)).toEqual(["Dagfinn Roe", "Solveig Marsh"]);
+  });
+
+  it("classes each beast the same way the bestiary tree does", () => {
+    // Two places say what a basilisk is: `BEASTS[n].kind` and the branch it hangs from in the
+    // tree. They were transcribed by hand once and would drift the moment either moved.
+    const branchOf = new Map<string, string>();
+    for (const branch of BESTIARY) {
+      for (const node of flattenBestiary(branch.children ?? [])) {
+        if (node.beast) branchOf.set(node.beast, branch.name);
+      }
+    }
+    for (const entry of BEASTS) {
+      expect(branchOf.get(entry.id), entry.id).toBe(entry.kind);
+    }
+    expect(BEAST_KINDS.length).toBe(3);
+  });
+
+  it("resolves a quest by id", () => {
+    expect(quest("Q-1041").title).toBe("Something is eating the bell-ropes");
+    expect(() => quest("Q-9999")).toThrow();
+  });
+});
+
+describe("the sightings relation", () => {
+  it("is the same table every run", () => {
+    const rows = sightingRows();
+    const digest = [
+      rows.length,
+      ...BEAST_DOMAIN.map((b) => `${b}:${rows.filter((r) => r.beast === b).length}`),
+      ...VERDICTS.map((v) => `${v}:${rows.filter((r) => r.verdict === v).length}`),
+    ].join(" ");
+    expect(digest).toMatchSnapshot();
+  });
+
+  it("reports every beast, so an eight-slot legend has eight entries", () => {
+    const rows = sightingRows();
+    for (const beast of BEAST_DOMAIN) {
+      expect(rows.some((r) => r.beast === beast), beast).toBe(true);
+    }
+  });
+
+  it("has a night curve an hourly axis can show", () => {
+    const rows = sightingRows();
+    const at = (from: number, to: number) =>
+      rows.filter((r) => r.hour >= from && r.hour < to).length;
+    // Most of these things are reported after dark. A flat curve would make the hour axis pointless.
+    expect(at(21, 24) + at(0, 4)).toBeGreaterThan(at(10, 17));
+  });
+
+  it("keeps the region/beast grid sparse", () => {
+    const rows = sightingRows();
+    const pairs = new Set(rows.map((r) => `${r.region}/${r.beast}`));
+    // A full cross-product would be 48 and would read as generated; every region has a range.
+    expect(pairs.size).toBeLessThan(REGIONS.length * BEAST_DOMAIN.length);
+  });
+});
+
+describe("the archive explains the roster", () => {
+  it("gives every member exactly as many closed contracts as they claim settled", () => {
+    // This is the invariant that makes the archive history rather than padding: the `settled`
+    // number on a member had no cause before, and now it has exactly one.
+    for (const entry of MEMBERS) {
+      expect(archiveOf(entry.id).length, entry.name).toBe(entry.settled);
+    }
+  });
+
+  it("is big enough to be worth a WebGL canvas", () => {
+    const scale = archiveScale();
+    expect(scale.nodes).toBeGreaterThan(600);
+  });
+
+  it("shares its hubs, which is what makes it a graph and not a forest of stars", () => {
+    // A member on many contracts, a beast in many regions. Without this the lasso pulls in
+    // nothing you did not already have selected.
+    const busiest = Math.max(...MEMBERS.map((m) => archiveOf(m.id).length));
+    expect(busiest).toBeGreaterThan(50);
+
+    const regionsPerBeast = new Map<string, Set<string>>();
+    for (const entry of ARCHIVE) {
+      if (!entry.beast) continue;
+      const seen = regionsPerBeast.get(entry.beast) ?? new Set();
+      seen.add(entry.region);
+      regionsPerBeast.set(entry.beast, seen);
+    }
+    for (const [beast, regions] of regionsPerBeast) {
+      expect(regions.size, beast).toBeGreaterThan(1);
+    }
+  });
+
+  it("is the same archive every run", () => {
+    const scale = archiveScale();
+    expect(`${ARCHIVE.length} ${scale.reports} ${scale.nodes}`).toMatchSnapshot();
+  });
+});

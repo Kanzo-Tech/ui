@@ -8,6 +8,7 @@ import {
   PaginationPrevTrigger,
   usePagination,
 } from "@kanzo-tech/ui";
+import { QUESTS } from "@/example/quests";
 
 function Pages() {
   const pagination = usePagination();
@@ -29,7 +30,8 @@ function Pages() {
 
 export default function Example() {
   return (
-    <Pagination count={100} defaultPage={3} pageSize={10} siblingCount={1}>
+    // The whole board, ten contracts to a page.
+    <Pagination count={QUESTS.length} defaultPage={3} pageSize={10} siblingCount={1}>
       <PaginationPrevTrigger />
       <Pages />
       <PaginationNextTrigger />

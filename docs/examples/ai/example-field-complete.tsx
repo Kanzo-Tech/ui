@@ -15,7 +15,7 @@ import {
 import { useState } from "react";
 
 async function* completeTitle(_value: string, signal?: AbortSignal) {
-  const rest = " (Spain, 2020–2023)";
+  const rest = " on the Greenhollow causeway";
   for (const chunk of rest.split(/(?<=\s)/)) {
     await new Promise((r) => setTimeout(r, 60));
     if (signal?.aborted) return;
@@ -23,9 +23,9 @@ async function* completeTitle(_value: string, signal?: AbortSignal) {
   }
 }
 
-async function* completeSummary(_value: string, signal?: AbortSignal) {
+async function* completeNotice(_value: string, signal?: AbortSignal) {
   const rest =
-    " The dataset is refreshed weekly and covers every autonomous community, with demographic breakdowns for secondary research.";
+    " The ground is standing water from the ford to the lane, the herder walks back with the party, and nothing above a Nuisance is expected before dusk.";
   for (const chunk of rest.split(/(?<=\s)/)) {
     await new Promise((r) => setTimeout(r, 45));
     if (signal?.aborted) return;
@@ -34,8 +34,8 @@ async function* completeSummary(_value: string, signal?: AbortSignal) {
 }
 
 export default function Example() {
-  const [title, setTitle] = useState("COVID-19 case registry");
-  const [summary, setSummary] = useState("Anonymised national registry of confirmed cases");
+  const [title, setTitle] = useState("Bog-hounds took the herd dog");
+  const [notice, setNotice] = useState("Three hounds seen at the ford, in threes as they go");
 
   return (
     <div className="flex w-full max-w-md flex-col gap-6">
@@ -43,7 +43,7 @@ export default function Example() {
         <FieldLabel>Title</FieldLabel>
         <CompleteRoot complete={completeTitle} onValueChange={setTitle} value={title}>
           <CompleteInput>
-            <Input placeholder="e.g. COVID-19 case registry" />
+            <Input placeholder="e.g. A wyrm under the granary" />
           </CompleteInput>
           <CompleteGhost />
         </CompleteRoot>
@@ -51,10 +51,10 @@ export default function Example() {
       </Field>
 
       <Field>
-        <FieldLabel>Description</FieldLabel>
-        <CompleteRoot complete={completeSummary} onValueChange={setSummary} value={summary}>
+        <FieldLabel>Notice</FieldLabel>
+        <CompleteRoot complete={completeNotice} onValueChange={setNotice} value={notice}>
           <CompleteTextarea>
-            <Textarea placeholder="Describe the dataset…" />
+            <Textarea placeholder="What the party is walking into…" />
           </CompleteTextarea>
           <CompleteHint />
         </CompleteRoot>

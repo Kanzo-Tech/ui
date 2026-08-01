@@ -1,16 +1,13 @@
+import { BOARD_FILTERS } from "@/example/nav";
 import { SegmentGroup } from "@kanzo-tech/ui";
 
 export default function Example() {
   return (
     <SegmentGroup
-      aria-label="View mode"
+      aria-label="Contract state"
       className="w-fit"
-      defaultValue="list"
-      options={[
-        { value: "list", label: "List" },
-        { value: "grid", label: "Grid" },
-        { value: "graph", label: "Graph" },
-      ]}
+      defaultValue="open"
+      options={BOARD_FILTERS.status}
       variant="solid"
     />
   );

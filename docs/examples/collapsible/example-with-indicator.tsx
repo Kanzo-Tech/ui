@@ -11,13 +11,13 @@ export default function Example() {
     <Collapsible className="w-full max-w-sm">
       <CollapsibleTrigger asChild>
         <Button className="w-full" variant="outline">
-          Advanced options
+          Party of five
           <CollapsibleIndicator />
         </Button>
       </CollapsibleTrigger>
       <CollapsibleContent className="mt-2 rounded-md border p-3 text-muted-foreground text-sm">
-        The indicator rotates its chevron off the open state, so the trigger needs no
-        state of its own.
+        Halla Grieve, Ludmila Vrána, Yusra Halim, Faisal Amari and Cuthbert Lyle — five
+        names from four halls.
       </CollapsibleContent>
     </Collapsible>
   );

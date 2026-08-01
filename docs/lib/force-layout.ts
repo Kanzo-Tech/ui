@@ -5,6 +5,8 @@
 // own, so it is not resolvable under pnpm's strict layout. This is the stand-in: grid-bucketed
 // repulsion (O(n·k) instead of O(n²)), spring attraction along edges, and gravity.
 
+export { mulberry32 } from "./rng";
+
 export interface LayoutEdge {
   source: number;
   target: number;
@@ -19,17 +21,6 @@ const GRAVITY = 0.035;
 const FRICTION = 0.6;
 const MAX_STEP = 2;
 const DECAY = 0.972;
-
-/** A deterministic PRNG — same seed, same picture, in every browser and every run. */
-export function mulberry32(seed: number): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x6d2b79f5) | 0;
-    let t = Math.imul(state ^ (state >>> 15), 1 | state);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
 
 /**
  * Positions for `count` vertices joined by `edges`.

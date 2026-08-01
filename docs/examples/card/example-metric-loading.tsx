@@ -1,4 +1,4 @@
-import { DatabaseIcon } from "lucide-react";
+import { ScrollTextIcon } from "lucide-react";
 import {
   MetricCard,
   MetricCardDescription,
@@ -7,6 +7,7 @@ import {
   MetricCardLabel,
   MetricCardValue,
 } from "@/showcases/metric-card/metric-card";
+import { openQuests } from "@/example/quests";
 
 export default function Example() {
   return (
@@ -16,23 +17,23 @@ export default function Example() {
       <MetricCard>
         <MetricCardHeader>
           <MetricCardIcon>
-            <DatabaseIcon />
+            <ScrollTextIcon />
           </MetricCardIcon>
-          <MetricCardLabel>Connections</MetricCardLabel>
+          <MetricCardLabel>Open contracts</MetricCardLabel>
         </MetricCardHeader>
-        <MetricCardValue loading>4</MetricCardValue>
-        <MetricCardDescription loading>connections configured</MetricCardDescription>
+        <MetricCardValue loading>{openQuests().length}</MetricCardValue>
+        <MetricCardDescription loading>waiting for a party</MetricCardDescription>
       </MetricCard>
 
       <MetricCard>
         <MetricCardHeader>
           <MetricCardIcon>
-            <DatabaseIcon />
+            <ScrollTextIcon />
           </MetricCardIcon>
-          <MetricCardLabel>Connections</MetricCardLabel>
+          <MetricCardLabel>Open contracts</MetricCardLabel>
         </MetricCardHeader>
-        <MetricCardValue>4</MetricCardValue>
-        <MetricCardDescription>connections configured</MetricCardDescription>
+        <MetricCardValue>{openQuests().length}</MetricCardValue>
+        <MetricCardDescription>waiting for a party</MetricCardDescription>
       </MetricCard>
     </div>
   );

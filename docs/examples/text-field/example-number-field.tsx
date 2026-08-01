@@ -3,12 +3,12 @@ import { InputGroupText, NumberField } from "@kanzo-tech/ui";
 export default function Example() {
   return (
     <NumberField
-      defaultValue={1000}
-      iconEnd={<InputGroupText>rows</InputGroupText>}
-      max={10_000}
+      defaultValue={32}
+      iconEnd={<InputGroupText>gold</InputGroupText>}
+      max={500}
       min={0}
       rootClassName="w-72"
-      step={100}
+      step={5}
     />
   );
 }

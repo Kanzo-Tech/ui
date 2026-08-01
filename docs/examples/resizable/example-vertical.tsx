@@ -1,3 +1,4 @@
+import { breaches } from "@/example/rules";
 import { Resizable, ResizablePanel, ResizableResizeTrigger } from "@kanzo-tech/ui";
 
 export default function Example() {
@@ -6,20 +7,20 @@ export default function Example() {
       <Resizable
         defaultSize={[60, 40]}
         orientation="vertical"
-        panels={[{ id: "editor", minSize: 20 }, { id: "output", minSize: 20 }]}
+        panels={[{ id: "rules", minSize: 20 }, { id: "breaches", minSize: 20 }]}
       >
         <ResizablePanel
           className="flex items-center justify-center text-muted-foreground text-sm"
-          id="editor"
+          id="rules"
         >
-          Editor
+          The party rules
         </ResizablePanel>
-        <ResizableResizeTrigger id="editor:output" withHandle />
+        <ResizableResizeTrigger id="rules:breaches" withHandle />
         <ResizablePanel
           className="flex items-center justify-center text-muted-foreground text-sm"
-          id="output"
+          id="breaches"
         >
-          Output
+          {breaches().length} breaches
         </ResizablePanel>
       </Resizable>
     </div>

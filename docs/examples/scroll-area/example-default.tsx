@@ -1,6 +1,5 @@
 import { ScrollArea } from "@kanzo-tech/ui";
-
-const tags = Array.from({ length: 30 }, (_, i) => `tag-${i + 1}`);
+import { TAGS } from "@/example/world";
 
 export default function Example() {
   return (
@@ -8,7 +7,7 @@ export default function Example() {
     <div className="h-64 w-64 rounded-lg border">
       <ScrollArea>
         <div className="flex flex-col gap-2 p-3 text-sm">
-          {tags.map((tag) => (
+          {TAGS.map((tag) => (
             <span key={tag}>{tag}</span>
           ))}
         </div>

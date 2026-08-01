@@ -19,7 +19,7 @@ import { SparklesIcon } from "lucide-react";
 // superseded request stops yielding.
 async function* complete(value: string, signal?: AbortSignal) {
   const rest =
-    " and includes weekly demographic breakdowns suitable for secondary research.";
+    " and both sightings were at dusk, on wet ground, with a herder walking back alone.";
   for (const word of rest.split(/(?<=\s)/)) {
     await new Promise((r) => setTimeout(r, 40));
     if (signal?.aborted) return;
@@ -28,7 +28,7 @@ async function* complete(value: string, signal?: AbortSignal) {
 }
 
 export default function Example() {
-  const [value, setValue] = useState("This dataset covers confirmed cases");
+  const [value, setValue] = useState("Bog-hounds took the herd dog by the causeway");
   const ref = useRef<HTMLTextAreaElement>(null);
   const completion = useCompletion({ complete });
 
@@ -56,7 +56,7 @@ export default function Example() {
           }
         }}
         onBlur={() => completion.clear()}
-        placeholder="Describe the dataset…"
+        placeholder="What the party is walking into…"
         rows={3}
         value={value}
       />

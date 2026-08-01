@@ -8,7 +8,7 @@ export default function Example() {
 
   return (
     <Field className="w-64">
-      <FieldLabel>Created</FieldLabel>
+      <FieldLabel>Due by</FieldLabel>
       <DateField onChange={setValue} value={value} />
       <FieldDescription>
         Keyboard-navigable grid, with month and year quick-nav.

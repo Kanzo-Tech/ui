@@ -5,7 +5,6 @@ import { makeClient } from "@uwdata/mosaic-core";
 import { loadCSV, Query } from "@uwdata/mosaic-sql";
 import { Button, ScrollArea, Skeleton, StatTile } from "@kanzo-tech/ui";
 import {
-  avg,
   ChartAreaY,
   ChartAxisX,
   ChartAxisY,
@@ -40,24 +39,37 @@ import { FilterChips, useClauses } from "@/lib/filter-chips";
 import { DashboardGrid } from "@/lib/dashboard-grid";
 import {
   CheckCircle2Icon,
-  ClockIcon,
+  CircleHelpIcon,
   RotateCcwIcon,
   TriangleAlertIcon,
 } from "lucide-react";
 import {
-  OBSERVATIONS_FILE,
-  OBSERVATIONS_TABLE,
-  observationsCsv,
-  PROVIDERS,
-  REGIONS,
-} from "./analysis-data";
-import { AnalysisDetail } from "./analysis-detail";
+  BEAST_DOMAIN,
+  HALL_DOMAIN,
+  SIGHTINGS_TABLE,
+  sightingRows,
+} from "@/example/sightings";
+import { REGIONS } from "@/example/world";
+import { SightingsDetail } from "./sightings-detail";
 import { ensure } from "./duck";
 
 /**
- * The Analysis view — the discovery showcase's one live region, and the widest thing the charts
- * layer can be asked to do: a filter bar, four queried stat tiles, five plots and a table, all
- * reading ONE crossfilter over a real DuckDB relation.
+ * The Sightings view — the archive showcase's other region, and the widest thing the charts layer
+ * can be asked to do: a filter bar, four queried stat tiles, five plots and a table, all reading ONE
+ * crossfilter over a real DuckDB relation.
+ *
+ * The relation is the world's own. `@/example/sightings` is what every chart in these docs reads —
+ * one row per reported sighting, with four *kinds* of column, so the same grammar draws a line,
+ * bars, a scatter and a stacked series without a second schema. This panel used to carry a fixture
+ * of its own — a year of readings from twelve places nothing else in the docs had ever heard of —
+ * and the two never met. Sharing the world's relation is what lets a reader recognise `boghound`
+ * here after meeting it in the bestiary and again as a hub on the canvas next door.
+ *
+ * What sharing costs is the calendar. `sightings` has no date column, so no plot here is a
+ * timeline — the ordered axis is `hour`, and the curve it draws (most of these things are reported
+ * at night) is exactly what the fixture was built to show. Every "period" on this page is therefore
+ * a stretch of the clock rather than of the year, and the tiles' deltas say so rather than borrowing
+ * a "vs prior quarter" from a relation that has no quarters.
  *
  * Nothing here is a component the library ships. `ChartCard`, `StatTile` and `DashboardGrid` are
  * frames; every plot is a `ChartRoot` and a handful of marks written at this call site, which is
@@ -66,8 +78,8 @@ import { ensure } from "./duck";
  * Two rules the layout obeys, both from the dataviz brief:
  *   · **One filter row above everything it scopes.** No per-chart filters, no filters inside a card.
  *   · **Pick for categories, brush for ranges.** `ChartBrushX` only ever lands on a continuous
- *     scale (a date, a number); every band scale gets `ChartPickX` / `ChartPickY`. An interval over
- *     a band throws inside Mosaic on hover and blanks every other plot sharing the coordinator.
+ *     scale (an hour, a distance); every band scale gets `ChartPickX` / `ChartPickY`. An interval
+ *     over a band throws inside Mosaic on hover and blanks every other plot sharing the coordinator.
  *
  * And one rule the SQL forces, learned by building this panel: **`ChartHighlight` on an aggregating
  * mark must be given its own `by` selection.** vgplot's highlight appends the selection's predicate
@@ -78,15 +90,16 @@ import { ensure } from "./duck";
  * groups by. See `wirePicks` below.
  */
 
-const T = OBSERVATIONS_TABLE;
+const T = SIGHTINGS_TABLE;
+const FILE = "sightings.csv";
 
-/** `quality` is a status scale, not a series palette — reserved colours, and never colour alone. */
-const QUALITY: ChartConfig = {
-  validated: { label: "Validated", color: "var(--success)", icon: CheckCircle2Icon },
-  provisional: { label: "Provisional", color: "var(--warning)", icon: ClockIcon },
-  flagged: { label: "Flagged", color: "var(--destructive)", icon: TriangleAlertIcon },
+/** `verdict` is a status scale, not a series palette — reserved colours, and never colour alone. */
+const VERDICT: ChartConfig = {
+  confirmed: { label: "Confirmed", color: "var(--success)", icon: CheckCircle2Icon },
+  disputed: { label: "Disputed", color: "var(--warning)", icon: CircleHelpIcon },
+  hoax: { label: "Hoax", color: "var(--destructive)", icon: TriangleAlertIcon },
 };
-const QUALITY_ORDER = ["validated", "provisional", "flagged"];
+const VERDICT_ORDER = ["confirmed", "disputed", "hoax"];
 
 /**
  * One `single` selection per picking chart, relayed into the shared crossfilter.
@@ -96,46 +109,63 @@ const QUALITY_ORDER = ["validated", "provisional", "flagged"];
  * the provider's default pair.
  */
 interface Picks {
-  provider: Selection;
-  region: Selection;
+  hall: Selection;
+  beast: Selection;
   crossfilter: Selection;
 }
 
 function wirePicks(): Picks {
-  const provider = Selection.single();
-  const region = Selection.single();
-  return { crossfilter: Selection.crossfilter({ include: [provider, region] }), provider, region };
+  const hall = Selection.single();
+  const beast = Selection.single();
+  return { crossfilter: Selection.crossfilter({ include: [hall, beast] }), hall, beast };
 }
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
 
-/** The observations relation, on the coordinator the graph view also uses. See `./duck`. */
+/** The columns `sightings` carries, and the order the CSV writes them in. */
+const COLUMNS = ["beast", "region", "hall", "hour", "leagues", "bounty", "verdict"] as const;
+
+/**
+ * The world's rows as CSV text, for `registerFileText` + `loadCSV`.
+ *
+ * Not `loadObjects`: that builds one `SELECT … UNION ALL` per row, and DuckDB's parser walks every
+ * one of them. The world hands over objects because a fixture should not have to know how it will be
+ * loaded, so the header and the join live here — six lines, and the boot stays a single `read_csv`.
+ * No quoting, and none needed: every value is a number or a single word from a closed vocabulary.
+ */
+function sightingsCsv(): string {
+  const out = [COLUMNS.join(",")];
+  for (const row of sightingRows()) out.push(COLUMNS.map((column) => row[column]).join(","));
+  return out.join("\n");
+}
+
+/** The sightings relation, on the coordinator the graph view also uses. See `./duck`. */
 function boot(): Promise<Coordinator> {
   return ensure(T, async ({ coordinator, db }) => {
-    await db.registerFileText(OBSERVATIONS_FILE, observationsCsv());
-    await coordinator.exec(loadCSV(T, OBSERVATIONS_FILE));
+    await db.registerFileText(FILE, sightingsCsv());
+    await coordinator.exec(loadCSV(T, FILE));
   });
 }
 
 // ── The queried tiles ────────────────────────────────────────────────────────
 
-interface MonthRow {
-  records: number;
-  temperature: number;
-  rainfall: number;
-  flagged: number;
+interface HourRow {
+  sightings: number;
+  leagues: number;
+  bounty: number;
+  hoaxes: number;
 }
 
 /**
- * Twelve monthly buckets of the CURRENT selection, in one query — enough for four headline figures,
- * their sparklines and their deltas.
+ * Twenty-four hourly buckets of the CURRENT selection, in one query — enough for four headline
+ * figures, their sparklines and their deltas.
  *
  * `makeClient` is what makes them follow the crossfilter: a `useEffect` over `coordinator.query`
  * runs once and then reports totals that disagree with every plot beside it.
  */
-function useMonthly(): MonthRow[] | null {
+function useHourly(): HourRow[] | null {
   const { coordinator, crossfilter } = useMosaic();
-  const [rows, setRows] = useState<MonthRow[] | null>(null);
+  const [rows, setRows] = useState<HourRow[] | null>(null);
 
   useEffect(() => {
     const client = makeClient({
@@ -145,22 +175,22 @@ function useMonthly(): MonthRow[] | null {
       query: (filter) =>
         Query.from(T)
           .select({
-            month: "month",
-            records: sql`count(*)::INT`,
-            temperature: sql`round(avg(temperature), 2)`,
-            rainfall: sql`round(sum(rainfall), 1)`,
-            flagged: sql`CAST(count(*) FILTER (WHERE quality = 'flagged') AS INT)`,
+            hour: "hour",
+            sightings: sql`count(*)::INT`,
+            leagues: sql`round(avg(leagues), 2)`,
+            bounty: sql`sum(bounty)::INT`,
+            hoaxes: sql`CAST(count(*) FILTER (WHERE verdict = 'hoax') AS INT)`,
           })
-          .groupby("month")
-          .orderby("month")
+          .groupby("hour")
+          .orderby("hour")
           .where(filter),
       queryResult: (data) => {
         setRows(
           Array.from(data as Iterable<Record<string, unknown>>).map((row) => ({
-            records: Number(row.records),
-            temperature: Number(row.temperature),
-            rainfall: Number(row.rainfall),
-            flagged: Number(row.flagged),
+            sightings: Number(row.sightings),
+            leagues: Number(row.leagues),
+            bounty: Number(row.bounty),
+            hoaxes: Number(row.hoaxes),
           })),
         );
       },
@@ -173,34 +203,37 @@ function useMonthly(): MonthRow[] | null {
   return rows;
 }
 
-const sumOf = (rows: MonthRow[], pick: (r: MonthRow) => number) =>
+const sumOf = (rows: HourRow[], pick: (r: HourRow) => number) =>
   rows.reduce((total, row) => total + pick(row), 0);
 
-const meanOf = (rows: MonthRow[], pick: (r: MonthRow) => number) =>
+const meanOf = (rows: HourRow[], pick: (r: HourRow) => number) =>
   rows.length ? sumOf(rows, pick) / rows.length : 0;
 
 /**
- * The tail of the selection against the stretch before it. A quarter when the selection is a year;
- * narrower once a brush has cut it down, because a delta that disappears whenever the window shrinks
- * would make the whole KPI row jump.
+ * The tail of the selection against the stretch before it. Three hours when the selection is the
+ * whole day, narrower once a brush has cut it down — because a delta that disappears whenever the
+ * window shrinks would make the whole KPI row jump.
+ *
+ * Hours, not months: the relation has no calendar, and a "vs prior quarter" on an axis running
+ * midnight to midnight would be a comparison nobody could check.
  */
-function periods(rows: MonthRow[]): { recent: MonthRow[]; prior: MonthRow[]; label: string } {
+function periods(rows: HourRow[]): { recent: HourRow[]; prior: HourRow[]; label: string } {
   const span = Math.min(3, Math.floor(rows.length / 2));
   return {
-    label: span === 3 ? "prior quarter" : span === 2 ? "prior 2 months" : "prior month",
+    label: span === 1 ? "the hour before" : `the ${span} hours before`,
     prior: rows.slice(-2 * span, -span),
     recent: rows.slice(-span),
   };
 }
 
 function Tiles() {
-  const rows = useMonthly();
+  const rows = useHourly();
   const dash = "—";
 
   if (!rows || rows.length === 0) {
     return (
       <DashboardGrid minColumnWidth={200}>
-        {["Observations", "Mean temperature", "Rainfall", "Flagged"].map((label) => (
+        {["Sightings", "Mean distance", "Bounty paid", "Hoaxes"].map((label) => (
           <StatTile key={label} label={label} value={dash} />
         ))}
       </DashboardGrid>
@@ -209,10 +242,12 @@ function Tiles() {
 
   const { recent, prior, label } = periods(rows);
   const comparable = prior.length > 0;
-  const records = sumOf(rows, (r) => r.records);
-  const flagged = sumOf(rows, (r) => r.flagged);
-  const share = (part: MonthRow[]) =>
-    sumOf(part, (r) => r.records) ? (100 * sumOf(part, (r) => r.flagged)) / sumOf(part, (r) => r.records) : 0;
+  const sightings = sumOf(rows, (r) => r.sightings);
+  const hoaxes = sumOf(rows, (r) => r.hoaxes);
+  const share = (part: HourRow[]) =>
+    sumOf(part, (r) => r.sightings)
+      ? (100 * sumOf(part, (r) => r.hoaxes)) / sumOf(part, (r) => r.sightings)
+      : 0;
 
   return (
     <DashboardGrid minColumnWidth={200}>
@@ -221,41 +256,41 @@ function Tiles() {
           comparable
             ? {
                 label: `vs ${label}`,
-                value: sumOf(recent, (r) => r.records) - sumOf(prior, (r) => r.records),
+                value: sumOf(recent, (r) => r.sightings) - sumOf(prior, (r) => r.sightings),
               }
             : undefined
         }
-        label="Observations"
-        trend={rows.map((r) => r.records)}
-        value={records}
+        label="Sightings"
+        trend={rows.map((r) => r.sightings)}
+        value={sightings}
       />
       <StatTile
         delta={
           comparable
             ? {
-                label: `°C vs ${label}`,
+                label: `leagues vs ${label}`,
                 value: Number(
-                  (meanOf(recent, (r) => r.temperature) - meanOf(prior, (r) => r.temperature)).toFixed(1),
+                  (meanOf(recent, (r) => r.leagues) - meanOf(prior, (r) => r.leagues)).toFixed(1),
                 ),
               }
             : undefined
         }
-        label="Mean temperature"
-        trend={rows.map((r) => r.temperature)}
-        value={`${meanOf(rows, (r) => r.temperature).toFixed(1)} °C`}
+        label="Mean distance"
+        trend={rows.map((r) => r.leagues)}
+        value={`${meanOf(rows, (r) => r.leagues).toFixed(1)} leagues`}
       />
       <StatTile
         delta={
           comparable
             ? {
-                label: `mm vs ${label}`,
-                value: Math.round(sumOf(recent, (r) => r.rainfall) - sumOf(prior, (r) => r.rainfall)),
+                label: `gold vs ${label}`,
+                value: Math.round(sumOf(recent, (r) => r.bounty) - sumOf(prior, (r) => r.bounty)),
               }
             : undefined
         }
-        label="Rainfall"
-        trend={rows.map((r) => r.rainfall)}
-        value={`${Math.round(sumOf(rows, (r) => r.rainfall)).toLocaleString()} mm`}
+        label="Bounty paid"
+        trend={rows.map((r) => r.bounty)}
+        value={`${sumOf(rows, (r) => r.bounty).toLocaleString()} gold`}
       />
       <StatTile
         delta={
@@ -267,9 +302,9 @@ function Tiles() {
               }
             : undefined
         }
-        label="Flagged"
-        trend={rows.map((r) => (r.records ? (100 * r.flagged) / r.records : 0))}
-        value={`${((100 * flagged) / (records || 1)).toFixed(1)}%`}
+        label="Hoaxes"
+        trend={rows.map((r) => (r.sightings ? (100 * r.hoaxes) / r.sightings : 0))}
+        value={`${((100 * hoaxes) / (sightings || 1)).toFixed(1)}%`}
       />
     </DashboardGrid>
   );
@@ -297,8 +332,8 @@ function ActiveFilters({ picks }: { picks: Picks }) {
   const clearAll = () => {
     // A reset relays downstream, never upstream, so the two picks have to be cleared themselves —
     // the crossfilter only owns the clauses published straight into it.
-    picks.provider.reset();
-    picks.region.reset();
+    picks.hall.reset();
+    picks.beast.reset();
     picks.crossfilter.reset();
   };
 
@@ -308,8 +343,8 @@ function ActiveFilters({ picks }: { picks: Picks }) {
         {all.rows === null
           ? "Counting…"
           : rows === total
-            ? `${total.toLocaleString()} records`
-            : `${rows.toLocaleString()} of ${total.toLocaleString()} records`}
+            ? `${total.toLocaleString()} sightings`
+            : `${rows.toLocaleString()} of ${total.toLocaleString()} sightings`}
       </span>
 
       <FilterChips className="flex flex-wrap items-center gap-2" selection={crossfilter} />
@@ -358,18 +393,18 @@ function FilterBar({ picks }: { picks: Picks }) {
         <FilterCell label="Region">
           <ChartFilter column="region" label="Any" size="sm" table={T} />
         </FilterCell>
-        <FilterCell label="Provider">
-          <ChartFilter column="provider" label="Any" size="sm" table={T} />
+        <FilterCell label="Hall on patrol">
+          <ChartFilter column="hall" label="Any" size="sm" table={T} />
         </FilterCell>
-        <FilterCell label="Station">
-          <ChartSearch column="station" placeholder="A Coruña…" size="sm" table={T} />
+        <FilterCell label="Beast">
+          <ChartSearch column="beast" placeholder="boghound…" size="sm" table={T} />
         </FilterCell>
-        <FilterCell label="Temperature (°C)">
+        <FilterCell label="Leagues from the road">
           {/* `h-7` is the `sm` control height. A track is 8px tall, so without a box of the same
               height as its neighbours the whole cell — header included — sits lower than the rest. */}
           <ChartSlider
             className="h-7 min-w-0 justify-center"
-            column="temperature"
+            column="leagues"
             select="interval"
             showValue={false}
             step={0.5}
@@ -390,8 +425,8 @@ function Plots({ picks }: { picks: Picks }) {
       <div className="grid gap-4 xl:grid-cols-3">
         <ChartCard
           className="xl:col-span-2"
-          description="the whole year behind, the current selection in front · drag to pick a period"
-          title="Daily mean temperature (°C)"
+          description="the whole day behind, the current selection in front · drag to pick a stretch of it"
+          title="Sightings by hour"
         >
           <ChartRoot height={190} margin={{ bottom: 24, left: 40, right: 12, top: 8 }} table={T}>
             <ChartLineY
@@ -399,46 +434,46 @@ function Plots({ picks }: { picks: Picks }) {
               stroke="var(--muted-foreground)"
               strokeOpacity={0.35}
               strokeWidth={1}
-              x="day"
-              y={avg("temperature")}
+              x="hour"
+              y={count()}
             />
-            <ChartLineY stroke="var(--chart-1)" strokeWidth={1.5} x="day" y={avg("temperature")} />
+            <ChartLineY stroke="var(--chart-1)" strokeWidth={1.5} x="hour" y={count()} />
             <ChartBrushX />
-            <ChartAxisX label={null} ticks={7} />
+            <ChartAxisX label={null} ticks={8} />
             <ChartAxisY grid label={null} />
           </ChartRoot>
         </ChartCard>
 
         <ChartCard
-          description="click a bar to filter · stacked by record quality"
-          legend={<ChartLegend config={QUALITY} />}
-          title="Records by provider"
+          description="click a bar to filter · stacked by what the assessor made of it"
+          legend={<ChartLegend config={VERDICT} />}
+          title="Sightings by hall on patrol"
         >
           <ChartRoot
-            config={QUALITY}
+            config={VERDICT}
             height={190}
             margin={{ bottom: 24, left: 88, right: 12, top: 8 }}
             table={T}
           >
             <ChartBarX
-              fill="quality"
+              fill="verdict"
               insetRight={1}
-              order={QUALITY_ORDER}
+              order={VERDICT_ORDER}
               tip
               x={count()}
-              y="provider"
+              y="hall"
             />
-            <ChartPickY as={picks.provider} />
-            <ChartHighlight by={picks.provider} />
+            <ChartPickY as={picks.hall} />
+            <ChartHighlight by={picks.hall} />
             <ChartAxisX grid label={null} />
-            <ChartAxisY domain={PROVIDERS} label={null} />
+            <ChartAxisY domain={HALL_DOMAIN} label={null} />
           </ChartRoot>
         </ChartCard>
       </div>
 
       <ChartCard
-        description="one shared pair of scales, so the panels compare · Galicia takes ~17× Andalucía, which is why the dry ones are flat"
-        title="Monthly rainfall by region (mm)"
+        description="one shared pair of scales, so the panels compare · each region holds four of the eight beasts, which is why no two curves are the same shape"
+        title="Bounty paid by region, across the day (gold)"
       >
         <ChartRoot
           facetMargin={{ left: 8, right: 8 }}
@@ -451,19 +486,19 @@ function Plots({ picks }: { picks: Picks }) {
             fill="var(--chart-1)"
             fillOpacity={0.16}
             fx="region"
-            x="month"
-            y={sum("rainfall")}
+            x="hour"
+            y={sum("bounty")}
           />
           <ChartLineY
             curve="monotone-x"
             fx="region"
             stroke="var(--chart-1)"
             strokeWidth={1.5}
-            x="month"
-            y={sum("rainfall")}
+            x="hour"
+            y={sum("bounty")}
           />
           <ChartBrushX />
-          <ChartAxisX label={null} ticks={2} />
+          <ChartAxisX label={null} ticks={3} />
           <ChartAxisY grid label={null} />
           <ChartFacetX domain={REGIONS} label={null} />
         </ChartRoot>
@@ -473,36 +508,36 @@ function Plots({ picks }: { picks: Picks }) {
         <ChartCard
           className="xl:col-span-2"
           description="drag a box to select · the fit and its band are SQL aggregates"
-          title="Temperature × humidity"
+          title="Distance × bounty"
         >
           <ChartRoot height={190} margin={{ bottom: 26, left: 40, right: 12, top: 8 }} table={T}>
-            <ChartDot fill="var(--chart-1)" fillOpacity={0.35} r={1.7} x="temperature" y="humidity" />
+            <ChartDot fill="var(--chart-1)" fillOpacity={0.35} r={1.7} x="leagues" y="bounty" />
             <ChartRegressionY
               ci={0.95}
               fill="var(--chart-1)"
               stroke="var(--chart-1)"
-              x="temperature"
-              y="humidity"
+              x="leagues"
+              y="bounty"
             />
             <ChartBrushXY />
-            <ChartAxisX label="°C" />
-            <ChartAxisY grid label="% relative humidity" />
+            <ChartAxisX label="leagues from the nearest road" />
+            <ChartAxisY grid label="gold" />
           </ChartRoot>
         </ChartCard>
 
-        <ChartCard description="click a bar to filter" title="Records by region">
-          <ChartRoot height={190} margin={{ bottom: 46, left: 44, right: 8, top: 8 }} table={T}>
+        <ChartCard description="click a bar to filter" title="Sightings by beast">
+          <ChartRoot height={190} margin={{ bottom: 56, left: 44, right: 8, top: 8 }} table={T}>
             <ChartBarY
               fill="var(--muted-foreground)"
               filterBy={null}
               opacity={0.22}
-              x="region"
+              x="beast"
               y={count()}
             />
-            <ChartBarY fill="var(--chart-1)" x="region" y={count()} />
-            <ChartPickX as={picks.region} />
-            <ChartHighlight by={picks.region} />
-            <ChartAxisX domain={REGIONS} label={null} padding={0.28} tickRotate={-30} />
+            <ChartBarY fill="var(--chart-1)" x="beast" y={count()} />
+            <ChartPickX as={picks.beast} />
+            <ChartHighlight by={picks.beast} />
+            <ChartAxisX domain={BEAST_DOMAIN} label={null} padding={0.28} tickRotate={-40} />
             <ChartAxisY grid label={null} />
           </ChartRoot>
         </ChartCard>
@@ -530,7 +565,7 @@ function BootSkeleton() {
   );
 }
 
-export default function AnalysisDashboard() {
+export default function SightingsDashboard() {
   const [coordinator, setCoordinator] = useState<Coordinator | null>(null);
   const [picks] = useState(wirePicks);
 
@@ -554,10 +589,10 @@ export default function AnalysisDashboard() {
           <Tiles />
           <Plots picks={picks} />
           <ChartCard
-            description="one row per station and month, re-queried against the same selection"
-            title="Station detail"
+            description="one row per beast, region and hall, re-queried against the same selection"
+            title="Where each one turns up"
           >
-            <AnalysisDetail />
+            <SightingsDetail />
           </ChartCard>
         </div>
       </ScrollArea>

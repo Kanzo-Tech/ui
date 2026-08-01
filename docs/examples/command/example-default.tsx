@@ -13,14 +13,7 @@ import {
   useFilter,
   useListCollection,
 } from "@kanzo-tech/ui";
-
-const COMMANDS = [
-  { label: "New dataset", value: "new-dataset", group: "Actions", shortcut: "⌘N" },
-  { label: "Search datasets", value: "search", group: "Actions", shortcut: "⌘F" },
-  { label: "Import from URL", value: "import", group: "Actions" },
-  { label: "Toggle theme", value: "theme", group: "Preferences", shortcut: "T" },
-  { label: "Open settings", value: "settings", group: "Preferences", shortcut: "⌘," },
-];
+import { COMMANDS } from "@/example/nav";
 
 export default function Example() {
   const { contains } = useFilter({ sensitivity: "base" });

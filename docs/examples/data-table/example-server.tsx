@@ -9,42 +9,27 @@ import {
   sortableHeader,
   useDataTable,
 } from "@kanzo-tech/ui/table";
+import { postedOn, type Quest, QUESTS } from "@/example/quests";
 
-interface LogEvent {
-  id: number;
-  kind: string;
-  received: number;
-}
-
-const ROWS: LogEvent[] = Array.from({ length: 137 }, (_, index) => ({
-  id: index + 1,
-  kind: ["click", "view", "purchase"][index % 3],
-  received: 1_700_000_000 + index * 61,
-}));
-
-// Stands in for the API call: the server sorts, slices and reports the total.
+// Stands in for the board API: the server sorts, slices and reports the total.
 async function fetchPage(pageIndex: number, pageSize: number, descending: boolean) {
   await new Promise((resolve) => setTimeout(resolve, 120));
-  const sorted = descending ? [...ROWS].reverse() : ROWS;
+  const sorted = descending ? [...QUESTS].reverse() : [...QUESTS];
 
   return {
     rows: sorted.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize),
-    total: ROWS.length,
+    total: QUESTS.length,
   };
 }
 
-const columns: ColumnDef<LogEvent>[] = [
-  { accessorKey: "id", header: sortableHeader("#") },
-  { accessorKey: "kind", header: "Event" },
-  {
-    accessorKey: "received",
-    cell: ({ row }) => new Date(row.original.received * 1000).toISOString().slice(11, 19),
-    header: "Received",
-  },
+const columns: ColumnDef<Quest>[] = [
+  { accessorKey: "id", header: sortableHeader("Ref") },
+  { accessorKey: "title", header: "Contract" },
+  { accessorFn: postedOn, header: "Posted", id: "posted" },
 ];
 
 export default function Example() {
-  const [page, setPage] = useState<{ rows: LogEvent[]; total: number }>({ rows: [], total: 0 });
+  const [page, setPage] = useState<{ rows: Quest[]; total: number }>({ rows: [], total: 0 });
 
   const table = useDataTable({
     columns,
@@ -71,7 +56,7 @@ export default function Example() {
   return (
     <div className="w-full max-w-xl">
       <DataTableRoot table={table}>
-        <DataTableContent<LogEvent> empty="Loading…" />
+        <DataTableContent<Quest> empty="Reading the board…" />
         <DataTablePagination />
       </DataTableRoot>
     </div>

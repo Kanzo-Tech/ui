@@ -8,19 +8,19 @@ import {
   createListCollection,
 } from "@kanzo-tech/ui";
 
-const datasets = createListCollection({
+const halls = createListCollection({
   items: [
-    { label: "customers", value: "customers" },
-    { label: "orders", value: "orders" },
+    { label: "The Amber Hall", value: "amber" },
+    { label: "The Order of Salt", value: "salt" },
   ],
 });
 
 export default function Example() {
   return (
-    <Combobox collection={datasets} disabled>
-      <ComboboxInput className="w-72" placeholder="Search datasets…" />
+    <Combobox collection={halls} disabled>
+      <ComboboxInput className="w-72" placeholder="Filter by hall…" />
       <ComboboxContent>
-        {datasets.items.map((item) => (
+        {halls.items.map((item) => (
           <ComboboxItem item={item} key={item.value}>
             {item.label}
           </ComboboxItem>

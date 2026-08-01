@@ -6,23 +6,23 @@ export default function Example() {
     <div className="flex w-full max-w-sm flex-col gap-6">
       <Field>
         <FieldLabel>Default</FieldLabel>
-        <Input placeholder="Nothing set" />
+        <Input placeholder="A wyrm under the granary" />
       </Field>
 
       <Field invalid>
         <FieldLabel>Invalid</FieldLabel>
-        <Input defaultValue="not an endpoint" />
-        <FieldError>Must be a valid URL.</FieldError>
+        <Input defaultValue="Q 1041" />
+        <FieldError>Contract ids are Q- followed by four figures.</FieldError>
       </Field>
 
       <Field disabled>
         <FieldLabel>Disabled</FieldLabel>
-        <Input defaultValue="Locked" />
+        <Input defaultValue="Q-1041" />
       </Field>
 
       <Field readOnly>
         <FieldLabel>Read only</FieldLabel>
-        <Input defaultValue="Visible, not editable" />
+        <Input defaultValue="The Amber Hall" />
       </Field>
     </div>
   );

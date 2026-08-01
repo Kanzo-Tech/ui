@@ -3,15 +3,15 @@ import { RadioGroup, RadioGroupItem } from "@kanzo-tech/ui";
 export default function Example() {
   return (
     <div className="flex flex-col gap-6">
-      <RadioGroup defaultValue="ttl" disabled>
-        <RadioGroupItem value="ttl">Whole group disabled</RadioGroupItem>
-        <RadioGroupItem value="jsonld">JSON-LD</RadioGroupItem>
+      <RadioGroup defaultValue="amber" disabled>
+        <RadioGroupItem value="amber">Whole group disabled</RadioGroupItem>
+        <RadioGroupItem value="salt">The Order of Salt</RadioGroupItem>
       </RadioGroup>
 
-      <RadioGroup defaultValue="ttl">
-        <RadioGroupItem value="ttl">Turtle</RadioGroupItem>
-        <RadioGroupItem disabled value="nq">
-          N-Quads — one item disabled
+      <RadioGroup defaultValue="amber">
+        <RadioGroupItem value="amber">The Amber Hall</RadioGroupItem>
+        <RadioGroupItem disabled value="lanternwood">
+          Lanternwood — invited, not chartered
         </RadioGroupItem>
       </RadioGroup>
     </div>

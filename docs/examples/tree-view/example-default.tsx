@@ -12,28 +12,10 @@ import {
   TreeViewTree,
   createTreeCollection,
 } from "@kanzo-tech/ui";
+import { BESTIARY, type TreeNode } from "@/example/bestiary";
 
-const collection = createTreeCollection({
-  rootNode: {
-    id: "ROOT",
-    name: "",
-    children: [
-      {
-        id: "shapes",
-        name: "shapes",
-        children: [
-          { id: "customer.ttl", name: "customer.ttl" },
-          { id: "order.ttl", name: "order.ttl" },
-        ],
-      },
-      {
-        id: "queries",
-        name: "queries",
-        children: [{ id: "recent.rq", name: "recent.rq" }],
-      },
-      { id: "README.md", name: "README.md" },
-    ],
-  },
+const collection = createTreeCollection<TreeNode>({
+  rootNode: { id: "ROOT", name: "", children: BESTIARY },
 });
 
 // Recursive: a node is a branch when it has children, a leaf otherwise.
@@ -67,10 +49,10 @@ const Node = (props: ComponentProps<typeof TreeViewNode>) => {
 export default function Example() {
   return (
     <TreeView
-      aria-label="Project files"
+      aria-label="The bestiary"
       className="max-w-xs"
       collection={collection}
-      defaultExpandedValue={["shapes"]}
+      defaultExpandedValue={["warm", "warm.flying"]}
     >
       <TreeViewTree>
         {collection.rootNode.children?.map((node, index) => (

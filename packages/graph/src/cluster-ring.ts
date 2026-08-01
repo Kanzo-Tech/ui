@@ -12,13 +12,16 @@ import { SPACE } from "./graph-model";
  * and the separation is a fixed geometry the simulation converges onto rather than an emergent
  * property it might not find.
  *
- * That separation is the one thing the CPU seed in `lib/force-layout` cannot supply here. A `theme`
- * is an attribute, not a community: keywords are shared across themes by construction, so the link
- * structure genuinely crosses them and no link-driven layout can pull them apart. Measured on this
- * corpus, the seed's own angular hint decays from a 2.40 between/within centroid ratio at tick 0 to
- * **0.66 by tick 50**, where it stays through tick 400 — 8-nearest-neighbour purity 17.1%, against
- * a 13.2% chance floor for these eight group sizes. The seed buys short edges; only this buys
- * communities.
+ * That separation is the one thing the CPU seed in `lib/force-layout` cannot supply here. A `hall`
+ * is an attribute, not a community: members, tags, beasts and regions are shared across the halls by
+ * construction — a party borrows, a beast ranges, a tag is the board's and not one hall's — so the
+ * link structure genuinely crosses them and no link-driven layout can pull them apart. Measured on
+ * the archive corpus (1,543 nodes, 4,280 edges, five halls), the seed's own angular hint decays from
+ * a 2.53 between/within centroid ratio at tick 0 to 2.73 at tick 5 and **0.71 by tick 50**, where it
+ * stays: 0.67 at the shipped 200 ticks and 0.68 at 400. On the layout as shipped, 8-nearest-
+ * neighbour purity is 27.0% against a 20.1% chance floor for these five group sizes. The seed buys
+ * short edges — mean edge length 0.111 of the layout's width, against 0.516 for an unseeded start —
+ * and only this buys communities.
  */
 export function clusterRing(clusters: readonly (number | undefined)[]): number[] {
   let count = 0;
@@ -36,13 +39,15 @@ export function clusterRing(clusters: readonly (number | undefined)[]): number[]
 /**
  * How far out the ring sits, in the simulation's own units.
  *
- * Matched to where the seeded layout already lives rather than chosen for the picture: the shipped
- * seed puts nodes at a median radius of 587 from the centre of the 4,096 box, quartiles 381 and
- * 786. At 655 the ring lands between the median and the upper quartile, so the cluster force
- * redistributes points around a circle the layout already occupies instead of inflating it.
+ * Matched to where the seeded layout already lives rather than chosen for the picture, and
+ * re-measured for the archive: the shipped seed puts nodes at a median radius of 351 from the centre
+ * of the 4,096 box, quartiles 211 and 655. At 492 the ring lands between the median and the upper
+ * quartile, so the cluster force redistributes points around a circle the layout already occupies
+ * instead of inflating it. It was `0.16` — 655 — for the old corpus, whose median sat at 587; this
+ * one packs tighter, because 938 of its 1,543 vertices are leaves hanging off a contract.
  *
  * Slot order is the order the group values were first seen in the relation, which on a ring means
  * neighbouring slots are neighbouring arcs. Nothing reads meaning into that adjacency, and nothing
  * should — the order is the relation's, not the domain's.
  */
-const RING = SPACE * 0.16;
+const RING = SPACE * 0.12;

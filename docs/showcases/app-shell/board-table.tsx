@@ -33,37 +33,41 @@ import {
 import {
   CircleCheckIcon,
   CircleDashedIcon,
+  CircleDotIcon,
   CircleXIcon,
   DownloadIcon,
   EllipsisIcon,
+  FootprintsIcon,
   RotateCwIcon,
   Trash2Icon,
   XIcon,
 } from "lucide-react";
-import { type Run, type RunStatus, RUNS } from "./data";
+import { board, daysOverdue, hallOf, isOverdue, postedOn, type Quest } from "@/example/quests";
+import { questStatus, QUEST_STATUSES, type QuestStatusId } from "@/example/world";
 
-const STATUS_VARIANT = {
-  succeeded: "success",
-  running: "info",
-  failed: "destructive",
-} as const;
-
-const STATUS_ICON = {
-  succeeded: CircleCheckIcon,
-  running: CircleDashedIcon,
+// The tone belongs to the world — `questStatus("failed").tone` is what every other status badge in
+// these docs reads — so only the icons are chosen here.
+const STATUS_ICON: Record<QuestStatusId, typeof CircleCheckIcon> = {
+  open: CircleDashedIcon,
+  claimed: CircleDotIcon,
+  afield: FootprintsIcon,
+  settled: CircleCheckIcon,
   failed: CircleXIcon,
 };
 
 const numberFmt = new Intl.NumberFormat("en-US");
 
-function duration(seconds: number) {
-  return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+/** The due date as a distance, so the column can sort on the raw offset and still read as prose. */
+function due(contract: Quest) {
+  if (isOverdue(contract)) return `${daysOverdue(contract)} d late`;
+  if (contract.dueDayOffset === 0) return "today";
+  return contract.dueDayOffset > 0 ? `in ${contract.dueDayOffset} d` : `${-contract.dueDayOffset} d ago`;
 }
 
 /** `sortableHeader` has no alignment of its own, so a numeric column wraps it to sit over its
  *  end-aligned figures. `/table` does not re-export `HeaderContext`, hence the ComponentProps. */
 function numericHeader(label: string) {
-  const Header = sortableHeader<Run, unknown>(label);
+  const Header = sortableHeader<Quest, unknown>(label);
   return (context: ComponentProps<typeof Header>) => (
     <div className="flex justify-end">
       <Header {...context} />
@@ -71,22 +75,24 @@ function numericHeader(label: string) {
   );
 }
 
-const COLUMNS: ColumnDef<Run>[] = [
-  selectColumn<Run>({ rowLabel: (row) => `Select ${row.original.pipeline}` }),
+const COLUMNS: ColumnDef<Quest>[] = [
+  selectColumn<Quest>({ rowLabel: (row) => `Select ${row.original.title}` }),
   {
-    accessorKey: "pipeline",
-    header: sortableHeader("Pipeline"),
-    meta: { label: "Pipeline" },
+    accessorKey: "title",
+    header: sortableHeader("Contract"),
+    meta: { label: "Contract" },
     cell: ({ row }) => (
       <div className="min-w-0">
-        <div className="truncate font-medium">{row.original.pipeline}</div>
-        <div className="truncate text-muted-foreground text-xs">{row.original.source}</div>
+        <div className="truncate font-medium">{row.original.title}</div>
+        <div className="truncate text-muted-foreground text-xs">
+          {row.original.id} · {hallOf(row.original).short}
+        </div>
       </div>
     ),
   },
   {
-    accessorKey: "environment",
-    header: "Environment",
+    accessorKey: "region",
+    header: "Region",
     filterFn: facetFilterFn,
     cell: ({ getValue }) => (
       <Badge size="sm" variant="outline">
@@ -96,42 +102,43 @@ const COLUMNS: ColumnDef<Run>[] = [
   },
   {
     accessorKey: "status",
-    header: "Status",
+    header: "State",
     filterFn: facetFilterFn,
     cell: ({ getValue }) => {
-      const status = getValue<RunStatus>();
-      const Icon = STATUS_ICON[status];
+      const state = questStatus(getValue<QuestStatusId>());
+      const Icon = STATUS_ICON[state.id];
       return (
-        <Badge size="sm" variant={STATUS_VARIANT[status]}>
+        <Badge size="sm" variant={state.tone}>
           <Icon />
-          {status}
+          {state.label}
         </Badge>
       );
     },
   },
   {
-    accessorKey: "rows",
-    header: numericHeader("Rows"),
-    meta: { label: "Rows" },
+    accessorKey: "reward",
+    header: numericHeader("Reward"),
+    meta: { label: "Reward" },
     cell: ({ getValue }) => (
       <span className="block text-end text-sm tabular-nums">
-        {numberFmt.format(getValue<number>())}
+        {numberFmt.format(getValue<number>())} g
       </span>
     ),
   },
   {
-    accessorKey: "duration",
-    header: numericHeader("Duration"),
-    meta: { label: "Duration" },
-    cell: ({ getValue }) => (
+    accessorKey: "dueDayOffset",
+    header: numericHeader("Due"),
+    meta: { label: "Due" },
+    cell: ({ row }) => (
       <span className="block text-end text-muted-foreground text-sm tabular-nums">
-        {duration(getValue<number>())}
+        {due(row.original)}
       </span>
     ),
   },
   {
-    accessorKey: "started",
-    header: "Started",
+    accessorFn: postedOn,
+    id: "posted",
+    header: "Posted",
     cell: ({ getValue }) => (
       <span className="whitespace-nowrap text-muted-foreground text-sm">{getValue<string>()}</span>
     ),
@@ -144,7 +151,7 @@ const COLUMNS: ColumnDef<Run>[] = [
         <Menu>
           <MenuTrigger asChild>
             <Button
-              aria-label={`Actions for ${row.original.pipeline}`}
+              aria-label={`Actions for ${row.original.title}`}
               onClick={(event) => event.stopPropagation()}
               size="icon-sm"
               variant="ghost"
@@ -154,23 +161,23 @@ const COLUMNS: ColumnDef<Run>[] = [
           </MenuTrigger>
           <MenuContent>
             <MenuItem
-              onSelect={() => toast.create({ title: `Re-running ${row.original.pipeline}`, type: "info" })}
-              value="rerun"
+              onSelect={() => toast.create({ title: `Re-posting ${row.original.id}`, type: "info" })}
+              value="repost"
             >
               <RotateCwIcon />
-              Re-run
+              Re-post
             </MenuItem>
-            <MenuItem onSelect={() => toast.create({ title: "Logs downloaded", type: "success" })} value="logs">
+            <MenuItem onSelect={() => toast.create({ title: "Writ copied", type: "success" })} value="writ">
               <DownloadIcon />
-              Download logs
+              Copy the writ
             </MenuItem>
             <MenuSeparator />
             <MenuItem
-              onSelect={() => toast.create({ title: `Delete ${row.original.pipeline}?`, type: "warning" })}
-              value="delete"
+              onSelect={() => toast.create({ title: `Withdraw ${row.original.id}?`, type: "warning" })}
+              value="withdraw"
             >
               <Trash2Icon />
-              Delete
+              Withdraw
             </MenuItem>
           </MenuContent>
         </Menu>
@@ -179,38 +186,47 @@ const COLUMNS: ColumnDef<Run>[] = [
   },
 ];
 
-const STATUS_OPTIONS = (["succeeded", "running", "failed"] as const).map((value) => ({
-  value,
-  icon: STATUS_ICON[value],
+const STATUS_OPTIONS = QUEST_STATUSES.map((state) => ({
+  value: state.id,
+  label: state.label,
+  icon: STATUS_ICON[state.id],
 }));
 
+const DATA = board();
+
 /**
- * The runs table, built from the `/table` parts rather than the `DataTable` preset: row
- * selection, facet filters and column visibility only exist down here, and the selection then
- * drives an `ActionBar`.
+ * The board, built from the `/table` parts rather than the `DataTable` preset: row selection,
+ * facet filters and column visibility only exist down here, and the selection then drives an
+ * `ActionBar`.
  */
-export function RunsTable() {
-  const table = useDataTable({ columns: COLUMNS, data: RUNS, pageSize: 6 });
+export function BoardTable() {
+  const table = useDataTable({ columns: COLUMNS, data: DATA, pageSize: 6 });
   const selected = table.getFilteredSelectedRowModel().rows;
 
   return (
     <DataTableRoot table={table}>
-      <DataTableToolbar id="tour-runs-toolbar">
-        <DataTableSearch column="pipeline" placeholder="Search runs…" />
-        <DataTableFacetFilter column="status" label="Status" options={STATUS_OPTIONS} />
-        <DataTableFacetFilter column="environment" label="Environment" />
+      <DataTableToolbar id="tour-board-toolbar">
+        <DataTableSearch column="title" placeholder="Search contracts…" />
+        <DataTableFacetFilter column="status" label="State" options={STATUS_OPTIONS} />
+        <DataTableFacetFilter column="region" label="Region" />
         <DataTableViewOptions className="ms-auto" />
       </DataTableToolbar>
 
       {/* `stickyHeader` with a `maxHeight`, which is the pair rather than the prop: pinning to the
           enclosing region alone costs the wrapper's sideways scroll, and at 430px these six
-          columns are wider than the box — Duration and Started went out of reach. Given a height
-          the wrapper scrolls again on both axes and the header pins to it. 28rem clears six rows,
-          so the vertical scroll only appears once the page size grows. */}
-      <DataTableContent<Run>
-        empty="No runs match these filters."
+          columns are wider than the box — Due and Posted went out of reach. Given a height the
+          wrapper scrolls again on both axes and the header pins to it. 28rem clears six rows, so
+          the vertical scroll only appears once the page size grows. */}
+      <DataTableContent<Quest>
+        empty="No contracts match these filters."
         maxHeight="28rem"
-        onRowClick={(run) => toast.create({ title: run.pipeline, description: run.source, type: "info" })}
+        onRowClick={(contract) =>
+          toast.create({
+            title: contract.title,
+            description: `${hallOf(contract).short} · ${contract.region}`,
+            type: "info",
+          })
+        }
         stickyHeader
       />
 
@@ -228,15 +244,17 @@ export function RunsTable() {
           <ActionBarValue count={selected.length} label={`${selected.length} selected`} />
           <ActionBarSeparator />
           <Button
-            onClick={() => toast.create({ title: `Re-running ${selected.length} runs`, type: "info" })}
+            onClick={() =>
+              toast.create({ title: `Re-posting ${selected.length} contracts`, type: "info" })
+            }
             size="sm"
             variant="ghost"
           >
             <RotateCwIcon />
-            Re-run
+            Re-post
           </Button>
           <Button
-            onClick={() => toast.create({ title: "Export queued", type: "success" })}
+            onClick={() => toast.create({ title: "Ledger export queued", type: "success" })}
             size="sm"
             variant="ghost"
           >

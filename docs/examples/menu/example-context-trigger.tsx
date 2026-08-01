@@ -1,4 +1,4 @@
-import { CopyIcon, PencilIcon, TrashIcon } from "lucide-react";
+import { CircleSlashIcon, CopyIcon, HandIcon } from "lucide-react";
 import {
   Menu,
   MenuContent,
@@ -12,29 +12,29 @@ export default function Example() {
   return (
     <Menu>
       <MenuContextTrigger asChild>
-        <div className="flex h-32 w-72 items-center justify-center rounded-xl border-2 border-border border-dashed text-muted-foreground text-sm">
-          Right-click here
+        <div className="flex h-32 w-72 items-center justify-center rounded-xl border-2 border-border border-dashed px-4 text-center text-muted-foreground text-sm">
+          Q-1041 · Something is eating the bell-ropes
         </div>
       </MenuContextTrigger>
 
       <MenuContent className="w-44">
-        <MenuItem value="edit">
-          <PencilIcon />
-          Edit
-          <MenuShortcut>⌘E</MenuShortcut>
+        <MenuItem value="claim">
+          <HandIcon />
+          Claim
+          <MenuShortcut>⌘⏎</MenuShortcut>
         </MenuItem>
 
-        <MenuItem value="duplicate">
+        <MenuItem value="repost">
           <CopyIcon />
-          Duplicate
+          Post again
           <MenuShortcut>⌘D</MenuShortcut>
         </MenuItem>
 
         <MenuSeparator />
 
-        <MenuItem value="delete" variant="destructive">
-          <TrashIcon />
-          Delete
+        <MenuItem value="abandon" variant="destructive">
+          <CircleSlashIcon />
+          Abandon
           <MenuShortcut>⌫</MenuShortcut>
         </MenuItem>
       </MenuContent>

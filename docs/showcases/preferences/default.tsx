@@ -20,6 +20,7 @@ import {
   SectionTitleGroup,
   Switch,
 } from "@kanzo-tech/ui";
+import { hall, HOME_HALL } from "@/example/world";
 
 /**
  * Preferences, shown the way it actually works.
@@ -64,16 +65,16 @@ export function PreferencesShowcase() {
         <div className="grid gap-4 p-4 sm:grid-cols-2">
           <Card>
             <CardHeader>
-              <CardTitle>Connection</CardTitle>
-              <CardDescription>Where the dataset is pulled from.</CardDescription>
+              <CardTitle>The hall</CardTitle>
+              <CardDescription>How the board signs a contract.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               <Field>
-                <FieldLabel>Endpoint</FieldLabel>
-                <Input defaultValue="https://api.example.org" />
+                <FieldLabel>Hall</FieldLabel>
+                <Input defaultValue={hall(HOME_HALL).name} />
               </Field>
               <Field orientation="horizontal">
-                <FieldLabel>Verify TLS certificates</FieldLabel>
+                <FieldLabel>Require an archivist's seal</FieldLabel>
                 <Switch defaultChecked />
               </Field>
             </CardContent>
@@ -85,10 +86,10 @@ export function PreferencesShowcase() {
               <CardDescription>Buttons re-skin with the radius and density axes.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2">
-              <Button>Save</Button>
+              <Button>Post</Button>
               <Button variant="secondary">Duplicate</Button>
               <Button variant="outline">Export</Button>
-              <Button variant="destructive">Delete</Button>
+              <Button variant="destructive">Withdraw</Button>
             </CardContent>
           </Card>
         </div>

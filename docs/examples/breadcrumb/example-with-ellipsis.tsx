@@ -14,7 +14,7 @@ export default function Example() {
     <Breadcrumb>
       <BreadcrumbList>
         <BreadcrumbItem>
-          <BreadcrumbLink href="#">Workspace</BreadcrumbLink>
+          <BreadcrumbLink href="#">The board</BreadcrumbLink>
         </BreadcrumbItem>
         <BreadcrumbSeparator>
           <SlashIcon />
@@ -26,7 +26,7 @@ export default function Example() {
           <SlashIcon />
         </BreadcrumbSeparator>
         <BreadcrumbItem>
-          <BreadcrumbPage>customers</BreadcrumbPage>
+          <BreadcrumbPage>Q-1058</BreadcrumbPage>
         </BreadcrumbItem>
       </BreadcrumbList>
     </Breadcrumb>

@@ -7,18 +7,18 @@ import {
 export default function Example() {
   return (
     <SegmentGroup
-      aria-label="View mode"
+      aria-label="Board filter"
       className="w-fit rounded-md bg-muted p-1"
-      defaultValue="list"
+      defaultValue="open"
     >
-      <SegmentGroupItem className="px-3 py-1.5" value="list">
+      <SegmentGroupItem className="px-3 py-1.5" value="open">
         <SegmentGroupItemText className="font-medium text-sm">
-          List
+          Open
         </SegmentGroupItemText>
       </SegmentGroupItem>
-      <SegmentGroupItem className="px-3 py-1.5" disabled value="graph">
+      <SegmentGroupItem className="px-3 py-1.5" disabled value="settled">
         <SegmentGroupItemText className="font-medium text-sm">
-          Graph
+          Settled
         </SegmentGroupItemText>
       </SegmentGroupItem>
     </SegmentGroup>

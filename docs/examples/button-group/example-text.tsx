@@ -8,11 +8,11 @@ import { CopyIcon } from "lucide-react";
 
 export default function Example() {
   return (
-    <ButtonGroup aria-label="Endpoint">
-      <ButtonGroupText>https://</ButtonGroupText>
-      <Button variant="outline">api.kanzo.tech</Button>
+    <ButtonGroup aria-label="Contract">
+      <ButtonGroupText>Q-1043</ButtonGroupText>
+      <Button variant="outline">Nine goats, one road</Button>
       <ButtonGroupSeparator />
-      <Button aria-label="Copy" size="icon-md" variant="outline">
+      <Button aria-label="Copy the contract id" size="icon-md" variant="outline">
         <CopyIcon />
       </Button>
     </ButtonGroup>

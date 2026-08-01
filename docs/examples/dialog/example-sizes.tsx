@@ -22,7 +22,7 @@ export default function Example() {
 
           <DialogContent size={size}>
             <DialogHeader title={`size="${size}"`} />
-            <DialogBody>Only the max-width changes — the dialog still shrinks to fit narrow viewports.</DialogBody>
+            <DialogBody>Only the max-width changes — a contract sheet still shrinks to fit narrow viewports.</DialogBody>
           </DialogContent>
         </Dialog>
       ))}

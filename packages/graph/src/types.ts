@@ -72,7 +72,7 @@ export type Motion = "running" | "settled" | "paused";
  * Where a selection came from. Open-ended on purpose: a host with its own panels adds its own
  * sources, and the canvas only ever uses this to label the chip in the corner.
  */
-export type SelectionSource = "marquee" | "lasso" | "node" | "rule" | "ask";
+export type SelectionSource = "marquee" | "lasso" | "node" | "order" | "ask";
 
 /**
  * The selection — one value, published once.

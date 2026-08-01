@@ -4,12 +4,12 @@ export default function Example() {
   return (
     <RadioGroup
       className="flex-row gap-6"
-      defaultValue="ttl"
+      defaultValue="warden"
       orientation="horizontal"
     >
-      <RadioGroupItem value="ttl">Turtle</RadioGroupItem>
-      <RadioGroupItem value="jsonld">JSON-LD</RadioGroupItem>
-      <RadioGroupItem value="nt">N-Triples</RadioGroupItem>
+      <RadioGroupItem value="warden">Warden</RadioGroupItem>
+      <RadioGroupItem value="scout">Scout</RadioGroupItem>
+      <RadioGroupItem value="cantor">Cantor</RadioGroupItem>
     </RadioGroup>
   );
 }

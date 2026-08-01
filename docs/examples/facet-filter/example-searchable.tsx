@@ -2,28 +2,26 @@
 
 import { useState } from "react";
 import { FacetFilter } from "@kanzo-tech/ui";
+import { MEMBERS } from "@/example/people";
 
-// The column this stands in for has a few hundred values, which is what `searchable` is for — not
-// however many happen to survive the current crossfilter.
-const STATIONS = [
-  { count: 412, label: "A Coruña", value: "leco" },
-  { count: 388, label: "Alacant", value: "lealc" },
-  { count: 901, label: "Bilbao", value: "lebb" },
-  { count: 1284, label: "Madrid", value: "lemd" },
-  { count: 640, label: "Málaga", value: "lega" },
-  { count: 233, label: "Santiago", value: "lest" },
-];
+// The roster is thirty-five names across five halls and only grows, which is what `searchable` is
+// for — the size of the domain, not however many happen to survive the current crossfilter.
+const MEMBER_ITEMS = MEMBERS.map((candidate) => ({
+  value: candidate.id,
+  label: candidate.name,
+  count: candidate.settled,
+}));
 
 export default function Example() {
-  const [value, setValue] = useState<string[]>(["lemd"]);
+  const [value, setValue] = useState<string[]>(["ravenna"]);
 
   return (
     <FacetFilter
-      items={STATIONS}
-      label="Station"
+      items={MEMBER_ITEMS}
+      label="Member"
       onValueChange={setValue}
-      searchEmpty="No station by that name."
-      searchPlaceholder="Filter stations…"
+      searchEmpty="Nobody by that name."
+      searchPlaceholder="Filter the roster…"
       searchable
       value={value}
     />

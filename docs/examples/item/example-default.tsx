@@ -7,21 +7,26 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@kanzo-tech/ui";
-import { FileTextIcon } from "lucide-react";
+import { ScrollTextIcon } from "lucide-react";
+import { dueOn, quest } from "@/example/quests";
+
+const contract = quest("Q-1041");
 
 export default function Example() {
   return (
     <Item className="w-96" variant="outline">
       <ItemMedia>
-        <FileTextIcon />
+        <ScrollTextIcon />
       </ItemMedia>
       <ItemContent>
-        <ItemTitle>dataset.csv</ItemTitle>
-        <ItemDescription>2.4 MB · updated 3 days ago</ItemDescription>
+        <ItemTitle>{contract.title}</ItemTitle>
+        <ItemDescription>
+          {contract.reward} gold · due {dueOn(contract)}
+        </ItemDescription>
       </ItemContent>
       <ItemActions>
         <Button size="sm" variant="outline">
-          Open
+          Claim
         </Button>
       </ItemActions>
     </Item>

@@ -15,24 +15,21 @@ import {
 } from "@kanzo-tech/ui";
 import { revalidateLogic, useForm } from "@tanstack/react-form";
 import * as z from "zod";
+import { HALLS } from "@/example/world";
 
-const visibility = createListCollection({
-  items: [
-    { label: "Public", value: "public" },
-    { label: "Private", value: "private" },
-    { label: "Restricted", value: "restricted" },
-  ],
+const halls = createListCollection({
+  items: HALLS.map((entry) => ({ label: entry.name, value: entry.id })),
 });
 
 const schema = z.object({
-  visibility: z.enum(["public", "private", "restricted"], {
-    error: "Choose who can see this dataset.",
+  hall: z.enum(["amber", "salt", "nine", "ash", "lanternwood"], {
+    error: "Choose the hall that signs for this contract.",
   }),
 });
 
 export default function Example() {
   const form = useForm({
-    defaultValues: { visibility: "" },
+    defaultValues: { hall: "" },
     validationLogic: revalidateLogic(),
     validators: { onDynamic: schema },
     onSubmit: () => {},
@@ -49,12 +46,12 @@ export default function Example() {
       }}
     >
       <FieldGroup>
-        <form.Field name="visibility">
+        <form.Field name="hall">
           {(field) => (
             <Field invalid={!field.state.meta.isValid}>
-              <FieldLabel>Visibility</FieldLabel>
+              <FieldLabel>Posting hall</FieldLabel>
               <Select
-                collection={visibility}
+                collection={halls}
                 name={field.name}
                 onValueChange={(details) =>
                   field.handleChange(details.value[0] ?? "")
@@ -67,10 +64,10 @@ export default function Example() {
                 value={field.state.value ? [field.state.value] : []}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select visibility" />
+                  <SelectValue placeholder="Select a hall" />
                 </SelectTrigger>
                 <SelectContent>
-                  {visibility.items.map((item) => (
+                  {halls.items.map((item) => (
                     <SelectItem item={item} key={item.value}>
                       {item.label}
                     </SelectItem>

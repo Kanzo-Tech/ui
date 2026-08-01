@@ -1,3 +1,4 @@
+import { REGIONS } from "@/example/world";
 import {
   SegmentGroup,
   SegmentGroupItem,
@@ -7,19 +8,15 @@ import {
 export default function Example() {
   return (
     <SegmentGroup
-      aria-label="View mode"
-      className="w-40 rounded-md bg-muted p-1"
-      defaultValue="list"
+      aria-label="Region"
+      className="w-44 rounded-md bg-muted p-1"
+      defaultValue="Thornmarch"
       orientation="vertical"
     >
-      {["List", "Grid", "Graph"].map((label) => (
-        <SegmentGroupItem
-          className="px-3 py-1.5"
-          key={label}
-          value={label.toLowerCase()}
-        >
+      {REGIONS.map((region) => (
+        <SegmentGroupItem className="px-3 py-1.5" key={region} value={region}>
           <SegmentGroupItemText className="font-medium text-sm">
-            {label}
+            {region}
           </SegmentGroupItemText>
         </SegmentGroupItem>
       ))}

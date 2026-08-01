@@ -17,10 +17,10 @@ export default function Example() {
 
   return (
     <Field className="w-56">
-      <FieldLabel>Replicas</FieldLabel>
+      <FieldLabel>Sightings reported</FieldLabel>
       <NumberInput
-        min={1}
-        max={10}
+        min={0}
+        max={20}
         onValueChange={(details) => setValue(details.value)}
         value={value}
       >

@@ -11,9 +11,9 @@ export default function Example() {
   return (
     <SectionHeader bordered className="w-full">
       <SectionTitleGroup>
-        <SectionTitle level={3}>Job defaults</SectionTitle>
+        <SectionTitle level={3}>Party rules</SectionTitle>
         <SectionDescription>
-          Applies to every job in this workspace.
+          Checked when a party signs, and again when it comes back.
         </SectionDescription>
       </SectionTitleGroup>
       <SectionActions>

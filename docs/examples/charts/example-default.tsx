@@ -32,17 +32,17 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="grid w-full max-w-2xl grid-cols-1 gap-5 sm:grid-cols-2">
-        <Panel label="latency (ms) — drag to brush">
-          <ChartRoot height={120} margin={MARGIN} table="telemetry">
-            <ChartRectY fill="var(--muted-foreground)" filterBy={null} opacity={0.3} x={bin("latency")} y={count()} />
-            <ChartRectY fill="var(--primary)" x={bin("latency")} y={count()} />
+        <Panel label="bounty (gold) — drag to brush">
+          <ChartRoot height={120} margin={MARGIN} table="sightings">
+            <ChartRectY fill="var(--muted-foreground)" filterBy={null} opacity={0.3} x={bin("bounty")} y={count()} />
+            <ChartRectY fill="var(--primary)" x={bin("bounty")} y={count()} />
             <ChartIntervalX />
             <ChartAxisY anchor={null} />
           </ChartRoot>
         </Panel>
 
         <Panel label="region — click to toggle">
-          <ChartRoot height={120} margin={MARGIN} table="telemetry">
+          <ChartRoot height={120} margin={MARGIN} table="sightings">
             <ChartBarY fill="var(--muted-foreground)" filterBy={null} opacity={0.3} x="region" y={count()} />
             <ChartBarY fill="var(--primary)" x="region" y={count()} />
             <ChartToggleX />
@@ -52,8 +52,8 @@ export default function Example() {
           </ChartRoot>
         </Panel>
 
-        <Panel label="requests by hour — drag to brush">
-          <ChartRoot height={120} margin={MARGIN} table="telemetry">
+        <Panel label="sightings by hour — drag to brush">
+          <ChartRoot height={120} margin={MARGIN} table="sightings">
             <ChartLineY filterBy={null} stroke="var(--muted-foreground)" strokeOpacity={0.4} x="hour" y={count()} />
             <ChartLineY stroke="var(--primary)" x="hour" y={count()} />
             <ChartIntervalX />
@@ -61,10 +61,10 @@ export default function Example() {
           </ChartRoot>
         </Panel>
 
-        <Panel label="latency × payload — drag a box">
-          <ChartRoot height={120} margin={MARGIN} table="telemetry">
-            <ChartDot fill="var(--muted-foreground)" fillOpacity={0.3} filterBy={null} r={2} x="latency" y="payload" />
-            <ChartDot fill="var(--primary)" r={2} x="latency" y="payload" />
+        <Panel label="bounty × leagues — drag a box">
+          <ChartRoot height={120} margin={MARGIN} table="sightings">
+            <ChartDot fill="var(--muted-foreground)" fillOpacity={0.3} filterBy={null} r={2} x="bounty" y="leagues" />
+            <ChartDot fill="var(--primary)" r={2} x="bounty" y="leagues" />
             <ChartIntervalXY />
           </ChartRoot>
         </Panel>

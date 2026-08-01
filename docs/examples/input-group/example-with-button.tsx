@@ -9,7 +9,7 @@ import {
 export default function Example() {
   return (
     <InputGroup className="w-80">
-      <InputGroupInput defaultValue="urn:kanzo:customers" readOnly />
+      <InputGroupInput defaultValue="Q-1041" readOnly />
       <InputGroupAddon align="inline-end">
         <InputGroupButton aria-label="Copy" size="icon-xs">
           <CopyIcon />

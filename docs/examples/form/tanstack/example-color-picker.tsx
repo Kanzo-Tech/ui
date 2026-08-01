@@ -18,19 +18,20 @@ import {
 } from "@kanzo-tech/ui";
 import { revalidateLogic, useForm } from "@tanstack/react-form";
 import * as z from "zod";
+import { hall } from "@/example/world";
 
 const schema = z.object({
-  accent: z
+  brand: z
     .string()
     .regex(/^#[0-9a-f]{6}$/i, "Pick a colour.")
-    .refine((value) => value.toLowerCase() !== "#ffffff", "White has no contrast."),
+    .refine((value) => value.toLowerCase() !== "#ffffff", "White carries no heraldry."),
 });
 
 export default function Example() {
   const form = useForm({
     // Never "": the control parses this string on every render, so it has to stay
     // a valid colour.
-    defaultValues: { accent: "#7c3aed" },
+    defaultValues: { brand: hall("amber").heraldry.brand },
     validationLogic: revalidateLogic(),
     validators: { onDynamic: schema },
     onSubmit: () => {},
@@ -47,10 +48,10 @@ export default function Example() {
       }}
     >
       <FieldGroup>
-        <form.Field name="accent">
+        <form.Field name="brand">
           {(field) => (
             <Field invalid={!field.state.meta.isValid}>
-              <FieldLabel>Accent colour</FieldLabel>
+              <FieldLabel>Hall colours</FieldLabel>
               <ColorPicker
                 name={field.name}
                 // `details.valueAsString` follows the machine's format, which is rgba —
@@ -77,7 +78,8 @@ export default function Example() {
                 </ColorPickerContent>
               </ColorPicker>
               <FieldDescription>
-                Stored as {field.state.value}.
+                The brand seed the hall’s palette is derived from. Stored as{" "}
+                {field.state.value}.
               </FieldDescription>
               <FieldError>
                 {field.state.meta.errors.map((issue) => issue?.message).join(", ")}

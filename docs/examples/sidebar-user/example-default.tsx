@@ -1,7 +1,8 @@
 "use client";
 
-import { LogOutIcon, SettingsIcon, UserIcon } from "lucide-react";
+import { LogOutIcon, ScrollIcon, UserIcon } from "lucide-react";
 import { Sidebar, SidebarFooter, SidebarInset, SidebarProvider, SidebarUser } from "@kanzo-tech/ui";
+import { VIEWER } from "@/example/people";
 
 export default function Example() {
   return (
@@ -10,8 +11,8 @@ export default function Example() {
         <SidebarFooter>
           <SidebarUser
             menuItems={[
-              { label: "Profile", icon: <UserIcon />, href: "#" },
-              { label: "Settings", icon: <SettingsIcon />, href: "#" },
+              { label: "Profile", icon: <UserIcon />, href: "#/roster/ravenna" },
+              { label: "Hall charter", icon: <ScrollIcon />, href: "#/hall/charter" },
               // Log out is an ordinary menu item: the product owns the flow, the copy
               // and any confirmation dialog.
               {
@@ -22,7 +23,7 @@ export default function Example() {
                 onSelect: () => {},
               },
             ]}
-            user={{ name: "Ángel Iglesias", email: "angel@kanzo.tech" }}
+            user={{ name: VIEWER.name, email: VIEWER.email }}
           />
         </SidebarFooter>
       </Sidebar>
@@ -31,7 +32,7 @@ export default function Example() {
           the navigation, and the region exists so you can see what it navigates. */}
       <SidebarInset className="bg-muted/24">
         <div className="flex h-full items-center justify-center">
-          <span className="text-muted-foreground text-sm">Page content</span>
+          <span className="text-muted-foreground text-sm">The board</span>
         </div>
       </SidebarInset>
     </SidebarProvider>

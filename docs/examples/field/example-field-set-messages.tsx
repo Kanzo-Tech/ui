@@ -11,23 +11,23 @@ import {
 export default function Example() {
   return (
     <FieldSet className="w-80" invalid>
-      <FieldLegend variant="label">Billing address</FieldLegend>
+      <FieldLegend variant="label">Muster point</FieldLegend>
 
       <Field>
-        <FieldLabel>Street</FieldLabel>
-        <TextField placeholder="123 Main St" />
+        <FieldLabel>Region</FieldLabel>
+        <TextField placeholder="Greenhollow" />
       </Field>
       <Field>
-        <FieldLabel>City</FieldLabel>
-        <TextField placeholder="Springfield" />
+        <FieldLabel>Landmark</FieldLabel>
+        <TextField placeholder="The lower ford" />
       </Field>
       <Field>
-        <FieldLabel>Postal code</FieldLabel>
-        <TextField placeholder="90210" />
+        <FieldLabel>Hour</FieldLabel>
+        <TextField placeholder="First light" />
       </Field>
 
-      <FieldSetHelper>Used for invoicing only.</FieldSetHelper>
-      <FieldSetError>Address is incomplete.</FieldSetError>
+      <FieldSetHelper>Where the party forms up before it walks.</FieldSetHelper>
+      <FieldSetError>A party cannot be told to meet nowhere.</FieldSetError>
     </FieldSet>
   );
 }

@@ -17,18 +17,18 @@ import { useState } from "react";
 import * as z from "zod";
 
 const schema = z.object({
-  name: z
+  title: z
     .string()
-    .min(3, "Give the dataset a name of at least 3 characters.")
-    .max(48, "Keep the name under 48 characters."),
-  summary: z.string().min(20, "Describe the dataset in at least 20 characters."),
+    .min(10, "Give the contract a title a poster would recognise.")
+    .max(60, "Keep the title under 60 characters."),
+  notice: z.string().min(20, "Say what the party is walking into — at least 20 characters."),
 });
 
 export default function Example() {
   const [saved, setSaved] = useState<string | null>(null);
 
   const form = useForm({
-    defaultValues: { name: "", summary: "" },
+    defaultValues: { title: "", notice: "" },
     validationLogic: revalidateLogic(),
     validators: { onDynamic: schema },
     onSubmit: ({ value }) => setSaved(JSON.stringify(value)),
@@ -45,22 +45,22 @@ export default function Example() {
       }}
     >
       <FieldGroup>
-        <form.Field name="name">
+        <form.Field name="title">
           {(field) => (
             <Field invalid={!field.state.meta.isValid} required>
               <FieldLabel>
-                Dataset name
+                Contract title
                 <FieldRequiredIndicator />
               </FieldLabel>
               <Input
                 name={field.name}
                 onBlur={field.handleBlur}
                 onChange={(event) => field.handleChange(event.target.value)}
-                placeholder="air-quality-2024"
+                placeholder="A wyrm under the granary"
                 value={field.state.value}
               />
               <FieldDescription>
-                Lowercase letters, numbers and hyphens.
+                One line — it is what the board shows.
               </FieldDescription>
               <FieldError>
                 {field.state.meta.errors.map((issue) => issue?.message).join(", ")}
@@ -69,18 +69,18 @@ export default function Example() {
           )}
         </form.Field>
 
-        <form.Field name="summary">
+        <form.Field name="notice">
           {(field) => (
             <Field invalid={!field.state.meta.isValid} required>
               <FieldLabel>
-                Summary
+                Notice
                 <FieldRequiredIndicator />
               </FieldLabel>
               <Textarea
                 name={field.name}
                 onBlur={field.handleBlur}
                 onChange={(event) => field.handleChange(event.target.value)}
-                placeholder="What this dataset contains, and where it came from."
+                placeholder="What the party is walking into, and who reported it."
                 rows={3}
                 value={field.state.value}
               />
@@ -96,7 +96,7 @@ export default function Example() {
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
             <Button disabled={isSubmitting} type="submit">
-              {isSubmitting ? "Publishing…" : "Publish"}
+              {isSubmitting ? "Posting…" : "Post"}
             </Button>
           )}
         </form.Subscribe>

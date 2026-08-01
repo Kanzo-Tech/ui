@@ -1,4 +1,4 @@
-import { CodeIcon, WandIcon } from "lucide-react";
+import { MapIcon, ShieldIcon } from "lucide-react";
 import {
   RadioGroup,
   RadioGroupCard,
@@ -8,24 +8,24 @@ import {
 
 export default function Example() {
   return (
-    <RadioGroup className="w-[28rem]" columns={2} defaultValue="studio">
-      <RadioGroupCard className="items-start" value="studio">
-        <CodeIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+    <RadioGroup className="w-[28rem]" columns={2} defaultValue="warden">
+      <RadioGroupCard className="items-start" value="warden">
+        <ShieldIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
         <div className="flex min-w-0 flex-col gap-0.5">
-          <RadioGroupText>Studio</RadioGroupText>
+          <RadioGroupText>Warden</RadioGroupText>
           <span className="text-muted-foreground text-xs leading-snug">
-            Write the mapping yourself, in the editor.
+            Holds the line and signs for the party.
           </span>
         </div>
         <RadioGroupIndicator className="order-last mt-0.5 ms-auto" />
       </RadioGroupCard>
 
-      <RadioGroupCard className="items-start" value="assistant">
-        <WandIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
+      <RadioGroupCard className="items-start" value="scout">
+        <MapIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
         <div className="flex min-w-0 flex-col gap-0.5">
-          <RadioGroupText>Assistant</RadioGroupText>
+          <RadioGroupText>Scout</RadioGroupText>
           <span className="text-muted-foreground text-xs leading-snug">
-            Describe the result and let the assistant draft it.
+            Walks it first, alone, and comes back.
           </span>
         </div>
         <RadioGroupIndicator className="order-last mt-0.5 ms-auto" />

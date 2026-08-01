@@ -12,39 +12,34 @@ import {
   StepsTitle,
   StepsTrigger,
 } from "@kanzo-tech/ui";
-
-const steps = [
-  { title: "Connect", body: "Point at a source and give it credentials." },
-  { title: "Map", body: "Match incoming fields onto the target shape." },
-  { title: "Review", body: "Check the diff before anything is written." },
-];
+import { QUEST_STATUSES } from "@/example/world";
 
 export default function Example() {
   return (
-    <Steps className="w-full max-w-lg" count={steps.length} defaultStep={1}>
+    <Steps className="w-full max-w-2xl" count={QUEST_STATUSES.length} defaultStep={1}>
       <StepsList>
-        {steps.map((step, index) => (
-          <StepsItem index={index} key={step.title}>
+        {QUEST_STATUSES.map((state, index) => (
+          <StepsItem index={index} key={state.id}>
             <StepsTrigger>
               <StepsIndicator>{index + 1}</StepsIndicator>
-              <StepsTitle>{step.title}</StepsTitle>
+              <StepsTitle>{state.label}</StepsTitle>
             </StepsTrigger>
             <StepsSeparator />
           </StepsItem>
         ))}
       </StepsList>
 
-      {steps.map((step, index) => (
+      {QUEST_STATUSES.map((state, index) => (
         <StepsContent
           className="text-muted-foreground text-sm"
           index={index}
-          key={step.title}
+          key={state.id}
         >
-          {step.body}
+          {state.description}
         </StepsContent>
       ))}
       <StepsCompletedContent className="text-muted-foreground text-sm">
-        All steps complete.
+        Off the board.
       </StepsCompletedContent>
 
       <div className="flex gap-2">

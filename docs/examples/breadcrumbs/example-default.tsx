@@ -4,9 +4,9 @@ export default function Example() {
   return (
     <Breadcrumbs
       items={[
-        { label: "Kanzo", href: "#" },
-        { label: "Connections", href: "#" },
-        { label: "aemet-observations" },
+        { label: "The board", href: "#" },
+        { label: "Ashfall Reach", href: "#" },
+        { label: "Q-1058" },
       ]}
     />
   );

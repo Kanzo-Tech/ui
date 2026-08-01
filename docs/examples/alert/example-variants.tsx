@@ -14,32 +14,42 @@ export default function Example() {
   return (
     <div className="flex w-full max-w-md flex-col gap-3">
       <Alert>
-        <AlertTitle>Default</AlertTitle>
-        <AlertDescription>Neutral. Use it when nothing is wrong.</AlertDescription>
+        <AlertTitle>Standing orders</AlertTitle>
+        <AlertDescription>
+          Checked when a party signs, and again when it comes back.
+        </AlertDescription>
       </Alert>
 
       <Alert variant="info">
         <InfoIcon />
-        <AlertTitle>Info</AlertTitle>
-        <AlertDescription>Context the user did not ask for but benefits from.</AlertDescription>
+        <AlertTitle>Q-1073 is a second attempt</AlertTitle>
+        <AlertDescription>
+          A re-posting is not the place to blood a copper.
+        </AlertDescription>
       </Alert>
 
       <Alert variant="success">
         <CircleCheckIcon />
-        <AlertTitle>Success</AlertTitle>
-        <AlertDescription>Something finished. Nothing to do.</AlertDescription>
+        <AlertTitle>Q-1043 settled</AlertTitle>
+        <AlertDescription>
+          Delivered, verified by an archivist, and paid.
+        </AlertDescription>
       </Alert>
 
       <Alert variant="warning">
         <TriangleAlertIcon />
-        <AlertTitle>Warning</AlertTitle>
-        <AlertDescription>Proceeding is allowed, but has a consequence.</AlertDescription>
+        <AlertTitle>Q-1078 is two days overdue</AlertTitle>
+        <AlertDescription>
+          Something is relighting the lamps, and the party is still in Duskfen.
+        </AlertDescription>
       </Alert>
 
       <Alert variant="destructive">
         <CircleAlertIcon />
-        <AlertTitle>Destructive</AlertTitle>
-        <AlertDescription>Something failed, or is about to be lost.</AlertDescription>
+        <AlertTitle>Q-1058 breaches the standing orders</AlertTitle>
+        <AlertDescription>
+          A writ may not be signed by fewer than four, one of them a warden.
+        </AlertDescription>
       </Alert>
     </div>
   );

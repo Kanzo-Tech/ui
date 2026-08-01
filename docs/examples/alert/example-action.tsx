@@ -11,20 +11,20 @@ export default function Example() {
     <div className="flex w-full max-w-lg flex-col gap-3">
       <Alert variant="warning">
         <TriangleAlertIcon />
-        <AlertTitle>Schema drift detected</AlertTitle>
-        <AlertDescription>Two columns changed type since the last run.</AlertDescription>
+        <AlertTitle>Q-1058 is six days overdue</AlertTitle>
+        <AlertDescription>A party of two, no cantor, and one of them wounded.</AlertDescription>
         <AlertAction>
           <Button size="sm" variant="ghost">
             Dismiss
           </Button>
           <Button size="sm" variant="outline">
-            Review
+            Open the contract
           </Button>
         </AlertAction>
       </Alert>
 
       <Alert>
-        <AlertTitle>Draft saved</AlertTitle>
+        <AlertTitle>Contract abandoned</AlertTitle>
         <AlertAction>
           <Button size="sm" variant="ghost">
             Undo

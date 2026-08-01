@@ -7,13 +7,13 @@ export default function Example() {
       action={
         <Button size="sm">
           <PlusIcon />
-          New dataset
+          Post a contract
         </Button>
       }
-      description="Nothing matched “orders-2019”. Try a broader term."
+      description="Nothing open in Coldiron is graded above a Hazard. Try a wider grade."
       headingLevel={2}
       icon={<SearchIcon />}
-      title="No results"
+      title="No contracts match"
     />
   );
 }

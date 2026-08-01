@@ -4,9 +4,9 @@ export default function Example() {
   return (
     <Breadcrumbs
       items={[
-        { label: "abfss:", href: "#" },
-        { label: "raw@kanzo", href: "#" },
-        { label: "aemet" },
+        { label: "Bestiary", href: "#" },
+        { label: "Cold-blooded", href: "#" },
+        { label: "Basilisk" },
       ]}
       separator={<span aria-hidden>/</span>}
     />

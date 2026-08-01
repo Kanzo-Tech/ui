@@ -4,15 +4,15 @@ import { InputGroupText, TextField } from "@kanzo-tech/ui";
 export default function Example() {
   return (
     <div className="flex w-72 flex-col gap-3">
-      <TextField iconStart={<SearchIcon />} placeholder="Search datasets" />
+      <TextField iconStart={<SearchIcon />} placeholder="Search the board" />
       <TextField
-        iconEnd={<InputGroupText>rows</InputGroupText>}
-        placeholder="1000"
+        iconEnd={<InputGroupText>sightings</InputGroupText>}
+        placeholder="3"
       />
       <TextField
-        iconEnd={<InputGroupText>/sparql</InputGroupText>}
-        iconStart={<InputGroupText>https://</InputGroupText>}
-        placeholder="api.example.com"
+        iconEnd={<InputGroupText>per day</InputGroupText>}
+        iconStart={<InputGroupText>gold</InputGroupText>}
+        placeholder="12"
       />
     </div>
   );

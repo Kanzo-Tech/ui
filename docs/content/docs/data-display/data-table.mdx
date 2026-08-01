@@ -125,7 +125,7 @@ though a single page fits.
 <ComponentPreview componentName="data-table" fileName="example-column-visibility" />
 
 `DataTableViewOptions` lists every column whose `getCanHide()` is true, labelling each by its
-`header` **when that header is a string**. A column whose header is `sortableHeader("Records")`
+`header` **when that header is a string**. A column whose header is `sortableHeader("Reward")`
 is a render function, not a label, so the menu falls back to the column id. Keep the plain string
 header, give the column an explicit `id` you are happy to show, or take it out of the menu with
 `enableHiding: false`.
@@ -202,7 +202,7 @@ row type, so a custom toolbar control is a component like any other:
 
 ```tsx
 function ResetFilters() {
-  const table = useDataTableContext<Dataset>();
+  const table = useDataTableContext<Quest>();
   if (!table.getState().columnFilters.length) return null;
 
   return (

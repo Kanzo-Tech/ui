@@ -14,8 +14,8 @@ The smallest useful unit is a label, a control and the wrapper that connects the
 import { Field, FieldLabel, Input } from "@kanzo-tech/ui";
 
 <Field>
-  <FieldLabel>Dataset name</FieldLabel>
-  <Input placeholder="e.g. air-quality-2024" />
+  <FieldLabel>Contract title</FieldLabel>
+  <Input placeholder="e.g. A wyrm under the granary" />
 </Field>
 ```
 
@@ -28,9 +28,9 @@ Two components do this, and the difference matters.
 
 ```tsx
 <Field>
-  <FieldLabel>Dataset name</FieldLabel>
+  <FieldLabel>Contract title</FieldLabel>
   <Input />
-  <FieldDescription>Lowercase letters, numbers and hyphens.</FieldDescription>
+  <FieldDescription>One line — it is what the board shows.</FieldDescription>
 </Field>
 ```
 
@@ -46,7 +46,7 @@ If you are unsure, use `FieldDescription`.
 ```tsx
 <Field required>
   <FieldLabel>
-    Dataset name
+    Contract title
     <FieldRequiredIndicator />
   </FieldLabel>
   <Input />
@@ -61,7 +61,7 @@ required for assistive tech — the asterisk is a visual convention, not the sem
 
 ```tsx
 <Field invalid={Boolean(error)} required>
-  <FieldLabel>Dataset name</FieldLabel>
+  <FieldLabel>Contract title</FieldLabel>
   <Input />
   <FieldError>{error}</FieldError>
 </Field>
@@ -88,7 +88,7 @@ disabled submit button and no explanation anywhere on screen.
 
 ```tsx
 <Field orientation="horizontal">
-  <FieldLabel>Enable notifications</FieldLabel>
+  <FieldLabel>Post to every hall</FieldLabel>
   <Switch />
 </Field>
 ```
@@ -106,17 +106,17 @@ semantic grouping with a heading — use it whenever a set of fields shares a pu
 
 ```tsx
 <FieldSet>
-  <FieldLegend>Connection</FieldLegend>
-  <FieldDescription>Where the dataset is pulled from.</FieldDescription>
+  <FieldLegend>Posting</FieldLegend>
+  <FieldDescription>What the contract pays, and who may claim it.</FieldDescription>
 
   <FieldGroup>
     <Field>
-      <FieldLabel>Endpoint</FieldLabel>
+      <FieldLabel>Reward</FieldLabel>
       <Input />
     </Field>
 
     <Field>
-      <FieldLabel>API key</FieldLabel>
+      <FieldLabel>Hall seal</FieldLabel>
       <PasswordInput>
         <PasswordInputGroup>
           <PasswordInputInput hasStoredValue />
@@ -140,12 +140,12 @@ choice — see [Validation](/docs/forms/validation)).
 ```tsx
 <form onSubmit={handleSubmit}>
   <FieldSet>
-    <FieldLegend>Connection</FieldLegend>
+    <FieldLegend>Posting</FieldLegend>
     <FieldGroup>{/* fields… */}</FieldGroup>
   </FieldSet>
 
   <Button type="submit" disabled={submitting}>
-    {submitting ? "Saving…" : "Save"}
+    {submitting ? "Posting…" : "Post"}
   </Button>
 </form>
 ```
@@ -163,28 +163,28 @@ what makes that automatic.
 ```tsx
 <form onSubmit={handleSubmit}>
   <FieldSet>
-    <FieldLegend>Connection</FieldLegend>
-    <FieldDescription>Where the dataset is pulled from.</FieldDescription>
+    <FieldLegend>Posting</FieldLegend>
+    <FieldDescription>What the contract pays, and who may claim it.</FieldDescription>
 
     <FieldGroup>
-      <Field invalid={Boolean(errors.endpoint)} required>
+      <Field invalid={Boolean(errors.reward)} required>
         <FieldLabel>
-          Endpoint
+          Reward
           <FieldRequiredIndicator />
         </FieldLabel>
-        <Input value={endpoint} onChange={(e) => setEndpoint(e.target.value)} />
-        <FieldDescription>The base URL, without a trailing slash.</FieldDescription>
-        <FieldError>{errors.endpoint}</FieldError>
+        <Input value={reward} onChange={(e) => setReward(e.target.value)} />
+        <FieldDescription>Gold, paid on delivery.</FieldDescription>
+        <FieldError>{errors.reward}</FieldError>
       </Field>
 
       <Field orientation="horizontal">
-        <FieldLabel>Verify TLS certificates</FieldLabel>
-        <Switch checked={verifyTls} onCheckedChange={setVerifyTls} />
+        <FieldLabel>Post to every hall</FieldLabel>
+        <Switch checked={everyHall} onCheckedChange={setEveryHall} />
       </Field>
     </FieldGroup>
   </FieldSet>
 
-  <Button type="submit">Save</Button>
+  <Button type="submit">Post</Button>
 </form>
 ```
 

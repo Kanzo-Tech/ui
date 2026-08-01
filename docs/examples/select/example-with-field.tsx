@@ -1,5 +1,6 @@
 "use client";
 
+import { GRADES } from "@/example/world";
 import {
   createListCollection,
   Field,
@@ -12,31 +13,32 @@ import {
   SelectValue,
 } from "@kanzo-tech/ui";
 
-const visibility = createListCollection({
-  items: [
-    { label: "Public", value: "public" },
-    { label: "Private", value: "private" },
-    { label: "Restricted", value: "restricted" },
-  ],
+const grades = createListCollection({
+  items: GRADES.map((grade) => ({
+    label: `${grade.value} — ${grade.label}`,
+    value: String(grade.value),
+  })),
 });
 
 export default function Example() {
   return (
     <Field className="w-56">
-      <FieldLabel>Visibility</FieldLabel>
-      <Select collection={visibility} defaultValue={["private"]}>
+      <FieldLabel>Grade</FieldLabel>
+      <Select collection={grades} defaultValue={["3"]}>
         <SelectTrigger className="w-full">
-          <SelectValue placeholder="Select visibility" />
+          <SelectValue placeholder="Select a grade" />
         </SelectTrigger>
         <SelectContent>
-          {visibility.items.map((item) => (
+          {grades.items.map((item) => (
             <SelectItem item={item} key={item.value}>
               {item.label}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
-      <FieldDescription>Who can see this dataset.</FieldDescription>
+      <FieldDescription>
+        A writ needs a hall's seal and four signatures.
+      </FieldDescription>
     </Field>
   );
 }

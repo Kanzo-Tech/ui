@@ -22,10 +22,10 @@ import {
 ```
 
 ```tsx
-const formats = createListCollection({
+const roles = createListCollection({
   items: [
-    { label: "Turtle", value: "ttl" },
-    { label: "N-Triples", value: "nt" },
+    { label: "Warden", value: "warden" },
+    { label: "Scout", value: "scout" },
   ],
 });
 ```
@@ -107,7 +107,7 @@ so, since there the machine at least holds the query.
 </Callout>
 
 Filter with [`useFilter`](/docs/forms/combobox) rather than `toLowerCase().includes()`: it collates,
-so `coruna` matches `A Coruña`. Hoist its options object — `useFilter` memoises on it by identity, so
+so `miren` matches `Mirén Costa`. Hoist its options object — `useFilter` memoises on it by identity, so
 an inline literal returns a fresh `contains` every render and rebuilds the collection with it.
 
 Build the collection from **what you draw**. Ark navigates the collection, so an item filtered out of

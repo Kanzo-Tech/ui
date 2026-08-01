@@ -10,26 +10,26 @@ const cards = "text-center *:flex-col *:items-center *:justify-center";
 export default function Example() {
   return (
     <div className="flex w-96 flex-col gap-6">
-      <RadioGroup className={cards} columns="auto" defaultValue="openai">
-        <RadioGroupCard value="openai">
-          <RadioGroupText>OpenAI</RadioGroupText>
+      <RadioGroup className={cards} columns="auto" defaultValue="amber">
+        <RadioGroupCard value="amber">
+          <RadioGroupText>Amber Hall</RadioGroupText>
         </RadioGroupCard>
-        <RadioGroupCard disabled value="mistral">
-          <RadioGroupText>Mistral</RadioGroupText>
+        <RadioGroupCard disabled value="lanternwood">
+          <RadioGroupText>Lanternwood</RadioGroupText>
           {/* A badge is free of any coupling to `disabled` — it marks a recommended
               option just as easily as an unavailable one. */}
           <Badge size="xs" variant="outline">
-            Not configured
+            Invited
           </Badge>
         </RadioGroupCard>
       </RadioGroup>
 
-      <RadioGroup className={cards} columns="auto" defaultValue="openai" invalid>
-        <RadioGroupCard value="openai">
-          <RadioGroupText>OpenAI</RadioGroupText>
+      <RadioGroup className={cards} columns="auto" defaultValue="amber" invalid>
+        <RadioGroupCard value="amber">
+          <RadioGroupText>Amber Hall</RadioGroupText>
         </RadioGroupCard>
-        <RadioGroupCard value="anthropic">
-          <RadioGroupText>Anthropic</RadioGroupText>
+        <RadioGroupCard value="salt">
+          <RadioGroupText>Salt</RadioGroupText>
         </RadioGroupCard>
       </RadioGroup>
     </div>
