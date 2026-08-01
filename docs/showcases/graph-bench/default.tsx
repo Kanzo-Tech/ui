@@ -5,11 +5,32 @@ import { Graph } from "@cosmos.gl/graph";
 import { PlayIcon, SquareIcon } from "lucide-react";
 import {
   Badge,
+  Breadcrumbs,
   Button,
   Checkbox,
+  SectionBody,
+  SectionDescription,
+  SectionHeader,
+  SectionRoot,
+  SectionTitle,
+  SectionTitleGroup,
   SegmentGroup,
+  Separator,
+  ShellFooter,
+  ShellHeader,
+  ShellMain,
   Show,
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarInset,
+  SidebarProvider,
+  SidebarRail,
+  SidebarTrigger,
   Spinner,
+  StatTile,
+  Status,
   Table,
   TableBody,
   TableCell,
@@ -82,6 +103,149 @@ const LAYERS: { id: Layer; label: string }[] = [
   // this one never does.
   { id: "bounded", label: "bounded" },
 ];
+
+/**
+ * What holding the whole corpus cost, at 200,000 nodes, on the machine in `BENCHMARKS.md`.
+ *
+ * A number rather than a column, because the path that produced it was deleted by ADR-0001 and a
+ * benchmark cannot run code that is gone. It is here so the bounded figure has something to be
+ * measured *against* — a first paint means nothing on its own, and "105 ms" only becomes an argument
+ * beside the 1,225 ms it replaced.
+ */
+const HELD_FIRST_PAINT_MS = 1_225;
+
+/**
+ * The recorded run, at 200,000 nodes, from `BENCHMARKS.md` — an M4 Pro, 2026-07-31.
+ *
+ * Shown before a sweep has been run, because a benchmark page that opens saying nothing until you
+ * wait two minutes for it has buried its own finding. These are labelled as recorded rather than
+ * measured, and the moment this tab produces its own numbers they are replaced by them: a reader
+ * should be able to tell "what we found" from "what your machine just did", and the difference
+ * between those two is most of what a benchmark is for.
+ */
+const RECORDED = {
+  firstPaintMs: 105,
+  panMs: 30,
+  shown: 20_000,
+  matched: 200_000,
+  atNodes: 200_000,
+} as const;
+
+/** The same recorded run, for the control condition. `BENCHMARKS.md` layer 1, 200,000 nodes. */
+const RECORDED_ENGINE = {
+  stepMs: 61,
+  ceilingFps: 16,
+  uploadMs: 751,
+  atNodes: 200_000,
+} as const;
+
+/**
+ * The claim, before the evidence.
+ *
+ * A benchmark page that opens with a table asks a reader to derive the finding from seven columns.
+ * The finding is one sentence — *first paint follows the window rather than the corpus* — and it is
+ * a statement about a **shape**, so the tile carries the series as a sparkline and the number as the
+ * headline. Nothing here is computed differently from the table below it; it is the same samples,
+ * read the way the argument is made.
+ */
+function Headline(props: {
+  layer: Layer;
+  samples: Sample[];
+  bounded: BoundedSample[];
+}) {
+  const { bounded, layer, samples } = props;
+
+  if (layer === "bounded") {
+    const done = bounded.filter((sample) => !sample.failure);
+    const last = done.at(-1);
+    if (!last) {
+      return (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <StatTile
+            label={`First paint at ${compact(RECORDED.atNodes)} · recorded`}
+            value={`${RECORDED.firstPaintMs} ms`}
+            delta={{
+              value: Math.round(
+                ((RECORDED.firstPaintMs - HELD_FIRST_PAINT_MS) / HELD_FIRST_PAINT_MS) * 100,
+              ),
+              goodWhenUp: false,
+            }}
+          />
+          <StatTile label="Per camera move · recorded" value={`${RECORDED.panMs} ms`} />
+          <StatTile
+            label="Shown of matched · recorded"
+            value={`${compact(RECORDED.shown)} / ${compact(RECORDED.matched)}`}
+          />
+        </div>
+      );
+    }
+    const paint = done.map((s) => s.totalMs + s.firstSliceMs + s.uploadMs);
+    const first = paint.at(-1) ?? 0;
+    return (
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <StatTile
+          label={`First paint at ${compact(last.pointCount)}`}
+          value={`${format(first, 0)} ms`}
+          // Down is the good direction here, which is not the tile's default — a first paint that
+          // grew would be the whole argument failing.
+          delta={{
+            value: Math.round(((first - HELD_FIRST_PAINT_MS) / HELD_FIRST_PAINT_MS) * 100),
+            goodWhenUp: false,
+          }}
+          trend={paint}
+        />
+        <StatTile
+          label="Per camera move"
+          value={`${format(last.panMs, 0)} ms`}
+          // The cost that did not exist before: holding the corpus pans on the GPU for free. It is
+          // the honest half of the trade and it stays on the front page for that reason.
+          trend={done.map((s) => s.panMs)}
+        />
+        <StatTile
+          label="Shown of matched"
+          value={`${compact(last.returned)} / ${compact(last.matched)}`}
+          trend={done.map((s) => s.returned)}
+        />
+      </div>
+    );
+  }
+
+  const done = samples.filter((sample) => !sample.failure);
+  const last = done.at(-1);
+  if (!last) {
+    return (
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <StatTile
+          label={`Per step at ${compact(RECORDED_ENGINE.atNodes)} · recorded`}
+          value={`${format(RECORDED_ENGINE.stepMs, 2)} ms`}
+        />
+        <StatTile label="Step ceiling · recorded" value={`${RECORDED_ENGINE.ceilingFps} fps`} />
+        <StatTile label="Upload · recorded" value={`${RECORDED_ENGINE.uploadMs} ms`} />
+      </div>
+    );
+  }
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <StatTile
+        label={`Per step at ${compact(last.pointCount)}`}
+        value={`${format(last.stepMs, 2)} ms`}
+        trend={done.map((s) => s.stepMs)}
+      />
+      <StatTile
+        label="Step ceiling"
+        value={`${format(1000 / last.stepMs, 0)} fps`}
+        // Read this rather than `Frames`: WebGL queues without the CPU waiting, so the loop keeps
+        // presenting at vsync while the GPU falls behind — smooth and stale at once.
+        trend={done.map((s) => 1000 / s.stepMs)}
+      />
+      <StatTile
+        label="Upload"
+        value={`${format(last.uploadMs, 0)} ms`}
+        trend={done.map((s) => s.uploadMs)}
+      />
+    </div>
+  );
+}
 
 const SHAPES: { id: Shape; label: string; hint: string }[] = [
   { id: "hyperbolic", label: "Hyperbolic", hint: "power-law degree, real communities" },
@@ -213,7 +377,9 @@ function BoundedTable(props: { samples: BoundedSample[]; running: boolean; stage
 
 export function GraphBenchShowcase() {
   const [shape, setShape] = useState<Shape>("hyperbolic");
-  const [layer, setLayer] = useState<Layer>("engine");
+  // Opens on the architecture rather than on the control condition: `bounded` is the claim this
+  // page exists to make, and `cosmos.gl alone` is what it is measured against.
+  const [layer, setLayer] = useState<Layer>("bounded");
   const [previewSize, setPreviewSize] = useState(PREVIEW_SIZES[1] as number);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [boundedSamples, setBoundedSamples] = useState<BoundedSample[]>([]);
@@ -266,15 +432,28 @@ export function GraphBenchShowcase() {
       fitViewOnInit: true,
       fitViewDelay: 400,
       renderLinks: true,
-      pointDefaultSize: previewSize > 100_000 ? 1 : 2,
+      // Points win over links, because the question this canvas answers is whether the *nodes* are
+      // still distinguishable. At 2px under a 69k-link haze they were not: the picture read as grey
+      // weather with no structure in it, which is the opposite of the evidence it is here to give.
+      pointDefaultSize: previewSize > 100_000 ? 2 : 4,
+      // Points hold their screen size, exactly as `appearance()` decides for the real canvas. Left
+      // to cosmos.gl's default they scale with zoom, and `fitViewOnInit` pulls the camera far
+      // enough back at these sizes that every point shrinks under a pixel — the picture came out as
+      // link haze with no nodes in it at all.
+      scalePointsOnZoom: false,
       // Links stop being information long before points do: past a few tens of thousands the edge
       // layer is a uniform fog that hides the structure it is meant to show. Fading them with
       // distance is what keeps the picture readable enough to judge.
-      linkOpacity: previewSize > 50_000 ? 0.08 : 0.25,
+      linkOpacity: previewSize > 50_000 ? 0.06 : 0.15,
       simulationDecay: 400,
       simulationGravity: 0.25,
       simulationRepulsion: 1,
       randomSeed: "kanzo-bench",
+      // Frame it again once it has stopped moving. `fitViewOnInit` fires at `fitViewDelay`, while
+      // the layout is still spreading, so on its own it frames a graph that no longer exists a
+      // second later — the canvas showed the corner of a hairball. This is the same correction
+      // `useCosmosGraph` makes for the real canvas, for the same reason.
+      onSimulationEnd: () => graph?.fitView(450, 0.12),
       pixelRatio: window.devicePixelRatio || 1,
       attribution: "",
     });
@@ -404,86 +583,158 @@ export function GraphBenchShowcase() {
 
   const run = layer === "engine" ? runEngine : runBounded;
 
-  return (
-    <div className="flex h-dvh flex-col bg-background text-foreground">
-      <header className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
-        <div className="mr-auto">
-          <h1 className="text-sm font-semibold">Graph scale</h1>
-          <p className="text-xs text-muted-foreground">
-            cosmos.gl 3.4.0 — where the renderer stops, and where the picture stops first
-          </p>
-        </div>
-
-        {/* These pick one of a set rather than firing independent actions, which is the
-            line between SegmentGroup and ButtonGroup. */}
+  /** The one control cluster, in the rail where a showcase puts its controls. */
+  const controls = (
+    <div className="flex flex-col gap-4 px-2 py-1">
+      {/* These pick one of a set rather than firing independent actions, which is the line between
+          SegmentGroup and ButtonGroup. Stacked rather than in a row: a rail is a column, and a
+          segmented control that wraps mid-group stops reading as one choice. */}
+      <div className="space-y-1.5">
+        <p className="font-medium text-muted-foreground text-xs">Layer</p>
         <SegmentGroup
           aria-label="Layer"
-          className="w-fit"
           disabled={running}
+          orientation="vertical"
           onValueChange={(details) => setLayer((details.value as Layer) ?? "engine")}
           options={LAYERS.map((option) => ({ label: option.label, value: option.id }))}
           value={layer}
           variant="solid"
         />
+      </div>
 
+      <div className="space-y-1.5">
+        <p className="font-medium text-muted-foreground text-xs">Shape</p>
         <SegmentGroup
           aria-label="Graph shape"
-          className="w-fit"
           disabled={running}
           onValueChange={(details) => setShape((details.value as Shape) ?? "hyperbolic")}
           options={SHAPES.map((option) => ({ label: option.label, value: option.id }))}
           value={shape}
           variant="solid"
         />
+      </div>
 
+      <div className="space-y-1.5">
+        <p className="font-medium text-muted-foreground text-xs">Preview size</p>
         <SegmentGroup
           aria-label="Preview size"
-          className="w-fit"
           disabled={running}
           onValueChange={(details) => setPreviewSize(Number(details.value) || PREVIEW_SIZES[0]!)}
           options={PREVIEW_SIZES.map((size) => ({ label: compact(size), value: String(size) }))}
           value={String(previewSize)}
           variant="solid"
         />
-
-        <Show when={layer === "engine" && !running}>
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
-            <Checkbox
-              checked={stress}
-              onCheckedChange={(details) => setStress(details.checked === true)}
-            />
-            past 200k
-          </label>
-        </Show>
-
-        <Show
-          when={running}
-          fallback={
-            <Button size="sm" onClick={() => void run()} data-testid="run-sweep">
-              <PlayIcon /> Run sweep
-            </Button>
-          }
-        >
-          <Button size="sm" variant="outline" onClick={() => (stop.current = true)}>
-            <SquareIcon /> Stop
-          </Button>
-        </Show>
-      </header>
-
-      <div className="relative min-h-0 flex-1">
-        <div ref={hostRef} className="absolute inset-0" />
-        <div className="pointer-events-none absolute left-3 top-3 flex flex-wrap gap-2">
-          {preview && (
-            <>
-              <Badge variant="secondary">{compact(preview.points)} nodes</Badge>
-              <Badge variant="secondary">{compact(preview.links)} links</Badge>
-              <Badge variant="outline">generated in {format(preview.ms, 0)} ms</Badge>
-            </>
-          )}
-        </div>
       </div>
 
-      <section className="max-h-[46%] min-h-0 overflow-auto border-t">
+      <Show when={layer === "engine" && !running}>
+        <label className="flex items-center gap-2 text-muted-foreground text-xs">
+          <Checkbox
+            checked={stress}
+            onCheckedChange={(details) => setStress(details.checked === true)}
+          />
+          past 200k
+        </label>
+      </Show>
+    </div>
+  );
+
+  return (
+    <SidebarProvider className="h-dvh min-h-0 overflow-hidden">
+      <Sidebar collapsible="icon">
+        <SidebarHeader>
+          <div className="px-2 py-1">
+            <p className="font-semibold text-sm">Graph scale</p>
+            <p className="text-muted-foreground text-xs">cosmos.gl 3.4.0</p>
+          </div>
+        </SidebarHeader>
+
+        <SidebarContent>{controls}</SidebarContent>
+
+        <SidebarFooter>
+          <Show
+            when={running}
+            fallback={
+              <Button className="w-full" onClick={() => void run()} data-testid="run-sweep" size="sm">
+                <PlayIcon /> Run sweep
+              </Button>
+            }
+          >
+            <Button
+              className="w-full"
+              onClick={() => (stop.current = true)}
+              size="sm"
+              variant="outline"
+            >
+              <SquareIcon /> Stop
+            </Button>
+          </Show>
+        </SidebarFooter>
+        <SidebarRail />
+      </Sidebar>
+
+      <SidebarInset>
+        <ShellHeader className="h-12 flex-row items-center gap-2 px-3">
+          <SidebarTrigger />
+          <Separator className="h-4" orientation="vertical" />
+          <Breadcrumbs
+            items={[{ label: "Benchmarks", href: "#/benchmarks" }, { label: "Graph scale" }]}
+          />
+          <div className="ms-auto flex items-center gap-2">
+            <Show when={running}>
+              <Status variant="warning">{stageLabel ?? "measuring"}</Status>
+            </Show>
+          </div>
+        </ShellHeader>
+
+        <ShellMain className="bg-background">
+          <SectionRoot>
+            <SectionHeader scale="page">
+              <SectionTitleGroup>
+                <SectionTitle level={1} scale="page">
+                  {layer === "bounded" ? "Bounded" : "cosmos.gl alone"}
+                </SectionTitle>
+                <SectionDescription>
+                  {layer === "bounded"
+                    ? "Ask for the window, not the corpus. First paint should stop following N — and panning is the cost that did not exist before."
+                    : "The renderer fed typed arrays straight from a generator: the most the GPU can do with nothing of ours in the way."}
+                </SectionDescription>
+              </SectionTitleGroup>
+            </SectionHeader>
+
+            <SectionBody scale="page">
+              {/* The claim first, the columns after. */}
+              <Headline bounded={boundedSamples} layer={layer} samples={samples} />
+
+              {/*
+                The canvas is evidence, not decoration. A table can say 200,000 points cost 62 ms a
+                step; only the picture can say whether 200,000 points is still a picture of
+                anything. Those two ceilings are different and the lower one is usually legibility.
+              */}
+              <div className="relative h-[58vh] min-h-80 overflow-hidden rounded-lg border">
+                <div ref={hostRef} className="absolute inset-0" />
+                <div className="pointer-events-none absolute top-3 left-3 flex flex-wrap gap-2">
+                  {preview && (
+                    <>
+                      <Badge variant="secondary">{compact(preview.points)} nodes</Badge>
+                      <Badge variant="secondary">{compact(preview.links)} links</Badge>
+                      <Badge variant="outline">generated in {format(preview.ms, 0)} ms</Badge>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <section className="min-w-0 space-y-3">
+                <SectionHeader>
+                  <SectionTitleGroup>
+                    <SectionTitle level={2}>Every size</SectionTitle>
+                    <SectionDescription>
+                      Each row is checked against the graph it was supposed to load before it is
+                      timed — that check once caught the whole table being fiction.
+                    </SectionDescription>
+                  </SectionTitleGroup>
+                </SectionHeader>
+
+                <div className="overflow-x-auto rounded-lg border">
         <Show when={layer === "bounded"}>
           <BoundedTable running={running} samples={boundedSamples} stage={stageLabel} />
         </Show>
@@ -564,7 +815,23 @@ export function GraphBenchShowcase() {
             </TableBody>
           </Table>
         </Show>
-      </section>
-    </div>
+                </div>
+              </section>
+            </SectionBody>
+          </SectionRoot>
+        </ShellMain>
+
+        <ShellFooter className="h-9 flex-row items-center gap-2 px-3 text-muted-foreground text-xs">
+          <span>
+            Measured in this tab, on this machine. `BENCHMARKS.md` carries the recorded run.
+          </span>
+          <span className="ms-auto tabular-nums">
+            {layer === "bounded"
+              ? `${BOUNDED_SIZES.map(compact).join(" · ")} nodes`
+              : `${(stress ? STRESS_SIZES : SIZES).map(compact).join(" · ")} nodes`}
+          </span>
+        </ShellFooter>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
