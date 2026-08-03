@@ -53,6 +53,7 @@ import {
   STRESS_SIZES,
   type Sample,
   type Shape,
+  visible,
 } from "./measure";
 import {
   BOUNDED_SIZES,
@@ -144,6 +145,14 @@ const RECORDED = {
   shown: 20_000,
   matched: 200_000,
   atNodes: 200_000,
+  /**
+   * The renderer's ceiling at the same size, from layer 4 — layer 3 never measured it.
+   *
+   * Two layers in one constant, which is worth the seam: the tile it feeds exists to be read
+   * *against* the update rate beside it, and a placeholder there would leave the page's sharpest
+   * comparison blank until someone waits out a sweep.
+   */
+  redrawFps: 708,
 } as const;
 
 /** The same recorded run, for the control condition. `BENCHMARKS.md` layer 1, 200,000 nodes. */
@@ -175,7 +184,7 @@ function Headline(props: {
     const last = done.at(-1);
     if (!last) {
       return (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <StatTile
             label={`First paint at ${compact(RECORDED.atNodes)} · recorded`}
             value={`${RECORDED.firstPaintMs} ms`}
@@ -188,7 +197,14 @@ function Headline(props: {
               label: ` vs held at ${compact(RECORDED.atNodes)}`,
             }}
           />
-          <StatTile label="Per camera move · recorded" value={`${RECORDED.panMs} ms`} />
+          <StatTile
+            label="Updates per second · recorded"
+            value={`${format(1000 / RECORDED.panMs, 1)} /s`}
+          />
+          <StatTile
+            label="Redraw ceiling · recorded"
+            value={`${format(RECORDED.redrawFps, 0)} fps`}
+          />
           <StatTile
             label="Shown of matched · recorded"
             value={`${compact(RECORDED.shown)} / ${compact(RECORDED.matched)}`}
@@ -199,7 +215,7 @@ function Headline(props: {
     const paint = done.map((s) => s.totalMs + s.firstSliceMs + s.uploadMs);
     const first = paint.at(-1) ?? 0;
     return (
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile
           label={`First paint at ${compact(last.pointCount)}`}
           value={`${format(first, 0)} ms`}
@@ -217,12 +233,31 @@ function Headline(props: {
           }}
           trend={paint}
         />
+        {/*
+          The two rates, next to each other, because neither means anything alone.
+
+          A benchmark that published one "fps" here would be publishing whichever of them flattered
+          it. The renderer's ceiling is hundreds of frames a second and never follows N — the slice
+          cannot exceed the limit — so quoting it would say the view is fast when what a reader
+          feels at a million is a picture that becomes *correct* ten times a second. Quoting only
+          the update rate would blame the renderer for a cost that is entirely the query's.
+
+          The canvas itself never waits: geometry is pushed when a slice lands and the last one
+          keeps being drawn meanwhile, so the picture moves at the display's rate throughout. What
+          the pair measures is the gap between moving and being right.
+        */}
         <StatTile
-          label="Per camera move"
-          value={`${format(last.panMs, 0)} ms`}
-          // The cost that did not exist before: holding the corpus pans on the GPU for free. It is
-          // the honest half of the trade and it stays on the front page for that reason.
-          trend={done.map((s) => s.panMs)}
+          label="Updates per second"
+          value={`${format(1000 / last.panMs, 1)} /s`}
+          // The cost that did not exist before: holding the corpus pans on the GPU for free.
+          trend={done.map((s) => 1000 / s.panMs)}
+        />
+        <StatTile
+          label="Redraw ceiling"
+          value={`${format(1000 / last.drawMs, 0)} fps`}
+          // Follows the slice's *links*, not the corpus — which is why a million is the cheapest of
+          // all of them, and why this number is here to be ruled out rather than admired.
+          trend={done.map((s) => 1000 / s.drawMs)}
         />
         <StatTile
           label="Shown of matched"
@@ -416,11 +451,16 @@ function BoundedTable(props: {
                 <TableCell className="text-right tabular-nums">
                   {format(sample.panMs, 0)} ms
                 </TableCell>
-                {/* The renderer's own cost, kept beside `Pan` so the two are read together: this
-                    one never follows N because the slice never exceeds the limit, which is what
-                    makes `Pan` the number that decides how the view feels. */}
+                {/* The renderer's own ceiling, beside `Pan` so the two are read together: this one
+                    never follows N because the slice never exceeds the limit, which is what makes
+                    `Pan` the number that decides how the view feels.
+
+                    A rate rather than the millisecond it was measured in, because the tile above
+                    states it as one and a reader should not have to invert 2.67 ms in their head to
+                    check it against "374 fps". Every other column here is a latency, where ms is
+                    the right unit; this is the one column that is a frequency. */}
                 <TableCell className="text-right tabular-nums text-muted-foreground">
-                  {format(sample.drawMs, 1)} ms
+                  {format(1000 / sample.drawMs, 0)} fps
                 </TableCell>
                 <TableCell className="text-right tabular-nums text-muted-foreground">
                   {compact(sample.returned)} / {compact(sample.matched)}
@@ -457,6 +497,36 @@ export function GraphBenchShowcase() {
   const [stageLabel, setStageLabel] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ points: number; links: number; ms: number } | null>(null);
 
+  /**
+   * The rate the picture in front of you is actually moving at.
+   *
+   * Counted from `onSimulationTick` — once per frame the renderer genuinely advanced — and never
+   * from `requestAnimationFrame`, which fires on the monitor's schedule whether or not cosmos.gl
+   * did anything in between. The sweep learned that the expensive way: rAF published 60, 61, 62,
+   * 62, 61 and 52 fps across a range where the step cost grew three-hundredfold.
+   *
+   * `null` while nothing is animating, which is a state and not a zero: past the live-layout
+   * ceiling there is no simulation to tick, and after `onSimulationEnd` there is nothing left to
+   * move. A counter that printed "0 fps" for a settled graph would be reporting a stall.
+   */
+  const [liveFps, setLiveFps] = useState<number | null>(null);
+  const [settled, setSettled] = useState(false);
+  /**
+   * Whether this tab is on screen, because that decides whether a frame rate exists at all.
+   *
+   * A backgrounded tab does not tick slowly, it does not tick — so the counter has nothing to
+   * count and the badge has to say which of the two silences it is looking at. Left unsaid, the
+   * reader sees a graph frozen at "starting…" and concludes the renderer hung.
+   */
+  const [onScreen, setOnScreen] = useState(true);
+
+  useEffect(() => {
+    const sync = () => setOnScreen(visible());
+    sync();
+    document.addEventListener("visibilitychange", sync);
+    return () => document.removeEventListener("visibilitychange", sync);
+  }, []);
+
   const hostRef = useRef<HTMLDivElement | null>(null);
   const stop = useRef(false);
 
@@ -485,6 +555,10 @@ export function GraphBenchShowcase() {
     const element = hostRef.current;
     if (!element || !previewLive) return;
     let live = true;
+
+    setLiveFps(null);
+    setSettled(false);
+    let ticks = 0;
 
     const started = performance.now();
     const data = generate(shape, previewSize);
@@ -522,11 +596,15 @@ export function GraphBenchShowcase() {
       simulationGravity: 0.25,
       simulationRepulsion: 1,
       randomSeed: "kanzo-bench",
+      onSimulationTick: () => void (ticks += 1),
       // Frame it again once it has stopped moving. `fitViewOnInit` fires at `fitViewDelay`, while
       // the layout is still spreading, so on its own it frames a graph that no longer exists a
       // second later — the canvas showed the corner of a hairball. This is the same correction
       // `useCosmosGraph` makes for the real canvas, for the same reason.
-      onSimulationEnd: () => graph.fitView(450, 0.3),
+      onSimulationEnd: () => {
+        graph.fitView(450, 0.3);
+        if (live) setSettled(true);
+      },
       pixelRatio: window.devicePixelRatio || 1,
       attribution: "",
     });
@@ -540,8 +618,27 @@ export function GraphBenchShowcase() {
 
     if (live) setPreview({ points: data.pointCount, links: data.linkCount, ms: generated });
 
+    /**
+     * Sampled on a timer rather than every frame, and skipped while the tab is hidden.
+     *
+     * Ticks do not fire at all in a backgrounded tab — they do not fire late — so a sample taken
+     * there would divide zero ticks by half a second and publish a confident "0 fps" for a graph
+     * that is simulating perfectly well the moment you look at it again.
+     */
+    let sampledAt = performance.now();
+    const sampler = window.setInterval(() => {
+      const now = performance.now();
+      const elapsed = now - sampledAt;
+      sampledAt = now;
+      const counted = ticks;
+      ticks = 0;
+      if (!live || document.hidden || elapsed <= 0) return;
+      setLiveFps((counted * 1000) / elapsed);
+    }, 500);
+
     return () => {
       live = false;
+      window.clearInterval(sampler);
       graph.destroy();
     };
   }, [previewLive, previewSize, shape]);
@@ -839,6 +936,37 @@ export function GraphBenchShowcase() {
                       <Badge variant="secondary">{compact(preview.points)} nodes</Badge>
                       <Badge variant="secondary">{compact(preview.links)} links</Badge>
                       <Badge variant="outline">generated in {format(preview.ms, 0)} ms</Badge>
+                      {/*
+                        The frame rate, and when there is none, the reason instead of a zero.
+
+                        Above the live-layout ceiling the simulation is off by design — 61 ms a step
+                        at 200,000 is not a layout, it is a stall with a progress bar — so the
+                        honest badge names that rather than reporting a graph that is not moving as
+                        a graph that cannot move. Once the layout settles there is likewise nothing
+                        left to draw, and "settled" is the finding: it arrived.
+
+                        That first branch is **currently unreachable**: the largest preview size and
+                        the ceiling are both 200,000, so `enableSimulation` is always on. It is kept
+                        because the two ternaries in the preview effect guard on the same comparison
+                        for the same reason, and a size above the ceiling is exactly what the sizes
+                        comment contemplates adding — dropping only this one would leave the badge
+                        claiming a frame rate for a graph that has no simulation to tick.
+
+                        At 200,000 the reading is the point rather than an edge case: a step costs
+                        61 ms there, so the badge settles around 16 fps and says in the corner of a
+                        picture what layer 1's table says in a column.
+                      */}
+                      <Badge variant="outline">
+                        {previewSize > LIVE_LAYOUT_CEILING
+                          ? "no simulation · positions precomputed"
+                          : !onScreen
+                            ? "tab hidden · frames stop"
+                            : settled
+                              ? "layout settled"
+                              : liveFps === null
+                                ? "starting…"
+                                : `${format(liveFps, 0)} fps`}
+                      </Badge>
                     </>
                   )}
                 </div>

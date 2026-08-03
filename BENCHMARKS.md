@@ -124,6 +124,17 @@ changing nothing says the cost was never the scan: 19 MB is small enough that re
 negotiating 123 row groups. Native DuckDB runs the same two queries locally in 6 ms and 10 ms, so
 what is left is WASM. `--row-group` stays on `build-corpus.mjs` so nobody re-derives this.
 
+The preview canvas carries the live rate in its corner, counted the same way — `onSimulationTick`,
+never `requestAnimationFrame`. At 199,800 nodes it reads **14–16 fps**, which is layer 1's 61 ms
+step arrived at by a completely different mechanism: a rolling counter on a canvas somebody is
+watching, against a batch of `graph.step()` calls flushed by a readback. Two independent routes to
+the same number is the cross-check that says neither is measuring itself.
+
+It also refuses to invent one. A backgrounded tab does not tick slowly, it does not tick, so the
+badge says `tab hidden · frames stop` rather than dividing zero by half a second and publishing a
+confident 0 fps. When the layout stops moving it says `layout settled`, because a settled graph
+reporting 0 fps reads as a stall.
+
 **What is left to try, in the order the measurements support:** the edge file is sorted by
 `src_dense`, so every slice joins against all 6.9M rows with nothing to prune — Morton-ordering the
 edges the way the vertices already are is the one structural fix; the `matched` count is a third
