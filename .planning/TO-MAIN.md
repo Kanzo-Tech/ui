@@ -20,6 +20,34 @@ path to `main` for *our* work and does not block it. It will conflict with us in
 somebody integrates it — `token-color.test.ts` among them, which is the split reconstructed by hand
 on 2026-08-03, so whoever does it should read that commit first.
 
+## The Guild is the standing convention, and this branch predates it
+
+**The data is always the Guild.** `docs/example/` — eleven files, the one running world — exists
+only on `main`; this branch has none of it, because it was cut at `e210a59`, before the Guild
+landed. It therefore arrives whole and unconflicted, and the rule arrives with it: an example
+imports from the world, it does not invent data.
+
+That reverses the default for one class of conflict. Where `main` rewrote an example to speak the
+Guild and we also edited it, **`main`'s data wins and our audit edit is re-applied on top** — not
+"ours wins". Measured, the set is small and exact: we touched 71 examples, `main` made 105 speak the
+Guild, 14 overlap, and **7 of those 14 survive our cut**:
+
+- `docs/examples/data-table/example-default.tsx`
+- `docs/examples/data-table/example-empty.tsx`
+- `docs/examples/data-table/example-footer.tsx`
+- `docs/examples/data-table/example-sortable.tsx`
+- `docs/examples/form/tanstack/example-date-field.tsx`
+- `docs/examples/sidebar-identity/example-default.tsx`
+- `docs/examples/sidebar/example-default.tsx`
+
+The other 7 of the 14 are examples for components this branch cut, so they go with them.
+
+**Five examples this branch added never existed on `main`** and so were written without the world.
+Each needs reading against the rule before it lands — none is data-heavy, which is why this is a
+check and not a rewrite:
+`badge/example-ribbon` · `breadcrumb/example-collapsed` · `date-picker/example-iso-value` ·
+`item/example-empty` · `skip-nav/example-default`
+
 ## The collision: the cut against the Guild
 
 Our 103 commits **deleted** nine components. `main`'s Guild work (`2e17f4f` "the examples speak the
@@ -32,6 +60,9 @@ from the running example. Neither side is wrong and the merge cannot tell:
 All nine verified absent from the built barrel at `16ea175` (`node -e "require('./packages/ui/dist')"`),
 so **the deletion wins every time** — a Guild rewrite of an example for a component that no longer
 exists is moot. That decides 29 of the 48 conflicts mechanically.
+
+It wins because the component is gone, **not** because the cut outranks the Guild. Where the
+component survives, the section above applies and the Guild's data is what lands.
 
 ## The 48, by shape
 
@@ -129,7 +160,8 @@ mention that names no symbol.
 ## Order
 
 1. `git merge main` on this branch — resolve here, so `main` never sees a broken state.
-2. The 29 deletions, mechanically. Then the 18 by hand.
+2. The 29 deletions, mechanically. Then the 18 by hand — for the 7 example files named above,
+   take `main`'s Guild-speaking version and re-apply our edit onto it, in that direction.
 3. Sweep the fallout list above for the nine names.
 4. Full chain: `build`, `typecheck`, `lint`, `check:generated`, `test`, `size`, `smoke`,
    `pnpm --filter @kanzo-tech/docs build`. All green at `16ea175` today (731 tests, size 66.21 kB).
