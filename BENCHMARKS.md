@@ -164,11 +164,34 @@ and they bought nothing. Getting real threads would mean going further into Mosa
 which selects the bundle itself and passes no config — worth knowing before anyone assumes a header
 is all that stands between this and four cores.
 
-**What is left to try, in the order the measurements support:** the edge file is sorted by
-`src_dense`, so every slice joins against all 6.9M rows with nothing to prune — Morton-ordering the
-edges the way the vertices already are is the one structural fix; the `matched` count is a third
-full-predicate query issued on every slice and could be skipped while the camera is moving; and a
-tile cache would make panning back free, which no amount of query tuning can.
+### Where the slice actually goes, at a million
+
+Timed in the browser on the live views, warm, each query on its own — first through a private
+`db.connect()`, then through the coordinator so the difference is Arrow IPC and decoding:
+
+| Query | Raw connection | Via coordinator |
+|---|---|---|
+| points (bbox, numbered, limit 20k) | 25–29 ms | 32–43 ms |
+| links (the CTE joined twice against 6.9M edges) | 33–34 ms | 34–37 ms |
+| matched (`count(*)` over the whole predicate) | 9–10 ms | 10 ms |
+
+**Arrow IPC and decoding cost about 10 ms**, not the transport tax it would be easy to assume.
+The three sum to ~75 ms, which is the 95 ms pan almost exactly — and the 217 ms *first* slice is
+that plus the cold HTTP fetch of the 19 MB vertex file's column chunks, which every later pan then
+reuses. That is why first paint is 2.3× a pan at the same size and why the gap does not appear at
+2,000.
+
+**The largest single win is concurrency, not format.** `detail()` issues its three queries with
+`Promise.all`, but Mosaic funnels them through one DuckDB connection and fulfils results in strict
+FIFO order, so they serialise: the sum is 75 ms where the slowest is 35 ms. Running them on
+separate connections would put the pan near 40 ms — from 10.5 updates a second to about 25 — which
+is more than any file-layout change on this list offers.
+
+**What is left to try, in the order the measurements support:** issue the slice's three queries
+concurrently rather than down one connection (75 ms → ~35 ms); Morton-order the edge file, which is
+sorted by `src_dense` and so scans all 6.9M rows with nothing to prune, worth at most the 35 ms that
+query costs; skip `matched` while the camera is moving, worth 10 ms; and a tile cache, which would
+make panning *back* free — the only item here that no amount of query tuning can substitute for.
 
 ## What the corpus does *not* yet give
 
