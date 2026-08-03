@@ -21,7 +21,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, mkdirSync, openSync, renameSync, rmSync, writeSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -42,27 +42,52 @@ const DEFAULT_SIZES = [2_000, 10_000, 50_000, 200_000, 1_000_000];
 /** cosmos.gl's simulation box, so the written coordinates are already the camera's space. */
 const SPACE = 4096;
 
+/** Flush the CSV buffer at roughly eight megabytes — well under any string limit, few enough syscalls. */
+const CHUNK = 8_000_000;
+
+/** Append lines to `file`, flushing every `CHUNK` characters so nothing large is ever held whole. */
+function writeCsv(file, header, rows) {
+  const fd = openSync(file, "w");
+  let buffer = `${header}\n`;
+  rows((line) => {
+    buffer += `${line}\n`;
+    if (buffer.length > CHUNK) {
+      writeSync(fd, buffer);
+      buffer = "";
+    }
+  });
+  if (buffer) writeSync(fd, buffer);
+  closeSync(fd);
+}
+
 /**
- * A node list and an edge list — the second denormalised onto the first.
+ * A node list and an edge list — the second denormalised onto the first, both written in chunks.
  *
  * The node list exists because only a subject map mints a vertex: an edge list alone loses every
  * node that is never a source, which at 2,000 was a third of them. The edge list repeats the
  * source's `community` because fossil unions the two mappings before deduping, so both must project
  * the same columns. Dedup is by subject IRI, so a node named once per edge still becomes one vertex.
+ *
+ * The first draft built each file with `rows.join("\n")` and it is the **builder** that broke first
+ * at five million, not the reader: thirty-five million edge rows is around 700 MB of text and V8
+ * caps a single string near 512 MB, so `join` threw before fossil was even invoked. Worth recording
+ * because it is the opposite of the failure this benchmark was looking for — the corpus is a
+ * compiler output precisely so the expensive part happens once, offline, and the part that broke
+ * was the offline one.
  */
 function csvFor(size) {
   const data = hyperbolic({ pointCount: size, spaceSize: SPACE });
 
-  const nodes = ["id,community"];
-  for (let n = 0; n < size; n += 1) nodes.push(`${n},${data.community[n]}`);
+  writeCsv(join(HERE, "nodes.csv"), "id,community", (line) => {
+    for (let n = 0; n < size; n += 1) line(`${n},${data.community[n]}`);
+  });
 
-  const edges = ["id,community,target"];
-  for (let e = 0; e < data.links.length; e += 2) {
-    const source = data.links[e];
-    edges.push(`${source},${data.community[source]},${data.links[e + 1]}`);
-  }
-
-  return { nodes: nodes.join("\n"), edges: edges.join("\n") };
+  writeCsv(join(HERE, "edges.csv"), "id,community,target", (line) => {
+    for (let e = 0; e < data.links.length; e += 2) {
+      const source = data.links[e];
+      line(`${source},${data.community[source]},${data.links[e + 1]}`);
+    }
+  });
 }
 
 function build(size, fossil, rowGroup) {
@@ -70,9 +95,7 @@ function build(size, fossil, rowGroup) {
   rmSync(dest, { force: true, recursive: true });
   mkdirSync(dest, { recursive: true });
 
-  const { nodes, edges } = csvFor(size);
-  writeFileSync(join(HERE, "nodes.csv"), nodes);
-  writeFileSync(join(HERE, "edges.csv"), edges);
+  csvFor(size);
 
   const started = Date.now();
   // `io.csv` resolves against the process's working directory, not the program's own — so run from
@@ -103,8 +126,11 @@ function build(size, fossil, rowGroup) {
  * slightly *worse*, never better. A tenfold cut in rows scanned changing nothing says the cost was
  * never the scan — a 19 MB file is small enough that DuckDB-WASM is better off reading it than
  * negotiating 123 row groups, and what is left is WASM execution, which native DuckDB does in 16 ms.
- * The pruning is real and it is about *bytes*; it starts to matter at the size where fetching the
- * file whole stops being an option, which this corpus is not.
+ * **Retried at five million and it lost again**, which is the size the sentence above used to
+ * excuse it with: on a 97 MB vertex file, 611 row groups took the slice from 974 ms to 1,072 ms and
+ * the pan from 331 ms to 420 ms. Twice measured, twice worse. Per-group metadata and more, smaller
+ * reads cost more than the pruning saves, and no file this benchmark builds is large enough to
+ * reverse that.
  */
 function regroup(file, rows) {
   const started = Date.now();

@@ -117,12 +117,15 @@ a slice lands, so the *picture* moves at the display rate throughout. What drops
 at a million is how often it becomes **correct**. That is the number to improve, and it is a query
 cost, not a rendering one.
 
-**The obvious lever is not the lever.** Rewriting the million-node vertex file at 8,192-row groups
-cuts rows scanned for a window from 491,520 to 49,152 — and the slice went 219 → 229/244 ms and the
-pan 95 → 109/112 ms over two runs. Slightly worse, never better. A tenfold cut in rows scanned
-changing nothing says the cost was never the scan: 19 MB is small enough that reading it beats
-negotiating 123 row groups. Native DuckDB runs the same two queries locally in 6 ms and 10 ms, so
-what is left is WASM. `--row-group` stays on `build-corpus.mjs` so nobody re-derives this.
+**The obvious lever is not the lever, twice.** Rewriting the million-node vertex file at 8,192-row
+groups cuts rows scanned for a window from 491,520 to 49,152 — and the slice went 219 → 229/244 ms
+and the pan 95 → 109/112 ms over two runs. Slightly worse, never better. The excuse offered at the
+time was that 19 MB is too small for pruning to pay, so it was **retried at five million**, on a
+97 MB file: 611 row groups took the slice from 974 ms to 1,072 ms and the pan from 331 ms to 420 ms.
+Twice measured, twice worse, and the second time at the size the first excuse pointed at. Per-group
+metadata and more, smaller reads cost more than the pruning saves. Native DuckDB runs the same two
+queries locally in 6 ms and 10 ms, so what is left is WASM. `--row-group` stays on
+`build-corpus.mjs` so nobody re-derives this a third time.
 
 The preview canvas carries the live rate in its corner, counted the same way — `onSimulationTick`,
 never `requestAnimationFrame`. At 199,800 nodes it reads **14–16 fps**, which is layer 1's 61 ms
@@ -134,6 +137,33 @@ It also refuses to invent one. A backgrounded tab does not tick slowly, it does 
 badge says `tab hidden · frames stop` rather than dividing zero by half a second and publishing a
 confident 0 fps. When the layout stops moving it says `layout settled`, because a settled graph
 reporting 0 fps reads as a stall.
+
+### Five million, and where the claim actually breaks
+
+The headline of this page is *first paint follows the window rather than the corpus*. Measured to a
+million it looks true. At five million it is false, and the shape of the failure is the useful part.
+
+| Nodes | Links | `total()` | First slice | Upload | **First paint** | Pan | Updates/s | Redraw |
+|---|---|---|---|---|---|---|---|---|
+| 200k | 1.37M | 7 ms | 66 ms | 24 ms | **97 ms** | 41 ms | 24.2 | 836 fps |
+| 1M | 6.90M | 7 ms | 210 ms | 23 ms | **240 ms** | 93 ms | 10.7 | 1,807 fps |
+| 5M | 34.97M | 9 ms | 974 ms | 23 ms | **1,006 ms** | 331 ms | 3.0 | 2,113 fps |
+
+Five times the corpus costs **4.6× the slice and 3.6× the pan**. That is linear, not flat. And
+1,006 ms of first paint at five million is no longer an improvement on the 1,225 ms that holding
+*two hundred thousand* used to cost — the bounded path wins by 25× on corpus size at the same
+latency, which is a real result, but it is not the constant it was advertised as.
+
+**What is flat is worth naming precisely, because it is half the architecture:** `total()` stays at
+7–9 ms because it is Parquet metadata; the upload stays at 23 ms because the slice is capped at
+20,000 marks; the redraw ceiling stays in the thousands of frames per second. So the window really
+does bound everything that is *drawn* and *transferred*. What it does not bound is what is
+**scanned** — the bbox predicate and the edge join are both O(N), and no amount of limit on the
+answer changes the cost of finding it.
+
+That is the honest statement of the architecture: **bounded rendering, unbounded querying.** Getting
+the second half sublinear needs a real index, and the two attempts to fake one with Parquet
+row-group statistics both made it slower.
 
 ### DuckDB gets one core, and cross-origin isolation does not change that
 

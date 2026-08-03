@@ -87,6 +87,19 @@ export const BOUNDED_SIZES = [2_000, 10_000, 50_000, 200_000];
  */
 export const CORPUS_SIZES = [2_000, 10_000, 50_000, 200_000, 1_000_000];
 
+/**
+ * The size that asks whether any of this keeps its shape, and it is opt-in for two reasons.
+ *
+ * It has to be **built first** — the corpora are compiler output and gitignored, so a sweep against
+ * a size nobody wrote is four hundred megabytes of 404 and a row of failures. And at five million
+ * the interesting term stops being the window: the edge join is the one part of a slice that scans
+ * something proportional to the corpus with nothing to prune, so this is the size that says whether
+ * "the working set is the window" survives contact with an edge list.
+ *
+ *   node docs/showcases/graph-bench/corpus/build-corpus.mjs --sizes 5000000
+ */
+export const CORPUS_STRESS_SIZES = [5_000_000];
+
 export const FIXTURE_SIZES: Record<Fixture, number[]> = {
   generated: BOUNDED_SIZES,
   corpus: CORPUS_SIZES,

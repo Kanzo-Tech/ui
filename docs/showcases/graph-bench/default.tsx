@@ -58,6 +58,7 @@ import {
 import {
   BOUNDED_SIZES,
   type BoundedSample,
+  CORPUS_STRESS_SIZES,
   type Fixture,
   FIXTURE_SIZES,
   measureBounded,
@@ -541,11 +542,13 @@ export function GraphBenchShowcase() {
   const [previewLive, setPreviewLive] = useState(true);
 
   /**
-   * Whether the sweep goes past 200,000.
+   * Whether the sweep goes past its layer's comfortable ceiling.
    *
-   * Off by default and labelled, because the two sizes above it are not merely slower — they take
-   * the whole machine down with them for a minute or two. That is a thing to opt into, not to
-   * discover.
+   * Off by default and labelled, because on the engine layer the two sizes above 200,000 are not
+   * merely slower — they take the whole machine down with them for a minute or two. On the compiled
+   * layer the reason is different and just as good: five million has to be **built** first, and a
+   * sweep against a corpus nobody wrote is a row of 404s. Either way, a thing to opt into rather
+   * than to discover.
    */
   const [stress, setStress] = useState(false);
 
@@ -727,7 +730,11 @@ export function GraphBenchShowcase() {
     publish({ bounded: [] }, true, false);
     const collected: BoundedSample[] = [];
     try {
-      for (const size of FIXTURE_SIZES[fixture]) {
+      const sizes =
+        fixture === "corpus" && stress
+          ? [...FIXTURE_SIZES[fixture], ...CORPUS_STRESS_SIZES]
+          : FIXTURE_SIZES[fixture];
+      for (const size of sizes) {
         if (stop.current) break;
         setCurrent(size);
         for (let i = 0; i < 3; i++) await nextFrame();
@@ -750,7 +757,7 @@ export function GraphBenchShowcase() {
       setPreviewLive(true);
       publish({ bounded: collected }, false, true);
     }
-  }, [publish, shape]);
+  }, [publish, shape, stress]);
 
   const run = useCallback(
     () => (layer === "engine" ? runEngine() : runBounded(layer === "corpus" ? "corpus" : "generated")),
@@ -835,13 +842,13 @@ export function GraphBenchShowcase() {
         />
       </div>
 
-      <Show when={layer === "engine" && !running}>
+      <Show when={layer !== "bounded" && !running}>
         <label className="flex items-center gap-2 text-muted-foreground text-xs">
           <Checkbox
             checked={stress}
             onCheckedChange={(details) => setStress(details.checked === true)}
           />
-          past 200k
+          {layer === "corpus" ? "add 5M (must be built)" : "past 200k"}
         </label>
       </Show>
     </div>
