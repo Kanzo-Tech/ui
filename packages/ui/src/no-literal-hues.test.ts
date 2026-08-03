@@ -42,8 +42,20 @@ import { describe, expect, it } from "vitest";
  * - **It does not police achromatic literals, and two live ones are worth knowing about**:
  *   `simples/slider.tsx` paints its thumb `bg-white` and `simples/color-picker.tsx` uses
  *   `border-white` / `text-white`. `white` and `black` are unnumbered and carry no chroma, so they
- *   are outside this rule by construction; whether a thumb should be white in dark mode is a
- *   question for the component review, not for this file.
+ *   are outside this rule by construction. This file handed the question — should a thumb be white
+ *   in dark mode? — to the component review, and **the review answered it on 2026-08-03: both
+ *   stay**, for two different reasons.
+ *
+ *   `color-picker`'s three sit on a colour the USER picked — the hue strip, the saturation area, a
+ *   swatch — where no token can describe what contrasts, which is why each is paired with
+ *   `shadow-[0_0_0_1px_rgba(0,0,0,0.1),inset_0_0_0_1px_rgba(0,0,0,0.1)]`: a white ring with a black
+ *   hairline either side reads on anything, and that pairing is the argument rather than the white.
+ *
+ *   `slider`'s is the reference's, verbatim — Shark's `slider.tsx` Thumb carries the same
+ *   `"bg-white"` in the same position among the same token-backed neighbours. So
+ *   `decisions/match-the-reference.md` settles it unless a measurement overrules it, and none does:
+ *   white on a dark track is high contrast, not low. The dark-mode worry was about the metaphor, a
+ *   knob that does not follow the theme, and that is a design choice Shark took and we follow.
  * - **It measures chroma, not contrast.** A tokenised colour can still fail AA. That is
  *   `@kanzo-tech/palette`'s job, and the reason tokenising is worth insisting on: an untokenised
  *   colour is a colour no test can measure.

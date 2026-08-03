@@ -49,9 +49,16 @@ These had no other home. None is a decision, so none became a record.
 
 - **`Calendar` is visually broken** — *"visualmente totalmente roto"*, from the owner's own
   walkthrough. No commit anywhere touches it since.
-- **`ColorPicker` swatch click behaviour is confusing**, and `simples/color-picker.tsx:365` carries
-  a `text-white` literal. That file is the single entry in `no-literal-hues.test.ts`'s `ALLOWED`
-  set, which is defensible for a colour picker but means nothing checks that one.
+- **`ColorPicker` swatch click behaviour is confusing.** Still open — nobody has looked at the
+  interaction.
+
+  The second half of this item is **closed, and the sentence was already stale when it was
+  written**: `ALLOWED` in `no-literal-hues.test.ts` is empty, because every literal in
+  `color-picker.tsx` measured achromatic and the exemption was covering nothing. `text-white` is not
+  a hex and was never in that guard's scope. Whether it *should* be white was handed to this review
+  and answered on 2026-08-03 — it stays, paired with the black hairline that makes it read on a
+  user's colour, and `slider.tsx`'s `bg-white` stays because it is Shark's line verbatim. The
+  reasoning is in the guard's own docblock.
 - **`Tour`'s close button is still mis-positioned** inside the dialog; an earlier `pe-8` fix did not
   land it.
 - **`Breadcrumb`'s ellipsis/number is mis-positioned.**
