@@ -297,6 +297,21 @@ windows in the two builds and read 63.65% against 52.89% for layouts that were b
 Centres are anchored to `subject` now. **Never seed a measurement with a value the change under test
 is allowed to move.**
 
+**And the chunks are files now, so a window fetches 10 of 4,883 of them — 0.2% of the corpus.**
+`chunk_size` stays at the 1,024 the manifest always declared, because that was measured rather than
+assumed: over-read is chunks-touched × chunk-size, and chunks touched barely grows as chunks shrink
+(Morton locality means a window covers a near-constant *area*), so the smallest size prunes best —
+**2.9×** at 1,024 against 8.0× at 8,192 and 70× at 122,880. 4,883 chunks write in seconds at 20 kB
+each. Retention is again the control and did not move.
+
+Two things worth not rediscovering. **A glob is the wrong way to read them**: expanding
+`vertex/Node/*.parquet` means listing a directory, and a plain HTTP origin has no listing — DuckDB's
+httpfs *can* glob against S3, so the mistake works against `file://`, works against a bucket, and
+fails in the browser. The reader derives the chunk list from the vertex count and `chunk_size`.
+And **`--row-group` is gone**: a chunk of 1,024 rows *is* one row group, so there is nothing left
+for a row-group size to be smaller than. The result above stands as the record of what it bought,
+which was nothing, twice.
+
 ## What to fix, in order
 
 **DuckDB is not the bottleneck.** The query column stays in single-digit milliseconds while
