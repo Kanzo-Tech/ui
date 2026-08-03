@@ -11,13 +11,15 @@
  * - **the null** — the same statistic over a uniformly random set of `k` nodes. Any layout beats
  *   nothing; the question is by how much.
  * - **the measurement** — spatial windows over the written `x`/`y`.
- * - **the ceiling** — the same statistic over a breadth-first ball of `k` nodes, which is the best a
- *   window of that size can do on *this* corpus because it is chosen by topology directly. On a
- *   small-world graph that ceiling is far below 100%: measured here a ball grows 1 → 14 → 9,211 →
- *   533,630, so 3,500 nodes cannot hold a neighbourhood and the layout is not what is stopping it.
+ * - **the ball** — the same statistic over a breadth-first ball of `k` nodes: a window chosen by
+ *   topology directly, with no layout in the way. On a small-world graph it is already far below
+ *   100% — measured here a ball grows 1 → 14 → 9,211 → 533,630, so 3,500 nodes cannot hold a
+ *   neighbourhood and much of what a window loses is the corpus's diameter rather than the layout.
  *
- * Reporting a retention figure without the ceiling invites the reading that the remaining gap is
- * layout work still to do, when most of it is the corpus's diameter.
+ * The ball is a **reference, not an upper bound**, and must not be read as one: a window holding a
+ * few hundred *complete* small communities can retain more than a ball does, because a ball spends
+ * most of its budget on a frontier whose other edges all point outwards. It marks where topology
+ * alone gets you, not where the best possible k nodes would.
  *
  * ## Why the window is defined by rank and not by geometry
  *
@@ -149,7 +151,7 @@ const fold = (kind) =>
 
 const spatial = fold("spatial");
 const nul = fold("null");
-const ceiling = fold("ceiling");
+const ball = fold("ceiling");
 const rate = ({ kept, incident }) => (incident ? (100 * kept) / incident : 0);
 const line = (label, t) =>
   `  ${label.padEnd(11)} ${String(t.kept).padStart(8)} / ${String(t.incident).padStart(9)}   ${rate(t).toFixed(2)}%`;
@@ -160,9 +162,11 @@ console.log("");
 console.log("                  kept /  incident   retention");
 console.log(line("null", nul));
 console.log(line("spatial", spatial));
-console.log(line("ceiling", ceiling));
+console.log(line("ball", ball));
 console.log("");
-console.log(`spatial is ${(rate(spatial) / rate(nul)).toFixed(1)}× the null and ${(rate(ceiling) / rate(spatial)).toFixed(1)}× short of the ceiling`);
+console.log(
+  `spatial is ${(rate(spatial) / rate(nul)).toFixed(0)}× the null and ${(rate(spatial) / rate(ball)).toFixed(1)}× the ball`,
+);
 console.log("");
 for (const r of rows.filter((x) => x.kind === "spatial")) {
   console.log(

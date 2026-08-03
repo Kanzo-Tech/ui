@@ -227,14 +227,31 @@ make panning *back* free — the only item here that no amount of query tuning c
 
 Two facts about the written positions, both measured, both about usefulness rather than speed.
 
-**A window shows the nodes but not the graph.** Take a rectangle holding 3,533 of the million
-nodes: 375 of the 27,244 edges incident to them survive with both endpoints inside — **1.4%**.
-Random placement would give ~86, so the layout is barely four times better than chance. fossil's
-W3.1 `cluster_layout` grids clusters and phyllotaxis-packs each one, but WCC on a connected graph
-returns a single component, so the whole million lands in one spiral whose radius (12·√n ≈ 12,000)
-swallows the 100-unit cluster grid entirely. **The bounded architecture needs position to
-correlate with topology, and here it does not** — which is what W3.2 (Leiden) plus a force
-refinement is for. Until then the compiled route measures latency honestly and draws a dot cloud.
+**A window showed the nodes but not the graph — fixed, and here is the number.** WCC on a connected
+graph returns a single component, so the whole million landed in one phyllotaxis spiral whose radius
+(12·√n ≈ 12,000) swallowed the 100-unit cluster grid entirely. `enrich_layout` now partitions by
+`community_hierarchy`. Measured by `corpus/measure-retention.mjs`, five windows each holding 3,500
+nodes:
+
+| | kept / incident | retention | null | ball |
+|---|---|---|---|---|
+| 1M, WCC | 589 / 225,448 | **0.26%** | 0.17% | 4.55% |
+| 1M, communities | 27,366 / 200,839 | **13.63%** | 0.16% | 4.55% |
+| 5M, communities | 13,669 / 231,853 | **5.90%** | 0.06% | 1.71% |
+
+The window is defined by rank — the smallest square centred on a node holding exactly *k* of them —
+because a fixed rectangle catches wildly different node counts in two layouts and would report a
+difference that is mostly the node count.
+
+Three corrections come with it. **The old figure was scored against a null twice too large**: for a
+random window `kept ≈ E·(k/N)²` against `incident ≈ 2E·k/N`, so chance is `(k/N)/2` and not `k/N` —
+the honest reading of the old layout is 1.5× chance, not four times. **The "ball" is a reference and
+not a ceiling**: a breadth-first ball of *k* nodes is what topology alone gets you with no layout in
+the way, and the community layout beats it threefold, because a ball spends most of its budget on a
+frontier whose edges all point outwards. And **`cluster_layout` had a defect the old partition hid**
+— a cluster of *n* packs into a disc of radius 12·√n, past the 100-unit pitch at 70 vertices, so
+real communities overlapped their neighbours; a single giant component has no neighbour to overlap.
+The pitch is now measured from the largest cluster.
 
 **Morton order prunes, but the row group is too coarse a unit.** For that same window:
 
