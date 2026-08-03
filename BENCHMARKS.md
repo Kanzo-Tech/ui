@@ -274,6 +274,29 @@ locality working; the over-read is set entirely by how big each group is. Over a
 factor is bytes fetched. `Node.vertex.yml` already declares `chunk_size: 1024` while the Parquet
 is written at DuckDB's default — the manifest promises a chunking the file does not have.
 
+**And the chunking it promised would not have pruned, because `dense_id` was numbered by IRI.**
+GraphAr defines chunk *i* as the `dense_id` range `[i·size, (i+1)·size)`, so a chunk is a spatial
+tile only if `dense_id` ascends with position — and the layout used to reorder the *rows* by Morton
+code while leaving the *values* alone. The file's order was spatial; its chunk definition was not,
+and it is the chunk definition a reader uses. `enrich_layout` now assigns `dense_id` in Morton order
+and remaps every adjacency list. Measured by `corpus/measure-chunks.mjs`, five million in 41 chunks,
+a window of 3,500 nodes:
+
+| | by `dense_id` (what a reader fetches) | by physical row order |
+|---|---|---|
+| before | 40.8 of 41 | 2.0 of 41 |
+| after | **2.0 of 41** | 2.0 of 41 |
+
+**The two columns agreeing is the result**; the absolute number belongs to the corpus and the window
+size. Retention is the control and did not move — 56.99% at 1M and 63.65% at 5M before and after,
+because renumbering changes which integer a vertex wears and not where it is.
+
+That control only worked after fixing the harness: both scripts picked their window centres by
+`dense_id`, which *is* the thing under measurement, so the first comparison sampled different
+windows in the two builds and read 63.65% against 52.89% for layouts that were byte-identical.
+Centres are anchored to `subject` now. **Never seed a measurement with a value the change under test
+is allowed to move.**
+
 ## What to fix, in order
 
 **DuckDB is not the bottleneck.** The query column stays in single-digit milliseconds while
