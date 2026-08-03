@@ -1,7 +1,7 @@
 "use client";
 
 import { Graph } from "@cosmos.gl/graph";
-import { type Coordinator, loadCSV, numbers } from "@kanzo-tech/ui/analytics";
+import { type Coordinator, numbers } from "@kanzo-tech/ui/analytics";
 import {
   BOUNDED_DEFAULTS,
   type BoundedSource,
@@ -11,7 +11,7 @@ import {
 } from "@kanzo-tech/graph";
 import { boot } from "../workspace/duck";
 import { duckBoundedSource } from "@kanzo-tech/graph/duckdb";
-import { generate, nextFrame, type Shape } from "./measure";
+import { nextFrame } from "./measure";
 
 /**
  * The third layer: what the bounded path costs, against the two that hold everything.
@@ -27,16 +27,13 @@ import { generate, nextFrame, type Shape } from "./measure";
  * measured rather than assumed — a bounded path that costs 200 ms a pan is not an improvement, it
  * is a different kind of unusable.
  *
- * The same measurement runs over two fixtures, and the second is the point. `generated` builds the
- * corpus here and hands DuckDB a CSV, which caps the sweep at what a tab can build. `corpus` reads
- * the GraphAr tree fossil compiled — Parquet over HTTP, never held whole — which is the only route
- * that reaches a million and the half ADR-0001 records as unmeasured.
+ * **There is one fixture, and it is the compiled corpus.** There used to be a second that built the
+ * graph in the tab and handed DuckDB two CSVs; it measured the same code over a worse fixture,
+ * capped the sweep at what a tab can generate, and spent the main thread doing it. Keeping both
+ * would have been keeping a slower way to learn the same thing.
  */
 
-export type Fixture = "generated" | "corpus";
-
 export interface BoundedSample {
-  fixture: Fixture;
   pointCount: number;
   linkCount: number;
   /** Getting the relations queryable: parsing a CSV, or opening a Parquet footer. */
@@ -74,18 +71,14 @@ export interface BoundedSample {
   failure?: string;
 }
 
-/** Same sizes as layer 2, so the two tables sit beside each other honestly. */
-export const BOUNDED_SIZES = [2_000, 10_000, 50_000, 200_000];
-
 /**
- * The compiled corpus goes one size further, and that size is the argument.
+ * Every size that has a corpus on disk.
  *
- * A million is absent from `BOUNDED_SIZES` because the generated fixture cannot reach it: building
- * the graph is 8.6 s of main-thread JavaScript before DuckDB sees a byte. Reading one that fossil
- * already wrote costs a Parquet footer, so the size that was out of reach becomes just another row —
- * and if first paint at a million matches first paint at two thousand, the claim is settled.
+ * A million is in the list because reading one that fossil already wrote costs a Parquet footer,
+ * where building one in the tab is 8.6 s of main-thread JavaScript before DuckDB sees a byte. That
+ * is the whole reason the fixture is compiled.
  */
-export const CORPUS_SIZES = [2_000, 10_000, 50_000, 200_000, 1_000_000];
+export const BOUNDED_SIZES = [2_000, 10_000, 50_000, 200_000, 1_000_000];
 
 /**
  * The size that asks whether any of this keeps its shape, and it is opt-in for two reasons.
@@ -98,12 +91,7 @@ export const CORPUS_SIZES = [2_000, 10_000, 50_000, 200_000, 1_000_000];
  *
  *   node docs/showcases/graph-bench/corpus/build-corpus.mjs --sizes 5000000
  */
-export const CORPUS_STRESS_SIZES = [5_000_000];
-
-export const FIXTURE_SIZES: Record<Fixture, number[]> = {
-  generated: BOUNDED_SIZES,
-  corpus: CORPUS_SIZES,
-};
+export const BOUNDED_STRESS_SIZES = [5_000_000];
 
 const SPACE = 8192;
 const PANS = 6;
@@ -147,28 +135,8 @@ function duckThreads(coordinator: Coordinator): Promise<number> {
   return threadsAsked;
 }
 
-const nodesTable = (n: number) => `bounded_nodes_${n}`;
-const edgesTable = (n: number) => `bounded_edges_${n}`;
 const corpusNodes = (n: number) => `corpus_nodes_${n}`;
 const corpusEdges = (n: number) => `corpus_edges_${n}`;
-
-function nodesCsv(data: ReturnType<typeof generate>): string {
-  const rows: string[] = ["id,community,x,y"];
-  for (let i = 0; i < data.pointCount; i++) {
-    rows.push(
-      `${i},c${data.community[i]},${data.positions[i * 2]},${data.positions[i * 2 + 1]}`,
-    );
-  }
-  return rows.join("\n");
-}
-
-function edgesCsv(data: ReturnType<typeof generate>): string {
-  const rows: string[] = ["source,target"];
-  for (let e = 0; e < data.linkCount; e++) {
-    rows.push(`${data.links[e * 2]},${data.links[e * 2 + 1]}`);
-  }
-  return rows.join("\n");
-}
 
 /** The rectangle the corpus actually occupies — the camera's space, never rescaled on the way in. */
 interface Extent {
@@ -183,37 +151,6 @@ interface Fixtured {
   extent: Extent;
   linkCount: number;
   ingestMs: number;
-}
-
-/**
- * The generated fixture: build the graph here, hand DuckDB two CSVs.
- *
- * Its space is known because this code chose it, so the extent is a constant rather than a query.
- */
-async function generated(shape: Shape, pointCount: number): Promise<Fixtured> {
-  const data = generate(shape, pointCount);
-  const { coordinator, db } = await boot();
-  await forget(coordinator);
-
-  const started = performance.now();
-  const nodesFile = `bounded-nodes-${pointCount}.csv`;
-  const edgesFile = `bounded-edges-${pointCount}.csv`;
-  await db.registerFileText(nodesFile, nodesCsv(data));
-  await db.registerFileText(edgesFile, edgesCsv(data));
-  await coordinator.exec(loadCSV(nodesTable(pointCount), nodesFile, { replace: true }));
-  await coordinator.exec(loadCSV(edgesTable(pointCount), edgesFile, { replace: true }));
-  const ingestMs = performance.now() - started;
-
-  return {
-    source: duckBoundedSource({
-      coordinator,
-      nodes: nodesTable(pointCount),
-      edges: edgesTable(pointCount),
-    }),
-    extent: { xMin: 0, yMin: 0, xMax: SPACE, yMax: SPACE },
-    linkCount: data.linkCount,
-    ingestMs,
-  };
 }
 
 /**
@@ -288,21 +225,17 @@ function host(): HTMLDivElement {
 }
 
 export interface BoundedOptions {
-  fixture?: Fixture;
-  shape: Shape;
   pointCount: number;
   cancelled?: () => boolean;
   onStage?: (stage: string) => void;
 }
 
 export async function measureBounded(options: BoundedOptions): Promise<BoundedSample> {
-  const { pointCount, shape } = options;
-  const fixture = options.fixture ?? "generated";
+  const { pointCount } = options;
   const cancelled = options.cancelled ?? (() => false);
   const report = options.onStage;
 
   const base: BoundedSample = {
-    fixture,
     pointCount,
     linkCount: 0,
     ingestMs: 0,
@@ -320,9 +253,8 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
   const element = host();
   let graph: Graph | undefined;
   try {
-    report?.(fixture === "corpus" ? "opening the corpus" : "generating");
-    const fixtured =
-      fixture === "corpus" ? await corpus(pointCount, report) : await generated(shape, pointCount);
+    report?.("opening the corpus");
+    const fixtured = await corpus(pointCount, report);
     const { extent, source } = fixtured;
     base.linkCount = fixtured.linkCount;
     base.ingestMs = fixtured.ingestMs;

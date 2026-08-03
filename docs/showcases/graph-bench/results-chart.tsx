@@ -82,7 +82,7 @@ const ENGINE_SERIES: ChartConfig = {
 };
 
 export function ResultsChart(props: {
-  layer: "engine" | "bounded" | "corpus";
+  layer: "engine" | "bounded";
   samples: Sample[];
   bounded: BoundedSample[];
 }) {
