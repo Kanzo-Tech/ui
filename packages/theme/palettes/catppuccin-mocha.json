@@ -1,13 +1,13 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "id": "catppuccin-mocha",
   "label": "Catppuccin Mocha",
   "state": "published",
   "seeds": {
     "brand": "#cba6f7",
-    "neutral": "#6c7086",
-    "neutralHue": 277.0950781903382,
-    "neutralHueFrom": "neutral-seed",
+    "base": "#6c7086",
+    "baseHue": 277.0950781903382,
+    "baseHueFrom": "base-seed",
     "status": {
       "destructive": "#e7000b",
       "warning": "#e17100",
@@ -21,11 +21,11 @@
   },
   "engine": {
     "package": "0.0.0",
-    "obligations": "6900b826",
+    "obligations": "4d69b620",
     "derivedAt": "2026-07-29T00:00:00.000Z"
   },
   "ramps": {
-    "neutral": {
+    "base": {
       "light": {
         "seed": "#6c7086",
         "mode": "light",
@@ -60,6 +60,7 @@
         ],
         "onSolid": "#fafafb",
         "boundary": 9,
+        "quietestInk": 10,
         "adjustments": [],
         "relief": [
           {
@@ -110,6 +111,7 @@
         ],
         "onSolid": "#ffffff",
         "boundary": 9,
+        "quietestInk": 10,
         "adjustments": [],
         "relief": [
           {
@@ -162,6 +164,7 @@
         ],
         "onSolid": "#fef9f8",
         "boundary": 9,
+        "quietestInk": 10,
         "adjustments": [],
         "relief": [],
         "drift": {
@@ -205,6 +208,7 @@
         ],
         "onSolid": "#ffffff",
         "boundary": 9,
+        "quietestInk": 10,
         "adjustments": [],
         "relief": [],
         "drift": {
@@ -250,6 +254,7 @@
         ],
         "onSolid": "#1b0700",
         "boundary": 9,
+        "quietestInk": 11,
         "adjustments": [],
         "relief": [],
         "drift": {
@@ -293,6 +298,7 @@
         ],
         "onSolid": "#100805",
         "boundary": 8,
+        "quietestInk": 10,
         "adjustments": [],
         "relief": [],
         "drift": {
@@ -338,6 +344,7 @@
         ],
         "onSolid": "#001309",
         "boundary": 9,
+        "quietestInk": 11,
         "adjustments": [],
         "relief": [],
         "drift": {
@@ -381,6 +388,7 @@
         ],
         "onSolid": "#060c08",
         "boundary": 8,
+        "quietestInk": 10,
         "adjustments": [],
         "relief": [],
         "drift": {
@@ -426,6 +434,7 @@
         ],
         "onSolid": "#f8fafe",
         "boundary": 9,
+        "quietestInk": 10,
         "adjustments": [],
         "relief": [],
         "drift": {
@@ -469,6 +478,7 @@
         ],
         "onSolid": "#e8f0ff",
         "boundary": 9,
+        "quietestInk": 11,
         "adjustments": [],
         "relief": [],
         "drift": {
@@ -478,6 +488,34 @@
           "hue": 0
         }
       }
+    }
+  },
+  "syntax": {
+    "source": {
+      "kind": "base16",
+      "id": "catppuccin-mocha"
+    },
+    "light": {
+      "keyword": "#805da8",
+      "string": "#3b7438",
+      "function": "#466dae",
+      "type": "#675323",
+      "number": "#9a5b30",
+      "property": "#207368",
+      "identifier": "#ad4d6b"
+    },
+    "dark": {
+      "keyword": "#cba6f7",
+      "string": "#a6e3a1",
+      "function": "#89b4fa",
+      "type": "#f9e2af",
+      "number": "#fab387",
+      "property": "#94e2d5",
+      "identifier": "#f38ba8"
+    },
+    "capacity": {
+      "light": 7,
+      "dark": 7
     }
   },
   "identities": [
@@ -520,6 +558,7 @@
           ],
           "onSolid": "#130620",
           "boundary": 9,
+          "quietestInk": 11,
           "adjustments": [
             {
               "step": 9,
@@ -586,6 +625,7 @@
           ],
           "onSolid": "#0b090e",
           "boundary": 8,
+          "quietestInk": 10,
           "adjustments": [
             {
               "step": 9,
@@ -759,7 +799,7 @@
             "wanted": 3,
             "got": 3.0172512386242585,
             "ok": true,
-            "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
+            "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the base ramp's step 1 and not this ramp's own."
           },
           {
             "id": "boundary-on-page",
@@ -770,7 +810,7 @@
             "wanted": 3,
             "got": 3.0172512386242585,
             "ok": true,
-            "reason": "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component. `--ring` comes from the brand ramp, so on the neutral page this is a new measurement."
+            "reason": "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component. `--ring` comes from the brand ramp, so on the base page this is a new measurement."
           },
           {
             "id": "boundary-on-elevated",
@@ -781,7 +821,7 @@
             "wanted": 3,
             "got": 3.0172512386242585,
             "ok": true,
-            "reason": "A focus ring on a raised surface. In dark the popover sits two steps up the neutral ramp, so it is a different background from the page and 1.4.11 still applies."
+            "reason": "A focus ring on a raised surface. In dark the popover sits two steps up the base ramp, so it is a different background from the page and 1.4.11 still applies."
           },
           {
             "id": "series-on-page",
@@ -880,7 +920,7 @@
             "wanted": 3,
             "got": 6.255437118758673,
             "ok": true,
-            "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
+            "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the base ramp's step 1 and not this ramp's own."
           },
           {
             "id": "boundary-on-page",
@@ -891,7 +931,7 @@
             "wanted": 3,
             "got": 4.044569651145966,
             "ok": true,
-            "reason": "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component. `--ring` comes from the brand ramp, so on the neutral page this is a new measurement."
+            "reason": "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component. `--ring` comes from the brand ramp, so on the base page this is a new measurement."
           },
           {
             "id": "boundary-on-elevated",
@@ -902,7 +942,7 @@
             "wanted": 3,
             "got": 3.760625806702404,
             "ok": true,
-            "reason": "A focus ring on a raised surface. In dark the popover sits two steps up the neutral ramp, so it is a different background from the page and 1.4.11 still applies."
+            "reason": "A focus ring on a raised surface. In dark the popover sits two steps up the base ramp, so it is a different background from the page and 1.4.11 still applies."
           },
           {
             "id": "series-on-page",
@@ -1063,21 +1103,13 @@
       "--selection": "#6500fc1d",
       "--match": "#ff4f0030",
       "--match-active": "#e4520094",
-      "--kanzo-editor-active-line": "#eeeff4",
-      "--kanzo-gutter-bg": "#f6f6f8",
-      "--kanzo-syntax-keyword": "#8200db",
-      "--kanzo-syntax-string": "#007a55",
-      "--kanzo-syntax-number": "#ca3500",
-      "--kanzo-syntax-constant": "#ca3500",
-      "--kanzo-syntax-comment": "#737373",
-      "--kanzo-syntax-type": "#a65f00",
-      "--kanzo-syntax-function": "#1447e6",
-      "--kanzo-syntax-property": "#007595",
-      "--kanzo-syntax-identifier": "#c10007",
-      "--kanzo-syntax-operator": "#262626",
-      "--kanzo-syntax-punctuation": "#525252",
-      "--kanzo-syntax-url": "#1447e6",
-      "--kanzo-syntax-invalid": "#c70036"
+      "--syntax-keyword": "#805da8",
+      "--syntax-string": "#3b7438",
+      "--syntax-function": "#466dae",
+      "--syntax-type": "#675323",
+      "--syntax-number": "#9a5b30",
+      "--syntax-property": "#207368",
+      "--syntax-identifier": "#ad4d6b"
     },
     "dark": {
       "--background": "#0a0a0c",
@@ -1144,21 +1176,13 @@
       "--selection": "#d39bff38",
       "--match": "#ff77003e",
       "--match-active": "#ff933d9c",
-      "--kanzo-editor-active-line": "#131419",
-      "--kanzo-gutter-bg": "#0c0d0f",
-      "--kanzo-syntax-keyword": "#c27aff",
-      "--kanzo-syntax-string": "#00d492",
-      "--kanzo-syntax-number": "#ff8904",
-      "--kanzo-syntax-constant": "#ff8904",
-      "--kanzo-syntax-comment": "#a1a1a1",
-      "--kanzo-syntax-type": "#fdc700",
-      "--kanzo-syntax-function": "#51a2ff",
-      "--kanzo-syntax-property": "#00d3f2",
-      "--kanzo-syntax-identifier": "#ff6467",
-      "--kanzo-syntax-operator": "#f5f5f5",
-      "--kanzo-syntax-punctuation": "#d4d4d4",
-      "--kanzo-syntax-url": "#51a2ff",
-      "--kanzo-syntax-invalid": "#ff637e"
+      "--syntax-keyword": "#cba6f7",
+      "--syntax-string": "#a6e3a1",
+      "--syntax-function": "#89b4fa",
+      "--syntax-type": "#f9e2af",
+      "--syntax-number": "#fab387",
+      "--syntax-property": "#94e2d5",
+      "--syntax-identifier": "#f38ba8"
     }
   },
   "record": {
@@ -1169,7 +1193,7 @@
         "id": "carries-identity",
         "wanted": 0.1,
         "got": 0.034493887984850306,
-        "ramp": "neutral",
+        "ramp": "base",
         "mode": "light"
       },
       {
@@ -1177,7 +1201,7 @@
         "id": "carries-identity",
         "wanted": 0.1,
         "got": 0.034493887984850306,
-        "ramp": "neutral",
+        "ramp": "base",
         "mode": "dark"
       }
     ],
@@ -1191,7 +1215,7 @@
         "wanted": 3,
         "got": 4.572745571294564,
         "ok": true,
-        "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
+        "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the base ramp's step 1 and not this ramp's own."
       },
       {
         "id": "fill-on-page",
@@ -1202,7 +1226,7 @@
         "wanted": 3,
         "got": 3.0672447201580226,
         "ok": true,
-        "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
+        "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the base ramp's step 1 and not this ramp's own."
       },
       {
         "id": "fill-on-page",
@@ -1213,7 +1237,7 @@
         "wanted": 3,
         "got": 3.5022277830320516,
         "ok": true,
-        "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
+        "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the base ramp's step 1 and not this ramp's own."
       },
       {
         "id": "fill-on-page",
@@ -1224,7 +1248,7 @@
         "wanted": 3,
         "got": 5.028886932107375,
         "ok": true,
-        "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
+        "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the base ramp's step 1 and not this ramp's own."
       },
       {
         "id": "status-text-on-page",
@@ -1282,147 +1306,92 @@
         "reason": "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component."
       },
       {
-        "id": "syntax-on-page",
+        "id": "faint-on-page",
         "mode": "light",
-        "token": "--kanzo-syntax-keyword",
+        "token": "--faint",
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 6.773769425132829,
+        "got": 5.32862017637896,
         "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
+        "reason": "The quietest ink is still ink: a field's placeholder and an editor gutter's line numbers owe WCAG AA on the tenant's own page."
       },
       {
-        "id": "syntax-on-page",
+        "id": "syntax-on-active-line",
         "mode": "light",
-        "token": "--kanzo-syntax-string",
-        "against": "--background",
+        "token": "--syntax-keyword",
+        "against": "--muted",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 5.142300301315618,
+        "got": 4.5167487659775984,
         "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
+        "reason": "Syntax is text, and the line being edited is the surface it is hardest to read on — a brighter fill in light, a lighter one in dark, either way less contrast than the page."
       },
       {
-        "id": "syntax-on-page",
+        "id": "syntax-on-active-line",
         "mode": "light",
-        "token": "--kanzo-syntax-number",
-        "against": "--background",
+        "token": "--syntax-string",
+        "against": "--muted",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 5.007284045390358,
+        "got": 4.888337901443578,
         "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
+        "reason": "Syntax is text, and the line being edited is the surface it is hardest to read on — a brighter fill in light, a lighter one in dark, either way less contrast than the page."
       },
       {
-        "id": "syntax-on-page",
+        "id": "syntax-on-active-line",
         "mode": "light",
-        "token": "--kanzo-syntax-constant",
-        "against": "--background",
+        "token": "--syntax-function",
+        "against": "--muted",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 5.007284045390358,
+        "got": 4.505551567347533,
         "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
+        "reason": "Syntax is text, and the line being edited is the surface it is hardest to read on — a brighter fill in light, a lighter one in dark, either way less contrast than the page."
       },
       {
-        "id": "syntax-on-page",
+        "id": "syntax-on-active-line",
         "mode": "light",
-        "token": "--kanzo-syntax-comment",
-        "against": "--background",
+        "token": "--syntax-type",
+        "against": "--muted",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 4.545689218990893,
+        "got": 6.443453584121171,
         "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
+        "reason": "Syntax is text, and the line being edited is the surface it is hardest to read on — a brighter fill in light, a lighter one in dark, either way less contrast than the page."
       },
       {
-        "id": "syntax-on-page",
+        "id": "syntax-on-active-line",
         "mode": "light",
-        "token": "--kanzo-syntax-type",
-        "against": "--background",
+        "token": "--syntax-number",
+        "against": "--muted",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 4.727739846240282,
+        "got": 4.673601603684238,
         "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
+        "reason": "Syntax is text, and the line being edited is the surface it is hardest to read on — a brighter fill in light, a lighter one in dark, either way less contrast than the page."
       },
       {
-        "id": "syntax-on-page",
+        "id": "syntax-on-active-line",
         "mode": "light",
-        "token": "--kanzo-syntax-function",
-        "against": "--background",
+        "token": "--syntax-property",
+        "against": "--muted",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 6.549832047475358,
+        "got": 4.924693151317339,
         "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
+        "reason": "Syntax is text, and the line being edited is the surface it is hardest to read on — a brighter fill in light, a lighter one in dark, either way less contrast than the page."
       },
       {
-        "id": "syntax-on-page",
+        "id": "syntax-on-active-line",
         "mode": "light",
-        "token": "--kanzo-syntax-property",
-        "against": "--background",
+        "token": "--syntax-identifier",
+        "against": "--muted",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 5.060209302325359,
+        "got": 4.514857903858372,
         "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
-      },
-      {
-        "id": "syntax-on-page",
-        "mode": "light",
-        "token": "--kanzo-syntax-identifier",
-        "against": "--background",
-        "kind": "gate",
-        "wanted": 4.5,
-        "got": 6.155536870416829,
-        "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
-      },
-      {
-        "id": "syntax-on-page",
-        "mode": "light",
-        "token": "--kanzo-syntax-operator",
-        "against": "--background",
-        "kind": "gate",
-        "wanted": 4.5,
-        "got": 14.508045133653589,
-        "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
-      },
-      {
-        "id": "syntax-on-page",
-        "mode": "light",
-        "token": "--kanzo-syntax-punctuation",
-        "against": "--background",
-        "kind": "gate",
-        "wanted": 4.5,
-        "got": 7.4909272457941904,
-        "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
-      },
-      {
-        "id": "syntax-on-page",
-        "mode": "light",
-        "token": "--kanzo-syntax-url",
-        "against": "--background",
-        "kind": "gate",
-        "wanted": 4.5,
-        "got": 6.549832047475358,
-        "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
-      },
-      {
-        "id": "syntax-on-page",
-        "mode": "light",
-        "token": "--kanzo-syntax-invalid",
-        "against": "--background",
-        "kind": "gate",
-        "wanted": 4.5,
-        "got": 5.782261455146068,
-        "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
+        "reason": "Syntax is text, and the line being edited is the surface it is hardest to read on — a brighter fill in light, a lighter one in dark, either way less contrast than the page."
       },
       {
         "id": "fill-on-page",
@@ -1433,7 +1402,7 @@
         "wanted": 3,
         "got": 4.147030196538549,
         "ok": true,
-        "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
+        "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the base ramp's step 1 and not this ramp's own."
       },
       {
         "id": "fill-on-page",
@@ -1444,7 +1413,7 @@
         "wanted": 3,
         "got": 6.182523957289425,
         "ok": true,
-        "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
+        "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the base ramp's step 1 and not this ramp's own."
       },
       {
         "id": "fill-on-page",
@@ -1455,7 +1424,7 @@
         "wanted": 3,
         "got": 5.414643232836499,
         "ok": true,
-        "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
+        "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the base ramp's step 1 and not this ramp's own."
       },
       {
         "id": "fill-on-page",
@@ -1466,7 +1435,7 @@
         "wanted": 3,
         "got": 3.7708769795903567,
         "ok": true,
-        "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
+        "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the base ramp's step 1 and not this ramp's own."
       },
       {
         "id": "status-text-on-page",
@@ -1524,147 +1493,92 @@
         "reason": "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component."
       },
       {
-        "id": "syntax-on-page",
+        "id": "faint-on-page",
         "mode": "dark",
-        "token": "--kanzo-syntax-keyword",
+        "token": "--faint",
         "against": "--background",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 7.085020877495289,
+        "got": 4.598516475743837,
         "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
+        "reason": "The quietest ink is still ink: a field's placeholder and an editor gutter's line numbers owe WCAG AA on the tenant's own page."
       },
       {
-        "id": "syntax-on-page",
+        "id": "syntax-on-active-line",
         "mode": "dark",
-        "token": "--kanzo-syntax-string",
-        "against": "--background",
+        "token": "--syntax-keyword",
+        "against": "--muted",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 10.203596588311607,
+        "got": 9.053220502341146,
         "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
+        "reason": "Syntax is text, and the line being edited is the surface it is hardest to read on — a brighter fill in light, a lighter one in dark, either way less contrast than the page."
       },
       {
-        "id": "syntax-on-page",
+        "id": "syntax-on-active-line",
         "mode": "dark",
-        "token": "--kanzo-syntax-number",
-        "against": "--background",
+        "token": "--syntax-string",
+        "against": "--muted",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 8.319288357034571,
+        "got": 12.369773753875638,
         "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
+        "reason": "Syntax is text, and the line being edited is the surface it is hardest to read on — a brighter fill in light, a lighter one in dark, either way less contrast than the page."
       },
       {
-        "id": "syntax-on-page",
+        "id": "syntax-on-active-line",
         "mode": "dark",
-        "token": "--kanzo-syntax-constant",
-        "against": "--background",
+        "token": "--syntax-function",
+        "against": "--muted",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 8.319288357034571,
+        "got": 8.734188295389547,
         "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
+        "reason": "Syntax is text, and the line being edited is the surface it is hardest to read on — a brighter fill in light, a lighter one in dark, either way less contrast than the page."
       },
       {
-        "id": "syntax-on-page",
+        "id": "syntax-on-active-line",
         "mode": "dark",
-        "token": "--kanzo-syntax-comment",
-        "against": "--background",
+        "token": "--syntax-type",
+        "against": "--muted",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 7.656144415466903,
+        "got": 14.473353799413127,
         "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
+        "reason": "Syntax is text, and the line being edited is the surface it is hardest to read on — a brighter fill in light, a lighter one in dark, either way less contrast than the page."
       },
       {
-        "id": "syntax-on-page",
+        "id": "syntax-on-active-line",
         "mode": "dark",
-        "token": "--kanzo-syntax-type",
-        "against": "--background",
+        "token": "--syntax-number",
+        "against": "--muted",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 12.571123658503009,
+        "got": 10.389564489364938,
         "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
+        "reason": "Syntax is text, and the line being edited is the surface it is hardest to read on — a brighter fill in light, a lighter one in dark, either way less contrast than the page."
       },
       {
-        "id": "syntax-on-page",
+        "id": "syntax-on-active-line",
         "mode": "dark",
-        "token": "--kanzo-syntax-function",
-        "against": "--background",
+        "token": "--syntax-property",
+        "against": "--muted",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 7.499776920127238,
+        "got": 12.347762407067604,
         "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
+        "reason": "Syntax is text, and the line being edited is the surface it is hardest to read on — a brighter fill in light, a lighter one in dark, either way less contrast than the page."
       },
       {
-        "id": "syntax-on-page",
+        "id": "syntax-on-active-line",
         "mode": "dark",
-        "token": "--kanzo-syntax-property",
-        "against": "--background",
+        "token": "--syntax-identifier",
+        "against": "--muted",
         "kind": "gate",
         "wanted": 4.5,
-        "got": 10.926455110176901,
+        "got": 7.943161062393166,
         "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
-      },
-      {
-        "id": "syntax-on-page",
-        "mode": "dark",
-        "token": "--kanzo-syntax-identifier",
-        "against": "--background",
-        "kind": "gate",
-        "wanted": 4.5,
-        "got": 6.848632675088848,
-        "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
-      },
-      {
-        "id": "syntax-on-page",
-        "mode": "dark",
-        "token": "--kanzo-syntax-operator",
-        "against": "--background",
-        "kind": "gate",
-        "wanted": 4.5,
-        "got": 18.143749382687048,
-        "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
-      },
-      {
-        "id": "syntax-on-page",
-        "mode": "dark",
-        "token": "--kanzo-syntax-punctuation",
-        "against": "--background",
-        "kind": "gate",
-        "wanted": 4.5,
-        "got": 13.345024551526286,
-        "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
-      },
-      {
-        "id": "syntax-on-page",
-        "mode": "dark",
-        "token": "--kanzo-syntax-url",
-        "against": "--background",
-        "kind": "gate",
-        "wanted": 4.5,
-        "got": 7.499776920127238,
-        "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
-      },
-      {
-        "id": "syntax-on-page",
-        "mode": "dark",
-        "token": "--kanzo-syntax-invalid",
-        "against": "--background",
-        "kind": "gate",
-        "wanted": 4.5,
-        "got": 6.912011182431202,
-        "ok": true,
-        "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
+        "reason": "Syntax is text, and the line being edited is the surface it is hardest to read on — a brighter fill in light, a lighter one in dark, either way less contrast than the page."
       }
     ]
   }

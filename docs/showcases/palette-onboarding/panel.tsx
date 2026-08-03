@@ -64,7 +64,7 @@ export function PaletteOnboarding({ palettes }: { palettes: PaletteView[] }) {
               Palette onboarding
             </SectionTitle>
             <SectionDescription>
-              A client gives two seeds — a brand colour and a neutral. Everything below is derived
+              A client gives two seeds — a brand colour and a base. Everything below is derived
               from that pair once, measured against the tenant&rsquo;s own surfaces, and stored as a
               document. Runtime only applies it.
             </SectionDescription>
@@ -86,7 +86,7 @@ export function PaletteOnboarding({ palettes }: { palettes: PaletteView[] }) {
             <TabsList variant="underline">
               {shown.map((p) => (
                 <TabsTrigger key={p.id} value={p.id}>
-                  <SwatchGroup colors={[p.brandSeed, p.neutralSeed]} shape="round" size="xs" />
+                  <SwatchGroup colors={[p.brandSeed, p.baseSeed]} shape="round" size="xs" />
                   {p.label}
                 </TabsTrigger>
               ))}
@@ -115,7 +115,7 @@ export function PaletteOnboarding({ palettes }: { palettes: PaletteView[] }) {
 function SeedForm({ onDerived }: { onDerived: (palette: PaletteView) => void }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [seeds, setSeeds] = useState({ label: "", brand: "#2b7fff", neutral: "#6b7280" });
+  const [seeds, setSeeds] = useState({ label: "", brand: "#2b7fff", base: "#6b7280" });
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -137,8 +137,8 @@ function SeedForm({ onDerived }: { onDerived: (palette: PaletteView) => void }) 
         />
         <SeedInput
           label="Neutral"
-          onChange={(neutral) => setSeeds((s) => ({ ...s, neutral }))}
-          value={seeds.neutral}
+          onChange={(base) => setSeeds((s) => ({ ...s, base }))}
+          value={seeds.base}
         />
         <Field className="w-48">
           <FieldLabel htmlFor="seed-label">Name</FieldLabel>
@@ -207,7 +207,7 @@ function Tenant({ palette: p }: { palette: PaletteView }) {
       <Block
         hint={
           <>
-            The neutral supplies the tint hue; the brand hue is the fallback when none is given. The
+            The base supplies the tint hue; the brand hue is the fallback when none is given. The
             four status families are Kanzo&rsquo;s and are not client-overridable — but they are
             re-measured here, because every obligation is graded against the surface and the surface
             is this tenant&rsquo;s.
@@ -228,11 +228,11 @@ function Tenant({ palette: p }: { palette: PaletteView }) {
             title="Brand"
           />
           <SeedItem
-            color={p.neutralSeed}
+            color={p.baseSeed}
             note={
-              p.neutralHue == null
+              p.baseHue == null
                 ? "No hue to keep — a true grey, so every step is achromatic."
-                : `Hue ${p.neutralHue.toFixed(1)}°, ${hueSource(p.neutralHueFrom)}, and kept in full on every step.`
+                : `Hue ${p.baseHue.toFixed(1)}°, ${hueSource(p.baseHueFrom)}, and kept in full on every step.`
             }
             title="Neutral"
           />
@@ -241,7 +241,7 @@ function Tenant({ palette: p }: { palette: PaletteView }) {
 
       <Show when={p.authored !== null}>
         <Block
-          hint="A base16 palette is not a second shape here — it is a brand hue and a neutral hue, through the same derivation a client goes through. What its authors wrote, and what this system makes of it."
+          hint="A base16 palette is not a second shape here — it is a brand hue and a base hue, through the same derivation a client goes through. What its authors wrote, and what this system makes of it."
           title="Authored, and derived"
         >
           <ItemGroup className="grid gap-3 sm:grid-cols-2">
@@ -265,13 +265,13 @@ function Tenant({ palette: p }: { palette: PaletteView }) {
                 <ItemTitle>
                   Neutral
                   <code className="font-mono text-muted-foreground text-xs">
-                    {p.authored?.neutralSlot ?? "—"}
+                    {p.authored?.baseSlot ?? "—"}
                   </code>
                 </ItemTitle>
                 <ItemDescription className="line-clamp-none">
-                  <ColorChip color={p.neutralSeed} /> is base03 by the <strong>rule</strong> and not
+                  <ColorChip color={p.baseSeed} /> is base03 by the <strong>rule</strong> and not
                   by transcription — base16 orders base00–base05 background → ink, so base03 is the
-                  mid-tone of its own neutral ramp. Its tint is why these surfaces are not grey.
+                  mid-tone of its own base ramp. Its tint is why these surfaces are not grey.
                 </ItemDescription>
               </ItemContent>
             </Item>
@@ -421,14 +421,14 @@ function Tenant({ palette: p }: { palette: PaletteView }) {
  *
  * `identities` is an array of one because that is the only shape there is — a document with a single
  * brand is a one-element list, not a different call. A second brand is one more entry, and the
- * derivation refuses a multi-identity tenant without an explicit neutral, which is why the neutral is
+ * derivation refuses a multi-identity tenant without an explicit base, which is why the base is
  * written here rather than left to the brand-hue fallback.
  */
 function seedSnippet(p: PaletteView): string {
   return `derivePalette({
   id: ${JSON.stringify(p.id)},
   label: ${JSON.stringify(p.label)},
-  neutral: ${JSON.stringify(p.neutralSeed)},
+  base: ${JSON.stringify(p.baseSeed)},
   identities: [{ id: ${JSON.stringify(p.id)}, label: ${JSON.stringify(p.label)}, brand: ${JSON.stringify(p.brandSeed)} }],
 });`;
 }

@@ -42,7 +42,7 @@ describe("the document as stored data", () => {
 
   it("carries the surfaces every number in it was measured against", () => {
     // Without these the record is a set of ratios about a page nobody can name. `--background` is
-    // step 1 of the tenant's neutral, which is the surface *tinted*, so the two are not the same
+    // step 1 of the tenant's base, which is the surface *tinted*, so the two are not the same
     // value and the document has to say which one the grading used.
     expect(DOC.seeds.surfaces.light).toBe("#fafafa");
     expect(DOC.seeds.surfaces.dark).toBe("#0a0a0a");

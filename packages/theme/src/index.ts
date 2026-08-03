@@ -47,7 +47,7 @@ export interface PaletteIndexEntry {
   label: string;
   /** The one `tokens.css` already carries; it has no stylesheet of its own to load. */
   isDefault: boolean;
-  seeds: { brand: string; neutral: string };
+  seeds: { brand: string; base: string };
   swatches: Record<Appearance, string[]>;
   capacity: number;
   /** The brands inside this document, **default first**. One entry means there is no choice here. */
@@ -92,7 +92,7 @@ export const CHART_SLOTS = 8;
  * · `data-identity`   — selects among the identities the TENANT published.
  *
  * A tenant may publish more than one brand (a bank's retail blue and its private gold). Each is a
- * brand seed inside the one document; the neutral, the status ramps and the syntax roles are shared,
+ * brand seed inside the one document; the base, the status ramps and the syntax roles are shared,
  * which is what keeps several identities one product. `compile()` emits `:root`/`.dark` for the
  * default identity and a `[data-identity="X"]` block per additional one, carrying only the
  * brand-derived tokens.
@@ -329,4 +329,18 @@ export const AXES: {
   // `def: ""` is what keeps a single-identity tenant's <html> byte-identical to today: the write
   // rule removes the attribute at the default, so nothing appears until a user picks a second one.
   { key: "identity", attr: "data-identity", def: "", source: "document" },
+  // **The axis that used to be a preference the provider admitted it could not apply.**
+  //
+  // Colour was the one thing not driven by an attribute: a document was a stylesheet, so the server
+  // read the cookie and served the right one before the first byte, and `KanzoThemeProvider` owned a
+  // `palette` preference whose own JSDoc said "wiring this does not apply anything". That followed
+  // from an assumption about size, and the assumption was never measured — the five documents this
+  // package ships are 58 kB raw and **7.6 kB gzipped together**.
+  //
+  // So every document travels, `compile(doc, { scope })` puts each under its own attribute, and this
+  // row is what selects. `def: ""` for the same reason `identity` has it: a tenant with one palette
+  // writes no attribute and gets the `<html>` it had before. It also retires the requirement to
+  // persist through `cookieStorageAdapter` — there is no longer a decision the server took that the
+  // browser cannot correct without a flash.
+  { key: "palette", attr: "data-palette", def: "", source: "document" },
 ];

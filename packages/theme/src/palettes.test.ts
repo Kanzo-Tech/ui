@@ -3,7 +3,10 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   PALETTE_SEEDS,
+  SYNTAX_ROLES,
+  TEXT_MIN,
   compile,
+  contrastRatio as contrast,
   derivePalette,
   seedInput,
   type TenantPalette,
@@ -26,6 +29,32 @@ import kanzoJson from "../palettes/kanzo.json";
  */
 
 const pkgDir = resolve(__dirname, "..");
+
+/** Split once at the first occurrence of `marker`, keeping it at the head of the second part. */
+function splitAt(source: string, marker: string): [string, string] {
+  const at = source.indexOf(marker);
+  if (at < 0) throw new Error(`tokens.css has no ${marker}`);
+  return [source.slice(0, at), source.slice(at)];
+}
+
+/**
+ * The Tailwind registration `gen-palette.mjs` writes, rebuilt from the same two facts it uses.
+ *
+ * Rebuilt rather than imported, because the generator is a script and this is the only thing that
+ * would notice it drifting: six families, twelve steps, twelve alphas. A copy that agreed with the
+ * script by construction would assert nothing.
+ */
+function scaleRegistration(): string {
+  const families = ["base", "brand", "destructive", "warning", "success", "info"];
+  return [
+    "@theme inline {",
+    ...families.flatMap((family) => [
+      ...Array.from({ length: 12 }, (_, i) => `  --color-${family}-${i + 1}: var(--${family}-${i + 1});`),
+      ...Array.from({ length: 12 }, (_, i) => `  --color-${family}-a${i + 1}: var(--${family}-a${i + 1});`),
+    ]),
+    "}",
+  ].join("\n");
+}
 const tokensCss = readFileSync(resolve(pkgDir, "tokens.css"), "utf8");
 const KANZO = kanzoJson as unknown as TenantPalette;
 
@@ -34,7 +63,7 @@ describe("the default tenant's document", () => {
     expect(KANZO.id).toBe("kanzo");
     expect(KANZO.state).toBe("published");
     expect(KANZO.seeds.brand).toBe(PALETTE_SEEDS.kanzo?.brand);
-    expect(KANZO.seeds.neutral).toBe(PALETTE_SEEDS.kanzo?.neutral);
+    expect(KANZO.seeds.base).toBe(PALETTE_SEEDS.kanzo?.base);
   });
 
   it("is exactly what re-deriving its own seeds produces", () => {
@@ -42,7 +71,7 @@ describe("the default tenant's document", () => {
     // stored one that no longer matches its seeds is, because the seeds are what the file claims it
     // came from. `derivePalette` is deterministic given `derivedAt`, so this is a byte comparison.
     const fresh = derivePalette({
-      ...seedInput("kanzo", PALETTE_SEEDS.kanzo as { label: string; brand: string; neutral: string }),
+      ...seedInput("kanzo", PALETTE_SEEDS.kanzo as { label: string; brand: string; base: string }),
       state: "published",
       derivedAt: KANZO.engine.derivedAt,
     });
@@ -52,24 +81,43 @@ describe("the default tenant's document", () => {
   it("is what tokens.css paints with, byte for byte", () => {
     // This replaces every hand-written colour block and the three drift guards that used to watch
     // them. `tokens.css` had a `:root` and a `.dark` that were a manual copy of the generated
-    // neutral scale and of the `kanzo` palette's syntax slots, with nothing tying them together —
+    // base scale and of the `kanzo` palette's syntax slots, with nothing tying them together —
     // so *selecting* Kanzo could recolour an editor that was already showing Kanzo. There is one
     // copy now, and this is it.
     const at = tokensCss.indexOf("/* ── GENERATED BELOW");
     expect(at, "tokens.css has lost its generated-section marker").toBeGreaterThan(0);
     const generated = tokensCss.slice(tokensCss.indexOf("*/", at) + 2).trimStart();
-    expect(generated).toBe(compile(KANZO));
+
+    // Two parts, and the split is the one thing worth asserting about them. The `@theme inline`
+    // block registers the reference layer with Tailwind so `bg-base-3` exists at all; it names
+    // variables and never values, so it is the same 144 lines for every tenant and `compile()`
+    // deliberately does not emit it — a tenant's document is served into a page whose CSS was built
+    // long before, where an `@theme` block would register nothing.
+    const [registration, document] = splitAt(generated, "/* kanzo —");
+    expect(registration.trimEnd()).toBe(scaleRegistration());
+    expect(document).toBe(compile(KANZO));
   });
 
-  it("is the only document `tokens.css` carries, and the only one not elevated", () => {
-    // The asymmetry the selection scheme rests on: the default arrives as `tokens.css` at (0,1,0)
-    // and every other document is inlined after it, elevated by one qualifier, so it wins on
-    // specificity instead of on which stylesheet the browser happened to see last.
-    expect(tokensCss).not.toContain(":root:root");
+  it("is the only document `tokens.css` carries, and the only one unscoped", () => {
+    // The asymmetry the selection scheme rests on, restated for scoping: the default is `:root` in
+    // `tokens.css` and every other document sits under its own `[data-palette]`, so a host ships all
+    // of them and the attribute chooses. What used to be here — every non-default document elevated
+    // by a redundant `:root` qualifier so it could beat the default on specificity — assumed only one
+    // could be on the page at a time.
+    expect(tokensCss).not.toContain("[data-palette=");
     for (const entry of paletteIndex.filter((p) => !p.isDefault)) {
       const css = readFileSync(resolve(pkgDir, "palettes", `${entry.id}.css`), "utf8");
-      expect(css, entry.id).toContain(":root:root {");
-      expect(css, entry.id).toContain(".dark:root {");
+      // Three members, each with a job: the qualified one beats `tokens.css`'s own `:root` on
+      // `<html>`; the bare one reaches a preview div, where `:root` cannot match at all; and
+      // `.light` is what lets that div force light inside a dark page.
+      expect(css, entry.id).toContain(
+        `[data-palette="${entry.id}"]:root, [data-palette="${entry.id}"], [data-palette="${entry.id}"].light {`,
+      );
+      expect(css, entry.id).toContain(`[data-palette="${entry.id}"].dark:root`);
+      // No appearance selector reaches for an ancestor — that descendant is what made a light scope
+      // inside a dark page impossible. See `compile.ts`'s `scopeOf`.
+      expect(css, entry.id).not.toContain(`.dark [data-palette="${entry.id}"]`);
+      expect(css, `${entry.id} would paint every document`).not.toMatch(/^:root \{/m);
     }
   });
 
@@ -113,7 +161,7 @@ describe("the palette registry", () => {
     expect(multi[0]?.identities.map((i) => i.id)).toEqual(["retail", "private"]);
     // A multi-identity document must carry an explicit neutral rather than inheriting the brand's
     // hue — `derivePalette` refuses otherwise, and this is what that refusal protects.
-    expect(multi[0]?.seeds.neutralHueFrom).not.toBe("brand");
+    expect(multi[0]?.seeds.baseHueFrom).not.toBe("brand");
   });
 
   it("previews what the page will paint, not what a chart would", () => {
@@ -127,7 +175,7 @@ describe("the palette registry", () => {
       ) as TenantPalette;
       const identity = doc.identities.find((i) => i.id === doc.defaultIdentity);
       expect(entry.label, entry.id).toBe(doc.label);
-      expect(entry.seeds, entry.id).toEqual({ brand: doc.seeds.brand, neutral: doc.seeds.neutral });
+      expect(entry.seeds, entry.id).toEqual({ brand: doc.seeds.brand, base: doc.seeds.base });
       expect(entry.capacity, entry.id).toBe(identity?.categorical.capacity);
 
       for (const mode of ["light", "dark"] as const) {
@@ -165,5 +213,114 @@ describe("the palette registry", () => {
     // `tokens.css` IS Kanzo compiled. A second copy would be a second thing to keep in step, for a
     // reader that does not exist — and a host importing it would load the same document twice.
     expect(existsSync(resolve(pkgDir, "palettes", "kanzo.css"))).toBe(false);
+  });
+});
+
+/**
+ * Every document, re-measured off the bytes it ships.
+ *
+ * This suite exists because of what it found. `--faint` was bound to a hard-coded `step(neutral, 10)`
+ * and **two of the six shipped documents failed AA there** — Nord in dark at 3.48:1 and Catppuccin
+ * Latte in light at 3.37:1 — which is unreadable placeholder text and unreadable editor gutter
+ * numbers, in palettes a user can select today.
+ *
+ * Nothing caught it, and the reason is the shape of the old tests rather than an oversight: every
+ * contrast assertion in this repo resolved roles against **one** set of ramps, the default tenant's,
+ * and Kanzo's own neutral is comfortable at 5.18/4.74. A per-tenant verdict needs a per-tenant
+ * measurement, which is what `derivePalette`'s cross-checks are for — and `--faint` had no row.
+ *
+ * So this reads the **emitted CSS**, not the documents and not the derivation: a gate that shares
+ * the generator's arithmetic cannot catch the generator being wrong, which is the same reason
+ * `checkRamp` re-measures a ramp it has just produced.
+ */
+describe("every shipped document, measured off its own stylesheet", () => {
+  /** The block that declares this mode — by its own `color-scheme`, not by guessing the selector. */
+  const blockFor = (css: string, mode: "light" | "dark"): string => {
+    for (const rule of css.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+      const body = rule[2] as string;
+      if (new RegExp(`color-scheme:\\s*${mode}\\b`).test(body)) return body;
+    }
+    throw new Error(`no ${mode} block`);
+  };
+  const tokenIn = (body: string, token: string): string => {
+    const found = body.match(new RegExp(`--${token}:\\s*(#[0-9a-fA-F]+)`))?.[1];
+    if (!found) throw new Error(`--${token} not declared`);
+    return found;
+  };
+
+  const sheets = paletteIndex.map((entry) => ({
+    id: entry.id,
+    css: readFileSync(
+      resolve(pkgDir, entry.isDefault ? "tokens.css" : `palettes/${entry.id}.css`),
+      "utf8",
+    ),
+  }));
+
+  it("keeps the quietest ink at AA on its own page, in both modes", () => {
+    for (const { id, css } of sheets) {
+      for (const mode of ["light", "dark"] as const) {
+        const body = blockFor(css, mode);
+        expect(
+          contrast(tokenIn(body, "faint"), tokenIn(body, "background")),
+          `${id} ${mode}: --faint on --background`,
+        ).toBeGreaterThanOrEqual(TEXT_MIN);
+      }
+    }
+  });
+
+  it("keeps every syntax role at AA on its own active line, in both modes", () => {
+    // The ground is `--editor-active-line`, not `--background`, and that is the whole finding: the
+    // gate that shipped measured the page, and `--kanzo-syntax-type` reached production at 4.30:1 on
+    // a line being edited. Step 3 is the harder surface in both modes, so this covers the page too.
+    for (const { id, css } of sheets) {
+      for (const mode of ["light", "dark"] as const) {
+        const body = blockFor(css, mode);
+        const ground = tokenIn(body, "muted");
+        for (const role of SYNTAX_ROLES) {
+          expect(
+            contrast(tokenIn(body, `syntax-${role}`), ground),
+            `${id} ${mode}: --syntax-${role} on --editor-active-line`,
+          ).toBeGreaterThanOrEqual(TEXT_MIN);
+        }
+      }
+    }
+  });
+
+  it("gives each document a syntax of its own", () => {
+    // **The assertion that would have caught the bug that opened all of this.** `SYNTAX_SOURCE` was
+    // a constant — `{ light: "kanzo", dark: "kanzo-dark" }` — so all six documents declared the same
+    // 26 values and choosing Dracula gave you Dracula's surfaces with Kanzo's keywords, while
+    // Dracula's own base16 slots sat unread in the data file.
+    //
+    // The claim is deliberately weak — *not all identical* rather than *all distinct* — because two
+    // tenants seeded from the same scheme SHOULD agree, and a document with no scheme of its own
+    // correctly falls back to Kanzo's. What must never be true again is that the source is ignored.
+    for (const mode of ["light", "dark"] as const) {
+      const keywords = new Set(
+        sheets.map(({ css }) => tokenIn(blockFor(css, mode), "syntax-keyword")),
+      );
+      expect(keywords.size, `${mode}: every document declares the same --syntax-keyword`).toBeGreaterThan(1);
+    }
+    // Named, so the test says which palettes it is actually about rather than just counting.
+    const dark = (id: string) =>
+      tokenIn(blockFor(sheets.find((s) => s.id === id)?.css as string, "dark"), "syntax-keyword");
+    expect(dark("dracula")).toBe("#ff79c6");
+    expect(dark("nord")).toBe("#b48ead");
+    expect(dark("kanzo")).toBe("#c27aff");
+  });
+
+  it("carries no `--kanzo-` prefixed COLOUR token", () => {
+    // The prefix was a leftover from when syntax and the editor's surfaces were "the editor's
+    // private tokens", which stopped being true the moment a document started deriving them. Every
+    // other role in the table is unprefixed.
+    //
+    // Scoped to colour on purpose. `tokens.css` still declares `--kanzo-font-size-base`,
+    // `-small`, `-xs` and `--kanzo-focus-ring` in its hand-written half — those are typography and
+    // focus, not part of the role table, and renaming them is a different question from this one.
+    for (const { id, css } of sheets) {
+      for (const dead of ["--kanzo-syntax-", "--kanzo-editor-", "--kanzo-gutter-"]) {
+        expect(css, `${id} still declares ${dead}`).not.toContain(dead);
+      }
+    }
   });
 });

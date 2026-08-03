@@ -2,7 +2,7 @@
  * gen-data.mjs — emits `packages/palette/palette-data.json`.
  *
  * The tables the derivation READS, and nothing else: Tailwind's chromatic families (`ramps`), the
- * named greys a neutral seed can be picked from (`baseSwatches`), the default categorical scheme,
+ * named greys a base seed can be picked from (`baseSwatches`), the default categorical scheme,
  * the base16 sources, the seed pairs derived from them, the base16 → syntax role mapping and the
  * four status seeds.
  *
@@ -85,12 +85,12 @@ const CHROMATIC = [
 const RAMP_STEPS = [400, 500, 600, 700];
 
 /**
- * The named greys a neutral seed can be picked from — Tailwind's five plus Shark's four.
+ * The named greys a base seed can be picked from — Tailwind's five plus Shark's four.
  *
- * A catalogue for onboarding, not an axis: the client supplies a neutral seed and these are the
+ * A catalogue for onboarding, not an axis: the client supplies a base seed and these are the
  * ones with names. `neutral` is the one the package itself reads — `derive-palette.ts` uses it as
  * the lightness for a neutral constructed from a brand hue, and it is the Kanzo document's own
- * neutral seed. Only the mid-tone survives: the rest of each scale was `data-base`, and the ramp
+ * base seed. Only the mid-tone survives: the rest of each scale was `data-base`, and the ramp
  * generates its own steps now.
  */
 const CUSTOM_MIDS = { mauve: "#79697b", olive: "#7c7c67", mist: "#67787c", taupe: "#7c6d67" };
@@ -263,7 +263,7 @@ const PALETTES = {
  * **Dracula designates no brand at all** — "primary" and "brand" appear nowhere in a spec scoped to
  * syntax highlighting — so its pink is an ecosystem convention rather than the project's word.
  *
- * Kanzo's is its own neutral: this system has no chromatic brand and never had one. That is not a
+ * Kanzo's is its own base: this system has no chromatic brand and never had one. That is not a
  * gap to fill — it makes the default tenant the honest test of the grey-brand path, which
  * `derivePalette` answers by keeping the default categorical scheme and reporting
  * `carries-identity` as relief on the brand ramp.
@@ -279,9 +279,9 @@ const BRANDS = {
 /**
  * The seed pairs — what a tenant document is derived from, and the only shape colour comes in.
  *
- * The neutral seed is **base03**, by the rule rather than by transcription: base16 orders base00–
- * base05 background → ink, so base03 is the mid-tone of the neutral ramp — and for Kanzo it lands
- * on `neutral-500`, which is exactly the swatch `derive-palette.ts` reads as its own neutral. The
+ * The base seed is **base03**, by the rule rather than by transcription: base16 orders base00–
+ * base05 background → ink, so base03 is the mid-tone of the base ramp — and for Kanzo it lands
+ * on `neutral-500`, which is exactly the swatch `derive-palette.ts` reads as its own base. The
  * tint comes with it: Dracula's base03 is `#6272a4`, and that violet is why Dracula's surfaces do
  * not read as grey.
  *
@@ -290,7 +290,7 @@ const BRANDS = {
 const SEEDS = Object.fromEntries(
   Object.entries(BRANDS).map(([id, brand]) => [
     id,
-    { label: PALETTES[id].label, brand, neutral: PALETTES[id].slots.base03 },
+    { label: PALETTES[id].label, brand, base: PALETTES[id].slots.base03 },
   ]),
 );
 

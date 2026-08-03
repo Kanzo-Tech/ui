@@ -48,44 +48,55 @@ import { tags as t } from "@lezer/highlight";
 const External = Annotation.define<boolean>();
 
 /**
- * Kanzo syntax theme — maps Lezer highlight tags to the `--kanzo-syntax-*` tokens so a
- * consumer's language extension is coloured from the design tokens (re-themes with
- * KanzoTheme / `.dark`). Exported so a bring-your-own editor (`basics={false}`) can wire
- * the same palette. Inert until the caller injects a language (there's no tree to tag).
+ * Kanzo syntax theme — maps Lezer highlight tags to the design tokens, so a consumer's language
+ * extension is coloured by whichever palette document is on the page. Exported so a
+ * bring-your-own editor can wire the same palette. Inert until the caller injects a language
+ * (there is no tree to tag).
+ *
+ * **Seven of these are `--syntax-*` and the rest are tokens that already existed**, which is the
+ * shape the palette layer settled on: `comment` is `--faint` (the quietest legible ink — a gutter
+ * number, a field's placeholder and a code comment are one decision), `punctuation` is
+ * `--muted-foreground`, `operator` is `--foreground`, and `invalid` is the destructive family.
+ * There were thirteen `--kanzo-syntax-*` tokens; six of them were duplicating a tint the ramp
+ * already publishes.
+ *
+ * The seven that remain are derived per tenant and graded against `--editor-active-line`, so a
+ * palette finally repaints keywords: Dracula's pink, Nord's purple, Catppuccin's mauve. Every
+ * document used to declare Kanzo's.
  */
 export const kanzoHighlightStyle = HighlightStyle.define([
-  { tag: [t.keyword, t.operatorKeyword, t.controlKeyword, t.definitionKeyword, t.moduleKeyword, t.self], color: "var(--kanzo-syntax-keyword)" },
-  { tag: [t.atom, t.bool, t.constant(t.name), t.standard(t.name)], color: "var(--kanzo-syntax-constant)" },
-  { tag: [t.string, t.special(t.string), t.docString, t.character, t.regexp], color: "var(--kanzo-syntax-string)" },
+  { tag: [t.keyword, t.operatorKeyword, t.controlKeyword, t.definitionKeyword, t.moduleKeyword, t.self], color: "var(--syntax-keyword)" },
+  { tag: [t.atom, t.bool, t.constant(t.name), t.standard(t.name)], color: "var(--syntax-number)" },
+  { tag: [t.string, t.special(t.string), t.docString, t.character, t.regexp], color: "var(--syntax-string)" },
   // An escape sequence inside a string used to fall through to --foreground, so `\n` rendered
   // as plain text mid-string. `t.escape`'s parent is `literal`, which was unmapped.
-  { tag: [t.escape, t.special(t.brace)], color: "var(--kanzo-syntax-number)" },
-  { tag: [t.number, t.integer, t.float, t.unit], color: "var(--kanzo-syntax-number)" },
-  { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: "var(--kanzo-syntax-comment)", fontStyle: "italic" },
+  { tag: [t.escape, t.special(t.brace)], color: "var(--syntax-number)" },
+  { tag: [t.number, t.integer, t.float, t.unit], color: "var(--syntax-number)" },
+  { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: "var(--faint)", fontStyle: "italic" },
   // Object keys and attribute names. These used to be grouped with `variableName`, which
   // resolved to a token byte-identical to --foreground — so every key in a JSON document
   // rendered as unstyled text and the whole sample looked near-monochrome.
-  { tag: [t.propertyName, t.attributeName], color: "var(--kanzo-syntax-property)" },
-  { tag: [t.function(t.variableName), t.function(t.propertyName), t.macroName], color: "var(--kanzo-syntax-function)" },
+  { tag: [t.propertyName, t.attributeName], color: "var(--syntax-property)" },
+  { tag: [t.function(t.variableName), t.function(t.propertyName), t.macroName], color: "var(--syntax-function)" },
   // Declarations are coloured; plain variable USES inherit --foreground, as in most themes.
-  { tag: [t.definition(t.variableName), t.definition(t.propertyName)], color: "var(--kanzo-syntax-identifier)" },
-  { tag: [t.operator, t.derefOperator, t.arithmeticOperator, t.logicOperator, t.bitwiseOperator, t.compareOperator, t.updateOperator], color: "var(--kanzo-syntax-operator)" },
-  { tag: [t.punctuation, t.separator, t.bracket, t.angleBracket, t.squareBracket, t.paren, t.brace], color: "var(--kanzo-syntax-punctuation)" },
-  { tag: [t.typeName, t.className, t.namespace, t.tagName, t.labelName], color: "var(--kanzo-syntax-type)" },
-  { tag: [t.meta, t.annotation, t.processingInstruction, t.documentMeta], color: "var(--kanzo-syntax-comment)" },
-  { tag: [t.url, t.link], color: "var(--kanzo-syntax-url)", textDecoration: "underline" },
+  { tag: [t.definition(t.variableName), t.definition(t.propertyName)], color: "var(--syntax-identifier)" },
+  { tag: [t.operator, t.derefOperator, t.arithmeticOperator, t.logicOperator, t.bitwiseOperator, t.compareOperator, t.updateOperator], color: "var(--foreground)" },
+  { tag: [t.punctuation, t.separator, t.bracket, t.angleBracket, t.squareBracket, t.paren, t.brace], color: "var(--muted-foreground)" },
+  { tag: [t.typeName, t.className, t.namespace, t.tagName, t.labelName], color: "var(--syntax-type)" },
+  { tag: [t.meta, t.annotation, t.processingInstruction, t.documentMeta], color: "var(--faint)" },
+  { tag: [t.url, t.link], color: "var(--syntax-function)", textDecoration: "underline" },
   // Markdown: only `heading` was mapped, so prose rendered flat.
-  { tag: t.heading, color: "var(--kanzo-syntax-keyword)", fontWeight: "bold" },
+  { tag: t.heading, color: "var(--syntax-keyword)", fontWeight: "bold" },
   { tag: t.emphasis, fontStyle: "italic" },
   { tag: t.strong, fontWeight: "bold" },
   { tag: t.strikethrough, textDecoration: "line-through" },
-  { tag: [t.monospace, t.list], color: "var(--kanzo-syntax-string)" },
-  { tag: t.quote, color: "var(--kanzo-syntax-comment)" },
+  { tag: [t.monospace, t.list], color: "var(--syntax-string)" },
+  { tag: t.quote, color: "var(--faint)" },
   // Diff.
   { tag: t.inserted, color: "var(--success)" },
   { tag: t.deleted, color: "var(--destructive)" },
   { tag: t.changed, color: "var(--warning)" },
-  { tag: t.invalid, color: "var(--kanzo-syntax-invalid)" },
+  { tag: t.invalid, color: "var(--destructive-foreground)" },
 ]);
 
 /** The Kanzo highlight style as a ready-to-drop extension. */
@@ -98,23 +109,34 @@ const baseTheme = EditorView.theme({
   // line. As a flex child of the flex-column surface it fills the field; `min-height: 0` lets it
   // shrink so `.cm-scroller` scrolls once content passes `max-height`.
   "&": { fontSize: "var(--kanzo-font-size-base, 14px)", backgroundColor: "transparent", flex: "1 1 auto", minHeight: 0 },
-  // Horizontal padding only. Vertical padding here shifts every CONTENT line down while the
-  // gutter stays put, so line 5's number no longer sits beside line 5 — and the active-line and
-  // hover highlights in the gutter land between two lines of text. The vertical padding is on
-  // `.cm-gutters` too, below, so both columns move together.
-  // Horizontal padding is the field rhythm — 0.75rem is Textarea's `px-3`, so code sits on the
-  // same inset as an input's text (rem-based, so it tracks the density preference).
-  // The VERTICAL padding lives only here: CodeMirror measures each `.cm-line`'s position and
-  // lays its gutter number at the same y, this padding included — so the gutter must NOT add
-  // its own (see the note there), or every number drops one padding-step below its line.
+  // VERTICAL padding only, and it lives only here: CodeMirror measures each `.cm-line`'s
+  // position and lays its gutter number at the same y, this padding included — so the gutter
+  // must NOT add its own (see the note there), or every number drops one padding-step below
+  // its line.
+  //
+  // NO BACKGROUND, and no horizontal padding. Both were here and both were wrong:
+  //
+  //   · An opaque background on `.cm-content` HIDES THE SELECTION. `drawSelection` paints into
+  //     `.cm-selectionLayer`, a sibling at `z-index: -2`, and CSS paints negative-z-index
+  //     descendants *below* the backgrounds of in-flow block-level siblings — so the paper
+  //     covered the layer completely. There is no fallback either: `drawSelection` forces the
+  //     native `::selection` to transparent, so a selection rendered as nothing at all and the
+  //     selected glyphs went invisible. Verified in the browser, and it is why no CodeMirror
+  //     theme upstream puts a background here. The paper is on `.cm-scroller` now.
+  //   · Horizontal padding here inset the ACTIVE LINE highlight by 12px at each edge, because
+  //     the highlight is `.cm-line`'s own background and `.cm-line` sits inside the padding
+  //     box. The row read as a floating bar rather than a highlighted line. The inset moved to
+  //     `.cm-line`, so the highlight spans the field and the text keeps the same rhythm.
   ".cm-content": {
-    padding: "0.5rem 0.75rem",
+    padding: "0.5rem 0",
     color: "var(--foreground)",
     caretColor: "var(--foreground)",
-    // Paper. Sits on top of the scroller's `--muted` tint (below), so the tint shows only
-    // where the content does not — i.e. the gutter strip reads as a `--muted` column.
-    background: "var(--background)",
   },
+  // The field rhythm — 0.75rem is Textarea's `px-3`, so code sits on the same inset as an
+  // input's text (rem-based, so it tracks the density preference). On the LINE, so every
+  // full-width line decoration (active line, and any caller's `Decoration.line`) reaches the
+  // edges instead of stopping short of them.
+  ".cm-line": { padding: "0 0.75rem" },
   // The font belongs on `.cm-scroller`, not `.cm-content`: the GUTTER is a child of the
   // scroller, and CodeMirror's base sets `.cm-scroller { font-family: monospace }`. With the
   // family only on the content, line numbers rendered in the browser's generic monospace —
@@ -128,22 +150,23 @@ const baseTheme = EditorView.theme({
     // rather than leaving dead surface — see the `&` note.
     flexGrow: 1,
     minHeight: 0,
-    // The gutter tint lives here, not on `.cm-gutters`: a background on the gutter element only
-    // spans the content rows, so on a short document it stopped mid-field and read as a stray
-    // horizontal border. The scroller fills the whole field (flexGrow above), so tinting it and
-    // laying the content's `--background` paper on top gives a `--muted` gutter column that
-    // reaches the bottom every time.
-    background: "var(--muted)",
+    // The paper. It lives here and NOT on `.cm-content` — see the note there: an opaque
+    // background on the content box hides the selection layer beneath it. The scroller fills
+    // the whole field (flexGrow above), so the paper reaches the bottom on a short document.
+    background: "var(--background)",
   },
   "&.cm-focused": { outline: "none" },
-  // Transparent: the `--muted` gutter column is painted by the scroller behind it (see there),
-  // which fills the whole field — so unlike a fill on this element, it never cuts off mid-field.
-  // No divider; the tint step from `--muted` to the content's `--background` is the separation.
+  // The gutter column carries its own tint. It used to be painted by the scroller instead, on
+  // the grounds that a fill here "only spans the content rows and stops mid-field on a short
+  // document" — measured against the current CodeMirror, that is no longer true: this element
+  // is sized to the full scroller height, so the column reaches the bottom. Reclaiming it
+  // freed the scroller to hold the paper, which is what un-hides the selection layer.
+  // No divider; the tint step from `--muted` to the scroller's `--background` is the separation.
   ".cm-gutters": {
     // NO vertical padding: CodeMirror already lays each number at its (padded) content line's
     // y, so repeating the padding here drops every number one step too low. Verified: with
     // this present the numbers sat a constant 9px below their lines.
-    background: "transparent",
+    background: "var(--muted)",
     border: "none",
     color: "var(--faint)",
   },
@@ -163,7 +186,7 @@ const baseTheme = EditorView.theme({
   // Quieter than the active line on purpose: this is a hover affordance, and at equal
   // strength the two read as the same state and the column flickers as the pointer moves.
   ".cm-lineNumbers .cm-gutterElement:hover": {
-    backgroundColor: "color-mix(in srgb, var(--kanzo-editor-active-line) 60%, transparent)",
+    backgroundColor: "color-mix(in srgb, var(--editor-active-line, var(--muted)) 60%, transparent)",
     color: "var(--foreground)",
   },
   ".cm-foldGutter .cm-gutterElement:hover": { color: "var(--foreground)" },
@@ -171,7 +194,7 @@ const baseTheme = EditorView.theme({
   // `highlightSpecialChars` ships its own `&light`/`&dark` rule at a raw `red` / `#f78`. Same
   // trap as the selection: this theme declares no `{dark}`, so the LIGHT rule would apply in
   // both modes. Tokenised here, at equal specificity and later in the sheet, so ours wins.
-  ".cm-specialChar": { color: "var(--kanzo-syntax-invalid)" },
+  ".cm-specialChar": { color: "var(--destructive-foreground)" },
 
   // ── Floating surfaces ─────────────────────────────────────────────────────────
   // CodeMirror ships its own light-mode chrome for tooltips, autocomplete and the
@@ -308,11 +331,11 @@ const baseTheme = EditorView.theme({
   ".cm-selectionBackground, .cm-content ::selection": {
     backgroundColor: "var(--selection)",
   },
-  ".cm-activeLine": { backgroundColor: "var(--kanzo-editor-active-line)" },
+  ".cm-activeLine": { backgroundColor: "var(--editor-active-line, var(--muted))" },
   // The active line's gutter cell is emphasised beyond the row: stronger tint, full-strength
   // ink and a weight bump so the current line number stands out from the dim column.
   ".cm-activeLineGutter": {
-    backgroundColor: "var(--kanzo-editor-active-line)",
+    backgroundColor: "var(--editor-active-line, var(--muted))",
     color: "var(--foreground)",
     fontWeight: "600",
   },
@@ -458,8 +481,23 @@ export function CodeEditor(p: CodeEditorProps) {
   }, [p.readOnly]);
 
   // Bare surface (caller owns theme/chrome).
+  //
+  // `flex flex-col` is LOAD-BEARING, not styling. The theme sizes the editor with
+  // `"&": { flex: "1 1 auto", minHeight: 0 }`, which resolves only inside a flex container — and
+  // this host was a plain block, so `.cm-editor` fell back to content height. A caller asking for
+  // a full-height pane (`chrome={false} className="flex-1"`) got a host that filled its parent
+  // and an editor that did not fill the host: measured 467px of scroller inside an 883px pane,
+  // with the rest dead. The chromed branch below never had the bug because its wrapper is
+  // already a flex column.
   if (p.chrome === false) {
-    return <div data-slot="code-editor" ref={container} className={p.className} style={{ minHeight: p.minHeight, maxHeight: p.maxHeight }} />;
+    return (
+      <div
+        className={cn("flex flex-col", p.className)}
+        data-slot="code-editor"
+        ref={container}
+        style={{ minHeight: p.minHeight, maxHeight: p.maxHeight }}
+      />
+    );
   }
 
   // A field, not an IDE pane: the surface wears the exact chrome as Textarea/Input — a

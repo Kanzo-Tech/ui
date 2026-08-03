@@ -166,15 +166,20 @@ describe("useThemeTick", () => {
     return { get ticks() { return ticks; }, set: (p: Partial<ThemePrefs>) => act(() => set(p)) };
   }
 
-  it("moves when the palette changes, which no attribute on <html> reports", () => {
+  it("moves when the palette changes, before the attribute lands", () => {
     const t = mount();
     const before = t.ticks.at(-1);
 
     t.set({ palette: "dracula" });
 
     expect(t.ticks.at(-1)).not.toBe(before);
-    // …and nothing on the root moved, which is exactly why the observer could not have caught it.
-    expect(document.documentElement.hasAttribute("data-palette")).toBe(false);
+    // The root DOES carry `data-palette` now — a document is a `[data-palette]` block rather than a
+    // stylesheet the server serves — so the MutationObserver would eventually catch this on its own.
+    // The provider half is still what this test is about, and it is still the one that matters: the
+    // observer fires in an effect, *after* a frame has painted, and on a WebGL graph holding colours
+    // in buffers that frame is a visible flash of the previous brand. Reading the preference during
+    // render is what makes the tick land before anything is drawn.
+    expect(document.documentElement.getAttribute("data-palette")).toBe("dracula");
   });
 
   it("stays put when a preference that is not colour changes", () => {

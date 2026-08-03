@@ -31,16 +31,28 @@ describe("@kanzo-tech/theme", () => {
     // values the client authored. Same mechanism, opposite authority — which is why the check is
     // by name rather than by "is it colour".
     //
-    // **`palette` is a preference again and `data-palette` is still forbidden**, which reads as a
-    // contradiction and is the sharpest statement of the model: a palette is a whole DOCUMENT the
-    // tenant published, and a document is a stylesheet the server serves — never a block selected in
-    // the cascade. The preference came back; the attribute did not, and cannot, because no compiled
-    // sheet contains anything for it to match.
+    // **`data-palette` is no longer among them, and the reason it used to be is worth keeping.**
+    // This test once read "the attribute is forbidden, and cannot come back, because a document is a
+    // stylesheet the server serves — no compiled sheet contains anything for it to match". That was
+    // the sharpest statement of the old model and it rested on an assumption about size that was
+    // never measured: the five documents are 58 kB raw and 7.6 kB gzipped together. They all travel
+    // now, `compile(doc, { scope })` puts each under its own attribute, and there is something to
+    // match.
+    //
+    // The other three stay forbidden, and the distinction is the same one `data-identity` always
+    // made: `data-base`, `data-accent` and `data-chart-scheme` expressed *part* of a palette from a
+    // catalogue the LIBRARY shipped, so an end user could overrule a client's branding. `data-palette`
+    // selects a whole document the TENANT published. Same mechanism, opposite authority.
     const themes = read("themes.css");
-    for (const attr of ["data-base", "data-accent", "data-palette", "data-chart-scheme"]) {
+    for (const attr of ["data-base", "data-accent", "data-chart-scheme"]) {
       expect(AXES.map((a) => a.attr), attr).not.toContain(attr);
       expect(themes, `themes.css still emits [${attr}]`).not.toContain(`[${attr}=`);
     }
+    // And `themes.css` must not grow palette blocks of its own: the four non-colour axes are
+    // generated there, colour comes from `compile()`, and one attribute written by two generators is
+    // how the axes and the documents would start disagreeing.
+    expect(themes, "themes.css emits palette blocks").not.toContain("[data-palette=");
+    expect(AXES.map((a) => a.attr)).toContain("data-palette");
     expect(Object.keys(DEFAULT_PREFS).sort()).toEqual([
       "appearance", "density", "font", "identity", "identityByPalette", "monoFont", "palette",
       "radius",

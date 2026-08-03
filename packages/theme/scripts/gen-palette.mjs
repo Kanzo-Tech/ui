@@ -25,7 +25,7 @@
  * Or author a tenant that is not one of the shipped seed pairs, writing beside them:
  *
  *   node packages/theme/scripts/gen-palette.mjs --id acme --label "Acme" \
- *     --brand '#2b7fff' --neutral '#6b7280' [--out ./somewhere]
+ *     --brand '#2b7fff' --base '#6b7280' [--out ./somewhere]
  *
  * That mode writes ONE document and its stylesheet and leaves `tokens.css` and the registry alone —
  * `tokens.css` is the default tenant's and the registry is what this package publishes, neither of
@@ -80,14 +80,14 @@ function flags(argv) {
 
 const argv = flags(process.argv.slice(2));
 
-if (argv.id || argv.brand || argv.neutral) {
-  const missing = ["id", "brand", "neutral"].filter((key) => !argv[key]);
+if (argv.id || argv.brand || argv.base) {
+  const missing = ["id", "brand", "base"].filter((key) => !argv[key]);
   if (missing.length) throw new Error(`--${missing.join(", --")} required when authoring a tenant`);
 
   const document = derivePalette({
     id: argv.id,
     label: argv.label ?? argv.id,
-    neutral: argv.neutral,
+    base: argv.base,
     identities: [{ id: argv.id, label: argv.label ?? argv.id, brand: argv.brand }],
     // `draft`, not `published`: a document is published when somebody has read its record and
     // accepted what the gates moved. A script cannot do that on a client's behalf.
@@ -98,7 +98,7 @@ if (argv.id || argv.brand || argv.neutral) {
   const dir = argv.out ?? join(ROOT, "palettes");
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, `${argv.id}.json`), `${JSON.stringify(document, null, 2)}\n`);
-  writeFileSync(join(dir, `${argv.id}.css`), compile(document, { elevate: true }));
+  writeFileSync(join(dir, `${argv.id}.css`), compile(document, { scope: argv.id }));
   const { adjustments, relief } = document.record;
   console.log(
     `${argv.id}: ${adjustments.length} adjustment(s), ${relief.length} relief row(s) → ${dir}`,
@@ -112,9 +112,10 @@ if (argv.id || argv.brand || argv.neutral) {
  * one compiled into `tokens.css`; the rest are written beside it as documents plus their own
  * stylesheet, imported by nothing and costing nothing until a host asks for one.
  *
- * The four borrowed ones are compiled with `elevate`, because that is the situation they exist for:
- * `tokens.css` is already on the page carrying Kanzo, and a chosen document arrives after it. Both
- * would be `:root` at (0,1,0) and the winner would be whichever the browser saw last.
+ * The four borrowed ones are compiled **scoped**, under `[data-palette="<id>"]`, so they can all sit
+ * on the page at once and an attribute chooses. Measured, the five together are 58 kB raw and 7.6 kB
+ * gzipped — the scale is repetitive and compresses hard — so "the server picks one and inlines it"
+ * was solving a problem the numbers do not have. It is daisyUI's `data-theme` model.
  */
 const index = [];
 const doc = {};
@@ -133,7 +134,7 @@ for (const [id, seeds] of Object.entries(PALETTE_SEEDS)) {
   // The default's stylesheet IS `tokens.css`, written below. A second copy of it would be a second
   // thing to keep in step for no reader.
   if (!isDefault) {
-    writeFileSync(join(ROOT, "palettes", `${id}.css`), compile(document, { elevate: true }));
+    writeFileSync(join(ROOT, "palettes", `${id}.css`), compile(document, { scope: id }));
   }
 
   const identity = document.identities.find((i) => i.id === document.defaultIdentity);
@@ -141,7 +142,7 @@ for (const [id, seeds] of Object.entries(PALETTE_SEEDS)) {
     id,
     label: document.label,
     isDefault,
-    seeds: { brand: document.seeds.brand, neutral: document.seeds.neutral },
+    seeds: { brand: document.seeds.brand, base: document.seeds.base },
     swatches: preview(document, identity),
     capacity: identity.categorical.capacity,
     // The brands this document publishes, so a picker can offer them as part of the same choice
@@ -163,14 +164,14 @@ for (const [id, seeds] of Object.entries(PALETTE_SEEDS)) {
  * and giving it a second marque would be fabricating branding for the company that owns this system.
  *
  * A multi-identity document REQUIRES an explicit neutral — `derivePalette` refuses otherwise — and
- * the refusal is the interesting part: the neutral is 90% of the pixels, so carrying the brand hue
+ * the refusal is the interesting part: the base is 90% of the pixels, so carrying the brand hue
  * into it would tint the whole product with the retail blue and then paint the private gold on top
  * of it, a decision the client never made in the field where it is hardest to see.
  */
 const DEMO = {
   id: "bank",
   label: "Bank",
-  neutral: "#6b7280",
+  base: "#6b7280",
   identities: [
     { id: "retail", label: "Retail", brand: "#2b7fff" },
     // "Private", not "Private Bank": the panel composes `${palette} · ${brand}` when a
@@ -181,14 +182,14 @@ const DEMO = {
 
 const demo = derivePalette({ ...DEMO, state: "published", derivedAt: DERIVED_AT });
 writeFileSync(join(ROOT, "palettes", `${DEMO.id}.json`), `${JSON.stringify(demo, null, 2)}\n`);
-writeFileSync(join(ROOT, "palettes", `${DEMO.id}.css`), compile(demo, { elevate: true }));
+writeFileSync(join(ROOT, "palettes", `${DEMO.id}.css`), compile(demo, { scope: DEMO.id }));
 
 const demoDefault = demo.identities.find((i) => i.id === demo.defaultIdentity);
 index.push({
   id: demo.id,
   label: demo.label,
   isDefault: false,
-  seeds: { brand: demo.seeds.brand, neutral: demo.seeds.neutral },
+  seeds: { brand: demo.seeds.brand, base: demo.seeds.base },
   swatches: preview(demo, demoDefault),
   capacity: demoDefault.categorical.capacity,
   identities: demo.identities.map((brand) => ({
@@ -207,6 +208,33 @@ if (at < 0) throw new Error("tokens.css has lost its generated-section marker");
 const head = tokens.slice(0, at);
 const banner = tokens.slice(at).split("*/")[0] + "*/";
 
+/**
+ * The reference layer's Tailwind registration — `--color-base-3` → `bg-base-3`.
+ *
+ * Emitted here and NOT by `compile()`, and the split is load-bearing. `@theme` is a build-time
+ * construct: Tailwind reads it when it compiles `styles.css` and generates utility classes from it.
+ * A tenant's document is served at request time into a page whose CSS was built months ago, so an
+ * `@theme` block inside one would register nothing and mislead whoever read it. The mapping is also
+ * the same 144 lines for every tenant — it names variables, never values — so there is exactly one
+ * copy, here, and each document supplies the values the utilities resolve against.
+ *
+ * `inline` because that is what makes `bg-base-3` follow `.dark` and follow a swapped document: the
+ * utility keeps the `var()` instead of copying today's value into itself.
+ */
+const FAMILIES = ["base", "brand", "destructive", "warning", "success", "info"];
+const STEPS = 12;
+const scaleTheme = [
+  "@theme inline {",
+  ...FAMILIES.flatMap((family) => [
+    ...Array.from({ length: STEPS }, (_, i) => `  --color-${family}-${i + 1}: var(--${family}-${i + 1});`),
+    ...Array.from({ length: STEPS }, (_, i) => `  --color-${family}-a${i + 1}: var(--${family}-a${i + 1});`),
+  ]),
+  "}",
+].join("\n");
+
 // Not elevated, and that is the asymmetry the whole scheme rests on: this is the sheet everything
 // else has to be able to beat.
-writeFileSync(join(ROOT, "tokens.css"), `${head}${banner}\n\n${compile(doc.kanzo)}`);
+writeFileSync(
+  join(ROOT, "tokens.css"),
+  `${head}${banner}\n\n${scaleTheme}\n\n${compile(doc.kanzo)}`,
+);

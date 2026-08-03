@@ -41,13 +41,13 @@ const ACCENT_SLOTS = ["base08", "base09", "base0A", "base0B", "base0C", "base0D"
 const NEUTRAL = "#737373";
 /** The 17 chromatic families this system ships, at the step its ramps are seeded from. */
 const FAMILIES: [string, string][] = Object.entries(RAMPS).map(([n, s]) => [n, s["500"] as string]);
-const SEEDS: [string, string][] = [["neutral", NEUTRAL], ...FAMILIES];
+const SEEDS: [string, string][] = [["base", NEUTRAL], ...FAMILIES];
 
 /**
  * Tinted neutrals: a hue given deliberately, at a chroma far under `CHROMA_FLOOR`.
  *
  * The second half of a tenant's palette. Radix's own five (step 9 of mauve, slate, sage, olive,
- * sand) plus Tailwind's tinted greys, which is the range a client's neutral seed will land in.
+ * sand) plus Tailwind's tinted greys, which is the range a client's base seed will land in.
  */
 const TINTS: [string, string][] = [
   ["mauve", "#8e8c99"],
@@ -280,7 +280,7 @@ describe("a tinted neutral", () => {
     });
 
     it(`gives back the seed it was handed, in ${mode}`, () => {
-      // A neutral seed is a legal step 9 by construction — it is mid-lightness and low chroma — so
+      // A base seed is a legal step 9 by construction — it is mid-lightness and low chroma — so
       // nothing should move it. If a tinted ramp needed an adjustment, the tint model would be
       // fighting the band or the contrast rule rather than sitting inside them.
       for (const [name, seed] of TINTS) {
@@ -355,7 +355,7 @@ describe("a tinted neutral", () => {
 });
 
 describe("a seed that cannot meet an obligation", () => {
-  it("says a neutral ramp carries no identity, rather than manufacturing a tint", () => {
+  it("says a base ramp carries no identity, rather than manufacturing a tint", () => {
     // The achromatic case, which is the hardest one: chroma 0 must still produce a legal ramp. It
     // does — every other obligation is met — and the one it cannot meet is published instead of
     // being papered over with an invented hue. A generator that tinted a grey to pass its own

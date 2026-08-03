@@ -37,17 +37,17 @@ function slug(label: string): string {
 export async function deriveSeeds(input: {
   label: string;
   brand: string;
-  neutral: string;
+  base: string;
 }): Promise<DeriveResult> {
   const label = input.label.trim() || "Your palette";
   const brand = input.brand.trim();
-  const neutral = input.neutral.trim();
+  const base = input.base.trim();
 
   // Checked here and not only in the field, because a server action is a public endpoint: anything
   // that reaches `derivePalette` reaches a search, and a search is the expensive thing to guard.
   for (const [name, value] of [
     ["brand", brand],
-    ["neutral", neutral],
+    ["base", base],
   ] as const) {
     if (!HEX.test(value)) {
       return { ok: false, message: `The ${name} seed must be a six-digit hex colour, like #2b7fff.` };
@@ -60,7 +60,7 @@ export async function deriveSeeds(input: {
     // to exactly what `derivePalette` accepts (`/^[a-z0-9][a-z0-9-]*$/`), since it is interpolated
     // into `[data-identity="…"]` for a second brand, and falling back rather than throwing: a label
     // of "△" is a naming problem, not a reason to refuse two perfectly good colours.
-    return { ok: true, palette: viewOf({ id: slug(label), label, brand, neutral }) };
+    return { ok: true, palette: viewOf({ id: slug(label), label, brand, base }) };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "Derivation failed." };
   }

@@ -68,7 +68,14 @@ describe("KanzoThemeProvider axis wiring", () => {
 
   // Located by a member it must contain rather than by position, so a new effect above it cannot
   // make this test read the wrong dependency list.
-  const deps = () => source.match(/\}, \[([^\]]*prefs\.density[^\]]*)\]\);/)?.[1] ?? "";
+  //
+  // Comments are stripped first, and that is not tidiness: the pattern walks to the closing `]`, so
+  // a single square bracket anywhere in the prose inside the list truncates the match and this
+  // reports "could not find the dependency list" for a list that is right there. It happened the
+  // first time a comment in there mentioned a `data-*` selector. Same move `no-literal-hues.test.ts`
+  // makes for the same reason — source-reading tests must read code, not prose.
+  const code = source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1");
+  const deps = () => code.match(/\}, \[([^\]]*prefs\.density[^\]]*)\]\);/)?.[1] ?? "";
 
   it("watches every axis it claims to apply", () => {
     expect(deps(), "could not find the attribute effect's dependency list").not.toBe("");
@@ -559,14 +566,24 @@ describe("KanzoThemeProvider palette", () => {
     expect(t.ctx.resolvedPalette).toBe("kanzo");
   });
 
-  it("writes NO attribute for a chosen palette, ever", () => {
-    // The asymmetry with `identity`, asserted rather than left to be noticed. `data-identity`
-    // selects a block the document already contains; a palette IS the document, and there is no
-    // block to select. An attribute here would match nothing in any compiled sheet.
+  it("writes `data-palette` for a chosen palette, and nothing at the default", () => {
+    // This asserted the exact opposite — "an attribute here would match nothing in any compiled
+    // sheet" — and it was right about the model it was written for: a palette WAS the whole
+    // document, served by the server, with no block to select. `compile(doc, { scope })` emits one
+    // per document now and all five ship together, so the attribute has something to match and the
+    // preference finally applies.
+    //
+    // The `identity` asymmetry it was contrasting against is gone with it: both are attributes
+    // selecting a block, at two grains of the same choice.
     const t = mount({ palettes: PALETTES });
     act(() => t.ctx.set({ palette: "dracula" }));
 
     expect(t.ctx.resolvedPalette).toBe("dracula");
+    expect(html().getAttribute("data-palette")).toBe("dracula");
+
+    // …and nothing at the default, which is what keeps a single-palette tenant's `<html>` clean:
+    // `def: ""` means the write rule removes the attribute rather than spelling out the fallback.
+    act(() => t.ctx.set({ palette: "" }));
     expect(html().hasAttribute("data-palette")).toBe(false);
     expect([...html().attributes].map((a) => a.name).filter((n) => n.startsWith("data-"))).toEqual([]);
   });

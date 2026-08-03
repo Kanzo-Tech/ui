@@ -179,11 +179,40 @@ export {
   WHEEL_SPOKES,
   categoricalSource,
   derivePalette,
-  neutralSeedFor,
+  baseSeedFor,
   type DerivePaletteInput,
   type IdentityInput,
 } from "./derive-palette.js";
 
 export { KANZO_ID, PALETTE_SEEDS, seedInput, type PaletteSeeds } from "./seeds.js";
+
+/**
+ * The syntax set — the last corner of the table that was `kind: "fixed"`, and is now derived.
+ *
+ * Seven roles, because six of the thirteen had an owner already: `comment` is `--faint`,
+ * `punctuation` is `--muted-foreground`, `operator` is `--foreground`, `invalid` is the destructive
+ * family, and inserted/deleted/changed were success/destructive/warning all along.
+ */
+export {
+  SYNTAX_BAND,
+  SYNTAX_ROLES,
+  SYNTAX_SEPARATION,
+  deriveSyntax,
+  type SyntaxAdjustment,
+  type SyntaxDerivation,
+  type SyntaxRelief,
+  type SyntaxRole,
+  type SyntaxSeeds,
+} from "./derive-syntax.js";
+
+export {
+  DEFAULT_SYNTAX_SOURCE,
+  fromBase16,
+  fromHexes,
+  fromVsCode,
+  seedsFor,
+  type SyntaxSourceRef,
+  type TokenColor,
+} from "./syntax-source.js";
 
 export { compile, type CompileOptions } from "./compile.js";

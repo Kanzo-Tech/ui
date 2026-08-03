@@ -132,22 +132,26 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
     });
   }
 
-  it("writes nothing for a retired colour axis", () => {
-    // `data-palette`, `data-base`, `data-accent` and `data-chart-scheme` left the product path with
-    // the document. A stored blob that still names one must not resurrect the attribute — no CSS
-    // matches it any more, so what it would produce is a stale selector nothing can clear.
+  it("writes nothing for a retired colour axis, and does write the palette", () => {
+    // `data-base`, `data-accent` and `data-chart-scheme` left the product path with the document.
+    // A stored blob that still names one must not resurrect the attribute — no CSS matches it any
+    // more, so what it would produce is a stale selector nothing can clear.
     //
-    // `data-palette` stays on this list even though `palette` came BACK as a preference, and that is
-    // the point worth pinning: the preference returned, the attribute did not. A document is served,
-    // never selected in the cascade.
+    // **`data-palette` moved off this list**, and the sentence that used to be here is worth keeping
+    // as the thing that changed: "the preference returned, the attribute did not — a document is
+    // served, never selected in the cascade." That was true while a document was a whole stylesheet
+    // the server picked. Measured at 7.6 kB gzipped for all five, they now all travel and the
+    // attribute selects, so both sides must write it — and must agree, which is what this file is for.
     const { script, provider } = bothSides(
       { prefs: { palette: "dracula", base: "slate", accent: "blue", scheme: "vivid" } },
       false,
     );
-    for (const attr of ["data-palette", "data-base", "data-accent", "data-chart-scheme"]) {
+    for (const attr of ["data-base", "data-accent", "data-chart-scheme"]) {
       expect(script.attrs[attr], attr).toBeUndefined();
       expect(provider.attrs[attr], attr).toBeUndefined();
     }
+    expect(script.attrs["data-palette"]).toBe("dracula");
+    expect(provider.attrs["data-palette"]).toBe("dracula");
   });
 
   it("writes the identity attribute only for a chosen identity", () => {

@@ -940,7 +940,7 @@ function RulesBody() {
                       className={cn(
                         "size-1.5 shrink-0 rounded-full",
                         // The dot's siblings are `bg-success` and the severity fills, so it
-                        // identifies state and owes 3:1. At 40% it landed on neutral step 7 —
+                        // identifies state and owes 3:1. At 40% it landed on base step 7 —
                         // the border band — for 2.03:1 in light and 2.26:1 in dark. Solid
                         // `--muted-foreground` is step 11: 9.19 / 8.37.
                         pending && "bg-muted-foreground",

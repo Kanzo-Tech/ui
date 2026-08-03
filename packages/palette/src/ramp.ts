@@ -338,7 +338,7 @@ export const OBLIGATIONS: readonly Obligation[] = [
     step: 9,
     id: "carries-identity",
     reason:
-      "Below CHROMA_FLOOR a hue stops doing identity work and reads as grey. A neutral seed takes " +
+      "Below CHROMA_FLOOR a hue stops doing identity work and reads as grey. A base seed takes " +
       "this relief by construction, which is the honest answer rather than a manufactured tint.",
   },
   {
@@ -445,6 +445,22 @@ const ALPHA_TOLERANCE = 1.5;
 /** The two colours a readable-foreground calculation is allowed to pick between. */
 const ACHROMATIC = ["#ffffff", "#000000"] as const;
 
+/**
+ * Where a search for the quietest ink may start — see `Ramp.quietestInk`.
+ *
+ * **Not 11, and the difference is the whole reason this is a search.** Radix documents step 11 as
+ * low-contrast text and step 10 as hovered solid, so by the scale's own semantics the ink band opens
+ * at 11. But a quiet ink wants to be *quieter than* the secondary text at step 11, and on most ramps
+ * step 10 is both quiet enough and legible — for a neutral it is a lightness and nothing else, since
+ * there is no fill for it to be the hover of. So the floor is 10 and the ramp answers whether it
+ * holds.
+ *
+ * Starting at 1 instead would be wrong in a way that is easy to miss: measured on Kanzo's neutral,
+ * the first step to clear AA against the page in light is **step 9**, which is the fill. `--faint`
+ * would come out the same colour as `--primary`.
+ */
+const INK_FLOOR = 10;
+
 // ── Generation ──────────────────────────────────────────────────────────────────────────────────
 
 export interface RampRelief {
@@ -517,6 +533,21 @@ export interface Ramp {
    * `--ring: step 8` is correct for most seeds and 2.3:1 for the others. Read the field.
    */
   boundary: number;
+  /**
+   * The quietest step at or above `INK_FLOOR` that still reaches TEXT_MIN against step 1 — the ink
+   * that is present without being content.
+   *
+   * Published for the same reason `boundary` is, and it was found the same way: the role table bound
+   * `--faint` to a hard-coded step 10, and measured across the six documents this package ships,
+   * **two of them fail AA there** — Nord in dark at 3.48:1 and Catppuccin Latte in light at 3.37:1,
+   * against a bar of 4.5. `--faint` is a field's placeholder and an editor gutter's line numbers, so
+   * that is unreadable placeholder text in two shipped palettes. Both land on step 11 once the step
+   * is measured rather than assumed.
+   *
+   * It cannot fail, which is why it carries no obligation: step 12 already owes 7:1 against step 1
+   * (`strong-text-on-page`), so the search always terminates at or before the end of the ramp.
+   */
+  quietestInk: number;
   /** What was moved to make the seed legal, itemised by the rule that moved it. */
   adjustments: Adjustment[];
   /**
@@ -536,7 +567,7 @@ export interface Ramp {
  *
  * `SURFACE` already declares both, so the ramp needs no anchor of its own. Measured, our shipped
  * `--foreground` is L 0.269 in light and 0.970 in dark, and Radix's step 12 averages L 0.244 and
- * 0.949, against this rule's 0.167 and 0.953 for a neutral seed — light runs darker than either.
+ * 0.949, against this rule's 0.167 and 0.953 for a base seed — light runs darker than either.
  */
 const inkOf = (mode: Mode, base: number, direction: number) =>
   oklch(SURFACE[mode === "light" ? "dark" : "light"]).l - direction * base;
@@ -706,6 +737,13 @@ export function deriveRamp(seed: string, mode: Mode): Ramp {
   const boundary =
     steps.findIndex((hex) => contrast(hex, steps[0] as string) >= CONTRAST_MIN) + 1 || RAMP_LENGTH + 1;
 
+  // Searched from `INK_FLOOR`, never from 1: the first AA step is the FILL on most ramps. Cannot
+  // miss — step 12 owes 7:1 by `strong-text-on-page`.
+  const quietestInk =
+    steps.findIndex(
+      (hex, i) => i + 1 >= INK_FLOOR && contrast(hex, steps[0] as string) >= TEXT_MIN,
+    ) + 1 || RAMP_LENGTH;
+
   const measured = oklch(solid);
   return {
     seed,
@@ -715,6 +753,7 @@ export function deriveRamp(seed: string, mode: Mode): Ramp {
     alpha,
     onSolid,
     boundary,
+    quietestInk,
     adjustments,
     relief: checkRamp(steps, mode, onSolid, alpha),
     drift: {

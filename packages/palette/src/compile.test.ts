@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { compile } from "./compile.js";
 import { derivePalette } from "./derive-palette.js";
-import type { TenantPalette } from "./palette-document.js";
+import { RAMP_NAMES, type TenantPalette } from "./palette-document.js";
+import { SYNTAX_ROLES } from "./derive-syntax.js";
 import { KANZO_ID, PALETTE_SEEDS, seedInput } from "./seeds.js";
 import { IDENTITY_TOKENS, OTHER, ROLES } from "./roles.js";
 
@@ -35,7 +36,7 @@ const CSS = compile(DOC);
 const BANK = derivePalette({
   id: "bank",
   label: "Bank",
-  neutral: "#6b7280",
+  base: "#6b7280",
   identities: [
     { id: "retail", label: "Retail", brand: "#2b7fff" },
     { id: "private", label: "Private Bank", brand: "#9810fa" },
@@ -45,9 +46,17 @@ const BANK = derivePalette({
 });
 const BANK_CSS = compile(BANK);
 
-const bodyOf = (selector: string, css = CSS) => {
-  const at = css.indexOf(`${selector} {`);
-  return css.slice(at, css.indexOf("\n}", at));
+/**
+ * The block whose selector list CONTAINS this member.
+ *
+ * Matched as a member rather than as the whole selector, because a block's list grew a `.light`
+ * member when appearance became a class on the theme's own element: `:root` is now `:root, .light`
+ * and an identity's is `[data-identity="x"], [data-identity="x"].light`. Asking for the exact string
+ * made every one of these read an empty body and report a missing token.
+ */
+const bodyOf = (member: string, css = CSS) => {
+  const at = css.search(new RegExp(`^(?:.*[, ])?${member.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[,{ ]`, "m"));
+  return at < 0 ? "" : css.slice(at, css.indexOf("\n}", at));
 };
 
 describe("compile", () => {
@@ -100,7 +109,18 @@ describe("compile", () => {
     // `--chart-capacity` leads the block: it is emitted beside `color-scheme`, not from the table,
     // because it describes the categorical set rather than naming one of its slots.
     expect(order[0]).toBe("--chart-capacity");
-    expect(order.slice(1)).toEqual(ROLES.map((role) => role.token));
+    // Then the reference layer, then the roles. The order is the dependency direction written down:
+    // a role is an alias for a step, so the steps are declared first and a reader of the sheet meets
+    // them in the order the system thinks in. (Nothing in CSS requires it — custom properties do not
+    // care about declaration order — which is exactly why it is asserted rather than assumed.)
+    const scale = order.slice(1, 1 + RAMP_NAMES.length * 24);
+    expect(scale).toEqual(
+      RAMP_NAMES.flatMap((name) => [
+        ...Array.from({ length: 12 }, (_, i) => `--${name}-${i + 1}`),
+        ...Array.from({ length: 12 }, (_, i) => `--${name}-a${i + 1}`),
+      ]),
+    );
+    expect(order.slice(1 + scale.length)).toEqual(ROLES.map((role) => role.token));
 
     const shuffled: TenantPalette = {
       ...DOC,
@@ -138,10 +158,18 @@ describe("compile", () => {
   });
 
   it("stays the size of a thing you can inline in <head>", () => {
-    // The whole runtime is this string, served as a static `<style>` at request time. Measured: 3992
-    // bytes for 61 tokens in two modes. The bound is here so a future addition is a decision rather
-    // than a drift.
-    expect(CSS.length).toBeLessThan(6000);
+    // The whole runtime is this string, served as a static `<style>` at request time.
+    //
+    // **The bound moved from 6000 to 14000 when the reference layer landed, and that is a decision
+    // rather than a drift — which is what this test exists to force.** Measured: 3992 bytes for the
+    // roles alone, 11970 with 6 families × 24 properties × 2 modes on top. The layer costs ~2× the
+    // sheet and buys the thing the sheet had no way to express: a step a component can name.
+    //
+    // Still comfortably inlinable. It is one `<style>` of highly repetitive text — 288 lines of
+    // `--family-N: #hex;` — so it compresses hard, and a document is served once per request against
+    // a page that carries orders of magnitude more JavaScript. If this ever needs to shrink, the
+    // honest lever is emitting the alphas only for the families that use them, not trimming roles.
+    expect(CSS.length).toBeLessThan(14000);
   });
 
   it("compiles a single-identity document to the bytes v2 compiled it to", () => {
@@ -151,11 +179,41 @@ describe("compile", () => {
     // The one licensed difference is the version in the banner, which is what a schema bump *means*.
     const v2 = readFileSync(new URL("./compile-v2.fixture.css", import.meta.url), "utf8");
     const kanzo = derivePalette({
-      ...seedInput(KANZO_ID, PALETTE_SEEDS[KANZO_ID] as { label: string; brand: string; neutral: string }),
+      ...seedInput(KANZO_ID, PALETTE_SEEDS[KANZO_ID] as { label: string; brand: string; base: string }),
       state: "published",
       derivedAt: AT,
     });
-    expect(compile(kanzo)).toBe(v2.replace("document v2", "document v3"));
+    // Two families of declaration are new bytes **by design** and are removed from both sides, so
+    // that what remains is the claim this test was always really about: **the rest did not move.**
+    //
+    //   · the reference layer — 288 `--base-3`-style properties that had no equivalent in v2;
+    //   · syntax and editor — v2 spelled them `--kanzo-syntax-*` and `--kanzo-editor-*`, thirteen
+    //     roles frozen to Kanzo's hexes. They are seven derived roles under unprefixed names now,
+    //     so there is nothing to compare them against and they are asserted separately below.
+    //
+    // Everything else is byte-identical to the sheet v2 emitted. A role is now an alias for a step,
+    // and if that re-expression had changed a single value, `--muted` would be a different grey in
+    // every product built on this.
+    const strip = (css: string, pattern: RegExp) =>
+      css
+        .split("\n")
+        .filter((line) => !pattern.test(line))
+        .join("\n");
+    const SCALE = /^ {2}--(base|brand|destructive|warning|success|info)-a?\d+: /;
+    const EDITORY = /^ {2}--(kanzo-)?(syntax|editor|gutter)[-a-z]*: /;
+    // …and the `.light` member every light block grew when appearance became a class on the theme's
+    // own element. It changes which ELEMENTS a block reaches, never what it declares, which is the
+    // distinction this comparison is about.
+    const unlit = (css: string) => css.replace(/, \.light \{$/gm, " {");
+    expect(unlit(strip(strip(compile(kanzo), SCALE), EDITORY))).toBe(
+      strip(v2.replace("document v2", "document v4"), EDITORY),
+    );
+
+    // And the seven that replaced the thirteen are there, once per mode, under the unprefixed names.
+    const emitted = [...compile(kanzo).matchAll(/\n {2}(--syntax-[a-z]+):/g)].map((m) => m[1]);
+    expect(new Set(emitted).size).toBe(SYNTAX_ROLES.length);
+    expect(emitted).toHaveLength(SYNTAX_ROLES.length * 2);
+    expect(compile(kanzo)).not.toContain("--kanzo-");
     // And it emits nothing scoped at all: one identity is `:root`, so there is no second block to
     // fall through from.
     expect(compile(kanzo)).not.toContain("[data-identity");
@@ -168,64 +226,90 @@ describe("compile", () => {
     // needs no knowledge anywhere: the cascade simply reaches `:root`.
     expect(BANK_CSS).not.toContain('[data-identity="retail"]');
     for (const id of ["private", "pale"]) {
-      expect(BANK_CSS, id).toContain(`[data-identity="${id}"] {`);
-      expect(BANK_CSS, id).toContain(`[data-identity="${id}"].dark, .dark [data-identity="${id}"] {`);
+      expect(BANK_CSS, id).toContain(`[data-identity="${id}"], [data-identity="${id}"].light {`);
+      expect(BANK_CSS, id).toContain(`[data-identity="${id}"].dark {`);
     }
   });
 
-  it("puts the dark identity selector on the same element as .dark", () => {
+  it("names the element in every appearance selector, never an ancestor", () => {
     // The regression this test exists for is invisible to every value-level assertion in this
     // package. `.dark` and `data-identity` both land on `<html>` — one class, one attribute, one
     // element — so `.dark [data-identity="x"]` is a descendant combinator with nothing to descend
     // into and matches nothing, ever. The block would simply not apply, the cascade would fall
-    // through to `.dark`, and the page would render a legal palette that is the wrong one. So the
-    // compound member is asserted by name. The descendant member rides along for a host that puts
-    // `.dark` on a wrapper, which is the shape `@custom-variant dark (&:is(.dark, .dark *))` already
-    // allows for.
+    // through to `.dark`, and the page would render a legal palette that is the wrong one.
+    //
+    // **The descendant member used to ride along "for a host that puts `.dark` on a wrapper", and it
+    // has been removed.** It was the one thing making a light scope inside a dark page impossible:
+    // `.dark [data-palette="x"]` and `[data-palette="x"].light` are both (0,2,0), so the winner came
+    // down to emit order. With appearance always on the theme's own element — Radix Themes' rule —
+    // every case resolves on specificity with no pair tied.
     const selectors = [...BANK_CSS.matchAll(/^(\S.*?) \{$/gm)].map((m) => m[1] as string);
+    for (const selector of selectors) {
+      for (const member of selector.split(", ")) {
+        expect(member, `${member} reaches for an ancestor`).not.toMatch(/\s/);
+      }
+    }
     const dark = selectors.filter((s) => s.includes('[data-identity="private"]') && s.includes(".dark"));
-    expect(dark).toHaveLength(1);
-    expect(dark[0]).toContain('[data-identity="private"].dark');
-    expect(dark[0]).toContain('.dark [data-identity="private"]');
+    expect(dark).toEqual(['[data-identity="private"].dark']);
   });
 
-  it("elevates every selector by exactly one qualifier, or none at all", () => {
-    // For a tenant publishing several palettes: the default arrives as `tokens.css` and the chosen
-    // document is inlined after it. Both are `:root` / `.dark` at (0,1,0), so which one wins would be
-    // decided by source order — and the order of an imported stylesheet against a server-rendered
-    // `<style>` is not something correctness may rest on.
+  it("scopes to an attribute, and reaches <html> and a div with one selector list", () => {
+    // This replaces `elevate`. A tenant publishing several palettes used to serve the default as
+    // `tokens.css` and inline the chosen one after it — two documents, both `:root`, source order
+    // deciding. Every document travels now (58 kB raw, 7.6 kB gzipped for all five) and an attribute
+    // chooses, which is daisyUI's `data-theme` model.
     //
-    // The qualifier is `:root`, redundant by construction: every selector here only ever matches
-    // `<html>`, so the MATCH is unchanged and only the count moves. Asserted as "every selector, by
-    // exactly one", because a qualifier applied unevenly would silently reorder the document against
-    // itself — the light identity block ties with `:root` today and wins by being last, and that
-    // relationship has to survive.
+    // The selector is a **list**, and both members are load-bearing because the attribute lands in
+    // two places that need opposite things:
+    //
+    //   · on `<html>`, `[data-palette="x"]` ties with `:root` at (0,1,0) — the exact fragility
+    //     `elevate` existed for — so the qualified member is what wins outright at (0,2,0);
+    //   · on a **div**, for a preview, `:root` cannot match at all, so a qualified-only selector
+    //     would silently do nothing.
+    const scoped = compile(BANK, { scope: "bank" });
     const selectorsOf = (css: string) => [...css.matchAll(/^(\S.*?) \{$/gm)].map((m) => m[1] as string);
-    const plain = selectorsOf(BANK_CSS);
-    const raised = selectorsOf(compile(BANK, { elevate: true }));
 
-    expect(raised).toHaveLength(plain.length);
-    for (const [i, selector] of plain.entries()) {
-      expect(raised[i]).toBe(selector.split(", ").map((m) => `${m}:root`).join(", "));
+    expect(selectorsOf(scoped)[0]).toBe('[data-palette="bank"]:root, [data-palette="bank"], [data-palette="bank"].light');
+    for (const selector of selectorsOf(scoped)) {
+      expect(selector, selector).toContain('[data-palette="bank"]');
     }
-    // Same declarations, so elevation is a selector decision and never a value one.
+    // The unqualified member exists on the light block, or a preview div gets nothing — and the
+    // `.light` member beside it is what lets that div force light inside a dark page.
+    expect(scoped).toContain('[data-palette="bank"], [data-palette="bank"].light {');
+
+    // An identity is prefixed by its document, so two tenants may both publish a `retail` brand
+    // without one repainting the other.
+    expect(scoped).toContain('[data-palette="bank"][data-identity="private"], [data-palette="bank"][data-identity="private"].light {');
+
+    // Same declarations: scoping is a selector decision and never a value one.
     const declarations = (css: string) => css.split("\n").filter((line) => line.startsWith("  "));
-    expect(declarations(compile(BANK, { elevate: true }))).toEqual(declarations(BANK_CSS));
+    expect(declarations(scoped)).toEqual(declarations(BANK_CSS));
   });
 
   it("carries the declared identity set in every scoped block, never a diff", () => {
     // The shape-stability property, measured on the pair that would break it: `private` and `pale`
     // are the same hue family, so their wheels agree on most slots and a value-diff would emit two
     // blocks of different lengths — a sheet whose selectors depend on how close a client's two blues
-    // are. Fifteen tokens from `ROLES` plus `--chart-capacity`, which is a count and not a role.
+    // are. Fifteen tokens from `ROLES`, plus `--chart-capacity` (a count, not a role), plus the
+    // brand family of the reference layer — 24 properties that are as much the identity's as
+    // `--primary` is, because a second brand is a second ramp. The other five families are the
+    // document's and stay in `:root`, which is the same split `IDENTITY_TOKENS` already makes.
+    const brandScale = [
+      ...Array.from({ length: 12 }, (_, i) => `--brand-${i + 1}`),
+      ...Array.from({ length: 12 }, (_, i) => `--brand-a${i + 1}`),
+    ];
     for (const id of ["private", "pale"]) {
       for (const selector of [
         `[data-identity="${id}"]`,
-        `[data-identity="${id}"].dark, .dark [data-identity="${id}"]`,
+        `[data-identity="${id}"].dark`,
       ]) {
         const body = bodyOf(selector, BANK_CSS);
         const emitted = [...body.matchAll(/\n {2}(--[a-z0-9-]+):/g)].map((m) => m[1] as string);
-        expect(emitted, `${id} ${selector}`).toEqual(["--chart-capacity", ...IDENTITY_TOKENS]);
+        expect(emitted, `${id} ${selector}`).toEqual([
+          "--chart-capacity",
+          ...brandScale,
+          ...IDENTITY_TOKENS,
+        ]);
         // An identity is a brand, not an appearance. The mode stays `.dark`'s to declare, or a
         // scoped block could disagree with the class that scoped it.
         expect(body, `${id} ${selector}`).not.toContain("color-scheme");

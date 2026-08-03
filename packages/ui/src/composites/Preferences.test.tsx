@@ -223,14 +223,19 @@ describe("Preferences", () => {
       expect(html().getAttribute("data-identity")).toBe("private");
     });
 
-    it("writes no attribute for the palette half", async () => {
-      // A document is served, never selected in the cascade; only the brand half reaches `<html>`.
+    it("writes both halves of the choice to <html>", async () => {
+      // One click is one choice at two grains — a palette and a brand inside it — and both now reach
+      // the cascade. This test used to assert the opposite for the palette half: "a document is
+      // served, never selected in the cascade", which was true while a document was a whole
+      // stylesheet the server picked from a cookie. All five ship together now (7.6 kB gzipped) and
+      // `compile(doc, { scope })` puts each under its own attribute, so the control finally applies
+      // what it stores instead of only recording it for the next request.
       setup(undefined, { palettes: [BANK, DRACULA] });
 
       await userEvent.setup().click(colour().getByRole("radio", { name: "Dracula" }));
 
       expect(stored().palette).toBe("dracula");
-      expect(html().hasAttribute("data-palette")).toBe(false);
+      expect(html().getAttribute("data-palette")).toBe("dracula");
     });
 
     it("comes first in the panel body", () => {

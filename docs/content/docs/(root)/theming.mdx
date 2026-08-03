@@ -144,7 +144,7 @@ than written, because writing them would be wrong for most seeds:
 | `--destructive` / `-foreground` / `-content` | `(destructive, 9)` / `(…, 11)` / `(…, on-fill)` |
 | `--destructive-wash` / `-wash-strong` / `-border` | `(destructive, alpha 3 / 4 / 6)` |
 | `--chart-1` … `--chart-8` | categorical slot *i* |
-| `--kanzo-syntax-*` | fixed — Kanzo's own, cross-checked per tenant |
+| `--syntax-keyword` … ×7 | derived from the document's scheme, graded on `--editor-active-line` |
 
 ### A wash is a level, painted onto something you do not own
 
@@ -272,8 +272,19 @@ invention. Measured: Dracula's brand `#ff79c6` ships as `#e562af` at step 9, mov
 `visible-fill` rule.
 
 `BASE16_SLOTS` still holds the sixteen authored slots, and two things read them: the
-thirteen `--kanzo-syntax-*` roles, which are a *mapping* onto base16's slot vocabulary, and the
-[showcase](/docs/showcases/palette) that puts the authored original beside the derived result.
+[showcase](/docs/showcases/palette) that puts the authored original beside the derived result, and
+the **syntax set** — because a base16 palette is a syntax scheme before it is anything else, and a
+seed pair taken from one carries its accent slots along with its brand and base.
+
+Seven of base16's eight accent slots become `--syntax-*` roles; the eighth, `base0F`
+(deprecated/invalid), does not, because *invalid* is a state and belongs to the destructive family.
+Six roles that used to be tokens of their own dissolved the same way — `comment` is `--faint`,
+`punctuation` is `--muted-foreground`, `operator` is `--foreground` — so thirteen became seven.
+
+The values are read for their **hues** and re-solved against this tenant's own editor, exactly as a
+foreign brand seed is: a scheme authored for dark, on a light document, is a reading rather than a
+transcription. That is why Dracula finally paints Dracula's keywords, and why its light half is
+legible rather than a copy of dark hexes onto white.
 
 ## Reading a record
 

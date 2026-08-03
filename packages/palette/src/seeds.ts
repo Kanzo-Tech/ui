@@ -18,7 +18,7 @@ import type { DerivePaletteInput } from "./derive-palette.js";
  * categorical slot has to stay inside the band that keeps a *mark* legible.
  *
  * The neutral is **base03**, by the rule and not by transcription. base16 orders base00–base05
- * background → ink, so base03 is the mid-tone of the neutral ramp; for Kanzo it lands on
+ * background → ink, so base03 is the mid-tone of the base ramp; for Kanzo it lands on
  * `neutral-500`, which is the swatch `derive-palette.ts` already reads as this system's neutral.
  * The tint rides along with it — Dracula's `#6272a4` is why Dracula's surfaces are not grey.
  *
@@ -29,8 +29,8 @@ export interface PaletteSeeds {
   label: string;
   /** The identity's brand colour, as its source designates it. */
   brand: string;
-  /** The identity's neutral — base03, the mid-tone of its own neutral ramp. */
-  neutral: string;
+  /** The identity's neutral — base03, the mid-tone of its own base ramp. */
+  base: string;
 }
 
 export const PALETTE_SEEDS = paletteDataJson.seeds as Record<string, PaletteSeeds>;
@@ -50,6 +50,12 @@ export function seedInput(id: string, seeds: PaletteSeeds): DerivePaletteInput {
     id,
     label: seeds.label,
     identities: [{ id, label: seeds.label, brand: seeds.brand }],
-    neutral: seeds.neutral,
+    base: seeds.base,
+    // **A base16 seed pair is a base16 palette, so its syntax source is itself.** Leaving this out is
+    // what made every shipped document declare Kanzo's keywords: the brand and base seeds were read
+    // from Dracula while the eight accent slots beside them — the part of a base16 palette that is
+    // actually *about* syntax — went unread. Dracula is the name of a syntax scheme before it is the
+    // name of anything else.
+    syntax: { kind: "base16", id },
   };
 }

@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Geist, Geist_Mono, Inter, JetBrains_Mono } from "next/font/google";
 import { RootProvider } from "fumadocs-ui/provider/next";
 import { KanzoProvider } from "@/components/kanzo-provider";
-import { defaultPalette, paletteCss, paletteOptions, requestedPalette } from "@/lib/palette";
+import { allPaletteCss, defaultPalette, paletteOptions } from "@/lib/palette";
 import "@kanzo-tech/ui/styles.css";
 import "./global.css";
 
@@ -21,11 +21,11 @@ export const metadata = {
   description: "Ark UI + tailwind-variants primitives over design tokens.",
 };
 
-export default async function RootLayout({ children }: { children: ReactNode }) {
-  // The chosen palette, decided from the request rather than after hydration. `null` for the default
-  // one, whose stylesheet is `tokens.css` and is already imported above.
-  const palette = await requestedPalette();
-  const css = paletteCss(palette);
+export default function RootLayout({ children }: { children: ReactNode }) {
+  // Every published document, once. It used to be *the chosen one*, read from a cookie — which made
+  // this layout async and every page under it dynamic. All five are 7.6 kB gzipped together, so the
+  // choice moved to a `data-palette` attribute and the pages are static again.
+  const css = allPaletteCss();
 
   return (
     <html
@@ -34,13 +34,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${jetbrainsMono.variable}`}
     >
       <body className="flex min-h-screen flex-col">
-        {/* Order-independent on purpose: every non-default document is compiled with `elevate`, so
-            its `:root:root` blocks outrank `tokens.css` on specificity. Whether React hoists this
-            before or after the imported sheet cannot change which palette wins. */}
-        {css ? (
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: a compiled stylesheet, from disk.
-          <style dangerouslySetInnerHTML={{ __html: css }} id="kanzo-palette" />
-        ) : null}
+        {/* Order-independent on purpose: each document is scoped to `[data-palette="<id>"]:root`,
+            which outranks `tokens.css`'s bare `:root` on specificity. Whether React hoists this
+            before or after the imported sheet cannot change which palette wins — and with no
+            attribute set, none of them applies and the page is Kanzo. */}
+        {/* biome-ignore lint/security/noDangerouslySetInnerHtml: compiled stylesheets, from disk. */}
+        <style dangerouslySetInnerHTML={{ __html: css }} id="kanzo-palettes" />
         {/* next-themes OFF. `RootProvider` mounts it with `attribute: "class"`, which made two
             writers of `.dark` on <html>; and 0.4.6 defaults `enableColorScheme: true`, writing
             `documentElement.style.colorScheme` — an inline declaration that outranks every rule

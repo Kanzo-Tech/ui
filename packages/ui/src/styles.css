@@ -24,8 +24,23 @@
    @kanzo-tech/theme/scripts/gen-theme.mjs). KanzoThemeProvider writes the attributes to
    <html>; dark is next-themes' `.dark`. */
 @import "@kanzo-tech/theme/themes.css";
-/* Dark mode is class-based (`.dark` on an ancestor or the element itself). */
-@custom-variant dark (&:is(.dark, .dark *));
+/* Dark mode is class-based (`.dark` on an ancestor or the element itself), and a nearer `.light`
+   turns it back off.
+
+   The `:not` half is what keeps a scoped preview coherent. `KanzoTheme` can paint a light palette
+   inside a dark page — the compiled documents carry `.light` members for exactly that — but the
+   TOKENS flipping is only half the picture: a component that writes `dark:bg-field` would keep its
+   dark branch, so the preview would be light surfaces with dark-mode decisions on top. This makes
+   the variant agree with the tokens.
+
+   `.dark` alone in the first member, deliberately: an element that IS `.dark` is dark even inside a
+   light scope, which is the `<KanzoTheme appearance="dark">` nested in a light one case.
+
+   **The limit, stated rather than discovered:** three levels of alternation (dark → light → dark)
+   resolves the innermost wrapper correctly but not its descendants, because "the nearest ancestor
+   wins" is not expressible in a CSS selector. Radix and daisyUI have the same bound. Two levels —
+   a page and a preview inside it — is what this is for and is exact. */
+@custom-variant dark (&:is(.dark, .dark *:not(.light, .light *)));
 
 /* Element-level base defaults (default border colour → --border, tokenized selection,
    pointer cursor on enabled buttons) now live in `@kanzo-tech/theme/tokens.css` so

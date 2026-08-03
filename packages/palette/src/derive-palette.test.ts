@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import paletteData from "../palette-data.json";
 import { familyOf, orderScheme } from "./derive-scheme.js";
+import { SYNTAX_ROLES } from "./derive-syntax.js";
 import {
   CATEGORICAL_LEADING,
   STATUS_SEEDS,
@@ -8,7 +8,7 @@ import {
   WHEEL_STEP,
   categoricalSource,
   derivePalette,
-  neutralSeedFor,
+  baseSeedFor,
 } from "./derive-palette.js";
 import {
   CHROMA_FLOOR,
@@ -43,8 +43,8 @@ const MODES = ["light", "dark"] as const;
 const at = "2026-07-29T00:00:00.000Z";
 
 /** A tenant with one brand — the common case, and every fixture below but `BANK`. */
-const solo = (id: string, label: string, brand: string, neutral?: string) =>
-  derivePalette({ id, label, identities: [{ id, label, brand }], neutral, derivedAt: at });
+const solo = (id: string, label: string, brand: string, base?: string) =>
+  derivePalette({ id, label, identities: [{ id, label, brand }], base, derivedAt: at });
 
 /** A violet brand, and the fixture most of these read: nine spokes, one subset, ~1.5 s. */
 const ACME = solo("acme", "Acme", "#7f22fe");
@@ -75,7 +75,7 @@ const ALL = [ACME, PALE, GREY, SEEDED];
 const BANK = derivePalette({
   id: "bank",
   label: "Bank",
-  neutral: "#6b7280",
+  base: "#6b7280",
   identities: [
     { id: "retail", label: "Retail", brand: "#2b7fff" },
     { id: "private", label: "Private Bank", brand: "#9810fa" },
@@ -141,14 +141,14 @@ describe("the ramps a document stores", () => {
   });
 
   it("take no relief but the one a neutral is supposed to take", () => {
-    // `carries-identity` on the neutral is not a defect, it is the definition of a neutral: a tint
+    // `carries-identity` on the neutral is not a defect, it is the definition of a base: a tint
     // sits five to ten times under the chroma floor on purpose. Anything else in this list means a
     // seed produced a ramp that fails an obligation, which is the sweep `ramp.test.ts` runs and this
     // is its per-document counterpart.
     for (const doc of ALL) {
       const relief = [...doc.record.relief, ...doc.identities.flatMap((it) => it.record.relief)];
       const unexpected = relief.filter(
-        (item) => !(item.id === "carries-identity" && (item.ramp === "neutral" || doc.id === "grey")),
+        (item) => !(item.id === "carries-identity" && (item.ramp === "base" || doc.id === "grey")),
       );
       expect(unexpected.map((r) => `${r.ramp}/${r.mode}/${r.id}`), doc.id).toEqual([]);
     }
@@ -161,7 +161,7 @@ describe("the ramps a document stores", () => {
       const identity = primary(doc);
       for (const mode of MODES) {
         const fresh = Object.fromEntries(
-          resolveRoles(rampsFor(doc, identity), identity.categorical, mode).map((role) => [
+          resolveRoles(rampsFor(doc, identity), identity.categorical, doc.syntax, mode).map((role) => [
             role.token,
             role.value,
           ]),
@@ -172,16 +172,16 @@ describe("the ramps a document stores", () => {
   });
 });
 
-describe("the neutral seed", () => {
+describe("the base seed", () => {
   it("keeps a client's tint all the way into the page", () => {
-    // The requirement the whole neutral ramp exists for, and the one that was blocked: `deriveRamp`
+    // The requirement the whole base ramp exists for, and the one that was blocked: `deriveRamp`
     // used to zero hue and chroma together below the chroma floor, so `#6b7280` (c 0.0234) came back
     // as `hue: null` and a pure grey. The three-regime fix in `ramp.ts` — noise flattens, a tint
     // keeps its hue and takes relief, an identity keeps everything — is what makes this pass, so if
     // it ever regresses, this is the test that says the product stopped reading as a colour where
     // most of its pixels are.
-    expect(SEEDED.seeds.neutralHue).toBeCloseTo(oklch("#6b7280").h, 1);
-    expect(SEEDED.seeds.neutralHueFrom).toBe("neutral-seed");
+    expect(SEEDED.seeds.baseHue).toBeCloseTo(oklch("#6b7280").h, 1);
+    expect(SEEDED.seeds.baseHueFrom).toBe("base-seed");
     for (const mode of MODES) {
       const page = SEEDED.roles[mode]["--background"] as string;
       expect(page, mode).not.toBe(SURFACE[mode]);
@@ -196,23 +196,23 @@ describe("the neutral seed", () => {
     // only thing that makes the surfaces the client's; falling back to the *brand hue* at a measured
     // tint chroma keeps it, and every number in the constructed seed is traceable — the lightness is
     // Kanzo's neutral swatch, the chroma is Radix's five tinted greys averaged, the hue is theirs.
-    expect(ACME.seeds.neutralHueFrom).toBe("brand");
+    expect(ACME.seeds.baseHueFrom).toBe("brand");
     // Within the ramp's own 3° hue tolerance, not to the digit: the constructed seed is written as
     // an 8-bit hex at c 0.0136, and angular error goes as one channel level divided by the chroma,
     // so a tint quantises to 1.8° off where a saturated colour would land under a degree. That is
     // the same effect `checkRamp` grades as a perpendicular offset in a/b — ΔE 0.06 at this chroma —
     // rather than as an angle, and for the same reason.
-    expect(hueDistance(ACME.seeds.neutralHue as number, oklch("#7f22fe").h)).toBeLessThan(3);
-    expect(oklch(ACME.seeds.neutral).c).toBeLessThan(CHROMA_FLOOR);
-    expect(neutralSeedFor("#7f22fe")).toBe(ACME.seeds.neutral);
+    expect(hueDistance(ACME.seeds.baseHue as number, oklch("#7f22fe").h)).toBeLessThan(3);
+    expect(oklch(ACME.seeds.base).c).toBeLessThan(CHROMA_FLOOR);
+    expect(baseSeedFor("#7f22fe")).toBe(ACME.seeds.base);
   });
 
   it("says there is no hue rather than inventing one", () => {
     // A grey brand has an angle that is float error in a/b. The nearest chromatic colour is a hue
     // *we* would be choosing, which is manufacturing brand out of grey — the one thing this layer
     // refuses. So the page really is the surface, and the document says so in a field.
-    expect(GREY.seeds.neutralHueFrom).toBe("none");
-    expect(GREY.seeds.neutralHue).toBeNull();
+    expect(GREY.seeds.baseHueFrom).toBe("none");
+    expect(GREY.seeds.baseHue).toBeNull();
     for (const mode of MODES) expect(GREY.roles[mode]["--background"], mode).toBe(SURFACE[mode]);
   });
 });
@@ -279,16 +279,18 @@ describe("the cross-checks", () => {
   });
 
   it("reaches a verdict that moves per tenant on an input that does not", () => {
-    // "Constant input, per-tenant verdict", as an assertion. The syntax roles are Kanzo's and a
-    // client's brand does not repaint keywords — but AA is measured against the page, and the page
-    // is the tenant's neutral. Same hex, two tenants, two ratios.
+    // "Constant input, per-tenant verdict", as an assertion. Same hex, two tenants, two ratios,
+    // because AA is measured against the page and the page is the tenant's base.
+    //
+    // Measured on a **status** fill, which is where that property now lives. It used to read
+    // `--kanzo-syntax-comment`, and syntax is no longer a constant input: a document derives its own
+    // scheme, so Dracula's keywords are Dracula's. The four statuses are the ones that stay Kanzo's —
+    // a state must mean the same thing in every tenant — so they are what the claim is about.
     const of = (doc: TenantPalette) =>
       doc.record.crossChecks.find(
-        (c) => c.mode === "light" && c.token === "--kanzo-syntax-comment",
+        (c) => c.mode === "light" && c.id === "fill-on-page" && c.token === "--destructive",
       ) as { got: number };
-    expect(ACME.roles.light["--kanzo-syntax-comment"]).toBe(
-      SEEDED.roles.light["--kanzo-syntax-comment"],
-    );
+    expect(ACME.roles.light["--destructive"]).toBe(SEEDED.roles.light["--destructive"]);
     expect(of(ACME).got).not.toBe(of(SEEDED).got);
   });
 
@@ -338,14 +340,20 @@ describe("the cross-checks", () => {
   it("splits v2's list without losing or duplicating a row", () => {
     // What the split owes: the union is the measurement a single-identity document always made.
     // Enumerated here from the same sources the derivation reads rather than copied from it — four
-    // status fills, four status texts, the neutral outline, thirteen syntax roles, the brand fill,
-    // the ring on the page and on a popover, and one row per chart slot the set can name.
+    // status fills, four status texts, the base outline, the quietest ink, thirteen syntax roles,
+    // the brand fill, the ring on the page and on a popover, and one row per chart slot the set can
+    // name.
     const wanted = MODES.flatMap((mode) => [
       ...STATUS_NAMES.map((name) => `${mode}/fill-on-page/--${name}/--background`),
       ...STATUS_NAMES.map((name) => `${mode}/status-text-on-page/--${name}-foreground/--background`),
       `${mode}/boundary-on-page/--input/--background`,
-      ...Object.keys(paletteData.syntaxRoles).map(
-        (role) => `${mode}/syntax-on-page/--kanzo-syntax-${role}/--background`,
+      // Added when `--faint` stopped being a hard-coded step 10: two shipped documents were failing
+      // AA there and no row measured it per tenant. See `roles.ts` and `Ramp.quietestInk`.
+      `${mode}/faint-on-page/--faint/--background`,
+      // Seven, and graded against the active line rather than the page — the row that used to read
+      // `--background` is how `type` shipped at 4.30:1 on the line being edited.
+      ...SYNTAX_ROLES.map(
+        (role) => `${mode}/syntax-on-active-line/--syntax-${role}/--muted`,
       ),
       `${mode}/fill-on-page/--primary/--background`,
       `${mode}/boundary-on-page/--ring/--background`,
@@ -567,7 +575,7 @@ describe("the identities a tenant publishes", () => {
     const scoped = new Set([...IDENTITY_TOKENS, "--chart-capacity"]);
     const of = (identity: Identity, mode: Mode) =>
       Object.fromEntries(
-        resolveRoles(rampsFor(BANK, identity), identity.categorical, mode).map((role) => [
+        resolveRoles(rampsFor(BANK, identity), identity.categorical, BANK.syntax, mode).map((role) => [
           role.token,
           role.value,
         ]),
@@ -598,7 +606,7 @@ describe("the identities a tenant publishes", () => {
     // `seeds.brand` is the *default* identity's, and it is the seed the neutral would have been
     // tinted from had the client given none — which is precisely why a multi-brand tenant may not.
     expect(BANK.seeds.brand).toBe(primary(BANK).brand);
-    expect(BANK.seeds.neutralHueFrom).toBe("neutral-seed");
+    expect(BANK.seeds.baseHueFrom).toBe("base-seed");
     // Order is the client's — a panel lists identities in it — and the default is a separate fact:
     // `identities[0]` is only it when nothing says otherwise, which is what this fixture disproves.
     expect(BANK.identities.map((it) => it.id)).toEqual(["retail", "private", "pale"]);
@@ -621,8 +629,8 @@ describe("the identities a tenant publishes", () => {
         ],
         derivedAt: at,
       }),
-    ).toThrow(/explicit neutral seed/);
-    expect(ACME.seeds.neutralHueFrom).toBe("brand");
+    ).toThrow(/explicit base seed/);
+    expect(ACME.seeds.baseHueFrom).toBe("brand");
   });
 
   it("refuses an id it could not write into a selector", () => {
@@ -658,7 +666,7 @@ describe("the identities a tenant publishes", () => {
       derivePalette({
         id: "bank",
         label: "Bank",
-        neutral: "#6b7280",
+        base: "#6b7280",
         identities: [
           { id: "retail", label: "Retail", brand: "#2b7fff" },
           { id: "retail", label: "Retail again", brand: "#7f22fe" },

@@ -41,7 +41,7 @@ describe("@kanzo-tech/palette generated tables", () => {
   });
 
   /**
-   * The named greys a neutral seed can be picked from. Generated, because hand-writing them is how
+   * The named greys a base seed can be picked from. Generated, because hand-writing them is how
    * they rot: the panel carried Tailwind **v3** hexes while the theme resolved v4, so every swatch
    * and the thing it stood for had quietly become different colours.
    */
@@ -57,10 +57,10 @@ describe("@kanzo-tech/palette generated tables", () => {
 
     it("include the one the derivation itself reads", () => {
       // `derive-palette.ts` uses `neutral` as the lightness for a neutral constructed from a brand
-      // hue, and it is the Kanzo document's own neutral seed. Losing it is not a missing swatch, it
+      // hue, and it is the Kanzo document's own base seed. Losing it is not a missing swatch, it
       // is a derivation with no neutral to fall back to.
       expect(paletteData.baseSwatches.neutral).toMatch(/^#[0-9a-f]{6}$/);
-      expect(paletteData.seeds.kanzo.neutral).toBe(paletteData.baseSwatches.neutral);
+      expect(paletteData.seeds.kanzo.base).toBe(paletteData.baseSwatches.neutral);
     });
   });
 });

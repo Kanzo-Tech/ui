@@ -299,27 +299,27 @@
     "kanzo": {
       "label": "Kanzo",
       "brand": "#737373",
-      "neutral": "#737373"
+      "base": "#737373"
     },
     "dracula": {
       "label": "Dracula",
       "brand": "#ff79c6",
-      "neutral": "#6272a4"
+      "base": "#6272a4"
     },
     "nord": {
       "label": "Nord",
       "brand": "#88c0d0",
-      "neutral": "#4c566a"
+      "base": "#4c566a"
     },
     "catppuccin-latte": {
       "label": "Catppuccin Latte",
       "brand": "#8839ef",
-      "neutral": "#9ca0b0"
+      "base": "#9ca0b0"
     },
     "catppuccin-mocha": {
       "label": "Catppuccin Mocha",
       "brand": "#cba6f7",
-      "neutral": "#6c7086"
+      "base": "#6c7086"
     }
   },
   "syntaxRoles": {

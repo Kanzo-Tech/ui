@@ -1,5 +1,12 @@
 import type { Mode } from "./palette-check.js";
-import type { Identity, RoleValues, TenantPalette } from "./palette-document.js";
+import {
+  RAMP_NAMES,
+  type Identity,
+  type RampName,
+  type RampSet,
+  type RoleValues,
+  type TenantPalette,
+} from "./palette-document.js";
 import { IDENTITY_TOKENS, ROLES } from "./roles.js";
 
 /**
@@ -34,11 +41,10 @@ import { IDENTITY_TOKENS, ROLES } from "./roles.js";
  * to the bytes it did before sub-brands existed, and nothing about the common case got more
  * complicated. Every other identity appends two scoped blocks after them.
  *
- * `elevate` is for a document that has to beat another one already on the page — a tenant publishing
- * several palettes, where the default arrives as `tokens.css` and the chosen one is inlined after it.
- * See {@link CompileOptions}.
+ * `scope` is for a tenant publishing several palettes: every document travels and an attribute on
+ * `<html>` — or on a div, for a preview — selects between them. See {@link CompileOptions}.
  */
-export function compile(doc: TenantPalette, { elevate = false }: CompileOptions = {}): string {
+export function compile(doc: TenantPalette, { scope }: CompileOptions = {}): string {
   const primary = doc.identities.find((identity) => identity.id === doc.defaultIdentity);
   // `derivePalette` refuses to produce this, so reaching it means a stored document was edited by
   // hand. Refusing beats emitting `--chart-capacity: 0`, which is a sheet that renders every series
@@ -49,76 +55,128 @@ export function compile(doc: TenantPalette, { elevate = false }: CompileOptions 
     );
   }
   const capacity = primary.categorical.capacity;
-  const q = (selector: string) => qualify(selector, elevate);
+  const ramps: RampSet = { ...doc.ramps, brand: primary.ramp };
+  const at = scopeOf(scope);
   return [
-    `/* ${doc.id} — @kanzo-tech/theme palette document v${doc.schemaVersion}${elevate ? " (elevated)" : ""} */`,
-    block(q(":root"), "light", doc.roles.light, capacity),
-    block(q(".dark"), "dark", doc.roles.dark, capacity),
+    `/* ${doc.id} — @kanzo-tech/theme palette document v${doc.schemaVersion}${scope ? ` (scoped to ${scope})` : ""} */`,
+    block(at.light, "light", doc.roles.light, capacity, ramps),
+    block(at.dark, "dark", doc.roles.dark, capacity, ramps),
     ...doc.identities
       .filter((identity) => identity.id !== doc.defaultIdentity)
-      .flatMap((identity) => identityBlocks(identity, q)),
+      .flatMap((identity) => identityBlocks(identity, at)),
     "",
   ].join("\n");
 }
 
 export interface CompileOptions {
   /**
-   * Raise every selector by one qualifier, so this document outranks another already on the page.
+   * Emit under `[data-palette="<scope>"]` instead of `:root`, so several documents coexist on one
+   * page and an attribute selects between them.
    *
-   * A tenant that publishes several palettes serves the default as `tokens.css` and inlines the
-   * chosen one. Both are `:root` and `.dark` at (0,1,0), so which wins would be decided by source
-   * order — and the order of an imported stylesheet against a server-rendered `<style>` is not
-   * something correctness may rest on.
-   *
-   * The qualifier is `:root`, which is redundant by construction: every selector here already only
-   * ever matches `<html>`. So it changes no MATCH, only the count — `:root` → `:root:root` (0,2,0),
-   * `[data-identity="x"]` → `[data-identity="x"]:root` (0,2,0). Each selector rises by exactly one,
-   * so **every relationship inside the document is preserved**, including the two that were already
-   * decided by source order rather than by specificity (see {@link identityBlocks}).
+   * **This replaces `elevate`, and the difference is a mechanism rather than a flag.** `elevate`
+   * existed because a tenant served the default as `tokens.css` and inlined the chosen one after it:
+   * two documents, both `:root`, with source order deciding which won — so every selector was raised
+   * by a redundant `:root` qualifier to win on specificity instead. That whole arrangement assumed a
+   * document was too big to ship more than one of. Measured, the five this package ships are
+   * **58 kB raw and 7.6 kB gzipped together**: the scale is repetitive and compresses hard. So the
+   * server stops choosing, every document travels, and the choice becomes an attribute — which is
+   * what daisyUI has always done with `data-theme`, and what makes the provider's `palette`
+   * preference something it can actually apply.
    */
-  elevate?: boolean;
+  scope?: string;
 }
 
-/** Appends the qualifier to every member of a selector list, or returns it untouched. */
-function qualify(selector: string, elevate: boolean): string {
-  if (!elevate) return selector;
-  return selector
-    .split(", ")
-    .map((member) => `${member}:root`)
-    .join(", ");
+/** The selector pair a document is emitted under, scoped or not. */
+interface Scope {
+  light: string;
+  dark: string;
+  /** Prepended to an identity's own attribute selector. */
+  prefix: string;
+}
+
+/**
+ * The selectors a document is emitted under, and the two rules that make them unambiguous.
+ *
+ * **1 · An attribute lands in two places that need opposite things.**
+ *
+ * · On `<html>`, where a host switches the whole app's palette. `:root` and `[data-palette="x"]` are
+ *   both (0,1,0) — a tie against `tokens.css`, decided by source order, which is exactly the
+ *   fragility `elevate` was invented for. `[data-palette="x"]:root` is (0,2,0) and wins outright.
+ * · On a **div**, where a preview shows one palette inside a page painted with another. There
+ *   `:root` cannot match at all, so a qualified selector would silently do nothing — and custom
+ *   properties inherit, so the div's own declarations govern its subtree with no contest to win.
+ *
+ * **2 · Appearance is a class on the element that carries the theme, never a descendant.**
+ *
+ * The dark list used to include `.dark [data-palette="x"]`, on the grounds that it "costs nothing
+ * and covers a host that puts `.dark` on an ancestor wrapper". It cost something: it is what made a
+ * *light* scope impossible inside a dark page. A preview forcing light would carry
+ * `[data-palette="x"].light` at (0,2,0) against that descendant's (0,2,0) — a tie decided by emit
+ * order, i.e. the same fragility one layer down, and this time with no qualifier left to add.
+ *
+ * Dropping it makes every case resolve on specificity alone, with no pair ever tied:
+ *
+ * | element carries | light block | dark block | wins |
+ * |---|---|---|---|
+ * | `<html>` + attr | `…:root` (0,2,0) | — | light |
+ * | `<html>` + attr + `.dark` | `…:root` (0,2,0) | `….dark:root` (0,3,0) | dark |
+ * | div + attr | `…` (0,1,0) | — | light |
+ * | div + attr + `.dark` | `…` (0,1,0) | `….dark` (0,2,0) | dark |
+ * | div + attr + `.light`, inside `.dark` | `….light` (0,2,0) | *no match* | **light** |
+ *
+ * It is also what Radix Themes does — a nested `<Theme appearance="light">` renders the class on its
+ * own element — and it costs no bytes, because `.light` joins the list the light block already has
+ * rather than duplicating it. What it asks of the caller is that whatever sets `data-palette` also
+ * sets the appearance class; `KanzoTheme` does, from its prop or from the context it inherits.
+ */
+function scopeOf(scope: string | undefined): Scope {
+  if (!scope) return { light: ":root, .light", dark: ".dark", prefix: "" };
+  const attribute = `[data-palette="${scope}"]`;
+  return {
+    light: `${attribute}:root, ${attribute}, ${attribute}.light`,
+    dark: `${attribute}.dark:root, ${attribute}.dark`,
+    prefix: attribute,
+  };
 }
 
 /**
  * One non-default identity, both modes.
  *
- * **The dark selector is a two-member list, and the first member is the one that does the work.**
- * `.dark` and `data-identity` land on the *same* element — `<html>` — so `.dark [data-identity="x"]`
- * is a descendant combinator with nothing to descend into and never matches. That bug is invisible
- * to every value-level test in this package: the block simply does not apply and the cascade falls
- * through to `.dark`, which is a legal palette, just the wrong one. `compile.test.ts` asserts the
- * `.dark` member by name for that reason. The descendant form is kept as the second member because
- * it costs nothing and covers a host that puts `.dark` on an ancestor wrapper — the shape
- * `styles.css`'s `@custom-variant dark (&:is(.dark, .dark *))` already anticipates.
+ * **The dark selector names the element, never an ancestor.** `.dark [data-identity="x"]` used to be
+ * its second member and it was two kinds of wrong: on `<html>` the class and the attribute are on the
+ * *same* element, so a descendant combinator has nothing to descend into and never matches — a bug
+ * invisible to every value-level test here, because the block simply does not apply and the cascade
+ * falls through to `.dark`, a legal palette and the wrong one. And on a div it is what made a light
+ * scope inside a dark page impossible; see `scopeOf`.
  *
  * **Only the dark member outranks the block it overrides; the light one ties and wins on order.**
  * An earlier version of this comment claimed both members were (0,2,0) and beat `:root` on
  * specificity. Recounted: `[data-identity="x"]` is a lone attribute selector at (0,1,0) and `:root`
  * is a pseudo-class at (0,1,0) — a tie, decided by these blocks being emitted last. Only
  * `[data-identity="x"].dark` reaches (0,2,0). The output has always been correct; the stated reason
- * was not, and `elevate` had to be designed against the real arithmetic rather than that one.
+ * was not, and the scoping rules had to be designed against the real arithmetic rather than that one.
+ *
+ * Inside a scoped document the attribute is prefixed — `[data-palette="bank"][data-identity="pale"]`
+ * — so an identity can never leak across documents: two tenants may both publish a `retail` brand.
  *
  * No `color-scheme`. An identity is a brand, not an appearance: the mode is still `.dark`'s to
  * declare, and re-declaring it here would let a scoped block disagree with the class that scoped it.
  */
-function identityBlocks(identity: Identity, q: (selector: string) => string): string[] {
-  const attribute = `[data-identity="${identity.id}"]`;
+function identityBlocks(identity: Identity, at: Scope): string[] {
+  const attribute = `${at.prefix}[data-identity="${identity.id}"]`;
+  // The brand family of the reference layer travels with the identity for the same reason
+  // `IDENTITY_TOKENS` does: a second brand is a second ramp, so `--brand-9` is as much the
+  // identity's as `--primary` is. The other five families are the document's and stay put.
+  const brand = { brand: identity.ramp } as unknown as RampSet;
   return [
-    scoped(q(attribute), identity.roles.light, identity.categorical.capacity),
     scoped(
-      q(`${attribute}.dark, .dark ${attribute}`),
-      identity.roles.dark,
+      `${attribute}, ${attribute}.light`,
+      identity.roles.light,
       identity.categorical.capacity,
+      brand,
+      "light",
     ),
+    scoped(`${attribute}.dark`, identity.roles.dark, identity.categorical.capacity, brand, "dark"),
   ];
 }
 
@@ -155,12 +213,46 @@ function declarations(values: RoleValues, tokens: readonly string[]): string[] {
     .map((token) => `  ${token}: ${values[token] as string};`);
 }
 
-/** One mode's block, for the identity `:root` carries. Every token in the table. */
-function block(selector: string, mode: Mode, values: RoleValues, capacity: number): string {
+/**
+ * The reference layer: every ramp's twelve steps and twelve alphas, as custom properties.
+ *
+ * **The layer this system did not have, and whose absence is why the role table grew.** The ramps
+ * were derived, measured, obliged — and then died inside `resolveRoles`, so nothing downstream could
+ * name a step. A component that needed a quiet tint had no `--base-a4` to reach for, so it asked for
+ * a token, and 46 of the table's 58 rows are a step of a ramp with a name on top of it. Radix, Panda
+ * and Material 3 all publish a reference tier under their semantic one; this is ours.
+ *
+ * Generated, which is the point: 144 properties that nobody maintains, replacing names that were
+ * written and justified one at a time.
+ *
+ * `base`, not `neutral`: `bg-base-3` beside Tailwind's own `bg-neutral-300` would be an error
+ * waiting to happen, and Tailwind only lets a namespace be cleared whole. It is daisyUI's word for
+ * the same family. The other five names — `brand`, `destructive`, `warning`, `success`, `info` — do
+ * not exist in Tailwind's palette, so they collide with nothing.
+ */
+function scale(ramps: RampSet, mode: Mode, names: readonly RampName[]): string[] {
+  return names.flatMap((name) => {
+    const ramp = ramps[name][mode];
+    return [
+      ...ramp.steps.map((hex, i) => `  --${name}-${i + 1}: ${hex};`),
+      ...ramp.alpha.map((hex, i) => `  --${name}-a${i + 1}: ${hex};`),
+    ];
+  });
+}
+
+/** One mode's block, for the identity `:root` carries. The reference layer, then every role. */
+function block(
+  selector: string,
+  mode: Mode,
+  values: RoleValues,
+  capacity: number,
+  ramps: RampSet,
+): string {
   return [
     `${selector} {`,
     `  color-scheme: ${mode};`,
     capacityOf(capacity),
+    ...scale(ramps, mode, RAMP_NAMES),
     ...declarations(values, ROLE_TOKENS),
     "}",
   ].join("\n");
@@ -173,10 +265,17 @@ function block(selector: string, mode: Mode, values: RoleValues, capacity: numbe
  * the same wheel — so the *shape* of the sheet would depend on its values, and a sheet you cannot
  * diff against the render a client approved is the thing this whole layer exists to avoid.
  */
-function scoped(selector: string, values: RoleValues, capacity: number): string {
+function scoped(
+  selector: string,
+  values: RoleValues,
+  capacity: number,
+  ramps: RampSet,
+  mode: Mode,
+): string {
   return [
     `${selector} {`,
     capacityOf(capacity),
+    ...scale(ramps, mode, ["brand"]),
     ...declarations(values, IDENTITY_TOKENS),
     "}",
   ].join("\n");

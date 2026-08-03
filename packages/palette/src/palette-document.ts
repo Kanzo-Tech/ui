@@ -1,4 +1,6 @@
 import type { Mode } from "./palette-check.js";
+import type { SyntaxRole } from "./derive-syntax.js";
+import type { SyntaxSourceRef } from "./syntax-source.js";
 import { OBLIGATIONS, type Adjustment, type Ramp, type RampRelief } from "./ramp.js";
 
 /**
@@ -31,14 +33,14 @@ import { OBLIGATIONS, type Adjustment, type Ramp, type RampRelief } from "./ramp
  * cannot be read at all. A document with no version at all is readable only by the exact code that
  * wrote it, which for an artefact meant to outlive a deploy is no answer.
  */
-export const PALETTE_SCHEMA_VERSION = 3;
+export const PALETTE_SCHEMA_VERSION = 4;
 
-/** The six ramps a resolution needs. `brand` and `neutral` are the client's; the rest are Kanzo's. */
-export type RampName = "brand" | "neutral" | "destructive" | "warning" | "success" | "info";
+/** The six ramps a resolution needs. `brand` and `base` are the client's; the rest are Kanzo's. */
+export type RampName = "brand" | "base" | "destructive" | "warning" | "success" | "info";
 
 export const RAMP_NAMES = [
   "brand",
-  "neutral",
+  "base",
   "destructive",
   "warning",
   "success",
@@ -49,14 +51,14 @@ export const RAMP_NAMES = [
  * The five ramps a *document* stores — every ramp that is not a brand.
  *
  * `brand` is the one ramp a tenant may have several of, so it moved into `Identity` and the document
- * keeps what every identity shares. The split is the whole point of an identity: the neutral, the
+ * keeps what every identity shares. The split is the whole point of an identity: the base, the
  * four statuses and the syntax roles are the product, and the brand is the accent on it. If the
  * neutral varied too, a tenant with three identities would have three products.
  */
 export type SharedRampName = Exclude<RampName, "brand">;
 
 export const SHARED_RAMP_NAMES = [
-  "neutral",
+  "base",
   "destructive",
   "warning",
   "success",
@@ -67,7 +69,7 @@ export const SHARED_RAMP_NAMES = [
  * The four status families, fixed by Kanzo and not client-overridable.
  *
  * Fixed, but **re-measured per tenant**: every obligation they carry is measured against the
- * surface, and the surface is the tenant's neutral. Constant input, per-tenant verdict — see
+ * surface, and the surface is the tenant's base. Constant input, per-tenant verdict — see
  * `PaletteRecord.crossChecks`, which is where that verdict is written down.
  */
 export type StatusName = "destructive" | "warning" | "success" | "info";
@@ -108,15 +110,32 @@ export type SharedRampSet = Record<SharedRampName, Record<Mode, Ramp>>;
 export type PaletteState = "draft" | "published" | "retired";
 
 /**
- * Which seed the neutral ramp's hue came from.
+ * The seven syntax colours a document publishes, plus what deriving them cost.
  *
- * The neutral ramp is *tinted* — a low chroma at a hue, Radix-style — and the tint is the thing most
+ * Same shape as `CategoricalSet` and for the same reason: a set whose members must stay
+ * distinguishable has a **capacity**, and a set that cannot honestly name all seven says so instead
+ * of recycling another role's colour. Nord read onto a light page comes back at 5 — it is a
+ * low-contrast pastel scheme that only ever existed in dark, so two of its roles collide there.
+ */
+export interface SyntaxSet {
+  /** What it was derived from, so a re-derivation reproduces the intent and not the output. */
+  source: SyntaxSourceRef;
+  light: Record<SyntaxRole, string>;
+  dark: Record<SyntaxRole, string>;
+  /** How many roles kept a hue of their own. Below seven, the rest hold the page's ink. */
+  capacity: Record<Mode, number>;
+}
+
+/**
+ * Which seed the base ramp's hue came from.
+ *
+ * The base ramp is *tinted* — a low chroma at a hue, Radix-style — and the tint is the thing most
  * likely to surprise a client, because it is the colour of 90% of the pixels and it is nearly
- * invisible in a swatch. So the provenance is a field: `neutral-seed` when the client gave one,
+ * invisible in a swatch. So the provenance is a field: `base-seed` when the client gave one,
  * `brand` when they did not and the brand hue was carried over, `none` when there is no hue to
  * carry and the ramp is a true grey.
  */
-export type HueSource = "neutral-seed" | "brand" | "none";
+export type HueSource = "base-seed" | "brand" | "none";
 
 export interface TenantSeeds {
   /**
@@ -124,17 +143,17 @@ export interface TenantSeeds {
    *
    * It used to say "determines step 9 of the brand ramp and nothing else", and both halves of that
    * are now false. There are N brand ramps, one per identity, and each identity carries its own
-   * seed; and this one seed additionally sets the neutral's hue whenever the client gave no neutral,
+   * seed; and this one seed additionally sets the base's hue whenever the client gave no neutral,
    * which paints 90% of the pixels. That second half is exactly why `derivePalette` refuses to carry
-   * a brand hue over once a tenant publishes more than one identity — a neutral tinted with the
+   * a brand hue over once a tenant publishes more than one identity — a base tinted with the
    * retail blue is the wrong page to paint the private gold on.
    */
   brand: string;
-  /** The neutral seed actually used — the client's, or the one derived from the brand hue. */
-  neutral: string;
-  /** The hue every neutral step was generated at, or `null` for a seed with no hue to keep. */
-  neutralHue: number | null;
-  neutralHueFrom: HueSource;
+  /** The base seed actually used — the client's, or the one derived from the brand hue. */
+  base: string;
+  /** The hue every base step was generated at, or `null` for a seed with no hue to keep. */
+  baseHue: number | null;
+  baseHueFrom: HueSource;
   /** Kanzo's four status seeds, copied in so the document explains itself without the package. */
   status: Record<StatusName, string>;
   /**
@@ -253,8 +272,8 @@ export interface TaggedRelief extends RampRelief {
  * A measurement no single ramp can make.
  *
  * A ramp grades itself against its **own** step 1 — an orange ramp's step 1 is the surface carrying
- * a trace of orange. The page a user actually sees is the **neutral** ramp's step 1, tinted with the
- * tenant's neutral hue. So "this status fill reads as a shape" and "this syntax colour is AA" are
+ * a trace of orange. The page a user actually sees is the **base** ramp's step 1, tinted with the
+ * tenant's base hue. So "this status fill reads as a shape" and "this syntax colour is AA" are
  * questions that only exist once the six ramps are put in the same document, and their answers move
  * per tenant even though the status and syntax values are Kanzo-fixed. That is what "constant input,
  * per-tenant verdict" means, and this is where it is written down.
@@ -300,7 +319,7 @@ export interface PaletteRecord {
   /**
    * Obligations that could not be met by moving anything.
    *
-   * In practice this is `carries-identity` and almost nothing else. The neutral ramp always takes
+   * In practice this is `carries-identity` and almost nothing else. The base ramp always takes
    * it — a neutral is *supposed* to sit below the chroma floor — so a panel should read it as a
    * statement about the seed rather than as a defect. It is the one obligation that can never become
    * an adjustment: the nearest legal value for a colour with no identity is a hue *we* would be
@@ -314,10 +333,10 @@ export interface PaletteRecord {
 /**
  * One brand a tenant publishes — a sub-brand, in the client's own words.
  *
- * A tenant is one product with one neutral, and an identity is the accent on it: a brand seed, and
+ * A tenant is one product with one base, and an identity is the accent on it: a brand seed, and
  * everything that follows from a brand seed and nothing else. That is a brand ramp pair and a
  * categorical set, because the chart wheel is spun from the brand's own hue. It is emphatically
- * *not* the neutral, the four statuses or the syntax roles — see `SharedRampName`.
+ * *not* the base, the four statuses or the syntax roles — see `SharedRampName`.
  *
  * This resurrects `data-palette` in all but name, and that is worth saying rather than letting
  * someone find it as a contradiction. The mechanism is the same; the authority is not.
@@ -384,6 +403,16 @@ export interface TenantPalette {
   engine: PaletteEngine;
   /** The five ramps every identity shares. The brand ramps live on the identities. */
   ramps: SharedRampSet;
+  /**
+   * The seven syntax colours, both modes — shared, never per identity.
+   *
+   * **A client's brand does not repaint keywords**, which is the half of the old comment that was
+   * right; what was wrong was applying it one level too coarse and freezing the values to Kanzo's,
+   * so all six shipped documents declared the same syntax and Dracula's own slots went unread. A
+   * *document* is exactly the artefact that owns a syntax scheme — Dracula and Nord are names of
+   * syntax schemes before they are anything else — while an *identity* is a brand inside one.
+   */
+  syntax: SyntaxSet;
   /** At least one, ids unique. Order is the client's — a panel lists them in it. */
   identities: Identity[];
   /** The id of the identity `:root` and `.dark` carry. Always names one of `identities`. */

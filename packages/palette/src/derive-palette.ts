@@ -25,11 +25,14 @@ import {
   type RoleValues,
   type SharedRampName,
   type SharedRampSet,
+  type SyntaxSet,
   type StatusName,
   type TaggedAdjustment,
   type TaggedRelief,
   type TenantPalette,
 } from "./palette-document.js";
+import { deriveSyntax, type SyntaxDerivation } from "./derive-syntax.js";
+import { DEFAULT_SYNTAX_SOURCE, seedsFor, type SyntaxSourceRef } from "./syntax-source.js";
 import { IDENTITY_TOKENS, ROLES, resolveRoles } from "./roles.js";
 import { TINT_FLOOR, TINT_REFERENCE, deriveRamp, toHex, type Ramp } from "./ramp.js";
 
@@ -69,7 +72,7 @@ export const STATUS_SEEDS: Record<StatusName, string> = Object.fromEntries(
   STATUS_NAMES.map((name) => [name, STATUS_INK.light[name].fill]),
 ) as Record<StatusName, string>;
 
-/** Kanzo's neutral base swatch. Supplies a lightness when a client gives no neutral seed. */
+/** Kanzo's base swatch. Supplies a lightness when a client gives no base seed. */
 const NEUTRAL_SWATCH = paletteDataJson.baseSwatches.neutral;
 
 const DEFAULT_SCHEME = (
@@ -80,7 +83,7 @@ const DEFAULT_SCHEME = (
 export const CATEGORICAL_LEADING = 4;
 
 /**
- * The neutral seed, and where its hue came from.
+ * The base seed, and where its hue came from.
  *
  * The client supplies two seeds, brand and neutral, and the neutral is the one that matters most:
  * it is 90% of the pixels. It is **tinted** — a low chroma at a hue, the way Radix ships mauve,
@@ -88,7 +91,7 @@ export const CATEGORICAL_LEADING = 4;
  * near-white surfaces means the product does not read as a colour where most of it is painted.
  *
  * When no neutral is given, the brand hue is carried over rather than a grey being used, and every
- * number in the constructed seed is traceable: the lightness is Kanzo's own neutral base swatch, the
+ * number in the constructed seed is traceable: the lightness is Kanzo's own base swatch, the
  * chroma is `TINT_REFERENCE` — the measured mean step 9 of Radix's five tinted greys — and the hue
  * is the brand's. `TINT_REFERENCE.light` specifically, because a seed is one colour for both modes
  * and `tintedChroma` re-scales it per mode anyway; the light figure is the conservative one.
@@ -96,7 +99,7 @@ export const CATEGORICAL_LEADING = 4;
  * A brand below `TINT_FLOOR` has an angle that is float error in a/b rather than a colour, so there
  * is nothing to carry and the answer is the grey itself.
  */
-export function neutralSeedFor(brand: string, given?: string): string {
+export function baseSeedFor(brand: string, given?: string): string {
   if (given) return given;
   const { c, h } = oklch(brand);
   if (c < TINT_FLOOR) return NEUTRAL_SWATCH;
@@ -181,7 +184,7 @@ export const WHEEL_SPOKES = 9;
  * **A brand below `CHROMA_FLOOR` has no hue to spin a wheel from**, and this is the one case that is
  * not a wheel: the answer is Kanzo's default scheme, unchanged, and the document says so in
  * `CategoricalSet.source.from`. Manufacturing a hue for a grey brand is the thing this layer refuses
- * everywhere else — `neutralSeedFor` refuses it, `carries-identity` stays relief rather than
+ * everywhere else — `baseSeedFor` refuses it, `carries-identity` stays relief rather than
  * becoming an adjustment — and a chart is not the place to start.
  */
 export function categoricalSource(
@@ -228,12 +231,21 @@ export interface DerivePaletteInput {
   /** Defaults to the first identity — the one `:root` carries. Must name one of them. */
   defaultIdentity?: string;
   /**
-   * The client's neutral.
+   * The client's base.
    *
-   * Omitted, it is built from the **default identity's** brand hue — see `neutralSeedFor`. That
+   * Omitted, it is built from the **default identity's** brand hue — see `baseSeedFor`. That
    * carry-over is only available to a single-identity tenant; see the throw in `derivePalette`.
    */
-  neutral?: string;
+  base?: string;
+  /**
+   * The syntax scheme, as a reference rather than as values — see `syntax-source.ts`.
+   *
+   * Omitted, it is Kanzo's own base16 slots, which is what every document carried outright before
+   * this was derivable. A client with a scheme of their own brings it as base16, as a VS Code
+   * theme's `tokenColors`, or as seven hexes; all three are read for their **hues** and re-solved
+   * against this tenant's editor.
+   */
+  syntax?: SyntaxSourceRef;
   /** Defaults to `draft`: a freshly derived document has not been reviewed yet. */
   state?: PaletteState;
   /** Injectable so a derivation can be reproduced byte for byte. Defaults to now. */
@@ -252,7 +264,7 @@ const ID_SHAPE = /^[a-z0-9][a-z0-9-]*$/;
 /**
  * Seeds in, document out.
  *
- * Two halves. **Once per document**: the neutral seed, the five shared ramps, the status fills a
+ * Two halves. **Once per document**: the base seed, the five shared ramps, the status fills a
  * categorical set must stay clear of, and the record rows and cross-checks about all of them.
  * **Once per identity**: a brand ramp pair, a categorical set spun off that brand's hue, the role
  * table resolved against shared + brand, and the record rows about the brand.
@@ -293,22 +305,22 @@ export function derivePalette(input: DerivePaletteInput): TenantPalette {
     );
   }
 
-  // The one thing a second identity makes compulsory. `neutralSeedFor` carries a *brand* hue into
-  // the neutral when the client gives none — and the neutral is 90% of the pixels, so on a
+  // The one thing a second identity makes compulsory. `baseSeedFor` carries a *brand* hue into
+  // the neutral when the client gives none — and the base is 90% of the pixels, so on a
   // multi-brand tenant that would tint the whole product with one identity's hue and then paint the
   // others on top of it. A tenant with several brands has to choose a neutral that serves all of
   // them, which is the same decision the client already makes, applied to the field where it bites.
-  if (identities.length > 1 && !input.neutral) {
+  if (identities.length > 1 && !input.base) {
     throw new Error(
-      `a document with ${identities.length} identities needs an explicit neutral seed. With one ` +
-        `identity the brand hue is carried into the neutral, but the neutral is 90% of the pixels ` +
+      `a document with ${identities.length} identities needs an explicit base seed. With one ` +
+        `identity the brand hue is carried into the base, but the base is 90% of the pixels ` +
         `and there is no reason "${chosen.brand}" should tint the surfaces the other brands are ` +
         `painted on. Choose a neutral that serves all of them.`,
     );
   }
 
-  const neutral = neutralSeedFor(chosen.brand, input.neutral);
-  const sharedSeeds: Record<SharedRampName, string> = { neutral, ...STATUS_SEEDS };
+  const base = baseSeedFor(chosen.brand, input.base);
+  const sharedSeeds: Record<SharedRampName, string> = { base, ...STATUS_SEEDS };
   const ramps = Object.fromEntries(
     SHARED_RAMP_NAMES.map((name) => [
       name,
@@ -324,12 +336,26 @@ export function derivePalette(input: DerivePaletteInput): TenantPalette {
     ...new Set(STATUS_NAMES.flatMap((name) => MODES.map((mode) => ramps[name][mode].steps[8] as string))),
   ];
 
-  const derived = identities.map((identity) => deriveIdentity(identity, ramps, avoid));
+  // Syntax, before the identities, because every identity's role map contains it: a keyword is the
+  // same colour under a tenant's retail blue and its private gold, which is what "shared, never per
+  // identity" means. Graded against `ramps.base` — the tenant's own editor.
+  const syntaxSource = input.syntax ?? DEFAULT_SYNTAX_SOURCE;
+  const syntaxPerMode = Object.fromEntries(
+    MODES.map((mode) => [mode, deriveSyntax(seedsFor(syntaxSource, mode), ramps.base[mode], mode)]),
+  ) as Record<Mode, SyntaxDerivation>;
+  const syntax: SyntaxSet = {
+    source: syntaxSource,
+    light: syntaxPerMode.light.values,
+    dark: syntaxPerMode.dark.values,
+    capacity: { light: syntaxPerMode.light.capacity, dark: syntaxPerMode.dark.capacity },
+  };
+
+  const derived = identities.map((identity) => deriveIdentity(identity, ramps, syntax, avoid));
   const primary = derived.find((it) => it.identity.id === defaultIdentity) as DerivedIdentity;
 
-  const neutralRamp = ramps.neutral.light;
-  const neutralHueFrom: HueSource =
-    neutralRamp.hue === null ? "none" : input.neutral ? "neutral-seed" : "brand";
+  const baseRamp = ramps.base.light;
+  const baseHueFrom: HueSource =
+    baseRamp.hue === null ? "none" : input.base ? "base-seed" : "brand";
 
   return {
     schemaVersion: PALETTE_SCHEMA_VERSION,
@@ -338,9 +364,9 @@ export function derivePalette(input: DerivePaletteInput): TenantPalette {
     state: input.state ?? "draft",
     seeds: {
       brand: chosen.brand,
-      neutral,
-      neutralHue: neutralRamp.hue,
-      neutralHueFrom,
+      base,
+      baseHue: baseRamp.hue,
+      baseHueFrom,
       status: { ...STATUS_SEEDS },
       surfaces: { light: SURFACE.light, dark: SURFACE.dark },
     },
@@ -350,6 +376,7 @@ export function derivePalette(input: DerivePaletteInput): TenantPalette {
       derivedAt: input.derivedAt ?? new Date().toISOString(),
     },
     ramps,
+    syntax,
     identities: derived.map((it) => it.identity),
     defaultIdentity,
     roles: primary.roles,
@@ -376,6 +403,7 @@ interface DerivedIdentity {
 function deriveIdentity(
   input: IdentityInput,
   shared: SharedRampSet,
+  syntax: SyntaxSet,
   avoid: readonly string[],
 ): DerivedIdentity {
   const ramp = Object.fromEntries(
@@ -416,7 +444,9 @@ function deriveIdentity(
   const roles = Object.fromEntries(
     MODES.map((mode) => [
       mode,
-      Object.fromEntries(resolveRoles(ramps, categorical, mode).map((role) => [role.token, role.value])),
+      Object.fromEntries(
+        resolveRoles(ramps, categorical, syntax, mode).map((role) => [role.token, role.value]),
+      ),
     ]),
   ) as Record<Mode, RoleValues>;
 
@@ -477,16 +507,16 @@ function sharedRecordOf(ramps: SharedRampSet, roles: Record<Mode, RoleValues>): 
   };
 }
 
-const SYNTAX_TOKENS = ROLES.filter(
-  (role) => role.binding.kind === "fixed" && role.token.startsWith("--kanzo-syntax-"),
-).map((role) => role.token);
+const SYNTAX_TOKENS = ROLES.filter((role) => role.binding.kind === "syntax").map(
+  (role) => role.token,
+);
 
 /**
  * The measurements that only exist once six ramps share one page.
  *
  * A ramp grades every obligation against its **own** step 1 — the mode's surface carrying a trace of
- * that ramp's own hue. The page a user sees is the **neutral** ramp's step 1, tinted with the
- * tenant's neutral. So a status fill that clears 3:1 on its own faintly-red page has not yet been
+ * that ramp's own hue. The page a user sees is the **base** ramp's step 1, tinted with the
+ * tenant's base. So a status fill that clears 3:1 on its own faintly-red page has not yet been
  * measured on the page it will actually land on, and nothing inside a single ramp can make that
  * measurement. This is where "constant input, per-tenant verdict" is written down.
  *
@@ -520,7 +550,7 @@ const grader =
     out.push({ id, mode, token, against, kind, wanted, got, ok: got >= wanted, reason });
   };
 
-/** The rows about the four statuses, the neutral outline and the syntax roles. Brand-independent. */
+/** The rows about the four statuses, the base outline and the syntax roles. Brand-independent. */
 function sharedCrossChecks(values: RoleValues, mode: Mode): CrossCheck[] {
   const out: CrossCheck[] = [];
   const check = grader(out, values, mode);
@@ -532,7 +562,7 @@ function sharedCrossChecks(values: RoleValues, mode: Mode): CrossCheck[] {
       "--background",
       CONTRAST_MIN,
       "A solid fill must read as a shape against the page the tenant actually renders, which is the " +
-        "neutral ramp's step 1 and not this ramp's own.",
+        "base ramp's step 1 and not this ramp's own.",
     );
   }
 
@@ -555,14 +585,38 @@ function sharedCrossChecks(values: RoleValues, mode: Mode): CrossCheck[] {
     "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component.",
   );
 
+  // The row that was missing, and its absence is why two shipped palettes carry unreadable
+  // placeholder text. `--faint` was bound to a hard-coded step 10 and nothing here re-measured it
+  // per tenant, so Nord (dark, 3.48:1) and Catppuccin Latte (light, 3.37:1) passed every gate. The
+  // binding is measured now (`Ramp.quietestInk`), which means this row cannot fail — and it is here
+  // anyway, for the reason `checkRamp` re-measures a ramp it just generated: a gate that shares the
+  // generator's arithmetic cannot catch the generator being wrong.
+  check(
+    "faint-on-page",
+    "--faint",
+    "--background",
+    TEXT_MIN,
+    "The quietest ink is still ink: a field's placeholder and an editor gutter's line numbers owe " +
+      "WCAG AA on the tenant's own page.",
+  );
+
+  // **Against the active line, not the page**, and the difference is not academic: the row used to
+  // read `--background` and that is how `--kanzo-syntax-type` shipped at 4.30:1 — legible while you
+  // read someone else's line and not while you edit your own. `--editor-active-line` is base step 3,
+  // strictly the harder ground in both modes (darker than the page in light, lighter in dark), so
+  // grading against it covers the page for free.
+  // Graded against `--muted`, which IS the active line: the editor's default is
+  // `var(--editor-active-line, var(--muted))`, and the fallback is what every tenant gets unless one
+  // deliberately overrides it. Naming `--muted` rather than the component token is what keeps this
+  // measurable — a cross-check cannot grade a value the document does not contain.
   for (const token of SYNTAX_TOKENS) {
     check(
-      "syntax-on-page",
+      "syntax-on-active-line",
       token,
-      "--background",
+      "--muted",
       TEXT_MIN,
-      "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is " +
-        "measured against the page, and the page is the tenant's.",
+      "Syntax is text, and the line being edited is the surface it is hardest to read on — a " +
+        "brighter fill in light, a lighter one in dark, either way less contrast than the page.",
     );
   }
 
@@ -584,7 +638,7 @@ function identityCrossChecks(
     "--background",
     CONTRAST_MIN,
     "A solid fill must read as a shape against the page the tenant actually renders, which is the " +
-      "neutral ramp's step 1 and not this ramp's own.",
+      "base ramp's step 1 and not this ramp's own.",
   );
 
   check(
@@ -593,7 +647,7 @@ function identityCrossChecks(
     "--background",
     CONTRAST_MIN,
     "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component. " +
-      "`--ring` comes from the brand ramp, so on the neutral page this is a new measurement.",
+      "`--ring` comes from the brand ramp, so on the base page this is a new measurement.",
   );
 
   check(
@@ -601,7 +655,7 @@ function identityCrossChecks(
     "--ring",
     "--popover",
     CONTRAST_MIN,
-    "A focus ring on a raised surface. In dark the popover sits two steps up the neutral ramp, so " +
+    "A focus ring on a raised surface. In dark the popover sits two steps up the base ramp, so " +
       "it is a different background from the page and 1.4.11 still applies.",
   );
 

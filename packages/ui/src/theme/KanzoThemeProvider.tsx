@@ -217,10 +217,16 @@ export interface KanzoThemeProviderProps {
    * The palettes the TENANT published — whole documents, where an identity is a brand inside one.
    * Usually `paletteIndex` from `@kanzo-tech/theme`, or a tenant's own list mapped on the server.
    *
-   * **Wiring this does not apply anything.** A document is a stylesheet, so the server serves the
-   * chosen one from the cookie before the first byte; the provider only owns the preference, the
-   * resolution and the retirement. A host that wires this and serves one sheet will show a control
-   * that does nothing.
+   * **Wiring this applies it.** The sentence here used to be the opposite — "wiring this does not
+   * apply anything; a document is a stylesheet, so the server serves the chosen one from the cookie
+   * before the first byte" — which made this the one preference the provider owned and could not
+   * honour. It rested on an assumption about size that was never measured: the five documents this
+   * package ships are 58 kB raw and **7.6 kB gzipped together**.
+   *
+   * So they all travel, `compile(doc, { scope })` puts each under `[data-palette="<id>"]`, and this
+   * provider writes the attribute like any other axis. A host still has to *load* the documents —
+   * import their stylesheets, or inline them — but it no longer has to choose one per request, and a
+   * user switching palette no longer needs a round trip.
    */
   palettes?: SwatchOption[];
   /** The id the server serves when the preference is empty. Defaults to the first published one. */
@@ -356,11 +362,16 @@ export function KanzoThemeProvider({
   // Which of the DOCUMENTS the tenant published is applied — the coarser of the two colour choices
   // (a document is every colour token; an identity is a brand inside one).
   //
-  // Nothing here applies it, and that is the difference from every other preference: a document is a
-  // STYLESHEET, so the server reads this from the cookie and serves the right one before the first
-  // byte. There is no attribute to write and nothing the pre-paint script can fix, which is why a
-  // multi-palette tenant must persist through `cookieStorageAdapter` — a decision the server already
-  // took cannot be corrected in the browser without a flash.
+  // It is an axis like any other: `AXES` carries `data-palette` and the effect below writes it.
+  //
+  // This paragraph used to say the opposite — "nothing here applies it; a document is a STYLESHEET,
+  // so the server reads this from the cookie and serves the right one before the first byte" — and
+  // the consequence it drew was that a multi-palette tenant *must* persist through
+  // `cookieStorageAdapter`, because a decision the server already took cannot be corrected in the
+  // browser without a flash. All of that followed from one unmeasured assumption. The five documents
+  // are 7.6 kB gzipped together, so they all travel, each under its own `[data-palette]`, and the
+  // cookie is now an optimisation rather than a requirement: localStorage plus the pre-paint script
+  // applies the attribute before anything is drawn, exactly as it does for radius and density.
 
   const resolvedPalette = prefs.palette || defaultPalette;
 
@@ -402,7 +413,20 @@ export function KanzoThemeProvider({
     // fresh literal every render, so depending on the object would re-apply every attribute on
     // every render. exhaustive-deps cannot see through the member access and asks for the object.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedAppearance, prefs.radius, prefs.font, prefs.monoFont, prefs.density, prefs.identity]);
+  }, [
+    resolvedAppearance,
+    prefs.radius,
+    prefs.font,
+    prefs.monoFont,
+    prefs.density,
+    prefs.identity,
+    // `palette` joined this list when a document stopped being a stylesheet the server serves and
+    // became a `[data-palette]` block in the cascade. `KanzoThemeProvider.test.tsx` asserts that
+    // every axis in `AXES` appears here — an applied-but-unwatched axis writes once at mount and
+    // then silently stops following the preference, which looks exactly like a control that does
+    // nothing.
+    prefs.palette,
+  ]);
 
   // Clean the managed attributes off <html> only when the provider unmounts.
   // `.dark` is deliberately left alone: a host may own the class after we go, and removing it

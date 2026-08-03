@@ -55,8 +55,8 @@ describe("the base16 sources", () => {
   });
 
   it("runs base00→base05 monotonically, from its own background to its own ink", () => {
-    // base16 orders the neutral ramp, and both surviving consumers lean on that order: base03 is
-    // the mid-tone this package takes as a neutral seed, and base04/base05 are punctuation and
+    // base16 orders the base ramp, and both surviving consumers lean on that order: base03 is
+    // the mid-tone this package takes as a base seed, and base04/base05 are punctuation and
     // operator ink. A source transcribed out of order would still render — just wrongly, and
     // quietly. The direction is read off the strip rather than declared: a palette whose base00 is
     // darker than its base05 is dark, and that used to be a field.
@@ -64,7 +64,7 @@ describe("the base16 sources", () => {
       const lums = NEUTRAL_RAMP.map((slot) => contrast(source.slots[slot] as string, "#000000"));
       const light = (lums[0] as number) > (lums[5] as number);
       const sorted = [...lums].sort((a, b) => (light ? b - a : a - b));
-      expect(lums, `${name} neutral ramp is not monotone`).toEqual(sorted);
+      expect(lums, `${name} base ramp is not monotone`).toEqual(sorted);
     }
   });
 
@@ -87,16 +87,16 @@ describe("the seeds", () => {
   it("takes its neutral from base03, by the rule and not by transcription", () => {
     // The neutral is 90% of the pixels and its tint is nearly invisible in a swatch, so where it
     // came from has to be checkable. base16 orders base00–base05 background → ink, which makes
-    // base03 the mid-tone of the source's own neutral ramp.
+    // base03 the mid-tone of the source's own base ramp.
     for (const [id, seeds] of Object.entries(PALETTE_SEEDS)) {
-      expect(seeds.neutral, id).toBe(paletteData.palettes[id as keyof typeof paletteData.palettes].slots.base03);
+      expect(seeds.base, id).toBe(paletteData.palettes[id as keyof typeof paletteData.palettes].slots.base03);
     }
   });
 
   it("takes its brand from a colour its own source publishes", () => {
     // The one value a ramp cannot infer, so it is the one that could quietly become ours. Every
     // brand here is a slot of the identity it belongs to — Nord's nord8, Dracula's pink, Catppuccin
-    // mauve — and Kanzo's is its own neutral, because this system has no chromatic brand.
+    // mauve — and Kanzo's is its own base, because this system has no chromatic brand.
     for (const [id, seeds] of Object.entries(PALETTE_SEEDS)) {
       const slots = Object.values(paletteData.palettes[id as keyof typeof paletteData.palettes].slots as Record<string, string>);
       expect(slots, `${id} invents its brand`).toContain(seeds.brand);

@@ -1,13 +1,13 @@
-import paletteDataJson from "../palette-data.json";
 import { oklch, type Mode } from "./palette-check.js";
-import type { CategoricalSet, RampName, RampSet } from "./palette-document.js";
+import { SYNTAX_ROLES, type SyntaxRole } from "./derive-syntax.js";
+import type { CategoricalSet, RampName, RampSet, SyntaxSet } from "./palette-document.js";
 import { over, RAMP_LENGTH, type Ramp } from "./ramp.js";
 
 /**
  * The role table: every colour token, and the one thing it is bound to.
  *
  * **Data, not code.** The theme layer this replaces enumerated 113 token expressions, most of them
- * the same decision written twice (light/dark) or ten times (once per neutral scale) — and the
+ * the same decision written twice (light/dark) or ten times (once per base scale) — and the
  * symptoms followed from the shape: `--secondary`, `--muted` and `--accent` were byte-identical
  * because nothing forced them to differ, and sixteen `--sidebar-*` tokens mirrored the whole system
  * for one component. A ramp removed the first axis. This removes the second: **the table is ONE
@@ -34,7 +34,7 @@ export type SurfaceName = "page" | "card" | "popover" | "sidebar";
  *
  * **Light expresses elevation with shadow; dark expresses it with value.** That is why every light
  * offset is 0 and it is not an oversight — a light card that lightened would have to go past the
- * page, and the page is already step 1. Measured against the neutral ramp, and against what ships:
+ * page, and the page is already step 1. Measured against the base ramp, and against what ships:
  * today's dark `--card` is `color-mix(background 98%, neutral-50)` and `--popover` 96%, which land
  * one and two steps up the bottom of the ramp.
  *
@@ -229,11 +229,13 @@ export const CHART_SLOTS = 8;
 export const OTHER = "var(--muted-foreground)";
 
 /**
- * What a token is bound to. Seven kinds, and each earns its place by being unwritable as the others.
+ * What a token is bound to. Eight kinds, and each earns its place by being unwritable as the others.
  *
- * `step` is the ordinary case. `fill`, `on-fill`, `boundary` and `recess` are *measured* properties
- * of a ramp, not step numbers — see the note on the table above, `fillStep` for the one that is not
- * simply 9, and `recessFill` for the one that asks a direction rather than a level. `alpha` is the
+ * `step` is the ordinary case. `fill`, `on-fill`, `boundary`, `quietest-ink` and `recess` are
+ * *measured* properties of a ramp, not step numbers — see the note on the table above, `fillStep`
+ * for the one that is not simply 9, `recessFill` for the one that asks a direction rather than a
+ * level, and `Ramp.quietestInk` for the one a hard-coded step got wrong in two shipped palettes.
+ * `alpha` is the
  * transparency scale, which is the only honest way to paint onto content the ramp does not own.
  * `categorical` indexes the chart set. `fixed` is a value this system owns outright, cross-checked
  * per tenant but never derived from a seed.
@@ -250,6 +252,8 @@ export type RoleBinding =
   | { kind: "fill"; ramp: RampName }
   | { kind: "on-fill"; ramp: RampName }
   | { kind: "boundary"; ramp: RampName }
+  | { kind: "quietest-ink"; ramp: RampName }
+  | { kind: "syntax"; role: SyntaxRole }
   | {
       kind: "alpha";
       ramp: RampName;
@@ -267,7 +271,7 @@ export type RoleBinding =
       /** 1-based slot. Past `CategoricalSet.capacity` it resolves to `OTHER`. */
       slot: number;
     }
-  | { kind: "fixed"; value: Record<Mode, string> };
+  ;
 
 export interface Role {
   /** The custom property, with its leading `--`. */
@@ -279,32 +283,6 @@ export interface ResolvedRole extends Role {
   /** The literal that ships — 6- or 8-digit hex, or `OTHER` for a slot past capacity. */
   value: string;
 }
-
-// ── The fixed values ────────────────────────────────────────────────────────────────────────────
-
-const BASE16_SLOTS = paletteDataJson.palettes as unknown as Record<string, { slots: Record<string, string> }>;
-const SYNTAX_ROLES = paletteDataJson.syntaxRoles as unknown as Record<string, string>;
-
-/** The base16 identity each mode's syntax colours come from. Kanzo's own, in both directions. */
-const SYNTAX_SOURCE: Record<Mode, string> = { light: "kanzo", dark: "kanzo-dark" };
-
-const slotOf = (palette: string, slot: string): string =>
-  (BASE16_SLOTS[palette] as { slots: Record<string, string> }).slots[slot] as string;
-
-/**
- * The 13 syntax roles, read from the palette rather than written here.
- *
- * They stay Kanzo-fixed for a reason worth stating plainly: **a client's brand does not repaint
- * keywords.** base16's slots mean *variables*, *classes* and *strings*, so wiring a tenant's hues to
- * them would let a palette say "this is a string" in whatever colour it happens to use for its
- * brand. What is per-tenant is the *verdict* — AA is measured against the page, and the page is the
- * tenant's neutral. Measured across seven brand seeds, `comment` on a tinted page lands at
- * 4.53–4.55 in light against a bar of 4.5, so this is a live gate rather than a formality.
- */
-const syntaxValue = (slot: string): Record<Mode, string> => ({
-  light: slotOf(SYNTAX_SOURCE.light, slot),
-  dark: slotOf(SYNTAX_SOURCE.dark, slot),
-});
 
 // ── The table ───────────────────────────────────────────────────────────────────────────────────
 
@@ -367,14 +345,14 @@ const step = (ramp: RampName, n: number, elevation?: SurfaceName): RoleBinding =
  */
 export const ROLES: readonly Role[] = [
   // Surfaces and ink — all neutral. One ramp, twelve steps, and an elevation parameter.
-  { token: "--background", binding: step("neutral", 1, "page") },
-  { token: "--foreground", binding: step("neutral", 12) },
-  { token: "--card", binding: step("neutral", 1, "card") },
-  { token: "--card-foreground", binding: step("neutral", 12) },
-  { token: "--popover", binding: step("neutral", 1, "popover") },
-  { token: "--popover-foreground", binding: step("neutral", 12) },
-  { token: "--muted", binding: step("neutral", 3) },
-  { token: "--muted-foreground", binding: step("neutral", 11) },
+  { token: "--background", binding: step("base", 1, "page") },
+  { token: "--foreground", binding: step("base", 12) },
+  { token: "--card", binding: step("base", 1, "card") },
+  { token: "--card-foreground", binding: step("base", 12) },
+  { token: "--popover", binding: step("base", 1, "popover") },
+  { token: "--popover-foreground", binding: step("base", 12) },
+  { token: "--muted", binding: step("base", 3) },
+  { token: "--muted-foreground", binding: step("base", 11) },
   // The quietest ink the ramp publishes, and it was already bound — as `--kanzo-gutter-foreground`,
   // a name for the first surface that needed it. A gutter's line numbers and a field's placeholder
   // are one decision: ink that is present but is not content. Renamed rather than duplicated, the
@@ -382,7 +360,7 @@ export const ROLES: readonly Role[] = [
   //
   // It takes no `-foreground` suffix because there is no `--faint` fill for it to sit on, and
   // minting one would re-open the wart tokens.css already documents, where `-foreground` means the
-  // ink ON a fill for the neutral and brand families and a readable-on-the-page variant for the
+  // ink ON a fill for the base and brand families and a readable-on-the-page variant for the
   // status ones.
   //
   // Measured: 5.18:1 in light and 4.74:1 in dark against the page, against `--muted-foreground`'s
@@ -395,16 +373,25 @@ export const ROLES: readonly Role[] = [
   // `recessFill`. What is still true is that `--faint` is only AA against a surface at or below the
   // page's own level: on `--muted` (step 3) in dark it is 4.41, so it is placeholder and gutter ink,
   // not a general quiet text colour.
-  { token: "--faint", binding: step("neutral", 10) },
-  { token: "--secondary", binding: step("neutral", 4) },
-  { token: "--secondary-foreground", binding: step("neutral", 12) },
-  { token: "--accent", binding: step("neutral", 5) },
-  { token: "--accent-foreground", binding: step("neutral", 12) },
-  { token: "--border", binding: step("neutral", 6) },
-  { token: "--input", binding: { kind: "boundary", ramp: "neutral" } },
-  { token: "--field", binding: { kind: "recess", ramp: "neutral", step: 3 } },
-  { token: "--secondary-wash", binding: { kind: "alpha", ramp: "neutral", step: 4 } },
-  { token: "--accent-wash", binding: { kind: "alpha", ramp: "neutral", step: 5 } },
+  //
+  // **It was `step("base", 10)` and that was a live AA failure in two of the six documents this
+  // repo ships.** Measured against each tenant's own page: Nord in dark read 3.48:1 and Catppuccin
+  // Latte in light 3.37:1, against a bar of 4.5 — unreadable placeholder text and unreadable gutter
+  // numbers, in palettes a user can select today. Kanzo's own ramp is fine at 5.18/4.74, which is
+  // exactly why a hard-coded step survived: the default tenant is the one every test resolved
+  // against. The binding now names the *property* and the ramp answers, the same correction `--ring`
+  // already carries — see `Ramp.quietestInk`. Both failing documents move to step 11; the other four
+  // stay byte-identical on step 10.
+  { token: "--faint", binding: { kind: "quietest-ink", ramp: "base" } },
+  { token: "--secondary", binding: step("base", 4) },
+  { token: "--secondary-foreground", binding: step("base", 12) },
+  { token: "--accent", binding: step("base", 5) },
+  { token: "--accent-foreground", binding: step("base", 12) },
+  { token: "--border", binding: step("base", 6) },
+  { token: "--input", binding: { kind: "boundary", ramp: "base" } },
+  { token: "--field", binding: { kind: "recess", ramp: "base", step: 3 } },
+  { token: "--secondary-wash", binding: { kind: "alpha", ramp: "base", step: 4 } },
+  { token: "--accent-wash", binding: { kind: "alpha", ramp: "base", step: 5 } },
 
   // Brand. `fill`, not `step(brand, 9)`: which step a brand fill lands on is a measurement of the
   // seed, the same way `boundary` is — see `fillStep`.
@@ -427,9 +414,9 @@ export const ROLES: readonly Role[] = [
   // `bg-destructive/10 dark:bg-destructive-foreground/10` on the menu and the listbox. A step is
   // resolved against each mode's own ramp, so one binding is right in both.
   //
-  // The steps are the neutral's own, read across: a3 is where `--field` sits, and a6 is where
+  // The steps are the base's own, read across: a3 is where `--field` sits, and a6 is where
   // `--border` sits, so `--X-border` is that family's border and nothing new has to be justified.
-  // `-wash-strong` rather than `-wash-hover` for the same reason the neutral washes are named for
+  // `-wash-strong` rather than `-wash-hover` for the same reason the base washes are named for
   // their level: the a4 tint is a badge's hover, a menu item's highlight, an alert action's hover
   // *and* a `<mark>`, and only one of those is a hover.
   //
@@ -470,13 +457,13 @@ export const ROLES: readonly Role[] = [
   // when the offsets meet the surface band. And `--sidebar-accent` clamps: 5 + δ2 is 7, the ceiling
   // is 5, so it lands on `--accent` exactly. In light, where every δ is 0, all four are step 1 or 5
   // and none of it arises.
-  { token: "--sidebar", binding: step("neutral", 1, "sidebar") },
-  { token: "--sidebar-foreground", binding: step("neutral", 11) },
+  { token: "--sidebar", binding: step("base", 1, "sidebar") },
+  { token: "--sidebar-foreground", binding: step("base", 11) },
   { token: "--sidebar-primary", binding: { kind: "fill", ramp: "brand" } },
   { token: "--sidebar-primary-foreground", binding: { kind: "on-fill", ramp: "brand" } },
-  { token: "--sidebar-accent", binding: step("neutral", 5, "sidebar") },
-  { token: "--sidebar-accent-foreground", binding: step("neutral", 12) },
-  { token: "--sidebar-border", binding: step("neutral", 6) },
+  { token: "--sidebar-accent", binding: step("base", 5, "sidebar") },
+  { token: "--sidebar-accent-foreground", binding: step("base", 12) },
+  { token: "--sidebar-border", binding: step("base", 6) },
   { token: "--sidebar-ring", binding: { kind: "boundary", ramp: "brand" } },
 
   // Charts.
@@ -508,13 +495,43 @@ export const ROLES: readonly Role[] = [
   // highlight *and* a selected row, and "the current match" covers nothing else.
   { token: "--match", binding: { kind: "alpha", ramp: "warning", step: 5 } },
   { token: "--match-active", binding: { kind: "alpha", ramp: "warning", step: 8 } },
-  { token: "--kanzo-editor-active-line", binding: step("neutral", 3) },
-  { token: "--kanzo-gutter-bg", binding: step("neutral", 2) },
+  // `--editor-active-line` and `--editor-gutter` are NOT here, and their absence is the rule that
+  // keeps this table from growing with every consumer.
+  //
+  // Measured across the shipped documents, `--editor-active-line` was byte-identical to `--muted` in
+  // every one of them — both are base step 3 — so it was a second name for a level that already had
+  // one, and `--editor-gutter` was step 2 wearing a component's name. They are **component tokens**
+  // now, declared by `CodeEditor` as `var(--editor-active-line, var(--muted))`: the default costs the
+  // document nothing, and a tenant who wants to repaint an editor still can, because a later
+  // declaration of `--editor-active-line` wins in the cascade without this table knowing it exists.
+  //
+  // That is the third tier the review names — Material Web's `--md-filled-button-container-color`
+  // pointing at `--md-sys-color-error`, exactly — and it is what a graph, a calendar heatmap or the
+  // next component asks for instead of a row here.
 
-  // Syntax — Kanzo's, cross-checked per tenant, never derived from a client's seed.
-  ...Object.entries(SYNTAX_ROLES).map(([role, slot]) => ({
-    token: `--kanzo-syntax-${role}`,
-    binding: { kind: "fixed", value: syntaxValue(slot) } as RoleBinding,
+  // Syntax — seven, derived per tenant against that tenant's own editor.
+  //
+  // **It was thirteen literal hexes, and they were the only `fixed` values in the table.** All six
+  // shipped documents therefore declared the same syntax, so choosing Dracula gave you Dracula's
+  // surfaces and Kanzo's keywords while Dracula's own base16 slots sat unused in the data file.
+  //
+  // Six of the thirteen dissolved rather than moved, because they already had an owner and were
+  // duplicating a tint the ramp publishes:
+  //
+  //   comment      → --faint               the quietest legible ink; a gutter number, a placeholder
+  //                                        and a code comment are one decision
+  //   punctuation  → --muted-foreground
+  //   operator     → --foreground          it already WAS the ink, under another name
+  //   invalid      → --destructive-foreground
+  //   inserted/deleted/changed → --success / --destructive / --warning   (already were)
+  //
+  // What is left is seven hues, and `deriveSyntax` grades them against `--editor-active-line`
+  // rather than the page: step 3 is the harder ground in both modes, and the gate that shipped
+  // measured the page only — which is how `type` reached production at 4.30:1 on a line being
+  // edited.
+  ...SYNTAX_ROLES.map((role) => ({
+    token: `--syntax-${role}`,
+    binding: { kind: "syntax", role } as RoleBinding,
   })),
 ];
 
@@ -525,7 +542,7 @@ export const ROLES: readonly Role[] = [
  *
  * Two bindings and no third: anything on the `brand` ramp, and every categorical slot — the chart
  * wheel is spun from the brand's own hue, so a second brand is a second set. Everything else in the
- * table reads the neutral, a status ramp, or a fixed value, and all three are the tenant's rather
+ * table reads the base, a status ramp, or a fixed value, and all three are the tenant's rather
  * than the identity's.
  */
 export function isIdentityRole(role: Role): boolean {
@@ -588,6 +605,7 @@ const inkOnFill = (ramp: Record<Mode, Ramp>, mode: Mode): string =>
 export function resolveRoles(
   ramps: RampSet,
   categorical: CategoricalSet,
+  syntax: SyntaxSet,
   mode: Mode,
 ): ResolvedRole[] {
   const of = (name: RampName) => ramps[name][mode];
@@ -608,6 +626,9 @@ export function resolveRoles(
       case "boundary":
         value = at(of(binding.ramp), of(binding.ramp).boundary);
         break;
+      case "quietest-ink":
+        value = at(of(binding.ramp), of(binding.ramp).quietestInk);
+        break;
       case "alpha":
         value = alphaAt(of(binding.ramp), binding.step);
         break;
@@ -619,8 +640,8 @@ export function resolveRoles(
         // array is the one that cannot drift from what was actually derived.
         value = categorical[mode][binding.slot - 1] ?? OTHER;
         break;
-      case "fixed":
-        value = binding.value[mode];
+      case "syntax":
+        value = syntax[mode][binding.role];
         break;
     }
     return { ...role, value };

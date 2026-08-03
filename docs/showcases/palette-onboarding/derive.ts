@@ -44,9 +44,9 @@ export interface PaletteView {
   id: string;
   label: string;
   brandSeed: string;
-  neutralSeed: string;
-  neutralHue: number | null;
-  neutralHueFrom: string;
+  baseSeed: string;
+  baseHue: number | null;
+  baseHueFrom: string;
   fillStep: number;
   primary: { light: string; dark: string };
   ramps: RampView[];
@@ -70,17 +70,17 @@ export interface PaletteView {
     slots: [slot: string, hex: string][];
     /** Which slot each seed was taken from, matched rather than transcribed. */
     brandSlot: string | null;
-    neutralSlot: string | null;
+    baseSlot: string | null;
   } | null;
   css: string;
   ms: number;
 }
 
-function authoredFor(id: string, brand: string, neutral: string): PaletteView["authored"] {
+function authoredFor(id: string, brand: string, base: string): PaletteView["authored"] {
   // Not for the default tenant, and the direction is the reason: Kanzo's seeds were not lifted from
   // a base16 palette — Kanzo's base16 palette was derived FROM the seed. `BASE16_SLOTS` carries it
   // for the syntax roles, so the lookup succeeds and would render "authored, and derived" about a
-  // colour nobody authored elsewhere. Worse, its brand and neutral are the same grey, so both would
+  // colour nobody authored elsewhere. Worse, its brand and base are the same grey, so both would
   // report `base03`.
   if (id === KANZO_ID) return null;
   const source = BASE16_SLOTS[id];
@@ -92,7 +92,7 @@ function authoredFor(id: string, brand: string, neutral: string): PaletteView["a
     label: source.label,
     slots,
     brandSlot: slotOf(brand),
-    neutralSlot: slotOf(neutral),
+    baseSlot: slotOf(base),
   };
 }
 
@@ -116,7 +116,7 @@ function defaultIdentityOf(doc: TenantPalette): Identity {
  * tenant whose seeds happen to be committed. If the tool ran a different path from the gallery, the
  * gallery would stop being evidence about the tool.
  */
-export function viewOf(seeds: { id: string; label: string; brand: string; neutral: string }): PaletteView {
+export function viewOf(seeds: { id: string; label: string; brand: string; base: string }): PaletteView {
   const { id } = seeds;
 
   const started = performance.now();
@@ -133,9 +133,9 @@ export function viewOf(seeds: { id: string; label: string; brand: string; neutra
     id,
     label: doc.label,
     brandSeed: doc.seeds.brand,
-    neutralSeed: doc.seeds.neutral,
-    neutralHue: doc.seeds.neutralHue,
-    neutralHueFrom: doc.seeds.neutralHueFrom,
+    baseSeed: doc.seeds.base,
+    baseHue: doc.seeds.baseHue,
+    baseHueFrom: doc.seeds.baseHueFrom,
     // The library's own rule, not a re-derivation of it: 9 normally, 12 for a brand ramp that
     // reports `carries-identity`. That difference is the whole of the monochrome case.
     fillStep: fillStep(identity.ramp),
@@ -165,7 +165,7 @@ export function viewOf(seeds: { id: string; label: string; brand: string; neutra
       dark: categorical.dark,
       separation: categorical.separation,
     },
-    authored: authoredFor(id, seeds.brand, seeds.neutral),
+    authored: authoredFor(id, seeds.brand, seeds.base),
     css: compile(doc),
     ms,
   };

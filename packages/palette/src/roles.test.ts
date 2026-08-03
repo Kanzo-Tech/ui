@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
-import paletteDataJson from "../palette-data.json";
 import { CONTRAST_MIN, TEXT_MIN, contrast, deltaE, oklch, type Mode } from "./palette-check.js";
-import { STATUS_NAMES, type CategoricalSet, type RampName, type RampSet } from "./palette-document.js";
+import {
+  STATUS_NAMES,
+  type CategoricalSet,
+  type RampName,
+  type RampSet,
+  type SyntaxSet,
+} from "./palette-document.js";
+import { SYNTAX_ROLES, deriveSyntax } from "./derive-syntax.js";
+import { DEFAULT_SYNTAX_SOURCE, seedsFor } from "./syntax-source.js";
 import {
   CHART_SLOTS,
   ELEVATION,
@@ -25,10 +32,10 @@ import { RAMP_LENGTH, deriveRamp, over, toHex } from "./ramp.js";
 
 const MODES = ["light", "dark"] as const;
 
-const rampsFor = (brand: string, neutral: string): RampSet => {
+const rampsFor = (brand: string, base: string): RampSet => {
   const seeds: Record<RampName, string> = {
     brand,
-    neutral,
+    base,
     destructive: "#e7000b",
     warning: "#e17100",
     success: "#009966",
@@ -61,8 +68,16 @@ const CATEGORICAL = (capacity: number): CategoricalSet => {
   };
 };
 
+/** Kanzo's own scheme, derived against the fixture's base ramp — the default every document takes. */
+const SYNTAX: SyntaxSet = {
+  source: DEFAULT_SYNTAX_SOURCE,
+  light: deriveSyntax(seedsFor(DEFAULT_SYNTAX_SOURCE, "light"), RAMPS.base.light, "light").values,
+  dark: deriveSyntax(seedsFor(DEFAULT_SYNTAX_SOURCE, "dark"), RAMPS.base.dark, "dark").values,
+  capacity: { light: SYNTAX_ROLES.length, dark: SYNTAX_ROLES.length },
+};
+
 const valuesOf = (mode: Mode, capacity = CHART_SLOTS): Record<string, string> =>
-  Object.fromEntries(resolveRoles(RAMPS, CATEGORICAL(capacity), mode).map((r) => [r.token, r.value]));
+  Object.fromEntries(resolveRoles(RAMPS, CATEGORICAL(capacity), SYNTAX, mode).map((r) => [r.token, r.value]));
 
 /** Kanzo's own seeds — the achromatic brand that forced the fill rule. */
 const GREY_RAMPS = rampsFor("#737373", "#737373");
@@ -70,7 +85,7 @@ const GREY = GREY_RAMPS.brand;
 
 const greyValues = (mode: Mode): Record<string, string> =>
   Object.fromEntries(
-    resolveRoles(GREY_RAMPS, CATEGORICAL(CHART_SLOTS), mode).map((r) => [r.token, r.value]),
+    resolveRoles(GREY_RAMPS, CATEGORICAL(CHART_SLOTS), SYNTAX, mode).map((r) => [r.token, r.value]),
   );
 
 describe("the table itself", () => {
@@ -82,16 +97,16 @@ describe("the table itself", () => {
     for (const token of tokens) expect(token, token).toMatch(/^--[a-z0-9-]+$/);
   });
 
-  it("is one column — only a fixed value may differ between the modes", () => {
-    // The claim the whole design rests on. Every other kind names a ramp and a property, and the
-    // ramp answers per mode; if a `step` binding could carry a per-mode number, the table would be
-    // the 113-expression enumeration it replaced, wearing a different shape.
+  it("is one column — no binding may name a mode", () => {
+    // The claim the whole design rests on. Every kind names a ramp and a property, and the ramp
+    // answers per mode; if a `step` binding could carry a per-mode number, the table would be the
+    // 113-expression enumeration it replaced, wearing a different shape.
+    //
+    // It used to read "only a *fixed* value may differ between the modes", and `fixed` was the
+    // thirteen syntax roles — literal hexes, the one kind that carried a `{ light, dark }` pair.
+    // They are derived now, so the exception has no members and the rule is unconditional.
     for (const { token, binding } of ROLES) {
-      if (binding.kind === "fixed") {
-        expect(Object.keys(binding.value).sort(), token).toEqual(["dark", "light"]);
-      } else {
-        expect(JSON.stringify(binding), token).not.toMatch(/"(light|dark)"/);
-      }
+      expect(JSON.stringify(binding), token).not.toMatch(/"(light|dark)"/);
     }
   });
 
@@ -100,8 +115,15 @@ describe("the table itself", () => {
     // not set — which does not throw, it just falls through to whatever `:root` had before, so the
     // symptom is a component that is subtly the wrong colour on one tenant.
     const tokens = new Set(ROLES.map((role) => role.token));
-    for (const role of Object.keys(paletteDataJson.syntaxRoles)) {
-      expect(tokens, role).toContain(`--kanzo-syntax-${role}`);
+    // Seven, not thirteen. Six of the old roles dissolved into tokens that already existed —
+    // `comment` is `--faint`, `punctuation` is `--muted-foreground`, `operator` is `--foreground`,
+    // `invalid` is the destructive family — so the ones left are the ones that are a hue.
+    for (const role of SYNTAX_ROLES) expect(tokens, role).toContain(`--syntax-${role}`);
+    for (const dissolved of ["--faint", "--muted-foreground", "--foreground", "--destructive-foreground"]) {
+      expect(tokens, dissolved).toContain(dissolved);
+    }
+    for (const gone of ["comment", "punctuation", "operator", "invalid", "url", "constant"]) {
+      expect(tokens, gone).not.toContain(`--syntax-${gone}`);
     }
     for (let i = 1; i <= CHART_SLOTS; i++) expect(tokens).toContain(`--chart-${i}`);
     for (const name of STATUS_NAMES) {
@@ -127,7 +149,7 @@ describe("elevation", () => {
   it("is a surface parameter and not twelve more steps", () => {
     // What "a sidebar and a popover are the same thing" means in arithmetic. The sixteen
     // `--sidebar-*` tokens mirrored the whole system for one component; here the sidebar reads the
-    // same neutral ramp at an offset, and the offset is shared with the popover.
+    // same base ramp at an offset, and the offset is shared with the popover.
     expect(ELEVATION.sidebar).toEqual(ELEVATION.popover);
     expect(ELEVATION.page).toEqual({ light: 0, dark: 0 });
     // Light expresses elevation with shadow, dark with value — so every light offset is 0, and that
@@ -163,9 +185,9 @@ describe("elevation", () => {
     // veil. Every shipped `alpha` binding (`--field`, editor selection and search) is a fill *inside*
     // a surface, which is the only place a transparency is honest.
     for (const [name, ramp] of [
-      ["kanzo", GREY_RAMPS.neutral],
+      ["kanzo", GREY_RAMPS.base],
       ["nord", { light: deriveRamp("#4c566a", "light"), dark: deriveRamp("#4c566a", "dark") }],
-      ["tinted", RAMPS.neutral],
+      ["tinted", RAMPS.base],
     ] as const) {
       for (const mode of MODES) {
         const r = ramp[mode];
@@ -216,7 +238,7 @@ describe("the bindings that are measured rather than written", () => {
       for (const [token, ramp] of [
         ["--ring", "brand"],
         ["--sidebar-ring", "brand"],
-        ["--input", "neutral"],
+        ["--input", "base"],
       ] as const) {
         const it = RAMPS[ramp][mode];
         expect(values[token], `${token} ${mode}`).toBe(it.steps[it.boundary - 1]);
@@ -314,7 +336,7 @@ describe("the bindings that are measured rather than written", () => {
     const ramps = { ...RAMPS, brand: nord } as RampSet;
     for (const mode of MODES) {
       const values = Object.fromEntries(
-        resolveRoles(ramps, CATEGORICAL(CHART_SLOTS), mode).map((r) => [r.token, r.value]),
+        resolveRoles(ramps, CATEGORICAL(CHART_SLOTS), SYNTAX, mode).map((r) => [r.token, r.value]),
       );
       expect(values["--primary"], mode).toBe(nord[mode].steps[SOLID_STEP - 1]);
       expect(values["--primary"], `${mode} took the monochrome rule`).not.toBe(
@@ -470,7 +492,7 @@ describe("chart slots past the set's capacity", () => {
 describe("resolution as a whole", () => {
   it("gives every token a value in both modes", () => {
     for (const mode of MODES) {
-      const resolved = resolveRoles(RAMPS, CATEGORICAL(CHART_SLOTS), mode);
+      const resolved = resolveRoles(RAMPS, CATEGORICAL(CHART_SLOTS), SYNTAX, mode);
       expect(resolved).toHaveLength(ROLES.length);
       for (const role of resolved) {
         expect(role.value, `${role.token} ${mode}`).toMatch(/^(#[0-9a-f]{6}([0-9a-f]{2})?|var\(--[a-z-]+\))$/);
@@ -482,8 +504,8 @@ describe("resolution as a whole", () => {
     // It runs once, at derivation time, and its output is what gets stored. If it read anything
     // ambient, two derivations of the same seeds would disagree and the stored document would be a
     // snapshot of a machine rather than of a palette.
-    const a = resolveRoles(RAMPS, CATEGORICAL(4), "dark");
-    const b = resolveRoles(rampsFor("#7f22fe", "#6e737b"), CATEGORICAL(4), "dark");
+    const a = resolveRoles(RAMPS, CATEGORICAL(4), SYNTAX, "dark");
+    const b = resolveRoles(rampsFor("#7f22fe", "#6e737b"), CATEGORICAL(4), SYNTAX, "dark");
     expect(a).toEqual(b);
   });
 });

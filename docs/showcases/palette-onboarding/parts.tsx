@@ -188,23 +188,23 @@ export function AdjustmentItem({ a }: { a: TaggedAdjustment }) {
 /**
  * The relief verdict, read by ramp and never by presence.
  *
- * `carries-identity` fires on **every** tinted neutral by design, so a healthy palette produces
+ * `carries-identity` fires on **every** tinted base by design, so a healthy palette produces
  * relief rows as its normal state. Rendering any of them as an alert would make every correct
  * palette look broken — the ramp decides which sentence is true, so the brand case gets the `Alert`
- * and the neutral case gets an ordinary record row.
+ * and the base case gets an ordinary record row.
  */
 export function ReliefVerdict({ palette }: { palette: PaletteView }) {
   const brand = palette.relief.filter((r) => r.ramp === "brand");
-  const neutral = palette.relief.filter((r) => r.ramp === "neutral");
-  const other = palette.relief.filter((r) => r.ramp !== "brand" && r.ramp !== "neutral");
+  const base = palette.relief.filter((r) => r.ramp === "base");
+  const other = palette.relief.filter((r) => r.ramp !== "brand" && r.ramp !== "base");
 
   return (
     <div className="flex flex-col gap-3">
       <Show when={brand.length > 0}>
         <BrandRelief palette={palette} rows={brand} />
       </Show>
-      <Show when={neutral.length > 0}>
-        <NeutralRelief palette={palette} rows={neutral} />
+      <Show when={base.length > 0}>
+        <NeutralRelief palette={palette} rows={base} />
       </Show>
       <Show when={other.length > 0}>
         <Item variant="muted">
@@ -223,8 +223,8 @@ export function ReliefVerdict({ palette }: { palette: PaletteView }) {
 
 /** `HueSource`, as a clause. The provenance is a field precisely so this can be said out loud. */
 export function hueSource(from: string): string {
-  if (from === "neutral-seed") return "taken from the neutral the client gave";
-  if (from === "brand") return "carried over from the brand, since no neutral hue was given";
+  if (from === "base-seed") return "taken from the base the client gave";
+  if (from === "brand") return "carried over from the brand, since no base hue was given";
   return "with no hue to carry";
 }
 
@@ -310,14 +310,14 @@ function NeutralRelief({ palette, rows }: { palette: PaletteView; rows: TaggedRe
       <ItemContent>
         <ItemTitle>
           <span>
-            The neutral ramp reported <code>carries-identity</code>
+            The base ramp reported <code>carries-identity</code>
           </span>
           <Badge size="sm" variant="success">
             expected
           </Badge>
         </ItemTitle>
         <ItemDescription className="line-clamp-none">
-          A tinted neutral is a low chroma at a hue by definition, so it sits under the floor on
+          A tinted base is a low chroma at a hue by definition, so it sits under the floor on
           purpose and reports this every time. Nothing is wrong.{" "}
           <Show
             fallback={
@@ -326,10 +326,10 @@ function NeutralRelief({ palette, rows }: { palette: PaletteView; rows: TaggedRe
                 is achromatic the whole way up.
               </>
             }
-            when={palette.neutralHue != null}
+            when={palette.baseHue != null}
           >
-            The hue survives in full: every neutral step is generated at{" "}
-            {palette.neutralHue?.toFixed(1)}°, {hueSource(palette.neutralHueFrom)}.
+            The hue survives in full: every base step is generated at{" "}
+            {palette.baseHue?.toFixed(1)}°, {hueSource(palette.baseHueFrom)}.
           </Show>
         </ItemDescription>
       </ItemContent>

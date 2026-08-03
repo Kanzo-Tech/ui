@@ -43,7 +43,7 @@ export const TEXT_MIN = 4.5;
  * The surfaces a mark actually lands on with the default base and no tint.
  *
  * Contrast and band results are only meaningful against the real surface, and a custom `base` or
- * `baseTint` shifts these — but only within the neutral ramp, so the margins here hold.
+ * `baseTint` shifts these — but only within the base ramp, so the margins here hold.
  */
 export const SURFACE = { light: "#fafafa", dark: "#0a0a0a" } as const;
 
