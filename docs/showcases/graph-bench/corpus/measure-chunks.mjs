@@ -45,9 +45,12 @@ const chunk = Number(arg("chunk", 122_880));
 const windows = Number(arg("windows", 5));
 const corpus = resolve(arg("corpus", join(PUBLIC, String(size))));
 
-const vertices = join(corpus, "vertex/Node.parquet");
-if (!existsSync(vertices)) {
-  console.error(`missing ${vertices}\nBuild it first:  node build-corpus.mjs --sizes ${size}`);
+// The chunk directory, not a file: fossil emits vertex/<Type>/chunk{k}.parquet and a
+// GraphAr reader takes the prefix as one relation.
+const chunkDir = join(corpus, "vertex/Node");
+const vertices = `${chunkDir}/*.parquet`;
+if (!existsSync(chunkDir)) {
+  console.error(`missing ${chunkDir}\nBuild it first:  node build-corpus.mjs --sizes ${size}`);
   process.exit(1);
 }
 

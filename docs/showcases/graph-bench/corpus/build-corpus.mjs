@@ -16,12 +16,12 @@
  * ADR-0001 records as unmeasured. Computing Morton here instead would be a second implementation of
  * something fossil owns, and two writers is how they come to disagree.
  *
- * Usage:  node build-corpus.mjs [--sizes 2000,10000] [--fossil <path>] [--row-group 8192]
+ * Usage:  node build-corpus.mjs [--sizes 2000,10000] [--fossil <path>]
  * Output: docs/public/bench/<size>/  — gitignored; tens of megabytes at the top sizes.
  */
 
 import { execFileSync } from "node:child_process";
-import { closeSync, mkdirSync, openSync, renameSync, rmSync, writeSync } from "node:fs";
+import { closeSync, mkdirSync, openSync, rmSync, writeSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -90,7 +90,7 @@ function csvFor(size) {
   });
 }
 
-function build(size, fossil, rowGroup) {
+function build(size, fossil) {
   const dest = join(PUBLIC, String(size));
   rmSync(dest, { force: true, recursive: true });
   mkdirSync(dest, { recursive: true });
@@ -105,47 +105,22 @@ function build(size, fossil, rowGroup) {
     stdio: "inherit",
   });
   console.log(`  ${size}: written in ${((Date.now() - started) / 1000).toFixed(1)}s → ${dest}`);
-  if (rowGroup) regroup(join(dest, "vertex", "Node.parquet"), rowGroup);
 }
 
 /**
- * Rewrite a vertex file with smaller row groups, preserving its Morton order.
+ * Row groups stopped being the unit, so the knob that tuned them is gone.
  *
- * A bbox query prunes on per-row-group `min`/`max`, and a window touches **4–6 groups whatever
- * their size** — the Morton locality is already doing its job. So the over-read is set by how big
- * a group is, and nothing else: for a window holding 3,533 of a million nodes, 122,880-row groups
- * must read 491,520 rows and 8,192-row groups read 49,152. Over a network that ratio is bytes.
+ * fossil emits GraphAr chunks now — `vertex/<Type>/chunk{k}.parquet`, `chunk_size` rows each, which
+ * at the declared 1,024 means a chunk holds a single row group. There is nothing left for a
+ * row-group size to be smaller than, and the `--row-group` flag that used to rewrite the one big
+ * vertex file has no file to rewrite.
  *
- * This is a **measurement**, not a fix. fossil owns the writer and 122,880 is DuckDB's default
- * rather than a decision — its `Node.vertex.yml` already declares `chunk_size: 1024`, a chunking
- * the file does not have. Rewriting here is how we find out what changing that would buy before
- * asking anyone to change it; the row order is untouched, only the group boundaries move.
- *
- * **It bought nothing, and the flag stays so the next person does not re-derive that.** At a
- * million the slice went 219 ms → 229/244 ms and the pan 95 ms → 109/112 ms across two runs:
- * slightly *worse*, never better. A tenfold cut in rows scanned changing nothing says the cost was
- * never the scan — a 19 MB file is small enough that DuckDB-WASM is better off reading it than
- * negotiating 123 row groups, and what is left is WASM execution, which native DuckDB does in 16 ms.
- * **Retried at five million and it lost again**, which is the size the sentence above used to
- * excuse it with: on a 97 MB vertex file, 611 row groups took the slice from 974 ms to 1,072 ms and
- * the pan from 331 ms to 420 ms. Twice measured, twice worse. Per-group metadata and more, smaller
- * reads cost more than the pruning saves, and no file this benchmark builds is large enough to
- * reverse that.
+ * The measurement it existed for is kept in `BENCHMARKS.md` and its answer was no, twice: at a
+ * million the slice went 219 ms → 229/244 ms, and at five million — the size the first result was
+ * excused with — 611 groups took the slice from 974 ms to 1,072 ms. Per-group metadata cost more
+ * than the pruning saved. What chunks change is not that, it is that a chunk is a URL a browser and
+ * a CDN can cache, where row groups inside one file share a footer and one HTTP resource.
  */
-function regroup(file, rows) {
-  const started = Date.now();
-  execFileSync(
-    "duckdb",
-    [
-      "-c",
-      `COPY (SELECT * FROM read_parquet('${file}')) TO '${file}.tmp' ` +
-        `(FORMAT parquet, ROW_GROUP_SIZE ${rows});`,
-    ],
-    { stdio: "inherit" },
-  );
-  renameSync(`${file}.tmp`, file);
-  console.log(`    regrouped at ${rows} rows in ${((Date.now() - started) / 1000).toFixed(1)}s`);
-}
 
 const args = process.argv.slice(2);
 const flag = (name) => {
@@ -163,9 +138,7 @@ const sizes = flag("sizes")?.split(",").map(Number) ?? DEFAULT_SIZES;
  * this script to one machine's directory tree.
  */
 const fossil = flag("fossil") ?? process.env.FOSSIL_BIN ?? "fossil";
-/** Optional: rewrite each vertex file at this row-group size. See `regroup`. */
-const rowGroup = flag("row-group") ? Number(flag("row-group")) : undefined;
 
 console.log(`building ${sizes.length} corpora with ${fossil}`);
-for (const size of sizes) build(size, fossil, rowGroup);
+for (const size of sizes) build(size, fossil);
 console.log("done — these are gitignored; re-run this script to rebuild them");

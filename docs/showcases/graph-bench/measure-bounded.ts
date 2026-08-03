@@ -135,6 +135,15 @@ function duckThreads(coordinator: Coordinator): Promise<number> {
   return threadsAsked;
 }
 
+/**
+ * Rows per vertex chunk — `chunk_size` in `Node.vertex.yml`, which fossil writes and this reads.
+ *
+ * Duplicated as a constant because the manifest is not fetched here; if fossil's
+ * `DEFAULT_CHUNK_SIZE` ever moves, this is the line that has to move with it, and the symptom would
+ * be a 404 on the last chunk rather than anything subtle.
+ */
+const CHUNK_SIZE = 1024;
+
 const corpusNodes = (n: number) => `corpus_nodes_${n}`;
 const corpusEdges = (n: number) => `corpus_edges_${n}`;
 
@@ -175,8 +184,28 @@ async function corpus(pointCount: number, report?: (stage: string) => void): Pro
 
   const started = performance.now();
   report?.("opening the corpus · views");
+
+  /**
+   * The chunk list, written out one URL at a time — **a glob would not work here.**
+   *
+   * fossil emits `vertex/Node/chunk{k}.parquet`, `CHUNK_SIZE` rows each, and the obvious
+   * `read_parquet('…/vertex/Node/*.parquet')` is wrong over HTTP: expanding a glob means listing a
+   * directory, and a plain HTTP origin has no listing. DuckDB's httpfs can do it against S3, which
+   * is what makes the mistake easy — it works locally against `file://`, works against a bucket, and
+   * fails in the one place this benchmark runs.
+   *
+   * So the reader derives the set instead of discovering it, which is what GraphAr's manifest is
+   * for: chunk *k* is the `dense_id` range `[k·size, (k+1)·size)`, so the count follows from the
+   * vertex count and `chunk_size`. That is also the shape a tile cache wants — every chunk is a
+   * stable, individually addressable URL rather than one opaque file.
+   */
+  const chunks = Math.ceil(pointCount / CHUNK_SIZE);
+  const chunkUrls = Array.from(
+    { length: chunks },
+    (_, k) => `'${base}/vertex/Node/chunk${k}.parquet'`,
+  ).join(", ");
   await coordinator.exec(
-    `CREATE OR REPLACE VIEW ${nodes} AS SELECT * FROM read_parquet('${base}/vertex/Node.parquet')`,
+    `CREATE OR REPLACE VIEW ${nodes} AS SELECT * FROM read_parquet([${chunkUrls}])`,
   );
   await coordinator.exec(
     `CREATE OR REPLACE VIEW ${edges} AS
