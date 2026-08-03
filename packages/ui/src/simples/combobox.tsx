@@ -141,7 +141,6 @@ export const ComboboxTrigger = (
     <ArkCombobox.Trigger
       className={cn("absolute inset-e-1 inset-y-0", className)}
       {...rest}
-      data-slot="combobox-trigger"
       asChild
     >
       {children ?? (

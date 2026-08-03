@@ -75,12 +75,12 @@ interface ToggleGroupItemProps
   extends React.ComponentProps<typeof ArkToggleGroup.Item> {}
 
 export const ToggleGroupItem = (props: ToggleGroupItemProps) => {
-  const { value, className, ...rest } = props;
+  const { value, className, slot, ...rest } = props;
 
   const { variant, size, spacing } = _useToggleGroup();
 
   return (
-    <ArkToggleGroup.Item asChild data-slot="toggle-group-item" value={value}>
+    <ArkToggleGroup.Item asChild value={value}>
       <Toggle
         className={cn(
           "shrink-0 focus:z-10 focus-visible:z-10",
@@ -100,6 +100,7 @@ export const ToggleGroupItem = (props: ToggleGroupItemProps) => {
         size={size}
         variant={variant}
         {...rest}
+        slot={slot ?? "toggle-group-item"}
       />
     </ArkToggleGroup.Item>
   );

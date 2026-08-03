@@ -87,11 +87,16 @@ export const FileUploadTrigger = (
   props: React.ComponentProps<typeof ArkFileUpload.Trigger> &
     Pick<ButtonProps, "variant" | "size">
 ) => {
-  const { children, variant = "outline", size, ...rest } = props;
+  const { children, variant = "outline", size, slot, ...rest } = props;
 
   return (
-    <ArkFileUpload.Trigger asChild data-slot="file-upload-trigger">
-      <Button size={size} variant={variant} {...rest}>
+    <ArkFileUpload.Trigger asChild>
+      <Button
+        size={size}
+        variant={variant}
+        {...rest}
+        slot={slot ?? "file-upload-trigger"}
+      >
         {children}
       </Button>
     </ArkFileUpload.Trigger>
@@ -202,14 +207,17 @@ export const FileUploadItemSizeText = (
 export const FileUploadItemDeleteTrigger = (
   props: React.ComponentProps<typeof ArkFileUpload.ItemDeleteTrigger>
 ) => {
-  const { children, ...rest } = props;
+  const { children, slot, ...rest } = props;
 
   return (
-    <ArkFileUpload.ItemDeleteTrigger
-      asChild
-      data-slot="file-upload-item-delete-trigger"
-    >
-      <Button className="ms-auto" size="icon-sm" variant="ghost" {...rest}>
+    <ArkFileUpload.ItemDeleteTrigger asChild>
+      <Button
+        className="ms-auto"
+        size="icon-sm"
+        variant="ghost"
+        {...rest}
+        slot={slot ?? "file-upload-item-delete-trigger"}
+      >
         {children}
       </Button>
     </ArkFileUpload.ItemDeleteTrigger>

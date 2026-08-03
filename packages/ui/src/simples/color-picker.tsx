@@ -275,12 +275,12 @@ export const ColorPickerEyeDropperTrigger = (
   } = props;
 
   return (
-    <ArkColorPicker.EyeDropperTrigger
-      {...rest}
-      data-slot={slot ?? "color-picker-eye-dropper"}
-      asChild
-    >
-      <Button size={size} variant={variant}>
+    <ArkColorPicker.EyeDropperTrigger {...rest} asChild>
+      <Button
+        size={size}
+        slot={slot ?? "color-picker-eye-dropper"}
+        variant={variant}
+      >
         {children || <Pipette />}
       </Button>
     </ArkColorPicker.EyeDropperTrigger>

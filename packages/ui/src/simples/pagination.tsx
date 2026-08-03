@@ -27,12 +27,13 @@ export const Pagination = (
 export const PaginationPrevTrigger = (
   { slot, ...rest }: React.ComponentProps<typeof ArkPagination.PrevTrigger>
 ) => (
-  <ArkPagination.PrevTrigger
-    asChild
-    {...rest}
-    data-slot={slot ?? "pagination-prev-trigger"}
-  >
-    <Button aria-label="Previous page" size="icon-md" variant="ghost">
+  <ArkPagination.PrevTrigger asChild {...rest}>
+    <Button
+      aria-label="Previous page"
+      size="icon-md"
+      slot={slot ?? "pagination-prev-trigger"}
+      variant="ghost"
+    >
       <ChevronLeftIcon aria-hidden className="rtl:rotate-180" />
     </Button>
   </ArkPagination.PrevTrigger>
@@ -41,12 +42,13 @@ export const PaginationPrevTrigger = (
 export const PaginationNextTrigger = (
   { slot, ...rest }: React.ComponentProps<typeof ArkPagination.NextTrigger>
 ) => (
-  <ArkPagination.NextTrigger
-    asChild
-    {...rest}
-    data-slot={slot ?? "pagination-next-trigger"}
-  >
-    <Button aria-label="Next page" size="icon-md" variant="ghost">
+  <ArkPagination.NextTrigger asChild {...rest}>
+    <Button
+      aria-label="Next page"
+      size="icon-md"
+      slot={slot ?? "pagination-next-trigger"}
+      variant="ghost"
+    >
       <ChevronRightIcon aria-hidden className="rtl:rotate-180" />
     </Button>
   </ArkPagination.NextTrigger>
@@ -61,7 +63,7 @@ export const PaginationItem = (props: PaginationItemProps) => {
   // The current page carries `data-selected` (and `aria-current="page"`) from
   // the machine, so it reads as filled/secondary while the rest stay ghost.
   return (
-    <ArkPagination.Item asChild {...rest} data-slot={slot ?? "pagination-item"}>
+    <ArkPagination.Item asChild {...rest}>
       <Button
         className={cn(
           "tabular-nums",
@@ -69,6 +71,7 @@ export const PaginationItem = (props: PaginationItemProps) => {
           className
         )}
         size="icon-md"
+        slot={slot ?? "pagination-item"}
         variant="ghost"
       >
         {children}

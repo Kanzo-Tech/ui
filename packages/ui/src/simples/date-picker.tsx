@@ -68,23 +68,18 @@ export const DatePickerInput = (props: DatePickerInputProps) => {
   return (
     <ArkDatePicker.Control data-slot="date-picker-control">
       <InputGroup size={size}>
-        <ArkDatePicker.Input
-          asChild
-          {...rest}
-          data-slot={slot ?? "date-picker-input"}
-        >
-          <InputGroupInput />
+        <ArkDatePicker.Input asChild {...rest}>
+          <InputGroupInput slot={slot ?? "date-picker-input"} />
         </ArkDatePicker.Input>
 
         <InputGroupAddon align="inline-end">
-          <InputGroupButton
-            asChild
-            slot="input-group-button"
-            size="icon-xs"
-            variant="ghost"
-          >
-            <ArkDatePicker.Trigger asChild data-slot="date-picker-trigger">
-              <Button size="icon-md" variant="ghost">
+          <InputGroupButton asChild size="icon-xs" variant="ghost">
+            <ArkDatePicker.Trigger asChild>
+              <Button
+                size="icon-md"
+                slot="date-picker-trigger"
+                variant="ghost"
+              >
                 <CalendarIcon aria-hidden className="text-muted-foreground" />
               </Button>
             </ArkDatePicker.Trigger>

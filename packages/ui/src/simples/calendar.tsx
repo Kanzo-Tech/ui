@@ -222,12 +222,13 @@ export const CalendarPrevTrigger = ({
   slot,
   ...rest
 }: React.ComponentProps<typeof ArkCalendar.PrevTrigger>) => (
-  <ArkCalendar.PrevTrigger
-    asChild
-    {...rest}
-    data-slot={slot ?? "calendar-prev-trigger"}
-  >
-    <Button className="me-auto" size="icon-md" variant="ghost">
+  <ArkCalendar.PrevTrigger asChild {...rest}>
+    <Button
+      className="me-auto"
+      size="icon-md"
+      slot={slot ?? "calendar-prev-trigger"}
+      variant="ghost"
+    >
       <ChevronLeftIcon aria-hidden className="rtl:rotate-180" />
     </Button>
   </ArkCalendar.PrevTrigger>
@@ -237,12 +238,13 @@ export const CalendarNextTrigger = ({
   slot,
   ...rest
 }: React.ComponentProps<typeof ArkCalendar.NextTrigger>) => (
-  <ArkCalendar.NextTrigger
-    asChild
-    {...rest}
-    data-slot={slot ?? "calendar-next-trigger"}
-  >
-    <Button className="ms-auto" size="icon-md" variant="ghost">
+  <ArkCalendar.NextTrigger asChild {...rest}>
+    <Button
+      className="ms-auto"
+      size="icon-md"
+      slot={slot ?? "calendar-next-trigger"}
+      variant="ghost"
+    >
       <ChevronRightIcon aria-hidden className="rtl:rotate-180" />
     </Button>
   </ArkCalendar.NextTrigger>

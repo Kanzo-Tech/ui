@@ -7,6 +7,9 @@ import { describe, expect, it } from "vitest";
 import { Button } from "./simples/button";
 import { Card } from "./simples/card";
 import { DialogHeader } from "./simples/dialog";
+import { FileUpload, FileUploadTrigger } from "./simples/file-upload";
+import { Pagination, PaginationItem, PaginationPrevTrigger } from "./simples/pagination";
+import { ToggleGroup, ToggleGroupItem } from "./simples/toggle-group";
 
 /**
  * A part owns its `data-slot`, and `slot` is the only way to rename one.
@@ -29,6 +32,9 @@ import { DialogHeader } from "./simples/dialog";
  *    element; to rename a part you render, pass it `slot`. Ark's `asChild` merge is the same case
  *    wearing a disguise — it hands the parent's `data-slot` to the child as an ordinary prop, and
  *    the child now writes its own last, so the parent cannot name an element it does not render.
+ *    That disguise was worn by 21 sites in ten files: the rule said so from the day it was
+ *    written, and the check read only the element the attribute sat on, so a foreign tag walked
+ *    past it. It is two checks now — the one on the tag, and `HANDED` on the child.
  * 3. **No slot on a provider.** Ten components resolved to an Ark root that renders `children` and
  *    no element of its own, so their `data-slot` was never in the document. TypeScript does not
  *    typecheck a hyphenated JSX attribute, which is why it went unnoticed for the life of the file;
@@ -36,15 +42,6 @@ import { DialogHeader } from "./simples/dialog";
  *
  * ## What this guard cannot prove
  *
- * - **Rule 2 has a blind spot, and there are five live instances of it.** The check fires on a
- *   `data-slot` written onto one of *our* components. It does not fire when the tag is Ark's and
- *   Ark's `asChild` hands the attribute down to one of ours — the offending element is foreign, so
- *   the parse walks past it, and the attribute is discarded exactly as rule 2 describes. Proven by
- *   rendering, not inferred: a `data-slot` written on `ArkFileUpload.Trigger asChild` around our
- *   `Button` reads back as `"button"`. Live and dead today at `simples/file-upload.tsx:93` and
- *   `:` its item-delete sibling, and at `simples/pagination.tsx:64` plus the prev/next triggers.
- *   Each is a slot a recipe or a consumer's query can select and never match. Catching it means
- *   knowing which foreign tags wrap one of ours, which the parse can be taught — nobody has.
  * - **`PROVIDER_ONLY` is a reading of Ark's dist, not a measurement of it.** Nothing here renders
  *   those components to check they still emit no element; if Ark starts rendering a `<div>` from
  *   `Popover.Root`, this file will keep insisting the slot is dead. The entries are checked for
@@ -194,6 +191,95 @@ function slotSites(): Site[] {
 
 const SITES = slotSites();
 
+interface HandedSite {
+  key: string;
+  owner: string;
+  tag: string;
+  spelling: string;
+  value: string;
+  child: string;
+}
+
+/**
+ * Rule 2 again, on the shape that hid from it: `asChild`.
+ *
+ * The three assertions above read the element the attribute sits on. That is enough when the
+ * offending tag is ours, and blind when it is Ark's — `<ArkFileUpload.Trigger asChild
+ * data-slot="…">` is a foreign tag, so `foreignTag` excuses it, and the name is handed to the
+ * child as an ordinary prop and overwritten by the child's own. Twenty-one sites across ten files
+ * were live and dead when this was written.
+ *
+ * The parse does not have to learn which foreign tags wrap one of ours, which is what made this
+ * look bigger than it is. It has to look at the CHILD: `asChild` means the child is the element,
+ * so a name on the parent is a name for something it does not render. `foreignNames` already
+ * separates a child of ours from an icon or an Ark part.
+ *
+ * Both spellings, because both die the same way: `slot` on one of ours becomes that component's
+ * own `data-slot`, and `asChild` hands it down exactly as the literal does. `tour.tsx` had two of
+ * those and `date-picker.tsx` a third, none of which the `data-slot` spelling would have found.
+ */
+function handedSites(): HandedSite[] {
+  const sites: HandedSite[] = [];
+  for (const path of FILES) {
+    const key = relative(SRC, path);
+    const file = ts.createSourceFile(
+      path,
+      readFileSync(path, "utf8"),
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TSX
+    );
+    const foreign = foreignNames(file);
+    const visit = (node: ts.Node) => {
+      if (ts.isJsxOpeningElement(node)) {
+        const props = node.attributes.properties;
+        const named = (name: string) =>
+          props.find((p) => ts.isJsxAttribute(p) && p.name.getText(file) === name) as
+            | ts.JsxAttribute
+            | undefined;
+        const asChild = named("asChild");
+        const slot = named("data-slot") ?? named("slot");
+        if (asChild && slot) {
+          // The child that `asChild` collapses into: the first element among the children, or the
+          // first inside an expression like `{children ?? <Button />}`.
+          let child: ts.JsxOpeningLikeElement | undefined;
+          const findChild = (n: ts.Node) => {
+            if (child) return;
+            if (ts.isJsxSelfClosingElement(n) || ts.isJsxOpeningElement(n)) {
+              child = n;
+              return;
+            }
+            ts.forEachChild(n, findChild);
+          };
+          for (const c of (node.parent as ts.JsxElement).children) findChild(c);
+          const childTag = child?.tagName.getText(file) ?? "";
+          const [childHead = childTag] = childTag.split(".");
+          const ours = childTag !== "" && !/^[a-z]/.test(childTag) && !foreign.has(childHead);
+          if (ours) {
+            const initializer = slot.initializer;
+            sites.push({
+              key,
+              owner: ownerOf(node, file),
+              tag: node.tagName.getText(file),
+              spelling: slot.name.getText(file),
+              value:
+                initializer && ts.isStringLiteral(initializer)
+                  ? initializer.text
+                  : initializer?.getText(file) ?? "",
+              child: childTag,
+            });
+          }
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(file);
+  }
+  return sites;
+}
+
+const HANDED = handedSites();
+
 describe("a part owns its data-slot", () => {
   it("reads every .tsx under src/, in every layer, and finds slots in them", () => {
     // All three assertions below are `toEqual([])`, which is also what an empty corpus produces.
@@ -248,6 +334,28 @@ describe("a part owns its data-slot", () => {
       `data-slot says what *this* element is. On one of ours it lands on an element the callee\n` +
         `owns, and the callee writes its own last regardless. Use \`slot="…"\`:\n${handed.join("\n")}`
     ).toEqual([]);
+  });
+
+  it("names no slot on a tag whose asChild hands it to one of ours", () => {
+    const handed = HANDED.map(
+      (site) => `${site.key} ${site.owner}: <${site.tag} asChild ${site.spelling}="${site.value}"> → <${site.child}>`
+    ).sort();
+
+    expect(
+      handed,
+      `\`asChild\` means the CHILD is the element, so this names something the tag does not render.\n` +
+        `The child writes its own slot last and this one is discarded — dead in the document, and\n` +
+        `dead for every recipe or consumer query that selects it. Move the name onto the child:\n` +
+        `\`<Ark.Trigger asChild><Button slot="the-slot" /></Ark.Trigger>\`:\n${handed.join("\n")}`
+    ).toEqual([]);
+  });
+
+  it("still sees the shape it was written for", () => {
+    // `HANDED` is another assertion of absence, and the corpus that feeds it is narrower than the
+    // one above: only elements carrying `asChild`. A parse that stopped finding those would report
+    // the same green as a clean tree, so the floor is on the population, not on the offenders.
+    const asChildTags = FILES.reduce((n, path) => n + (readFileSync(path, "utf8").match(/\basChild\b/g)?.length ?? 0), 0);
+    expect(asChildTags, "the corpus has no asChild left — this guard is checking nothing").toBeGreaterThan(40);
   });
 
   it("writes no data-slot on a component that renders only an Ark provider", () => {
@@ -306,6 +414,40 @@ describe("the slot prop", () => {
     const { container } = render(<DialogHeader slot="alert-dialog-header" />);
 
     expect(container.querySelector("[data-slot=alert-dialog-header]")).not.toBeNull();
+  });
+
+  it("reaches the document through an Ark asChild, which is what the parse cannot see", () => {
+    // The positive half of the guard above, and the reason it is worth having: the parse reads
+    // shape, and this reads the document. Every one of these was `data-slot="button"` before the
+    // names moved onto the child — the declared slot present in the source and absent from the DOM,
+    // which is the only state where a recipe can select something that will never match.
+    const pagination = render(
+      <Pagination count={30} pageSize={10}>
+        <PaginationPrevTrigger />
+        <PaginationItem type="page" value={1} />
+      </Pagination>
+    ).container;
+
+    expect(pagination.querySelector("[data-slot=pagination-prev-trigger]")).not.toBeNull();
+    expect(pagination.querySelector("[data-slot=pagination-item]")).not.toBeNull();
+
+    const upload = render(
+      <FileUpload>
+        <FileUploadTrigger>Choose</FileUploadTrigger>
+      </FileUpload>
+    ).container;
+
+    expect(upload.querySelector("[data-slot=file-upload-trigger]")).not.toBeNull();
+
+    const toggles = render(
+      <ToggleGroup>
+        <ToggleGroupItem value="bold">B</ToggleGroupItem>
+      </ToggleGroup>
+    ).container;
+
+    expect(toggles.querySelector("[data-slot=toggle-group-item]")).not.toBeNull();
+    // And the child's own default is gone rather than sitting beside it — one element, one name.
+    expect(toggles.querySelector("[data-slot=toggle]")).toBeNull();
   });
 
   it("cannot be erased by a data-slot a caller happens to pass", () => {

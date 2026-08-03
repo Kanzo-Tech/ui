@@ -368,13 +368,8 @@ export const TourPreviousStep = (
   }
 
   return (
-    <TourActionTrigger
-      {...rest}
-      slot={slot ?? "tour-previous-step"}
-      action={prevAction}
-      asChild
-    >
-      <Button size="sm" variant="outline">
+    <TourActionTrigger {...rest} action={prevAction} asChild>
+      <Button size="sm" slot={slot ?? "tour-previous-step"} variant="outline">
         <ChevronLeft />
         {prevAction.label}
       </Button>
@@ -404,13 +399,8 @@ export const TourNextStep = (
   }
 
   return (
-    <TourActionTrigger
-      {...rest}
-      slot={slot ?? "tour-next-step"}
-      action={action}
-      asChild
-    >
-      <Button size="sm">
+    <TourActionTrigger {...rest} action={action} asChild>
+      <Button size="sm" slot={slot ?? "tour-next-step"}>
         {action.label}
 
         {actionType === "next" && <ChevronRight />}

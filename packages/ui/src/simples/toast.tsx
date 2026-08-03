@@ -145,21 +145,21 @@ export const ToastItem = (props: ToastItemProps) => {
         {toastData.action && (
           <ArkToast.ActionTrigger
             asChild
-            data-slot="toast-action-trigger"
             onClick={toastData.action.onClick}
           >
-            <Button size="sm" variant="secondary">
+            <Button size="sm" slot="toast-action-trigger" variant="secondary">
               {toastData.action.label}
             </Button>
           </ArkToast.ActionTrigger>
         )}
 
         {!isExplicitClosable && (
-          <ArkToast.CloseTrigger asChild data-slot="toast-close-trigger">
+          <ArkToast.CloseTrigger asChild>
             <Button
               aria-label="Close"
               className="opacity-64 hover:opacity-100"
               size="icon-xs"
+              slot="toast-close-trigger"
               variant="ghost"
             >
               <XIcon />

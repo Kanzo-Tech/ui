@@ -40,10 +40,10 @@ export const PasswordInput = (props: PasswordInputProps) => {
 export const PasswordInputGroup = (
   props: React.ComponentProps<typeof ArkPasswordInput.Control>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
-    <ArkPasswordInput.Control asChild data-slot="password-input-control">
+    <ArkPasswordInput.Control asChild>
       <InputGroup
         className={cn(
           "in-data-[size=lg]:h-9 in-data-[size=sm]:h-7",
@@ -51,6 +51,7 @@ export const PasswordInputGroup = (
           className
         )}
         {...rest}
+        slot={slot ?? "password-input-control"}
       />
     </ArkPasswordInput.Control>
   );
@@ -92,9 +93,8 @@ export const PasswordInputInput = (props: PasswordInputInputProps) => {
       placeholder={shown}
       value={value}
       {...rest}
-      data-slot={slot ?? "password-input-input"}
     >
-      <InputGroupInput />
+      <InputGroupInput slot={slot ?? "password-input-input"} />
     </ArkPasswordInput.Input>
   );
 };
@@ -102,15 +102,17 @@ export const PasswordInputInput = (props: PasswordInputInputProps) => {
 export const PasswordInputTrigger = (
   props: React.ComponentProps<typeof ArkPasswordInput.VisibilityTrigger>
 ) => {
-  const { children, ...rest } = props;
+  const { children, slot, ...rest } = props;
 
   return (
     <InputGroupAddon align="inline-end">
-      <ArkPasswordInput.VisibilityTrigger
-        asChild
-        data-slot="password-input-visibility-trigger"
-      >
-        <InputGroupButton size="icon-xs" variant="ghost" {...rest}>
+      <ArkPasswordInput.VisibilityTrigger asChild>
+        <InputGroupButton
+          size="icon-xs"
+          variant="ghost"
+          {...rest}
+          slot={slot ?? "password-input-visibility-trigger"}
+        >
           {children ?? <PasswordInputIndicator />}
         </InputGroupButton>
       </ArkPasswordInput.VisibilityTrigger>
