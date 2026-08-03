@@ -64,6 +64,13 @@ export interface BoundedSample {
   returned: number;
   /** Points that matched it, before the limit. The gap is what the view is not showing. */
   matched: number;
+  /**
+   * DuckDB's thread count, so the row says which machine it is describing.
+   *
+   * `1` means the page was not cross-origin isolated and DuckDB-WASM took the single-threaded
+   * bundle regardless of the cores available. Without it two runs of this table are not comparable.
+   */
+  threads: number;
   failure?: string;
 }
 
@@ -105,6 +112,26 @@ const DRAW_WARMUP = 5;
  */
 async function forget(coordinator: Coordinator): Promise<void> {
   coordinator.clear({ cache: true, clients: false });
+}
+
+/**
+ * How many cores DuckDB actually has, which is part of the measurement and not trivia.
+ *
+ * `selectBundle` picks the threaded `coi` build only when the document is cross-origin isolated;
+ * otherwise DuckDB-WASM runs single-threaded however many cores the machine has. A page reporting
+ * "220 ms at a million" without saying which of those two it was is not reproducible, so the number
+ * rides along with the samples rather than living in someone's memory of how the server was
+ * configured that afternoon.
+ *
+ * Asked once. It cannot change without a reload, and asking per size would put a query in front of
+ * every measurement to learn something already known.
+ */
+let threadsAsked: Promise<number> | null = null;
+function duckThreads(coordinator: Coordinator): Promise<number> {
+  threadsAsked ??= onceQuery(coordinator, () => "SELECT current_setting('threads') AS n")
+    .then((rows) => Number(numbers(rows, "n")[0] ?? 0))
+    .catch(() => 0);
+  return threadsAsked;
 }
 
 const nodesTable = (n: number) => `bounded_nodes_${n}`;
@@ -272,6 +299,7 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
     uploadMs: 0,
     panMs: 0,
     drawMs: 0,
+    threads: 0,
     returned: 0,
     matched: 0,
   };
@@ -285,6 +313,7 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
     const { extent, source } = fixtured;
     base.linkCount = fixtured.linkCount;
     base.ingestMs = fixtured.ingestMs;
+    base.threads = await duckThreads((await boot()).coordinator);
     if (cancelled()) return { ...base, failure: "cancelled" };
 
     report?.("asking the total");

@@ -135,6 +135,35 @@ badge says `tab hidden · frames stop` rather than dividing zero by half a secon
 confident 0 fps. When the layout stops moving it says `layout settled`, because a settled graph
 reporting 0 fps reads as a stall.
 
+### DuckDB gets one core, and cross-origin isolation does not change that
+
+Every row above was produced with **`threads = 1`** on a machine with fourteen. The samples now
+carry the number, because a page reporting "220 ms at a million" without saying which of those two
+it was is not reproducible.
+
+The obvious cause is the obvious fix and it is neither. `selectBundle` takes the threaded `coi`
+build only when the document is cross-origin isolated, and by default it is not — no
+`SharedArrayBuffer`, no threads. Serving the route with `Cross-Origin-Opener-Policy: same-origin`
+and `Cross-Origin-Embedder-Policy: credentialless` (`credentialless`, because DuckDB's bundles come
+from jsDelivr by `importScripts` and its httpfs extension from `extensions.duckdb.org` — both
+no-cors loads that `require-corp` blocks) does make `crossOriginIsolated` true and
+`SharedArrayBuffer` exist. **`threads` stays 1 and nothing gets faster.**
+
+Controlled on the same page minutes apart, one variable:
+
+| Nodes | Pan, isolated | Pan, not | Slice, isolated | Slice, not |
+|---|---|---|---|---|
+| 2k | 9 ms | 9 ms | 34 ms | 36 ms |
+| 10k | 9 ms | 9 ms | 13 ms | 20 ms |
+| 50k | 17 ms | 17 ms | 21 ms | 30 ms |
+| 200k | 26 ms | 26 ms | 63 ms | 59 ms |
+
+The pan is identical to the millisecond at every size. So the headers are **not** in
+`next.config.ts`: they constrain how every document on the route may embed anything cross-origin,
+and they bought nothing. Getting real threads would mean going further into Mosaic's connector,
+which selects the bundle itself and passes no config — worth knowing before anyone assumes a header
+is all that stands between this and four cores.
+
 **What is left to try, in the order the measurements support:** the edge file is sorted by
 `src_dense`, so every slice joins against all 6.9M rows with nothing to prune — Morton-ordering the
 edges the way the vertices already are is the one structural fix; the `matched` count is a third
