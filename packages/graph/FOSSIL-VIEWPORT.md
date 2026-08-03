@@ -23,7 +23,51 @@ statement about the verb: 240 ms of first paint at a million, 1,006 ms at five m
 linear with N. **Routing the showcase through the verb would change nothing measurable.** It is a
 refactor, not a fix.
 
-## What already agrees, and should not move
+## `viewport` is a composite verb, and the fix is not to split the RPC
+
+It does five things: a spatial scan, a limit, a numbering, an induced-edge join, and a mode switch
+on a zoom threshold. Two of those do not belong to a data engine at all — **`zoom` is a camera
+concept**, and `lod_threshold` is a rendering policy. The host has the camera; it can ask for detail
+or for aggregates. A verb that takes a float called `zoom` has one consumer in mind.
+
+The rest decomposes into primitives that are worth having on their own:
+
+- **`select_vertices(predicate, limit)`** — a bounding box is just a predicate. Generic over columns
+  rather than special-cased on `x`/`y`, it is the same verb that answers "vertices where
+  `community = 3`" or any facet a crossfilter produces.
+- **`induced_edges(vertices)`** — the edges with *both* endpoints in a given vertex set. This is the
+  induced subgraph, and it is the reusable primitive: the viewport needs it, neighbourhood expansion
+  needs it, any export of a selection needs it. It is also the 35 ms of the 95 ms pan we measured,
+  so it is worth being able to reason about alone.
+- **`aggregate(group_by, …)`** — already a verb. Aggregate mode is `aggregate(cluster_id)` with
+  centroids, not a second personality inside `viewport`.
+
+**But splitting them into separate calls would be worse than the composite.** `induced_edges` needs
+the vertex set, and that set is twenty thousand ids; sending it back down the wire between two calls
+buys a round trip and a materialisation to save a join. That cost is exactly why the composite verb
+exists, and it is a real reason rather than an oversight.
+
+So the composability has to live in the **query**, not in the RPC surface: primitives that compose
+into one plan and execute once.
+
+```
+select_vertices(within(bbox), limit: 20_000) |> with_induced_edges()
+select_vertices(all) |> group_by(cluster_id) |> centroid()
+```
+
+One call, composable definition, no intermediate crosses the boundary. `viewport` then stops being
+a verb and becomes a *named plan* a host may use — expressible, inspectable, and replaceable by a
+host that wants a different one. That is the difference between a verb set that generalises to
+another domain and one that grew a special case per consumer.
+
+This is also what makes the columnar change coherent rather than local: if every primitive returns
+Arrow and composes before execution, there is exactly one materialisation at the end, in the shape
+the consumer uploads.
+
+## What the two sides already agree on
+
+Two of these were added to fossil while this note was being written — they are that work, not
+independent convergence, and are recorded here so the seam has one description rather than two.
 
 - **`n` separate from what is returned.** Both carry "how many matched before `limit` cut them",
   and both document the same reason: a truncated answer otherwise looks exactly like a complete one.
