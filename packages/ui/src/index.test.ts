@@ -252,7 +252,8 @@ describe("@kanzo-tech/ui public surface", () => {
     for (const name of [
       "useAvatar", "useCheckbox", "useDatePicker", "useDialog", "useField", "useHoverCard",
       "useListbox", "useNumberInput", "usePasswordInput", "usePopover", "useSegmentGroup",
-      "useSelect", "useSwitch", "useTagsInput", "useToast", "useToggle", "useToggleGroup",
+      "useSelect", "useSwitch", "useTagsInput", "useTagsInputContext", "useToast", "useToggle",
+      "useToggleGroup",
       "useTooltip", "useAccordion", "useClipboard", "useCollapsible", "useEditable",
       "useProgress", "useScrollArea", "useSteps", "useTabs", "useTreeView",
       "ComboboxContext", "SelectContext",
@@ -368,11 +369,13 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.Skeleton).toBeTypeOf("function");
     expect(UI.DialogBody).toBeTypeOf("function");
     expect(UI.DialogFooter).toBeTypeOf("function");
-    // `tags-input` is the one the record did not close: on provenance all three of Shark's names
-    // qualify, and the binding of `useTagsInput` is what stops it. Nothing there moved, and
-    // `shark-parity.test.ts` still pins the pair as open.
-    expect(surface.TagsInputRootProvider).toBeUndefined();
-    expect(surface.useTagsInputContext).toBeUndefined();
+    // `tags-input` was the one the record did not close, and it is closed: all three of Shark's
+    // names are here. `useTagsInputContext` is the only `useXContext` we ship, because it is the
+    // only compound where Ark exports both and the plain name therefore had to choose —
+    // `useHighlight` is a machine hook too and is not this case: `highlight` has no context hook to
+    // alias. `shark-parity.test.ts` holds both bindings so the pair cannot drift back into one.
+    expect(surface.TagsInputRootProvider).toBeTypeOf("function");
+    expect(surface.useTagsInputContext).toBeTypeOf("function");
   });
 
   it("keeps the AI engine hooks exported, and the CodeMirror style not", () => {

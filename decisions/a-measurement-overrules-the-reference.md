@@ -44,9 +44,15 @@ none of them is a gap to be closed by reading this record harder.
 
 - **The two references disagree with each other.** Ark owns behaviour and Shark owns surface, so
   they rarely meet; where they do, nothing here ranks them.
-- **A name matches and the binding behind it does not.** Ours aliases Ark's `useTagsInputContext`;
-  Shark's aliases the machine hook `useTagsInput` and ships the context one beside it. Parity is
-  over names, so it is satisfied, and silent about which hook the name should return.
+- ~~**A name matches and the binding behind it does not.**~~ **Closed 2026-08-03**, by the owner,
+  and the reading that opened it was wrong in a way worth keeping. It was framed as ours-versus-the-
+  reference; the measurement is that Shark writes `export const useAccordion = useAccordionContext`
+  — our line character for character — in fifty of its ninety-five files, and names both hooks in
+  exactly two, `tags-input` and `date-input`. So the plain name is the context hook in both systems,
+  and `tags-input` is where the reference itself needs the machine, because `TagsInputRootProvider`
+  has to be handed one. Adopted whole: `useTagsInput` is the machine, `useTagsInputContext` the
+  context, both asserted against Ark in `shark-parity.test.ts`. Parity is still over names, and that
+  is still the gap — a second case would not be found by the guard either.
 - **A product question wearing accessibility's clothes.** Whether a stepper may be skipped ahead
   decides `Steps`'s `linear` default, and half of its ARIA defect with it. No measurement says what
   a stepper is for.

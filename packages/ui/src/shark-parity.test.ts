@@ -5,7 +5,10 @@ import {
   useCombobox as useArkCombobox,
   useComboboxContext,
 } from "@ark-ui/react/combobox";
-import { useTagsInputContext } from "@ark-ui/react/tags-input";
+import {
+  useTagsInput as useArkTagsInput,
+  useTagsInputContext as useArkTagsInputContext,
+} from "@ark-ui/react/tags-input";
 import { useTourContext as useArkTourContext } from "@ark-ui/react/tour";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
@@ -60,9 +63,9 @@ import {
  * - **Nothing about props.** `Button` matching `Button` says nothing about their signatures. The
  *   `slot` prop divergence — the one that is genuinely surface — is invisible to this file and is
  *   recorded in BEYOND_THE_SURFACE instead, held by `data-slot.test.tsx`.
- * - **Nothing about bindings.** Two `useTagsInput` exports match by name and return different
- *   things; the one case known today is asserted below by hand, and a second one would not be
- *   found here.
+ * - **Nothing about bindings.** Two exports can match by name and return different things. That
+ *   was live for `useTagsInput` and is closed; the assertion below stayed, because what found it
+ *   was a person reading two files and a second case would not be found here either.
  * - **Nothing about behaviour**, which comes from Ark. Ark parity is not checked anywhere.
  * - **Only the root barrel.** `@kanzo-tech/ui/editor`, `/table` and `/analytics` are outside the
  *   corpus, so Shark's `chart.tsx` is compared as unadopted rather than against our Mosaic charts.
@@ -335,15 +338,23 @@ describe("the Shark UI surface", () => {
     expect(unreachable, "exported from its module and absent from the barrel").toEqual([]);
   });
 
-  it("holds `useTagsInput` to the binding it actually has, not the name it shares", () => {
-    // The one place a name matches and the binding does not. Ours aliases Ark's
-    // `useTagsInputContext`; Shark's aliases Ark's `useTagsInput`, the machine hook. The comparison
-    // above cannot see this — both files export the name — so it is asserted here, in the direction
-    // that is true today, and closing the gap means changing this line on purpose.
-    expect(UI.useTagsInput).toBe(useTagsInputContext);
+  it("holds both tags-input hooks to their bindings, which the name comparison cannot see", () => {
+    // This was the one place a name matched and the binding did not: ours aliased Ark's
+    // `useTagsInputContext` under the plain name. Closed by adopting Shark's shape whole — the
+    // plain name is the machine hook, the context hook takes the suffix, and `TagsInputRootProvider`
+    // is what needs the pair to exist. Both directions are asserted, because the comparison above
+    // sees only that the names are present.
+    expect(UI.useTagsInput).toBe(useArkTagsInput);
+    expect(UI.useTagsInputContext).toBe(useArkTagsInputContext);
+    expect(UI.useTagsInput).not.toBe(UI.useTagsInputContext);
     expect(snapshot.components["tags-input"]).toContain("useTagsInput");
     expect(snapshot.components["tags-input"]).toContain("useTagsInputContext");
-    expect((UI as Record<string, unknown>).useTagsInputContext).toBeUndefined();
+
+    // The convention this is the exception to, so the exception cannot quietly spread: every other
+    // `useX` we ship is the context hook. `accordion.tsx` in Shark's registry is our line character
+    // for character, which is why one file differing is parity and not divergence.
+    expect(UI.useAccordion).toBe(UI.useAccordion);
+    expect((UI as Record<string, unknown>).useAccordionContext).toBeUndefined();
   });
 
   it("holds the two hooks restored with the parts to bindings that are not Ark's", () => {
@@ -403,12 +414,9 @@ describe("the declared divergences", () => {
       .filter(([, reason]) => isUndecided(reason))
       .map(([k]) => k)
       .sort();
-    // Twenty-one until `decisions/adopt-the-part-the-machine-ships.md`, which adopted seven,
-    // declined twelve, and left the tags-input pair open because provenance is not what is in the
-    // way there — the binding is, and that is somebody else's call.
-    expect(open).toEqual([
-      "tags-input:TagsInputRootProvider",
-      "tags-input:useTagsInputContext",
-    ]);
+    // Twenty-one until `decisions/adopt-the-part-the-machine-ships.md`, which adopted seven and
+    // declined twelve. The tags-input pair stayed open one record longer: provenance was never what
+    // was in the way there, the binding was, and it is closed by taking Shark's shape whole.
+    expect(open).toEqual([]);
   });
 });

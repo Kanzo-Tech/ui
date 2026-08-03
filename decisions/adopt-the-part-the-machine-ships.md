@@ -65,11 +65,17 @@ precedent beside them: `AlertDialogTitle`, `AlertDialogDescription`, `SheetTitle
 Three of twelve is enough that the next application of this rule should expect it rather than
 rediscover it.
 
-**What this does not touch.** `tags-input`. Ark ships all three of the names Shark has there —
-`useTagsInput`, `useTagsInputContext` and `TagsInputRootProvider` — so on provenance alone all three
-qualify. They are not adopted, because our `useTagsInput` is bound to Ark's `useTagsInputContext`:
-adding `useTagsInputContext` beside it would ship two names for one hook and still not match Shark,
-and making it coherent means rebinding an exported name. That is a name-versus-binding mismatch,
-which `decisions/a-measurement-overrules-the-reference.md` reserves to the owner and this record does
-not claim. Provenance is not what is in the way there, so a provenance rule cannot move it, and a
-half-closed knot is worse than an open one.
+**What this did not touch, and what closed it.** `tags-input`. Ark ships all three of the names
+Shark has there — `useTagsInput`, `useTagsInputContext` and `TagsInputRootProvider` — so on
+provenance alone all three qualified. This record declined to move them, because provenance was not
+what was in the way: our `useTagsInput` was bound to Ark's `useTagsInputContext`, so adopting the
+context name beside it would have shipped two names for one hook, and coherence meant rebinding an
+exported name — a name-versus-binding mismatch that
+`decisions/a-measurement-overrules-the-reference.md` reserves to the owner.
+
+**Closed 2026-08-03**, by the owner, in the direction this record could not choose: all three
+adopted and the binding changed. What made it decidable was a count rather than an argument — Shark
+binds the plain name to the context hook in fifty of its ninety-five files, exactly as we do in
+thirty-six, and names both hooks only where a controlled root needs a machine. So `tags-input` is
+not a divergence between the two systems; it is the same exception in both. `useHighlight` is a
+machine hook too and was never this case: Ark's `highlight` exports no context hook to alias.

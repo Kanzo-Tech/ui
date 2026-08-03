@@ -46,9 +46,14 @@ direction is not empty either — `ADDED`, in `packages/ui/src/shark-parity.dive
 twenty names we export that Shark's matching file does not, each with the reason it survives, mostly
 a thin root of ours where Shark's pre-arranges.
 
-**The rule is over names, and `useTagsInput` is why that wording is deliberate.** Ours aliases
-Ark's `useTagsInputContext`; Shark's aliases Ark's `useTagsInput`, the machine hook, and ships the
-context one beside it under `useTagsInputContext` plus a `TagsInputContext` component. So the name
-matches and the binding does not — the one place in the set where that is true. Closing it means
-adding two names nobody has asked for and changing what a third returns, which is a wider decision
-than this one; it is written down here so the gap is found rather than rediscovered.
+**The rule is over names, and `useTagsInput` is why that wording is deliberate.** Ours aliased Ark's
+`useTagsInputContext`; Shark's aliases Ark's `useTagsInput`, the machine hook, and ships the context
+one beside it under `useTagsInputContext` plus a `TagsInputContext` component. So the name matched
+and the binding did not — the one place in the set where that was true, which is why it was written
+down here rather than left to be rediscovered.
+
+**Closed 2026-08-03** by taking Shark's shape for that file whole: the plain name is the machine
+hook, `useTagsInputContext` is the context one, and `TagsInputRootProvider` — the reason the pair has
+to exist at all — is adopted with them. The wording still stands, because what the rule compares is
+still names: `shark-parity.test.ts` now asserts both bindings against Ark by hand, and a second
+name-versus-binding case would be as invisible to the comparison as this one was.

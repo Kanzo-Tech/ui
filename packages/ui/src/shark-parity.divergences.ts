@@ -168,14 +168,6 @@ const DECLINED_SKELETON =
   "caller did not want. `packages/ui/src/documented-exports.test.ts` holds " +
   "`docs/content/docs/overlays/loading.mdx` to saying so, in its DELIBERATE list.";
 
-const UNDECIDED_TAGS_INPUT =
-  "Undecided — the one the new rule does not close. Ark ships all three parts, so provenance says " +
-  "adopt; but our `useTagsInput` is bound to Ark's `useTagsInputContext`, so adopting " +
-  "`useTagsInputContext` beside it gives two names for one hook and still does not match Shark. " +
-  "Coherence needs the binding changed, and " +
-  "`decisions/a-measurement-overrules-the-reference.md` reserves a name-versus-binding mismatch to " +
-  "the owner. A half-closed knot is worse than an open one, so nothing here moved.";
-
 const DECLINED_TOUR_BODY = ARK_SHIPS_NO_SUCH_PART(
   "the tour anatomy is title, description, actions, control, progress text, spotlight, backdrop " +
     "and the triggers, and Shark's `TourBody` is `DialogBody` under a tour slot, which is what " +
@@ -227,9 +219,6 @@ export const WITHHELD: Readonly<Record<string, string>> = {
     "footer content out by hand wants `DialogFooter`. " +
     "`decisions/adopt-the-part-the-machine-ships.md`.",
 
-  // ── Still nobody's. The one the new rule was not wide enough to close ─────────────────────────
-  "tags-input:TagsInputRootProvider": UNDECIDED_TAGS_INPUT,
-  "tags-input:useTagsInputContext": UNDECIDED_TAGS_INPUT,
 };
 
 /**
@@ -353,18 +342,17 @@ export const BEYOND_THE_SURFACE: readonly {
     ],
   },
   {
-    what: "`useTagsInput` matches Shark by name and not by binding.",
+    what: "`useTagsInputContext` is the only `useXContext` on the surface.",
     why:
-      "Ours aliases Ark's `useTagsInputContext`; Shark's aliases Ark's `useTagsInput`, the machine " +
-      "hook, and ships the context one beside it. A name-level comparison — which is all this guard " +
-      "is — reports parity, and the two hooks return different things. The test asserts the binding " +
-      "directly against Ark so the mismatch cannot be closed by accident in either direction; the " +
-      "two absent names are in WITHHELD, marked undecided, and closing all three is one decision. " +
-      "`decisions/adopt-the-part-the-machine-ships.md` was applied to the other nineteen names and " +
-      "explicitly not to these: on provenance alone all three qualify, and provenance is not what " +
-      "is in the way.",
+      "Every other compound names one hook, `useX`, and it is Ark's context hook — thirty-six of " +
+      "them, and Shark writes the identical line in fifty of its ninety-five files. `tags-input` " +
+      "names two because `TagsInputRootProvider` has to be handed a machine, so the plain name goes " +
+      "to the machine hook and the context one takes the suffix. That is Shark's own shape for this " +
+      "file, adopted whole rather than half: the alternative left `useTagsInput` matching by name " +
+      "and not by binding, which a name-level comparison reports as parity. `shark-parity.test.ts` " +
+      "asserts both bindings against Ark, and that no second `useXContext` has appeared beside them.",
     held: [
-      "decisions/a-name-shark-ships-is-ours.md",
+      "decisions/a-house-principle-withholds-no-name.md",
       "decisions/adopt-the-part-the-machine-ships.md",
       "packages/ui/src/simples/tags-input.tsx",
     ],

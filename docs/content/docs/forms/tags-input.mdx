@@ -108,3 +108,20 @@ uncontrolled with `defaultValue`. `TagsInputControl` adds a `size` variant (`sm`
 the item text, delete trigger and hidden input each come styled and wired to the machine, but you
 place them — including `TagsInputHiddenInput`, which is not rendered for you. Items are iterated
 with the `TagsInputContext` render prop over `api.value`.
+
+### The controlled root
+
+`TagsInputRootProvider` takes a machine as `value` instead of building one, for a surface outside
+the compound that has to drive it — a toolbar that clears the tags, a form library that owns the
+state. Build the machine with `useTagsInput` and read it from inside with `useTagsInputContext`:
+
+```tsx
+const tagsInput = useTagsInput({ defaultValue: ["react"] });
+
+<TagsInputRootProvider value={tagsInput}>
+  <TagsInputControl>{/* … */}</TagsInputControl>
+</TagsInputRootProvider>
+```
+
+This is the only component where `useX` is the machine rather than the context — [the hooks
+page](/docs/hooks#usetagsinput-is-the-one-exception-and-it-names-two-hooks) says why.

@@ -1,6 +1,7 @@
 import {
   TagsInput as ArkTagsInput,
-  useTagsInputContext,
+  useTagsInput as useArkTagsInput,
+  useTagsInputContext as useArkTagsInputContext,
 } from "@ark-ui/react/tags-input";
 import { XIcon } from "lucide-react";
 import type React from "react";
@@ -8,7 +9,25 @@ import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
 import { FieldLabel } from "./field";
 
-export const useTagsInput = useTagsInputContext;
+/**
+ * The only place the plain name is a CHOICE, and it goes to the machine hook.
+ *
+ * Thirty-six components here write `export const useX = useXContext`, and so does Shark in fifty of
+ * its ninety-five — `accordion.tsx` is our line character for character. `tags-input` is where Shark
+ * ships both, because {@link TagsInputRootProvider} needs a machine to be handed, and a compound
+ * that offers a controlled root has two hooks to name rather than one. So the plain name goes to the
+ * machine and the context hook takes the suffix, here as there.
+ *
+ * `useHighlight` is also a machine hook and is not the same case: Ark's `highlight` module exports
+ * no context hook at all, so there was nothing to choose between. Here both exist.
+ *
+ * If you are reaching for the value, the items or `clearAll` from inside the compound, that is
+ * {@link useTagsInputContext}.
+ */
+export const useTagsInput = useArkTagsInput;
+
+/** The context hook — what `useX` is everywhere else in this library. */
+export const useTagsInputContext = useArkTagsInputContext;
 
 // Render-prop context used to map the machine's value into styled items.
 export const TagsInputContext = ArkTagsInput.Context;
@@ -30,6 +49,31 @@ export const TagsInput = (
     >
       {children}
     </ArkTagsInput.Root>
+  );
+};
+
+/**
+ * The controlled root: build the machine with {@link useTagsInput} and pass it as `value`.
+ *
+ * The same shape as `FileUploadRootProvider`, and for the same reason — a surface outside the
+ * compound that has to drive it. It is also why this file names two hooks where the rest of the
+ * library names one.
+ */
+export const TagsInputRootProvider = (
+  props: React.ComponentProps<typeof ArkTagsInput.RootProvider>
+) => {
+  const { className, slot, ...rest } = props;
+
+  return (
+    <ArkTagsInput.RootProvider
+      className={cn(
+        "flex flex-col gap-2",
+        "data-invalid:text-destructive dark:data-invalid:text-destructive-foreground",
+        className
+      )}
+      {...rest}
+      data-slot={slot ?? "tags-input-root-provider"}
+    />
   );
 };
 

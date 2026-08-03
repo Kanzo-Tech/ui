@@ -4,9 +4,9 @@ import { describe, expect, it } from "vitest";
 import { Highlight, useHighlight } from "./highlight.js";
 
 describe("useHighlight", () => {
-  // The one `useX` in `simples/` that is Ark's *machine* hook rather than a context alias, which is
-  // how Shark binds it too. Asserted against Ark directly because the parity guard compares names
-  // and never bindings — the `useTagsInput` mismatch is what that blind spot cost.
+  // Ark's `highlight` exports no context hook, so this `useX` is the machine one for want of an
+  // alternative rather than by a decision — `useTagsInput` is the one that had both and chose.
+  // Asserted against Ark directly because the parity guard compares names and never bindings.
   it("is Ark's machine hook, not a context alias", () => {
     expect(useHighlight).toBe(useArkHighlight);
   });
