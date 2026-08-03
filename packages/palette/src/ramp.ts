@@ -310,8 +310,8 @@ export const OBLIGATIONS: readonly Obligation[] = [
       "focus ring, an input outline. The ramp does not assert that step 8 is that step; it reports " +
       "which step first reaches it (`boundary`) and owes only that one exists at or before the " +
       "solid. That bound is the whole guarantee. Which step it lands on is dominated by the mode " +
-      "but not decided by it — measured over 118 seeds it is 9 in light 97 times and 8 the other " +
-      "21, and 8 in dark 82 times and 9 the other 36 — so a role table must read the field and can " +
+      "but not decided by it — measured over 116 seeds it is 9 in light 91 times and 8 the other " +
+      "25, and 8 in dark 79 times and 9 the other 37 — so a role table must read the field and can " +
       "never hard-code a number. Steps 6 and 7 are non-interactive separators, which 1.4.11 " +
       "exempts, and carry no contrast duty at all.",
   },
@@ -520,10 +520,11 @@ export interface Ramp {
    * A role table that hard-codes `--ring: step 8` is correct for most seeds and as low as 2.25:1 for
    * the others. Read the field.
    *
-   * `OBLIGATIONS`' `control-boundary` reason quotes this same measurement from a 118-seed corpus,
-   * two slots larger. It is not a comment and cannot be corrected: `hashObligations` digests the
-   * table's JSON, `reason` included, so editing the prose moves every document's engine hash and
-   * claims the rules changed.
+   * `OBLIGATIONS`' `control-boundary` reason quotes this same measurement and now quotes it
+   * correctly. It used to cite a 118-seed corpus, two slots larger, and could not be fixed:
+   * `hashObligations` digested the row's JSON, `reason` included, so correcting the prose moved
+   * every stored document's engine hash and claimed the rules had changed. The digest is
+   * `{ step, id }` now — `decisions/prose-that-is-hashed-is-data.md` — so the two agree.
    */
   boundary: number;
   /** What was moved to make the seed legal, itemised by the rule that moved it. */

@@ -189,9 +189,6 @@ be skipped.
 `adopt-the-part-the-machine-ships`.
 
 Also live — `a-compound-keeps-its-root-even-when-the-root-is-an-alias`,
-`steps-claims-a-tab-role-it-cannot-keep`.
-
-**Open** — `prose-that-is-hashed-is-data`: the convention holds, the code change it asks for has
-not landed, and it waits for the rebase because `packages/palette` belongs to another session.
+`steps-claims-a-tab-role-it-cannot-keep`, `prose-that-is-hashed-is-data`.
 
 **Superseded** — `field-has-no-consumer`, by `adoption-before-design`.

@@ -1,9 +1,11 @@
 # Prose that is hashed is data, and a digest takes only the fields it claims
 
-- **Status** open — 2026-07-31. The convention is live; the code change is outstanding.
-- **Decided** `hashObligations` should digest each obligation's `{ step, id }`, not the whole row.
-  Until it does, the `reason` strings in `OBLIGATIONS` are **data and may not be edited for prose**,
-  including to correct a measurement that is known to be wrong.
+- **Status** live — 2026-08-03. The code change landed, and the freeze it imposed is lifted.
+- **Decided** `hashObligations` digests each obligation's `{ step, id }`, not the whole row. The
+  `reason` strings are prose again and may be corrected. While the digest was taken over the row
+  they were **data**, which froze one measurement that was known to be wrong for three days:
+  `control-boundary` cited a 118-seed corpus where `Ramp.boundary` records 116, with different
+  splits either side. Both now read 116 — light 9 for 91 and 8 for 25, dark 8 for 79 and 9 for 37.
 - **Because** the digest ships in every stored document as `PaletteEngine.obligations`, and its
   stated job is to move when the *rules* change. Taken over the row it also moves when the wording
   changes, so a typo fix asserts to every existing document that the rules it was derived under no

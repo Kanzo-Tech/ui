@@ -411,9 +411,16 @@ export interface TenantPalette {
  * Over `OBLIGATIONS` and not over `ramp.ts`, deliberately. A refactor of the generator that produces
  * identical values should not invalidate a stored document; a change to what step 9 *owes* should,
  * even if it ships in the same patch release.
+ *
+ * Over `{ step, id }` and not the whole row, for the same reason one layer down. `reason` is prose
+ * — the argument for the rule, not the rule — and digesting it made a typo fix assert to every
+ * stored document that the rules it was derived under no longer hold. The thresholds are named
+ * constants in `ramp.ts` and `palette-check.ts` rather than fields, so the pair is the whole of what
+ * the row decides; if a threshold ever becomes a field it belongs here and
+ * `decisions/prose-that-is-hashed-is-data.md` is re-argued.
  */
 export function hashObligations(obligations: typeof OBLIGATIONS = OBLIGATIONS): string {
-  const text = JSON.stringify(obligations);
+  const text = JSON.stringify(obligations.map(({ step, id }) => ({ step, id })));
   let h = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) {
     h ^= text.charCodeAt(i);
