@@ -70,24 +70,32 @@ for (const file of [vertices, edges]) {
 }
 
 /**
- * Centres spread through `dense_id`, taken from real node positions.
+ * Centres spread through `subject`, taken from real node positions.
  *
  * A centre picked from the coordinate extent can land in empty space, and an empty window measures
- * nothing; a centre that *is* a node is guaranteed to have one. Spreading them by `dense_id` rather
+ * nothing; a centre that *is* a node is guaranteed to have one. Spreading them by identity rather
  * than by position samples the corpus rather than the picture, which matters precisely because the
  * question is whether the two agree.
+ *
+ * **By `subject` and not by `dense_id`,** which is the correction that matters here: the layout pass
+ * assigns `dense_id` in Morton order, so it is a *property of the layout being measured*. Choosing
+ * centres by it made two builds sample two different sets of windows and report the difference as a
+ * change in retention — measured, it moved 5M from 63.65% to 52.89% on a build whose layout was
+ * byte-identical. `subject` is the IRI and survives renumbering, so the windows do too.
  */
 const sql = `
-CREATE OR REPLACE TEMP TABLE v AS SELECT dense_id, x, y FROM read_parquet('${vertices}');
+CREATE OR REPLACE TEMP TABLE v AS SELECT dense_id, subject, x, y FROM read_parquet('${vertices}');
 CREATE OR REPLACE TEMP TABLE e AS SELECT src_dense, dst_dense FROM read_parquet('${edges}');
 CREATE OR REPLACE TEMP TABLE und AS
   SELECT src_dense AS a, dst_dense AS b FROM e UNION ALL SELECT dst_dense, src_dense FROM e;
 
 CREATE OR REPLACE TEMP TABLE centres AS
-  WITH n AS (SELECT count(*) AS total FROM v)
-  SELECT w.i, v.x AS cx, v.y AS cy
-  FROM range(${windows}) AS w(i), n
-  JOIN v ON v.dense_id = ((w.i + 1) * n.total / ${windows + 1})::UINTEGER;
+  WITH ranked AS (
+    SELECT x, y, row_number() OVER (ORDER BY subject) - 1 AS r, count(*) OVER () AS total FROM v
+  )
+  SELECT w.i, ranked.x AS cx, ranked.y AS cy
+  FROM range(${windows}) AS w(i)
+  JOIN ranked ON ranked.r = ((w.i + 1) * ranked.total / ${windows + 1})::BIGINT;
 
 CREATE OR REPLACE TEMP TABLE spatial AS
   SELECT i, dense_id AS node FROM (
@@ -109,7 +117,12 @@ CREATE OR REPLACE TEMP TABLE random_w AS
 CREATE OR REPLACE TEMP TABLE ball_w AS
   WITH RECURSIVE
     deg AS (SELECT a AS node, count(*) AS d FROM und GROUP BY a),
-    seed AS (SELECT node FROM deg WHERE d BETWEEN 12 AND 14 ORDER BY node LIMIT 1),
+    -- Tie-broken by subject for the same reason the centres are: dense_id is a
+    -- property of the layout, so seeding on it changes the seed when the layout does.
+    seed AS (
+      SELECT deg.node FROM deg JOIN v ON v.dense_id = deg.node
+      WHERE deg.d BETWEEN 12 AND 14 ORDER BY v.subject LIMIT 1
+    ),
     ball(node, depth) AS (
         SELECT node, 0 FROM seed
       UNION
