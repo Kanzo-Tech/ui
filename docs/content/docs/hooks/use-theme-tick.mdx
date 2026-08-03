@@ -1,0 +1,100 @@
+---
+title: useThemeTick
+description: Re-render when the theme changes, so a surface painted from resolved tokens repaints instead of freezing the palette it mounted with.
+---
+
+<ComponentPreview componentName="use-theme-tick" />
+
+Eight bars on a `<canvas>`, painted with `resolveTokenColor(host, "--chart-N")`. Flip the appearance
+toggle: nothing about that changes a prop, and without this hook the canvas would keep the palette
+it was born with.
+
+## Usage
+
+```tsx
+import { resolveTokenColor, useThemeTick } from "@kanzo-tech/ui";
+```
+
+Both are on the root barrel and neither needs an optional peer: a token resolver is not an engine.
+
+```tsx
+const tick = useThemeTick();
+
+useEffect(() => {
+  const ctx = canvas.current?.getContext("2d");
+  if (!ctx || !host.current) return;
+  ctx.fillStyle = resolveTokenColor(host.current, "--chart-1");
+  ctx.fillRect(0, 0, 40, 40);
+}, [tick]);
+```
+
+The returned number is meaningless on its own — it is a dependency, and the only correct use of it
+is in a dependency list.
+
+## Why a literal goes stale
+
+CSS follows the theme for free: a `style={{ color: "var(--chart-1)" }}` re-resolves the moment the
+cascade changes, with no React involvement at all. **Take that route whenever your sink is CSS.**
+
+A canvas is not CSS. `fillStyle` cannot take `var(--chart-1)`, and neither can Observable Plot,
+whose `isColor` reads an unresolved token as a *column name* and kills the query. So both have to be
+handed a literal — and a literal is a snapshot of whatever palette was live when it was read.
+
+Things that move that palette, none of which re-render anything on their own:
+
+- `KanzoThemeProvider` writes its axes as `data-*` attributes on `<html>`
+- next-themes toggles `.dark` on the same element
+- **the tenant's palette changes**, which moves nothing on `<html>` at all
+
+The first two are attribute writes on `document.documentElement`. The third is the one worth
+knowing about: a palette is a whole *document*, so switching one swaps a `<style>` in `<head>` and
+every token underneath changes value with the root untouched. An observer on the root cannot see
+it — which is why this hook also reads the provider's palette preference and watches `<head>`,
+where the stylesheet actually lands however a host applies it.
+
+<Callout type="warn">
+Do **not** hand-roll the observer. The local copy this replaced filtered attributes down to `class`,
+`style` and `data-theme` — so every theme axis added after it was written stopped repainting the
+surface. A filter is a list of the axes that existed the day someone typed it; observing the element
+is not.
+</Callout>
+
+## Who already does this for you
+
+`ChartRoot` does — via `TokenizedPlot`, which re-resolves every mark colour and rebuilds the plot on
+each tick. You need this hook for surfaces the library does not paint: a `ChartRaw` mark you resolve
+yourself, a WebGL graph, a map, any imperative widget.
+
+Note the pairing with [`useChart`](/docs/hooks/use-chart): `color(key)` from the chart context is
+already resolved, and therefore also a snapshot. Where it lands in CSS, pass the token through
+instead; where it lands on a canvas, pair it with this.
+
+## API Reference
+
+```ts
+function useThemeTick(): number;
+```
+
+Takes no arguments.
+
+### Returns
+
+`number` — a counter incremented on every attribute mutation of `document.documentElement`, on every
+`<head>` mutation, and whenever the provider's palette preference moves. Starts at `0`, including on
+the server and on the first client render, so it never causes a hydration mismatch. Feed it to an
+effect's dependency list; do not render it.
+
+A `<head>` mutation is also how a router inserting route CSS looks, so the counter ticks a little
+more often than colour strictly changes. That is the trade, and it is the correct way round: a false
+tick costs one re-resolve, a missed one leaves a canvas painting a brand nobody selected.
+
+The observers are installed once on mount and disconnected on unmount. Where `MutationObserver` is
+undefined the hook stays at `0` rather than throwing, and the provider half is optional, so a
+surface still works without one.
+
+### Related
+
+| Export | What it is |
+| --- | --- |
+| `resolveTokenColor(host, token)` | reads a token off the live cascade and normalises it to a Plot-safe `rgb(...)` |
+| [`useChartCapacity`](/docs/hooks/use-chart-capacity) | the same subscription, applied to `--chart-capacity` |

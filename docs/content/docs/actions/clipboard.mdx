@@ -57,22 +57,33 @@ Everything below the root reads its state through context; `useClipboard` (Ark's
 `ClipboardValueText` is the read-only half of the pair: it renders the root's `value` as text in
 the same field box `ClipboardInput` draws, for a share link you show rather than let anyone edit.
 
-## API
+## API Reference
 
 ### Clipboard
 
 | Prop | Type | Default |
 | --- | --- | --- |
 | `value` | `string` | — |
+| `defaultValue` | `string` | `""` |
 | `timeout` | `number` | `3000` |
 | `onValueChange` | `(details) => void` | — |
 | `onStatusChange` | `(details) => void` | — |
 
-Ark's `Clipboard.Root` props pass through.
+No props of its own — this is the machine's API. Extends
+`React.ComponentProps<typeof ArkClipboard.Root>`, so `ref` and every native div prop pass
+through.
 
 ### ClipboardIndicator
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `copied` | `ReactNode` | `<CheckIcon />` |
-| `children` | `ReactNode` | `<CopyIcon />` |
+| `copied` | `React.ReactNode` | `<CheckIcon />` |
+| `children` | `React.ReactNode` | `<CopyIcon />` |
+
+### Other parts
+
+`ClipboardTrigger` is styled with `buttonVariants` as a ghost `icon-sm` button and defaults its
+child to a `ClipboardIndicator`. `ClipboardInput` is styled with `inputVariants` at `size: "md"`.
+`ClipboardLabel` renders Ark's `Clipboard.Label` inside a [`FieldLabel`](/docs/forms/field);
+`ClipboardControl` takes its Ark part's props. None of the four adds a prop of its own.
+`useClipboard` re-exports Ark's `useClipboardContext`.

@@ -31,9 +31,9 @@ import { OBLIGATIONS, type Adjustment, type Ramp, type RampRelief } from "./ramp
  * cannot be read at all. A document with no version at all is readable only by the exact code that
  * wrote it, which for an artefact meant to outlive a deploy is no answer.
  */
-export const PALETTE_SCHEMA_VERSION = 2;
+export const PALETTE_SCHEMA_VERSION = 3;
 
-/** The six ramps a document carries. `brand` and `neutral` are the client's; the rest are Kanzo's. */
+/** The six ramps a resolution needs. `brand` and `neutral` are the client's; the rest are Kanzo's. */
 export type RampName = "brand" | "neutral" | "destructive" | "warning" | "success" | "info";
 
 export const RAMP_NAMES = [
@@ -44,6 +44,24 @@ export const RAMP_NAMES = [
   "success",
   "info",
 ] as const satisfies readonly RampName[];
+
+/**
+ * The five ramps a *document* stores — every ramp that is not a brand.
+ *
+ * `brand` is the one ramp a tenant may have several of, so it moved into `Identity` and the document
+ * keeps what every identity shares. The split is the whole point of an identity: the neutral, the
+ * four statuses and the syntax roles are the product, and the brand is the accent on it. If the
+ * neutral varied too, a tenant with three identities would have three products.
+ */
+export type SharedRampName = Exclude<RampName, "brand">;
+
+export const SHARED_RAMP_NAMES = [
+  "neutral",
+  "destructive",
+  "warning",
+  "success",
+  "info",
+] as const satisfies readonly SharedRampName[];
 
 /**
  * The four status families, fixed by Kanzo and not client-overridable.
@@ -68,8 +86,15 @@ export const STATUS_NAMES = [
  * claim about values it no longer contains, and `checkRamp` re-measuring the stored steps is the
  * only thing standing between a stored document and that lie. `derive-palette.test.ts` runs that
  * re-measurement over every ramp in the document for exactly this reason.
+ *
+ * This is `resolveRoles`' input and not a document's field: a resolution always happens against
+ * exactly one brand, whichever identity is being resolved. What a document *stores* is a
+ * `SharedRampSet` plus a brand ramp per identity.
  */
 export type RampSet = Record<RampName, Record<Mode, Ramp>>;
+
+/** The five shared ramps × two modes. Same guarantee as `RampSet`, minus the brand. */
+export type SharedRampSet = Record<SharedRampName, Record<Mode, Ramp>>;
 
 /**
  * Where a document is in its life.
@@ -94,7 +119,16 @@ export type PaletteState = "draft" | "published" | "retired";
 export type HueSource = "neutral-seed" | "brand" | "none";
 
 export interface TenantSeeds {
-  /** The client's brand colour, as given. Determines step 9 of the brand ramp and nothing else. */
+  /**
+   * The **default identity's** brand colour, as given.
+   *
+   * It used to say "determines step 9 of the brand ramp and nothing else", and both halves of that
+   * are now false. There are N brand ramps, one per identity, and each identity carries its own
+   * seed; and this one seed additionally sets the neutral's hue whenever the client gave no neutral,
+   * which paints 90% of the pixels. That second half is exactly why `derivePalette` refuses to carry
+   * a brand hue over once a tenant publishes more than one identity — a neutral tinted with the
+   * retail blue is the wrong page to paint the private gold on.
+   */
   brand: string;
   /** The neutral seed actually used — the client's, or the one derived from the brand hue. */
   neutral: string;
@@ -203,7 +237,7 @@ export interface CategoricalSet {
  */
 export type RoleValues = Record<string, string>;
 
-/** An `Adjustment` with the ramp and mode it happened in — a document has twelve ramps, not one. */
+/** An `Adjustment` with the ramp and mode it happened in — a document has ten ramps, not one. */
 export interface TaggedAdjustment extends Adjustment {
   ramp: RampName;
   mode: Mode;
@@ -278,6 +312,61 @@ export interface PaletteRecord {
 }
 
 /**
+ * One brand a tenant publishes — a sub-brand, in the client's own words.
+ *
+ * A tenant is one product with one neutral, and an identity is the accent on it: a brand seed, and
+ * everything that follows from a brand seed and nothing else. That is a brand ramp pair and a
+ * categorical set, because the chart wheel is spun from the brand's own hue. It is emphatically
+ * *not* the neutral, the four statuses or the syntax roles — see `SharedRampName`.
+ *
+ * This resurrects `data-palette` in all but name, and that is worth saying rather than letting
+ * someone find it as a contradiction. The mechanism is the same; the authority is not.
+ * `data-palette` picked from a catalogue of six themes the library shipped, so an end user could
+ * override a client's branding with Dracula. `data-identity` picks among values the client authored
+ * and published. The attribute was never the thing that was wrong.
+ */
+export interface Identity {
+  /**
+   * Stable, and `/^[a-z0-9][a-z0-9-]*$/`.
+   *
+   * It is interpolated into a `[data-identity="…"]` selector, so a document that cannot be compiled
+   * should not be derivable — `derivePalette` validates it rather than `compile` escaping it, which
+   * is what keeps `compile` a string join.
+   */
+  id: string;
+  /**
+   * Human-facing, authored by the **client**.
+   *
+   * Never formatted by a host. `AppearanceToggle`'s `formatName` exists because the library authored
+   * "Light" and "Dark"; a formatter over this would only let a host decorate someone else's brand
+   * name. Per-locale names, if ever needed, are a `Record<locale, string>` here.
+   */
+  label: string;
+  /** The seed. The one value everything below is derived from. */
+  brand: string;
+  ramp: Record<Mode, Ramp>;
+  categorical: CategoricalSet;
+  /**
+   * This identity's tokens, resolved — the `IDENTITY_TOKENS` subset and nothing else.
+   *
+   * The default identity's copy is a *subset of* `TenantPalette.roles`, which is the one place this
+   * schema duplicates rather than moves. The alternative was to reconstruct the default's full map
+   * by merging at compile time, which buys 15 keys and costs the property that `roles` is the thing
+   * runtime applies with no assembly. `derive-palette.test.ts` guards the duplication key for key.
+   */
+  roles: Record<Mode, RoleValues>;
+  /**
+   * What *this* seed gave up.
+   *
+   * Per identity because "your gold moved two steps" is a claim about that seed. The split is
+   * mechanical: `TaggedAdjustment.ramp` and `TaggedRelief.ramp` already say which ramp moved, so
+   * `brand` rows land here and the rest land on the document. A cross-check row goes wherever the
+   * token it grades does.
+   */
+  record: PaletteRecord;
+}
+
+/**
  * One tenant's colour identity, derived and measured once, applied everywhere.
  *
  * Read by `compile` to make the stylesheet, and by the onboarding screen to explain itself. There is
@@ -293,10 +382,21 @@ export interface TenantPalette {
   state: PaletteState;
   seeds: TenantSeeds;
   engine: PaletteEngine;
-  ramps: RampSet;
-  categorical: CategoricalSet;
-  /** The tokens, resolved, per mode. What `compile` emits and the only thing runtime needs. */
+  /** The five ramps every identity shares. The brand ramps live on the identities. */
+  ramps: SharedRampSet;
+  /** At least one, ids unique. Order is the client's — a panel lists them in it. */
+  identities: Identity[];
+  /** The id of the identity `:root` and `.dark` carry. Always names one of `identities`. */
+  defaultIdentity: string;
+  /**
+   * The **default identity's** tokens, resolved, per mode — the whole map, not a subset.
+   *
+   * What `compile` emits as `:root` / `.dark`, and the only thing a runtime with one identity needs.
+   * A single-identity document therefore has exactly the field a v2 document had, which is what
+   * makes the common case compile to the bytes it did before.
+   */
   roles: Record<Mode, RoleValues>;
+  /** Everything the shared ramps gave up, and every measurement about a shared token. */
   record: PaletteRecord;
 }
 

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "id": "kanzo",
   "label": "Kanzo",
   "state": "published",
@@ -25,108 +25,6 @@
     "derivedAt": "2026-07-29T00:00:00.000Z"
   },
   "ramps": {
-    "brand": {
-      "light": {
-        "seed": "#737373",
-        "mode": "light",
-        "hue": null,
-        "steps": [
-          "#fafafa",
-          "#f7f7f7",
-          "#efefef",
-          "#e6e6e6",
-          "#d9d9d9",
-          "#c9c9c9",
-          "#b3b3b3",
-          "#979797",
-          "#737373",
-          "#6a6a6a",
-          "#454545",
-          "#0f0f0f"
-        ],
-        "alpha": [
-          "#fafafa00",
-          "#00000001",
-          "#00000008",
-          "#00000011",
-          "#0000001f",
-          "#0000002f",
-          "#00000045",
-          "#00000062",
-          "#00000088",
-          "#00000091",
-          "#000000b7",
-          "#000000ee"
-        ],
-        "onSolid": "#fafafa",
-        "boundary": 9,
-        "adjustments": [],
-        "relief": [
-          {
-            "step": 9,
-            "id": "carries-identity",
-            "wanted": 0.1,
-            "got": 2.0706701893915187e-8
-          }
-        ],
-        "drift": {
-          "lightness": 0,
-          "chroma": 0,
-          "deltaE": 0,
-          "hue": 0
-        }
-      },
-      "dark": {
-        "seed": "#737373",
-        "mode": "dark",
-        "hue": null,
-        "steps": [
-          "#0a0a0a",
-          "#0d0d0d",
-          "#141414",
-          "#1d1d1d",
-          "#282828",
-          "#353535",
-          "#464646",
-          "#5a5a5a",
-          "#737373",
-          "#7c7c7c",
-          "#aaaaaa",
-          "#efefef"
-        ],
-        "alpha": [
-          "#0a0a0a00",
-          "#ffffff01",
-          "#ffffff08",
-          "#ffffff12",
-          "#ffffff1d",
-          "#ffffff2b",
-          "#ffffff3c",
-          "#ffffff51",
-          "#ffffff6b",
-          "#ffffff75",
-          "#ffffffa3",
-          "#ffffffeb"
-        ],
-        "onSolid": "#ffffff",
-        "boundary": 9,
-        "adjustments": [],
-        "relief": [
-          {
-            "step": 9,
-            "id": "carries-identity",
-            "wanted": 0.1,
-            "got": 2.0706701893915187e-8
-          }
-        ],
-        "drift": {
-          "lightness": 0,
-          "chroma": 0,
-          "deltaE": 0,
-          "hue": 0
-        }
-      }
-    },
     "neutral": {
       "light": {
         "seed": "#737373",
@@ -582,65 +480,476 @@
       }
     }
   },
-  "categorical": {
-    "source": {
-      "from": "default-scheme",
-      "hue": null,
-      "spokes": 0,
-      "family": null
-    },
-    "light": [
-      "#00c950",
-      "#a800b7",
-      "#ff8904",
-      "#2b7fff",
-      "#ff2056",
-      "#7008e7",
-      "#a65f00",
-      "#0092b8"
-    ],
-    "dark": [
-      "#e12afb",
-      "#a65f00",
-      "#0092b8",
-      "#f54900",
-      "#2b7fff",
-      "#00a63e",
-      "#7f22fe",
-      "#c70036"
-    ],
-    "capacity": 8,
-    "families": [
-      "blue",
-      "green",
-      "violet",
-      "yellow",
-      "cyan",
-      "orange",
-      "fuchsia",
-      "rose"
-    ],
-    "kept": [
-      "blue",
-      "green",
-      "violet",
-      "yellow",
-      "cyan",
-      "orange",
-      "fuchsia",
-      "rose"
-    ],
-    "crowded": [],
-    "dropped": [],
-    "separation": {
-      "light": 20.889395314593155,
-      "dark": 20.889395314593155
-    },
-    "leading": {
-      "light": 2,
-      "dark": 1
+  "identities": [
+    {
+      "id": "kanzo",
+      "label": "Kanzo",
+      "brand": "#737373",
+      "ramp": {
+        "light": {
+          "seed": "#737373",
+          "mode": "light",
+          "hue": null,
+          "steps": [
+            "#fafafa",
+            "#f7f7f7",
+            "#efefef",
+            "#e6e6e6",
+            "#d9d9d9",
+            "#c9c9c9",
+            "#b3b3b3",
+            "#979797",
+            "#737373",
+            "#6a6a6a",
+            "#454545",
+            "#0f0f0f"
+          ],
+          "alpha": [
+            "#fafafa00",
+            "#00000001",
+            "#00000008",
+            "#00000011",
+            "#0000001f",
+            "#0000002f",
+            "#00000045",
+            "#00000062",
+            "#00000088",
+            "#00000091",
+            "#000000b7",
+            "#000000ee"
+          ],
+          "onSolid": "#fafafa",
+          "boundary": 9,
+          "adjustments": [],
+          "relief": [
+            {
+              "step": 9,
+              "id": "carries-identity",
+              "wanted": 0.1,
+              "got": 2.0706701893915187e-8
+            }
+          ],
+          "drift": {
+            "lightness": 0,
+            "chroma": 0,
+            "deltaE": 0,
+            "hue": 0
+          }
+        },
+        "dark": {
+          "seed": "#737373",
+          "mode": "dark",
+          "hue": null,
+          "steps": [
+            "#0a0a0a",
+            "#0d0d0d",
+            "#141414",
+            "#1d1d1d",
+            "#282828",
+            "#353535",
+            "#464646",
+            "#5a5a5a",
+            "#737373",
+            "#7c7c7c",
+            "#aaaaaa",
+            "#efefef"
+          ],
+          "alpha": [
+            "#0a0a0a00",
+            "#ffffff01",
+            "#ffffff08",
+            "#ffffff12",
+            "#ffffff1d",
+            "#ffffff2b",
+            "#ffffff3c",
+            "#ffffff51",
+            "#ffffff6b",
+            "#ffffff75",
+            "#ffffffa3",
+            "#ffffffeb"
+          ],
+          "onSolid": "#ffffff",
+          "boundary": 9,
+          "adjustments": [],
+          "relief": [
+            {
+              "step": 9,
+              "id": "carries-identity",
+              "wanted": 0.1,
+              "got": 2.0706701893915187e-8
+            }
+          ],
+          "drift": {
+            "lightness": 0,
+            "chroma": 0,
+            "deltaE": 0,
+            "hue": 0
+          }
+        }
+      },
+      "categorical": {
+        "source": {
+          "from": "default-scheme",
+          "hue": null,
+          "spokes": 0,
+          "family": null
+        },
+        "light": [
+          "#00c950",
+          "#a800b7",
+          "#ff8904",
+          "#2b7fff",
+          "#ff2056",
+          "#7008e7",
+          "#a65f00",
+          "#0092b8"
+        ],
+        "dark": [
+          "#e12afb",
+          "#a65f00",
+          "#0092b8",
+          "#f54900",
+          "#2b7fff",
+          "#00a63e",
+          "#7f22fe",
+          "#c70036"
+        ],
+        "capacity": 8,
+        "families": [
+          "blue",
+          "green",
+          "violet",
+          "yellow",
+          "cyan",
+          "orange",
+          "fuchsia",
+          "rose"
+        ],
+        "kept": [
+          "blue",
+          "green",
+          "violet",
+          "yellow",
+          "cyan",
+          "orange",
+          "fuchsia",
+          "rose"
+        ],
+        "crowded": [],
+        "dropped": [],
+        "separation": {
+          "light": 20.889395314593155,
+          "dark": 20.889395314593155
+        },
+        "leading": {
+          "light": 2,
+          "dark": 1
+        }
+      },
+      "roles": {
+        "light": {
+          "--primary": "#0f0f0f",
+          "--primary-foreground": "#fafafa",
+          "--ring": "#737373",
+          "--sidebar-primary": "#0f0f0f",
+          "--sidebar-primary-foreground": "#fafafa",
+          "--sidebar-ring": "#737373",
+          "--chart-1": "#00c950",
+          "--chart-2": "#a800b7",
+          "--chart-3": "#ff8904",
+          "--chart-4": "#2b7fff",
+          "--chart-5": "#ff2056",
+          "--chart-6": "#7008e7",
+          "--chart-7": "#a65f00",
+          "--chart-8": "#0092b8",
+          "--selection": "#0000001f"
+        },
+        "dark": {
+          "--primary": "#efefef",
+          "--primary-foreground": "#0a0a0a",
+          "--ring": "#737373",
+          "--sidebar-primary": "#efefef",
+          "--sidebar-primary-foreground": "#0a0a0a",
+          "--sidebar-ring": "#737373",
+          "--chart-1": "#e12afb",
+          "--chart-2": "#a65f00",
+          "--chart-3": "#0092b8",
+          "--chart-4": "#f54900",
+          "--chart-5": "#2b7fff",
+          "--chart-6": "#00a63e",
+          "--chart-7": "#7f22fe",
+          "--chart-8": "#c70036",
+          "--selection": "#ffffff1d"
+        }
+      },
+      "record": {
+        "adjustments": [],
+        "relief": [
+          {
+            "step": 9,
+            "id": "carries-identity",
+            "wanted": 0.1,
+            "got": 2.0706701893915187e-8,
+            "ramp": "brand",
+            "mode": "light"
+          },
+          {
+            "step": 9,
+            "id": "carries-identity",
+            "wanted": 0.1,
+            "got": 2.0706701893915187e-8,
+            "ramp": "brand",
+            "mode": "dark"
+          }
+        ],
+        "crossChecks": [
+          {
+            "id": "fill-on-page",
+            "mode": "light",
+            "token": "--primary",
+            "against": "--background",
+            "kind": "gate",
+            "wanted": 3,
+            "got": 18.36490146542823,
+            "ok": true,
+            "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
+          },
+          {
+            "id": "boundary-on-page",
+            "mode": "light",
+            "token": "--ring",
+            "against": "--background",
+            "kind": "gate",
+            "wanted": 3,
+            "got": 4.542848413958314,
+            "ok": true,
+            "reason": "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component. `--ring` comes from the brand ramp, so on the neutral page this is a new measurement."
+          },
+          {
+            "id": "boundary-on-elevated",
+            "mode": "light",
+            "token": "--ring",
+            "against": "--popover",
+            "kind": "gate",
+            "wanted": 3,
+            "got": 4.542848413958314,
+            "ok": true,
+            "reason": "A focus ring on a raised surface. In dark the popover sits two steps up the neutral ramp, so it is a different background from the page and 1.4.11 still applies."
+          },
+          {
+            "id": "series-on-page",
+            "mode": "light",
+            "token": "--chart-1",
+            "against": "--background",
+            "kind": "relief",
+            "wanted": 3,
+            "got": 2.1244366668471875,
+            "ok": false,
+            "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
+          },
+          {
+            "id": "series-on-page",
+            "mode": "light",
+            "token": "--chart-2",
+            "against": "--background",
+            "kind": "relief",
+            "wanted": 3,
+            "got": 6.0080606689138785,
+            "ok": true,
+            "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
+          },
+          {
+            "id": "series-on-page",
+            "mode": "light",
+            "token": "--chart-3",
+            "against": "--background",
+            "kind": "relief",
+            "wanted": 3,
+            "got": 2.278014912653454,
+            "ok": false,
+            "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
+          },
+          {
+            "id": "series-on-page",
+            "mode": "light",
+            "token": "--chart-4",
+            "against": "--background",
+            "kind": "relief",
+            "wanted": 3,
+            "got": 3.604045852659484,
+            "ok": true,
+            "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
+          },
+          {
+            "id": "series-on-page",
+            "mode": "light",
+            "token": "--chart-5",
+            "against": "--background",
+            "kind": "relief",
+            "wanted": 3,
+            "got": 3.5972702026440344,
+            "ok": true,
+            "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
+          },
+          {
+            "id": "series-on-page",
+            "mode": "light",
+            "token": "--chart-6",
+            "against": "--background",
+            "kind": "relief",
+            "wanted": 3,
+            "got": 6.9917854263647765,
+            "ok": true,
+            "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
+          },
+          {
+            "id": "series-on-page",
+            "mode": "light",
+            "token": "--chart-7",
+            "against": "--background",
+            "kind": "relief",
+            "wanted": 3,
+            "got": 4.724785269607146,
+            "ok": true,
+            "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
+          },
+          {
+            "id": "series-on-page",
+            "mode": "light",
+            "token": "--chart-8",
+            "against": "--background",
+            "kind": "relief",
+            "wanted": 3,
+            "got": 3.4666668669774086,
+            "ok": true,
+            "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
+          },
+          {
+            "id": "fill-on-page",
+            "mode": "dark",
+            "token": "--primary",
+            "against": "--background",
+            "kind": "gate",
+            "wanted": 3,
+            "got": 17.21792339864869,
+            "ok": true,
+            "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
+          },
+          {
+            "id": "boundary-on-page",
+            "mode": "dark",
+            "token": "--ring",
+            "against": "--background",
+            "kind": "gate",
+            "wanted": 3,
+            "got": 4.175355408197547,
+            "ok": true,
+            "reason": "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component. `--ring` comes from the brand ramp, so on the neutral page this is a new measurement."
+          },
+          {
+            "id": "boundary-on-elevated",
+            "mode": "dark",
+            "token": "--ring",
+            "against": "--popover",
+            "kind": "gate",
+            "wanted": 3,
+            "got": 3.885244443460461,
+            "ok": true,
+            "reason": "A focus ring on a raised surface. In dark the popover sits two steps up the neutral ramp, so it is a different background from the page and 1.4.11 still applies."
+          },
+          {
+            "id": "series-on-page",
+            "mode": "dark",
+            "token": "--chart-1",
+            "against": "--background",
+            "kind": "relief",
+            "wanted": 3,
+            "got": 5.586568161041031,
+            "ok": true,
+            "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
+          },
+          {
+            "id": "series-on-page",
+            "mode": "dark",
+            "token": "--chart-2",
+            "against": "--background",
+            "kind": "relief",
+            "wanted": 3,
+            "got": 4.0145753958083334,
+            "ok": true,
+            "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
+          },
+          {
+            "id": "series-on-page",
+            "mode": "dark",
+            "token": "--chart-3",
+            "against": "--background",
+            "kind": "relief",
+            "wanted": 3,
+            "got": 5.471540076298338,
+            "ok": true,
+            "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
+          },
+          {
+            "id": "series-on-page",
+            "mode": "dark",
+            "token": "--chart-4",
+            "against": "--background",
+            "kind": "relief",
+            "wanted": 3,
+            "got": 5.501539741277353,
+            "ok": true,
+            "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
+          },
+          {
+            "id": "series-on-page",
+            "mode": "dark",
+            "token": "--chart-5",
+            "against": "--background",
+            "kind": "relief",
+            "wanted": 3,
+            "got": 5.262975963484396,
+            "ok": true,
+            "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
+          },
+          {
+            "id": "series-on-page",
+            "mode": "dark",
+            "token": "--chart-6",
+            "against": "--background",
+            "kind": "relief",
+            "wanted": 3,
+            "got": 6.150668604073919,
+            "ok": true,
+            "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
+          },
+          {
+            "id": "series-on-page",
+            "mode": "dark",
+            "token": "--chart-7",
+            "against": "--background",
+            "kind": "relief",
+            "wanted": 3,
+            "got": 3.3584891715526224,
+            "ok": true,
+            "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
+          },
+          {
+            "id": "series-on-page",
+            "mode": "dark",
+            "token": "--chart-8",
+            "against": "--background",
+            "kind": "relief",
+            "wanted": 3,
+            "got": 3.282429930180224,
+            "ok": true,
+            "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
+          }
+        ]
+      }
     }
-  },
+  ],
+  "defaultIdentity": "kanzo",
   "roles": {
     "light": {
       "--background": "#fafafa",
@@ -813,22 +1122,6 @@
         "id": "carries-identity",
         "wanted": 0.1,
         "got": 2.0706701893915187e-8,
-        "ramp": "brand",
-        "mode": "light"
-      },
-      {
-        "step": 9,
-        "id": "carries-identity",
-        "wanted": 0.1,
-        "got": 2.0706701893915187e-8,
-        "ramp": "brand",
-        "mode": "dark"
-      },
-      {
-        "step": 9,
-        "id": "carries-identity",
-        "wanted": 0.1,
-        "got": 2.0706701893915187e-8,
         "ramp": "neutral",
         "mode": "light"
       },
@@ -842,17 +1135,6 @@
       }
     ],
     "crossChecks": [
-      {
-        "id": "fill-on-page",
-        "mode": "light",
-        "token": "--primary",
-        "against": "--background",
-        "kind": "gate",
-        "wanted": 3,
-        "got": 18.36490146542823,
-        "ok": true,
-        "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
-      },
       {
         "id": "fill-on-page",
         "mode": "light",
@@ -944,35 +1226,13 @@
       {
         "id": "boundary-on-page",
         "mode": "light",
-        "token": "--ring",
-        "against": "--background",
-        "kind": "gate",
-        "wanted": 3,
-        "got": 4.542848413958314,
-        "ok": true,
-        "reason": "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component. `--ring` comes from the brand ramp, so on the neutral page this is a new measurement."
-      },
-      {
-        "id": "boundary-on-page",
-        "mode": "light",
         "token": "--input",
         "against": "--background",
         "kind": "gate",
         "wanted": 3,
         "got": 4.542848413958314,
         "ok": true,
-        "reason": "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component. `--ring` comes from the brand ramp, so on the neutral page this is a new measurement."
-      },
-      {
-        "id": "boundary-on-elevated",
-        "mode": "light",
-        "token": "--ring",
-        "against": "--popover",
-        "kind": "gate",
-        "wanted": 3,
-        "got": 4.542848413958314,
-        "ok": true,
-        "reason": "A focus ring on a raised surface. In dark the popover sits two steps up the neutral ramp, so it is a different background from the page and 1.4.11 still applies."
+        "reason": "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component."
       },
       {
         "id": "syntax-on-page",
@@ -1118,105 +1378,6 @@
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
       },
       {
-        "id": "series-on-page",
-        "mode": "light",
-        "token": "--chart-1",
-        "against": "--background",
-        "kind": "relief",
-        "wanted": 3,
-        "got": 2.1244366668471875,
-        "ok": false,
-        "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
-      },
-      {
-        "id": "series-on-page",
-        "mode": "light",
-        "token": "--chart-2",
-        "against": "--background",
-        "kind": "relief",
-        "wanted": 3,
-        "got": 6.0080606689138785,
-        "ok": true,
-        "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
-      },
-      {
-        "id": "series-on-page",
-        "mode": "light",
-        "token": "--chart-3",
-        "against": "--background",
-        "kind": "relief",
-        "wanted": 3,
-        "got": 2.278014912653454,
-        "ok": false,
-        "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
-      },
-      {
-        "id": "series-on-page",
-        "mode": "light",
-        "token": "--chart-4",
-        "against": "--background",
-        "kind": "relief",
-        "wanted": 3,
-        "got": 3.604045852659484,
-        "ok": true,
-        "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
-      },
-      {
-        "id": "series-on-page",
-        "mode": "light",
-        "token": "--chart-5",
-        "against": "--background",
-        "kind": "relief",
-        "wanted": 3,
-        "got": 3.5972702026440344,
-        "ok": true,
-        "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
-      },
-      {
-        "id": "series-on-page",
-        "mode": "light",
-        "token": "--chart-6",
-        "against": "--background",
-        "kind": "relief",
-        "wanted": 3,
-        "got": 6.9917854263647765,
-        "ok": true,
-        "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
-      },
-      {
-        "id": "series-on-page",
-        "mode": "light",
-        "token": "--chart-7",
-        "against": "--background",
-        "kind": "relief",
-        "wanted": 3,
-        "got": 4.724785269607146,
-        "ok": true,
-        "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
-      },
-      {
-        "id": "series-on-page",
-        "mode": "light",
-        "token": "--chart-8",
-        "against": "--background",
-        "kind": "relief",
-        "wanted": 3,
-        "got": 3.4666668669774086,
-        "ok": true,
-        "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
-      },
-      {
-        "id": "fill-on-page",
-        "mode": "dark",
-        "token": "--primary",
-        "against": "--background",
-        "kind": "gate",
-        "wanted": 3,
-        "got": 17.21792339864869,
-        "ok": true,
-        "reason": "A solid fill must read as a shape against the page the tenant actually renders, which is the neutral ramp's step 1 and not this ramp's own."
-      },
-      {
         "id": "fill-on-page",
         "mode": "dark",
         "token": "--destructive",
@@ -1307,35 +1468,13 @@
       {
         "id": "boundary-on-page",
         "mode": "dark",
-        "token": "--ring",
-        "against": "--background",
-        "kind": "gate",
-        "wanted": 3,
-        "got": 4.175355408197547,
-        "ok": true,
-        "reason": "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component. `--ring` comes from the brand ramp, so on the neutral page this is a new measurement."
-      },
-      {
-        "id": "boundary-on-page",
-        "mode": "dark",
         "token": "--input",
         "against": "--background",
         "kind": "gate",
         "wanted": 3,
         "got": 4.175355408197547,
         "ok": true,
-        "reason": "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component. `--ring` comes from the brand ramp, so on the neutral page this is a new measurement."
-      },
-      {
-        "id": "boundary-on-elevated",
-        "mode": "dark",
-        "token": "--ring",
-        "against": "--popover",
-        "kind": "gate",
-        "wanted": 3,
-        "got": 3.885244443460461,
-        "ok": true,
-        "reason": "A focus ring on a raised surface. In dark the popover sits two steps up the neutral ramp, so it is a different background from the page and 1.4.11 still applies."
+        "reason": "WCAG 1.4.11 asks 3:1 of the visual boundary that identifies an interactive component."
       },
       {
         "id": "syntax-on-page",
@@ -1479,94 +1618,6 @@
         "got": 6.918045049684447,
         "ok": true,
         "reason": "The syntax roles are Kanzo's and a client's brand does not repaint keywords — but AA is measured against the page, and the page is the tenant's."
-      },
-      {
-        "id": "series-on-page",
-        "mode": "dark",
-        "token": "--chart-1",
-        "against": "--background",
-        "kind": "relief",
-        "wanted": 3,
-        "got": 5.586568161041031,
-        "ok": true,
-        "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
-      },
-      {
-        "id": "series-on-page",
-        "mode": "dark",
-        "token": "--chart-2",
-        "against": "--background",
-        "kind": "relief",
-        "wanted": 3,
-        "got": 4.0145753958083334,
-        "ok": true,
-        "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
-      },
-      {
-        "id": "series-on-page",
-        "mode": "dark",
-        "token": "--chart-3",
-        "against": "--background",
-        "kind": "relief",
-        "wanted": 3,
-        "got": 5.471540076298338,
-        "ok": true,
-        "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
-      },
-      {
-        "id": "series-on-page",
-        "mode": "dark",
-        "token": "--chart-4",
-        "against": "--background",
-        "kind": "relief",
-        "wanted": 3,
-        "got": 5.501539741277353,
-        "ok": true,
-        "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
-      },
-      {
-        "id": "series-on-page",
-        "mode": "dark",
-        "token": "--chart-5",
-        "against": "--background",
-        "kind": "relief",
-        "wanted": 3,
-        "got": 5.262975963484396,
-        "ok": true,
-        "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
-      },
-      {
-        "id": "series-on-page",
-        "mode": "dark",
-        "token": "--chart-6",
-        "against": "--background",
-        "kind": "relief",
-        "wanted": 3,
-        "got": 6.150668604073919,
-        "ok": true,
-        "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
-      },
-      {
-        "id": "series-on-page",
-        "mode": "dark",
-        "token": "--chart-7",
-        "against": "--background",
-        "kind": "relief",
-        "wanted": 3,
-        "got": 3.3584891715526224,
-        "ok": true,
-        "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
-      },
-      {
-        "id": "series-on-page",
-        "mode": "dark",
-        "token": "--chart-8",
-        "against": "--background",
-        "kind": "relief",
-        "wanted": 3,
-        "got": 3.282429930180224,
-        "ok": true,
-        "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
       }
     ]
   }

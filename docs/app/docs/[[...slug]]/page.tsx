@@ -1,9 +1,11 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DocsBody, DocsDescription, DocsPage, DocsTitle } from "fumadocs-ui/page";
-import { ExternalLinkIcon } from "lucide-react";
-import { Show } from "@kanzo-tech/ui";
+import { MarkdownCopyButton, ViewOptionsPopover } from "fumadocs-ui/layouts/docs/page";
 import { source } from "@/lib/source";
 import { getMDXComponents } from "@/mdx-components";
+import { UpstreamLinks } from "@/components/upstream-links";
+import { baseUrl, ogImageUrl, siteName } from "@/lib/metadata";
 
 export default async function Page(props: { params: Promise<{ slug?: string[] }> }) {
   const params = await props.params;
@@ -11,28 +13,19 @@ export default async function Page(props: { params: Promise<{ slug?: string[] }>
   if (!page) notFound();
 
   const MDX = page.data.body;
-  const doc = page.data.links?.doc;
+  const markdownUrl = `${page.url}.mdx`;
 
   return (
     <DocsPage toc={page.data.toc} full={page.data.full}>
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
-      {/* The `links.doc` frontmatter, rendered where Shark renders it: a row under the title,
-          pointing at the upstream page this component wraps. Collected on 55 pages and shown on
-          none until this existed. */}
-      <Show when={Boolean(doc)}>
-        <div className="not-prose mb-6 flex flex-wrap gap-2">
-          <a
-            className="inline-flex items-center gap-1.5 rounded-md border bg-fd-secondary/50 px-2.5 py-1 text-fd-muted-foreground text-sm transition-colors hover:bg-fd-accent hover:text-fd-accent-foreground"
-            href={doc}
-            rel="noreferrer noopener"
-            target="_blank"
-          >
-            Ark UI docs
-            <ExternalLinkIcon aria-hidden className="size-3.5" />
-          </a>
-        </div>
-      </Show>
+      {/* One row, so the badge sizes to its content: as a bare child of DocsPage's flex column
+          it stretched to the full page width. No `githubUrl` — this repo has no remote. */}
+      <div className="flex flex-row flex-wrap items-center gap-2 border-b pt-2 pb-6">
+        <MarkdownCopyButton markdownUrl={markdownUrl} />
+        <ViewOptionsPopover markdownUrl={markdownUrl} />
+        <UpstreamLinks links={page.data.links} />
+      </div>
       <DocsBody>
         <MDX components={getMDXComponents()} />
       </DocsBody>
@@ -44,9 +37,21 @@ export function generateStaticParams() {
   return source.generateParams();
 }
 
-export async function generateMetadata(props: { params: Promise<{ slug?: string[] }> }) {
+export async function generateMetadata(props: {
+  params: Promise<{ slug?: string[] }>;
+}): Promise<Metadata> {
   const params = await props.params;
   const page = source.getPage(params.slug);
   if (!page) notFound();
-  return { title: page.data.title, description: page.data.description };
+
+  const { title, description } = page.data;
+  const image = ogImageUrl(params.slug);
+
+  return {
+    metadataBase: baseUrl,
+    title,
+    description,
+    openGraph: { title, description, siteName, type: "article", url: page.url, images: image },
+    twitter: { card: "summary_large_image", title, description, images: image },
+  };
 }

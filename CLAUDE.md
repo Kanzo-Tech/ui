@@ -51,13 +51,11 @@
   built artefact rather than the source. The docs build is the RSC fixture, and the only thing that
   *evaluates* the client boundary — Vite ignores the directive entirely, and `smoke` can only
   compare bytes.
-  - **`size` is red before you start, and you are not expected to fix it.** The analytics subpath is
-    over its 60 kB limit. The limit was set in `5a0c880` and has not moved since, and the analytics
-    layer only shrank on the branches after it, so the overage is inherited rather than introduced.
-    What you owe is that your change did not make it *worse* — note the figure before and after, and
-    if it grew, that one is yours. A real fix is separate work, and the limit is a decision to
-    reopen rather than a number to raise quietly. Every other step passes on a clean tree, so treat
-    any other failure as yours.
+  - **`size` is green, and was red for a long time before it was.** The analytics subpath sat over
+    the 60 kB limit set in `5a0c880`; `eb63d16` rebaselined it to 68 kB once the theme context left
+    the provider, and it measures 66.24 kB. Every step now passes on a clean tree, so treat any
+    failure as yours. What you owe on this one is that your change did not make it worse — note the
+    figure before and after, and raise the limit only as a decision, never quietly.
 - Do not hand-edit generated files. `check:generated` regenerates `palette-data.json`,
   `themes.css`, `theme-data.json`, `palettes/` and the colour half of `tokens.css`, and fails on a
   diff.

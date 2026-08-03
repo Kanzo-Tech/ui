@@ -1,0 +1,90 @@
+---
+title: useChartQuery
+description: Read a relation from the same coordinator the charts use, under the same crossfilter — for anything that is not a plot.
+---
+
+<ComponentPreview componentName="use-chart-query" />
+
+Two readings of one relation: the first under the crossfilter, the second deliberately outside it
+(`filterBy={null}`), so the pair reads as "N of M". Click a region bar — only the first number moves.
+
+## Usage
+
+```tsx
+import { Query, count, useChartQuery } from "@kanzo-tech/ui/analytics";
+```
+
+The `/analytics` peers are [optional](/docs/installation) — nothing installs them unless you import this subpath.
+
+```tsx
+const { row } = useChartQuery({
+  query: (filter) => Query.from("telemetry").select({ n: count() }).where(filter),
+});
+```
+
+It needs a [`MosaicProvider`](/docs/data-display/charts#bring-your-own-coordinator) above it, and
+nothing else — no `ChartRoot`. A readout, a KPI, a table or a canvas is a peer of the plots, not a
+child of one.
+
+## The failure it exists to prevent
+
+A dashboard always has something that is not a plot, and it has to move with the brush like
+everything else. The shortcut — `coordinator.query()` inside a `useEffect` — looks identical on the
+first paint and then sits there reporting **unfiltered** totals beside filtered charts. Nobody reads
+that as a stale widget; they read it as a broken crossfilter, three components away.
+
+This hook connects a real `MosaicClient` instead. That is the whole protocol: declare a query, get
+re-asked whenever any clause anyone publishes changes the predicate. `ChartStat` is this hook
+wrapped around `StatTile`, and it is why a stat in one card follows a brush in another.
+
+## filterBy
+
+| Value | What it reads |
+| --- | --- |
+| omitted | the provider's crossfilter — the usual case |
+| `null` | the full relation, ignoring every clause |
+| a `Selection` | that one, for a widget wired to its own scope |
+
+## deps, and the query you pass
+
+The builder is read from a ref, so an inline arrow does **not** reconnect the client — which matters,
+because reconnecting re-runs the query and blanks `rows` back to `null`. The consequence is that a
+value captured in the closure will not, on its own, re-ask the question: put it in `deps`.
+
+```tsx
+const { rows } = useChartQuery({
+  query: (filter) => Query.from(table).select({ n: count() }).where(filter),
+  deps: [table],
+});
+```
+
+Return `null` from `query` to ask for nothing at all — the honest answer while a table name is still
+being resolved.
+
+## API Reference
+
+```ts
+function useChartQuery(options: ChartQueryOptions): ChartQueryResult;
+```
+
+### Options
+
+| Option | Type | Default |
+| --- | --- | --- |
+| `query` | `(filter: FilterExpr) => Query \| null` | — |
+| `filterBy` | `Selection \| null` | the provider's crossfilter; `null` reads the full relation |
+| `deps` | `readonly unknown[]` | `[]` |
+
+### Returns
+
+| Field | Type | What it is |
+| --- | --- | --- |
+| `rows` | `readonly ChartQueryRow[] \| null` | the rows, or `null` while the first query is in flight |
+| `row` | `ChartQueryRow \| undefined` | `rows[0]`, for the common single-aggregate case |
+
+`ChartQueryRow` is `Record<string, unknown>` — Arrow's values arrive untyped, so coerce at the edge
+(`Number(row?.n ?? 0)`) rather than casting the row.
+
+`Query` is re-exported from the subpath, so a query is built without a direct `@uwdata/mosaic-sql`
+import; so are the aggregates (`count`, `sum`, `avg`, `min`, `max`, `median`, `quantile`, `stddev`,
+`mode`, `bin`, `sql`).

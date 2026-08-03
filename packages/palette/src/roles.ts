@@ -521,6 +521,39 @@ export const ROLES: readonly Role[] = [
   })),
 ];
 
+// ── What an identity owns ───────────────────────────────────────────────────────────────────────
+
+/**
+ * Does this token's value change when the brand seed does?
+ *
+ * Two bindings and no third: anything on the `brand` ramp, and every categorical slot — the chart
+ * wheel is spun from the brand's own hue, so a second brand is a second set. Everything else in the
+ * table reads the neutral, a status ramp, or a fixed value, and all three are the tenant's rather
+ * than the identity's.
+ */
+export function isIdentityRole(role: Role): boolean {
+  const { binding } = role;
+  return binding.kind === "categorical" || ("ramp" in binding && binding.ramp === "brand");
+}
+
+/**
+ * The 15 tokens an identity block carries, in table order.
+ *
+ * **Declared from `ROLES`, never diffed against another identity's values.** A diff shrinks when two
+ * identities happen to agree — likely for two brands in one hue family, whose wheels snap to nearly
+ * the same nine families — and the *shape* of the stylesheet would then depend on the values in it.
+ * A sheet whose selectors change when a client picks a slightly different blue is a sheet nobody can
+ * diff against the render they approved.
+ *
+ * `--chart-capacity` is not here because it is not in `ROLES`: it is a count emitted beside
+ * `color-scheme` rather than a role. `compile` adds it to every identity block by hand, for the same
+ * reason it adds it to `:root` — capacity is a property of the categorical set, and the set is the
+ * identity's.
+ */
+export const IDENTITY_TOKENS: readonly string[] = ROLES.filter(isIdentityRole).map(
+  (role) => role.token,
+);
+
 // ── Resolution ──────────────────────────────────────────────────────────────────────────────────
 
 /** `min(step + δ, 5)` — a raised surface can never climb into the border band. */

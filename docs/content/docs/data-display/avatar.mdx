@@ -72,3 +72,30 @@ be available as text somewhere the reader can reach.
 stays legible against any surface. Cap the list yourself and close it with `AvatarGroupCount` —
 the component does not truncate, because how many fit is a question about your layout, not about
 the avatar.
+
+## API Reference
+
+### Avatar
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `size` | `"sm" \| "md" \| "lg"` | `"md"` |
+
+Extends `React.ComponentProps<typeof ArkAvatar.Root>`, so `onStatusChange`, `ref` and every
+native prop pass through. `size` is mirrored to `data-size`, which is what the fallback icon and
+`AvatarBadge` read to re-scale themselves — set it on the root, never on a part.
+
+### AvatarBadge
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `variant` | `"default" \| "success" \| "info" \| "warning" \| "destructive"` | `"default"` |
+
+It **is** [`Status`](/docs/data-display/status), so `variant` is that component's and there is
+nothing else of its own; the size comes from the avatar. Rendered `aria-hidden`.
+
+### Other parts
+
+`AvatarImage` and `AvatarFallback` take their Ark part's props — `AvatarImage` is an `<img>`, so
+`src` and `alt` are native. `AvatarGroup` and `AvatarGroupCount` render a `div` and take that
+element's props. `useAvatar` re-exports Ark's `useAvatarContext`.

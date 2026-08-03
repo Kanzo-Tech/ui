@@ -11,12 +11,9 @@ description: The packages, the peers you may not need, one stylesheet and one pr
 
 `@kanzo-tech/ui` depends on `@kanzo-tech/theme`, so installing the first brings the second.
 
-<Tabs items={["pnpm", "npm", "yarn", "bun"]}>
-  <Tab value="pnpm">```bash pnpm add @kanzo-tech/ui ```</Tab>
-  <Tab value="npm">```bash npm install @kanzo-tech/ui ```</Tab>
-  <Tab value="yarn">```bash yarn add @kanzo-tech/ui ```</Tab>
-  <Tab value="bun">```bash bun add @kanzo-tech/ui ```</Tab>
-</Tabs>
+```npm
+npm install @kanzo-tech/ui
+```
 
 </Step>
 
@@ -26,12 +23,9 @@ description: The packages, the peers you may not need, one stylesheet and one pr
 
 React 19 or later, plus `lucide-react` for icons.
 
-<Tabs items={["pnpm", "npm", "yarn", "bun"]}>
-  <Tab value="pnpm">```bash pnpm add react react-dom lucide-react ```</Tab>
-  <Tab value="npm">```bash npm install react react-dom lucide-react ```</Tab>
-  <Tab value="yarn">```bash yarn add react react-dom lucide-react ```</Tab>
-  <Tab value="bun">```bash bun add react react-dom lucide-react ```</Tab>
-</Tabs>
+```npm
+npm install react react-dom lucide-react
+```
 
 Everything else is **optional**, and only if you import the matching subpath. Each subpath
 statically re-exports its engine, so installing its peers is what buys you that subpath and

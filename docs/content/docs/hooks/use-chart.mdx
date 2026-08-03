@@ -1,0 +1,79 @@
+---
+title: useChart
+description: The chart context — config, selections, coordinator, and the color / formatNumber helpers — for a DOM part of your own inside a ChartRoot.
+---
+
+<ComponentPreview componentName="use-chart" />
+
+The bars are one `ChartBarY`; everything under them is a component of our own, reading the same
+context `ChartLegend` reads. The colour beside each label is the literal `color(key)` returned —
+the very string the plot was handed — and the caption counts in the root's own number vocabulary.
+
+## Usage
+
+```tsx
+import { useChart } from "@kanzo-tech/ui/analytics";
+```
+
+The `/analytics` peers are [optional](/docs/installation) — nothing installs them unless you import this subpath.
+
+```tsx
+function Total({ rows }: { rows: number }) {
+  const { color, formatNumber } = useChart();
+  return <p style={{ color: color("error") }}>{formatNumber(rows)} requests</p>;
+}
+```
+
+It must be rendered **inside** a [`ChartRoot`](/docs/data-display/charts) — it throws otherwise.
+Use [`useChartOptional`](/docs/hooks/use-chart-optional) for a part that also has to work
+standalone.
+
+## Why it exists
+
+vgplot paints imperatively: `ChartRoot` mounts the SVG node it returns with
+`host.replaceChildren(...)`. There is no element for a legend, a tooltip or a caption to hang off,
+so anything of that kind is **your** DOM sitting beside the plot — and it needs the plot's config,
+its selections and its number format to say anything true. That is the whole content of this
+context, and it is what makes a part writable without forking `ChartLegend`.
+
+## color(key)
+
+`color` returns the series colour already resolved to `rgb(...)`, which is what makes it
+dual-purpose: Observable Plot's `isColor` rejects `var(--token)`, `color-mix()`, `oklch()` and
+`color(srgb …)` — hand it one and the string is read as a **column name**, killing the query with a
+binder error and leaving the plot on its previous render. The token is resolved against the element
+the chart lives in, so a scoped palette override on an ancestor wins.
+
+<Callout type="warn">
+Resolving is also what makes it a **snapshot**. Nothing re-calls `color` when the theme flips or the
+tenant's palette is swapped. If your sink is only a `style`, pass `var(--chart-N)` straight through
+and let the browser follow the theme for free — that is what `ChartLegend` does. Pair this with
+[`useThemeTick`](/docs/hooks/use-theme-tick) when you need the literal, which is to say when you are
+handing it to Plot or to a canvas.
+</Callout>
+
+## Descriptors cannot use it
+
+Marks, interactors and axes are **inert descriptors**: `ChartRoot` reads their props off the element
+before React ever renders them, so a mark cannot pull anything out of context. Pass the value down
+from the component that owns the `ChartRoot` instead.
+
+## API Reference
+
+```ts
+function useChart(): ChartContextValue;
+```
+
+Takes no arguments. Throws `useChart must be used within a <ChartRoot>.` outside one.
+
+### Returns
+
+| Field | Type | What it is |
+| --- | --- | --- |
+| `color` | `(key: string) => string \| undefined` | the series colour, resolved to `rgb(...)`. `undefined` for a key the config does not name |
+| `formatNumber` | `(value: number, options?: Intl.NumberFormatOptions) => string` | the chart's `Intl.NumberFormat`, from the root's `locale` / `numberFormat` |
+| `config` | `ChartConfig` | series key → `{ label, color, icon }`, as the root was given it |
+| `table` | `string \| undefined` | the relation the root reads |
+| `filterBy` | `Selection \| null` | what the marks filter by; `null` = the full relation |
+| `as` | `Selection` | where the interactors publish |
+| `coordinator` | `Coordinator` | for a part that queries alongside the plot — usually via [`useChartQuery`](/docs/hooks/use-chart-query) |

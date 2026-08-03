@@ -56,51 +56,90 @@ describe("@kanzo-tech/theme", () => {
     expect(mod.KanzoTheme).toBeUndefined();
   });
 
-  it("has no colour axis left to write", () => {
+  it("has no FREE colour axis left to write", () => {
     // `data-base`, `data-accent`, `data-palette` and `data-chart-scheme` were four ways to express
     // *part* of a palette at runtime; a document expresses all of it at once, before a byte is
     // sent. An attribute surviving here would be a provider writing something no CSS matches.
+    //
+    // `data-identity` is not one of them coming back. Those four selected from a catalogue the
+    // LIBRARY shipped, so an end user could overrule a client's branding; identity selects among
+    // values the client authored. Same mechanism, opposite authority — which is why the check is
+    // by name rather than by "is it colour".
+    //
+    // **`palette` is a preference again and `data-palette` is still forbidden**, which reads as a
+    // contradiction and is the sharpest statement of the model: a palette is a whole DOCUMENT the
+    // tenant published, and a document is a stylesheet the server serves — never a block selected in
+    // the cascade. The preference came back; the attribute did not, and cannot, because no compiled
+    // sheet contains anything for it to match.
     const themes = read("themes.css");
     for (const attr of ["data-base", "data-accent", "data-palette", "data-chart-scheme"]) {
       expect(AXES.map((a) => a.attr), attr).not.toContain(attr);
       expect(themes, `themes.css still emits [${attr}]`).not.toContain(`[${attr}=`);
     }
     expect(Object.keys(DEFAULT_PREFS).sort()).toEqual([
-      "appearance", "density", "font", "monoFont", "radius",
+      "appearance", "density", "font", "identity", "identityByPalette", "monoFont", "palette",
+      "radius",
     ]);
   });
 
   // ── Drift guards ────────────────────────────────────────────────────────────
   // The two copies, read against each other rather than trusted. See the header for why nothing
   // else can: a missed edit here produces no type error, it just silently stops theming.
+  //
+  // They hold over `source: "themes"` — the axes `scripts/gen-theme.mjs` generates. A `"document"`
+  // axis has no generated selector and no generated table BY DESIGN (its values are a tenant's,
+  // authored after this package is built), so the same assertions run inverted below rather than
+  // being relaxed: mislabel an axis either way and one of the two pairs fails.
 
-  it("every axis attribute has matching selectors in themes.css", () => {
+  const generated = AXES.filter((a) => a.source === "themes");
+  const authored = AXES.filter((a) => a.source === "document");
+
+  const tables: Record<string, Record<string, unknown> | undefined> = {
+    radius: themeData.radii,
+    font: themeData.fonts,
+    monoFont: themeData.monoFonts,
+    density: themeData.densities,
+  };
+
+  it("every generated axis attribute has matching selectors in themes.css", () => {
     const themes = read("themes.css");
-    for (const { key, attr } of AXES) {
+    for (const { key, attr } of generated) {
       expect(themes, `no [${attr}=…] selector — axis "${key}" would write a dead attribute`)
         .toContain(`[${attr}=`);
     }
   });
 
-  it("every axis default is a real value in the generated data", () => {
-    const tables: Record<string, Record<string, unknown>> = {
-      radius: themeData.radii,
-      font: themeData.fonts,
-      monoFont: themeData.monoFonts,
-      density: themeData.densities,
-    };
-    for (const { key, def } of AXES) {
+  it("every generated axis default is a real value in the generated data", () => {
+    for (const { key, def } of generated) {
       const table = tables[key];
       expect(table, `no generated table for axis "${key}"`).toBeDefined();
       expect(
         Object.keys(table ?? {}),
         `axis "${key}" defaults to "${def}", which is not a generated value`,
       ).toContain(def);
-      // …and the default in AXES must match the default in DEFAULT_PREFS.
-      expect(
-        String(DEFAULT_PREFS[key]),
-        `AXES/DEFAULT_PREFS disagree on "${key}"`,
-      ).toBe(def);
+    }
+  });
+
+  it("no authored axis is generated into themes.css or theme-data.json", () => {
+    // The inverse of the two above. A `"document"` axis whose selectors turned up in `themes.css`
+    // would mean the generator had started authoring identities — a value set fixed at build time
+    // for the one axis whose whole point is that a tenant picks it. The empty-set case is the one
+    // that has to fail loudly, because it looks exactly like the feature working.
+    const themes = read("themes.css");
+    expect(authored.length, "identity left AXES — check `source`, not just the row").toBeGreaterThan(0);
+    for (const { key, attr } of authored) {
+      expect(themes, `themes.css emits [${attr}] — axis "${key}" is compiled, not generated`)
+        .not.toContain(`[${attr}=`);
+      expect(tables[key], `axis "${key}" grew a theme-data table; its values are the tenant's`)
+        .toBeUndefined();
+    }
+  });
+
+  it("every axis default matches DEFAULT_PREFS, generated or not", () => {
+    // The one half that holds over both sources: `def` is what the write rule compares against to
+    // REMOVE the attribute, so a disagreement leaves the default value written out as an attribute.
+    for (const { key, def } of AXES) {
+      expect(String(DEFAULT_PREFS[key]), `AXES/DEFAULT_PREFS disagree on "${key}"`).toBe(def);
     }
   });
 });

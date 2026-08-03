@@ -1,4 +1,4 @@
-import type { Folder, Node } from "fumadocs-core/page-tree";
+import { llms } from "fumadocs-core/source";
 import { source } from "@/lib/source";
 
 /**
@@ -11,8 +11,14 @@ import { source } from "@/lib/source";
  * list has nothing but the order to tell it where to start.
  *
  * It also means there is no second list to keep true: a group's title and position come from its
- * own `meta.json`, so adding or renaming one needs no edit here.
+ * own `meta.json`, so adding or renaming one needs no edit here. `llms()` walks that tree for us;
+ * this file used to walk it by hand, which was a second implementation of one idea.
  */
+
+export const revalidate = false;
+
+const INTRO =
+  "A domain-free component library built on Ark UI + Tailwind, token-themed. Ark supplies behaviour and accessibility; Kanzo adds the styled vocabulary, layout shells, and full-arrangement showcases. `kebab-case` names are the vendored primitives; `PascalCase` are the pre-assembled conveniences built on top.";
 
 /**
  * The advertised origin.
@@ -36,36 +42,18 @@ function siteOrigin(request: Request) {
   return new URL(request.url).origin;
 }
 
-function asText(node: unknown, fallback = ""): string {
-  return typeof node === "string" ? node : fallback;
-}
-
-function linesFor(folder: Folder, origin: string): string[] {
-  const out: string[] = [];
-
-  for (const child of folder.children as Node[]) {
-    if (child.type === "separator") {
-      out.push("", `**${asText(child.name)}**`, "");
-      continue;
-    }
-    if (child.type !== "page") continue;
-
-    const page = source.getNodePage(child);
-    const title = page?.data.title ?? asText(child.name);
-    const description = page?.data.description ?? asText(child.description);
-    out.push(`- [${title}](${origin}${child.url})${description ? `: ${description}` : ""}`);
-  }
-
-  return out;
-}
-
 export function GET(request: Request) {
   const origin = siteOrigin(request);
+  const index = llms(source);
 
-  const out: string[] = [
+  const out = [
     "# Kanzo UI",
     "",
-    "> A domain-free component library built on Ark UI + Tailwind, token-themed. Ark supplies behaviour and accessibility; Kanzo adds the styled vocabulary, layout shells, and full-arrangement showcases. `kebab-case` names are the vendored primitives; `PascalCase` are the pre-assembled conveniences built on top.",
+    `> ${INTRO}`,
+    "",
+    `Paths below are relative to ${origin}. Append \`.mdx\` to any page URL for its Markdown source — e.g. ${origin}/docs/actions/button.mdx.`,
+    "",
+    ...source.pageTree.children.map((node) => index.indexNode(node)),
     "",
     // Without this block an agent handed the file cannot write a correct import for a data table
     // or a chart: the page list says what exists, never where it is imported from.
@@ -81,15 +69,6 @@ export function GET(request: Request) {
     "A component that needs one of those engines is two components: the presentational half on the root barrel, the connected half on the subpath. Theming is `data-*` attributes on `<html>` plus a light/dark class — never a wrapper element.",
     "",
   ];
-
-  for (const node of source.pageTree.children as Node[]) {
-    if (node.type !== "folder") continue;
-
-    const lines = linesFor(node, origin);
-    if (lines.length === 0) continue;
-
-    out.push(`## ${asText(node.name)}`, "", ...lines, "");
-  }
 
   return new Response(out.join("\n"), {
     headers: { "content-type": "text/plain; charset=utf-8" },

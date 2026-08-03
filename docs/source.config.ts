@@ -23,5 +23,8 @@ export default defineConfig({
       themes: { light: "github-light", dark: "github-dark" },
       defaultColor: false,
     },
+    // ```npm code blocks fan out into npm/pnpm/yarn/bun tabs: remarkNpm ships in the default
+    // preset, so there is nothing to add here. Reordering the managers is the only knob
+    // (`remarkNpmOptions`) and it costs us our own npm-to-x converters, so we take the default.
   },
 });

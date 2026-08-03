@@ -9,26 +9,42 @@ Two states, one button, one click: **light ⇄ dark**, a sun and a moon crossfad
 the **sole** control for the preference — the Preferences panel briefly carried a copy of it in the
 body as well, which is one preference wearing two controls.
 
-## Where `system` went
+## There is no `system`
 
 `prefers-color-scheme` is consulted either way; that part is not a feature, it is unavoidable.
 Without it the first visit has to guess, and guessing wrong flashes white at every dark-mode user.
-So the question was never "does the OS preference matter". It was the narrower one: **is "follow
-the OS" a state you can return to, or only the initial value?**
+So the question was never "does the OS preference matter". It is: **is "follow the OS" a value, or
+the absence of one?**
 
-It is the initial value. `DEFAULT_PREFS.appearance` is `"system"`, so with nothing stored the app
-follows the OS. The first click writes an explicit choice, and that choice sticks from then on —
-the toggle flips between `light` and `dark` and never lands back on `system`.
+The absence of one. `Appearance` is `"light" | "dark"`, the preference is `Appearance | null`, and
+`DEFAULT_PREFS.appearance` is `null` — with nothing stored the app follows the OS. The first click
+writes an explicit side and that side sticks; the toggle flips between the two and has no third face
+because there is no third state to show.
 
-<Callout type="info" title="The way back is Reset">
+That is the reference systems' own split, and which side of it you land on depends on which layer you
+are. The theme-switching libraries make it a value: next-themes ships `defaultTheme = "system"` and
+appends `"system"` to its `themes` array, MUI has `mode: "light" | "dark" | "system"`, Mantine calls
+it `"auto"`. The **token** layers do not. daisyUI writes `themes: light --default, dark
+--prefersdark`, where the OS preference is a flag on a theme and `data-theme` overrides it; Tailwind
+has a media query or a class; Radix Themes declines to model it and hands the job to next-themes. And
+CSS itself has no third keyword — `color-scheme: light dark` means "the OS decides", and an explicit
+side overrides.
+
+We are a token layer: a [palette document](/docs/theming#colour-the-palette-document) with a `:root`
+block and a `.dark` block, and appearance selects between them. A host running next-themes is still
+supported — `KanzoThemeProvider` translates its `"system"` to `null` in one place, and nothing else in
+the package knows that `"system"` is a word.
+
+<Callout type="info" title="The way back is Reset, or a control you write">
   [`Preferences`](/docs/layout/preferences) has a **Reset** in its pinned footer, and reset spreads
-  `DEFAULT_PREFS` — which restores `appearance: "system"` along with the four axes. That is the
-  supported way back to following the OS, and nobody will guess it, so say it in your product too.
+  `DEFAULT_PREFS` — which unpins appearance along with the other five axes. That is the supported way
+  back to following the OS, and nobody will guess it, so say it in your product too.
 
-  A control of your own can do the same thing directly: `setAppearance("system")`.
+  A control of your own does it directly: `setAppearance(null)`. The preference is nullable, so this
+  is not an escape hatch — it is the type.
 </Callout>
 
-<ComponentPreview componentName="appearance-toggle" fileName="example-system" />
+<ComponentPreview componentName="appearance-toggle" fileName="example-follow-os" />
 
 ## Usage
 

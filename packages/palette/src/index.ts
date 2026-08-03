@@ -131,18 +131,22 @@ export {
 export {
   PALETTE_SCHEMA_VERSION,
   RAMP_NAMES,
+  SHARED_RAMP_NAMES,
   STATUS_NAMES,
   hashObligations,
   type CategoricalSet,
   type CategoricalSource,
   type CrossCheck,
   type HueSource,
+  type Identity,
   type PaletteEngine,
   type PaletteRecord,
   type PaletteState,
   type RampName,
   type RampSet,
   type RoleValues,
+  type SharedRampName,
+  type SharedRampSet,
   type StatusName,
   type TaggedAdjustment,
   type TaggedRelief,
@@ -155,11 +159,13 @@ export {
   ELEVATION,
   ELEVATION_CEILING,
   IDENTITY_RELIEF,
+  IDENTITY_TOKENS,
   OTHER,
   ROLES,
   SOLID_STEP,
   elevate,
   fillStep,
+  isIdentityRole,
   recessFill,
   resolveRoles,
   type ResolvedRole,
@@ -176,8 +182,9 @@ export {
   derivePalette,
   neutralSeedFor,
   type DerivePaletteInput,
+  type IdentityInput,
 } from "./derive-palette.js";
 
 export { KANZO_ID, PALETTE_SEEDS, seedInput, type PaletteSeeds } from "./seeds.js";
 
-export { compile } from "./compile.js";
+export { compile, type CompileOptions } from "./compile.js";

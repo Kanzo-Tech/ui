@@ -35,11 +35,7 @@ export const PreviewIframeTabs = ({ iframe, source, fullUrl }: PreviewIframeTabs
         {iframe}
       </TabsContent>
       {source && (
-        <TabsContent
-          className="**:[figure]:m-0! **:[figure]:border-0 **:[pre]:max-h-[820px]"
-          slot="tab-code"
-          value="code"
-        >
+        <TabsContent slot="tab-code" value="code">
           {source}
         </TabsContent>
       )}

@@ -1,9 +1,19 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import type { CodeBlockProps } from "fumadocs-ui/components/codeblock";
+import { ServerCodeBlock } from "fumadocs-ui/components/codeblock.rsc";
 import { ComponentPreviewTabs } from "./component-preview-tabs";
-import { CodeBlock } from "./code-block";
 
 const EXAMPLES_PATH = "examples";
+
+/**
+ * The code pane holds the preview pane's 450px exactly, so switching tabs never shifts the page,
+ * and drops the codeblock's own frame — the tabs wrapper draws that once around both panes.
+ */
+const CODE_PANE = {
+  className: "rounded-none border-0 shadow-none",
+  viewportProps: { className: "h-[450px] max-h-none" },
+} satisfies CodeBlockProps;
 
 export interface ComponentPreviewProps {
   /** Directory under `docs/examples` — usually the component slug. */
@@ -55,7 +65,7 @@ export const ComponentPreview = async (props: ComponentPreviewProps) => {
       fullBleed={fullBleed}
       hasMaxHeight={hasMaxHeight}
       showBorders={showBorders}
-      source={<CodeBlock code={forDisplay(source)} lang="tsx" />}
+      source={<ServerCodeBlock code={forDisplay(source)} codeblock={CODE_PANE} lang="tsx" />}
     />
   );
 };

@@ -56,10 +56,10 @@ mechanical half of the `slot` conversion, and the comment corrections in `packag
 
 ## What is still open
 
-- **The rebase** — 18 commits behind `ds-ai-and-shark-alignment`, 15 of them touching `docs/`. It is
-  the trigger for the `layout/` re-cut and for `prose-that-is-hashed-is-data`.
-- **`pnpm size`** — the `analytics` subpath is over by ~6 kB. Verified byte-identical at `e210a59`,
-  so it predates all of this.
+- ~~**The rebase**~~ — done as a **merge**, not a rebase, so every hash on this page still resolves.
+  27 conflicts in one pass. The `layout/` re-cut and `prose-that-is-hashed-is-data` are unblocked.
+- ~~**`pnpm size`**~~ — green. `eb63d16` rebaselined the `analytics` limit to 68 kB; it measures
+  66.24 kB.
 - **`packages/palette` tests are flaky under CPU load.** Diagnosed, reproducible with
   `taskpolicy -b npx vitest run`; the fix is the other session's call.
 - **20 parity items**, pinned so none can appear or close without a reviewed edit.

@@ -40,3 +40,16 @@ The corner badge overhangs its wrapper so it reads as a tag pinned *on* the thin
 any ancestor that scrolls or hides overflow will clip it — leave the wrapper room. Use `inert`
 rather than `aria-hidden` on a gated region: the feature stays readable, still telling the user
 it exists, while being unreachable by pointer, focus and assistive tech alike.
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `variant` | `"default" \| "secondary" \| "outline" \| "success" \| "info" \| "warning" \| "destructive"` | `"default"` |
+| `size` | `"xs" \| "sm" \| "md" \| "lg"` | `"md"` |
+| `pill` | `boolean` | `false` |
+
+Extends `React.ComponentProps<typeof ark.span>`, so `ref` and every native span prop pass
+through. `variant` and `size` are mirrored to `data-variant` / `data-size`, and `asChild` turns
+the badge into an `<a>` or a `<button>` — which is what the hover states and the coarse-pointer
+hit target are written for. The `BadgeVariant` type is exported.

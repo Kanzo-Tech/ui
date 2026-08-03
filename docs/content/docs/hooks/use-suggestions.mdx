@@ -1,0 +1,92 @@
+---
+title: useSuggestions
+description: A windowed, deduped candidate list streamed from your own source — fetched once per open-cycle, cached across reopen, and refilled when a row is dismissed.
+---
+
+<ComponentPreview componentName="use-suggestions" />
+
+## Usage
+
+```tsx
+import { useSuggestions } from "@kanzo-tech/ui";
+```
+
+```tsx
+const suggestions = useSuggestions({ suggest, existing: keywords, window: 3 });
+
+<Button onClick={suggestions.start}>Suggest</Button>;
+```
+
+<Callout type="info">
+For the ✨ button and popover already assembled, compose the **`Suggest`** compound —
+see [AI-assisted fields](/docs/forms/ai). This hook is what it runs on, for when the candidates
+belong somewhere else: a `Combobox`, a command palette, a panel of your own.
+</Callout>
+
+## A window, not a list
+
+`items` holds at most `window` rows. Dismissing one pulls the next unique candidate off the
+stream to take its place, so the surface stays the same height while the user works through it.
+That is the difference between a menu that streams and one that grows unboundedly under the
+cursor.
+
+If the source runs dry before the window is full, it is restarted **once** on the same controller.
+After that the list simply stays short — a source with nothing left is not an error.
+
+## Dedup, before anything is rendered
+
+Two things are dropped, case-insensitively and by trimmed value:
+
+- anything already in `existing` — the values the user has committed;
+- anything already shown this cycle, including rows since dismissed.
+
+So a candidate never appears next to itself, and never offers what is already chosen. Keep
+`existing` fed from the same state your input writes to and the ✨ and typing stay one value.
+
+## One fetch per open-cycle
+
+`start()` is idempotent while a cycle is open: calling it again does nothing, so browsing away
+from the surface and back does not re-bill the model. `cancel()` ends the cycle — it aborts the
+in-flight request through the `AbortSignal` and the next `start()` fetches fresh.
+
+<Callout type="warn">
+`cancel()` on close is not optional. Without it a popover dismissed mid-stream leaves the request
+running, and the cycle never reopens.
+</Callout>
+
+## API Reference
+
+### Parameters
+
+`UseSuggestionsOptions`:
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `suggest` | `(signal?: AbortSignal) => AsyncIterable<Suggestion>` | — |
+| `existing` | `string[]` | — |
+| `window` | `number` | `3` |
+
+### `Suggestion`
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `value` | `string` | The primitive committed when the row is picked |
+| `label` | `string?` | Human label; defaults to `value` |
+| `rationale` | `string?` | Optional explanation shown under the label |
+
+### Returns
+
+`Suggestions`:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `items` | `Suggestion[]` | The visible window, deduped |
+| `status` | `"idle" \| "streaming" \| "error"` | From the underlying [`useAiStream`](/docs/hooks/use-ai-stream) |
+| `error` | `string \| null` | Message when the source threw |
+| `loading` | `boolean` | A fill pass is running |
+| `start` | `() => void` | Open a cycle and fill the window; idempotent until `cancel` |
+| `cancel` | `() => void` | Abort the stream and end the cycle |
+| `dismiss` | `(index: number) => void` | Remove a row and refill from the stream |
+
+Picking a row is `dismiss(index)` plus whatever your product does with `value` — the hook has no
+opinion about where a chosen suggestion goes.

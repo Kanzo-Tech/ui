@@ -54,3 +54,29 @@ inside a fixed four-row window.
 ### Disabled
 
 <ComponentPreview componentName="textarea" fileName="example-disabled" />
+
+## API Reference
+
+Two controls, so two tables.
+
+### Input
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `size` | `"sm" \| "md" \| "lg"` | `"md"` |
+| `type` | `React.HTMLInputTypeAttribute` | `"text"` |
+
+Extends `React.ComponentProps<typeof FieldInput>` with the native `size` attribute omitted, so
+`ref`, `placeholder`, `disabled`, `aria-invalid` and every other input prop pass through. `size`
+is mirrored to `data-size`, and the three heights match `Button`'s `sm` / `md` / `lg`.
+`inputVariants` is exported for putting the same field on another element — `ClipboardInput` is
+built from it.
+
+### Textarea
+
+No props of its own — and deliberately no `size`, unlike `Input` above: the height is
+`field-sizing-content` over a `min-h-16` floor, so the content sizes the box.
+
+Extends `React.ComponentProps<typeof ArkField.Textarea>`, so `ref`, `value` / `defaultValue`,
+`onChange`, `rows`, `placeholder`, `disabled` and `aria-invalid` pass through. Inside a `Field`
+it also picks up `data-invalid` from the machine, which paints the same way `aria-invalid` does.

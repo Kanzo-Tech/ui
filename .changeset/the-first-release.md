@@ -37,8 +37,12 @@ consume rather than forward.
 
 ### `@kanzo-tech/theme`
 
-The stylesheets, the four axes that are not colour (radius, font, mono font, font size), and the
-value types. No React, no components, no colour maths.
+The stylesheets, the axis table, and the value types. No React, no components, no colour maths.
+
+Four axes are not colour at all — radius, font, mono font, density. The fifth, `identity`, is the
+one whose values a *tenant* authors: which brand of the document they published applies. It is the
+first axis whose selectors come out of `compile()` rather than the generator, which is what `AXES`
+records as `source`.
 
 ### `@kanzo-tech/palette`
 
@@ -63,7 +67,14 @@ These are the decisions a consumer cannot work around, so they are the ones wort
   setTheme }}`, or omit it and the provider toggles `.dark` itself. For SSR, `themeScript()` in
   `<head>` plus `cookieStorageAdapter()`.
 
-### Colour is not an axis
+### The user never authors a colour value
 
-There is no `base`, no `accent`, no runtime palette attribute. Each of those expressed *part* of a
-palette; a document expresses all of it before a byte is sent.
+They choose among colours someone already validated, and there are three such choices, coarsest
+first: `palette` (a whole document a tenant published, surfaces included), `identity` (its brand
+only, with the neutral and the statuses shared — which is what keeps several product lines one
+product), and `appearance` (which of the document's two blocks applies).
+
+What is gone is authoring a *part* of a palette at runtime: no `base`, no `accent`, no chart-scheme
+attribute, and `data-palette` stays forbidden. Each of those expressed part of a palette; a document
+expresses all of it before a byte is sent. A palette therefore writes no attribute at all — it is
+served — while `data-identity` selects among blocks that document already contains.

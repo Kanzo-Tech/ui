@@ -15,3 +15,24 @@ import { Switch } from "@kanzo-tech/ui";
 
 Use a Switch when the change takes effect at once, and a Checkbox when it is submitted with a
 form.
+
+## API Reference
+
+No props of its own — `Switch` is one export, not a set of parts. It renders Ark's
+`Switch.Control`, `Switch.Thumb` and `Switch.HiddenInput` itself, so the whole API is the
+machine's:
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `checked` | `boolean` | — |
+| `defaultChecked` | `boolean` | `false` |
+| `onCheckedChange` | `(details) => void` | — |
+| `disabled` | `boolean` | `false` |
+| `invalid` | `boolean` | `false` |
+| `readOnly` | `boolean` | `false` |
+| `required` | `boolean` | `false` |
+
+Extends `React.ComponentProps<typeof ArkSwitch.Root>`, so `ref`, `name`, `value`, `form` and
+every native prop pass through — except `tabIndex`, which is forwarded to the hidden input where
+the focus actually lives. `useSwitch` re-exports Ark's `useSwitchContext` for reading `checked`
+from inside the tree.

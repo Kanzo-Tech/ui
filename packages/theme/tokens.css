@@ -202,7 +202,7 @@
    `compile(palettes/kanzo.json)`. Regenerate with `node scripts/gen-palette.mjs`; the drift guard
    is in `palettes.test.ts`, which re-derives the document from its seeds and re-compiles it. */
 
-/* kanzo — @kanzo-tech/theme palette document v2 */
+/* kanzo — @kanzo-tech/theme palette document v3 */
 :root {
   color-scheme: light;
   --chart-capacity: 8;

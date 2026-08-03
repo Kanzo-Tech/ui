@@ -1,0 +1,40 @@
+---
+title: LLMs.txt
+description: Three ways to read these docs as text, for an agent that would rather not parse the HTML.
+---
+
+This design system is consumed by coding agents as much as by people, so every page is available
+as plain Markdown.
+
+## The index
+
+[`/llms.txt`](/llms.txt) is the [llmstxt.org](https://llmstxt.org) index: every page, nested by
+section, with its description.
+
+It is generated from the page tree — the same `meta.json` files that order the sidebar — so it
+cannot drift from the navigation. A page appears there when it exists, not when someone remembers
+to list it.
+
+## A single page
+
+Append `.mdx` to any docs URL for that page's Markdown source:
+
+```
+/docs/actions/button      → the page
+/docs/actions/button.mdx  → its Markdown
+```
+
+That is the source, frontmatter included, not a rendering of it. The MDX components stay as tags:
+a `<ComponentPreview componentName="button" />` tells a reader that a live example sits there and
+which example file it is, which is more useful than the alternatives — dropping it, or inlining
+the source of the example twice.
+
+## From the page
+
+Every page carries **Copy Markdown**, which puts the same text on the clipboard, and an **Open**
+menu beside it: view as Markdown, or open the page in Claude, ChatGPT, Cursor or Scira.
+
+<Callout type="info">
+There is no `llms-full.txt`. One request per page is the shape the `.mdx` routes already give, and
+a single concatenated file would be stale the moment any page changed.
+</Callout>
