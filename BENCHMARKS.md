@@ -236,8 +236,16 @@ nodes:
 | | kept / incident | retention | null | ball |
 |---|---|---|---|---|
 | 1M, WCC | 589 / 225,448 | **0.26%** | 0.17% | 4.55% |
-| 1M, communities | 27,366 / 200,839 | **13.63%** | 0.16% | 4.55% |
-| 5M, communities | 13,669 / 231,853 | **5.90%** | 0.06% | 1.71% |
+| 1M, communities | 78,094 / 137,024 | **56.99%** | 0.21% | 4.55% |
+| 5M, communities | 91,119 / 143,147 | **63.65%** | 0.04% | 1.71% |
+
+Getting there took one more finding. The first wiring used a single partition for
+both jobs and reached 13.63%; splitting them reached 57%. `cluster_id` is read by
+`viewport`'s aggregate mode, one super-node per cluster under a `LIMIT`, so it has to
+stay coarse — but the *placement* wants the opposite, communities small enough that
+several fit in one window. Forcing one partition to be both put the layout at the top
+of the hierarchy, where every community is a root and the ordering that puts siblings
+side by side has nothing left to order.
 
 The window is defined by rank — the smallest square centred on a node holding exactly *k* of them —
 because a fixed rectangle catches wildly different node counts in two layouts and would report a
