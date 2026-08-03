@@ -37,7 +37,18 @@ product question the moment the second gate was found.
 What remains is "arrow keys and Home/End do nothing", which **no default can fix** — it is upstream's
 and only upstream can close it.
 
-**Still to do, neither of them a decision.** File the report (drafted, with the same-version
-comparison against `@zag-js/tabs@1.41.2` attached: identical roles, a full arrow/Home/End keymap, a
-real roving tabindex). And give the page an accessibility section saying which keys work, which today
-is none — a page that omits it lets a reader assume the role's contract holds.
+**Both done, 2026-08-03, and neither was a decision.** `navigation/steps.mdx` has an accessibility
+section saying which keys work, which is `Tab` and `Enter` and nothing the role advertises — a page
+that omits that lets a reader assume the contract holds. And the finding is a check rather than a
+report: `packages/ui/src/simples/steps.test.ts` reads the shipped bundle and fails when
+`@zag-js/steps` grows a key handler, which is the `Reversed by` clause above, measured instead of
+remembered. It carries the same-version `@zag-js/tabs` comparison the draft did — six keys there,
+zero here, same team and same release, so the contrast is between two machines and not two versions.
+
+**Filing upstream is not planned**, and the check is why that costs nothing: what the report would
+buy us is knowing when it is fixed, and the test tells us that on the next install. The draft stays
+unfiled and unsent.
+
+One correction to the draft, found while measuring rather than taken from it: the arrow keys and
+`Home`/`End` are written as object-method shorthand in Zag's keymap, so a scan for quoted key names
+reports `tabs` as handling nothing. The draft's claim was right; the obvious way to check it is not.

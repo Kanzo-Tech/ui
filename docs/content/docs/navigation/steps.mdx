@@ -70,6 +70,37 @@ the connecting line follows the list without any extra markup.
 
 <ComponentPreview componentName="steps" fileName="example-vertical" />
 
+## Accessibility
+
+<Callout type="warn">
+**The triggers announce themselves as tabs and no arrow key moves between them.** Ark's machine
+emits `role="tablist"` and `role="tab"` with the `aria-selected` / `aria-controls` wiring, and
+`@zag-js/steps@1.41.2` ships no key handler at all — <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd>
+<kbd>↓</kbd> <kbd>Home</kbd> <kbd>End</kbd> all do nothing. `@zag-js/tabs`, the same version by the
+same team, implements all six.
+</Callout>
+
+So a screen-reader user is told this is a tab list, tries the keys that a tab list answers, and
+gets nothing. What works today is <kbd>Tab</kbd> and <kbd>Shift</kbd>+<kbd>Tab</kbd>: with the
+default `linear={false}` every trigger is its own tab stop, so the list is reachable and operable
+— just not the way the role advertises.
+
+| Key | What happens |
+| --- | --- |
+| <kbd>Tab</kbd> / <kbd>Shift</kbd>+<kbd>Tab</kbd> | Moves to the next / previous trigger. Every trigger is a stop. |
+| <kbd>Enter</kbd> / <kbd>Space</kbd> | Activates the focused trigger, as a button. |
+| <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> <kbd>Home</kbd> <kbd>End</kbd> | Nothing. |
+
+`linear={true}` is not the fix and is a worse state: it drops the non-current triggers to
+`tabIndex: -1` *and* makes their click handler return early, so a step becomes unreachable by
+pointer and keyboard alike while still announcing `role="tab"`. The reasoning is in
+`decisions/steps-claims-a-tab-role-it-cannot-keep.md`, and `packages/ui/src/simples/steps.test.ts`
+holds the measurement — it fails on the day Ark ships the keymap, which is when this section
+should be rewritten.
+
+If a keyboard-complete stepper is a requirement today, drive [`Tabs`](/docs/navigation/tabs) with
+step-shaped styling instead; it is the same role with the keymap behind it.
+
 ## API Reference
 
 All props are Ark's `Steps.Root`; the components add styling and the indicator's
