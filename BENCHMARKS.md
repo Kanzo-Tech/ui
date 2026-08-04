@@ -515,6 +515,60 @@ harness is measuring the same thing twice rather than measuring itself.
 
 **`buffers()` is cheap and can stay where it is.**
 
+## The window is flat in N — and it is the curve, not the communities
+
+`measure-runs.mjs`, five windows of 20,000 vertices at each size, same window definition as
+`measure-retention.mjs`.
+
+| N | mean runs | vertex over-read | mean edges fetched | vs the whole edge table |
+|---|---|---|---|---|
+| 200k | 170.2 | **1.0000×** | 139,970 | 9.8× |
+| 1M | 141.8 | **1.0000×** | 160,775 | 42.9× |
+| 5M | 169.4 | **1.0000×** | 129,466 | **270.1×** |
+
+**Both numbers are flat.** Twenty-five times the corpus leaves the run count at ~170 and the edges a
+window fetches at ~130–160k. The reduction grows only because the denominator does. This is the
+claim ADR-0042 rests on and it had been measured once, at one size, by hand — the conclusion it
+carries is about *scaling*, and one point cannot support it. It survives.
+
+**Over-read is exactly zero, not nearly.** 20,000 ids covered for 20,000 wanted, every window, every
+size. Edge over-read is 1.08–1.64× against what is actually drawable.
+
+The control: **20,000 ids drawn at random are 19,916 runs.** The spatial window is 169. So the
+contiguity is real and it is the ordering that produces it — a 118× difference.
+
+### But the explanation in the ADR is wrong, and §3 rests on it
+
+ADR-0042 says *"la maquetación es grumosa, una comunidad es un disco compacto y una ventana contiene
+comunidades **enteras**; cada comunidad es un tramo Morton contiguo"*, and §3 builds the tile
+pyramid on it: **una tesela es una comunidad**. Measured at five million, neither cluster column can
+be that:
+
+| column | groups | mean | p50 | p90 | max | runs per group |
+|---|---|---|---|---|---|---|
+| `community` | 8 | 625,000 | 625,192 | 625,562 | 625,916 | **5,461** |
+| `cluster_id` | 15,310 | 326.6 | **1** | 3 | 163,787 | 1.72 |
+
+A window is 169 runs of ~118 ids. `community` has eight groups and each one is shattered into five
+thousand id runs, so it is neither compact nor contiguous. `cluster_id` groups *are* nearly
+contiguous — 1.72 runs each — but **the median one is a single vertex** and nine in ten are three or
+fewer, so a 20,000-vertex window touches thousands of them, not 169.
+
+**What produces the runs is the space-filling curve, and nothing else.** A rectangle over a Morton
+order maps to O(√n) curve segments; that is the whole mechanism, and it is why the count does not
+follow N. The clustering is not doing this work.
+
+That leaves §3 without its premise. A tile cannot be a community: at a median of one vertex it is
+not a payload, and merging communities into one costs the contiguity unless they are already
+Morton-adjacent — at which point the tile is a Morton range, which is exactly what §3 dismissed as
+*"una aproximación gruesa de esto"*. The measurement says the approximation is the thing.
+
+**What is still open.** This does not say the hierarchy is useless — it says the hierarchy is not
+what makes a window cheap to *fetch*. Whether it is what makes a zoomed-out view mean anything is a
+different question and is unmeasured. And the number that decides tile size is still missing:
+**requests and bytes per pan**, because 169 ranges per window is 169 requests unless something
+coalesces them.
+
 ## The last harness run, verbatim
 
 Machine-owned. `run-bench.mjs` overwrites everything between the two markers below and nothing
