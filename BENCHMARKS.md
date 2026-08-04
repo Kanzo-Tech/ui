@@ -382,6 +382,39 @@ work** — while the slice returns about 120,000 edges where the old layout retu
 window that shows the graph now costs less than one that showed a dot cloud. It is still far from
 the 40 ms band ADR-0041 asked for, but the direction is no longer wrong.
 
+## What a window actually is, in the file — and why the planner cannot use it
+
+A 20,000-vertex window at five million occupies **179 contiguous runs of `dense_id` covering exactly
+20,007 ids** — 0.4% of the corpus, and **zero over-read**: every id inside a run is inside the
+window. That is not luck. The layout is clumpy, a community is a compact disc, and a window holds
+whole communities; each community is one contiguous Morton run.
+
+Those runs hold **130,516 of 34,974,279 edges — 268×** — and restricting to them returns the same
+120,103 visible edges, so it is a superset and not an approximation. The ideal slice reads 20,007
+vertex rows and 130,516 edge rows. Today it scans 35M.
+
+**And no way of asking for it in SQL gets it.** Measured, same window, same answer:
+
+| | time | CPU |
+|---|---|---|
+| plain join over the whole edge table | **5 ms** | 37 ms |
+| range join against the 179 runs | 237 ms | 1.9 s |
+| 179 explicit `BETWEEN … OR …` predicates | 189 ms | 2.3 s |
+
+Both attempts are *slower than not pruning at all*, because DuckDB evaluates the ranges per row over
+35M rows instead of skipping. Row-group statistics do not save a disjunction of 179 ranges.
+
+**So pruning cannot be expressed as a predicate. It has to be expressed as which files are read** —
+and that is what chunking is for. This is a far better argument for the chunking than the one it was
+shipped on: not that a chunk is a cacheable URL, but that **file selection is the only pruning the
+reader can actually obtain**.
+
+It also turns granularity into arithmetic instead of taste. At `src_chunk_size` 122,880 the window's
+179 runs fall inside 3 partitions — 3 of 41 files, a 13× cut on the edge scan. Finer partitions
+approach the 268× the data allows, and pay ~0.2 ms per file over localhost (measured above; more
+over a network). The optimum is computable, and neither end of it is where we are today, which is
+one file and no pruning at all.
+
 ## Does the pan stop growing with N? Asked properly at last, and no
 
 Every pan number above is measured with a window that is a quarter of the **space**, and the space
