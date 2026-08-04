@@ -355,6 +355,23 @@ harness is measuring the one move that defeats the tiling it is meant to test. *
 an upper bound on a shape nobody pans in**, and fixing the window is worth doing before any more
 query work is aimed at the number it produces.
 
+**Reshaped, and the slice halves.** The pan window now takes its height from the canvas
+(1200 × 800), which is what a viewport is. Timed natively per query, same walk across the corpus:
+
+| | points | links | matched | **sum** | rows matched | chunks |
+|---|---|---|---|---|---|---|
+| 1M strip | 30 | 21 | 4 | 55 ms | 304,212 | 7 of 9 |
+| 1M canvas | **11** | **12** | 3 | **26 ms** | 62,112 | **4 of 9** |
+| 5M strip | 65 | 66 | 8 | 139 ms | 1,726,542 | — |
+| 5M canvas | **24** | **26** | 6 | **56 ms** | 426,611 | 11 of 41 |
+
+The links query barely moves — 120,239 rows against 131,030 — so the saving is the scan, exactly
+where the chunk table above said it would be. **These are native timings, not the end-to-end pan**:
+scaled by the WASM factor each size showed (2.4× at 1M, 3.4× at 5M) they project to roughly 62 ms
+and 193 ms, against 133 and 480 measured on the strip. The browser sweep that would confirm it has
+not run — a background tab makes DuckDB-WASM's first remote read take minutes rather than the ~21 s
+it costs in a foreground window, so the sweep needs a visible tab and did not get one.
+
 **And the sum is the pan.** 55 ms native × ~2.4 for WASM is 132 ms, against the 133 ms measured at a
 million. The three queries go out under `Promise.all` and still serialise: Mosaic funnels them
 through one connection and fulfils in strict FIFO. Running them concurrently would make the pan

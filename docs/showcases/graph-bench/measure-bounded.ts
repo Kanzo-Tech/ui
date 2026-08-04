@@ -93,6 +93,15 @@ export const BOUNDED_SIZES = [2_000, 10_000, 50_000, 200_000, 1_000_000];
  */
 export const BOUNDED_STRESS_SIZES = [5_000_000];
 
+/**
+ * The offscreen canvas the slice is drawn into — and the aspect ratio the pan window borrows.
+ *
+ * Named rather than inlined because two things have to agree: what is rendered, and what is asked
+ * for. A pan window shaped unlike the element it lands in is not a camera move, and the harness
+ * spent its life measuring one.
+ */
+const CANVAS = { width: 1200, height: 800 };
+
 const SPACE = 8192;
 const PANS = 6;
 const DRAWS = 30;
@@ -248,7 +257,7 @@ async function corpus(pointCount: number, report?: (stage: string) => void): Pro
 function host(): HTMLDivElement {
   const element = document.createElement("div");
   element.style.cssText =
-    "position:absolute;left:-99999px;top:0;width:1200px;height:800px;pointer-events:none;";
+    `position:absolute;left:-99999px;top:0;width:${CANVAS.width}px;height:${CANVAS.height}px;pointer-events:none;`;
   document.body.appendChild(element);
   return element;
 }
@@ -361,12 +370,25 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
      * Six windows a quarter of the space wide, walked across the corpus — not six repeats of the
      * same rectangle, which DuckDB would answer from cache and which would report a latency nobody
      * experiences.
+     *
+     * **Shaped like the canvas, which it was not.** This used to span the full height, and a
+     * quarter-width full-height strip is the single worst shape for the Morton-ordered corpus
+     * underneath: it cuts across the space-filling curve instead of sitting inside it. Measured at
+     * a million in nine chunks, the strip needed 7 of 9 and matched 304,212 rows where a rectangle
+     * of the same width and the canvas's aspect needed 4 of 9 and matched 73,738. The harness was
+     * measuring the one camera move that defeats the tiling it exists to test, and reporting it as
+     * the cost of panning.
+     *
+     * A viewport is as tall as the element is tall. Deriving the height from [`CANVAS`] rather than
+     * from the extent is what makes this a camera rather than a slice through the whole corpus.
      */
     report?.("panning");
     const startedPanning = performance.now();
     const span = extent.xMax - extent.xMin;
     const step = span / (PANS + 1);
     const width = span / 4;
+    const height = width * (CANVAS.height / CANVAS.width);
+    const midY = (extent.yMin + extent.yMax) / 2;
     for (let i = 0; i < PANS; i++) {
       const x = extent.xMin + step * (i + 1);
       await source.slice({
@@ -374,9 +396,9 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
           kind: "region",
           view: {
             xMin: x - width / 2,
-            yMin: extent.yMin,
+            yMin: midY - height / 2,
             xMax: x + width / 2,
-            yMax: extent.yMax,
+            yMax: midY + height / 2,
             zoom: 1,
           },
         },
