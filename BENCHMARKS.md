@@ -304,6 +304,22 @@ assumed: over-read is chunks-touched × chunk-size, and chunks touched barely gr
 **2.9×** at 1,024 against 8.0× at 8,192 and 70× at 122,880. 4,883 chunks write in seconds at 20 kB
 each. Retention is again the control and did not move.
 
+**And the cache claim, measured over a pan** (`corpus/measure-pan.mjs`) — because chunks-touched is
+identical whether a chunk is a file or a `dense_id` range, so it cannot see what emitting them
+separately bought. Eight drag steps of a quarter of the window's width, five million:
+
+| `chunk_size` | hit rate | chunks fetched | **rows over the pan** |
+|---|---|---|---|
+| 1,024 | 85% | 21 of 79 touched | **21,504** |
+| 8,192 | 97% | 6 | 49,152 |
+| 32,768 | 100% | 4 | 131,072 |
+| 122,880 | 100% | 3 | 368,640 |
+
+**The hit rate is a trap.** It improves with bigger chunks for the reason that makes it worthless: a
+chunk large enough to contain the whole pan is fetched once and never missed again, so it scores
+perfectly by having already downloaded everything. The payload column is the comparable one, and on
+it 1,024 wins by seventeen times. Read the bytes, not the percentage.
+
 Two things worth not rediscovering. **A glob is the wrong way to read them**: expanding
 `vertex/Node/*.parquet` means listing a directory, and a plain HTTP origin has no listing — DuckDB's
 httpfs *can* glob against S3, so the mistake works against `file://`, works against a bucket, and
