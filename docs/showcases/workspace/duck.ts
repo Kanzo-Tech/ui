@@ -13,8 +13,18 @@ import { Coordinator, wasmConnector } from "@kanzo-tech/ui/analytics";
  * keeps toggling between Graph and Analysis from re-booting WASM and reloading every relation.
  */
 
+/**
+ * The slice of DuckDB-WASM's binding surface this app actually uses.
+ *
+ * The buffer pair is what makes a Parquet round trip possible entirely in the browser: `COPY … TO
+ * 'x.parquet'` writes into DuckDB's virtual filesystem, `copyFileToBuffer` lifts it out, and
+ * `registerFileBuffer` puts it back under a name `read_parquet()` can open. No server, no extra
+ * dependency, and it is the same shape keasy's real corpus arrives in.
+ */
 interface DuckDBHandle {
   registerFileText(name: string, text: string): Promise<void>;
+  registerFileBuffer(name: string, buffer: Uint8Array): Promise<void>;
+  copyFileToBuffer(name: string): Promise<Uint8Array>;
 }
 
 export interface Boot {
