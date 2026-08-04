@@ -31,7 +31,7 @@ export function selectColumn<TData>(
       <Checkbox
         aria-label={rowLabel(row)}
         checked={row.getIsSelected()}
-        data-slot="data-table-select-row"
+        slot="data-table-select-row"
         disabled={!row.getCanSelect()}
         onCheckedChange={(details) => row.toggleSelected(details.checked === true)}
         onClick={(event) => event.stopPropagation()}
@@ -49,7 +49,7 @@ export function selectColumn<TData>(
               ? "indeterminate"
               : false
         }
-        data-slot="data-table-select-all"
+        slot="data-table-select-all"
         onCheckedChange={(details) => table.toggleAllPageRowsSelected(details.checked === true)}
       />
     ),

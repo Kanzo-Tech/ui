@@ -2,7 +2,7 @@
 title: Hover Card
 description: A rich preview shown on hover — more than a tooltip can hold, less than a popover's commitment.
 links:
-  doc: https://ark-ui.com/docs/overlays/hover-card
+  doc: https://ark-ui.com/docs/components/hover-card
 ---
 
 <ComponentPreview componentName="hover-card" />
@@ -16,7 +16,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@kanzo-tech/ui";
 ```tsx
 <HoverCard>
   <HoverCardTrigger asChild>
-    <Button variant="link">@ada</Button>
+    <Button variant="link">@ravenna</Button>
   </HoverCardTrigger>
   <HoverCardContent>…</HoverCardContent>
 </HoverCard>
@@ -24,6 +24,12 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from "@kanzo-tech/ui";
 
 Hover-only, so the content must be supplementary — anything a keyboard or touch user needs
 belongs in a `Popover` instead, which opens on click.
+
+<Callout type="warn">
+**A hover card is a preview, not content.** It declares no role and wires no `aria-*`, so nothing
+inside it is announced or reachable without a pointer — which is correct for a bonus and wrong
+for anything a reader needs. See [which of the three](/docs/overlays/popover#popover-hover-card-or-tooltip).
+</Callout>
 
 ## Anatomy
 

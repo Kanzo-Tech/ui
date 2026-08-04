@@ -55,8 +55,9 @@ export interface PaletteIndexEntry {
 }
 
 /**
- * How many `--chart-*` custom properties the stylesheet declares. A 9th series folds into "Other" —
- * never cycle, or identity stops meaning anything.
+ * How many `--chart-N` custom properties the stylesheet declares. A 9th series folds into "Other" —
+ * never cycle, or identity stops meaning anything. (`--chart-capacity` is declared beside them and
+ * is not one of them; `boundary.test.ts` counts `--chart-N` only.)
  *
  * A fact about the SHEET, which is why it is here and not with the derivation that emits it: a
  * chart resolving `var(--chart-N)` off the cascade needs the count, and a chart runs in a browser
@@ -241,11 +242,12 @@ export interface SwatchOption {
 
 // ── The axis table — the single source of truth for how a preference reaches the DOM ────────
 //
-// This lives here, not in @kanzo-tech/ui, because three separate things must agree on it and
-// two of them are in different packages: the React provider, the SSR pre-hydration script, and
-// `scripts/gen-theme.mjs`, which decides which selectors exist in themes.css at all. When they
-// drifted there was no type error to catch it — miss the generator and the provider writes an
-// attribute no CSS matches; miss the script and the FOUC it exists to prevent comes back.
+// This lives here, not in @kanzo-tech/ui, because three separate things must agree on it and they
+// are split across two packages: the React provider and the SSR pre-hydration script, both in
+// `@kanzo-tech/ui`, and `scripts/gen-theme.mjs` here, which decides which selectors exist in
+// themes.css at all. Only this package holds all three in view. When they drifted there was no type
+// error to catch it — miss the generator and the provider writes an attribute no CSS matches; miss
+// the script and the FOUC it exists to prevent comes back.
 
 /**
  * The user's preferences. Six, and only one of them is a colour.

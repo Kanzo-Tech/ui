@@ -1,0 +1,88 @@
+---
+title: Segment Group
+description: A segmented control — one of a few views, with a sliding indicator.
+links:
+  doc: https://ark-ui.com/docs/components/segment-group
+---
+
+<Callout type="info">
+**Segment Group vs [Tabs](/docs/navigation/tabs):** they look alike and share no semantics. This is
+Ark's radio group underneath — verifiably: `@ark-ui/react/segment-group` re-exports
+`@zag-js/radio-group`, and the root renders `role="radiogroup"`. It **selects a value** and
+belongs in a form, next to [`RadioGroup`](/docs/forms/radio-group), whose semantics it has with
+a segmented look.
+
+Tabs is `tablist` / `tabpanel` and **reveals a panel**. If you are switching content rather than
+picking a value, you want Tabs.
+</Callout>
+
+<ComponentPreview componentName="segment-group" />
+
+## Usage
+
+```tsx
+import {
+  SegmentGroup,
+  SegmentGroupItem,
+  SegmentGroupItemText,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<SegmentGroup defaultValue="open">
+  <SegmentGroupItem value="open">
+    <SegmentGroupItemText>Open</SegmentGroupItemText>
+  </SegmentGroupItem>
+</SegmentGroup>
+```
+
+Underneath it is a radio group, so arrow keys move the selection and a screen reader
+announces "1 of 3" — which is right for switching between views, and wrong for a set of
+independent actions. Use buttons for those.
+
+`SegmentGroup` renders its own indicator; the sliding rectangle is positioned from the
+measured item, so the container carries the rounding and background you want it to inherit.
+
+Pass `options` for the data-driven shorthand — each `{ value, label, disabled? }` becomes an
+item, rendered before any explicit `children` (the two APIs are additive).
+
+## Anatomy
+
+```text
+SegmentGroup
+├── SegmentGroupIndicator   (rendered internally)
+└── SegmentGroupItem
+    └── SegmentGroupItemText
+```
+
+## Solid
+
+A filled `bg-muted` track with equal-width segments — the contained "segmented control" look,
+built in so consumers stop hand-rolling the track. Shown here driven by `options`.
+
+<ComponentPreview componentName="segment-group" fileName="example-solid" />
+
+## Underline
+
+<ComponentPreview componentName="segment-group" fileName="example-underline" />
+
+## Vertical
+
+<ComponentPreview componentName="segment-group" fileName="example-vertical" />
+
+## Disabled
+
+<ComponentPreview componentName="segment-group" fileName="example-disabled" />
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `variant` | `"default" \| "solid" \| "underline"` | `"default"` |
+| `orientation` | `"horizontal" \| "vertical"` | `"horizontal"` |
+| `options` | `{ value, label, disabled? }[]` | — |
+| `itemClassName` | `string` | — |
+
+Extends `SegmentGroup.Root` from Ark, so `value`, `defaultValue`, `onValueChange`,
+`disabled`, `readOnly`, `invalid`, `name` and `form` pass through. `SegmentGroupItem` takes
+`value` and `disabled`, and renders its own control and hidden input.

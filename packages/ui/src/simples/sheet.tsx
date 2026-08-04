@@ -1,5 +1,3 @@
-"use client";
-
 import { Dialog as ArkDialog, useDialogContext } from "@ark-ui/react/dialog";
 import { Portal } from "@ark-ui/react/portal";
 import { XIcon } from "lucide-react";
@@ -18,16 +16,16 @@ import {
 export const useSheet = useDialogContext;
 
 export const Sheet = (props: React.ComponentProps<typeof Dialog>) => (
-  <Dialog data-slot="sheet" {...props} />
+  <Dialog {...props} />
 );
 
 export const SheetTrigger = (
-  props: React.ComponentProps<typeof ArkDialog.Trigger>
-) => <ArkDialog.Trigger data-slot="sheet-trigger" {...props} />;
+  { slot, ...rest }: React.ComponentProps<typeof ArkDialog.Trigger>
+) => <ArkDialog.Trigger {...rest} data-slot={slot ?? "sheet-trigger"} />;
 
 export const SheetOverlay = (
-  props: React.ComponentProps<typeof DialogOverlay>
-) => <DialogOverlay data-slot="sheet-overlay" {...props} />;
+  { slot, ...rest }: React.ComponentProps<typeof DialogOverlay>
+) => <DialogOverlay {...rest} slot={slot ?? "sheet-overlay"} />;
 
 const sheetPositionerVariants = tv({
   base: [
@@ -65,15 +63,15 @@ interface SheetPositionerProps
     VariantProps<typeof sheetPositionerVariants> {}
 
 export const SheetPositioner = (props: SheetPositionerProps) => {
-  const { variant = "default", placement, className, ...rest } = props;
+  const { variant = "default", placement, className, slot, ...rest } = props;
 
   return (
     <ArkDialog.Positioner
       className={cn(sheetPositionerVariants({ placement, variant }), className)}
       data-placement={placement}
-      data-slot="sheet-positioner"
       data-variant={variant}
       {...rest}
+      data-slot={slot ?? "sheet-positioner"}
     />
   );
 };
@@ -147,6 +145,7 @@ export const SheetContent = (props: SheetContentProps) => {
     variant = "default",
     className,
     children,
+    slot,
     ...rest
   } = props;
 
@@ -160,8 +159,8 @@ export const SheetContent = (props: SheetContentProps) => {
             sheetContentVariants({ placement, variant }),
             className
           )}
-          data-slot="sheet-content"
           {...rest}
+          data-slot={slot ?? "sheet-content"}
         >
           {children}
 
@@ -184,14 +183,14 @@ export const SheetContent = (props: SheetContentProps) => {
 };
 
 export const SheetHeader = (
-  props: React.ComponentProps<typeof DialogHeader>
-) => <DialogHeader data-slot="sheet-header" {...props} />;
+  { slot, ...rest }: React.ComponentProps<typeof DialogHeader>
+) => <DialogHeader {...rest} slot={slot ?? "sheet-header"} />;
 
 // The title and description are `DialogTitle` / `DialogDescription`, usually reached through
 // `SheetHeader`'s `title` / `description` shorthands, which render exactly those. The renamed
 // pair only relabelled the slot, and nothing keys off `sheet-title`.
 export const SheetBody = (props: React.ComponentProps<typeof DialogBody>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <DialogBody
@@ -199,26 +198,26 @@ export const SheetBody = (props: React.ComponentProps<typeof DialogBody>) => {
         "in-[[data-slot=sheet-content]:has([data-slot=sheet-header])]:pt-0",
         className
       )}
-      data-slot="sheet-body"
       {...rest}
+      slot={slot ?? "sheet-body"}
     />
   );
 };
 
 export const SheetClose = (
-  props: React.ComponentProps<typeof ArkDialog.CloseTrigger>
-) => <ArkDialog.CloseTrigger data-slot="sheet-close" {...props} />;
+  { slot, ...rest }: React.ComponentProps<typeof ArkDialog.CloseTrigger>
+) => <ArkDialog.CloseTrigger {...rest} data-slot={slot ?? "sheet-close"} />;
 
 export const SheetFooter = (
   props: React.ComponentProps<typeof DialogFooter>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <DialogFooter
       className={cn("sm:rounded-none", className)}
-      data-slot="sheet-footer"
       {...rest}
+      slot={slot ?? "sheet-footer"}
     />
   );
 };

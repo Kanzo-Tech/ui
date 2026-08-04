@@ -10,7 +10,7 @@ form library, with plain `useState`, or with a validation engine that has never 
 
 ```tsx
 <Field invalid={Boolean(error)}>
-  <FieldLabel>Endpoint</FieldLabel>
+  <FieldLabel>Reward</FieldLabel>
   <Input />
   <FieldError>{error}</FieldError>
 </Field>
@@ -40,7 +40,7 @@ errors back until the user has interacted with a field, so a form does not open 
 const showError = touched && Boolean(error);
 
 <Field invalid={showError}>
-  <FieldLabel>Endpoint</FieldLabel>
+  <FieldLabel>Reward</FieldLabel>
   <Input onBlur={() => setTouched(true)} />
   <FieldError>{error}</FieldError>
 </Field>
@@ -55,8 +55,8 @@ None is required, and none is bundled. `Field` is a presentational component —
 
 - **Plain `useState`** — fine for a handful of fields.
 - **A schema library** (zod, valibot, arktype) — validate on submit, map issues to fields.
-- **A form library** (TanStack Form) — recommended once a form has enough fields that manual
-  state becomes boilerplate.
+- **A form library** ([TanStack Form](/docs/forms/tanstack-form)) — recommended once a form has
+  enough fields that manual state becomes boilerplate.
 
 If you use a schema library, the mapping is short and belongs in your product, not here:
 
@@ -80,7 +80,7 @@ Our own two consumers validate in ways that have almost nothing in common:
 |  | Schema-based (zod / TanStack) | Graph-based (SHACL / ShEx) |
 |---|---|---|
 | Who validates | validators declared beside the form | an external engine, over a whole RDF graph |
-| Error key | `items[0].email` | a pair of RDF terms |
+| Error key | `party[0].handle` | a pair of RDF terms |
 | Severity | binary | tri-state: violation / warning / info |
 | Message | from the schema | already resolved and localised by the engine |
 | Cardinality | one per field | several per field |
@@ -91,13 +91,6 @@ any model shaped by one excludes the other. A boolean and a `ReactNode` exclude 
 So the split is: **the library owns presentation; the product owns production.** Anything
 engine-specific — severity ladders, localisation catalogues, constraint identifiers — stays in
 the product, and reaches `Field` as a rendered message.
-
-<Callout type="info">
-If non-blocking field messages (a warning that does not mark the field invalid) turn out to be
-a real, repeated need, the answer will be a new **part** — `FieldWarning`, alongside the
-thirteen that already exist — and not a `severity` prop. That keeps the idiom the rest of the
-library already uses. It is not built yet because nothing has needed it twice.
-</Callout>
 
 ## Form-level errors
 

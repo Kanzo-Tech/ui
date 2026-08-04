@@ -2,7 +2,7 @@
 title: Scroll Area
 description: A scrollable region with overlay scrollbars that appear only while in use.
 links:
-  doc: https://ark-ui.com/docs/layout/scroll-area
+  doc: https://ark-ui.com/docs/components/scroll-area
 ---
 
 <ComponentPreview componentName="scroll-area" />
@@ -50,5 +50,7 @@ so the fade doubles as the "there is more above/below" signal.
 | --- | --- | --- |
 | `scrollFade` | `boolean` | `false` |
 
-Extends Ark's `ScrollArea.Root`. `useScrollArea` re-exports Ark's `useScrollAreaContext`, and
-`ScrollAreaScrollbar` is exported for the rare case you need to place one yourself.
+Extends Ark's `ScrollArea.Root`, and `useScrollArea` re-exports Ark's `useScrollAreaContext`.
+`ScrollAreaScrollbar` is exported for a custom root of your own; `ScrollArea` already places one per
+axis, so a third one placed inside it is a third scrollbar. The viewport, the content and the corner
+are not exported under any name — they are Ark's parts, and this library styles them in place.

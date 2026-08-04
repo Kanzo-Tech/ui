@@ -1,5 +1,3 @@
-"use client";
-
 import { ark } from "@ark-ui/react/factory";
 import { Field as ArkField } from "@ark-ui/react/field";
 import { ChevronsUpDownIcon } from "lucide-react";
@@ -48,7 +46,7 @@ interface NativeSelectProps
 }
 
 export const NativeSelect = (props: NativeSelectProps) => {
-  const { size = "md", invalid, className, ...rest } = props;
+  const { size = "md", invalid, className, slot, ...rest } = props;
 
   return (
     <ark.div
@@ -63,8 +61,8 @@ export const NativeSelect = (props: NativeSelectProps) => {
       <ArkField.Select
         aria-invalid={invalid}
         className={cn(nativeSelectVariants({ size }))}
-        data-slot="native-select"
         {...rest}
+        data-slot={slot ?? "native-select"}
       />
       <ChevronsUpDownIcon
         aria-hidden="true"
@@ -76,9 +74,9 @@ export const NativeSelect = (props: NativeSelectProps) => {
 };
 
 export const NativeSelectOption = (
-  props: React.ComponentProps<typeof ark.option>
-) => <ark.option data-slot="native-select-option" {...props} />;
+  { slot, ...rest }: React.ComponentProps<typeof ark.option>
+) => <ark.option {...rest} data-slot={slot ?? "native-select-option"} />;
 
 export const NativeSelectOptGroup = (
-  props: React.ComponentProps<typeof ark.optgroup>
-) => <ark.optgroup data-slot="native-select-optgroup" {...props} />;
+  { slot, ...rest }: React.ComponentProps<typeof ark.optgroup>
+) => <ark.optgroup {...rest} data-slot={slot ?? "native-select-optgroup"} />;

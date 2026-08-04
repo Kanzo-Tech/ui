@@ -1,15 +1,16 @@
 // @kanzo-tech/ui/table — a thin composable layer over TanStack Table.
 //
 // Kept out of the root barrel so the base bundle never carries @tanstack/react-table.
-// Consumers: `import { DataTable, useDataTable } from "@kanzo-tech/ui/table"`.
+// Consumers: `import { DataTableRoot, useDataTable } from "@kanzo-tech/ui/table"`.
 //
 // `useDataTable` owns the engine (row models, state slices, the server-side modes); the parts own
-// the chrome. `DataTable` is the batteries-included preset built from both — reach for the parts
-// when its shape is the wrong one, which is where column visibility, facet filters, row selection
-// and manual paging live.
-export { DataTable } from "./table/DataTable.js";
-export type { DataTableProps } from "./table/DataTable.js";
-
+// the chrome. Compose the two — column visibility, facet filters, row selection and manual paging
+// all live in the parts, so the composition is the only shape that reaches them.
+//
+// There is no `DataTable` preset. It was `useDataTable` plus four parts with the toolbar's tree
+// flattened into `searchKey` / `searchPlaceholder` / `toolbarActions` / `empty`, and its own doc
+// comment conceded as much. `docs/examples/data-table/example-complete.tsx` already *is* the
+// composition, which is the honest home for an arrangement.
 export { useDataTable, facetFilterFn } from "./table/use-data-table.js";
 export type { UseDataTableOptions } from "./table/use-data-table.js";
 

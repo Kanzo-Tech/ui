@@ -6,10 +6,8 @@
  * `data-font-size` sets the density (root font-size). The default value of every axis = attribute
  * ABSENT, so a product only sets what it changes.
  *
- * **Colour is not an axis any more.** `data-base`, `data-accent`, `data-palette` and
- * `data-chart-scheme` were four ways to express *part* of a palette at runtime; a tenant palette
- * document expresses all of it at once, compiled to one stylesheet before a byte is sent. See
- * `scripts/gen-palette.mjs` for the default tenant's compilation.
+ * **Colour is not an axis** — see the header of `tokens.css`, which carries that argument in full.
+ * `scripts/gen-palette.mjs` is where the default tenant's document is compiled instead.
  *
  * The tables the derivation READS moved out with it, to
  * `packages/palette/scripts/gen-data.mjs` — they are inputs to the maths, and a browser that
@@ -46,7 +44,6 @@ const MONO_FONTS = [
 //    = attribute absent (16px). ──
 const DENSITIES = [["compact", "14px"], ["comfortable", "18px"]];
 
-// ── Emit ─────────────────────────────────────────────────────────────────────
 const block = (sel, vars) =>
   `${sel} {\n${Object.entries(vars).map(([k, v]) => `  ${k}: ${v};`).join("\n")}\n}\n`;
 
@@ -57,7 +54,13 @@ out += "/* ── Radius (data-radius) ─────────────�
 for (const [r, val] of RADII) out += block(`[data-radius="${r}"]`, { "--radius": val });
 
 out += "\n/* ── Fonts (data-font / data-mono-font) ─────────────────────────────────── */\n";
-for (const [f, stack] of FONTS) out += block(`[data-font="${f}"]`, { "--font-sans": stack });
+// `--font-heading` moves with `--font-sans`, because there is ONE font axis. It used to be set
+// nowhere at all, so `card.tsx`, `alert.tsx`, `dialog.tsx` and `Preferences.tsx` — every title in
+// the library — sat on the `tokens.css` fallback while body text followed the preference. A
+// product that wants a distinct display face still overrides `--font-heading` on its own, which is
+// what `tokens.css` promises; a second axis is not something anything here has asked for.
+for (const [f, stack] of FONTS)
+  out += block(`[data-font="${f}"]`, { "--font-sans": stack, "--font-heading": stack });
 for (const [f, stack] of MONO_FONTS) out += block(`[data-mono-font="${f}"]`, { "--font-mono": stack });
 
 out += "\n/* ── Density (data-font-size → root font-size rem-scale) ────────────────── */\n";
@@ -66,9 +69,8 @@ for (const [d, size] of DENSITIES) out += block(`[data-font-size="${d}"]`, { "fo
 writeFileSync(OUT, out);
 
 // ── theme-data.json — the same data as a runtime module ──────────────────────
-// Consumers read it through the package's JS entry, never the `.json` subpath: a raw JSON subpath
-// import is an ESM JSON import at runtime, which Node rejects without `with { type: "json" }`, and
-// Rollup strips that attribute when bundling.
+// Consumers read it through the package's JS entry, never this `.json` subpath — see `themeData` in
+// `src/index.ts` for why the direct import cannot be made to survive a build.
 const data = {
   radii: Object.fromEntries(RADII.map(([r, v]) => [r, v])),
   fonts: Object.fromEntries(FONTS.map(([f, v]) => [f, v])),

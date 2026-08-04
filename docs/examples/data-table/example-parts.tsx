@@ -10,26 +10,14 @@ import {
   sortableHeader,
   useDataTable,
 } from "@kanzo-tech/ui/table";
+import { type Quest, questsOf } from "@/example/quests";
 
-interface Dataset {
-  name: string;
-  owner: string;
-  records: number;
-}
+const data = questsOf("salt");
 
-const data: Dataset[] = [
-  { name: "customers", owner: "platform", records: 1204 },
-  { name: "orders", owner: "commerce", records: 8912 },
-  { name: "invoices", owner: "finance", records: 412 },
-  { name: "shipments", owner: "commerce", records: 3310 },
-  { name: "refunds", owner: "finance", records: 96 },
-  { name: "sessions", owner: "platform", records: 26_540 },
-];
-
-const columns: ColumnDef<Dataset>[] = [
-  { accessorKey: "name", header: sortableHeader("Dataset") },
-  { accessorKey: "records", header: sortableHeader("Records") },
-  { accessorKey: "owner", header: "Owner" },
+const columns: ColumnDef<Quest>[] = [
+  { accessorKey: "title", header: sortableHeader("Contract") },
+  { accessorKey: "reward", header: sortableHeader("Reward") },
+  { accessorKey: "region", header: "Region" },
 ];
 
 export default function Example() {
@@ -39,10 +27,10 @@ export default function Example() {
     <div className="w-full max-w-xl">
       <DataTableRoot table={table}>
         <DataTableToolbar>
-          <DataTableSearch column="name" placeholder="Filter datasets…" />
+          <DataTableSearch column="title" placeholder="Filter contracts…" />
         </DataTableToolbar>
 
-        <DataTableContent<Dataset> />
+        <DataTableContent<Quest> />
         <DataTablePagination />
       </DataTableRoot>
     </div>

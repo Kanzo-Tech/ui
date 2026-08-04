@@ -13,15 +13,18 @@ import { revalidateLogic, useForm } from "@tanstack/react-form";
 import * as z from "zod";
 
 const schema = z.object({
-  sampling: z
+  advance: z
     .array(z.number())
     .length(1)
-    .refine((value) => (value[0] ?? 0) >= 10, "Sample at least 10% of the rows."),
+    .refine(
+      (value) => (value[0] ?? 0) >= 10,
+      "No party walks for less than a tenth up front."
+    ),
 });
 
 export default function Example() {
   const form = useForm({
-    defaultValues: { sampling: [5] },
+    defaultValues: { advance: [5] },
     validationLogic: revalidateLogic(),
     validators: { onDynamic: schema },
     onSubmit: () => {},
@@ -38,7 +41,7 @@ export default function Example() {
       }}
     >
       <FieldGroup>
-        <form.Field name="sampling">
+        <form.Field name="advance">
           {(field) => (
             <Field invalid={!field.state.meta.isValid}>
               {/* Slider's value is always an array — one entry per thumb — even for
@@ -50,7 +53,7 @@ export default function Example() {
                 value={field.state.value}
               >
                 <div className="flex items-center gap-2">
-                  <SliderLabel>Sampling</SliderLabel>
+                  <SliderLabel>Advance</SliderLabel>
                   <SliderValue />
                 </div>
               </Slider>

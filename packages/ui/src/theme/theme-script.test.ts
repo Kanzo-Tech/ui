@@ -12,6 +12,28 @@
  *
  * Both sides shrank when colour became a compiled document rather than a set of runtime axes, and
  * this file is what proves they shrank to the same place.
+ *
+ * ## What this guard cannot prove
+ *
+ * - **Nothing about paint.** jsdom has no rendering, no cascade and no timing, so "before the first
+ *   paint" — the property the whole script exists for — is not observed here. What is compared is
+ *   the state of `<html>` after each side has run to completion, which says the two AGREE and says
+ *   nothing about the script having got there first. A script moved below the fold, or after a
+ *   stylesheet, would still pass every case below.
+ * - **Nothing about hydration.** The provider is rendered client-side with
+ *   `@testing-library/react`. React's server render, and the mismatch warning that is the second of
+ *   the two symptoms named above, never happen in this file. `docs/` is the RSC fixture.
+ * - **Only the seeds in the table.** Ten cases, each a hand-written blob. A stored value of the
+ *   wrong *type* (`appearance: 3`), a blob that is not JSON, a `localStorage` that throws in
+ *   private mode — none is exercised, and the script swallows all three into `try{}catch(e){}`
+ *   where a divergence would be silent by design.
+ * - **Nothing about what the attributes mean.** Equality is over `data-*` and `.dark`. Whether any
+ *   selector in `themes.css` matches what both sides agreed to write is
+ *   `packages/theme/src/index.test.ts`; whether it is the right colour is `palettes.test.ts`.
+ * - **The source assertions read text.** `never writes color-scheme inline` and `sets no CSS custom
+ *   property at all` are substring checks over emitted JS. A property set through a computed member
+ *   name, or a string the minifier split, would pass — they hold today because the script is small
+ *   and hand-written, which is a fact about the corpus and not about the check.
  */
 import { createElement } from "react";
 import { AXES, STORAGE_KEY } from "@kanzo-tech/theme";

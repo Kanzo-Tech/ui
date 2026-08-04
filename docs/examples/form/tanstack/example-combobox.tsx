@@ -16,28 +16,26 @@ import {
 } from "@kanzo-tech/ui";
 import { revalidateLogic, useForm } from "@tanstack/react-form";
 import * as z from "zod";
+import { availableNow } from "@/example/roster";
 
-const DATASETS = [
-  { label: "customers", value: "customers" },
-  { label: "orders", value: "orders" },
-  { label: "products", value: "products" },
-  { label: "suppliers", value: "suppliers" },
-  { label: "invoices", value: "invoices" },
-];
+const READY = availableNow().map((candidate) => ({
+  label: candidate.name,
+  value: candidate.id,
+}));
 
 const schema = z.object({
-  tables: z.array(z.string()).min(2, "Join at least two tables."),
+  party: z.array(z.string()).min(2, "Nobody walks a contract alone."),
 });
 
 export default function Example() {
   const { contains } = useFilter({ sensitivity: "base" });
   const { collection, filter } = useListCollection({
-    initialItems: DATASETS,
+    initialItems: READY,
     filter: contains,
   });
 
   const form = useForm({
-    defaultValues: { tables: [] as string[] },
+    defaultValues: { party: [] as string[] },
     validationLogic: revalidateLogic(),
     validators: { onDynamic: schema },
     onSubmit: () => {},
@@ -54,10 +52,10 @@ export default function Example() {
       }}
     >
       <FieldGroup>
-        <form.Field name="tables">
+        <form.Field name="party">
           {(field) => (
             <Field invalid={!field.state.meta.isValid}>
-              <FieldLabel>Tables</FieldLabel>
+              <FieldLabel>Party</FieldLabel>
               {/* Combobox holds a string[] whether or not it is multiple, so the form
                   value matches it exactly. */}
               <Combobox
@@ -70,10 +68,10 @@ export default function Example() {
               >
                 <ComboboxInput
                   onBlur={field.handleBlur}
-                  placeholder="Search tables…"
+                  placeholder="Search the roster…"
                 />
                 <ComboboxContent>
-                  <ComboboxEmpty>No tables found.</ComboboxEmpty>
+                  <ComboboxEmpty>Nobody ready by that name.</ComboboxEmpty>
                   {collection.items.map((item) => (
                     <ComboboxItem item={item} key={item.value}>
                       {item.label}

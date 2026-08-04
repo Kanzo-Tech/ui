@@ -15,14 +15,20 @@ export const useSelect = useSelectContext;
 export const SelectContext = ArkSelect.Context;
 
 export const Select: ArkSelect.RootComponent = (props) => {
-  const { lazyMount = true, unmountOnExit = true, children, ...rest } = props;
+  const {
+    lazyMount = true,
+    unmountOnExit = true,
+    children,
+    slot,
+    ...rest
+  } = props;
 
   return (
     <ArkSelect.Root
-      data-slot="select"
       lazyMount={lazyMount}
       unmountOnExit={unmountOnExit}
       {...rest}
+      data-slot={slot ?? "select"}
     >
       {children}
 
@@ -95,6 +101,7 @@ export const SelectTrigger = (props: SelectTriggerProps) => {
     size = "md",
     className,
     children,
+    slot,
     ...rest
   } = props;
 
@@ -107,8 +114,8 @@ export const SelectTrigger = (props: SelectTriggerProps) => {
     >
       <ArkSelect.Trigger
         className={cn(inputVariants({ size }), styles.trigger(), className)}
-        data-slot="select-trigger"
         {...rest}
+        data-slot={slot ?? "select-trigger"}
       >
         {children}
 
@@ -131,13 +138,13 @@ export const SelectTrigger = (props: SelectTriggerProps) => {
 export const SelectSeparator = (
   props: React.ComponentProps<typeof Separator>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <Separator
       className={cn("pointer-events-none -mx-1 my-1 h-px bg-border", className)}
-      data-slot="select-separator"
       {...rest}
+      slot={slot ?? "select-separator"}
     />
   );
 };
@@ -163,7 +170,7 @@ export const SelectValue = (
 export const SelectContent = (
   props: React.ComponentProps<typeof ArkSelect.Content>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <Portal>
@@ -191,8 +198,8 @@ export const SelectContent = (
             "motion-reduce:animate-none!",
             className
           )}
-          data-slot="select-content"
           {...rest}
+          data-slot={slot ?? "select-content"}
         />
       </ArkSelect.Positioner>
     </Portal>
@@ -208,10 +215,10 @@ interface SelectGroupProps
 }
 
 export const SelectGroup = (props: SelectGroupProps) => {
-  const { heading, children, ...rest } = props;
+  const { heading, children, slot, ...rest } = props;
 
   return (
-    <ArkSelect.ItemGroup data-slot="select-group" {...rest}>
+    <ArkSelect.ItemGroup {...rest} data-slot={slot ?? "select-group"}>
       {!!heading && <SelectGroupLabel>{heading}</SelectGroupLabel>}
 
       {children}
@@ -222,7 +229,7 @@ export const SelectGroup = (props: SelectGroupProps) => {
 export const SelectGroupLabel = (
   props: React.ComponentProps<typeof ArkSelect.ItemGroupLabel>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkSelect.ItemGroupLabel
@@ -231,8 +238,8 @@ export const SelectGroupLabel = (
         "font-semibold text-muted-foreground text-xs",
         className
       )}
-      data-slot="select-group-label"
       {...rest}
+      data-slot={slot ?? "select-group-label"}
     />
   );
 };
@@ -240,7 +247,7 @@ export const SelectGroupLabel = (
 export const SelectItem = (
   props: React.ComponentProps<typeof ArkSelect.Item>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ArkSelect.Item
@@ -260,8 +267,8 @@ export const SelectItem = (
         "[&_svg:not([class*='size-'])]:size-4 [&_svg]:text-muted-foreground",
         className
       )}
-      data-slot="select-item"
       {...rest}
+      data-slot={slot ?? "select-item"}
     >
       <ArkSelect.ItemText
         className="flex w-full flex-1 items-center gap-2"
@@ -282,7 +289,7 @@ export const SelectItem = (
 export const SelectClearTrigger = (
   props: React.ComponentProps<typeof ArkSelect.ClearTrigger>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkSelect.ClearTrigger
@@ -296,8 +303,8 @@ export const SelectClearTrigger = (
         "motion-reduce:transition-none!",
         className
       )}
-      data-slot="select-clear-trigger"
       {...rest}
+      data-slot={slot ?? "select-clear-trigger"}
     />
   );
 };

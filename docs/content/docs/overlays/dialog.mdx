@@ -2,7 +2,7 @@
 title: Dialog
 description: A modal surface that interrupts the flow to ask for input or confirmation.
 links:
-  doc: https://ark-ui.com/docs/overlays/dialog
+  doc: https://ark-ui.com/docs/components/dialog
 ---
 
 <ComponentPreview componentName="dialog" />
@@ -24,10 +24,10 @@ import {
 ```tsx
 <Dialog>
   <DialogTrigger asChild>
-    <Button variant="outline">Edit</Button>
+    <Button variant="outline">Claim contract</Button>
   </DialogTrigger>
   <DialogContent>
-    <DialogHeader title="Edit dataset" description="Changes apply immediately." />
+    <DialogHeader title="Something is eating the bell-ropes" description="Q-1041 · Thornmarch" />
     <DialogBody>…</DialogBody>
   </DialogContent>
 </Dialog>
@@ -66,10 +66,23 @@ needs more than text.
 
 <ComponentPreview componentName="dialog" fileName="example-controlled" />
 
+## Three surfaces, one machine
+
+`Dialog`, [`Sheet`](/docs/overlays/sheet) and `AlertDialog` are the same Ark machine wearing
+three shapes, which is why they share a header, a body and a title:
+
+| | What it is | Reach for it when |
+|---|---|---|
+| `Dialog` | a centred modal | the task is short and self-contained |
+| [`Sheet`](/docs/overlays/sheet) | the same modal docked to an edge | the panel wants the full height or width — a filter rail, a detail pane |
+| `AlertDialog` | the same modal as `role="alertdialog"`, with no close button | dismissing by reflex would be the wrong outcome |
+
+A `Sheet` has no `SheetTitle` and an `AlertDialog` has no separate title either: both render
+`DialogTitle`, because one machine has one title.
+
 ## Alert mode
 
-`AlertDialog` is the same dialog machine in a different role: `Dialog` with
-`role="alertdialog"` and `showCloseButton={false}`. The X is removed on purpose, so the only
+`AlertDialog` is `Dialog` with `role="alertdialog"` and `showCloseButton={false}`. The X is removed on purpose, so the only
 way out is an explicit Cancel or Confirm — reach for it when dismissing by reflex would be the
 wrong outcome, and plain `Dialog` for everything else.
 
@@ -91,14 +104,14 @@ import {
 ```tsx
 <AlertDialog>
   <AlertDialogTrigger asChild>
-    <Button variant="outline">Delete</Button>
+    <Button variant="outline">Abandon</Button>
   </AlertDialogTrigger>
   <AlertDialogContent size="sm">
-    <AlertDialogHeader title="Delete customers.ttl?" description="This cannot be undone." />
+    <AlertDialogHeader title="Abandon Q-1058?" description="The party is recalled and it is marked Failed." />
     <AlertDialogFooter>
       <AlertDialogCancel>Cancel</AlertDialogCancel>
       <AlertDialogClose asChild>
-        <AlertDialogAction variant="destructive">Delete</AlertDialogAction>
+        <AlertDialogAction variant="destructive">Abandon</AlertDialogAction>
       </AlertDialogClose>
     </AlertDialogFooter>
   </AlertDialogContent>

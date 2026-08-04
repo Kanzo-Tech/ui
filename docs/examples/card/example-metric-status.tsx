@@ -1,4 +1,4 @@
-import { BoxesIcon, BriefcaseIcon, CloudIcon, DatabaseIcon } from "lucide-react";
+import { FootprintsIcon, ScrollTextIcon, TriangleAlertIcon, UsersIcon } from "lucide-react";
 import {
   MetricCard,
   MetricCardDescription,
@@ -7,6 +7,10 @@ import {
   MetricCardLabel,
   MetricCardValue,
 } from "@/showcases/metric-card/metric-card";
+import { overdueQuests, QUESTS } from "@/example/quests";
+import { availableNow } from "@/example/roster";
+
+const afield = QUESTS.filter((contract) => contract.status === "afield").length;
 
 export default function Example() {
   return (
@@ -14,45 +18,45 @@ export default function Example() {
       <MetricCard>
         <MetricCardHeader>
           <MetricCardIcon>
-            <BoxesIcon />
+            <ScrollTextIcon />
           </MetricCardIcon>
-          <MetricCardLabel>DCAT Catalogs</MetricCardLabel>
+          <MetricCardLabel>On the board</MetricCardLabel>
         </MetricCardHeader>
-        <MetricCardValue>7</MetricCardValue>
-        <MetricCardDescription>catalogs generated</MetricCardDescription>
+        <MetricCardValue>{QUESTS.length}</MetricCardValue>
+        <MetricCardDescription>contracts, all halls</MetricCardDescription>
       </MetricCard>
 
       <MetricCard status="success">
         <MetricCardHeader>
           <MetricCardIcon>
-            <CloudIcon />
+            <UsersIcon />
           </MetricCardIcon>
-          <MetricCardLabel>Cloud Accounts</MetricCardLabel>
+          <MetricCardLabel>Members ready</MetricCardLabel>
         </MetricCardHeader>
-        <MetricCardValue>3</MetricCardValue>
-        <MetricCardDescription>accounts configured</MetricCardDescription>
+        <MetricCardValue>{availableNow().length}</MetricCardValue>
+        <MetricCardDescription>who can be sent today</MetricCardDescription>
       </MetricCard>
 
       <MetricCard status="warning">
         <MetricCardHeader>
           <MetricCardIcon>
-            <DatabaseIcon />
+            <FootprintsIcon />
           </MetricCardIcon>
-          <MetricCardLabel>Drafts</MetricCardLabel>
+          <MetricCardLabel>Parties afield</MetricCardLabel>
         </MetricCardHeader>
-        <MetricCardValue>2</MetricCardValue>
-        <MetricCardDescription>waiting on review</MetricCardDescription>
+        <MetricCardValue>{afield}</MetricCardValue>
+        <MetricCardDescription>out, no word expected</MetricCardDescription>
       </MetricCard>
 
       <MetricCard status="danger">
         <MetricCardHeader>
           <MetricCardIcon>
-            <BriefcaseIcon />
+            <TriangleAlertIcon />
           </MetricCardIcon>
-          <MetricCardLabel>Jobs</MetricCardLabel>
+          <MetricCardLabel>Overdue</MetricCardLabel>
         </MetricCardHeader>
-        <MetricCardValue>12</MetricCardValue>
-        <MetricCardDescription>last run failed</MetricCardDescription>
+        <MetricCardValue>{overdueQuests().length}</MetricCardValue>
+        <MetricCardDescription>past the due date</MetricCardDescription>
       </MetricCard>
     </div>
   );

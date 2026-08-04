@@ -2,11 +2,11 @@
 title: Tabs
 description: Switches between panels of related content.
 links:
-  doc: https://ark-ui.com/docs/navigation/tabs
+  doc: https://ark-ui.com/docs/components/tabs
 ---
 
 <Callout type="info">
-**Tabs vs [Segment Group](/docs/navigation/segment-group):** they look alike and share no semantics.
+**Tabs vs [Segment Group](/docs/forms/segment-group):** they look alike and share no semantics.
 Tabs is `tablist` / `tabpanel` — it **reveals a panel**, and the panels are the point. Segment
 Group is built on Ark's radio group and emits `role="radiogroup"` — it **selects a value**, and
 is a form control.
@@ -57,6 +57,18 @@ Orientation lives on the root and reaches every part through `data-orientation`,
 and the panels reflow together.
 
 <ComponentPreview componentName="tabs" fileName="example-vertical" />
+
+## Keyboard
+
+| Key | Does |
+| --- | --- |
+| <kbd>←</kbd> / <kbd>→</kbd> | Moves to the previous / next tab, wrapping at the ends — horizontal orientation only. |
+| <kbd>↑</kbd> / <kbd>↓</kbd> | The same, and only under `orientation="vertical"`. |
+| <kbd>Home</kbd> / <kbd>End</kbd> | Moves to the first / last tab. |
+| <kbd>Enter</kbd> / <kbd>Space</kbd> | Selects the focused tab — which matters only under `activationMode="manual"`. |
+
+Activation is automatic by default, so an arrow key both moves and selects; only one trigger is
+tabbable, so <kbd>Tab</kbd> leaves the list for the panel.
 
 ## API Reference
 

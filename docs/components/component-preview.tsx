@@ -3,7 +3,6 @@ import { join } from "node:path";
 import type { CodeBlockProps } from "fumadocs-ui/components/codeblock";
 import { ServerCodeBlock } from "fumadocs-ui/components/codeblock.rsc";
 import { ComponentPreviewTabs } from "./component-preview-tabs";
-import { isFullBleedComponent } from "@/lib/component-groups";
 
 const EXAMPLES_PATH = "examples";
 
@@ -24,8 +23,8 @@ export interface ComponentPreviewProps {
   /**
    * Render the example whole: no frame padding, no centring, no fixed height, no guides.
    *
-   * Left undefined it is **derived** — a page in the `layouts` or `blocks` group is full-bleed,
-   * everything else is framed. Pass it explicitly only to override that for one example.
+   * Per example, not per group. Two slugs need it — `shell` and `sidebar` — and both sit in
+   * groups whose other pages are single elements, so there is no group rule to derive it from.
    */
   fullBleed?: boolean;
   /** Preview pane is a fixed 450px so switching tabs never makes the page jump. */
@@ -47,9 +46,8 @@ export const ComponentPreview = async (props: ComponentPreviewProps) => {
   const { componentName, fileName = "example-default" } = props;
 
   // A shell cannot be judged inside a 450px centred box with dashed padding guides — that frame
-  // is built for a button. Which components need the frame is not a property of the example, so
-  // it is not an MDX prop by default: it is read off the group the component's page sits in.
-  const fullBleed = props.fullBleed ?? isFullBleedComponent(componentName);
+  // is built for a button.
+  const fullBleed = props.fullBleed ?? false;
   const hasMaxHeight = props.hasMaxHeight ?? !fullBleed;
   const showBorders = props.showBorders ?? !fullBleed;
 
@@ -73,11 +71,19 @@ export const ComponentPreview = async (props: ComponentPreviewProps) => {
 };
 
 /**
- * Rewrite the source so a reader sees the imports THEY would write. Shark does the same when
- * mapping its registry path onto `@/components/ui`.
+ * Rewrite the source so a reader sees what they would have to write.
+ *
+ * `@kanzo-tech/*` imports are already the reader's own — they pass through untouched. A `@/`
+ * import is not: it resolves inside this site and nowhere else, so the Code tab was showing an
+ * import a reader could copy and never satisfy. Those get an inline note saying where the file
+ * is, because they are arrangements you copy rather than API you install — the same thing the
+ * charts page says in prose about `docs/lib/`.
  */
 function forDisplay(input: string) {
   return input
-    .replace(/^import .*from "@kanzo-tech\/ui";$/gm, (line) => line)
+    .replace(
+      /^(import .*from "@\/(\S+)";)$/gm,
+      (_line, statement: string, path: string) => `${statement} // copy from docs/${path}.tsx`,
+    )
     .replace(/\n+$/, "");
 }

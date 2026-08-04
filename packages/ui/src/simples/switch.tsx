@@ -1,5 +1,3 @@
-"use client";
-
 import { Switch as ArkSwitch, useSwitchContext } from "@ark-ui/react/switch";
 import type React from "react";
 import { cn } from "../lib/cn";
@@ -7,7 +5,7 @@ import { cn } from "../lib/cn";
 export const useSwitch = useSwitchContext;
 
 export const Switch = (props: React.ComponentProps<typeof ArkSwitch.Root>) => {
-  const { className, tabIndex, ...rest } = props;
+  const { className, tabIndex, slot, ...rest } = props;
 
   return (
     <ArkSwitch.Root
@@ -33,8 +31,8 @@ export const Switch = (props: React.ComponentProps<typeof ArkSwitch.Root>) => {
         "motion-reduce:transition-none!",
         className
       )}
-      data-slot="switch"
       {...rest}
+      data-slot={slot ?? "switch"}
     >
       <ArkSwitch.Control
         className="flex size-full items-center"

@@ -1,5 +1,3 @@
-"use client";
-
 import { Portal } from "@ark-ui/react";
 import { ark } from "@ark-ui/react/factory";
 import {
@@ -24,7 +22,6 @@ export const Menu = (props: React.ComponentProps<typeof ArkMenu.Root>) => {
 
   return (
     <ArkMenu.Root
-      data-slot="menu"
       lazyMount={lazyMount}
       positioning={positioning}
       unmountOnExit={unmountOnExit}
@@ -34,8 +31,8 @@ export const Menu = (props: React.ComponentProps<typeof ArkMenu.Root>) => {
 };
 
 export const MenuTrigger = (
-  props: React.ComponentProps<typeof ArkMenu.Trigger>
-) => <ArkMenu.Trigger data-slot="menu-trigger" {...props} />;
+  { slot, ...rest }: React.ComponentProps<typeof ArkMenu.Trigger>
+) => <ArkMenu.Trigger {...rest} data-slot={slot ?? "menu-trigger"} />;
 
 /**
  * The second way into the same menu: opens on right-click at the pointer instead of anchoring to
@@ -45,13 +42,13 @@ export const MenuTrigger = (
 export const MenuContextTrigger = (
   props: React.ComponentProps<typeof ArkMenu.ContextTrigger>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkMenu.ContextTrigger
       className={cn("cursor-default", className)}
-      data-slot="menu-context-trigger"
       {...rest}
+      data-slot={slot ?? "menu-context-trigger"}
     />
   );
 };
@@ -59,18 +56,18 @@ export const MenuContextTrigger = (
 export const MenuPositioner = (
   props: React.ComponentProps<typeof ArkMenu.Positioner>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkMenu.Positioner
       className={cn("outline-none", className)}
-      data-slot="menu-positioner"
       {...rest}
+      data-slot={slot ?? "menu-positioner"}
     />
   );
 };
 
-const menuContentVariants = tv({
+export const menuContentVariants = tv({
   base: [
     "z-[calc(50+var(--nested-layer-count,0))]",
     // A FIXED max-height, not `max-h-(--available-height)`: clamping the content to the
@@ -98,15 +95,15 @@ const menuContentVariants = tv({
 });
 
 export const MenuContent = (props: MenuContentProps) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <Portal>
       <MenuPositioner>
         <ArkMenu.Content
           className={cn(menuContentVariants(), className)}
-          data-slot="menu-content"
           {...rest}
+          data-slot={slot ?? "menu-content"}
         >
           {children}
         </ArkMenu.Content>
@@ -124,10 +121,10 @@ interface MenuGroupProps
 }
 
 export const MenuGroup = (props: MenuGroupProps) => {
-  const { heading, children, ...rest } = props;
+  const { heading, children, slot, ...rest } = props;
 
   return (
-    <ArkMenu.ItemGroup data-slot="menu-group" {...rest}>
+    <ArkMenu.ItemGroup {...rest} data-slot={slot ?? "menu-group"}>
       {!!heading && <MenuGroupLabel>{heading}</MenuGroupLabel>}
 
       {children}
@@ -138,13 +135,13 @@ export const MenuGroup = (props: MenuGroupProps) => {
 export const MenuSeparator = (
   props: React.ComponentProps<typeof ArkMenu.Separator>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkMenu.Separator
       className={cn("my-1 h-px bg-border", className)}
-      data-slot="menu-separator"
       {...rest}
+      data-slot={slot ?? "menu-separator"}
     />
   );
 };
@@ -251,10 +248,10 @@ interface MenuRadioGroupProps
 }
 
 export const MenuRadioGroup = (props: MenuRadioGroupProps) => {
-  const { heading, children, ...rest } = props;
+  const { heading, children, slot, ...rest } = props;
 
   return (
-    <ArkMenu.RadioItemGroup data-slot="menu-radio-group" {...rest}>
+    <ArkMenu.RadioItemGroup {...rest} data-slot={slot ?? "menu-radio-group"}>
       {!!heading && <MenuGroupLabel>{heading}</MenuGroupLabel>}
 
       {children}
@@ -265,7 +262,7 @@ export const MenuRadioGroup = (props: MenuRadioGroupProps) => {
 export const MenuGroupLabel = (
   props: React.ComponentProps<typeof ArkMenu.ItemGroupLabel>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkMenu.ItemGroupLabel
@@ -275,8 +272,8 @@ export const MenuGroupLabel = (
         "pointer-events-none",
         className
       )}
-      data-slot="menu-group-label"
       {...rest}
+      data-slot={slot ?? "menu-group-label"}
     />
   );
 };
@@ -284,7 +281,7 @@ export const MenuGroupLabel = (
 export const MenuRadioItem = (
   props: React.ComponentProps<typeof ArkMenu.RadioItem>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ArkMenu.RadioItem
@@ -293,8 +290,8 @@ export const MenuRadioItem = (
         "ps-8",
         className
       )}
-      data-slot="menu-radio-item"
       {...rest}
+      data-slot={slot ?? "menu-radio-item"}
     >
       <ArkMenu.ItemIndicator className="pointer-events-none absolute inset-s-2 flex size-3.5 items-center justify-center">
         <CheckIcon />
@@ -308,21 +305,21 @@ export const MenuRadioItem = (
 };
 
 export const MenuSub = (props: React.ComponentProps<typeof Menu>) => (
-  <Menu data-slot="menu-sub" {...props} />
+  <Menu {...props} />
 );
 
 export const MenuSubContent = (
   props: React.ComponentProps<typeof ArkMenu.Content>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <Portal>
-      <MenuPositioner data-slot="menu-sub-positioner">
+      <MenuPositioner slot="menu-sub-positioner">
         <ArkMenu.Content
           className={cn(menuContentVariants(), className)}
-          data-slot="menu-sub-content"
           {...rest}
+          data-slot={slot ?? "menu-sub-content"}
         />
       </MenuPositioner>
     </Portal>
@@ -332,13 +329,13 @@ export const MenuSubContent = (
 export const MenuSubTrigger = (
   props: React.ComponentProps<typeof ArkMenu.TriggerItem>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ArkMenu.TriggerItem
       className={cn(menuItemVariants({ variant: "default" }), className)}
-      data-slot="menu-sub-trigger"
       {...rest}
+      data-slot={slot ?? "menu-sub-trigger"}
     >
       {children}
 
@@ -350,7 +347,7 @@ export const MenuSubTrigger = (
 };
 
 export const MenuShortcut = (props: React.ComponentProps<typeof ark.span>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.span
@@ -360,13 +357,33 @@ export const MenuShortcut = (props: React.ComponentProps<typeof ark.span>) => {
         "group-data-highlighted/menu-item:group-data-[variant=destructive]/menu-item:text-destructive dark:group-data-highlighted/menu-item:group-data-[variant=destructive]/menu-item:text-destructive-foreground",
         className
       )}
-      data-slot="menu-shortcut"
       {...rest}
+      data-slot={slot ?? "menu-shortcut"}
     />
   );
 };
 
-// There is no `MenuArrow`. It was the one arrow of the four that carried no `data-slot` and
-// pinned `left: "20px"` *after* the caller's `style`, throwing away the offset the positioner
-// computes — two divergences from the identical `PopoverArrow` / `TooltipArrow` /
-// `HoverCardArrow` that only a renderer would catch, and it never had one.
+// Shark's version pins `left: "20px"` *after* the caller's `style`, throwing away the offset
+// the positioner computes. Dropped: this is `PopoverArrow` / `TooltipArrow` / `HoverCardArrow`
+// under a fourth machine, and the three of them are what a reader compares it against.
+export const MenuArrow = (
+  props: React.ComponentProps<typeof ArkMenu.Arrow>
+) => {
+  const { style, slot, ...rest } = props;
+
+  return (
+    <ArkMenu.Arrow
+      style={
+        {
+          "--arrow-background": "var(--popover)",
+          "--arrow-size": "calc(1.5 * var(--spacing))",
+          ...style,
+        } as React.CSSProperties
+      }
+      {...rest}
+      data-slot={slot ?? "menu-arrow"}
+    >
+      <ArkMenu.ArrowTip className="border-s border-t" />
+    </ArkMenu.Arrow>
+  );
+};

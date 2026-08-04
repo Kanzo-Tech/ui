@@ -29,15 +29,6 @@ export interface ComponentGroup {
   components: ComponentEntry[];
 }
 
-/**
- * Groups whose pages are whole screens rather than single elements, and so are previewed
- * full-bleed instead of inside the 450px centred frame.
- *
- * This is a policy about *groups*, not an allow-list of components: a new layout page is
- * full-bleed the moment it exists, without being registered anywhere.
- */
-const FULL_BLEED_GROUPS = new Set(["showcases", "sidebar"]);
-
 /** `/docs/overlays/dialog` → `["overlays", "dialog"]`; a root page like `/docs/installation` → `["installation"]`. */
 function segmentsAfterBase(url: string): string[] {
   return url.split("/").filter(Boolean).slice(1);
@@ -90,21 +81,3 @@ export function getComponentGroups(): ComponentGroup[] {
   });
 }
 
-/** The group slug a component page belongs to, or `undefined` if it has no documented page. */
-export function getComponentGroupSlug(componentSlug: string): string | undefined {
-  for (const group of getComponentGroups()) {
-    if (group.components.some((entry) => entry.slug === componentSlug)) return group.slug;
-  }
-  return undefined;
-}
-
-/**
- * Whether a component should be previewed whole, without the framed 450px box.
- *
- * Unknown slugs fall back to `false`, so an example with no matching page keeps today's
- * behaviour rather than silently changing how it renders.
- */
-export function isFullBleedComponent(componentSlug: string): boolean {
-  const group = getComponentGroupSlug(componentSlug);
-  return group !== undefined && FULL_BLEED_GROUPS.has(group);
-}

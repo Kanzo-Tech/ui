@@ -36,6 +36,7 @@ import { Input } from "../simples/input.js";
 import { Skeleton } from "../simples/skeleton.js";
 import { Slider, SliderLabel, SliderValue } from "../simples/slider.js";
 import { useMosaic } from "./mosaic-provider.js";
+import { ChartQueryClient, type ChartQueryRow as QueryRow } from "./query-client.js";
 
 /**
  * Mosaic **inputs** — controls that publish into a `Selection` without being charts.
@@ -52,32 +53,6 @@ import { useMosaic } from "./mosaic-provider.js";
  * change to the selection flows back into the widget.
  */
 
-type QueryRow = Record<string, unknown>;
-
-/** Bridges React state to the Mosaic client life-cycle: one query in, one row array out. */
-class MosaicInputClient extends MosaicClient {
-  #build: (filter: FilterExpr) => Query | null;
-  #emit: (rows: readonly QueryRow[]) => void;
-
-  constructor(
-    filterBy: Selection | undefined,
-    build: (filter: FilterExpr) => Query | null,
-    emit: (rows: readonly QueryRow[]) => void,
-  ) {
-    super(filterBy);
-    this.#build = build;
-    this.#emit = emit;
-  }
-
-  override query(filter?: FilterExpr | null): Query | null {
-    return this.#build(filter ?? []);
-  }
-
-  override queryResult(data: unknown): this {
-    this.#emit(Array.from(data as Iterable<QueryRow>));
-    return this;
-  }
-}
 
 export interface MosaicInputOptions<T> {
   /** Filters the widget's own lookup query. `null` = the full relation. */
@@ -121,13 +96,13 @@ export function useMosaicInput<T>(
   const latest = useRef(options);
   latest.current = options;
 
-  const clientRef = useRef<MosaicInputClient | null>(null);
-  const [client, setClient] = useState<MosaicInputClient | null>(null);
+  const clientRef = useRef<ChartQueryClient | null>(null);
+  const [client, setClient] = useState<ChartQueryClient | null>(null);
   const [rows, setRows] = useState<readonly QueryRow[] | null>(null);
   const [selected, setSelected] = useState<T | undefined>(undefined);
 
   useEffect(() => {
-    const instance = new MosaicInputClient(
+    const instance = new ChartQueryClient(
       filterBy ?? undefined,
       (filter) => latest.current.build(filter),
       setRows,
@@ -341,6 +316,7 @@ export function ChartFilter(props: ChartFilterProps) {
     className,
     controlClassName,
     children,
+    slot,
     ...rest
   } = props;
   const { crossfilter } = useMosaic();
@@ -399,13 +375,13 @@ export function ChartFilter(props: ChartFilterProps) {
   return (
     <ark.div
       className={cn("w-fit", className)}
-      data-slot="chart-filter"
       {...rest}
       {...warmUpHandlers(activate, props)}
+      data-slot={slot ?? "chart-filter"}
     >
       <FacetFilter
         className={controlClassName}
-        data-slot="chart-filter-trigger"
+        slot="chart-filter-trigger"
         disabled={disabled}
         empty={lookup && rows === null ? "Loading…" : "No values."}
         items={items}
@@ -479,6 +455,7 @@ export function ChartSearch(props: ChartSearchProps) {
     className,
     controlClassName,
     children,
+    slot,
     ...rest
   } = props;
   const { crossfilter } = useMosaic();
@@ -520,7 +497,7 @@ export function ChartSearch(props: ChartSearchProps) {
 
   // Keyed on the values, not on the array: `rows` is a fresh array on every settled query, and
   // setting the collection from an identity-unstable dep is a render loop.
-  const itemsKey = items.map((item) => item.value).join(" ");
+  const itemsKey = items.map((item) => item.value).join("\u0000");
   useEffect(() => {
     set(items);
     // `items` is derived from `itemsKey`; depending on it directly is the loop above.
@@ -562,10 +539,10 @@ export function ChartSearch(props: ChartSearchProps) {
   return (
     <Field
       className={cn("w-fit min-w-48 gap-1.5", className)}
-      data-slot="chart-search"
       disabled={disabled}
       {...rest}
       {...warmUpHandlers(activate, props)}
+      slot={slot ?? "chart-search"}
     >
       {label ? <FieldLabel>{label}</FieldLabel> : null}
       {lookup ? (
@@ -577,7 +554,7 @@ export function ChartSearch(props: ChartSearchProps) {
         <Combobox
           allowCustomValue
           collection={collection}
-          data-slot="chart-search-list"
+          slot="chart-search-list"
           disabled={disabled}
           inputValue={text}
           onInputValueChange={(details) => {
@@ -686,6 +663,7 @@ export function ChartSlider(props: ChartSliderProps) {
     disabled,
     className,
     children,
+    slot,
     ...rest
   } = props;
   const { crossfilter } = useMosaic();
@@ -771,9 +749,9 @@ export function ChartSlider(props: ChartSliderProps) {
   return (
     <ark.div
       className={cn("flex w-full min-w-48 flex-col gap-1.5", className)}
-      data-slot="chart-slider"
       {...rest}
       {...warmUpHandlers(activate, props)}
+      data-slot={slot ?? "chart-slider"}
     >
       {extent && shown ? (
         <Slider

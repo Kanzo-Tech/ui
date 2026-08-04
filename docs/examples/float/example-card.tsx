@@ -11,8 +11,8 @@ export default function Example() {
         </Badge>
       </Float>
       <CardHeader>
-        <CardTitle>Scheduled runs</CardTitle>
-        <CardDescription>Trigger this workspace&apos;s jobs on a cron expression.</CardDescription>
+        <CardTitle>Standing bounties</CardTitle>
+        <CardDescription>Post work that stays on the board until someone brings it in.</CardDescription>
       </CardHeader>
     </Card>
   );

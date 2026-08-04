@@ -7,23 +7,14 @@ import {
   DataTableRoot,
   useDataTable,
 } from "@kanzo-tech/ui/table";
+import { dueOn, type Quest, QUESTS } from "@/example/quests";
 
-interface Run {
-  id: string;
-  duration: string;
-  pipeline: string;
-}
+const data: Quest[] = [...QUESTS];
 
-const data: Run[] = Array.from({ length: 42 }, (_, index) => ({
-  duration: `${(index % 7) + 1}m ${(index * 13) % 60}s`,
-  id: `run-${String(index + 1).padStart(3, "0")}`,
-  pipeline: ["ingest", "enrich", "publish"][index % 3],
-}));
-
-const columns: ColumnDef<Run>[] = [
-  { accessorKey: "id", header: "Run" },
-  { accessorKey: "pipeline", header: "Pipeline" },
-  { accessorKey: "duration", header: "Duration" },
+const columns: ColumnDef<Quest>[] = [
+  { accessorKey: "id", header: "Ref" },
+  { accessorKey: "title", header: "Contract" },
+  { accessorFn: dueOn, header: "Due", id: "due" },
 ];
 
 export default function Example() {
@@ -32,7 +23,7 @@ export default function Example() {
   return (
     <div className="w-full max-w-xl">
       <DataTableRoot table={table}>
-        <DataTableContent<Run> />
+        <DataTableContent<Quest> />
         <DataTablePagination pageSizes={[5, 10, 25]} />
       </DataTableRoot>
     </div>

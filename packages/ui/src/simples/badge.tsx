@@ -1,10 +1,8 @@
-"use client";
-
 import { ark } from "@ark-ui/react/factory";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
 
-const badgeVariants = tv({
+export const badgeVariants = tv({
   base: [
     "relative",
     "inline-flex items-center justify-center gap-1",
@@ -127,6 +125,7 @@ export const Badge = (props: BadgeProps) => {
     size = "md",
     pill = false,
     className,
+    slot,
     ...rest
   } = props;
 
@@ -134,9 +133,9 @@ export const Badge = (props: BadgeProps) => {
     <ark.span
       className={cn(badgeVariants({ variant, size, pill }), className)}
       data-size={size}
-      data-slot="badge"
       data-variant={variant}
       {...rest}
+      data-slot={slot ?? "badge"}
     />
   );
 };

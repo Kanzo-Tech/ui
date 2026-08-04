@@ -2,7 +2,7 @@
 title: Command
 description: A filterable command palette, inline or in a dialog.
 links:
-  doc: https://ark-ui.com/docs/forms/combobox
+  doc: https://ark-ui.com/docs/components/combobox
 ---
 
 <Callout type="info">
@@ -73,6 +73,19 @@ for an uncontrolled palette, or drive `open` yourself when a `⌘K` handler shar
 below.
 
 <ComponentPreview componentName="command" fileName="example-dialog" />
+
+## Keyboard
+
+| Key | Does |
+| --- | --- |
+| <kbd>↓</kbd> / <kbd>↑</kbd> | Moves the highlight to the next / previous command, stopping at the ends rather than wrapping. |
+| <kbd>Home</kbd> / <kbd>End</kbd> | Highlights the first / last command — the list owns them outright, because the palette is never closed. |
+| <kbd>Enter</kbd> | Runs the highlighted command; the list stays open and the query clears. |
+| <kbd>Esc</kbd> | Closes `CommandDialog`; an inline palette has nothing to close. |
+
+`Command` sets `inputBehavior="autohighlight"`, so the top match is already highlighted after
+every keystroke and <kbd>Enter</kbd> runs it without a single <kbd>↓</kbd>; no global shortcut is
+bound for you — <kbd>⌘</kbd>+<kbd>K</kbd> is yours to wire.
 
 ## API Reference
 

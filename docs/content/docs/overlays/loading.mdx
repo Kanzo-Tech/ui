@@ -1,0 +1,96 @@
+---
+title: Loading
+description: Spinner, Skeleton and Progress — three answers to one question, and which one your case is.
+---
+
+## Which one
+
+A loading affordance is chosen by **what you know**, not by what looks nicest:
+
+| You know | Use |
+| --- | --- |
+| Nothing but that work started | `Spinner` |
+| The shape of what is arriving | `Skeleton` |
+| How far along it is | [`Progress`](/docs/data-display/progress) |
+
+The middle row is the one most often got wrong. If content is loading into a layout whose shape
+you already know — a list, a card, a table row — a skeleton holds that shape and nothing shifts
+when the data lands. A spinner in the same place throws the layout away and then puts it back,
+which reads as a flash even when it is fast.
+
+## Spinner
+
+<ComponentPreview componentName="spinner" />
+
+```tsx
+import { Spinner } from "@kanzo-tech/ui";
+```
+
+It renders a single `<svg role="status">` with `aria-label="Loading"`, and takes no props of its
+own beyond what an SVG takes. Size it with a utility (`size-4` is the default) and it inherits
+`currentColor`, so it is the right colour inside a button, a muted caption or an alert without
+being told.
+
+A spinner says *something is happening* and nothing else. Use it when you genuinely cannot know
+how far along the work is — a request in flight, a query planning. The moment you can count
+something, stop using it.
+
+<Callout type="warn">
+Never let a spinner be the only thing on screen for a wait you cannot bound. It has no way to
+distinguish "still working" from "stalled", so pair a long operation with text that names what
+is happening.
+</Callout>
+
+### Inside a button
+
+`Button` renders its own via `isLoading`. Prefer that to composing the two by hand — it does
+three things a hand-rolled version usually forgets:
+
+- **Keeps the label in the layout**, hidden but still measured, so the button does not resize
+  mid-click and move whatever sits next to it.
+- **Keeps the label for screen readers** as `sr-only` text, so the control is still named while
+  it is busy rather than announcing itself as "Loading".
+- **Sets `aria-busy` and `aria-disabled` together**, so it stops accepting clicks *and* says why.
+
+```tsx
+<Button isLoading>Posting</Button>
+```
+
+## Skeleton
+
+<ComponentPreview componentName="skeleton" />
+
+```tsx
+import { Skeleton } from "@kanzo-tech/ui";
+```
+
+Size it with the same utilities as the content it stands in for, so nothing shifts when the real
+content arrives.
+
+**There is one export, deliberately.** A circle is `size-10 shrink-0 rounded-full` on this one,
+and a paragraph is a `.map` over it — the example above is both, and neither needed a part. A
+`SkeletonText` that owns the line count also owns every line's height and the last line's width,
+which is exactly the control a placeholder must hand back: the shape is copied from the content,
+and only the caller can see the content.
+
+## API Reference
+
+Two components, so two tables. `Progress` has its own page.
+
+### Spinner
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `aria-label` | `string` | `"Loading"` |
+
+Extends `React.ComponentProps<"svg">`, so `className`, `ref` and every SVG prop pass through.
+It renders one `Loader2Icon` with `role="status"` at `size-4` in `currentColor` — there is no
+`size` and no `variant`, because both are a utility on the element.
+
+### Skeleton
+
+No props of its own, and no variants — the shape is entirely the caller's utilities.
+
+Extends `React.ComponentProps<typeof ark.div>`, so `className`, `ref`, `asChild` and every
+native div prop pass through. It draws `rounded-md bg-muted` with `animate-pulse`, and the
+animation drops out under `prefers-reduced-motion`.

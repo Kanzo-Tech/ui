@@ -1,13 +1,19 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@kanzo-tech/ui";
+import { quest } from "@/example/quests";
+import { hall } from "@/example/world";
+
+const contract = quest("Q-1041");
 
 export default function Example() {
   return (
     <Card className="w-80">
       <CardHeader>
-        <CardTitle>customers.ttl</CardTitle>
-        <CardDescription>1,204 triples · updated 2h ago</CardDescription>
+        <CardTitle>{contract.title}</CardTitle>
+        <CardDescription>
+          {contract.id} · {contract.region} · {contract.reward} gold
+        </CardDescription>
       </CardHeader>
-      <CardContent>Mapped to the Customer shape.</CardContent>
+      <CardContent>Posted by {hall(contract.hall).name}.</CardContent>
     </Card>
   );
 }

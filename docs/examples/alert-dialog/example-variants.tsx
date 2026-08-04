@@ -21,14 +21,14 @@ export default function Example() {
 
         <AlertDialogContent size="sm">
           <AlertDialogHeader
-            description="The graph is re-materialised from source."
-            title="Re-run the mapping?"
+            description="It goes back on the board as a second attempt, open to any chartered hall."
+            title="Re-post “Map the drowned lane”?"
           />
 
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogClose asChild>
-              <AlertDialogAction>Re-run</AlertDialogAction>
+              <AlertDialogAction>Re-post</AlertDialogAction>
             </AlertDialogClose>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -41,16 +41,19 @@ export default function Example() {
 
         <AlertDialogContent size="sm">
           <AlertDialogHeader
-            description="Revoking the key breaks every client using it."
-            title="Revoke API key?"
+            description="Fenn Aldabra, Ansel Thibault and Beatrix Odemba are recalled."
+            title="Abandon Q-1078?"
           />
 
-          <AlertDialogBody>There is no way to restore the same key afterwards.</AlertDialogBody>
+          <AlertDialogBody>
+            A settled or failed contract is already closed; only an open, claimed or afield one
+            can be abandoned, and abandoning it is what fails it.
+          </AlertDialogBody>
 
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogCancel>Leave it afield</AlertDialogCancel>
             <AlertDialogClose asChild>
-              <AlertDialogAction variant="destructive">Revoke</AlertDialogAction>
+              <AlertDialogAction variant="destructive">Abandon</AlertDialogAction>
             </AlertDialogClose>
           </AlertDialogFooter>
         </AlertDialogContent>

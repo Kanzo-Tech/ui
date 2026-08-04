@@ -1,5 +1,3 @@
-"use client";
-
 import { Portal } from "@ark-ui/react/portal";
 import {
   Tooltip as ArkTooltip,
@@ -27,7 +25,6 @@ export const Tooltip = (
   return (
     <ArkTooltip.Root
       closeDelay={closeDelay}
-      data-slot="tooltip"
       lazyMount={lazyMount}
       openDelay={openDelay}
       positioning={positioning}
@@ -38,13 +35,13 @@ export const Tooltip = (
 };
 
 export const TooltipTrigger = (
-  props: React.ComponentProps<typeof ArkTooltip.Trigger>
-) => <ArkTooltip.Trigger data-slot="tooltip-trigger" {...props} />;
+  { slot, ...rest }: React.ComponentProps<typeof ArkTooltip.Trigger>
+) => <ArkTooltip.Trigger {...rest} data-slot={slot ?? "tooltip-trigger"} />;
 
 export const TooltipContent = (
   props: React.ComponentProps<typeof ArkTooltip.Content>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <Portal>
@@ -67,8 +64,8 @@ export const TooltipContent = (
             "motion-reduce:animate-none!",
             className
           )}
-          data-slot="tooltip-content"
           {...rest}
+          data-slot={slot ?? "tooltip-content"}
         >
           <TooltipArrow />
 
@@ -82,11 +79,10 @@ export const TooltipContent = (
 export const TooltipArrow = (
   props: React.ComponentProps<typeof ArkTooltip.Arrow>
 ) => {
-  const { style, ...rest } = props;
+  const { style, slot, ...rest } = props;
 
   return (
     <ArkTooltip.Arrow
-      data-slot="tooltip-arrow"
       style={
         {
           "--arrow-background": "var(--foreground)",
@@ -95,6 +91,7 @@ export const TooltipArrow = (
         } as React.CSSProperties
       }
       {...rest}
+      data-slot={slot ?? "tooltip-arrow"}
     >
       <ArkTooltip.ArrowTip />
     </ArkTooltip.Arrow>

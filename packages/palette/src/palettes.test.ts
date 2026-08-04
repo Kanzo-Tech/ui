@@ -12,8 +12,7 @@ import { paletteData } from "./index.js";
  * neutral hue that goes through `derivePalette` exactly as a client's does. So what these check is
  * no longer "did we transcribe an authored strip correctly and does its `[data-palette]` block
  * agree with it": it is that the seeds are honest about where they came from and that every
- * identity survives derivation. The old file held nine tests about pairing, appearance, declared
- * brand/status roles and manufactured slots; none of those concepts exists any more.
+ * identity survives derivation.
  *
  * The default tenant's committed document and the sheet compiled from it are `@kanzo-tech/theme`'s
  * artefacts, and are checked there.
@@ -138,9 +137,9 @@ describe("every shipped identity, derived", () => {
   });
 
   it("takes no relief but the one a tinted seed is supposed to take", () => {
-    // `carries-identity` fires on every tinted neutral by design, and on Nord's brand too — six of
-    // its seven accents sit below the chroma floor, so Nord has hues to look like and none to chart
-    // with. It is the one obligation that can never become an adjustment. Anything else here is a
+    // `carries-identity` fires on every tinted neutral by design, and on Nord's brand too — seven
+    // of its eight accents sit below the chroma floor, so Nord has hues to look like and none to
+    // chart with. It is the one obligation that can never become an adjustment. Anything else is a
     // ramp that gave up something nobody asked it to.
     for (const [id, doc] of DERIVED) {
       const unexpected = reliefOf(doc).filter((r) => r.id !== "carries-identity");

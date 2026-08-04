@@ -1,5 +1,3 @@
-"use client";
-
 import {
   Pagination as ArkPagination,
   usePaginationContext,
@@ -14,41 +12,43 @@ export const usePagination = usePaginationContext;
 export const Pagination = (
   props: React.ComponentProps<typeof ArkPagination.Root>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkPagination.Root
       aria-label="Pagination"
       className={cn("flex items-center gap-1", className)}
-      data-slot="pagination"
       {...rest}
+      data-slot={slot ?? "pagination"}
     />
   );
 };
 
 export const PaginationPrevTrigger = (
-  props: React.ComponentProps<typeof ArkPagination.PrevTrigger>
+  { slot, ...rest }: React.ComponentProps<typeof ArkPagination.PrevTrigger>
 ) => (
-  <ArkPagination.PrevTrigger
-    asChild
-    data-slot="pagination-prev-trigger"
-    {...props}
-  >
-    <Button aria-label="Previous page" size="icon-md" variant="ghost">
+  <ArkPagination.PrevTrigger asChild {...rest}>
+    <Button
+      aria-label="Previous page"
+      size="icon-md"
+      slot={slot ?? "pagination-prev-trigger"}
+      variant="ghost"
+    >
       <ChevronLeftIcon aria-hidden className="rtl:rotate-180" />
     </Button>
   </ArkPagination.PrevTrigger>
 );
 
 export const PaginationNextTrigger = (
-  props: React.ComponentProps<typeof ArkPagination.NextTrigger>
+  { slot, ...rest }: React.ComponentProps<typeof ArkPagination.NextTrigger>
 ) => (
-  <ArkPagination.NextTrigger
-    asChild
-    data-slot="pagination-next-trigger"
-    {...props}
-  >
-    <Button aria-label="Next page" size="icon-md" variant="ghost">
+  <ArkPagination.NextTrigger asChild {...rest}>
+    <Button
+      aria-label="Next page"
+      size="icon-md"
+      slot={slot ?? "pagination-next-trigger"}
+      variant="ghost"
+    >
       <ChevronRightIcon aria-hidden className="rtl:rotate-180" />
     </Button>
   </ArkPagination.NextTrigger>
@@ -58,12 +58,12 @@ export interface PaginationItemProps
   extends React.ComponentProps<typeof ArkPagination.Item> {}
 
 export const PaginationItem = (props: PaginationItemProps) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   // The current page carries `data-selected` (and `aria-current="page"`) from
   // the machine, so it reads as filled/secondary while the rest stay ghost.
   return (
-    <ArkPagination.Item asChild data-slot="pagination-item" {...rest}>
+    <ArkPagination.Item asChild {...rest}>
       <Button
         className={cn(
           "tabular-nums",
@@ -71,6 +71,7 @@ export const PaginationItem = (props: PaginationItemProps) => {
           className
         )}
         size="icon-md"
+        slot={slot ?? "pagination-item"}
         variant="ghost"
       >
         {children}
@@ -82,7 +83,7 @@ export const PaginationItem = (props: PaginationItemProps) => {
 export const PaginationEllipsis = (
   props: React.ComponentProps<typeof ArkPagination.Ellipsis>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ArkPagination.Ellipsis
@@ -91,8 +92,8 @@ export const PaginationEllipsis = (
         "text-muted-foreground text-sm",
         className
       )}
-      data-slot="pagination-ellipsis"
       {...rest}
+      data-slot={slot ?? "pagination-ellipsis"}
     >
       {children ?? (
         <>

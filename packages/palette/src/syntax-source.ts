@@ -44,6 +44,17 @@ const PALETTES = paletteDataJson.palettes as unknown as Record<
  * distributes them: Kanzo's own light and dark sets are `kanzo` and `kanzo-dark`. A scheme with only
  * one half is used for both, and `SYNTAX_BAND` does the rest.
  */
+/**
+ * Whether a base16 palette by that name ships here.
+ *
+ * Exists because an id means two different things depending on where it came from: the five
+ * palettes this package ships ARE base16 schemes, so their id names a syntax set; an id derived
+ * from a seed pair somebody typed names nothing. `seedInput` has to be able to tell.
+ */
+export function hasBase16(id: string): boolean {
+  return PALETTES[id] !== undefined;
+}
+
 export function fromBase16(id: string, mode: Mode): SyntaxSeeds {
   const dark = PALETTES[`${id}-dark`];
   const palette = (mode === "dark" && dark ? dark : PALETTES[id]) ?? PALETTES[id];

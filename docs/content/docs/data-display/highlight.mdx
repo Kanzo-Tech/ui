@@ -2,7 +2,7 @@
 title: Highlight
 description: Wraps matching substrings of running text in a token-themed mark.
 links:
-  doc: https://ark-ui.com/docs/components/highlight
+  doc: https://ark-ui.com/docs/utilities/highlight
 ---
 
 <ComponentPreview componentName="highlight" />
@@ -10,16 +10,24 @@ links:
 ## Usage
 
 ```tsx
-import { Highlight } from "@kanzo-tech/ui";
+import { Highlight, useHighlight } from "@kanzo-tech/ui";
 ```
 
 ```tsx
-<Highlight query={["Tailwind", "token"]} text="Ark UI + Tailwind, token-themed" />
+<Highlight query={["wyrm", "granary"]} text="A wyrm under the granary" />
 ```
 
 `Highlight` splits `text` and wraps every match in a `<mark>` styled from our tokens, so it
 never falls back to the browser's yellow default. `text` must be a string; pass one query or a
 list.
+
+`useHighlight` is the machine hook underneath — Ark's, not a context alias, so it takes the same
+`{ text, query }` and returns the chunks with a `match` flag on each. Reach for it when the match
+has to be something other than a `<mark>`: a `Badge`, a link, a cell in a table.
+
+```tsx
+const chunks = useHighlight({ text, query: "token" });
+```
 
 ## API Reference
 

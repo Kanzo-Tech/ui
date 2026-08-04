@@ -2,7 +2,8 @@
  * gen-palette.mjs — derives the default tenant's palette document and compiles it into tokens.css.
  *
  * The Kanzo document is not a special case. It is `derivePalette` applied to two seeds
- * (`themeData.seeds.kanzo`), exactly as a client's is, stored at `palettes/kanzo.json` and
+ * (`PALETTE_SEEDS[KANZO_ID]`, from `@kanzo-tech/palette`), exactly as a client's is, stored at
+ * `palettes/kanzo.json` and
  * compiled into the bottom of `tokens.css`. That is what "the default tenant is a tenant whose
  * document happens to be committed" means, and it is why no colour in this package is written by
  * hand.

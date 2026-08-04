@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SegmentGroup, Show } from "@kanzo-tech/ui";
+import { SegmentGroup } from "@kanzo-tech/ui";
 import {
   ChartAreaY,
   ChartAxisX,
@@ -23,6 +23,10 @@ import { MosaicDemo } from "./mosaic-demo";
 //
 // The brush is its own feedback (you see the rectangle); the toggle is not, so it pairs with a
 // `ChartHighlight`. Neither needs a prop — both default to the provider's pair.
+//
+// Both conditionals stay `&&`/ternary rather than `Show`, and that is the one place in docs/ where
+// the house rule does not apply: the compiler walks the element tree without rendering it, so a
+// descriptor inside any consumer component — `Show` included — is invisible to it.
 //
 // The x scale is linear, not band: an interval brush needs a continuous scale, so the count per
 // hour is drawn as a line with dots rather than as bars. Both interactors work on those marks.
@@ -61,14 +65,12 @@ function Swap() {
         variant="solid"
       />
 
-      <ChartRoot height={220} table="telemetry">
+      <ChartRoot height={220} table="sightings">
         <ChartLineY filterBy={null} stroke="var(--muted-foreground)" strokeOpacity={0.35} x="hour" y={count()} />
         <ChartAreaY fill="var(--primary)" fillOpacity={0.12} x="hour" y={count()} />
         <ChartDot fill="var(--primary)" r={3.5} x="hour" y={count()} />
         {mode === "toggle" ? <ChartToggleX /> : <ChartIntervalX />}
-        <Show when={mode === "toggle"}>
-          <ChartHighlight />
-        </Show>
+        {mode === "toggle" && <ChartHighlight />}
         <ChartAxisX label="hour of day" ticks={12} />
         <ChartAxisY grid label={null} />
       </ChartRoot>

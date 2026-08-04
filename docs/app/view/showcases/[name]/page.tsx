@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { AppShellShowcase } from "@/showcases/app-shell/default";
+import { GraphBenchShowcase } from "@/showcases/graph-bench/default";
 import { JobStudioShowcase } from "@/showcases/job-studio/default";
 import { MetadataFormShowcase } from "@/showcases/metadata-form/default";
 import { PaletteOnboardingShowcase } from "@/showcases/palette-onboarding/default";
@@ -15,10 +16,13 @@ import { WorkspaceShowcase } from "@/showcases/workspace/default";
  * width. Rendering one inside the docs layout would put it in a content column and prove
  * nothing, so it gets its own page and the docs embed that page in an iframe.
  */
-const BLOCKS = {
+const SHOWCASES = {
   "app-shell": AppShellShowcase,
   "metadata-form": MetadataFormShowcase,
   workspace: WorkspaceShowcase,
+  // Not an arrangement to copy but an instrument: it builds graphs off-screen to time them, and
+  // shows one on screen because the legibility ceiling arrives before the performance one.
+  "graph-bench": GraphBenchShowcase,
   // A wizard whose editor never leaves the screen: `Steps` drives the aside, not the whole
   // page. It is also the library's first real consumer of `CodeEditor`'s `extensions` slot.
   "job-studio": JobStudioShowcase,
@@ -34,15 +38,15 @@ const BLOCKS = {
   "palette-onboarding": PaletteOnboardingShowcase,
 } as const;
 
-type BlockName = keyof typeof BLOCKS;
+type ShowcaseName = keyof typeof SHOWCASES;
 
 export function generateStaticParams() {
-  return Object.keys(BLOCKS).map((name) => ({ name }));
+  return Object.keys(SHOWCASES).map((name) => ({ name }));
 }
 
 export default async function Page(props: { params: Promise<{ name: string }> }) {
   const { name } = await props.params;
-  const Showcase = BLOCKS[name as BlockName];
+  const Showcase = SHOWCASES[name as ShowcaseName];
   if (!Showcase) notFound();
   return <Showcase />;
 }

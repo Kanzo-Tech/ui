@@ -1,11 +1,11 @@
 "use client";
 
 import {
-  BoxesIcon,
-  DatabaseIcon,
-  HouseIcon,
+  CoinsIcon,
+  PawPrintIcon,
+  ScrollTextIcon,
   SettingsIcon,
-  ShieldCheckIcon,
+  SwordsIcon,
   UsersIcon,
 } from "lucide-react";
 import {
@@ -23,6 +23,7 @@ import {
   SidebarProvider,
   SidebarSeparator,
 } from "@kanzo-tech/ui";
+import { openQuests } from "@/example/quests";
 
 export default function Example() {
   return (
@@ -33,56 +34,56 @@ export default function Example() {
     <SidebarProvider className="h-[28rem] min-h-0 w-full overflow-hidden">
       <Sidebar className="border-e" collapsible="none">
         <SidebarHeader>
-          <span className="px-2 font-semibold text-sm">Kanzo</span>
+          <span className="px-2 font-semibold text-sm">The Amber Hall</span>
         </SidebarHeader>
         <SidebarSeparator />
         <SidebarContent>
           {/* Two groups, because a single flat list never shows what `SidebarGroupLabel`
               is for or how groups are spaced apart. */}
           <SidebarGroup>
-            <SidebarGroupLabel>Platform</SidebarGroupLabel>
+            <SidebarGroupLabel>Board</SidebarGroupLabel>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton isActive>
-                  <HouseIcon />
-                  <span>Dashboard</span>
+                  <ScrollTextIcon />
+                  <span>The board</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton>
-                  <DatabaseIcon />
-                  <span>Connections</span>
+                  <SwordsIcon />
+                  <span>Open contracts</span>
                 </SidebarMenuButton>
-                <SidebarMenuBadge>12</SidebarMenuBadge>
+                <SidebarMenuBadge>{openQuests().length}</SidebarMenuBadge>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton>
-                  <BoxesIcon />
-                  <span>Catalog</span>
+                  <UsersIcon />
+                  <span>Roster</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton>
-                  <ShieldCheckIcon />
-                  <span>Quality</span>
+                  <PawPrintIcon />
+                  <span>Bestiary</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroup>
 
           <SidebarGroup>
-            <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+            <SidebarGroupLabel>Hall</SidebarGroupLabel>
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton>
-                  <UsersIcon />
-                  <span>Members</span>
+                  <CoinsIcon />
+                  <span>Ledger</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton>
                   <SettingsIcon />
-                  <span>Settings</span>
+                  <span>Charter</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -92,17 +93,18 @@ export default function Example() {
         <SidebarSeparator />
         <SidebarFooter>
           <span className="px-2 text-muted-foreground text-xs">
-            aemet · production
+            Thornmarch · chartered 1194
           </span>
         </SidebarFooter>
       </Sidebar>
 
-      {/* SidebarInset owns the `<main>` landmark. Left deliberately empty: this page is
-          about the sidebar, and the point of showing the region at all is that you can
-          see what the navigation is navigating. */}
+      {/* SidebarInset is a neutral offset column and carries no landmark — a real page puts a
+          ShellMain in here, as the app-shell showcase does. This preview renders inside the docs
+          page's own <main>, so adding a second one would be a conformance error. Left
+          deliberately empty: the region is here so you can see what the navigation navigates. */}
       <SidebarInset className="bg-muted/24">
         <div className="flex h-full items-center justify-center">
-          <span className="text-muted-foreground text-sm">Page content</span>
+          <span className="text-muted-foreground text-sm">The board</span>
         </div>
       </SidebarInset>
     </SidebarProvider>

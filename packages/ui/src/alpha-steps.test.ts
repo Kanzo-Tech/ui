@@ -32,7 +32,18 @@ const SRC = dirname(fileURLToPath(import.meta.url));
  *
  * The ring is here for the first half of that rule only. The diluted ring (`/NN` again — same
  * reason) measured **1.29:1** in light, a live 1.4.11 failure on the element 1.4.11 names first, so
- * the dilution is banned and the 37 focus rings are solid `ring-ring`, ~4:1 at the boundary step. A
+ * the dilution is banned and every ring the library draws is a solid `ring-ring`, ~4:1 at the
+ * boundary step — **37** sites over `packages/ui/src` excluding this file (counted 2026-07-30; a
+ * count of call sites rots, and this one already had, from 36). Re-run `grep -o 'ring-ring\b'`
+ * before trusting it, and read what comes back rather than counting it: the grep finds `ring-ring`
+ * *sites*, not focus rings. 27 carry a focus-visible variant; the other 10 do not — three
+ * `focus-within:` where a wrapper rings for a focused child (`input-group.tsx:25`,
+ * `number-input.tsx:22`, `tags-input.tsx:60`), three the machine spells itself
+ * (`tags-input.tsx:61`, `calendar.tsx:436`, `composites/CodeEditor.tsx:483`), a bare `focus:` that
+ * also fires for a mouse (`skip-nav.tsx:85`), and three that are not focus at all:
+ * `data-highlighted:` (`tags-input.tsx:151`), `data-dragging:` (`slider.tsx:157`) and
+ * `data-[state=open]:` (`select.tsx:55`). The ban covers all 37 either way; the *contrast* argument
+ * above was made about focus. A
  * second token,
  * `--ring-soft` = `(brand, alpha[boundary])`, was tried for those sites and **dropped**, because
  * measuring it is what showed it had nothing to do: an alpha step's whole obligation is that it
@@ -40,7 +51,8 @@ const SRC = dirname(fileURLToPath(import.meta.url));
  * `#8e51ff` light, boundary 9: solid `#8e51ff`, alpha `#5500ffa7`, composited `#8e56ff`; the
  * shipped neutral `#737373` light: solid `#737373`, alpha `#00000088`, composited `#757575`. It
  * differed only over content the theme does not own, which a focus ring never needs, and it cost
- * the accent hue — `--ring` is overridden 42 times in `themes.css`, a static alpha is not. Two
+ * the accent hue — `--ring` is a compiled palette role and moves with the tenant's document, a
+ * static alpha does not. Two
  * tokens for one decision is the defect this layer exists to remove; the ban is the rule, the
  * token was not.
  *
@@ -85,9 +97,44 @@ const SRC = dirname(fileURLToPath(import.meta.url));
  * three read 4.74 now. The ban is unchanged and stronger: `bg-field/NN` in dark would dilute an
  * opaque page colour toward whatever is behind it.
  *
- * `--muted` is deliberately NOT here. Its four remaining dilutions are footers and a table stripe —
- * surfaces, not interaction fills — and no role covers them yet; banning the spelling before the
+ * `--muted` is deliberately NOT here. Four dilutions remain (counted 2026-07): two footers
+ * (`card.tsx`, `table.tsx`), a striped row (`table.tsx`) and `Item`'s `muted` variant fill. The
+ * first three are surfaces rather than interaction fills, which is the exemption; the fourth is a
+ * fill and is the one that wants a role. None exists yet, and banning the spelling before its
  * replacement exists would only move the problem into a `className` override.
+ *
+ * ## What this guard cannot prove
+ *
+ * - **It reads seven spellings, not the rule, and a spelling is a UTILITY and not a token.** The
+ *   rule is "a percentage is not an alpha step"; what is asserted is seven regexes over particular
+ *   utilities. Coverage therefore stops at the prefixes each pattern was written with, and being on
+ *   the list buys a token nothing outside them. `--destructive`, `--warning`, `--success` and
+ *   `--info` are on the list twice over, and still: the `bg-` pattern takes the status family only
+ *   under 50%, the `border-` one puts its `/` straight after the family so
+ *   `border-<status>-foreground/NN` slips past it, and no pattern names `ring-` or `shadow-` for
+ *   that family at all. Measured over `packages/ui/src` (2026-07-30), **45** dilutions of listed
+ *   status tokens pass every pattern here: 43 of the shape
+ *   `ring-{destructive,warning,success,info}(-foreground)?/NN`, one `shadow-destructive/24`, one
+ *   `border-destructive-foreground/64`. The pair worth reading is
+ *   `simples/input.tsx:19` and `:21` — `ring-destructive/24`, overridden by
+ *   `dark:aria-invalid:ring-destructive-foreground/40`: one percentage per mode, onto a different
+ *   token, which is verbatim the symptom the MODE half of this docblock argues the whole rule from.
+ *   `checkbox.tsx:35`, `button.tsx:49` and `badge.tsx:57,64,71,72` are six more. Whether any of
+ *   them SHOULD be banned is a design call nobody has taken, and this file does not take it; what it
+ *   must not do is read as though they were outside the rule. Taking it costs one alternation —
+ *   `--field` above reaches nine utility prefixes that way.
+ * - **A token can also be off the list entirely, and one is on purpose.** `--muted` is the case —
+ *   see the paragraph above. When a role appears for it, the pattern is what has to change.
+ * - **It reads `.ts` and `.tsx` under `packages/ui/src` and nothing else.** A dilution written in
+ *   `styles.css`, in `packages/theme`, in `docs/`, or by a consumer through `className` is
+ *   invisible. The last of those is not a hole that can be closed from inside the library, which is
+ *   also the argument for not banning a spelling before its replacement exists.
+ * - **It reads literal text.** A class assembled at runtime — a `tv()` variant keyed on a prop, a
+ *   template literal, a `cn()` argument built from fragments — is not seen. Every current call site
+ *   is literal, so the corpus assertions below are what keep that true rather than merely observed.
+ * - **It measures nothing.** Every ratio in this docblock was measured elsewhere and is quoted
+ *   here; nothing in this file re-derives one. A number that goes stale goes stale silently, which
+ *   is why the counts say when they were counted and how to re-count them.
  */
 const BANNED: [RegExp, string][] = [
   [/\bbg-input\/\d+(?![\w-])/g, "`--input` is boundary contrast — diluting it makes it a surface"],
@@ -133,17 +180,93 @@ function* walk(dir: string): Generator<string> {
   }
 }
 
+const FILES = [...walk(SRC)].sort();
+const rel = (file: string) => file.slice(SRC.length).replace(/^\/+/, "");
+
+/**
+ * Every directory under `src/`, named so the scan cannot quietly stop descending.
+ *
+ * `simples/` is where six of the seven bans were written and `composites/` is where the two sidebar
+ * ring dilutions survived a rule spelled against one token name — a walk that reached only the top
+ * level would find no violation in either and report the same green as a real pass.
+ */
+const LAYERS = ["charts", "composites", "layouts", "lib", "simples", "table", "theme"];
+
 describe("the control fill is an alpha step, not an opacity", () => {
+  it("reads every source file under src/, in every layer", () => {
+    expect(FILES.length, "the walk found almost nothing — it is not reaching src/").toBeGreaterThan(
+      100,
+    );
+    for (const layer of LAYERS) {
+      expect(
+        FILES.filter((f) => rel(f).startsWith(`${layer}/`)).length,
+        `${layer}/ contributed no file to the scan`,
+      ).toBeGreaterThan(0);
+    }
+
+    // A NUL byte makes `file(1)` and every `grep -I` treat a source file as binary and skip it in
+    // silence; `charts/chart-inputs.tsx` held one, in the largest file of the layer with the most
+    // colour in it. `readFileSync(…, "utf8")` reads it anyway, so this scan never had that hole —
+    // but the next reader will reach for grep, and a corpus that lies to grep is worth failing on.
+    const binary = FILES.filter((f) => readFileSync(f).includes(0)).map(rel);
+    expect(binary, "a NUL byte makes this file invisible to grep — strip it").toEqual([]);
+
+    const empty = FILES.filter((f) => readFileSync(f, "utf8").trim() === "").map(rel);
+    expect(empty, "an empty source file is a scan that proves nothing").toEqual([]);
+  });
+
   it("keeps the outline and the fill on separate tokens", () => {
     const offenders: string[] = [];
-    for (const file of walk(SRC)) {
+    for (const file of FILES) {
       const source = stripComments(readFileSync(file, "utf8"));
       for (const [pattern, why] of BANNED) {
         for (const [hit] of source.matchAll(pattern)) {
-          offenders.push(`${file.slice(SRC.length).replace(/^\/+/, "")}: ${hit} — ${why}`);
+          offenders.push(`${rel(file)}: ${hit} — ${why}`);
         }
       }
     }
     expect([...new Set(offenders)].sort()).toEqual([]);
+  });
+
+  it("bites on each of the seven, and on nothing next to them", () => {
+    // A guard nobody has seen fail is a guard nobody has tested, and seven patterns are seven
+    // chances to write one that matches nothing. The examples are assembled at runtime: Tailwind's
+    // `@source` in `styles.css` covers the tests, so a literal here would emit a real utility for a
+    // class the rule forbids — the same precaution the `/NN` notation above is taking.
+    const u = (...parts: string[]) => parts.join("-");
+    const dilute = (utility: string, pct: number) => `${utility}/${pct}`;
+
+    const bites = (text: string) => BANNED.some(([pattern]) => pattern.test(text));
+    // `RegExp.test` on a `/g` pattern advances `lastIndex`, so reset before each round.
+    const fresh = () => BANNED.forEach(([pattern]) => (pattern.lastIndex = 0));
+
+    for (const banned of [
+      dilute(u("bg", "input"), 60),
+      dilute(u("ring", "ring"), 40),
+      dilute(u("ring", "sidebar", "ring"), 40),
+      dilute(u("bg", "field"), 32),
+      dilute(u("border", "field"), 32),
+      dilute(u("bg", "destructive"), 10),
+      dilute(u("bg", "warning", "foreground"), 24),
+      dilute(u("border", "success"), 48),
+      dilute(u("bg", "accent"), 50),
+      dilute(u("text", "muted", "foreground"), 64),
+    ]) {
+      fresh();
+      expect(bites(banned), `${banned} is banned and was not caught`).toBe(true);
+    }
+
+    for (const legal of [
+      u("bg", "input"),
+      u("ring", "ring"),
+      dilute(u("bg", "primary"), 90), // a solid darkened for its own hover, not a tint
+      dilute(u("bg", "destructive"), 90), // the same idiom on the status family
+      dilute(u("bg", "muted"), 50), // deliberately not banned — no role exists to replace it
+      dilute(u("bg", "input", "foo"), 60), // a token this rule has never heard of
+    ]) {
+      fresh();
+      expect(bites(legal), `${legal} is legal and was caught`).toBe(false);
+    }
+    fresh();
   });
 });

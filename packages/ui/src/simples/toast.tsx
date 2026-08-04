@@ -77,7 +77,7 @@ interface ToastItemProps extends React.ComponentProps<typeof ArkToast.Root> {
 }
 
 export const ToastItem = (props: ToastItemProps) => {
-  const { toast: toastData, className, ...rest } = props;
+  const { toast: toastData, className, slot, ...rest } = props;
 
   const ToastIcon = toastData.type
     ? TOAST_ICONS[toastData.type as keyof typeof TOAST_ICONS]
@@ -105,8 +105,8 @@ export const ToastItem = (props: ToastItemProps) => {
         "motion-reduce:transition-none!",
         className
       )}
-      data-slot="toast"
       {...rest}
+      data-slot={slot ?? "toast"}
     >
       <div className="flex items-start gap-1.5">
         <div
@@ -145,21 +145,21 @@ export const ToastItem = (props: ToastItemProps) => {
         {toastData.action && (
           <ArkToast.ActionTrigger
             asChild
-            data-slot="toast-action-trigger"
             onClick={toastData.action.onClick}
           >
-            <Button size="sm" variant="secondary">
+            <Button size="sm" slot="toast-action-trigger" variant="secondary">
               {toastData.action.label}
             </Button>
           </ArkToast.ActionTrigger>
         )}
 
         {!isExplicitClosable && (
-          <ArkToast.CloseTrigger asChild data-slot="toast-close-trigger">
+          <ArkToast.CloseTrigger asChild>
             <Button
               aria-label="Close"
               className="opacity-64 hover:opacity-100"
               size="icon-xs"
+              slot="toast-close-trigger"
               variant="ghost"
             >
               <XIcon />

@@ -1,6 +1,12 @@
 "use client";
 
-import { ArchiveIcon, CircleDotIcon, CircleSlashIcon } from "lucide-react";
+import {
+  CircleCheckIcon,
+  CircleDashedIcon,
+  CircleSlashIcon,
+  FootprintsIcon,
+  HandshakeIcon,
+} from "lucide-react";
 import { Badge } from "@kanzo-tech/ui";
 import {
   type ColumnDef,
@@ -12,42 +18,30 @@ import {
   facetFilterFn,
   useDataTable,
 } from "@kanzo-tech/ui/table";
+import { type Quest, QUESTS } from "@/example/quests";
+import { hall, questStatus } from "@/example/world";
 
-interface Dataset {
-  name: string;
-  owner: string;
-  status: "active" | "inactive" | "archived";
-}
+const data = QUESTS.filter((contract) => contract.region === "Greenhollow");
 
-const data: Dataset[] = [
-  { name: "customers", owner: "platform", status: "active" },
-  { name: "orders", owner: "commerce", status: "active" },
-  { name: "invoices", owner: "finance", status: "inactive" },
-  { name: "shipments", owner: "commerce", status: "archived" },
-  { name: "refunds", owner: "finance", status: "inactive" },
-  { name: "sessions", owner: "platform", status: "active" },
-];
-
-const tone = {
-  active: "success",
-  archived: "outline",
-  inactive: "secondary",
-} as const;
-
-// Without `filterFn: facetFilterFn` a filter on "active" would also keep "inactive".
-const columns: ColumnDef<Dataset>[] = [
-  { accessorKey: "name", header: "Dataset" },
+// Without `filterFn: facetFilterFn` the built-in degrades to substring matching on a scalar cell.
+const columns: ColumnDef<Quest>[] = [
+  { accessorKey: "title", header: "Contract" },
   {
     accessorKey: "status",
     cell: ({ row }) => (
-      <Badge size="sm" variant={tone[row.original.status]}>
-        {row.original.status}
+      <Badge size="sm" variant={questStatus(row.original.status).tone}>
+        {questStatus(row.original.status).label}
       </Badge>
     ),
     filterFn: facetFilterFn,
-    header: "Status",
+    header: "State",
   },
-  { accessorKey: "owner", filterFn: facetFilterFn, header: "Owner" },
+  {
+    accessorFn: (contract) => hall(contract.hall).short,
+    filterFn: facetFilterFn,
+    header: "Posted by",
+    id: "hall",
+  },
 ];
 
 export default function Example() {
@@ -57,20 +51,22 @@ export default function Example() {
     <div className="w-full max-w-xl">
       <DataTableRoot table={table}>
         <DataTableToolbar>
-          <DataTableSearch className="max-w-40" column="name" />
+          <DataTableSearch className="max-w-40" column="title" />
           <DataTableFacetFilter
             column="status"
-            label="Status"
+            label="State"
             options={[
-              { icon: CircleDotIcon, label: "Active", value: "active" },
-              { icon: CircleSlashIcon, label: "Inactive", value: "inactive" },
-              { icon: ArchiveIcon, label: "Archived", value: "archived" },
+              { icon: CircleDashedIcon, label: "Open", value: "open" },
+              { icon: HandshakeIcon, label: "Claimed", value: "claimed" },
+              { icon: FootprintsIcon, label: "Afield", value: "afield" },
+              { icon: CircleCheckIcon, label: "Settled", value: "settled" },
+              { icon: CircleSlashIcon, label: "Failed", value: "failed" },
             ]}
           />
-          <DataTableFacetFilter column="owner" label="Owner" />
+          <DataTableFacetFilter column="hall" label="Hall" />
         </DataTableToolbar>
 
-        <DataTableContent<Dataset> />
+        <DataTableContent<Quest> />
       </DataTableRoot>
     </div>
   );

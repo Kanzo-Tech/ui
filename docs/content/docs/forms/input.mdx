@@ -1,24 +1,30 @@
 ---
-title: Input
-description: A single-line text field.
+title: Text inputs
+description: Input and Textarea — the two plain text controls, and the one attribute that styles both.
 links:
-  doc: https://ark-ui.com/docs/forms/field
+  doc: https://ark-ui.com/docs/components/field
 ---
 
-<ComponentPreview componentName="input" />
+Two controls, one rule between them: **`aria-invalid` drives the styling.** There is no `invalid`
+prop on either, so the same attribute that tells assistive tech the field is wrong is the one that
+paints it — they cannot disagree. Inside a [`Field`](/docs/forms/field) it is set for you.
 
-## Usage
+An input with an adornment glued to its edge — a prefix, a unit, an inline button — is
+[`InputGroup`](/docs/forms/input-group), which is the same chrome with room in it.
+
+## Input
+
+<ComponentPreview componentName="input" />
 
 ```tsx
 import { Input } from "@kanzo-tech/ui";
 ```
 
-## States
+A single-line text field. `type="number"` with `inputMode="decimal"` is the whole of "a numeric
+field"; reach for [`NumberInput`](/docs/forms/number-input) when the value wants steppers, arrow
+keys and drag-to-scrub instead.
 
 ### Invalid
-
-`aria-invalid` drives the styling — there is no `invalid` prop, so the same attribute that
-tells assistive tech also paints the field.
 
 <ComponentPreview componentName="input" fileName="example-invalid" />
 
@@ -26,7 +32,34 @@ tells assistive tech also paints the field.
 
 <ComponentPreview componentName="input" fileName="example-disabled" />
 
+## Textarea
+
+<ComponentPreview componentName="textarea" />
+
+```tsx
+import { Textarea } from "@kanzo-tech/ui";
+```
+
+The height is `field-sizing-content`, so the box grows as the user types instead of scrolling
+inside a fixed four-row window.
+
+### With field
+
+<ComponentPreview componentName="textarea" fileName="example-with-field" />
+
+### Invalid
+
+<ComponentPreview componentName="textarea" fileName="example-invalid" />
+
+### Disabled
+
+<ComponentPreview componentName="textarea" fileName="example-disabled" />
+
 ## API Reference
+
+Two controls, so two tables.
+
+### Input
 
 | Prop | Type | Default |
 | --- | --- | --- |
@@ -38,3 +71,12 @@ Extends `React.ComponentProps<typeof FieldInput>` with the native `size` attribu
 is mirrored to `data-size`, and the three heights match `Button`'s `sm` / `md` / `lg`.
 `inputVariants` is exported for putting the same field on another element — `ClipboardInput` is
 built from it.
+
+### Textarea
+
+No props of its own — and deliberately no `size`, unlike `Input` above: the height is
+`field-sizing-content` over a `min-h-16` floor, so the content sizes the box.
+
+Extends `React.ComponentProps<typeof ArkField.Textarea>`, so `ref`, `value` / `defaultValue`,
+`onChange`, `rows`, `placeholder`, `disabled` and `aria-invalid` pass through. Inside a `Field`
+it also picks up `data-invalid` from the machine, which paints the same way `aria-invalid` does.

@@ -2,7 +2,7 @@
 title: Select
 description: A listbox of options in a popover, driven by an Ark collection.
 links:
-  doc: https://ark-ui.com/docs/forms/select
+  doc: https://ark-ui.com/docs/components/select
 ---
 
 <ComponentPreview componentName="select" />
@@ -21,10 +21,10 @@ import {
 ```
 
 ```tsx
-const visibility = createListCollection({
+const regions = createListCollection({
   items: [
-    { label: "Public", value: "public" },
-    { label: "Private", value: "private" },
+    { label: "Thornmarch", value: "Thornmarch" },
+    { label: "Duskfen", value: "Duskfen" },
   ],
 });
 ```
@@ -38,19 +38,14 @@ Build the collection once at module scope, or memoise it — a new collection on
 resets the machine.
 
 <Callout type="info">
-Type-ahead is not filtering. Typing `pri` **jumps** the highlight to "Private"; the list still
+Type-ahead is not filtering. Typing `dus` **jumps** the highlight to "Duskfen"; the list still
 shows every option. If you want the list to shrink as the user types, that is a
 [`Combobox`](/docs/forms/combobox).
 </Callout>
 
-### When to use which
-
-`Select` is a listbox in a popover with the options in a collection — reach for it when the
-options need to look like more than plain text (icons, descriptions, groups) and the list is
-short enough to scroll. Below that, [`NativeSelect`](/docs/forms/native-select) costs no
-JavaScript and opens the OS picker on mobile; above ~15 options,
-[`Combobox`](/docs/forms/combobox) adds the input that filters them. All three hold **a value** —
-none of them is a [`Menu`](/docs/overlays/menu).
+Which of the choice controls this should be — and where the thresholds against
+[`NativeSelect`](/docs/forms/native-select) and [`Combobox`](/docs/forms/combobox) fall — is
+answered once, on [Controls](/docs/forms/controls#choice).
 
 ## Anatomy
 
@@ -95,6 +90,21 @@ you, and each `SelectItem` grows a check indicator. You do **not** need a `Combo
 ## Disabled
 
 <ComponentPreview componentName="select" fileName="example-disabled" />
+
+## Keyboard
+
+| Key | Does |
+| --- | --- |
+| <kbd>↓</kbd> / <kbd>↑</kbd> | On the closed trigger, opens the list with the first / last option highlighted; inside, moves the highlight. |
+| <kbd>Alt</kbd>+<kbd>↓</kbd> | Opens the list with nothing highlighted. |
+| <kbd>Home</kbd> / <kbd>End</kbd> | Highlights the first / last option once the list is open. |
+| <kbd>Enter</kbd> / <kbd>Space</kbd> | Opens the list from the trigger, and selects the highlighted option once it is open. |
+| <kbd>A</kbd>–<kbd>Z</kbd> | Typeahead: highlights the next option whose text starts with what you have typed. |
+| <kbd>Esc</kbd> | Closes the list without changing the value and returns focus to the trigger. |
+
+On the **closed** trigger, <kbd>←</kbd>/<kbd>→</kbd>, <kbd>Home</kbd>/<kbd>End</kbd> and
+typeahead change the value outright without ever opening the list — single selection only, since
+there is no one value to step through under `multiple`.
 
 ## API Reference
 

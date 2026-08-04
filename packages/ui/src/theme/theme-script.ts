@@ -30,7 +30,7 @@
 // Hosting a theme manager already? Disable its class writer rather than pointing this at its
 // storage: two owners of `.dark` fight over the same class, and the loser wins at random.
 
-import { AXES, STORAGE_KEY } from "./prefs-config.js";
+import { AXES, STORAGE_KEY } from "@kanzo-tech/theme";
 
 export interface ThemeScriptOptions {
   /** Must match the provider's `storageKey` / the cookie adapter's key. */

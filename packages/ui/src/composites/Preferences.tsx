@@ -539,43 +539,31 @@ export interface PreferencesProps extends Omit<PreferencesRootProps, "children">
   triggerClassName?: string;
 }
 
-/** Compound: Root provider + Trigger + Panel + standalone sections. */
-export const Preferences = Object.assign(
-  /**
-   * All-in-one: a floating trigger + the full drawer.
-   *
-   * Forwards Root's props and lets the trigger be restyled or repositioned — it used to take
-   * none, so a consumer could neither move the FAB nor reach the hotkey.
-   */
-  function Preferences({ triggerClassName, ...rootProps }: PreferencesProps = {}) {
-    return (
-      <PreferencesRoot {...rootProps}>
-        <PreferencesTrigger className={triggerClassName} />
-        <PreferencesPanel />
-      </PreferencesRoot>
-    );
-  },
-  {
-    Root: PreferencesRoot,
-    Trigger: PreferencesTrigger,
-    Panel: PreferencesPanel,
-    Colour: ColorSection,
-    Color: ColorSection,
-    Radius: RadiusSection,
-    Font: FontSection,
-    MonoFont: MonoFontSection,
-    Density: DensitySection,
-  },
-);
+/**
+ * All-in-one: a floating trigger + the full drawer.
+ *
+ * Forwards Root's props and lets the trigger be restyled or repositioned — it used to take
+ * none, so a consumer could neither move the FAB nor reach the hotkey.
+ *
+ * There is no `Preferences.Root` / `.Panel` / `.Density` namespace. It was built with
+ * `Object.assign`, and those statics do NOT survive React Server Components: once the module
+ * becomes a client reference, `Preferences.Density` reads back as `undefined` and React throws
+ * "Element type is invalid". It was a broken API kept beside the working one — and it was the
+ * single counter-example to CONVENTIONS.md's "no component exports dot-notation today".
+ */
+export function Preferences({ triggerClassName, ...rootProps }: PreferencesProps = {}) {
+  return (
+    <PreferencesRoot {...rootProps}>
+      <PreferencesTrigger className={triggerClassName} />
+      <PreferencesPanel />
+    </PreferencesRoot>
+  );
+}
 
 /**
- * The same parts as flat named exports.
- *
- * Prefer these. The `Preferences.X` namespace above is built with `Object.assign`, and those
- * statics do NOT survive React Server Components: once the module becomes a client reference,
- * `Preferences.Density` reads back as `undefined` and React throws "Element type is invalid".
- * Flat exports cross the boundary intact, tree-shake per part, and match how every other
- * compound component in this library is exported (`DialogContent`, not `Dialog.Content`).
+ * The parts as flat named exports — the API. They cross the RSC boundary intact, tree-shake per
+ * part, and match how every other compound in this library is exported (`DialogContent`, not
+ * `Dialog.Content`).
  */
 export {
   PreferencesRoot,

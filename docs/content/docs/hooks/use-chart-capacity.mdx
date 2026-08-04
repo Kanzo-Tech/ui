@@ -12,10 +12,11 @@ the count is what a legend, a tail-folding rule or a "+N more" row is built on.
 ## Usage
 
 ```tsx
-import { useChartCapacity } from "@kanzo-tech/ui/analytics";
+import { useChartCapacity } from "@kanzo-tech/ui";
 ```
 
-The `/analytics` peers are [optional](/docs/installation) — nothing installs them unless you import this subpath.
+It is on the root barrel and needs no optional peer: reading a custom property off the cascade is
+not charting, and a surface that is not a chart may want the same count.
 
 ```tsx
 const host = useRef<HTMLDivElement>(null);

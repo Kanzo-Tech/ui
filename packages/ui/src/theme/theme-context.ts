@@ -1,8 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type { Appearance, AppearancePref, SwatchOption } from "@kanzo-tech/theme";
-import type { ThemePrefs } from "./prefs-config.js";
+import type { Appearance, AppearancePref, SwatchOption, ThemePrefs } from "@kanzo-tech/theme";
 
 /**
  * The theme context and its two readers, apart from the provider that fills it.

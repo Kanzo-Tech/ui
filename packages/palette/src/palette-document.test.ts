@@ -75,18 +75,31 @@ describe("the engine hash", () => {
     expect(hashObligations()).toMatch(/^[0-9a-f]{8}$/);
   });
 
-  it("moves when what a step OWES changes, even by a word", () => {
+  it("moves when what a step OWES changes", () => {
     // The event it exists to catch, and the reason it is taken over `OBLIGATIONS` rather than over
     // `ramp.ts`: a refactor of the generator that produces identical values must not invalidate a
     // stored document, and a change to the rules must — even one shipped inside a patch release,
     // where the package version would say nothing.
-    const changed = OBLIGATIONS.map((o) =>
-      o.id === "visible-fill" ? { ...o, reason: `${o.reason} (revised)` } : o,
+    const retargeted = OBLIGATIONS.map((o) => (o.id === "visible-fill" ? { ...o, step: 11 } : o));
+    const renamed = OBLIGATIONS.map((o) =>
+      o.id === "visible-fill" ? { ...o, id: "visible-fill-2" } : o,
     );
-    expect(hashObligations(changed)).not.toBe(hashObligations(OBLIGATIONS));
+
+    expect(hashObligations(retargeted)).not.toBe(hashObligations(OBLIGATIONS));
+    expect(hashObligations(renamed)).not.toBe(hashObligations(OBLIGATIONS));
     // Conservative in the other direction too: the table's order is part of its serialisation, so a
     // reshuffle also moves the hash. A false alarm costs one re-derivation; a missed change costs a
     // measurement that is quietly about a rule nobody applies any more.
     expect(hashObligations([...OBLIGATIONS].reverse())).not.toBe(hashObligations(OBLIGATIONS));
+  });
+
+  it("stays put when only the prose does, which is what makes the prose correctable", () => {
+    // `decisions/prose-that-is-hashed-is-data.md`. The digest used to be taken over the whole row,
+    // so correcting a `reason` — including one measured wrong — asserted to every stored document
+    // that the rules it was derived under had changed. A correction that cannot be made is worse
+    // than the error it cannot fix, and the freeze it imposed had already outlived one known defect.
+    const reworded = OBLIGATIONS.map((o) => ({ ...o, reason: `${o.reason} (revised)` }));
+
+    expect(hashObligations(reworded)).toBe(hashObligations(OBLIGATIONS));
   });
 });

@@ -13,23 +13,23 @@ export default function Example() {
   return (
     <Menu>
       <MenuContextTrigger asChild>
-        <div className="flex h-32 w-72 items-center justify-center rounded-xl border-2 border-border border-dashed text-muted-foreground text-sm">
-          Right-click here
+        <div className="flex h-32 w-72 items-center justify-center rounded-xl border-2 border-border border-dashed px-4 text-center text-muted-foreground text-sm">
+          Q-1041 · Something is eating the bell-ropes
         </div>
       </MenuContextTrigger>
 
       <MenuContent className="w-48">
-        <MenuItem value="open">Open</MenuItem>
-        <MenuItem value="rename">Rename</MenuItem>
+        <MenuItem value="open">Open the contract</MenuItem>
+        <MenuItem value="claim">Claim it</MenuItem>
 
         <MenuSeparator />
 
         <MenuSub>
-          <MenuSubTrigger>Export as</MenuSubTrigger>
+          <MenuSubTrigger>Copy</MenuSubTrigger>
 
           <MenuSubContent className="w-40">
-            <MenuItem value="turtle">Turtle</MenuItem>
-            <MenuItem value="jsonld">JSON-LD</MenuItem>
+            <MenuItem value="id">Contract id</MenuItem>
+            <MenuItem value="title">Title</MenuItem>
           </MenuSubContent>
         </MenuSub>
       </MenuContent>

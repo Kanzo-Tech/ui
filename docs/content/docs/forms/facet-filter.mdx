@@ -13,8 +13,8 @@ import { FacetFilter } from "@kanzo-tech/ui";
 
 ```tsx
 <FacetFilter
-  items={[{ value: "aemet", label: "AEMET", count: 1284 }]}
-  label="Provider"
+  items={[{ value: "Thornmarch", label: "Thornmarch", count: 8 }]}
+  label="Region"
   onValueChange={setValue}
   value={value}
 />
@@ -37,9 +37,9 @@ one thing here that is a button rather than a row.
 
 Two rules that are invisible until they bite, which is why they live here and not in each adapter:
 
-- **A ticked value that has been faceted away stays listed.** Filter by region, and a provider that
-  does not appear in that region drops out of the data — but if it is still ticked it must stay on
-  screen, or the filter is stuck with nothing to untick.
+- **A ticked value that has been faceted away stays listed.** Filter the board to night work, and a
+  region that posts none drops out of the data — but if it is still ticked it must stay on screen,
+  or the filter is stuck with nothing to untick.
 - **Rows are ordered by label, never by count.** Ordering by frequency reshuffles the list under the
   cursor every time another filter moves, so you tick the row that took the place of the one you
   read.
@@ -60,9 +60,8 @@ the popover, which would be two machines sharing one open-state.
 <Callout type="warn">
 **It is a prop, and never a count threshold.** A control that grows a search field once it passes *n*
 values reshapes itself under the cursor: tick something, the crossfilter shrinks the facet, the field
-disappears and every row moves up. The caller knows whether the column is `provider` or
-`subject_uri`; the component only knows how many rows survived the last filter, which is not the same
-question.
+disappears and every row moves up. The caller knows whether the column is `region` or `member`; the
+component only knows how many rows survived the last filter, which is not the same question.
 </Callout>
 
 Both rules above survive the query:
@@ -72,7 +71,7 @@ Both rules above survive the query:
 - **The surviving rows are still in label order.**
 
 Matching is case- and accent-insensitive — `useFilter({ sensitivity: "base" })`, the same call
-`Combobox` makes — so `coruna` finds `A Coruña`. It matches the row's **label**, falling back to its
+`Combobox` makes — so `vrana` finds `Ludmila Vrána`. It matches the row's **label**, falling back to its
 `value` when the label is not a string. The query is forgotten when the popover closes.
 
 The popover opens with the field focused, so you can open it and start typing. That takes an explicit

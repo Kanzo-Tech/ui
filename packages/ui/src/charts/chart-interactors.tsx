@@ -1,5 +1,3 @@
-"use client";
-
 import type { Selection } from "@uwdata/mosaic-core";
 import { chartDescriptor, type ChartDescriptor, type ChartInteractorDirective } from "./chart-spec.js";
 

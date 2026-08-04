@@ -1,13 +1,35 @@
 ---
 title: Philosophy
-description: Three layers, and what each one is allowed to decide.
+description: The rules the library is built on — the concerns, the layers, the axes, and what earns a new component.
 ---
 
-Every component in this library is assembled the same way. That uniformity is the product —
-it is what lets a token change re-skin the whole surface, and what stops it drifting
-back into scattered one-off styling.
+Every component here is assembled the same way, and that uniformity is the product: it is what
+lets a token change re-skin the whole surface, and what stops the system drifting back into
+scattered one-off styling.
 
-## The three layers
+This page is the reference for the rules the component pages link to. Each has its own heading, so
+a page can point at the sentence rather than restate it.
+
+## The governing constraint
+
+> **This is our library, generic, for anything we want to build.**
+
+That is stronger than being domain-free. Domain-freedom stops RDF, auth and graphs from leaking
+in; it does not stop a component's *shape* from being dictated by whichever consumer shouted
+loudest — which is how a general application shell ended up reading as one product's metadata
+view.
+
+Two consequences, and the second is what makes the first affordable:
+
+1. The library ships a **generic vocabulary** — regions, sections, controls.
+2. **A specific arrangement is a [showcase](/docs/showcases), not a component.**
+
+An arrangement someone actually builds does not have to become a component. It has to become an
+example. Before adding a way to express something, look for the ways it is already expressed:
+**the minimal set of pieces to grow from beats a catalogue of conveniences**, and most of the work
+in this repository has been collapsing two or three spellings of one idea back into one.
+
+## The three concerns
 
 <Cards>
   <Card title="Behaviour" description="Ark UI. State, WAI-ARIA, keyboard, focus. No appearance." />
@@ -24,47 +46,245 @@ We do not reimplement any of it. Components with their own state that Ark does n
 ### 2. Appearance — tokens and recipes
 
 Every visual decision lives in a `tv()` recipe over token-backed Tailwind utilities. No inline
-`style` for variant appearance, no raw hex, no raw palette classes like `bg-slate-700`.
-
-A component's `.tsx` picks recipe variants. It does not decide what they look like.
+`style` for variant appearance, no raw hex, no raw palette classes like `bg-slate-700`. A
+component's `.tsx` picks recipe variants; it does not decide what they look like. The line
+between what must be a recipe and what may sit inline is on [Styling](/docs/styling).
 
 ### 3. API — a stable vocabulary
 
 Components expose `variant`, `size` and composition, not Ark or Tailwind internals. That
 insulation is the point: upstream can refactor and consumer code does not move.
 
+## The three layers
+
+The source is organised so that each layer answers one question about a component's size.
+
+| Directory | What lives there | Test |
+|---|---|---|
+| `simples/` | Single-purpose components — Button, Input, Dialog, Select | Does one thing |
+| `composites/` | Assemblies of simples — Sidebar, CodeEditor, Preferences | Made of several, still fits in a page |
+| `layouts/` | Page and window scaffolding — the Shell and Section regions | Positions other things |
+
+**The published barrel is flat regardless.** `import { Button, ShellRoot } from "@kanzo-tech/ui"`
+never says which directory either came from, so moving a component between layers is not a
+breaking change. That is what makes a taxonomy mistake cheap to fix — and why it gets fixed rather
+than lived with.
+
+## The three axes
+
+Layers say how big a part is. Axes say what kind of thing it is, and you name the axis *first*
+when deciding where something belongs.
+
+1. **Structure** — where something sits and what scrolls: flex, height, overflow, min-width.
+   **No appearance**, meaning no opinion about colour, surface or typography.
+2. **Content** — titles, descriptions, actions, controls, text. Appearance, driven by tokens and
+   recipes.
+3. **Behaviour** — focus, keyboard, ARIA, positioning, collision. **Ark owns this.** Where Ark has
+   no equivalent we write it, document the ARIA contract in the source, and cover it with a test.
+
+**A part sits on one axis.** A part that declares a position *and* a height, a surface and a font
+is two parts wearing one name — which is exactly why there is no bar component in the
+[Shell](/docs/layout/shell): a dense IDE strip is something you *put in* a region, and the region
+itself carries no aesthetic.
+
+## The engine rule
+
+> **A component that needs an engine is the presentational one plus the engine — two components,
+> not one. The presentational half lives in the root barrel; the connected half lives on the
+> engine's subpath and renders the first.**
+
+| Presentational (root) | Connected (subpath) | Engine |
+|---|---|---|
+| [`Table`](/docs/data-display/table) — semantic markup, tokenised chrome, no data layer | [`DataTableRoot`](/docs/data-display/data-table) — sorting, filtering, pagination | TanStack Table, on `/table` |
+| [`StatTile`](/docs/data-display/stat-tile) — label, figure, delta, sparkline; takes a number | [`ChartStat`](/docs/data-display/charts) — queries a relation, reacts to the crossfilter | Mosaic, on `/analytics` |
+
+**Why two and not one.** A subpath entry statically re-exports its engine, so *any* import from it
+resolves that optional peer. Put the presentational half there and showing a number that came from
+a REST call would require installing DuckDB-WASM. The split is what keeps the common case free.
+
+**Why it is not duplication.** The connected half *renders* the presentational one — the same
+relationship as `FacetFilter` to `listbox` in [the naming rule](#the-naming-rule). If you find
+yourself reimplementing the markup on the subpath, you have built two components instead of one
+and a half.
+
+The corollary is a placement test: **a part belongs on a subpath only if it imports that subpath's
+engine.** Thematic neighbourhood is not a reason — `StatTile` sat under the chart subpath for a
+while without importing a line of Mosaic, and cost every consumer of a number a database.
+
+## The naming rule
+
+> **`kebab-case` is the vendored primitive. `PascalCase` is our pre-assembled convenience built on
+> top of it.**
+
+Verifiable rather than asserted: `FacetFilter` imports `listbox` and `popover`; `Preferences`
+imports `dialog`, `field` and `radio-group`. They are not competitors — one is built from the
+other, so **reach for the primitive first, and take the PascalCase one when it carries a contract
+the parts do not.** The forms index [applies this to every control](/docs/forms/controls).
+
+It is a reading aid rather than a guarantee: `Link` is PascalCase with no primitive underneath it,
+and `sidebar` is kebab while being entirely ours.
+
+The rule cuts both ways, and the second direction is the one that keeps the library small: a
+convenience whose only content is a fixed arrangement of the primitive's parts is an **example**,
+not a component. `TextField` was `InputGroup` with the composition already done, and `DateField`
+was `DatePicker` plus a twenty-line adapter; both are now written out where they are used, which
+is where a reader can see them.
+
+Parts themselves are exported **flat, never as a namespace** — `DialogContent`, not
+`Dialog.Content` — for the reasons on [Styling](/docs/styling#compound-components).
+
+## The header rule
+
+> **A header wired to a machine stays with its machine. Only pure-layout headers merge.**
+
+Three vocabularies once described one row — a heading with an optional icon, supporting text and
+end-aligned controls — and they merged into [`SectionHeader`](/docs/layout/section) and the parts
+it composes. `CardHeader` and `DialogHeader` did **not** merge in with them, because they are not
+layout: `DialogHeader` wires Ark's `aria-labelledby`, and `CardHeader` is part of Card's
+compound. The precedent that the line is drawn in the right place is that `TourHeader` *is*
+`DialogHeader` — sharing across machines is fine when the wiring is shared; merging layout with
+wiring is not.
+
+## Admission
+
+A new component enters only if all four hold:
+
+1. **Domain-free.** Nothing about RDF, SHACL, fossil, graphs or auth.
+2. **Proven demand.** Two real call sites, not a hypothesis. One `docs/examples/` directory is not
+   a second call site — it is the page proving the part exists.
+3. **Wraps, does not reinvent.** If it needs behaviour, it leans on Ark. Check
+   `@ark-ui/react/dist/components/` — resolvable from `packages/ui`, not from the repository
+   root — before writing a state machine.
+4. **Single axis.** Structure, or content, or behaviour — not a blend.
+
+And one rule about *not* building: **do not add a model before the existing parts have a
+consumer.** Adoption before design.
+
+<Callout title="Two standing exceptions, and both are narrow">
+  The `/analytics` mark and interactor wrappers stay complete even where no example draws one. A
+  grammar with holes sends the author to `@uwdata` for the one thing we left out, which is the
+  import that layer exists to remove — and each wrapper is a single line. It does not generalise
+  to components with bodies.
+
+  The second is the same shape one library along: the context-hook aliases and the Ark parts
+  re-exported beside them ship because Shark UI's registry ships them, under those names, with no
+  call site of their own either. The vocabulary a consumer arrives with is the thing being bought,
+  and unlike "we might need it later" it is checkable against a source outside this repository —
+  the registry says which names Shark ships and, just as bindingly, which it does not.
+</Callout>
+
+The second exception is not a courtesy to Shark. It falls out of an order this repository had to
+write down after two of its own rules pointed opposite ways on identical evidence:
+
+> **The reference governs the surface; a measurement governs the reference; nothing else governs
+> either.**
+
+A house principle — the second admission rule above, or "a class list is not API" — still
+decides everything the reference is silent about, and nothing it speaks about. Which is why
+applying admission rule 2 to the Shark-parity names deleted every one of them once, and why
+reading the registry restored them: a correct rule, applied where it had no standing.
+
+## Reach for a new component last
+
+A new component is the most expensive answer. Each rung below is cheaper than the next, and a new
+component is reserved for genuinely new **behaviour** or **DOM structure**, never a new look.
+
+1. **A prop or variant.** A different appearance of the same machine is a `tv()` variant, not a
+   file.
+2. **Composition and `data-*`.** Every state is mirrored to a `data-*` attribute, so a caller
+   restyles a list into cards with CSS alone — no fork.
+3. **`asChild` or a render prop.** Absorb the caller's own markup instead of minting `CardButton`
+   and `LinkButton` per case.
+4. **A provider or slot.** Reuse a standalone part inside a composite by injecting through
+   context. Providers earn their place for **cross-cutting** state — theme, locale, a `Field`
+   context — and for composite reuse. Not for "this input has completion".
+5. **A new component.** Only now.
+
+## A menu is a command; a listbox is a value
+
+Half the "which control?" questions in this library are one question wearing four hats, and the
+answer is an ARIA role, not a look.
+
+> **If closing the surface leaves state, it is a listbox; if it leaves only an effect, it is a
+> menu.**
+
+`role="menu"` is a list of commands and is nobody's data. `role="listbox"` is a value that lives
+in state, and the popover is only its editor. The rest of the family is two orthogonal questions
+on top of that — *can you type to filter?* and *how many can you pick?* — worked through control
+by control on [Controls](/docs/forms/controls#a-menu-is-a-command-a-listbox-is-a-value), which is
+where that rule is kept.
+
+## Errors: the library displays, products produce
+
+`Field` takes a boolean and a `ReactNode`. Where they came from — a schema, a server response, a
+SHACL engine, an `if` — is the product's business, because our own consumers validate in ways with
+almost nothing in common. See [Validation](/docs/forms/validation).
+
 ## Adopt, don't rebuild
 
 Prefer bringing a Shark UI or Ark component and rebranding it to our tokens over hand-rolling.
-The bespoke code is the layout layer — `Shell` and `Section`, which no upstream ships — and the
-CodeMirror editors; both are built to the same Ark idiom (`ark.*` factory, `data-slot`, flat
-compound parts) as everything else.
+The bespoke code is the layout layer — `ShellRoot`, `SectionRoot` and their parts, which no
+upstream ships — and the CodeMirror editors; both are built to the same Ark idiom (`ark.*`
+factory, `data-slot`, flat compound parts) as everything else.
 
 <Callout title="Match the reference, don't invent">
   When something looks odd, check the reference before "fixing" it. The status tokens are a
-  standing example: `--destructive-foreground` is red-700 over a red-600 fill, which reads like
-  a contrast bug until you find that Shark defines exactly the same pair and uses the second as
-  a *background*. Renaming it would have forked us from upstream for nothing — the on-fill ink
-  that was genuinely missing became a third token instead, `--destructive-content`. And the fill
-  moved off Shark's red-500 only once it had been [measured](/docs/theming#tokens), which is the
-  other half of the rule: diverge on evidence, never on taste.
+  standing example: `--destructive-foreground` is a far darker ink than the `--destructive` fill
+  it appears to name, which reads like a contrast bug until you find that Shark defines exactly
+  the same pair and uses the second as a *background*. Renaming it would have forked us from
+  upstream for nothing — the on-fill ink that was genuinely missing became a third token instead,
+  `--destructive-content`. And the fill moved off Shark's red-500 only once it had been
+  [measured](/docs/theming#tokens), which is the other half of the rule: diverge on evidence,
+  never on taste.
 </Callout>
 
 ## Domain-free
 
 The library knows nothing about RDF, SHACL, fossil, graphs or auth. Product-specific screens
-live in the products. This is enforced by review, not by tooling — the most recent breach was
-a hard-coded log-out flow with untranslatable copy inside `SidebarUser`, which is now just an
-entry in `menuItems`.
+live in the products. This is enforced by review, not by tooling — a sidebar composite once
+shipped a hard-coded log-out flow, confirmation dialog and untranslatable English copy included,
+which is an auth flow in a library whose first admission rule excludes auth.
+
+The instructive part is the first fix, because it was not the one that held: the flow became one
+entry in an array of menu items the caller passed in. That trades a domain leak for a layout tree
+written as an attribute — a shape no caller can reorder, wrap, spread a handler onto or `asChild`
+— so the composite went too, along with four others that took the same kind of prop. A log-out
+item is now markup the product writes out of the exported menu and sidebar parts, and the product
+owns its wording and its confirmation.
 
 ## The client boundary
 
 The library is consumed by React Server Component hosts, so this is load-bearing:
 
-- A file gets `"use client"` **iff** it calls a hook, registers a listener, or imports a module
-  that does.
-- Hook-free presentational components must **not** carry it, so they stay server-renderable.
-- Components needing an optional peer live on their own subpath, never the root barrel.
+- A file gets `"use client"` **iff *it itself* is stateful** — it calls a hook (any `useX`), calls
+  `createContext`, registers a listener, or writes an inline JSX event handler. **Importing a
+  stateful module is not a reason**: the boundary is established once, by the module the hook is
+  in, and every importer above it stays server-renderable. Ark depends on this, which is why a
+  hook-free wrapper of an Ark machine can be a Server Component at all.
+- The handler is the one that catches people out, because it has no hook in it. `onClick={…}` on a
+  part is a *function* passed to a Client Component, and React refuses to serialise one across the
+  boundary — so a module with no hook anywhere can still need the directive, and `tsc` cannot see
+  it.
+- Presentational components that are none of those must **not** carry it, so they stay
+  server-renderable. Getting this wrong in the two directions costs differently: a **missing**
+  directive throws at render, a **surplus** one only loses server rendering.
+- Components needing an optional peer live on their own subpath, never the root barrel — see
+  [the engine rule](#the-engine-rule) and [Installation](/docs/installation).
 
-These docs are the fixture that proves it: every documented component is prerendered inside a
-real App Router server tree in CI.
+The build has to preserve the directives through bundling, and no Vite-based harness can catch it
+when they are stripped, because Vite ignores `"use client"` entirely. These docs are the fixture
+that proves it: every documented component is prerendered inside a real App Router server tree in
+CI.
+
+## Where specificity is allowed to live
+
+Not everything belongs in the library, and that is not a loss:
+
+- **[Showcases](/docs/showcases)** — full arrangements: an app shell, a workspace, an editor.
+  Rendered full-bleed and unframed, because a shell judged inside a 450px centred box tells you
+  nothing.
+- **The products** — anything that knows a domain, any router integration, any validation engine,
+  any persistence.
+
+If a piece cannot pass [admission](#admission), it is a showcase or it is product code. Those are
+respectable destinations, not rejections.

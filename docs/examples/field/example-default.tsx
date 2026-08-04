@@ -3,10 +3,10 @@ import { Field, FieldDescription, FieldLabel, Input } from "@kanzo-tech/ui";
 export default function Example() {
   return (
     <Field className="w-80">
-      <FieldLabel>Dataset name</FieldLabel>
-      <Input placeholder="customers" />
+      <FieldLabel>Contract title</FieldLabel>
+      <Input placeholder="A wyrm under the granary" />
       <FieldDescription>
-        Lower-case, no spaces — it becomes the graph id.
+        One line — it is what the board shows and what a party quotes back.
       </FieldDescription>
     </Field>
   );

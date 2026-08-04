@@ -1,5 +1,3 @@
-"use client";
-
 import { ark } from "@ark-ui/react/factory";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
@@ -47,15 +45,15 @@ interface StatusProps
     VariantProps<typeof statusVariants> {}
 
 export const Status = (props: StatusProps) => {
-  const { variant, size, className, ...rest } = props;
+  const { variant, size, className, slot, ...rest } = props;
 
   return (
     <ark.span
       aria-hidden="true"
       className={cn(statusVariants({ variant, size }), className)}
       data-size={size}
-      data-slot="status-indicator"
       {...rest}
+      data-slot={slot ?? "status-indicator"}
     />
   );
 };

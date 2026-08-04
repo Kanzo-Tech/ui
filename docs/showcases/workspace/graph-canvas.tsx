@@ -3,7 +3,11 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { Graph } from "@cosmos.gl/graph";
-import { useChartCapacity, useMosaic } from "@kanzo-tech/ui/analytics";
+import { Query } from "@uwdata/mosaic-sql";
+// `useChartCapacity` sits on the root barrel and the database half does not: anything painting
+// from tokens needs the first, only a Mosaic consumer needs the second.
+import { useChartCapacity } from "@kanzo-tech/ui";
+import { Coordinator, IdSetClient, useMosaic } from "@kanzo-tech/ui/analytics";
 import {
   Badge,
   Button,
@@ -27,21 +31,28 @@ import {
   SquareDashedIcon,
   XIcon,
 } from "lucide-react";
-import { CosmosClient } from "@/lib/cosmos-client";
-import { LOOKS, SHAPE_PATH, type ShapeId } from "./graph-looks";
 import {
-  load,
+  cursorChip,
+  GRID,
+  LOOKS,
+  neighboursOf,
+  REHEAT,
   scaleOf,
-  type Loaded,
-  type NodeRow,
-} from "./graph-model";
-import { REHEAT, useCosmosGraph } from "./use-cosmos-graph";
-import { useGraphLook } from "./use-graph-look";
-import { GRID, useGraphOverlays } from "./use-graph-overlays";
-import { cursorChip, useGraphSelection } from "./use-graph-selection";
+  SHAPE_PATH,
+  onceQuery,
+  type ShapeId,
+  type Slice,
+  useBoundedGraph,
+  useCosmosGraph,
+  useGraphLook,
+  useGraphOverlays,
+  useGraphSelection,
+} from "@kanzo-tech/graph";
+import { duckBoundedSource } from "@kanzo-tech/graph/duckdb";
 import {
   KINDS,
   useGraphView,
+  type GraphSpec,
   type Motion,
   type Selection,
   type SelectionSource,
@@ -90,16 +101,12 @@ const SELECTION_WASH = "var(--selection)";
  * Nothing here queries on a gesture. The relation is read once into the four typed arrays the GPU
  * wants; after that a zoom, a drag, a look or a force slider is `setConfig` and a buffer upload.
  * Only two things cross back into SQL — the lasso and a click, both as `id IN (…)` — and both go
- * through `CosmosClient`, which is a `MosaicClient` and therefore indistinguishable to the
+ * through `IdSetClient`, which is a `MosaicClient` and therefore indistinguishable to the
  * crossfilter from a brushed histogram.
  */
 
 // ── Canvas ───────────────────────────────────────────────────────────────────
 
-interface Hovered {
-  index: number;
-  row: NodeRow;
-}
 
 /**
  * The canvas before it is a canvas.
@@ -144,6 +151,89 @@ export function GraphCanvas() {
   return <CanvasBody />;
 }
 
+/** One node, as a reader reads it. Fetched per handful of ids, never carried by a slice. */
+interface Detail {
+  label: string;
+  category: string;
+  details: { label: string; value: string }[];
+}
+
+/**
+ * A cell, as text. Never as whatever DuckDB happened to hand back: a DATE column arrives as a
+ * `Date`, and rendering one crashes React with "Objects are not valid as a React child".
+ */
+export function text(value: unknown): string {
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value ?? "");
+}
+
+/**
+ * The rows behind a handful of ids — ADR-0001's "detail is fetched, not carried", as a hook.
+ *
+ * A slice is geometry: positions, links, category ordinals, ids. It deliberately does not carry
+ * twenty thousand labels so that three can be read, and it cannot carry a publisher or an issue date
+ * at all. So the two places that need words ask for them: the label budget asks about the handful it
+ * is about to draw, and the hover card asks about one node.
+ *
+ * Debounced, because the hover case is a pointer stream. This is the user-visible regression the ADR
+ * named and accepted — a card that used to be a property lookup now waits — and against an in-tab
+ * WASM query it is brief but not zero.
+ *
+ * The query is `id IN (…)` over a handful, so it is a point lookup and not a scan.
+ */
+function useDetails(
+  coordinator: Coordinator,
+  spec: GraphSpec,
+  ids: number[],
+  debounceMs = 90,
+): Map<number, Detail> {
+  const [details, setDetails] = useState<Map<number, Detail>>(new Map());
+  const key = ids.join(",");
+
+  useEffect(() => {
+    if (key === "") {
+      setDetails(new Map());
+      return;
+    }
+    let live = true;
+    const timer = setTimeout(() => {
+      const columns: Record<string, string> = {
+        id: spec.idField,
+        label: spec.labelField,
+        category: spec.categoryField,
+      };
+      for (const detail of spec.detailFields ?? []) columns[`d_${detail.field}`] = detail.field;
+      void onceQuery(coordinator, () =>
+        Query.from(spec.table).select(columns).where(`${spec.idField} IN (${key})`),
+      ).then(
+        (rows) => {
+          if (!live) return;
+          const next = new Map<number, Detail>();
+          for (const row of rows as Iterable<Record<string, unknown>>) {
+            next.set(Number(row.id), {
+              label: text(row.label),
+              category: text(row.category),
+              details: (spec.detailFields ?? [])
+                .map((detail) => ({ label: detail.label, value: text(row[`d_${detail.field}`]) }))
+                .filter((detail) => detail.value !== ""),
+            });
+          }
+          setDetails(next);
+        },
+        () => {
+          // A detail that will not load is a card without a subtitle, not a broken canvas.
+        },
+      );
+    }, debounceMs);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [coordinator, debounceMs, key, spec]);
+
+  return details;
+}
+
 function CanvasBody() {
   const {
     look: lookId,
@@ -177,13 +267,21 @@ function CanvasBody() {
     track,
   } = useGraphOverlays(graphAccess);
   const graphRef = useRef<Graph | null>(null);
-  const clientRef = useRef<CosmosClient | null>(null);
-  const dataRef = useRef<Loaded | null>(null);
+  const clientRef = useRef<IdSetClient | null>(null);
+  const sliceRef = useRef<Slice | null>(null);
 
-  const [data, setData] = useState<Loaded | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [tracked, setTracked] = useState<number[]>([]);
-  const [hovered, setHovered] = useState<Hovered | null>(null);
+  /**
+   * What the pointer is over: an id for the detail query, and the index for the glyph.
+   *
+   * Both, because they answer different questions. The id survives a slice and is what a fetch is
+   * keyed on; the index is a position in the buffers the GPU is drawing right now, which is how the
+   * card's glyph reads the *canvas's own* category ordinal rather than re-deriving one from a name
+   * and hoping the two agree.
+   */
+  const [pointer, setPointer] = useState<{ id: number; index: number } | null>(null);
+  const hoveredId = pointer?.id ?? null;
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
   // Callbacks are handed to cosmos.gl once, at construction, so they read the current render
@@ -202,6 +300,12 @@ function CanvasBody() {
    *
    * A ref, and a whole-set call, because cosmos.gl's API is a replacement rather than a toggle —
    * `setPinnedPoints` overwrites `inputPinnedPoints` outright, so the set has to be ours.
+   *
+   * **Held as ids, not indices.** cosmos.gl speaks indices and this used to store them, which was
+   * correct exactly as long as the corpus arrived once. Under a bounded path index 7 is a different
+   * node after every pan, so a pinned set of indices would silently pin whatever moved into those
+   * slots. Ids are re-resolved against each slice on the way to the GPU — and they are also what
+   * rides along in the query, so a node dragged off screen comes back with the next answer.
    */
   const pins = useRef(new Set<number>());
 
@@ -230,18 +334,36 @@ function CanvasBody() {
   const live = useRef<Selection | null>(selection);
   live.current = selection;
 
-  /** Hand the pin set to the GPU and tell the panels how big it is. */
+  /**
+   * Where each id sits in the slice on screen right now, and `undefined` for the ones that do not.
+   *
+   * Rebuilt per slice rather than kept, because that is what a slice index means: a position in
+   * *this* answer. Everything that outlives one answer — the selection, the focus, the pins — is
+   * held as ids and comes back through here.
+   */
+  const localRef = useRef<Map<number, number>>(new Map());
+
+  /** The pinned ids, as state, because the query loop carries them and must re-ask when they move. */
+  const [pinnedIds, setPinnedIds] = useState<number[]>([]);
+
+  /** Hand the pin set to the GPU — resolved to this slice — and tell the panels how big it is. */
   const applyPins = useCallback(() => {
-    const indices = [...pins.current];
+    const ids = [...pins.current];
+    const indices: number[] = [];
+    for (const id of ids) {
+      const index = localRef.current.get(id);
+      if (index !== undefined) indices.push(index);
+    }
     graphRef.current?.setPinnedPoints(indices.length > 0 ? indices : null);
-    handlers.current.setPinned(indices.length);
+    handlers.current.setPinned(ids.length);
+    setPinnedIds(ids);
   }, []);
 
   /** Drop the focus ring. A ring on a node nobody picked is a claim the selection is not making. */
   const unfocus = useCallback(() => {
     setFocusedIndex(null);
     handlers.current.setFocused(null);
-    graphRef.current?.setConfig({ focusedPointIndex: undefined });
+    graphRef.current?.setConfigPartial({ focusedPointIndex: undefined });
   }, []);
 
   const commit = useCallback(
@@ -254,7 +376,7 @@ function CanvasBody() {
       // A marquee or a lasso selects without picking a node, so the ring from whatever was clicked
       // before has nothing left to point at. This used to clear only on the empty branch, which left
       // a stale ring under every region gesture. The node paths re-focus after this returns.
-      // (Rules and Ask do not come through here — they hand a selection straight to the provider.)
+      // (Orders and Ask do not come through here — they hand a selection straight to the provider.)
       if (source !== "node") unfocus();
       // Dim now, not after the round trip. The authority on what stays lit is `onSurvivors` below —
       // it resolves this clause against every other filter on the page — but that answer is a
@@ -262,67 +384,95 @@ function CanvasBody() {
       // Greyout is a texture upload the next frame samples, so the optimistic answer costs nothing
       // and the correction overwrites it.
       const graph = graphRef.current;
-      const current = dataRef.current;
-      if (graph && current) {
+      if (graph) {
         const indices: number[] = [];
         for (const id of ids) {
-          const index = current.index.get(id);
+          const index = localRef.current.get(id);
           if (index !== undefined) indices.push(index);
         }
-        graph.selectPointsByIndices(indices);
+        graph.setConfigPartial({ highlightedPointIndices: indices });
       }
       handlers.current.select({ ids: [...ids], source, label });
     },
     [unfocus],
   );
 
+  /**
+   * The corpus, as something to ask rather than something to hold.
+   *
+   * Two relations and a spatial predicate — which is all this fixture is. The source is memoised on
+   * the spec because rebuilding it would restart the query loop, and the loop's own first act is to
+   * ask how big the graph is.
+   */
+  const source = useMemo(
+    () =>
+      duckBoundedSource({
+        coordinator,
+        nodes: spec.table,
+        edges: spec.edges,
+        idField: spec.idField,
+        xField: spec.xField,
+        yField: spec.yField,
+        categoryField: spec.categoryField,
+        sizeField: spec.sizeField,
+      }),
+    [coordinator, spec],
+  );
+
+  const { slice, total, refresh } = useBoundedGraph({
+    graphRef,
+    hostRef: canvasRef,
+    onError: setFailure,
+    pinned: pinnedIds,
+    source,
+  });
+
+  // The lookups every callback needs, kept where a callback installed once can still read them.
+  sliceRef.current = slice;
+  const totalRef = useRef<number | undefined>(undefined);
+  totalRef.current = total;
+  useEffect(() => {
+    const map = new Map<number, number>();
+    if (slice) for (let i = 0; i < slice.ids.length; i++) map.set(slice.ids[i] as number, i);
+    localRef.current = map;
+  }, [slice]);
 
   useEffect(() => {
-    let live = true;
-    load(coordinator, spec).then(
-      (next) => {
-        if (!live) return;
-        dataRef.current = next;
-        setCorpus(next.ids.length);
-        setData(next);
-      },
-      (error: unknown) => {
-        if (live) setFailure(String(error));
-      },
-    );
-    return () => {
-      live = false;
-    };
-  }, [coordinator, setCorpus, spec]);
+    if (total !== undefined) setCorpus(total);
+  }, [setCorpus, total]);
 
 
   // The crossfilter's observable half: whatever survives the page's filters stays lit.
   useEffect(() => {
-    if (!data) return;
-    const client = new CosmosClient({
+    const client = new IdSetClient({
       table: spec.table,
       idField: spec.idField,
       filterBy: crossfilter,
       as: crossfilter,
-      // No `render()` after these. Both calls end in `updateGreyoutStatus()` themselves, and the
-      // renderer's rAF loop re-schedules unconditionally and re-samples the greyout texture every
-      // frame — so the picture is already correct on the next one. `render()` would have paid for a
-      // full `GraphData.update()` — an O(n+e) revalidation that rebuilds the adjacency lists and
-      // recomputes every degree — on every crossfilter change.
+      // Greyout is a config field, not a call: `highlightedPointIndices` greys everything *not* in
+      // the array, and `undefined` clears it. So the survivor set is stated rather than applied, and
+      // there is no `render()` to pair with it — `setConfigPartial` ends in `requestRender()`, which
+      // is also what wakes the loop now that 3.4.0 stops drawing when nothing changes. A `render()`
+      // here would additionally pay for a full `GraphData.update()` — an O(n+e) revalidation that
+      // rebuilds the adjacency lists and recomputes every degree — on every crossfilter change.
+      //
+      // The survivor set is the *corpus's*, and the greyout is the *slice's* — so the comparison
+      // that decides "nothing is filtered" is against the total rather than against what is drawn.
+      // Comparing it to the slice would read a full survivor set as a filter every time the camera
+      // was over fewer nodes than the corpus holds, which is almost always.
       onSurvivors: (ids) => {
         const graph = graphRef.current;
-        const current = dataRef.current;
-        if (!graph || !current) return;
-        if (ids.length === current.ids.length) {
-          graph.unselectPoints();
+        if (!graph) return;
+        if (totalRef.current !== undefined && ids.length === totalRef.current) {
+          graph.setConfigPartial({ highlightedPointIndices: undefined });
           return;
         }
         const indices: number[] = [];
         for (const id of ids) {
-          const i = current.index.get(Number(id));
+          const i = localRef.current.get(Number(id));
           if (i !== undefined) indices.push(i);
         }
-        graph.selectPointsByIndices(indices);
+        graph.setConfigPartial({ highlightedPointIndices: indices });
       },
     });
     clientRef.current = client;
@@ -332,7 +482,7 @@ function CanvasBody() {
       client.publish(null);
       coordinator.disconnect(client);
     };
-  }, [coordinator, crossfilter, data, spec]);
+  }, [coordinator, crossfilter, spec]);
 
   /**
    * The selection, as SQL. The only place anything in this app publishes one — a panel hands a
@@ -340,37 +490,52 @@ function CanvasBody() {
    */
   useEffect(() => {
     clientRef.current?.publish(selection ? selection.ids : null);
-  }, [selection, data]);
+  }, [selection, slice]);
 
-  // Which nodes carry a standing label: the look's budget of hubs, plus whatever is focused.
+  /**
+   * Which nodes carry a standing label: the look's budget of hubs *in this slice*, plus the focus.
+   *
+   * `ranked` is gone with `load()`, and the ADR is explicit that this is a real loss rather than a
+   * refactor: a whole-corpus load sorts every node once and spends the budget from the front, and a
+   * slice knows only its own points. So "the most important labels" stops being a property of the
+   * corpus and becomes one of the answer — the biggest nodes *here*.
+   *
+   * That is a different claim, and on balance a better one: a reader looking at a corner of a graph
+   * is asking about the corner. It does mean a hub keeps its label only while it is on screen.
+   *
+   * The hovered node is deliberately NOT here. Adding it rebuilt the *label* list on every pointer
+   * move, which re-mounted spans mid-gesture and made the labels flicker — and the hover card
+   * already names the node under the cursor. It is in cosmos.gl's tracked set, which is a texture
+   * and not a subtree; that is `track` below.
+   */
   useEffect(() => {
-    if (!data) return;
+    if (!slice) return;
     if (!display.labels) {
       setLabelOrder([]);
       setTracked([]);
       return;
     }
+    const budget = look.form.labels;
+    const ramp = slice.sizes;
     // Importance order, and it matters: the declutter pass places labels in this order and drops
-    // whichever would collide with one already down, so the hubs win the crowded spots.
-    //
-    // The hovered node is deliberately NOT here. Adding it rebuilt the *label* list on every pointer
-    // move, which re-mounted spans mid-gesture and made the labels flicker — and the hover card
-    // already names the node under the cursor. It is in cosmos.gl's tracked set, which is a texture
-    // and not a subtree; that is `track` below.
+    // whichever would collide with one already down, so the hubs win the crowded spots. Without a
+    // ramp there is no importance to speak of, and the first N is as honest as any other N.
+    const order = Array.from({ length: slice.ids.length }, (_, i) => i);
+    if (ramp) order.sort((a, b) => (ramp[b] ?? 0) - (ramp[a] ?? 0));
     const wanted = focusedIndex === null ? [] : [focusedIndex];
-    for (const index of data.ranked.slice(0, look.form.labels)) {
+    for (const index of order.slice(0, budget)) {
       if (index !== focusedIndex) wanted.push(index);
     }
     setLabelOrder(wanted);
     setTracked(wanted);
     schedule();
-  }, [data, display.labels, look.form.labels, focusedIndex, schedule, setLabelOrder]);
+  }, [slice, display.labels, look.form.labels, focusedIndex, schedule, setLabelOrder]);
 
   // An overlay that has just mounted has no transform yet, and the simulation may already be
   // asleep — so nothing would place it until the next zoom. Place it now.
   useEffect(() => {
     schedule();
-  }, [tracked, hovered, display.grid, schedule]);
+  }, [tracked, hoveredId, display.grid, schedule]);
 
   // What the panels can ask of the canvas.
   useEffect(() => {
@@ -430,31 +595,49 @@ function CanvasBody() {
        * "click this node" on the canvas left the app in two different states for what the reader
        * experiences as one action.
        */
+      /**
+       * Only reaches what is drawn, and that is the honest limit of a bounded canvas.
+       *
+       * The inspector can name a node the camera is nowhere near, and a slice has no coordinates for
+       * it — so there is nothing to zoom to until the answer that holds it arrives. Pinning it first
+       * is what makes it arrive: a pinned id rides along with every query regardless of the
+       * rectangle, so the next slice contains it and the reveal lands.
+       */
       reveal: (id) => {
         const graph = graphRef.current;
-        const current = dataRef.current;
+        const current = sliceRef.current;
         if (!graph || !current) return;
-        const index = current.index.get(id);
-        if (index === undefined) return;
+        const index = localRef.current.get(id);
+        if (index === undefined) {
+          pins.current.add(id);
+          applyPins();
+          return;
+        }
         const ids = new Set([id]);
-        for (const neighbour of graph.getAdjacentIndices(index) ?? []) {
+        for (const neighbour of neighboursOf(graph, index)) {
           const value = current.ids[neighbour];
           if (value !== undefined) ids.add(value);
         }
-        commit(ids, "node", current.rows[index]?.label ?? "Node");
+        commit(ids, "node", "Node");
         setFocusedIndex(index);
         handlers.current.setFocused(id);
-        graph.setConfig({ focusedPointIndex: index });
+        graph.setConfigPartial({ focusedPointIndex: index });
         graph.zoomToPointByIndex(index, 500, 5, true);
         schedule();
       },
+      /**
+       * Frames what is selected *and* on screen.
+       *
+       * A selection is ids and outlives any slice; the camera can only be aimed at points that have
+       * positions. So this frames the intersection, which is what the reader can see anyway — and
+       * the selection's own size still comes from the query, not from this count.
+       */
       frameSelection: () => {
         const graph = graphRef.current;
-        const current = dataRef.current;
-        if (!graph || !current) return;
+        if (!graph) return;
         const indices: number[] = [];
         for (const id of live.current?.ids ?? []) {
-          const index = current.index.get(id);
+          const index = localRef.current.get(id);
           if (index !== undefined) indices.push(index);
         }
         if (indices.length === 0) return;
@@ -467,45 +650,55 @@ function CanvasBody() {
   }, [applyPins, commit, register, schedule]);
 
   useCosmosGraph({
-    data,
     events: {
       onBackgroundClick: () => commit(null, "node", ""),
       // Dropping a node onto the same node it was already pinned at is a no-op the `Set` absorbs,
       // and dropping a pinned node somewhere else re-pins it there — both are what the gesture says.
+      // Recorded as an id: the gesture happened to a node, not to a slot in the current answer.
       onDragEnd: (index) => {
-        pins.current.add(index);
+        const id = sliceRef.current?.ids[index];
+        if (id === undefined) return;
+        pins.current.add(id);
         applyPins();
       },
       onPointClick: (instance, index) => {
-        const current = dataRef.current;
+        const current = sliceRef.current;
         if (!current) return;
         const id = current.ids[index];
         if (id === undefined) return;
         // A node and what it touches: the honest reading of "show me this one", and the same clause
-        // shape the marquee publishes, so every other panel understands it already.
-        const row = current.rows[index];
+        // shape the marquee publishes, so every other panel understands it already. What it *touches*
+        // is what is drawn — the renderer's adjacency over this slice, not the graph's own answer,
+        // which is a `neighbourhood` query a relational source cannot serve.
         const ids = new Set([id]);
-        for (const neighbour of instance.getAdjacentIndices(index) ?? []) {
+        for (const neighbour of neighboursOf(instance, index)) {
           const value = current.ids[neighbour];
           if (value !== undefined) ids.add(value);
         }
-        commit(ids, "node", row?.label ?? "Node");
+        commit(ids, "node", "Node");
         setFocusedIndex(index);
         handlers.current.setFocused(id);
-        instance.setConfig({ focusedPointIndex: index });
+        instance.setConfigPartial({ focusedPointIndex: index });
       },
       onPointerOut: () => {
         trackHovered(null);
-        setHovered(null);
+        setPointer(null);
       },
+      // An id, and then a query. The card used to be a property lookup on a row the canvas already
+      // held; it is now a fetch, which is the one user-visible regression ADR-0001 names.
       onPointerOver: (index) => {
-        const row = dataRef.current?.rows[index];
-        if (!row) return;
+        const id = sliceRef.current?.ids[index];
+        if (id === undefined) return;
         trackHovered(index);
-        setHovered({ index, row });
+        setPointer({ id, index });
       },
       onTick: schedule,
-      onZoom: schedule,
+      // The camera moved: place the overlays, and ask the source about wherever it is now. `refresh`
+      // debounces, so a pan is one question rather than one per frame.
+      onZoom: () => {
+        schedule();
+        refresh();
+      },
     },
     graphRef,
     hostRef: canvasRef,
@@ -515,44 +708,53 @@ function CanvasBody() {
     sim,
   });
 
-  // A new corpus is a new `Graph`, and pins live on the instance — so the set that counts them goes
-  // with it rather than outliving it as indices into a relation that no longer exists.
-  useEffect(() => {
-    pins.current.clear();
-    handlers.current.setPinned(0);
-  }, [data]);
-
   // After the constructor, for the same reason `useGraphLook` is: the graph the overlays register
-  // against is built by the hook above, and effects run in declaration order. `data` is a dependency
-  // because a new corpus rebuilds the graph, and construction's own `render()` clears the
-  // registration on its way through `setPointPositions`.
+  // against is built by the hook above, and effects run in declaration order. `slice` is a dependency
+  // because every answer re-uploads positions, and that clears the registration on its way through.
   useEffect(() => {
     track();
-  }, [data, tracked, hovered, track]);
+  }, [slice, tracked, hoveredId, track]);
 
   // After the constructor, not before it. Effects in one component run in declaration order, so
   // above this the look's first upload found `graphRef.current` still null and bailed — the picture
   // only picked up its colours when something else moved (a theme mutation on `<html>`, a slider).
-  useGraphLook({ data, display, getGraph: graphAccess, hostRef, look, schedule });
+  useGraphLook({ display, getGraph: graphAccess, hostRef, look, schedule, slice });
 
   const gesture = useGraphSelection({
     commit,
-    getData: useCallback(() => dataRef.current, []),
     getGraph: graphAccess,
     getSelection: useCallback(() => live.current, []),
+    getSlice: useCallback(() => sliceRef.current, []),
     setTool,
     tool,
   });
   const { active, drag, preview } = gesture;
 
+  /**
+   * The words behind the ids on screen: the labelled hubs, plus whatever the pointer is over.
+   *
+   * One query for both, keyed on the set — so a pointer move that lands on a node already carrying a
+   * label costs nothing, and the label set only re-fetches when the slice changes.
+   */
+  const wanted = useMemo(() => {
+    const ids = new Set<number>();
+    for (const index of tracked) {
+      const id = slice?.ids[index];
+      if (id !== undefined) ids.add(id);
+    }
+    if (hoveredId !== null) ids.add(hoveredId);
+    return [...ids].sort((a, b) => a - b);
+  }, [hoveredId, slice, tracked]);
+  const details = useDetails(coordinator, spec, wanted);
+  const hovered = hoveredId === null ? null : details.get(hoveredId);
+  /** Straight off the buffer the GPU is drawing — the card cannot disagree with the point. */
+  const hoveredOrdinal = pointer ? (slice?.categories[pointer.index] ?? 0) : 0;
+
   // The same scale the GPU buffers are built from, so the hover card's glyph cannot disagree with
   // the point it is describing — including where Other begins, which `buffers` reads off the same
   // host element.
   const capacity = useChartCapacity(hostRef);
-  const scale = useMemo(
-    () => scaleOf(look, data?.categories ?? [], capacity),
-    [look, data, capacity],
-  );
+  const scale = useMemo(() => scaleOf(look, capacity), [look, capacity]);
 
 
   return (
@@ -565,8 +767,14 @@ function CanvasBody() {
         <div className="grid size-full place-items-center p-6">
           <p className="max-w-sm text-center text-destructive text-sm">{failure}</p>
         </div>
-      ) : data ? (
+      ) : (
         <>
+          {/*
+            Always mounted, and that is forced rather than tidy. The query loop reads the camera off
+            the renderer, and the renderer needs this element — so gating it on the first answer is a
+            deadlock: no host, no camera, no question, no answer. The waiting state is an overlay
+            over an empty canvas instead of a substitute for it.
+          */}
           <div className="size-full" ref={canvasRef} />
 
           {/* Decoration, over the canvas rather than behind it: cosmos.gl paints an opaque
@@ -601,8 +809,11 @@ function CanvasBody() {
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
             <Show when={display.labels}>
               {tracked.map((index) => {
-                const row = data.rows[index];
-                if (!row) return null;
+                const id = slice?.ids[index];
+                // The label is fetched, so a freshly-drawn hub is a point without a name for one
+                // query. Rendering nothing is the honest state, and it lasts under 100 ms.
+                const label = id === undefined ? undefined : details.get(id)?.label;
+                if (!label) return null;
                 return (
                   <span
                     className={cn(
@@ -622,7 +833,7 @@ function CanvasBody() {
                     key={index}
                     ref={labelRef(index)}
                   >
-                    {row.label}
+                    {label}
                   </span>
                 );
               })}
@@ -637,21 +848,21 @@ function CanvasBody() {
                     and the point on screen are visibly the same claim. */}
                 <div className="flex items-center gap-2 border-b px-2.5 py-2">
                   <ShapeGlyph
-                    color={scale.color(hovered.row.category)}
-                    shape={scale.shape(hovered.row.category)}
+                    color={scale.color(hoveredOrdinal)}
+                    shape={scale.shape(hoveredOrdinal)}
                   />
                   <p className="truncate font-medium text-popover-foreground text-sm leading-none">
-                    {hovered.row.label}
+                    {hovered.label}
                   </p>
                 </div>
                 <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 px-2.5 py-2 text-xs">
                   <dt className="text-muted-foreground">
-                    {KINDS[hovered.row.category]?.label ? "Kind" : "Category"}
+                    {KINDS[hovered.category]?.label ? "Kind" : "Category"}
                   </dt>
                   <dd className="text-end">
-                    {KINDS[hovered.row.category]?.label ?? hovered.row.category}
+                    {KINDS[hovered.category]?.label ?? hovered.category}
                   </dd>
-                  {hovered.row.details.map((detail) => (
+                  {hovered.details.map((detail) => (
                     <Fragment key={detail.label}>
                       <dt className="text-muted-foreground">{detail.label}</dt>
                       <dd className="truncate text-end">{detail.value}</dd>
@@ -719,9 +930,11 @@ function CanvasBody() {
               </Show>
             </div>
           </Show>
+
+          <Show when={slice === null}>
+            <CanvasPlaceholder note="Asking for what is in view…" />
+          </Show>
         </>
-      ) : (
-        <CanvasPlaceholder note="Reading the corpus…" />
       )}
     </div>
   );
@@ -802,7 +1015,7 @@ const SOURCE_NAME: Record<SelectionSource, string> = {
   marquee: "Marquee",
   lasso: "Lasso",
   node: "Node",
-  rule: "Rule",
+  order: "Order",
   ask: "Ask",
 };
 

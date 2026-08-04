@@ -4,7 +4,7 @@ import react from "@vitejs/plugin-react";
 import dts from "vite-plugin-dts";
 import preserveDirectives from "rollup-plugin-preserve-directives";
 
-// Pure ESM library build (mirrors the metadata-form pattern).
+// Pure ESM library build.
 export default defineConfig({
   plugins: [
     react(),
@@ -19,7 +19,9 @@ export default defineConfig({
     lib: {
       entry: {
         index: resolve(__dirname, "src/index.tsx"),
-        // Radix-free subpath: the CodeMirror EditorShell for brand-agnostic hosts.
+        // Optional subpath: the CodeMirror editor, for hosts that want it without the rest
+        // of the surface. Kept out of the root barrel so the base bundle never pays for
+        // @codemirror/*.
         editor: resolve(__dirname, "src/editor.ts"),
         // Optional subpath: DataTable over TanStack Table. Kept out of the root barrel so
         // the base bundle never pays for @tanstack/react-table.
@@ -49,7 +51,7 @@ export default defineConfig({
         /^@codemirror\//.test(id) ||
         /^@lezer\//.test(id) ||
         /^@tanstack\//.test(id) ||
-        // The Mosaic/vgplot + DuckDB-WASM analytics stack — optional peers of the /charts
+        // The Mosaic/vgplot + DuckDB-WASM analytics stack — optional peers of the /analytics
         // subpath, never bundled, never in the base barrel.
         /^@uwdata\//.test(id) ||
         /^@duckdb\//.test(id) ||

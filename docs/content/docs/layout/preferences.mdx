@@ -4,9 +4,9 @@ description: A live selector for the user's preferences — the four axes, and t
 ---
 
 {/* An iframe, not a ComponentPreview. The panel is Portal-ed and `position: fixed`, so in a
-    framed preview box it escapes to the viewport and lands on top of this page. The example
-    used to work around that by rendering the sections loose in a div — which shows the
-    controls but not the component: no trigger, no drawer, none of the behaviour. */}
+    framed preview box it escapes to the viewport and lands on top of this page. Rendering the
+    sections loose in a div avoids that and shows the controls but not the component: no trigger,
+    no drawer, none of the behaviour. */}
 <PreviewIframe className="h-[42rem]" name="preferences" title="Preferences" />
 
 The panel opens on arrival so there is something to look at. Toggle the trigger in the corner
@@ -41,7 +41,7 @@ without being asked.
   was never true: `appearance` is colour. It is that the user never **authors** a colour value —
   they choose among colours someone already validated.
 
-  So `Colour` is here, and base, accent, chart scheme and the "Copy CSS" export are not. Those let a
+  So `PreferencesColor` is here, and base, accent, chart scheme and the "Copy CSS" export are not. Those let a
   user compose *part* of a palette a hue at a time; a [palette document](/docs/showcases/palette) is
   derived and measured once at onboarding and chosen whole. The section hides itself below two
   published choices, so a tenant with one palette and one brand sees the four axis sections and

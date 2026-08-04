@@ -2,8 +2,10 @@ import { defineDocs, defineConfig } from "fumadocs-mdx/config";
 import { pageSchema } from "fumadocs-core/source/schema";
 import { z } from "zod";
 
-// Component pages carry `links.doc` — the Ark UI page the component wraps. Extending the page
-// schema is what puts it on `page.data`; without this the frontmatter is parsed and dropped.
+// Mirrors Shark UI's setup: MDX under content/docs, frontmatter extended with upstream links
+// so a component page can point at the Ark UI docs it wraps. The extension is not decoration —
+// fumadocs' own page schema strips unknown keys, so without it `links` never reaches `page.data`
+// and the page renderer has nothing to show. `app/docs/[[...slug]]/page.tsx` renders the row.
 export const docs = defineDocs({
   dir: "content/docs",
   docs: {

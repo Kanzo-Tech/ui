@@ -28,6 +28,19 @@ status tokens, so a theme change re-skins them without touching the component.
 
 <ComponentPreview componentName="badge" fileName="example-sizes" />
 
+## Pinning one onto a region
+
+A badge tagged onto the corner of something — Ant's `Badge.Ribbon` shape — is
+[`Float`](/docs/layout/float) plus a `Badge`, not a component of its own. Gating the region as
+well as labelling it is one attribute more:
+
+<ComponentPreview componentName="badge" fileName="example-ribbon" />
+
+The corner badge overhangs its wrapper so it reads as a tag pinned *on* the thing, which means
+any ancestor that scrolls or hides overflow will clip it — leave the wrapper room. Use `inert`
+rather than `aria-hidden` on a gated region: the feature stays readable, still telling the user
+it exists, while being unreachable by pointer, focus and assistive tech alike.
+
 ## API Reference
 
 | Prop | Type | Default |

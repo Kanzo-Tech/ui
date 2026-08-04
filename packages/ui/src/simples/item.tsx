@@ -8,27 +8,27 @@ import { cn } from "../lib/cn";
 import { Separator } from "./separator";
 
 export const ItemGroup = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
       className={cn("group/item-group flex w-full flex-col gap-4", className)}
-      data-slot="item-group"
       role="list"
       {...rest}
+      data-slot={slot ?? "item-group"}
     />
   );
 };
 
 export const ItemSeparator = (props: React.ComponentProps<typeof Separator>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <Separator
       className={cn("my-2", className)}
-      data-slot="item-separator"
       orientation="horizontal"
       {...rest}
+      slot={slot ?? "item-separator"}
     />
   );
 };
@@ -63,15 +63,15 @@ export interface ItemProps
     VariantProps<typeof itemVariants> {}
 
 export const Item = (props: ItemProps) => {
-  const { variant = "default", className, ...rest } = props;
+  const { variant = "default", className, slot, ...rest } = props;
 
   return (
     <ark.div
       className={cn(itemVariants({ variant }), className)}
-      data-slot="item"
       data-variant={variant}
       role="listitem"
       {...rest}
+      data-slot={slot ?? "item"}
     />
   );
 };
@@ -99,21 +99,21 @@ export interface ItemMediaProps
     VariantProps<typeof itemMediaVariants> {}
 
 export const ItemMedia = (props: ItemMediaProps) => {
-  const { variant = "default", className, ...rest } = props;
+  const { variant = "default", className, slot, ...rest } = props;
 
   return (
     <ark.div
       className={cn(itemMediaVariants({ variant }), className)}
-      data-slot="item-media"
       data-variant={variant}
       {...rest}
+      data-slot={slot ?? "item-media"}
     />
   );
 };
 
 // A full-width row above the main line (breaks to its own line via `basis-full`).
 export const ItemHeader = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
@@ -122,14 +122,14 @@ export const ItemHeader = (props: React.ComponentProps<typeof ark.div>) => {
         "[&_img]:size-full [&_img]:rounded-xl [&_img]:object-cover",
         className
       )}
-      data-slot="item-header"
       {...rest}
+      data-slot={slot ?? "item-header"}
     />
   );
 };
 
 export const ItemContent = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
@@ -138,8 +138,8 @@ export const ItemContent = (props: React.ComponentProps<typeof ark.div>) => {
         "[&+[data-slot=item-content]]:flex-none",
         className
       )}
-      data-slot="item-content"
       {...rest}
+      data-slot={slot ?? "item-content"}
     />
   );
 };
@@ -148,7 +148,7 @@ export const ItemContent = (props: React.ComponentProps<typeof ark.div>) => {
 // with the `flex` this row needs, so tailwind-merge kept one and silently dropped `flex` — and
 // with it the `gap-2` between a title's children. Truncation is opt-in at the call site.
 export const ItemTitle = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
@@ -158,14 +158,14 @@ export const ItemTitle = (props: React.ComponentProps<typeof ark.div>) => {
         "underline-offset-4",
         className
       )}
-      data-slot="item-title"
       {...rest}
+      data-slot={slot ?? "item-title"}
     />
   );
 };
 
 export const ItemDescription = (props: React.ComponentProps<typeof ark.p>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.p
@@ -174,33 +174,33 @@ export const ItemDescription = (props: React.ComponentProps<typeof ark.p>) => {
         "[&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
         className
       )}
-      data-slot="item-description"
       {...rest}
+      data-slot={slot ?? "item-description"}
     />
   );
 };
 
 export const ItemActions = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
       className={cn("flex items-center gap-2", className)}
-      data-slot="item-actions"
       {...rest}
+      data-slot={slot ?? "item-actions"}
     />
   );
 };
 
 // A full-width row below the main line.
 export const ItemFooter = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
       className={cn("flex basis-full items-center justify-between gap-2", className)}
-      data-slot="item-footer"
       {...rest}
+      data-slot={slot ?? "item-footer"}
     />
   );
 };

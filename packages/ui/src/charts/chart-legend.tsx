@@ -8,7 +8,7 @@ import { Swatch } from "../simples/swatch.js";
 import { chartSeriesEntries, type ChartConfig } from "./chart-config.js";
 import { useChartOptional } from "./chart-root.js";
 import { chartDescriptor } from "./chart-spec.js";
-import { categoricalColor } from "./theme.js";
+import { categoricalColor } from "../lib/token-color.js";
 
 export interface ChartLegendProps extends React.ComponentProps<typeof ark.ul> {
   /** Series config. Defaults to the surrounding `<ChartRoot>`'s. */
@@ -26,15 +26,15 @@ function seriesConfig(series: readonly string[]): ChartConfig {
  * channel (dataviz): the label text carries identity and the swatch is `aria-hidden`.
  */
 export function ChartLegend(props: ChartLegendProps) {
-  const { config, series, className, ...rest } = props;
+  const { config, series, className, slot, ...rest } = props;
   const chart = useChartOptional();
   const resolved = config ?? (series ? seriesConfig(series) : chart?.config) ?? {};
 
   return (
     <ark.ul
       className={cn("flex flex-wrap items-center gap-x-4 gap-y-1", className)}
-      data-slot="chart-legend"
       {...rest}
+      data-slot={slot ?? "chart-legend"}
     >
       {chartSeriesEntries(resolved).map(({ key, label, color, icon: Icon }) => (
         <ark.li
@@ -81,5 +81,13 @@ export interface ChartColorLegendProps {
  */
 export const ChartColorLegend = chartDescriptor<ChartColorLegendProps>("ChartColorLegend", (props, ctx) => {
   const { as, channel = "color", ...rest } = props;
-  return { kind: "legend", channel, options: { ...rest, as: as === undefined ? ctx.as : as } };
+  // A `mark` with `source: null`, not a directive kind of its own. That is the decorator path the
+  // compiler already has for `frame` / `gridX` / `gridY` — options in, no data — and
+  // `colorLegend` / `opacityLegend` / `symbolLegend` are vgplot directives like any other.
+  return {
+    kind: "mark",
+    mark: `${channel}Legend`,
+    source: null,
+    options: { ...rest, as: as === undefined ? ctx.as : as },
+  };
 });

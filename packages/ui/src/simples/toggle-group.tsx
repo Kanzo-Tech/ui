@@ -48,6 +48,7 @@ export const ToggleGroup = (props: ToggleGroupProps) => {
     spacing = 0,
     className,
     style,
+    slot,
     ...rest
   } = props;
 
@@ -55,7 +56,6 @@ export const ToggleGroup = (props: ToggleGroupProps) => {
     <ToggleGroupContext.Provider value={{ variant, size, spacing }}>
       <ArkToggleGroup.Root
         className={cn(toggleGroupVariants({ orientation }), className)}
-        data-slot="toggle-group"
         multiple={multiple}
         orientation={orientation}
         style={
@@ -65,6 +65,7 @@ export const ToggleGroup = (props: ToggleGroupProps) => {
           } as React.CSSProperties
         }
         {...rest}
+        data-slot={slot ?? "toggle-group"}
       />
     </ToggleGroupContext.Provider>
   );
@@ -74,12 +75,12 @@ interface ToggleGroupItemProps
   extends React.ComponentProps<typeof ArkToggleGroup.Item> {}
 
 export const ToggleGroupItem = (props: ToggleGroupItemProps) => {
-  const { value, className, ...rest } = props;
+  const { value, className, slot, ...rest } = props;
 
   const { variant, size, spacing } = _useToggleGroup();
 
   return (
-    <ArkToggleGroup.Item asChild data-slot="toggle-group-item" value={value}>
+    <ArkToggleGroup.Item asChild value={value}>
       <Toggle
         className={cn(
           "shrink-0 focus:z-10 focus-visible:z-10",
@@ -99,6 +100,7 @@ export const ToggleGroupItem = (props: ToggleGroupItemProps) => {
         size={size}
         variant={variant}
         {...rest}
+        slot={slot ?? "toggle-group-item"}
       />
     </ArkToggleGroup.Item>
   );

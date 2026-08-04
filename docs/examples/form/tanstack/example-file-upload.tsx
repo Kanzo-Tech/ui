@@ -23,10 +23,10 @@ import { FileIcon, UploadCloudIcon, XIcon } from "lucide-react";
 import * as z from "zod";
 
 const schema = z.object({
-  attachments: z
+  plates: z
     .array(z.custom<File>())
-    .min(1, "Attach at least one file.")
-    .max(3, "Three files at most."),
+    .min(1, "Attach at least one plate.")
+    .max(3, "Three plates at most."),
 });
 
 function AcceptedFiles() {
@@ -45,7 +45,7 @@ function AcceptedFiles() {
             <FileUploadItemName />
             <FileUploadItemSizeText />
           </div>
-          <FileUploadItemDeleteTrigger aria-label="Remove file">
+          <FileUploadItemDeleteTrigger aria-label="Remove plate">
             <XIcon />
           </FileUploadItemDeleteTrigger>
         </FileUploadItem>
@@ -56,7 +56,7 @@ function AcceptedFiles() {
 
 export default function Example() {
   const form = useForm({
-    defaultValues: { attachments: [] as File[] },
+    defaultValues: { plates: [] as File[] },
     validationLogic: revalidateLogic(),
     validators: { onDynamic: schema },
     onSubmit: () => {},
@@ -73,28 +73,28 @@ export default function Example() {
       }}
     >
       <FieldGroup>
-        <form.Field name="attachments">
+        <form.Field name="plates">
           {(field) => (
             <Field invalid={!field.state.meta.isValid}>
               {/* `acceptedFiles` is the controlled value; `onFileChange` fires for both
                   accepted and rejected drops, so it is the one to sync from. */}
               <FileUpload
                 acceptedFiles={field.state.value}
-                accept="text/csv"
+                accept="image/*"
                 maxFiles={3}
                 name={field.name}
                 onFileChange={(details) =>
                   field.handleChange(details.acceptedFiles)
                 }
               >
-                <FileUploadLabel>Attachments</FileUploadLabel>
+                <FileUploadLabel>Survey plates</FileUploadLabel>
                 <FileUploadDropzone>
                   <UploadCloudIcon className="size-6" />
                   <span className="font-medium text-foreground text-sm">
-                    Drop CSV files here
+                    Drop the surveyor’s plates here
                   </span>
                   <FileUploadTrigger className="mt-1" size="sm">
-                    Browse files
+                    Browse the archive
                   </FileUploadTrigger>
                 </FileUploadDropzone>
 
@@ -111,7 +111,7 @@ export default function Example() {
       </FieldGroup>
 
       <Button className="mt-6" type="submit">
-        Upload
+        Attach
       </Button>
     </form>
   );

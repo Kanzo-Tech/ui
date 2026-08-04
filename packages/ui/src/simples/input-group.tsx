@@ -44,15 +44,15 @@ export interface InputGroupProps
     VariantProps<typeof inpuGroupVariants> {}
 
 export const InputGroup = (props: InputGroupProps) => {
-  const { size = "md", className, ...rest } = props;
+  const { size = "md", className, slot, ...rest } = props;
 
   return (
     <ark.div
       className={cn(inpuGroupVariants({ size }), className)}
       data-size={size}
-      data-slot="input-group"
       role="group"
       {...rest}
+      data-slot={slot ?? "input-group"}
     />
   );
 };
@@ -102,13 +102,12 @@ interface InputGroupAddonProps
     VariantProps<typeof inputGroupAddonVariants> {}
 
 export const InputGroupAddon = (props: InputGroupAddonProps) => {
-  const { className, align = "inline-start", ...rest } = props;
+  const { className, align = "inline-start", slot, ...rest } = props;
 
   return (
     <ark.div
       className={cn(inputGroupAddonVariants({ align }), className)}
       data-align={align}
-      data-slot="input-group-addon"
       onClick={(e) => {
         if ((e.target as HTMLElement).closest("button")) {
           return;
@@ -117,6 +116,7 @@ export const InputGroupAddon = (props: InputGroupAddonProps) => {
       }}
       role="group"
       {...rest}
+      data-slot={slot ?? "input-group-addon"}
     />
   );
 };
@@ -164,6 +164,7 @@ export const InputGroupButton = (props: InputGroupButtonProps) => {
     type = "button",
     variant = "ghost",
     size = "xs",
+    slot,
     ...rest
   } = props;
 
@@ -171,10 +172,10 @@ export const InputGroupButton = (props: InputGroupButtonProps) => {
     <Button
       className={cn(inputGroupButtonVariants({ size }), className)}
       data-size={size}
-      data-slot="input-group-button"
       type={type}
       variant={variant}
       {...rest}
+      slot={slot ?? "input-group-button"}
     />
   );
 };
@@ -182,7 +183,7 @@ export const InputGroupButton = (props: InputGroupButtonProps) => {
 export const InputGroupText = (
   props: React.ComponentProps<typeof ark.span>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.span
@@ -192,14 +193,14 @@ export const InputGroupText = (
         "[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none",
         className
       )}
-      data-slot="input-group-text"
       {...rest}
+      data-slot={slot ?? "input-group-text"}
     />
   );
 };
 
 export const InputGroupInput = (props: React.ComponentProps<typeof Input>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <Input
@@ -212,8 +213,8 @@ export const InputGroupInput = (props: React.ComponentProps<typeof Input>) => {
         "dark:bg-transparent dark:disabled:bg-transparent",
         className
       )}
-      data-slot="input-group-control"
       {...rest}
+      slot={slot ?? "input-group-control"}
     />
   );
 };
@@ -221,7 +222,7 @@ export const InputGroupInput = (props: React.ComponentProps<typeof Input>) => {
 export const InputGroupTextarea = (
   props: React.ComponentProps<typeof Textarea>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <Textarea
@@ -235,8 +236,8 @@ export const InputGroupTextarea = (
         "dark:bg-transparent dark:disabled:bg-transparent",
         className
       )}
-      data-slot="input-group-control"
       {...rest}
+      slot={slot ?? "input-group-control"}
     />
   );
 };

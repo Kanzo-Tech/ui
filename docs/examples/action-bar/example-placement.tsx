@@ -15,7 +15,7 @@ export default function Example() {
   return (
     <div className="flex flex-col items-center gap-3">
       <Button onClick={() => setOpen(true)} variant="outline">
-        Show bottom-end bar
+        Select three contracts
       </Button>
 
       <ActionBar

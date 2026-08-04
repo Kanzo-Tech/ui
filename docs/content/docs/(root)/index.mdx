@@ -8,8 +8,9 @@ every component is assembled the same way, so the whole surface re-themes from t
 of it drifts back into ad-hoc styling.
 
 <Cards>
-  <Card title="Installation" href="/docs/installation" description="Two packages, one stylesheet, one provider." />
-  <Card title="Philosophy" href="/docs/philosophy" description="The three layers, and what each is allowed to decide." />
+  <Card title="Installation" href="/docs/installation" description="The packages, the peers you may not need, one stylesheet and one provider." />
+  <Card title="Philosophy" href="/docs/philosophy" description="The rules the library is built on, and what earns a new component." />
+  <Card title="Styling" href="/docs/styling" description="The recipe every component follows, and how you restyle one from outside." />
   <Card title="Theming" href="/docs/theming" description="Attributes on <html>, and why a wrapper cannot work." />
   <Card title="Components" href="/docs/components" description="Every component in the library, grouped by use — generated from these docs." />
   <Card title="Showcases" href="/docs/showcases" description="Whole screens, assembled the way a product does it." />
@@ -19,8 +20,9 @@ of it drifts back into ad-hoc styling.
 
 **[Ark UI](https://ark-ui.com)** supplies behaviour — state, WAI-ARIA, keyboard, focus
 management — and nothing about appearance. **[Shark UI](https://shark.vini.one)** supplies the
-component recipes, vendored as-is in the shadcn-style registry model. The layout layer —
-`Shell`, `Section` — is ours, built to the same Ark idiom. Appearance is entirely design tokens
+component recipes, adopted in the shadcn-style registry model and rebranded to our tokens — adopted,
+not vendored: where we diverge, a measurement records why. The layout layer —
+`ShellRoot`, `SectionRoot` and their parts — is ours, built to the same Ark idiom. Appearance is entirely design tokens
 plus `tailwind-variants` recipes over Tailwind v4.
 
 <Callout title="These docs are also a test">

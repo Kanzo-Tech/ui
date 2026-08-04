@@ -8,8 +8,9 @@
  *
  * Pure: no DOM, no React, no CSS. Colour in, verdict out.
  *
- * Two of the six checks are structural and cannot be measured from hexes — that the hue anchors are
- * fixed, and that every value comes from a documented palette. They are enforced by where the
+ * `checkScheme` measures five — `band`, `chroma`, `cvd`, `normal`, `relief`, the five fields of
+ * `SchemeReport`. Two more are structural and cannot be measured from hexes: that the hue anchors
+ * are fixed, and that every value comes from a documented palette. They are enforced by where the
  * values are allowed to come from, not here.
  */
 
@@ -40,10 +41,12 @@ export const CONTRAST_MIN = 3;
 export const TEXT_MIN = 4.5;
 
 /**
- * The surfaces a mark actually lands on with the default base and no tint.
+ * The surfaces a mark actually lands on.
  *
- * Contrast and band results are only meaningful against the real surface, and a custom `base` or
- * `baseTint` shifts these — but only within the base ramp, so the margins here hold.
+ * Contrast and band results are only meaningful against the real surface, and the real surface is
+ * the tenant's own neutral step 1 rather than these two literals. It never moves far: `ramp.ts`'s
+ * `surface` obligation holds step 1 within 1.05:1 of the value here, so a margin measured against
+ * these holds for every tenant.
  */
 export const SURFACE = { light: "#fafafa", dark: "#0a0a0a" } as const;
 
@@ -89,8 +92,8 @@ function oklabOf([r = 0, g = 0, b = 0]: number[]): [number, number, number] {
 /**
  * OKLCH lightness, chroma and hue.
  *
- * Hue is not used by any of the six checks — they ask how far apart colours are, not where on the
- * wheel they sit. It is here for the job on the other side: translating a foreign palette. Matching
+ * Hue is not used by any of `checkScheme`'s five — they ask how far apart colours are, not where on
+ * the wheel they sit. It is here for the job on the other side: translating a foreign palette. Matching
  * a borrowed colour to one of the system's hue families has to compare *hue*, because `deltaE`
  * includes lightness, and a pastel palette is uniformly light enough that lightness dominates the
  * distance — matching Dracula's accents by `deltaE` answers `purple→sky` and `green→yellow`, which
@@ -201,8 +204,9 @@ export function checkScheme(
     return best;
   };
 
-  // The CVD verdict is the worse of protan and deutan; tritan is reported by the CLI but never
-  // gates, because it is rare enough that the calibration does not account for it.
+  // The CVD verdict is the worse of protan and deutan. `deltaE` will simulate `tritan` and nothing
+  // in this package asks it to: tritan is rare enough that `CVD_TARGET`/`CVD_FLOOR` were never
+  // calibrated against it, so the number would arrive with no bar to read it against.
   const protan = worst("protan");
   const deutan = worst("deutan");
   const cvdWorst = protan.delta <= deutan.delta ? protan : deutan;

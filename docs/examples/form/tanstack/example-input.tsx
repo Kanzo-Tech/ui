@@ -12,12 +12,15 @@ import { revalidateLogic, useForm } from "@tanstack/react-form";
 import * as z from "zod";
 
 const schema = z.object({
-  endpoint: z.url("Enter a full URL, including the scheme."),
+  title: z
+    .string()
+    .min(10, "Give the contract a title a poster would recognise.")
+    .max(60, "Keep the title under 60 characters."),
 });
 
 export default function Example() {
   const form = useForm({
-    defaultValues: { endpoint: "" },
+    defaultValues: { title: "" },
     validationLogic: revalidateLogic(),
     validators: { onDynamic: schema },
     onSubmit: () => {},
@@ -34,15 +37,15 @@ export default function Example() {
       }}
     >
       <FieldGroup>
-        <form.Field name="endpoint">
+        <form.Field name="title">
           {(field) => (
             <Field invalid={!field.state.meta.isValid}>
-              <FieldLabel>Endpoint</FieldLabel>
+              <FieldLabel>Contract title</FieldLabel>
               <Input
                 name={field.name}
                 onBlur={field.handleBlur}
                 onChange={(event) => field.handleChange(event.target.value)}
-                placeholder="https://api.example.org"
+                placeholder="A wyrm under the granary"
                 value={field.state.value}
               />
               <FieldError>

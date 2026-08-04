@@ -7,7 +7,7 @@ export default function Example() {
       <InputGroupAddon>
         <SearchIcon />
       </InputGroupAddon>
-      <InputGroupInput placeholder="Search datasets" />
+      <InputGroupInput placeholder="Search the board" />
     </InputGroup>
   );
 }

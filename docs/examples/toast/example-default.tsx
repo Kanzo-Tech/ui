@@ -8,14 +8,14 @@ export default function Example() {
       <Button
         onClick={() =>
           toast.create({
-            title: "Dataset saved",
-            description: "customers.ttl · 1,204 triples",
+            title: "Contract claimed",
+            description: "Q-1041 · Something is eating the bell-ropes",
             type: "success",
           })
         }
         variant="outline"
       >
-        Show toast
+        Claim Q-1041
       </Button>
 
       <Toaster />

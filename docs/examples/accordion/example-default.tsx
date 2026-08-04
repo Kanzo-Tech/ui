@@ -7,26 +7,26 @@ import {
 
 export default function Example() {
   return (
-    <Accordion className="w-full max-w-md" collapsible defaultValue={["item-1"]}>
-      <AccordionItem value="item-1">
-        <AccordionItemTrigger>Is it accessible?</AccordionItemTrigger>
+    <Accordion className="w-full max-w-md" collapsible defaultValue={["terms"]}>
+      <AccordionItem value="terms">
+        <AccordionItemTrigger>Terms</AccordionItemTrigger>
         <AccordionItemContent>
-          Yes. It follows the WAI-ARIA accordion pattern, with full keyboard support
-          from the Ark machine.
+          Grade 5 — a writ, which requires a hall&apos;s seal and a written heir. Posted
+          by Ash &amp; Company, out of Ashfall Reach, and six days overdue.
         </AccordionItemContent>
       </AccordionItem>
-      <AccordionItem value="item-2">
-        <AccordionItemTrigger>Is it animated?</AccordionItemTrigger>
+      <AccordionItem value="party">
+        <AccordionItemTrigger>Party</AccordionItemTrigger>
         <AccordionItemContent>
-          Yes. Each panel animates its height open and closed, and respects reduced
-          motion.
+          Dagfinn Roe, warden, and Solveig Marsh, sapper. Two names on a contract that
+          wants four, and neither of them a cantor.
         </AccordionItemContent>
       </AccordionItem>
-      <AccordionItem value="item-3">
-        <AccordionItemTrigger>Can multiple stay open?</AccordionItemTrigger>
+      <AccordionItem value="notes">
+        <AccordionItemTrigger>Field notes</AccordionItemTrigger>
         <AccordionItemContent>
-          Not here — this accordion is single-open and collapsible. Pass `multiple`
-          on the root to let more than one panel expand at once.
+          Basilisks keep to quarries and cut stone. This is the second attempt, and the
+          thing knows the route.
         </AccordionItemContent>
       </AccordionItem>
     </Accordion>

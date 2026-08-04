@@ -1,9 +1,9 @@
 // @kanzo-tech/ui — the shared design-system surface.
 //
-// Level 1 (simples) are Shark UI components, vendored as-is (the shadcn-style
-// registry model) and re-exported flat. Level 2 (composites / shells) are our
-// domain-free patterns composed over them. Everything runs on Ark UI +
-// tailwind-variants + tokens + tw-animate-css.
+// `simples/` are adopted from Shark UI and rebranded to our tokens — adopted, not vendored:
+// where we diverge, CONVENTIONS.md records the measurement that justifies it, and the solid focus
+// ring is not a diff to reconcile. `composites/` and `layouts/` are ours. Everything runs on
+// Ark UI + tailwind-variants + tokens + tw-animate-css.
 //
 // Admission rule: nothing that knows about RDF / SHACL / fossil / graphs / auth.
 
@@ -44,8 +44,7 @@ export {
   PreferencesTrigger,
   PreferencesPanel,
   PreferencesField,
-  // Never exported until now, which made the panel's own doc ("every section is exported flat")
-  // false and left `PrefFieldSet` reachable only as an internal.
+  // Every section is exported flat; `index.test.ts` keeps the list honest.
   PreferencesFieldSet,
   // First, and the only section that can vanish: it draws itself only where a tenant published more
   // than one identity. Colour is still not authored here — an identity is a block the client wrote.
@@ -73,6 +72,20 @@ export type { IdentityNoticeProps, IdentityRetiredCopy } from "./composites/iden
 // ── Utilities ────────────────────────────────────────────────────────────────
 export { cn } from "./lib/cn.js";
 
+// Token colour, for any surface that paints from `--*` onto something CSS cannot reach — a canvas,
+// a WebGL graph, a plot. Root barrel and not `/analytics`, because none of it imports an engine:
+// the placement rule is "a part belongs on a subpath only if it imports that subpath's engine", and
+// this used to fail it in the direction that costs the most — a graph installing DuckDB and Mosaic
+// for twelve lines of arithmetic. `resolveTokenColor` and `useThemeTick` are a pair: resolve the
+// token against the live element, and do it again when the theme moves.
+export {
+  CHART_SLOTS,
+  categoricalCapacity,
+  categoricalColor,
+  resolveTokenColor,
+} from "./lib/token-color.js";
+export { useChartCapacity, useThemeTick } from "./lib/theme-tick.js";
+
 // Ark collection helpers — required by consumers to build the `collection` that
 // Select / Combobox demand (Ark's own list-collection utilities, surfaced here so
 // downstreams don't need a direct @ark-ui/react dependency).
@@ -84,7 +97,17 @@ export type { ListCollection, CollectionItem } from "@ark-ui/react/collection";
 // `useFilter` completes the collection-filtering trio the `Command`/Combobox pattern needs.
 export { useFilter } from "@ark-ui/react/locale";
 
-// ── Level 1 — primitives (Shark UI, vendored as-is; flat compound API) ───────
+// The same rule as `createListCollection`, one machine along: `DatePicker` takes a `DateValue[]`,
+// and nothing else in the barrel can build one. `DateField` used to be the only ISO-string
+// adapter and it was cut, which left the machine unusable without a direct
+// `@internationalized/date` dependency — an implementation detail of Ark's date machine, not
+// something a consumer of `Button` should have to install. `parseDate` (`"2026-07-31"`) and the
+// value type are exactly what that adapter needed; nothing more is re-exported until a second
+// caller asks for it.
+export { parseDate } from "@internationalized/date";
+export type { DateValue } from "@internationalized/date";
+
+// ── simples — adopted from Shark UI (flat compound API) ──────────────────────
 export * from "./simples/accordion.js";
 export * from "./simples/action-bar.js";
 export * from "./simples/alert.js";
@@ -138,6 +161,7 @@ export * from "./simples/sheet.js";
 export * from "./simples/separator.js";
 export * from "./simples/show.js";
 export * from "./simples/skeleton.js";
+export * from "./simples/skip-nav.js";
 export * from "./simples/slider.js";
 export * from "./simples/spinner.js";
 export * from "./simples/stat-tile.js";
@@ -159,19 +183,13 @@ export * from "./simples/complete.js";
 export * from "./simples/suggest.js";
 export * from "./simples/use-ai.js";
 
-// ── Level 1 — bespoke atoms (no Shark equivalent; token-native, ours) ────────
-export { DateField } from "./simples/DateField.js";
-export type { DateFieldProps } from "./simples/DateField.js";
-export { EmptyState } from "./simples/EmptyState.js";
-export type { EmptyStateProps } from "./simples/EmptyState.js";
+// ── simples — bespoke (no Shark equivalent) ─────────────────────────────────
 // GhostEditor / CodeEditor deliberately live ONLY on the `/editor` subpath: they import
 // @codemirror/*, which is an OPTIONAL peer. Re-exporting them here made the root barrel
 // statically import CodeMirror, so `import { Button } from "@kanzo-tech/ui"` failed outright
 // for every consumer that had not installed it. Do not add them back.
 export { Link } from "./simples/Link.js";
 export type { LinkProps } from "./simples/Link.js";
-export { TextField, NumberField } from "./simples/TextField.js";
-export type { TextFieldProps, NumberFieldProps } from "./simples/TextField.js";
 export type { Suggestion } from "./simples/types.js";
 export { FieldArray } from "./simples/FieldArray.js";
 export type { FieldArrayProps } from "./simples/FieldArray.js";
@@ -179,17 +197,21 @@ export type { FieldArrayProps } from "./simples/FieldArray.js";
 // `data-[state=checked]`, which is rung 1 of the ladder and was already built. The monolith added a
 // grid and an `options: CardRadioOption[]` array over it: a layout tree written as an attribute,
 // which is the shape `SidebarIdentity` argues against in writing. The grid moved to the primitive.
-export { Ribbon } from "./simples/Ribbon.js";
-export type { RibbonProps } from "./simples/Ribbon.js";
+//
+// No `TextField` / `NumberField` / `DateField` / `EmptyState` / `Ribbon` either — five
+// pre-arrangements over parts that all ship. See the tombstones in `index.test.ts` for which parts.
 // The one surface behind every facet filter. Lives in the root barrel because both consumers
 // are on subpaths that must not see each other: `/table` would drag in Mosaic, `/analytics`
 // would drag in TanStack. It is presentational, so it needs neither.
 export { FacetFilter } from "./simples/FacetFilter.js";
 export type { FacetFilterProps, FacetFilterItem } from "./simples/FacetFilter.js";
 
-// ── Level 2 — composites (domain-free, token-native; sourced from keasy) ──────
-export type { LinkComponent } from "./composites/link.js";
-export { DefaultLink } from "./composites/link.js";
+// ── composites ───────────────────────────────────────────────────────────────
+// No `LinkComponent` / `DefaultLink`. They were the routing seam for five composites that took a
+// trail, a menu or a nav as an array prop; all five are gone, and the seam a hand-composed nav uses
+// is `asChild` on the part that renders the anchor — which reaches every part, not the one the prop
+// was wired to. `DefaultLink` was also a second component emitting `data-slot="link"`, against
+// `Link`, which is the styled one.
 export {
   ShellRoot,
   ShellHeader,
@@ -216,24 +238,7 @@ export type {
   SectionTitleProps,
   SectionBodyProps,
 } from "./layouts/section.js";
-export { MadeWith } from "./composites/MadeWith.js";
-export type { MadeWithProps } from "./composites/MadeWith.js";
-export { Breadcrumbs } from "./composites/Breadcrumbs.js";
-export type {
-  BreadcrumbsProps,
-  BreadcrumbEntry,
-} from "./composites/Breadcrumbs.js";
 export * from "./composites/sidebar.js";
-export { SidebarNav } from "./composites/SidebarNav.js";
-export type { SidebarNavProps, SidebarNavItem } from "./composites/SidebarNav.js";
-export { SidebarUser } from "./composites/SidebarUser.js";
-export type { SidebarUserProps, SidebarUserMenuItem } from "./composites/SidebarUser.js";
-export { InstanceSwitcher } from "./composites/InstanceSwitcher.js";
-export type {
-  InstanceSwitcherProps,
-  Instance,
-  InstanceSwitcherAction,
-} from "./composites/InstanceSwitcher.js";
 export {
   SidebarIdentity,
   SidebarIdentityAvatar,
@@ -243,10 +248,22 @@ export {
   SidebarIdentityText,
 } from "./composites/SidebarIdentity.js";
 export type { SidebarIdentityProps } from "./composites/SidebarIdentity.js";
-// No `SectionNav`. It rendered the same tree as `SidebarNav` from a different data shape — the only
-// real difference being where routing knowledge lives, a per-item `isActive` versus one `activePath`
-// derived by prefix. `SidebarNav` now takes either, so the second component was a second opinion
-// with no second behaviour.
+// The one piece of a navigation column that is logic rather than markup. The column itself is
+// composed from `SidebarMenu*` — see the note on the deleted composites below.
+export { isActivePath } from "./lib/is-active-path.js";
+// No `SidebarNav`, `SidebarUser`, `InstanceSwitcher`, `Breadcrumbs` or `MadeWith`.
+//
+// Each took its layout tree as an array or record of `ReactNode`s — a shape you cannot reorder,
+// wrap, spread a prop onto, or `asChild`. `SidebarIdentity`'s own doc comment above argues the case
+// in full, and two of the five handed their record straight back into `SidebarIdentity`.
+// `SidebarUser` and `InstanceSwitcher` were additionally the same component under two names, down
+// to a byte-identical chevron and copy-pasted justification comments; `Breadcrumbs` had to invent
+// `BreadcrumbEntry` because `BreadcrumbItem` was taken, which is a component arguing against
+// itself; and `MadeWith` hard-coded English *and* the brand name "Kanzo" in a library whose first
+// admission rule is domain-freedom.
+//
+// What each one did survives: the parts are all exported, `Breadcrumb` now carries the `min-w-0`
+// that only the composite had, and the prefix-match above is the trap nobody should re-derive.
 
-// ── Level 2 — shells / patterns (domain-free composites) ─────────────────────
+// ── layouts ──────────────────────────────────────────────────────────────────
 // CodeEditor → `@kanzo-tech/ui/editor` (see the GhostEditor note above).

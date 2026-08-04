@@ -57,7 +57,7 @@ const External = Annotation.define<boolean>();
  * shape the palette layer settled on: `comment` is `--faint` (the quietest legible ink — a gutter
  * number, a field's placeholder and a code comment are one decision), `punctuation` is
  * `--muted-foreground`, `operator` is `--foreground`, and `invalid` is the destructive family.
- * There were thirteen `--kanzo-syntax-*` tokens; six of them were duplicating a tint the ramp
+ * There were thirteen `--syntax-*` tokens; six of them were duplicating a tint the ramp
  * already publishes.
  *
  * The seven that remain are derived per tenant and graded against `--editor-active-line`, so a

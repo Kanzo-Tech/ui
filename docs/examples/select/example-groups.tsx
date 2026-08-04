@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment } from "react";
+import { HALLS } from "@/example/world";
 import {
   createListCollection,
   Select,
@@ -15,29 +16,28 @@ import {
 
 // `groupBy` lets the collection own the grouping, so `collection.group()` returns the
 // [heading, items] pairs to render — the component never re-derives them.
-const formats = createListCollection({
-  items: [
-    { label: "Turtle", value: "ttl", family: "Triples" },
-    { label: "N-Triples", value: "nt", family: "Triples" },
-    { label: "TriG", value: "trig", family: "Quads" },
-    { label: "N-Quads", value: "nq", family: "Quads" },
-  ],
-  groupBy: (item) => item.family,
+const halls = createListCollection({
+  items: HALLS.map((entry) => ({
+    label: entry.short,
+    value: entry.id,
+    standing: entry.standing,
+  })),
+  groupBy: (item) => item.standing,
 });
 
 export default function Example() {
   return (
-    <Select collection={formats}>
+    <Select collection={halls}>
       <SelectTrigger className="w-56">
-        <SelectValue placeholder="Select a format" />
+        <SelectValue placeholder="Select a hall" />
       </SelectTrigger>
       <SelectContent>
-        {formats.group().map(([family, items], index) => (
-          <Fragment key={family}>
+        {halls.group().map(([standing, items], index) => (
+          <Fragment key={standing}>
             <Show when={index > 0}>
               <SelectSeparator />
             </Show>
-            <SelectGroup heading={family}>
+            <SelectGroup heading={standing}>
               {items.map((item) => (
                 <SelectItem item={item} key={item.value}>
                   {item.label}

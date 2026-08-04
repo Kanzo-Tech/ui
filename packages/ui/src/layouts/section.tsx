@@ -31,9 +31,9 @@ export const sectionVariants = tv({
 /** The container. Presentational — the scale lives on the parts that render text. */
 export type SectionRootProps = ComponentProps<typeof ark.div>;
 
-export function SectionRoot({ className, ...rest }: SectionRootProps) {
+export function SectionRoot({ className, slot, ...rest }: SectionRootProps) {
   return (
-    <ark.div className={cn(sectionVariants(), className)} data-slot="section" {...rest} />
+    <ark.div className={cn(sectionVariants(), className)} {...rest} data-slot={slot ?? "section"} />
   );
 }
 SectionRoot.displayName = "SectionRoot";
@@ -64,24 +64,24 @@ export interface SectionHeaderProps
  * alignment, handles the optional icon that the grid could not, and mirrors under RTL without
  * a second code path.
  */
-export function SectionHeader({ className, scale, bordered, ...rest }: SectionHeaderProps) {
+export function SectionHeader({ className, scale, bordered, slot, ...rest }: SectionHeaderProps) {
   return (
     <ark.header
       className={cn(sectionHeaderVariants({ scale, bordered }), className)}
-      data-slot="section-header"
       {...rest}
+      data-slot={slot ?? "section-header"}
     />
   );
 }
 SectionHeader.displayName = "SectionHeader";
 
 /** Leading icon or badge. `mt-0.5` optically aligns it with the title's cap height. */
-export function SectionIcon({ className, ...rest }: ComponentProps<typeof ark.div>) {
+export function SectionIcon({ className, slot, ...rest }: ComponentProps<typeof ark.div>) {
   return (
     <ark.div
       className={cn("mt-0.5 shrink-0 text-muted-foreground [&_svg]:size-5", className)}
-      data-slot="section-icon"
       {...rest}
+      data-slot={slot ?? "section-icon"}
     />
   );
 }
@@ -89,12 +89,12 @@ SectionIcon.displayName = "SectionIcon";
 
 /** The text column: title over description. `min-w-0` is what lets the title truncate rather
  *  than pushing the actions off the row. */
-export function SectionTitleGroup({ className, ...rest }: ComponentProps<typeof ark.div>) {
+export function SectionTitleGroup({ className, slot, ...rest }: ComponentProps<typeof ark.div>) {
   return (
     <ark.div
       className={cn("min-w-0 flex-1", className)}
-      data-slot="section-title-group"
       {...rest}
+      data-slot={slot ?? "section-title-group"}
     />
   );
 }
@@ -120,25 +120,25 @@ export interface SectionTitleProps
   level?: 1 | 2 | 3 | 4 | 5 | 6;
 }
 
-export function SectionTitle({ level = 2, scale, className, ...rest }: SectionTitleProps) {
+export function SectionTitle({ level = 2, scale, className, slot, ...rest }: SectionTitleProps) {
   const Title = `h${level}` as const;
   return (
     <Title
       className={cn(sectionTitleVariants({ scale }), className)}
-      data-slot="section-title"
       {...rest}
+      slot={slot ?? "section-title"}
     />
   );
 }
 SectionTitle.displayName = "SectionTitle";
 
 /** Supporting text under the title. Was `TopBarSubtitle` and `PageShellDescription` too. */
-export function SectionDescription({ className, ...rest }: ComponentProps<typeof ark.p>) {
+export function SectionDescription({ className, slot, ...rest }: ComponentProps<typeof ark.p>) {
   return (
     <ark.p
       className={cn("mt-0.5 text-muted-foreground text-sm", className)}
-      data-slot="section-description"
       {...rest}
+      data-slot={slot ?? "section-description"}
     />
   );
 }
@@ -147,12 +147,12 @@ SectionDescription.displayName = "SectionDescription";
 /** End-aligned controls. `ms-auto` rather than the root's `justify-between`: with an optional
  *  icon and text column ahead of it, one logical margin pushes the actions to the inline end
  *  and still mirrors in RTL. */
-export function SectionActions({ className, ...rest }: ComponentProps<typeof ark.div>) {
+export function SectionActions({ className, slot, ...rest }: ComponentProps<typeof ark.div>) {
   return (
     <ark.div
       className={cn("ms-auto flex shrink-0 items-center gap-2 self-center", className)}
-      data-slot="section-actions"
       {...rest}
+      data-slot={slot ?? "section-actions"}
     />
   );
 }
@@ -175,12 +175,17 @@ export interface SectionBodyProps
  * that already owns the page's single `<main>` landmark, and two of those are a conformance
  * error that also makes "skip to main content" ambiguous.
  */
-export function SectionBody({ className, scale, ...rest }: SectionBodyProps) {
+export function SectionBody({
+  className,
+  scale,
+  slot,
+  ...rest
+}: SectionBodyProps) {
   return (
     <ark.section
       className={cn(sectionBodyVariants({ scale }), className)}
-      data-slot="section-body"
       {...rest}
+      data-slot={slot ?? "section-body"}
     />
   );
 }
@@ -188,15 +193,15 @@ SectionBody.displayName = "SectionBody";
 
 /** Pinned footer — form actions, a save bar. Unlike the header it carries a surface, because
  *  it sits against the bottom of a scrolling body and needs to separate from it. */
-export function SectionFooter({ className, ...rest }: ComponentProps<typeof ark.footer>) {
+export function SectionFooter({ className, slot, ...rest }: ComponentProps<typeof ark.footer>) {
   return (
     <ark.footer
       className={cn(
         "flex shrink-0 items-center justify-between gap-2 border-t border-border bg-card px-4 py-3",
         className,
       )}
-      data-slot="section-footer"
       {...rest}
+      data-slot={slot ?? "section-footer"}
     />
   );
 }

@@ -1,5 +1,3 @@
-"use client";
-
 import type React from "react";
 import { cn } from "../lib/cn";
 import { Button, type ButtonProps } from "./button";
@@ -14,27 +12,27 @@ import {
 } from "./dialog";
 
 export const AlertDialog = (props: React.ComponentProps<typeof Dialog>) => (
-  <Dialog data-slot="alert-dialog-root" role="alertdialog" {...props} />
+  <Dialog role="alertdialog" {...props} />
 );
 
 export const AlertDialogTrigger = (
-  props: React.ComponentProps<typeof DialogTrigger>
-) => <DialogTrigger data-slot="alert-dialog-trigger" {...props} />;
+  { slot, ...rest }: React.ComponentProps<typeof DialogTrigger>
+) => <DialogTrigger {...rest} slot={slot ?? "alert-dialog-trigger"} />;
 
 export const AlertDialogContent = (
-  props: React.ComponentProps<typeof DialogContent>
+  { slot, ...rest }: React.ComponentProps<typeof DialogContent>
 ) => (
   <DialogContent
-    data-slot="alert-dialog-content"
     showCloseButton={false}
-    {...props}
+    {...rest}
+    slot={slot ?? "alert-dialog-content"}
   />
 );
 
 export const AlertDialogBody = (
   props: React.ComponentProps<typeof DialogBody>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <DialogBody
@@ -42,25 +40,25 @@ export const AlertDialogBody = (
         "in-[[data-slot=alert-dialog-content]:has([data-slot=alert-dialog-header])]:pt-0",
         className
       )}
-      data-slot="alert-dialog-body"
       {...rest}
+      slot={slot ?? "alert-dialog-body"}
     />
   );
 };
 
 export const AlertDialogHeader = (
-  props: React.ComponentProps<typeof DialogHeader>
-) => <DialogHeader data-slot="alert-dialog-header" {...props} />;
+  { slot, ...rest }: React.ComponentProps<typeof DialogHeader>
+) => <DialogHeader {...rest} slot={slot ?? "alert-dialog-header"} />;
 
 // The title and description are `DialogTitle` / `DialogDescription`: nothing keys off an
 // `alert-dialog-title` slot, so renaming them bought two exports and no behaviour.
 export const AlertDialogClose = (
-  props: React.ComponentProps<typeof DialogClose>
-) => <DialogClose data-slot="alert-dialog-close" {...props} />;
+  { slot, ...rest }: React.ComponentProps<typeof DialogClose>
+) => <DialogClose {...rest} slot={slot ?? "alert-dialog-close"} />;
 
 export const AlertDialogFooter = (
-  props: React.ComponentProps<typeof DialogFooter>
-) => <DialogFooter data-slot="alert-dialog-footer" {...props} />;
+  { slot, ...rest }: React.ComponentProps<typeof DialogFooter>
+) => <DialogFooter {...rest} slot={slot ?? "alert-dialog-footer"} />;
 
 interface AlertDialogActionProps
   extends React.ComponentProps<typeof DialogClose>,
@@ -74,17 +72,24 @@ interface AlertDialogActionProps
 }
 
 export const AlertDialogAction = (props: AlertDialogActionProps) => {
-  const { variant = "default", ...rest } = props;
+  const { variant = "default", slot, ...rest } = props;
 
-  return <Button variant={variant} {...rest} />;
+  return (
+    <AlertDialogClose asChild>
+      <Button variant={variant} {...rest} slot={slot ?? "alert-dialog-action"} />
+    </AlertDialogClose>
+  );
 };
 
 interface AlertDialogCancelProps
   extends React.ComponentProps<typeof DialogClose>,
     Omit<ButtonProps, "variant"> {}
 
-export const AlertDialogCancel = (props: AlertDialogCancelProps) => (
-  <AlertDialogClose asChild data-slot="alert-dialog-cancel">
-    <Button variant="outline" {...props} />
+export const AlertDialogCancel = ({
+  slot,
+  ...rest
+}: AlertDialogCancelProps) => (
+  <AlertDialogClose asChild>
+    <Button variant="outline" {...rest} slot={slot ?? "alert-dialog-cancel"} />
   </AlertDialogClose>
 );

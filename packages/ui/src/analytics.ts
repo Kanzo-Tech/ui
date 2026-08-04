@@ -21,7 +21,9 @@ export { ChartRoot, useChart, useChartOptional } from "./charts/chart-root.js";
 export type { ChartRootProps, ChartContextValue } from "./charts/chart-root.js";
 
 export type { ChartConfig, ChartSeriesConfig, ChartSeriesEntry } from "./charts/chart-config.js";
-export { chartSeriesEntries, chartSeriesColor, isColorValue } from "./charts/chart-config.js";
+// No `chartSeriesEntries` (the config→rows projection `ChartLegend` renders) and no `isColorValue`,
+// whose sibling predicate `isColorToken` was already correctly internal — an inconsistent seam.
+export { chartSeriesColor } from "./charts/chart-config.js";
 
 // Marks. `ChartRaw` takes a `vg.*` directive the layer does not wrap, in source order.
 export {
@@ -96,29 +98,22 @@ export type { ChartQueryOptions, ChartQueryResult, ChartQueryRow } from "./chart
 // with no behaviour, so per DESIGN.md's ladder they are copied, not imported. They live in
 // `docs/lib/` for the showcases that use them.
 
-// For a descriptor of your own: `chartDescriptor` mints one, the rest is the compiler's contract.
-export {
-  chartDescriptor, compileChartSpec, buildChartSpec, chartSpecSignature,
-} from "./charts/chart-spec.js";
+// For a descriptor of your own: `chartDescriptor` mints one, and the types below are the contract
+// it compiles into. `compileChartSpec` / `buildChartSpec` / `chartSpecSignature` are NOT here —
+// they are the compiler `ChartRoot` runs, with no consumer outside `charts/`, and a descriptor
+// author never calls them. Publishing the compiler alongside the thing you write for it is how a
+// grammar's internals become somebody's API.
+export { chartDescriptor } from "./charts/chart-spec.js";
 export type {
   ChartDescriptor, ChartCompile, ChartDirective, ChartMarkDirective, ChartInteractorDirective,
-  ChartAttributeDirective, ChartLegendDirective, ChartRawDirective, ChartSpecContext,
+  ChartAttributeDirective, ChartRawDirective, ChartSpecContext,
   ChartSpecOptions, ChartMargin, ChartFacetOptions, ChartMarkSource,
 } from "./charts/chart-spec.js";
 
-// The validated categorical scheme for multi-series marks and legends (the theme's, not the accent).
-// `resolveTokenColor` and `useThemeTick` come with it: any surface painting from tokens onto a
-// canvas needs both — resolve the token against the live element, and do it again when the theme
-// moves — and every consumer that re-invented them got one of the two subtly wrong.
-export {
-  CHART_CAPACITY_PROPERTY,
-  CHART_SLOTS,
-  categoricalCapacity,
-  categoricalColor,
-  resolveTokenColor,
-  useChartCapacity,
-  useThemeTick,
-} from "./charts/theme.js";
+// The categorical scheme, `resolveTokenColor` and `useThemeTick` are on the ROOT barrel, not here.
+// They import no engine, and a part belongs on a subpath only if it imports that subpath's engine:
+// a WebGL canvas painting from `--chart-*` was installing DuckDB and Mosaic to reach twelve lines
+// of token arithmetic. They live in `lib/token-color.ts` and `lib/theme-tick.ts`.
 
 // Re-exported so a consumer writes a whole chart — and boots the coordinator under it — without a
 // direct @uwdata import, the way `/table` re-exports its TanStack types.
@@ -174,7 +169,7 @@ export type { FilterExpr } from "@uwdata/mosaic-sql";
 // independently writes `as { getChild(name: string): … }` — a cast asserting Arrow's shape rather
 // than checking it, and wrong the first time the query selects a string. Arrow only offers a typed
 // column when the type allows one, so the fallback is not a nicety.
-export { column, numbers } from "./charts/arrow.js";
+export { column, fillColumn, numbers, type NumericArray } from "./charts/arrow.js";
 
 // And the client that protocol is usually reached for. A view whose positions are not in the
 // database — a GPU canvas, a map, an imperative widget — cannot publish `weight BETWEEN …`, because

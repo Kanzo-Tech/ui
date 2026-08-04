@@ -2,7 +2,7 @@
 title: Tooltip
 description: A short label that appears on hover or focus, describing what a control does.
 links:
-  doc: https://ark-ui.com/docs/overlays/tooltip
+  doc: https://ark-ui.com/docs/components/tooltip
 ---
 
 <ComponentPreview componentName="tooltip" />
@@ -16,17 +16,25 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@kanzo-tech/ui";
 ```tsx
 <Tooltip>
   <TooltipTrigger asChild>
-    <Button aria-label="Info" size="icon-md" variant="ghost">
+    <Button aria-label="About grade 5" size="icon-md" variant="ghost">
       <InfoIcon />
     </Button>
   </TooltipTrigger>
-  <TooltipContent>A triple is a subject–predicate–object statement.</TooltipContent>
+  <TooltipContent>Grade 5 — a Writ. Requires a hall's seal and a written heir.</TooltipContent>
 </Tooltip>
 ```
 
 A tooltip is not an accessible name. It is only reachable by hover and focus, so an icon-only
 trigger still needs its own `aria-label` — the tooltip supplements that label, it does not
 replace it. Never put interactive content inside one; use `Popover` or `HoverCard` for that.
+
+<Callout type="warn">
+**Nothing focusable goes in a tooltip.** It is `role="tooltip"`, wired to the trigger with
+`aria-describedby`, so its text is announced as part of the control — a link inside one is
+unreachable by keyboard and is read out as part of the button's name. Reach for
+[`Popover`](/docs/overlays/popover) when the surface holds controls, and see
+[which of the three](/docs/overlays/popover#popover-hover-card-or-tooltip).
+</Callout>
 
 ## Anatomy
 

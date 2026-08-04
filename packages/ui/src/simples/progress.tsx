@@ -1,5 +1,3 @@
-"use client";
-
 import {
   Progress as ArkProgress,
   useProgressContext,
@@ -33,6 +31,7 @@ export const Progress = (props: ProgressProps) => {
     indeterminate = false,
     className,
     children,
+    slot,
     ...rest
   } = props;
 
@@ -44,10 +43,10 @@ export const Progress = (props: ProgressProps) => {
         "data-[orientation=vertical]:-scale-y-100",
         className
       )}
-      data-slot="progress"
       orientation={orientation}
       value={indeterminate ? null : value}
       {...rest}
+      data-slot={slot ?? "progress"}
     >
       {children}
 
@@ -59,7 +58,7 @@ export const Progress = (props: ProgressProps) => {
 };
 
 export const ProgressTrack = (
-  props: React.ComponentProps<typeof ArkProgress.Track>
+  { slot, ...rest }: React.ComponentProps<typeof ArkProgress.Track>
 ) => (
   <ArkProgress.Track
     className={cn(
@@ -69,14 +68,15 @@ export const ProgressTrack = (
       "data-[orientation=horizontal]:h-2 data-[orientation=horizontal]:w-full",
       "data-[orientation=vertical]:h-full data-[orientation=vertical]:w-2"
     )}
-    data-slot="progress-track"
-    {...props}
+    {...rest}
+    data-slot={slot ?? "progress-track"}
   />
 );
 
-export const ProgressRange = (
-  props: React.ComponentProps<typeof ArkProgress.Range>
-) => (
+export const ProgressRange = ({
+  slot,
+  ...rest
+}: React.ComponentProps<typeof ArkProgress.Range>) => (
   <ArkProgress.Range
     className={cn(
       "bg-primary",
@@ -86,22 +86,22 @@ export const ProgressRange = (
       "motion-reduce:animate-none! motion-reduce:transition-none!",
       "data-[state=indeterminate]:w-1/3 data-[state=indeterminate]:animate-indeterminate! data-[state=indeterminate]:duration-100"
     )}
-    data-slot="progress-range"
-    {...props}
+    {...rest}
+    data-slot={slot ?? "progress-range"}
   />
 );
 
 export const ProgressValue = (
   props: React.ComponentProps<typeof ArkProgress.ValueText>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <FieldLabel asChild>
       <ArkProgress.ValueText
         className={cn("ms-auto tabular-nums", className)}
-        data-slot="progress-value"
         {...rest}
+        data-slot={slot ?? "progress-value"}
       />
     </FieldLabel>
   );

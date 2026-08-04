@@ -9,14 +9,12 @@ import { cn } from "../lib/cn.js";
  * The library ships composable parts, not named arrangements. `AppShell`, `WorkspaceLayout`
  * and friends were each a specific shape extracted from one product, which is why the layer
  * read as "the metadata view" rather than as a design system. Those arrangements live in
- * `docs/blocks/` as showcases now; what is shipped is the vocabulary they are built from.
+ * `docs/showcases/` now; what is shipped is the vocabulary they are built from.
  *
  * Parts are exported FLAT (`ShellHeader`, not `Shell.Header`). A namespace object built with
  * `Object.assign` does not survive the RSC client boundary — `Preferences` learned that the
  * hard way, and its compound statics had to be re-exported flat.
  */
-
-// ── Header / Footer ──────────────────────────────────────────────────────────
 
 /**
  * The regions above and below the body. STRUCTURAL ONLY — placement, and the border that
@@ -35,30 +33,28 @@ import { cn } from "../lib/cn.js";
  * No role is declared. A top region is often `banner` and a bottom one `contentinfo`, but a
  * strip is neither and a shell may have several — the call site passes the landmark.
  */
-export function ShellHeader({ className, ...rest }: ComponentProps<typeof ark.div>) {
+export function ShellHeader({ className, slot, ...rest }: ComponentProps<typeof ark.div>) {
   return (
     <ark.div
       className={cn("flex shrink-0 flex-col border-b border-border", className)}
-      data-slot="shell-header"
       {...rest}
+      data-slot={slot ?? "shell-header"}
     />
   );
 }
 ShellHeader.displayName = "ShellHeader";
 
 /** The region below the body. Structural only — see {@link ShellHeader}. */
-export function ShellFooter({ className, ...rest }: ComponentProps<typeof ark.div>) {
+export function ShellFooter({ className, slot, ...rest }: ComponentProps<typeof ark.div>) {
   return (
     <ark.div
       className={cn("flex shrink-0 flex-col border-t border-border", className)}
-      data-slot="shell-footer"
       {...rest}
+      data-slot={slot ?? "shell-footer"}
     />
   );
 }
 ShellFooter.displayName = "ShellFooter";
-
-// ── Root ─────────────────────────────────────────────────────────────────────
 
 /**
  * The outermost region: a full-height column that bars and the body stack inside.
@@ -68,12 +64,12 @@ ShellFooter.displayName = "ShellFooter";
  * screen. `min-h-0` is what lets the body shrink and its own regions scroll instead of the
  * page growing.
  */
-export function ShellRoot({ className, ...rest }: ComponentProps<typeof ark.div>) {
+export function ShellRoot({ className, slot, ...rest }: ComponentProps<typeof ark.div>) {
   return (
     <ark.div
       className={cn("flex h-dvh min-h-0 flex-col overflow-hidden", className)}
-      data-slot="shell-root"
       {...rest}
+      data-slot={slot ?? "shell-root"}
     />
   );
 }
@@ -81,12 +77,12 @@ ShellRoot.displayName = "ShellRoot";
 
 /** The horizontal band between the bars: asides and main sit here as siblings, in the order
  *  the caller writes them — which is also what makes the layout mirror correctly in RTL. */
-export function ShellBody({ className, ...rest }: ComponentProps<typeof ark.div>) {
+export function ShellBody({ className, slot, ...rest }: ComponentProps<typeof ark.div>) {
   return (
     <ark.div
       className={cn("relative flex min-h-0 flex-1", className)}
-      data-slot="shell-body"
       {...rest}
+      data-slot={slot ?? "shell-body"}
     />
   );
 }
@@ -98,22 +94,28 @@ ShellBody.displayName = "ShellBody";
  * EXACTLY ONE per page. Two `<main>` elements are an HTML conformance error and make
  * "skip to main content" ambiguous, so nothing nested inside may render another — nestable
  * containers use `<section>`.
+ *
+ * That skip link is `SkipNavLink`, and this is what it lands on: wrap this element in
+ * `<SkipNavContent asChild>` rather than nesting a target inside it —
+ * `decisions/the-skip-target-is-the-main-landmark.md`.
  */
-export function ShellMain({ className, ...rest }: ComponentProps<typeof ark.main>) {
+export function ShellMain({ className, slot, ...rest }: ComponentProps<typeof ark.main>) {
   return (
     <ark.main
       className={cn("flex min-w-0 flex-1 flex-col overflow-auto", className)}
-      data-slot="shell-main"
       {...rest}
+      data-slot={slot ?? "shell-main"}
     />
   );
 }
 ShellMain.displayName = "ShellMain";
 
-// ── Aside ────────────────────────────────────────────────────────────────────
-
+// No `bg-card`. A region places its children and separates itself from its neighbour; the surface
+// is the caller's, like every other aesthetic in this layer. It carried one until 2026-08-01, which
+// is the same defect this file rejects `ShellBar` for ninety lines above — the rule was written
+// against a bar that kept `bg-card`, and the aside had kept it too.
 const shellAsideVariants = tv({
-  base: "flex flex-col bg-card",
+  base: "flex flex-col",
   variants: {
     side: { start: "", end: "" },
     /** Docked (false) sits in the flow and carries the divider. Overlay (true) floats over
@@ -155,18 +157,19 @@ export function ShellAside({
   overlay,
   width,
   style,
+  slot,
   ...rest
 }: ShellAsideProps) {
   return (
     <ark.aside
       className={cn(shellAsideVariants({ side, overlay }), className)}
-      data-slot="shell-aside"
       data-side={side ?? "start"}
       // `width` is a genuinely computed value the caller owns (and drives from drag state),
       // which is the sanctioned inline-style exception. An overlay fills its container, so
       // applying it there would fight the `inset-0`.
       style={overlay ? style : { width, ...style }}
       {...rest}
+      data-slot={slot ?? "shell-aside"}
     />
   );
 }

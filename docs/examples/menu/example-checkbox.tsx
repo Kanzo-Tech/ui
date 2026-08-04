@@ -10,10 +10,10 @@ import {
   MenuTrigger,
 } from "@kanzo-tech/ui";
 
-const COLUMNS = ["subject", "predicate", "object", "graph"];
+const COLUMNS = ["title", "region", "grade", "reward", "due"];
 
 export default function Example() {
-  const [hidden, setHidden] = useState<string[]>(["graph"]);
+  const [hidden, setHidden] = useState<string[]>(["due"]);
 
   return (
     <Menu closeOnSelect={false}>

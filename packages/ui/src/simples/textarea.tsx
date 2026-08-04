@@ -1,5 +1,3 @@
-"use client";
-
 import { Field as ArkField } from "@ark-ui/react/field";
 import type React from "react";
 import { cn } from "../lib/cn";
@@ -25,13 +23,13 @@ const textareaBase = [
 export interface TextareaProps extends React.ComponentProps<typeof ArkField.Textarea> {}
 
 export const Textarea = (props: TextareaProps) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkField.Textarea
       className={cn(textareaBase, className)}
-      data-slot="textarea"
       {...rest}
+      data-slot={slot ?? "textarea"}
     />
   );
 };

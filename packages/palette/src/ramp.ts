@@ -310,8 +310,8 @@ export const OBLIGATIONS: readonly Obligation[] = [
       "focus ring, an input outline. The ramp does not assert that step 8 is that step; it reports " +
       "which step first reaches it (`boundary`) and owes only that one exists at or before the " +
       "solid. That bound is the whole guarantee. Which step it lands on is dominated by the mode " +
-      "but not decided by it — measured over 118 seeds it is 9 in light 97 times and 8 the other " +
-      "21, and 8 in dark 82 times and 9 the other 36 — so a role table must read the field and can " +
+      "but not decided by it — measured over 116 seeds it is 9 in light 91 times and 8 the other " +
+      "25, and 8 in dark 79 times and 9 the other 37 — so a role table must read the field and can " +
       "never hard-code a number. Steps 6 and 7 are non-interactive separators, which 1.4.11 " +
       "exempts, and carry no contrast duty at all.",
   },
@@ -480,8 +480,10 @@ export interface RampRelief {
  * onboarding screen, which is why the OKLCH components are broken out — "darker, and slightly less
  * saturated" is a very different thing to hear than "a different colour".
  *
- * The seed determines step 9 and nothing else, so a ramp carries at most three of these, one per
- * rule that can bite.
+ * The seed determines step 9 and nothing else, so a ramp carries at most three of these. Four rules
+ * call `say`, but `carries-identity` and `gamut` are mutually exclusive: the first fires only for a
+ * seed under `TINT_FLOOR`, which zeroes the chroma, and the second only when there was chroma to
+ * reduce. Adding a fifth rule does not inherit that bound.
  */
 export interface Adjustment {
   /** Always 9 today — the only step a seed reaches. Kept per-step so a role table can join on it. */
@@ -527,10 +529,18 @@ export interface Ramp {
   /**
    * The first step that reaches CONTRAST_MIN against step 1 — the one a focus ring may come from.
    *
-   * Published rather than asserted, because it cannot be predicted. Measured over 118 seeds: light
-   * is 9 in 97 of them and 8 in the rest, dark is 8 in 82 and 9 in the rest — `#e7000b` and
-   * `#155dfc` both give 9 in dark where `#2b7fff` gives 8. A role table that hard-codes
-   * `--ring: step 8` is correct for most seeds and 2.3:1 for the others. Read the field.
+   * Published rather than asserted, because it cannot be predicted. Measured 2026-07 over 116 seeds
+   * — the 18 system seeds, all 90 base16 slot values across the six palettes, and the 8 tinted
+   * neutrals `ramp.test.ts` sweeps: light is 9 for 91 of them and 8 for the other 25, dark is 8 for
+   * 79 and 9 for the other 37. `#e7000b` and `#155dfc` both give 9 in dark where `#2b7fff` gives 8.
+   * A role table that hard-codes `--ring: step 8` is correct for most seeds and as low as 2.25:1 for
+   * the others. Read the field.
+   *
+   * `OBLIGATIONS`' `control-boundary` reason quotes this same measurement and now quotes it
+   * correctly. It used to cite a 118-seed corpus, two slots larger, and could not be fixed:
+   * `hashObligations` digested the row's JSON, `reason` included, so correcting the prose moved
+   * every stored document's engine hash and claimed the rules had changed. The digest is
+   * `{ step, id }` now — `decisions/prose-that-is-hashed-is-data.md` — so the two agree.
    */
   boundary: number;
   /**
@@ -551,11 +561,12 @@ export interface Ramp {
   /** What was moved to make the seed legal, itemised by the rule that moved it. */
   adjustments: Adjustment[];
   /**
-   * Obligations that could not be met by moving anything.
+   * `checkRamp`'s complete output, so any obligation id can appear here.
    *
-   * Only one rule can ever land here, and it is the one exception to *adjust and publish*: a seed
-   * below `CHROMA_FLOOR` has no hue, and the only "adjustment" available is to invent one. That is
-   * manufacturing brand out of grey — the thing `Palette.primary` exists to refuse.
+   * One of them is structural rather than a defect, and it is the one exception to *adjust and
+   * publish*: a seed below `CHROMA_FLOOR` has no hue, so the only "adjustment" available for
+   * `carries-identity` is to invent one, and manufacturing brand out of grey is what this layer
+   * exists to refuse. See `PaletteRecord.relief` for how a panel should read the two apart.
    */
   relief: RampRelief[];
   drift: RampDrift;
@@ -805,8 +816,9 @@ export function checkRamp(
   const surfaceTop = contrast(at(5), at(1));
   if (surfaceTop >= CONTRAST_MIN) fail(5, "still-a-surface", CONTRAST_MIN, surfaceTop);
 
-  // Not "step 8 clears 3:1" — that is false in light for every seed and true in dark for every seed,
-  // so asserting it would fail 18 good ramps and catch nothing.
+  // Not "step 8 clears 3:1". Which step first does is seed-dependent, not mode-determined — see
+  // `Ramp.boundary` for the measurement — so asserting a number would fail good ramps in both modes
+  // and catch nothing. The obligation is only that one exists at or before the solid.
   const boundary = steps.findIndex((hex) => contrast(hex, at(1)) >= CONTRAST_MIN) + 1;
   if (boundary < 1 || boundary > 9) fail(0, "control-boundary", 9, boundary || RAMP_LENGTH + 1);
 

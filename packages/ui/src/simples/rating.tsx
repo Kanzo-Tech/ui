@@ -1,5 +1,3 @@
-"use client";
-
 import {
   RatingGroup as ArkRatingGroup,
   useRatingGroupContext,
@@ -17,7 +15,7 @@ export const RatingContext = ArkRatingGroup.Context;
 export const Rating = (
   props: React.ComponentProps<typeof ArkRatingGroup.Root>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ArkRatingGroup.Root
@@ -26,8 +24,8 @@ export const Rating = (
         "data-invalid:text-destructive dark:data-invalid:text-destructive-foreground",
         className
       )}
-      data-slot="rating"
       {...rest}
+      data-slot={slot ?? "rating"}
     >
       {children}
     </ArkRatingGroup.Root>
@@ -37,11 +35,11 @@ export const Rating = (
 export const RatingLabel = (
   props: React.ComponentProps<typeof ArkRatingGroup.Label>
 ) => {
-  const { children, ...rest } = props;
+  const { children, slot, ...rest } = props;
 
   return (
     <FieldLabel asChild>
-      <ArkRatingGroup.Label data-slot="rating-label" {...rest}>
+      <ArkRatingGroup.Label {...rest} data-slot={slot ?? "rating-label"}>
         {children}
       </ArkRatingGroup.Label>
     </FieldLabel>
@@ -51,7 +49,7 @@ export const RatingLabel = (
 export const RatingControl = (
   props: React.ComponentProps<typeof ArkRatingGroup.Control>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkRatingGroup.Control
@@ -60,8 +58,8 @@ export const RatingControl = (
         "data-disabled:pointer-events-none data-disabled:opacity-64",
         className
       )}
-      data-slot="rating-control"
       {...rest}
+      data-slot={slot ?? "rating-control"}
     />
   );
 };
@@ -69,7 +67,7 @@ export const RatingControl = (
 export const RatingItem = (
   props: React.ComponentProps<typeof ArkRatingGroup.Item>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ArkRatingGroup.Item
@@ -82,8 +80,8 @@ export const RatingItem = (
         "data-disabled:cursor-default",
         className
       )}
-      data-slot="rating-item"
       {...rest}
+      data-slot={slot ?? "rating-item"}
     >
       {children ?? (
         <>
@@ -109,7 +107,7 @@ export const RatingItem = (
 };
 
 export const RatingHiddenInput = (
-  props: React.ComponentProps<typeof ArkRatingGroup.HiddenInput>
+  { slot, ...rest }: React.ComponentProps<typeof ArkRatingGroup.HiddenInput>
 ) => (
-  <ArkRatingGroup.HiddenInput data-slot="rating-hidden-input" {...props} />
+  <ArkRatingGroup.HiddenInput {...rest} data-slot={slot ?? "rating-hidden-input"} />
 );

@@ -18,12 +18,12 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot height={220} table="telemetry">
-          <ChartRectY fill="var(--muted-foreground)" filterBy={null} opacity={0.3} x={bin("latency")} y={count()} />
-          <ChartRectY fill="var(--primary)" tip x={bin("latency")} y={count()} />
+        <ChartRoot height={220} table="sightings">
+          <ChartRectY fill="var(--muted-foreground)" filterBy={null} opacity={0.3} x={bin("bounty")} y={count()} />
+          <ChartRectY fill="var(--primary)" tip x={bin("bounty")} y={count()} />
           <ChartIntervalX />
-          <ChartAxisX label="latency (ms)" />
-          <ChartAxisY grid label="requests" />
+          <ChartAxisX label="bounty (gold)" />
+          <ChartAxisY grid label="sightings" />
         </ChartRoot>
       </div>
     </MosaicDemo>

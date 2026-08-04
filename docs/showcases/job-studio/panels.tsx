@@ -8,7 +8,6 @@ import {
   CardHeader,
   CardTitle,
   createListCollection,
-  EmptyState,
   Field,
   FieldDescription,
   FieldLabel,
@@ -16,6 +15,7 @@ import {
   ItemActions,
   ItemContent,
   ItemDescription,
+  Float,
   ItemGroup,
   ItemMedia,
   ItemTitle,
@@ -23,7 +23,6 @@ import {
   RadioGroupCard,
   RadioGroupIndicator,
   RadioGroupText,
-  Ribbon,
   Select,
   SelectContent,
   SelectItem,
@@ -81,11 +80,16 @@ export function ConnectionsPanel({
 
       <Show
         fallback={
-          <EmptyState
-            description="A job reads through a connection. Wire one under Connections and it becomes referenceable as @name."
-            icon={<PlugZapIcon />}
-            title="No connections yet"
-          />
+          <Item className="mx-auto max-w-[420px] flex-col gap-2 py-8 text-center">
+            <ItemMedia
+              className="group-has-data-[slot=item-description]/item:self-center text-muted-foreground [&_svg:not([class*='size-'])]:size-8"
+              variant="icon"
+            >
+              <PlugZapIcon />
+            </ItemMedia>
+            <ItemTitle className="text-base">No connections yet</ItemTitle>
+            <ItemDescription>A job reads through a connection. Wire one under Connections and it becomes referenceable as @name.</ItemDescription>
+          </Item>
         }
         when={CONNECTIONS.length > 0}
       >
@@ -227,7 +231,7 @@ export function ConfigureForm({
 
           {/* Not shipped. `Ribbon` says so ON the control and disables it, instead of a
               hand-rolled wrapper and a `disabled` prop that leaves the reason unsaid. */}
-          <Ribbon disabled label="Coming soon" placement="corner">
+          <div className="relative">
             <RadioGroupCard className="items-start" disabled value="scheduled">
               <CalendarClockIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
               <div className="flex min-w-0 flex-col gap-0.5">
@@ -238,7 +242,10 @@ export function ConfigureForm({
               </div>
               <RadioGroupIndicator className="order-last mt-0.5 ms-auto" />
             </RadioGroupCard>
-          </Ribbon>
+            <Float className="-end-2 -top-2" placement="top-end">
+              <Badge size="xs" variant="secondary">Coming soon</Badge>
+            </Float>
+          </div>
         </RadioGroup>
       </Setting>
 
@@ -353,11 +360,16 @@ export function SummaryPage({
 
       <Show
         fallback={
-          <EmptyState
-            description="A mapping is a class, a source and the predicates it emits. Write one on the Editor page and it shows up here."
-            icon={<ShapesIcon />}
-            title="This program emits nothing yet"
-          />
+          <Item className="mx-auto max-w-[420px] flex-col gap-2 py-8 text-center">
+            <ItemMedia
+              className="group-has-data-[slot=item-description]/item:self-center text-muted-foreground [&_svg:not([class*='size-'])]:size-8"
+              variant="icon"
+            >
+              <ShapesIcon />
+            </ItemMedia>
+            <ItemTitle className="text-base">This program emits nothing yet</ItemTitle>
+            <ItemDescription>A mapping is a class, a source and the predicates it emits. Write one on the Editor page and it shows up here.</ItemDescription>
+          </Item>
         }
         when={mappings.length > 0}
       >

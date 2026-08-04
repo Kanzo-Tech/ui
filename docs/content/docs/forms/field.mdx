@@ -2,7 +2,7 @@
 title: Field
 description: The chrome around a control — label, description, helper and error text, wired together — and the fieldset that groups several of them under one legend.
 links:
-  doc: https://ark-ui.com/docs/forms/field
+  doc: https://ark-ui.com/docs/components/field
 ---
 
 <ComponentPreview componentName="field" />
@@ -15,9 +15,9 @@ import { Field, FieldDescription, FieldLabel } from "@kanzo-tech/ui";
 
 ```tsx
 <Field invalid>
-  <FieldLabel>Dataset name</FieldLabel>
+  <FieldLabel>Contract id</FieldLabel>
   <Input />
-  <FieldError>Names cannot contain spaces.</FieldError>
+  <FieldError>Contract ids are Q- followed by four figures.</FieldError>
 </Field>
 ```
 

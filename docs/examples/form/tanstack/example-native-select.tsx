@@ -11,11 +11,10 @@ import {
 } from "@kanzo-tech/ui";
 import { revalidateLogic, useForm } from "@tanstack/react-form";
 import * as z from "zod";
+import { REGIONS } from "@/example/world";
 
 const schema = z.object({
-  region: z.enum(["eu-west", "eu-central", "us-east"], {
-    error: "Pick a region.",
-  }),
+  region: z.enum(REGIONS, { error: "Pick a region." }),
 });
 
 export default function Example() {
@@ -49,11 +48,11 @@ export default function Example() {
                 value={field.state.value}
               >
                 <NativeSelectOption value="">Select a region</NativeSelectOption>
-                <NativeSelectOption value="eu-west">EU West</NativeSelectOption>
-                <NativeSelectOption value="eu-central">
-                  EU Central
-                </NativeSelectOption>
-                <NativeSelectOption value="us-east">US East</NativeSelectOption>
+                {REGIONS.map((region) => (
+                  <NativeSelectOption key={region} value={region}>
+                    {region}
+                  </NativeSelectOption>
+                ))}
               </NativeSelect>
               <FieldError>
                 {field.state.meta.errors.map((issue) => issue?.message).join(", ")}

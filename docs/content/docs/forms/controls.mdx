@@ -8,22 +8,23 @@ to learn. This page is the index: find the control you need by what it captures,
 link for its own page.
 
 <Callout type="info">
-**The naming rule that explains half of these.** Where you see both a `kebab-case` and a
-`PascalCase` name (`input` / `TextField`, `date-picker` / `DateField`), the lowercase one is the
-**vendored primitive** — the compound
-with all its parts exposed — and the PascalCase one is **our pre-assembled convenience** built
-on it. Default to the PascalCase one; drop to the primitive when you need to rearrange the parts.
+**The naming rule that explains half of these.** A `kebab-case` file is the **vendored
+primitive** — the compound with all its parts exposed. A `PascalCase` one is **our pre-assembled
+convenience**, built on it: `FacetFilter` imports `listbox` and `popover`, `FieldArray` imports
+`field`. They are not competitors; one is made of the other. Default to the PascalCase one, and
+drop to the primitive when you need to rearrange the parts. The rule in full is on
+[Philosophy](/docs/philosophy#the-naming-rule).
 </Callout>
 
 ## Text
 
 | Control | What it is | Reach for it when |
 |---|---|---|
-| [`Input`](/docs/forms/input) | The bare text-input primitive. | You are composing something custom on top. |
-| [`TextField`](/docs/forms/text-field) | `Input` plus `size` and `iconStart` / `iconEnd` adornments. | The everyday single-line field. |
-| [`NumberField`](/docs/forms/text-field) | `TextField` locked to `type="number"`. No steppers — see [`NumberInput`](/docs/forms/number-input) for those. | A number typed straight in: a price, an amount. |
-| [`Textarea`](/docs/forms/textarea) | Multi-line text. | A description, a note, free text. |
+| [`Input`](/docs/forms/input) | A single-line text input. | The everyday field. |
+| [`Input`](/docs/forms/input) `type="number"` | The same input, numeric, with a decimal keypad on mobile. No steppers — see [`NumberInput`](/docs/forms/number-input) for those. | A number typed straight in: a price, an amount. |
+| [`Textarea`](/docs/forms/input#textarea) | Multi-line text. | A description, a note, free text. |
 | [`InputGroup`](/docs/forms/input-group) | An input flanked by addons — a prefix, a unit, a button. | The value needs an affix or an inline action. |
+| [`Editable`](/docs/forms/editable) | Edit-in-place: a preview that swaps for an input on click. | The value is normally read, and editing it is the exception. |
 
 ## Choice
 
@@ -37,7 +38,7 @@ on it. Default to the PascalCase one; drop to the primitive when you need to rea
 | [`TagsInput`](/docs/forms/tags-input) | A list of removable tokens with **no option collection** — the user invents the values. | always | The values do not exist beforehand: free-form tags, keywords, addresses. |
 | [`RadioGroup`](/docs/forms/radio-group) | A few options, all visible at once. | no | One of a few, no popover. |
 | [`RadioGroupCard`](/docs/forms/radio-group#cards) | That same item styled as a card, with room for an icon, a description or a preview. | no | One of a few, where the options need explaining. |
-| [`SegmentGroup`](/docs/navigation/segment-group) | 2–4 options as a compact inline switch. Radio semantics, segmented look. | no | Switching a view in place. |
+| [`SegmentGroup`](/docs/forms/segment-group) | 2–4 options as a compact inline switch. Radio semantics, segmented look. | no | Switching a view in place. |
 
 Rule of thumb: under ~7 options, `NativeSelect`; over ~15, `Combobox`, because that is where
 scrolling starts costing more than typing; `Select` in between, when the options need to look
@@ -95,9 +96,8 @@ field the day the list has 200 values.
 | [`NumberInput`](/docs/forms/number-input) | A `spinbutton`: stepper triggers, arrow keys, drag-to-scrub. | A bounded quantity the user nudges — a count, a page size. |
 | [`Slider`](/docs/forms/slider) | A value or range on a track. | A bounded number where the range matters more than the digit. |
 | [`Rating`](/docs/forms/rating) | A row of stars on a fixed scale. | A score out of five. |
-| [`DateField`](/docs/forms/date-field) | A date input with a calendar popover, assembled. | Picking a date in a form. **Start here.** |
-| [`DatePicker`](/docs/forms/date-picker) | The compound date primitive. | You need to rearrange the trigger, content or calendar. |
-| [`Calendar`](/docs/forms/date-picker) | The month grid on its own. | An always-visible calendar, not a form value. |
+| [`DatePicker`](/docs/forms/dates#the-popover) | A date input with a calendar popover. Takes Ark's `DateValue`; the [ISO-string adapter](/docs/forms/dates#an-iso-string-in-and-out) is two functions at your seam. | Picking a date in a form. |
+| [`Calendar`](/docs/forms/dates#the-month-grid) | The same machine `inline`, so the month grid is always visible. | A calendar that is furniture, not a form value. |
 | [`ColorPicker`](/docs/forms/color-picker) | Area, hue and hex, with preset swatches. | Picking a colour. |
 
 A row of colours the user is *not* editing is not a control at all: when the colour merely

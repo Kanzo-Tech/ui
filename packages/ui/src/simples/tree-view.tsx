@@ -61,6 +61,7 @@ export const TreeView: ArkTreeView.RootComponent<TreeViewProps> = (props) => {
     lazyMount = true,
     unmountOnExit = true,
     className,
+    slot,
     ...rest
   } = props;
 
@@ -76,10 +77,10 @@ export const TreeView: ArkTreeView.RootComponent<TreeViewProps> = (props) => {
           "text-foreground",
           className
         )}
-        data-slot="tree-view"
         lazyMount={lazyMount}
         unmountOnExit={unmountOnExit}
         {...rest}
+        data-slot={slot ?? "tree-view"}
       />
     </TreeViewContext.Provider>
   );
@@ -88,7 +89,7 @@ export const TreeView: ArkTreeView.RootComponent<TreeViewProps> = (props) => {
 export const TreeViewLabel = (
   props: React.ComponentProps<typeof ArkTreeView.Label>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkTreeView.Label
@@ -96,8 +97,8 @@ export const TreeViewLabel = (
         "select-none font-medium text-foreground text-sm",
         className
       )}
-      data-slot="tree-view-label"
       {...rest}
+      data-slot={slot ?? "tree-view-label"}
     />
   );
 };
@@ -105,7 +106,7 @@ export const TreeViewLabel = (
 export const TreeViewTree = (
   props: React.ComponentProps<typeof ArkTreeView.Tree>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkTreeView.Tree
@@ -114,8 +115,8 @@ export const TreeViewTree = (
         "[&_svg]:size-(--icon-size) [&_svg]:shrink-0",
         className
       )}
-      data-slot="tree-view-tree"
       {...rest}
+      data-slot={slot ?? "tree-view-tree"}
     />
   );
 };
@@ -125,15 +126,15 @@ export interface NodeProviderProps<T extends TreeNodeType = TreeNodeType>
 
 export const TreeViewNode = <T extends TreeNodeType>(
   props: NodeProviderProps<T>
-) => <ArkTreeView.NodeProvider data-slot="tree-view-node" {...props} />;
+) => <ArkTreeView.NodeProvider {...props} />;
 
 export const TreeViewBranch = (
-  props: React.ComponentProps<typeof ArkTreeView.Branch>
+  { slot, ...rest }: React.ComponentProps<typeof ArkTreeView.Branch>
 ) => (
   <ArkTreeView.Branch
     className={cn("relative")}
-    data-slot="tree-view-branch"
-    {...props}
+    {...rest}
+    data-slot={slot ?? "tree-view-branch"}
   />
 );
 
@@ -162,13 +163,13 @@ interface TreeViewBranchItemProps
     Pick<TreeViewBranchTitleProps, "icon" | "expandedIcon"> {}
 
 export const TreeViewBranchItem = (props: TreeViewBranchItemProps) => {
-  const { icon, expandedIcon, className, children, ...rest } = props;
+  const { icon, expandedIcon, className, children, slot, ...rest } = props;
 
   return (
     <ArkTreeView.BranchControl
       className={cn(treeViewControlVariants(), className)}
-      data-slot="tree-view-branch-control"
       {...rest}
+      data-slot={slot ?? "tree-view-branch-control"}
     >
       <TreeViewBranchIndicator />
       <TreeViewBranchTitle expandedIcon={expandedIcon} icon={icon}>
@@ -200,6 +201,7 @@ const TreeViewBranchTitle = (props: TreeViewBranchTitleProps) => {
     expandedIcon: ExpandedIcon,
     className,
     children,
+    slot,
     ...rest
   } = props;
 
@@ -216,8 +218,8 @@ const TreeViewBranchTitle = (props: TreeViewBranchTitleProps) => {
                 "overflow-hidden text-ellipsis whitespace-nowrap",
                 className
               )}
-              data-slot="tree-view-branch-title"
               {...rest}
+              data-slot={slot ?? "tree-view-branch-title"}
             >
               {Icon !== null && !nodeState.expanded && (
                 <TreeViewItemIcon>
@@ -241,7 +243,7 @@ const TreeViewBranchTitle = (props: TreeViewBranchTitleProps) => {
 export const TreeViewBranchIndicator = (
   props: React.ComponentProps<typeof ArkTreeView.BranchIndicator>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkTreeView.BranchIndicator
@@ -254,8 +256,8 @@ export const TreeViewBranchIndicator = (
         "motion-reduce:transition-none!",
         className
       )}
-      data-slot="tree-view-branch-indicator"
       {...rest}
+      data-slot={slot ?? "tree-view-branch-indicator"}
     >
       <ChevronRightIcon />
     </ArkTreeView.BranchIndicator>
@@ -265,7 +267,7 @@ export const TreeViewBranchIndicator = (
 export const TreeViewBranchContent = (
   props: React.ComponentProps<typeof ArkTreeView.BranchContent>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ArkTreeView.BranchContent
@@ -276,8 +278,8 @@ export const TreeViewBranchContent = (
         "motion-reduce:animate-none!",
         className
       )}
-      data-slot="tree-view-branch-content"
       {...rest}
+      data-slot={slot ?? "tree-view-branch-content"}
     >
       <TreeViewBranchIndentGuide />
 
@@ -289,7 +291,7 @@ export const TreeViewBranchContent = (
 const TreeViewBranchIndentGuide = (
   props: React.ComponentProps<typeof ArkTreeView.BranchIndentGuide>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkTreeView.BranchIndentGuide
@@ -301,8 +303,8 @@ const TreeViewBranchIndentGuide = (
         "pointer-events-none",
         className
       )}
-      data-slot="tree-view-branch-indent-guide"
       {...rest}
+      data-slot={slot ?? "tree-view-branch-indent-guide"}
     />
   );
 };
@@ -310,13 +312,13 @@ const TreeViewBranchIndentGuide = (
 export const TreeViewContent = (
   props: React.ComponentProps<typeof ArkTreeView.Item>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkTreeView.Item
       className={cn(treeViewControlVariants(), className)}
-      data-slot="tree-view-item"
       {...rest}
+      data-slot={slot ?? "tree-view-item"}
     />
   );
 };
@@ -366,7 +368,7 @@ export const TreeViewItem = (props: TreeViewItemProps) => {
 };
 
 const TreeViewItemIcon = (props: React.ComponentProps<typeof ark.span>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.span
@@ -374,8 +376,8 @@ const TreeViewItemIcon = (props: React.ComponentProps<typeof ark.span>) => {
         "in-[[data-slot=tree-view-item]:has([data-slot=tree-view-checkbox])]:hidden",
         className
       )}
-      data-slot="tree-view-item-icon"
       {...rest}
+      data-slot={slot ?? "tree-view-item-icon"}
     />
   );
 };
@@ -383,7 +385,7 @@ const TreeViewItemIcon = (props: React.ComponentProps<typeof ark.span>) => {
 const TreeViewItemTitle = (
   props: React.ComponentProps<typeof ArkTreeView.ItemText>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkTreeView.ItemText
@@ -393,8 +395,8 @@ const TreeViewItemTitle = (
         "overflow-hidden",
         className
       )}
-      data-slot="tree-view-item-title"
       {...rest}
+      data-slot={slot ?? "tree-view-item-title"}
     />
   );
 };
@@ -402,13 +404,13 @@ const TreeViewItemTitle = (
 export const TreeViewCheckbox = (
   props: React.ComponentProps<typeof ArkTreeView.NodeCheckbox>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkTreeView.NodeCheckbox
       className={cn(checkboxVariants(), "[&_svg]:size-3!", className)}
-      data-slot="tree-view-checkbox"
       {...rest}
+      data-slot={slot ?? "tree-view-checkbox"}
     >
       <ArkTreeView.NodeCheckboxIndicator indeterminate={<MinusIcon />}>
         <CheckIcon />
@@ -420,7 +422,7 @@ export const TreeViewCheckbox = (
 const TreeViewNodeInput = (
   props: React.ComponentProps<typeof ArkTreeView.NodeRenameInput>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkTreeView.NodeRenameInput
@@ -435,8 +437,8 @@ const TreeViewNodeInput = (
         "outline-none focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring",
         className
       )}
-      data-slot="tree-view-node-rename-input"
       {...rest}
+      data-slot={slot ?? "tree-view-node-rename-input"}
     />
   );
 };

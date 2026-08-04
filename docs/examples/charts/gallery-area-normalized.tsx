@@ -15,21 +15,21 @@ import { MosaicDemo } from "./mosaic-demo";
 // through to the mark; `percent` on the y scale turns the 0–1 share into 0–100%.
 
 const config = {
-  ok: { label: "OK", color: "var(--chart-2)" },
-  slow: { label: "Slow", color: "var(--chart-4)" },
-  error: { label: "Error", color: "var(--destructive)" },
+  confirmed: { label: "Confirmed", color: "var(--chart-2)" },
+  disputed: { label: "Disputed", color: "var(--chart-4)" },
+  hoax: { label: "Hoax", color: "var(--destructive)" },
 } satisfies ChartConfig;
 
-const ORDER = ["ok", "slow", "error"];
+const ORDER = ["confirmed", "disputed", "hoax"];
 
 export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot config={config} height={240} table="telemetry">
+        <ChartRoot config={config} height={240} table="sightings">
           <ChartAreaY
             curve="monotone-x"
-            fill="status"
+            fill="verdict"
             offset="normalize"
             order={ORDER}
             tip
@@ -37,7 +37,7 @@ export default function Example() {
             y={count()}
           />
           <ChartAxisX label="hour of day" ticks={12} />
-          <ChartAxisY grid label="share of requests" percent />
+          <ChartAxisY grid label="share of sightings" percent />
           <ChartLegend />
         </ChartRoot>
       </div>

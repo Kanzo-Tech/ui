@@ -5,7 +5,7 @@ import { cn } from "../lib/cn";
 // A card is a self-contained composition → `<article>` (still `asChild`-swappable, e.g. to an
 // `<a>` for a clickable card, exactly as before).
 export const Card = (props: React.ComponentProps<typeof ark.article>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.article
@@ -20,8 +20,8 @@ export const Card = (props: React.ComponentProps<typeof ark.article>) => {
         "rounded-xl border shadow-xs/5",
         className
       )}
-      data-slot="card"
       {...rest}
+      data-slot={slot ?? "card"}
     />
   );
 };
@@ -53,14 +53,14 @@ interface CardMediaProps
     VariantProps<typeof cardMediaVariants> {}
 
 export const CardMedia = (props: CardMediaProps) => {
-  const { variant = "default", className, ...rest } = props;
+  const { variant = "default", className, slot, ...rest } = props;
 
   return (
     <ark.div
       className={cn(cardMediaVariants({ variant }), className)}
-      data-slot="card-media"
       data-variant={variant}
       {...rest}
+      data-slot={slot ?? "card-media"}
     />
   );
 };
@@ -77,7 +77,7 @@ interface HeaderProps extends React.ComponentProps<typeof ark.div> {
 }
 
 export const CardHeader = (props: HeaderProps) => {
-  const { title, description, className, children, ...rest } = props;
+  const { title, description, className, children, slot, ...rest } = props;
 
   return (
     <ark.div
@@ -88,8 +88,8 @@ export const CardHeader = (props: HeaderProps) => {
         "has-data-[slot=card-action]:grid-cols-[1fr_auto]",
         className
       )}
-      data-slot="card-header"
       {...rest}
+      data-slot={slot ?? "card-header"}
     >
       {!!title && <CardTitle>{title}</CardTitle>}
       {!!description && <CardDescription>{description}</CardDescription>}
@@ -105,7 +105,7 @@ export const CardHeader = (props: HeaderProps) => {
 // A real heading (h3) so cards contribute to the document outline; the visual size is set by
 // the class, and `asChild` lets a consumer pick another level where the hierarchy needs it.
 export const CardTitle = (props: React.ComponentProps<typeof ark.h3>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.h3
@@ -113,8 +113,8 @@ export const CardTitle = (props: React.ComponentProps<typeof ark.h3>) => {
         "font-heading font-semibold text-foreground text-lg/6",
         className
       )}
-      data-slot="card-title"
       {...rest}
+      data-slot={slot ?? "card-title"}
     />
   );
 };
@@ -122,19 +122,19 @@ export const CardTitle = (props: React.ComponentProps<typeof ark.h3>) => {
 export const CardDescription = (
   props: React.ComponentProps<typeof ark.div>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
       className={cn("row-start-2", "text-muted-foreground text-sm", className)}
-      data-slot="card-description"
       {...rest}
+      data-slot={slot ?? "card-description"}
     />
   );
 };
 
 export const CardAction = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
@@ -142,26 +142,26 @@ export const CardAction = (props: React.ComponentProps<typeof ark.div>) => {
         "col-start-2 row-span-2 row-start-1 self-start justify-self-end",
         className
       )}
-      data-slot="card-action"
       {...rest}
+      data-slot={slot ?? "card-action"}
     />
   );
 };
 
 export const CardContent = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
       className={cn("px-(--space)", className)}
-      data-slot="card-content"
       {...rest}
+      data-slot={slot ?? "card-content"}
     />
   );
 };
 
 export const CardFooter = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ark.div
@@ -173,8 +173,8 @@ export const CardFooter = (props: React.ComponentProps<typeof ark.div>) => {
         "py-(--space)",
         className
       )}
-      data-slot="card-footer"
       {...rest}
+      data-slot={slot ?? "card-footer"}
     />
   );
 };

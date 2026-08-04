@@ -1,0 +1,104 @@
+---
+title: The Guild
+description: The running example every page in these docs shares — five guild halls, one quest board, and forty-four contracts.
+---
+
+Every example on this site is about the same thing.
+
+Five guild halls take contracts from one board. The board says what needs doing, where, how bad
+it is and what it pays; the roster says who can be sent. That is the whole subject matter, and
+once you have read this page you never have to read it again — the table on the data-table page,
+the chart on the analytics page and the nodes in the graph showcase are all this.
+
+<Callout title="Why bother">
+Before this, the examples each invented their own subject: a select offered "My Dataset", a chart
+plotted `requests` against `latency (ms)`, a table listed pipelines and a graph held RDF triples.
+Every one was reasonable alone. Together they made the reader re-learn the domain on every page,
+and they never let two components be seen agreeing about anything — which is most of what a design
+system has to prove.
+</Callout>
+
+## The halls
+
+A hall is this world's **tenant**, and the reason the world is a guild rather than a bakery: a
+hall has colours, and colours are the thing this library derives.
+
+`heraldry` is not decoration. The two hexes are exactly the seed pair
+`@kanzo-tech/palette` takes — a brand and a neutral — so "the Order of Salt's colours" and "that
+tenant's derived palette" are the same sentence. Switching halls is how the white-label story gets
+told, with no fixture that exists only to demonstrate theming.
+
+<HallsTable />
+
+## The work
+
+A contract passes through five states, in order. Two of them are terminal, which is what lets an
+example show a row action that is legal on some rows and not others.
+
+<StatusesTable />
+
+Difficulty is a **grade** from 1 to 5, named as well as numbered — a `Rating` wants the number and
+a tooltip wants the word. Reward tracks grade, then travel, so a reward column that sorts wrong is
+visibly wrong:
+
+<GradesTable />
+
+## The people
+
+Thirty-five members across the five halls. Six roles, each with a duty a rule can actually
+require — which is why the rule language can say *a party this size must carry a cantor* and mean
+something.
+
+<RolesTable />
+
+Availability is **derived from the board**, never authored beside it. The first version of this
+world authored both and they disagreed within the hour: the generator staffed a member marked
+`missing` onto a contract that had just been signed. Now being *out* is computed from who is on a
+live contract, and only the narrative exceptions — resting, wounded, missing — are written down.
+
+<Callout type="warn" title="Both can be true">
+Dagfinn Roe is wounded *and* afield, on a grade-5 contract that is six days overdue with a party of
+two and no cantor. The condition wins the label, because that is the one a quartermaster needs to
+see. That contract is also the one the rule examples reject — a real violation rather than a
+hypothetical one.
+</Callout>
+
+<RosterTable />
+
+## The beasts
+
+Eight, which is not an arbitrary number: eight is how many categorical slots the palette checks
+validate, so a chart coloured by beast is the one place in these docs where the data's cardinality
+and the scheme's capacity are the same number on purpose.
+
+<BestiaryTable />
+
+## The archive
+
+The board is what is happening. The archive is what has happened — every contract the halls have
+closed, going back about eight years.
+
+It exists because of the graph. A network view is only worth a WebGL canvas when things *share*:
+the same member turns up on contract after contract, the same beast in region after region, so
+lassoing a cluster pulls in work you did not know was related. Forty-four contracts cannot do
+that.
+
+But it is history rather than padding, and this is the part worth knowing if you ever edit the
+world. Each member's **settled** count on the roster above used to be a number with no cause.
+Parties in the archive are drawn against that count as a quota, until the quota is spent — so the
+archive *is* the history those numbers were counting, and a test fails if the two ever stop
+agreeing.
+
+<ArchiveFacts />
+
+## The board
+
+Forty-four contracts. Five pages at ten a page, so pagination is doing something and the last page
+is not a stub.
+
+The derived half — ids, rewards, dates, parties — comes from one seeded stream, so this is the same
+board in every browser and every build. Nothing in the world reads the clock: today is
+**14 September 1312**, and a test fails if any fixture calls `Date.now()`. A reader who sees `1312`
+in a date field knows immediately that it is the example world talking and not their own data.
+
+<BoardTable />

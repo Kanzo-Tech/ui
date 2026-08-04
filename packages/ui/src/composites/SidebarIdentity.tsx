@@ -7,8 +7,8 @@ import { cn } from "../lib/cn.js";
 /**
  * `responsive`/`collapsed` are behaviour, so they stay props on the root — but the parts need
  * them too (the avatar's semantic size, the text column's collapse). Context carries them
- * down instead of the caller repeating them on every part. This is why the file is
- * `"use client"`; both consumers ({@link SidebarUser}, {@link InstanceSwitcher}) already are.
+ * down instead of the caller repeating them on every part. This context is why the file is
+ * `"use client"`.
  */
 const IdentityCtx = createContext<{ responsive: boolean; collapsed: boolean }>({
   responsive: false,
@@ -23,8 +23,8 @@ export interface SidebarIdentityProps extends ComponentProps<"div"> {
 }
 
 /**
- * SidebarIdentity — the collapse-aware "avatar/icon + name + subtitle" block shared by
- * {@link SidebarUser} and {@link InstanceSwitcher}. When `responsive`, the text column and gap
+ * SidebarIdentity — the collapse-aware "avatar/icon + name + subtitle" block a sidebar header or
+ * footer is built from. When `responsive`, the text column and gap
  * collapse in the sidebar's icon state and the avatar grows to fill the 32px square (its
  * `data-size` grows to `md` too, so badges/icons stay correctly scaled).
  *
@@ -51,6 +51,7 @@ export function SidebarIdentity({
   collapsed = false,
   className,
   children,
+  slot,
   ...rest
 }: SidebarIdentityProps) {
   return (
@@ -64,8 +65,8 @@ export function SidebarIdentity({
           responsive && "group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0",
           className,
         )}
-        data-slot="sidebar-identity"
         {...rest}
+        data-slot={slot ?? "sidebar-identity"}
       >
         {children}
       </div>
@@ -75,7 +76,7 @@ export function SidebarIdentity({
 SidebarIdentity.displayName = "SidebarIdentity";
 
 /** A square icon tile instead of an avatar (instances / workspaces / orgs). */
-export function SidebarIdentityIcon({ className, ...rest }: ComponentProps<"div">) {
+export function SidebarIdentityIcon({ className, slot, ...rest }: ComponentProps<"div">) {
   const { responsive } = useContext(IdentityCtx);
   return (
     <div
@@ -84,8 +85,8 @@ export function SidebarIdentityIcon({ className, ...rest }: ComponentProps<"div"
         responsive && "group-data-[collapsible=icon]:size-8",
         className,
       )}
-      data-slot="sidebar-identity-icon"
       {...rest}
+      data-slot={slot ?? "sidebar-identity-icon"}
     />
   );
 }
@@ -95,14 +96,14 @@ SidebarIdentityIcon.displayName = "SidebarIdentityIcon";
  * The avatar (people). Takes `AvatarImage` / `AvatarFallback` as children; its `size` is
  * derived from the sidebar state, so it is not overridable here.
  */
-export function SidebarIdentityAvatar(props: Omit<ComponentProps<typeof Avatar>, "size">) {
+export function SidebarIdentityAvatar({ slot, ...rest }: Omit<ComponentProps<typeof Avatar>, "size">) {
   const { responsive, collapsed } = useContext(IdentityCtx);
-  return <Avatar data-slot="sidebar-identity-avatar" size={responsive && collapsed ? "md" : "sm"} {...props} />;
+  return <Avatar size={responsive && collapsed ? "md" : "sm"} {...rest} slot={slot ?? "sidebar-identity-avatar"} />;
 }
 SidebarIdentityAvatar.displayName = "SidebarIdentityAvatar";
 
 /** The text column. Hidden entirely in the sidebar's icon state when `responsive`. */
-export function SidebarIdentityText({ className, ...rest }: ComponentProps<"div">) {
+export function SidebarIdentityText({ className, slot, ...rest }: ComponentProps<"div">) {
   const { responsive } = useContext(IdentityCtx);
   return (
     <div
@@ -111,30 +112,30 @@ export function SidebarIdentityText({ className, ...rest }: ComponentProps<"div"
         responsive && "group-data-[collapsible=icon]:hidden",
         className,
       )}
-      data-slot="sidebar-identity-text"
       {...rest}
+      data-slot={slot ?? "sidebar-identity-text"}
     />
   );
 }
 SidebarIdentityText.displayName = "SidebarIdentityText";
 
-export function SidebarIdentityLabel({ className, ...rest }: ComponentProps<"span">) {
+export function SidebarIdentityLabel({ className, slot, ...rest }: ComponentProps<"span">) {
   return (
     <span
       className={cn("truncate text-sm font-medium", className)}
-      data-slot="sidebar-identity-label"
       {...rest}
+      data-slot={slot ?? "sidebar-identity-label"}
     />
   );
 }
 SidebarIdentityLabel.displayName = "SidebarIdentityLabel";
 
-export function SidebarIdentityDescription({ className, ...rest }: ComponentProps<"span">) {
+export function SidebarIdentityDescription({ className, slot, ...rest }: ComponentProps<"span">) {
   return (
     <span
       className={cn("truncate text-xs text-muted-foreground", className)}
-      data-slot="sidebar-identity-description"
       {...rest}
+      data-slot={slot ?? "sidebar-identity-description"}
     />
   );
 }

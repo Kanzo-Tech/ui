@@ -18,7 +18,7 @@ import {
   type ChartSpecContext,
 } from "./chart-spec.js";
 import { useMosaic } from "./mosaic-provider.js";
-import { resolveTokenColor } from "./theme.js";
+import { resolveTokenColor } from "../lib/token-color.js";
 import { TokenizedPlot } from "./tokenized-plot.js";
 
 /** vgplot ships `any` for every directive; this is the one place we pin a shape to it. */
@@ -42,8 +42,6 @@ function toVgDirective(directive: ChartDirective): VgDirective | null {
       return directives[directive.interactor]?.(directive.options) ?? null;
     case "attribute":
       return directives[directive.name]?.(directive.value) ?? null;
-    case "legend":
-      return directives[`${directive.channel}Legend`]?.(directive.options) ?? null;
     case "raw":
       return directive.value as VgDirective;
   }
@@ -167,6 +165,7 @@ export function ChartRoot(props: ChartRootProps) {
     className,
     plotClassName,
     ref,
+    slot,
     ...rest
   } = props;
   const { coordinator, crossfilter, selected, registerSelection } = useMosaic();
@@ -227,12 +226,12 @@ export function ChartRoot(props: ChartRootProps) {
     <ChartContext.Provider value={context}>
       <ark.div
         className={cn("flex w-full flex-col gap-2", className)}
-        data-slot="chart-root"
         ref={(node: HTMLDivElement | null) => {
           host.current = node;
           assignRef(ref, node);
         }}
         {...rest}
+        data-slot={slot ?? "chart-root"}
       >
         <TokenizedPlot
           className={plotClassName}
@@ -250,7 +249,7 @@ export function ChartRoot(props: ChartRootProps) {
             facetLabel,
             attributes,
           ]}
-          render={(_colors, width, plotHost) => {
+          render={(width, plotHost) => {
             const cache = new Map<string, string>();
             const ctx: ChartSpecContext = {
               table,

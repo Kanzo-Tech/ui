@@ -1,4 +1,23 @@
 {
   "title": "Data display",
-  "pages": ["table", "data-table", "charts", "chart-gallery", "stat-tile","tree-view", "json-tree-view", "card", "item", "status", "swatch", "badge", "avatar", "progress", "---Content---", "prose", "code-editor", "kbd", "highlight"]
+  "pages": [
+    "table",
+    "data-table",
+    "charts",
+    "chart-gallery",
+    "stat-tile",
+    "tree-view",
+    "json-tree-view",
+    "card",
+    "item",
+    "status",
+    "swatch",
+    "badge",
+    "avatar",
+    "progress",
+    "---Content---",
+    "prose",
+    "kbd",
+    "highlight"
+  ]
 }

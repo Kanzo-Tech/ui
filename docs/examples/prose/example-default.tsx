@@ -7,25 +7,25 @@ import { Prose } from "@kanzo-tech/ui";
 export default function Example() {
   return (
     <Prose>
-      <h2>Dataset conventions</h2>
+      <h2>Posting a contract</h2>
       <p>
-        Every dataset in the catalogue carries a <code>dct:title</code> and a{" "}
-        <code>dct:issued</code> date. Keywords are optional but strongly encouraged — they are
-        what makes a dataset findable through search rather than through browsing.
+        Every contract on the board carries a <code>grade</code> and a <code>region</code>. Tags
+        are optional but strongly encouraged — they are what lets a warden find the work she is
+        equipped for rather than reading the board end to end.
       </p>
       <blockquote>
-        A dataset without keywords is a dataset nobody will find twice.
+        A contract nobody tagged is a contract the right party never sees.
       </blockquote>
       <h3>Required fields</h3>
       <ul>
         <li>
-          <strong>Title</strong> — human readable, no file extensions.
+          <strong>Title</strong> — what a scout would call it, not a case number.
         </li>
         <li>
-          <strong>Issued</strong> — ISO 8601, date only.
+          <strong>Due</strong> — a date the party can walk to and back from.
         </li>
         <li>
-          <a href="#">Publisher</a> — an IRI, not a display name.
+          <a href="#">Posting hall</a> — a charter, not a person's name.
         </li>
       </ul>
     </Prose>

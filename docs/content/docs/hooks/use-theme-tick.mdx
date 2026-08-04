@@ -12,10 +12,10 @@ it was born with.
 ## Usage
 
 ```tsx
-import { resolveTokenColor, useThemeTick } from "@kanzo-tech/ui/analytics";
+import { resolveTokenColor, useThemeTick } from "@kanzo-tech/ui";
 ```
 
-The `/analytics` peers are [optional](/docs/installation) — nothing installs them unless you import this subpath.
+Both are on the root barrel and neither needs an optional peer: a token resolver is not an engine.
 
 ```tsx
 const tick = useThemeTick();
@@ -40,14 +40,17 @@ A canvas is not CSS. `fillStyle` cannot take `var(--chart-1)`, and neither can O
 whose `isColor` reads an unresolved token as a *column name* and kills the query. So both have to be
 handed a literal — and a literal is a snapshot of whatever palette was live when it was read.
 
-Three things move that palette, none of which re-render anything on their own:
+Things that move that palette, none of which re-render anything on their own:
 
 - `KanzoThemeProvider` writes its axes as `data-*` attributes on `<html>`
 - next-themes toggles `.dark` on the same element
-- a custom base tint writes an inline `style` there
+- **the tenant's palette changes**, which moves nothing on `<html>` at all
 
-All three are attribute writes on `document.documentElement`, which is exactly what this hook
-observes.
+The first two are attribute writes on `document.documentElement`. The third is the one worth
+knowing about: a palette is a whole *document*, so switching one swaps a `<style>` in `<head>` and
+every token underneath changes value with the root untouched. An observer on the root cannot see
+it — which is why this hook also reads the provider's palette preference and watches `<head>`,
+where the stylesheet actually lands however a host applies it.
 
 <Callout type="warn">
 Do **not** hand-roll the observer. The local copy this replaced filtered attributes down to `class`,
@@ -76,12 +79,18 @@ Takes no arguments.
 
 ### Returns
 
-`number` — a counter incremented on every attribute mutation of `document.documentElement`. Starts
-at `0`, including on the server and on the first client render, so it never causes a hydration
-mismatch. Feed it to an effect's dependency list; do not render it.
+`number` — a counter incremented on every attribute mutation of `document.documentElement`, on every
+`<head>` mutation, and whenever the provider's palette preference moves. Starts at `0`, including on
+the server and on the first client render, so it never causes a hydration mismatch. Feed it to an
+effect's dependency list; do not render it.
 
-The observer is installed once on mount and disconnected on unmount. Where `MutationObserver` is
-undefined the hook stays at `0` rather than throwing.
+A `<head>` mutation is also how a router inserting route CSS looks, so the counter ticks a little
+more often than colour strictly changes. That is the trade, and it is the correct way round: a false
+tick costs one re-resolve, a missed one leaves a canvas painting a brand nobody selected.
+
+The observers are installed once on mount and disconnected on unmount. Where `MutationObserver` is
+undefined the hook stays at `0` rather than throwing, and the provider half is optional, so a
+surface still works without one.
 
 ### Related
 

@@ -18,42 +18,42 @@ import { useState } from "react";
 /** The finished shape from the step-by-step guide: a fieldset, a group, a validated text
  *  field and a horizontal switch. State is plain useState — the library owns no form state. */
 export default function Example() {
-  const [endpoint, setEndpoint] = useState("");
+  const [reward, setReward] = useState("");
   const [touched, setTouched] = useState(false);
 
-  const error = endpoint.endsWith("/") ? "Remove the trailing slash." : "";
+  const error = /^\d*$/.test(reward) ? "" : "Rewards are written in figures.";
 
   return (
     <form className="w-full max-w-md" onSubmit={(e) => e.preventDefault()}>
       <FieldSet>
-        <FieldLegend>Connection</FieldLegend>
-        <FieldDescription>Where the dataset is pulled from.</FieldDescription>
+        <FieldLegend>Posting</FieldLegend>
+        <FieldDescription>What the contract pays, and who may claim it.</FieldDescription>
 
         <FieldGroup>
           <Field invalid={touched && Boolean(error)} required>
             <FieldLabel>
-              Endpoint
+              Reward
               <FieldRequiredIndicator />
             </FieldLabel>
             <Input
               onBlur={() => setTouched(true)}
-              onChange={(e) => setEndpoint(e.target.value)}
-              placeholder="https://api.example.org"
-              value={endpoint}
+              onChange={(e) => setReward(e.target.value)}
+              placeholder="32"
+              value={reward}
             />
-            <FieldDescription>The base URL, without a trailing slash.</FieldDescription>
+            <FieldDescription>Gold, paid on delivery.</FieldDescription>
             <FieldError>{error}</FieldError>
           </Field>
 
           <Field orientation="horizontal">
-            <FieldLabel>Verify TLS certificates</FieldLabel>
+            <FieldLabel>Post to every hall</FieldLabel>
             <Switch defaultChecked />
           </Field>
         </FieldGroup>
       </FieldSet>
 
       <Button className="mt-6" type="submit">
-        Save
+        Post
       </Button>
     </form>
   );

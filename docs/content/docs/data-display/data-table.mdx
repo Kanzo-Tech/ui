@@ -1,24 +1,23 @@
 ---
 title: Data Table
-description: A thin composable layer over TanStack Table — a preset for the usual shape, parts for everything else.
+description: A thin composable layer over TanStack Table — the parts a connected table is assembled from.
 ---
 
 <Callout type="info">
-**Three layers, not two.**
+**Two halves of one pair.**
 
 - **[`Table`](/docs/data-display/table)** is markup only — semantic elements, tokenised chrome, no
   data layer, in the root barrel. You bring the rows and render them.
-- **`DataTable`** is the batteries-included preset: that same table plus TanStack Table for
-  sorting, filtering and pagination, wired the way most call sites want it.
-- **The parts** — `useDataTable` plus `DataTableRoot` / `Toolbar` / `Search` / `FacetFilter` /
-  `ViewOptions` / `Content` / `Pagination` — are what the preset is built from. Row selection,
-  column visibility, faceted filters and server-driven paging live here, deliberately not on the
-  preset's prop list.
+- **The parts here** — `useDataTable` plus `DataTableRoot`, `DataTableToolbar`,
+  `DataTableSearch`, `DataTableFacetFilter`, `DataTableViewOptions`, `DataTableContent` and
+  `DataTablePagination` — are that same table wired to TanStack Table: sorting, filtering,
+  row selection, column visibility and paging.
 
-TanStack Table is a real dependency, which is why all three sit on their own entry point:
+That split is [the engine rule](/docs/philosophy#the-engine-rule). TanStack Table is a real
+dependency, which is why this half sits on its own entry point:
 
 ```tsx
-import { DataTable } from "@kanzo-tech/ui/table";
+import { DataTableRoot } from "@kanzo-tech/ui/table";
 ```
 
 `@tanstack/react-table` is an **optional peer**, so `import { Button }` keeps working for everyone
@@ -38,22 +37,40 @@ pnpm add @tanstack/react-table
 ```
 
 ```tsx
-import { type ColumnDef, DataTable, sortableHeader } from "@kanzo-tech/ui/table";
+import {
+  type ColumnDef,
+  DataTableContent,
+  DataTablePagination,
+  DataTableRoot,
+  DataTableSearch,
+  DataTableToolbar,
+  sortableHeader,
+  useDataTable,
+} from "@kanzo-tech/ui/table";
 ```
 
 ```tsx
-<DataTable columns={columns} data={data} searchKey="name" />
+const table = useDataTable({ columns, data });
+
+<DataTableRoot table={table}>
+  <DataTableToolbar>
+    <DataTableSearch column="name" />
+  </DataTableToolbar>
+  <DataTableContent />
+  <DataTablePagination />
+</DataTableRoot>
 ```
+
+Six lines, and every one of them is a decision you can change. There is deliberately no
+`<DataTable columns data />` preset over the top: a fixed arrangement of parts that already ship
+is [an example, not a component](/docs/philosophy#the-governing-constraint), and the first call
+site that wants a seventh thing drops to the parts anyway. `example-complete` below is that
+arrangement, in a file you can copy.
 
 `ColumnDef`, `Row`, `CellContext` and `Table` are re-exported from the same subpath, so a consumer
 types its columns without a direct TanStack import.
 
-**Start with the preset.** Move to the parts the moment you need something it does not expose —
-you keep the same columns and the same chrome, you just assemble the row yourself.
-
-## The preset
-
-### Sorting and toolbar
+## Sorting
 
 Sorting is opt-in per column. TanStack marks every column sortable by default, but a column only
 becomes clickable when its `header` is built with `sortableHeader` — a plain-string header stays
@@ -61,15 +78,18 @@ inert.
 
 <ComponentPreview componentName="data-table" fileName="example-sortable" />
 
-`searchKey` filters on a single column id and, together with `toolbarActions`, is what makes the
-toolbar row appear at all; with neither, no toolbar is rendered. Pagination hides itself whenever
-there is only one page.
+`DataTableSearch` filters on the single column id you give it, and `DataTableToolbar` is what
+puts it and any actions on one row. Render neither and there is no toolbar. `DataTablePagination`
+hides itself whenever there is one page, no selection and no `pageSizes`.
 
-### Empty state
+## Empty state
+
+`DataTableContent`'s `empty` prop takes whatever should stand in for the rows. An
+[`Item` composition](/docs/data-display/item#an-empty-state) is the usual shape.
 
 <ComponentPreview componentName="data-table" fileName="example-empty" />
 
-### Footer
+## Footer
 
 Give a column a `footer` and the table renders a `<tfoot>` — totals, counts, a summary row.
 Columns without one leave an empty footer cell; if no column defines a footer, no `<tfoot>` is
@@ -125,7 +145,7 @@ though a single page fits.
 <ComponentPreview componentName="data-table" fileName="example-column-visibility" />
 
 `DataTableViewOptions` lists every column whose `getCanHide()` is true, labelling each by its
-`header` **when that header is a string**. A column whose header is `sortableHeader("Records")`
+`header` **when that header is a string**. A column whose header is `sortableHeader("Reward")`
 is a render function, not a label, so the menu falls back to the column id. Keep the plain string
 header, give the column an explicit `id` you are happy to show, or take it out of the menu with
 `enableHiding: false`.
@@ -191,7 +211,7 @@ value *or* a function) and leaves you to resolve it against the previous state y
 ## Everything together
 
 Selection, search, two faceted filters, column visibility, sortable headers, row activation and a
-page-size selector — the shape the preset deliberately does not grow props for.
+page-size selector.
 
 <ComponentPreview componentName="data-table" fileName="example-complete" />
 
@@ -202,7 +222,7 @@ row type, so a custom toolbar control is a component like any other:
 
 ```tsx
 function ResetFilters() {
-  const table = useDataTableContext<Dataset>();
+  const table = useDataTableContext<Quest>();
   if (!table.getState().columnFilters.length) return null;
 
   return (
@@ -225,21 +245,6 @@ Nothing throws; the table just stops reacting to filters and paging.
 </Callout>
 
 ## API Reference
-
-### DataTable
-
-The preset. Its prop list is unchanged.
-
-| Prop | Type | Default |
-| --- | --- | --- |
-| `columns` | `ColumnDef<TData, TValue>[]` | — |
-| `data` | `TData[]` | — |
-| `searchKey` | `string` | — |
-| `searchPlaceholder` | `string` | `"Search…"` |
-| `onRowClick` | `(row: TData) => void` | — |
-| `toolbarActions` | `ReactNode` | — |
-| `pageSize` | `number` | `20` |
-| `empty` | `ReactNode` | `"No results."` |
 
 ### useDataTable
 

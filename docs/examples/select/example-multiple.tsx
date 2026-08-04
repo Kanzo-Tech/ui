@@ -1,5 +1,6 @@
 "use client";
 
+import { ROLES } from "@/example/world";
 import {
   createListCollection,
   Select,
@@ -9,24 +10,18 @@ import {
   SelectValue,
 } from "@kanzo-tech/ui";
 
-const regions = createListCollection({
-  items: [
-    { label: "eu-west-1", value: "eu-west-1" },
-    { label: "eu-central-1", value: "eu-central-1" },
-    { label: "us-east-1", value: "us-east-1" },
-    { label: "us-west-2", value: "us-west-2" },
-    { label: "ap-south-1", value: "ap-south-1" },
-  ],
+const roles = createListCollection({
+  items: ROLES.map((role) => ({ label: role.label, value: role.id })),
 });
 
 export default function Example() {
   return (
-    <Select collection={regions} defaultValue={["eu-west-1", "us-east-1"]} multiple>
+    <Select collection={roles} defaultValue={["warden", "cantor"]} multiple>
       <SelectTrigger className="w-72">
-        <SelectValue placeholder="Select regions" />
+        <SelectValue placeholder="Roles the party must carry" />
       </SelectTrigger>
       <SelectContent>
-        {regions.items.map((item) => (
+        {roles.items.map((item) => (
           <SelectItem item={item} key={item.value}>
             {item.label}
           </SelectItem>

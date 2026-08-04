@@ -13,14 +13,14 @@ import { revalidateLogic, useForm } from "@tanstack/react-form";
 import * as z from "zod";
 
 const schema = z.object({
-  serialization: z.enum(["ttl", "jsonld", "nquads"], {
-    error: "Choose a serialization.",
+  outcome: z.enum(["settled", "failed", "afield"], {
+    error: "Say how the contract ended.",
   }),
 });
 
 export default function Example() {
   const form = useForm({
-    defaultValues: { serialization: "" },
+    defaultValues: { outcome: "" },
     validationLogic: revalidateLogic(),
     validators: { onDynamic: schema },
     onSubmit: () => {},
@@ -37,7 +37,7 @@ export default function Example() {
       }}
     >
       <FieldGroup>
-        <form.Field name="serialization">
+        <form.Field name="outcome">
           {(field) => {
             const invalid = !field.state.meta.isValid;
 
@@ -54,10 +54,10 @@ export default function Example() {
                   }
                   value={field.state.value}
                 >
-                  <RadioGroupLabel>Serialization</RadioGroupLabel>
-                  <RadioGroupItem value="ttl">Turtle</RadioGroupItem>
-                  <RadioGroupItem value="jsonld">JSON-LD</RadioGroupItem>
-                  <RadioGroupItem value="nquads">N-Quads</RadioGroupItem>
+                  <RadioGroupLabel>Outcome</RadioGroupLabel>
+                  <RadioGroupItem value="settled">Settled</RadioGroupItem>
+                  <RadioGroupItem value="failed">Failed</RadioGroupItem>
+                  <RadioGroupItem value="afield">Still afield</RadioGroupItem>
                 </RadioGroup>
 
                 <FieldError>

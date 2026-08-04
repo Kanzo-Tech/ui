@@ -1,6 +1,6 @@
 "use client";
 
-import { cn, Tabs, TabsContent, TabsList, TabsTrigger } from "@kanzo-tech/ui";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@kanzo-tech/ui";
 import { ExternalLinkIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -31,11 +31,11 @@ export const PreviewIframeTabs = ({ iframe, source, fullUrl }: PreviewIframeTabs
     </div>
 
     <div className="relative overflow-hidden rounded-2xl border">
-      <TabsContent data-slot="tab-preview" value="preview">
+      <TabsContent slot="tab-preview" value="preview">
         {iframe}
       </TabsContent>
       {source && (
-        <TabsContent data-slot="tab-code" value="code">
+        <TabsContent slot="tab-code" value="code">
           {source}
         </TabsContent>
       )}

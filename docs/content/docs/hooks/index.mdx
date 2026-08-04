@@ -77,7 +77,6 @@ avoid clashing with our own export of the same name — that alias is internal a
 | `useSteps` | `useStepsContext` | [Steps](https://ark-ui.com/docs/components/steps) |
 | `useSwitch` | `useSwitchContext` | [Switch](https://ark-ui.com/docs/components/switch) |
 | `useTabs` | `useTabsContext` | [Tabs](https://ark-ui.com/docs/components/tabs) |
-| `useTagsInput` | `useTagsInputContext` | [TagsInput](https://ark-ui.com/docs/components/tags-input) |
 | `useToast` | `useToastContext` | [Toast](https://ark-ui.com/docs/components/toast) |
 | `useToggle` | `useToggleContext` | [Toggle](https://ark-ui.com/docs/components/toggle) |
 | `useToggleGroup` | `useToggleGroupContext` | [ToggleGroup](https://ark-ui.com/docs/components/toggle-group) |
@@ -94,3 +93,30 @@ import { useSelect, useDialog, useTabs } from "@kanzo-tech/ui";
 A context hook throws when called outside its provider. Read it from a child of the component's
 root — not from the component that renders that root.
 </Callout>
+
+## `useTagsInput` is the machine, and it names two hooks
+
+Everywhere above, `useX` is Ark's **context** hook. `TagsInput` is the one compound that names both,
+because it ships a controlled root and a root has to be handed a machine:
+
+| Ours | Ark UI | What it is |
+| --- | --- | --- |
+| `useTagsInput` | `useTagsInput` | The **machine**. Build it yourself and pass it to `TagsInputRootProvider` as `value`. |
+| `useTagsInputContext` | `useTagsInputContext` | The **context**, the same thing every `useX` above is. |
+
+```tsx
+import { TagsInputRootProvider, useTagsInput } from "@kanzo-tech/ui";
+
+const tagsInput = useTagsInput({ defaultValue: ["react"] });
+
+return <TagsInputRootProvider value={tagsInput}>{/* parts */}</TagsInputRootProvider>;
+```
+
+Reaching for the value or the items from *inside* the compound is `useTagsInputContext`, not
+`useTagsInput`. This mirrors Ark's own naming and Shark UI's, which is why the exception is here
+rather than smoothed away — a name that matches the reference while returning something else is
+worse than a table with one row that needs a sentence.
+
+[`useHighlight`](/docs/data-display/highlight) is a machine hook too, and is not the same case:
+Ark's `Highlight` has no provider and therefore no context hook, so there was never a choice to
+make there.

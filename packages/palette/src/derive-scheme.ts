@@ -425,12 +425,13 @@ const SHORTLIST = 6;
  * (17.8, 14.3, 10.1, 7.2): a bar of 20 costs it two categories to buy headroom over a target of 8,
  * a bar of 8 keeps six families at 10.1. 15 splits it at four.
  *
- * Roughly twice `CVD_TARGET`, and within 3.1 ΔE of the 20.9 the shipped scheme reaches at eight
- * slots — against 13.7 below it when every family is forced.
+ * Roughly twice `CVD_TARGET`, and 5.9 ΔE under the 20.9 the shipped scheme reaches at eight slots
+ * (measured 2026-07 off `palettes/kanzo.json`) — against 13.7, under the bar, when every family is
+ * forced.
  *
- * A ceiling on categories is not a loss: `Scheme.slots` is already the *capacity* a scheme claims,
- * and the tokens past it fold to the muted "Other". Naming five real categories and saying so beats
- * naming seven that a colour-blind reader sees as five.
+ * A ceiling on categories is not a loss: `CategoricalSet.capacity` is already how many real
+ * categories a set claims, and the tokens past it fold to the muted "Other". Naming five real
+ * categories and saying so beats naming seven that a colour-blind reader sees as five.
  */
 export const SEPARATION_BAR = 15;
 
@@ -671,13 +672,13 @@ export interface SchemeDerivation {
 }
 
 /**
- * One family subset, both modes — the derivation a `SchemeColors` can actually be built from.
+ * One family subset, both modes — the derivation a `CategoricalSet` can actually be built from.
  *
  * `deriveOrderedScheme` answers for one mode, and answering twice does not compose: the subset rule
  * picks the size each mode can afford, and the two modes disagree. Measured with the status palette
  * avoided: kanzo takes 7 families in light and 5 in dark, Catppuccin Latte 7 and 5, kanzo-dark 7 and
- * 8. But `SchemeColors` is `{ light, dark }` over **one** set of categories, because a series keeps
- * its identity across a mode flip — slot 3 is the same thing in both, or the legend lies.
+ * 8. But a `CategoricalSet` is `{ light, dark }` over **one** set of categories, because a series
+ * keeps its identity across a mode flip — slot 3 is the same thing in both, or the legend lies.
  *
  * Reconciling after the fact is lossy, and that is the measurement that made this function exist.
  * Intersecting the two modes' `crowded` sets and re-deriving collapses Dracula to 3 categories where

@@ -2,7 +2,7 @@
 title: Progress
 description: Shows how far along a determinate — or indeterminate — task is.
 links:
-  doc: https://ark-ui.com/docs/data-display/progress
+  doc: https://ark-ui.com/docs/components/progress-linear
 ---
 
 <ComponentPreview componentName="progress" />
@@ -20,7 +20,9 @@ import { Progress, ProgressValue } from "@kanzo-tech/ui";
 ```
 
 `Progress` renders its own track and range after whatever children you give it, so the
-children slot is for labels only — you never place `ProgressTrack` yourself.
+children slot is for labels only. `ProgressTrack` and `ProgressRange` are exported — they are the
+parts a custom root would compose — but placing one inside `Progress` gives you a second trough,
+because the root's pair is unconditional.
 
 ## Anatomy
 

@@ -17,22 +17,22 @@ import { MosaicDemo } from "./mosaic-demo";
 // interval brush legal — the same chart with `x="region"` would be a band scale and would throw.
 
 const config = {
-  ok: { label: "OK", color: "var(--chart-2)" },
-  slow: { label: "Slow", color: "var(--chart-4)" },
-  error: { label: "Error", color: "var(--destructive)" },
+  confirmed: { label: "Confirmed", color: "var(--chart-2)" },
+  disputed: { label: "Disputed", color: "var(--chart-4)" },
+  hoax: { label: "Hoax", color: "var(--destructive)" },
 } satisfies ChartConfig;
 
-const ORDER = ["ok", "slow", "error"];
+const ORDER = ["confirmed", "disputed", "hoax"];
 
 export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot config={config} height={240} table="telemetry">
-          <ChartRectY fill="status" order={ORDER} tip x={bin("latency")} y={count()} />
+        <ChartRoot config={config} height={240} table="sightings">
+          <ChartRectY fill="verdict" order={ORDER} tip x={bin("bounty")} y={count()} />
           <ChartIntervalX />
-          <ChartAxisX label="latency (ms)" />
-          <ChartAxisY grid label="requests" />
+          <ChartAxisX label="bounty (gold)" />
+          <ChartAxisY grid label="sightings" />
           <ChartLegend />
         </ChartRoot>
       </div>

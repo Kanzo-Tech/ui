@@ -1,23 +1,32 @@
+import { dueOn, openQuests } from "@/example/quests";
 import { Button, DownloadTrigger } from "@kanzo-tech/ui";
 import { DownloadIcon } from "lucide-react";
 
-const schema = JSON.stringify(
-  { "@context": "https://schema.org", "@type": "Dataset", name: "Readings" },
-  null,
-  2
-);
+const board = [
+  "id,title,region,grade,reward,due",
+  ...openQuests().map((contract) =>
+    [
+      contract.id,
+      `"${contract.title}"`,
+      contract.region,
+      contract.grade,
+      contract.reward,
+      dueOn(contract),
+    ].join(","),
+  ),
+].join("\n");
 
 export default function Example() {
   return (
     <DownloadTrigger
       asChild
-      data={schema}
-      fileName="schema.json"
-      mimeType="application/json"
+      data={board}
+      fileName="open-contracts.csv"
+      mimeType="text/csv"
     >
       <Button variant="outline">
         <DownloadIcon />
-        Download schema.json
+        Export the board
       </Button>
     </DownloadTrigger>
   );

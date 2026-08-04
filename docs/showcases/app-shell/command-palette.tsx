@@ -18,7 +18,7 @@ import {
   useListCollection,
 } from "@kanzo-tech/ui";
 import { SearchIcon } from "lucide-react";
-import { COMMANDS } from "./data";
+import { COMMANDS } from "@/example/nav";
 
 /** The header search affordance and the ⌘K palette behind it. */
 export function CommandPalette() {
@@ -67,7 +67,7 @@ export function CommandPalette() {
               setOpen(false);
             }}
           >
-            <CommandInput placeholder="Search runs, datasets or commands…" />
+            <CommandInput placeholder="Search contracts, members or commands…" />
             <CommandContent>
               <CommandEmpty />
               <CommandList>

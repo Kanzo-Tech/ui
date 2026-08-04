@@ -35,11 +35,11 @@ A region **places** its children and **separates** itself from its neighbour. It
 no surface, no typography, no font size. Everything you can see inside one is yours.
 
 <Callout type="info">
-There is no `Toolbar` and no `StatusBar`. They were two of three copies of the same thing — a
-thin strip with start/center/end clusters — and merging them into a generic bar would only have
-worked if the bar also carried their IDE aesthetic, which is a product decision, not a system
-one. A dense strip is **something you put in a region**. The [workspace
-showcase](/docs/showcases/workspace) shows one; copy it if you want that look.
+There is no `Toolbar` and no `StatusBar`, and there will not be one. A thin strip with
+start/center/end clusters is only a component if it also carries a height, a surface and a font
+size — an IDE aesthetic, which is a product decision rather than a system one. A dense strip is
+**something you put in a region**. The [workspace showcase](/docs/showcases/workspace) shows one;
+copy it if you want that look.
 </Callout>
 
 So a status strip is ordinary composition:
@@ -60,7 +60,8 @@ So a status strip is ordinary composition:
 ## Rules
 
 **Exactly one `<main>` per page.** `ShellMain` renders it. Nested containers use `<section>` —
-two `<main>` elements are a conformance error and make "skip to main content" ambiguous.
+two `<main>` elements are a conformance error and make "skip to main content" ambiguous. The link
+that phrase names is [`SkipNavLink`](/docs/layout/skip-nav), and `ShellMain` is what it lands on.
 
 **Asides are landmarks.** `ShellAside` renders `<aside>`, so two of them need `aria-label` to be
 told apart. That is also why asides may repeat where `<main>` may not.

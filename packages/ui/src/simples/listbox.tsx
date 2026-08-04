@@ -1,5 +1,3 @@
-"use client";
-
 import {
   Listbox as ArkListbox,
   useListboxContext,
@@ -9,13 +7,12 @@ import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
 import { inputVariants } from "./input";
+import { MenuShortcut } from "./menu";
 
 export const useListbox = useListboxContext;
 
-export const ListboxContext = ArkListbox.Context;
-
 export const Listbox: ArkListbox.RootComponent = (props) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkListbox.Root
@@ -25,8 +22,8 @@ export const Listbox: ArkListbox.RootComponent = (props) => {
         "text-foreground",
         className
       )}
-      data-slot="listbox"
       {...rest}
+      data-slot={slot ?? "listbox"}
     />
   );
 };
@@ -37,7 +34,7 @@ export const Listbox: ArkListbox.RootComponent = (props) => {
 export const ListboxLabel = (
   props: React.ComponentProps<typeof ArkListbox.Label>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkListbox.Label
@@ -46,8 +43,8 @@ export const ListboxLabel = (
         "data-disabled:opacity-64",
         className
       )}
-      data-slot="listbox-label"
       {...rest}
+      data-slot={slot ?? "listbox-label"}
     />
   );
 };
@@ -55,13 +52,13 @@ export const ListboxLabel = (
 export const ListboxValueText = (
   props: React.ComponentProps<typeof ArkListbox.ValueText>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkListbox.ValueText
       className={cn("font-normal", className)}
-      data-slot="listbox-value-text"
       {...rest}
+      data-slot={slot ?? "listbox-value-text"}
     />
   );
 };
@@ -84,15 +81,15 @@ interface ListboxInputProps
 // click on the highlighted item. Narrowing the collection is entirely the caller's, exactly as
 // it is in `Combobox`, and rather more so.
 export const ListboxInput = (props: ListboxInputProps) => {
-  const { size = "md", type = "text", className, ...rest } = props;
+  const { size = "md", type = "text", className, slot, ...rest } = props;
 
   return (
     <ArkListbox.Input
       className={cn(inputVariants({ size }), className)}
       data-size={size}
-      data-slot="listbox-input"
       type={type}
       {...rest}
+      data-slot={slot ?? "listbox-input"}
     />
   );
 };
@@ -104,7 +101,7 @@ export const ListboxInput = (props: ListboxInputProps) => {
 export const ListboxContent = (
   props: React.ComponentProps<typeof ArkListbox.Content>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkListbox.Content
@@ -116,8 +113,8 @@ export const ListboxContent = (
         "data-[orientation=horizontal]:max-h-none data-[orientation=horizontal]:flex-row",
         className
       )}
-      data-slot="listbox-content"
       {...rest}
+      data-slot={slot ?? "listbox-content"}
     />
   );
 };
@@ -188,16 +185,17 @@ export const ListboxItem = (props: ListboxItemProps) => {
     variant = "default",
     highlightOnHover = true,
     className,
+    slot,
     ...rest
   } = props;
 
   return (
     <ArkListbox.Item
       className={cn(listboxItemVariants({ variant }), className)}
-      data-slot="listbox-item"
       data-variant={variant}
       highlightOnHover={highlightOnHover}
       {...rest}
+      data-slot={slot ?? "listbox-item"}
     />
   );
 };
@@ -205,7 +203,7 @@ export const ListboxItem = (props: ListboxItemProps) => {
 export const ListboxItemText = (
   props: React.ComponentProps<typeof ArkListbox.ItemText>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkListbox.ItemText
@@ -216,8 +214,8 @@ export const ListboxItemText = (
         "overflow-hidden",
         className
       )}
-      data-slot="listbox-item-text"
       {...rest}
+      data-slot={slot ?? "listbox-item-text"}
     />
   );
 };
@@ -227,7 +225,7 @@ export const ListboxItemText = (
 export const ListboxItemIndicator = (
   props: React.ComponentProps<typeof ArkListbox.ItemIndicator>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ArkListbox.ItemIndicator
@@ -238,8 +236,8 @@ export const ListboxItemIndicator = (
         "motion-reduce:animate-none!",
         className
       )}
-      data-slot="listbox-item-indicator"
       {...rest}
+      data-slot={slot ?? "listbox-item-indicator"}
     >
       {children ?? <CheckIcon />}
     </ArkListbox.ItemIndicator>
@@ -255,13 +253,13 @@ interface ListboxItemGroupProps
 }
 
 export const ListboxItemGroup = (props: ListboxItemGroupProps) => {
-  const { heading, className, children, ...rest } = props;
+  const { heading, className, children, slot, ...rest } = props;
 
   return (
     <ArkListbox.ItemGroup
       className={cn("flex flex-col gap-1", className)}
-      data-slot="listbox-item-group"
       {...rest}
+      data-slot={slot ?? "listbox-item-group"}
     >
       {!!heading && <ListboxItemGroupLabel>{heading}</ListboxItemGroupLabel>}
 
@@ -276,7 +274,7 @@ export const ListboxItemGroup = (props: ListboxItemGroupProps) => {
 export const ListboxItemGroupLabel = (
   props: React.ComponentProps<typeof ArkListbox.ItemGroupLabel>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkListbox.ItemGroupLabel
@@ -286,8 +284,8 @@ export const ListboxItemGroupLabel = (
         "pointer-events-none",
         className
       )}
-      data-slot="listbox-item-group-label"
       {...rest}
+      data-slot={slot ?? "listbox-item-group-label"}
     />
   );
 };
@@ -295,7 +293,7 @@ export const ListboxItemGroupLabel = (
 export const ListboxEmpty = (
   props: React.ComponentProps<typeof ArkListbox.Empty>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkListbox.Empty
@@ -304,14 +302,17 @@ export const ListboxEmpty = (
         "text-center text-muted-foreground text-sm",
         className
       )}
-      data-slot="listbox-empty"
       {...rest}
+      data-slot={slot ?? "listbox-empty"}
     />
   );
 };
 
-// No `ListboxShortcut`. Shark's registry file has one, and vendoring it verbatim shipped a third
-// name for `MenuShortcut`'s span — `MenuShortcut` is the implementation, `CommandShortcut` is
-// already a `data-slot` rename of it, and this one had no renderer anywhere in the repo the day it
-// landed. A keyboard hint inside a facet row is `<MenuShortcut>`; if a listbox ever needs its own
-// slot, the rename is three lines and can be reintroduced with a consumer.
+// The third rename of `MenuShortcut`'s span, beside `CommandShortcut`. It had no renderer here and
+// was withheld for it; the reference ships it, and a house principle withholds no name the
+// reference ships — `decisions/a-house-principle-withholds-no-name.md`. The rename is `slot` and
+// not a literal `data-slot`, which is the one thing we do not copy from Shark's version of it:
+// `decisions/a-primitive-owns-its-slot.md`.
+export const ListboxShortcut = (
+  { slot, ...rest }: React.ComponentProps<typeof MenuShortcut>
+) => <MenuShortcut {...rest} slot={slot ?? "listbox-shortcut"} />;

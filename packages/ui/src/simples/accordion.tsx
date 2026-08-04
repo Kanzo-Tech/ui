@@ -1,5 +1,3 @@
-"use client";
-
 import {
   Accordion as ArkAccordion,
   useAccordionContext,
@@ -13,13 +11,13 @@ export const useAccordion = useAccordionContext;
 export const Accordion = (
   props: React.ComponentProps<typeof ArkAccordion.Root>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkAccordion.Root
       className={cn("group/accordion", className)}
-      data-slot="accordion"
       {...rest}
+      data-slot={slot ?? "accordion"}
     />
   );
 };
@@ -27,13 +25,13 @@ export const Accordion = (
 export const AccordionItem = (
   props: React.ComponentProps<typeof ArkAccordion.Item>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkAccordion.Item
       className={cn("border-b last:border-b-0", className)}
-      data-slot="accordion-item"
       {...rest}
+      data-slot={slot ?? "accordion-item"}
     />
   );
 };
@@ -41,7 +39,7 @@ export const AccordionItem = (
 export const AccordionItemTrigger = (
   props: React.ComponentProps<typeof ArkAccordion.ItemTrigger>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ArkAccordion.ItemTrigger
@@ -53,8 +51,8 @@ export const AccordionItemTrigger = (
         "data-disabled:pointer-events-none data-disabled:opacity-64",
         className
       )}
-      data-slot="accordion-item-trigger"
       {...rest}
+      data-slot={slot ?? "accordion-item-trigger"}
     >
       {children}
       <ArkAccordion.ItemIndicator
@@ -70,7 +68,7 @@ export const AccordionItemTrigger = (
 export const AccordionItemContent = (
   props: React.ComponentProps<typeof ArkAccordion.ItemContent>
 ) => {
-  const { className, children, ...rest } = props;
+  const { className, children, slot, ...rest } = props;
 
   return (
     <ArkAccordion.ItemContent
@@ -81,8 +79,8 @@ export const AccordionItemContent = (
         "data-[state=closed]:animate-collapse",
         "motion-reduce:animate-none! motion-reduce:transition-none!"
       )}
-      data-slot="accordion-item-content"
       {...rest}
+      data-slot={slot ?? "accordion-item-content"}
     >
       <div className={cn("pb-4 text-muted-foreground text-sm", className)}>
         {children}

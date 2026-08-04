@@ -1,5 +1,3 @@
-"use client";
-
 import { Tabs as ArkTabs, useTabsContext } from "@ark-ui/react/tabs";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
@@ -8,7 +6,13 @@ import { cn } from "../lib/cn";
 export const useTabs = useTabsContext;
 
 export const Tabs = (props: React.ComponentProps<typeof ArkTabs.Root>) => {
-  const { lazyMount = true, unmountOnExit = true, className, ...rest } = props;
+  const {
+    lazyMount = true,
+    unmountOnExit = true,
+    className,
+    slot,
+    ...rest
+  } = props;
 
   return (
     <ArkTabs.Root
@@ -17,10 +21,10 @@ export const Tabs = (props: React.ComponentProps<typeof ArkTabs.Root>) => {
         "data-[orientation=vertical]:flex-row",
         className
       )}
-      data-slot="tabs"
       lazyMount={lazyMount}
       unmountOnExit={unmountOnExit}
       {...rest}
+      data-slot={slot ?? "tabs"}
     />
   );
 };
@@ -72,15 +76,15 @@ interface TabsListProps
     VariantProps<typeof tabsListVariants> {}
 
 export const TabsList = (props: TabsListProps) => {
-  const { variant = "default", className, children, ...rest } = props;
+  const { variant = "default", className, children, slot, ...rest } = props;
 
   const { base, indicator } = tabsListVariants({ variant });
 
   return (
     <ArkTabs.List
       className={cn(base(), className)}
-      data-slot="tabs-list"
       {...rest}
+      data-slot={slot ?? "tabs-list"}
     >
       {children}
 
@@ -95,7 +99,7 @@ export const TabsList = (props: TabsListProps) => {
 export const TabsTrigger = (
   props: React.ComponentProps<typeof ArkTabs.Trigger>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkTabs.Trigger
@@ -117,8 +121,8 @@ export const TabsTrigger = (
         "motion-reduce:transition-none!",
         className
       )}
-      data-slot="tabs-trigger"
       {...rest}
+      data-slot={slot ?? "tabs-trigger"}
     />
   );
 };
@@ -126,13 +130,13 @@ export const TabsTrigger = (
 export const TabsContent = (
   props: React.ComponentProps<typeof ArkTabs.Content>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkTabs.Content
       className={cn("flex-1 outline-none", className)}
-      data-slot="tabs-content"
       {...rest}
+      data-slot={slot ?? "tabs-content"}
     />
   );
 };

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -26,6 +26,21 @@ import kanzoJson from "../palettes/kanzo.json";
  * The derivation is imported from `@kanzo-tech/palette`, a **devDependency** — see
  * `boundary.test.ts`, which is what keeps it one. What the shipped seeds themselves survive is
  * checked over there.
+ *
+ * ## What this guard cannot prove
+ *
+ * - **It checks the one committed document, and asserts that there is only one.** The corpus test
+ *   below is the whole defence: a second palette added to `palettes/` would otherwise be compiled
+ *   into nothing and checked by nobody, and this file would keep passing. It has to fail so that
+ *   whoever adds the second one decides what "the sheet is the document compiled" then means.
+ * - **It compares text, and measures no colour.** Whether the document reads at AA, whether the
+ *   categorical set separates under CVD, whether the ramps are monotonic — none of that is here.
+ *   `@kanzo-tech/palette`'s own checks own all of it, and this file would happily agree that a
+ *   sheet is the faithful compilation of a bad document.
+ * - **"Deterministic given `derivedAt`" is asserted once, on one seed pair.** The general claim is
+ *   `derive-palette.test.ts`'s.
+ * - **The hand-written half is checked for colour notation, not for correctness.** A radius, a font
+ *   size or a utility declared wrongly above the marker passes; what cannot pass is a colour.
  */
 
 const pkgDir = resolve(__dirname, "..");
@@ -57,8 +72,46 @@ function scaleRegistration(): string {
 }
 const tokensCss = readFileSync(resolve(pkgDir, "tokens.css"), "utf8");
 const KANZO = kanzoJson as unknown as TenantPalette;
+const MARKER = "/* ── GENERATED BELOW";
+
+/**
+ * Every notation that can carry a colour, not just the three the first cut of this rule listed.
+ *
+ * The hex arm takes 3, 4, 6 and 8 digits. With a trailing `\b` — which is what it had — a four- or
+ * eight-digit literal followed by anything word-like was invisible, which is the same hole
+ * `no-literal-hues.test.ts` carried on the other side of the boundary.
+ */
+const COLOUR_NOTATION =
+  /(?<![&0-9a-zA-Z])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{4}|[0-9a-fA-F]{3})(?![0-9a-fA-F])|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color|color-mix)\(/g;
 
 describe("the default tenant's document", () => {
+  it("is the only palette the sheet carries, and the sheet has a generated half", () => {
+    // This used to read `toEqual(["kanzo.json"])` — a corpus of one, said out loud, because a second
+    // document would have been checked by nothing while this file reported green. The corpus is six
+    // now, so the guard is stated against the registry instead of against a literal: a file may sit
+    // in `palettes/` only if `index.json` accounts for it. The registry itself is held against
+    // `PALETTE_SEEDS` next door, which is the other half — that one catches an entry with no file,
+    // this one catches a file with no entry.
+    const expected = [
+      "index.json",
+      ...paletteIndex.flatMap((p) => (p.isDefault ? [`${p.id}.json`] : [`${p.id}.json`, `${p.id}.css`])),
+    ].sort();
+    const stored = readdirSync(resolve(pkgDir, "palettes")).sort();
+    expect(
+      stored,
+      "a palette was added to palettes/ and nothing checks it — extend this file to cover it",
+    ).toEqual(expected);
+
+    const at = tokensCss.indexOf(MARKER);
+    expect(at, "tokens.css has lost its generated-section marker").toBeGreaterThan(0);
+    // Both halves have to be substantial, because an empty half compares equal to an empty half.
+    expect(at, "tokens.css has no hand-written half left").toBeGreaterThan(200);
+    expect(
+      tokensCss.length - at,
+      "tokens.css has almost no generated half — the compile emitted nothing",
+    ).toBeGreaterThan(1000);
+  });
+
   it("is a tenant like any other, whose document happens to be committed", () => {
     expect(KANZO.id).toBe("kanzo");
     expect(KANZO.state).toBe("published");
@@ -84,7 +137,7 @@ describe("the default tenant's document", () => {
     // base scale and of the `kanzo` palette's syntax slots, with nothing tying them together —
     // so *selecting* Kanzo could recolour an editor that was already showing Kanzo. There is one
     // copy now, and this is it.
-    const at = tokensCss.indexOf("/* ── GENERATED BELOW");
+    const at = tokensCss.indexOf(MARKER);
     expect(at, "tokens.css has lost its generated-section marker").toBeGreaterThan(0);
     const generated = tokensCss.slice(tokensCss.indexOf("*/", at) + 2).trimStart();
 
@@ -125,9 +178,49 @@ describe("the default tenant's document", () => {
     // The house rule, enforced where it is easiest to break: a hex that is not traceable to a seed
     // through a published rule is a defect. The hand-written half is Tailwind's utility surface,
     // the radius scale and the font sizes — no value, no mix, no literal.
-    const head = tokensCss.slice(0, tokensCss.indexOf("/* ── GENERATED BELOW"));
-    const literals = [...head.matchAll(/#[0-9a-fA-F]{3,8}\b|color-mix\(|oklch\(/g)].map((m) => m[0]);
-    expect(literals).toEqual([]);
+    const head = tokensCss.slice(0, tokensCss.indexOf(MARKER));
+    const literals = [...head.matchAll(COLOUR_NOTATION)].map((m) => m[0]);
+    expect(
+      literals,
+      `A colour above the marker is a colour no seed produced and no rule can change. Move it into\n` +
+        `the derivation, or bind it to a role:\n${literals.join("\n")}`,
+    ).toEqual([]);
+  });
+
+  it("would catch a hand-written colour in any notation", () => {
+    // Eleven alternations are eleven chances to write one that matches nothing.
+    for (const notation of [
+      "#fff",
+      "#fff3",
+      "#8e51ff",
+      "#8e51ffcc",
+      "rgb(1 2 3)",
+      "rgba(1,2,3,.5)",
+      "hsl(1 2% 3%)",
+      "hwb(1 2% 3%)",
+      "lab(1% 2 3)",
+      "lch(1% 2 3)",
+      "oklab(1 2 3)",
+      "oklch(1 2 3)",
+      "color(srgb 1 0 0)",
+      "color-mix(in oklch, a, b)",
+    ]) {
+      COLOUR_NOTATION.lastIndex = 0;
+      expect(COLOUR_NOTATION.test(notation), `${notation} was not read as a colour`).toBe(true);
+    }
+
+    for (const innocent of [
+      "--radius: 0.625rem;",
+      "@theme inline {",
+      "&#8230;",
+      "translate(1px)",
+      "var(--primary)",
+      "calc(100% - 2px)",
+    ]) {
+      COLOUR_NOTATION.lastIndex = 0;
+      expect(COLOUR_NOTATION.test(innocent), `${innocent} was read as a colour`).toBe(false);
+    }
+    COLOUR_NOTATION.lastIndex = 0;
   });
 });
 

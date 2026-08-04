@@ -1,5 +1,3 @@
-"use client";
-
 import { Editable as ArkEditable, useEditableContext } from "@ark-ui/react/editable";
 import type React from "react";
 import { cn } from "../lib/cn";
@@ -12,7 +10,7 @@ export interface EditableProps extends React.ComponentProps<typeof ArkEditable.R
 }
 
 export const Editable = (props: EditableProps) => {
-  const { orientation = "horizontal", className, ...rest } = props;
+  const { orientation = "horizontal", className, slot, ...rest } = props;
 
   return (
     <ArkEditable.Root
@@ -25,25 +23,25 @@ export const Editable = (props: EditableProps) => {
         className,
       )}
       data-orientation={orientation}
-      data-slot="editable"
       {...rest}
+      data-slot={slot ?? "editable"}
     />
   );
 };
 
 export const EditableArea = (props: React.ComponentProps<typeof ArkEditable.Area>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
-    <ArkEditable.Area className={cn("w-full", className)} data-slot="editable-area" {...rest} />
+    <ArkEditable.Area className={cn("w-full", className)} {...rest} data-slot={slot ?? "editable-area"} />
   );
 };
 
 export interface EditableInputProps
   extends Omit<React.ComponentProps<typeof ArkEditable.Input>, "size"> {}
 
-export const EditableInput = (props: EditableInputProps) => (
-  <ArkEditable.Input data-slot="editable-input" {...props} />
+export const EditableInput = ({ slot, ...rest }: EditableInputProps) => (
+  <ArkEditable.Input {...rest} data-slot={slot ?? "editable-input"} />
 );
 
 interface EditablePreviewProps extends React.ComponentProps<typeof ArkEditable.Preview> {
@@ -52,7 +50,7 @@ interface EditablePreviewProps extends React.ComponentProps<typeof ArkEditable.P
 }
 
 export const EditablePreview = (props: EditablePreviewProps) => {
-  const { variant = "outline", size = "md", className, ...rest } = props;
+  const { variant = "outline", size = "md", className, slot, ...rest } = props;
 
   return (
     <ArkEditable.Preview
@@ -65,14 +63,14 @@ export const EditablePreview = (props: EditablePreviewProps) => {
         "in-[[data-slot=editable-area]:has(textarea)]:items-start",
         className,
       )}
-      data-slot="editable-preview"
       {...rest}
+      data-slot={slot ?? "editable-preview"}
     />
   );
 };
 
 export const EditableControl = (props: React.ComponentProps<typeof ArkEditable.Control>) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkEditable.Control
@@ -81,20 +79,20 @@ export const EditableControl = (props: React.ComponentProps<typeof ArkEditable.C
         "inline-flex items-center gap-2",
         className,
       )}
-      data-slot="editable-control"
       {...rest}
+      data-slot={slot ?? "editable-control"}
     />
   );
 };
 
 export const EditableEditTrigger = (
-  props: React.ComponentProps<typeof ArkEditable.EditTrigger>,
-) => <ArkEditable.EditTrigger data-slot="editable-edit-trigger" {...props} />;
+  { slot, ...rest }: React.ComponentProps<typeof ArkEditable.EditTrigger>,
+) => <ArkEditable.EditTrigger {...rest} data-slot={slot ?? "editable-edit-trigger"} />;
 
 export const EditableCancelTrigger = (
-  props: React.ComponentProps<typeof ArkEditable.CancelTrigger>,
-) => <ArkEditable.CancelTrigger data-slot="editable-cancel-trigger" {...props} />;
+  { slot, ...rest }: React.ComponentProps<typeof ArkEditable.CancelTrigger>,
+) => <ArkEditable.CancelTrigger {...rest} data-slot={slot ?? "editable-cancel-trigger"} />;
 
 export const EditableSubmitTrigger = (
-  props: React.ComponentProps<typeof ArkEditable.SubmitTrigger>,
-) => <ArkEditable.SubmitTrigger data-slot="editable-submit-trigger" {...props} />;
+  { slot, ...rest }: React.ComponentProps<typeof ArkEditable.SubmitTrigger>,
+) => <ArkEditable.SubmitTrigger {...rest} data-slot={slot ?? "editable-submit-trigger"} />;

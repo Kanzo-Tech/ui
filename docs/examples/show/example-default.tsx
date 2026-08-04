@@ -1,18 +1,21 @@
 "use client";
 
+import { overdueQuests } from "@/example/quests";
 import { Button, Show, Spinner } from "@kanzo-tech/ui";
 import { useState } from "react";
 
 export default function Example() {
-  const [ready, setReady] = useState(true);
+  const [loaded, setLoaded] = useState(true);
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <Show fallback={<Spinner />} when={ready}>
-        <p className="text-muted-foreground text-sm">The content is ready.</p>
+      <Show fallback={<Spinner />} when={loaded}>
+        <p className="text-muted-foreground text-sm">
+          {overdueQuests().length} contracts are afield and past their due date.
+        </p>
       </Show>
-      <Button onClick={() => setReady((value) => !value)} variant="outline">
-        Toggle
+      <Button onClick={() => setLoaded((value) => !value)} variant="outline">
+        Reload the board
       </Button>
     </div>
   );

@@ -6,20 +6,24 @@
  *
  * The half below is HAND-WRITTEN and carries no colour: Tailwind's utility surface (`@theme
  * inline`, which is what makes `bg-primary` / `text-muted-foreground` resolve to tokens and theme
- * live), the radius scale, the font stacks, the density steps, two keyframes and the element-level
- * base layer.
+ * live), the radius scale, the font stacks, the three IDE font sizes, two keyframes and the
+ * element-level base layer. The density steps are **not** here: like every per-attribute value they
+ * are generated into `themes.css`, as `[data-font-size]` rules on the root font-size.
  *
  * The half at the bottom is GENERATED — `compile()` applied to `palettes/kanzo.json`, the tenant
  * palette document for the identity this system ships as its default. **The default tenant is not a
  * special case**: it is a tenant whose document happens to be committed, derived from two seeds
- * (`themeData.seeds.kanzo`) by exactly the code a client's document goes through. Every colour in
- * it is traceable to a seed through a published rule, which is why there is no hex written by hand
- * anywhere in this file.
+ * (`PALETTE_SEEDS[KANZO_ID]` in `@kanzo-tech/palette`) by exactly the code a client's document goes
+ * through. Every colour in it is traceable to a seed through a published rule, which is why there is
+ * no hex written by hand anywhere in this file.
  *
- * There is no colour AXIS. `data-base`, `data-accent`, `data-palette` and `data-chart-scheme` are
- * gone: each was a way to express *part* of a palette at runtime, and a document expresses all of
- * it at once, before a byte is sent. What `themes.css` still carries is the four things that are
- * not colour — `data-radius`, `data-font`, `data-mono-font`, `data-font-size`.
+ * There is no colour AXIS, and **this is the one place that argument is written out** — say it here
+ * and point at it, because it has been copied before and the copies went stale one at a time.
+ * `data-base`, `data-accent`, `data-palette` and `data-chart-scheme` are gone: each was a way to
+ * express *part* of a palette at runtime, and a document expresses all of it at once, before a byte
+ * is sent. What `themes.css` still carries is the four things that are not colour — `data-radius`,
+ * `data-font`, `data-mono-font`, `data-font-size`. Keeping the four retired ones gone is
+ * `src/index.test.ts`'s job, not this comment's.
  *
  * `.dark` remains the mode selector, and each block carries its own `color-scheme` so native
  * controls, scrollbars and date pickers follow. It is a declaration in a rule, never
@@ -179,8 +183,9 @@
 }
 
 :root {
-  /* The two knobs that are not colour and not a `data-*` default. `themes.css` re-points
-     `--radius` per `data-radius`; these are the values with the attribute absent. */
+  /* The one knob that is not colour and not a `data-*` default. `themes.css` re-points `--radius`
+     per `data-radius`; this is its value with the attribute absent. Density, the other candidate,
+     is not declared here at all — it is a root font-size, and `themes.css` owns it outright. */
   --radius: 0.5rem;
 
   /* ── Kanzo extras (not in Shark; only what Tailwind/Shark don't cover + is used) ── */

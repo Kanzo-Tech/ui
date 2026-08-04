@@ -2,14 +2,14 @@
 title: Avatar
 description: A user or entity image with a text fallback, a presence badge, and a stacked group.
 links:
-  doc: https://ark-ui.com/docs/data-display/avatar
+  doc: https://ark-ui.com/docs/components/avatar
 ---
 
 <ComponentPreview componentName="avatar" />
 
 An avatar is the one component that is **defined by its failure case**. The image is the happy
-path, and it is the path you will see least: it 404s, the user never set one, the entity is a
-dataset rather than a person. So the fallback is not really a fallback here — it is the
+path, and it is the path you will see least: it 404s, the member never set one, the entity is a
+guild hall rather than a person. So the fallback is not really a fallback here — it is the
 component, and the image is an enhancement layered on top.
 
 ## Usage
@@ -18,8 +18,8 @@ component, and the image is an enhancement layered on top.
 import { Avatar, AvatarFallback, AvatarImage } from "@kanzo-tech/ui";
 
 <Avatar>
-  <AvatarImage src={user.avatarUrl} alt="" />
-  <AvatarFallback>ÁI</AvatarFallback>
+  <AvatarImage src={member.portraitUrl} alt="" />
+  <AvatarFallback>RS</AvatarFallback>
 </Avatar>;
 ```
 

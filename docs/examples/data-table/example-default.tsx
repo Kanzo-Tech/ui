@@ -1,29 +1,29 @@
 "use client";
 
-import { type ColumnDef, DataTable } from "@kanzo-tech/ui/table";
+import {
+  type ColumnDef,
+  DataTableContent,
+  DataTableRoot,
+  useDataTable,
+} from "@kanzo-tech/ui/table";
+import { type Quest, questsOf } from "@/example/quests";
 
-interface Dataset {
-  name: string;
-  records: number;
-  owner: string;
-}
+const data = questsOf("amber").slice(0, 5);
 
-const data: Dataset[] = [
-  { name: "customers", records: 1204, owner: "platform" },
-  { name: "orders", records: 8912, owner: "commerce" },
-  { name: "invoices", records: 412, owner: "finance" },
-];
-
-const columns: ColumnDef<Dataset, unknown>[] = [
-  { accessorKey: "name", header: "Dataset" },
-  { accessorKey: "records", header: "Records" },
-  { accessorKey: "owner", header: "Owner" },
+const columns: ColumnDef<Quest, unknown>[] = [
+  { accessorKey: "title", header: "Contract" },
+  { accessorKey: "region", header: "Region" },
+  { accessorKey: "reward", header: "Reward" },
 ];
 
 export default function Example() {
+  const table = useDataTable({ columns, data });
+
   return (
     <div className="w-full max-w-xl">
-      <DataTable columns={columns} data={data} />
+      <DataTableRoot table={table}>
+        <DataTableContent />
+      </DataTableRoot>
     </div>
   );
 }

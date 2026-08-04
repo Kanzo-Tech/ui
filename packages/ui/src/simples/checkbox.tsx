@@ -1,5 +1,3 @@
-"use client";
-
 import {
   Checkbox as ArkCheckbox,
   useCheckboxContext,
@@ -14,13 +12,13 @@ export const useCheckbox = useCheckboxContext;
 export const CheckboxGroup = (
   props: React.ComponentProps<typeof ArkCheckbox.Group>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkCheckbox.Group
       className={cn("flex flex-col gap-2", className)}
-      data-slot="checkbox-group"
       {...rest}
+      data-slot={slot ?? "checkbox-group"}
     />
   );
 };
@@ -47,14 +45,14 @@ export const checkboxVariants = tv({
 export const Checkbox = (
   props: React.ComponentProps<typeof ArkCheckbox.Root>
 ) => {
-  const { className, tabIndex, ...rest } = props;
+  const { className, tabIndex, slot, ...rest } = props;
 
   return (
     <ArkCheckbox.Root
       className={cn(checkboxVariants(), className)}
-      data-slot="checkbox"
       role="checkbox"
       {...rest}
+      data-slot={slot ?? "checkbox"}
     >
       <ArkCheckbox.Control data-slot="checkbox-control">
         <CheckboxIndicator>
@@ -74,7 +72,7 @@ export const Checkbox = (
 export const CheckboxIndicator = (
   props: React.ComponentProps<typeof ArkCheckbox.Indicator>
 ) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkCheckbox.Indicator
@@ -88,8 +86,8 @@ export const CheckboxIndicator = (
         "data-[state=indeterminate]:text-foreground",
         className
       )}
-      data-slot="checkbox-indicator"
       {...rest}
+      data-slot={slot ?? "checkbox-indicator"}
     />
   );
 };

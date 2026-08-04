@@ -37,12 +37,6 @@ export interface ChartAttributeDirective {
   readonly value: unknown;
 }
 
-export interface ChartLegendDirective {
-  readonly kind: "legend";
-  readonly channel: "color" | "opacity" | "symbol";
-  readonly options: Readonly<Record<string, unknown>>;
-}
-
 /** The escape hatch: a `vg.*` directive the layer does not wrap, passed through untouched. */
 export interface ChartRawDirective {
   readonly kind: "raw";
@@ -53,7 +47,6 @@ export type ChartDirective =
   | ChartMarkDirective
   | ChartInteractorDirective
   | ChartAttributeDirective
-  | ChartLegendDirective
   | ChartRawDirective;
 
 export interface ChartSpecContext {

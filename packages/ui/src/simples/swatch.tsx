@@ -21,7 +21,7 @@ import { cn } from "../lib/cn";
  * happened to match; and every trigger is a button labelled `select #2e3440 as the color`, which is
  * the wrong sentence when what the reader is choosing is "Nord".
  */
-export const swatchVariants = tv({
+const swatchVariants = tv({
   base: "shrink-0",
   variants: {
     size: { xs: "size-2.5", sm: "size-3", md: "size-4", lg: "size-5" },
@@ -37,13 +37,13 @@ export interface SwatchProps
   color: string;
 }
 
-export const Swatch = ({ color, size, shape, className, style, ...rest }: SwatchProps) => (
+export const Swatch = ({ color, size, shape, className, style, slot, ...rest }: SwatchProps) => (
   <ark.span
     aria-hidden
     className={cn(swatchVariants({ size, shape }), className)}
-    data-slot="swatch"
     style={{ background: color, ...style }}
     {...rest}
+    data-slot={slot ?? "swatch"}
   />
 );
 
@@ -60,12 +60,12 @@ export interface SwatchGroupProps
   colors: readonly string[];
 }
 
-export const SwatchGroup = ({ colors, size, shape, className, ...rest }: SwatchGroupProps) => (
+export const SwatchGroup = ({ colors, size, shape, className, slot, ...rest }: SwatchGroupProps) => (
   <ark.span
     aria-hidden
     className={cn("flex items-center gap-0.5", className)}
-    data-slot="swatch-group"
     {...rest}
+    data-slot={slot ?? "swatch-group"}
   >
     {colors.map((c, i) => (
       <Swatch color={c} key={`${i}-${c}`} shape={shape} size={size} />

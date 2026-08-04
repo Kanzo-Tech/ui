@@ -1,5 +1,3 @@
-"use client";
-
 import { TrendingDownIcon, TrendingUpIcon } from "lucide-react";
 import { cn } from "../lib/cn.js";
 

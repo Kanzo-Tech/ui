@@ -45,15 +45,15 @@ export default function Example() {
             value="$12,402"
           />
           {/* Two the relation answers, and re-answers on every pick below. */}
-          <ChartStat label="Requests" table="telemetry" value={count()} />
-          <ChartStat format={ms} label="Mean latency" table="telemetry" value={avg("latency")} />
+          <ChartStat label="Sightings" table="sightings" value={count()} />
+          <ChartStat format={ms} label="Mean bounty" table="sightings" value={avg("bounty")} />
         </DashboardGrid>
 
-        <ChartRoot height={140} margin={{ bottom: 28, left: 76, right: 12, top: 4 }} table="telemetry">
+        <ChartRoot height={140} margin={{ bottom: 28, left: 76, right: 12, top: 4 }} table="sightings">
           <ChartBarX fill="var(--primary)" sort={{ y: "-x" }} tip x={count()} y="region" />
           <ChartPickY />
           <ChartHighlight />
-          <ChartAxisX grid label="requests" />
+          <ChartAxisX grid label="sightings" />
           <ChartAxisY label={null} />
         </ChartRoot>
       </div>

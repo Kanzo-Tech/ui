@@ -3,6 +3,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Badge,
+  AvatarFallback,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  Float,
+  isActivePath,
+  MenuGroup,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarIdentity,
+  SidebarIdentityAvatar,
+  SidebarIdentityDescription,
+  SidebarIdentityIcon,
+  SidebarIdentityLabel,
+  SidebarIdentityText,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  useSidebar,
   Button,
   ButtonGroup,
   ButtonGroupSeparator,
@@ -21,8 +43,6 @@ import {
   HoverCardContent,
   HoverCardTrigger,
   Input,
-  InstanceSwitcher,
-  MadeWith,
   Menu,
   MenuContent,
   MenuItem,
@@ -39,7 +59,6 @@ import {
   Resizable,
   ResizablePanel,
   ResizableResizeTrigger,
-  Ribbon,
   ScrollArea,
   Separator,
   ShellAside,
@@ -53,11 +72,9 @@ import {
   SidebarFooter,
   SidebarHeader,
   SidebarInset,
-  SidebarNav,
   SidebarProvider,
   SidebarRail,
   SidebarTrigger,
-  SidebarUser,
   Spinner,
   Steps,
   StepsContent,
@@ -81,6 +98,9 @@ import {
   LogOutIcon,
   PencilIcon,
   PlugZapIcon,
+  ChevronRightIcon,
+  ChevronsUpDownIcon,
+  LandmarkIcon,
   PlusIcon,
   SaveIcon,
   SettingsIcon,
@@ -90,7 +110,8 @@ import {
 } from "lucide-react";
 // The same tenant the other showcases run on. A new screen joins the product; it does not
 // invent a second company with a second set of workspaces.
-import { INSTANCES, NAV, SUPPORT, USER } from "../app-shell/data";
+import { ACTIVE_PATH, INSTANCES, NAV, SUPPORT, USER, type SidebarNavItem } from "../app-shell/data";
+import { initialsOf } from "@/example/people";
 import { slotsIn } from "./connection-slots";
 import { CONNECTIONS, sleep, TEMPLATES } from "./data";
 import { analyse, connectionRefs, fossil } from "./fossil-lang";
@@ -114,6 +135,195 @@ const STEPS = ["Editor", "Configure", "Summary"] as const;
  * for each), but its editor is one of the things that disappears. Here the program is the page you
  * come back to, and the two after it are settings and a receipt.
  */
+/* ── The rail, hand-composed ──────────────────────────────────────────────────────────────────
+ * `InstanceSwitcher`, `SidebarNav` and `SidebarUser` are gone: each took its layout tree as an
+ * array of `ReactNode`s, which you cannot reorder, wrap, or spread a prop onto. `app-shell` writes
+ * the whole argument out; this is the same parts, arranged for a rail that is not the subject of
+ * its own page. */
+
+function HallSwitcher({ activeId, onSelect }: { activeId: string; onSelect: (id: string) => void }) {
+  const { isMobile, setOpenMobile } = useSidebar();
+  const active = INSTANCES.find((entry) => entry.id === activeId) ?? INSTANCES[0];
+
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <Menu positioning={{ gutter: 4, placement: isMobile ? "bottom-start" : "right-start" }}>
+          <MenuTrigger asChild>
+            <SidebarMenuButton
+              aria-label={active.label}
+              className="group-data-[collapsible=icon]:justify-center"
+              size="lg"
+            >
+              <SidebarIdentity responsive>
+                <SidebarIdentityIcon>
+                  <LandmarkIcon />
+                </SidebarIdentityIcon>
+                <SidebarIdentityText>
+                  <SidebarIdentityLabel>{active.label}</SidebarIdentityLabel>
+                  <SidebarIdentityDescription>{active.description}</SidebarIdentityDescription>
+                </SidebarIdentityText>
+              </SidebarIdentity>
+              <ChevronsUpDownIcon className="ms-auto group-data-[collapsible=icon]:hidden" />
+            </SidebarMenuButton>
+          </MenuTrigger>
+          <MenuContent className="w-(--reference-width) min-w-60">
+            <MenuGroup heading="Halls">
+              {INSTANCES.map((entry) => (
+                <MenuItem
+                  key={entry.id}
+                  onClick={() => {
+                    onSelect(entry.id);
+                    setOpenMobile(false);
+                  }}
+                  value={entry.id}
+                >
+                  <SidebarIdentity>
+                    <SidebarIdentityIcon>
+                      <LandmarkIcon />
+                    </SidebarIdentityIcon>
+                    <SidebarIdentityText>
+                      <SidebarIdentityLabel>{entry.label}</SidebarIdentityLabel>
+                      <SidebarIdentityDescription>{entry.description}</SidebarIdentityDescription>
+                    </SidebarIdentityText>
+                  </SidebarIdentity>
+                </MenuItem>
+              ))}
+            </MenuGroup>
+            <MenuSeparator />
+            <MenuItem
+              onClick={() => toast.create({ title: "Charter a hall", type: "info" })}
+              value="charter"
+            >
+              <PlusIcon />
+              Charter a hall
+            </MenuItem>
+          </MenuContent>
+        </Menu>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  );
+}
+
+function RailNav({
+  className,
+  items,
+  label,
+}: {
+  className?: string;
+  items: SidebarNavItem[];
+  label: string;
+}) {
+  const { setOpenMobile } = useSidebar();
+  const close = () => setOpenMobile(false);
+
+  return (
+    <nav aria-label={label} className={className}>
+      <SidebarGroup>
+        <SidebarGroupLabel>{label}</SidebarGroupLabel>
+        <SidebarMenu>
+          {items.map((item) =>
+            item.items ? (
+              <SidebarMenuItem key={item.title}>
+                <Collapsible
+                  defaultOpen={item.items.some((sub) => isActivePath(ACTIVE_PATH, sub.href))}
+                >
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton
+                      className="[&[data-state=open]>svg:last-child]:rotate-90"
+                      tooltip={item.title}
+                    >
+                      {item.icon}
+                      <span className="truncate">{item.title}</span>
+                      <ChevronRightIcon className="ms-auto shrink-0 transition-transform duration-200 motion-reduce:transition-none!" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {item.items.map((sub) => (
+                        <SidebarMenuSubItem key={sub.title}>
+                          <SidebarMenuSubButton
+                            asChild
+                            isActive={isActivePath(ACTIVE_PATH, sub.href)}
+                          >
+                            <a href={sub.href} onClick={close}>
+                              <span className="truncate">{sub.title}</span>
+                            </a>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </Collapsible>
+              </SidebarMenuItem>
+            ) : (
+              <SidebarMenuItem key={item.title}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActivePath(ACTIVE_PATH, item.href)}
+                  tooltip={item.title}
+                >
+                  <a href={item.href} onClick={close}>
+                    {item.icon}
+                    <span className="truncate">{item.title}</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ),
+          )}
+        </SidebarMenu>
+      </SidebarGroup>
+    </nav>
+  );
+}
+
+function RailUser() {
+  const { isMobile } = useSidebar();
+  const announce = (title: string) => () => toast.create({ title, type: "info" });
+
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <Menu positioning={{ gutter: 4, placement: isMobile ? "bottom-end" : "right-end" }}>
+          <MenuTrigger asChild>
+            <SidebarMenuButton
+              aria-label={USER.name}
+              className="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-full"
+              size="lg"
+            >
+              <SidebarIdentity responsive>
+                <SidebarIdentityAvatar>
+                  <AvatarFallback>{initialsOf(USER.name)}</AvatarFallback>
+                </SidebarIdentityAvatar>
+                <SidebarIdentityText>
+                  <SidebarIdentityLabel>{USER.name}</SidebarIdentityLabel>
+                  <SidebarIdentityDescription>{USER.email}</SidebarIdentityDescription>
+                </SidebarIdentityText>
+              </SidebarIdentity>
+              <ChevronsUpDownIcon className="ms-auto group-data-[collapsible=icon]:hidden" />
+            </SidebarMenuButton>
+          </MenuTrigger>
+          <MenuContent className="w-(--reference-width) min-w-56">
+            <MenuItem onClick={announce("Profile")} value="profile">
+              <UserIcon />
+              Profile
+            </MenuItem>
+            <MenuItem onClick={announce("Settings")} value="settings">
+              <SettingsIcon />
+              Settings
+            </MenuItem>
+            <MenuSeparator />
+            <MenuItem onClick={announce("Logged out")} value="logout" variant="destructive">
+              <LogOutIcon />
+              Log out
+            </MenuItem>
+          </MenuContent>
+        </Menu>
+      </SidebarMenuItem>
+    </SidebarMenu>
+  );
+}
+
 export function JobStudioShowcase() {
   const [mode, setMode] = useState<"studio" | "assistant" | null>(null);
   const [step, setStep] = useState(0);
@@ -245,7 +455,7 @@ export function JobStudioShowcase() {
             <RadioGroupIndicator className="order-last mt-0.5 ms-auto" />
           </RadioGroupCard>
 
-          <Ribbon disabled label="Coming soon" placement="corner">
+          <div className="relative">
             <RadioGroupCard className="items-start" disabled value="assistant">
               <WandIcon className="mt-0.5 size-5 shrink-0 text-muted-foreground" />
               <div className="flex min-w-0 flex-col gap-0.5">
@@ -256,10 +466,12 @@ export function JobStudioShowcase() {
               </div>
               <RadioGroupIndicator className="order-last mt-0.5 ms-auto" />
             </RadioGroupCard>
-          </Ribbon>
+            <Float className="-end-2 -top-2" placement="top-end">
+              <Badge size="xs" variant="secondary">Coming soon</Badge>
+            </Float>
+          </div>
         </RadioGroup>
 
-        <MadeWith href="#" />
       </div>
     );
   }
@@ -381,45 +593,16 @@ export function JobStudioShowcase() {
     <SidebarProvider className="h-dvh min-h-0 overflow-hidden">
       <Sidebar collapsible="icon">
         <SidebarHeader>
-          <InstanceSwitcher
-            actions={[
-              {
-                label: "Create workspace",
-                icon: <PlusIcon />,
-                onSelect: () => toast.create({ title: "New workspace", type: "info" }),
-              },
-            ]}
-            activeId={instance}
-            instances={INSTANCES}
-            label="Workspaces"
-            onSelect={setInstance}
-          />
+          <HallSwitcher activeId={instance} onSelect={setInstance} />
         </SidebarHeader>
 
         <SidebarContent>
-          <SidebarNav items={NAV} label="Platform" />
-          <SidebarNav className="mt-auto" items={SUPPORT} label="Support" />
+          <RailNav items={NAV} label="The hall" />
+          <RailNav className="mt-auto" items={SUPPORT} label="Reference" />
         </SidebarContent>
 
         <SidebarFooter>
-          <SidebarUser
-            menuItems={[
-              { label: "Profile", icon: <UserIcon />, onSelect: () => toast.create({ title: "Profile" }) },
-              {
-                label: "Settings",
-                icon: <SettingsIcon />,
-                onSelect: () => toast.create({ title: "Settings" }),
-              },
-              {
-                label: "Log out",
-                icon: <LogOutIcon />,
-                variant: "destructive",
-                separatorBefore: true,
-                onSelect: () => toast.create({ title: "Logged out" }),
-              },
-            ]}
-            user={USER}
-          />
+          <RailUser />
         </SidebarFooter>
         <SidebarRail />
       </Sidebar>
@@ -605,7 +788,6 @@ export function JobStudioShowcase() {
               {saving ? "saving…" : saved ? "draft saved" : "unsaved changes"}
             </span>
 
-            <MadeWith className="ms-auto" href="#" />
 
             <Show when={step === 0}>
               <ToggleGroup

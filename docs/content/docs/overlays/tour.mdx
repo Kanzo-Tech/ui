@@ -2,7 +2,7 @@
 title: Tour
 description: A guided walkthrough that spotlights elements on the page, step by step.
 links:
-  doc: https://ark-ui.com/docs/overlays/tour
+  doc: https://ark-ui.com/docs/components/tour
 ---
 
 <ComponentPreview componentName="tour" />
@@ -28,16 +28,16 @@ const steps: TourStepType[] = [
   {
     id: "intro",
     type: "dialog",
-    title: "Welcome",
+    title: "Welcome to the board",
     description: "A quick tour.",
     actions: [{ label: "Start", action: "next" }],
   },
   {
-    id: "name",
+    id: "search",
     type: "tooltip",
-    target: () => document.getElementById("tour-name"),
-    title: "Name your dataset",
-    description: "It becomes the graph id.",
+    target: () => document.getElementById("tour-search"),
+    title: "Find the contract",
+    description: "Titles, regions and beasts all match here.",
     actions: [
       { label: "Back", action: "prev" },
       { label: "Next", action: "next" },

@@ -1,32 +1,88 @@
 ---
-title: Discovery
-description: A data-discovery workspace — a knowledge graph, a floating inspector, and distributions.
+title: The archive
+description: The hall's closed contracts as a graph — a WebGL canvas, a docked inspector, and the standing orders read against it.
 full: true
 ---
 
-<PreviewIframe name="workspace" title="Discovery showcase" className="h-[820px]" />
+<PreviewIframe name="workspace" title="The archive" className="h-[820px]" />
 
-The other shape a shell takes: no page, no scroll, a canvas that fills whatever is left — here a
-knowledge-graph explorer modelled on keasy's discovery screen. `ShellMain` holds the canvas
-full-bleed; a floating glass inspector overlays its trailing edge with Info / Ask / Rules /
-Settings tabs (drag its left edge to resize); a collapsible distributions strip runs along the
-bottom; and a toggle floats clear of the panel.
+The other shape a shell takes: no page, no scroll, a canvas that fills whatever is left. Here it is
+the Amber Hall's **archive** — 536 closed contracts, the 938 field reports filed against them, and
+the members, beasts, tags and regions they share. 1,543 vertices, 4,280 edges, drawn on the GPU.
 
-The graph itself is a placeholder — the design system ships no graph engine, and that boundary is
-the point of a showcase. Everything around it is library parts — `Tabs`, `Slider`, `Switch`,
-`ScrollArea`, `Badge`, `Button` — composed inside the `Shell` regions.
+`ShellMain` holds the canvas full-bleed and a `Resizable` docks a `ShellAside` beside it, so the
+inspector is a panel of a splitter rather than a floating overlay: the drag, the keyboard resize and
+the ARIA all come from the machine. Two orthogonal switches, which is the IDE shape — the header
+picks what the main region shows (**Graph** · **Sightings**), the footer strip picks which inspector
+the dock holds (Info · Ask · Orders · Settings) and collapses it when you click the active icon
+again, a state `Tabs` cannot express.
 
-Worth exercising in the frame: switch inspector tabs, drag the panel's leading edge to resize it,
-toggle it shut, collapse the distributions strip, and move the Settings sliders.
+## Everything on the page is one question
+
+The library ships no graph engine, and that boundary is the point. cosmos.gl draws the picture;
+[the analytics subpath](/docs/data-display/charts) asks the questions; and the canvas joins the
+page's crossfilter by declaring a query and publishing a clause — the same contract a brushed
+histogram honours. So a lasso on the canvas retallies the legend, re-ranks the inspector and moves
+the footer's counts, with nothing wired between them.
+
+The split that makes it fast: **anything answerable is SQL, anything merely visible is GPU state.**
+A look, a slider or a zoom costs no round trip. Only two gestures cross back into the database — a
+lasso and a click, both as `id IN (…)`.
+
+## The halls are the clusters
+
+A contract belongs to the hall that posted it, and that is what the canvas arranges the picture
+around: five arcs, one per hall, placed by cosmos.gl's cluster force against explicit ring
+positions. Everything the halls *share* — a member who has worked for four of them, a beast that
+ranges, a tag off the board — carries no hall at all and drifts between the arcs it joins. That is
+the structure worth having a WebGL canvas for: lasso one arc and you pull in work you did not know
+was related.
+
+Because a hall carries `heraldry`, the arcs are the same tenants the
+[palette showcase](/docs/showcases/palette) derives a scheme from. Switching halls is the
+white-label story, told in the graph rather than described beside it.
+
+## The standing orders
+
+The Orders panel holds the hall's own rule document — the same small language the board's copy is
+written in, over on [The Guild](/docs/the-guild) — parsed, compiled to SQL, and read against the
+archive:
+
+```text
+order "a contract is signed for" {
+  when    contract
+  require signed at least 1
+  else    violation "No warden's name on it."
+}
+```
+
+Each order becomes one `count(*) FILTER (WHERE …)`, and the whole report is one query. Focus an
+order and the ids that break it are published into the crossfilter, so the canvas lights up exactly
+those nodes. Drop your own `.orders` file on the panel and it reads that instead; anything it cannot
+compile is named rather than dropped, because otherwise you cannot tell "in order" from "never
+read".
+
+## Worth exercising in the frame
+
+Lasso a cluster and watch the footer and the legend follow. Drag a node — it pins where you drop it,
+and the release control appears. Switch the Look in Settings; Ink moves identity from colour to
+shape. Focus an order. Then switch to **Sightings**, which puts the world's own analytical relation
+under a full crossfilter dashboard: brush the hourly curve and every panel narrows with it.
 
 ## Source
 
 ```text
 docs/showcases/workspace/
-├── default.tsx   — the discovery workspace
-└── data.tsx      — the placeholder graph, node inspector and distributions
+├── default.tsx           — the shell: sidebar, header, splitter, footer strip
+├── data.tsx              — the chrome (halls, nav, viewer), straight from the world
+├── graph-data.ts         — the archive as two flat relations, layout baked into x/y
+├── graph-state.tsx       — the spec, the relations, and what the panels own
+├── graph-model.ts        — relation → GPU buffers and uniforms
+├── graph-canvas.tsx      — cosmos.gl, the overlays, the canvas chrome
+├── graph-view.tsx        — the four dock panels
+├── graph-looks.ts        — three ways to draw it; geometry only, no colour
+├── cluster-ring.ts       — where each hall's arc sits
+├── orders.ts             — the standing-orders language, compiled to SQL predicates
+├── order-builder.ts      — the same document, written back out
+└── sightings-charts.tsx  — the crossfilter dashboard over the world's sightings
 ```
-
-The mini distribution charts and the faux graph are hand-rolled here rather than pulled from the
-library — a showcase is allowed a product-specific part, and neither is a design-system component
-(yet).

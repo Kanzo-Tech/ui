@@ -15,7 +15,7 @@ import {
 export default function Example() {
   return (
     <div className="w-80">
-      <TagsInput defaultValue={["design", "systems"]}>
+      <TagsInput defaultValue={["night-work", "bring-rope"]}>
         <TagsInputControl>
           <TagsInputContext>
             {(api) =>

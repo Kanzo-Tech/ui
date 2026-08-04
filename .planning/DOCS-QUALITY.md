@@ -65,8 +65,9 @@ Found by crawling every `](/docs/…)` link in the content tree against the runn
 
 - **All 115 pages return 200**, no runtime errors, no failed preview mounts.
 - **Every `<ComponentPreview>` resolves** to a real example file — no missing `fileName`s.
-- One orphan example directory: `docs/examples/form/` is referenced by no page (`forms/` is the
-  live one). Harmless, but it is dead weight — delete or wire it up.
+- ~~One orphan example directory: `docs/examples/form/`.~~ **Corrected 2026-07-30: it is not
+  orphaned.** It is the example set for `docs/content/docs/forms/tanstack-form.mdx`. Do not delete
+  it.
 
 ---
 
@@ -111,7 +112,8 @@ Pages with no anatomy, no API table and a single default example. Line counts ar
 | `(root)/showcases` | 18 | Generated grid — correct as-is | OK |
 | `forms/input` | 27 | Has states, no API table | OPEN |
 | `data-display/badge` | 29 | Variants/sizes present, default example weak | OPEN |
-| `data-display/highlight`, `forms/textarea`, `layout/show`, `layout/made-with`, `navigation/link`, `forms/checkbox`, `layout/client-only`, `data-display/json-tree-view`, `data-display/kbd`, `overlays/empty-state`, `actions/download-trigger`, `data-display/card`, `data-display/status` | 34–46 | The long tail. Mostly one preview + a usage fence | OPEN |
+| `data-display/highlight`, `forms/textarea`, `layout/show`, `layout/made-with`, `navigation/link`, `forms/checkbox`, `layout/client-only`, `data-display/json-tree-view`, `data-display/kbd`, `overlays/empty-state`, `actions/download-trigger` | 34–46 | The long tail. Mostly one preview + a usage fence | OPEN |
+| ~~`data-display/card`, `data-display/status`~~ | — | **Corrected 2026-07-30: no longer in the long tail** (77 and 94 lines) | CLOSED |
 
 ---
 

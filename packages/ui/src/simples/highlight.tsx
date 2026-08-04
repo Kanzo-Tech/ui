@@ -1,10 +1,13 @@
-"use client";
-
 import {
   Highlight as ArkHighlight,
   type HighlightProps as ArkHighlightProps,
+  useHighlight as useArkHighlight,
 } from "@ark-ui/react/highlight";
 import { cn } from "../lib/cn";
+
+// Ark's machine hook, not a context alias: it takes `{ text, query }` and returns the chunks
+// `Highlight` renders, for a caller marking something other than a `<mark>`.
+export const useHighlight = useArkHighlight;
 
 export interface HighlightProps extends ArkHighlightProps {}
 
@@ -13,7 +16,7 @@ export interface HighlightProps extends ArkHighlightProps {}
 // never falls back to the browser's yellow default — `bg-match`, the same token
 // the editor paints a search hit with, because they are the same decision.
 export const Highlight = (props: HighlightProps) => {
-  const { className, ...rest } = props;
+  const { className, slot, ...rest } = props;
 
   return (
     <ArkHighlight
@@ -23,8 +26,8 @@ export const Highlight = (props: HighlightProps) => {
         "font-medium",
         className
       )}
-      data-slot="highlight"
       {...rest}
+      data-slot={slot ?? "highlight"}
     />
   );
 };

@@ -36,7 +36,7 @@ export default function HomePage() {
       <section className="mt-20 grid w-full max-w-4xl gap-4 sm:grid-cols-3">
         <Feature
           title="Themed by tokens"
-          body="Six axes as data-* attributes on <html>. Change one and every component follows, overlays included."
+          body="Four axes as data-* attributes on <html>, plus light and dark. Change one and every component follows, overlays included."
         />
         <Feature
           title="Server-ready"

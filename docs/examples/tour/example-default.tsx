@@ -18,29 +18,29 @@ const steps: TourStepType[] = [
   {
     id: "intro",
     type: "dialog",
-    title: "Welcome to the editor",
-    description: "A quick two-step tour of the dataset tools.",
+    title: "Welcome to the board",
+    description: "Two steps, and you will know how a contract gets claimed.",
     actions: [{ label: "Start", action: "next" }],
   },
   {
-    id: "name",
+    id: "search",
     type: "tooltip",
     // A function, not a ref: the target is resolved when the step is shown, so it works for
     // elements that mount later in the flow.
-    target: () => document.getElementById("tour-name"),
-    title: "Name your dataset",
-    description: "The name becomes the graph id, so it has to be unique.",
+    target: () => document.getElementById("tour-search"),
+    title: "Find the contract",
+    description: "Titles, regions and beasts all match here.",
     actions: [
       { label: "Back", action: "prev" },
       { label: "Next", action: "next" },
     ],
   },
   {
-    id: "save",
+    id: "claim",
     type: "tooltip",
-    target: () => document.getElementById("tour-save"),
-    title: "Save your work",
-    description: "That is the whole tour.",
+    target: () => document.getElementById("tour-claim"),
+    title: "Sign for it",
+    description: "The party is committed until the contract settles.",
     actions: [
       { label: "Back", action: "prev" },
       { label: "Done", action: "dismiss" },
@@ -56,9 +56,9 @@ export default function Example() {
           <Button variant="outline">Start tour</Button>
         </TourTrigger>
 
-        <Input className="w-48" id="tour-name" placeholder="customers" />
+        <Input className="w-48" id="tour-search" placeholder="Search the board" />
 
-        <Button id="tour-save">Save</Button>
+        <Button id="tour-claim">Claim</Button>
       </div>
 
       <TourContent>

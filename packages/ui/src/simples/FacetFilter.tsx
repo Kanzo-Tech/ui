@@ -91,6 +91,7 @@ export const FacetFilter = (props: FacetFilterProps) => {
     contentClassName,
     size = "sm",
     variant = "outline",
+    slot,
     ...rest
   } = props;
 
@@ -171,10 +172,10 @@ export const FacetFilter = (props: FacetFilterProps) => {
       <PopoverTrigger asChild>
         <Button
           className={className}
-          data-slot="facet-filter"
           size={size}
           variant={variant}
           {...rest}
+          slot={slot ?? "facet-filter"}
         >
           <ListFilterIcon />
           {label}
@@ -188,7 +189,7 @@ export const FacetFilter = (props: FacetFilterProps) => {
 
       <PopoverContent
         className={cn("w-56 p-1", contentClassName)}
-        data-slot="facet-filter-content"
+        slot="facet-filter-content"
       >
         {/* No `deselectable`, deliberately. Zag's listbox binds Escape to VALUE.CLEAR when it is
             set, and calls `stopPropagation()` doing so — which wipes the filter *and* swallows the
@@ -256,7 +257,7 @@ export const FacetFilter = (props: FacetFilterProps) => {
             <Separator className="my-1" />
             <Button
               className="w-full justify-center"
-              data-slot="facet-filter-clear"
+              slot="facet-filter-clear"
               onClick={() => onValueChange([])}
               size="sm"
               variant="ghost"

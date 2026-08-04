@@ -34,14 +34,14 @@ export interface FloatProps
     VariantProps<typeof floatVariants> {}
 
 export const Float = (props: FloatProps) => {
-  const { placement = "top-end", className, ...rest } = props;
+  const { placement = "top-end", className, slot, ...rest } = props;
 
   return (
     <ark.div
       className={cn(floatVariants({ placement }), className)}
       data-placement={placement}
-      data-slot="float"
       {...rest}
+      data-slot={slot ?? "float"}
     />
   );
 };

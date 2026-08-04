@@ -1,5 +1,6 @@
 "use client";
 
+import { TAGS } from "@/example/world";
 import {
   Badge,
   Combobox,
@@ -13,20 +14,14 @@ import {
 } from "@kanzo-tech/ui";
 import { useState } from "react";
 
-const DATASETS = [
-  { label: "customers", value: "customers" },
-  { label: "orders", value: "orders" },
-  { label: "products", value: "products" },
-  { label: "suppliers", value: "suppliers" },
-  { label: "invoices", value: "invoices" },
-];
+const TAG_ITEMS = TAGS.map((tag) => ({ label: tag, value: tag }));
 
 export default function Example() {
-  const [value, setValue] = useState<string[]>(["orders"]);
+  const [value, setValue] = useState<string[]>(["night-work"]);
 
   const { contains } = useFilter({ sensitivity: "base" });
   const { collection, filter } = useListCollection({
-    initialItems: DATASETS,
+    initialItems: TAG_ITEMS,
     filter: contains,
   });
 
@@ -39,9 +34,9 @@ export default function Example() {
         onValueChange={(details) => setValue(details.value)}
         value={value}
       >
-        <ComboboxInput placeholder="Search datasets…" />
+        <ComboboxInput placeholder="Tag the contract…" />
         <ComboboxContent>
-          <ComboboxEmpty>No datasets found.</ComboboxEmpty>
+          <ComboboxEmpty>No tag by that name.</ComboboxEmpty>
           {collection.items.map((item) => (
             <ComboboxItem item={item} key={item.value}>
               {item.label}

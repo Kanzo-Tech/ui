@@ -1,117 +1,73 @@
-# Kanzo UI — reference design
+# Kanzo UI — what the system is
 
-What this system **is**. `CONVENTIONS.md` is the companion: how to write code inside it.
-
-Written 2026-07-22, after a review that found the layout layer incoherent and traced the
-incoherence to something more general — pieces that mix concerns, and a shape quietly dictated
-by whichever product shouted loudest. This document exists so that conversation does not have
-to happen again with a different layer next month.
-
----
+The rules. `CONVENTIONS.md` is how to write a file inside them; `decisions/` is why each holds and
+what would reverse it. Nothing is restated across the three.
 
 ## The governing constraint
 
 > **This is our library, generic, for anything we want to build.**
 
-Stronger than the existing *domain-free* rule. Domain-free stops RDF and auth from leaking in.
-It does **not** stop a component's *shape* from being dictated by one consumer — which is how
-`AppShell` ended up reading as "the metadata view" while being named as a general shell.
+Stronger than domain-freedom. Domain-freedom stops RDF and auth from leaking in; it does not stop a
+component's *shape* from being dictated by one consumer, which is how a general shell ended up
+reading as one product's metadata view.
 
-Two consequences, and the second is what makes the first affordable:
-
-1. The library ships a **generic vocabulary**.
-2. **Specific arrangements are showcases**, in `docs/blocks/`, not components.
-
-An arrangement someone actually uses does not have to become a component. It has to become an
-example.
-
----
+Two consequences, and the second is what makes the first affordable: the library ships a **generic
+vocabulary**, and **specific arrangements are showcases** — `docs/showcases/` — not components. An
+arrangement someone actually uses does not have to become a component. It has to become an example.
 
 ## The three axes
 
-Most confusion in this library came from single components spanning several of these. When
-deciding where something belongs, name its axis first.
+Name a part's axis before deciding where it belongs.
 
-### Axis 1 — Structure
+1. **Structure** — where something sits and what scrolls. **No appearance**: no opinion about
+   colour, surface or typography.
+2. **Content** — titles, actions, controls, text. Appearance, from tokens and recipes.
+3. **Behaviour** — focus, keyboard, ARIA, positioning, collision. **Ark owns this.** Where Ark has
+   none we write it, document the ARIA contract, and cover it with a test.
 
-Where something sits, and what scrolls. Flex, height, overflow, min-width. **No appearance.**
-A structural part has no opinion about colour, height, surface or typography.
+**A part sits on one axis.** A part that declares a position *and* a height, a surface and a font is
+two parts.
 
-### Axis 2 — Content
-
-Titles, descriptions, actions, controls, text. Has appearance, driven by tokens and recipes.
-
-### Axis 3 — Behaviour
-
-State machines: focus, keyboard, ARIA, positioning, collision. **Ark owns this.** Where Ark has
-no equivalent, we write it — and then we document the ARIA contract and cover it with a test.
-
-**A part should sit on one axis.** `ShellBar` was rejected for spanning 1 and 2: it declared a
-position *and* an IDE height, surface and typography. The correct split is a structural region
-that positions, holding content the caller chose.
-
----
-
-## The layers
+## The three layers
 
 | Directory | What lives there | Test |
 |---|---|---|
 | `simples/` | Single-purpose components — Button, Input, Dialog, Select | Does one thing |
-| `composites/` | Assemblies of simples — SidebarUser, StatCard, CodeEditor | Made of several, still fits in a page |
-| `layouts/` | Page and window scaffolding — the Shell regions | Positions other things |
+| `composites/` | Assemblies of simples — Sidebar, CodeEditor, Preferences | Made of several, still fits in a page |
+| `layouts/` | Page and window scaffolding — the Shell and Section regions | Positions other things |
 
-The public barrel is **flat**, so moving between layers never breaks a consumer. That is what
-makes taxonomy mistakes cheap to fix, and why they should be fixed rather than lived with.
+The public barrel is **flat**, so moving between layers never breaks a consumer. That is what makes
+a taxonomy mistake cheap to fix, and why it should be fixed rather than lived with.
 
-### The engine rule
+**The engine rule.** *A component that needs an engine is the presentational one plus the engine —
+two components, not one. The presentational half lives in the root barrel; the connected half lives
+on the engine's subpath and renders the first.* `Table` → `DataTableRoot` on `/table`; `StatTile` →
+`ChartStat` on `/analytics`. A subpath entry statically re-exports its engine, so any import from it
+resolves an optional peer; putting the presentational half there would make showing a number from a
+REST call require DuckDB. Hence the placement test: **a part belongs on a subpath only if it imports
+that subpath's engine.** Thematic neighbourhood is not a reason.
 
-Discovered by noticing we had built it twice without naming it:
+**The naming rule.** *`kebab-case` is the vendored primitive; `PascalCase` is ours, assembled on
+top of it.* `FacetFilter` imports `listbox` and `popover`; `Preferences` imports `dialog`, `field`
+and `radio-group`. They are not competitors — one is built from the other, so reach for the
+primitive first and take the PascalCase one when it carries a contract the parts do not.
 
-> **A component that needs an engine is the presentational one plus the engine — two components,
-> not one. The presentational half lives in the root barrel; the connected half lives on the
-> engine's subpath and renders the first.**
+The rule is a reading aid, not a guarantee, and two live files say so: `simples/Link.tsx` is
+PascalCase with no kebab counterpart and no primitive underneath it, and `composites/sidebar.tsx` is
+kebab while being entirely ours. `CONVENTIONS.md` records the file-name convention itself —
+kebab-case, matching Shark — and treats the PascalCase files as drift, not as a marker.
 
-| Presentational (root) | Connected (subpath) | Engine |
-|---|---|---|
-| `Table` — semantic markup, tokenised chrome, no data layer | `DataTable` — sorting, filtering, pagination | TanStack Table (`/table`) |
-| `StatTile` — label, figure, delta, sparkline; takes a number | `ChartStat` — queries a relation, reacts to the crossfilter | Mosaic (`/analytics`) |
+**And the direction that keeps the library small.** A PascalCase name whose whole content is a
+fixed arrangement of the primitive's parts is an **example**, not a component. `TextField`,
+`NumberField`, `DateField`, `EmptyState` and `Ribbon` were exactly that and are gone
+(`packages/ui/src/index.tsx`, and tombstoned in `index.test.ts`); what survived is written out where
+it is used, where a reader can see it. A convenience earns the name by being *more capable* than the
+composition, never by being shorter than it.
 
-**Why it is two and not one.** A subpath entry statically re-exports its engine, so *any* import
-from it resolves an optional peer. Put the presentational half there and showing a number from a
-REST call would require installing DuckDB-WASM. The split is what keeps the common case free.
-
-**Why it is not duplication.** The connected half *renders* the presentational one — the same
-relationship as `TextField` → `input` in the naming rule below. If you find yourself reimplementing
-the markup on the subpath, you have built two components instead of one and a half.
-
-The corollary is a placement test, and `StatTile` failed it for a while by living under `/charts`
-without importing a single line of Mosaic: **a part belongs on a subpath only if it imports that
-subpath's engine.** Thematic neighbourhood is not a reason.
-
-### The naming rule
-
-Discovered while writing the forms guide, and it explains half the library:
-
-> **`kebab-case` is the vendored primitive. `PascalCase` is our pre-assembled convenience
-> built on top of it.**
-
-Verifiable, not asserted: `SecretField` imports `password-input`, `TextField` imports `input` +
-`input-group`, `DateField` imports `date-picker` + `calendar`. They are not competitors — one is
-built from the other. **Default to the PascalCase one; drop to the primitive when it does not
-fit.**
-
----
+**The taxonomy test.** *A machine with a switch → a variant or a mode. A new content contract
+assembled on a primitive → a PascalCase composite.*
 
 ## The layout layer
-
-**Ark ships no layout.** It is a behaviour library (Zag machines); the one layout-adjacent
-primitive is `Splitter` (our `Resizable`). So "idiomatic to Ark" for layout is a category error —
-there is nothing to match. The references for *layout* are the app-shell libraries built on a
-headless core — **shadcn, Mantine, Ant**; Ark supplies only the authoring idiom (Root + named
-parts + `ark.*` + `data-slot`) and the Splitter machine. Full grounding:
-`.planning/LAYOUT-ARK-NATIVE-REVIEW.md`.
-
-### Regions, and nothing else
 
 ```
 ShellRoot                         full-height column, owns the viewport
@@ -123,233 +79,117 @@ ShellRoot                         full-height column, owns the viewport
 └── ShellFooter                   ┘
 ```
 
-**The regions carry no aesthetic.** No height, no surface, no typography, no font size. A region
-places its children and separates itself from its neighbour. Everything visible inside it is the
-caller's.
+**The regions carry no aesthetic and declare no role.** They place their children and separate
+themselves from a neighbour; everything visible inside is the caller's, and the call site passes the
+landmark. So there is no bar component: a dense strip is *something you put in a region*.
 
-This is the correction that took three attempts to reach. `Toolbar`, `StatusBar` and
-`TopBarUtility` were three copies of one strip; the first fix merged them into a generic
-`ShellBar` — which kept `h-8`, `bg-card`, `text-muted-foreground` and an 11px font. That is the
-IDE aesthetic of `Toolbar`, the component the owner had explicitly rejected. Generalising an
-implementation while preserving a rejected appearance is not generalising.
+**Exactly one `<main>` per page**, owned by `ShellMain`; nested containers use `<section>`.
+`SidebarInset` is a neutral offset `<div>`, not a `<main>` — it is the inset styling wrapper, and
+the `ShellMain` inside it owns the landmark. shadcn does the opposite because it has no region
+layer; we do. A shell has two legal shapes and they do not mix — see
+`decisions/a-shell-has-two-legal-shapes.md`.
 
-**So there is no bar component.** A dense IDE strip is *something you put in a region*, and it
-lives in the workspace showcase where anyone who wants that look can copy it.
+**The header rule.** One header vocabulary, `SectionRoot` and its parts. `CardHeader` and
+`DialogHeader` do not merge into it: *a header wired to a machine stays with its machine; only
+pure-layout headers merge.* That the line is right is shown by `TourHeader` *being* `DialogHeader`.
 
-### Rules that survive any refactor
+## Validation
 
-- **Exactly one `<main>` per page.** `ShellMain` owns it. Nested containers use `<section>`; two
-  `<main>` elements are a conformance error and make "skip to main content" ambiguous. This is why
-  **`SidebarInset` is a neutral offset `<div>`, not a `<main>`** — it is a styling wrapper (the
-  inset margin/rounded/shadow), so it carries no landmark; the `ShellMain` you place inside it does.
-  (shadcn makes `SidebarInset` the `<main>` because it has no separate region layer; we do.)
-- **A fixed sidebar and a full-width top/bottom region are mutually exclusive.** A `fixed` rail
-  (`collapsible="icon" | "offcanvas"`) starts at viewport top and paints *over* any header that
-  spans across it. Two legal shapes: put the header/footer *inside* `SidebarInset`, right of the
-  rail (the shadcn model — canonical), or use an in-flow sidebar (`collapsible="none"`, or a
-  `ShellAside`) so a spanning header/footer is legitimate (the Ant / IDE model). Never mix them.
-- **`ShellRoot`'s `h-dvh` is the standalone-frame case.** It is correct only when `ShellRoot` is the
-  outermost element (a shell with no rail). Inside a `SidebarProvider`, the provider is the viewport
-  frame and `SidebarInset` is the content column — place `ShellHeader` / `ShellBody` / `ShellFooter`
-  directly in the inset; do **not** nest a second `ShellRoot` (its `h-dvh` would double-count).
-- **Logical properties, never physical.** `border-e` / `border-s`, `side="start" | "end"` — never
-  left/right. One code path mirrors correctly under RTL.
-- **Asides are `<aside>`**, i.e. complementary landmarks, which is why they may repeat where
-  `<main>` may not. Two of them need `aria-label` to be distinguishable.
-- **Resizing is composed, not a prop.** Wrap Ark's Splitter around a region and the drag,
-  keyboard resize and ARIA come from the machine.
-- **A region declares no role.** A bottom region is often `contentinfo`, a top one often
-  `banner`, a strip is neither — and a shell may have several. The call site passes the landmark.
+**The library displays errors. Products produce them.** `Field` takes a boolean and a `ReactNode`;
+where they came from is the product's business. Full reasoning in `.planning/FORMS-DECISION.md`.
 
-### What the current components become
-
-| Today | Becomes |
-|---|---|
-| `AppShell` | showcase |
-| `WorkspaceLayout` | showcase — its `localStorage` persistence, portal glue and global Escape listener go with it, not into the library |
-| `TwoPaneLayout` | deleted — one `ShellAside` + `ShellMain` is already that |
-| `SidePanel` | `ShellAside` (its narrow drawer is the `overlay` variant) |
-| `Toolbar`, `StatusBar`, `TopBarUtility` | deleted — content inside a region |
-| `TopBar` | splits three ways: the `<header role="banner">` is a region, the utility strip is content, the title row is a header (below) |
-| `PageShell`, `SectionHeader`, `TopBarMain` | merge — one header vocabulary, in Ark's compound idiom, with a scale variant |
-
-### The header rule
-
-Three vocabularies describe one row today — `SectionHeader` (Icon · Content · Title ·
-Description · Actions), `PageShell` (Header · Title · Description · Actions) and `TopBarMain`
-(TitleGroup · Title · Subtitle · Actions). Same structure, three names.
-
-They merge. `CardHeader` and `DialogHeader` do **not**:
-
-> **A header wired to a machine stays with its machine. Only pure-layout headers merge.**
-
-`DialogHeader` wires Ark's `aria-labelledby`; `CardHeader` is part of Card's compound. Precedent
-that the line is right: `TourHeader` *is* `DialogHeader`. Sharing across machines is fine when
-the wiring is shared; merging layout with wiring is not.
-
----
-
-## Validation and errors
-
-**The library displays errors. Products produce them.**
-
-`Field` takes a boolean and a `ReactNode`. Where they came from — a zod schema, a server
-response, a SHACL engine, an `if` — is the product's business.
-
-The reasoning, in full, is in `.planning/FORMS-DECISION.md`. The short version: our own two
-consumers validate in ways with almost nothing in common (schema-keyed vs RDF-term-keyed, binary
-vs tri-state severity, one message vs several), so any model rich enough for both would be shaped
-by whichever shouted loudest, and any model shaped by one excludes the other. A boolean and a
-node exclude neither.
-
----
-
-## Admission rules
+## Admission
 
 A new component enters only if all four hold:
 
-1. **Domain-free.** Nothing about RDF / SHACL / fossil / graphs / auth.
-2. **Proven demand.** It appears in ≥2 real call sites, not in a hypothesis.
-3. **Wraps, does not reinvent.** If it needs behaviour, it leans on Ark. Check
-   `@ark-ui/react/dist/components/` before writing a state machine.
-4. **Single axis.** It is structure, or content, or behaviour — not a blend.
+1. **Domain-free.** Nothing about RDF, SHACL, fossil, graphs or auth.
+2. **Proven demand.** Two real call sites, not a hypothesis. One `docs/examples/<slug>/` directory
+   is not a second call site — it is the page proving the part exists.
+3. **Wraps, does not reinvent.** Read Ark's shipped machines before writing one — `CONVENTIONS.md`
+   has the path and the one thing about resolving it that catches people out.
+4. **Single axis.**
 
-And one rule about *not* building:
+And one rule about *not* building: **do not add a model before the existing parts have a consumer.**
 
-> **Do not add a model before the existing parts have a consumer.**
+**Two standing exceptions, and both are narrow.** The `/analytics` mark and interactor wrappers are
+one-line descriptors over somebody else's grammar, and they stay complete even where no example
+draws one: a vocabulary with holes sends the author to `@uwdata` for the one thing we left out,
+which is the import the layer exists to remove. The exception is priced on the wrappers being one
+line each — `decisions/a-grammar-ships-its-whole-vocabulary.md` — and does not generalise to
+components with bodies.
 
-`field.tsx` ships thirteen parts and had no consumer while four rounds of design went into a
-fourteenth. The highest-value move was adoption, not design.
+The second is the same shape one library along: the `useX` context aliases and the Ark parts
+re-exported beside them ship because Shark UI's registry ships them, under the same names, with no
+call site of its own either. The vocabulary a consumer arrives with is the thing being bought —
+`decisions/a-name-shark-ships-is-ours.md`, which also says which names Shark does *not* ship and
+therefore neither do we.
 
-**That was true when it was written and is no longer true — do not cite it as current evidence.**
-Measured against the tree: `Field` is imported by 39 files under `docs/`, `FieldLabel` by 12 modules
-*inside* `packages/ui/src`, and eleven of the thirteen parts are rendered by something other than
-`field.tsx`'s own examples. It is now the most-consumed family in the library. The rule above stands;
-this paragraph is the history of a moment that closed, kept because the *lesson* survived the
-example. The two parts still without a consumer are `FieldSeparator` and `useField`.
-
-The live version of the same measurement, and the one to cite instead: of 733 exported values, 139
-are referenced nowhere in the repo, and **122 appear in exactly one `docs/examples/<slug>/`
-directory and nowhere else** — which is the page proving the part exists, not the second call site
-rule 2 asks for. The concentrations are three: 42 of 56 exported `useX` context aliases, 14 of 21
-`*Variants` objects, and pure `data-slot` renames of another component's part (29 of them, floor not
-ceiling). Before reading that as dead code, note the trap: 69 exports have no *export* consumer
-because their own root renders them (`ProgressTrack`, `CheckboxIndicator`, the `Calendar Table*`
-parts). Deleting those exports is a compatibility question; deleting the symbols breaks the
-component. `ProgressTrack` is the ideal case, not a defect — `data-display/progress.mdx` documents
-that you never place it yourself.
+That second exception is an instance, not a special case. **A reference system outranks a rule of
+ours; only a measurement outranks the reference.** The order, what counts as a measurement and the
+three places it decides nothing: `decisions/a-measurement-overrules-the-reference.md`, stated as a
+rule in `CONVENTIONS.md`.
 
 ### Reach for a new component last
 
-A new component is the most expensive answer. Walk this ladder first — each rung is cheaper than
-the next, and every reference except Ant (React Aria's RFC is the clearest) reserves a new
-component for genuinely new **behaviour** or **DOM structure**, never a new look:
+Each rung is cheaper than the next, and a new component is reserved for genuinely new **behaviour**
+or **DOM structure**, never a new look.
 
-1. **A prop / variant.** A different appearance of the same machine is a `tv()` variant, not a
-   file. "Card radio" is `RadioGroup` styled off `data-state` — which is exactly what
-   `RadioGroupCard` (`simples/radio-group.tsx:98`) already is, so this rung is **built**, not
-   aspirational.
-2. **Composition + `data-*`.** Every state is mirrored to `data-*` (Ark already does this), so a
-   caller restyles a list into cards or swatches with CSS alone — no fork.
-3. **`asChild` / render prop.** Absorb the caller's own markup — a link, a card, a `Button` —
-   instead of minting `CardButton` / `LinkButton` per case.
-4. **A provider / slot.** Reuse a standalone part inside a composite by injecting props through
-   context, the way React Aria's `Select` reuses `Popover` (there is no `SelectPopover`). Ark's
-   `RootProvider` + `useX` hook lifts state out of the tree when it must live elsewhere.
-5. **A new component.** Only now, and only for new behaviour or a new DOM shape.
-
-Providers earn their place for **cross-cutting** state — theme (`KanzoThemeProvider`), locale /
-direction, a Field context — and for composite reuse. Not for "this input has completion": that
-is a prop (`complete` / `suggest`), and the UIs differ, so a provider would unify nothing.
-Everyone but Ant composes card-radios; our `CardRadioGroup` is the outlier to unwind — but **not for
-the reason this doc used to give**. It does not duplicate `Card`: it imports zero of it, and composes
-`RadioGroup` + `RadioGroupCard` + `Badge` (`simples/CardRadioGroup.tsx:6-7`). What it actually adds is
-a grid and an `options: CardRadioOption[]` array — rung-1 layout plus a record-of-`ReactNode`s API
-over a compound that already exists, with no state and no new DOM semantics. That is the charge, and
-the library has already argued it against itself and won: `composites/SidebarIdentity.tsx:31-38`
-rejects this shape in writing — *"a layout tree written as an attribute: you cannot reorder it, wrap a
-region, spread props onto one, or use `asChild` … `CardHeader`, not `<Card header={…} />`"*. Against
-unwinding: it has a genuine second call site (`docs/examples/form/tanstack/example-card-radio-group.tsx`),
-and its `preview` / `badge` / `columns` layout would move into every caller.
-
-**AI-assist is two composed compounds, not props on the core.** A `complete` prop on `Input` /
-`Textarea` reads cheap on this ladder, but it welds the model into the primitive — the core stops
-being Shark-verbatim and imports the engine. So AI-assist composes *over* the pure inputs instead:
-**`Complete`** (`CompleteRoot` owns the value + `useCompletion`; `CompleteInput` / `CompleteTextarea`
-delegate to the bare primitive via `asChild`; `CompleteGhost` / `CompleteHint` render the preview)
-and **`Suggest`** (`Root`/`Trigger`/`Content`/`Item`, a ✨ candidate popover over `useSuggestions`).
-The primitives stay bare; the engine stays in the two headless hooks, exposed for custom surfaces.
-That is rungs 3–4 of the ladder, not rung 1 — the extra rung buys core purity. There is **no
-`AiAssist` provider, no field context**: a provider would only earn its place to unify state across
-consumers, and there is nothing to unify. **Gate any shared AI state on a real second consumer.**
+1. **A prop or variant** — a different appearance of the same machine is a `tv()` variant, not a file.
+2. **Composition and `data-*`** — every state is mirrored, so a caller restyles with CSS alone.
+3. **`asChild` or a render prop** — absorb the caller's markup instead of minting `CardButton`.
+4. **A provider or slot** — for **cross-cutting** state (theme, locale, a Field context) and for
+   composite reuse. Not for "this input has completion".
+5. **A new component.** Only now.
 
 ### A menu is a command; a listbox is a value
 
-Half the "which control?" questions in this library are one question wearing four hats, and the
-answer is an ARIA role, not a look. Two surfaces open a popover over a list, and they are not
-interchangeable:
-
-- **`role="menu"`** (`Menu`, `MenuItem`, `MenuCheckboxItem`) is a list of **commands**. You press,
-  something happens, the surface closes. It is not anybody's data.
-- **`role="listbox"`** (inside `Select`, `Listbox`, `Combobox`) is **a value**. It lives in state;
-  the popover is only the editor.
-
-The test, in one line: **if closing the surface leaves state, it is a listbox; if it leaves only an
-effect, it is a menu.**
-
-This is the only axis that matters. The rest of the family is two orthogonal questions on top of
-it — *can you type to filter?* and *how many can you pick?* — which is why the four look alike and
-are not:
+Half the "which control?" questions here are one question wearing four hats, and the answer is an
+ARIA role, not a look. **If closing the surface leaves state, it is a listbox; if it leaves only an
+effect, it is a menu.** The rest of the family is two orthogonal questions on top of that.
 
 | | Type to filter | Options come from | Many |
 |---|---|---|---|
 | `NativeSelect` | no | a closed collection | no — it is the OS picker |
 | `Select` | no | a closed collection | `multiple` |
 | `Listbox` | no | a closed collection | `selectionMode` — and **no popover of its own** |
-| `Combobox` | **yes** | a closed collection, or free with `allowCustomValue` | `multiple` |
+| `Combobox` | **yes** | closed, or free with `allowCustomValue` | `multiple` |
 | `TagsInput` | n/a | **there is no collection** — the user invents the values | always |
 
-`TagsInput` is the one that does not belong to the family: it has no options to choose from. If
-the values exist beforehand, it is the wrong answer and `Combobox multiple` is the right one.
-
-**Autocomplete is not a component.** Shark ships three pages — Select, Combobox, Autocomplete —
-over *two* Ark machines: its Autocomplete page links to `ark-ui.com/docs/components/combobox`, and
-there is no `autocomplete` directory in `@ark-ui/react/dist/components/`. The difference is
-presentation — trigger button and open-on-click, versus open-on-type — so it is `showTrigger` on
-`Combobox`, not a fifth file.
-
-**`Command` is the fourth face of that same machine, and the honest exception to the rule above.**
-Its `links.doc` points at `ark-ui.com/docs/forms/combobox` and its own page says it: a combobox
-held permanently open that never closes on select. So a *command* palette is built on a listbox —
-which looks like a contradiction and is not. The role follows the **interaction**, not the payload:
-type to filter, arrow to highlight, enter to run is combobox behaviour, and a menu cannot filter at
-all. Read the rule as *a value needs a listbox; a command needs a menu **unless it needs to be
-searched***. Filed under `actions/`, not `forms/`, because what it captures is an action — which is
-why `forms/controls.mdx` must still cross-link it rather than list it as a control.
-
-The rule bites hardest on **filters**, because a filter is a value and the popover-with-checkboxes
-idiom says menu. `DataTableViewOptions` is a genuine menu — column visibility is a view command
-that is nobody's data. `DataTableFacetFilter` and the chart filter are not, and were built as
-menus anyway. Mis-roling costs more than purity: a `menuitemcheckbox` list cannot announce "2 of
-5 selected", and a menu has nowhere to grow a search field the day the column has 200 values.
-
-Their shared surface is **`FacetFilter`** — trigger, count badge, option counts, clear, and the
-two list rules that were independently rediscovered on both sides: sort alphabetically rather than
-by frequency, or the list reshuffles under the cursor whenever another filter moves; and keep a
-selected value that another filter has faceted away, or it sits in the filter with no way to
-untick it. One surface, two thin adapters — TanStack facets on one side, a Mosaic clause on the
-other. It clears admission rule 2 on the day it is written: both call sites already shipped.
-
----
+`TagsInput` does not belong to the family: if the values exist beforehand it is the wrong answer and
+`Combobox multiple` is right. **Autocomplete is not a component** — Ark has no such machine, and the
+difference is `showTrigger` on `Combobox`. **`Command` is the honest exception**: a combobox held
+permanently open, because the role follows the *interaction* rather than the payload, and a menu
+cannot filter at all. Read the rule as *a value needs a listbox; a command needs a menu unless it
+needs to be searched.* It bites hardest on filters — `decisions/a-filter-is-a-value.md`.
 
 ## Where specificity is allowed to live
 
-Not everything belongs in the library, and that is not a loss:
+`docs/showcases/` for full arrangements — an app shell, a workspace, an editor — rendered full-bleed
+and unframed, because a shell judged inside a centred box tells you nothing. The products for
+anything that knows a domain, any router integration, any validation engine, any persistence. Those
+are respectable destinations, not rejections.
 
-- **`docs/blocks/`** — full arrangements: an app shell, a workspace, an editor. Rendered
-  full-bleed and unframed, because a shell judged inside a 450px centred box tells you nothing.
-- **The products** — anything that knows a domain, any router integration, any validation engine,
-  any persistence.
+## Decisions
 
-If a piece cannot pass the admission rules, it is a showcase or it is product code. Those are
-respectable destinations, not rejections.
+One file each in `decisions/`. `Status` `live` is a rule in force; anything else is history and can
+be skipped.
+
+**Live** — `a-count-belongs-in-a-script`, `a-layout-tree-is-children`, `a-primitive-owns-its-slot`,
+`adoption-before-design`, `an-export-needs-a-second-call-site`,
+`a-machine-with-a-switch-is-a-variant`, `a-region-carries-no-aesthetic`, `exactly-one-main`,
+`a-shell-has-two-legal-shapes`, `layout-is-not-ark-native`, `a-filter-is-a-value`,
+`a-grammar-ships-its-whole-vocabulary`, `charts-and-table-ship-code-forms-ship-a-guide`,
+`a-chart-fails-silently-and-well-painted`, `ai-assist-composes-over-pure-inputs`,
+`two-themers-and-one-root`, `palette-is-authoring-time`, `one-changeset-until-the-first-publish`,
+`match-the-reference`, `provenance-beats-purity`, `an-audit-is-a-map-not-an-oracle`,
+`a-rule-broken-three-times-becomes-a-test`, `a-docs-defect-is-a-library-defect`,
+`a-generated-index-with-no-second-list`, `a-name-shark-ships-is-ours`,
+`a-measurement-overrules-the-reference`, `a-house-principle-withholds-no-name`,
+`the-skip-target-is-the-main-landmark`, `a-part-is-named-by-its-machine`,
+`adopt-the-part-the-machine-ships`.
+
+Also live — `a-compound-keeps-its-root-even-when-the-root-is-an-alias`,
+`steps-claims-a-tab-role-it-cannot-keep`, `prose-that-is-hashed-is-data`.
+
+**Superseded** — `field-has-no-consumer`, by `adoption-before-design`.
+`one-theme-provider`, by `two-themers-and-one-root`.

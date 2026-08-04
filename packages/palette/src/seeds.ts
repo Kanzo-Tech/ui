@@ -1,5 +1,6 @@
 import paletteDataJson from "../palette-data.json";
 import type { DerivePaletteInput } from "./derive-palette.js";
+import { hasBase16 } from "./syntax-source.js";
 
 /**
  * The seed pairs this package ships — Kanzo's own, and four borrowed identities for the showcase.
@@ -56,6 +57,11 @@ export function seedInput(id: string, seeds: PaletteSeeds): DerivePaletteInput {
     // from Dracula while the eight accent slots beside them — the part of a base16 palette that is
     // actually *about* syntax — went unread. Dracula is the name of a syntax scheme before it is the
     // name of anything else.
-    syntax: { kind: "base16", id },
+    //
+    // **Only when there is one.** A seed pair that did not come from a base16 scheme — a client's
+    // two colours, a hall's heraldry — has an id that names no palette, and claiming it threw
+    // outright rather than falling back. Absent, the default applies: Kanzo's own slots, re-solved
+    // against this tenant's editor like any other imported scheme.
+    syntax: hasBase16(id) ? { kind: "base16", id } : undefined,
   };
 }

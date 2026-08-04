@@ -4,13 +4,13 @@ export default function Example() {
   return (
     <div className="flex w-80 flex-col gap-6">
       <Field>
-        <FieldLabel>Vertical</FieldLabel>
-        <Input placeholder="Label above the control" />
+        <FieldLabel>Contract title</FieldLabel>
+        <Input placeholder="A wyrm under the granary" />
       </Field>
 
       <Field orientation="horizontal">
         <Checkbox defaultChecked />
-        <FieldLabel>Horizontal — control first</FieldLabel>
+        <FieldLabel>Post to every hall</FieldLabel>
       </Field>
     </div>
   );

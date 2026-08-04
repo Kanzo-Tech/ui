@@ -20,19 +20,27 @@ markdown renderer, a CMS, a changelog. Nothing inside needs a class.
 
 ## The only typography component
 
-There is no `Heading` and no `Text`. They existed and were removed, and the reasoning is worth
-stating because it will come up again.
-
-`Text` took `size`, `weight`, `variant`, `align` and `truncate` — five styling knobs on a
-`<span>`. That is styling-by-props competing with the utilities, which is the ad-hoc styling the
-conventions exist to prevent. Both also had **no consumer anywhere in the library**: every
-component styles its own text, which is what Shark does and what the type scale is for.
+There is no `Heading` and no `Text`, and that is the rule rather than an omission. A `Text` taking
+`size`, `weight`, `variant`, `align` and `truncate` is five styling knobs on a `<span>` —
+styling-by-props competing with the utilities, which is the ad-hoc styling the conventions exist
+to prevent. Every component styles its own text instead, which is what Shark does and what the
+type scale is for. Reach for a new component last: this one is
+[rung 1](/docs/philosophy#reach-for-a-new-component-last), and rung 1 is a class.
 
 <Callout type="info">
 So: **chrome styles itself, `Prose` handles what utilities cannot.** For a heading in your own
 interface, write the element and the utilities — `<h2 className="text-lg font-semibold">` — or
 use the component that owns that region, such as [`SectionTitle`](/docs/layout/section).
 </Callout>
+
+## The class is `kanzo-prose`
+
+`Prose` is a class name with a component around it, so the name matters: the plugin is registered
+as `kanzo-prose`, not `prose`. It emits unscoped descendant rules — `.prose :where(a)`,
+`:where(h1)`, `:where(table)` — whose specificity beats Preflight, so under the default name every
+consumer who happens to use `prose` themselves (fumadocs does; it is a common choice) would have
+their anchors, headings, lists and tables repainted by a library they asked for a Button. Target
+`kanzo-prose` when you style it, and pass `className` when you want a different measure.
 
 ## Theming
 

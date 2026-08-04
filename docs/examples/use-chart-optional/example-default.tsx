@@ -1,13 +1,11 @@
 "use client";
 
-import { Badge, Show, Swatch } from "@kanzo-tech/ui";
+import { Badge, categoricalColor, Show, Swatch } from "@kanzo-tech/ui";
 import {
   ChartAxisX,
   ChartAxisY,
   ChartBarY,
   ChartRoot,
-  categoricalColor,
-  chartSeriesEntries,
   count,
   useChartOptional,
   type ChartConfig,
@@ -42,10 +40,10 @@ function SeriesKey({ series }: { series?: readonly string[] }) {
           in a ChartRoot
         </Show>
       </Badge>
-      {chartSeriesEntries(config).map(({ key, label, color }) => (
+      {Object.entries(config).map(([key, series], i) => (
         <span className="flex items-center gap-1.5 text-muted-foreground text-xs" key={key}>
-          <Swatch color={color} size="xs" />
-          {label}
+          <Swatch color={series.color ?? categoricalColor(i)} size="xs" />
+          {series.label ?? key}
         </span>
       ))}
     </div>

@@ -12,6 +12,7 @@ links:
 ```tsx
 import {
   FileUpload,
+  FileUploadClearTrigger,
   FileUploadDropzone,
   FileUploadHiddenInput,
   FileUploadItem,
@@ -19,7 +20,9 @@ import {
   FileUploadItemGroup,
   FileUploadItemName,
   FileUploadItemPreview,
+  FileUploadItemPreviewImage,
   FileUploadItemSizeText,
+  FileUploadRootProvider,
   FileUploadTrigger,
   useFileUpload,
 } from "@kanzo-tech/ui";
@@ -28,8 +31,8 @@ import {
 ```tsx
 <FileUpload accept="image/*" maxFiles={3}>
   <FileUploadDropzone>
-    Drag images here
-    <FileUploadTrigger size="sm">Browse files</FileUploadTrigger>
+    Drag the surveyor’s plates here
+    <FileUploadTrigger size="sm">Browse the archive</FileUploadTrigger>
   </FileUploadDropzone>
   <FileUploadHiddenInput />
 </FileUpload>
@@ -41,18 +44,23 @@ The accepted files live on the machine. Read them with `useFileUpload` inside th
 ## Anatomy
 
 ```text
-FileUpload
+FileUpload                       (or FileUploadRootProvider, given a useFileUpload value)
 ├── FileUploadLabel
 ├── FileUploadDropzone
 │   └── FileUploadTrigger
 ├── FileUploadItemGroup
 │   └── FileUploadItem
 │       ├── FileUploadItemPreview
+│       │   └── FileUploadItemPreviewImage
 │       ├── FileUploadItemName
 │       ├── FileUploadItemSizeText
 │       └── FileUploadItemDeleteTrigger
+├── FileUploadClearTrigger
 └── FileUploadHiddenInput
 ```
+
+There is no list component. `FileUploadItemGroup` plus a `.map` over `useFileUpload().acceptedFiles`
+is the loop, and it stays yours so the row can be arranged per surface.
 
 ## API Reference
 
@@ -97,3 +105,6 @@ machine's click handler.
 `FileUploadHiddenInput` — take their Ark part's props and add none of their own.
 `useFileUpload` re-exports `useFileUploadContext`: `acceptedFiles`, `rejectedFiles` and the
 imperative `setFiles` / `clearFiles`.
+
+`FileUploadRootProvider` is the controlled root: build the machine yourself with Ark's
+`useFileUpload` hook and pass it as `value` when a surface outside the compound has to drive it.

@@ -2,8 +2,8 @@ import { Status } from "@kanzo-tech/ui";
 import { CheckIcon, MinusIcon, XIcon } from "lucide-react";
 
 const states = [
-  { glyph: <MinusIcon />, label: "Unknown", variant: "default" },
-  { glyph: <CheckIcon />, label: "Passed", variant: "success" },
+  { glyph: <MinusIcon />, label: "Claimed", variant: "default" },
+  { glyph: <CheckIcon />, label: "Settled", variant: "success" },
   { glyph: <XIcon />, label: "Failed", variant: "destructive" },
 ] as const;
 

@@ -2,7 +2,9 @@
 
 import * as React from "react";
 import type { Appearance } from "@kanzo-tech/theme";
-import { AXES, type ThemePrefs } from "./prefs-config.js";
+// Straight from the theme package: `prefs-config.ts` was a re-export of exactly this and
+// nothing else, and it went the way shims go here.
+import { AXES, type ThemePrefs } from "@kanzo-tech/theme";
 import { ThemeContext, useKanzoThemeOptional, type ThemeContextValue } from "./theme-context.js";
 
 /**

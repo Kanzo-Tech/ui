@@ -41,9 +41,10 @@ import { TINT_FLOOR, TINT_REFERENCE, deriveRamp, toHex, type Ramp } from "./ramp
  * identity, two modes, and a record split the same way.
  *
  * **There is no first-paint budget here.** Runtime only *applies* a stored document, so the maths in
- * this file may be as thorough as quality demands — the categorical search alone measures a median
- * of 1.1 s and 7.5 s at worst over 24 brand hues, and that is the *cheaper* of the two spacings the
- * choice came down to. It is an onboarding-time cost paid once per client, and it buys a search that
+ * this file may be as thorough as quality demands — the categorical search costs seconds, and the
+ * spacing chosen is the *cheaper* of the two the choice came down to. `WHEEL_SPOKES` carries the
+ * measured table and is the only place those numbers are written; everything else points here. It
+ * is an onboarding-time cost paid once per client, and it buys a search that
  * would be unthinkable on a render path. Do not re-derive a "keep it cheap enough to inline"
  * constraint from the fact that palette *application* is inlined: two different moments.
  *

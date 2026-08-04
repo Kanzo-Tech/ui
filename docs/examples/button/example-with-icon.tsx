@@ -6,13 +6,13 @@ export default function Example() {
     <div className="flex flex-wrap items-center gap-2">
       <Button>
         <PlusIcon />
-        New dataset
+        Post a contract
       </Button>
       <Button variant="outline">
         <SearchIcon />
-        Search
+        Find a member
       </Button>
-      <Button aria-label="Add" size="icon-md" variant="outline">
+      <Button aria-label="Post a contract" size="icon-md" variant="outline">
         <PlusIcon />
       </Button>
     </div>

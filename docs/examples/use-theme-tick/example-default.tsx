@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { AppearanceToggle } from "@kanzo-tech/ui";
-import { CHART_SLOTS, resolveTokenColor, useThemeTick } from "@kanzo-tech/ui/analytics";
+import { AppearanceToggle, CHART_SLOTS, resolveTokenColor, useThemeTick } from "@kanzo-tech/ui";
 
 const WIDTH = 320;
 const HEIGHT = 120;

@@ -151,7 +151,7 @@ describe("compileChartSpec", () => {
       { kind: "interactor", interactor: "toggleX", options: { as: other } },
       { kind: "interactor", interactor: "highlight", options: { by: shared, opacity: 0.2 } },
       { kind: "interactor", interactor: "panZoom", options: { zoom: false } },
-      { kind: "legend", channel: "color", options: { as: shared } },
+      { kind: "mark", mark: "colorLegend", source: null, options: { as: shared } },
     ]);
     expect(spec[3]).not.toHaveProperty("options.as");
   });
@@ -333,7 +333,10 @@ describe("chartSpecSignature", () => {
       </>,
       context(),
     );
-    const legends = spec.filter((d) => d.kind === "legend");
-    expect(legends.map((d) => (d as { channel: string }).channel)).toEqual(["color", "symbol"]);
+    // A legend is a decorator mark (`source: null`), not a directive kind of its own: the compiler
+    // already had that path for `frame` / `gridX` / `gridY`, and `colorLegend` / `symbolLegend` are
+    // ordinary vgplot directives. The channel now lives in the mark name.
+    const legends = spec.filter((d) => d.kind === "mark" && d.source === null);
+    expect(legends.map((d) => (d as { mark: string }).mark)).toEqual(["colorLegend", "symbolLegend"]);
   });
 });

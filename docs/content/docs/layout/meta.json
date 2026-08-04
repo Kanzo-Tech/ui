@@ -1,4 +1,19 @@
 {
   "title": "Layout",
-  "pages": ["shell", "section", "resizable", "scroll-area", "floating-panel", "---Utilities---", "client-only", "show", "separator", "float", "accordion", "collapsible", "preferences", "appearance-toggle", "made-with"]
+  "pages": [
+    "shell",
+    "skip-nav",
+    "section",
+    "resizable",
+    "scroll-area",
+    "floating-panel",
+    "---Utilities---",
+    "rendering",
+    "separator",
+    "float",
+    "accordion",
+    "collapsible",
+    "preferences",
+    "appearance-toggle"
+  ]
 }

@@ -110,7 +110,7 @@ const baseSwatch = (name) => CUSTOM_MIDS[name] ?? hexOf(`${name}-500`);
 // schemes run 8–12 and never 5; the 5 in the old `--chart-1..5` is shadcn's UI-token convention
 // leaking into data viz.
 //
-// Every scheme here clears all six categorical checks in BOTH modes, measured against the product's
+// Every scheme here clears every check `checkScheme` makes, in BOTH modes, measured against the product's
 // real surfaces. `kanzo`: worst adjacent CVD ΔE 20.9, normal-vision 24.7, all eight at or above
 // 3:1. Derived by enumerating Tailwind's families × steps × orderings against the validator.
 // **Changing a value here means re-running that derivation, never nudging a hex** — four of the
@@ -223,9 +223,11 @@ const PALETTES = {
       base0C: "#8be9fd", base0D: "#bd93f9", base0E: "#ff79c6", base0F: "#ff5555",
     },
   },
-  // Nord ships sixteen numbered colours and a published base16 port; the neutrals are nord0–nord6
-  // verbatim. Six of its seven accents sit below the chroma floor, which is why its derived
-  // categorical set falls back to Kanzo's own: Nord has hues to *look* like and none to chart with.
+  // Nord ships sixteen numbered colours and a published base16 port. base00–base04 are nord0–nord4;
+  // base05/base06 are nord6/nord5, not in numeric order; base07 is nord**7**, a Frost accent, since
+  // base16 wants eight neutral slots and Nord names seven. Seven of its eight accents sit below the
+  // chroma floor, which is why its derived categorical set falls back to Kanzo's own: Nord has hues
+  // to *look* like and none to chart with.
   nord: {
     label: "Nord",
     slots: {

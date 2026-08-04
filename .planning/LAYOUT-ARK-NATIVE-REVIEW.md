@@ -3,10 +3,12 @@
 Written 2026-07-23. A review-only pass (no code changed) answering one question from the owner:
 **should our layout layer be "100% native / idiomatic to Ark UI", and is it?** Every claim below
 is grounded in a URL or a `file:line` in this repo, because the previous audits shipped three
-findings that turned out to be wrong (`.planning/audit-findings-need-verification`).
+findings that turned out to be wrong (`decisions/an-audit-is-a-map-not-an-oracle.md`).
 
-Companion docs: `DESIGN.md` ("The layout layer"), `.planning/LAYOUT-DESIGN.md` (the executed spec).
-This document **amends** one line of `LAYOUT-DESIGN.md` — see §6.1.
+Companion docs: `DESIGN.md` ("The layout layer") and
+`decisions/layout-is-not-ark-native.md`, which is this document's conclusion in five lines.
+`.planning/LAYOUT-DESIGN.md` was the spec it amends at §6.1; that spec was executed and deleted,
+and `packages/ui/src/layouts/shell.tsx` is its outcome.
 
 ---
 
@@ -320,7 +322,7 @@ but be honest about what they are, and consider collapsing Header+Footer into on
   That is modest but non-zero. They are legitimate in the Mantine/Ant sense (named regions), just
   **not** Ark-behavioural — and we should describe them that way rather than implying Ark blessing.
 - **Header + Footer differ only by border direction** (`border-b` vs `border-t`, `shell.tsx:41` vs
-  `:53`). `LAYOUT-DESIGN.md §2` already decided to collapse the three legacy bars into one
+  `:53`). The (now deleted) layout spec already decided to collapse the three legacy bars into one
   `ShellBar position="top"|"bottom"`; the same logic collapses `ShellHeader`/`ShellFooter` into one
   region with a `position` variant. Recommended (cuts two near-identical exports to one), but
   optional and orthogonal to the correctness fixes.
@@ -417,7 +419,7 @@ Two supported shells, stated plainly:
 1. **`SidebarInset`: `ark.main` → `ark.div`** (`packages/ui/src/composites/sidebar.tsx:347-363`).
    Keep every class (the `inset`-variant offset is its whole job); add `min-w-0` so a `ShellBody`
    inside can scroll horizontally. This is the fix for Problems 1 and 2.
-   - **Amends `LAYOUT-DESIGN.md:172` ("Sidebar stays as it is").** That line predates the
+   - **Amends the layout spec's "Sidebar stays as it is".** That line predates the
      double-`<main>` analysis; the change is scoped strictly to `SidebarInset`'s *landmark* — the
      Sidebar rail, its context, and every other part are untouched. The amendment is required
      because a design doc cannot bless a two-`<main>` conformance error.
@@ -452,7 +454,7 @@ optional consolidation.
 ### 6.4 Optional (consolidation / enhancement, not required)
 
 8. Collapse `ShellHeader` + `ShellFooter` into one `ShellBar position="top"|"bottom"` — same logic
-   `LAYOUT-DESIGN.md §2` already applied to the three legacy bars (§4.4). Cuts two near-identical
+   the layout spec already applied to the three legacy bars (§4.4). Cuts two near-identical
    exports to one.
 9. If icon-collapse *and* a spanning full-width header is a real product requirement, add a
    **Mantine-style top offset** to the fixed Sidebar (offset `inset-block-start` by a

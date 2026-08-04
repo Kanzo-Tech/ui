@@ -7,39 +7,38 @@ import {
   TableHeader,
   TableRow,
 } from "@kanzo-tech/ui";
+import { boardValue, questsOf } from "@/example/quests";
+import { HALLS } from "@/example/world";
 
-const rows = [
-  { name: "customers", records: 1204 },
-  { name: "orders", records: 8912 },
-  { name: "invoices", records: 412 },
-];
+const rows = HALLS.map((entry) => ({
+  hall: entry.short,
+  gold: questsOf(entry.id).reduce((sum, contract) => sum + contract.reward, 0),
+}));
 
 export default function Example() {
-  const total = rows.reduce((sum, row) => sum + row.records, 0);
-
   return (
     <Table isHoverable={false}>
       <TableHeader>
         <TableRow>
-          <TableHead>Dataset</TableHead>
-          <TableHead className="text-right">Records</TableHead>
+          <TableHead>Hall</TableHead>
+          <TableHead className="text-right">Posted</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {rows.map((row) => (
-          <TableRow key={row.name}>
-            <TableCell>{row.name}</TableCell>
+          <TableRow key={row.hall}>
+            <TableCell>{row.hall}</TableCell>
             <TableCell className="text-right tabular-nums">
-              {row.records.toLocaleString()}
+              {row.gold.toLocaleString()} gold
             </TableCell>
           </TableRow>
         ))}
       </TableBody>
       <TableFooter>
         <TableRow>
-          <TableCell>Total</TableCell>
+          <TableCell>On the board</TableCell>
           <TableCell className="text-right tabular-nums">
-            {total.toLocaleString()}
+            {boardValue().toLocaleString()} gold
           </TableCell>
         </TableRow>
       </TableFooter>

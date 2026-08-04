@@ -66,6 +66,35 @@ describe("FacetFilter", () => {
     expect(screen.queryAllByRole("menuitemcheckbox")).toHaveLength(0);
   });
 
+  // `modal={false}` in `FacetFilter.tsx`, asserted rather than commented. Our `Popover` defaults to
+  // modal, and a modal popover marks everything outside it `aria-hidden` — which here is the table
+  // being filtered, so a screen reader loses the rows at the exact moment they are being filtered.
+  // The prop is one word and an Ark bump restoring its own default would take it back in silence.
+  //
+  // `getByRole` skips anything under `aria-hidden`, so the query IS the assertion; the explicit
+  // attribute check is there to name the mechanism when it goes red.
+  it("keeps the popover non-modal, so the table it filters stays reachable", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <table>
+          <tbody>
+            <tr>
+              <td>alpha row</td>
+            </tr>
+          </tbody>
+        </table>
+        <Harness />
+      </>,
+    );
+
+    await open(user);
+
+    expect(screen.getByRole("table")).not.toBeNull();
+    expect(screen.getByRole("cell", { name: "alpha row" })).not.toBeNull();
+    expect(screen.getByText("alpha row").closest('[aria-hidden="true"]')).toBeNull();
+  });
+
   it("badges the number of ticked values on the trigger", async () => {
     const user = userEvent.setup();
     render(<Harness />);

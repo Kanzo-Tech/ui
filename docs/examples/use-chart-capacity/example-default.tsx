@@ -1,8 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { Badge, Show, Swatch } from "@kanzo-tech/ui";
-import { CHART_SLOTS, categoricalColor, useChartCapacity } from "@kanzo-tech/ui/analytics";
+import { Badge, CHART_SLOTS, categoricalColor, Show, Swatch, useChartCapacity } from "@kanzo-tech/ui";
 
 const SERIES = [
   "Auth",

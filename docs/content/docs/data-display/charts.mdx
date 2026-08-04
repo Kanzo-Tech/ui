@@ -12,7 +12,7 @@ chart you need is the one you write — there is no `BarChart` to fork.
 import { ChartRoot, ChartBarY, ChartToggleX, count } from "@kanzo-tech/ui/analytics";
 ```
 
-Like [CodeEditor](/docs/data-display/code-editor) with CodeMirror, the library wraps the engine and
+Like [CodeEditor](/docs/forms/code-editor) with CodeMirror, the library wraps the engine and
 never owns the runtime: it is **bring-your-own-coordinator**. The package never imports DuckDB-WASM
 and never builds a `Coordinator` — you wire one in a `"use client"` island and pass it in, which is
 what keeps the analytics stack out of the base bundle and out of every React Server Component.
@@ -29,15 +29,13 @@ component; it is four `ChartRoot`s with two marks and an interactor each.
 
 ## Why a grammar
 
-The library used to ship five components — `Histogram`, `BarChart`, `LineChart`, `ScatterPlot`,
-`BarSeriesChart` — five parallel `vg.plot(...)` calls with overlapping props. They were fine until
-you wanted something none of them was: a line on top of bars, a brush where the preset hardcoded a
-toggle, two marks against a selection you own. Every one of those needed a fork, because the plot
-was assembled inside the component.
+vgplot is ~40 marks, 19 interactors and ~250 attributes. A chart component — `Histogram`,
+`BarChart`, `ScatterPlot` — exposes that as one photograph of it, and assembles the plot inside
+itself, so the first thing it cannot do needs a fork: a line on top of bars, a brush where the
+preset hardcoded a toggle, two marks against a selection you own.
 
-vgplot is ~40 marks, 19 interactors and ~250 attributes. Five components exposed it as five
-photographs. So the five are gone, and each one is now [ten lines of JSX](#the-five-charts) you can
-copy — which is the only honest proof that the layer is expressive enough.
+A grammar has no such edge. The proof that it is expressive enough is that every shape a preset
+would have covered is [ten lines of JSX](#the-five-charts) you can copy.
 
 ## Two kinds of children
 
@@ -64,7 +62,7 @@ would render them. Pass values down from the component that owns the `ChartRoot`
 ## Anatomy
 
 ```tsx
-<ChartRoot table="telemetry" config={config} height={220}>
+<ChartRoot table="sightings" config={config} height={220}>
   <ChartBarY x="host" y={count()} fill="host" tip />
   <ChartRuleY at={0} />
   <ChartAxisX tickRotate={45} />
@@ -85,6 +83,15 @@ Three rules cover the ordering:
    [swap an interactor](#swap-the-interactor) at runtime.
 
 There is no `ChartTip`: the tooltip is a mark option, so it is the `tip` prop on any mark.
+
+<Callout type="warn">
+**A descriptor must be a direct child, not a child of one of your components.** The compiler walks
+the element tree — it never renders it — so it sees `<YourThing />` and stops, exactly as Recharts
+does. That includes [`Show`](/docs/layout/rendering#show): a `<Show>` element's type is `Show`, not a
+`Fragment`, so whatever it wraps is silently never plotted. Conditional marks and interactors are
+the one place in these docs that stays `&&` or a ternary — those compile to `false`, and rule 3 is
+what makes them vanish cleanly.
+</Callout>
 
 ## Installation
 
@@ -108,15 +115,14 @@ a skeleton until it is ready, and let the chart hydrate:
 "use client";
 
 import { useEffect, useState } from "react";
-import { loadObjects } from "@uwdata/mosaic-sql";
-import { Coordinator, MosaicProvider, wasmConnector } from "@kanzo-tech/ui/analytics";
+import { Coordinator, MosaicProvider, loadObjects, wasmConnector } from "@kanzo-tech/ui/analytics";
 
 export default function Analytics({ children }: { children: React.ReactNode }) {
   const [coordinator, setCoordinator] = useState<Coordinator | null>(null);
 
   useEffect(() => {
     const coord = new Coordinator(wasmConnector());
-    coord.exec(loadObjects("telemetry", rows)).then(() => setCoordinator(coord));
+    coord.exec(loadObjects("sightings", rows)).then(() => setCoordinator(coord));
   }, []);
 
   if (!coordinator) return <Skeleton className="h-40 w-full" />;
@@ -125,8 +131,10 @@ export default function Analytics({ children }: { children: React.ReactNode }) {
 }
 ```
 
-`Coordinator`, `Selection`, `coordinator` and `wasmConnector` are re-exported from the subpath, so
-you wire the backend without a direct `@uwdata` import.
+`Coordinator`, `Selection` and `wasmConnector` are re-exported from the subpath, along with the
+loaders (`loadObjects`, `loadCSV`, `loadJSON`, `loadParquet`, `loadSpatial`, `loadExtension`), so
+you wire the backend without a direct `@uwdata` import. vgplot's own `coordinator()` setter is
+**not** re-exported: `MosaicProvider` is the only thing that should ever call it.
 
 <Callout type="warn">
 **One coordinator per page.** `MosaicProvider` registers its coordinator as vgplot's active one,
@@ -139,7 +147,7 @@ crossfilter `Selection`.
 
 ## The five charts
 
-The presets that used to be components, rewritten with the grammar. Each is the same shape: a
+The five shapes a chart library is expected to ship, written in the grammar. Each is the same: a
 dimmed mark for the full relation (`filterBy={null}`), the crossfiltered mark on top, one
 interactor, two axes. Sixteen more shapes — waffle, ridgeline, hexbin, box plot, small multiples —
 are in the [gallery](/docs/data-display/chart-gallery).
@@ -317,9 +325,9 @@ whichever client is being served.
 The categorical set belongs to the [tenant's palette document](/docs/theming#colour-the-palette-document),
 not to this layer: N hues spaced from the brand hue, snapped to hue families, ordered by
 colour-blind separation, and projected onto `--chart-1..8` by `compile()`. A chart reads the token
-and that is the only copy — there used to be a second source of truth here (eight literal hexes,
-then a table in `theme-data.json`), and the same series came out one colour through `ChartConfig`
-and another through a token.
+and that is the **only** copy. A second source of truth in this layer — eight literal hexes, or a
+table of them — makes the same series come out one colour through `ChartConfig` and another
+through a token.
 
 `CHART_SLOTS` is 8 because a stylesheet cannot have a variable number of custom properties. How
 many of those slots carry a *real* category is the document's `capacity`, which can be lower: past
@@ -335,7 +343,7 @@ The context behind any DOM part you add — a legend, a tooltip, a caption:
 ```tsx
 function Total({ rows }: { rows: number }) {
   const { color, formatNumber } = useChart();
-  return <p style={{ color: color("error") }}>{formatNumber(rows)} requests</p>;
+  return <p style={{ color: color("hoax") }}>{formatNumber(rows)} sightings</p>;
 }
 ```
 
@@ -355,17 +363,19 @@ It throws outside a `ChartRoot`; `useChartOptional()` returns `null` instead, wh
 
 Two, because wrapping vgplot must stay a convenience:
 
-- **`<ChartRaw spec={…} />`** — a `vg.*` directive (or an array of them) in its source position.
-  You build the source yourself, and `from` is re-exported from the subpath for it:
-  `from("t", { filterBy: selection })`. No token resolution happens here, so pass a Plot-safe
+- **`<ChartRaw spec={…} />`** — a `vg.*` directive (or an array of them) in its source position,
+  with the same interactor-binding semantics as a wrapped mark. What it is mostly reached for is
+  one of the six axis marks the axis descriptors compile away from: `axisX({ anchor: "top" })` to
+  repeat the measure scale at the top of a long bar list, `axisFy` to label a facet. Those six are
+  re-exported from the subpath. No token resolution happens inside a raw spec, so pass a Plot-safe
   colour — `resolveTokenColor(host, "--chart-1")` is exported for exactly this, and reads the
   live cascade rather than a frozen copy of it.
 - **`attributes` on `ChartRoot`** — raw directives applied *last*, so they win over anything the
   layer decided. For the ~225 plot attributes the axes do not cover.
 
-The directive itself still comes from `@uwdata/vgplot` — that is what a hatch is — but nothing
-*around* it does any more: `from` and `plot` sit on the subpath next to `count`, `bin` and `sql`,
-so a raw mark no longer drags in a namespace import just to name its own relation.
+Neither hatch needs a source builder: `ChartRoot` already owns the `plot(…)` call, and a mark's
+`data` / `filterBy` props already name its relation. Anything past that — an expression builder, a
+plot attribute — still comes from `@uwdata/vgplot` directly, which is what a hatch is.
 
 Both are keyed by identity: a vgplot directive is a function, so building one inline rebuilds the
 plot on every render. Hoist it to module scope or `useMemo` it, and keep the `attributes` array
@@ -414,7 +424,8 @@ plain search field with no lookup at all.
 
 Its presentational half, **[`StatTile`](/docs/data-display/stat-tile), is in the root barrel** — it
 takes a number, so making it cost DuckDB-WASM would be absurd. That split is
-[the engine rule](/docs/philosophy), the same one behind `Table` and `DataTable`.
+[the engine rule](/docs/philosophy#the-engine-rule), the same one behind `Table` and
+`DataTableRoot`.
 
 The frame and the grid are **not** library components: a titled card and an auto-fitting grid add
 no behaviour, so they are arrangements you copy. The ones these docs use are in `docs/lib/`. The
@@ -428,9 +439,9 @@ import { ChartStat, count } from "@kanzo-tech/ui/analytics";
   {/* a number you already have */}
   <StatTile label="Requests" value={12_402} delta={{ value: 4.2, label: "vs last week" }} />
   {/* a number the relation answers, and re-answers on every brush */}
-  <ChartStat label="Selected" table="telemetry" value={count()} />
+  <ChartStat label="Selected" table="sightings" value={count()} />
   <ChartCard title="Latency" description="p50 by hour" legend={<ChartLegend config={config} />}>
-    <ChartRoot table="telemetry">…</ChartRoot>
+    <ChartRoot table="sightings">…</ChartRoot>
   </ChartCard>
 </DashboardGrid>
 ```
@@ -556,10 +567,15 @@ Anything else goes through `ChartRoot`'s `attributes`.
 
 ### Helpers
 
-Re-exported so a whole chart is written without a direct `@uwdata` import: `count` `sum` `avg`
-`min` `max` `median` `quantile` `stddev` `mode` `bin` `sql` `Fixed`, plus `from` and `plot` for the
-[escape hatch](#escape-hatches), `Coordinator` `Selection` `coordinator` `wasmConnector`, plus
-`CHART_SLOTS`, `categoricalColor(i)`, `resolveTokenColor` and `useThemeTick`.
+Re-exported so a whole chart is written without a direct `@uwdata` import: the aggregates
+`count` `sum` `avg` `min` `max` `median` `quantile` `stddev` `mode` `bin` `sql`; the six axis
+marks the descriptors withhold on purpose, `axisX` `axisY` `axisFx` `axisFy` `gridFx` `gridFy`,
+which are what [`ChartRaw`](#escape-hatches) is for; the boot vocabulary `Coordinator` `Selection`
+`wasmConnector` and the `load*` loaders.
+
+A set is re-exported when it is **closed and named**. vgplot's ~250 plot attributes and
+mosaic-sql's expression builders are open, so they stay a direct import — taking them raw is what
+an escape hatch *is*.
 
 For a descriptor of your own, `chartDescriptor(displayName, compile)` mints one; `compile` returns
 plain data (`{ kind: "mark", mark: "barY", source, options }`), never a `vg.*` call.

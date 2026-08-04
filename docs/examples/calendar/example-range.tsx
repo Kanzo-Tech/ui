@@ -1,3 +1,7 @@
+"use client";
+
+import { parseDate } from "@internationalized/date";
+import { isoDay } from "@/example/world";
 import {
   Calendar,
   CalendarNextTrigger,
@@ -12,7 +16,10 @@ import {
 
 export default function Example() {
   return (
-    <Calendar selectionMode="range">
+    <Calendar
+      defaultValue={[parseDate(isoDay(0)), parseDate(isoDay(12))]}
+      selectionMode="range"
+    >
       <CalendarView view="day">
         <CalendarViewControl>
           <CalendarPrevTrigger />
