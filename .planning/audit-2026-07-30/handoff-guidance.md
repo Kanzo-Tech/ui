@@ -47,8 +47,14 @@ Routed here because I own only the guidance tree. Ordered by consequence.
 
 These had no other home. None is a decision, so none became a record.
 
-- **`Calendar` is visually broken** — *"visualmente totalmente roto"*, from the owner's own
-  walkthrough. No commit anywhere touches it since.
+- ~~**`Calendar` is visually broken**~~ — *"visualmente totalmente roto"*, from the owner's own
+  walkthrough. **Does not reproduce, 2026-08-04**, rendered rather than read: `/docs/forms/dates`
+  at `7e01fb3` draws a correct August 2026 grid — the 1st under Saturday, July's tail muted, today
+  ringed and dotted, month and year selects populated. Measured rather than eyeballed: all 203
+  `calendar-table-cell-trigger`s are 40×36 with no outlier, rows step 40px, and `prev`/`next` sit at
+  the two ends of a 279px control (x=469 and x=716). The note said no commit had touched it since,
+  which was true and beside the point — the whole colour layer moved underneath it. Whatever was
+  broken is not broken now, and nobody should spend a session looking for it.
 - **`ColorPicker` swatch click behaviour is confusing.** Still open — nobody has looked at the
   interaction.
 
