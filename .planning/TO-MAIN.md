@@ -240,12 +240,44 @@ fails on both incoming files: no fields, no `Status`, absent from `DESIGN.md`'s 
 0001 cites `rmlext/decisions/0039…` and `…0040…`, paths that do not exist in this repository.
 
 Neither side is wrong. Converting ADR 0001 to five fields breaks a cross-repo convention that
-exists for a stated reason; leaving it breaks the guard. The third option is to teach
-`decisions.test.ts` that a numbered ADR is a different kind — exempt from the field shape, and with
-its `Cite:` paths not checked as local files. **Not decided here.**
+exists for a stated reason; leaving it breaks the guard.
+
+**Decided by the owner, 2026-08-04: the numbered ADRs win.** `main`'s shape is adopted and the 35
+five-field records are rewritten into it, for the reason its README already gives — since ADR-0040
+the two repositories reason about each other, and a reader crossing between them should not have to
+learn a second shape.
+
+This is the largest single item left, and larger than it looks:
+
+- **35 records to rewrite**, each into `# ADR NNNN: title` with `**Date:** / **Status:** /
+  **Decider:** / **Cite:**` and prose sections. The five fields do not map one-to-one — `Reversed
+  by` and `Held by` have no ADR counterpart and are the two this repository leans on hardest, so
+  where they go has to be decided once and applied 35 times rather than improvised per record.
+- **`decisions.test.ts` goes or is rewritten.** It enforces the five-field shape, the closed
+  `Status` set, that every cited path exists, and that `DESIGN.md` indexes every record. The last
+  two are worth keeping under any shape; the first two are about a format that is being replaced.
+- **`DESIGN.md`'s index** lists records by slug and groups them by status — both change.
+- **`CLAUDE.md`** points a first-time reader at `decisions/` and describes the five fields.
+- **Numbering.** `0001` is taken by the graph ADR. This repository's own sequence is separate from
+  `rmlext`'s (which is at 0039/0040), so ours continues from `0002` — and the order chosen for 35
+  existing records is a decision in itself, since an ADR number is permanent and implies sequence.
 
 ## Do not repeat
 
 `git checkout --theirs` across all remaining conflicts at once looks like progress and is not: it
 reverted our post-cut substitutions in the showcases and turned 9 stale references into 54. Resolve
 the showcases by hand or not at all.
+
+
+## The three decisions taken 2026-08-04, and what each now costs
+
+1. **The graph stays a package.** `@kanzo-tech/graph`, as `e3d3597` built it — not a `ui` subpath.
+   Nothing to undo, and the workspace port targets `@kanzo-tech/graph`. Admission rule 1 excludes
+   graphs from `ui` by name, so this is the rule agreeing with itself rather than an exception.
+2. **The numbered ADR shape wins** — see above.
+3. **The four inherited changesets are folded, and their reasoning becomes records.** Their content
+   goes into `the-first-release.md`; the arguments that exist nowhere else — the corrected principle
+   (*the user never AUTHORS a colour value*), palette-and-identity being one abstraction with a
+   parameter, `identityByPalette` keyed on the resolved id, and the accepted cost of dynamic
+   rendering — become records. **In the new ADR shape**, since decision 2 lands first or they are
+   written twice.
