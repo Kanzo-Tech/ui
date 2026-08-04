@@ -66,13 +66,26 @@ goes before tiles rather than with them.
 Note when doing it: cosmos.gl addresses points by buffer index, and `getConnectedLinkIndices` is
 local-index based, so the identity↔index map is rebuilt per residency change.
 
-### 4. Isolate the writer's memory — **fossil**, unblocked
+### 4. Isolate the writer's memory — **fossil**, started, and the suspect was wrong
 
-16.4 GiB for a 713 MB corpus. Louvain runs in memory over the whole graph and is the suspect, but it
-is not isolated: the layout pass is about half the wall clock (262.6 s against 123.3 s for a build
-whose binary predated it), and nobody has attributed the heap. ADR-0042 says a fossil that cannot
-write larger-than-RAM is as important a finding as anything on the read side — this is that
-measurement, started from the end nobody was looking at.
+`crates/fossil-runtime/examples/layout_memory.rs` (rmlext `107b8e5`) isolates the layout core — no
+I/O, no DuckDB, a planted-partition graph, RSS sampled *while* `community_hierarchy` runs:
+
+| n | edges | peak RSS | per edge | time |
+|---|---|---|---|---|
+| 5M | 34.8M | 1.93 GiB | ~53 B | 40.4 s |
+| 10M | 69.5M | 3.94 GiB | ~53 B | 92.7 s |
+
+**Linear in edges, and a quarter of the total.** Louvain does hold the graph in memory and it does
+scale — but at ten million it is 3.94 of the build's 16.4 GiB. ADR-0042 predicted the risk was
+here; it is here, and it is not the majority of it.
+
+Sampling matters: read *after* the call, the same 5M run reports 1.03 GiB, so measuring the
+survivor would have halved the figure and exonerated the contraction step.
+
+**Where the other three quarters are is now the open question** — the Node generator, DuckDB
+reading the CSVs, the Parquet writer, and `enrich_layout`'s own SQL. None is attributed. Next is
+the same treatment applied per phase of the build rather than to the core alone.
 
 ### 5. The tile payload format — **fossil** ✕ **canvas**, blocked by 1 and 2
 
