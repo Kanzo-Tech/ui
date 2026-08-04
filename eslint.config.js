@@ -3,7 +3,10 @@ import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/node_modules/**"] },
+  // `.next` and `.source` are build output the same way `dist` is — Next's compiled bundles and
+  // fumadocs' generated map. Linting them is 35,000 findings about code nobody wrote, which is how
+  // `docs/` came to be excluded from linting altogether; excluded properly, the real count is 75.
+  { ignores: ["**/dist/**", "**/node_modules/**", "**/.next/**", "**/.source/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -19,10 +22,22 @@ export default tseslint.config(
     },
   },
   {
-    // Node build scripts (e.g. the theme generator) run under Node, not the browser.
-    files: ["**/scripts/*.mjs"],
+    // Node scripts — the theme generator, the benchmark runner, the corpus builders — run under
+    // Node, not the browser. Matched by extension rather than by directory: the glob was
+    // `**/scripts/*.mjs`, so the five under `docs/showcases/graph-bench/` were reported as 64
+    // undefined `console`s. A `.mjs` in this repo is a Node script; there is no other kind.
+    files: ["**/*.mjs"],
     languageOptions: {
-      globals: { console: "readonly", process: "readonly", URL: "readonly", Buffer: "readonly" },
+      globals: {
+        console: "readonly",
+        process: "readonly",
+        URL: "readonly",
+        Buffer: "readonly",
+        // `run-bench.mjs` drives a page: these appear inside `page.evaluate` callbacks, which are
+        // serialised and run in the browser, not here.
+        document: "readonly",
+        window: "readonly",
+      },
     },
   },
   {

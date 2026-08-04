@@ -743,7 +743,10 @@ export function GraphBenchShowcase() {
       setPreviewLive(true);
       publish({ bounded: collected }, false, true);
     }
-  }, [publish, shape, stress]);
+    // No `shape`: the bounded sweep reads a corpus fossil compiled offline, so the generator's
+    // shape toggle does not reach it. The dependency was left over from when this layer built its
+    // own graph in the tab.
+  }, [publish, stress]);
 
   const run = layer === "engine" ? runEngine : runBounded;
 

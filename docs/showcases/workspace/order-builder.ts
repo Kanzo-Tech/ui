@@ -1,5 +1,4 @@
 import {
-  CONSTRAINT_KINDS,
   type ConstraintKind,
   constraintText,
   readOrders,
