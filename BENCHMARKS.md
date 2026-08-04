@@ -325,6 +325,24 @@ of an almost edgeless dot cloud. **The two numbers ADR-0041 named were never ind
 first is what made the second harder**, and a 480 ms pan that draws the graph is not comparable to a
 331 ms pan that draws points.
 
+**Where the pan goes now, timed natively per query** (the three `detail()` issues, same window):
+
+| | points | links | matched | sum |
+|---|---|---|---|---|
+| 1M | **30 ms** | 21 ms | 4 ms | 55 ms |
+| 5M | **65 ms** | 66 ms | 8 ms | 139 ms |
+
+**The links query is not the bottleneck, which corrects the guess above.** It returns 131,030 rows
+where it used to return a few hundred and is still the *cheaper* of the two at a million; the points
+query costs more, because `vis` computes two window functions over everything the rectangle matched
+— 304,212 rows at 1M, 1,726,542 at 5M — before `LIMIT 20000` takes any of it.
+
+**And the sum is the pan.** 55 ms native × ~2.4 for WASM is 132 ms, against the 133 ms measured at a
+million. The three queries go out under `Promise.all` and still serialise: Mosaic funnels them
+through one connection and fulfils in strict FIFO. Running them concurrently would make the pan
+`max` rather than `sum` — about 72 ms at 1M and 158 ms at 5M — which is the largest single lever on
+this list and the one this file already named before any of the layout work started.
+
 **Chunking is not what costs, once `chunk_size` is right.** At 1,024 rows it was a disaster —
 977 files, 196 ms against 2 ms for a single file on the identical query over HTTP, and a 200k pan of
 7.8 s in the browser against 48 ms recorded. The cost is linear in the file count at ~0.2 ms each
