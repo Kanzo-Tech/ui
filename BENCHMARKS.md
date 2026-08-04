@@ -334,8 +334,12 @@ first is what made the second harder**, and a 480 ms pan that draws the graph is
 
 **The links query is not the bottleneck, which corrects the guess above.** It returns 131,030 rows
 where it used to return a few hundred and is still the *cheaper* of the two at a million; the points
-query costs more, because `vis` computes two window functions over everything the rectangle matched
-— 304,212 rows at 1M, 1,726,542 at 5M — before `LIMIT 20000` takes any of it.
+query costs more, and **not** for the reason it looks like: `vis` computes two window functions over
+everything the rectangle matched — 304,212 rows at 1M, 1,726,542 at 5M — but DuckDB turns that into
+a top-N rather than a full ranking, which the returned `local` values prove by coming back
+contiguous at 0..19,999. What costs is the scan itself. The rectangle is a quarter of the *space*
+and matches 30% of the *corpus*, so "the working set is the window" is a statement about what is
+returned and never was one about what is read.
 
 **And the sum is the pan.** 55 ms native × ~2.4 for WASM is 132 ms, against the 133 ms measured at a
 million. The three queries go out under `Promise.all` and still serialise: Mosaic funnels them
