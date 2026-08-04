@@ -341,6 +341,20 @@ contiguous at 0..19,999. What costs is the scan itself. The rectangle is a quart
 and matches 30% of the *corpus*, so "the working set is the window" is a statement about what is
 returned and never was one about what is read.
 
+**And that rectangle is the worst shape there is for a Z-order tiling.** The pan window is a quarter
+of the width and the *full height*, which cuts across Morton locality rather than sitting inside it.
+At a million, in nine chunks:
+
+| window | chunks needed | rows matched |
+|---|---|---|
+| pan strip (quarter width, full height) | 7 of 9 | 304,212 |
+| square of the same width | **4 of 9** | **73,738** |
+
+A real camera shows something near the aspect ratio of a screen, not a full-height strip, so the
+harness is measuring the one move that defeats the tiling it is meant to test. **The 480 ms pan is
+an upper bound on a shape nobody pans in**, and fixing the window is worth doing before any more
+query work is aimed at the number it produces.
+
 **And the sum is the pan.** 55 ms native × ~2.4 for WASM is 132 ms, against the 133 ms measured at a
 million. The three queries go out under `Promise.all` and still serialise: Mosaic funnels them
 through one connection and fulfils in strict FIFO. Running them concurrently would make the pan
