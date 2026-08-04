@@ -10,7 +10,6 @@ import {
   useState,
 } from "react";
 import {
-  AppearanceToggle,
   Badge,
   Button,
   Card,
@@ -23,7 +22,6 @@ import {
   CompleteInput,
   CompleteRoot,
   CompleteTextarea,
-  DialogTrigger,
   Field,
   FieldArray,
   FieldDescription,
@@ -46,6 +44,7 @@ import {
   PreferencesPanel,
   PreferencesRadius,
   PreferencesRoot,
+  PreferencesTrigger,
   RadioGroup,
   RadioGroupCard,
   Resizable,
@@ -1219,9 +1218,10 @@ export function MetadataFormShowcase() {
               </HoverCardContent>
             </HoverCard>
 
-            {/* Appearance — the one control for it, in the chrome where a one-click preference
-                belongs. It cycles light → dark → system, so the panel needs no section for it. */}
-            <AppearanceToggle size="icon-sm" />
+            {/* No appearance control here. The claim this comment used to make — "the one
+                control for it, in the chrome where a one-click preference belongs" — was simply
+                false: `PreferencesPanel` renders an `AppearanceToggle` in its own header beside
+                the close X, so there were always two. */}
 
             {/* Preferences — OUR `Preferences` composite, EXTENDED. `PreferencesRoot` gives the
                 non-modal drawer + `P` hotkey; `PreferencesPanel` renders `{children ?? default}`,
@@ -1229,12 +1229,12 @@ export function MetadataFormShowcase() {
                 drawer) while leading with a custom Layout + display section. Flat exports, per the
                 RSC note in the component — `Preferences.X` statics do not survive the boundary. */}
             <PreferencesRoot hotkey="p">
-              <DialogTrigger asChild>
-                <Button className="gap-1.5" size="sm" variant="ghost">
-                  Preferences
-                  <Kbd>P</Kbd>
-                </Button>
-              </DialogTrigger>
+              {/* `PreferencesTrigger`, not a labelled button in this row: the drawer is reached
+                  occasionally and should not compete with the screen's actual verbs. Still
+                  `Root` + `Panel` by hand rather than the all-in-one `Preferences`, because this
+                  panel is EXTENDED — the convenience component renders the default child set and
+                  would drop the Layout section below. */}
+              <PreferencesTrigger />
               <PreferencesPanel>
                 <div className="flex flex-col gap-3">
                   <PreferencesField label="Layout">

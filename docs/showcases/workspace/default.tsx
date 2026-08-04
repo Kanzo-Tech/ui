@@ -5,11 +5,8 @@ import { useState } from "react";
 import {
 	Breadcrumbs,
 	Button,
-	DialogTrigger,
 	InstanceSwitcher,
-	Kbd,
-	PreferencesPanel,
-	PreferencesRoot,
+	Preferences,
 	Resizable,
 	ResizablePanel,
 	ResizableResizeTrigger,
@@ -271,19 +268,6 @@ function DiscoveryShell() {
 						))}
 					</ToggleGroup>
 
-					{/* The library's own theme drawer, unextended. The graph's display controls are
-					    deliberately NOT in here — a look, a node size and a friction coefficient are
-					    properties of this view, and they live in the Settings panel of the dock.
-					    Preferences is for what the whole product looks like. */}
-					<PreferencesRoot hotkey="p">
-						<DialogTrigger asChild>
-							<Button className="gap-1.5" size="sm" variant="ghost">
-								Preferences
-								<Kbd>P</Kbd>
-							</Button>
-						</DialogTrigger>
-						<PreferencesPanel />
-					</PreferencesRoot>
 				</ShellHeader>
 
 				<ShellBody className="min-w-0">
@@ -369,6 +353,12 @@ function DiscoveryShell() {
 					</ToggleGroup>
 				</ShellFooter>
 			</SidebarInset>
+			{/* The library's own theme drawer, unextended, on its floating trigger — the shape
+			    app-shell already uses. The graph's display controls are deliberately NOT in here:
+			    a look, a node size and a friction coefficient are properties of this view and they
+			    live in the Settings panel of the dock. Preferences is for what the whole product
+			    looks like, which is not one of this screen's verbs and should not sit among them. */}
+			<Preferences hotkey="p" />
 			<Toaster />
 		</SidebarProvider>
 	);

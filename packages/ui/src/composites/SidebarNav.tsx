@@ -59,6 +59,13 @@ export interface SidebarNavProps {
    * (`/x` stays lit on `/x/y`). Keeps route-awareness in the product, not the DS.
    */
   activePath?: string;
+  /**
+   * Lands on the group, not the landmark — so a secondary group can be pushed to the foot of the
+   * column with `mt-auto`, which is exactly what shadcn's own `NavSecondary` does
+   * (`<SidebarGroup className="mt-auto">`). Without it a "Support" group had to sit directly under
+   * "Platform" no matter how much room was left below.
+   */
+  className?: string;
 }
 
 /** `/settings` is active on `/settings/cloud`; it is not active on `/settings-archive`. */
@@ -87,12 +94,17 @@ export function SidebarNav({
   label,
   linkComponent: Link = DefaultLink,
   activePath,
+  className,
 }: SidebarNavProps) {
   const { setOpenMobile } = useSidebar();
   const close = () => setOpenMobile(false);
   const isActive = (item: Activatable) => item.isActive ?? matchesPath(activePath, item.href);
   return (
-    <nav aria-label={typeof label === "string" ? label : "Sidebar"} data-slot="sidebar-nav">
+    <nav
+      aria-label={typeof label === "string" ? label : "Sidebar"}
+      className={cn("flex flex-col", className)}
+      data-slot="sidebar-nav"
+    >
     <SidebarGroup>
       {label != null && <SidebarGroupLabel>{label}</SidebarGroupLabel>}
       <SidebarMenu>
@@ -140,16 +152,30 @@ function CollapsibleItem({
   return (
     <SidebarMenuItem>
       <Collapsible defaultOpen={defaultOpen}>
-        <CollapsibleTrigger asChild>
-          <SidebarMenuButton tooltip={item.title} className="[&[data-state=open]>svg:last-child]:rotate-90">
+        {/* The nesting order is LOAD-BEARING, and it used to be inside out.
+            `SidebarMenuButton` with a `tooltip` does not render a button — it renders a
+            `Tooltip` root wrapping one. So `<CollapsibleTrigger asChild><SidebarMenuButton
+            tooltip=…>` handed the trigger's props and ref to the Tooltip ROOT, which is a
+            context provider with no element of its own: the tooltip lost its anchor and the
+            positioner fell back to the viewport origin. Measured — the "Data" tooltip rendered
+            at x=0, y=0 while its row sat at y=88. Every collapsible group in every sidebar was
+            affected; the leaf rows were not, because they never wrap the button from outside.
+            Outermost-in now — Tooltip, then Button, then the Collapsible's trigger — so the
+            three sets of props land on ONE element, which is the composition Ark documents. */}
+        <SidebarMenuButton
+          asChild
+          className="[&[data-state=open]>svg:last-child]:rotate-90"
+          tooltip={item.title}
+        >
+          <CollapsibleTrigger>
             {item.icon}
             <span className="truncate">{item.title}</span>
             {item.badge != null && <NavBadge>{item.badge}</NavBadge>}
             <ChevronRight
               className={cn("shrink-0 transition-transform duration-200", item.badge == null && "ms-auto")}
             />
-          </SidebarMenuButton>
-        </CollapsibleTrigger>
+          </CollapsibleTrigger>
+        </SidebarMenuButton>
         <CollapsibleContent>
           <SidebarMenuSub>
             {item.items!.map((sub) => (

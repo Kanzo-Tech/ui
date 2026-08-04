@@ -1,0 +1,126 @@
+---
+title: Job studio
+description: Three pages of one job — a domain language on CodeEditor, empty sockets you drag connections onto, and diagnostics that reach the chrome.
+full: true
+---
+
+<PreviewIframe name="job-studio" title="Job studio showcase" className="h-[860px]" />
+
+The screen where a product's central artefact gets written. Here that artefact is a
+[fossil](https://github.com/kanzo-tech/rmlext) program — declare prefixes, bind a source, map it —
+but the shape is generic: a code surface with what it references beside it, then a settings page,
+then a receipt.
+
+It runs inside the same shell as [App shell](/docs/showcases/app-shell) and
+[Workspace](/docs/showcases/workspace), on the same tenant, from the same `INSTANCES` / `NAV` /
+`USER` fixtures — a new screen joins the product rather than inventing a second company.
+
+It is the library's first real consumer of `CodeEditor`'s `extensions` slot. The component is
+domain-free by design — a CodeMirror lifecycle core, the Kanzo token theme, and a compartment the
+caller fills — so the language lives in the showcase: a `StreamParser` whose token names land on the
+`--syntax-*` palette, a `linter()`, and an `@`-completion over the org's connections. That is
+the whole answer to "how do I put my language in this editor", and it is about 200 lines.
+
+Worth exercising in the frame:
+
+- **Drag `@aemet` from the rail onto the dashed socket** in line 11. The socket lights up under the
+  pointer and the drop writes `"@aemet/daily-2026.csv"` — the path that was already there survives.
+  Clicking the socket does the same thing through the editor's own completion popover, and
+  <kbd>Enter</kbd> on it works too: a drop is a pointer-only gesture, so it is never the only route.
+- Pick **A program with problems** from the header. Three squiggles appear, the badge turns red, and
+  **Create job** goes disabled — one analysis, read in three places.
+- Walk the steps. **Editor** is the program and the rail of connections, **Configure** the
+  settings, **Summary** the graph the program will emit — read back out of the mappings, not
+  restated from the form. The icon at the end of the status strip closes the rail, and it only
+  appears on Editor, because that is the only page with one.
+- Double-click the job's name in the header to rename it in place (`Editable`, composed with its
+  pencil/submit/cancel `EditableControl`), and watch the status strip: the draft saves itself.
+
+## The socket
+
+A socket is a real token in the document — `@?` — not a widget floating over nothing. The program
+stays plain fossil text a compiler could read, the analyser has an opinion about it (an unwired
+source is an error, so **Create** stays shut), and the dashed target is only a view decoration.
+
+It carries two ranges, and that is the whole design. What you SEE is the entire
+`"@?/daily-2026.csv"`, so you drop a *source* rather than a prefix and the line has one texture
+instead of three. What gets REWRITTEN is just the two characters, so a path someone already typed
+survives the drop.
+
+Neither [Ark](https://ark-ui.com) nor [Shark](https://shark.vini.one/docs/components) ships a
+drag-and-drop primitive — checked, and their `FileUpload` dropzones read `dataTransfer.files`, which
+is a different problem. So this is the HTML5 API used directly, in about forty lines, with no state
+machine to wrap. It stays in the showcase: one call site is not the two admission rule 2 asks for.
+
+## What it changes from the original
+
+This is a rebuild of keasy's job editor, and three of its decisions did not survive the move.
+
+**The wizard used to hide the program.** Each step returned a different tree, so by the time you were
+choosing an output destination the `source @stations/…` that motivated it was off screen. Here it
+is two pages of one job, and the connections stay beside the program that references them.
+
+**Validation never reached the chrome.** The original's diagnostics lived inside the editor's LSP and
+nothing else could see them — its `validating` flag is declared and never set, its "Validating…"
+branch unreachable, and the only gate on submission was "is the text non-empty". You could create a
+job the editor had marked red.
+
+**Several pieces were hand-rolled over parts that already exist.** The step indicator, the field
+frame, the "coming soon" wrapper and a radio card written as a bordered `<label>` are `Steps`,
+`Field`, `Ribbon` and `RadioGroupCard`.
+
+## Three pages, and what went in the bin getting here
+
+The layout took four tries, and the discarded ones are the useful part.
+
+A full-width `Steps` band came first, over a single editor page. It spanned the screen while
+governing one column, so it promised to command the editor and did not — the same reason
+workspace's dock explains in writing that its switcher is a deselectable `ToggleGroup` and not
+`Tabs`. `Steps` is back now because each step is a whole PAGE, which is the condition it was
+failing before, not a look it was wearing wrong.
+
+Then configuration lived in that rail, as one panel among three. A rail is for what ACCOMPANIES
+the thing you are editing; settings you visit once and leave are a page. So the rail holds
+connections and nothing else — and only the Editor page has one, which is why the dock switcher in
+the status strip appears there and nowhere else.
+
+The header is ONE row, which is what the references do. shadcn's dashboard and sidebar blocks —
+the layout references DESIGN.md names, with Mantine and Ant — put a single strip inside the content
+column carrying a trigger, a separator and the trail, and **no primary actions**: those live in the
+rail or in the content. This screen had two half-empty rows, a duplicated error count and an
+attribution competing with the job's own name. Now: trigger, the name as an `Editable`, the steps
+centred in their own grid column, and one secondary split button. `Create job` moved onto the
+Summary page, beside what it creates.
+
+No breadcrumb either. The sidebar says where you are, and when the trail's leaf was the rename
+control it clipped to 40px of 183px and the name disappeared — a trail is the part you can infer,
+and a name is not.
+
+**Configure is a settings page, not a form.** It was a narrow column of `Card`s first — three
+controls with a great deal of nothing either side. A card around a single control is chrome
+standing in for content, and metadata-form's measure is earned by thirty fields, not by three. So
+it takes the shape a settings page actually has: what the setting is on the left, the control on
+the right, a rule between sections. The destination shows the path it resolves to rather than the
+rule for building it.
+
+**Summary shows what comes OUT.** It restated the form first — name, run mode, destination, DCAT,
+sources, three of which you had just typed and one of which is in the title bar. A review step that
+re-reads its own inputs is a receipt, not a review. It reads the mappings now: each class, the
+source it is minted from, the subject template, and every predicate with where its value comes
+from. metadata-form's third column shows generated Turtle and JSON-LD for the same reason.
+
+Nothing hijacks <kbd>⌘</kbd>+<kbd>S</kbd> either. The draft saves itself and the status strip says
+so, which is a truer thing for a status strip to say than a shortcut announced in a permanent
+segment of the toolbar. And there is no `AppearanceToggle` in the header: `PreferencesPanel`
+already renders one beside its own close control.
+
+## Source
+
+```text
+docs/showcases/job-studio/
+├── default.tsx           — the shell, the two pages, the status strip
+├── panels.tsx            — the connections rail, the configure form, the summary
+├── connection-slots.ts   — the socket: decoration, drag payload, drop handling
+├── fossil-lang.ts        — the language: StreamParser, linter, @-completion
+└── data.tsx              — one org's connections and a few programs to open
+```

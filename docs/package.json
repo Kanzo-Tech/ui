@@ -12,7 +12,13 @@
     "postinstall": "fumadocs-mdx"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.18.6",
     "@codemirror/lang-json": "^6.0.2",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/lint": "^6.8.5",
+    "@codemirror/state": "^6.6.0",
+    "@codemirror/view": "^6.43.1",
+    "@lezer/highlight": "^1.2.3",
     "@cosmos.gl/graph": "^2.6.4",
     "@duckdb/duckdb-wasm": "1.33.1-dev57.0",
     "@kanzo-tech/palette": "workspace:*",

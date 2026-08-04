@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { AppShellShowcase } from "@/showcases/app-shell/default";
+import { JobStudioShowcase } from "@/showcases/job-studio/default";
 import { MetadataFormShowcase } from "@/showcases/metadata-form/default";
 import { PaletteOnboardingShowcase } from "@/showcases/palette-onboarding/default";
 import { PreferencesShowcase } from "@/showcases/preferences/default";
@@ -18,6 +19,9 @@ const BLOCKS = {
   "app-shell": AppShellShowcase,
   "metadata-form": MetadataFormShowcase,
   workspace: WorkspaceShowcase,
+  // A wizard whose editor never leaves the screen: `Steps` drives the aside, not the whole
+  // page. It is also the library's first real consumer of `CodeEditor`'s `extensions` slot.
+  "job-studio": JobStudioShowcase,
   // Not a shell like the other two, but it needs the same treatment: the Preferences panel is
   // Portal-ed and `position: fixed`, so it can only be shown honestly in its own viewport. The
   // -fonts and -extended variants are the doc's other two examples, each a real panel with a

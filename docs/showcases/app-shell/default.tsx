@@ -2,7 +2,6 @@
 
 import { Fragment, useState } from "react";
 import {
-  AppearanceToggle,
   Avatar,
   AvatarFallback,
   Badge,
@@ -171,7 +170,7 @@ export function AppShellShowcase() {
 
           <SidebarContent>
             <SidebarNav items={NAV} label="Platform" />
-            <SidebarNav items={SUPPORT} label="Support" />
+            <SidebarNav className="mt-auto" items={SUPPORT} label="Support" />
           </SidebarContent>
 
           <SidebarFooter>
@@ -226,7 +225,8 @@ export function AppShellShowcase() {
                   </Badge>
                 </Float>
               </div>
-              <AppearanceToggle size="icon-sm" />
+              {/* No appearance control here: `PreferencesPanel` — behind the floating trigger
+                  below — renders one in its own header, beside the close X. */}
             </div>
           </ShellHeader>
 
