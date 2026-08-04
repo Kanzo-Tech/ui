@@ -83,9 +83,30 @@ here; it is here, and it is not the majority of it.
 Sampling matters: read *after* the call, the same 5M run reports 1.03 GiB, so measuring the
 survivor would have halved the figure and exonerated the contraction step.
 
-**Where the other three quarters are is now the open question** — the Node generator, DuckDB
-reading the CSVs, the Parquet writer, and `enrich_layout`'s own SQL. None is attributed. Next is
-the same treatment applied per phase of the build rather than to the core alone.
+**Located, and it is none of the candidates.** `FOSSIL_LAYOUT_PROBE=1` (rmlext `4cefe46`) reports
+resident set per phase of `enrich_layout` at ten million:
+
+    start                                      14.61G
+    read edges into Vec                1.6     11.50G     -3.12G
+    community_hierarchy              132.5     13.87G     +2.37G
+    …
+    total                            139.2     14.74G  peak 14.74G
+
+**RSS is 14.61 GiB before the layout pass runs a statement**, and the whole pass adds 0.13 GiB net.
+The process peak is reached earlier still. Reading 71M edges into a `Vec` shows *minus* 3.12 GiB —
+the ingest releasing buffers faster than the vector grows.
+
+The cost is **W0b**: parsing 1.2 GB of CSV and writing the vertex and edge Parquet. Louvain is
+132.5 of the 139 seconds, so it dominates *time* and is nearly free in *space* against what
+precedes it — the opposite of what ADR-0042 predicted.
+
+Eliminated by measurement on the way here, each of which looked right at the time: the
+per-community `HashMap`s in `contract`; the layout core as the dominant term (3.94 GiB isolated);
+DuckDB during layout (bounded to 2 GB, total unchanged, spill directory untouched at 0 B); and the
+Node generator (`fossil run` alone reaches the same peak).
+
+**Next**: the same probe on the W0b write path, which is `fossil-engine`'s materialise rather than
+this module. That is where the ~14 GiB is committed.
 
 ### 5. The tile payload format — **fossil** ✕ **canvas**, blocked by 1 and 2
 
