@@ -55,8 +55,21 @@ These had no other home. None is a decision, so none became a record.
   the two ends of a 279px control (x=469 and x=716). The note said no commit had touched it since,
   which was true and beside the point — the whole colour layer moved underneath it. Whatever was
   broken is not broken now, and nobody should spend a session looking for it.
-- **`ColorPicker` swatch click behaviour is confusing.** Still open — nobody has looked at the
-  interaction.
+- **`ColorPicker` swatch click behaviour is confusing — and there is a measured reason.** Verified
+  2026-08-04 in the browser, not read. The *selection* is correct: clicking the swatch labelled
+  `select #22C55E as the color` moves the value from `rgba(59,130,246,1)` to `rgba(34,197,94,1)`,
+  exactly one indicator turns on, and it is the right one. What is wrong is the feedback.
+
+  **`ColorPickerSwatchIndicator` settles at 2x2 px on a 31x31 swatch — ratio 0.05 — with a 1x1 svg
+  inside**, where `simples/color-picker.tsx` intends `[&_svg]:size-1/2`, about 15 px. Measured after
+  the `zoom-in-5 animate-in` entrance has finished, so it is not the animation. So you click, the
+  colour changes, and the check confirming *which* swatch you chose is effectively invisible — which
+  is what "confusing" describes.
+
+  Not diagnosed further: the indicator is `absolute inset-0`, so the first thing to check is whether
+  the swatch it is meant to fill establishes a containing block. Not fixed, because a wrong fix here
+  is worse than the open item — and note the `text-white` on that same element is deliberate and
+  settled (see the guard's docblock), so this is about geometry, not colour.
 
   The second half of this item is **closed, and the sentence was already stale when it was
   written**: `ALLOWED` in `no-literal-hues.test.ts` is empty, because every literal in
