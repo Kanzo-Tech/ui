@@ -52,10 +52,15 @@ const k = Number(arg("k", 20_000));
 const windows = Number(arg("windows", 5));
 const corpus = resolve(arg("corpus", join(PUBLIC, String(size))));
 
+// Two layouts, because the writer emits both depending on when the corpus was built: a chunked
+// `vertex/Node/chunk{k}.parquet` tree, and a single `vertex/Node.parquet`. The question here is
+// about `dense_id` contiguity, which is a property of the ordering and not of the file split, so
+// either is read the same way.
 const chunkDir = join(corpus, "vertex/Node");
-const vertices = `${chunkDir}/*.parquet`;
+const singleFile = join(corpus, "vertex/Node.parquet");
+const vertices = existsSync(chunkDir) ? `${chunkDir}/*.parquet` : singleFile;
 const edges = join(corpus, "edge/Node_linksTo_Node/by_source.parquet");
-for (const file of [chunkDir, edges]) {
+for (const file of [existsSync(chunkDir) ? chunkDir : singleFile, edges]) {
   if (!existsSync(file)) {
     console.error(`missing ${file}\nBuild it first:  node build-corpus.mjs --sizes ${size}`);
     process.exit(1);

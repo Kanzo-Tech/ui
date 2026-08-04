@@ -525,6 +525,26 @@ harness is measuring the same thing twice rather than measuring itself.
 | 200k | 170.2 | **1.0000×** | 139,970 | 9.8× |
 | 1M | 141.8 | **1.0000×** | 160,775 | 42.9× |
 | 5M | 169.4 | **1.0000×** | 129,466 | **270.1×** |
+| 10M | 248.2 | **1.0000×** | 147,134 | **482.7×** |
+
+Repeated at twenty windows, because the per-window spread is wide enough (47 to 471 runs at ten
+million) that five samples cannot separate a trend from noise:
+
+| N | mean runs | mean edges fetched |
+|---|---|---|
+| 1M | 176.0 | 144,962 |
+| 5M | 184.3 | 134,608 |
+| 10M | 261.8 | 140,778 |
+
+**Edges fetched is flat and run count is only bounded.** 135–145k edges per window across fifty
+times the corpus is the number that matters — it is the term that dominates the scan, and it does
+not follow N. The run count sits in the low hundreds throughout but ten million is ~1.4× five
+million, which four points cannot call growth or noise. The corpora themselves are not evenly
+spaced either: the layout's width goes 208k → 646k → 5.29M → 8.09M for 200k → 1M → 5M → 10M
+vertices, so density is not constant across the family and a fixed-*vertex-count* window covers a
+different amount of space at each size. Settling it needs either more sizes or a window fixed by
+area.
+
 
 **Both numbers are flat.** Twenty-five times the corpus leaves the run count at ~170 and the edges a
 window fetches at ~130–160k. The reduction grows only because the denominator does. This is the
@@ -536,6 +556,27 @@ size. Edge over-read is 1.08–1.64× against what is actually drawable.
 
 The control: **20,000 ids drawn at random are 19,916 runs.** The spatial window is 169. So the
 contiguity is real and it is the ordering that produces it — a 118× difference.
+
+### Writing ten million costs 16.4 GiB, which is the larger-than-RAM claim failing early
+
+`/usr/bin/time -l` over the whole build — the generator plus `fossil run` — at ten million vertices
+and 71,024,690 edges:
+
+| | |
+|---|---|
+| wall clock | **262.6 s** |
+| peak RSS | **16.4 GiB** |
+| corpus on disk | 713 MB |
+
+**Twenty-three times the corpus, resident.** ADR-0042 calls larger-than-RAM the central claim of the
+architecture and records that it has never been tested; this is the first number against it, and it
+is about the *writer*. The reader's working set is a window and is not implicated — but a corpus
+nobody can write is not a corpus anybody can read, and the ADR says as much: *"que fossil no pueda
+escribir un corpus larger-than-RAM sería un hallazgo tan importante como cualquiera de lectura."*
+
+For scale, the same build with the pre-layout binary took 123.3 s, so the layout pass is roughly
+half the wall clock. Louvain running in memory over the whole graph is the suspected term and is
+not yet isolated — that measurement is a fossil-side task, not one this harness can take.
 
 ### But the explanation in the ADR is wrong, and §3 rests on it
 
