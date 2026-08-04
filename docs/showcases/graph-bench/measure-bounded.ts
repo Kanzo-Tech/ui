@@ -102,6 +102,14 @@ export const BOUNDED_STRESS_SIZES = [5_000_000];
  */
 const CANVAS = { width: 1200, height: 800 };
 
+/**
+ * Vertices a pan window holds, whatever the corpus is — the zoom, expressed as what fits on screen.
+ *
+ * Set to the slice limit, so the window asks for about as much as the path is willing to return. A
+ * window that grew with N would make "does the pan stop growing with N" unanswerable.
+ */
+const PAN_NODES = BOUNDED_DEFAULTS.limit;
+
 const SPACE = 8192;
 const PANS = 6;
 const DRAWS = 30;
@@ -218,6 +226,8 @@ interface Extent {
 interface Fixtured {
   source: BoundedSource;
   extent: Extent;
+  /** Half-width of a window holding [`PAN_NODES`] vertices — the camera's reach at a usable zoom. */
+  panReach: number;
   linkCount: number;
   ingestMs: number;
 }
@@ -283,6 +293,32 @@ async function corpus(pointCount: number, report?: (stage: string) => void): Pro
     coordinator,
     () => `SELECT min(x) AS x0, max(x) AS x1, min(y) AS y0, max(y) AS y1 FROM ${nodes}`,
   );
+  /**
+   * How far the camera reaches at a zoom that shows [`PAN_NODES`] vertices.
+   *
+   * The pan used to take a quarter of the *space*, and the space grows with the corpus — 645,741
+   * wide at a million, 5,289,639 at five, eight times the width for five times the vertices. So the
+   * "same" window matched 62,112 rows at a million and 426,611 at five, and a pan measured that way
+   * can only grow with N **by construction**. It was answering "what does it cost to zoom out in
+   * proportion to the corpus", which is not a thing a reader does.
+   *
+   * A reader panning keeps roughly the same number of vertices on screen. So the window is sized by
+   * rank instead: the Chebyshev radius around the centre that holds `PAN_NODES` of them, which is
+   * the same definition `corpus/measure-retention.mjs` uses and for the same reason. Whether the pan
+   * then stops growing with N is the question the whole bounded architecture rests on, and it is
+   * the one this could not previously ask.
+   *
+   * Inside `ingest` with the extent: it is the fixture describing itself, not the product working.
+   */
+  report?.("opening the corpus · reach");
+  const reach = await onceQuery(
+    coordinator,
+    () => `SELECT max(d) AS h FROM (
+      SELECT greatest(abs(x - (SELECT (min(x) + max(x)) / 2 FROM ${nodes})),
+                      abs(y - (SELECT (min(y) + max(y)) / 2 FROM ${nodes}))) AS d
+      FROM ${nodes} ORDER BY d LIMIT ${PAN_NODES})`,
+  );
+
   // Metadata only: Parquet carries per-row-group row counts, so neither count reads a column.
   report?.("opening the corpus · links");
   const links = await onceQuery(coordinator, () => `SELECT count(*) AS n FROM ${edges}`);
@@ -300,6 +336,7 @@ async function corpus(pointCount: number, report?: (stage: string) => void): Pro
       targetField: "dst_dense",
     }),
     extent: { xMin: at("x0"), yMin: at("y0"), xMax: at("x1"), yMax: at("y1") },
+    panReach: Number(numbers(reach, "h")[0] ?? 0),
     linkCount: Number(numbers(links, "n")[0] ?? 0),
     ingestMs,
   };
@@ -422,23 +459,24 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
      * same rectangle, which DuckDB would answer from cache and which would report a latency nobody
      * experiences.
      *
-     * **Shaped like the canvas, which it was not.** This used to span the full height, and a
-     * quarter-width full-height strip is the single worst shape for the Morton-ordered corpus
-     * underneath: it cuts across the space-filling curve instead of sitting inside it. Measured at
-     * a million in nine chunks, the strip needed 7 of 9 and matched 304,212 rows where a rectangle
-     * of the same width and the canvas's aspect needed 4 of 9 and matched 73,738. The harness was
-     * measuring the one camera move that defeats the tiling it exists to test, and reporting it as
-     * the cost of panning.
+     * **Shaped like the canvas, and sized by what it holds.** Two corrections, both of the same
+     * kind: the window used to span the full height, which cuts across the Morton order the corpus
+     * is written in, and it used to be a quarter of the *space*, which grows with N. Measured, the
+     * strip needed 7 chunks of 9 against 4 for a canvas-shaped rectangle; and the fixed fraction
+     * matched 62,112 rows at a million against 426,611 at five, so a pan measured that way could
+     * only grow with the corpus whatever the engine did.
      *
-     * A viewport is as tall as the element is tall. Deriving the height from [`CANVAS`] rather than
-     * from the extent is what makes this a camera rather than a slice through the whole corpus.
+     * Now it is a camera: [`PAN_NODES`] vertices on screen, in the element's aspect ratio, walked
+     * across the corpus. The area comes from `panReach` — the radius that holds that many — and is
+     * reshaped to the canvas without changing it.
      */
     report?.("panning");
     const startedPanning = performance.now();
     const span = extent.xMax - extent.xMin;
     const step = span / (PANS + 1);
-    const width = span / 4;
-    const height = width * (CANVAS.height / CANVAS.width);
+    const aspect = Math.sqrt(CANVAS.width / CANVAS.height);
+    const width = 2 * fixtured.panReach * aspect;
+    const height = (2 * fixtured.panReach) / aspect;
     const midY = (extent.yMin + extent.yMax) / 2;
     for (let i = 0; i < PANS; i++) {
       const x = extent.xMin + step * (i + 1);

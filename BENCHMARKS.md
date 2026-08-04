@@ -382,6 +382,30 @@ work** — while the slice returns about 120,000 edges where the old layout retu
 window that shows the graph now costs less than one that showed a dot cloud. It is still far from
 the 40 ms band ADR-0041 asked for, but the direction is no longer wrong.
 
+## Does the pan stop growing with N? Asked properly at last, and no
+
+Every pan number above is measured with a window that is a quarter of the **space**, and the space
+grows with the corpus — 645,741 wide at a million, 5,289,639 at five, eight times the width for five
+times the vertices. So the "same" window matched 62,112 rows at a million and 426,611 at five: it
+was measuring *zooming out in proportion to the corpus*, which no reader does, and could only grow
+with N by construction. The window now holds **20,000 vertices whatever the corpus is** — sized by
+rank, the same definition `corpus/measure-retention.mjs` uses.
+
+| nodes | 2k | 10k | 50k | 200k | 1M | 5M |
+|---|---|---|---|---|---|---|
+| pan | 21 ms | 21 ms | 25 ms | 36 ms | **77 ms** | **256 ms** |
+
+**It is sublinear and it is not flat.** Twenty-five times the corpus, from 200k to 5M, costs seven
+times the pan — with the same number of vertices on screen throughout. ADR-0041 asked for a pan that
+stops growing with N and this is the first measurement able to answer it.
+
+**The term that grows is over-read, and it is a tiling-quality problem rather than a query one.**
+The 20,000 wanted vertices sit in 4 chunks of 9 at a million — 491,520 rows read for 20,000 wanted,
+24× — and in 11 of 41 at five million, 1,351,680 rows, **68×**. The window is constant; how many
+chunks it is smeared across is not. Morton order puts a window's vertices near each other, and not
+near enough: making them land in fewer chunks is the next lever, and it lives in the layout, not in
+the SQL.
+
 **First paint is the half that did not improve**: 330 ms at 1M against 253 recorded, 1,227 against
 1,006. It opens on the whole extent rather than a window, so reshaping the pan does nothing for it —
 it scans everything and lets the limit truncate.
