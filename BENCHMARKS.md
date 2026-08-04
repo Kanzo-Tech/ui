@@ -304,6 +304,38 @@ assumed: over-read is chunks-touched × chunk-size, and chunks touched barely gr
 **2.9×** at 1,024 against 8.0× at 8,192 and 70× at 122,880. 4,883 chunks write in seconds at 20 kB
 each. Retention is again the control and did not move.
 
+## Measured end to end, in the browser, and the second number moved the wrong way
+
+Everything above is a proxy — what a window *contains*, how many chunks it *touches*. The sweep at
+`/view/showcases/graph-bench`, tab visible, against the recorded run:
+
+| nodes | first paint before → after | pan before → after |
+|---|---|---|
+| 2k | 100 → **65 ms** | 18 → 19 ms |
+| 200k | 131 → **127 ms** | 48 → 43 ms |
+| 1M | 258 → **326 ms** | 96 → **133 ms** |
+| 5M | 1,006 → **1,217 ms** | 331 → **480 ms** |
+
+ADR-0041 asked for the 5M pan to fall from 331 ms toward 40 ms. It rose to 480.
+
+**It rose because the slice is now correct, and that is the finding.** A 20,000-vertex slice at a
+million returns **131,030 edges**; under the old layout, at 0.26% retention, the same slice returned
+roughly 360. The links query does about 365× the work it used to, and the old 331 ms was the price
+of an almost edgeless dot cloud. **The two numbers ADR-0041 named were never independent: fixing the
+first is what made the second harder**, and a 480 ms pan that draws the graph is not comparable to a
+331 ms pan that draws points.
+
+**Chunking is not what costs, once `chunk_size` is right.** At 1,024 rows it was a disaster —
+977 files, 196 ms against 2 ms for a single file on the identical query over HTTP, and a 200k pan of
+7.8 s in the browser against 48 ms recorded. The cost is linear in the file count at ~0.2 ms each
+*over localhost*, where a request is nearly free. `chunk_size` is now 122,880, DuckDB's default row
+group, so a chunk is exactly one row group; at 9 files a million costs 3 ms against the single
+file's 2, which is inside the noise.
+
+That correction is the same one the pan-cache table below invites. Its "1,024 wins by 17×" is in
+**rows**, and rows are the wrong currency: in milliseconds 1,024 loses by 65×. Both numbers are
+kept, because the pair is the lesson.
+
 **And the cache claim, measured over a pan** (`corpus/measure-pan.mjs`) — because chunks-touched is
 identical whether a chunk is a file or a `dense_id` range, so it cannot see what emitting them
 separately bought. Eight drag steps of a quarter of the window's width, five million:

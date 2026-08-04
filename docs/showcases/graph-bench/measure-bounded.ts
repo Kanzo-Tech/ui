@@ -142,7 +142,7 @@ function duckThreads(coordinator: Coordinator): Promise<number> {
  * `DEFAULT_CHUNK_SIZE` ever moves, this is the line that has to move with it, and the symptom would
  * be a 404 on the last chunk rather than anything subtle.
  */
-const CHUNK_SIZE = 1024;
+const CHUNK_SIZE = 122_880;
 
 const corpusNodes = (n: number) => `corpus_nodes_${n}`;
 const corpusEdges = (n: number) => `corpus_edges_${n}`;
