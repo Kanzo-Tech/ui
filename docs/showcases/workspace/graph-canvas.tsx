@@ -164,7 +164,7 @@ interface Detail {
  * A cell, as text. Never as whatever DuckDB happened to hand back: a DATE column arrives as a
  * `Date`, and rendering one crashes React with "Objects are not valid as a React child".
  */
-function text(value: unknown): string {
+export function text(value: unknown): string {
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   return String(value ?? "");
 }

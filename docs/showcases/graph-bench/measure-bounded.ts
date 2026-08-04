@@ -11,16 +11,20 @@ import {
 } from "@kanzo-tech/graph";
 import { boot } from "../workspace/duck";
 import { duckBoundedSource } from "@kanzo-tech/graph/duckdb";
-import { nextFrame } from "./measure";
+// The offscreen element and the rectangle it defines are `measure.ts`'s, so the two harnesses draw
+// into the same one. They had a copy each — identical to the character, which is the kind of
+// duplicate that stays true right up until one of them is tuned.
+import { CANVAS, host, nextFrame } from "./measure";
 
 /**
- * The third layer: what the bounded path costs, against the two that hold everything.
+ * What the bounded path costs — the claim the page exists to make, against cosmos.gl alone.
  *
  * Two numbers matter and they pull opposite ways.
  *
  * **First paint** should collapse, because the work stops scaling with the corpus and starts
- * scaling with the window. Layer 2 pays 1,017 ms at 200,000 nodes to show a picture; this should
- * pay for twenty thousand marks whatever N is.
+ * scaling with the window. Holding the whole relation cost 1,225 ms at 200,000 nodes to show a
+ * picture — the figure `BENCHMARKS.md` keeps as a record, since ADR-0001 deleted the path that
+ * produced it — and this should pay for twenty thousand marks whatever N is.
  *
  * **Panning** should appear from nowhere. Unbounded loads once and then pans on the GPU for free;
  * bounded issues a query per camera move. That is the cost of the trade and the reason it is
@@ -94,15 +98,6 @@ export const BOUNDED_SIZES = [2_000, 10_000, 50_000, 200_000, 1_000_000];
 export const BOUNDED_STRESS_SIZES = [5_000_000];
 
 /**
- * The offscreen canvas the slice is drawn into — and the aspect ratio the pan window borrows.
- *
- * Named rather than inlined because two things have to agree: what is rendered, and what is asked
- * for. A pan window shaped unlike the element it lands in is not a camera move, and the harness
- * spent its life measuring one.
- */
-const CANVAS = { width: 1200, height: 800 };
-
-/**
  * Vertices a pan window holds, whatever the corpus is — the zoom, expressed as what fits on screen.
  *
  * Set to the slice limit, so the window asks for about as much as the path is willing to return. A
@@ -110,7 +105,21 @@ const CANVAS = { width: 1200, height: 800 };
  */
 const PAN_NODES = BOUNDED_DEFAULTS.limit;
 
-const SPACE = 8192;
+/**
+ * What cosmos.gl is told its coordinate space is — and the one number here that does not match the
+ * corpus it draws.
+ *
+ * It reads 8,192 because the generator's space is 8,192, and this file used to draw the generator's
+ * output. It no longer does: fossil centres coordinates on the origin and scales them to N, so the
+ * compiled corpus spans ±535 at two thousand and ±11,968 at a million, and the note at the opening
+ * view below says so in as many words. Deliberately **not** unified with `measure.ts`'s `SPACE`,
+ * which is a fact about the generator and would only make one wrong number look authoritative.
+ *
+ * Left as it is because changing it moves every recorded figure, and the simulation is off and the
+ * view is fitted from the measured extent, so what it costs is not visible in the timings. It is an
+ * open item, not a resolved one — see BENCHMARKS.md before trusting a *picture* from this harness.
+ */
+const RENDER_SPACE = 8_192;
 const PANS = 6;
 const DRAWS = 30;
 const DRAW_WARMUP = 5;
@@ -342,14 +351,6 @@ async function corpus(pointCount: number, report?: (stage: string) => void): Pro
   };
 }
 
-function host(): HTMLDivElement {
-  const element = document.createElement("div");
-  element.style.cssText =
-    `position:absolute;left:-99999px;top:0;width:${CANVAS.width}px;height:${CANVAS.height}px;pointer-events:none;`;
-  document.body.appendChild(element);
-  return element;
-}
-
 export interface BoundedOptions {
   pointCount: number;
   cancelled?: () => boolean;
@@ -399,7 +400,8 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
     // The space is the corpus's own, asked rather than assumed. fossil writes coordinates centred on
     // the origin and scaled to N — ±535 at two thousand, ±11,968 at a million — so a rectangle nailed
     // to `0..SPACE` would have measured an empty corner at every size but one, and reported a very
-    // fast first paint for showing nothing.
+    // fast first paint for showing nothing. (`RENDER_SPACE` above is the one place that did not get
+    // this memo, and says so.)
     const view = { ...extent, zoom: 1 };
 
     report?.("first slice");
@@ -416,7 +418,7 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
 
     report?.("uploading");
     graph = new Graph(element, {
-      spaceSize: SPACE,
+      spaceSize: RENDER_SPACE,
       enableSimulation: false,
       fitViewOnInit: false,
       attribution: "",

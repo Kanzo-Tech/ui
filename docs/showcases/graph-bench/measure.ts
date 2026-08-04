@@ -118,15 +118,21 @@ export function generate(shape: Shape, pointCount: number): Generated {
 }
 
 /**
+ * The offscreen element every measured graph is drawn into, and the aspect ratio a pan window
+ * borrows from it. Both harnesses use it, so both measure the same rectangle.
+ */
+export const CANVAS = { width: 1200, height: 800 };
+
+/**
  * A graph built off-screen, for measuring rather than for looking at.
  *
  * Off-screen and not hidden: `display: none` gives the canvas a zero-sized drawing buffer, and a
  * zero-sized buffer makes every draw free. The numbers would be excellent and false.
  */
-function host(): HTMLDivElement {
+export function host(): HTMLDivElement {
   const element = document.createElement("div");
   element.style.cssText =
-    "position:absolute;left:-99999px;top:0;width:1200px;height:800px;pointer-events:none;";
+    `position:absolute;left:-99999px;top:0;width:${CANVAS.width}px;height:${CANVAS.height}px;pointer-events:none;`;
   document.body.appendChild(element);
   return element;
 }
@@ -137,8 +143,6 @@ interface RunOptions {
   /** Steps timed, after the warm-up. */
   steps?: number;
   warmup?: number;
-  /** Frames sampled for the rAF figure. */
-  frames?: number;
   /** Asked between phases; a `true` answer abandons the run and tears the graph down. */
   cancelled?: () => boolean;
   /** Idle milliseconds after teardown, so the collector gets a window between big sizes. */
@@ -149,7 +153,9 @@ export async function measure(options: RunOptions): Promise<Sample> {
   const { pointCount, shape } = options;
   const steps = options.steps ?? 40;
   const warmup = options.warmup ?? 12;
-  const frames = options.frames ?? 60;
+  // No `frames` option: it configured the rAF-counted frame rate, and that figure was retired for
+  // publishing a flat 60 fps across a range where the step cost grew three-hundredfold — see the
+  // note further down. The knob outlived the number it tuned.
   const cancelled = options.cancelled ?? (() => false);
   const settle = options.settleMs ?? 0;
 

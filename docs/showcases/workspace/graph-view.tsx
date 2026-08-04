@@ -112,7 +112,7 @@ import {
   scaleOf,
 } from "@kanzo-tech/graph";
 import type { NodeKind } from "./graph-data";
-import { ShapeGlyph } from "./graph-canvas";
+import { ShapeGlyph, text } from "./graph-canvas";
 import { Finding } from "./graph-finding";
 
 /**
@@ -308,11 +308,6 @@ const COLUMNS = {
  * infers as DATE, so Arrow returns a `Date` object, and rendering one crashes React with "Objects
  * are not valid as a React child". Anything coming out of a query is formatted before it is shown.
  */
-function text(value: unknown): string {
-  if (value instanceof Date) return value.toISOString().slice(0, 10);
-  return String(value ?? "");
-}
-
 /**
  * What a node carries, named the way the standing orders name it.
  *
