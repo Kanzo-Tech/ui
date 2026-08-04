@@ -176,3 +176,76 @@ mention that names no symbol.
   first publish, and this branch enforced it by collapsing 57. But `decisions/` has no record of the
   palette work, so those four are its only written form: folding them means either deleting that
   reasoning or authoring four records on another session's behalf.
+
+
+---
+
+# Attempted 2026-08-04, aborted at the last conflict — what the attempt learned
+
+All 48 conflicts were resolved and the merge was still abandoned. The tree is back at `96b5d8a`,
+clean and green. Everything below replaces guesses in the survey above with facts, so the next
+attempt starts most of the way through.
+
+## Resolved, with the rule that worked
+
+- **The 29 modify/delete: mechanical, confirmed.** `git status --porcelain | grep -E '^(DU|UD)'`,
+  then `git rm --cached` + `rm` each. No judgement needed — the nine components are gone from the
+  barrel.
+- **The `/analytics` fallout is exactly two files**, not a sweep: `packages/graph/src/graph-model.ts`
+  and `docs/showcases/graph-bench/default.tsx`, both importing `categoricalColor` /
+  `categoricalCapacity` / `CHART_SLOTS` from `/analytics`, which `40ecc00` moved to the root barrel.
+  `packages/graph/src/use-graph-look.ts` is a third, and arrives as a rename conflict.
+- **The four `data-table` examples resolve by rule**, no reading: in the import hunk keep OUR
+  `@kanzo-tech/ui/table` line (the parts, since the `DataTable` preset was cut) and add main's
+  `@/example/…` line; every other hunk takes main's, because those hunks are data and columns.
+  The bodies auto-merge correctly — `questsOf("amber")` with `useDataTable`.
+- **Three one-off examples**: `field/example-field-set-messages` takes main's Guild labels with
+  `<TextField>` rewritten to `<Input>`; `form/tanstack/example-date-field` takes our `DatePicker`
+  and comment with main's label; `sidebar-identity/example-default` takes our docblock, which is the
+  one that does not name two deleted components.
+- **`(root)/rtl.mdx`** has a table row naming `InstanceSwitcher`, `SidebarUser` — name the shape
+  (`Menu` on a sidebar row) instead. Six other prose hits are correct in the past tense and must not
+  be "fixed": `philosophy.mdx`, `input-group.mdx`, `badge.mdx` (Ant's `Badge.Ribbon`), and the
+  showcase's own local `SidebarNavItem` type.
+
+## Where it stopped, and why it is not a conflict at all
+
+**`docs/showcases/workspace` is the whole remaining job.** Nothing in it is a marked conflict; the
+collision is architectural.
+
+- `main` extracted the graph into `packages/graph` (`e3d3597`) and **deleted three docs libs with
+  it** — `docs/lib/{cosmos-client,once-query,css-color}.ts`. They exist only on our side, and our
+  workspace showcase imports all three. Restoring our showcase therefore breaks the build with three
+  `Module not found`, and no conflict marker ever mentions them.
+- `main`'s workspace uses `@kanzo-tech/graph` and is the architecture to keep, but its
+  `default.tsx` renders `Breadcrumbs`, `InstanceSwitcher`, `SidebarNav` and `SidebarUser` as whole
+  arrangements, and its `graph-view.tsx` renders `TextField` and `DateField` — six cut components.
+- Our `default.tsx` already has every one of those re-composed from parts, and is coupled to the old
+  in-showcase graph.
+
+So the job is: take main's workspace, and port our post-cut composition onto it. That is a real
+hand-merge of a large showcase, and it is the only thing between here and a green merge.
+
+`app-shell` and `metadata-form` have the same shape and are smaller: take ours (post-cut, compiles)
+and port main's Guild data in, rather than the other way round.
+
+## One decision, and it is the owner's
+
+**`decisions/` now holds two conventions and the guard only knows one.** `main` brings
+`0001-the-canvas-stops-holding-the-graph.md` (166 lines) and `template.md` — numbered ADRs whose
+README says the shape is deliberately shared with `rmlext`, *"since ADR-0040 the two repositories
+reason about each other, and a reader crossing between them should not have to learn a second
+shape"*. Ours is 35 records of five fields with `decisions.test.ts` enforcing it, and that guard
+fails on both incoming files: no fields, no `Status`, absent from `DESIGN.md`'s index, and ADR
+0001 cites `rmlext/decisions/0039…` and `…0040…`, paths that do not exist in this repository.
+
+Neither side is wrong. Converting ADR 0001 to five fields breaks a cross-repo convention that
+exists for a stated reason; leaving it breaks the guard. The third option is to teach
+`decisions.test.ts` that a numbered ADR is a different kind — exempt from the field shape, and with
+its `Cite:` paths not checked as local files. **Not decided here.**
+
+## Do not repeat
+
+`git checkout --theirs` across all remaining conflicts at once looks like progress and is not: it
+reverted our post-cut substitutions in the showcases and turned 9 stale references into 54. Resolve
+the showcases by hand or not at all.
