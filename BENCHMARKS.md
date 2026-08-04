@@ -366,38 +366,29 @@ query work is aimed at the number it produces.
 | 5M canvas | **24** | **26** | 6 | **56 ms** | 426,611 | 11 of 41 |
 
 The links query barely moves — 120,239 rows against 131,030 — so the saving is the scan, exactly
-where the chunk table above said it would be. **These are native timings, not the end-to-end pan**:
-scaled by the WASM factor each size showed (2.4× at 1M, 3.4× at 5M) they project to roughly 62 ms
-and 193 ms, against 133 and 480 measured on the strip. The browser sweep that would confirm it has
-not run — a background tab makes DuckDB-WASM's first remote read take minutes rather than the ~21 s
-it costs in a foreground window, so the sweep needs a visible tab and did not get one.
+where the chunk table above said it would be.
 
-**And the sum is the pan.** 55 ms native × ~2.4 for WASM is 132 ms, against the 133 ms measured at a
-million. The three queries go out under `Promise.all` and still serialise: Mosaic funnels them
-through one connection and fulfils in strict FIFO. Running them concurrently would make the pan
-`max` rather than `sum` — about 72 ms at 1M and 158 ms at 5M — which is the largest single lever on
-this list and the one this file already named before any of the layout work started.
+**Measured end to end, foreground tab, and the pan reverses.** Full sweep with the reshaped window:
 
-**Except that lever does not exist, and this file asserted it twice without checking.** Asked at
-last, by `probeConnectionOverlap()` in `measure-bounded.ts`: one connection gets a sort, a second
-gets `SELECT 1` in the same tick. Three runs:
+| nodes | first paint | pan | vs strip | vs recorded |
+|---|---|---|---|---|
+| 2k | 89 ms | 18 ms | 19 | 21 |
+| 200k | 120 ms | **42 ms** | 43 | 48 |
+| 1M | 330 ms | **91 ms** | 133 | 95 |
+| 5M | 1,227 ms | **275 ms** | 480 | 331 |
 
-| | the sort | `SELECT 1` |
-|---|---|---|
-| 1 | 522.1 ms | **522.3 ms** |
-| 2 | 451.0 ms | **451.1 ms** |
-| 3 | 465.5 ms | **465.6 ms** |
+**The 5M pan goes 480 → 275 ms, which is under the 331 ms this file recorded before any of this
+work** — while the slice returns about 120,000 edges where the old layout returned a few hundred. A
+window that shows the graph now costs less than one that showed a dot cloud. It is still far from
+the 40 ms band ADR-0041 asked for, but the direction is no longer wrong.
 
-The trivial query answers **0.1 ms after the sort finishes**, every time. Connections do not overlap:
-`threads = 1`, DuckDB-WASM is one worker, and everything queues behind one message port. **A pan
-costs the sum however the three queries are issued**, and every projection in this file that turned
-`sum` into `max` was wrong.
+**First paint is the half that did not improve**: 330 ms at 1M against 253 recorded, 1,227 against
+1,006. It opens on the whole extent rather than a window, so reshaping the pan does nothing for it —
+it scans everything and lets the limit truncate.
 
-What follows from that is not nothing. Fewer, larger queries is the only direction left, and it is
-the one ADR-0041 §3 already argued for on other grounds ("un plan, una ejecución"): points and links
-scan *the same rectangle*, so one plan would pay for that scan once instead of twice — 11 + 12 ms at
-a million where a shared scan need not cost 23. Three round trips through a single-threaded worker
-can only ever be additive.
+And the projections in the previous paragraph were **optimistic by about 1.4×** (62 and 193 against
+91 and 275 measured). Scaling native timings by a per-size WASM factor gets the shape right and the
+magnitude wrong; it is worth doing to choose between options, not to report.
 
 **Chunking is not what costs, once `chunk_size` is right.** At 1,024 rows it was a disaster —
 977 files, 196 ms against 2 ms for a single file on the identical query over HTTP, and a 200k pan of
