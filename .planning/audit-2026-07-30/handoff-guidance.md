@@ -65,9 +65,16 @@ These had no other home. None is a decision, so none became a record.
   and answered on 2026-08-03 — it stays, paired with the black hairline that makes it read on a
   user's colour, and `slider.tsx`'s `bg-white` stays because it is Shark's line verbatim. The
   reasoning is in the guard's own docblock.
-- **`Tour`'s close button is still mis-positioned** inside the dialog; an earlier `pe-8` fix did not
-  land it.
-- **`Breadcrumb`'s ellipsis/number is mis-positioned.**
+- **`Tour`'s close button is placed correctly, and the risk behind the report is real.** Rendered
+  2026-08-04: the `×` sits top-right of `tour-content`, clear of the title. But `tour-title`'s box is
+  the full 414px of the content, so the `×` overlaps it in coordinates and only misses it because
+  *"Welcome to the editor"* is short — a long title would run under the button. That is what the
+  `pe-8` was reaching for. Latent, not visible in this example, and it needs a long-title case before
+  anybody changes anything.
+- ~~**`Breadcrumb`'s ellipsis/number is mis-positioned.**~~ **Does not reproduce, 2026-08-04.** The
+  ellipsis shares an exact centre-y with all four siblings (2456) despite their differing heights
+  (22, 22, 16, 20), and renders on the baseline in `Workspace / ⋯ / customers`. The "number" half
+  never existed: the component renders no numeric badge anywhere.
 - **No `LICENSE` file and no `repository` field.** All three packages declare `"license": "MIT"`
   and none declares a repository; there is no `LICENSE` at the root. Both matter at first publish.
 - **Three hydration reads in `useState` initialisers** (from the old audit; I did not re-verify
