@@ -16,21 +16,18 @@ import {
 } from "@kanzo-tech/ui";
 import { revalidateLogic, useForm } from "@tanstack/react-form";
 import * as z from "zod";
+import { HALLS } from "@/example/world";
 
-const FORMATS = [
-  { value: "csv", label: "CSV" },
-  { value: "parquet", label: "Parquet" },
-  { value: "jsonl", label: "JSON Lines" },
-];
+const CLAIMANTS = HALLS.map((entry) => ({ value: entry.id, label: entry.short }));
 
 const schema = z.object({
-  terms: z.literal(true, { error: "You have to accept the terms." }),
-  formats: z.array(z.string()).min(1, "Pick at least one export format."),
+  orders: z.literal(true, { error: "You have to accept the standing orders." }),
+  halls: z.array(z.string()).min(1, "Somebody has to be able to claim it."),
 });
 
 export default function Example() {
   const form = useForm({
-    defaultValues: { terms: false, formats: [] as string[] },
+    defaultValues: { orders: false, halls: [] as string[] },
     validationLogic: revalidateLogic(),
     validators: { onDynamic: schema },
     onSubmit: () => {},
@@ -47,7 +44,7 @@ export default function Example() {
       }}
     >
       <FieldGroup>
-        <form.Field name="terms">
+        <form.Field name="orders">
           {(field) => (
             <Field invalid={!field.state.meta.isValid} orientation="horizontal">
               <Checkbox
@@ -58,9 +55,9 @@ export default function Example() {
                 }
               />
               <FieldContent>
-                <FieldTitle>Accept the terms of use</FieldTitle>
+                <FieldTitle>Accept the hall’s standing orders</FieldTitle>
                 <FieldDescription>
-                  Redistribution requires attribution.
+                  Checked when a party signs, and again when it comes back.
                 </FieldDescription>
                 <FieldError>
                   {field.state.meta.errors.map((issue) => issue?.message).join(", ")}
@@ -70,10 +67,10 @@ export default function Example() {
           )}
         </form.Field>
 
-        <form.Field name="formats">
+        <form.Field name="halls">
           {(field) => (
             <FieldSet>
-              <FieldLegend variant="label">Export formats</FieldLegend>
+              <FieldLegend variant="label">Who may claim it</FieldLegend>
 
               <Field invalid={!field.state.meta.isValid}>
                 <CheckboxGroup
@@ -82,10 +79,10 @@ export default function Example() {
                   onValueChange={(value) => field.handleChange(value)}
                   value={field.state.value}
                 >
-                  {FORMATS.map((format) => (
-                    <Field key={format.value} orientation="horizontal">
-                      <Checkbox value={format.value} />
-                      <FieldLabel>{format.label}</FieldLabel>
+                  {CLAIMANTS.map((claimant) => (
+                    <Field key={claimant.value} orientation="horizontal">
+                      <Checkbox value={claimant.value} />
+                      <FieldLabel>{claimant.label}</FieldLabel>
                     </Field>
                   ))}
                 </CheckboxGroup>

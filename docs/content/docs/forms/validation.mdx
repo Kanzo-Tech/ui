@@ -10,7 +10,7 @@ form library, with plain `useState`, or with a validation engine that has never 
 
 ```tsx
 <Field invalid={Boolean(error)}>
-  <FieldLabel>Endpoint</FieldLabel>
+  <FieldLabel>Reward</FieldLabel>
   <Input />
   <FieldError>{error}</FieldError>
 </Field>
@@ -40,7 +40,7 @@ errors back until the user has interacted with a field, so a form does not open 
 const showError = touched && Boolean(error);
 
 <Field invalid={showError}>
-  <FieldLabel>Endpoint</FieldLabel>
+  <FieldLabel>Reward</FieldLabel>
   <Input onBlur={() => setTouched(true)} />
   <FieldError>{error}</FieldError>
 </Field>
@@ -80,7 +80,7 @@ Our own two consumers validate in ways that have almost nothing in common:
 |  | Schema-based (zod / TanStack) | Graph-based (SHACL / ShEx) |
 |---|---|---|
 | Who validates | validators declared beside the form | an external engine, over a whole RDF graph |
-| Error key | `items[0].email` | a pair of RDF terms |
+| Error key | `party[0].handle` | a pair of RDF terms |
 | Severity | binary | tri-state: violation / warning / info |
 | Message | from the schema | already resolved and localised by the engine |
 | Cardinality | one per field | several per field |

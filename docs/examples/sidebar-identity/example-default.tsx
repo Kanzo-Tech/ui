@@ -1,6 +1,6 @@
 "use client";
 
-import { BoxesIcon } from "lucide-react";
+import { LandmarkIcon } from "lucide-react";
 import {
   AvatarFallback,
   SidebarIdentity,
@@ -10,10 +10,11 @@ import {
   SidebarIdentityLabel,
   SidebarIdentityText,
 } from "@kanzo-tech/ui";
+import { initialsOf, VIEWER } from "@/example/people";
 
 /**
  * Two specimens rather than a shell, because the point is the two SHAPES this row takes: a round
- * avatar reads as a person, a square tile reads as a thing. Put a `Menu` around either and you
+ * avatar reads as a person, a square tile reads as a hall. Put a `Menu` around either and you
  * have the sidebar's footer or its header switcher.
  */
 export default function Example() {
@@ -23,23 +24,23 @@ export default function Example() {
           or a presence dot are all available — not just a URL plus a fallback. */}
       <SidebarIdentity>
         <SidebarIdentityAvatar>
-          <AvatarFallback>ÁI</AvatarFallback>
+          <AvatarFallback>{initialsOf(VIEWER.name)}</AvatarFallback>
         </SidebarIdentityAvatar>
         <SidebarIdentityText>
-          <SidebarIdentityLabel>Ángel Iglesias</SidebarIdentityLabel>
-          <SidebarIdentityDescription>angel@kanzo.tech</SidebarIdentityDescription>
+          <SidebarIdentityLabel>{VIEWER.name}</SidebarIdentityLabel>
+          <SidebarIdentityDescription>{VIEWER.email}</SidebarIdentityDescription>
         </SidebarIdentityText>
       </SidebarIdentity>
 
       {/* `SidebarIdentityIcon` swaps the round avatar for a square brand tile — the shape that
-          reads as a workspace or org rather than a person. */}
+          reads as a hall or an org rather than a person. */}
       <SidebarIdentity>
         <SidebarIdentityIcon>
-          <BoxesIcon />
+          <LandmarkIcon />
         </SidebarIdentityIcon>
         <SidebarIdentityText>
-          <SidebarIdentityLabel>Kanzo</SidebarIdentityLabel>
-          <SidebarIdentityDescription>Owner</SidebarIdentityDescription>
+          <SidebarIdentityLabel>Amber Hall</SidebarIdentityLabel>
+          <SidebarIdentityDescription>Chartered</SidebarIdentityDescription>
         </SidebarIdentityText>
       </SidebarIdentity>
     </div>

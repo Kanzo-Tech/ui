@@ -1,0 +1,4 @@
+
+# Benchmark corpora — written by showcases/graph-bench/corpus/build-corpus.mjs, tens of
+# megabytes at the top sizes. A compiler output belongs in a build, not in history.
+/public/bench/

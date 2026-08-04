@@ -1,14 +1,15 @@
 import { Avatar, AvatarBadge, AvatarFallback } from "@kanzo-tech/ui";
-import { BuildingIcon, UserIcon } from "lucide-react";
+import { LandmarkIcon, UserIcon } from "lucide-react";
+import { initialsOf, member } from "@/example/people";
 
 export default function Example() {
   return (
     <div className="flex items-center gap-6">
       <Avatar size="lg">
-        <AvatarFallback>ÁI</AvatarFallback>
+        <AvatarFallback>{initialsOf(member("ravenna").name)}</AvatarFallback>
       </Avatar>
       <Avatar size="lg">
-        <AvatarFallback>MR</AvatarFallback>
+        <AvatarFallback>{initialsOf(member("grieve").name)}</AvatarFallback>
         <AvatarBadge variant="success" />
       </Avatar>
       <Avatar size="lg">
@@ -18,7 +19,7 @@ export default function Example() {
       </Avatar>
       <Avatar size="lg">
         <AvatarFallback>
-          <BuildingIcon />
+          <LandmarkIcon />
         </AvatarFallback>
       </Avatar>
     </div>

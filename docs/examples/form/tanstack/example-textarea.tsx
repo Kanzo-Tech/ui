@@ -13,7 +13,7 @@ import { revalidateLogic, useForm } from "@tanstack/react-form";
 import * as z from "zod";
 
 const schema = z.object({
-  notes: z
+  notice: z
     .string()
     .min(20, "Say a little more — at least 20 characters.")
     .max(280, "Keep it under 280 characters."),
@@ -21,7 +21,7 @@ const schema = z.object({
 
 export default function Example() {
   const form = useForm({
-    defaultValues: { notes: "" },
+    defaultValues: { notice: "" },
     validationLogic: revalidateLogic(),
     validators: { onDynamic: schema },
     onSubmit: () => {},
@@ -38,15 +38,15 @@ export default function Example() {
       }}
     >
       <FieldGroup>
-        <form.Field name="notes">
+        <form.Field name="notice">
           {(field) => (
             <Field invalid={!field.state.meta.isValid}>
-              <FieldLabel>Release notes</FieldLabel>
+              <FieldLabel>Notice</FieldLabel>
               <Textarea
                 name={field.name}
                 onBlur={field.handleBlur}
                 onChange={(event) => field.handleChange(event.target.value)}
-                placeholder="What changed in this version?"
+                placeholder="What the party is walking into."
                 rows={4}
                 value={field.state.value}
               />

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { FieldArray, Input } from "@kanzo-tech/ui";
 
 export default function Example() {
-  const [values, setValues] = useState(["dcat:Dataset", ""]);
+  const [values, setValues] = useState(["Ravenna Sarkis", ""]);
 
   return (
     <div className="w-80">
@@ -14,7 +14,7 @@ export default function Example() {
         onRemove={(index) =>
           setValues((v) => v.filter((_, j) => j !== index))
         }
-        rowKey={(index) => `keyword#${index}`}
+        rowKey={(index) => `party#${index}`}
       >
         {(index) => (
           <Input
@@ -23,7 +23,7 @@ export default function Example() {
                 v.map((x, j) => (j === index ? event.target.value : x))
               )
             }
-            placeholder="Keyword"
+            placeholder="Member"
             value={values[index] ?? ""}
           />
         )}

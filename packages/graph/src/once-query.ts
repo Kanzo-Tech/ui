@@ -10,7 +10,17 @@ import { MosaicClient, type Coordinator, type Query } from "@kanzo-tech/ui/analy
  * is exactly what you want — a fixed topology to draw, the ids failing a shape — and then the client
  * disconnects as soon as it has answered.
  */
-export function onceQuery(coordinator: Coordinator, build: () => Query): Promise<unknown> {
+/**
+ * `build` may return a raw SQL string as well as a `Query`.
+ *
+ * Mosaic executes whatever a client's `query()` hands back, and not every read is expressible with
+ * the builder — a windowed CTE that numbers its own rows is the case that forced this. Narrowing it
+ * to `Query` was describing the builder rather than the protocol.
+ */
+export function onceQuery(
+  coordinator: Coordinator,
+  build: () => Query | string,
+): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const client = new (class extends MosaicClient {
       override query() {

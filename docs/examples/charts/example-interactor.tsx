@@ -65,7 +65,7 @@ function Swap() {
         variant="solid"
       />
 
-      <ChartRoot height={220} table="telemetry">
+      <ChartRoot height={220} table="sightings">
         <ChartLineY filterBy={null} stroke="var(--muted-foreground)" strokeOpacity={0.35} x="hour" y={count()} />
         <ChartAreaY fill="var(--primary)" fillOpacity={0.12} x="hour" y={count()} />
         <ChartDot fill="var(--primary)" r={3.5} x="hour" y={count()} />

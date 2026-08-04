@@ -19,7 +19,7 @@ export default function Example() {
         <ChartRoot
           height={180}
           margin={{ top: 4, right: 16, bottom: 32, left: 76 }}
-          table="telemetry"
+          table="sightings"
         >
           <ChartCell
             fill="var(--chart-1)"

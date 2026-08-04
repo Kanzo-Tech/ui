@@ -21,22 +21,22 @@ import * as z from "zod";
 // `unknown`, which does not match the form's shape and will not typecheck.
 // `schema.parse(value)` on submit gives you the typed payload.
 const schema = z.object({
-  replicas: z
+  party: z
     .string()
-    .min(1, "Enter a number of replicas.")
+    .min(1, "Say how many the contract takes.")
     .transform(Number)
     .pipe(
       z
         .number({ error: "Not a number." })
-        .int("Whole numbers only.")
-        .min(1, "At least one replica.")
-        .max(9, "Nine replicas at most.")
+        .int("Whole people only.")
+        .min(1, "Somebody has to go.")
+        .max(5, "Five to a party at most.")
     ),
 });
 
 export default function Example() {
   const form = useForm({
-    defaultValues: { replicas: "3" },
+    defaultValues: { party: "3" },
     validationLogic: revalidateLogic(),
     validators: { onDynamic: schema },
     onSubmit: () => {},
@@ -53,12 +53,12 @@ export default function Example() {
       }}
     >
       <FieldGroup>
-        <form.Field name="replicas">
+        <form.Field name="party">
           {(field) => (
             <Field invalid={!field.state.meta.isValid}>
-              <FieldLabel>Replicas</FieldLabel>
+              <FieldLabel>Party size</FieldLabel>
               <NumberInput
-                max={9}
+                max={5}
                 min={1}
                 name={field.name}
                 onValueChange={(details) => field.handleChange(details.value)}

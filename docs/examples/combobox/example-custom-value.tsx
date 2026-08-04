@@ -15,9 +15,9 @@ import {
 import { useState } from "react";
 
 const TAGS = [
-  { label: "analytics", value: "analytics" },
-  { label: "billing", value: "billing" },
-  { label: "internal", value: "internal" },
+  { label: "escort", value: "escort" },
+  { label: "bounty", value: "bounty" },
+  { label: "night-work", value: "night-work" },
 ];
 
 export default function Example() {
@@ -55,7 +55,7 @@ export default function Example() {
         </ComboboxContent>
       </Combobox>
       <FieldHelper>
-        {isCustom ? `New tag: ${inputValue}` : "Type something that is not on the list."}
+        {isCustom ? `New tag: ${inputValue}` : "The board takes tags nobody has posted yet."}
       </FieldHelper>
     </Field>
   );

@@ -20,19 +20,19 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot height={160} margin={MARGIN} table="telemetry">
+        <ChartRoot height={160} margin={MARGIN} table="sightings">
           <ChartBarX
             fill="var(--muted-foreground)"
             filterBy={null}
             opacity={0.25}
             sort={{ y: "-x" }}
             x={count()}
-            y="status"
+            y="verdict"
           />
-          <ChartBarX fill="var(--primary)" sort={{ y: "-x" }} tip x={count()} y="status" />
+          <ChartBarX fill="var(--primary)" sort={{ y: "-x" }} tip x={count()} y="verdict" />
           <ChartToggleY />
           <ChartHighlight />
-          <ChartAxisX grid label="requests" />
+          <ChartAxisX grid label="sightings" />
           <ChartAxisY label={null} />
         </ChartRoot>
       </div>

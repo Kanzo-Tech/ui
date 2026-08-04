@@ -69,6 +69,7 @@ import {
 	ChevronRightIcon,
 	ChevronsUpDownIcon,
 	InfoIcon,
+	LandmarkIcon,
 	LogOutIcon,
 	MessageCircleIcon,
 	NetworkIcon,
@@ -86,6 +87,8 @@ import {
 	type SidebarNavItem,
 	USER,
 } from "./data";
+import { hall, HOME_HALL, type HallId } from "@/example/world";
+import { initialsOf } from "@/example/people";
 import {
 	GraphAsk,
 	GraphCanvas,
@@ -93,7 +96,7 @@ import {
 	GraphInspector,
 	GraphLegend,
 	GraphMosaic,
-	GraphRules,
+	GraphOrders,
 	GraphSelection,
 	GraphSettings,
 	GraphToolbar,
@@ -101,13 +104,13 @@ import {
 } from "./graph-view";
 
 /**
- * keasy's discovery screen, at full viewport and end-to-end in our vocabulary. The whole point is
- * the mapping: it is an IDE-docked layout, not a floating overlay, so every region is one of ours.
+ * The hall's archive, at full viewport and end-to-end in one vocabulary. The whole point is the
+ * mapping: it is an IDE-docked layout, not a floating overlay, so every region is one of ours.
  *
  *   SidebarProvider             app frame + collapse context (⌘B)
- *   ├─ Sidebar                  the app rail — workspace switcher / Platform nav / user
+ *   ├─ Sidebar                  the app rail — hall switcher / the world's own nav / user
  *   └─ SidebarInset             neutral offset column; the content shell lives inside it
- *      ├─ ShellHeader           breadcrumb (Jobs › aemet.fossil › Discover) + ⌘B + view switcher
+ *      ├─ ShellHeader           breadcrumb (Ledger › The archive › Graph) + ⌘B + view switcher
  *      ├─ ShellBody             Resizable: ShellMain view  ⟷  docked ShellAside inspector
  *      └─ ShellFooter           status bar: node/edge count at start, panel-tab icons at end
  *
@@ -116,13 +119,15 @@ import {
  * resize and ARIA all come from the machine. The Sidebar stays OUTSIDE the splitter.
  *
  * Two orthogonal switches, which is the IDE shape: the **header** picks what `ShellMain` shows
- * (Graph · Analysis), the **footer strip** picks which inspector the dock holds (Info · Ask · Rules
- * · Settings) and collapses it when you click the active icon again — a state Tabs cannot express.
+ * (Graph · Sightings), the **footer strip** picks which inspector the dock holds (Info · Ask ·
+ * Orders · Settings) and collapses it when you click the active icon again — a state Tabs cannot
+ * express.
  *
  * Both regions are live and both read the same DuckDB: **Graph** is cosmos.gl rendering a force
- * layout on the GPU while a `MosaicClient` keeps it inside the page's crossfilter, and **Analysis**
- * is a full crossfilter dashboard built from the `@kanzo-tech/ui/analytics` subpath. Both load
- * client-only, because evaluating vgplot during the RSC prerender is a TDZ.
+ * layout over 1,543 archived contracts, reports, members, beasts, tags and regions while a
+ * `MosaicClient` keeps it inside the page's crossfilter, and **Sightings** is a full crossfilter
+ * dashboard built from the `@kanzo-tech/ui/analytics` subpath. Both load client-only, because
+ * evaluating vgplot during the RSC prerender is a TDZ.
  *
  * What the showcase is demonstrating there is the reach of the vocabulary rather than a graph
  * widget: the library ships no renderer, and the canvas joins the crossfilter by declaring a query
@@ -135,16 +140,17 @@ import {
  */
 
 /**
- * The Analysis view is the discovery showcase's other region: a real crossfilter dashboard over a
- * real DuckDB relation, built entirely from the `@kanzo-tech/ui/analytics` subpath. It occupies
- * `ShellMain` rather than the dock because a dashboard needs the width — a KPI row, six faceted
- * panels and a table do not fit in a 320px inspector.
+ * The Sightings view is the showcase's other region: a real crossfilter dashboard over a real DuckDB
+ * relation — the world's own `sightings`, the same rows every chart in these docs reads — built
+ * entirely from the `@kanzo-tech/ui/analytics` subpath. It occupies `ShellMain` rather than the dock
+ * because a dashboard needs the width — a KPI row, five plots and a table do not fit in a 320px
+ * inspector.
  *
  * It stays client-only: importing `@kanzo-tech/ui/analytics` at the top of this file would evaluate
  * vgplot during the RSC prerender (a TDZ), so it lives behind `ssr: false` — the boundary
  * `docs/examples/charts/mosaic-demo.tsx` documents.
  */
-const AnalysisView = dynamic(() => import("./analysis-charts"), {
+const SightingsView = dynamic(() => import("./sightings-charts"), {
 	ssr: false,
 	loading: () => <Skeleton className="h-full w-full" />,
 });
@@ -152,7 +158,7 @@ const AnalysisView = dynamic(() => import("./analysis-charts"), {
 const PANELS = [
 	{ id: "info", label: "Info", icon: InfoIcon },
 	{ id: "ask", label: "Ask", icon: MessageCircleIcon },
-	{ id: "rules", label: "Rules", icon: ShieldCheckIcon },
+	{ id: "orders", label: "Orders", icon: ShieldCheckIcon },
 	{ id: "settings", label: "Settings", icon: Settings2Icon },
 ] as const;
 
@@ -161,21 +167,21 @@ type PanelId = (typeof PANELS)[number]["id"];
 const PANEL_BODY: Record<PanelId, React.ComponentType> = {
 	info: GraphInspector,
 	ask: GraphAsk,
-	rules: GraphRules,
+	orders: GraphOrders,
 	settings: GraphSettings,
 };
 
 /** What `ShellMain` shows. The dock's panels are orthogonal to it — they inspect either one. */
 const VIEWS = [
 	{ id: "graph", label: "Graph", icon: NetworkIcon },
-	{ id: "analysis", label: "Analysis", icon: BarChart3Icon },
+	{ id: "sightings", label: "Sightings", icon: BarChart3Icon },
 ] as const;
 
 type ViewId = (typeof VIEWS)[number]["id"];
 
 /** The graph region — one `<main>`, filling whichever box holds it (a splitter panel, or the whole
  *  body when the dock is collapsed). */
-function DiscoveryCanvas() {
+function ArchiveCanvas() {
 	return (
 		<ShellMain className="relative size-full bg-background">
 			<GraphCanvas />
@@ -195,11 +201,11 @@ function DiscoveryCanvas() {
 	);
 }
 
-/** The analysis region — the other `<main>`; only ever one of the two is mounted. */
-function AnalysisRegion() {
+/** The sightings region — the other `<main>`; only ever one of the two is mounted. */
+function SightingsRegion() {
 	return (
 		<ShellMain className="min-h-0 bg-background">
-			<AnalysisView />
+			<SightingsView />
 		</ShellMain>
 	);
 }
@@ -210,19 +216,8 @@ function AnalysisRegion() {
  * arrangements of the same four parts, and the arrangement is what an app decides. So they are
  * written out here, where you can read them, rather than imported as a prop-driven wrapper. */
 
-/** First letter of the first two words. The one thing an avatar fallback needs and the DS won't guess. */
-function initials(name: string) {
-	return name
-		.split(/\s+/)
-		.map((part) => part[0])
-		.filter(Boolean)
-		.slice(0, 2)
-		.join("")
-		.toUpperCase();
-}
-
-/** One workspace as an identity block. Rendered in the trigger (collapse-aware) and in each menu row. */
-function WorkspaceIdentity({
+/** One hall as an identity block. Rendered in the trigger (collapse-aware) and in each menu row. */
+function HallIdentity({
 	collapsed = false,
 	instance,
 	responsive = false,
@@ -233,7 +228,9 @@ function WorkspaceIdentity({
 }) {
 	return (
 		<SidebarIdentity collapsed={collapsed} responsive={responsive}>
-			<SidebarIdentityIcon>{instance.icon}</SidebarIdentityIcon>
+			<SidebarIdentityIcon>
+				<LandmarkIcon />
+			</SidebarIdentityIcon>
 			<SidebarIdentityText>
 				<SidebarIdentityLabel>{instance.label}</SidebarIdentityLabel>
 				<SidebarIdentityDescription>
@@ -244,10 +241,10 @@ function WorkspaceIdentity({
 	);
 }
 
-function WorkspaceSwitcher() {
+function HallSwitcher() {
 	const { isMobile, setOpenMobile, state } = useSidebar();
 	const collapsed = state === "collapsed" && !isMobile;
-	const active = INSTANCES[0];
+	const active = INSTANCES.find((entry) => entry.id === HOME_HALL) ?? INSTANCES[0];
 
 	return (
 		<SidebarMenu>
@@ -268,7 +265,7 @@ function WorkspaceSwitcher() {
 							className="group-data-[collapsible=icon]:justify-center data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
 							size="lg"
 						>
-							<WorkspaceIdentity
+							<HallIdentity
 								collapsed={collapsed}
 								instance={active}
 								responsive
@@ -280,17 +277,20 @@ function WorkspaceSwitcher() {
 					    menu reads as anchored to the button instead of floating beside the rail. */}
 					<MenuContent className="w-(--reference-width) min-w-60">
 						{/* `MenuGroup` is what gives the heading an item-group to label. */}
-						<MenuGroup heading="Workspaces">
+						<MenuGroup heading="Halls">
 							{INSTANCES.map((instance) => (
 								<MenuItem
 									key={instance.id}
 									onClick={() => {
 										setOpenMobile(false);
-										toast.create({ title: "Switch workspace", type: "info" });
+										toast.create({
+											title: `${hall(instance.id as HallId).name} — the archive follows the hall`,
+											type: "info",
+										});
 									}}
 									value={instance.id}
 								>
-									<WorkspaceIdentity instance={instance} />
+									<HallIdentity instance={instance} />
 									<Show when={instance.id === active.id}>
 										<CheckIcon className="ms-auto" />
 									</Show>
@@ -314,7 +314,7 @@ function MemberMenu() {
 	const identity = (responsive: boolean) => (
 		<SidebarIdentity collapsed={responsive && collapsed} responsive={responsive}>
 			<SidebarIdentityAvatar>
-				<AvatarFallback>{initials(USER.name)}</AvatarFallback>
+				<AvatarFallback>{initialsOf(USER.name)}</AvatarFallback>
 			</SidebarIdentityAvatar>
 			<SidebarIdentityText>
 				<SidebarIdentityLabel>{USER.name}</SidebarIdentityLabel>
@@ -450,16 +450,16 @@ function NavGroup({
 
 /** The navigation column. `<nav>` is ours to write: `SidebarGroup` is a `div`, and a titled group
  *  that names its own landmark is the only reason there is a heading at all. */
-function PlatformNav() {
+function HallNav() {
 	const { setOpenMobile } = useSidebar();
 	// Below `md` the sidebar is a sheet over the content, so navigating has to dismiss it. Above it,
 	// `setOpenMobile` is inert. Per-app policy again — a library nav could only guess.
 	const close = () => setOpenMobile(false);
 
 	return (
-		<nav aria-label="Platform">
+		<nav aria-label="The hall">
 			<SidebarGroup>
-				<SidebarGroupLabel>Platform</SidebarGroupLabel>
+				<SidebarGroupLabel>The hall</SidebarGroupLabel>
 				<SidebarMenu>
 					{NAV.map((item) => (
 						<Show
@@ -476,24 +476,24 @@ function PlatformNav() {
 	);
 }
 
-function DiscoveryShell() {
+function ArchiveShell() {
 	const [active, setActive] = useState<PanelId>("info");
 	const [panelOpen, setPanelOpen] = useState(true);
 	const [view, setView] = useState<ViewId>("graph");
 
 	const ActiveBody = PANEL_BODY[active];
 	const activeLabel = PANELS.find((p) => p.id === active)?.label ?? "";
-	const MainRegion = view === "graph" ? DiscoveryCanvas : AnalysisRegion;
+	const MainRegion = view === "graph" ? ArchiveCanvas : SightingsRegion;
 
 	return (
 		<SidebarProvider className="h-dvh min-h-0 overflow-hidden">
 			<Sidebar collapsible="icon">
 				<SidebarHeader>
-					<WorkspaceSwitcher />
+					<HallSwitcher />
 				</SidebarHeader>
 
 				<SidebarContent>
-					<PlatformNav />
+					<HallNav />
 				</SidebarContent>
 
 				<SidebarFooter>
@@ -522,7 +522,7 @@ function DiscoveryShell() {
 						<BreadcrumbList className="min-w-0 flex-nowrap overflow-hidden">
 							<BreadcrumbItem>
 								<BreadcrumbLink asChild>
-									<a href="#/app/jobs">Jobs</a>
+									<a href="#/ledger">Ledger</a>
 								</BreadcrumbLink>
 							</BreadcrumbItem>
 							{/* The separator is a SIBLING of the item, never a child: both render `li`, and
@@ -530,18 +530,18 @@ function DiscoveryShell() {
 							<BreadcrumbSeparator />
 							<BreadcrumbItem>
 								<BreadcrumbLink asChild>
-									<a href="#/app/jobs/aemet">aemet.fossil</a>
+									<a href="#/ledger/archive">The archive</a>
 								</BreadcrumbLink>
 							</BreadcrumbItem>
 							<BreadcrumbSeparator />
 							<BreadcrumbItem className="min-w-0">
 								{/* `BreadcrumbPage` is the one that carries `aria-current="page"`, so the leaf
 								    is a page and not a link — and it is the one allowed to truncate. */}
-								<BreadcrumbPage className="truncate">Discover</BreadcrumbPage>
+								<BreadcrumbPage className="truncate">Graph</BreadcrumbPage>
 							</BreadcrumbItem>
 						</BreadcrumbList>
 					</Breadcrumb>
-					{/* Switching to Analysis closes the dock: a dashboard is judged at full width, and the
+					{/* Switching to Sightings closes the dock: a dashboard is judged at full width, and the
 					    inspector has nothing to inspect there. Reopen it from the footer strip. */}
 					<ToggleGroup
 						aria-label="View"
@@ -551,7 +551,7 @@ function DiscoveryShell() {
 							const next = d.value[0] as ViewId | undefined;
 							if (!next) return;
 							setView(next);
-							if (next === "analysis") setPanelOpen(false);
+							if (next === "sightings") setPanelOpen(false);
 						}}
 						size="sm"
 						spacing={2}
@@ -609,7 +609,7 @@ function DiscoveryShell() {
 									<div className="flex h-9 shrink-0 items-center gap-2 border-b border-border px-3">
 										<span className="font-medium text-sm">{activeLabel}</span>
 										<div className="ms-auto flex items-center gap-1">
-											{/* No "Run": the rules panel publishes into the crossfilter as each rule is set,
+											{/* No "Run": the orders panel publishes into the crossfilter as each order is focused,
 												    so the graph is already showing the answer. A button promising to apply
 												    what is applied is a worse lie than no button. */}
 											<Button
@@ -678,7 +678,7 @@ export default WorkspaceShowcase;
 export function WorkspaceShowcase() {
 	return (
 		<GraphMosaic>
-			<DiscoveryShell />
+			<ArchiveShell />
 		</GraphMosaic>
 	);
 }

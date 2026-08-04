@@ -1,4 +1,4 @@
-import { DatabaseIcon, PlusIcon } from "lucide-react";
+import { PlusIcon, ScrollTextIcon } from "lucide-react";
 import {
   Button,
   SectionActions,
@@ -13,21 +13,21 @@ export default function Example() {
   return (
     <SectionHeader className="w-full">
       <SectionIcon>
-        <DatabaseIcon />
+        <ScrollTextIcon />
       </SectionIcon>
       <SectionTitleGroup>
-        <SectionTitle>Connections</SectionTitle>
+        <SectionTitle>Open contracts</SectionTitle>
         <SectionDescription>
-          Sources this workspace reads from.
+          Posted to the board. Anyone chartered may claim them.
         </SectionDescription>
       </SectionTitleGroup>
       <SectionActions>
         <Button size="sm" variant="outline">
-          View all
+          View the whole board
         </Button>
         <Button size="sm">
           <PlusIcon />
-          New connection
+          Post a contract
         </Button>
       </SectionActions>
     </SectionHeader>

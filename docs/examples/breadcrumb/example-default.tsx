@@ -12,15 +12,15 @@ export default function Example() {
     <Breadcrumb>
       <BreadcrumbList>
         <BreadcrumbItem>
-          <BreadcrumbLink href="#">Workspace</BreadcrumbLink>
+          <BreadcrumbLink href="#">The board</BreadcrumbLink>
         </BreadcrumbItem>
         <BreadcrumbSeparator />
         <BreadcrumbItem>
-          <BreadcrumbLink href="#">Datasets</BreadcrumbLink>
+          <BreadcrumbLink href="#">Ashfall Reach</BreadcrumbLink>
         </BreadcrumbItem>
         <BreadcrumbSeparator />
         <BreadcrumbItem>
-          <BreadcrumbPage>customers</BreadcrumbPage>
+          <BreadcrumbPage>Q-1058</BreadcrumbPage>
         </BreadcrumbItem>
       </BreadcrumbList>
     </Breadcrumb>

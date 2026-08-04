@@ -13,23 +13,26 @@ export default function Example() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline">Edit dataset</Button>
+        <Button variant="outline">Claim contract</Button>
       </DialogTrigger>
 
       <DialogContent>
         <DialogHeader
-          description="Update the display name. Changes apply immediately."
-          title="Edit dataset"
+          description="Q-1041 · Thornmarch · Grade 2, Nuisance"
+          title="Something is eating the bell-ropes"
         />
 
-        <DialogBody>The name becomes the graph id, so it must stay unique.</DialogBody>
+        <DialogBody>
+          Signing commits the party until the contract settles. Nobody can be sent on two
+          contracts at once.
+        </DialogBody>
 
         <DialogFooter>
           <DialogClose asChild>
-            <Button variant="outline">Cancel</Button>
+            <Button variant="outline">Not yet</Button>
           </DialogClose>
           <DialogClose asChild>
-            <Button>Save</Button>
+            <Button>Sign for it</Button>
           </DialogClose>
         </DialogFooter>
       </DialogContent>

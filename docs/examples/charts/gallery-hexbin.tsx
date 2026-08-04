@@ -18,19 +18,19 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot height={280} table="telemetry">
+        <ChartRoot height={280} table="sightings">
           <ChartHexgrid strokeOpacity={0.12} />
           <ChartHexbin
             binWidth={18}
             fill="var(--chart-1)"
             fillOpacity={count()}
             tip
-            x="latency"
-            y="payload"
+            x="bounty"
+            y="leagues"
           />
           <ChartIntervalXY />
-          <ChartAxisX label="latency (ms)" />
-          <ChartAxisY label="payload (kB)" />
+          <ChartAxisX label="bounty (gold)" />
+          <ChartAxisY label="leagues from the road" />
         </ChartRoot>
       </div>
     </MosaicDemo>

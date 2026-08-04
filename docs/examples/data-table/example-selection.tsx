@@ -10,25 +10,15 @@ import {
   selectColumn,
   useDataTable,
 } from "@kanzo-tech/ui/table";
+import { openQuests, type Quest } from "@/example/quests";
 
-interface Dataset {
-  name: string;
-  owner: string;
-  records: number;
-}
+const data = openQuests().slice(0, 4);
 
-const data: Dataset[] = [
-  { name: "customers", owner: "platform", records: 1204 },
-  { name: "orders", owner: "commerce", records: 8912 },
-  { name: "invoices", owner: "finance", records: 412 },
-  { name: "shipments", owner: "commerce", records: 3310 },
-];
-
-const columns: ColumnDef<Dataset>[] = [
-  selectColumn<Dataset>({ rowLabel: (row) => `Select ${row.original.name}` }),
-  { accessorKey: "name", header: "Dataset" },
-  { accessorKey: "records", header: "Records" },
-  { accessorKey: "owner", header: "Owner" },
+const columns: ColumnDef<Quest>[] = [
+  selectColumn<Quest>({ rowLabel: (row) => `Select ${row.original.title}` }),
+  { accessorKey: "title", header: "Contract" },
+  { accessorKey: "reward", header: "Reward" },
+  { accessorKey: "region", header: "Region" },
 ];
 
 export default function Example() {
@@ -49,7 +39,7 @@ export default function Example() {
           </Button>
         </DataTableToolbar>
 
-        <DataTableContent<Dataset> />
+        <DataTableContent<Quest> />
         <DataTablePagination />
       </DataTableRoot>
     </div>

@@ -108,6 +108,7 @@ import {
   BellIcon,
   CalendarClockIcon,
   CheckIcon,
+  LandmarkIcon,
   ChevronRightIcon,
   ChevronsUpDownIcon,
   CompassIcon,
@@ -123,13 +124,13 @@ import {
   INSTANCES,
   KPIS,
   NAV,
-  SCHEDULES,
+  STANDING,
   SETUP,
   SUPPORT,
   USER,
   type SidebarNavItem,
 } from "./data";
-import { RunsTable } from "./runs-table";
+import { BoardTable } from "./board-table";
 
 const TOUR_STEPS: TourStepType[] = [
   {
@@ -263,7 +264,9 @@ function Shell() {
                     size="lg"
                   >
                     <SidebarIdentity collapsed={collapsed} responsive>
-                      <SidebarIdentityIcon>{active.icon}</SidebarIdentityIcon>
+                      <SidebarIdentityIcon>
+                        <LandmarkIcon />
+                      </SidebarIdentityIcon>
                       <SidebarIdentityText>
                         <SidebarIdentityLabel>{active.label}</SidebarIdentityLabel>
                         <SidebarIdentityDescription>{active.description}</SidebarIdentityDescription>
@@ -290,7 +293,9 @@ function Shell() {
                         {/* The same identity block as the trigger, minus `responsive`: this one is
                             portaled to the body and never collapses with the rail. */}
                         <SidebarIdentity>
-                          <SidebarIdentityIcon>{entry.icon}</SidebarIdentityIcon>
+                          <SidebarIdentityIcon>
+                            <LandmarkIcon />
+                          </SidebarIdentityIcon>
                           <SidebarIdentityText>
                             <SidebarIdentityLabel>{entry.label}</SidebarIdentityLabel>
                             <SidebarIdentityDescription>{entry.description}</SidebarIdentityDescription>
@@ -579,7 +584,7 @@ function Shell() {
                     </TabsList>
 
                     <TabsContent value="active">
-                      <RunsTable />
+                      <BoardTable />
                     </TabsContent>
 
                     <TabsContent value="archived">
@@ -626,7 +631,7 @@ function Shell() {
                         </CardHeader>
                         <CardContent className="px-3">
                           <ItemGroup className="gap-0">
-                            {SCHEDULES.map((schedule, index) => (
+                            {STANDING.map((schedule, index) => (
                               <Fragment key={schedule.id}>
                                 <Show when={index > 0}>
                                   <ItemSeparator className="my-0" />
@@ -640,7 +645,7 @@ function Shell() {
                                     <ItemTitle className="line-clamp-1">{schedule.name}</ItemTitle>
                                     <ItemDescription>
                                       {schedule.cadence} ·{" "}
-                                      <code className="font-mono text-xs">{schedule.cron}</code>
+                                      <code className="font-mono text-xs">{schedule.tag}</code>
                                     </ItemDescription>
                                   </ItemContent>
                                   <ItemActions>

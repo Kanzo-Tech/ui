@@ -9,11 +9,13 @@
     "build": "next build --webpack",
     "start": "next start --port 3100",
     "typecheck": "tsc --noEmit",
-    "postinstall": "fumadocs-mdx"
+    "postinstall": "fumadocs-mdx",
+    "test": "vitest run"
   },
   "dependencies": {
     "@codemirror/lang-json": "^6.0.2",
-    "@cosmos.gl/graph": "^2.6.4",
+    "@cosmos.gl/graph": "^3.4.0",
+    "@kanzo-tech/graph": "workspace:*",
     "@duckdb/duckdb-wasm": "1.33.1-dev57.0",
     "@internationalized/date": "^3.12.2",
     "@kanzo-tech/palette": "workspace:*",
@@ -44,6 +46,7 @@
     "@types/node": "^20",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "playwright": "^1.62.1",
     "tailwindcss": "4",
     "typescript": "^5.7.3"
   }

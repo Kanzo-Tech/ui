@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { MEMBERS } from "@/example/people";
 import {
   createListCollection,
   Listbox,
@@ -14,14 +15,7 @@ import {
   useFilter,
 } from "@kanzo-tech/ui";
 
-const STATIONS = [
-  { label: "A Coruña", value: "leco" },
-  { label: "Alacant", value: "lealc" },
-  { label: "Bilbao", value: "lebb" },
-  { label: "Madrid", value: "lemd" },
-  { label: "Málaga", value: "lega" },
-  { label: "Santiago", value: "lest" },
-];
+const ROSTER = MEMBERS.map((entry) => ({ label: entry.name, value: entry.id }));
 
 // Hoisted, not inlined: `useFilter` memoises on the options object by identity, so a literal
 // hands back a fresh `contains` on every render — and here that rebuilds the collection on
@@ -39,7 +33,7 @@ export default function Example() {
   const collection = useMemo(
     () =>
       createListCollection({
-        items: STATIONS.filter((item) => contains(item.label, query)),
+        items: ROSTER.filter((item) => contains(item.label, query)),
       }),
     [contains, query]
   );
@@ -52,14 +46,14 @@ export default function Example() {
       selectionMode="multiple"
       value={value}
     >
-      <ListboxLabel>Stations</ListboxLabel>
+      <ListboxLabel>Roster</ListboxLabel>
 
       {/* `autoHighlight` re-aims at the first surviving row on every keystroke, so Enter takes
           the top match without an ArrowDown first. */}
       <ListboxInput
         autoHighlight
         onChange={(event) => setQuery(event.target.value)}
-        placeholder="Filter stations…"
+        placeholder="Filter the roster…"
         value={query}
       />
 
@@ -72,7 +66,7 @@ export default function Example() {
           </ListboxItem>
         ))}
 
-        <ListboxEmpty>No station by that name.</ListboxEmpty>
+        <ListboxEmpty>No member by that name.</ListboxEmpty>
       </ListboxContent>
     </Listbox>
   );

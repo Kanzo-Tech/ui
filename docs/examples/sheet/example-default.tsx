@@ -13,18 +13,18 @@ export default function Example() {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="outline">Open details</Button>
+        <Button variant="outline">Open member</Button>
       </SheetTrigger>
 
       <SheetContent>
         <SheetHeader
-          description="customers.ttl · 1,204 triples"
-          title="Dataset details"
+          description="Warden · The Amber Hall · Gold · 71 settled"
+          title="Ravenna Sarkis"
         />
 
         <SheetBody>
-          Sheets keep the page behind them visible, so they suit inspecting a record without
-          losing your place in the list.
+          Claimed for Q-1070, “The children say the well talks”, due 27 September. The roster
+          stays visible behind the panel, so reading one member does not lose your place in it.
         </SheetBody>
 
         <SheetFooter>

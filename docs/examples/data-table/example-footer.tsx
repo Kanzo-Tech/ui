@@ -6,27 +6,18 @@ import {
   DataTableRoot,
   useDataTable,
 } from "@kanzo-tech/ui/table";
+import { type Quest, questsOf } from "@/example/quests";
 
-interface Dataset {
-  name: string;
-  records: number;
-  owner: string;
-}
+const data = questsOf("amber");
 
-const data: Dataset[] = [
-  { name: "customers", records: 1204, owner: "platform" },
-  { name: "orders", records: 8912, owner: "commerce" },
-  { name: "invoices", records: 412, owner: "finance" },
-];
-
-const total = data.reduce((sum, d) => sum + d.records, 0);
+const gold = data.reduce((sum, contract) => sum + contract.reward, 0);
 
 // A column earns a footer cell by defining `footer`. Columns that leave it out render an
 // empty footer cell, and if no column defines one the table emits no <tfoot> at all.
-const columns: ColumnDef<Dataset>[] = [
-  { accessorKey: "name", header: "Dataset", footer: "Total" },
-  { accessorKey: "records", header: "Records", footer: total.toLocaleString() },
-  { accessorKey: "owner", header: "Owner" },
+const columns: ColumnDef<Quest, unknown>[] = [
+  { accessorKey: "title", header: "Contract", footer: "Posted" },
+  { accessorKey: "reward", header: "Reward", footer: `${gold.toLocaleString()} gold` },
+  { accessorKey: "region", header: "Region" },
 ];
 
 export default function Example() {

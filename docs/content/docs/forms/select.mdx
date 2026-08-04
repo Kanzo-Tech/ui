@@ -21,10 +21,10 @@ import {
 ```
 
 ```tsx
-const visibility = createListCollection({
+const regions = createListCollection({
   items: [
-    { label: "Public", value: "public" },
-    { label: "Private", value: "private" },
+    { label: "Thornmarch", value: "Thornmarch" },
+    { label: "Duskfen", value: "Duskfen" },
   ],
 });
 ```
@@ -38,7 +38,7 @@ Build the collection once at module scope, or memoise it — a new collection on
 resets the machine.
 
 <Callout type="info">
-Type-ahead is not filtering. Typing `pri` **jumps** the highlight to "Private"; the list still
+Type-ahead is not filtering. Typing `dus` **jumps** the highlight to "Duskfen"; the list still
 shows every option. If you want the list to shrink as the user types, that is a
 [`Combobox`](/docs/forms/combobox).
 </Callout>

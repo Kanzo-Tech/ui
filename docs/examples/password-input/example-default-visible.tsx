@@ -9,7 +9,7 @@ export default function Example() {
   return (
     <PasswordInput autoComplete="new-password" className="w-72" defaultVisible>
       <PasswordInputGroup>
-        <PasswordInputInput defaultValue="correct horse battery staple" />
+        <PasswordInputInput defaultValue="nothing keeps forever" />
         <PasswordInputTrigger />
       </PasswordInputGroup>
     </PasswordInput>

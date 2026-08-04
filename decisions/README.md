@@ -63,3 +63,11 @@ saved by, it is the licence to ramble that the fields exist to prevent — cut i
   write a file, and both link here for why.
 
 The three standing constraints are not decisions and are not here. They are in `CLAUDE.md`.
+
+**The numbered records are a second shape, and they stay.**
+`0001-the-canvas-stops-holding-the-graph.md` and `template.md` follow `rmlext/decisions/` —
+Context, Decision, Consequences, numbered sequentially. That is deliberate: since ADR-0040 the two
+repositories reason about each other, and a decision taken in one that binds the other has to be
+citable by number from both. Use the numbered shape for exactly that. Everything true only of this
+library takes the five fields above, which is why there are thirty-four of those and one of the
+other.

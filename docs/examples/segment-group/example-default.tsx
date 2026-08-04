@@ -7,11 +7,11 @@ import {
 export default function Example() {
   return (
     <SegmentGroup
-      aria-label="View mode"
+      aria-label="Board filter"
       className="w-fit rounded-md bg-muted p-1"
-      defaultValue="list"
+      defaultValue="open"
     >
-      {["List", "Grid", "Graph"].map((label) => (
+      {["Open", "Afield", "Settled"].map((label) => (
         <SegmentGroupItem
           className="px-3 py-1.5"
           key={label}

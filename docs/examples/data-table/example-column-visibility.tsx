@@ -9,46 +9,36 @@ import {
   DataTableViewOptions,
   useDataTable,
 } from "@kanzo-tech/ui/table";
+import { dueOn, type Quest, questsOf } from "@/example/quests";
 
-interface Dataset {
-  name: string;
-  owner: string;
-  records: number;
-  updated: string;
-}
-
-const data: Dataset[] = [
-  { name: "customers", owner: "platform", records: 1204, updated: "2 hours ago" },
-  { name: "orders", owner: "commerce", records: 8912, updated: "12 minutes ago" },
-  { name: "invoices", owner: "finance", records: 412, updated: "yesterday" },
-];
+const data = questsOf("amber");
 
 // `header` is the label the View menu shows, so keep it a string on hideable columns.
-const columns: ColumnDef<Dataset>[] = [
-  { accessorKey: "name", enableHiding: false, header: "Dataset" },
-  { accessorKey: "records", header: "Records" },
-  { accessorKey: "owner", header: "Owner" },
-  { accessorKey: "updated", header: "Last updated" },
+const columns: ColumnDef<Quest>[] = [
+  { accessorKey: "title", enableHiding: false, header: "Contract" },
+  { accessorKey: "reward", header: "Reward" },
+  { accessorKey: "region", header: "Region" },
+  { accessorFn: dueOn, header: "Due", id: "due" },
 ];
 
 export default function Example() {
   const table = useDataTable({
     columns,
     data,
-    initialColumnVisibility: { updated: false },
+    initialColumnVisibility: { due: false },
   });
 
   return (
     <div className="w-full max-w-xl">
       <DataTableRoot table={table}>
         <DataTableToolbar>
-          <DataTableSearch column="name" />
+          <DataTableSearch column="title" />
           <div className="ms-auto">
             <DataTableViewOptions />
           </div>
         </DataTableToolbar>
 
-        <DataTableContent<Dataset> />
+        <DataTableContent<Quest> />
       </DataTableRoot>
     </div>
   );

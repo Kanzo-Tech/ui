@@ -24,13 +24,13 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot height={220} table="telemetry">
+        <ChartRoot height={220} table="sightings">
           <ChartBarY fill="var(--muted-foreground)" filterBy={null} opacity={0.3} sort={{ x: "-y" }} x="region" y={count()} />
           <ChartBarY fill="var(--primary)" sort={{ x: "-y" }} tip x="region" y={count()} />
           <ChartToggleX />
           <ChartHighlight />
           <ChartAxisX label={null} tickRotate={30} />
-          <ChartAxisY grid label="requests" />
+          <ChartAxisY grid label="sightings" />
         </ChartRoot>
       </div>
     </MosaicDemo>

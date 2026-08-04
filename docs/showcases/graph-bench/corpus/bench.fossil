@@ -1,0 +1,46 @@
+// The benchmark's corpus, compiled rather than generated in the browser.
+//
+// Two CSVs in, a GraphAr tree out: `fossil run` writes the vertex and edge Parquet and then runs the
+// W3 layout pass over it, which fills `x` / `y` / `cluster_id` and rewrites each vertex file
+// Morton-sorted. That last part is the whole reason this exists — a bbox query against a
+// Morton-sorted Parquet prunes on row-group statistics, which is the larger-than-RAM half ADR-0001
+// records as unmeasured.
+//
+// **Two mappings, and their projections must match column for column.** Only a subject map mints a
+// vertex; an object IRI merges into one that already exists, but never creates it. So an edge list
+// alone loses every node that is never a *source* — measured at 2,000, that was 1,354 vertices of
+// 2,000, a third of the corpus gone silently. The node list below is what puts them back.
+//
+// The constraint on the pair is a runtime one, not a grammar one: two mappings of one vertex type
+// are combined with a plain UNION ALL (`fossil-df/src/lib.rs`, `union(next.projected)`) before the
+// dedup by subject, so both must project the same columns. A vertex projection is
+// `subject, <props…>, x, y, cluster_id`, and an IRI-valued property is an edge rather than a prop —
+// so `bench:linksTo` costs no column and `bench:community` must appear on *both* sides. That is why
+// `edges.csv` carries the source's community: not redundancy for its own sake, but the price of the
+// union. `fossil check` accepts a mismatched pair; only `fossil run` rejects it, with
+//
+//   UNION queries have different number of columns: left has 5 columns whereas right has 4
+//
+// Two more things the first written corpus showed:
+//   - `cluster_id` is 0 for every vertex. WCC is a reachability partition and this graph is
+//     connected, so the giant component is the whole thing — which is precisely the case W3.2
+//     (Leiden) exists to split, and until it lands `cluster_id` cannot colour anything here.
+//   - the coordinates come out centred on the origin (−440..437), not in cosmos.gl's 0..4096 box.
+//     That is not a defect: under ADR-0001 the source's space *is* the camera's, and the camera
+//     fits to what it is given. It does mean nothing may rescale them on the way in.
+
+prefix bench: <https://kanzo.tech/bench/>
+
+nodes := io.csv("nodes.csv")
+edges := io.csv("edges.csv")
+
+Node : bench:Node from nodes
+    iri = `${bench:}n/${.id}`
+    bench:community = .community
+
+Node : bench:Node from edges
+    iri = `${bench:}n/${.id}`
+    bench:community = .community
+    // An IRI-valued property is what an edge *is*: the endpoint resolves against the vertex table by
+    // subject IRI, and an inner join drops it if no vertex carries that IRI.
+    bench:linksTo = `${bench:}n/${.target}`

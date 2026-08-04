@@ -8,20 +8,22 @@ import {
   ItemTitle,
   Show,
 } from "@kanzo-tech/ui";
-import { CloudIcon, DatabaseIcon, KeyIcon } from "lucide-react";
+import { FlameIcon, HammerIcon, ShieldIcon } from "lucide-react";
 import { Fragment } from "react";
+import { member } from "@/example/people";
+import { hall, role } from "@/example/world";
 
 const ROWS = [
-  { icon: DatabaseIcon, title: "Postgres", description: "eu-west-1" },
-  { icon: CloudIcon, title: "S3 bucket", description: "kanzo-exports" },
-  { icon: KeyIcon, title: "API key", description: "rotated last week" },
+  { icon: ShieldIcon, member: member("ravenna") },
+  { icon: FlameIcon, member: member("bell") },
+  { icon: HammerIcon, member: member("marrow") },
 ];
 
 export default function Example() {
   return (
     <ItemGroup className="w-96 gap-0 rounded-lg border">
-      {ROWS.map(({ icon: Icon, title, description }, i) => (
-        <Fragment key={title}>
+      {ROWS.map(({ icon: Icon, member: entry }, i) => (
+        <Fragment key={entry.id}>
           <Show when={i > 0}>
             <ItemSeparator />
           </Show>
@@ -30,8 +32,10 @@ export default function Example() {
               <Icon />
             </ItemMedia>
             <ItemContent>
-              <ItemTitle>{title}</ItemTitle>
-              <ItemDescription>{description}</ItemDescription>
+              <ItemTitle>{entry.name}</ItemTitle>
+              <ItemDescription>
+                {role(entry.role).label} · {hall(entry.hall).short}
+              </ItemDescription>
             </ItemContent>
           </Item>
         </Fragment>

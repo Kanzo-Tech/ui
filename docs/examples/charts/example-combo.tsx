@@ -28,23 +28,23 @@ import { MosaicDemo } from "./mosaic-demo";
 // `ChartToggleX` publishes somewhere a bare `ChartHighlight` can read it back.
 
 const config = {
-  requests: { label: "Requests", color: "var(--primary)" },
+  sightings: { label: "Sightings", color: "var(--primary)" },
   failing: { label: "Slow or failing", color: "var(--destructive)" },
 } satisfies ChartConfig;
 
-const failing = sum(sql`CASE WHEN status <> 'ok' THEN 1 ELSE 0 END`);
+const failing = sum(sql`CASE WHEN verdict <> 'confirmed' THEN 1 ELSE 0 END`);
 
 export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot height={240} table="telemetry">
+        <ChartRoot height={240} table="sightings">
           <ChartBarY fill="var(--primary)" fillOpacity={0.85} x="hour" y={count()} />
           <ChartToggleX />
           <ChartHighlight />
           <ChartLineY stroke="var(--destructive)" strokeWidth={2} tip x="hour" y={failing} />
           <ChartAxisX label="hour of day" ticks={12} />
-          <ChartAxisY grid label="requests" />
+          <ChartAxisY grid label="sightings" />
           <ChartLegend config={config} />
         </ChartRoot>
       </div>

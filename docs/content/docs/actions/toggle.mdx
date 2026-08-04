@@ -7,7 +7,7 @@ links:
 
 <ComponentPreview componentName="toggle" />
 
-A toggle holds a boolean that stays on until pressed again — the formatting toolbar above is
+A toggle holds a boolean that stays on until pressed again — the board's filter strip above is
 the archetype. Control it (`pressed` + `onPressedChange`) whenever the state is real, which is
 almost always.
 
@@ -25,8 +25,8 @@ import { Toggle, ToggleIndicator } from "@kanzo-tech/ui";
 ```
 
 ```tsx
-<Toggle aria-label="Bold" defaultPressed>
-  <BoldIcon />
+<Toggle aria-label="Past its due date" defaultPressed>
+  <ClockIcon />
 </Toggle>
 ```
 

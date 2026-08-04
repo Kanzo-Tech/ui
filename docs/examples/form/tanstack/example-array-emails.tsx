@@ -18,27 +18,32 @@ import {
 import { revalidateLogic, useForm } from "@tanstack/react-form";
 import { XIcon } from "lucide-react";
 import * as z from "zod";
+import { MEMBERS } from "@/example/people";
+
+const HANDLES = new Set<string>(MEMBERS.map((candidate) => candidate.handle));
 
 const schema = z.object({
-  contacts: z
+  party: z
     .array(
       z.object({
         id: z.string(),
-        address: z.email("Enter a valid email address."),
+        handle: z
+          .string()
+          .refine((value) => HANDLES.has(value), "No member of the guild by that handle."),
       })
     )
-    .min(1, "Add at least one contact.")
-    .max(5, "Five contacts at most."),
+    .min(1, "Somebody has to walk it.")
+    .max(5, "Five to a party at most."),
 });
 
 // A row carries its own key from the moment it is created, so removing a row in the
 // middle never remounts the ones below it.
 let counter = 0;
-const newContact = () => ({ id: `contact-${++counter}`, address: "" });
+const newSignatory = () => ({ id: `signatory-${++counter}`, handle: "" });
 
 export default function Example() {
   const form = useForm({
-    defaultValues: { contacts: [newContact()] },
+    defaultValues: { party: [newSignatory()] },
     validationLogic: revalidateLogic(),
     validators: { onDynamic: schema },
     onSubmit: () => {},
@@ -54,17 +59,17 @@ export default function Example() {
         form.handleSubmit();
       }}
     >
-      <form.Field mode="array" name="contacts">
+      <form.Field mode="array" name="party">
         {(array) => (
           <FieldSet>
-            <FieldLegend variant="label">Contacts</FieldLegend>
+            <FieldLegend variant="label">Party</FieldLegend>
             <FieldDescription>
-              Up to five addresses we can reach you at.
+              Up to five who sign for this contract.
             </FieldDescription>
 
             <FieldGroup>
-              {array.state.value.map((contact, index) => (
-                <form.Field key={contact.id} name={`contacts[${index}].address`}>
+              {array.state.value.map((signatory, index) => (
+                <form.Field key={signatory.id} name={`party[${index}].handle`}>
                   {(field) => (
                     <Field invalid={!field.state.meta.isValid}>
                       <FieldContent>
@@ -75,13 +80,13 @@ export default function Example() {
                             onChange={(event) =>
                               field.handleChange(event.target.value)
                             }
-                            placeholder="name@example.org"
+                            placeholder="ravenna"
                             value={field.state.value}
                           />
                           <Show when={array.state.value.length > 1}>
                             <InputGroupAddon align="inline-end">
                               <InputGroupButton
-                                aria-label={`Remove contact ${index + 1}`}
+                                aria-label={`Remove signatory ${index + 1}`}
                                 onClick={() => array.removeValue(index)}
                                 size="icon-xs"
                               >
@@ -113,12 +118,12 @@ export default function Example() {
             <Button
               className="w-fit"
               disabled={array.state.value.length >= 5}
-              onClick={() => array.pushValue(newContact())}
+              onClick={() => array.pushValue(newSignatory())}
               size="sm"
               type="button"
               variant="outline"
             >
-              Add contact
+              Add member
             </Button>
           </FieldSet>
         )}

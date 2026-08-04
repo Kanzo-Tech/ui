@@ -10,10 +10,11 @@ import {
   ColorPickerValue,
   ColorPickerValueSwatch,
 } from "@kanzo-tech/ui";
+import { hall } from "@/example/world";
 
 export default function Example() {
   return (
-    <ColorPicker defaultValue="#7c3aed">
+    <ColorPicker defaultValue={hall("amber").heraldry.brand}>
       <ColorPickerControl>
         <ColorPickerTrigger asChild>
           <Button variant="outline">

@@ -1,6 +1,6 @@
 "use client";
 
-import { cn, Tabs, TabsContent, TabsList, TabsTrigger } from "@kanzo-tech/ui";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@kanzo-tech/ui";
 import { ExternalLinkIcon } from "lucide-react";
 import type { ReactNode } from "react";
 

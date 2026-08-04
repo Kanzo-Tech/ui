@@ -62,7 +62,7 @@ would render them. Pass values down from the component that owns the `ChartRoot`
 ## Anatomy
 
 ```tsx
-<ChartRoot table="telemetry" config={config} height={220}>
+<ChartRoot table="sightings" config={config} height={220}>
   <ChartBarY x="host" y={count()} fill="host" tip />
   <ChartRuleY at={0} />
   <ChartAxisX tickRotate={45} />
@@ -122,7 +122,7 @@ export default function Analytics({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const coord = new Coordinator(wasmConnector());
-    coord.exec(loadObjects("telemetry", rows)).then(() => setCoordinator(coord));
+    coord.exec(loadObjects("sightings", rows)).then(() => setCoordinator(coord));
   }, []);
 
   if (!coordinator) return <Skeleton className="h-40 w-full" />;
@@ -343,7 +343,7 @@ The context behind any DOM part you add — a legend, a tooltip, a caption:
 ```tsx
 function Total({ rows }: { rows: number }) {
   const { color, formatNumber } = useChart();
-  return <p style={{ color: color("error") }}>{formatNumber(rows)} requests</p>;
+  return <p style={{ color: color("hoax") }}>{formatNumber(rows)} sightings</p>;
 }
 ```
 
@@ -439,9 +439,9 @@ import { ChartStat, count } from "@kanzo-tech/ui/analytics";
   {/* a number you already have */}
   <StatTile label="Requests" value={12_402} delta={{ value: 4.2, label: "vs last week" }} />
   {/* a number the relation answers, and re-answers on every brush */}
-  <ChartStat label="Selected" table="telemetry" value={count()} />
+  <ChartStat label="Selected" table="sightings" value={count()} />
   <ChartCard title="Latency" description="p50 by hour" legend={<ChartLegend config={config} />}>
-    <ChartRoot table="telemetry">…</ChartRoot>
+    <ChartRoot table="sightings">…</ChartRoot>
   </ChartCard>
 </DashboardGrid>
 ```

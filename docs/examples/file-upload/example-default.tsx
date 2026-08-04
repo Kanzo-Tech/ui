@@ -31,7 +31,7 @@ function UploadedFiles() {
             <FileUploadItemName />
             <FileUploadItemSizeText />
           </div>
-          <FileUploadItemDeleteTrigger aria-label="Remove file">
+          <FileUploadItemDeleteTrigger aria-label="Remove plate">
             <XIcon />
           </FileUploadItemDeleteTrigger>
         </FileUploadItem>
@@ -46,13 +46,13 @@ export default function Example() {
       <FileUploadDropzone>
         <UploadCloudIcon className="size-6" />
         <span className="font-medium text-foreground text-sm">
-          Drag images here
+          Drag the surveyor’s plates here
         </span>
         <span className="text-muted-foreground text-xs">
-          PNG or JPG, up to 3 files
+          Sketches or rubbings, up to 3 plates
         </span>
         <FileUploadTrigger className="mt-1" size="sm">
-          Browse files
+          Browse the archive
         </FileUploadTrigger>
       </FileUploadDropzone>
 

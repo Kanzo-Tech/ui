@@ -16,7 +16,7 @@ export default function Example() {
 					backgroundSize: "16px 16px",
 				}}
 			>
-				Canvas
+				The board
 			</div>
 
 			<FloatingPanel
@@ -28,7 +28,7 @@ export default function Example() {
 			>
 				<FloatingPanelResizeHandle side="start" />
 				<div className="min-w-0 flex-1 p-3">
-					<p className="font-medium text-sm">Inspector</p>
+					<p className="font-medium text-sm">Q-1058 · Ashfall Reach</p>
 					<p className="mt-1 text-muted-foreground text-xs">
 						Drag the left edge to resize — {Math.round(width)}px.
 					</p>

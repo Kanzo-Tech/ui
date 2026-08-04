@@ -1,0 +1,526 @@
+# Graph scale
+
+Written by hand, from runs of `docs/showcases/graph-bench/run-bench.mjs`. The runner does **not**
+own this file: it replaces only the block at the bottom, between the `run:start` and `run:end`
+markers, and refuses to write at all if those are missing. Everything else — the dated layers, the
+levers that turned out not to exist, the analysis — is folded in by a reader afterwards, which is
+what makes it a record rather than a printout.
+
+- **Renderer:** ANGLE (Apple, ANGLE Metal Renderer: Apple M4 Pro, Unspecified Version)
+- **Measured:** 2026-07-31
+- **Shape:** hyperbolic random graph, mean degree 14, seeded
+
+## Layer 1 — the engine
+
+`Per step` is the mean of batched `graph.step()` calls flushed by a `getPointPositions()`
+readback, so it is real GPU work. `Step ceiling` is what that cost implies on its own.
+`Frames` counts cosmos.gl's own `onSimulationTick` over a wall-clock window — not our waits:
+counting `requestAnimationFrame` published a flat 60 fps at every size, which is the monitor's
+number, not the graph's.
+
+**Read `Step ceiling`, not `Frames`, to judge whether a layout keeps up.** The two disagree on
+purpose. WebGL commands queue without the CPU waiting, so the loop keeps presenting frames at
+vsync while the GPU falls behind — the picture is smooth and stale at once. Only the readback
+in `Per step` forces the queue to drain, which is why it is the honest one. Where they converge
+(1M) the queue has stopped absorbing the difference.
+
+| Nodes | Links | Generate | Upload | Per step | Step ceiling | Frames |
+|---|---|---|---|---|---|---|
+| 2k | 12.5k | 5 ms | 60 ms | 1.52 ms | 656 fps | 120 fps |
+| 10k | 69.3k | 15 ms | 79 ms | 4.35 ms | 230 fps | 120 fps |
+| 50k | 331.6k | 65 ms | 192 ms | 10.03 ms | 100 fps | 80 fps |
+| 200k | 1.4M | 454 ms | 751 ms | 61.00 ms | 16 fps | 61 fps |
+
+## Layer 2 — our pipeline
+
+The same graphs arriving the way a real one does. `load()` and `buffers()` are imported from
+`workspace/graph-model.ts`, not reimplemented — a benchmark that measures a copy measures the
+copy. **Ours** is the sum of everything on the interactive path; ingest is timed but excluded,
+because this fixture reaches DuckDB as CSV text where a real corpus arrives as Parquet.
+
+| Nodes | Links | `load()` | ↳ read | ↳ rows | ↳ links | ↳ rank | `buffers()` | Upload | Select | **Ours** |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 2k | 12.5k | 23 ms | _19_ | _1_ | _3_ | _0_ | 1 ms | 64 ms | 0 ms | **104 ms** |
+| 10k | 69.3k | 30 ms | _19_ | _2_ | _8_ | _1_ | 2 ms | 79 ms | 1 ms | **120 ms** |
+| 50k | 331.6k | 99 ms | _50_ | _6_ | _37_ | _6_ | 8 ms | 198 ms | 2 ms | **316 ms** |
+| 200k | 1.4M | 386 ms | _192_ | _21_ | _150_ | _24_ | 33 ms | 788 ms | 7 ms | **1225 ms** |
+
+## Layer 3 — bounded
+
+The other architecture, not a variant of the one above: the camera asks for a rectangle and the
+answer is capped, so the working set is the window rather than the corpus. `First paint` should
+stop scaling with N. `Pan` is the cost that did not exist before — unbounded moves the camera on
+the GPU for free, this asks the database each time — and it is the number that decides whether
+the trade is worth making.
+
+| Nodes | `total()` | First slice | Upload | **First paint** | Pan | Shown / matched |
+|---|---|---|---|---|---|---|
+| 2k | 11 ms | 33 ms | 25 ms | **69 ms** | 10 ms | 2k / 2k |
+| 10k | 8 ms | 20 ms | 30 ms | **57 ms** | 10 ms | 10k / 10k |
+| 50k | 8 ms | 33 ms | 31 ms | **72 ms** | 19 ms | 20k / 50k |
+| 200k | 9 ms | 67 ms | 29 ms | **105 ms** | 30 ms | 20k / 200k |
+
+Every row is checked against the graph it was supposed to load before it is timed. That check
+is not ceremony: it caught the whole table being fiction once, when Mosaic served the second
+size from the first size's cached Arrow and every row after 2k described a 2,000-node graph at
+flattering speed.
+
+## Layer 4 — bounded, over a compiled corpus
+
+The same path with the fixture swapped. Layer 3 builds its graph in the tab, which is why it
+stops at 200,000: a million is 8.6 s of main-thread JavaScript before DuckDB sees a byte. Here
+the corpus is a GraphAr tree fossil wrote once — two DuckDB **views** over Parquet fetched by
+range request, never a `CREATE TABLE AS`, so the bytes stay on the server and the working set
+stays the window. Measured cold, 2026-08-01, M4 Pro.
+
+| Nodes | Links | Attach | `total()` | First slice | Upload | **First paint** | Pan | Redraw | Shown / matched |
+|---|---|---|---|---|---|---|---|---|---|
+| 2k | 12.5k | 130 ms | 14 ms | 61 ms | 25 ms | **100 ms** | 21 ms | 0.47 ms | 2k / 2k |
+| 10k | 69k | 36 ms | 18 ms | 35 ms | 30 ms | **86 ms** | 24 ms | 2.98 ms | 10k / 10k |
+| 50k | 332k | 37 ms | 17 ms | 43 ms | 30 ms | **90 ms** | 33 ms | 2.83 ms | 20k / 50k |
+| 200k | 1.37M | 37 ms | 16 ms | 74 ms | 41 ms | **132 ms** | 48 ms | 1.41 ms | 20k / 200k |
+| 1M | 6.90M | 70 ms | 17 ms | 219 ms | 24 ms | **253 ms** | 95 ms | 0.57 ms | 20k / 1M |
+
+**Five hundred times the corpus for 2.6× the first paint**, against 1,225 ms to hold 200,000.
+`matched` is the whole corpus at every size and `shown` never exceeds the limit, so the window
+is the work. Writing the corpus costs fossil 10.6 s at a million and it is paid once, offline.
+
+**A repeat sweep was measuring the cache.** Run twice on one page it reported a flat 60–71 ms at
+every size including a million: Mosaic caches by SQL text and a second sweep asks the identical
+questions. Each measurement now clears that cache, after which the repeat reproduces the cold
+shape (257 ms at a million against 262). Third time this benchmark has measured its own
+scaffolding — see the frame counter in layer 1 and the cached Arrow in layer 3. **Disbelieve a
+flat line until it survives a cold start.**
+
+**The first remote read of the page costs ~21 s, once.** DuckDB-WASM fetches its httpfs
+extension on first use and every read afterwards is in the tens of milliseconds. It is a
+first-use cost, not a corpus cost, and preloading the extension at boot would remove it.
+
+### The renderer is not the limit, and the frame rate is two numbers
+
+`Redraw` is the cost of drawing the slice already on screen, timed as layer 1 times a step — a
+batch flushed by one `getPointPositions()` readback, never by counting `requestAnimationFrame`,
+which reports the monitor's schedule whether or not anything was drawn.
+
+**0.5–3 ms at every size, which is a ceiling of 300–2,000 fps.** It does not follow N and cannot:
+the slice never exceeds the limit. What it does follow is the *link* count in the slice, which is
+why a million is the cheapest row of all — barely any of its edges survive the window (see below).
+
+So "how many frames per second" has two answers and only one of them is interesting:
+
+| Nodes | Redraw ceiling | Pan | **Updates per second** |
+|---|---|---|---|
+| 2k | ~2,100 fps | 21 ms | **48** |
+| 10k | 336 fps | 24 ms | **41** |
+| 50k | 354 fps | 33 ms | **31** |
+| 200k | 708 fps | 48 ms | **21** |
+| 1M | 1,744 fps | 95 ms | **10.5** |
+
+The canvas never waits — `useBoundedGraph` keeps the instance alive and pushes geometry only when
+a slice lands, so the *picture* moves at the display rate throughout. What drops to ten per second
+at a million is how often it becomes **correct**. That is the number to improve, and it is a query
+cost, not a rendering one.
+
+**The obvious lever is not the lever, twice.** Rewriting the million-node vertex file at 8,192-row
+groups cuts rows scanned for a window from 491,520 to 49,152 — and the slice went 219 → 229/244 ms
+and the pan 95 → 109/112 ms over two runs. Slightly worse, never better. The excuse offered at the
+time was that 19 MB is too small for pruning to pay, so it was **retried at five million**, on a
+97 MB file: 611 row groups took the slice from 974 ms to 1,072 ms and the pan from 331 ms to 420 ms.
+Twice measured, twice worse, and the second time at the size the first excuse pointed at. Per-group
+metadata and more, smaller reads cost more than the pruning saves. Native DuckDB runs the same two
+queries locally in 6 ms and 10 ms, so what is left is WASM. `--row-group` stays on
+`build-corpus.mjs` so nobody re-derives this a third time.
+
+The preview canvas carries the live rate in its corner, counted the same way — `onSimulationTick`,
+never `requestAnimationFrame`. At 199,800 nodes it reads **14–16 fps**, which is layer 1's 61 ms
+step arrived at by a completely different mechanism: a rolling counter on a canvas somebody is
+watching, against a batch of `graph.step()` calls flushed by a readback. Two independent routes to
+the same number is the cross-check that says neither is measuring itself.
+
+It also refuses to invent one. A backgrounded tab does not tick slowly, it does not tick, so the
+badge says `tab hidden · frames stop` rather than dividing zero by half a second and publishing a
+confident 0 fps. When the layout stops moving it says `layout settled`, because a settled graph
+reporting 0 fps reads as a stall.
+
+### Five million, and where the claim actually breaks
+
+The headline of this page is *first paint follows the window rather than the corpus*. Measured to a
+million it looks true. At five million it is false, and the shape of the failure is the useful part.
+
+| Nodes | Links | `total()` | First slice | Upload | **First paint** | Pan | Updates/s | Redraw |
+|---|---|---|---|---|---|---|---|---|
+| 200k | 1.37M | 7 ms | 66 ms | 24 ms | **97 ms** | 41 ms | 24.2 | 836 fps |
+| 1M | 6.90M | 7 ms | 210 ms | 23 ms | **240 ms** | 93 ms | 10.7 | 1,807 fps |
+| 5M | 34.97M | 9 ms | 974 ms | 23 ms | **1,006 ms** | 331 ms | 3.0 | 2,113 fps |
+
+Five times the corpus costs **4.6× the slice and 3.6× the pan**. That is linear, not flat. And
+1,006 ms of first paint at five million is no longer an improvement on the 1,225 ms that holding
+*two hundred thousand* used to cost — the bounded path wins by 25× on corpus size at the same
+latency, which is a real result, but it is not the constant it was advertised as.
+
+**What is flat is worth naming precisely, because it is half the architecture:** `total()` stays at
+7–9 ms because it is Parquet metadata; the upload stays at 23 ms because the slice is capped at
+20,000 marks; the redraw ceiling stays in the thousands of frames per second. So the window really
+does bound everything that is *drawn* and *transferred*. What it does not bound is what is
+**scanned** — the bbox predicate and the edge join are both O(N), and no amount of limit on the
+answer changes the cost of finding it.
+
+That is the honest statement of the architecture: **bounded rendering, unbounded querying.** Getting
+the second half sublinear needs a real index, and the two attempts to fake one with Parquet
+row-group statistics both made it slower.
+
+### DuckDB gets one core, and cross-origin isolation does not change that
+
+Every row above was produced with **`threads = 1`** on a machine with fourteen. The samples now
+carry the number, because a page reporting "220 ms at a million" without saying which of those two
+it was is not reproducible.
+
+The obvious cause is the obvious fix and it is neither. `selectBundle` takes the threaded `coi`
+build only when the document is cross-origin isolated, and by default it is not — no
+`SharedArrayBuffer`, no threads. Serving the route with `Cross-Origin-Opener-Policy: same-origin`
+and `Cross-Origin-Embedder-Policy: credentialless` (`credentialless`, because DuckDB's bundles come
+from jsDelivr by `importScripts` and its httpfs extension from `extensions.duckdb.org` — both
+no-cors loads that `require-corp` blocks) does make `crossOriginIsolated` true and
+`SharedArrayBuffer` exist. **`threads` stays 1 and nothing gets faster.**
+
+Controlled on the same page minutes apart, one variable:
+
+| Nodes | Pan, isolated | Pan, not | Slice, isolated | Slice, not |
+|---|---|---|---|---|
+| 2k | 9 ms | 9 ms | 34 ms | 36 ms |
+| 10k | 9 ms | 9 ms | 13 ms | 20 ms |
+| 50k | 17 ms | 17 ms | 21 ms | 30 ms |
+| 200k | 26 ms | 26 ms | 63 ms | 59 ms |
+
+The pan is identical to the millisecond at every size. So the headers are **not** in
+`next.config.ts`: they constrain how every document on the route may embed anything cross-origin,
+and they bought nothing. Getting real threads would mean going further into Mosaic's connector,
+which selects the bundle itself and passes no config — worth knowing before anyone assumes a header
+is all that stands between this and four cores.
+
+### Where the slice actually goes, at a million
+
+Timed in the browser on the live views, warm, each query on its own — first through a private
+`db.connect()`, then through the coordinator so the difference is Arrow IPC and decoding:
+
+| Query | Raw connection | Via coordinator |
+|---|---|---|
+| points (bbox, numbered, limit 20k) | 25–29 ms | 32–43 ms |
+| links (the CTE joined twice against 6.9M edges) | 33–34 ms | 34–37 ms |
+| matched (`count(*)` over the whole predicate) | 9–10 ms | 10 ms |
+
+**Arrow IPC and decoding cost about 10 ms**, not the transport tax it would be easy to assume.
+The three sum to ~75 ms, which is the 95 ms pan almost exactly — and the 217 ms *first* slice is
+that plus the cold HTTP fetch of the 19 MB vertex file's column chunks, which every later pan then
+reuses. That is why first paint is 2.3× a pan at the same size and why the gap does not appear at
+2,000.
+
+**The largest single win is concurrency, not format.** `detail()` issues its three queries with
+`Promise.all`, but Mosaic funnels them through one DuckDB connection and fulfils results in strict
+FIFO order, so they serialise: the sum is 75 ms where the slowest is 35 ms. Running them on
+separate connections would put the pan near 40 ms — from 10.5 updates a second to about 25 — which
+is more than any file-layout change on this list offers.
+
+**What is left to try, in the order the measurements support:** issue the slice's three queries
+concurrently rather than down one connection (75 ms → ~35 ms); Morton-order the edge file, which is
+sorted by `src_dense` and so scans all 6.9M rows with nothing to prune, worth at most the 35 ms that
+query costs; skip `matched` while the camera is moving, worth 10 ms; and a tile cache, which would
+make panning *back* free — the only item here that no amount of query tuning can substitute for.
+
+## What the corpus does *not* yet give
+
+Two facts about the written positions, both measured, both about usefulness rather than speed.
+
+**A window showed the nodes but not the graph — fixed, and here is the number.** WCC on a connected
+graph returns a single component, so the whole million landed in one phyllotaxis spiral whose radius
+(12·√n ≈ 12,000) swallowed the 100-unit cluster grid entirely. `enrich_layout` now partitions by
+`community_hierarchy`. Measured by `corpus/measure-retention.mjs`, five windows each holding 3,500
+nodes:
+
+| | kept / incident | retention | null | ball |
+|---|---|---|---|---|
+| 1M, WCC | 589 / 225,448 | **0.26%** | 0.17% | 4.55% |
+| 1M, communities | 78,094 / 137,024 | **56.99%** | 0.21% | 4.55% |
+| 5M, communities | 91,119 / 143,147 | **63.65%** | 0.04% | 1.71% |
+
+Getting there took one more finding. The first wiring used a single partition for
+both jobs and reached 13.63%; splitting them reached 57%. `cluster_id` is read by
+`viewport`'s aggregate mode, one super-node per cluster under a `LIMIT`, so it has to
+stay coarse — but the *placement* wants the opposite, communities small enough that
+several fit in one window. Forcing one partition to be both put the layout at the top
+of the hierarchy, where every community is a root and the ordering that puts siblings
+side by side has nothing left to order.
+
+The window is defined by rank — the smallest square centred on a node holding exactly *k* of them —
+because a fixed rectangle catches wildly different node counts in two layouts and would report a
+difference that is mostly the node count.
+
+Three corrections come with it. **The old figure was scored against a null twice too large**: for a
+random window `kept ≈ E·(k/N)²` against `incident ≈ 2E·k/N`, so chance is `(k/N)/2` and not `k/N` —
+the honest reading of the old layout is 1.5× chance, not four times. **The "ball" is a reference and
+not a ceiling**: a breadth-first ball of *k* nodes is what topology alone gets you with no layout in
+the way, and the community layout beats it threefold, because a ball spends most of its budget on a
+frontier whose edges all point outwards. And **`cluster_layout` had a defect the old partition hid**
+— a cluster of *n* packs into a disc of radius 12·√n, past the 100-unit pitch at 70 vertices, so
+real communities overlapped their neighbours; a single giant component has no neighbour to overlap.
+The pitch is now measured from the largest cluster.
+
+**Morton order prunes, but the row group is too coarse a unit.** For that same window:
+
+| Row-group size | Groups | Read | Rows read for 3,533 |
+|---|---|---|---|
+| 122,880 (the default fossil writes) | 9 | 4 | 491,520 — **139×** |
+| 32,768 | 31 | 6 | 196,608 — 56× |
+| 8,192 | 123 | 6 | 49,152 — **14×** |
+
+The number of groups a window touches stays at 4–6 however many there are, which is the Morton
+locality working; the over-read is set entirely by how big each group is. Over a network that
+factor is bytes fetched. `Node.vertex.yml` already declares `chunk_size: 1024` while the Parquet
+is written at DuckDB's default — the manifest promises a chunking the file does not have.
+
+**And the chunking it promised would not have pruned, because `dense_id` was numbered by IRI.**
+GraphAr defines chunk *i* as the `dense_id` range `[i·size, (i+1)·size)`, so a chunk is a spatial
+tile only if `dense_id` ascends with position — and the layout used to reorder the *rows* by Morton
+code while leaving the *values* alone. The file's order was spatial; its chunk definition was not,
+and it is the chunk definition a reader uses. `enrich_layout` now assigns `dense_id` in Morton order
+and remaps every adjacency list. Measured by `corpus/measure-chunks.mjs`, five million in 41 chunks,
+a window of 3,500 nodes:
+
+| | by `dense_id` (what a reader fetches) | by physical row order |
+|---|---|---|
+| before | 40.8 of 41 | 2.0 of 41 |
+| after | **2.0 of 41** | 2.0 of 41 |
+
+**The two columns agreeing is the result**; the absolute number belongs to the corpus and the window
+size. Retention is the control and did not move — 56.99% at 1M and 63.65% at 5M before and after,
+because renumbering changes which integer a vertex wears and not where it is.
+
+That control only worked after fixing the harness: both scripts picked their window centres by
+`dense_id`, which *is* the thing under measurement, so the first comparison sampled different
+windows in the two builds and read 63.65% against 52.89% for layouts that were byte-identical.
+Centres are anchored to `subject` now. **Never seed a measurement with a value the change under test
+is allowed to move.**
+
+**And the chunks are files now, so a window fetches 10 of 4,883 of them — 0.2% of the corpus.**
+`chunk_size` stays at the 1,024 the manifest always declared, because that was measured rather than
+assumed: over-read is chunks-touched × chunk-size, and chunks touched barely grows as chunks shrink
+(Morton locality means a window covers a near-constant *area*), so the smallest size prunes best —
+**2.9×** at 1,024 against 8.0× at 8,192 and 70× at 122,880. 4,883 chunks write in seconds at 20 kB
+each. Retention is again the control and did not move.
+
+## Measured end to end, in the browser, and the second number moved the wrong way
+
+Everything above is a proxy — what a window *contains*, how many chunks it *touches*. The sweep at
+`/view/showcases/graph-bench`, tab visible, against the recorded run:
+
+| nodes | first paint before → after | pan before → after |
+|---|---|---|
+| 2k | 100 → **65 ms** | 18 → 19 ms |
+| 200k | 131 → **127 ms** | 48 → 43 ms |
+| 1M | 258 → **326 ms** | 96 → **133 ms** |
+| 5M | 1,006 → **1,217 ms** | 331 → **480 ms** |
+
+ADR-0041 asked for the 5M pan to fall from 331 ms toward 40 ms. It rose to 480.
+
+**It rose because the slice is now correct, and that is the finding.** A 20,000-vertex slice at a
+million returns **131,030 edges**; under the old layout, at 0.26% retention, the same slice returned
+roughly 360. The links query does about 365× the work it used to, and the old 331 ms was the price
+of an almost edgeless dot cloud. **The two numbers ADR-0041 named were never independent: fixing the
+first is what made the second harder**, and a 480 ms pan that draws the graph is not comparable to a
+331 ms pan that draws points.
+
+**Where the pan goes now, timed natively per query** (the three `detail()` issues, same window):
+
+| | points | links | matched | sum |
+|---|---|---|---|---|
+| 1M | **30 ms** | 21 ms | 4 ms | 55 ms |
+| 5M | **65 ms** | 66 ms | 8 ms | 139 ms |
+
+**The links query is not the bottleneck, which corrects the guess above.** It returns 131,030 rows
+where it used to return a few hundred and is still the *cheaper* of the two at a million; the points
+query costs more, and **not** for the reason it looks like: `vis` computes two window functions over
+everything the rectangle matched — 304,212 rows at 1M, 1,726,542 at 5M — but DuckDB turns that into
+a top-N rather than a full ranking, which the returned `local` values prove by coming back
+contiguous at 0..19,999. What costs is the scan itself. The rectangle is a quarter of the *space*
+and matches 30% of the *corpus*, so "the working set is the window" is a statement about what is
+returned and never was one about what is read.
+
+**And that rectangle is the worst shape there is for a Z-order tiling.** The pan window is a quarter
+of the width and the *full height*, which cuts across Morton locality rather than sitting inside it.
+At a million, in nine chunks:
+
+| window | chunks needed | rows matched |
+|---|---|---|
+| pan strip (quarter width, full height) | 7 of 9 | 304,212 |
+| square of the same width | **4 of 9** | **73,738** |
+
+A real camera shows something near the aspect ratio of a screen, not a full-height strip, so the
+harness is measuring the one move that defeats the tiling it is meant to test. **The 480 ms pan is
+an upper bound on a shape nobody pans in**, and fixing the window is worth doing before any more
+query work is aimed at the number it produces.
+
+**Reshaped, and the slice halves.** The pan window now takes its height from the canvas
+(1200 × 800), which is what a viewport is. Timed natively per query, same walk across the corpus:
+
+| | points | links | matched | **sum** | rows matched | chunks |
+|---|---|---|---|---|---|---|
+| 1M strip | 30 | 21 | 4 | 55 ms | 304,212 | 7 of 9 |
+| 1M canvas | **11** | **12** | 3 | **26 ms** | 62,112 | **4 of 9** |
+| 5M strip | 65 | 66 | 8 | 139 ms | 1,726,542 | — |
+| 5M canvas | **24** | **26** | 6 | **56 ms** | 426,611 | 11 of 41 |
+
+The links query barely moves — 120,239 rows against 131,030 — so the saving is the scan, exactly
+where the chunk table above said it would be.
+
+**Measured end to end, foreground tab, and the pan reverses.** Full sweep with the reshaped window:
+
+| nodes | first paint | pan | vs strip | vs recorded |
+|---|---|---|---|---|
+| 2k | 89 ms | 18 ms | 19 | 21 |
+| 200k | 120 ms | **42 ms** | 43 | 48 |
+| 1M | 330 ms | **91 ms** | 133 | 95 |
+| 5M | 1,227 ms | **275 ms** | 480 | 331 |
+
+**The 5M pan goes 480 → 275 ms, which is under the 331 ms this file recorded before any of this
+work** — while the slice returns about 120,000 edges where the old layout returned a few hundred. A
+window that shows the graph now costs less than one that showed a dot cloud. It is still far from
+the 40 ms band ADR-0041 asked for, but the direction is no longer wrong.
+
+## What a window actually is, in the file — and why the planner cannot use it
+
+A 20,000-vertex window at five million occupies **179 contiguous runs of `dense_id` covering exactly
+20,007 ids** — 0.4% of the corpus, and **zero over-read**: every id inside a run is inside the
+window. That is not luck. The layout is clumpy, a community is a compact disc, and a window holds
+whole communities; each community is one contiguous Morton run.
+
+Those runs hold **130,516 of 34,974,279 edges — 268×** — and restricting to them returns the same
+120,103 visible edges, so it is a superset and not an approximation. The ideal slice reads 20,007
+vertex rows and 130,516 edge rows. Today it scans 35M.
+
+**And no way of asking for it in SQL gets it.** Measured, same window, same answer:
+
+| | time | CPU |
+|---|---|---|
+| plain join over the whole edge table | **5 ms** | 37 ms |
+| range join against the 179 runs | 237 ms | 1.9 s |
+| 179 explicit `BETWEEN … OR …` predicates | 189 ms | 2.3 s |
+
+Both attempts are *slower than not pruning at all*, because DuckDB evaluates the ranges per row over
+35M rows instead of skipping. Row-group statistics do not save a disjunction of 179 ranges.
+
+**So pruning cannot be expressed as a predicate. It has to be expressed as which files are read** —
+and that is what chunking is for. This is a far better argument for the chunking than the one it was
+shipped on: not that a chunk is a cacheable URL, but that **file selection is the only pruning the
+reader can actually obtain**.
+
+It also turns granularity into arithmetic instead of taste. At `src_chunk_size` 122,880 the window's
+179 runs fall inside 3 partitions — 3 of 41 files, a 13× cut on the edge scan. Finer partitions
+approach the 268× the data allows, and pay ~0.2 ms per file over localhost (measured above; more
+over a network). The optimum is computable, and neither end of it is where we are today, which is
+one file and no pruning at all.
+
+## Does the pan stop growing with N? Asked properly at last, and no
+
+Every pan number above is measured with a window that is a quarter of the **space**, and the space
+grows with the corpus — 645,741 wide at a million, 5,289,639 at five, eight times the width for five
+times the vertices. So the "same" window matched 62,112 rows at a million and 426,611 at five: it
+was measuring *zooming out in proportion to the corpus*, which no reader does, and could only grow
+with N by construction. The window now holds **20,000 vertices whatever the corpus is** — sized by
+rank, the same definition `corpus/measure-retention.mjs` uses.
+
+| nodes | 2k | 10k | 50k | 200k | 1M | 5M |
+|---|---|---|---|---|---|---|
+| pan | 21 ms | 21 ms | 25 ms | 36 ms | **77 ms** | **256 ms** |
+
+**It is sublinear and it is not flat.** Twenty-five times the corpus, from 200k to 5M, costs seven
+times the pan — with the same number of vertices on screen throughout. ADR-0041 asked for a pan that
+stops growing with N and this is the first measurement able to answer it.
+
+**The term that grows is the edge scan, and two guesses at it were wrong before the measurement
+landed.** Written down because both were plausible:
+
+*Guess one: over-read.* A true 20,000-vertex window touches **2 chunks at a million and 3 at five**
+— 245,760 and 368,640 rows, 12× and 18× over-read, growing 1.5× where the pan grows 3.3×. (The
+"4 of 9 and 11 of 41" figures this paragraph used to carry were the old fraction-of-space window,
+not this one.) Over-read is real and is not what scales.
+
+*Guess two: Z-order locality.* Tested before writing any Rust, by ranking the same corpus with
+`ST_Hilbert` and counting again: **3.0 chunks against Morton's 3.0**. Hilbert buys nothing here, so
+that lever does not exist either.
+
+*What does scale.* Timed natively with the constant window, `points` is **flat** — 2 ms at a million
+and 2 ms at five — and `links` is 6 ms against 7. But `links` spends 17 ms of CPU at a million and
+45 at five, **2.6×**, because it joins against the whole edge table: 6.9M rows against 35M, one file,
+no chunking, no spatial order. Native DuckDB hides that behind fourteen threads. **DuckDB-WASM has
+one**, so what native absorbs, the browser pays in wall-clock — which is exactly the 77 → 256 ms.
+
+So the vertices were tiled and the edges were left as a single file, and the edges are the half that
+grows. Chunking them is no longer a completeness item; it is the lever.
+
+**First paint is the half that did not improve**: 330 ms at 1M against 253 recorded, 1,227 against
+1,006. It opens on the whole extent rather than a window, so reshaping the pan does nothing for it —
+it scans everything and lets the limit truncate.
+
+And the projections in the previous paragraph were **optimistic by about 1.4×** (62 and 193 against
+91 and 275 measured). Scaling native timings by a per-size WASM factor gets the shape right and the
+magnitude wrong; it is worth doing to choose between options, not to report.
+
+**Chunking is not what costs, once `chunk_size` is right.** At 1,024 rows it was a disaster —
+977 files, 196 ms against 2 ms for a single file on the identical query over HTTP, and a 200k pan of
+7.8 s in the browser against 48 ms recorded. The cost is linear in the file count at ~0.2 ms each
+*over localhost*, where a request is nearly free. `chunk_size` is now 122,880, DuckDB's default row
+group, so a chunk is exactly one row group; at 9 files a million costs 3 ms against the single
+file's 2, which is inside the noise.
+
+That correction is the same one the pan-cache table below invites. Its "1,024 wins by 17×" is in
+**rows**, and rows are the wrong currency: in milliseconds 1,024 loses by 65×. Both numbers are
+kept, because the pair is the lesson.
+
+**And the cache claim, measured over a pan** (`corpus/measure-pan.mjs`) — because chunks-touched is
+identical whether a chunk is a file or a `dense_id` range, so it cannot see what emitting them
+separately bought. Eight drag steps of a quarter of the window's width, five million:
+
+| `chunk_size` | hit rate | chunks fetched | **rows over the pan** |
+|---|---|---|---|
+| 1,024 | 85% | 21 of 79 touched | **21,504** |
+| 8,192 | 97% | 6 | 49,152 |
+| 32,768 | 100% | 4 | 131,072 |
+| 122,880 | 100% | 3 | 368,640 |
+
+**The hit rate is a trap.** It improves with bigger chunks for the reason that makes it worthless: a
+chunk large enough to contain the whole pan is fetched once and never missed again, so it scores
+perfectly by having already downloaded everything. The payload column is the comparable one, and on
+it 1,024 wins by seventeen times. Read the bytes, not the percentage.
+
+Two things worth not rediscovering. **A glob is the wrong way to read them**: expanding
+`vertex/Node/*.parquet` means listing a directory, and a plain HTTP origin has no listing — DuckDB's
+httpfs *can* glob against S3, so the mistake works against `file://`, works against a bucket, and
+fails in the browser. The reader derives the chunk list from the vertex count and `chunk_size`.
+And **`--row-group` is gone**: a chunk of 1,024 rows *is* one row group, so there is nothing left
+for a row-group size to be smaller than. The result above stands as the record of what it bought,
+which was nothing, twice.
+
+## What to fix, in order
+
+**DuckDB is not the bottleneck.** The query column stays in single-digit milliseconds while
+everything around it grows. The database was never the thing to worry about.
+
+**`load()` is.** It is the largest cost we own, and it is plain main-thread JavaScript turning
+Arrow into ids, a `Map`, rows, and typed arrays. It belongs in a worker, and much of it belongs
+in SQL — the index and the ordering are things DuckDB would do for free.
+
+**The upload is cosmos.gl's, and it dominates both layers equally.** Layer 1 and layer 2 agree
+on it to within a few per cent for the same data, which is the cross-check that says the
+harness is measuring the same thing twice rather than measuring itself.
+
+**`buffers()` is cheap and can stay where it is.**
+
+## The last harness run, verbatim
+
+Machine-owned. `run-bench.mjs` overwrites everything between the two markers below and nothing
+outside them, so this is raw output waiting to be read — not a section to edit, and not one to
+trust over the dated layers above until someone has folded it in.
+
+<!-- run:start -->
+_No run recorded since the runner stopped owning this file._
+<!-- run:end -->

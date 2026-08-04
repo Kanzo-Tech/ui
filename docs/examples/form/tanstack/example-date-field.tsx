@@ -22,12 +22,13 @@ import {
 } from "@kanzo-tech/ui";
 import { revalidateLogic, useForm } from "@tanstack/react-form";
 import * as z from "zod";
+import { isoDay } from "@/example/world";
 
 const schema = z.object({
-  embargoUntil: z
+  dueBy: z
     .string()
-    .min(1, "Pick an embargo date.")
-    .refine((value) => value > "2026-01-01", "The embargo has to be in the future."),
+    .min(1, "Pick a due date.")
+    .refine((value) => value > isoDay(0), "A contract cannot be due before it is posted."),
 });
 
 // The form field stays a plain ISO string; only the picker sees a `DateValue`. The `catch` is
@@ -44,7 +45,7 @@ function toDateValues(iso: string): DateValue[] {
 
 export default function Example() {
   const form = useForm({
-    defaultValues: { embargoUntil: "" },
+    defaultValues: { dueBy: "" },
     validationLogic: revalidateLogic(),
     validators: { onDynamic: schema },
     onSubmit: () => {},
@@ -61,10 +62,10 @@ export default function Example() {
       }}
     >
       <FieldGroup>
-        <form.Field name="embargoUntil">
+        <form.Field name="dueBy">
           {(field) => (
             <Field invalid={!field.state.meta.isValid}>
-              <FieldLabel>Embargo until</FieldLabel>
+              <FieldLabel>Due by</FieldLabel>
               {/* DatePicker is one of the three controls that does not read `invalid` off the
                   Field context, so it takes its own. */}
               <DatePicker

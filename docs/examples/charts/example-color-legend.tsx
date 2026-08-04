@@ -26,10 +26,10 @@ import { MosaicDemo } from "./mosaic-demo";
 // and it does two things ours cannot:
 //
 //   1. **Clicking a swatch publishes.** It attaches Mosaic's `Toggle` to the swatches, so the
-//      selection gets `status IN (…)` — the same clause a `ChartToggleColor` on the mark would
+//      selection gets `verdict IN (…)` — the same clause a `ChartToggleColor` on the mark would
 //      publish, from a control rather than from the plot area.
 //   2. **It reads the selection back.** Unselected swatches drop to 0.2 opacity, which is why it
-//      works as the page's status readout as well as its input.
+//      works as the page's verdict readout as well as its input.
 //
 // And one difference that looks like a detail and is not: the legend's toggle is built with
 // `peers: false`, so its clause is *not* hidden from the plot it belongs to. Click a swatch and the
@@ -37,16 +37,16 @@ import { MosaicDemo } from "./mosaic-demo";
 // crossfilter for its own marks and needs a `ChartHighlight` to show anything at all.
 //
 // Both legends only stay complete because the `config` pins the colour domain. Without it the scale
-// is ordered by the data, so filtering to one status leaves the legend with one swatch — and a
+// is ordered by the data, so filtering to one verdict leaves the legend with one swatch — and a
 // control that deletes the way back is worse than no control.
 
 const config = {
-  ok: { label: "OK", color: "var(--chart-2)" },
-  slow: { label: "Slow", color: "var(--chart-4)" },
-  error: { label: "Error", color: "var(--destructive)" },
+  confirmed: { label: "Confirmed", color: "var(--chart-2)" },
+  disputed: { label: "Disputed", color: "var(--chart-4)" },
+  hoax: { label: "Hoax", color: "var(--destructive)" },
 } satisfies ChartConfig;
 
-const ORDER = ["ok", "slow", "error"];
+const ORDER = ["confirmed", "disputed", "hoax"];
 
 export default function Example() {
   return (
@@ -67,16 +67,16 @@ function Legends() {
           legend={<ChartLegend />}
           title="ChartLegend"
         >
-          <ChartRoot config={config} height={150} table="telemetry">
-            <ChartBarY fill="status" order={ORDER} tip x="region" y={count()} />
+          <ChartRoot config={config} height={150} table="sightings">
+            <ChartBarY fill="verdict" order={ORDER} tip x="region" y={count()} />
             <ChartAxisX label={null} />
             <ChartAxisY grid label={null} />
           </ChartRoot>
         </ChartCard>
 
         <ChartCard description="vgplot's, inside the plot — click a swatch" title="ChartColorLegend">
-          <ChartRoot config={config} height={150} table="telemetry">
-            <ChartBarY fill="status" order={ORDER} tip x="region" y={count()} />
+          <ChartRoot config={config} height={150} table="sightings">
+            <ChartBarY fill="verdict" order={ORDER} tip x="region" y={count()} />
             {/* The field is inferred from the `fill` channel; name it with `field` when the colour
                 comes from an expression. `as={null}` would make it a static key instead. */}
             <ChartColorLegend />

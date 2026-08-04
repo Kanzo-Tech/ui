@@ -10,7 +10,7 @@ const cells = Array.from({ length: 6 }, (_, index) => index);
 export default function Example() {
   return (
     <PinInput otp>
-      <PinInputLabel>Verification code</PinInputLabel>
+      <PinInputLabel>Countersign</PinInputLabel>
       <PinInputControl>
         {cells.map((index) => (
           <PinInputInput key={index} index={index} />

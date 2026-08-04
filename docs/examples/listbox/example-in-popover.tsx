@@ -2,6 +2,7 @@
 
 import { ChevronsUpDownIcon } from "lucide-react";
 import { useState } from "react";
+import { REGIONS } from "@/example/world";
 import {
   Button,
   createListCollection,
@@ -16,11 +17,7 @@ import {
 } from "@kanzo-tech/ui";
 
 const regions = createListCollection({
-  items: [
-    { label: "Europe", value: "eu" },
-    { label: "North America", value: "na" },
-    { label: "Asia Pacific", value: "apac" },
-  ],
+  items: REGIONS.map((region) => ({ label: region, value: region })),
 });
 
 export default function Example() {

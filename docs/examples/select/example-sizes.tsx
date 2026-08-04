@@ -9,10 +9,10 @@ import {
   SelectValue,
 } from "@kanzo-tech/ui";
 
-const visibility = createListCollection({
+const statuses = createListCollection({
   items: [
-    { label: "Public", value: "public" },
-    { label: "Private", value: "private" },
+    { label: "Open", value: "open" },
+    { label: "Afield", value: "afield" },
   ],
 });
 
@@ -20,12 +20,12 @@ export default function Example() {
   return (
     <div className="flex flex-col items-start gap-3">
       {(["sm", "md", "lg"] as const).map((size) => (
-        <Select collection={visibility} defaultValue={["private"]} key={size}>
+        <Select collection={statuses} defaultValue={["afield"]} key={size}>
           <SelectTrigger className="w-56" size={size}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {visibility.items.map((item) => (
+            {statuses.items.map((item) => (
               <SelectItem item={item} key={item.value}>
                 {item.label}
               </SelectItem>

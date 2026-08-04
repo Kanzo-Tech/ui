@@ -11,21 +11,21 @@ import { useState } from "react";
  * unchecked when nothing is, and indeterminate in between — a state a plain boolean cannot
  * represent, which is why people end up with two of them.
  */
-const FORMATS = ["CSV", "JSON", "Parquet"];
+const REGIONS = ["Thornmarch", "Greenhollow", "Duskfen"];
 
 export default function Example() {
-  const [value, setValue] = useState<string[]>(["CSV"]);
+  const [value, setValue] = useState<string[]>(["Thornmarch"]);
 
-  const all = value.length === FORMATS.length;
+  const all = value.length === REGIONS.length;
   const none = value.length === 0;
 
   return (
     <div className="flex flex-col gap-3">
       <Checkbox
         checked={all ? true : none ? false : "indeterminate"}
-        onCheckedChange={(d) => setValue(d.checked === true ? FORMATS : [])}
+        onCheckedChange={(d) => setValue(d.checked === true ? REGIONS : [])}
       >
-        All formats
+        Every region
       </Checkbox>
 
       <CheckboxGroup
@@ -33,9 +33,9 @@ export default function Example() {
         onValueChange={setValue}
         value={value}
       >
-        {FORMATS.map((f) => (
-          <Checkbox key={f} value={f}>
-            {f}
+        {REGIONS.map((region) => (
+          <Checkbox key={region} value={region}>
+            {region}
           </Checkbox>
         ))}
       </CheckboxGroup>

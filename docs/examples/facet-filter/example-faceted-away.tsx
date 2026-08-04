@@ -2,22 +2,27 @@
 
 import { useState } from "react";
 import { FacetFilter } from "@kanzo-tech/ui";
+import { QUESTS } from "@/example/quests";
+import { REGIONS } from "@/example/world";
 
-// Europe is filtered, so the crossfilter no longer offers NOAA at all — its count went to zero and
-// it dropped out of `items`. It stays in the list because it is still ticked.
-const IN_EUROPE = [
-  { value: "aemet", label: "AEMET", count: 1284 },
-  { value: "copernicus", label: "Copernicus", count: 903 },
-];
+// The board is filtered to night work, and Coldiron posts none — its count went to zero and it
+// dropped out of `items`. It stays in the list because it is still ticked.
+const NIGHT_WORK = REGIONS.map((region) => ({
+  value: region,
+  label: region,
+  count: QUESTS.filter(
+    (contract) => contract.region === region && contract.tags.includes("night-work")
+  ).length,
+})).filter((item) => item.count > 0);
 
 export default function Example() {
-  const [value, setValue] = useState<string[]>(["aemet", "noaa"]);
+  const [value, setValue] = useState<string[]>(["Duskfen", "Coldiron"]);
 
   return (
     <FacetFilter
-      items={IN_EUROPE}
-      label="Provider"
-      note="Filtered to Europe."
+      items={NIGHT_WORK}
+      label="Region"
+      note="Filtered to night work."
       onValueChange={setValue}
       value={value}
     />

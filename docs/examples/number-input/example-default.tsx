@@ -9,8 +9,8 @@ import {
 
 export default function Example() {
   return (
-    <NumberInput className="w-40" defaultValue="3" min={0} max={99}>
-      <NumberInputLabel>Quantity</NumberInputLabel>
+    <NumberInput className="w-40" defaultValue="3" min={1} max={5}>
+      <NumberInputLabel>Party size</NumberInputLabel>
       <NumberInputControl>
         <NumberInputInput />
         <NumberInputIncrementTrigger />

@@ -197,8 +197,20 @@ function parse(slug: string): Record_ {
   return { slug, raw, title: lines[0] ?? "", fields, order };
 }
 
+/**
+ * The numbered records are a second shape, and they are not checked here.
+ *
+ * `0001-….md` and `template.md` follow `rmlext/decisions/` — Context / Decision / Consequences,
+ * numbered sequentially — because since ADR-0040 the two repositories reason about each other, and
+ * a decision binding both has to be citable by number from both. `decisions/README.md` says so in
+ * its closing paragraph. They have no five fields to check, and asserting they do would be this
+ * file disagreeing with its own specification, which the header above says is the bug.
+ */
+const NUMBERED = /^\d{4}-/;
+
 const SLUGS = readdirSync(DECISIONS)
-  .filter((f) => f.endsWith(".md") && f !== "README.md")
+  .filter((f) => f.endsWith(".md") && f !== "README.md" && f !== "template.md")
+  .filter((f) => !NUMBERED.test(f))
   .map((f) => f.replace(/\.md$/, ""))
   .sort();
 

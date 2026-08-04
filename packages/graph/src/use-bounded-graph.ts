@@ -1,0 +1,269 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import type { Graph } from "@cosmos.gl/graph";
+import {
+  BOUNDED_DEFAULTS,
+  shouldSlice,
+  type BoundedSource,
+  type Slice,
+  type SliceQuery,
+  type Viewport,
+} from "./bounded";
+
+/**
+ * The query loop: the camera moves, a bounded question is asked, the answer becomes the picture.
+ *
+ * This is the half `DESIGN.md` requires of anything with an engine — the canvas stays presentational
+ * and this owns the asking. It debounces, cancels what the camera has already superseded, and pushes
+ * each answer's geometry into the renderer. A host that already holds its arrays wraps them in a
+ * source and gets the same path; there is no second one.
+ *
+ * **A graph that fits pays for nothing.** `total()` is asked first, and under the limit the source is
+ * asked once for everything and never again — panning is then free exactly when it can be. Above it,
+ * every camera move costs a query, which at 200,000 nodes is the trade that buys the ceiling away.
+ */
+
+export interface BoundedGraphOptions {
+  source: BoundedSource | null;
+  /** The live renderer, for reading the camera and receiving each answer. */
+  graphRef: RefObject<Graph | null>;
+  /** The element the canvas is drawn into — its box is the screen rectangle. */
+  hostRef: RefObject<HTMLElement | null>;
+  /**
+   * Ids that must come back whatever the camera is looking at.
+   *
+   * Dragged, pinned, selected. Their drawn positions are a view-local overlay on coordinates that
+   * never move, so the index cannot find them where they now appear.
+   */
+  pinned?: number[];
+  limit?: number;
+  lodThreshold?: number;
+  /**
+   * How long the camera has to be still before asking, in milliseconds.
+   *
+   * A pan is a stream of `onZoom` callbacks and every one of them would otherwise be a query. Long
+   * enough that a gesture costs one question rather than sixty; short enough that letting go feels
+   * like it answered immediately.
+   */
+  debounce?: number;
+  onError?: (message: string) => void;
+}
+
+export interface BoundedGraphState {
+  /** The answer currently drawn, or `null` before the first one. */
+  slice: Slice | null;
+  /** Whether a question is outstanding. */
+  pending: boolean;
+  /** How many vertices there are, when the source knows. */
+  total: number | undefined;
+  /**
+   * Whether this graph is being asked in pieces at all.
+   *
+   * `false` means it fit under the limit and was taken whole — the camera is not observed, and
+   * nothing is asked again.
+   */
+  sliced: boolean;
+  /** Ask again. Wire it to the camera, and call it when the pinned set changes. */
+  refresh: () => void;
+  /** Ask a topological question instead of a spatial one, when the source supports one. */
+  explore: (seeds: number[], depth: number) => void;
+}
+
+const EVERYTHING: Viewport = {
+  xMin: Number.NEGATIVE_INFINITY,
+  yMin: Number.NEGATIVE_INFINITY,
+  xMax: Number.POSITIVE_INFINITY,
+  yMax: Number.POSITIVE_INFINITY,
+  // Above any threshold, so the one whole-corpus answer comes back in detail rather than aggregated.
+  zoom: Number.POSITIVE_INFINITY,
+};
+
+/**
+ * What the camera is over, asked of the renderer rather than recomputed.
+ *
+ * cosmos.gl owns the screen↔space transform, so deriving the rectangle from `camera.x/y/k` and the
+ * space size — which an earlier `viewportOf` did — is a second implementation of it, free to drift.
+ * Screen y grows downward and space y does not, so the corners are sorted rather than assumed.
+ */
+function cameraViewport(graph: Graph, host: HTMLElement): Viewport {
+  const { height, width } = host.getBoundingClientRect();
+  const [ax, ay] = graph.screenToSpacePosition([0, 0]);
+  const [bx, by] = graph.screenToSpacePosition([width, height]);
+  return {
+    xMin: Math.min(ax, bx),
+    yMin: Math.min(ay, by),
+    xMax: Math.max(ax, bx),
+    yMax: Math.max(ay, by),
+    zoom: graph.getZoomLevel(),
+  };
+}
+
+export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState {
+  const {
+    debounce = DEBOUNCE_MS,
+    graphRef,
+    hostRef,
+    limit = BOUNDED_DEFAULTS.limit,
+    lodThreshold = BOUNDED_DEFAULTS.lodThreshold,
+    onError,
+    pinned,
+    source,
+  } = options;
+
+  const [slice, setSlice] = useState<Slice | null>(null);
+  const [pending, setPending] = useState(false);
+  const [total, setTotal] = useState<number | undefined>(undefined);
+  const [sliced, setSliced] = useState(false);
+
+  /**
+   * The request in flight, and the timer waiting to become one.
+   *
+   * Refs rather than state: aborting a superseded request is bookkeeping the render output never
+   * shows, and putting it in state would re-render the canvas once per camera frame to no effect.
+   */
+  const inFlight = useRef<AbortController | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Whether the camera is being observed at all, where `refresh` can read it without a rebuild. */
+  const slicing = useRef(false);
+  /** The live pinned set, so the query loop is not rebuilt every time a node is dragged. */
+  const held = useRef(pinned);
+  held.current = pinned;
+  const report = useRef(onError);
+  report.current = onError;
+
+  const ask = useCallback(
+    async (query: SliceQuery) => {
+      if (!source) return;
+      inFlight.current?.abort();
+      const controller = new AbortController();
+      inFlight.current = controller;
+      setPending(true);
+      try {
+        const answer = await source.slice({
+          query,
+          pinned: held.current,
+          limit,
+          lodThreshold,
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted) return;
+        setSlice(answer);
+      } catch (error) {
+        // An abort is the loop working, not a failure: the camera moved on before the answer landed.
+        if (controller.signal.aborted) return;
+        report.current?.(String(error));
+      } finally {
+        if (inFlight.current === controller) {
+          inFlight.current = null;
+          setPending(false);
+        }
+      }
+    },
+    [limit, lodThreshold, source],
+  );
+
+  /**
+   * Ask about wherever the camera is now, after `debounce` of stillness.
+   *
+   * Wired to the renderer's `onZoom`, which fires per frame of a gesture. The timer collapses a pan
+   * into one question; `ask` aborts anything the pan has already made stale.
+   */
+  const refresh = useCallback(() => {
+    // A graph that fits was answered whole, and re-asking would replace that answer with whatever
+    // rectangle the camera happens to be over — which is how a corpus of 582 nodes ends up empty
+    // because the reader zoomed. The promise that panning is free exactly when it can be is kept
+    // here rather than by asking every call site to remember not to wire this up.
+    if (!slicing.current) return;
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      const graph = graphRef.current;
+      const host = hostRef.current;
+      if (!graph || !host) return;
+      void ask({ kind: "region", view: cameraViewport(graph, host) });
+    }, debounce);
+  }, [ask, debounce, graphRef, hostRef]);
+
+  const explore = useCallback(
+    (seeds: number[], depth: number) => {
+      if (!source?.supports("neighbourhood")) {
+        report.current?.("this source answers regions only");
+        return;
+      }
+      if (timer.current) clearTimeout(timer.current);
+      void ask({ kind: "neighbourhood", seeds, depth });
+    },
+    [ask, source],
+  );
+
+  /**
+   * The opening question, and the decision behind it.
+   *
+   * `total()` first, because the answer decides whether there is a query loop at all: under the
+   * limit one slice covers everything and the camera is never consulted again. A source that cannot
+   * say cheaply is treated as large — an unknown corpus is more likely to be the kind that needs
+   * bounding than not.
+   */
+  useEffect(() => {
+    if (!source) {
+      setSlice(null);
+      setTotal(undefined);
+      return;
+    }
+    let live = true;
+    void (async () => {
+      let count: number | undefined;
+      try {
+        count = await source.total?.();
+      } catch {
+        // A source that will not count is a source that gets sliced.
+      }
+      if (!live) return;
+      setTotal(count);
+      const bounded = shouldSlice(count, limit);
+      slicing.current = bounded;
+      setSliced(bounded);
+      if (bounded) refresh();
+      else void ask({ kind: "region", view: EVERYTHING });
+    })();
+    return () => {
+      live = false;
+    };
+  }, [ask, limit, refresh, source]);
+
+  // A dropped canvas must not leave a timer holding a stale camera, or a request nobody will read.
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+      inFlight.current?.abort();
+    },
+    [],
+  );
+
+  /**
+   * The answer becomes the picture.
+   *
+   * Separate from the effect that builds the renderer, which is the whole point: a slice arrives on
+   * every camera move, and rebuilding the instance for each one would destroy and recreate a WebGL
+   * context sixty times a pan. Geometry is pushed; the instance outlives every slice it draws.
+   */
+  useEffect(() => {
+    const graph = graphRef.current;
+    if (!graph || !slice) return;
+    graph.setPointPositions(slice.positions);
+    graph.setLinks(slice.links);
+    graph.render();
+  }, [graphRef, slice]);
+
+  return { slice, pending, total, sliced, refresh, explore };
+}
+
+/**
+ * The stillness a camera has to hold before it is asked about — 120 ms.
+ *
+ * Under a gesture's own frame budget it would be one query per frame; far above it and letting go of
+ * a pan feels like the canvas is thinking. The measured slice at 200,000 nodes is 30 ms, so this is
+ * the larger half of the latency a reader actually feels, and it is the half we chose.
+ */
+const DEBOUNCE_MS = 120;

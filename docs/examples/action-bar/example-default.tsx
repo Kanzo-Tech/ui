@@ -1,7 +1,8 @@
 "use client";
 
-import { PencilIcon, Trash2Icon, XIcon } from "lucide-react";
+import { HandIcon, Trash2Icon, UsersIcon, XIcon } from "lucide-react";
 import { useState } from "react";
+import { openQuests } from "@/example/quests";
 import {
   ActionBar,
   ActionBarClose,
@@ -11,16 +12,22 @@ import {
   Button,
 } from "@kanzo-tech/ui";
 
+const OPEN = openQuests();
+
 export default function Example() {
   const [selected, setSelected] = useState(0);
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <Button onClick={() => setSelected((n) => n + 1)} variant="outline">
-        Select a row
+      <Button
+        disabled={selected === OPEN.length}
+        onClick={() => setSelected((n) => n + 1)}
+        variant="outline"
+      >
+        Select a contract
       </Button>
       <span className="text-muted-foreground text-sm">
-        {selected} selected — a toolbar floats up from the bottom.
+        {selected} of {OPEN.length} open — a toolbar floats up from the bottom.
       </span>
 
       <ActionBar
@@ -31,10 +38,13 @@ export default function Example() {
           <ActionBarValue count={selected} label={`${selected} selected`} />
           <ActionBarSeparator />
           <Button size="sm" variant="ghost">
-            <PencilIcon /> Edit
+            <HandIcon /> Claim
+          </Button>
+          <Button size="sm" variant="ghost">
+            <UsersIcon /> Reassign
           </Button>
           <Button className="text-destructive" size="sm" variant="ghost">
-            <Trash2Icon /> Delete
+            <Trash2Icon /> Abandon
           </Button>
           <ActionBarSeparator />
           <ActionBarClose asChild>

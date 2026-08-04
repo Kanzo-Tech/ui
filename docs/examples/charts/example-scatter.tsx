@@ -16,12 +16,12 @@ export default function Example() {
   return (
     <MosaicDemo>
       <div className="w-full max-w-xl">
-        <ChartRoot height={260} table="telemetry">
-          <ChartDot fill="var(--muted-foreground)" fillOpacity={0.25} filterBy={null} r={2} x="latency" y="payload" />
-          <ChartDot fill="var(--primary)" r={2} x="latency" y="payload" />
+        <ChartRoot height={260} table="sightings">
+          <ChartDot fill="var(--muted-foreground)" fillOpacity={0.25} filterBy={null} r={2} x="bounty" y="leagues" />
+          <ChartDot fill="var(--primary)" r={2} x="bounty" y="leagues" />
           <ChartIntervalXY />
-          <ChartAxisX label="latency (ms)" />
-          <ChartAxisY grid label="payload (kB)" />
+          <ChartAxisX label="bounty (gold)" />
+          <ChartAxisY grid label="leagues from the road" />
         </ChartRoot>
       </div>
     </MosaicDemo>

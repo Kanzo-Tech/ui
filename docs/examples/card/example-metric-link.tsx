@@ -1,4 +1,4 @@
-import { CloudIcon } from "lucide-react";
+import { UsersIcon } from "lucide-react";
 import {
   MetricCard,
   MetricCardDescription,
@@ -7,18 +7,19 @@ import {
   MetricCardLabel,
   MetricCardValue,
 } from "@/showcases/metric-card/metric-card";
+import { availableNow } from "@/example/roster";
 
 export default function Example() {
   return (
-    <MetricCard href="#cloud-accounts" status="success">
+    <MetricCard href="#the-roster" status="success">
       <MetricCardHeader>
         <MetricCardIcon>
-          <CloudIcon />
+          <UsersIcon />
         </MetricCardIcon>
-        <MetricCardLabel>Cloud Accounts</MetricCardLabel>
+        <MetricCardLabel>Members ready</MetricCardLabel>
       </MetricCardHeader>
-      <MetricCardValue>3</MetricCardValue>
-      <MetricCardDescription>accounts configured</MetricCardDescription>
+      <MetricCardValue>{availableNow().length}</MetricCardValue>
+      <MetricCardDescription>who can be sent today</MetricCardDescription>
     </MetricCard>
   );
 }

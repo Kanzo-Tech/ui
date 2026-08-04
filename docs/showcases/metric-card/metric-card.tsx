@@ -1,8 +1,8 @@
 // MetricCard is a SHOWCASE composition, not a library export. A dashboard tile is just a Card
 // with a status tint, a skeleton-swapping figure and an optional link — none of which is new
 // behaviour, so per DESIGN.md it lives here as an arrangement you copy, not a component you
-// import from `@kanzo-tech/ui`. Both the app-shell showcase and the metric-card doc examples
-// pull it from this one file so the composition is written once.
+// import from `@kanzo-tech/ui`. The `card` page's four metric examples all pull it from this one
+// file, so the composition is written once — they supply the board's figures, it supplies the form.
 
 import type { ComponentProps } from "react";
 import { Card, cn, Show, Skeleton } from "@kanzo-tech/ui";

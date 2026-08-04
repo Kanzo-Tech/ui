@@ -8,34 +8,30 @@ import {
   TableHeader,
   TableRow,
 } from "@kanzo-tech/ui";
+import { questsOf } from "@/example/quests";
+import { questStatus } from "@/example/world";
 
-const datasets = [
-  { name: "customers", records: "1,204", status: "Mapped" },
-  { name: "orders", records: "8,912", status: "Pending" },
-  { name: "invoices", records: "412", status: "Mapped" },
-];
+const contracts = questsOf("amber").slice(0, 4);
 
 export default function Example() {
   return (
     <Table>
-      <TableCaption>Datasets ingested this week.</TableCaption>
+      <TableCaption>Contracts the Amber Hall has on the board.</TableCaption>
       <TableHeader>
         <TableRow>
-          <TableHead>Dataset</TableHead>
-          <TableHead>Records</TableHead>
-          <TableHead>Status</TableHead>
+          <TableHead>Contract</TableHead>
+          <TableHead>Region</TableHead>
+          <TableHead>State</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {datasets.map((dataset) => (
-          <TableRow key={dataset.name}>
-            <TableCell>{dataset.name}</TableCell>
-            <TableCell>{dataset.records}</TableCell>
+        {contracts.map((contract) => (
+          <TableRow key={contract.id}>
+            <TableCell>{contract.title}</TableCell>
+            <TableCell>{contract.region}</TableCell>
             <TableCell>
-              <Badge
-                variant={dataset.status === "Mapped" ? "success" : "warning"}
-              >
-                {dataset.status}
+              <Badge variant={questStatus(contract.status).tone}>
+                {questStatus(contract.status).label}
               </Badge>
             </TableCell>
           </TableRow>

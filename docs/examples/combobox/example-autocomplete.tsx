@@ -1,5 +1,6 @@
 "use client";
 
+import { QUESTS } from "@/example/quests";
 import {
   Combobox,
   ComboboxContent,
@@ -10,19 +11,15 @@ import {
   useListCollection,
 } from "@kanzo-tech/ui";
 
-const TABLES = [
-  { label: "customers", value: "customers" },
-  { label: "customer_events", value: "customer_events" },
-  { label: "orders", value: "orders" },
-  { label: "order_lines", value: "order_lines" },
-  { label: "products", value: "products" },
-  { label: "suppliers", value: "suppliers" },
-];
+const CONTRACTS = QUESTS.map((contract) => ({
+  label: contract.title,
+  value: contract.id,
+}));
 
 export default function Example() {
   const { contains } = useFilter({ sensitivity: "base" });
   const { collection, filter } = useListCollection({
-    initialItems: TABLES,
+    initialItems: CONTRACTS,
     filter: contains,
   });
 
@@ -33,9 +30,9 @@ export default function Example() {
       onInputValueChange={(details) => filter(details.inputValue)}
       openOnClick={false}
     >
-      <ComboboxInput className="w-72" placeholder="Search tables…" showTrigger={false} />
+      <ComboboxInput className="w-72" placeholder="Search the board…" showTrigger={false} />
       <ComboboxContent>
-        <ComboboxEmpty>No tables found.</ComboboxEmpty>
+        <ComboboxEmpty>Nothing on the board says that.</ComboboxEmpty>
         {collection.items.map((item) => (
           <ComboboxItem item={item} key={item.value}>
             {item.label}

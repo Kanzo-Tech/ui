@@ -1,4 +1,5 @@
 import { PlusIcon } from "lucide-react";
+import { questsOf } from "@/example/quests";
 import {
   Button,
   SectionActions,
@@ -10,6 +11,8 @@ import {
   SectionTitle,
   SectionTitleGroup,
 } from "@kanzo-tech/ui";
+
+const board = questsOf("amber");
 
 export default function Example() {
   return (
@@ -24,16 +27,16 @@ export default function Example() {
               pushing the actions off the row. */}
           <SectionTitleGroup>
             <SectionTitle level={1} scale="page">
-              Dashboard
+              The board
             </SectionTitle>
             <SectionDescription>
-              Everything this workspace publishes, at a glance.
+              Everything the Amber Hall has posted, at a glance.
             </SectionDescription>
           </SectionTitleGroup>
           <SectionActions>
             <Button size="sm">
               <PlusIcon />
-              New connection
+              Post a contract
             </Button>
           </SectionActions>
         </SectionHeader>
@@ -43,7 +46,9 @@ export default function Example() {
         </SectionBody>
 
         <SectionFooter>
-          <span className="text-muted-foreground text-sm">12 connections</span>
+          <span className="text-muted-foreground text-sm">
+            {board.length} contracts
+          </span>
           <Button size="sm" variant="outline">
             Export
           </Button>
