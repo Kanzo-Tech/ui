@@ -378,13 +378,26 @@ through one connection and fulfils in strict FIFO. Running them concurrently wou
 `max` rather than `sum` — about 72 ms at 1M and 158 ms at 5M — which is the largest single lever on
 this list and the one this file already named before any of the layout work started.
 
-**Except the premise is not established, and this file has asserted it twice without checking.**
-`threads = 1` here, recorded above and unfixable through cross-origin isolation. DuckDB-WASM runs in
-one worker and queries reach it over one message port, so **three connections may not overlap at
-all** — in which case `sum` is what a pan costs no matter how the requests are issued, and the whole
-lever is imaginary. `boot()` does return the `DuckDBHandle`, so `db.connect()` is reachable and the
-experiment is cheap: two connections, one slow query and one fast, and see whether the fast one
-answers first. **Run that before building anything on top of it.**
+**Except that lever does not exist, and this file asserted it twice without checking.** Asked at
+last, by `probeConnectionOverlap()` in `measure-bounded.ts`: one connection gets a sort, a second
+gets `SELECT 1` in the same tick. Three runs:
+
+| | the sort | `SELECT 1` |
+|---|---|---|
+| 1 | 522.1 ms | **522.3 ms** |
+| 2 | 451.0 ms | **451.1 ms** |
+| 3 | 465.5 ms | **465.6 ms** |
+
+The trivial query answers **0.1 ms after the sort finishes**, every time. Connections do not overlap:
+`threads = 1`, DuckDB-WASM is one worker, and everything queues behind one message port. **A pan
+costs the sum however the three queries are issued**, and every projection in this file that turned
+`sum` into `max` was wrong.
+
+What follows from that is not nothing. Fewer, larger queries is the only direction left, and it is
+the one ADR-0041 §3 already argued for on other grounds ("un plan, una ejecución"): points and links
+scan *the same rectangle*, so one plan would pay for that scan once instead of twice — 11 + 12 ms at
+a million where a shared scan need not cost 23. Three round trips through a single-threaded worker
+can only ever be additive.
 
 **Chunking is not what costs, once `chunk_size` is right.** At 1,024 rows it was a disaster —
 977 files, 196 ms against 2 ms for a single file on the identical query over HTTP, and a 200k pan of

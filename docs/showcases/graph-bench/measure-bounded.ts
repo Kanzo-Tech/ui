@@ -153,6 +153,57 @@ function duckThreads(coordinator: Coordinator): Promise<number> {
  */
 const CHUNK_SIZE = 122_880;
 
+/**
+ * Does DuckDB-WASM answer two connections at once, or one after the other?
+ *
+ * `BENCHMARKS.md` twice called concurrent queries the largest single win on this list, reasoning
+ * that a pan costs the *sum* of its three queries where it could cost the *max*. That arithmetic is
+ * sound and the conclusion does not follow from it: `threads = 1` here, DuckDB-WASM lives in one
+ * worker, and every query reaches it over one message port. If connections do not overlap, issuing
+ * the three differently changes nothing and the lever is imaginary.
+ *
+ * So it is asked rather than assumed. One connection gets a query that cannot be folded away — a
+ * sort, because `count(*) FROM range(n)` is answered from the cardinality and returns in 37 ms
+ * having computed nothing, which is how the first version of this probe measured nothing at all —
+ * and a second connection gets a trivial one in the same tick. **If the trivial query answers while
+ * the sort is still running, connections overlap.** If it lands with the sort, they queue.
+ *
+ * No timer separates the two, deliberately: a background tab throttles `setTimeout` (the first
+ * version asked for 100 ms and got 497), so the delay would have become part of the measurement.
+ * Issuing both in one tick needs no clock to be honest.
+ *
+ * Kept rather than deleted after answering: it is two connections and forty lines, and the next
+ * person to propose parallel queries should be able to re-run it instead of re-reasoning it.
+ */
+export async function probeConnectionOverlap(): Promise<{
+  overlaps: boolean;
+  slowMs: number;
+  fastMs: number;
+}> {
+  const { db } = await boot();
+  const handle = db as unknown as {
+    connect(): Promise<{ query(sql: string): Promise<unknown>; close(): Promise<void> }>;
+  };
+  const [slowConn, fastConn] = await Promise.all([handle.connect(), handle.connect()]);
+  const started = performance.now();
+
+  const slow = slowConn
+    .query("SELECT count(*) FROM (SELECT i FROM range(8000000) t(i) ORDER BY hash(i))")
+    .then(() => performance.now() - started);
+  const fast = fastConn.query("SELECT 1").then(() => performance.now() - started);
+
+  const [slowMs, fastMs] = await Promise.all([slow, fast]);
+  await Promise.all([slowConn.close(), fastConn.close()]);
+
+  // Answering in a fraction of the sort's time is the whole question.
+  return { overlaps: fastMs < slowMs / 2, slowMs, fastMs };
+}
+
+// Reachable from the console, because the question is asked by hand and rarely.
+if (typeof window !== "undefined") {
+  (window as unknown as Record<string, unknown>).probeConnectionOverlap = probeConnectionOverlap;
+}
+
 const corpusNodes = (n: number) => `corpus_nodes_${n}`;
 const corpusEdges = (n: number) => `corpus_edges_${n}`;
 
