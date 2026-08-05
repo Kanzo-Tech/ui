@@ -47,8 +47,27 @@ export {
 // The renderer's lifetime, and the three hooks that keep it in step with React.
 export { useCosmosGraph, REHEAT, type CosmosGraphOptions } from "./use-cosmos-graph";
 export { useGraphLook } from "./use-graph-look";
-export { useGraphOverlays, GRID } from "./use-graph-overlays";
+export { useGraphOverlays, GRID, type GraphOverlayOptions } from "./use-graph-overlays";
 export { useGraphSelection, cursorChip } from "./use-graph-selection";
+
+/**
+ * Identity, and the map from it to the buffer index cosmos.gl draws at.
+ *
+ * The renderer addresses points by position in the arrays it was handed, and a resident set that
+ * comes and goes reuses every position. So a vertex is the pair `(type_idx, dense_id)` — ADR-0042 —
+ * and everything that outlives one answer is held as one and re-resolved through the `Resident` that
+ * `useBoundedGraph` rebuilds per answer. A host never builds its own: two maps of the same thing is
+ * how one of them ends up describing buffers that are no longer on screen.
+ */
+export {
+  residentOf,
+  vertexId,
+  typeOf,
+  denseOf,
+  SUPERNODE,
+  type Resident,
+  type VertexId,
+} from "./resident";
 
 // Where the graph meets the crossfilter. Optional: a host drawing arrays it already has needs
 // neither this nor `load`, which is why the Mosaic peers are optional.

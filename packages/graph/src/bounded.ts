@@ -36,6 +36,8 @@
  * `dense_id` does) hand this over for free.
  */
 
+import type { VertexId } from "./resident";
+
 /** What the camera is looking at, in the graph's own coordinate space. */
 export interface Viewport {
   xMin: number;
@@ -69,8 +71,8 @@ export type SliceQuery =
   | { kind: "region"; view: Viewport }
   | {
       kind: "neighbourhood";
-      /** Where to start, as source ids — not slice indices, which do not survive a slice. */
-      seeds: number[];
+      /** Where to start, as identities — not buffer indices, which do not survive an answer. */
+      seeds: VertexId[];
       /** How many hops out. One is the ego network; beyond three is usually the whole graph. */
       depth: number;
     };
@@ -88,14 +90,19 @@ export interface Slice {
   mode: SliceMode;
   n: number;
   /**
-   * The source's own id per returned point, parallel to `positions`.
+   * Who each returned point *is*, parallel to `positions` — the `(type_idx, dense_id)` pair packed
+   * by `vertexId`.
    *
-   * Present because slice indices are **not stable across slices**: index 7 is a different node
-   * after a pan. Anything that outlives one slice — a selection, a focused node, a pinned set —
-   * has to be held as ids and re-resolved each time. Leaving this out was how the first draft would
-   * have shipped a selection that silently pointed at the wrong nodes.
+   * Present because a buffer index is **not stable across answers**: index 7 is a different vertex
+   * after a pan. Anything that outlives one answer — a selection, a focused node, a pinned set — has
+   * to be held as an identity and re-resolved through `residentOf` each time. Leaving this out was
+   * how the first draft would have shipped a selection that silently pointed at the wrong nodes.
+   *
+   * `Float64Array` rather than `Uint32Array` because the pair does not fit in 32 bits, and a dense id
+   * on its own is not an identity: it numbers within one vertex type, so a union of two types repeats
+   * every value.
    */
-  ids: Uint32Array;
+  vertices: Float64Array;
   /** `[x0, y0, x1, y1, …]`, one pair per returned point. */
   positions: Float32Array;
   /** `[src, dst, …]` as indices into `positions`. */
@@ -120,15 +127,15 @@ export interface Slice {
 export interface SliceRequest {
   query: SliceQuery;
   /**
-   * Ids that must come back whatever the query says.
+   * Vertices that must come back whatever the query says.
    *
    * The set a reader has taken hold of — dragged, pinned, selected, focused. Their drawn positions
    * are a view-local overlay on coordinates that never move, so the index cannot find them where
    * they now appear. Carrying them explicitly is cheaper and more honest than making the index
-   * mutable: it is a handful of ids, and the alternative is a spatial structure that has to be
+   * mutable: it is a handful of identities, and the alternative is a spatial structure that has to be
    * rewritten every time somebody drags something.
    */
-  pinned?: number[];
+  pinned?: VertexId[];
   /** The most points the source may return. Above it, the source aggregates or truncates. */
   limit: number;
   /** Zoom below which a region query should switch to aggregate mode. Ignored by neighbourhoods. */

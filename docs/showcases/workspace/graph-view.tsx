@@ -109,6 +109,7 @@ import {
 import { numbers } from "@/lib/arrow";
 import { HALLS, isoDay } from "@/example/world";
 import {
+  ARCHIVE_SPEC,
   DEFAULT_DISPLAY,
   DEFAULT_SIM,
   EDGES,
@@ -118,10 +119,12 @@ import {
   type Motion,
 } from "./graph-state";
 import {
+  denseOf,
   LOOKS,
   LOOK_ORDER,
   onceQuery,
   scaleOf,
+  vertexId,
 } from "@kanzo-tech/graph";
 import type { NodeKind } from "./graph-data";
 import { ShapeGlyph, text } from "./graph-canvas";
@@ -405,7 +408,7 @@ function InspectorBody() {
     filterBy: null,
     deps: [focused],
     query: () =>
-      focused === null ? null : Query.from(NODES).select(COLUMNS).where(`id = ${focused}`),
+      focused === null ? null : Query.from(NODES).select(COLUMNS).where(`id = ${denseOf(focused)}`),
   });
 
   const rows = selection.rows;
@@ -438,7 +441,7 @@ function InspectorBody() {
               is already on screen somewhere, and this brings it into view. */}
           <Button
             className="h-5 gap-1 text-[10px]"
-            onClick={() => commands.reveal(head.id)}
+            onClick={() => commands.reveal(vertexId(ARCHIVE_SPEC.typeIndex, head.id))}
             size="xs"
             title="Bring this node into view on the canvas"
             variant="ghost"
@@ -468,7 +471,7 @@ function InspectorBody() {
                   // `hover:bg-accent/60` composited to `--secondary` exactly (ΔE 0.00, both
                   // modes): the row hover was the hover surface written as a coincidence.
                   className="flex w-full items-center gap-2 rounded-sm px-1 py-0.5 text-start text-xs hover:bg-accent"
-                  onClick={() => commands.reveal(node.id)}
+                  onClick={() => commands.reveal(vertexId(ARCHIVE_SPEC.typeIndex, node.id))}
                   type="button"
                 >
                   <Swatch

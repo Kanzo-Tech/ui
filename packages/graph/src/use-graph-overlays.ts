@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import type { Graph } from "@cosmos.gl/graph";
+import type { Resident, VertexId } from "./resident";
 
 /**
  * Everything that floats over the canvas and has to keep up with it: the hub labels, the hover
@@ -11,6 +12,12 @@ import type { Graph } from "@cosmos.gl/graph";
  * three independent loops would read the same transform three times a frame. React never runs: the
  * overlays move by imperative style writes, and a re-render per frame would be a re-render per
  * frame.
+ *
+ * **An overlay is attached to a vertex, not to a slot.** Everything here outlives an answer — a
+ * label element is kept across renders, a hover survives a query — so the tracked set is identities
+ * and the buffer index is resolved through `Resident` at the moment of painting. Held as indices, a
+ * label would keep its position and change which node it was naming the first time the resident set
+ * moved, with the text and the dot disagreeing and nothing raised.
  *
  * This lived inside the canvas component among seven other concerns, and that is not a filing
  * detail: the scheduler below once kept a cancelled `requestAnimationFrame` handle in `frame`,
@@ -38,11 +45,11 @@ export interface GraphOverlays {
   hostRef: React.RefObject<HTMLDivElement | null>;
   gridRef: React.RefObject<HTMLDivElement | null>;
   cardRef: React.RefObject<HTMLDivElement | null>;
-  /** A `ref` callback for the label of a given node index. */
-  labelRef: (index: number) => (element: HTMLElement | null) => void;
-  /** The labelled indices, in the order the declutter pass should place them. */
-  setLabelOrder: (indices: number[]) => void;
-  setHovered: (index: number | null) => void;
+  /** A `ref` callback for a given vertex's label. */
+  labelRef: (vertex: VertexId) => (element: HTMLElement | null) => void;
+  /** The labelled vertices, in the order the declutter pass should place them. */
+  setLabelOrder: (vertices: VertexId[]) => void;
+  setHovered: (vertex: VertexId | null) => void;
   /**
    * Re-register the tracked points with cosmos.gl.
    *
@@ -56,15 +63,22 @@ export interface GraphOverlays {
   schedule: () => void;
 }
 
-export function useGraphOverlays(getGraph: () => Graph | null): GraphOverlays {
+export interface GraphOverlayOptions {
+  getGraph: () => Graph | null;
+  /** Who is drawn right now, for turning a tracked vertex into the buffer index cosmos.gl wants. */
+  getResident: () => Resident;
+}
+
+export function useGraphOverlays(options: GraphOverlayOptions): GraphOverlays {
+  const { getGraph, getResident } = options;
   const hostRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
-  const labelEls = useRef(new Map<number, HTMLElement>());
+  const labelEls = useRef(new Map<VertexId, HTMLElement>());
   /** Label widths, measured once each — reading `offsetWidth` every frame would force layout. */
-  const widths = useRef(new Map<number, number>());
-  const order = useRef<number[]>([]);
-  const hoveredRef = useRef<number | null>(null);
+  const widths = useRef(new Map<VertexId, number>());
+  const order = useRef<VertexId[]>([]);
+  const hoveredRef = useRef<VertexId | null>(null);
   /** The card's box, measured once per hover, for the same reason. */
   const cardSize = useRef<{ width: number; height: number } | null>(null);
   /** The canvas' own box, kept by a `ResizeObserver` — see the effect below. */
@@ -84,16 +98,17 @@ export function useGraphOverlays(getGraph: () => Graph | null): GraphOverlays {
     const graph = getGraph();
     if (!graph) return;
     const hovered = hoveredRef.current;
-    const indices =
+    const watched =
       hovered === null || order.current.includes(hovered)
         ? order.current
         : [...order.current, hovered];
-    graph.trackPointPositionsByIndices(indices);
-  }, [getGraph]);
+    graph.trackPointPositionsByIndices(getResident().indicesOf(watched));
+  }, [getGraph, getResident]);
 
   const paint = useCallback(() => {
     const graph = getGraph();
     if (!graph) return;
+    const resident = getResident();
     /**
      * Positions come from the tracking API, not from `getPointPositions()`.
      *
@@ -107,7 +122,17 @@ export function useGraphOverlays(getGraph: () => Graph | null): GraphOverlays {
     // Read lazily: with labels off and nothing hovered, the only overlay left is the grid, which
     // needs the transform and not the points.
     let positions: ReadonlyMap<number, [number, number]> | null = null;
-    const at = (index: number): [number, number] | null => {
+    /**
+     * Where a vertex is on screen, or `null` when it is not drawn at all.
+     *
+     * Two ways to be absent and they are one answer here: not resident — the query moved on and this
+     * vertex is not in the current buffers — or resident and not yet tracked. Both mean *do not draw
+     * an overlay for it*, and the alternative to asking is drawing it at whatever the stale index now
+     * holds, which is a label on the wrong node.
+     */
+    const at = (vertex: VertexId): [number, number] | null => {
+      const index = resident.indexOf(vertex);
+      if (index === undefined) return null;
       positions ??= graph.getTrackedPointPositionsMap();
       return positions.get(index) ?? null;
     };
@@ -117,19 +142,19 @@ export function useGraphOverlays(getGraph: () => Graph | null): GraphOverlays {
     // set of legible ones.
     const placed: [number, number, number, number][] = [];
     const bounds = box.current;
-    for (const index of order.current) {
-      const element = labelEls.current.get(index);
+    for (const vertex of order.current) {
+      const element = labelEls.current.get(vertex);
       if (!element) continue;
-      const point = at(index);
+      const point = at(vertex);
       if (!point) {
         element.style.opacity = "0";
         continue;
       }
       const [x, y] = graph.spaceToScreenPosition(point);
-      let width = widths.current.get(index);
+      let width = widths.current.get(vertex);
       if (width === undefined) {
         width = element.offsetWidth;
-        widths.current.set(index, width);
+        widths.current.set(vertex, width);
       }
       const x1 = x - width / 2;
       const x2 = x1 + width;
@@ -169,9 +194,9 @@ export function useGraphOverlays(getGraph: () => Graph | null): GraphOverlays {
     // canvas on both axes. It used to be centred with percentage transforms, which cannot know
     // about an edge — and since this layer clips, a node near a border showed half a tooltip.
     const card = cardRef.current;
-    const hoveredIndex = hoveredRef.current;
-    if (card && hoveredIndex !== null && bounds) {
-      const point = at(hoveredIndex);
+    const hovered = hoveredRef.current;
+    if (card && hovered !== null && bounds) {
+      const point = at(hovered);
       if (point) {
         const [x, y] = graph.spaceToScreenPosition(point);
         let size = cardSize.current;
@@ -188,7 +213,7 @@ export function useGraphOverlays(getGraph: () => Graph | null): GraphOverlays {
         card.style.opacity = "1";
       }
     }
-  }, [getGraph]);
+  }, [getGraph, getResident]);
 
   // The canvas' box, measured when it changes rather than when it is read. `getBoundingClientRect()`
   // inside `paint` was one forced layout per animation frame, in a painter that caches `offsetWidth`
@@ -225,20 +250,20 @@ export function useGraphOverlays(getGraph: () => Graph | null): GraphOverlays {
   );
 
   const labelRef = useCallback(
-    (index: number) => (element: HTMLElement | null) => {
-      if (element) labelEls.current.set(index, element);
-      else labelEls.current.delete(index);
+    (vertex: VertexId) => (element: HTMLElement | null) => {
+      if (element) labelEls.current.set(vertex, element);
+      else labelEls.current.delete(vertex);
     },
     [],
   );
 
-  const setLabelOrder = useCallback((indices: number[]) => {
-    order.current = indices;
+  const setLabelOrder = useCallback((vertices: VertexId[]) => {
+    order.current = vertices;
     widths.current.clear();
   }, []);
 
-  const setHovered = useCallback((index: number | null) => {
-    hoveredRef.current = index;
+  const setHovered = useCallback((vertex: VertexId | null) => {
+    hoveredRef.current = vertex;
     cardSize.current = null;
   }, []);
 

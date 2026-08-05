@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { cn } from "@kanzo-tech/ui";
+import { vertexId } from "@kanzo-tech/graph";
 import { useGraphView, type SelectionSource } from "./graph-state";
 
 /**
@@ -19,7 +20,14 @@ import { useGraphView, type SelectionSource } from "./graph-state";
  */
 export interface FindingProps {
   children: ReactNode;
-  /** Nothing is queried until the reader asks — a panel should not fetch ids it may never show. */
+  /**
+   * The dense ids this finding covers. Nothing is queried until the reader asks — a panel should not
+   * fetch ids it may never show.
+   *
+   * Dense ids rather than identities because a panel's answer *is* a query: `SELECT id FROM …` over
+   * one relation, and a row has no type column. Completing the pair is this component's job, once,
+   * from the spec that says which relation it was.
+   */
   load: () => Promise<number[]>;
   /** Shown in the corner and used as this finding's identity, so keep it distinct within a panel. */
   label: string;
@@ -28,7 +36,7 @@ export interface FindingProps {
 }
 
 export function Finding({ children, disabled, label, load, source }: FindingProps) {
-  const { select, selection } = useGraphView();
+  const { select, selection, spec } = useGraphView();
   const [busy, setBusy] = useState(false);
   const active = selection?.source === source && selection.label === label;
 
@@ -39,7 +47,8 @@ export function Finding({ children, disabled, label, load, source }: FindingProp
     }
     setBusy(true);
     try {
-      select({ ids: await load(), source, label });
+      const dense = await load();
+      select({ vertices: dense.map((id) => vertexId(spec.typeIndex, id)), source, label });
     } finally {
       setBusy(false);
     }

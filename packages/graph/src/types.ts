@@ -9,6 +9,8 @@
  * themselves belong to the renderer, and every hook here takes one.
  */
 
+import type { VertexId } from "./resident";
+
 /** Drawing options. None of these changes a number on screen, only how it is drawn. */
 export interface Display {
   links: boolean;
@@ -87,7 +89,14 @@ export type SelectionSource = "marquee" | "lasso" | "node" | "order" | "ask";
  * points at part of it.
  */
 export interface Selection {
-  ids: number[];
+  /**
+   * Identities, never buffer indices.
+   *
+   * A selection is the one thing on this canvas guaranteed to outlive the answer that made it: a
+   * reader selects, pans, and expects to come back to it. An index would have been reused by then,
+   * and by a different vertex.
+   */
+  vertices: VertexId[];
   source: SelectionSource;
   /** What the corner calls it. */
   label: string;
@@ -102,8 +111,8 @@ export interface GraphCommands {
   restart(): void;
   /** Let go of every pinned node, so the simulation gets the whole layout back. */
   unpin(): void;
-  /** Centre and select a node by its database id. */
-  reveal(id: number): void;
+  /** Centre and select one vertex. */
+  reveal(vertex: VertexId): void;
   /** Frame whatever the canvas currently has selected. */
   frameSelection(): void;
   clear(): void;

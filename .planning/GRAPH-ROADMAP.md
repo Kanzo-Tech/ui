@@ -95,15 +95,29 @@ on paper:
   one at all. Note that the measurement also removes the last argument for `chunk_size` 122,880: it
   is dominated by 32,768 on requests *and* bytes.
 
-### 3. Selection and overlays by identity — **canvas**, unblocked, do early
+### 3. Selection and overlays by identity — **canvas**, done 2026-08-05
 
-ADR-0042's own "risk that bites first". `use-graph-selection.ts` and `use-graph-overlays.ts` work on
-local indices into the current slice; a resident set that comes and goes makes that index unstable
-while the identities stay valid. Verifiable **today**, against the current viewer, which is why it
-goes before tiles rather than with them.
+ADR-0042's own "risk that bites first", and it is closed. A vertex is `vertexId(type, dense)` packed
+into one number; `Slice.ids` is `Slice.vertices: Float64Array` of those; and the identity↔index map
+is a `Resident` that `useBoundedGraph` rebuilds with every answer — **there, because that is where
+residency changes**, and a copy built beside it is the same value one render later with no way to
+notice it has fallen behind the buffers. Selection, overlays, pins, the focus ring and the greyout
+all resolve through that one map.
 
-Note when doing it: cosmos.gl addresses points by buffer index, and `getConnectedLinkIndices` is
-local-index based, so the identity↔index map is rebuilt per residency change.
+Measured live, over the workspace showcase with its limit forced to 120 so the 1,543-node corpus is
+actually sliced. A marquee selection of 13 held `highlightedPointIndices`
+`[0,1,2,3,8,15,16,18,22,32,34,35,37]` in a 76-point answer, **0** after panning to a 25-point answer
+holding none of them, and `[0,1,2,3,7,12,13,15,19,26,28,29,30]` in a 32-point answer holding all
+thirteen — nine at a different index, four of the originals past the end of the buffer, the selection
+itself never touched. `reveal` on a vertex the camera had left behind pinned it, the next answer
+carried it, and the second press landed on that vertex by name.
+
+**Two things it turned up that were not in the brief.** An aggregate numbers its super-nodes `0..k`,
+so zoomed out they were wearing the corpus' own identities — group 3 *was* vertex 3, and a selection
+made zoomed out came back on the way in pointing at arbitrary nodes; they take a reserved type now.
+And `duckBoundedSource` was filtering the pinned set with no idea whose ids they were, which is a
+wrong-rows bug the moment a second relation joins the canvas; `typeIndex` is required, with no
+default, for that reason.
 
 ### 4. Isolate the writer's memory — **fossil**, started, and the suspect was wrong
 

@@ -3,6 +3,7 @@ import { adaptive } from "./adaptive";
 import { buffers, neighboursOf, scaleOf } from "./graph-model";
 import { LOOKS } from "./graph-looks";
 import { memorySource } from "./memory-source";
+import { vertexId } from "./resident";
 import type { Slice } from "./bounded";
 
 /**
@@ -15,7 +16,7 @@ function slice(over: Partial<Slice> = {}): Slice {
   return {
     mode: "detail",
     n,
-    ids: Uint32Array.from({ length: n }, (_, i) => i + 100),
+    vertices: Float64Array.from({ length: n }, (_, i) => vertexId(0, i + 100)),
     positions: new Float32Array(n * 2),
     links: new Float32Array(),
     categories: new Uint16Array(n),
@@ -115,20 +116,20 @@ describe("scaleOf", () => {
 describe("memorySource", () => {
   /** Two triangles, far apart: 0–1–2 around the origin, 3–4–5 out at 1000. */
   const graph = {
-    ids: Uint32Array.from([10, 11, 12, 13, 14, 15]),
+    vertices: Float64Array.from([10, 11, 12, 13, 14, 15].map((id) => vertexId(0, id))),
     positions: Float32Array.from([0, 0, 1, 0, 0, 1, 1000, 1000, 1001, 1000, 1000, 1001]),
     links: Float32Array.from([0, 1, 1, 2, 2, 0, 3, 4, 4, 5, 5, 3]),
     categories: Uint16Array.from([0, 0, 0, 1, 1, 1]),
   };
   const request = { limit: 100, lodThreshold: 0.5 };
 
-  it("answers a rectangle with what is inside it, in slice-local indices", async () => {
+  it("answers a rectangle with what is inside it, as identities", async () => {
     const answer = await memorySource(graph).slice({
       ...request,
       query: { kind: "region", view: { xMin: -1, yMin: -1, xMax: 2, yMax: 2, zoom: 1 } },
     });
 
-    expect([...answer.ids]).toEqual([10, 11, 12]);
+    expect([...answer.vertices]).toEqual([10, 11, 12].map((id) => vertexId(0, id)));
     // The far triangle's edges are gone and the near one's are renumbered onto 0..2 — an edge with
     // one end off-slice has nowhere to land.
     expect([...answer.links]).toEqual([0, 1, 1, 2, 2, 0]);
@@ -142,32 +143,32 @@ describe("memorySource", () => {
     });
 
     // A truncated slice that claimed to be complete is the failure this whole contract is about.
-    expect(answer.ids.length).toBe(2);
+    expect(answer.vertices.length).toBe(2);
     expect(answer.n).toBe(3);
   });
 
-  it("carries pinned ids the rectangle does not hold", async () => {
+  it("carries pinned vertices the rectangle does not hold", async () => {
     const answer = await memorySource(graph).slice({
       ...request,
-      pinned: [13],
+      pinned: [vertexId(0, 13)],
       query: { kind: "region", view: { xMin: -1, yMin: -1, xMax: 2, yMax: 2, zoom: 1 } },
     });
 
     // A dragged node is drawn where the reader dropped it and indexed where it always was, so the
     // rectangle cannot find it. Riding along is what keeps it on screen.
-    expect([...answer.ids]).toContain(13);
+    expect([...answer.vertices]).toContain(vertexId(0, 13));
   });
 
   it("expands a neighbourhood by hops, not by distance", async () => {
     const source = memorySource(graph);
-    const one = await source.slice({ ...request, query: { kind: "neighbourhood", seeds: [10], depth: 1 } });
-    const zero = await source.slice({ ...request, query: { kind: "neighbourhood", seeds: [10], depth: 0 } });
+    const one = await source.slice({ ...request, query: { kind: "neighbourhood", seeds: [vertexId(0, 10)], depth: 1 } });
+    const zero = await source.slice({ ...request, query: { kind: "neighbourhood", seeds: [vertexId(0, 10)], depth: 0 } });
 
-    expect([...one.ids].sort()).toEqual([10, 11, 12]);
-    expect([...zero.ids]).toEqual([10]);
+    expect([...one.vertices].sort()).toEqual([10, 11, 12].map((id) => vertexId(0, id)));
+    expect([...zero.vertices]).toEqual([vertexId(0, 10)]);
     // The other triangle is unreachable at any depth — that is the question a rectangle cannot ask.
-    const deep = await source.slice({ ...request, query: { kind: "neighbourhood", seeds: [10], depth: 9 } });
-    expect([...deep.ids]).not.toContain(13);
+    const deep = await source.slice({ ...request, query: { kind: "neighbourhood", seeds: [vertexId(0, 10)], depth: 9 } });
+    expect([...deep.vertices]).not.toContain(vertexId(0, 13));
   });
 
   it("answers super-nodes below the level-of-detail threshold", async () => {
@@ -178,7 +179,7 @@ describe("memorySource", () => {
 
     expect(answer.mode).toBe("aggregate");
     // One mark per group, at its centroid, standing for three vertices each.
-    expect(answer.ids.length).toBe(2);
+    expect(answer.vertices.length).toBe(2);
     expect([...(answer.weights ?? [])]).toEqual([3, 3]);
     expect(answer.n).toBe(6);
     // And a view of everything is still a picture: the groups that touch, deduplicated. These two do

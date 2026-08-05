@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
 import type { Graph } from "@cosmos.gl/graph";
-import type { Slice } from "./bounded";
+import type { Resident, VertexId } from "./resident";
 import type { Selection, SelectionSource, Tool } from "./types";
 
 /**
@@ -54,16 +54,16 @@ export interface GraphSelectionGesture {
 export interface GraphSelectionOptions {
   getGraph: () => Graph | null;
   /**
-   * The answer currently drawn — the only thing that can turn a hit-test index into an id.
+   * Who is drawn right now — the only thing that can turn a hit-test index into an identity.
    *
-   * A gesture selects positions on screen, and a position is a slice index, which the next slice
-   * reuses for a different node. So the gesture resolves to ids here and now, while the slice that
-   * produced them is still the one on screen.
+   * A gesture selects positions on screen, and a position is a buffer index, which the next
+   * residency reuses for a different vertex. So the gesture resolves to identities here and now,
+   * while the answer that produced them is still the one on screen.
    */
-  getSlice: () => Slice | null;
+  getResident: () => Resident;
   /** The live selection, for the modifiers to add to or subtract from. */
   getSelection: () => Selection | null;
-  commit: (ids: Set<number> | null, source: SelectionSource, label: string) => void;
+  commit: (vertices: Set<VertexId> | null, source: SelectionSource, label: string) => void;
   tool: Tool;
   setTool: (tool: Tool) => void;
 }
@@ -74,7 +74,7 @@ const NAME: Record<"rect" | "lasso", { source: SelectionSource; label: string }>
 };
 
 export function useGraphSelection(options: GraphSelectionOptions): GraphSelectionGesture {
-  const { commit, getGraph, getSelection, getSlice, setTool, tool } = options;
+  const { commit, getGraph, getResident, getSelection, setTool, tool } = options;
   const [drag, setDrag] = useState<Drag | null>(null);
   const [preview, setPreview] = useState<number | null>(null);
   const [shift, setShift] = useState(false);
@@ -150,26 +150,23 @@ export function useGraphSelection(options: GraphSelectionOptions): GraphSelectio
   const finish = (shape: Drag | null, event: React.PointerEvent) => {
     setDrag(null);
     setPreview(null);
-    const slice = getSlice();
-    if (!shape || !slice) return;
-    const ids = new Set<number>();
-    for (const index of hitTest(shape)) {
-      const id = slice.ids[index];
-      if (id !== undefined) ids.add(id);
-    }
+    if (!shape) return;
+    // The one line the whole gesture turns on: the hit test answers in buffer indices, and they stop
+    // meaning anything the moment the resident set changes.
+    const vertices = new Set(getResident().verticesAt(hitTest(shape)));
     // A gesture that caught nothing and asked for nothing is a misfire, not a request to clear —
     // clearing is what the corner's own button and Escape are for.
-    if (ids.size === 0 && !event.altKey) return;
+    if (vertices.size === 0 && !event.altKey) return;
     const { label, source } = NAME[shape.tool];
-    const held = getSelection()?.ids ?? [];
+    const held = getSelection()?.vertices ?? [];
     if (event.altKey) {
       const next = new Set(held);
-      for (const id of ids) next.delete(id);
+      for (const vertex of vertices) next.delete(vertex);
       commit(next.size > 0 ? next : null, source, label);
     } else if (event.metaKey || event.ctrlKey) {
-      commit(new Set([...held, ...ids]), source, label);
+      commit(new Set([...held, ...vertices]), source, label);
     } else {
-      commit(ids, source, label);
+      commit(vertices, source, label);
     }
   };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { Graph } from "@cosmos.gl/graph";
 import {
   BOUNDED_DEFAULTS,
@@ -10,6 +10,7 @@ import {
   type SliceQuery,
   type Viewport,
 } from "./bounded";
+import { residentOf, type Resident, type VertexId } from "./resident";
 
 /**
  * The query loop: the camera moves, a bounded question is asked, the answer becomes the picture.
@@ -31,12 +32,12 @@ export interface BoundedGraphOptions {
   /** The element the canvas is drawn into — its box is the screen rectangle. */
   hostRef: RefObject<HTMLElement | null>;
   /**
-   * Ids that must come back whatever the camera is looking at.
+   * Vertices that must come back whatever the camera is looking at.
    *
    * Dragged, pinned, selected. Their drawn positions are a view-local overlay on coordinates that
    * never move, so the index cannot find them where they now appear.
    */
-  pinned?: number[];
+  pinned?: VertexId[];
   limit?: number;
   lodThreshold?: number;
   /**
@@ -53,6 +54,16 @@ export interface BoundedGraphOptions {
 export interface BoundedGraphState {
   /** The answer currently drawn, or `null` before the first one. */
   slice: Slice | null;
+  /**
+   * Who is drawn, and where — rebuilt with every answer, which is what makes it correct.
+   *
+   * It lives here rather than in each hook because **this is where residency changes**. The map is
+   * a function of the current answer and nothing else, so a consumer that built its own would be
+   * building the same thing from the same input, one render later, with no way to notice it had
+   * fallen behind the buffers on screen. Selection, overlays, pins and the greyout all read this
+   * one.
+   */
+  resident: Resident;
   /** Whether a question is outstanding. */
   pending: boolean;
   /** How many vertices there are, when the source knows. */
@@ -67,7 +78,7 @@ export interface BoundedGraphState {
   /** Ask again. Wire it to the camera, and call it when the pinned set changes. */
   refresh: () => void;
   /** Ask a topological question instead of a spatial one, when the source supports one. */
-  explore: (seeds: number[], depth: number) => void;
+  explore: (seeds: VertexId[], depth: number) => void;
 }
 
 const EVERYTHING: Viewport = {
@@ -186,7 +197,7 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
   }, [ask, debounce, graphRef, hostRef]);
 
   const explore = useCallback(
-    (seeds: number[], depth: number) => {
+    (seeds: VertexId[], depth: number) => {
       if (!source?.supports("neighbourhood")) {
         report.current?.("this source answers regions only");
         return;
@@ -256,7 +267,11 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
     graph.render();
   }, [graphRef, slice]);
 
-  return { slice, pending, total, sliced, refresh, explore };
+  // Memoised on the answer, because a fresh map per render would make every consumer that depends on
+  // it re-run for a value that had not changed.
+  const resident = useMemo(() => residentOf(slice), [slice]);
+
+  return { slice, resident, pending, total, sliced, refresh, explore };
 }
 
 /**

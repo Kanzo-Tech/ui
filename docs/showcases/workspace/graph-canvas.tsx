@@ -33,15 +33,20 @@ import {
 } from "lucide-react";
 import {
   cursorChip,
+  denseOf,
   GRID,
   LOOKS,
   neighboursOf,
   REHEAT,
+  residentOf,
   scaleOf,
   SHAPE_PATH,
   onceQuery,
+  vertexId,
+  type Resident,
   type ShapeId,
   type Slice,
+  type VertexId,
   useBoundedGraph,
   useCosmosGraph,
   useGraphLook,
@@ -94,6 +99,9 @@ const FLOATING = "rounded-lg border bg-card shadow-sm";
  * are one decision, so the role table carries one name for both.
  */
 const SELECTION_WASH = "var(--selection)";
+
+/** Nobody drawn yet, for the frames before the first answer. */
+const NOBODY = residentOf(null);
 
 /**
  * The canvas: cosmos.gl driving the picture, Mosaic driving the questions.
@@ -256,6 +264,15 @@ function CanvasBody() {
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const graphAccess = useCallback(() => graphRef.current, []);
+  /**
+   * Who is drawn, where every callback installed once can still read it.
+   *
+   * The map itself belongs to `useBoundedGraph` — it is rebuilt with every answer, which is what
+   * makes it correct — and this is only the pointer at the current one. Building a second here is
+   * what this change removed: it was one render behind the buffers on screen.
+   */
+  const residentRef = useRef<Resident>(NOBODY);
+  const getResident = useCallback(() => residentRef.current, []);
   const {
     cardRef,
     gridRef,
@@ -265,24 +282,24 @@ function CanvasBody() {
     setHovered: trackHovered,
     setLabelOrder,
     track,
-  } = useGraphOverlays(graphAccess);
+  } = useGraphOverlays({ getGraph: graphAccess, getResident });
   const graphRef = useRef<Graph | null>(null);
   const clientRef = useRef<IdSetClient | null>(null);
   const sliceRef = useRef<Slice | null>(null);
 
   const [failure, setFailure] = useState<string | null>(null);
-  const [tracked, setTracked] = useState<number[]>([]);
+  const [tracked, setTracked] = useState<VertexId[]>([]);
   /**
-   * What the pointer is over: an id for the detail query, and the index for the glyph.
+   * What the pointer is over: the vertex, and the category ordinal read off the buffer at the moment
+   * it was entered.
    *
-   * Both, because they answer different questions. The id survives a slice and is what a fetch is
-   * keyed on; the index is a position in the buffers the GPU is drawing right now, which is how the
-   * card's glyph reads the *canvas's own* category ordinal rather than re-deriving one from a name
-   * and hoping the two agree.
+   * The ordinal is taken *now* rather than kept as an index to look up later — that is how the card's
+   * glyph reads the canvas's own colour rather than re-deriving one from a name and hoping the two
+   * agree, without holding a position that the next answer would reassign.
    */
-  const [pointer, setPointer] = useState<{ id: number; index: number } | null>(null);
-  const hoveredId = pointer?.id ?? null;
-  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const [pointer, setPointer] = useState<{ vertex: VertexId; ordinal: number } | null>(null);
+  const hoveredVertex = pointer?.vertex ?? null;
+  const [focusedVertex, setFocusedVertex] = useState<VertexId | null>(null);
 
   // Callbacks are handed to cosmos.gl once, at construction, so they read the current render
   // through a ref instead of closing over a stale one.
@@ -301,13 +318,13 @@ function CanvasBody() {
    * A ref, and a whole-set call, because cosmos.gl's API is a replacement rather than a toggle —
    * `setPinnedPoints` overwrites `inputPinnedPoints` outright, so the set has to be ours.
    *
-   * **Held as ids, not indices.** cosmos.gl speaks indices and this used to store them, which was
-   * correct exactly as long as the corpus arrived once. Under a bounded path index 7 is a different
-   * node after every pan, so a pinned set of indices would silently pin whatever moved into those
-   * slots. Ids are re-resolved against each slice on the way to the GPU — and they are also what
-   * rides along in the query, so a node dragged off screen comes back with the next answer.
+   * **Held as identities, not indices.** cosmos.gl speaks indices and this used to store them, which
+   * was correct exactly as long as the corpus arrived once. Under a bounded path index 7 is a
+   * different node after every pan, so a pinned set of indices would silently pin whatever moved into
+   * those slots. Identities are re-resolved against each answer on the way to the GPU — and they are
+   * also what rides along in the query, so a node dragged off screen comes back with the next one.
    */
-  const pins = useRef(new Set<number>());
+  const pins = useRef(new Set<VertexId>());
 
   /**
    * What the layout is doing, mirrored where the imperative side can read it.
@@ -334,41 +351,28 @@ function CanvasBody() {
   const live = useRef<Selection | null>(selection);
   live.current = selection;
 
-  /**
-   * Where each id sits in the slice on screen right now, and `undefined` for the ones that do not.
-   *
-   * Rebuilt per slice rather than kept, because that is what a slice index means: a position in
-   * *this* answer. Everything that outlives one answer — the selection, the focus, the pins — is
-   * held as ids and comes back through here.
-   */
-  const localRef = useRef<Map<number, number>>(new Map());
+  /** The pinned set, as state, because the query loop carries it and must re-ask when it moves. */
+  const [pinnedVertices, setPinnedVertices] = useState<VertexId[]>([]);
 
-  /** The pinned ids, as state, because the query loop carries them and must re-ask when they move. */
-  const [pinnedIds, setPinnedIds] = useState<number[]>([]);
-
-  /** Hand the pin set to the GPU — resolved to this slice — and tell the panels how big it is. */
+  /** Hand the pin set to the GPU — resolved to this answer — and tell the panels how big it is. */
   const applyPins = useCallback(() => {
-    const ids = [...pins.current];
-    const indices: number[] = [];
-    for (const id of ids) {
-      const index = localRef.current.get(id);
-      if (index !== undefined) indices.push(index);
-    }
+    const held = [...pins.current];
+    const indices = residentRef.current.indicesOf(held);
     graphRef.current?.setPinnedPoints(indices.length > 0 ? indices : null);
-    handlers.current.setPinned(ids.length);
-    setPinnedIds(ids);
+    handlers.current.setPinned(held.length);
+    setPinnedVertices(held);
   }, []);
 
   /** Drop the focus ring. A ring on a node nobody picked is a claim the selection is not making. */
   const unfocus = useCallback(() => {
-    setFocusedIndex(null);
+    setFocusedVertex(null);
     handlers.current.setFocused(null);
     graphRef.current?.setConfigPartial({ focusedPointIndex: undefined });
   }, []);
 
   const commit = useCallback(
-    (ids: Set<number> | null, source: SelectionSource, label: string) => {
-      if (!ids || ids.size === 0) {
+    (vertices: Set<VertexId> | null, source: SelectionSource, label: string) => {
+      if (!vertices || vertices.size === 0) {
         unfocus();
         handlers.current.select(null);
         return;
@@ -385,14 +389,11 @@ function CanvasBody() {
       // and the correction overwrites it.
       const graph = graphRef.current;
       if (graph) {
-        const indices: number[] = [];
-        for (const id of ids) {
-          const index = localRef.current.get(id);
-          if (index !== undefined) indices.push(index);
-        }
-        graph.setConfigPartial({ highlightedPointIndices: indices });
+        graph.setConfigPartial({
+          highlightedPointIndices: residentRef.current.indicesOf(vertices),
+        });
       }
-      handlers.current.select({ ids: [...ids], source, label });
+      handlers.current.select({ vertices: [...vertices], source, label });
     },
     [unfocus],
   );
@@ -410,6 +411,7 @@ function CanvasBody() {
         coordinator,
         nodes: spec.table,
         edges: spec.edges,
+        typeIndex: spec.typeIndex,
         idField: spec.idField,
         xField: spec.xField,
         yField: spec.yField,
@@ -419,23 +421,19 @@ function CanvasBody() {
     [coordinator, spec],
   );
 
-  const { slice, total, refresh } = useBoundedGraph({
+  const { resident, slice, total, refresh } = useBoundedGraph({
     graphRef,
     hostRef: canvasRef,
     onError: setFailure,
-    pinned: pinnedIds,
+    pinned: pinnedVertices,
     source,
   });
 
   // The lookups every callback needs, kept where a callback installed once can still read them.
   sliceRef.current = slice;
+  residentRef.current = resident;
   const totalRef = useRef<number | undefined>(undefined);
   totalRef.current = total;
-  useEffect(() => {
-    const map = new Map<number, number>();
-    if (slice) for (let i = 0; i < slice.ids.length; i++) map.set(slice.ids[i] as number, i);
-    localRef.current = map;
-  }, [slice]);
 
   useEffect(() => {
     if (total !== undefined) setCorpus(total);
@@ -467,12 +465,11 @@ function CanvasBody() {
           graph.setConfigPartial({ highlightedPointIndices: undefined });
           return;
         }
-        const indices: number[] = [];
-        for (const id of ids) {
-          const i = localRef.current.get(Number(id));
-          if (i !== undefined) indices.push(i);
-        }
-        graph.setConfigPartial({ highlightedPointIndices: indices });
+        // The crossfilter answers in this relation's dense ids, because that is what SQL holds.
+        // Completing the pair here is the seam: `IdSetClient` speaks one table, and one table is one
+        // vertex type.
+        const survivors = ids.map((id) => vertexId(spec.typeIndex, Number(id)));
+        graph.setConfigPartial({ highlightedPointIndices: residentRef.current.indicesOf(survivors) });
       },
     });
     clientRef.current = client;
@@ -489,7 +486,9 @@ function CanvasBody() {
    * value to the provider and this turns it into `id IN (…)`.
    */
   useEffect(() => {
-    clientRef.current?.publish(selection ? selection.ids : null);
+    // Back down to dense ids on the way into SQL: a clause is `id IN (…)` over one relation, so the
+    // type is what the table already is and only the dense half survives the crossing.
+    clientRef.current?.publish(selection ? selection.vertices.map(denseOf) : null);
   }, [selection, slice]);
 
   /**
@@ -520,22 +519,24 @@ function CanvasBody() {
     // Importance order, and it matters: the declutter pass places labels in this order and drops
     // whichever would collide with one already down, so the hubs win the crowded spots. Without a
     // ramp there is no importance to speak of, and the first N is as honest as any other N.
-    const order = Array.from({ length: slice.ids.length }, (_, i) => i);
+    const order = Array.from({ length: slice.vertices.length }, (_, i) => i);
     if (ramp) order.sort((a, b) => (ramp[b] ?? 0) - (ramp[a] ?? 0));
-    const wanted = focusedIndex === null ? [] : [focusedIndex];
-    for (const index of order.slice(0, budget)) {
-      if (index !== focusedIndex) wanted.push(index);
+    // Ranked by position in the answer and published as identities: the ranking is a property of the
+    // slice, the label is a property of the node, and only the second outlives this effect.
+    const wanted = focusedVertex === null ? [] : [focusedVertex];
+    for (const vertex of resident.verticesAt(order.slice(0, budget))) {
+      if (vertex !== focusedVertex) wanted.push(vertex);
     }
     setLabelOrder(wanted);
     setTracked(wanted);
     schedule();
-  }, [slice, display.labels, look.form.labels, focusedIndex, schedule, setLabelOrder]);
+  }, [slice, resident, display.labels, look.form.labels, focusedVertex, schedule, setLabelOrder]);
 
   // An overlay that has just mounted has no transform yet, and the simulation may already be
   // asleep — so nothing would place it until the next zoom. Place it now.
   useEffect(() => {
     schedule();
-  }, [tracked, hoveredId, display.grid, schedule]);
+  }, [tracked, hoveredVertex, display.grid, schedule]);
 
   // What the panels can ask of the canvas.
   useEffect(() => {
@@ -603,24 +604,23 @@ function CanvasBody() {
        * is what makes it arrive: a pinned id rides along with every query regardless of the
        * rectangle, so the next slice contains it and the reveal lands.
        */
-      reveal: (id) => {
+      reveal: (vertex) => {
         const graph = graphRef.current;
-        const current = sliceRef.current;
-        if (!graph || !current) return;
-        const index = localRef.current.get(id);
+        if (!graph) return;
+        const drawn = residentRef.current;
+        const index = drawn.indexOf(vertex);
         if (index === undefined) {
-          pins.current.add(id);
+          pins.current.add(vertex);
           applyPins();
           return;
         }
-        const ids = new Set([id]);
-        for (const neighbour of neighboursOf(graph, index)) {
-          const value = current.ids[neighbour];
-          if (value !== undefined) ids.add(value);
-        }
-        commit(ids, "node", "Node");
-        setFocusedIndex(index);
-        handlers.current.setFocused(id);
+        commit(
+          new Set([vertex, ...drawn.verticesAt(neighboursOf(graph, index))]),
+          "node",
+          "Node",
+        );
+        setFocusedVertex(vertex);
+        handlers.current.setFocused(vertex);
         graph.setConfigPartial({ focusedPointIndex: index });
         graph.zoomToPointByIndex(index, 500, 5, true);
         schedule();
@@ -635,11 +635,7 @@ function CanvasBody() {
       frameSelection: () => {
         const graph = graphRef.current;
         if (!graph) return;
-        const indices: number[] = [];
-        for (const id of live.current?.ids ?? []) {
-          const index = localRef.current.get(id);
-          if (index !== undefined) indices.push(index);
-        }
+        const indices = residentRef.current.indicesOf(live.current?.vertices ?? []);
         if (indices.length === 0) return;
         graph.fitViewByPointIndices(indices, 420, 0.25);
         schedule();
@@ -656,41 +652,39 @@ function CanvasBody() {
       // and dropping a pinned node somewhere else re-pins it there — both are what the gesture says.
       // Recorded as an id: the gesture happened to a node, not to a slot in the current answer.
       onDragEnd: (index) => {
-        const id = sliceRef.current?.ids[index];
-        if (id === undefined) return;
-        pins.current.add(id);
+        const vertex = residentRef.current.at(index);
+        if (vertex === undefined) return;
+        pins.current.add(vertex);
         applyPins();
       },
       onPointClick: (instance, index) => {
-        const current = sliceRef.current;
-        if (!current) return;
-        const id = current.ids[index];
-        if (id === undefined) return;
+        const drawn = residentRef.current;
+        const vertex = drawn.at(index);
+        if (vertex === undefined) return;
         // A node and what it touches: the honest reading of "show me this one", and the same clause
         // shape the marquee publishes, so every other panel understands it already. What it *touches*
-        // is what is drawn — the renderer's adjacency over this slice, not the graph's own answer,
-        // which is a `neighbourhood` query a relational source cannot serve.
-        const ids = new Set([id]);
-        for (const neighbour of neighboursOf(instance, index)) {
-          const value = current.ids[neighbour];
-          if (value !== undefined) ids.add(value);
-        }
-        commit(ids, "node", "Node");
-        setFocusedIndex(index);
-        handlers.current.setFocused(id);
+        // is what is drawn — the renderer's adjacency over this answer, not the graph's own, which is
+        // a `neighbourhood` query a relational source cannot serve.
+        commit(
+          new Set([vertex, ...drawn.verticesAt(neighboursOf(instance, index))]),
+          "node",
+          "Node",
+        );
+        setFocusedVertex(vertex);
+        handlers.current.setFocused(vertex);
         instance.setConfigPartial({ focusedPointIndex: index });
       },
       onPointerOut: () => {
         trackHovered(null);
         setPointer(null);
       },
-      // An id, and then a query. The card used to be a property lookup on a row the canvas already
+      // A vertex, and then a query. The card used to be a property lookup on a row the canvas already
       // held; it is now a fetch, which is the one user-visible regression ADR-0001 names.
       onPointerOver: (index) => {
-        const id = sliceRef.current?.ids[index];
-        if (id === undefined) return;
-        trackHovered(index);
-        setPointer({ id, index });
+        const vertex = residentRef.current.at(index);
+        if (vertex === undefined) return;
+        trackHovered(vertex);
+        setPointer({ vertex, ordinal: sliceRef.current?.categories[index] ?? 0 });
       },
       onTick: schedule,
       // The camera moved: place the overlays, and ask the source about wherever it is now. `refresh`
@@ -713,7 +707,7 @@ function CanvasBody() {
   // because every answer re-uploads positions, and that clears the registration on its way through.
   useEffect(() => {
     track();
-  }, [slice, tracked, hoveredId, track]);
+  }, [slice, tracked, hoveredVertex, track]);
 
   // After the constructor, not before it. Effects in one component run in declaration order, so
   // above this the look's first upload found `graphRef.current` still null and bailed — the picture
@@ -723,8 +717,8 @@ function CanvasBody() {
   const gesture = useGraphSelection({
     commit,
     getGraph: graphAccess,
+    getResident,
     getSelection: useCallback(() => live.current, []),
-    getSlice: useCallback(() => sliceRef.current, []),
     setTool,
     tool,
   });
@@ -737,18 +731,15 @@ function CanvasBody() {
    * label costs nothing, and the label set only re-fetches when the slice changes.
    */
   const wanted = useMemo(() => {
-    const ids = new Set<number>();
-    for (const index of tracked) {
-      const id = slice?.ids[index];
-      if (id !== undefined) ids.add(id);
-    }
-    if (hoveredId !== null) ids.add(hoveredId);
-    return [...ids].sort((a, b) => a - b);
-  }, [hoveredId, slice, tracked]);
+    const vertices = new Set(tracked);
+    if (hoveredVertex !== null) vertices.add(hoveredVertex);
+    // Dense ids, because the query is `id IN (…)` over one relation and a row has no type column.
+    return [...vertices].map(denseOf).sort((a, b) => a - b);
+  }, [hoveredVertex, tracked]);
   const details = useDetails(coordinator, spec, wanted);
-  const hovered = hoveredId === null ? null : details.get(hoveredId);
-  /** Straight off the buffer the GPU is drawing — the card cannot disagree with the point. */
-  const hoveredOrdinal = pointer ? (slice?.categories[pointer.index] ?? 0) : 0;
+  const hovered = hoveredVertex === null ? null : details.get(denseOf(hoveredVertex));
+  /** Read off the buffer the GPU was drawing when the pointer entered — it cannot disagree. */
+  const hoveredOrdinal = pointer?.ordinal ?? 0;
 
   // The same scale the GPU buffers are built from, so the hover card's glyph cannot disagree with
   // the point it is describing — including where Other begins, which `buffers` reads off the same
@@ -808,11 +799,10 @@ function CanvasBody() {
 
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
             <Show when={display.labels}>
-              {tracked.map((index) => {
-                const id = slice?.ids[index];
+              {tracked.map((vertex) => {
                 // The label is fetched, so a freshly-drawn hub is a point without a name for one
                 // query. Rendering nothing is the honest state, and it lasts under 100 ms.
-                const label = id === undefined ? undefined : details.get(id)?.label;
+                const label = details.get(denseOf(vertex))?.label;
                 if (!label) return null;
                 return (
                   <span
@@ -830,8 +820,8 @@ function CanvasBody() {
                       // that. Quiet is a job for size and weight, not for thinning the ink.
                       "text-foreground [text-shadow:0_0_3px_var(--background),0_0_6px_var(--background)]",
                     )}
-                    key={index}
-                    ref={labelRef(index)}
+                    key={vertex}
+                    ref={labelRef(vertex)}
                   >
                     {label}
                   </span>
@@ -1033,7 +1023,7 @@ export function GraphSelection() {
         </Badge>
         <span className="tabular-nums">
           <span className="font-medium text-foreground">
-            {selection.ids.length.toLocaleString()}
+            {selection.vertices.length.toLocaleString()}
           </span>
           {corpus === null ? " selected" : ` of ${corpus.toLocaleString()} selected`}
         </span>

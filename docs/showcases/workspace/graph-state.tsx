@@ -24,6 +24,7 @@ import {
   type Selection,
   type Sim,
   type Tool,
+  type VertexId,
 } from "@kanzo-tech/graph";
 
 /**
@@ -66,6 +67,15 @@ export { NODES, EDGE_PAIRS, EDGES };
 export interface GraphSpec {
   table: string;
   edges: string;
+  /**
+   * Which vertex type this relation is.
+   *
+   * The archive is one type and says so rather than assuming it: a `dense_id` numbers within a type,
+   * so `id` on its own names a row and not a vertex. The moment a second relation joins the canvas —
+   * which is the multi-type knowledge graph ADR-0042 puts first — the two would otherwise ship the
+   * same identities.
+   */
+  typeIndex: number;
   idField: string;
   labelField: string;
   categoryField: string;
@@ -94,6 +104,7 @@ export interface GraphSpec {
 export const ARCHIVE_SPEC: GraphSpec = {
   table: NODES,
   edges: EDGE_PAIRS,
+  typeIndex: 0,
   idField: "id",
   labelField: "label",
   categoryField: "kind",
@@ -175,6 +186,7 @@ export {
   type SelectionSource,
   type Sim,
   type Tool,
+  type VertexId,
 } from "@kanzo-tech/graph";
 
 
@@ -216,8 +228,8 @@ interface GraphViewValue {
   progress: number;
   setProgress: (value: number) => void;
   /** The clicked node, if any — the inspector reads it instead of guessing at the selection. */
-  focused: number | null;
-  setFocused: (id: number | null) => void;
+  focused: VertexId | null;
+  setFocused: (vertex: VertexId | null) => void;
   tool: Tool;
   setTool: (tool: Tool) => void;
   /** The one live selection, whoever made it. */
@@ -288,7 +300,7 @@ export function GraphMosaic({ children }: { children: ReactNode }) {
   const [motion, setMotion] = useState<Motion>("running");
   const [pinned, setPinned] = useState(0);
   const [progress, setProgress] = useState(0);
-  const [focused, setFocused] = useState<number | null>(null);
+  const [focused, setFocused] = useState<VertexId | null>(null);
   const [tool, setTool] = useState<Tool>(null);
   const [selection, select] = useState<Selection | null>(null);
   const [corpus, setCorpus] = useState<number | null>(null);
@@ -318,7 +330,7 @@ export function GraphMosaic({ children }: { children: ReactNode }) {
       resume: () => commandsRef.current?.resume(),
       restart: () => commandsRef.current?.restart(),
       unpin: () => commandsRef.current?.unpin(),
-      reveal: (id) => commandsRef.current?.reveal(id),
+      reveal: (vertex) => commandsRef.current?.reveal(vertex),
       frameSelection: () => commandsRef.current?.frameSelection(),
       clear: () => commandsRef.current?.clear(),
     }),

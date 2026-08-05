@@ -51,6 +51,24 @@ A host that already holds its arrays wraps them in `memorySource(...)` instead �
 database. Under `limit` either source is asked once for everything and never again, so a graph that
 fits pays for nothing.
 
+**A point is addressed by index and identified by pair.** cosmos.gl numbers points by their position
+in the arrays it was last handed, so index 7 is whatever the current answer put seventh — and an
+answer that comes and goes reuses every index while the vertices behind them change. A vertex is
+therefore `vertexId(type, dense)`: the pair, because `dense_id` numbers *within one vertex type*, so
+a union of two types repeats every value and a `LIMIT` breaks the correspondence with position
+regardless. Everything that outlives one answer — a selection, a label, a hover, a pin — is held as a
+`VertexId` and resolved through the `Resident` that `useBoundedGraph` rebuilds per answer.
+
+```ts
+const { resident } = useBoundedGraph({ source, graphRef, hostRef });
+graph.setConfigPartial({ highlightedPointIndices: resident.indicesOf(selection.vertices) });
+```
+
+Do not build a second map. `resident` is a function of the current answer and nothing else, so a copy
+assembled beside it is the same value one render later, with no way to notice it has fallen behind
+the buffers on screen. `denseOf(vertex)` is the way back down to SQL, where a clause is `id IN (…)`
+over one relation and the type is what the table already is.
+
 **There is no `load()`.** It read the whole relation into memory — every id, every row, an id→index
 map — and that made the working set N, so the ceiling was whatever N the machine could hold: 1,225 ms
 of first paint at 200,000 nodes. ADR-0001 deleted it rather than optimising it. Two consequences are
@@ -102,7 +120,12 @@ These are cosmos.gl behaviours that typecheck perfectly while being wrong.
   `randomSeed` and `attribution`.
 - **`getConnectedLinkIndices` is not a neighbourhood.** It returns only links whose *other* endpoint
   is also in the argument — an induced subgraph, which for a single point means its self-loops. Use
-  `neighboursOf(graph, index)`.
+  `neighboursOf(graph, index)`. It answers in **buffer indices**, like every other cosmos.gl call, so
+  its result is `resident.verticesAt(...)` away from being something you can keep.
+- **Every index cosmos.gl hands you dies with the answer.** `findPointsInRect`, `findPointsInPolygon`,
+  `onPointClick`, `onDragEnd`, `getTrackedPointPositionsMap` — all of them speak positions in the
+  current buffers, and none of them says so. Nothing raises when one is kept: it stays a valid index
+  and starts naming a different vertex.
 - **`requestAnimationFrame` never fires in a background tab**, and the simulation is driven by
   rendered frames. A backgrounded graph is stopped, not slow — and `graph.ready` has no failure
   path, so a device that cannot be created leaves the promise unsettled rather than rejecting.

@@ -4,6 +4,7 @@ import {
   type SliceRequest,
   type Viewport,
 } from "./bounded";
+import { vertexId, SUPERNODE, type VertexId } from "./resident";
 
 /**
  * The trivial source: a host that already holds its arrays.
@@ -22,8 +23,8 @@ import {
  */
 
 export interface MemoryGraph {
-  /** The source's own id per point, parallel to the position pairs. */
-  ids: Uint32Array;
+  /** Who each point is, parallel to the position pairs — `vertexId(type, dense)` per point. */
+  vertices: Float64Array;
   /** `[x0, y0, x1, y1, …]`. */
   positions: Float32Array;
   /** `[src, dst, …]` as indices into `positions`. */
@@ -36,15 +37,15 @@ export function memorySource(graph: MemoryGraph): BoundedSource {
   const count = graph.positions.length / 2;
 
   /** Built on demand — a host that only pans never asks for either of these. */
-  let byId: Map<number, number> | null = null;
+  let byVertex: Map<number, number> | null = null;
   let adjacency: number[][] | null = null;
 
-  const indexOf = (id: number): number | undefined => {
-    if (!byId) {
-      byId = new Map();
-      for (let i = 0; i < count; i++) byId.set(graph.ids[i] as number, i);
+  const indexOf = (vertex: VertexId): number | undefined => {
+    if (!byVertex) {
+      byVertex = new Map();
+      for (let i = 0; i < count; i++) byVertex.set(graph.vertices[i] as number, i);
     }
-    return byId.get(id);
+    return byVertex.get(vertex);
   };
 
   const neighbours = (index: number): number[] => {
@@ -73,12 +74,15 @@ export function memorySource(graph: MemoryGraph): BoundedSource {
     },
   };
 
-  /** Breadth-first from the seeds, `depth` hops out. Seeds are ids; everything after is an index. */
-  function expand(seeds: number[], depth: number): number[] {
+  /**
+   * Breadth-first from the seeds, `depth` hops out. Seeds are identities; everything after is a
+   * corpus index, which is this source's own numbering and not a slice's.
+   */
+  function expand(seeds: VertexId[], depth: number): number[] {
     const seen = new Set<number>();
     let frontier: number[] = [];
-    for (const id of seeds) {
-      const index = indexOf(id);
+    for (const vertex of seeds) {
+      const index = indexOf(vertex);
       if (index !== undefined && !seen.has(index)) {
         seen.add(index);
         frontier.push(index);
@@ -99,7 +103,7 @@ export function memorySource(graph: MemoryGraph): BoundedSource {
   }
 
   /** Everything the rectangle holds, plus whatever the reader is holding on to. */
-  function inside(data: MemoryGraph, view: Viewport, pinned: number[] | undefined): number[] {
+  function inside(data: MemoryGraph, view: Viewport, pinned: VertexId[] | undefined): number[] {
     const hit: number[] = [];
     for (let i = 0; i < count; i++) {
       const x = data.positions[i * 2] as number;
@@ -108,8 +112,8 @@ export function memorySource(graph: MemoryGraph): BoundedSource {
     }
     if (!pinned?.length) return hit;
     const held = new Set(hit);
-    for (const id of pinned) {
-      const index = indexOf(id);
+    for (const vertex of pinned) {
+      const index = indexOf(vertex);
       if (index !== undefined) held.add(index);
     }
     return [...held];
@@ -131,14 +135,14 @@ function gather(graph: MemoryGraph, chosen: number[], limit: number): Slice {
   // rather than a Map: the arrays are already dense and an Int32Array of N is cheaper than N boxed
   // entries, which is the whole argument of this branch in miniature.
   const local = new Int32Array(graph.positions.length / 2).fill(-1);
-  const ids = new Uint32Array(n);
+  const vertices = new Float64Array(n);
   const positions = new Float32Array(n * 2);
   const categories = new Uint16Array(n);
   const sizes = graph.sizes ? new Float32Array(n) : undefined;
   for (let i = 0; i < n; i++) {
     const from = kept[i] as number;
     local[from] = i;
-    ids[i] = graph.ids[from] as number;
+    vertices[i] = graph.vertices[from] as number;
     positions[i * 2] = graph.positions[from * 2] as number;
     positions[i * 2 + 1] = graph.positions[from * 2 + 1] as number;
     categories[i] = graph.categories?.[from] ?? 0;
@@ -153,7 +157,15 @@ function gather(graph: MemoryGraph, chosen: number[], limit: number): Slice {
     if (src >= 0 && dst >= 0) links.push(src, dst);
   }
 
-  return { mode: "detail", n: matched, ids, positions, links: Float32Array.from(links), categories, sizes };
+  return {
+    mode: "detail",
+    n: matched,
+    vertices,
+    positions,
+    links: Float32Array.from(links),
+    categories,
+    sizes,
+  };
 }
 
 /**
@@ -174,14 +186,17 @@ function aggregate(graph: MemoryGraph, limit: number): Slice {
 
   const keys = [...sums.keys()].slice(0, limit);
   const n = keys.length;
-  const ids = new Uint32Array(n);
+  const vertices = new Float64Array(n);
   const positions = new Float32Array(n * 2);
   const categories = new Uint16Array(n);
   const weights = new Float32Array(n);
   for (let i = 0; i < n; i++) {
     const key = keys[i] as number;
     const bucket = sums.get(key) as { x: number; y: number; weight: number };
-    ids[i] = key;
+    // A super-node stands for a group and is not a vertex of the corpus, so it wears the reserved
+    // type — otherwise group 3 and vertex 3 are the same identity, and a selection made zoomed out
+    // survives the zoom in pointing at three arbitrary nodes.
+    vertices[i] = vertexId(SUPERNODE, key);
     positions[i * 2] = bucket.x / bucket.weight;
     positions[i * 2 + 1] = bucket.y / bucket.weight;
     categories[i] = key;
@@ -205,7 +220,7 @@ function aggregate(graph: MemoryGraph, limit: number): Slice {
   return {
     mode: "aggregate",
     n: count,
-    ids,
+    vertices,
     positions,
     links: Float32Array.from(links),
     categories,

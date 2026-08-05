@@ -4,6 +4,7 @@ import { count, Query } from "@uwdata/mosaic-sql";
 import { fillColumn, numbers, type Coordinator } from "@kanzo-tech/ui/analytics";
 import type { BoundedSource, Slice, SliceQuery, SliceRequest } from "./bounded";
 import { onceQuery } from "./once-query";
+import { denseOf, typeOf, vertexId, SUPERNODE, type VertexId } from "./resident";
 
 /**
  * A `BoundedSource` over two ordinary relations in DuckDB.
@@ -24,6 +25,15 @@ export interface DuckSourceOptions {
   nodes: string;
   /** The edge relation, as pairs of node ids. */
   edges: string;
+  /**
+   * Which vertex type this relation is.
+   *
+   * Required, and with no default, because the source is the only thing that knows: a `dense_id`
+   * numbers within one type, so the identity a slice carries is only completed here. A corpus of one
+   * type is type `0` and has to say so — a defaulted `0` would let a second relation ship the same
+   * identities as the first with nothing raised.
+   */
+  typeIndex: number;
   /**
    * A **dense** integer id — `0..n-1`, no gaps.
    *
@@ -56,7 +66,7 @@ interface Columns {
 }
 
 export function duckBoundedSource(options: DuckSourceOptions): BoundedSource {
-  const { coordinator, edges, nodes } = options;
+  const { coordinator, edges, nodes, typeIndex } = options;
   const columns: Columns = {
     id: options.idField ?? "id",
     x: options.xField ?? "x",
@@ -90,7 +100,7 @@ export function duckBoundedSource(options: DuckSourceOptions): BoundedSource {
       }
       return query.view.zoom < lodThreshold
         ? aggregate(coordinator, nodes, edges, columns, limit)
-        : detail(coordinator, nodes, edges, columns, query.view, limit, pinned);
+        : detail(coordinator, nodes, edges, columns, query.view, limit, typeIndex, pinned);
     },
   };
 }
@@ -148,13 +158,18 @@ async function detail(
   c: Columns,
   view: Extract<SliceQuery, { kind: "region" }>["view"],
   limit: number,
-  pinned: number[] | undefined,
+  typeIndex: number,
+  pinned: VertexId[] | undefined,
 ): Promise<Slice> {
   const bbox = bboxSql(c, view);
   // A dragged node is drawn where the reader dropped it and indexed where it always was, so the
   // rectangle cannot find it. Riding along in the predicate is what keeps it on screen — and it
   // stays a predicate rather than a second query so the numbering still covers everything returned.
-  const held = pinned?.length ? ` OR ${c.id} IN (${pinned.join(",")})` : "";
+  //
+  // Only this relation's own vertices: a pinned set spans the whole canvas, and asking one node
+  // table for another type's dense ids returns the wrong rows rather than none.
+  const mine = (pinned ?? []).filter((v) => typeOf(v) === typeIndex).map(denseOf);
+  const held = mine.length > 0 ? ` OR ${c.id} IN (${mine.join(",")})` : "";
   const cte = visibleCte(nodes, c, `(${bbox})${held}`, limit);
 
   /**
@@ -185,7 +200,7 @@ async function detail(
   return {
     mode: "detail",
     n: Number(numbers(matched, "n")[0] ?? 0),
-    ...arrays(points, links, limit, c.size ? "size" : undefined),
+    ...arrays(points, links, limit, typeIndex, c.size ? "size" : undefined),
   };
 }
 
@@ -230,8 +245,10 @@ async function aggregate(
     onceQuery(coordinator, () => `SELECT count(*) AS n FROM ${nodes}`),
   ]);
 
-  const built = arrays(points, links, limit);
-  const weights = new Float32Array(built.ids.length);
+  // The reserved type, because these points are groups rather than vertices: the query numbers them
+  // `0..k` and leaving them in the corpus' own type makes group 3 and vertex 3 one identity.
+  const built = arrays(points, links, limit, SUPERNODE);
+  const weights = new Float32Array(built.vertices.length);
   fillColumn(points, "weight", weights);
   return { mode: "aggregate", n: Number(numbers(matched, "n")[0] ?? 0), ...built, weights };
 }
@@ -249,14 +266,18 @@ function arrays(
   points: unknown,
   links: unknown,
   limit: number,
+  typeIndex: number,
   sizeField?: string,
 ): Omit<Slice, "mode" | "n" | "weights"> {
   const positions = new Float32Array(limit * 2);
   const n = fillColumn(points, "x", positions, 0, 2);
   fillColumn(points, "y", positions, 1, 2);
 
-  const ids = new Uint32Array(n);
-  fillColumn(points, "id", ids);
+  // The dense ids land first and are then completed into identities in place — one pass over at most
+  // `limit` values, against a second buffer and a second copy.
+  const vertices = new Float64Array(n);
+  fillColumn(points, "id", vertices);
+  for (let i = 0; i < n; i++) vertices[i] = vertexId(typeIndex, vertices[i] as number);
   const categories = new Uint16Array(n);
   fillColumn(points, "category", categories);
 
@@ -273,7 +294,7 @@ function arrays(
   fillColumn(links, "dst", edges, 1, 2);
 
   return {
-    ids,
+    vertices,
     positions: positions.subarray(0, n * 2),
     links: edges.subarray(0, wrote * 2),
     categories,
