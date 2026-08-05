@@ -6,9 +6,9 @@ measurement from one side to answer a design question on the other. Items are ta
 **canvas** by where the code lives, and the tag is *not* a sequence — the point of writing them
 together is that most of them run at the same time.
 
-Measured 2026-08-04. Numbers here are from `BENCHMARKS.md`; if the two disagree, that file wins.
+Measured 2026-08-05. Numbers here are from `BENCHMARKS.md`; if the two disagree, that file wins.
 
-## Settled today, and worth not re-deriving
+## Settled earlier, and worth not re-deriving
 
 **Vertex over-read is exactly 1.0000×** at 200k, 1M, 5M and 10M. Not "near zero" — a 20,000-vertex
 window covers exactly 20,000 ids, every window, every size.
@@ -31,17 +31,53 @@ O(√n) segments; that is the whole mechanism.
 **Writing ten million peaks at 16.4 GiB** for a 713 MB corpus, 262.6 s. Twenty-three times the
 output, resident.
 
-## Open — and the one that blocks a design decision
+## Settled 2026-08-05 — the one that blocked tile sizing
 
-### 1. Requests and bytes per pan — **canvas**, blocks tile sizing
+### 1. Requests and bytes per pan — **canvas**, measured; the emitter is unblocked
 
-The number that justifies tiles over range requests into one file, and it has never been measured.
-169 ranges per window is 169 HTTP requests unless something coalesces them; multipart range replies
-are barely supported, so a tile is really *a pre-coalesced run set* and its size is an arithmetic
-problem, not a taste one. `measure-pan.mjs` already pans; it reports chunks and rows, and needs
-requests and bytes.
+`corpus/measure-requests.mjs` serves the corpus over a plain HTTP origin, logs every request the
+server answers, and runs `detail()` verbatim. Full numbers and caveats in `BENCHMARKS.md`.
 
-Until this lands, **do not write the tile emitter** — its unit is exactly what this decides.
+**Arriving at a window costs 17 / 55 / 208 / 376 requests and 2.4 / 5.4 / 12.1 / 13.1 MB** at 200k /
+1M / 5M / 10M, against an ideal payload that is **flat at 0.6–0.9 MB**. Over-read peaks at 18.9× at
+five million.
+
+**The fear was the wrong one.** 169 ranges per window is not what the reader issues. It issues
+`3·chunks + 1` HEADs and one 16,384-byte footer read per chunk *in the corpus*, needed or not — the
+law holds exactly at every size (7, 28, 124, 247 for 2, 9, 41, 82 chunks). **Request count is linear
+in N and it is all metadata**; at ten million, 85 of ~129 body-carrying requests per window are
+footers of chunks the window never touches, and a cached drag step still costs 247 requests to
+transfer zero bytes.
+
+**The tile size, measured both curves.** Tiles touched is exact from the window's ids; the cost of a
+tile is measured by writing real ones. At five million, with vertex tiles carrying only the drawing
+columns and edge tiles keyed by source range:
+
+| T | requests | bytes | vs ideal |
+|---|---|---|---|
+| 1,024 | 178 | 1.11 MB | 1.73× |
+| 4,096 | **78** | 1.48 MB | 2.31× |
+| 8,192 | 47 | 1.89 MB | 2.95× |
+| 32,768 | 25 | 4.61 MB | 7.20× |
+| 122,880 (today's chunk) | 35 | 11.73 MB | 18.3× |
+| today, as the corpus stands | 208 | 12.12 MB | 18.9× |
+
+**122,880 is Pareto-dominated by 32,768** — more requests *and* four times the bytes, because a
+122,880-row edge tile spans several row groups and costs 9.4 requests. Every size in the table beats
+the corpus as it stands on both axes.
+
+**Bytes bottom out at 1,024–2,048 and requests fall monotonically, so the curves have no common
+optimum.** The choice is `λ·β`, the bytes a link moves in one request's latency: serial → 32,768;
+six in flight → 8,192; fully multiplexed → **4,096**. A tile reader computes every URL before it
+issues the first, which is the whole content of *addressed, not queried*, so **4,096 rows** is the
+unit — and the byte curve is flat from 1,024 to 8,192, so the emitter must not be tuned inside that
+band.
+
+**One free finding for item 5:** a tile carrying only `dense_id, x, y, community` costs 3 requests
+and 36.0 kB against 4 requests and 37.0 kB (of 68.8 kB stored) for the full six columns. Same bytes
+on the wire, one less round trip, half the storage. The properties want a sidecar.
+
+## Open
 
 ### 2. Rewrite ADR-0042 §3 — **canvas**, unblocked, cheap
 
@@ -54,7 +90,10 @@ on paper:
   different placements. CSR is what the measurements describe — reading the window's runs yields
   every drawable edge with 1.1–1.3× over-read and no second fetch. LCA pushes cross-community edges
   up and makes the root accumulate a set that grows with N, which is the non-flat term reappearing.
-- **What a tile is**, given the above and item 1.
+- **What a tile is.** Item 1 now fixes the unit — a `dense_id` range of **4,096 rows**, vertices and
+  edges keyed by the same range — so what is left on paper is the tree above it and whether there is
+  one at all. Note that the measurement also removes the last argument for `chunk_size` 122,880: it
+  is dominated by 32,768 on requests *and* bytes.
 
 ### 3. Selection and overlays by identity — **canvas**, unblocked, do early
 
@@ -131,12 +170,16 @@ now be given a budget it will honour**. Still owed on the fossil side: the budge
 rather than an environment variable, a test that demands a spill, and the three seams above —
 `to_files` as an iterator is the cheap one, ADR-0043 stages 1 and 6 are the other two.
 
-### 5. The tile payload format — **fossil** ✕ **canvas**, blocked by 1 and 2
+### 5. The tile payload format — **fossil** ✕ **canvas**, blocked by 2 only
 
 Unstated in the ADR and it decides whether "addressing" removes work or moves it. §1 says no DuckDB
 in the drawing path and §3 says `x`/`y` upload to the GPU untransformed — Parquet gives neither
 without a decoder (dictionary, RLE, snappy, page headers). Arrow IPC buffers are already contiguous
 typed arrays. Parquet stays the corpus and interchange format; the *tile* is a separate decision.
+
+Item 1 measured one edge of it: a Parquet tile costs **3 requests** — HEAD, footer, one coalesced
+data range — and that number is a property of the format, not of the tile size. A format needing no
+footer would make it one, which is a third of the request curve above gone before any size is chosen.
 
 ### 6. Three demos — **fossil** ✕ **canvas**, in this order
 

@@ -683,9 +683,145 @@ Morton-adjacent — at which point the tile is a Morton range, which is exactly 
 
 **What is still open.** This does not say the hierarchy is useless — it says the hierarchy is not
 what makes a window cheap to *fetch*. Whether it is what makes a zoomed-out view mean anything is a
-different question and is unmeasured. And the number that decides tile size is still missing:
-**requests and bytes per pan**, because 169 ranges per window is 169 requests unless something
-coalesces them.
+different question and is unmeasured.
+
+## Requests and bytes per pan — and the request count is the term that follows N
+
+Measured 2026-08-05 by `corpus/measure-requests.mjs`. The corpus is served over a **plain HTTP
+origin** — single range, no directory listing, no coalescing proxy, which is what a bucket or a CDN
+looks like from the reader's side — and the server that answers logs every request it writes. The
+reader is `duck-source.ts`'s `detail()` verbatim: two Parquet **views**, then points, links and
+matched per step, over the chunk list derived from the vertex count. Six drag steps, window sized by
+rank at 20,000 vertices and then held fixed.
+
+Bytes are priced over the **projected** columns, out of the footers: 8.9–9.4 B per vertex row for
+`dense_id, x, y, community` and 3.5 B per edge row. Not file size over rows — `subject` is 45% of a
+vertex chunk and no drawing query names it, so pricing that way would inflate the ideal payload by
+nearly two and flatter every ratio computed against it.
+
+**Arriving at a window, nothing cached** — a deep link, a reload, a jump. Mean of six windows:
+
+| N | vertex chunks | requests | of which HEAD | bytes | ideal | over-read |
+|---|---|---|---|---|---|---|
+| 200k | 2 | 17.0 | 7 | 2.39 MB | 0.93 MB | 2.6× |
+| 1M | 9 | 55.0 | 28 | 5.35 MB | 0.70 MB | 7.7× |
+| 5M | 41 | 208.3 | 124 | 12.12 MB | 0.64 MB | **18.9×** |
+| 10M | 82 | 375.7 | 247 | 13.05 MB | 0.92 MB | 14.2× |
+
+*Ideal* is the payload a reader that could address `dense_id` runs exactly would move: the covered
+vertex rows plus every edge whose source is in those runs. It is **flat in N at 0.6–0.9 MB**, which
+is the same claim the run table above makes in rows, now in bytes. What is not flat is the traffic
+that fetches it.
+
+**The request count is metadata, and it is linear in the corpus.** The HEAD column is exactly
+`3·chunks + 1` at every size — 7, 28, 124, 247 for 2, 9, 41, 82 chunks — because DuckDB revalidates
+every file in the list once per query and there are three queries in a slice. Probed on one bbox
+query over the million-node corpus, the whole shape falls out: **20 requests for 9 chunks**, being
+one HEAD and one 16,384-byte footer read for each of the nine, plus a second HEAD and one data range
+on the single chunk that actually intersected the rectangle.
+
+    HEAD chunk0 · GET chunk0 bytes=…  16,384      ← footer, every chunk
+    HEAD chunk1 · GET chunk1 bytes=…  16,384
+    …
+    HEAD chunk0 · GET chunk0 bytes=… 684,109      ← data, the one chunk that matched
+
+So a window costs **~4 requests per chunk in the corpus** and a bounded number for the chunk it
+wants. 169 ranges per window was the wrong thing to be afraid of: the reader never issues 169
+ranges, it issues 376 requests, most of them about files it will not read. At ten million, 85 of the
+~129 body-carrying requests in a window are 16,384-byte footer reads — 1.3 MB of the 13.05 —
+almost all of them for chunks the window does not touch.
+
+**A drag is cheaper in bytes and barely cheaper in requests**, for the same reason — one session,
+caches carried across the six steps:
+
+| N | drag, per step | vs arriving cold | bytes per step | vs cold |
+|---|---|---|---|---|
+| 200k | 10.3 requests | 17.0 | 0.74 MB | 2.39 |
+| 1M | 37.2 | 55.0 | 1.92 | 5.35 |
+| 5M | 143.8 | 208.3 | 3.31 | 12.12 |
+| 10M | 287.2 | 375.7 | 6.16 | 13.05 |
+
+Two of the six steps at ten million transfer **zero bytes** and still cost 247 requests each. A
+cache answers the payload; nothing answers the metadata.
+
+**The over-read ratios in rows are unchanged and are the check on all of this.** Every window, every
+size: vertex `covered / wanted` = **1.0000×**, and edge `fetched / visible` is 1.06–1.17× over
+these six windows, inside the 1.08–1.64× `measure-runs.mjs` reports over twenty. The
+five-million step 0 reproduces the recorded window to the row — 179 runs, 20,007 ids, 130,516 edges
+— which is what says the harness is panning across the corpus this file has been describing and not
+some other one.
+
+Below 200,000 there is no pan to measure. A 20,000-vertex window is most of a 50,000-vertex corpus,
+so the walk leaves it after two steps, and the reader does not slice a corpus that fits either.
+Measured with the window scaled down to N/8 they cost 7.0, 9.0 and 9.5 requests at 2k, 10k and 50k,
+which is the floor: one file, opened.
+
+### What tile size the arithmetic actually picks
+
+A tile is a pre-coalesced run set, so its size is arithmetic over two measured curves. **Tiles
+touched is exact** — a tile of `T` rows is the `dense_id` range `[i·T, (i+1)·T)`, so the set a window
+touches is `count(DISTINCT node // T)` over the window's own ids and no file has to exist to count
+it. **The cost of one tile is measured**, by writing real tiles at each size and reading them back
+over the same origin with the same projection.
+
+At five million, mean over the pan — vertex tiles carrying only the four drawing columns, edge tiles
+keyed by source range, both measured:
+
+| T | tiles | vertex tile | edge tile | requests | bytes | vs ideal | kB per request saved |
+|---|---|---|---|---|---|---|---|
+| 1,024 | 35.5 | 10.8 kB · 2 req | 21.2 kB · 3 req | 178 | **1.11 MB** | 1.73× | — |
+| 2,048 | 21.2 | 19.0 · 3 | 38.6 · 3 | 127 | 1.19 MB | 1.86× | 1.7 |
+| 4,096 | 13.0 | 36.0 · 3 | 80.7 · 3 | **78** | 1.48 MB | 2.31× | 6.0 |
+| 8,192 | 7.8 | 71.1 · 3 | 176.7 · 3 | 47 | 1.89 MB | 2.95× | 13.3 |
+| 32,768 | 3.5 | 283.0 · 3 | 1,065.7 · 4 | **25** | 4.61 MB | 7.20× | 125 |
+| 122,880 | 2.8 | 1,132.0 · 3 | 3,156.0 · 9.4 | 35 | 11.73 MB | 18.3× | dominated |
+| today | — | — | — | 208 | 12.12 MB | 18.9× | — |
+
+**Today's 122,880 is Pareto-dominated by 32,768** — more requests *and* four times the bytes — and it
+is the only pair in the table that is. A 122,880-row edge tile is 830,512 rows and spans several
+Parquet row groups, so DuckDB issues 9.4 requests for it against 4 for the 32,768 tile. Every tile
+size in this table beats the corpus as it stands on both axes at once.
+
+**Bytes bottom out at 1,024–2,048 rows and rise from there; requests fall monotonically.** The two
+curves have no common optimum, so the last column is the exchange rate: what one saved request
+costs in extra traffic. Compare it against `λ·β`, the bytes a link moves in one request's latency:
+
+- **serial requests**, 30 ms RTT on 100 Mbit → λ·β ≈ 375 kB → take **32,768** (125 < 375, and 122,880
+  is dominated).
+- **six in flight**, HTTP/1.1 in a browser → λ·β ≈ 62 kB → take **8,192**.
+- **fully multiplexed**, HTTP/2 with every address known before asking → λ·β ≈ 12 kB → take **4,096**.
+
+**So the data does not decide it on its own; the transport does — and the transport is ours.** The
+whole point of ADR-0042's *addressed, not queried* is that a tile reader computes every URL it needs
+before it issues the first one, so the requests go out together and latency stops multiplying. Under
+that assumption the answer is **4,096 rows**: 78 requests and 1.48 MB at five million against today's
+208 and 12.12 MB, at 2.31× the run-addressed ideal. The byte curve is flat-bottomed from 1,024 to
+8,192 — 1.11 to 1.89 MB — so the choice *inside* that band is not load-bearing and the emitter should
+not be tuned within it.
+
+**The tile should carry only what the drawing path reads.** Measured at five million, a tile with all
+six vertex columns costs 4 requests and 37.0 kB fetched of 68.8 kB stored; the same rows with
+`dense_id, x, y, community` alone cost **3 requests and 36.0 kB of 36.0 kB**. Same bytes on the wire,
+one less round trip, half the storage — because the projected columns become adjacent and DuckDB
+coalesces them into one range instead of reading around `subject`. That is an argument for a sidecar
+for the properties, and it is the cheapest half of the payload-format question the roadmap asks next.
+
+### What this cannot prove
+
+- **It is DuckDB's httpfs from the CLI, not DuckDB-WASM in a browser.** The same extension and the
+  same read pattern, but the browser adds an HTTP cache the CLI has not got and a different
+  concurrency model. The per-file `3·chunks + 1` law should hold; it is unverified there.
+- **Latency and bandwidth are not measured.** Localhost has neither. The three crossover points above
+  are arithmetic over assumed λ and β, and the only measured inputs are the request and byte counts.
+- **Nothing here measures how a reader learns which tiles it needs.** These figures are for a reader
+  that already knows. The address arithmetic — a bbox to a set of Morton ranges — is unbuilt, and
+  whether it costs a request of its own is not in this table.
+- **Six windows per size, one corpus family.** The per-window spread of runs is wide (47 to 471 at
+  ten million), and tiles-touched inherits it.
+- **These are Parquet tiles.** A format that needs no footer would change both columns, which is
+  exactly what makes the payload format a separate decision and not a detail of this one.
+- **No time is measured here at all** — only traffic. A pan that moves fewer bytes in more requests
+  can still be slower, and the milliseconds live in the tables above this one.
 
 ## The last harness run, verbatim
 
