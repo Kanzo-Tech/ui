@@ -118,9 +118,18 @@ give anything back; a sort-merge join can. With both, ten million peaks at **9.8
 for 13% of the clock, and writes a byte-identical corpus** (87 files, every md5 equal). Full numbers
 in `BENCHMARKS.md`; the decision is rmlext ADR-0043 stage 4.
 
-**What this leaves**: larger-than-RAM stops being impossible by construction on the write path, so
-item 6.3 is now testable rather than blocked. What is still owed on the fossil side is the budget as
-a `run` input rather than an environment variable, and a test that demands a spill.
+**What this leaves — and it is less than it sounds.** The same budget at 1M and 10M peaks at 2.43
+and 9.87 GiB: ten times the corpus, four times the peak, with the retained Arrow exactly linear
+(0.16 → 1.64 GiB). The pool caps the executor and nothing else, and three terms outside it grow with
+N — `GraphArData` holding every batch before a byte is written, `to_files()` encoding every Parquet
+before touching disk, and the layout pass reading the whole edge list into a `Vec`. All three are the
+same shape: a stage boundary that is a whole value rather than a stream. The engine streams; our
+seams collect.
+
+So item 6.3 is testable rather than blocked, but the honest claim is only that **the write path can
+now be given a budget it will honour**. Still owed on the fossil side: the budget as a `run` input
+rather than an environment variable, a test that demands a spill, and the three seams above —
+`to_files` as an iterator is the cheap one, ADR-0043 stages 1 and 6 are the other two.
 
 ### 5. The tile payload format — **fossil** ✕ **canvas**, blocked by 1 and 2
 

@@ -627,6 +627,34 @@ by 2.3 GiB. Under the budget they converge — 9.87 GiB by both the probe's peak
 RSS. A figure that moves between identical runs is measuring the allocator as much as the program,
 which is its own argument for bounding it.
 
+### But a bounded executor is not larger-than-RAM: the writer still grows with N
+
+The same 4 GiB budget at both sizes, so the only variable is the corpus:
+
+| under a 4 GiB budget | 1M | 10M | ratio |
+|---|---|---|---|
+| retained in Arrow | 0.16 GiB | 1.64 GiB | **10.3×** |
+| RSS after `execute_graph` | 2.02 GiB | 5.56 GiB | 2.8× |
+| RSS entering `enrich_layout` | 2.13 GiB | 6.82 GiB | 3.2× |
+| process peak | 2.43 GiB | 9.87 GiB | **4.1×** |
+| wall clock | 17.8 s | 290.9 s | 16.3× |
+
+Ten times the corpus, four times the peak. The pool caps the executor and nothing else, and **three
+terms outside it are unbounded in N** — the retained Arrow exactly so, 10.3× for 10×.
+
+They are all ours, and all the same shape: a stage boundary that is a whole value rather than a
+stream. `GraphArData` holds every batch before a byte is written; `to_files()` encodes every Parquet
+file before touching disk (+0.58 GiB at ten million); and the layout pass reads the whole edge list
+into a `Vec` while Louvain holds O(n) state (+2.22 GiB). The engine streams — DataFusion hands
+batches out lazily — and our seams collect. That is a property of the seams we wrote, not of the
+executor, and it is the same finding rmlext ADR-0043 reached one floor down when `query_map` turned
+out to materialise while `stream_arrow` is genuinely lazy.
+
+So the claim that survives today is narrower than "larger-than-RAM works": **the write path can now
+be given a memory budget it will honour**, which it could not before. Whether a corpus larger than
+the machine can actually be written is untested, and on these numbers the answer at 100M would be
+no.
+
 ### But the explanation in the ADR is wrong, and §3 rests on it
 
 ADR-0042 says *"la maquetación es grumosa, una comunidad es un disco compacto y una ventana contiene
