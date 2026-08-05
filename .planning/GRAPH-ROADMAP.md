@@ -15,7 +15,9 @@ window covers exactly 20,000 ids, every window, every size.
 
 **Edges fetched per window is flat:** 135–145k across fifty times the corpus. This is the term that
 dominates the scan, and it does not follow N. The reduction against the whole edge table is 9.8× at
-200k and 482.7× at 10M, which grows only because the denominator does.
+200k and 482.7× at 10M, which grows only because the denominator does. **Flat is the claim; 135–145k
+is not** — the knowledge-graph family (item 6.1) is flat at 53–86k, because the magnitude is the
+corpus's mean degree.
 
 **Run count is bounded but not proven flat:** 176 / 184 / 262 at 1M / 5M / 10M, twenty windows. Four
 points cannot separate growth from the corpus family's own uneven density — the layout's width goes
@@ -197,11 +199,45 @@ footer would make it one, which is a third of the request curve above gone befor
 
 ### 6. Three demos — **fossil** ✕ **canvas**, in this order
 
-From ADR-0042, unchanged except that #3 has started:
+From ADR-0042. #1 is measured, #3 has started:
 
-1. **Knowledge graph**, first, because it can invalidate the design before anything is built on it.
-   Everything measured so far is one vertex type and one edge type; `place_after` has never been
-   exercised at scale and cross-type edges are excluded from layout by construction.
+1. **Knowledge graph** — **done 2026-08-05, and it refutes something.** `kg.fossil` +
+   `corpus/build-kg-corpus.mjs`: four vertex types, five edge types, three of them crossing types,
+   at 200k / 1M / 5M total vertices, written by fossil at rmlext `995bdad` (the tip, `8484b7e`, does
+   not compile). Full numbers in `BENCHMARKS.md`.
+
+   **Three of the four claims transfer.** Vertex over-read is **1.0000×** at every size and both
+   large types; runs stay in the low hundreds (148–201 against the single-type family's 142–248);
+   edges fetched per window is flat in N. The 135–145k figure itself does not transfer and should
+   not be quoted as one — this family fetches 53–86k for the same 20,000-vertex window because its
+   self-edges are sparser. Flatness is the claim; the magnitude is a generator parameter.
+
+   **What is refuted: a cross-type edge is never drawable from a window.** Of 240,000 cross-type
+   edges leaving the windows, **0 land inside — 0.00%, every size, every window** — against 91% for
+   self-edges. The median cross-type edge at five million is 2.3M–3.4M long against a self-edge's
+   95–130, which is half to three quarters of the whole layout and **thirty window-widths**. The
+   corpus was generated with communities aligned across types, so this is `place_after` and not the
+   data: cross-type adjacencies are filtered out of the layout's input by `self_edge_csr`, and each
+   type is then slid clear of the last. Drawing "the papers by this author" is a second window in
+   another type's `dense_id` space, half a corpus away.
+
+   **`place_after` wastes 6.6 / 9.5 / 17.0% of the bounding box** at 200k / 1M / 5M, and it is not
+   the 200-unit gutter — it is the aspect mismatch of putting blocks of different heights in a row.
+   Nothing bounds it, and it grows with N. A window sized by rank centred on a small type opens
+   **4.5× as wide**, swallows both small types whole and fills the rest with a type it has no edge to.
+
+   **The tile unit holds at 4,096** — 16.2 tiles touched at five million against the single-type
+   corpus's 13.0, same monotone request curve, same flat-bottomed byte curve. What changes is that a
+   tile is per *(type, relation)*; that `Venue` (1,665 rows) and `Topic` (3,330) are **smaller than
+   one tile**, so address arithmetic assuming a type has more than one is wrong on half the types;
+   and that the `3·files + 1` metadata law now counts 16 files at KG-1M against 10 for a single-type
+   million, three of whose relations return nothing a window can draw.
+
+   **Left open by it:** whether the layout should take cross-type edges as input at all (the
+   `.planning/W3-LAYOUT-PLAN.md` §5 slice), and what a reader that opens every type at once costs —
+   the 16-file figure is arithmetic over the manifest, not a measured union query. Nothing here is
+   timed.
+
 2. **Map with lat/lon**, which forces given positions to be the normal branch and checks that the
    tile tree comes out the same over given positions as over computed ones.
 3. **Larger-than-RAM** — item 4 is its first measurement.
@@ -212,6 +248,16 @@ From ADR-0042, unchanged except that #3 has started:
 no sources, and `members = ["crates/*"]` picks it up, so `cargo build` fails outright for anyone.
 Set aside to build on 2026-08-04 and restored untouched. Somebody has to say whether it is debris or
 a crate in flight.
+
+**The tip does not compile, and a corpus build is how you find out** — **fossil**. rmlext `8484b7e`
+leaves `pub mod lineage;` in `fossil-ide/src/lib.rs` for a file `dfd46fe` moved to `fossil-registry`,
+so `cargo build -p fossil-cli` fails outright. Item 6.1 was built from `995bdad` instead, whose
+`layout.rs` and `fossil-engine` are identical.
+
+**`in` and `on` are keywords and the error blames a column** — **fossil**. `kg:in = …` passes
+`fossil check` and dies in `fossil run` with a DataFusion `Projections require unique expression
+names` error naming `community`, which is not involved. Four bisections to find; renaming the
+property is the whole fix.
 
 **The built binary falls behind in silence** — **fossil** or **canvas**, either end. A corpus built
 on 2026-08-04 came out unordered because `target/release/fossil` was from 1 August and the Morton

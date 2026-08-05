@@ -31,7 +31,15 @@
  * centres drawn by `subject` rank — so the two files are talking about the same rectangle. See that
  * file for why the centres are chosen by IRI and not by `dense_id`.
  *
+ * **One type at a time, named rather than assumed.** `dense_id` is per vertex type, so runs are a
+ * property of one type's numbering and mean nothing across two — a window spanning `Paper` and
+ * `Author` costs two run sets, not one longer one. `--type` and `--edge` exist so the multi-type
+ * corpus can be asked the same questions this file has always asked; they default to the single-type
+ * corpus's `Node` / `Node_linksTo_Node`, so every recorded number here reproduces with no flags.
+ * `measure-types.mjs` is the one that looks at all the types at once.
+ *
  * Usage:  node measure-runs.mjs [--size 5000000] [--k 20000] [--windows 5] [--corpus <dir>]
+ *                               [--type Node] [--edge Node_linksTo_Node]
  */
 
 import { execFileSync } from "node:child_process";
@@ -56,10 +64,12 @@ const corpus = resolve(arg("corpus", join(PUBLIC, String(size))));
 // `vertex/Node/chunk{k}.parquet` tree, and a single `vertex/Node.parquet`. The question here is
 // about `dense_id` contiguity, which is a property of the ordering and not of the file split, so
 // either is read the same way.
-const chunkDir = join(corpus, "vertex/Node");
-const singleFile = join(corpus, "vertex/Node.parquet");
+const type = arg("type", "Node");
+const relation = arg("edge", `${type}_linksTo_${type}`);
+const chunkDir = join(corpus, "vertex", type);
+const singleFile = join(corpus, `vertex/${type}.parquet`);
 const vertices = existsSync(chunkDir) ? `${chunkDir}/*.parquet` : singleFile;
-const edges = join(corpus, "edge/Node_linksTo_Node/by_source.parquet");
+const edges = join(corpus, "edge", relation, "by_source.parquet");
 for (const file of [existsSync(chunkDir) ? chunkDir : singleFile, edges]) {
   if (!existsSync(file)) {
     console.error(`missing ${file}\nBuild it first:  node build-corpus.mjs --sizes ${size}`);

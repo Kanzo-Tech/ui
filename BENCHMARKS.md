@@ -823,6 +823,190 @@ for the properties, and it is the cheapest half of the payload-format question t
 - **No time is measured here at all** — only traffic. A pan that moves fewer bytes in more requests
   can still be slower, and the milliseconds live in the tables above this one.
 
+## A knowledge graph, and what several vertex types cost
+
+Everything above this line is **one vertex type and one edge type**: a hyperbolic random graph,
+`bench.fossil`, `Node` and `linksTo`. The flat 135–145k edges per window, the 1.0000× vertex
+over-read, the 169 runs, the 4,096-row tile — one corpus family, all of it. `place_after` has never
+been exercised and cross-type edges have never existed, so nothing above knows whether it is
+describing the architecture or describing that family.
+
+`kg.fossil` and `corpus/build-kg-corpus.mjs` are the second family, written by the same writer.
+Four vertex types — `Paper`, `Author`, `Venue`, `Topic` — and five edge types, three of which cross
+types. `Paper` and `Author` have a self-edge each (`cites`, `coauthoredWith`); `Venue` and `Topic`
+have none, which is the case where the layout has no topology and every vertex becomes its own
+community. The cross-type edges are **community-aligned on purpose**: a paper draws its authors,
+venue and topics from the band of the other type matching its own community, which is the friendliest
+input a layout could be given. Built with fossil at rmlext **`995bdad`**, rebuilt into a scratch
+target — `8484b7e`, the tip at the time, does not compile (`fossil-ide/src/lib.rs` declares
+`pub mod lineage;` for a file `dfd46fe` moved to `fossil-registry`), and 995bdad's `layout.rs` and
+`fossil-engine` are byte-identical to it.
+
+Sizes are total vertices, so 1M here and 1M above are the same corpus size: 666,001 papers, 333,001
+authors, 333 venues, 666 topics. Five million costs 82.9 s of `fossil run` for 38.2M edges and 430 MB
+on disk.
+
+### What survives, unchanged
+
+| | 200k | 1M | 5M | single-type, for comparison |
+|---|---|---|---|---|
+| `Paper` mean runs | 153.6 | 166.8 | 200.8 | 170 / 142 / 169 / 248 |
+| `Author` mean runs | 161.2 | 155.6 | 148.4 | — |
+| vertex over-read, both types | **1.0000×** | **1.0000×** | **1.0000×** | 1.0000× |
+| `Paper` edges fetched | 86,408 | 71,411 | 75,295 | 139,970 / 160,775 / 129,466 |
+| `Author` edges fetched | 64,650 | 57,346 | 53,585 | — |
+
+`corpus/measure-runs.mjs`, five windows of 20,000 vertices sized by rank, unchanged except that
+`--type` and `--edge` now name the type instead of hard-coding `Node` — `dense_id` is per type, so a
+run is a property of one type's numbering and means nothing across two. With no flags every recorded
+number above reproduces.
+
+**Over-read is still exactly 1.0000×, runs still sit in the low hundreds, and edges fetched is still
+flat in N.** Three of the four claims transfer to a corpus family that shares nothing with the one
+they were measured on.
+
+**The 135–145k is not a law, though — it is this corpus's degree.** The knowledge graph fetches
+53–86k for the same 20,000-vertex window because its self-edges are sparser (mean degree 8 and 6
+against 14). What is a claim about the architecture is that the number does not follow N; the
+magnitude belongs to the corpus, and quoting 135–145k as a property of the design would be quoting a
+generator parameter.
+
+### What does not survive: cross-type edges are never drawable
+
+`corpus/measure-types.mjs`, two window centres drawn **per type** so the small types are looked at
+even though they are a thousandth of the corpus. Of every edge leaving a window's vertices, how many
+land back inside it:
+
+| | self edges inside | cross-type edges inside |
+|---|---|---|
+| 200k | 512,367 / 558,224 — **91.8%** | 0 / 240,000 — **0.00%** |
+| 1M | 330,138 / 363,379 — **90.9%** | 0 / 240,000 — **0.00%** |
+| 5M | 265,546 / 290,067 — **91.6%** | 0 / 240,000 — **0.00%** |
+
+**Zero. Not low — zero, at every size, over every window.** A window that holds a paper never holds
+one single author, venue or topic that paper points at.
+
+The lengths say why, in the layout's own units:
+
+| 5M | median length | p90 | as a fraction of the union's 4,524,856 width |
+|---|---|---|---|
+| `Paper_cites_Paper` (self) | 130 | 67,902 | 0.003% |
+| `Author_coauthoredWith_Author` (self) | 95 | 23,632 | 0.002% |
+| `Paper_authoredBy_Author` (**cross**) | 2,314,575 | 3,289,940 | **51%** |
+| `Paper_publishedIn_Venue` (**cross**) | 3,401,525 | 4,379,704 | **75%** |
+| `Paper_hasTopic_Topic` (**cross**) | 3,408,946 | 4,387,258 | **75%** |
+
+A cross-type edge is **~26,000× the median self-edge** and spans half to three quarters of the entire
+layout. A 20,000-vertex window at five million is 76,571 half-width, so the median cross-type edge is
+**thirty window-widths long**. This is not a tail: the *minimum* possible cross-type length is the
+gap between two type blocks, so every one of them is long by construction.
+
+**And the corpus was built to make this as easy as possible.** The generator aligns communities
+across types, so the endpoints of every cross-type edge are semantically as close as a generator can
+put them. The distance is entirely `place_after`: `VertexLayoutTarget::self_edge_csr` filters
+adjacencies to `src_type == dst_type`, so the three cross relations are not in the layout's input at
+all, and `place_after` then slides each type clear of the last with a 200-unit gutter. The doc comment
+on it is honest about the trade — *"separated is wrong in a way a reader can see and reason about;
+overlapped is wrong in a way that looks like data"* — and it is the right call. It is also, measured,
+a graph in which **no cross-type edge can ever be drawn from a window**, which the design had not
+said out loud.
+
+**So drawing a neighbourhood is not one fetch.** "The papers by this author" is a second window, at a
+distance of half the corpus, in another type's `dense_id` space and another set of files. Everything
+above about a window being a bounded, contiguous, addressable thing is true *per type*, and says
+nothing about the join between two.
+
+### `place_after` wastes a sixth of the space, and it is not the gutter
+
+The 200-unit `TYPE_GUTTER` is a rounding error. What costs is that each type is laid out into its own
+Morton grid of clusters, of its own aspect, and the blocks are then put in a **row**:
+
+| | union bbox | Σ of the types' own bboxes | empty |
+|---|---|---|---|
+| 200k | 33,433,403,392 | 31,224,725,776 | **6.6%** |
+| 1M | 573,398,056,960 | 519,055,289,504 | **9.5%** |
+| 5M | 6,818,307,768,320 | 5,658,051,423,648 | **17.0%** |
+
+At five million, `Paper` is 3,016,341 × 1,506,856 and `Author` is 1,492,428 × 745,589 — half the
+height. The union's height is the tallest block's, so the empty region is the band above `Author`,
+1,492,428 × 761,267, which is 16.7% of the total. **The gutter is the aspect mismatch, not the gap**,
+and it grows with N: 6.6 → 9.5 → 17.0% over twenty-five times the corpus, because each block's aspect
+depends on how its cluster count falls against a power-of-two Morton grid. Nothing bounds it.
+
+This is emptiness *between* type bounding boxes only. `cluster_layout` leaves its own space inside
+each block, so 17.0% is a lower bound on what the multi-type layout wastes, not an estimate of it.
+
+**Where it bites is a window sized by rank.** At five million, a window centred on a `Topic`:
+
+| centre | half-width | what it holds |
+|---|---|---|
+| `Paper` | 76,571 | Paper 20,000 |
+| `Author` | 38,034–42,334 | Author 20,000 |
+| `Topic` | **172,258–177,838** | Author 15,005, Topic 3,330, Venue 1,665 |
+| `Venue` | **169,546–173,667** | Author 15,005, Topic 3,330, Venue 1,665 |
+
+A window on a small type has to open **4.5× as wide** to find 20,000 vertices, swallows the whole of
+both small types, and fills the remaining 75% with `Author` — a type it has no edge to. It never
+reaches a `Paper`, and the papers about that topic are 3.4M units away. The rank-sized window is
+still the right definition; it is the layout that has nothing useful within reach of a sparse type.
+
+### What the multi-type case does to the tile unit
+
+The per-type arithmetic is unchanged. `corpus/measure-requests.mjs` — same harness, now taking
+`--dir`, `--type`, `--edge` and `--rows` because the directory is named for the corpus and the chunk
+list follows the type — over `Paper` at five million, vertex tiles carrying only the drawing columns:
+
+| T | tiles touched | req/tile | requests | bytes/tile | vertex bytes | over-read |
+|---|---|---|---|---|---|---|
+| 1,024 | 38.3 | 3.0 | 115 | 18.6 kB | 0.70 MB | 4.05× |
+| 2,048 | 24.3 | 3.0 | 73 | 34.9 kB | 0.83 MB | 4.83× |
+| **4,096** | 16.2 | 4.0 | **65** | 36.7 kB | 0.58 MB | 3.37× |
+| 8,192 | 9.8 | 4.0 | 39 | 75.6 kB | 0.73 MB | 4.22× |
+| 32,768 | 4.5 | 4.0 | 18 | 287.4 kB | 1.26 MB | 7.34× |
+| 122,880 | 2.0 | 4.0 | 8 | 1,094.4 kB | 2.14 MB | 12.43× |
+
+Sixteen tiles touched at 4,096 against the single-type corpus's thirteen, the same monotone request
+curve, the same flat-bottomed byte curve. **4,096 survives as the unit**, and the choice inside
+1,024–8,192 is still not load-bearing.
+
+Three things change, and none of them is the number:
+
+**A tile is now per (type, relation), and small types are smaller than one tile.** At five million,
+`Venue` is 1,665 rows and `Topic` is 3,330 — both under 4,096. For them the tile stops being a
+granularity and becomes *the whole type in one file*. Any address arithmetic that assumes a type has
+more than one tile is wrong on half the types in an ordinary knowledge graph.
+
+**The metadata cost multiplies by the type and relation count.** The `3·files + 1` law above is
+linear in files, and a multi-type corpus has more of them at the same corpus size: KG-1M is 11 vertex
+chunks (`Paper` 6, `Author` 3, `Venue` 1, `Topic` 1) plus 5 edge files = **16**, against the
+single-type 1M's 9 + 1 = **10**. Same million vertices, 1.6× the per-slice metadata — and three of
+those five relations return nothing a window can draw.
+
+**Reading one type is cheaper than reading the corpus, and that is not a saving.** `Paper` at five
+million costs 133.0 requests and 6.26 MB per cold window against the single-type 5M's 208.3 and
+12.12 MB, because `Paper` is 3.33M rows and not 5M. A reader that wants the *graph* pays for every
+type it touches.
+
+### What this cannot prove
+
+- **Nothing here is timed.** Runs, over-read, tiles, requests and bytes — no milliseconds, no
+  browser. The 0.00% cross-type retention is a statement about what a window contains, and what it
+  costs to draw a cross-type edge anyway is unmeasured.
+- **One knowledge-graph shape.** Four types, one hub. A corpus with two comparably-sized types and a
+  dense bipartite relation between them would stress `place_after` differently, and a corpus whose
+  types are all the same size would show a smaller gutter than 17% by construction.
+- **The reader is still one type at a time.** `measure-requests.mjs` opens one type's chunk list; the
+  16-file figure above is arithmetic over the manifest, not a measured union query. The cost of a
+  reader that opens all four types at once is unmeasured.
+- **The writer's memory was not captured** for this family — the `time -l` output was filtered away
+  by the run that produced these corpora, and it has not been re-run.
+- **`in` and `on` are keywords, and the error does not say so.** `kg:in = ...` passes `fossil check`
+  and dies in `fossil run` with `Projections require unique expression names but the expression
+  "?table?.community AS community" at position 1 and ... at position 2 have the same name` — a
+  DataFusion planning error naming a column that has nothing to do with it. It cost four bisections
+  of `kg.fossil` to find. Renaming the property is the whole fix, and the message is worth a
+  fossil-side issue.
+
 ## The last harness run, verbatim
 
 Machine-owned. `run-bench.mjs` overwrites everything between the two markers below and nothing

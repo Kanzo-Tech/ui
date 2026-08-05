@@ -1,0 +1,85 @@
+// The knowledge-graph corpus: four vertex types, five edge types, three of them cross-type.
+//
+// Everything this benchmark has measured so far — the flat 135–145k edges per window, the 1.0000×
+// vertex over-read, the 4,096-row tile — comes from `bench.fossil`, which has **one** vertex type
+// and **one** edge type. Two things in the writer have therefore never been exercised: `place_after`
+// (`fossil-runtime/src/layout.rs`), which slides each type clear of the ones already placed, and the
+// exclusion of cross-type edges from the layout — `VertexLayoutTarget::self_edge_csr` takes only the
+// adjacencies whose `src_type` and `dst_type` are the same, so an edge between two types pulls on
+// nothing and the communities on either side of it are computed in ignorance of each other.
+//
+// The shape is a citation graph, which is the ordinary knowledge-graph shape: a large type with a
+// dense self-edge (`Paper` / `cites`), a second large one with a sparser self-edge
+// (`Author` / `coauthor`), and two small types with **no** self-edge at all (`Venue`, `Topic`) —
+// the case where the layout has no topology to lay out and falls back to one community per vertex.
+//
+// **The cross-type edges are community-aligned on purpose.** A paper's authors, venue and topics
+// are drawn from the band of the other type that corresponds to the paper's own community, so the
+// edges are as semantically local as a generator can make them. If they still come out long, that is
+// the placement and not the data.
+//
+// **`in` and `on` are keywords, and the failure does not say so.** `kg:in = ...` parses without a
+// complaint from `fossil check` and dies inside the writer with `Projections require unique
+// expression names but the expression "?table?.community AS community" at position 1 and ... at
+// position 2 have the same name` — a DataFusion planning error naming a column that has nothing to
+// do with it. Renaming the property to `kg:publishedIn` is the whole fix. Recorded here because it
+// cost four bisections of this file to find, and nothing in the message points at the property name.
+//
+// Two mappings of one vertex type are combined with a plain UNION ALL before the dedup by subject,
+// so **every mapping of a type must project the same columns**. A vertex projection is
+// `subject, <props…>, x, y, cluster_id` and an IRI-valued property is an edge rather than a prop, so
+// each `Paper` block below carries `kg:community` and costs one column whatever edge it mints.
+// `fossil check` accepts a mismatched pair; only `fossil run` rejects it.
+
+prefix kg: <https://kanzo.tech/kg/>
+
+papers   := io.csv("kg/papers.csv")
+authors  := io.csv("kg/authors.csv")
+venues   := io.csv("kg/venues.csv")
+topics   := io.csv("kg/topics.csv")
+cites    := io.csv("kg/cites.csv")
+coauthor := io.csv("kg/coauthor.csv")
+wrote    := io.csv("kg/wrote.csv")
+appeared := io.csv("kg/appeared.csv")
+about    := io.csv("kg/about.csv")
+
+Paper : kg:Paper from papers
+    iri = `${kg:}p/${.id}`
+    kg:community = .community
+
+Paper : kg:Paper from cites
+    iri = `${kg:}p/${.id}`
+    kg:community = .community
+    kg:cites = `${kg:}p/${.target}`
+
+Paper : kg:Paper from wrote
+    iri = `${kg:}p/${.id}`
+    kg:community = .community
+    kg:authoredBy = `${kg:}a/${.target}`
+
+Paper : kg:Paper from appeared
+    iri = `${kg:}p/${.id}`
+    kg:community = .community
+    kg:publishedIn = `${kg:}v/${.target}`
+
+Paper : kg:Paper from about
+    iri = `${kg:}p/${.id}`
+    kg:community = .community
+    kg:hasTopic = `${kg:}t/${.target}`
+
+Author : kg:Author from authors
+    iri = `${kg:}a/${.id}`
+    kg:community = .community
+
+Author : kg:Author from coauthor
+    iri = `${kg:}a/${.id}`
+    kg:community = .community
+    kg:coauthoredWith = `${kg:}a/${.target}`
+
+Venue : kg:Venue from venues
+    iri = `${kg:}v/${.id}`
+    kg:community = .community
+
+Topic : kg:Topic from topics
+    iri = `${kg:}t/${.id}`
+    kg:community = .community

@@ -66,11 +66,24 @@ const steps = Number(arg("steps", 6));
 /** Fraction of the window's *width* each step moves. Half a window is a drag, not a jump. */
 const stride = Number(arg("stride", 0.5));
 const tiles = arg("tiles", "").split(",").filter(Boolean).map(Number);
-const corpus = resolve(arg("corpus", join(PUBLIC, String(size))));
+/**
+ * Which vertex type, and how many rows it has.
+ *
+ * `dense_id` is per type and so is the chunk list, so this measures **one type's** traffic. On the
+ * single-type corpus the defaults are the whole corpus and every recorded figure reproduces with no
+ * flags; on the knowledge-graph corpus `--dir kg-1000000 --type Paper --edge Paper_cites_Paper
+ * --rows <n>` asks the same question of its dominant type. `--rows` is separate from `--size`
+ * because the directory is named for the *corpus* and the chunk count follows the *type*.
+ */
+const dir = arg("dir", String(size));
+const type = arg("type", "Node");
+const relation = arg("edge", `${type}_linksTo_${type}`);
+const corpus = resolve(arg("corpus", join(PUBLIC, dir)));
+const vertexRows = Number(arg("rows", size));
 
-const chunkDir = join(corpus, "vertex/Node");
-const manifest = join(corpus, "vertex/Node.vertex.yml");
-const edgeFile = join(corpus, "edge/Node_linksTo_Node/by_source.parquet");
+const chunkDir = join(corpus, "vertex", type);
+const manifest = join(corpus, `vertex/${type}.vertex.yml`);
+const edgeFile = join(corpus, "edge", relation, "by_source.parquet");
 for (const path of [chunkDir, manifest, edgeFile]) {
   if (!existsSync(path)) {
     console.error(`missing ${path}\nBuild it first:  node build-corpus.mjs --sizes ${size}`);
@@ -91,7 +104,7 @@ if (!CHUNK_SIZE) {
   console.error(`no chunk_size in ${manifest}`);
   process.exit(1);
 }
-const chunkCount = Math.ceil(size / CHUNK_SIZE);
+const chunkCount = Math.ceil(vertexRows / CHUNK_SIZE);
 const localChunks = Array.from(
   { length: chunkCount },
   (_, i) => `'${chunkDir}/chunk${i}.parquet'`,
@@ -246,7 +259,7 @@ CREATE OR REPLACE TEMP TABLE scan AS
 /* Bytes per row of the projected columns, out of the footers — see the header on why not file size
    over rows. The edge file has two columns and a drawing query needs both. */
 SELECT
-  (SELECT sum(total_compressed_size)::DOUBLE / ${size} FROM parquet_metadata([${localChunks}])
+  (SELECT sum(total_compressed_size)::DOUBLE / ${vertexRows} FROM parquet_metadata([${localChunks}])
     WHERE path_in_schema IN (${PROJECTION.map((c) => `'${c}'`).join(",")})) AS vertex_bpr,
   (SELECT sum(total_compressed_size)::DOUBLE FROM parquet_metadata('${edgeFile}'))
     / (SELECT count(*) FROM e) AS edge_bpr,
@@ -301,10 +314,10 @@ try {
   }));
   const touched = tiles.length ? parsed[2] : [];
 
-  const base = `http://127.0.0.1:${port}/${size}`;
+  const base = `http://127.0.0.1:${port}/${dir}`;
   const urls = Array.from(
     { length: chunkCount },
-    (_, i) => `'${base}/vertex/Node/chunk${i}.parquet'`,
+    (_, i) => `'${base}/vertex/${type}/chunk${i}.parquet'`,
   ).join(", ");
 
   /**
@@ -322,7 +335,7 @@ INSTALL httpfs; LOAD httpfs;
 ${mark(tag)}
 CREATE OR REPLACE VIEW nodes AS SELECT * FROM read_parquet([${urls}]);
 CREATE OR REPLACE VIEW edges AS
-  SELECT * FROM read_parquet('${base}/edge/Node_linksTo_Node/by_source.parquet');
+  SELECT * FROM read_parquet('${base}/edge/${relation}/by_source.parquet');
 CREATE OR REPLACE TEMP TABLE opened AS SELECT count(*) AS n FROM edges;
 `;
 
@@ -351,9 +364,9 @@ SELECT (SELECT count(*) FROM points) AS points, (SELECT count(*) FROM links) AS 
   const check = (row, g) => {
     if (g.wanted === 0) {
       console.error(
-        `step ${g.step} matches nothing: a window holding ${num(k)} of ${num(size)} vertices is ` +
+        `step ${g.step} matches nothing: a window holding ${num(k)} of ${num(vertexRows)} vertices is ` +
           `most of this corpus, so the walk leaves it. There is no pan to measure at this size — ` +
-          `the reader does not slice a corpus that fits either. Try --k ${Math.round(size / 8)}.`,
+          `the reader does not slice a corpus that fits either. Try --k ${Math.round(vertexRows / 8)}.`,
       );
       process.exit(1);
     }
@@ -395,7 +408,10 @@ SELECT (SELECT count(*) FROM points) AS points, (SELECT count(*) FROM links) AS 
   console.log(
     `window        ${num(k)} vertices by rank, ${steps} steps of ${stride * 100}% of its width`,
   );
-  console.log(`chunk_size    ${num(CHUNK_SIZE)} rows · ${chunkCount} vertex chunks · 1 edge file`);
+  console.log(
+    `chunk_size    ${num(CHUNK_SIZE)} rows · ${chunkCount} vertex chunks of ${type} ` +
+      `(${num(vertexRows)} rows) · 1 edge file (${relation})`,
+  );
   console.log(
     `bytes/row     vertex ${vertexBpr.toFixed(2)} B (${PROJECTION.join(", ")}) · edge ${edgeBpr.toFixed(2)} B`,
   );
@@ -517,7 +533,7 @@ async function tileSweep({ geometry, touched, vertexBpr, edgeBpr }) {
        * version asked for eight tiles of 122,880 from a corpus with two, wrote six empty files, and
        * reported a tile of that size as costing 240 kB.
        */
-      const available = Math.floor(size / t);
+      const available = Math.floor(vertexRows / t);
       const count = Math.max(1, Math.min(SAMPLE, available));
       const first = Math.max(0, Math.floor(available / 2) - Math.floor(count / 2));
       const files = Array.from({ length: count }, (_, i) => join(scratch, `t${t}-${i}.parquet`));
