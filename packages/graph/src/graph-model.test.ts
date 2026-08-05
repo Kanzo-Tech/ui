@@ -16,7 +16,7 @@ function slice(over: Partial<Slice> = {}): Slice {
   return {
     mode: "detail",
     n,
-    vertices: Float64Array.from({ length: n }, (_, i) => vertexId(0, i + 100)),
+    vertices: BigUint64Array.from({ length: n }, (_, i) => vertexId(0, i + 100)),
     positions: new Float32Array(n * 2),
     links: new Float32Array(),
     categories: new Uint16Array(n),
@@ -116,7 +116,7 @@ describe("scaleOf", () => {
 describe("memorySource", () => {
   /** Two triangles, far apart: 0–1–2 around the origin, 3–4–5 out at 1000. */
   const graph = {
-    vertices: Float64Array.from([10, 11, 12, 13, 14, 15].map((id) => vertexId(0, id))),
+    vertices: BigUint64Array.from([10, 11, 12, 13, 14, 15].map((id) => vertexId(0, id))),
     positions: Float32Array.from([0, 0, 1, 0, 0, 1, 1000, 1000, 1001, 1000, 1000, 1001]),
     links: Float32Array.from([0, 1, 1, 2, 2, 0, 3, 4, 4, 5, 5, 3]),
     categories: Uint16Array.from([0, 0, 0, 1, 1, 1]),

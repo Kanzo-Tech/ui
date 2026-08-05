@@ -274,11 +274,16 @@ function arrays(
   const n = fillColumn(points, "x", positions, 0, 2);
   fillColumn(points, "y", positions, 1, 2);
 
-  // The dense ids land first and are then completed into identities in place — one pass over at most
-  // `limit` values, against a second buffer and a second copy.
-  const vertices = new Float64Array(n);
-  fillColumn(points, "id", vertices);
-  for (let i = 0; i < n; i++) vertices[i] = vertexId(typeIndex, vertices[i] as number);
+  // The dense ids land in a scratch and are widened into identities as they are copied across.
+  //
+  // In place, into the destination, would be better and is not available: `fillColumn` writes
+  // `Number(…)`, and a `BigUint64Array` element takes a `bigint` only — assigning a `number` to one
+  // throws rather than coercing. That refusal is the same guarantee this whole change is for, so the
+  // extra `n`-long buffer is the price of the boundary being enforced by the runtime and not by us.
+  const dense = new Float64Array(n);
+  fillColumn(points, "id", dense);
+  const vertices = new BigUint64Array(n);
+  for (let i = 0; i < n; i++) vertices[i] = vertexId(typeIndex, dense[i] as number);
   const categories = new Uint16Array(n);
   fillColumn(points, "category", categories);
 

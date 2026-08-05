@@ -98,11 +98,13 @@ export interface Slice {
    * to be held as an identity and re-resolved through `residentOf` each time. Leaving this out was
    * how the first draft would have shipped a selection that silently pointed at the wrong nodes.
    *
-   * `Float64Array` rather than `Uint32Array` because the pair does not fit in 32 bits, and a dense id
-   * on its own is not an identity: it numbers within one vertex type, so a union of two types repeats
-   * every value.
+   * `BigUint64Array` because the pair is 64 bits exactly — a `Uint32Array` cannot hold it at all,
+   * and a `Float64Array` holds it only while the type index stays under 2²¹, which is a ceiling
+   * nobody would find until they crossed it. Still a typed array, so it is still one allocation and
+   * still transferable; only what it carries changed. A dense id on its own is not an identity: it
+   * numbers within one vertex type, so a union of two types repeats every value.
    */
-  vertices: Float64Array;
+  vertices: BigUint64Array;
   /** `[x0, y0, x1, y1, …]`, one pair per returned point. */
   positions: Float32Array;
   /** `[src, dst, …]` as indices into `positions`. */

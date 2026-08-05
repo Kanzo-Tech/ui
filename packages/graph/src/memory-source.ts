@@ -24,7 +24,7 @@ import { vertexId, SUPERNODE, type VertexId } from "./resident";
 
 export interface MemoryGraph {
   /** Who each point is, parallel to the position pairs — `vertexId(type, dense)` per point. */
-  vertices: Float64Array;
+  vertices: BigUint64Array;
   /** `[x0, y0, x1, y1, …]`. */
   positions: Float32Array;
   /** `[src, dst, …]` as indices into `positions`. */
@@ -37,13 +37,13 @@ export function memorySource(graph: MemoryGraph): BoundedSource {
   const count = graph.positions.length / 2;
 
   /** Built on demand — a host that only pans never asks for either of these. */
-  let byVertex: Map<number, number> | null = null;
+  let byVertex: Map<bigint, number> | null = null;
   let adjacency: number[][] | null = null;
 
   const indexOf = (vertex: VertexId): number | undefined => {
     if (!byVertex) {
       byVertex = new Map();
-      for (let i = 0; i < count; i++) byVertex.set(graph.vertices[i] as number, i);
+      for (let i = 0; i < count; i++) byVertex.set(graph.vertices[i] as bigint, i);
     }
     return byVertex.get(vertex);
   };
@@ -135,14 +135,14 @@ function gather(graph: MemoryGraph, chosen: number[], limit: number): Slice {
   // rather than a Map: the arrays are already dense and an Int32Array of N is cheaper than N boxed
   // entries, which is the whole argument of this branch in miniature.
   const local = new Int32Array(graph.positions.length / 2).fill(-1);
-  const vertices = new Float64Array(n);
+  const vertices = new BigUint64Array(n);
   const positions = new Float32Array(n * 2);
   const categories = new Uint16Array(n);
   const sizes = graph.sizes ? new Float32Array(n) : undefined;
   for (let i = 0; i < n; i++) {
     const from = kept[i] as number;
     local[from] = i;
-    vertices[i] = graph.vertices[from] as number;
+    vertices[i] = graph.vertices[from] as bigint;
     positions[i * 2] = graph.positions[from * 2] as number;
     positions[i * 2 + 1] = graph.positions[from * 2 + 1] as number;
     categories[i] = graph.categories?.[from] ?? 0;
@@ -186,7 +186,7 @@ function aggregate(graph: MemoryGraph, limit: number): Slice {
 
   const keys = [...sums.keys()].slice(0, limit);
   const n = keys.length;
-  const vertices = new Float64Array(n);
+  const vertices = new BigUint64Array(n);
   const positions = new Float32Array(n * 2);
   const categories = new Uint16Array(n);
   const weights = new Float32Array(n);

@@ -20,12 +20,21 @@ and that is the half needing it.
 
 **A vertex is `vertexId(type, dense)`, and a buffer index is not one.** cosmos.gl addresses points by
 their position in the arrays it was last handed, so an answer that comes and goes reuses every index
-while the vertices behind them change. `Slice.ids: Uint32Array` is now `Slice.vertices: Float64Array`
-carrying that pair packed — the pair rather than the dense id because `dense_id` numbers *within one
-vertex type*, so a union of two types repeats every value. `useBoundedGraph` returns a `Resident`
-alongside each answer (`indexOf` / `at` / `indicesOf` / `verticesAt`), and that is the only map:
-build a second and it is the same value one render later with no way to notice it has fallen behind
-the buffers on screen.
+while the vertices behind them change. `Slice.ids: Uint32Array` is now
+`Slice.vertices: BigUint64Array` carrying that pair packed — the pair rather than the dense id
+because `dense_id` numbers *within one vertex type*, so a union of two types repeats every value.
+`useBoundedGraph` returns a `Resident` alongside each answer (`indexOf` / `at` / `indicesOf` /
+`verticesAt`), and that is the only map: build a second and it is the same value one render later
+with no way to notice it has fallen behind the buffers on screen.
+
+**`VertexId` is a `bigint`.** The pair is 64 bits and JavaScript's `number` is 53, and that gap is
+where every multi-language format surveyed loses ids: `mapbox/node-s2` is a *binding* to the
+reference C++ and still returns `1152921504606847000` where Java and Go give `1152921504606846977`
+— open since 2017. H3 settled the same problem by decree, typing `H3Index` as a string. The type is
+also the guard a brand alone could not be: a buffer index is a `number` and an identity is a
+`bigint`, so confusing them is a primitive type error rather than a convention, and `7 as VertexId`
+no longer compiles. What reaches the GPU is unchanged — positions and indices stay `number` and
+`Float32Array`, and `denseOf(vertex)` is still the way back down to SQL.
 
 What this changes for a call site:
 
@@ -36,7 +45,7 @@ What this changes for a call site:
   answer hides rather than following the index.
 - `duckBoundedSource` requires `typeIndex`, with no default: the source is the only thing that knows
   which relation a dense id came from, and a defaulted `0` would let a second relation ship the same
-  identities as the first. `MemoryGraph.ids` is `MemoryGraph.vertices: Float64Array` for the same
+  identities as the first. `MemoryGraph.ids` is `MemoryGraph.vertices: BigUint64Array` for the same
   reason. `denseOf(vertex)` is the way back down to SQL.
 - A super-node wears the reserved `SUPERNODE` type. An aggregate numbers its groups `0..k`; left in
   the corpus' own type, group 3 and vertex 3 were one identity, so a selection made zoomed out came

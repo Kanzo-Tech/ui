@@ -16,33 +16,55 @@ import type { Slice } from "./bounded";
  */
 
 /**
- * A vertex identity — the pair, packed into one number so it can key a `Map` and a `Set`.
+ * A vertex identity — the pair, packed into one 64-bit integer so it can key a `Map` and a `Set`.
  *
- * Branded, and that is the guard rather than decoration: a buffer index and an identity are both
- * small non-negative integers, and one being used as the other is the entire class of bug this file
- * exists for. Nothing at runtime can tell them apart, so `tsc` is the only thing that can, and it
- * only can while `VertexId` is not assignable from `number`.
+ * **A `bigint`, which is strictly stronger than the brand it also wears.** A buffer index is a
+ * `number`; an identity is a `bigint`. Confusing the two therefore stops being a branding
+ * convention that holds while everyone remembers it and becomes a *primitive* type error — and no
+ * cast quietly launders one: `7 as VertexId` was legal against `number & brand` and is a compile
+ * error against `bigint & brand`. Getting one wrong now costs `as unknown as`, which is loud.
+ *
+ * **The evidence this is worth the friction, because it is not a precaution we invented.** Across
+ * every multi-language format surveyed — Arrow, Parquet, Iceberg, Delta, MVT, PMTiles, Zarr,
+ * GraphAr, H3, S2 — the failure that recurs is a 64-bit value crossing into JavaScript.
+ * `mapbox/node-s2` is a **binding**, not a port: it calls the same C++ the reference implementation
+ * does, and it still returned wrong cell ids — issue #92, open since 2017, `1152921504606847000`
+ * where Java and Go both give `1152921504606846977`. JavaScript's `number` is 53 bits and a cell id
+ * is 64, and a binding cannot protect a language boundary that cannot hold the value. H3 settled it
+ * by decree before anyone could get it wrong: `h3-js` types `H3Index` as a string. This is the same
+ * decree with the type JavaScript grew for it. See rmlext ADR-0045.
+ *
+ * **And `>>` means three different things across our three layers.** In JavaScript it converts its
+ * operand to *32 bits* and takes the shift count modulo 32, so the obvious `dense | (type << 32)`
+ * is not a lost high word — it is `type | dense`, silently. The packing below cannot be written on
+ * `number` at all and be right.
+ *
+ * What goes to the GPU does not change: positions and buffer indices stay `number` and
+ * `Float32Array`. The conversion happens at the edge, which is where it belongs.
  */
-export type VertexId = number & { readonly vertex: unique symbol };
+export type VertexId = bigint & { readonly vertex: unique symbol };
 
 /**
  * One type's worth of dense ids.
  *
- * `dense_id` is a `UInt32`, so the type index occupies everything above bit 32. A `float64` holds
- * that exactly up to type index 2²¹ — 2,097,151 vertex types, against a knowledge graph's dozens.
+ * `dense_id` is a `UInt32`, so the type index occupies everything above bit 32 — exactly, for all
+ * 2³² of them, which is the whole point of the width. The old packing was `type * 2**32 + dense` in
+ * `float64` and ran out of exactness at type index 2²¹.
  */
-const TYPE_STRIDE = 2 ** 32;
+const TYPE_SHIFT = 32n;
+const DENSE_MASK = 0xffff_ffffn;
 
 export function vertexId(type: number, dense: number): VertexId {
-  return (type * TYPE_STRIDE + dense) as VertexId;
+  return ((BigInt(type) << TYPE_SHIFT) | BigInt(dense)) as VertexId;
 }
 
+/** Both halves come back as `number`: each is 32 bits, and a `number` holds those exactly. */
 export function typeOf(vertex: VertexId): number {
-  return Math.floor(vertex / TYPE_STRIDE);
+  return Number(vertex >> TYPE_SHIFT);
 }
 
 export function denseOf(vertex: VertexId): number {
-  return vertex - Math.floor(vertex / TYPE_STRIDE) * TYPE_STRIDE;
+  return Number(vertex & DENSE_MASK);
 }
 
 /**
@@ -76,13 +98,20 @@ export interface Resident {
   verticesAt(indices: Iterable<number>): VertexId[];
 }
 
-const NOBODY = new Float64Array(0);
+const NOBODY = new BigUint64Array(0);
 
-/** The map an answer implies. `null` — before the first answer — is nobody resident, not an error. */
+/**
+ * The map an answer implies. `null` — before the first answer — is nobody resident, not an error.
+ *
+ * Keyed by the identity itself. `Map` and `Set` compare keys by SameValueZero, which for a `bigint`
+ * is *value* equality and not reference equality — two separately-constructed `vertexId(0, 5)`
+ * reach the same entry. That is asserted rather than assumed in `resident.test.ts`, because the
+ * whole file rests on it and BigInt being an object-shaped primitive makes it a fair thing to doubt.
+ */
 export function residentOf(slice: Slice | null): Resident {
   const vertices = slice?.vertices ?? NOBODY;
-  const index = new Map<number, number>();
-  for (let i = 0; i < vertices.length; i++) index.set(vertices[i] as number, i);
+  const index = new Map<bigint, number>();
+  for (let i = 0; i < vertices.length; i++) index.set(vertices[i] as bigint, i);
 
   const at = (i: number): VertexId | undefined =>
     i >= 0 && i < vertices.length ? (vertices[i] as VertexId) : undefined;

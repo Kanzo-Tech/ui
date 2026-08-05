@@ -25,10 +25,12 @@ import { denseOf, residentOf, SUPERNODE, typeOf, vertexId, type VertexId } from 
  *   answer holding none of them, and `[0,1,2,3,7,12,13,15,19,26,28,29,30]` in a 32-point answer
  *   holding all thirteen — nine of the thirteen at a different index, four of the originals past the
  *   end of the buffer, and the selection never touched.
- * - **It cannot see a number cast into an identity.** `residentOf` believes whatever the slice
- *   carries, and `x as VertexId` compiles. The brand is what stops that, and only `tsc` enforces it —
- *   which is why the `@ts-expect-error` below is load-bearing rather than illustrative: remove the
- *   brand and `pnpm typecheck` fails on an unused expectation, in this file.
+ * - **It cannot see a value cast into an identity.** `residentOf` believes whatever the slice
+ *   carries, and `x as unknown as VertexId` compiles. Two layers of `tsc` stand in front of that and
+ *   the two `@ts-expect-error`s below are load-bearing rather than illustrative — one per layer.
+ *   `VertexId` is a `bigint`, so a buffer index is rejected as a *primitive* type error that a plain
+ *   `as VertexId` can no longer launder; the brand on top of it is what rejects a bare `bigint`.
+ *   Remove either and `pnpm typecheck` fails on an unused expectation, in this file.
  * - **It says nothing about whether the identity is the *right* one.** A source stamping the wrong
  *   `type_idx` produces a perfectly stable identity for the wrong vertex; only the source's own tests
  *   and the live viewer can catch that.
@@ -39,7 +41,7 @@ function drawn(...vertices: VertexId[]): Slice {
   return {
     mode: "detail",
     n: vertices.length,
-    vertices: Float64Array.from(vertices),
+    vertices: BigUint64Array.from(vertices),
     positions: new Float32Array(vertices.length * 2),
     links: new Float32Array(),
     categories: new Uint16Array(vertices.length),
@@ -112,7 +114,40 @@ describe("a vertex is the pair, because a dense id is not an identity", () => {
     const top = vertexId(SUPERNODE, 0xffff_ffff);
     expect(typeOf(top)).toBe(SUPERNODE);
     expect(denseOf(top)).toBe(0xffff_ffff);
-    expect(Number.isSafeInteger(top)).toBe(true);
+  });
+
+  it("round-trips the far corner of the whole 64-bit range, which a float64 could not", () => {
+    // Both halves at their maximum: 2⁶⁴−1, the value a packed `number` gets wrong. The old packing
+    // lost exactness above 2⁵³ and would have answered `18446744073709552000` here — not an error,
+    // just a different vertex, which is the failure mode `node-s2` shipped for eight years.
+    const corner = vertexId(0xffff_ffff, 0xffff_ffff);
+    expect(corner).toBe(0xffff_ffff_ffff_ffffn);
+    expect(typeOf(corner)).toBe(0xffff_ffff);
+    expect(denseOf(corner)).toBe(0xffff_ffff);
+
+    // And it survives the buffer, which is the crossing that actually happens: `BigUint64Array` is
+    // exactly 64 bits wide, so the value the source wrote is the value the map reads back.
+    const resident = residentOf(drawn(corner, vertexId(0xffff_ffff, 0xffff_fffe)));
+    expect(resident.at(0)).toBe(corner);
+    expect(resident.indexOf(corner)).toBe(0);
+    expect(resident.indexOf(vertexId(0xffff_ffff, 0xffff_fffe))).toBe(1);
+  });
+
+  it("keys a Map and a Set by value, which is what the whole file rests on", () => {
+    // Verified rather than assumed. A `bigint` is a primitive and `Map`/`Set` compare keys by
+    // SameValueZero, so two separately-constructed identical ids are one key — but `===` on the
+    // *object* wrappers is not that, and an identity built by the source and an identity built by a
+    // panel are never the same construction. If this were reference equality, every lookup in
+    // `residentOf` would miss and a selection would resolve to nothing.
+    const built = vertexId(3, 77);
+    const rebuilt = vertexId(3, 77);
+    expect(built).not.toBe(vertexId(3, 78));
+
+    const map = new Map([[built, "here"]]);
+    expect(map.get(rebuilt)).toBe("here");
+    expect(new Set([built, rebuilt]).size).toBe(1);
+    // And through the buffer too, since that is the round trip the source actually makes.
+    expect(residentOf(drawn(built)).indexOf(rebuilt)).toBe(0);
   });
 
   it("keeps a super-node out of the corpus' own numbering", () => {
@@ -126,12 +161,15 @@ describe("a vertex is the pair, because a dense id is not an identity", () => {
   it("refuses a bare number where an identity is asked for", () => {
     const resident = residentOf(drawn(a));
 
-    // This line is the guard, not the assertion under it. A buffer index and an identity are both
-    // small non-negative integers and nothing at runtime can tell them apart, so the brand on
-    // `VertexId` is the only thing that can — and if it is ever removed, `tsc` reports an unused
-    // `@ts-expect-error` here and `pnpm typecheck` goes red.
-    // @ts-expect-error — 1 is a buffer index. Identities come from `vertexId`.
+    // These two lines are the guard, not the assertions under them, and they check different
+    // things. A buffer index is a `number` and an identity is a `bigint`, so the first is a
+    // primitive type error — `1 as VertexId` does not compile either, which is the strengthening
+    // `bigint` bought over the old `number & brand`. The brand is what is left to reject the second.
+    // Remove either and `tsc` reports an unused `@ts-expect-error` here and `pnpm typecheck` is red.
+    // @ts-expect-error — 1 is a buffer index. Identities are bigints, from `vertexId`.
     expect(resident.indexOf(1)).toBeUndefined();
+    // @ts-expect-error — the right width, still not an identity: nobody said which type it is.
+    expect(resident.indexOf(1n)).toBeUndefined();
   });
 });
 
