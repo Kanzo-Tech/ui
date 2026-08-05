@@ -82,8 +82,8 @@ export { onceQuery } from "./once-query";
  * The bounded render path — a graph you never hold all of.
  *
  * A contract, not a format: anything that can answer "what is in this rectangle, at this zoom, in
- * at most this many marks" is a source. fossil's `viewport` verb is one; a relation with `x`/`y`
- * and a spatial predicate is another. This package renders and does not learn a storage layout,
+ * at most this many marks" is a source. A tile fetched by a computed address is one; a relation
+ * with `x`/`y` and a spatial predicate is another. This package renders and does not learn a storage layout,
  * which is what removed the ceiling rather than raising it.
  *
  * `useBoundedGraph` is the loop that asks — it observes the camera, debounces, cancels what the

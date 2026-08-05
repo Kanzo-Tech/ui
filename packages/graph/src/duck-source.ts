@@ -13,10 +13,11 @@ import { denseOf, typeOf, vertexId, SUPERNODE, type VertexId } from "./resident"
  * arrays it already holds takes `memorySource` and pays for no database. Splitting them is what lets
  * that promise be true rather than merely stated.
  *
- * **Not GraphAr, and that is the point.** The contract is neutral about storage so that fossil's
- * `viewport` verb and a plain relation can both satisfy it — which is what made it possible to
- * measure bounded against unbounded before committing to a layout on disk. When the verb lands it
- * drops in beside this and the numbers stay comparable.
+ * **Neutral about storage, and that is the point.** The neutrality let bounded be measured against
+ * unbounded before anything committed to a layout on disk — and it is the reason this file survived
+ * a decision on the other side of the seam. The verb it was written to sit beside never landed:
+ * ADR-0042 deleted `viewport` and GraphAr with it, because the camera is addressed rather than
+ * queried. What replaces it is a tile fetched by a computed URL, which is another source.
  */
 
 export interface DuckSourceOptions {
@@ -87,7 +88,7 @@ export function duckBoundedSource(options: DuckSourceOptions): BoundedSource {
      * Regions only. This source is two relations and a spatial predicate — it has no adjacency
      * index, so a neighbourhood query would mean recursive joins over the whole edge table, which is
      * the unbounded pattern wearing a bounded interface. A typed refusal is the honest answer;
-     * fossil's `find_neighbors` is the source that should answer it.
+     * fossil's `expand` is the source that should answer it.
      */
     supports(kind) {
       return kind === "region";

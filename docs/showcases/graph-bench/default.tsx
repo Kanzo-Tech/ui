@@ -325,10 +325,10 @@ const SHAPES: { id: Shape; label: string; hint: string }[] = [
  * The sweep reaches 500k and 1M because it hands the loop back between stages. The preview does not,
  * and the honest ceiling is where a reader stops waiting rather than where the GPU stops coping.
  *
- * **The real answer is not to build the corpus here at all.** A GraphAr/Parquet corpus written once
- * by fossil and read through the `viewport` verb never generates anything in the browser — which is
- * exactly the larger-than-RAM half ADR-0001 records as unmeasured, and what would make a million
- * nodes cost the same as two thousand.
+ * **The real answer is not to build the corpus here at all.** A Parquet corpus written once by
+ * fossil and read by address never generates anything in the browser — which is exactly the
+ * larger-than-RAM half ADR-0001 records as unmeasured, and what would make a million nodes cost the
+ * same as two thousand. Layer 4 of `BENCHMARKS.md` is that measurement: 253 ms at a million.
  */
 const PREVIEW_SIZES = [2_000, 10_000, 50_000, 200_000];
 

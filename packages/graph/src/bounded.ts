@@ -25,9 +25,9 @@
  * why `pinned` exists below — the few points a reader has taken hold of ride along with every
  * slice, regardless of the rectangle.
  *
- * **Deliberately not a format.** A source is anything that can answer that question: GraphAr over
- * Parquet through fossil's `viewport` verb, a plain relation with `x`/`y` columns and a spatial
- * predicate, or an in-memory index. This package renders; it does not learn a storage layout. The
+ * **Deliberately not a format.** A source is anything that can answer that question: Parquet
+ * fetched by address, a plain relation with `x`/`y` columns and a spatial predicate, or an
+ * in-memory index. This package renders; it does not learn a storage layout. The
  * wiring between a particular source and this contract belongs at the call site.
  *
  * **Dense indices, not database ids.** `links` refers to positions in `positions`, so a consumer
@@ -60,9 +60,9 @@ export interface Viewport {
  * A **neighbourhood** is the graph question, and the first draft of this contract did not have it —
  * which was a real design error rather than a missing convenience. A network has no spatial "near";
  * it has topological near. Real exploration starts somewhere and expands outward, and a rectangle
- * cannot express "two hops from this node" no matter how it is positioned. fossil's verb surface has
- * had `find_neighbors` beside `viewport` all along; a render contract that only spoke rectangles was
- * imposing a map metaphor on a network.
+ * cannot express "two hops from this node" no matter how it is positioned. fossil's surface answers
+ * it with `expand`; a render contract that only spoke rectangles was imposing a map metaphor on a
+ * network.
  *
  * A source implements what it can. One that only lays out spatially answers regions; one over a
  * graph store answers both.
@@ -200,6 +200,10 @@ export const BOUNDED_DEFAULTS = {
    * the legibility ceiling, which arrives first and is the one a reader actually meets.
    */
   limit: 20_000,
-  /** fossil's `viewport` uses 0.5; matching it means one number to reason about across the seam. */
+  /**
+   * 0.5 matched fossil's `viewport`, which no longer exists — ADR-0042 deleted the verb because the
+   * camera is addressed, not queried. So this number is ours alone now, and unanchored: nothing on
+   * the other side of the seam agrees with it or contradicts it.
+   */
   lodThreshold: 0.5,
 } as const;
