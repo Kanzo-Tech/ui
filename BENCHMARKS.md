@@ -578,6 +578,55 @@ For scale, the same build with the pre-layout binary took 123.3 s, so the layout
 half the wall clock. Louvain running in memory over the whole graph is the suspected term and is
 not yet isolated — that measurement is a fossil-side task, not one this harness can take.
 
+### The sixteen gigabytes are the executor's, not the corpus's — and a budget takes them to 9.87
+
+Measured 2026-08-05 on the fossil side (`FOSSIL_MEM_PROBE=1`, rmlext `d52b6c5`/`cc48499`), over
+`fossil run` alone on the same ten-million CSVs. Not the whole build: the generator is not in the
+process, which is why these figures and the 16.4 GiB above are not the same measurement.
+
+**The graph that gets handed to the writer is 1.64 GiB.** Every vertex batch plus both orientations
+of every edge table — 10M vertices, 71,024,690 edges — counted in Arrow. The process holds **15.68
+GiB** at that moment. The resident corpus is a tenth of the residency.
+
+| phase | RSS after | delta |
+|---|---|---|
+| prepare vertices (lazy) | 0.07 G | +0.00 G |
+| collect vertex `Node` | 8.01 G | **+7.94 G** |
+| collect edge table | 15.68 G | **+7.67 G** |
+| — of which retained in Arrow | 1.64 G | |
+| drop the `SessionContext` | 15.68 G | +0.00 G |
+| encode 6 files | 16.26 G | +0.58 G |
+
+Two readings say the same thing. Dropping the executor's context frees **nothing** — its `MemTable`s
+are the same Arrow buffers, not a second copy — and the edge collect measured +7.67 GiB on one run
+and **+11.35 GiB** on the next of the identical corpus. Live data does not vary by 3.7 GiB.
+
+**What it is: DataFusion operator memory nobody had bounded.** `SessionContext::new()` is an
+unlimited pool with no spill. Given a 4 GiB pool, the vertex sort/dedup over ten million IRIs spills
+and lands at 3.02 GiB — but the run dies in the edge phase, and the pool's consumer tracking names
+why without a hypothesis: `HashJoinInput[8](can spill: false) consumed 387.7 MB`, five such, one
+reservation per partition on a 10-core machine. A hash join's build side, told it may not allocate,
+has nothing to give back. A sort-merge join spills.
+
+With both — a declared budget and a join that can honour it:
+
+| ten million | unbounded | 4 GiB + sort-merge |
+|---|---|---|
+| RSS after `execute_graph` | 15.68 GiB | **5.56 GiB** |
+| RSS entering `enrich_layout` | 16.51 GiB | **6.82 GiB** |
+| process peak | ~21 GiB | **9.87 GiB** |
+| wall clock | 256.3 s | 290.9 s |
+
+**The output is byte-identical** — 87 files, every md5 equal — so this is a memory result and not a
+different corpus. What remains above the budget is Louvain (+2.22 GiB) and the layout pass, which is
+where ADR-0042 predicted the cost in the first place.
+
+On which number to quote: `/usr/bin/time -l` reports *maximum resident set size* 21.1 GiB and *peak
+memory footprint* 15.6 GiB for the unbounded run, and the two unbounded runs differ from each other
+by 2.3 GiB. Under the budget they converge — 9.87 GiB by both the probe's peak and `time`'s maximum
+RSS. A figure that moves between identical runs is measuring the allocator as much as the program,
+which is its own argument for bounding it.
+
 ### But the explanation in the ADR is wrong, and §3 rests on it
 
 ADR-0042 says *"la maquetación es grumosa, una comunidad es un disco compacto y una ventana contiene

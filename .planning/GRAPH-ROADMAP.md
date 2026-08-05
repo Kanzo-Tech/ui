@@ -105,8 +105,22 @@ per-community `HashMap`s in `contract`; the layout core as the dominant term (3.
 DuckDB during layout (bounded to 2 GB, total unchanged, spill directory untouched at 0 B); and the
 Node generator (`fossil run` alone reaches the same peak).
 
-**Next**: the same probe on the W0b write path, which is `fossil-engine`'s materialise rather than
-this module. That is where the ~14 GiB is committed.
+**Attributed 2026-08-05, and closed.** The probe moved down to `fossil-base` (rmlext `d52b6c5`) so
+`fossil-df` could carry it, and reports per phase of the write path. The corpus that `execute_graph`
+hands to the writer is **1.64 GiB of Arrow** while the process holds **15.68 GiB** — so the fourteen
+were never the data. Dropping the executor's context frees 0.00 GiB, and the same phase measured
++7.67 GiB on one run and +11.35 GiB on the next.
+
+They are DataFusion operator memory, unbounded by construction. Under `FOSSIL_DF_MEM_GIB=4` the
+vertex sort spills to 3.02 GiB and the edge phase dies, with the pool naming it:
+`HashJoinInput[8](can spill: false)`, one reservation per partition. A hash join's build side cannot
+give anything back; a sort-merge join can. With both, ten million peaks at **9.87 GiB instead of ~21,
+for 13% of the clock, and writes a byte-identical corpus** (87 files, every md5 equal). Full numbers
+in `BENCHMARKS.md`; the decision is rmlext ADR-0043 stage 4.
+
+**What this leaves**: larger-than-RAM stops being impossible by construction on the write path, so
+item 6.3 is now testable rather than blocked. What is still owed on the fossil side is the budget as
+a `run` input rather than an environment variable, and a test that demands a spill.
 
 ### 5. The tile payload format — **fossil** ✕ **canvas**, blocked by 1 and 2
 
