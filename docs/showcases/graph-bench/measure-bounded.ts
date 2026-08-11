@@ -5,12 +5,11 @@ import { type Coordinator, numbers } from "@kanzo-tech/ui/analytics";
 import {
   BOUNDED_DEFAULTS,
   type BoundedSource,
-  onceQuery,
   shouldSlice,
   type Slice,
 } from "@kanzo-tech/graph";
 import { boot } from "../workspace/duck";
-import { duckBoundedSource } from "@kanzo-tech/graph/duckdb";
+import { duckBoundedSource, onceQuery } from "@kanzo-tech/graph/duckdb";
 // The offscreen element and the rectangle it defines are `measure.ts`'s, so the two harnesses draw
 // into the same one. They had a copy each — identical to the character, which is the kind of
 // duplicate that stays true right up until one of them is tuned.

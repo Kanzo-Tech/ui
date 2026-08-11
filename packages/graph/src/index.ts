@@ -69,14 +69,19 @@ export {
   type VertexId,
 } from "./resident";
 
-// Where the graph meets the crossfilter. Optional: a host drawing arrays it already has needs
-// neither this nor `load`, which is why the Mosaic peers are optional.
-// The client itself is not re-exported. It lives in `@kanzo-tech/ui/analytics` as `IdSetClient`,
-// because it turned out to model a view whose positions are outside the database — a graph, a map
-// and an imperative widget all publish that same enumerated set of ids, and none of it is
-// cosmos.gl-specific. Import it from there; a `CosmosClient` alias here would only re-teach a name
-// that was already retired.
-export { onceQuery } from "./once-query";
+// Where the graph meets the crossfilter — and it is NOT here.
+//
+// `onceQuery` was on this barrel, and it imports `@kanzo-tech/ui/analytics`, which statically
+// imports the whole Mosaic stack. So `import { memorySource } from "@kanzo-tech/graph"` threw
+// ERR_MODULE_NOT_FOUND for every host that had not installed an optional peer, while four places in
+// this package promised the opposite. It is on `@kanzo-tech/graph/duckdb` with `duckBoundedSource`,
+// which is the only thing that ever called it. `scripts/smoke-install.mjs` holds the door shut now.
+//
+// The client itself is not re-exported either. It lives in `@kanzo-tech/ui/analytics` as
+// `IdSetClient`, because it turned out to model a view whose positions are outside the database — a
+// graph, a map and an imperative widget all publish that same enumerated set of ids, and none of it
+// is cosmos.gl-specific. Import it from there; a `CosmosClient` alias here would only re-teach a
+// name that was already retired.
 
 /**
  * The bounded render path — a graph you never hold all of.
@@ -122,7 +127,7 @@ export { adaptive } from "./adaptive";
 // Theme colours as GPU floats. Exported because a host writing its own buffers needs the same
 // resolution path, and two implementations of "what colour is `var(--primary)` here" is how a
 // canvas ends up disagreeing with the page around it.
-export { resolveToken, toHex, withAlpha, type Rgba } from "./css-color";
+export { resolveToken, toHex, type Rgba } from "./css-color";
 
 export {
   DEFAULT_DISPLAY,

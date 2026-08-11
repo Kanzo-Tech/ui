@@ -11,10 +11,21 @@
  *
  *   1. the packed manifests carry no `workspace:` range — an npm-packed tarball would not install
  *   2. every module that carries `"use client"` in `src/` still carries it in the packed `dist/`
- *   3. nothing reachable from the root entry statically imports an optional peer
- *   4. the root barrel imports, and `Button` and `Preferences` server-render
+ *   3. nothing reachable from a root entry statically imports an optional peer — following our own
+ *      packages' subpaths, because `@kanzo-tech/ui/analytics` is not itself an optional peer and
+ *      importing it is exactly how one arrives anyway
+ *   4. the root barrels import, and `Button` and `Preferences` server-render
  *   5. `themeData` comes off the theme's JS entry, not a raw `.json` subpath
  *   6. the palette's derivation is not re-exported from the theme
+ *   7. `@kanzo-tech/graph` imports from its root with no Mosaic installed, and the DuckDB half is
+ *      on `/duckdb` where it costs only the host that asks for it
+ *
+ * **Three packages, because the door is the same door.** `@kanzo-tech/graph` is the package that
+ * crossed it: `src/index.ts` re-exported `onceQuery`, whose module imports
+ * `@kanzo-tech/ui/analytics`, so `import { memorySource } from "@kanzo-tech/graph"` threw
+ * ERR_MODULE_NOT_FOUND for every host that had not installed Mosaic — while the package promised in
+ * four places that a host drawing its own arrays pays for no database. Nothing saw it because the
+ * one check that exists for this class ran on `packages/ui` alone.
  *
  * **What it does not prove.** Check 2 is a byte comparison, not an RSC evaluation: it fails if
  * Rollup merged a module and dropped the directive, which is the failure it exists for, but it
@@ -56,18 +67,35 @@ const walk = (dir, test, out = []) => {
 
 const DIRECTIVE = /^\s*(?:\/\*[\s\S]*?\*\/\s*)?["']use client["']/;
 
-/** Everything `peerDependenciesMeta` marks optional — none of it is installed below. */
-const optionalPeers = Object.entries(
-  JSON.parse(readFileSync(join(repoRoot, "packages/ui/package.json"), "utf8"))
-    .peerDependenciesMeta ?? {}
-)
-  .filter(([, meta]) => meta.optional)
-  .map(([name]) => name);
+/** The packages that ship. Order is pack order and nothing else; npm installs all three at once. */
+const PACKAGES = ["theme", "ui", "graph"];
+/** The ones with a client boundary to lose. `theme` is data and CSS and carries no directive. */
+const CLIENT_PACKAGES = ["ui", "graph"];
+
+const manifestOf = (pkg) =>
+  JSON.parse(readFileSync(join(repoRoot, "packages", pkg, "package.json"), "utf8"));
+
+/**
+ * Everything any packed manifest marks optional — none of it is installed below.
+ *
+ * The union rather than `ui`'s alone: a peer that is optional for one package is the thing the
+ * others must not reach either, and reading each manifest is what makes a package that declares a
+ * new one covered without editing this file.
+ */
+const optionalPeers = [
+  ...new Set(
+    PACKAGES.flatMap((pkg) =>
+      Object.entries(manifestOf(pkg).peerDependenciesMeta ?? {})
+        .filter(([, meta]) => meta.optional)
+        .map(([name]) => name)
+    )
+  ),
+];
 
 try {
   // `pnpm pack`, never `npm pack`: only pnpm rewrites the `workspace:*` dependency on
   // @kanzo-tech/theme into a real version. An npm-packed tarball cannot be installed.
-  for (const pkg of ["theme", "ui"]) {
+  for (const pkg of PACKAGES) {
     run("pnpm", ["pack", "--pack-destination", workDir], join(repoRoot, "packages", pkg));
   }
 
@@ -75,7 +103,7 @@ try {
   // A `workspace:` range that survives the pack makes the tarball uninstallable for everyone, and
   // the install below cannot report it because it never gets that far.
   check("packed manifests resolve every workspace: range to a version", () => {
-    for (const pkg of ["theme", "ui"]) {
+    for (const pkg of PACKAGES) {
       const manifest = run(
         "tar",
         ["-xzOf", join(workDir, `kanzo-tech-${pkg}-0.0.0.tgz`), "package/package.json"],
@@ -96,6 +124,10 @@ try {
   // DuckDB stack. They are optional peers, and the whole point is to prove the base entry never
   // needs them.
   //
+  // `@cosmos.gl/graph` IS installed, and the asymmetry is the declaration rather than an
+  // inconsistency: it is a *required* peer of `@kanzo-tech/graph`, which is a renderer and has
+  // nothing left of it without one. A host that installs the graph package installs it too.
+  //
   // `--legacy-peer-deps` is load-bearing and not laziness. npm walks the peer set of *optional*
   // peers too, and `@uwdata/mosaic-core@0.29.2` is published with
   // `"peerDependencies": { "@uwdata/mosaic-duckdb": "workspace:^" }` — an upstream publishing bug.
@@ -110,16 +142,17 @@ try {
       "--no-audit",
       "--no-fund",
       "--legacy-peer-deps",
-      "./kanzo-tech-theme-0.0.0.tgz",
-      "./kanzo-tech-ui-0.0.0.tgz",
+      ...PACKAGES.map((pkg) => `./kanzo-tech-${pkg}-0.0.0.tgz`),
       "react@19",
       "react-dom@19",
       "lucide-react@^1",
+      "@cosmos.gl/graph@^3.4.0",
     ],
     workDir
   );
 
-  const installed = join(workDir, "node_modules/@kanzo-tech/ui");
+  const installedRoot = join(workDir, "node_modules/@kanzo-tech");
+  const installed = join(installedRoot, "ui");
 
   check(`installed with none of the ${optionalPeers.length} optional peers present`, () => {
     for (const peer of optionalPeers) {
@@ -135,66 +168,104 @@ try {
   // 2. `"use client"` preservation. Rollup strips the directive whenever it merges modules, and
   // every Vite-based harness ignores it, so `src/` and `dist/` are the only two things that can be
   // compared. `preserveModules` makes the mapping one-to-one.
-  const srcRoot = join(repoRoot, "packages/ui/src");
-  const clientModules = walk(
-    srcRoot,
-    (path) => /\.tsx?$/.test(path) && !/\.test\.tsx?$/.test(path)
-  ).filter((path) => DIRECTIVE.test(readFileSync(path, "utf8")));
+  for (const pkg of CLIENT_PACKAGES) {
+    const srcRoot = join(repoRoot, "packages", pkg, "src");
+    const distRoot = join(installedRoot, pkg, "dist");
+    const clientModules = walk(
+      srcRoot,
+      (path) => /\.tsx?$/.test(path) && !/\.test\.tsx?$/.test(path)
+    ).filter((path) => DIRECTIVE.test(readFileSync(path, "utf8")));
 
-  check(`all ${clientModules.length} client modules kept their directive through the build`, () => {
-    if (clientModules.length === 0) {
-      fail('no source module carries "use client" — the scan is looking in the wrong place');
-    }
-    for (const path of clientModules) {
-      const built = join(installed, "dist", relative(srcRoot, path).replace(/\.tsx?$/, ".js"));
-      let contents;
-      try {
-        contents = readFileSync(built, "utf8");
-      } catch {
-        fail(`${relative(srcRoot, path)} has "use client" and no matching module in dist/`);
-        continue;
+    check(`${pkg}: all ${clientModules.length} client modules kept their directive`, () => {
+      if (clientModules.length === 0) {
+        fail(`no ${pkg} source module carries "use client" — the scan is in the wrong place`);
       }
-      if (!DIRECTIVE.test(contents)) {
-        fail(`the build stripped "use client" from dist/${relative(srcRoot, path)}`);
+      for (const path of clientModules) {
+        const built = join(distRoot, relative(srcRoot, path).replace(/\.tsx?$/, ".js"));
+        let contents;
+        try {
+          contents = readFileSync(built, "utf8");
+        } catch {
+          fail(`${pkg}/${relative(srcRoot, path)} has "use client" and no module in dist/`);
+          continue;
+        }
+        if (!DIRECTIVE.test(contents)) {
+          fail(`the build stripped "use client" from ${pkg}/dist/${relative(srcRoot, path)}`);
+        }
       }
-    }
-  });
+    });
+  }
 
-  // 3. Optional-peer isolation, statically: follow every relative import from the root entry and
-  // assert nothing in that graph names an optional peer. The runtime import below proves the same
-  // thing for eagerly-evaluated code; this also covers a module the barrel reaches but does not
-  // execute on load.
-  const seen = new Set();
-  const queue = [join(installed, "dist/index.js")];
-  // Three shapes, because a side-effect import (`import "x";`) has no `from` and is exactly how an
-  // optional peer would arrive without a symbol to grep for.
+  // 3. Optional-peer isolation, statically: follow every import from a root entry and assert
+  // nothing in that graph names an optional peer. The runtime import below proves the same thing
+  // for eagerly-evaluated code; this also covers a module the barrel reaches but does not execute
+  // on load.
+  //
+  // **It follows our own packages too**, which is the whole reason this check did not see the graph
+  // defect. `@kanzo-tech/ui/analytics` is not an optional peer and never will be — it is the
+  // subpath that EXISTS to hold them. A relative-only walk stops at that specifier and reports
+  // green while the module one hop further imports the entire Mosaic stack.
   const SPECIFIERS = [
     /\b(?:import|export)\b[^;"'`]*?\bfrom\s*["']([^"']+)["']/g,
     /\bimport\s*["']([^"']+)["']/g,
     /\bimport\s*\(\s*["']([^"']+)["']/g,
   ];
+
+  /** A `@kanzo-tech/x` or `@kanzo-tech/x/sub` specifier to the file its own `exports` map names. */
+  const ourEntry = (specifier) => {
+    const match = /^(@kanzo-tech\/[^/]+)(\/.*)?$/.exec(specifier);
+    if (!match) return null;
+    const [, name, subpath = ""] = match;
+    const dir = join(workDir, "node_modules", name);
+    let target;
+    try {
+      target = JSON.parse(readFileSync(join(dir, "package.json"), "utf8")).exports?.["." + subpath];
+    } catch {
+      return null;
+    }
+    const file = typeof target === "string" ? target : target?.import;
+    return typeof file === "string" && file.endsWith(".js") ? join(dir, file) : null;
+  };
+
+  // Each queued module carries the root entry it was reached from, because the offender is often
+  // in another package: the graph barrel reached Mosaic through five `@kanzo-tech/ui/dist/charts/*`
+  // modules, and naming those alone points at the package that is behaving correctly.
+  const seen = new Set();
+  const queue = PACKAGES.map((pkg) => ({
+    path: join(installedRoot, pkg, "dist/index.js"),
+    entry: `@kanzo-tech/${pkg}`,
+  }));
   while (queue.length) {
-    const path = queue.pop();
+    const { path, entry } = queue.pop();
     if (seen.has(path)) continue;
+    let contents;
+    try {
+      contents = readFileSync(path, "utf8");
+    } catch {
+      fail(`${entry} names ${relative(installedRoot, path)}, which the tarball did not ship`);
+      continue;
+    }
     seen.add(path);
-    const contents = readFileSync(path, "utf8");
     for (const pattern of SPECIFIERS) {
       for (const [, specifier] of contents.matchAll(pattern)) {
         if (specifier.startsWith(".")) {
-          queue.push(resolve(dirname(path), specifier));
-        } else if (
-          optionalPeers.some((peer) => specifier === peer || specifier.startsWith(peer + "/"))
-        ) {
-          fail(
-            `dist/${relative(join(installed, "dist"), path)} imports the optional peer ${specifier}`
-          );
+          queue.push({ path: resolve(dirname(path), specifier), entry });
+          continue;
         }
+        if (optionalPeers.some((peer) => specifier === peer || specifier.startsWith(peer + "/"))) {
+          fail(
+            `${entry} reaches the optional peer ${specifier}, via ${relative(installedRoot, path)}`
+          );
+          continue;
+        }
+        const ours = ourEntry(specifier);
+        if (ours) queue.push({ path: ours, entry });
       }
     }
   }
 
   if (problems.length === 0) {
-    console.log(`  ok  the ${seen.size} modules reachable from the root entry name no optional peer`);
+    console.log(`  ok  the ${seen.size} modules reachable from a root entry name no optional peer`);
   }
 
   writeFileSync(
@@ -232,6 +303,37 @@ for (const leaked of ["derivePalette", "compile", "deriveRamp", "checkScheme"]) 
   if (leaked in theme) fail(\`the theme entry re-exports \${leaked} — the derivation is on the runtime path\`);
 }
 pass("the derivation stays in @kanzo-tech/palette, which a consumer never installs");
+
+// 7. The graph's own root barrel, which is the door this file was extended for. A host that draws
+// arrays it already holds installs cosmos.gl and nothing else, so this import must resolve with no
+// Mosaic in the tree. It threw ERR_MODULE_NOT_FOUND until \`onceQuery\` left the barrel.
+const graph = await import("@kanzo-tech/graph");
+pass(\`graph root barrel imports with only non-optional peers (\${Object.keys(graph).length} exports)\`);
+for (const name of ["memorySource", "buffers", "useBoundedGraph", "vertexId"]) {
+  if (typeof graph[name] !== "function") fail(\`@kanzo-tech/graph does not export \${name}\`);
+}
+if ("onceQuery" in graph) fail("onceQuery is back on the root barrel — it imports @kanzo-tech/ui/analytics");
+if ("duckBoundedSource" in graph) fail("duckBoundedSource is on the root barrel — it is the DuckDB half");
+pass("the DuckDB half is not on the root barrel");
+
+const slice = graph.memorySource({
+  vertices: new BigUint64Array([graph.vertexId(0, 0), graph.vertexId(0, 1)]),
+  positions: new Float32Array([0, 0, 1, 1]),
+  links: new Float32Array([0, 1]),
+}).slice({ limit: 10, lodThreshold: 0, query: { kind: "region", view: { xMin: -Infinity, xMax: Infinity, yMin: -Infinity, yMax: Infinity, zoom: 1 } } });
+if ((await slice).vertices.length !== 2) fail("memorySource answered nothing — the no-database path is broken");
+else pass("memorySource answers a slice with no database installed");
+
+// And the other side of the same door: the DuckDB source is on /duckdb, and that subpath is
+// where the cost lives. Without Mosaic installed it cannot resolve — which is the split being
+// real rather than merely documented.
+await import("@kanzo-tech/graph/duckdb").then(
+  () => fail("@kanzo-tech/graph/duckdb resolved without Mosaic — is the Mosaic import still there?"),
+  (err) => {
+    if (err.code === "ERR_MODULE_NOT_FOUND") pass("@kanzo-tech/graph/duckdb is where the Mosaic cost is");
+    else fail("@kanzo-tech/graph/duckdb failed for the wrong reason: " + err.message);
+  },
+);
 `
   );
 

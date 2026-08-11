@@ -47,7 +47,3 @@ const byte = (n: number) =>
 export function toHex([r, g, b, a]: Rgba): string {
   return `#${byte(r)}${byte(g)}${byte(b)}${a >= 1 ? "" : byte(a)}`;
 }
-
-export function withAlpha([r, g, b]: Rgba, alpha: number): Rgba {
-  return [r, g, b, alpha];
-}

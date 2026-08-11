@@ -20,6 +20,18 @@ import { denseOf, typeOf, vertexId, SUPERNODE, type VertexId } from "./resident"
  * queried. What replaces it is a tile fetched by a computed URL, which is another source.
  */
 
+/**
+ * `onceQuery` is on this subpath and not on the root barrel, and it is the reason the promise above
+ * was false for as long as it was stated. Its module imports `@kanzo-tech/ui/analytics`, which
+ * statically imports `@uwdata/mosaic-core`, `@uwdata/mosaic-sql` and `@uwdata/vgplot` — so a root
+ * barrel that re-exported it made `import { memorySource } from "@kanzo-tech/graph"` throw for
+ * every host without them. It has never had a caller outside a Mosaic context; this file and the
+ * two showcases are all of them. Re-exported here rather than left module-private because those
+ * showcases read a relation directly, and a second hand-written throwaway client at each call site
+ * is the drift `useChartQuery` states the rule against.
+ */
+export { onceQuery } from "./once-query";
+
 export interface DuckSourceOptions {
   coordinator: Coordinator;
   /** The node relation. */

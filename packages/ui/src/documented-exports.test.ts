@@ -91,7 +91,13 @@ function entryPoints(pkgDir: string): Entry[] {
   return found;
 }
 
-const ENTRIES = ["ui", "theme", "palette"].flatMap((name) =>
+/**
+ * `graph` is here for the reason the comment above predicted: `docs/content/docs/(root)/graph.mdx`
+ * documents `@kanzo-tech/graph`, and until this line the page could name anything at all. It also
+ * brings `@kanzo-tech/graph/duckdb` in for free, which is the subpath the optional peers live on —
+ * a page that puts `duckBoundedSource` in an import from the root barrel now fails here.
+ */
+const ENTRIES = ["ui", "theme", "palette", "graph"].flatMap((name) =>
   entryPoints(join(REPO, "packages", name)),
 );
 
@@ -392,7 +398,7 @@ function unresolved(): Map<string, Claim[]> {
 /* ------------------------------------------------------------------ assertions */
 
 describe("the documented surface", () => {
-  // Resolving six entry points and twenty peer packages through the checker costs a few seconds,
+  // Resolving eight entry points and twenty peer packages through the checker costs a few seconds,
   // once. It happens here so no single assertion pays it and trips the default test timeout — and
   // it is skipped on an unbuilt tree so the first assertion below gets to say why.
   beforeAll(() => {
@@ -419,6 +425,10 @@ describe("the documented surface", () => {
       ["@kanzo-tech/ui/editor", "CodeEditor"],
       ["@kanzo-tech/theme", "AXES"],
       ["@kanzo-tech/palette", "compile"],
+      ["@kanzo-tech/graph", "memorySource"],
+      // On the subpath and not the barrel — the optional-peer door. `index.test.ts` in that package
+      // asserts the same split from the runtime side.
+      ["@kanzo-tech/graph/duckdb", "duckBoundedSource"],
     ] as const) {
       expect(bySpec.get(spec)?.has(canary), `${spec} should export ${canary}`).toBe(true);
     }

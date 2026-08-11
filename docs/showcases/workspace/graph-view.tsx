@@ -122,10 +122,12 @@ import {
   denseOf,
   LOOKS,
   LOOK_ORDER,
-  onceQuery,
   scaleOf,
   vertexId,
 } from "@kanzo-tech/graph";
+// `onceQuery` is on the DuckDB subpath, not the barrel: it is a Mosaic client, and the barrel
+// must stay importable without Mosaic installed.
+import { onceQuery } from "@kanzo-tech/graph/duckdb";
 import type { NodeKind } from "./graph-data";
 import { ShapeGlyph, text } from "./graph-canvas";
 import { Finding } from "./graph-finding";

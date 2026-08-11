@@ -41,7 +41,6 @@ import {
   residentOf,
   scaleOf,
   SHAPE_PATH,
-  onceQuery,
   vertexId,
   type Resident,
   type ShapeId,
@@ -53,7 +52,7 @@ import {
   useGraphOverlays,
   useGraphSelection,
 } from "@kanzo-tech/graph";
-import { duckBoundedSource } from "@kanzo-tech/graph/duckdb";
+import { duckBoundedSource, onceQuery } from "@kanzo-tech/graph/duckdb";
 import {
   KINDS,
   useGraphView,
