@@ -502,18 +502,45 @@ which was nothing, twice.
 
 ## What to fix, in order
 
-**DuckDB is not the bottleneck.** The query column stays in single-digit milliseconds while
-everything around it grows. The database was never the thing to worry about.
+**DuckDB is the bottleneck, and it gets one core.** What stays in single-digit milliseconds is
+`total()` — 7–9 ms at every size, because it is Parquet metadata. The slice is not: `detail()`'s
+three queries cost 55 ms at a million and 139 ms at five, and the honest statement of the
+architecture is **bounded rendering, unbounded querying**. `threads` is 1, cross-origin isolation
+does not change it, and what native DuckDB absorbs across fourteen cores the browser pays in wall
+clock.
 
-**`load()` is.** It is the largest cost we own, and it is plain main-thread JavaScript turning
-Arrow into ids, a `Map`, rows, and typed arrays. It belongs in a worker, and much of it belongs
-in SQL — the index and the ordering are things DuckDB would do for free.
+**The growing term is the edge scan.** With a window holding 20,000 vertices whatever the corpus
+is, `points` is flat — 2 ms at a million and 2 ms at five — and `links` is 6 ms against 7, but
+spends 17 ms of CPU against 45, because it joins the whole edge table: 6.9M rows against 35M, one
+file, no chunking, no spatial order. The vertices were tiled and the edges were left alone, and the
+edges are the half that scales. That is the 77 → 256 ms pan.
 
-**The upload is cosmos.gl's, and it dominates both layers equally.** Layer 1 and layer 2 agree
-on it to within a few per cent for the same data, which is the cross-check that says the
-harness is measuring the same thing twice rather than measuring itself.
+In the order the measurements support:
 
-**`buffers()` is cheap and can stay where it is.**
+1. **Chunk the edge file.** Not a completeness item — the lever. It is the term that follows N, and
+   nothing else on this list touches it.
+2. **Issue `detail()`'s three queries on separate connections.** They go out under `Promise.all`,
+   but Mosaic funnels them through one connection and fulfils in strict FIFO, so they serialise: the
+   sum is 75 ms where the slowest is 35. Worth more than any file-layout change on this list.
+3. **Emit tiles at 4,096 rows.** 78 requests and 1.48 MB per cold window at five million against
+   today's 208 and 12.12 MB, at 2.31× the run-addressed ideal. Today's 122,880 is dominated by every
+   other size in that table, on requests *and* bytes.
+4. **A tile cache.** The only item here that no amount of query tuning can substitute for: it is
+   what makes panning *back* free. It answers the payload and not the metadata — two of six drag
+   steps at ten million transfer zero bytes and still cost 247 requests each, which is what item 3
+   is for.
+
+**`buffers()` is cheap and can stay where it is.** 1, 2, 8 and 33 ms at 2k through 200k.
+
+**The upload is flat and is not on this list.** 23–30 ms at every size on the bounded path, because
+the slice is capped at 20,000 marks — 24 ms of a 253 ms first paint at a million. The 788 ms it cost
+in layer 2 was the price of holding the corpus, and that architecture is gone.
+
+**What used to top this list left with it.** `load()` read the whole relation into ids, a `Map`,
+rows and typed arrays — 386 ms at 200,000 nodes, 148 of them building the id→index map. ADR-0001
+deleted it rather than moving it to a worker, and the SQL half of the old plan landed with it:
+`row_number() - 1` inside the CTE numbers the visible set, so a slice's links already speak in
+buffer positions and no map is built in JavaScript at all.
 
 ## The window is flat in N — and it is the curve, not the communities
 

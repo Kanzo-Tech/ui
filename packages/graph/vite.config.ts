@@ -43,7 +43,7 @@ export default defineConfig({
       plugins: [preserveDirectives()],
       output: {
         // One output file per source file, so each module keeps its own directive and a consumer
-        // importing `load()` on the server does not drag a renderer in behind it.
+        // importing `vertexId` on the server does not drag a renderer in behind it.
         preserveModules: true,
         preserveModulesRoot: "src",
         entryFileNames: "[name].js",

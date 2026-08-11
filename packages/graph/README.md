@@ -28,17 +28,31 @@ pnpm add @kanzo-tech/graph @cosmos.gl/graph
 ```
 
 `@cosmos.gl/graph` is a required peer: this is a renderer, and there is nothing left of it without
-one. The Mosaic peers are **optional** — `load()` and `onceQuery()` need them, the rendering hooks
-do not, and a host drawing arrays it already has should not pay for a database.
+one. The Mosaic peers are **optional** — `duckBoundedSource()` and `onceQuery()` need them, the
+rendering hooks do not, and a host drawing arrays it already has should not pay for a database.
 
 ## The two halves
 
-**Data.** `load(coordinator, spec)` reads a node relation and an edge relation into the four typed
-arrays the GPU wants, plus the rows and the id→index `Map` everything else needs. `GraphSpec` names
-the columns, so the canvas never reads a schema by name and pointing it at another corpus is a
-change of argument, not of code.
+**Data.** A **source** answers one question — *what should I draw* — and `useBoundedGraph` asks it.
+The answer is a `Slice`: at most `limit` points as parallel typed arrays, whose size follows the
+question rather than the corpus. Moving the camera re-asks; zooming out past `lodThreshold` gets
+super-nodes instead of nodes, so a view of everything is still a few thousand marks.
 
-**Appearance.** `buffers(loaded, look, host)` turns a look and the *live theme* into per-point
+`duckBoundedSource` — on `@kanzo-tech/graph/duckdb`, because that is the half that needs Mosaic —
+answers over two DuckDB relations and takes the column names as options, so pointing it at another
+corpus is a change of argument, not of code. A host that already holds its arrays takes
+`memorySource` and pays for no database; under `limit` either one is asked once and never again, so
+a graph that fits pays for nothing.
+
+**A point is addressed by index and identified by pair.** cosmos.gl numbers points by their position
+in the arrays it was last handed, so index 7 is whatever the current answer put seventh. A vertex is
+therefore `vertexId(type, dense)` — a `bigint`, and `Slice.vertices` a `BigUint64Array`, because the
+pair is 64 bits and a `number` holds 53. Anything that outlives one answer is held as a `VertexId`
+and resolved through the `Resident` that `useBoundedGraph` rebuilds per answer. Do not build a second
+map: a copy assembled beside it is the same value one render later, with no way to notice it has
+fallen behind the buffers on screen.
+
+**Appearance.** `buffers(slice, look, host)` turns a look and the *live theme* into per-point
 colours, sizes and shapes. A `Look` carries **geometry only** — colour comes from the page's
 categorical scale (`categoricalColor` in `@kanzo-tech/ui/analytics`), because a scale a graph
 invents is a scale that disagrees with the legend explaining it.
@@ -56,12 +70,16 @@ Measured, not asserted — see `BENCHMARKS.md` at the repository root, and
 A live simulation is comfortable to about **50,000** points and finished by **200,000** (a step
 costs 62 ms there). A million points render, upload and simulate without failing, but at 440 ms a
 step. **Past 200,000 the honest design is positions computed once and stored as a column** — which
-is why `load()` takes `xField` / `yField`, and why nothing in this package insists on running a
-simulation.
+is why a source names `xField` / `yField`, and why a simulation is off by default: the coordinates a
+source hands back are the index the next spatial question is asked against, and a force that moves
+them moves the picture out from under its own index.
 
-The cost we own at that scale is `load()` itself: 455 ms at 200,000 points of main-thread JavaScript
-turning Arrow into a `Map`, rows and typed arrays. DuckDB answers the query in ten. That is the next
-thing to fix, and it is a worker plus some SQL, not a renderer problem.
+Bounded, over a corpus compiled once, first paint is **253 ms at a million** against the 1,225 ms it
+used to cost to hold two hundred thousand. What is drawn and transferred follows the window — the
+upload is flat at 23–30 ms and the redraw ceiling stays in the thousands of frames per second. What
+is *scanned* does not: the pan grows from 77 ms at a million to 256 ms at five, and the term that
+grows is the edge join, over one file on a DuckDB-WASM that gets a single thread. That is the next
+thing to fix, and it is the corpus layout, not the renderer.
 
 ## Gotchas the source will not tell you twice
 

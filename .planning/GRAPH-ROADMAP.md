@@ -100,7 +100,9 @@ on paper:
 ### 3. Selection and overlays by identity — **canvas**, done 2026-08-05
 
 ADR-0042's own "risk that bites first", and it is closed. A vertex is `vertexId(type, dense)` packed
-into one number; `Slice.ids` is `Slice.vertices: Float64Array` of those; and the identity↔index map
+into one 64-bit integer — a `bigint`, and `Slice.vertices` a `BigUint64Array` of them, because a
+`Float64Array` holds the pair only while the type index stays under 2²¹ and `dense_id` is a `UInt32`
+that wants all 2³² above it; and the identity↔index map
 is a `Resident` that `useBoundedGraph` rebuilds with every answer — **there, because that is where
 residency changes**, and a copy built beside it is the same value one render later with no way to
 notice it has fallen behind the buffers. Selection, overlays, pins, the focus ring and the greyout
