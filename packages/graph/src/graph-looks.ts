@@ -28,10 +28,21 @@ export type ShapeId = (typeof SHAPE)[keyof typeof SHAPE];
  *
  * Plot calls this channel `symbol` and gives it its own legend, which is the tell that it is a peer
  * of colour rather than a decoration. Four slots and no cycling: a fifth category cannot wear circle
- * again without claiming to be the first one. Four, not the eight cosmos.gl could draw, because Ink
- * puts its size floor at four pixels and a pentagon, a hexagon and a circle are one dot there — a
- * scale that names more shapes than the mark can carry claims a difference nobody can see, which is
- * the same mistake `categoricalCapacity` exists to stop colour making.
+ * again without claiming to be the first one.
+ *
+ * **Four because the shape channel's measured capacity is five, not because small shapes stop being
+ * distinguishable.** Giovannangeli et al. (arXiv 2103.06084) put the ceiling at **5 for shape**
+ * against **7 for colour**; `SHAPE_ORDER`'s four plus `SHAPE_OTHER` is exactly five distinguishable
+ * glyphs, and the two scales differ in cardinality because the channels do. The colour side already
+ * says the same thing from the other end — Dracula's document publishes `--chart-capacity: 7`.
+ *
+ * **This comment used to give the size argument, and the size argument is wrong.** It said a
+ * pentagon, a hexagon and a circle are one dot at Ink's floor. Smart & Szafir (CHI 2019,
+ * doi:10.1145/3290605.3300899) measured 16 shapes across 6 mark sizes from 6 to 50 px and found
+ * shape discrimination *robust* to size: the only significant variation is at 6 px, and it is 4.5
+ * accuracy points against 50 px. The conclusion survived the argument that was given for it, which
+ * is the most dangerous shape a comment can have — see `OBLIGATIONS` in `./obligations.ts` for what
+ * the floor actually protects.
  */
 export const SHAPE_ORDER: ShapeId[] = [SHAPE.circle, SHAPE.square, SHAPE.triangle, SHAPE.diamond];
 
@@ -144,9 +155,17 @@ const INK: Look = {
   blurb: "Monochrome. Kind reads as shape, degree as size.",
   encode: { identity: "shape", links: "neutral" },
   form: {
-    // The floor is the whole look. A triangle and a square are the same dot below about four
-    // pixels, so a ramp starting at 2 spent its only categorical channel on nodes too small to
-    // spend it: every point but the handful of hubs read as an undifferentiated speck.
+    // The floor is the whole look, and it protects the OTHER two channels from shape rather than
+    // shape from smallness. Ink encodes identity as shape *and* degree as size at once, and
+    // Giovannangeli et al. (arXiv 2103.06084) measure that encoding on two attributes together
+    // "drops performance drastically even with minor heterogeneity". Smaller marks make the
+    // interference worse in both directions that matter here: the luminance JND rises from 6.48
+    // ΔL* at 50 px to 11.30 at 6 px, and shape biases perceived size so hard that a square is
+    // reported larger than any other shape at equal area in 82% of trials — which is a size ramp
+    // reading wrong, in the one look whose size ramp carries meaning.
+    //
+    // Not "a triangle and a square are the same dot below four pixels", which is what this said
+    // and is false — see `SHAPE_ORDER` for the measurement that refutes it.
     size: [4, 13],
     link: { opacity: 0.28, width: 0.5, curve: 0, fade: [180, 1200] },
     labels: 40,
