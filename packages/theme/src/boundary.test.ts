@@ -65,10 +65,24 @@ describe("the palette boundary", () => {
       .filter((e) => e.isFile() && /\.tsx?$/.test(e.name) && !e.name.includes(".test."))
       .map((e) => e.name);
 
-    // The corpus, stated: `index.ts` is the whole shipped surface of this package, and a loop over
-    // an empty list passes every assertion inside it.
-    expect(shipped, "the shipped source of this package is exactly its entry point").toEqual([
+    // The corpus, stated and pinned: a loop over an empty list passes every assertion inside it, so
+    // the list is named rather than merely walked. It grew from one file to three when the section
+    // mechanism landed, and the two additions are exactly the kind this guard exists to watch:
+    //
+    //   · `sections.ts` re-declares the binding shape (`{ kind: "alpha", ramp, step }`) structurally
+    //     rather than importing `RoleBinding`, which would fail the text match below — and rightly,
+    //     because the palette's version carries `SurfaceName` elevation and `RampName`, neither of
+    //     which a browser resolving a section token has any use for. Third deliberate
+    //     re-declaration, after `CHART_SLOTS` and `SwatchOption`, and the same reasoning.
+    //   · `obligations.ts` reads `theme-data.json`, a generated artefact of this package, and
+    //     nothing else.
+    //
+    // Adding a file here is a decision: it widens what a bundler follows. Keep the list explicit so
+    // that widening is something somebody reviews.
+    expect(shipped.sort(), "the shipped source of this package is exactly this list").toEqual([
       "index.ts",
+      "obligations.ts",
+      "sections.ts",
     ]);
 
     for (const file of shipped) {

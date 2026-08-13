@@ -20,7 +20,6 @@ export const Switch = (props: React.ComponentProps<typeof ArkSwitch.Root>) => {
         "outline-none [[data-focus-visible],[data-invalid]]:ring-[3px]",
         "data-focus-visible:border-primary data-focus-visible:ring-ring",
         "data-invalid:border-destructive data-invalid:ring-destructive/24",
-        "dark:data-invalid:border-destructive-foreground dark:data-invalid:ring-destructive-foreground/20",
         "data-[state=checked]:bg-primary",
         // The track IS this control's boundary — `border` is transparent — and the thumb is
         // `bg-background`, so the track is the only thing that says the switch is off. A surface

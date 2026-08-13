@@ -2,9 +2,10 @@
 "@kanzo-tech/palette": minor
 "@kanzo-tech/theme": minor
 "@kanzo-tech/ui": minor
+"@kanzo-tech/graph": minor
 ---
 
-**The first release.** Three packages, arriving together. Nothing before this was published, so
+**The first release.** Four packages, arriving together. Nothing before this was published, so
 this note describes what the packages *are* rather than how they got here.
 
 ### `@kanzo-tech/ui`
@@ -39,16 +40,49 @@ consume rather than forward.
 
 The stylesheets, the axis table, and the value types. No React, no components, no colour maths.
 
-Four axes are not colour at all — radius, font, mono font, density. The fifth, `identity`, is the
-one whose values a *tenant* authors: which brand of the document they published applies. It is the
-first axis whose selectors come out of `compile()` rather than the generator, which is what `AXES`
-records as `source`.
+Four axes are not colour at all — radius, font, mono font, density. Two more select colour, and
+both pick among things a tenant already published: `palette` (a whole document) and `identity` (a
+brand within one). They are the axes whose selectors come out of `compile()` rather than the
+generator, which is what `AXES` records as `source`.
 
 ### `@kanzo-tech/palette`
 
 The colour derivation: ramps, the categorical search, the role table, `compile`. A tenant's palette
 is a document derived once at onboarding, and everything downstream — the primary colour, the
-charts, the dashboards — comes from that one artefact.
+charts, the dashboards, the graph — comes from that one artefact.
+
+**Two tiers of colour token, and knowing which you are reading matters.** The *reference* tier is
+`--{base,brand,destructive,warning,success,info}-{1..12,a1..a12}` — 144 generated properties with
+Radix's positional meaning and a Tailwind utility apiece, so `bg-base-3` and the alpha steps are
+yours to spell. The *role* tier is a name bound to one of those, and a role exists only if it
+carries a **measured property** a step index cannot express (`fill`, `on-fill`, `boundary`,
+`quietest-ink`, `recess`) or is a name Shark's recipes paste in verbatim. Anything the roles do not
+name, reach for the reference tier — that is what it is for, and it is why the role list does not
+grow with each new consumer.
+
+**A percentage is not an alpha step.** `bg-x/60` dilutes toward transparent and lands wherever the
+thing underneath puts it — and it lands on a *different* step in each mode, because the dark ramp is
+deliberately fatter at the bottom. Every family publishes twelve alpha steps solved to composite
+onto their own solid; use those.
+
+### `@kanzo-tech/graph`
+
+A bounded WebGL graph over cosmos.gl. The canvas asks for what the camera can see rather than
+holding the corpus: `useBoundedGraph(options)` observes the camera, debounces, aborts what the
+camera has superseded, and pushes each answer into the renderer, so first paint follows the window
+rather than the corpus. `memorySource(graph)` wraps arrays you already hold;
+`@kanzo-tech/graph/duckdb` carries `duckBoundedSource` because Mosaic is an optional peer.
+
+Three things to know before you draw one:
+
+- **A `Look` is geometry only** — sizes, link opacity and width, labels, which channel carries
+  identity. It names no colour and applies no filter. Colour comes from the page's categorical
+  scale, so the graph, the charts and the legend explaining them cannot disagree.
+- **A category is an ordinal, never a name.** A `Slice` carries `Uint16Array` category codes. A
+  call site mapping names to ordinals must sort its domain the way the source ranked it.
+- **The simulation is off by default.** Positions are authority: a bounded source hands back the
+  coordinates the next spatial query is expressed in, so a force that moves them moves the picture
+  out from under its own index.
 
 ### The four one-way doors
 
@@ -56,7 +90,8 @@ These are the decisions a consumer cannot work around, so they are the ones wort
 
 - **Theme attributes go on `<html>`.** `KanzoThemeProvider` writes them there because Ark's
   overlays portal to `document.body`, outside any wrapper, and density sets the root font-size the
-  whole `rem` scale resolves against. A wrapper element cannot theme this library.
+  whole `rem` scale resolves against. A wrapper element cannot theme this library. `KanzoTheme` is
+  the scoped second themer, and it is for previews only, for exactly that reason.
 - **`@kanzo-tech/palette` is authoring-time.** It is a devDependency of `@kanzo-tech/theme`, not a
   runtime dependency: the categorical search is measured in seconds and has no first-paint budget.
   The runtime applies a stored document and derives nothing.
@@ -74,7 +109,41 @@ first: `palette` (a whole document a tenant published, surfaces included), `iden
 only, with the neutral and the statuses shared — which is what keeps several product lines one
 product), and `appearance` (which of the document's two blocks applies).
 
-What is gone is authoring a *part* of a palette at runtime: no `base`, no `accent`, no chart-scheme
-attribute, and `data-palette` stays forbidden. Each of those expressed part of a palette; a document
-expresses all of it before a byte is sent. A palette therefore writes no attribute at all — it is
-served — while `data-identity` selects among blocks that document already contains.
+**Every document a tenant publishes travels in the page**, each compiled under its own
+`[data-palette="…"]` block, and choosing one writes the attribute. The five this repository ships
+are 7.6 kB gzipped together, which is what makes that affordable — so `cookieStorageAdapter` is an
+optimisation rather than a requirement, and a tenant publishing a single identity sends one block
+and sets no attribute at all.
+
+What does not exist is moving *part* of a palette at runtime: no `base`, no `accent`, no
+chart-scheme attribute, no inline `--color-custom-*`. Each expressed a fragment; a document
+expresses all of it at once, graded as a whole.
+
+**`appearance` is `"light" | "dark"`, and the preference is that or `null`** — `null` means the OS
+decides. There is no `"system"`: following the OS is the absence of a value, which is what CSS
+itself does with `color-scheme`. A host speaking next-themes' `"system"` is translated on the way
+in and back out, in one place.
+
+**Appearance is a class on the element carrying the theme, never on an ancestor.** That is what
+makes a light preview inside a dark page possible. Whatever sets `data-palette` must also set the
+appearance class — a bare attribute on a div inside a dark page renders that document's *light*
+half. `KanzoTheme` upholds this; hand-written attributes must too.
+
+### For the reviewer of this changeset, not for a consumer
+
+Two claims that stood in the folded notes are **no longer true**, and are not repeated above:
+
+- `component-tokens-are-tier-three.md` concluded that the seventeen alpha-bound level-names stay,
+  on the evidence that all seventeen were used across 53 call sites. That measurement was sound and
+  answered "is this vocabulary dead?" — but the deciding question turned out to be "is this a second
+  spelling?", and on that one all seventeen were byte-identical to a published reference step in
+  every block of every shipped document. They are deleted; call sites spell the step. See
+  `decisions/a-role-earns-its-name-or-becomes-a-step.md`.
+- `the-first-release.md` itself said `data-palette` "stays forbidden" and that a palette "writes no
+  attribute at all — it is served". `palette-is-an-attribute.md` reversed that, and the text above
+  now describes the shipped mechanism.
+
+The bumps are kept at `minor` (0.0.0 → 0.1.0) rather than raised to the `major` several folded
+notes carried. Those declared breakage against a version that was never published, so they have
+nothing to break; what number the first release takes is the owner's call, and raising it here would
+be taking it silently.

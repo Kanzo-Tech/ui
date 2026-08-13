@@ -19,23 +19,24 @@ may publish several, and the user picks:
 
 | preference | what changes | attribute |
 | --- | --- | --- |
-| `palette` | a whole document — surfaces, statuses, syntax, brand | **none**: the server serves the stylesheet |
+| `palette` | a whole document — surfaces, statuses, syntax, brand | `data-palette` |
 | `identity` | brand-derived tokens only; neutral and statuses shared | `data-identity` |
 | `appearance` | which of the document's two blocks applies | **none**: it writes `.dark` |
 
 Publish one of each and nothing appears — `Preferences.Colour` hides itself below two choices. A
 client wanting a single immutable brand does nothing to get one.
 
-<Callout type="warn" title="Publishing several palettes costs static rendering">
-  Which document to serve is decided from the request, so a host that reads the cookie in its root
-  layout makes every page under it dynamic — this docs site included. It is the right trade here and
-  it is **not** one a normal tenant pays: a client publishes one document, so their server inlines it
-  unconditionally, reads no cookie, and their pages stay static.
+<Callout type="info" title="Several palettes all travel, and the choice is an attribute">
+  Every document a tenant publishes ships in the page at once, each compiled under its own
+  `[data-palette="…"]` block, and choosing one writes the attribute. The five this site publishes
+  are **7.6 kB gzipped together**, which is what makes that affordable and what settles the question:
+  the earlier arrangement had the server pick one document from the request, and the cookie was
+  therefore mandatory, because a choice the server has already made cannot be corrected in the
+  browser without a flash.
 
-  The two ways out both cost more than they save. A `<link>` to a cookie-varying CSS route keeps the
-  pages static and spends a blocking request on every visitor, including the majority on the default
-  palette who need no override. Applying it in the browser reintroduces the flash the arrangement
-  exists to prevent.
+  So `cookieStorageAdapter` is an optimisation here, not a requirement — localStorage plus the
+  pre-paint script applies `data-palette` before anything is drawn, exactly as it does for radius and
+  density. A tenant publishing a single identity sends one block and sets no attribute.
 </Callout>
 
 The panel shows them as **one list**: a palette that publishes several brands contributes one entry
@@ -106,10 +107,18 @@ palette, and the chart is a reading of it.
 
 ```text
 two seeds  →  six ramps × two modes  →  the role table  →  compile()  →  one <style>
-brand      →  brand, neutral,        →  65 tokens       →  ~4 KB      →  :root { … }
-neutral    →  destructive, warning,                                      .dark { … }
+brand      →  brand, base,           →  216 props       →  ~11 KB     →  :root { … }
+base       →  destructive, warning,     per block                        .dark { … }
               success, info
 ```
+
+Those 216 are two vocabularies over the same ramps, and it is worth knowing which you are reading.
+**144 are the reference layer** — `--base-1…12` and `--base-a1…12` for each of the six families,
+generated, with Radix's positional meaning and a matching Tailwind utility apiece. **The rest are
+the roles**: names bound to a step, an alpha step, or one of the five measured properties below.
+Measured over all six shipped documents, 53 of the 71 role tokens are byte-identical to a published
+reference step in every block — so most of a role's job is to give a step a name Shark's recipes
+already speak, and the reference layer is where anything the roles do not name goes.
 
 **Two seeds, from the client.** A brand colour and a neutral. The neutral is *tinted* — a low
 chroma at a hue, Radix-style — and it supplies that hue; the brand hue is the fallback when
@@ -128,17 +137,21 @@ chroma profiles say so.
 **The role table** binds tokens to `(ramp, step)` — with four things that are *measured* rather
 than written, because writing them would be wrong for most seeds:
 
+The neutral ramp is called **`base`**, not `neutral`: `bg-base-3` beside Tailwind's own
+`bg-neutral-300` would be an error waiting to happen, and `base` is the word daisyUI already uses for
+exactly this. The rename is consistent down to the seed (`RampName`, `seeds`, `HueSource`).
+
 | token | binding |
 | --- | --- |
-| `--background` `--card` `--popover` `--sidebar` | `(neutral, 1)` at a per-surface elevation |
-| `--foreground` `--secondary-foreground` `--accent-foreground` | `(neutral, 12)` |
-| `--muted` / `--muted-foreground` | `(neutral, 3)` / `(neutral, 11)` |
-| `--faint` | `(neutral, 10)` |
-| `--secondary` / `--accent` | `(neutral, 4)` / `(neutral, 5)` |
-| `--border` | `(neutral, 6)` |
-| `--input` | `(neutral, boundary)` |
-| `--secondary-wash` / `--accent-wash` | `(neutral, alpha 4 / 5)` |
-| `--field` | `(neutral, recess 3)` — the alpha step if it recedes, else the page |
+| `--background` `--card` `--popover` `--sidebar` | `(base, 1)` at a per-surface elevation |
+| `--foreground` `--secondary-foreground` `--accent-foreground` | `(base, 12)` |
+| `--muted` / `--muted-foreground` | `(base, 3)` / `(base, 11)` |
+| `--faint` | `(base, quietest-ink)` — the quietest step still AA on the page |
+| `--secondary` / `--accent` | `(base, 4)` / `(base, 5)` |
+| `--border` | `(base, 6)` |
+| `--input` | `(base, boundary)` |
+| `--secondary-wash` / `--accent-wash` | `(base, alpha 4 / 5)` |
+| `--field` | `(base, recess 3)` — the alpha step if it recedes, else the page |
 | `--primary` / `--primary-foreground` | `(brand, fill)` / `(brand, on-fill)` |
 | `--ring` | `(brand, boundary)` |
 | `--destructive` / `-foreground` / `-content` | `(destructive, 9)` / `(…, 11)` / `(…, on-fill)` |
@@ -244,12 +257,15 @@ const doc = derivePalette({ id: "acme", label: "Acme", brand: "#8839ef", neutral
   stored document never needs it.
 </Callout>
 
-<Callout type="warn" title="Colour is not a runtime axis">
-  There is no `data-palette`, no `data-base`, no `data-accent`, no `data-chart-scheme`, no
-  custom-base-tint or custom-primary path, and no inline `--color-custom-*` or `--chart-*`
-  override. Each of those expresses *part* of a palette at runtime, and a document expresses all
-  of it at once. Nor is there a palette *pairing*: one document carries both modes, so there is
-  no pair to resolve.
+<Callout type="warn" title="A whole document switches; a part of one never does">
+  `data-palette` and `data-identity` select a **document** and a **brand within one** — both already
+  derived, measured and compiled. What does not exist, and is the distinction worth holding onto, is
+  any way to move *part* of a palette at runtime: no `data-base`, no `data-accent`, no
+  `data-chart-scheme`, no custom-base-tint or custom-primary path, and no inline
+  `--color-custom-*` or `--chart-*` override. Each of those expresses a fragment, and a document
+  expresses all of it at once, consistently, having been graded as a whole.
+
+  Nor is there a palette *pairing*: one document carries both modes, so there is no pair to resolve.
 </Callout>
 
 ### base16 identities are seeds now

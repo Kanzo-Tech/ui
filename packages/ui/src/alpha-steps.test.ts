@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,168 +7,187 @@ import { describe, expect, it } from "vitest";
 const SRC = dirname(fileURLToPath(import.meta.url));
 
 /**
- * `--input` carries boundary contrast, `--field` carries a surface, and neither is spelled with an
- * opacity.
+ * A percentage is not an alpha step, and the corpus is every colour token — not seven spellings.
  *
- * They were one token serving two roles that answer to different rules. WCAG 1.4.11 asks 3:1 of the
- * visual information that identifies a control **or its state**; it asks nothing of a text field's
- * fill. Measured, `border-input` sits at 1.33:1 — so the boundary has to move, and it could not
- * while the surfaces rode on the same value: at the boundary step they become slabs, at the surface
- * step the boundary still fails.
+ * ## Why the rule exists
  *
- * The split is by the contrast a site OWES, not by the CSS property it uses — a distinction the
- * first cut of this rule got wrong. A switch's unchecked track is a fill by spelling and a boundary
- * by duty: its border is transparent and its thumb is `bg-background`, so the track is the only
- * thing saying the switch is off. On a surface step the thumb sits ~1.07:1 against it and the state
- * stops being readable. So solid `bg-input` is legal where the site owes boundary contrast; what is
- * banned is *diluting* it, which is how it became a surface token in the first place.
- *
- * The `/NN` half of the rule is the part worth a test rather than a comment, because it reads as a
- * harmless spelling. `bg-x/60` dilutes a solid *toward transparent*, so where it lands is a function
- * of whatever is painted underneath, and it agrees with the ramp's own step only over a white page.
- * An alpha step is solved to composite onto its solid over the real page and shows through honestly
- * over anything else — so an opacity on one re-dilutes something that already *is* the transparency.
- * (Spelled `/NN` here on purpose: Tailwind scans this file too, and a literal example would emit a
+ * `bg-x/60` dilutes a solid *toward transparent*, so where it lands is a function of whatever is
+ * painted underneath, and it agrees with the ramp's own step only over a white page. An alpha step
+ * is solved to composite onto its solid over the real page and shows through honestly over anything
+ * else — so an opacity on one re-dilutes something that already *is* the transparency. (Spelled
+ * `/NN` in this prose on purpose: Tailwind scans this file too, and a literal example would emit a
  * real utility for a class the rule forbids.)
  *
- * The ring is here for the first half of that rule only. The diluted ring (`/NN` again — same
- * reason) measured **1.29:1** in light, a live 1.4.11 failure on the element 1.4.11 names first, so
- * the dilution is banned and every ring the library draws is a solid `ring-ring`, ~4:1 at the
- * boundary step — **37** sites over `packages/ui/src` excluding this file (counted 2026-07-30; a
- * count of call sites rots, and this one already had, from 36). Re-run `grep -o 'ring-ring\b'`
- * before trusting it, and read what comes back rather than counting it: the grep finds `ring-ring`
- * *sites*, not focus rings. 27 carry a focus-visible variant; the other 10 do not — three
- * `focus-within:` where a wrapper rings for a focused child (`input-group.tsx:25`,
- * `number-input.tsx:22`, `tags-input.tsx:60`), three the machine spells itself
- * (`tags-input.tsx:61`, `calendar.tsx:436`, `composites/CodeEditor.tsx:483`), a bare `focus:` that
- * also fires for a mouse (`skip-nav.tsx:85`), and three that are not focus at all:
- * `data-highlighted:` (`tags-input.tsx:151`), `data-dragging:` (`slider.tsx:157`) and
- * `data-[state=open]:` (`select.tsx:55`). The ban covers all 37 either way; the *contrast* argument
- * above was made about focus. A
- * second token,
- * `--ring-soft` = `(brand, alpha[boundary])`, was tried for those sites and **dropped**, because
- * measuring it is what showed it had nothing to do: an alpha step's whole obligation is that it
- * composites back to its own solid over step 1, so on a page it *is* `ring-ring`. Reproduced —
- * `#8e51ff` light, boundary 9: solid `#8e51ff`, alpha `#5500ffa7`, composited `#8e56ff`; the
- * shipped neutral `#737373` light: solid `#737373`, alpha `#00000088`, composited `#757575`. It
- * differed only over content the theme does not own, which a focus ring never needs, and it cost
- * the accent hue — `--ring` is a compiled palette role and moves with the tenant's document, a
- * static alpha does not. Two
- * tokens for one decision is the defect this layer exists to remove; the ban is the rule, the
- * token was not.
+ * The stronger half is about the MODE rather than the backdrop: **a percentage lands on a different
+ * step in each mode.** Mapping the shipped dilutions onto the family's own alpha scale, over the
+ * page — `/4` is a3 in light and a2 in dark, `/10` a4 and a3, `/20` a5 and a4, `/32` a6 and a5. That
+ * is not rounding; it follows from `CHROMA_PROFILE.dark` being deliberately fatter at the bottom of
+ * the ramp, so a tint has to work harder against a dark ground. One number cannot serve both modes.
+ * A role is resolved against each mode's own ramp at derivation time, so one binding is right in
+ * both. Measured examples behind each of those claims live in `docs/theming.mdx` and in
+ * `@kanzo-tech/palette`'s `roles.ts`; nothing here re-derives one.
  *
- * `ring-sidebar-ring` is in the pattern because the first cut of it was not, and two sidebar
- * buttons kept the dilution for that reason alone — `--sidebar-ring` and `--ring` are the same
- * value (`(brand, boundary)`), so it was the same failure at 1.49:1 in light. A rule spelled
- * against one token name only holds for one token name.
+ * ## Why this file was rewritten, and what the old shape could not see
  *
- * ## The half of the rule that is about the MODE, not the backdrop
+ * It used to hold seven hand-written regexes over particular utility spellings — `bg-input`,
+ * `ring-ring`, `bg-field`, a status fill under 50%, a status border, `bg-accent`, and
+ * `text-muted-foreground`. Every one of them passed. **Measured 2026-08-13 over
+ * `packages/ui/src`, they matched 0 sites, while 71 dilutions of registered colour tokens shipped
+ * across 26 files.** The seven spellings had all been fixed; the rule they stood for had not been
+ * enforced anywhere else, and the file reported the same green either way.
  *
- * Everything above is one mode's argument. The rest of this list is the other one, and it is the
- * stronger of the two: **a percentage lands on a different step in each mode.** Mapping the shipped
- * dilutions onto the family's own alpha scale, over the page — `/4` is a3 in light and a2 in dark,
- * `/10` a4 and a3, `/20` a5 and a4, `/32` a6 and a5. That is not rounding; it follows from
- * `CHROMA_PROFILE.dark` being deliberately fatter at the bottom of the ramp, so a tint has to work
- * harder against a dark ground. One number therefore cannot serve both modes, and the library had
- * already written the symptom out by hand in three places — a badge at `bg-destructive` 10% with a
- * dark override to 5%, a menu and a listbox at 10% with a dark override onto a *different token*,
- * and a slider track doing the same at 24%. A role is resolved against each mode's own ramp at
- * derivation time, so one binding is right in both.
+ * Three structural reasons it could not have, and they are the argument for the shape below:
  *
- * What replaces each banned spelling:
+ * · **A spelling is not a token.** `shadow-xs/5` and `text-lg/6` are a shadow's own opacity and a
+ *   line-height, and a prefix-shaped pattern either catches them (false) or is written narrowly
+ *   enough to miss `shadow-destructive/24` (also false). Only the token list separates them, and
+ *   only `tokens.css` has the token list.
+ * · **An enumeration cannot grow with the sheet.** The reference layer published 144 more colour
+ *   utilities — every family's twelve steps and twelve alpha steps — and no hand-written pattern
+ *   learned about any of them.
+ * · **The corpus was zero and nothing said so.** A guard whose violation set is empty because its
+ *   patterns describe nothing is indistinguishable from a guard that passes.
  *
- * · a diluted status fill or border → `--X-wash` (a3), `--X-wash-strong` (a4), `--X-border` (a6).
- *   None of the three owes contrast: ink measures 4.86–6.81 on the fills across every surface the
- *   theme publishes, and 1.4.11 exempts a non-interactive border by name.
- * · a diluted `--accent` → `--secondary-wash` (a4) or `--accent-wash` (a5), which is the same two
- *   levels as an alpha step. Measured, `bg-accent` at 50% is ΔE **0.00** from the rest state on an
- *   accent backdrop and solid `bg-secondary` is 0.00 on a secondary one, against the washes' floor
- *   of 4.32 (light) / 6.00 (dark) over the six surfaces — a hover nobody can see is not a hover.
- * · a diluted `--muted-foreground` → `--faint`, which is step 10. The ten sites that spelled it
- *   `/64` measured **3.04–4.00:1**, live AA failures; step 10 reads 5.18 in light and 4.74 in dark
- *   on the page. `--muted-foreground` itself is step 11 at 9.19 / 8.52, which is why the dilution
- *   existed — the answer is the step between them, not a percentage of the one above.
+ * So the ban is now **derived**: read `--color-*` out of the shipped `tokens.css`, and treat a `/`
+ * after any of those names as the violation. That is the whole rule in one sentence, it covers every
+ * token the sheet declares including ones added later, and it cannot drift from the artefact.
  *
- * `--field` is on that list with one wrinkle worth recording here, because this file is where the
- * `/NN` argument lives: it is no longer an alpha step in *both* modes. `--faint` on a dark field
- * measured 4.49 on the page, 4.37 on a card and 4.13 in a popover, and no transparency reaches AA —
- * with the fill removed altogether (a1, byte 0) a popover is still 4.41, because a dark popover is
- * step 3. A field is a *recess*, and in dark every alpha step composites lighter than its ground, so
- * the binding takes the alpha step where it recedes and step 1 — the page — where none does. All
- * three read 4.74 now. The ban is unchanged and stronger: `bg-field/NN` in dark would dilute an
- * opaque page colour toward whatever is behind it.
+ * ## What replaces a banned spelling
  *
- * `--muted` is deliberately NOT here. Four dilutions remain (counted 2026-07): two footers
- * (`card.tsx`, `table.tsx`), a striped row (`table.tsx`) and `Item`'s `muted` variant fill. The
- * first three are surfaces rather than interaction fills, which is the exemption; the fourth is a
- * fill and is the one that wants a role. None exists yet, and banning the spelling before its
- * replacement exists would only move the problem into a `className` override.
+ * Every family publishes twelve alpha steps as utilities, so a dilution always has a solved
+ * replacement: the base family's a4 where the hover surface was being diluted, a status family's a3
+ * for a wash, the warning family's a5 for a highlight. (Named in prose rather than spelled, because
+ * Tailwind scans this file and a literal here emits a real utility — the same precaution the `/NN`
+ * notation above is taking. It is not hypothetical: quoting three of them cost the stylesheet
+ * 0.21 kB before this paragraph was rewritten.) Those are the same values the role table binds
+ * `--secondary-wash`, `--destructive-wash` and `--match` to — byte-identical in all six shipped
+ * documents — which is why the replacement is a rename and not a redesign.
  *
  * ## What this guard cannot prove
  *
- * - **It reads seven spellings, not the rule, and a spelling is a UTILITY and not a token.** The
- *   rule is "a percentage is not an alpha step"; what is asserted is seven regexes over particular
- *   utilities. Coverage therefore stops at the prefixes each pattern was written with, and being on
- *   the list buys a token nothing outside them. `--destructive`, `--warning`, `--success` and
- *   `--info` are on the list twice over, and still: the `bg-` pattern takes the status family only
- *   under 50%, the `border-` one puts its `/` straight after the family so
- *   `border-<status>-foreground/NN` slips past it, and no pattern names `ring-` or `shadow-` for
- *   that family at all. Measured over `packages/ui/src` (2026-07-30), **45** dilutions of listed
- *   status tokens pass every pattern here: 43 of the shape
- *   `ring-{destructive,warning,success,info}(-foreground)?/NN`, one `shadow-destructive/24`, one
- *   `border-destructive-foreground/64`. The pair worth reading is
- *   `simples/input.tsx:19` and `:21` — `ring-destructive/24`, overridden by
- *   `dark:aria-invalid:ring-destructive-foreground/40`: one percentage per mode, onto a different
- *   token, which is verbatim the symptom the MODE half of this docblock argues the whole rule from.
- *   `checkbox.tsx:35`, `button.tsx:49` and `badge.tsx:57,64,71,72` are six more. Whether any of
- *   them SHOULD be banned is a design call nobody has taken, and this file does not take it; what it
- *   must not do is read as though they were outside the rule. Taking it costs one alternation —
- *   `--field` above reaches nine utility prefixes that way.
- * - **A token can also be off the list entirely, and one is on purpose.** `--muted` is the case —
- *   see the paragraph above. When a role appears for it, the pattern is what has to change.
+ * - **`SURVIVORS` is pinned, not adjudicated.** The 52 entries below are what ships today. They are
+ *   grouped by the reason each *appears* to have, and those
+ *   groupings are a reading of the existing code — **no design call has been taken on any of them**,
+ *   and the guard says so rather than implying that a listed site is a blessed one. What the pin
+ *   buys is that the set cannot grow: a new dilution fails, and removing one from the source without
+ *   removing it here also fails, so the list can only shrink deliberately.
  * - **It reads `.ts` and `.tsx` under `packages/ui/src` and nothing else.** A dilution written in
- *   `styles.css`, in `packages/theme`, in `docs/`, or by a consumer through `className` is
- *   invisible. The last of those is not a hole that can be closed from inside the library, which is
- *   also the argument for not banning a spelling before its replacement exists.
+ *   `styles.css`, in `packages/theme`, in `docs/`, or by a consumer through `className` is invisible.
+ *   The last of those cannot be closed from inside the library.
  * - **It reads literal text.** A class assembled at runtime — a `tv()` variant keyed on a prop, a
  *   template literal, a `cn()` argument built from fragments — is not seen. Every current call site
- *   is literal, so the corpus assertions below are what keep that true rather than merely observed.
- * - **It measures nothing.** Every ratio in this docblock was measured elsewhere and is quoted
- *   here; nothing in this file re-derives one. A number that goes stale goes stale silently, which
- *   is why the counts say when they were counted and how to re-count them.
+ *   is literal, and the corpus assertions below are what keep that true rather than merely observed.
+ * - **It measures nothing.** Every ratio quoted above was measured elsewhere.
  */
-const BANNED: [RegExp, string][] = [
-  [/\bbg-input\/\d+(?![\w-])/g, "`--input` is boundary contrast — diluting it makes it a surface"],
-  [
-    /\bring-(?:sidebar-)?ring\/\d+(?![\w-])/g,
-    "a diluted ring measured 1.29:1 — use solid `ring-ring`",
-  ],
-  [
-    /\b(?:bg|ring|border|text|outline|fill|stroke|divide|shadow)-field\/\d+(?![\w-])/g,
-    "`--field` is already solved against its ground — a transparency in light, the page in dark; a `/NN` re-dilutes it",
-  ],
-  // Under 50% only. A status fill at a low percentage is a *tint* over a backdrop the component
-  // does not own, which is what a wash replaces. At 90% it is the solid being darkened for its own
-  // hover — the idiom `bg-primary/90` uses two lines above the destructive one it would otherwise
-  // catch — and that is a different question, answered by step 10 (`solid-hover`) if it is ever
-  // asked. A rule that conflated them would be banning a spelling it has no replacement for.
-  [
-    /\bbg-(?:destructive|warning|success|info)(?:-foreground)?\/[0-4]?\d(?![\w-])/g,
-    "a status fill lands on a different step per mode — use `--X-wash` or `--X-wash-strong`",
-  ],
-  [
-    /\bborder-(?:destructive|warning|success|info)\/\d+(?![\w-])/g,
-    "a status border lands on a different step per mode — use `--X-border`",
-  ],
-  [
-    /\bbg-accent\/\d+(?![\w-])/g,
-    "a diluted hover surface measured ΔE 0.00 on an accent backdrop — use `--secondary-wash` / `--accent-wash`",
-  ],
-  [
-    /\btext-muted-foreground\/\d+(?![\w-])/g,
-    "step 11 diluted measured 3.04–4.00:1, below AA — use `--faint`, which is step 10",
-  ],
+const require_ = createRequire(import.meta.url);
+
+/** Every colour token the sheet registers as a Tailwind utility, read off the shipped artefact. */
+const COLOUR_TOKENS: string[] = (() => {
+  const css = readFileSync(require_.resolve("@kanzo-tech/theme/tokens.css"), "utf8");
+  return [...new Set([...css.matchAll(/--color-([a-z0-9-]+)\s*:/g)].map((m) => m[1] as string))];
+})();
+
+/**
+ * The utility prefixes that take a colour.
+ *
+ * Listed rather than matched loosely because the point of this rewrite is that the *token* decides,
+ * not the prefix: a prefix that never takes a colour would only re-open the `shadow-xs/5` false
+ * positive from the other end.
+ */
+const COLOUR_UTILITIES =
+  "(?:bg|text|border|ring|outline|fill|stroke|divide|shadow|from|to|via|accent|caret|decoration|placeholder)";
+
+const DILUTION = new RegExp(
+  // Longest name first so `destructive-foreground` wins over `destructive`.
+  `\\b${COLOUR_UTILITIES}-(${[...COLOUR_TOKENS].sort((a, b) => b.length - a.length).join("|")})\\/(\\d+)(?![\\w-])`,
+  "g",
+);
+
+/**
+ * What shipped when the derived rule first ran — pinned, and grouped by apparent reason only.
+ *
+ * Four groups are visible in it, and naming them is a reading rather than a ruling:
+ *
+ * · **The invalid ring in light** (`ring-destructive` at 24–48%). Shark's registry writes these
+ *   verbatim and they are untouched. Their **dark** counterparts are gone — measured 2026-08-13
+ *   across all six shipped documents, `--destructive` reads 4.15:1 against the dark page and
+ *   4.56–4.57 against the light one, over the 3:1 WCAG 1.4.11 asks of a control boundary in both, so
+ *   the dark override bought a hue rather than contrast. That cut is
+ *   `decisions/an-invalid-boundary-needs-no-dark-branch.md` and it is why this list went from 65
+ *   entries to 52. The dilution that remains is the light one, and whether a percentage is the right
+ *   spelling for it is still a design call nobody has taken.
+ * · **A solid darkened for its own hover** — the primary and destructive fills at 90%. A different
+ *   question from a tint over an unowned backdrop, and step 10 (`solid-hover`) is the answer if it
+ *   is ever asked.
+ * · **A scrim or a shadow** — the popover fill at 95%, the page at 20%, and the shadow colours.
+ *   Painting over arbitrary page content is the one case where a transparency is the honest
+ *   primitive.
+ * · **`--muted`, deliberately unbanned before this rewrite** — two footers, a striped row and
+ *   `Item`'s muted fill. The first three are surfaces rather than interaction fills; the fourth is a
+ *   fill and is the one that wants a role. None exists yet.
+ *
+ * **The `@` is not a typo.** Tailwind scans this file, so 65 real class names written out here would
+ * emit 65 real utilities for the very spellings the rule forbids — measured, three of them cost the
+ * stylesheet 0.21 kB. The separator is masked and {@link unmask} puts it back before the comparison,
+ * which is the same precaution the `/NN` notation in the docblock above is taking.
+ */
+const SURVIVORS: readonly string[] = [
+    "composites/CodeEditor.tsx: ring-destructive@24",
+    "composites/sidebar.tsx: text-sidebar-foreground@70",
+    "simples/badge.tsx: bg-foreground@90",
+    "simples/badge.tsx: border-secondary@20",
+    "simples/badge.tsx: ring-destructive@24",
+    "simples/badge.tsx: ring-destructive@40",
+    "simples/badge.tsx: ring-foreground@20",
+    "simples/badge.tsx: ring-foreground@40",
+    "simples/badge.tsx: ring-foreground@50",
+    "simples/badge.tsx: ring-info@50",
+    "simples/badge.tsx: ring-success@20",
+    "simples/badge.tsx: ring-warning@20",
+    "simples/badge.tsx: ring-warning@40",
+    "simples/button.tsx: bg-destructive@90",
+    "simples/button.tsx: bg-primary@90",
+    "simples/button.tsx: ring-destructive-foreground@32",
+    "simples/button.tsx: ring-destructive@24",
+    "simples/button.tsx: shadow-destructive@24",
+    "simples/button.tsx: shadow-primary@24",
+    "simples/calendar.tsx: bg-primary@10",
+    "simples/card.tsx: bg-muted@48",
+    "simples/checkbox.tsx: border-destructive-foreground@64",
+    "simples/checkbox.tsx: ring-destructive-foreground@48",
+    "simples/checkbox.tsx: ring-destructive@24",
+    "simples/color-picker.tsx: ring-border@64",
+    "simples/field.tsx: bg-primary@10",
+    "simples/field.tsx: bg-primary@5",
+    "simples/file-upload.tsx: ring-destructive@24",
+    "simples/floating-panel.tsx: bg-popover@95",
+    "simples/input-group.tsx: ring-destructive-foreground@40",
+    "simples/input-group.tsx: ring-destructive@24",
+    "simples/input.tsx: ring-destructive@24",
+    "simples/item.tsx: bg-muted@48",
+    "simples/item.tsx: shadow-muted@5",
+    "simples/kbd.tsx: bg-background@20",
+    "simples/native-select.tsx: ring-destructive@24",
+    "simples/number-input.tsx: ring-destructive@24",
+    "simples/pin-input.tsx: ring-destructive@24",
+    "simples/radio-group.tsx: ring-destructive@24",
+    "simples/radio-group.tsx: ring-destructive@48",
+    "simples/slider.tsx: bg-muted-foreground@70",
+    "simples/slider.tsx: ring-destructive@24",
+    "simples/slider.tsx: ring-destructive@48",
+    "simples/switch.tsx: ring-destructive@24",
+    "simples/table.tsx: bg-muted@30",
+    "simples/table.tsx: bg-muted@48",
+    "simples/tabs.tsx: text-foreground@72",
+    "simples/tags-input.tsx: border-secondary@20",
+    "simples/tags-input.tsx: ring-destructive@24",
+    "simples/tags-input.tsx: text-secondary-foreground@64",
+    "simples/textarea.tsx: ring-destructive@24",
+    "simples/tree-view.tsx: bg-primary@20",
 ];
+
+/** Restore the separator `SURVIVORS` masks, so the pinned set can be compared to what was found. */
+const unmask = (entry: string) => entry.replace("@", "/");
 
 const stripComments = (src: string) =>
   src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
@@ -186,13 +206,22 @@ const rel = (file: string) => file.slice(SRC.length).replace(/^\/+/, "");
 /**
  * Every directory under `src/`, named so the scan cannot quietly stop descending.
  *
- * `simples/` is where six of the seven bans were written and `composites/` is where the two sidebar
- * ring dilutions survived a rule spelled against one token name — a walk that reached only the top
- * level would find no violation in either and report the same green as a real pass.
+ * `simples/` is where most of the pinned set lives and `composites/` is where two sidebar ring
+ * dilutions survived a rule spelled against one token name — a walk that reached only the top level
+ * would find no violation in either and report the same green as a real pass.
  */
 const LAYERS = ["charts", "composites", "layouts", "lib", "simples", "table", "theme"];
 
-describe("the control fill is an alpha step, not an opacity", () => {
+const found = (): string[] => {
+  const hits: string[] = [];
+  for (const file of FILES) {
+    const source = stripComments(readFileSync(file, "utf8"));
+    for (const [hit] of source.matchAll(DILUTION)) hits.push(`${rel(file)}: ${hit}`);
+  }
+  return [...new Set(hits)].sort();
+};
+
+describe("a percentage is not an alpha step", () => {
   it("reads every source file under src/, in every layer", () => {
     expect(FILES.length, "the walk found almost nothing — it is not reaching src/").toBeGreaterThan(
       100,
@@ -215,30 +244,37 @@ describe("the control fill is an alpha step, not an opacity", () => {
     expect(empty, "an empty source file is a scan that proves nothing").toEqual([]);
   });
 
-  it("keeps the outline and the fill on separate tokens", () => {
-    const offenders: string[] = [];
-    for (const file of FILES) {
-      const source = stripComments(readFileSync(file, "utf8"));
-      for (const [pattern, why] of BANNED) {
-        for (const [hit] of source.matchAll(pattern)) {
-          offenders.push(`${rel(file)}: ${hit} — ${why}`);
-        }
-      }
-    }
-    expect([...new Set(offenders)].sort()).toEqual([]);
+  it("derives its corpus from the shipped sheet, not from a list in this file", () => {
+    // The count is the sheet's, and it moves when the sheet does. What is asserted is that the read
+    // worked at all and reached both halves of the file: the hand-written `@theme inline` block that
+    // carries Shark's vocabulary, and the generated one that carries the reference layer.
+    expect(
+      COLOUR_TOKENS.length,
+      "no --color-* found — the tokens.css resolution is broken, and the ban would match nothing",
+    ).toBeGreaterThan(150);
+    expect(COLOUR_TOKENS, "the Shark vocabulary is missing from the read").toContain(
+      "muted-foreground",
+    );
+    expect(COLOUR_TOKENS, "the reference layer is missing from the read").toContain("base-a4");
   });
 
-  it("bites on each of the seven, and on nothing next to them", () => {
-    // A guard nobody has seen fail is a guard nobody has tested, and seven patterns are seven
-    // chances to write one that matches nothing. The examples are assembled at runtime: Tailwind's
-    // `@source` in `styles.css` covers the tests, so a literal here would emit a real utility for a
-    // class the rule forbids — the same precaution the `/NN` notation above is taking.
+  it("admits exactly the dilutions that were pinned, and no others", () => {
+    // Both directions on purpose. A new dilution is the failure this guard exists for; a pinned
+    // entry that no longer matches means the source was fixed and this list is now claiming a
+    // violation nobody can find, which is how the previous shape came to test a corpus of zero.
+    expect(found()).toEqual([...SURVIVORS].map(unmask).sort());
+  });
+
+  it("bites on a dilution of any registered token, and on nothing next to it", () => {
+    // A guard nobody has seen fail is a guard nobody has tested. The examples are assembled at
+    // runtime: Tailwind's `@source` in `styles.css` covers the tests, so a literal here would emit a
+    // real utility for a class the rule forbids.
     const u = (...parts: string[]) => parts.join("-");
     const dilute = (utility: string, pct: number) => `${utility}/${pct}`;
-
-    const bites = (text: string) => BANNED.some(([pattern]) => pattern.test(text));
-    // `RegExp.test` on a `/g` pattern advances `lastIndex`, so reset before each round.
-    const fresh = () => BANNED.forEach(([pattern]) => (pattern.lastIndex = 0));
+    const bites = (text: string) => {
+      DILUTION.lastIndex = 0;
+      return DILUTION.test(text);
+    };
 
     for (const banned of [
       dilute(u("bg", "input"), 60),
@@ -246,27 +282,31 @@ describe("the control fill is an alpha step, not an opacity", () => {
       dilute(u("ring", "sidebar", "ring"), 40),
       dilute(u("bg", "field"), 32),
       dilute(u("border", "field"), 32),
-      dilute(u("bg", "destructive"), 10),
-      dilute(u("bg", "warning", "foreground"), 24),
-      dilute(u("border", "success"), 48),
       dilute(u("bg", "accent"), 50),
       dilute(u("text", "muted", "foreground"), 64),
+      // The four the old seven patterns could not reach, and the reason this file was rewritten.
+      dilute(u("ring", "destructive"), 24),
+      dilute(u("shadow", "destructive"), 24),
+      dilute(u("border", "destructive", "foreground"), 64),
+      dilute(u("bg", "base", "a4"), 50),
     ]) {
-      fresh();
-      expect(bites(banned), `${banned} is banned and was not caught`).toBe(true);
+      expect(bites(banned), `${banned} dilutes a registered colour token and was not caught`).toBe(
+        true,
+      );
     }
 
     for (const legal of [
       u("bg", "input"),
       u("ring", "ring"),
-      dilute(u("bg", "primary"), 90), // a solid darkened for its own hover, not a tint
-      dilute(u("bg", "destructive"), 90), // the same idiom on the status family
-      dilute(u("bg", "muted"), 50), // deliberately not banned — no role exists to replace it
-      dilute(u("bg", "input", "foo"), 60), // a token this rule has never heard of
+      u("bg", "base", "a4"),
+      // Not colours: a shadow's own opacity and a line-height. A prefix-shaped rule caught these.
+      dilute(u("shadow", "xs"), 5),
+      dilute(u("shadow", "lg"), 5),
+      dilute(u("text", "lg"), 6),
+      dilute(u("bg", "input", "foo"), 60), // a token the sheet does not declare
     ]) {
-      fresh();
-      expect(bites(legal), `${legal} is legal and was caught`).toBe(false);
+      expect(bites(legal), `${legal} is not a colour dilution and was caught`).toBe(false);
     }
-    fresh();
+    DILUTION.lastIndex = 0;
   });
 });

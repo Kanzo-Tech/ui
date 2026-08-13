@@ -167,7 +167,7 @@ const menuItemVariants = tv({
       ],
       destructive: [
         "text-destructive dark:text-destructive-foreground",
-        "data-highlighted:bg-destructive-wash-strong",
+        "data-highlighted:bg-destructive-a4",
         "**:[svg]:text-destructive! dark:**:[svg]:text-destructive-foreground!",
       ],
     },

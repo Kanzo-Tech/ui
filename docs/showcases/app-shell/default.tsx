@@ -230,7 +230,7 @@ export function AppShellShowcase() {
       </TourContent>
 
       {/* The library's own live-theming drawer, raised clear of the footer. */}
-      <Preferences hotkey="t" triggerClassName="bottom-12" />
+      <Preferences hotkey="p" triggerClassName="bottom-12" />
     </Tour>
   );
 }

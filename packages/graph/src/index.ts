@@ -103,7 +103,7 @@ export { adaptive } from "./adaptive";
 // Theme colours as GPU floats. Exported because a host writing its own buffers needs the same
 // resolution path, and two implementations of "what colour is `var(--primary)` here" is how a
 // canvas ends up disagreeing with the page around it.
-export { resolveToken, toHex, withAlpha, type Rgba } from "./css-color";
+export { resolveToken, toHex, type Rgba } from "./css-color";
 
 export {
   DEFAULT_DISPLAY,

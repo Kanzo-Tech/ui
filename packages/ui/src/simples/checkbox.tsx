@@ -36,8 +36,8 @@ export const checkboxVariants = tv({
     "data-disabled:opacity-64",
     "[[data-disabled],[data-checked],[data-invalid]]:shadow-none",
     "data-invalid:border-destructive data-invalid:ring-[3px] data-invalid:ring-destructive/24",
-    "dark:data-invalid:border-destructive-foreground dark:data-invalid:text-destructive-foreground dark:data-invalid:ring-destructive-foreground/20",
-    "dark:not-data-checked:bg-field dark:data-invalid:ring-destructive-foreground/24",
+    "dark:data-invalid:text-destructive-foreground",
+    "dark:not-data-checked:bg-field",
     "motion-reduce:transition-none!",
   ],
 });

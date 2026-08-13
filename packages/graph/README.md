@@ -40,8 +40,9 @@ change of argument, not of code.
 
 **Appearance.** `buffers(loaded, look, host)` turns a look and the *live theme* into per-point
 colours, sizes and shapes. A `Look` carries **geometry only** — colour comes from the page's
-categorical scale (`categoricalColor` in `@kanzo-tech/ui/analytics`), because a scale a graph
-invents is a scale that disagrees with the legend explaining it.
+categorical scale (`categoricalColor`, on the **root** barrel of `@kanzo-tech/ui` — not
+`/analytics`, so reaching it costs nobody the DuckDB peer set), because a scale a graph invents is a
+scale that disagrees with the legend explaining it.
 
 `appearance()` is the other side of that line and it matters for performance: everything that is
 *one number for the whole canvas* is a cosmos.gl **uniform**, read fresh on every draw. Multiply a

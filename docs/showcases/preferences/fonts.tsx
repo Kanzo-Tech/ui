@@ -21,7 +21,7 @@ export function PreferencesFontsShowcase() {
         </>
       }
       panel={
-        <PreferencesRoot defaultOpen hotkey="t">
+        <PreferencesRoot defaultOpen hotkey="p">
           <PreferencesTrigger />
           <PreferencesPanel title="Typography">
             <PreferencesFont />
