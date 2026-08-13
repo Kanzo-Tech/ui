@@ -88,8 +88,17 @@ export interface Look {
     labels: number;
     /** A darkened rim. Mood rather than a reading aid, which is why it is form and not display. */
     vignette: boolean;
-    /** Grading applied to the canvas element itself. */
-    filter?: string;
+    // There is no `filter`, and its absence is a rule rather than an omission. Nebula carried
+    // `saturate(1.1)` on the canvas element — the one thing left in a Look that touched hue, and a
+    // chroma multiplier is colour wearing geometry's clothes. Measured over Kanzo's eight slots
+    // (2026-08-13, `saturate(1.1)` through the same filter engine the browser applies): it moved
+    // every slot, by ΔE 0.85 to **8.05**, which is the size of the separation `deriveScheme`
+    // *guarantees* between two different categories. It did not break that separation here —
+    // the closest pair went from ΔE 32.36 to 30.38, with room to spare — so the reason it is gone
+    // is not a failure it caused, it is that a look must not be able to cause one. The whole claim
+    // of the colour layer is that what ships is what was derived and measured; a post-process on
+    // the canvas voids it silently, and `graph-model.ts` already forbids the same move one layer
+    // down ("nudging one on the way to the GPU voids all three").
   };
 }
 
@@ -107,7 +116,6 @@ const NEBULA: Look = {
     link: { opacity: 0.42, width: 0.6, curve: 0, fade: [200, 1400] },
     labels: 14,
     vignette: true,
-    filter: "saturate(1.1)",
   },
 };
 
