@@ -229,16 +229,22 @@ export const CHART_SLOTS = 8;
 export const OTHER = "var(--muted-foreground)";
 
 /**
- * What a token is bound to. Eight kinds, and each earns its place by being unwritable as the others.
+ * What a token is bound to. **Nine** kinds, each earning its place by being unwritable as the others.
  *
  * `step` is the ordinary case. `fill`, `on-fill`, `boundary`, `quietest-ink` and `recess` are
  * *measured* properties of a ramp, not step numbers — see the note on the table above, `fillStep`
  * for the one that is not simply 9, `recessFill` for the one that asks a direction rather than a
  * level, and `Ramp.quietestInk` for the one a hard-coded step got wrong in two shipped palettes.
- * `alpha` is the
- * transparency scale, which is the only honest way to paint onto content the ramp does not own.
- * `categorical` indexes the chart set. `fixed` is a value this system owns outright, cross-checked
- * per tenant but never derived from a seed.
+ * `alpha` is the transparency scale, which is the only honest way to paint onto content the ramp
+ * does not own. `categorical` indexes the chart set. `syntax` indexes the derived syntax set.
+ *
+ * This docblock said "Eight kinds" over a nine-member union, and described a ninth — `fixed`, "a
+ * value this system owns outright, cross-checked per tenant but never derived from a seed" — that
+ * had already been replaced by `syntax` when the thirteen literal syntax hexes became seven derived
+ * roles. Two errors pointing opposite ways, which is how a count and a list drift apart without
+ * either looking wrong on its own. **If this union grows, correct this line in the same commit**:
+ * it is the one place a reader learns what the kinds are for, so a stale entry here invents a
+ * binding that does not exist.
  */
 export type RoleBinding =
   | {
@@ -322,28 +328,29 @@ const step = (ramp: RampName, n: number, elevation?: SurfaceName): RoleBinding =
  * step 3 over step 1, which `bg-x/60` provably cannot do: it dilutes the solid, so what you get
  * depends on what is underneath.
  *
- * ## The washes
+ * ## The washes, and why seventeen tokens left
  *
- * `--secondary-wash` and `--accent-wash` are that same split for the two levels above `--field`,
- * and they are **named for the level, never for the state**. A wash is what `--secondary` and
- * `--accent` are when the component cannot know what is behind it: an alpha step composites
- * honestly over anything, a solid does not, and a percentage lands somewhere different in each
- * mode. The names carry `secondary`/`accent` because decision 9 already gave steps 4 and 5 those
- * names and a second vocabulary for the same two levels is the defect this table exists to remove;
- * they do **not** carry `hover`/`active`, because the same two values are a card's hover *and* a
- * calendar day's focus *and* a table row's selected state, and a token named for the first of those
- * makes the second one either mint a duplicate or borrow a name that lies. `--field` was the a3
- * member of that set and is no longer: a wash sits *on* a surface and a field sits *under* one, and
- * in dark those are opposite directions — see `recessFill` for the measurement that separated them.
+ * There used to be seventeen more rows here: `--secondary-wash` and `--accent-wash`, twelve status
+ * tints (`-wash`, `-wash-strong`, `-border` × four families), and `--selection`, `--match`,
+ * `--match-active`. **Every one of them was a pure `alpha` binding — a level with a noun on top.**
  *
- * Measured, and this is why a percentage could not do it. Across the six surfaces the theme
- * publishes (page, card, popover, `--muted`, `--secondary`, `--accent`), `--secondary-wash` never
- * falls below **ΔE 4.32** in light or **6.00** in dark from the surface it is painted on, and
- * `--accent-wash` clears it by a further 3.75/3.16. The two things it replaces bottom out at
- * **0.00**: `bg-accent/50` on an accent backdrop, and solid `bg-secondary` on a secondary one. The
- * ramp's own hover bar is ΔE 2, so both of those are states a user cannot see on the surface they
- * are most likely to meet. `--field` → `--secondary-wash` is ΔE 2.71/3.99, so a control filled at
- * rest still has a visible hover.
+ * The argument they were minted under still holds and is not what changed: an alpha step composites
+ * honestly over a backdrop the component does not own, a solid does not, and a percentage lands on a
+ * different step in each mode. Measured, `--secondary-wash` never fell below ΔE 4.32 in light or
+ * 6.00 in dark from the six surfaces the theme publishes, against **0.00** for the `bg-accent`
+ * dilution and the solid `bg-secondary` it replaced. All of that is still true of the values.
+ *
+ * What changed is that the values now have a published name of their own. The reference layer emits
+ * all six families' twelve alpha steps as tokens *and* as Tailwind utilities, so `(base, a4)` is
+ * spellable directly. Measured across all six shipped documents and both modes, each of the
+ * seventeen was **byte-identical** to the reference step it named — so keeping them meant shipping
+ * two spellings of one value and asking every reader to learn which. A second vocabulary for one
+ * level is precisely the defect this table was built to remove, and it had grown one back.
+ *
+ * The two that stayed are the two that were never levels. `--field` is a `recess` — the alpha step
+ * *if it recedes*, else the page — because a wash sits on a surface and a field sits under one, and
+ * in dark those are opposite directions. The `-content` inks are `on-fill`. Both name a measured
+ * property no step index can express, which is the whole admission rule.
  */
 export const ROLES: readonly Role[] = [
   // Surfaces and ink — all neutral. One ramp, twelve steps, and an elevation parameter.
@@ -393,8 +400,6 @@ export const ROLES: readonly Role[] = [
   { token: "--border", binding: step("base", 6) },
   { token: "--input", binding: { kind: "boundary", ramp: "base" } },
   { token: "--field", binding: { kind: "recess", ramp: "base", step: 3 } },
-  { token: "--secondary-wash", binding: { kind: "alpha", ramp: "base", step: 4 } },
-  { token: "--accent-wash", binding: { kind: "alpha", ramp: "base", step: 5 } },
 
   // Brand. `fill`, not `step(brand, 9)`: which step a brand fill lands on is a measurement of the
   // seed, the same way `boundary` is — see `fillStep`.
@@ -407,50 +412,29 @@ export const ROLES: readonly Role[] = [
   // carried since it adopted Shark's naming, where `-foreground` means one thing for the neutral and
   // brand families and the opposite for the status ones.
   //
-  // The three tinted roles per family answer the same question `--field` does — what does a family
-  // paint when it does not own what is behind it — and they are the reason a percentage cannot.
-  // Measured over the four families, the alpha step today's `bg-X/NN` lands on **differs per mode**,
-  // because `CHROMA_PROFILE.dark` is deliberately fatter at the bottom of the ramp: `/4` is a3 in
-  // light and a2 in dark, `/10` a4 and a3, `/20` a5 and a4, `/32` a6 and a5. So every `bg-X/NN` in
-  // the library was correct in at most one mode, and two components had already written the
-  // symptom out by hand — `bg-destructive/10 dark:bg-destructive/5` on the badge and
-  // `bg-destructive/10 dark:bg-destructive-foreground/10` on the menu and the listbox. A step is
-  // resolved against each mode's own ramp, so one binding is right in both.
+  // Each family had three tinted roles too — `-wash` (a3), `-wash-strong` (a4), `-border` (a6) —
+  // and they are gone with the rest of the level names. The argument that produced them is intact
+  // and now belongs to the alpha column itself: the step a `bg-X/NN` lands on **differs per mode**,
+  // because `CHROMA_PROFILE.dark` is deliberately fatter at the bottom of the ramp (`/4` is a3 in
+  // light and a2 in dark, `/10` a4 and a3, `/20` a5 and a4, `/32` a6 and a5), so every such
+  // dilution was correct in at most one mode. A step is resolved against each mode's own ramp, so
+  // one spelling is right in both — and the spelling is now the step's own name.
   //
-  // The steps are the base's own, read across: a3 is where `--field` sits, and a6 is where
-  // `--border` sits, so `--X-border` is that family's border and nothing new has to be justified.
-  // `-wash-strong` rather than `-wash-hover` for the same reason the base washes are named for
-  // their level: the a4 tint is a badge's hover, a menu item's highlight, an alert action's hover
-  // *and* a `<mark>`, and only one of those is a hover.
-  //
-  // None of the six carries a contrast duty and that is measured, not assumed. Ink on the fills
+  // None of the three carried a contrast duty and that is measured, not assumed. Ink on the fills
   // reads 4.86–6.81 across every surface the theme publishes (`--X-foreground`; `--foreground`
-  // reads 10.08–12.87), and a decorative border is what WCAG 1.4.11 exempts by name. What they owe
-  // is agreement between the modes.
+  // reads 10.08–12.87), and a decorative border is what WCAG 1.4.11 exempts by name.
   { token: "--destructive", binding: step("destructive", 9) },
   { token: "--destructive-foreground", binding: step("destructive", 11) },
   { token: "--destructive-content", binding: { kind: "on-fill", ramp: "destructive" } },
-  { token: "--destructive-wash", binding: { kind: "alpha", ramp: "destructive", step: 3 } },
-  { token: "--destructive-wash-strong", binding: { kind: "alpha", ramp: "destructive", step: 4 } },
-  { token: "--destructive-border", binding: { kind: "alpha", ramp: "destructive", step: 6 } },
   { token: "--warning", binding: step("warning", 9) },
   { token: "--warning-foreground", binding: step("warning", 11) },
   { token: "--warning-content", binding: { kind: "on-fill", ramp: "warning" } },
-  { token: "--warning-wash", binding: { kind: "alpha", ramp: "warning", step: 3 } },
-  { token: "--warning-wash-strong", binding: { kind: "alpha", ramp: "warning", step: 4 } },
-  { token: "--warning-border", binding: { kind: "alpha", ramp: "warning", step: 6 } },
   { token: "--success", binding: step("success", 9) },
   { token: "--success-foreground", binding: step("success", 11) },
   { token: "--success-content", binding: { kind: "on-fill", ramp: "success" } },
-  { token: "--success-wash", binding: { kind: "alpha", ramp: "success", step: 3 } },
-  { token: "--success-wash-strong", binding: { kind: "alpha", ramp: "success", step: 4 } },
-  { token: "--success-border", binding: { kind: "alpha", ramp: "success", step: 6 } },
   { token: "--info", binding: step("info", 9) },
   { token: "--info-foreground", binding: step("info", 11) },
   { token: "--info-content", binding: { kind: "on-fill", ramp: "info" } },
-  { token: "--info-wash", binding: { kind: "alpha", ramp: "info", step: 3 } },
-  { token: "--info-wash-strong", binding: { kind: "alpha", ramp: "info", step: 4 } },
-  { token: "--info-border", binding: { kind: "alpha", ramp: "info", step: 6 } },
 
   // Sidebar — the same roles at δ=sidebar. No new steps, which is the point.
   //
@@ -475,29 +459,13 @@ export const ROLES: readonly Role[] = [
     binding: { kind: "categorical", slot: i + 1 } as RoleBinding,
   })),
 
-  // Editor. `active-line` is re-bound off `--accent`: at step 5 the hover surface is too heavy
-  // behind code, and the current value is `var(--accent)` mixed again, which produced ~3% deltas —
-  // an active line and a search hit that were both invisible and indistinguishable from each other.
-  // `--selection` carries no `editor-` prefix because selecting is not an editor idea: the graph
-  // canvas washes a marquee with the same `(brand, alpha 5)`, and a wash for selected text and a
-  // wash for selected nodes are one decision. Naming it for the first surface that needed it would
-  // have had the second one either mint a duplicate token or reach across for a name that lies.
-  { token: "--selection", binding: { kind: "alpha", ramp: "brand", step: 5 } },
-  // `--match` is the same call as `--selection`, one consumer later. A search hit in an editor and a
-  // `<mark>` in prose are one decision — Ark's `Highlight` splits a string by a query and wraps each
-  // hit, CodeMirror's search does the same to a document — so the token is named for the thing both
-  // find. It is **not** `--highlight`: Ark spells menu-item focus `data-highlighted` throughout this
-  // library, and `bg-highlight` beside `data-highlighted:bg-accent` would be the exact ambiguity this
-  // rename exists to remove. Nor `--marked`, which names one consumer's markup — a `<mark>` element —
-  // the same error `--kanzo-editor-` made from the other end, and which is a state adjective of the
-  // shape Ark already owns (`data-checked`, `data-selected`, `data-highlighted`). `--match` is a noun
-  // for what was found, which is what `--field`, `--border` and `--selection` are too.
+  // `--selection`, `--match` and `--match-active` are NOT here either, and they left with the
+  // seventeen. Each was a pure alpha step under a noun — `(brand, a5)`, `(warning, a5)`,
+  // `(warning, a8)` — and the reference layer publishes all three under names that say which ramp
+  // and which level they are. A text selection, a marquee over graph nodes and a search hit now
+  // spell the step; the argument that they are *one* decision each is preserved by their spelling
+  // the *same* step, which is what it was always claiming.
   //
-  // `--match-active` is the one you are on, out of N. It keeps a state word where the washes refused
-  // one because here there is exactly one state to name: `-wash-strong` covers a hover *and* a
-  // highlight *and* a selected row, and "the current match" covers nothing else.
-  { token: "--match", binding: { kind: "alpha", ramp: "warning", step: 5 } },
-  { token: "--match-active", binding: { kind: "alpha", ramp: "warning", step: 8 } },
   // `--editor-active-line` and `--editor-gutter` are NOT here, and their absence is the rule that
   // keeps this table from growing with every consumer.
   //

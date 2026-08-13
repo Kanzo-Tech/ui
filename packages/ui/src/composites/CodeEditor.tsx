@@ -280,12 +280,12 @@ const baseTheme = EditorView.theme({
   // Search hits: the current one is the primary-tinted anchor, the rest are quieter so
   // "where am I" stays readable at a glance.
   ".cm-searchMatch": {
-    backgroundColor: "var(--match)",
+    backgroundColor: "var(--warning-a5)",
     outline: "1px solid var(--border)",
     borderRadius: "2px",
   },
   ".cm-searchMatch.cm-searchMatch-selected": {
-    backgroundColor: "var(--match-active)",
+    backgroundColor: "var(--warning-a8)",
     outline: "1px solid var(--warning)",
   },
 
@@ -326,10 +326,10 @@ const baseTheme = EditorView.theme({
   // base rule is `&light`, and this theme is registered without `{dark}`, so the `darkTheme`
   // facet stays false and the light lavender applied in dark mode too.
   "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": {
-    backgroundColor: "var(--selection)",
+    backgroundColor: "var(--brand-a5)",
   },
   ".cm-selectionBackground, .cm-content ::selection": {
-    backgroundColor: "var(--selection)",
+    backgroundColor: "var(--brand-a5)",
   },
   ".cm-activeLine": { backgroundColor: "var(--editor-active-line, var(--muted))" },
   // The active line's gutter cell is emphasised beyond the row: stronger tint, full-strength
@@ -339,9 +339,9 @@ const baseTheme = EditorView.theme({
     color: "var(--foreground)",
     fontWeight: "600",
   },
-  ".cm-matchingBracket, &.cm-focused .cm-matchingBracket": { backgroundColor: "var(--selection)", outline: "1px solid var(--primary)" },
-  ".cm-nonmatchingBracket": { backgroundColor: "var(--destructive-wash-strong)" },
-  ".cm-selectionMatch": { backgroundColor: "var(--match)" },
+  ".cm-matchingBracket, &.cm-focused .cm-matchingBracket": { backgroundColor: "var(--brand-a5)", outline: "1px solid var(--primary)" },
+  ".cm-nonmatchingBracket": { backgroundColor: "var(--destructive-a4)" },
+  ".cm-selectionMatch": { backgroundColor: "var(--warning-a5)" },
   ".cm-foldGutter .cm-gutterElement": { cursor: "pointer", color: "var(--faint)" },
   ".cm-foldPlaceholder": { background: "var(--muted)", border: "1px solid var(--border)", color: "var(--muted-foreground)", borderRadius: "var(--radius-sm)", padding: "0 4px" },
 });

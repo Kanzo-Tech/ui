@@ -134,8 +134,8 @@ export const RadioGroupCard = (
         // washes are the alpha steps of the same two levels: across the six surfaces the theme
         // publishes they never fall below ΔE 4.32 (light) / 6.00 (dark) from rest, and selected
         // clears hover by a further 3.75 / 3.16.
-        "hover:bg-secondary-wash",
-        "data-[state=checked]:border-primary data-[state=checked]:bg-accent-wash",
+        "hover:bg-base-a4",
+        "data-[state=checked]:border-primary data-[state=checked]:bg-base-a5",
         "data-disabled:pointer-events-none data-disabled:opacity-64",
         "has-data-focus-visible:border-primary has-data-focus-visible:ring-[3px] has-data-focus-visible:ring-ring",
         "data-invalid:border-destructive",
