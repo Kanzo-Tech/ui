@@ -158,7 +158,6 @@ export const Slider = (props: SliderProps) => {
                 "aria-invalid:border-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/24",
                 "aria-invalid:focus-visible:border-destructive aria-invalid:focus-visible:ring-destructive/48",
                 "aria-invalid:data-dragging:border-destructive aria-invalid:data-dragging:ring-destructive/48",
-                "dark:aria-invalid:border-destructive-foreground dark:aria-invalid:ring-destructive-foreground/40",
                 "pointer-coarse:after:absolute pointer-coarse:after:h-full pointer-coarse:after:min-h-11",
                 "motion-reduce:transition-none!"
               )}

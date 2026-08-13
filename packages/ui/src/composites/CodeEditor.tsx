@@ -520,7 +520,6 @@ export function CodeEditor(p: CodeEditorProps) {
           "transition-[color,box-shadow]",
           "data-focused:border-primary data-focused:ring-[3px] data-focused:ring-ring",
           "data-invalid:border-destructive data-invalid:ring-[3px] data-invalid:ring-destructive/24",
-          "dark:data-invalid:border-destructive-foreground dark:data-invalid:ring-destructive-foreground/40",
           "motion-reduce:transition-none!"
         )}
         style={{ minHeight: p.minHeight, maxHeight: p.maxHeight }}

@@ -73,7 +73,7 @@ export const FileUploadDropzone = (
         "data-dragging:border-primary data-dragging:bg-accent data-dragging:text-accent-foreground",
         "data-disabled:pointer-events-none data-disabled:opacity-64",
         "data-invalid:border-destructive data-invalid:text-destructive data-invalid:ring-[3px] data-invalid:ring-destructive/24",
-        "dark:data-invalid:border-destructive-foreground dark:data-invalid:text-destructive-foreground dark:data-invalid:ring-destructive-foreground/40",
+        "dark:data-invalid:text-destructive-foreground",
         "motion-reduce:transition-none!",
         className
       )}

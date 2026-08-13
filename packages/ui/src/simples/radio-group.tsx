@@ -101,7 +101,7 @@ export const RadioGroupItem = (
           // and the `/64` this used to carry made focus *weaken* the boundary 1.4.11 asks 3:1 of.
           "data-focus-visible:data-invalid:ring-destructive/48",
           "data-invalid:border-destructive data-invalid:text-destructive data-invalid:ring-[3px] data-invalid:ring-destructive/24",
-          "dark:data-invalid:border-destructive-foreground dark:data-invalid:text-destructive dark:data-invalid:ring-[3px] dark:data-invalid:ring-destructive-foreground/20",
+          "dark:data-invalid:text-destructive dark:data-invalid:ring-[3px]",
           "data-[state=checked]:bg-primary data-[state=checked]:before:bg-primary-foreground",
           "data-invalid:data-[state=checked]:bg-transparent data-invalid:data-[state=checked]:before:bg-destructive-foreground"
         )}
