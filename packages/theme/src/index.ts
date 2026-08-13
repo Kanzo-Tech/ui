@@ -346,3 +346,29 @@ export const AXES: {
   // browser cannot correct without a flash.
   { key: "palette", attr: "data-palette", def: "", source: "document" },
 ];
+
+// ── Sections ────────────────────────────────────────────────────────────────────────────────────
+//
+// The mechanism only. The core exports the document shape, the fallback resolver and the validator,
+// and knows no section: a package contributes by USING a namespace, never by registering here.
+// That is what keeps `@kanzo-tech/theme` free of any reference to `@kanzo-tech/graph`.
+export {
+  fallbackChain,
+  resolveSectionToken,
+  sectionOf,
+  validateSection,
+  withSection,
+  type LookDocument,
+  type Problem,
+  type SectionBinding,
+  type SectionManifest,
+  type SectionTokenDecl,
+} from "./sections.js";
+
+// The density axis's own obligations — what admits it as a section rather than a preference.
+export {
+  check as checkDensity,
+  OBLIGATIONS as DENSITY_OBLIGATIONS,
+  type Check as DensityCheck,
+  type Obligation as DensityObligation,
+} from "./obligations.js";
