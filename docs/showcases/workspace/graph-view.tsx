@@ -467,7 +467,16 @@ function InspectorBody() {
                 <button
                   // `hover:bg-accent/60` composited to `--secondary` exactly (ΔE 0.00, both
                   // modes): the row hover was the hover surface written as a coincidence.
-                  className="flex w-full items-center gap-2 rounded-sm px-1 py-0.5 text-start text-xs hover:bg-accent"
+                  //
+                  // `min-h-[24px]` is in PIXELS on purpose, and it is the whole fix. WCAG 2.5.8
+                  // states its 24×24 bar in CSS px, while every size in this library is `rem` and
+                  // therefore multiplied by the density axis — so a floor written `min-h-6` would
+                  // be 24px at the default root and 21px at compact, which is the failure rather
+                  // than the fix. Measured before: 20.0px tall at default and 17.5 at compact,
+                  // centres 22.0 and 19.3 apart, failing 2.5.8 AA at two of the three densities.
+                  // A px floor is the one size in this file that must NOT scale, because the bar
+                  // it answers to does not. `decisions/density-has-no-legibility-floor.md`.
+                  className="flex min-h-[24px] w-full items-center gap-2 rounded-sm px-1 py-0.5 text-start text-xs hover:bg-accent"
                   onClick={() => commands.reveal(node.id)}
                   type="button"
                 >
