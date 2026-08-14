@@ -15,6 +15,16 @@ Graphs are excluded by name, and deliberately: `ui` is the generic vocabulary ev
 and a renderer with a **required** WebGL peer would change what that package is. A separate package
 is the same answer `palette` and `theme` already got — ours, shipped, not `ui`.
 
+## The smallest one
+
+Arrays in hand, no database and no precomputed layout — two hooks, one source and one required
+callback. `simulate` is on here because there is nothing to disagree with; it is off by default,
+since a bounded source hands back the coordinates its next spatial query is expressed in.
+
+<ComponentPreview componentName="graph" hasMaxHeight />
+
+Everything else on this page is what you add when one of those three assumptions stops holding.
+
 ## There is no canvas component
 
 That is the shape of the package rather than a gap in it.
@@ -25,9 +35,14 @@ underneath: reading a relation into typed arrays, turning a look and the live th
 buffers, owning the renderer across React's lifecycle, and keeping a lasso inside a Mosaic
 crossfilter.
 
-Two call sites prove the split rather than assert it — the workspace showcase composes an entire
-application around it, and the benchmark route drives the same source and `buffers()` from
-synthetic generators.
+**The split is proven unevenly, and it is worth being exact about where.** The *source* half has two
+call sites: the workspace showcase and `graph-bench/measure-bounded.ts`, which drives
+`duckBoundedSource`, `shouldSlice` and `Slice` against synthetic generators. The *renderer* half —
+`buffers()` and the four hooks — has **one**: the workspace. The benchmark route builds its own
+cosmos.gl instance and its own upload path, because measuring the upload is the thing it is for.
+
+So a canvas component would be a model with one consumer, which is the case admission asks you not
+to build. What would change that is a second real arrangement, not a second example.
 
 <Cards>
   <Card title="Workspace" href="/view/showcases/workspace" description="The full arrangement: canvas, legend, inspector, rules, crossfilter." />
