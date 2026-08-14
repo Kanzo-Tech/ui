@@ -2,7 +2,15 @@
 
 import type { Graph } from "@cosmos.gl/graph";
 import { cn } from "@kanzo-tech/ui";
-import { createContext, useCallback, useContext, useRef, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import type { BoundedSource, Slice } from "./bounded";
 import { LOOKS, type Look } from "./graph-looks";
 import { residentOf, type Resident, type VertexId } from "./resident";
@@ -47,6 +55,29 @@ export function useGraphCanvas(): GraphCanvasContextValue {
   return value;
 }
 
+/**
+ * The gestures, in the terms the rest of this package speaks.
+ *
+ * cosmos.gl reports a **buffer index**, which names a slot in the answer currently uploaded. Every
+ * host then wrote the same three lines — resolve the index through the resident map, return early
+ * if it resolves to nothing, carry on with the identity — because an index is not something you can
+ * keep. The canvas already holds that map, so it does the resolving and a callback that would have
+ * been handed a stale slot is simply not called.
+ *
+ * `onZoom` is the one with a duty attached: the camera moving is how a bounded graph is re-asked,
+ * and the canvas issues that `refresh` itself. What arrives here is the notification, for a host
+ * that has overlays to reposition.
+ */
+export interface GraphCanvasEvents {
+  onBackgroundClick?: () => void;
+  onPointClick?: (vertex: VertexId, graph: Graph, index: number) => void;
+  onPointerOver?: (vertex: VertexId, index: number) => void;
+  onPointerOut?: () => void;
+  onDragEnd?: (vertex: VertexId) => void;
+  onTick?: () => void;
+  onZoom?: () => void;
+}
+
 export interface GraphCanvasProps {
   /** What to draw. `null` renders the frame and asks nothing — a host still resolving its data. */
   source: BoundedSource | null;
@@ -73,9 +104,24 @@ export interface GraphCanvasProps {
    * an empty box and says nothing, and what stands in its place is the host's decision.
    */
   onFailure: (message: string) => void;
-  events?: CosmosGraphOptions["events"];
+  events?: GraphCanvasEvents;
   report?: (motion: Motion) => void;
   reportProgress?: (value: number) => void;
+  /**
+   * Where to put the instance and the identity map, for a host that needs to reach them from
+   * outside this element.
+   *
+   * **Given rather than returned, and for the reason `useCosmosGraph` already gives for the same
+   * prop one layer down: returning them would make the declarations circular.** A host with
+   * overlays calls `useGraphOverlays` beside this component, and that hook wants `getGraph` and
+   * `getResident`; the same accessors appear inside `events`. Both sit *above* the element, where
+   * the context is not readable yet. A host with only chrome ignores these and reads
+   * `useGraphCanvas` from a child instead.
+   *
+   * Omitted, the canvas makes its own. Never write to them.
+   */
+  graphRef?: RefObject<Graph | null>;
+  residentRef?: RefObject<Resident>;
   className?: string;
   /** The chrome — a legend, a toolbar, a zoom control. Positioned over the surface by the host. */
   children?: ReactNode;
@@ -122,7 +168,10 @@ export function GraphCanvas(props: GraphCanvasProps) {
   } = props;
 
   const hostRef = useRef<HTMLDivElement>(null);
-  const graphRef = useRef<Graph | null>(null);
+  const ownGraphRef = useRef<Graph | null>(null);
+  const ownResidentRef = useRef<Resident>(NOBODY);
+  const graphRef = props.graphRef ?? ownGraphRef;
+  const residentRef = props.residentRef ?? ownResidentRef;
 
   const { explore, pending, refresh, resident, slice, sliced, total } = useBoundedGraph({
     debounce,
@@ -142,15 +191,57 @@ export function GraphCanvas(props: GraphCanvasProps) {
    * cosmos.gl at construction reads this on the next gesture, and an effect would leave one frame
    * where the map describes buffers that are no longer on screen.
    */
-  const residentRef = useRef<Resident>(NOBODY);
   residentRef.current = resident;
 
-  const getGraph = useCallback(() => graphRef.current, []);
-  const getResident = useCallback(() => residentRef.current, []);
+  const getGraph = useCallback(() => graphRef.current, [graphRef]);
+  const getResident = useCallback(() => residentRef.current, [residentRef]);
+
+  /**
+   * The host's handlers, read through a ref.
+   *
+   * cosmos.gl takes its callbacks once, at construction, so a fresh `events` object per render would
+   * either be ignored or force a rebuild of the WebGL context. The ref is what lets a host pass an
+   * inline object without either.
+   */
+  const live = useRef(events);
+  live.current = events;
+
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
+  const wired = useMemo<CosmosGraphOptions["events"]>(
+    () => ({
+      onBackgroundClick: () => live.current?.onBackgroundClick?.(),
+      onDragEnd: (index) => {
+        const vertex = residentRef.current.at(index);
+        if (vertex !== undefined) live.current?.onDragEnd?.(vertex);
+      },
+      onPointClick: (graph, index) => {
+        const vertex = residentRef.current.at(index);
+        if (vertex !== undefined) live.current?.onPointClick?.(vertex, graph, index);
+      },
+      onPointerOut: () => live.current?.onPointerOut?.(),
+      onPointerOver: (index) => {
+        const vertex = residentRef.current.at(index);
+        if (vertex !== undefined) live.current?.onPointerOver?.(vertex, index);
+      },
+      onTick: () => live.current?.onTick?.(),
+      // The camera moved, so the graph is re-asked. A host that forgot this line got a canvas that
+      // drew its first answer and never asked again — which is what `refresh` being the host's
+      // responsibility used to cost.
+      onZoom: () => {
+        refreshRef.current();
+        live.current?.onZoom?.();
+      },
+    }),
+    // The ref objects, not their contents: a host may hand in its own, and these callbacks are
+    // handed to cosmos.gl once, so they have to close over whichever object is in play.
+    [residentRef],
+  );
 
   useCosmosGraph({
     clusters,
-    events,
+    events: wired,
     graphRef,
     hostRef,
     onFailure,

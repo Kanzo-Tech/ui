@@ -51,6 +51,7 @@ export {
   GraphCanvas,
   useGraphCanvas,
   type GraphCanvasProps,
+  type GraphCanvasEvents,
   type GraphCanvasContextValue,
 } from "./graph-canvas";
 
