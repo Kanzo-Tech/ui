@@ -45,6 +45,7 @@ import {
   createListCollection,
   Kbd,
   KbdGroup,
+  PreferencesFieldSet,
   ScrollArea,
   Show,
   Status,
@@ -1201,108 +1202,136 @@ const GESTURES: { keys: ReactNode; what: string }[] = [
 ];
 
 /**
- * The Settings panel, in two halves that never meet.
+ * The graph's APPEARANCE, and it lives in Preferences rather than in the dock.
  *
- * **Look** and **Display** change how the picture is drawn — a buffer upload and a `setConfig`, no
- * query and no restart. **Layout** changes the forces the GPU integrates, so nudging one re-heats
- * the simulation and the graph reorganises under you. That separation is what the previous canvas
- * could not offer: with the layout frozen into two columns, simulation sliders were furniture.
+ * The split is not "graph things here, product things there" — it is the one
+ * `decisions/a-section-brings-measurable-obligations.md` draws. A look and a display are an
+ * appearance vocabulary whose obligations return a measured claim: `shape-capacity` puts the
+ * ceiling at five shapes against seven colours, and `shape-floor` is a minimum radius a look
+ * spending shape on identity may not go below. Gravity and friction are simulation coefficients and
+ * no measurement grades them, so they stay in the dock beside the thing they re-heat.
+ *
+ * The comment this replaces put "a look, a node size and a friction coefficient" in one list. Two
+ * of those three answer to a bar and the third does not.
+ */
+export function GraphAppearance() {
+  const { display, look, setDisplay, setLook } = useGraphView();
+
+  return (
+    <div className="flex flex-col gap-4">
+      <PreferencesFieldSet label="Look">
+        {LOOK_ORDER.map((id) => (
+          <button
+            aria-pressed={look === id}
+            className={cn(
+              "w-full rounded-md border p-2 text-start transition-colors",
+              // Same card-shaped toggle as `Finding`, so the same measured trio: the card,
+              // `--secondary` on hover, `--accent` + a solid `border-primary` when chosen.
+              look === id ? "border-primary bg-accent" : "hover:bg-secondary",
+            )}
+            key={id}
+            onClick={() => setLook(id)}
+            type="button"
+          >
+            <span className="flex items-center gap-2">
+              <span className="font-medium text-xs">{LOOKS[id].label}</span>
+              <span className="ms-auto flex items-center gap-1">
+                {LEGEND_DOMAIN.map((kind, ordinal) => {
+                  const preview = scaleOf(LOOKS[id]);
+                  return (
+                    <ShapeGlyph
+                      className="size-2"
+                      color={preview.color(ordinal)}
+                      key={kind}
+                      shape={preview.shape(ordinal)}
+                    />
+                  );
+                })}
+              </span>
+            </span>
+            <span className="mt-0.5 block text-[10px] text-muted-foreground leading-relaxed">
+              {LOOKS[id].blurb}
+            </span>
+          </button>
+        ))}
+      </PreferencesFieldSet>
+
+      <PreferencesFieldSet label="Display">
+
+        <div className="flex items-center justify-between">
+          <span className="text-xs">Show links</span>
+          <Switch
+            checked={display.links}
+            onCheckedChange={(d) => setDisplay({ links: d.checked === true })}
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className="text-xs">Labels</span>
+          <Switch
+            checked={display.labels}
+            onCheckedChange={(d) => setDisplay({ labels: d.checked === true })}
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className="text-xs">Dot grid</span>
+          <Switch
+            checked={display.grid}
+            onCheckedChange={(d) => setDisplay({ grid: d.checked === true })}
+          />
+        </div>
+
+        <Range
+          format={(v) => `${v.toFixed(1)}×`}
+          label="Node size"
+          max={2.5}
+          min={0.4}
+          onChange={(pointScale) => setDisplay({ pointScale })}
+          step={0.1}
+          value={display.pointScale}
+        />
+
+        <Range
+          format={(v) => `${v.toFixed(1)}×`}
+          label="Edge opacity"
+          disabled={!display.links}
+          max={3}
+          min={0.1}
+          onChange={(linkOpacity) => setDisplay({ linkOpacity })}
+          step={0.1}
+          value={display.linkOpacity}
+        />
+
+      </PreferencesFieldSet>
+
+      <Button
+        className="w-full"
+        disabled={sameDisplay(display, DEFAULT_DISPLAY)}
+        onClick={() => setDisplay(DEFAULT_DISPLAY)}
+        size="sm"
+        variant="ghost"
+      >
+        <RotateCcwIcon />
+        Reset appearance
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * The Settings panel — what is left once appearance moved out, and it is one thing.
+ *
+ * **Layout** changes the forces the GPU integrates, so nudging one re-heats the simulation and the
+ * graph reorganises under you. That is why it is here and not in Preferences, and why its reset is
+ * separate from the appearance one: they cost different things to press.
  */
 export function GraphSettings() {
-  const { commands, display, look, resetSim, setDisplay, setLook, setSim, sim, spec } =
-    useGraphView();
+  const { commands, resetSim, setSim, sim, spec } = useGraphView();
 
   return (
     <ScrollArea className="h-full p-3">
       <div className="space-y-4">
-        <div className="space-y-2">
-          <p className="font-medium text-muted-foreground text-xs">Look</p>
-          {LOOK_ORDER.map((id) => (
-            <button
-              aria-pressed={look === id}
-              className={cn(
-                "w-full rounded-md border p-2 text-start transition-colors",
-                // Same card-shaped toggle as `Finding`, so the same measured trio: the card,
-                // `--secondary` on hover, `--accent` + a solid `border-primary` when chosen.
-                look === id ? "border-primary bg-accent" : "hover:bg-secondary",
-              )}
-              key={id}
-              onClick={() => setLook(id)}
-              type="button"
-            >
-              <span className="flex items-center gap-2">
-                <span className="font-medium text-xs">{LOOKS[id].label}</span>
-                <span className="ms-auto flex items-center gap-1">
-                  {LEGEND_DOMAIN.map((kind, ordinal) => {
-                    const preview = scaleOf(LOOKS[id]);
-                    return (
-                      <ShapeGlyph
-                        className="size-2"
-                        color={preview.color(ordinal)}
-                        key={kind}
-                        shape={preview.shape(ordinal)}
-                      />
-                    );
-                  })}
-                </span>
-              </span>
-              <span className="mt-0.5 block text-[10px] text-muted-foreground leading-relaxed">
-                {LOOKS[id].blurb}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        <div className="space-y-3 border-t pt-3">
-          <p className="font-medium text-muted-foreground text-xs">Display</p>
-
-          <div className="flex items-center justify-between">
-            <span className="text-xs">Show links</span>
-            <Switch
-              checked={display.links}
-              onCheckedChange={(d) => setDisplay({ links: d.checked === true })}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-xs">Labels</span>
-            <Switch
-              checked={display.labels}
-              onCheckedChange={(d) => setDisplay({ labels: d.checked === true })}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <span className="text-xs">Dot grid</span>
-            <Switch
-              checked={display.grid}
-              onCheckedChange={(d) => setDisplay({ grid: d.checked === true })}
-            />
-          </div>
-
-          <Range
-            format={(v) => `${v.toFixed(1)}×`}
-            label="Node size"
-            max={2.5}
-            min={0.4}
-            onChange={(pointScale) => setDisplay({ pointScale })}
-            step={0.1}
-            value={display.pointScale}
-          />
-
-          <Range
-            format={(v) => `${v.toFixed(1)}×`}
-            label="Edge opacity"
-            disabled={!display.links}
-            max={3}
-            min={0.1}
-            onChange={(linkOpacity) => setDisplay({ linkOpacity })}
-            step={0.1}
-            value={display.linkOpacity}
-          />
-
-        </div>
-
         <div className="space-y-3 border-t pt-3">
           <div className="flex items-center justify-between">
             <p className="font-medium text-muted-foreground text-xs">Layout</p>
@@ -1391,21 +1420,19 @@ export function GraphSettings() {
           </dl>
         </div>
 
-        {/* One reset, and its own block: it restores Display and Layout, so hanging it off Camera
-            would have promised something it does not do. */}
+        {/* Layout only. It used to restore Display too, and that was right while both lived in
+            this panel — a reset here that silently reached into Preferences would not be. The
+            appearance half has its own, beside the controls it restores. */}
         <div className="border-t pt-3">
           <Button
             className="w-full"
-            disabled={sameDisplay(display, DEFAULT_DISPLAY) && sameSim(sim, DEFAULT_SIM)}
-            onClick={() => {
-              setDisplay(DEFAULT_DISPLAY);
-              resetSim();
-            }}
+            disabled={sameSim(sim, DEFAULT_SIM)}
+            onClick={resetSim}
             size="sm"
             variant="ghost"
           >
             <RotateCcwIcon />
-            Reset display and layout
+            Reset layout
           </Button>
         </div>
       </div>

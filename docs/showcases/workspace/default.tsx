@@ -23,7 +23,12 @@ import {
 	MenuItem,
 	MenuSeparator,
 	MenuTrigger,
+	PreferencesColor,
+	PreferencesDensity,
+	PreferencesFont,
+	PreferencesMonoFont,
 	PreferencesPanel,
+	PreferencesRadius,
 	PreferencesRoot,
 	Resizable,
 	ResizablePanel,
@@ -92,6 +97,7 @@ import { initialsOf } from "@/example/people";
 import {
 	GraphAsk,
 	GraphCanvas,
+	GraphAppearance,
 	GraphCounts,
 	GraphInspector,
 	GraphLegend,
@@ -565,10 +571,13 @@ function ArchiveShell() {
 						))}
 					</ToggleGroup>
 
-					{/* The library's own theme drawer, unextended. The graph's display controls are
-					    deliberately NOT in here — a look, a node size and a friction coefficient are
-					    properties of this view, and they live in the Settings panel of the dock.
-					    Preferences is for what the whole product looks like. */}
+					{/* The library's own theme drawer, EXTENDED with the graph's appearance. Passing
+					    children to `PreferencesPanel` keeps its header toggle and pinned footer while
+					    leading with a section this view owns.
+
+					    The dock keeps Layout and Camera. The line is the one
+					    `a-section-brings-measurable-obligations` draws: a look and a display have
+					    obligations that return a measured claim, a friction coefficient has none. */}
 					<PreferencesRoot hotkey="p">
 						<DialogTrigger asChild>
 							<Button className="gap-1.5" size="sm" variant="ghost">
@@ -576,7 +585,14 @@ function ArchiveShell() {
 								<Kbd>P</Kbd>
 							</Button>
 						</DialogTrigger>
-						<PreferencesPanel />
+						<PreferencesPanel>
+							<GraphAppearance />
+							<PreferencesColor />
+							<PreferencesDensity />
+							<PreferencesRadius />
+							<PreferencesFont />
+							<PreferencesMonoFont />
+						</PreferencesPanel>
 					</PreferencesRoot>
 				</ShellHeader>
 
