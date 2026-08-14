@@ -1,17 +1,8 @@
 "use client";
 
-import type { Graph } from "@cosmos.gl/graph";
-import {
-  LOOKS,
-  memorySource,
-  SPACE,
-  useBoundedGraph,
-  useCosmosGraph,
-  useGraphLook,
-  vertexId,
-} from "@kanzo-tech/graph";
+import { GraphCanvas, memorySource, SPACE, vertexId } from "@kanzo-tech/graph";
 import { Show } from "@kanzo-tech/ui";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { BEASTS, HALLS, REGIONS } from "@/example/world";
 
 /**
@@ -22,32 +13,26 @@ import { BEASTS, HALLS, REGIONS } from "@/example/world";
  * source: the coordinates come back from the source, and a force would move the picture out from
  * under the index the next query is expressed in.
  *
- * Two hooks and one required callback. `onFailure` is the one thing this cannot omit, and that is on
+ * A source and one required callback. `onFailure` is the one thing this cannot omit, and that is on
  * purpose: without WebGL the canvas is an empty box, and the host is what decides what stands in
- * its place.
+ * its place. `children` are chrome drawn over the surface — here, only the message.
  */
 export default function Example() {
-  const hostRef = useRef<HTMLDivElement>(null);
-  const graphRef = useRef<Graph | null>(null);
-
   const source = useMemo(() => memorySource(GUILD), []);
-  const { slice } = useBoundedGraph({ source, graphRef, hostRef });
-
-  const getGraph = useCallback(() => graphRef.current, []);
   const [failure, setFailure] = useState<string | null>(null);
 
-  useCosmosGraph({ hostRef, graphRef, onFailure: setFailure });
-  useGraphLook({ getGraph, hostRef, slice, look: LOOKS.atlas });
-
   return (
-    <div className="relative size-full overflow-hidden rounded-lg border border-border bg-card">
-      <div className="size-full" ref={hostRef} />
+    <GraphCanvas
+      className="rounded-lg border border-border bg-card"
+      onFailure={setFailure}
+      source={source}
+    >
       <Show when={failure !== null}>
         <p className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground text-sm">
           {failure}
         </p>
       </Show>
-    </div>
+    </GraphCanvas>
   );
 }
 

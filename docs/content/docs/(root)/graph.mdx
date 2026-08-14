@@ -17,32 +17,40 @@ is the same answer `palette` and `theme` already got — ours, shipped, not `ui`
 
 ## The smallest one
 
-Arrays in hand, no database and no precomputed layout — two hooks, one source and one required
-callback. `simulate` is on here because there is nothing to disagree with; it is off by default,
-since a bounded source hands back the coordinates its next spatial query is expressed in.
+Arrays in hand and no database — one source, one required callback, and chrome as `children`. The
+simulation stays off, which is its default: the positions are the authority, and that is the same
+reason it is off for a bounded source, whose coordinates are what the next spatial query is
+expressed in.
 
 <ComponentPreview componentName="graph" hasMaxHeight />
 
-Everything else on this page is what you add when one of those three assumptions stops holding.
+Everything else on this page is what you add when one of those assumptions stops holding.
 
-## There is no canvas component
+## What the canvas owns, and what it does not
 
-That is the shape of the package rather than a gap in it.
+`GraphCanvas` owns three things: the renderer across React's lifecycle, the query loop that follows
+the camera, and the buffers a look implies. Those were identical in every host and re-wired by hand
+at each one. It publishes what its chrome needs through `useGraphCanvas`.
 
-A graph canvas is a toolbar, a legend, an inspector, a hover card and a search box wired to one
-renderer, and every one of those answers differently per product. What is genuinely shared sits
-underneath: reading a relation into typed arrays, turning a look and the live theme into GPU
-buffers, owning the renderer across React's lifecycle, and keeping a lasso inside a Mosaic
-crossfilter.
+**It owns nothing above that, and that is the shape rather than an omission.** A toolbar, a legend,
+an inspector, a hover card and a search box answer differently per product, so they are `children`.
+Overlays and selection are left out for a sharper reason: `useGraphOverlays` and `useGraphSelection`
+need callbacks only a product can write — what a click means, what a lasso commits to — so they stay
+hooks you call with `getGraph` and `getResident` off the context. The relationship is the one
+`ChartRoot` has with `useChart`, not a v2 replacing a v1.
+
+This page said for a long time that there was no canvas component at all. That argument was right
+about the chrome and wrong about what sat underneath it; what changed and what would change it back
+is in `decisions/a-canvas-component-owns-the-three-that-never-differ.md`.
 
 **The split is proven unevenly, and it is worth being exact about where.** The *source* half has two
 call sites: the workspace showcase and `graph-bench/measure-bounded.ts`, which drives
 `duckBoundedSource`, `shouldSlice` and `Slice` against synthetic generators. The *renderer* half —
-`buffers()` and the four hooks — has **one**: the workspace. The benchmark route builds its own
-cosmos.gl instance and its own upload path, because measuring the upload is the thing it is for.
+`buffers()` and the hooks — has **one**: the workspace. The benchmark route builds its own cosmos.gl
+instance and its own upload path, because measuring the upload is the thing it is for.
 
-So a canvas component would be a model with one consumer, which is the case admission asks you not
-to build. What would change that is a second real arrangement, not a second example.
+`GraphCanvas` is therefore a shape proven against one host, which the decision record says plainly
+rather than hiding. The second comes from migrating a real product screen, not from another example.
 
 <Cards>
   <Card title="Workspace" href="/view/showcases/workspace" description="The full arrangement: canvas, legend, inspector, rules, crossfilter." />

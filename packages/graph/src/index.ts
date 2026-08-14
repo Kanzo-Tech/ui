@@ -1,12 +1,13 @@
 /**
  * A GPU graph view, in the pieces a host actually composes.
  *
- * **Not a component.** There is no `<GraphCanvas>` here, and that is the shape rather than an
- * omission: a graph canvas is a toolbar, a legend, an inspector and a hover card wired to one
- * renderer, and every one of those is an arrangement whose answers differ per product. What is
- * genuinely shared is underneath — reading a relation into typed arrays, turning a look and the
- * live theme into GPU buffers, owning the renderer's lifetime, and keeping a lasso inside a Mosaic
- * crossfilter. Those are here; the arrangement stays at the call site.
+ * **`GraphCanvas` owns the three that never differ; the arrangement stays at the call site.** This
+ * barrel said for a long time that there was no canvas component, on the argument that a graph
+ * canvas is a toolbar, a legend, an inspector and a hover card — all of them per-product. That half
+ * is still true and they are still yours. What the argument missed is that underneath them sit
+ * three things that were identical everywhere and re-wired by hand each time: the renderer's
+ * lifetime, the query loop that follows the camera, and the buffers a look implies.
+ * `decisions/a-canvas-component-owns-the-three-that-never-differ.md` has the measurement.
  *
  * **Why a package and not `@kanzo-tech/ui`.** DESIGN.md's first admission rule is *domain-free —
  * nothing about RDF / SHACL / fossil / graphs / auth*. Graphs are excluded by name, deliberately:
@@ -43,6 +44,15 @@ export {
   type LookId,
   type ShapeId,
 } from "./graph-looks";
+
+// The canvas, and the hooks it is made of — a host that needs a policy the component does not
+// impose still reaches for these, which is the relationship `ChartRoot` has with `useChart`.
+export {
+  GraphCanvas,
+  useGraphCanvas,
+  type GraphCanvasProps,
+  type GraphCanvasContextValue,
+} from "./graph-canvas";
 
 // The renderer's lifetime, and the three hooks that keep it in step with React.
 export { useCosmosGraph, REHEAT, type CosmosGraphOptions } from "./use-cosmos-graph";

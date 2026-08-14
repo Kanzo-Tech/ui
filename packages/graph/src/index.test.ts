@@ -133,12 +133,19 @@ describe("@kanzo-tech/graph public surface", () => {
     expect(GRAPH.toHex).toBeTypeOf("function");
   });
 
-  it("ships no canvas component, and no `load`", () => {
+  it("ships a canvas that owns the renderer, and neither load nor Loaded", () => {
     const surface = GRAPH as Record<string, unknown>;
-    // Not an omission but the shape: a graph canvas is a toolbar, a legend, an inspector and a
-    // hover card wired to one renderer, and every one of those answers differently per product.
-    // Two call sites prove the split — the workspace showcase and the benchmark route.
-    expect(surface.GraphCanvas).toBeUndefined();
+    // This assertion was the reverse of itself, and the reversal is the record rather than a fix:
+    // `decisions/a-canvas-component-owns-the-three-that-never-differ.md`. What the old argument got
+    // right is still true — a toolbar, a legend, an inspector and a hover card answer differently
+    // per product, and none of them is in here. What it missed is the three underneath that were
+    // identical everywhere and hand-wired at each call site.
+    expect(GRAPH.GraphCanvas).toBeTypeOf("function");
+    expect(GRAPH.useGraphCanvas).toBeTypeOf("function");
+    // The hooks stay beside it, which is the whole shape of the concession: a host needing a policy
+    // the component does not impose reaches for these, as `useChart` sits beside `ChartRoot`.
+    expect(GRAPH.useCosmosGraph).toBeTypeOf("function");
+    expect(GRAPH.useBoundedGraph).toBeTypeOf("function");
     // ADR-0001. `load()` read the whole relation into memory — every id, every row, an id→index map
     // — which made the working set N and the ceiling whatever N the machine could hold. A source
     // answers a bounded question instead, and `Loaded` went with it.

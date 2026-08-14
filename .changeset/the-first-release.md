@@ -68,10 +68,18 @@ onto their own solid; use those.
 ### `@kanzo-tech/graph`
 
 A bounded WebGL graph over cosmos.gl. The canvas asks for what the camera can see rather than
-holding the corpus: `useBoundedGraph(options)` observes the camera, debounces, aborts what the
-camera has superseded, and pushes each answer into the renderer, so first paint follows the window
-rather than the corpus. `memorySource(graph)` wraps arrays you already hold;
-`@kanzo-tech/graph/duckdb` carries `duckBoundedSource` because Mosaic is an optional peer.
+holding the corpus: it observes the camera, debounces, aborts what the camera has superseded, and
+pushes each answer into the renderer, so first paint follows the window rather than the corpus.
+`memorySource(graph)` wraps arrays you already hold; `@kanzo-tech/graph/duckdb` carries
+`duckBoundedSource` because Mosaic is an optional peer.
+
+`GraphCanvas` is the component, and it owns exactly three things: the renderer across React's
+lifecycle, that query loop, and the buffers a look implies. A source and an `onFailure` are all it
+needs; everything else has a default, and `children` are chrome drawn over the surface, reaching the
+canvas through `useGraphCanvas`. It owns nothing above that — a toolbar, a legend, an inspector and
+a hover card answer differently per product, and `useGraphOverlays` and `useGraphSelection` stay
+hooks because both need a policy only a product can write. The relationship is `ChartRoot` to
+`useChart`, so the hooks it is built from stay on the barrel and are not a fallback.
 
 Four things to know before you draw one:
 
