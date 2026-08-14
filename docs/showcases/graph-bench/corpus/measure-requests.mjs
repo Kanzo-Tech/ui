@@ -4,9 +4,9 @@
  * `measure-pan.mjs` counts the chunks a drag touches and how many of them an earlier step already
  * paid for. That is a row-and-file accounting: it says a window is two chunks of 122,880 rows, and
  * it cannot say whether reading them is one request or eighty-three, nor how many bytes cross the
- * wire. ADR-0042's open item is exactly that gap — *169 ranges per window is 169 requests unless
- * something coalesces them* — and a tile is only worth emitting if it is a **pre-coalesced run
- * set**, so its size is arithmetic over measured requests and bytes rather than a preference.
+ * wire. That gap is exactly the open item — *169 ranges per window is 169 requests unless something
+ * coalesces them* — and a tile is only worth emitting if it is a **pre-coalesced run set**, so its
+ * size is arithmetic over measured requests and bytes rather than a preference.
  *
  * So this serves the corpus over a real HTTP origin, logs every request the reader makes, and pans.
  * Nothing here is modelled: the numbers come from a socket.

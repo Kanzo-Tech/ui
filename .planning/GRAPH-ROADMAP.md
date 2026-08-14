@@ -8,6 +8,10 @@ together is that most of them run at the same time.
 
 Measured 2026-08-05. Numbers here are from `BENCHMARKS.md`; if the two disagree, that file wins.
 
+*"The addressing design" was rmlext's ADR-0042 until `43991ac` deleted `decisions/` and replaced
+each record with what it said. It is `apps/corpus/content/docs/conventions/{addressing,adjacency}.mdx`
+now, and this file names the design rather than a number that no longer resolves.*
+
 ## Settled earlier, and worth not re-deriving
 
 **Vertex over-read is exactly 1.0000×** at 200k, 1M, 5M and 10M. Not "near zero" — a 20,000-vertex
@@ -24,8 +28,8 @@ points cannot separate growth from the corpus family's own uneven density — th
 208k → 646k → 5.29M → 8.09M, so a window fixed by *vertex count* covers different areas at different
 sizes.
 
-**The runs are the space-filling curve, not the communities.** ADR-0042 §3 says a community is a
-compact disc and a window holds whole communities. At five million, `community` has eight groups of
+**The runs are the space-filling curve, not the communities.** The addressing design's §3 says a
+community is a compact disc and a window holds whole communities. At five million, `community` has eight groups of
 625,000 each shattered into 5,461 id runs, and `cluster_id` has 15,310 groups whose **median size is
 one vertex**. A window of ~170 runs of ~118 ids is neither. A rectangle over a Morton order maps to
 O(√n) segments; that is the whole mechanism.
@@ -81,7 +85,7 @@ on the wire, one less round trip, half the storage. The properties want a sideca
 
 ## Open
 
-### 2. Rewrite ADR-0042 §3 — **canvas**, unblocked, cheap
+### 2. Rewrite §3 of the addressing design — **canvas**, unblocked, cheap
 
 §3 ("una tesela es una comunidad") has lost its premise, above. The finding it rests on survives and
 is stronger than when it was written; the pyramid built on it does not follow. Two things to settle
@@ -99,7 +103,7 @@ on paper:
 
 ### 3. Selection and overlays by identity — **canvas**, done 2026-08-05
 
-ADR-0042's own "risk that bites first", and it is closed. A vertex is `vertexId(type, dense)` packed
+The design's own "risk that bites first", and it is closed. A vertex is `vertexId(type, dense)` packed
 into one 64-bit integer — a `bigint`, and `Slice.vertices` a `BigUint64Array` of them, because a
 `Float64Array` holds the pair only while the type index stays under 2²¹ and `dense_id` is a `UInt32`
 that wants all 2³² above it; and the identity↔index map
@@ -134,7 +138,7 @@ I/O, no DuckDB, a planted-partition graph, RSS sampled *while* `community_hierar
 | 10M | 69.5M | 3.94 GiB | ~53 B | 92.7 s |
 
 **Linear in edges, and a quarter of the total.** Louvain does hold the graph in memory and it does
-scale — but at ten million it is 3.94 of the build's 16.4 GiB. ADR-0042 predicted the risk was
+scale — but at ten million it is 3.94 of the build's 16.4 GiB. The design predicted the risk was
 here; it is here, and it is not the majority of it.
 
 Sampling matters: read *after* the call, the same 5M run reports 1.03 GiB, so measuring the
@@ -155,7 +159,7 @@ the ingest releasing buffers faster than the vector grows.
 
 The cost is **W0b**: parsing 1.2 GB of CSV and writing the vertex and edge Parquet. Louvain is
 132.5 of the 139 seconds, so it dominates *time* and is nearly free in *space* against what
-precedes it — the opposite of what ADR-0042 predicted.
+precedes it — the opposite of what the design predicted.
 
 Eliminated by measurement on the way here, each of which looked right at the time: the
 per-community `HashMap`s in `contract`; the layout core as the dominant term (3.94 GiB isolated);
@@ -201,7 +205,7 @@ footer would make it one, which is a third of the request curve above gone befor
 
 ### 6. Three demos — **fossil** ✕ **canvas**, in this order
 
-From ADR-0042. #1 is measured, #3 has started:
+From the addressing design. #1 is measured, #3 has started:
 
 1. **Knowledge graph** — **done 2026-08-05, and it refutes something.** `kg.fossil` +
    `corpus/build-kg-corpus.mjs`: four vertex types, five edge types, three of them crossing types,

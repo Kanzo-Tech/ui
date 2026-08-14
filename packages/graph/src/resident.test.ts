@@ -8,7 +8,7 @@ import { denseOf, residentOf, SUPERNODE, typeOf, vertexId, type VertexId } from 
 /**
  * A buffer index numbers the answer; an identity numbers the corpus.
  *
- * This is the guard for ADR-0042's "risk that bites first": `use-graph-selection` and
+ * This is the guard for the risk that bites first: `use-graph-selection` and
  * `use-graph-overlays` used to hold slice indices, and a resident set that comes and goes makes that
  * index name a different vertex while the identity stays valid. Every assertion below is a way the
  * old behaviour would show up if it came back.

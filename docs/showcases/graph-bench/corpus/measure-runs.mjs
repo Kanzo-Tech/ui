@@ -1,10 +1,10 @@
 /**
  * What a window *is* inside the file — as a curve in N, not as one number.
  *
- * `BENCHMARKS.md` records the finding ADR-0042 rests on: a 20,000-vertex window at five million
- * occupies 179 contiguous runs of `dense_id` covering 20,007 ids, and those runs hold 130,516 of
- * 34,974,279 edges while returning every visible one. From it the ADR concludes that pruning cannot
- * be a predicate, only a choice of which bytes are read.
+ * `BENCHMARKS.md` records the finding the whole addressing design rests on: a 20,000-vertex window
+ * at five million occupies 179 contiguous runs of `dense_id` covering 20,007 ids, and those runs
+ * hold 130,516 of 34,974,279 edges while returning every visible one. What follows from it is that
+ * pruning cannot be a predicate, only a choice of which bytes are read.
  *
  * **That was measured once, at one size, by hand.** The conclusion it carries is a claim about
  * *scaling*: that a reader asking for a fixed number of vertices touches a bounded number of byte

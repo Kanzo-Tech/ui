@@ -55,7 +55,8 @@ describe("@kanzo-tech/graph public surface", () => {
     expect(GRAPH.adaptive).toBeTypeOf("function");
     expect(GRAPH.cursorChip).toBeTypeOf("function");
     expect(GRAPH.shouldSlice).toBeTypeOf("function");
-    // Identity is the pair, and a host never builds its own map from it — see ADR-0042.
+    // Identity is the pair, and a host never builds its own map from it: two maps of the same
+    // thing is how one ends up describing buffers that are no longer on screen.
     expect(GRAPH.vertexId).toBeTypeOf("function");
     expect(GRAPH.typeOf).toBeTypeOf("function");
     expect(GRAPH.denseOf).toBeTypeOf("function");

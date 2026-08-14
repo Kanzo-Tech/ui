@@ -54,8 +54,8 @@ export { useGraphSelection, cursorChip } from "./use-graph-selection";
  * Identity, and the map from it to the buffer index cosmos.gl draws at.
  *
  * The renderer addresses points by position in the arrays it was handed, and a resident set that
- * comes and goes reuses every position. So a vertex is the pair `(type_idx, dense_id)` — ADR-0042 —
- * and everything that outlives one answer is held as one and re-resolved through the `Resident` that
+ * comes and goes reuses every position. So a vertex is the pair `(type_idx, dense_id)`, and
+ * everything that outlives one answer is held as one and re-resolved through the `Resident` that
  * `useBoundedGraph` rebuilds per answer. A host never builds its own: two maps of the same thing is
  * how one of them ends up describing buffers that are no longer on screen.
  */

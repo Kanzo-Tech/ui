@@ -9,7 +9,7 @@ import type { Slice } from "./bounded";
  * Anything that outlives one answer — a selection, a label, a hover, a pin — therefore has to be
  * held as an identity and re-resolved against whatever is drawn now.
  *
- * **A vertex is the pair `(type_idx, dense_id)`**, per ADR-0042. Not `dense_id` alone: it numbers
+ * **A vertex is the pair `(type_idx, dense_id)`.** Not `dense_id` alone: it numbers
  * within one vertex type, so a union of two types repeats every value and the same number names two
  * different vertices. A `LIMIT` breaks the correspondence between an id and a position regardless of
  * how many types there are.

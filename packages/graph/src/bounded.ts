@@ -203,8 +203,9 @@ export const BOUNDED_DEFAULTS = {
    */
   limit: 20_000,
   /**
-   * 0.5 matched fossil's `viewport`, which no longer exists — ADR-0042 deleted the verb because the
-   * camera is addressed, not queried. So this number is ours alone now, and unanchored: nothing on
+   * 0.5 matched fossil's `viewport`, and that verb no longer exists: the camera is addressed rather
+   * than queried, so a tile reader computes every URL it needs before it issues the first and there
+   * is nothing left to hand a zoom to. This number is ours alone now, and unanchored — nothing on
    * the other side of the seam agrees with it or contradicts it.
    */
   lodThreshold: 0.5,

@@ -72,7 +72,7 @@ export interface GraphSpec {
    *
    * The archive is one type and says so rather than assuming it: a `dense_id` numbers within a type,
    * so `id` on its own names a row and not a vertex. The moment a second relation joins the canvas —
-   * which is the multi-type knowledge graph ADR-0042 puts first — the two would otherwise ship the
+   * which is what the multi-type knowledge graph demo is for — the two would otherwise ship the
    * same identities.
    */
   typeIndex: number;

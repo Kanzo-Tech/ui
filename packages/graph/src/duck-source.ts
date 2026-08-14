@@ -16,8 +16,8 @@ import { denseOf, typeOf, vertexId, SUPERNODE, type VertexId } from "./resident"
  * **Neutral about storage, and that is the point.** The neutrality let bounded be measured against
  * unbounded before anything committed to a layout on disk — and it is the reason this file survived
  * a decision on the other side of the seam. The verb it was written to sit beside never landed:
- * ADR-0042 deleted `viewport` and GraphAr with it, because the camera is addressed rather than
- * queried. What replaces it is a tile fetched by a computed URL, which is another source.
+ * `viewport` was dropped and GraphAr with it, because the camera is addressed rather than queried.
+ * What replaces it is a tile fetched by a computed URL, which is another source.
  */
 
 /**

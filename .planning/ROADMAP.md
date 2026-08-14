@@ -90,7 +90,7 @@ De `GRAPH-ROADMAP.md`, medido el 2026-08-05:
   commit acaba de arreglar 72 veces del lado de rmlext. La barrida de este lado está sin hacer, y
   hasta que se haga «reescribir §3» no tiene sujeto.
 
-- **Abierto y barato: reescribir ADR-0042 §3** (donde quiera que viva ahora)**.** Su premisa («una tesela es una comunidad») se cayó:
+- **Abierto y barato: reescribir §3 del diseño de direccionamiento.** Su premisa («una tesela es una comunidad») se cayó:
   las tiras son la curva de Morton. Quedan dos cosas en papel — dónde vive una arista (CSR, que es
   lo que describen las medidas, frente a LCA, que hace reaparecer el término no plano) y si hay
   árbol encima de la tesela. **Bloquea al emisor.**
@@ -163,7 +163,7 @@ Lo que bloquea a más cosas, primero; lo independiente, en paralelo.
 
 1. **Borrar las seis ramas y subir el tronco de rmlext a `main`** (§0). Es media hora y es lo que
    hace que las otras preguntas tengan un solo sitio donde contestarse.
-2. **Reescribir ADR-0042 §3** (§2), con la medición del escritor ya en la mano. Es papel, es barato, y desbloquea el
+2. **Reescribir §3 del diseño de direccionamiento** (§2), con la medición del escritor en la mano. Es papel, es barato, y desbloquea el
    emisor de teselas.
 3. **Decidir el formato del payload** (§2). Depende de 2.
 4. **`<GraphCanvas>`** (§3) — en paralelo desde ya, no depende de nada.

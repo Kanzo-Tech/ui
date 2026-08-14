@@ -575,7 +575,7 @@ area.
 
 **Both numbers are flat.** Twenty-five times the corpus leaves the run count at ~170 and the edges a
 window fetches at ~130–160k. The reduction grows only because the denominator does. This is the
-claim ADR-0042 rests on and it had been measured once, at one size, by hand — the conclusion it
+claim the addressing design rests on and it had been measured once, at one size, by hand — the conclusion it
 carries is about *scaling*, and one point cannot support it. It survives.
 
 **Over-read is exactly zero, not nearly.** 20,000 ids covered for 20,000 wanted, every window, every
@@ -595,8 +595,8 @@ and 71,024,690 edges:
 | peak RSS | **16.4 GiB** |
 | corpus on disk | 713 MB |
 
-**Twenty-three times the corpus, resident.** ADR-0042 calls larger-than-RAM the central claim of the
-architecture and records that it has never been tested; this is the first number against it, and it
+**Twenty-three times the corpus, resident.** The architecture calls larger-than-RAM its central
+claim and had recorded that it was never tested; this is the first number against it, and it
 is about the *writer*. The reader's working set is a window and is not implicated — but a corpus
 nobody can write is not a corpus anybody can read, and the ADR says as much: *"que fossil no pueda
 escribir un corpus larger-than-RAM sería un hallazgo tan importante como cualquiera de lectura."*
@@ -646,7 +646,7 @@ With both — a declared budget and a join that can honour it:
 
 **The output is byte-identical** — 87 files, every md5 equal — so this is a memory result and not a
 different corpus. What remains above the budget is Louvain (+2.22 GiB) and the layout pass, which is
-where ADR-0042 predicted the cost in the first place.
+where the design predicted the cost in the first place.
 
 On which number to quote: `/usr/bin/time -l` reports *maximum resident set size* 21.1 GiB and *peak
 memory footprint* 15.6 GiB for the unbounded run, and the two unbounded runs differ from each other
@@ -684,9 +684,11 @@ no.
 
 ### But the explanation in the ADR is wrong, and §3 rests on it
 
-ADR-0042 says *"la maquetación es grumosa, una comunidad es un disco compacto y una ventana contiene
-comunidades **enteras**; cada comunidad es un tramo Morton contiguo"*, and §3 builds the tile
-pyramid on it: **una tesela es una comunidad**. Measured at five million, neither cluster column can
+The addressing design says *"la maquetación es grumosa, una comunidad es un disco compacto y una
+ventana contiene comunidades **enteras**; cada comunidad es un tramo Morton contiguo"* — it lived in
+rmlext ADR-0042 until `43991ac` deleted `decisions/`, and now in
+`apps/corpus/content/docs/conventions/addressing.mdx` — and §3 builds the tile pyramid on it:
+**una tesela es una comunidad**. Measured at five million, neither cluster column can
 be that:
 
 | column | groups | mean | p50 | p90 | max | runs per group |
@@ -819,7 +821,7 @@ costs in extra traffic. Compare it against `λ·β`, the bytes a link moves in o
 - **fully multiplexed**, HTTP/2 with every address known before asking → λ·β ≈ 12 kB → take **4,096**.
 
 **So the data does not decide it on its own; the transport does — and the transport is ours.** The
-whole point of ADR-0042's *addressed, not queried* is that a tile reader computes every URL it needs
+whole point of *addressed, not queried* is that a tile reader computes every URL it needs
 before it issues the first one, so the requests go out together and latency stops multiplying. Under
 that assumption the answer is **4,096 rows**: 78 requests and 1.48 MB at five million against today's
 208 and 12.12 MB, at 2.31× the run-addressed ideal. The byte curve is flat-bottomed from 1,024 to

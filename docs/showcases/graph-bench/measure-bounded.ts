@@ -338,8 +338,8 @@ async function corpus(pointCount: number, report?: (stage: string) => void): Pro
       coordinator,
       nodes,
       edges,
-      // The generated corpus is one vertex type, which is exactly what ADR-0042's first demo is
-      // about not being able to assume.
+      // The generated corpus is one vertex type, which is exactly what the knowledge-graph demo
+      // exists to stop anyone assuming.
       typeIndex: 0,
       idField: "dense_id",
       categoryField: "community",
