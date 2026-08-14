@@ -62,6 +62,20 @@ export interface ItemProps
   extends React.ComponentProps<typeof ark.div>,
     VariantProps<typeof itemVariants> {}
 
+/**
+ * One row. A `<div>` carrying `role="listitem"`, which is what `ItemGroup`'s `role="list"` requires
+ * of its children.
+ *
+ * **Do not `asChild` this onto an interactive element.** Ark clones the parent's props onto the
+ * child through zag's `mergeProps`, and there the child only wins where the child *declares* a
+ * value — a `<button>` declares no `role`, so `role="listitem"` lands on it and replaces the
+ * implicit `button`. The control keeps working and stops being announced as a control, which is the
+ * kind of defect nothing in the pipeline reports.
+ *
+ * A pressable row is a button **inside** the item, not merged with it. `p-0` on the item and the
+ * padding on the button keeps the whole row as the target, which is what makes 2.5.8 easy here.
+ * `asChild` is still right for a non-interactive swap — an `<li>`, an `<article>`.
+ */
 export const Item = (props: ItemProps) => {
   const { variant = "default", className, slot, ...rest } = props;
 

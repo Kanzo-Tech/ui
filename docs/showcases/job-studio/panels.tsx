@@ -100,9 +100,14 @@ export function ConnectionsPanel({
               // Draggable AND clickable. A drop is a pointer-only gesture, so the click path
               // (insert at the caret) is not a nicety — it is the same action for anyone not
               // using a mouse, alongside the socket's own keyboard route.
-              <Item asChild key={c.id} variant="outline">
+              // The button is INSIDE the Item, not merged with it. `Item asChild` would have
+              // cloned `role="listitem"` onto the `<button>` — zag's `mergeProps` only lets the
+              // child win where the child declares a value, and a `<button>` declares no `role` —
+              // so the control stopped being announced as a button. A listitem that CONTAINS a
+              // button is the composition `role="list"` actually asks for.
+              <Item className="p-0" key={c.id} variant="outline">
                 <button
-                  className="w-full cursor-grab text-start transition-colors hover:border-primary/40 active:cursor-grabbing"
+                  className="flex w-full flex-wrap items-center gap-(--space) p-(--space) cursor-grab text-start transition-colors rounded-xl hover:border-primary/40 active:cursor-grabbing"
                   onClick={() => onInsert(c)}
                   type="button"
                   {...connectionDragProps(c)}
