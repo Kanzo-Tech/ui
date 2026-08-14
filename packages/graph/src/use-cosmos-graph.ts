@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { Graph } from "@cosmos.gl/graph";
 import { clusterRing } from "./cluster-ring";
 import { forces, SPACE } from "./graph-model";
-import type { Motion, Sim } from "./types";
+import { DEFAULT_SIM, type Motion, type Sim } from "./types";
 
 /**
  * The renderer's whole life: built once, told what the forces are, destroyed on the way out.
@@ -77,9 +77,10 @@ export interface CosmosGraphOptions {
    * unclustered it drifts between the ones it joins.
    */
   clusters?: (number | undefined)[];
-  sim: Sim;
-  /** Where to report what the layout is doing. */
-  report: (motion: Motion) => void;
+  /** Defaults to `DEFAULT_SIM`, which is the same table the exported constant carries. */
+  sim?: Sim;
+  /** Where to report what the layout is doing. Optional: a host with no motion badge wants none. */
+  report?: (motion: Motion) => void;
   /**
    * How far through settling the layout is, `0`–`1`.
    *
@@ -89,14 +90,22 @@ export interface CosmosGraphOptions {
    * animation frame would re-render every consumer 60 times a second to move a number by half a
    * percent.
    */
-  reportProgress: (value: number) => void;
+  reportProgress?: (value: number) => void;
   onFailure: (message: string) => void;
-  /** Callbacks handed to cosmos.gl once, at construction. */
-  events: {
-    onPointerOver: (index: number) => void;
-    onPointerOut: () => void;
-    onPointClick: (graph: Graph, index: number) => void;
-    onBackgroundClick: () => void;
+  /**
+   * Callbacks handed to cosmos.gl once, at construction — **all optional, and so is the block**.
+   *
+   * They were required, and a graph that only wants to be *looked at* had to write seven no-ops to
+   * say so. A picture with no interaction is a legitimate picture, and the seven that report a
+   * gesture nobody handles have exactly one sensible default. `onFailure` is the one that stays
+   * required, deliberately: it is the only callback whose silence is a defect rather than a
+   * choice — unhandled, a browser with no WebGL context shows an empty box and says nothing.
+   */
+  events?: {
+    onPointerOver?: (index: number) => void;
+    onPointerOut?: () => void;
+    onPointClick?: (graph: Graph, index: number) => void;
+    onBackgroundClick?: () => void;
     /**
      * A node has been let go of, by index.
      *
@@ -105,23 +114,33 @@ export interface CosmosGraphOptions {
      * made the drag possible in the first place: the drag behaviour's subject only answers while
      * `store.hoveredPoint` is set, and hover detection is skipped for the whole gesture.
      */
-    onDragEnd: (index: number) => void;
-    onTick: () => void;
+    onDragEnd?: (index: number) => void;
+    onTick?: () => void;
     /** The camera moved. The query loop is wired here — this is how a bounded graph is asked again. */
-    onZoom: () => void;
+    onZoom?: () => void;
   };
 }
+
+/**
+ * The defaults for everything a picture-only host does not care about.
+ *
+ * Frozen module constants rather than object literals in the destructure: a fresh `{}` per render
+ * would be a new identity for `live.current` and for `applied`, which is the class of bug the ref
+ * indirection below exists to avoid in the first place.
+ */
+const noop = () => {};
+const EMPTY_EVENTS: NonNullable<CosmosGraphOptions["events"]> = Object.freeze({});
 
 export function useCosmosGraph(options: CosmosGraphOptions): void {
   const {
     clusters,
-    events,
+    events = EMPTY_EVENTS,
     graphRef,
     hostRef,
     onFailure,
-    report,
-    reportProgress,
-    sim,
+    report = noop,
+    reportProgress = noop,
+    sim = DEFAULT_SIM,
     simulate = false,
   } = options;
 
@@ -223,36 +242,36 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
           report("settled");
           progress(1);
           frameOnce();
-          live.current.onTick();
+          live.current.onTick?.();
         },
         onSimulationPause: () => report("paused"),
         onSimulationUnpause: () => report("running"),
         onSimulationTick: () => {
           const instance = graphRef.current;
           if (instance) progress(instance.progress);
-          live.current.onTick();
+          live.current.onTick?.();
         },
-        onZoom: () => live.current.onZoom(),
+        onZoom: () => live.current.onZoom?.(),
         onPointMouseOver: (index) => {
           hovering = index;
-          live.current.onPointerOver(index);
+          live.current.onPointerOver?.(index);
         },
         onPointMouseOut: () => {
           hovering = null;
-          live.current.onPointerOut();
+          live.current.onPointerOut?.();
         },
         onDragStart: () => {
           dragging = hovering;
         },
         onDragEnd: () => {
-          if (dragging !== null) live.current.onDragEnd(dragging);
+          if (dragging !== null) live.current.onDragEnd?.(dragging);
           dragging = null;
         },
         onPointClick: (index) => {
           const instance = graphRef.current;
-          if (instance) live.current.onPointClick(instance, index);
+          if (instance) live.current.onPointClick?.(instance, index);
         },
-        onBackgroundClick: () => live.current.onBackgroundClick(),
+        onBackgroundClick: () => live.current.onBackgroundClick?.(),
       });
     } catch (error) {
       onFailure(`The renderer failed to start. (${String(error)})`);

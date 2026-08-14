@@ -8,7 +8,7 @@ import { useThemeTick } from "@kanzo-tech/ui";
 import type { Slice } from "./bounded";
 import { appearance, buffers } from "./graph-model";
 import type { Look } from "./graph-looks";
-import type { Display } from "./types";
+import { DEFAULT_DISPLAY, type Display } from "./types";
 
 /**
  * Putting a look on the canvas, and keeping it there when the theme flips.
@@ -33,6 +33,8 @@ import type { Display } from "./types";
  * `class`, `style` and `data-theme`, so any axis added after it was written stopped repainting the
  * graph — a filter is a list of the axes that existed the day someone typed it.
  */
+const noop = () => {};
+
 export function useGraphLook(options: {
   getGraph: () => Graph | null;
   /** The element the tokens are resolved against — inside the canvas' own tree. */
@@ -40,11 +42,17 @@ export function useGraphLook(options: {
   /** The answer currently drawn. Every slice is a fresh set of points, so every slice repaints. */
   slice: Slice | null;
   look: Look;
-  display: Display;
-  /** Ask the overlays to reposition: point sizes changed, so the labels sit differently. */
-  schedule: () => void;
+  /** Defaults to `DEFAULT_DISPLAY`. A host with no display controls has nothing else to pass. */
+  display?: Display;
+  /**
+   * Ask the overlays to reposition: point sizes changed, so the labels sit differently.
+   *
+   * Optional, because it is only owed to `useGraphOverlays` — a host drawing no labels has no
+   * overlays to reposition, and was writing a no-op to say so.
+   */
+  schedule?: () => void;
 }): void {
-  const { display, getGraph, hostRef, look, schedule, slice } = options;
+  const { display = DEFAULT_DISPLAY, getGraph, hostRef, look, schedule = noop, slice } = options;
   const themeTick = useThemeTick();
 
   useEffect(() => {
