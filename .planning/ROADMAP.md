@@ -1,14 +1,13 @@
 # El plan, los dos repos — 2026-08-14
 
 `rmlext` escribe el corpus y `kanzo-ui` lo lee. Ya hay un roadmap para la mitad del grafo
-(`.planning/GRAPH-ROADMAP.md`) y un plan de fases para el compilador
-(`~/.claude/plans/tidy-bouncing-iverson.md`); **ninguno de los dos sabía del otro**, y los dos
-estaban desfasados respecto del árbol. Esto los reconcilia contra lo que hay hoy en los dos
-checkouts.
+(`.planning/GRAPH-ROADMAP.md`) y un plan de construcción para el compilador
+(`rmlext/SURFACE-PLAN.md`); **ninguno de los dos sabía del otro**. Esto no los sustituye: cada uno
+sigue siendo la fuente de su mitad. Lo que hace es reconciliarlos y decir lo que ninguno podía ver
+desde dentro.
 
 Regla de este documento: **cada fase se juzga por la prueba que ella misma declaró**, no por si
-existe un ADR. Este repo tiene precedente de dar algo por terminado porque estaba documentado, y la
-sección 1 tiene un caso en el que la prueba falla y está bien que falle.
+existe un ADR. La §1 cuenta cómo esa regla se saltó aquí mismo y qué costó.
 
 ---
 
@@ -42,35 +41,29 @@ lo que no figuran como ancestros y parecen trabajo abierto.
 
 ---
 
-## 1 · fossil: dónde está de verdad el motor
+## 1 · fossil: la fuente viva es `rmlext/SURFACE-PLAN.md`
 
-El plan F1–F8 se escribió el 2026-08-07 y el tronco lo ha adelantado. Contra la prueba de cada fase:
+**No hay nada que planificar aquí, y decirlo es el aporte de esta sección.** El plan F1–F8 que vivía
+en `~/.claude/plans/` está **borrado y absorbido**: `rmlext/SURFACE-PLAN.md` lo lleva dentro, en
+«Las fases F, absorbidas y medidas el 2026-08-14», con las ocho medidas contra el árbol ese mismo
+día. Cualquier tabla de fases fuera de ese fichero es una segunda grafía que se quedará atrás.
 
-| fase | qué pedía | ADR | estado |
-|---|---|---|---|
-| **F1** | una sola función xsd→`Primitive` | 0047 | ADR presente — *prueba sin verificar aquí* |
-| **F2** | `call`, `comparison`, `conditional`, `pipeline` bajadas a MIR | 0049, 0050 | `HirExpr::Call` en `lower.rs` (6 sitios), `check.rs`, `stdlib.rs` |
-| **F3** | caché por URI, `content_hash` poblado | 0053 | ADR presente — *prueba sin verificar aquí* |
-| **F4** | el descriptor de salida llega al typecheck | 0055 | ADR presente — *prueba sin verificar aquí* |
-| **F5** | `where`/`select` compilan; `rewrite.rs` no existe | 0054 | la decisión de `join` está tomada — *resto sin verificar* |
-| **F6** | salsa fuera de `fossil-engine` y `fossil-df-wasm` | 0052 | **CANCELADA por medición**, ver abajo |
-| **F7** | `arrow-rs` en vez de `COPY`, row groups de 4.096 | 0056 | `ArrowWriter` en `files.rs`, `examples/tile_layout.rs` presente |
-| **F8** | 24 crates → 5–8 | — | pendiente, bloqueada por todas **a propósito** |
+Lo único que este documento añade sobre fossil es el aviso de §0 —seis ramas que no son trabajo— y
+esta advertencia, que se pagó aquí mismo: **una primera versión de esta sección reconstruyó la tabla
+desde la copia borrada y sobrestimó dos fases.** Dio F7 por encaminada por encontrar `ArrowWriter`,
+que está en `fossil-df` —el arnés de medición— y no en `fossil-sinks`, que es el escritor que envía;
+y llamó a F6 «cancelada» cuando ADR-0052 sólo detiene sus §§1–2 por rendimiento y los dos crates
+siguen construyendo un `FossilDb` por llamada (`fossil-engine/src/system.rs:111`,
+`fossil-df-wasm/src/lib.rs:210`, verificado). El plan vivo dice ❌ a las dos y tiene razón.
 
-**F6 es el caso que justifica juzgar por la prueba.** `salsa` sigue en diez `Cargo.toml`, incluidos
-los dos que la fase prohibía. No es deuda: ADR-0052 dice *«detiene F6 §§1–2»*. Se midió el antes y
-el antes contestó — una consulta `#[salsa::tracked]` que no computa nada cuesta 72–76 ns, lo que pone
-un **techo del 3,8 %** a lo que puede devolver salir de salsa, sobre un compile que es el 0,2 % del
-mandato. El −52 % era de Apollo y sigue siendo suyo. **Una fase cancelada por una medición es un
-resultado, no una tarea pendiente**, y el plan viejo la sigue listando como trabajo.
+Los veredictos, sin copiarlos: **F1 y F2 cerradas** por el trabajo de superficie, que no sabía que
+las estaba cerrando — que es la evidencia de que eran un plan y no dos. **F3, F4 y F5 a medias**, cada
+una con el punto exacto que falta. **F6 y F7 sin empezar.** **F8 redibujada el 14**: no es una
+consolidación sino una separación en dos árboles y después una consolidación por lado, con la arista
+única vía `fossil-sinks` como corte.
 
-**El tronco además va por delante del plan**: ADR-0057 (`el nombre de una clase no es una cadena`),
-0058 (`una identidad por tipo y el programa la declara`) y 0059 (`el punto es miembro-de y el tipo
-decide qué hay`) no corresponden a ninguna fase F. El plan de fases ya no describe el trabajo.
-
-**Lo que queda por verificar antes de fiarse de esta tabla:** las pruebas de F1, F3, F4 y F5 no se
-han ejecutado en esta sesión. Son cuatro comprobaciones baratas y cada una está escrita en el plan
-original; hasta entonces, «ADR presente» es todo lo que esta tabla afirma de ellas.
+Y una corrección que sólo se ve leyendo los dos planes juntos: **el criterio de F5 estaba escrito en
+sintaxis muerta** — pedía `users |> where(…)` y `|>` es una tumba en `grammar.bnf`.
 
 ---
 
