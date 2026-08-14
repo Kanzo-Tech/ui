@@ -107,18 +107,36 @@ palette, and the chart is a reading of it.
 
 ```text
 two seeds  →  six ramps × two modes  →  the role table  →  compile()  →  one <style>
-brand      →  brand, base,           →  216 props       →  ~11 KB     →  :root { … }
+brand      →  brand, base,           →  199 props       →  ~11 KB     →  :root { … }
 base       →  destructive, warning,     per block                        .dark { … }
               success, info
 ```
 
-Those 216 are two vocabularies over the same ramps, and it is worth knowing which you are reading.
-**144 are the reference layer** — `--base-1…12` and `--base-a1…12` for each of the six families,
-generated, with Radix's positional meaning and a matching Tailwind utility apiece. **The rest are
-the roles**: names bound to a step, an alpha step, or one of the five measured properties below.
-Measured over all six shipped documents, 53 of the 71 role tokens are byte-identical to a published
-reference step in every block — so most of a role's job is to give a step a name Shark's recipes
-already speak, and the reference layer is where anything the roles do not name goes.
+Those 199 are two vocabularies over the same ramps, and it is worth knowing which you are reading.
+**144 are the reference tier** — `--base-1…12` and `--base-a1…12` for each of the six families,
+generated, with a matching Tailwind utility apiece. The other 55 are **39 roles**, **9 chart slots**
+and **7 syntax hues**.
+
+A role exists only if it carries a measured property a step index cannot express — `fill`,
+`on-fill`, `boundary`, `quietest-ink`, `recess` — or is a name Shark's recipes paste in verbatim.
+Seventeen that failed both tests were deleted rather than kept: every one was a pure alpha binding,
+byte-identical in every block to the step it named, so the sheet was carrying two spellings of one
+value. **Anything the roles do not name, spell as a reference step.** That is what the tier is for,
+and it is why the role list does not grow with each new consumer.
+
+### The reference tier, on the page you are reading
+
+Every step of every family, resolved off this document — change the palette under **Customize** and
+this repaints, because it is read with `resolveTokenColor` rather than printed from a table. The
+tall band is the solid step, the short one below it the alpha step of the same level, drawn over
+the page so you see what it actually composites to. Under each column is the duty the derivation
+owes that step; the blank ones owe nothing on their own.
+
+<TokenScale />
+
+Steps 6–8 are the border band and carry no contrast duty: WCAG 1.4.11 exempts a non-interactive
+separator. The step that *does* owe 3:1 is `boundary`, and it is measured per document rather than
+pinned to a column — which is why no column here is labelled with it.
 
 **Two seeds, from the client.** A brand colour and a neutral. The neutral is *tinted* — a low
 chroma at a hue, Radix-style — and it supplies that hue; the brand hue is the fallback when
