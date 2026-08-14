@@ -121,7 +121,15 @@ parte.
 
 ---
 
-## 3 · El hueco que no está en ningún plan
+## 3 · El componente del grafo — y su repaso vive aparte
+
+`GraphCanvas` existe desde hoy, contra la posición anterior y como reapertura declarada:
+`decisions/a-canvas-component-owns-the-three-that-never-differ.md`. Lo que queda —la forma de Ark
+que le falta, el workspace como segundo call site, y el mismo repaso para analytics— está en
+`.planning/ANALYTICS-AND-GRAPH.md`, junto con lo que nuestro lector le debe al corpus ahora que
+`rmlext/apps/corpus` nos cita como su prueba de existencia.
+
+## 3 bis · El hueco que ya no lo es
 
 **El paquete del grafo no es plug and play, y nadie lo había escrito.** La comparación con la capa
 de charts es exacta:
