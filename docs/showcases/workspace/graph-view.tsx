@@ -445,7 +445,7 @@ function InspectorBody() {
           <Button
             className="h-5 gap-1 text-[10px]"
             onClick={() => commands.reveal(vertexId(ARCHIVE_SPEC.typeIndex, head.id))}
-            size="xs"
+            size="sm"
             title="Bring this node into view on the canvas"
             variant="ghost"
           >
@@ -958,7 +958,7 @@ function OrdersBody() {
               Drop an <code className="font-mono">.orders</code> file
             </p>
             <FileUploadTrigger asChild>
-              <Button className="h-6 text-xs" size="xs" variant="outline">
+              <Button className="text-xs" size="sm" variant="outline">
                 Choose file
               </Button>
             </FileUploadTrigger>
@@ -970,7 +970,7 @@ function OrdersBody() {
           <Button
             className="ms-auto h-6 shrink-0 text-xs"
             onClick={() => setShowSource((open) => !open)}
-            size="xs"
+            size="sm"
             variant="ghost"
           >
             {showSource ? "Hide source" : "Source"}
@@ -983,7 +983,7 @@ function OrdersBody() {
                 setFileName("amber-hall.orders");
                 unfocus();
               }}
-              size="xs"
+              size="sm"
               variant="ghost"
             >
               Reset

@@ -503,7 +503,7 @@ export const SidebarGroupAction = (
       className={cn(
         buttonVariants({
           variant: "ghost",
-          size: "icon-xs",
+          size: "icon-sm",
           clickEffect: false,
         }),
         "absolute inset-e-3 top-3.5",
@@ -663,7 +663,7 @@ export const SidebarMenuAction = (props: SidebarMenuActionProps) => {
       className={cn(
         buttonVariants({
           variant: "ghost",
-          size: "icon-xs",
+          size: "icon-sm",
           clickEffect: false,
         }),
         "absolute inset-e-1 top-1.5",

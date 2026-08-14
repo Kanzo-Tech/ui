@@ -158,7 +158,7 @@ export const ToastItem = (props: ToastItemProps) => {
             <Button
               aria-label="Close"
               className="opacity-64 hover:opacity-100"
-              size="icon-xs"
+              size="icon-sm"
               slot="toast-close-trigger"
               variant="ghost"
             >

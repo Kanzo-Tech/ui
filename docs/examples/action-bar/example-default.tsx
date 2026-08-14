@@ -48,7 +48,7 @@ export default function Example() {
           </Button>
           <ActionBarSeparator />
           <ActionBarClose asChild>
-            <Button aria-label="Clear selection" size="icon-xs" variant="ghost">
+            <Button aria-label="Clear selection" size="icon-sm" variant="ghost">
               <XIcon />
             </Button>
           </ActionBarClose>

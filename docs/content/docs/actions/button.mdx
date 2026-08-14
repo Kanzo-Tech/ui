@@ -51,7 +51,19 @@ the layout never shifts mid-action. It also sets `aria-busy` and `aria-disabled`
 | Prop | Type | Default |
 | --- | --- | --- |
 | `variant` | `"default" \| "secondary" \| "outline" \| "ghost" \| "destructive" \| "link"` | `"default"` |
-| `size` | `"xs" \| "sm" \| "md" \| "lg" \| "xl" \| "icon-xs" \| "icon-sm" \| "icon-md" \| "icon-lg" \| "icon-xl"` | `"md"` |
+| `size` | `"sm" \| "md" \| "lg" \| "xl" \| "icon-sm" \| "icon-md" \| "icon-lg" \| "icon-xl"` | `"md"` |
+
+<Callout type="info" title="`sm` is the floor, and it is measured">
+  There was an `xs` at `1.5rem`. Every size here is a `rem` against a root the density axis sets —
+  16px default, 14px compact, 18px comfortable — so `xs` measured **21px in compact**, under the
+  24×24 [WCAG 2.5.8](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html) states in
+  CSS pixels. `1.75rem` is 24.5px there, which makes `sm` the smallest size that clears the bar in
+  all three densities.
+
+  No call site was failing — 2.5.8's spacing exception saves a clustered control, and every measured
+  `xs` sat in a cluster. It went because its *name* promised a size it could not deliver at one
+  density.
+</Callout>
 | `isLoading` | `boolean` | `false` |
 | `clickEffect` | `boolean` | `true` |
 | `pill` | `boolean` | `false` |

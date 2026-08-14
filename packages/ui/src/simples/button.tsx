@@ -76,14 +76,18 @@ export const buttonVariants = tv({
       ],
     },
     size: {
-      xs: [
-        "h-6",
-        "gap-1.5",
-        "px-2",
-        "text-xs",
-        "rounded-sm",
-        "[&_svg:not([class*='size-'])]:size-2.5",
-      ],
+      /**
+       * The floor, and it is measured rather than chosen.
+       *
+       * `xs` and `icon-xs` were both `1.5rem`. Every size here is a `rem` against a root the density
+       * axis sets — 16px default, 14px compact, 18px comfortable — so they measured **21px in
+       * compact**, under the 24×24 WCAG 2.5.8 states in CSS pixels. `1.75rem` is 24.5px there, which
+       * makes `sm` the smallest size that clears the bar in all three densities.
+       *
+       * No call site was failing: the spacing exception saves a clustered control, and every
+       * measured `xs` was in a cluster. The variant went because its NAME promised a size it could
+       * not deliver at one density, and nothing was published to break.
+       */
       sm: [
         "h-7",
         "px-2.5",
@@ -93,7 +97,6 @@ export const buttonVariants = tv({
       md: ["h-8", "px-3", "py-2"],
       lg: ["h-9", "px-3.5"],
       xl: ["h-10", "text-base", "px-4"],
-      "icon-xs": "size-6 rounded-sm",
       "icon-sm": "size-7",
       "icon-md": "size-8",
       "icon-lg": "size-9",
@@ -105,7 +108,6 @@ export const buttonVariants = tv({
     pill: {
       true: [
         "rounded-full",
-        "has-[>svg]:data-[size=xs]:pe-3",
         "has-[>svg]:data-[size=sm]:pe-3.5",
         "has-[>svg]:data-[size=md]:pe-4",
         "has-[>svg]:data-[size=lg]:pe-4.5",
