@@ -11,7 +11,6 @@ import {
 } from "react";
 import { parseDate, type DateValue } from "@internationalized/date";
 import {
-  AppearanceToggle,
   Badge,
   Button,
   CalendarMonthSelect,
@@ -1312,9 +1311,9 @@ export function MetadataFormShowcase() {
               </HoverCardContent>
             </HoverCard>
 
-            {/* Appearance — the one control for it, in the chrome where a one-click preference
-                belongs. It cycles light → dark → system, so the panel needs no section for it. */}
-            <AppearanceToggle size="icon-sm" />
+            {/* No appearance control in this header. It is one click, which is why it is not a
+                panel SECTION — but `PreferencesPanel` already carries it beside its close button,
+                so a button out here is the same preference reachable two ways. */}
 
             {/* Preferences — OUR `Preferences` composite, EXTENDED. `PreferencesRoot` gives the
                 non-modal drawer + `P` hotkey; `PreferencesPanel` renders `{children ?? default}`,

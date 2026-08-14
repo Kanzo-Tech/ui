@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  AppearanceToggle,
   Badge,
   Button,
   Card,
@@ -51,13 +50,13 @@ export function PreferencesShowcase() {
             <SectionDescription>
               Ordinary product chrome, here only so the live re-theming has something to act on.
               Open the panel in the corner and change the radius or density — every control below
-              re-skins without re-rendering. Appearance is the toggle beside the badge: one button,
-              cycling light → dark → system.
+              re-skins without re-rendering. Appearance is in there too, beside the close button:
+              one control, cycling light → dark → system.
             </SectionDescription>
           </SectionTitleGroup>
-          {/* Appearance is not in the drawer: it has one control, and this is where it lives. */}
+          {/* No appearance control here. `PreferencesPanel` carries one in its own header, and a
+              second button for the same preference is the thing this showcase should not model. */}
           <div className="flex items-center gap-2">
-            <AppearanceToggle />
             <Badge variant="info">Live</Badge>
           </div>
         </SectionHeader>

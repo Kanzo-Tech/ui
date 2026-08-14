@@ -2,7 +2,6 @@
 
 import { Fragment, useState } from "react";
 import {
-  AppearanceToggle,
   Avatar,
   AvatarFallback,
   Badge,
@@ -525,7 +524,8 @@ function Shell() {
                 </Badge>
               </Float>
             </div>
-            <AppearanceToggle size="icon-sm" />
+            {/* Appearance lives in Preferences, whose panel carries it beside the close button —
+                the FAB bottom-end opens it. A toggle here would be the same preference twice. */}
           </div>
         </ShellHeader>
 

@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  AppearanceToggle,
   Badge,
   Button,
   Card,
@@ -40,9 +39,8 @@ export function SettingsBackdrop({
             </SectionTitle>
             <SectionDescription>{description}</SectionDescription>
           </SectionTitleGroup>
-          {/* Appearance is not in the drawer: it has one control, and this is where it lives. */}
+          {/* No appearance control here — `PreferencesPanel` carries one in its own header. */}
           <div className="flex items-center gap-2">
-            <AppearanceToggle />
             <Badge variant="info">Live</Badge>
           </div>
         </SectionHeader>
