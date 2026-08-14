@@ -11,7 +11,7 @@ export default function Example() {
     <InputGroup className="w-80">
       <InputGroupInput defaultValue="Q-1041" readOnly />
       <InputGroupAddon align="inline-end">
-        <InputGroupButton aria-label="Copy" size="icon-xs">
+        <InputGroupButton aria-label="Copy" size="icon-sm">
           <CopyIcon />
         </InputGroupButton>
       </InputGroupAddon>

@@ -109,7 +109,7 @@ export const ComboboxInput = (props: ComboboxInputProps) => {
             <InputGroupButton
               asChild
               className="group-has-data-[slot=combobox-clear]/input-group:hidden"
-              size="icon-xs"
+              size="icon-sm"
               variant="ghost"
             >
               <ComboboxTrigger />
@@ -118,7 +118,7 @@ export const ComboboxInput = (props: ComboboxInputProps) => {
           {showClear && inputValue && (
             <ComboboxClear asChild>
               <InputGroupButton
-                size="icon-xs"
+                size="icon-sm"
                 slot="combobox-clear"
                 variant="ghost"
               >

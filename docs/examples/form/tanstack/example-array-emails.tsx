@@ -88,7 +88,7 @@ export default function Example() {
                               <InputGroupButton
                                 aria-label={`Remove signatory ${index + 1}`}
                                 onClick={() => array.removeValue(index)}
-                                size="icon-xs"
+                                size="icon-sm"
                               >
                                 <XIcon />
                               </InputGroupButton>

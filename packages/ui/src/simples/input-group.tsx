@@ -131,26 +131,25 @@ const inputGroupButtonVariants = tv({
   ],
   variants: {
     size: {
-      xs: [
-        "h-6",
-        "gap-1",
-        "px-2",
-        "rounded-[calc(var(--radius)-5px)]",
-        "has-[>svg]:px-2",
-        "[&_svg:not([class*='size-'])]:size-3.5",
-      ],
+      /**
+       * The floor, and the default, because there is nothing legal below it.
+       *
+       * `xs` and `icon-xs` were `1.5rem`, which is 24px at the default root and **21px at compact** —
+       * every size here is a `rem` against a root the density axis sets. That is under the 24×24
+       * WCAG 2.5.8 states in CSS pixels, and it was this component's DEFAULT, so an input group
+       * that said nothing got the failing size.
+       *
+       * The `pointer-coarse` hit area below does not save it. 44px is the touch answer and 2.5.8
+       * asks about pointers generally: with a mouse the target was 21px and the `::after` is not in
+       * the hit path. This is the one thing `Button` does not carry, and it is why the two were
+       * decided separately rather than in one sweep.
+       */
       sm: ["h-8", "gap-1.5", "px-2.5", "rounded-md", "has-[>svg]:px-2.5"],
-      "icon-xs": [
-        "size-6",
-        "rounded-[calc(var(--radius)-5px)]",
-        "p-0",
-        "has-[>svg]:p-0",
-      ],
       "icon-sm": ["size-8", "p-0", "has-[>svg]:p-0"],
     },
   },
   defaultVariants: {
-    size: "xs",
+    size: "sm",
   },
 });
 
@@ -163,7 +162,7 @@ export const InputGroupButton = (props: InputGroupButtonProps) => {
     className,
     type = "button",
     variant = "ghost",
-    size = "xs",
+    size = "sm",
     slot,
     ...rest
   } = props;

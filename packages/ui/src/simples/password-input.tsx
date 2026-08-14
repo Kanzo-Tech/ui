@@ -108,7 +108,7 @@ export const PasswordInputTrigger = (
     <InputGroupAddon align="inline-end">
       <ArkPasswordInput.VisibilityTrigger asChild>
         <InputGroupButton
-          size="icon-xs"
+          size="icon-sm"
           variant="ghost"
           {...rest}
           slot={slot ?? "password-input-visibility-trigger"}
