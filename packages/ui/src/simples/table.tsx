@@ -157,9 +157,9 @@ export const TableRow = (props: React.ComponentProps<typeof ark.tr>) => {
         // both as washes because a table does not know what it was dropped onto: hover measures
         // ΔE 4.82–5.11 (light) and 7.51–7.73 (dark) from rest, striped or not, and selected clears
         // hover by 3.95–4.27 and 4.15–4.65.
-        "data-[state=selected]:bg-accent-wash",
+        "data-[state=selected]:bg-base-a5",
         "group-data-[variant=striped]/table:even:bg-muted/30",
-        "group-data-[hoverable=true]/table:[&:has(td):hover]:bg-secondary-wash",
+        "group-data-[hoverable=true]/table:[&:has(td):hover]:bg-base-a4",
         className
       )}
       {...rest}

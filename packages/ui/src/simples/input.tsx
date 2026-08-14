@@ -18,8 +18,14 @@ export const inputVariants = tv({
     "outline-none focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring",
     "aria-invalid:border-destructive aria-invalid:text-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/24",
     "data-invalid:border-destructive data-invalid:text-destructive data-invalid:ring-[3px] data-invalid:ring-destructive/24",
-    "dark:aria-invalid:border-destructive-foreground dark:aria-invalid:text-destructive-foreground dark:aria-invalid:ring-destructive-foreground/40",
-    "dark:data-invalid:border-destructive-foreground dark:data-invalid:text-destructive-foreground dark:data-invalid:ring-destructive-foreground/40",
+    // The dark branch is TEXT only, and this is the site the other eleven recipes point at.
+    // Shark repaints the border and the ring here too; measured across all six compiled documents,
+    // `--destructive` reads 4.15:1 against that document's own dark page — over the 3:1 WCAG 1.4.11
+    // asks of the visual information identifying a control or its state, so the border and the ring
+    // were buying a hue rather than contrast. Text owes AA's 4.5 and 4.15 misses it, so this half
+    // stays. `decisions/an-invalid-boundary-needs-no-dark-branch.md`.
+    "dark:aria-invalid:text-destructive-foreground",
+    "dark:data-invalid:text-destructive-foreground",
     "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-64",
     "motion-reduce:transition-none!",
   ],

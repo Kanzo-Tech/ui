@@ -14,6 +14,19 @@ import { resolveTokenColor } from "@kanzo-tech/ui";
 
 export type Rgba = [number, number, number, number];
 
+/**
+ * What a point wears when there is no token to resolve — not a colour this package chose.
+ *
+ * It cannot be `var(--muted-foreground)`: this is the path taken precisely when the token layer is
+ * unreachable — `document` is undefined (a server render), or the browser handed back something
+ * `parseRgb` could not read. Pointing it at another token would be pointing at the thing that just
+ * failed to answer.
+ *
+ * So it is a mid grey, and mid is the whole of the reasoning: 0.7 sits between the light page and
+ * the dark one, so a point wearing it is visible against either rather than invisible against one.
+ * It is a *nothing-resolved* signal, and if it ever reaches a real screen that is a bug in the
+ * caller's `host`, not a colour to tune.
+ */
 const FALLBACK: Rgba = [0.7, 0.7, 0.7, 1];
 const CHANNELS = /(-?[\d.]+)/g;
 

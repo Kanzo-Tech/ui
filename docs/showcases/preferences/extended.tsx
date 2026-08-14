@@ -28,7 +28,7 @@ export function PreferencesExtendedShowcase() {
         </>
       }
       panel={
-        <PreferencesRoot defaultOpen hotkey="t">
+        <PreferencesRoot defaultOpen hotkey="p">
           <PreferencesTrigger />
           <PreferencesPanel title="Preferences">
             <PreferencesField label="Sidebar side">

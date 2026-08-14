@@ -183,17 +183,22 @@ describe("compile", () => {
       state: "published",
       derivedAt: AT,
     });
-    // Two families of declaration are new bytes **by design** and are removed from both sides, so
-    // that what remains is the claim this test was always really about: **the rest did not move.**
+    // Three families of declaration differ **by design** and are removed from both sides, so that
+    // what remains is the claim this test was always really about: **the rest did not move.**
     //
     //   · the reference layer — 288 `--base-3`-style properties that had no equivalent in v2;
     //   · syntax and editor — v2 spelled them `--kanzo-syntax-*` and `--kanzo-editor-*`, thirteen
     //     roles frozen to Kanzo's hexes. They are seven derived roles under unprefixed names now,
     //     so there is nothing to compare them against and they are asserted separately below.
+    //   · the seventeen retired level-names, which v2 emitted and this schema does not. Each was a
+    //     pure `alpha` binding whose value the reference layer publishes under its own name, so
+    //     they are removed from the v2 side rather than from ours — and the assertion below is what
+    //     proves the removal was a *rename*: every one of the seventeen is still in the sheet, as
+    //     the step it always was.
     //
-    // Everything else is byte-identical to the sheet v2 emitted. A role is now an alias for a step,
-    // and if that re-expression had changed a single value, `--muted` would be a different grey in
-    // every product built on this.
+    // Everything else is byte-identical to the sheet v2 emitted. A role is an alias for a step, and
+    // if that re-expression had changed a single value, `--muted` would be a different grey in every
+    // product built on this.
     const strip = (css: string, pattern: RegExp) =>
       css
         .split("\n")
@@ -201,13 +206,40 @@ describe("compile", () => {
         .join("\n");
     const SCALE = /^ {2}--(base|brand|destructive|warning|success|info)-a?\d+: /;
     const EDITORY = /^ {2}--(kanzo-)?(syntax|editor|gutter)[-a-z]*: /;
+    const RETIRED =
+      /^ {2}--((secondary|accent)-wash|(destructive|warning|success|info)-(wash|wash-strong|border)|selection|match|match-active): /;
     // …and the `.light` member every light block grew when appearance became a class on the theme's
     // own element. It changes which ELEMENTS a block reaches, never what it declares, which is the
     // distinction this comparison is about.
     const unlit = (css: string) => css.replace(/, \.light \{$/gm, " {");
     expect(unlit(strip(strip(compile(kanzo), SCALE), EDITORY))).toBe(
-      strip(v2.replace("document v2", "document v4"), EDITORY),
+      strip(strip(v2.replace("document v2", "document v4"), EDITORY), RETIRED),
     );
+
+    // The seventeen are a RENAME, not a loss: each value v2 published under a level-name is still
+    // published, under the reference step it was always byte-identical to. Read off v2 itself, so
+    // this cannot drift into a restatement of the current emitter.
+    const now = compile(kanzo);
+    const pairs: [string, string][] = [
+      ["--secondary-wash", "--base-a4"], ["--accent-wash", "--base-a5"],
+      ["--destructive-wash", "--destructive-a3"], ["--destructive-wash-strong", "--destructive-a4"],
+      ["--destructive-border", "--destructive-a6"],
+      ["--warning-wash", "--warning-a3"], ["--warning-wash-strong", "--warning-a4"],
+      ["--warning-border", "--warning-a6"],
+      ["--success-wash", "--success-a3"], ["--success-wash-strong", "--success-a4"],
+      ["--success-border", "--success-a6"],
+      ["--info-wash", "--info-a3"], ["--info-wash-strong", "--info-a4"],
+      ["--info-border", "--info-a6"],
+      ["--selection", "--brand-a5"], ["--match", "--warning-a5"], ["--match-active", "--warning-a8"],
+    ];
+    expect(pairs, "the seventeen are the count this cut claims").toHaveLength(17);
+    const values = (css: string, token: string) =>
+      [...css.matchAll(new RegExp(`\\n {2}${token}: (#[0-9a-f]{6,8});`, "g"))].map((m) => m[1]);
+    for (const [retired, step] of pairs) {
+      const before = values(v2, retired);
+      expect(before, `${retired} was not in the v2 fixture to begin with`).toHaveLength(2);
+      expect(values(now, step), `${retired} did not survive as ${step}`).toEqual(before);
+    }
 
     // And the seven that replaced the thirteen are there, once per mode, under the unprefixed names.
     const emitted = [...compile(kanzo).matchAll(/\n {2}(--syntax-[a-z]+):/g)].map((m) => m[1]);
@@ -315,6 +347,9 @@ describe("compile", () => {
         expect(body, `${id} ${selector}`).not.toContain("color-scheme");
       }
     }
-    expect(IDENTITY_TOKENS).toHaveLength(15);
+    // 14, not 15: `--selection` was the fifteenth and retired with the other level-names. It cost
+    // the identity block nothing, because `--brand-a5` — the step it *was* — is already in
+    // `brandScale` above and re-points with the identity exactly as the role did.
+    expect(IDENTITY_TOKENS).toHaveLength(14);
   });
 });

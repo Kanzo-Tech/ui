@@ -97,7 +97,7 @@ const FLOATING = "rounded-lg border bg-card shadow-sm";
  * document. It is not an editor token that the graph borrows: selecting text and selecting nodes
  * are one decision, so the role table carries one name for both.
  */
-const SELECTION_WASH = "var(--selection)";
+const SELECTION_WASH = "var(--brand-a5)";
 
 /** Nobody drawn yet, for the frames before the first answer. */
 const NOBODY = residentOf(null);

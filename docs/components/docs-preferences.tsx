@@ -8,15 +8,21 @@ import { AppearanceToggle, DialogTrigger, PreferencesPanel, PreferencesRoot } fr
  * panel, co-located as ONE left-aligned controls cluster in the sidebar footer.
  *
  * The panel is NOT hand-rolled: it is the library's own `Preferences` composite, mounted here via
- * `PreferencesRoot` (the non-modal drawer) + `PreferencesPanel` (the canonical four-section body:
+ * `PreferencesRoot` (the non-modal drawer) + `PreferencesPanel` (the canonical body: Colour ·
  * Density · Radius · Font · Mono font, plus Reset · Done). Composed from the FLAT part exports, not
  * the `Preferences.X` statics, which read back `undefined` across the RSC client boundary (the
  * library documents this).
  *
- * None of the four is a colour. A tenant's identity is a palette DOCUMENT compiled to one
- * stylesheet — see [Theming](/docs/theming) — so there is nothing here for a reader to pick a hue
- * at a time. Appearance is not in there either, for a different reason: it has exactly one
- * control, the toggle to the left of Customize, which cycles light → dark → system in one click.
+ * **Colour appears here because these docs publish six palettes**, and `PreferencesColor` hides
+ * itself below two choices — a tenant shipping one identity sees the four non-colour axes and
+ * nothing else. What it offers is still not a hue: each entry is a whole palette DOCUMENT someone
+ * already derived and measured, so the reader picks among validated identities rather than authoring
+ * a colour. See [Theming](/docs/theming). Appearance is not a section either, for a different
+ * reason: it has exactly one control, the toggle to the left of Customize, which cycles
+ * light → dark → system in one click.
+ *
+ * No `hotkey`: the library gives the prop no default on purpose, and a docs site is a host whose
+ * global keymap is not ours to claim.
  *
  * Persistence, restore-on-load and the live re-theme are handled upstream by `KanzoThemeProvider`
  * (the docs wrap in it via `kanzo-provider.tsx`): it writes the four non-colour `data-*` axes to

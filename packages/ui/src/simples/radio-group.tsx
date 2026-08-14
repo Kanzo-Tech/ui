@@ -101,7 +101,7 @@ export const RadioGroupItem = (
           // and the `/64` this used to carry made focus *weaken* the boundary 1.4.11 asks 3:1 of.
           "data-focus-visible:data-invalid:ring-destructive/48",
           "data-invalid:border-destructive data-invalid:text-destructive data-invalid:ring-[3px] data-invalid:ring-destructive/24",
-          "dark:data-invalid:border-destructive-foreground dark:data-invalid:text-destructive dark:data-invalid:ring-[3px] dark:data-invalid:ring-destructive-foreground/20",
+          "dark:data-invalid:text-destructive dark:data-invalid:ring-[3px]",
           "data-[state=checked]:bg-primary data-[state=checked]:before:bg-primary-foreground",
           "data-invalid:data-[state=checked]:bg-transparent data-invalid:data-[state=checked]:before:bg-destructive-foreground"
         )}
@@ -134,8 +134,8 @@ export const RadioGroupCard = (
         // washes are the alpha steps of the same two levels: across the six surfaces the theme
         // publishes they never fall below ΔE 4.32 (light) / 6.00 (dark) from rest, and selected
         // clears hover by a further 3.75 / 3.16.
-        "hover:bg-secondary-wash",
-        "data-[state=checked]:border-primary data-[state=checked]:bg-accent-wash",
+        "hover:bg-base-a4",
+        "data-[state=checked]:border-primary data-[state=checked]:bg-base-a5",
         "data-disabled:pointer-events-none data-disabled:opacity-64",
         "has-data-focus-visible:border-primary has-data-focus-visible:ring-[3px] has-data-focus-visible:ring-ring",
         "data-invalid:border-destructive",

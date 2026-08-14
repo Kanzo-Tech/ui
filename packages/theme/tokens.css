@@ -17,13 +17,24 @@
  * through. Every colour in it is traceable to a seed through a published rule, which is why there is
  * no hex written by hand anywhere in this file.
  *
- * There is no colour AXIS, and **this is the one place that argument is written out** — say it here
- * and point at it, because it has been copied before and the copies went stale one at a time.
- * `data-base`, `data-accent`, `data-palette` and `data-chart-scheme` are gone: each was a way to
- * express *part* of a palette at runtime, and a document expresses all of it at once, before a byte
- * is sent. What `themes.css` still carries is the four things that are not colour — `data-radius`,
- * `data-font`, `data-mono-font`, `data-font-size`. Keeping the four retired ones gone is
- * `src/index.test.ts`'s job, not this comment's.
+ * No *fragment* of a palette is an axis, and **this is the one place that argument is written out**
+ * — say it here and point at it, because it has been copied before and the copies went stale one at
+ * a time. `data-base`, `data-accent` and `data-chart-scheme` are gone: each moved *part* of a
+ * palette at runtime, and a document expresses all of it at once, graded as a whole. What survives
+ * is `data-palette` and `data-identity`, which select a whole compiled document and a whole brand
+ * within one — every candidate already derived and measured. Plus the four that are not colour:
+ * `data-radius`, `data-font`, `data-mono-font`, `data-font-size`, carried by `themes.css`. Keeping
+ * the three retired ones gone is `src/index.test.ts`'s job, not this comment's.
+ *
+ * There is one colour vocabulary, in two tiers, and knowing which you are reading matters. The
+ * REFERENCE tier is `--{base,brand,destructive,warning,success,info}-{1..12,a1..a12}` — 144
+ * generated properties with Radix's positional meaning and a Tailwind utility apiece. The ROLE tier
+ * is a name bound to one of those, and a role now exists only if it carries a MEASURED property a
+ * step index cannot express (`fill`, `on-fill`, `boundary`, `quietest-ink`, `recess`) or is a name
+ * Shark's recipes paste in verbatim. Seventeen level-names — the washes, the status tints,
+ * `--selection`, `--match`, `--match-active` — failed both tests and left: each was byte-identical
+ * to a published alpha step in all six documents and both modes, so it was a second spelling of one
+ * value. Anything the roles do not name reaches for the reference tier; nothing mints a new role.
  *
  * `.dark` remains the mode selector, and each block carries its own `color-scheme` so native
  * controls, scrollbars and date pickers follow. It is a declaration in a rule, never
@@ -64,43 +75,19 @@
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-destructive-content: var(--destructive-content);
-  --color-destructive-wash: var(--destructive-wash);
-  --color-destructive-wash-strong: var(--destructive-wash-strong);
-  --color-destructive-border: var(--destructive-border);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
   --color-info-content: var(--info-content);
-  --color-info-wash: var(--info-wash);
-  --color-info-wash-strong: var(--info-wash-strong);
-  --color-info-border: var(--info-border);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-success-content: var(--success-content);
-  --color-success-wash: var(--success-wash);
-  --color-success-wash-strong: var(--success-wash-strong);
-  --color-success-border: var(--success-border);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
   --color-warning-content: var(--warning-content);
-  --color-warning-wash: var(--warning-wash);
-  --color-warning-wash-strong: var(--warning-wash-strong);
-  --color-warning-border: var(--warning-border);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-field: var(--field);
-  --color-secondary-wash: var(--secondary-wash);
-  --color-accent-wash: var(--accent-wash);
   --color-ring: var(--ring);
-  /* `--selection` shipped a value and no utility, so `bg-selection` did not exist and the graph
-     canvas reached for `var(--selection)` by hand. A token nothing can spell is a token that
-     invites a second one. */
-  --color-selection: var(--selection);
-  /* `--match` for the same reason: a search hit in the editor and a `<mark>` in prose are one
-     decision, and the second consumer needs to be able to spell it. Not `--highlight` — Ark writes
-     `data-highlighted` for menu-item focus throughout, and `bg-highlight` beside
-     `data-highlighted:bg-accent` is exactly the ambiguity the name was chosen to avoid. */
-  --color-match: var(--match);
-  --color-match-active: var(--match-active);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -513,35 +500,21 @@
   --border: #c9c9c9;
   --input: #737373;
   --field: #00000008;
-  --secondary-wash: #00000011;
-  --accent-wash: #0000001f;
   --primary: #0f0f0f;
   --primary-foreground: #fafafa;
   --ring: #737373;
   --destructive: #e7000b;
   --destructive-foreground: #8d0003;
   --destructive-content: #fef9f8;
-  --destructive-wash: #ff00000b;
-  --destructive-wash-strong: #ff000018;
-  --destructive-border: #ff0c0047;
   --warning: #e17100;
   --warning-foreground: #844000;
   --warning-content: #1b0700;
-  --warning-wash: #ff25000c;
-  --warning-wash-strong: #ff43001c;
-  --warning-border: #ff57004d;
   --success: #009966;
   --success-foreground: #005b3b;
   --success-content: #001309;
-  --success-wash: #00a0000e;
-  --success-wash-strong: #00a92b1f;
-  --success-border: #008f3249;
   --info: #155dfc;
   --info-foreground: #0032a7;
   --info-content: #f8fafe;
-  --info-wash: #0000ff0a;
-  --info-wash-strong: #002eff19;
-  --info-border: #0046ff47;
   --sidebar: #fafafa;
   --sidebar-foreground: #454545;
   --sidebar-primary: #0f0f0f;
@@ -558,9 +531,6 @@
   --chart-6: #7008e7;
   --chart-7: #a65f00;
   --chart-8: #0092b8;
-  --selection: #0000001f;
-  --match: #ff4f0030;
-  --match-active: #e4520094;
   --syntax-keyword: #8200db;
   --syntax-string: #007a55;
   --syntax-function: #1447e6;
@@ -732,35 +702,21 @@
   --border: #353535;
   --input: #737373;
   --field: #0a0a0a;
-  --secondary-wash: #ffffff12;
-  --accent-wash: #ffffff1d;
   --primary: #efefef;
   --primary-foreground: #0a0a0a;
   --ring: #737373;
   --destructive: #e7000b;
   --destructive-foreground: #ff8677;
   --destructive-content: #ffffff;
-  --destructive-wash: #ff00001a;
-  --destructive-wash-strong: #ff00002e;
-  --destructive-border: #ff1f165b;
   --warning: #e17100;
   --warning-foreground: #ffa264;
   --warning-content: #100805;
-  --warning-wash: #fb4d001a;
-  --warning-wash-strong: #ff6c0029;
-  --warning-border: #ff831157;
   --success: #009966;
   --success-foreground: #66c999;
   --success-content: #060c08;
-  --success-wash: #00ff880e;
-  --success-wash-strong: #00ff911a;
-  --success-border: #20ffac3b;
   --info: #155dfc;
   --info-foreground: #7aa7ff;
   --info-content: #e8f0ff;
-  --info-wash: #003dff1e;
-  --info-wash-strong: #003cff38;
-  --info-border: #1763ff64;
   --sidebar: #141414;
   --sidebar-foreground: #aaaaaa;
   --sidebar-primary: #efefef;
@@ -777,9 +733,6 @@
   --chart-6: #00a63e;
   --chart-7: #7f22fe;
   --chart-8: #c70036;
-  --selection: #ffffff1d;
-  --match: #ff77003e;
-  --match-active: #ff933d9c;
   --syntax-keyword: #c27aff;
   --syntax-string: #00d492;
   --syntax-function: #51a2ff;

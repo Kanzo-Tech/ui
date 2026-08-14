@@ -293,13 +293,53 @@ pedirle tokens al sistema de diseño. Es exactamente el patrón `md.comp.*`.
 | # | decisión | recomendación | coste |
 |---|---|---|---|
 | **1** | ¿Se publica la capa de referencia (6 familias × 12 pasos + 12 alfas)? | **Sí.** Es la propiedad que tienen los tres sistemas de referencia y que a éste le falta. Aditivo: no rompe nada el día que entra. | `compile.ts` + `roles.ts` + regenerar. ~2 días. |
-| **2** | ¿Se borran los 46 alias de nivel, o se quedan como capa fina? | **Se quedan los que Shark exige** (`bg-accent`, `bg-muted`, `text-muted-foreground`: contrato con recetas que se pegan verbatim). **Se borran los 15 nombres-de-nivel** en cuanto una pantalla real diga que no los usa. | Rompedor, pero nada está publicado. Tras decisión 4. |
+| **2** | ¿Se borran los 46 alias de nivel, o se quedan como capa fina? | ~~**Se borran los 15 nombres-de-nivel** en cuanto una pantalla real diga que no los usa. Tras decisión 4.~~ → **REVERTIDA 2026-08-13: se borran YA**, y son 17. Se quedan los que Shark exige y los que llevan una propiedad medida. Ver abajo. | Hecho. |
 | **3** | ¿El documento pasa de hoja servida a bloque con ámbito? | **Sí.** 4,7 kB desmontan la premisa. Desbloquea previsualización, ámbito y cambio en runtime, y borra `elevate` y el `cookieStorageAdapter` obligatorio. | `compile.ts` + provider + `<KanzoTheme>`. ~3 días. |
 | **4** | ¿Se migra una pantalla de keasy antes de borrar vocabulario? | **Sí, y es lo que ordena todo lo demás.** Publicar la escala puede ir antes; borrar alias, no. | La migración ya estaba en el plan de showcases. |
 
 **Orden propuesto:** 1 → 3 → 4 → 2. Las dos primeras son aditivas y se pueden mergear a `main` por
 separado; las dos últimas son las que deciden qué vocabulario habla un producto, y para eso hace
 falta un producto.
+
+### Decisión 2 — revertida el 2026-08-13, con la evidencia que la revierte
+
+La decisión original condicionaba el borrado a que **una pantalla real dijera que no usa esos
+nombres**. Se revierte, y el argumento es que la condición se vuelve en su contra.
+
+**La evidencia, en dos números.**
+
+1. **53 de los 71 roles eran byte-idénticos a un paso de referencia ya publicado**, en *todos* los
+   bloques de los seis documentos que se envían y en los dos modos. Medido tras aterrizar la decisión
+   1; no era el caso cuando se escribió este documento, y es exactamente lo que la decisión 1
+   provocó. De esos, 17 no pasan ninguno de los dos tests de admisión (propiedad medida, o contrato
+   con Shark), así que eran **una segunda grafía de un valor que ya tenía nombre**.
+2. **No hay consumidor.** `grep -l '"@kanzo-tech/ui"' ../*/package.json` no devuelve nada, no hay
+   publicación y no hay tags — lo mismo que la duda 3 midió y que sigue igual once días después.
+
+**Por qué la condición se vuelve en su contra.** Esperar a una pantalla real existía para no
+romperle el vocabulario a alguien. No hay nadie a quien rompérselo, y el día que lo haya el borrado
+pasa de gratis a caro: se cortaría **cuando ya duele**. La condición sólo puede encarecer lo que
+pretendía proteger, así que se ejecuta ahora.
+
+**Lo que se fue** (17): `--secondary-wash`, `--accent-wash`, los doce tintes de estado (`-wash`,
+`-wash-strong`, `-border` × cuatro familias), `--selection`, `--match`, `--match-active`.
+**Lo que se queda y por qué**: `--field` (`recess`) y los cuatro `-content` (`on-fill`) llevan una
+propiedad medida que un índice de paso no expresa; `--muted`, `--accent`, `--border` y el resto del
+vocabulario de Shark se quedan porque las recetas se pegan literalmente.
+
+**Lo que cuesta, dicho sin adornos:** legibilidad en el sitio de uso. `bg-accent-wash` anunciaba su
+intención y el paso que lo sustituye no. Se paga a sabiendas.
+
+Registro completo, con lo que la revertiría a su vez:
+`decisions/a-role-earns-its-name-or-becomes-a-step.md`.
+
+**Dos cosas que viajaron con el corte.** `--faint` **no** era un fallo AA vivo: el enlace es
+`quietest-ink` desde antes de esto y los doce bloques miden 4.60–8.01 contra su propia página. Lo que
+estaba publicado y mal era la *página de theming*, que seguía documentando `(neutral, 10)` — el
+enlace que sí fallaba en Nord oscuro (3.48) y Latte claro (3.37) — y ya está corregida. Y las **~31
+ramas `dark:`** de borde y anillo del estado inválido se han quitado, con su medición y su registro
+en `decisions/an-invalid-boundary-needs-no-dark-branch.md`; la mitad `text-` se queda, porque 4.15
+pasa el 3:1 de 1.4.11 y no pasa el 4.5 de AA.
 
 **Lo que arregla el bug que abrió todo esto:** la sintaxis derivada y el `CodeEditor` no dependen de
 ninguna de las cuatro. Pueden ir primero, y bajo la decisión 1 son un 46 % más pequeños.

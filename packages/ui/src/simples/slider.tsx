@@ -116,12 +116,12 @@ export const Slider = (props: SliderProps) => {
             // control fill: `--field` recedes to the page in dark, and a track that is the page
             // is a track nobody can see. a4 measures ΔE 5.11 light / 7.73 dark from every surface
             // the theme publishes, against `--field`'s 2.40 / 0.00-on-the-page.
-            "bg-secondary-wash",
+            "bg-base-a4",
             "rounded-full",
             "select-none overflow-hidden",
             "data-[orientation=horizontal]:h-2 data-[orientation=horizontal]:w-full",
             "data-[orientation=vertical]:h-full data-[orientation=vertical]:w-2",
-            "data-invalid:bg-destructive-wash"
+            "data-invalid:bg-destructive-a3"
           )}
           data-slot="slider-track"
         >
@@ -158,7 +158,6 @@ export const Slider = (props: SliderProps) => {
                 "aria-invalid:border-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/24",
                 "aria-invalid:focus-visible:border-destructive aria-invalid:focus-visible:ring-destructive/48",
                 "aria-invalid:data-dragging:border-destructive aria-invalid:data-dragging:ring-destructive/48",
-                "dark:aria-invalid:border-destructive-foreground dark:aria-invalid:ring-destructive-foreground/40",
                 "pointer-coarse:after:absolute pointer-coarse:after:h-full pointer-coarse:after:min-h-11",
                 "motion-reduce:transition-none!"
               )}
