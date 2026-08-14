@@ -21,10 +21,10 @@ mueve desde el 2026-06-08** — más de dos meses. Las demás:
 
 | rama | qué es en realidad |
 |---|---|
-| `f3-descriptor-cache` | **ya en el tronco**, como ADR-0053 |
-| `f6-salsa-shrinks` | **ya en el tronco**, como ADR-0052 |
-| `f7-writer-measurement` | **ya en el tronco**, como ADR-0056 |
-| `rdf12-base-direction` | **ya en el tronco**, como ADR-0051 |
+| `f3-descriptor-cache` | **ya en el tronco**, entonces ADR-0053 |
+| `f6-salsa-shrinks` | **ya en el tronco**, entonces ADR-0052 |
+| `f7-writer-measurement` | **ya en el tronco**, entonces ADR-0056 |
+| `rdf12-base-direction` | **ya en el tronco**, entonces ADR-0051 |
 | `feat/fossil-graph-w1` | 28 commits **por detrás** de main, 0 propios |
 | `feat/w0-subprocess` | 2 commits por detrás, 0 propios |
 
@@ -33,6 +33,11 @@ Verificado por contenido y no por el nombre del fichero: entre
 `feat/pg-canonical-mir:decisions/0056-el-footer-es-el-indice.md` la **única** diferencia son dos
 líneas, y son el número en el título. Las cuatro se rebasaron al tronco y se renumeraron, que es por
 lo que no figuran como ancestros y parecen trabajo abierto.
+
+*Los números de ADR de este documento son historia desde el `43991ac` de rmlext, que borró
+`decisions/` entero y repartió sus 63 registros por 72 citas — un registro se sustituye por lo que
+decía. La comparación de arriba sigue siendo reproducible porque los dos lados son refs de git, que
+sobreviven al borrado; para el contenido vivo, ver los destinos citados abajo.*
 
 **Acción:** el tronco a `main`, y las seis se borran. No hay nada que rescatar en ellas.
 
@@ -58,7 +63,8 @@ siguen construyendo un `FossilDb` por llamada (`fossil-engine/src/system.rs:111`
 
 Los veredictos, sin copiarlos: **F1 y F2 cerradas** por el trabajo de superficie, que no sabía que
 las estaba cerrando — que es la evidencia de que eran un plan y no dos. **F3, F4 y F5 a medias**, cada
-una con el punto exacto que falta. **F6 y F7 sin empezar.** **F8 redibujada el 14**: no es una
+una con el punto exacto que falta. **F6 y F7 sin empezar** — el porqué de F6 está en
+`apps/docs/content/docs/(root)/architecture.mdx`. **F8 redibujada el 14**: no es una
 consolidación sino una separación en dos árboles y después una consolidación por lado, con la arista
 única vía `fossil-sinks` como corte.
 
@@ -76,14 +82,23 @@ De `GRAPH-ROADMAP.md`, medido el 2026-08-05:
   la elección es `λ·β`. La identidad es `vertexId(type, dense)` como `bigint`, con el `Resident`
   como único mapa, verificado en vivo. El grafo de conocimiento transfiere tres de cuatro
   afirmaciones.
-- **Abierto y barato: reescribir ADR-0042 §3.** Su premisa («una tesela es una comunidad») se cayó:
+- **Y ADR-0042 ya no existe.** El `43991ac` de rmlext borró `decisions/` entero; su contenido vive
+  ahora en `apps/corpus/content/docs/conventions/{addressing,adjacency}.mdx`. **kanzo-ui lo cita 21
+  veces en 9 ficheros**, cinco de ellos fuente de `packages/graph` que se publica — `resident.ts`,
+  `bounded.ts`, `duck-source.ts`, `index.ts` y sus tests, más `BENCHMARKS.md` y los dos showcases.
+  Son citas a un documento que no está en el repositorio que nombran, que es exactamente lo que ese
+  commit acaba de arreglar 72 veces del lado de rmlext. La barrida de este lado está sin hacer, y
+  hasta que se haga «reescribir §3» no tiene sujeto.
+
+- **Abierto y barato: reescribir ADR-0042 §3** (donde quiera que viva ahora)**.** Su premisa («una tesela es una comunidad») se cayó:
   las tiras son la curva de Morton. Quedan dos cosas en papel — dónde vive una arista (CSR, que es
   lo que describen las medidas, frente a LCA, que hace reaparecer el término no plano) y si hay
   árbol encima de la tesela. **Bloquea al emisor.**
 
 **El rescate.** El roadmap del canvas da el ítem 5 (formato de la tesela) por bloqueado y discute
-Parquet contra Arrow IPC. **Dos días después, el 2026-08-07, ADR-0056 lo contestó desde el lado del
-escritor y nadie lo trajo de vuelta**, porque vivía en una rama aparcada:
+Parquet contra Arrow IPC. **Dos días después, el 2026-08-07, lo contestó desde el lado del escritor lo que entonces era
+ADR-0056 y nadie lo trajo de vuelta**, porque vivía en una rama aparcada — hoy vive en
+`apps/corpus/content/docs/conventions/payload.mdx`:
 
 > Un fichero con row groups de 4.096 domina un fichero por tesela **en todos los ejes**: 5,6
 > peticiones de rango por ventana contra 22,3 — las 22,3 teselas seleccionadas coalescen en 5,6
@@ -97,7 +112,7 @@ llegue al emisor.
 
 Queda abierto de verdad, y esto sí es diseño: el ítem 5 pregunta si el *payload* es Parquet o Arrow
 IPC — §1 pide nada de DuckDB en el camino de dibujo y §3 pide `x`/`y` subiendo crudas a la GPU, y
-Parquet no da ninguna de las dos sin decodificador. ADR-0056 decide el **layout**, no el formato.
+Parquet no da ninguna de las dos sin decodificador. Esa medición decide el **layout**, no el formato.
 
 **Y una refutación sin recoger:** una arista entre tipos **nunca es dibujable desde una ventana** —
 0 de 240.000, todos los tamaños, contra el 91 % de las aristas internas. Más `place_after`
@@ -148,7 +163,7 @@ Lo que bloquea a más cosas, primero; lo independiente, en paralelo.
 
 1. **Borrar las seis ramas y subir el tronco de rmlext a `main`** (§0). Es media hora y es lo que
    hace que las otras preguntas tengan un solo sitio donde contestarse.
-2. **Reescribir ADR-0042 §3** (§2), con ADR-0056 ya en la mano. Es papel, es barato, y desbloquea el
+2. **Reescribir ADR-0042 §3** (§2), con la medición del escritor ya en la mano. Es papel, es barato, y desbloquea el
    emisor de teselas.
 3. **Decidir el formato del payload** (§2). Depende de 2.
 4. **`<GraphCanvas>`** (§3) — en paralelo desde ya, no depende de nada.
