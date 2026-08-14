@@ -120,6 +120,16 @@ needed, that is the moment to reintroduce one seam — with a lint rule to enfor
   sanctioned was failing AA on **every** status fill — the 2.13–3.81:1 range measured above — and
   nothing caught it, because **an untokenised colour is a colour no test can measure. An exception
   to this rule is where a defect goes to hide.**
+- **A pressable target owes its floor in PIXELS, not in `rem`.** WCAG 2.5.8 states 24×24 in CSS
+  pixels; every size here is a `rem` against a root the density axis sets — 16px default, **14px
+  compact**, 18px comfortable. So `min-h-6` is 24px at default and **21px at compact**: the failure
+  dressed as the fix. Write `min-h-[24px]`. It is the one size in a recipe that must not scale,
+  because the bar it answers to does not. `documented-tokens`' sibling `pressable-floor.test.ts`
+  reads the recipes and fails on a `rem` floor under 24px; what it cannot see is a target with no
+  floor at all, and a hand-rolled row is exactly that — which is how the defect that prompted this
+  was written. Two sizes were deleted rather than floored (`Button`'s `xs`, `InputGroupButton`'s
+  `xs`): a variant whose *name* promises a size it cannot deliver at one density is not a variant
+  worth keeping while nothing is published.
 - **`-foreground` means two different things.** For neutral and brand families it is the ink on the
   fill. For the status families it is a readable-on-**background** variant of the same hue — Shark's
   convention, adopted verbatim. Do not "fix" it; it was renamed once and fully reverted.
