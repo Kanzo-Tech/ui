@@ -36,6 +36,7 @@ export const LOOK_SECTION: SectionManifest = {
   },
   prefs: {
     look: {
+      kind: "choice",
       default: "atlas",
       options: [
         { value: "nebula", label: "Nebula" },
@@ -55,11 +56,35 @@ export const LOOK_SECTION: SectionManifest = {
   themselves.
 </Callout>
 
-<Callout type="info" title="A preference's options are a closed list">
-  A section may offer a value it has measured; it may not offer a text field. That is what makes the
-  choice safe to publish — and it is why a stored value outside `options` is declined rather than
-  applied, which is the version-skew case: a look from a release that shipped a fourth one is not
-  honoured just because storage still holds it.
+### The three kinds
+
+A preference is one of exactly three, and the set is closed — there is no `custom` escape.
+
+| kind | what it declares | drawn as |
+| --- | --- | --- |
+| `choice` | `options`, a closed list of `{ value, label }` | a radio list |
+| `toggle` | nothing more | a switch |
+| `range` | `min`, `max`, `step` | a slider |
+
+```ts
+prefs: {
+  look: { kind: "choice", default: "atlas", options: [...], doc: "…" },
+  links: { kind: "toggle", default: "true", doc: "draw the links" },
+  pointScale: { kind: "range", default: "1", min: 0.4, max: 2.5, step: 0.1, doc: "…" },
+}
+```
+
+<Callout type="info" title="Every kind has a gate, and a value is always a string">
+  A section may offer a value it has measured; it may not offer a text field. So each kind knows
+  what an illegal value is — outside `options`, not `"true"`/`"false"`, outside the declared bounds
+  — and a stored value that fails declines to the default rather than being applied. That is the
+  version-skew case: a slider that used to run to 5 and now stops at 2.5 must not paint 5 because
+  storage remembers it.
+
+  Values are strings in all three. One storage shape is what lets an unrecognised namespace ride
+  through a write without the core parsing it, and what lets a value reach a `data-*` attribute with
+  no second spelling. Read them with `prefBoolean` and `prefNumber` rather than a local `Number()`,
+  so a surface parses exactly what the resolver validated.
 </Callout>
 
 ## The host registers it

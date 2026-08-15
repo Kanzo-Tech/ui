@@ -53,23 +53,11 @@ export interface SectionTokenDecl {
   doc: string;
 }
 
-/**
- * One choice a section offers its user — the preference half of a manifest.
- *
- * A section already contributes *tokens*, which is what a tenant's document decides. This is what
- * the person looking at the screen decides, and it was the half with no mechanism: `ThemePrefs` is a
- * closed interface and the panel rendered a fixed list, so a package with a user-facing choice had
- * to build a settings surface of its own beside the one that already existed.
- *
- * `options` is a closed list because that is what makes the choice safe to publish. A section may
- * offer a value it has measured; it may not offer a text field.
- */
-export interface SectionPrefDecl {
-  /** The value when nothing else answers. */
+/** What every declaration carries, whatever its kind. */
+interface PrefCommon {
+  /** The value when nothing else answers. Always a string — see {@link SectionPrefDecl}. */
   default: string;
-  /** Everything a control may offer, in order. Order is the section's, and a panel keeps it. */
-  options: readonly { value: string; label: string }[];
-  /** What the choice does, in one line. Shown by a panel beside the control. */
+  /** What the preference does, in one line. Shown by a surface beside the control. */
   doc: string;
   /**
    * The attribute to write on `<html>` — **only where CSS has to react.**
@@ -80,6 +68,52 @@ export interface SectionPrefDecl {
    * the cost the four core axes pay for having attributes at all.
    */
   attr?: string;
+}
+
+/**
+ * One preference a section offers its user — the half of a manifest the person on the screen decides.
+ *
+ * **Three kinds, and the set is closed.** A section may offer a value it has measured; it may not
+ * offer a text field, and there is deliberately no `custom` escape. That is the same line the colour
+ * layer holds one level up — choose among what somebody validated, never author — and it is what
+ * lets any surface render any section without knowing which package wrote it.
+ *
+ * The three arrived together with their call sites rather than ahead of them. `choice` shipped
+ * alone and covered the graph's look; the eleven controls it could not express are what asked for
+ * the other two — three toggles and two scalars in the graph's Display, six coefficients in its
+ * simulation dock, every one of them hand-rolled with its own wiring.
+ *
+ * **A value is a string in all three**, and that is a decision rather than an oversight. One storage
+ * shape means an unrecognised namespace rides through a write untouched without the core parsing
+ * it; and a value that can be written to a `data-*` attribute needs no second spelling on its way
+ * out. A renderer parses what its own kind means — `"true"`, `"0.42"` — and the parsing is one
+ * place, {@link prefNumber} and {@link prefBoolean}.
+ */
+export type SectionPrefDecl =
+  /** Pick one of a closed list. */
+  | (PrefCommon & {
+      kind: "choice";
+      /** Everything a control may offer, in order. Order is the section's, and a surface keeps it. */
+      options: readonly { value: string; label: string }[];
+    })
+  /** On or off. Stored as `"true"` / `"false"`. */
+  | (PrefCommon & { kind: "toggle" })
+  /**
+   * A number within declared bounds.
+   *
+   * The bounds are the section's own claim about what it will honour, so a stored value outside them
+   * is declined the same way a retired option is: a slider that used to run to 5 and now stops at 3
+   * must not paint 5 because storage remembers it.
+   */
+  | (PrefCommon & { kind: "range"; min: number; max: number; step: number });
+
+/** Read a `toggle`'s value. Anything that is not exactly `"true"` is off. */
+export const prefBoolean = (value: string): boolean => value === "true";
+
+/** Read a `range`'s value. `NaN` never escapes: a corrupt string answers the declared minimum. */
+export function prefNumber(value: string, decl: { min: number }): number {
+  const n = Number.parseFloat(value);
+  return Number.isFinite(n) ? n : decl.min;
 }
 
 /**
@@ -147,8 +181,16 @@ export function resolvePref(
   stored: string | undefined,
   policy?: SectionPrefPolicy,
 ): ResolvedPref {
-  const legal = (v: string | undefined): v is string =>
-    v !== undefined && decl.options.some((o) => o.value === v);
+  const legal = (v: string | undefined): v is string => {
+    if (v === undefined) return false;
+    // One gate per kind, and every kind has one. A preference with no notion of an illegal value
+    // would let storage outlive the declaration that gave it meaning — which is the version-skew
+    // case this whole chain exists to survive.
+    if (decl.kind === "choice") return decl.options.some((o) => o.value === v);
+    if (decl.kind === "toggle") return v === "true" || v === "false";
+    const n = Number.parseFloat(v);
+    return Number.isFinite(n) && n >= decl.min && n <= decl.max;
+  };
 
   if (legal(policy?.pinned)) return { value: policy.pinned, via: "pinned", offered: false };
   const offered = !policy?.hidden;
@@ -181,13 +223,35 @@ export function validatePrefs(
       });
       continue;
     }
-    if (!decl.options.some((o) => o.value === value)) {
+    // A switch rather than a ternary chain: the range arm needs `decl` narrowed to reach `min`, and
+    // `kind === "choice" ? … : kind === "toggle" ? … : …` does not narrow the last branch.
+    let ok: boolean;
+    let expected: string;
+    switch (decl.kind) {
+      case "choice": {
+        const values = decl.options.map((o) => o.value);
+        ok = values.includes(value);
+        expected = values.join(", ");
+        break;
+      }
+      case "toggle": {
+        ok = value === "true" || value === "false";
+        expected = "true, false";
+        break;
+      }
+      default: {
+        const n = Number.parseFloat(value);
+        ok = Number.isFinite(n) && n >= decl.min && n <= decl.max;
+        expected = `${decl.min}–${decl.max}`;
+      }
+    }
+    if (!ok) {
       problems.push({
         token: key,
         kind: "shadowed",
         detail:
-          `"${value}" is not one of ${manifest.namespace}.${key}'s options ` +
-          `(${decl.options.map((o) => o.value).join(", ")}). It resolves to the default instead.`,
+          `"${value}" is not a legal ${manifest.namespace}.${key} (${expected}). ` +
+          "It resolves to the default instead.",
       });
     }
   }

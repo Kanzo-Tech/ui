@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   fallbackChain,
+  prefBoolean,
+  prefNumber,
   resolvePref,
   resolveSectionToken,
   sectionOf,
@@ -143,6 +145,7 @@ const PREF_FIXTURE: SectionManifest = {
   version: 1,
   prefs: {
     look: {
+      kind: "choice",
       default: "atlas",
       options: [
         { value: "nebula", label: "Nebula" },
@@ -220,5 +223,62 @@ describe("validating stored preferences", () => {
     const problems = validatePrefs(PREF_FIXTURE, { look: "aurora" });
     expect(problems).toHaveLength(1);
     expect(problems[0]?.detail).toContain("nebula, atlas, ink");
+  });
+});
+
+describe("the kinds a section may declare", () => {
+  const TOGGLE = { kind: "toggle", default: "true", doc: "draw the links" } as const;
+  const RANGE = {
+    kind: "range",
+    default: "1",
+    min: 0.4,
+    max: 2.5,
+    step: 0.1,
+    doc: "multiply every radius",
+  } as const;
+
+  it("stores every kind as a string, so one storage shape carries all three", () => {
+    // The property this buys: an unrecognised namespace rides through a write untouched, because
+    // the core never has to know what shape the values inside it are. A typed union in storage
+    // would mean parsing a payload belonging to a package this host does not have.
+    expect(resolvePref(TOGGLE, "false").value).toBe("false");
+    expect(resolvePref(RANGE, "1.4").value).toBe("1.4");
+  });
+
+  it("reads a toggle strictly — anything that is not `true` is off", () => {
+    expect(prefBoolean("true")).toBe(true);
+    expect(prefBoolean("false")).toBe(false);
+    // Not truthiness: `"0"` and `"no"` are off, and so is anything a corrupt blob holds.
+    expect(prefBoolean("1")).toBe(false);
+    expect(resolvePref(TOGGLE, "yes")).toMatchObject({ value: "true", via: "default" });
+  });
+
+  it("declines a number outside the bounds the section declared", () => {
+    // The bounds are the section's claim about what it will honour. A slider that used to run to 5
+    // and now stops at 2.5 must not paint 5 because storage remembers it — the same version-skew
+    // rule a retired option answers to, which is why every kind has a gate.
+    expect(resolvePref(RANGE, "1.4")).toMatchObject({ value: "1.4", via: "stored" });
+    expect(resolvePref(RANGE, "9")).toMatchObject({ value: "1", via: "default" });
+    expect(resolvePref(RANGE, "0.1")).toMatchObject({ value: "1", via: "default" });
+    // The edges are legal — a bound the section published is a value it promised to honour.
+    expect(resolvePref(RANGE, "0.4").via).toBe("stored");
+    expect(resolvePref(RANGE, "2.5").via).toBe("stored");
+  });
+
+  it("never lets NaN escape a range", () => {
+    expect(prefNumber("1.4", RANGE)).toBe(1.4);
+    expect(prefNumber("", RANGE)).toBe(RANGE.min);
+    expect(prefNumber("wat", RANGE)).toBe(RANGE.min);
+  });
+
+  it("reports an illegal value per kind, saying what was expected", () => {
+    const manifest = {
+      namespace: "graph",
+      version: 1,
+      prefs: { links: TOGGLE, pointScale: RANGE },
+    };
+    expect(validatePrefs(manifest, { links: "true", pointScale: "1.4" })).toEqual([]);
+    expect(validatePrefs(manifest, { links: "maybe" })[0]?.detail).toContain("true, false");
+    expect(validatePrefs(manifest, { pointScale: "9" })[0]?.detail).toContain("0.4–2.5");
   });
 });

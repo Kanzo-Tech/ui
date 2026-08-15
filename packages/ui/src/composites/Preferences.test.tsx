@@ -1,4 +1,10 @@
-import { DEFAULT_PREFS, STORAGE_KEY, type PaletteOption, type ThemePrefs } from "@kanzo-tech/theme";
+import {
+  DEFAULT_PREFS,
+  STORAGE_KEY,
+  type PaletteOption,
+  type SectionManifest,
+  type ThemePrefs,
+} from "@kanzo-tech/theme";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type ComponentProps, StrictMode } from "react";
@@ -350,11 +356,12 @@ describe("Preferences", () => {
  * what the provider hands it, and declines what a tenant withdrew.
  */
 describe("sections a host contributed", () => {
-  const SECTION = {
+  const SECTION: SectionManifest = {
     namespace: "graph",
     version: 1,
     prefs: {
       look: {
+        kind: "choice",
         default: "atlas",
         options: [
           { value: "nebula", label: "Nebula" },
@@ -386,5 +393,68 @@ describe("sections a host contributed", () => {
     // White-label, in one assertion: same panel, same code, and this client's users never see it.
     setup(undefined, { sections: [SECTION], sectionPolicy: { graph: { look: { pinned: "ink" } } } });
     expect(screen.queryByRole("radiogroup", { name: "look" })).toBeNull();
+  });
+});
+
+describe("the three kinds a section may declare, drawn", () => {
+  // The eleven controls that asked for the other two kinds are the graph's: three toggles and two
+  // scalars in Display, six coefficients in its simulation dock, every one hand-rolled. This is
+  // what it looks like when they are declared instead.
+  const DISPLAY: SectionManifest = {
+    namespace: "graph",
+    version: 1,
+    prefs: {
+      links: { kind: "toggle", default: "true", doc: "draw the links" },
+      pointScale: {
+        kind: "range",
+        default: "1",
+        min: 0.4,
+        max: 2.5,
+        step: 0.1,
+        doc: "multiply every radius",
+      },
+    },
+  };
+
+  // The slider is asserted through its wiring, not `getByRole(…, { name })`, for the reason the
+  // Radius test states: zag keeps a thumb `visibility: hidden` until it has measured the control,
+  // jsdom reports every element as zero-sized forever, and an accessible name is "" for a hidden
+  // element by rule 2A. The relation is the thing under test anyway.
+  const thumbFor = (slot: string) => {
+    const thumbs = [...document.querySelectorAll("[data-slot=slider-thumb]")];
+    return thumbs.find((t) => {
+      const label = document.getElementById(t.getAttribute("aria-labelledby") ?? "");
+      return label?.textContent === slot;
+    });
+  };
+
+  it("draws a toggle as a switch and a range as a slider", () => {
+    setup(undefined, { sections: [DISPLAY] });
+    // `checkbox`, not `switch`: Ark renders a hidden input and sets no `role="switch"` on it.
+    expect(screen.getByRole("checkbox", { name: "links" })).toBeTruthy();
+    expect(thumbFor("pointScale")).toBeTruthy();
+  });
+
+  it("starts each at the declared default", () => {
+    setup(undefined, { sections: [DISPLAY] });
+    // A native checkbox carries its state as a property, not `aria-checked` — the same way this
+    // file already reads the colour radios.
+    expect((screen.getByRole("checkbox", { name: "links" }) as HTMLInputElement).checked).toBe(true);
+    expect(thumbFor("pointScale")?.getAttribute("aria-valuenow")).toBe("1");
+  });
+
+  it("honours a stored value, and the range's declared bounds", () => {
+    setup({ sections: { graph: { links: "false", pointScale: "1.4" } } }, { sections: [DISPLAY] });
+    expect((screen.getByRole("checkbox", { name: "links" }) as HTMLInputElement).checked).toBe(false);
+    const thumb = thumbFor("pointScale");
+    expect(thumb?.getAttribute("aria-valuenow")).toBe("1.4");
+    expect(thumb?.getAttribute("aria-valuemin")).toBe("0.4");
+    expect(thumb?.getAttribute("aria-valuemax")).toBe("2.5");
+  });
+
+  it("falls back to the default when storage holds a value the section would not honour", () => {
+    // Version skew, end to end: the slider used to run further, and storage still remembers.
+    setup({ sections: { graph: { pointScale: "9" } } }, { sections: [DISPLAY] });
+    expect(thumbFor("pointScale")?.getAttribute("aria-valuenow")).toBe("1");
   });
 });

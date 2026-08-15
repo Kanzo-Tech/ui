@@ -6,6 +6,7 @@ import {
   DEFAULT_PREFS,
   STORAGE_KEY,
   type PaletteOption,
+  type SectionManifest,
   type ThemePrefs,
 } from "@kanzo-tech/theme";
 import { act, render } from "@testing-library/react";
@@ -690,11 +691,12 @@ describe("KanzoThemeProvider palette", () => {
  *   which manifests to register.
  */
 describe("sections a host registers", () => {
-  const SECTION = {
+  const SECTION: SectionManifest = {
     namespace: "graph",
     version: 1,
     prefs: {
       look: {
+        kind: "choice",
         default: "atlas",
         options: [
           { value: "nebula", label: "Nebula" },
@@ -705,11 +707,12 @@ describe("sections a host registers", () => {
       },
     },
   };
-  const WITH_ATTR = {
+  const WITH_ATTR: SectionManifest = {
     namespace: "editor",
     version: 1,
     prefs: {
       size: {
+        kind: "choice",
         default: "md",
         options: [
           { value: "md", label: "Medium" },
@@ -738,8 +741,11 @@ describe("sections a host registers", () => {
       via: "default",
       offered: true,
     });
-    // The declaration travels with the resolution, so a panel needs no second lookup to draw it.
-    expect(ctx.sectionPrefs.graph?.look?.decl.options.map((o) => o.value)).toEqual([
+    // The declaration travels with the resolution, so a panel needs no second lookup to draw it —
+    // and it arrives discriminated, so the surface switches on `kind` rather than sniffing fields.
+    const decl = ctx.sectionPrefs.graph?.look?.decl;
+    expect(decl?.kind).toBe("choice");
+    expect(decl?.kind === "choice" && decl.options.map((o) => o.value)).toEqual([
       "nebula", "atlas", "ink",
     ]);
   });

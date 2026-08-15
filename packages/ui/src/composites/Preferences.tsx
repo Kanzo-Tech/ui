@@ -6,7 +6,14 @@ import { Portal } from "@ark-ui/react/portal";
 import { InfoIcon, PaletteIcon, XIcon } from "lucide-react";
 // Via the theme package's JS entry, not its raw `.json` subpath: a direct JSON subpath import
 // needs `with { type: "json" }` at runtime, and Rollup strips that attribute when bundling.
-import { DEFAULT_PREFS, themeData, type KanzoRadius } from "@kanzo-tech/theme";
+import {
+  DEFAULT_PREFS,
+  prefBoolean,
+  prefNumber,
+  themeData,
+  type KanzoRadius,
+  type SectionPrefDecl,
+} from "@kanzo-tech/theme";
 import { useKanzoTheme } from "../theme/KanzoThemeProvider.js";
 import { cn } from "../lib/cn.js";
 import { AppearanceToggle } from "./AppearanceToggle.js";
@@ -23,6 +30,7 @@ import {
 import { RadioGroup as ArkRadioGroup } from "@ark-ui/react/radio-group";
 import { RadioGroup, RadioGroupCard } from "../simples/radio-group.js";
 import { Slider, SliderLabel } from "../simples/slider.js";
+import { Switch } from "../simples/switch.js";
 
 /**
  * Preferences — a live theming selector (composite) for PRODUCT settings. A non-modal drawer
@@ -568,6 +576,82 @@ function ColorSection({
 }
 
 /**
+ * One declared preference, drawn — the switch on `kind`, in one place.
+ *
+ * It is the only thing in this file that maps a declaration to a control, which is what lets a
+ * second surface (the graph's own dock) render a contributed group without re-deciding what a
+ * `range` looks like. The three arms reuse the same primitives the core's own sections use:
+ * `choice` is the radio list `Colour` and `Density` use, `toggle` is `Switch`, `range` is `Slider`.
+ *
+ * A value is a string in storage for all three — see `SectionPrefDecl` — so each arm parses on the
+ * way in with the section mechanism's own readers rather than a local `Number()` that would differ
+ * from what the resolver validated against.
+ */
+function ContributedControl({
+  name,
+  onChange,
+  pref,
+}: {
+  name: string;
+  onChange: (next: string) => void;
+  pref: { value: string; decl: SectionPrefDecl };
+}) {
+  const { decl, value } = pref;
+
+  if (decl.kind === "toggle") {
+    // `Field` and nothing else, because Ark's Switch **does** read the ambient field context — its
+    // hidden input comes out carrying `aria-labelledby="field::…::label"`. That is the opposite of
+    // `useSlider`, which reads none, and the difference is why `RadiusSection` needs the machine's
+    // own label part and this does not. An `aria-label` here was tried and is exactly the
+    // duplication this panel keeps removing: it lands on the `<label>` root, which has no role, so
+    // it names nothing and hides that the wiring was already correct.
+    //
+    // The control's role is `checkbox`, not `switch`: Ark renders a hidden `input type="checkbox"`
+    // and does not set `role="switch"` on it. Upstream's call, adopted verbatim.
+    return (
+      <PrefField label={name}>
+        <Switch
+          checked={prefBoolean(value)}
+          onCheckedChange={(d) => onChange(String(d.checked === true))}
+        />
+      </PrefField>
+    );
+  }
+
+  if (decl.kind === "range") {
+    // `SliderLabel` is the machine's own label part — zag points every thumb's `aria-labelledby` at
+    // it — so the visible label IS the name, the way `RadiusSection` does it.
+    return (
+      <Slider
+        max={decl.max}
+        min={decl.min}
+        onValueChange={(d) => onChange(String(d.value[0] ?? decl.min))}
+        step={decl.step}
+        value={[prefNumber(value, decl)]}
+      >
+        <SliderLabel className={cn(PREF_LABEL_SIZE, PREF_LABEL)}>{name}</SliderLabel>
+      </Slider>
+    );
+  }
+
+  return (
+    <PrefFieldSet label={name}>
+      <RadioGroup
+        className="gap-2"
+        onValueChange={(d) => d.value && onChange(d.value)}
+        value={value}
+      >
+        {decl.options.map((option) => (
+          <RadioGroupCard className="items-center px-2.5 py-2" key={option.value} value={option.value}>
+            <ArkRadioGroup.ItemText className="text-xs">{option.label}</ArkRadioGroup.ItemText>
+          </RadioGroupCard>
+        ))}
+      </RadioGroup>
+    </PrefFieldSet>
+  );
+}
+
+/**
  * Whatever the packages this host installed contribute — one group per declared preference.
  *
  * **Nothing here names a package.** The host registers manifests on the provider, the provider
@@ -590,19 +674,12 @@ function ContributedSections() {
       {Object.entries(sectionPrefs).map(([namespace, prefs]) =>
         Object.entries(prefs).map(([key, pref]) =>
           pref.offered ? (
-            <PrefFieldSet key={`${namespace}.${key}`} label={key}>
-              <RadioGroup
-                className="gap-2"
-                onValueChange={(d) => d.value && setSectionPref(namespace, key, d.value)}
-                value={pref.value}
-              >
-                {pref.decl.options.map((option) => (
-                  <RadioGroupCard className="items-center px-2.5 py-2" key={option.value} value={option.value}>
-                    <ArkRadioGroup.ItemText className="text-xs">{option.label}</ArkRadioGroup.ItemText>
-                  </RadioGroupCard>
-                ))}
-              </RadioGroup>
-            </PrefFieldSet>
+            <ContributedControl
+              key={`${namespace}.${key}`}
+              name={key}
+              onChange={(next) => setSectionPref(namespace, key, next)}
+              pref={pref}
+            />
           ) : null,
         ),
       )}

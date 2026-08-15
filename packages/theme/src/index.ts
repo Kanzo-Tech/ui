@@ -378,6 +378,8 @@ export const AXES: {
 export {
   fallbackChain,
   resolvePref,
+  prefBoolean,
+  prefNumber,
   resolveSectionToken,
   sectionOf,
   validatePrefs,
