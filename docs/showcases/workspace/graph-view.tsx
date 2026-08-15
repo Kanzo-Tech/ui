@@ -1273,8 +1273,13 @@ function LookPreview({ look }: { look: Look }) {
             d={`M${a.x} ${a.y}Q${cx} ${cy} ${b.x} ${b.y}`}
             fill="none"
             key={`${from}-${to}`}
-            // `source` tints a link with the vertex it leaves; `neutral` makes links plain structure.
-            stroke={look.encode.links === "source" ? scale.color(a.ordinal) : "var(--border)"}
+            // `source` tints a link with the vertex it leaves; `neutral` makes links plain
+            // structure. The neutral is `--muted-foreground` because that is the token `buffers`
+            // resolves. It read `--border`, a quieter colour — a card promising a picture the canvas
+            // does not paint, in the one component whose whole claim is that it cannot do that.
+            stroke={
+              look.encode.links === "source" ? scale.color(a.ordinal) : "var(--muted-foreground)"
+            }
             strokeOpacity={look.form.link.opacity}
             strokeWidth={look.form.link.width}
           />
