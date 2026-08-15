@@ -123,8 +123,10 @@ import {
   denseOf,
   LOOKS,
   LOOK_ORDER,
+  SHAPE_PATH,
   scaleOf,
   vertexId,
+  type Look,
 } from "@kanzo-tech/graph";
 // `onceQuery` is on the DuckDB subpath, not the barrel: it is a Mosaic client, and the barrel
 // must stay importable without Mosaic installed.
@@ -1202,6 +1204,113 @@ const GESTURES: { keys: ReactNode; what: string }[] = [
 ];
 
 /**
+ * One small graph, so the three looks can be compared on the only thing that differs: the look.
+ *
+ * Same seven vertices, same eight edges, same ordinals and the same degrees in all three — every
+ * pixel that moves between the cards comes from `Look`, read straight off the shipped constant. A
+ * preview with a layout of its own would be a fourth renderer with its own taste, and the point of
+ * drawing the looks side by side is to remove taste from the comparison.
+ *
+ * It draws what the canvas draws rather than something evocative of it: the glyphs are
+ * `SHAPE_PATH`, the same paths the point shader fills, and the colours come from `scaleOf` — the
+ * one scale the buffers, the hover card and the legend already share. That is what stops the card
+ * promising a picture the canvas does not paint.
+ */
+const PREVIEW_NODES: { x: number; y: number; ordinal: number; degree: number }[] = [
+  { x: 14, y: 20, ordinal: 0, degree: 1 },
+  { x: 31, y: 8, ordinal: 1, degree: 0.3 },
+  { x: 31, y: 32, ordinal: 1, degree: 0.3 },
+  { x: 50, y: 20, ordinal: 2, degree: 0.7 },
+  { x: 70, y: 10, ordinal: 3, degree: 0.45 },
+  { x: 70, y: 31, ordinal: 2, degree: 0.2 },
+  { x: 90, y: 21, ordinal: 0, degree: 0.85 },
+];
+
+const PREVIEW_EDGES: [number, number][] = [
+  [0, 1],
+  [0, 2],
+  [1, 2],
+  [0, 3],
+  [3, 4],
+  [3, 5],
+  [4, 6],
+  [5, 6],
+];
+
+/**
+ * The looks' radii are screen pixels on a full canvas; this box is a hundred units wide.
+ *
+ * **One factor for all three, never one per look.** Ink's floor is more than twice Nebula's, and
+ * that difference is the look — a card that normalised each ramp to fit would delete the very
+ * thing `shape-floor` exists to protect and make the three look interchangeable.
+ */
+const PREVIEW_SCALE = 0.55;
+
+function LookPreview({ look }: { look: Look }) {
+  const scale = scaleOf(look);
+  const radius = (degree: number) => {
+    const [min, max] = look.form.size;
+    return (min + degree * (max - min)) * PREVIEW_SCALE;
+  };
+  return (
+    <svg
+      aria-hidden
+      className="h-11 w-full rounded-[4px] bg-background"
+      viewBox="0 0 104 40"
+    >
+      {PREVIEW_EDGES.map(([from, to]) => {
+        const a = PREVIEW_NODES[from] as (typeof PREVIEW_NODES)[number];
+        const b = PREVIEW_NODES[to] as (typeof PREVIEW_NODES)[number];
+        // cosmos.gl bows every link the same way by a fraction of its own length, so the control
+        // point is the midpoint pushed along the perpendicular. At `curve: 0` this is the straight
+        // line it should be, which is why there is no branch on it.
+        const [dx, dy] = [b.x - a.x, b.y - a.y];
+        const bow = look.form.link.curve;
+        const cx = (a.x + b.x) / 2 - dy * bow;
+        const cy = (a.y + b.y) / 2 + dx * bow;
+        return (
+          <path
+            d={`M${a.x} ${a.y}Q${cx} ${cy} ${b.x} ${b.y}`}
+            fill="none"
+            key={`${from}-${to}`}
+            // `source` tints a link with the vertex it leaves; `neutral` makes links plain structure.
+            stroke={look.encode.links === "source" ? scale.color(a.ordinal) : "var(--border)"}
+            strokeOpacity={look.form.link.opacity}
+            strokeWidth={look.form.link.width}
+          />
+        );
+      })}
+      {PREVIEW_NODES.map((node, i) => {
+        const r = radius(node.degree);
+        return (
+          <path
+            d={SHAPE_PATH[scale.shape(node.ordinal)]}
+            fill={scale.color(node.ordinal)}
+            key={i}
+            // `SHAPE_PATH` draws inside a 12-unit box, so a glyph of radius `r` is that box moved
+            // to the vertex and scaled to `2r`.
+            transform={`translate(${node.x - r} ${node.y - r}) scale(${(r * 2) / 12})`}
+          />
+        );
+      })}
+      {/* Mood, and only Nebula asks for it. The rim fades toward the page, which is what the
+          section's own `vignette` token binds to. */}
+      {look.form.vignette ? (
+        <>
+          <defs>
+            <radialGradient id={`look-vignette-${look.id}`}>
+              <stop offset="55%" stopColor="var(--background)" stopOpacity="0" />
+              <stop offset="100%" stopColor="var(--background)" stopOpacity="0.85" />
+            </radialGradient>
+          </defs>
+          <rect fill={`url(#look-vignette-${look.id})`} height="40" width="104" />
+        </>
+      ) : null}
+    </svg>
+  );
+}
+
+/**
  * The graph's APPEARANCE, and it lives in Preferences rather than in the dock.
  *
  * The split is not "graph things here, product things there" — it is the one
@@ -1233,22 +1342,11 @@ export function GraphAppearance() {
             onClick={() => setLook(id)}
             type="button"
           >
-            <span className="flex items-center gap-2">
-              <span className="font-medium text-xs">{LOOKS[id].label}</span>
-              <span className="ms-auto flex items-center gap-1">
-                {LEGEND_DOMAIN.map((kind, ordinal) => {
-                  const preview = scaleOf(LOOKS[id]);
-                  return (
-                    <ShapeGlyph
-                      className="size-2"
-                      color={preview.color(ordinal)}
-                      key={kind}
-                      shape={preview.shape(ordinal)}
-                    />
-                  );
-                })}
-              </span>
-            </span>
+            {/* Stacked, not the grid the palette list uses, and the difference is that this list
+                does not grow: there are three looks and a tenant cannot publish a fourth. Keeping
+                the full width is what lets the miniature be a graph rather than a thumbnail of one. */}
+            <LookPreview look={LOOKS[id]} />
+            <span className="mt-1.5 block font-medium text-xs">{LOOKS[id].label}</span>
             <span className="mt-0.5 block text-[10px] text-muted-foreground leading-relaxed">
               {LOOKS[id].blurb}
             </span>
