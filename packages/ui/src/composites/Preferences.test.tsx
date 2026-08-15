@@ -341,3 +341,50 @@ describe("Preferences", () => {
     });
   });
 });
+
+/**
+ * A contributed section is a group in this panel, not a settings surface beside it.
+ *
+ * The fixture is a fixture on purpose: `@kanzo-tech/ui` must never import a section to render one,
+ * which is the same one-way door the token half keeps. What is asserted here is that the panel draws
+ * what the provider hands it, and declines what a tenant withdrew.
+ */
+describe("sections a host contributed", () => {
+  const SECTION = {
+    namespace: "graph",
+    version: 1,
+    prefs: {
+      look: {
+        default: "atlas",
+        options: [
+          { value: "nebula", label: "Nebula" },
+          { value: "atlas", label: "Atlas" },
+          { value: "ink", label: "Ink" },
+        ],
+        doc: "which of the three ways the canvas is drawn",
+      },
+    },
+  };
+
+  it("draws one group, in the same language as the axes above it", () => {
+    setup(undefined, { sections: [SECTION] });
+    const group = screen.getByRole("radiogroup", { name: "look" });
+    expect(within(group).getAllByRole("radio")).toHaveLength(3);
+    expect(
+      (within(group).getByRole("radio", { name: "Atlas" }) as HTMLInputElement).checked,
+    ).toBe(true);
+  });
+
+  it("draws nothing at all when the host registered no section", () => {
+    // The common panel is unchanged: a product that installs no optional package sees exactly the
+    // five sections it saw before this mechanism existed.
+    setup();
+    expect(screen.queryByRole("radiogroup", { name: "look" })).toBeNull();
+  });
+
+  it("withholds the control a tenant pinned", () => {
+    // White-label, in one assertion: same panel, same code, and this client's users never see it.
+    setup(undefined, { sections: [SECTION], sectionPolicy: { graph: { look: { pinned: "ink" } } } });
+    expect(screen.queryByRole("radiogroup", { name: "look" })).toBeNull();
+  });
+});

@@ -274,6 +274,18 @@ export interface ThemePrefs {
   identity: KanzoIdentity;
   palette: KanzoPalette;
   identityByPalette: Record<KanzoPalette, KanzoIdentity>;
+  /**
+   * What the packages a host installed contribute, keyed by namespace then by preference.
+   *
+   * **One key, and that is what makes an absent package harmless.** The read-time whitelist is built
+   * from `Object.keys(DEFAULT_PREFS)` and drops everything else, which is right for the retired
+   * colour axes it was built for and exactly wrong for a contributed choice: a host that drops an
+   * optional peer for one release would lose the user's stored value on the next write. Riding on a
+   * single known key, an unrecognised namespace survives every read and save without the core
+   * knowing it exists — the same opacity {@link LookDocument}'s `sections` already has, which is the
+   * point: both halves of a section are stored the same way.
+   */
+  sections: Record<string, Record<string, string>>;
 }
 
 /**
@@ -300,6 +312,11 @@ export const DEFAULT_PREFS: ThemePrefs = {
   // A fresh browser remembers nothing, and an empty map is not a special case anywhere: every read
   // is `memory[id] ?? ""`, which is the same answer as "this palette's default identity".
   identityByPalette: {},
+  // Empty, and never seeded from the registered manifests: a section's default is what `resolvePref`
+  // answers when nothing is stored, so writing it in here would turn every default into a *stored
+  // choice* the first time the panel opened — and a default that has been stored can no longer move
+  // when the section, or the tenant's policy, changes it.
+  sections: {},
 };
 
 export const STORAGE_KEY = "kanzo_theme_prefs";
@@ -360,14 +377,21 @@ export const AXES: {
 // That is what keeps `@kanzo-tech/theme` free of any reference to `@kanzo-tech/graph`.
 export {
   fallbackChain,
+  resolvePref,
   resolveSectionToken,
   sectionOf,
+  validatePrefs,
   validateSection,
   withSection,
   type LookDocument,
+  type PrefOrigin,
   type Problem,
+  type ResolvedPref,
   type SectionBinding,
   type SectionManifest,
+  type SectionPolicy,
+  type SectionPrefDecl,
+  type SectionPrefPolicy,
   type SectionTokenDecl,
 } from "./sections.js";
 

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   fallbackChain,
+  resolvePref,
   resolveSectionToken,
   sectionOf,
+  validatePrefs,
   validateSection,
   withSection,
   type LookDocument,
@@ -120,5 +122,103 @@ describe("a document outlives the packages that wrote it", () => {
 
   it("answers an empty record for a section that is simply absent", () => {
     expect(sectionOf(doc, "never-heard-of-it")).toEqual({});
+  });
+});
+
+/**
+ * The preference half of a manifest.
+ *
+ * ## What these cannot prove
+ *
+ * - **Nothing here writes an attribute or renders a control.** `resolvePref` answers a value and
+ *   whether to offer it; who reads that is `KanzoThemeProvider`, and its own tests are what check
+ *   the DOM. A resolution that is right and never applied passes every assertion below.
+ * - **A policy is not checked against the section that owns it.** A tenant can pin a value the
+ *   package no longer ships, and the chain treats it the way it treats any illegal value — it
+ *   declines to apply it. `validatePrefs` is for *stored user* preferences; a document's policy is
+ *   authored upstream and validated where it is authored.
+ */
+const PREF_FIXTURE: SectionManifest = {
+  namespace: "graph",
+  version: 1,
+  prefs: {
+    look: {
+      default: "atlas",
+      options: [
+        { value: "nebula", label: "Nebula" },
+        { value: "atlas", label: "Atlas" },
+        { value: "ink", label: "Ink" },
+      ],
+      doc: "which of the three ways the canvas is drawn",
+    },
+  },
+};
+
+const LOOK = PREF_FIXTURE.prefs?.look as NonNullable<SectionManifest["prefs"]>[string];
+
+describe("resolving a contributed preference", () => {
+  it("answers the manifest's default when nothing else does", () => {
+    expect(resolvePref(LOOK, undefined)).toEqual({ value: "atlas", via: "default", offered: true });
+  });
+
+  it("prefers what the user stored", () => {
+    expect(resolvePref(LOOK, "ink")).toEqual({ value: "ink", via: "stored", offered: true });
+  });
+
+  it("lets a tenant move the starting point without taking the choice away", () => {
+    expect(resolvePref(LOOK, undefined, { default: "nebula" })).toEqual({
+      value: "nebula",
+      via: "policy",
+      offered: true,
+    });
+    // And a user who has chosen still outranks it — a starting point is not a decision.
+    expect(resolvePref(LOOK, "ink", { default: "nebula" }).value).toBe("ink");
+  });
+
+  it("lets a tenant pin it, which outranks the user and withdraws the control", () => {
+    // The white-label case: one client ships the graph fixed to Ink and the control never appears,
+    // while another exposes it. Same panel, same code, no fork.
+    expect(resolvePref(LOOK, "nebula", { pinned: "ink" })).toEqual({
+      value: "ink",
+      via: "pinned",
+      offered: false,
+    });
+  });
+
+  it("withholds the control without discarding what the user chose", () => {
+    // `hidden` is not `pinned`: the stored value is kept in storage and simply does not apply, so a
+    // tenant who stops withholding it hands the user back their own choice rather than a default.
+    const withheld = resolvePref(LOOK, "ink", { hidden: true });
+    expect(withheld).toEqual({ value: "atlas", via: "default", offered: false });
+    expect(resolvePref(LOOK, "ink")).toEqual({ value: "ink", via: "stored", offered: true });
+  });
+
+  it("declines a stored value the section no longer offers", () => {
+    // The version-skew case, and the reason `options` is a closed list. A value from a release that
+    // shipped a fourth look is not honoured just because storage still holds it.
+    expect(resolvePref(LOOK, "aurora")).toEqual({ value: "atlas", via: "default", offered: true });
+    // Same for a policy written against a section that has moved on.
+    expect(resolvePref(LOOK, undefined, { pinned: "aurora" }).via).toBe("default");
+  });
+});
+
+describe("validating stored preferences", () => {
+  it("passes what the manifest declares", () => {
+    expect(validatePrefs(PREF_FIXTURE, { look: "ink" })).toEqual([]);
+  });
+
+  it("reports a preference the section never declared", () => {
+    const problems = validatePrefs(PREF_FIXTURE, { glow: "on" });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]?.kind).toBe("unknown");
+  });
+
+  it("reports a value outside the options, which is the half tokens do not have", () => {
+    // A token's value is a colour and anything is a colour. A preference has a closed set, so the
+    // stored-but-illegal case is expressible here and is exactly what `resolvePref` silently
+    // declines to apply — this is what says so out loud.
+    const problems = validatePrefs(PREF_FIXTURE, { look: "aurora" });
+    expect(problems).toHaveLength(1);
+    expect(problems[0]?.detail).toContain("nebula, atlas, ink");
   });
 });

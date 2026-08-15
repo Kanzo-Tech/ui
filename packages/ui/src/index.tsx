@@ -55,6 +55,8 @@ export {
   PreferencesFont,
   PreferencesMonoFont,
   PreferencesDensity,
+  // Last, and it is not one section but however many the packages a host installed contribute.
+  PreferencesSections,
 } from "./composites/Preferences.js";
 export type {
   PreferencesProps,

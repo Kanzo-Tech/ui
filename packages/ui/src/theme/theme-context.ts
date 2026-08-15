@@ -1,7 +1,14 @@
 "use client";
 
 import * as React from "react";
-import type { Appearance, AppearancePref, PaletteOption, ThemePrefs } from "@kanzo-tech/theme";
+import type {
+  Appearance,
+  AppearancePref,
+  PaletteOption,
+  ResolvedPref,
+  SectionPrefDecl,
+  ThemePrefs,
+} from "@kanzo-tech/theme";
 
 /**
  * The theme context and its two readers, apart from the provider that fills it.
@@ -60,6 +67,24 @@ export interface ThemeContextValue extends ThemePrefs {
   resolvedPalette: string;
   /** The palette the tenant retired out from under this user, once, for the rest of the session. */
   retiredPalette: string | null;
+
+  /**
+   * Every preference the registered sections declare, resolved and paired with its declaration —
+   * keyed by namespace, then by preference, both in registration order.
+   *
+   * **The manifests are not exposed beside this, and the reason is a name collision worth keeping.**
+   * This interface extends `ThemePrefs`, whose `sections` is the *stored* map — opaque, keyed by
+   * namespace, and holding what the user chose. A second `sections` holding the *declarations* is
+   * two different things under one word, which `tsc` refused and was right to. Carrying `decl` here
+   * gives a panel the label, the options and the doc without a second field to keep in step.
+   *
+   * `offered` is what to read before drawing a control: a tenant may pin a choice or withhold it,
+   * and both mean *do not offer this*. `via` says which link of the chain answered, which is what a
+   * test asserts on.
+   */
+  sectionPrefs: Record<string, Record<string, ResolvedPref & { decl: SectionPrefDecl }>>;
+  /** Write one. Every other namespace rides through untouched, parsed by nobody. */
+  setSectionPref: (namespace: string, key: string, value: string) => void;
 }
 
 export const ThemeContext = React.createContext<ThemeContextValue | null>(null);

@@ -88,10 +88,23 @@ describe("@kanzo-tech/theme", () => {
     // how the axes and the documents would start disagreeing.
     expect(themes, "themes.css emits palette blocks").not.toContain("[data-palette=");
     expect(AXES.map((a) => a.attr)).toContain("data-palette");
+    // `sections` is the ninth key and it is emphatically not a colour axis coming back. The four
+    // that were retired each expressed *part* of a palette from a catalogue the LIBRARY shipped;
+    // this holds what a package a HOST installed contributes, in that package's own namespace, out
+    // of a closed list of options that package declared. The core never learns what is in it —
+    // which is the property, not a side effect: it rides on one known key so the read-time whitelist
+    // preserves an unrecognised namespace instead of dropping it on the next write.
+    //
+    // What would make it a colour axis is a value authored here rather than chosen from a
+    // declaration. `resolvePref` is where that is refused, and `sections.test.ts` is where the
+    // refusal is asserted.
     expect(Object.keys(DEFAULT_PREFS).sort()).toEqual([
       "appearance", "density", "font", "identity", "identityByPalette", "monoFont", "palette",
-      "radius",
+      "radius", "sections",
     ]);
+    // And it starts empty rather than seeded from any manifest: a default that has been *stored*
+    // can no longer move when the section, or a tenant's policy, changes it.
+    expect(DEFAULT_PREFS.sections).toEqual({});
   });
 
   // ── Drift guards ────────────────────────────────────────────────────────────

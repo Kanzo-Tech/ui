@@ -1,8 +1,16 @@
 "use client";
 
 import * as React from "react";
-import type { Appearance, AppearancePref, PaletteOption } from "@kanzo-tech/theme";
-import { AXES, DEFAULT_PREFS, STORAGE_KEY, type ThemePrefs } from "@kanzo-tech/theme";
+import type {
+  Appearance,
+  AppearancePref,
+  PaletteOption,
+  ResolvedPref,
+  SectionManifest,
+  SectionPolicy,
+  SectionPrefDecl,
+} from "@kanzo-tech/theme";
+import { AXES, DEFAULT_PREFS, resolvePref, STORAGE_KEY, type ThemePrefs } from "@kanzo-tech/theme";
 import { ThemeContext, type FontOption, type ThemeContextValue } from "./theme-context.js";
 
 export {
@@ -151,6 +159,10 @@ const DEFAULT_MONO_FONTS: FontOption[] = [
  */
 const NO_IDENTITIES: PaletteOption[] = [];
 const NO_PALETTES: PaletteOption[] = [];
+// Same reason as the two above: a fresh literal per render is a new dependency every render, and
+// these feed a memo the whole context hangs off.
+const NO_SECTIONS: SectionManifest[] = [];
+const NO_POLICY: Record<string, SectionPolicy> = {};
 
 /**
  * "The tenant no longer publishes what this user chose" — for both axes that a tenant publishes.
@@ -233,6 +245,24 @@ export interface KanzoThemeProviderProps {
   defaultPalette?: string;
   /** Called once, at most, when the stored palette is no longer published. */
   onPaletteRetired?: (palette: string) => void;
+  /**
+   * The section manifests of the packages this host installed.
+   *
+   * **The host registers, and that is what keeps the one-way door shut.** Nothing in
+   * `@kanzo-tech/theme` or in this file names an optional package, so the arrow points host → core:
+   * a host that never installed the graph literally cannot pass its manifest, and
+   * `packages/theme/src/boundary.test.ts` keeps passing because there is nothing to import.
+   * Registration by import into the core would be the same mechanism with the dependency inverted.
+   */
+  sections?: SectionManifest[];
+  /**
+   * What the TENANT says about those choices — pinned, withheld, or merely started elsewhere.
+   *
+   * Keyed by namespace. This is the white-label half: one client ships the graph fixed to a single
+   * look and their users never see the control, another exposes it, and it is the same panel and the
+   * same code. It selects among the options a section declared; it cannot author one.
+   */
+  sectionPolicy?: Record<string, SectionPolicy>;
   /** Delegate dark to a host theme manager (e.g. next-themes). Omit to use the built-in fallback. */
   appearance?: AppearanceController;
 }
@@ -253,6 +283,8 @@ export function KanzoThemeProvider({
   // control has no use for which one the server would have served anyway.
   defaultPalette = palettes[0]?.value ?? "",
   onPaletteRetired,
+  sections = NO_SECTIONS,
+  sectionPolicy = NO_POLICY,
   appearance,
 }: KanzoThemeProviderProps) {
   const controlled = value !== undefined;
@@ -451,12 +483,77 @@ export function KanzoThemeProvider({
     [appearance, set],
   );
 
+  // ── Contributed preferences ─────────────────────────────────────────────────────────────
+  //
+  // One chain per declared preference, run in `@kanzo-tech/theme` rather than here: the order —
+  // pinned, stored, the tenant's starting point, the manifest's default — is the section
+  // mechanism's, and a second implementation of it in the provider is how the two halves of a
+  // section would begin to disagree.
+  type Entry = ResolvedPref & { decl: SectionPrefDecl };
+  const sectionPrefs = React.useMemo(() => {
+    const out: Record<string, Record<string, Entry>> = {};
+    for (const manifest of sections) {
+      const stored = prefs.sections[manifest.namespace] ?? {};
+      const policy = sectionPolicy[manifest.namespace] ?? {};
+      const resolved: Record<string, Entry> = {};
+      for (const [key, decl] of Object.entries(manifest.prefs ?? {})) {
+        resolved[key] = { ...resolvePref(decl, stored[key], policy[key]), decl };
+      }
+      // A manifest that declares only tokens contributes no group. Skipping it here rather than in
+      // the panel is what stops an empty legend appearing for a section that has nothing to ask.
+      if (Object.keys(resolved).length > 0) out[manifest.namespace] = resolved;
+    }
+    return out;
+  }, [prefs.sections, sectionPolicy, sections]);
+
+  const setSectionPref = React.useCallback(
+    (namespace: string, key: string, value_: string) => {
+      // The whole map is rewritten, every other namespace spread through untouched. That is the
+      // property the token half already has and the reason this lives under one key: a namespace
+      // belonging to a package this host does not have installed rides through every write without
+      // the core ever parsing it.
+      set({
+        sections: {
+          ...prefs.sections,
+          [namespace]: { ...(prefs.sections[namespace] ?? {}), [key]: value_ },
+        },
+      });
+    },
+    [prefs.sections, set],
+  );
+
+  // To the DOM, for the few that ask. A declaration without `attr` writes nothing and costs nothing
+  // — which is most of them, and is what keeps this from growing into a second axis table.
+  React.useEffect(() => {
+    const el = document.documentElement;
+    const written: string[] = [];
+    for (const manifest of sections) {
+      for (const [key, decl] of Object.entries(manifest.prefs ?? {})) {
+        if (!decl.attr) continue;
+        written.push(decl.attr);
+        const resolved = sectionPrefs[manifest.namespace]?.[key];
+        // Removed at the default, set otherwise — the same rule the axes follow, so a host that
+        // has changed nothing has the `<html>` it had before any of this existed.
+        if (!resolved || resolved.value === decl.default) el.removeAttribute(decl.attr);
+        else el.setAttribute(decl.attr, resolved.value);
+      }
+    }
+    // Unregistering a section has to take its attribute with it. Without this, dropping an optional
+    // peer leaves a `data-*` on `<html>` that nothing writes and nothing removes, and whatever CSS
+    // it selected keeps applying.
+    return () => {
+      for (const attr of written) el.removeAttribute(attr);
+    };
+  }, [sectionPrefs, sections]);
+
   const ctx = React.useMemo<ThemeContextValue>(
     () => ({
       ...prefs,
       set,
       fonts,
       monoFonts,
+      sectionPrefs,
+      setSectionPref,
       appearance: appearancePref,
       resolvedAppearance,
       setAppearance,
@@ -473,6 +570,7 @@ export function KanzoThemeProvider({
       prefs, set, fonts, monoFonts, appearancePref, resolvedAppearance, setAppearance,
       identities, defaultIdentity, resolvedIdentity, retiredIdentity,
       palettes, defaultPalette, resolvedPalette, retiredPalette,
+      sectionPrefs, setSectionPref,
     ],
   );
 

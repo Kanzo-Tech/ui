@@ -228,6 +228,11 @@ function PreferencesPanel({
                 <RadiusSection />
                 <FontSection />
                 <MonoFontSection />
+                {/* Last, and in the same visual language as the five above. A package that owns a
+                    user-facing choice contributes it here rather than building a settings surface
+                    of its own beside this one — which is the whole difference between one product
+                    and several sharing a window. */}
+                <ContributedSections />
               </>
             )}
           </form>
@@ -562,6 +567,49 @@ function ColorSection({
   );
 }
 
+/**
+ * Whatever the packages this host installed contribute — one group per declared preference.
+ *
+ * **Nothing here names a package.** The host registers manifests on the provider, the provider
+ * resolves them, and this renders what it is handed; `@kanzo-tech/ui` gains no reference to
+ * `@kanzo-tech/graph` and a host that never installed it passes nothing and draws nothing.
+ *
+ * Three things it declines to draw, each for a reason that belongs to the section rather than to the
+ * panel: a preference a tenant **pinned** or **withheld** (`offered` is false, and the two are the
+ * same instruction here for different reasons upstream), and a namespace whose manifest declares
+ * only tokens. That last one is filtered in the provider, so an empty legend cannot reach the DOM.
+ *
+ * A contributed preference gets `RadioGroupCard` and not something new, because the choice it
+ * expresses is the one `Colour` and `Density` already express — pick one of these, they have names.
+ */
+function ContributedSections() {
+  const { sectionPrefs, setSectionPref } = useKanzoTheme();
+
+  return (
+    <>
+      {Object.entries(sectionPrefs).map(([namespace, prefs]) =>
+        Object.entries(prefs).map(([key, pref]) =>
+          pref.offered ? (
+            <PrefFieldSet key={`${namespace}.${key}`} label={key}>
+              <RadioGroup
+                className="gap-2"
+                onValueChange={(d) => d.value && setSectionPref(namespace, key, d.value)}
+                value={pref.value}
+              >
+                {pref.decl.options.map((option) => (
+                  <RadioGroupCard className="items-center px-2.5 py-2" key={option.value} value={option.value}>
+                    <ArkRadioGroup.ItemText className="text-xs">{option.label}</ArkRadioGroup.ItemText>
+                  </RadioGroupCard>
+                ))}
+              </RadioGroup>
+            </PrefFieldSet>
+          ) : null,
+        ),
+      )}
+    </>
+  );
+}
+
 // The one section where neither container above applies. A slider is a single control, so it is not
 // a `FieldSet`; and Ark's `useSlider` reads no ambient context at all — not Field, not Fieldset — so
 // a `FieldLabel` could not reach it either, which is why "Radius" was written twice. `SliderLabel`
@@ -717,6 +765,11 @@ export {
   PrefField as PreferencesField,
   PrefFieldSet as PreferencesFieldSet,
   ColorSection as PreferencesColor,
+  // Flat like every other section, and for the reason the others are: a host composing its own
+  // panel with `children` replaces the canonical set, and without this it would silently drop every
+  // choice its installed packages contribute — which is the several-products-in-one-window failure
+  // the mechanism exists to remove, reintroduced by the escape hatch.
+  ContributedSections as PreferencesSections,
   RadiusSection as PreferencesRadius,
   FontSection as PreferencesFont,
   MonoFontSection as PreferencesMonoFont,

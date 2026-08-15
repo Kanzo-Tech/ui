@@ -414,6 +414,10 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.PreferencesRoot).toBeTypeOf("function");
     expect(UI.PreferencesPanel).toBeTypeOf("function");
     expect(UI.PreferencesDensity).toBeTypeOf("function");
+    // The one section that is not one section: it draws whatever the packages a host installed
+    // contribute. Flat like the rest, because a host composing the panel with `children` replaces
+    // the canonical set and would otherwise silently drop every contributed choice.
+    expect(UI.PreferencesSections).toBeTypeOf("function");
   });
 
   it("keeps a recipe off the public surface unless the reference or another module ships it", () => {

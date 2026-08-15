@@ -53,13 +53,145 @@ export interface SectionTokenDecl {
   doc: string;
 }
 
-/** What a package publishes to contribute a section. Reached by subpath, never imported here. */
+/**
+ * One choice a section offers its user — the preference half of a manifest.
+ *
+ * A section already contributes *tokens*, which is what a tenant's document decides. This is what
+ * the person looking at the screen decides, and it was the half with no mechanism: `ThemePrefs` is a
+ * closed interface and the panel rendered a fixed list, so a package with a user-facing choice had
+ * to build a settings surface of its own beside the one that already existed.
+ *
+ * `options` is a closed list because that is what makes the choice safe to publish. A section may
+ * offer a value it has measured; it may not offer a text field.
+ */
+export interface SectionPrefDecl {
+  /** The value when nothing else answers. */
+  default: string;
+  /** Everything a control may offer, in order. Order is the section's, and a panel keeps it. */
+  options: readonly { value: string; label: string }[];
+  /** What the choice does, in one line. Shown by a panel beside the control. */
+  doc: string;
+  /**
+   * The attribute to write on `<html>` — **only where CSS has to react.**
+   *
+   * Most contributed preferences have none. The graph's look is read by JS and pushed into a
+   * renderer's config; an editor's font size would want one. Leaving it out is what keeps the
+   * pre-hydration script from growing by a line for every optional package a host installs, which is
+   * the cost the four core axes pay for having attributes at all.
+   */
+  attr?: string;
+}
+
+/**
+ * What a tenant may say about a section's choice — **selection, never authorship.**
+ *
+ * A document may fix a choice or withhold it; it may not invent a value for it. The options are the
+ * ones the owning package declared and measured, and a policy picks among them or removes the
+ * control. That is the same line the colour half holds — a user chooses among colours somebody
+ * validated and never authors one — and it is what stops this field becoming the runtime palette
+ * authoring the retired axes exist to prevent.
+ */
+export interface SectionPrefPolicy {
+  /** Fixed to this value. No control is offered and a stored preference does not apply. */
+  pinned?: string;
+  /** Not offered. The default applies, and a stored preference is kept but does not apply. */
+  hidden?: boolean;
+  /** Offered, but starting somewhere other than the manifest says. */
+  default?: string;
+}
+
+/**
+ * What a package publishes to contribute a section. Reached by subpath, never imported here.
+ *
+ * **One manifest carries both halves**, and they are both optional. A package may contribute tokens
+ * without preferences (a vocabulary a document decides), preferences without tokens (a choice that
+ * paints nothing of its own), or both. Two exports would let a namespace and a version drift apart
+ * while describing the same section, and the namespace is the whole of the contract.
+ */
 export interface SectionManifest {
   /** The namespace segment. `"graph"` produces `--graph-*`. */
   namespace: string;
   version: number;
   /** Keys are token names **without** the namespace: `"marquee"`, `"point-size-min"`. */
-  tokens: Readonly<Record<string, SectionTokenDecl>>;
+  tokens?: Readonly<Record<string, SectionTokenDecl>>;
+  /** Keys are preference names, unqualified: `"look"`. */
+  prefs?: Readonly<Record<string, SectionPrefDecl>>;
+}
+
+/** A tenant's policy for one section, keyed by preference name. */
+export type SectionPolicy = Readonly<Record<string, SectionPrefPolicy>>;
+
+/** Where a resolved preference came from — a panel says so, and a test asserts on it. */
+export type PrefOrigin = "pinned" | "stored" | "policy" | "default";
+
+export interface ResolvedPref {
+  value: string;
+  via: PrefOrigin;
+  /** Whether a control should be drawn at all. `false` for pinned and for withheld. */
+  offered: boolean;
+}
+
+/**
+ * One chain, most specific first — the sibling of {@link resolveSectionToken}.
+ *
+ * Writing it as a chain is not decoration: the token half already answers *the first member that
+ * answers, and says which one it used*, and a preference resolved by some other order would be a
+ * second mechanism wearing the first one's vocabulary.
+ *
+ * A stored value that is not in `options` is ignored rather than applied. A section's options are
+ * the values it has measured; a stale one from a version the package no longer ships is exactly the
+ * case where falling back beats honouring what storage happens to hold.
+ */
+export function resolvePref(
+  decl: SectionPrefDecl,
+  stored: string | undefined,
+  policy?: SectionPrefPolicy,
+): ResolvedPref {
+  const legal = (v: string | undefined): v is string =>
+    v !== undefined && decl.options.some((o) => o.value === v);
+
+  if (legal(policy?.pinned)) return { value: policy.pinned, via: "pinned", offered: false };
+  const offered = !policy?.hidden;
+  if (offered && legal(stored)) return { value: stored, via: "stored", offered };
+  if (legal(policy?.default)) return { value: policy.default, via: "policy", offered };
+  return { value: decl.default, via: "default", offered };
+}
+
+/**
+ * Check a section's stored preferences against the manifest that owns it.
+ *
+ * The preference sibling of {@link validateSection}, and the same argument: a name the manifest
+ * never declared is reported rather than resolving to something plausible. What differs is that a
+ * preference also has a closed set of legal *values*, so a stored value outside `options` is
+ * reported too — `resolvePref` already refuses to apply it, and this is what says so out loud.
+ */
+export function validatePrefs(
+  manifest: SectionManifest,
+  stored: Readonly<Record<string, string>>,
+): Problem[] {
+  const problems: Problem[] = [];
+  const prefs = manifest.prefs ?? {};
+  for (const [key, value] of Object.entries(stored)) {
+    const decl = prefs[key];
+    if (!decl) {
+      problems.push({
+        token: key,
+        kind: "unknown",
+        detail: `"${manifest.namespace}" declares no preference "${key}"`,
+      });
+      continue;
+    }
+    if (!decl.options.some((o) => o.value === value)) {
+      problems.push({
+        token: key,
+        kind: "shadowed",
+        detail:
+          `"${value}" is not one of ${manifest.namespace}.${key}'s options ` +
+          `(${decl.options.map((o) => o.value).join(", ")}). It resolves to the default instead.`,
+      });
+    }
+  }
+  return problems;
 }
 
 /** A stored appearance document. `sections` is opaque: the core never parses a section's payload. */
@@ -108,7 +240,7 @@ export function resolveSectionToken(
     if (hit !== undefined) return { value: hit, via: candidate };
   }
   const bare = token.replace(new RegExp(`^--${manifest.namespace}-`), "");
-  const decl = manifest.tokens[bare];
+  const decl = (manifest.tokens ?? {})[bare];
   return decl ? { value: decl.default, via: `${manifest.namespace}:default` } : null;
 }
 
@@ -143,7 +275,7 @@ export function validateSection(
       continue;
     }
     const bare = token.slice(prefix.length);
-    if (!(bare in manifest.tokens)) {
+    if (!(bare in (manifest.tokens ?? {}))) {
       const parent = fallbackChain(token)[1];
       problems.push({
         token,

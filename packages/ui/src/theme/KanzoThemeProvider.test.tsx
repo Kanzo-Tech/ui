@@ -671,3 +671,136 @@ describe("KanzoThemeProvider palette", () => {
     expect(t.ctx.resolvedIdentity).toBe("retail-blue");
   });
 });
+
+/**
+ * Contributed preferences — the half of a section that the user decides.
+ *
+ * The manifest below is a fixture and always will be. The core must never import a section to test
+ * one, or the one-way door the design exists to keep shut would be open inside the test suite; what
+ * these assert is the *mechanism*, and whether `@kanzo-tech/graph`'s manifest is well-formed is the
+ * graph's own test.
+ *
+ * ## What these cannot prove
+ *
+ * - **They never render the panel.** `Preferences.test.tsx` is where a control is drawn from
+ *   `offered`; here the field is only resolved. A resolution that is right and never rendered
+ *   passes everything below.
+ * - **They cannot see a namespace collision.** Two packages both calling themselves `graph` would
+ *   silently share a stored map, and nothing can catch that from inside the core — the host chose
+ *   which manifests to register.
+ */
+describe("sections a host registers", () => {
+  const SECTION = {
+    namespace: "graph",
+    version: 1,
+    prefs: {
+      look: {
+        default: "atlas",
+        options: [
+          { value: "nebula", label: "Nebula" },
+          { value: "atlas", label: "Atlas" },
+          { value: "ink", label: "Ink" },
+        ],
+        doc: "which of the three ways the canvas is drawn",
+      },
+    },
+  };
+  const WITH_ATTR = {
+    namespace: "editor",
+    version: 1,
+    prefs: {
+      size: {
+        default: "md",
+        options: [
+          { value: "md", label: "Medium" },
+          { value: "lg", label: "Large" },
+        ],
+        doc: "the editor's own type size",
+        attr: "data-editor-size",
+      },
+    },
+  };
+
+  const mount = (props: Record<string, unknown> = {}) => {
+    let ctx!: ReturnType<typeof useKanzoTheme>;
+    const utils = render(
+      <KanzoThemeProvider sections={[SECTION]} storage={null} {...props}>
+        <Probe onValue={(v) => (ctx = v)} />
+      </KanzoThemeProvider>,
+    );
+    return { get ctx() { return ctx; }, ...utils };
+  };
+
+  it("resolves a declared preference to its default, and offers it", () => {
+    const { ctx } = mount();
+    expect(ctx.sectionPrefs.graph?.look).toMatchObject({
+      value: "atlas",
+      via: "default",
+      offered: true,
+    });
+    // The declaration travels with the resolution, so a panel needs no second lookup to draw it.
+    expect(ctx.sectionPrefs.graph?.look?.decl.options.map((o) => o.value)).toEqual([
+      "nebula", "atlas", "ink",
+    ]);
+  });
+
+  it("stores a choice under its namespace and reads it back", () => {
+    const view = mount();
+    act(() => view.ctx.setSectionPref("graph", "look", "ink"));
+    expect(view.ctx.sections.graph).toEqual({ look: "ink" });
+    expect(view.ctx.sectionPrefs.graph?.look).toMatchObject({ value: "ink", via: "stored" });
+  });
+
+  it("carries a namespace whose package is not installed through a write", () => {
+    // **The property this whole storage shape exists for.** A host that drops an optional peer for
+    // one release must not cost the user their choice: the read-time whitelist drops every key it
+    // does not know, so riding under one known key is what makes an unrecognised namespace survive.
+    // Before this, `graph` would have been a top-level key and gone on the next save.
+    const view = mount({ defaults: { sections: { sonar: { ping: "loud" } } } });
+    expect(view.ctx.sectionPrefs.sonar, "a section nobody registered draws nothing").toBeUndefined();
+    act(() => view.ctx.setSectionPref("graph", "look", "ink"));
+    expect(view.ctx.sections).toEqual({ sonar: { ping: "loud" }, graph: { look: "ink" } });
+  });
+
+  it("lets a tenant pin a choice, over the user, and withdraw the control", () => {
+    const view = mount({ sectionPolicy: { graph: { look: { pinned: "ink" } } } });
+    act(() => view.ctx.setSectionPref("graph", "look", "nebula"));
+    expect(view.ctx.sectionPrefs.graph?.look).toMatchObject({
+      value: "ink",
+      via: "pinned",
+      offered: false,
+    });
+    // The user's choice is still in storage. Pinning is the tenant answering the question, not
+    // erasing the answer — unpin and they have their own back.
+    expect(view.ctx.sections.graph).toEqual({ look: "nebula" });
+  });
+
+  it("declares no group for a manifest that contributes only tokens", () => {
+    const view = mount({ sections: [{ namespace: "graph", version: 1, tokens: {} }] });
+    expect(Object.keys(view.ctx.sectionPrefs)).toEqual([]);
+  });
+
+  it("writes an attribute only where one is declared, and removes it at the default", () => {
+    let ctx!: ReturnType<typeof useKanzoTheme>;
+    const view = render(
+      <KanzoThemeProvider sections={[SECTION, WITH_ATTR]} storage={null}>
+        <Probe onValue={(v) => (ctx = v)} />
+      </KanzoThemeProvider>,
+    );
+    const el = document.documentElement;
+    // At the default, absent — the rule the four core axes follow, so a host that has changed
+    // nothing has the <html> it had before any of this existed.
+    expect(el.getAttribute("data-editor-size")).toBeNull();
+    act(() => ctx.setSectionPref("editor", "size", "lg"));
+    expect(el.getAttribute("data-editor-size")).toBe("lg");
+    // And the section without an `attr` writes nothing at all, which is most of them.
+    expect(el.getAttribute("data-graph-look")).toBeNull();
+    act(() => ctx.setSectionPref("graph", "look", "ink"));
+    expect(el.getAttribute("data-graph-look")).toBeNull();
+
+    // Unmounting takes the attribute with it: a dropped optional peer must not leave a `data-*` on
+    // <html> that nothing writes and nothing removes, still selecting whatever CSS it selected.
+    view.unmount();
+    expect(el.getAttribute("data-editor-size")).toBeNull();
+  });
+});
