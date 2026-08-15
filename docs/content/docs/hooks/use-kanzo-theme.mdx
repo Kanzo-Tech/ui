@@ -83,5 +83,16 @@ provider is above it.
 | `defaultPalette` | `string` | The id the server serves when the preference is empty |
 | `resolvedPalette` | `string` | `palette` or `defaultPalette` |
 | `retiredPalette` | `string \| null` | A palette id the tenant withdrew, held for the session |
+| `sections` | `Record<string, Record<string, string>>` | What the user chose in the sections a host registered, keyed by namespace. Opaque: the core never parses it |
+| `sectionPrefs` | `Record<string, Record<string, ResolvedPref & { decl }>>` | Those same choices **resolved** — value, `via`, `offered` — each with its declaration beside it |
+| `setSectionPref` | `(namespace, key, value) => void` | Write one. Every other namespace rides through untouched |
 
 The preference fields are exactly `ThemePrefs`, so `set` accepts any subset of them.
+
+<Callout type="warn" title="sections and sectionPrefs are not the same thing">
+  `sections` is the **stored** map — what the user picked, and nothing else. `sectionPrefs` is what
+  is **applied**, after a tenant's policy and the manifest's default have had their say, so the two
+  disagree whenever a choice is pinned or withheld. Read `sectionPrefs` to draw anything;
+  `sections` only to say what the user themselves chose. See
+  [Contributing a section](/docs/sections).
+</Callout>

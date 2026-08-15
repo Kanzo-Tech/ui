@@ -117,6 +117,29 @@ by going grey at the end.
 The grid is the other half. Stacked at full width, the five palettes this site publishes took over
 half the panel's scroll height and pushed density, radius and both font axes below the fold.
 
+## What the installed packages add
+
+The five sections above are the core's. A package a host installed may contribute its own choice —
+the graph contributes which look the canvas draws — and it appears in this panel, in this visual
+language, rather than in a settings surface of its own. That is the whole difference between one
+product and several sharing a window.
+
+`PreferencesSections` draws all of them, in registration order, and draws nothing when the host
+registered none. It is exported flat like every other section **because `children` replaces the
+canonical set**: a host composing its own panel must place it, or every contributed choice silently
+disappears.
+
+```tsx
+<PreferencesPanel>
+  <PreferencesColor />
+  <PreferencesDensity />
+  <PreferencesSections />
+</PreferencesPanel>
+```
+
+A choice the tenant pinned or withheld is not drawn at all. How a package declares one, how the host
+registers it and how a tenant fixes it: [Contributing a section](/docs/sections).
+
 ## Choosing the sections
 
 `Panel` renders the canonical set when given no children. Pass children to choose your own —

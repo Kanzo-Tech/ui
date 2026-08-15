@@ -1,1 +1,15 @@
-{"title": "Getting started", "pages": ["index", "installation", "the-guild", "philosophy", "theming", "onboarding", "styling", "rtl", "llms"]}
+{
+  "title": "Getting started",
+  "pages": [
+    "index",
+    "installation",
+    "the-guild",
+    "philosophy",
+    "theming",
+    "onboarding",
+    "sections",
+    "styling",
+    "rtl",
+    "llms"
+  ]
+}

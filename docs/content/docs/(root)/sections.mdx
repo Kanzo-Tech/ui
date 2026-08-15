@@ -1,0 +1,179 @@
+---
+title: Contributing a section
+description: How an optional package adds its own appearance tokens and its own user preference, without the core ever naming it.
+---
+
+Some packages carry appearance of their own. The graph has a marquee wash and a rubber-band edge; an
+editor would have its own type size. Neither belongs in the core's vocabulary — a role minted for one
+consumer is how a token list grows past anyone's ability to read it — and neither should cost a
+product that never installs the package.
+
+A **section** is how such a package contributes both halves of what it owns:
+
+| half | what it is | who decides it |
+| --- | --- | --- |
+| `tokens` | colours in the package's own namespace — `--graph-marquee` | the **tenant**, through their palette document |
+| `prefs` | choices with names — which look the canvas draws | the **user**, in the Preferences panel |
+
+Both are optional. A package may contribute tokens without preferences, preferences without tokens,
+or both.
+
+## The manifest
+
+One value, published by the package that owns the namespace, reached by subpath:
+
+```ts title="packages/graph/src/look-section.ts"
+import type { SectionManifest } from "@kanzo-tech/theme";
+
+export const LOOK_SECTION: SectionManifest = {
+  namespace: "graph",
+  version: 1,
+  tokens: {
+    marquee: {
+      default: { kind: "alpha", ramp: "brand", step: 5 },
+      doc: "The wash over a rubber-band selection.",
+    },
+  },
+  prefs: {
+    look: {
+      default: "atlas",
+      options: [
+        { value: "nebula", label: "Nebula" },
+        { value: "atlas", label: "Atlas" },
+        { value: "ink", label: "Ink" },
+      ],
+      doc: "Which of the three ways the canvas is drawn.",
+    },
+  },
+};
+```
+
+<Callout type="info" title="A token default is a binding, not a hex">
+  `(brand, alpha 5)` rather than `#8839ef22`. That is what makes a white-label palette reach a
+  package the core has never heard of: a bank changes their document and the marquee moves with it,
+  because the default names a place in *their* ramps. See [Theming](/docs/theming) for the ramps
+  themselves.
+</Callout>
+
+<Callout type="info" title="A preference's options are a closed list">
+  A section may offer a value it has measured; it may not offer a text field. That is what makes the
+  choice safe to publish — and it is why a stored value outside `options` is declined rather than
+  applied, which is the version-skew case: a look from a release that shipped a fourth one is not
+  honoured just because storage still holds it.
+</Callout>
+
+## The host registers it
+
+```tsx title="app/layout.tsx"
+import { KanzoThemeProvider } from "@kanzo-tech/ui";
+import { LOOK_SECTION } from "@kanzo-tech/graph/look-section";
+
+<KanzoThemeProvider sections={[LOOK_SECTION]}>{children}</KanzoThemeProvider>;
+```
+
+**The arrow points host → core, and that is the whole design.** Nothing in `@kanzo-tech/theme` or
+`@kanzo-tech/ui` names an optional package, so a product that never installed the graph cannot pass
+its manifest and pays nothing for it. Registration by import into the core would be the same
+mechanism with the dependency inverted — and it is checked rather than trusted:
+`packages/theme/src/boundary.test.ts` fails on a text match.
+
+The panel then draws the section's preferences in the same list as radius and density. Nothing else
+is wired: that is the difference between one product and several sharing a window.
+
+<Callout type="warn" title="If you compose the panel yourself, place PreferencesSections">
+  `PreferencesPanel` renders the canonical set when given no children. Passing children **replaces**
+  it, so a host composing its own panel must place [`PreferencesSections`](/docs/layout/preferences)
+  itself, or every contributed choice silently disappears.
+</Callout>
+
+## Where a value comes from
+
+One chain, most specific first. It is the same shape the token half resolves by, deliberately: a
+preference resolved in some other order would be a second mechanism wearing the first one's
+vocabulary.
+
+<Steps>
+<Step>
+### What the tenant pinned
+A document may fix a choice. It outranks the user and no control is offered.
+</Step>
+<Step>
+### What the user stored
+Unless the tenant pinned or withheld it.
+</Step>
+<Step>
+### The tenant's starting point
+A different default, with the choice still offered.
+</Step>
+<Step>
+### The manifest's own default
+</Step>
+</Steps>
+
+`useKanzoTheme().sectionPrefs` carries the answer, keyed by namespace then by preference, with the
+declaration beside it so a control has the label and the options without a second lookup:
+
+```tsx
+const { sectionPrefs, setSectionPref } = useKanzoTheme();
+
+const look = sectionPrefs.graph?.look;
+look?.value; // "atlas"
+look?.via; // "default" — which link of the chain answered
+look?.offered; // false when the tenant pinned or withheld it
+
+setSectionPref("graph", "look", "ink");
+```
+
+## Tenant policy: selection, never authorship
+
+A document may **pin** a choice, **withhold** it, or merely start it somewhere else. It may not
+invent a value for it — the options are the ones the owning package declared and measured.
+
+```tsx
+<KanzoThemeProvider
+  sections={[LOOK_SECTION]}
+  sectionPolicy={{ graph: { look: { pinned: "ink" } } }}
+>
+```
+
+That is the white-label half, in one field: one client ships the graph fixed to a single look and
+their users never see the control, another exposes it, and it is the same panel and the same code.
+
+<Callout type="info" title="Pinned is not the same as withheld">
+  `pinned` answers the question. `hidden` removes it and lets the default apply. Both stop a control
+  being drawn, and both **keep what the user had already chosen** — so a tenant who stops pinning
+  hands them their own choice back rather than a default.
+</Callout>
+
+## What survives a package you no longer have
+
+A user's contributed choices live under one key of the preferences blob, keyed by namespace, and the
+core never parses them. A namespace it does not recognise rides through every read and write
+untouched.
+
+That is a product requirement rather than tidiness. A host that drops an optional peer for one
+release would otherwise lose the user's stored choice permanently, because the read-time whitelist
+drops every key it does not know — which is right for the retired colour axes it was built for and
+exactly wrong here. The same property holds one layer down for tokens: a client signs their document
+before they buy the graph, and the section a later package adds survives every load and save in
+between.
+
+## Validating
+
+Both halves validate against the manifest that owns them, which is the part no surveyed system does
+— VS Code and Emacs let a package contribute without checking the namespace, and Vanilla Extract
+validates completely and therefore cannot have optional sections at all.
+
+```ts
+import { validatePrefs, validateSection } from "@kanzo-tech/theme";
+import { LOOK_SECTION } from "@kanzo-tech/graph/look-section";
+```
+
+`validateSection` reports a token the manifest never declared — which, unvalidated, would fall back
+to a parent name and paint something plausible. `validatePrefs` reports the same for a preference,
+**and** a stored value outside the declared options: a token's value is a colour and anything is a
+colour, but a preference has a closed set, so the stored-but-illegal case is expressible and worth
+saying out loud.
+
+Validation is authoring-time. At paint time the cascade is the authority, so a token that validation
+would reject can still resolve if something upstream declared it.
