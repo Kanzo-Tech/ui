@@ -113,9 +113,15 @@ export default function Page() {
 
 ## Server-side rendering
 
-Render `themeScript()` in `<head>` so the theme attributes land before first paint, and pair it
-with `cookieStorageAdapter()` so the server reads the same source the client writes. Without
-both, the first frame paints with default theme and then corrects itself.
+Render `themeScript()` in `<head>` so the theme attributes land before first paint. **That one is
+not optional for an SSR host**: every axis lives in browser storage, so without it the server paints
+the defaults and the client re-skins on hydration — a flash, plus a hydration mismatch in any
+control whose markup depends on the resolved appearance.
+
+`cookieStorageAdapter()` is the optional half. It lets the *server* read the same source the client
+writes, so the rendered `<html>` already carries the attributes rather than acquiring them a moment
+later. Colour is not a reason to add it: every palette a tenant publishes ships in the page at once
+and the choice is an attribute, so the script applies it like any other axis.
 
 ```tsx title="app/layout.tsx"
 import { KanzoThemeProvider, themeScript, cookieStorageAdapter } from "@kanzo-tech/ui";

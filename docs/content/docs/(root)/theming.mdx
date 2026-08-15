@@ -258,11 +258,21 @@ toggling `.dark`, and writing the four non-colour axes.
 import { compile, derivePalette } from "@kanzo-tech/palette";
 
 // once, at onboarding — the categorical search alone costs 0.2–7.4 s
-const doc = derivePalette({ id: "acme", label: "Acme", brand: "#8839ef", neutral: "#9ca0b0" });
+const doc = derivePalette({
+  id: "acme",
+  label: "Acme",
+  identities: [{ id: "acme", label: "Acme", brand: "#8839ef" }],
+  base: "#9ca0b0",
+});
 
 // every request — just the string
 <style dangerouslySetInnerHTML={{ __html: compile(doc) }} />;
 ```
+
+A tenant is a list of brands over one shared neutral, which is why the seed is `identities[]` rather
+than a `brand` field, and why the neutral is spelled `base` — the same rename the ramp carries. The
+whole pipeline, from the client's two colours to the served stylesheet, is
+[Onboarding a tenant](/docs/onboarding).
 
 <Callout title="Two packages, because the boundary is the point">
   The derivation lives in **`@kanzo-tech/palette`** and nothing else does — ramps, the
