@@ -1,6 +1,6 @@
 import { act, render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { SwatchOption, ThemePrefs } from "@kanzo-tech/theme";
+import type { PaletteOption, ThemePrefs } from "@kanzo-tech/theme";
 import { KanzoThemeProvider, useKanzoTheme } from "../theme/KanzoThemeProvider.js";
 import { useThemeTick } from "./theme-tick.js";
 
@@ -14,9 +14,9 @@ import { useThemeTick } from "./theme-tick.js";
  * this counter moves, so a tick that misses the palette leaves it painting a brand nobody selected.
  */
 describe("useThemeTick", () => {
-  const PALETTES: SwatchOption[] = [
-    { value: "kanzo", label: "Kanzo", swatches: { light: [], dark: [] } },
-    { value: "dracula", label: "Dracula", swatches: { light: [], dark: [] } },
+  const PALETTES: PaletteOption[] = [
+    { value: "kanzo", label: "Kanzo" },
+    { value: "dracula", label: "Dracula" },
   ];
 
   function mount() {

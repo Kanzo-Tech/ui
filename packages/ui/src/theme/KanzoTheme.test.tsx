@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import type { SwatchOption } from "@kanzo-tech/theme";
+import type { PaletteOption } from "@kanzo-tech/theme";
 import { KanzoTheme } from "./KanzoTheme.js";
 import { KanzoThemeProvider } from "./KanzoThemeProvider.js";
 import { useKanzoThemeOptional } from "./theme-context.js";
@@ -12,15 +12,14 @@ import { useKanzoThemeOptional } from "./theme-context.js";
  * because a chart reads the context and would otherwise keep the page's colours in its buffers.
  */
 
-const PALETTES: SwatchOption[] = [
-  { value: "kanzo", label: "Kanzo", swatches: { light: [], dark: [] } },
+const PALETTES: PaletteOption[] = [
+  { value: "kanzo", label: "Kanzo" },
   {
     value: "bank",
     label: "Bank",
-    swatches: { light: [], dark: [] },
     children: [
-      { value: "retail", label: "Retail", swatches: { light: [], dark: [] } },
-      { value: "private", label: "Private", swatches: { light: [], dark: [] } },
+      { value: "retail", label: "Retail" },
+      { value: "private", label: "Private" },
     ],
   },
 ];

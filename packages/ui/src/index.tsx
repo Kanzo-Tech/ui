@@ -21,7 +21,7 @@ export type {
   KanzoIdentity,
   // Beside the axes rather than beside `FontOption`, because it is a data shape and not a React one:
   // the pre-hydration script reads the same axis table, and it never sees this package.
-  SwatchOption,
+  PaletteOption,
 } from "@kanzo-tech/theme";
 export { KanzoThemeProvider, useKanzoTheme, cookieStorageAdapter } from "./theme/KanzoThemeProvider.js";
 // The same attributes on a `<div>` instead of `<html>` — for previews, and only for previews: Ark's

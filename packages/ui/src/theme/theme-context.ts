@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type { Appearance, AppearancePref, SwatchOption, ThemePrefs } from "@kanzo-tech/theme";
+import type { Appearance, AppearancePref, PaletteOption, ThemePrefs } from "@kanzo-tech/theme";
 
 /**
  * The theme context and its two readers, apart from the provider that fills it.
@@ -37,7 +37,7 @@ export interface ThemeContextValue extends ThemePrefs {
   resolvedAppearance: Appearance;
   setAppearance: (appearance: AppearancePref) => void;
   /** What the tenant published. `[]` — never `undefined` — when the host wired nothing. */
-  identities: SwatchOption[];
+  identities: PaletteOption[];
   /** The id of the identity `:root` already paints; the panel needs it to show a selection. */
   defaultIdentity: string;
   /**
@@ -53,7 +53,7 @@ export interface ThemeContextValue extends ThemePrefs {
    */
   retiredIdentity: string | null;
   /** The palettes the tenant published. `[]` — never `undefined` — when the host wired nothing. */
-  palettes: SwatchOption[];
+  palettes: PaletteOption[];
   /** The id of the palette the server serves by default; the panel needs it to show a selection. */
   defaultPalette: string;
   /** The APPLIED palette — the preference, or `defaultPalette`. Same split as the two above. */

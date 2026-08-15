@@ -257,11 +257,17 @@ describe("the palette registry", () => {
     expect(multi[0]?.seeds.baseHueFrom).not.toBe("brand");
   });
 
-  it("previews what the page will paint, not what a chart would", () => {
-    // What a picker draws has to be what the page will look like, or the card is a decoration that
-    // lies. It used to draw the CATEGORICAL set — eight colours nobody has seen yet — and six cards
-    // built from chart wheels all read as the same card. Four role colours instead: the surface, the
-    // ink, the brand's own `--primary` and the border, which is what tells Dracula from Nord.
+  it("says what a control needs to OFFER a palette, and no colour at all", () => {
+    // The index is the registry a picker reads. It carries a label, the seeds and the capacity —
+    // and, since the strip was deleted, not one colour value.
+    //
+    // **The absence is the assertion.** Two attempts at a depiction lived in this field: the
+    // categorical set, where six cards built from chart wheels all read as the same card, and then
+    // four role colours. Both were copies of a document that already travels in the page under its
+    // own `[data-palette]`, so a control that sets the attribute cannot disagree with what the page
+    // will paint, and a copy always can. The second attempt was also unable to depict Kanzo's own
+    // document: a seed with no hue puts `--primary` on the ramp's ink, so two of its four chips were
+    // byte-identical.
     for (const entry of paletteIndex) {
       const doc = JSON.parse(
         readFileSync(resolve(pkgDir, "palettes", `${entry.id}.json`), "utf8"),
@@ -271,14 +277,11 @@ describe("the palette registry", () => {
       expect(entry.seeds, entry.id).toEqual({ brand: doc.seeds.brand, base: doc.seeds.base });
       expect(entry.capacity, entry.id).toBe(identity?.categorical.capacity);
 
-      for (const mode of ["light", "dark"] as const) {
-        expect(entry.swatches[mode], `${entry.id} ${mode}`).toEqual([
-          doc.roles[mode]["--background"],
-          doc.roles[mode]["--foreground"],
-          identity?.roles[mode]["--primary"],
-          doc.roles[mode]["--border"],
-        ]);
-      }
+      // By shape rather than by name, so a differently-spelled depiction cannot creep back in.
+      const hexes = JSON.stringify(entry).match(/#[0-9a-f]{6}/gi) ?? [];
+      expect(hexes.sort(), `${entry.id} publishes colour values`).toEqual(
+        [doc.seeds.brand, doc.seeds.base].sort(),
+      );
     }
   });
 
@@ -292,12 +295,13 @@ describe("the palette registry", () => {
       ) as TenantPalette;
       expect(entry.identities.map((i) => i.id), entry.id).toEqual(doc.identities.map((i) => i.id));
       expect(entry.identities[0]?.id, entry.id).toBe(doc.defaultIdentity);
-      // Each brand previews ITSELF: the wheel is spun from its own hue, so a strip taken from the
-      // document would picture every card identically and the control would look broken.
+      // A brand carries its id and the client's own word for it, and nothing else. It used to carry
+      // a strip of its own, because each brand has to depict ITSELF — the wheel is spun from its own
+      // hue — and that requirement is now met by the pair of attributes a control writes:
+      // `[data-palette][data-identity]` selects the brand's block the same way `[data-palette]`
+      // alone selects the document's.
       for (const identity of entry.identities) {
-        const source = doc.identities.find((i) => i.id === identity.id);
-        expect(identity.swatches.light[2], `${entry.id}/${identity.id}`)
-          .toBe(source?.roles.light["--primary"]);
+        expect(Object.keys(identity).sort(), `${entry.id}/${identity.id}`).toEqual(["id", "label"]);
       }
     }
   });

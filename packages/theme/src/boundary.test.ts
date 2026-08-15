@@ -73,7 +73,7 @@ describe("the palette boundary", () => {
     //     rather than importing `RoleBinding`, which would fail the text match below — and rightly,
     //     because the palette's version carries `SurfaceName` elevation and `RampName`, neither of
     //     which a browser resolving a section token has any use for. Third deliberate
-    //     re-declaration, after `CHART_SLOTS` and `SwatchOption`, and the same reasoning.
+    //     re-declaration, after `CHART_SLOTS` and `PaletteOption`, and the same reasoning.
     //   · `obligations.ts` reads `theme-data.json`, a generated artefact of this package, and
     //     nothing else.
     //
@@ -100,28 +100,33 @@ describe("the palette boundary", () => {
 });
 
 /**
- * `SwatchOption` is the second deliberate re-declaration, and the reason is the import guard
+ * `PaletteOption` is the second deliberate re-declaration, and the reason is the import guard
  * above: it is a text match, so `import type { Identity } from "@kanzo-tech/palette"` fails it too.
  * That is the right outcome rather than a limitation — the document's `Identity` carries `brand`,
  * `ramp`, `categorical` and `record`, and a browser has no use for any of them. What the runtime
  * needs is the narrowing, and a narrowing that quietly grows back toward its source is a narrowing
  * that has stopped being one.
  */
-describe("SwatchOption", () => {
+describe("PaletteOption", () => {
   const src = read("src/index.ts");
 
   it("is declared here, not re-exported from the derivation", () => {
-    expect(src).toMatch(/export interface SwatchOption \{/);
+    expect(src).toMatch(/export interface PaletteOption \{/);
   });
 
   it("carries only what a browser can use", () => {
-    // `children` is the fourth and it is not a widening: it is the same narrowed shape one level
+    // `children` is the third and it is not a widening: it is the same narrowed shape one level
     // down, which is how a brand inside a document is expressed. What must stay out are the
     // document's own fields — a seed, a ramp, a categorical set, a record — and the assertion is by
     // name so adding any of them fails here rather than in whatever bundles it.
-    const body = src.match(/export interface SwatchOption \{([^}]*)\}/s)?.[1] ?? "";
+    //
+    // It was four, and the fourth was `swatches`: four role hexes per mode for a picker to draw.
+    // A colour is exactly what this type must not carry — the document is in the page under its own
+    // `[data-palette]`, so a control sets the attribute and the cascade answers. A copy of four
+    // values out of a document it does not own can only be the same colours or the wrong ones.
+    const body = src.match(/export interface PaletteOption \{([^}]*)\}/s)?.[1] ?? "";
     const fields = [...body.matchAll(/^\s*(\w+)[?]?:/gm)].map((m) => m[1]);
-    expect(fields.sort()).toEqual(["children", "label", "swatches", "value"]);
+    expect(fields.sort()).toEqual(["children", "label", "value"]);
   });
 });
 

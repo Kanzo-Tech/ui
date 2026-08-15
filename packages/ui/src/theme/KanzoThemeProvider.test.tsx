@@ -5,7 +5,7 @@ import {
   AXES,
   DEFAULT_PREFS,
   STORAGE_KEY,
-  type SwatchOption,
+  type PaletteOption,
   type ThemePrefs,
 } from "@kanzo-tech/theme";
 import { act, render } from "@testing-library/react";
@@ -370,10 +370,9 @@ describe("KanzoThemeProvider persisted-blob hygiene", () => {
  * rather than a change in their client's.
  */
 describe("KanzoThemeProvider identity", () => {
-  const EMPTY = { light: [], dark: [] };
-  const IDENTITIES: SwatchOption[] = [
-    { value: "retail-blue", label: "Retail", swatches: { light: ["#1d4ed8"], dark: ["#60a5fa"] } },
-    { value: "private-gold", label: "Private", swatches: { light: ["#a16207"], dark: ["#fbbf24"] } },
+  const IDENTITIES: PaletteOption[] = [
+    { value: "retail-blue", label: "Retail" },
+    { value: "private-gold", label: "Private" },
   ];
 
   beforeEach(() => {
@@ -391,11 +390,11 @@ describe("KanzoThemeProvider identity", () => {
    * a brand lives inside a document. `identities` used to be a prop beside `palettes` and a host
    * could make the two disagree with nothing to catch it.
    */
-  const within = (children?: SwatchOption[]) =>
-    children ? [{ value: "tenant", label: "Tenant", swatches: EMPTY, children }] : undefined;
+  const within = (children?: PaletteOption[]) =>
+    children ? [{ value: "tenant", label: "Tenant", children }] : undefined;
 
   function mount(
-    props: Partial<React.ComponentProps<typeof KanzoThemeProvider>> & { identities?: SwatchOption[] } = {},
+    props: Partial<React.ComponentProps<typeof KanzoThemeProvider>> & { identities?: PaletteOption[] } = {},
     { strict = false } = {},
   ) {
     const { identities, ...rest } = props;
@@ -533,9 +532,9 @@ describe("KanzoThemeProvider identity", () => {
  * incomplete and adding a `data-palette` that no compiled sheet matches.
  */
 describe("KanzoThemeProvider palette", () => {
-  const PALETTES: SwatchOption[] = [
-    { value: "kanzo", label: "Kanzo", swatches: { light: ["#737373"], dark: ["#a3a3a3"] } },
-    { value: "dracula", label: "Dracula", swatches: { light: ["#e562af"], dark: ["#ff79c6"] } },
+  const PALETTES: PaletteOption[] = [
+    { value: "kanzo", label: "Kanzo" },
+    { value: "dracula", label: "Dracula" },
   ];
 
   beforeEach(() => {
@@ -620,8 +619,8 @@ describe("KanzoThemeProvider palette", () => {
     const t = mount({
       palettes: PALETTES.map((p, i) => (i === 0
         ? { ...p, children: [
-            { value: "retail", label: "Retail", swatches: { light: [], dark: [] } },
-            { value: "private", label: "Private", swatches: { light: [], dark: [] } },
+            { value: "retail", label: "Retail" },
+            { value: "private", label: "Private" },
           ] }
         : p)),
     });
@@ -644,7 +643,7 @@ describe("KanzoThemeProvider palette", () => {
     // right and the trip back would restore the wrong brand.
     const t = mount({
       palettes: PALETTES.map((p, i) => (i === 0
-        ? { ...p, children: [{ value: "retail", label: "Retail", swatches: { light: [], dark: [] } }] }
+        ? { ...p, children: [{ value: "retail", label: "Retail" }] }
         : p)),
     });
 
@@ -663,7 +662,7 @@ describe("KanzoThemeProvider palette", () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ palette: "withdrawn", identity: "retail-blue" }));
     const t = mount({
       palettes: PALETTES.map((p, i) => (i === 0
-        ? { ...p, children: [{ value: "retail-blue", label: "Retail", swatches: { light: [], dark: [] } }] }
+        ? { ...p, children: [{ value: "retail-blue", label: "Retail" }] }
         : p)),
     });
 

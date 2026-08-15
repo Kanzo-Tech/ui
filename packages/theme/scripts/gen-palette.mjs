@@ -47,26 +47,12 @@ const DERIVED_AT = "2026-07-29T00:00:00.000Z";
 
 mkdirSync(join(ROOT, "palettes"), { recursive: true });
 
-/**
- * The four colours that make a palette recognisable, per mode — what a card in a picker draws.
- *
- * **Not the categorical set, which is what this used to be and was the least representative thing
- * available.** What tells Dracula from Nord at a glance is the surface and the brand; the chart wheel
- * is eight colours nobody has seen yet, so six cards built from it all looked like the same card.
- * daisyUI's own switcher draws four role colours for the same reason.
- *
- * `--primary` is read from the IDENTITY and the rest from the document, which is exactly the split
- * the model makes: a brand replaces the brand-derived slice and inherits every surface.
- */
-function preview(document, identity) {
-  const at = (mode) => [
-    document.roles[mode]["--background"],
-    document.roles[mode]["--foreground"],
-    identity.roles[mode]["--primary"] ?? document.roles[mode]["--primary"],
-    document.roles[mode]["--border"],
-  ];
-  return { light: at("light"), dark: at("dark") };
-}
+// A `preview(document, identity)` helper lived here and emitted four role colours per mode into
+// every index entry — background, foreground, the identity's primary, border — for a picker to draw
+// as a strip. It is gone with the field. A control now sets `data-palette` on an element and reads
+// the cascade, so the depiction and the document cannot disagree; and the strip could not depict a
+// document anyway, because a seed with no hue puts `--primary` on the ramp's ink and two of the four
+// chips came out the same colour.
 
 /** `--flag value` pairs, and nothing cleverer: four flags, no combining, no shorthand. */
 function flags(argv) {
@@ -144,15 +130,10 @@ for (const [id, seeds] of Object.entries(PALETTE_SEEDS)) {
     label: document.label,
     isDefault,
     seeds: { brand: document.seeds.brand, base: document.seeds.base },
-    swatches: preview(document, identity),
     capacity: identity.categorical.capacity,
     // The brands this document publishes, so a picker can offer them as part of the same choice
     // rather than as a second axis. One entry means "no choice here"; the panel reads it as such.
-    identities: document.identities.map((brand) => ({
-      id: brand.id,
-      label: brand.label,
-      swatches: preview(document, brand),
-    })),
+    identities: document.identities.map((brand) => ({ id: brand.id, label: brand.label })),
   });
 }
 
@@ -191,13 +172,8 @@ index.push({
   label: demo.label,
   isDefault: false,
   seeds: { brand: demo.seeds.brand, base: demo.seeds.base },
-  swatches: preview(demo, demoDefault),
   capacity: demoDefault.categorical.capacity,
-  identities: demo.identities.map((brand) => ({
-    id: brand.id,
-    label: brand.label,
-    swatches: preview(demo, brand),
-  })),
+  identities: demo.identities.map((brand) => ({ id: brand.id, label: brand.label })),
 });
 
 writeFileSync(join(ROOT, "palettes", "index.json"), `${JSON.stringify(index, null, 2)}\n`);

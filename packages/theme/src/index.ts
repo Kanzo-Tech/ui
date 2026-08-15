@@ -38,9 +38,11 @@ export const paletteIndex = paletteIndexJson as PaletteIndexEntry[];
 /**
  * One palette, as a control sees it.
  *
- * `swatches` is `Record<Appearance, string[]>`, the same shape {@link SwatchOption} uses — the two
- * registries are one vocabulary, which only became true when `Appearance` stopped carrying a third
- * value that no set of colours could ever have.
+ * **It carries no colours, and that is recent.** Every entry used to publish four hexes per mode —
+ * background, foreground, primary, border — for a picker to draw as a strip. Nothing reads them: a
+ * document is compiled under its own `[data-palette]` and travels in the page, so a control depicts
+ * a palette by *setting the attribute* and letting the cascade answer. Four hexes could not depict a
+ * document anyway; on Kanzo's own, two of them were the same value.
  */
 export interface PaletteIndexEntry {
   id: string;
@@ -48,10 +50,9 @@ export interface PaletteIndexEntry {
   /** The one `tokens.css` already carries; it has no stylesheet of its own to load. */
   isDefault: boolean;
   seeds: { brand: string; base: string };
-  swatches: Record<Appearance, string[]>;
   capacity: number;
   /** The brands inside this document, **default first**. One entry means there is no choice here. */
-  identities: { id: string; label: string; swatches: Record<Appearance, string[]> }[];
+  identities: { id: string; label: string }[];
 }
 
 /**
@@ -205,8 +206,8 @@ export type KanzoIdentityMemory = Record<KanzoPalette, KanzoIdentity>;
  * and the panel. Used by BOTH axes a tenant publishes: `identities` and `palettes`.
  *
  * One type and not two, though it arrived as `IdentityOption`: a palette option and an identity
- * option are the same thing at different grain — an id, a name a client wrote, and a depiction — and
- * two names for one shape is the defect this layer keeps removing. What differs between the axes is
+ * option are the same thing at different grain — an id and a name a client wrote — and two names for
+ * one shape is the defect this layer keeps removing. What differs between the axes is
  * what selecting one *does*, not what a control needs to offer it.
  *
  * Declared here rather than imported, the way `CHART_SLOTS` is declared in both packages: the
@@ -215,14 +216,19 @@ export type KanzoIdentityMemory = Record<KanzoPalette, KanzoIdentity>;
  * graph with a TEXT match — so even `import type` fails, and rightly. A host maps its document to
  * this shape once, on the server.
  *
- * `value` / `label` because that is `FontOption`: identity is the host-extensible axis. `swatches`
- * is where `FontOption` has `preview` — the depiction, per mode, because the panel draws
- * `swatches[resolvedAppearance]` and the two modes are different colours.
+ * `value` / `label` because that is `FontOption`: identity is the host-extensible axis. Where
+ * `FontOption` has `preview`, this has **nothing** — and the absence is the point. It carried
+ * `swatches`, four hexes per mode for a picker to draw as a strip, and it was named `SwatchOption`
+ * after them. A control depicts a palette by setting `data-palette` on an element and letting the
+ * cascade paint it: the document is already in the page, so a depiction copied out of it is a second
+ * spelling that can only ever be the same colours or the wrong ones.
+ *
+ * The rename came with the deletion rather than after it. A type named for a field it no longer has
+ * is the failure this layer keeps finding in its own vocabulary.
  */
-export interface SwatchOption {
+export interface PaletteOption {
   value: string;
   label: string;
-  swatches: Record<Appearance, string[]>;
   /**
    * The choices *inside* this one — a palette's brands. **Default first.**
    *
@@ -237,7 +243,7 @@ export interface SwatchOption {
    * to keep consistent. The panel flattens it into one list of composed entries, because one choice
    * is what a user makes.
    */
-  children?: SwatchOption[];
+  children?: PaletteOption[];
 }
 
 // ── The axis table — the single source of truth for how a preference reaches the DOM ────────

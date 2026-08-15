@@ -75,11 +75,11 @@ provider is above it.
 | `set` | `(patch: Partial<ThemePrefs>) => void` | Merges a partial patch into the preferences and persists it |
 | `fonts` | `FontOption[]` | The sans options the host wired, for a selector |
 | `monoFonts` | `FontOption[]` | The mono options the host wired |
-| `identities` | `SwatchOption[]` | The sub-brands the tenant published — `[]`, never `undefined` |
+| `identities` | `PaletteOption[]` | The sub-brands the tenant published — `[]`, never `undefined` |
 | `defaultIdentity` | `string` | The id `:root` already paints |
 | `resolvedIdentity` | `string` | `identity` or `defaultIdentity` |
 | `retiredIdentity` | `string \| null` | An id the tenant withdrew out from under this user, held for the session |
-| `palettes` | `SwatchOption[]` | The palette documents the tenant published |
+| `palettes` | `PaletteOption[]` | The palette documents the tenant published |
 | `defaultPalette` | `string` | The id the server serves when the preference is empty |
 | `resolvedPalette` | `string` | `palette` or `defaultPalette` |
 | `retiredPalette` | `string \| null` | A palette id the tenant withdrew, held for the session |

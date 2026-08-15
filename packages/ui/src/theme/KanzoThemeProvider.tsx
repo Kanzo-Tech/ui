@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type { Appearance, AppearancePref, SwatchOption } from "@kanzo-tech/theme";
+import type { Appearance, AppearancePref, PaletteOption } from "@kanzo-tech/theme";
 import { AXES, DEFAULT_PREFS, STORAGE_KEY, type ThemePrefs } from "@kanzo-tech/theme";
 import { ThemeContext, type FontOption, type ThemeContextValue } from "./theme-context.js";
 
@@ -149,8 +149,8 @@ const DEFAULT_MONO_FONTS: FontOption[] = [
  * A host that never wires `identities` gets this one, not a fresh `[]` per render — the context is
  * memoised on it, and a new array every render re-renders every consumer of the theme.
  */
-const NO_IDENTITIES: SwatchOption[] = [];
-const NO_PALETTES: SwatchOption[] = [];
+const NO_IDENTITIES: PaletteOption[] = [];
+const NO_PALETTES: PaletteOption[] = [];
 
 /**
  * "The tenant no longer publishes what this user chose" — for both axes that a tenant publishes.
@@ -228,7 +228,7 @@ export interface KanzoThemeProviderProps {
    * import their stylesheets, or inline them — but it no longer has to choose one per request, and a
    * user switching palette no longer needs a round trip.
    */
-  palettes?: SwatchOption[];
+  palettes?: PaletteOption[];
   /** The id the server serves when the preference is empty. Defaults to the first published one. */
   defaultPalette?: string;
   /** Called once, at most, when the stored palette is no longer published. */
@@ -249,7 +249,7 @@ export function KanzoThemeProvider({
   onIdentityRetired,
   palettes = NO_PALETTES,
   // The first published one, exactly as `defaultIdentity`. `paletteIndex` carries an `isDefault`
-  // flag, but it belongs to the host's mapper: a `SwatchOption` is what a CONTROL needs, and a
+  // flag, but it belongs to the host's mapper: a `PaletteOption` is what a CONTROL needs, and a
   // control has no use for which one the server would have served anyway.
   defaultPalette = palettes[0]?.value ?? "",
   onPaletteRetired,

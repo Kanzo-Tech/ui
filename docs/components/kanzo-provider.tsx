@@ -2,9 +2,8 @@
 
 import type { ReactNode } from "react";
 import { useServerInsertedHTML } from "next/navigation";
-import type { SwatchOption } from "@kanzo-tech/theme";
+import type { PaletteOption } from "@kanzo-tech/theme";
 import { KanzoThemeProvider, cookieStorageAdapter, themeScript } from "@kanzo-tech/ui";
-import { PaletteStyle } from "./palette-style";
 
 /**
  * The design system owns the theme, appearance included.
@@ -18,11 +17,19 @@ import { PaletteStyle } from "./palette-style";
  * key. It now lives on the prefs blob (`kanzo_theme_prefs.appearance`), so an existing visitor is
  * unpinned once — following their OS — and re-picks if they want a side held.
  *
- * **Storage is the cookie, and for a palette that is a requirement rather than a taste.** A document
- * is a stylesheet chosen by the SERVER, so the preference has to be readable from the request; a
- * localStorage-only host would paint the default document and correct it after hydration, which is
- * the flash this whole layer exists to prevent. The pre-paint script already reads the cookie first
- * for the same reason.
+ * **Storage is the cookie, and for a palette that is now an optimisation rather than a
+ * requirement.** It was a requirement while the SERVER chose which document to inline: a choice
+ * already made upstream cannot be corrected in the browser without a flash. Every document travels
+ * now — `app/layout.tsx` inlines all of them, each under its own `[data-palette]` — so colour is an
+ * attribute like radius and density, and the pre-paint script applies it before anything is drawn.
+ * What the cookie still buys is a server render whose `<html>` already carries the same attributes,
+ * which costs nothing here and keeps the markup identical across the boundary.
+ *
+ * **A component that fetched the chosen document lived here and is gone.** `PaletteStyle` swapped a
+ * `<style id="kanzo-palette">` from a `/palette/[id]` route so a switch could repaint without a
+ * navigation. That route went with the cookie-chooses-the-document design; the component did not,
+ * and every switch away from the default spent a request that answered 404 into a `.catch` that
+ * ignored it. It looked like it worked because the attribute was doing the painting all along.
  *
  * `themeScript` is NOT optional for an SSR host. Everything the provider applies (`data-radius`,
  * `data-font`, `data-mono-font`, `data-font-size` and `.dark`) lives in browser storage, so without
@@ -43,7 +50,7 @@ export const KanzoProvider = ({
    * palettes, one of which has two brands; a client usually publishes one of each and sees no
    * colour control at all.
    */
-  palettes: SwatchOption[];
+  palettes: PaletteOption[];
   defaultPalette: string;
 }) => {
   useServerInsertedHTML(() => (
@@ -57,7 +64,6 @@ export const KanzoProvider = ({
       palettes={palettes}
       storage={cookieStorageAdapter()}
     >
-      <PaletteStyle defaultPalette={defaultPalette} />
       {children}
     </KanzoThemeProvider>
   );

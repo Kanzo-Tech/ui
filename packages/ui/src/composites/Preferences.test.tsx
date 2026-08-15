@@ -1,4 +1,4 @@
-import { DEFAULT_PREFS, STORAGE_KEY, type SwatchOption, type ThemePrefs } from "@kanzo-tech/theme";
+import { DEFAULT_PREFS, STORAGE_KEY, type PaletteOption, type ThemePrefs } from "@kanzo-tech/theme";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { type ComponentProps, StrictMode } from "react";
@@ -31,9 +31,9 @@ const stored = () => JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as Pa
 
 // A tenant with two brands: the case the Identity section exists for. The swatch arrays are the
 // document's categorical set for each mode, which is why they differ.
-const IDENTITIES: SwatchOption[] = [
-  { value: "retail-blue", label: "Retail", swatches: { light: ["#1d4ed8", "#0891b2"], dark: ["#60a5fa", "#22d3ee"] } },
-  { value: "private-gold", label: "Private", swatches: { light: ["#a16207"], dark: ["#fbbf24"] } },
+const IDENTITIES: PaletteOption[] = [
+  { value: "retail-blue", label: "Retail" },
+  { value: "private-gold", label: "Private" },
 ];
 
 type ProviderProps = Partial<ComponentProps<typeof KanzoThemeProvider>>;
@@ -152,23 +152,21 @@ describe("Preferences", () => {
     // One section, because a palette and an identity are one abstraction with a parameter: how much
     // of the document the choice replaces. A palette that publishes several brands contributes one
     // entry per brand, and the user makes one choice — which is what they were always doing.
-    const swatches = { light: ["#111111"], dark: ["#eeeeee"] };
     const BANK = {
       value: "bank",
       label: "Bank",
-      swatches,
       children: [
-        { value: "retail", label: "Retail", swatches },
-        { value: "private", label: "Private", swatches },
+        { value: "retail", label: "Retail" },
+        { value: "private", label: "Private" },
       ],
     };
-    const DRACULA = { value: "dracula", label: "Dracula", swatches };
+    const DRACULA = { value: "dracula", label: "Dracula" };
     const colour = () => within(screen.getByRole("radiogroup", { name: "Colour" }));
 
     it.each([
       ["nothing wired", undefined],
       ["one palette with one brand", [DRACULA]],
-      ["one palette with one brand, spelled as a child", [{ ...DRACULA, children: [{ value: "d", label: "D", swatches }] }]],
+      ["one palette with one brand, spelled as a child", [{ ...DRACULA, children: [{ value: "d", label: "D" }] }]],
     ])("offers no group when the tenant published %s", (_name, list) => {
       setup(undefined, list ? { palettes: list } : {});
 
@@ -268,7 +266,7 @@ describe("Preferences", () => {
     afterEach(() => vi.restoreAllMocks());
 
     const mount = (node = <IdentityNotice />, strict = false) => {
-      const palettes = [{ value: "t", label: "T", swatches: { light: [], dark: [] }, children: IDENTITIES }];
+      const palettes = [{ value: "t", label: "T", children: IDENTITIES }];
       const tree = <KanzoThemeProvider palettes={palettes}>{node}</KanzoThemeProvider>;
       return render(strict ? <StrictMode>{tree}</StrictMode> : tree);
     };
@@ -327,7 +325,7 @@ describe("Preferences", () => {
       const user = userEvent.setup();
       setup(
         { appearance: "dark", radius: "none", density: "compact", font: "geist", monoFont: "geist-mono", identity: "private-gold" },
-        { palettes: [{ value: "t", label: "T", swatches: { light: [], dark: [] }, children: IDENTITIES }] },
+        { palettes: [{ value: "t", label: "T", children: IDENTITIES }] },
       );
 
       await user.click(screen.getByRole("button", { name: "Reset" }));
