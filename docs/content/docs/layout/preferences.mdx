@@ -93,6 +93,30 @@ brands share a neutral and stay one product.
 It guards itself rather than being guarded at the call site — every section is exported flat for a
 host's own settings page, where a call-site guard would be invisible.
 
+### Each palette draws itself
+
+An entry is a **miniature of the interface**, not a strip of the document's hexes: a page, a brand
+fill, two lines of ink and the categorical set. None of it is data. Every palette a tenant publishes
+is already in the page under its own `[data-palette]`, so the cell sets that attribute and the
+utilities inside it resolve against that document — `bg-primary` is *that* tenant's brand.
+
+A strip of four role colours was what this did, and it could not depict a document. On Kanzo's own,
+`--primary` and `--foreground` are the same value — the relief rule puts the fill on the ramp's ink
+when a seed carries no hue — so two of the four chips were one colour and the control said nothing
+about the palette it was offering. The categorical strip draws all eight slots on purpose: past a
+document's `capacity` the compiler writes `var(--muted-foreground)`, so a set holding seven says so
+by going grey at the end.
+
+<Callout type="info" title="Hovering previews, leaving puts it back">
+  The reference behaviour is VS Code's and Zed's — a theme applies as you arrow through the list and
+  reverts when you leave — and it is affordable here because a palette is an attribute rather than a
+  stylesheet to fetch. Pointer or keyboard focus writes it on `<html>`; leaving restores the exact
+  attributes that were there on the way in, rather than recomputing what they should be.
+</Callout>
+
+The grid is the other half. Stacked at full width, the five palettes this site publishes took over
+half the panel's scroll height and pushed density, radius and both font axes below the fold.
+
 ## Choosing the sections
 
 `Panel` renders the canonical set when given no children. Pass children to choose your own —

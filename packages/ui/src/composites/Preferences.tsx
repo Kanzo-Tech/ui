@@ -23,7 +23,6 @@ import {
 import { RadioGroup as ArkRadioGroup } from "@ark-ui/react/radio-group";
 import { RadioGroup, RadioGroupCard } from "../simples/radio-group.js";
 import { Slider, SliderLabel } from "../simples/slider.js";
-import { SwatchGroup } from "../simples/swatch.js";
 
 /**
  * Preferences — a live theming selector (composite) for PRODUCT settings. A non-modal drawer
@@ -345,12 +344,133 @@ const DEFAULT_RETIRED = ({ choice }: { choice: string }) =>
 /** `palette` on its own, or `palette/identity` when the palette publishes more than one brand. */
 const KEY_SEPARATOR = "/";
 
+/**
+ * One palette, drawn by ITSELF — a miniature of the interface rather than a list of its hexes.
+ *
+ * **Nothing here is data.** The document is already in the page, compiled under its own
+ * `[data-palette]`, so this span sets the attribute and every utility inside it resolves against
+ * that document: `bg-primary` is that tenant's brand, `bg-chart-3` is their third categorical slot.
+ * A strip of four hexes was the alternative and it could not depict a document — on Kanzo's own,
+ * `--primary` and `--foreground` are the same value (the relief rule puts the fill on the ramp's
+ * ink), so two of the four chips were one colour and the control said nothing.
+ *
+ * **The appearance class is not optional.** `compile`'s scoped selectors are
+ * `[data-palette="x"]`, `[data-palette="x"].light` and `[data-palette="x"].dark` — never
+ * `.dark [data-palette="x"]` — precisely so a preview can force a side inside a page painted the
+ * other way. Without the class this span would take the light block on a dark page.
+ *
+ * **The default palette carries no attribute, and that is the case that does not fit.** Its
+ * document *is* `tokens.css`, emitted at `:root, .light` / `.dark` with no scope of its own, so
+ * `[data-palette="kanzo"]` matches nothing and the cell would inherit whatever the page is wearing.
+ * The class alone matches those blocks, and a declaration on this element beats an inherited value
+ * whatever the specificity, so the default draws itself correctly even inside a Dracula page.
+ *
+ * The categorical strip draws all eight slots on purpose. Past a document's `capacity`, `compile`
+ * writes `var(--muted-foreground)`, so a set that holds seven says so by going grey at the end.
+ */
+function PalettePreview({
+  appearance,
+  identity,
+  palette,
+}: {
+  appearance: string;
+  /** The brand within the document, or `""` for the one `:root` carries. */
+  identity: string;
+  /** The document's id, or `""` for the default — which has no scoped block to select. */
+  palette: string;
+}) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "flex h-10 flex-col justify-between rounded-[4px] border border-border bg-background p-1.5",
+        appearance,
+      )}
+      data-identity={identity || undefined}
+      data-palette={palette || undefined}
+      data-slot="palette-preview"
+    >
+      <span className="flex items-center gap-1">
+        <span className="h-2 w-4 rounded-[2px] bg-primary" />
+        <span className="h-1 w-5 rounded-full bg-foreground" />
+        <span className="h-1 flex-1 rounded-full bg-muted-foreground" />
+      </span>
+      <span className="flex items-center gap-px">
+        <span className="h-1.5 flex-1 rounded-[1px] bg-chart-1" />
+        <span className="h-1.5 flex-1 rounded-[1px] bg-chart-2" />
+        <span className="h-1.5 flex-1 rounded-[1px] bg-chart-3" />
+        <span className="h-1.5 flex-1 rounded-[1px] bg-chart-4" />
+        <span className="h-1.5 flex-1 rounded-[1px] bg-chart-5" />
+        <span className="h-1.5 flex-1 rounded-[1px] bg-chart-6" />
+        <span className="h-1.5 flex-1 rounded-[1px] bg-chart-7" />
+        <span className="h-1.5 flex-1 rounded-[1px] bg-chart-8" />
+      </span>
+    </span>
+  );
+}
+
+/**
+ * Wear a palette while the pointer is on it, and put back exactly what was there.
+ *
+ * This is the reference behaviour — VS Code and Zed preview a theme as you arrow through the list,
+ * and revert when you leave — and it is affordable here for one reason: every document the tenant
+ * publishes is already in the page, so previewing is two attribute writes and no fetch, no
+ * stylesheet swap and no re-render.
+ *
+ * **It restores a snapshot rather than recomputing what should be there.** The provider removes an
+ * axis attribute at its default and sets it otherwise, so "put it back" has two spellings depending
+ * on preferences this component would have to read and agree with. Reading the element on the way
+ * in cannot disagree with anything.
+ */
+function usePalettePreview() {
+  const held = React.useRef<{ palette: string | null; identity: string | null } | null>(null);
+
+  const restore = React.useCallback(() => {
+    const snapshot = held.current;
+    if (!snapshot) return;
+    held.current = null;
+    const el = document.documentElement;
+    for (const [attr, value] of [
+      ["data-palette", snapshot.palette],
+      ["data-identity", snapshot.identity],
+    ] as const) {
+      if (value === null) el.removeAttribute(attr);
+      else el.setAttribute(attr, value);
+    }
+  }, []);
+
+  const preview = React.useCallback(
+    (palette: string, identity: string) => {
+      const el = document.documentElement;
+      // Only the FIRST entry into the list snapshots. Moving from one card to the next fires leave
+      // and enter in an order the pointer decides, and re-snapshotting mid-sweep would file the
+      // palette being previewed as the one to go back to.
+      held.current ??= {
+        palette: el.getAttribute("data-palette"),
+        identity: el.getAttribute("data-identity"),
+      };
+      if (palette) el.setAttribute("data-palette", palette);
+      else el.removeAttribute("data-palette");
+      if (identity) el.setAttribute("data-identity", identity);
+      else el.removeAttribute("data-identity");
+    },
+    [],
+  );
+
+  // A panel closed mid-preview — Escape, a click on the trigger — never fires the leave handler,
+  // and would leave the reader wearing a palette they did not choose.
+  React.useEffect(() => restore, [restore]);
+
+  return { preview, restore };
+}
+
 function ColorSection({
   label = "Colour",
   retiredTitle = DEFAULT_RETIRED_TITLE,
   formatRetired = DEFAULT_RETIRED,
 }: PreferencesColorProps = {}) {
   const {
+    defaultPalette,
     palettes,
     resolvedAppearance,
     resolvedPalette,
@@ -359,15 +479,22 @@ function ColorSection({
     retiredIdentity,
     set,
   } = useKanzoTheme();
+  const { preview, restore } = usePalettePreview();
 
   const prefixed = palettes.length > 1;
   const entries = palettes.flatMap((palette) => {
+    // The default document is emitted unscoped, so its preview selects on the appearance class
+    // alone — see `PalettePreview`. Everywhere else this is the document's own id.
+    const scope = palette.value === defaultPalette ? "" : palette.value;
     const brands = palette.children ?? [];
-    if (brands.length < 2) return [{ key: palette.value, label: palette.label, swatches: palette.swatches }];
+    if (brands.length < 2) {
+      return [{ identity: "", key: palette.value, label: palette.label, scope }];
+    }
     return brands.map((brand) => ({
+      identity: brand.value,
       key: `${palette.value}${KEY_SEPARATOR}${brand.value}`,
       label: prefixed ? `${palette.label} · ${brand.label}` : brand.label,
-      swatches: brand.swatches,
+      scope,
     }));
   });
 
@@ -383,11 +510,19 @@ function ColorSection({
 
   return (
     <PrefFieldSet label={label}>
+      {/* A grid, because the list is the one section that grows with the tenant. Stacked at full
+          width the five this site publishes took half the panel's scroll height and pushed every
+          other axis below the fold; a client publishing a dozen would have owned the whole of it. */}
       <RadioGroup
-        className="gap-2"
+        className="grid grid-cols-2 gap-2"
+        onBlur={restore}
+        onPointerLeave={restore}
         onValueChange={(d) => {
           if (!d.value) return;
           const [palette, identity = ""] = d.value.split(KEY_SEPARATOR);
+          // The preview held the choice on <html> already; the snapshot it would restore is the
+          // palette being left, so it has to be dropped before `set` writes the new one.
+          restore();
           // Both in one patch, because it is one choice. `set` files the outgoing brand under the
           // palette being left and would otherwise restore a remembered one over the top of this.
           set({ palette: palette ?? "", identity });
@@ -395,11 +530,21 @@ function ColorSection({
         value={selected}
       >
         {entries.map((entry) => (
-          <RadioGroupCard className="flex-col items-start gap-1.5 px-2.5 py-2" key={entry.key} value={entry.key}>
-            <ArkRadioGroup.ItemText className="text-muted-foreground text-xs">
+          <RadioGroupCard
+            className="flex-col items-stretch gap-1.5 p-1.5"
+            key={entry.key}
+            onFocus={() => preview(entry.scope, entry.identity)}
+            onPointerEnter={() => preview(entry.scope, entry.identity)}
+            value={entry.key}
+          >
+            <PalettePreview
+              appearance={resolvedAppearance}
+              identity={entry.identity}
+              palette={entry.scope}
+            />
+            <ArkRadioGroup.ItemText className="truncate text-muted-foreground text-xs">
               {entry.label}
             </ArkRadioGroup.ItemText>
-            <SwatchGroup colors={entry.swatches[resolvedAppearance] ?? []} size="md" />
           </RadioGroupCard>
         ))}
       </RadioGroup>
