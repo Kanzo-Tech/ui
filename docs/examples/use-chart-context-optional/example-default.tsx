@@ -7,7 +7,7 @@ import {
   ChartBarY,
   ChartRoot,
   count,
-  useChartOptional,
+  useChartContextOptional,
   type ChartConfig,
 } from "@kanzo-tech/ui/analytics";
 import { MosaicDemo } from "../charts/mosaic-demo";
@@ -26,7 +26,7 @@ const STANDALONE = ["Draft", "In review", "Shipped"];
  * which is exactly how `ChartLegend` doubles as a standalone key.
  */
 function SeriesKey({ series }: { series?: readonly string[] }) {
-  const chart = useChartOptional();
+  const chart = useChartContextOptional();
   const config =
     chart?.config ??
     Object.fromEntries(

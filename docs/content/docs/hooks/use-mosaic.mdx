@@ -22,7 +22,7 @@ import { useMosaic } from "@kanzo-tech/ui/analytics";
 const { coordinator, crossfilter, selected, registerSelection, reset } = useMosaic();
 ```
 
-It reads the context [`MosaicProvider`](/docs/data-display/charts#bring-your-own-coordinator)
+It reads the context [`MosaicProvider`](/docs/analytics/charts#bring-your-own-coordinator)
 publishes, and **throws** outside one. [`useCrossfilter`](/docs/hooks/use-crossfilter) and
 [`useSelected`](/docs/hooks/use-selected) return one field each; reach for this when you want more
 than one of them, or any of the three that only live here.
@@ -40,7 +40,7 @@ context:
 `selected` is relayed into `crossfilter`, so a clause published by a chart reaches both. It is not a
 publish target: a page-wide selection names columns other charts do not group by, and
 `ChartHighlight` reading one is
-[a binder error waiting to happen](/docs/data-display/charts#feedback-on-the-chart-that-filters).
+[a binder error waiting to happen](/docs/analytics/charts#feedback-on-the-chart-that-filters).
 
 ## reset()
 

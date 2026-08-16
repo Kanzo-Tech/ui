@@ -21,7 +21,7 @@ const selected = useSelected();
 
 Sugar for `useMosaic().selected`, on the `@kanzo-tech/ui/analytics` subpath — whose peers are
 [optional](/docs/installation), so nothing installs them unless you import it — and it **throws**
-outside a [`MosaicProvider`](/docs/data-display/charts#bring-your-own-coordinator).
+outside a [`MosaicProvider`](/docs/analytics/charts#bring-your-own-coordinator).
 
 ## A read model
 
@@ -54,7 +54,7 @@ dies with `Binder Error: column "…" must appear in the GROUP BY clause`. vgplo
 **the plot keeps its previous render** — no error on screen, just a chart frozen one state behind.
 
 Publish into the per-chart selection `ChartRoot` mints for you (the default), or one of your own.
-[The long version](/docs/data-display/charts#feedback-on-the-chart-that-filters).
+[The long version](/docs/analytics/charts#feedback-on-the-chart-that-filters).
 </Callout>
 
 ## Withdrawing a clause

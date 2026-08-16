@@ -1,9 +1,9 @@
 ---
-title: useChart
+title: useChartContext
 description: The chart context — config, selections, coordinator, and the color / formatNumber helpers — for a DOM part of your own inside a ChartRoot.
 ---
 
-<ComponentPreview componentName="use-chart" />
+<ComponentPreview componentName="use-chart-context" />
 
 The bars are one `ChartBarY`; everything under them is a component of our own, reading the same
 context `ChartLegend` reads. The colour beside each label is the literal `color(key)` returned —
@@ -12,20 +12,20 @@ the very string the plot was handed — and the caption counts in the root's own
 ## Usage
 
 ```tsx
-import { useChart } from "@kanzo-tech/ui/analytics";
+import { useChartContext } from "@kanzo-tech/ui/analytics";
 ```
 
 The `/analytics` peers are [optional](/docs/installation) — nothing installs them unless you import this subpath.
 
 ```tsx
 function Total({ rows }: { rows: number }) {
-  const { color, formatNumber } = useChart();
+  const { color, formatNumber } = useChartContext();
   return <p style={{ color: color("error") }}>{formatNumber(rows)} requests</p>;
 }
 ```
 
-It must be rendered **inside** a [`ChartRoot`](/docs/data-display/charts) — it throws otherwise.
-Use [`useChartOptional`](/docs/hooks/use-chart-optional) for a part that also has to work
+It must be rendered **inside** a [`ChartRoot`](/docs/analytics/charts) — it throws otherwise.
+Use [`useChartContextOptional`](/docs/hooks/use-chart-context-context-optional) for a part that also has to work
 standalone.
 
 ## Why it exists
@@ -61,10 +61,10 @@ from the component that owns the `ChartRoot` instead.
 ## API Reference
 
 ```ts
-function useChart(): ChartContextValue;
+function useChartContext(): ChartContextValue;
 ```
 
-Takes no arguments. Throws `useChart must be used within a <ChartRoot>.` outside one.
+Takes no arguments. Throws `useChartContext must be used within a <ChartRoot>.` outside one.
 
 ### Returns
 
@@ -76,4 +76,4 @@ Takes no arguments. Throws `useChart must be used within a <ChartRoot>.` outside
 | `table` | `string \| undefined` | the relation the root reads |
 | `filterBy` | `Selection \| null` | what the marks filter by; `null` = the full relation |
 | `as` | `Selection` | where the interactors publish |
-| `coordinator` | `Coordinator` | for a part that queries alongside the plot — usually via [`useChartQuery`](/docs/hooks/use-chart-query) |
+| `coordinator` | `Coordinator` | for a part that queries alongside the plot — usually via [`useChartQuery`](/docs/hooks/use-chart-context-query) |

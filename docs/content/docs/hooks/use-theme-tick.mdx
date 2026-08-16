@@ -65,7 +65,7 @@ is not.
 each tick. You need this hook for surfaces the library does not paint: a `ChartRaw` mark you resolve
 yourself, a WebGL graph, a map, any imperative widget.
 
-Note the pairing with [`useChart`](/docs/hooks/use-chart): `color(key)` from the chart context is
+Note the pairing with [`useChartContext`](/docs/hooks/use-chart-context): `color(key)` from the chart context is
 already resolved, and therefore also a snapshot. Where it lands in CSS, pass the token through
 instead; where it lands on a canvas, pair it with this.
 

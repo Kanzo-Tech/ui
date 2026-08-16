@@ -5,7 +5,7 @@ import { ChartAxisX } from "./chart-axes.js";
 import { ChartLegend } from "./chart-legend.js";
 import { ChartToggleX } from "./chart-interactors.js";
 import { ChartBarY } from "./chart-marks.js";
-import { ChartRoot, useChart } from "./chart-root.js";
+import { ChartRoot, useChartContext } from "./chart-root.js";
 import { MosaicProvider, useMosaic, type MosaicContextValue } from "./mosaic-provider.js";
 
 /**
@@ -46,9 +46,9 @@ describe("ChartRoot", () => {
     expect(items[1]?.querySelector("[aria-hidden]")).toHaveProperty("style.background", "rgb(18, 52, 86)");
   });
 
-  it("exposes the series colour and a locale number formatter through useChart", () => {
+  it("exposes the series colour and a locale number formatter through useChartContext", () => {
     const Readout = () => {
-      const chart = useChart();
+      const chart = useChartContext();
       return <span data-testid="readout">{`${chart.color("mem")} ${chart.formatNumber(1234.5)}`}</span>;
     };
     render(<Chart>{<Readout />}</Chart>);
@@ -58,10 +58,10 @@ describe("ChartRoot", () => {
 
   it("throws outside a ChartRoot rather than silently rendering an empty chart", () => {
     const Orphan = () => {
-      useChart();
+      useChartContext();
       return null;
     };
-    expect(() => render(<Orphan />)).toThrow(/useChart/);
+    expect(() => render(<Orphan />)).toThrow(/useChartContext/);
   });
 });
 
@@ -78,7 +78,7 @@ describe("ChartRoot selections", () => {
     let mosaic!: MosaicContextValue;
 
     const Probe = () => {
-      roots.push(useChart().as);
+      roots.push(useChartContext().as);
       return null;
     };
     const Context = () => {

@@ -52,7 +52,7 @@ const SRC = resolve(dirname(fileURLToPath(import.meta.url)));
  * Anything that makes a module stateful, and therefore a client module.
  *
  * **Any** `useX(` call, not a list of React's own: a component calling `useDataTableContext()` or
- * `useChartOptional()` is exactly as much a client component as one calling `useContext()`, and a
+ * `useChartContextOptional()` is exactly as much a client component as one calling `useContext()`, and a
  * fixed list of built-ins misses every custom hook in the repo. The `use[A-Z]` shape is the same
  * signal `eslint-plugin-react-hooks` runs on, so a hook this misses is a hook the linter misses too.
  * A declaration (`export function useX(`) is caught as well, which is correct — it is a hook.

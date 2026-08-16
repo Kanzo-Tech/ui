@@ -481,7 +481,7 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(surface.ChartRoot).toBeUndefined();
     expect(surface.ChartBarY).toBeUndefined();
     expect(surface.ChartIntervalX).toBeUndefined();
-    expect(surface.useChart).toBeUndefined();
+    expect(surface.useChartContext).toBeUndefined();
   });
 
   it("keeps the TanStack Table layer off the root barrel", () => {

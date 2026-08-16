@@ -20,7 +20,7 @@ const crossfilter = useCrossfilter();
 
 Sugar for `useMosaic().crossfilter`, on the `@kanzo-tech/ui/analytics` subpath — whose peers are
 [optional](/docs/installation), so nothing installs them unless you import it — and it **throws**
-outside a [`MosaicProvider`](/docs/data-display/charts#bring-your-own-coordinator).
+outside a [`MosaicProvider`](/docs/analytics/charts#bring-your-own-coordinator).
 
 ## What it is
 
@@ -38,7 +38,7 @@ It is a crossfilter, so it **exempts a client from its own clause**: the chart y
 full bars. That is deliberate, and it is why the dual-layer idiom exists — draw the full relation
 dimmed underneath and the filtered layer on top. It also means the chart that publishes a pick
 cannot show that pick by filtering; it shows it with
-[`ChartHighlight`](/docs/data-display/charts#feedback-on-the-chart-that-filters).
+[`ChartHighlight`](/docs/analytics/charts#feedback-on-the-chart-that-filters).
 </Callout>
 
 ## Publishing is somebody else's job

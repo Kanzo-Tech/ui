@@ -6,7 +6,7 @@ import type { Selection } from "@uwdata/mosaic-core";
 import { cn } from "../lib/cn.js";
 import { Swatch } from "../simples/swatch.js";
 import { chartSeriesEntries, type ChartConfig } from "./chart-config.js";
-import { useChartOptional } from "./chart-root.js";
+import { useChartContextOptional } from "./chart-root.js";
 import { chartDescriptor } from "./chart-spec.js";
 import { categoricalColor } from "../lib/token-color.js";
 
@@ -27,7 +27,7 @@ function seriesConfig(series: readonly string[]): ChartConfig {
  */
 export function ChartLegend(props: ChartLegendProps) {
   const { config, series, className, slot, ...rest } = props;
-  const chart = useChartOptional();
+  const chart = useChartContextOptional();
   const resolved = config ?? (series ? seriesConfig(series) : chart?.config) ?? {};
 
   return (

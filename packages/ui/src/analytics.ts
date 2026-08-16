@@ -17,7 +17,7 @@
 export { MosaicProvider, useMosaic, useCrossfilter, useSelected } from "./charts/mosaic-provider.js";
 export type { MosaicProviderProps, MosaicContextValue } from "./charts/mosaic-provider.js";
 
-export { ChartRoot, useChart, useChartOptional } from "./charts/chart-root.js";
+export { ChartRoot, useChartContext, useChartContextOptional } from "./charts/chart-root.js";
 export type { ChartRootProps, ChartContextValue } from "./charts/chart-root.js";
 
 export type { ChartConfig, ChartSeriesConfig, ChartSeriesEntry } from "./charts/chart-config.js";

@@ -10,7 +10,7 @@ import {
   ChartRoot,
   Query,
   count,
-  useChart,
+  useChartContext,
   useChartQuery,
   type ChartConfig,
 } from "@kanzo-tech/ui/analytics";
@@ -27,7 +27,7 @@ const CONFIG: ChartConfig = {
 // each label is the string the plot itself was handed — and `formatNumber` is the root's own
 // `Intl.NumberFormat`, so the caption counts in the same vocabulary as the axis.
 function StatusKey() {
-  const { color, config, formatNumber } = useChart();
+  const { color, config, formatNumber } = useChartContext();
   const { row } = useChartQuery({
     query: (filter) => Query.from("telemetry").select({ n: count() }).where(filter),
   });

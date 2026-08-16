@@ -82,14 +82,14 @@ const ChartContext = createContext<ChartContextValue | null>(null);
  * `ChartRoot` reads their props off the element before React renders them, so a mark cannot pull
  * anything out of context — pass the value down from the component that owns the `<ChartRoot>`.
  */
-export function useChart(): ChartContextValue {
+export function useChartContext(): ChartContextValue {
   const ctx = useContext(ChartContext);
-  if (!ctx) throw new Error("useChart must be used within a <ChartRoot>.");
+  if (!ctx) throw new Error("useChartContext must be used within a <ChartRoot>.");
   return ctx;
 }
 
 /** The chart context, or `null` — for parts that also work standalone, like `ChartLegend`. */
-export function useChartOptional(): ChartContextValue | null {
+export function useChartContextOptional(): ChartContextValue | null {
   return useContext(ChartContext);
 }
 

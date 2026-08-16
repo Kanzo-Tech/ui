@@ -5,7 +5,7 @@ import { Query } from "@uwdata/mosaic-sql";
 import type { ReactNode } from "react";
 import { Skeleton } from "../simples/skeleton.js";
 import { StatTile, type StatTileProps } from "../simples/stat-tile.js";
-import { useChartOptional } from "./chart-root.js";
+import { useChartContextOptional } from "./chart-root.js";
 import { useChartQuery } from "./use-chart-query.js";
 
 /**
@@ -27,7 +27,7 @@ export interface ChartStatProps extends Omit<StatTileProps, "value" | "trend"> {
 
 export function ChartStat(props: ChartStatProps) {
   const { table, value, format, fallback, ...tile } = props;
-  const chart = useChartOptional();
+  const chart = useChartContextOptional();
   const relation = table ?? chart?.table;
 
   const { row } = useChartQuery({
