@@ -393,9 +393,13 @@ export function KanzoThemeProvider({
    * at each call site it would be a spread of a map the caller has to remember is keyed at all.
    */
   const setPalette = React.useCallback(
-    (palette: string, identity?: string) => {
+    (palette: string, options: { appearance?: Appearance; identity?: string } = {}) => {
+      // The side defaults to the one being worn, which is what a control inside the page means. A
+      // two-card panel names the other one explicitly: choosing a night palette in daylight has to
+      // reach the dark key without repainting what the reader is looking at.
+      const { appearance: side = resolvedAppearance, identity } = options;
       const next: Partial<ThemePrefs> = {
-        paletteByAppearance: { ...prefs.paletteByAppearance, [resolvedAppearance]: palette },
+        paletteByAppearance: { ...prefs.paletteByAppearance, [side]: palette },
       };
       // Switching palette carries the identity with it, both ways: what this user had chosen in the
       // palette they are leaving is filed, and what they had chosen in the one they are entering is
@@ -405,13 +409,16 @@ export function KanzoThemeProvider({
       // written — and here rather than in an effect, because it is a consequence of one transition
       // and not of a state. An effect watching the palette would also fire on mount, on StrictMode's
       // second invocation, and on a host re-rendering controlled `value`.
+      // Both read from the side being written, never from the applied one — filing an outgoing
+      // brand under the wrong side is the same off-by-one as filing it under the wrong palette.
+      const leaving = prefs.paletteByAppearance[side] || defaultPalette;
       const entering = palette || defaultPalette;
-      if (entering !== resolvedPalette) {
+      if (entering !== leaving) {
         // Keyed by the RESOLVED id, never by the raw preference. The default palette has two
         // spellings — `""`, which is what "no preference" stores, and its own id — and keying on the
         // preference files them as two documents, so a user who returns to the default by name gets
         // back the identity they chose under a different word for the same thing.
-        const remembered = { ...prefs.identityByPalette, [resolvedPalette]: prefs.identity };
+        const remembered = { ...prefs.identityByPalette, [leaving]: prefs.identity };
         next.identityByPalette = remembered;
         // `?? ""` and not the current identity: an identity belongs to its document, so carrying one
         // across would name a brand the new palette does not publish — inert in the cascade, and a
@@ -425,7 +432,7 @@ export function KanzoThemeProvider({
     },
     [
       defaultPalette, prefs.identity, prefs.identityByPalette, prefs.paletteByAppearance,
-      resolvedAppearance, resolvedPalette, set,
+      resolvedAppearance, set,
     ],
   );
 

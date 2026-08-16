@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Dialog as ArkDialog } from "@ark-ui/react/dialog";
 import { Portal } from "@ark-ui/react/portal";
-import { InfoIcon, PaletteIcon, XIcon } from "lucide-react";
+import { InfoIcon, MoonIcon, PaletteIcon, SunIcon, XIcon } from "lucide-react";
 // Via the theme package's JS entry, not its raw `.json` subpath: a direct JSON subpath import
 // needs `with { type: "json" }` at runtime, and Rollup strips that attribute when bundling.
 import {
@@ -11,6 +11,7 @@ import {
   prefBoolean,
   prefNumber,
   themeData,
+  type Appearance,
   type KanzoRadius,
   type SectionPrefDecl,
 } from "@kanzo-tech/theme";
@@ -18,6 +19,7 @@ import { useKanzoTheme } from "../theme/KanzoThemeProvider.js";
 import { cn } from "../lib/cn.js";
 import { AppearanceToggle } from "./AppearanceToggle.js";
 import { Alert, AlertDescription, AlertTitle } from "../simples/alert.js";
+import { Badge } from "../simples/badge.js";
 import { Button } from "../simples/button.js";
 import { Field, FieldLabel, FieldLegend, FieldSet } from "../simples/field.js";
 import {
@@ -28,7 +30,7 @@ import {
   DialogTrigger,
 } from "../simples/dialog.js";
 import { RadioGroup as ArkRadioGroup } from "@ark-ui/react/radio-group";
-import { RadioGroup, RadioGroupCard } from "../simples/radio-group.js";
+import { RadioGroup, RadioGroupCard, RadioGroupLabel } from "../simples/radio-group.js";
 import { Slider, SliderLabel } from "../simples/slider.js";
 import { Switch } from "../simples/switch.js";
 
@@ -353,6 +355,8 @@ export interface PreferencesColorProps {
   retiredTitle?: string;
   /** Compose that notice's body. The argument is the retired **id**; its label went with it. */
   formatRetired?: (parts: { choice: string }) => string;
+  /** Name a side. The section's third and last library-authored string (i18n). */
+  formatSide?: (side: Appearance) => string;
 }
 
 const DEFAULT_RETIRED_TITLE = "Colours updated";
@@ -504,13 +508,133 @@ function usePalettePreview() {
   return { preview, restore };
 }
 
+/** The two sides, in the order a settings page reads them. */
+const APPEARANCES: Appearance[] = ["light", "dark"];
+
+/** `light` / `dark`, and the only two strings this section authors. */
+const DEFAULT_SIDE_LABEL = (side: Appearance) => (side === "light" ? "Light" : "Dark");
+
+type Entry = { identity: string; key: string; label: string; scope: string };
+
+/**
+ * One side of the choice — which document this user wears in light, or in dark.
+ *
+ * **The miniature is painted with the document it is offering, forced to this side.** That is what
+ * `compile`'s scoped selectors were designed for and what GitHub's own picker cannot do: their
+ * tiles are drawn assets, ours is the real cascade answering. A card for the side you are not
+ * currently in therefore shows what you would get, not a tinted guess.
+ *
+ * The chips are the palettes, and they are the same control as the card above them rather than a
+ * second one: one radio group per side, so the two cards never fight over a single selection.
+ */
+function SideCard({
+  entries,
+  formatSide,
+  live,
+  onPreview,
+  onRestore,
+  selectedFor,
+  setPalette,
+  side,
+}: {
+  entries: Entry[];
+  formatSide: (side: Appearance) => string;
+  /** Whether this is the side currently applied. Only then does hovering preview anything. */
+  live: boolean;
+  onPreview: (palette: string, identity: string) => void;
+  onRestore: () => void;
+  resolvedIdentity: string;
+  resolvedPalette: string;
+  selectedFor: (side: Appearance) => string;
+  setPalette: (palette: string, options?: { appearance?: Appearance; identity?: string }) => void;
+  side: Appearance;
+}) {
+  const selected = selectedFor(side);
+  const current = entries.find((entry) => entry.key === selected) ?? entries[0];
+  const Icon = side === "light" ? SunIcon : MoonIcon;
+
+  return (
+    // The CARD is the radio group, so it is named by the machine's own label part rather than
+    // inheriting the fieldset's legend. Two groups under one legend both answered to "Colour", which
+    // is a screen reader hearing the same name twice with no way to tell the sides apart — and an
+    // `aria-label` could not fix it, because zag points `aria-labelledby` at the legend and that
+    // wins. `decisions/adopt-the-part-the-machine-ships.md` is the rule; this is the case.
+    <RadioGroup
+      className="flex flex-col gap-2 rounded-lg border border-border p-2.5"
+      onBlur={onRestore}
+      onPointerLeave={onRestore}
+      onValueChange={(d) => {
+        if (!d.value) return;
+        const [palette, identity = ""] = d.value.split(KEY_SEPARATOR);
+        onRestore();
+        setPalette(palette ?? "", { appearance: side, identity });
+      }}
+      slot="preferences-side-card"
+      value={selected}
+    >
+      <span className="flex items-center gap-1.5">
+        <RadioGroupLabel className="flex items-center gap-1.5">
+          <Icon className="size-3.5 text-muted-foreground" />
+          <span className={cn(PREF_LABEL_SIZE, "font-medium")}>{formatSide(side)}</span>
+        </RadioGroupLabel>
+        {/* Which side is applied right now. Without it the two cards are indistinguishable states of
+            one control, and a reader changing the wrong one gets no feedback at all — the page does
+            not move, because they edited the side they are not in.
+            
+            OUTSIDE the label, and that is not cosmetic: the group takes its accessible name from the
+            label's text, so a badge inside made every group answer to "LightActive". */}
+        {live ? (
+          <Badge className="ms-auto" variant="info">
+            Active
+          </Badge>
+        ) : null}
+      </span>
+
+      <PalettePreview
+        appearance={side}
+        identity={current?.identity ?? ""}
+        palette={current?.scope ?? ""}
+      />
+
+      <span className="truncate text-muted-foreground text-xs">{current?.label}</span>
+
+      <span className="flex flex-wrap gap-1">
+        {entries.map((entry) => (
+          <RadioGroupCard
+            // A chip, not a card: the depiction is one dot and the name is the accessible name.
+            className="size-6 items-center justify-center rounded-full p-0"
+            key={entry.key}
+            // Hovering only previews on the side being worn. Previewing the other one would repaint
+            // the page into a mode the reader did not ask for, which is a worse lie than no preview.
+            onFocus={live ? () => onPreview(entry.scope, entry.identity) : undefined}
+            onPointerEnter={live ? () => onPreview(entry.scope, entry.identity) : undefined}
+            title={entry.label}
+            value={entry.key}
+          >
+            <span
+              aria-hidden
+              className={cn("size-3.5 rounded-full bg-primary ring-1 ring-border", side)}
+              data-identity={entry.identity || undefined}
+              data-palette={entry.scope || undefined}
+              data-slot="palette-chip"
+            />
+            <ArkRadioGroup.ItemText className="sr-only">{entry.label}</ArkRadioGroup.ItemText>
+          </RadioGroupCard>
+        ))}
+      </span>
+    </RadioGroup>
+  );
+}
+
 function ColorSection({
   label = "Colour",
   retiredTitle = DEFAULT_RETIRED_TITLE,
   formatRetired = DEFAULT_RETIRED,
+  formatSide = DEFAULT_SIDE_LABEL,
 }: PreferencesColorProps = {}) {
   const {
     defaultPalette,
+    paletteByAppearance,
     palettes,
     resolvedAppearance,
     resolvedPalette,
@@ -541,54 +665,65 @@ function ColorSection({
   if (entries.length < 2) return null;
 
   const retired = retiredPalette ?? retiredIdentity;
-  // The selection is a pair, so the checked entry is the pair — and it is read from the RESOLVED
-  // values, not the preferences: an empty preference is a deferral to the document, and the entry
-  // that reads as checked has to be the one on screen.
-  const selected = entries.some((entry) => entry.key === resolvedPalette)
-    ? resolvedPalette
-    : `${resolvedPalette}${KEY_SEPARATOR}${resolvedIdentity}`;
+
+  /**
+   * Which entry a side is wearing.
+   *
+   * For the applied side this is the RESOLVED pair, never the preference: an empty preference is a
+   * deferral to the document, and the entry that reads as checked has to be the one on screen.
+   * For the other side there is nothing on screen to agree with, so it falls back the same way the
+   * provider would — the stored value, or the tenant's default.
+   */
+  const selectedFor = (side: Appearance) => {
+    const palette =
+      (side === resolvedAppearance ? resolvedPalette : paletteByAppearance[side]) || defaultPalette;
+    if (entries.some((entry) => entry.key === palette)) return palette;
+    const identity = side === resolvedAppearance ? resolvedIdentity : "";
+    const pair = `${palette}${KEY_SEPARATOR}${identity}`;
+    // A brand this user has not chosen on that side resolves to the document's first, which is the
+    // one `:root` paints — the same answer the provider gives, arrived at the same way.
+    return entries.some((entry) => entry.key === pair) ? pair : `${palette}${KEY_SEPARATOR}`;
+  };
 
   return (
-    <PrefFieldSet label={label}>
-      {/* A grid, because the list is the one section that grows with the tenant. Stacked at full
-          width the five this site publishes took half the panel's scroll height and pushed every
-          other axis below the fold; a client publishing a dozen would have owned the whole of it. */}
-      <RadioGroup
-        className="grid grid-cols-2 gap-2"
-        onBlur={restore}
-        onPointerLeave={restore}
-        onValueChange={(d) => {
-          if (!d.value) return;
-          const [palette, identity = ""] = d.value.split(KEY_SEPARATOR);
-          // The preview held the choice on <html> already; the snapshot it would restore is the
-          // palette being left, so it has to be dropped before the write lands.
-          restore();
-          // One call, because it is one choice, and `setPalette` is what knows which side is being
-          // written — a palette is chosen per appearance. It also files the outgoing brand under the
-          // palette being left and would otherwise restore a remembered one over the top of this.
-          setPalette(palette ?? "", identity);
-        }}
-        value={selected}
-      >
-        {entries.map((entry) => (
-          <RadioGroupCard
-            className="flex-col items-stretch gap-1.5 p-1.5"
-            key={entry.key}
-            onFocus={() => preview(entry.scope, entry.identity)}
-            onPointerEnter={() => preview(entry.scope, entry.identity)}
-            value={entry.key}
-          >
-            <PalettePreview
-              appearance={resolvedAppearance}
-              identity={entry.identity}
-              palette={entry.scope}
+    // A plain heading, not `PrefFieldSet`, and that is forced rather than chosen. Ark's
+    // `useRadioGroup` takes its `ids.label` from an ambient fieldset's legend and zag sets
+    // `aria-labelledby` from it, so inside one every group answers to "Colour" and the label part
+    // cannot win. Two groups live here, so the section keeps a heading and each card carries its
+    // own name.
+    <div className="flex flex-col gap-2">
+      <span className={cn(PREF_LABEL_SIZE, PREF_LABEL, "mb-1")}>{label}</span>
+      {/* Two sibling cards, one per side — GitHub's Appearance page, whose move this borrows: the
+          tile shows the thing being themed rather than naming it.
+          
+          What is NOT borrowed is their semantics. GitHub pairs a day theme with a night theme
+          because its themes are single-mode; ours each carry both, so a card is not "the light
+          theme" but *which of the tenant's documents this user wears on the light side*.
+          See `decisions/a-palette-is-chosen-per-appearance.md`.
+          
+          A container query rather than a media query, because the question is how much room THIS
+          section was given, not how big the window is. The same markup is one column inside a
+          384px drawer and two on a settings page, which is the whole claim that a section is
+          independent of the surface that hosts it. */}
+      <div className="@container">
+        <div className="grid gap-2 @md:grid-cols-2">
+          {APPEARANCES.map((side) => (
+            <SideCard
+              entries={entries}
+              formatSide={formatSide}
+              key={side}
+              live={side === resolvedAppearance}
+              onPreview={preview}
+              onRestore={restore}
+              resolvedIdentity={resolvedIdentity}
+              resolvedPalette={resolvedPalette}
+              selectedFor={selectedFor}
+              setPalette={setPalette}
+              side={side}
             />
-            <ArkRadioGroup.ItemText className="truncate text-muted-foreground text-xs">
-              {entry.label}
-            </ArkRadioGroup.ItemText>
-          </RadioGroupCard>
-        ))}
-      </RadioGroup>
+          ))}
+        </div>
+      </div>
       {/* One notice for both, because there is one choice: whichever half the tenant withdrew, what
           the user lost is the colours they picked. No toast — a document is served, so the page they
           are reading is already the default one and nothing is about to change under them. */}
@@ -599,7 +734,7 @@ function ColorSection({
           <AlertDescription>{formatRetired({ choice: retired })}</AlertDescription>
         </Alert>
       ) : null}
-    </PrefFieldSet>
+    </div>
   );
 }
 

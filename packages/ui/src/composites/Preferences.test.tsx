@@ -167,7 +167,11 @@ describe("Preferences", () => {
       ],
     };
     const DRACULA = { value: "dracula", label: "Dracula" };
-    const colour = () => within(screen.getByRole("radiogroup", { name: "Colour" }));
+    // Two groups now, one per side — `Light` is the applied one under these stubs. Naming the side
+    // is what makes them addressable at all: inside one fieldset they would both be "Colour".
+    const colour = () => within(screen.getByRole("radiogroup", { name: "Light" }));
+    /** The other side's group — the one a reader edits without repainting what they are looking at. */
+    const darkSide = () => within(screen.getByRole("radiogroup", { name: "Dark" }));
 
     it.each([
       ["nothing wired", undefined],
@@ -176,7 +180,7 @@ describe("Preferences", () => {
     ])("offers no group when the tenant published %s", (_name, list) => {
       setup(undefined, list ? { palettes: list } : {});
 
-      expect(screen.queryByRole("radiogroup", { name: "Colour" })).toBeNull();
+      expect(screen.queryByRole("radiogroup", { name: "Light" })).toBeNull();
     });
 
     it("flattens a palette's brands into the one list", () => {
@@ -243,11 +247,28 @@ describe("Preferences", () => {
       expect(html().getAttribute("data-palette")).toBe("dracula");
     });
 
+    it("writes the other side without repainting the one being read", async () => {
+      // The whole point of two cards. Choosing a night palette in daylight has to reach the dark
+      // key and leave `<html>` alone — a control that repainted the page to show you what you were
+      // configuring would be changing the thing you did not ask it to change.
+      setup(undefined, { palettes: [BANK, DRACULA] });
+
+      await userEvent.setup().click(darkSide().getByRole("radio", { name: "Dracula" }));
+
+      expect(stored().paletteByAppearance).toEqual({ dark: "dracula" });
+      expect(html().hasAttribute("data-palette"), "the applied side is untouched").toBe(false);
+    });
+
     it("comes first in the panel body", () => {
       setup(undefined, { palettes: [BANK, DRACULA] });
 
+      // Colour is no longer a `<legend>`: two radio groups live in it, and an ambient fieldset
+      // makes both answer to its legend — so the section keeps a heading and each card names
+      // itself. Ordering is asserted against the panel's first child rather than the first legend.
+      const body = document.querySelector("[data-slot=preferences-panel] form");
+      expect(body?.firstElementChild?.textContent?.startsWith("Colour")).toBe(true);
       const legends = [...document.querySelectorAll("[data-slot=preferences-panel] legend")];
-      expect(legends[0]?.textContent).toBe("Colour");
+      expect(legends[0]?.textContent, "Density is the first fieldset now").toBe("Density");
     });
 
     it("says so when the tenant withdrew what this user had chosen", () => {
@@ -343,7 +364,7 @@ describe("Preferences", () => {
       for (const a of MANAGED_ATTRS) expect(html().hasAttribute(a)).toBe(false);
       // One palette, so the entries carry no prefix — and Reset put the choice back on the brand the
       // document paints by default rather than leaving nothing checked.
-      const colour = within(screen.getByRole("radiogroup", { name: "Colour" }));
+      const colour = within(screen.getByRole("radiogroup", { name: "Light" }));
       expect((colour.getByRole("radio", { name: "Retail" }) as HTMLInputElement).checked).toBe(true);
     });
   });
