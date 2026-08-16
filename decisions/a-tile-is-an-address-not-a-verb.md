@@ -11,8 +11,8 @@
   holds. Levels are separate relations with their own numbering, and if choosing among them ever
   needs an answer from the corpus rather than a number from the manifest, the camera has become a
   question and this record is wrong.
-- **Held by** `packages/graph/src/bounded.ts`, `SliceQuery`; `packages/graph/src/duck-source.ts`,
-  `duckBoundedSource`.
+- **Held by** `packages/graph/src/duck-source.ts`, `corpusSource`;
+  `packages/graph/src/bounded.ts`, `ExploringSource`.
 
 ## It was a verb, on the other side of the seam, and it was deleted
 
@@ -42,11 +42,15 @@ identities into the buffer indices cosmos.gl draws at, and the canvas sets
 the canvas applies them as a mask over the tiles it already holds* — and we had built it without
 reading it that way.
 
-The second line has a hole already cut for it. `SliceQuery` carries
-`{ kind: "neighbourhood", seeds, depth }`, and `duckBoundedSource` refuses it in as many words: *a
-neighbourhood query would mean recursive joins over the whole edge table, which is the unbounded
-pattern wearing a bounded interface — fossil's `expand` is the source that should answer it.* The
-verb is named in our contract before anything implements it.
+The second line has a hole already cut for it, and the verb is named in our contract before anything
+implements it. `ExploringSource.explore({ seeds, depth })` is the shape, and the sources that cannot
+answer it say so by not having the method — `duckBoundedSource` and `corpusSource` both, in as many
+words: *a neighbourhood query would mean recursive joins over the whole edge table, which is the
+unbounded pattern wearing a bounded interface, and fossil's `expand` is what answers it.*
+
+That shape was a variant of `slice` when this record was first written — `SliceQuery` carried
+`{ kind: "neighbourhood", … }` beside the rectangle — which made *cannot walk edges* something a
+caller learned from a predicate and a throw rather than from the type.
 
 ## What the addressing costs, and where it does not help
 
