@@ -141,9 +141,16 @@ describe("@kanzo-tech/graph public surface", () => {
     // per product, and none of them is in here. What it missed is the three underneath that were
     // identical everywhere and hand-wired at each call site.
     expect(GRAPH.GraphCanvas).toBeTypeOf("function");
-    expect(GRAPH.useGraphCanvas).toBeTypeOf("function");
+    // Ark's four, and the two names that carry the convention: `useGraph` **creates**,
+    // `useGraphContext` **reads**. `useGraphCanvas` was the reader wearing the creator's name, so
+    // anyone arriving from Ark read it as the opposite of what it did. It is renamed, not aliased —
+    // nothing is published and rule 1 forbids the shim.
+    expect(GRAPH.useGraph).toBeTypeOf("function");
+    expect(GRAPH.GraphRootProvider).toBeTypeOf("function");
+    expect(GRAPH.useGraphContext).toBeTypeOf("function");
+    expect(surface.useGraphCanvas).toBeUndefined();
     // The hooks stay beside it, which is the whole shape of the concession: a host needing a policy
-    // the component does not impose reaches for these, as `useChart` sits beside `ChartRoot`.
+    // the component does not impose reaches for these, as `useChartContext` sits beside `ChartRoot`.
     expect(GRAPH.useCosmosGraph).toBeTypeOf("function");
     expect(GRAPH.useBoundedGraph).toBeTypeOf("function");
     // ADR-0001. `load()` read the whole relation into memory — every id, every row, an id→index map

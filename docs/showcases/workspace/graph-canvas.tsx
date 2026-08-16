@@ -2,7 +2,6 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
-import { Graph } from "@cosmos.gl/graph";
 import { Query } from "@uwdata/mosaic-sql";
 // `useChartCapacity` sits on the root barrel and the database half does not: anything painting
 // from tokens needs the first, only a Mosaic consumer needs the second.
@@ -42,13 +41,12 @@ import {
   scaleOf,
   SHAPE_PATH,
   vertexId,
-  type Resident,
+  type GraphApi,
+  type GraphOverlays,
   type ShapeId,
   type Slice,
   type VertexId,
-  useBoundedGraph,
-  useCosmosGraph,
-  useGraphLook,
+  useGraph,
   useGraphOverlays,
   useGraphSelection,
 } from "@kanzo-tech/graph";
@@ -99,7 +97,7 @@ const FLOATING = "rounded-lg border bg-card shadow-sm";
  */
 const SELECTION_WASH = "var(--brand-a5)";
 
-/** Nobody drawn yet, for the frames before the first answer. */
+/** Nobody drawn yet, for the frames before `useGraph` has published its first answer. */
 const NOBODY = residentOf(null);
 
 /**
@@ -261,28 +259,37 @@ function CanvasBody() {
   const { coordinator, crossfilter } = useMosaic();
   const look = LOOKS[lookId];
 
-  const canvasRef = useRef<HTMLDivElement>(null);
-  const graphAccess = useCallback(() => graphRef.current, []);
   /**
-   * Who is drawn, where every callback installed once can still read it.
+   * The overlays, reached from inside the graph's own callbacks.
    *
-   * The map itself belongs to `useBoundedGraph` — it is rebuilt with every answer, which is what
-   * makes it correct — and this is only the pointer at the current one. Building a second here is
-   * what this change removed: it was one render behind the buffers on screen.
+   * This ref is the whole of what it costs to compose the two, and the cycle it breaks is real
+   * rather than an artefact: `useGraphOverlays` needs `getGraph` and `getResident`, which only exist
+   * once `useGraph` has run, and the graph's `onTick`/`onZoom`/`onPointerOver` owe the overlays a
+   * repaint. Something has to be declared first, and a ref written on render is the standard answer.
+   *
+   * It replaced four hand-built pieces — a `graphRef`, a `residentRef`, and a `useCallback` accessor
+   * for each — that existed only to be threaded between hooks in the right order. Those are
+   * `useGraph`'s now, and the ordering is its problem.
    */
-  const residentRef = useRef<Resident>(NOBODY);
-  const getResident = useCallback(() => residentRef.current, []);
-  const {
-    cardRef,
-    gridRef,
-    hostRef,
-    labelRef,
-    schedule,
-    setHovered: trackHovered,
-    setLabelOrder,
-    track,
-  } = useGraphOverlays({ getGraph: graphAccess, getResident });
-  const graphRef = useRef<Graph | null>(null);
+  const overlaysRef = useRef<GraphOverlays | null>(null);
+  const schedule = useCallback(() => overlaysRef.current?.schedule(), []);
+
+  /**
+   * The graph, reachable from the callbacks that are declared before it.
+   *
+   * `applyPins`, `unfocus` and `commit` all touch the renderer, and all three are arguments to
+   * `useGraph` by way of the `events` block — so they cannot be declared after it, and it cannot be
+   * declared after them. The dependency is genuinely mutual and something has to be the fixed point.
+   *
+   * These three accessors are stable for the component's whole life, which is what makes them safe
+   * to depend on: `useGraph`'s own `getGraph`/`getResident` are built once, and the indirection adds
+   * a `?.` and nothing else. Before the first render completes there is no renderer to reach anyway,
+   * and every one of these already handles that case.
+   */
+  const apiRef = useRef<GraphApi | null>(null);
+  const getGraph = useCallback(() => apiRef.current?.getGraph() ?? null, []);
+  const getResident = useCallback(() => apiRef.current?.getResident() ?? NOBODY, []);
+  const refresh = useCallback(() => apiRef.current?.refresh(), []);
   const clientRef = useRef<IdSetClient | null>(null);
   const sliceRef = useRef<Slice | null>(null);
 
@@ -356,18 +363,31 @@ function CanvasBody() {
   /** Hand the pin set to the GPU — resolved to this answer — and tell the panels how big it is. */
   const applyPins = useCallback(() => {
     const held = [...pins.current];
-    const indices = residentRef.current.indicesOf(held);
-    graphRef.current?.setPinnedPoints(indices.length > 0 ? indices : null);
+    const indices = getResident().indicesOf(held);
+    getGraph()?.setPinnedPoints(indices.length > 0 ? indices : null);
     handlers.current.setPinned(held.length);
     setPinnedVertices(held);
-  }, []);
+    /**
+     * Ask again, because the pinned set is part of the question.
+     *
+     * `useBoundedGraph` says this in as many words — *wire it to the camera, and call it when the
+     * pinned set changes* — and this host did not, which the migration is what surfaced: `refresh`
+     * came back from the loop and the only thing that used it was `onZoom`, which `useGraph` now
+     * does itself, leaving the binding unused.
+     *
+     * What it was costing is `reveal`: pinning a node the camera is nowhere near is how that node is
+     * made to arrive, and with nothing re-asking it only arrived on the reader's next pan. The
+     * refresh is debounced, so the state update above has landed by the time the question is put.
+     */
+    refresh();
+  }, [getGraph, getResident, refresh]);
 
   /** Drop the focus ring. A ring on a node nobody picked is a claim the selection is not making. */
   const unfocus = useCallback(() => {
     setFocusedVertex(null);
     handlers.current.setFocused(null);
-    graphRef.current?.setConfigPartial({ focusedPointIndex: undefined });
-  }, []);
+    getGraph()?.setConfigPartial({ focusedPointIndex: undefined });
+  }, [getGraph]);
 
   const commit = useCallback(
     (vertices: Set<VertexId> | null, source: SelectionSource, label: string) => {
@@ -386,15 +406,15 @@ function CanvasBody() {
       // crossfilter update and a DuckDB query away, and the reader drew this loop a frame ago.
       // Greyout is a texture upload the next frame samples, so the optimistic answer costs nothing
       // and the correction overwrites it.
-      const graph = graphRef.current;
+      const graph = getGraph();
       if (graph) {
         graph.setConfigPartial({
-          highlightedPointIndices: residentRef.current.indicesOf(vertices),
+          highlightedPointIndices: getResident().indicesOf(vertices),
         });
       }
       handlers.current.select({ vertices: [...vertices], source, label });
     },
-    [unfocus],
+    [getGraph, getResident, unfocus],
   );
 
   /**
@@ -420,17 +440,74 @@ function CanvasBody() {
     [coordinator, spec],
   );
 
-  const { resident, slice, total, refresh } = useBoundedGraph({
-    graphRef,
-    hostRef: canvasRef,
-    onError: setFailure,
+  /**
+   * The graph: one call where there were four hooks and four refs.
+   *
+   * `useGraph` owns the renderer's lifetime, the query loop and the look, and hands back the two
+   * accessors every callback here reads. What it also owns — and this is the part that was worth the
+   * migration — is the resolving: `onPointClick`, `onPointerOver` and `onDragEnd` used to open with
+   * the same three lines turning a buffer index into a vertex and bailing if it resolved to nothing.
+   * A stale slot now simply does not call anything.
+   *
+   * `onZoom` no longer calls `refresh` either. The camera moving is how a bounded graph is re-asked
+   * and the loop does it; what arrives here is the notification, which the overlays want.
+   */
+  const api = useGraph({
+    display,
+    events: {
+      onBackgroundClick: () => commit(null, "node", ""),
+      // Dropping a node onto the same node it was already pinned at is a no-op the `Set` absorbs,
+      // and dropping a pinned node somewhere else re-pins it there — both are what the gesture says.
+      // Recorded as an identity: the gesture happened to a node, not to a slot in the current answer.
+      onDragEnd: (vertex) => {
+        pins.current.add(vertex);
+        applyPins();
+      },
+      onPointClick: (vertex, instance, index) => {
+        // A node and what it touches: the honest reading of "show me this one", and the same clause
+        // shape the marquee publishes, so every other panel understands it already. What it *touches*
+        // is what is drawn — the renderer's adjacency over this answer, not the graph's own, which is
+        // a `neighbourhood` query a relational source cannot serve.
+        commit(
+          new Set([vertex, ...api.getResident().verticesAt(neighboursOf(instance, index))]),
+          "node",
+          "Node",
+        );
+        setFocusedVertex(vertex);
+        handlers.current.setFocused(vertex);
+        instance.setConfigPartial({ focusedPointIndex: index });
+      },
+      onPointerOut: () => {
+        overlaysRef.current?.setHovered(null);
+        setPointer(null);
+      },
+      // A vertex, and then a query. The card used to be a property lookup on a row the canvas already
+      // held; it is now a fetch, which is the one user-visible regression ADR-0001 names.
+      onPointerOver: (vertex, index) => {
+        overlaysRef.current?.setHovered(vertex);
+        setPointer({ vertex, ordinal: sliceRef.current?.categories[index] ?? 0 });
+      },
+      onTick: schedule,
+      onZoom: schedule,
+    },
+    look,
+    onFailure: setFailure,
     pinned: pinnedVertices,
+    report,
+    reportProgress,
+    schedule,
+    sim,
     source,
   });
+  apiRef.current = api;
+  const { resident, slice, total } = api;
+
+  const overlays = useGraphOverlays({ getGraph, getResident });
+  overlaysRef.current = overlays;
+  const { cardRef, gridRef, hostRef, labelRef, setLabelOrder, track } = overlays;
 
   // The lookups every callback needs, kept where a callback installed once can still read them.
   sliceRef.current = slice;
-  residentRef.current = resident;
   const totalRef = useRef<number | undefined>(undefined);
   totalRef.current = total;
 
@@ -458,7 +535,7 @@ function CanvasBody() {
       // Comparing it to the slice would read a full survivor set as a filter every time the camera
       // was over fewer nodes than the corpus holds, which is almost always.
       onSurvivors: (ids) => {
-        const graph = graphRef.current;
+        const graph = getGraph();
         if (!graph) return;
         if (totalRef.current !== undefined && ids.length === totalRef.current) {
           graph.setConfigPartial({ highlightedPointIndices: undefined });
@@ -468,7 +545,7 @@ function CanvasBody() {
         // Completing the pair here is the seam: `IdSetClient` speaks one table, and one table is one
         // vertex type.
         const survivors = ids.map((id) => vertexId(spec.typeIndex, Number(id)));
-        graph.setConfigPartial({ highlightedPointIndices: residentRef.current.indicesOf(survivors) });
+        graph.setConfigPartial({ highlightedPointIndices: getResident().indicesOf(survivors) });
       },
     });
     clientRef.current = client;
@@ -478,7 +555,7 @@ function CanvasBody() {
       client.publish(null);
       coordinator.disconnect(client);
     };
-  }, [coordinator, crossfilter, spec]);
+  }, [coordinator, crossfilter, getGraph, getResident, spec]);
 
   /**
    * The selection, as SQL. The only place anything in this app publishes one — a panel hands a
@@ -541,16 +618,16 @@ function CanvasBody() {
   useEffect(() => {
     register({
       zoomBy: (factor) => {
-        const graph = graphRef.current;
+        const graph = getGraph();
         if (!graph) return;
         graph.setZoomLevel(graph.getZoomLevel() * factor, 220);
         schedule();
       },
       fit: () => {
-        graphRef.current?.fitView(420, 0.18);
+        getGraph()?.fitView(420, 0.18);
         schedule();
       },
-      pause: () => graphRef.current?.pause(),
+      pause: () => getGraph()?.pause(),
       /**
        * Make it move again — whatever "again" means from here.
        *
@@ -562,7 +639,7 @@ function CanvasBody() {
        * know that cosmos.gl has two different kinds of stopped.
        */
       resume: () => {
-        const graph = graphRef.current;
+        const graph = getGraph();
         if (!graph) return;
         if (motionRef.current === "settled") graph.start(REHEAT);
         else graph.unpause();
@@ -578,7 +655,7 @@ function CanvasBody() {
       restart: () => {
         pins.current.clear();
         applyPins();
-        graphRef.current?.start(1);
+        getGraph()?.start(1);
       },
       unpin: () => {
         if (pins.current.size === 0) return;
@@ -586,7 +663,7 @@ function CanvasBody() {
         applyPins();
         // Released nodes are where the drag left them and nothing is pulling on them yet, so
         // without a nudge the picture keeps the shape the pins gave it and the button looks broken.
-        graphRef.current?.start(REHEAT);
+        getGraph()?.start(REHEAT);
       },
       /**
        * The same thing a click on the canvas does, plus the camera.
@@ -604,9 +681,9 @@ function CanvasBody() {
        * rectangle, so the next slice contains it and the reveal lands.
        */
       reveal: (vertex) => {
-        const graph = graphRef.current;
+        const graph = getGraph();
         if (!graph) return;
-        const drawn = residentRef.current;
+        const drawn = getResident();
         const index = drawn.indexOf(vertex);
         if (index === undefined) {
           pins.current.add(vertex);
@@ -632,9 +709,9 @@ function CanvasBody() {
        * the selection's own size still comes from the query, not from this count.
        */
       frameSelection: () => {
-        const graph = graphRef.current;
+        const graph = getGraph();
         if (!graph) return;
-        const indices = residentRef.current.indicesOf(live.current?.vertices ?? []);
+        const indices = getResident().indicesOf(live.current?.vertices ?? []);
         if (indices.length === 0) return;
         graph.fitViewByPointIndices(indices, 420, 0.25);
         schedule();
@@ -642,80 +719,23 @@ function CanvasBody() {
       clear: () => commit(null, "node", ""),
     });
     return () => register(null);
-  }, [applyPins, commit, register, schedule]);
+  }, [applyPins, commit, getGraph, getResident, register, schedule]);
 
-  useCosmosGraph({
-    events: {
-      onBackgroundClick: () => commit(null, "node", ""),
-      // Dropping a node onto the same node it was already pinned at is a no-op the `Set` absorbs,
-      // and dropping a pinned node somewhere else re-pins it there — both are what the gesture says.
-      // Recorded as an id: the gesture happened to a node, not to a slot in the current answer.
-      onDragEnd: (index) => {
-        const vertex = residentRef.current.at(index);
-        if (vertex === undefined) return;
-        pins.current.add(vertex);
-        applyPins();
-      },
-      onPointClick: (instance, index) => {
-        const drawn = residentRef.current;
-        const vertex = drawn.at(index);
-        if (vertex === undefined) return;
-        // A node and what it touches: the honest reading of "show me this one", and the same clause
-        // shape the marquee publishes, so every other panel understands it already. What it *touches*
-        // is what is drawn — the renderer's adjacency over this answer, not the graph's own, which is
-        // a `neighbourhood` query a relational source cannot serve.
-        commit(
-          new Set([vertex, ...drawn.verticesAt(neighboursOf(instance, index))]),
-          "node",
-          "Node",
-        );
-        setFocusedVertex(vertex);
-        handlers.current.setFocused(vertex);
-        instance.setConfigPartial({ focusedPointIndex: index });
-      },
-      onPointerOut: () => {
-        trackHovered(null);
-        setPointer(null);
-      },
-      // A vertex, and then a query. The card used to be a property lookup on a row the canvas already
-      // held; it is now a fetch, which is the one user-visible regression ADR-0001 names.
-      onPointerOver: (index) => {
-        const vertex = residentRef.current.at(index);
-        if (vertex === undefined) return;
-        trackHovered(vertex);
-        setPointer({ vertex, ordinal: sliceRef.current?.categories[index] ?? 0 });
-      },
-      onTick: schedule,
-      // The camera moved: place the overlays, and ask the source about wherever it is now. `refresh`
-      // debounces, so a pan is one question rather than one per frame.
-      onZoom: () => {
-        schedule();
-        refresh();
-      },
-    },
-    graphRef,
-    hostRef: canvasRef,
-    onFailure: setFailure,
-    report,
-    reportProgress,
-    sim,
-  });
-
-  // After the constructor, for the same reason `useGraphLook` is: the graph the overlays register
-  // against is built by the hook above, and effects run in declaration order. `slice` is a dependency
-  // because every answer re-uploads positions, and that clears the registration on its way through.
+  /**
+   * Re-register the tracked points, after every answer.
+   *
+   * `slice` is a dependency because every answer re-uploads positions, and that is what clears the
+   * registration on its way through. The ordering worry this used to carry is gone: it was placed
+   * "after the constructor" because effects run in declaration order and `useCosmosGraph` was a
+   * sibling call here. The constructor is inside `useGraph` now, so it has already run.
+   */
   useEffect(() => {
     track();
   }, [slice, tracked, hoveredVertex, track]);
 
-  // After the constructor, not before it. Effects in one component run in declaration order, so
-  // above this the look's first upload found `graphRef.current` still null and bailed — the picture
-  // only picked up its colours when something else moved (a theme mutation on `<html>`, a slider).
-  useGraphLook({ display, getGraph: graphAccess, hostRef, look, schedule, slice });
-
   const gesture = useGraphSelection({
     commit,
-    getGraph: graphAccess,
+    getGraph,
     getResident,
     getSelection: useCallback(() => live.current, []),
     setTool,
@@ -765,7 +785,15 @@ function CanvasBody() {
             deadlock: no host, no camera, no question, no answer. The waiting state is an overlay
             over an empty canvas instead of a substitute for it.
           */}
-          <div className="size-full" ref={canvasRef} />
+          {/*
+            `api.hostRef`, and this component keeps its own frame rather than taking
+            `GraphRootProvider`'s. The provider renders a frame, a surface and a context; here the
+            frame is already the overlays' measured box — it carries `useGraphOverlays`' own
+            `hostRef` and the plane's background — and none of the chrome reads the graph context,
+            because it reads `useGraphView` instead. So this host uses the factory without the
+            provider, which is a supported half of the same shape and not a workaround.
+          */}
+          <div className="size-full" ref={api.hostRef} />
 
           {/* Decoration, over the canvas rather than behind it: cosmos.gl paints an opaque
               background so its greyout maths knows what it is dimming against. */}

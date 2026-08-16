@@ -45,20 +45,39 @@ export {
   type ShapeId,
 } from "./graph-looks";
 
-// The canvas, and the hooks it is made of — a host that needs a policy the component does not
-// impose still reaches for these, which is the relationship `ChartRoot` has with `useChart`.
+/**
+ * The graph, in Ark's four pieces.
+ *
+ * `useGraph(props)` **creates** the api and `useGraphContext()` **reads** it, which is Ark's
+ * convention and was inverted here: the reader was `useGraphCanvas` and there was no creator.
+ * `GraphCanvas` is the shortcut that does both, and `GraphRootProvider` is what a host reaches for
+ * when it has to call a hook *beside* the canvas — `useGraphOverlays` and the `events` block want
+ * `getGraph` and `getResident` from above the element, where no context is readable.
+ *
+ * That was not a symmetry we wanted for its own sake: it is what the workspace could not adopt
+ * `GraphCanvas` without, and the `graphRef`/`residentRef` props that stood in for it are gone.
+ */
 export {
   GraphCanvas,
-  useGraphCanvas,
+  GraphRootProvider,
+  useGraphContext,
   type GraphCanvasProps,
-  type GraphCanvasEvents,
-  type GraphCanvasContextValue,
+  type GraphRootProviderProps,
 } from "./graph-canvas";
+export { useGraph, type GraphApi, type GraphEvents, type UseGraphProps } from "./use-graph";
 
 // The renderer's lifetime, and the three hooks that keep it in step with React.
 export { useCosmosGraph, REHEAT, type CosmosGraphOptions } from "./use-cosmos-graph";
 export { useGraphLook } from "./use-graph-look";
-export { useGraphOverlays, GRID, type GraphOverlayOptions } from "./use-graph-overlays";
+// `GraphOverlays` is exported alongside its options because a host composing it with `useGraph` has
+// to name the returned object: the two are mutually dependent — overlays need `getGraph`, and the
+// graph's repaint owes the overlays a nudge — so one of them is held in a ref, and a ref needs a type.
+export {
+  useGraphOverlays,
+  GRID,
+  type GraphOverlayOptions,
+  type GraphOverlays,
+} from "./use-graph-overlays";
 export { useGraphSelection, cursorChip } from "./use-graph-selection";
 
 /**
@@ -124,9 +143,11 @@ export {
   type BoundedGraphState,
 } from "./use-bounded-graph";
 export { memorySource, type MemoryGraph } from "./memory-source";
-// The DuckDB source is on `@kanzo-tech/graph/duckdb`, not here: Mosaic is an optional peer and that
-// is the half that needs it. A host drawing arrays it already holds should not import a database to
-// find out it did not need one.
+// The DuckDB sources are on `@kanzo-tech/graph/duckdb`, not here: Mosaic is an optional peer and
+// that is the half that needs it. A host drawing arrays it already holds should not import a
+// database to find out it did not need one. Two live there and they are different jobs —
+// `duckBoundedSource` over any relation with `x`/`y`, and `corpusSource` over a tree fossil wrote,
+// which takes no column names because they come from the manifest.
 
 // Cluster seeding — what actually separates communities, as opposed to what looks like it should.
 export { clusterRing } from "./cluster-ring";
