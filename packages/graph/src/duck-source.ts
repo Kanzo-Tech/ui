@@ -214,7 +214,13 @@ async function detail(
           c.subject ? ", subject" : ""
         } FROM vis ORDER BY local`,
     ),
-    // Both endpoints must be visible: an edge with one end off-screen has nowhere to land.
+    // Both endpoints must be visible. An edge with one end off-slice is dropped, and that is a **limit of this reader rather
+    // than of the corpus.** It reads like an impossibility and is not: a corpus carries
+    // `by_target.parquet`, the CSC half, precisely so that "an edge with one endpoint off screen"
+    // can be answered — it is a second addressing pass, not a missing fact. What is true is
+    // narrower: this slice has no position to draw the far end at, because the far end is not in
+    // the answer. Drawing it needs a segment clipped to the viewport, which is a renderer decision
+    // nobody has made, and the vertices to clip against, which is the CSC read nobody has written.
     onceQuery(
       coordinator,
       () => `${cte}

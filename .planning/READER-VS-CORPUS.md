@@ -102,10 +102,16 @@ Es la única consulta del camino que escala con el corpus y no tiene nada que po
 | El orden secundario no se puede asumir | no lo asumimos | coincide |
 | Una arista con un extremo fuera necesita la mitad CSC | la descartamos: *«an edge with one end off-screen has nowhere to land»*, en los dos sources | coincide en el hecho, difiere en la lectura |
 
-Ese último punto es la refutación sin recoger del §3E del plan. La página la trata como una pregunta
-distinta que el corpus **ya puede responder** (lleva la mitad CSC), no como algo indibujable.
-Nosotros lo tenemos escrito como si fuese imposible. Cuando se recoja, la frase de los dos ficheros
-es lo que hay que cambiar.
+Ese último punto era la refutación sin recoger del §3E del plan, y **está recogida**: la página la
+trata como una pregunta distinta que el corpus ya puede responder —lleva la mitad CSC—, no como algo
+indibujable, y nosotros lo teníamos escrito como si fuese imposible en dos ficheros. Las dos frases
+dicen ahora lo que es cierto y lo que no.
+
+Lo cierto es más estrecho de lo que decían: el slice no tiene posición donde dibujar el extremo
+lejano porque el extremo lejano no está en la respuesta. Dibujarlo pide dos cosas que nadie ha
+hecho, y ninguna de las dos es el corpus — un segmento recortado contra el viewport, que es una
+decisión del renderizador, y la lectura de `by_target.parquet`, que es una segunda pasada de
+direccionamiento. Verificado contra el árbol: los cinco corpus llevan `by_target.parquet` escrito.
 
 `memorySource` construye la adyacencia no dirigida (`adjacency[src].push(dst)` y al revés), que es la
 unión CSR+CSC hecha en memoria. Consistente, sin conflicto.
