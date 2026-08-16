@@ -30,6 +30,18 @@ construir CSVs en el navegador: una llamada a `openCorpus({ coordinator, dest: "
 categoryField: "kind" })` da la fuente y los nombres de vista que `spec.table` / `spec.edges`
 necesitan.
 
+**Lo primero contra lo que se choca: los nombres de vista.** `ARCHIVE_SPEC.table` y `.edges` son
+constantes de módulo (`archive_nodes`, `archive_edge_pairs`) y `openCorpus` **deriva** los suyos
+(`corpus_Node`, `corpus_Node_edges`). Fijarlos a mano en el spec sería acoplar el showcase a cómo el
+paquete construye un nombre, que es lo que acabamos de quitar. Lo que hay que mover es el spec: hoy
+es una constante de módulo y tiene que pasar a salir de la apertura, junto a `ready`. `loadGraph()`
+ya vive detrás de `ensure(...)`, así que el sitio existe; lo que no existe es que el spec sea un
+valor del proveedor en vez de un `export const`.
+
+**Y la imagen cambia.** El layout pasa a ser el que escribe fossil, no el de `buildArchiveGraph`, así
+que esto pide mirarlo en el navegador y no sólo compilarlo — la retención de aristas por ventana y la
+legibilidad son justo lo que el corpus reordena.
+
 **El id se queda en `dense_id` y no pasa a `subject`, y esto se razonó y se corrigió una vez.**
 Todo uso del id en el workspace es de sesión — `useDetails` busca etiquetas del puñado que se va a
 dibujar, `IdSetClient` publica una cláusula que dura un gesto. Nada sobrevive a la pestaña, así que
