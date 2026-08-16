@@ -139,10 +139,19 @@ charts   <ChartRoot><ChartBarY/></ChartRoot>      el consumidor no construye nad
 graph    new Graph(...) + 5 hooks + ~700 líneas   el consumidor construye la instancia
 ```
 
-`@kanzo-tech/graph` importa cosmos.gl **sólo como tipo**: recibe el `Graph`, no lo crea. Por eso los
-dos showcases hacen `import { Graph } from "@cosmos.gl/graph"` — es la forma del paquete, no un
-descuido suyo. Falta un `<GraphCanvas>` dueño de la instancia, con los hooks quedándose como
-escotilla: la relación que `ChartRoot` tiene con `useChart`.
+> **Cerrado el 2026-08-14/15, y el párrafo de abajo ya no describe el paquete.** `useCosmosGraph`
+> hace `new Graph(host, …)`: cosmos.gl es un peer **requerido** y la instancia es del paquete. La
+> forma final son las cuatro piezas de Ark — `useGraph`, `GraphRootProvider`, `GraphCanvas`,
+> `useGraphContext` — y el workspace ya está migrado.
+> `decisions/a-canvas-component-owns-the-three-that-never-differ.md`.
+>
+> El benchmark sigue construyendo su propia instancia, y eso es deliberado: medir la subida es
+> justamente para lo que existe.
+
+`@kanzo-tech/graph` importaba cosmos.gl **sólo como tipo**: recibía el `Graph`, no lo creaba. Por eso
+los dos showcases hacían `import { Graph } from "@cosmos.gl/graph"` — era la forma del paquete, no un
+descuido suyo. Faltaba un `<GraphCanvas>` dueño de la instancia, con los hooks quedándose como
+escotilla: la relación que `ChartRoot` tiene con `useChartContext`.
 
 No depende de la tesela ni del formato. Se puede hacer en paralelo con todo lo anterior.
 

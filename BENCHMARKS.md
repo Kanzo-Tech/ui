@@ -96,6 +96,184 @@ flat line until it survives a cold start.**
 extension on first use and every read afterwards is in the tens of milliseconds. It is a
 first-use cost, not a corpus cost, and preloading the extension at boot would remove it.
 
+### The same sweep after the tile size moved — and it got 3.7× slower
+
+Re-run 2026-08-15, on the corpora rebuilt that day, single-threaded (`crossOriginIsolated` false
+on 14 cores), Chrome driven over the dev server. Same harness, same fixture shape, same code
+path.
+
+| Nodes | Links | Ingest | `total()` | First slice | With subject | Upload | **First paint** | Pan | Redraw | Shown / matched |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 2k | 12.5k | 10,718 ms | 16 ms | 98 ms | 22 ms | 31 ms | **145 ms** | 81 ms | 1,493 fps | 2k / 2k |
+| 10k | 69k | 62 ms | 10 ms | 29 ms | 25 ms | 37 ms | **75 ms** | 26 ms | 368 fps | 10k / 10k |
+| 50k | 332k | 90 ms | 14 ms | 59 ms | 59 ms | 32 ms | **105 ms** | 52 ms | 238 fps | 20k / 50k |
+| 200k | 1.37M | 256 ms | 59 ms | 168 ms | 161 ms | 33 ms | **259 ms** | 123 ms | 272 fps | 20k / 200k |
+| 1M | 6.90M | 1,423 ms | 180 ms | 724 ms | 648 ms | 28 ms | **931 ms** | 534 ms | 325 fps | 20k / 1M |
+
+The 2k ingest is DuckDB-WASM booting and fetching httpfs — a first-use cost the first size pays
+for the whole sweep, and the same one the note above records at around twenty seconds.
+
+**Against the run above: 253 ms became 931 ms at a million, and 132 became 259 at 200,000.** The
+smaller sizes barely moved. Every figure that grew is one that reads Parquet.
+
+**Why, isolated the same day — and the first guess was wrong about the mechanism.** The corpus was
+rebuilt with fossil's new tile size, so a million vertices went from 9 chunk files to 245 and the
+row groups inside them went from 122,880 rows to 4,096. Two variables moved together. Pulling them
+apart needs the same rows in three containers, which `duckdb` can write:
+
+```sql
+COPY (SELECT * FROM read_parquet([…245 chunks…]) ORDER BY dense_id)
+  TO 'all.parquet' (FORMAT PARQUET, ROW_GROUP_SIZE 4096);   -- and again at 122880
+```
+
+Same bytes — 17 MB either way — same tiling arithmetic, same first-slice query, over the same HTTP
+origin. Native `duckdb`, five cold processes per arm, median:
+
+| container | row groups | median |
+|---|---|---|
+| 245 files | 245 × 4,096 | **217 ms** |
+| one file | 245 × 4,096 | **129 ms** |
+| one file | 9 × 122,880 | **41 ms** |
+
+**The file count costs 1.7×; the row-group size costs 3.1×.** The first guess named the file count
+and it is the smaller term. Together they are 5.3×, which brackets the 3.7× the browser showed.
+
+The mechanism is the one the audit already names. A row group is the unit a reader *skips*, and
+skipping is what the footer's statistics are for. **This reader skips nothing** — it hands DuckDB
+every URL and a `WHERE`, so every row group is opened and decoded whatever its box says. For a
+reader like that, cutting the tile finer is pure metadata with no pruning to pay for it. The corpus
+picked 4,096 for the reader its conventions describe, one that computes every URL before it issues
+the first and selects row groups from the footer; it is the right number for that reader and the
+wrong one for ours.
+
+**What this is not.** Native DuckDB, multi-threaded, over a local origin — not DuckDB-WASM
+single-threaded in a tab, which is what the table above measures. The direction and the mechanism
+carry; the magnitude need not. And "cold" here means a fresh process, not a cold page cache: the
+first run of each arm was slower (661 ms for the large-row-group file) and is excluded from the
+median, so the comparison is warm-server for all three.
+
+**It is the sharpest argument yet for the addressed reader.** `.planning/READER-VS-CORPUS.md` §2
+calls reading an addressed corpus with a predicate our one head-on divergence with the conventions,
+and this is the first time it has a cost attached: **5.3× on the query that is first paint.**
+
+### The addressed reader is not a rewrite — it is a list of URLs, and it is 60×
+
+Measured 2026-08-15, native `duckdb` over the dev origin, the million-vertex corpus. A pan window
+sized by rank — the Chebyshev square around the centre holding 20,000 vertices, the same definition
+the harness uses — against the same bbox query.
+
+**16 of 245 tiles intersect it.** That is the Morton order doing its job: 6.5% of the corpus, from
+arithmetic on boxes the footer already carries.
+
+| what the query is handed | cold, three runs |
+|---|---|
+| all 245 chunk URLs, pruned with `WHERE` | 2.489 s · 0.258 s · 1.676 s |
+| **only the 16 intersecting URLs** | **0.028 s · 0.021 s · 0.032 s** |
+
+**Roughly 60× against the median, and 9× against the fastest run the slow arm managed.** The spread
+in the top row is itself the finding: 245 HTTP resources per query is not a stable cost.
+
+**And it needs no Parquet decoder.** This is the thing that was assumed to be expensive and is not.
+fossil writes **one file per tile**, so *choosing what to read* — which the conventions insist is
+what pruning is, as against selecting rows with a predicate — reduces to choosing which URLs go into
+`read_parquet([…])`. Three steps, all of them DuckDB:
+
+1. once per corpus, `parquet_metadata` over the chunks for each tile's `x`/`y` box;
+2. per camera move, keep the tiles whose box intersects the window — plain arithmetic, no query;
+3. `read_parquet([those URLs])` with the same bbox clause as today.
+
+No byte-range fetching, no Arrow IPC, no new dependency. The `WHERE` even stays, because inside the
+16 tiles it is doing the cheap job it is good at rather than standing in for the pruning.
+
+**Where it does not help, and it matters.** The *first* slice asks for the whole extent, where every
+tile intersects and this buys nothing. The win is on **pan** — which is the number the harness says
+decides how the view feels, and which is 534 ms at a million today.
+
+**What this is not.** Native DuckDB, not WASM in a tab. The footer pass is a one-time cost not timed
+here and it is the one thing that could eat into the win at small corpus sizes. And the window is one
+window at one zoom, not a distribution.
+
+### And the edge join was the wrong suspect — 1.3×, not the term that scales
+
+Same window, same corpus, same day. The edges a window can draw, read two ways:
+
+| the edges of that window | cold, three runs |
+|---|---|
+| the flat `by_source.parquet`, 6.9M rows, hash-joined | 0.081 s · 0.044 s · 0.048 s |
+| the 16 `by_source/tile{k}.parquet` the window already addresses | 0.034 s · 0.037 s · 0.037 s |
+
+**1.3×.** The standing claim — repeated in this file and in the reader's own comments — is that the
+edge join is *the one part of a slice that scans something proportional to the corpus with nothing to
+prune*, and therefore the term that makes first paint grow with N. On this measurement it is not: at
+a million the whole edge side is tens of milliseconds against a 724 ms slice.
+
+Two reasons it is cheaper than it reads. The relation is two `uint32` columns and nothing else, so
+6.9M rows is a small file; and `by_source.parquet` is CSR — sorted by `src_dense` — so its row-group
+statistics on the join key are exactly the thing a scan can skip on.
+
+**So reading edges by tile is elegance, not speed.** It is still the right shape — one address should
+serve both relations, and the corpus went to the trouble of keying edge tiles by the vertex tiles —
+but it should be adopted for what it is, and the performance argument belongs to the vertex side.
+
+**Where the first slice actually goes, and three refuted suspicions.** Broken down in one session,
+full extent, a million:
+
+| the three queries a detail slice issues | cold, in order |
+|---|---|
+| points — the CTE and its projection | **276 ms** |
+| links — the same CTE, joined twice against the edge relation | 85 ms |
+| `matched` — `count(*)` over the same predicate | 46 ms |
+
+**The first query is the slice.** The other two are nearly free because the bytes are already read.
+That refutes all three things this file and the reader's comments had suspected in turn: the edge
+join is not the term that scales (1.3× when addressed, and 85 ms here); the `matched` count is the
+smallest of the three, not a hidden scan; and materialising the visible set once instead of inlining
+the CTE into three queries — the obvious de-duplication — is **391 ms against 407 ms**, which is
+noise. There is no redundancy to remove.
+
+So first paint is one cold read of every vertex tile, and at full extent **there is no addressing
+that helps**: every tile intersects the opening view. The levers on that number are the container
+and the row-group size (5.3×, above), or opening on something other than the whole corpus. Pan is a
+different question with a different answer, and it is the one a reader feels.
+
+**A methodology note, because it nearly produced a finding.** Timed as three separate `duckdb`
+processes the same three queries read 285 / 300 / 167 ms — summing to 752, which matches the
+browser's 724 ms slice almost exactly and looks like a decomposition. It is not one: each process
+paid its own cold scan. Three cold reads of the same bytes will always sum to about the thing you
+are trying to explain.
+
+### The pan stopped growing with N — 534 ms to 72, and flat from 200k
+
+The first sweep through `corpusSource`, 2026-08-15, same machine and same single-threaded DuckDB as
+the run above. The reader now takes the chunk size and the prefixes from the manifest, finds the last
+tile by probing, reads each tile's box from the footer once, and per camera move hands
+`read_parquet` only the tiles whose box intersects the window.
+
+| Nodes | Ingest | `total()` | First slice | With subject | Upload | **First paint** | **Pan** | Shown / matched |
+|---|---|---|---|---|---|---|---|---|
+| 2k | 150 ms | 0 ms | 42 ms | 46 ms | 27 ms | **69 ms** | **17 ms** | 2k / 2k |
+| 10k | 68 ms | 0 ms | 34 ms | 78 ms | 34 ms | **68 ms** | **26 ms** | 10k / 10k |
+| 50k | 102 ms | 0 ms | 92 ms | 145 ms | 32 ms | **124 ms** | **59 ms** | 20k / 50k |
+| 200k | 200 ms | 0 ms | 268 ms | 285 ms | 31 ms | **299 ms** | **73 ms** | 20k / 200k |
+| 1M | 679 ms | 0 ms | 1,193 ms | 888 ms | 28 ms | **1,221 ms** | **72 ms** | 20k / 1M |
+
+**Pan: 81 · 26 · 52 · 123 · 534 became 17 · 26 · 59 · 73 · 72.** At a million that is 7.4×, and the
+shape is the finding rather than the factor: 73 ms at two hundred thousand and 72 at a million. The
+claim the whole bounded architecture rests on — *the working set is the window, not the corpus* — is
+true of the number a reader actually feels, for the first time.
+
+`total()` reads zero because it is answered from the tile pass rather than by counting; that cost
+moved into `ingest`, where the fixture's own work belongs.
+
+**And first paint got worse: 931 ms to 1,221 at a million.** That is not a regression to fix, it is
+the trade stated plainly. The opening view is the whole extent, every tile intersects it, and
+addressing cannot read fewer bytes — so the footer pass and the probe are added cost with nothing to
+recover them. `decisions/a-tile-is-an-address-not-a-verb.md` predicted exactly this before the code
+was written, which is the only reason it is being published rather than explained away.
+
+**`matched` is the whole corpus at every size**, which is what says the manifest-driven tile count is
+right: a reader that derived too few tiles would report a smaller corpus and a faster everything.
+
 ### The renderer is not the limit, and the frame rate is two numbers
 
 `Redraw` is the cost of drawing the slice already on screen, timed as layer 1 times a step — a

@@ -83,28 +83,54 @@ de `CONVENTIONS.md` que dice qué gana a la referencia, no aquí.
 
 ## 3 · El trabajo, en orden de lo que desbloquea
 
-### A · Auditar el lector contra las cinco convenciones — **grafo**, sin verificar
+> **Estado, 2026-08-14 tarde.** A, B y C hechos. Queda D (analytics) y E.
+> A está en `.planning/READER-VS-CORPUS.md`; B y C están en el árbol y verificados en vivo.
+
+### A · Auditar el lector contra las cinco convenciones — **grafo**, ~~sin verificar~~ **hecho**
 
 Leer `conventions/{identity,addressing,adjacency,order,payload}.mdx` y comparar contra
 `bounded.ts`, `duck-source.ts`, `resident.ts` y `memory-source.ts`. La salida es una tabla de
 coincide / difiere / no aplica, y cada «difiere» es una decisión: o nos movemos o la página se
 corrige. Barato y desbloquea lo demás, porque el resto asume que el lector es correcto.
 
-### B · `useGraph` + `GraphRootProvider` — **grafo**
+### B · `useGraph` + `GraphRootProvider` — **grafo**, **hecho**
 
 La forma de Ark, sin los getters. Borra `graphRef`/`residentRef` de `GraphCanvasProps`. Reabre
 `decisions/a-canvas-component-owns-the-three-that-never-differ.md` — el `Reversed by` de hoy dice
 «un prop que codifique la política de un host», y lo que ha pasado es distinto y más útil: **el host
 no puede leer el contexto donde lo necesita**, que es un defecto de forma y no de alcance.
 
-### C · Migrar el workspace — **grafo**, depende de B
+### C · Migrar el workspace — **grafo**, **hecho**
+
+Lo que la migración enseñó y el plan no preveía: el host **sigue necesitando una indirección**, pero
+una en vez de cuatro. `useGraphOverlays` necesita `getGraph`/`getResident`, y los eventos del grafo
+le deben un repintado; `applyPins`, `unfocus` y `commit` tocan el renderer y son argumentos de
+`useGraph` por la vía de `events`. La dependencia es mutua de verdad, así que algo tiene que ser el
+punto fijo. Son dos refs (`apiRef`, `overlaysRef`) contra los cuatro trozos a mano de antes, y la
+ordenación entre construcción del renderer, primer slice y mapa de identidad deja de ser del host.
+
+También destapó un fallo latente: `refresh` volvía del bucle y el único que lo usaba era `onZoom`,
+que ahora hace `useGraph` — así que el binding quedó sin usar. Lo que costaba era `reveal`: fijar un
+nodo lejos de la cámara es cómo se le hace llegar, y sin nada que re-preguntase solo llegaba en el
+siguiente pan. `applyPins` lo llama ahora, que es lo que `useBoundedGraph` documenta.
 
 Es lo que da el segundo call site que la regla 2 pide, y lo que convierte `GraphCanvas` de «forma
 probada contra un host» en algo admitido. Con B deja de ser un reestructurado del showcase.
 
-### D · `useChartContext` y la pregunta de la fábrica — **analytics**
+### D · `useChartContext` y la pregunta de la fábrica — **analytics**, **hecho**
 
-§2.3 y §2.2, en ese orden.
+§2.3 hecho: `useChart` → `useChartContext` y `useChartOptional` → `useChartContextOptional`, con las
+dos páginas, los dos directorios de ejemplo, `meta.json` y los enlaces.
+
+§2.2 **contestado, y la respuesta es que no hay fábrica** —
+`decisions/a-chart-needs-no-factory.md`. Lo que forzó la del grafo fue específico y medido: dos
+hooks que se llaman *por encima* del elemento y necesitan `getGraph`/`getResident`. En analytics no
+existe esa forma: `useChartQuery`, `useCrossfilter`, `useSelected` y `useChartCapacity` leen todos
+`useMosaic()`, que es el **proveedor**, no la raíz. No hay circularidad que romper, y lo que
+`useChart(props)` devolvería es `ChartContextValue`, que ya existe y ya se publica.
+
+Y el proveedor externo tampoco falta: el prop `as` **es** esa vía, en la forma que esta capa ya
+tenía, probado por los dos lados.
 
 ### E · Lo que ya estaba abierto y no cambia
 

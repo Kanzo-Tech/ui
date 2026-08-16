@@ -189,7 +189,8 @@ be skipped.
 `adopt-the-part-the-machine-ships`, `a-role-earns-its-name-or-becomes-a-step`,
 `an-invalid-boundary-needs-no-dark-branch`, `a-section-brings-measurable-obligations`,
 `density-has-no-legibility-floor`,
-`a-canvas-component-owns-the-three-that-never-differ`.
+`a-canvas-component-owns-the-three-that-never-differ`, `a-dense-id-is-thirty-two-bits`,
+`a-chart-needs-no-factory`, `a-tile-is-an-address-not-a-verb`.
 
 Also live — `a-compound-keeps-its-root-even-when-the-root-is-an-alias`,
 `steps-claims-a-tab-role-it-cannot-keep`, `prose-that-is-hashed-is-data`.
