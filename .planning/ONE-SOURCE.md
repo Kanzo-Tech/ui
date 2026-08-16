@@ -203,3 +203,43 @@ de `packages/ui`, los 41 tests de graph y los 32 de docs) está verde.
 `rmlext` tiene `apps/corpus/content/docs/conventions/payload.mdx` corregido y **sin commitear** —
 la afirmación de que las columnas separadas suben a la GPU sin transformación, que cosmos.gl
 desmiente. Es el otro repo; el commit es de Ángel.
+
+
+---
+
+## Cómo continuar en una ventana limpia
+
+Pega esto:
+
+> Sigo el trabajo de `.planning/ONE-SOURCE.md`. Léelo entero antes de tocar nada —
+> lleva la forma decidida, el orden y la condición de que nada se borra sin mudar antes su razón.
+> Empieza por lo primero de «Falta»: subir los canales (`fill`, `r`) a props de `useGraph` y
+> `GraphCanvas`, que ya viven en `SliceRequest` pero no los pasa nadie. Verifícalo en el navegador,
+> no solo compilando: cambiar un canal tiene que re-preguntar.
+
+Y estas cuatro trampas, que costaron tiempo hoy y no están en ningún guard:
+
+1. **El sweep no avanza en una pestaña oculta, y no es un cuelgue.** El `QueryConsolidator` de
+   Mosaic difiere cada lote de consultas por `requestAnimationFrame`, que no dispara en segundo
+   plano, así que el coordinador queda **parado**, no lento. Hace falta la ventana de Chrome
+   delante. Puentear rAF con un temporizador deja correr el sweep pero **falsea las latencias**:
+   sirve para comprobar que la tubería funciona, no para publicar un número.
+
+2. **`fossil` hay que recompilarlo si `rmlext` cambió.** El binario está en
+   `rmlext/target/release/fossil`; compara su mtime con `crates/fossil-sinks/src/manifest.rs` antes
+   de escribir un corpus. Uno viejo escribe con el `chunk_size` viejo, y eso no falla: lee una
+   fracción del corpus y publica un número rápido.
+
+3. **Los corpus están gitignoreados.** `docs/public/{bench,corpus}/` no están en el árbol. Se
+   construyen con `showcases/graph-bench/corpus/build-corpus.mjs` y
+   `showcases/workspace/corpus/build-corpus.mjs` — el segundo necesita
+   `node --import ./register.mjs`, porque cruza el alias `@/` y los imports relativos sin extensión
+   que Node no resuelve.
+
+4. **`packages/ui` puede estar en rojo y no ser tuyo.** Otra sesión escribe en este mismo checkout.
+   Antes de arreglar un test de theme o palette, mira `git status` y atribúyelo.
+
+El contexto largo —la auditoría contra las cinco convenciones, las mediciones y por qué la cámara no
+es un verbo— está en `.planning/READER-VS-CORPUS.md`, `BENCHMARKS.md` y
+`decisions/a-tile-is-an-address-not-a-verb.md`. No hace falta leerlos para empezar; hacen falta
+antes de discutir cualquiera de las decisiones.
