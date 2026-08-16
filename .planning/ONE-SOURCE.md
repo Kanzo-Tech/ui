@@ -100,6 +100,42 @@ Así que el destino probable es: `GraphSpec` muere, sus seis campos de corpus sa
 los tres roles se quedan como props del canvas con los nombres que Plot ya usa. Sin validador: si la
 columna no existe, la consulta falla y lo dice.
 
+#### La forma, decidida — canales en la petición, no en la fuente
+
+**La pieza no es cómo se nombran los canales, es dónde viven.** Hoy las columnas se hornean en la
+*fuente* al construirla, y por eso no se puede cambiar qué colorea el grafo sin reconstruirla, y por
+eso `categoryField` se coló en `openCorpus`.
+
+La separación correcta ya existe y no la estábamos usando: `BoundedSource` es *dónde están los
+bytes*, `SliceRequest` es *qué quiero dibujar*. Qué columna colorea es lo segundo. Cambiar el color
+es una pregunta nueva, no una fuente nueva — y es lo que hace la referencia: en Plot la **marca**
+lleva los canales y es la que produce la consulta; la fuente sólo dice de dónde salen las filas.
+
+```tsx
+const { source } = await openCorpus({ coordinator, dest: "/corpus/archive" });
+
+<GraphCanvas source={source} fill="kind" r="degree" title="label" onFailure={…}>
+  <Legend />
+  <Inspector fields={[{ field: "hall", label: "Hall" }, …]} />
+</GraphCanvas>
+```
+
+- **Tres canales con los nombres de Plot** para una marca de puntos: `fill`, `r`, `title`. No se
+  inventa vocabulario; es el que un lector trae y el que `/analytics` ya envía.
+- **`x`/`y` no son canales**, y ahí está la diferencia real con Plot: en un corpus la posición es un
+  hecho y no una codificación. La escribió el layout pass y es el índice contra el que se hace toda
+  pregunta espacial.
+- **`openCorpus({ coordinator, dest })`** — un argumento, ahora de verdad. `categoryField` se va.
+- **`groupField` y `detailFields` no son del canvas.** Son lo que enseña el inspector, y el
+  inspector es `children` — la misma regla que deja fuera al toolbar y a la leyenda. Un
+  `detailFields` con etiquetas de UI dentro de un spec de datos era la pista de que estaba mal
+  colocado.
+- **`GraphSpec` desaparece entero**: seis campos del manifiesto, tres canales, dos del inspector.
+
+Lo que hay que mover: `Columns` en `duck-source.ts` se construye una vez en la fábrica y pasa a
+construirse en `slice()` desde la petición — interpolación de cadenas, no es caro. Y
+`useBoundedGraph` vuelve a preguntar cuando un canal cambia, que es correcto: es otra pregunta.
+
 **Esto se decide antes de cablear el workspace**, porque cablearlo con `GraphSpec` es escribir el
 call site que luego hay que reescribir.
 
