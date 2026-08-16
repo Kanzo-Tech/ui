@@ -154,9 +154,26 @@ un paquete de grafos es peor, y la página tiene que decirlo en vez de disimular
 
 - `packages/graph/src/memory-source.ts` entero, y `MemoryGraph`.
 - `duckBoundedSource`, `DuckSourceOptions` y `Columns.subject`/`typeIndex` si quedan huérfanos.
-- `explore`, `ExploringSource`, `ExploreRequest` — `memorySource` era la única implementación. Se
-  van por la regla 1: superficie sin implementación es lo que este repo borra. Lo que los trae de
-  vuelta está escrito en `decisions/a-tile-is-an-address-not-a-verb.md`: el `expand` de fossil.
+- `explore`, `ExploringSource`, `ExploreRequest` — `memorySource` era la única implementación.
+
+**Nada de esto se borra sin mudar su razón, y ésta es la condición, no una nota al pie.** Ángel:
+*«no borres por borrar, haz las cosas bien»*. Un borrado que se lleva por delante el argumento que
+lo justificaba es cómo la siguiente persona reinventa lo que quitamos.
+
+Concretamente, lo que cada uno debe a la lápida:
+
+- **`explore` y compañía.** La vecindad no estaba de adorno: se añadió corrigiendo un error de
+  diseño real — un rectángulo no puede expresar «dos saltos desde este nodo», y un contrato que sólo
+  hablaba de rectángulos imponía la metáfora del mapa a una red. Y `decisions/a-tile-is-an-address-not-a-verb.md`
+  la nombra como la costura por donde entra el `expand` de fossil. Si se va, el tombstone en
+  `index.test.ts` tiene que llevar **las dos frases**, o dentro de tres meses alguien vuelve a
+  descubrir que hace falta.
+- **`memorySource`.** La aserción del `smoke` no desaparece: **cambia** a la que ya existe al lado
+  (*«graph root barrel imports with only non-optional peers»*), y el changeset dice que el barrel
+  raíz deja de dibujar. Sin eso el borrado se lleva una garantía que costó encontrar.
+- **El ejemplo.** Empeora, y la página lo dice en vez de disimularlo.
+- **`GraphSpec`.** Aquí no hay borrado: seis campos los da el manifiesto, tres son canales, dos se
+  mudan al inspector. Es reubicación, y se escribe como tal.
 
 ### 4 · Lo que el borrado rompe y hay que decidir a la vez
 
