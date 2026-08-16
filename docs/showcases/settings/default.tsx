@@ -8,6 +8,7 @@ import {
   UserIcon,
 } from "lucide-react";
 import {
+  AppearanceToggle,
   Avatar,
   AvatarFallback,
   PreferencesColor,
@@ -145,6 +146,16 @@ export function SettingsShowcase() {
                   renders.
                 </SectionDescription>
               </SectionTitleGroup>
+              {/* The page's own chrome, which is where `decisions/…` puts appearance: one control,
+                  cycling light → dark → system, never a section repeating the same preference.
+                  
+                  It has to be HERE and not merely somewhere, and that is the gap this page found:
+                  the drawer carries it in its header, so a page rendering the sections alone shipped
+                  with no way to change sides at all. The rule survives; what it assumed — that every
+                  surface has chrome to put it in — did not, and a settings page arguably wants
+                  GitHub's explicit three-way select rather than a cycling button. That is a decision
+                  to reopen with this page as the evidence, not something to settle in a showcase. */}
+              <AppearanceToggle />
             </SectionHeader>
 
             <div className="flex flex-col gap-8 py-6">
