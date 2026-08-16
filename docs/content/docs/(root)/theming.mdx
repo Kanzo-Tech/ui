@@ -395,7 +395,7 @@ reference systems agree and why. A host next-themes speaks `"system"`; the provi
 <Callout type="info" title="Why a class and not light-dark()">
   Two reasons, both measured. About 150 `dark:` variants need a class to key off; and
   `light-dark()` makes per-mode values unreadable to `getComputedStyle`, which is exactly how
-  the [charts layer](/docs/data-display/charts) resolves `var(--chart-N)` for Observable Plot.
+  the [charts layer](/docs/analytics/charts) resolves `var(--chart-N)` for Observable Plot.
   Each compiled block carries its own `color-scheme`. Never write
   `documentElement.style.colorScheme` — an inline declaration outranks every rule, permanently.
 </Callout>

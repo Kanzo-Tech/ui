@@ -73,16 +73,32 @@ pushes each answer into the renderer, so first paint follows the window rather t
 `memorySource(graph)` wraps arrays you already hold; `@kanzo-tech/graph/duckdb` carries
 `duckBoundedSource` because Mosaic is an optional peer.
 
-`GraphCanvas` is the component, and it owns exactly three things: the renderer across React's
-lifecycle, that query loop, and the buffers a look implies. A source and an `onFailure` are all it
-needs; everything else has a default, and `children` are chrome drawn over the surface, reaching the
-canvas through `useGraphCanvas`. It owns nothing above that — a toolbar, a legend, an inspector and
-a hover card answer differently per product, and `useGraphOverlays` and `useGraphSelection` stay
-hooks because both need a policy only a product can write. The relationship is `ChartRoot` to
-`useChart`, so the hooks it is built from stay on the barrel and are not a fallback.
+The graph comes in Ark's four pieces. `useGraph(props)` builds the api, `GraphRootProvider` renders
+the surface over one, `GraphCanvas` is the shortcut that does both, and `useGraphContext()` reads it
+from the chrome — `useX` creates and `useXContext` reads, as everywhere in Ark. Between them they own
+exactly three things: the renderer across React's lifecycle, that query loop, and the buffers a look
+implies. A source and an `onFailure` are all they need; everything else has a default, and `children`
+are chrome drawn over the surface.
+
+The factory is not symmetry for its own sake. `useGraphOverlays` and the `events` block both take
+`getGraph` and `getResident`, and both are called *above* the element, where no context is readable —
+so a host with overlays calls `useGraph` and hands the api to the provider. A host with only chrome
+calls `GraphCanvas`. What is deliberately not copied from Ark is the substance of its api: prop
+getters distribute props across many parts, and a canvas is one element.
+
+They own nothing above that — a toolbar, a legend, an inspector and a hover card answer differently
+per product, and `useGraphOverlays` and `useGraphSelection` stay hooks because both need a policy
+only a product can write. The relationship is `ChartRoot` to `useChartContext`, so the hooks it is built
+from stay on the barrel and are not a fallback.
 
 Four things to know before you draw one:
 
+- **An address is not an identity, and only one of them survives a rebuild.** `vertexId(type, dense)`
+  says where a vertex is. The subject IRI says which vertex it is, and redoing a layout renumbers
+  every vertex — so a selection held as a `VertexId` survives a pan and does not survive the corpus
+  being written again. `duckBoundedSource` takes `subjectField` and a `Slice` then carries
+  `subjects`, opt-in on both sides: the column costs 1.87× the drawing tile, so the drawing path
+  carries addresses and a host asks for names when something has to be *named* rather than painted.
 - **A vertex is `vertexId(type, dense)`, and a buffer index is not one.** cosmos.gl addresses points
   by their position in the arrays it was last handed, so an answer that comes and goes reuses every
   index while the vertices behind them change. A `Slice` carries `vertices: BigUint64Array` of that

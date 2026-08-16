@@ -30,14 +30,39 @@ Everything else on this page is what you add when one of those assumptions stops
 
 `GraphCanvas` owns three things: the renderer across React's lifecycle, the query loop that follows
 the camera, and the buffers a look implies. Those were identical in every host and re-wired by hand
-at each one. It publishes what its chrome needs through `useGraphCanvas`.
+at each one. It publishes what its chrome needs through `useGraphContext`.
 
 **It owns nothing above that, and that is the shape rather than an omission.** A toolbar, a legend,
 an inspector, a hover card and a search box answer differently per product, so they are `children`.
 Overlays and selection are left out for a sharper reason: `useGraphOverlays` and `useGraphSelection`
 need callbacks only a product can write — what a click means, what a lasso commits to — so they stay
-hooks you call with `getGraph` and `getResident` off the context. The relationship is the one
-`ChartRoot` has with `useChart`, not a v2 replacing a v1.
+hooks you call with `getGraph` and `getResident`. The relationship is the one `ChartRoot` has with
+`useChartContext`, not a v2 replacing a v1.
+
+### When the shortcut is not enough: `useGraph` and `GraphRootProvider`
+
+Those two hooks are the reason the graph has Ark's four pieces rather than one component. Both take
+`getGraph` and `getResident`, and both are called *beside* the canvas — above the element, where a
+context cannot be read yet. So there is a factory that builds the api where you can hold it, and a
+provider that renders the surface over one:
+
+```tsx
+const api = useGraph({ source, onFailure });
+const overlays = useGraphOverlays({ getGraph: api.getGraph, getResident: api.getResident });
+
+return (
+  <GraphRootProvider value={api}>
+    <Legend />
+  </GraphRootProvider>
+);
+```
+
+`useGraph` **creates** and `useGraphContext` **reads**, which is Ark's convention throughout. What is
+deliberately *not* copied is the substance of an Ark api: its value is prop getters that distribute
+props across many parts, and a canvas is one element, so there is no `getRootProps()` here.
+
+`GraphCanvas` is `useGraph` and `GraphRootProvider` in one call, and it is what you want until a
+hook has to sit beside the canvas.
 
 This page said for a long time that there was no canvas component at all. That argument was right
 about the chrome and wrong about what sat underneath it; what changed and what would change it back

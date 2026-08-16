@@ -96,7 +96,7 @@ itself carries no aesthetic.
 | Presentational (root) | Connected (subpath) | Engine |
 |---|---|---|
 | [`Table`](/docs/data-display/table) — semantic markup, tokenised chrome, no data layer | [`DataTableRoot`](/docs/data-display/data-table) — sorting, filtering, pagination | TanStack Table, on `/table` |
-| [`StatTile`](/docs/data-display/stat-tile) — label, figure, delta, sparkline; takes a number | [`ChartStat`](/docs/data-display/charts) — queries a relation, reacts to the crossfilter | Mosaic, on `/analytics` |
+| [`StatTile`](/docs/data-display/stat-tile) — label, figure, delta, sparkline; takes a number | [`ChartStat`](/docs/analytics/charts) — queries a relation, reacts to the crossfilter | Mosaic, on `/analytics` |
 
 **Why two and not one.** A subpath entry statically re-exports its engine, so *any* import from it
 resolves that optional peer. Put the presentational half there and showing a number that came from

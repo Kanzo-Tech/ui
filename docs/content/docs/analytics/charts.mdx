@@ -53,7 +53,7 @@ in source order, and turns the lot into a single `vg.plot(...)` — the mark nev
 **Marks cannot be Ark parts**, and that is not a shortcut. vgplot paints imperatively: it returns
 an SVG node that we mount with `host.replaceChildren(...)`. There is no element for a part to own,
 no ref to forward, no `data-slot` to style. What *is* genuinely Ark here is `ChartRoot` plus
-[`useChart()`](#usechart) — a context carrying the config, the selections and the coordinator, so
+[`useChartContext()`](#usechart) — a context carrying the config, the selections and the coordinator, so
 you can build a legend, a tooltip or a readout of your own without forking anything.
 
 The practical consequence: descriptors cannot read context, because they are compiled before React
@@ -150,7 +150,7 @@ crossfilter `Selection`.
 The five shapes a chart library is expected to ship, written in the grammar. Each is the same: a
 dimmed mark for the full relation (`filterBy={null}`), the crossfiltered mark on top, one
 interactor, two axes. Sixteen more shapes — waffle, ridgeline, hexbin, box plot, small multiples —
-are in the [gallery](/docs/data-display/chart-gallery).
+are in the [gallery](/docs/analytics/gallery).
 
 ### Histogram
 
@@ -184,7 +184,7 @@ Two numeric columns and a 2-D brush.
 
 Map `fill` to a **column** and the bars stack by it — the layer copies a column-valued `fill` to
 `z`, which is the series key Plot stacks on and the one thing Mosaic cannot infer for it
-([the details](/docs/data-display/chart-gallery#stacked-area)). The `config` is what binds a hue to
+([the details](/docs/analytics/gallery#stacked-area)). The `config` is what binds a hue to
 an entity: it pins the plot's colour domain, so filtering a series never repaints the survivors,
 and the same object feeds `ChartLegend`.
 
@@ -336,13 +336,13 @@ eight that a colour-blind reader sees as five. Past the eighth series, fold into
 `categoricalColor(i)` returns the muted token rather than cycling, because a ninth series wearing
 slot 1 would claim to be the first one.
 
-## useChart()
+## useChartContext()
 
 The context behind any DOM part you add — a legend, a tooltip, a caption:
 
 ```tsx
 function Total({ rows }: { rows: number }) {
-  const { color, formatNumber } = useChart();
+  const { color, formatNumber } = useChartContext();
   return <p style={{ color: color("hoax") }}>{formatNumber(rows)} sightings</p>;
 }
 ```
@@ -355,7 +355,7 @@ function Total({ rows }: { rows: number }) {
 | `filterBy`, `as` | the selections the marks read and the interactors write |
 | `coordinator` | for a part that queries alongside the plot |
 
-It throws outside a `ChartRoot`; `useChartOptional()` returns `null` instead, which is how
+It throws outside a `ChartRoot`; `useChartContextOptional()` returns `null` instead, which is how
 `ChartLegend` also works standalone. Descriptors cannot use it — see
 [two kinds of children](#two-kinds-of-children).
 
@@ -429,7 +429,7 @@ takes a number, so making it cost DuckDB-WASM would be absurd. That split is
 
 The frame and the grid are **not** library components: a titled card and an auto-fitting grid add
 no behaviour, so they are arrangements you copy. The ones these docs use are in `docs/lib/`. The
-[gallery](/docs/data-display/chart-gallery#dashboard) wires the whole thing together.
+[gallery](/docs/analytics/gallery#dashboard) wires the whole thing together.
 
 ```tsx
 import { StatTile } from "@kanzo-tech/ui";
@@ -494,7 +494,7 @@ tick without a table), and `tip`.
 One option is filled in for you. On the stacking marks — `ChartBarY`/`X`, `ChartArea`/`Y`/`X`,
 `ChartRect`/`Y`/`X`, `ChartWaffleY`/`X` — a **column-valued** `fill` or `stroke` is copied to `z`
 unless you pass one, because that is Plot's own default and Mosaic breaks it
-([why](/docs/data-display/chart-gallery#stacked-area)). `z={null}` opts out.
+([why](/docs/analytics/gallery#stacked-area)). `z={null}` opts out.
 
 `ChartBarY` `ChartBarX` `ChartWaffleY` `ChartWaffleX` `ChartLine` `ChartLineY` `ChartLineX`
 `ChartArea` `ChartAreaY` `ChartAreaX` `ChartDot` `ChartDotX` `ChartDotY` `ChartCircle`

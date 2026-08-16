@@ -34,7 +34,7 @@ nothing else:
 | Subpath | What it is | Optional peers |
 | --- | --- | --- |
 | [`@kanzo-tech/ui/table`](/docs/data-display/data-table) | The connected data table | `@tanstack/react-table` |
-| [`@kanzo-tech/ui/analytics`](/docs/data-display/charts) | The charts, over Mosaic + DuckDB | `@uwdata/vgplot`, `@uwdata/mosaic-core`, `@uwdata/mosaic-sql`, `@duckdb/duckdb-wasm` |
+| [`@kanzo-tech/ui/analytics`](/docs/analytics) | The charts, over Mosaic + DuckDB | `@uwdata/vgplot`, `@uwdata/mosaic-core`, `@uwdata/mosaic-sql`, `@duckdb/duckdb-wasm` |
 | [`@kanzo-tech/ui/editor`](/docs/forms/code-editor) | The CodeMirror editors | `@codemirror/state`, `@codemirror/view`, `@codemirror/language`, `@codemirror/commands`, `@codemirror/search`, `@codemirror/autocomplete`, `@lezer/highlight` |
 
 <Callout type="info">
@@ -43,6 +43,21 @@ nothing else:
   and it is why each of these has a presentational half in the root barrel and a connected half on
   the subpath. See [the engine rule](/docs/philosophy#the-engine-rule).
 </Callout>
+
+### The graph is a package, not a subpath
+
+[`@kanzo-tech/graph`](/docs/graph) is installed separately, and the reason it is not a fourth row
+above is the reason it is not in `@kanzo-tech/ui` at all: its renderer peer is **required**, not
+optional. There is nothing left of the package without one, and a required WebGL dependency would
+change what the base library is — `DESIGN.md`'s first admission rule excludes graphs by name.
+
+```bash
+pnpm add @kanzo-tech/graph @cosmos.gl/graph
+```
+
+Its own database half sits behind `@kanzo-tech/graph/duckdb`, on the same rule and for the same
+reason: a host drawing arrays it already holds takes `memorySource` and pays for no database, and
+the subpath is what makes that promise true rather than merely stated.
 
 </Step>
 

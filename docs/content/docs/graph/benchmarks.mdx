@@ -1,0 +1,79 @@
+---
+title: Benchmarks
+description: How far the bounded path goes, what it costs to move the camera, and the one number that is not flat in N.
+---
+
+The harness is a showcase you can run: it sweeps five corpus sizes through the real reader, the real
+renderer and a real DuckDB, and parks its results where a headless runner can read them.
+
+<Cards>
+  <Card title="Run the sweep" href="/view/showcases/graph-bench" description="Five sizes, from two thousand to a million, measured in your tab on your machine." />
+</Cards>
+
+## Build the corpora first
+
+The fixture is **compiled, not generated**. The page used to build its own graph in the tab, which
+capped the sweep at what a tab can generate and spent the main thread doing it; now `fossil` writes a
+GraphAr tree once, offline, and the browser only reads it.
+
+```bash
+node docs/showcases/graph-bench/corpus/build-corpus.mjs
+```
+
+They land in `docs/public/bench/<size>/` and are gitignored — tens of megabytes, 93 MB at a million.
+A sweep against a size nobody wrote is a row of 404s, which is the honest failure.
+
+## What the sweep asks
+
+Two layers, and they are not variants of each other. **Bounded** is the path a product uses: a
+window asked of a corpus, capped at twenty thousand marks, holding nothing. **cosmos.gl alone** is
+the control — the same renderer fed typed arrays with nothing of ours in the way.
+
+Four numbers matter and they pull in different directions:
+
+- **First paint** should follow the window rather than the corpus. It is the claim the page exists
+  to make.
+- **Pan** is the cost that did not exist before. Holding a graph pans on the GPU for free; this asks
+  the database every time the camera stops. A bounded path that pans slowly is not an improvement,
+  it is a different kind of unusable.
+- **Redraw** is the renderer's own ceiling, and it is here to be *ruled out*: the slice never exceeds
+  the limit, so the frame rate cannot follow N, and "make it smoother" has to be answered at `Pan`.
+- **Shown / matched** is the honesty column. When they differ the view is not showing everything in
+  the rectangle, and a reader is owed that.
+
+## Read the two rates together, never one of them
+
+A benchmark that published a single "fps" here would be publishing whichever one flattered it. The
+renderer's ceiling is in the hundreds of frames a second and never follows N; what a reader feels at
+a million is a picture that moves at the display's rate and becomes *correct* about twice a second.
+The canvas never waits — geometry is pushed when a slice lands and the last one keeps being drawn —
+so the pair measures the gap between moving and being right.
+
+## The claim is not flat, and the reason is the edge join
+
+`BENCHMARKS.md` carries the recorded runs and the arguments. The one thing worth knowing before you
+read a table: first paint **does** grow with the corpus, and the growing term is the slice rather
+than the upload — the upload is flat, around thirty milliseconds at every size.
+
+Which part of the slice is a live question and the obvious answer is measured wrong. The edge join
+was the suspect — it is the one part that touches something proportional to the corpus — and reading
+the edges of a window from their own tiles instead of the whole relation is **1.3×**, which is not
+where the time goes. What does scale with N is reading the *vertex* side: the first slice asks for
+the whole extent, so every tile intersects and every one is opened.
+
+There is a second, sharper cost measured the same way: this reader hands DuckDB every chunk URL and
+prunes with a `WHERE`, so it skips no row group — and a corpus tiled finely for a reader that *does*
+skip costs it several times over. That is the strongest argument for an addressed reader, and it is
+written up in `BENCHMARKS.md` with the isolation that produced it.
+
+<Callout type="warn" title="A flat line is a cache until proven otherwise">
+Run twice on one page, this sweep once reported a beautiful flat 60–71 ms at every size including a
+million. Mosaic caches by SQL text and a second sweep asks identical questions. Each measurement now
+clears that cache — but it is the third time this benchmark has measured its own scaffolding, after
+a frame counter that counted its own `await` and a layer that ran the small graph at every size.
+
+Two more things that are the harness and not the product: `total()` is asked once per size and the
+first size also pays for DuckDB-WASM booting and fetching its httpfs extension, which is seconds; and
+`threads` rides along in every row because a page that is not cross-origin isolated gets a
+single-threaded DuckDB however many cores the machine has.
+</Callout>

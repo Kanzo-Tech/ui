@@ -3,8 +3,6 @@
   "pages": [
     "table",
     "data-table",
-    "charts",
-    "chart-gallery",
     "stat-tile",
     "tree-view",
     "json-tree-view",

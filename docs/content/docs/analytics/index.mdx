@@ -1,0 +1,75 @@
+---
+title: Analytics
+description: The charts layer, on its own subpath — what it is, what you install for it, and why it cannot be on the root barrel.
+---
+
+`@kanzo-tech/ui/analytics` is a **subpath**, not a folder. Everything on it speaks to a live DuckDB
+relation through Mosaic: a chart declares what it wants, the coordinator turns that into SQL, and a
+brush on one chart filters every other chart on the page without either of them knowing about the
+other.
+
+It is one of four entry points, and the split is a one-way door rather than a filing decision.
+
+## Why it is not on the root barrel
+
+`import { Button } from "@kanzo-tech/ui"` has to work for a host that has never heard of DuckDB.
+A single static `import` of an optional peer from the root barrel breaks that for **everyone** —
+not with a warning, with `ERR_MODULE_NOT_FOUND` at load.
+
+So the database half lives behind `/analytics`, and the door is held shut by a test that packs the
+real tarball, installs it with none of the optional peers, and imports the root barrel. That check is
+the only one that sees the built artefact rather than the source, and it is the reason this page can
+state the boundary as a fact rather than an intention.
+
+## What to install
+
+The peers are **optional in the manifest and required in practice** — optional means "npm will not
+install them for you", not "the code works without them".
+
+```bash
+pnpm add @kanzo-tech/ui @uwdata/vgplot @uwdata/mosaic-core @uwdata/mosaic-sql
+```
+
+`@duckdb/duckdb-wasm` is a fifth, and whether you need it depends on where the data is. A host that
+already has a coordinator connected to a server-side DuckDB does not; a host that wants the database
+in the tab does. That is the same choice as [bringing your own
+coordinator](/docs/analytics/charts#bring-your-own-coordinator).
+
+If one is missing you find out at import time, which is the good failure. The bad one — a chart that
+renders empty and says nothing — is a different problem and [`charts`](/docs/analytics/charts) has a
+section on it, because a chart whose query dies keeps its previous render.
+
+## The shape, in four pieces
+
+- **`MosaicProvider`** — one coordinator and one crossfilter for a page. Exactly one: it registers
+  its coordinator as vgplot's active one and that setter is process-wide, so a second provider leaves
+  the first set of charts empty.
+- **`ChartRoot`** — one plot. It owns the selection a chart publishes into unless you hand it one,
+  compiles its children into a spec, and measures its own width.
+- **The descriptors** — `ChartLine`, `ChartBarY`, `ChartArea`, `ChartRect` and the rest. They render
+  no DOM. `ChartRoot` reads their props off the element and builds an Observable Plot spec, which is
+  why a mark cannot read context and why the [gallery](/docs/analytics/gallery) is the fastest way
+  to find the one you want.
+- **`useChartContext()`** — the way a DOM part of your own (a legend, a readout, a tooltip) reaches
+  the config, the selections, the coordinator, and the `color` / `formatNumber` helpers.
+
+`useChartContext` **reads**; there is no `useChart` that creates. That is deliberate and recorded —
+`decisions/a-chart-needs-no-factory.md` has the argument, and the short version is that every hook
+in this layer reads the *provider* rather than the root, so there is no circularity for a factory to
+break.
+
+## Reaching the data directly
+
+Two escape hatches, and both are on this subpath for the same reason as everything else.
+
+`useChartQuery` runs a query beside the charts and hands back rows — the supported way to read a
+relation without drawing it, instead of a hand-written client at each call site. `IdSetClient`
+publishes an enumerated set of ids as a clause, which is what a view whose positions live **outside**
+the database needs: a graph canvas, a map, an imperative widget. `@kanzo-tech/graph` uses that one to
+put a lasso into the same crossfilter a brushed histogram publishes into.
+
+<Cards>
+  <Card title="Charts" href="/docs/analytics/charts" description="The grammar: roots, marks, interactors, selections, and what fails silently." />
+  <Card title="Gallery" href="/docs/analytics/gallery" description="Every mark, drawn, with the code that drew it." />
+  <Card title="Graph" href="/docs/graph" description="The sibling package on the same crossfilter — a GPU canvas instead of a plot." />
+</Cards>
