@@ -99,6 +99,36 @@ A host that already holds its arrays wraps them in `memorySource(...)` instead �
 database. Under `limit` either source is asked once for everything and never again, so a graph that
 fits pays for nothing.
 
+### Three sources, three jobs
+
+| | for | what it needs to be told |
+|---|---|---|
+| `memorySource` | arrays you already hold | the arrays |
+| `duckBoundedSource` | any relation with `x`/`y` | the tables and the column names |
+| `corpusSource` | a tree `fossil` wrote | **where it is** |
+
+```ts
+const source = await corpusSource({ coordinator, dest: "/corpus/people" });
+```
+
+That is the whole call. It reads `graph.graph.yml`, takes the chunk size and the prefixes from the
+manifests, finds the last tile by probing rather than by listing — a plain HTTP origin cannot expand
+a glob, because expanding one means listing a directory — and reads each tile's bounding box from
+the footer once. After that a camera move is arithmetic over those boxes and a list of URLs, with no
+request between the camera moving and a URL being computable.
+
+It takes **no column names and no type index**, deliberately. Those come from the manifest or they
+do not come: a corpus reader that also accepted `idField` would be `duckBoundedSource` with extra
+steps, and there is already one of those for the case this is not. `subjects: true` adds the
+identity column, off by default because it costs about twice the drawing tile.
+
+**What it buys, and what it does not.** Panning a million-vertex corpus went from 534 ms to 72, and
+stopped growing with the corpus — 73 ms at two hundred thousand against 72 at a million. First paint
+got *slower*, and that is the trade rather than a defect: the opening view is the whole extent, so
+every tile intersects it and there are no bytes to skip. [Benchmarks](/docs/graph/benchmarks) has the
+figures and `decisions/a-tile-is-an-address-not-a-verb.md` has the argument, including why the camera
+is not one of fossil's verbs — it was, and it was deleted.
+
 **A point is addressed by index and identified by pair.** cosmos.gl numbers points by their position
 in the arrays it was last handed, so index 7 is whatever the current answer put seventh — and an
 answer that comes and goes reuses every index while the vertices behind them change. A vertex is

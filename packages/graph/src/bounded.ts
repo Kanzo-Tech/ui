@@ -51,32 +51,6 @@ export interface Viewport {
   zoom: number;
 }
 
-/**
- * The two ways of asking for part of a graph, and they are not variants of each other.
- *
- * A **region** is a map question: what is inside this rectangle. It suits an overview, a minimap, a
- * reader panning across a laid-out corpus.
- *
- * A **neighbourhood** is the graph question, and the first draft of this contract did not have it —
- * which was a real design error rather than a missing convenience. A network has no spatial "near";
- * it has topological near. Real exploration starts somewhere and expands outward, and a rectangle
- * cannot express "two hops from this node" no matter how it is positioned. fossil's surface answers
- * it with `expand`; a render contract that only spoke rectangles was imposing a map metaphor on a
- * network.
- *
- * A source implements what it can. One that only lays out spatially answers regions; one over a
- * graph store answers both.
- */
-export type SliceQuery =
-  | { kind: "region"; view: Viewport }
-  | {
-      kind: "neighbourhood";
-      /** Where to start, as identities — not buffer indices, which do not survive an answer. */
-      seeds: VertexId[];
-      /** How many hops out. One is the ego network; beyond three is usually the whole graph. */
-      depth: number;
-    };
-
 export type SliceMode = "detail" | "aggregate";
 
 /**
@@ -86,8 +60,16 @@ export type SliceMode = "detail" | "aggregate";
  * "there is more here than I am showing you", which is the one honest thing a bounded renderer owes
  * its reader.
  */
-export interface Slice {
-  mode: SliceMode;
+/**
+ * Everything an answer carries whatever mode it is in.
+ *
+ * Split from the mode because `Slice` is a **tagged union wearing a struct's clothes**: it had a
+ * `mode` discriminant and a `weights?` that was meaningful in exactly one of the two branches, so
+ * the type permitted an aggregate with no weights and a detail slice carrying them, and the only
+ * thing standing between a caller and either was a `?.`. `graph-model.ts` already reads it as a
+ * union — `slice.mode === "aggregate" ? slice.weights : slice.sizes` — and now the compiler agrees.
+ */
+interface SliceBody {
   n: number;
   /**
    * Who each returned point *is*, parallel to `positions` — the `(type_idx, dense_id)` pair packed
@@ -139,15 +121,40 @@ export interface Slice {
    * the column should send it: it is the difference between seeing a hub and counting one.
    */
   sizes?: Float32Array;
-  /**
-   * Aggregate mode only: how many real vertices each super-node stands for. A renderer can size a
-   * mark by it, and a reader can tell a cluster of ten thousand from a cluster of three.
-   */
-  weights?: Float32Array;
 }
 
+/**
+ * One answer, and which of the two questions it answered.
+ *
+ * `detail` is points; `aggregate` is super-nodes, and it is the only branch that carries `weights` —
+ * how many real vertices each one stands for, so a renderer can size a mark by it and a reader can
+ * tell a cluster of ten thousand from a cluster of three. Required there, absent here, rather than
+ * optional in both.
+ */
+export type Slice =
+  | ({ mode: "detail" } & SliceBody)
+  | ({ mode: "aggregate"; weights: Float32Array } & SliceBody);
+
+/**
+ * A **region** is a map question: what is inside this rectangle. It suits an overview, a minimap, a
+ * reader panning across a laid-out corpus, and it is what every source can answer.
+ *
+ * A **neighbourhood** is the graph question, and it lives on [`ExploringSource`] rather than here.
+ * A network has no spatial "near"; it has topological near, and a rectangle cannot express "two hops
+ * from this node" no matter how it is positioned. Leaving it out of the render contract was a real
+ * design error — a contract that only spoke rectangles imposed a map metaphor on a network — and
+ * putting it back as a *variant of the same call* was a second one, which is what this shape fixes.
+ *
+ * **The three ways a source used to say "not that question".** A member of a query union, a
+ * `supports(kind)` predicate, and a `throw` at the top of `slice`. Three spellings of one idea, and
+ * the only one a caller could act on before making the call was the middle one — so asking a
+ * relational source for a neighbourhood was a runtime error that typechecked. It is a separate,
+ * optional method now: a source that cannot walk edges does not have it, and asking is a compile
+ * error rather than a promise that rejects.
+ */
 export interface SliceRequest {
-  query: SliceQuery;
+  /** The rectangle, and the zoom that decides detail from aggregate. */
+  view: Viewport;
   /**
    * Vertices that must come back whatever the query says.
    *
@@ -168,18 +175,12 @@ export interface SliceRequest {
 /**
  * Anything that can answer "what is in this rectangle, at this zoom, in at most this many marks".
  *
- * One method, two questions. A source that also wants search, aggregation or paths is describing a
- * query surface rather than a render path, and there is already one of those — fossil's fourteen
- * verbs. The line: this answers *what should I draw*, and nothing about *what does it mean*.
- *
- * `supports` exists because not every source can answer both. A relation with `x`/`y` and a spatial
- * index answers regions; asking it for a neighbourhood should be a typed refusal rather than a
- * silently wrong rectangle.
+ * One method, one question. A source that also wants search, aggregation or paths is describing a
+ * query surface rather than a render path, and there is already one of those — fossil's verbs. The
+ * line: this answers *what should I draw*, and nothing about *what does it mean*.
  */
 export interface BoundedSource {
   slice(request: SliceRequest): Promise<Slice>;
-  /** Which query kinds this source can answer. */
-  supports(kind: SliceQuery["kind"]): boolean;
   /**
    * How many vertices there are in total, if the source knows cheaply.
    *
@@ -193,6 +194,28 @@ export interface BoundedSource {
    * again: same code path, and panning is free exactly when it can be.
    */
   total?(): Promise<number>;
+}
+
+/**
+ * A source that can also be asked a topological question.
+ *
+ * Separate from [`BoundedSource`] rather than optional on it, because *can you walk edges* is a fact
+ * about a source that a caller should learn from the type rather than from a predicate. A relation
+ * with `x`/`y` and a spatial index answers regions and nothing else; one that holds adjacency — or
+ * that can reach fossil's `expand` — answers both.
+ *
+ * `useBoundedGraph` narrows with `"explore" in source`, which is the check a caller writes once.
+ */
+export interface ExploringSource extends BoundedSource {
+  explore(request: ExploreRequest): Promise<Slice>;
+}
+
+/** Where to start and how far out. Everything else is the same bounding as a region. */
+export interface ExploreRequest extends Omit<SliceRequest, "view"> {
+  /** Where to start, as identities — not buffer indices, which do not survive an answer. */
+  seeds: VertexId[];
+  /** How many hops out. One is the ego network; beyond three is usually the whole graph. */
+  depth: number;
 }
 
 /**

@@ -126,8 +126,11 @@ const PAN_NODES = BOUNDED_DEFAULTS.limit;
  *
  * It reads 8,192 because the generator's space is 8,192, and this file used to draw the generator's
  * output. It no longer does: fossil centres coordinates on the origin and scales them to N, so the
- * compiled corpus spans ±535 at two thousand and ±11,968 at a million, and the note at the opening
- * view below says so in as many words. Deliberately **not** unified with `measure.ts`'s `SPACE`,
+ * compiled corpus does not fill it — and the figures this comment used to quote, ±535 at two
+ * thousand and ±11,968 at a million, are themselves stale: the extent moved when `enrich_layout`
+ * began partitioning by community, and a million now spans about −345 to 645,396. The opening view
+ * is asked of the source rather than assumed, which is why a wrong number here costs nothing but a
+ * reader's confidence. Deliberately **not** unified with `measure.ts`'s `SPACE`,
  * which is a fact about the generator and would only make one wrong number look authoritative.
  *
  * Left as it is because changing it moves every recorded figure, and the simulation is off and the
@@ -389,16 +392,17 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
     // rather than the aggregate shortcut. Aggregate would flatter the numbers.
     //
     // The space is the corpus's own, asked rather than assumed. fossil writes coordinates centred on
-    // the origin and scaled to N — ±535 at two thousand, ±11,968 at a million — so a rectangle nailed
-    // to `0..SPACE` would have measured an empty corner at every size but one, and reported a very
-    // fast first paint for showing nothing. (`RENDER_SPACE` above is the one place that did not get
-    // this memo, and says so.)
+    // the origin and scaled to N, and the extent moved again when the layout began partitioning by
+    // community — a million spans about −345 to 645,396 today. A rectangle nailed to `0..SPACE`
+    // would measure an empty corner and report a very fast first paint for showing nothing, which
+    // is why this is asked rather than assumed. (`RENDER_SPACE` above is the one place that did not
+    // get this memo, and says so.)
     const view = { ...extent, zoom: 1 };
 
     report?.("first slice");
     const startedSlice = performance.now();
     const first: Slice = await source.slice({
-      query: { kind: "region", view },
+      view,
       limit: BOUNDED_DEFAULTS.limit,
       lodThreshold: BOUNDED_DEFAULTS.lodThreshold,
     });
@@ -418,7 +422,7 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
     report?.("naming the slice");
     const startedNamed = performance.now();
     const namedSlice: Slice = await fixtured.named.slice({
-      query: { kind: "region", view },
+      view,
       limit: BOUNDED_DEFAULTS.limit,
       lodThreshold: BOUNDED_DEFAULTS.lodThreshold,
     });
@@ -493,15 +497,12 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
     for (let i = 0; i < PANS; i++) {
       const x = extent.xMin + step * (i + 1);
       await source.slice({
-        query: {
-          kind: "region",
-          view: {
-            xMin: x - width / 2,
-            yMin: midY - height / 2,
-            xMax: x + width / 2,
-            yMax: midY + height / 2,
-            zoom: 1,
-          },
+        view: {
+          xMin: x - width / 2,
+          yMin: midY - height / 2,
+          xMax: x + width / 2,
+          yMax: midY + height / 2,
+          zoom: 1,
         },
         limit: BOUNDED_DEFAULTS.limit,
         lodThreshold: BOUNDED_DEFAULTS.lodThreshold,

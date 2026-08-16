@@ -73,6 +73,12 @@ the corpus is a GraphAr tree fossil wrote once — two DuckDB **views** over Par
 range request, never a `CREATE TABLE AS`, so the bytes stay on the server and the working set
 stays the window. Measured cold, 2026-08-01, M4 Pro.
 
+**Superseded, and by two changes at once — read it as history.** The corpus below was written at a
+tile size fossil has since retired, and it was read by a source that handed DuckDB every chunk URL
+and pruned with a `WHERE`. Both halves changed. The rows further down measure the same sweep after
+each change, and the page's own "recorded" tiles were rebaselined to the later run rather than left
+quoting this one beside live numbers.
+
 | Nodes | Links | Attach | `total()` | First slice | Upload | **First paint** | Pan | Redraw | Shown / matched |
 |---|---|---|---|---|---|---|---|---|---|
 | 2k | 12.5k | 130 ms | 14 ms | 61 ms | 25 ms | **100 ms** | 21 ms | 0.47 ms | 2k / 2k |

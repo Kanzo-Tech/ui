@@ -133,17 +133,23 @@ const LAYERS: { id: Layer; label: string; hint: string }[] = [
 const HELD_FIRST_PAINT_MS = 1_225;
 
 /**
- * The recorded run, at 200,000 nodes, from `BENCHMARKS.md` — an M4 Pro, 2026-07-31.
+ * The recorded run, at 200,000 nodes — 2026-08-15, through `corpusSource`.
  *
  * Shown before a sweep has been run, because a benchmark page that opens saying nothing until you
  * wait two minutes for it has buried its own finding. These are labelled as recorded rather than
  * measured, and the moment this tab produces its own numbers they are replaced by them: a reader
  * should be able to tell "what we found" from "what your machine just did", and the difference
  * between those two is most of what a benchmark is for.
+ *
+ * **They were rebaselined, and the old ones were not merely older.** The figures here read 105 ms of
+ * first paint and 30 ms of pan, from 2026-07-31 — a corpus written at a tile size fossil has since
+ * retired, read by a source that handed DuckDB every chunk URL and pruned with a `WHERE`. Both sides
+ * of that changed, so the numbers described a system that no longer exists while sitting beside live
+ * ones that did. `BENCHMARKS.md` keeps them where a superseded measurement belongs.
  */
 const RECORDED = {
-  firstPaintMs: 105,
-  panMs: 30,
+  firstPaintMs: 299,
+  panMs: 73,
   shown: 20_000,
   matched: 200_000,
   atNodes: 200_000,

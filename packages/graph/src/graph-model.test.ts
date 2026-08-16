@@ -12,6 +12,9 @@ import type { Slice } from "./bounded";
  * is not a smaller slice, it is an inconsistent one.
  */
 function slice(over: Partial<Slice> = {}): Slice {
+  // The spread is cast because `Slice` is a tagged union now: `Partial<Slice>` can carry `weights`
+  // without carrying `mode: "aggregate"`, which is exactly the state the union exists to forbid.
+  // A fixture builder is the one place that has to be allowed to assemble either branch by hand.
   const n = over.positions ? over.positions.length / 2 : 3;
   return {
     mode: "detail",
@@ -21,7 +24,7 @@ function slice(over: Partial<Slice> = {}): Slice {
     links: new Float32Array(),
     categories: new Uint16Array(n),
     ...over,
-  };
+  } as Slice;
 }
 
 describe("buffers", () => {
@@ -126,7 +129,7 @@ describe("memorySource", () => {
   it("answers a rectangle with what is inside it, as identities", async () => {
     const answer = await memorySource(graph).slice({
       ...request,
-      query: { kind: "region", view: { xMin: -1, yMin: -1, xMax: 2, yMax: 2, zoom: 1 } },
+      view: { xMin: -1, yMin: -1, xMax: 2, yMax: 2, zoom: 1 },
     });
 
     expect([...answer.vertices]).toEqual([10, 11, 12].map((id) => vertexId(0, id)));
@@ -139,7 +142,7 @@ describe("memorySource", () => {
     const answer = await memorySource(graph).slice({
       ...request,
       limit: 2,
-      query: { kind: "region", view: { xMin: -1, yMin: -1, xMax: 2, yMax: 2, zoom: 1 } },
+      view: { xMin: -1, yMin: -1, xMax: 2, yMax: 2, zoom: 1 },
     });
 
     // A truncated slice that claimed to be complete is the failure this whole contract is about.
@@ -151,7 +154,7 @@ describe("memorySource", () => {
     const answer = await memorySource(graph).slice({
       ...request,
       pinned: [vertexId(0, 13)],
-      query: { kind: "region", view: { xMin: -1, yMin: -1, xMax: 2, yMax: 2, zoom: 1 } },
+      view: { xMin: -1, yMin: -1, xMax: 2, yMax: 2, zoom: 1 },
     });
 
     // A dragged node is drawn where the reader dropped it and indexed where it always was, so the
@@ -161,26 +164,26 @@ describe("memorySource", () => {
 
   it("expands a neighbourhood by hops, not by distance", async () => {
     const source = memorySource(graph);
-    const one = await source.slice({ ...request, query: { kind: "neighbourhood", seeds: [vertexId(0, 10)], depth: 1 } });
-    const zero = await source.slice({ ...request, query: { kind: "neighbourhood", seeds: [vertexId(0, 10)], depth: 0 } });
+    const one = await source.explore({ ...request, seeds: [vertexId(0, 10)], depth: 1 });
+    const zero = await source.explore({ ...request, seeds: [vertexId(0, 10)], depth: 0 });
 
     expect([...one.vertices].sort()).toEqual([10, 11, 12].map((id) => vertexId(0, id)));
     expect([...zero.vertices]).toEqual([vertexId(0, 10)]);
     // The other triangle is unreachable at any depth — that is the question a rectangle cannot ask.
-    const deep = await source.slice({ ...request, query: { kind: "neighbourhood", seeds: [vertexId(0, 10)], depth: 9 } });
+    const deep = await source.explore({ ...request, seeds: [vertexId(0, 10)], depth: 9 });
     expect([...deep.vertices]).not.toContain(vertexId(0, 13));
   });
 
   it("answers super-nodes below the level-of-detail threshold", async () => {
     const answer = await memorySource(graph).slice({
       ...request,
-      query: { kind: "region", view: { xMin: -1e6, yMin: -1e6, xMax: 1e6, yMax: 1e6, zoom: 0.1 } },
+      view: { xMin: -1e6, yMin: -1e6, xMax: 1e6, yMax: 1e6, zoom: 0.1 },
     });
 
     expect(answer.mode).toBe("aggregate");
     // One mark per group, at its centroid, standing for three vertices each.
     expect(answer.vertices.length).toBe(2);
-    expect([...(answer.weights ?? [])]).toEqual([3, 3]);
+    expect(answer.mode === "aggregate" && [...answer.weights]).toEqual([3, 3]);
     expect(answer.n).toBe(6);
     // And a view of everything is still a picture: the groups that touch, deduplicated. These two do
     // not touch, so there is nothing between them.

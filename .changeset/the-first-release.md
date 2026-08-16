@@ -71,7 +71,14 @@ A bounded WebGL graph over cosmos.gl. The canvas asks for what the camera can se
 holding the corpus: it observes the camera, debounces, aborts what the camera has superseded, and
 pushes each answer into the renderer, so first paint follows the window rather than the corpus.
 `memorySource(graph)` wraps arrays you already hold; `@kanzo-tech/graph/duckdb` carries
-`duckBoundedSource` because Mosaic is an optional peer.
+`duckBoundedSource` and `corpusSource` because Mosaic is an optional peer.
+
+Three sources, three jobs. `memorySource` takes the arrays. `duckBoundedSource` takes any relation
+with `x`/`y` and the names of its columns. `corpusSource` takes **where a corpus is** and nothing
+else: it reads the manifest, derives the tiles, keeps each one's bounding box from the footer, and
+per camera move reads only the tiles the window touches. It accepts no column names by design —
+they come from the manifest, and a corpus reader that also took them would be the general source
+with extra steps.
 
 The graph comes in Ark's four pieces. `useGraph(props)` builds the api, `GraphRootProvider` renders
 the surface over one, `GraphCanvas` is the shortcut that does both, and `useGraphContext()` reads it

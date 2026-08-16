@@ -2,7 +2,7 @@
 
 import { count, Query } from "@uwdata/mosaic-sql";
 import { column, fillColumn, numbers, type Coordinator } from "@kanzo-tech/ui/analytics";
-import type { BoundedSource, Slice, SliceQuery, SliceRequest, Viewport } from "./bounded";
+import type { BoundedSource, Slice, SliceRequest, Viewport } from "./bounded";
 import { onceQuery } from "./once-query";
 import { denseOf, typeOf, vertexId, SUPERNODE, type VertexId } from "./resident";
 
@@ -112,23 +112,18 @@ export function duckBoundedSource(options: DuckSourceOptions): BoundedSource {
     },
 
     /**
-     * Regions only. This source is two relations and a spatial predicate — it has no adjacency
-     * index, so a neighbourhood query would mean recursive joins over the whole edge table, which is
-     * the unbounded pattern wearing a bounded interface. A typed refusal is the honest answer;
-     * fossil's `expand` is the source that should answer it.
+     * Regions only, and it says so by **not having** `explore`.
+     *
+     * This source is two relations and a spatial predicate — it has no adjacency index, so a
+     * neighbourhood query would mean recursive joins over the whole edge table, which is the
+     * unbounded pattern wearing a bounded interface. It used to say that with a predicate and a
+     * throw; now the absence is the statement, and asking is a compile error.
      */
-    supports(kind) {
-      return kind === "region";
-    },
-
     async slice(request: SliceRequest): Promise<Slice> {
-      const { limit, lodThreshold, pinned, query } = request;
-      if (query.kind !== "region") {
-        throw new Error("this source answers regions only — see supports()");
-      }
-      return query.view.zoom < lodThreshold
+      const { limit, lodThreshold, pinned, view } = request;
+      return view.zoom < lodThreshold
         ? aggregate(coordinator, nodes, edges, columns, limit)
-        : detail(coordinator, nodes, edges, columns, query.view, limit, typeIndex, pinned);
+        : detail(coordinator, nodes, edges, columns, view, limit, typeIndex, pinned);
     },
   };
 }
@@ -154,7 +149,7 @@ export function duckBoundedSource(options: DuckSourceOptions): BoundedSource {
  * open on every side is `TRUE` — which is also the right plan, because a query that wants every row
  * has nothing to prune.
  */
-function bboxSql(c: Columns, view: Extract<SliceQuery, { kind: "region" }>["view"]): string {
+function bboxSql(c: Columns, view: Viewport): string {
   const bounds: [string, number, string][] = [
     [c.x, view.xMin, ">="],
     [c.x, view.xMax, "<="],
@@ -188,7 +183,7 @@ async function detail(
   nodes: string,
   edges: string,
   c: Columns,
-  view: Extract<SliceQuery, { kind: "region" }>["view"],
+  view: Viewport,
   limit: number,
   typeIndex: number,
   pinned: VertexId[] | undefined,
@@ -602,21 +597,16 @@ export async function corpusSource(options: CorpusSourceOptions): Promise<Corpus
       };
     },
 
-    // Regions only, and the refusal is the same one `duckBoundedSource` makes: a neighbourhood needs
-    // adjacency this source does not index. fossil's `expand` is what answers it, and `SliceQuery`
-    // already carries the shape for whoever writes that source.
-    supports: (kind) => kind === "region",
-
+    // Regions only, said the same way `duckBoundedSource` says it: no `explore`. A neighbourhood
+    // needs adjacency this source does not index, and fossil's `expand` is what answers it —
+    // `ExploringSource` is the shape waiting for whoever writes that one.
     async slice(request: SliceRequest): Promise<Slice> {
-      const { limit, lodThreshold, pinned, query } = request;
-      if (query.kind !== "region") {
-        throw new Error("this source answers regions only — see supports()");
-      }
+      const { limit, lodThreshold, pinned, view } = request;
       const all = await load();
       // Zoomed out past the threshold every tile is in the picture anyway, so aggregate reads the
       // whole set rather than selecting one it would only end up selecting all of.
       const selected =
-        query.view.zoom < lodThreshold ? all.map((b) => b.tile) : intersecting(all, query.view);
+        view.zoom < lodThreshold ? all.map((b) => b.tile) : intersecting(all, view);
       const nodes = `read_parquet([${selected.map(tileUrl).join(", ")}])`;
       const relation = `read_parquet([${(edgePrefix ? selected : []).map(edgeTileUrl).join(", ")}])`;
 
@@ -633,9 +623,9 @@ export async function corpusSource(options: CorpusSourceOptions): Promise<Corpus
         };
       }
 
-      return query.view.zoom < lodThreshold
+      return view.zoom < lodThreshold
         ? aggregate(coordinator, nodes, relation, columns, limit)
-        : detail(coordinator, nodes, relation, columns, query.view, limit, 0, pinned);
+        : detail(coordinator, nodes, relation, columns, view, limit, 0, pinned);
     },
   };
 }

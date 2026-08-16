@@ -1,5 +1,6 @@
 import {
-  type BoundedSource,
+  type ExploreRequest,
+  type ExploringSource,
   type Slice,
   type SliceRequest,
   type Viewport,
@@ -13,10 +14,9 @@ import { vertexId, SUPERNODE, type VertexId } from "./resident";
  * which bounding buys nothing, because their graph fits. This is that source, and it exists so that
  * "wrap your arrays" is one import rather than a hundred lines each call site writes differently.
  *
- * It is also the only source we ship that answers **both** questions. A rectangle is a map question
- * and a relation with a spatial predicate can answer it; a neighbourhood is the graph question, and
- * answering it needs adjacency. Having the links in hand, this one does — so the bounded canvas is
- * an explorer here even while a SQL source leaves it a map.
+ * It is also the only source we ship that is an [`ExploringSource`]. A rectangle is a map question
+ * and any relation with a spatial predicate can answer it; a neighbourhood is the graph question,
+ * and answering it needs adjacency. Having the links in hand, this one does.
  *
  * Everything derived is built on first use and kept: a graph small enough to hold is small enough
  * that an adjacency list is cheap, but a host that only ever pans should not pay to build one.
@@ -38,7 +38,7 @@ export interface MemoryGraph {
   sizes?: Float32Array;
 }
 
-export function memorySource(graph: MemoryGraph): BoundedSource {
+export function memorySource(graph: MemoryGraph): ExploringSource {
   const count = graph.positions.length / 2;
 
   /** Built on demand — a host that only pans never asks for either of these. */
@@ -68,14 +68,16 @@ export function memorySource(graph: MemoryGraph): BoundedSource {
 
   return {
     total: () => Promise.resolve(count),
-    supports: () => true,
     slice(request: SliceRequest): Promise<Slice> {
-      const { limit, lodThreshold, pinned, query } = request;
-      if (query.kind === "neighbourhood") {
-        return Promise.resolve(gather(graph, expand(query.seeds, query.depth), limit));
-      }
-      if (query.view.zoom < lodThreshold) return Promise.resolve(aggregate(graph, limit));
-      return Promise.resolve(gather(graph, inside(graph, query.view, pinned), limit));
+      const { limit, lodThreshold, pinned, view } = request;
+      if (view.zoom < lodThreshold) return Promise.resolve(aggregate(graph, limit));
+      return Promise.resolve(gather(graph, inside(graph, view, pinned), limit));
+    },
+    // The only source we ship that has this at all: a rectangle needs a spatial predicate, which
+    // every source has, and a neighbourhood needs adjacency, which only a host holding its own links
+    // does. So the bounded canvas is an explorer here while a SQL source leaves it a map.
+    explore(request: ExploreRequest): Promise<Slice> {
+      return Promise.resolve(gather(graph, expand(request.seeds, request.depth), request.limit));
     },
   };
 

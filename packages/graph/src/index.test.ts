@@ -85,10 +85,7 @@ describe("@kanzo-tech/graph public surface", () => {
     const slice = await source.slice({
       limit: 10,
       lodThreshold: 0,
-      query: {
-        kind: "region",
-        view: { xMin: -Infinity, xMax: Infinity, yMin: -Infinity, yMax: Infinity, zoom: 1 },
-      },
+      view: { xMin: -Infinity, xMax: Infinity, yMin: -Infinity, yMax: Infinity, zoom: 1 },
     });
     expect(slice.vertices.length).toBe(2);
     expect(GRAPH.residentOf(slice).indicesOf([GRAPH.vertexId(0, 1)])).toEqual([1]);

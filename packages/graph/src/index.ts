@@ -133,7 +133,8 @@ export {
   type BoundedSource,
   type Slice,
   type SliceMode,
-  type SliceQuery,
+  type ExploringSource,
+  type ExploreRequest,
   type SliceRequest,
   type Viewport,
 } from "./bounded";

@@ -6,8 +6,8 @@ import {
   BOUNDED_DEFAULTS,
   shouldSlice,
   type BoundedSource,
+  type ExploringSource,
   type Slice,
-  type SliceQuery,
   type Viewport,
 } from "./bounded";
 import { residentOf, type Resident, type VertexId } from "./resident";
@@ -144,20 +144,14 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
   report.current = onError;
 
   const ask = useCallback(
-    async (query: SliceQuery) => {
+    async (run: (from: BoundedSource, signal: AbortSignal) => Promise<Slice>) => {
       if (!source) return;
       inFlight.current?.abort();
       const controller = new AbortController();
       inFlight.current = controller;
       setPending(true);
       try {
-        const answer = await source.slice({
-          query,
-          pinned: held.current,
-          limit,
-          lodThreshold,
-          signal: controller.signal,
-        });
+        const answer = await run(source, controller.signal);
         if (controller.signal.aborted) return;
         setSlice(answer);
       } catch (error) {
@@ -171,7 +165,7 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
         }
       }
     },
-    [limit, lodThreshold, source],
+    [source],
   );
 
   /**
@@ -192,20 +186,37 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
       const graph = graphRef.current;
       const host = hostRef.current;
       if (!graph || !host) return;
-      void ask({ kind: "region", view: cameraViewport(graph, host) });
+      void ask((s, signal) =>
+        s.slice({
+          view: cameraViewport(graph, host),
+          pinned: held.current,
+          limit,
+          lodThreshold,
+          signal,
+        }),
+      );
     }, debounce);
-  }, [ask, debounce, graphRef, hostRef]);
+  }, [ask, debounce, graphRef, hostRef, limit, lodThreshold]);
 
+  /**
+   * Ask a topological question, when the source is one that can answer.
+   *
+   * `"explore" in source` is the narrowing, and it is the whole check — a source that cannot walk
+   * edges does not carry the method, so this is the one place a caller pays for the distinction
+   * instead of every source restating it in a predicate and a throw.
+   */
   const explore = useCallback(
     (seeds: VertexId[], depth: number) => {
-      if (!source?.supports("neighbourhood")) {
+      if (!source || !("explore" in source)) {
         report.current?.("this source answers regions only");
         return;
       }
       if (timer.current) clearTimeout(timer.current);
-      void ask({ kind: "neighbourhood", seeds, depth });
+      void ask((s, signal) =>
+        (s as ExploringSource).explore({ seeds, depth, pinned: held.current, limit, lodThreshold, signal }),
+      );
     },
-    [ask, source],
+    [ask, limit, lodThreshold, source],
   );
 
   /**
@@ -236,12 +247,15 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
       slicing.current = bounded;
       setSliced(bounded);
       if (bounded) refresh();
-      else void ask({ kind: "region", view: EVERYTHING });
+      else
+        void ask((s, signal) =>
+          s.slice({ view: EVERYTHING, pinned: held.current, limit, lodThreshold, signal }),
+        );
     })();
     return () => {
       live = false;
     };
-  }, [ask, limit, refresh, source]);
+  }, [ask, limit, lodThreshold, refresh, source]);
 
   // A dropped canvas must not leave a timer holding a stale camera, or a request nobody will read.
   useEffect(
