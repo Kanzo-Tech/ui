@@ -1,0 +1,48 @@
+// The workspace's archive, compiled rather than built in the tab.
+//
+// The showcase used to construct its graph in the browser, write two CSVs into DuckDB's virtual
+// filesystem and register them as relations. Its own comment said that was *"the same shape keasy's
+// real corpus arrives in"* — this is that sentence made true instead of approximated: fossil writes
+// the tree, the browser only reads it, and the reader is the one a product ships.
+//
+// **Two mappings over one shape, and their projections must match column for column.** Only a
+// subject map mints a vertex; an object IRI merges into one that exists but never creates it, so an
+// edge list alone loses every node that is never a source. The node list puts them back, and the
+// price is that `edges.csv` repeats the source's nine properties — the two sides are combined with a
+// plain UNION before the dedup by subject, so a column on one and not the other fails the run.
+//
+// **The layout is fossil's, not the generator's.** `buildArchiveGraph` has `x`/`y` and they are not
+// projected. The layout pass writes coordinates, `cluster_id` and `community`, rewrites each vertex
+// file in Morton order, and that ordering is the whole point: it is what lets a window select tiles
+// on their bounding boxes instead of scanning. A hand-made layout carried through would be a picture
+// the reader could not address.
+
+type { Node } := io.shex("archive.shex")
+
+Nodes := io.csv("nodes.csv")
+Edges := io.csv("edges.csv")
+
+Vertices : Node from Nodes
+    @subject = "https://kanzo.tech/archive/n/{Nodes.id}"
+    label    = Nodes.label
+    kind     = Nodes.kind
+    hall     = Nodes.hall
+    region   = Nodes.region
+    signed   = Nodes.signed
+    degree   = Nodes.degree
+    reports  = Nodes.reports
+    closed   = Nodes.closed
+    tags     = Nodes.tags
+
+Links : Node from Edges
+    @subject = "https://kanzo.tech/archive/n/{Edges.id}"
+    label    = Edges.label
+    kind     = Edges.kind
+    hall     = Edges.hall
+    region   = Edges.region
+    signed   = Edges.signed
+    degree   = Edges.degree
+    reports  = Edges.reports
+    closed   = Edges.closed
+    tags     = Edges.tags
+    linksTo  = "https://kanzo.tech/archive/n/{Edges.target}"

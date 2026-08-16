@@ -384,7 +384,7 @@ function countOf(rows: unknown): number {
  * `x`/`y` that nobody wrote as a corpus.
  */
 
-export interface CorpusSourceOptions {
+export interface OpenCorpusOptions {
   coordinator: Coordinator;
   /** Where the corpus lives, without a trailing slash — the directory holding `graph.graph.yml`. */
   dest: string;
@@ -401,6 +401,18 @@ export interface CorpusSourceOptions {
    * asks for names when something has to be *named* rather than painted.
    */
   subjects?: boolean;
+  /**
+   * Which property carries the colour ordinal. Defaults to `community`.
+   *
+   * **The one thing the manifest cannot tell you**, and the reason is worth stating rather than
+   * apologising for: a manifest declares property *names*, never *roles*. Which column means a
+   * colour is a question about your picture, not a fact about the corpus — an archive coloured by
+   * `kind` and the same archive coloured by `region` are two legitimate readings of one tree.
+   *
+   * `community` is the default because every corpus has one: the layout pass writes it, so a caller
+   * that has no opinion gets the corpus' own partition rather than an error.
+   */
+  categoryField?: string;
 }
 
 /** One tile's bounding box, from the footer. `null` for a tile whose statistics are missing. */
@@ -442,6 +454,34 @@ async function manifest(dest: string, path: string): Promise<string> {
   return response.text();
 }
 
+/**
+ * An opened corpus: the half that **draws** and the half that **answers**.
+ *
+ * A host needs both over the same bytes and they are not the same access. The canvas reads tiles by
+ * address — a handful of files per camera move, chosen from the footer's boxes, with no query. A
+ * chart, a crossfilter clause or a verb reads the *relation*: every row, by column name, in SQL.
+ * Hiding the URLs behind `source` is right for the first and leaves the second with nothing to
+ * query, so opening a corpus registers views for it.
+ *
+ * This is the other side's own shape. `fossil-mcp` describes itself as opening a dataset,
+ * *registering views over the Parquet the corpus already holds*, and dispatching a verb — the same
+ * two halves, named the same way, one call apart.
+ */
+export interface OpenedCorpus {
+  /** For the canvas: `<GraphCanvas source={…}>`. Reads tiles, never the whole relation. */
+  source: CorpusSource;
+  /**
+   * The vertex relation, registered and ready to query by name.
+   *
+   * Every column the manifest declares, including the corpus' own properties — so a clause a chart
+   * publishes over `kind` or `region` lands here with no translation, which is what makes one
+   * crossfilter serve the canvas and the charts.
+   */
+  nodes: string;
+  /** The source-ordered edge relation, or `undefined` when the corpus declares no edge for this type. */
+  edges: string | undefined;
+}
+
 /** What a corpus knows about itself beyond answering slices. */
 export interface CorpusSource extends BoundedSource {
   /**
@@ -454,8 +494,8 @@ export interface CorpusSource extends BoundedSource {
   extent(): Promise<Viewport>;
 }
 
-export async function corpusSource(options: CorpusSourceOptions): Promise<CorpusSource> {
-  const { coordinator, dest, subjects = false, vertexType } = options;
+export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorpus> {
+  const { categoryField = "community", coordinator, dest, subjects = false, vertexType } = options;
 
   const root = await manifest(dest, "graph.graph.yml");
   const vertexPaths = listItems(root, "vertices");
@@ -579,13 +619,41 @@ export async function corpusSource(options: CorpusSourceOptions): Promise<Corpus
     subject: subjects ? "subject" : undefined,
     x: "x",
     y: "y",
-    category: "community",
+    category: categoryField,
     size: undefined,
     source: "src_dense",
     target: "dst_dense",
   };
 
-  return {
+  /**
+   * The relation half, registered once at open.
+   *
+   * A view rather than a table: `CREATE TABLE AS` would pull the corpus into memory, which is the
+   * working set the whole bounded path exists to refuse. A view leaves the bytes where they are and
+   * lets each query fetch the ranges it needs.
+   *
+   * Over **every** tile, deliberately — this is the surface that answers *what does it mean*, and a
+   * count, a histogram or a crossfilter clause is a question about the corpus rather than about the
+   * window. The addressed reading is `slice`, beside it, and the two are different access to the
+   * same bytes rather than two versions of one.
+   */
+  const nodesView = `corpus_${type}`;
+  const edgesView = edgePrefix ? `corpus_${type}_edges` : undefined;
+  const allTiles = async () => {
+    const boxes = await load();
+    return boxes.map((b) => tileUrl(b.tile)).join(", ");
+  };
+  await coordinator.exec(
+    `CREATE OR REPLACE VIEW ${nodesView} AS SELECT * FROM read_parquet([${await allTiles()}])`,
+  );
+  if (edgesView) {
+    await coordinator.exec(
+      `CREATE OR REPLACE VIEW ${edgesView} AS
+         SELECT * FROM read_parquet('${dest}/${edgePrefix}by_source.parquet')`,
+    );
+  }
+
+  const source: CorpusSource = {
     async total() {
       await load();
       return total ?? 0;
@@ -634,4 +702,6 @@ export async function corpusSource(options: CorpusSourceOptions): Promise<Corpus
         : detail(coordinator, nodes, relation, columns, view, limit, 0, pinned);
     },
   };
+
+  return { source, nodes: nodesView, edges: edgesView };
 }

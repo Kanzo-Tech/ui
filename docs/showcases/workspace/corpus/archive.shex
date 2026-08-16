@@ -1,0 +1,32 @@
+PREFIX archive: <https://kanzo.tech/archive/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+# The output contract of `archive.fossil` — the Guild's archive as a corpus.
+#
+# What is here and what is deliberately not:
+#
+#   - The **properties** are what the workspace's panels read by name. A clause a chart publishes
+#     over `kind` or `region` has to land on the same columns the canvas is drawing from, and that
+#     is only true if the corpus carries them.
+#   - `x`, `y`, `cluster_id` and `community` are **absent**, because they are the layout pass's to
+#     write. The generator has coordinates of its own and they are not projected: under ADR-0001 the
+#     corpus' coordinates are the index every spatial question is asked against, so a second set
+#     written by hand would be a layout the reader could not address.
+#   - `linksTo` is a shape reference rather than a wildcard, which is what makes it an *edge*. A `.`
+#     would make it a column and the union of the two mappings would fail on column count.
+#
+# Optional because two mappings write this one shape and only the edge-list one has a target. At
+# 1..1 the node-only mapping fails `check_required_properties`, which is that check working.
+
+archive:Node {
+  archive:label   xsd:string ;
+  archive:kind    xsd:string ;
+  archive:hall    xsd:string ;
+  archive:region  xsd:string ;
+  archive:signed  xsd:string ;
+  archive:degree  xsd:integer ;
+  archive:reports xsd:integer ;
+  archive:closed  xsd:date ;
+  archive:tags    xsd:string ;
+  archive:linksTo @archive:Node ?
+}

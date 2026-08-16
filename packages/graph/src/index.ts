@@ -147,8 +147,8 @@ export { memorySource, type MemoryGraph } from "./memory-source";
 // The DuckDB sources are on `@kanzo-tech/graph/duckdb`, not here: Mosaic is an optional peer and
 // that is the half that needs it. A host drawing arrays it already holds should not import a
 // database to find out it did not need one. Two live there and they are different jobs —
-// `duckBoundedSource` over any relation with `x`/`y`, and `corpusSource` over a tree fossil wrote,
-// which takes no column names because they come from the manifest.
+// `openCorpus` is the one that matters: it takes where a corpus is and gives back both halves —
+// a source for the canvas and registered views for the charts, the crossfilter and the verbs.
 
 // Cluster seeding — what actually separates communities, as opposed to what looks like it should.
 export { clusterRing } from "./cluster-ring";

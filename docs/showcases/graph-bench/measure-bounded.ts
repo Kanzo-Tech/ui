@@ -4,7 +4,7 @@ import { Graph } from "@cosmos.gl/graph";
 import { type Coordinator, numbers } from "@kanzo-tech/ui/analytics";
 import { BOUNDED_DEFAULTS, shouldSlice, type Slice } from "@kanzo-tech/graph";
 import { boot } from "../workspace/duck";
-import { corpusSource, onceQuery, type CorpusSource } from "@kanzo-tech/graph/duckdb";
+import { openCorpus, onceQuery, type CorpusSource } from "@kanzo-tech/graph/duckdb";
 // The offscreen element and the rectangle it defines are `measure.ts`'s, so the two harnesses draw
 // into the same one. They had a copy each — identical to the character, which is the kind of
 // duplicate that stays true right up until one of them is tuned.
@@ -281,13 +281,13 @@ async function corpus(pointCount: number, report?: (stage: string) => void): Pro
    *
    * Everything this used to derive by hand — the chunk count from a `chunk_size` copied out of
    * fossil, the `chunk{k}.parquet` naming, the edge directory, GraphAr's column names, and the
-   * twenty-line note about why a glob cannot work over a plain HTTP origin — is `corpusSource`'s
+   * twenty-line note about why a glob cannot work over a plain HTTP origin — is `openCorpus`'s
    * now, read from the manifest rather than written down here. That constant went stale once and
    * silently read a fraction of the corpus, which is the whole argument for this move and is
    * `decisions/a-tile-is-an-address-not-a-verb.md`.
    */
-  const source = await corpusSource({ coordinator, dest: base });
-  const named = await corpusSource({ coordinator, dest: base, subjects: true });
+  const { source } = await openCorpus({ coordinator, dest: base });
+  const { source: named } = await openCorpus({ coordinator, dest: base, subjects: true });
 
   /**
    * The extent, from the boxes the source already holds. No scan.
@@ -303,7 +303,7 @@ async function corpus(pointCount: number, report?: (stage: string) => void): Pro
   /**
    * How far the camera reaches at a zoom that shows [`PAN_NODES`] vertices.
    *
-   * **This changed with the move to `corpusSource` and the number is not the old one.** It was the
+   * **This changed with the move to `openCorpus` and the number is not the old one.** It was the
    * exact Chebyshev radius around the centre holding `PAN_NODES` vertices — a sort over the whole
    * corpus — and the relation that query needed is exactly what the source now hides. What replaces
    * it is the area-proportional radius: the fraction of the extent whose area holds that share of a
@@ -376,7 +376,7 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
      * This guarded a constant that no longer exists: `CHUNK_SIZE` lived here, went stale against
      * fossil, and silently derived too few chunk URLs — every one of which resolved, so the sweep
      * measured a fraction of the corpus at a flattering latency and reported no error at all.
-     * `corpusSource` reads the chunk size from the manifest now, so that particular drift cannot
+     * `openCorpus` reads the chunk size from the manifest now, so that particular drift cannot
      * happen; the check stays because it costs one comparison against a number already timed, and
      * because *the reader found fewer vertices than the corpus holds* is the failure shape, not the
      * one cause that used to produce it.
