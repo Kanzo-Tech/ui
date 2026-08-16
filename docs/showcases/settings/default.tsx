@@ -8,6 +8,8 @@ import {
   UserIcon,
 } from "lucide-react";
 import {
+  Avatar,
+  AvatarFallback,
   PreferencesColor,
   PreferencesDensity,
   PreferencesFont,
@@ -25,12 +27,21 @@ import {
   SidebarContent,
   SidebarGroup,
   SidebarGroupLabel,
+  SidebarHeader,
+  SidebarIdentity,
+  SidebarIdentityAvatar,
+  SidebarIdentityDescription,
+  SidebarIdentityLabel,
+  SidebarIdentityText,
   SidebarInset,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
 } from "@kanzo-tech/ui";
+// The one running example the docs speak — a settings page belongs to somebody, and inventing a
+// second cast for it would be a second world for a reader to learn.
+import { initialsOf, VIEWER } from "@/example/people";
 
 /**
  * The same preference sections, as a PAGE.
@@ -79,6 +90,26 @@ export function SettingsShowcase() {
       {/* `collapsible="none"`: a settings sub-sidebar is the page's table of contents, not a rail
           you fold away to get room. GitHub's does not collapse either. */}
       <Sidebar collapsible="none">
+        {/* Whose settings these are. GitHub's page opens with the account, and it is not decoration:
+            a settings area is one of the few screens where "for which identity" is the first
+            question a reader has. `SidebarIdentity` is the composite that answers it. */}
+        <SidebarHeader>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarIdentity>
+                <SidebarIdentityAvatar>
+                  <Avatar>
+                    <AvatarFallback>{initialsOf(VIEWER.name)}</AvatarFallback>
+                  </Avatar>
+                </SidebarIdentityAvatar>
+                <SidebarIdentityText>
+                  <SidebarIdentityLabel>{VIEWER.name}</SidebarIdentityLabel>
+                  <SidebarIdentityDescription>Personal settings</SidebarIdentityDescription>
+                </SidebarIdentityText>
+              </SidebarIdentity>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarHeader>
         <SidebarContent>
           {NAV.map((group) => (
             <SidebarGroup key={group.label}>

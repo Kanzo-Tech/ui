@@ -1,0 +1,47 @@
+---
+title: Settings
+description: The same preference sections as the floating drawer, rendered as a settings page with a sub-sidebar.
+full: true
+---
+
+<PreviewIframe name="settings" title="Settings showcase" className="h-[820px]" />
+
+One claim, and it is the one the whole [section mechanism](/docs/sections) rests on: **a section is
+independent of the surface that hosts it.** Every control on that page is the identical export the
+[floating panel](/docs/layout/preferences) renders — `PreferencesColor`, `PreferencesDensity`,
+`PreferencesRadius`, the two font axes, and `PreferencesSections` for whatever the packages a host
+installed contribute. Not one is a settings-page variant of anything, and if one ever needs to be,
+the mechanism has failed.
+
+A product picks the surface, not the components. A light one wants the drawer — see
+[metadata form](/docs/showcases/metadata-form). A product with a real settings area wants this. Both
+are one registry and one resolution.
+
+## The layout adapts itself, and the page does not tell it to
+
+The colour section draws its two side cards under a **container query**, so it is one column inside
+the 384px drawer and two in this pane. Measured on this arrangement: the cards sit on one row at
+319px each here, and stack in the panel, with nothing passed down to say so.
+
+That is deliberate rather than convenient. The question a section asks is how much room *it* was
+given, never how big the window is — a page handing it a layout prop would be the surface deciding
+for the section again, which is exactly what the mechanism exists to stop.
+
+## What the tiles do that a drawn tile cannot
+
+GitHub's Appearance page is the shape this borrows: grouped sub-sidebar, one scrolling pane,
+appearance first. What is not borrowed is the semantics — GitHub pairs a day theme with a night
+theme because its themes are single-mode, and [ours each carry both](/docs/theming).
+
+Their tiles are drawn assets. Ours are the real cascade answering: each card sets `[data-palette]`
+plus the appearance class, so with the page in dark the **Light** card still resolves the light
+block. Both documents are on screen at once, and what you see is what selecting it will do.
+
+## Composed from what already ships
+
+`SidebarProvider`, `SidebarInset`, `ShellMain` and the flat Preferences parts. The showcase adds no
+component, which is the admission rule working as intended: a new component is the last rung, not
+the first. One `<main>`, owned by `ShellMain`.
+
+Nothing in the nav navigates. This arrangement is about where the sections live, and a router would
+be a second thing to read in a file that demonstrates one.

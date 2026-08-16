@@ -3,6 +3,7 @@
   "pages": [
     "app-shell",
     "workspace",
+    "settings",
     "metadata-form",
     "job-studio",
     "palette"
