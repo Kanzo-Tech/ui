@@ -5,6 +5,7 @@ import { JobStudioShowcase } from "@/showcases/job-studio/default";
 import { MetadataFormShowcase } from "@/showcases/metadata-form/default";
 import { PaletteOnboardingShowcase } from "@/showcases/palette-onboarding/default";
 import { PreferencesShowcase } from "@/showcases/preferences/default";
+import { SettingsShowcase } from "@/showcases/settings/default";
 import { PreferencesExtendedShowcase } from "@/showcases/preferences/extended";
 import { PreferencesFontsShowcase } from "@/showcases/preferences/fonts";
 import { WorkspaceShowcase } from "@/showcases/workspace/default";
@@ -33,6 +34,10 @@ const SHOWCASES = {
   preferences: PreferencesShowcase,
   "preferences-fonts": PreferencesFontsShowcase,
   "preferences-extended": PreferencesExtendedShowcase,
+  // The same sections as `preferences`, rendered as a PAGE rather than a drawer — a sub-sidebar and
+  // one scrolling pane, GitHub's Appearance shape. It exists to demonstrate that a section is
+  // independent of its surface: not one component below is a settings-page variant of anything.
+  settings: SettingsShowcase,
   // The colour half of the theme, which is not a panel at all. A SERVER component: it runs
   // `derivePalette` at build time, which is where that cost belongs.
   "palette-onboarding": PaletteOnboardingShowcase,
