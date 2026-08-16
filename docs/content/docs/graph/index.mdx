@@ -84,15 +84,15 @@ rather than hiding. The second comes from migrating a real product screen, not f
 
 ## The two halves
 
-**Data.** A **source** answers one question — *what should I draw* — and `useBoundedGraph` asks it.
+**Data.** A **source** answers one question — *what should I draw* — and `useGraph` asks it.
 The answer is a `Slice`: at most `limit` points, as parallel typed arrays, whose size follows the
 question rather than the corpus. Moving the camera re-asks; zooming out past `lodThreshold` gets
 super-nodes instead of nodes, so a view of everything is still a few thousand marks.
 
 ```ts
 const source = duckBoundedSource({ coordinator, nodes: "nodes", edges: "edges" });
-const { slice, refresh } = useBoundedGraph({ source, graphRef, hostRef });
-// …and wire cosmos.gl's `onZoom` to `refresh`.
+const { slice, refresh } = useGraph({ source, onFailure });
+// The camera is already wired: moving it re-asks.
 ```
 
 A host that already holds its arrays wraps them in `memorySource(...)` instead — same path, no
@@ -135,7 +135,7 @@ answer that comes and goes reuses every index while the vertices behind them cha
 therefore `vertexId(type, dense)`: the pair, because `dense_id` numbers *within one vertex type*, so
 a union of two types repeats every value and a `LIMIT` breaks the correspondence with position
 regardless. Everything that outlives one answer — a selection, a label, a hover, a pin — is held as a
-`VertexId` and resolved through the `Resident` that `useBoundedGraph` rebuilds per answer.
+`VertexId` and resolved through the `Resident` that `useGraph` rebuilds per answer.
 
 `VertexId` is a `bigint`, and `Slice.vertices` a `BigUint64Array`, because the pair is 64 bits and a
 `number` holds 53. That is not a hypothetical: `mapbox/node-s2` binds the reference C++ and still
@@ -145,7 +145,7 @@ a `number`, so mixing the two is a type error and not a naming convention. Nothi
 GPU: positions and indices stay `number` and `Float32Array`.
 
 ```ts
-const { resident } = useBoundedGraph({ source, graphRef, hostRef });
+const { resident } = useGraph({ source, onFailure });
 graph.setConfigPartial({ highlightedPointIndices: resident.indicesOf(selection.vertices) });
 ```
 

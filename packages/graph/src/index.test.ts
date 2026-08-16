@@ -46,11 +46,8 @@ describe("@kanzo-tech/graph public surface", () => {
     expect(GRAPH.forces).toBeTypeOf("function");
     expect(GRAPH.appearance).toBeTypeOf("function");
     expect(GRAPH.neighboursOf).toBeTypeOf("function");
-    expect(GRAPH.useCosmosGraph).toBeTypeOf("function");
-    expect(GRAPH.useGraphLook).toBeTypeOf("function");
     expect(GRAPH.useGraphOverlays).toBeTypeOf("function");
     expect(GRAPH.useGraphSelection).toBeTypeOf("function");
-    expect(GRAPH.useBoundedGraph).toBeTypeOf("function");
     expect(GRAPH.clusterRing).toBeTypeOf("function");
     expect(GRAPH.adaptive).toBeTypeOf("function");
     expect(GRAPH.cursorChip).toBeTypeOf("function");
@@ -146,10 +143,18 @@ describe("@kanzo-tech/graph public surface", () => {
     expect(GRAPH.GraphRootProvider).toBeTypeOf("function");
     expect(GRAPH.useGraphContext).toBeTypeOf("function");
     expect(surface.useGraphCanvas).toBeUndefined();
-    // The hooks stay beside it, which is the whole shape of the concession: a host needing a policy
-    // the component does not impose reaches for these, as `useChartContext` sits beside `ChartRoot`.
-    expect(GRAPH.useCosmosGraph).toBeTypeOf("function");
-    expect(GRAPH.useBoundedGraph).toBeTypeOf("function");
+    // Two hooks stay beside it and they are **not a second way to have a graph**: overlays and
+    // selection are chrome drawn on top of one, and both need a policy only a product can write.
+    expect(GRAPH.useGraphOverlays).toBeTypeOf("function");
+    expect(GRAPH.useGraphSelection).toBeTypeOf("function");
+    // The machine's own three are gone. They shipped as an escape hatch on one sentence — *the
+    // relationship is `ChartRoot` to `useChart`* — and that analogy died with
+    // `decisions/a-chart-needs-no-factory.md`: there is no `useChart` factory, so charts ship exactly
+    // one way and the reference this copied no longer reads that way. Measured after the workspace
+    // migrated to `useGraph`: zero call sites outside this package, comments aside.
+    expect(surface.useCosmosGraph).toBeUndefined();
+    expect(surface.useBoundedGraph).toBeUndefined();
+    expect(surface.useGraphLook).toBeUndefined();
     // ADR-0001. `load()` read the whole relation into memory — every id, every row, an id→index map
     // — which made the working set N and the ceiling whatever N the machine could hold. A source
     // answers a bounded question instead, and `Loaded` went with it.

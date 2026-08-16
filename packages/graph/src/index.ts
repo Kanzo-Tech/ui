@@ -66,9 +66,19 @@ export {
 } from "./graph-canvas";
 export { useGraph, type GraphApi, type GraphEvents, type UseGraphProps } from "./use-graph";
 
-// The renderer's lifetime, and the three hooks that keep it in step with React.
-export { useCosmosGraph, REHEAT, type CosmosGraphOptions } from "./use-cosmos-graph";
-export { useGraphLook } from "./use-graph-look";
+// `useCosmosGraph`, `useBoundedGraph` and `useGraphLook` are **not here**, and the argument that
+// used to keep them here died this week.
+//
+// They shipped beside the canvas as an escape hatch, justified in one sentence: *the relationship is
+// `ChartRoot` to `useChart`, not v2 to v1.* That analogy is gone — there is no `useChart` factory
+// and `decisions/a-chart-needs-no-factory.md` says why, so charts ship exactly one way and the
+// reference the graph was copying no longer reads that way. Measured after the workspace migrated:
+// the three have **zero call sites** outside this package, comments mentioning them aside.
+//
+// One way to have a graph: `useGraph`, or `GraphCanvas` for the common case. The two hooks below
+// are not a second way — they are chrome you draw *on top of* one, and they stay out of the canvas
+// for the reason they always did: both need a policy only a product can write.
+export { REHEAT } from "./use-cosmos-graph";
 // `GraphOverlays` is exported alongside its options because a host composing it with `useGraph` has
 // to name the returned object: the two are mutually dependent — overlays need `getGraph`, and the
 // graph's repaint owes the overlays a nudge — so one of them is held in a ref, and a ref needs a type.
@@ -138,11 +148,6 @@ export {
   type SliceRequest,
   type Viewport,
 } from "./bounded";
-export {
-  useBoundedGraph,
-  type BoundedGraphOptions,
-  type BoundedGraphState,
-} from "./use-bounded-graph";
 export { memorySource, type MemoryGraph } from "./memory-source";
 // The DuckDB sources are on `@kanzo-tech/graph/duckdb`, not here: Mosaic is an optional peer and
 // that is the half that needs it. A host drawing arrays it already holds should not import a
