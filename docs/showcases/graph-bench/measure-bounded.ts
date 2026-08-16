@@ -2,14 +2,9 @@
 
 import { Graph } from "@cosmos.gl/graph";
 import { type Coordinator, numbers } from "@kanzo-tech/ui/analytics";
-import {
-  BOUNDED_DEFAULTS,
-  type BoundedSource,
-  shouldSlice,
-  type Slice,
-} from "@kanzo-tech/graph";
+import { BOUNDED_DEFAULTS, shouldSlice, type Slice } from "@kanzo-tech/graph";
 import { boot } from "../workspace/duck";
-import { duckBoundedSource, onceQuery } from "@kanzo-tech/graph/duckdb";
+import { corpusSource, onceQuery, type CorpusSource } from "@kanzo-tech/graph/duckdb";
 // The offscreen element and the rectangle it defines are `measure.ts`'s, so the two harnesses draw
 // into the same one. They had a copy each — identical to the character, which is the kind of
 // duplicate that stays true right up until one of them is tuned.
@@ -38,7 +33,6 @@ import { CANVAS, host, nextFrame } from "./measure";
 
 export interface BoundedSample {
   pointCount: number;
-  linkCount: number;
   /** Getting the relations queryable: parsing a CSV, or opening a Parquet footer. */
   ingestMs: number;
   /** `total()` — the question that decides whether to slice at all. */
@@ -47,6 +41,28 @@ export interface BoundedSample {
   sliced: boolean;
   /** The opening slice, from query to typed arrays. */
   firstSliceMs: number;
+  /**
+   * The same rectangle, asked of a source that also reads `subject`. **An absolute, and there is
+   * deliberately no delta against `firstSliceMs`.**
+   *
+   * The corpus measures the identity column at 1.87× the drawing tile in compressed bytes on disk,
+   * and the first version of this field tried to be the reader's half of that figure: subtract the
+   * plain slice from the naming one and publish the difference. **The first sweep refuted it.** The
+   * difference came out *negative* at two thousand and again at a million — naming apparently
+   * cheaper than not naming — which is not a cost, it is a cache.
+   *
+   * The confound is DuckDB's own page cache and it cannot be dropped from a tab. The two queries
+   * read overlapping bytes of the same chunk files, so whichever runs second reads them warm. The
+   * `forget()` above clears Mosaic's result cache, which is keyed by SQL text and therefore does
+   * nothing here: the two queries have different text and never shared an entry. Reordering does not
+   * help either — it moves which side is flattered, not whether one is.
+   *
+   * So the honest publication is the absolute, beside `firstSliceMs`, with the reader told they
+   * share a warm cache. An isolated A/B needs a cold engine per arm, which is a different harness.
+   */
+  namedSliceMs: number;
+  /** How many IRIs that slice actually carried — a zero here means the column was not read. */
+  named: number;
   /** Handing that slice to the renderer, flushed by a readback. */
   uploadMs: number;
   /** Mean of several slices at shifted viewports — the cost of moving the camera. */
@@ -160,14 +176,6 @@ function duckThreads(coordinator: Coordinator): Promise<number> {
   return threadsAsked;
 }
 
-/**
- * Rows per vertex chunk — `chunk_size` in `Node.vertex.yml`, which fossil writes and this reads.
- *
- * Duplicated as a constant because the manifest is not fetched here; if fossil's
- * `DEFAULT_CHUNK_SIZE` ever moves, this is the line that has to move with it, and the symptom would
- * be a 404 on the last chunk rather than anything subtle.
- */
-const CHUNK_SIZE = 122_880;
 
 /**
  * Does DuckDB-WASM answer two connections at once, or one after the other?
@@ -220,9 +228,6 @@ if (typeof window !== "undefined") {
   (window as unknown as Record<string, unknown>).probeConnectionOverlap = probeConnectionOverlap;
 }
 
-const corpusNodes = (n: number) => `corpus_nodes_${n}`;
-const corpusEdges = (n: number) => `corpus_edges_${n}`;
-
 /** The rectangle the corpus actually occupies — the camera's space, never rescaled on the way in. */
 interface Extent {
   xMin: number;
@@ -232,11 +237,18 @@ interface Extent {
 }
 
 interface Fixtured {
-  source: BoundedSource;
+  source: CorpusSource;
+  /**
+   * The same two relations, read with the identity column as well.
+   *
+   * A second source rather than a flag on the first, because the comparison is the point: the plain
+   * one is what the drawing path uses, and this one is what a host pays when it needs to name what
+   * it drew. Same coordinator, same views, one more column.
+   */
+  named: CorpusSource;
   extent: Extent;
   /** Half-width of a window holding [`PAN_NODES`] vertices — the camera's reach at a usable zoom. */
   panReach: number;
-  linkCount: number;
   ingestMs: number;
 }
 
@@ -257,100 +269,59 @@ async function corpus(pointCount: number, report?: (stage: string) => void): Pro
   const { coordinator } = await boot();
   await forget(coordinator);
   const base = `${window.location.origin}/bench/${pointCount}`;
-  const nodes = corpusNodes(pointCount);
-  const edges = corpusEdges(pointCount);
 
   const started = performance.now();
-  report?.("opening the corpus · views");
+  report?.("opening the corpus · manifest");
 
   /**
-   * The chunk list, written out one URL at a time — **a glob would not work here.**
+   * One argument: where the corpus is.
    *
-   * fossil emits `vertex/Node/chunk{k}.parquet`, `CHUNK_SIZE` rows each, and the obvious
-   * `read_parquet('…/vertex/Node/*.parquet')` is wrong over HTTP: expanding a glob means listing a
-   * directory, and a plain HTTP origin has no listing. DuckDB's httpfs can do it against S3, which
-   * is what makes the mistake easy — it works locally against `file://`, works against a bucket, and
-   * fails in the one place this benchmark runs.
-   *
-   * So the reader derives the set instead of discovering it, which is what GraphAr's manifest is
-   * for: chunk *k* is the `dense_id` range `[k·size, (k+1)·size)`, so the count follows from the
-   * vertex count and `chunk_size`. That is also the shape a tile cache wants — every chunk is a
-   * stable, individually addressable URL rather than one opaque file.
+   * Everything this used to derive by hand — the chunk count from a `chunk_size` copied out of
+   * fossil, the `chunk{k}.parquet` naming, the edge directory, GraphAr's column names, and the
+   * twenty-line note about why a glob cannot work over a plain HTTP origin — is `corpusSource`'s
+   * now, read from the manifest rather than written down here. That constant went stale once and
+   * silently read a fraction of the corpus, which is the whole argument for this move and is
+   * `decisions/a-tile-is-an-address-not-a-verb.md`.
    */
-  const chunks = Math.ceil(pointCount / CHUNK_SIZE);
-  const chunkUrls = Array.from(
-    { length: chunks },
-    (_, k) => `'${base}/vertex/Node/chunk${k}.parquet'`,
-  ).join(", ");
-  await coordinator.exec(
-    `CREATE OR REPLACE VIEW ${nodes} AS SELECT * FROM read_parquet([${chunkUrls}])`,
-  );
-  await coordinator.exec(
-    `CREATE OR REPLACE VIEW ${edges} AS
-       SELECT * FROM read_parquet('${base}/edge/Node_linksTo_Node/by_source.parquet')`,
-  );
+  const source = await corpusSource({ coordinator, dest: base });
+  const named = await corpusSource({ coordinator, dest: base, subjects: true });
+
   /**
-   * The extent, and it costs a scan of two columns.
+   * The extent, from the boxes the source already holds. No scan.
    *
-   * The fixture's own cost, not the product's: a real reader takes its space from the manifest, and
-   * GraphAr's `Node.vertex.yml` is where that belongs — it does not carry one today, which is why
-   * this is a query. It stays inside `ingest` so the number is never mistaken for first paint.
+   * This used to be `min(x), max(x), min(y), max(y)` over the whole relation, labelled as the
+   * fixture's own cost with a note that a real reader takes its space from the manifest. It still
+   * does not come from the manifest — GraphAr declares no extent — but it does now come from the
+   * row-group statistics an addressed reader reads anyway, which is the same answer for free.
    */
   report?.("opening the corpus · extent");
-  const bounds = await onceQuery(
-    coordinator,
-    () => `SELECT min(x) AS x0, max(x) AS x1, min(y) AS y0, max(y) AS y1 FROM ${nodes}`,
-  );
+  const bounds = await source.extent();
+
   /**
    * How far the camera reaches at a zoom that shows [`PAN_NODES`] vertices.
    *
-   * The pan used to take a quarter of the *space*, and the space grows with the corpus — 645,741
-   * wide at a million, 5,289,639 at five, eight times the width for five times the vertices. So the
-   * "same" window matched 62,112 rows at a million and 426,611 at five, and a pan measured that way
-   * can only grow with N **by construction**. It was answering "what does it cost to zoom out in
-   * proportion to the corpus", which is not a thing a reader does.
+   * **This changed with the move to `corpusSource` and the number is not the old one.** It was the
+   * exact Chebyshev radius around the centre holding `PAN_NODES` vertices — a sort over the whole
+   * corpus — and the relation that query needed is exactly what the source now hides. What replaces
+   * it is the area-proportional radius: the fraction of the extent whose area holds that share of a
+   * uniformly dense corpus.
    *
-   * A reader panning keeps roughly the same number of vertices on screen. So the window is sized by
-   * rank instead: the Chebyshev radius around the centre that holds `PAN_NODES` of them, which is
-   * the same definition `corpus/measure-retention.mjs` uses and for the same reason. Whether the pan
-   * then stops growing with N is the question the whole bounded architecture rests on, and it is
-   * the one this could not previously ask.
+   * The two agree only when density is uniform and this layout's is not, so **`panMs` before and
+   * after this commit are not the same measurement.** Recorded rather than smoothed over, because
+   * the pan window has already been corrected twice in this file's history and both times the
+   * lesson was that a window redefined quietly makes a table that cannot be compared with itself.
    *
-   * Inside `ingest` with the extent: it is the fixture describing itself, not the product working.
+   * What survives the change is the property the measurement exists for: the window is sized by how
+   * much it *holds* rather than as a fraction of a space that grows with N, so a pan that stops
+   * growing with the corpus is still the question being asked.
    */
   report?.("opening the corpus · reach");
-  const reach = await onceQuery(
-    coordinator,
-    () => `SELECT max(d) AS h FROM (
-      SELECT greatest(abs(x - (SELECT (min(x) + max(x)) / 2 FROM ${nodes})),
-                      abs(y - (SELECT (min(y) + max(y)) / 2 FROM ${nodes}))) AS d
-      FROM ${nodes} ORDER BY d LIMIT ${PAN_NODES})`,
-  );
-
-  // Metadata only: Parquet carries per-row-group row counts, so neither count reads a column.
-  report?.("opening the corpus · links");
-  const links = await onceQuery(coordinator, () => `SELECT count(*) AS n FROM ${edges}`);
+  const half = Math.max(bounds.xMax - bounds.xMin, bounds.yMax - bounds.yMin) / 2;
+  const corpusTotal = (await source.total?.()) ?? pointCount;
+  const panReach = half * Math.sqrt(PAN_NODES / Math.max(1, corpusTotal));
   const ingestMs = performance.now() - started;
 
-  const at = (field: string) => Number(numbers(bounds, field)[0] ?? 0);
-  return {
-    source: duckBoundedSource({
-      coordinator,
-      nodes,
-      edges,
-      // The generated corpus is one vertex type, which is exactly what the knowledge-graph demo
-      // exists to stop anyone assuming.
-      typeIndex: 0,
-      idField: "dense_id",
-      categoryField: "community",
-      sourceField: "src_dense",
-      targetField: "dst_dense",
-    }),
-    extent: { xMin: at("x0"), yMin: at("y0"), xMax: at("x1"), yMax: at("y1") },
-    panReach: Number(numbers(reach, "h")[0] ?? 0),
-    linkCount: Number(numbers(links, "n")[0] ?? 0),
-    ingestMs,
-  };
+  return { source, named, extent: bounds, panReach, ingestMs };
 }
 
 export interface BoundedOptions {
@@ -366,11 +337,12 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
 
   const base: BoundedSample = {
     pointCount,
-    linkCount: 0,
     ingestMs: 0,
     totalMs: 0,
     sliced: false,
     firstSliceMs: 0,
+    namedSliceMs: 0,
+    named: 0,
     uploadMs: 0,
     panMs: 0,
     drawMs: 0,
@@ -385,7 +357,6 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
     report?.("opening the corpus");
     const fixtured = await corpus(pointCount, report);
     const { extent, source } = fixtured;
-    base.linkCount = fixtured.linkCount;
     base.ingestMs = fixtured.ingestMs;
     base.threads = await duckThreads((await boot()).coordinator);
     if (cancelled()) return { ...base, failure: "cancelled" };
@@ -395,6 +366,24 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
     const total = await source.total?.();
     base.totalMs = performance.now() - startedTotal;
     base.sliced = shouldSlice(total, BOUNDED_DEFAULTS.limit);
+
+    /**
+     * The corpus is the size its directory says, or the row is a failure rather than a fast number.
+     *
+     * This guarded a constant that no longer exists: `CHUNK_SIZE` lived here, went stale against
+     * fossil, and silently derived too few chunk URLs — every one of which resolved, so the sweep
+     * measured a fraction of the corpus at a flattering latency and reported no error at all.
+     * `corpusSource` reads the chunk size from the manifest now, so that particular drift cannot
+     * happen; the check stays because it costs one comparison against a number already timed, and
+     * because *the reader found fewer vertices than the corpus holds* is the failure shape, not the
+     * one cause that used to produce it.
+     */
+    if (total !== undefined && total !== pointCount) {
+      return {
+        ...base,
+        failure: `the corpus at /bench/${pointCount} holds ${total} vertices, not ${pointCount}`,
+      };
+    }
 
     // The opening view: the whole space, at a zoom above the threshold so this measures detail mode
     // rather than the aggregate shortcut. Aggregate would flatter the numbers.
@@ -416,6 +405,25 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
     base.firstSliceMs = performance.now() - startedSlice;
     base.returned = first.positions.length / 2;
     base.matched = first.n;
+    if (cancelled()) return { ...base, failure: "cancelled" };
+
+    /**
+     * The same question, of the source that also names.
+     *
+     * After the plain one and never before it: Mosaic caches by SQL text, and these two are
+     * different texts, so neither warms the other. What would spoil it is asking this one first and
+     * letting its scan warm DuckDB's own buffers for the second — hence this order, which puts the
+     * cost of a cold read on the column the product actually uses.
+     */
+    report?.("naming the slice");
+    const startedNamed = performance.now();
+    const namedSlice: Slice = await fixtured.named.slice({
+      query: { kind: "region", view },
+      limit: BOUNDED_DEFAULTS.limit,
+      lodThreshold: BOUNDED_DEFAULTS.lodThreshold,
+    });
+    base.namedSliceMs = performance.now() - startedNamed;
+    base.named = namedSlice.subjects?.length ?? 0;
     if (cancelled()) return { ...base, failure: "cancelled" };
 
     report?.("uploading");

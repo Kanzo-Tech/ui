@@ -414,6 +414,12 @@ function BoundedTable(props: {
             <TableHead>Nodes</TableHead>
             <TableHead className="text-right">total()</TableHead>
             <TableHead className="text-right">First slice</TableHead>
+            {/* The same rectangle read with the identity column, as an absolute rather than a
+                delta. A delta is what this column was first, and the first sweep came back negative
+                at two sizes — the two queries read overlapping bytes and whichever runs second
+                reads them warm, which is DuckDB's page cache and not a saving. `namedSliceMs` says
+                why the subtraction is gone. */}
+            <TableHead className="text-right">With subject</TableHead>
             <TableHead className="text-right">Upload</TableHead>
             <TableHead className="text-right">First paint</TableHead>
             <TableHead className="text-right">Pan</TableHead>
@@ -428,7 +434,7 @@ function BoundedTable(props: {
               <Show
                 when={!sample.failure}
                 fallback={
-                  <TableCell colSpan={7} className="text-destructive">
+                  <TableCell colSpan={8} className="text-destructive">
                     {sample.failure}
                   </TableCell>
                 }
@@ -438,6 +444,14 @@ function BoundedTable(props: {
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {format(sample.firstSliceMs, 0)} ms
+                </TableCell>
+                {/* Read beside `First slice`, never subtracted from it — the two share a warm page
+                    cache, so the difference is not a cost. The IRI count rides along because a zero
+                    there is the one thing that would mean the column never came back at all. */}
+                <TableCell className="text-right tabular-nums text-muted-foreground">
+                  <Show when={sample.named > 0} fallback={<span>—</span>}>
+                    {format(sample.namedSliceMs, 0)} ms · {compact(sample.named)}
+                  </Show>
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {format(sample.uploadMs, 0)} ms
@@ -467,7 +481,7 @@ function BoundedTable(props: {
           ))}
           <Show when={running && samples.length < sizes.length}>
             <TableRow>
-              <TableCell colSpan={8} className="text-muted-foreground">
+              <TableCell colSpan={9} className="text-muted-foreground">
                 <span className="inline-flex items-center gap-2">
                   <Spinner className="size-3" /> {stage ?? "measuring"}…
                 </span>
@@ -851,7 +865,7 @@ export function GraphBenchShowcase() {
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink href="#/benchmarks">Benchmarks</BreadcrumbLink>
+              <BreadcrumbLink href="/docs/graph/benchmarks">Benchmarks</BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>

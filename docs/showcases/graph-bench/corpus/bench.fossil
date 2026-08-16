@@ -15,11 +15,18 @@
 // are combined with a plain UNION ALL (`fossil-df/src/lib.rs`, `union(next.projected)`) before the
 // dedup by subject, so both must project the same columns. A vertex projection is
 // `subject, <props…>, x, y, cluster_id`, and an IRI-valued property is an edge rather than a prop —
-// so `bench:linksTo` costs no column and `bench:community` must appear on *both* sides. That is why
+// so `linksTo` costs no column and `community` must appear on *both* sides. That is why
 // `edges.csv` carries the source's community: not redundancy for its own sake, but the price of the
 // union. `fossil check` accepts a mismatched pair; only `fossil run` rejects it, with
 //
 //   UNION queries have different number of columns: left has 5 columns whereas right has 4
+//
+// **This file was rewritten for the current grammar on 2026-08-14, and had stopped compiling.** It
+// was written against a fossil that had `prefix bench: <…>` declarations, CURIEs in shape and
+// property position, and a second string spelling with backticks and `${…}` holes. All three are
+// gone — 51 type errors — and nobody noticed because `docs/public/bench/` is gitignored, so no
+// corpus had been built since. The same drift as the `CHUNK_SIZE` constant in `measure-bounded.ts`,
+// found the same afternoon and for the same reason: this side writes down what the other side owns.
 //
 // Two more things the first written corpus showed:
 //   - `cluster_id` is 0 for every vertex. WCC is a reachability partition and this graph is
@@ -29,18 +36,22 @@
 //     That is not a defect: under ADR-0001 the source's space *is* the camera's, and the camera
 //     fits to what it is given. It does mean nothing may rescale them on the way in.
 
-prefix bench: <https://kanzo.tech/bench/>
+// The output contract. Mandatory since ruling 3 of 2026-08-11: a property key below is the last
+// segment of a predicate IRI `bench.shex` declares, and without the document the bodies write
+// nothing at all.
+type { Node } := io.shex("bench.shex")
 
-nodes := io.csv("nodes.csv")
-edges := io.csv("edges.csv")
+Nodes := io.csv("nodes.csv")
+Edges := io.csv("edges.csv")
 
-Node : bench:Node from nodes
-    iri = `${bench:}n/${.id}`
-    bench:community = .community
+// Every vertex, including the ones that are never a source. Without this mapping they are only ever
+// an object IRI, and an object IRI merges into a vertex but never mints one.
+Vertices : Node from Nodes
+    @subject = "https://kanzo.tech/bench/n/{Nodes.id}"
+    community = Nodes.community
 
-Node : bench:Node from edges
-    iri = `${bench:}n/${.id}`
-    bench:community = .community
-    // An IRI-valued property is what an edge *is*: the endpoint resolves against the vertex table by
-    // subject IRI, and an inner join drops it if no vertex carries that IRI.
-    bench:linksTo = `${bench:}n/${.target}`
+// The same vertex type again, from the edge list — same projection, plus the endpoint.
+Links : Node from Edges
+    @subject = "https://kanzo.tech/bench/n/{Edges.id}"
+    community = Edges.community
+    linksTo = "https://kanzo.tech/bench/n/{Edges.target}"

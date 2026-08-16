@@ -1,0 +1,29 @@
+PREFIX bench: <https://kanzo.tech/bench/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+# The output contract of `bench.fossil`, and it is mandatory rather than
+# decorative: since ruling 3 of 2026-08-11 a property key in a mapping body is
+# the last segment of a predicate IRI THIS document declares, so without it the
+# mapping writes no properties at all.
+#
+# Two predicates and they are different kinds of thing, which is the whole shape
+# of a graph corpus:
+#
+#   - `community` is a **property**. It becomes a column on the vertex Parquet,
+#     and the benchmark reads it as the category ordinal a point is coloured by.
+#   - `linksTo` is an **edge**. An IRI-valued property is what an edge *is*: the
+#     endpoint resolves against the vertex table by subject IRI, and an inner
+#     join drops it if no vertex carries that IRI. It costs no vertex column,
+#     and it is what produces `edge/Node_linksTo_Node/`, which is the path
+#     `measure-bounded.ts` opens.
+#
+# `linksTo` is optional, and that is load-bearing. Two mappings write this one
+# shape — one from the node list, one from the edge list — and only the second
+# has a target. At 1..1 the node-only mapping fails `check_required_properties`,
+# which is the check doing its job: the cardinality here is the statement that a
+# vertex may have no outgoing edge.
+
+bench:Node {
+  bench:community xsd:integer ;
+  bench:linksTo   @bench:Node ?
+}

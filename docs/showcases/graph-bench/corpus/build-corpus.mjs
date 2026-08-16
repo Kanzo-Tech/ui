@@ -111,9 +111,13 @@ function build(size, fossil) {
  * Row groups stopped being the unit, so the knob that tuned them is gone.
  *
  * fossil emits GraphAr chunks now — `vertex/<Type>/chunk{k}.parquet`, `chunk_size` rows each, which
- * at the declared 1,024 means a chunk holds a single row group. There is nothing left for a
+ * at the declared 4,096 means a chunk holds a single row group. There is nothing left for a
  * row-group size to be smaller than, and the `--row-group` flag that used to rewrite the one big
  * vertex file has no file to rewrite.
+ *
+ * That number is fossil's `DEFAULT_CHUNK_SIZE` and it has moved twice — 1,024, then 122,880, now
+ * `1 << 12`. Nothing here reads the manifest, so a number written down on this side is a number
+ * that can fall behind; `measure-bounded.ts` says what that costs and now asserts against it.
  *
  * The measurement it existed for is kept in `BENCHMARKS.md` and its answer was no, twice: at a
  * million the slice went 219 ms → 229/244 ms, and at five million — the size the first result was
