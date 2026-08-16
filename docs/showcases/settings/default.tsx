@@ -4,13 +4,22 @@ import {
   AccessibilityIcon,
   BellIcon,
   KeyRoundIcon,
+  LayoutDashboardIcon,
   PaletteIcon,
+  SettingsIcon,
   UserIcon,
+  UsersIcon,
+  LibraryIcon,
 } from "lucide-react";
 import {
-  AppearanceToggle,
   Avatar,
   AvatarFallback,
+  Item,
+  ItemContent,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+  cn,
   PreferencesColor,
   PreferencesDensity,
   PreferencesFont,
@@ -27,22 +36,25 @@ import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarIdentity,
   SidebarIdentityAvatar,
   SidebarIdentityDescription,
   SidebarIdentityLabel,
   SidebarIdentityText,
+  SidebarFooter,
+  SidebarIdentityIcon,
   SidebarInset,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarProvider,
+  SidebarRail,
 } from "@kanzo-tech/ui";
 // The one running example the docs speak — a settings page belongs to somebody, and inventing a
 // second cast for it would be a second world for a reader to learn.
 import { initialsOf, VIEWER } from "@/example/people";
+import { HOME_HALL, hall } from "@/example/world";
 
 /**
  * The same preference sections, as a PAGE.
@@ -67,7 +79,23 @@ import { initialsOf, VIEWER } from "@/example/people";
  * `decisions/a-palette-is-chosen-per-appearance.md`, and the cards themselves for what ours can do
  * that a drawn tile cannot.
  */
-const NAV = [
+/** The product's own places. A settings screen is somewhere you go, not somewhere you live. */
+const PLACES = [
+  { icon: LayoutDashboardIcon, label: "Ledger" },
+  { icon: UsersIcon, label: "Roster" },
+  { active: true, icon: SettingsIcon, label: "Settings" },
+] as const;
+
+/**
+ * The settings menu — page content, never shell chrome.
+ *
+ * This is the distinction the first draft got wrong: it built the app's rail and called it a
+ * settings sub-sidebar. GitHub's is a column of the page, under the global header, beside the pane
+ * it drives. Made of `ItemGroup` / `Item`, which is the vocabulary for exactly this — a compact
+ * list of rows with a media slot and a title — rather than the sidebar parts, which carry a rail's
+ * context and a rail's collapse behaviour.
+ */
+const SETTINGS = [
   {
     label: "Personal",
     items: [
@@ -88,13 +116,49 @@ const NAV = [
 export function SettingsShowcase() {
   return (
     <SidebarProvider className="h-dvh min-h-0 overflow-hidden">
-      {/* `collapsible="none"`: a settings sub-sidebar is the page's table of contents, not a rail
-          you fold away to get room. GitHub's does not collapse either. */}
-      <Sidebar collapsible="none">
-        {/* Whose settings these are. GitHub's page opens with the account, and it is not decoration:
-            a settings area is one of the few screens where "for which identity" is the first
-            question a reader has. `SidebarIdentity` is the composite that answers it. */}
+      {/* The product's own rail, and it is a real one — this page is a screen INSIDE an app, not a
+          standalone settings site. GitHub's settings live under the global header with the account
+          nav beside the pane, which is two navigations doing different jobs: the app's, and the
+          page's. Collapsing this one is what gives the settings menu room without taking the
+          product away. */}
+      <Sidebar collapsible="icon">
+        {/* The workspace this rail belongs to. */}
         <SidebarHeader>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarIdentity>
+                <SidebarIdentityIcon>
+                  <LibraryIcon className="size-4" />
+                </SidebarIdentityIcon>
+                <SidebarIdentityText>
+                  <SidebarIdentityLabel>{hall(HOME_HALL).name}</SidebarIdentityLabel>
+                  <SidebarIdentityDescription>Chartered</SidebarIdentityDescription>
+                </SidebarIdentityText>
+              </SidebarIdentity>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarHeader>
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarMenu>
+              {PLACES.map((place) => (
+                <SidebarMenuItem key={place.label}>
+                  {/* Nothing navigates: this arrangement is about where the sections live, and a
+                      router would be a second thing to read in a file that demonstrates one. */}
+                  <SidebarMenuButton isActive={"active" in place && place.active}>
+                    <place.icon />
+                    <span>{place.label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroup>
+        </SidebarContent>
+
+        {/* And who is signed in. A rail without it is half a rail — every other shell in this
+            repository carries the person at the foot, and a settings screen is the one place a
+            reader most wants to know whose settings these are. */}
+        <SidebarFooter>
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarIdentity>
@@ -105,72 +169,77 @@ export function SettingsShowcase() {
                 </SidebarIdentityAvatar>
                 <SidebarIdentityText>
                   <SidebarIdentityLabel>{VIEWER.name}</SidebarIdentityLabel>
-                  <SidebarIdentityDescription>Personal settings</SidebarIdentityDescription>
+                  <SidebarIdentityDescription>{VIEWER.email}</SidebarIdentityDescription>
                 </SidebarIdentityText>
               </SidebarIdentity>
             </SidebarMenuItem>
           </SidebarMenu>
-        </SidebarHeader>
-        <SidebarContent>
-          {NAV.map((group) => (
-            <SidebarGroup key={group.label}>
-              <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
-              <SidebarMenu>
-                {group.items.map((item) => (
-                  <SidebarMenuItem key={item.label}>
-                    {/* Nothing navigates: this arrangement is about where the sections live, and a
-                        router would be a second thing to read in a file that demonstrates one. */}
-                    <SidebarMenuButton isActive={"active" in item && item.active}>
-                      <item.icon />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            </SidebarGroup>
-          ))}
-        </SidebarContent>
+        </SidebarFooter>
+        <SidebarRail />
       </Sidebar>
 
       <SidebarInset>
         <ShellMain className="overflow-y-auto bg-background">
-          <SectionRoot className="mx-auto w-full max-w-3xl px-6 py-8">
-            <SectionHeader scale="page">
-              <SectionTitleGroup>
-                <SectionTitle level={1} scale="page">
-                  Appearance
-                </SectionTitle>
-                <SectionDescription>
-                  Choose how this product looks to you. Selections apply immediately and are saved to
-                  this browser — every control on this page is the same component the floating panel
-                  renders.
-                </SectionDescription>
-              </SectionTitleGroup>
-              {/* The page's own chrome, which is where `decisions/…` puts appearance: one control,
-                  cycling light → dark → system, never a section repeating the same preference.
-                  
-                  It has to be HERE and not merely somewhere, and that is the gap this page found:
-                  the drawer carries it in its header, so a page rendering the sections alone shipped
-                  with no way to change sides at all. The rule survives; what it assumed — that every
-                  surface has chrome to put it in — did not, and a settings page arguably wants
-                  GitHub's explicit three-way select rather than a cycling button. That is a decision
-                  to reopen with this page as the evidence, not something to settle in a showcase. */}
-              <AppearanceToggle />
-            </SectionHeader>
+          <SectionRoot className="mx-auto w-full max-w-5xl px-6 py-8">
+            <div className="grid gap-8 py-6 md:grid-cols-[13rem_1fr]">
+              {/* The settings menu: page content, beside the pane it drives, exactly where GitHub
+                  puts it. `ItemGroup`/`Item` and not the sidebar parts — those carry a rail's
+                  context and a rail's collapse behaviour, and this is a list of rows. */}
+              <nav aria-label="Settings" className="flex flex-col gap-4">
+                {SETTINGS.map((group) => (
+                  <ItemGroup key={group.label}>
+                    <span className="px-2 pb-1 text-muted-foreground text-xs">{group.label}</span>
+                    {group.items.map((entry) => (
+                      <Item
+                        aria-current={"active" in entry && entry.active ? "page" : undefined}
+                        className={cn(
+                          "cursor-pointer px-2 py-1.5",
+                          "active" in entry && entry.active && "bg-accent text-accent-foreground",
+                        )}
+                        key={entry.label}
+                      >
+                        <ItemMedia>
+                          <entry.icon className="size-4" />
+                        </ItemMedia>
+                        <ItemContent>
+                          <ItemTitle>{entry.label}</ItemTitle>
+                        </ItemContent>
+                      </Item>
+                    ))}
+                  </ItemGroup>
+                ))}
+              </nav>
 
-            <div className="flex flex-col gap-8 py-6">
-              <PreferencesColor />
-              <Separator />
-              <div className="grid gap-6 @container md:grid-cols-2">
-                <PreferencesDensity />
-                <PreferencesRadius />
-                <PreferencesFont />
-                <PreferencesMonoFont />
-              </div>
+              <div className="flex min-w-0 flex-col gap-8">
+                {/* The heading sits in the CONTENT column, not spanning the menu beside it: a title
+                    that starts at the page's left edge belongs to the page, and this one belongs to
+                    the pane the menu is pointing at. */}
+                <SectionHeader scale="page">
+                  <SectionTitleGroup>
+                    <SectionTitle level={1} scale="page">
+                      Appearance
+                    </SectionTitle>
+                    <SectionDescription>
+                      Choose how this product looks to you. Selections apply immediately and are
+                      saved to this browser — every control here is the same component the floating
+                      panel renders.
+                    </SectionDescription>
+                  </SectionTitleGroup>
+                </SectionHeader>
+
+                <PreferencesColor />
+                <Separator />
+                <div className="grid gap-6 @container md:grid-cols-2">
+                  <PreferencesDensity />
+                  <PreferencesRadius />
+                  <PreferencesFont />
+                  <PreferencesMonoFont />
+                </div>
               {/* Whatever the packages this host installed contribute. It draws nothing until one
                   registers a manifest, which is why a product that installs no optional package
                   sees exactly the sections above and no empty space where a group would be. */}
-              <PreferencesSections />
+                <PreferencesSections />
+              </div>
             </div>
           </SectionRoot>
         </ShellMain>

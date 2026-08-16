@@ -534,6 +534,7 @@ function SideCard({
   onPreview,
   onRestore,
   selectedFor,
+  setAppearance,
   setPalette,
   side,
 }: {
@@ -546,6 +547,7 @@ function SideCard({
   resolvedIdentity: string;
   resolvedPalette: string;
   selectedFor: (side: Appearance) => string;
+  setAppearance: (appearance: Appearance) => void;
   setPalette: (palette: string, options?: { appearance?: Appearance; identity?: string }) => void;
   side: Appearance;
 }) {
@@ -583,11 +585,26 @@ function SideCard({
             
             OUTSIDE the label, and that is not cosmetic: the group takes its accessible name from the
             label's text, so a badge inside made every group answer to "LightActive". */}
+        {/* The card IS the appearance control, which is what keeps the panel at one control per
+            preference — the rule that kept a section from existing beside the header toggle. A page
+            has no header to carry a toggle, and a card that shows you a side but cannot select it
+            is a preview of a state you have no way to enter. So: the live side says so, and the
+            other offers to become it. */}
         {live ? (
           <Badge className="ms-auto" variant="info">
             Active
           </Badge>
-        ) : null}
+        ) : (
+          <Button
+            className="ms-auto"
+            onClick={() => setAppearance(side)}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            Use
+          </Button>
+        )}
       </span>
 
       <PalettePreview
@@ -641,6 +658,7 @@ function ColorSection({
     resolvedIdentity,
     retiredPalette,
     retiredIdentity,
+    setAppearance,
     setPalette,
   } = useKanzoTheme();
   const { preview, restore } = usePalettePreview();
@@ -692,7 +710,7 @@ function ColorSection({
     // cannot win. Two groups live here, so the section keeps a heading and each card carries its
     // own name.
     <div className="flex flex-col gap-2">
-      <span className={cn(PREF_LABEL_SIZE, PREF_LABEL, "mb-1")}>{label}</span>
+      <span className={cn(PREF_LABEL_SIZE, PREF_LABEL, "mb-2")}>{label}</span>
       {/* Two sibling cards, one per side — GitHub's Appearance page, whose move this borrows: the
           tile shows the thing being themed rather than naming it.
           
@@ -718,6 +736,7 @@ function ColorSection({
               resolvedIdentity={resolvedIdentity}
               resolvedPalette={resolvedPalette}
               selectedFor={selectedFor}
+              setAppearance={setAppearance}
               setPalette={setPalette}
               side={side}
             />
@@ -792,7 +811,7 @@ function ContributedControl({
         step={decl.step}
         value={[prefNumber(value, decl)]}
       >
-        <SliderLabel className={cn(PREF_LABEL_SIZE, PREF_LABEL)}>{name}</SliderLabel>
+        <SliderLabel className={cn(PREF_LABEL_SIZE, PREF_LABEL, "mb-2 block")}>{name}</SliderLabel>
       </Slider>
     );
   }
@@ -868,7 +887,7 @@ function RadiusSection() {
       showMarkers
       markerLabels={[...RADII]}
     >
-      <SliderLabel className={cn(PREF_LABEL_SIZE, PREF_LABEL)}>Radius</SliderLabel>
+      <SliderLabel className={cn(PREF_LABEL_SIZE, PREF_LABEL, "mb-2 block")}>Radius</SliderLabel>
     </Slider>
   );
 }
