@@ -105,6 +105,26 @@ export interface Slice {
    * numbers within one vertex type, so a union of two types repeats every value.
    */
   vertices: BigUint64Array;
+  /**
+   * The subject IRI of each returned point, parallel to `vertices` — **opt-in, and absent by
+   * default.**
+   *
+   * `vertices` says where a point *is*; this says which vertex it *is*. They are not the same thing
+   * and the corpus is explicit about it: redoing a layout renumbers every vertex, so a `dense_id`
+   * held outside the corpus names a different vertex after the next write. Anything that has to
+   * survive a recompile — a bookmark, a link out, a row in somebody else's database — keys on the
+   * IRI. A selection held as `VertexId` survives a pan and does not survive a rebuild.
+   *
+   * **Absent by default because it costs 1.87× the tile, measured on the corpus side.** Compressed
+   * bytes per row at five million: `subject` 8.016 against `dense_id` 4.000, `x` 2.717, `y` 2.501.
+   * The four drawing columns are 9.23 B/row and become 17.25 with it. So the drawing path carries
+   * addresses, and a host asks for names when something has to be *named* rather than painted.
+   *
+   * A `string[]` rather than a typed array, because that is what an IRI is. It is the one thing in a
+   * `Slice` that does not go to the GPU, which is exactly why it is optional: a host that never
+   * names a vertex should not pay to move it.
+   */
+  subjects?: string[];
   /** `[x0, y0, x1, y1, …]`, one pair per returned point. */
   positions: Float32Array;
   /** `[src, dst, …]` as indices into `positions`. */

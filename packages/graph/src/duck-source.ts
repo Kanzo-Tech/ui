@@ -1,8 +1,8 @@
 "use client";
 
 import { count, Query } from "@uwdata/mosaic-sql";
-import { fillColumn, numbers, type Coordinator } from "@kanzo-tech/ui/analytics";
-import type { BoundedSource, Slice, SliceQuery, SliceRequest } from "./bounded";
+import { column, fillColumn, numbers, type Coordinator } from "@kanzo-tech/ui/analytics";
+import type { BoundedSource, Slice, SliceQuery, SliceRequest, Viewport } from "./bounded";
 import { onceQuery } from "./once-query";
 import { denseOf, typeOf, vertexId, SUPERNODE, type VertexId } from "./resident";
 
@@ -54,6 +54,18 @@ export interface DuckSourceOptions {
    * id→index map. GraphAr's `dense_id` is this column by another name.
    */
   idField?: string;
+  /**
+   * The identity column — the subject IRI. **Omitted, a slice carries addresses only.**
+   *
+   * A `dense_id` says where a vertex is; the IRI says which vertex it is, and only the second
+   * survives the layout being redone. The corpus writes it as `subject`, non-null and unique within
+   * a type, which is why that is the name here — but it stays opt-in rather than defaulted, because
+   * reading it costs 1.87× the drawing tile and most points are painted rather than named.
+   *
+   * Set it when something outlives a session: a bookmark, a link out, a selection that has to mean
+   * the same thing after the next `fossil run`.
+   */
+  subjectField?: string;
   xField?: string;
   yField?: string;
   /**
@@ -70,6 +82,8 @@ export interface DuckSourceOptions {
 
 interface Columns {
   id: string;
+  /** `undefined` when the host did not ask to be able to name a vertex. */
+  subject: string | undefined;
   x: string;
   y: string;
   category: string;
@@ -82,6 +96,7 @@ export function duckBoundedSource(options: DuckSourceOptions): BoundedSource {
   const { coordinator, edges, nodes, typeIndex } = options;
   const columns: Columns = {
     id: options.idField ?? "id",
+    subject: options.subjectField,
     x: options.xField ?? "x",
     y: options.yField ?? "y",
     category: options.categoryField ?? "community",
@@ -154,8 +169,12 @@ function bboxSql(c: Columns, view: Extract<SliceQuery, { kind: "region" }>["view
 
 function visibleCte(nodes: string, c: Columns, where: string, limit: number): string {
   const size = c.size ? `, ${c.size} AS size` : "";
+  // Selected in the CTE rather than joined back afterwards: the numbering is over what survives the
+  // LIMIT, and a second pass keyed on `local` would be a second scan to fetch a column the first one
+  // was already standing on.
+  const subject = c.subject ? `, ${c.subject} AS subject` : "";
   return `WITH vis AS (
-    SELECT ${c.id} AS id, ${c.x} AS x, ${c.y} AS y${size},
+    SELECT ${c.id} AS id, ${c.x} AS x, ${c.y} AS y${size}${subject},
            (dense_rank() OVER (ORDER BY ${c.category}) - 1)::INTEGER AS category,
            (row_number() OVER (ORDER BY ${c.id}) - 1)::INTEGER AS local
     FROM ${nodes}
@@ -196,7 +215,9 @@ async function detail(
     onceQuery(
       coordinator,
       () =>
-        `${cte} SELECT local, id, x, y, category${c.size ? ", size" : ""} FROM vis ORDER BY local`,
+        `${cte} SELECT local, id, x, y, category${c.size ? ", size" : ""}${
+          c.subject ? ", subject" : ""
+        } FROM vis ORDER BY local`,
     ),
     // Both endpoints must be visible: an edge with one end off-screen has nowhere to land.
     onceQuery(
@@ -213,7 +234,7 @@ async function detail(
   return {
     mode: "detail",
     n: Number(numbers(matched, "n")[0] ?? 0),
-    ...arrays(points, links, limit, typeIndex, c.size ? "size" : undefined),
+    ...arrays(points, links, limit, typeIndex, c.size ? "size" : undefined, c.subject !== undefined),
   };
 }
 
@@ -281,6 +302,7 @@ function arrays(
   limit: number,
   typeIndex: number,
   sizeField?: string,
+  withSubjects = false,
 ): Omit<Slice, "mode" | "n" | "weights"> {
   const positions = new Float32Array(limit * 2);
   const n = fillColumn(points, "x", positions, 0, 2);
@@ -299,6 +321,11 @@ function arrays(
   const categories = new Uint16Array(n);
   fillColumn(points, "category", categories);
 
+  // `column` rather than `fillColumn`: an IRI is a string, so there is no typed buffer to write
+  // into and no interleaving to express. It is the one thing a slice carries that never reaches the
+  // GPU, which is why asking for it is a decision rather than a default.
+  const subjects = withSubjects ? (column(points, "subject") as string[]) : undefined;
+
   let sizes: Float32Array | undefined;
   if (sizeField) {
     sizes = new Float32Array(n);
@@ -313,6 +340,7 @@ function arrays(
 
   return {
     vertices,
+    subjects,
     positions: positions.subarray(0, n * 2),
     links: edges.subarray(0, wrote * 2),
     categories,
@@ -325,4 +353,289 @@ function countOf(rows: unknown): number {
   const child = (rows as { getChild?: (f: string) => { length: number } | null })?.getChild?.("src");
   if (child) return child.length;
   return Array.from(rows as Iterable<unknown>).length;
+}
+
+/**
+ * A corpus that fossil wrote, read by address.
+ *
+ * **The five things a call site used to know, and now does not.** Drawing a corpus meant deriving
+ * the chunk URLs from a `chunk_size` copied by hand, knowing how a tile is named, knowing what the
+ * edge directory is called, knowing GraphAr's column names, and knowing that a glob cannot work over
+ * a plain HTTP origin because there is no listing. Five conventions and about forty lines, none of
+ * it the business of something that wants to draw a graph. `decisions/a-tile-is-an-address-not-a-verb.md`
+ * carries the argument; the copied `chunk_size` carries the evidence, because it went stale and read
+ * a fraction of a corpus in silence for as long as it did.
+ *
+ * The consumer knows one thing: **where the corpus is.**
+ *
+ * ```ts
+ * const source = await corpusSource({ coordinator, dest: "/bench/1000000" });
+ * ```
+ *
+ * **Addressed, not queried.** The manifest and the per-tile boxes are read once and kept; after that
+ * a camera move is arithmetic over boxes and a list of URLs. There is deliberately no request on the
+ * path between the camera moving and a URL being computable — the moment there is one, this has
+ * become the `viewport` verb fossil deleted.
+ *
+ * **What it is not.** It takes no column names and no type index. Those come from the manifest or
+ * they do not come: a corpus reader that also accepts `idField` is `duckBoundedSource` with extra
+ * steps, and there is already one of those for the case this is not — an arbitrary relation with
+ * `x`/`y` that nobody wrote as a corpus.
+ */
+
+export interface CorpusSourceOptions {
+  coordinator: Coordinator;
+  /** Where the corpus lives, without a trailing slash — the directory holding `graph.graph.yml`. */
+  dest: string;
+  /**
+   * Which vertex type to draw, when a corpus carries more than one.
+   *
+   * Defaults to the first the manifest names. A corpus of one type never passes it; a corpus of
+   * several has to, because *which graph do you mean* is not a question a reader can answer.
+   */
+  vertexType?: string;
+  /**
+   * Read the identity column as well. **Off by default, and the same trade as everywhere else:**
+   * `subject` costs about twice the drawing tile, so the drawing path carries addresses and a host
+   * asks for names when something has to be *named* rather than painted.
+   */
+  subjects?: boolean;
+}
+
+/** One tile's bounding box, from the footer. `null` for a tile whose statistics are missing. */
+interface TileBox {
+  tile: number;
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+}
+
+/**
+ * The manifests, flat enough to read with a line scan.
+ *
+ * A YAML library would be a dependency for six keys, and fossil's own checker makes the same call —
+ * sixty lines that refuse what they cannot parse rather than guessing at it. This does the same: a
+ * key it cannot find is an error naming the file, not a default that draws an empty graph.
+ */
+function scalar(yaml: string, key: string): string | undefined {
+  const line = yaml.split("\n").find((row) => row.startsWith(`${key}:`));
+  return line?.slice(key.length + 1).trim().replace(/^['"]|['"]$/g, "");
+}
+
+function listItems(yaml: string, key: string): string[] {
+  const rows = yaml.split("\n");
+  const at = rows.findIndex((row) => row.startsWith(`${key}:`));
+  if (at < 0) return [];
+  const items: string[] = [];
+  for (const row of rows.slice(at + 1)) {
+    if (!row.startsWith("- ")) break;
+    items.push(row.slice(2).trim());
+  }
+  return items;
+}
+
+async function manifest(dest: string, path: string): Promise<string> {
+  const response = await fetch(`${dest}/${path}`);
+  if (!response.ok) throw new Error(`corpus: ${path} is not readable (${response.status})`);
+  return response.text();
+}
+
+/** What a corpus knows about itself beyond answering slices. */
+export interface CorpusSource extends BoundedSource {
+  /**
+   * The rectangle the corpus occupies, from the boxes the footer already gave up.
+   *
+   * Free — nothing is read that a slice would not have read anyway — and it is what a host framing
+   * an opening view wants. Not part of `BoundedSource` because a source over an unbounded or
+   * unlaid-out relation has no answer to it.
+   */
+  extent(): Promise<Viewport>;
+}
+
+export async function corpusSource(options: CorpusSourceOptions): Promise<CorpusSource> {
+  const { coordinator, dest, subjects = false, vertexType } = options;
+
+  const root = await manifest(dest, "graph.graph.yml");
+  const vertexPaths = listItems(root, "vertices");
+  const edgePaths = listItems(root, "edges");
+
+  const vertices = await Promise.all(vertexPaths.map((p) => manifest(dest, p)));
+  const wanted =
+    vertexType === undefined
+      ? vertices[0]
+      : vertices.find((y) => scalar(y, "type") === vertexType);
+  if (!wanted) {
+    throw new Error(
+      `corpus: no vertex type ${vertexType ?? "(none declared)"} in ${dest}/graph.graph.yml`,
+    );
+  }
+
+  const type = scalar(wanted, "type");
+  const prefix = scalar(wanted, "prefix");
+  const chunkSize = Number(scalar(wanted, "chunk_size"));
+  if (!type || !prefix || !Number.isFinite(chunkSize) || chunkSize <= 0) {
+    throw new Error(`corpus: ${dest} declares no usable type, prefix and chunk_size`);
+  }
+
+  // The edge relation whose source is this vertex type. Its tiles are keyed by the same range as the
+  // vertices — `src_chunk_size` equals the source type's `chunk_size`, and a different number there
+  // would address nothing — which is what lets one tile set serve both relations.
+  const edges = await Promise.all(edgePaths.map((p) => manifest(dest, p)));
+  const edge = edges.find((y) => scalar(y, "src_type") === type);
+  const edgePrefix = edge ? scalar(edge, "prefix") : undefined;
+
+  /**
+   * The boxes, and the one query this source makes that is not a slice.
+   *
+   * Read on first use rather than in the factory: a host that constructs a source and never draws
+   * should not pay for it, and the cost is a footer read over every tile. Kept forever after —
+   * tiles are precomputed and their boxes cannot move without the corpus being rewritten.
+   */
+  let boxes: TileBox[] | null = null;
+  let total: number | undefined;
+
+  const tileUrl = (k: number) => `'${dest}/${prefix}chunk${k}.parquet'`;
+  const edgeTileUrl = (k: number) => `'${dest}/${edgePrefix}by_source/tile${k}.parquet'`;
+
+  async function load(): Promise<TileBox[]> {
+    if (boxes) return boxes;
+    /**
+     * How many tiles there are, without listing anything.
+     *
+     * `ceil(V / chunk_size)` is the published arithmetic and it needs `V`, which **no manifest
+     * carries** — the vertex YAML declares the type, the prefix and the chunk size and stops. So the
+     * count has to come from the tiles themselves, and the obvious route is the one that does not
+     * work: `read_parquet('…/chunk*.parquet')` expands a glob, expanding a glob lists a directory,
+     * and a plain HTTP origin has no listing. It succeeds against a local path and against a bucket,
+     * which is what makes the mistake easy to keep.
+     *
+     * So the last tile is found by probing — double until a `HEAD` misses, then bisect. That is
+     * about a dozen requests once for a corpus of any size, and every one of them is a request a
+     * plain origin can answer.
+     */
+    const exists = async (k: number) => (await fetch(`${dest}/${prefix}chunk${k}.parquet`, { method: "HEAD" })).ok;
+    if (!(await exists(0))) throw new Error(`corpus: ${dest}/${prefix} holds no chunk0`);
+    let low = 0;
+    let high = 1;
+    while (await exists(high)) {
+      low = high;
+      high *= 2;
+    }
+    while (high - low > 1) {
+      const mid = Math.floor((low + high) / 2);
+      if (await exists(mid)) low = mid;
+      else high = mid;
+    }
+    const tiles = low + 1;
+    // The last tile is short unless the count divides evenly, and its footer says by how much —
+    // metadata only, so this reads no column.
+    const tail = await onceQuery(
+      coordinator,
+      () => `SELECT num_rows AS n FROM parquet_file_metadata('${tileUrl(low).slice(1, -1)}')`,
+    );
+    total = low * chunkSize + Number(numbers(tail, "n")[0] ?? 0);
+    const urls = Array.from({ length: tiles }, (_, k) => tileUrl(k)).join(", ");
+    /**
+     * `min_value`/`max_value`, never `min`/`max`.
+     *
+     * Parquet's original statistics fields are defined by *signed* byte comparison, which is
+     * meaningless for an unsigned column — a writer that gets this right leaves them empty. A reader
+     * that only knows the deprecated pair concludes the footer carries no box for the column the
+     * whole address is built on. `coalesce` keeps the float columns working either way.
+     */
+    const stats = await onceQuery(
+      coordinator,
+      () => `SELECT CAST(regexp_extract(file_name, 'chunk(\\d+)', 1) AS INTEGER) AS tile,
+               min(CASE WHEN path_in_schema = 'x' THEN coalesce(stats_min_value, stats_min)::DOUBLE END) AS x0,
+               max(CASE WHEN path_in_schema = 'x' THEN coalesce(stats_max_value, stats_max)::DOUBLE END) AS x1,
+               min(CASE WHEN path_in_schema = 'y' THEN coalesce(stats_min_value, stats_min)::DOUBLE END) AS y0,
+               max(CASE WHEN path_in_schema = 'y' THEN coalesce(stats_max_value, stats_max)::DOUBLE END) AS y1
+             FROM parquet_metadata([${urls}])
+             WHERE path_in_schema IN ('x', 'y') GROUP BY 1 ORDER BY 1`,
+    );
+    const tile = numbers(stats, "tile");
+    const [x0, x1, y0, y1] = ["x0", "x1", "y0", "y1"].map((f) => numbers(stats, f));
+    boxes = tile.map((t, i) => ({
+      tile: t as number,
+      x0: x0?.[i] as number,
+      x1: x1?.[i] as number,
+      y0: y0?.[i] as number,
+      y1: y1?.[i] as number,
+    }));
+    return boxes;
+  }
+
+  /** The tiles a rectangle touches. Pure — this is the whole of the addressing, and it makes no call. */
+  function intersecting(all: TileBox[], view: Viewport): number[] {
+    return all
+      .filter((b) => b.x1 >= view.xMin && b.x0 <= view.xMax && b.y1 >= view.yMin && b.y0 <= view.yMax)
+      .map((b) => b.tile);
+  }
+
+  const columns: Columns = {
+    id: "dense_id",
+    subject: subjects ? "subject" : undefined,
+    x: "x",
+    y: "y",
+    category: "community",
+    size: undefined,
+    source: "src_dense",
+    target: "dst_dense",
+  };
+
+  return {
+    async total() {
+      await load();
+      return total ?? 0;
+    },
+
+    async extent() {
+      const all = await load();
+      return {
+        xMin: Math.min(...all.map((b) => b.x0)),
+        yMin: Math.min(...all.map((b) => b.y0)),
+        xMax: Math.max(...all.map((b) => b.x1)),
+        yMax: Math.max(...all.map((b) => b.y1)),
+        // Above any threshold: an extent is asked for to frame a view, never to aggregate one.
+        zoom: Number.POSITIVE_INFINITY,
+      };
+    },
+
+    // Regions only, and the refusal is the same one `duckBoundedSource` makes: a neighbourhood needs
+    // adjacency this source does not index. fossil's `expand` is what answers it, and `SliceQuery`
+    // already carries the shape for whoever writes that source.
+    supports: (kind) => kind === "region",
+
+    async slice(request: SliceRequest): Promise<Slice> {
+      const { limit, lodThreshold, pinned, query } = request;
+      if (query.kind !== "region") {
+        throw new Error("this source answers regions only — see supports()");
+      }
+      const all = await load();
+      // Zoomed out past the threshold every tile is in the picture anyway, so aggregate reads the
+      // whole set rather than selecting one it would only end up selecting all of.
+      const selected =
+        query.view.zoom < lodThreshold ? all.map((b) => b.tile) : intersecting(all, query.view);
+      const nodes = `read_parquet([${selected.map(tileUrl).join(", ")}])`;
+      const relation = `read_parquet([${(edgePrefix ? selected : []).map(edgeTileUrl).join(", ")}])`;
+
+      // Nothing selected is a legitimate answer — the camera is over empty space — and asking
+      // `read_parquet([])` is a syntax error rather than an empty result.
+      if (selected.length === 0) {
+        return {
+          mode: "detail",
+          n: 0,
+          vertices: new BigUint64Array(0),
+          positions: new Float32Array(0),
+          links: new Float32Array(0),
+          categories: new Uint16Array(0),
+        };
+      }
+
+      return query.view.zoom < lodThreshold
+        ? aggregate(coordinator, nodes, relation, columns, limit)
+        : detail(coordinator, nodes, relation, columns, query.view, limit, 0, pinned);
+    },
+  };
 }

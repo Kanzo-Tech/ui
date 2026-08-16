@@ -29,6 +29,11 @@ export interface MemoryGraph {
   positions: Float32Array;
   /** `[src, dst, …]` as indices into `positions`. */
   links: Float32Array;
+  /**
+   * The subject IRI of each vertex, parallel to `vertices` — optional, and the same opt-in the SQL
+   * source makes for the same reason: a host that never names a vertex should not carry the names.
+   */
+  subjects?: string[];
   categories?: Uint16Array;
   sizes?: Float32Array;
 }
@@ -139,10 +144,12 @@ function gather(graph: MemoryGraph, chosen: number[], limit: number): Slice {
   const positions = new Float32Array(n * 2);
   const categories = new Uint16Array(n);
   const sizes = graph.sizes ? new Float32Array(n) : undefined;
+  const subjects = graph.subjects ? new Array<string>(n) : undefined;
   for (let i = 0; i < n; i++) {
     const from = kept[i] as number;
     local[from] = i;
     vertices[i] = graph.vertices[from] as bigint;
+    if (subjects) subjects[i] = graph.subjects?.[from] ?? "";
     positions[i * 2] = graph.positions[from * 2] as number;
     positions[i * 2 + 1] = graph.positions[from * 2 + 1] as number;
     categories[i] = graph.categories?.[from] ?? 0;
@@ -161,6 +168,7 @@ function gather(graph: MemoryGraph, chosen: number[], limit: number): Slice {
     mode: "detail",
     n: matched,
     vertices,
+    subjects,
     positions,
     links: Float32Array.from(links),
     categories,
