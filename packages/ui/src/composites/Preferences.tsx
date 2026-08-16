@@ -182,7 +182,12 @@ function PreferencesPanel({
         <ArkDialog.Content
           data-slot="preferences-panel"
           className={cn(
-            "pointer-events-auto relative flex max-h-[calc(100dvh-2rem)] w-80 flex-col overflow-hidden",
+            // `w-96`, not `w-80`. The width was chosen when the panel held four axes and a colour
+            // strip; it now holds five sections plus however many the packages a host installed
+            // contribute, and it is the one surface here that grows with somebody else's decision.
+            // The extra 64px is what lets a palette card depict a document rather than gesture at
+            // one — see `PalettePreview`.
+            "pointer-events-auto relative flex max-h-[calc(100dvh-2rem)] w-96 flex-col overflow-hidden",
             "rounded-lg border border-border bg-popover text-popover-foreground shadow-xl",
             "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-right-4",
             "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-right-4",
@@ -396,18 +401,40 @@ function PalettePreview({
     <span
       aria-hidden
       className={cn(
-        "flex h-10 flex-col justify-between rounded-[4px] border border-border bg-background p-1.5",
+        "flex h-16 flex-col justify-between rounded-[4px] border border-border bg-background p-2",
         appearance,
       )}
       data-identity={identity || undefined}
       data-palette={palette || undefined}
       data-slot="palette-preview"
     >
+      {/* Chrome: the brand fill, and two weights of ink on the page. */}
       <span className="flex items-center gap-1">
         <span className="h-2 w-4 rounded-[2px] bg-primary" />
         <span className="h-1 w-5 rounded-full bg-foreground" />
         <span className="h-1 flex-1 rounded-full bg-muted-foreground" />
       </span>
+
+      {/* Two lines of code, indented — the half that makes the card true rather than decorative.
+          A document derives seven syntax roles of its own, so Dracula's card paints Dracula's
+          keywords; a card that stopped at surfaces and a brand would show six documents agreeing
+          about the only part of themselves they share. This is the move GitHub's theme picker
+          makes, and the reason it is the reference: the tile shows the thing being themed. */}
+      <span className="flex flex-col gap-[3px] ps-1">
+        <span className="flex items-center gap-[3px]">
+          <span className="h-1 w-3 rounded-full bg-[var(--syntax-keyword)]" />
+          <span className="h-1 w-5 rounded-full bg-[var(--syntax-function)]" />
+          <span className="h-1 w-2 rounded-full bg-[var(--syntax-number)]" />
+        </span>
+        <span className="flex items-center gap-[3px] ps-2">
+          <span className="h-1 w-4 rounded-full bg-[var(--syntax-property)]" />
+          <span className="h-1 w-6 rounded-full bg-[var(--syntax-string)]" />
+          <span className="h-1 w-2.5 rounded-full bg-[var(--syntax-type)]" />
+        </span>
+      </span>
+
+      {/* The categorical set, all eight slots. Past a document's capacity `compile` writes
+          `var(--muted-foreground)`, so a set that holds seven says so by going grey at the end. */}
       <span className="flex items-center gap-px">
         <span className="h-1.5 flex-1 rounded-[1px] bg-chart-1" />
         <span className="h-1.5 flex-1 rounded-[1px] bg-chart-2" />

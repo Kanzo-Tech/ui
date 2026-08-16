@@ -1217,13 +1217,13 @@ const GESTURES: { keys: ReactNode; what: string }[] = [
  * promising a picture the canvas does not paint.
  */
 const PREVIEW_NODES: { x: number; y: number; ordinal: number; degree: number }[] = [
-  { x: 14, y: 20, ordinal: 0, degree: 1 },
-  { x: 31, y: 8, ordinal: 1, degree: 0.3 },
-  { x: 31, y: 32, ordinal: 1, degree: 0.3 },
-  { x: 50, y: 20, ordinal: 2, degree: 0.7 },
-  { x: 70, y: 10, ordinal: 3, degree: 0.45 },
-  { x: 70, y: 31, ordinal: 2, degree: 0.2 },
-  { x: 90, y: 21, ordinal: 0, degree: 0.85 },
+  { x: 22, y: 20, ordinal: 0, degree: 1 },
+  { x: 58, y: 8, ordinal: 1, degree: 0.3 },
+  { x: 58, y: 32, ordinal: 1, degree: 0.3 },
+  { x: 98, y: 20, ordinal: 2, degree: 0.7 },
+  { x: 140, y: 10, ordinal: 3, degree: 0.45 },
+  { x: 140, y: 31, ordinal: 2, degree: 0.2 },
+  { x: 184, y: 21, ordinal: 0, degree: 0.85 },
 ];
 
 const PREVIEW_EDGES: [number, number][] = [
@@ -1253,10 +1253,17 @@ function LookPreview({ look }: { look: Look }) {
     return (min + degree * (max - min)) * PREVIEW_SCALE;
   };
   return (
+    // Same shell as a palette card, deliberately: height, radius, border and page fill. The two are
+    // one kind of thing — a validated appearance you pick by looking at it — and two hand-tuned
+    // sizes made them read as two unrelated controls that happen to sit in the same panel.
     <svg
       aria-hidden
-      className="h-11 w-full rounded-[4px] bg-background"
-      viewBox="0 0 104 40"
+      className="h-16 w-full rounded-[4px] border border-border bg-background"
+      // The box is 5:1 and the drawing is authored for it. At the 104×40 it started with, `meet`
+      // letterboxed a 2.6:1 picture into the middle of the card and left dead air on both sides —
+      // the miniature was small because the fixture was drawn for a shape the card does not have.
+      viewBox="0 0 208 40"
+      preserveAspectRatio="xMidYMid meet"
     >
       {PREVIEW_EDGES.map(([from, to]) => {
         const a = PREVIEW_NODES[from] as (typeof PREVIEW_NODES)[number];
@@ -1308,7 +1315,7 @@ function LookPreview({ look }: { look: Look }) {
               <stop offset="100%" stopColor="var(--background)" stopOpacity="0.85" />
             </radialGradient>
           </defs>
-          <rect fill={`url(#look-vignette-${look.id})`} height="40" width="104" />
+          <rect fill={`url(#look-vignette-${look.id})`} height="40" width="208" />
         </>
       ) : null}
     </svg>
@@ -1338,7 +1345,7 @@ export function GraphAppearance() {
           <button
             aria-pressed={look === id}
             className={cn(
-              "w-full rounded-md border p-2 text-start transition-colors",
+              "w-full rounded-lg border p-1.5 text-start transition-colors",
               // Same card-shaped toggle as `Finding`, so the same measured trio: the card,
               // `--secondary` on hover, `--accent` + a solid `border-primary` when chosen.
               look === id ? "border-primary bg-accent" : "hover:bg-secondary",
