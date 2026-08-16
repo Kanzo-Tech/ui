@@ -90,7 +90,7 @@ describe("KanzoTheme", () => {
     // An identity belongs to a document. Carrying the page's across would name a brand the scoped
     // palette does not publish — inert in the cascade, and wrong in any panel that reads the context.
     render(
-      <KanzoThemeProvider palettes={PALETTES} storage={null} value={{ palette: "bank", identity: "private" }}>
+      <KanzoThemeProvider palettes={PALETTES} storage={null} value={{ paletteByAppearance: { light: "bank" }, identity: "private" }}>
         <KanzoTheme palette="kanzo">
           <Reads />
         </KanzoTheme>

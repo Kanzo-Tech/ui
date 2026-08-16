@@ -183,10 +183,16 @@ const NO_POLICY: Record<string, SectionPolicy> = {};
  * host that ignores `onChange` would otherwise be told on every render.
  */
 function useRetirement(
-  key: "identity" | "palette",
   value: string,
   options: readonly { value: string }[],
-  set: (patch: Partial<ThemePrefs>) => void,
+  /**
+   * Put the preference back to "defer to the document".
+   *
+   * A callback rather than a key, because the two axes no longer clear the same way: `identity` is a
+   * flat field and a palette is one side of a map. Passing the key meant this hook building a patch,
+   * which is knowledge of the shape it has no reason to hold.
+   */
+  clear: () => void,
   onRetired?: (id: string) => void,
 ): string | null {
   const [retired, setRetired] = React.useState<string | null>(null);
@@ -197,9 +203,9 @@ function useRetirement(
     if (options.some((option) => option.value === value)) return;
     handled.current = true;
     setRetired(value);
-    set({ [key]: "" });
+    clear();
     onRetired?.(value);
-  }, [key, value, options, set, onRetired]);
+  }, [clear, value, options, onRetired]);
 
   return retired;
 }
@@ -312,33 +318,6 @@ export function KanzoThemeProvider({
   const set = React.useCallback(
     (patch: Partial<ThemePrefs>) => {
       const next = { ...prefs, ...patch };
-      // Switching palette carries the identity with it, both ways: what this user had chosen in the
-      // palette they are leaving is filed, and what they had chosen in the one they are entering is
-      // restored. Without it, every trip through a second palette silently discarded a brand choice.
-      //
-      // Here rather than in an effect, because it is a consequence of one transition and not of a
-      // state. An effect watching the palette would also fire on mount, on StrictMode's second
-      // invocation, and on a host re-rendering controlled `value` — three moments where nothing
-      // changed and a memory would be rewritten from whatever happened to be current.
-      if (patch.palette !== undefined && patch.palette !== prefs.palette) {
-        // Keyed by the RESOLVED id, never by the raw preference. The default palette has two
-        // spellings — `""`, which is what "no preference" stores, and its own id — and keying on the
-        // preference files them as two documents, so a user who returns to the default by name gets
-        // back the identity they chose under a different word for the same thing. A test found this;
-        // the two spellings are invisible until something uses one as a key.
-        const leaving = prefs.palette || defaultPalette;
-        const entering = patch.palette || defaultPalette;
-        const remembered = { ...prefs.identityByPalette, [leaving]: prefs.identity };
-        next.identityByPalette = remembered;
-        // `?? ""` and not `?? prefs.identity`: an identity belongs to its document, so carrying one
-        // across would name a brand the new palette does not publish — inert in the cascade, and a
-        // false retirement notice on the way past.
-        next.identity = remembered[entering] ?? "";
-        // …unless the caller named one in the same patch. The panel selects a palette and a brand in
-        // one click — "Bank · Private" is one choice — so the memory must not overwrite the very
-        // thing being asked for.
-        if (patch.identity !== undefined) next.identity = patch.identity;
-      }
       if (controlled) {
         onChange?.(next);
       } else {
@@ -404,9 +383,52 @@ export function KanzoThemeProvider({
   // cookie is now an optimisation rather than a requirement: localStorage plus the pre-paint script
   // applies the attribute before anything is drawn, exactly as it does for radius and density.
 
-  const resolvedPalette = prefs.palette || defaultPalette;
+  const resolvedPalette = prefs.paletteByAppearance[resolvedAppearance] || defaultPalette;
 
-  const retiredPalette = useRetirement("palette", prefs.palette, palettes, set, onPaletteRetired);
+  /**
+   * Choose a palette for the side currently applied.
+   *
+   * A call site says `setPalette("nord")` and means "on this side" — the keying lives here and not
+   * in every panel, the same way `setAppearance` owns translating a host's `"system"`. Spelled out
+   * at each call site it would be a spread of a map the caller has to remember is keyed at all.
+   */
+  const setPalette = React.useCallback(
+    (palette: string, identity?: string) => {
+      const next: Partial<ThemePrefs> = {
+        paletteByAppearance: { ...prefs.paletteByAppearance, [resolvedAppearance]: palette },
+      };
+      // Switching palette carries the identity with it, both ways: what this user had chosen in the
+      // palette they are leaving is filed, and what they had chosen in the one they are entering is
+      // restored. Without it, every trip through a second palette silently discarded a brand choice.
+      //
+      // It lives here rather than in `set` because only this function knows which side is being
+      // written — and here rather than in an effect, because it is a consequence of one transition
+      // and not of a state. An effect watching the palette would also fire on mount, on StrictMode's
+      // second invocation, and on a host re-rendering controlled `value`.
+      const entering = palette || defaultPalette;
+      if (entering !== resolvedPalette) {
+        // Keyed by the RESOLVED id, never by the raw preference. The default palette has two
+        // spellings — `""`, which is what "no preference" stores, and its own id — and keying on the
+        // preference files them as two documents, so a user who returns to the default by name gets
+        // back the identity they chose under a different word for the same thing.
+        const remembered = { ...prefs.identityByPalette, [resolvedPalette]: prefs.identity };
+        next.identityByPalette = remembered;
+        // `?? ""` and not the current identity: an identity belongs to its document, so carrying one
+        // across would name a brand the new palette does not publish — inert in the cascade, and a
+        // false retirement notice on the way past.
+        next.identity = remembered[entering] ?? "";
+      }
+      // …unless the caller named one in the same call. The panel selects a palette and a brand at
+      // once — "Bank · Private" is one choice — so the memory must not overwrite what was asked for.
+      if (identity !== undefined) next.identity = identity;
+      set(next);
+    },
+    [
+      defaultPalette, prefs.identity, prefs.identityByPalette, prefs.paletteByAppearance,
+      resolvedAppearance, resolvedPalette, set,
+    ],
+  );
+
 
   // ── Identity ────────────────────────────────────────────────────────────────────────────
   // A preference among the identities the TENANT published, and the id `:root` already paints.
@@ -422,7 +444,18 @@ export function KanzoThemeProvider({
   const defaultIdentity = identities[0]?.value ?? "";
   const resolvedIdentity = prefs.identity || defaultIdentity;
 
-  const retiredIdentity = useRetirement("identity", prefs.identity, identities, set, onIdentityRetired);
+  const retiredIdentity = useRetirement(
+    prefs.identity,
+    identities,
+    React.useCallback(() => set({ identity: "" }), [set]),
+    onIdentityRetired,
+  );
+  const retiredPalette = useRetirement(
+    resolvedPalette,
+    palettes,
+    React.useCallback(() => setPalette(""), [setPalette]),
+    onPaletteRetired,
+  );
 
   // To the DOM: the axes become `data-*` attributes on <html> (set when non-default, removed
   // otherwise), and `.dark` follows the resolved appearance.
@@ -430,8 +463,13 @@ export function KanzoThemeProvider({
   // rule permanently, and each block of the compiled document carries its own `color-scheme`.
   React.useEffect(() => {
     const el = document.documentElement;
-    for (const { key, attr, def } of AXES) {
-      const v = prefs[key];
+    for (const { attr, byAppearance, def, key } of AXES) {
+      // A keyed axis is indexed by the side that is about to be painted — the same expression the
+      // pre-hydration script runs, off the same row of the same table.
+      const stored = prefs[key];
+      const v = byAppearance
+        ? (stored as Record<string, string> | undefined)?.[resolvedAppearance]
+        : stored;
       // `typeof v === "string"` rather than a null check: every axis value is a string, and
       // `identity` is the first one taken free-form from a stored blob. `String({})` on a corrupt
       // blob writes `data-identity="[object Object]"`, which is inert but survives in the DOM and
@@ -456,7 +494,7 @@ export function KanzoThemeProvider({
     // every axis in `AXES` appears here — an applied-but-unwatched axis writes once at mount and
     // then silently stops following the preference, which looks exactly like a control that does
     // nothing.
-    prefs.palette,
+    prefs.paletteByAppearance,
   ]);
 
   // Clean the managed attributes off <html> only when the provider unmounts.
@@ -564,12 +602,13 @@ export function KanzoThemeProvider({
       palettes,
       defaultPalette,
       resolvedPalette,
+      setPalette,
       retiredPalette,
     }),
     [
       prefs, set, fonts, monoFonts, appearancePref, resolvedAppearance, setAppearance,
       identities, defaultIdentity, resolvedIdentity, retiredIdentity,
-      palettes, defaultPalette, resolvedPalette, retiredPalette,
+      palettes, defaultPalette, resolvedPalette, setPalette, retiredPalette,
       sectionPrefs, setSectionPref,
     ],
   );

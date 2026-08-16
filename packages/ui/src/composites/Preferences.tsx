@@ -517,7 +517,7 @@ function ColorSection({
     resolvedIdentity,
     retiredPalette,
     retiredIdentity,
-    set,
+    setPalette,
   } = useKanzoTheme();
   const { preview, restore } = usePalettePreview();
 
@@ -561,11 +561,12 @@ function ColorSection({
           if (!d.value) return;
           const [palette, identity = ""] = d.value.split(KEY_SEPARATOR);
           // The preview held the choice on <html> already; the snapshot it would restore is the
-          // palette being left, so it has to be dropped before `set` writes the new one.
+          // palette being left, so it has to be dropped before the write lands.
           restore();
-          // Both in one patch, because it is one choice. `set` files the outgoing brand under the
+          // One call, because it is one choice, and `setPalette` is what knows which side is being
+          // written — a palette is chosen per appearance. It also files the outgoing brand under the
           // palette being left and would otherwise restore a remembered one over the top of this.
-          set({ palette: palette ?? "", identity });
+          setPalette(palette ?? "", identity);
         }}
         value={selected}
       >

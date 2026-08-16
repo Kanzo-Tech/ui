@@ -63,8 +63,17 @@ export interface ThemeContextValue extends ThemePrefs {
   palettes: PaletteOption[];
   /** The id of the palette the server serves by default; the panel needs it to show a selection. */
   defaultPalette: string;
-  /** The APPLIED palette — the preference, or `defaultPalette`. Same split as the two above. */
+  /** The APPLIED palette — this side's preference, or `defaultPalette`. Same split as the two above. */
   resolvedPalette: string;
+  /**
+   * Choose a palette **for the side currently applied**, optionally naming a brand in the same call.
+   *
+   * The keying lives here rather than at every call site, the way `setAppearance` owns translating a
+   * host's `"system"`. It is also what carries the identity across a palette change — file the
+   * outgoing brand, restore the one remembered for the document being entered — so a caller that
+   * writes `paletteByAppearance` through `set` gets the attribute and loses the memory.
+   */
+  setPalette: (palette: string, identity?: string) => void;
   /** The palette the tenant retired out from under this user, once, for the rest of the session. */
   retiredPalette: string | null;
 

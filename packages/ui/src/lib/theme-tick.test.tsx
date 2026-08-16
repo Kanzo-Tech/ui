@@ -39,7 +39,7 @@ describe("useThemeTick", () => {
     const t = mount();
     const before = t.ticks.at(-1);
 
-    t.set({ palette: "dracula" });
+    t.set({ paletteByAppearance: { light: "dracula" } });
 
     expect(t.ticks.at(-1)).not.toBe(before);
     // `data-palette` is written to the root now — palette became an axis like any other when the
@@ -60,9 +60,9 @@ describe("useThemeTick", () => {
     const t = mount();
     const before = t.ticks.at(-1);
 
-    t.set({ palette: "dracula" });
+    t.set({ paletteByAppearance: { light: "dracula" } });
     const afterPalette = t.ticks.at(-1);
-    t.set({ palette: "dracula" });
+    t.set({ paletteByAppearance: { light: "dracula" } });
 
     expect(afterPalette).not.toBe(before);
     expect(t.ticks.at(-1)).toBe(afterPalette);

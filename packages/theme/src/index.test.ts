@@ -88,6 +88,11 @@ describe("@kanzo-tech/theme", () => {
     // how the axes and the documents would start disagreeing.
     expect(themes, "themes.css emits palette blocks").not.toContain("[data-palette=");
     expect(AXES.map((a) => a.attr)).toContain("data-palette");
+    // `palette` is `paletteByAppearance` now: the same axis, keyed by the side it applies to, so a
+    // user may wear one document by day and another by night. It is not a second colour axis — it
+    // is the one that was always here, with the map `decisions/a-palette-is-chosen-per-appearance.md`
+    // argues for, and no document gains a field for it.
+    //
     // `sections` is the ninth key and it is emphatically not a colour axis coming back. The four
     // that were retired each expressed *part* of a palette from a catalogue the LIBRARY shipped;
     // this holds what a package a HOST installed contributes, in that package's own namespace, out
@@ -99,8 +104,8 @@ describe("@kanzo-tech/theme", () => {
     // declaration. `resolvePref` is where that is refused, and `sections.test.ts` is where the
     // refusal is asserted.
     expect(Object.keys(DEFAULT_PREFS).sort()).toEqual([
-      "appearance", "density", "font", "identity", "identityByPalette", "monoFont", "palette",
-      "radius", "sections",
+      "appearance", "density", "font", "identity", "identityByPalette", "monoFont",
+      "paletteByAppearance", "radius", "sections",
     ]);
     // And it starts empty rather than seeded from any manifest: a default that has been *stored*
     // can no longer move when the section, or a tenant's policy, changes it.
@@ -163,8 +168,19 @@ describe("@kanzo-tech/theme", () => {
   it("every axis default matches DEFAULT_PREFS, generated or not", () => {
     // The one half that holds over both sources: `def` is what the write rule compares against to
     // REMOVE the attribute, so a disagreement leaves the default value written out as an attribute.
-    for (const { key, def } of AXES) {
-      expect(String(DEFAULT_PREFS[key]), `AXES/DEFAULT_PREFS disagree on "${key}"`).toBe(def);
+    for (const { byAppearance, def, key } of AXES) {
+      const stored = DEFAULT_PREFS[key];
+      if (byAppearance) {
+        // A keyed axis stores a MAP, so there is no single value to compare. What has to hold is
+        // the same thing one level in: the map starts empty, so either side resolves to nothing and
+        // the write rule removes the attribute. Comparing `String({})` here is what failed when the
+        // palette became keyed, and it failed for the right reason — the shape changed under an
+        // assertion written for a flat field.
+        expect(stored, `"${key}" is keyed, so its default must be an empty map`).toEqual({});
+        expect(def, `a keyed axis removes at "" — "${key}" declares ${def}`).toBe("");
+        continue;
+      }
+      expect(String(stored), `AXES/DEFAULT_PREFS disagree on "${key}"`).toBe(def);
     }
   });
 });

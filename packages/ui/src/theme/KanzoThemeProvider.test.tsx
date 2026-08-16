@@ -89,7 +89,18 @@ describe("KanzoThemeProvider axis wiring", () => {
   });
 
   it("has a default for every axis, so the attribute can be removed at it", () => {
-    for (const { key, def } of AXES) expect(String(DEFAULT_PREFS[key]), key).toBe(def);
+    for (const { byAppearance, def, key } of AXES) {
+      // A keyed axis stores a map, so there is no single value to compare — what has to hold is
+      // that it starts empty and therefore resolves to nothing, which is what the write rule
+      // removes at. `String({})` is `"[object Object]"`, and that is what failed here when the
+      // palette became keyed: an assertion written for a flat field, meeting a shape.
+      if (byAppearance) {
+        expect(DEFAULT_PREFS[key], `"${key}" is keyed, so its default must be an empty map`).toEqual({});
+        expect(def, `a keyed axis removes at "" — "${key}" declares ${def}`).toBe("");
+        continue;
+      }
+      expect(String(DEFAULT_PREFS[key]), key).toBe(def);
+    }
   });
 
   it("never writes `color-scheme` inline", () => {
@@ -561,7 +572,10 @@ describe("KanzoThemeProvider palette", () => {
   it("resolves an empty preference to the first published palette", () => {
     const t = mount({ palettes: PALETTES });
 
-    expect(t.ctx.palette).toBe("");
+    // The preference is a map and starts empty on both sides; the RESOLVED value is the tenant's
+    // default. That split is the same one `appearance`/`resolvedAppearance` makes, and it is what
+    // keeps "the user has not chosen" distinguishable from "the user chose the default".
+    expect(t.ctx.paletteByAppearance).toEqual({});
     expect(t.ctx.defaultPalette).toBe("kanzo");
     expect(t.ctx.resolvedPalette).toBe("kanzo");
   });
@@ -576,25 +590,25 @@ describe("KanzoThemeProvider palette", () => {
     // The `identity` asymmetry it was contrasting against is gone with it: both are attributes
     // selecting a block, at two grains of the same choice.
     const t = mount({ palettes: PALETTES });
-    act(() => t.ctx.set({ palette: "dracula" }));
+    act(() => t.ctx.set({ paletteByAppearance: { light: "dracula" } }));
 
     expect(t.ctx.resolvedPalette).toBe("dracula");
     expect(html().getAttribute("data-palette")).toBe("dracula");
 
     // …and nothing at the default, which is what keeps a single-palette tenant's `<html>` clean:
     // `def: ""` means the write rule removes the attribute rather than spelling out the fallback.
-    act(() => t.ctx.set({ palette: "" }));
+    act(() => t.ctx.set({ paletteByAppearance: { light: "" } }));
     expect(html().hasAttribute("data-palette")).toBe(false);
     expect([...html().attributes].map((a) => a.name).filter((n) => n.startsWith("data-"))).toEqual([]);
   });
 
   it("clears a palette the tenant no longer publishes, and says so once", () => {
     const onPaletteRetired = vi.fn();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ palette: "withdrawn" }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ paletteByAppearance: { light: "withdrawn" } }));
 
     const t = mount({ palettes: PALETTES, onPaletteRetired });
 
-    expect(t.ctx.palette).toBe("");
+    expect(t.ctx.paletteByAppearance.light ?? "").toBe("");
     expect(t.ctx.resolvedPalette).toBe("kanzo");
     expect(t.ctx.retiredPalette).toBe("withdrawn");
     expect(onPaletteRetired).toHaveBeenCalledTimes(1);
@@ -605,11 +619,11 @@ describe("KanzoThemeProvider palette", () => {
     // "Not wired", "still fetching the document" and "published nothing" are indistinguishable from
     // here, and all three mean a valid preference must survive rather than be treated as retired.
     const onPaletteRetired = vi.fn();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ palette: "dracula" }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ paletteByAppearance: { light: "dracula" } }));
 
     const t = mount({ onPaletteRetired });
 
-    expect(t.ctx.palette).toBe("dracula");
+    expect(t.ctx.resolvedPalette).toBe("dracula");
     expect(onPaletteRetired).not.toHaveBeenCalled();
   });
 
@@ -627,21 +641,23 @@ describe("KanzoThemeProvider palette", () => {
     });
 
     act(() => t.ctx.set({ identity: "private" }));
-    act(() => t.ctx.set({ palette: "dracula" }));
+    act(() => t.ctx.setPalette("dracula"));
 
     // Not carried across: `private` is a brand Dracula does not publish, and naming it there would
     // be inert in the cascade and a false retirement on the way past.
     expect(t.ctx.identity).toBe("");
 
-    act(() => t.ctx.set({ palette: "kanzo" }));
+    act(() => t.ctx.setPalette("kanzo"));
 
     expect(t.ctx.identity).toBe("private");
   });
 
   it("files it against the palette being LEFT, not the one being entered", () => {
-    // The off-by-one this is written to catch: reading `prefs.palette` after the patch has been
-    // merged would file the outgoing identity under the incoming palette, so one switch would look
-    // right and the trip back would restore the wrong brand.
+    // The off-by-one this is written to catch: reading the palette after the patch has been merged
+    // would file the outgoing identity under the incoming one, so a single switch would look right
+    // and the trip back would restore the wrong brand. `setPalette` reads `resolvedPalette`, which
+    // is still the outgoing document when it runs — and going through `set` instead skips the
+    // memory entirely, which is why this calls the one function that owns it.
     const t = mount({
       palettes: PALETTES.map((p, i) => (i === 0
         ? { ...p, children: [{ value: "retail", label: "Retail" }] }
@@ -649,7 +665,7 @@ describe("KanzoThemeProvider palette", () => {
     });
 
     act(() => t.ctx.set({ identity: "retail" }));
-    act(() => t.ctx.set({ palette: "dracula" }));
+    act(() => t.ctx.setPalette("dracula"));
 
     // Under `kanzo`, its resolved id, and not under `""`, the preference that means it. The default
     // palette has two spellings and the memory must only ever use one, or returning to it by name
@@ -660,7 +676,7 @@ describe("KanzoThemeProvider palette", () => {
   it("keeps the two published axes independent", () => {
     // A palette and an identity are different grains of the same idea, and share one retirement
     // helper — so the case that matters is that retiring one does not disturb the other.
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ palette: "withdrawn", identity: "retail-blue" }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ paletteByAppearance: { light: "withdrawn" }, identity: "retail-blue" }));
     const t = mount({
       palettes: PALETTES.map((p, i) => (i === 0
         ? { ...p, children: [{ value: "retail-blue", label: "Retail" }] }

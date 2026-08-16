@@ -40,7 +40,9 @@ export interface ThemeScriptOptions {
 /** Returns the IIFE source (a string) to inline before hydration. Safe to embed in HTML. */
 export function themeScript({ storageKey = STORAGE_KEY }: ThemeScriptOptions = {}): string {
   // Only the serialisable axis map is needed at runtime.
-  const axes = JSON.stringify(AXES.map((a) => [a.key, a.attr, a.def]));
+  // The fourth element says "index this by the resolved appearance". It rides on the same row the
+  // provider reads, so the two cannot disagree about which axes are keyed and which are plain.
+  const axes = JSON.stringify(AXES.map((a) => [a.key, a.attr, a.def, a.byAppearance ?? false]));
   const sk = JSON.stringify(storageKey);
   return (
     "(function(){try{" +
@@ -60,7 +62,7 @@ export function themeScript({ storageKey = STORAGE_KEY }: ThemeScriptOptions = {
     // because an attribute selector with no matching rule is inert and the cascade falls through
     // to `:root` — which is the default identity. Validating here would mean knowing the document,
     // and the two sides would stop agreeing the moment they disagreed about it.
-    "var A=" + axes + ";for(var i=0;i<A.length;i++){var k=A[i][0],at=A[i][1],df=A[i][2],v=P[k];if(typeof v!=='string'||v===df){d.removeAttribute(at);}else{d.setAttribute(at,v);}}" +
+    "var A=" + axes + ";for(var i=0;i<A.length;i++){var k=A[i][0],at=A[i][1],df=A[i][2],v=A[i][3]?((P[k]||{})[W]):P[k];if(typeof v!=='string'||v===df){d.removeAttribute(at);}else{d.setAttribute(at,v);}}" +
     // `style.colorScheme` is never written: an inline declaration outranks every rule permanently,
     // and each block of the compiled palette document carries its own `color-scheme`.
     "d.classList.toggle('dark',W==='dark');" +

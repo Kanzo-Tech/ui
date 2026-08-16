@@ -272,7 +272,16 @@ export interface ThemePrefs {
   monoFont: KanzoMonoFont;
   density: KanzoDensity;
   identity: KanzoIdentity;
-  palette: KanzoPalette;
+  /**
+   * Which document this user wears on each side — `{}` while they have chosen neither.
+   *
+   * A map rather than a string because the choice is per appearance: a light-native palette and a
+   * dark-native one are different products of taste even though each carries both modes. Unlike
+   * {@link KanzoIdentityMemory} this IS an axis, and the difference is one of ordering rather than
+   * of principle — the pre-hydration script resolves appearance before it writes anything, so it
+   * can index this; nothing resolves the palette before the same loop.
+   */
+  paletteByAppearance: Partial<Record<Appearance, KanzoPalette>>;
   identityByPalette: Record<KanzoPalette, KanzoIdentity>;
   /**
    * What the packages a host installed contribute, keyed by namespace then by preference.
@@ -305,10 +314,10 @@ export const DEFAULT_PREFS: ThemePrefs = {
   monoFont: "system",
   density: "default",
   identity: "",
-  // `""` defers to the document the tenant made default, the way `identity` defers to the identity
-  // `:root` carries. A tenant publishing one palette therefore stores nothing and serves what it
-  // always served.
-  palette: "",
+  // Empty, and both sides fall through to the tenant's default — so a tenant publishing one palette
+  // stores nothing and gets the `<html>` it always had. `""` per side means the same thing one level
+  // in: defer to the document the tenant made default.
+  paletteByAppearance: {},
   // A fresh browser remembers nothing, and an empty map is not a special case anywhere: every read
   // is `memory[id] ?? ""`, which is the same answer as "this palette's default identity".
   identityByPalette: {},
@@ -346,6 +355,19 @@ export const AXES: {
   attr: string;
   def: string;
   source: "themes" | "document";
+  /**
+   * The stored value is a map keyed by the RESOLVED appearance, not a plain string.
+   *
+   * One field on the row rather than a second table or a hand-written write beside the loop. Three
+   * things have to agree about an axis and the table is what makes them; an axis that resolved
+   * outside it would be the drift this table exists to prevent, on the one axis with the most
+   * moving parts.
+   *
+   * It is only expressible because the pre-hydration script resolves appearance *first* — it has to,
+   * to write `.dark` — so by the time it reaches this loop it knows which side to index. That is why
+   * `identityByPalette` is a memory and not an axis: nothing resolves the palette before the loop.
+   */
+  byAppearance?: true;
 }[] = [
   { key: "radius", attr: "data-radius", def: "md", source: "themes" },
   { key: "font", attr: "data-font", def: "system", source: "themes" },
@@ -367,7 +389,19 @@ export const AXES: {
   // writes no attribute and gets the `<html>` it had before. It also retires the requirement to
   // persist through `cookieStorageAdapter` — there is no longer a decision the server took that the
   // browser cannot correct without a flash.
-  { key: "palette", attr: "data-palette", def: "", source: "document" },
+  //
+  // **Keyed by appearance, because the choice is.** A tenant may publish documents that are each
+  // correct in both modes and still not equally wanted in both, and the person who knows which is
+  // the one watching the screen flip. See `decisions/a-palette-is-chosen-per-appearance.md`, whose
+  // first job is separating this from the `pairsWith` that was deleted: that was a field on a
+  // DOCUMENT, needed while a document had one mode. Nothing here gives a document a field.
+  {
+    key: "paletteByAppearance",
+    attr: "data-palette",
+    def: "",
+    source: "document",
+    byAppearance: true,
+  },
 ];
 
 // ── Sections ────────────────────────────────────────────────────────────────────────────────────

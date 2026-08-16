@@ -165,7 +165,17 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
     // the server picked. Measured at 7.6 kB gzipped for all five, they now all travel and the
     // attribute selects, so both sides must write it — and must agree, which is what this file is for.
     const { script, provider } = bothSides(
-      { prefs: { palette: "dracula", base: "slate", accent: "blue", scheme: "vivid" } },
+      {
+        prefs: {
+          // Keyed by side, and stored for BOTH here so the assertion holds whichever this run
+          // resolves to. That the two sides may differ is the point of the axis; that they agree
+          // about which one is applied is the point of this file.
+          paletteByAppearance: { light: "dracula", dark: "dracula" },
+          base: "slate",
+          accent: "blue",
+          scheme: "vivid",
+        },
+      },
       false,
     );
     for (const attr of ["data-base", "data-accent", "data-chart-scheme"]) {
@@ -222,7 +232,12 @@ describe("themeScript source", () => {
     // hydration only — invisible to every test of the generator.
     const inlined = source.match(/var A=(\[.*?\]);for/)?.[1];
     expect(inlined, "the axis table is no longer inlined under `A`").toBeTruthy();
-    expect(JSON.parse(inlined as string)).toEqual(AXES.map((a) => [a.key, a.attr, a.def]));
+    // The fourth element says "index this by the resolved appearance". It has to travel with the
+    // row rather than be re-derived in the script, or the two sides would disagree about which axes
+    // are keyed — the exact drift this table exists to prevent, on the axis that gained the keying.
+    expect(JSON.parse(inlined as string)).toEqual(
+      AXES.map((a) => [a.key, a.attr, a.def, a.byAppearance ?? false]),
+    );
   });
 
   it("sets no CSS custom property at all", () => {

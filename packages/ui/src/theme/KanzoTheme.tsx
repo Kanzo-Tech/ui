@@ -105,7 +105,19 @@ export function KanzoTheme({
   const resolvedAppearance = appearance ?? parent?.resolvedAppearance;
 
   const overrides = React.useMemo(
-    () => ({ palette, identity, radius, font, monoFont, density }) as Partial<ThemePrefs>,
+    () =>
+      ({
+        // A scope names ONE document for its whole subtree, so both sides carry it: the axis is
+        // keyed by appearance because a *user* may want different documents by day and by night,
+        // and a preview forcing a palette is not that user making a choice. `{}` when the prop is
+        // absent, which is what "inherit the page's" spells one level up.
+        paletteByAppearance: palette ? { light: palette, dark: palette } : {},
+        identity,
+        radius,
+        font,
+        monoFont,
+        density,
+      }) as Partial<ThemePrefs>,
     [palette, identity, radius, font, monoFont, density],
   );
 
@@ -114,8 +126,16 @@ export function KanzoTheme({
   // them too, which is what stops a scoped preview from painting the page's palette on first paint
   // and then correcting itself.
   const attributes: Record<string, string> = {};
-  for (const { key, attr } of SCOPED) {
-    const value = overrides[key];
+  for (const { attr, byAppearance, key } of SCOPED) {
+    // A keyed axis holds a map, indexed by the side this scope is about to paint — the same
+    // expression the provider and the pre-hydration script run, off the same row.
+    const stored = overrides[key];
+    // `resolvedAppearance` is undefined outside a provider with no `appearance` prop — the scope
+    // paints, inherits the page's side and writes no class. Either key answers the same here,
+    // because a scope writes both, so the fallback picks one rather than inventing a side.
+    const value = byAppearance
+      ? (stored as Record<string, string> | undefined)?.[resolvedAppearance ?? "light"]
+      : stored;
     if (typeof value === "string" && value !== "") attributes[attr] = value;
   }
 

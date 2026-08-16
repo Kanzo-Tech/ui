@@ -211,7 +211,7 @@ describe("Preferences", () => {
     it("checks the RESOLVED pair, which with no preference is the tenant's default of each", () => {
       setup(undefined, { palettes: [BANK, DRACULA] });
 
-      expect(stored().palette ?? "").toBe("");
+      expect(stored().paletteByAppearance ?? {}).toEqual({});
       expect((colour().getByRole("radio", { name: "Bank · Retail" }) as HTMLInputElement).checked).toBe(true);
     });
 
@@ -222,7 +222,8 @@ describe("Preferences", () => {
 
       await userEvent.setup().click(colour().getByRole("radio", { name: "Bank · Private" }));
 
-      expect(stored().palette).toBe("bank");
+      // Keyed by the side being worn: a palette is chosen per appearance, and these tests run light.
+      expect(stored().paletteByAppearance).toEqual({ light: "bank" });
       expect(stored().identity).toBe("private");
       expect(html().getAttribute("data-identity")).toBe("private");
     });
@@ -238,7 +239,7 @@ describe("Preferences", () => {
 
       await userEvent.setup().click(colour().getByRole("radio", { name: "Dracula" }));
 
-      expect(stored().palette).toBe("dracula");
+      expect(stored().paletteByAppearance).toEqual({ light: "dracula" });
       expect(html().getAttribute("data-palette")).toBe("dracula");
     });
 
@@ -250,7 +251,7 @@ describe("Preferences", () => {
     });
 
     it("says so when the tenant withdrew what this user had chosen", () => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ palette: "withdrawn" }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ paletteByAppearance: { light: "withdrawn" } }));
       setup(undefined, { palettes: [BANK, DRACULA] });
 
       expect(screen.getByText("Colours updated")).toBeTruthy();
@@ -258,7 +259,7 @@ describe("Preferences", () => {
     });
 
     it("says nothing when the stored choice is still published", () => {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ palette: "dracula" }));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ paletteByAppearance: { light: "dracula" } }));
       setup(undefined, { palettes: [BANK, DRACULA] });
 
       expect(screen.queryByText("Colours updated")).toBeNull();
