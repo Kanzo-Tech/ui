@@ -52,6 +52,33 @@ Dos cosas que hay que mirar al hacerlo: el layout es de fossil ahora, no el de `
 así que **la imagen cambia**; y el corpus no trae columna `community` — sólo `cluster_id` — que es
 justo por lo que `categoryField: "kind"` es obligatorio aquí.
 
+### 1 bis · Y antes de cablear nada: `GraphSpec` huele, y la validación es el síntoma
+
+Ángel, sobre depender de constantes: **`ARCHIVE_SPEC` es el problema, no los nombres de vista.**
+Ésos ya los devuelve `openCorpus` y el host no escribe ninguno. Lo que sí escribe a mano es
+`idField`, `labelField`, `categoryField`, `sizeField`, `groupField` y los `detailFields` — sobre un
+corpus que **ya declara sus propiedades en el manifiesto**. Es el patrón de `CHUNK_SIZE` otra vez:
+este lado escribe lo que el otro posee, y caducará igual.
+
+La reparación obvia —que `openCorpus` devuelva `properties` para poder comprobar los strings al
+abrir— **es un olor, no un arreglo**: compensa un enganche débil en vez de quitarlo, y deja dos
+sitios sabiendo de columnas.
+
+El enganche débil es el rol como cadena. `categoryField: "kind"` es un string que debe casar con una
+columna, comprobado en runtime, sin tipo que lo sostenga.
+
+**Y la forma buena ya está en el repo, una capa al lado.** La capa de charts no lleva un spec con
+nombres de columna: lleva descriptores con **canales** — `ChartLine x="date" y="value"`. Un grafo es
+una marca con canales. `x`/`y` ni siquiera son canales aquí, son hechos del corpus; quedan tres, y
+son los que Plot llama `fill`, `r` y `title`.
+
+Así que la dirección probablemente no es un spec más limpio sino **ningún spec**: los canales los
+declara el canvas como los declara una marca, con el vocabulario que ya enviamos. Sin objeto que
+mantener en sincronía con un manifiesto porque no hay objeto.
+
+**Esto se decide antes de cablear el workspace**, porque cablearlo con `GraphSpec` es escribir el
+call site que luego hay que reescribir.
+
 ### 2 · El ejemplo, contra el corpus real
 
 Ángel: *«para los ejemplos los creamos con fossil y los importamos, quiero que sean ejemplos de lo
