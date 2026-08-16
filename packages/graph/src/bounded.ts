@@ -156,6 +156,27 @@ export interface SliceRequest {
   /** The rectangle, and the zoom that decides detail from aggregate. */
   view: Viewport;
   /**
+   * Which column colours a point — Plot's channel name, and Plot's meaning.
+   *
+   * **On the request rather than on the source, and that is the whole shape.** A source says *where
+   * the bytes are*; a request says *what I want to draw*, and which column colours is the second.
+   * Baked into a source at construction — which is where it used to live — changing what a graph is
+   * coloured by meant building a new source, and the two are not the same question.
+   *
+   * It is the reference's own arrangement: in Plot the **mark** carries the channels and the mark is
+   * what produces the query, while the data source only says where rows come from.
+   *
+   * Defaults to `community`, which every corpus has because the layout pass writes it.
+   */
+  fill?: string;
+  /**
+   * Which column the size ramp is spent on — Plot's `r`.
+   *
+   * Omitted, every point is drawn at one radius, which is a legitimate picture: without a ramp a
+   * look's `form.size` range has only one end.
+   */
+  r?: string;
+  /**
    * Vertices that must come back whatever the query says.
    *
    * The set a reader has taken hold of — dragged, pinned, selected, focused. Their drawn positions

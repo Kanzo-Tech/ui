@@ -120,10 +120,14 @@ export function duckBoundedSource(options: DuckSourceOptions): BoundedSource {
      * throw; now the absence is the statement, and asking is a compile error.
      */
     async slice(request: SliceRequest): Promise<Slice> {
-      const { limit, lodThreshold, pinned, view } = request;
+      const { fill, limit, lodThreshold, pinned, r, view } = request;
+      // The request wins over the constructor, because a channel is what the caller wants drawn now
+      // and the options are what this relation happens to hold. Two places deciding one colour is
+      // the state this move exists to end.
+      const asked: Columns = { ...columns, category: fill ?? columns.category, size: r ?? columns.size };
       return view.zoom < lodThreshold
-        ? aggregate(coordinator, nodes, edges, columns, limit)
-        : detail(coordinator, nodes, edges, columns, view, limit, typeIndex, pinned);
+        ? aggregate(coordinator, nodes, edges, asked, limit)
+        : detail(coordinator, nodes, edges, asked, view, limit, typeIndex, pinned);
     },
   };
 }
@@ -401,18 +405,6 @@ export interface OpenCorpusOptions {
    * asks for names when something has to be *named* rather than painted.
    */
   subjects?: boolean;
-  /**
-   * Which property carries the colour ordinal. Defaults to `community`.
-   *
-   * **The one thing the manifest cannot tell you**, and the reason is worth stating rather than
-   * apologising for: a manifest declares property *names*, never *roles*. Which column means a
-   * colour is a question about your picture, not a fact about the corpus — an archive coloured by
-   * `kind` and the same archive coloured by `region` are two legitimate readings of one tree.
-   *
-   * `community` is the default because every corpus has one: the layout pass writes it, so a caller
-   * that has no opinion gets the corpus' own partition rather than an error.
-   */
-  categoryField?: string;
 }
 
 /** One tile's bounding box, from the footer. `null` for a tile whose statistics are missing. */
@@ -495,7 +487,7 @@ export interface CorpusSource extends BoundedSource {
 }
 
 export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorpus> {
-  const { categoryField = "community", coordinator, dest, subjects = false, vertexType } = options;
+  const { coordinator, dest, subjects = false, vertexType } = options;
 
   const root = await manifest(dest, "graph.graph.yml");
   const vertexPaths = listItems(root, "vertices");
@@ -614,16 +606,21 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
       .map((b) => b.tile);
   }
 
-  const columns: Columns = {
+  /**
+   * Everything the corpus fixes, and nothing it does not.
+   *
+   * `dense_id`, `subject`, `x` and `y` are facts of the format — a corpus has them under those
+   * names or it is not one. What colours and what sizes are channels, so they arrive with the
+   * request and are filled in per slice.
+   */
+  const fixed = {
     id: "dense_id",
     subject: subjects ? "subject" : undefined,
     x: "x",
     y: "y",
-    category: categoryField,
-    size: undefined,
     source: "src_dense",
     target: "dst_dense",
-  };
+  } as const;
 
   /**
    * The relation half, registered once at open.
@@ -675,7 +672,8 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
     // needs adjacency this source does not index, and fossil's `expand` is what answers it —
     // `ExploringSource` is the shape waiting for whoever writes that one.
     async slice(request: SliceRequest): Promise<Slice> {
-      const { limit, lodThreshold, pinned, view } = request;
+      const { fill = "community", limit, lodThreshold, pinned, r, view } = request;
+      const columns: Columns = { ...fixed, category: fill, size: r };
       const all = await load();
       // Zoomed out past the threshold every tile is in the picture anyway, so aggregate reads the
       // whole set rather than selecting one it would only end up selecting all of.
