@@ -76,6 +76,30 @@ Así que la dirección probablemente no es un spec más limpio sino **ningún sp
 declara el canvas como los declara una marca, con el vocabulario que ya enviamos. Sin objeto que
 mantener en sincronía con un manifiesto porque no hay objeto.
 
+#### Leído: el mecanismo transfiere, la forma probablemente no, y los strings no se van
+
+`chartDescriptor(name, compile)` (`packages/ui/src/charts/chart-spec.ts`) es un componente que
+renderiza `null` y lleva su compilación en un estático. `ChartRoot` recorre `children`, encuentra
+los que la tienen y **los compila sin renderizarlos**; lo demás se renderiza. Nada de eso depende de
+que un chart tenga partes, así que un canvas puede hacerlo igual. Un detalle de nuestra forma:
+`children` van a `GraphRootProvider` y los canales son entrada de la consulta, así que irían en
+`useGraph` — correcto, y lo que Ark hace: la fábrica recibe todo lo que la máquina necesita.
+
+**Pero hay dos razones para no copiarlo, y la segunda corrige lo de arriba.**
+
+Los descriptores existen para una lista de longitud variable — pon las marcas que quieras. Los
+canales de un grafo son **tres y singleton**: color, tamaño, etiqueta. Para eso tres props son
+mejores que tres hijos, por el mismo razonamiento que nos hizo no copiar los prop getters de Ark.
+
+Y **los canales no arreglan el stringly-typed**: `fill="kind"` es tan cadena como
+`categoryField: "kind"`. Plot, Vega y cualquier gramática gráfica nombran la columna con un string,
+porque nombrar una columna es eso. Lo que los canales sí quitan es el **objeto** — el saco que
+duplica el manifiesto. La cadena que queda es irreducible y no hay que perseguirla.
+
+Así que el destino probable es: `GraphSpec` muere, sus seis campos de corpus salen del manifiesto, y
+los tres roles se quedan como props del canvas con los nombres que Plot ya usa. Sin validador: si la
+columna no existe, la consulta falla y lo dice.
+
 **Esto se decide antes de cablear el workspace**, porque cablearlo con `GraphSpec` es escribir el
 call site que luego hay que reescribir.
 
