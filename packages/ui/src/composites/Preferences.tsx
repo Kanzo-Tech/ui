@@ -10,9 +10,11 @@ import {
   DEFAULT_PREFS,
   prefBoolean,
   prefNumber,
+  prefOptions,
   themeData,
   type Appearance,
   type KanzoRadius,
+  type PrefSources,
   type SectionPrefDecl,
 } from "@kanzo-tech/theme";
 import { useKanzoTheme } from "../theme/KanzoThemeProvider.js";
@@ -823,10 +825,13 @@ function ContributedControl({
   name,
   onChange,
   pref,
+  sources,
 }: {
   name: string;
   onChange: (next: string) => void;
   pref: { value: string; decl: SectionPrefDecl };
+  /** What the tenant published, for a choice whose options name a source. */
+  sources?: PrefSources;
 }) {
   const { decl, value } = pref;
 
@@ -866,6 +871,10 @@ function ContributedControl({
     );
   }
 
+  // `?? []` and not a throw: a choice whose source the host has not answered yet has nothing to
+  // offer *this render*, and the value it resolved to is still applied. Drawing an empty group is
+  // what `PreferencesColor` already does below two published documents.
+  const options = prefOptions(decl, sources) ?? [];
   return (
     <PrefFieldSet label={name}>
       <RadioGroup
@@ -873,7 +882,7 @@ function ContributedControl({
         onValueChange={(d) => d.value && onChange(d.value)}
         value={value}
       >
-        {decl.options.map((option) => (
+        {options.map((option) => (
           <RadioGroupCard className="items-center px-2.5 py-2" key={option.value} value={option.value}>
             <ArkRadioGroup.ItemText className="text-xs">{option.label}</ArkRadioGroup.ItemText>
           </RadioGroupCard>
@@ -916,7 +925,18 @@ export interface PreferencesSectionsProps {
 }
 
 function ContributedSections({ namespace }: PreferencesSectionsProps = {}) {
-  const { sectionPrefs, setSectionPref } = useKanzoTheme();
+  const { identities, palettes, sectionPrefs, setSectionPref } = useKanzoTheme();
+
+  // The two lists only a tenant can write, in the shape a declaration names them by. Built here and
+  // handed down rather than read inside the control, so the same control renders under a test that
+  // has no provider.
+  const sources: PrefSources = React.useMemo(
+    () => ({
+      palettes: palettes.map(({ label, value }) => ({ label, value })),
+      identities: identities.map(({ label, value }) => ({ label, value })),
+    }),
+    [identities, palettes],
+  );
 
   const drawn = namespace
     ? Object.entries(sectionPrefs).filter(([name]) => name === namespace)
@@ -932,6 +952,7 @@ function ContributedSections({ namespace }: PreferencesSectionsProps = {}) {
               name={key}
               onChange={(next) => setSectionPref(name, key, next)}
               pref={pref}
+              sources={sources}
             />
           ) : null,
         ),

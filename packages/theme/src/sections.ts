@@ -60,6 +60,14 @@ interface PrefCommon {
   /** What the preference does, in one line. Shown by a surface beside the control. */
   doc: string;
   /**
+   * The stored value is a map keyed by the resolved appearance, not a plain string.
+   *
+   * One field on the declaration rather than a second table beside it. It is only expressible
+   * because appearance resolves *first* — the pre-hydration script has to resolve it to write
+   * `.dark` — so by the time anything reads this, the side to index by is known.
+   */
+  byAppearance?: true;
+  /**
    * The attribute to write on `<html>` — **only where CSS has to react.**
    *
    * Most contributed preferences have none. The graph's look is read by JS and pushed into a
@@ -68,6 +76,53 @@ interface PrefCommon {
    * the cost the four core axes pay for having attributes at all.
    */
   attr?: string;
+}
+
+/** One thing a `choice` may offer. `value` is what is stored; `label` is what a person reads. */
+export interface PrefOption {
+  value: string;
+  label: string;
+}
+
+/**
+ * Where a choice's options come from, when an author cannot list them.
+ *
+ * The two things a TENANT publishes and nobody else can know at authoring time: the palette
+ * documents they compiled, and the brands inside the applied one. Closed on purpose — a source is
+ * something the provider already receives and can hand to a resolver, not a hook for a package to
+ * fetch from.
+ */
+export type PrefSource = "palettes" | "identities";
+
+/**
+ * A list, or the name of the list's owner.
+ *
+ * This is the same move {@link SectionTokenDecl} already makes for colour — a **binding** instead of
+ * a value — so the vocabulary stays one. It is what `identity` and `palette` need: their options are
+ * a client's brands, and an author who typed them would be authoring the client's product.
+ */
+export type PrefOptions = readonly PrefOption[] | { from: PrefSource };
+
+/** What the host publishes, for the declarations that name a source. */
+export type PrefSources = Partial<Record<PrefSource, readonly PrefOption[]>>;
+
+/**
+ * The options a declaration offers — `null` when it names a source nobody has answered yet.
+ *
+ * `null` rather than `[]`, and the distinction is load-bearing: "this tenant published nothing",
+ * "the host has not wired the prop" and "the document is still being fetched" are indistinguishable
+ * from here, and every one of them must leave a stored value alone. An empty list would read as
+ * *nothing is legal* and quietly reset a user's brand on the first render before the fetch lands —
+ * which is the failure `useRetirement` guards with `options.length > 0` one layer up.
+ */
+export function prefOptions(
+  decl: SectionPrefDecl,
+  sources?: PrefSources,
+): readonly PrefOption[] | null {
+  if (decl.kind !== "choice") return null;
+  if (Array.isArray(decl.options)) return decl.options;
+  const list = sources?.[(decl.options as { from: PrefSource }).from];
+  return list && list.length > 0 ? list : null;
 }
 
 /**
@@ -83,6 +138,13 @@ interface PrefCommon {
  * the other two — three toggles and two scalars in the graph's Display, six coefficients in its
  * simulation dock, every one of them hand-rolled with its own wiring.
  *
+ * **"Follow the system" is an option and not a fourth kind.** It is the option whose value is `""`,
+ * and the convention is already load-bearing here: `identity` and `palette` default to `""`, and the
+ * write rule removes the attribute at the default — which is exactly what *the OS decides* means in
+ * CSS, where there is no third keyword either. Declared as `{ value: "", label: "System" }` it is a
+ * thing a control can offer, so getting back to it stops being the panel's `Reset` button's private
+ * power.
+ *
  * **A value is a string in all three**, and that is a decision rather than an oversight. One storage
  * shape means an unrecognised namespace rides through a write untouched without the core parsing
  * it; and a value that can be written to a `data-*` attribute needs no second spelling on its way
@@ -90,11 +152,11 @@ interface PrefCommon {
  * place, {@link prefNumber} and {@link prefBoolean}.
  */
 export type SectionPrefDecl =
-  /** Pick one of a closed list. */
+  /** Pick one of a closed list — or of a list only the tenant can write. */
   | (PrefCommon & {
       kind: "choice";
       /** Everything a control may offer, in order. Order is the section's, and a surface keeps it. */
-      options: readonly { value: string; label: string }[];
+      options: PrefOptions;
     })
   /** On or off. Stored as `"true"` / `"false"`. */
   | (PrefCommon & { kind: "toggle" })
@@ -180,13 +242,21 @@ export function resolvePref(
   decl: SectionPrefDecl,
   stored: string | undefined,
   policy?: SectionPrefPolicy,
+  /** What the tenant published, for a choice whose options name a source rather than listing them. */
+  sources?: PrefSources,
 ): ResolvedPref {
   const legal = (v: string | undefined): v is string => {
     if (v === undefined) return false;
     // One gate per kind, and every kind has one. A preference with no notion of an illegal value
     // would let storage outlive the declaration that gave it meaning — which is the version-skew
     // case this whole chain exists to survive.
-    if (decl.kind === "choice") return decl.options.some((o) => o.value === v);
+    if (decl.kind === "choice") {
+      const options = prefOptions(decl, sources);
+      // A source nobody has answered yet cannot judge anything, so it judges nothing: the stored
+      // value stands and the retirement notice — which is the surface that knows how to *tell* a
+      // user their brand is gone — decides later. See {@link prefOptions}.
+      return options === null || options.some((o) => o.value === v);
+    }
     if (decl.kind === "toggle") return v === "true" || v === "false";
     const n = Number.parseFloat(v);
     return Number.isFinite(n) && n >= decl.min && n <= decl.max;
@@ -210,6 +280,8 @@ export function resolvePref(
 export function validatePrefs(
   manifest: SectionManifest,
   stored: Readonly<Record<string, string>>,
+  /** As {@link resolvePref}'s. A choice whose source is unanswered is not judged, and not reported. */
+  sources?: PrefSources,
 ): Problem[] {
   const problems: Problem[] = [];
   const prefs = manifest.prefs ?? {};
@@ -229,7 +301,9 @@ export function validatePrefs(
     let expected: string;
     switch (decl.kind) {
       case "choice": {
-        const values = decl.options.map((o) => o.value);
+        const options = prefOptions(decl, sources);
+        if (options === null) continue;
+        const values = options.map((o) => o.value);
         ok = values.includes(value);
         expected = values.join(", ");
         break;

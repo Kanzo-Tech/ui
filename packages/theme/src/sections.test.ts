@@ -3,6 +3,7 @@ import {
   fallbackChain,
   prefBoolean,
   prefNumber,
+  prefOptions,
   resolvePref,
   resolveSectionToken,
   sectionOf,
@@ -223,6 +224,95 @@ describe("validating stored preferences", () => {
     const problems = validatePrefs(PREF_FIXTURE, { look: "aurora" });
     expect(problems).toHaveLength(1);
     expect(problems[0]?.detail).toContain("nebula, atlas, ink");
+  });
+});
+
+/**
+ * The two things a declaration could not say, and now can.
+ *
+ * Both are what the three core axes needed before they could use this shape at all: `identity` and
+ * `palette` choose among documents a CLIENT wrote, and `appearance`'s third state is the absence of
+ * a value. Neither is special to the core — any section may want either — which is why they are
+ * fields of the shape rather than an exception in the provider.
+ *
+ * **What this cannot prove:** nothing here fetches a tenant's documents. The sources are a record
+ * the caller builds, so this proves the resolver's half of the contract and not that
+ * `KanzoThemeProvider` fills it from the right prop — `KanzoThemeProvider.test.tsx` is where that is.
+ */
+describe("options a tenant owns", () => {
+  const IDENTITY = {
+    kind: "choice",
+    default: "",
+    options: { from: "identities" },
+    doc: "which of the brands this document publishes",
+  } as const;
+
+  it("answers the list the host published", () => {
+    const sources = { identities: [{ value: "retail", label: "Retail" }] };
+    expect(prefOptions(IDENTITY, sources)).toEqual(sources.identities);
+  });
+
+  it("honours a stored value while the source is unanswered", () => {
+    // The load-bearing one. A host still fetching its document, one that has not wired the prop, and
+    // a tenant who published nothing are indistinguishable from here — and treating an empty list as
+    // "nothing is legal" would clear a user's brand on the first render, before the fetch lands.
+    expect(prefOptions(IDENTITY, {})).toBeNull();
+    expect(prefOptions(IDENTITY, { identities: [] })).toBeNull();
+    expect(resolvePref(IDENTITY, "private")).toEqual({
+      value: "private",
+      via: "stored",
+      offered: true,
+    });
+    // And validation says nothing rather than reporting a problem it cannot know it has.
+    const manifest: SectionManifest = { namespace: "bank", version: 1, prefs: { identity: IDENTITY } };
+    expect(validatePrefs(manifest, { identity: "private" })).toEqual([]);
+  });
+
+  it("judges against the source once there is one", () => {
+    const sources = { identities: [{ value: "retail", label: "Retail" }] };
+    // Retirement, expressed in the chain rather than in a second mechanism: the brand this user
+    // chose is not published any more, so it does not apply.
+    expect(resolvePref(IDENTITY, "private", undefined, sources).via).toBe("default");
+    expect(resolvePref(IDENTITY, "retail", undefined, sources).via).toBe("stored");
+    const manifest: SectionManifest = { namespace: "bank", version: 1, prefs: { identity: IDENTITY } };
+    expect(validatePrefs(manifest, { identity: "private" }, sources)[0]?.detail).toContain("retail");
+  });
+
+  it("lets a tenant pin one of their own brands", () => {
+    // The white-label case at the grain a client cares about: their staff never choose a brand.
+    const sources = { identities: [{ value: "retail", label: "Retail" }] };
+    expect(resolvePref(IDENTITY, "", { pinned: "retail" }, sources)).toEqual({
+      value: "retail",
+      via: "pinned",
+      offered: false,
+    });
+  });
+});
+
+describe("the unset state, which is an option and not a fourth kind", () => {
+  const APPEARANCE = {
+    kind: "choice",
+    default: "",
+    options: [
+      { value: "", label: "System" },
+      { value: "light", label: "Light" },
+      { value: "dark", label: "Dark" },
+    ],
+    doc: "which side of the document is worn",
+  } as const;
+
+  it("is a value a control can offer and a user can return to", () => {
+    // The live complaint this answers: "follow the OS" used to be reachable only through the panel's
+    // Reset, because it existed in a hand-written type and in no declaration.
+    expect(resolvePref(APPEARANCE, "dark")).toEqual({ value: "dark", via: "stored", offered: true });
+    expect(resolvePref(APPEARANCE, "")).toEqual({ value: "", via: "stored", offered: true });
+    expect(prefOptions(APPEARANCE)?.[0]).toEqual({ value: "", label: "System" });
+  });
+
+  it("is what the default already meant, so nothing else changes", () => {
+    // `""` is the default, and the write rule removes an attribute at the default — which is
+    // precisely what "the OS decides" means in CSS, where there is no third keyword either.
+    expect(resolvePref(APPEARANCE, undefined).value).toBe(APPEARANCE.default);
   });
 });
 

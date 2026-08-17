@@ -4,6 +4,7 @@ import { StrictMode } from "react";
 import {
   AXES,
   DEFAULT_PREFS,
+  prefOptions,
   STORAGE_KEY,
   type PaletteOption,
   type SectionManifest,
@@ -761,9 +762,10 @@ describe("sections a host registers", () => {
     // and it arrives discriminated, so the surface switches on `kind` rather than sniffing fields.
     const decl = ctx.sectionPrefs.graph?.look?.decl;
     expect(decl?.kind).toBe("choice");
-    expect(decl?.kind === "choice" && decl.options.map((o) => o.value)).toEqual([
-      "nebula", "atlas", "ink",
-    ]);
+    // Through `prefOptions` and not `decl.options`: a choice may name a SOURCE instead of listing
+    // its values, and a surface that reached for the field directly would draw nothing for the axes
+    // whose options a tenant owns.
+    expect(decl && prefOptions(decl)?.map((o) => o.value)).toEqual(["nebula", "atlas", "ink"]);
   });
 
   it("stores a choice under its namespace and reads it back", () => {
