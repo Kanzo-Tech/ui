@@ -20,6 +20,18 @@ una ventana limpia lo continúe sin reconstruir el razonamiento.
   `.fossil`, su `.shex` y su script. 1.543 vértices, 4.280 aristas, las nueve propiedades que los
   paneles consultan. Gitignoreado.
 - El benchmark ya va por `openCorpus` y **no cambia**: cero referencias a las dos que se van.
+- **Los canales son props**, de `useGraph` y por tanto de `GraphCanvas`: `fill` y `r` bajan al bucle,
+  van en cada `SliceRequest` — la de apertura, la de la cámara y la de `explore` — y el workspace es
+  el primer sitio que los pasa (`duckBoundedSource` ya no recibe `categoryField` ni `sizeField`).
+  El efecto de apertura se partió en dos: **cuánto hay** es del origen y se pregunta una vez;
+  **qué dibujo** se repregunta cuando cambia la pregunta. Verificado en el navegador contra el
+  archivo, no sólo compilando: `fill: "kind"` da el histograma de la leyenda
+  `{beast 8, contract 536, member 35, region 6, report 938, tag 20}` y `fill: "hall"` da
+  `{302, 268, 280, 323, 301, 69}` — otra partición, mismos bytes, **sin recontar el corpus**; con
+  `limit` por debajo del corpus la repregunta va por la cámara y también lleva el canal nuevo; `r`
+  cambia el ramo de tamaños. El guard es `packages/graph/src/use-bounded-graph.test.tsx`, y dice lo
+  que no puede probar: con una fuente que graba en jsdom no hay SQL, así que un `fill` que nombra una
+  columna inexistente es indistinguible de uno bueno.
 
 ## Falta
 
