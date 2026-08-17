@@ -197,7 +197,8 @@ be skipped.
 Also live — `a-compound-keeps-its-root-even-when-the-root-is-an-alias`,
 `steps-claims-a-tab-role-it-cannot-keep`, `prose-that-is-hashed-is-data`.
 
-**Open** — `a-preference-is-contributed-like-a-token`, `a-palette-is-chosen-per-appearance`.
+**Open** — `a-preference-is-contributed-like-a-token`, `a-palette-is-chosen-per-appearance`,
+`a-look-declares-what-it-changes`.
 
 **Superseded** — `field-has-no-consumer`, by `adoption-before-design`.
 `one-theme-provider`, by `two-themers-and-one-root`.
