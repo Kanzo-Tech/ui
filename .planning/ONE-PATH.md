@@ -103,8 +103,8 @@ lo manda la escala, no la pulcritud:
 | ~~9~~ | ~~que la imagen se lea~~ · **hecho** 2026-08-17 | era el mezclado aditivo, no la opacidad |
 | 10 | el cromo sube, y el workspace reescrito es la prueba | cierra la API y absorbe lo que queda de `ONE-SOURCE.md` |
 
-Los baratos —8 y 9— no esperan turno: se hacen en cuanto haya un hueco, porque son lo único que el
-lector nota hoy. Si hay que elegir entre los grandes: **1 → 2 → 3**.
+Los baratos —8 y 9— se hicieron primero, fuera de turno, porque eran lo único que el lector notaba y
+costaban una tarde. Entre los grandes, que quedan todos: **1 → 2 → 3**.
 
 ### La dirección entra en el contrato — con caché y tamaño de tesela
 
