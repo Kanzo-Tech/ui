@@ -92,8 +92,8 @@ lo manda la escala, no la pulcritud:
 
 | | paso | por qué ahí |
 |---|---|---|
-| 1 | dirección + caché + tamaño de tesela · **caché hecha** 2026-08-17 | las peticiones son el término que sigue a N |
-| 2 | trocear aristas y arreglar las costuras del escritor *(rmlext)* | el join O(N), y la otra mitad del larger-than-RAM |
+| ~~1~~ | dirección + caché + tamaño de tesela · **hecho** 2026-08-17 | la tesela de 4.096 **ya estaba**; la caché es lo que faltaba |
+| 2 | ~~trocear aristas~~ **hecho** · `by_target` teselado 2026-08-17 · queda **una** costura del escritor | el join O(N), y la otra mitad del larger-than-RAM |
 | 3 | multi-tipo por vecindad | sin esto un grafo de conocimiento no dibuja **ni una** arista cruzada |
 | 4 | `explore` implementado **por direcciones** | intentado con CTE recursiva y **cuelga la conexión**: ver BENCHMARKS |
 | 5 | la vista alejada | la mitad de la experiencia a diez millones, y sin diseñar |
@@ -412,3 +412,51 @@ con su cambio, en el mismo commit. Este fichero es lo que va por delante.
 Y el guard tiene un punto ciego que costó una tarde: busca el símbolo como **texto** en el fichero,
 así que un comentario obsoleto lo mantiene verde. `a-tile-is-an-address-not-a-verb` estuvo en verde
 citando `corpusSource` cuando ese símbolo ya no existía — sobrevivía sólo en un JSDoc.
+
+
+---
+
+## Lo que rmlext dejó listo, y lo que el lector tiene que escribir ahora
+
+Cerrado el 2026-08-17 por el agente de rmlext, medido con `duckdb` nativo sobre los corpus de
+`apps/corpus/guards/fixture.mjs` a 250k, 1M y 4M, doce semillas repartidas por el espacio de ids y
+cada respuesta direccionada comparada fila a fila contra la escaneada:
+
+- **`by_target` está teselado exactamente como `by_source`.** Cada orientación se corta por la
+  columna por la que está ordenada, en el espacio de teselas **de su propio extremo** — la
+  `by_target` de una arista entre tipos se corta por los rangos del destino, no por los del origen.
+  La conformidad camina las dos orientaciones y añade una comprobación de salto: para cada vértice,
+  las aristas que guardan las dos teselas que su `dense_id` nombra son exactamente las que guarda la
+  relación entera. Pasa sobre un `fossil run` real; 15/15 guards, 17 mutaciones disparan.
+- **Un salto lee 113,0 kB planos** a los tres tamaños, contra 6,9 / 27,5 / 110,2 MB de los dos
+  ficheros de relación: 61× a **975×**, y la distancia crece con el corpus. En reloj, mediana:
+  direccionado 8 / 2 / **1** ms; escanear la relación 5 / 5 / 16; `WITH RECURSIVE` un salto 4 / 7 /
+  23. **A 250k el salto direccionado es el más lento de los tres** — está en sus documentos, y es la
+  clase de dato que un informe cómodo se dejaría fuera. DuckDB nativo con todos los núcleos y
+  fichero local es el caso fácil para los otros dos, así que esos milisegundos son el **suelo** de la
+  diferencia; lo que se traslada a un lector WASM de un hilo sobre HTTP es la columna de bytes.
+- **Cuesta la relación de aristas una cuarta vez en disco**: 57,2 MiB sobre un corpus de 247,1 MiB a
+  4M vértices, **+23%**, y **cero** para un lector que sólo dibuja.
+
+**Lo que este repo tiene que escribir, sin inventarse nada:**
+
+- Fichero: `<dest>/edge/<Src>_<label>_<Dst>/by_target/tile{k}.parquet`, con `k = dst_dense >> 12`,
+  filtrando `dst_dense = v`. Las salientes no cambian: `by_source/tile{v >> 12}.parquet`, `src_dense
+  = v`. **Una tesela sin filas no se escribe: el 404 es la respuesta.**
+- Manifiesto: cada entrada de `adj_lists` lleva ahora `prefix` (`by_source/` / `by_target/`) junto a
+  `aligned_by`. El desplazamiento sale de `src_chunk_size` para la lista alineada por origen y de
+  `dst_chunk_size` para la alineada por destino — en una arista entre tipos **son espacios de
+  `dense_id` distintos**. No se codifican a mano los nombres de directorio: es exactamente la clase
+  de constante que este plan lleva todo el día matando.
+- **El camino de dibujo no cambia.** Una ventana sigue pidiendo sólo `by_source`.
+- El corpus hay que reescribirlo para que existan las teselas de destino; el manifiesto gana el
+  campo en cualquier caso.
+
+**Lo que queda abierto del escritor:** dos de las tres costuras ya estaban cerradas antes de empezar
+(`to_files` refutada por medición a 0,02 GB, y el `Vec` del layout a CSR en streaming, −1,71 GiB). La
+tercera, `GraphArData` reteniendo cada lote, sigue abierta — y con una **hipótesis, no una medición**,
+escrita en sus documentos: «escribe cada tabla y suéltala» no libera nada en el corpus donde se
+midieron los 1,64 GiB, porque la mitad de vértices no se puede transmitir (la fase de aristas une
+contra los mismos buffers Arrow registrados como `MemTable`). La mitad de aristas no la sujeta nadie
+y es ~65% del límite por aritmética de filas: ahí debe apuntar el siguiente intento, con
+`FOSSIL_MEM_PROBE=1` antes y después en sus criterios de aceptación.

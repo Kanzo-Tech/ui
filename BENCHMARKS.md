@@ -471,9 +471,9 @@ therefore not the same session — the cold window is *faster* rather than slowe
 whole 74 KB tiles fetched concurrently beats the metadata round trips and range reads they replace.
 That is the request-count finding above showing up as time.
 
-**And it makes the corpus-side item pay twice.** `BENCHMARKS.md` already asks for 4,096-row tiles on
-request count alone; at that size every tile falls under the bar and the whole read path becomes
-cacheable with nothing changing in the reader.
+**And the corpus was already there.** The writer has emitted 4,096-row tiles for some time, so every
+tile in these corpora already falls under the bar — which is why a vertex tile measures 74 kB, and
+why the cache works today rather than after a corpus-side change. The item asking for it was stale.
 
 ### A neighbourhood cannot be a recursive CTE over the edge relation — it hangs the connection
 
@@ -800,13 +800,22 @@ In the order the measurements support:
    beside an eight-million-row sort lands 0.1 ms after it, four runs out of four. There are two
    queries now rather than three, which took a pan's query time from 29.0 ms to 25.1, and that is
    the whole of what was here.
-3. **Emit tiles at 4,096 rows.** 78 requests and 1.48 MB per cold window at five million against
-   today's 208 and 12.12 MB, at 2.31× the run-addressed ideal. Today's 122,880 is dominated by every
-   other size in that table, on requests *and* bytes.
-4. **A tile cache.** The only item here that no amount of query tuning can substitute for: it is
-   what makes panning *back* free. It answers the payload and not the metadata — two of six drag
-   steps at ten million transfer zero bytes and still cost 247 requests each, which is what item 3
-   is for.
+3. ~~**Emit tiles at 4,096 rows.**~~ **Already shipped, and this page kept asking for it.** The
+   writer's `DEFAULT_CHUNK_SIZE` has been `1 << 12` for some time — `fossil-sinks/src/manifest.rs`,
+   used by the manifest, the layout emitter and the Parquet row-group size alike — and the corpora
+   under `docs/public/bench/` were written with it. The measurement that motivated the number (78
+   requests and 1.48 MB per cold window at five million against 208 and 12.12 MB at 122,880) is
+   still the argument; what was wrong was the tense. Checked against the writer on 2026-08-17, from
+   this side of the seam, which is how a stale ask gets found: by reading the other repo rather than
+   the note about it.
+4. **A tile cache.** ✅ Shipped — see *A tile held is a window that costs nothing*. It answers the
+   payload and not the metadata, which is why the tile size mattered beside it.
+5. **Read the CSC half.** `by_target` is now tiled exactly as `by_source` is, so the far end of an
+   edge leaving the window is addressable: `by_target/tile{dst_dense >> 12}.parquet`, filtered to
+   `dst_dense`. Measured on the writer's side, a hop reads **113.0 kB flat** at 250k, 1M and 4M
+   against 6.9, 27.5 and 110.2 MB for the two whole relations — 61× to **975×**, and the gap widens
+   with the corpus. It is what closes the 19–32% of incident edges this reader drops in silence, and
+   it is what makes a neighbourhood answerable at all after the recursive CTE hung the connection.
 
 **`buffers()` is cheap and can stay where it is.** 1, 2, 8 and 33 ms at 2k through 200k.
 
