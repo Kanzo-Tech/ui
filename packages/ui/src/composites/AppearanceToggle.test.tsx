@@ -84,7 +84,7 @@ describe("AppearanceToggle", () => {
     // the difference between "dark because you asked" and "dark because your OS is". Unpinned there
     // is no value to write, so the attribute is absent rather than spelling a third state: the same
     // rule the axis table applies to every default.
-    setup({ appearance: null });
+    setup({ appearance: "" });
     expect(toggle().hasAttribute("data-appearance")).toBe(false);
 
     setup({ appearance: "light" });
@@ -100,7 +100,7 @@ describe("AppearanceToggle", () => {
     it.each([
       ["light", "Appearance: Light. Switch to dark"],
       ["dark", "Appearance: Dark. Switch to light"],
-      [null, "Appearance: Light. Switch to dark"],
+      ["", "Appearance: Light. Switch to dark"],
     ] as const)("names %s as its state plus its next action", (appearance, name) => {
       setup({ appearance });
 
@@ -109,7 +109,7 @@ describe("AppearanceToggle", () => {
     });
 
     it("carries no `aria-pressed`", () => {
-      setup({ appearance: null });
+      setup({ appearance: "" });
       expect(toggle().hasAttribute("aria-pressed")).toBe(false);
     });
 

@@ -414,10 +414,14 @@ const { resolvedTheme, setTheme } = useTheme();
 Omit the prop and the provider's built-in fallback toggles `.dark` itself, which is what these
 docs do.
 
-The preference is `"light" | "dark" | null`, where `null` means the OS decides — there is no
+The preference is `"light" | "dark" | ""`, where `""` means the OS decides — there is no
 `"system"`, and [the toggle's page](/docs/layout/appearance-toggle#there-is-no-system) says which
 reference systems agree and why. A host next-themes speaks `"system"`; the provider translates it to
-`null` on the way in and back on the way out, in one place, so the rest of the library never sees it.
+`""` on the way in and back on the way out, in one place, so the rest of the library never sees it.
+
+`""` is the same value `identity` and `palette` store for "defer to the document", and that is not a
+coincidence: unset is one spelling here, which is what lets appearance be *declared* — and therefore
+resolved, pinned and offered — like every other axis.
 
 <Callout type="info" title="Why a class and not light-dark()">
   Two reasons, both measured. About 150 `dark:` variants need a class to key off; and

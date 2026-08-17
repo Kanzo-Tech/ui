@@ -358,7 +358,7 @@ export function KanzoThemeProvider({
   // A host that reports only `resolvedTheme` has no unpinned state to report, so it reads as pinned,
   // which is right: it is telling us a side and nothing else.
   const explicit = (v: string | null | undefined): AppearancePref =>
-    v === "light" || v === "dark" ? v : null;
+    v === "light" || v === "dark" ? v : "";
   const appearancePref: AppearancePref = explicit(
     appearance ? appearance.theme ?? appearance.resolvedTheme : prefs.appearance,
   );
@@ -366,7 +366,7 @@ export function KanzoThemeProvider({
   // Track the OS scheme with a live listener while nothing is pinned. Not needed when a host is
   // wired: its `resolvedTheme` already is the resolution, and it re-renders us on change.
   React.useEffect(() => {
-    if (appearance || appearancePref !== null || typeof window === "undefined" || !window.matchMedia) return;
+    if (appearance || appearancePref || typeof window === "undefined" || !window.matchMedia) return;
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => setSystemDark(mq.matches);
     onChange();
@@ -375,7 +375,7 @@ export function KanzoThemeProvider({
   }, [appearance, appearancePref]);
 
   const resolvedAppearance: Appearance =
-    appearancePref ??
+    appearancePref ||
     (appearance?.resolvedTheme === "dark" || (!appearance?.resolvedTheme && systemDark)
       ? "dark"
       : "light");
@@ -527,14 +527,13 @@ export function KanzoThemeProvider({
     [],
   );
 
-  // Nullable because the preference is, and the reverse translation lives here: `null` reaches a
-  // host as the only word it has for it. No shipped control passes `null` — the toggle pins a side
-  // and the panel's Reset spreads `DEFAULT_PREFS` through `set` — but a setter that cannot express
-  // its own type would leave a host reaching for `set({ appearance: null })` and bypassing the host
-  // controller entirely.
+  // It takes the unset value because the preference has one, and the reverse translation lives here:
+  // `""` reaches a host as `"system"`, the only word next-themes has for it. A setter that could not
+  // express its own type would leave a host reaching for `set({ appearance: "" })` and bypassing the
+  // host controller entirely.
   const setAppearance = React.useCallback(
     (next: AppearancePref) => {
-      if (appearance) appearance.setTheme(next ?? "system");
+      if (appearance) appearance.setTheme(next || "system");
       else set({ appearance: next });
     },
     [appearance, set],

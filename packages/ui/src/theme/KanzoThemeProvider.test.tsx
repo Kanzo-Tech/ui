@@ -126,11 +126,11 @@ describe("KanzoThemeProvider appearance (host controller path)", () => {
   beforeEach(() => stubMatchMedia(false));
   afterEach(() => html().classList.remove("dark"));
 
-  it("translates the host's `system` to `null`, and keeps its resolution", () => {
+  it("translates the host's `system` to the unset value, and keeps its resolution", () => {
     // The whole point of the controller: a host may speak next-themes, we do not. `"system"` is a
     // string in one vocabulary and the absence of a pinned side in ours, and this is the only line
     // in the package that knows both. Note `resolvedTheme` is still honoured — the host already did
-    // the OS read, so `null` here does not mean "go and ask again".
+    // the OS read, so `""` here does not mean "go and ask again".
     const controller: AppearanceController = {
       theme: "system",
       resolvedTheme: "dark",
@@ -143,7 +143,7 @@ describe("KanzoThemeProvider appearance (host controller path)", () => {
       </KanzoThemeProvider>,
     );
 
-    expect(ctx?.appearance).toBe(null);
+    expect(ctx?.appearance).toBe("");
     expect(ctx?.resolvedAppearance).toBe("dark");
   });
 
@@ -178,7 +178,7 @@ describe("KanzoThemeProvider appearance (host controller path)", () => {
 
     // Unpinning has to reach the host as `"system"`: it is the only value next-themes has for it, and
     // a host that never hears it keeps writing the side the user just abandoned.
-    act(() => ctx?.setAppearance(null));
+    act(() => ctx?.setAppearance(""));
     expect(setTheme).toHaveBeenCalledWith("system");
   });
 });
@@ -222,7 +222,7 @@ describe("KanzoThemeProvider appearance (built-in path)", () => {
     media.set(true);
     const t = mount();
 
-    expect(t.ctx.appearance).toBe(null);
+    expect(t.ctx.appearance).toBe("");
     expect(t.ctx.resolvedAppearance).toBe("dark");
     expect(dark()).toBe(true);
   });
@@ -252,15 +252,15 @@ describe("KanzoThemeProvider appearance (built-in path)", () => {
 
   it("hands the side back to the OS when the preference is unpinned", () => {
     // What `Reset` does, arrived at through `set` rather than a control of its own: `DEFAULT_PREFS`
-    // spreads `appearance: null`, and the OS gets the side back. This is the whole "way back" — there
+    // spreads `appearance: ""`, and the OS gets the side back. This is the whole "way back" — there
     // is no third face on the toggle, because there is no third value to show.
     media.set(true);
     const t = mount({ appearance: "light" });
     expect(dark()).toBe(false);
 
-    act(() => t.ctx.setAppearance(null));
+    act(() => t.ctx.setAppearance(""));
 
-    expect(t.ctx.appearance).toBe(null);
+    expect(t.ctx.appearance).toBe("");
     expect(dark()).toBe(true);
   });
 
@@ -271,7 +271,7 @@ describe("KanzoThemeProvider appearance (built-in path)", () => {
     media.set(false);
     const t = mount({ appearance: "dark" });
 
-    act(() => t.ctx.setAppearance(null));
+    act(() => t.ctx.setAppearance(""));
     expect(dark()).toBe(false);
 
     act(() => media.set(true));
@@ -298,7 +298,7 @@ describe("KanzoThemeProvider appearance (built-in path)", () => {
 
     const t = mount();
 
-    expect(t.ctx.appearance).toBe(null);
+    expect(t.ctx.appearance).toBe("");
     expect(dark()).toBe(true);
   });
 
@@ -308,7 +308,7 @@ describe("KanzoThemeProvider appearance (built-in path)", () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ appearance: "system" }));
     media.set(true);
 
-    expect(mount().ctx.appearance).toBe(null);
+    expect(mount().ctx.appearance).toBe("");
     expect(dark()).toBe(true);
   });
 

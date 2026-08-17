@@ -113,11 +113,13 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
     ["nothing stored, dark OS", {}, true],
     ["appearance: dark on a light OS", { prefs: { appearance: "dark" } }, false],
     ["appearance: light on a dark OS", { prefs: { appearance: "light" } }, true],
-    // `null` is the stored form of "the OS decides" — what Reset writes — and neither side may read
+    // `""` is the stored form of "the OS decides" — what Reset writes — and neither side may read
     // it as a side. A stored `"system"` is the same case from the other direction: a string from a
-    // vocabulary we do not have, so both drop it and ask the OS.
-    ["appearance: null on a dark OS", { prefs: { appearance: null } }, true],
-    ["appearance: null on a light OS", { prefs: { appearance: null } }, false],
+    // vocabulary we do not have, so both drop it and ask the OS. So is a stored `null`, which is
+    // what this field held until it was spelled the way every other deferral in the table is.
+    ["appearance: \"\" on a dark OS", { prefs: { appearance: "" } }, true],
+    ["appearance: \"\" on a light OS", { prefs: { appearance: "" } }, false],
+    ["a stored `null`, which is not a side either", { prefs: { appearance: null } }, true],
     ["a stored `system`, from no vocabulary of ours", { prefs: { appearance: "system" } }, true],
     // A blob missing the field takes a different branch in the script than no blob at all (the
     // empty-object guard), and both mean the same thing.

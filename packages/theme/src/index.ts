@@ -140,13 +140,21 @@ export const CHART_SLOTS = 8;
 export type Appearance = "light" | "dark";
 
 /**
- * The appearance PREFERENCE — an explicit side, or `null` for "ask the OS".
+ * The appearance PREFERENCE — an explicit side, or `""` for "ask the OS".
  *
- * `null` and not an absent key: `PREF_KEYS` is `Object.keys(DEFAULT_PREFS)` and the read-time
- * whitelist is built from it, so a key missing from the default blob is dropped on every read.
- * It also survives `JSON.stringify` into both storage adapters, which an `undefined` would not.
+ * A value and not an absent key: the read-time whitelist is built from `Object.keys(DEFAULT_PREFS)`,
+ * so a key missing from the default blob is dropped on every read. It also survives
+ * `JSON.stringify` into both storage adapters, which an `undefined` would not.
+ *
+ * **`""` and not `null`, which is what it was.** Unset is the same value here as everywhere else in
+ * this package: `identity` and `palette` store `""` for "defer to the document", and the write rule
+ * removes an attribute at the default. Two spellings of one idea is what kept appearance out of the
+ * declaration — a `SectionPrefDecl`'s values are strings — and therefore out of the one resolution
+ * chain, which is the whole of what {@link CORE_PREFS} exists to end. Declared, "follow the OS" is
+ * `{ value: "", label: "System" }`: a thing a control can offer, rather than something reachable
+ * only through the panel's Reset button.
  */
-export type AppearancePref = Appearance | null;
+export type AppearancePref = Appearance | "";
 
 /** Radius steps (`md` = 0.5rem default). */
 export type KanzoRadius = "none" | "xs" | "sm" | "md" | "lg";
@@ -307,9 +315,10 @@ export interface ThemePrefs {
  * turned on a live field.
  */
 export const DEFAULT_PREFS: ThemePrefs = {
-  // `null`, not `"system"`: the default is to have no side pinned, which is the same default the two
-  // sentinels beside it use — `identity: ""` defers to the document, this defers to the OS.
-  appearance: null,
+  // `""`, not `"system"` and no longer `null`: the default is to have no side pinned, spelled the
+  // way every other deferral in this table is — `identity: ""` defers to the document, this defers
+  // to the OS. One spelling is what lets it be declared, and therefore resolved, like the rest.
+  appearance: "",
   radius: "md",
   font: "system",
   monoFont: "system",

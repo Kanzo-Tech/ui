@@ -8,7 +8,7 @@ import { AppearanceToggle, Button, ButtonGroup, useKanzoTheme } from "@kanzo-tec
 export default function Example() {
   const { setAppearance } = useKanzoTheme();
 
-  // No `disabled={appearance === null}`: the preference is browser state, so the server would render
+  // No `disabled={!appearance}`: the preference is browser state, so the server would render
   // one value and the client another — a hydration mismatch on an attribute React does not patch.
   return (
     <ButtonGroup aria-label="Appearance">

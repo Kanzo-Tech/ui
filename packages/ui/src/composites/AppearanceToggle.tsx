@@ -37,10 +37,10 @@ const DEFAULT_LABELS: AppearanceToggleLabels = { light: "Light", dark: "Dark" };
  * Appearance toggle — one compact button that flips light ⇄ dark, sun ⇄ moon.
  *
  * **Two states, because there are two.** `Appearance` is `"light" | "dark"` and following the OS is
- * `null` — the preference with no value, the way the token-layer references model it (daisyUI's
+ * `""` — the preference with no value, the way the token-layer references model it (daisyUI's
  * `--prefersdark`, `color-scheme: light dark`) rather than the theme-switcher libraries, which make
  * it a third string. `prefers-color-scheme` is still read: without it the first visit has to guess,
- * and guessing wrong flashes white at every dark-mode user. `DEFAULT_PREFS.appearance` is `null`, so
+ * and guessing wrong flashes white at every dark-mode user. `DEFAULT_PREFS.appearance` is `""`, so
  * an app with nothing stored follows the OS until the first click, and the Preferences panel's Reset
  * spreads `DEFAULT_PREFS` and unpins it again.
  *
@@ -94,7 +94,7 @@ export const AppearanceToggle = ({
       size={size}
       variant={variant}
       aria-label={name}
-      data-appearance={mounted ? appearance ?? undefined : undefined}
+      data-appearance={mounted ? appearance || undefined : undefined}
       title={name}
       className={cn("group", className)}
       onClick={() => setAppearance(next)}

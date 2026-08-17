@@ -26,7 +26,7 @@ hook is how you **read** that state and **request** a change; it never touches t
 ## Preference and resolution
 
 Three of the values come in pairs, because a preference can be the *absence* of one. `appearance`
-is `null` while the user is following the OS; `resolvedAppearance` is always `light` or `dark`.
+is `""` while the user is following the OS; `resolvedAppearance` is always `light` or `dark`.
 Read the resolved value to draw something, and the preference only to say whether it was pinned.
 
 <ComponentPreview componentName="use-kanzo-theme" fileName="example-appearance" />
@@ -63,7 +63,7 @@ provider is above it.
 
 | Field | Type | What it is |
 | --- | --- | --- |
-| `appearance` | `AppearancePref` | The pinned side, or `null` while the OS decides |
+| `appearance` | `AppearancePref` | The pinned side, or `""` while the OS decides |
 | `resolvedAppearance` | `"light" \| "dark"` | The side actually applied — read this to draw |
 | `setAppearance` | `(next: AppearancePref) => void` | Sets appearance, routing through a host theme manager if one is wired |
 | `radius` | `"none" \| "xs" \| "sm" \| "md" \| "lg"` | Corner radius axis |

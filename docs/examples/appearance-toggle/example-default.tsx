@@ -9,7 +9,7 @@ function Readout() {
 
   return (
     <p className="text-muted-foreground text-sm">
-      <Show fallback={<>Pinned to {appearance}.</>} when={appearance === null}>
+      <Show fallback={<>Pinned to {appearance}.</>} when={!appearance}>
         Following the OS — resolved to {resolvedAppearance}.
       </Show>
     </p>

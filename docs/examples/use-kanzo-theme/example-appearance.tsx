@@ -11,7 +11,7 @@ import {
 } from "@kanzo-tech/ui";
 
 const CHOICES: { label: string; value: AppearancePref }[] = [
-  { label: "System", value: null },
+  { label: "System", value: "" },
   { label: "Light", value: "light" },
   { label: "Dark", value: "dark" },
 ];
@@ -37,7 +37,7 @@ function AppearancePanel() {
       <p className="text-muted-foreground text-sm">
         <Show
           fallback={<>Pinned to {appearance}.</>}
-          when={appearance === null}
+          when={!appearance}
         >
           Following the OS — resolved to {resolvedAppearance}.
         </Show>
