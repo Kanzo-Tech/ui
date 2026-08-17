@@ -99,8 +99,8 @@ lo manda la escala, no la pulcritud:
 | 5 | la vista alejada | la mitad de la experiencia a diez millones, y sin diseñar |
 | 6 | la capa de aristas (CSC + densidad) | corrección primero, niebla después |
 | 7 | la fuente pasa a `MosaicClient` | −40 ms por pan y mueren dos hacks; no cambia la curva |
-| 8 | constantes fuera, encuadre desde el extent | media hora, y arregla el borrón de hoy |
-| 9 | que la imagen se lea | barato y es lo primero que se nota |
+| ~~8~~ | ~~encuadre desde el extent~~ · **hecho** 2026-08-17 | quedan las constantes: `fixed`, `fill = "community"`, `lodThreshold` |
+| ~~9~~ | ~~que la imagen se lea~~ · **hecho** 2026-08-17 | era el mezclado aditivo, no la opacidad |
 | 10 | el cromo sube, y el workspace reescrito es la prueba | cierra la API y absorbe lo que queda de `ONE-SOURCE.md` |
 
 Los baratos —8 y 9— no esperan turno: se hacen en cuanto haya un hueco, porque son lo único que el
@@ -334,6 +334,18 @@ barato y es lo primero que se nota.
 ---
 
 ## Lo que ya está hecho y sostiene esto
+
+- **Los canales son cuatro y una vinculación no es un tema.** `fill`, `symbol`, `r`, `stroke` como
+  props, con la regla de Plot —una constante CSS es constante, cualquier otra cosa es columna— así
+  que el monocromo es `fill="var(--foreground)" symbol="kind"`. `Look` es forma y nada más;
+  `gradeComposition` gradúa lo que el host compuso y **muerde** donde antes no reportaba nada. Cerró
+  `decisions/a-look-is-form-and-a-channel-is-a-binding.md`, que otra sesión dejó abierta.
+  Trampa que costó un render: con `fill` constante la consulta se queda sin columna categórica y cae
+  al defecto del origen. La columna que se pide es **la primera vinculación que nombra una**.
+- **El lienzo encuadra lo que hay.** `extent()` sube a `BoundedSource` como opcional, `duckBoundedSource`
+  gana la suya, `CorpusSource` se borra, y el bucle encuadra **antes** de la primera pregunta.
+- **Los enlaces dejan de sumarse por defecto** (`link.blend`). Era el defecto de cosmos.gl que nadie
+  había elegido, y era la causa de que el archivo se viera como una nube blanca.
 
 - **Los canales son props** (`fill`, `r`) de `useGraph` y `GraphCanvas`, verificado en el navegador:
   cambiar uno re-pregunta sobre los mismos bytes y **no recuenta el corpus**. Es la primera pieza de
