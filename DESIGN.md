@@ -192,13 +192,12 @@ be skipped.
 `a-canvas-component-owns-the-three-that-never-differ`, `a-dense-id-is-thirty-two-bits`,
 `a-chart-needs-no-factory`, `a-tile-is-an-address-not-a-verb`,
 `a-look-is-form-and-a-channel-is-a-binding`, `monochrome-is-a-palette-not-a-look`,
-`a-categorical-set-may-use-the-palettes-own-colours`.
+`a-categorical-set-may-use-the-palettes-own-colours`, `a-look-declares-what-it-changes`.
 
 Also live — `a-compound-keeps-its-root-even-when-the-root-is-an-alias`,
 `steps-claims-a-tab-role-it-cannot-keep`, `prose-that-is-hashed-is-data`.
 
-**Open** — `a-preference-is-contributed-like-a-token`, `a-palette-is-chosen-per-appearance`,
-`a-look-declares-what-it-changes`.
+**Open** — `a-preference-is-contributed-like-a-token`, `a-palette-is-chosen-per-appearance`.
 
 **Superseded** — `field-has-no-consumer`, by `adoption-before-design`.
 `one-theme-provider`, by `two-themers-and-one-root`.

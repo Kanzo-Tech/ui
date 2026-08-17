@@ -38,6 +38,10 @@ export {
 export {
   LOOKS,
   LOOK_ORDER,
+  MARKS,
+  // The other end of `@kanzo-tech/graph/look-section`: the axes a person chose, as a form. The
+  // manifest declares them, a host registers it, the panel draws them, and this reads the answer.
+  lookFrom,
   SHAPE,
   SHAPE_ORDER,
   SHAPE_OTHER,

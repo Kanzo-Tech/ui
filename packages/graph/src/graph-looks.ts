@@ -147,6 +147,15 @@ export const MARKS = {
  */
 const FADE: [number, number] = [200, 1400];
 
+/**
+ * How far a bowed link bows — the one value behind the `bowed-links` toggle.
+ *
+ * A hint, and the obligation beside it says why: every link curves the same way, so cosmos.gl's
+ * default of 0.5 reads as one pinwheel. A toggle rather than a range because a reader wants two
+ * pictures, not a number to tune, and the two pictures are *straight* and *told apart*.
+ */
+const BOW = 0.12;
+
 /** A form, composed: a mark, what its links do, a label budget, and whether the rim darkens. */
 function form(
   mark: (typeof MARKS)[keyof typeof MARKS],
@@ -173,7 +182,7 @@ const ATLAS: Look = {
   id: "atlas",
   label: "Atlas",
   blurb: "Map-steady points, links that just bow, generous labels.",
-  form: form(MARKS.dense, { curve: 0.12, blend: false }, 26),
+  form: form(MARKS.dense, { curve: BOW, blend: false }, 26),
 };
 
 /**
@@ -203,6 +212,36 @@ const INK: Look = {
 };
 
 export const LOOKS: Record<LookId, Look> = { nebula: NEBULA, atlas: ATLAS, ink: INK };
+
+/**
+ * A look, from the axes a person chose — the other end of `@kanzo-tech/graph/look-section`.
+ *
+ * **The values are strings because a contributed preference is a string**, in all three kinds, so an
+ * unrecognised namespace rides through a write untouched. Parsing what a kind means is the reader's
+ * job and it is two lines; `@kanzo-tech/theme` exports the same two, and importing them would add a
+ * dependency to this package to carry no code — the same call `LOOK_SECTION` already makes about the
+ * manifest type.
+ *
+ * Missing keys take the manifest's defaults, which are Atlas. That is not a coincidence to be tidied
+ * away: a host that registers the section and stores nothing draws exactly what a graph drew before
+ * any of this existed.
+ */
+export function lookFrom(values: Readonly<Record<string, string | undefined>>): Look["form"] {
+  const on = (key: string, fallback: boolean) => {
+    const value = values[key];
+    return value === undefined ? fallback : value === "true";
+  };
+  const count = (key: string, fallback: number) => {
+    const parsed = Number.parseFloat(values[key] ?? "");
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+  return form(
+    values.marks === "legible" ? MARKS.legible : MARKS.dense,
+    { blend: on("additive-links", false), curve: on("bowed-links", true) ? BOW : 0 },
+    count("labels", 26),
+    on("vignette", false),
+  );
+}
 
 export const LOOK_ORDER: LookId[] = ["nebula", "atlas", "ink"];
 

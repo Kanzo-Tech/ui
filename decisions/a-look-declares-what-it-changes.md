@@ -1,7 +1,7 @@
 # A look declares what it changes
 
-- **Status** open — 2026-08-17
-- **Decided** *(proposed)* The three shipped looks stop being three parallel tables of ten fields.
+- **Status** live — 2026-08-17
+- **Decided** The three shipped looks stop being three parallel tables of ten fields.
   Six of those fields are shared and become the form's defaults; a look declares only what it moves.
   And what reaches the preferences panel is the **axes a reader can name** — the mark, the links, the
   label budget — rather than one bundle whose contents nobody can describe.
@@ -10,8 +10,7 @@
 - **Reversed by** a reader distinguishing Nebula from Atlas in a blind pairing. The claim below is
   that six of ten fields are under the threshold; one person telling them apart on those fields ends
   it.
-- **Held by** `packages/graph/src/graph-looks.ts`, `MARKS`; `packages/graph/src/obligations.ts`,
-  `link-curve`
+- **Held by** `packages/graph/src/look-section.test.ts`, "recovers every shipped look from a set of values a panel can produce"; `packages/graph/src/graph-looks.ts`, `MARKS`; `packages/graph/src/look-section.ts`, `LOOK_SECTION`
 
 ## The working
 
@@ -51,17 +50,32 @@ axes are:
 | axis | kind | values | what it moves |
 |---|---|---|---|
 | mark | `choice` | dense · legible | radius, and the label budget that follows from it |
-| links | `choice` | flow · diagram | additive + straight + dim, against opaque + bowed |
+| links | two `toggle`s | add · bow | what shipped: the two are independent, which a `flow`/`diagram` pair could not express — Ink is straight AND non-additive |
 | labels | `range` | a budget | already a number in all three |
 
-Two axes of two values **recover all three shipped looks and add one coherent fourth** — legible
-marks with flow links — with six fewer numbers and nothing invented. The vignette either dies with
-Nebula or is a `toggle`; it is the one field that is decoration rather than legibility.
+Those axes **recover all three shipped looks and add coherent ones nobody had** — legible marks with
+flow links — with six fewer numbers and nothing invented. The vignette is the one field that is
+decoration rather than legibility, and it survives as a `toggle`.
 
-## The open question, which is not ours
+## The question was answered: the panel offers the axes
 
-How many **names** the panel offers is a product decision, not a measurement, and it is the reason
-this record is `open` rather than live. Three shapes, all consistent with the table:
+Ángel, 2026-08-17: *«yo diría los ejes, creo que queda todo más elegante»*. So `LOOK_SECTION.prefs`
+declares five — `marks` (choice), `additive-links` and `bowed-links` (toggles), `labels` (range),
+`vignette` (toggle) — and the three names stop being what a person is asked to choose between.
+
+**The trade a panel of axes risks is expressiveness**, so that is what the test asserts: every
+shipped look is recoverable from values a panel can produce, and `lookFrom({})` is Atlas, which is
+what a graph drew before any of this existed. The defaults live in three places — the manifest, the
+reader, and `useGraph`'s fallback — and that test is the one thing that would catch them disagreeing.
+
+One thing the axes exposed that the three names hid: **Nebula differs from Atlas in two link fields
+at once**, additive *and* straight. As a list of names that was invisible; as toggles it is two
+switches, and the fourth combination — legible marks with flow links — is a picture nobody had.
+
+## The question as it stood, before it was answered
+
+How many **names** the panel offers was a product decision rather than a measurement, which is why
+this record was `open` for as long as it took to ask. Three shapes were consistent with the table:
 
 - **Two axes, four combinations.** The most honest, and the names Nebula/Atlas/Ink stop existing as
   names — they become compositions a host may still ship as presets.
@@ -91,9 +105,9 @@ Atlas's radius 2.2 → 2 and 9 → 8, its link opacity 0.45 → 0.42, its width 
 fade ranges collapsed to one. **A screenshot cannot settle whether that was invisible, which is the
 point of the claim** — the reversal condition above is a reader telling them apart, not a picture.
 
-**Still open, and it is the naming half**: what the panel offers. Nothing in this change reaches a
-user — `LOOKS`, `LOOK_ORDER` and `LookId` are byte-identical in shape, so the showcase's dock and
-the pairings beside it did not move.
+Nothing in that first half reached a user: `LOOKS`, `LOOK_ORDER` and `LookId` are unchanged in
+shape, so the showcase's dock and the pairings beside it did not move. What reaches a user is the
+section above.
 
 ## What this does not touch
 

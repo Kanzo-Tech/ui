@@ -116,11 +116,11 @@ A freshly derived document is `state: "draft"`, which is the flag to hang your r
 ### Decide what this client's users may change
 
 Optional, and most tenants skip it. If your product ships a package that contributes a choice of its
-own, the tenant may **fix** it or **withhold** it — one client's graph opens in Ink and their users
-never see the control, another's exposes it, and it is the same panel and the same code.
+own, the tenant may **fix** it or **withhold** it — one client's graph always draws legible marks and
+their users never see the control, another's exposes it, and it is the same panel and the same code.
 
 ```tsx
-<KanzoThemeProvider sections={[LOOK_SECTION]} sectionPolicy={{ graph: { look: { pinned: "ink" } } }}>
+<KanzoThemeProvider sections={[LOOK_SECTION]} sectionPolicy={{ graph: { marks: { pinned: "legible" } } }}>
 ```
 
 A policy selects among the options the owning package declared; it cannot author one. Withholding

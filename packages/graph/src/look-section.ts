@@ -16,10 +16,16 @@ interface SectionBinding_ {
   step?: number;
   token?: string;
 }
+type SectionPrefDecl_ =
+  | { kind: "choice"; default: string; doc: string; options: readonly { value: string; label: string }[] }
+  | { kind: "toggle"; default: string; doc: string }
+  | { kind: "range"; default: string; doc: string; min: number; max: number; step: number };
+
 interface SectionManifest {
   namespace: string;
   version: number;
-  tokens: Readonly<Record<string, { default: string | SectionBinding_; doc: string }>>;
+  tokens?: Readonly<Record<string, { default: string | SectionBinding_; doc: string }>>;
+  prefs?: Readonly<Record<string, SectionPrefDecl_>>;
 }
 
 /**
@@ -70,6 +76,58 @@ export const LOOK_SECTION: SectionManifest = {
     "point-ring-focus": {
       default: { kind: "role", token: "--primary" },
       doc: "The ring drawn around the focused point. Shares the hover value today; separate names because focus and hover are separate states.",
+    },
+  },
+
+  /**
+   * **Axes, not a list of names.** This offered one `choice` of three — Nebula, Atlas, Ink — and the
+   * measurement that ended it is in `decisions/a-look-declares-what-it-changes.md`: six of the ten
+   * fields separating Nebula from Atlas moved by 7–17%, under this package's own threshold for a
+   * difference meaning anything. Two pictures nobody can tell apart were about to become two names
+   * a person had to choose between.
+   *
+   * What is left is what a reader can name, and every one of these is a sentence: the marks are
+   * dense or legible, links add where they cross, links bow, this many labels, the rim darkens. The
+   * three old names are four points in that space and stay expressible — `lookFrom` builds a `Look`
+   * from these values, and the defaults below are Atlas, which is what a graph drew before this
+   * existed.
+   *
+   * `attr` is absent from all five on purpose: nothing here is read by CSS. A look reaches the GPU
+   * through `buffers` and `setConfigPartial`, so an attribute on `<html>` would be a line in the
+   * pre-hydration script bought for nobody.
+   */
+  prefs: {
+    marks: {
+      kind: "choice",
+      default: "dense",
+      doc: "How much ink a point spends. The legible mark is the one to pair the shape channel with — its radius floor is what keeps shape from corrupting the size ramp beside it.",
+      options: [
+        { value: "dense", label: "Dense" },
+        { value: "legible", label: "Legible" },
+      ],
+    },
+    "additive-links": {
+      kind: "toggle",
+      default: "false",
+      doc: "Links add where they overlap instead of compositing over one another. Additive light is what makes a dense graph read as flow — and what made 4,280 links at 0.45 swallow 1,543 points on the archive.",
+    },
+    "bowed-links": {
+      kind: "toggle",
+      default: "true",
+      doc: "Links bow off the straight line by a hint, which is enough to tell two parallel edges apart. Every link curves the same way, so more than a hint reads as a pinwheel.",
+    },
+    labels: {
+      kind: "range",
+      default: "26",
+      doc: "How many of the highest-degree nodes carry a standing label. Zero draws none.",
+      min: 0,
+      max: 60,
+      step: 2,
+    },
+    vignette: {
+      kind: "toggle",
+      default: "false",
+      doc: "A darkened rim. Mood rather than a reading aid, which is why it is a preference and not a display control.",
     },
   },
 };

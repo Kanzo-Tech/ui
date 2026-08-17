@@ -13,7 +13,7 @@ A **section** is how such a package contributes both halves of what it owns:
 | half | what it is | who decides it |
 | --- | --- | --- |
 | `tokens` | colours in the package's own namespace — `--graph-marquee` | the **tenant**, through their palette document |
-| `prefs` | choices with names — which look the canvas draws | the **user**, in the Preferences panel |
+| `prefs` | choices with names — how dense the marks are, whether links add | the **user**, in the Preferences panel |
 
 Both are optional. A package may contribute tokens without preferences, preferences without tokens,
 or both.
@@ -35,19 +35,42 @@ export const LOOK_SECTION: SectionManifest = {
     },
   },
   prefs: {
-    look: {
+    marks: {
       kind: "choice",
-      default: "atlas",
+      default: "dense",
       options: [
-        { value: "nebula", label: "Nebula" },
-        { value: "atlas", label: "Atlas" },
-        { value: "ink", label: "Ink" },
+        { value: "dense", label: "Dense" },
+        { value: "legible", label: "Legible" },
       ],
-      doc: "Which of the three ways the canvas is drawn.",
+      doc: "How much ink a point spends.",
+    },
+    "additive-links": {
+      kind: "toggle",
+      default: "false",
+      doc: "Links add where they overlap instead of compositing over one another.",
+    },
+    labels: {
+      kind: "range",
+      default: "26",
+      min: 0,
+      max: 60,
+      step: 2,
+      doc: "How many of the highest-degree nodes carry a standing label.",
     },
   },
 };
 ```
+
+<Callout type="info" title="Axes, not a list of names">
+  This offered one `choice` of three — Nebula, Atlas, Ink — and the measurement that ended it is
+  worth knowing before you declare a section of your own: six of the ten fields separating two of
+  those names moved by 7–17%, under the package's own threshold for a difference meaning anything.
+  Two pictures nobody can tell apart were about to become two names a person had to choose between.
+
+  **Declare what a reader can name.** The three names are still expressible — they are points in the
+  space these axes span, and `lookFrom` builds one — but what the panel offers is the axes. See
+  `decisions/a-look-declares-what-it-changes.md`.
+</Callout>
 
 <Callout type="info" title="A token default is a binding, not a hex">
   `(brand, alpha 5)` rather than `#8839ef22`. That is what makes a white-label palette reach a
@@ -68,9 +91,9 @@ A preference is one of exactly three, and the set is closed — there is no `cus
 
 ```ts
 prefs: {
-  look: { kind: "choice", default: "atlas", options: [...], doc: "…" },
-  links: { kind: "toggle", default: "true", doc: "draw the links" },
-  pointScale: { kind: "range", default: "1", min: 0.4, max: 2.5, step: 0.1, doc: "…" },
+  marks: { kind: "choice", default: "dense", options: [...], doc: "…" },
+  "additive-links": { kind: "toggle", default: "false", doc: "links add where they cross" },
+  labels: { kind: "range", default: "26", min: 0, max: 60, step: 2, doc: "…" },
 }
 ```
 
@@ -141,12 +164,12 @@ declaration beside it so a control has the label and the options without a secon
 ```tsx
 const { sectionPrefs, setSectionPref } = useKanzoTheme();
 
-const look = sectionPrefs.graph?.look;
-look?.value; // "atlas"
-look?.via; // "default" — which link of the chain answered
-look?.offered; // false when the tenant pinned or withheld it
+const marks = sectionPrefs.graph?.marks;
+marks?.value; // "dense"
+marks?.via; // "default" — which link of the chain answered
+marks?.offered; // false when the tenant pinned or withheld it
 
-setSectionPref("graph", "look", "ink");
+setSectionPref("graph", "marks", "legible");
 ```
 
 ## Tenant policy: selection, never authorship
@@ -157,11 +180,11 @@ invent a value for it — the options are the ones the owning package declared a
 ```tsx
 <KanzoThemeProvider
   sections={[LOOK_SECTION]}
-  sectionPolicy={{ graph: { look: { pinned: "ink" } } }}
+  sectionPolicy={{ graph: { marks: { pinned: "legible" } } }}
 >
 ```
 
-That is the white-label half, in one field: one client ships the graph fixed to a single look and
+That is the white-label half, in one field: one client ships the graph fixed to legible marks and
 their users never see the control, another exposes it, and it is the same panel and the same code.
 
 <Callout type="info" title="Pinned is not the same as withheld">
