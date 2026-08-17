@@ -75,6 +75,20 @@ thing underneath puts it — and it lands on a *different* step in each mode, be
 deliberately fatter at the bottom. Every family publishes twelve alpha steps solved to composite
 onto their own solid; use those.
 
+**A document may decline the categorical channel**, and `monochrome` is the one that does:
+`categorical: "declined"` on the input, `source.from === "declined"` on the document,
+`--chart-capacity: 0` in the sheet and every `--chart-*` slot resolving to the muted role. That is
+how a monochrome product ships — one more palette, chosen in the same selector as any other, rather
+than a mode inside whatever draws a chart. A graph gets its categories back by binding them to
+`symbol`; a chart with a labelled axis was not using colour to distinguish anything and loses
+nothing; a stacked bar or a pie loses the encoding, which is the cost of choosing this document and
+is stated rather than hidden.
+
+The declaration is the point: a zero that is a decision and a zero that is damage are the same
+number, so readers branch on `source.from` and `categoricalCapacity` distinguishes a declared `0`
+from an undeclared property. `separation` is `null` for such a set — not zero, which would read as
+two categories nobody can tell apart, and not the infinity an empty pair list computes to.
+
 ### `@kanzo-tech/graph`
 
 A bounded WebGL graph over cosmos.gl. The canvas asks for what the camera can see rather than

@@ -212,6 +212,19 @@ const PALETTES = {
     // base07 is white outright: the ramp stops at `-50`, which is already base06.
     slots: { ...kanzoSlots([950, 900, 800, 400, 300, 100, 50], 400), base07: "#ffffff" },
   },
+  // Kanzo's own slots, and the difference is one field in the seed: this document **declines the
+  // categorical channel** (`categorical: "declined"` below), so it publishes no `--chart-*` colours
+  // and no capacity. Everything else about it is Kanzo, which is the point — flip between the two
+  // and the only thing that moves is what carries a category.
+  //
+  // The accent slots are still here and still Kanzo's. They are what `deriveSyntax` reads, and a
+  // syntax role is a distinction *in the thing you are reading* — a keyword against a string —
+  // rather than a label somebody assigned. Statuses stay for the same reason one layer up. What
+  // this document declines is identity-by-colour, not colour.
+  monochrome: {
+    label: "Monochrome",
+    slots: kanzoSlots([50, 100, 200, 500, 600, 800, 900, 950], 700),
+  },
   // Dracula's published spec names four greys and seven accents, so base0F repeats the red (base16
   // reserves it for "deprecated", which Dracula has no colour for) and base06/07 it does not name.
   dracula: {
@@ -272,6 +285,10 @@ const PALETTES = {
  */
 const BRANDS = {
   kanzo: hexOf("neutral-500"),
+  // The same grey, and it has to be: a monochrome document with a chromatic brand would spend
+  // colour on the one mark a reader cannot avoid — the primary fill — while refusing it to the
+  // marks that are actually about telling categories apart.
+  monochrome: hexOf("neutral-500"),
   dracula: "#ff79c6",
   nord: "#88c0d0",
   "catppuccin-latte": "#8839ef",
@@ -292,7 +309,16 @@ const BRANDS = {
 const SEEDS = Object.fromEntries(
   Object.entries(BRANDS).map(([id, brand]) => [
     id,
-    { label: PALETTES[id].label, brand, base: PALETTES[id].slots.base03 },
+    {
+      label: PALETTES[id].label,
+      brand,
+      base: PALETTES[id].slots.base03,
+      // The one seed that declines the categorical channel — see `PALETTES.monochrome` and
+      // `decisions/monochrome-is-a-palette-not-a-look.md`. A field rather than a rule about grey
+      // brands: Kanzo's brand is this same grey and Kanzo publishes eight chart colours, so
+      // declining is something a tenant *says*, never something a hue implies.
+      ...(id === "monochrome" ? { categorical: "declined" } : {}),
+    },
   ]),
 );
 

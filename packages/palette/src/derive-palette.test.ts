@@ -430,10 +430,12 @@ describe("the categorical set", () => {
         avoid: AVOID,
         leading: CATEGORICAL_LEADING,
       });
-      expect(checkScheme(fresh, { mode }).cvd.delta, mode).toBeCloseTo(
-        primary(ACME).categorical.separation[mode],
-        9,
-      );
+      // `ACME` derives a set, so its separation is a number — `null` is what a *declined* document
+      // reports, and asserting the type here is what keeps this comparison honest rather than
+      // silently comparing against a nullish coalesce.
+      const measured = primary(ACME).categorical.separation[mode];
+      expect(measured, mode).not.toBeNull();
+      expect(checkScheme(fresh, { mode }).cvd.delta, mode).toBeCloseTo(measured as number, 9);
     }
     // And it is not the case that the brand simply always leads: over these seeds it never does.
     const leads = ALL.filter((doc) => familyOf(doc.seeds.brand) !== null).map(

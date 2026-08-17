@@ -202,6 +202,29 @@ function SeedInput({
   );
 }
 
+/**
+ * Where the set came from, said in the terms the document itself uses.
+ *
+ * Three answers and not two, which is the shape `CategoricalSource.from` grew: a wheel spun off the
+ * brand, the default scheme standing in for a brand with no hue, and a tenant that **declined the
+ * channel outright**. The third is a decision rather than a fallback, so it reads as one.
+ */
+const CATEGORICAL_HINT: Record<PaletteView["categorical"]["from"], (family: string | null) => string> =
+  {
+    "brand-wheel": (family) =>
+      `Hues spaced from the brand hue and snapped to families — the brand's own family (${family}) must be present, which is why the default eight are not simply reused.`,
+    "default-scheme": () =>
+      "The brand names no hue family — matching one asks chroma 0.1 of the seed and this one is under it — so there was no wheel to cut and the default scheme stands in. A brand that keeps its fill can still land here: a fill only has to be seen, where a category has to be told from seven others under simulation.",
+    declined: () =>
+      "This tenant spends no colour on categories. The set is empty on purpose, every chart slot resolves to the muted role, and a graph that wants its categories back binds them to shape instead. Nothing here failed — a document says this the way it says everything else.",
+  };
+
+/** The worst adjacent pair, or the reason there is no such thing. */
+const worstPair = (delta: number | null) =>
+  delta === null
+    ? "no pair to be the worst — this document declines the channel"
+    : `worst adjacent pair under simulation, ΔE ${delta.toFixed(1)}`;
+
 function Registration({ palette: p }: { palette: PaletteView }) {
   return (
     <>
@@ -340,11 +363,7 @@ function Registration({ palette: p }: { palette: PaletteView }) {
       </Block>
 
       <Block
-        hint={
-          p.categorical.from === "brand-wheel"
-            ? `Hues spaced from the brand hue and snapped to families — the brand's own family (${p.categorical.family}) must be present, which is why the default eight are not simply reused.`
-            : "The brand names no hue family — matching one asks chroma 0.1 of the seed and this one is under it — so there was no wheel to cut and the default scheme stands in. A brand that keeps its fill can still land here: a fill only has to be seen, where a category has to be told from seven others under simulation."
-        }
+        hint={CATEGORICAL_HINT[p.categorical.from](p.categorical.family)}
         title="The categorical set"
       >
         <ItemGroup className="flex-row flex-wrap gap-3">
@@ -352,18 +371,14 @@ function Registration({ palette: p }: { palette: PaletteView }) {
             <ItemContent>
               <ItemTitle>Light</ItemTitle>
               <SwatchGroup colors={p.categorical.light} shape="round" size="lg" />
-              <ItemDescription>
-                worst adjacent pair under simulation, ΔE {p.categorical.separation.light.toFixed(1)}
-              </ItemDescription>
+              <ItemDescription>{worstPair(p.categorical.separation.light)}</ItemDescription>
             </ItemContent>
           </Item>
           <Item className="w-auto" variant="outline">
             <ItemContent>
               <ItemTitle>Dark</ItemTitle>
               <SwatchGroup colors={p.categorical.dark} shape="round" size="lg" />
-              <ItemDescription>
-                worst adjacent pair under simulation, ΔE {p.categorical.separation.dark.toFixed(1)}
-              </ItemDescription>
+              <ItemDescription>{worstPair(p.categorical.separation.dark)}</ItemDescription>
             </ItemContent>
           </Item>
           <Item className="w-auto max-w-md" variant="muted">

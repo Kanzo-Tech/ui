@@ -16,6 +16,22 @@
     ]
   },
   {
+    "id": "monochrome",
+    "label": "Monochrome",
+    "isDefault": false,
+    "seeds": {
+      "brand": "#737373",
+      "base": "#737373"
+    },
+    "capacity": 0,
+    "identities": [
+      {
+        "id": "monochrome",
+        "label": "Monochrome"
+      }
+    ]
+  },
+  {
     "id": "dracula",
     "label": "Dracula",
     "isDefault": false,

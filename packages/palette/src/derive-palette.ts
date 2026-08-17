@@ -247,6 +247,23 @@ export interface DerivePaletteInput {
    * against this tenant's editor.
    */
   syntax?: SyntaxSourceRef;
+  /**
+   * `"declined"` spends no colour on categories: every identity comes out with an empty set,
+   * `capacity` zero, and `--chart-*` resolving to the muted role throughout. It is how a monochrome
+   * document is published — one more document, chosen like any other, rather than a mode inside
+   * whatever draws a chart. See `decisions/monochrome-is-a-palette-not-a-look.md`.
+   *
+   * **Document-level, and there is no per-identity spelling.** Declining is a claim about what this
+   * tenant's product spends colour on; a document with one brand declining and another not would be
+   * two products, and the neutral they share is what makes them one.
+   *
+   * Two things it deliberately does not touch, and both are the same rule from the other side —
+   * colour that carries *meaning* rather than *identity* stays. The four status fills are Kanzo's,
+   * fixed, and a state must mean the same thing in every tenant. The syntax roles keep theirs
+   * because the alternative was measured and refused: seven greys inside one legibility band
+   * collapse, and `deriveSyntax` reports that as `distinct` relief rather than pretending.
+   */
+  categorical?: "declined";
   /** Defaults to `draft`: a freshly derived document has not been reviewed yet. */
   state?: PaletteState;
   /** Injectable so a derivation can be reproduced byte for byte. Defaults to now. */
@@ -351,7 +368,9 @@ export function derivePalette(input: DerivePaletteInput): TenantPalette {
     capacity: { light: syntaxPerMode.light.capacity, dark: syntaxPerMode.dark.capacity },
   };
 
-  const derived = identities.map((identity) => deriveIdentity(identity, ramps, syntax, avoid));
+  const derived = identities.map((identity) =>
+    deriveIdentity(identity, ramps, syntax, avoid, input.categorical === "declined"),
+  );
   const primary = derived.find((it) => it.identity.id === defaultIdentity) as DerivedIdentity;
 
   const baseRamp = ramps.base.light;
@@ -406,6 +425,7 @@ function deriveIdentity(
   shared: SharedRampSet,
   syntax: SyntaxSet,
   avoid: readonly string[],
+  declined: boolean,
 ): DerivedIdentity {
   const ramp = Object.fromEntries(
     MODES.map((mode) => [mode, deriveRamp(input.brand, mode)]),
@@ -419,28 +439,51 @@ function deriveIdentity(
   // brands at nine spokes it changed neither mode's separation (19.3 light / 17.9 dark, with and
   // without), because it only ever binds when the search was about to make exactly that mistake.
   const own = familyOf(input.brand);
-  const derived = deriveSchemeColors(categoricalSource(input.brand), {
-    avoid: [...avoid],
-    leading: CATEGORICAL_LEADING,
-    require: own === null ? [] : [own],
-  });
-  const categorical: CategoricalSet = {
-    source: {
-      from: own === null ? "default-scheme" : "brand-wheel",
-      hue: own === null ? null : oklch(input.brand).h,
-      spokes: own === null ? 0 : WHEEL_SPOKES,
-      family: own,
-    },
-    light: derived.light,
-    dark: derived.dark,
-    capacity: derived.light.length,
-    families: derived.families,
-    kept: derived.kept,
-    crowded: derived.crowded,
-    dropped: derived.dropped,
-    separation: derived.separation,
-    leading: derived.leading,
-  };
+  // A declined document runs no search at all, rather than running one and discarding it. The
+  // search is the expensive half of a derivation and its whole output is the set — there is nothing
+  // else to keep — and an empty set that came back *from* a search would carry a separation number
+  // measured over colours this document does not publish.
+  const derived = declined
+    ? null
+    : deriveSchemeColors(categoricalSource(input.brand), {
+        avoid: [...avoid],
+        leading: CATEGORICAL_LEADING,
+        require: own === null ? [] : [own],
+      });
+  const categorical: CategoricalSet = derived
+    ? {
+        source: {
+          from: own === null ? "default-scheme" : "brand-wheel",
+          hue: own === null ? null : oklch(input.brand).h,
+          spokes: own === null ? 0 : WHEEL_SPOKES,
+          family: own,
+        },
+        light: derived.light,
+        dark: derived.dark,
+        capacity: derived.light.length,
+        families: derived.families,
+        kept: derived.kept,
+        crowded: derived.crowded,
+        dropped: derived.dropped,
+        separation: derived.separation,
+        leading: derived.leading,
+      }
+    : {
+        // Empty everywhere it counts, and every field says the same thing rather than one field
+        // saying it and the rest carrying leftovers. `leading` is a genuine zero — a set with no
+        // slots has no leading ones — where `separation` is `null`, because no pair exists to be
+        // worst. The two differ on purpose; see `CategoricalSet`.
+        source: { from: "declined", hue: null, family: null, spokes: 0 },
+        light: [],
+        dark: [],
+        capacity: 0,
+        families: [],
+        kept: [],
+        crowded: [],
+        dropped: [],
+        separation: { light: null, dark: null },
+        leading: { light: 0, dark: 0 },
+      };
 
   const roles = Object.fromEntries(
     MODES.map((mode) => [

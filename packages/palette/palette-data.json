@@ -216,6 +216,27 @@
         "base07": "#ffffff"
       }
     },
+    "monochrome": {
+      "label": "Monochrome",
+      "slots": {
+        "base00": "#fafafa",
+        "base01": "#f5f5f5",
+        "base02": "#e5e5e5",
+        "base03": "#737373",
+        "base04": "#525252",
+        "base05": "#262626",
+        "base06": "#171717",
+        "base07": "#0a0a0a",
+        "base08": "#c10007",
+        "base09": "#ca3500",
+        "base0A": "#a65f00",
+        "base0B": "#007a55",
+        "base0C": "#007595",
+        "base0D": "#1447e6",
+        "base0E": "#8200db",
+        "base0F": "#c70036"
+      }
+    },
     "dracula": {
       "label": "Dracula",
       "slots": {
@@ -300,6 +321,12 @@
       "label": "Kanzo",
       "brand": "#737373",
       "base": "#737373"
+    },
+    "monochrome": {
+      "label": "Monochrome",
+      "brand": "#737373",
+      "base": "#737373",
+      "categorical": "declined"
     },
     "dracula": {
       "label": "Dracula",

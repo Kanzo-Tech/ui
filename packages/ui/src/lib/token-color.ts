@@ -110,8 +110,15 @@ export const CHART_CAPACITY_PROPERTY = "--chart-capacity";
 export function categoricalCapacity(host: Element): number {
   if (typeof getComputedStyle === "undefined") return CHART_SLOTS;
   const raw = getComputedStyle(host).getPropertyValue(CHART_CAPACITY_PROPERTY).trim();
+  // **A declared zero is an answer; an absent property is not.** They used to be one branch, and
+  // that was right while zero could only arrive by accident. A document may now decline the
+  // categorical channel outright — one ink, no category carried by colour — and it says so with
+  // this number, so folding zero back up to the full slot count would paint eight distinguishable
+  // colours on the one document that published none. The cascade tells the two apart already:
+  // `getPropertyValue` returns an empty string for a property nobody declared.
+  if (raw === "") return CHART_SLOTS;
   const declared = Number.parseInt(raw, 10);
-  if (!Number.isFinite(declared) || declared <= 0) return CHART_SLOTS;
+  if (!Number.isFinite(declared) || declared < 0) return CHART_SLOTS;
   return Math.min(declared, CHART_SLOTS);
 }
 

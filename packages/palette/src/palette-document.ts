@@ -192,7 +192,20 @@ export interface PaletteEngine {
  * show a grey-branded tenant the same "your palette is in your charts" line as everyone else.
  */
 export interface CategoricalSource {
-  from: "brand-wheel" | "default-scheme";
+  /**
+   * `declined` is the tenant's own answer and not a failure to derive one: this document spends no
+   * colour on categories, so the set is empty, `capacity` is zero and every `--chart-*` slot
+   * resolves to `OTHER` — the role that means *this mark carries no category*, which on such a
+   * document is true of every mark.
+   *
+   * It is a **declaration** because the alternative is indistinguishable from damage: `compile`
+   * refuses a document whose default identity is missing precisely so a sheet cannot come out
+   * claiming zero capacity by accident, and it says why. A reader that has to tell a monochrome
+   * document from a broken one reads this field, never the number.
+   *
+   * See `decisions/monochrome-is-a-palette-not-a-look.md`.
+   */
+  from: "brand-wheel" | "default-scheme" | "declined";
   /** The brand hue the wheel was spun from, or `null` when the brand had none to spin. */
   hue: number | null;
   /** The family that hue snapped to — the one family the set is guaranteed to contain. */
@@ -222,8 +235,15 @@ export interface CategoricalSet {
   crowded: string[];
   /** Source colours that carried no usable hue at all. */
   dropped: string[];
-  /** The worst adjacent pair under simulation, per mode. Never their minimum. */
-  separation: Record<Mode, number>;
+  /**
+   * The worst adjacent pair under simulation, per mode. Never their minimum.
+   *
+   * **`null` where there are no pairs** — a declined set. Not zero, which reads as *two categories
+   * a reader cannot tell apart*, and not the infinity an empty pair list computes to, which reads
+   * as a perfect score. An obligation nobody can grade is reported as ungraded, the way
+   * `Obligation.measured` already does it one section along.
+   */
+  separation: Record<Mode, number | null>;
   /**
    * How many leading slots ended up clear of the status fills, per mode.
    *

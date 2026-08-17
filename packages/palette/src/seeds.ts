@@ -32,6 +32,14 @@ export interface PaletteSeeds {
   brand: string;
   /** The identity's neutral — base03, the mid-tone of its own base ramp. */
   base: string;
+  /**
+   * `"declined"` publishes no categorical colours at all — the monochrome document.
+   *
+   * It travels with the seeds rather than being inferred, and the shipped set is the argument:
+   * `kanzo` and `monochrome` carry the *same* grey brand, and only one of them declines. A
+   * grey-brand rule would have made them the same document.
+   */
+  categorical?: "declined";
 }
 
 export const PALETTE_SEEDS = paletteDataJson.seeds as Record<string, PaletteSeeds>;
@@ -52,6 +60,7 @@ export function seedInput(id: string, seeds: PaletteSeeds): DerivePaletteInput {
     label: seeds.label,
     identities: [{ id, label: seeds.label, brand: seeds.brand }],
     base: seeds.base,
+    categorical: seeds.categorical,
     // **A base16 seed pair is a base16 palette, so its syntax source is itself.** Leaving this out is
     // what made every shipped document declare Kanzo's keywords: the brand and base seeds were read
     // from Dracula while the eight accent slots beside them — the part of a base16 palette that is

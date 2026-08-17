@@ -28,8 +28,8 @@ client wanting a single immutable brand does nothing to get one.
 
 <Callout type="info" title="Several palettes all travel, and the choice is an attribute">
   Every document a tenant publishes ships in the page at once, each compiled under its own
-  `[data-palette="…"]` block, and choosing one writes the attribute. The five this site publishes
-  are **7.6 kB gzipped together**, which is what makes that affordable and what settles the question:
+  `[data-palette="…"]` block, and choosing one writes the attribute. The six this site publishes
+  are **8.7 kB gzipped together**, which is what makes that affordable and what settles the question:
   the earlier arrangement had the server pick one document from the request, and the cookie was
   therefore mandatory, because a choice the server has already made cannot be corrected in the
   browser without a flash.
@@ -295,6 +295,33 @@ whole pipeline, from the client's two colours to the served stylesheet, is
 
   Nor is there a palette *pairing*: one document carries both modes, so there is no pair to resolve.
 </Callout>
+
+### A document may decline colour altogether
+
+`monochrome` is one of the six, and the difference between it and `kanzo` is a single field: it
+**declines the categorical channel**. Its set is empty, `--chart-capacity` is `0`, and every
+`--chart-*` slot resolves to the muted role — so a chart, a legend and a graph on that document all
+say the same thing, because they all read the same scale.
+
+```ts
+derivePalette({ ...seedInput("acme", seeds), categorical: "declined" });
+```
+
+That is where monochrome lives: **a palette, not a mode inside whatever draws a chart.** A canvas
+that swapped colour for shape when a look said so was a theme rewriting an encoding —
+`decisions/monochrome-is-a-palette-not-a-look.md` — and it could not have made a bar chart on the
+same page agree with it. This can, because it is one document and every surface reads it.
+
+What it does **not** decline is colour that carries meaning rather than identity. The four status
+fills stay: a state means the same thing in every tenant, and that is a rule one layer up. The seven
+syntax roles stay too, and that one was measured rather than assumed — seven greys inside a single
+legibility band collapse, and `deriveSyntax` reports the collapse as `distinct` relief instead of
+pretending otherwise.
+
+Choosing it has a cost worth knowing before you publish it. A bar chart whose categories are named
+on the axis loses nothing — colour was never distinguishing them. A stacked bar, a multi-series line
+or a pie loses the encoding outright, with no second channel to fall back on. A graph is the one
+surface that can answer, by binding its categories to `symbol` instead of `fill`.
 
 ### base16 identities are seeds now
 

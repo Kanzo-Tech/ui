@@ -120,10 +120,25 @@ describe("categoricalCapacity", () => {
   });
 
   it("falls back to the slot count when the document declares nothing", () => {
-    // The honest default: a stylesheet without the property is every stylesheet shipped so far.
+    // The honest default: a stylesheet without the property is one older than the document schema.
     expect(withProperty(null)).toBe(CHART_SLOTS);
     expect(withProperty("not-a-number")).toBe(CHART_SLOTS);
-    expect(withProperty("0")).toBe(CHART_SLOTS);
+    expect(withProperty("  ")).toBe(CHART_SLOTS);
+  });
+
+  it("honours a declared zero, because a document may decline the channel", () => {
+    // This used to fold up to the full slot count with everything else that was not a positive
+    // number, and while zero could only arrive by accident that was right. A monochrome document
+    // publishes `--chart-capacity: 0` deliberately — it spends no colour on categories, so every
+    // slot resolves to the muted role — and folding it up would paint eight distinguishable
+    // colours on the one document that published none.
+    //
+    // The cascade is what tells a decision from an omission: an undeclared property comes back as
+    // an empty string, never as "0". See `decisions/monochrome-is-a-palette-not-a-look.md`.
+    expect(withProperty("0")).toBe(0);
+    expect(categoricalColor(0, undefined, withProperty("0"))).toBe("var(--muted-foreground)");
+    // Still not a licence for nonsense: a negative is damage, not a declaration.
+    expect(withProperty("-1")).toBe(CHART_SLOTS);
   });
 
   it("never claims more slots than the vocabulary has", () => {

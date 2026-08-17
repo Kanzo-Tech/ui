@@ -1,6 +1,6 @@
 # Monochrome is a palette, not a look
 
-- **Status** open — 2026-08-17
+- **Status** live — 2026-08-17
 - **Decided** Monochrome ships as one more **palette document**, chosen in the palette selector like
   any other, and the graph keeps carrying identity because the host binds `symbol` alongside `fill`
   — the same binding survives a colourful document and this one. A document that declines the
@@ -11,9 +11,10 @@
 - **Reversed by** a categorical mark with no non-colour fallback shipping on this document — a
   stacked bar, a multi-series line, a pie. If readers lose the encoding there, monochrome is not a
   document-level state and belongs to whatever draws a graph.
-- **Held by** `packages/palette/src/derive-palette.ts`, `categoricalSource`;
-  `packages/palette/src/compile.ts`, `capacityOf`; `packages/ui/src/lib/token-color.ts`,
-  `categoricalCapacity`
+- **Held by** `packages/ui/src/lib/token-color.test.ts`, "honours a declared zero, because a document
+  may decline the channel"; `packages/palette/src/palettes.test.ts`, "survives derivation in both
+  modes, with a categorical set that can name something"; `packages/palette/src/derive-palette.ts`,
+  `categorical`; `packages/palette/src/compile.ts`, `capacityOf`
 
 ## Why this is not the graph's decision, which is where it lived
 
@@ -81,3 +82,28 @@ That is a separate piece of work and it is not assumed by this record.
   [the obligations shape](a-section-brings-measurable-obligations.md) already refuses.
 - **No component learns which document is applied.** The graph binds two channels and reads the
   scale; that is true on every document and this one is not a branch.
+
+## What landed, and the two things the record did not anticipate
+
+The declaration is `categorical: "declined"` on the derivation input, `source.from === "declined"`
+on the document, `--chart-capacity: 0` in the sheet. **Nothing in `roles.ts` or `compile.ts` needed
+changing to make the slots grey**: a slot past capacity already resolves to `OTHER`, so an empty set
+compiles to eight muted slots by the rule that was already there. The two edits that mattered were
+the declaration itself and the reader — `categoricalCapacity` used to fold every non-positive number
+back up to the full slot count, which was right while zero could only arrive by accident.
+
+The shipped document is **Kanzo's own slots and Kanzo's own grey brand**, differing in that one
+field. That is deliberate and it is the argument: a grey brand does *not* imply a decline —
+`categoricalSource` answers a hue-less brand with the default eight colours, on purpose — so
+declining is something a tenant says, never something a hue implies. The two documents side by side
+are the demonstration: flip between them and the only thing that moves is what carries a category.
+
+Two things the record did not anticipate:
+
+- **`separation` had to become nullable.** An empty pair list computes to `Infinity`, which reads as
+  a perfect score, and zero reads as two categories nobody can tell apart. Neither is true, so the
+  field is `null` per mode for a declined set — the shape `Obligation.measured` already uses one
+  section along. `leading` stays a number, because *no leading slots* is a true count.
+- **The measured claim about what the site publishes moved.** Six documents, **63.6 kB raw and
+  8.7 kB gzipped** together, up from five at 58 kB / 7.6 kB. It is quoted in three places and all
+  three were updated; the affordability argument is unchanged and the number is what it rests on.

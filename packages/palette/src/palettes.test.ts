@@ -120,7 +120,20 @@ describe("every shipped identity, derived", () => {
       // brand that is, is exactly what an identity says.
       const only = doc.identities[0] as Identity;
       expect(doc.identities, id).toHaveLength(1);
-      expect(only.categorical.capacity, `${id} can name no categories`).toBeGreaterThan(0);
+      // A document either names categories or **says** it does not. The bar is not "capacity is
+      // positive" any more, because one shipped document declines the categorical channel outright
+      // — and the whole reason `source.from` carries `declined` is that a zero which is a decision
+      // and a zero which is damage are otherwise the same number. So: read the declaration, then
+      // hold each answer to its own shape.
+      if (only.categorical.source.from === "declined") {
+        expect(only.categorical.capacity, `${id} declines and still names something`).toBe(0);
+        expect(only.categorical.light, id).toEqual([]);
+        expect(only.categorical.dark, id).toEqual([]);
+        // Ungraded, not perfect and not zero — there is no pair to be worst.
+        for (const mode of MODES) expect(only.categorical.separation[mode], `${id} ${mode}`).toBeNull();
+      } else {
+        expect(only.categorical.capacity, `${id} can name no categories`).toBeGreaterThan(0);
+      }
       expect(only.categorical.light.length, id).toBe(only.categorical.dark.length);
       for (const mode of MODES) expect(Object.keys(doc.roles[mode]).length, `${id} ${mode}`).toBeGreaterThan(50);
     }

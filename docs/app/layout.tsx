@@ -23,7 +23,7 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   // Every published document, once. It used to be *the chosen one*, read from a cookie — which made
-  // this layout async and every page under it dynamic. All five are 7.6 kB gzipped together, so the
+  // this layout async and every page under it dynamic. All six are 8.7 kB gzipped together, so the
   // choice moved to a `data-palette` attribute and the pages are static again.
   const css = allPaletteCss();
 

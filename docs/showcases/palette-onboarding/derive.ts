@@ -71,7 +71,8 @@ export interface PaletteView {
     dropped: string[];
     light: string[];
     dark: string[];
-    separation: { light: number; dark: number };
+    /** `null` per mode where the document declines the channel: no pair exists to be the worst. */
+    separation: { light: number | null; dark: number | null };
   };
   /** The sixteen authored base16 slots, when this seed pair was lifted from one. */
   authored: {
