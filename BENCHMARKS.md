@@ -439,6 +439,34 @@ That is the request-count finding above showing up as time.
 request count alone; at that size every tile falls under the bar and the whole read path becomes
 cacheable with nothing changing in the reader.
 
+### A neighbourhood cannot be a recursive CTE over the edge relation — it hangs the connection
+
+Attempted 2026-08-17 against `/bench/1000000` (6.9M edges), and abandoned on the measurement rather
+than on taste. `explore(seeds, depth)` was implemented the obvious way: an undirected adjacency as
+`src → dst UNION ALL dst → src` over the registered edge view, and a `WITH RECURSIVE` reachable set
+over it.
+
+**It did not return.** One hop from a single seed was still running after 45 seconds, and — because
+Mosaic funnels every query through one DuckDB-WASM connection in strict FIFO — it took the whole page
+with it: a subsequent `openCorpus` that costs 708 ms warm also timed out, queued behind it. Two
+findings, and the second is the one to remember: **a slow query here is not slow, it is a stalled
+tab.**
+
+The shape is wrong rather than the tuning. The adjacency term materialises 13.8M rows before the
+recursion starts, and no `limit` on the answer bounds the cost of *finding* it — the same sentence
+this page keeps writing about the bbox predicate, in its sharpest form.
+
+**What it has to be instead, and it is already the plan's second class of address.** A hop is
+addressable: the out-edges of a vertex live in the `by_source` tile its `dense_id` falls in, and the
+in-edges in the `by_target` tile, so a hop is *read the two tiles this id addresses, filter to its
+rows, collect the far ends* — a handful of 74 KB reads that the tile cache above already serves.
+Nothing scans the relation, and the work follows the frontier rather than the corpus.
+
+What it needs that is not here yet: `by_target` tiled the way `by_source` is, which is the corpus
+side (ADR-0041 asks for the same thing on request count). An out-edge-only traversal is not a
+neighbourhood in a knowledge graph — "the papers by this author" is an in-edge from the author — so
+following half the edges would be a wrong answer rather than a partial one.
+
 ## What the corpus does *not* yet give
 
 Two facts about the written positions, both measured, both about usefulness rather than speed.

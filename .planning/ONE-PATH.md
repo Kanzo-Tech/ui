@@ -95,7 +95,7 @@ lo manda la escala, no la pulcritud:
 | 1 | dirección + caché + tamaño de tesela · **caché hecha** 2026-08-17 | las peticiones son el término que sigue a N |
 | 2 | trocear aristas y arreglar las costuras del escritor *(rmlext)* | el join O(N), y la otra mitad del larger-than-RAM |
 | 3 | multi-tipo por vecindad | sin esto un grafo de conocimiento no dibuja **ni una** arista cruzada |
-| 4 | `explore` implementado | es el mecanismo del 3, no una comodidad |
+| 4 | `explore` implementado **por direcciones** | intentado con CTE recursiva y **cuelga la conexión**: ver BENCHMARKS |
 | 5 | la vista alejada | la mitad de la experiencia a diez millones, y sin diseñar |
 | 6 | la capa de aristas (CSC + densidad) | corrección primero, niebla después |
 | 7 | la fuente pasa a `MosaicClient` | −40 ms por pan y mueren dos hacks; no cambia la curva |
@@ -197,6 +197,20 @@ que no dispara en pestaña oculta. Puentearlo deja correr la tubería y **falsea
 revierte**: la razón por la que existía —*un rectángulo no puede expresar «dos saltos desde este
 nodo»*— es exactamente lo que Ángel pide («obtén todas las aristas vecinas»), y es la costura por
 donde entra el `expand` de fossil.
+
+**Intentado el 2026-08-17 con una CTE recursiva sobre la relación de aristas, y descartado por
+medición:** un salto desde una semilla sobre 6,9M de aristas no volvió en 45 s, y como Mosaic
+serializa por una conexión en FIFO, se llevó por delante la pestaña entera — un `openCorpus` que
+tarda 708 ms en caliente también expiró, encolado detrás. El término de adyacencia materializa 13,8M
+de filas antes de empezar a recurrir, y ningún `limit` sobre la respuesta acota lo que cuesta
+*encontrarla*.
+
+La forma correcta es la que ya dice el plan: **un salto es direccionable**. Las aristas salientes de
+un vértice están en la tesela `by_source` en la que cae su `dense_id`, y las entrantes en la de
+`by_target`; un salto es leer esas dos teselas, filtrar sus filas y recoger los extremos — lecturas
+de 74 KB que la caché de teselas ya sirve. Lo que falta para eso es que `by_target` esté teselado
+como `by_source`, que es del lado del corpus. Seguir sólo las salientes no es media respuesta, es una
+respuesta equivocada: «los papers de este autor» es una arista entrante.
 
 La implementación no es una extensión de DuckDB en C++ compilada a WASM —eso es una cadena de
 herramientas entera y un artefacto firmado por plataforma para expresar en SQL lo que ya se puede
