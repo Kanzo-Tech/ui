@@ -101,12 +101,29 @@ fits pays for nothing.
 
 ### The channels ride the question, not the source
 
-What colours a point and what the size ramp is spent on are **props of the canvas**, under the names
-Plot gives a point mark: `fill` and `r`.
+What a point wears is **bound on the canvas**, under the names Plot gives a point mark: `fill`,
+`symbol`, `r` and `stroke`.
 
 ```tsx
 <GraphCanvas source={source} fill="kind" r="degree" onFailure={setFailure} />
 ```
+
+**A CSS colour is a constant; anything else is a column.** That is Plot's rule, and it is what makes
+the monochrome picture a binding rather than a theme:
+
+```tsx
+<GraphCanvas source={source} fill="var(--foreground)" symbol="kind" r="degree" onFailure={…} />
+```
+
+Identity has moved to shape, colour is free to mean the selection, and nothing had to know which of
+those two a look preferred. A bare word is always a column, so a corpus with a column called `red` is
+not a trap.
+
+A `Look` is **form only** — sizes, link width and curve, labels, vignette. It used to decide whether
+identity reached the GPU as colour or as shape, which is a theme rewriting an encoding:
+`decisions/a-look-is-form-and-a-channel-is-a-binding.md`. Binding `symbol` takes on an obligation —
+`gradeComposition(look, channels)` returns the four-pixel radius floor that shape and size spent
+together require, and pairing a glyph with a dense form's ramp now reports.
 
 A source says *where the bytes are*; a channel says *what I want drawn*. They used to be one thing —
 the column names were given to the source at construction — and the cost of that was concrete:

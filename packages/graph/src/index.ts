@@ -24,11 +24,13 @@
 export {
   buffers,
   scaleOf,
+  isColour,
   forces,
   appearance,
   neighboursOf,
   SPACE,
   type Buffers,
+  type Channels,
 } from "./graph-model";
 
 // The look: geometry only. Colour comes from the page's categorical scale, never from a look —

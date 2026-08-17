@@ -190,13 +190,14 @@ be skipped.
 `an-invalid-boundary-needs-no-dark-branch`, `a-section-brings-measurable-obligations`,
 `density-has-no-legibility-floor`,
 `a-canvas-component-owns-the-three-that-never-differ`, `a-dense-id-is-thirty-two-bits`,
-`a-chart-needs-no-factory`, `a-tile-is-an-address-not-a-verb`.
+`a-chart-needs-no-factory`, `a-tile-is-an-address-not-a-verb`,
+`a-look-is-form-and-a-channel-is-a-binding`.
 
 Also live — `a-compound-keeps-its-root-even-when-the-root-is-an-alias`,
 `steps-claims-a-tab-role-it-cannot-keep`, `prose-that-is-hashed-is-data`.
 
 **Open** — `a-preference-is-contributed-like-a-token`, `a-palette-is-chosen-per-appearance`,
-`monochrome-is-a-palette-not-a-look`, `a-look-is-form-and-a-channel-is-a-binding`.
+`monochrome-is-a-palette-not-a-look`.
 
 **Superseded** — `field-has-no-consumer`, by `adoption-before-design`.
 `one-theme-provider`, by `two-themers-and-one-root`.

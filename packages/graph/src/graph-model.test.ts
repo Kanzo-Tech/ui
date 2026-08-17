@@ -92,7 +92,7 @@ describe("buffers", () => {
 
 describe("scaleOf", () => {
   it("gives the overflow ordinal the Other glyph rather than the first one's", () => {
-    const scale = scaleOf(LOOKS.ink);
+    const scale = scaleOf({ symbol: "kind" });
 
     // The shape order runs out at four. Falling back to `circle` would have handed the fifth
     // category the glyph the first one already wears.
@@ -102,17 +102,26 @@ describe("scaleOf", () => {
 
   it("mutes past capacity instead of cycling", () => {
     // A ninth category wearing slot 1 would claim to be the first one.
-    const scale = scaleOf(LOOKS.atlas, 8);
+    const scale = scaleOf({ fill: "kind" }, 8);
 
     expect(scale.color(8)).toBe("var(--muted-foreground)");
     expect(scale.color(0)).not.toBe(scale.color(1));
   });
 
-  it("collapses to one colour when the look encodes identity as shape", () => {
-    const scale = scaleOf(LOOKS.ink);
+  it("reads a colour as a constant and anything else as a column", () => {
+    // Plot's rule, and the whole of how monochrome is expressed now that a look cannot rebind an
+    // encoding: `fill` as a CSS colour paints every point one ink, and `symbol` is what carries
+    // identity beside it.
+    const mono = scaleOf({ fill: "var(--foreground)", symbol: "kind" });
+    expect(mono.color(0)).toBe(mono.color(1));
+    expect(mono.shape(0)).not.toBe(mono.shape(1));
 
-    expect(scale.color(0)).toBe(scale.color(1));
-    expect(scale.shape(0)).not.toBe(scale.shape(1));
+    // A bare word is always a column, so a corpus with a column called `red` is not a trap.
+    const column = scaleOf({ fill: "red" });
+    expect(column.color(0)).not.toBe(column.color(1));
+
+    // And shape is spent only where it is bound: unbound, every point is a circle.
+    expect(scaleOf({ fill: "kind" }).shape(3)).toBe(scaleOf({ fill: "kind" }).shape(0));
   });
 });
 

@@ -116,6 +116,7 @@ import {
   EDGES,
   KINDS,
   NODES,
+  PAIRINGS,
   useGraphView,
   type Motion,
 } from "./graph-state";
@@ -126,6 +127,7 @@ import {
   SHAPE_PATH,
   scaleOf,
   vertexId,
+  type Channels,
   type Look,
 } from "@kanzo-tech/graph";
 // `onceQuery` is on the DuckDB subpath, not the barrel: it is a Mosaic client, and the barrel
@@ -218,7 +220,7 @@ const ordinalOf = (kind: string): number => LEGEND_DOMAIN.indexOf(kind);
 function LegendSwatch({ kind }: { kind: string }) {
   const { look } = useGraphView();
   const capacity = useChartCapacity();
-  const scale = scaleOf(LOOKS[look], capacity);
+  const scale = scaleOf(PAIRINGS[look], capacity);
   return (
     <ShapeGlyph
       color={scale.color(ordinalOf(kind))}
@@ -1246,8 +1248,8 @@ const PREVIEW_EDGES: [number, number][] = [
  */
 const PREVIEW_SCALE = 0.55;
 
-function LookPreview({ look }: { look: Look }) {
-  const scale = scaleOf(look);
+function LookPreview({ channels, look }: { channels: Channels; look: Look }) {
+  const scale = scaleOf(channels);
   const radius = (degree: number) => {
     const [min, max] = look.form.size;
     return (min + degree * (max - min)) * PREVIEW_SCALE;
@@ -1280,13 +1282,10 @@ function LookPreview({ look }: { look: Look }) {
             d={`M${a.x} ${a.y}Q${cx} ${cy} ${b.x} ${b.y}`}
             fill="none"
             key={`${from}-${to}`}
-            // `source` tints a link with the vertex it leaves; `neutral` makes links plain
-            // structure. The neutral is `--muted-foreground` because that is the token `buffers`
-            // resolves. It read `--border`, a quieter colour — a card promising a picture the canvas
-            // does not paint, in the one component whose whole claim is that it cannot do that.
-            stroke={
-              look.encode.links === "source" ? scale.color(a.ordinal) : "var(--muted-foreground)"
-            }
+            // `stroke` absent tints a link with the vertex it leaves; a constant makes links plain
+            // structure — the same rule `buffers` reads, so the card cannot promise a picture the
+            // canvas does not paint, which is the one claim this component exists to make.
+            stroke={channels.stroke ?? scale.color(a.ordinal)}
             strokeOpacity={look.form.link.opacity}
             strokeWidth={look.form.link.width}
           />
@@ -1357,7 +1356,7 @@ export function GraphAppearance() {
             {/* Stacked, not the grid the palette list uses, and the difference is that this list
                 does not grow: there are three looks and a tenant cannot publish a fourth. Keeping
                 the full width is what lets the miniature be a graph rather than a thumbnail of one. */}
-            <LookPreview look={LOOKS[id]} />
+            <LookPreview channels={PAIRINGS[id]} look={LOOKS[id]} />
             <span className="mt-1.5 block font-medium text-xs">{LOOKS[id].label}</span>
             <span className="mt-0.5 block text-[10px] text-muted-foreground leading-relaxed">
               {LOOKS[id].blurb}

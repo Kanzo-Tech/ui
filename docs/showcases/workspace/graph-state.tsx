@@ -17,6 +17,7 @@ import { ensure } from "./duck";
 import {
   DEFAULT_DISPLAY,
   DEFAULT_SIM,
+  type Channels,
   type Display,
   type GraphCommands,
   type LookId,
@@ -119,6 +120,31 @@ export const ARCHIVE_SPEC: GraphSpec = {
   ],
   xField: "x",
   yField: "y",
+};
+
+/**
+ * The three arrangements this app offers: a **form**, and the bindings that were bundled with it.
+ *
+ * A look used to carry both, and that was a theme reaching into an encoding —
+ * `decisions/a-look-is-form-and-a-channel-is-a-binding.md`. What survives the split is this table,
+ * and it lives here rather than in the package because **the host is what offers arrangements**: a
+ * product publishing three it authored is not the same act as a preference silently discarding the
+ * caller's binding.
+ *
+ * Read them as three sentences. Nebula spends colour on kind and lets each link take the colour of
+ * the vertex it leaves. Atlas does the same and makes links plain structure. Ink paints every point
+ * one ink — `fill` as a **constant**, which is Plot's rule and the whole of how monochrome is said
+ * now — and moves identity to `symbol`, which is the pairing `gradeComposition` grades: shape and
+ * size spent at once need Ink's four-pixel floor.
+ */
+export const PAIRINGS: Record<LookId, Channels> = {
+  nebula: { fill: ARCHIVE_SPEC.categoryField },
+  atlas: { fill: ARCHIVE_SPEC.categoryField, stroke: "var(--muted-foreground)" },
+  ink: {
+    fill: "var(--foreground)",
+    symbol: ARCHIVE_SPEC.categoryField,
+    stroke: "var(--muted-foreground)",
+  },
 };
 
 /**

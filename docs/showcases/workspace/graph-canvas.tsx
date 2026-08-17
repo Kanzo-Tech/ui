@@ -53,6 +53,7 @@ import {
 import { duckBoundedSource, onceQuery } from "@kanzo-tech/graph/duckdb";
 import {
   KINDS,
+  PAIRINGS,
   useGraphView,
   type GraphSpec,
   type Motion,
@@ -258,6 +259,8 @@ function CanvasBody() {
   } = useGraphView();
   const { coordinator, crossfilter } = useMosaic();
   const look = LOOKS[lookId];
+  // Form and bindings, kept together because the reader picked an arrangement rather than a shape.
+  const channels = PAIRINGS[lookId];
 
   /**
    * The overlays, reached from inside the graph's own callbacks.
@@ -494,7 +497,9 @@ function CanvasBody() {
     },
     // The two channels, with Plot's names: what colours a point and what the size ramp is spent on.
     // They are the question rather than the source, so changing one re-asks and nothing is rebuilt.
-    fill: spec.categoryField,
+    fill: channels.fill,
+    symbol: channels.symbol,
+    stroke: channels.stroke,
     r: spec.sizeField,
     look,
     onFailure: setFailure,
@@ -770,7 +775,7 @@ function CanvasBody() {
   // the point it is describing — including where Other begins, which `buffers` reads off the same
   // host element.
   const capacity = useChartCapacity(hostRef);
-  const scale = useMemo(() => scaleOf(look, capacity), [look, capacity]);
+  const scale = useMemo(() => scaleOf(channels, capacity), [channels, capacity]);
 
 
   return (

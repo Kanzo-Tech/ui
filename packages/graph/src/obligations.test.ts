@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LOOKS, SHAPE, SHAPE_ORDER, SHAPE_OTHER } from "./graph-looks";
-import { check, OBLIGATIONS } from "./obligations";
+import { check, gradeComposition, OBLIGATIONS } from "./obligations";
 
 /**
  * The graph section grades itself, the way the colour section does.
@@ -31,28 +31,31 @@ describe("the graph section's obligations", () => {
     expect(ungradeable.map((o) => o.id)).toEqual(["link-fade"]);
   });
 
-  it("measures the shipped looks, not a copy of their numbers", () => {
+  it("measures the shipped forms, not a copy of their numbers", () => {
     // Every `measured` is derived from `LOOKS` or `SHAPE_ORDER` at module load. A hand-typed number
-    // would go stale the first time a look changed, silently and in the direction of passing.
-    const floor = check().find((c) => c.id === "shape-floor");
-    // Over the looks the floor BINDS on, which is those encoding identity as shape — Ink alone
-    // today. Graded over all three it reads 2 (Nebula) and fails, which is what the first draft of
-    // this file did: the bar is real and it does not license a look that spends colour on identity.
-    expect(floor?.measured).toBe(LOOKS.ink.form.size[0]);
-    expect(Math.min(...Object.values(LOOKS).map((l) => l.form.size[0]))).toBe(2);
-    expect(LOOKS.nebula.encode.identity).toBe("color");
-
+    // would go stale the first time a form changed, silently and in the direction of passing.
     const curve = check().find((c) => c.id === "link-curve");
     expect(curve?.measured).toBe(Math.max(...Object.values(LOOKS).map((l) => l.form.link.curve)));
   });
 
-  it("bites when a look breaks the floor", () => {
-    // A guard nobody has seen fail is a guard nobody has tested. `measured` is computed at module
-    // load, so the mutation is done on the comparison rather than on the constant.
-    const floor = OBLIGATIONS.find((o) => o.id === "shape-floor");
-    expect(floor?.threshold).toBe(4);
-    const wouldFail = 2 >= (floor?.threshold as number);
-    expect(wouldFail, "a size floor of 2 must not satisfy the 4px obligation").toBe(false);
+  it("grades the composition, and only where shape is actually spent", () => {
+    // The floor used to read *the smallest radius among looks that encode identity as shape*, and
+    // after `a-look-is-form-and-a-channel-is-a-binding` there are no such looks — a look encodes
+    // nothing. It is a property of what the caller composed, which is strictly more coverage: it
+    // can now fail for a consumer, which the constant version never could.
+    expect(gradeComposition(LOOKS.ink, { fill: "kind" })).toBeNull();
+
+    const ok = gradeComposition(LOOKS.ink, { symbol: "kind" });
+    expect(ok?.measured).toBe(LOOKS.ink.form.size[0]);
+    expect(ok?.ok).toBe(true);
+  });
+
+  it("bites when a dense form is paired with shape", () => {
+    // A guard nobody has seen fail is a guard nobody has tested — and this is the pairing nothing
+    // reported before: Nebula's 2px ramp is right for colour-on-identity and cannot carry a glyph.
+    const bad = gradeComposition(LOOKS.nebula, { symbol: "kind" });
+    expect(bad?.measured).toBe(2);
+    expect(bad?.ok, "a 2px form must not satisfy the 4px floor once symbol is bound").toBe(false);
   });
 
   it("keeps the past-capacity glyph out of the ordered four, and off cosmos.gl's None", () => {

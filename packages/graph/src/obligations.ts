@@ -1,4 +1,5 @@
-import { LOOKS, SHAPE, SHAPE_ORDER, SHAPE_OTHER } from "./graph-looks";
+import type { Channels } from "./graph-model";
+import { LOOKS, SHAPE, SHAPE_ORDER, SHAPE_OTHER, type Look } from "./graph-looks";
 
 /**
  * What the graph's geometry owes, as a report rather than as prose.
@@ -13,10 +14,10 @@ import { LOOKS, SHAPE, SHAPE_ORDER, SHAPE_OTHER } from "./graph-looks";
  * asymmetry made "are these two the same kind of thing?" an argument. With both sections reporting,
  * it is an observation. See `decisions/a-section-brings-measurable-obligations.md`.
  *
- * **What this file does not do.** It grades the three shipped looks, which are constants — so it
- * cannot fail at runtime for a consumer, and it is not a validator for looks a consumer writes. It
- * is the section's own claim about itself, checked in CI. A `Look` is not user-authored today; when
- * one is, this is the function that has to run against it.
+ * **What `OBLIGATIONS` does not do.** It grades constants of ours — the shape scale and the three
+ * shipped forms — so it cannot fail at runtime for a consumer; it is the section's own claim about
+ * itself, checked in CI. `gradeComposition` is the half that *can* fail for a consumer, because
+ * what it grades is what the caller composed.
  */
 export interface Obligation {
   /** Stable key, so a caller branches on the failure rather than parsing prose. */
@@ -36,48 +37,63 @@ export interface Obligation {
   reason: string;
 }
 
-/**
- * The minimum radius assigned by any look that spends SHAPE on identity.
- *
- * Conditional on `encode.identity`, and that is the obligation rather than a detail of it: a look
- * encoding identity as colour has no floor to answer for, because a 2px dot still carries a hue.
- * Measured over the shipped three, this is Ink's 4 — Nebula and Atlas start at 2 and 2.2 and are
- * correct to. Grading all three against 4 was the first draft of this file and its own test caught
- * it, which is the argument for the row existing at all.
- */
-const shapeLooks = Object.values(LOOKS).filter((look) => look.encode.identity === "shape");
-const minShapeRadius = Math.min(...shapeLooks.map((look) => look.form.size[0]));
-
 /** How many of the ordered shapes `SHAPE_OTHER` collides with. Must be none. */
 const otherCollisions = SHAPE_ORDER.filter((s) => s === SHAPE_OTHER).length;
 
 /** The largest curvature any look asks for. */
 const maxCurve = Math.max(...Object.values(LOOKS).map((look) => look.form.link.curve));
 
+/**
+ * The floor a **composition** owes, not a look — and that move is the point rather than a detail.
+ *
+ * Graded against the three shipped looks it could not fail for a consumer: it read *the smallest
+ * radius among looks that encode identity as shape*, and after
+ * `decisions/a-look-is-form-and-a-channel-is-a-binding.md` there are no such looks, because a look
+ * no longer encodes anything. Graded against a composition it covers strictly more — it catches a
+ * host pairing `symbol` with a dense form's ramp, which is a picture nobody can read and which
+ * nothing previously reported.
+ *
+ * `gradeComposition` below is the function this file always said it was waiting for: *a `Look` is
+ * not user-authored today; when one is, this is the function that has to run against it.* The
+ * binding got there first.
+ */
+const SHAPE_FLOOR: Omit<Obligation, "measured"> = {
+  id: "shape-floor",
+  subject: "the smallest point radius of a form that `symbol` is bound on",
+  threshold: 4,
+  holds: ">=",
+  unit: "px",
+  against:
+    "the size at which shape starts corrupting the size and luminance channels beside it — " +
+    "Giovannangeli et al. (arXiv 2103.06084) on dual-attribute encoding, and Smart & Szafir " +
+    "(CHI 2019, doi:10.1145/3290605.3300899) for the JND and size-bias figures",
+  reason:
+    "The floor protects the OTHER channels from shape, not shape from smallness. Binding `symbol` " +
+    "and `r` together spends shape on identity AND size on degree at once, which Giovannangeli " +
+    "measures as dropping performance drastically under even minor heterogeneity; and smaller " +
+    "marks worsen it both ways — the luminance JND rises from 6.48 ΔL* at 50px to 11.30 at 6px, " +
+    "and a square is reported larger than any other shape at equal area in 82% of trials, so the " +
+    "size ramp that carries meaning reads wrong. It binds only where shape is spent: a composition " +
+    "spending COLOUR on identity is right to start at 2, because a 2px dot still carries a hue and " +
+    "has no second channel to interfere with. NOT 'shapes collapse at small sizes' — Smart & " +
+    "Szafir measured 16 shapes across 6 sizes and found discrimination robust to size, varying " +
+    "significantly only at 6px and by 4.5 accuracy points.",
+};
+
+/**
+ * Grade what a host actually composed: this form, with these bindings.
+ *
+ * `null` when `symbol` is not bound, which is not a pass — there is no obligation to grade, because
+ * a point wearing one glyph has no second channel to protect.
+ */
+export function gradeComposition(look: Look, channels: Channels): Check | null {
+  if (channels.symbol === undefined) return null;
+  const measured = look.form.size[0];
+  const threshold = SHAPE_FLOOR.threshold as number;
+  return { ...SHAPE_FLOOR, measured, threshold, ok: measured >= threshold };
+}
+
 export const OBLIGATIONS: readonly Obligation[] = [
-  {
-    id: "shape-floor",
-    subject: "the smallest point radius among looks that encode identity as shape",
-    measured: minShapeRadius,
-    threshold: 4,
-    holds: ">=",
-    unit: "px",
-    against:
-      "the size at which shape starts corrupting the size and luminance channels beside it — " +
-      "Giovannangeli et al. (arXiv 2103.06084) on dual-attribute encoding, and Smart & Szafir " +
-      "(CHI 2019, doi:10.1145/3290605.3300899) for the JND and size-bias figures",
-    reason:
-      "The floor protects the OTHER channels from shape, not shape from smallness. Ink encodes " +
-      "identity as shape AND degree as size at once, which Giovannangeli measures as dropping " +
-      "performance drastically under even minor heterogeneity; and smaller marks worsen it both " +
-      "ways — the luminance JND rises from 6.48 ΔL* at 50px to 11.30 at 6px, and a square is " +
-      "reported larger than any other shape at equal area in 82% of trials, so the size ramp that " +
-      "carries meaning in this look reads wrong. It binds on Ink and nothing else: a look spending " +
-      "COLOUR on identity is right to start at 2, because a 2px dot still carries a hue and has no " +
-      "second channel to interfere with. NOT 'shapes collapse at small sizes' — Smart & Szafir " +
-      "measured 16 shapes across 6 sizes and found discrimination robust to size, varying " +
-      "significantly only at 6px and by 4.5 accuracy points.",
-  },
   {
     id: "shape-capacity",
     subject: "distinguishable glyphs the scale can name, including the past-capacity one",

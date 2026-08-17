@@ -26,7 +26,56 @@ import type { Display, Sim } from "./types";
 export const SPACE = 4096;
 
 /**
- * The categorical scale a look implies — what colour and what shape a category ordinal wears.
+ * What each channel is bound to — Plot's names, and Plot's rule about what a value means.
+ *
+ * **A CSS colour is a constant; anything else is a column name.** `fill="kind"` spends colour on a
+ * category; `fill="var(--foreground)"` paints every point one ink and leaves colour free to mean the
+ * selection. That is not our invention: it is how Plot reads the same string, and it is what makes
+ * "monochrome" expressible without a look that rebinds an encoding —
+ * `decisions/a-look-is-form-and-a-channel-is-a-binding.md`.
+ *
+ * The rule is spelled narrowly on purpose: a constant is `var(…)`, a hex, or a CSS colour function.
+ * **A bare word is always a column**, so a corpus with a column called `red` is not a trap. The cost
+ * is that the 148 CSS named colours are not accepted as constants, which is the trade a one-line
+ * rule buys over a table nobody would keep current.
+ */
+export interface Channels {
+  /** Which column colours a point, or a CSS colour every point wears. */
+  fill?: string;
+  /**
+   * Which column a point's **shape** carries — Plot's `symbol`, and a peer of colour rather than a
+   * decoration.
+   *
+   * Bound to the same column as `fill`, this is redundant encoding and costs nothing. Bound to a
+   * *different* column it would need a second categorical array in the slice and in every source,
+   * which is not paid for — and it is also the pairing the literature warns about, so the limit and
+   * the advice point the same way. A slice carries one categorical column, and this spends shape on
+   * it.
+   */
+  symbol?: string;
+  /**
+   * What tints a link. **Absent, each link takes the colour of the vertex it leaves**; a constant
+   * makes links plain structure.
+   *
+   * No column form yet: a per-link datum — weight, confidence, recency — is a second array a slice
+   * does not carry.
+   */
+  stroke?: string;
+}
+
+/**
+ * Whether a channel's value is a **colour** — and therefore a constant rather than a column.
+ *
+ * Plot's test, narrowed to what a token-based system actually writes. Exported because the split it
+ * decides happens in two places: the buffers paint the constant, and the query must not be asked to
+ * fetch a column called `var(--foreground)`.
+ */
+export function isColour(value: string | undefined): value is string {
+  return value !== undefined && /^(var\(|#|rgb|hsl|oklch|oklab|lab|lch|color\()/i.test(value);
+}
+
+/**
+ * The categorical scale the bindings imply — what colour and what shape a category ordinal wears.
  *
  * One answer for the GPU buffers, the hover card and the legend, because three answers is how a
  * legend ends up disagreeing with the canvas it explains. Values are CSS strings: the DOM resolves
@@ -38,11 +87,12 @@ export const SPACE = 4096;
  * those slots — but the graph has to *count* the same way, or a legend claims eight kinds it cannot
  * tell apart.
  */
-export function scaleOf(look: Look, capacity = CHART_SLOTS) {
-  const mono = look.encode.identity === "shape";
+export function scaleOf(channels: Channels, capacity = CHART_SLOTS) {
+  const constant = isColour(channels.fill) ? channels.fill : undefined;
+  const shaped = channels.symbol !== undefined;
   return {
     color: (ordinal: number): string => {
-      if (mono) return "var(--foreground)";
+      if (constant) return constant;
       return ordinal >= capacity
         ? "var(--muted-foreground)"
         : categoricalColor(ordinal, undefined, capacity);
@@ -51,7 +101,7 @@ export function scaleOf(look: Look, capacity = CHART_SLOTS) {
     // `SHAPE_OTHER` — which is what makes the scale's claim true. Falling back to `circle` would
     // hand category 5 the glyph category 0 already wears.
     shape: (ordinal: number): ShapeId =>
-      mono ? (SHAPE_ORDER[ordinal] ?? SHAPE_OTHER) : SHAPE.circle,
+      shaped ? (SHAPE_ORDER[ordinal] ?? SHAPE_OTHER) : SHAPE.circle,
   };
 }
 
@@ -77,8 +127,13 @@ export interface Buffers {
  * ordering is what a whole-corpus load gets for free and a bounded one cannot have. It is also
  * arguably the better question — the biggest node *here* is what a reader is looking at.
  */
-export function buffers(slice: Slice, look: Look, host: Element): Buffers {
-  const scale = scaleOf(look, categoricalCapacity(host));
+export function buffers(
+  slice: Slice,
+  look: Look,
+  host: Element,
+  channels: Channels = {},
+): Buffers {
+  const scale = scaleOf(channels, categoricalCapacity(host));
 
   /** Ordinal → resolved colour, memoised: a slice of 20,000 points wears at most a handful. */
   const rgba = new Map<number, Rgba>();
@@ -127,8 +182,8 @@ export function buffers(slice: Slice, look: Look, host: Element): Buffers {
 
   const count = slice.links.length / 2;
   const linkColors = new Float32Array(count * 4);
-  const neutral =
-    look.encode.links === "source" ? null : resolveToken(host, "var(--muted-foreground)");
+  // Absent, a link takes the colour of the vertex it leaves; a constant makes links plain structure.
+  const neutral = channels.stroke ? resolveToken(host, channels.stroke) : null;
   for (let e = 0; e < count; e++) {
     const src = slice.links[e * 2] ?? 0;
     const r = neutral ? neutral[0] : (colors[src * 4] ?? 0.7);

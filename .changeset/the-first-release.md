@@ -90,12 +90,33 @@ per camera move reads only the tiles the window touches. It accepts no column na
 they come from the manifest, and a corpus reader that also took them would be the general source
 with extra steps.
 
-What colours a point and what its size ramp is spent on are **channels on the canvas**, under Plot's
-names: `<GraphCanvas source={source} fill="kind" r="degree" />`. A source says where the bytes are; a
-channel says what you want drawn, so changing one re-asks over the same bytes instead of building a
-second source — which would restart the query loop and re-count the corpus to answer a question about
-colour. `x` and `y` are not channels: in a laid-out corpus a position is a fact, and it is the index
-every spatial question is asked against.
+**What a point wears is bound on the canvas, under Plot's names** — `fill`, `symbol`, `r`, `stroke`:
+
+```tsx
+<GraphCanvas source={source} fill="kind" r="degree" stroke="var(--muted-foreground)" />
+```
+
+A source says where the bytes are; a channel says what you want drawn, so changing one re-asks over
+the same bytes instead of building a second source — which would restart the query loop and re-count
+the corpus to answer a question about colour.
+
+Plot's rule about what a value *means* comes with the names: **a CSS colour is a constant and
+anything else is a column**. `fill="kind"` spends colour on a category; `fill="var(--foreground)"`
+paints every point one ink, and with `symbol="kind"` beside it identity moves to shape — which is the
+monochrome picture, said as a binding rather than as a theme. A bare word is always a column, so a
+corpus with a column called `red` is not a trap.
+
+A `Look` is **form only**: sizes, link width and curve, labels, vignette. It used to decide whether
+identity reached the GPU as colour or as shape, which is a theme rewriting an encoding, and the cost
+was a `fill` binding that painted nothing under one of the three. The three names survive as
+recommended pairings — a form plus bindings — offered by whoever draws the graph.
+
+`gradeComposition(look, channels)` grades what you composed: spending shape and size at once needs a
+four-pixel radius floor, so pairing `symbol` with a dense form's ramp now reports. Graded against our
+own three constants it could never fail for you; graded against a composition it can.
+
+`x` and `y` are not channels: in a laid-out corpus a position is a fact, and it is the index every
+spatial question is asked against.
 
 The graph comes in Ark's four pieces. `useGraph(props)` builds the api, `GraphRootProvider` renders
 the surface over one, `GraphCanvas` is the shortcut that does both, and `useGraphContext()` reads it

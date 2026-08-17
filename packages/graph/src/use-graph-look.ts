@@ -6,7 +6,7 @@ import type { Graph } from "@cosmos.gl/graph";
 // that paints from tokens needs it, which is more surfaces than the chart half.
 import { useThemeTick } from "@kanzo-tech/ui";
 import type { Slice } from "./bounded";
-import { appearance, buffers } from "./graph-model";
+import { appearance, buffers, type Channels } from "./graph-model";
 import type { Look } from "./graph-looks";
 import { DEFAULT_DISPLAY, type Display } from "./types";
 
@@ -42,6 +42,14 @@ export function useGraphLook(options: {
   /** The answer currently drawn. Every slice is a fresh set of points, so every slice repaints. */
   slice: Slice | null;
   look: Look;
+  /**
+   * What each channel is bound to.
+   *
+   * Only the bindings the *buffers* read arrive here — `fill` when it is a constant, `symbol`,
+   * `stroke`. `fill` as a column name and `r` name columns a query has to fetch, so those reach the
+   * source instead. One vocabulary at the call site, two destinations underneath.
+   */
+  channels?: Channels;
   /** Defaults to `DEFAULT_DISPLAY`. A host with no display controls has nothing else to pass. */
   display?: Display;
   /**
@@ -52,19 +60,19 @@ export function useGraphLook(options: {
    */
   schedule?: () => void;
 }): void {
-  const { display = DEFAULT_DISPLAY, getGraph, hostRef, look, schedule = noop, slice } = options;
+  const { channels, display = DEFAULT_DISPLAY, getGraph, hostRef, look, schedule = noop, slice } = options;
   const themeTick = useThemeTick();
 
   useEffect(() => {
     const graph = getGraph();
     const host = hostRef.current;
     if (!slice || !graph || !host) return;
-    const { colors, linkColors, shapes, sizes } = buffers(slice, look, host);
+    const { colors, linkColors, shapes, sizes } = buffers(slice, look, host, channels);
     graph.setPointColors(colors);
     graph.setPointSizes(sizes);
     graph.setPointShapes(shapes);
     graph.setLinkColors(linkColors);
-  }, [getGraph, hostRef, look, slice, themeTick]);
+  }, [channels, getGraph, hostRef, look, slice, themeTick]);
 
   // The paint, once, for both. These deps are a superset of the ones above, so whenever the buffers
   // are rebuilt this runs in the same commit and right after — and `setPointColors` and friends only

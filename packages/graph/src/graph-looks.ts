@@ -1,13 +1,21 @@
-// Three ways the same graph can be *drawn*. Not three palettes.
+// Three registers the same graph can be *drawn* in. Not three palettes, and — since
+// `decisions/a-look-is-form-and-a-channel-is-a-binding.md` — not three encodings either.
 //
-// A look owns geometry and one encoding decision, and no colours at all. Colour belongs to the
-// theme's categorical scheme, the way it belongs to a chart: `categoricalColor(i)` hands out
-// `var(--chart-N)` in slot order, and every surface showing the same categories gets the same
-// answer. A look that shipped its own hexes made the canvas a closed stamp — switching it changed
-// what colours *mean* on screen, while switching the product's palette left the canvas untouched.
+// **A look is form and nothing else.** No colours: colour belongs to the theme's categorical
+// scheme, the way it belongs to a chart, so every surface showing the same categories gets the same
+// answer. And no encoding: what a channel carries is bound by whoever draws the graph, under Plot's
+// names. A look that decided whether identity reached the GPU as colour or as shape was a theme
+// reaching into an encoding — Vega-Lite states the general rule, that `config` sets defaults for
+// marks, scales, axes and legends and may not touch `encoding` — and its concrete cost was a `fill`
+// binding that painted nothing under the look named Ink.
 //
 // This is the grammar-of-graphics split, and it is the reference model rather than a local idea:
-// in Observable Plot colour is a property of the **scale**, never of the mark. A look is the mark.
+// in Observable Plot colour is a property of the **scale**, never of the mark, and the mark carries
+// the channels. A look is the mark's geometry.
+//
+// The three names survive as **recommended pairings** — a form plus the bindings that were bundled
+// with it — offered by the host that draws the graph. A host offering three arrangements it authored
+// is not the same act as a preference silently discarding the caller's binding.
 
 export type LookId = "nebula" | "atlas" | "ink";
 
@@ -59,19 +67,6 @@ export interface Look {
   id: LookId;
   label: string;
   blurb: string;
-  /**
-   * Which channel carries identity, and what the links say.
-   *
-   * `identity` is the field that stops Ink being a special case: it is not "the monochrome look",
-   * it is the look that spends **shape** on identity and leaves colour free. Everything else about
-   * it — the wide size ramp, the four-pixel floor — follows from that, because a triangle and a
-   * square are the same dot below about four pixels.
-   */
-  encode: {
-    identity: "color" | "shape";
-    /** `source` tints each link with the node it leaves; `neutral` makes links plain structure. */
-    links: "source" | "neutral";
-  };
   form: {
     /** Radius at the lowest degree in the corpus, and at the highest. */
     size: [number, number];
@@ -120,8 +115,7 @@ export interface Look {
 const NEBULA: Look = {
   id: "nebula",
   label: "Nebula",
-  blurb: "Dense and dim, with links tinted by their source.",
-  encode: { identity: "color", links: "source" },
+  blurb: "Dense and dim points, for a picture that reads as flow.",
   form: {
     size: [2, 8],
     link: { opacity: 0.42, width: 0.6, curve: 0, fade: [200, 1400] },
@@ -135,7 +129,6 @@ const ATLAS: Look = {
   id: "atlas",
   label: "Atlas",
   blurb: "Map-steady points, links that just bow, generous labels.",
-  encode: { identity: "color", links: "neutral" },
   form: {
     size: [2.2, 9],
     link: { opacity: 0.45, width: 0.7, curve: 0.12, fade: [220, 1500] },
@@ -145,24 +138,27 @@ const ATLAS: Look = {
 };
 
 /**
- * Structure without colour: identity moves to the shape channel and every node takes one ink, which
- * leaves colour free to mean the selection. The most legible of the three in print or on a
- * projector, and the only one whose size floor is load-bearing rather than taste.
+ * The large, legible register — print, a projector, a room looking at one screen.
+ *
+ * **The name is the half that left.** Ink used to mean monochrome *and* identity-as-shape; the
+ * first is a palette document and the second is a binding, and neither is form. What is left is a
+ * form whose marks are big enough to carry a second channel, which is what its floor is for — so
+ * the name should follow the form, and this one is still open.
  */
 const INK: Look = {
   id: "ink",
   label: "Ink",
-  blurb: "Monochrome. Kind reads as shape, degree as size.",
-  encode: { identity: "shape", links: "neutral" },
+  blurb: "Large, legible marks — the print-and-projector register.",
   form: {
-    // The floor is the whole look, and it protects the OTHER two channels from shape rather than
-    // shape from smallness. Ink encodes identity as shape *and* degree as size at once, and
+    // The floor is the whole form, and it protects the OTHER two channels from shape rather than
+    // shape from smallness. It is why this form is the one to pair `symbol` with: spending shape on
+    // identity *and* size on degree at once is what the measurements below are about, and
     // Giovannangeli et al. (arXiv 2103.06084) measure that encoding on two attributes together
     // "drops performance drastically even with minor heterogeneity". Smaller marks make the
     // interference worse in both directions that matter here: the luminance JND rises from 6.48
     // ΔL* at 50 px to 11.30 at 6 px, and shape biases perceived size so hard that a square is
     // reported larger than any other shape at equal area in 82% of trials — which is a size ramp
-    // reading wrong, in the one look whose size ramp carries meaning.
+    // reading wrong wherever `r` and `symbol` are bound together.
     //
     // Not "a triangle and a square are the same dot below four pixels", which is what this said
     // and is false — see `SHAPE_ORDER` for the measurement that refutes it.

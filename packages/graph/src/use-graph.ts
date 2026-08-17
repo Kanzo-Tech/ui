@@ -4,6 +4,7 @@ import type { Graph } from "@cosmos.gl/graph";
 import { useCallback, useMemo, useRef, type RefObject } from "react";
 import type { BoundedSource, Slice } from "./bounded";
 import { LOOKS, type Look } from "./graph-looks";
+import { isColour, type Channels } from "./graph-model";
 import { residentOf, type Resident, type VertexId } from "./resident";
 import type { Display, Motion, Sim } from "./types";
 import { useBoundedGraph } from "./use-bounded-graph";
@@ -71,7 +72,8 @@ export interface UseGraphProps {
   simulate?: boolean;
   clusters?: (number | undefined)[];
   /**
-   * Which column colours a point — Plot's channel name, and Plot's meaning.
+   * Which column colours a point, **or a CSS colour every point wears** — Plot's channel name,
+   * Plot's meaning, and Plot's rule that a colour is a constant and anything else is a column.
    *
    * **A channel is what you want drawn, so it rides the question and not the source.** Baked into a
    * source at construction — which is where this used to live — changing what a graph is coloured by
@@ -79,9 +81,25 @@ export interface UseGraphProps {
    * same question. Changing it here re-asks over the same bytes, which is all it should ever have
    * cost.
    *
-   * Omitted, the source decides: it is the only thing that knows what its corpus carries.
+   * As a *constant* it costs no query at all: `fill="var(--foreground)"` is the monochrome picture,
+   * and it is a binding rather than a look, because a look may not rebind an encoding.
+   *
+   * Omitted, the source decides which column: it is the only thing that knows what its corpus
+   * carries.
    */
   fill?: string;
+  /**
+   * Which column a point's **shape** carries — Plot's `symbol`, and a peer of colour.
+   *
+   * Bound to the same column as `fill` this is redundant encoding, which is the point on a colourful
+   * document and the only encoding left on a monochrome one. It reads the categorical column the
+   * slice already carries, so it costs no query; a *different* column would need a second categorical
+   * array in the slice and in every source, and is not paid for.
+   *
+   * Binding it takes on an obligation — see `gradeComposition`: shape and size spent at once need a
+   * radius floor, which is a property of what you composed rather than of the form you picked.
+   */
+  symbol?: string;
   /**
    * Which column the size ramp is spent on — Plot's `r`.
    *
@@ -89,6 +107,11 @@ export interface UseGraphProps {
    * look's `form.size` range has only one end.
    */
   r?: string;
+  /**
+   * What tints a link. **Absent, each link takes the colour of the vertex it leaves**; a constant
+   * like `var(--muted-foreground)` makes links plain structure.
+   */
+  stroke?: string;
   /** Vertices that stay drawn whatever the camera is over. */
   pinned?: VertexId[];
   limit?: number;
@@ -178,7 +201,26 @@ export function useGraph(props: UseGraphProps): GraphApi {
     sim,
     simulate = false,
     source,
+    stroke,
+    symbol,
   } = props;
+
+  /**
+   * The two destinations one vocabulary splits into — and the one column they share.
+   *
+   * A slice carries **one** categorical array, so the query has one column to fetch and the question
+   * is which binding names it: `fill` when it is a column, and `symbol` when `fill` is a constant.
+   * That is not a fallback, it is the monochrome picture stated exactly — identity has moved to
+   * shape, so the column identity lives in is the one `symbol` names.
+   *
+   * Getting this wrong is not a silent failure, which is the one good thing about it: with `fill` a
+   * constant and nothing put in its place, the source fell back to its own default column and DuckDB
+   * answered `Referenced column "community" not found`. The browser said so on the first Ink render.
+   *
+   * `stroke` never reaches a query at all — a link's tint is a decision about drawing.
+   */
+  const asked = isColour(fill) ? symbol : fill;
+  const channels = useMemo<Channels>(() => ({ fill, stroke, symbol }), [fill, stroke, symbol]);
 
   const hostRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<Graph | null>(null);
@@ -186,7 +228,7 @@ export function useGraph(props: UseGraphProps): GraphApi {
 
   const { explore, pending, refresh, resident, slice, sliced, total } = useBoundedGraph({
     debounce,
-    fill,
+    fill: asked,
     graphRef,
     hostRef,
     limit,
@@ -273,7 +315,7 @@ export function useGraph(props: UseGraphProps): GraphApi {
     simulate,
   });
 
-  useGraphLook({ display, getGraph, hostRef, look, schedule, slice });
+  useGraphLook({ channels, display, getGraph, hostRef, look, schedule, slice });
 
   return { explore, getGraph, getResident, hostRef, pending, refresh, resident, slice, sliced, total };
 }

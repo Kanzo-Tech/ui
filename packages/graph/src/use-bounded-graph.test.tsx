@@ -3,6 +3,7 @@ import { createRef } from "react";
 import { describe, expect, it } from "vitest";
 import type { Graph } from "@cosmos.gl/graph";
 import type { BoundedSource, Slice, SliceRequest } from "./bounded";
+import { isColour } from "./graph-model";
 import { useBoundedGraph } from "./use-bounded-graph";
 
 /**
@@ -118,5 +119,27 @@ describe("a channel is part of the question", () => {
     await waitFor(() => expect(asks.length).toBeGreaterThan(1));
     expect(asks.at(-1)?.fill).toBe("hall");
     expect(counted()).toBe(1);
+  });
+});
+
+/**
+ * The column a slice's one categorical array comes from, when the bindings disagree about who names
+ * it.
+ *
+ * This is not `useBoundedGraph`'s decision — it is `useGraph`'s, one layer up, where the single
+ * vocabulary the caller writes splits into what the query fetches and what the buffers paint. It is
+ * tested here because the loop is what receives the answer, and because the failure it prevents was
+ * live for one render: `fill` as a CSS constant left the request with no column, the source fell back
+ * to its own default, and DuckDB answered `Referenced column "community" not found`.
+ */
+describe("the column the query is asked for", () => {
+  it("is the binding that names one — `symbol` when `fill` is a constant", () => {
+    // `isColour` is the whole test, and the two cases it separates are what the assertion is about.
+    expect(isColour("var(--foreground)")).toBe(true);
+    expect(isColour("#0b0b0b")).toBe(true);
+    // A bare word is always a column, which is what keeps a corpus with a column called `red` safe.
+    expect(isColour("red")).toBe(false);
+    expect(isColour("kind")).toBe(false);
+    expect(isColour(undefined)).toBe(false);
   });
 });

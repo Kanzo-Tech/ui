@@ -1,6 +1,6 @@
 # A look is form, and a channel is a binding
 
-- **Status** open — 2026-08-17
+- **Status** live — 2026-08-17
 - **Decided** `Look` keeps `form` and loses `encode`. What a channel carries is said by binding it
   on the drawing request, under Plot's names and Plot's rule that a CSS colour is a **constant** and
   a column name is a **channel**: `fill`, `symbol`, `r`, `stroke`. `symbol` is a channel in its own
@@ -13,8 +13,8 @@
 - **Reversed by** the composition check never firing. If every host that binds `symbol` also asks
   for the form that was bundled with it, the pairing was the abstraction and splitting it bought
   nothing but a check.
-- **Held by** `packages/graph/src/graph-looks.ts`, `Look`; `packages/graph/src/bounded.ts`,
-  `SliceRequest`; `packages/graph/src/obligations.ts`, `shape-floor`
+- **Held by** `packages/graph/src/graph-looks.ts`, `Look`; `packages/graph/src/graph-model.ts`,
+  `Channels`; `packages/graph/src/obligations.ts`, `gradeComposition`
 
 ## The lie, and how far it travelled
 
@@ -68,3 +68,23 @@ Its form is a large, legible, print-ready register; the monochrome half of it mo
 - **Nothing about colour values.** The graph reads the page's categorical scale and does not author,
   adjust or post-process a colour — which is the rule that put `saturate()` off the canvas and keeps
   a look from naming a hex.
+
+## What landed, and the one thing the record did not anticipate
+
+`Look` is `{ id, label, blurb, form }`. The four bindings are props of `useGraph` and therefore of
+`GraphCanvas`, and `isColour` is the constant-versus-column test — narrowed to `var(…)`, a hex and
+the colour functions, so **a bare word is always a column** and a corpus with a column called `red`
+is not a trap. The 148 CSS named colours are the price of a rule nobody has to maintain.
+
+`shape-floor` is `gradeComposition(look, channels)`, which returns `null` when `symbol` is unbound
+rather than a pass — there is no obligation to grade where shape is not spent. It bites where nothing
+reported before: pairing `symbol` with Nebula's 2px ramp now fails, and its own test watches it fail.
+
+**One vocabulary at the call site, two destinations underneath** — and that is the part the record
+did not say. `fill` as a *column* and `r` name columns a query must fetch, so they ride the
+`SliceRequest`; `fill` as a *constant*, `symbol` and `stroke` never reach a query, because shape
+reads the categorical column the slice already carries and a link's tint is a decision about drawing.
+`useGraph` is where the one vocabulary splits, which is the only place that knows both halves.
+
+The three pairings live in the host that offers them — `PAIRINGS` in the workspace showcase, beside
+the spec that names the columns they bind.
