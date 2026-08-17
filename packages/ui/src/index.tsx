@@ -55,13 +55,16 @@ export {
   PreferencesFont,
   PreferencesMonoFont,
   PreferencesDensity,
-  // Last, and it is not one section but however many the packages a host installed contribute.
+  // Last, and it is not one section but however many the packages a host installed contribute —
+  // all of them, or one namespace, so a dock or a settings page is a view over the same store
+  // rather than a second copy of it.
   PreferencesSections,
 } from "./composites/Preferences.js";
 export type {
   PreferencesProps,
   PreferencesRootProps,
   PreferencesColorProps,
+  PreferencesSectionsProps,
 } from "./composites/Preferences.js";
 export { AppearanceToggle } from "./composites/AppearanceToggle.js";
 export type { AppearanceToggleProps, AppearanceToggleLabels } from "./composites/AppearanceToggle.js";

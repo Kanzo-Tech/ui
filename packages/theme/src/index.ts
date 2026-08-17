@@ -381,8 +381,8 @@ export const AXES: {
   // Colour was the one thing not driven by an attribute: a document was a stylesheet, so the server
   // read the cookie and served the right one before the first byte, and `KanzoThemeProvider` owned a
   // `palette` preference whose own JSDoc said "wiring this does not apply anything". That followed
-  // from an assumption about size, and the assumption was never measured — the five documents this
-  // package ships are 58 kB raw and **7.6 kB gzipped together**.
+  // from an assumption about size, and the assumption was never measured — the six documents this
+  // package ships are 63.6 kB raw and **8.7 kB gzipped together**.
   //
   // So every document travels, `compile(doc, { scope })` puts each under its own attribute, and this
   // row is what selects. `def: ""` for the same reason `identity` has it: a tenant with one palette

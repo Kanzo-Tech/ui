@@ -898,18 +898,39 @@ function ContributedControl({
  * A contributed preference gets `RadioGroupCard` and not something new, because the choice it
  * expresses is the one `Colour` and `Density` already express — pick one of these, they have names.
  */
-function ContributedSections() {
+export interface PreferencesSectionsProps {
+  /**
+   * Draw one namespace instead of all of them.
+   *
+   * **This is what makes a preference one thing with several surfaces.** A panel wants every
+   * contributed section; a dock inside a canvas wants the graph's and nothing else; a settings page
+   * may want them under its own headings. Without it a surface that is not the panel has to
+   * hand-roll the controls — which is how the workspace's dock came to hold its own copy of the
+   * graph's appearance in React state, a second store for a preference the provider was already
+   * resolving.
+   *
+   * The namespace is the section's own — `"graph"` — and an unknown one draws nothing rather than
+   * throwing: a host that removed an optional package should lose a control, not a page.
+   */
+  namespace?: string;
+}
+
+function ContributedSections({ namespace }: PreferencesSectionsProps = {}) {
   const { sectionPrefs, setSectionPref } = useKanzoTheme();
+
+  const drawn = namespace
+    ? Object.entries(sectionPrefs).filter(([name]) => name === namespace)
+    : Object.entries(sectionPrefs);
 
   return (
     <>
-      {Object.entries(sectionPrefs).map(([namespace, prefs]) =>
+      {drawn.map(([name, prefs]) =>
         Object.entries(prefs).map(([key, pref]) =>
           pref.offered ? (
             <ContributedControl
-              key={`${namespace}.${key}`}
+              key={`${name}.${key}`}
               name={key}
-              onChange={(next) => setSectionPref(namespace, key, next)}
+              onChange={(next) => setSectionPref(name, key, next)}
               pref={pref}
             />
           ) : null,

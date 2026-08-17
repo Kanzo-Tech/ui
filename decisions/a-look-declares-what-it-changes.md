@@ -10,7 +10,9 @@
 - **Reversed by** a reader distinguishing Nebula from Atlas in a blind pairing. The claim below is
   that six of ten fields are under the threshold; one person telling them apart on those fields ends
   it.
-- **Held by** `packages/graph/src/look-section.test.ts`, "recovers every shipped look from a set of values a panel can produce"; `packages/graph/src/graph-looks.ts`, `MARKS`; `packages/graph/src/look-section.ts`, `LOOK_SECTION`
+- **Held by** `packages/graph/src/look-section.test.ts`, "still draws the three pictures the three
+  names drew"; `packages/graph/src/graph-looks.ts`, `lookFrom`; `packages/graph/src/look-section.ts`,
+  `LOOK_SECTION`
 
 ## The working
 
