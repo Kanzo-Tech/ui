@@ -411,6 +411,34 @@ sorted by `src_dense` and so scans all 6.9M rows with nothing to prune, worth at
 query costs; skip `matched` while the camera is moving, worth 10 ms; and a tile cache, which would
 make panning *back* free — the only item here that no amount of query tuning can substitute for.
 
+### A tile held is a window that costs nothing — and holding everything costs eighteen seconds
+
+Measured 2026-08-17 in the browser against `/bench/1000000`, one window of 20,000 marks (22,847
+matched, 117,768 links), driven directly through `openCorpus` rather than the sweep.
+
+`openCorpus` now fetches a tile whole and registers it as a file in DuckDB-WASM, so a window that
+comes back reads from memory. The trade is that registering means downloading **all** of a tile,
+where DuckDB over HTTP reads only the column chunks a query projects — and the first version of this
+cached every tile:
+
+| | cold window | repeat of the same window | overlapping pan |
+|---|---|---|---|
+| every tile held | **17,979 ms** | 11 ms | — |
+| only tiles under 256 KB | **82 ms** | **3 ms** | **41 ms** |
+
+A vertex tile in this corpus is 74 KB and the edge tiles are far larger, so the rule falls out of the
+measurement rather than out of taste: **a tile is worth holding when it is cheap to fetch whole.**
+Over the bar the URL goes to DuckDB and the range reads happen exactly as before.
+
+Against the recorded baseline for the same corpus — 210 ms first slice, 93 ms pan, in the sweep and
+therefore not the same session — the cold window is *faster* rather than slower, because a handful of
+whole 74 KB tiles fetched concurrently beats the metadata round trips and range reads they replace.
+That is the request-count finding above showing up as time.
+
+**And it makes the corpus-side item pay twice.** `BENCHMARKS.md` already asks for 4,096-row tiles on
+request count alone; at that size every tile falls under the bar and the whole read path becomes
+cacheable with nothing changing in the reader.
+
 ## What the corpus does *not* yet give
 
 Two facts about the written positions, both measured, both about usefulness rather than speed.

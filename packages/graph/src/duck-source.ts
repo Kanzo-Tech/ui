@@ -570,6 +570,121 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
   const tileUrl = (k: number) => `'${dest}/${prefix}chunk${k}.parquet'`;
   const edgeTileUrl = (k: number) => `'${dest}/${edgePrefix}by_source/tile${k}.parquet'`;
 
+  /**
+   * The tiles a window needs, held as bytes so that **panning back is free**.
+   *
+   * This is the one item on `BENCHMARKS.md`'s fix list that no amount of query tuning substitutes
+   * for, and the measurement that puts it there is blunt: two of six drag steps at ten million
+   * transfer zero new bytes and still cost 247 requests each, because every visit re-reads the same
+   * footers and column chunks over HTTP. A tile fetched once and registered as a file is read from
+   * memory forever after — no request, no range negotiation, no metadata round trip.
+   *
+   * **A tile address is what makes this possible at all**, and it is why the cache lives here rather
+   * than in the render loop: a rectangle is a continuous key nothing can memoise, and a tile index is
+   * a discrete one. `decisions/a-tile-is-an-address-not-a-verb.md` argued the camera is addressed;
+   * this is the first thing that spends the address on something.
+   *
+   * **The trade is honest and it is not free.** A registered tile is the *whole* tile, where DuckDB
+   * over HTTP reads only the column chunks a query projects — so the first visit costs more bytes and
+   * every later one costs none. Which way that nets out depends on tile size, which is the corpus's
+   * to choose and not ours: at 122,880 rows a tile is about a megabyte, and at the 4,096 the request
+   * arithmetic asks for it is about forty kilobytes.
+   *
+   * Discovered rather than required: a coordinator whose connector is not DuckDB-WASM has no
+   * filesystem to register into, and reads by URL exactly as before. `@duckdb/duckdb-wasm` is
+   * deliberately not a dependency of this package, so the capability is named structurally.
+   */
+  interface Registrar {
+    registerFileBuffer(name: string, buffer: Uint8Array): Promise<void>;
+    dropFile(name: string): Promise<void>;
+  }
+  const registrar = async (): Promise<Registrar | null> => {
+    const connector = coordinator.databaseConnector?.() as
+      | { getDuckDB?: () => Promise<Registrar> }
+      | null
+      | undefined;
+    if (!connector?.getDuckDB) return null;
+    try {
+      return await connector.getDuckDB();
+    } catch {
+      return null;
+    }
+  };
+
+  /** Registered tile name → how many bytes it is holding. Insertion order is the eviction order. */
+  const resident = new Map<string, number>();
+  let held = 0;
+
+  /**
+   * Sixty-four megabytes of tiles, evicted oldest-first.
+   *
+   * A budget rather than a count, because a tile's size is the corpus's decision and a count would
+   * mean something different for every one. Oldest-first rather than least-recently-used: a reader
+   * pans, and a pan revisits what it just left, so recency and insertion order agree where it
+   * matters — and an LRU's bookkeeping is a second structure to keep correct for a difference nobody
+   * has measured.
+   */
+  const BUDGET = 64 * 1024 * 1024;
+
+  /**
+   * A tile is worth holding when it is **cheap to fetch whole** — 256 KB, and the number is measured.
+   *
+   * Registering a tile means downloading all of it, where DuckDB over HTTP reads only the column
+   * chunks a query projects. On the million-node corpus a vertex tile is 74 KB and the edge tiles are
+   * far larger, and caching both took a cold window from about 200 ms to **17,979 ms** while a repeat
+   * of the same window fell to **11 ms**. Holding everything is a thousandfold win on revisit paid
+   * for with an eighteen-second first paint, which is not a trade anybody would take.
+   *
+   * So the rule is a property of the tile rather than a flag: under the bar it is cached, over it the
+   * URL is handed to DuckDB and the range reads happen as before. It also means the corpus decides —
+   * `BENCHMARKS.md` asks for 4,096-row tiles on the request arithmetic alone, and at that size every
+   * tile falls under this bar and the whole read path becomes cacheable without a line changing here.
+   */
+  const WORTH_HOLDING = 256 * 1024;
+
+  /**
+   * The names DuckDB should read these tiles from — registered buffers where possible, URLs where
+   * not.
+   *
+   * Fetched concurrently, because a window is a handful of tiles and they are independent; a
+   * sequential loop here would make the first paint the sum of its tiles rather than the slowest.
+   */
+  async function readable(kind: "vertex" | "edge", tiles: number[]): Promise<string[]> {
+    const url = kind === "vertex" ? tileUrl : edgeTileUrl;
+    const db = await registrar();
+    if (!db) return tiles.map(url);
+    const names = await Promise.all(
+      tiles.map(async (k) => {
+        const name = `corpus_${type}_${kind}_${k}.parquet`;
+        if (resident.has(name)) return name;
+        const address = url(k).slice(1, -1);
+        // The size first, which is one metadata request against a body that may be megabytes — and
+        // the same request the tile count already probes with, so the shape is not new here.
+        const probe = await fetch(address, { method: "HEAD" });
+        const size = Number(probe.headers.get("content-length"));
+        if (!probe.ok || !Number.isFinite(size) || size > WORTH_HOLDING) return url(k);
+        const response = await fetch(address);
+        // A tile that will not load is not a reason to fail the whole window: fall back to the URL
+        // and let DuckDB report whatever it finds there, which is the error a reader can act on.
+        if (!response.ok) return url(k);
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        await db.registerFileBuffer(name, bytes);
+        resident.set(name, bytes.byteLength);
+        held += bytes.byteLength;
+        return name;
+      }),
+    );
+    while (held > BUDGET && resident.size > 0) {
+      const [oldest, size] = resident.entries().next().value as [string, number];
+      // Never evict a tile this very window is about to read, or the query reads a dropped file.
+      if (names.includes(oldest)) break;
+      resident.delete(oldest);
+      held -= size;
+      await db.dropFile(oldest);
+    }
+    return names.map((n) => (n.startsWith("'") ? n : `'${n}'`));
+  }
+
   async function load(): Promise<TileBox[]> {
     if (boxes) return boxes;
     /**
@@ -718,11 +833,9 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
       // whole set rather than selecting one it would only end up selecting all of.
       const selected =
         view.zoom < lodThreshold ? all.map((b) => b.tile) : intersecting(all, view);
-      const nodes = `read_parquet([${selected.map(tileUrl).join(", ")}])`;
-      const relation = `read_parquet([${(edgePrefix ? selected : []).map(edgeTileUrl).join(", ")}])`;
-
       // Nothing selected is a legitimate answer — the camera is over empty space — and asking
-      // `read_parquet([])` is a syntax error rather than an empty result.
+      // `read_parquet([])` is a syntax error rather than an empty result. Checked before the tiles
+      // are fetched, so an empty window costs no bytes at all.
       if (selected.length === 0) {
         return {
           mode: "detail",
@@ -733,6 +846,15 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
           categories: new Uint16Array(0),
         };
       }
+
+      // Both halves at once: the vertex tiles and the edge tiles a window touches are independent
+      // reads, and the window is not drawable until both have landed.
+      const [vertexTiles, edgeTiles] = await Promise.all([
+        readable("vertex", selected),
+        readable("edge", edgePrefix ? selected : []),
+      ]);
+      const nodes = `read_parquet([${vertexTiles.join(", ")}])`;
+      const relation = `read_parquet([${edgeTiles.join(", ")}])`;
 
       return view.zoom < lodThreshold && columns.category !== undefined
         ? aggregate(coordinator, nodes, relation, { ...columns, category: columns.category }, limit)
