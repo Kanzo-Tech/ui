@@ -121,6 +121,43 @@ export interface Look {
 }
 
 /**
+ * What a mark is — one of the two axes the three looks turn out to be.
+ *
+ * **Six of the ten fields were jitter.** Measured across the shipped three, Nebula and Atlas
+ * differed by 7–17% on radius, link opacity, link width and fade — two tenths of a pixel, one tenth
+ * of a line width, twenty pixels of fade distance — against this file's own threshold for a
+ * difference meaning something, a luminance JND of 6.48–11.30 ΔL*. Two pictures nobody can tell
+ * apart were about to become two names in a preferences panel. See
+ * `decisions/a-look-declares-what-it-changes.md`.
+ *
+ * **Link opacity rides this axis and not the link one**, and that is what the numbers say rather
+ * than a tidy guess: 0.42 and 0.45 on the two dense forms against 0.28 on the legible one. Bigger
+ * marks, quieter links — a form that spends more ink on points cannot also spend it on edges.
+ */
+export const MARKS = {
+  dense: { size: [2, 8] as [number, number], link: { opacity: 0.42, width: 0.6 } },
+  legible: { size: [4, 13] as [number, number], link: { opacity: 0.28, width: 0.5 } },
+} as const;
+
+/**
+ * The fade every form shares.
+ *
+ * It was three ranges within ±10% of each other, which is the definition of a field nobody chose.
+ * A form that ever needs its own says so by declaring one.
+ */
+const FADE: [number, number] = [200, 1400];
+
+/** A form, composed: a mark, what its links do, a label budget, and whether the rim darkens. */
+function form(
+  mark: (typeof MARKS)[keyof typeof MARKS],
+  link: { curve: number; blend: boolean },
+  labels: number,
+  vignette = false,
+): Look["form"] {
+  return { size: mark.size, link: { ...mark.link, ...link, fade: FADE }, labels, vignette };
+}
+
+/**
  * Cosmograph's own register: small dense points and a haze of links that take their colour from
  * the node they leave, so the picture reads as flow rather than as a diagram.
  */
@@ -128,12 +165,7 @@ const NEBULA: Look = {
   id: "nebula",
   label: "Nebula",
   blurb: "Dense and dim points, for a picture that reads as flow.",
-  form: {
-    size: [2, 8],
-    link: { opacity: 0.42, width: 0.6, curve: 0, blend: true, fade: [200, 1400] },
-    labels: 14,
-    vignette: true,
-  },
+  form: form(MARKS.dense, { curve: 0, blend: true }, 14, true),
 };
 
 /** The default: map-steady points, links that bow just enough to separate a parallel pair. */
@@ -141,12 +173,7 @@ const ATLAS: Look = {
   id: "atlas",
   label: "Atlas",
   blurb: "Map-steady points, links that just bow, generous labels.",
-  form: {
-    size: [2.2, 9],
-    link: { opacity: 0.45, width: 0.7, curve: 0.12, blend: false, fade: [220, 1500] },
-    labels: 26,
-    vignette: false,
-  },
+  form: form(MARKS.dense, { curve: 0.12, blend: false }, 26),
 };
 
 /**
@@ -161,24 +188,18 @@ const INK: Look = {
   id: "ink",
   label: "Ink",
   blurb: "Large, legible marks — the print-and-projector register.",
-  form: {
-    // The floor is the whole form, and it protects the OTHER two channels from shape rather than
-    // shape from smallness. It is why this form is the one to pair `symbol` with: spending shape on
-    // identity *and* size on degree at once is what the measurements below are about, and
-    // Giovannangeli et al. (arXiv 2103.06084) measure that encoding on two attributes together
-    // "drops performance drastically even with minor heterogeneity". Smaller marks make the
-    // interference worse in both directions that matter here: the luminance JND rises from 6.48
-    // ΔL* at 50 px to 11.30 at 6 px, and shape biases perceived size so hard that a square is
-    // reported larger than any other shape at equal area in 82% of trials — which is a size ramp
-    // reading wrong wherever `r` and `symbol` are bound together.
-    //
-    // Not "a triangle and a square are the same dot below four pixels", which is what this said
-    // and is false — see `SHAPE_ORDER` for the measurement that refutes it.
-    size: [4, 13],
-    link: { opacity: 0.28, width: 0.5, curve: 0, blend: false, fade: [180, 1200] },
-    labels: 40,
-    vignette: false,
-  },
+  // The mark is `legible`, and its radius is the whole reason that mark exists: the floor protects
+  // the OTHER two channels from shape rather than shape from smallness. It is why this is the form
+  // to pair `symbol` with — spending shape on identity *and* size on degree at once is what
+  // Giovannangeli et al. (arXiv 2103.06084) measure as dropping performance drastically under even
+  // minor heterogeneity, and smaller marks worsen it both ways: the luminance JND rises from 6.48
+  // ΔL* at 50 px to 11.30 at 6 px, and a square is reported larger than any other shape at equal
+  // area in 82% of trials, which is a size ramp reading wrong wherever `r` and `symbol` are bound
+  // together.
+  //
+  // Not "a triangle and a square are the same dot below four pixels", which is what this said and
+  // is false — see `SHAPE_ORDER` for the measurement that refutes it.
+  form: form(MARKS.legible, { curve: 0, blend: false }, 40),
 };
 
 export const LOOKS: Record<LookId, Look> = { nebula: NEBULA, atlas: ATLAS, ink: INK };
