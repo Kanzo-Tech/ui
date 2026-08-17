@@ -92,7 +92,7 @@ lo manda la escala, no la pulcritud:
 
 | | paso | por qué ahí |
 |---|---|---|
-| 1 | dirección + caché + tamaño de tesela | las peticiones son el término que sigue a N |
+| 1 | dirección + caché + tamaño de tesela · **caché hecha** 2026-08-17 | las peticiones son el término que sigue a N |
 | 2 | trocear aristas y arreglar las costuras del escritor *(rmlext)* | el join O(N), y la otra mitad del larger-than-RAM |
 | 3 | multi-tipo por vecindad | sin esto un grafo de conocimiento no dibuja **ni una** arista cruzada |
 | 4 | `explore` implementado | es el mecanismo del 3, no una comodidad |
@@ -137,6 +137,23 @@ interface Addressable {
 
 Caché, aborto, prefetch y refinamiento se escriben **una vez, en el framework**, y sirven a los dos
 tipos de pregunta.
+
+**La caché ya está, y midió mejor de lo esperado.** Una tesela se trae entera y se registra como
+fichero en DuckDB-WASM, así que una ventana que vuelve lee de memoria. Contra `/bench/1000000`, una
+ventana de 20.000 marcas: **82 ms en frío, 3 ms al repetir, 41 ms en un pan solapado** — y la línea
+base registrada para ese corpus era 210 ms de primera rebanada y 93 ms de pan. El frío *mejora*
+porque un puñado de teselas de 74 KB en paralelo bate a los viajes de metadatos que sustituye.
+
+La primera versión guardaba **todas** las teselas y eso costó **17.979 ms** en frío: registrar una
+tesela es bajarla entera, y las de aristas son enormes. De ahí la regla, que es del propio dato y no
+un flag: **una tesela se guarda cuando es barata de traer entera** (256 KB). Y hace que el cambio del
+corpus pague dos veces — a 4.096 filas por tesela todas caen bajo la barra y el camino entero pasa a
+ser cacheable sin tocar el lector.
+
+**Lo que queda de este paso.** El tamaño de tesela (vive en rmlext) y meter `resolve`/`fetch` en el
+contrato, que **hoy no hace falta**: la caché vive dentro de `openCorpus` porque es la única fuente
+direccionada que hay. El contrato se parte cuando haya una segunda, y no antes — la regla de la casa
+es no añadir una forma de expresar algo hasta que haya dos sitios que la expresen.
 
 **Y aquí es donde entra la escala, no sólo la limpieza.** Este paso incluye las dos cosas que la
 medición de peticiones exige, porque son la misma pieza:
