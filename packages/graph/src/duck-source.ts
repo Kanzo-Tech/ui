@@ -374,7 +374,7 @@ function countOf(rows: unknown): number {
  * The consumer knows one thing: **where the corpus is.**
  *
  * ```ts
- * const source = await corpusSource({ coordinator, dest: "/bench/1000000" });
+ * const { source } = await openCorpus({ coordinator, dest: "/bench/1000000" });
  * ```
  *
  * **Addressed, not queried.** The manifest and the per-tile boxes are read once and kept; after that

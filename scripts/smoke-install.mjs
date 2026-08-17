@@ -309,7 +309,7 @@ pass("the derivation stays in @kanzo-tech/palette, which a consumer never instal
 // Mosaic in the tree. It threw ERR_MODULE_NOT_FOUND until \`onceQuery\` left the barrel.
 const graph = await import("@kanzo-tech/graph");
 pass(\`graph root barrel imports with only non-optional peers (\${Object.keys(graph).length} exports)\`);
-for (const name of ["memorySource", "buffers", "useBoundedGraph", "vertexId"]) {
+for (const name of ["memorySource", "buffers", "useGraph", "vertexId"]) {
   if (typeof graph[name] !== "function") fail(\`@kanzo-tech/graph does not export \${name}\`);
 }
 if ("onceQuery" in graph) fail("onceQuery is back on the root barrel — it imports @kanzo-tech/ui/analytics");
@@ -320,7 +320,7 @@ const slice = graph.memorySource({
   vertices: new BigUint64Array([graph.vertexId(0, 0), graph.vertexId(0, 1)]),
   positions: new Float32Array([0, 0, 1, 1]),
   links: new Float32Array([0, 1]),
-}).slice({ limit: 10, lodThreshold: 0, query: { kind: "region", view: { xMin: -Infinity, xMax: Infinity, yMin: -Infinity, yMax: Infinity, zoom: 1 } } });
+}).slice({ limit: 10, lodThreshold: 0, view: { xMin: -Infinity, xMax: Infinity, yMin: -Infinity, yMax: Infinity, zoom: 1 } });
 if ((await slice).vertices.length !== 2) fail("memorySource answered nothing — the no-database path is broken");
 else pass("memorySource answers a slice with no database installed");
 

@@ -11,7 +11,7 @@
   holds. Levels are separate relations with their own numbering, and if choosing among them ever
   needs an answer from the corpus rather than a number from the manifest, the camera has become a
   question and this record is wrong.
-- **Held by** `packages/graph/src/duck-source.ts`, `corpusSource`;
+- **Held by** `packages/graph/src/duck-source.ts`, `openCorpus`;
   `packages/graph/src/bounded.ts`, `ExploringSource`.
 
 ## It was a verb, on the other side of the seam, and it was deleted
@@ -44,7 +44,7 @@ reading it that way.
 
 The second line has a hole already cut for it, and the verb is named in our contract before anything
 implements it. `ExploringSource.explore({ seeds, depth })` is the shape, and the sources that cannot
-answer it say so by not having the method — `duckBoundedSource` and `corpusSource` both, in as many
+answer it say so by not having the method — `duckBoundedSource` and `openCorpus` both, in as many
 words: *a neighbourhood query would mean recursive joins over the whole edge table, which is the
 unbounded pattern wearing a bounded interface, and fossil's `expand` is what answers it.*
 
