@@ -69,13 +69,11 @@ export interface DuckSourceOptions {
   xField?: string;
   yField?: string;
   /**
-   * The column whose distinct values become colour ordinals, and the groups aggregate mode collapses
-   * to. Ranked rather than read: a category column is text as often as not, and `Number("c3")` is
-   * `NaN`, which would quietly colour every point slot zero.
+   * **What colours and what sizes are not here**, and their absence is the shape rather than an
+   * omission: they are `fill` and `r` on the request, because a channel is what the caller wants
+   * drawn now and this object is where the bytes are. Given here too, recolouring meant building a
+   * second source — and two places deciding one colour is the state that move ended.
    */
-  categoryField?: string;
-  /** What the size ramp is spent on. Omitted, every point is drawn at one radius. */
-  sizeField?: string;
   sourceField?: string;
   targetField?: string;
 }
@@ -86,7 +84,18 @@ interface Columns {
   subject: string | undefined;
   x: string;
   y: string;
-  category: string;
+  /**
+   * The categorical column, when a channel named one — **and `undefined` is not a missing value.**
+   *
+   * It used to default to `community`, in both sources, which is this side writing what the corpus
+   * owns: a relation that has no such column answered `Referenced column "community" not found`, and
+   * one that has a differently named cluster column was silently coloured by the wrong thing. Neither
+   * failure is the caller's, and both were invented here.
+   *
+   * Unbound, every point is one colour — which is Plot's own answer to a mark with no `fill` channel,
+   * and an honest picture rather than a guess.
+   */
+  category: string | undefined;
   size: string | undefined;
   source: string;
   target: string;
@@ -94,13 +103,17 @@ interface Columns {
 
 export function duckBoundedSource(options: DuckSourceOptions): BoundedSource {
   const { coordinator, edges, nodes, typeIndex } = options;
-  const columns: Columns = {
+  /**
+   * Everything this relation *is*, and nothing about what to draw.
+   *
+   * `category` and `size` are absent here and filled in per request from `fill` and `r` — the same
+   * split `openCorpus` makes with its own `fixed` block, for the same reason.
+   */
+  const columns: Omit<Columns, "category" | "size"> = {
     id: options.idField ?? "id",
     subject: options.subjectField,
     x: options.xField ?? "x",
     y: options.yField ?? "y",
-    category: options.categoryField ?? "community",
-    size: options.sizeField,
     source: options.sourceField ?? "source",
     target: options.targetField ?? "target",
   };
@@ -145,12 +158,12 @@ export function duckBoundedSource(options: DuckSourceOptions): BoundedSource {
      */
     async slice(request: SliceRequest): Promise<Slice> {
       const { fill, limit, lodThreshold, pinned, r, view } = request;
-      // The request wins over the constructor, because a channel is what the caller wants drawn now
-      // and the options are what this relation happens to hold. Two places deciding one colour is
-      // the state this move exists to end.
-      const asked: Columns = { ...columns, category: fill ?? columns.category, size: r ?? columns.size };
-      return view.zoom < lodThreshold
-        ? aggregate(coordinator, nodes, edges, asked, limit)
+      const asked: Columns = { ...columns, category: fill, size: r };
+      // Aggregate mode collapses to *groups*, so it needs a column to group by. Unbound, a zoomed-out
+      // view is a truncated detail slice instead — which `n` already reports honestly — rather than
+      // one super-node standing for the corpus, which is a picture of nothing.
+      return view.zoom < lodThreshold && asked.category
+        ? aggregate(coordinator, nodes, edges, { ...asked, category: asked.category }, limit)
         : detail(coordinator, nodes, edges, asked, view, limit, typeIndex, pinned);
     },
   };
@@ -196,9 +209,14 @@ function visibleCte(nodes: string, c: Columns, where: string, limit: number): st
   // LIMIT, and a second pass keyed on `local` would be a second scan to fetch a column the first one
   // was already standing on.
   const subject = c.subject ? `, ${c.subject} AS subject` : "";
+  // No categorical binding, no ranking: a literal zero is the ordinal every point wears, and the
+  // scale hands that one colour. Ranking a column nobody named is how a default column gets invented.
+  const category = c.category
+    ? `(dense_rank() OVER (ORDER BY ${c.category}) - 1)::INTEGER AS category`
+    : "0::INTEGER AS category";
   return `WITH vis AS (
     SELECT ${c.id} AS id, ${c.x} AS x, ${c.y} AS y${size}${subject},
-           (dense_rank() OVER (ORDER BY ${c.category}) - 1)::INTEGER AS category,
+           ${category},
            (row_number() OVER (ORDER BY ${c.id}) - 1)::INTEGER AS local
     FROM ${nodes}
     WHERE ${where}
@@ -278,7 +296,9 @@ async function aggregate(
   coordinator: Coordinator,
   nodes: string,
   edges: string,
-  c: Columns,
+  // Narrowed: grouping needs a column, and the caller checked. Passing the wider type and defaulting
+  // here is how the invented `community` got in the first time.
+  c: Columns & { category: string },
   limit: number,
 ): Promise<Slice> {
   const cte = `WITH vis AS (
@@ -691,7 +711,7 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
     // needs adjacency this source does not index, and fossil's `expand` is what answers it —
     // `ExploringSource` is the shape waiting for whoever writes that one.
     async slice(request: SliceRequest): Promise<Slice> {
-      const { fill = "community", limit, lodThreshold, pinned, r, view } = request;
+      const { fill, limit, lodThreshold, pinned, r, view } = request;
       const columns: Columns = { ...fixed, category: fill, size: r };
       const all = await load();
       // Zoomed out past the threshold every tile is in the picture anyway, so aggregate reads the
@@ -714,8 +734,8 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
         };
       }
 
-      return view.zoom < lodThreshold
-        ? aggregate(coordinator, nodes, relation, columns, limit)
+      return view.zoom < lodThreshold && columns.category !== undefined
+        ? aggregate(coordinator, nodes, relation, { ...columns, category: columns.category }, limit)
         : detail(coordinator, nodes, relation, columns, view, limit, 0, pinned);
     },
   };
