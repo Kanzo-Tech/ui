@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { AXES, DEFAULT_PREFS, themeData } from "./index";
+import { AXES, CORE_PREFS, DEFAULT_PREFS, prefOptions, themeData } from "./index";
 
 const pkgDir = resolve(__dirname, "..");
 const read = (f: string) => readFileSync(resolve(pkgDir, f), "utf8");
@@ -110,6 +110,69 @@ describe("@kanzo-tech/theme", () => {
     // And it starts empty rather than seeded from any manifest: a default that has been *stored*
     // can no longer move when the section, or a tenant's policy, changes it.
     expect(DEFAULT_PREFS.sections).toEqual({});
+  });
+
+  // ── The declaration ─────────────────────────────────────────────────────────
+  // `CORE_PREFS` is a cast over generated JSON, so TypeScript checks none of it: `kind: string` will
+  // not narrow to the union however the cast is written. These are that check, at runtime.
+
+  it("declares every preference the core has, and nothing that is not one", () => {
+    // Two keys of `ThemePrefs` are deliberately absent and each has to justify itself:
+    // `identityByPalette` is a memory consulted when the palette changes, and `sections` is the
+    // opaque bag another package's preferences ride in. A NEW axis appearing in `DEFAULT_PREFS`
+    // without an entry here fails, which is the drift this file exists to catch — one that produces
+    // no type error, because the generated block is data.
+    expect(Object.keys(CORE_PREFS).sort()).toEqual([
+      "appearance", "density", "font", "identity", "monoFont", "paletteByAppearance", "radius",
+    ]);
+    const undeclared = Object.keys(DEFAULT_PREFS).filter((key) => !(key in CORE_PREFS));
+    expect(undeclared.sort()).toEqual(["identityByPalette", "sections"]);
+  });
+
+  it("is well-formed — a kind, a default among its own options, and a doc", () => {
+    for (const [key, decl] of Object.entries(CORE_PREFS)) {
+      expect(["choice", "toggle", "range"], `"${key}" declares kind "${decl.kind}"`).toContain(
+        decl.kind,
+      );
+      expect(decl.doc, `"${key}" has no doc — a surface draws it beside the control`).toBeTruthy();
+      // A default outside the options is the one malformation the resolver hides: `resolvePref`
+      // answers it anyway (the default is the last member of the chain and is never gated), so the
+      // panel would show a group with nothing selected and no error anywhere.
+      const options = prefOptions(decl);
+      if (options === null) continue; // the two whose options a tenant writes
+      expect(
+        options.map((o) => o.value),
+        `"${key}" defaults to "${decl.default}", which it does not offer`,
+      ).toContain(decl.default);
+    }
+  });
+
+  it("offers exactly the values it generated, so no list is typed twice", () => {
+    // The guard that would have caught `RADII` and `DENSITIES` in `Preferences.tsx`: the panel's
+    // option lists were hand-typed beside the generated tables they duplicated. Everything a
+    // control offers for a generated axis must BE the generated table, in its order.
+    for (const [key, table] of Object.entries(tables)) {
+      const declared = prefOptions(CORE_PREFS[key as keyof typeof CORE_PREFS]);
+      expect(declared?.map((o) => o.value), `axis "${key}"`).toEqual(Object.keys(table ?? {}));
+      // And every one of them is named. A missing label draws an empty card, which reads as a
+      // rendering bug rather than as the data gap it is.
+      expect(declared?.every((o) => Boolean(o.label)), `axis "${key}" has an unnamed option`).toBe(
+        true,
+      );
+    }
+  });
+
+  it("names a SOURCE for the two axes whose options a tenant writes", () => {
+    // The other half of the same claim. These two may not carry a list: their values are brands a
+    // client authored at onboarding, and a literal here would be this package authoring a client's
+    // product — which is the line the whole colour layer holds.
+    for (const key of ["identity", "paletteByAppearance"] as const) {
+      const decl = CORE_PREFS[key];
+      expect(decl.kind).toBe("choice");
+      expect(Array.isArray(decl.kind === "choice" ? decl.options : []), `"${key}" lists options`)
+        .toBe(false);
+      expect(prefOptions(decl), `"${key}" resolves options with no tenant`).toBeNull();
+    }
   });
 
   // ── Drift guards ────────────────────────────────────────────────────────────

@@ -1,5 +1,7 @@
 import {
+  CORE_PREFS,
   DEFAULT_PREFS,
+  prefOptions,
   STORAGE_KEY,
   type PaletteOption,
   type SectionManifest,
@@ -128,6 +130,43 @@ describe("Preferences", () => {
       expect(label?.getAttribute("data-slot")).toBe("slider-label");
       // …and it is not ALSO written as an `aria-label`, which is the duplication being removed.
       expect(thumb.hasAttribute("aria-label")).toBe(false);
+    });
+  });
+
+  describe("no option list is typed twice", () => {
+    // The claim the generated declaration makes, asserted where it can fail: everything this panel
+    // OFFERS is the table `themes.css` was emitted from. `RADII` and `DENSITIES` were typed in
+    // `Preferences.tsx`, beside a `themeData` import that already carried both, and a hand-copy
+    // agrees with the generator exactly until the generator changes — which is a defect with no
+    // symptom until someone adds a radius step and the panel silently declines to offer it.
+    //
+    // **What it cannot prove:** nothing here checks that a value DOES anything. A radius step
+    // offered, selected and written as `data-radius` still relies on `themes.css` carrying a
+    // matching selector, which is `packages/theme`'s own drift guard.
+    // The machine's own text part, not the card's `textContent`: a card also carries its specimen
+    // — the fonts' `Ag`, density's `Aa abc` — and reading the whole label would compare the preview
+    // against the name.
+    const labels = (name: string) =>
+      [...screen.getByRole("radiogroup", { name }).querySelectorAll("[data-part=item-text]")].map(
+        (el) => el.textContent,
+      );
+
+    it.each([
+      ["Density", "density"],
+      ["Font", "font"],
+      ["Mono font", "monoFont"],
+    ] as const)("offers every declared %s, in the declared order", (group, key) => {
+      setup();
+      const declared = prefOptions(CORE_PREFS[key])?.map((o) => o.label);
+      expect(labels(group)).toEqual(declared);
+    });
+
+    it("marks the radius slider with the declared steps", () => {
+      setup();
+      const markers = [...document.querySelectorAll("[data-slot=slider-marker]")].map(
+        (el) => el.textContent,
+      );
+      expect(markers).toEqual(prefOptions(CORE_PREFS.radius)?.map((o) => o.label));
     });
   });
 

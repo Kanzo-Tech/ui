@@ -21,8 +21,22 @@ import { fileURLToPath } from "node:url";
 
 const OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "themes.css");
 
+// Every table below is `[value, css, label]`. The label is here rather than in the panel because
+// this file is the one place a value is authored: an option list typed beside the control is a
+// hand-copy of this data, and `Preferences.tsx` held two of them — `RADII` and `DENSITIES` — sitting
+// next to the generated tables they duplicated. Adding a font is one line here, and the panel, the
+// declaration and the docs table follow.
+
 // ── Radius (Shark's BORDER_RADIUS) ───────────────────────────────────────────
-const RADII = [["none", "0rem"], ["xs", "0.125rem"], ["sm", "0.25rem"], ["md", "0.5rem"], ["lg", "0.625rem"]];
+// The label IS the key, and deliberately: these are steps on a slider whose markers are the names
+// people use for them ("md"), not prose. A "Medium" here would be a second word for one step.
+const RADII = [
+  ["none", "0rem", "none"],
+  ["xs", "0.125rem", "xs"],
+  ["sm", "0.25rem", "sm"],
+  ["md", "0.5rem", "md"],
+  ["lg", "0.625rem", "lg"],
+];
 
 // ── Fonts — the DS ships NO font files. `data-font`/`data-mono-font` point --font-sans/
 //    --font-mono at a stack; `var(--font-*)` keys let a host inject its own webfont var
@@ -30,19 +44,20 @@ const RADII = [["none", "0rem"], ["xs", "0.125rem"], ["sm", "0.25rem"], ["md", "
 const SYSTEM_SANS = 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 const SYSTEM_MONO = 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace';
 const FONTS = [
-  ["system", SYSTEM_SANS],
-  ["geist", `var(--font-geist-sans, ${SYSTEM_SANS})`],
-  ["inter", `var(--font-inter, ${SYSTEM_SANS})`],
+  ["system", SYSTEM_SANS, "System"],
+  ["geist", `var(--font-geist-sans, ${SYSTEM_SANS})`, "Geist"],
+  ["inter", `var(--font-inter, ${SYSTEM_SANS})`, "Inter"],
 ];
 const MONO_FONTS = [
-  ["system", SYSTEM_MONO],
-  ["geist-mono", `var(--font-geist-mono, ${SYSTEM_MONO})`],
-  ["jetbrains-mono", `var(--font-jetbrains-mono, ${SYSTEM_MONO})`],
+  ["system", SYSTEM_MONO, "System"],
+  ["geist-mono", `var(--font-geist-mono, ${SYSTEM_MONO})`, "Geist Mono"],
+  ["jetbrains-mono", `var(--font-jetbrains-mono, ${SYSTEM_MONO})`, "JetBrains"],
 ];
 
 // ── Density (matches keasy's data-font-size → root font-size rem-scale). `default`
 //    = attribute absent (16px). ──
-const DENSITIES = [["compact", "14px"], ["comfortable", "18px"]];
+const DENSITIES = [["compact", "14px", "Compact"], ["comfortable", "18px", "Cozy"]];
+const ALL_DENSITIES = [["default", "16px", "Default"], ...DENSITIES];
 
 const block = (sel, vars) =>
   `${sel} {\n${Object.entries(vars).map(([k, v]) => `  ${k}: ${v};`).join("\n")}\n}\n`;
@@ -68,6 +83,94 @@ for (const [d, size] of DENSITIES) out += block(`[data-font-size="${d}"]`, { "fo
 
 writeFileSync(OUT, out);
 
+// ── The declarations — one per core axis, in the shape a section contributes ─────────────────────
+//
+// `SectionPrefDecl` from `src/sections.ts`, plus `source`, which is core-only: it says WHO emits the
+// selectors the attribute matches. `"themes"` is this file, so the drift guards in `index.test.ts`
+// can hold the declaration against the sheet; `"document"` is `compile()`, from a document a TENANT
+// authored after this package was built, and there is nothing here to check it against.
+//
+// The core does not import the type — a generator emitting a shape the package declares would be a
+// build-order dependency for no gain — so the guard is `index.test.ts` reading this back through
+// `CORE_PREFS`, and `check:generated`, which regenerates and fails on a diff.
+//
+// `appearance` is declared and has no `attr`: it writes a class, not an attribute. It is in this
+// table anyway because the table is what the panel draws from, and appearance is a choice a user
+// makes — with `""` as a listed option, which is the value that means *ask the OS*. It used to be
+// reachable only through the panel's Reset button.
+const choice = (options, rest) => ({ kind: "choice", options, ...rest });
+const corePrefs = () => ({
+  appearance: choice(
+    [
+      { value: "", label: "System" },
+      { value: "light", label: "Light" },
+      { value: "dark", label: "Dark" },
+    ],
+    { default: "", doc: "which side of the document is worn" },
+  ),
+  radius: choice(
+    RADII.map(([value, , label]) => ({ value, label })),
+    { default: "md", attr: "data-radius", source: "themes", doc: "how round a corner is" },
+  ),
+  font: choice(
+    FONTS.map(([value, , label]) => ({ value, label })),
+    { default: "system", attr: "data-font", source: "themes", doc: "the face body text is set in" },
+  ),
+  monoFont: choice(
+    MONO_FONTS.map(([value, , label]) => ({ value, label })),
+    {
+      default: "system",
+      attr: "data-mono-font",
+      source: "themes",
+      doc: "the face code is set in",
+    },
+  ),
+  density: choice(
+    ALL_DENSITIES.map(([value, , label]) => ({ value, label })),
+    {
+      default: "default",
+      attr: "data-font-size",
+      source: "themes",
+      doc: "the root size everything scales from",
+    },
+  ),
+  // The two whose options a CLIENT writes. `{ from: … }` rather than a list, because a value here is
+  // a brand somebody authored at onboarding and no generator can know it. `default: ""` is what
+  // keeps a single-palette tenant's <html> byte-identical: the write rule removes at the default.
+  //
+  // `paletteByAppearance` is the axis that used to be a preference the provider admitted it could
+  // not apply — a document was a stylesheet, so the server read the cookie and served the right one
+  // before the first byte. That followed from an assumption about size which was never measured: the
+  // six documents this package ships are 63.6 kB raw and 8.7 kB gzipped TOGETHER. So they all
+  // travel, `compile(doc, { scope })` puts each under its own `[data-palette]`, and the cookie is an
+  // optimisation rather than a requirement.
+  //
+  // Keyed by appearance because the choice is: a tenant may publish documents that are each correct
+  // in both modes and still not equally wanted in both, and the person who knows which is the one
+  // watching the screen flip. See `decisions/a-palette-is-chosen-per-appearance.md`, whose first job
+  // is separating this from the `pairsWith` that was deleted — that was a field on a DOCUMENT,
+  // needed while a document had one mode. Nothing here gives a document a field.
+  identity: choice(
+    { from: "identities" },
+    {
+      default: "",
+      attr: "data-identity",
+      source: "document",
+      doc: "which of this document's brands is worn",
+    },
+  ),
+  paletteByAppearance: choice(
+    { from: "palettes" },
+    {
+      default: "",
+      attr: "data-palette",
+      source: "document",
+      byAppearance: true,
+      doc: "which document is worn on this side",
+    },
+  ),
+});
+
 // ── theme-data.json — the same data as a runtime module ──────────────────────
 // Consumers read it through the package's JS entry, never this `.json` subpath — see `themeData` in
 // `src/index.ts` for why the direct import cannot be made to survive a build.
@@ -75,7 +178,8 @@ const data = {
   radii: Object.fromEntries(RADII.map(([r, v]) => [r, v])),
   fonts: Object.fromEntries(FONTS.map(([f, v]) => [f, v])),
   monoFonts: Object.fromEntries(MONO_FONTS.map(([f, v]) => [f, v])),
-  densities: Object.fromEntries([["default", "16px"], ...DENSITIES]),
+  densities: Object.fromEntries(ALL_DENSITIES.map(([d, v]) => [d, v])),
+  prefs: corePrefs(),
 };
 const JSON_OUT = join(dirname(fileURLToPath(import.meta.url)), "..", "theme-data.json");
 writeFileSync(JSON_OUT, JSON.stringify(data, null, 2));

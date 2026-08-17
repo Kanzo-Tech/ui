@@ -10,7 +10,16 @@ import type {
   SectionPolicy,
   SectionPrefDecl,
 } from "@kanzo-tech/theme";
-import { AXES, DEFAULT_PREFS, resolvePref, STORAGE_KEY, type ThemePrefs } from "@kanzo-tech/theme";
+import {
+  AXES,
+  CORE_PREFS,
+  DEFAULT_PREFS,
+  prefOptions,
+  resolvePref,
+  STORAGE_KEY,
+  themeData,
+  type ThemePrefs,
+} from "@kanzo-tech/theme";
 import { ThemeContext, type FontOption, type ThemeContextValue } from "./theme-context.js";
 
 export {
@@ -140,18 +149,21 @@ function known(stored: Partial<ThemePrefs>): Partial<ThemePrefs> {
   return out;
 }
 
-const SANS = "ui-sans-serif, system-ui, sans-serif";
-const MONO = "ui-monospace, SFMono-Regular, Menlo, monospace";
-const DEFAULT_FONTS: FontOption[] = [
-  { value: "system", label: "System", preview: SANS },
-  { value: "geist", label: "Geist", preview: `var(--font-geist-sans, ${SANS})` },
-  { value: "inter", label: "Inter", preview: `var(--font-inter, ${SANS})` },
-];
-const DEFAULT_MONO_FONTS: FontOption[] = [
-  { value: "system", label: "System", preview: MONO },
-  { value: "geist-mono", label: "Geist Mono", preview: `var(--font-geist-mono, ${MONO})` },
-  { value: "jetbrains-mono", label: "JetBrains", preview: `var(--font-jetbrains-mono, ${MONO})` },
-];
+/**
+ * The shipped font options, off the declaration — names and order — and the generated stacks.
+ *
+ * They were typed here, and the copy had already drifted: the fallback this file wrote inside
+ * `var(--font-geist-sans, …)` was a three-family shorthand where `themes.css` emits the full
+ * system stack, so a host without the webfont got a different face from the panel's specimen than
+ * from the page. Two spellings of one list, and the wrong one was the one a user looked at.
+ */
+const stacked = (key: "font" | "monoFont", stacks: Record<string, string>): FontOption[] =>
+  (prefOptions(CORE_PREFS[key]) ?? []).map((option) => ({
+    ...option,
+    preview: stacks[option.value],
+  }));
+const DEFAULT_FONTS = stacked("font", themeData.fonts);
+const DEFAULT_MONO_FONTS = stacked("monoFont", themeData.monoFonts);
 
 /**
  * A host that never wires `identities` gets this one, not a fresh `[]` per render — the context is

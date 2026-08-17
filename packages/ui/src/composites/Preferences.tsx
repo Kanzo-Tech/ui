@@ -7,12 +7,14 @@ import { InfoIcon, MoonIcon, PaletteIcon, SunIcon, XIcon } from "lucide-react";
 // Via the theme package's JS entry, not its raw `.json` subpath: a direct JSON subpath import
 // needs `with { type: "json" }` at runtime, and Rollup strips that attribute when bundling.
 import {
+  CORE_PREFS,
   DEFAULT_PREFS,
   prefBoolean,
   prefNumber,
   prefOptions,
   themeData,
   type Appearance,
+  type KanzoDensity,
   type KanzoRadius,
   type PrefSources,
   type SectionPrefDecl,
@@ -75,12 +77,12 @@ import { Switch } from "../simples/switch.js";
  * with everything else. That is the one thing this panel's footer does that no other control can.
  */
 
-const RADII: KanzoRadius[] = ["none", "xs", "sm", "md", "lg"];
-const DENSITIES = [
-  { value: "default", label: "Default" },
-  { value: "compact", label: "Compact" },
-  { value: "comfortable", label: "Cozy" },
-] as const;
+// Off the declaration, which is generated from the same table `themes.css` is emitted from. Both of
+// these were typed here — beside a `themeData` import that already carried them — and a hand-copy
+// disagrees with the CSS the moment the generator changes. `?? []` is unreachable for a core axis
+// (its options are a literal list, never a source), and is how `prefOptions` says so in the type.
+const RADII = (prefOptions(CORE_PREFS.radius) ?? []).map((o) => o.value as KanzoRadius);
+const DENSITIES = prefOptions(CORE_PREFS.density) ?? [];
 // ── Root: Ark Dialog (non-modal, live-preview) + hotkey ──────────────────────
 export interface PreferencesRootProps {
   children: React.ReactNode;
@@ -1049,7 +1051,7 @@ function DensitySection() {
     <PrefFieldSet label="Density">
       <RadioGroup
         className="flex-row flex-wrap gap-2"
-        onValueChange={(d) => d.value && set({ density: d.value as (typeof DENSITIES)[number]["value"] })}
+        onValueChange={(d) => d.value && set({ density: d.value as KanzoDensity })}
         value={density}
       >
         {DENSITIES.map((o) => (

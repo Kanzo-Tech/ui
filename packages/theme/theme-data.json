@@ -20,5 +20,139 @@
     "default": "16px",
     "compact": "14px",
     "comfortable": "18px"
+  },
+  "prefs": {
+    "appearance": {
+      "kind": "choice",
+      "options": [
+        {
+          "value": "",
+          "label": "System"
+        },
+        {
+          "value": "light",
+          "label": "Light"
+        },
+        {
+          "value": "dark",
+          "label": "Dark"
+        }
+      ],
+      "default": "",
+      "doc": "which side of the document is worn"
+    },
+    "radius": {
+      "kind": "choice",
+      "options": [
+        {
+          "value": "none",
+          "label": "none"
+        },
+        {
+          "value": "xs",
+          "label": "xs"
+        },
+        {
+          "value": "sm",
+          "label": "sm"
+        },
+        {
+          "value": "md",
+          "label": "md"
+        },
+        {
+          "value": "lg",
+          "label": "lg"
+        }
+      ],
+      "default": "md",
+      "attr": "data-radius",
+      "source": "themes",
+      "doc": "how round a corner is"
+    },
+    "font": {
+      "kind": "choice",
+      "options": [
+        {
+          "value": "system",
+          "label": "System"
+        },
+        {
+          "value": "geist",
+          "label": "Geist"
+        },
+        {
+          "value": "inter",
+          "label": "Inter"
+        }
+      ],
+      "default": "system",
+      "attr": "data-font",
+      "source": "themes",
+      "doc": "the face body text is set in"
+    },
+    "monoFont": {
+      "kind": "choice",
+      "options": [
+        {
+          "value": "system",
+          "label": "System"
+        },
+        {
+          "value": "geist-mono",
+          "label": "Geist Mono"
+        },
+        {
+          "value": "jetbrains-mono",
+          "label": "JetBrains"
+        }
+      ],
+      "default": "system",
+      "attr": "data-mono-font",
+      "source": "themes",
+      "doc": "the face code is set in"
+    },
+    "density": {
+      "kind": "choice",
+      "options": [
+        {
+          "value": "default",
+          "label": "Default"
+        },
+        {
+          "value": "compact",
+          "label": "Compact"
+        },
+        {
+          "value": "comfortable",
+          "label": "Cozy"
+        }
+      ],
+      "default": "default",
+      "attr": "data-font-size",
+      "source": "themes",
+      "doc": "the root size everything scales from"
+    },
+    "identity": {
+      "kind": "choice",
+      "options": {
+        "from": "identities"
+      },
+      "default": "",
+      "attr": "data-identity",
+      "source": "document",
+      "doc": "which of this document's brands is worn"
+    },
+    "paletteByAppearance": {
+      "kind": "choice",
+      "options": {
+        "from": "palettes"
+      },
+      "default": "",
+      "attr": "data-palette",
+      "source": "document",
+      "byAppearance": true,
+      "doc": "which document is worn on this side"
+    }
   }
 }

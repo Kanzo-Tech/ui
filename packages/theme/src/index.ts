@@ -1,5 +1,6 @@
 import paletteIndexJson from "../palettes/index.json";
 import themeDataJson from "../theme-data.json";
+import type { SectionPrefDecl } from "./sections.js";
 
 /**
  * The generated theme tables — the four non-colour axes — as a JS module.
@@ -331,78 +332,76 @@ export const DEFAULT_PREFS: ThemePrefs = {
 export const STORAGE_KEY = "kanzo_theme_prefs";
 
 /**
+ * The core's own preferences, declared — one entry per axis, in the shape a package contributes.
+ *
+ * **Generated, and that is the point.** `scripts/gen-theme.mjs` authors the values *and* the
+ * declaration, so the option list a control offers is the table the CSS was emitted from rather than
+ * a hand-copy beside it. `Preferences.tsx` held two such copies — `RADII` and `DENSITIES` — sitting
+ * next to the generated tables they duplicated, and `KanzoThemeProvider` held a third of the font
+ * stacks with a fallback string that had already drifted from the sheet's. Adding a font is now one
+ * line in the generator: the panel grows a card and the docs table grows a row.
+ *
+ * The rule this installs, and it is the same one the colour half follows: **a configuration is
+ * authored once, where its values live.** The declaration, the control, the default and the
+ * attribute are resolved from it.
+ *
+ * `source` is the one field a contributed preference has no use for. It says WHO emits the selectors
+ * the attribute matches: `"themes"` is our generator, so the drift guards in `index.test.ts` can
+ * hold the declaration against the sheet; `"document"` is `compile()`, from something a TENANT
+ * authored after this package was built, and asserting a generated table for it would fail for the
+ * right feature.
+ */
+export type CorePrefDecl = SectionPrefDecl & { source?: "themes" | "document" };
+
+/**
+ * Cast, because JSON is data and TypeScript reads it as widened literals — `kind: string` will not
+ * narrow to the union however it is written. The check is therefore a runtime one, in
+ * `index.test.ts`: every key is a key of `DEFAULT_PREFS`, every declaration is well-formed, and
+ * `check:generated` regenerates the file and fails on a diff.
+ */
+export const CORE_PREFS = themeData.prefs as unknown as Readonly<Record<CorePrefKey, CorePrefDecl>>;
+
+/**
+ * Every preference the core declares — which is every key of {@link ThemePrefs} except the two that
+ * are not choices at all.
+ *
+ * Written as an exclusion rather than a list, so the two exceptions have to justify themselves:
+ * `identityByPalette` is a *memory* (what this user last wore in each document, consulted only when
+ * the palette changes), and `sections` is the opaque bag another package's preferences ride in. A
+ * new axis appears here by appearing in `ThemePrefs`, and the generator has to answer for it.
+ */
+export type CorePrefKey = Exclude<keyof ThemePrefs, "identityByPalette" | "sections">;
+
+/**
  * Each axis → its `<html>` attribute + default value (at the default the attribute is removed).
+ *
+ * A projection of {@link CORE_PREFS} and no longer a table of its own: three things must agree about
+ * an axis — the React provider, the SSR pre-hydration script, and the generator that decides which
+ * selectors exist at all — and they now agree because there is one place to disagree with.
  *
  * These attributes go on `<html>`, never a wrapper element. Ark overlays (Dialog, Popover,
  * Menu, Select, Tooltip, Toast…) portal to `document.body`, outside any wrapper, so tokens set
  * on a wrapper would not reach them. `density` additionally *must* be on the root: it sets the
  * root font-size and every size in the system is `rem`.
- *
- * `appearance` is not here and never was: it writes a class, not an attribute.
- *
- * `source` says WHO emits the selectors the attribute matches, and identity is the first axis where
- * the answer is not us. The four non-colour axes are generated into `themes.css` by
- * `scripts/gen-theme.mjs`, so their value sets are fixed when this package is built and the drift
- * guards in `index.test.ts` can hold the table against the sheet. An identity's selectors come out
- * of `compile()`, from a document a TENANT authored — there is no `themes.css` block and no
- * `theme-data.json` table to check, and asserting there is one would fail for the right feature.
- * Hence a discriminator on the one table rather than a second constant: three things still have to
- * agree about identity (provider, SSR script, and now `compile`), which is the whole reason this
- * table exists at all.
  */
 export const AXES: {
   key: keyof ThemePrefs;
   attr: string;
   def: string;
   source: "themes" | "document";
-  /**
-   * The stored value is a map keyed by the RESOLVED appearance, not a plain string.
-   *
-   * One field on the row rather than a second table or a hand-written write beside the loop. Three
-   * things have to agree about an axis and the table is what makes them; an axis that resolved
-   * outside it would be the drift this table exists to prevent, on the one axis with the most
-   * moving parts.
-   *
-   * It is only expressible because the pre-hydration script resolves appearance *first* — it has to,
-   * to write `.dark` — so by the time it reaches this loop it knows which side to index. That is why
-   * `identityByPalette` is a memory and not an axis: nothing resolves the palette before the loop.
-   */
+  /** See {@link SectionPrefDecl}. The stored value is a map keyed by the resolved appearance. */
   byAppearance?: true;
-}[] = [
-  { key: "radius", attr: "data-radius", def: "md", source: "themes" },
-  { key: "font", attr: "data-font", def: "system", source: "themes" },
-  { key: "monoFont", attr: "data-mono-font", def: "system", source: "themes" },
-  { key: "density", attr: "data-font-size", def: "default", source: "themes" },
-  // `def: ""` is what keeps a single-identity tenant's <html> byte-identical to today: the write
-  // rule removes the attribute at the default, so nothing appears until a user picks a second one.
-  { key: "identity", attr: "data-identity", def: "", source: "document" },
-  // **The axis that used to be a preference the provider admitted it could not apply.**
-  //
-  // Colour was the one thing not driven by an attribute: a document was a stylesheet, so the server
-  // read the cookie and served the right one before the first byte, and `KanzoThemeProvider` owned a
-  // `palette` preference whose own JSDoc said "wiring this does not apply anything". That followed
-  // from an assumption about size, and the assumption was never measured — the six documents this
-  // package ships are 63.6 kB raw and **8.7 kB gzipped together**.
-  //
-  // So every document travels, `compile(doc, { scope })` puts each under its own attribute, and this
-  // row is what selects. `def: ""` for the same reason `identity` has it: a tenant with one palette
-  // writes no attribute and gets the `<html>` it had before. It also retires the requirement to
-  // persist through `cookieStorageAdapter` — there is no longer a decision the server took that the
-  // browser cannot correct without a flash.
-  //
-  // **Keyed by appearance, because the choice is.** A tenant may publish documents that are each
-  // correct in both modes and still not equally wanted in both, and the person who knows which is
-  // the one watching the screen flip. See `decisions/a-palette-is-chosen-per-appearance.md`, whose
-  // first job is separating this from the `pairsWith` that was deleted: that was a field on a
-  // DOCUMENT, needed while a document had one mode. Nothing here gives a document a field.
-  {
-    key: "paletteByAppearance",
-    attr: "data-palette",
-    def: "",
-    source: "document",
-    byAppearance: true,
-  },
-];
+}[] = Object.entries(CORE_PREFS)
+  // The rows with somewhere to write. `appearance` is declared beside these and is not one: it
+  // writes a class. A contributed preference makes the same distinction with the same field.
+  .filter(([, decl]) => Boolean(decl.attr))
+  .map(([key, decl]) => ({
+    key: key as keyof ThemePrefs,
+    attr: decl.attr as string,
+    def: decl.default,
+    source: decl.source ?? "themes",
+    byAppearance: decl.byAppearance,
+  }));
 
 // ── Sections ────────────────────────────────────────────────────────────────────────────────────
 //
