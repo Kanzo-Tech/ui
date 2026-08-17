@@ -186,6 +186,38 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
   );
 
   /**
+   * Put the camera over the corpus, once, before the first question is asked.
+   *
+   * **The order is the point, and it is why this is not `fitView()` after the first slice.** A
+   * sliced graph's first question is *what is the camera over*, so framing afterwards means the
+   * opening query was asked about wherever the renderer happened to start — which for a corpus
+   * occupying a corner of the space is a first paint of nothing, followed by a second query once the
+   * fit moves the camera. Framing first costs one query instead of two and shows the corpus instead
+   * of the default box.
+   *
+   * A source that cannot say its extent is left alone rather than guessed at: the camera stays where
+   * the renderer put it, which is today's behaviour and is correct for arrays with no layout.
+   *
+   * Once, tracked on a ref, because this is the *opening* view: a reader who has panned somewhere
+   * and then changes a channel is not asking to be sent home.
+   */
+  const framed = useRef<BoundedSource | null>(null);
+  const frame = useCallback(
+    async (from: BoundedSource) => {
+      if (!from.extent || framed.current === from) return;
+      framed.current = from;
+      const box = await from.extent();
+      const graph = graphRef.current;
+      if (!graph) return;
+      // Two corners are enough: cosmos.gl fits the bounding box of whatever positions it is handed,
+      // and a rectangle is its own bounding box. Duration zero — an opening view that flies in from
+      // the default box is animation for its own sake, and the reader has not asked for anything yet.
+      graph.fitViewByPointPositions([box.xMin, box.yMin, box.xMax, box.yMax], 0);
+    },
+    [graphRef],
+  );
+
+  /**
    * Ask about wherever the camera is now, after `debounce` of stillness.
    *
    * Wired to the renderer's `onZoom`, which fires per frame of a gesture. The timer collapses a pan
@@ -298,12 +330,15 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
    */
   useEffect(() => {
     if (!source || counted !== source) return;
-    if (slicing.current) refresh();
-    else
-      void ask((s, signal) =>
-        s.slice({ view: EVERYTHING, pinned: held.current, fill, r, limit, lodThreshold, signal }),
-      );
-  }, [ask, counted, fill, limit, lodThreshold, r, refresh, source]);
+    void (async () => {
+      await frame(source);
+      if (slicing.current) refresh();
+      else
+        await ask((s, signal) =>
+          s.slice({ view: EVERYTHING, pinned: held.current, fill, r, limit, lodThreshold, signal }),
+        );
+    })();
+  }, [ask, counted, fill, frame, limit, lodThreshold, r, refresh, source]);
 
   // A dropped canvas must not leave a timer holding a stale camera, or a request nobody will read.
   useEffect(

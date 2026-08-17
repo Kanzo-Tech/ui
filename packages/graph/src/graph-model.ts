@@ -256,6 +256,7 @@ export function appearance(look: Look, host: Element, display: Display): GraphCo
     /** Edge opacity, the look's own and the reader's. Multiplies each link's buffer alpha. */
     linkOpacity: look.form.link.opacity * display.linkOpacity,
     linkDefaultWidth: look.form.link.width,
+    linkBlending: look.form.link.blend,
     curvedLinks: look.form.link.curve > 0,
     curvedLinkControlPointDistance: look.form.link.curve,
     linkVisibilityDistanceRange: look.form.link.fade,

@@ -68,6 +68,9 @@ export function memorySource(graph: MemoryGraph): ExploringSource {
 
   return {
     total: () => Promise.resolve(count),
+    // One pass over the array it is already holding, so the canvas frames the arrays rather than the
+    // renderer's default box.
+    extent: () => Promise.resolve(boundsOf(graph.positions)),
     slice(request: SliceRequest): Promise<Slice> {
       const { limit, lodThreshold, pinned, view } = request;
       if (view.zoom < lodThreshold) return Promise.resolve(aggregate(graph, limit));
@@ -242,4 +245,28 @@ function aggregate(graph: MemoryGraph, limit: number): Slice {
     categories,
     weights,
   };
+}
+
+/**
+ * The rectangle a set of interleaved positions occupies.
+ *
+ * Empty arrays answer a degenerate rectangle at the origin rather than `±Infinity`: a view framed on
+ * nothing should sit somewhere, and the infinities would make the fit arithmetic produce `NaN`.
+ */
+function boundsOf(positions: Float32Array): Viewport {
+  let xMin = Number.POSITIVE_INFINITY;
+  let yMin = Number.POSITIVE_INFINITY;
+  let xMax = Number.NEGATIVE_INFINITY;
+  let yMax = Number.NEGATIVE_INFINITY;
+  for (let i = 0; i < positions.length; i += 2) {
+    const x = positions[i] as number;
+    const y = positions[i + 1] as number;
+    if (x < xMin) xMin = x;
+    if (x > xMax) xMax = x;
+    if (y < yMin) yMin = y;
+    if (y > yMax) yMax = y;
+  }
+  if (!Number.isFinite(xMin)) return { xMin: 0, yMin: 0, xMax: 0, yMax: 0, zoom: Number.POSITIVE_INFINITY };
+  // Above any threshold: an extent is asked for to frame a view, never to aggregate one.
+  return { xMin, yMin, xMax, yMax, zoom: Number.POSITIVE_INFINITY };
 }

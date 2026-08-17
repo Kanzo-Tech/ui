@@ -215,6 +215,24 @@ export interface BoundedSource {
    * again: same code path, and panning is free exactly when it can be.
    */
   total?(): Promise<number>;
+  /**
+   * The rectangle the corpus occupies, when the source can say cheaply.
+   *
+   * **Framing the opening view is not the host's job, and treating it as one is measured.** The
+   * archive occupies `x ∈ [1843, 2253]` of a 4,096-wide space — 1% of its area — and a camera that
+   * opens on the space rather than on the data draws 1,543 points into a tenth of the viewport, at
+   * two to nine pixels each, under a fog of links. Every point is uploaded and none is legible, which
+   * a reader reports as *the nodes are not rendering*.
+   *
+   * It matters more for a bounded source than for a whole one: the first question a sliced graph
+   * asks is *what is the camera over*, so a camera pointing at empty space is a first paint of
+   * nothing. Framing before asking is the difference between one query and none.
+   *
+   * Optional, because a source over an unlaid-out relation has no answer — and cheap where it
+   * exists: a corpus reads it off tile footers it was going to read anyway, and a relation with
+   * `x`/`y` gets it from four aggregates.
+   */
+  extent?(): Promise<Viewport>;
 }
 
 /**

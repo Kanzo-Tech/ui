@@ -82,6 +82,18 @@ export interface Look {
        */
       curve: number;
       /**
+       * Whether links **add** where they overlap, instead of compositing over one another.
+       *
+       * cosmos.gl's default is on, which is a choice nobody here made and which the archive made
+       * visible: 4,280 grey links at 0.45 summed to a white spray that swallowed 1,543 points of
+       * 2–9 px. Every point was uploaded, none was legible, and the picture read as *the nodes are
+       * not rendering*.
+       *
+       * On, it is a real register rather than a bug — additive light is what makes a dense graph read
+       * as flow — so it belongs to the form that wants it and not to the renderer's defaults.
+       */
+      blend: boolean;
+      /**
        * Screen lengths between which a link fades out — depth, for free.
        *
        * Keep the far end generous. cosmos.gl measures this in *screen* pixels, so a range that
@@ -118,7 +130,7 @@ const NEBULA: Look = {
   blurb: "Dense and dim points, for a picture that reads as flow.",
   form: {
     size: [2, 8],
-    link: { opacity: 0.42, width: 0.6, curve: 0, fade: [200, 1400] },
+    link: { opacity: 0.42, width: 0.6, curve: 0, blend: true, fade: [200, 1400] },
     labels: 14,
     vignette: true,
   },
@@ -131,7 +143,7 @@ const ATLAS: Look = {
   blurb: "Map-steady points, links that just bow, generous labels.",
   form: {
     size: [2.2, 9],
-    link: { opacity: 0.45, width: 0.7, curve: 0.12, fade: [220, 1500] },
+    link: { opacity: 0.45, width: 0.7, curve: 0.12, blend: false, fade: [220, 1500] },
     labels: 26,
     vignette: false,
   },
@@ -163,7 +175,7 @@ const INK: Look = {
     // Not "a triangle and a square are the same dot below four pixels", which is what this said
     // and is false — see `SHAPE_ORDER` for the measurement that refutes it.
     size: [4, 13],
-    link: { opacity: 0.28, width: 0.5, curve: 0, fade: [180, 1200] },
+    link: { opacity: 0.28, width: 0.5, curve: 0, blend: false, fade: [180, 1200] },
     labels: 40,
     vignette: false,
   },

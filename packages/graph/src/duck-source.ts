@@ -112,6 +112,30 @@ export function duckBoundedSource(options: DuckSourceOptions): BoundedSource {
     },
 
     /**
+     * Four aggregates, so the canvas can frame what is actually there.
+     *
+     * One scan of two columns, once — against a first paint that otherwise opens on the renderer's
+     * default box and finds the corpus occupying a corner of it.
+     */
+    async extent() {
+      const rows = await onceQuery(
+        coordinator,
+        () => `SELECT min(${columns.x}) AS x0, max(${columns.x}) AS x1,
+                      min(${columns.y}) AS y0, max(${columns.y}) AS y1
+               FROM ${nodes}`,
+      );
+      const at = (field: string) => Number(numbers(rows, field)[0] ?? 0);
+      return {
+        xMin: at("x0"),
+        yMin: at("y0"),
+        xMax: at("x1"),
+        yMax: at("y1"),
+        // Above any threshold: an extent is asked for to frame a view, never to aggregate one.
+        zoom: Number.POSITIVE_INFINITY,
+      };
+    },
+
+    /**
      * Regions only, and it says so by **not having** `explore`.
      *
      * This source is two relations and a spatial predicate — it has no adjacency index, so a
@@ -460,8 +484,15 @@ async function manifest(dest: string, path: string): Promise<string> {
  * two halves, named the same way, one call apart.
  */
 export interface OpenedCorpus {
-  /** For the canvas: `<GraphCanvas source={…}>`. Reads tiles, never the whole relation. */
-  source: CorpusSource;
+  /**
+   * For the canvas: `<GraphCanvas source={…}>`. Reads tiles, never the whole relation.
+   *
+   * A plain `BoundedSource`, and `CorpusSource` is gone with the reason it existed: `extent()` was
+   * declared here because a source over an unlaid-out relation has no answer to it, and *optional on
+   * the base contract* says that better than a second interface — a relation with `x`/`y` has an
+   * extent too, and it was the one host that could not frame its opening view.
+   */
+  source: BoundedSource;
   /**
    * The vertex relation, registered and ready to query by name.
    *
@@ -472,18 +503,6 @@ export interface OpenedCorpus {
   nodes: string;
   /** The source-ordered edge relation, or `undefined` when the corpus declares no edge for this type. */
   edges: string | undefined;
-}
-
-/** What a corpus knows about itself beyond answering slices. */
-export interface CorpusSource extends BoundedSource {
-  /**
-   * The rectangle the corpus occupies, from the boxes the footer already gave up.
-   *
-   * Free — nothing is read that a slice would not have read anyway — and it is what a host framing
-   * an opening view wants. Not part of `BoundedSource` because a source over an unbounded or
-   * unlaid-out relation has no answer to it.
-   */
-  extent(): Promise<Viewport>;
 }
 
 export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorpus> {
@@ -650,7 +669,7 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
     );
   }
 
-  const source: CorpusSource = {
+  const source: BoundedSource = {
     async total() {
       await load();
       return total ?? 0;

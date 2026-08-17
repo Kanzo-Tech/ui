@@ -106,7 +106,14 @@ paints every point one ink, and with `symbol="kind"` beside it identity moves to
 monochrome picture, said as a binding rather than as a theme. A bare word is always a column, so a
 corpus with a column called `red` is not a trap.
 
-A `Look` is **form only**: sizes, link width and curve, labels, vignette. It used to decide whether
+**The canvas frames what is actually there.** A source that can say its extent — a corpus off its
+tile footers, a relation off four aggregates — is asked before the first slice, so the opening view
+is the corpus rather than the renderer's default box. It matters most where it is cheapest to miss:
+a sliced graph's first question is *what is the camera over*, and a camera on empty space is a first
+paint of nothing.
+
+A `Look` is **form only**: sizes, link width and curve, whether links add where they overlap,
+labels, vignette. It used to decide whether
 identity reached the GPU as colour or as shape, which is a theme rewriting an encoding, and the cost
 was a `fill` binding that painted nothing under one of the three. The three names survive as
 recommended pairings — a form plus bindings — offered by whoever draws the graph.
@@ -114,6 +121,10 @@ recommended pairings — a form plus bindings — offered by whoever draws the g
 `gradeComposition(look, channels)` grades what you composed: spending shape and size at once needs a
 four-pixel radius floor, so pairing `symbol` with a dense form's ramp now reports. Graded against our
 own three constants it could never fail for you; graded against a composition it can.
+
+`link.blend` is new and it is cosmos.gl's default made explicit: additive links are a register — it
+is what makes a dense graph read as flow — and left as a default nobody chose, 4,280 grey links
+summed to a white spray that swallowed every point under it. On for Nebula, off for the other two.
 
 `x` and `y` are not channels: in a laid-out corpus a position is a fact, and it is the index every
 spatial question is asked against.
@@ -199,8 +210,8 @@ only, with the neutral and the statuses shared — which is what keeps several p
 product), and `appearance` (which of the document's two blocks applies).
 
 **Every document a tenant publishes travels in the page**, each compiled under its own
-`[data-palette="…"]` block, and choosing one writes the attribute. The five this repository ships
-are 7.6 kB gzipped together, which is what makes that affordable — so `cookieStorageAdapter` is an
+`[data-palette="…"]` block, and choosing one writes the attribute. The six this repository ships
+are 8.7 kB gzipped together, which is what makes that affordable — so `cookieStorageAdapter` is an
 optimisation rather than a requirement, and a tenant publishing a single identity sends one block
 and sets no attribute at all.
 

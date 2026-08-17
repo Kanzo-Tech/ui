@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { createRef } from "react";
 import { describe, expect, it } from "vitest";
 import type { Graph } from "@cosmos.gl/graph";
-import type { BoundedSource, Slice, SliceRequest } from "./bounded";
+import type { BoundedSource, Slice, SliceRequest, Viewport } from "./bounded";
 import { isColour } from "./graph-model";
 import { useBoundedGraph } from "./use-bounded-graph";
 
@@ -36,8 +36,9 @@ function nothing(): Slice {
 }
 
 /** A source that answers everything and remembers what it was asked. */
-function recording(total: number) {
+function recording(total: number, box?: Viewport) {
   const asks: SliceRequest[] = [];
+  const order: string[] = [];
   let counts = 0;
   const source: BoundedSource = {
     async total() {
@@ -45,24 +46,34 @@ function recording(total: number) {
       return total;
     },
     async slice(request) {
+      order.push("slice");
       asks.push(request);
       return nothing();
     },
+    ...(box
+      ? {
+          async extent() {
+            order.push("extent");
+            return box;
+          },
+        }
+      : {}),
   };
-  return { asks, counted: () => counts, source };
+  return { asks, counted: () => counts, order, source };
 }
 
 /**
  * Enough renderer to be asked where the camera is. The loop reads the transform off cosmos.gl rather
  * than recomputing it, so a fake that answers those two is the whole surface it touches.
  */
-function camera(): Graph {
+function camera(fits: number[][] = []): Graph {
   return {
     getZoomLevel: () => 1,
     screenToSpacePosition: ([x, y]: [number, number]) => [x, y],
     setLinks: () => {},
     setPointPositions: () => {},
     render: () => {},
+    fitViewByPointPositions: (positions: number[]) => fits.push(positions),
   } as unknown as Graph;
 }
 
@@ -141,5 +152,57 @@ describe("the column the query is asked for", () => {
     expect(isColour("red")).toBe(false);
     expect(isColour("kind")).toBe(false);
     expect(isColour(undefined)).toBe(false);
+  });
+});
+
+/**
+ * Framing the opening view, which is the loop's job and was nobody's.
+ *
+ * The failure it replaces is measured rather than imagined: the archive occupies 1% of the space's
+ * area, the camera opened on the space, and 1,543 points landed in a tenth of the viewport — every
+ * one uploaded, none legible. What this cannot prove is the picture; it proves the order and the
+ * rectangle, and the browser proves the rest.
+ */
+describe("the opening view", () => {
+  const box: Viewport = { xMin: 100, yMin: 200, xMax: 300, yMax: 400, zoom: Infinity };
+
+  it("frames the corpus before it asks anything, and only once", async () => {
+    const { asks, order, source } = recording(10, box);
+    const fits: number[][] = [];
+    const graphRef = { current: camera(fits) };
+    const hostRef = { current: document.createElement("div") };
+
+    const { rerender } = renderHook(
+      (props: { fill: string }) =>
+        useBoundedGraph({ graphRef, hostRef, limit: 1000, source, ...props }),
+      { initialProps: { fill: "kind" } },
+    );
+
+    await waitFor(() => expect(asks).toHaveLength(1));
+    // Before, not after: a sliced graph's first question is *what is the camera over*, so framing
+    // afterwards asks one query about the default box and a second about the corpus.
+    expect(order).toEqual(["extent", "slice"]);
+    expect(fits).toEqual([[100, 200, 300, 400]]);
+
+    await act(async () => {
+      rerender({ fill: "hall" });
+    });
+    await waitFor(() => expect(asks).toHaveLength(2));
+    // A reader who panned somewhere and then changed a channel is not asking to be sent home.
+    expect(fits).toHaveLength(1);
+  });
+
+  it("leaves the camera alone when the source has no extent to give", async () => {
+    const { asks, source } = recording(10);
+    const fits: number[][] = [];
+    const graphRef = { current: camera(fits) };
+    const hostRef = { current: document.createElement("div") };
+
+    renderHook(() => useBoundedGraph({ graphRef, hostRef, limit: 1000, source }));
+
+    await waitFor(() => expect(asks).toHaveLength(1));
+    // Arrays with no layout have no opening view to be framed on, and guessing one is worse than
+    // leaving the renderer where it started.
+    expect(fits).toHaveLength(0);
   });
 });

@@ -4,7 +4,8 @@ import { Graph } from "@cosmos.gl/graph";
 import { type Coordinator, numbers } from "@kanzo-tech/ui/analytics";
 import { BOUNDED_DEFAULTS, shouldSlice, type Slice } from "@kanzo-tech/graph";
 import { boot } from "../workspace/duck";
-import { openCorpus, onceQuery, type CorpusSource } from "@kanzo-tech/graph/duckdb";
+import { openCorpus, onceQuery } from "@kanzo-tech/graph/duckdb";
+import type { BoundedSource } from "@kanzo-tech/graph";
 // The offscreen element and the rectangle it defines are `measure.ts`'s, so the two harnesses draw
 // into the same one. They had a copy each — identical to the character, which is the kind of
 // duplicate that stays true right up until one of them is tuned.
@@ -240,7 +241,7 @@ interface Extent {
 }
 
 interface Fixtured {
-  source: CorpusSource;
+  source: BoundedSource;
   /**
    * The same two relations, read with the identity column as well.
    *
@@ -248,7 +249,7 @@ interface Fixtured {
    * one is what the drawing path uses, and this one is what a host pays when it needs to name what
    * it drew. Same coordinator, same views, one more column.
    */
-  named: CorpusSource;
+  named: BoundedSource;
   extent: Extent;
   /** Half-width of a window holding [`PAN_NODES`] vertices — the camera's reach at a usable zoom. */
   panReach: number;
@@ -298,6 +299,10 @@ async function corpus(pointCount: number, report?: (stage: string) => void): Pro
    * row-group statistics an addressed reader reads anyway, which is the same answer for free.
    */
   report?.("opening the corpus · extent");
+  // Optional on the contract now — every laid-out source has one, a source over arrays with no
+  // layout does not — and this fixture is a corpus, so its absence is a broken fixture and not a
+  // case to handle.
+  if (!source.extent) throw new Error("bench: the corpus source cannot say its extent");
   const bounds = await source.extent();
 
   /**
