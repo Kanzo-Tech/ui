@@ -98,13 +98,14 @@ lo manda la escala, no la pulcritud:
 | 4 | `explore` implementado **por direcciones** | intentado con CTE recursiva y **cuelga la conexión**: ver BENCHMARKS |
 | 5 | la vista alejada | la mitad de la experiencia a diez millones, y sin diseñar |
 | 6 | la capa de aristas (CSC + densidad) | corrección primero, niebla después |
-| 7 | la fuente pasa a `MosaicClient` | −40 ms por pan y mueren dos hacks; no cambia la curva |
+| ~~7~~ | ~~la fuente pasa a `MosaicClient`~~ · **hecho** 2026-08-17 | mueren los dos hacks; los −40 ms **no existían** — ver abajo |
 | ~~8~~ | ~~encuadre desde el extent~~ · **hecho** 2026-08-17 | quedan las constantes: `fixed`, `fill = "community"`, `lodThreshold` |
 | ~~9~~ | ~~que la imagen se lea~~ · **hecho** 2026-08-17 | era el mezclado aditivo, no la opacidad |
 | 10 | el cromo sube, y el workspace reescrito es la prueba | cierra la API y absorbe lo que queda de `ONE-SOURCE.md` |
 
 Los baratos —8 y 9— se hicieron primero, fuera de turno, porque eran lo único que el lector notaba y
-costaban una tarde. Entre los grandes, que quedan todos: **1 → 2 → 3**.
+costaban una tarde. El 7 se hizo después por la misma razón y por una segunda: la mitad de su premisa
+era falsa y sólo se sabía midiéndola. Entre los grandes, que quedan todos: **1 → 2 → 3**.
 
 ### La dirección entra en el contrato — con caché y tamaño de tesela
 
@@ -183,10 +184,28 @@ Con `fields()`/`query(filter)`/`queryResult(data)`/`filterBy`:
   así que se dibuja lo que sobrevive en vez de pintar encima lo que no;
 - el coordinador se encarga del ciclo de vida, la cancelación y la consolidación.
 
-Y es donde se resuelve el mayor coste medido: las tres consultas de `detail()` salen con
-`Promise.all` pero Mosaic las serializa por una conexión en FIFO — **75 ms donde la más lenta son
-35**. Con conector propio para las lecturas pesadas y las selecciones compartidas, el pan baja de
-~95 ms a ~40 y las actualizaciones por segundo de 10,5 a ~25.
+**Hecho el 2026-08-17, y el número que lo justificaba era otro.** Lo que este paso prometía —el
+conector propio, ~95 ms a ~40 por pan— **no existe**: `probeConnectionOverlap` da a una conexión un
+`ORDER BY` sobre 8M de filas y a otra un `SELECT 1` en el mismo tick, y el trivial contesta 0,1 ms
+*después* del ordenamiento, cuatro veces de cuatro (511,8/511,7 · 462,9/462,8 · 454,8/454,7 ·
+449,5/449,4). DuckDB-WASM es **un worker detrás de un puerto**: las conexiones hacen cola, no se
+solapan. Otro conector compra un registro más y cero concurrencia.
+
+Lo que sí se ahorra en consulta es pequeño y honesto: la tercera consulta desaparece —
+`count(*) OVER ()` se evalúa antes del `LIMIT`, así que la lectura de puntos ya sabe cuántos
+coincidieron— y el pan pasa de **29,0 ms a 25,1 ms** de consulta, con `matched` idéntico (28.424).
+
+**El coste grande estaba en el otro lado, y ese sí se fue.** El greyout costaba, por cada cambio de
+filtro a un millón: 377 ms de escaneo de supervivientes, 43 ms de empaquetado a identidades y 30 ms
+de búsqueda — 450 ms para sombrear una imagen que nunca pasa de 20.000 marcas. El predicado en la
+consulta cuesta lo contrario: la misma ventana midió **8,4 ms filtrada contra 12,0 ms sin filtrar**.
+Ver `decisions/a-filter-is-a-predicate-not-a-mask.md`.
+
+**Y el greyout no murió del todo, porque eran dos cosas.** *Qué sobrevive a los filtros* es la
+consulta; *qué acabas de seleccionar* es un conjunto que el host ya tiene, y pintarlo con
+`highlightedPointIndices` sin consulta ninguna es para lo que esa API existe. Lo que se fue es el
+viaje de ida y vuelta. Y al dibujarse lo que sobrevive, el lienzo **recupera la exención** sobre su
+propia cláusula: un lazo filtra los gráficos y deja el lienzo mostrando el lazo en contexto.
 
 **Trampa que no se puede olvidar:** el consolidador difiere cada lote por `requestAnimationFrame`,
 que no dispara en pestaña oculta. Puentearlo deja correr la tubería y **falsea las latencias**.

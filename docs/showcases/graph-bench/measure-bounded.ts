@@ -4,7 +4,7 @@ import { Graph } from "@cosmos.gl/graph";
 import { type Coordinator, numbers } from "@kanzo-tech/ui/analytics";
 import { BOUNDED_DEFAULTS, shouldSlice, type Slice } from "@kanzo-tech/graph";
 import { boot } from "../workspace/duck";
-import { openCorpus, onceQuery } from "@kanzo-tech/graph/duckdb";
+import { openCorpus } from "@kanzo-tech/graph/duckdb";
 import type { BoundedSource } from "@kanzo-tech/graph";
 // The offscreen element and the rectangle it defines are `measure.ts`'s, so the two harnesses draw
 // into the same one. They had a copy each — identical to the character, which is the kind of
@@ -174,7 +174,10 @@ async function forget(coordinator: Coordinator): Promise<void> {
  */
 let threadsAsked: Promise<number> | null = null;
 function duckThreads(coordinator: Coordinator): Promise<number> {
-  threadsAsked ??= onceQuery(coordinator, () => "SELECT current_setting('threads') AS n")
+  // Straight at the coordinator, because there is nothing here for a client to be: a DuckDB setting
+  // is not a fact about the relation and no crossfilter can reach it. That is the case `onceQuery`
+  // existed to serve, and one line of `coordinator.query` says it without a second query path.
+  threadsAsked ??= Promise.resolve(coordinator.query("SELECT current_setting('threads') AS n"))
     .then((rows) => Number(numbers(rows, "n")[0] ?? 0))
     .catch(() => 0);
   return threadsAsked;
@@ -227,9 +230,87 @@ export async function probeConnectionOverlap(): Promise<{
   return { overlaps: fastMs < slowMs / 2, slowMs, fastMs };
 }
 
-// Reachable from the console, because the question is asked by hand and rarely.
+/**
+ * What one window costs, driven straight through `openCorpus` rather than through the sweep.
+ *
+ * The sweep answers *does the curve stay flat in N*; this answers *what did that change cost*, over
+ * one corpus, in three postures a reader actually meets — a window arrived at cold, the same window
+ * again, and a window half a screen along. It is the shape the tile cache was measured in
+ * (`BENCHMARKS.md`, 2026-08-17: 82 ms cold, 3 ms repeat, 41 ms overlapping pan) and keeping it makes
+ * the next change comparable with that row instead of with a memory of it.
+ *
+ * **Mosaic's cache is cleared and DuckDB's is not**, and there is no way to clear the second from a
+ * tab — so "cold" here means cold to the query cache and to this corpus reader, over an engine whose
+ * buffers may be warm. Compare runs of this function with each other, never a number here with a
+ * number from a freshly loaded page.
+ */
+export async function measureSlicePath(path = "/bench/1000000"): Promise<{
+  coldMs: number;
+  repeatMs: number;
+  panMs: number;
+  returned: number;
+  matched: number;
+  links: number;
+}> {
+  const { coordinator } = await boot();
+  await forget(coordinator);
+  const { source } = await openCorpus({ coordinator, dest: `${window.location.origin}${path}` });
+  if (!source.extent) throw new Error("bench: the corpus source cannot say its extent");
+  const bounds = await source.extent();
+  const total = (await source.total?.()) ?? 1;
+
+  // The same window definition the sweep pans with: the radius that holds `PAN_NODES` vertices of a
+  // uniformly dense corpus, reshaped to the canvas.
+  const half = Math.max(bounds.xMax - bounds.xMin, bounds.yMax - bounds.yMin) / 2;
+  const reach = half * Math.sqrt(PAN_NODES / Math.max(1, total));
+  const aspect = Math.sqrt(CANVAS.width / CANVAS.height);
+  const width = 2 * reach * aspect;
+  const height = (2 * reach) / aspect;
+  const midX = (bounds.xMin + bounds.xMax) / 2;
+  const midY = (bounds.yMin + bounds.yMax) / 2;
+  const window_ = (dx: number) => ({
+    xMin: midX + dx - width / 2,
+    xMax: midX + dx + width / 2,
+    yMin: midY - height / 2,
+    yMax: midY + height / 2,
+    zoom: 1,
+  });
+  const ask = async (dx: number) => {
+    const started = performance.now();
+    const slice = await source.slice({
+      view: window_(dx),
+      limit: BOUNDED_DEFAULTS.limit,
+      lodThreshold: BOUNDED_DEFAULTS.lodThreshold,
+    });
+    return { ms: performance.now() - started, slice };
+  };
+
+  const cold = await ask(0);
+  const repeat = await ask(0);
+  // Half a window along, so most tiles are held and at least one is not — the posture a drag is
+  // made of, and the only one of the three that a payload cache does not simply answer.
+  const pan = await ask(width / 2);
+
+  return {
+    coldMs: +cold.ms.toFixed(1),
+    repeatMs: +repeat.ms.toFixed(1),
+    panMs: +pan.ms.toFixed(1),
+    returned: cold.slice.positions.length / 2,
+    matched: cold.slice.n,
+    links: cold.slice.links.length / 2,
+  };
+}
+
+// Reachable from the console, because these questions are asked by hand and rarely.
 if (typeof window !== "undefined") {
-  (window as unknown as Record<string, unknown>).probeConnectionOverlap = probeConnectionOverlap;
+  const hooks = window as unknown as Record<string, unknown>;
+  hooks.probeConnectionOverlap = probeConnectionOverlap;
+  hooks.measureSlicePath = measureSlicePath;
+  // The coordinator itself, so a question nobody anticipated can be asked of the live database
+  // without a rebuild — which is how the two probes above were arrived at, and how the figures in
+  // `decisions/a-filter-is-a-predicate-not-a-mask.md` were taken. A measurement whose harness has
+  // been deleted cannot be re-derived, only believed.
+  hooks.graphBoot = boot;
 }
 
 /** The rectangle the corpus actually occupies — the camera's space, never rescaled on the way in. */

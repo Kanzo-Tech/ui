@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } fro
 import type { Graph } from "@cosmos.gl/graph";
 import {
   BOUNDED_DEFAULTS,
+  isSuperseded,
   shouldSlice,
   type BoundedSource,
   type ExploringSource,
@@ -173,7 +174,9 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
         setSlice(answer);
       } catch (error) {
         // An abort is the loop working, not a failure: the camera moved on before the answer landed.
-        if (controller.signal.aborted) return;
+        // `SUPERSEDED` is the source's half of the same event — it answers one question at a time, so
+        // it settles the one the camera replaced rather than leaving this `finally` unrun.
+        if (controller.signal.aborted || isSuperseded(error)) return;
         report.current?.(String(error));
       } finally {
         if (inFlight.current === controller) {
@@ -350,6 +353,20 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
         );
     })();
   }, [ask, counted, fill, frame, limit, lodThreshold, r, refresh, source]);
+
+  /**
+   * The other way an answer arrives: the page filtered something.
+   *
+   * A camera move is a *pull* — the loop asks, because only the loop knows where the camera is. A
+   * filter change is a **push**: the coordinator re-runs the source's reads with the new predicate
+   * the way it re-runs a histogram's, and what lands here is the finished slice. Re-asking instead
+   * would issue those queries a second time to learn what is already in hand.
+   *
+   * The disposer is also the release, which is why this is wired even when the source is between
+   * renders: `watch` is where a source lets go of a client registration, and a loop that calls it is
+   * a loop that cannot leak one.
+   */
+  useEffect(() => source?.watch?.(setSlice), [source]);
 
   // A dropped canvas must not leave a timer holding a stale camera, or a request nobody will read.
   useEffect(

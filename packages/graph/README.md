@@ -28,7 +28,7 @@ pnpm add @kanzo-tech/graph @cosmos.gl/graph
 ```
 
 `@cosmos.gl/graph` is a required peer: this is a renderer, and there is nothing left of it without
-one. The Mosaic peers are **optional** — `duckBoundedSource()` and `onceQuery()` need them, the
+one. The Mosaic peers are **optional** — `duckBoundedSource()` and `openCorpus()` need them, the
 rendering hooks do not, and a host drawing arrays it already has should not pay for a database.
 
 ## The two halves

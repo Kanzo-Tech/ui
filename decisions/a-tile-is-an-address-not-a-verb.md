@@ -42,6 +42,14 @@ identities into the buffer indices cosmos.gl draws at, and the canvas sets
 the canvas applies them as a mask over the tiles it already holds* — and we had built it without
 reading it that way.
 
+**The third line has since been rewritten, and this paragraph is kept as the argument that lost.**
+The join is a *predicate*, not a mask: a source that is a `MosaicClient` puts the page's filters
+into the query that draws, so the tiles come back already filtered and there is nothing to mask.
+What the corpus' sentence turned out to describe is the case where the two halves genuinely cannot
+share a `WHERE` — which is the reversing evidence on the record that replaced it,
+`decisions/a-filter-is-a-predicate-not-a-mask.md`. The first two lines are untouched: the camera is
+still addressed, and that is what this record is about.
+
 The second line has a hole already cut for it, and the verb is named in our contract before anything
 implements it. `ExploringSource.explore({ seeds, depth })` is the shape, and the sources that cannot
 answer it say so by not having the method — `duckBoundedSource` and `openCorpus` both, in as many

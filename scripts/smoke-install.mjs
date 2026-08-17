@@ -21,7 +21,7 @@
  *      on `/duckdb` where it costs only the host that asks for it
  *
  * **Three packages, because the door is the same door.** `@kanzo-tech/graph` is the package that
- * crossed it: `src/index.ts` re-exported `onceQuery`, whose module imports
+ * crossed it: `src/index.ts` re-exported `onceQuery`, whose module imported
  * `@kanzo-tech/ui/analytics`, so `import { memorySource } from "@kanzo-tech/graph"` threw
  * ERR_MODULE_NOT_FOUND for every host that had not installed Mosaic — while the package promised in
  * four places that a host drawing its own arrays pays for no database. Nothing saw it because the
@@ -306,14 +306,17 @@ pass("the derivation stays in @kanzo-tech/palette, which a consumer never instal
 
 // 7. The graph's own root barrel, which is the door this file was extended for. A host that draws
 // arrays it already holds installs cosmos.gl and nothing else, so this import must resolve with no
-// Mosaic in the tree. It threw ERR_MODULE_NOT_FOUND until \`onceQuery\` left the barrel.
+// Mosaic in the tree. It threw ERR_MODULE_NOT_FOUND until \`onceQuery\` left the barrel; that name is
+// gone from the repository now and is still named below, because what is guarded is the door.
 const graph = await import("@kanzo-tech/graph");
 pass(\`graph root barrel imports with only non-optional peers (\${Object.keys(graph).length} exports)\`);
 for (const name of ["memorySource", "buffers", "useGraph", "vertexId"]) {
   if (typeof graph[name] !== "function") fail(\`@kanzo-tech/graph does not export \${name}\`);
 }
 if ("onceQuery" in graph) fail("onceQuery is back on the root barrel — it imports @kanzo-tech/ui/analytics");
-if ("duckBoundedSource" in graph) fail("duckBoundedSource is on the root barrel — it is the DuckDB half");
+for (const name of ["duckBoundedSource", "openCorpus", "SliceRead"]) {
+  if (name in graph) fail(\`\${name} is on the root barrel — it is the DuckDB half\`);
+}
 pass("the DuckDB half is not on the root barrel");
 
 const slice = graph.memorySource({

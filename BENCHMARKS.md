@@ -399,17 +399,53 @@ that plus the cold HTTP fetch of the 19 MB vertex file's column chunks, which ev
 reuses. That is why first paint is 2.3× a pan at the same size and why the gap does not appear at
 2,000.
 
-**The largest single win is concurrency, not format.** `detail()` issues its three queries with
-`Promise.all`, but Mosaic funnels them through one DuckDB connection and fulfils results in strict
-FIFO order, so they serialise: the sum is 75 ms where the slowest is 35 ms. Running them on
-separate connections would put the pan near 40 ms — from 10.5 updates a second to about 25 — which
-is more than any file-layout change on this list offers.
+~~**The largest single win is concurrency, not format.**~~ **It was not a win at all, and this
+paragraph was wrong for as long as it stood.** The reasoning was that `detail()`'s three queries
+serialise down one connection, so the pan costs their sum where it could cost their max — 75 ms
+against 35 — and that separate connections would collapse it. The arithmetic is right and the
+premise is false. `probeConnectionOverlap` in `docs/showcases/graph-bench/measure-bounded.ts` hands
+one connection a sort it cannot fold away and a second connection a trivial query in the same tick;
+run four times on 2026-08-17 the trivial query answered at **511.8, 462.9, 454.8 and 449.5 ms
+against sorts of 511.7, 462.8, 454.7 and 449.4** — 0.1 ms after, every time. DuckDB-WASM is one
+worker behind one message port. **Connections queue; they do not overlap**, and a second connector
+buys a second registration and no concurrency.
 
-**What is left to try, in the order the measurements support:** issue the slice's three queries
-concurrently rather than down one connection (75 ms → ~35 ms); Morton-order the edge file, which is
+The probe was written to answer this and left in place. Re-run it before anyone proposes the lever
+again.
+
+**What the slice actually saved, and it is small.** With concurrency ruled out, the only way down is
+asking less, and one of the three queries was asking for something the first already knew:
+`count(*) OVER ()` is evaluated before `LIMIT`, and the points read had already sorted the whole
+matching set for `row_number()`. So `matched` folded into it and the third query is gone. Measured
+on the same corpus and window on 2026-08-17: a pan's queries finished at **29.0 ms with the third
+and 25.1 ms without it**, and the matched count agreed to the row — 28,424 both ways.
+
+**What is left to try, in the order the measurements support:** Morton-order the edge file, which is
 sorted by `src_dense` and so scans all 6.9M rows with nothing to prune, worth at most the 35 ms that
-query costs; skip `matched` while the camera is moving, worth 10 ms; and a tile cache, which would
-make panning *back* free — the only item here that no amount of query tuning can substitute for.
+query costs; skip `matched` while the camera is moving, now worth whatever the window term costs
+rather than a query; and a tile cache, which would make panning *back* free — the only item here
+that no amount of query tuning can substitute for. (The cache landed; see below.)
+
+### The filters belong in the query, and the mask they replace was the biggest number on this page
+
+Measured in Chrome on 2026-08-17 against `/bench/1000000`, through the page's own coordinator.
+
+A canvas inside a crossfilter used to be joined to it from outside: something asked which ids
+survived every filter and the renderer greyed out the rest. Per filter change, at a million:
+
+| the mask | |
+|---|---|
+| `SELECT dense_id FROM corpus_Node` — every surviving id | **377 ms** |
+| widening a million ids into `(type, dense)` identities | 43 ms |
+| looking each one up against the 20,000 resident | 30 ms |
+
+Four hundred and fifty milliseconds of query and main thread, to shade a picture that never held
+more than twenty thousand marks — and it grows with the corpus while the picture does not.
+
+The predicate costs the opposite. The same window, one query, with and without a filter over a real
+column: **8.4 ms filtered against 12.0 ms unfiltered.** Filtering the drawing query is *cheaper*
+than not filtering it, because fewer rows survive to be numbered and sorted, and the 377 ms is not
+replaced by anything. `decisions/a-filter-is-a-predicate-not-a-mask.md` carries the rest.
 
 ### A tile held is a window that costs nothing — and holding everything costs eighteen seconds
 
@@ -759,9 +795,11 @@ In the order the measurements support:
 
 1. **Chunk the edge file.** Not a completeness item — the lever. It is the term that follows N, and
    nothing else on this list touches it.
-2. **Issue `detail()`'s three queries on separate connections.** They go out under `Promise.all`,
-   but Mosaic funnels them through one connection and fulfils in strict FIFO, so they serialise: the
-   sum is 75 ms where the slowest is 35. Worth more than any file-layout change on this list.
+2. ~~**Issue `detail()`'s three queries on separate connections.**~~ **Refuted, measured** — see
+   above. DuckDB-WASM answers one query at a time whatever you connect: a trivial query issued
+   beside an eight-million-row sort lands 0.1 ms after it, four runs out of four. There are two
+   queries now rather than three, which took a pan's query time from 29.0 ms to 25.1, and that is
+   the whole of what was here.
 3. **Emit tiles at 4,096 rows.** 78 requests and 1.48 MB per cold window at five million against
    today's 208 and 12.12 MB, at 2.31× the run-addressed ideal. Today's 122,880 is dominated by every
    other size in that table, on requests *and* bytes.

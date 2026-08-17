@@ -233,6 +233,39 @@ export interface BoundedSource {
    * `x`/`y` gets it from four aggregates.
    */
   extent?(): Promise<Viewport>;
+  /**
+   * Say when the answer changes for a reason the camera cannot see, and hold the source's resources
+   * for as long as anybody is listening.
+   *
+   * **A whole slice rather than a nudge to ask again, and that is what makes it worth having.** The
+   * reason a bounded answer changes on its own is that the page filtered something — somebody
+   * brushed a histogram, a panel picked a value — and a source that lives inside a crossfilter is
+   * *told* by the coordinator, which has already re-run the reads with the new predicate by the time
+   * this fires. Asking again would issue the same two queries a second time to learn what is in hand.
+   *
+   * The returned function is also the release: it is where a source lets go of whatever it holds —
+   * a client registration, a connection, a cache — so a loop that calls this is a loop that cannot
+   * leak one. Optional, because a source over arrays holds nothing and changes for nothing.
+   */
+  watch?(answered: (slice: Slice) => void): () => void;
+}
+
+/**
+ * What a superseded question rejects with.
+ *
+ * A source may answer one question at a time — a shared connection, one client, one in-flight read —
+ * so a camera that moves faster than the database answers leaves a promise with a caller awaiting
+ * it. Dropping it leaves that caller's `finally` unrun and the loop reporting a query in flight for
+ * the rest of the session, so it is *settled*, and this is what with.
+ *
+ * **A caller treats it as its own abort, never as a failure.** A sentinel rather than a message,
+ * because "you moved on" and "the database said no" are the two things a query loop must tell apart,
+ * and a string comparison against a thrown value goes stale with nothing failing.
+ */
+export const SUPERSEDED = Symbol("superseded");
+
+export function isSuperseded(error: unknown): boolean {
+  return error === SUPERSEDED;
 }
 
 /**

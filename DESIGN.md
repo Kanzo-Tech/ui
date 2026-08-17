@@ -192,7 +192,8 @@ be skipped.
 `a-canvas-component-owns-the-three-that-never-differ`, `a-dense-id-is-thirty-two-bits`,
 `a-chart-needs-no-factory`, `a-tile-is-an-address-not-a-verb`,
 `a-look-is-form-and-a-channel-is-a-binding`, `monochrome-is-a-palette-not-a-look`,
-`a-categorical-set-may-use-the-palettes-own-colours`, `a-look-declares-what-it-changes`.
+`a-categorical-set-may-use-the-palettes-own-colours`, `a-look-declares-what-it-changes`,
+`a-filter-is-a-predicate-not-a-mask`.
 
 Also live — `a-compound-keeps-its-root-even-when-the-root-is-an-alias`,
 `steps-claims-a-tab-role-it-cannot-keep`, `prose-that-is-hashed-is-data`.

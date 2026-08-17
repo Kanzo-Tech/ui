@@ -207,6 +207,27 @@ Four things to know before you draw one:
   coordinates the next spatial query is expressed in, so a force that moves them moves the picture
   out from under its own index.
 
+**Inside a crossfilter, the graph draws what survives.** Pass the page's `Selection` to
+`duckBoundedSource` or `openCorpus` as `filterBy` and the source becomes a client of your
+coordinator like any chart: its predicate rides in the query that draws, so a brush on a histogram
+redraws the canvas rather than shading it.
+
+```tsx
+const { source } = await openCorpus({ coordinator, dest: "/corpus/archive", filterBy: crossfilter });
+```
+
+Two things follow, and one of them is a method you will need. `source.publish(vertices)` is how a
+lasso or a click becomes `id IN (…)` for the rest of the page, and the graph is **exempt from its
+own clause** — a canvas that draws what survives would otherwise answer a selection of thirteen
+nodes by deleting everything else. Marking the selection *on* the canvas stays yours, and it is a
+set you already hold: `graph.setConfigPartial({ highlightedPointIndices: resident.indicesOf(picked) })`,
+no query involved.
+
+The other is `watch(answered)` on `BoundedSource`, which the query loop calls for you: when the page
+filters something, the coordinator has already re-run the source's reads, so the loop is handed a
+finished `Slice` rather than being told to ask again. A source over arrays has no `watch` and needs
+none. The returned function releases whatever the source holds.
+
 ### The four one-way doors
 
 These are the decisions a consumer cannot work around, so they are the ones worth stating up front.

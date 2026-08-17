@@ -206,3 +206,57 @@ describe("the opening view", () => {
     expect(fits).toHaveLength(0);
   });
 });
+
+/**
+ * The half of an answer that does not come from the camera.
+ *
+ * A bounded graph is re-asked when the camera moves — that is a pull, and only the loop knows where
+ * the camera is. It also has to change when the page filters something, and that is a **push**: a
+ * source inside a crossfilter is re-queried by the coordinator the way a plot is, and by the time
+ * anything here hears about it the answer already exists. So the loop takes a whole slice rather
+ * than a nudge to ask again, which would issue those queries a second time to learn what is in hand.
+ *
+ * The returned function is the release, and it is why `watch` is not optional in practice: it is
+ * where a source lets go of a client registration. A loop that never called it would leave a client
+ * connected to the coordinator for the life of the page, which nothing else in this package can see.
+ *
+ * **What this cannot prove.** Whether any real source *has* a `watch` — `memorySource` deliberately
+ * does not, because arrays hold nothing and change for nothing — and whether the slice it pushes is
+ * the right one, which is `duck-source.test.ts`'s claim and the browser's.
+ */
+describe("an answer the camera did not ask for", () => {
+  it("is drawn, and the watch is released with the loop", async () => {
+    const { asks, source } = recording(10);
+    let push: ((slice: Slice) => void) | null = null;
+    let released = 0;
+    const watched: BoundedSource = {
+      ...source,
+      watch(answered) {
+        push = answered;
+        return () => {
+          push = null;
+          released += 1;
+        };
+      },
+    };
+    const graphRef = { current: camera() };
+    const hostRef = { current: document.createElement("div") };
+
+    const { result, unmount } = renderHook(() =>
+      useBoundedGraph({ graphRef, hostRef, limit: 1000, source: watched }),
+    );
+    await waitFor(() => expect(asks).toHaveLength(1));
+    expect(push).not.toBeNull();
+
+    const pushed = { ...nothing(), n: 7 };
+    await act(async () => {
+      push?.(pushed);
+    });
+    expect(result.current.slice).toBe(pushed);
+    // Not by asking again: the coordinator already ran the reads with the new predicate.
+    expect(asks).toHaveLength(1);
+
+    unmount();
+    expect(released).toBe(1);
+  });
+});

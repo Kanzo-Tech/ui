@@ -1,9 +1,9 @@
 "use client";
 
-import { count, Query } from "@uwdata/mosaic-sql";
-import { column, fillColumn, numbers, type Coordinator } from "@kanzo-tech/ui/analytics";
-import type { BoundedSource, Slice, SliceRequest, Viewport } from "./bounded";
-import { onceQuery } from "./once-query";
+import { clausePoints, column, fillColumn, numbers } from "@kanzo-tech/ui/analytics";
+import type { Coordinator, FilterExpr, Selection } from "@kanzo-tech/ui/analytics";
+import { SUPERSEDED, type BoundedSource, type Slice, type SliceRequest, type Viewport } from "./bounded";
+import { SliceRead } from "./slice-client";
 import { denseOf, typeOf, vertexId, SUPERNODE, type VertexId } from "./resident";
 
 /**
@@ -18,22 +18,44 @@ import { denseOf, typeOf, vertexId, SUPERNODE, type VertexId } from "./resident"
  * a decision on the other side of the seam. The verb it was written to sit beside never landed:
  * `viewport` was dropped and GraphAr with it, because the camera is addressed rather than queried.
  * What replaces it is a tile fetched by a computed URL, which is another source.
+ *
+ * **Every query in this file goes through a `SliceRead`, and there is no other path.** `onceQuery`
+ * was the other one — a throwaway client per query, on this subpath, re-exported for the two
+ * showcases that also read a relation directly. It is gone: a read the page's filters cannot reach
+ * is a picture that disagrees with the page, and `slice-client.ts` carries what that cost.
  */
 
 /**
- * `onceQuery` is on this subpath and not on the root barrel, and it is the reason the promise above
- * was false for as long as it was stated. Its module imports `@kanzo-tech/ui/analytics`, which
- * statically imports `@uwdata/mosaic-core`, `@uwdata/mosaic-sql` and `@uwdata/vgplot` — so a root
- * barrel that re-exported it made `import { memorySource } from "@kanzo-tech/graph"` throw for
- * every host without them. It has never had a caller outside a Mosaic context; this file and the
- * two showcases are all of them. Re-exported here rather than left module-private because those
- * showcases read a relation directly, and a second hand-written throwaway client at each call site
- * is the drift `useChartQuery` states the rule against.
+ * A DuckDB-backed source, and the one thing it can do that the render contract knows nothing about.
+ *
+ * `BoundedSource` says what a renderer needs: answer a bounded question. Publishing a selection is
+ * the other direction of the same seam and it is Mosaic's, not the renderer's — so it lives on the
+ * concrete type rather than on the contract, beside `watch`, which is on the contract because the
+ * query loop is what has to act on it.
  */
-export { onceQuery } from "./once-query";
+export interface DuckSource extends BoundedSource {
+  /**
+   * The reader's own selection, as a clause the rest of the page filters by. `null` retracts it.
+   *
+   * **The graph is exempt from its own clause, and that is the whole difference from the greyout it
+   * replaces.** While the canvas *faded* excluded rows it could take its own clause too — the row was
+   * still drawn and still selectable, and the fade was the brush. A canvas that now draws what
+   * survives would answer a lasso by deleting everything the reader did not lasso, which is not a
+   * selection, it is a filter nobody asked for.
+   */
+  publish(vertices: readonly VertexId[] | null): void;
+}
 
 export interface DuckSourceOptions {
   coordinator: Coordinator;
+  /**
+   * The crossfilter this graph draws inside.
+   *
+   * Given, the page's predicate rides in the slice query and the canvas draws **what survives**.
+   * Omitted, the source is a reader of a relation and nothing else — which is what a graph with no
+   * charts beside it is.
+   */
+  filterBy?: Selection;
   /** The node relation. */
   nodes: string;
   /** The edge relation, as pairs of node ids. */
@@ -101,8 +123,70 @@ interface Columns {
   target: string;
 }
 
-export function duckBoundedSource(options: DuckSourceOptions): BoundedSource {
-  const { coordinator, edges, nodes, typeIndex } = options;
+/**
+ * The three reads a source makes, and which of them the page can filter.
+ *
+ * `points` and `links` carry the crossfilter; `meta` deliberately does not. How big the corpus is,
+ * where it sits and what its tile footers say are facts about the corpus rather than about the
+ * page's current question — and a `total()` that shrank with the filters would make the view's own
+ * "20,000 of 1,000,000" a fraction of itself, which is the one number a bounded renderer owes its
+ * reader honestly.
+ */
+interface Reads {
+  points: SliceRead;
+  links: SliceRead;
+  meta: SliceRead;
+}
+
+function openReads(coordinator: Coordinator, filterBy?: Selection): Reads {
+  return {
+    points: new SliceRead(coordinator, filterBy),
+    links: new SliceRead(coordinator, filterBy),
+    meta: new SliceRead(coordinator),
+  };
+}
+
+/**
+ * The metadata reads, queued behind each other.
+ *
+ * One client answers one question at a time — a second `ask` supersedes the first — and `total()`,
+ * `extent()` and the tile probing are issued by different effects with no ordering between them. A
+ * queue rather than a client each, because they *already* run one at a time: DuckDB-WASM answers
+ * over one connection, measured, so three clients would buy three registrations and no concurrency.
+ */
+function metaAsker(read: SliceRead): (sql: string) => Promise<unknown> {
+  let queue: Promise<unknown> = Promise.resolve();
+  return (sql) => {
+    const next = queue.then(() => read.ask(() => sql));
+    queue = next.catch(() => undefined);
+    return next;
+  };
+}
+
+/**
+ * The page's predicate, as SQL text.
+ *
+ * The reads here are CTEs over window functions rather than builder queries — `row_number()` over the
+ * visible set is what makes a slice's links speak in buffer positions — so the predicate has to be
+ * interpolated rather than handed to `Query.where`. Mosaic's expression nodes stringify to the same
+ * SQL the builder would emit, which is what makes that safe rather than a re-implementation.
+ */
+function predicateSql(filter: FilterExpr | undefined): string {
+  if (filter == null) return "";
+  const list = Array.isArray(filter) ? filter : [filter];
+  const clauses = list.filter((node) => node != null).map((node) => String(node));
+  return clauses.length > 0 ? clauses.map((c) => `(${c})`).join(" AND ") : "";
+}
+
+/** Two predicates, conjoined, where an absent one contributes nothing rather than `AND TRUE`. */
+function both(left: string, right: string): string {
+  if (!left) return right || "TRUE";
+  if (!right) return left;
+  return `(${left}) AND (${right})`;
+}
+
+export function duckBoundedSource(options: DuckSourceOptions): DuckSource {
+  const { coordinator, edges, filterBy, nodes, typeIndex } = options;
   /**
    * Everything this relation *is*, and nothing about what to draw.
    *
@@ -118,9 +202,19 @@ export function duckBoundedSource(options: DuckSourceOptions): BoundedSource {
     target: options.targetField ?? "target",
   };
 
+  const reads = openReads(coordinator, filterBy);
+  const meta = metaAsker(reads.meta);
+  const watching = watcher(reads);
+
   return {
+    ...watching.api,
+
+    publish(vertices) {
+      publishSelection(reads, filterBy, columns.id, vertices);
+    },
+
     async total() {
-      const rows = await onceQuery(coordinator, () => Query.from(nodes).select({ n: count() }));
+      const rows = await meta(`SELECT count(*) AS n FROM ${nodes}`);
       return Number(numbers(rows, "n")[0] ?? 0);
     },
 
@@ -131,11 +225,10 @@ export function duckBoundedSource(options: DuckSourceOptions): BoundedSource {
      * default box and finds the corpus occupying a corner of it.
      */
     async extent() {
-      const rows = await onceQuery(
-        coordinator,
-        () => `SELECT min(${columns.x}) AS x0, max(${columns.x}) AS x1,
-                      min(${columns.y}) AS y0, max(${columns.y}) AS y1
-               FROM ${nodes}`,
+      const rows = await meta(
+        `SELECT min(${columns.x}) AS x0, max(${columns.x}) AS x1,
+                min(${columns.y}) AS y0, max(${columns.y}) AS y1
+         FROM ${nodes}`,
       );
       const at = (field: string) => Number(numbers(rows, field)[0] ?? 0);
       return {
@@ -162,9 +255,11 @@ export function duckBoundedSource(options: DuckSourceOptions): BoundedSource {
       // Aggregate mode collapses to *groups*, so it needs a column to group by. Unbound, a zoomed-out
       // view is a truncated detail slice instead — which `n` already reports honestly — rather than
       // one super-node standing for the corpus, which is a picture of nothing.
-      return view.zoom < lodThreshold && asked.category
-        ? aggregate(coordinator, nodes, edges, { ...asked, category: asked.category }, limit)
-        : detail(coordinator, nodes, edges, asked, view, limit, typeIndex, pinned);
+      const plan =
+        view.zoom < lodThreshold && asked.category
+          ? aggregate(nodes, edges, { ...asked, category: asked.category }, limit)
+          : detail(nodes, edges, asked, view, limit, typeIndex, pinned);
+      return watching.run(plan);
     },
   };
 }
@@ -203,7 +298,25 @@ function bboxSql(c: Columns, view: Viewport): string {
   return clauses.length > 0 ? clauses.join(" AND ") : "TRUE";
 }
 
-function visibleCte(nodes: string, c: Columns, where: string, limit: number): string {
+/**
+ * @param matched Whether to carry the pre-`LIMIT` count along every row.
+ *
+ * **A window function is evaluated over everything the `WHERE` kept, and `LIMIT` applies after it** —
+ * so `count(*) OVER ()` on the same `SELECT` as the limit is the number that *matched*, not the
+ * number returned. That is what deletes the third query: `SELECT count(*) FROM … WHERE <the same
+ * predicate>` was a second scan of the same rows to learn a number the first scan already had to
+ * compute, because `row_number() OVER (ORDER BY id)` had already sorted the whole matching set.
+ *
+ * It rides on the points read only. The links read builds the same CTE to join against and never
+ * looks at the column, so carrying it there would ask DuckDB to compute it twice.
+ */
+function visibleCte(
+  nodes: string,
+  c: Columns,
+  where: string,
+  limit: number,
+  matched: boolean,
+): string {
   const size = c.size ? `, ${c.size} AS size` : "";
   // Selected in the CTE rather than joined back afterwards: the numbering is over what survives the
   // LIMIT, and a second pass keyed on `local` would be a second scan to fetch a column the first one
@@ -214,18 +327,32 @@ function visibleCte(nodes: string, c: Columns, where: string, limit: number): st
   const category = c.category
     ? `(dense_rank() OVER (ORDER BY ${c.category}) - 1)::INTEGER AS category`
     : "0::INTEGER AS category";
+  const total = matched ? ", count(*) OVER () AS matched" : "";
   return `WITH vis AS (
     SELECT ${c.id} AS id, ${c.x} AS x, ${c.y} AS y${size}${subject},
            ${category},
-           (row_number() OVER (ORDER BY ${c.id}) - 1)::INTEGER AS local
+           (row_number() OVER (ORDER BY ${c.id}) - 1)::INTEGER AS local${total}
     FROM ${nodes}
     WHERE ${where}
     LIMIT ${limit}
   )`;
 }
 
-async function detail(
-  coordinator: Coordinator,
+/**
+ * A question, in the two halves it is asked in and the one place they are put back together.
+ *
+ * The reads run through the coordinator, so the *same* pair of SQL builders serves both directions:
+ * the camera pulling an answer, and the page's filters pushing one. `assemble` is therefore a
+ * function of the two results and of nothing else — no closure over which of the two paths asked,
+ * because a slice that came back because somebody brushed a histogram is the same slice.
+ */
+interface Plan {
+  points: (filter: FilterExpr) => string;
+  links: (filter: FilterExpr) => string;
+  assemble: (points: unknown, links: unknown) => Slice;
+}
+
+function detail(
   nodes: string,
   edges: string,
   c: Columns,
@@ -233,7 +360,7 @@ async function detail(
   limit: number,
   typeIndex: number,
   pinned: VertexId[] | undefined,
-): Promise<Slice> {
+): Plan {
   const bbox = bboxSql(c, view);
   // A dragged node is drawn where the reader dropped it and indexed where it always was, so the
   // rectangle cannot find it. Riding along in the predicate is what keeps it on screen — and it
@@ -243,45 +370,55 @@ async function detail(
   // table for another type's dense ids returns the wrong rows rather than none.
   const mine = (pinned ?? []).filter((v) => typeOf(v) === typeIndex).map(denseOf);
   const held = mine.length > 0 ? ` OR ${c.id} IN (${mine.join(",")})` : "";
-  const cte = visibleCte(nodes, c, `(${bbox})${held}`, limit);
-
+  const spatial = `(${bbox})${held}`;
   /**
-   * How many matched, separately from how many came back.
+   * The page's predicate outside the pin, not inside it.
    *
-   * Without it the view cannot tell a reader "there is more here than I am showing you", and a
-   * truncated slice looks exactly like a complete one — which is the failure this whole branch has
-   * been about.
+   * A pin says *where to look*; the filters say *what exists*. Written the other way round —
+   * `bbox AND filter OR pinned` — a pinned node would survive a filter that excludes it, and the
+   * canvas would draw a vertex the rest of the page has agreed is not there.
    */
-  const [points, links, matched] = await Promise.all([
-    onceQuery(
-      coordinator,
-      () =>
-        `${cte} SELECT local, id, x, y, category${c.size ? ", size" : ""}${
-          c.subject ? ", subject" : ""
-        } FROM vis ORDER BY local`,
-    ),
-    // Both endpoints must be visible. An edge with one end off-slice is dropped, and that is a **limit of this reader rather
-    // than of the corpus.** It reads like an impossibility and is not: a corpus carries
-    // `by_target.parquet`, the CSC half, precisely so that "an edge with one endpoint off screen"
-    // can be answered — it is a second addressing pass, not a missing fact. What is true is
-    // narrower: this slice has no position to draw the far end at, because the far end is not in
-    // the answer. Drawing it needs a segment clipped to the viewport, which is a renderer decision
-    // nobody has made, and the vertices to clip against, which is the CSC read nobody has written.
-    onceQuery(
-      coordinator,
-      () => `${cte}
+  const where = (filter: FilterExpr) => both(spatial, predicateSql(filter));
+
+  return {
+    points: (filter) =>
+      `${visibleCte(nodes, c, where(filter), limit, true)}
+       SELECT local, id, x, y, category, matched${c.size ? ", size" : ""}${
+         c.subject ? ", subject" : ""
+       } FROM vis ORDER BY local`,
+    // Both endpoints must be visible. An edge with one end off-slice is dropped, and that is a **limit
+    // of this reader rather than of the corpus.** It reads like an impossibility and is not: a corpus
+    // carries `by_target.parquet`, the CSC half, precisely so that "an edge with one endpoint off
+    // screen" can be answered — it is a second addressing pass, not a missing fact. What is true is
+    // narrower: this slice has no position to draw the far end at, because the far end is not in the
+    // answer. Drawing it needs a segment clipped to the viewport, which is a renderer decision nobody
+    // has made, and the vertices to clip against, which is the CSC read nobody has written.
+    links: (filter) =>
+      `${visibleCte(nodes, c, where(filter), limit, false)}
         SELECT s.local AS src, t.local AS dst
         FROM ${edges} e
         JOIN vis s ON e.${c.source} = s.id
         JOIN vis t ON e.${c.target} = t.id`,
-    ),
-    onceQuery(coordinator, () => `SELECT count(*) AS n FROM ${nodes} WHERE ${bbox}`),
-  ]);
-
-  return {
-    mode: "detail",
-    n: Number(numbers(matched, "n")[0] ?? 0),
-    ...arrays(points, links, limit, typeIndex, c.size ? "size" : undefined, c.subject !== undefined),
+    assemble: (points, links) => ({
+      mode: "detail",
+      /**
+       * How many matched, separately from how many came back.
+       *
+       * Without it the view cannot tell a reader "there is more here than I am showing you", and a
+       * truncated slice looks exactly like a complete one — which is the failure this whole branch
+       * has been about. Read off the first row rather than asked for: `matched` is constant down the
+       * column, and an empty answer has no row and no matches, which agree.
+       */
+      n: Number(numbers(points, "matched")[0] ?? 0),
+      ...arrays(
+        points,
+        links,
+        limit,
+        typeIndex,
+        c.size ? "size" : undefined,
+        c.subject !== undefined,
+      ),
+    }),
   };
 }
 
@@ -292,31 +429,32 @@ async function detail(
  * everything is a few thousand marks whatever the corpus. The aggregation is `GROUP BY` in DuckDB,
  * which means the bytes crossing into JavaScript are already the answer rather than the input to it.
  */
-async function aggregate(
-  coordinator: Coordinator,
+function aggregate(
   nodes: string,
   edges: string,
   // Narrowed: grouping needs a column, and the caller checked. Passing the wider type and defaulting
   // here is how the invented `community` got in the first time.
   c: Columns & { category: string },
   limit: number,
-): Promise<Slice> {
-  const cte = `WITH vis AS (
+): Plan {
+  // `sum(count(*)) OVER ()` is an aggregate under a window over the grouped result — how many rows
+  // went into every group that matched, before the limit picked groups off the front. It is the
+  // aggregate branch's half of the same deletion: the count was a second whole-relation scan.
+  const cte = (filter: FilterExpr, matched: boolean) => `WITH vis AS (
     SELECT ${c.category} AS grp, avg(${c.x}) AS x, avg(${c.y}) AS y, count(*) AS weight,
            (dense_rank() OVER (ORDER BY ${c.category}) - 1)::INTEGER AS category,
-           (row_number() OVER (ORDER BY ${c.category}) - 1)::INTEGER AS local
-    FROM ${nodes} GROUP BY ${c.category} LIMIT ${limit}
+           (row_number() OVER (ORDER BY ${c.category}) - 1)::INTEGER AS local${
+             matched ? ", sum(count(*)) OVER () AS matched" : ""
+           }
+    FROM ${nodes} WHERE ${predicateSql(filter) || "TRUE"} GROUP BY ${c.category} LIMIT ${limit}
   )`;
 
-  const [points, links, matched] = await Promise.all([
-    onceQuery(
-      coordinator,
-      () => `${cte} SELECT local, local AS id, x, y, category, weight FROM vis ORDER BY local`,
-    ),
+  return {
+    points: (filter) =>
+      `${cte(filter, true)} SELECT local, local AS id, x, y, category, weight, matched FROM vis ORDER BY local`,
     // Which groups touch, not how often: at this zoom the multiplicity is not a readable difference.
-    onceQuery(
-      coordinator,
-      () => `${cte}
+    links: (filter) =>
+      `${cte(filter, false)}
         SELECT DISTINCT s.local AS src, t.local AS dst
         FROM ${edges} e
         JOIN ${nodes} sn ON e.${c.source} = sn.${c.id}
@@ -324,16 +462,104 @@ async function aggregate(
         JOIN vis s ON sn.${c.category} = s.grp
         JOIN vis t ON tn.${c.category} = t.grp
         WHERE s.local <> t.local`,
-    ),
-    onceQuery(coordinator, () => `SELECT count(*) AS n FROM ${nodes}`),
-  ]);
+    assemble: (points, links) => {
+      // The reserved type, because these points are groups rather than vertices: the query numbers
+      // them `0..k` and leaving them in the corpus' own type makes group 3 and vertex 3 one identity.
+      const built = arrays(points, links, limit, SUPERNODE);
+      const weights = new Float32Array(built.vertices.length);
+      fillColumn(points, "weight", weights);
+      return {
+        mode: "aggregate",
+        n: Number(numbers(points, "matched")[0] ?? 0),
+        ...built,
+        weights,
+      };
+    },
+  };
+}
 
-  // The reserved type, because these points are groups rather than vertices: the query numbers them
-  // `0..k` and leaving them in the corpus' own type makes group 3 and vertex 3 one identity.
-  const built = arrays(points, links, limit, SUPERNODE);
-  const weights = new Float32Array(built.vertices.length);
-  fillColumn(points, "weight", weights);
-  return { mode: "aggregate", n: Number(numbers(matched, "n")[0] ?? 0), ...built, weights };
+/**
+ * The half of a source that runs a [`Plan`], and the half that answers when nobody asked.
+ *
+ * Both sources need exactly this and neither should own a second copy of it — which is why it is a
+ * function over the reads rather than two blocks of the same bookkeeping. What it holds is the
+ * *standing* plan: the last question the camera put, kept so an answer arriving because the page
+ * filtered something can be put back together the same way.
+ */
+function watcher(reads: Reads) {
+  let standing: Plan | null = null;
+  let listener: ((slice: Slice) => void) | null = null;
+  /** The half-answers of a push, waiting for their sibling. */
+  const landed = new Map<"points" | "links", unknown>();
+
+  const arrived = (half: "points" | "links") => (data: unknown) => {
+    if (!standing || !listener) return;
+    landed.set(half, data);
+    if (landed.size < 2) return;
+    const points = landed.get("points");
+    const links = landed.get("links");
+    landed.clear();
+    listener(standing.assemble(points, links));
+  };
+
+  return {
+    api: {
+      /**
+       * Say when the answer changes for a reason the camera cannot see.
+       *
+       * The reason it hands over a whole `Slice` rather than a nudge to ask again: the coordinator
+       * has *already* re-run both reads with the new predicate by the time we hear about it. Asking
+       * again would run the same two queries a second time to learn what is in hand.
+       */
+      watch(answered: (slice: Slice) => void): () => void {
+        listener = answered;
+        reads.points.onAnswer = arrived("points");
+        reads.links.onAnswer = arrived("links");
+        return () => {
+          listener = null;
+          landed.clear();
+          standing = null;
+          reads.points.release();
+          reads.links.release();
+          reads.meta.release();
+        };
+      },
+    },
+    async run(plan: Plan): Promise<Slice> {
+      standing = plan;
+      // Cleared because these two are halves of the *previous* question: keeping one would pair a
+      // stale rectangle's points with the new rectangle's links the next time the page filters.
+      landed.clear();
+      const [points, links] = await Promise.all([
+        reads.points.ask(plan.points),
+        reads.links.ask(plan.links),
+      ]);
+      return plan.assemble(points, links);
+    },
+  };
+}
+
+/**
+ * The reader's own gesture, as a clause — and the graph exempted from it.
+ *
+ * `clausePoints` defaults `clients` to the clause's source when that source is itself a client, which
+ * is the exemption a crossfilter is built on. Here the source is a plain object and there are two
+ * clients to exempt, so the set is written out: a lasso must filter the page's charts and leave the
+ * canvas showing what the reader lassoed *in context*, rather than deleting everything else.
+ */
+function publishSelection(
+  reads: Reads,
+  filterBy: Selection | undefined,
+  idField: string,
+  vertices: readonly VertexId[] | null,
+): void {
+  if (!filterBy) return;
+  filterBy.update(
+    clausePoints([idField], vertices?.map((vertex) => [denseOf(vertex)]), {
+      source: reads.points,
+      clients: new Set([reads.points, reads.links]),
+    }),
+  );
 }
 
 /**
@@ -434,6 +660,12 @@ function countOf(rows: unknown): number {
 
 export interface OpenCorpusOptions {
   coordinator: Coordinator;
+  /**
+   * The crossfilter this graph draws inside — the same `Selection` the page's charts filter by.
+   *
+   * Given, the predicate rides in the slice query and the canvas draws what survives.
+   */
+  filterBy?: Selection;
   /** Where the corpus lives, without a trailing slash — the directory holding `graph.graph.yml`. */
   dest: string;
   /**
@@ -507,12 +739,12 @@ export interface OpenedCorpus {
   /**
    * For the canvas: `<GraphCanvas source={…}>`. Reads tiles, never the whole relation.
    *
-   * A plain `BoundedSource`, and `CorpusSource` is gone with the reason it existed: `extent()` was
-   * declared here because a source over an unlaid-out relation has no answer to it, and *optional on
-   * the base contract* says that better than a second interface — a relation with `x`/`y` has an
-   * extent too, and it was the one host that could not frame its opening view.
+   * A `DuckSource`, and `CorpusSource` is gone with the reason it existed: `extent()` was declared
+   * there because a source over an unlaid-out relation has no answer to it, and *optional on the
+   * base contract* says that better than a second interface — a relation with `x`/`y` has an extent
+   * too, and it was the one host that could not frame its opening view.
    */
-  source: BoundedSource;
+  source: DuckSource;
   /**
    * The vertex relation, registered and ready to query by name.
    *
@@ -526,7 +758,11 @@ export interface OpenedCorpus {
 }
 
 export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorpus> {
-  const { coordinator, dest, subjects = false, vertexType } = options;
+  const { coordinator, dest, filterBy, subjects = false, vertexType } = options;
+
+  const reads = openReads(coordinator, filterBy);
+  const meta = metaAsker(reads.meta);
+  const watching = watcher(reads);
 
   const root = await manifest(dest, "graph.graph.yml");
   const vertexPaths = listItems(root, "vertices");
@@ -563,8 +799,13 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
    * Read on first use rather than in the factory: a host that constructs a source and never draws
    * should not pay for it, and the cost is a footer read over every tile. Kept forever after —
    * tiles are precomputed and their boxes cannot move without the corpus being rewritten.
+   *
+   * **Held as the promise rather than as the answer**, which the move to one shared metadata client
+   * forced and which was a latent defect before it: `total()` and `extent()` are called by different
+   * effects with nothing ordering them, so two loads used to run concurrently and probe the whole
+   * tile range twice.
    */
-  let boxes: TileBox[] | null = null;
+  let loading: Promise<TileBox[]> | null = null;
   let total: number | undefined;
 
   const tileUrl = (k: number) => `'${dest}/${prefix}chunk${k}.parquet'`;
@@ -685,72 +926,72 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
     return names.map((n) => (n.startsWith("'") ? n : `'${n}'`));
   }
 
-  async function load(): Promise<TileBox[]> {
-    if (boxes) return boxes;
-    /**
-     * How many tiles there are, without listing anything.
-     *
-     * `ceil(V / chunk_size)` is the published arithmetic and it needs `V`, which **no manifest
-     * carries** — the vertex YAML declares the type, the prefix and the chunk size and stops. So the
-     * count has to come from the tiles themselves, and the obvious route is the one that does not
-     * work: `read_parquet('…/chunk*.parquet')` expands a glob, expanding a glob lists a directory,
-     * and a plain HTTP origin has no listing. It succeeds against a local path and against a bucket,
-     * which is what makes the mistake easy to keep.
-     *
-     * So the last tile is found by probing — double until a `HEAD` misses, then bisect. That is
-     * about a dozen requests once for a corpus of any size, and every one of them is a request a
-     * plain origin can answer.
-     */
-    const exists = async (k: number) => (await fetch(`${dest}/${prefix}chunk${k}.parquet`, { method: "HEAD" })).ok;
-    if (!(await exists(0))) throw new Error(`corpus: ${dest}/${prefix} holds no chunk0`);
-    let low = 0;
-    let high = 1;
-    while (await exists(high)) {
-      low = high;
-      high *= 2;
-    }
-    while (high - low > 1) {
-      const mid = Math.floor((low + high) / 2);
-      if (await exists(mid)) low = mid;
-      else high = mid;
-    }
-    const tiles = low + 1;
-    // The last tile is short unless the count divides evenly, and its footer says by how much —
-    // metadata only, so this reads no column.
-    const tail = await onceQuery(
-      coordinator,
-      () => `SELECT num_rows AS n FROM parquet_file_metadata('${tileUrl(low).slice(1, -1)}')`,
-    );
-    total = low * chunkSize + Number(numbers(tail, "n")[0] ?? 0);
-    const urls = Array.from({ length: tiles }, (_, k) => tileUrl(k)).join(", ");
-    /**
-     * `min_value`/`max_value`, never `min`/`max`.
-     *
-     * Parquet's original statistics fields are defined by *signed* byte comparison, which is
-     * meaningless for an unsigned column — a writer that gets this right leaves them empty. A reader
-     * that only knows the deprecated pair concludes the footer carries no box for the column the
-     * whole address is built on. `coalesce` keeps the float columns working either way.
-     */
-    const stats = await onceQuery(
-      coordinator,
-      () => `SELECT CAST(regexp_extract(file_name, 'chunk(\\d+)', 1) AS INTEGER) AS tile,
-               min(CASE WHEN path_in_schema = 'x' THEN coalesce(stats_min_value, stats_min)::DOUBLE END) AS x0,
-               max(CASE WHEN path_in_schema = 'x' THEN coalesce(stats_max_value, stats_max)::DOUBLE END) AS x1,
-               min(CASE WHEN path_in_schema = 'y' THEN coalesce(stats_min_value, stats_min)::DOUBLE END) AS y0,
-               max(CASE WHEN path_in_schema = 'y' THEN coalesce(stats_max_value, stats_max)::DOUBLE END) AS y1
-             FROM parquet_metadata([${urls}])
-             WHERE path_in_schema IN ('x', 'y') GROUP BY 1 ORDER BY 1`,
-    );
-    const tile = numbers(stats, "tile");
-    const [x0, x1, y0, y1] = ["x0", "x1", "y0", "y1"].map((f) => numbers(stats, f));
-    boxes = tile.map((t, i) => ({
-      tile: t as number,
-      x0: x0?.[i] as number,
-      x1: x1?.[i] as number,
-      y0: y0?.[i] as number,
-      y1: y1?.[i] as number,
-    }));
-    return boxes;
+  function load(): Promise<TileBox[]> {
+    loading ??= (async () => {
+      /**
+       * How many tiles there are, without listing anything.
+       *
+       * `ceil(V / chunk_size)` is the published arithmetic and it needs `V`, which **no manifest
+       * carries** — the vertex YAML declares the type, the prefix and the chunk size and stops. So
+       * the count has to come from the tiles themselves, and the obvious route is the one that does
+       * not work: `read_parquet('…/chunk*.parquet')` expands a glob, expanding a glob lists a
+       * directory, and a plain HTTP origin has no listing. It succeeds against a local path and
+       * against a bucket, which is what makes the mistake easy to keep.
+       *
+       * So the last tile is found by probing — double until a `HEAD` misses, then bisect. That is
+       * about a dozen requests once for a corpus of any size, and every one of them is a request a
+       * plain origin can answer.
+       */
+      const exists = async (k: number) =>
+        (await fetch(`${dest}/${prefix}chunk${k}.parquet`, { method: "HEAD" })).ok;
+      if (!(await exists(0))) throw new Error(`corpus: ${dest}/${prefix} holds no chunk0`);
+      let low = 0;
+      let high = 1;
+      while (await exists(high)) {
+        low = high;
+        high *= 2;
+      }
+      while (high - low > 1) {
+        const mid = Math.floor((low + high) / 2);
+        if (await exists(mid)) low = mid;
+        else high = mid;
+      }
+      const tiles = low + 1;
+      // The last tile is short unless the count divides evenly, and its footer says by how much —
+      // metadata only, so this reads no column.
+      const tail = await meta(
+        `SELECT num_rows AS n FROM parquet_file_metadata('${tileUrl(low).slice(1, -1)}')`,
+      );
+      total = low * chunkSize + Number(numbers(tail, "n")[0] ?? 0);
+      const urls = Array.from({ length: tiles }, (_, k) => tileUrl(k)).join(", ");
+      /**
+       * `min_value`/`max_value`, never `min`/`max`.
+       *
+       * Parquet's original statistics fields are defined by *signed* byte comparison, which is
+       * meaningless for an unsigned column — a writer that gets this right leaves them empty. A
+       * reader that only knows the deprecated pair concludes the footer carries no box for the column
+       * the whole address is built on. `coalesce` keeps the float columns working either way.
+       */
+      const stats = await meta(
+        `SELECT CAST(regexp_extract(file_name, 'chunk(\\d+)', 1) AS INTEGER) AS tile,
+           min(CASE WHEN path_in_schema = 'x' THEN coalesce(stats_min_value, stats_min)::DOUBLE END) AS x0,
+           max(CASE WHEN path_in_schema = 'x' THEN coalesce(stats_max_value, stats_max)::DOUBLE END) AS x1,
+           min(CASE WHEN path_in_schema = 'y' THEN coalesce(stats_min_value, stats_min)::DOUBLE END) AS y0,
+           max(CASE WHEN path_in_schema = 'y' THEN coalesce(stats_max_value, stats_max)::DOUBLE END) AS y1
+         FROM parquet_metadata([${urls}])
+         WHERE path_in_schema IN ('x', 'y') GROUP BY 1 ORDER BY 1`,
+      );
+      const tile = numbers(stats, "tile");
+      const [x0, x1, y0, y1] = ["x0", "x1", "y0", "y1"].map((f) => numbers(stats, f));
+      return tile.map((t, i) => ({
+        tile: t as number,
+        x0: x0?.[i] as number,
+        x1: x1?.[i] as number,
+        y0: y0?.[i] as number,
+        y1: y1?.[i] as number,
+      }));
+    })();
+    return loading;
   }
 
   /** The tiles a rectangle touches. Pure — this is the whole of the addressing, and it makes no call. */
@@ -804,7 +1045,13 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
     );
   }
 
-  const source: BoundedSource = {
+  const source: DuckSource = {
+    ...watching.api,
+
+    publish(vertices) {
+      publishSelection(reads, filterBy, fixed.id, vertices);
+    },
+
     async total() {
       await load();
       return total ?? 0;
@@ -826,7 +1073,7 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
     // needs adjacency this source does not index, and fossil's `expand` is what answers it —
     // `ExploringSource` is the shape waiting for whoever writes that one.
     async slice(request: SliceRequest): Promise<Slice> {
-      const { fill, limit, lodThreshold, pinned, r, view } = request;
+      const { fill, limit, lodThreshold, pinned, r, signal, view } = request;
       const columns: Columns = { ...fixed, category: fill, size: r };
       const all = await load();
       // Zoomed out past the threshold every tile is in the picture anyway, so aggregate reads the
@@ -853,12 +1100,22 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
         readable("vertex", selected),
         readable("edge", edgePrefix ? selected : []),
       ]);
+      /**
+       * The camera moved while the tiles were arriving, so this question is already the wrong one.
+       *
+       * Checked here rather than left to the caller because of what comes next: the reads hold one
+       * standing question each, so a request that resumes after the loop moved on would *supersede*
+       * the newer one and reject it — the stale question winning the race against the live one.
+       */
+      if (signal?.aborted) throw SUPERSEDED;
       const nodes = `read_parquet([${vertexTiles.join(", ")}])`;
       const relation = `read_parquet([${edgeTiles.join(", ")}])`;
 
-      return view.zoom < lodThreshold && columns.category !== undefined
-        ? aggregate(coordinator, nodes, relation, { ...columns, category: columns.category }, limit)
-        : detail(coordinator, nodes, relation, columns, view, limit, 0, pinned);
+      const plan =
+        view.zoom < lodThreshold && columns.category !== undefined
+          ? aggregate(nodes, relation, { ...columns, category: columns.category }, limit)
+          : detail(nodes, relation, columns, view, limit, 0, pinned);
+      return watching.run(plan);
     },
   };
 

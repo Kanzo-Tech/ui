@@ -6,7 +6,7 @@ import { Query } from "@uwdata/mosaic-sql";
 // `useChartCapacity` sits on the root barrel and the database half does not: anything painting
 // from tokens needs the first, only a Mosaic consumer needs the second.
 import { useChartCapacity } from "@kanzo-tech/ui";
-import { Coordinator, IdSetClient, useMosaic } from "@kanzo-tech/ui/analytics";
+import { Coordinator, useMosaic } from "@kanzo-tech/ui/analytics";
 import {
   Badge,
   Button,
@@ -39,7 +39,6 @@ import {
   residentOf,
   scaleOf,
   SHAPE_PATH,
-  vertexId,
   type GraphApi,
   type GraphOverlays,
   type ShapeId,
@@ -49,7 +48,7 @@ import {
   useGraphOverlays,
   useGraphSelection,
 } from "@kanzo-tech/graph";
-import { duckBoundedSource, onceQuery } from "@kanzo-tech/graph/duckdb";
+import { duckBoundedSource, type DuckSource } from "@kanzo-tech/graph/duckdb";
 import {
   KINDS,
   PAIRINGS,
@@ -104,11 +103,13 @@ const NOBODY = residentOf(null);
 /**
  * The canvas: cosmos.gl driving the picture, Mosaic driving the questions.
  *
- * Nothing here queries on a gesture. The relation is read once into the four typed arrays the GPU
- * wants; after that a zoom, a drag, a look or a force slider is `setConfig` and a buffer upload.
- * Only two things cross back into SQL — the lasso and a click, both as `id IN (…)` — and both go
- * through `IdSetClient`, which is a `MosaicClient` and therefore indistinguishable to the
- * crossfilter from a brushed histogram.
+ * **The crossfilter is the source's, not this component's.** A graph used to be joined to the page
+ * from outside — something asked which ids survived the filters and the canvas painted grey over the
+ * ones that had not — and this file held the client and the survivor set that drove it. Both are
+ * gone: `duckBoundedSource` takes the crossfilter, its predicate rides in the slice query, and what
+ * comes back *is* what survives. Two things are left here, and they are the two the greyout was
+ * conflating: publishing the reader's gesture as a clause, and marking that same gesture on the
+ * picture — the second with no query, because it is a set this file is already holding.
  */
 
 // ── Canvas ───────────────────────────────────────────────────────────────────
@@ -209,8 +210,19 @@ function useDetails(
         category: spec.categoryField,
       };
       for (const detail of spec.detailFields ?? []) columns[`d_${detail.field}`] = detail.field;
-      void onceQuery(coordinator, () =>
-        Query.from(spec.table).select(columns).where(`${spec.idField} IN (${key})`),
+      /**
+       * Straight at the coordinator, and **deliberately outside the crossfilter.**
+       *
+       * `useChartQuery` is the library's answer for a readout that must move with the page, and
+       * this is the case it contrasts with: the ids asked about are the ones the canvas is already
+       * drawing, and the canvas already draws only what survives the filters. Asking again through
+       * a client would apply the predicate a second time to rows it has already passed — and would
+       * reconnect a client per pointer move, which is what the debounce above exists to prevent.
+       */
+      void Promise.resolve(
+        coordinator.query(
+          Query.from(spec.table).select(columns).where(`${spec.idField} IN (${key})`),
+        ),
       ).then(
         (rows) => {
           if (!live) return;
@@ -293,7 +305,6 @@ function CanvasBody() {
   const getGraph = useCallback(() => apiRef.current?.getGraph() ?? null, []);
   const getResident = useCallback(() => apiRef.current?.getResident() ?? NOBODY, []);
   const refresh = useCallback(() => apiRef.current?.refresh(), []);
-  const clientRef = useRef<IdSetClient | null>(null);
   const sliceRef = useRef<Slice | null>(null);
 
   const [failure, setFailure] = useState<string | null>(null);
@@ -404,20 +415,9 @@ function CanvasBody() {
       // a stale ring under every region gesture. The node paths re-focus after this returns.
       // (Orders and Ask do not come through here — they hand a selection straight to the provider.)
       if (source !== "node") unfocus();
-      // Dim now, not after the round trip. The authority on what stays lit is `onSurvivors` below —
-      // it resolves this clause against every other filter on the page — but that answer is a
-      // crossfilter update and a DuckDB query away, and the reader drew this loop a frame ago.
-      // Greyout is a texture upload the next frame samples, so the optimistic answer costs nothing
-      // and the correction overwrites it.
-      const graph = getGraph();
-      if (graph) {
-        graph.setConfigPartial({
-          highlightedPointIndices: getResident().indicesOf(vertices),
-        });
-      }
       handlers.current.select({ vertices: [...vertices], source, label });
     },
-    [getGraph, getResident, unfocus],
+    [unfocus],
   );
 
   /**
@@ -431,10 +431,13 @@ function CanvasBody() {
    * given here too, which is why recolouring meant rebuilding this and restarting that loop. They
    * are channels on the canvas below now.
    */
-  const source = useMemo(
+  const source = useMemo<DuckSource>(
     () =>
       duckBoundedSource({
         coordinator,
+        // The page's filters, in the query rather than over the picture. Everything the canvas
+        // draws has already survived them, so there is no second pass and no mask.
+        filterBy: crossfilter,
         nodes: spec.table,
         edges: spec.edges,
         typeIndex: spec.typeIndex,
@@ -442,7 +445,7 @@ function CanvasBody() {
         xField: spec.xField,
         yField: spec.yField,
       }),
-    [coordinator, spec],
+    [coordinator, crossfilter, spec],
   );
 
   /**
@@ -519,64 +522,48 @@ function CanvasBody() {
 
   // The lookups every callback needs, kept where a callback installed once can still read them.
   sliceRef.current = slice;
-  const totalRef = useRef<number | undefined>(undefined);
-  totalRef.current = total;
 
   useEffect(() => {
     if (total !== undefined) setCorpus(total);
   }, [setCorpus, total]);
 
-
-  // The crossfilter's observable half: whatever survives the page's filters stays lit.
-  useEffect(() => {
-    const client = new IdSetClient({
-      table: spec.table,
-      idField: spec.idField,
-      filterBy: crossfilter,
-      as: crossfilter,
-      // Greyout is a config field, not a call: `highlightedPointIndices` greys everything *not* in
-      // the array, and `undefined` clears it. So the survivor set is stated rather than applied, and
-      // there is no `render()` to pair with it — `setConfigPartial` ends in `requestRender()`, which
-      // is also what wakes the loop now that 3.4.0 stops drawing when nothing changes. A `render()`
-      // here would additionally pay for a full `GraphData.update()` — an O(n+e) revalidation that
-      // rebuilds the adjacency lists and recomputes every degree — on every crossfilter change.
-      //
-      // The survivor set is the *corpus's*, and the greyout is the *slice's* — so the comparison
-      // that decides "nothing is filtered" is against the total rather than against what is drawn.
-      // Comparing it to the slice would read a full survivor set as a filter every time the camera
-      // was over fewer nodes than the corpus holds, which is almost always.
-      onSurvivors: (ids) => {
-        const graph = getGraph();
-        if (!graph) return;
-        if (totalRef.current !== undefined && ids.length === totalRef.current) {
-          graph.setConfigPartial({ highlightedPointIndices: undefined });
-          return;
-        }
-        // The crossfilter answers in this relation's dense ids, because that is what SQL holds.
-        // Completing the pair here is the seam: `IdSetClient` speaks one table, and one table is one
-        // vertex type.
-        const survivors = ids.map((id) => vertexId(spec.typeIndex, Number(id)));
-        graph.setConfigPartial({ highlightedPointIndices: getResident().indicesOf(survivors) });
-      },
-    });
-    clientRef.current = client;
-    coordinator.connect(client);
-    return () => {
-      clientRef.current = null;
-      client.publish(null);
-      coordinator.disconnect(client);
-    };
-  }, [coordinator, crossfilter, getGraph, getResident, spec]);
-
   /**
    * The selection, as SQL. The only place anything in this app publishes one — a panel hands a
-   * value to the provider and this turns it into `id IN (…)`.
+   * value to the provider and this turns it into a clause the whole page filters by.
+   *
+   * **Only this direction crosses into the database now.** The other one — asking which ids survived
+   * every filter and greying the rest — was 377 ms of query plus 73 ms of packing and lookup at a
+   * million nodes, on every filter change, to shade a picture that was only ever twenty thousand
+   * marks. The predicate rides in the slice query, so an answer arrives already filtered.
    */
   useEffect(() => {
-    // Back down to dense ids on the way into SQL: a clause is `id IN (…)` over one relation, so the
-    // type is what the table already is and only the dense half survives the crossing.
-    clientRef.current?.publish(selection ? selection.vertices.map(denseOf) : null);
-  }, [selection, slice]);
+    source.publish(selection ? selection.vertices : null);
+  }, [selection, source]);
+
+  /**
+   * What the reader picked, marked on the picture — and **no query at all**.
+   *
+   * The two things the greyout used to express were never the same thing. *What survives the page's
+   * filters* is a fact about the corpus and belongs in the query, which is where it now is: the
+   * canvas draws what came back. *What you just lassoed* is a fact this component is already
+   * holding, and greying everything else is the renderer's own way of marking a set —
+   * `highlightedPointIndices` dims every point not in the array, and `undefined` clears it.
+   *
+   * Routing the second through the crossfilter was the hack: a full scan and a survivor set the
+   * size of the corpus to shade a set that came from a gesture in this file. It also forced the
+   * canvas to decline the self-exemption a crossfilter is built on, which is why it can take it
+   * back — a lasso filters the charts and leaves the canvas showing the lasso *in context*.
+   *
+   * `slice` is a dependency because indices name slots in the current answer: a pan re-numbers
+   * every one of them, so the mark is re-resolved from identities against whatever is drawn now.
+   */
+  useEffect(() => {
+    getGraph()?.setConfigPartial({
+      highlightedPointIndices: selection
+        ? getResident().indicesOf(selection.vertices)
+        : undefined,
+    });
+  }, [getGraph, getResident, selection, slice]);
 
   /**
    * Which nodes carry a standing label: the look's budget of hubs *in this slice*, plus the focus.
