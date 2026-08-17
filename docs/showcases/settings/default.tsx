@@ -14,12 +14,12 @@ import {
 import {
   Avatar,
   AvatarFallback,
+  Button,
   Item,
   ItemContent,
   ItemGroup,
   ItemMedia,
   ItemTitle,
-  cn,
   PreferencesColor,
   PreferencesDensity,
   PreferencesFont,
@@ -31,7 +31,6 @@ import {
   SectionRoot,
   SectionTitle,
   SectionTitleGroup,
-  Separator,
   ShellMain,
   Sidebar,
   SidebarContent,
@@ -185,27 +184,42 @@ export function SettingsShowcase() {
               {/* The settings menu: page content, beside the pane it drives, exactly where GitHub
                   puts it. `ItemGroup`/`Item` and not the sidebar parts — those carry a rail's
                   context and a rail's collapse behaviour, and this is a list of rows. */}
-              <nav aria-label="Settings" className="flex flex-col gap-4">
+              <nav aria-label="Settings" className="flex flex-col gap-6">
                 {SETTINGS.map((group) => (
-                  <ItemGroup key={group.label}>
-                    <span className="px-2 pb-1 text-muted-foreground text-xs">{group.label}</span>
-                    {group.items.map((entry) => (
-                      <Item
-                        aria-current={"active" in entry && entry.active ? "page" : undefined}
-                        className={cn(
-                          "cursor-pointer px-2 py-1.5",
-                          "active" in entry && entry.active && "bg-accent text-accent-foreground",
-                        )}
-                        key={entry.label}
-                      >
-                        <ItemMedia>
-                          <entry.icon className="size-4" />
-                        </ItemMedia>
-                        <ItemContent>
-                          <ItemTitle>{entry.label}</ItemTitle>
-                        </ItemContent>
-                      </Item>
-                    ))}
+                  <ItemGroup className="gap-0.5" key={group.label}>
+                    {/* The same heading the sections opposite wear — small, muted, upper — because
+                        both columns are headings of one page. The panel's own spelling is a private
+                        constant, so this is written out rather than imported; a host building its
+                        own sections gets it for free from `PreferencesField` / `PreferencesFieldSet`
+                        instead. */}
+                    <span className="mb-1 px-2 font-medium text-[length:var(--kanzo-font-size-small)] text-muted-foreground uppercase tracking-wide">
+                      {group.label}
+                    </span>
+                    {group.items.map((entry) => {
+                      const active = "active" in entry && entry.active;
+                      return (
+                        // A pressable row is a BUTTON INSIDE the item, never the item merged with
+                        // one: `item.tsx` says so, and gives the reason — `asChild` would land
+                        // `role="listitem"` on the button and silently stop it being announced as a
+                        // control. `p-0` on the item plus the padding on the button keeps the whole
+                        // row as the target. It was a `cursor-pointer` div, which meant the settings
+                        // menu could not be reached by keyboard at all.
+                        <Item className="p-0" key={entry.label}>
+                          <Button
+                            aria-current={active ? "page" : undefined}
+                            className="h-auto w-full justify-start gap-2 px-2 py-1.5 font-normal"
+                            variant={active ? "secondary" : "ghost"}
+                          >
+                            <ItemMedia>
+                              <entry.icon className="size-4" />
+                            </ItemMedia>
+                            <ItemContent>
+                              <ItemTitle>{entry.label}</ItemTitle>
+                            </ItemContent>
+                          </Button>
+                        </Item>
+                      );
+                    })}
                   </ItemGroup>
                 ))}
               </nav>
@@ -227,8 +241,11 @@ export function SettingsShowcase() {
                   </SectionTitleGroup>
                 </SectionHeader>
 
+                {/* No rule between the sections. Every heading here is now one spelling, and a
+                    heading is what separates them — a line drawn between two of the six said the
+                    colour section was a different KIND of thing, which is the claim this page
+                    exists to deny. */}
                 <PreferencesColor />
-                <Separator />
                 <div className="grid gap-6 @container md:grid-cols-2">
                   <PreferencesDensity />
                   <PreferencesRadius />

@@ -1,6 +1,6 @@
 ---
 title: Preferences
-description: A live selector for the user's preferences — the four axes, and the colour choices a tenant published.
+description: The parts a preference menu is built from — the sections, a surface to put them on, and the containers for your own.
 ---
 
 {/* An iframe, not a ComponentPreview. The panel is Portal-ed and `position: fixed`, so in a
@@ -12,6 +12,28 @@ description: A live selector for the user's preferences — the four axes, and t
 The panel opens on arrival so there is something to look at. Toggle the trigger in the corner
 to see the rest of it: the drawer is **non-modal**, so the form behind it stays usable while
 the theme changes live.
+
+## Four abstractions, and a surface is not one of them
+
+What this page documents is a **kit for building a preference menu**, and the drawer above is one
+assembly of it rather than the thing itself. A product with a couple of screens wants the floating
+drawer — [metadata form](/docs/showcases/metadata-form) opens it with a key and never leaves the
+page it was on. A product with a real settings area wants a page with a menu down the side —
+[settings](/docs/showcases/settings). **Both are first-class, and neither is the default one.** The
+same exports build both, and no part of either takes a prop naming the other.
+
+| The parts | What they are |
+| --- | --- |
+| **The sections** — `PreferencesColor`, `PreferencesDensity`, `PreferencesRadius`, `PreferencesFont`, `PreferencesMonoFont` | One preference each, wired to `useKanzoTheme()` directly. They take no surface, no layout prop and no context of yours: mount one in a drawer, a page, a tab or a dialog and it edits the same live theme. |
+| **A surface** — `PreferencesRoot`, `PreferencesTrigger`, `PreferencesPanel` (or the all-in-one `Preferences`) | The drawer, assembled: a non-modal dialog, an optional hotkey, a floating trigger and a pinned Reset · Done. It is the only *surface* the library ships, because it is the only one that is the same in every product. A settings page is layout — `Sidebar`, `ShellMain`, `Section` — and you already have those. |
+| **The containers** — `PreferencesField`, `PreferencesFieldSet` | Your own preference, titled the way the library's are, so a product's section and a library section are indistinguishable in either surface. |
+| **The registry** — `PreferencesSections` | Whatever the packages this host installed contribute, drawn in the same language. It is what stops an installed package from growing a settings surface beside yours. |
+
+The one thing a section will not do is ask how big the window is. `PreferencesColor` draws its two
+side cards under a **container query**, so it is one column in a 384px drawer and two in a settings
+pane, with nothing passed down to say so — the question a section may ask is how much room *it* was
+given. A layout prop would be the surface deciding for the section again, which is the whole thing
+this split exists to prevent.
 
 ## Usage
 
@@ -48,17 +70,21 @@ without being asked.
   nothing else.
 </Callout>
 
-<Callout type="info" title="Appearance is in the header, not the body">
+<Callout type="info" title="Appearance has no section, and the colour cards still select it">
   `appearance` is a preference, but it is not a *section*.
   [`AppearanceToggle`](/docs/layout/appearance-toggle) sits beside the close button and flips
-  light ⇄ dark in one click. The panel briefly carried a copy of it in the body as well, which is
-  one preference wearing two controls; the button costs the body nothing.
+  light ⇄ dark in one click — and it is the control that is always there, because `Colour` hides
+  itself below two published choices. Mount it anywhere else you like; the docs sidebar does.
+
+  Where `Colour` does draw, **pressing a side card wears that side**. That is not a second control
+  sneaking back in: the card is already a full-size depiction of what you would get, and a
+  depiction you cannot enter is worse than the pair. It is also the only way in on a **page**, which
+  has no panel header to hang a toggle off — the rule is one control per preference, never one
+  control per application.
 
   There is no third state on that flip: following the OS is `null`, the absence of a pinned side, and
   `DEFAULT_PREFS.appearance` is `null` — so an app with nothing stored follows the OS until the first
   click. **Reset**, below, is the way back: it spreads `DEFAULT_PREFS`, appearance included.
-
-  Mount it anywhere else you like — the docs sidebar does — since it reads the same preference.
 </Callout>
 
 ## Anatomy
@@ -94,6 +120,12 @@ It guards itself rather than being guarded at the call site — every section is
 host's own settings page, where a call-site guard would be invisible.
 
 ### Each palette draws itself
+
+There are two cards, one per side, and each is a **tile you press**: the tile wears that side, the
+chips beneath choose which document that side wears, and the pill in the corner says which side is
+live. GitHub's Appearance page is the shape, minus its verbs — it has no `Use` button on a card
+either, because a control the size of the thing it selects does not need one, and a settings panel
+that keeps removing second controls should not have added one here.
 
 An entry is a **miniature of the interface**, not a strip of the document's hexes: a page, a brand
 fill, two lines of ink and the categorical set. None of it is data. Every palette a tenant publishes
@@ -202,19 +234,46 @@ radio group has one hidden input per item, so there is no id for its label to po
 `FieldSet` + `FieldLegend` is the answer, and Ark's `useRadioGroup` reads the legend's id
 straight out of the fieldset context as the group's accessible name.
 
-## Sections in your own page
+## The other surface: a settings page
 
-Every section is exported flat, so the same controls can live **inline** in a product's own
-settings page instead of the floating drawer — they edit the same live theme either way.
+Every section is exported flat, so the same controls live **inline** on a product's own settings
+page with no drawer anywhere. This is the whole of it — there is no page component to import,
+because a settings page is your layout and your navigation with the sections dropped in:
 
 ```tsx
-<div className="flex w-80 flex-col gap-6">
-  <PreferencesDensity />
-  <PreferencesRadius />
-  <PreferencesFont />
-  <PreferencesMonoFont />
-</div>
+<ShellMain>
+  <SectionRoot className="mx-auto w-full max-w-5xl px-6 py-8">
+    <div className="grid gap-8 md:grid-cols-[13rem_1fr]">
+      <nav aria-label="Settings">{/* your own menu — ItemGroup / Item */}</nav>
+
+      <div className="flex min-w-0 flex-col gap-8">
+        <PreferencesColor />
+        <div className="grid gap-6 @container md:grid-cols-2">
+          <PreferencesDensity />
+          <PreferencesRadius />
+          <PreferencesFont />
+          <PreferencesMonoFont />
+        </div>
+        <PreferencesSections />
+      </div>
+    </div>
+  </SectionRoot>
+</ShellMain>
 ```
+
+The [settings showcase](/docs/showcases/settings) is that page finished — a product rail beside it,
+a settings menu of `ItemGroup` / `Item` rows, and the identical sections. Three things it gets from
+the split and does not have to arrange:
+
+- **The colour section becomes two columns** on its own, under its container query. The page passes
+  nothing.
+- **The side cards are the appearance control**, so a page with no panel chrome still has one.
+- **Every heading is one spelling** — small, upper, muted — because each section titles itself. Your
+  own sections get the same by going through `PreferencesField` / `PreferencesFieldSet` rather than
+  writing a heading beside a control.
+
+A section is never separated from the next by a rule, in either surface. The heading is the
+separation; a line between two of them says one is a different *kind* of thing.
 
 ## API Reference
 
@@ -260,13 +319,16 @@ sets `palette` and `identity` together. Only the brand half reaches `<html>`. Th
 repaints nothing by itself — a document is a stylesheet, so the next load is the palette, and a live
 swap is the host's to arrange, as the docs site does.
 
-| Flat export | Static | Axis | Attribute |
-| --- | --- | --- | --- |
-| `PreferencesColor` | `Preferences.Colour` | `palette` + `identity` | `data-identity` for the brand half only — a palette is a stylesheet the server serves |
-| `PreferencesDensity` | `Preferences.Density` | `density` | `data-font-size` |
-| `PreferencesRadius` | `Preferences.Radius` | `radius` | `data-radius` |
-| `PreferencesFont` | `Preferences.Font` | `font` | `data-font` |
-| `PreferencesMonoFont` | `Preferences.MonoFont` | `monoFont` | `data-mono-font` |
+| Export | Axis | Attribute |
+| --- | --- | --- |
+| `PreferencesColor` | `palette` + `identity` + `appearance` | `data-identity` for the brand half only — a palette is a stylesheet the server serves; the side cards write `appearance` |
+| `PreferencesDensity` | `density` | `data-font-size` |
+| `PreferencesRadius` | `radius` | `data-radius` |
+| `PreferencesFont` | `font` | `data-font` |
+| `PreferencesMonoFont` | `monoFont` | `data-mono-font` |
+
+There is no `Preferences.Colour` static to pair these with. The namespace was built with
+`Object.assign` and does not survive the RSC boundary, so the flat name is the only name.
 
 ### Containers
 

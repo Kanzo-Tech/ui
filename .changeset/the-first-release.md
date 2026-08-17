@@ -36,6 +36,16 @@ instead of guessing class names, and our own recipes select on it. Two things fo
 `slot` is otherwise a real DOM attribute used for shadow-DOM slotting, which these components now
 consume rather than forward.
 
+**A preference menu is a kit, and the surface is yours.** `PreferencesColor`, `PreferencesDensity`,
+`PreferencesRadius` and the two font axes are one preference each, wired straight to
+`useKanzoTheme()` and ignorant of what hosts them — `PreferencesColor` lays its two side cards out
+under a *container* query, so the same export is one column in a drawer and two in a settings pane
+with nothing passed down. `PreferencesField` / `PreferencesFieldSet` title a section of your own the
+same way, and `PreferencesSections` draws whatever the packages a host installed contributed.
+`Preferences` (with its `Root` / `Trigger` / `Panel` parts) is **one surface** over that kit, a
+non-modal drawer; a product with a real settings area drops the same sections into its own page
+beside its own menu, and imports nothing extra to do it. Neither is the recommended one.
+
 ### `@kanzo-tech/theme`
 
 The stylesheets, the axis table, and the value types. No React, no components, no colour maths.

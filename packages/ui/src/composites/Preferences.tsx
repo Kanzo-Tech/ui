@@ -60,10 +60,13 @@ import { Switch } from "../simples/switch.js";
  * of choice `appearance` makes between one document's two modes, one level up — and it shows itself
  * only when there are two to choose from.
  *
- * **Appearance is not here either**, and that is a different argument: it is still a preference,
- * but it already has a control. `AppearanceToggle` flips both of its states in one click, in the
- * chrome, where a one-click preference belongs. A section here would be the same preference
- * wearing a second control — the duplication this panel keeps removing everywhere else.
+ * **Appearance has no section of its own, and is still selectable in the body**: `Colour` draws one
+ * card per side, and pressing a card wears that side. That is not the rule breaking — the rule is
+ * one control per preference, and `AppearanceToggle` in the header is the one that is always there:
+ * `Colour` hides itself below two published choices, so on the common panel the toggle is the only
+ * appearance control in the building. Where the section DOES draw, it depicts both sides at full
+ * size, and a depiction of a state you cannot enter is worse than the pair of controls. What a
+ * section of its own would have added is a third spelling of a choice already on screen twice.
  *
  * It has two states and not three: "follow the OS" is `null`, the absence of a pinned side, so the
  * way back to it is `Reset` — which spreads `DEFAULT_PREFS` and therefore unpins appearance along
@@ -297,17 +300,32 @@ function PreferencesFooter() {
 function PrefField({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
     <Field>
-      <FieldLabel className={cn(PREF_LABEL_SIZE, PREF_LABEL)}>{label}</FieldLabel>
+      <FieldLabel className={PREF_HEADING}>{label}</FieldLabel>
       {children}
     </Field>
   );
 }
 
-// One label look for both containers below, so a `Field`-labelled section and a `FieldSet`-labelled
-// one are indistinguishable. The size is `!` on the legend because `FieldLegend` sets its own
-// through a `data-[variant=…]:` variant — an attribute-qualified selector that outranks a plain
-// class whatever the source order, so a non-important override there silently does nothing.
-const PREF_LABEL = "font-medium uppercase tracking-wide text-muted-foreground";
+/**
+ * ONE spelling for every heading this panel draws, and the reason it is a class rather than a
+ * component: each machine dictates the ELEMENT its name lives on — a `<legend>` for a group, a
+ * `<label>` for a single control, the slider's own label part, a plain `<span>` where a legend
+ * would capture two radio groups at once. A `PreferencesHeading` component could only render one
+ * of those, so what the four have in common is exactly this string and nothing else.
+ *
+ * Two details are load-bearing rather than taste. The size is `!` because `FieldLegend` sets its
+ * own through a `data-[variant=…]:` selector, which outranks a plain class whatever the source
+ * order — a non-important override there silently does nothing. And `block` is what makes `mb-2`
+ * mean anything on `SliderLabel`, which is inline by default: the slider's heading sat one gap
+ * tighter than the others for exactly that reason, and three headings at three spacings read as
+ * three ranks once they share a grid.
+ */
+const PREF_HEADING = cn(
+  "mb-2 block font-medium uppercase tracking-wide text-muted-foreground",
+  "text-[length:var(--kanzo-font-size-small)]!",
+);
+
+/** The side cards' own titles — a card title, not a section heading, so only the size is shared. */
 const PREF_LABEL_SIZE = "text-[length:var(--kanzo-font-size-small)]";
 
 /**
@@ -324,7 +342,7 @@ const PREF_LABEL_SIZE = "text-[length:var(--kanzo-font-size-small)]";
 function PrefFieldSet({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
     <FieldSet className="gap-2">
-      <FieldLegend className={cn(`${PREF_LABEL_SIZE}!`, PREF_LABEL, "mb-2")}>{label}</FieldLegend>
+      <FieldLegend className={PREF_HEADING}>{label}</FieldLegend>
       {children}
     </FieldSet>
   );
@@ -405,6 +423,10 @@ function PalettePreview({
     <span
       aria-hidden
       className={cn(
+        // `h-16` at every width, tried and reverted at `@md:h-28`: the miniature's three rows are a
+        // fixed amount of ink, so height bought empty background and the tile read as a page that
+        // had failed to load rather than as a denser one. GitHub's tile is 2:1 because it is a
+        // screenshot with a screenshot's worth of content in it.
         "flex h-16 flex-col justify-between rounded-[4px] border border-border bg-background p-2",
         appearance,
       )}
@@ -526,6 +548,17 @@ type Entry = { identity: string; key: string; label: string; scope: string };
  *
  * The chips are the palettes, and they are the same control as the card above them rather than a
  * second one: one radio group per side, so the two cards never fight over a single selection.
+ *
+ * **The tile IS the appearance control.** It was a `Use` button beside the title, which is the
+ * failure this panel keeps removing everywhere else: a second control for a preference the surface
+ * was already depicting. What you want is on screen at full size, so pressing it is the whole
+ * gesture — the reference is GitHub's Appearance page, where the state is a bordered card and an
+ * `Active` pill and there is no verb anywhere on it.
+ *
+ * A pressable region is a **button inside the container**, never the container merged with one:
+ * `item.tsx` states the rule and this is the same case, forced twice over. The card is the radio
+ * group's root (`role="radiogroup"`), and the chips are `<label>`s — a button wrapping them would
+ * be interactive content inside interactive content, and merging the roles would lose one of them.
  */
 function SideCard({
   entries,
@@ -562,7 +595,14 @@ function SideCard({
     // `aria-label` could not fix it, because zag points `aria-labelledby` at the legend and that
     // wins. `decisions/adopt-the-part-the-machine-ships.md` is the rule; this is the case.
     <RadioGroup
-      className="flex flex-col gap-2 rounded-lg border border-border p-2.5"
+      className={cn(
+        "flex flex-col gap-2 rounded-lg border p-2.5 transition-colors",
+        // Selected the way `RadioGroupCard` spells selected, minus its `bg-base-a5`: the chips
+        // inside are radio cards too, and a checked chip on a tinted card is the same wash twice
+        // with only a border left to tell them apart. A ring buys the same emphasis and leaves the
+        // fill for the control that has nothing else.
+        live ? "border-primary ring-1 ring-primary" : "border-border",
+      )}
       onBlur={onRestore}
       onPointerLeave={onRestore}
       onValueChange={(d) => {
@@ -574,45 +614,55 @@ function SideCard({
       slot="preferences-side-card"
       value={selected}
     >
-      <span className="flex items-center gap-1.5">
-        <RadioGroupLabel className="flex items-center gap-1.5">
-          <Icon className="size-3.5 text-muted-foreground" />
-          <span className={cn(PREF_LABEL_SIZE, "font-medium")}>{formatSide(side)}</span>
-        </RadioGroupLabel>
-        {/* Which side is applied right now. Without it the two cards are indistinguishable states of
-            one control, and a reader changing the wrong one gets no feedback at all — the page does
-            not move, because they edited the side they are not in.
-            
-            OUTSIDE the label, and that is not cosmetic: the group takes its accessible name from the
-            label's text, so a badge inside made every group answer to "LightActive". */}
-        {/* The card IS the appearance control, which is what keeps the panel at one control per
-            preference — the rule that kept a section from existing beside the header toggle. A page
-            has no header to carry a toggle, and a card that shows you a side but cannot select it
-            is a preview of a state you have no way to enter. So: the live side says so, and the
-            other offers to become it. */}
-        {live ? (
-          <Badge className="ms-auto" variant="info">
-            Active
-          </Badge>
-        ) : (
-          <Button
-            className="ms-auto"
-            onClick={() => setAppearance(side)}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            Use
-          </Button>
+      {/* Which side is applied right now, and it says so in a WORD: the border and the ring are
+          colour, and colour cannot be the only thing carrying a state (1.4.1). Absolutely placed
+          rather than in the header row, so it stays out of the button's accessible name — inside,
+          every tile answered to "Light Active" — and `pointer-events-none` so the corner it covers
+          still presses the tile. The root is `position: relative` already; zag sets it. */}
+      {live ? (
+        <Badge className="pointer-events-none absolute end-2.5 top-2.5" variant="info">
+          Active
+        </Badge>
+      ) : null}
+
+      {/* The tile: the side's name, and the document it would paint. `aria-pressed` and not a
+          `role="radio"` hand-rolled across two sibling groups — two toggles, each reporting its own
+          state, is what a screen reader can follow here.
+
+          `RadioGroupLabel` renders through `asChild` onto the span, so the machine's own label part
+          IS the visible title (zag's label props carry no `htmlFor`, so a span is a legal host) and
+          the group's accessible name is the word already on screen. Writing it twice — once for the
+          eye, once in an `aria-label` — is the duplication this file removes everywhere else. */}
+      <button
+        aria-pressed={live}
+        className={cn(
+          "-m-1 flex cursor-pointer flex-col gap-2 rounded-md p-1 text-start transition-colors",
+          "hover:bg-base-a4",
+          "outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
         )}
-      </span>
+        onClick={() => setAppearance(side)}
+        type="button"
+      >
+        {/* `pointer-events-none` because zag's label props carry `onClick: focus`, which is right
+            when a label sits BESIDE its group and wrong when it sits inside a button: clicking the
+            word `Light` pressed the tile and then moved focus into the chips, so where you clicked
+            decided what happened. The label is text; the tile takes the click. */}
+        <RadioGroupLabel asChild>
+          <span className="pointer-events-none flex items-center gap-1.5">
+            <Icon className="size-3.5 text-muted-foreground" />
+            <span className={cn(PREF_LABEL_SIZE, "font-medium")}>{formatSide(side)}</span>
+          </span>
+        </RadioGroupLabel>
 
-      <PalettePreview
-        appearance={side}
-        identity={current?.identity ?? ""}
-        palette={current?.scope ?? ""}
-      />
+        <PalettePreview
+          appearance={side}
+          identity={current?.identity ?? ""}
+          palette={current?.scope ?? ""}
+        />
+      </button>
 
+      {/* The chosen document's name — under the tile, with the chips it belongs to rather than
+          inside the button, where it would have joined the tile's accessible name. */}
       <span className="truncate text-muted-foreground text-xs">{current?.label}</span>
 
       <span className="flex flex-wrap gap-1">
@@ -710,7 +760,7 @@ function ColorSection({
     // cannot win. Two groups live here, so the section keeps a heading and each card carries its
     // own name.
     <div className="flex flex-col gap-2">
-      <span className={cn(PREF_LABEL_SIZE, PREF_LABEL, "mb-2")}>{label}</span>
+      <span className={PREF_HEADING}>{label}</span>
       {/* Two sibling cards, one per side — GitHub's Appearance page, whose move this borrows: the
           tile shows the thing being themed rather than naming it.
           
@@ -811,7 +861,7 @@ function ContributedControl({
         step={decl.step}
         value={[prefNumber(value, decl)]}
       >
-        <SliderLabel className={cn(PREF_LABEL_SIZE, PREF_LABEL, "mb-2 block")}>{name}</SliderLabel>
+        <SliderLabel className={PREF_HEADING}>{name}</SliderLabel>
       </Slider>
     );
   }
@@ -887,7 +937,7 @@ function RadiusSection() {
       showMarkers
       markerLabels={[...RADII]}
     >
-      <SliderLabel className={cn(PREF_LABEL_SIZE, PREF_LABEL, "mb-2 block")}>Radius</SliderLabel>
+      <SliderLabel className={PREF_HEADING}>Radius</SliderLabel>
     </Slider>
   );
 }

@@ -15,7 +15,7 @@ the mechanism has failed.
 
 A product picks the surface, not the components. A light one wants the drawer — see
 [metadata form](/docs/showcases/metadata-form). A product with a real settings area wants this. Both
-are one registry and one resolution.
+are one registry and one resolution, and the library favours neither.
 
 ## The layout adapts itself, and the page does not tell it to
 
@@ -29,19 +29,46 @@ for the section again, which is exactly what the mechanism exists to stop.
 
 ## What the tiles do that a drawn tile cannot
 
-GitHub's Appearance page is the shape this borrows: grouped sub-sidebar, one scrolling pane,
-appearance first. What is not borrowed is the semantics — GitHub pairs a day theme with a night
-theme because its themes are single-mode, and [ours each carry both](/docs/theming).
+GitHub's Appearance page is the shape this borrows: grouped menu, one scrolling pane, appearance
+first, a card per side with an `Active` pill and no verb on it — **pressing the card is the whole
+gesture**. What is not borrowed is the semantics — GitHub pairs a day theme with a night theme
+because its themes are single-mode, and [ours each carry both](/docs/theming).
 
 Their tiles are drawn assets. Ours are the real cascade answering: each card sets `[data-palette]`
 plus the appearance class, so with the page in dark the **Light** card still resolves the light
 block. Both documents are on screen at once, and what you see is what selecting it will do.
 
+That is also why the page needs no appearance toggle in its chrome. It has no chrome to put one in,
+and it does not need one: the two states are on screen at full size and both are pressable.
+
+## The abstractions this page is made of
+
+Nothing here is a settings component, because there is no settings component to import — and that
+is the claim, not an omission. The library ships **[a kit for preference menus](/docs/layout/preferences)**
+and exactly one assembled surface, the drawer. This page is the other surface, built from parts that
+were already yours:
+
+| What | Which parts | Whose decision it is |
+| --- | --- | --- |
+| The preferences themselves | `PreferencesColor`, `PreferencesDensity`, `PreferencesRadius`, `PreferencesFont`, `PreferencesMonoFont` | The library's. Identical exports to the ones the [drawer](/docs/showcases/metadata-form) renders — not one is a settings-page variant. |
+| What the installed packages add | `PreferencesSections` | The host's, at registration time. It draws nothing until a package contributes, so a product that installed none sees no empty group. |
+| The page | `SidebarProvider`, `Sidebar`, `SidebarInset`, `ShellMain`, `SectionRoot`, `SectionHeader` | Yours. A settings area is layout, and layout is where a product differs most. |
+| The settings menu | `ItemGroup`, `Item` with a `Button` inside each row | Yours. Shark ships no settings-nav component and this needs none — a compact list of rows with a media slot and a title is `Item`, and a **pressable row is a button inside the item**, never the item merged with one, or `role="listitem"` lands on the control and it stops being announced as one. |
+
+Deliberately **not** the sidebar parts for that menu, though `SidebarMenuSub` exists: those carry a
+rail's context and a rail's collapse behaviour, so a settings menu built from them would fold away
+with the product's rail beside it. The rail is a rail; this is a column of a page.
+
+A product with a couple of screens should take the drawer instead and be done —
+[metadata form](/docs/showcases/metadata-form) does, over the same theme, with the same components.
+**Neither surface is the recommended one.** The reason the split is worth this much prose is that
+the moment a section knows which surface it is on, a product with both has two of everything.
+
 ## Composed from what already ships
 
-`SidebarProvider`, `SidebarInset`, `ShellMain` and the flat Preferences parts. The showcase adds no
-component, which is the admission rule working as intended: a new component is the last rung, not
-the first. One `<main>`, owned by `ShellMain`.
+The showcase adds no component, which is the admission rule working as intended: a new component is
+the last rung, not the first. One `<main>`, owned by `ShellMain`.
 
-Nothing in the nav navigates. This arrangement is about where the sections live, and a router would
-be a second thing to read in a file that demonstrates one.
+Nothing in the nav navigates — the rows are buttons where a product would put links (`Button asChild`
+around your router's own), because a router would be a second thing to read in a file that
+demonstrates one.

@@ -39,6 +39,22 @@ entry:
 
 `KanzoThemeProvider` writes the theme axes as `data-*` attributes on `<html>` — required, because
 Ark's overlays portal to `document.body`. `useKanzoTheme()` drives them, `themeScript()` prevents an
-SSR flash, and `<Preferences />` is the live editor. Tokens and axes come from `@kanzo-tech/theme`.
+SSR flash. Tokens and axes come from `@kanzo-tech/theme`.
+
+### Preference menus
+
+The editor is a **kit**, not one screen. `PreferencesColor`, `PreferencesDensity`,
+`PreferencesRadius` and the two font axes are one preference each, wired straight to
+`useKanzoTheme()`; `PreferencesField` / `PreferencesFieldSet` title a section of your own the same
+way; `PreferencesSections` draws whatever the packages a host installed contribute. None of them
+knows what it is mounted on — `PreferencesColor` lays its two cards out under a container query,
+never a window width.
+
+`Preferences` (and its `PreferencesRoot` / `Trigger` / `Panel` parts) is one **surface** over that
+kit: a non-modal drawer with a hotkey. A product with a real settings area drops the same sections
+into its own page instead, beside its own menu — no drawer, nothing to opt out of, no component to
+import for it. **Both are first-class**, and a section that ever needed to know which one it was on
+would be the design failing. The docs site shows the two side by side: `showcases/metadata-form` for
+the drawer, `showcases/settings` for the page.
 
 Admission rule: nothing domain-specific — no RDF, SHACL, fossil, graph or auth knowledge.
