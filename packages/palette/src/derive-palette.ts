@@ -1,6 +1,12 @@
 import pkg from "../package.json";
 import paletteDataJson from "../palette-data.json";
-import { deriveSchemeColors, familyAtHue, familyOf, familyStandard } from "./derive-scheme.js";
+import {
+  SEPARATION_BAR,
+  deriveSchemeColors,
+  familyAtHue,
+  familyOf,
+  familyStandard,
+} from "./derive-scheme.js";
 import {
   CHROMA_FLOOR,
   CONTRAST_MIN,
@@ -368,8 +374,16 @@ export function derivePalette(input: DerivePaletteInput): TenantPalette {
     capacity: { light: syntaxPerMode.light.capacity, dark: syntaxPerMode.dark.capacity },
   };
 
+  // The colours this document itself publishes, for the categorical half to read as well.
+  //
+  // **`input.syntax`, not `syntaxSource`**, and the difference is the whole rule: the fallback is
+  // *Kanzo's* accents, and adding those to a client's set would be handing them somebody else's
+  // colours under the name of their own. Only a document that brought a source has authored colours.
+  //
+  // Both modes' seeds would name the same families — a ramp keeps a seed's hue — so one mode is read.
+  const authored = input.syntax ? Object.values(seedsFor(input.syntax, "light")) : [];
   const derived = identities.map((identity) =>
-    deriveIdentity(identity, ramps, syntax, avoid, input.categorical === "declined"),
+    deriveIdentity(identity, ramps, syntax, avoid, input.categorical === "declined", authored),
   );
   const primary = derived.find((it) => it.identity.id === defaultIdentity) as DerivedIdentity;
 
@@ -420,12 +434,67 @@ interface DerivedIdentity {
  * neutral page, not on its own. The caller keeps the full map for the default identity and throws
  * the rest away, which is the only work this repeats per identity that is not a per-identity fact.
  */
+/**
+ * The categorical search, over a source this document has a claim on.
+ *
+ * **A wheel off the brand hue was the whole source, and the syntax half was already reading the
+ * palette's own accents** — so a base16 document painted its keywords in its own colours and its
+ * charts in colours it had never published. The fix is not to swap one source for the other, which
+ * was measured and is worse in every direction: a palette's accents were authored to sit in an
+ * editor, so Nord's pastels drop below the chroma floor and its set can name **nothing**, and
+ * Dracula's costs three categories. The source is the union.
+ *
+ * Deduplicated **by family**, and that is a cost decision rather than a correctness one. The search
+ * is combinatorial in the family count, and the two sources overlap: undeduplicated, Dracula's
+ * fifteen colours are fourteen families and the search takes four and a half minutes against one
+ * second. Only the family of a source colour is read — `familiesOf` maps each to a family name and
+ * the arrangement works from names — so which hex represents a family changes nothing but the time.
+ *
+ * **Two passes, because requiring identity can break the guarantee.** Forcing all six of Dracula's
+ * families scores 12.7 against `SEPARATION_BAR`'s 15 — a refusal, a set that cleared nothing — which
+ * the bar's own comment predicted before this was measured. So the families are required first and
+ * the requirement is dropped if that refuses: the guarantee wins over the resemblance, and the
+ * second pass still searches the wider source, which is why Dracula ends up better off than the
+ * wheel alone left it (8 categories at 21.2/21.2, against 7 at 20.5/15.5).
+ *
+ * `packages/palette/scripts/measure-categorical-source.mjs` is the table, re-runnable.
+ */
+function searchScheme(
+  brand: string,
+  own: string | null,
+  authored: readonly string[],
+  avoid: readonly string[],
+) {
+  const byFamily = new Map<string, string>();
+  for (const hex of [...authored, ...categoricalSource(brand)]) {
+    const family = familyOf(hex);
+    if (family !== null && !byFamily.has(family)) byFamily.set(family, hex);
+  }
+  const source = [...byFamily.values()];
+  const options = { avoid: [...avoid], leading: CATEGORICAL_LEADING };
+  const brandFamily = own === null ? [] : [own];
+  const authoredFamilies = [
+    ...new Set(authored.map((hex) => familyOf(hex)).filter((f): f is string => f !== null)),
+  ];
+
+  const wanted = deriveSchemeColors(source, {
+    ...options,
+    require: [...new Set([...brandFamily, ...authoredFamilies])],
+  });
+  // The score the search judges by is the lower of the two modes — see `deriveSchemeColors`.
+  const scored = Math.min(wanted.separation.light, wanted.separation.dark);
+  if (scored >= SEPARATION_BAR) return wanted;
+  return deriveSchemeColors(source, { ...options, require: brandFamily });
+}
+
 function deriveIdentity(
   input: IdentityInput,
   shared: SharedRampSet,
   syntax: SyntaxSet,
   avoid: readonly string[],
   declined: boolean,
+  /** The accents this document publishes, or empty where it brought no source of its own. */
+  authored: readonly string[],
 ): DerivedIdentity {
   const ramp = Object.fromEntries(
     MODES.map((mode) => [mode, deriveRamp(input.brand, mode)]),
@@ -443,17 +512,16 @@ function deriveIdentity(
   // search is the expensive half of a derivation and its whole output is the set — there is nothing
   // else to keep — and an empty set that came back *from* a search would carry a separation number
   // measured over colours this document does not publish.
-  const derived = declined
-    ? null
-    : deriveSchemeColors(categoricalSource(input.brand), {
-        avoid: [...avoid],
-        leading: CATEGORICAL_LEADING,
-        require: own === null ? [] : [own],
-      });
+  const derived = declined ? null : searchScheme(input.brand, own, authored, avoid);
   const categorical: CategoricalSet = derived
     ? {
         source: {
-          from: own === null ? "default-scheme" : "brand-wheel",
+          from:
+            own === null
+              ? "default-scheme"
+              : authored.length > 0
+                ? "authored-and-wheel"
+                : "brand-wheel",
           hue: own === null ? null : oklch(input.brand).h,
           spokes: own === null ? 0 : WHEEL_SPOKES,
           family: own,

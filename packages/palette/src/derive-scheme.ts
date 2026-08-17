@@ -425,9 +425,13 @@ const SHORTLIST = 6;
  * (17.8, 14.3, 10.1, 7.2): a bar of 20 costs it two categories to buy headroom over a target of 8,
  * a bar of 8 keeps six families at 10.1. 15 splits it at four.
  *
- * Roughly twice `CVD_TARGET`, and 5.9 ΔE under the 20.9 the shipped scheme reaches at eight slots
- * (measured 2026-07 off `palettes/kanzo.json`) — against 13.7, under the bar, when every family is
- * forced.
+ * Roughly twice `CVD_TARGET`, and 13.3 ΔE under the 28.3 the shipped scheme reaches at eight slots
+ * (measured 2026-08-17 off `palettes/kanzo.json`) — against 13.7, under the bar, when every family
+ * is forced. That headroom used to be 5.9 against 20.9, and it grew for a reason that belongs to
+ * this comment rather than to the bar: the categorical source now carries the colours a document
+ * publishes as well as a wheel, so the search chooses from more —
+ * `decisions/a-categorical-set-may-use-the-palettes-own-colours.md`. The bar did not move, and the
+ * measurement above that pins it is Dracula's, which is unchanged.
  *
  * A ceiling on categories is not a loss: `CategoricalSet.capacity` is already how many real
  * categories a set claims, and the tokens past it fold to the muted "Other". Naming five real

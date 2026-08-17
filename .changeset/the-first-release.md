@@ -75,6 +75,15 @@ thing underneath puts it — and it lands on a *different* step in each mode, be
 deliberately fatter at the bottom. Every family publishes twelve alpha steps solved to composite
 onto their own solid; use those.
 
+**A document's charts are drawn from its own colours.** The categorical source is the brand wheel
+plus whatever the document publishes — a base16 palette's accents, a client's syntax scheme — as
+families, deduplicated, with those families required unless requiring them puts the set under the
+separation bar. So Dracula's charts carry Dracula's red, green, purple and pink instead of a wheel's
+answer, and Kanzo's own worst adjacent pair under simulation went 20.9 to 28.3. The obvious version
+of this was measured and refused: sourcing from the accents *instead* of the wheel costs three or
+four categories and makes Nord unable to name any, because a palette's accents were authored to sit
+in an editor rather than to be told apart as marks.
+
 **A document may decline the categorical channel**, and `monochrome` is the one that does:
 `categorical: "declined"` on the input, `source.from === "declined"` on the document,
 `--chart-capacity: 0` in the sheet and every `--chart-*` slot resolving to the muted role. That is

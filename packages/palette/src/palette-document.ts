@@ -205,7 +205,12 @@ export interface CategoricalSource {
    *
    * See `decisions/monochrome-is-a-palette-not-a-look.md`.
    */
-  from: "brand-wheel" | "default-scheme" | "declined";
+  /**
+   * `authored-and-wheel` is a document that published colours of its own — a base16 palette's
+   * accents, a client's syntax scheme — which the search read *beside* the wheel rather than
+   * instead of it. `hue`, `family` and `spokes` still describe the wheel half.
+   */
+  from: "brand-wheel" | "authored-and-wheel" | "default-scheme" | "declined";
   /** The brand hue the wheel was spun from, or `null` when the brand had none to spin. */
   hue: number | null;
   /** The family that hue snapped to — the one family the set is guaranteed to contain. */

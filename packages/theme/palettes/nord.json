@@ -697,30 +697,30 @@
           "#0092b8",
           "#f54900",
           "#2b7fff",
-          "#00a63e",
+          "#ff2056",
           "#7f22fe",
-          "#c70036"
+          "#008236"
         ],
         "capacity": 8,
         "families": [
+          "rose",
           "blue",
           "green",
           "violet",
           "yellow",
           "cyan",
           "orange",
-          "fuchsia",
-          "rose"
+          "fuchsia"
         ],
         "kept": [
+          "rose",
           "blue",
           "green",
           "violet",
           "yellow",
           "cyan",
           "orange",
-          "fuchsia",
-          "rose"
+          "fuchsia"
         ],
         "crowded": [],
         "dropped": [],
@@ -762,9 +762,9 @@
           "--chart-3": "#0092b8",
           "--chart-4": "#f54900",
           "--chart-5": "#2b7fff",
-          "--chart-6": "#00a63e",
+          "--chart-6": "#ff2056",
           "--chart-7": "#7f22fe",
-          "--chart-8": "#c70036"
+          "--chart-8": "#008236"
         }
       },
       "record": {
@@ -1044,7 +1044,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 6.152783810988666,
+            "got": 5.274702398688525,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -1066,7 +1066,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 3.2835587535541397,
+            "got": 4.004675931031115,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           }
@@ -1177,9 +1177,9 @@
       "--chart-3": "#0092b8",
       "--chart-4": "#f54900",
       "--chart-5": "#2b7fff",
-      "--chart-6": "#00a63e",
+      "--chart-6": "#ff2056",
       "--chart-7": "#7f22fe",
-      "--chart-8": "#c70036",
+      "--chart-8": "#008236",
       "--syntax-keyword": "#b48ead",
       "--syntax-string": "#a3be8c",
       "--syntax-function": "#81a1c1",

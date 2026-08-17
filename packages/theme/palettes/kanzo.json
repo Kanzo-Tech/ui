@@ -635,54 +635,61 @@
           "family": null
         },
         "light": [
-          "#00c950",
-          "#a800b7",
-          "#ff8904",
+          "#9810fa",
+          "#d08700",
           "#2b7fff",
-          "#ff2056",
+          "#ca3500",
+          "#e12afb",
+          "#fb2c36",
           "#7008e7",
-          "#a65f00",
-          "#0092b8"
+          "#009966"
         ],
         "dark": [
-          "#e12afb",
-          "#a65f00",
-          "#0092b8",
+          "#a800b7",
           "#f54900",
-          "#2b7fff",
-          "#00a63e",
+          "#ad46ff",
+          "#a65f00",
           "#7f22fe",
-          "#c70036"
+          "#e7000b",
+          "#1447e6",
+          "#009966"
         ],
         "capacity": 8,
         "families": [
+          "purple",
+          "emerald",
           "blue",
+          "yellow",
+          "orange",
+          "red",
           "green",
           "violet",
-          "yellow",
           "cyan",
-          "orange",
           "fuchsia",
           "rose"
         ],
         "kept": [
+          "purple",
+          "emerald",
           "blue",
-          "green",
-          "violet",
           "yellow",
-          "cyan",
           "orange",
-          "fuchsia",
-          "rose"
+          "red",
+          "violet",
+          "fuchsia"
         ],
-        "crowded": [],
+        "crowded": [
+          "#008236",
+          "#0092b8",
+          "#ff2056"
+        ],
         "dropped": [],
         "separation": {
-          "light": 20.889395314593155,
-          "dark": 20.889395314593155
+          "light": 28.31805863069805,
+          "dark": 28.535873302814153
         },
         "leading": {
-          "light": 2,
+          "light": 1,
           "dark": 1
         }
       },
@@ -694,14 +701,14 @@
           "--sidebar-primary": "#0f0f0f",
           "--sidebar-primary-foreground": "#fafafa",
           "--sidebar-ring": "#737373",
-          "--chart-1": "#00c950",
-          "--chart-2": "#a800b7",
-          "--chart-3": "#ff8904",
-          "--chart-4": "#2b7fff",
-          "--chart-5": "#ff2056",
-          "--chart-6": "#7008e7",
-          "--chart-7": "#a65f00",
-          "--chart-8": "#0092b8"
+          "--chart-1": "#9810fa",
+          "--chart-2": "#d08700",
+          "--chart-3": "#2b7fff",
+          "--chart-4": "#ca3500",
+          "--chart-5": "#e12afb",
+          "--chart-6": "#fb2c36",
+          "--chart-7": "#7008e7",
+          "--chart-8": "#009966"
         },
         "dark": {
           "--primary": "#efefef",
@@ -710,14 +717,14 @@
           "--sidebar-primary": "#efefef",
           "--sidebar-primary-foreground": "#0a0a0a",
           "--sidebar-ring": "#737373",
-          "--chart-1": "#e12afb",
-          "--chart-2": "#a65f00",
-          "--chart-3": "#0092b8",
-          "--chart-4": "#f54900",
-          "--chart-5": "#2b7fff",
-          "--chart-6": "#00a63e",
-          "--chart-7": "#7f22fe",
-          "--chart-8": "#c70036"
+          "--chart-1": "#a800b7",
+          "--chart-2": "#f54900",
+          "--chart-3": "#ad46ff",
+          "--chart-4": "#a65f00",
+          "--chart-5": "#7f22fe",
+          "--chart-6": "#e7000b",
+          "--chart-7": "#1447e6",
+          "--chart-8": "#009966"
         }
       },
       "record": {
@@ -781,8 +788,8 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 2.1244366668471875,
-            "ok": false,
+            "got": 5.309096091961898,
+            "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
           {
@@ -792,25 +799,14 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 6.0080606689138785,
-            "ok": true,
-            "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
-          },
-          {
-            "id": "series-on-page",
-            "mode": "light",
-            "token": "--chart-3",
-            "against": "--background",
-            "kind": "relief",
-            "wanted": 3,
-            "got": 2.278014912653454,
+            "got": 2.814868722156465,
             "ok": false,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
           {
             "id": "series-on-page",
             "mode": "light",
-            "token": "--chart-4",
+            "token": "--chart-3",
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
@@ -821,11 +817,22 @@
           {
             "id": "series-on-page",
             "mode": "light",
+            "token": "--chart-4",
+            "against": "--background",
+            "kind": "relief",
+            "wanted": 3,
+            "got": 5.00415476905174,
+            "ok": true,
+            "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
+          },
+          {
+            "id": "series-on-page",
+            "mode": "light",
             "token": "--chart-5",
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 3.5972702026440344,
+            "got": 3.3952877951296476,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -836,7 +843,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 6.9917854263647765,
+            "got": 3.6478793929618223,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -847,7 +854,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 4.724785269607146,
+            "got": 6.9917854263647765,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -858,7 +865,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 3.4666668669774086,
+            "got": 3.500039083842122,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -902,7 +909,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 5.586568161041031,
+            "got": 3.157093068647637,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -913,7 +920,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 4.0145753958083334,
+            "got": 5.501539741277353,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -924,7 +931,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 5.471540076298338,
+            "got": 4.805208775957577,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -935,7 +942,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 5.501539741277353,
+            "got": 4.0145753958083334,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -946,7 +953,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 5.262975963484396,
+            "got": 3.3584891715526224,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -957,7 +964,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 6.150668604073919,
+            "got": 4.15065036280285,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
@@ -968,8 +975,8 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 3.3584891715526224,
-            "ok": true,
+            "got": 2.8977640841668184,
+            "ok": false,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           },
           {
@@ -979,7 +986,7 @@
             "against": "--background",
             "kind": "relief",
             "wanted": 3,
-            "got": 3.282429930180224,
+            "got": 5.419369966869231,
             "ok": true,
             "reason": "A series colour below 3:1 on the page obliges the chart around it to carry a relief channel — direct labels, a table view. A mark is not text, so this is a relax and not a failure."
           }
@@ -1029,14 +1036,14 @@
       "--sidebar-accent-foreground": "#0f0f0f",
       "--sidebar-border": "#c9c9c9",
       "--sidebar-ring": "#737373",
-      "--chart-1": "#00c950",
-      "--chart-2": "#a800b7",
-      "--chart-3": "#ff8904",
-      "--chart-4": "#2b7fff",
-      "--chart-5": "#ff2056",
-      "--chart-6": "#7008e7",
-      "--chart-7": "#a65f00",
-      "--chart-8": "#0092b8",
+      "--chart-1": "#9810fa",
+      "--chart-2": "#d08700",
+      "--chart-3": "#2b7fff",
+      "--chart-4": "#ca3500",
+      "--chart-5": "#e12afb",
+      "--chart-6": "#fb2c36",
+      "--chart-7": "#7008e7",
+      "--chart-8": "#009966",
       "--syntax-keyword": "#8200db",
       "--syntax-string": "#007a55",
       "--syntax-function": "#1447e6",
@@ -1085,14 +1092,14 @@
       "--sidebar-accent-foreground": "#efefef",
       "--sidebar-border": "#353535",
       "--sidebar-ring": "#737373",
-      "--chart-1": "#e12afb",
-      "--chart-2": "#a65f00",
-      "--chart-3": "#0092b8",
-      "--chart-4": "#f54900",
-      "--chart-5": "#2b7fff",
-      "--chart-6": "#00a63e",
-      "--chart-7": "#7f22fe",
-      "--chart-8": "#c70036",
+      "--chart-1": "#a800b7",
+      "--chart-2": "#f54900",
+      "--chart-3": "#ad46ff",
+      "--chart-4": "#a65f00",
+      "--chart-5": "#7f22fe",
+      "--chart-6": "#e7000b",
+      "--chart-7": "#1447e6",
+      "--chart-8": "#009966",
       "--syntax-keyword": "#c27aff",
       "--syntax-string": "#00d492",
       "--syntax-function": "#51a2ff",

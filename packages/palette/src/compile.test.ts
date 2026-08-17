@@ -190,6 +190,12 @@ describe("compile", () => {
     //   · syntax and editor — v2 spelled them `--kanzo-syntax-*` and `--kanzo-editor-*`, thirteen
     //     roles frozen to Kanzo's hexes. They are seven derived roles under unprefixed names now,
     //     so there is nothing to compare them against and they are asserted separately below.
+    //   · the eight chart slots. v2's came from a wheel spun off the brand hue alone; the
+    //     categorical source now carries the colours a document publishes as well, so Kanzo's set is
+    //     Kanzo's own accent families and its worst adjacent pair under simulation went 20.9 → 28.3
+    //     (`decisions/a-categorical-set-may-use-the-palettes-own-colours.md`, and the table it
+    //     cites). A decided move, not drift — which is exactly what this exclusion has to be read
+    //     as, and why the assertion below still holds every other declaration to the byte;
     //   · the seventeen retired level-names, which v2 emitted and this schema does not. Each was a
     //     pure `alpha` binding whose value the reference layer publishes under its own name, so
     //     they are removed from the v2 side rather than from ours — and the assertion below is what
@@ -211,10 +217,22 @@ describe("compile", () => {
     // …and the `.light` member every light block grew when appearance became a class on the theme's
     // own element. It changes which ELEMENTS a block reaches, never what it declares, which is the
     // distinction this comparison is about.
+    const CHARTS = /^ {2}--chart-\d+: /;
     const unlit = (css: string) => css.replace(/, \.light \{$/gm, " {");
-    expect(unlit(strip(strip(compile(kanzo), SCALE), EDITORY))).toBe(
-      strip(strip(v2.replace("document v2", "document v4"), EDITORY), RETIRED),
+    expect(unlit(strip(strip(strip(compile(kanzo), SCALE), EDITORY), CHARTS))).toBe(
+      strip(strip(strip(v2.replace("document v2", "document v4"), EDITORY), RETIRED), CHARTS),
     );
+
+    // The chart slots are excluded above, so here is what excluding them costs: every one of the
+    // eight moved, and none of them moved to `OTHER`. Without this, "the charts are allowed to
+    // differ" would also cover a set that had quietly collapsed to muted.
+    // The light block's eight, which is the first run of them in the sheet.
+    const slots = [...compile(kanzo).matchAll(/^ {2}--chart-\d: (.+);$/gm)]
+      .slice(0, 8)
+      .map(([, value]) => value as string);
+    expect(slots.length, "eight slots").toBe(8);
+    expect(new Set(slots).size, "eight distinct colours").toBe(8);
+    expect(slots).not.toContain(OTHER);
 
     // The seventeen are a RENAME, not a loss: each value v2 published under a level-name is still
     // published, under the reference step it was always byte-identical to. Read off v2 itself, so
