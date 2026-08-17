@@ -206,7 +206,18 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
     async (from: BoundedSource) => {
       if (!from.extent || framed.current === from) return;
       framed.current = from;
-      const box = await from.extent();
+      let box;
+      try {
+        box = await from.extent();
+      } catch (error) {
+        // **Framing may not stop the drawing.** This is a camera placement, and a source that cannot
+        // answer where it is still has a slice to give — but the first version let the rejection
+        // escape the chain the ask was waiting on, so a failed extent left the canvas saying "asking
+        // for what is in view" forever, with nothing in the console. A defect that silences the whole
+        // canvas has to be louder than the thing it was helping.
+        report.current?.(String(error));
+        return;
+      }
       const graph = graphRef.current;
       if (!graph) return;
       // Two corners are enough: cosmos.gl fits the bounding box of whatever positions it is handed,
