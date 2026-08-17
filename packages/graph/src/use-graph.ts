@@ -70,6 +70,25 @@ export interface UseGraphProps {
    */
   simulate?: boolean;
   clusters?: (number | undefined)[];
+  /**
+   * Which column colours a point — Plot's channel name, and Plot's meaning.
+   *
+   * **A channel is what you want drawn, so it rides the question and not the source.** Baked into a
+   * source at construction — which is where this used to live — changing what a graph is coloured by
+   * meant building a second source, and *where the bytes are* and *what I want drawn* are not the
+   * same question. Changing it here re-asks over the same bytes, which is all it should ever have
+   * cost.
+   *
+   * Omitted, the source decides: it is the only thing that knows what its corpus carries.
+   */
+  fill?: string;
+  /**
+   * Which column the size ramp is spent on — Plot's `r`.
+   *
+   * Omitted, every point is drawn at one radius, which is a legitimate picture: without a ramp a
+   * look's `form.size` range has only one end.
+   */
+  r?: string;
   /** Vertices that stay drawn whatever the camera is over. */
   pinned?: VertexId[];
   limit?: number;
@@ -146,11 +165,13 @@ export function useGraph(props: UseGraphProps): GraphApi {
     debounce,
     display,
     events,
+    fill,
     limit,
     lodThreshold,
     look = LOOKS.atlas,
     onFailure,
     pinned,
+    r,
     report,
     reportProgress,
     schedule,
@@ -165,12 +186,14 @@ export function useGraph(props: UseGraphProps): GraphApi {
 
   const { explore, pending, refresh, resident, slice, sliced, total } = useBoundedGraph({
     debounce,
+    fill,
     graphRef,
     hostRef,
     limit,
     lodThreshold,
     onError: onFailure,
     pinned,
+    r,
     source,
   });
 

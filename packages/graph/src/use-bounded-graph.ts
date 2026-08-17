@@ -38,6 +38,19 @@ export interface BoundedGraphOptions {
    * never move, so the index cannot find them where they now appear.
    */
   pinned?: VertexId[];
+  /**
+   * Which column colours a point and which the size ramp is spent on — Plot's channel names.
+   *
+   * They arrive here rather than being baked into the source because a channel is part of the
+   * **question**: colouring by another column is a new answer over the same bytes, and a source that
+   * held them meant building a second source to change a colour. So this loop asks again when one
+   * changes, which is the whole behaviour the move buys.
+   *
+   * Both optional, and the source decides what an omitted one means — it is the only thing that
+   * knows what its corpus carries.
+   */
+  fill?: string;
+  r?: string;
   limit?: number;
   lodThreshold?: number;
   /**
@@ -113,12 +126,14 @@ function cameraViewport(graph: Graph, host: HTMLElement): Viewport {
 export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState {
   const {
     debounce = DEBOUNCE_MS,
+    fill,
     graphRef,
     hostRef,
     limit = BOUNDED_DEFAULTS.limit,
     lodThreshold = BOUNDED_DEFAULTS.lodThreshold,
     onError,
     pinned,
+    r,
     source,
   } = options;
 
@@ -126,6 +141,8 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
   const [pending, setPending] = useState(false);
   const [total, setTotal] = useState<number | undefined>(undefined);
   const [sliced, setSliced] = useState(false);
+  /** The source `total()` has already answered for — the gate the asking effect waits on. */
+  const [counted, setCounted] = useState<BoundedSource | null>(null);
 
   /**
    * The request in flight, and the timer waiting to become one.
@@ -190,13 +207,18 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
         s.slice({
           view: cameraViewport(graph, host),
           pinned: held.current,
+          fill,
+          r,
           limit,
           lodThreshold,
           signal,
         }),
       );
     }, debounce);
-  }, [ask, debounce, graphRef, hostRef, limit, lodThreshold]);
+    // The channels are dependencies rather than a ref, unlike `pinned`: a new one is a new question
+    // and the effect below re-runs this the moment its identity changes. A pin is a gesture the host
+    // reports, and it says when to ask again itself.
+  }, [ask, debounce, fill, graphRef, hostRef, limit, lodThreshold, r]);
 
   /**
    * Ask a topological question, when the source is one that can answer.
@@ -213,24 +235,37 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
       }
       if (timer.current) clearTimeout(timer.current);
       void ask((s, signal) =>
-        (s as ExploringSource).explore({ seeds, depth, pinned: held.current, limit, lodThreshold, signal }),
+        (s as ExploringSource).explore({
+          seeds,
+          depth,
+          pinned: held.current,
+          fill,
+          r,
+          limit,
+          lodThreshold,
+          signal,
+        }),
       );
     },
-    [ask, limit, lodThreshold, source],
+    [ask, fill, limit, lodThreshold, r, source],
   );
 
   /**
-   * The opening question, and the decision behind it.
+   * How big it is — asked once per source, and the answer decides whether there is a query loop at
+   * all: under the limit one slice covers everything and the camera is never consulted again. A
+   * source that cannot say cheaply is treated as large, because an unknown corpus is more likely to
+   * be the kind that needs bounding than not.
    *
-   * `total()` first, because the answer decides whether there is a query loop at all: under the
-   * limit one slice covers everything and the camera is never consulted again. A source that cannot
-   * say cheaply is treated as large — an unknown corpus is more likely to be the kind that needs
-   * bounding than not.
+   * The *asking* is the effect below rather than the tail of this one, and the split is what lets a
+   * channel change re-ask: how big a corpus is belongs to the source and does not change with what
+   * you want drawn, so counting again on every colour would be paying a `count(*)` for a question
+   * nobody asked.
    */
   useEffect(() => {
     if (!source) {
       setSlice(null);
       setTotal(undefined);
+      setCounted(null);
       return;
     }
     let live = true;
@@ -246,16 +281,29 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
       const bounded = shouldSlice(count, limit);
       slicing.current = bounded;
       setSliced(bounded);
-      if (bounded) refresh();
-      else
-        void ask((s, signal) =>
-          s.slice({ view: EVERYTHING, pinned: held.current, limit, lodThreshold, signal }),
-        );
+      setCounted(source);
     })();
     return () => {
       live = false;
     };
-  }, [ask, limit, lodThreshold, refresh, source]);
+  }, [limit, source]);
+
+  /**
+   * What to draw — the opening question, and every later one that is not the camera's.
+   *
+   * It runs when the count lands, and again whenever the question itself changes: a channel is part
+   * of the question, so `refresh` and this both carry them and both re-run. The counted source is
+   * compared rather than a boolean, so an answer that arrives for a source already replaced cannot
+   * open a slice against the new one.
+   */
+  useEffect(() => {
+    if (!source || counted !== source) return;
+    if (slicing.current) refresh();
+    else
+      void ask((s, signal) =>
+        s.slice({ view: EVERYTHING, pinned: held.current, fill, r, limit, lodThreshold, signal }),
+      );
+  }, [ask, counted, fill, limit, lodThreshold, r, refresh, source]);
 
   // A dropped canvas must not leave a timer holding a stale camera, or a request nobody will read.
   useEffect(

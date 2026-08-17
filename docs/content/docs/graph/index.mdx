@@ -99,16 +99,39 @@ A host that already holds its arrays wraps them in `memorySource(...)` instead �
 database. Under `limit` either source is asked once for everything and never again, so a graph that
 fits pays for nothing.
 
+### The channels ride the question, not the source
+
+What colours a point and what the size ramp is spent on are **props of the canvas**, under the names
+Plot gives a point mark: `fill` and `r`.
+
+```tsx
+<GraphCanvas source={source} fill="kind" r="degree" onFailure={setFailure} />
+```
+
+A source says *where the bytes are*; a channel says *what I want drawn*. They used to be one thing —
+the column names were given to the source at construction — and the cost of that was concrete:
+recolouring meant building a second source, which restarts the query loop and re-counts the corpus to
+answer a question about colour. Changing one of these re-asks over the same bytes and nothing else
+moves. It is the reference's own arrangement: in Plot the mark carries the channels and the mark is
+what produces the query.
+
+**`x` and `y` are not channels**, and that is the real difference from Plot. In a laid-out corpus a
+position is a fact rather than an encoding — a layout pass wrote it, and it is the index every
+spatial question is asked against.
+
+Both are strings naming a column, and there is nothing to be done about that: naming a column is what
+Plot, Vega and every graphical grammar do. If the column is not there the query fails and says so.
+
 ### Three sources, three jobs
 
 | | for | what it needs to be told |
 |---|---|---|
 | `memorySource` | arrays you already hold | the arrays |
 | `duckBoundedSource` | any relation with `x`/`y` | the tables and the column names |
-| `corpusSource` | a tree `fossil` wrote | **where it is** |
+| `openCorpus` | a tree `fossil` wrote | **where it is** |
 
 ```ts
-const source = await corpusSource({ coordinator, dest: "/corpus/people" });
+const { source, nodes, edges } = await openCorpus({ coordinator, dest: "/corpus/people" });
 ```
 
 That is the whole call. It reads `graph.graph.yml`, takes the chunk size and the prefixes from the

@@ -1,7 +1,7 @@
 {
   "name": "@kanzo-tech/graph",
   "version": "0.0.0",
-  "description": "Kanzo graph rendering \u2014 a GPU force layout over cosmos.gl, the DuckDB relation that feeds it, and the Mosaic client that keeps it inside a crossfilter. Sibling of @kanzo-tech/ui, not part of it: DESIGN.md's admission rules exclude graphs from the generic vocabulary by name.",
+  "description": "Kanzo graph rendering — a GPU force layout over cosmos.gl, the DuckDB relation that feeds it, and the Mosaic client that keeps it inside a crossfilter. Sibling of @kanzo-tech/ui, not part of it: DESIGN.md's admission rules exclude graphs from the generic vocabulary by name.",
   "type": "module",
   "license": "MIT",
   "sideEffects": false,
@@ -31,7 +31,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
-  "//peers": "cosmos.gl is a real, required peer \u2014 this package is a renderer and there is nothing left of it without one. The Mosaic/DuckDB half is optional and lives entirely on `./duckdb`: `duckBoundedSource` and `onceQuery` need it, the rendering hooks do not, and a consumer drawing a graph from arrays it already has should not pay for a database. The optional list is what `./duckdb` actually REACHES, and it was short by one for as long as it existed: `@kanzo-tech/ui/analytics` statically imports @uwdata/vgplot as well as mosaic-core and mosaic-sql, so a host that installed the two declared ones still could not import the subpath. @duckdb/duckdb-wasm is deliberately NOT here \u2014 it is an optional peer of @kanzo-tech/ui and nothing in either package's dist names it; a host that boots its own DuckDB depends on it directly. `scripts/smoke-install.mjs` installs none of these and imports the root barrel, which is the check that reads this list rather than trusting it.",
+  "//peers": "cosmos.gl is a real, required peer — this package is a renderer and there is nothing left of it without one. The Mosaic/DuckDB half is optional and lives entirely on `./duckdb`: `duckBoundedSource` and `onceQuery` need it, the rendering hooks do not, and a consumer drawing a graph from arrays it already has should not pay for a database. The optional list is what `./duckdb` actually REACHES, and it was short by one for as long as it existed: `@kanzo-tech/ui/analytics` statically imports @uwdata/vgplot as well as mosaic-core and mosaic-sql, so a host that installed the two declared ones still could not import the subpath. @duckdb/duckdb-wasm is deliberately NOT here — it is an optional peer of @kanzo-tech/ui and nothing in either package's dist names it; a host that boots its own DuckDB depends on it directly. `scripts/smoke-install.mjs` installs none of these and imports the root barrel, which is the check that reads this list rather than trusting it.",
   "peerDependencies": {
     "@cosmos.gl/graph": "^3.4.0",
     "@kanzo-tech/ui": "workspace:*",
@@ -53,12 +53,15 @@
   },
   "devDependencies": {
     "@cosmos.gl/graph": "^3.4.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@uwdata/mosaic-core": "^0.29.2",
     "@uwdata/mosaic-sql": "^0.29.0",
     "jsdom": "^25.0.0",
     "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "rollup-plugin-preserve-directives": "^0.4.0"
   }
 }

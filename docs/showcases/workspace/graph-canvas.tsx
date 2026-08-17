@@ -423,6 +423,10 @@ function CanvasBody() {
    * Two relations and a spatial predicate — which is all this fixture is. The source is memoised on
    * the spec because rebuilding it would restart the query loop, and the loop's own first act is to
    * ask how big the graph is.
+   *
+   * **Where the bytes are, and nothing about what to draw.** What colours and what sizes used to be
+   * given here too, which is why recolouring meant rebuilding this and restarting that loop. They
+   * are channels on the canvas below now.
    */
   const source = useMemo(
     () =>
@@ -434,8 +438,6 @@ function CanvasBody() {
         idField: spec.idField,
         xField: spec.xField,
         yField: spec.yField,
-        categoryField: spec.categoryField,
-        sizeField: spec.sizeField,
       }),
     [coordinator, spec],
   );
@@ -490,6 +492,10 @@ function CanvasBody() {
       onTick: schedule,
       onZoom: schedule,
     },
+    // The two channels, with Plot's names: what colours a point and what the size ramp is spent on.
+    // They are the question rather than the source, so changing one re-asks and nothing is rebuilt.
+    fill: spec.categoryField,
+    r: spec.sizeField,
     look,
     onFailure: setFailure,
     pinned: pinnedVertices,
