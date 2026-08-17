@@ -36,18 +36,16 @@ export {
 // The look: geometry only. Colour comes from the page's categorical scale, never from a look —
 // a scale a graph invents is a scale that disagrees with the legend explaining it.
 export {
-  LOOKS,
-  LOOK_ORDER,
-  MARKS,
+  DEFAULT_LOOK,
   // The other end of `@kanzo-tech/graph/look-section`: the axes a person chose, as a form. The
   // manifest declares them, a host registers it, the panel draws them, and this reads the answer.
+  // There is no table of named looks any more — see `decisions/a-look-declares-what-it-changes.md`.
   lookFrom,
   SHAPE,
   SHAPE_ORDER,
   SHAPE_OTHER,
   SHAPE_PATH,
   type Look,
-  type LookId,
   type ShapeId,
 } from "./graph-looks";
 
@@ -117,17 +115,18 @@ export {
 
 // Where the graph meets the crossfilter — and it is NOT here.
 //
-// `onceQuery` was on this barrel, and it imports `@kanzo-tech/ui/analytics`, which statically
+// `onceQuery` was on this barrel, and it imported `@kanzo-tech/ui/analytics`, which statically
 // imports the whole Mosaic stack. So `import { memorySource } from "@kanzo-tech/graph"` threw
 // ERR_MODULE_NOT_FOUND for every host that had not installed an optional peer, while four places in
-// this package promised the opposite. It is on `@kanzo-tech/graph/duckdb` with `duckBoundedSource`,
-// which is the only thing that ever called it. `scripts/smoke-install.mjs` holds the door shut now.
+// this package promised the opposite. `scripts/smoke-install.mjs` holds the door shut now — and the
+// name itself is gone from the repository: a `DuckSource` is a client of the page's coordinator, so
+// there is no second query path left for a throwaway client to be.
 //
-// The client itself is not re-exported either. It lives in `@kanzo-tech/ui/analytics` as
-// `IdSetClient`, because it turned out to model a view whose positions are outside the database — a
-// graph, a map and an imperative widget all publish that same enumerated set of ids, and none of it
-// is cosmos.gl-specific. Import it from there; a `CosmosClient` alias here would only re-teach a
-// name that was already retired.
+// A client is not re-exported here under any name. The one on `@kanzo-tech/graph/duckdb` is the
+// source's own mouth and is not a thing to hand around; the generic shape — a view whose positions
+// are outside the database publishing an enumerated set of ids — is `IdSetClient` in
+// `@kanzo-tech/ui/analytics`, and none of it is cosmos.gl-specific. A `CosmosClient` alias here
+// would only re-teach a name that was already retired.
 
 /**
  * The bounded render path — a graph you never hold all of.
@@ -145,7 +144,9 @@ export {
  */
 export {
   BOUNDED_DEFAULTS,
+  isSuperseded,
   shouldSlice,
+  SUPERSEDED,
   type BoundedSource,
   type Slice,
   type SliceMode,

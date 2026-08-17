@@ -119,20 +119,19 @@ import {
   PAIRINGS,
   useGraphView,
   type Motion,
+  LOOKS,
+  LOOK_ORDER,
+  LOOK_LABEL,
+  LOOK_BLURB,
 } from "./graph-state";
 import {
   denseOf,
-  LOOKS,
-  LOOK_ORDER,
   SHAPE_PATH,
   scaleOf,
   vertexId,
   type Channels,
   type Look,
 } from "@kanzo-tech/graph";
-// `onceQuery` is on the DuckDB subpath, not the barrel: it is a Mosaic client, and the barrel
-// must stay importable without Mosaic installed.
-import { onceQuery } from "@kanzo-tech/graph/duckdb";
 import type { NodeKind } from "./graph-data";
 import { ShapeGlyph, text } from "./graph-canvas";
 import { Finding } from "./graph-finding";
@@ -931,8 +930,16 @@ function OrdersBody() {
   const violations = total("violation");
   const warnings = total("warning");
 
+  /**
+   * The ids an order fails, so pressing it can select them — and deliberately **unfiltered**.
+   *
+   * `coordinator.query` rather than a client, and `useChartQuery` above rather than this, and the
+   * difference is the one `useChartQuery` documents: the counts beside each order are a readout
+   * that must move with the page, so they are a client; this is a gesture that *produces* the
+   * selection the page then moves by, so following the page would make it a function of itself.
+   */
   const failingIds = async (order: Order) => {
-    const data = await onceQuery(coordinator, () =>
+    const data = await coordinator.query(
       Query.from(NODES).select({ id: "id" }).where(order.failing),
     );
     return numbers(data, "id");
@@ -1248,10 +1255,10 @@ const PREVIEW_EDGES: [number, number][] = [
  */
 const PREVIEW_SCALE = 0.55;
 
-function LookPreview({ channels, look }: { channels: Channels; look: Look }) {
+function LookPreview({ channels, id, look }: { channels: Channels; id: string; look: Look }) {
   const scale = scaleOf(channels);
   const radius = (degree: number) => {
-    const [min, max] = look.form.size;
+    const [min, max] = look.size;
     return (min + degree * (max - min)) * PREVIEW_SCALE;
   };
   return (
@@ -1274,7 +1281,7 @@ function LookPreview({ channels, look }: { channels: Channels; look: Look }) {
         // point is the midpoint pushed along the perpendicular. At `curve: 0` this is the straight
         // line it should be, which is why there is no branch on it.
         const [dx, dy] = [b.x - a.x, b.y - a.y];
-        const bow = look.form.link.curve;
+        const bow = look.link.curve;
         const cx = (a.x + b.x) / 2 - dy * bow;
         const cy = (a.y + b.y) / 2 + dx * bow;
         return (
@@ -1286,8 +1293,8 @@ function LookPreview({ channels, look }: { channels: Channels; look: Look }) {
             // structure — the same rule `buffers` reads, so the card cannot promise a picture the
             // canvas does not paint, which is the one claim this component exists to make.
             stroke={channels.stroke ?? scale.color(a.ordinal)}
-            strokeOpacity={look.form.link.opacity}
-            strokeWidth={look.form.link.width}
+            strokeOpacity={look.link.opacity}
+            strokeWidth={look.link.width}
           />
         );
       })}
@@ -1306,15 +1313,15 @@ function LookPreview({ channels, look }: { channels: Channels; look: Look }) {
       })}
       {/* Mood, and only Nebula asks for it. The rim fades toward the page, which is what the
           section's own `vignette` token binds to. */}
-      {look.form.vignette ? (
+      {look.vignette ? (
         <>
           <defs>
-            <radialGradient id={`look-vignette-${look.id}`}>
+            <radialGradient id={`look-vignette-${id}`}>
               <stop offset="55%" stopColor="var(--background)" stopOpacity="0" />
               <stop offset="100%" stopColor="var(--background)" stopOpacity="0.85" />
             </radialGradient>
           </defs>
-          <rect fill={`url(#look-vignette-${look.id})`} height="40" width="208" />
+          <rect fill={`url(#look-vignette-${id})`} height="40" width="208" />
         </>
       ) : null}
     </svg>
@@ -1356,10 +1363,10 @@ export function GraphAppearance() {
             {/* Stacked, not the grid the palette list uses, and the difference is that this list
                 does not grow: there are three looks and a tenant cannot publish a fourth. Keeping
                 the full width is what lets the miniature be a graph rather than a thumbnail of one. */}
-            <LookPreview channels={PAIRINGS[id]} look={LOOKS[id]} />
-            <span className="mt-1.5 block font-medium text-xs">{LOOKS[id].label}</span>
+            <LookPreview channels={PAIRINGS[id]} id={id} look={LOOKS[id]} />
+            <span className="mt-1.5 block font-medium text-xs">{LOOK_LABEL[id]}</span>
             <span className="mt-0.5 block text-[10px] text-muted-foreground leading-relaxed">
-              {LOOKS[id].blurb}
+              {LOOK_BLURB[id]}
             </span>
           </button>
         ))}
@@ -1679,7 +1686,7 @@ function AskBody() {
     setMissed(intent === null);
     if (!intent) return;
     setBusy(true);
-    const data = await onceQuery(coordinator, () =>
+    const data = await coordinator.query(
       Query.from(NODES).select({ n: count() }).where(intent.failing),
     );
     const rows = Array.from(data as Iterable<Record<string, unknown>>);
@@ -1687,8 +1694,10 @@ function AskBody() {
     setBusy(false);
   };
 
+  // Unfiltered for the same reason `failingIds` is: an answer that produces a selection cannot be a
+  // function of the selection.
   const matchingIds = async (intent: Intent) => {
-    const data = await onceQuery(coordinator, () =>
+    const data = await coordinator.query(
       Query.from(NODES).select({ id: "id" }).where(intent.failing),
     );
     return numbers(data, "id");

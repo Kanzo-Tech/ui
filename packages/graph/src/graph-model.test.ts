@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { adaptive } from "./adaptive";
 import { buffers, neighboursOf, scaleOf } from "./graph-model";
-import { LOOKS } from "./graph-looks";
+import { DEFAULT_LOOK } from "./graph-looks";
 import { memorySource } from "./memory-source";
 import { vertexId } from "./resident";
 import type { Slice } from "./bounded";
@@ -31,9 +31,9 @@ describe("buffers", () => {
   it("spreads the size ramp by √value, not linearly", () => {
     const host = document.createElement("div");
     document.body.appendChild(host);
-    const [lo, hi] = LOOKS.atlas.form.size;
+    const [lo, hi] = DEFAULT_LOOK.size;
 
-    const gpu = buffers(slice({ sizes: Float32Array.from([1, 4, 9]) }), LOOKS.atlas, host);
+    const gpu = buffers(slice({ sizes: Float32Array.from([1, 4, 9]) }), DEFAULT_LOOK, host);
 
     // √1 and √9 are the ends; √4 sits at (2−1)/(3−1) = 0.5 of the way, which a linear ramp would
     // have put at (4−1)/(9−1) = 0.375 — the difference between a readable spread and everything but
@@ -46,7 +46,7 @@ describe("buffers", () => {
   it("spends the ramp on cluster weight in aggregate mode", () => {
     const host = document.createElement("div");
     document.body.appendChild(host);
-    const [lo, hi] = LOOKS.atlas.form.size;
+    const [lo, hi] = DEFAULT_LOOK.size;
 
     // `sizes` is present and must be ignored: at this zoom a mark stands for a cluster, and how big
     // it should read is how many vertices it hides, not what any one of them ranked.
@@ -56,7 +56,7 @@ describe("buffers", () => {
         weights: Float32Array.from([1, 4, 9]),
         sizes: Float32Array.from([9, 4, 1]),
       }),
-      LOOKS.atlas,
+      DEFAULT_LOOK,
       host,
     );
 
@@ -70,7 +70,7 @@ describe("buffers", () => {
 
     // A slice is allowed to be geometry and nothing else. The old path could not express this — it
     // read `row.size` off every node — and the arithmetic would have divided by an empty span.
-    const gpu = buffers(slice(), LOOKS.atlas, host);
+    const gpu = buffers(slice(), DEFAULT_LOOK, host);
 
     expect([...gpu.sizes]).toEqual([gpu.sizes[0], gpu.sizes[0], gpu.sizes[0]]);
     expect(Number.isFinite(gpu.sizes[0])).toBe(true);
@@ -80,7 +80,7 @@ describe("buffers", () => {
     const host = document.createElement("div");
     document.body.appendChild(host);
 
-    const gpu = buffers(slice({ links: Float32Array.from([0, 2, 1, 2]) }), LOOKS.atlas, host);
+    const gpu = buffers(slice({ links: Float32Array.from([0, 2, 1, 2]) }), DEFAULT_LOOK, host);
 
     // Opacity is a uniform (`appearance`). Multiplying it in here is what once cost a full re-upload
     // on every tick of a slider, and the channel is kept free for a datum that genuinely differs per

@@ -1,5 +1,5 @@
 import type { Channels } from "./graph-model";
-import { LOOKS, SHAPE, SHAPE_ORDER, SHAPE_OTHER, type Look } from "./graph-looks";
+import { lookFrom, SHAPE, SHAPE_ORDER, SHAPE_OTHER, type Look } from "./graph-looks";
 
 /**
  * What the graph's geometry owes, as a report rather than as prose.
@@ -41,7 +41,10 @@ export interface Obligation {
 const otherCollisions = SHAPE_ORDER.filter((s) => s === SHAPE_OTHER).length;
 
 /** The largest curvature any look asks for. */
-const maxCurve = Math.max(...Object.values(LOOKS).map((look) => look.form.link.curve));
+// One curvature now, not three: the `bowed-links` toggle picks it or zero, so the largest a form
+// can ask for is what the toggle turns on. Read through `lookFrom` rather than typed here, which is
+// what keeps this a measurement of the shipped value instead of a copy of it.
+const maxCurve = lookFrom({ "bowed-links": "true" }).link.curve;
 
 /**
  * The floor a **composition** owes, not a look — and that move is the point rather than a detail.
@@ -88,7 +91,7 @@ const SHAPE_FLOOR: Omit<Obligation, "measured"> = {
  */
 export function gradeComposition(look: Look, channels: Channels): Check | null {
   if (channels.symbol === undefined) return null;
-  const measured = look.form.size[0];
+  const measured = look.size[0];
   const threshold = SHAPE_FLOOR.threshold as number;
   return { ...SHAPE_FLOOR, measured, threshold, ok: measured >= threshold };
 }

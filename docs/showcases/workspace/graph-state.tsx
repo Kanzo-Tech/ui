@@ -20,7 +20,8 @@ import {
   type Channels,
   type Display,
   type GraphCommands,
-  type LookId,
+  lookFrom,
+  type Look,
   type Motion,
   type Selection,
   type Sim,
@@ -137,6 +138,46 @@ export const ARCHIVE_SPEC: GraphSpec = {
  * now — and moves identity to `symbol`, which is the pairing `gradeComposition` grades: shape and
  * size spent at once need Ink's four-pixel floor.
  */
+/**
+ * The three arrangements this product offers, and **they are the host's now**.
+ *
+ * `LOOKS` and `LookId` left the package with
+ * `decisions/a-look-declares-what-it-changes.md`: six of the ten fields separating Nebula from
+ * Atlas moved by 7–17%, under the package's own threshold for a difference meaning anything, so
+ * what it ships is the axes a person chooses and one resolver. A name for a composition is a
+ * product's word, not a library's — the same call the pairings below already make about bindings.
+ *
+ * Written through `lookFrom`, so these are values a panel could produce rather than a fourth table
+ * of numbers: what a reader picks in Preferences and what this dock offers cannot diverge.
+ */
+export type LookId = "nebula" | "atlas" | "ink";
+
+export const LOOKS: Record<LookId, Look> = {
+  nebula: lookFrom({
+    "additive-links": "true",
+    "bowed-links": "false",
+    labels: "14",
+    vignette: "true",
+  }),
+  atlas: lookFrom({ "bowed-links": "true", labels: "26" }),
+  ink: lookFrom({ marks: "legible", "bowed-links": "false", labels: "40" }),
+};
+
+export const LOOK_ORDER: LookId[] = ["nebula", "atlas", "ink"];
+
+export const LOOK_LABEL: Record<LookId, string> = {
+  nebula: "Nebula",
+  atlas: "Atlas",
+  ink: "Ink",
+};
+
+/** What each arrangement is for, in one line — a product's copy, beside the product's names. */
+export const LOOK_BLURB: Record<LookId, string> = {
+  nebula: "Dense and dim points, for a picture that reads as flow.",
+  atlas: "Map-steady points, links that just bow, generous labels.",
+  ink: "Large, legible marks — the print-and-projector register.",
+};
+
 export const PAIRINGS: Record<LookId, Channels> = {
   nebula: { fill: ARCHIVE_SPEC.categoryField },
   atlas: { fill: ARCHIVE_SPEC.categoryField, stroke: "var(--muted-foreground)" },

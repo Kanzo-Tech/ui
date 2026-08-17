@@ -12,11 +12,14 @@ import * as GRAPH from "./index";
  *
  * ## The door, and why it is asserted from two sides
  *
- * `onceQuery` was exported here. Its module imports `@kanzo-tech/ui/analytics`, which statically
+ * `onceQuery` was exported here. Its module imported `@kanzo-tech/ui/analytics`, which statically
  * imports `@uwdata/mosaic-core`, `@uwdata/mosaic-sql` and `@uwdata/vgplot` — so
  * `import { memorySource } from "@kanzo-tech/graph"` threw ERR_MODULE_NOT_FOUND for every host that
  * had not installed a database, while `src/index.ts`, `src/duck-source.ts`, the manifest and the
- * README each promised in their own words that it would not.
+ * README each promised in their own words that it would not. The name no longer exists anywhere:
+ * `slice-client.ts` replaced it with a client the coordinator owns. It is still asserted below,
+ * because what the assertion is for is the *door* rather than the name — the next module to import
+ * the Mosaic stack will not be called `onceQuery` either.
  *
  * The absence below is the cheap half and it is not the proof: Mosaic IS installed in this
  * workspace, so `./index` would import happily even with the re-export back. What proves it is
@@ -59,8 +62,10 @@ describe("@kanzo-tech/graph public surface", () => {
     expect(GRAPH.denseOf).toBeTypeOf("function");
     expect(GRAPH.residentOf).toBeTypeOf("function");
     // The tables and constants a call site cannot reconstruct.
-    expect(GRAPH.LOOKS).toBeTypeOf("object");
-    expect(GRAPH.LOOK_ORDER.length).toBeGreaterThan(0);
+    // No table of named looks: what a person chooses is declared as axes in `look-section.ts` and
+    // resolved here — `decisions/a-look-declares-what-it-changes.md`.
+    expect(GRAPH.lookFrom).toBeTypeOf("function");
+    expect(GRAPH.DEFAULT_LOOK.size.length).toBe(2);
     expect(GRAPH.SHAPE_ORDER.length).toBeGreaterThan(0);
     expect(GRAPH.SPACE).toBeTypeOf("number");
     expect(GRAPH.GRID).toBeTypeOf("number");
@@ -91,19 +96,21 @@ describe("@kanzo-tech/graph public surface", () => {
   it("keeps the Mosaic/DuckDB half off the root barrel", () => {
     // The one-way door CLAUDE.md names, and the one this package had already crossed.
     //
-    // `onceQuery` is a `MosaicClient` subclass — its module imports `@kanzo-tech/ui/analytics`,
+    // `onceQuery` was a `MosaicClient` subclass — its module imported `@kanzo-tech/ui/analytics`,
     // which statically imports the whole Mosaic stack, all of it optional. Re-exported here it made
     // `import { memorySource } from "@kanzo-tech/graph"` throw ERR_MODULE_NOT_FOUND for anyone
     // without a database, which is the exact failure `/editor`, `/table` and `/analytics` exist to
-    // prevent in `@kanzo-tech/ui`. It has no non-Mosaic caller and never had one: `duck-source.ts`
-    // and two showcases are the whole set, and every one of them already holds a `Coordinator`.
+    // prevent in `@kanzo-tech/ui`. The name is gone entirely now, and `SliceRead` is what a source
+    // queries through — a client the coordinator owns rather than one per query.
     //
-    // Both names live on `@kanzo-tech/graph/duckdb`. Deliberately not imported here — importing the
-    // subpath from a test in this package would prove nothing (Mosaic is installed in the
-    // workspace) and would make this file the thing that reaches it.
+    // Every one of these lives on `@kanzo-tech/graph/duckdb`. Deliberately not imported here —
+    // importing the subpath from a test in this package would prove nothing (Mosaic is installed in
+    // the workspace) and would make this file the thing that reaches it.
     const surface = GRAPH as Record<string, unknown>;
     expect(surface.onceQuery).toBeUndefined();
     expect(surface.duckBoundedSource).toBeUndefined();
+    expect(surface.openCorpus).toBeUndefined();
+    expect(surface.SliceRead).toBeUndefined();
     // The client is not here under any name either. It lives in `@kanzo-tech/ui/analytics` as
     // `IdSetClient`, because a graph, a map and an imperative widget all publish the same
     // enumerated set of ids and none of that is cosmos.gl-specific. `CosmosClient` was the name it

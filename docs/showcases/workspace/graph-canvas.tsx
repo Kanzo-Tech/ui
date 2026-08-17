@@ -34,7 +34,6 @@ import {
   cursorChip,
   denseOf,
   GRID,
-  LOOKS,
   neighboursOf,
   REHEAT,
   residentOf,
@@ -59,6 +58,7 @@ import {
   type Motion,
   type Selection,
   type SelectionSource,
+  LOOKS,
 } from "./graph-state";
 
 /**
@@ -601,7 +601,7 @@ function CanvasBody() {
       setTracked([]);
       return;
     }
-    const budget = look.form.labels;
+    const budget = look.labels;
     const ramp = slice.sizes;
     // Importance order, and it matters: the declutter pass places labels in this order and drops
     // whichever would collide with one already down, so the hubs win the crowded spots. Without a
@@ -617,7 +617,7 @@ function CanvasBody() {
     setLabelOrder(wanted);
     setTracked(wanted);
     schedule();
-  }, [slice, resident, display.labels, look.form.labels, focusedVertex, schedule, setLabelOrder]);
+  }, [slice, resident, display.labels, look.labels, focusedVertex, schedule, setLabelOrder]);
 
   // An overlay that has just mounted has no transform yet, and the simulation may already be
   // asleep — so nothing would place it until the next zoom. Place it now.
@@ -825,7 +825,7 @@ function CanvasBody() {
               where it dropped the slots' contrast against what they sit on from 2.12–6.99 to
               1.25–4.11 (3.39–5.60 to 1.56–2.57 for a teal tenant). Not an alpha-step case: an alpha
               step composites back to a ramp *step*, and what a vignette converges to is the page. */}
-          <Show when={look.form.vignette}>
+          <Show when={look.vignette}>
             <div
               className="pointer-events-none absolute inset-0"
               style={{

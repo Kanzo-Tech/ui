@@ -176,7 +176,7 @@ export function buffers(
     // band, chroma floor and separation, and nudging one on the way to the GPU voids all three.
     colors.set(colourOf(ordinal), i * 4);
     const t = ramp ? (Math.sqrt(ramp[i] as number) - lo) / span : 0;
-    sizes[i] = look.form.size[0] + t * (look.form.size[1] - look.form.size[0]);
+    sizes[i] = look.size[0] + t * (look.size[1] - look.size[0]);
     shapes[i] = scale.shape(ordinal);
   }
 
@@ -254,12 +254,12 @@ export function appearance(look: Look, host: Element, display: Display): GraphCo
     pointSizeScale: display.pointScale,
     renderLinks: display.links,
     /** Edge opacity, the look's own and the reader's. Multiplies each link's buffer alpha. */
-    linkOpacity: look.form.link.opacity * display.linkOpacity,
-    linkDefaultWidth: look.form.link.width,
-    linkBlending: look.form.link.blend,
-    curvedLinks: look.form.link.curve > 0,
-    curvedLinkControlPointDistance: look.form.link.curve,
-    linkVisibilityDistanceRange: look.form.link.fade,
+    linkOpacity: look.link.opacity * display.linkOpacity,
+    linkDefaultWidth: look.link.width,
+    linkBlending: look.link.blend,
+    curvedLinks: look.link.curve > 0,
+    curvedLinkControlPointDistance: look.link.curve,
+    linkVisibilityDistanceRange: look.link.fade,
     linkVisibilityMinTransparency: 0.12,
     renderHoveredPointRing: true,
     hoveredPointRingColor: toHex(resolveToken(host, "var(--primary)")),

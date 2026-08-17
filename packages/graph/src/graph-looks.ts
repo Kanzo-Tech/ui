@@ -17,8 +17,6 @@
 // with it — offered by the host that draws the graph. A host offering three arrangements it authored
 // is not the same act as a preference silently discarding the caller's binding.
 
-export type LookId = "nebula" | "atlas" | "ink";
-
 /**
  * cosmos.gl's `setPointShapes` enum — the members this canvas draws.
  *
@@ -63,158 +61,87 @@ export const SHAPE_ORDER: ShapeId[] = [SHAPE.circle, SHAPE.square, SHAPE.triangl
  */
 export const SHAPE_OTHER: ShapeId = SHAPE.cross;
 
+/**
+ * The geometry a canvas draws — and nothing else.
+ *
+ * **No `id`, no `label`, no `blurb`.** Those three were a picker's metadata, and the picker was a
+ * list of three names that turned out to be two pictures. What a person chooses is declared in
+ * `look-section.ts` as axes and resolved by `lookFrom`; what a renderer consumes is this.
+ */
 export interface Look {
-  id: LookId;
-  label: string;
-  blurb: string;
-  form: {
-    /** Radius at the lowest degree in the corpus, and at the highest. */
-    size: [number, number];
-    link: {
-      opacity: number;
-      width: number;
-      /**
-       * How far a link bows off the straight line, as a fraction of its length. `0` is straight.
-       *
-       * Keep it small. Every link curves the same way, so at cosmos.gl's default of `0.5` a few
-       * hundred of them read as one pinwheel and the picture looks like it is spinning — motion
-       * where there is structure. A hint is enough to tell two parallel edges apart.
-       */
-      curve: number;
-      /**
-       * Whether links **add** where they overlap, instead of compositing over one another.
-       *
-       * cosmos.gl's default is on, which is a choice nobody here made and which the archive made
-       * visible: 4,280 grey links at 0.45 summed to a white spray that swallowed 1,543 points of
-       * 2–9 px. Every point was uploaded, none was legible, and the picture read as *the nodes are
-       * not rendering*.
-       *
-       * On, it is a real register rather than a bug — additive light is what makes a dense graph read
-       * as flow — so it belongs to the form that wants it and not to the renderer's defaults.
-       */
-      blend: boolean;
-      /**
-       * Screen lengths between which a link fades out — depth, for free.
-       *
-       * Keep the far end generous. cosmos.gl measures this in *screen* pixels, so a range that
-       * looks reasonable while zoomed in erases the whole edge layer when you zoom out, which
-       * reads as "Show links stopped working".
-       */
-      fade: [number, number];
-    };
-    /** How many of the highest-degree nodes carry a standing label. */
-    labels: number;
-    /** A darkened rim. Mood rather than a reading aid, which is why it is form and not display. */
-    vignette: boolean;
-    // There is no `filter`, and its absence is a rule rather than an omission. Nebula carried
-    // `saturate(1.1)` on the canvas element — the one thing left in a Look that touched hue, and a
-    // chroma multiplier is colour wearing geometry's clothes. Measured over Kanzo's eight slots
-    // (2026-08-13, `saturate(1.1)` through the same filter engine the browser applies): it moved
-    // every slot, by ΔE 0.85 to **8.05**, which is the size of the separation `deriveScheme`
-    // *guarantees* between two different categories. It did not break that separation here —
-    // the closest pair went from ΔE 32.36 to 30.38, with room to spare — so the reason it is gone
-    // is not a failure it caused, it is that a look must not be able to cause one. The whole claim
-    // of the colour layer is that what ships is what was derived and measured; a post-process on
-    // the canvas voids it silently, and `graph-model.ts` already forbids the same move one layer
-    // down ("nudging one on the way to the GPU voids all three").
+  /** Radius at the lowest degree in the corpus, and at the highest. */
+  size: [number, number];
+  link: {
+    opacity: number;
+    width: number;
+    /**
+     * How far a link bows off the straight line, as a fraction of its length. `0` is straight.
+     *
+     * Keep it small. Every link curves the same way, so at cosmos.gl's default of `0.5` a few
+     * hundred of them read as one pinwheel and the picture looks like it is spinning — motion
+     * where there is structure. A hint is enough to tell two parallel edges apart.
+     */
+    curve: number;
+    /**
+     * Whether links **add** where they overlap, instead of compositing over one another.
+     *
+     * cosmos.gl's default is on, which is a choice nobody here made and which the archive made
+     * visible: 4,280 grey links at 0.45 summed to a white spray that swallowed 1,543 points of
+     * 2–9 px. Every point was uploaded, none was legible, and the picture read as *the nodes are
+     * not rendering*.
+     *
+     * On, it is a real register rather than a bug — additive light is what makes a dense graph read
+     * as flow — so it belongs to the form that wants it and not to the renderer's defaults.
+     */
+    blend: boolean;
+    /**
+     * Screen lengths between which a link fades out — depth, for free.
+     *
+     * Keep the far end generous. cosmos.gl measures this in *screen* pixels, so a range that
+     * looks reasonable while zoomed in erases the whole edge layer when you zoom out, which
+     * reads as "Show links stopped working".
+     */
+    fade: [number, number];
   };
+  /** How many of the highest-degree nodes carry a standing label. */
+  labels: number;
+  /** A darkened rim. Mood rather than a reading aid, which is why it is form and not display. */
+  vignette: boolean;
+  // There is no `filter`, and its absence is a rule rather than an omission. Nebula carried
+  // `saturate(1.1)` on the canvas element — the one thing left in a Look that touched hue, and a
+  // chroma multiplier is colour wearing geometry's clothes. Measured over Kanzo's eight slots
+  // (2026-08-13, `saturate(1.1)` through the same filter engine the browser applies): it moved
+  // every slot, by ΔE 0.85 to **8.05**, which is the size of the separation `deriveScheme`
+  // *guarantees* between two different categories. It did not break that separation here —
+  // the closest pair went from ΔE 32.36 to 30.38, with room to spare — so the reason it is gone
+  // is not a failure it caused, it is that a look must not be able to cause one. The whole claim
+  // of the colour layer is that what ships is what was derived and measured; a post-process on
+  // the canvas voids it silently, and `graph-model.ts` already forbids the same move one layer
+  // down ("nudging one on the way to the GPU voids all three").
 }
 
 /**
- * What a mark is — one of the two axes the three looks turn out to be.
+ * The form a canvas draws, from the axes a person chose.
  *
- * **Six of the ten fields were jitter.** Measured across the shipped three, Nebula and Atlas
- * differed by 7–17% on radius, link opacity, link width and fade — two tenths of a pixel, one tenth
- * of a line width, twenty pixels of fade distance — against this file's own threshold for a
- * difference meaning something, a luminance JND of 6.48–11.30 ΔL*. Two pictures nobody can tell
- * apart were about to become two names in a preferences panel. See
- * `decisions/a-look-declares-what-it-changes.md`.
+ * **One function and no table of constants**, which is the shape the axes forced and the reason
+ * the three named looks are gone. They were three parallel tables of ten fields; six of those
+ * fields separated two of the three by 7–17%, under this file's own threshold for a difference
+ * meaning anything — a luminance JND of 6.48–11.30 ΔL*. What is left of them is this: every number
+ * appears once, where the axis that owns it is read, and the axis is declared next door in
+ * `look-section.ts` for a panel to draw. See `decisions/a-look-declares-what-it-changes.md`.
  *
- * **Link opacity rides this axis and not the link one**, and that is what the numbers say rather
- * than a tidy guess: 0.42 and 0.45 on the two dense forms against 0.28 on the legible one. Bigger
- * marks, quieter links — a form that spends more ink on points cannot also spend it on edges.
- */
-export const MARKS = {
-  dense: { size: [2, 8] as [number, number], link: { opacity: 0.42, width: 0.6 } },
-  legible: { size: [4, 13] as [number, number], link: { opacity: 0.28, width: 0.5 } },
-} as const;
-
-/**
- * The fade every form shares.
+ * **Link opacity and width ride the mark**, and that is what the numbers said rather than a tidy
+ * guess: 0.42 and 0.45 on the two dense forms against 0.28 on the legible one. A form that spends
+ * more ink on points cannot also spend it on edges.
  *
- * It was three ranges within ±10% of each other, which is the definition of a field nobody chose.
- * A form that ever needs its own says so by declaring one.
- */
-const FADE: [number, number] = [200, 1400];
-
-/**
- * How far a bowed link bows — the one value behind the `bowed-links` toggle.
- *
- * A hint, and the obligation beside it says why: every link curves the same way, so cosmos.gl's
- * default of 0.5 reads as one pinwheel. A toggle rather than a range because a reader wants two
- * pictures, not a number to tune, and the two pictures are *straight* and *told apart*.
- */
-const BOW = 0.12;
-
-/** A form, composed: a mark, what its links do, a label budget, and whether the rim darkens. */
-function form(
-  mark: (typeof MARKS)[keyof typeof MARKS],
-  link: { curve: number; blend: boolean },
-  labels: number,
-  vignette = false,
-): Look["form"] {
-  return { size: mark.size, link: { ...mark.link, ...link, fade: FADE }, labels, vignette };
-}
-
-/**
- * Cosmograph's own register: small dense points and a haze of links that take their colour from
- * the node they leave, so the picture reads as flow rather than as a diagram.
- */
-const NEBULA: Look = {
-  id: "nebula",
-  label: "Nebula",
-  blurb: "Dense and dim points, for a picture that reads as flow.",
-  form: form(MARKS.dense, { curve: 0, blend: true }, 14, true),
-};
-
-/** The default: map-steady points, links that bow just enough to separate a parallel pair. */
-const ATLAS: Look = {
-  id: "atlas",
-  label: "Atlas",
-  blurb: "Map-steady points, links that just bow, generous labels.",
-  form: form(MARKS.dense, { curve: BOW, blend: false }, 26),
-};
-
-/**
- * The large, legible register — print, a projector, a room looking at one screen.
- *
- * **The name is the half that left.** Ink used to mean monochrome *and* identity-as-shape; the
- * first is a palette document and the second is a binding, and neither is form. What is left is a
- * form whose marks are big enough to carry a second channel, which is what its floor is for — so
- * the name should follow the form, and this one is still open.
- */
-const INK: Look = {
-  id: "ink",
-  label: "Ink",
-  blurb: "Large, legible marks — the print-and-projector register.",
-  // The mark is `legible`, and its radius is the whole reason that mark exists: the floor protects
-  // the OTHER two channels from shape rather than shape from smallness. It is why this is the form
-  // to pair `symbol` with — spending shape on identity *and* size on degree at once is what
-  // Giovannangeli et al. (arXiv 2103.06084) measure as dropping performance drastically under even
-  // minor heterogeneity, and smaller marks worsen it both ways: the luminance JND rises from 6.48
-  // ΔL* at 50 px to 11.30 at 6 px, and a square is reported larger than any other shape at equal
-  // area in 82% of trials, which is a size ramp reading wrong wherever `r` and `symbol` are bound
-  // together.
-  //
-  // Not "a triangle and a square are the same dot below four pixels", which is what this said and
-  // is false — see `SHAPE_ORDER` for the measurement that refutes it.
-  form: form(MARKS.legible, { curve: 0, blend: false }, 40),
-};
-
-export const LOOKS: Record<LookId, Look> = { nebula: NEBULA, atlas: ATLAS, ink: INK };
-
-/**
- * A look, from the axes a person chose — the other end of `@kanzo-tech/graph/look-section`.
+ * **The legible mark's radius is the whole reason that mark exists.** Its floor protects the other
+ * two channels from shape rather than shape from smallness, which is why it is the one to pair
+ * `symbol` with: spending shape on identity *and* size on degree at once is what Giovannangeli et
+ * al. (arXiv 2103.06084) measure as dropping performance drastically under even minor heterogeneity,
+ * and smaller marks worsen it both ways — the luminance JND above, and a square reported larger than
+ * any other shape at equal area in 82% of trials (Smart & Szafir, CHI 2019). Not "a triangle and a
+ * square are the same dot below four pixels", which is what this said for months and is false; see
+ * `SHAPE_ORDER` for the measurement that refutes it.
  *
  * **The values are strings because a contributed preference is a string**, in all three kinds, so an
  * unrecognised namespace rides through a write untouched. Parsing what a kind means is the reader's
@@ -222,28 +149,37 @@ export const LOOKS: Record<LookId, Look> = { nebula: NEBULA, atlas: ATLAS, ink: 
  * dependency to this package to carry no code — the same call `LOOK_SECTION` already makes about the
  * manifest type.
  *
- * Missing keys take the manifest's defaults, which are Atlas. That is not a coincidence to be tidied
- * away: a host that registers the section and stores nothing draws exactly what a graph drew before
- * any of this existed.
+ * A key that is missing, or that carries a value the section never offered, takes the manifest's
+ * default. Those defaults are what a graph drew before any of this existed.
  */
-export function lookFrom(values: Readonly<Record<string, string | undefined>>): Look["form"] {
+export function lookFrom(values: Readonly<Record<string, string | undefined>> = {}): Look {
   const on = (key: string, fallback: boolean) => {
     const value = values[key];
     return value === undefined ? fallback : value === "true";
   };
-  const count = (key: string, fallback: number) => {
-    const parsed = Number.parseFloat(values[key] ?? "");
-    return Number.isFinite(parsed) ? parsed : fallback;
+  const legible = values.marks === "legible";
+  const labels = Number.parseFloat(values.labels ?? "");
+  return {
+    size: legible ? [4, 13] : [2, 8],
+    link: {
+      opacity: legible ? 0.28 : 0.42,
+      width: legible ? 0.5 : 0.6,
+      // A hint, and `obligations.ts` says why: every link bows the same way, so cosmos.gl's default
+      // of 0.5 reads as one pinwheel. A toggle rather than a range because a reader wants two
+      // pictures — straight, and told apart — not a number to tune.
+      curve: on("bowed-links", true) ? 0.12 : 0,
+      blend: on("additive-links", false),
+      // Shared by every form. It was three ranges within ±10% of each other, which is the
+      // definition of a field nobody chose.
+      fade: [200, 1400],
+    },
+    labels: Number.isFinite(labels) ? labels : 26,
+    vignette: on("vignette", false),
   };
-  return form(
-    values.marks === "legible" ? MARKS.legible : MARKS.dense,
-    { blend: on("additive-links", false), curve: on("bowed-links", true) ? BOW : 0 },
-    count("labels", 26),
-    on("vignette", false),
-  );
 }
 
-export const LOOK_ORDER: LookId[] = ["nebula", "atlas", "ink"];
+/** What a canvas draws when nobody has chosen anything. */
+export const DEFAULT_LOOK: Look = lookFrom();
 
 /** The SVG path for a shape glyph inside a 12×12 box — the legend draws what the canvas draws. */
 export const SHAPE_PATH: Record<ShapeId, string> = {
