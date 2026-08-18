@@ -13,12 +13,17 @@ import {
   prefOptions,
   themeData,
   type Appearance,
-  type KanzoDensity,
+  type CorePrefKey,
   type KanzoRadius,
+  type PrefOption,
   type PrefSources,
   type SectionPrefDecl,
 } from "@kanzo-tech/theme";
-import { useKanzoTheme } from "../theme/KanzoThemeProvider.js";
+import {
+  useKanzoTheme,
+  type FontOption,
+  type ThemeContextValue,
+} from "../theme/KanzoThemeProvider.js";
 import { cn } from "../lib/cn.js";
 import { AppearanceToggle } from "./AppearanceToggle.js";
 import { Alert, AlertDescription, AlertTitle } from "../simples/alert.js";
@@ -79,14 +84,23 @@ import { Switch } from "../simples/switch.js";
  * **What a tenant pinned or withheld is not drawn at all.** Every section asks `corePrefs[key]`
  * whether its axis is still offered, because a control the chain will ignore is a control that
  * visibly does nothing.
+ *
+ * **One renderer draws every preference**, the core's axes and a contributed section's alike:
+ * `PrefControl` switches on `kind` and nothing else. Two sections are left, each because its
+ * CONTROL differs rather than its data — `RadiusSection` is a slider over an ordered scale, and
+ * `ColorSection` draws documents at full size with a live cascade preview. The three specimens a
+ * generic control cannot draw are a lookup keyed by axis, not three components.
  */
 
-// Off the declaration, which is generated from the same table `themes.css` is emitted from. Both of
-// these were typed here — beside a `themeData` import that already carried them — and a hand-copy
-// disagrees with the CSS the moment the generator changes. `?? []` is unreachable for a core axis
-// (its options are a literal list, never a source), and is how `prefOptions` says so in the type.
+// Off the declaration, which is generated from the same table `themes.css` is emitted from. This
+// was typed here — beside a `themeData` import that already carried it — and a hand-copy disagrees
+// with the CSS the moment the generator changes. `?? []` is unreachable for a core axis (its
+// options are a literal list, never a source), and is how `prefOptions` says so in the type.
+//
+// It survives the collapse into one renderer because the radius control is a SLIDER and needs the
+// steps in order, as an array it can index. Every other axis reads its options off the declaration
+// at the point of drawing.
 const RADII = (prefOptions(CORE_PREFS.radius) ?? []).map((o) => o.value as KanzoRadius);
-const DENSITIES = prefOptions(CORE_PREFS.density) ?? [];
 // ── Root: Ark Dialog (non-modal, live-preview) + hotkey ──────────────────────
 export interface PreferencesRootProps {
   children: React.ReactNode;
@@ -828,26 +842,35 @@ function ColorSection({
 /**
  * One declared preference, drawn — the switch on `kind`, in one place.
  *
- * It is the only thing in this file that maps a declaration to a control, which is what lets a
- * second surface (the graph's own dock) render a contributed group without re-deciding what a
- * `range` looks like. The three arms reuse the same primitives the core's own sections use:
- * `choice` is the radio list `Colour` and `Density` use, `toggle` is `Switch`, `range` is `Slider`.
+ * **It draws the core's axes and a contributed section's alike**, which is the point: `Font`,
+ * `Mono font` and `Density` were three components that differed only in which specimen they put on
+ * a card, and a fourth surface rendering a contributed group had to re-decide what a `range` looks
+ * like. The three arms are the primitives the panel already used: `choice` is a radio list,
+ * `toggle` is `Switch`, `range` is `Slider`.
  *
  * A value is a string in storage for all three — see `SectionPrefDecl` — so each arm parses on the
  * way in with the section mechanism's own readers rather than a local `Number()` that would differ
  * from what the resolver validated against.
+ *
+ * `specimen` is the escape hatch, and it is the only one: a generic control cannot draw a typeface
+ * in its own face or a size at its real size. What it may not do is change the CONTROL — a
+ * declaration that needs a different one is a section of its own, and there are two of those left
+ * ({@link RadiusSection}, {@link ColorSection}), each saying why in its own comment.
  */
-function ContributedControl({
+function PrefControl({
   name,
   onChange,
   pref,
   sources,
+  specimen,
 }: {
   name: string;
   onChange: (next: string) => void;
   pref: { value: string; decl: SectionPrefDecl };
   /** What the tenant published, for a choice whose options name a source. */
   sources?: PrefSources;
+  /** Drawn above each option's name. Its presence is also what lays the cards out in a row. */
+  specimen?: (option: PrefOption) => React.ReactNode;
 }) {
   const { decl, value } = pref;
 
@@ -891,16 +914,35 @@ function ContributedControl({
   // offer *this render*, and the value it resolved to is still applied. Drawing an empty group is
   // what `PreferencesColor` already does below two published documents.
   const options = prefOptions(decl, sources) ?? [];
+  // A specimen is wide and wants its name under it; a bare name is a row in a list. One rule, read
+  // off the data, rather than a layout prop each call site has to remember to pass.
   return (
     <PrefFieldSet label={name}>
       <RadioGroup
-        className="gap-2"
+        className={specimen ? "flex-row flex-wrap gap-2" : "gap-2"}
         onValueChange={(d) => d.value && onChange(d.value)}
         value={value}
       >
         {options.map((option) => (
-          <RadioGroupCard className="items-center px-2.5 py-2" key={option.value} value={option.value}>
-            <ArkRadioGroup.ItemText className="text-xs">{option.label}</ArkRadioGroup.ItemText>
+          <RadioGroupCard
+            className={
+              specimen
+                ? "min-w-0 flex-1 basis-20 flex-col items-center gap-1 px-2 py-2"
+                : "items-center px-2.5 py-2"
+            }
+            key={option.value}
+            value={option.value}
+          >
+            {specimen?.(option)}
+            <ArkRadioGroup.ItemText
+              className={
+                specimen
+                  ? "w-full truncate text-center text-muted-foreground text-xs"
+                  : "text-xs"
+              }
+            >
+              {option.label}
+            </ArkRadioGroup.ItemText>
           </RadioGroupCard>
         ))}
       </RadioGroup>
@@ -963,7 +1005,7 @@ function ContributedSections({ namespace }: PreferencesSectionsProps = {}) {
       {drawn.map(([name, prefs]) =>
         Object.entries(prefs).map(([key, pref]) =>
           pref.offered ? (
-            <ContributedControl
+            <PrefControl
               key={`${name}.${key}`}
               name={key}
               onChange={(next) => setSectionPref(name, key, next)}
@@ -1011,102 +1053,78 @@ function RadiusSection() {
   );
 }
 
-/** Font cards laid out horizontally: a large specimen in the typeface on top, name below. */
-function FontPicker({
-  value,
-  options,
-  onSelect,
-}: {
-  value: string;
-  options: { value: string; label: string; preview?: string }[];
-  onSelect: (v: string) => void;
-}) {
-  return (
-    // No `aria-label`: the section's `FieldLegend` is the group's name, and the copy that lived here
-    // was hard-coded "Font" — so the mono-font group announced itself as "Font" too.
-    <RadioGroup
-      className="flex-row flex-wrap gap-2"
-      onValueChange={(d) => d.value && onSelect(d.value)}
-      value={value}
+/**
+ * The specimens a generic control cannot draw, keyed by axis — the escape hatch, in one place.
+ *
+ * Three, and they replaced three components that differed in nothing else: `FontSection`,
+ * `MonoFontSection` and `DensitySection` each wrapped the same radio list around the same card
+ * around a different `<span>`. What is left is the span.
+ *
+ * They take the theme because two of them do: a host may replace `fonts` with its own stacks, and a
+ * specimen showing a face the page does not use is worse than no specimen.
+ */
+type Specimen = (option: PrefOption, theme: ThemeContextValue) => React.ReactNode;
+
+const face = (options: FontOption[], value: string) =>
+  options.find((option) => option.value === value)?.preview;
+
+const SPECIMENS: Record<string, Specimen> = {
+  font: (option, { fonts }) => (
+    <span className="text-xl leading-none text-foreground" style={{ fontFamily: face(fonts, option.value) }}>
+      Ag
+    </span>
+  ),
+  monoFont: (option, { monoFonts }) => (
+    <span
+      className="text-xl leading-none text-foreground"
+      style={{ fontFamily: face(monoFonts, option.value) }}
     >
-      {options.map((o) => (
-        <RadioGroupCard
-          className="min-w-0 flex-1 basis-20 flex-col items-center gap-1 px-2 py-2"
-          key={o.value}
-          value={o.value}
-        >
-          <span className="text-xl leading-none text-foreground" style={{ fontFamily: o.preview }}>
-            Ag
-          </span>
-          <ArkRadioGroup.ItemText className="w-full truncate text-center text-muted-foreground text-xs">
-            {o.label}
-          </ArkRadioGroup.ItemText>
-        </RadioGroupCard>
-      ))}
-    </RadioGroup>
+      Ag
+    </span>
+  ),
+  // The root font-size everything scales from, drawn at its real size — `em` inside a card whose
+  // own `font-size` is set is a true preview rather than a description of one. The pixel values are
+  // the generated ones: a hand-copy here would disagree with the CSS the moment the generator moves.
+  density: (option) => (
+    <span
+      className="flex items-center gap-1 leading-none text-foreground"
+      style={{ fontSize: themeData.densities[option.value as keyof typeof themeData.densities] }}
+    >
+      <span className="rounded-[0.25em] bg-primary px-[0.4em] py-[0.15em] text-[0.7em] font-medium text-primary-foreground">
+        Aa
+      </span>
+      <span className="text-[0.8em]">abc</span>
+    </span>
+  ),
+};
+
+/**
+ * One core axis, drawn by the one renderer.
+ *
+ * Everything that used to differ between the four is data now: the label is the section's, the
+ * options and the kind are the declaration's, the specimen is a lookup, and whether to draw at all
+ * is the chain's answer. What a host sees is unchanged — this is the same markup those components
+ * emitted, which `Preferences.test.tsx` checks by rendering rather than by reading the source.
+ */
+function CoreSection({ axis, label }: { axis: CorePrefKey; label: string }) {
+  const theme = useKanzoTheme();
+  const pref = theme.corePrefs[axis];
+  if (!pref?.offered) return null;
+  const specimen = SPECIMENS[axis];
+  return (
+    <PrefControl
+      name={label}
+      onChange={(next) => theme.set({ [axis]: next })}
+      pref={pref}
+      sources={theme.sources}
+      {...(specimen ? { specimen: (option: PrefOption) => specimen(option, theme) } : {})}
+    />
   );
 }
 
-function FontSection() {
-  const { font, fonts, set } = useKanzoTheme();
-  if (!useOffered("font")) return null;
-  return (
-    <PrefFieldSet label="Font">
-      <FontPicker value={font} options={fonts} onSelect={(v) => set({ font: v })} />
-    </PrefFieldSet>
-  );
-}
-
-function MonoFontSection() {
-  const { monoFont, monoFonts, set } = useKanzoTheme();
-  if (!useOffered("monoFont")) return null;
-  return (
-    <PrefFieldSet label="Mono font">
-      <FontPicker value={monoFont} options={monoFonts} onSelect={(v) => set({ monoFont: v })} />
-    </PrefFieldSet>
-  );
-}
-
-// Density = the root font-size everything scales from. Each card previews at its real size so
-// the difference is visible (mirrors the Font/MonoFont specimen cards).
-// Derived, not re-typed: these are generated into theme-data.json by gen-theme.mjs, and a
-// hand-copy here would silently disagree with the CSS the moment the generator changes.
-const DENSITY_PX: Record<string, string> = themeData.densities;
-function DensitySection() {
-  const { density, set } = useKanzoTheme();
-  if (!useOffered("density")) return null;
-  return (
-    <PrefFieldSet label="Density">
-      <RadioGroup
-        className="flex-row flex-wrap gap-2"
-        onValueChange={(d) => d.value && set({ density: d.value as KanzoDensity })}
-        value={density}
-      >
-        {DENSITIES.map((o) => (
-          <RadioGroupCard
-            className="min-w-0 flex-1 basis-20 flex-col items-center gap-1.5 px-2 py-2"
-            key={o.value}
-            value={o.value}
-          >
-            {/* `em` scales relative to this card's fixed font-size → a true preview. */}
-            <span
-              className="flex items-center gap-1 leading-none text-foreground"
-              style={{ fontSize: DENSITY_PX[o.value] }}
-            >
-              <span className="rounded-[0.25em] bg-primary px-[0.4em] py-[0.15em] text-[0.7em] font-medium text-primary-foreground">
-                Aa
-              </span>
-              <span className="text-[0.8em]">abc</span>
-            </span>
-            <ArkRadioGroup.ItemText className="w-full truncate text-center text-muted-foreground text-xs">
-              {o.label}
-            </ArkRadioGroup.ItemText>
-          </RadioGroupCard>
-        ))}
-      </RadioGroup>
-    </PrefFieldSet>
-  );
-}
+const FontSection = () => <CoreSection axis="font" label="Font" />;
+const MonoFontSection = () => <CoreSection axis="monoFont" label="Mono font" />;
+const DensitySection = () => <CoreSection axis="density" label="Density" />;
 
 export interface PreferencesProps extends Omit<PreferencesRootProps, "children"> {
   /** Restyle or reposition the floating trigger (it is `fixed bottom-4 end-4` by default). */

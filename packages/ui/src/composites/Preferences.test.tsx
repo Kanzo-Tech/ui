@@ -177,6 +177,58 @@ describe("Preferences", () => {
     });
   });
 
+  describe("one renderer, three specimens", () => {
+    // `Font`, `Mono font` and `Density` were three components that differed in one `<span>`. What
+    // has to survive the collapse is exactly that span — a typeface drawn in its own face, a size
+    // drawn at its real size — and nothing else may grow one.
+    const cards = (group: string) => [
+      ...screen.getByRole("radiogroup", { name: group }).querySelectorAll("[data-slot=radio-group-card]"),
+    ];
+
+    it("draws each font in its own face", () => {
+      setup();
+      const first = cards("Font")[0];
+      // The stack the generated table carries, not a name typed beside the control: the panel and
+      // the page have to be showing the same face.
+      expect(first?.querySelector("span")?.getAttribute("style")).toContain("ui-sans-serif");
+      expect(first?.textContent).toContain("Ag");
+    });
+
+    it("draws each density at the size it sets", () => {
+      setup();
+      const styles = cards("Density").map((card) => card.querySelector("span")?.getAttribute("style"));
+      expect(styles.join(" ")).toContain("16px");
+      expect(styles.join(" ")).toContain("14px");
+    });
+
+    it("draws no specimen for a preference that declared none", () => {
+      // The escape hatch is a lookup keyed by axis, so a contributed choice gets a plain list —
+      // which is what stops "one renderer" quietly becoming "one renderer per section".
+      setup(undefined, {
+        sections: [
+          {
+            namespace: "graph",
+            version: 1,
+            prefs: {
+              look: {
+                kind: "choice",
+                default: "atlas",
+                doc: "how the canvas is drawn",
+                options: [
+                  { value: "atlas", label: "Atlas" },
+                  { value: "ink", label: "Ink" },
+                ],
+              },
+            },
+          },
+        ],
+      });
+      const card = cards("look")[0];
+      expect(card?.textContent).toBe("Atlas");
+      expect(card?.querySelector("span[style]")).toBeNull();
+    });
+  });
+
   describe("what the tenant pinned or withheld is not offered", () => {
     // The visible half of one resolution. A control for an axis the chain will ignore is a control
     // that visibly does nothing, and this panel is where a client's document has to be believed.
