@@ -55,6 +55,23 @@ both pick among things a tenant already published: `palette` (a whole document) 
 brand within one). They are the axes whose selectors come out of `compile()` rather than the
 generator, which is what `AXES` records as `source`.
 
+Every one of them is **declared**, and the declaration is generated beside the CSS: kind, options,
+labels, default, attribute. `CORE_PREFS` is that block and `AXES` is a projection of it, so the
+options a control offers are the table the selectors were emitted from rather than a list typed
+beside it. Adding a font is one line in the generator.
+
+One chain resolves them — what the tenant PINNED, what the user stored, where the tenant said to
+start, the declaration's default — and it is the same chain a package's contributed preference goes
+through, under the namespace `theme`:
+
+```tsx
+<KanzoThemeProvider policy={{ theme: { density: { default: "compact" }, radius: { pinned: "sm" } } }}>
+```
+
+So a client ships *our product is compact and square* as the point their users start from, and a
+user preference is an override on top of it. Storage holds only what a user chose, and `themeScript`
+takes the same policy — a policy only React knows about is a flash of one value before the other.
+
 ### `@kanzo-tech/palette`
 
 The colour derivation: ramps, the categorical search, the role table, `compile`. A tenant's palette

@@ -10,7 +10,7 @@ axis.**
 - **Density** — the root font-size the whole `rem` scale resolves against.
 - **Appearance** — `light` / `dark`, owned by the host (see below).
 
-This package ships **no components** and no colour maths. It is CSS, the axis table, and the value
+This package ships **no components** and no colour maths. It is CSS, the declared axes, and the value
 types. The derivation lives in [`@kanzo-tech/palette`](../palette), which this package depends on
 as a **devDependency** — the generator and the tests use it, a browser never does.
 
@@ -106,8 +106,9 @@ The compiled styles ship with `@kanzo-tech/ui` (`import "@kanzo-tech/ui/styles.c
 already pulls in this package's `tokens.css` + `themes.css`. Subpath exports
 (`@kanzo-tech/theme/tokens.css`, `/themes.css`, `/palettes/kanzo.json`) are available for tooling.
 
-The four non-colour axis tables are exported from the JS entry as `themeData` — import that,
-**not** `@kanzo-tech/theme/theme-data.json`. A raw JSON subpath import is an ESM JSON import at
+The four non-colour axis tables — and the DECLARATION of every axis, `CORE_PREFS`, generated beside
+them — are exported from the JS entry as `themeData` / `CORE_PREFS`. Import those, **not**
+`@kanzo-tech/theme/theme-data.json`. A raw JSON subpath import is an ESM JSON import at
 runtime, which Node rejects without `with { type: "json" }`, and Rollup strips that attribute
 when bundling. The tables a *derivation* reads are not here: they are inputs to colour maths that
 runs once at onboarding, and they live with it in `@kanzo-tech/palette`.

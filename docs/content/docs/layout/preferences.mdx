@@ -13,6 +13,22 @@ The panel opens on arrival so there is something to look at. Toggle the trigger 
 to see the rest of it: the drawer is **non-modal**, so the form behind it stays usable while
 the theme changes live.
 
+## One preference, four places it appears
+
+A preference is **declared** once — where its values live, which for the core's axes is the
+generator that emits the CSS — and everything else follows from that declaration:
+
+| | |
+| --- | --- |
+| **Declaration** | `kind`, options (or the name of whoever owns them), default, attribute, doc. `CORE_PREFS` for the library's axes, a `SectionManifest` for an optional package's. |
+| **Resolution** | one chain, most specific first: what a tenant PINNED, what the user stored, where the tenant said to start, the declaration's default. `useKanzoTheme().corePrefs` / `.sectionPrefs` carry the answer, `via` says which link gave it, and `offered` says whether to draw a control at all. |
+| **Renderer** | one control per `kind` — a radio list, a `Switch`, a `Slider` — so a surface never re-decides what a `range` looks like. The specimens are a lookup keyed by axis. |
+| **Surfaces** | the drawer below, a settings page, a dock inside a canvas. All of them mount the same sections. |
+
+Two controls are not the generic one, and both because the *control* differs rather than the data:
+radius is a slider over an ordered scale, and `PreferencesColor` draws whole documents with a live
+cascade preview.
+
 ## Four abstractions, and a surface is not one of them
 
 What this page documents is a **kit for building a preference menu**, and the drawer above is one

@@ -53,6 +53,22 @@ a neutral and remain one product.
 | monoFont | `data-mono-font` | `--font-mono` |
 | density | `data-font-size` | the root font-size, which every `rem` in the system scales from |
 
+Every one of them is **declared**, not hand-wired: `CORE_PREFS` is generated beside the CSS by
+`packages/theme/scripts/gen-theme.mjs`, so the options a control offers are the table the selectors
+were emitted from. `AXES` is a projection of it. Adding a font is one line in the generator.
+
+```ts
+import { CORE_PREFS, prefOptions } from "@kanzo-tech/theme";
+
+CORE_PREFS.density.attr; // "data-font-size"
+prefOptions(CORE_PREFS.density); // [{ value: "default", label: "Default" }, …]
+CORE_PREFS.identity.options; // { from: "identities" } — the list is the TENANT's
+```
+
+A tenant may pin, withhold or restart any of them through one `policy` prop, under the namespace
+`theme`; see [contributing a section](/docs/sections#tenant-policy-selection-never-authorship),
+which is the same mechanism.
+
 Appearance is the fifth preference and the only colour-adjacent one, and it writes a **class**,
 not an attribute: `.dark` on `<html>`. It selects between the two blocks of the compiled
 document rather than between two identities, which is why it is a user preference and a hue
