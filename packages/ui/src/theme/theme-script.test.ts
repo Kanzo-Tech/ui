@@ -229,7 +229,7 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
     // **`data-palette` moved off this list**, and the sentence that used to be here is worth keeping
     // as the thing that changed: "the preference returned, the attribute did not — a document is
     // served, never selected in the cascade." That was true while a document was a whole stylesheet
-    // the server picked. Measured at 7.6 kB gzipped for all five, they now all travel and the
+    // the server picked. Measured at 8.6 kB gzipped for all six, they now all travel and the
     // attribute selects, so both sides must write it — and must agree, which is what this file is for.
     const { script, provider } = bothSides(
       {

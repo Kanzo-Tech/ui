@@ -96,7 +96,7 @@ lo manda la escala, no la pulcritud:
 | 2 | ~~trocear aristas~~ **hecho** · `by_target` teselado 2026-08-17 · queda **una** costura del escritor | el join O(N), y la otra mitad del larger-than-RAM |
 | 3 | multi-tipo por vecindad | sin esto un grafo de conocimiento no dibuja **ni una** arista cruzada |
 | 4 | `explore` implementado **por direcciones** | intentado con CTE recursiva y **cuelga la conexión**: ver BENCHMARKS |
-| 5 | la vista alejada | la mitad de la experiencia a diez millones, y sin diseñar |
+| ~~5~~ | ~~la vista alejada~~ · **hecho** 2026-08-18 | era una consulta que agotaba la memoria de WASM, no una vista fea |
 | 6 | la capa de aristas (CSC + densidad) | corrección primero, niebla después |
 | ~~7~~ | ~~la fuente pasa a `MosaicClient`~~ · **hecho** 2026-08-17 | mueren los dos hacks; los −40 ms **no existían** — ver abajo |
 | ~~8~~ | ~~encuadre desde el extent~~ · **hecho** 2026-08-17 | quedan las constantes: `fixed`, `fill = "community"`, `lodThreshold` |
@@ -349,7 +349,7 @@ Esto asciende `explore` de comodidad a **mecanismo obligatorio**, y le añade re
 vecindad son *dos o más* búsquedas, y la identidad tiene que cruzar tipos — que ya lo hace,
 `vertexId(type, dense)` es el par por esta razón exacta.
 
-### La vista alejada no tiene diseño
+### La vista alejada no tiene diseño — **cerrado 2026-08-18**
 
 Hoy, alejarse por debajo de `lodThreshold` agrega por la columna de categoría. A cinco millones
 `community` tiene **ocho grupos**: una vista de todo es una imagen de ocho puntos. Y `BENCHMARKS.md`
@@ -359,6 +359,16 @@ otra pregunta, y está sin medir*.
 Para «grafos muy grandes en cliente web» la vista alejada es la mitad de la experiencia, y ahora
 mismo es lo único del camino acotado que nadie ha diseñado ni medido. Va después de que la pirámide
 sea de rangos Morton, porque es lo que le da niveles.
+
+**Medido y resuelto.** `FAR-VIEW-AND-EDGES.md` puso el número: los ocho super-nodos puntúan 0,999
+contra un nulo uniforme de 0,731, o sea peor que una caja gris. Y su consulta de enlaces no era
+lenta — en el navegador **agota los 3,1 GiB de DuckDB-WASM en 2,6 s** y se lleva la pestaña por
+delante. En su lugar va una muestra por zancada sobre `dense_id`, que en orden Morton sale
+estratificada: 20.000 marcas repartidas por todo el extent, 348 ms, 1.742 aristas. `lodThreshold` y
+`Viewport.zoom` mueren con ella — se muestrea cuando la ventana no cabe en `limit`, a cualquier zoom
+— y de paso se arregla que `limit` truncara por un prefijo de Morton, que es una esquina de la
+ventana dibujada como si fuera la ventana. Ver `decisions/a-far-view-is-a-sample-not-a-summary.md`.
+La pirámide precalculada sigue pendiente y es del escritor.
 
 ### La capa de aristas, con dos agujeros
 

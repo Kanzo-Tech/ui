@@ -78,7 +78,7 @@ export interface CompileOptions {
    * two documents, both `:root`, with source order deciding which won — so every selector was raised
    * by a redundant `:root` qualifier to win on specificity instead. That whole arrangement assumed a
    * document was too big to ship more than one of. Measured, the five this package ships are
-   * **58 kB raw and 7.6 kB gzipped together**: the scale is repetitive and compresses hard. So the
+   * **63.6 kB raw and 8.6 kB gzipped together**: the scale is repetitive and compresses hard. So the
    * server stops choosing, every document travels, and the choice becomes an attribute — which is
    * what daisyUI has always done with `data-theme`, and what makes the provider's `palette`
    * preference something it can actually apply.

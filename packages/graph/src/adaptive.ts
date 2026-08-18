@@ -7,8 +7,9 @@ import type { Display, Sim } from "./types";
  * Absorbed from `@fossil-lang/viewer`'s `getAdaptiveConfig` per ADR-0040, which files it under
  * "level-of-detail policy". Reading it, that is not quite what it is, and the difference matters:
  * almost all of it is **simulation tuning** — repulsion, friction, spring, gravity — plus two
- * genuinely render-side switches. Level of detail in the bounded sense is `lodThreshold` and the
- * source's aggregate mode, which live in `bounded.ts` and are a different mechanism entirely.
+ * genuinely render-side switches. Level of detail in the bounded sense is the sample a source takes
+ * when a window holds more than the limit; it lives in `duck-source.ts` and is a different
+ * mechanism entirely.
  *
  * That means most of this only applies under `simulate: true`, which ADR-0001 made the opt-in case.
  * It is still worth having: the host with arrays in hand and no precomputed layout is exactly the

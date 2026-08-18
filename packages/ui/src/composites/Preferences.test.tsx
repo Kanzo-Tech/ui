@@ -386,7 +386,7 @@ describe("Preferences", () => {
       // One click is one choice at two grains — a palette and a brand inside it — and both now reach
       // the cascade. This test used to assert the opposite for the palette half: "a document is
       // served, never selected in the cascade", which was true while a document was a whole
-      // stylesheet the server picked from a cookie. All five ship together now (7.6 kB gzipped) and
+      // stylesheet the server picked from a cookie. All six ship together now (8.6 kB gzipped) and
       // `compile(doc, { scope })` puts each under its own attribute, so the control finally applies
       // what it stores instead of only recording it for the next request.
       setup(undefined, { palettes: [BANK, DRACULA] });

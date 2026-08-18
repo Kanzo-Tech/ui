@@ -323,7 +323,7 @@ const slice = graph.memorySource({
   vertices: new BigUint64Array([graph.vertexId(0, 0), graph.vertexId(0, 1)]),
   positions: new Float32Array([0, 0, 1, 1]),
   links: new Float32Array([0, 1]),
-}).slice({ limit: 10, lodThreshold: 0, view: { xMin: -Infinity, xMax: Infinity, yMin: -Infinity, yMax: Infinity, zoom: 1 } });
+}).slice({ limit: 10, view: { xMin: -Infinity, xMax: Infinity, yMin: -Infinity, yMax: Infinity } });
 if ((await slice).vertices.length !== 2) fail("memorySource answered nothing — the no-database path is broken");
 else pass("memorySource answers a slice with no database installed");
 

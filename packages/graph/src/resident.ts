@@ -68,16 +68,6 @@ export function denseOf(vertex: VertexId): number {
 }
 
 /**
- * The vertex type an aggregate's super-nodes wear.
- *
- * A super-node is not a vertex — it stands for a group, and a source numbers them `0..k` because
- * that is what an aggregate query can cheaply produce. Left in the corpus' own type, a selection made
- * zoomed out becomes a selection of vertices `0..k` the moment the reader zooms back in. Reserved
- * rather than derived: a corpus has as many types as it has, and none of them is this one.
- */
-export const SUPERNODE = 0xffff;
-
-/**
  * The identity↔index map for whatever is drawn right now.
  *
  * Built once per residency change and never mutated, because that is what a residency change *is*: a

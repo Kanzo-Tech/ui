@@ -100,9 +100,11 @@ if (argv.id || argv.brand || argv.base) {
  * stylesheet, imported by nothing and costing nothing until a host asks for one.
  *
  * The four borrowed ones are compiled **scoped**, under `[data-palette="<id>"]`, so they can all sit
- * on the page at once and an attribute chooses. Measured, the five together are 58 kB raw and 7.6 kB
- * gzipped — the scale is repetitive and compresses hard — so "the server picks one and inlines it"
- * was solving a problem the numbers do not have. It is daisyUI's `data-theme` model.
+ * on the page at once and an attribute chooses. Measured — gzip the `palettes/*.css` this script
+ * writes — the six together are 63.6 kB raw and 8.6 kB gzipped; the scale is repetitive and
+ * compresses hard, so "the server picks one and inlines it" was solving a problem the numbers do not
+ * have. It is daisyUI's `data-theme` model. Kanzo's own document is not among the six: it is the
+ * default, and `tokens.css` already carries it.
  */
 const index = [];
 const doc = {};

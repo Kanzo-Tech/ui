@@ -53,7 +53,6 @@ export interface BoundedGraphOptions {
   fill?: string;
   r?: string;
   limit?: number;
-  lodThreshold?: number;
   /**
    * How long the camera has to be still before asking, in milliseconds.
    *
@@ -100,8 +99,6 @@ const EVERYTHING: Viewport = {
   yMin: Number.NEGATIVE_INFINITY,
   xMax: Number.POSITIVE_INFINITY,
   yMax: Number.POSITIVE_INFINITY,
-  // Above any threshold, so the one whole-corpus answer comes back in detail rather than aggregated.
-  zoom: Number.POSITIVE_INFINITY,
 };
 
 /**
@@ -120,7 +117,6 @@ function cameraViewport(graph: Graph, host: HTMLElement): Viewport {
     yMin: Math.min(ay, by),
     xMax: Math.max(ax, bx),
     yMax: Math.max(ay, by),
-    zoom: graph.getZoomLevel(),
   };
 }
 
@@ -131,7 +127,6 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
     graphRef,
     hostRef,
     limit = BOUNDED_DEFAULTS.limit,
-    lodThreshold = BOUNDED_DEFAULTS.lodThreshold,
     onError,
     pinned,
     r,
@@ -256,7 +251,6 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
           fill,
           r,
           limit,
-          lodThreshold,
           signal,
         }),
       );
@@ -264,7 +258,7 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
     // The channels are dependencies rather than a ref, unlike `pinned`: a new one is a new question
     // and the effect below re-runs this the moment its identity changes. A pin is a gesture the host
     // reports, and it says when to ask again itself.
-  }, [ask, debounce, fill, graphRef, hostRef, limit, lodThreshold, r]);
+  }, [ask, debounce, fill, graphRef, hostRef, limit, r]);
 
   /**
    * Ask a topological question, when the source is one that can answer.
@@ -288,12 +282,11 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
           fill,
           r,
           limit,
-          lodThreshold,
           signal,
         }),
       );
     },
-    [ask, fill, limit, lodThreshold, r, source],
+    [ask, fill, limit, r, source],
   );
 
   /**
@@ -349,10 +342,10 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
       if (slicing.current) refresh();
       else
         await ask((s, signal) =>
-          s.slice({ view: EVERYTHING, pinned: held.current, fill, r, limit, lodThreshold, signal }),
+          s.slice({ view: EVERYTHING, pinned: held.current, fill, r, limit, signal }),
         );
     })();
-  }, [ask, counted, fill, frame, limit, lodThreshold, r, refresh, source]);
+  }, [ask, counted, fill, frame, limit, r, refresh, source]);
 
   /**
    * The other way an answer arrives: the page filtered something.

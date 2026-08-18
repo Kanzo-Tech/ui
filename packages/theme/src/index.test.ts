@@ -70,7 +70,7 @@ describe("@kanzo-tech/theme", () => {
     // This test once read "the attribute is forbidden, and cannot come back, because a document is a
     // stylesheet the server serves — no compiled sheet contains anything for it to match". That was
     // the sharpest statement of the old model and it rested on an assumption about size that was
-    // never measured: the five documents are 58 kB raw and 7.6 kB gzipped together. They all travel
+    // never measured: the six documents are 63.6 kB raw and 8.6 kB gzipped together. They all travel
     // now, `compile(doc, { scope })` puts each under its own attribute, and there is something to
     // match.
     //

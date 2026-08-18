@@ -105,5 +105,7 @@ Two things the record did not anticipate:
   field is `null` per mode for a declined set — the shape `Obligation.measured` already uses one
   section along. `leading` stays a number, because *no leading slots* is a true count.
 - **The measured claim about what the site publishes moved.** Six documents, **63.6 kB raw and
-  8.7 kB gzipped** together, up from five at 58 kB / 7.6 kB. It is quoted in three places and all
-  three were updated; the affordability argument is unchanged and the number is what it rests on.
+  8.6 kB gzipped** together, up from five at 58 kB / 7.6 kB. Re-derive it by gzipping
+  `packages/theme/palettes/*.css`, which is what a page loads; Kanzo's own is not among them,
+  because `tokens.css` already carries it. It is quoted in seven places and all seven now say the
+  same thing; the affordability argument is unchanged and the number is what it rests on.

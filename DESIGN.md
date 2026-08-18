@@ -193,12 +193,13 @@ be skipped.
 `a-chart-needs-no-factory`, `a-tile-is-an-address-not-a-verb`,
 `a-look-is-form-and-a-channel-is-a-binding`, `monochrome-is-a-palette-not-a-look`,
 `a-categorical-set-may-use-the-palettes-own-colours`, `a-look-declares-what-it-changes`,
-`a-filter-is-a-predicate-not-a-mask`, `the-declaration-ships-with-the-library`.
+`a-filter-is-a-predicate-not-a-mask`, `the-declaration-ships-with-the-library`,
+`a-preference-is-contributed-like-a-token`.
 
 Also live — `a-compound-keeps-its-root-even-when-the-root-is-an-alias`,
 `steps-claims-a-tab-role-it-cannot-keep`, `prose-that-is-hashed-is-data`.
 
-**Open** — `a-preference-is-contributed-like-a-token`, `a-palette-is-chosen-per-appearance`.
+**Open** — `a-palette-is-chosen-per-appearance`.
 
 **Superseded** — `field-has-no-consumer`, by `adoption-before-design`.
 `one-theme-provider`, by `two-themers-and-one-root`.

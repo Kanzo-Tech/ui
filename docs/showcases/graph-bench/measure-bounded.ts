@@ -273,14 +273,12 @@ export async function measureSlicePath(path = "/bench/1000000"): Promise<{
     xMax: midX + dx + width / 2,
     yMin: midY - height / 2,
     yMax: midY + height / 2,
-    zoom: 1,
   });
   const ask = async (dx: number) => {
     const started = performance.now();
     const slice = await source.slice({
       view: window_(dx),
       limit: BOUNDED_DEFAULTS.limit,
-      lodThreshold: BOUNDED_DEFAULTS.lodThreshold,
     });
     return { ms: performance.now() - started, slice };
   };
@@ -311,6 +309,10 @@ if (typeof window !== "undefined") {
   // `decisions/a-filter-is-a-predicate-not-a-mask.md` were taken. A measurement whose harness has
   // been deleted cannot be re-derived, only believed.
   hooks.graphBoot = boot;
+  // And the reader itself, so a posture nobody wrote a probe for — a far view, a corpus that is not
+  // the default one — can be driven from the console against the live database. The far-view figures
+  // in `decisions/a-far-view-is-a-sample-not-a-summary.md` were taken this way.
+  hooks.openCorpus = openCorpus;
 }
 
 /** The rectangle the corpus actually occupies — the camera's space, never rescaled on the way in. */
@@ -474,8 +476,8 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
       };
     }
 
-    // The opening view: the whole space, at a zoom above the threshold so this measures detail mode
-    // rather than the aggregate shortcut. Aggregate would flatter the numbers.
+    // The opening view: the whole space. There is no shortcut left to fall into — a window holding
+    // more than the limit is sampled by stride, at whatever zoom, so this measures the one path.
     //
     // The space is the corpus's own, asked rather than assumed. fossil writes coordinates centred on
     // the origin and scaled to N, and the extent moved again when the layout began partitioning by
@@ -483,14 +485,13 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
     // would measure an empty corner and report a very fast first paint for showing nothing, which
     // is why this is asked rather than assumed. (`RENDER_SPACE` above is the one place that did not
     // get this memo, and says so.)
-    const view = { ...extent, zoom: 1 };
+    const view = { ...extent };
 
     report?.("first slice");
     const startedSlice = performance.now();
     const first: Slice = await source.slice({
       view,
       limit: BOUNDED_DEFAULTS.limit,
-      lodThreshold: BOUNDED_DEFAULTS.lodThreshold,
     });
     base.firstSliceMs = performance.now() - startedSlice;
     base.returned = first.positions.length / 2;
@@ -510,7 +511,6 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
     const namedSlice: Slice = await fixtured.named.slice({
       view,
       limit: BOUNDED_DEFAULTS.limit,
-      lodThreshold: BOUNDED_DEFAULTS.lodThreshold,
     });
     base.namedSliceMs = performance.now() - startedNamed;
     base.named = namedSlice.subjects?.length ?? 0;
@@ -588,10 +588,8 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
           yMin: midY - height / 2,
           xMax: x + width / 2,
           yMax: midY + height / 2,
-          zoom: 1,
         },
         limit: BOUNDED_DEFAULTS.limit,
-        lodThreshold: BOUNDED_DEFAULTS.lodThreshold,
       });
       if (cancelled()) return { ...base, failure: "cancelled" };
     }

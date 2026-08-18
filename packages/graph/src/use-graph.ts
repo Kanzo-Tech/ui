@@ -115,7 +115,6 @@ export interface UseGraphProps {
   /** Vertices that stay drawn whatever the camera is over. */
   pinned?: VertexId[];
   limit?: number;
-  lodThreshold?: number;
   debounce?: number;
   /**
    * Required, and the only one.
@@ -190,7 +189,6 @@ export function useGraph(props: UseGraphProps): GraphApi {
     events,
     fill,
     limit,
-    lodThreshold,
     look = LOOKS.atlas,
     onFailure,
     pinned,
@@ -232,7 +230,6 @@ export function useGraph(props: UseGraphProps): GraphApi {
     graphRef,
     hostRef,
     limit,
-    lodThreshold,
     onError: onFailure,
     pinned,
     r,

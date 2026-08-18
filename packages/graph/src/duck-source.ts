@@ -4,7 +4,7 @@ import { clausePoints, column, fillColumn, numbers } from "@kanzo-tech/ui/analyt
 import type { Coordinator, FilterExpr, Selection } from "@kanzo-tech/ui/analytics";
 import { SUPERSEDED, type BoundedSource, type Slice, type SliceRequest, type Viewport } from "./bounded";
 import { SliceRead } from "./slice-client";
-import { denseOf, typeOf, vertexId, SUPERNODE, type VertexId } from "./resident";
+import { denseOf, typeOf, vertexId, type VertexId } from "./resident";
 
 /**
  * A `BoundedSource` over two ordinary relations in DuckDB.
@@ -231,14 +231,7 @@ export function duckBoundedSource(options: DuckSourceOptions): DuckSource {
          FROM ${nodes}`,
       );
       const at = (field: string) => Number(numbers(rows, field)[0] ?? 0);
-      return {
-        xMin: at("x0"),
-        yMin: at("y0"),
-        xMax: at("x1"),
-        yMax: at("y1"),
-        // Above any threshold: an extent is asked for to frame a view, never to aggregate one.
-        zoom: Number.POSITIVE_INFINITY,
-      };
+      return { xMin: at("x0"), yMin: at("y0"), xMax: at("x1"), yMax: at("y1") };
     },
 
     /**
@@ -250,16 +243,9 @@ export function duckBoundedSource(options: DuckSourceOptions): DuckSource {
      * throw; now the absence is the statement, and asking is a compile error.
      */
     async slice(request: SliceRequest): Promise<Slice> {
-      const { fill, limit, lodThreshold, pinned, r, view } = request;
+      const { fill, limit, pinned, r, view } = request;
       const asked: Columns = { ...columns, category: fill, size: r };
-      // Aggregate mode collapses to *groups*, so it needs a column to group by. Unbound, a zoomed-out
-      // view is a truncated detail slice instead — which `n` already reports honestly — rather than
-      // one super-node standing for the corpus, which is a picture of nothing.
-      const plan =
-        view.zoom < lodThreshold && asked.category
-          ? aggregate(nodes, edges, { ...asked, category: asked.category }, limit)
-          : detail(nodes, edges, asked, view, limit, typeIndex, pinned);
-      return watching.run(plan);
+      return watching.run(region(nodes, edges, asked, view, limit, typeIndex, pinned));
     },
   };
 }
@@ -299,16 +285,42 @@ function bboxSql(c: Columns, view: Viewport): string {
 }
 
 /**
- * @param matched Whether to carry the pre-`LIMIT` count along every row.
+ * How far apart the sampled ids are — one every `ceil(matched / limit)`.
  *
- * **A window function is evaluated over everything the `WHERE` kept, and `LIMIT` applies after it** —
- * so `count(*) OVER ()` on the same `SELECT` as the limit is the number that *matched*, not the
- * number returned. That is what deletes the third query: `SELECT count(*) FROM … WHERE <the same
- * predicate>` was a second scan of the same rows to learn a number the first scan already had to
- * compute, because `row_number() OVER (ORDER BY id)` had already sorted the whole matching set.
+ * **In SQL rather than in JavaScript because the number it divides is only known inside the query.**
+ * `matched` is a window aggregate over the rows the `WHERE` kept, so a caller wanting to compute
+ * this outside would have to count first and slice second — two round trips down a connection that
+ * answers one at a time, which is the shape `BENCHMARKS.md` records as a hung tab rather than a slow
+ * one. As a column reference it costs the pass that was being made anyway.
  *
- * It rides on the points read only. The links read builds the same CTE to join against and never
- * looks at the column, so carrying it there would ask DuckDB to compute it twice.
+ * `greatest(1, …)` because an empty window makes the divisor zero, and a modulo by zero is an error
+ * rather than an empty answer. At `matched <= limit` it is exactly 1 and `id % 1 = 0` keeps every
+ * row: a window that fits is not sampled, it is returned.
+ */
+const strideSql = (limit: number) => `greatest(1, CAST(ceil(matched / ${limit}.0) AS BIGINT))`;
+
+/**
+ * The visible set: what the rectangle matched, and the sample of it that gets drawn.
+ *
+ * **Two CTEs, and the second one is the whole of the far view.** `pool` is every row the predicate
+ * kept, carrying `count(*) OVER ()` — a window function is evaluated over everything the `WHERE`
+ * kept and `LIMIT` applies after it, so that column is the number that *matched* rather than the
+ * number returned. It is what deleted the third query: `SELECT count(*) FROM … WHERE <the same
+ * predicate>` was a second scan to learn a number the first scan already had to compute.
+ *
+ * `vis` then keeps one row in `stride`, **striding over the id rather than taking the front of the
+ * ordering**, and that is the difference between a picture of the window and a picture of one corner
+ * of it. A corpus numbers `dense_id` along the Morton curve, so every `s`-th id is a spatially
+ * stratified sample; the same `LIMIT` with no stride returns a contiguous run of the curve, which is
+ * a sub-region. Measured against the truth at screen resolution, L1@8px over blocks of eight pixels:
+ * a stride sample of 20,000 scores 0.167 / 0.240 / 0.269 at 200k / 1M / 5M against a uniform null of
+ * 1.044 / 0.829 / 0.731 — see `decisions/a-far-view-is-a-sample-not-a-summary.md`.
+ *
+ * @param matched Whether to project the pre-sample count out to the caller.
+ *
+ * It rides on the points read only. The links read builds the same CTEs to join against and never
+ * looks at the column — but it does compute it, because the stride is a function of it and both
+ * reads have to select the *same* rows or a slice would draw edges to vertices it did not return.
  */
 function visibleCte(
   nodes: string,
@@ -324,16 +336,26 @@ function visibleCte(
   const subject = c.subject ? `, ${c.subject} AS subject` : "";
   // No categorical binding, no ranking: a literal zero is the ordinal every point wears, and the
   // scale hands that one colour. Ranking a column nobody named is how a default column gets invented.
+  // Ranked over the sample rather than over the window, so the ordinals are contiguous across what
+  // is actually drawn — which is what the colour scale is handed.
   const category = c.category
-    ? `(dense_rank() OVER (ORDER BY ${c.category}) - 1)::INTEGER AS category`
+    ? `(dense_rank() OVER (ORDER BY cat) - 1)::INTEGER AS category`
     : "0::INTEGER AS category";
-  const total = matched ? ", count(*) OVER () AS matched" : "";
-  return `WITH vis AS (
-    SELECT ${c.id} AS id, ${c.x} AS x, ${c.y} AS y${size}${subject},
-           ${category},
-           (row_number() OVER (ORDER BY ${c.id}) - 1)::INTEGER AS local${total}
+  return `WITH pool AS (
+    SELECT ${c.id} AS id, ${c.x} AS x, ${c.y} AS y${size}${subject}${
+      c.category ? `, ${c.category} AS cat` : ""
+    },
+           count(*) OVER () AS matched
     FROM ${nodes}
     WHERE ${where}
+  ), vis AS (
+    SELECT id, x, y${c.size ? ", size" : ""}${c.subject ? ", subject" : ""}${
+      matched ? ", matched" : ""
+    },
+           ${category},
+           (row_number() OVER (ORDER BY id) - 1)::INTEGER AS local
+    FROM pool
+    WHERE id % ${strideSql(limit)} = 0
     LIMIT ${limit}
   )`;
 }
@@ -352,7 +374,13 @@ interface Plan {
   assemble: (points: unknown, links: unknown) => Slice;
 }
 
-function detail(
+/**
+ * The one plan there is: a rectangle, its sample, and the edges both of whose ends survived it.
+ *
+ * It was called `detail` because it was one of two, and the other one — a `GROUP BY` over a
+ * categorical column, one super-node per group — is gone. There is no mode to be in.
+ */
+function region(
   nodes: string,
   edges: string,
   c: Columns,
@@ -400,7 +428,6 @@ function detail(
         JOIN vis s ON e.${c.source} = s.id
         JOIN vis t ON e.${c.target} = t.id`,
     assemble: (points, links) => ({
-      mode: "detail",
       /**
        * How many matched, separately from how many came back.
        *
@@ -419,62 +446,6 @@ function detail(
         c.subject !== undefined,
       ),
     }),
-  };
-}
-
-/**
- * Zoomed out far enough that individual points are not information.
- *
- * One super-node per group, at its centroid, weighted by how many it stands for — so a view of
- * everything is a few thousand marks whatever the corpus. The aggregation is `GROUP BY` in DuckDB,
- * which means the bytes crossing into JavaScript are already the answer rather than the input to it.
- */
-function aggregate(
-  nodes: string,
-  edges: string,
-  // Narrowed: grouping needs a column, and the caller checked. Passing the wider type and defaulting
-  // here is how the invented `community` got in the first time.
-  c: Columns & { category: string },
-  limit: number,
-): Plan {
-  // `sum(count(*)) OVER ()` is an aggregate under a window over the grouped result — how many rows
-  // went into every group that matched, before the limit picked groups off the front. It is the
-  // aggregate branch's half of the same deletion: the count was a second whole-relation scan.
-  const cte = (filter: FilterExpr, matched: boolean) => `WITH vis AS (
-    SELECT ${c.category} AS grp, avg(${c.x}) AS x, avg(${c.y}) AS y, count(*) AS weight,
-           (dense_rank() OVER (ORDER BY ${c.category}) - 1)::INTEGER AS category,
-           (row_number() OVER (ORDER BY ${c.category}) - 1)::INTEGER AS local${
-             matched ? ", sum(count(*)) OVER () AS matched" : ""
-           }
-    FROM ${nodes} WHERE ${predicateSql(filter) || "TRUE"} GROUP BY ${c.category} LIMIT ${limit}
-  )`;
-
-  return {
-    points: (filter) =>
-      `${cte(filter, true)} SELECT local, local AS id, x, y, category, weight, matched FROM vis ORDER BY local`,
-    // Which groups touch, not how often: at this zoom the multiplicity is not a readable difference.
-    links: (filter) =>
-      `${cte(filter, false)}
-        SELECT DISTINCT s.local AS src, t.local AS dst
-        FROM ${edges} e
-        JOIN ${nodes} sn ON e.${c.source} = sn.${c.id}
-        JOIN ${nodes} tn ON e.${c.target} = tn.${c.id}
-        JOIN vis s ON sn.${c.category} = s.grp
-        JOIN vis t ON tn.${c.category} = t.grp
-        WHERE s.local <> t.local`,
-    assemble: (points, links) => {
-      // The reserved type, because these points are groups rather than vertices: the query numbers
-      // them `0..k` and leaving them in the corpus' own type makes group 3 and vertex 3 one identity.
-      const built = arrays(points, links, limit, SUPERNODE);
-      const weights = new Float32Array(built.vertices.length);
-      fillColumn(points, "weight", weights);
-      return {
-        mode: "aggregate",
-        n: Number(numbers(points, "matched")[0] ?? 0),
-        ...built,
-        weights,
-      };
-    },
   };
 }
 
@@ -578,7 +549,7 @@ function arrays(
   typeIndex: number,
   sizeField?: string,
   withSubjects = false,
-): Omit<Slice, "mode" | "n" | "weights"> {
+): Omit<Slice, "n"> {
   const positions = new Float32Array(limit * 2);
   const n = fillColumn(points, "x", positions, 0, 2);
   fillColumn(points, "y", positions, 1, 2);
@@ -1064,8 +1035,6 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
         yMin: Math.min(...all.map((b) => b.y0)),
         xMax: Math.max(...all.map((b) => b.x1)),
         yMax: Math.max(...all.map((b) => b.y1)),
-        // Above any threshold: an extent is asked for to frame a view, never to aggregate one.
-        zoom: Number.POSITIVE_INFINITY,
       };
     },
 
@@ -1073,19 +1042,23 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
     // needs adjacency this source does not index, and fossil's `expand` is what answers it —
     // `ExploringSource` is the shape waiting for whoever writes that one.
     async slice(request: SliceRequest): Promise<Slice> {
-      const { fill, limit, lodThreshold, pinned, r, signal, view } = request;
+      const { fill, limit, pinned, r, signal, view } = request;
       const columns: Columns = { ...fixed, category: fill, size: r };
       const all = await load();
-      // Zoomed out past the threshold every tile is in the picture anyway, so aggregate reads the
-      // whole set rather than selecting one it would only end up selecting all of.
-      const selected =
-        view.zoom < lodThreshold ? all.map((b) => b.tile) : intersecting(all, view);
+      /**
+       * The tiles the rectangle touches — **and the far view is not a special case of this.**
+       *
+       * It used to be: past a zoom threshold the selection was replaced by every tile, because the
+       * aggregate branch was going to read the whole relation anyway. A window that covers the
+       * extent already intersects every box, so the branch was arithmetic restating itself, and it
+       * is the reason `Viewport` carried a `zoom` at all.
+       */
+      const selected = intersecting(all, view);
       // Nothing selected is a legitimate answer — the camera is over empty space — and asking
       // `read_parquet([])` is a syntax error rather than an empty result. Checked before the tiles
       // are fetched, so an empty window costs no bytes at all.
       if (selected.length === 0) {
         return {
-          mode: "detail",
           n: 0,
           vertices: new BigUint64Array(0),
           positions: new Float32Array(0),
@@ -1111,11 +1084,7 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
       const nodes = `read_parquet([${vertexTiles.join(", ")}])`;
       const relation = `read_parquet([${edgeTiles.join(", ")}])`;
 
-      const plan =
-        view.zoom < lodThreshold && columns.category !== undefined
-          ? aggregate(nodes, relation, { ...columns, category: columns.category }, limit)
-          : detail(nodes, relation, columns, view, limit, 0, pinned);
-      return watching.run(plan);
+      return watching.run(region(nodes, relation, columns, view, limit, 0, pinned));
     },
   };
 

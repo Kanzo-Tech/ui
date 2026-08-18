@@ -1,14 +1,14 @@
 # A preference is contributed the way a token is
 
-- **Status** open — 2026-08-14
+- **Status** live — 2026-08-18
 - **Decided** A package that owns a user-facing choice contributes it as a **preference section** —
   a namespace, declared options, a default — exactly as it already contributes tokens: stored
   opaquely by the core, validated against the manifest its owner ships, preserved when the package
-  is absent, and rendered by the one panel. A tenant's document may **pin or withhold** a section,
-  which is what makes a white-labelled product one product rather than a fork. Resolution is one
-  chain — stored value, tenant policy, manifest default — and the host registers the manifests, so
-  the core still names no optional package. What remains open is the storage layout and whether one
-  manifest carries both halves.
+  is absent, and drawn by one renderer on **any** surface. A tenant's document may **pin or
+  withhold** a section, which is what makes a white-labelled product one product rather than a fork.
+  Resolution is one chain — pinned, stored, the tenant's starting point, the declaration's default —
+  and the host registers the manifests, so the core still names no optional package. **The core's own
+  axes go through all of it**, under the namespace `theme`.
 - **Because** the appearance document already extends by namespace and the preference model does
   not, so every optional package with a user-facing choice has to invent a settings surface beside
   the panel.
@@ -20,6 +20,25 @@
   generated or not"; `packages/ui/src/theme/KanzoThemeProvider.tsx`, `PREF_KEYS`;
   `packages/graph/src/look-section.ts`, `LOOK_SECTION`;
   `docs/showcases/workspace/graph-view.tsx`, `GraphAppearance`
+
+## What this record left open, settled 2026-08-18
+
+Three things, and one sentence above was wrong when it was written.
+
+- **The storage layout.** One key, `sections`, keyed by namespace then by preference, values always
+  strings. What settled it was the read-time whitelist: riding on a key `DEFAULT_PREFS` already has
+  is what lets an unrecognised namespace survive a write by a host that dropped the package.
+- **Whether one manifest carries both halves.** It does. Two exports would let a namespace and a
+  version drift apart while describing the same section, and the namespace is the whole contract.
+- **«Rendered by the one panel» was wrong, and it was the sentence that mattered.** A section draws
+  wherever it is mounted — the panel, a settings page, a dock inside a canvas — through
+  `PreferencesSections`, and what a surface renders it with is one control per `kind`. A mechanism
+  whose only surface was the panel would have failed the first consumer that had a canvas.
+
+And one thing this record did not anticipate at all: the asymmetry it describes was **symmetrical**.
+The core's own axes had the older mechanism — a stored blob read through a whitelist — so a tenant
+could pin the graph's look and could not pin the radius. They are declared and resolved by this
+chain now; see `decisions/the-declaration-ships-with-the-library.md` for what that costs to ship.
 
 ## The asymmetry, and where to read it
 

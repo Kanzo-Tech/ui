@@ -7,9 +7,9 @@
  *
  * This is the shape that has no such ceiling: something asks a bounded question — a rectangle, or a
  * neighbourhood a few hops wide — and the source answers with **at most `limit` points**. The
- * answer's size follows the question rather than the corpus. Moving re-asks. Zooming out crosses a
- * threshold and the source answers with super-nodes instead of nodes, so a view of everything is
- * still a few thousand marks.
+ * answer's size follows the question rather than the corpus. Moving re-asks. A window holding more
+ * than `limit` is *sampled* rather than truncated, so a view of everything is still a few thousand
+ * marks and they are still spread over everything — see `sampled` in `duck-source.ts`.
  *
  * **Positions are authority, not suggestion.** The corpus is written once and read many — OLAP, which
  * is what GraphAr is for — so the coordinates the batch emits are the index every spatial question
@@ -38,38 +38,35 @@
 
 import type { VertexId } from "./resident";
 
-/** What the camera is looking at, in the graph's own coordinate space. */
+/**
+ * What the camera is looking at, in the graph's own coordinate space.
+ *
+ * A rectangle and nothing else. It carried a `zoom` for one reader — the level-of-detail threshold
+ * a source compared it against to decide whether to answer with super-nodes — and that branch is
+ * gone, so the field went with it rather than staying as a number every caller has to invent and
+ * nothing reads.
+ */
 export interface Viewport {
   xMin: number;
   yMin: number;
   xMax: number;
   yMax: number;
-  /**
-   * Current zoom. Below `lodThreshold` a source is expected to answer with aggregates: the reader
-   * is looking at everything, and everything is not a picture of anything.
-   */
-  zoom: number;
 }
-
-export type SliceMode = "detail" | "aggregate";
 
 /**
  * One answer. Every array is parallel and indexed densely from zero.
  *
  * `n` is what *matched*, before `limit` cut it — the difference between the two is how a view says
  * "there is more here than I am showing you", which is the one honest thing a bounded renderer owes
- * its reader.
- */
-/**
- * Everything an answer carries whatever mode it is in.
+ * its reader. When a window holds more than `limit`, what comes back is a **sample** of it rather
+ * than its first `limit` rows; `n` reports the window either way.
  *
- * Split from the mode because `Slice` is a **tagged union wearing a struct's clothes**: it had a
- * `mode` discriminant and a `weights?` that was meaningful in exactly one of the two branches, so
- * the type permitted an aggregate with no weights and a detail slice carrying them, and the only
- * thing standing between a caller and either was a `?.`. `graph-model.ts` already reads it as a
- * union — `slice.mode === "aggregate" ? slice.weights : slice.sizes` — and now the compiler agrees.
+ * **A struct, and it used to be a tagged union.** `mode` picked between points and super-nodes and
+ * only the second branch carried `weights`. Both are gone — see
+ * `decisions/a-far-view-is-a-sample-not-a-summary.md` — and with one branch left a discriminant is a
+ * field with one legal value.
  */
-interface SliceBody {
+export interface Slice {
   n: number;
   /**
    * Who each returned point *is*, parallel to `positions` — the `(type_idx, dense_id)` pair packed
@@ -124,18 +121,6 @@ interface SliceBody {
 }
 
 /**
- * One answer, and which of the two questions it answered.
- *
- * `detail` is points; `aggregate` is super-nodes, and it is the only branch that carries `weights` —
- * how many real vertices each one stands for, so a renderer can size a mark by it and a reader can
- * tell a cluster of ten thousand from a cluster of three. Required there, absent here, rather than
- * optional in both.
- */
-export type Slice =
-  | ({ mode: "detail" } & SliceBody)
-  | ({ mode: "aggregate"; weights: Float32Array } & SliceBody);
-
-/**
  * A **region** is a map question: what is inside this rectangle. It suits an overview, a minimap, a
  * reader panning across a laid-out corpus, and it is what every source can answer.
  *
@@ -153,7 +138,7 @@ export type Slice =
  * error rather than a promise that rejects.
  */
 export interface SliceRequest {
-  /** The rectangle, and the zoom that decides detail from aggregate. */
+  /** The rectangle. */
   view: Viewport;
   /**
    * Which column colours a point — Plot's channel name, and Plot's meaning.
@@ -186,10 +171,14 @@ export interface SliceRequest {
    * rewritten every time somebody drags something.
    */
   pinned?: VertexId[];
-  /** The most points the source may return. Above it, the source aggregates or truncates. */
+  /**
+   * The most points the source may return.
+   *
+   * **Above it a source samples the window; it does not take the front of it.** Which is the second
+   * half of `n`'s honesty: `n` says how many matched, and this says the answer is a *sample* of
+   * those rather than whichever ones an `ORDER BY` happened to put first.
+   */
   limit: number;
-  /** Zoom below which a region query should switch to aggregate mode. Ignored by neighbourhoods. */
-  lodThreshold: number;
   signal?: AbortSignal;
 }
 
@@ -317,11 +306,4 @@ export const BOUNDED_DEFAULTS = {
    * the legibility ceiling, which arrives first and is the one a reader actually meets.
    */
   limit: 20_000,
-  /**
-   * 0.5 matched fossil's `viewport`, and that verb no longer exists: the camera is addressed rather
-   * than queried, so a tile reader computes every URL it needs before it issues the first and there
-   * is nothing left to hand a zoom to. This number is ours alone now, and unanchored — nothing on
-   * the other side of the seam agrees with it or contradicts it.
-   */
-  lodThreshold: 0.5,
 } as const;

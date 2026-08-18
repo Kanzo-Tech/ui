@@ -35,8 +35,10 @@ rendering hooks do not, and a host drawing arrays it already has should not pay 
 
 **Data.** A **source** answers one question — *what should I draw* — and `useBoundedGraph` asks it.
 The answer is a `Slice`: at most `limit` points as parallel typed arrays, whose size follows the
-question rather than the corpus. Moving the camera re-asks; zooming out past `lodThreshold` gets
-super-nodes instead of nodes, so a view of everything is still a few thousand marks.
+question rather than the corpus. Moving the camera re-asks, and a window holding more than `limit`
+is **sampled** rather than truncated — one row every `ceil(matched / limit)` over the corpus'
+Morton-ordered `dense_id`, which spreads the marks over the window instead of drawing a corner of
+it. So a view of everything is still a few thousand marks, and they are still everywhere.
 
 `duckBoundedSource` — on `@kanzo-tech/graph/duckdb`, because that is the half that needs Mosaic —
 answers over two DuckDB relations and takes the column names as options, so pointing it at another

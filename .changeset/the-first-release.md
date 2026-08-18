@@ -212,9 +212,12 @@ Four things to know before you draw one:
   identity is a `bigint`, so confusing them is a primitive type error and `7 as VertexId` does not
   compile. What reaches the GPU is unchanged — positions and indices stay `number` and
   `Float32Array`, and `denseOf(vertex)` is the way back down to SQL. `duckBoundedSource` therefore
-  requires `typeIndex` with no default, and a super-node wears the reserved `SUPERNODE` type: an
-  aggregate numbers its groups `0..k`, and left in the corpus' own type, group 3 and vertex 3 are
-  one identity.
+  requires `typeIndex` with no default.
+- **A view of everything is a sample of it.** A window holding more than `limit` comes back as one
+  row in every `ceil(matched / limit)` of the corpus' Morton-ordered `dense_id`, which is spread
+  over the window; `n` still reports how many matched. There is no zoom threshold and no aggregated
+  mode — measured against the truth at screen resolution, one mark per community scored worse than
+  a uniform grey box, and its edge query joined the whole edge relation twice.
 - **A `Look` is geometry only** — sizes, link opacity and width, labels, which channel carries
   identity. It names no colour and applies no filter. Colour comes from the page's categorical
   scale, so the graph, the charts and the legend explaining them cannot disagree.

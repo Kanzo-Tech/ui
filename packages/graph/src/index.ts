@@ -108,7 +108,6 @@ export {
   vertexId,
   typeOf,
   denseOf,
-  SUPERNODE,
   type Resident,
   type VertexId,
 } from "./resident";
@@ -149,7 +148,6 @@ export {
   SUPERSEDED,
   type BoundedSource,
   type Slice,
-  type SliceMode,
   type ExploringSource,
   type ExploreRequest,
   type SliceRequest,

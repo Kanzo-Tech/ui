@@ -12,12 +12,8 @@ import type { Slice } from "./bounded";
  * is not a smaller slice, it is an inconsistent one.
  */
 function slice(over: Partial<Slice> = {}): Slice {
-  // The spread is cast because `Slice` is a tagged union now: `Partial<Slice>` can carry `weights`
-  // without carrying `mode: "aggregate"`, which is exactly the state the union exists to forbid.
-  // A fixture builder is the one place that has to be allowed to assemble either branch by hand.
   const n = over.positions ? over.positions.length / 2 : 3;
   return {
-    mode: "detail",
     n,
     vertices: BigUint64Array.from({ length: n }, (_, i) => vertexId(0, i + 100)),
     positions: new Float32Array(n * 2),
@@ -43,18 +39,19 @@ describe("buffers", () => {
     expect(gpu.sizes[1]).toBeCloseTo(lo + 0.5 * (hi - lo), 5);
   });
 
-  it("spends the ramp on cluster weight in aggregate mode", () => {
+  it("spends the ramp on the column the source ranks by, and knows no second one", () => {
     const host = document.createElement("div");
     document.body.appendChild(host);
     const [lo, hi] = DEFAULT_LOOK.size;
 
-    // `sizes` is present and must be ignored: at this zoom a mark stands for a cluster, and how big
-    // it should read is how many vertices it hides, not what any one of them ranked.
+    // There used to be a second ramp column — `weights`, how many vertices a super-node stood for —
+    // and it *won* over `sizes` whenever a slice said `mode: "aggregate"`. Both are gone with the
+    // aggregate far view, so a slice carrying a stray `weights` must change nothing: `sizes` is the
+    // ramp, and the reversed order below is what would show if the old branch were still reachable.
     const gpu = buffers(
       slice({
-        mode: "aggregate",
-        weights: Float32Array.from([1, 4, 9]),
-        sizes: Float32Array.from([9, 4, 1]),
+        sizes: Float32Array.from([1, 4, 9]),
+        ...({ mode: "aggregate", weights: Float32Array.from([9, 4, 1]) } as object),
       }),
       DEFAULT_LOOK,
       host,
@@ -133,12 +130,12 @@ describe("memorySource", () => {
     links: Float32Array.from([0, 1, 1, 2, 2, 0, 3, 4, 4, 5, 5, 3]),
     categories: Uint16Array.from([0, 0, 0, 1, 1, 1]),
   };
-  const request = { limit: 100, lodThreshold: 0.5 };
+  const request = { limit: 100 };
 
   it("answers a rectangle with what is inside it, as identities", async () => {
     const answer = await memorySource(graph).slice({
       ...request,
-      view: { xMin: -1, yMin: -1, xMax: 2, yMax: 2, zoom: 1 },
+      view: { xMin: -1, yMin: -1, xMax: 2, yMax: 2 },
     });
 
     expect([...answer.vertices]).toEqual([10, 11, 12].map((id) => vertexId(0, id)));
@@ -151,19 +148,22 @@ describe("memorySource", () => {
     const answer = await memorySource(graph).slice({
       ...request,
       limit: 2,
-      view: { xMin: -1, yMin: -1, xMax: 2, yMax: 2, zoom: 1 },
+      view: { xMin: -1, yMin: -1, xMax: 2, yMax: 2 },
     });
 
     // A truncated slice that claimed to be complete is the failure this whole contract is about.
     expect(answer.vertices.length).toBe(2);
     expect(answer.n).toBe(3);
+    // And which two: three matched and two fit, so it strides — the first and the *third*, not the
+    // first two. Taking the front of an ordering draws a run of it, which is a corner of the window.
+    expect([...answer.vertices]).toEqual([10, 12].map((id) => vertexId(0, id)));
   });
 
   it("carries pinned vertices the rectangle does not hold", async () => {
     const answer = await memorySource(graph).slice({
       ...request,
       pinned: [vertexId(0, 13)],
-      view: { xMin: -1, yMin: -1, xMax: 2, yMax: 2, zoom: 1 },
+      view: { xMin: -1, yMin: -1, xMax: 2, yMax: 2 },
     });
 
     // A dragged node is drawn where the reader dropped it and indexed where it always was, so the
@@ -183,20 +183,22 @@ describe("memorySource", () => {
     expect([...deep.vertices]).not.toContain(vertexId(0, 13));
   });
 
-  it("answers super-nodes below the level-of-detail threshold", async () => {
+  it("draws a view of everything from both ends of it, not from one group per category", async () => {
+    // The whole extent, with room for four of the six. Zoomed all the way out used to be a different
+    // question — one super-node per category, at its centroid — and it scored worse than a grey box:
+    // `decisions/a-far-view-is-a-sample-not-a-summary.md`.
     const answer = await memorySource(graph).slice({
       ...request,
-      view: { xMin: -1e6, yMin: -1e6, xMax: 1e6, yMax: 1e6, zoom: 0.1 },
+      limit: 2,
+      view: { xMin: -1e6, yMin: -1e6, xMax: 1e6, yMax: 1e6 },
     });
 
-    expect(answer.mode).toBe("aggregate");
-    // One mark per group, at its centroid, standing for three vertices each.
-    expect(answer.vertices.length).toBe(2);
-    expect(answer.mode === "aggregate" && [...answer.weights]).toEqual([3, 3]);
     expect(answer.n).toBe(6);
-    // And a view of everything is still a picture: the groups that touch, deduplicated. These two do
-    // not touch, so there is nothing between them.
-    expect(answer.links.length).toBe(0);
+    // One from each triangle. A prefix of two takes vertices 10 and 11, which are the same triangle
+    // — the far half of the corpus drawn as nothing at all. Representing both is the property a
+    // summary was invented to buy, at a hundredth of the marks and none of the join.
+    expect([...answer.vertices]).toEqual([vertexId(0, 10), vertexId(0, 13)]);
+    expect([...answer.categories]).toEqual([0, 1]);
   });
 });
 

@@ -5,7 +5,7 @@ import {
   type SliceRequest,
   type Viewport,
 } from "./bounded";
-import { vertexId, SUPERNODE, type VertexId } from "./resident";
+import type { VertexId } from "./resident";
 
 /**
  * The trivial source: a host that already holds its arrays.
@@ -72,8 +72,7 @@ export function memorySource(graph: MemoryGraph): ExploringSource {
     // renderer's default box.
     extent: () => Promise.resolve(boundsOf(graph.positions)),
     slice(request: SliceRequest): Promise<Slice> {
-      const { limit, lodThreshold, pinned, view } = request;
-      if (view.zoom < lodThreshold) return Promise.resolve(aggregate(graph, limit));
+      const { limit, pinned, view } = request;
       return Promise.resolve(gather(graph, inside(graph, view, pinned), limit));
     },
     // The only source we ship that has this at all: a rectangle needs a spatial predicate, which
@@ -135,10 +134,25 @@ export function memorySource(graph: MemoryGraph): ExploringSource {
  *
  * `n` is what matched before `limit` cut it, which is the one honest thing a bounded view owes its
  * reader — a truncated answer must not look like a complete one.
+ *
+ * **Over the limit it strides rather than taking the front**, which is the same rule the SQL sources
+ * apply and for the same reason: the front of an ordering is a *region* of whatever that ordering
+ * follows, so `chosen.slice(0, limit)` drew one corner of a window and called it the window.
+ *
+ * What this source cannot promise, and the SQL ones can: that the stride is **spatially**
+ * stratified. A corpus numbers along the Morton curve so every `s`-th id is spread over the space;
+ * here the order is whichever order the host built its arrays in, and nothing knows what that is. A
+ * stride over an unknown order is at worst an arbitrary sample, where a prefix of an unknown order
+ * is at worst an arbitrary *contiguous* sample — so this is never the worse of the two and is
+ * sometimes much better.
  */
 function gather(graph: MemoryGraph, chosen: number[], limit: number): Slice {
   const matched = chosen.length;
-  const kept = chosen.length > limit ? chosen.slice(0, limit) : chosen;
+  const stride = Math.max(1, Math.ceil(matched / limit));
+  const kept: number[] = [];
+  for (let i = 0; i < chosen.length && kept.length < limit; i += stride) {
+    kept.push(chosen[i] as number);
+  }
   const n = kept.length;
 
   // Global index → position in this slice, `-1` for everything not in it. One pass over the corpus
@@ -176,7 +190,6 @@ function gather(graph: MemoryGraph, chosen: number[], limit: number): Slice {
   }
 
   return {
-    mode: "detail",
     n: matched,
     vertices,
     subjects,
@@ -184,66 +197,6 @@ function gather(graph: MemoryGraph, chosen: number[], limit: number): Slice {
     links: Float32Array.from(links),
     categories,
     sizes,
-  };
-}
-
-/**
- * Zoomed out far enough that individual points are not information: one super-node per category, at
- * its centroid, weighted by how many it stands for.
- */
-function aggregate(graph: MemoryGraph, limit: number): Slice {
-  const count = graph.positions.length / 2;
-  const sums = new Map<number, { x: number; y: number; weight: number }>();
-  for (let i = 0; i < count; i++) {
-    const key = graph.categories?.[i] ?? 0;
-    const bucket = sums.get(key) ?? { x: 0, y: 0, weight: 0 };
-    bucket.x += graph.positions[i * 2] as number;
-    bucket.y += graph.positions[i * 2 + 1] as number;
-    bucket.weight += 1;
-    sums.set(key, bucket);
-  }
-
-  const keys = [...sums.keys()].slice(0, limit);
-  const n = keys.length;
-  const vertices = new BigUint64Array(n);
-  const positions = new Float32Array(n * 2);
-  const categories = new Uint16Array(n);
-  const weights = new Float32Array(n);
-  for (let i = 0; i < n; i++) {
-    const key = keys[i] as number;
-    const bucket = sums.get(key) as { x: number; y: number; weight: number };
-    // A super-node stands for a group and is not a vertex of the corpus, so it wears the reserved
-    // type — otherwise group 3 and vertex 3 are the same identity, and a selection made zoomed out
-    // survives the zoom in pointing at three arbitrary nodes.
-    vertices[i] = vertexId(SUPERNODE, key);
-    positions[i * 2] = bucket.x / bucket.weight;
-    positions[i * 2 + 1] = bucket.y / bucket.weight;
-    categories[i] = key;
-    weights[i] = bucket.weight;
-  }
-
-  // Which groups touch, not how often — at this zoom the multiplicity is not a readable difference.
-  const seen = new Set<number>();
-  const links: number[] = [];
-  const slot = new Map(keys.map((key, i) => [key, i]));
-  for (let e = 0; e < graph.links.length; e += 2) {
-    const src = slot.get(graph.categories?.[graph.links[e] as number] ?? 0);
-    const dst = slot.get(graph.categories?.[graph.links[e + 1] as number] ?? 0);
-    if (src === undefined || dst === undefined || src === dst) continue;
-    const pair = src * n + dst;
-    if (seen.has(pair)) continue;
-    seen.add(pair);
-    links.push(src, dst);
-  }
-
-  return {
-    mode: "aggregate",
-    n: count,
-    vertices,
-    positions,
-    links: Float32Array.from(links),
-    categories,
-    weights,
   };
 }
 
@@ -266,7 +219,6 @@ function boundsOf(positions: Float32Array): Viewport {
     if (y < yMin) yMin = y;
     if (y > yMax) yMax = y;
   }
-  if (!Number.isFinite(xMin)) return { xMin: 0, yMin: 0, xMax: 0, yMax: 0, zoom: Number.POSITIVE_INFINITY };
-  // Above any threshold: an extent is asked for to frame a view, never to aggregate one.
-  return { xMin, yMin, xMax, yMax, zoom: Number.POSITIVE_INFINITY };
+  if (!Number.isFinite(xMin)) return { xMin: 0, yMin: 0, xMax: 0, yMax: 0 };
+  return { xMin, yMin, xMax, yMax };
 }

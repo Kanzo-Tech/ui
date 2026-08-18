@@ -306,7 +306,7 @@ describe("compile", () => {
   it("scopes to an attribute, and reaches <html> and a div with one selector list", () => {
     // This replaces `elevate`. A tenant publishing several palettes used to serve the default as
     // `tokens.css` and inline the chosen one after it — two documents, both `:root`, source order
-    // deciding. Every document travels now (58 kB raw, 7.6 kB gzipped for all five) and an attribute
+    // deciding. Every document travels now (63.6 kB raw, 8.6 kB gzipped for all six) and an attribute
     // chooses, which is daisyUI's `data-theme` model.
     //
     // The selector is a **list**, and both members are load-bearing because the attribute lands in

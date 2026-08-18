@@ -49,5 +49,8 @@ corner. The migration is those two constants and the accessors' return type.
   multi-language format surveyed — `mapbox/node-s2` is a *binding* and still returned wrong cell ids.
   Narrowing the *fields* does not narrow the *carrier*: the pair is still one 64-bit integer, still a
   primitive type error against a buffer index, still immune to `>>` meaning three different things.
-- **`SUPERNODE`.** `0xffff` is a reserved *type* index, so it lives in the type half and is unaffected
-  by how the dense half is sized.
+- **A reserved type index, if there is ever another one.** `SUPERNODE` was `0xffff`, worn by the
+  super-nodes of the aggregate far view so a group and a vertex could not share an identity; it went
+  with that branch — `decisions/a-far-view-is-a-sample-not-a-summary.md`. Whatever replaces it lives
+  in the type half and is unaffected by how the dense half is sized, which is the part of this that
+  was never about `SUPERNODE`.

@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import type { Slice } from "./bounded";
-import { denseOf, residentOf, SUPERNODE, typeOf, vertexId, type VertexId } from "./resident";
+import { denseOf, residentOf, typeOf, vertexId, type VertexId } from "./resident";
 
 /**
  * A buffer index numbers the answer; an identity numbers the corpus.
@@ -39,7 +39,6 @@ import { denseOf, residentOf, SUPERNODE, typeOf, vertexId, type VertexId } from 
 /** A slice that is nothing but who is drawn — the only column any of this reads. */
 function drawn(...vertices: VertexId[]): Slice {
   return {
-    mode: "detail",
     n: vertices.length,
     vertices: BigUint64Array.from(vertices),
     positions: new Float32Array(vertices.length * 2),
@@ -109,10 +108,12 @@ describe("a vertex is the pair, because a dense id is not an identity", () => {
   });
 
   it("round-trips the pair exactly at the top of the dense range", () => {
-    // `dense_id` is a UInt32, so the last id of the reserved type is the far corner of the packing —
-    // where a wrong stride loses a bit and two vertices collapse into one identity with no symptom.
-    const top = vertexId(SUPERNODE, 0xffff_ffff);
-    expect(typeOf(top)).toBe(SUPERNODE);
+    // `dense_id` is a UInt32, so the last id of a high type index is the far corner of the packing —
+    // where a wrong shift loses a bit and two vertices collapse into one identity with no symptom.
+    // 0xffff was the reserved super-node type until the aggregate branch went; it is an ordinary
+    // type index now, and it is kept here because the corner is what this assertion is about.
+    const top = vertexId(0xffff, 0xffff_ffff);
+    expect(typeOf(top)).toBe(0xffff);
     expect(denseOf(top)).toBe(0xffff_ffff);
   });
 
@@ -148,14 +149,6 @@ describe("a vertex is the pair, because a dense id is not an identity", () => {
     expect(new Set([built, rebuilt]).size).toBe(1);
     // And through the buffer too, since that is the round trip the source actually makes.
     expect(residentOf(drawn(built)).indexOf(rebuilt)).toBe(0);
-  });
-
-  it("keeps a super-node out of the corpus' own numbering", () => {
-    // An aggregate numbers its groups `0..k`. Left in the corpus' type, group 3 and vertex 3 are one
-    // identity, so a selection made zoomed out silently becomes a selection of three arbitrary nodes
-    // on the way back in.
-    expect(vertexId(SUPERNODE, 3)).not.toBe(vertexId(0, 3));
-    expect(typeOf(vertexId(SUPERNODE, 3))).toBe(SUPERNODE);
   });
 
   it("refuses a bare number where an identity is asked for", () => {

@@ -26,7 +26,6 @@ import { useBoundedGraph } from "./use-bounded-graph";
 /** An answer with nothing in it. The loop's behaviour does not depend on what came back. */
 function nothing(): Slice {
   return {
-    mode: "detail",
     n: 0,
     vertices: new BigUint64Array(0),
     positions: new Float32Array(0),
@@ -164,7 +163,7 @@ describe("the column the query is asked for", () => {
  * rectangle, and the browser proves the rest.
  */
 describe("the opening view", () => {
-  const box: Viewport = { xMin: 100, yMin: 200, xMax: 300, yMax: 400, zoom: Infinity };
+  const box: Viewport = { xMin: 100, yMin: 200, xMax: 300, yMax: 400 };
 
   it("frames the corpus before it asks anything, and only once", async () => {
     const { asks, order, source } = recording(10, box);

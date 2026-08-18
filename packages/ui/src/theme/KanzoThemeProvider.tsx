@@ -259,7 +259,7 @@ export interface KanzoThemeProviderProps {
    * apply anything; a document is a stylesheet, so the server serves the chosen one from the cookie
    * before the first byte" — which made this the one preference the provider owned and could not
    * honour. It rested on an assumption about size that was never measured: the five documents this
-   * package ships are 58 kB raw and **7.6 kB gzipped together**.
+   * package ships are 63.6 kB raw and **8.6 kB gzipped together**.
    *
    * So they all travel, `compile(doc, { scope })` puts each under `[data-palette="<id>"]`, and this
    * provider writes the attribute like any other axis. A host still has to *load* the documents —
@@ -515,7 +515,7 @@ export function KanzoThemeProvider({
   // the consequence it drew was that a multi-palette tenant *must* persist through
   // `cookieStorageAdapter`, because a decision the server already took cannot be corrected in the
   // browser without a flash. All of that followed from one unmeasured assumption. The five documents
-  // are 7.6 kB gzipped together, so they all travel, each under its own `[data-palette]`, and the
+  // are 8.6 kB gzipped together, so they all travel, each under its own `[data-palette]`, and the
   // cookie is now an optimisation rather than a requirement: localStorage plus the pre-paint script
   // applies the attribute before anything is drawn, exactly as it does for radius and density.
   //

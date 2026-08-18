@@ -32,7 +32,11 @@ import { vertexId } from "./resident";
  *   million-node corpus — and not by anything in this file.
  * - **Nothing about `openCorpus`.** It fetches manifests over HTTP before it queries anything, so
  *   its half of this shape is exercised by the showcase rather than here. What is shared is
- *   `detail`, `aggregate` and `watcher`, which is what makes the coverage worth having at all.
+ *   `region`, `visibleCte` and `watcher`, which is what makes the coverage worth having at all.
+ * - **That the sample is spatially stratified, or that it is a sample at all.** `id % stride = 0`
+ *   over a Morton-ordered `dense_id` is the claim, and no stub can evaluate a modulo. What runs it
+ *   is `docs/showcases/graph-bench`, and the far-view figures in
+ *   `decisions/a-far-view-is-a-sample-not-a-summary.md` were taken there.
  */
 
 function harness() {
@@ -56,9 +60,8 @@ function harness() {
 }
 
 const WINDOW = {
-  view: { xMin: 0, yMin: 0, xMax: 10, yMax: 10, zoom: 1 },
+  view: { xMin: 0, yMin: 0, xMax: 10, yMax: 10 },
   limit: 100,
-  lodThreshold: 0.5,
 };
 
 describe("a duck source's slice", () => {
@@ -102,6 +105,28 @@ describe("a duck source's slice", () => {
     // The shape of the query that is gone. `count(*)` on its own still appears — inside the window —
     // so what is asserted is the *statement*, which began with a bare select.
     expect(asked.some((sql) => sql.trimStart().startsWith("SELECT count(*)"))).toBe(false);
+  });
+
+  /**
+   * Both reads select the same rows, and the stride is why that has to be said out loud.
+   *
+   * The sample is a predicate over `matched`, which is a window aggregate — so the links read has to
+   * compute the same count the points read does, or the two CTEs name different sets and the slice
+   * draws edges to vertices it did not return. That is the one thing this stub *can* check: the
+   * texts are two halves of one question, and they have to agree about the question.
+   */
+  it("takes the same sample in both reads, so the links land on points that came back", async () => {
+    const { asked, coordinator } = harness();
+    const source = duckBoundedSource({ coordinator, nodes: "nodes", edges: "edges", typeIndex: 0 });
+    await source.slice(WINDOW);
+
+    const [points, links] = asked;
+    const stride = /WHERE id % (greatest\(1, [^)]*\)[^=]*) = 0/;
+    expect(points).toMatch(stride);
+    expect(links).toMatch(stride);
+    expect(stride.exec(points as string)?.[1]).toBe(stride.exec(links as string)?.[1]);
+    // The divisor is the request's own limit, so a window that fits is not sampled — `id % 1 = 0`.
+    expect(points).toContain("ceil(matched / 100.0)");
   });
 
   /**

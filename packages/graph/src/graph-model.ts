@@ -151,10 +151,10 @@ export function buffers(
   const sizes = new Float32Array(n);
   const shapes = new Float32Array(n);
 
-  // In aggregate mode the ramp is spent on how many vertices a super-node stands for; in detail mode
-  // on whatever the source ranks by. Either way it is square-rooted, because both are heavy-tailed
-  // and a linear ramp leaves everything but the three biggest hubs on the floor.
-  const ramp = slice.mode === "aggregate" ? slice.weights : slice.sizes;
+  // Whatever the source ranks by, square-rooted: a degree distribution is heavy-tailed and a linear
+  // ramp leaves everything but the three biggest hubs on the floor. It used to read a second column
+  // in aggregate mode — how many vertices a super-node stood for — and there are no super-nodes.
+  const ramp = slice.sizes;
   let lo = 0;
   let span = 1;
   if (ramp && ramp.length > 0) {

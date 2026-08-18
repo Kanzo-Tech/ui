@@ -70,7 +70,6 @@ describe("@kanzo-tech/graph public surface", () => {
     expect(GRAPH.SPACE).toBeTypeOf("number");
     expect(GRAPH.GRID).toBeTypeOf("number");
     expect(GRAPH.REHEAT).toBeTypeOf("number");
-    expect(GRAPH.SUPERNODE).toBeTypeOf("number");
     expect(GRAPH.BOUNDED_DEFAULTS).toBeTypeOf("object");
     expect(GRAPH.DEFAULT_DISPLAY).toBeTypeOf("object");
     expect(GRAPH.DEFAULT_SIM).toBeTypeOf("object");
@@ -86,8 +85,7 @@ describe("@kanzo-tech/graph public surface", () => {
     });
     const slice = await source.slice({
       limit: 10,
-      lodThreshold: 0,
-      view: { xMin: -Infinity, xMax: Infinity, yMin: -Infinity, yMax: Infinity, zoom: 1 },
+      view: { xMin: -Infinity, xMax: Infinity, yMin: -Infinity, yMax: Infinity },
     });
     expect(slice.vertices.length).toBe(2);
     expect(GRAPH.residentOf(slice).indicesOf([GRAPH.vertexId(0, 1)])).toEqual([1]);
@@ -168,5 +166,65 @@ describe("@kanzo-tech/graph public surface", () => {
     expect(surface.load).toBeUndefined();
     expect(surface.Loaded).toBeUndefined();
     expect(GRAPH.memorySource).toBeTypeOf("function");
+  });
+
+  /**
+   * The far view was a summary and is a sample, and these are the names that went with the summary.
+   *
+   * They are asserted here because the thing that makes them tempting is that they *sound* right:
+   * zoom out far enough and individual points stop being information, so collapse them into one
+   * mark per group. Measured, that is the worst thing on the list —
+   * `decisions/a-far-view-is-a-sample-not-a-summary.md` carries the table, and the sentence to
+   * remember is that eight super-nodes per `community` scored **worse than a uniform grey box**
+   * over the corpus' own bounding box.
+   */
+  it("keeps the aggregate far view deleted, names and all", () => {
+    const surface = GRAPH as Record<string, unknown>;
+    // `SUPERNODE` was the reserved vertex type an aggregate's groups wore, so that group 3 and
+    // vertex 3 were not one identity. Nothing produces a group any more, so a reserved type is a
+    // hole punched in a corpus' type space for nobody.
+    expect(surface.SUPERNODE).toBeUndefined();
+    // `lodThreshold` was the zoom a source compared against to decide it should summarise. It had
+    // already lost its anchor — it matched fossil's `viewport`, a verb that was deleted — and what
+    // replaces it is arithmetic nobody has to pick: a window is sampled when it holds more than
+    // `limit`, at whatever zoom that happens.
+    expect((GRAPH.BOUNDED_DEFAULTS as Record<string, unknown>).lodThreshold).toBeUndefined();
+    // `Viewport` carried a `zoom` for exactly one reader, and that was it.
+    expect(Object.keys(GRAPH.BOUNDED_DEFAULTS)).toEqual(["limit"]);
+    // `SliceMode` and the `weights` branch are types, so there is no runtime binding to assert —
+    // what stands in for them is `graph-model.test.ts`, "spends the ramp on the column the source
+    // ranks by, and knows no second one".
+  });
+
+  /**
+   * The behaviour the deletion is for, on the one source that needs no database.
+   *
+   * A window holding more than `limit` used to come back as its first `limit` rows in id order,
+   * which is a *contiguous run* of whatever that order follows — a corner of the window drawn as if
+   * it were the window. This is the assertion that a sample is spread over what it samples.
+   */
+  it("samples a window it cannot fit rather than drawing the front of it", async () => {
+    // A thousand points on a line, in order. `limit` 10 must reach the far end; a prefix stops at 9.
+    const n = 1000;
+    const positions = new Float32Array(n * 2);
+    const vertices = new BigUint64Array(n);
+    for (let i = 0; i < n; i++) {
+      positions[i * 2] = i;
+      vertices[i] = GRAPH.vertexId(0, i);
+    }
+    const source = GRAPH.memorySource({ vertices, positions, links: new Float32Array(0) });
+    const slice = await source.slice({
+      limit: 10,
+      view: { xMin: -Infinity, xMax: Infinity, yMin: -Infinity, yMax: Infinity },
+    });
+
+    expect(slice.vertices.length).toBe(10);
+    // What matched is still reported whole: the sample is how it draws, not what it claims.
+    expect(slice.n).toBe(n);
+    const xs = [...slice.positions].filter((_, i) => i % 2 === 0);
+    expect(Math.min(...xs)).toBe(0);
+    // One in every hundred, so the tenth is at 900. A prefix answers 9 — the first hundredth of the
+    // window, drawn as if it were the window.
+    expect(Math.max(...xs)).toBe(900);
   });
 });
