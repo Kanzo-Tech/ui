@@ -5,6 +5,7 @@ import type {
   Appearance,
   AppearancePref,
   PaletteOption,
+  PrefSources,
   ResolvedPref,
   SectionPrefDecl,
   ThemePrefs,
@@ -29,11 +30,32 @@ export interface FontOption {
   preview?: string;
 }
 
+/**
+ * The provider spreads {@link ThemePrefs} into the context, and every axis it names is the value the
+ * chain ANSWERED — not the raw stored one.
+ *
+ * The distinction is the tenant's policy: a client who pinned *compact* has `density === "compact"`
+ * here whatever this user once chose, because that is what the page is painted with and a control
+ * reading anything else would draw a selection the page contradicts. What the user stored is still
+ * in storage, untouched, and comes back if the tenant stops pinning it.
+ *
+ * `corePrefs` is where the rest of the chain's answer lives — `via`, and `offered`, which is what a
+ * surface reads before drawing a control at all.
+ */
 export interface ThemeContextValue extends ThemePrefs {
   set: (patch: Partial<ThemePrefs>) => void;
+  /**
+   * Unset every preference — what the panel's Reset does.
+   *
+   * Not `set(DEFAULT_PREFS)`, which is what it used to be: storage holds what a user CHOSE, so
+   * writing each axis's default explicitly would make reset the one act that pins somebody against
+   * their tenant's document. Where unsetting lands is whatever the chain answers — the client's
+   * starting point when they published one, ours when they did not.
+   */
+  reset: () => void;
   fonts: FontOption[];
   monoFonts: FontOption[];
-  /** The appearance PREFERENCE — a pinned side, or `null` while the OS decides. */
+  /** The appearance PREFERENCE — a pinned side, or `""` while the OS decides. */
   appearance: AppearancePref;
   /**
    * The APPLIED side. Always one of the two, because the document has exactly two blocks.
@@ -97,6 +119,26 @@ export interface ThemeContextValue extends ThemePrefs {
   sectionPrefs: Record<string, Record<string, ResolvedPref & { decl: SectionPrefDecl }>>;
   /** Write one. Every other namespace rides through untouched, parsed by nobody. */
   setSectionPref: (namespace: string, key: string, value: string) => void;
+  /**
+   * The core's own axes, resolved by the SAME chain and in the same shape as {@link sectionPrefs}.
+   *
+   * This is the phase where the two halves became one mechanism. The core used to read its
+   * preferences straight off a stored blob, so a tenant could pin a contributed choice and could not
+   * pin the radius — the newer mechanism had a resolution chain with a policy and the older one had
+   * a whitelist read. Now a client's document sets the starting point of every axis, colour and
+   * geometry alike, and a user preference is an override on top of it.
+   *
+   * Keyed by preference name, never by namespace: there is exactly one core.
+   */
+  corePrefs: Record<string, ResolvedPref & { decl: SectionPrefDecl }>;
+  /**
+   * What this host published, in the shape a declaration names it by — `palettes`, `identities`.
+   *
+   * A choice may name where its options come from instead of listing them, because a client's
+   * brands cannot be typed by whoever wrote the package. This is what fills such a control, and it
+   * is built once here rather than in every surface that draws one.
+   */
+  sources: PrefSources;
 }
 
 export const ThemeContext = React.createContext<ThemeContextValue | null>(null);

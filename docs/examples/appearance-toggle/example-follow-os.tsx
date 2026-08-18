@@ -13,7 +13,7 @@ export default function Example() {
   return (
     <ButtonGroup aria-label="Appearance">
       <AppearanceToggle size="icon-md" variant="outline" />
-      <Button onClick={() => setAppearance(null)} variant="outline">
+      <Button onClick={() => setAppearance("")} variant="outline">
         Follow the OS
       </Button>
     </ButtonGroup>

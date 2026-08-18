@@ -246,7 +246,12 @@ export function resolvePref(
   sources?: PrefSources,
 ): ResolvedPref {
   const legal = (v: string | undefined): v is string => {
-    if (v === undefined) return false;
+    // `typeof` rather than a check against `undefined`, though the parameter says `string`: this
+    // reads a blob out of a browser's storage, and a corrupt one holds whatever it holds. Without
+    // it, an axis whose options a tenant owns — where there is no list to judge against — writes
+    // `data-identity="[object Object]"`, which is inert, survives in devtools, and is evidence of a
+    // bug we chose not to have. The provider used to carry this test beside its write loop.
+    if (typeof v !== "string") return false;
     // One gate per kind, and every kind has one. A preference with no notion of an illegal value
     // would let storage outlive the declaration that gave it meaning — which is the version-skew
     // case this whole chain exists to survive.

@@ -4,14 +4,18 @@ import * as React from "react";
 import type {
   Appearance,
   AppearancePref,
+  CorePrefKey,
   PaletteOption,
+  PrefSources,
   ResolvedPref,
   SectionManifest,
   SectionPolicy,
   SectionPrefDecl,
+  SectionPrefPolicy,
 } from "@kanzo-tech/theme";
 import {
   AXES,
+  CORE_NAMESPACE,
   CORE_PREFS,
   DEFAULT_PREFS,
   prefOptions,
@@ -71,7 +75,7 @@ export interface AppearanceController {
    * The host's preference, in the HOST's vocabulary; next-themes exposes this as `theme`.
    *
    * `string`, not `Appearance`, because this is where a foreign model enters. next-themes' third
-   * value is the string `"system"`, ours is `null`, and the translation happens once, below — no
+   * value is the string `"system"`, ours is `""`, and the translation happens once, below — no
    * other line in this package knows that `"system"` is a word.
    */
   theme?: string;
@@ -83,7 +87,8 @@ export interface AppearanceController {
 /** Pluggable persistence for the uncontrolled mode. */
 export interface ThemeStorage {
   get: () => Partial<ThemePrefs> | null;
-  set: (prefs: ThemePrefs) => void;
+  /** What the user chose — sparse. A key is absent because nobody has written it. */
+  set: (prefs: Partial<ThemePrefs>) => void;
 }
 
 const localStorageAdapter = (key: string): ThemeStorage => ({
@@ -175,6 +180,9 @@ const NO_PALETTES: PaletteOption[] = [];
 // these feed a memo the whole context hangs off.
 const NO_SECTIONS: SectionManifest[] = [];
 const NO_POLICY: Record<string, SectionPolicy> = {};
+const NO_SECTION_POLICY: SectionPolicy = {};
+/** A host in controlled mode who passes no `value` yet: one object, not a literal per render. */
+const NO_STORED: Partial<ThemePrefs> = {};
 
 /**
  * "The tenant no longer publishes what this user chose" — for both axes that a tenant publishes.
@@ -229,7 +237,7 @@ export interface KanzoThemeProviderProps {
   defaults?: Partial<ThemePrefs>;
   /** Controlled mode: supply value + onChange (host owns persistence). */
   value?: Partial<ThemePrefs>;
-  onChange?: (next: ThemePrefs) => void;
+  onChange?: (next: Partial<ThemePrefs>) => void;
   /** Uncontrolled persistence. `undefined` = localStorage; `null` = no persistence. */
   storage?: ThemeStorage | null;
   storageKey?: string;
@@ -274,13 +282,26 @@ export interface KanzoThemeProviderProps {
    */
   sections?: SectionManifest[];
   /**
-   * What the TENANT says about those choices — pinned, withheld, or merely started elsewhere.
+   * What the TENANT says about every choice — pinned, withheld, or merely started elsewhere.
    *
-   * Keyed by namespace. This is the white-label half: one client ships the graph fixed to a single
-   * look and their users never see the control, another exposes it, and it is the same panel and the
-   * same code. It selects among the options a section declared; it cannot author one.
+   * Keyed by namespace, and **the core is the namespace `theme`** ({@link CORE_NAMESPACE}):
+   *
+   * ```ts
+   * policy={{ theme: { density: { default: "compact" }, radius: { pinned: "sm" } },
+   *           graph: { look: { hidden: true } } }}
+   * ```
+   *
+   * This is the white-label half, and it used to reach only half the product: a tenant could pin the
+   * graph's look and could not pin the radius, because the newer mechanism had a resolution chain
+   * and the older one had a whitelist read. Now a client ships *our product is compact and square*
+   * as the starting point their users move from — which is daisyUI's theme-carries-the-geometry,
+   * expressed as a policy over declarations rather than as a second document format.
+   *
+   * It selects among the options a declaration published; it cannot author one. That line is the
+   * same one the colour layer holds, and it is why this is not the retired runtime palette coming
+   * back under a new name.
    */
-  sectionPolicy?: Record<string, SectionPolicy>;
+  policy?: Record<string, SectionPolicy>;
   /** Delegate dark to a host theme manager (e.g. next-themes). Omit to use the built-in fallback. */
   appearance?: AppearanceController;
 }
@@ -302,7 +323,7 @@ export function KanzoThemeProvider({
   defaultPalette = palettes[0]?.value ?? "",
   onPaletteRetired,
   sections = NO_SECTIONS,
-  sectionPolicy = NO_POLICY,
+  policy = NO_POLICY,
   appearance,
 }: KanzoThemeProviderProps) {
   const controlled = value !== undefined;
@@ -311,25 +332,38 @@ export function KanzoThemeProvider({
     [storage, storageKey],
   );
 
-  const [internal, setInternal] = React.useState<ThemePrefs>(() => {
-    const base = { ...DEFAULT_PREFS, ...defaults };
-    if (controlled) return { ...base, ...value };
+  /**
+   * **What the user chose, and only that.** Sparse: a key is present because somebody wrote it.
+   *
+   * It used to be the merged blob — every axis filled in with its default and persisted that way —
+   * and that is what made a tenant's starting point unreachable for the core: `stored.density` was
+   * `"default"` for a user who had never touched density, so the chain's second link answered and
+   * the third never ran. A client saying *our product is compact* would have been silently outvoted
+   * by every browser that had ever opened the app.
+   *
+   * A sparse blob is also a smaller cookie, and it is what `themeScript` reads: an absent key there
+   * takes exactly the same branch, so both sides fall through to the same policy.
+   */
+  const [internal, setInternal] = React.useState<Partial<ThemePrefs>>(() => {
+    if (controlled) return { ...value };
     const raw = storageAdapter?.get() ?? null;
-    const stored = raw ? known(raw) : null;
-    return stored ? { ...base, ...stored } : base;
+    return raw ? known(raw) : {};
   });
 
-  // Memoised because it feeds both `set` and the context value: an unstable `prefs` re-renders
-  // every consumer of the theme on every render of the provider. Stable as far as the caller lets
-  // it be — pass `value` / `defaults` as literals and they churn on your side, not ours.
+  const storedPrefs = controlled ? value ?? NO_STORED : internal;
+
+  // Everything a reader needs with the gaps filled — the shape `ThemePrefs` promises, for the two
+  // keys the chain does not answer for (`identityByPalette`, `sections`) and as the base the context
+  // is built on. Memoised because it feeds both `set` and that context: an unstable `prefs`
+  // re-renders every consumer on every render of the provider.
   const prefs: ThemePrefs = React.useMemo(
-    () => (controlled ? { ...DEFAULT_PREFS, ...defaults, ...value } : internal),
-    [controlled, defaults, value, internal],
+    () => ({ ...DEFAULT_PREFS, ...defaults, ...storedPrefs }),
+    [defaults, storedPrefs],
   );
 
   const set = React.useCallback(
     (patch: Partial<ThemePrefs>) => {
-      const next = { ...prefs, ...patch };
+      const next = { ...storedPrefs, ...patch };
       if (controlled) {
         onChange?.(next);
       } else {
@@ -337,11 +371,49 @@ export function KanzoThemeProvider({
         storageAdapter?.set(next);
       }
     },
-    [prefs, controlled, onChange, storageAdapter, defaultPalette],
+    [storedPrefs, controlled, onChange, storageAdapter],
   );
 
+  /**
+   * Unset every preference — the panel's Reset.
+   *
+   * It used to be `set(DEFAULT_PREFS)`, which was right while storage was the merged blob and is
+   * wrong now: writing each axis's default explicitly would make "reset" the one act that PINS a
+   * user against their tenant's document. Unset means unset, and where it lands is wherever the
+   * chain says — the client's starting point when they published one, ours when they did not.
+   */
+  const reset = React.useCallback(() => {
+    if (controlled) onChange?.({});
+    else {
+      setInternal({});
+      storageAdapter?.set({});
+    }
+  }, [controlled, onChange, storageAdapter]);
+
+  // What the tenant says about the CORE's own axes. One namespace of the same policy an optional
+  // package's section is subject to, which is the whole of "the core is a section like any other".
+  //
+  // A host's `defaults` prop is the SAME LINK one rank lower — "start here" — so it is folded in
+  // rather than given a mechanism of its own: the app's baseline, which the client's document may
+  // move and the user overrides either way. Folding it in is also what keeps Reset honest, since
+  // unsetting now lands on whichever of the two answered.
+  const corePolicy = React.useMemo(() => {
+    const tenant = policy[CORE_NAMESPACE] ?? NO_SECTION_POLICY;
+    if (!defaults) return tenant;
+    const out: Record<string, SectionPrefPolicy> = { ...tenant };
+    for (const key of Object.keys(CORE_PREFS)) {
+      const seed = defaults[key as CorePrefKey];
+      // Only a string is a starting point. `paletteByAppearance` is a map, and a host seeding one
+      // side of it is seeding a value this link has no way to name — it stays what it always was,
+      // a member of the merged `prefs`.
+      if (typeof seed !== "string" || out[key]?.default !== undefined) continue;
+      out[key] = { ...out[key], default: seed };
+    }
+    return out;
+  }, [defaults, policy]);
+
   // ── Appearance ──────────────────────────────────────────────────────────────────────────
-  // A preference — a pinned side, or `null` for "ask the OS" — and the side that resolves to.
+  // A preference — a pinned side, or `""` for "ask the OS" — and the side that resolves to.
   // Nothing else participates: the palette document publishes both modes, so no identity can
   // overrule the side the user asked for.
 
@@ -349,19 +421,28 @@ export function KanzoThemeProvider({
     () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-color-scheme: dark)").matches,
   );
 
-  // One whitelist over BOTH sources, which is what makes them one model. A pinned side is the
-  // string `light` or `dark` and everything else is unpinned: next-themes' `"system"` (a foreign
-  // vocabulary), a corrupt value from a stored blob, a typo. `themeScript` applies the identical
-  // test — it always did — so this is also what keeps the two sides from disagreeing on a blob a
-  // browser can hold but we would never write.
+  // The declared chain, over BOTH sources, which is what makes them one model. A pinned side is the
+  // string `light` or `dark`; everything else resolves to the unset option: next-themes' `"system"`
+  // (a foreign vocabulary), a corrupt value from a stored blob, a typo. There is no hand-written
+  // whitelist here any more — `appearance` declares its three options, and `resolvePref` gates
+  // against them. `themeScript` runs the identical chain, which is what keeps the two sides from
+  // disagreeing on a blob a browser can hold but we would never write.
   //
   // A host that reports only `resolvedTheme` has no unpinned state to report, so it reads as pinned,
   // which is right: it is telling us a side and nothing else.
-  const explicit = (v: string | null | undefined): AppearancePref =>
-    v === "light" || v === "dark" ? v : "";
-  const appearancePref: AppearancePref = explicit(
-    appearance ? appearance.theme ?? appearance.resolvedTheme : prefs.appearance,
+  //
+  // It resolves before everything below it because it has to: the side is what a keyed axis is
+  // indexed by, and `.dark` is what a document's second block keys off.
+  const appearanceResolved = React.useMemo(
+    () =>
+      resolvePref(
+        CORE_PREFS.appearance,
+        appearance ? appearance.theme ?? appearance.resolvedTheme : storedPrefs.appearance,
+        corePolicy.appearance,
+      ),
+    [appearance, corePolicy, storedPrefs.appearance],
   );
+  const appearancePref = appearanceResolved.value as AppearancePref;
 
   // Track the OS scheme with a live listener while nothing is pinned. Not needed when a host is
   // wired: its `resolvedTheme` already is the resolution, and it re-renders us on change.
@@ -380,6 +461,49 @@ export function KanzoThemeProvider({
       ? "dark"
       : "light");
 
+  // ── One resolution ──────────────────────────────────────────────────────────────────────
+  //
+  // Every core axis through the chain that `@kanzo-tech/theme` owns and a contributed section
+  // already used: pinned, stored, the tenant's starting point, the declaration's default. What this
+  // ends is that **a tenant could pin the graph's look and could not pin the radius** — the newer
+  // mechanism had a resolution chain with a policy, and the older one read a stored blob.
+  //
+  // A keyed axis is indexed here, by the side that resolved above, so the chain always sees a value
+  // and the write loop below never has to know that one axis stores a map.
+  //
+  // No `sources` are passed: see the identity block below for why the two axes a tenant publishes
+  // are deliberately not gated against what they published.
+  type Entry = ResolvedPref & { decl: SectionPrefDecl };
+  const corePrefs = React.useMemo(() => {
+    const out: Record<string, Entry> = { appearance: { ...appearanceResolved, decl: CORE_PREFS.appearance } };
+    for (const { key } of AXES) {
+      const decl = CORE_PREFS[key as CorePrefKey];
+      const raw = storedPrefs[key];
+      const stored = decl.byAppearance
+        ? (raw as Record<string, string> | undefined)?.[resolvedAppearance]
+        : (raw as string | undefined);
+      out[key] = { ...resolvePref(decl, stored, corePolicy[key]), decl };
+    }
+    return out;
+    // Field by field, not `prefs`: in controlled mode `prefs` is a fresh literal on every render, so
+    // depending on the object would re-resolve — and therefore re-apply every attribute — every
+    // time. `KanzoThemeProvider.test.tsx` asserts that every axis in `AXES` is named here: one that
+    // is applied but never watched resolves at mount and then silently stops following the
+    // preference, which looks exactly like a control that does nothing. `data-palette` shipped that
+    // way for one commit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    appearanceResolved,
+    corePolicy,
+    resolvedAppearance,
+    storedPrefs.radius,
+    storedPrefs.font,
+    storedPrefs.monoFont,
+    storedPrefs.density,
+    storedPrefs.identity,
+    storedPrefs.paletteByAppearance,
+  ]);
+
   // ── Palette ─────────────────────────────────────────────────────────────────────────────
   // Which of the DOCUMENTS the tenant published is applied — the coarser of the two colour choices
   // (a document is every colour token; an identity is a brand inside one).
@@ -394,8 +518,8 @@ export function KanzoThemeProvider({
   // are 7.6 kB gzipped together, so they all travel, each under its own `[data-palette]`, and the
   // cookie is now an optimisation rather than a requirement: localStorage plus the pre-paint script
   // applies the attribute before anything is drawn, exactly as it does for radius and density.
-
-  const resolvedPalette = prefs.paletteByAppearance[resolvedAppearance] || defaultPalette;
+  //
+  const resolvedPalette = corePrefs.paletteByAppearance?.value || defaultPalette;
 
   /**
    * Choose a palette for the side currently applied.
@@ -451,17 +575,35 @@ export function KanzoThemeProvider({
 
   // ── Identity ────────────────────────────────────────────────────────────────────────────
   // A preference among the identities the TENANT published, and the id `:root` already paints.
-  // Nothing here validates the preference on its way to the DOM: an attribute selector with no
-  // matching rule is INERT, so an unknown id falls through to `:root`, which is the default
-  // identity. That is what lets the inline SSR script — which cannot know what the tenant
-  // published — write the stored id verbatim and still reach the same `<html>` we do.
+  //
+  // **Neither this nor the palette above is resolved against what the tenant published**, though the
+  // declaration names that source and `resolvePref` would take it. Two reasons, and both are about
+  // keeping one behaviour rather than adding a second: an attribute selector with no matching rule
+  // is INERT, so an unknown id falls through to `:root` — which is the default identity — and the
+  // inline SSR script cannot know what the tenant published, so gating here and not there is exactly
+  // how the two sides start disagreeing about `<html>`. Retirement is already a mechanism, with a
+  // notice and a cleared preference; a silent gate would be half of it, done twice.
+  //
+  // The panel is where the published list belongs, and it has it: `sources` fills a control's
+  // options, and `useRetirement` below says out loud when what a user chose is gone.
 
   // Derived from the selected palette rather than passed beside it: an identity belongs to a
   // document, so "which identities exist" is not a second question a host can answer independently.
   // A host that supplied both could disagree with itself, and nothing would catch it.
   const identities = palettes.find((p) => p.value === resolvedPalette)?.children ?? NO_IDENTITIES;
   const defaultIdentity = identities[0]?.value ?? "";
-  const resolvedIdentity = prefs.identity || defaultIdentity;
+  const resolvedIdentity = corePrefs.identity?.value || defaultIdentity;
+
+  // The two lists only a tenant can write, in the shape a declaration names them by — so a control
+  // for `{ from: "palettes" }` is filled from what this host actually published, and a package that
+  // declares such a choice needs no prop of its own to receive it.
+  const sources: PrefSources = React.useMemo(
+    () => ({
+      palettes: palettes.map(({ label, value }) => ({ label, value })),
+      identities: identities.map(({ label, value }) => ({ label, value })),
+    }),
+    [identities, palettes],
+  );
 
   const retiredIdentity = useRetirement(
     prefs.identity,
@@ -482,39 +624,16 @@ export function KanzoThemeProvider({
   // rule permanently, and each block of the compiled document carries its own `color-scheme`.
   React.useEffect(() => {
     const el = document.documentElement;
-    for (const { attr, byAppearance, def, key } of AXES) {
-      // A keyed axis is indexed by the side that is about to be painted — the same expression the
-      // pre-hydration script runs, off the same row of the same table.
-      const stored = prefs[key];
-      const v = byAppearance
-        ? (stored as Record<string, string> | undefined)?.[resolvedAppearance]
-        : stored;
-      // `typeof v === "string"` rather than a null check: every axis value is a string, and
-      // `identity` is the first one taken free-form from a stored blob. `String({})` on a corrupt
-      // blob writes `data-identity="[object Object]"`, which is inert but survives in the DOM and
-      // in devtools as evidence of a bug we chose not to have. `themeScript` carries the same test.
-      if (typeof v !== "string" || v === def) el.removeAttribute(attr);
+    for (const { attr, def, key } of AXES) {
+      // What the chain answered, never the stored value — which is what makes a tenant's policy
+      // reach the DOM. Removed at the default, so a host that changed nothing has the `<html>` it
+      // had before any of this existed; the corrupt-blob case is refused upstream, in `resolvePref`.
+      const v = corePrefs[key]?.value;
+      if (v === undefined || v === def) el.removeAttribute(attr);
       else el.setAttribute(attr, v);
     }
     el.classList.toggle("dark", resolvedAppearance === "dark");
-    // Deps are the individual fields on purpose, not `prefs`: in controlled mode `prefs` is a
-    // fresh literal every render, so depending on the object would re-apply every attribute on
-    // every render. exhaustive-deps cannot see through the member access and asks for the object.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    resolvedAppearance,
-    prefs.radius,
-    prefs.font,
-    prefs.monoFont,
-    prefs.density,
-    prefs.identity,
-    // `palette` joined this list when a document stopped being a stylesheet the server serves and
-    // became a `[data-palette]` block in the cascade. `KanzoThemeProvider.test.tsx` asserts that
-    // every axis in `AXES` appears here — an applied-but-unwatched axis writes once at mount and
-    // then silently stops following the preference, which looks exactly like a control that does
-    // nothing.
-    prefs.paletteByAppearance,
-  ]);
+  }, [corePrefs, resolvedAppearance]);
 
   // Clean the managed attributes off <html> only when the provider unmounts.
   // `.dark` is deliberately left alone: a host may own the class after we go, and removing it
@@ -545,22 +664,26 @@ export function KanzoThemeProvider({
   // pinned, stored, the tenant's starting point, the manifest's default — is the section
   // mechanism's, and a second implementation of it in the provider is how the two halves of a
   // section would begin to disagree.
-  type Entry = ResolvedPref & { decl: SectionPrefDecl };
+  //
+  // These DO get the sources, where the core's two do not: a section's attribute is written by this
+  // provider alone — the pre-hydration script knows only the axis table — so there is no second
+  // writer to keep in step, and a stored value naming a brand the tenant withdrew can be declined
+  // where it is read.
   const sectionPrefs = React.useMemo(() => {
     const out: Record<string, Record<string, Entry>> = {};
     for (const manifest of sections) {
       const stored = prefs.sections[manifest.namespace] ?? {};
-      const policy = sectionPolicy[manifest.namespace] ?? {};
+      const section = policy[manifest.namespace] ?? NO_SECTION_POLICY;
       const resolved: Record<string, Entry> = {};
       for (const [key, decl] of Object.entries(manifest.prefs ?? {})) {
-        resolved[key] = { ...resolvePref(decl, stored[key], policy[key]), decl };
+        resolved[key] = { ...resolvePref(decl, stored[key], section[key], sources), decl };
       }
       // A manifest that declares only tokens contributes no group. Skipping it here rather than in
       // the panel is what stops an empty legend appearing for a section that has nothing to ask.
       if (Object.keys(resolved).length > 0) out[manifest.namespace] = resolved;
     }
     return out;
-  }, [prefs.sections, sectionPolicy, sections]);
+  }, [prefs.sections, policy, sections, sources]);
 
   const setSectionPref = React.useCallback(
     (namespace: string, key: string, value_: string) => {
@@ -605,7 +728,19 @@ export function KanzoThemeProvider({
   const ctx = React.useMemo<ThemeContextValue>(
     () => ({
       ...prefs,
+      // The resolved values overwrite the stored ones, and that is the point of this phase: what a
+      // control shows and what the page is painted with are the same number. A tenant pinning
+      // `density` means every reader sees `"compact"`, while storage keeps whatever this user chose
+      // and hands it back the day the tenant stops pinning it.
+      ...Object.fromEntries(Object.entries(corePrefs).map(([key, { value }]) => [key, value])),
+      // …except the one that is a map. `paletteByAppearance` stores a side→document map and the
+      // chain answers for ONE side, so writing the resolved string over it would change the field's
+      // shape under every reader. `resolvedPalette` is where the answer belongs, and it is below.
+      paletteByAppearance: prefs.paletteByAppearance,
+      corePrefs,
+      sources,
       set,
+      reset,
       fonts,
       monoFonts,
       sectionPrefs,
@@ -627,7 +762,7 @@ export function KanzoThemeProvider({
       prefs, set, fonts, monoFonts, appearancePref, resolvedAppearance, setAppearance,
       identities, defaultIdentity, resolvedIdentity, retiredIdentity,
       palettes, defaultPalette, resolvedPalette, setPalette, retiredPalette,
-      sectionPrefs, setSectionPref,
+      sectionPrefs, setSectionPref, corePrefs, sources, reset,
     ],
   );
 

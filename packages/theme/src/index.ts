@@ -382,6 +382,22 @@ export const CORE_PREFS = themeData.prefs as unknown as Readonly<Record<CorePref
 export type CorePrefKey = Exclude<keyof ThemePrefs, "identityByPalette" | "sections">;
 
 /**
+ * The namespace the core's own preferences answer to in a tenant's policy.
+ *
+ * **The core is a section like any other, and this is the whole of what that costs.** A policy is
+ * keyed by namespace — `{ theme: { radius: { pinned: "sm" } }, graph: { look: { hidden: true } } }`
+ * — so a client shipping *compact and square* uses the mechanism an optional package already uses,
+ * and one chain answers for colour, geometry and a contributed choice alike.
+ *
+ * That is daisyUI's insight, in the mechanism this repo already had: their theme carries the
+ * geometry (`--radius-box`, `--size-field`, `--depth`) in the same document as the colours, so a
+ * tenant ships a coherent whole rather than a panel of unrelated knobs. Ours went half-way there
+ * when a palette became a document; the half not taken was that radius, density and the fonts had no
+ * document-level default at all — only a user could move them.
+ */
+export const CORE_NAMESPACE = "theme";
+
+/**
  * Each axis → its `<html>` attribute + default value (at the default the attribute is removed).
  *
  * A projection of {@link CORE_PREFS} and no longer a table of its own: three things must agree about

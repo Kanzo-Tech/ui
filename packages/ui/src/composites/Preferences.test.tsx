@@ -1,6 +1,5 @@
 import {
   CORE_PREFS,
-  DEFAULT_PREFS,
   prefOptions,
   STORAGE_KEY,
   type PaletteOption,
@@ -36,6 +35,11 @@ function stubMatchMedia(matches = false) {
 
 const html = () => document.documentElement;
 const stored = () => JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as Partial<ThemePrefs>;
+// What this USER chose, which is a different thing from what the host or the tenant start them on:
+// `defaults` is a link in the resolution chain, storage is the override on top of it. A test about
+// Reset has to seed the override, or it is testing the link that Reset does not touch.
+const seed = (prefs: Partial<ThemePrefs>) =>
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
 
 // A tenant with two brands: the case the Identity section exists for. The swatch arrays are the
 // document's categorical set for each mode, which is why they differ.
@@ -91,15 +95,18 @@ describe("Preferences", () => {
       }
     });
 
-    it("still reaches the preference through Reset, which spreads the defaults", async () => {
+    it("still reaches the preference through Reset, which unsets it", async () => {
       const user = userEvent.setup();
-      setup({ appearance: "dark" });
+      seed({ appearance: "dark" });
+      setup();
       expect(html().classList.contains("dark")).toBe(true);
 
       await user.click(screen.getByRole("button", { name: "Reset" }));
 
-      expect(stored().appearance).toBe(DEFAULT_PREFS.appearance);
-      // The matchMedia stub reports light, so the default `system` resolves to no `.dark`.
+      // Unset, not set to the default: storage holds what the user chose, and Reset is them
+      // unchoosing. Where that lands is the chain's answer — here, nothing pinned and no tenant
+      // policy, so the matchMedia stub reports light and no `.dark` survives.
+      expect(stored().appearance).toBeUndefined();
       expect(html().classList.contains("dark")).toBe(false);
     });
   });
@@ -167,6 +174,58 @@ describe("Preferences", () => {
         (el) => el.textContent,
       );
       expect(markers).toEqual(prefOptions(CORE_PREFS.radius)?.map((o) => o.label));
+    });
+  });
+
+  describe("what the tenant pinned or withheld is not offered", () => {
+    // The visible half of one resolution. A control for an axis the chain will ignore is a control
+    // that visibly does nothing, and this panel is where a client's document has to be believed.
+    //
+    // **What it cannot prove:** that the axis is APPLIED as pinned. The panel only declines to draw
+    // it; `KanzoThemeProvider.test.tsx` is where the value and the attribute are asserted.
+    it("draws no radius slider when a tenant pinned it", () => {
+      setup(undefined, { policy: { theme: { radius: { pinned: "sm" } } } });
+      expect(document.querySelector("[data-slot=slider-thumb]")).toBeNull();
+      // …and the rest of the panel is untouched: withdrawing one axis is not withdrawing the panel.
+      expect(screen.getByRole("radiogroup", { name: "Density" })).toBeTruthy();
+    });
+
+    it.each([
+      ["Density", "density"],
+      ["Font", "font"],
+      ["Mono font", "monoFont"],
+    ] as const)("draws no %s group when a tenant withheld it", (group, key) => {
+      setup(undefined, { policy: { theme: { [key]: { hidden: true } } } });
+      expect(screen.queryByRole("radiogroup", { name: group })).toBeNull();
+    });
+
+    it("keeps the brand picker when the palette is pinned but the brands are not", () => {
+      // The case that decides whether this is one mechanism or two: a bank pins their document and
+      // still lets staff wear retail or private. The section stops being a palette picker and
+      // becomes the brand picker it already knew how to be.
+      setup(undefined, {
+        palettes: [
+          { value: "bank", label: "Bank", children: IDENTITIES },
+          { value: "other", label: "Other", children: [{ value: "x", label: "X" }] },
+        ],
+        policy: { theme: { paletteByAppearance: { pinned: "bank" } } },
+      });
+      const colour = within(screen.getByRole("radiogroup", { name: "Light" }));
+      expect(colour.getByRole("radio", { name: "Retail" })).toBeTruthy();
+      expect(colour.queryByRole("radio", { name: /Other/ })).toBeNull();
+    });
+
+    it("hides the colour section entirely when neither half is offered", () => {
+      setup(undefined, {
+        palettes: [
+          { value: "bank", label: "Bank", children: IDENTITIES },
+          { value: "other", label: "Other", children: [{ value: "x", label: "X" }] },
+        ],
+        policy: {
+          theme: { paletteByAppearance: { pinned: "bank" }, identity: { pinned: "retail-blue" } },
+        },
+      });
+      expect(screen.queryByRole("radiogroup", { name: "Light" })).toBeNull();
     });
   });
 
@@ -388,16 +447,17 @@ describe("Preferences", () => {
   });
 
   describe("Reset", () => {
-    it("restores every axis, including the ones added after it was written", async () => {
+    it("unsets every axis, including the ones added after it was written", async () => {
       const user = userEvent.setup();
-      setup(
-        { appearance: "dark", radius: "none", density: "compact", font: "geist", monoFont: "geist-mono", identity: "private-gold" },
-        { palettes: [{ value: "t", label: "T", children: IDENTITIES }] },
-      );
+      seed({ appearance: "dark", radius: "none", density: "compact", font: "geist", monoFont: "geist-mono", identity: "private-gold" });
+      setup(undefined, { palettes: [{ value: "t", label: "T", children: IDENTITIES }] });
 
       await user.click(screen.getByRole("button", { name: "Reset" }));
 
-      expect(stored()).toMatchObject(DEFAULT_PREFS);
+      // Empty, and that is the assertion that would have caught the old spelling: `set(DEFAULT_PREFS)`
+      // wrote every axis explicitly, which is the one act that would pin a user against their
+      // tenant's starting point — reset being the thing that makes a policy stop applying.
+      expect(stored()).toEqual({});
       // …and the DOM agrees: every axis at its default removes its attribute. For identity that
       // default is `""`, which is not "no identity" but "the one the document already paints".
       for (const a of MANAGED_ATTRS) expect(html().hasAttribute(a)).toBe(false);
@@ -452,7 +512,7 @@ describe("sections a host contributed", () => {
 
   it("withholds the control a tenant pinned", () => {
     // White-label, in one assertion: same panel, same code, and this client's users never see it.
-    setup(undefined, { sections: [SECTION], sectionPolicy: { graph: { look: { pinned: "ink" } } } });
+    setup(undefined, { sections: [SECTION], policy: { graph: { look: { pinned: "ink" } } } });
     expect(screen.queryByRole("radiogroup", { name: "look" })).toBeNull();
   });
 });

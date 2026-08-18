@@ -83,8 +83,9 @@ without being asked.
   control per application.
 
   There is no third state on that flip: following the OS is `null`, the absence of a pinned side, and
-  `DEFAULT_PREFS.appearance` is `null` — so an app with nothing stored follows the OS until the first
-  click. **Reset**, below, is the way back: it spreads `DEFAULT_PREFS`, appearance included.
+  `DEFAULT_PREFS.appearance` is `""` — so an app with nothing stored follows the OS until the first
+  click. **Reset**, below, is the way back: it unsets every preference, appearance included, and the
+  page lands on whatever the tenant's policy starts a user with.
 </Callout>
 
 ## Anatomy

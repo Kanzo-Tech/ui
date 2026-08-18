@@ -41,9 +41,10 @@ appearance be declared like every other axis, and a declaration can *offer* its 
 is why the way back below is no longer only Reset.
 
 <Callout type="info" title="The way back is Reset, or a control you write">
-  [`Preferences`](/docs/layout/preferences) has a **Reset** in its pinned footer, and reset spreads
-  `DEFAULT_PREFS` — which unpins appearance along with the other five axes. That is the supported way
-  back to following the OS, and nobody will guess it, so say it in your product too.
+  [`Preferences`](/docs/layout/preferences) has a **Reset** in its pinned footer, and reset unsets
+  every preference — which unpins appearance along with the other five axes, and lands wherever the
+  tenant's document says rather than on ours. That is the supported way back to following the OS,
+  and nobody will guess it, so say it in your product too.
 
   A control of your own does it directly: `setAppearance("")`. The unset state is a declared option
   (`{ value: "", label: "System" }`), so this is not an escape hatch — it is the type.

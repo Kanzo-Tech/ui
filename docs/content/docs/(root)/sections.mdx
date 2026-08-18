@@ -180,12 +180,37 @@ invent a value for it — the options are the ones the owning package declared a
 ```tsx
 <KanzoThemeProvider
   sections={[LOOK_SECTION]}
-  sectionPolicy={{ graph: { marks: { pinned: "legible" } } }}
+  policy={{ graph: { marks: { pinned: "legible" } } }}
 >
 ```
 
 That is the white-label half, in one field: one client ships the graph fixed to legible marks and
 their users never see the control, another exposes it, and it is the same panel and the same code.
+
+### The core is a namespace like any other
+
+`theme` — every axis the library itself declares, subject to the same three verbs:
+
+```tsx
+<KanzoThemeProvider
+  policy={{
+    theme: { density: { default: "compact" }, radius: { pinned: "sm" } },
+    graph: { marks: { pinned: "legible" } },
+  }}
+>
+```
+
+So a client ships *our product is compact and square* as the point their users start from, colour
+and geometry alike, and a user preference is an override on top of it. It used to be that a tenant
+could pin the graph's look and could **not** pin the radius: the newer mechanism had this chain and
+the older one read a stored blob.
+
+<Callout type="warn" title="Pass the same policy to `themeScript`">
+  The pre-hydration script resolves the identical chain, and it can only resolve what it is given:
+  `themeScript({ policy })`. A policy only React knows about paints the user's own value first and
+  the client's a frame later — which is the flash the script exists to prevent, arriving through the
+  feature meant to give a client control.
+</Callout>
 
 <Callout type="info" title="Pinned is not the same as withheld">
   `pinned` answers the question. `hidden` removes it and lets the default apply. Both stop a control

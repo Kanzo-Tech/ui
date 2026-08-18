@@ -193,7 +193,7 @@ be skipped.
 `a-chart-needs-no-factory`, `a-tile-is-an-address-not-a-verb`,
 `a-look-is-form-and-a-channel-is-a-binding`, `monochrome-is-a-palette-not-a-look`,
 `a-categorical-set-may-use-the-palettes-own-colours`, `a-look-declares-what-it-changes`,
-`a-filter-is-a-predicate-not-a-mask`.
+`a-filter-is-a-predicate-not-a-mask`, `the-declaration-ships-with-the-library`.
 
 Also live — `a-compound-keeps-its-root-even-when-the-root-is-an-alias`,
 `steps-claims-a-tab-role-it-cannot-keep`, `prose-that-is-hashed-is-data`.

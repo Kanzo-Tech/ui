@@ -36,7 +36,7 @@
  *   and hand-written, which is a fact about the corpus and not about the check.
  */
 import { createElement } from "react";
-import { AXES, STORAGE_KEY } from "@kanzo-tech/theme";
+import { AXES, CORE_PREFS, prefOptions, STORAGE_KEY } from "@kanzo-tech/theme";
 import { render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { KanzoThemeProvider } from "./KanzoThemeProvider.js";
@@ -79,19 +79,25 @@ function reset() {
 }
 
 /** Seeds storage, runs each side from a clean `<html>`, and returns both snapshots. */
-function bothSides(seed: { prefs?: Record<string, unknown> }, osDark: boolean) {
+function bothSides(
+  seed: { prefs?: Record<string, unknown> },
+  osDark: boolean,
+  /** The TENANT's policy, handed to BOTH sides — a host passes one object to the provider and to
+   *  `themeScript`, and a policy only one of them knows about is a flash by construction. */
+  policy?: Record<string, Record<string, { pinned?: string; hidden?: boolean; default?: string }>>,
+) {
   localStorage.clear();
   if (seed.prefs) localStorage.setItem(STORAGE_KEY, JSON.stringify(seed.prefs));
   stubMatchMedia(osDark);
 
   reset();
   // Global scope, exactly as an inline <script> in <head> runs it.
-  (0, eval)(themeScript());
+  (0, eval)(themeScript(policy ? { policy } : {}));
   const script = snapshot();
 
   reset();
   // `createElement` rather than JSX so this file can stay `.ts` — it tests emitted JS, not markup.
-  const view = render(createElement(KanzoThemeProvider, { children: null }));
+  const view = render(createElement(KanzoThemeProvider, { children: null, ...(policy ? { policy } : {}) }));
   const provider = snapshot();
   view.unmount();
 
@@ -155,6 +161,65 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
       expect(script).toEqual(provider);
     });
   }
+
+  describe("a tenant's policy, which both sides now run", () => {
+    // The phase this file had to grow for. A client shipping *compact and square* sets it on the
+    // provider AND on the script; if only React knew, the page would paint the user's own radius
+    // and then jump to the client's — the flash this script exists to prevent, arriving through the
+    // feature meant to give a client control.
+    //
+    // **What it cannot prove:** that a host passed the same object to both. Nothing can, from here —
+    // it is one prop on each side, and the failure is a flash rather than an error. The provider's
+    // JSDoc says so, and this is why.
+    const POLICY = { theme: { radius: { pinned: "sm" }, density: { default: "compact" } } };
+
+    it("agrees when a tenant pins over what the user stored", () => {
+      const { script, provider } = bothSides({ prefs: { radius: "lg" } }, false, POLICY);
+      expect(script).toEqual(provider);
+      expect(script.attrs["data-radius"]).toBe("sm");
+    });
+
+    it("agrees when a tenant only moves the starting point", () => {
+      // A starting point is not a decision: the user's own value still wins, on both sides.
+      const started = bothSides({}, false, POLICY);
+      expect(started.script).toEqual(started.provider);
+      expect(started.script.attrs["data-font-size"]).toBe("compact");
+
+      const chosen = bothSides({ prefs: { density: "comfortable" } }, false, POLICY);
+      expect(chosen.script).toEqual(chosen.provider);
+      expect(chosen.script.attrs["data-font-size"]).toBe("comfortable");
+    });
+
+    it("agrees when a tenant withholds an axis, keeping what the user stored in storage", () => {
+      // `hidden` is not `pinned`: the stored value stays in the blob and simply does not apply, so
+      // both sides must paint the default and neither may erase anything.
+      const { script, provider } = bothSides({ prefs: { radius: "lg" } }, false, {
+        theme: { radius: { hidden: true } },
+      });
+      expect(script).toEqual(provider);
+      expect(script.attrs["data-radius"]).toBeUndefined();
+      expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}").radius).toBe("lg");
+    });
+
+    it("agrees when a tenant pins the appearance, which is a class and not an attribute", () => {
+      // The axis that decides `.dark` and the side every keyed axis is indexed by, so it is the one
+      // where a divergence costs most: the script would paint one document and React the other.
+      const { script, provider } = bothSides({ prefs: { appearance: "light" } }, false, {
+        theme: { appearance: { pinned: "dark" } },
+      });
+      expect(script).toEqual(provider);
+      expect(script.dark).toBe(true);
+    });
+
+    it("ignores a policy naming a value the declaration does not offer", () => {
+      // A policy is authored upstream, against a version of this package that may have shipped a
+      // sixth radius. Both sides gate it against the declared options and fall through, rather than
+      // writing an attribute no selector matches.
+      const { script, provider } = bothSides({}, false, { theme: { radius: { pinned: "xxl" } } });
+      expect(script).toEqual(provider);
+      expect(script.attrs["data-radius"]).toBeUndefined();
+    });
+  });
 
   it("writes nothing for a retired colour axis, and does write the palette", () => {
     // `data-base`, `data-accent` and `data-chart-scheme` left the product path with the document.
@@ -234,11 +299,20 @@ describe("themeScript source", () => {
     // hydration only — invisible to every test of the generator.
     const inlined = source.match(/var A=(\[.*?\]);for/)?.[1];
     expect(inlined, "the axis table is no longer inlined under `A`").toBeTruthy();
-    // The fourth element says "index this by the resolved appearance". It has to travel with the
-    // row rather than be re-derived in the script, or the two sides would disagree about which axes
-    // are keyed — the exact drift this table exists to prevent, on the axis that gained the keying.
+    // Each row is the serialisable half of a DECLARATION — key, attribute, default, keyed-by-
+    // appearance, and the options a stored value is gated against. Every one of the five has to
+    // travel rather than be re-derived here, or the two sides disagree about something: which axes
+    // are keyed (the drift that shipped once, on the axis that gained the keying), or which stored
+    // values are legal (a blob a browser can hold but we would never write).
+    //
+    // `0` for the options of the two axes whose list a TENANT publishes. This script cannot know
+    // that list, and the provider therefore declines to use it either — see `prefOptions` in
+    // `theme-script.ts`.
     expect(JSON.parse(inlined as string)).toEqual(
-      AXES.map((a) => [a.key, a.attr, a.def, a.byAppearance ?? false]),
+      AXES.map((a) => {
+        const decl = CORE_PREFS[a.key as keyof typeof CORE_PREFS];
+        return [a.key, a.attr, a.def, a.byAppearance ?? 0, prefOptions(decl)?.map((o) => o.value) ?? 0];
+      }),
     );
   });
 

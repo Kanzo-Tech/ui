@@ -8,7 +8,6 @@ import { InfoIcon, MoonIcon, PaletteIcon, SunIcon, XIcon } from "lucide-react";
 // needs `with { type: "json" }` at runtime, and Rollup strips that attribute when bundling.
 import {
   CORE_PREFS,
-  DEFAULT_PREFS,
   prefBoolean,
   prefNumber,
   prefOptions,
@@ -72,9 +71,14 @@ import { Switch } from "../simples/switch.js";
  * size, and a depiction of a state you cannot enter is worse than the pair of controls. What a
  * section of its own would have added is a third spelling of a choice already on screen twice.
  *
- * It has two states and not three: "follow the OS" is `null`, the absence of a pinned side, so the
- * way back to it is `Reset` — which spreads `DEFAULT_PREFS` and therefore unpins appearance along
- * with everything else. That is the one thing this panel's footer does that no other control can.
+ * It has two states and not three: "follow the OS" is `""`, the absence of a pinned side, so the
+ * way back to it is `Reset` — which UNSETS every preference rather than writing each default, and
+ * therefore lands wherever the tenant's document says. That is the one thing this panel's footer
+ * does that no other control can, and the declaration now offers the same value as an option.
+ *
+ * **What a tenant pinned or withheld is not drawn at all.** Every section asks `corePrefs[key]`
+ * whether its axis is still offered, because a control the chain will ignore is a control that
+ * visibly does nothing.
  */
 
 // Off the declaration, which is generated from the same table `themes.css` is emitted from. Both of
@@ -269,10 +273,10 @@ function PreferencesPanel({
 
 /** Actions bar pinned to the bottom of the panel (Reset · Done). */
 function PreferencesFooter() {
-  const { set } = useKanzoTheme();
-  // The defaults, spread — not a hand-copy of them. The hand-copy this replaced listed axes by
-  // name and had silently stopped covering the panel more than once.
-  const reset = () => set({ ...DEFAULT_PREFS });
+  // `reset`, not `set({ ...DEFAULT_PREFS })`, which is what this was. Storage holds what a user
+  // CHOSE, so spreading the defaults would write each axis explicitly — making Reset the one act
+  // that pins somebody against their tenant's document. Unsetting lands wherever the chain says.
+  const { reset } = useKanzoTheme();
   // No fill on the bar. The panel is `bg-popover`, and in dark `--popover` and `--muted` are the
   // same value, so a 48% muted wash composited to ΔE ~0 — the background contributed nothing and
   // the `border-t` was doing all the work. Same defect as the command, popover and dialog footers;
@@ -704,6 +708,7 @@ function ColorSection({
   formatSide = DEFAULT_SIDE_LABEL,
 }: PreferencesColorProps = {}) {
   const {
+    corePrefs,
     defaultPalette,
     paletteByAppearance,
     palettes,
@@ -717,12 +722,21 @@ function ColorSection({
   } = useKanzoTheme();
   const { preview, restore } = usePalettePreview();
 
-  const prefixed = palettes.length > 1;
-  const entries = palettes.flatMap((palette) => {
+  // What the TENANT still lets this user choose. A pinned palette leaves exactly one document to
+  // offer — so the section either disappears (one brand inside it) or becomes the brand picker it
+  // already knew how to be. A pinned or withheld identity collapses the brands the same way. Both
+  // fall out of the existing `entries.length < 2` rule rather than adding a second way to hide.
+  const offered = corePrefs.paletteByAppearance?.offered === false
+    ? palettes.filter((palette) => palette.value === resolvedPalette)
+    : palettes;
+  const brandsOffered = corePrefs.identity?.offered !== false;
+
+  const prefixed = offered.length > 1;
+  const entries = offered.flatMap((palette) => {
     // The default document is emitted unscoped, so its preview selects on the appearance class
     // alone — see `PalettePreview`. Everywhere else this is the document's own id.
     const scope = palette.value === defaultPalette ? "" : palette.value;
-    const brands = palette.children ?? [];
+    const brands = brandsOffered ? palette.children ?? [] : [];
     if (brands.length < 2) {
       return [{ identity: "", key: palette.value, label: palette.label, scope }];
     }
@@ -968,9 +982,20 @@ function ContributedSections({ namespace }: PreferencesSectionsProps = {}) {
 // a `FieldLabel` could not reach it either, which is why "Radius" was written twice. `SliderLabel`
 // is the machine's own label part: zag points every thumb's `aria-labelledby` at it by default, so
 // the visible label IS the name and there is nothing to repeat.
+/**
+ * Whether to draw a control for a core axis at all.
+ *
+ * A tenant may PIN one — their product is square, and nobody chooses otherwise — or WITHHOLD it,
+ * and both mean the same thing to a surface. The resolution already ignores a stored value in
+ * either case, so a control drawn here would be one that visibly does nothing.
+ */
+const useOffered = (key: string) => useKanzoTheme().corePrefs[key]?.offered !== false;
+
 function RadiusSection() {
   const { radius, set } = useKanzoTheme();
+  const offered = useOffered("radius");
   const index = Math.max(0, RADII.indexOf(radius));
+  if (!offered) return null;
   return (
     <Slider
       min={0}
@@ -1024,6 +1049,7 @@ function FontPicker({
 
 function FontSection() {
   const { font, fonts, set } = useKanzoTheme();
+  if (!useOffered("font")) return null;
   return (
     <PrefFieldSet label="Font">
       <FontPicker value={font} options={fonts} onSelect={(v) => set({ font: v })} />
@@ -1033,6 +1059,7 @@ function FontSection() {
 
 function MonoFontSection() {
   const { monoFont, monoFonts, set } = useKanzoTheme();
+  if (!useOffered("monoFont")) return null;
   return (
     <PrefFieldSet label="Mono font">
       <FontPicker value={monoFont} options={monoFonts} onSelect={(v) => set({ monoFont: v })} />
@@ -1047,6 +1074,7 @@ function MonoFontSection() {
 const DENSITY_PX: Record<string, string> = themeData.densities;
 function DensitySection() {
   const { density, set } = useKanzoTheme();
+  if (!useOffered("density")) return null;
   return (
     <PrefFieldSet label="Density">
       <RadioGroup

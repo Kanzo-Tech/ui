@@ -59,11 +59,14 @@ const dark = () => html().classList.contains("dark");
 const stored = () => JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as Record<string, unknown>;
 
 /**
- * The effect that writes the `data-*` attributes lists its dependencies field by field, because in
- * controlled mode `prefs` is a fresh literal on every render and depending on the object would
- * re-apply every attribute every time. The cost of that decision is that adding an axis to `AXES`
- * does not add it to the deps, and nothing complains: the axis works on first mount and then never
- * updates again. `data-palette` shipped that way for exactly one commit.
+ * The memo that RESOLVES the axes lists its dependencies field by field, because in controlled mode
+ * the stored blob is a fresh literal on every render and depending on the object would re-resolve —
+ * and therefore re-apply every attribute — every time. The cost of that decision is that adding an
+ * axis to `AXES` does not add it to the deps, and nothing complains: the axis works on first mount
+ * and then never updates again. `data-palette` shipped that way for exactly one commit.
+ *
+ * It moved from the write effect to the memo when the core started going through `resolvePref`: the
+ * effect now depends on the memo's result, so the memo is where a missed axis goes stale.
  */
 describe("KanzoThemeProvider axis wiring", () => {
   const source = readFileSync(resolve(__dirname, "KanzoThemeProvider.tsx"), "utf8");
@@ -77,11 +80,13 @@ describe("KanzoThemeProvider axis wiring", () => {
   // first time a comment in there mentioned a `data-*` selector. Same move `no-literal-hues.test.ts`
   // makes for the same reason — source-reading tests must read code, not prose.
   const code = source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1");
-  const deps = () => code.match(/\}, \[([^\]]*prefs\.density[^\]]*)\]\);/)?.[1] ?? "";
+  const deps = () => code.match(/\}, \[([^\]]*storedPrefs\.density[^\]]*)\]\);/)?.[1] ?? "";
 
   it("watches every axis it claims to apply", () => {
     expect(deps(), "could not find the attribute effect's dependency list").not.toBe("");
-    const missing = AXES.map(({ key }) => key).filter((key) => !deps().includes(`prefs.${key}`));
+    const missing = AXES.map(({ key }) => key).filter(
+      (key) => !deps().includes(`storedPrefs.${key}`),
+    );
     expect(missing, `axes applied but never watched: ${missing.join(", ")}`).toEqual([]);
   });
 
@@ -369,7 +374,124 @@ describe("KanzoThemeProvider persisted-blob hygiene", () => {
 
     act(() => ctx.set({ density: "compact" }));
 
-    expect(Object.keys(stored()).sort()).toEqual(Object.keys(DEFAULT_PREFS).sort());
+    // Two keys, not nine: storage holds what somebody CHOSE. The retired four are gone — which is
+    // what this test has always been about — and the five nobody touched were never written, which
+    // is what lets a tenant's starting point answer for them.
+    expect(Object.keys(stored()).sort()).toEqual(["density", "radius"]);
+  });
+});
+
+/**
+ * A tenant's policy over the CORE's own axes — the phase where the two halves became one mechanism.
+ *
+ * What it ends: a tenant could pin the graph's look and could NOT pin the radius, because the newer
+ * mechanism had a resolution chain with a policy and the older one read a stored blob. A client
+ * shipping *our product is compact and square* is the same white-label case the section half already
+ * served, and it is now the same code, keyed by the namespace `theme`.
+ *
+ * ## What these cannot prove
+ *
+ * - **Nothing about the pre-paint script.** These render the provider. That `themeScript` resolves
+ *   the identical chain from the identical policy is `theme-script.test.ts`, which runs both sides
+ *   and diffs `<html>` — and neither file can prove a HOST passed the same object to both.
+ * - **Nothing validates a policy against a declaration.** A tenant may name a value no version of
+ *   this package ever shipped; the chain declines it and falls through, which is what the last case
+ *   here pins. Where a policy is authored is where it should be checked.
+ */
+describe("KanzoThemeProvider under a tenant's policy", () => {
+  beforeEach(() => {
+    stubMatchMedia(false);
+    localStorage.clear();
+    html().classList.remove("dark");
+  });
+  afterEach(() => {
+    localStorage.clear();
+    html().classList.remove("dark");
+    for (const { attr } of AXES) html().removeAttribute(attr);
+  });
+
+  const mount = (props: Partial<React.ComponentProps<typeof KanzoThemeProvider>> = {}) => {
+    let ctx!: ReturnType<typeof useKanzoTheme>;
+    render(
+      <KanzoThemeProvider {...props}>
+        <Probe onValue={(v) => (ctx = v)} />
+      </KanzoThemeProvider>,
+    );
+    return { get ctx() { return ctx; } };
+  };
+
+  it("pins an axis over what the user stored, and withdraws the control", () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ radius: "lg" }));
+    const { ctx } = mount({ policy: { theme: { radius: { pinned: "sm" } } } });
+
+    // The value every reader sees is the pinned one — a control reading anything else would draw a
+    // selection the page contradicts.
+    expect(ctx.radius).toBe("sm");
+    expect(ctx.corePrefs.radius).toMatchObject({ via: "pinned", offered: false });
+    expect(html().getAttribute("data-radius")).toBe("sm");
+    // …and what the user chose is still theirs. A tenant who stops pinning hands it back.
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}").radius).toBe("lg");
+  });
+
+  it("moves the starting point without taking the choice away", () => {
+    // daisyUI's theme-carries-the-geometry, in the mechanism this repo already had. The client says
+    // where a user starts; the user may still move.
+    const started = mount({ policy: { theme: { density: { default: "compact" } } } });
+    expect(started.ctx.density).toBe("compact");
+    expect(started.ctx.corePrefs.density).toMatchObject({ via: "policy", offered: true });
+    expect(html().getAttribute("data-font-size")).toBe("compact");
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ density: "comfortable" }));
+    const chosen = mount({ policy: { theme: { density: { default: "compact" } } } });
+    expect(chosen.ctx.density).toBe("comfortable");
+    expect(chosen.ctx.corePrefs.density).toMatchObject({ via: "stored" });
+  });
+
+  it("reaches the starting point at all, which the merged blob used to make impossible", () => {
+    // The bug this phase found. Storage held every axis filled in with its default, so
+    // `stored.density` was `"compact"`-shaped for a user who had never touched density: the chain's
+    // second link always answered and the third never ran. A client's document would have been
+    // silently outvoted by every browser that had ever opened the app.
+    const { ctx } = mount({ policy: { theme: { radius: { default: "xs" } } } });
+    expect(ctx.corePrefs.radius?.via).toBe("policy");
+    expect(Object.keys(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}"))).toEqual([]);
+  });
+
+  it("withholds an axis without discarding what the user chose", () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ font: "geist" }));
+    const { ctx } = mount({ policy: { theme: { font: { hidden: true } } } });
+
+    expect(ctx.font).toBe("system");
+    expect(ctx.corePrefs.font).toMatchObject({ via: "default", offered: false });
+    expect(html().hasAttribute("data-font")).toBe(false);
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}").font).toBe("geist");
+  });
+
+  it("pins the appearance, which is the axis that decides `.dark` and every keyed one", () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ appearance: "light" }));
+    const { ctx } = mount({ policy: { theme: { appearance: { pinned: "dark" } } } });
+
+    expect(ctx.appearance).toBe("dark");
+    expect(ctx.resolvedAppearance).toBe("dark");
+    expect(dark()).toBe(true);
+  });
+
+  it("declines a policy naming a value the declaration does not offer", () => {
+    const { ctx } = mount({ policy: { theme: { radius: { pinned: "xxl" } } } });
+    expect(ctx.radius).toBe("md");
+    expect(ctx.corePrefs.radius?.via).toBe("default");
+    expect(html().hasAttribute("data-radius")).toBe(false);
+  });
+
+  it("takes a host's `defaults` as the same link, one rank lower", () => {
+    // `defaults` is the app's baseline and a policy is the client's: both say *start here*, so they
+    // are one link rather than two mechanisms — and the tenant's wins.
+    const host = mount({ defaults: { radius: "xs" } });
+    expect(host.ctx.radius).toBe("xs");
+    expect(host.ctx.corePrefs.radius?.via).toBe("policy");
+
+    const both = mount({ defaults: { radius: "xs" }, policy: { theme: { radius: { default: "lg" } } } });
+    expect(both.ctx.radius).toBe("lg");
   });
 });
 
@@ -787,7 +909,7 @@ describe("sections a host registers", () => {
   });
 
   it("lets a tenant pin a choice, over the user, and withdraw the control", () => {
-    const view = mount({ sectionPolicy: { graph: { look: { pinned: "ink" } } } });
+    const view = mount({ policy: { graph: { look: { pinned: "ink" } } } });
     act(() => view.ctx.setSectionPref("graph", "look", "nebula"));
     expect(view.ctx.sectionPrefs.graph?.look).toMatchObject({
       value: "ink",
