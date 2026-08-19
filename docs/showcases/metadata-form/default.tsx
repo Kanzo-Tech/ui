@@ -3,7 +3,6 @@
 import {
   type ComponentType,
   createContext,
-  Fragment,
   type ReactNode,
   useContext,
   useEffect,
@@ -55,9 +54,6 @@ import {
   PreferencesTrigger,
   RadioGroup,
   RadioGroupCard,
-  Resizable,
-  ResizablePanel,
-  ResizableResizeTrigger,
   ShellAside,
   ShellBody,
   ShellHeader,
@@ -105,7 +101,7 @@ import {
   Share2Icon,
 } from "lucide-react";
 import { RULES_SOURCE } from "@/example/rules";
-import { FindingsBadge, PaneHeader, PanelRail } from "../shared";
+import { FindingsBadge, PaneHeader, PanelRail, WorkspaceColumns } from "../shared";
 import {
   BEAST_OPTIONS,
   BLANK,
@@ -379,7 +375,6 @@ function PanelShell({
   detail,
   icon,
   title,
-  subtitle,
   onClose,
   children,
 }: {
@@ -387,7 +382,6 @@ function PanelShell({
   detail?: string;
   icon: ComponentType<{ "aria-hidden"?: boolean; className?: string }>;
   title: string;
-  subtitle: string;
   onClose: () => void;
   children: ReactNode;
 }) {
@@ -395,7 +389,7 @@ function PanelShell({
     <>
       <PaneHeader
         actions={actions}
-        detail={detail ?? subtitle}
+        detail={detail}
         icon={icon}
         onClose={onClose}
         title={title}
@@ -438,6 +432,7 @@ export function MetadataFormShowcase() {
   // Two independent docked panels: the standing orders on the leading edge, what the posting comes
   // out as on the trailing edge. Either, both, or neither — the form takes whatever width is left.
   const [sourceOpen, setSourceOpen] = useState(false);
+  const [output, setOutput] = useState<"record" | "writ">("record");
   const [outputOpen, setOutputOpen] = useState(false);
 
   // `s` / `o` toggle the two panels — bare-key hotkeys, the same convention `PreferencesRoot`
@@ -1157,26 +1152,20 @@ export function MetadataFormShowcase() {
   // is in the panel's header — beside the standing-orders switcher's opposite number in
   // `field-notes`, and for the same reason. It was a tab strip floating above a bordered card
   // inside the body: two frames and two paddings to say one word.
-  const outputTabs = (
-    <TabsList className="h-6 shrink-0 p-0.5">
-      <TabsTrigger className="h-5 px-2 text-xs" value="record">
-        Record
-      </TabsTrigger>
-      <TabsTrigger className="h-5 px-2 text-xs" value="writ">
-        Writ
-      </TabsTrigger>
-    </TabsList>
-  );
-
+  // WHICH document this panel shows is a question about the panel, and every panel on both screens
+  // answers it the same way now: a select in its own header. The shape panel switches shapes there,
+  // the Source panel switches standing orders there, and this one switches between the two things
+  // the form produces. It was a tab strip inside the body — a second frame, a second padding and a
+  // second idiom for the one thing the three panels genuinely have in common.
   const outputPanel = (
-    <>
-      <TabsContent className="min-h-0 flex-1 overflow-auto" value="record">
+    <div className="min-h-0 flex-1 overflow-auto">
+      <Show
+        fallback={<pre className="font-mono text-xs leading-relaxed">{toWrit(values)}</pre>}
+        when={output === "record"}
+      >
         <JsonTreeView data={JSON.parse(toRecord(values))} />
-      </TabsContent>
-      <TabsContent className="min-h-0 flex-1 overflow-auto" value="writ">
-        <pre className="font-mono text-xs leading-relaxed">{toWrit(values)}</pre>
-      </TabsContent>
-    </>
+      </Show>
+    </div>
   );
 
   // ── Chrome ───────────────────────────────────────────────────────────────────
@@ -1194,7 +1183,7 @@ export function MetadataFormShowcase() {
         IS — the title and the select read as one phrase, which is what they always were.
       */}
       <ShellHeader>
-        <div className="flex h-11 items-center gap-2.5 border-b px-3 text-xs">
+        <div className="flex h-11 items-center gap-2.5 px-3 text-xs">
           <ScrollTextIcon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
           <h1 className="shrink-0 font-heading font-medium text-sm">Post a contract</h1>
           <NativeSelect
@@ -1210,9 +1199,6 @@ export function MetadataFormShowcase() {
               </NativeSelectOption>
             ))}
           </NativeSelect>
-          <span className="hidden min-w-0 truncate text-muted-foreground 2xl:inline">
-            standing orders → the posting → the writ the board pins up
-          </span>
 
           <div className="ms-auto flex shrink-0 items-center gap-1.5">
             <Button className="gap-1.5" size="sm" variant="ghost">
@@ -1361,7 +1347,6 @@ export function MetadataFormShowcase() {
                       </NativeSelect>
                     }
                     onClose={() => setSourceOpen(false)}
-                    subtitle="the standing orders"
                     title="Source"
                   >
                     {sourcePanel}
@@ -1370,43 +1355,45 @@ export function MetadataFormShowcase() {
               );
             return (
               <ShellAside aria-label="Output" className="min-h-0 flex-1 border-s-0 bg-card" side="end">
-                <Tabs className="flex min-h-0 flex-1 flex-col" defaultValue="record">
-                  <PanelShell
-                    actions={outputTabs}
-                    detail={`${writLines(values)} lines`}
-                    icon={Code2Icon}
-                    onClose={() => setOutputOpen(false)}
-                    subtitle="writ & record"
-                    title="Output"
-                  >
-                    {outputPanel}
-                  </PanelShell>
-                </Tabs>
+                <PanelShell
+                  actions={
+                    <NativeSelect
+                      aria-label="Which output"
+                      className="w-32 shrink-0"
+                      onChange={(e) => setOutput(e.target.value as "record" | "writ")}
+                      size="sm"
+                      value={output}
+                    >
+                      <NativeSelectOption value="record">Record</NativeSelectOption>
+                      <NativeSelectOption value="writ">Writ</NativeSelectOption>
+                    </NativeSelect>
+                  }
+                  detail={`${writLines(values)} lines`}
+                  icon={Code2Icon}
+                  onClose={() => setOutputOpen(false)}
+                  title="Output"
+                >
+                  {outputPanel}
+                </PanelShell>
               </ShellAside>
             );
           };
 
-          const panels = columns.map((id) => ({ id, minSize: id === "form" ? 34 : 16 }));
-          const defaultSize =
-            columns.length === 3
-              ? [24, 52, 24]
-              : columns[0] === "form"
-                ? [72, 28]
-                : [28, 72];
-
           return (
-            <Resizable defaultSize={defaultSize} key={columns.join("-")} panels={panels}>
-              {columns.map((id, i) => (
-                <Fragment key={id}>
-                  <Show when={i > 0}>
-                    <ResizableResizeTrigger id={`${columns[i - 1]}:${id}`} withHandle />
-                  </Show>
-                  <ResizablePanel className="flex min-w-0 flex-col overflow-hidden" id={id}>
-                    {columnNode(id)}
-                  </ResizablePanel>
-                </Fragment>
-              ))}
-            </Resizable>
+            <WorkspaceColumns
+              columns={columns.map((id) => ({
+                id,
+                minSize: id === "form" ? 34 : 16,
+                node: columnNode(id),
+              }))}
+              defaultSize={
+                columns.length === 3
+                  ? [24, 52, 24]
+                  : columns[0] === "form"
+                    ? [72, 28]
+                    : [28, 72]
+              }
+            />
           );
         })()}
       </ShellBody>

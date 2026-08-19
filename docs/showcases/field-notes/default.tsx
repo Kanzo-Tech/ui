@@ -15,7 +15,7 @@
 // `ColumnDef[]` is built at RUNTIME: the columns come out of a SHACL shape the reader is editing in
 // the next pane, so the table is redefined as they type. Nothing else here proves that works.
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Badge,
   Button,
@@ -26,6 +26,12 @@ import {
   DataListItem,
   DataListItemLabel,
   DataListItemValue,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
   DownloadTrigger,
   FileUpload,
   FileUploadDropzone,
@@ -37,9 +43,6 @@ import {
   Input,
   NativeSelect,
   NativeSelectOption,
-  Resizable,
-  ResizablePanel,
-  ResizableResizeTrigger,
   ScrollArea,
   SegmentGroup,
   SegmentGroupIndicator,
@@ -80,7 +83,6 @@ import {
   FileCode2Icon,
   ImageIcon,
   MaximizeIcon,
-  MinimizeIcon,
   PlusIcon,
   ScanTextIcon,
   SquareIcon,
@@ -97,7 +99,13 @@ import {
   type Shot,
 } from "./extract";
 import { liveExtractor, readKey, writeKey } from "./live";
-import { type Finding, FindingsBadge, PaneHeader, PanelRail } from "../shared";
+import {
+  type Finding,
+  FindingsBadge,
+  PaneHeader,
+  PanelRail,
+  WorkspaceColumns,
+} from "../shared";
 import { FieldNotesPreferences } from "./preferences";
 import { openLedger, type Column, type Issue, type Ledger, type Row } from "./rudof";
 import { SHAPES, SLIP_SHAPE } from "./shape";
@@ -298,6 +306,9 @@ interface LedgerMeta {
   edit: (rowId: string, key: string, value: string) => void;
   issuesAt: (rowId: string, key: string) => Issue[];
   metaAt: (rowId: string, key: string) => CellMeta | undefined;
+  /** Whether this cell has been typed in. See the note on `touched` — a finding shows on a cell
+   *  the reader has touched, and everywhere else it waits to be asked for. */
+  touched: (rowId: string, key: string) => boolean;
 }
 
 const metaOf = (meta: unknown) => meta as LedgerMeta;
@@ -315,6 +326,8 @@ function Cell({
   const cellMeta = ledger.metaAt(row.id, column.key);
   const value = row.cells[column.key] ?? "";
   const invalid = issues.length > 0;
+  /** A finding is drawn where the reader has been; the badge is how they ask for the rest. */
+  const revealed = ledger.touched(row.id, column.key);
   const unsure = Boolean(value) && (cellMeta?.confidence ?? 1) < UNSURE;
   // A sheet, not a form. Every control here is flush with its cell and carries no chrome of its
   // own until it is focused — a bordered box in each of thirty-five cells reads as a form somebody
@@ -325,17 +338,18 @@ function Cell({
   // looking wrong.
   const shared = cn(
     "h-8 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-inset",
-    // A hairline, where the recipe's is three pixels: a field carries one invalid state and a
-    // ledger carries six at once, so the same weight that reads as "check this" on a form reads as
-    // "this table is broken". The badge's mark is the loud one, and it is loud on purpose.
-    "aria-invalid:ring-1 aria-invalid:ring-inset",
+    // The ring is gated on `touched` — see the note there. A hairline where the recipe's is three
+    // pixels, because a field carries one invalid state and a ledger carries six at once.
+    revealed ? "aria-invalid:ring-1 aria-invalid:ring-inset" : "aria-invalid:ring-0",
   );
   // `NativeSelect` hands `className` to its WRAPPER, so nothing above reaches the control: the
   // border, the radius and the shadow are on the `select` inside it and have to be addressed there.
   const quietSelect = cn(
     "h-8 w-full",
     "[&_select]:h-8 [&_select]:rounded-none [&_select]:border-0 [&_select]:bg-transparent [&_select]:shadow-none",
-    "[&_select]:aria-invalid:ring-1 [&_select]:aria-invalid:ring-inset",
+    revealed
+      ? "[&_select]:aria-invalid:ring-1 [&_select]:aria-invalid:ring-inset"
+      : "[&_select]:aria-invalid:ring-0",
   );
   // `text-decoration` does not render on a <select>, so an unsure option says so in the aside
   // rather than wearing a mark no browser draws.
@@ -459,8 +473,8 @@ export function FieldNotesShowcase() {
   const [apiKey, setApiKey] = useState("");
   const [shapeOpen, setShapeOpen] = useState(false);
   const [slipOpen, setSlipOpen] = useState(true);
-  /** Whether the slip pane shows the cut or the sheet it was cut from. */
-  const [whole, setWhole] = useState(false);
+  /** Whether the sheet is open in the viewer, where the paper is big enough to read. */
+  const [viewing, setViewing] = useState(false);
   /** The row whose box is being drawn, and the only state that turns the pane into a control. */
   const [drawing, setDrawing] = useState<string | null>(null);
   /** Which tally the reader pressed, if any: its cells are marked where they are. */
@@ -532,7 +546,21 @@ export function FieldNotesShowcase() {
     [crops, shotById],
   );
 
+  /**
+   * Which cells the reader has typed in, and it decides where a finding is DRAWN.
+   *
+   * The table used to ring every invalid cell the moment it arrived, so a screen with six findings
+   * spoke about them in two languages at once: six red boxes that nobody asked for, and a badge
+   * that marks the same six when pressed. One of them had to go, and it is the automatic one —
+   * `metadata-form` settled this on the form side and the rule is the same here: a finding shows
+   * on a cell the reader has TOUCHED, because there it is feedback on what they just typed, and
+   * everywhere else it waits for the badge. The `aria-invalid` attribute is on the control either
+   * way; it is the ring that is gated, not the state.
+   */
+  const [touched, setTouched] = useState<ReadonlySet<string>>(() => new Set());
+
   const edit = useCallback((rowId: string, key: string, value: string) => {
+    setTouched((prev) => (prev.has(`${rowId}:${key}`) ? prev : new Set(prev).add(`${rowId}:${key}`)));
     setRows((prev) =>
       prev.map((r) => (r.id === rowId ? { ...r, cells: { ...r.cells, [key]: value } } : r)),
     );
@@ -587,6 +615,7 @@ export function FieldNotesShowcase() {
       edit,
       issuesAt,
       metaAt: (rowId, key) => meta[rowId]?.[key],
+      touched: (rowId, key) => touched.has(`${rowId}:${key}`),
     } satisfies LedgerMeta,
     // No pagination on screen, so the page has to hold whatever twelve photos produce.
     pageSize: 500,
@@ -689,12 +718,9 @@ export function FieldNotesShowcase() {
         with it gone the row fits its verbs without crowding.
       */}
       <ShellHeader>
-        <div className="flex h-11 items-center gap-2.5 border-b px-3 text-xs">
+        <div className="flex h-11 items-center gap-2.5 px-3 text-xs">
           <ScanTextIcon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
           <h1 className="shrink-0 font-heading font-medium text-sm">Field notes</h1>
-          <span className="hidden min-w-0 truncate text-muted-foreground lg:inline">
-            the shape → the photographs → the sheet
-          </span>
 
           {/* Without a key there is no choice to make, and a two-option control that can only land
               on one of them is a lie — so what is left is a statement of fact: this is the demo
@@ -901,7 +927,7 @@ export function FieldNotesShowcase() {
                   <Show fallback={<PhotoTray shots={shots} />} when={rows.length > 0}>
                     <DataTableRoot table={table}>
                       <div className="flex h-full min-h-0 flex-col">
-                        <DataTableToolbar className="shrink-0 border-b px-3 py-1.5">
+                        <DataTableToolbar className="h-9 shrink-0 border-b px-3 py-0">
                           {/* The global filter, not a column's: a reviewer holding a piece of
                               paper searches for whatever is written on it — a slip number, a
                               hunter's name — and does not know which column it will land in. */}
@@ -966,7 +992,10 @@ export function FieldNotesShowcase() {
                                 // to the number. It opens the pane in drawing mode instead, so the
                                 // first thing the reader does is say which piece of paper it is.
                                 table.setRowSelection({ [id]: true });
-                                if (shots.length) setDrawing(id);
+                                if (shots.length) {
+                                  setDrawing(id);
+                                  setViewing(true);
+                                }
                               }}
                               size="sm"
                               variant="ghost"
@@ -988,9 +1017,6 @@ export function FieldNotesShowcase() {
                 </Show>
               </ShellMain>
             );
-
-            // No aside open → the table owns the body and no splitter is needed.
-            if (columnIds.length === 1) return tableMain;
 
             const columnNode = (id: (typeof columnIds)[number]) => {
               if (id === "table") return tableMain;
@@ -1083,96 +1109,43 @@ export function FieldNotesShowcase() {
                         }
                         when={Boolean(selectedRow)}
                       >
-                        {drawing && drawing === selected && sheet ? (
-                          /* The mode the reader asked for, and the only one where the pane is a
-                             control. It replaces the figure rather than sitting beside it: two
-                             copies of the same photograph, one of them live, is the arrangement
-                             that makes a reader wonder which box counts. */
-                          <DrawBox
-                            onCancel={() => setDrawing(null)}
-                            onSave={(crop) => {
-                              setCrops((prev) => ({ ...prev, [drawing]: { shot: sheet.id, crop } }));
-                              setDrawing(null);
-                              setWhole(true);
-                            }}
-                            shot={sheet}
-                          />
-                        ) : selected && selectedCrop ? (
-                          /* The paper, and the one question a thumbnail cannot answer: WHERE on
-                             the photograph this came from. Pressing the cut swaps it for the whole
-                             sheet with the box drawn on it — the same gesture a map gives you, and
-                             nothing on it moves. It is a `figure`, so the caption belongs to the
-                             image rather than floating under it. */
+                        {selected && selectedCrop ? (
+                          /* The cut, and one gesture on it: press to open the sheet at a size a
+                             person can read. The pane is 414 px wide and a slip is a fifth as wide
+                             as it is tall, so whatever this frame does the paper here is a
+                             reference, not a document — a second copy of it inside the same column
+                             was answering "where did this come from" with another picture too
+                             small to read. The viewer is where the paper is legible, and it is
+                             also where redrawing the box belongs, because that is where there is
+                             room to draw one. */
                           <figure className="space-y-2">
-                            {/* The two states are constrained on DIFFERENT axes, because the two
-                                pictures have different shapes. A slip is a fifth as wide as it is
-                                tall, so the cut is held to a height and finds its own width; the
-                                sheet is a landscape photograph, so it takes the pane's width and
-                                finds its own height. Constrain both the same way and one of them
-                                is a stamp — the cut used to take every pixel the pane had and push
-                                the record it belongs to off the bottom. */}
                             <div className="flex items-center justify-center">
-                              <Show
-                                fallback={
-                                  <button
-                                    className="cursor-zoom-in overflow-hidden rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
-                                    onClick={() => setWhole(true)}
-                                    title="Show the whole sheet"
-                                    type="button"
-                                  >
-                                    <Slip
-                                      className="h-72 w-auto"
-                                      crop={selectedCrop.crop}
-                                      shot={selectedCrop.shot}
-                                    />
-                                  </button>
-                                }
-                                when={whole}
+                              <button
+                                className="cursor-zoom-in overflow-hidden rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+                                onClick={() => setViewing(true)}
+                                title="Open the sheet"
+                                type="button"
                               >
-                                <Sheet
-                                  className="h-auto w-full"
+                                <Slip
+                                  className="h-72 w-auto"
                                   crop={selectedCrop.crop}
                                   shot={selectedCrop.shot}
                                 />
-                              </Show>
+                              </button>
                             </div>
-                            {/* What you are looking at, what you can do to it, and last the file
-                                it came from — the pane is the narrow one, and the file name is the
-                                part that can afford to be cut. */}
+                            {/* What you can do to it, and last the file it came from — the pane is
+                                the narrow one, and the file name is the part that can afford to be
+                                cut. */}
                             <figcaption className="flex items-center gap-1 text-muted-foreground text-xs">
-                              <Show
-                                fallback={
-                                  <Button
-                                    className="h-6 shrink-0 px-1.5 font-normal text-xs"
-                                    onClick={() => setWhole(true)}
-                                    size="sm"
-                                    variant="ghost"
-                                  >
-                                    <MaximizeIcon />
-                                    The whole sheet
-                                  </Button>
-                                }
-                                when={whole}
+                              <Button
+                                className="h-6 shrink-0 px-1.5 font-normal text-xs"
+                                onClick={() => setViewing(true)}
+                                size="sm"
+                                variant="ghost"
                               >
-                                <Button
-                                  className="h-6 shrink-0 px-1.5 font-normal text-xs"
-                                  onClick={() => setWhole(false)}
-                                  size="sm"
-                                  variant="ghost"
-                                >
-                                  <MinimizeIcon />
-                                  Just the slip
-                                </Button>
-                                <Button
-                                  className="h-6 shrink-0 px-1.5 font-normal text-xs"
-                                  onClick={() => setDrawing(selected)}
-                                  size="sm"
-                                  variant="ghost"
-                                >
-                                  <CropIcon />
-                                  Redraw
-                                </Button>
-                              </Show>
+                                <MaximizeIcon />
+                                The whole sheet
+                              </Button>
                               <span
                                 className="ms-auto min-w-0 truncate"
                                 title={selectedCrop.shot.name}
@@ -1250,27 +1223,21 @@ export function FieldNotesShowcase() {
               );
             };
 
-            const panels = columnIds.map((id) => ({ id, minSize: id === "table" ? 34 : 18 }));
-            const defaultSize =
-              columnIds.length === 3
-                ? [30, 42, 28]
-                : columnIds[0] === "table"
-                  ? [70, 30]
-                  : [34, 66];
-
             return (
-              <Resizable defaultSize={defaultSize} key={columnIds.join("-")} panels={panels}>
-                {columnIds.map((id, i) => (
-                  <Fragment key={id}>
-                    <Show when={i > 0}>
-                      <ResizableResizeTrigger id={`${columnIds[i - 1]}:${id}`} withHandle />
-                    </Show>
-                    <ResizablePanel className="flex min-w-0 flex-col overflow-hidden" id={id}>
-                      {columnNode(id)}
-                    </ResizablePanel>
-                  </Fragment>
-                ))}
-              </Resizable>
+              <WorkspaceColumns
+                columns={columnIds.map((id) => ({
+                  id,
+                  minSize: id === "table" ? 34 : 18,
+                  node: columnNode(id),
+                }))}
+                defaultSize={
+                  columnIds.length === 3
+                    ? [30, 42, 28]
+                    : columnIds[0] === "table"
+                      ? [70, 30]
+                      : [34, 66]
+                }
+              />
             );
           })()}
         </div>
@@ -1294,6 +1261,59 @@ export function FieldNotesShowcase() {
           <span className="text-destructive">{engine.error}</span>
         </Show>
       </ShellFooter>
+
+      {/*
+        The sheet, at a size a person can read — and the one place drawing a box makes sense.
+
+        The panel is 414 px wide and a slip is a fifth as wide as it is tall, so nothing that fits
+        in that column answers "does the paper say what the row says". This does: the whole
+        photograph at up to a 7xl dialog, with the row's box drawn on it, and `Redraw` swaps the
+        picture for the cropper in the same frame rather than sending the reader back to the pane.
+      */}
+      <Dialog onOpenChange={(d) => !d.open && (setViewing(false), setDrawing(null))} open={viewing}>
+        <Show when={Boolean(sheet)}>
+          <DialogContent className="p-0" size="6xl">
+            <DialogHeader className="border-b px-4 py-2.5">
+              <DialogTitle className="font-heading text-sm">
+                {drawing ? "Draw the box" : "The sheet"}
+              </DialogTitle>
+              <DialogDescription className="text-xs">
+                {drawing
+                  ? "Drag the box onto the slip this row was read from."
+                  : selectedRow
+                    ? `Row ${rows.findIndex((r) => r.id === selectedRow.id) + 1} of ${rows.length} · ${sheet?.name}`
+                    : sheet?.name}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="min-h-0 overflow-auto p-4">
+              {drawing && sheet ? (
+                <DrawBox
+                  onCancel={() => setDrawing(null)}
+                  onSave={(crop) => {
+                    setCrops((prev) => ({ ...prev, [drawing]: { shot: sheet.id, crop } }));
+                    setDrawing(null);
+                  }}
+                  shot={sheet}
+                />
+              ) : selectedCrop ? (
+                <Sheet
+                  className="mx-auto max-h-[72vh] w-auto"
+                  crop={selectedCrop.crop}
+                  shot={selectedCrop.shot}
+                />
+              ) : null}
+            </div>
+            <Show when={!drawing && Boolean(selected)}>
+              <DialogFooter className="border-t px-4 py-2.5">
+                <Button onClick={() => setDrawing(selected)} size="sm" variant="outline">
+                  <CropIcon />
+                  Redraw the box
+                </Button>
+              </DialogFooter>
+            </Show>
+          </DialogContent>
+        </Show>
+      </Dialog>
 
       {/* The library's own FAB, bottom-end, which is where a preference belongs: it is not one of
           this screen's verbs, and in the header it stood beside two that are. */}

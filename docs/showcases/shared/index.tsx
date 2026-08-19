@@ -23,6 +23,9 @@ import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
+  Resizable,
+  ResizablePanel,
+  ResizableResizeTrigger,
   ScrollArea,
   ShellAside,
   Status,
@@ -30,7 +33,7 @@ import {
   ToggleGroupItem,
 } from "@kanzo-tech/ui";
 import { XIcon } from "lucide-react";
-import type { ComponentType, ReactNode } from "react";
+import { Fragment, type ComponentType, type ReactNode } from "react";
 
 /** One switch on the rail: which panel it opens, and how it is drawn and named. */
 export interface RailPanel {
@@ -217,5 +220,55 @@ export function FindingsBadge({
         </p>
       </HoverCardContent>
     </HoverCard>
+  );
+}
+
+/** One column of the workspace: what it is, what it renders, and how far it may be squeezed. */
+export interface WorkspaceColumn {
+  id: string;
+  /** Percent of the row this column may not go below. */
+  minSize: number;
+  node: ReactNode;
+}
+
+/**
+ * The workspace row: panels beside one `<main>`, every seam draggable.
+ *
+ * This was written out twice, identically, once in each showcase — the same `Resizable`, the same
+ * `Fragment` loop, the same `key` on the open set, the same `ResizableResizeTrigger` between every
+ * pair. Only the column ids and the default split differed, and both are arguments.
+ *
+ * Two things it decides rather than the caller. **One column is not a workspace**: with nothing to
+ * resize against, the splitter is dead chrome and the single column is returned bare. And the
+ * **`key` is the open set**, because Ark's splitter builds its panel model once — a column
+ * appearing or leaving without a new key leaves the model describing a row that is no longer
+ * there, and the drag ends up resizing the wrong seam.
+ */
+export function WorkspaceColumns({
+  columns,
+  defaultSize,
+}: {
+  columns: WorkspaceColumn[];
+  defaultSize: number[];
+}) {
+  if (columns.length === 1) return columns[0]?.node ?? null;
+
+  return (
+    <Resizable
+      defaultSize={defaultSize}
+      key={columns.map((column) => column.id).join("-")}
+      panels={columns.map(({ id, minSize }) => ({ id, minSize }))}
+    >
+      {columns.map((column, i) => (
+        <Fragment key={column.id}>
+          {i > 0 ? (
+            <ResizableResizeTrigger id={`${columns[i - 1]?.id}:${column.id}`} withHandle />
+          ) : null}
+          <ResizablePanel className="flex min-w-0 flex-col overflow-hidden" id={column.id}>
+            {column.node}
+          </ResizablePanel>
+        </Fragment>
+      ))}
+    </Resizable>
   );
 }
