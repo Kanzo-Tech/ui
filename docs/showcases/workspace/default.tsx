@@ -14,9 +14,7 @@ import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
-	DialogTrigger,
 	isActivePath,
-	Kbd,
 	Menu,
 	MenuContent,
 	MenuGroup,
@@ -30,6 +28,7 @@ import {
 	PreferencesPanel,
 	PreferencesRadius,
 	PreferencesRoot,
+	PreferencesTrigger,
 	Resizable,
 	ResizablePanel,
 	ResizableResizeTrigger,
@@ -579,12 +578,10 @@ function ArchiveShell() {
 					    `a-section-brings-measurable-obligations` draws: a look and a display have
 					    obligations that return a measured claim, a friction coefficient has none. */}
 					<PreferencesRoot hotkey="p">
-						<DialogTrigger asChild>
-							<Button className="gap-1.5" size="sm" variant="ghost">
-								Preferences
-								<Kbd>P</Kbd>
-							</Button>
-						</DialogTrigger>
+						{/* The library's own FAB — fixed bottom-end, and the same one every showcase
+						    uses. A preference is not one of this screen's verbs, and standing among
+						    them in the header it read as one. The `P` hotkey is unchanged. */}
+						<PreferencesTrigger />
 						<PreferencesPanel>
 							<GraphAppearance />
 							<PreferencesColor />

@@ -305,10 +305,12 @@ in and back out, in one place.
 graph inspector's node properties and the Field notes slip panel, both of which had hand-written the
 same `dl` / `div` / `dt` / `dd` tree. `DataListItem` is the `div` the spec requires, not decoration.
 
-**`CodeEditor`'s vertical rhythm belongs to its chrome.** `chrome` already decided whether the
-editor wears the field's border, ring and surface; it decides the `0.5rem` inset above the first
-line too. A bare surface is flush, because a pane docked under its own header wants its first line
-on the first row and every other surface in that column starts at its own top edge.
+**`CodeEditor` has no vertical inset, on either surface.** It carried `0.5rem` on `.cm-scroller`,
+on the argument that a code field wants the breathing room `Textarea` has; what it produced was
+nine pixels between the field's border and the first line, on the one surface whose first line is
+supposed to be the top of a document. Both the chromed field and a bare pane are flush now, and the
+line numbers still sit on their lines — that is why the inset was on the scroller rather than on
+the content, and removing it keeps the property. A caller who wants an inset owns the surface.
 
 **`ImageCropper` is adopted, over Ark's image-cropper machine.** `ImageCropper` renders the root and
 the viewport together, so what you compose lands inside the frame; `ImageCropperSelection` draws its
