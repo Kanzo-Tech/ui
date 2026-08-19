@@ -10,9 +10,9 @@
 - **Reversed by** a reader distinguishing Nebula from Atlas in a blind pairing. The claim below is
   that six of ten fields are under the threshold; one person telling them apart on those fields ends
   it.
-- **Held by** `packages/graph/src/look-section.test.ts`, "still draws the three pictures the three
-  names drew"; `packages/graph/src/graph-looks.ts`, `lookFrom`; `packages/graph/src/look-section.ts`,
-  `LOOK_SECTION`
+- **Held by** `packages/graph/src/section.test.ts`, "still draws the three pictures the three
+  names drew"; `packages/graph/src/graph-looks.ts`, `lookFrom`; `packages/graph/src/section.ts`,
+  `GRAPH_SECTION`
 
 ## The working
 
@@ -41,7 +41,7 @@ nearly three times Nebula's. Nothing here proposes merging it.
 
 ## What this means for the panel, which is where it gets frozen
 
-The graph contributes **tokens** today — `LOOK_SECTION`, six colour bindings — and no *preference* at
+The graph contributes **tokens** today — `GRAPH_SECTION`, six colour bindings — and no *preference* at
 all: the look and display controls live in the workspace showcase's own dock. `.planning/ROADMAP.md`
 wants Look and Display to become a contributed section, and that is the moment this stops being an
 internal table and becomes a list of names a user reads.
@@ -61,7 +61,7 @@ decoration rather than legibility, and it survives as a `toggle`.
 
 ## The question was answered: the panel offers the axes
 
-Ángel, 2026-08-17: *«yo diría los ejes, creo que queda todo más elegante»*. So `LOOK_SECTION.prefs`
+Ángel, 2026-08-17: *«yo diría los ejes, creo que queda todo más elegante»*. So `GRAPH_SECTION.prefs`
 declares five — `marks` (choice), `additive-links` and `bowed-links` (toggles), `labels` (range),
 `vignette` (toggle) — and the three names stop being what a person is asked to choose between.
 

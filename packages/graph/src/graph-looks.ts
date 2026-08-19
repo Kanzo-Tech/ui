@@ -66,12 +66,19 @@ export const SHAPE_OTHER: ShapeId = SHAPE.cross;
  *
  * **No `id`, no `label`, no `blurb`.** Those three were a picker's metadata, and the picker was a
  * list of three names that turned out to be two pictures. What a person chooses is declared in
- * `look-section.ts` as axes and resolved by `lookFrom`; what a renderer consumes is this.
+ * `section.ts` as axes and resolved by `lookFrom`; what a renderer consumes is this.
  */
 export interface Look {
   /** Radius at the lowest degree in the corpus, and at the highest. */
   size: [number, number];
   link: {
+    /**
+     * Whether the edge layer is drawn at all.
+     *
+     * It was `Display.links`, a second vocabulary for the picture that sat beside this one with its
+     * own default and its own switch. A form that draws no links is a form.
+     */
+    render: boolean;
     opacity: number;
     width: number;
     /**
@@ -107,6 +114,25 @@ export interface Look {
   labels: number;
   /** A darkened rim. Mood rather than a reading aid, which is why it is form and not display. */
   vignette: boolean;
+  /**
+   * The dot grid behind the graph, which pans and subdivides with the camera.
+   *
+   * Beside `vignette` because it is the same kind of thing — the backdrop a form sits on — and it
+   * arrived from the same place the rim did not: a `Display` interface that spelled the backdrop,
+   * the edge layer and two multipliers as a second set of appearance controls.
+   */
+  grid: boolean;
+  // **There is no `pointScale` and no `linkOpacity`**, and they are the two fields `Display` had that
+  // this does not. Each was a reader's multiplier over a number this builder already computes from
+  // the axis that owns it — `size` from `marks`, `link.opacity` from `marks` — so the panel offered
+  // two ways to say one thing and the second could always overrule the measurement. The measured
+  // pair (0.28 legible, 0.42 dense) is the whole argument of `marks`; a slider on top of it is the
+  // post-process `graph-model.ts` forbids one layer down, wearing a preference's clothes.
+  //
+  // What is lost with them is the fit-to-corpus case, and it was never a preference: `adaptive`
+  // scales a mark by node count, and a computed fit belongs to the tenant's starting point — which
+  // is a policy, and which is now expressible.
+
   // There is no `filter`, and its absence is a rule rather than an omission. Nebula carried
   // `saturate(1.1)` on the canvas element — the one thing left in a Look that touched hue, and a
   // chroma multiplier is colour wearing geometry's clothes. Measured over Kanzo's eight slots
@@ -128,7 +154,7 @@ export interface Look {
  * fields separated two of the three by 7–17%, under this file's own threshold for a difference
  * meaning anything — a luminance JND of 6.48–11.30 ΔL*. What is left of them is this: every number
  * appears once, where the axis that owns it is read, and the axis is declared next door in
- * `look-section.ts` for a panel to draw. See `decisions/a-look-declares-what-it-changes.md`.
+ * `section.ts` for a panel to draw. See `decisions/a-look-declares-what-it-changes.md`.
  *
  * **Link opacity and width ride the mark**, and that is what the numbers said rather than a tidy
  * guess: 0.42 and 0.45 on the two dense forms against 0.28 on the legible one. A form that spends
@@ -146,7 +172,7 @@ export interface Look {
  * **The values are strings because a contributed preference is a string**, in all three kinds, so an
  * unrecognised namespace rides through a write untouched. Parsing what a kind means is the reader's
  * job and it is two lines; `@kanzo-tech/theme` exports the same two, and importing them would add a
- * dependency to this package to carry no code — the same call `LOOK_SECTION` already makes about the
+ * dependency to this package to carry no code — the same call `GRAPH_SECTION` already makes about the
  * manifest type.
  *
  * A key that is missing, or that carries a value the section never offered, takes the manifest's
@@ -162,6 +188,7 @@ export function lookFrom(values: Readonly<Record<string, string | undefined>> = 
   return {
     size: legible ? [4, 13] : [2, 8],
     link: {
+      render: on("links", true),
       opacity: legible ? 0.28 : 0.42,
       width: legible ? 0.5 : 0.6,
       // A hint, and `obligations.ts` says why: every link bows the same way, so cosmos.gl's default
@@ -175,6 +202,7 @@ export function lookFrom(values: Readonly<Record<string, string | undefined>> = 
     },
     labels: Number.isFinite(labels) ? labels : 26,
     vignette: on("vignette", false),
+    grid: on("grid", true),
   };
 }
 

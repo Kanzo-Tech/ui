@@ -6,7 +6,8 @@ import type { BoundedSource, Slice } from "./bounded";
 import { DEFAULT_LOOK, type Look } from "./graph-looks";
 import { isColour, type Channels } from "./graph-model";
 import { residentOf, type Resident, type VertexId } from "./resident";
-import type { Display, Motion, Sim } from "./types";
+import type { Sim } from "./graph-sim";
+import type { Motion } from "./types";
 import { useBoundedGraph } from "./use-bounded-graph";
 import { useCosmosGraph, type CosmosGraphOptions } from "./use-cosmos-graph";
 import { useGraphLook } from "./use-graph-look";
@@ -60,9 +61,14 @@ export interface GraphEvents {
 export interface UseGraphProps {
   /** What to draw. `null` renders the frame and asks nothing — a host still resolving its data. */
   source: BoundedSource | null;
-  /** Geometry only. Colour comes from the page's categorical scale, never from here. */
+  /**
+   * Geometry only. Colour comes from the page's categorical scale, never from here.
+   *
+   * **One appearance input**, where there were two: a `Display` rode beside this with its own
+   * defaults, spelling the edge layer, the backdrop and two multipliers over numbers the look
+   * already computes. `lookFrom(values)` resolves the whole picture from the axes a person chose.
+   */
   look?: Look;
-  display?: Display;
   sim?: Sim;
   /**
    * Off by default, and that is the correct default rather than a cautious one: a bounded source
@@ -185,7 +191,6 @@ export function useGraph(props: UseGraphProps): GraphApi {
   const {
     clusters,
     debounce,
-    display,
     events,
     fill,
     limit,
@@ -312,7 +317,7 @@ export function useGraph(props: UseGraphProps): GraphApi {
     simulate,
   });
 
-  useGraphLook({ channels, display, getGraph, hostRef, look, schedule, slice });
+  useGraphLook({ channels, getGraph, hostRef, look, schedule, slice });
 
   return { explore, getGraph, getResident, hostRef, pending, refresh, resident, slice, sliced, total };
 }

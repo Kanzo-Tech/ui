@@ -3,60 +3,19 @@
  * selected and what the layout is doing.
  *
  * These lived beside a React context in the workspace showcase, which made them look like that
- * app's state. They are not: `Sim` is cosmos.gl's force coefficients under our names, `Display` is
- * the two uniforms plus three toggles, and `Selection` is the shape every panel hands the canvas.
- * The provider that holds them is an arrangement and stays where arrangements live; the shapes
- * themselves belong to the renderer, and every hook here takes one.
+ * app's state. They are not: `Selection` is the shape every panel hands the canvas, and the rest is
+ * what a canvas is doing. The provider that holds them is an arrangement and stays where
+ * arrangements live; the shapes themselves belong to the renderer.
+ *
+ * **`Display` and `Sim` have left this file**, and in opposite directions. `Display` was a second
+ * vocabulary for the picture — two multipliers over numbers `lookFrom` already computes, plus three
+ * toggles — so what survived of it is `link.render` and `grid` on the `Look`. `Sim` went to
+ * `graph-sim.ts` with a builder of its own, because it is what `graph-looks.ts` is for forces: a
+ * type, one function that reads the declared values, and a default that is the function called with
+ * nothing.
  */
 
 import type { VertexId } from "./resident";
-
-/** Drawing options. None of these changes a number on screen, only how it is drawn. */
-export interface Display {
-  links: boolean;
-  labels: boolean;
-  /** The dot grid behind the graph. It pans and subdivides with the camera. */
-  grid: boolean;
-  /** Multiplies every radius the look computed. */
-  pointScale: number;
-  /** Multiplies the look's link opacity. */
-  linkOpacity: number;
-}
-
-/** Force coefficients, handed straight to the GPU simulation. */
-export interface Sim {
-  gravity: number;
-  repulsion: number;
-  linkSpring: number;
-  linkDistance: number;
-  friction: number;
-  /** Pull toward the node's group position on the cluster ring. Zero lets the links decide alone. */
-  cluster: number;
-}
-
-export const DEFAULT_DISPLAY: Display = {
-  links: true,
-  labels: true,
-  grid: true,
-  pointScale: 1,
-  linkOpacity: 1,
-};
-
-/**
- * Coefficients that settle a few-hundred-node graph into something readable.
- *
- * Chosen against a corpus of that size, and they are a starting point rather than a law: a graph
- * two orders of magnitude larger wants less repulsion and more friction, and the measurements in
- * `BENCHMARKS.md` say a live simulation is finished by around 200,000 points regardless.
- */
-export const DEFAULT_SIM: Sim = {
-  gravity: 0.14,
-  repulsion: 1.1,
-  linkSpring: 0.6,
-  linkDistance: 18,
-  friction: 0.86,
-  cluster: 0.1,
-};
 
 /**
  * The selection tools, and the gesture that reaches them without a mode.

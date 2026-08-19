@@ -20,9 +20,9 @@
       "types": "./dist/duck-source.d.ts",
       "import": "./dist/duck-source.js"
     },
-    "./look-section": {
-      "types": "./dist/look-section.d.ts",
-      "import": "./dist/look-section.js"
+    "./section": {
+      "types": "./dist/section.d.ts",
+      "import": "./dist/section.js"
     },
     "./package.json": "./package.json"
   },

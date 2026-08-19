@@ -18,7 +18,7 @@
 - **Held by** `packages/theme/src/sections.test.ts`, "keeps a section whose package is not
   installed"; `packages/theme/src/index.test.ts`, "every axis default matches DEFAULT_PREFS,
   generated or not"; `packages/ui/src/theme/KanzoThemeProvider.tsx`, `PREF_KEYS`;
-  `packages/graph/src/look-section.ts`, `LOOK_SECTION`;
+  `packages/graph/src/section.ts`, `GRAPH_SECTION`;
   `docs/showcases/workspace/graph-view.tsx`, `GraphAppearance`
 
 ## What this record left open, settled 2026-08-18

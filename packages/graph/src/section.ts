@@ -16,10 +16,11 @@ interface SectionBinding_ {
   step?: number;
   token?: string;
 }
+type PrefCommon_ = { default: string; doc: string; label?: string };
 type SectionPrefDecl_ =
-  | { kind: "choice"; default: string; doc: string; options: readonly { value: string; label: string }[] }
-  | { kind: "toggle"; default: string; doc: string }
-  | { kind: "range"; default: string; doc: string; min: number; max: number; step: number };
+  | (PrefCommon_ & { kind: "choice"; options: readonly { value: string; label: string }[] })
+  | (PrefCommon_ & { kind: "toggle" })
+  | (PrefCommon_ & { kind: "range"; min: number; max: number; step: number });
 
 interface SectionManifest {
   namespace: string;
@@ -29,9 +30,14 @@ interface SectionManifest {
 }
 
 /**
- * The graph's contribution to the appearance document.
+ * The graph's contribution to a host's preferences — its tokens and its choices.
  *
- * Reached by subpath — `@kanzo-tech/graph/look-section` — and never imported by
+ * **It was `LOOK_SECTION`, and the name was half of it.** The look is five of the sixteen
+ * preferences below; the rest are the edge layer, the dot grid and the six force coefficients, which
+ * lived in a `Display` interface and a `Sim` interface with their own defaults and their own
+ * hand-rolled sliders. One section, one storage shape, one resolution, one renderer.
+ *
+ * Reached by subpath — `@kanzo-tech/graph/section` — and never imported by
  * `@kanzo-tech/theme`. That direction is the whole design: contributing is *using* a namespace, not
  * registering a type in the core, so a consumer who never installs this package pays nothing and
  * `packages/ui` gains no reference to the graph.
@@ -49,7 +55,7 @@ interface SectionManifest {
  * here it has the same value and gains the capacity — a document may redirect it, and one that says
  * nothing gets `(brand, a5)` exactly as before.
  */
-export const LOOK_SECTION: SectionManifest = {
+export const GRAPH_SECTION: SectionManifest = {
   namespace: "graph",
   version: 1,
   tokens: {
@@ -99,6 +105,7 @@ export const LOOK_SECTION: SectionManifest = {
   prefs: {
     marks: {
       kind: "choice",
+      label: "Marks",
       default: "dense",
       doc: "How much ink a point spends. The legible mark is the one to pair the shape channel with — its radius floor is what keeps shape from corrupting the size ramp beside it.",
       options: [
@@ -108,16 +115,19 @@ export const LOOK_SECTION: SectionManifest = {
     },
     "additive-links": {
       kind: "toggle",
+      label: "Additive links",
       default: "false",
       doc: "Links add where they overlap instead of compositing over one another. Additive light is what makes a dense graph read as flow — and what made 4,280 links at 0.45 swallow 1,543 points on the archive.",
     },
     "bowed-links": {
       kind: "toggle",
+      label: "Bowed links",
       default: "true",
       doc: "Links bow off the straight line by a hint, which is enough to tell two parallel edges apart. Every link curves the same way, so more than a hint reads as a pinwheel.",
     },
     labels: {
       kind: "range",
+      label: "Labels",
       default: "26",
       doc: "How many of the highest-degree nodes carry a standing label. Zero draws none.",
       min: 0,
@@ -126,8 +136,95 @@ export const LOOK_SECTION: SectionManifest = {
     },
     vignette: {
       kind: "toggle",
+      label: "Vignette",
       default: "false",
       doc: "A darkened rim. Mood rather than a reading aid, which is why it is a preference and not a display control.",
+    },
+    links: {
+      kind: "toggle",
+      label: "Show links",
+      default: "true",
+      doc: "Draw the edge layer at all. Past a few hundred thousand links it is fog that costs a draw call a frame, and `adaptive` says where that is.",
+    },
+    grid: {
+      kind: "toggle",
+      label: "Dot grid",
+      default: "true",
+      doc: "The dot grid behind the graph. It pans and subdivides with the camera, which is what makes a pan read as motion rather than as a redraw.",
+    },
+
+    /**
+     * The force coefficients, which are preferences and were a second vocabulary.
+     *
+     * **They are not appearance, and this manifest holds them anyway.** A section's `tokens` are the
+     * colours a document may move; its `prefs` are *what the person on the screen decides*, and a
+     * reader tuning a layout until it settles is deciding something. They lived in a TS interface
+     * with a `DEFAULT_SIM` beside it and six hand-rolled sliders in one showcase's dock — the fourth
+     * declaration style in a census of four, for a quarter of the knobs.
+     *
+     * The bounds are cosmos.gl's useful range rather than its legal one, and a stored value outside
+     * them is declined: a slider that used to run to 5 and now stops at 3 must not paint 5 because
+     * storage remembers it.
+     *
+     * **`adaptive(nodes)` still exists and still knows better.** What a corpus of this size wants is
+     * computed, not chosen, and these defaults are tuned for a few hundred nodes. A host with a
+     * large corpus should start its users at `adaptive`'s answer through the tenant policy — which
+     * is the mechanism's own way of saying "start somewhere else" — rather than by writing values
+     * into storage nobody can then reset.
+     */
+    gravity: {
+      kind: "range",
+      label: "Gravity",
+      default: "0.14",
+      doc: "Pull toward the centre. It is what stops a disconnected component drifting off the canvas.",
+      min: 0,
+      max: 0.5,
+      step: 0.01,
+    },
+    repulsion: {
+      kind: "range",
+      label: "Repulsion",
+      default: "1.1",
+      doc: "How hard every point pushes every other. Bigger graphs need less of it, or they never settle.",
+      min: 0,
+      max: 2,
+      step: 0.05,
+    },
+    "link-spring": {
+      kind: "range",
+      label: "Link spring",
+      default: "0.6",
+      doc: "How hard a link pulls its two ends together.",
+      min: 0,
+      max: 2,
+      step: 0.05,
+    },
+    "link-distance": {
+      kind: "range",
+      label: "Link distance",
+      default: "18",
+      doc: "The length a link is happy at, in simulation units.",
+      min: 2,
+      max: 60,
+      step: 1,
+    },
+    friction: {
+      kind: "range",
+      label: "Friction",
+      default: "0.86",
+      doc: "How fast motion decays. Under about 0.7 the layout twitches; near 1 it never stops.",
+      min: 0.5,
+      max: 0.99,
+      step: 0.01,
+    },
+    cluster: {
+      kind: "range",
+      label: "Cluster pull",
+      default: "0.1",
+      doc: "Pull toward the node's group position on the cluster ring. Zero lets the links decide alone.",
+      min: 0,
+      max: 1,
+      step: 0.05,
     },
   },
 };

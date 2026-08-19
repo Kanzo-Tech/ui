@@ -8,7 +8,6 @@ import { useThemeTick } from "@kanzo-tech/ui";
 import type { Slice } from "./bounded";
 import { appearance, buffers, type Channels } from "./graph-model";
 import type { Look } from "./graph-looks";
-import { DEFAULT_DISPLAY, type Display } from "./types";
 
 /**
  * Putting a look on the canvas, and keeping it there when the theme flips.
@@ -18,11 +17,14 @@ import { DEFAULT_DISPLAY, type Display } from "./types";
  * few arrays and costs the database nothing.
  *
  * Two effects, not one, because those are two different costs. The buffers depend on the data, the
- * look and the theme; the config depends on those *and* on Display. Fused, every tick of the Edge
- * opacity and Node size sliders rebuilt all four arrays and re-uploaded them: 41,440 bytes on this
- * corpus — 31,440 of buffer plus the 10,000-byte padded float texture cosmos.gl expands the sizes
- * into — and six forced style recalcs, because `buffers` resolves every token off the live DOM. All
- * of it to move two scalars the GPU reads from a uniform. Split, a Display change uploads nothing.
+ * look and the theme; the config depends on the same three and is far cheaper. Fused, every tick of
+ * the Edge opacity and Node size sliders rebuilt all four arrays and re-uploaded them: 41,440 bytes
+ * on this corpus — 31,440 of buffer plus the 10,000-byte padded float texture cosmos.gl expands the
+ * sizes into — and six forced style recalcs, because `buffers` resolves every token off the live
+ * DOM. All of it to move two scalars the GPU reads from a uniform.
+ *
+ * Those two sliders are gone — see `lookFrom` — but the split stays, and it stays for what is left:
+ * `renderLinks` and `linkOpacity` are uniforms, so turning the edge layer off uploads nothing.
  *
  * The theme half is the part that is easy to forget. A look names its colours as `var(--chart-1)`,
  * and those tokens change under the reader — the `.dark` flip, and a tenant's palette document
@@ -50,8 +52,6 @@ export function useGraphLook(options: {
    * source instead. One vocabulary at the call site, two destinations underneath.
    */
   channels?: Channels;
-  /** Defaults to `DEFAULT_DISPLAY`. A host with no display controls has nothing else to pass. */
-  display?: Display;
   /**
    * Ask the overlays to reposition: point sizes changed, so the labels sit differently.
    *
@@ -60,7 +60,7 @@ export function useGraphLook(options: {
    */
   schedule?: () => void;
 }): void {
-  const { channels, display = DEFAULT_DISPLAY, getGraph, hostRef, look, schedule = noop, slice } = options;
+  const { channels, getGraph, hostRef, look, schedule = noop, slice } = options;
   const themeTick = useThemeTick();
 
   useEffect(() => {
@@ -82,8 +82,8 @@ export function useGraphLook(options: {
     const graph = getGraph();
     const host = hostRef.current;
     if (!slice || !graph || !host) return;
-    graph.setConfigPartial(appearance(look, host, display));
+    graph.setConfigPartial(appearance(look, host));
     graph.render();
     schedule();
-  }, [display, getGraph, hostRef, look, schedule, slice, themeTick]);
+  }, [getGraph, hostRef, look, schedule, slice, themeTick]);
 }

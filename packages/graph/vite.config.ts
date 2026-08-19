@@ -27,7 +27,7 @@ export default defineConfig({
         // A third entry for the same reason, pointing the other way: the appearance-document
         // contribution is reached BY a host, never imported by the core, so it must not be on the
         // root barrel where `@kanzo-tech/theme` could come to depend on it.
-        "look-section": resolve(__dirname, "src/look-section.ts"),
+        "section": resolve(__dirname, "src/section.ts"),
       },
       formats: ["es"],
     },

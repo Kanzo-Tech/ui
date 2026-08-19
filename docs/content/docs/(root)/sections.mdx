@@ -22,10 +22,10 @@ or both.
 
 One value, published by the package that owns the namespace, reached by subpath:
 
-```ts title="packages/graph/src/look-section.ts"
+```ts title="packages/graph/src/section.ts"
 import type { SectionManifest } from "@kanzo-tech/theme";
 
-export const LOOK_SECTION: SectionManifest = {
+export const GRAPH_SECTION: SectionManifest = {
   namespace: "graph",
   version: 1,
   tokens: {
@@ -114,9 +114,9 @@ prefs: {
 
 ```tsx title="app/layout.tsx"
 import { KanzoThemeProvider } from "@kanzo-tech/ui";
-import { LOOK_SECTION } from "@kanzo-tech/graph/look-section";
+import { GRAPH_SECTION } from "@kanzo-tech/graph/section";
 
-<KanzoThemeProvider sections={[LOOK_SECTION]}>{children}</KanzoThemeProvider>;
+<KanzoThemeProvider sections={[GRAPH_SECTION]}>{children}</KanzoThemeProvider>;
 ```
 
 **The arrow points host → core, and that is the whole design.** Nothing in `@kanzo-tech/theme` or
@@ -179,7 +179,7 @@ invent a value for it — the options are the ones the owning package declared a
 
 ```tsx
 <KanzoThemeProvider
-  sections={[LOOK_SECTION]}
+  sections={[GRAPH_SECTION]}
   policy={{ graph: { marks: { pinned: "legible" } } }}
 >
 ```
@@ -239,7 +239,7 @@ validates completely and therefore cannot have optional sections at all.
 
 ```ts
 import { validatePrefs, validateSection } from "@kanzo-tech/theme";
-import { LOOK_SECTION } from "@kanzo-tech/graph/look-section";
+import { GRAPH_SECTION } from "@kanzo-tech/graph/section";
 ```
 
 `validateSection` reports a token the manifest never declared — which, unvalidated, would fall back
