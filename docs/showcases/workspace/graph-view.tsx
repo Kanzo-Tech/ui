@@ -46,16 +46,15 @@ import {
   Kbd,
   KbdGroup,
   PreferencesFieldSet,
+  PreferencesSections,
   ScrollArea,
   Show,
   Status,
   Skeleton,
-  Slider,
   SuggestContent,
   SuggestRoot,
   SuggestTrigger,
   Swatch,
-  Switch,
   TagsInput,
   TagsInputContext,
   TagsInputControl,
@@ -110,12 +109,10 @@ import {
 import { numbers } from "@/lib/arrow";
 import { HALLS, isoDay } from "@/example/world";
 import {
-  ARCHIVE_SPEC,
-  DEFAULT_DISPLAY,
-  DEFAULT_SIM,
-  EDGES,
   KINDS,
-  NODES,
+  type GraphSpec,
+  CLUSTER,
+  FORCES,
   PAIRINGS,
   useGraphView,
   type Motion,
@@ -217,9 +214,9 @@ const LEGEND_DOMAIN = Object.keys(KINDS).sort();
 const ordinalOf = (kind: string): number => LEGEND_DOMAIN.indexOf(kind);
 
 function LegendSwatch({ kind }: { kind: string }) {
-  const { look } = useGraphView();
+  const { arrangement } = useGraphView();
   const capacity = useChartCapacity();
-  const scale = scaleOf(PAIRINGS[look], capacity);
+  const scale = scaleOf(PAIRINGS[arrangement], capacity);
   return (
     <ShapeGlyph
       color={scale.color(ordinalOf(kind))}
@@ -229,9 +226,16 @@ function LegendSwatch({ kind }: { kind: string }) {
 }
 
 function LegendRows() {
+  const { spec } = useGraphView();
   const { rows } = useChartQuery({
+    deps: [spec],
     query: (filter) =>
-      Query.from(NODES).select({ kind: "kind", n: count() }).where(filter).groupby("kind"),
+      spec === null
+        ? null
+        : Query.from(spec.table)
+            .select({ kind: spec.categoryField, n: count() })
+            .where(filter)
+            .groupby(spec.categoryField),
   });
   const tally = new Map((rows ?? []).map((row) => [String(row.kind), Number(row.n)]));
 
@@ -275,15 +279,19 @@ export function GraphLegend() {
 
 /** Live totals against the whole corpus — "of" is the crossfilter, not a guess. */
 function CountRow() {
+  const { spec } = useGraphView();
   const nodes = useChartQuery({
-    query: (filter) => Query.from(NODES).select({ n: count() }).where(filter),
+    deps: [spec],
+    query: (filter) => (spec === null ? null : Query.from(spec.table).select({ n: count() }).where(filter)),
   });
   const total = useChartQuery({
     filterBy: null,
-    query: () => Query.from(NODES).select({ n: count() }),
+    deps: [spec],
+    query: () => (spec === null ? null : Query.from(spec.table).select({ n: count() })),
   });
   const edges = useChartQuery({
-    query: (filter) => Query.from(EDGES).select({ n: count() }).where(filter),
+    deps: [spec],
+    query: (filter) => (spec === null ? null : Query.from(spec.edges).select({ n: count() }).where(filter)),
   });
 
   const shown = Number(nodes.row?.n ?? 0);
@@ -359,17 +367,18 @@ interface NodeRow {
   tags: string;
 }
 
-const COLUMNS = {
-  id: "id",
-  label: "label",
-  kind: "kind",
+/** What the inspector reads, aliased to the names its row type uses. */
+const columnsOf = (spec: GraphSpec) => ({
+  id: spec.idField,
+  label: spec.labelField,
+  kind: spec.categoryField,
   hall: "hall",
   region: "region",
   signed: "signed",
-  degree: "degree",
+  degree: spec.sizeField,
   closed: "closed",
   tags: "tags",
-};
+});
 
 /**
  * A cell, as text. Never as whatever DuckDB happened to hand back: `closed` is a CSV column DuckDB
@@ -401,24 +410,35 @@ function hallName(id: string): string {
 }
 
 function InspectorBody() {
-  const { commands, focused } = useGraphView();
+  const { commands, focused, spec } = useGraphView();
 
   const selection = useChartQuery({
+    deps: [spec],
     query: (filter) =>
-      Query.from(NODES).select(COLUMNS).where(filter).orderby(desc("degree"), "label").limit(12),
+      spec === null
+        ? null
+        : Query.from(spec.table)
+            .select(columnsOf(spec))
+            .where(filter)
+            .orderby(desc(spec.sizeField), spec.labelField)
+            .limit(12),
   });
   // A clicked node outranks the selection's head. Clicking publishes the node *and its
   // neighbours*, and among those the reader's node is rarely the one with the highest degree — so
   // ordering alone would answer a different question than the one the click asked.
   const clicked = useChartQuery({
     filterBy: null,
-    deps: [focused],
+    deps: [focused, spec],
     query: () =>
-      focused === null ? null : Query.from(NODES).select(COLUMNS).where(`id = ${denseOf(focused)}`),
+      focused === null || spec === null
+        ? null
+        : Query.from(spec.table)
+            .select(columnsOf(spec))
+            .where(`${spec.idField} = ${denseOf(focused)}`),
   });
 
   const rows = selection.rows;
-  if (rows === null) return <Skeleton className="h-24 w-full" />;
+  if (spec === null || rows === null) return <Skeleton className="h-24 w-full" />;
   if (rows.length === 0) {
     return <p className="text-muted-foreground text-xs">Nothing in the current selection.</p>;
   }
@@ -447,7 +467,7 @@ function InspectorBody() {
               is already on screen somewhere, and this brings it into view. */}
           <Button
             className="h-5 gap-1 text-[10px]"
-            onClick={() => commands.reveal(vertexId(ARCHIVE_SPEC.typeIndex, head.id))}
+            onClick={() => commands.reveal(vertexId(spec.typeIndex, head.id))}
             size="sm"
             title="Bring this node into view on the canvas"
             variant="ghost"
@@ -486,7 +506,7 @@ function InspectorBody() {
                   // A px floor is the one size in this file that must NOT scale, because the bar
                   // it answers to does not. `decisions/density-has-no-legibility-floor.md`.
                   className="flex min-h-[24px] w-full items-center gap-2 rounded-sm px-1 py-0.5 text-start text-xs hover:bg-accent"
-                  onClick={() => commands.reveal(vertexId(ARCHIVE_SPEC.typeIndex, node.id))}
+                  onClick={() => commands.reveal(vertexId(spec.typeIndex, node.id))}
                   type="button"
                 >
                   <Swatch
@@ -526,6 +546,7 @@ const SEARCH_LIMIT = 50;
 
 function ArchiveSearch() {
   const { crossfilter } = useMosaic();
+  const { spec } = useGraphView();
   const source = useRef({ shape: "archive-search" });
 
   // The whole corpus, once, against no filter: a search that only finds what is already on screen
@@ -533,8 +554,13 @@ function ArchiveSearch() {
   // would query per keystroke instead.
   const { rows } = useChartQuery({
     filterBy: null,
+    deps: [spec],
     query: () =>
-      Query.from(NODES).select({ id: "id", label: "label", kind: "kind" }).orderby(desc("degree")),
+      spec === null
+        ? null
+        : Query.from(spec.table)
+            .select({ id: spec.idField, label: spec.labelField, kind: spec.categoryField })
+            .orderby(desc(spec.sizeField)),
   });
 
   const items = useMemo(
@@ -882,6 +908,7 @@ export function GraphOrders() {
 function OrdersBody() {
   const { select } = useGraphView();
   const { coordinator } = useMosaic();
+  const { spec } = useGraphView();
   const [source, setSource] = useState(DEFAULT_ORDERS);
   const [fileName, setFileName] = useState("amber-hall.orders");
   const [showSource, setShowSource] = useState(false);
@@ -909,13 +936,13 @@ function OrdersBody() {
   // Every order's failing count, in one pass over the relation.
   const { row } = useChartQuery({
     filterBy: null,
-    deps: [orders.map((s) => s.id).join("|")],
+    deps: [orders.map((s) => s.id).join("|"), spec],
     query: () =>
-      orders.length === 0
+      orders.length === 0 || spec === null
         ? null
         : // `sql` nests the compiler's predicate as a node rather than pasting its text: the
           // aggregate is the only SQL written here, and `s.failing` arrives already built.
-          Query.from(NODES).select(
+          Query.from(spec.table).select(
             Object.fromEntries(
               orders.map((s, i) => [`c${i}`, sql`count(*) FILTER (WHERE ${s.failing})`]),
             ),
@@ -939,8 +966,9 @@ function OrdersBody() {
    * selection the page then moves by, so following the page would make it a function of itself.
    */
   const failingIds = async (order: Order) => {
+    if (spec === null) return [];
     const data = await coordinator.query(
-      Query.from(NODES).select({ id: "id" }).where(order.failing),
+      Query.from(spec.table).select({ id: spec.idField }).where(order.failing),
     );
     return numbers(data, "id");
   };
@@ -1133,59 +1161,19 @@ function OrdersBody() {
 
 // ── Settings ─────────────────────────────────────────────────────────────────
 
-function Range({
-  disabled,
-  format,
-  label,
-  max,
-  min,
-  onChange,
-  step,
-  value,
-}: {
-  disabled?: boolean;
-  format?: (value: number) => string;
-  label: string;
-  max: number;
-  min: number;
-  onChange: (value: number) => void;
-  step: number;
-  value: number;
-}) {
-  return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between">
-        <span className="text-xs">{label}</span>
-        <span className="text-[10px] text-muted-foreground tabular-nums">
-          {format ? format(value) : value.toFixed(2)}
-        </span>
-      </div>
-      <Slider
-        disabled={disabled}
-        max={max}
-        min={min}
-        onValueChange={(d) => onChange(d.value[0] ?? value)}
-        step={step}
-        value={[value]}
-      />
-    </div>
-  );
-}
+/*
+ * `Range` was here — a label, a value, a formatter and an Ark slider, written once and used eleven
+ * times: five forces, a cluster pull, a node size, an edge opacity. Every one of those is a declared
+ * `range` now, and `PreferencesSections` draws them from the declaration. A local control that
+ * duplicates a library one is how a dock ends up disagreeing with the panel about what a preference
+ * is called.
+ */
 
-const sameDisplay = (a: typeof DEFAULT_DISPLAY, b: typeof DEFAULT_DISPLAY) =>
-  a.links === b.links &&
-  a.labels === b.labels &&
-  a.grid === b.grid &&
-  a.pointScale === b.pointScale &&
-  a.linkOpacity === b.linkOpacity;
-
-const sameSim = (a: typeof DEFAULT_SIM, b: typeof DEFAULT_SIM) =>
-  a.gravity === b.gravity &&
-  a.repulsion === b.repulsion &&
-  a.linkSpring === b.linkSpring &&
-  a.linkDistance === b.linkDistance &&
-  a.friction === b.friction &&
-  a.cluster === b.cluster;
+// `sameDisplay` and `sameSim` were here, each comparing a store against a table of defaults to
+// decide whether a reset was worth offering. Both are gone: what makes a reset worth offering is
+// that something was STORED, which the resolution chain reports as `via` — and a comparison against
+// the defaults would leave the button lit forever for every reader of a tenant who moved their
+// starting point.
 
 /**
  * What a gesture does, as a legend rather than a paragraph.
@@ -1342,27 +1330,27 @@ function LookPreview({ channels, id, look }: { channels: Channels; id: string; l
  * of those three answer to a bar and the third does not.
  */
 export function GraphAppearance() {
-  const { display, look, setDisplay, setLook } = useGraphView();
+  const { arrangement, wear } = useGraphView();
 
   return (
     <div className="flex flex-col gap-4">
       <PreferencesFieldSet label="Look">
         {LOOK_ORDER.map((id) => (
           <button
-            aria-pressed={look === id}
             className={cn(
-              "w-full rounded-lg border p-1.5 text-start transition-colors",
-              // Same card-shaped toggle as `Finding`, so the same measured trio: the card,
-              // `--secondary` on hover, `--accent` + a solid `border-primary` when chosen.
-              look === id ? "border-primary bg-accent" : "hover:bg-secondary",
+              "w-full rounded-md border p-2 text-start transition-colors",
+              arrangement === id
+                ? "border-primary bg-accent/40"
+                : "border-border hover:bg-accent/20",
             )}
             key={id}
-            onClick={() => setLook(id)}
+            onClick={() => wear(id)}
             type="button"
           >
             {/* Stacked, not the grid the palette list uses, and the difference is that this list
-                does not grow: there are three looks and a tenant cannot publish a fourth. Keeping
-                the full width is what lets the miniature be a graph rather than a thumbnail of one. */}
+                does not grow: there are three arrangements and a tenant cannot publish a fourth.
+                Keeping the full width is what lets the miniature be a graph rather than a
+                thumbnail of one. */}
             <LookPreview channels={PAIRINGS[id]} id={id} look={LOOKS[id]} />
             <span className="mt-1.5 block font-medium text-xs">{LOOK_LABEL[id]}</span>
             <span className="mt-0.5 block text-[10px] text-muted-foreground leading-relaxed">
@@ -1372,65 +1360,17 @@ export function GraphAppearance() {
         ))}
       </PreferencesFieldSet>
 
-      <PreferencesFieldSet label="Display">
+      {/* The axes themselves, drawn by the library from what the package declared. Every control
+          that used to be here — three switches and two ranges, each with its own handler into a
+          React store — was a second copy of a preference the provider was already resolving. The
+          two ranges are gone entirely: `Node size` and `Edge opacity` multiplied numbers `lookFrom`
+          computes from `marks`, so the panel offered two ways to say one thing.
 
-        <div className="flex items-center justify-between">
-          <span className="text-xs">Show links</span>
-          <Switch
-            checked={display.links}
-            onCheckedChange={(d) => setDisplay({ links: d.checked === true })}
-          />
-        </div>
-
-        <div className="flex items-center justify-between">
-          <span className="text-xs">Labels</span>
-          <Switch
-            checked={display.labels}
-            onCheckedChange={(d) => setDisplay({ labels: d.checked === true })}
-          />
-        </div>
-
-        <div className="flex items-center justify-between">
-          <span className="text-xs">Dot grid</span>
-          <Switch
-            checked={display.grid}
-            onCheckedChange={(d) => setDisplay({ grid: d.checked === true })}
-          />
-        </div>
-
-        <Range
-          format={(v) => `${v.toFixed(1)}×`}
-          label="Node size"
-          max={2.5}
-          min={0.4}
-          onChange={(pointScale) => setDisplay({ pointScale })}
-          step={0.1}
-          value={display.pointScale}
-        />
-
-        <Range
-          format={(v) => `${v.toFixed(1)}×`}
-          label="Edge opacity"
-          disabled={!display.links}
-          max={3}
-          min={0.1}
-          onChange={(linkOpacity) => setDisplay({ linkOpacity })}
-          step={0.1}
-          value={display.linkOpacity}
-        />
-
-      </PreferencesFieldSet>
-
-      <Button
-        className="w-full"
-        disabled={sameDisplay(display, DEFAULT_DISPLAY)}
-        onClick={() => setDisplay(DEFAULT_DISPLAY)}
-        size="sm"
-        variant="ghost"
-      >
-        <RotateCcwIcon />
-        Reset appearance
-      </Button>
+          `only` is what lets one section have two homes: the picture here, the forces in the dock. */}
+      <PreferencesSections
+        namespace="graph"
+        only={["marks", "links", "labels", "additive-links", "bowed-links", "vignette", "grid"]}
+      />
     </div>
   );
 }
@@ -1443,7 +1383,7 @@ export function GraphAppearance() {
  * separate from the appearance one: they cost different things to press.
  */
 export function GraphSettings() {
-  const { commands, resetSim, setSim, sim, spec } = useGraphView();
+  const { commands, layoutStored, resetLayout, spec } = useGraphView();
 
   return (
     <ScrollArea className="h-full p-3">
@@ -1454,61 +1394,18 @@ export function GraphSettings() {
             <MotionBadge />
           </div>
 
-          <Range
-            label="Gravity"
-            max={1}
-            min={0}
-            onChange={(gravity) => setSim({ gravity })}
-            step={0.02}
-            value={sim.gravity}
-          />
-          <Range
-            label="Repulsion"
-            max={2}
-            min={0}
-            onChange={(repulsion) => setSim({ repulsion })}
-            step={0.05}
-            value={sim.repulsion}
-          />
-          <Range
-            label="Link spring"
-            max={2}
-            min={0}
-            onChange={(linkSpring) => setSim({ linkSpring })}
-            step={0.05}
-            value={sim.linkSpring}
-          />
-          <Range
-            format={(v) => v.toFixed(0)}
-            label="Link distance"
-            max={40}
-            min={1}
-            onChange={(linkDistance) => setSim({ linkDistance })}
-            step={1}
-            value={sim.linkDistance}
-          />
-          <Range
-            label="Friction"
-            max={1}
-            min={0.5}
-            onChange={(friction) => setSim({ friction })}
-            step={0.01}
-            value={sim.friction}
-          />
+          {/* Five sliders that were five hand-rolled `Range`s over a React store. What each one is
+              called, what it defaults to and what it will honour is declared in the graph package —
+              `GRAPH_SECTION` — and this names which of the section it draws. */}
+          <PreferencesSections namespace="graph" only={FORCES} />
+
           {/* The control is named by the spec, not by this corpus. A canvas told which column
               groups its nodes can say so; one that hardcodes "Hall" only ever had one archive. */}
-          <Show when={spec.groupField !== undefined}>
-            <Range
-              label="Clustering"
-              max={1}
-              min={0}
-              onChange={(cluster) => setSim({ cluster })}
-              step={0.02}
-              value={sim.cluster}
-            />
+          <Show when={spec?.groupField !== undefined}>
+            <PreferencesSections namespace="graph" only={[CLUSTER]} />
             <p className="text-[11px] text-muted-foreground leading-relaxed">
               Pulls each node toward its{" "}
-              <code className="font-mono">{spec.groupLabel ?? spec.groupField}</code>. A node with no
+              <code className="font-mono">{spec?.groupLabel ?? spec?.groupField}</code>. A node with no
               value there belongs to no cluster, so anything shared drifts between the groups it
               joins.
             </p>
@@ -1536,14 +1433,15 @@ export function GraphSettings() {
           </dl>
         </div>
 
-        {/* Layout only. It used to restore Display too, and that was right while both lived in
-            this panel — a reset here that silently reached into Preferences would not be. The
-            appearance half has its own, beside the controls it restores. */}
+        {/* Layout only, and it UNSETS rather than restoring: where the forces land is the chain's
+            answer — this package's numbers when nobody said otherwise, a client's starting point
+            when they did. It is lit by `via`, so a tenant who moved everybody's starting point does
+            not leave every reader with a button that does nothing. */}
         <div className="border-t pt-3">
           <Button
             className="w-full"
-            disabled={sameSim(sim, DEFAULT_SIM)}
-            onClick={resetSim}
+            disabled={!layoutStored}
+            onClick={resetLayout}
             size="sm"
             variant="ghost"
           >
@@ -1675,6 +1573,7 @@ interface Answer {
 
 function AskBody() {
   const { coordinator } = useMosaic();
+  const { spec } = useGraphView();
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [missed, setMissed] = useState(false);
@@ -1686,8 +1585,9 @@ function AskBody() {
     setMissed(intent === null);
     if (!intent) return;
     setBusy(true);
+    if (spec === null) return;
     const data = await coordinator.query(
-      Query.from(NODES).select({ n: count() }).where(intent.failing),
+      Query.from(spec.table).select({ n: count() }).where(intent.failing),
     );
     const rows = Array.from(data as Iterable<Record<string, unknown>>);
     setAnswer({ intent, count: Number(rows[0]?.n ?? 0) });
@@ -1697,8 +1597,9 @@ function AskBody() {
   // Unfiltered for the same reason `failingIds` is: an answer that produces a selection cannot be a
   // function of the selection.
   const matchingIds = async (intent: Intent) => {
+    if (spec === null) return [];
     const data = await coordinator.query(
-      Query.from(NODES).select({ id: "id" }).where(intent.failing),
+      Query.from(spec.table).select({ id: spec.idField }).where(intent.failing),
     );
     return numbers(data, "id");
   };

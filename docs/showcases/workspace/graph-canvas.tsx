@@ -48,7 +48,7 @@ import {
   useGraphOverlays,
   useGraphSelection,
 } from "@kanzo-tech/graph";
-import { duckBoundedSource, type DuckSource } from "@kanzo-tech/graph/duckdb";
+import type { DuckSource } from "@kanzo-tech/graph/duckdb";
 import {
   KINDS,
   PAIRINGS,
@@ -57,7 +57,6 @@ import {
   type Motion,
   type Selection,
   type SelectionSource,
-  LOOKS,
 } from "./graph-state";
 
 /**
@@ -106,7 +105,7 @@ const NOBODY = residentOf(null);
  * **The crossfilter is the source's, not this component's.** A graph used to be joined to the page
  * from outside — something asked which ids survived the filters and the canvas painted grey over the
  * ones that had not — and this file held the client and the survivor set that drove it. Both are
- * gone: `duckBoundedSource` takes the crossfilter, its predicate rides in the slice query, and what
+ * gone: the corpus is opened with the crossfilter, its predicate rides in the slice query, and what
  * comes back *is* what survives. Two things are left here, and they are the two the greyout was
  * conflating: publishing the reader's gesture as a clause, and marking that same gesture on the
  * picture — the second with no query, because it is a set this file is already holding.
@@ -150,12 +149,20 @@ function CanvasPlaceholder({ note }: { note: string }) {
   );
 }
 
+/**
+ * The gate, and the reason it hands both down as props.
+ *
+ * The source and the spec come out of one opening — the corpus registers the relations and reports
+ * what they are called — so before it lands there is neither, and after it there is always both.
+ * A body that took them from context would have to re-narrow two nullables on every render of
+ * something that cannot be reached until they exist.
+ */
 export function GraphCanvas() {
-  const { ready } = useGraphView();
-  if (!ready) {
-    return <CanvasPlaceholder note="Starting DuckDB…" />;
+  const { source, spec } = useGraphView();
+  if (source === null || spec === null) {
+    return <CanvasPlaceholder note="Opening the corpus…" />;
   }
-  return <CanvasBody />;
+  return <CanvasBody source={source} spec={spec} />;
 }
 
 /** One node, as a reader reads it. Fetched per handful of ids, never carried by a slice. */
@@ -252,12 +259,11 @@ function useDetails(
   return details;
 }
 
-function CanvasBody() {
+function CanvasBody({ source, spec }: { source: DuckSource; spec: GraphSpec }) {
   const {
-    look: lookId,
-    display,
+    look,
+    arrangement,
     sim,
-    spec,
     tool,
     setTool,
     setMotion,
@@ -269,10 +275,11 @@ function CanvasBody() {
     setPinned,
     register,
   } = useGraphView();
-  const { coordinator, crossfilter } = useMosaic();
-  const look = LOOKS[lookId];
-  // Form and bindings, kept together because the reader picked an arrangement rather than a shape.
-  const channels = PAIRINGS[lookId];
+  const { coordinator } = useMosaic();
+  // The bindings the arrangement carries. The GEOMETRY beside them is a preference now, resolved by
+  // the theme provider's chain — so what a reader picks in the panel and what this canvas draws are
+  // one value, and a look is no longer a name this file has to look up.
+  const channels = PAIRINGS[arrangement];
 
   /**
    * The overlays, reached from inside the graph's own callbacks.
@@ -421,34 +428,6 @@ function CanvasBody() {
   );
 
   /**
-   * The corpus, as something to ask rather than something to hold.
-   *
-   * Two relations and a spatial predicate — which is all this fixture is. The source is memoised on
-   * the spec because rebuilding it would restart the query loop, and the loop's own first act is to
-   * ask how big the graph is.
-   *
-   * **Where the bytes are, and nothing about what to draw.** What colours and what sizes used to be
-   * given here too, which is why recolouring meant rebuilding this and restarting that loop. They
-   * are channels on the canvas below now.
-   */
-  const source = useMemo<DuckSource>(
-    () =>
-      duckBoundedSource({
-        coordinator,
-        // The page's filters, in the query rather than over the picture. Everything the canvas
-        // draws has already survived them, so there is no second pass and no mask.
-        filterBy: crossfilter,
-        nodes: spec.table,
-        edges: spec.edges,
-        typeIndex: spec.typeIndex,
-        idField: spec.idField,
-        xField: spec.xField,
-        yField: spec.yField,
-      }),
-    [coordinator, crossfilter, spec],
-  );
-
-  /**
    * The graph: one call where there were four hooks and four refs.
    *
    * `useGraph` owns the renderer's lifetime, the query loop and the look, and hands back the two
@@ -461,7 +440,6 @@ function CanvasBody() {
    * and the loop does it; what arrives here is the notification, which the overlays want.
    */
   const api = useGraph({
-    display,
     events: {
       onBackgroundClick: () => commit(null, "node", ""),
       // Dropping a node onto the same node it was already pinned at is a no-op the `Set` absorbs,
@@ -583,7 +561,7 @@ function CanvasBody() {
    */
   useEffect(() => {
     if (!slice) return;
-    if (!display.labels) {
+    if (!look.labels) {
       setLabelOrder([]);
       setTracked([]);
       return;
@@ -604,13 +582,13 @@ function CanvasBody() {
     setLabelOrder(wanted);
     setTracked(wanted);
     schedule();
-  }, [slice, resident, display.labels, look.labels, focusedVertex, schedule, setLabelOrder]);
+  }, [slice, resident, look.labels, focusedVertex, schedule, setLabelOrder]);
 
   // An overlay that has just mounted has no transform yet, and the simulation may already be
   // asleep — so nothing would place it until the next zoom. Place it now.
   useEffect(() => {
     schedule();
-  }, [tracked, hoveredVertex, display.grid, schedule]);
+  }, [tracked, hoveredVertex, look.grid, schedule]);
 
   // What the panels can ask of the canvas.
   useEffect(() => {
@@ -795,7 +773,7 @@ function CanvasBody() {
 
           {/* Decoration, over the canvas rather than behind it: cosmos.gl paints an opaque
               background so its greyout maths knows what it is dimming against. */}
-          <Show when={display.grid}>
+          <Show when={look.grid}>
             <div
               className="pointer-events-none absolute inset-0"
               ref={gridRef}
@@ -823,7 +801,7 @@ function CanvasBody() {
           </Show>
 
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
-            <Show when={display.labels}>
+            <Show when={look.labels > 0}>
               {tracked.map((vertex) => {
                 // The label is fetched, so a freshly-drawn hub is a point without a name for one
                 // query. Rendering nothing is the honest state, and it lasts under 100 ms.
