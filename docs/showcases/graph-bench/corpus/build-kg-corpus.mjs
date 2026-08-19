@@ -44,8 +44,11 @@ const DEFAULT_SIZES = [200_000, 1_000_000, 5_000_000];
 /** Angular sectors, the same count on both large types so a community index can align them. */
 const SECTORS = 32;
 
-/** cosmos.gl's simulation box, as `build-corpus.mjs` uses it. */
-const SPACE = 4096;
+/**
+ * The square this generator writes into, its own — see `build-corpus.mjs`'s `EXTENT` for why it is
+ * not the renderer's. Matched to that file so the two families are comparable, and to nothing else.
+ */
+const EXTENT = 4096;
 
 const CHUNK = 8_000_000;
 
@@ -108,14 +111,14 @@ function csvFor(total) {
 
   const paper = hyperbolic({
     pointCount: papers,
-    spaceSize: SPACE,
+    spaceSize: EXTENT,
     avgDegree: 8,
     communities: SECTORS,
     seed: 0x51ed270b,
   });
   const author = hyperbolic({
     pointCount: authors,
-    spaceSize: SPACE,
+    spaceSize: EXTENT,
     avgDegree: 6,
     communities: SECTORS,
     seed: 0x2545f491,

@@ -20,7 +20,6 @@
 // Every column here is a column the view actually queries: the legend groups by `kind`, the footer
 // counts rows, the inspector reads a node's own attributes, and the search matches `label`.
 
-import { SPACE } from "@kanzo-tech/graph";
 import { ARCHIVE } from "@/example/archive";
 import { MEMBERS, member } from "@/example/people";
 import {
@@ -34,6 +33,16 @@ import {
 } from "@/example/world";
 import { forceLayout, normalise } from "@/lib/force-layout";
 import { rng } from "@/lib/rng";
+
+/**
+ * The square this fixture writes its coordinates into — **its own number, not the renderer's.**
+ *
+ * It used to be `SPACE` imported from `@kanzo-tech/graph`. That export is gone: the drawing side
+ * takes its coordinate box from the source's `extent()`, so a fixture that scaled to a shared
+ * constant was agreeing with something that had stopped reading it. Any positive number works;
+ * this one is kept because the cluster-ring figures in `cluster-ring.ts` were measured against it.
+ */
+const EXTENT = 4096;
 
 export type NodeKind = "contract" | "report" | "member" | "beast" | "tag" | "region";
 
@@ -261,8 +270,8 @@ export function buildArchiveGraph(seed = 0x4a1b): ArchiveGraph {
   const nodes: GraphNodeRow[] = kept.map((node, i) => ({
     ...node,
     id: i,
-    x: Math.round((SPACE * 0.25 + x[i]! * SPACE * 0.5) * 1e5) / 1e5,
-    y: Math.round((SPACE * 0.25 + y[i]! * SPACE * 0.5) * 1e5) / 1e5,
+    x: Math.round((EXTENT * 0.25 + x[i]! * EXTENT * 0.5) * 1e5) / 1e5,
+    y: Math.round((EXTENT * 0.25 + y[i]! * EXTENT * 0.5) * 1e5) / 1e5,
     degree: degree[i]!,
   }));
 

@@ -28,7 +28,6 @@ export {
   forces,
   appearance,
   neighboursOf,
-  SPACE,
   type Buffers,
   type Channels,
 } from "./graph-model";
@@ -37,7 +36,7 @@ export {
 // a scale a graph invents is a scale that disagrees with the legend explaining it.
 export {
   DEFAULT_LOOK,
-  // The other end of `@kanzo-tech/graph/look-section`: the axes a person chose, as a form. The
+  // The other end of `@kanzo-tech/graph/section`: the axes a person chose, as a form. The
   // manifest declares them, a host registers it, the panel draws them, and this reads the answer.
   // There is no table of named looks any more — see `decisions/a-look-declares-what-it-changes.md`.
   lookFrom,
@@ -173,13 +172,15 @@ export { adaptive } from "./adaptive";
 export { resolveToken, toHex, type Rgba } from "./css-color";
 
 export {
-  DEFAULT_DISPLAY,
-  DEFAULT_SIM,
-  type Display,
   type GraphCommands,
   type Motion,
   type Selection,
   type SelectionSource,
-  type Sim,
   type Tool,
 } from "./types";
+
+// The forces, and the one function that builds them from the axes a person chose — `lookFrom`'s
+// sibling. `Display` is not here and has no successor: what survived of it is `link.render` and
+// `grid` on the `Look`, and the two multipliers it carried were a second way to say what `marks`
+// already says.
+export { DEFAULT_SIM, simFrom, type Sim } from "./graph-sim";

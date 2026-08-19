@@ -39,8 +39,19 @@ const PUBLIC = resolve(HERE, "../../../public/bench");
  */
 const DEFAULT_SIZES = [2_000, 10_000, 50_000, 200_000, 1_000_000];
 
-/** cosmos.gl's simulation box, so the written coordinates are already the camera's space. */
-const SPACE = 4096;
+/**
+ * The square this generator writes its coordinates into — **the generator's own number, and the
+ * renderer does not read it.**
+ *
+ * It used to be spelled as cosmos.gl's simulation box, copied from the package's `SPACE`. That was
+ * the bug: the drawing side no longer declares a box at all, it asks the corpus for its extent, so
+ * a generator that scaled to a shared constant was agreeing with a renderer that had stopped
+ * listening. A corpus fossil writes centres on the origin and scales to N — a million spans roughly
+ * x ∈ [−345, 645396] — and it draws correctly, which is the proof that nothing here is shared.
+ *
+ * Any positive number would do. This one is kept so the recorded bench figures stay comparable.
+ */
+const EXTENT = 4096;
 
 /** Flush the CSV buffer at roughly eight megabytes — well under any string limit, few enough syscalls. */
 const CHUNK = 8_000_000;
@@ -76,7 +87,7 @@ function writeCsv(file, header, rows) {
  * was the offline one.
  */
 function csvFor(size) {
-  const data = hyperbolic({ pointCount: size, spaceSize: SPACE });
+  const data = hyperbolic({ pointCount: size, spaceSize: EXTENT });
 
   writeCsv(join(HERE, "nodes.csv"), "id,community", (line) => {
     for (let n = 0; n < size; n += 1) line(`${n},${data.community[n]}`);

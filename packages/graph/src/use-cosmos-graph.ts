@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useRef, type RefObject } from "react";
 import { Graph } from "@cosmos.gl/graph";
 import { clusterRing } from "./cluster-ring";
-import { forces, SPACE } from "./graph-model";
-import { DEFAULT_SIM, type Motion, type Sim } from "./types";
+import { forces } from "./graph-model";
+import { DEFAULT_SIM, type Sim } from "./graph-sim";
+import type { Motion } from "./types";
 
 /**
  * The renderer's whole life: built once, told what the forces are, destroyed on the way out.
@@ -204,7 +205,20 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
     let graph: Graph;
     try {
       graph = new Graph(host, {
-        spaceSize: SPACE,
+        /**
+         * **No `spaceSize` here, and that is the point.**
+         *
+         * The coordinate box belongs to whatever wrote the positions, not to the thing drawing
+         * them. We used to declare it — one exported `SPACE = 4096`, copied by hand into both bench
+         * generators — and a corpus fossil writes ignored it completely: a million vertices span
+         * about x ∈ [−345, 645396], 157× the box the renderer was announcing. Nothing announced the
+         * disagreement, because `spaceSize` enters every render path as a translation and the camera
+         * is fitted from the extent anyway; the box was simply a false statement.
+         *
+         * So the box arrives with the first `extent()` — `useBoundedGraph` sets it where it already
+         * awaits one — and until then cosmos.gl's own default stands. A default of ours would be a
+         * second way to answer a question one side already owns.
+         */
         enableSimulation: simulate,
         ...forces(applied.current),
         /**
@@ -303,7 +317,9 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
     const graph = graphRef.current;
     if (!graph || !simulate || !clusters) return;
     graph.setPointClusters(clusters);
-    graph.setClusterPositions(clusterRing(clusters));
+    // The box the ring is placed in is the renderer's live one — `graph.config` is always fully
+    // populated, so this reads either cosmos.gl's default or the extent `useBoundedGraph` set.
+    graph.setClusterPositions(clusterRing(clusters, graph.config.spaceSize));
     graph.render();
   }, [clusters, graphRef, simulate]);
 
