@@ -57,7 +57,6 @@ import {
   ShellRoot,
   Show,
   Spinner,
-  Status,
   useAiStream,
 } from "@kanzo-tech/ui";
 // TanStack-backed: the `/table` subpath, never the root barrel.
@@ -232,10 +231,12 @@ function Sheet({ className, crop, shot }: { className?: string; crop: Crop; shot
  * it never fires at all, and a component that waits for one renders an empty box forever.
  */
 function DrawBox({
+  className,
   onCancel,
   onSave,
   shot,
 }: {
+  className?: string;
   onCancel: () => void;
   onSave: (crop: Crop) => void;
   shot: Shot;
@@ -245,13 +246,21 @@ function DrawBox({
   const drawn = useRef<Crop | null>(null);
 
   return (
-    <div className="space-y-1.5">
-      <div
-        className="overflow-hidden rounded-md border bg-muted"
-        style={{ aspectRatio: aspect ?? undefined }}
-      >
+    <div className={cn("flex min-h-0 w-full flex-col gap-1.5", className)}>
+      {/* TWO boxes, and the space under the picture was what happens with one.
+          The outer takes whatever height the dialog gives it; the inner IS the picture — the
+          photograph's own ratio against that height, centred. It was a single box carrying both
+          jobs: stretched by `flex-1` to fill the dialog and then sized again by the cropper's own
+          aspect inside it, which left the difference as dead paper under the image. */}
+      <div className="flex min-h-0 flex-1 items-center justify-center">
         <Show when={aspect !== null}>
           <ImageCropper
+            // `w-auto` is load-bearing: the recipe ships `w-full`, and a box with a definite
+            // width AND a definite height ignores its `aspect-ratio` — the frame took the whole
+            // dialog and the photograph sat letterboxed inside it, which also breaks the
+            // arithmetic below, because a viewport wider than the picture is no longer the
+            // picture's own box.
+            className="h-full w-auto max-w-full overflow-hidden rounded-md border bg-muted"
             maxZoom={1}
             onCropChange={({ crop }) => {
               const box = frame.current?.getBoundingClientRect();
@@ -271,9 +280,8 @@ function DrawBox({
           </ImageCropper>
         </Show>
       </div>
-      <ButtonGroup aria-label="What to do with the box you drew" className="w-full">
+      <ButtonGroup aria-label="What to do with the box you drew" className="mx-auto">
         <Button
-          className="flex-1"
           onClick={() => {
             const box = drawn.current;
             if (box) onSave(box);
@@ -282,7 +290,7 @@ function DrawBox({
         >
           Keep this box
         </Button>
-        <Button className="flex-1" onClick={onCancel} size="sm" variant="outline">
+        <Button onClick={onCancel} size="sm" variant="outline">
           Cancel
         </Button>
       </ButtonGroup>
@@ -338,9 +346,13 @@ function Cell({
   // looking wrong.
   const shared = cn(
     "h-8 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-inset",
-    // The ring is gated on `touched` — see the note there. A hairline where the recipe's is three
+    // The ring AND the ink are gated on `touched` — see the note there. `Input`'s recipe turns an
+    // invalid value red as well as ringing it, and red text in a cell nobody asked about is the
+    // same unasked-for second voice the ring was. A hairline where the recipe's ring is three
     // pixels, because a field carries one invalid state and a ledger carries six at once.
-    revealed ? "aria-invalid:ring-1 aria-invalid:ring-inset" : "aria-invalid:ring-0",
+    revealed
+      ? "aria-invalid:ring-1 aria-invalid:ring-inset"
+      : "aria-invalid:text-foreground aria-invalid:ring-0 dark:aria-invalid:text-foreground",
   );
   // `NativeSelect` hands `className` to its WRAPPER, so nothing above reaches the control: the
   // border, the radius and the shadow are on the `select` inside it and have to be addressed there.
@@ -627,6 +639,21 @@ export function FieldNotesShowcase() {
   /** The photograph the pane is about: the selected row's, or the first uploaded one for a row
    *  that has no box yet. */
   const sheet = selectedCrop?.shot ?? shots[0];
+
+  /**
+   * The shape of the cut, and it decides how the panel is arranged.
+   *
+   * A sighting slip is a fifth as wide as it is tall, so it stands beside the record and a value
+   * sits at the height of the line it came from. Nothing about this screen requires that: a crop
+   * off a squarer photograph — a page, a label, a plate — is as wide as the panel, and beside the
+   * record it would leave the record nothing. So the arrangement follows the picture: portrait
+   * cuts stand beside, everything else sits above. The threshold is 0.9 rather than 1 because a
+   * cut a hair narrower than square still wastes the column it would stand in.
+   */
+  const shotAspect = useAspect(sheet?.src ?? "");
+  const cutAspect =
+    shotAspect && selectedCrop ? (selectedCrop.crop.w * shotAspect) / selectedCrop.crop.h : null;
+  const portrait = cutAspect === null || cutAspect < 0.9;
 
   // The first row to arrive is the one the slip pane shows, so the pane is never empty while
   // the table is filling. Later rows do not steal it — that would move the paper under the reader.
@@ -1100,7 +1127,7 @@ export function FieldNotesShowcase() {
                     }
                   />
                   <ScrollArea className="min-h-0 flex-1">
-                    <div className="space-y-3 p-3">
+                    <div className={cn("flex gap-3 p-3", portrait ? "items-start" : "flex-col")}>
                       <Show
                         fallback={
                           <p className="text-muted-foreground text-sm">
@@ -1110,49 +1137,37 @@ export function FieldNotesShowcase() {
                         when={Boolean(selectedRow)}
                       >
                         {selected && selectedCrop ? (
-                          /* The cut, and one gesture on it: press to open the sheet at a size a
-                             person can read. The pane is 414 px wide and a slip is a fifth as wide
-                             as it is tall, so whatever this frame does the paper here is a
-                             reference, not a document — a second copy of it inside the same column
-                             was answering "where did this come from" with another picture too
-                             small to read. The viewer is where the paper is legible, and it is
-                             also where redrawing the box belongs, because that is where there is
-                             room to draw one. */
-                          <figure className="space-y-2">
-                            <div className="flex items-center justify-center">
-                              <button
-                                className="cursor-zoom-in overflow-hidden rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
-                                onClick={() => setViewing(true)}
-                                title="Open the sheet"
-                                type="button"
-                              >
-                                <Slip
-                                  className="h-72 w-auto"
-                                  crop={selectedCrop.crop}
-                                  shot={selectedCrop.shot}
-                                />
-                              </button>
-                            </div>
-                            {/* What you can do to it, and last the file it came from — the pane is
-                                the narrow one, and the file name is the part that can afford to be
-                                cut. */}
-                            <figcaption className="flex items-center gap-1 text-muted-foreground text-xs">
-                              <Button
-                                className="h-6 shrink-0 px-1.5 font-normal text-xs"
-                                onClick={() => setViewing(true)}
-                                size="sm"
-                                variant="ghost"
-                              >
-                                <MaximizeIcon />
+                          /* The slip stands BESIDE the record, not above it, and that is the pane's
+                             own shape being used rather than fought. A slip is a fifth as wide as
+                             it is tall and the pane is twice as tall as it is wide: stacked, the
+                             paper took a band across the top and left its own column empty, and the
+                             values it is there to be checked against were a scroll away. Side by
+                             side, a value sits at the height of the line it came from.
+
+                             One gesture on it, and the affordance is ON the paper rather than in a
+                             button under it: what fits in a 414 px column is a reference, and the
+                             sheet is a press away. */
+                          <figure
+                            className={cn("group relative", portrait ? "shrink-0" : "w-full")}
+                          >
+                            <button
+                              className="block cursor-zoom-in overflow-hidden rounded-lg shadow-sm outline-none ring-1 ring-border focus-visible:ring-[3px] focus-visible:ring-ring"
+                              onClick={() => setViewing(true)}
+                              type="button"
+                            >
+                              <Slip
+                                className={cn(
+                                  "rounded-none border-0",
+                                  portrait ? "h-[26rem] w-auto" : "h-auto w-full",
+                                )}
+                                crop={selectedCrop.crop}
+                                shot={selectedCrop.shot}
+                              />
+                              <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-linear-to-t from-black/64 to-transparent p-2 pt-6 text-white text-xs opacity-0 transition-opacity group-hover:opacity-100 motion-reduce:transition-none!">
+                                <MaximizeIcon className="size-3" />
                                 The whole sheet
-                              </Button>
-                              <span
-                                className="ms-auto min-w-0 truncate"
-                                title={selectedCrop.shot.name}
-                              >
-                                {selectedCrop.shot.name}
                               </span>
-                            </figcaption>
+                            </button>
                           </figure>
                         ) : null}
                         {/* The whole record, not the broken part of it. A panel that listed only
@@ -1164,7 +1179,7 @@ export function FieldNotesShowcase() {
                             the messages live INSIDE the value, because a `dl > div` may hold
                             nothing but `dt` and `dd`. */}
                         {selectedRow ? (
-                          <DataList>
+                          <DataList className="min-w-0 flex-1" orientation="vertical">
                             {columns.map((column) => {
                               const cellIssues = issuesAt(selectedRow.id, column.key);
                               const cellMeta = meta[selectedRow.id]?.[column.key];
@@ -1173,15 +1188,25 @@ export function FieldNotesShowcase() {
                                 Boolean(value) && (cellMeta?.confidence ?? 1) < UNSURE;
                               return (
                                 <DataListItem
-                                  className="items-start gap-3 border-border/64 border-b py-1.5 last:border-0"
+                                  className={cn(
+                                    "-mx-2 gap-0.5 rounded-md px-2 py-1.5",
+                                    // The state of a row is a bar on its inline start, not a
+                                    // colour on its text: the value is what the reader is
+                                    // comparing against the paper, and a value that changes
+                                    // colour is a value that reads as a different value.
+                                    cellIssues.length > 0 && "border-destructive border-s-2",
+                                    cellIssues.length === 0 &&
+                                      (unsure || cellMeta?.note) &&
+                                      "border-s-2 border-warning",
+                                  )}
                                   key={column.key}
                                 >
-                                  <DataListItemLabel className="w-20 shrink-0 pt-0.5 text-xs">
+                                  <DataListItemLabel className="text-[0.6875rem] text-muted-foreground uppercase tracking-wide">
                                     {column.label}
                                   </DataListItemLabel>
                                   <DataListItemValue
                                     className={cn(
-                                      "min-w-0 flex-1 break-words",
+                                      "min-w-0 break-words text-sm",
                                       column.type !== "string" && "tabular-nums",
                                       !value && "text-muted-foreground",
                                       unsure &&
@@ -1191,22 +1216,18 @@ export function FieldNotesShowcase() {
                                     {value || "—"}
                                     {/* A finding and a note are two different claims about the
                                         same cell — the shape refusing it, and the model saying why
-                                        it could not read it — so they are drawn as two different
-                                        marks rather than as two colours of the same one. Both live
-                                        INSIDE the value, because a `dl > div` may hold nothing but
-                                        `dt` and `dd`. */}
+                                        it could not read it. They live INSIDE the value, because a
+                                        `dl > div` may hold nothing but `dt` and `dd`. */}
                                     {cellIssues.map((issue, i) => (
                                       <span
-                                        className="mt-1 flex items-start gap-1.5 text-destructive text-xs"
+                                        className="mt-1 block text-destructive text-xs"
                                         key={i}
                                       >
-                                        <Status className="mt-1 size-1.5" variant="destructive" />
                                         {issue.message}
                                       </span>
                                     ))}
                                     <Show when={Boolean(cellMeta?.note)}>
-                                      <span className="mt-1 flex items-start gap-1.5 text-muted-foreground text-xs">
-                                        <Status className="mt-1 size-1.5" variant="warning" />
+                                      <span className="mt-1 block text-muted-foreground text-xs">
                                         {cellMeta?.note}
                                       </span>
                                     </Show>
@@ -1269,10 +1290,16 @@ export function FieldNotesShowcase() {
         in that column answers "does the paper say what the row says". This does: the whole
         photograph at up to a 7xl dialog, with the row's box drawn on it, and `Redraw` swaps the
         picture for the cropper in the same frame rather than sending the reader back to the pane.
+
+        THE FRAME IS FIXED, and that is what `h-[86vh]` is doing. `Redraw` swaps a picture for a
+        cropper of a different natural height, and a dialog that sizes to its content jumps a
+        hundred pixels and re-centres itself under the pointer that pressed the button — the box
+        you were about to drag moves before you reach it. So the dialog claims its height once and
+        both states fill it; only the picture inside changes.
       */}
       <Dialog onOpenChange={(d) => !d.open && (setViewing(false), setDrawing(null))} open={viewing}>
         <Show when={Boolean(sheet)}>
-          <DialogContent className="p-0" size="6xl">
+          <DialogContent className="flex h-[86vh] flex-col p-0" size="6xl">
             <DialogHeader className="border-b px-4 py-2.5">
               <DialogTitle className="font-heading text-sm">
                 {drawing ? "Draw the box" : "The sheet"}
@@ -1285,9 +1312,10 @@ export function FieldNotesShowcase() {
                     : sheet?.name}
               </DialogDescription>
             </DialogHeader>
-            <div className="min-h-0 overflow-auto p-4">
+            <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
               {drawing && sheet ? (
                 <DrawBox
+                  className="size-full"
                   onCancel={() => setDrawing(null)}
                   onSave={(crop) => {
                     setCrops((prev) => ({ ...prev, [drawing]: { shot: sheet.id, crop } }));
@@ -1297,7 +1325,7 @@ export function FieldNotesShowcase() {
                 />
               ) : selectedCrop ? (
                 <Sheet
-                  className="mx-auto max-h-[72vh] w-auto"
+                  className="max-h-full max-w-full"
                   crop={selectedCrop.crop}
                   shot={selectedCrop.shot}
                 />
@@ -1344,22 +1372,19 @@ export function FieldNotesShowcase() {
  * makes the button honest — you can see what it is about to read.
  */
 /**
- * One uploaded photograph, at its own shape.
+ * One uploaded photograph, in a box the same size as every other one.
  *
- * It was `object-cover` into whatever height the grid gave it, which crops the picture to fit the
- * box — so a photograph in the tray was a different picture from the same photograph in the panel,
- * and the reader had to work out that they were the same one. The frame takes the image's aspect
- * instead: the tray and the panel show the same rectangle, and only the size differs.
+ * Two things were wrong and they are not the same thing. The frame used to be `object-COVER` into
+ * whatever height the grid gave it, which CROPS the picture to fit — so the tray showed a
+ * photograph the panel would then show differently. And when the frame took each image's own
+ * aspect instead, the grid stopped being a grid: twelve photographs at twelve heights read as a
+ * pile. A gallery wants one box; a picture wants its own rectangle. `object-contain` in a fixed
+ * `4/3` box gives both — every tile is the same size and nothing is cut.
  */
 function ShotThumb({ shot }: { shot: Shot }) {
-  const aspect = useAspect(shot.src);
-
   return (
     <figure className="min-w-0 space-y-1.5">
-      <div
-        className="overflow-hidden rounded-md border bg-muted"
-        style={{ aspectRatio: aspect ?? undefined }}
-      >
+      <div className="aspect-[4/3] overflow-hidden rounded-md border bg-muted">
         <img alt="" className="block size-full object-contain" src={shot.src} />
       </div>
       <figcaption className="truncate text-muted-foreground text-xs" title={shot.name}>
