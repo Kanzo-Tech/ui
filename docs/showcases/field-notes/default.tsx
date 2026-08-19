@@ -20,7 +20,6 @@ import {
   Badge,
   Button,
   ButtonGroup,
-  ButtonGroupSeparator,
   ButtonGroupText,
   cn,
   DataList,
@@ -32,6 +31,9 @@ import {
   FileUploadDropzone,
   FileUploadHiddenInput,
   FileUploadTrigger,
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
   ImageCropper,
   ImageCropperImage,
   ImageCropperSelection,
@@ -42,11 +44,6 @@ import {
   ResizablePanel,
   ResizableResizeTrigger,
   ScrollArea,
-  SectionActions,
-  SectionDescription,
-  SectionHeader,
-  SectionTitle,
-  SectionTitleGroup,
   SegmentGroup,
   SegmentGroupIndicator,
   SegmentGroupItem,
@@ -83,10 +80,12 @@ import { StreamLanguage } from "@codemirror/language";
 import { turtle } from "@codemirror/legacy-modes/mode/turtle";
 import { CodeEditor } from "@kanzo-tech/ui/editor";
 import {
-  AlertTriangleIcon,
+  CropIcon,
   DownloadIcon,
   FileCode2Icon,
   ImageIcon,
+  MaximizeIcon,
+  MinimizeIcon,
   PlusIcon,
   ScanTextIcon,
   SquareIcon,
@@ -119,8 +118,13 @@ interface CellMeta {
 
 type MetaMap = Record<string, Record<string, CellMeta>>;
 
-/** Below this a cell is drawn as unsure. Handwriting lands here; print does not. */
-const UNSURE = 0.9;
+/** Below this a cell is drawn as unsure.
+ *
+ *  It was 0.9, and at 0.9 every ink cell on the screen wore a warning: the model reports 0.83–0.89
+ *  for handwriting it read perfectly well, so the mark said "this is handwriting" rather than
+ *  "check this". 0.75 leaves the two the run is genuinely unsure about — a beast under a mug at
+ *  0.61 and a surname that admits two spellings at 0.63 — and nothing else. */
+const UNSURE = 0.75;
 
 // ── The paper ────────────────────────────────────────────────────────────────
 
@@ -185,10 +189,15 @@ function Slip({
  *
  *  Percentages, because the crop is fractions of the image and the box is the image. `--brand`
  *  through the graph's own rule: a selection is a selection. */
-function Sheet({ crop, shot }: { crop: Crop; shot: Shot }) {
+function Sheet({ className, crop, shot }: { className?: string; crop: Crop; shot: Shot }) {
+  const aspect = useAspect(shot.src);
+
   return (
-    <div className="relative overflow-hidden rounded-md border bg-muted">
-      <img alt="" className="block w-full" src={shot.src} />
+    <div
+      className={cn("relative overflow-hidden rounded-md border bg-muted", className)}
+      style={{ aspectRatio: aspect ?? undefined }}
+    >
+      <img alt="" className="block size-full object-contain" src={shot.src} />
       <div
         className="pointer-events-none absolute rounded-xs ring-2 ring-primary"
         style={{
@@ -318,7 +327,22 @@ function Cell({
   const value = row.cells[column.key] ?? "";
   const invalid = issues.length > 0;
   const unsure = Boolean(value) && (cellMeta?.confidence ?? 1) < UNSURE;
-  const shared = "h-8 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-inset";
+  // A sheet, not a form. Every control here is flush with its cell and carries no chrome of its
+  // own until it is focused — a bordered box in each of thirty-five cells reads as a form somebody
+  // has to fill in, and this is a ledger somebody is checking.
+  //
+  // `ring-inset` on the invalid state is not cosmetic: an outset ring is drawn OUTSIDE the cell,
+  // so six of them overlap their neighbours and the table looks broken rather than the cells
+  // looking wrong.
+  const shared =
+    "h-8 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-inset aria-invalid:ring-inset";
+  // `NativeSelect` hands `className` to its WRAPPER, so nothing above reaches the control: the
+  // border, the radius and the shadow are on the `select` inside it and have to be addressed there.
+  const quietSelect = cn(
+    "h-8 w-full",
+    "[&_select]:h-8 [&_select]:rounded-none [&_select]:border-0 [&_select]:bg-transparent [&_select]:shadow-none",
+    "[&_select]:aria-invalid:ring-inset",
+  );
   // `text-decoration` does not render on a <select>, so an unsure option says so in the aside
   // rather than wearing a mark no browser draws.
   const unsureMark =
@@ -346,7 +370,7 @@ function Cell({
       <NativeSelect
         aria-invalid={invalid}
         aria-label={column.label}
-        className={shared}
+        className={quietSelect}
         onChange={(e) => ledger.edit(row.id, column.key, e.target.value)}
         value={value}
       >
@@ -443,6 +467,8 @@ export function FieldNotesShowcase() {
   const [whole, setWhole] = useState(false);
   /** The row whose box is being drawn, and the only state that turns the pane into a control. */
   const [drawing, setDrawing] = useState<string | null>(null);
+  /** Which tally the reader pressed, if any: the ledger shows only the rows it counted. */
+  const [only, setOnly] = useState<"unread" | "violations" | null>(null);
   const [shapeText, setShapeText] = useState(SLIP_SHAPE);
   const [shapeError, setShapeError] = useState<string | null>(null);
 
@@ -516,6 +542,48 @@ export function FieldNotesShowcase() {
     );
   }, []);
 
+  /**
+   * The two tallies, as lists rather than as numbers.
+   *
+   * `unread` is what the MODEL could not read and `violations` is what the SHAPE refuses, and they
+   * are not the same set: a cell nobody could read is usually both, and a slip number typed wrong
+   * by hand is only the second. Each carries the row's position in the ledger, because "row 4" is
+   * how a reader holding the paper finds it again.
+   */
+  const unread = useMemo(
+    () =>
+      rows.flatMap((row, index) =>
+        columns
+          .filter((column) => !row.cells[column.key])
+          .map((column) => ({
+            column: column.label,
+            message: meta[row.id]?.[column.key]?.note ?? "Not read.",
+            row: index + 1,
+            rowId: row.id,
+          })),
+      ),
+    [columns, meta, rows],
+  );
+
+  const violations = useMemo(
+    () =>
+      issues.map((issue) => ({
+        column: columns.find((c) => c.key === issue.key)?.label ?? issue.key,
+        message: issue.message,
+        row: rows.findIndex((r) => r.id === issue.rowId) + 1,
+        rowId: issue.rowId,
+      })),
+    [columns, issues, rows],
+  );
+
+  /** What the ledger shows. A pressed tally is a filter over the rows, never over the columns —
+   *  the shape decides those, and a badge is not a shape. */
+  const shown = useMemo(() => {
+    if (!only) return rows;
+    const flagged = new Set((only === "unread" ? unread : violations).map((f) => f.rowId));
+    return rows.filter((row) => flagged.has(row.id));
+  }, [only, rows, unread, violations]);
+
   const defs = useMemo(() => ledgerColumns(columns), [columns]);
 
   /**
@@ -525,7 +593,7 @@ export function FieldNotesShowcase() {
    */
   const table = useDataTable<Row>({
     columns: defs,
-    data: rows,
+    data: shown,
     enableMultiRowSelection: false,
     getRowId: (row) => row.id,
     meta: {
@@ -617,37 +685,30 @@ export function FieldNotesShowcase() {
   // builds this graph on every keystroke; this is the button that admits it exists.
   const turtle = useMemo(() => (ledger && rows.length ? ledger.turtle(rows) : ""), [ledger, rows]);
   const streaming = engine.status === "streaming";
-  const blanks = rows.reduce((n, r) => n + columns.filter((c) => !r.cells[c.key]).length, 0);
+  const blanks = unread.length;
 
   return (
     <ShellRoot className="h-dvh">
-      {/* The utility strip `metadata-form` uses — h-9 and text-xs, a small icon and the controls —
-          and then the page header proper. Two rows, which is what that showcase does too. */}
-      <ShellHeader>
-        <div className="flex h-9 items-center gap-2.5 border-b px-3 text-xs">
-          <span className="flex items-center gap-1.5 text-muted-foreground">
-            <ScanTextIcon aria-hidden className="size-3.5" />
-            Field notes
-          </span>
+      {/*
+        ONE row, and it was two.
 
-          <span className="ms-1 text-muted-foreground">Shape</span>
-          <NativeSelect
-            aria-label="Example shape"
-            className="w-64"
-            size="sm"
-            onChange={(e) => {
-              const picked = SHAPES.find((sh) => sh.id === e.target.value);
-              if (picked) setShapeText(picked.source);
-            }}
-            value={SHAPES.find((sh) => sh.source === shapeText)?.id ?? ""}
-          >
-            <NativeSelectOption value="">Edited shape</NativeSelectOption>
-            {SHAPES.map((sh) => (
-              <NativeSelectOption key={sh.id} value={sh.id}>
-                {sh.label}
-              </NativeSelectOption>
-            ))}
-          </NativeSelect>
+        The old arrangement was `metadata-form`'s: a `h-9` utility strip and then a page header
+        with a `scale="page"` title under it — 86 px of chrome over a screen whose every other
+        surface is `text-xs`, and the word "Field notes" printed twice inside it. What a header
+        owes here is the landmark, the verbs and the verdict; the size of the type was carrying
+        none of that.
+
+        The shape switcher went with it, into the pane it governs. A control that replaces the
+        document one pane is editing belongs against that document, not against the page — and
+        with it gone the row fits its verbs without crowding.
+      */}
+      <ShellHeader>
+        <div className="flex h-11 items-center gap-2.5 border-b px-3 text-xs">
+          <ScanTextIcon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+          <h1 className="shrink-0 font-heading font-medium text-sm">Field notes</h1>
+          <span className="hidden min-w-0 truncate text-muted-foreground lg:inline">
+            the shape → the photographs → the sheet
+          </span>
 
           {/* Without a key there is no choice to make, and a two-option control that can only land
               on one of them is a lie — so what is left is a statement of fact: this is the demo
@@ -655,7 +716,7 @@ export function FieldNotesShowcase() {
           <Show
             fallback={
               <Badge
-                className="ms-auto"
+                className="ms-auto shrink-0"
                 pill
                 size="xs"
                 title="A recorded run of a real extraction, replayed. Paste your Anthropic key in Preferences to run the model live."
@@ -667,7 +728,7 @@ export function FieldNotesShowcase() {
             when={Boolean(apiKey)}
           >
             <SegmentGroup
-              className="ms-auto"
+              className="ms-auto shrink-0"
               onValueChange={(d) => setSource(d.value ?? "recorded")}
               value={source}
             >
@@ -680,32 +741,31 @@ export function FieldNotesShowcase() {
               </SegmentGroupItem>
             </SegmentGroup>
           </Show>
-        </div>
-
-        <SectionHeader className="px-6 py-3" scale="page">
-          <SectionTitleGroup>
-            <SectionTitle className="font-heading" level={1} scale="page">
-              Field notes
-            </SectionTitle>
-            <SectionDescription className="truncate text-xs">
-              the shape → the photographs → the sheet
-            </SectionDescription>
-          </SectionTitleGroup>
 
           {/* Where the screen's verbs live, and its verdict beside them. The validation badges were
               in the footer, three regions away from the thing they judge; here they sit next to the
               button that would hand somebody the file they are a verdict on. */}
-          <SectionActions className="gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <Show when={rows.length > 0}>
               <Show when={blanks > 0}>
-                <Badge pill size="xs" variant="warning">
-                  {blanks} unread
-                </Badge>
+                <FindingsBadge
+                  active={only === "unread"}
+                  items={unread}
+                  label="unread"
+                  onToggle={() => setOnly((o) => (o === "unread" ? null : "unread"))}
+                  summary="Cells the model would not guess at, and why."
+                  tone="warning"
+                />
               </Show>
-              <Show when={issues.length > 0}>
-                <Badge pill size="xs" variant="destructive">
-                  {issues.length} violations
-                </Badge>
+              <Show when={violations.length > 0}>
+                <FindingsBadge
+                  active={only === "violations"}
+                  items={violations}
+                  label="violations"
+                  onToggle={() => setOnly((o) => (o === "violations" ? null : "violations"))}
+                  summary="What the shape refuses, straight out of the SHACL validator."
+                  tone="destructive"
+                />
               </Show>
               <Show when={issues.length === 0 && blanks === 0}>
                 <Badge pill size="xs" variant="success">
@@ -714,32 +774,36 @@ export function FieldNotesShowcase() {
               </Show>
             </Show>
 
-            <ButtonGroup aria-label="Extraction and the sheet">
-              <Show
-                fallback={
-                  <Button
-                    className="gap-1.5"
-                    // Nothing to read is a different state from nothing to read it WITH, and both
-                    // are off: no shape parsed, or no photograph on screen. The run used to fall
-                    // back to the sample photo, which extracted something the reader never chose.
-                    disabled={!ledger || shots.length === 0}
-                    onClick={run}
-                    size="sm"
-                  >
-                    <ScanTextIcon />
-                    Extract
-                  </Button>
-                }
-                when={streaming}
-              >
-                <Button className="gap-1.5" onClick={() => engine.abort()} size="sm" variant="outline">
-                  <SquareIcon />
-                  Stop
+            {/* The verb stands alone, and it was inside the download group.
+                One `ButtonGroup` around «Extract | Download | CSV | Turtle» draws one bordered
+                control, and a bordered control means its parts belong together — but the run and
+                the file are the two ends of the screen, not two settings of one thing. Worse, the
+                only solid button on the page was welded to two outline ones, so the group's own
+                seam had to carry a change of variant it was never drawn for. */}
+            <Show
+              fallback={
+                <Button
+                  className="gap-1.5"
+                  // Nothing to read is a different state from nothing to read it WITH, and both
+                  // are off: no shape parsed, or no photograph on screen. The run used to fall
+                  // back to the sample photo, which extracted something the reader never chose.
+                  disabled={!ledger || shots.length === 0}
+                  onClick={run}
+                  size="sm"
+                >
+                  <ScanTextIcon />
+                  Extract
                 </Button>
-              </Show>
+              }
+              when={streaming}
+            >
+              <Button className="gap-1.5" onClick={() => engine.abort()} size="sm" variant="outline">
+                <SquareIcon />
+                Stop
+              </Button>
+            </Show>
 
-              <ButtonGroupSeparator />
-
+            <ButtonGroup aria-label="The sheet">
               {/* Two options, both on screen. «Export» named a category of operation and then hid
                   half of what it could do behind a caret — and the two are not a default and an
                   afterthought: the sheet is what a bookkeeper wants and the graph is what the next
@@ -775,8 +839,8 @@ export function FieldNotesShowcase() {
                 </Button>
               </DownloadTrigger>
             </ButtonGroup>
-          </SectionActions>
-        </SectionHeader>
+          </div>
+        </div>
       </ShellHeader>
 
       <ShellBody className="min-h-0">
@@ -956,7 +1020,28 @@ export function FieldNotesShowcase() {
                       // Short enough to survive a narrow pane: the header is one line and the
                       // pane is the one a reader squeezes first.
                       detail={shapeError ?? `${columns.length} columns`}
-                    />
+                    >
+                      {/* An empty value is not a third shape — it is what the select shows once
+                          the text stops matching either document, which is the first keystroke a
+                          reader types into the editor below. */}
+                      <NativeSelect
+                        aria-label="Example shape"
+                        className="w-44 shrink-0"
+                        onChange={(e) => {
+                          const picked = SHAPES.find((sh) => sh.id === e.target.value);
+                          if (picked) setShapeText(picked.source);
+                        }}
+                        size="sm"
+                        value={SHAPES.find((sh) => sh.source === shapeText)?.id ?? ""}
+                      >
+                        <NativeSelectOption value="">Edited shape</NativeSelectOption>
+                        {SHAPES.map((sh) => (
+                          <NativeSelectOption key={sh.id} value={sh.id}>
+                            {sh.label}
+                          </NativeSelectOption>
+                        ))}
+                      </NativeSelect>
+                    </PaneHeader>
                     {/* CodeMirror-backed, so it comes from the `/editor` subpath and never the root
                         barrel — a static import of an optional peer there breaks `import { Button }`
                         for everyone who did not install it. */}
@@ -1027,48 +1112,81 @@ export function FieldNotesShowcase() {
                              sheet with the box drawn on it — the same gesture a map gives you, and
                              nothing on it moves. It is a `figure`, so the caption belongs to the
                              image rather than floating under it. */
-                          <figure className="space-y-1.5">
-                            <Show
-                              fallback={
-                                <button
-                                  className="block w-full cursor-zoom-in overflow-hidden rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
-                                  onClick={() => setWhole(true)}
-                                  type="button"
-                                >
-                                  <Slip crop={selectedCrop.crop} shot={selectedCrop.shot} />
-                                </button>
-                              }
-                              when={whole}
-                            >
-                              <Sheet crop={selectedCrop.crop} shot={selectedCrop.shot} />
-                            </Show>
-                            {/* What you are looking at first, and only then which file it came
-                                from: the pane is the narrow one, and it is the file name that can
-                                afford to be cut. */}
-                            <figcaption className="flex items-center gap-1.5 text-muted-foreground text-xs">
+                          <figure className="space-y-2">
+                            {/* The two states are constrained on DIFFERENT axes, because the two
+                                pictures have different shapes. A slip is a fifth as wide as it is
+                                tall, so the cut is held to a height and finds its own width; the
+                                sheet is a landscape photograph, so it takes the pane's width and
+                                finds its own height. Constrain both the same way and one of them
+                                is a stamp — the cut used to take every pixel the pane had and push
+                                the record it belongs to off the bottom. */}
+                            <div className="flex items-center justify-center">
                               <Show
-                                fallback={<span className="shrink-0">the slip</span>}
+                                fallback={
+                                  <button
+                                    className="cursor-zoom-in overflow-hidden rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+                                    onClick={() => setWhole(true)}
+                                    title="Show the whole sheet"
+                                    type="button"
+                                  >
+                                    <Slip
+                                      className="h-72 w-auto"
+                                      crop={selectedCrop.crop}
+                                      shot={selectedCrop.shot}
+                                    />
+                                  </button>
+                                }
+                                when={whole}
+                              >
+                                <Sheet
+                                  className="h-auto w-full"
+                                  crop={selectedCrop.crop}
+                                  shot={selectedCrop.shot}
+                                />
+                              </Show>
+                            </div>
+                            {/* What you are looking at, what you can do to it, and last the file
+                                it came from — the pane is the narrow one, and the file name is the
+                                part that can afford to be cut. */}
+                            <figcaption className="flex items-center gap-1 text-muted-foreground text-xs">
+                              <Show
+                                fallback={
+                                  <Button
+                                    className="h-6 shrink-0 px-1.5 font-normal text-xs"
+                                    onClick={() => setWhole(true)}
+                                    size="sm"
+                                    variant="ghost"
+                                  >
+                                    <MaximizeIcon />
+                                    The whole sheet
+                                  </Button>
+                                }
                                 when={whole}
                               >
                                 <Button
-                                  className="shrink-0 px-1.5 font-normal text-muted-foreground text-xs"
+                                  className="h-6 shrink-0 px-1.5 font-normal text-xs"
                                   onClick={() => setWhole(false)}
                                   size="sm"
                                   variant="ghost"
                                 >
-                                  back to the cut
+                                  <MinimizeIcon />
+                                  Just the slip
                                 </Button>
                                 <Button
-                                  className="shrink-0 px-1.5 font-normal text-muted-foreground text-xs"
+                                  className="h-6 shrink-0 px-1.5 font-normal text-xs"
                                   onClick={() => setDrawing(selected)}
                                   size="sm"
                                   variant="ghost"
                                 >
-                                  redraw the box
+                                  <CropIcon />
+                                  Redraw
                                 </Button>
                               </Show>
-                              <span className="min-w-0 truncate" title={selectedCrop.shot.name}>
-                                · {selectedCrop.shot.name}
+                              <span
+                                className="ms-auto min-w-0 truncate"
+                                title={selectedCrop.shot.name}
+                              >
+                                {selectedCrop.shot.name}
                               </span>
                             </figcaption>
                           </figure>
@@ -1082,7 +1200,7 @@ export function FieldNotesShowcase() {
                             the messages live INSIDE the value, because a `dl > div` may hold
                             nothing but `dt` and `dd`. */}
                         {selectedRow ? (
-                          <DataList orientation="vertical">
+                          <DataList>
                             {columns.map((column) => {
                               const cellIssues = issuesAt(selectedRow.id, column.key);
                               const cellMeta = meta[selectedRow.id]?.[column.key];
@@ -1090,37 +1208,41 @@ export function FieldNotesShowcase() {
                               const unsure =
                                 Boolean(value) && (cellMeta?.confidence ?? 1) < UNSURE;
                               return (
-                                <DataListItem className="gap-0.5 py-0" key={column.key}>
-                                  <DataListItemLabel className="flex items-center gap-1.5 text-xs">
+                                <DataListItem
+                                  className="items-start gap-3 border-border/64 border-b py-1.5 last:border-0"
+                                  key={column.key}
+                                >
+                                  <DataListItemLabel className="w-20 shrink-0 pt-0.5 text-xs">
                                     {column.label}
-                                    <Show when={cellIssues.length > 0 || unsure}>
-                                      <AlertTriangleIcon
-                                        aria-hidden
-                                        className={cn(
-                                          "size-3",
-                                          cellIssues.length ? "text-destructive" : "text-warning",
-                                        )}
-                                      />
-                                    </Show>
                                   </DataListItemLabel>
                                   <DataListItemValue
                                     className={cn(
-                                      "break-all",
+                                      "min-w-0 flex-1 break-words",
                                       column.type !== "string" && "tabular-nums",
                                       !value && "text-muted-foreground",
+                                      unsure &&
+                                        "underline decoration-warning decoration-dotted decoration-2 underline-offset-4",
                                     )}
                                   >
                                     {value || "—"}
+                                    {/* A finding and a note are two different claims about the
+                                        same cell — the shape refusing it, and the model saying why
+                                        it could not read it — so they are drawn as two different
+                                        marks rather than as two colours of the same one. Both live
+                                        INSIDE the value, because a `dl > div` may hold nothing but
+                                        `dt` and `dd`. */}
                                     {cellIssues.map((issue, i) => (
                                       <span
-                                        className="mt-0.5 block text-destructive text-xs"
+                                        className="mt-1 flex items-start gap-1.5 text-destructive text-xs"
                                         key={i}
                                       >
+                                        <Status className="mt-1 size-1.5" variant="destructive" />
                                         {issue.message}
                                       </span>
                                     ))}
                                     <Show when={Boolean(cellMeta?.note)}>
-                                      <span className="mt-0.5 block text-muted-foreground text-xs">
+                                      <span className="mt-1 flex items-start gap-1.5 text-muted-foreground text-xs">
+                                        <Status className="mt-1 size-1.5" variant="warning" />
                                         {cellMeta?.note}
                                       </span>
                                     </Show>
@@ -1183,7 +1305,7 @@ export function FieldNotesShowcase() {
       </ShellFooter>
 
       {/* The library's own FAB, bottom-end, which is where a preference belongs: it is not one of
-          this screen's verbs, and in `SectionActions` it stood beside two that are. */}
+          this screen's verbs, and in the header it stood beside two that are. */}
       <FieldNotesPreferences
         apiKey={apiKey}
         onApiKey={(key) => {
@@ -1203,12 +1325,86 @@ export function FieldNotesShowcase() {
  * is `aria-hidden` and the detail beside it carries the meaning in text, which is 1.4.1 satisfied
  * by construction rather than by a second sentence somewhere.
  */
+/**
+ * A tally that can be interrogated, which is `metadata-form`'s treatment and now this screen's too.
+ *
+ * A count on its own asks the reader to go and find the thing it counted. Hovering lists every one
+ * of them — the row, the column, and what the model or the validator said; pressing it filters the
+ * ledger down to exactly those rows, and pressing it again lets the rest back. The reveal lives on
+ * the badge and not inside the card for the reason that showcase gives: a hover card closes as soon
+ * as the pointer leaves its trigger, so a control in there is one you cannot reliably click.
+ */
+function FindingsBadge({
+  active,
+  items,
+  label,
+  onToggle,
+  summary,
+  tone,
+}: {
+  active: boolean;
+  items: { column: string; message: string; row: number }[];
+  label: string;
+  onToggle: () => void;
+  summary: string;
+  tone: "destructive" | "warning";
+}) {
+  return (
+    <HoverCard openDelay={80}>
+      <HoverCardTrigger asChild>
+        <button
+          aria-label={active ? `Show every row again` : `Show only the rows with ${label}`}
+          aria-pressed={active}
+          className="rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+          onClick={onToggle}
+          type="button"
+        >
+          <Badge pill size="xs" variant={active ? tone : "outline"}>
+            <Status
+              className="size-1.5"
+              variant={tone === "destructive" ? "destructive" : "warning"}
+            />
+            {items.length} {label}
+          </Badge>
+        </button>
+      </HoverCardTrigger>
+      <HoverCardContent className="w-80 p-0">
+        <div className="border-b px-3 py-2">
+          <p className="font-medium text-sm">{label[0]?.toUpperCase() + label.slice(1)}</p>
+          <p className="text-muted-foreground text-xs">{summary}</p>
+        </div>
+        <ScrollArea className="max-h-64">
+          <ul className="divide-y">
+            {items.map((item, i) => (
+              <li className="flex items-start justify-between gap-3 px-3 py-1.5" key={i}>
+                <span className="shrink-0 font-medium text-xs">
+                  <span className="text-muted-foreground">row {item.row} ·</span> {item.column}
+                </span>
+                <span className="text-end text-muted-foreground text-xs">{item.message}</span>
+              </li>
+            ))}
+          </ul>
+        </ScrollArea>
+        <p className="border-t px-3 py-2 text-muted-foreground text-xs">
+          {active
+            ? "Press the badge to bring the rest of the ledger back."
+            : "Press the badge to show only these rows."}
+        </p>
+      </HoverCardContent>
+    </HoverCard>
+  );
+}
+
 function PaneHeader({
+  children,
   detail,
   icon: Icon,
   title,
   tone,
 }: {
+  /** A control that governs THIS pane's document. The shape switcher lives here rather than in the
+   *  page header, where it stood beside verbs that act on the whole screen. */
+  children?: React.ReactNode;
   detail: string;
   icon: typeof FileCode2Icon;
   title: string;
@@ -1216,8 +1412,9 @@ function PaneHeader({
 }) {
   return (
     <div className="flex h-9 shrink-0 items-center gap-2 border-b px-3">
-      <Icon aria-hidden className="size-3.5 text-muted-foreground" />
-      <span className="font-medium text-xs">{title}</span>
+      <Icon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+      <span className="shrink-0 font-medium text-xs">{title}</span>
+      {children}
       <span className="ms-auto flex min-w-0 items-center gap-1.5">
         <Status
           className="size-1.5"

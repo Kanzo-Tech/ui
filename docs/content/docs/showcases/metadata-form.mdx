@@ -8,8 +8,9 @@ full: true
 
 A realistic contract-posting screen at full viewport, the form a quartermaster fills before work
 and, like the discovery showcase, **built as a Workspace on the Shell regions**. `ShellHeader`
-carries the utility strip (**Shape** · **Data** switcher · **Share**), the title, and the
-**Source** / **Output** / validation / **Preferences** controls.
+carries ONE row: the title, the **Contract** switcher that says which posting this is, and then
+**Share** / **Source** / **Output** / validation / **Preferences**. The standing-orders switcher is
+not up there — it lives in the Source panel's own header, against the document it replaces.
 Below it a **three-column `Resizable` workspace** reads left→right exactly like the breadcrumb:
 the hall's standing **orders** (a leading `ShellAside`) → the editable **form** (`ShellMain`, the
 single `<main>`, groups **The work** · **The posting** · **The terms** · **The party**) →

@@ -7,10 +7,15 @@ full: true
 <PreviewIframe name="field-notes" title="Field notes showcase" className="h-[820px]" />
 
 A photograph of five of the Amber Hall's sighting slips becomes five rows of a ledger, and the
-ledger becomes the CSV the archivist already keeps. `ShellHeader` is the same dense utility strip
-`metadata-form` uses — the source switch (**Demo run** · **Live model**), **Extract** and the
-**CSV** download; `ShellMain` holds the editable table; a trailing `ShellAside` shows the slip the
-selected row was read from, above the findings against it, with **The shape** on the second tab.
+ledger becomes the CSV the archivist already keeps. `ShellHeader` is one row — the same height
+`metadata-form`'s is — carrying the title, the source switch (**Demo run** · **Live model**), the
+two tallies and **Extract** with the **CSV** download; `ShellMain` holds the editable table; a
+trailing `ShellAside` shows the slip the selected row was read from, above the findings against it,
+with **The shape** on the second tab, and the shape switcher sits in that panel's own header.
+
+The tallies are the way in rather than a summary: hovering **unread** or **violations** lists every
+cell it counted with the reason beside it, and pressing one filters the ledger to exactly those
+rows. It is `metadata-form`'s validation badge, doing the same job on a table.
 
 It exists to answer a question the other showcases do not reach: what does a screen look like when
 the machine is *usually* right? Press **Extract** and the rows fill in live. Six of the thirty-five

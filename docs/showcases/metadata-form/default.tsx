@@ -62,11 +62,6 @@ import {
   ResizablePanel,
   ResizableResizeTrigger,
   ScrollArea,
-  SectionActions,
-  SectionDescription,
-  SectionHeader,
-  SectionTitle,
-  SectionTitleGroup,
   ShellAside,
   ShellBody,
   ShellHeader,
@@ -372,12 +367,25 @@ function GroupBadge({ counts }: { counts: Counts }) {
 
 /** The chrome shared by both docked asides — a titled header with a close control, over a
  *  scrolling body. */
+/**
+ * A panel's own header, and it is `h-9` because every other header on the screen is.
+ *
+ * It was `h-12` with a `text-sm` title — a third row of chrome above a document, in a column that
+ * is already the narrow one. `field-notes` draws the same header at `h-9`, and two showcases
+ * disagreeing about the height of the same furniture is the kind of difference a reader reads as
+ * meaning.
+ *
+ * `actions` is for a control that governs THIS panel's document — the standing-orders switcher
+ * belongs against the standing orders, not in the page header beside verbs that act on the form.
+ */
 function PanelShell({
+  actions,
   title,
   subtitle,
   onClose,
   children,
 }: {
+  actions?: ReactNode;
   title: string;
   subtitle: string;
   onClose: () => void;
@@ -385,14 +393,15 @@ function PanelShell({
 }) {
   return (
     <>
-      <div className="flex h-12 shrink-0 items-center gap-2 border-b px-3">
+      <div className="flex h-9 shrink-0 items-center gap-2 border-b px-3">
         <div className="flex min-w-0 items-baseline gap-2">
-          <span className="font-medium text-sm">{title}</span>
+          <span className="shrink-0 font-medium text-xs">{title}</span>
           <span className="truncate text-muted-foreground text-xs">{subtitle}</span>
         </div>
+        {actions}
         <Button
           aria-label={`Close ${title}`}
-          className="ms-auto text-muted-foreground"
+          className="ms-auto size-6 text-muted-foreground"
           onClick={onClose}
           size="icon-sm"
           variant="ghost"
@@ -1176,19 +1185,23 @@ export function MetadataFormShowcase() {
 
   return (
     <ShellRoot>
+      {/*
+        ONE row, and it was two: a `h-9` utility strip under a `scale="page"` title, 103 px of
+        chrome over a form whose own fields are `text-sm`. What a header owes is the landmark, the
+        subject and the verbs — the size of the type was carrying none of it, and `field-notes`
+        collapsed the same two rows for the same reason.
+
+        The standing-orders switcher went into the Source panel's header, against the document it
+        replaces. What stays here is the CONTRACT switcher, because the contract is what this page
+        IS — the title and the select read as one phrase, which is what they always were.
+      */}
       <ShellHeader>
-        {/* Utility strip — Orders / Contract switcher / Share, with the Made-with attribution. */}
-        <div className="flex h-9 items-center gap-2.5 border-b px-3 text-xs">
-          <span className="flex items-center gap-1.5 text-muted-foreground">
-            <ScrollTextIcon className="size-3.5" />
-            Orders
-          </span>
-          <NativeSelect className="w-56" defaultValue="amber" size="sm">
-            <NativeSelectOption value="amber">{ORDERS_LABEL}</NativeSelectOption>
-          </NativeSelect>
-          <span className="ms-1 text-muted-foreground">Contract</span>
+        <div className="flex h-11 items-center gap-2.5 border-b px-3 text-xs">
+          <ScrollTextIcon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+          <h1 className="shrink-0 font-heading font-medium text-sm">Post a contract</h1>
           <NativeSelect
-            className="w-72"
+            aria-label="Contract"
+            className="w-64 shrink-0"
             onChange={(e) => loadContract(e.target.value)}
             size="sm"
             value={contractId}
@@ -1199,24 +1212,15 @@ export function MetadataFormShowcase() {
               </NativeSelectOption>
             ))}
           </NativeSelect>
-          <Button className="gap-1.5" size="sm" variant="ghost">
-            <Share2Icon />
-            Share
-          </Button>
-        </div>
+          <span className="hidden min-w-0 truncate text-muted-foreground 2xl:inline">
+            standing orders → the posting → the writ the board pins up
+          </span>
 
-        {/* Title + Source / Output / validation / Preferences. */}
-        <SectionHeader className="px-6 py-3" scale="page">
-          <SectionTitleGroup>
-            <SectionTitle className="font-heading" level={1} scale="page">
-              Post a contract
-            </SectionTitle>
-            <SectionDescription className="truncate text-xs">
-              standing orders → the posting → the writ the board pins up
-            </SectionDescription>
-          </SectionTitleGroup>
-
-          <SectionActions className="gap-1.5">
+          <div className="ms-auto flex shrink-0 items-center gap-1.5">
+            <Button className="gap-1.5" size="sm" variant="ghost">
+              <Share2Icon />
+              Share
+            </Button>
             {/* Source — the standing orders. Toggles the LEADING aside, independently. */}
             <Button
               className="gap-1.5"
@@ -1376,8 +1380,8 @@ export function MetadataFormShowcase() {
                 <PreferencesMonoFont />
               </PreferencesPanel>
             </PreferencesRoot>
-          </SectionActions>
-        </SectionHeader>
+          </div>
+        </div>
       </ShellHeader>
 
       <ShellBody>
@@ -1412,6 +1416,11 @@ export function MetadataFormShowcase() {
               return (
                 <ShellAside aria-label="Source" className="min-h-0 flex-1 border-e-0 bg-card" side="start">
                   <PanelShell
+                    actions={
+                      <NativeSelect aria-label="Standing orders" className="w-44 shrink-0" defaultValue="amber" size="sm">
+                        <NativeSelectOption value="amber">{ORDERS_LABEL}</NativeSelectOption>
+                      </NativeSelect>
+                    }
                     onClose={() => setSourceOpen(false)}
                     subtitle="the standing orders"
                     title="Source"
