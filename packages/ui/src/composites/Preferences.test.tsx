@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "../simples/toast.js";
 import { KanzoThemeProvider } from "../theme/KanzoThemeProvider.js";
 import { IdentityNotice } from "./identity-notice.js";
-import { Preferences } from "./Preferences.js";
+import { Preferences, PreferencesSections } from "./Preferences.js";
 
 // jsdom ships no `matchMedia`; stub it per-file (do not edit vitest.setup.ts).
 function stubMatchMedia(matches = false) {
@@ -566,6 +566,57 @@ describe("sections a host contributed", () => {
     // White-label, in one assertion: same panel, same code, and this client's users never see it.
     setup(undefined, { sections: [SECTION], policy: { graph: { look: { pinned: "ink" } } } });
     expect(screen.queryByRole("radiogroup", { name: "look" })).toBeNull();
+  });
+});
+
+describe("a surface may draw part of a section", () => {
+  // The third selection, and the one a dock needs: a canvas has a panel for the forces and a panel
+  // for the picture, and both are the same section. A selection that stopped at the namespace would
+  // send the surface back to hand-rolling, which is what the mechanism exists to end.
+  const SECTION: SectionManifest = {
+    namespace: "graph",
+    version: 1,
+    prefs: {
+      marks: {
+        kind: "choice",
+        default: "dense",
+        doc: "how much ink a point spends",
+        options: [
+          { value: "dense", label: "Dense" },
+          { value: "legible", label: "Legible" },
+        ],
+      },
+      gravity: { kind: "range", default: "0.14", doc: "pull toward the centre", min: 0, max: 1, step: 0.01 },
+      friction: { kind: "range", default: "0.86", doc: "how fast motion decays", min: 0, max: 1, step: 0.01 },
+    },
+  };
+
+  const mount = (only?: string[]) =>
+    render(
+      <KanzoThemeProvider sections={[SECTION]}>
+        <PreferencesSections namespace="graph" {...(only ? { only } : {})} />
+      </KanzoThemeProvider>,
+    );
+
+  it("draws the named ones, in the order the caller named them", () => {
+    mount(["friction", "gravity"]);
+    const labels = [...document.querySelectorAll("[data-slot=slider-label]")].map((l) => l.textContent);
+    expect(labels).toEqual(["friction", "gravity"]);
+    // …and nothing else from the same section.
+    expect(screen.queryByRole("radiogroup", { name: "marks" })).toBeNull();
+  });
+
+  it("draws the whole section when nobody names a subset", () => {
+    mount();
+    expect([...document.querySelectorAll("[data-slot=slider-label]")]).toHaveLength(2);
+    expect(screen.getByRole("radiogroup", { name: "marks" })).toBeTruthy();
+  });
+
+  it("draws nothing for a name the section never declared", () => {
+    // A host's list outliving a package's manifest is the version-skew case one level up, and the
+    // answer is the same: lose a control, not a page.
+    mount(["gravity", "spaceSize"]);
+    expect([...document.querySelectorAll("[data-slot=slider-label]")]).toHaveLength(1);
   });
 });
 

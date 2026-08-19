@@ -980,9 +980,22 @@ export interface PreferencesSectionsProps {
    * throwing: a host that removed an optional package should lose a control, not a page.
    */
   namespace?: string;
+  /**
+   * Draw only these preferences, by name, in this order.
+   *
+   * The third selection, and the one a **dock** needs: a canvas has a panel for the forces and a
+   * panel for the picture, and both are the same section. Without it the surface either draws the
+   * whole section in one place or goes back to hand-rolling — which is the state this mechanism was
+   * built to end, so a selection that stops at the namespace stops one step short.
+   *
+   * Order is the caller's here, where a section's own order is the manifest's. That is the same
+   * split `PreferencesColor` already makes: what to offer belongs to whoever declared it, how to
+   * arrange a page belongs to the page. A name nothing declares draws nothing.
+   */
+  only?: readonly string[];
 }
 
-function ContributedSections({ namespace }: PreferencesSectionsProps = {}) {
+function ContributedSections({ namespace, only }: PreferencesSectionsProps = {}) {
   const { identities, palettes, sectionPrefs, setSectionPref } = useKanzoTheme();
 
   // The two lists only a tenant can write, in the shape a declaration names them by. Built here and
@@ -1000,15 +1013,27 @@ function ContributedSections({ namespace }: PreferencesSectionsProps = {}) {
     ? Object.entries(sectionPrefs).filter(([name]) => name === namespace)
     : Object.entries(sectionPrefs);
 
+  // The caller's order when it named the set, the manifest's when it did not. The entry type is
+  // read off the context rather than re-declared: it is `ResolvedPref & { decl }`, and a second
+  // spelling of it here would be one more thing to keep in step.
+  type Entry = ThemeContextValue["sectionPrefs"][string][string];
+  const chosen = (prefs: Record<string, Entry>): [string, Entry][] =>
+    only
+      ? only.flatMap((key) => {
+          const pref = prefs[key];
+          return pref ? [[key, pref] as [string, Entry]] : [];
+        })
+      : Object.entries(prefs);
+
   return (
     <>
       {drawn.map(([name, prefs]) =>
-        Object.entries(prefs).map(([key, pref]) =>
+        chosen(prefs).map(([key, pref]) =>
           pref.offered ? (
             <PrefControl
               key={`${name}.${key}`}
               name={key}
-              onChange={(next) => setSectionPref(name, key, next)}
+              onChange={(next) => setSectionPref(name, { [key]: next })}
               pref={pref}
               sources={sources}
             />

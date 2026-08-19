@@ -686,17 +686,26 @@ export function KanzoThemeProvider({
   }, [prefs.sections, policy, sections, sources]);
 
   const setSectionPref = React.useCallback(
-    (namespace: string, key: string, value_: string) => {
+    (namespace: string, values: Readonly<Record<string, string | undefined>>) => {
+      // **A record and not a key/value pair**, because one choice is sometimes several preferences.
+      // A host offering named arrangements — *Nebula*, *Atlas* — writes four axes at once, and four
+      // sequential calls in one handler each read the same pre-render `prefs.sections`, so three of
+      // them are lost and the picture is wrong in a way that looks like a rendering bug.
+      //
+      // `undefined` REMOVES a key, which is how a section-scoped reset is expressed: storage holds
+      // what a user chose, so unsetting lands wherever the chain says — the tenant's starting point
+      // when they published one. `JSON.stringify` drops the key on the way to storage, and
+      // `resolvePref` reads an absent key as "nobody has chosen".
+      const section = { ...(prefs.sections[namespace] ?? {}) };
+      for (const [key, value] of Object.entries(values)) {
+        if (value === undefined) delete section[key];
+        else section[key] = value;
+      }
       // The whole map is rewritten, every other namespace spread through untouched. That is the
       // property the token half already has and the reason this lives under one key: a namespace
       // belonging to a package this host does not have installed rides through every write without
       // the core ever parsing it.
-      set({
-        sections: {
-          ...prefs.sections,
-          [namespace]: { ...(prefs.sections[namespace] ?? {}), [key]: value_ },
-        },
-      });
+      set({ sections: { ...prefs.sections, [namespace]: section } });
     },
     [prefs.sections, set],
   );

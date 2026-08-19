@@ -117,8 +117,18 @@ export interface ThemeContextValue extends ThemePrefs {
    * test asserts on.
    */
   sectionPrefs: Record<string, Record<string, ResolvedPref & { decl: SectionPrefDecl }>>;
-  /** Write one. Every other namespace rides through untouched, parsed by nobody. */
-  setSectionPref: (namespace: string, key: string, value: string) => void;
+  /**
+   * Write some of one section's preferences. Every other namespace rides through untouched.
+   *
+   * A record rather than one key, because one choice is sometimes several preferences — a host
+   * offering named arrangements writes every axis that names it, and four sequential writes in one
+   * handler lose three. `undefined` removes a key, which is how a section resets to whatever the
+   * chain answers rather than to a value somebody wrote down.
+   */
+  setSectionPref: (
+    namespace: string,
+    values: Readonly<Record<string, string | undefined>>,
+  ) => void;
   /**
    * The core's own axes, resolved by the SAME chain and in the same shape as {@link sectionPrefs}.
    *

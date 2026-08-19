@@ -892,7 +892,7 @@ describe("sections a host registers", () => {
 
   it("stores a choice under its namespace and reads it back", () => {
     const view = mount();
-    act(() => view.ctx.setSectionPref("graph", "look", "ink"));
+    act(() => view.ctx.setSectionPref("graph", { look: "ink" }));
     expect(view.ctx.sections.graph).toEqual({ look: "ink" });
     expect(view.ctx.sectionPrefs.graph?.look).toMatchObject({ value: "ink", via: "stored" });
   });
@@ -904,13 +904,13 @@ describe("sections a host registers", () => {
     // Before this, `graph` would have been a top-level key and gone on the next save.
     const view = mount({ defaults: { sections: { sonar: { ping: "loud" } } } });
     expect(view.ctx.sectionPrefs.sonar, "a section nobody registered draws nothing").toBeUndefined();
-    act(() => view.ctx.setSectionPref("graph", "look", "ink"));
+    act(() => view.ctx.setSectionPref("graph", { look: "ink" }));
     expect(view.ctx.sections).toEqual({ sonar: { ping: "loud" }, graph: { look: "ink" } });
   });
 
   it("lets a tenant pin a choice, over the user, and withdraw the control", () => {
     const view = mount({ policy: { graph: { look: { pinned: "ink" } } } });
-    act(() => view.ctx.setSectionPref("graph", "look", "nebula"));
+    act(() => view.ctx.setSectionPref("graph", { look: "nebula" }));
     expect(view.ctx.sectionPrefs.graph?.look).toMatchObject({
       value: "ink",
       via: "pinned",
@@ -937,11 +937,11 @@ describe("sections a host registers", () => {
     // At the default, absent — the rule the four core axes follow, so a host that has changed
     // nothing has the <html> it had before any of this existed.
     expect(el.getAttribute("data-editor-size")).toBeNull();
-    act(() => ctx.setSectionPref("editor", "size", "lg"));
+    act(() => ctx.setSectionPref("editor", { size: "lg" }));
     expect(el.getAttribute("data-editor-size")).toBe("lg");
     // And the section without an `attr` writes nothing at all, which is most of them.
     expect(el.getAttribute("data-graph-look")).toBeNull();
-    act(() => ctx.setSectionPref("graph", "look", "ink"));
+    act(() => ctx.setSectionPref("graph", { look: "ink" }));
     expect(el.getAttribute("data-graph-look")).toBeNull();
 
     // Unmounting takes the attribute with it: a dropped optional peer must not leave a `data-*` on
