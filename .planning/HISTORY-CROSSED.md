@@ -18,7 +18,14 @@ forma de verse.
 | `55ef47c` | *the contributed-preference record closes, and a number was stale* | **el cambio entero** de la vista alejada como muestra: el borrado del agregado, el muestreo por zancada, los guards y la decisión. |
 | `25dddf8` | *a far view is a sample, and the summary it replaces crashed the tab* | quedó casi vacío — sólo una línea de `DESIGN.md`. **Es el mensaje que describe lo que trajo `55ef47c`.** |
 
-Y un cuarto caso, atrapado a tiempo: un borrado staged de `once-query.ts` de otra sesión se coló en
+**Y un cuarto caso, en la dirección contraria:** `c562229` (el agente de la capa de aristas) se llevó
+seis ficheros del agente de la caja de coordenadas antes de que éste commiteara — `use-bounded-graph.ts`
+y su test, `graph-model.ts`, `index.test.ts`, `DESIGN.md` y el changeset. Verificado que no se perdió
+nada. Importa porque rompe la lectura cómoda de los tres anteriores: no es «las otras sesiones se
+llevan lo mío», es que **dos procesos cualesquiera commiteando un índice compartido se llevan lo del
+otro**, y nosotros hemos estado en los dos lados.
+
+Y un quinto, atrapado a tiempo: un borrado staged de `once-query.ts` de otra sesión se coló en
 un primer commit del agente de diseño, que lo devolvió al índice intacto al notarlo.
 
 ## Cómo leer esto
