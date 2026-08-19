@@ -82,7 +82,6 @@ import {
   DownloadIcon,
   FileCode2Icon,
   ImageIcon,
-  MaximizeIcon,
   PlusIcon,
   ScanTextIcon,
   SquareIcon,
@@ -205,6 +204,42 @@ function Sheet({ className, crop, shot }: { className?: string; crop: Crop; shot
           backgroundColor: "var(--brand-a3)",
         }}
       />
+    </div>
+  );
+}
+
+/**
+ * The paper, in the order the questions come.
+ *
+ * The whole photograph with the box drawn on it answers WHICH slip this row is — a thing you point
+ * at, not a thing you read — and the cut answers what it says. So the sheet is what sits there and
+ * the cut is a hover away, at the same height, which is one gesture rather than a caption and a
+ * mode. Both are the same technique underneath: the crop is fractions of the image, so the box is
+ * a percentage inset on the sheet and a percentage translate on the cut.
+ *
+ * The group is NAMED and the caller owns it: the panel puts `group/paper` on the figure so an edit
+ * button can share the same hover, and the ledger puts it on the cell so a row's other columns do
+ * not trigger it. An anonymous `group` here would take whichever ancestor happened to have one.
+ */
+function PaperPreview({
+  className,
+  crop,
+  shot,
+}: {
+  className?: string;
+  crop: Crop;
+  shot: Shot;
+}) {
+  return (
+    <div className={cn("relative overflow-hidden rounded-md border bg-muted", className)}>
+      <Sheet
+        className="size-full rounded-none border-0 transition-opacity group-hover/paper:opacity-0 motion-reduce:transition-none!"
+        crop={crop}
+        shot={shot}
+      />
+      <span className="absolute inset-0 flex items-center justify-center bg-muted opacity-0 transition-opacity group-hover/paper:opacity-100 motion-reduce:transition-none!">
+        <Slip className="h-full w-auto max-w-full rounded-none border-0" crop={crop} shot={shot} />
+      </span>
     </div>
   );
 }
@@ -434,7 +469,9 @@ function ledgerColumns(columns: Column[]): ColumnDef<Row>[] {
         // `m-1.5` because the cells are `p-0` — that override is for the editable ones, whose
         // `Input` has to fill its cell, and the paper is the one cell that wants air.
         return found ? (
-          <Slip className="m-1.5 h-10 w-auto" crop={found.crop} shot={found.shot} />
+          <span className="group/paper m-1.5 block h-10 w-[3.25rem]">
+            <PaperPreview className="size-full" crop={found.crop} shot={found.shot} />
+          </span>
         ) : null;
       },
     },
@@ -496,6 +533,16 @@ export function FieldNotesShowcase() {
   const [shapeError, setShapeError] = useState<string | null>(null);
 
   const engine = useAiStream<ExtractEvent>("Could not read the photo");
+  /**
+   * The boxes the reader drew, and the reason a second run does not take them back.
+   *
+   * `Extract again` re-reads the photographs, and the model reports its own box for every row it
+   * finds — including the rows somebody has already corrected by hand. Overwriting those is the
+   * one thing a re-run must not do: the reader's box is the only piece of this screen the machine
+   * did not produce. A ref rather than state because `apply` reads it inside the stream loop and
+   * must not be rebuilt mid-run.
+   */
+  const handDrawn = useRef<Set<string>>(new Set());
   /** Whether a ledger was ever parsed — a later failure is an edit, not a boot failure. */
   const ledgerRef = useRef<Ledger | null>(null);
   const added = useRef(0);
@@ -651,7 +698,11 @@ export function FieldNotesShowcase() {
 
   const apply = useCallback((event: ExtractEvent) => {
     if (event.kind === "row") {
-      setCrops((prev) => ({ ...prev, [event.rowId]: { shot: event.shot, crop: event.crop } }));
+      setCrops((prev) =>
+        handDrawn.current.has(event.rowId)
+          ? prev
+          : { ...prev, [event.rowId]: { shot: event.shot, crop: event.crop } },
+      );
       setRows((prev) =>
         prev.some((r) => r.id === event.rowId) ? prev : [...prev, { id: event.rowId, cells: {} }],
       );
@@ -680,7 +731,10 @@ export function FieldNotesShowcase() {
     if (!shots.length) return;
     setRows([]);
     setMeta({});
-    setCrops({});
+    // Everything the machine said goes; everything the reader drew stays.
+    setCrops((prev) =>
+      Object.fromEntries(Object.entries(prev).filter(([id]) => handDrawn.current.has(id))),
+    );
     table.resetRowSelection();
     engine.start((signal) => extractor(shots, signal));
     void (async () => {
@@ -739,20 +793,11 @@ export function FieldNotesShowcase() {
           {/* Without a key there is no choice to make, and a two-option control that can only land
               on one of them is a lie — so what is left is a statement of fact: this is the demo
               run. The moment a key exists the choice does too, and the segments come back. */}
-          <Show
-            fallback={
-              <Badge
-                className="ms-auto shrink-0"
-                pill
-                size="xs"
-                title="A recorded run of a real extraction, replayed. Paste your Anthropic key in Preferences to run the model live."
-                variant="secondary"
-              >
-                Demo run
-              </Badge>
-            }
-            when={Boolean(apiKey)}
-          >
+          {/* With no key there is no choice to make, and what is left is a statement of fact — so it
+              is not a control and does not stand among them. It is a watermark in the status strip;
+              see the footer. The moment a key exists the CHOICE exists too, and the segments come
+              back here, where the verbs are. */}
+          <Show fallback={null} when={Boolean(apiKey)}>
             <SegmentGroup
               className="ms-auto shrink-0"
               onValueChange={(d) => setSource(d.value ?? "recorded")}
@@ -1134,37 +1179,41 @@ export function FieldNotesShowcase() {
                       >
                         {selected && selectedCrop ? (
                           /* THE WHOLE PHOTOGRAPH, with the box drawn on it — and the cut on hover.
-                             That order is the answer to the question the panel is asked. "Which
-                             slip is this row" is a thing you point at on the sheet; the cut alone
-                             says what it says but never where, and the reader had to press to find
-                             out. Hovering swaps in the crop, at the same height, so the two are one
-                             gesture apart and neither needs a caption.
+                             That order is the answer to the question the panel is asked: "which
+                             slip is this row" is a thing you point at on the sheet, and the cut
+                             alone says what it says but never where.
 
-                             Pressing opens the viewer, where the ink is legible and the box can be
-                             redrawn — what fits in a docked pane is a reference either way. */
-                          <figure className="group relative">
+                             Two things live on the hover, and they are two different verbs. The
+                             picture is a button and opens the CUT at full size, which is the
+                             reading gesture. `Edit` is a button of its own, positioned over the
+                             corner rather than nested inside the other one — a button inside a
+                             button is invalid markup and the inner one is what a screen reader
+                             announces — and it goes straight to the cropper. */
+                          <figure className="group/paper relative">
                             <button
-                              className="relative block w-full cursor-zoom-in overflow-hidden rounded-lg shadow-sm outline-none ring-1 ring-border focus-visible:ring-[3px] focus-visible:ring-ring"
+                              className="block w-full cursor-zoom-in overflow-hidden rounded-lg shadow-sm outline-none ring-1 ring-border focus-visible:ring-[3px] focus-visible:ring-ring"
                               onClick={() => setViewing(true)}
+                              title="Open the cut"
                               type="button"
                             >
-                              <Sheet
-                                className="w-full rounded-none border-0 transition-opacity group-hover:opacity-0 motion-reduce:transition-none!"
+                              <PaperPreview
+                                className="rounded-none border-0"
                                 crop={selectedCrop.crop}
                                 shot={selectedCrop.shot}
                               />
-                              <span className="absolute inset-0 flex items-center justify-center bg-muted opacity-0 transition-opacity group-hover:opacity-100 motion-reduce:transition-none!">
-                                <Slip
-                                  className="h-full w-auto max-w-full rounded-none border-0"
-                                  crop={selectedCrop.crop}
-                                  shot={selectedCrop.shot}
-                                />
-                              </span>
-                              <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-linear-to-t from-black/64 to-transparent p-2 pt-6 text-white text-xs opacity-0 transition-opacity group-hover:opacity-100 motion-reduce:transition-none!">
-                                <MaximizeIcon className="size-3" />
-                                Open the sheet
-                              </span>
                             </button>
+                            <Button
+                              className="absolute end-2 bottom-2 opacity-0 shadow-sm transition-opacity focus-visible:opacity-100 group-hover/paper:opacity-100 motion-reduce:transition-none!"
+                              onClick={() => {
+                                setDrawing(selected);
+                                setViewing(true);
+                              }}
+                              size="sm"
+                              variant="secondary"
+                            >
+                              <CropIcon />
+                              Edit the box
+                            </Button>
                           </figure>
                         ) : null}
                         {/* The whole record, not the broken part of it. A panel that listed only
@@ -1272,6 +1321,18 @@ export function FieldNotesShowcase() {
           <Separator className="h-3" orientation="vertical" />
           <span className="text-destructive">{engine.error}</span>
         </Show>
+        {/* The watermark. It was a `Badge` in the header, in the row where `Extract` and the
+            downloads live, and a fact does not belong among verbs — a pill up there reads as
+            something you can press. Here it is what it is: small, quiet, at the far end of the
+            strip that already says how many rows and how many photographs. */}
+        <Show when={!apiKey}>
+          <span
+            className="ms-auto shrink-0 text-[0.625rem] text-muted-foreground/64 uppercase tracking-[0.2em]"
+            title="A recorded run of a real extraction, replayed. Paste your Anthropic key in Preferences to run the model live."
+          >
+            demo run
+          </span>
+        </Show>
       </ShellFooter>
 
       {/*
@@ -1293,7 +1354,7 @@ export function FieldNotesShowcase() {
           <DialogContent className="flex h-[86vh] flex-col p-0" size="6xl">
             <DialogHeader className="border-b px-4 py-2.5">
               <DialogTitle className="font-heading text-sm">
-                {drawing ? "Draw the box" : "The sheet"}
+                {drawing ? "Draw the box" : "The slip"}
               </DialogTitle>
               <DialogDescription className="text-xs">
                 {drawing
@@ -1309,14 +1370,21 @@ export function FieldNotesShowcase() {
                   className="size-full"
                   onCancel={() => setDrawing(null)}
                   onSave={(crop) => {
+                    handDrawn.current.add(drawing);
                     setCrops((prev) => ({ ...prev, [drawing]: { shot: sheet.id, crop } }));
                     setDrawing(null);
                   }}
                   shot={sheet}
                 />
               ) : selectedCrop ? (
-                <Sheet
-                  className="max-h-full max-w-full"
+                /* The CUT, at the size the panel could not give it. The panel already answers
+                   "where on the sheet" — it stands there with the box drawn on the photograph —
+                   so what is left for the viewer is the paper itself, big enough to read, framed
+                   the way it is framed everywhere else. The sheet comes back the moment the
+                   reader presses `Redraw the box`, because placing a box needs the whole
+                   photograph and reading one does not. */
+                <Slip
+                  className="h-full w-auto max-w-full shadow-sm"
                   crop={selectedCrop.crop}
                   shot={selectedCrop.shot}
                 />
