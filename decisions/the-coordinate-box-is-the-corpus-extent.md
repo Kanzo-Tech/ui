@@ -32,11 +32,31 @@ every cosmos.gl 3.4.0 render path as a **pure translation** — `Store.updateScr
 shader's `2·point/S − 1` is immediately multiplied by `S/screenSize`, leaving
 `(2·point − S)/screenSize` — so it shifts the origin and scales nothing. There is no clipping to the
 box, `screenToSpacePosition` stays exactly linear far outside it, and the camera is fitted from the
-extent by `frame()` anyway. **Nothing visible was broken.** The reason to fix it is therefore not a
+extent by `frame()` anyway. **Nothing visible was broken by the wrong box** — all one million points upload, all one million come back from a rect selection over the whole canvas, and hit-testing lands within a point radius of the cursor out at 645396. The reason to fix it is therefore not a
 defect: the box was a false statement about someone else's data, and a constant exported for a host
 that could not answer `extent()` was a second path for nobody — all three sources answer it
 (`memorySource` from a pass over the positions it holds, `duckBoundedSource` from four aggregates,
 `openCorpus` from the tile footers).
+
+**Two cases do not fit, both measured in a foreground tab on 2026-08-19 at 800×600.**
+
+The first is a real defect this decision does **not** fix. cosmos.gl's d3-zoom carries
+`scaleExtent([1e-3, ∞])`, and framing an extent needs `screen / span`. The million fits at
+0.00116, which is 1.16× off that floor. **The five-million corpus does not**: its extent is
+x ∈ [−263.43, 5289375], y ∈ [−3130.62, 3252766.5], the fit wants 0.000151, and `getZoomLevel()`
+after `fitViewByPointPositions` reports exactly 0.001 — clamped, with about 15% of the width on
+screen and no way to ask for the rest. The zoom floor is independent of the box, so nothing here
+moves it; it is a separate decision about whether a corpus is rescaled on the way in or the
+renderer is asked to lift the floor.
+
+The second is a consequence of this change rather than a survival from before it. `adjustSpaceSize`
+reduces the box to half the device's `maxTextureDimension2D` — 16384 here, so 8192 — whenever it
+meets that limit, and says so: `The `spaceSize` has been reduced to 8192 due to WebGL limits`. A
+million-vertex corpus trips it on every open, and the config keeps the asked-for value while the
+store uses the reduced one. It costs nothing but the line: the reduction is a translation like every
+other space size, the uploaded positions are byte-identical either way, and the fit runs after the
+set. It is left visible rather than clamped on our side, because a corpus larger than the renderer
+can name as a box is worth one line in a console.
 
 **What this does not decide** is what a host does when it has no extent. Nothing has that shape
 today, so there is no default of ours; until the first extent lands, cosmos.gl's own default stands,

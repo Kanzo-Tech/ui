@@ -238,6 +238,14 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
        * treats as init-only — `initialZoomLevel`, `randomSeed`, `attribution` — so it takes effect
        * here; the config change calls `adjustSpaceSize` and re-syncs the screen scales.
        *
+       * **Before the fit, not after.** Changing the box shifts the space→screen origin by half the
+       * difference — measured 2.4 px on the million at its fitted zoom — so a set that follows the
+       * fit slides the picture the reader was just given. The fit absorbs it in this order.
+       *
+       * A box past the device's `maxTextureDimension2D` is halved by cosmos.gl with a console line
+       * of its own; that is left visible rather than clamped here, and
+       * `decisions/the-coordinate-box-is-the-corpus-extent.md` says why.
+       *
        * The larger side, because the box is a square. There used to be an exported `SPACE = 4096`
        * declaring it, hand-copied into both bench generators, and a corpus fossil wrote ignored it:
        * a million vertices span about x ∈ [−345, 645396]. That was survivable only because
