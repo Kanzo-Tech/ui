@@ -1,0 +1,120 @@
+---
+title: Receipts
+description: Photos of fuel tickets in, a spreadsheet out — with the columns declared once as a SHACL shape and read four ways, and a review step that puts the paper next to the number.
+full: true
+---
+
+<PreviewIframe name="receipts" title="Receipts showcase" className="h-[820px]" />
+
+A photograph of five fuel tickets on a table becomes five rows of a ledger, and the ledger becomes
+the CSV the accountant already uses. `ShellHeader` is the same dense utility strip
+`metadata-form` uses — the source switch (**Recorded** · **Live model**), **Extract** and the
+**CSV** download; `ShellMain` holds the editable table; a trailing `ShellAside` shows the ticket
+the selected row was read from, above the findings against it, with **The shape** on the second
+tab.
+
+It exists to answer a question the other showcases do not reach: what does a screen look like when
+the machine is *usually* right? Press **Extraer** and the rows fill in live. Six of the
+thirty-five cells arrive empty, because six of them are not in the photograph — and that is the
+screen, not a defect in the demo.
+
+## One declaration, four readings
+
+The seven columns are written once, as a SHACL node shape, and nothing below restates them:
+
+```turtle
+sh:property [
+  sh:path tk:importe ;
+  sh:name "IMPORTE"@es ;
+  sh:description "El TOTAL en euros, el de «Total Venta». No el precio por litro de la columna €/L, ni el número de litros."@es ;
+  sh:order 6 ;
+  sh:datatype xsd:decimal ;
+  sh:minCount 1 ;
+  sh:message "El importe total del ticket, en euros."@es ;
+] ;
+```
+
+None of that vocabulary is invented for this showcase. `sh:name`, `sh:description` and `sh:order`
+are SHACL's **non-validating property shape characteristics** — in the Recommendation precisely so
+a tool can present a shape rather than only validate against it. The one term this shape declines
+is SHACL-UI's `shui:editor`: the control it would name is already implied by `sh:datatype` and
+`sh:in`.
+
+The strings are Spanish, tagged `@es`, while the chrome around them is English. That is the split,
+not an oversight: `sh:name` becomes a column header in a Spanish accountant's spreadsheet and
+`sh:message` is read by whoever checks a cell against Spanish paperwork.
+
+[rudof](https://github.com/rudof-project/rudof) — a Rust SHACL/ShEx stack compiled to
+WebAssembly — parses that document and hands back its own IR, so the column list *is* the shape.
+The same document then decides:
+
+1. **the table** — `sh:name` is the header, `sh:order` the column order, `sh:datatype` whether the
+   cell is an `Input` or a `NativeSelect`, and `sh:in` the select's options;
+2. **what the model is asked for** — the tool schema the route handler sends is generated from the
+   projected columns, and `key` is an **enum of those columns**, so every cell comes back as an
+   explicit `{key, value}` pair. Nothing is positional: the model never returns "the third value",
+   and a key outside the enum is rejected by structured outputs. What tells it *which* is which is
+   `sh:description` — the receipt prints a price per litre and a total side by side, and only that
+   sentence says which one `importe` means;
+3. **the findings** — `validate()` is the real SHACL validator running in wasm, not a lookalike;
+4. **the file** — `toCsv` reads `sh:name` for the header and `sh:datatype` to know a date from a
+   decimal.
+
+Add a column to the shape and it appears in all four without a line changing anywhere else.
+
+The converse is the part worth saying out loud: **the shape is a projection.** The receipt also
+carries litres, €/L, the merchant, the concession, the operation number, the hour, the station and
+the card holder — the shape names seven properties, so everything else is dropped and does not
+exist downstream. That is what the accountant wants, and it is also why adding a column later
+means re-reading the photographs.
+
+Why that is a decision rather than a convenience is in
+[`a-column-is-read-from-the-shape`](https://github.com/Kanzo-Tech/kanzo-ui/blob/main/decisions/a-column-is-read-from-the-shape.md).
+
+## Why a model and not an OCR
+
+Three of the seven columns are **not printed on the ticket at all**. `MATRÍCULA`, `DRIVER` and
+`BASE/ESCOBA` are written on the paper in biro — a receipt OCR reads the printed layer and returns
+nothing for them. Every low confidence in the recorded run is on one of those three, or on the one
+ticket the photograph cuts in half.
+
+That is also why the row thumbnail shows the *head* of each ticket rather than the whole of it:
+the annotation is the part a reviewer needs to see.
+
+## The review step is the screen
+
+Extraction gets most cells right and some cells wrong, and two independent mechanisms say so:
+
+- **the model's own note** — why a cell is empty or unsure, written for whoever has to check it
+  against the paper (`Tapado por el portátil.`, `El ticket está cortado por el borde de la foto.`);
+- **the shape** — `sh:minCount` turns a cell nobody could read into a violation, `sh:pattern`
+  catches a mistyped ticket number, `sh:in` catches a base outside the vocabulary.
+
+They agree without knowing about each other, and the aside shows both beside the crop of the
+ticket. An unsure value carries a dotted amber underline; an invalid one gets `Input`'s own
+`aria-invalid` ring.
+
+## What it composes
+
+Existing parts, arranged — nothing here is new:
+
+- **`ShellRoot` / `ShellHeader` / `ShellBody` / `ShellMain` / `ShellAside`** — the frame. Exactly
+  one `<main>`; the ticket panel is an `<aside>` landmark.
+- **`useAiStream`** — the streaming engine, and its second consumer. It is domain-free by
+  construction: a run of vision events uses it unchanged, alongside `Complete` and `Suggest`.
+- **`FileUpload` + `FileUploadDropzone`** — the empty state. One photo may hold several tickets.
+- **`Table` parts + `Input` + `NativeSelect`** — the editable ledger. The control a cell gets is
+  decided by its `sh:datatype` and `sh:in`, not by a switch written here.
+- **`DownloadTrigger`** — the CSV, `;`-separated with a BOM and the decimal comma left as typed,
+  because that is the file Spanish Excel opens by double-click.
+- **`SegmentGroup`**, **`Tabs`**, **`ScrollArea`**, **`Badge`**, **`Show`** — the chrome.
+
+## Running it against a real model
+
+The showcase ships a **recorded** run so the docs build is deterministic and needs no key. The same
+`(shots, signal) => AsyncIterable<ExtractEvent>` seam takes a live adapter: set `ANTHROPIC_API_KEY`
+and **Live model** stops being greyed out. The showcase asks the route handler whether a key
+exists before offering the option, rather than letting the button fail on click.
+
+The key never reaches the browser, and `@kanzo-tech/ui` never learns what SHACL is — the admission
+rule at the top of the barrel bars RDF by name, so every line of this lives in `showcases/`.

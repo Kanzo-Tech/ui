@@ -1,7 +1,7 @@
 import { resolve } from "node:path";
 import { defineConfig } from "vitest/config";
 
-// The docs app has tests for exactly one thing: the example world.
+// The docs app has tests for two things: the example world, and the pure halves of a showcase.
 //
 // Not the previews — those are covered by the App Router build, which imports every example and
 // fails on a broken one. What the build cannot check is whether the *fixture* still says what the
@@ -13,6 +13,6 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["example/**/*.test.ts"],
+    include: ["example/**/*.test.ts", "showcases/**/*.test.ts"],
   },
 });
