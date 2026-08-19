@@ -3,7 +3,7 @@
 import type { Graph } from "@cosmos.gl/graph";
 import { useCallback, useMemo, useRef, type RefObject } from "react";
 import type { BoundedSource, Slice } from "./bounded";
-import { LOOKS, type Look } from "./graph-looks";
+import { DEFAULT_LOOK, type Look } from "./graph-looks";
 import { isColour, type Channels } from "./graph-model";
 import { residentOf, type Resident, type VertexId } from "./resident";
 import type { Display, Motion, Sim } from "./types";
@@ -189,7 +189,7 @@ export function useGraph(props: UseGraphProps): GraphApi {
     events,
     fill,
     limit,
-    look = LOOKS.atlas,
+    look = DEFAULT_LOOK,
     onFailure,
     pinned,
     r,
