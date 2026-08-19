@@ -2,7 +2,7 @@
 
 import { clausePoints, column, fillColumn, numbers } from "@kanzo-tech/ui/analytics";
 import type { Coordinator, FilterExpr, Selection } from "@kanzo-tech/ui/analytics";
-import { SUPERSEDED, type BoundedSource, type Slice, type SliceRequest, type Viewport } from "./bounded";
+import { BOUNDED_DEFAULTS, SUPERSEDED, type BoundedSource, type Slice, type SliceRequest, type Viewport } from "./bounded";
 import { SliceRead } from "./slice-client";
 import { denseOf, typeOf, vertexId, type VertexId } from "./resident";
 
@@ -243,9 +243,13 @@ export function duckBoundedSource(options: DuckSourceOptions): DuckSource {
      * throw; now the absence is the statement, and asking is a compile error.
      */
     async slice(request: SliceRequest): Promise<Slice> {
-      const { fill, limit, pinned, r, view } = request;
+      const { fill, limit, perPixel, pinned, r, view } = request;
       const asked: Columns = { ...columns, category: fill, size: r };
-      return watching.run(region(nodes, edges, asked, view, limit, typeIndex, pinned));
+      // No `held`: this source reads a relation rather than addressing bytes, so there is nothing
+      // "already in hand" to draw a far end from — see `anchorCte`.
+      return watching.run(
+        region(nodes, edges, asked, view, limit, typeIndex, pinned, perPixel, undefined),
+      );
     },
   };
 }
@@ -327,7 +331,7 @@ function visibleCte(
   c: Columns,
   where: string,
   limit: number,
-  matched: boolean,
+  matched = true,
 ): string {
   const size = c.size ? `, ${c.size} AS size` : "";
   // Selected in the CTE rather than joined back afterwards: the numbering is over what survives the
@@ -361,6 +365,81 @@ function visibleCte(
 }
 
 /**
+ * The shortest edge worth a row, as a predicate over the two endpoints — **squared, and on purpose.**
+ *
+ * A distance is compared against a threshold, and squaring both sides removes a `sqrt` per row from
+ * a predicate evaluated once per candidate edge. It changes no answer: both sides are non-negative.
+ *
+ * `undefined` when the caller said nothing about resolution, and then there is no predicate at all
+ * rather than a permissive one — a request with no canvas behind it (`EVERYTHING`) has no pixels to
+ * measure three of.
+ */
+function longEnough(a: string, b: string, perPixel: number | undefined): string {
+  if (perPixel === undefined || !Number.isFinite(perPixel) || perPixel <= 0) return "";
+  const floor = BOUNDED_DEFAULTS.minLinkPixels * perPixel;
+  return `(${a}.x - ${b}.x) * (${a}.x - ${b}.x) + (${a}.y - ${b}.y) * (${a}.y - ${b}.y) >= ${floor * floor}`;
+}
+
+/**
+ * The far ends, and the edges that reach them — **out of bytes the reader already fetched.**
+ *
+ * An edge with one end outside the rectangle is dropped today, and that loses 19.31% / 31.94% /
+ * 28.92% of the edges incident to a window at 200k / 1M / 5M; 7,930 of 20,000 vertices carry at least
+ * one at five million. What was missing was never the edge row — a window reads the `by_source` tiles
+ * of every vertex it draws, so the row is in hand — it was **a position to draw the far end at**.
+ *
+ * **And a tile answers that for free.** A tile is 4,096 rows of a Morton-ordered relation and its
+ * bounding box is far wider than the rows the rectangle keeps, so the vertices just outside the
+ * window are usually in a tile the window already fetched. Measured over five windows of
+ * `docs/public/bench/1000000`, 2026-08-19: relaxing the join from *inside the rectangle* to *inside
+ * the tiles that were read* takes the drawn edges of five windows from 616,885 to 781,562 of 906,337
+ * incident — **56.9% of everything the reader was losing, at no request, no query and no byte.**
+ *
+ * **The tile boundary is also a distance filter, and that is what settles the drawing.** Over every
+ * far end a window loses, the median sits 1.64 semi-widths out and the worst 47.1 — which is why a
+ * stub clipped to the viewport is a lie: nothing distinguishes 1.1 from 47. The far ends a held tile
+ * can answer are the near ones: median 1.11–1.85 semi-widths, 90th percentile 1.29–2.60, worst
+ * **6.74**, against 7.09–16.91 for the full reachable set. So the honest picture and the free one are
+ * the same picture, and there is no trade to make: the anchors are drawn where the vertices are, and
+ * the long tail stays undrawn because its bytes are not here — not because we decided.
+ *
+ * @param held The relation whose rows the reader is holding — the tiles a corpus fetched for this
+ *   window. **`undefined` for a source over an ordinary relation, and that is not a downgrade, it is
+ *   the truth:** nothing is "already in hand" there, so `held` would be the whole node table and the
+ *   join would scan the corpus twice per camera move. Only an addressed source knows what it holds.
+ */
+function anchorCte(
+  held: string,
+  edges: string,
+  c: Columns,
+  spatial: string,
+  filter: string,
+  perPixel: number | undefined,
+): string {
+  const outside = both(`NOT (${spatial})`, filter);
+  const long = longEnough("a", "b", perPixel);
+  return `, out AS (
+    SELECT ${c.id} AS id, ${c.x} AS x, ${c.y} AS y FROM ${held} WHERE ${outside}
+  ), reach AS (
+    SELECT id, x, y FROM vis UNION ALL SELECT id, x, y FROM out
+  ), span AS (
+    SELECT sv.local AS src, tv.local AS dst, a.id AS src_id, b.id AS dst_id
+    FROM ${edges} e
+    JOIN reach a ON e.${c.source} = a.id
+    JOIN reach b ON e.${c.target} = b.id
+    LEFT JOIN vis sv ON sv.id = a.id
+    LEFT JOIN vis tv ON tv.id = b.id
+    WHERE (sv.id IS NOT NULL OR tv.id IS NOT NULL)${long ? ` AND ${long}` : ""}
+  ), anchor AS (
+    SELECT o.id, o.x, o.y,
+           ((SELECT count(*) FROM vis) + row_number() OVER (ORDER BY o.id) - 1)::INTEGER AS local
+    FROM out o
+    WHERE o.id IN (SELECT src_id FROM span WHERE src IS NULL
+                   UNION SELECT dst_id FROM span WHERE dst IS NULL)
+  )`;
+}
+
+/**
  * A question, in the two halves it is asked in and the one place they are put back together.
  *
  * The reads run through the coordinator, so the *same* pair of SQL builders serves both directions:
@@ -388,6 +467,8 @@ function region(
   limit: number,
   typeIndex: number,
   pinned: VertexId[] | undefined,
+  perPixel: number | undefined,
+  held: string | undefined,
 ): Plan {
   const bbox = bboxSql(c, view);
   // A dragged node is drawn where the reader dropped it and indexed where it always was, so the
@@ -397,8 +478,8 @@ function region(
   // Only this relation's own vertices: a pinned set spans the whole canvas, and asking one node
   // table for another type's dense ids returns the wrong rows rather than none.
   const mine = (pinned ?? []).filter((v) => typeOf(v) === typeIndex).map(denseOf);
-  const held = mine.length > 0 ? ` OR ${c.id} IN (${mine.join(",")})` : "";
-  const spatial = `(${bbox})${held}`;
+  const pins = mine.length > 0 ? ` OR ${c.id} IN (${mine.join(",")})` : "";
+  const spatial = `(${bbox})${pins}`;
   /**
    * The page's predicate outside the pin, not inside it.
    *
@@ -407,26 +488,55 @@ function region(
    * canvas would draw a vertex the rest of the page has agreed is not there.
    */
   const where = (filter: FilterExpr) => both(spatial, predicateSql(filter));
+  const size = c.size ? ", size" : "";
+  const subject = c.subject ? ", subject" : "";
+  const near = longEnough("s", "t", perPixel);
+  const anchors = (filter: FilterExpr) =>
+    held ? anchorCte(held, edges, c, spatial, predicateSql(filter), perPixel) : "";
 
   return {
+    /**
+     * The marks, then the anchors, in one answer — because they are one buffer.
+     *
+     * `ORDER BY local` is load-bearing rather than tidy: `local` runs `0..marks-1` over the sample
+     * and continues past it over the anchors, so ordering by it puts every mark before every anchor
+     * and makes `marks` a prefix length. `matched` is then still read off row zero.
+     */
     points: (filter) =>
-      `${visibleCte(nodes, c, where(filter), limit, true)}
-       SELECT local, id, x, y, category, matched${c.size ? ", size" : ""}${
-         c.subject ? ", subject" : ""
-       } FROM vis ORDER BY local`,
-    // Both endpoints must be visible. An edge with one end off-slice is dropped, and that is a **limit
-    // of this reader rather than of the corpus.** It reads like an impossibility and is not: a corpus
-    // carries `by_target.parquet`, the CSC half, precisely so that "an edge with one endpoint off
-    // screen" can be answered — it is a second addressing pass, not a missing fact. What is true is
-    // narrower: this slice has no position to draw the far end at, because the far end is not in the
-    // answer. Drawing it needs a segment clipped to the viewport, which is a renderer decision nobody
-    // has made, and the vertices to clip against, which is the CSC read nobody has written.
+      `${visibleCte(nodes, c, where(filter), limit)}${anchors(filter)}
+       SELECT local, id, x, y, category, matched, TRUE AS mark${size}${subject} FROM vis${
+         held
+           ? `
+       UNION ALL
+       SELECT local, id, x, y, 0::INTEGER, NULL::BIGINT, FALSE AS mark${
+         c.size ? ", CAST(NULL AS DOUBLE)" : ""
+       }${c.subject ? ", CAST(NULL AS VARCHAR)" : ""} FROM anchor`
+           : ""
+       }
+       ORDER BY local`,
+    /**
+     * One end drawn and both ends positioned — or, where nothing is held, both ends drawn.
+     *
+     * The second form is what a source over an ordinary relation gets, and it is the old query plus
+     * the length predicate. It still drops an edge that leaves the window, and the reason is now
+     * exact rather than a limitation of the reader: no bytes beyond the rectangle were fetched, so
+     * there is no position to draw the far end at. A corpus fetches tiles and therefore has some.
+     */
     links: (filter) =>
-      `${visibleCte(nodes, c, where(filter), limit, false)}
+      held
+        ? `${visibleCte(nodes, c, where(filter), limit, false)}${anchors(filter)}
+        SELECT coalesce(sp.src, sa.local) AS src, coalesce(sp.dst, da.local) AS dst
+        FROM span sp
+        LEFT JOIN anchor sa ON sa.id = sp.src_id
+        LEFT JOIN anchor da ON da.id = sp.dst_id`
+        : `${visibleCte(nodes, c, where(filter), limit, false)}
         SELECT s.local AS src, t.local AS dst
         FROM ${edges} e
         JOIN vis s ON e.${c.source} = s.id
-        JOIN vis t ON e.${c.target} = t.id`,
+        JOIN vis t ON e.${c.target} = t.id${
+          near ? `
+        WHERE ${near}` : ""
+        }`,
     assemble: (points, links) => ({
       /**
        * How many matched, separately from how many came back.
@@ -437,14 +547,7 @@ function region(
        * column, and an empty answer has no row and no matches, which agree.
        */
       n: Number(numbers(points, "matched")[0] ?? 0),
-      ...arrays(
-        points,
-        links,
-        limit,
-        typeIndex,
-        c.size ? "size" : undefined,
-        c.subject !== undefined,
-      ),
+      ...arrays(points, links, typeIndex, c.size ? "size" : undefined, c.subject !== undefined),
     }),
   };
 }
@@ -545,14 +648,26 @@ function publishSelection(
 function arrays(
   points: unknown,
   links: unknown,
-  limit: number,
   typeIndex: number,
   sizeField?: string,
   withSubjects = false,
 ): Omit<Slice, "n"> {
-  const positions = new Float32Array(limit * 2);
+  // Sized from the answer rather than from the request's `limit`, which it used to be: an answer
+  // carries the window's marks *and* the anchors the edges leaving it end at, so `limit` is no longer
+  // an upper bound on the rows. Under-sizing here would drop the anchors silently and leave every
+  // link that pointed at one indexing past the buffer.
+  const rows = countOf(points, "x");
+  const positions = new Float32Array(rows * 2);
   const n = fillColumn(points, "x", positions, 0, 2);
   fillColumn(points, "y", positions, 1, 2);
+
+  // Where the marks stop. `mark` is `TRUE` down the sample and `FALSE` down the anchors, and the
+  // query orders by `local`, so this is a prefix length rather than a count — which is what lets
+  // `residentOf` and `buffers` treat "is this a mark" as an index comparison.
+  const marked = new Int32Array(rows);
+  fillColumn(points, "mark", marked);
+  let marks = 0;
+  while (marks < n && marked[marks] !== 0) marks++;
 
   // The dense ids land in a scratch and are widened into identities as they are copied across.
   //
@@ -579,12 +694,13 @@ function arrays(
   }
 
   // The edge count is not bounded by the point limit, so it is asked for rather than assumed.
-  const edgeCount = (links as { numRows?: number } | null)?.numRows ?? countOf(links);
+  const edgeCount = countOf(links, "src");
   const edges = new Float32Array(edgeCount * 2);
   const wrote = fillColumn(links, "src", edges, 0, 2);
   fillColumn(links, "dst", edges, 1, 2);
 
   return {
+    marks,
     vertices,
     subjects,
     positions: positions.subarray(0, n * 2),
@@ -595,8 +711,10 @@ function arrays(
 }
 
 /** A row count for a result that does not advertise one, without materialising the rows. */
-function countOf(rows: unknown): number {
-  const child = (rows as { getChild?: (f: string) => { length: number } | null })?.getChild?.("src");
+function countOf(rows: unknown, field: string): number {
+  const advertised = (rows as { numRows?: number } | null)?.numRows;
+  if (typeof advertised === "number") return advertised;
+  const child = (rows as { getChild?: (f: string) => { length: number } | null })?.getChild?.(field);
   if (child) return child.length;
   return Array.from(rows as Iterable<unknown>).length;
 }
@@ -1042,7 +1160,7 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
     // needs adjacency this source does not index, and fossil's `expand` is what answers it —
     // `ExploringSource` is the shape waiting for whoever writes that one.
     async slice(request: SliceRequest): Promise<Slice> {
-      const { fill, limit, pinned, r, signal, view } = request;
+      const { fill, limit, perPixel, pinned, r, signal, view } = request;
       const columns: Columns = { ...fixed, category: fill, size: r };
       const all = await load();
       /**
@@ -1060,6 +1178,7 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
       if (selected.length === 0) {
         return {
           n: 0,
+          marks: 0,
           vertices: new BigUint64Array(0),
           positions: new Float32Array(0),
           links: new Float32Array(0),
@@ -1084,7 +1203,12 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
       const nodes = `read_parquet([${vertexTiles.join(", ")}])`;
       const relation = `read_parquet([${edgeTiles.join(", ")}])`;
 
-      return watching.run(region(nodes, relation, columns, view, limit, 0, pinned));
+      // `nodes` twice, and the repetition is the statement: the relation this window reads *is* the
+      // bytes the reader is holding, so the tiles that answer "what is in the rectangle" also answer
+      // "where is the far end of an edge that leaves it".
+      return watching.run(
+        region(nodes, relation, columns, view, limit, 0, pinned, perPixel, nodes),
+      );
     },
   };
 

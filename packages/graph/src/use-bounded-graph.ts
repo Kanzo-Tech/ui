@@ -108,16 +108,28 @@ const EVERYTHING: Viewport = {
  * space size — which an earlier `viewportOf` did — is a second implementation of it, free to drift.
  * Screen y grows downward and space y does not, so the corners are sorted rather than assumed.
  */
-function cameraViewport(graph: Graph, host: HTMLElement): Viewport {
+function cameraViewport(graph: Graph, host: HTMLElement): { view: Viewport; perPixel: number } {
   const { height, width } = host.getBoundingClientRect();
   const [ax, ay] = graph.screenToSpacePosition([0, 0]);
   const [bx, by] = graph.screenToSpacePosition([width, height]);
-  return {
+  const view = {
     xMin: Math.min(ax, bx),
     yMin: Math.min(ay, by),
     xMax: Math.max(ax, bx),
     yMax: Math.max(ay, by),
   };
+  /**
+   * How much space one pixel covers — asked of the same transform, not derived from the zoom.
+   *
+   * The rectangle came from mapping the host's own corners, so its width **is** `width` pixels of
+   * space and the ratio is exact. Reading `camera.k` instead would be a second implementation of the
+   * renderer's screen↔space maths, which is the mistake `viewportOf` already made once.
+   *
+   * Zero width — an unmounted or hidden host — gives no resolution rather than a division by zero,
+   * and a source asked with none discards nothing.
+   */
+  const perPixel = width > 0 ? (view.xMax - view.xMin) / width : 0;
+  return { view, perPixel };
 }
 
 export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState {
@@ -218,6 +230,21 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
       }
       const graph = graphRef.current;
       if (!graph) return;
+      /**
+       * **The renderer's coordinate box, from the corpus rather than from a constant of ours.**
+       *
+       * This is the one place that already waits for an `extent()`, so it is the only place that can
+       * set the box without asking twice. `spaceSize` is not one of the three fields cosmos.gl
+       * treats as init-only — `initialZoomLevel`, `randomSeed`, `attribution` — so it takes effect
+       * here; the config change calls `adjustSpaceSize` and re-syncs the screen scales.
+       *
+       * The larger side, because the box is a square. There used to be an exported `SPACE = 4096`
+       * declaring it, hand-copied into both bench generators, and a corpus fossil wrote ignored it:
+       * a million vertices span about x ∈ [−345, 645396]. That was survivable only because
+       * `spaceSize` enters every render path as a pure translation — it changed nothing anyone could
+       * see, which is exactly why nothing caught it.
+       */
+      graph.setConfigPartial({ spaceSize: Math.max(box.xMax - box.xMin, box.yMax - box.yMin) });
       // Two corners are enough: cosmos.gl fits the bounding box of whatever positions it is handed,
       // and a rectangle is its own bounding box. Duration zero — an opening view that flies in from
       // the default box is animation for its own sake, and the reader has not asked for anything yet.
@@ -244,15 +271,9 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
       const graph = graphRef.current;
       const host = hostRef.current;
       if (!graph || !host) return;
+      const { perPixel, view } = cameraViewport(graph, host);
       void ask((s, signal) =>
-        s.slice({
-          view: cameraViewport(graph, host),
-          pinned: held.current,
-          fill,
-          r,
-          limit,
-          signal,
-        }),
+        s.slice({ view, perPixel, pinned: held.current, fill, r, limit, signal }),
       );
     }, debounce);
     // The channels are dependencies rather than a ref, unlike `pinned`: a new one is a new question

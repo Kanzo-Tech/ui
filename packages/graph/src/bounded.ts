@@ -69,6 +69,27 @@ export interface Viewport {
 export interface Slice {
   n: number;
   /**
+   * How many of `positions` are **marks** — points a reader can see. Everything past it is an
+   * *anchor*.
+   *
+   * An anchor is a real vertex at its real coordinates that the window did not return: it is in the
+   * buffers so that an edge leaving the window has somewhere to end. It is never drawn — `buffers`
+   * gives it radius zero and alpha zero, and `residentOf` stops here, so nothing hovers, selects or
+   * frames one.
+   *
+   * **Why the far end is the vertex rather than a point on the border.** A stub clipped to the
+   * viewport carries the right direction and *lies about the distance*, and a reader cannot tell a
+   * stub that ends 1.1 window-widths out from one that ends 47 — measured over all the far ends a
+   * window loses, 20–22% are past four semi-widths and the worst is 47.1
+   * (`.planning/FAR-VIEW-AND-EDGES.md`). Drawing the vertex where it is cannot lie, and it is also
+   * the cheaper of the two: a clipped stub is one point *per edge*, an anchor is one point per far
+   * *vertex*.
+   *
+   * Equal to `positions.length / 2` for a source that answers with marks only, which is why it is
+   * required rather than optional — a caller that reads it always gets the count it meant.
+   */
+  marks: number;
+  /**
    * Who each returned point *is*, parallel to `positions` — the `(type_idx, dense_id)` pair packed
    * by `vertexId`.
    *
@@ -104,7 +125,7 @@ export interface Slice {
    * names a vertex should not pay to move it.
    */
   subjects?: string[];
-  /** `[x0, y0, x1, y1, …]`, one pair per returned point. */
+  /** `[x0, y0, x1, y1, …]`, one pair per returned point — `marks` of them, then the anchors. */
   positions: Float32Array;
   /** `[src, dst, …]` as indices into `positions`. */
   links: Float32Array;
@@ -179,6 +200,26 @@ export interface SliceRequest {
    * those rather than whichever ones an `ORDER BY` happened to put first.
    */
   limit: number;
+  /**
+   * How much of the graph's own space one screen pixel covers — the resolution the answer is going
+   * to be looked at.
+   *
+   * **What it buys: an edge shorter than three pixels is not sent.** Two of every three edges a
+   * five-million-node window draws are under one pixel long — they are a dot on top of their own
+   * endpoints, which the point layer has already drawn. Discarding everything under 3 px sends
+   * 27.5–35.3% of the rows and leaves 99.9–100% of the inked pixels identical
+   * (`.planning/FAR-VIEW-AND-EDGES.md`, measured 2026-08-17).
+   *
+   * **A row discard, not a fade.** cosmos.gl's `linkVisibilityDistanceRange` already dims a short
+   * link, and dimming happens after the row has been joined, returned, uploaded and rasterised. This
+   * is the same picture without the work.
+   *
+   * The rectangle alone cannot say it: the same rectangle over a 400-pixel canvas and a 4,000-pixel
+   * one are different questions, and only the caller knows which. Omitted — a source is asked for
+   * everything, or by something with no canvas — nothing is discarded, because a threshold in pixels
+   * with no pixels is not a threshold.
+   */
+  perPixel?: number;
   signal?: AbortSignal;
 }
 
@@ -306,4 +347,19 @@ export const BOUNDED_DEFAULTS = {
    * the legibility ceiling, which arrives first and is the one a reader actually meets.
    */
   limit: 20_000,
+  /**
+   * The shortest edge worth a row — three screen pixels.
+   *
+   * Measured over the drawn edges of five windows per corpus, 2026-08-17: the median edge is 1.60 px
+   * at 200k, 1.47 at a million and **0.52 at five million**, where 64.6% are under one pixel. An edge
+   * that short is a dot on top of two dots the point layer has already drawn. Discarding under 3 px
+   * sends 27.5–35.3% of the rows and leaves 99.9–100% of the inked pixels identical — the working is
+   * in `.planning/FAR-VIEW-AND-EDGES.md`.
+   *
+   * Three rather than two because both were measured against the same five windows of
+   * `docs/public/bench/1000000`: 2 px sends 5.6–25.8% more rows, mean 19%, for the same 0.1% of
+   * image. Not on `SliceRequest`, because there is one call site and a knob with one call site is a
+   * knob nobody has an opinion about — it moves when a second reader disagrees with the measurement.
+   */
+  minLinkPixels: 3,
 } as const;

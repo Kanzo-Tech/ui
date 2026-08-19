@@ -62,17 +62,25 @@ describe("@kanzo-tech/graph public surface", () => {
     expect(GRAPH.denseOf).toBeTypeOf("function");
     expect(GRAPH.residentOf).toBeTypeOf("function");
     // The tables and constants a call site cannot reconstruct.
-    // No table of named looks: what a person chooses is declared as axes in `look-section.ts` and
+    // No table of named looks: what a person chooses is declared as axes in `section.ts` and
     // resolved here — `decisions/a-look-declares-what-it-changes.md`.
     expect(GRAPH.lookFrom).toBeTypeOf("function");
     expect(GRAPH.DEFAULT_LOOK.size.length).toBe(2);
     expect(GRAPH.SHAPE_ORDER.length).toBeGreaterThan(0);
-    expect(GRAPH.SPACE).toBeTypeOf("number");
+    // Tombstone. `SPACE = 4096` was the renderer's coordinate box declared here and owned by
+    // whatever wrote the positions; a corpus fossil wrote spans 157× it and nothing failed, because
+    // `spaceSize` is a translation in every render path. The box is the source's `extent()` now, set
+    // where `useBoundedGraph` already awaits one — `coordinate-box.test.ts` is the guard.
+    expect((GRAPH as Record<string, unknown>).SPACE).toBeUndefined();
     expect(GRAPH.GRID).toBeTypeOf("number");
     expect(GRAPH.REHEAT).toBeTypeOf("number");
     expect(GRAPH.BOUNDED_DEFAULTS).toBeTypeOf("object");
-    expect(GRAPH.DEFAULT_DISPLAY).toBeTypeOf("object");
-    expect(GRAPH.DEFAULT_SIM).toBeTypeOf("object");
+    // The forces have a builder, exactly as the look does, and `DEFAULT_SIM` is that builder called
+    // with nothing. There is no `DEFAULT_DISPLAY` and no successor to it: a second vocabulary for
+    // the picture is what `lookFrom` replaced.
+    expect(GRAPH.simFrom).toBeTypeOf("function");
+    expect(GRAPH.DEFAULT_SIM).toEqual(GRAPH.simFrom());
+    expect((GRAPH as Record<string, unknown>).DEFAULT_DISPLAY).toBeUndefined();
   });
 
   it("draws a graph from arrays a host already holds, with no database anywhere", async () => {
@@ -189,8 +197,10 @@ describe("@kanzo-tech/graph public surface", () => {
     // replaces it is arithmetic nobody has to pick: a window is sampled when it holds more than
     // `limit`, at whatever zoom that happens.
     expect((GRAPH.BOUNDED_DEFAULTS as Record<string, unknown>).lodThreshold).toBeUndefined();
-    // `Viewport` carried a `zoom` for exactly one reader, and that was it.
-    expect(Object.keys(GRAPH.BOUNDED_DEFAULTS)).toEqual(["limit"]);
+    // `Viewport` carried a `zoom` for exactly one reader, and that was it. `minLinkPixels` is the
+    // only thing to have joined it since, and it is a length rather than a level of detail: it says
+    // how short an edge has to be before its row is not worth sending, not which picture to draw.
+    expect(Object.keys(GRAPH.BOUNDED_DEFAULTS)).toEqual(["limit", "minLinkPixels"]);
     // `SliceMode` and the `weights` branch are types, so there is no runtime binding to assert —
     // what stands in for them is `graph-model.test.ts`, "spends the ramp on the column the source
     // ranks by, and knows no second one".

@@ -99,16 +99,26 @@ const NOBODY = new BigUint64Array(0);
  * whole file rests on it and BigInt being an object-shaped primitive makes it a fair thing to doubt.
  */
 export function residentOf(slice: Slice | null): Resident {
-  const vertices = slice?.vertices ?? NOBODY;
+  const all = slice?.vertices ?? NOBODY;
+  /**
+   * The marks, and not the anchors past them.
+   *
+   * An anchor is a real vertex in the buffers at its real coordinates, there so an edge leaving the
+   * window has an end — and it is never drawn. Residency is *what is drawn*, so it stops here: a
+   * hover, a selection or a frame that could land on an anchor would be pointing at a vertex with no
+   * ink, off screen, that the window deliberately did not return.
+   */
+  const size = Math.min(slice?.marks ?? all.length, all.length);
+  const vertices = all;
   const index = new Map<bigint, number>();
-  for (let i = 0; i < vertices.length; i++) index.set(vertices[i] as bigint, i);
+  for (let i = 0; i < size; i++) index.set(vertices[i] as bigint, i);
 
   const at = (i: number): VertexId | undefined =>
-    i >= 0 && i < vertices.length ? (vertices[i] as VertexId) : undefined;
+    i >= 0 && i < size ? (vertices[i] as VertexId) : undefined;
   const indexOf = (vertex: VertexId): number | undefined => index.get(vertex);
 
   return {
-    size: vertices.length,
+    size,
     indexOf,
     at,
     indicesOf(wanted) {

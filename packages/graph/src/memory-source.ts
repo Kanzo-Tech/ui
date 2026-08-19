@@ -1,4 +1,5 @@
 import {
+  BOUNDED_DEFAULTS,
   type ExploreRequest,
   type ExploringSource,
   type Slice,
@@ -72,14 +73,16 @@ export function memorySource(graph: MemoryGraph): ExploringSource {
     // renderer's default box.
     extent: () => Promise.resolve(boundsOf(graph.positions)),
     slice(request: SliceRequest): Promise<Slice> {
-      const { limit, pinned, view } = request;
-      return Promise.resolve(gather(graph, inside(graph, view, pinned), limit));
+      const { limit, perPixel, pinned, view } = request;
+      return Promise.resolve(gather(graph, inside(graph, view, pinned), limit, perPixel));
     },
     // The only source we ship that has this at all: a rectangle needs a spatial predicate, which
     // every source has, and a neighbourhood needs adjacency, which only a host holding its own links
     // does. So the bounded canvas is an explorer here while a SQL source leaves it a map.
     explore(request: ExploreRequest): Promise<Slice> {
-      return Promise.resolve(gather(graph, expand(request.seeds, request.depth), request.limit));
+      return Promise.resolve(
+        gather(graph, expand(request.seeds, request.depth), request.limit, request.perPixel),
+      );
     },
   };
 
@@ -146,7 +149,12 @@ export function memorySource(graph: MemoryGraph): ExploringSource {
  * is at worst an arbitrary *contiguous* sample — so this is never the worse of the two and is
  * sometimes much better.
  */
-function gather(graph: MemoryGraph, chosen: number[], limit: number): Slice {
+function gather(
+  graph: MemoryGraph,
+  chosen: number[],
+  limit: number,
+  perPixel: number | undefined,
+): Slice {
   const matched = chosen.length;
   const stride = Math.max(1, Math.ceil(matched / limit));
   const kept: number[] = [];
@@ -175,29 +183,79 @@ function gather(graph: MemoryGraph, chosen: number[], limit: number): Slice {
     if (sizes) sizes[i] = graph.sizes?.[from] ?? 0;
   }
 
+  /**
+   * The edges, and the far ends they need — **which this source has, because it holds everything.**
+   *
+   * A window that fits loses nothing here; a window over the limit is a sample, and an edge from a
+   * sampled vertex to one the stride passed over used to be dropped. It is not a missing fact: the
+   * arrays are in hand. So the far end is appended as an **anchor** — a point at its real
+   * coordinates, past `marks`, never drawn. The SQL source reaches the same answer out of the tiles
+   * it fetched; this one reaches it out of the arrays it was handed.
+   *
+   * `perPixel` given, an edge shorter than `minLinkPixels` on screen is not sent at all — it is a
+   * dot on top of two dots the point layer has already drawn.
+   */
+  const floor = perPixel !== undefined && perPixel > 0 ? BOUNDED_DEFAULTS.minLinkPixels * perPixel : 0;
+  const anchors: number[] = [];
+  const anchorOf = (from: number): number => {
+    const seen = local[from] as number;
+    if (seen >= 0) return seen;
+    const at = n + anchors.length;
+    local[from] = at;
+    anchors.push(from);
+    return at;
+  };
+
   const links: number[] = [];
   for (let e = 0; e < graph.links.length; e += 2) {
-    const src = local[graph.links[e] as number] as number;
-    const dst = local[graph.links[e + 1] as number] as number;
-    // An edge with one end off-slice is dropped, and that is a **limit of this reader rather
-    // than of the corpus.** It reads like an impossibility and is not: a corpus carries
-    // `by_target.parquet`, the CSC half, precisely so that "an edge with one endpoint off screen"
-    // can be answered — it is a second addressing pass, not a missing fact. What is true is
-    // narrower: this slice has no position to draw the far end at, because the far end is not in
-    // the answer. Drawing it needs a segment clipped to the viewport, which is a renderer decision
-    // nobody has made, and the vertices to clip against, which is the CSC read nobody has written.
-    if (src >= 0 && dst >= 0) links.push(src, dst);
+    const a = graph.links[e] as number;
+    const b = graph.links[e + 1] as number;
+    // At least one end drawn. Neither drawn is an edge somewhere else entirely, and drawing it would
+    // put ink outside the window the caller asked about.
+    if ((local[a] as number) < 0 && (local[b] as number) < 0) continue;
+    if (floor > 0) {
+      const dx = (graph.positions[a * 2] as number) - (graph.positions[b * 2] as number);
+      const dy = (graph.positions[a * 2 + 1] as number) - (graph.positions[b * 2 + 1] as number);
+      if (dx * dx + dy * dy < floor * floor) continue;
+    }
+    links.push(anchorOf(a), anchorOf(b));
+  }
+
+  const all = n + anchors.length;
+  const whole = new Float32Array(all * 2);
+  whole.set(positions);
+  const who = new BigUint64Array(all);
+  who.set(vertices);
+  const ordinals = new Uint16Array(all);
+  ordinals.set(categories);
+  for (let i = 0; i < anchors.length; i++) {
+    const from = anchors[i] as number;
+    whole[(n + i) * 2] = graph.positions[from * 2] as number;
+    whole[(n + i) * 2 + 1] = graph.positions[from * 2 + 1] as number;
+    who[n + i] = graph.vertices[from] as bigint;
+    // No category and no size: an anchor is not drawn, and giving it either would put it in the
+    // colour scale's domain and the size ramp's range for a point nobody can see.
+    if (subjects) subjects[n + i] = "";
   }
 
   return {
     n: matched,
-    vertices,
+    marks: n,
+    vertices: who,
     subjects,
-    positions,
+    positions: whole,
     links: Float32Array.from(links),
-    categories,
-    sizes,
+    categories: ordinals,
+    sizes: sizes ? growTo(sizes, all) : undefined,
   };
+}
+
+/** A ramp column widened to cover the anchors, which contribute nothing to it. */
+function growTo(values: Float32Array, length: number): Float32Array {
+  if (values.length === length) return values;
+  const wider = new Float32Array(length);
+  wider.set(values);
+  return wider;
 }
 
 /**

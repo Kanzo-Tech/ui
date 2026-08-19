@@ -40,6 +40,7 @@ import { denseOf, residentOf, typeOf, vertexId, type VertexId } from "./resident
 function drawn(...vertices: VertexId[]): Slice {
   return {
     n: vertices.length,
+    marks: vertices.length,
     vertices: BigUint64Array.from(vertices),
     positions: new Float32Array(vertices.length * 2),
     links: new Float32Array(),

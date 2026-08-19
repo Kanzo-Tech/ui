@@ -27,6 +27,7 @@ import { useBoundedGraph } from "./use-bounded-graph";
 function nothing(): Slice {
   return {
     n: 0,
+    marks: 0,
     vertices: new BigUint64Array(0),
     positions: new Float32Array(0),
     links: new Float32Array(0),
@@ -65,7 +66,7 @@ function recording(total: number, box?: Viewport) {
  * Enough renderer to be asked where the camera is. The loop reads the transform off cosmos.gl rather
  * than recomputing it, so a fake that answers those two is the whole surface it touches.
  */
-function camera(fits: number[][] = []): Graph {
+function camera(fits: number[][] = [], boxes: number[] = []): Graph {
   return {
     getZoomLevel: () => 1,
     screenToSpacePosition: ([x, y]: [number, number]) => [x, y],
@@ -73,6 +74,9 @@ function camera(fits: number[][] = []): Graph {
     setPointPositions: () => {},
     render: () => {},
     fitViewByPointPositions: (positions: number[]) => fits.push(positions),
+    setConfigPartial: (config: { spaceSize?: number }) => {
+      if (config.spaceSize !== undefined) boxes.push(config.spaceSize);
+    },
   } as unknown as Graph;
 }
 
@@ -168,7 +172,8 @@ describe("the opening view", () => {
   it("frames the corpus before it asks anything, and only once", async () => {
     const { asks, order, source } = recording(10, box);
     const fits: number[][] = [];
-    const graphRef = { current: camera(fits) };
+    const boxes: number[] = [];
+    const graphRef = { current: camera(fits, boxes) };
     const hostRef = { current: document.createElement("div") };
 
     const { rerender } = renderHook(
@@ -182,6 +187,11 @@ describe("the opening view", () => {
     // afterwards asks one query about the default box and a second about the corpus.
     expect(order).toEqual(["extent", "slice"]);
     expect(fits).toEqual([[100, 200, 300, 400]]);
+    // And the box the renderer draws into is that extent's larger side, not a constant. There used
+    // to be an exported `SPACE = 4096` here, which a corpus fossil wrote — spanning about
+    // x ∈ [−345, 645396] — disagreed with by 157×, invisibly: `spaceSize` is a translation in every
+    // cosmos.gl render path, so the wrong box changed nothing anyone could see.
+    expect(boxes).toEqual([200]);
 
     await act(async () => {
       rerender({ fill: "hall" });

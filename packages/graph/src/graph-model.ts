@@ -5,7 +5,7 @@ import { CHART_SLOTS, categoricalCapacity, categoricalColor } from "@kanzo-tech/
 import type { Slice } from "./bounded";
 import { resolveToken, toHex, type Rgba } from "./css-color";
 import { SHAPE, SHAPE_ORDER, SHAPE_OTHER, type Look, type ShapeId } from "./graph-looks";
-import type { Display, Sim } from "./types";
+import type { Sim } from "./graph-sim";
 
 /**
  * From a slice to the GPU, and nothing about where the slice came from.
@@ -21,9 +21,6 @@ import type { Display, Sim } from "./types";
  * thousand dots is paying for a vocabulary the GPU cannot read. What each ordinal is *called* is a
  * question for a legend, and a legend asks the source.
  */
-
-/** cosmos.gl's simulation box. */
-export const SPACE = 4096;
 
 /**
  * What each channel is bound to — Plot's names, and Plot's rule about what a value means.
@@ -169,7 +166,19 @@ export function buffers(
     span = Math.sqrt(max) - lo || 1;
   }
 
-  for (let i = 0; i < n; i++) {
+  /**
+   * Where the marks stop and the anchors begin.
+   *
+   * An anchor exists so an edge leaving the window has an end to be drawn to, and it is **not a
+   * mark**: radius zero and alpha zero, so it cannot paint, cannot be picked and cannot be occluded
+   * by. The zeroing is the loop bound and nothing else: the buffers are allocated zero-filled, so
+   * stopping at `marks` leaves every anchor at radius zero and alpha zero. Writing it out again
+   * afterwards would be a second statement of the same fact that no mutation can distinguish from
+   * the first — which is how a guard goes green for the wrong reason.
+   */
+  const marks = Math.min(slice.marks, n);
+
+  for (let i = 0; i < marks; i++) {
     const ordinal = slice.categories[i] ?? 0;
     // The slot colour is used as given. Nebula used to lighten it by degree, which is exactly the
     // kind of adjustment a validated palette cannot survive: every slot was measured for lightness
@@ -237,11 +246,14 @@ export function forces(sim: Sim): GraphConfig {
  * Everything the picture needs that is *one number for the whole canvas* — cosmos.gl's uniforms.
  *
  * That is the line between this and `buffers`, and it is the renderer's own: a uniform is read fresh
- * from the config on every draw, so changing one rebuilds no array and uploads nothing. Both of the
- * reader's Display sliders live here for exactly that reason, and the shaders fold them into the
- * same products the buffers used to carry — `color.a * linkOpacity`, `size * sizeScale`.
+ * from the config on every draw, so changing one rebuilds no array and uploads nothing — which is
+ * why a look change costs the GPU a `setConfigPartial` and no upload at all.
+ *
+ * It took a `Display` beside the look, and the two multipliers it carried are gone: each scaled a
+ * number this same look already computes from the axis that owns it, so the panel offered two ways
+ * to say one thing and the slider could always overrule the measurement.
  */
-export function appearance(look: Look, host: Element, display: Display): GraphConfig {
+export function appearance(look: Look, host: Element): GraphConfig {
   return {
     // Always the theme's surface. Nebula used to pin a near-black of its own, which made it the one
     // look that ignored light mode — and put its fixed dark plane at odds with the light chrome
@@ -250,11 +262,9 @@ export function appearance(look: Look, host: Element, display: Display): GraphCo
     // Points hold their screen size in every look. This was a field until all three settled on the
     // same value, at which point it was a field with one possible answer.
     scalePointsOnZoom: false,
-    /** Node size. Multiplies the radius ramp `buffers` wrote, and the hit test scales with it. */
-    pointSizeScale: display.pointScale,
-    renderLinks: display.links,
-    /** Edge opacity, the look's own and the reader's. Multiplies each link's buffer alpha. */
-    linkOpacity: look.link.opacity * display.linkOpacity,
+    renderLinks: look.link.render,
+    /** Edge opacity — the look's, multiplying each link's buffer alpha. */
+    linkOpacity: look.link.opacity,
     linkDefaultWidth: look.link.width,
     linkBlending: look.link.blend,
     curvedLinks: look.link.curve > 0,

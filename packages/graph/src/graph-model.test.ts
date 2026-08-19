@@ -3,7 +3,7 @@ import { adaptive } from "./adaptive";
 import { buffers, neighboursOf, scaleOf } from "./graph-model";
 import { DEFAULT_LOOK } from "./graph-looks";
 import { memorySource } from "./memory-source";
-import { vertexId } from "./resident";
+import { residentOf, vertexId } from "./resident";
 import type { Slice } from "./bounded";
 
 /**
@@ -15,6 +15,7 @@ function slice(over: Partial<Slice> = {}): Slice {
   const n = over.positions ? over.positions.length / 2 : 3;
   return {
     n,
+    marks: n,
     vertices: BigUint64Array.from({ length: n }, (_, i) => vertexId(0, i + 100)),
     positions: new Float32Array(n * 2),
     links: new Float32Array(),
@@ -138,7 +139,7 @@ describe("memorySource", () => {
       view: { xMin: -1, yMin: -1, xMax: 2, yMax: 2 },
     });
 
-    expect([...answer.vertices]).toEqual([10, 11, 12].map((id) => vertexId(0, id)));
+    expect([...answer.vertices.subarray(0, answer.marks)]).toEqual([10, 11, 12].map((id) => vertexId(0, id)));
     // The far triangle's edges are gone and the near one's are renumbered onto 0..2 — an edge with
     // one end off-slice has nowhere to land.
     expect([...answer.links]).toEqual([0, 1, 1, 2, 2, 0]);
@@ -152,11 +153,100 @@ describe("memorySource", () => {
     });
 
     // A truncated slice that claimed to be complete is the failure this whole contract is about.
-    expect(answer.vertices.length).toBe(2);
+    expect(answer.marks).toBe(2);
     expect(answer.n).toBe(3);
     // And which two: three matched and two fit, so it strides — the first and the *third*, not the
     // first two. Taking the front of an ordering draws a run of it, which is a corner of the window.
-    expect([...answer.vertices]).toEqual([10, 12].map((id) => vertexId(0, id)));
+    expect([...answer.vertices.subarray(0, answer.marks)]).toEqual([10, 12].map((id) => vertexId(0, id)));
+  });
+
+  /**
+   * The far end of an edge that leaves the window is drawn where the vertex is.
+   *
+   * An edge with one end off-window used to be dropped in silence, and that loses 19.31% / 31.94% /
+   * 28.92% of the edges incident to a window at 200k / 1M / 5M — 7,930 of 20,000 vertices carry at
+   * least one at five million. The fix is not a fetch: this source holds every position already, and
+   * a corpus holds the ones its tiles brought. So the far end is appended past `marks` as an
+   * **anchor**, at its real coordinates, and the edge is drawn to it.
+   *
+   * **Its real coordinates, and not a point on the border**, which is the choice the measurement
+   * settles. A stub clipped to the viewport has the right direction and lies about the distance, and
+   * nothing distinguishes a stub ending 1.1 window-widths out from one ending 47.1 — the measured
+   * worst case. Here the anchor sits at (1000, 1000), a thousand units outside a window that runs to
+   * 2, and says so.
+   */
+  it("draws the far end of an edge that leaves the window", async () => {
+    // A bridge from the near triangle to the far one: 2 → 3, the only edge that crosses.
+    const bridged = { ...graph, links: Float32Array.from([...graph.links, 2, 3]) };
+    const answer = await memorySource(bridged).slice({
+      ...request,
+      view: { xMin: -1, yMin: -1, xMax: 2, yMax: 2 },
+    });
+
+    expect(answer.marks).toBe(3);
+    // One anchor, past the marks, and it is the vertex itself rather than a point on the border.
+    expect(answer.positions.length / 2).toBe(4);
+    expect(answer.vertices[3]).toBe(vertexId(0, 13));
+    expect([answer.positions[6], answer.positions[7]]).toEqual([1000, 1000]);
+    expect([...answer.links]).toEqual([0, 1, 1, 2, 2, 0, 2, 3]);
+    // Neither end inside is still nothing: the far triangle's own three edges would be ink outside
+    // the window the caller asked about.
+    expect(answer.links.length / 2).toBe(4);
+  });
+
+  /**
+   * An anchor is in the buffers and is not a mark, and three things have to agree about that.
+   *
+   * It has a position because an edge needs an end; it has **no radius**, so it cannot paint even
+   * when a sampled window puts one inside the rectangle; and it is **not resident**, so a hover, a
+   * selection or a frame cannot land on a vertex the window deliberately did not return. A missing
+   * one of the three is invisible until the day it is not — an anchor with the look's minimum radius
+   * works by accident for as long as every anchor happens to be off screen.
+   */
+  it("gives an anchor no radius and no residency", async () => {
+    const bridged = { ...graph, links: Float32Array.from([...graph.links, 2, 3]) };
+    const answer = await memorySource(bridged).slice({
+      ...request,
+      view: { xMin: -1, yMin: -1, xMax: 2, yMax: 2 },
+    });
+
+    const gpu = buffers(answer, DEFAULT_LOOK, document.body);
+    expect(gpu.sizes.length).toBe(4);
+    expect(gpu.sizes[3]).toBe(0);
+    expect(gpu.sizes[2]).toBeGreaterThan(0);
+    // And no colour, which is the same claim from the other side: the buffers are zero-filled and the
+    // fill loop stops at `marks`, so an anchor is transparent. Asserting only the radius passed a
+    // mutation that removed nothing, because an untouched size slot is already zero.
+    expect(gpu.colors[15]).toBe(0);
+    expect(gpu.colors[11]).toBeGreaterThan(0);
+
+    const who = residentOf(answer);
+    expect(who.size).toBe(3);
+    expect(who.indexOf(vertexId(0, 13))).toBeUndefined();
+    expect(who.at(3)).toBeUndefined();
+  });
+
+  /**
+   * An edge shorter than three screen pixels is not sent — and `perPixel` is the only thing that can
+   * say how long three pixels is.
+   *
+   * The near triangle's edges are one unit long. At `perPixel = 1` that is one pixel and they go;
+   * at `perPixel = 0.1` it is ten pixels and they stay. Measured over five windows per corpus, the
+   * median drawn edge is 0.52 px at five million and 64.6% are under one — discarding under 3 px
+   * sends 27.5–35.3% of the rows and leaves 99.9–100% of the inked pixels identical.
+   */
+  it("does not send an edge shorter than three screen pixels", async () => {
+    const view = { xMin: -1, yMin: -1, xMax: 2, yMax: 2 };
+    const fine = await memorySource(graph).slice({ ...request, view, perPixel: 0.1 });
+    const coarse = await memorySource(graph).slice({ ...request, view, perPixel: 1 });
+
+    expect(fine.links.length / 2).toBe(3);
+    expect(coarse.links.length / 2).toBe(0);
+    // The points are untouched: the edge was redundant, the vertices were not.
+    expect(coarse.marks).toBe(3);
+    // And an unstated resolution discards nothing, which is what the `EVERYTHING` request relies on.
+    const silent = await memorySource(graph).slice({ ...request, view });
+    expect(silent.links.length / 2).toBe(3);
   });
 
   it("carries pinned vertices the rectangle does not hold", async () => {
@@ -168,7 +258,7 @@ describe("memorySource", () => {
 
     // A dragged node is drawn where the reader dropped it and indexed where it always was, so the
     // rectangle cannot find it. Riding along is what keeps it on screen.
-    expect([...answer.vertices]).toContain(vertexId(0, 13));
+    expect([...answer.vertices.subarray(0, answer.marks)]).toContain(vertexId(0, 13));
   });
 
   it("expands a neighbourhood by hops, not by distance", async () => {
@@ -176,11 +266,11 @@ describe("memorySource", () => {
     const one = await source.explore({ ...request, seeds: [vertexId(0, 10)], depth: 1 });
     const zero = await source.explore({ ...request, seeds: [vertexId(0, 10)], depth: 0 });
 
-    expect([...one.vertices].sort()).toEqual([10, 11, 12].map((id) => vertexId(0, id)));
-    expect([...zero.vertices]).toEqual([vertexId(0, 10)]);
+    expect([...one.vertices.subarray(0, one.marks)].sort()).toEqual([10, 11, 12].map((id) => vertexId(0, id)));
+    expect([...zero.vertices.subarray(0, zero.marks)]).toEqual([vertexId(0, 10)]);
     // The other triangle is unreachable at any depth — that is the question a rectangle cannot ask.
     const deep = await source.explore({ ...request, seeds: [vertexId(0, 10)], depth: 9 });
-    expect([...deep.vertices]).not.toContain(vertexId(0, 13));
+    expect([...deep.vertices.subarray(0, deep.marks)]).not.toContain(vertexId(0, 13));
   });
 
   it("draws a view of everything from both ends of it, not from one group per category", async () => {
@@ -197,8 +287,11 @@ describe("memorySource", () => {
     // One from each triangle. A prefix of two takes vertices 10 and 11, which are the same triangle
     // — the far half of the corpus drawn as nothing at all. Representing both is the property a
     // summary was invented to buy, at a hundredth of the marks and none of the join.
-    expect([...answer.vertices]).toEqual([vertexId(0, 10), vertexId(0, 13)]);
-    expect([...answer.categories]).toEqual([0, 1]);
+    expect([...answer.vertices.subarray(0, answer.marks)]).toEqual([vertexId(0, 10), vertexId(0, 13)]);
+    // The ordinals of the marks. The anchors past them carry none — they are the far ends the two
+    // sampled vertices still have edges to, drawn nowhere.
+    expect([...answer.categories.subarray(0, answer.marks)]).toEqual([0, 1]);
+    expect(answer.marks).toBe(2);
   });
 });
 
@@ -219,7 +312,15 @@ describe("adaptive", () => {
 
     expect(large.sim.repulsion).toBeLessThan(small.sim.repulsion);
     expect(large.sim.friction).toBeGreaterThan(small.sim.friction);
-    expect(large.display.pointScale).toBeLessThan(small.display.pointScale);
+  });
+
+  it("drops the edge layer where it stops being one, and nowhere else", () => {
+    // The one render switch left. It was returned beside a mark scale, and that scale is gone: it
+    // fed a reader's multiplier over the radius ramp `lookFrom` computes from `marks`, which is two
+    // ways to size a mark. A host wanting a size policy for a large corpus states it as the tenant's
+    // starting point over the declared axis.
+    expect(adaptive(1_000).links).toBe(true);
+    expect(adaptive(250_000).links).toBe(false);
   });
 
   it("clamps outside its tuned range instead of extrapolating", () => {
@@ -231,8 +332,8 @@ describe("adaptive", () => {
   });
 
   it("drops the edge layer only once it is fog", () => {
-    expect(adaptive(200_000).display.links).toBe(true);
-    expect(adaptive(300_000).display.links).toBe(false);
+    expect(adaptive(200_000).links).toBe(true);
+    expect(adaptive(300_000).links).toBe(false);
   });
 });
 

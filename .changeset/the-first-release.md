@@ -150,7 +150,20 @@ corpus with a column called `red` is not a trap.
 tile footers, a relation off four aggregates — is asked before the first slice, so the opening view
 is the corpus rather than the renderer's default box. It matters most where it is cheapest to miss:
 a sliced graph's first question is *what is the camera over*, and a camera on empty space is a first
-paint of nothing.
+paint of nothing. **That extent is also the renderer’s coordinate box** — the package exports no
+`SPACE` and passes cosmos.gl no `spaceSize` of its own, because the box belongs to whatever wrote
+the positions. A host that generates coordinates picks its own square and tells nobody about it.
+
+**An edge that leaves the window is drawn, and an edge shorter than three pixels is not sent.** A
+slice's `positions` is `marks` points a reader can see, then the *anchors* the edges leaving the
+window end at — real vertices at their real coordinates, with no radius, no residency and no ink. A
+corpus can do this because the tiles a rectangle touches already hold the vertices just outside it,
+so it costs no request and no byte; a source over a plain relation holds nothing and keeps both ends
+inside the rectangle. In the other direction, pass `perPixel` on a slice request — how much space one
+screen pixel covers — and an edge under three pixels long is discarded in the query rather than
+dimmed in the shader. Together, on five windows of a million-node corpus: a fifth to a third fewer
+rows, and 86% of a window's incident edges drawn where 68% were.
+`decisions/an-edge-is-drawn-from-bytes-in-hand.md` has the measurements and what would reverse them.
 
 A `Look` is **form only**: sizes, link width and curve, whether links add where they overlap,
 labels, vignette. It used to decide whether

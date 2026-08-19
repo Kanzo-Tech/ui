@@ -37,6 +37,15 @@ import { vertexId } from "./resident";
  *   over a Morton-ordered `dense_id` is the claim, and no stub can evaluate a modulo. What runs it
  *   is `docs/showcases/graph-bench`, and the far-view figures in
  *   `decisions/a-far-view-is-a-sample-not-a-summary.md` were taken there.
+ * - **Anything at all about the anchor branch, which is the larger half of this change.** `out`,
+ *   `span` and `anchor` are only built when a source says what bytes it is holding, and the only
+ *   source that can is `openCorpus` — which fetches manifests over HTTP before it queries. So what
+ *   is asserted below is the *absence* of that branch for a relation source, which is the claim that
+ *   belongs here: a relation has nothing in hand, and building it there would join the whole node
+ *   table twice per camera move. That it produces the right picture is
+ *   `graph-model.test.ts`, "draws the far end of an edge that leaves the window", which runs the same
+ *   rule in JavaScript over arrays, plus the browser figures in
+ *   `decisions/an-edge-is-drawn-from-bytes-in-hand.md`.
  */
 
 function harness() {
@@ -47,7 +56,18 @@ function harness() {
       // One row, in the shape both reads answer in: `column`/`fillColumn` fall back to iterating
       // plain objects when there is no Arrow child, which is what makes a stub possible at all.
       return Promise.resolve([
-        { local: 0, id: 3, x: 1, y: 2, category: 0, matched: 41, src: 0, dst: 0, weight: 1 },
+        {
+          local: 0,
+          id: 3,
+          x: 1,
+          y: 2,
+          category: 0,
+          matched: 41,
+          mark: 1,
+          src: 0,
+          dst: 0,
+          weight: 1,
+        },
       ]);
     },
   };
@@ -127,6 +147,73 @@ describe("a duck source's slice", () => {
     expect(stride.exec(points as string)?.[1]).toBe(stride.exec(links as string)?.[1]);
     // The divisor is the request's own limit, so a window that fits is not sampled — `id % 1 = 0`.
     expect(points).toContain("ceil(matched / 100.0)");
+  });
+
+  /**
+   * An edge under three screen pixels is not sent, and the threshold is a length in space.
+   *
+   * Two of every three edges a five-million-node window draws are under one pixel — a dot on top of
+   * two dots the point layer has already drawn. Discarding them sends 27.5–35.3% of the rows for a
+   * 0.1% difference in inked pixels (`.planning/FAR-VIEW-AND-EDGES.md`). The window here is 10 units
+   * wide and `perPixel` is 0.5, so three pixels is 1.5 units and the predicate compares against
+   * 2.25 — squared, because squaring both sides of a distance comparison removes a `sqrt` per row and
+   * changes no answer.
+   *
+   * **A row discard, not `linkVisibilityDistanceRange`.** That is a renderer uniform that *dims* a
+   * short link, and dimming happens after the row has been joined, returned, uploaded and
+   * rasterised. Asserting on the predicate is what tells the two apart.
+   */
+  it("does not send an edge shorter than three screen pixels", async () => {
+    const { asked, coordinator } = harness();
+    const source = duckBoundedSource({ coordinator, nodes: "nodes", edges: "edges", typeIndex: 0 });
+    await source.slice({ ...WINDOW, perPixel: 0.5 });
+
+    const links = asked.find((sql) => sql.includes("AS src"))!;
+    expect(links).toContain(">= 2.25");
+    expect(links).toContain("(s.x - t.x) * (s.x - t.x) + (s.y - t.y) * (s.y - t.y)");
+    // On the links read and nowhere else: a point is not an edge and has no length.
+    expect(asked.filter((sql) => sql.includes(">= 2.25"))).toHaveLength(1);
+  });
+
+  /**
+   * No resolution, no discard — because a threshold in pixels with no pixels is not a threshold.
+   *
+   * The loop asks for `EVERYTHING` when a corpus fits under the limit, and that request comes from no
+   * canvas and carries no rectangle. A defaulted `perPixel` would make that path silently drop the
+   * short edges of a graph small enough that every edge is worth drawing.
+   */
+  it("discards nothing when the caller said nothing about resolution", async () => {
+    const { asked, coordinator } = harness();
+    const source = duckBoundedSource({ coordinator, nodes: "nodes", edges: "edges", typeIndex: 0 });
+    await source.slice(WINDOW);
+
+    const links = asked.find((sql) => sql.includes("AS src"))!;
+    expect(links).not.toContain("(s.x - t.x)");
+    expect(links.slice(links.indexOf("SELECT s.local"))).not.toContain("WHERE");
+  });
+
+  /**
+   * A relation source has nothing in hand, and says so by building no anchor branch.
+   *
+   * A corpus fetches the tiles a rectangle touches, and those tiles hold the vertices just outside it
+   * — which is what lets the far end of an edge that leaves the window be drawn for no extra byte. A
+   * plain relation fetches nothing: `held` there would be the whole node table, and the join would
+   * scan the corpus twice on every camera move, which is the unbounded pattern wearing a bounded
+   * interface. The difference is a parameter rather than a flag, and this is what checks it stayed
+   * one.
+   */
+  it("builds no far-end branch for a source that holds no bytes", async () => {
+    const { asked, coordinator } = harness();
+    const source = duckBoundedSource({ coordinator, nodes: "nodes", edges: "edges", typeIndex: 0 });
+    await source.slice({ ...WINDOW, perPixel: 0.5 });
+
+    for (const sql of asked) {
+      expect(sql).not.toContain("anchor");
+      expect(sql).not.toContain("span");
+      expect(sql).not.toContain("NOT (");
+    }
+    // Both ends still have to be in the sample, which is the shape that loses the edge.
+    expect(asked.some((sql) => sql.includes("JOIN vis s") && sql.includes("JOIN vis t"))).toBe(true);
   });
 
   /**
