@@ -809,8 +809,8 @@ export function JobStudioShowcase() {
       {/* The library's own all-in-one: a floating palette FAB pinned to the corner plus the
           drawer, instead of a labelled button competing for room in the action row. Preferences
           are a thing you reach for occasionally; they should not read as one of the screen's
-          main verbs. `PreferencesPanel` carries the appearance toggle in its own header, so
-          there is no second control for it anywhere. */}
+          main verbs. Appearance is a side card inside that panel's Colour section, so there is no
+          second control for it anywhere. */}
       <Preferences hotkey="p" />
       <Toaster />
     </SidebarProvider>

@@ -381,7 +381,7 @@ export interface Identity {
   /**
    * Human-facing, authored by the **client**.
    *
-   * Never formatted by a host. `AppearanceToggle`'s `formatName` exists because the library authored
+   * Never formatted by a host. `PreferencesColor`'s `formatSide` exists because the library authored
    * "Light" and "Dark"; a formatter over this would only let a host decorate someone else's brand
    * name. Per-locale names, if ever needed, are a `Record<locale, string>` here.
    */

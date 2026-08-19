@@ -109,12 +109,13 @@ const baseTheme = EditorView.theme({
   // line. As a flex child of the flex-column surface it fills the field; `min-height: 0` lets it
   // shrink so `.cm-scroller` scrolls once content passes `max-height`.
   "&": { fontSize: "var(--kanzo-font-size-base, 14px)", backgroundColor: "transparent", flex: "1 1 auto", minHeight: 0 },
-  // VERTICAL padding only, and it lives only here: CodeMirror measures each `.cm-line`'s
-  // position and lays its gutter number at the same y, this padding included — so the gutter
-  // must NOT add its own (see the note there), or every number drops one padding-step below
-  // its line.
+  // NO PADDING AT ALL any more, and that is the fix for a gap somebody could see: the vertical
+  // padding used to live here, and `.cm-line` sits INSIDE it — so the active-line highlight on the
+  // first line started half a rem below the top of the field and read as a bar floating in a
+  // margin. It moved to `.cm-scroller`, which contains the gutter as well as the content, so both
+  // shift together and the numbers stay on their lines.
   //
-  // NO BACKGROUND, and no horizontal padding. Both were here and both were wrong:
+  // NO BACKGROUND either, and no horizontal padding. Both were here and both were wrong:
   //
   //   · An opaque background on `.cm-content` HIDES THE SELECTION. `drawSelection` paints into
   //     `.cm-selectionLayer`, a sibling at `z-index: -2`, and CSS paints negative-z-index
@@ -128,7 +129,11 @@ const baseTheme = EditorView.theme({
   //     box. The row read as a floating bar rather than a highlighted line. The inset moved to
   //     `.cm-line`, so the highlight spans the field and the text keeps the same rhythm.
   ".cm-content": {
-    padding: "0.5rem 0",
+    // Explicitly zero, and as the SHORTHAND: CodeMirror's base theme ships `padding: 4px 0` here,
+    // and a longhand `padding-block: 0` beside a shorthand loses — measured in the browser, the
+    // content kept its 4px and the gutter numbers drifted 4px off their lines. That 4px was the
+    // last of the gap above the first line's highlight.
+    padding: 0,
     color: "var(--foreground)",
     caretColor: "var(--foreground)",
   },
@@ -136,13 +141,27 @@ const baseTheme = EditorView.theme({
   // input's text (rem-based, so it tracks the density preference). On the LINE, so every
   // full-width line decoration (active line, and any caller's `Decoration.line`) reaches the
   // edges instead of stopping short of them.
-  ".cm-line": { padding: "0 0.75rem" },
+  //
+  // The inset is a HANGING one: a wrapped line resumes past the first row's start, so a Turtle URI
+  // that does not fit reads as a continuation rather than as a new statement. `basics` turns
+  // `EditorView.lineWrapping` on, so in a narrow pane most lines are wrapped ones — which is where
+  // the editor is used: a dock beside a canvas, an aside beside a table.
+  ".cm-line": {
+    paddingBlock: 0,
+    paddingInlineStart: "2rem",
+    paddingInlineEnd: "0.75rem",
+    textIndent: "-1.25rem",
+  },
   // The font belongs on `.cm-scroller`, not `.cm-content`: the GUTTER is a child of the
   // scroller, and CodeMirror's base sets `.cm-scroller { font-family: monospace }`. With the
   // family only on the content, line numbers rendered in the browser's generic monospace —
   // Courier on many systems — beside content in the Kanzo stack. It also made the gutter's
   // `min-width: 2.25ch` compute against the wrong font.
   ".cm-scroller": {
+    // The vertical rhythm, and it is here rather than on `.cm-content` so the gutter gets the same
+    // offset — see the note there. `paddingBlock` and not `padding`: horizontal inset belongs to
+    // `.cm-line`, where a full-width line decoration can still reach the edges.
+    paddingBlock: "0.5rem",
     fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)",
     lineHeight: "1.5",
     overflow: "auto",
@@ -163,9 +182,9 @@ const baseTheme = EditorView.theme({
   // freed the scroller to hold the paper, which is what un-hides the selection layer.
   // No divider; the tint step from `--muted` to the scroller's `--background` is the separation.
   ".cm-gutters": {
-    // NO vertical padding: CodeMirror already lays each number at its (padded) content line's
-    // y, so repeating the padding here drops every number one step too low. Verified: with
-    // this present the numbers sat a constant 9px below their lines.
+    // NO vertical padding: the scroller's is the only one, and the gutter is inside it, so every
+    // number already sits at its line's y. Repeating it here dropped each number one step too
+    // low — verified back when the padding was on `.cm-content`: a constant 9px below its line.
     background: "var(--muted)",
     border: "none",
     color: "var(--faint)",
@@ -362,6 +381,18 @@ export interface CodeEditorProps {
    *  the Kanzo token theme). Default true. Set false when the caller's `extensions`
    *  own all behaviour and theming. */
   basics?: boolean;
+  /**
+   * Wrap long lines, or scroll sideways. Default true, which is what `basics` always did.
+   *
+   * Wrapping is right where the editor is a reading surface in a narrow pane; it is wrong where
+   * the document has structure a reader tracks by column — a Turtle predicate list read against
+   * its indentation stops being a list once every third line reflows. There is no third option:
+   * `EditorView.lineWrapping` is on or it is not.
+   *
+   * Read once, when the view is built — like `basics`, and for the same reason. Changing it after
+   * mount does nothing.
+   */
+  wrap?: boolean;
   /** Wrap the editor in the styled focus-ring chrome (Box + inset ring + surface
    *  background). Default true. Set false for a bare surface. */
   chrome?: boolean;
@@ -392,6 +423,7 @@ export function CodeEditor(p: CodeEditorProps) {
       if (u.transactions.some((t) => t.annotation(External))) return; // our own reconcile
       props.current.onChange?.(u.state.doc.toString());
     });
+    const wrap = props.current.wrap ?? true;
     const batteries: Extension[] = basics
       ? [
           history(),
@@ -403,7 +435,7 @@ export function CodeEditor(p: CodeEditorProps) {
             ...completionKeymap,
             ...foldKeymap,
           ]),
-          EditorView.lineWrapping,
+          ...(wrap ? [EditorView.lineWrapping] : []),
           drawSelection(),
           dropCursor(),
           // `completionKeymap` was already bound below, but the extension itself was never

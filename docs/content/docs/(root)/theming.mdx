@@ -431,8 +431,9 @@ Omit the prop and the provider's built-in fallback toggles `.dark` itself, which
 docs do.
 
 The preference is `"light" | "dark" | ""`, where `""` means the OS decides — there is no
-`"system"`, and [the toggle's page](/docs/layout/appearance-toggle#there-is-no-system) says which
-reference systems agree and why. A host next-themes speaks `"system"`; the provider translates it to
+`"system"`: the value with no value is how the token-layer references model it (daisyUI's
+`--prefersdark`, `color-scheme: light dark`) rather than the theme-switcher libraries, which make it
+a third string. A host next-themes speaks `"system"`; the provider translates it to
 `""` on the way in and back on the way out, in one place, so the rest of the library never sees it.
 
 `""` is the same value `identity` and `palette` store for "defer to the document", and that is not a

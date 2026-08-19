@@ -524,8 +524,8 @@ function Shell() {
                 </Badge>
               </Float>
             </div>
-            {/* Appearance lives in Preferences, whose panel carries it beside the close button —
-                the FAB bottom-end opens it. A toggle here would be the same preference twice. */}
+            {/* Appearance lives in Preferences, as a side card under Colour — the FAB bottom-end
+                opens it. A toggle here would be the same preference twice. */}
           </div>
         </ShellHeader>
 

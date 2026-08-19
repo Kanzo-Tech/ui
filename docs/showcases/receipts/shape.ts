@@ -12,6 +12,11 @@
 // three the same way. The one thing this shape does not use is SHACL-UI's `shui:editor`, because
 // the control it would name is already implied by `sh:datatype` and `sh:in`.
 //
+// CASE. `sh:name` is sentence case, not the shouted capitals a fuel ticket prints. The paper is
+// uppercase because a dot-matrix printer had one case; a column header is ours to write, and seven
+// shouted words across a header row is a wall rather than a list. The VALUES keep whatever the
+// paper had — those are read, not authored.
+//
 // LANGUAGE. The chrome around this screen is English, like every other showcase. These strings are
 // not chrome: `sh:name` becomes a column header in a Spanish accountant's spreadsheet and
 // `sh:message` is read by whoever checks a cell against Spanish paperwork, so they are the
@@ -29,7 +34,7 @@ tk:FuelTicketShape a sh:NodeShape ;
   sh:targetClass tk:FuelTicket ;
   sh:property [
     sh:path tk:fecha ;
-    sh:name "FECHA"@es ;
+    sh:name "Fecha"@es ;
     sh:description "La fecha impresa del repostaje, no la hora ni el número de remesa."@es ;
     sh:order 1 ;
     sh:datatype xsd:date ;
@@ -39,7 +44,7 @@ tk:FuelTicketShape a sh:NodeShape ;
   ] ;
   sh:property [
     sh:path tk:ticket ;
-    sh:name "N TICKET"@es ;
+    sh:name "N.º ticket"@es ;
     sh:description "El número que sigue a «N. de ticket», al pie. No es el comercio, ni la concesión, ni el número de operación, que también son números largos."@es ;
     sh:order 2 ;
     sh:datatype xsd:string ;
@@ -50,7 +55,7 @@ tk:FuelTicketShape a sh:NodeShape ;
   ] ;
   sh:property [
     sh:path tk:matricula ;
-    sh:name "MATRÍCULA"@es ;
+    sh:name "Matrícula"@es ;
     sh:description "El vehículo. NO está impreso: va escrito a mano sobre el ticket."@es ;
     sh:order 3 ;
     sh:datatype xsd:string ;
@@ -61,7 +66,7 @@ tk:FuelTicketShape a sh:NodeShape ;
   ] ;
   sh:property [
     sh:path tk:driver ;
-    sh:name "DRIVER"@es ;
+    sh:name "Conductor"@es ;
     sh:description "Quién repostó. NO está impreso: va escrito a mano, normalmente un nombre de pila junto a la matrícula. «DRIVERS LEON» es el cliente de la tarjeta, no el conductor."@es ;
     sh:order 4 ;
     sh:datatype xsd:string ;
@@ -71,7 +76,7 @@ tk:FuelTicketShape a sh:NodeShape ;
   ] ;
   sh:property [
     sh:path tk:base ;
-    sh:name "BASE/ESCOBA"@es ;
+    sh:name "Base o escoba"@es ;
     sh:description "Para qué fue el gasto. NO está impreso: va escrito a mano, y muchos tickets no lo llevan."@es ;
     sh:order 5 ;
     sh:datatype xsd:string ;
@@ -82,7 +87,7 @@ tk:FuelTicketShape a sh:NodeShape ;
   ] ;
   sh:property [
     sh:path tk:importe ;
-    sh:name "IMPORTE"@es ;
+    sh:name "Importe"@es ;
     sh:description "El TOTAL en euros, el de «Total Venta». No el precio por litro de la columna €/L, ni el número de litros."@es ;
     sh:order 6 ;
     sh:datatype xsd:decimal ;
@@ -93,7 +98,7 @@ tk:FuelTicketShape a sh:NodeShape ;
   ] ;
   sh:property [
     sh:path tk:kilometros ;
-    sh:name "KILÓMETROS"@es ;
+    sh:name "Kilómetros"@es ;
     sh:description "El cuentakilómetros del vehículo, el que el ticket imprime como «Kilómetros». Confirmar con quien lleva la hoja si es éste o el que se anota aparte."@es ;
     sh:order 7 ;
     sh:datatype xsd:integer ;
@@ -117,7 +122,7 @@ tk:FuelTicketShape a sh:NodeShape ;
   sh:targetClass tk:FuelTicket ;
   sh:property [
     sh:path tk:fecha ;
-    sh:name "FECHA"@es ;
+    sh:name "Fecha"@es ;
     sh:description "La fecha impresa del repostaje."@es ;
     sh:order 1 ;
     sh:datatype xsd:date ;
@@ -127,7 +132,7 @@ tk:FuelTicketShape a sh:NodeShape ;
   ] ;
   sh:property [
     sh:path tk:ticket ;
-    sh:name "N TICKET"@es ;
+    sh:name "N.º ticket"@es ;
     sh:description "El numero que sigue a «N. de ticket», al pie."@es ;
     sh:order 2 ;
     sh:datatype xsd:string ;
@@ -138,7 +143,7 @@ tk:FuelTicketShape a sh:NodeShape ;
   ] ;
   sh:property [
     sh:path tk:importe ;
-    sh:name "IMPORTE"@es ;
+    sh:name "Importe"@es ;
     sh:description "El TOTAL en euros, el de «Total Venta»."@es ;
     sh:order 3 ;
     sh:datatype xsd:decimal ;

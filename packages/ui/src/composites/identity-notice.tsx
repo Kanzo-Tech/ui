@@ -9,7 +9,7 @@ import { useKanzoTheme } from "../theme/KanzoThemeProvider.js";
  * The copy for "the identity you chose is no longer published", shared by the two surfaces that
  * say it: this toast, and the `Alert` inside `Preferences.Colour`. One state, said once.
  *
- * Both strings are **library-authored English**, which is exactly the distinction `AppearanceToggle`
+ * Both strings are **library-authored English**, which is exactly the distinction `PreferencesColor`'s `formatSide`
  * draws with its `formatName`: the library wrote "Light" and "Dark", so a caller who translates the
  * app has to be able to translate them. An identity's `label` is the opposite case — the client
  * authored it, at runtime — and takes no formatter, because a formatter over it would only let a

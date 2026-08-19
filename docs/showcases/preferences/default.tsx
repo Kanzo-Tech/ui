@@ -50,12 +50,13 @@ export function PreferencesShowcase() {
             <SectionDescription>
               Ordinary product chrome, here only so the live re-theming has something to act on.
               Open the panel in the corner and change the radius or density — every control below
-              re-skins without re-rendering. Appearance is in there too, beside the close button:
-              one control, cycling light → dark → system.
+              re-skins without re-rendering. Appearance is in there too: press a side under Colour
+              and that side is worn.
             </SectionDescription>
           </SectionTitleGroup>
-          {/* No appearance control here. `PreferencesPanel` carries one in its own header, and a
-              second button for the same preference is the thing this showcase should not model. */}
+          {/* No appearance control here. The panel's Colour section IS the appearance control — a
+              side card, pressed — and a second button for the same preference is the thing this
+              showcase should not model. */}
           <div className="flex items-center gap-2">
             <Badge variant="info">Live</Badge>
           </div>

@@ -63,8 +63,14 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.ButtonGroup).toBeTypeOf("function");
     expect(UI.NumberInput).toBeTypeOf("function");
     expect(UI.Item).toBeTypeOf("function");
+    // Adopted the day it got its second renderer — the graph inspector and the receipts ticket
+    // panel had both hand-written its `dl`. Its UNADOPTED entry in `shark-parity.divergences.ts`
+    // is gone, which is the assertion that would go red if this left the barrel again.
+    expect(UI.DataList).toBeTypeOf("function");
+    expect(UI.DataListItem).toBeTypeOf("function");
+    expect(UI.DataListItemLabel).toBeTypeOf("function");
+    expect(UI.DataListItemValue).toBeTypeOf("function");
     expect(UI.Float).toBeTypeOf("function");
-    expect(UI.AppearanceToggle).toBeTypeOf("function");
     expect(UI.useAiStream).toBeTypeOf("function");
     expect(UI.useCompletion).toBeTypeOf("function");
     expect(UI.useSuggestions).toBeTypeOf("function");
@@ -141,6 +147,13 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(surface.SecretField).toBeUndefined();
     // SuggestMenu dissolved into a Popover + useSuggestions composition.
     expect(surface.SuggestMenu).toBeUndefined();
+    // `AppearanceToggle` was a second control for a preference `PreferencesColor` already offers:
+    // that section draws one card per side and pressing a card wears it, so the sun/moon button in
+    // the panel header asked the same question a second time, twelve pixels away. It cycled nothing
+    // — "follow the OS" is `""` and its way back is Reset — so what went with it is the button, not
+    // a state. What went with it that this file cannot see: where the tenant published fewer than
+    // two choices `PreferencesColor` returns null, and that panel now has no appearance control.
+    expect(surface.AppearanceToggle).toBeUndefined();
     // The AiAssist provider was over-engineered for one consumer, and a `complete` prop plus the
     // monolithic FieldSuggest violated core purity. AI-assist is now two composed compounds —
     // `Complete` (over a pure Input/Textarea) and `Suggest` — with the engine hooks headless.

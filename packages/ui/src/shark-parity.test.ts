@@ -71,10 +71,11 @@ import {
  *   corpus, so Shark's `chart.tsx` is compared as unadopted rather than against our Mosaic charts.
  * - **Only `simples/`, plus whatever `MODULE_MAP` names — which is one file.** "Our side" is
  *   `readdirSync(SRC/simples)` and that map, so everything in `composites/` and `layouts/` except
- *   `composites/sidebar.tsx` is outside the corpus: **35 value exports across 6 modules** today
- *   (counted 2026-07-30) — `composites/AppearanceToggle.tsx` (1), `composites/CodeEditor.tsx` (2),
- *   `composites/Preferences.tsx` (10), `composites/SidebarIdentity.tsx` (6), `layouts/section.tsx`
- *   (10), `layouts/shell.tsx` (6). Every one of them is the OURS_ALONE category — Shark has no file
+ *   `composites/sidebar.tsx` is outside the corpus: **34 value exports across 5 modules** today
+ *   (counted 2026-08-19) — `composites/CodeEditor.tsx` (2), `composites/Preferences.tsx` (10),
+ *   `composites/SidebarIdentity.tsx` (6), `layouts/section.tsx` (10), `layouts/shell.tsx` (6).
+ *   `composites/AppearanceToggle.tsx` was the sixth and is deleted; this paragraph is the reason
+ *   nothing here went red when it left. Every one of them is the OURS_ALONE category — Shark has no file
  *   for any of them — so this costs nothing in the direction that iterates Shark's list, which is
  *   complete: a component Shark ships and we build in `composites/` still fails
  *   `has one of our modules behind every component` until `MODULE_MAP` or UNADOPTED gains a line.

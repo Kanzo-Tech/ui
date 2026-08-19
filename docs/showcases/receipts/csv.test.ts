@@ -18,29 +18,29 @@ import { TICKET_SHAPE } from "./shape";
 
 /** What `openLedger(TICKET_SHAPE)` projects, in `sh:order`. */
 const COLUMNS: Column[] = [
-  { key: "fecha", iri: "", label: "FECHA", order: 1, type: "date", required: true },
+  { key: "fecha", iri: "", label: "Fecha", order: 1, type: "date", required: true },
   {
     key: "ticket",
     iri: "",
-    label: "N TICKET",
+    label: "N.º ticket",
     order: 2,
     type: "string",
     pattern: "^[0-9]{12}$",
     required: true,
   },
-  { key: "matricula", iri: "", label: "MATRÍCULA", order: 3, type: "string", required: true },
-  { key: "driver", iri: "", label: "DRIVER", order: 4, type: "string", required: true },
+  { key: "matricula", iri: "", label: "Matrícula", order: 3, type: "string", required: true },
+  { key: "driver", iri: "", label: "Conductor", order: 4, type: "string", required: true },
   {
     key: "base",
     iri: "",
-    label: "BASE/ESCOBA",
+    label: "Base o escoba",
     order: 5,
     type: "string",
     options: ["Escoba", "Base", "Lavado"],
     required: true,
   },
-  { key: "importe", iri: "", label: "IMPORTE", order: 6, type: "decimal", required: true },
-  { key: "kilometros", iri: "", label: "KILÓMETROS", order: 7, type: "integer", required: false },
+  { key: "importe", iri: "", label: "Importe", order: 6, type: "decimal", required: true },
+  { key: "kilometros", iri: "", label: "Kilómetros", order: 7, type: "integer", required: false },
 ];
 
 const row = (cells: Partial<Record<string, string>>): Row => ({
@@ -60,7 +60,7 @@ const row = (cells: Partial<Record<string, string>>): Row => ({
 describe("the CSV a Spanish Excel opens", () => {
   it("writes the header from sh:name, in sh:order", () => {
     const [header] = toCsv(COLUMNS, []).slice(BOM.length).split("\r\n");
-    expect(header).toBe("FECHA;N TICKET;MATRÍCULA;DRIVER;BASE/ESCOBA;IMPORTE;KILÓMETROS");
+    expect(header).toBe("Fecha;N.º ticket;Matrícula;Conductor;Base o escoba;Importe;Kilómetros");
   });
 
   it("reads its columns off the shape document", () => {

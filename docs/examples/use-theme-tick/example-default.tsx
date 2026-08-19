@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { AppearanceToggle, CHART_SLOTS, resolveTokenColor, useThemeTick } from "@kanzo-tech/ui";
+import { Button, CHART_SLOTS, resolveTokenColor, useKanzoTheme, useThemeTick } from "@kanzo-tech/ui";
 
 const WIDTH = 320;
 const HEIGHT = 120;
@@ -18,6 +18,10 @@ export default function Example() {
   const host = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const tick = useThemeTick();
+  // The flip this example needs, written out rather than borrowed from a component: appearance has
+  // one control and it is a card in the Preferences panel, which is not what a canvas demo wants
+  // beside it. `setAppearance` is the same call that card makes.
+  const { resolvedAppearance, setAppearance } = useKanzoTheme();
 
   useEffect(() => {
     const node = canvas.current;
@@ -43,7 +47,13 @@ export default function Example() {
     <div className="flex flex-col items-center gap-4" ref={host}>
       <canvas className="h-[120px] w-[320px]" ref={canvas} />
       <div className="flex items-center gap-3">
-        <AppearanceToggle variant="outline" />
+        <Button
+          onClick={() => setAppearance(resolvedAppearance === "dark" ? "light" : "dark")}
+          size="sm"
+          variant="outline"
+        >
+          Flip appearance
+        </Button>
         <p className="text-muted-foreground text-xs tabular-nums">tick {tick}</p>
       </div>
     </div>

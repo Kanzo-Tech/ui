@@ -24,6 +24,10 @@ import {
   CompleteHint,
   CompleteRoot,
   CompleteTextarea,
+  DataList,
+  DataListItem,
+  DataListItemLabel,
+  DataListItemValue,
   DatePicker,
   DatePickerContent,
   DatePickerInput,
@@ -477,14 +481,16 @@ function InspectorBody() {
           </Button>
         </div>
       </div>
-      <dl className="space-y-2 text-sm">
+      {/* `DataList`, vertical: a 6rem label column would leave a URI nothing to sit in at this
+          width. It was this exact `dl` written by hand until the library adopted Shark's. */}
+      <DataList orientation="vertical">
         {properties(head).map((p) => (
-          <div className="flex flex-col gap-0.5" key={p.predicate}>
-            <dt className="font-medium text-muted-foreground text-xs">{p.predicate}</dt>
-            <dd className="break-all">{p.value}</dd>
-          </div>
+          <DataListItem className="gap-0.5 py-0" key={p.predicate}>
+            <DataListItemLabel className="text-xs">{p.predicate}</DataListItemLabel>
+            <DataListItemValue className="break-all">{p.value}</DataListItemValue>
+          </DataListItem>
         ))}
-      </dl>
+      </DataList>
       <Show when={rest.length > 0}>
         <div className="border-t pt-2">
           <p className="mb-1 font-medium text-muted-foreground text-xs">

@@ -78,21 +78,42 @@ describe("Preferences", () => {
     cleanHtml();
   });
 
-  describe("Appearance is one control, in the header", () => {
-    // Two-sided on purpose. The panel briefly had a three-card section — the same preference
-    // wearing a second control — and removing it took the header toggle with it, leaving the
-    // panel with no way to change appearance at all and nothing failing. So assert both: the
-    // section does not come back, and the toggle does not go away.
-    it("puts the cycling toggle in the header, not a section in the body", () => {
-      setup();
+  describe("Appearance is one control, and it is a Colour card", () => {
+    // This block used to assert the opposite — a header toggle present, no section in the body —
+    // and its comment recorded why: a three-card section had been removed once and took the toggle
+    // with it, leaving no way to change appearance and nothing failing. The toggle is now gone on
+    // purpose, so what the test has to hold is the OTHER end of that story: pressing a side card
+    // still wears that side, and no second control has grown back beside it.
+    // Two published choices, because that is what makes `Colour` — and therefore the appearance
+    // control — draw at all. The second test below is the other side of that condition.
+    const TWO: PaletteOption[] = [
+      { value: "kanzo", label: "Kanzo" },
+      { value: "dracula", label: "Dracula" },
+    ];
 
-      expect(screen.getByRole("button", { name: /^Appearance/ })).toBeTruthy();
+    it("wears a side by pressing its Colour card, with no toggle in the header", async () => {
+      const user = userEvent.setup();
+      setup(undefined, { palettes: TWO });
 
+      expect(screen.queryByRole("button", { name: /^Appearance/ })).toBeNull();
       expect(screen.queryByRole("radiogroup", { name: "Appearance" })).toBeNull();
-      // Not "System": the Font and Mono font sections each offer one, and always did.
-      for (const name of ["Light", "Dark"]) {
-        expect(screen.queryByRole("radio", { name }), name).toBeNull();
-      }
+
+      // The card headers are the control: two toggles, each reporting its own side.
+      await user.click(screen.getByRole("button", { name: "Dark", pressed: false }));
+
+      expect(html().classList.contains("dark")).toBe(true);
+      expect(stored().appearance).toBe("dark");
+    });
+
+    // The hole the deletion left, asserted rather than remembered: below two published choices
+    // `ColorSection` returns null, and then the panel has no appearance control anywhere. A test
+    // that says so is what makes it a decision instead of a regression nobody wrote down.
+    it("has no appearance control at all where the tenant published one choice", () => {
+      setup(undefined, { palettes: [{ value: "kanzo", label: "Kanzo" }] });
+
+      expect(screen.queryByRole("button", { name: /^Appearance/ })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Dark" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Light" })).toBeNull();
     });
 
     it("still reaches the preference through Reset, which unsets it", async () => {
@@ -472,8 +493,8 @@ describe("Preferences", () => {
       expect(create).not.toHaveBeenCalled();
     });
 
-    // The message is library-authored English, so it takes the `AppearanceToggle` escape hatch —
-    // unlike an identity's own label, which the client authored and nobody else gets to reword.
+    // The message is library-authored English, so it takes the format-prop escape hatch — unlike
+    // an identity's own label, which the client authored and nobody else gets to reword.
     it("lets a host translate both halves of the message", () => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ identity: "withdrawn" }));
       const create = vi.spyOn(toast, "create").mockReturnValue("id");

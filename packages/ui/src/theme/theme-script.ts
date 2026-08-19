@@ -20,7 +20,7 @@
 // off the axis table like any other: choosing among the blocks that document already contains.
 //
 // MANDATORY under SSR, not an optimisation. Skipping it costs more than a flash: any control
-// whose markup depends on the resolved theme (`AppearanceToggle`) renders one value on the
+// whose markup depends on the resolved theme (`PreferencesColor`'s side cards) renders one value on the
 // server and another on hydration, which React reports as a mismatch and does not patch.
 //
 // This script must reach the SAME `class` + `data-*` as the provider from the same inputs —

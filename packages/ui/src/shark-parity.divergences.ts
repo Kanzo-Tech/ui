@@ -53,7 +53,6 @@ export const UNADOPTED: Readonly<Record<string, string>> = {
   "circular-slider": "Not built. No renderer in the library or the docs.",
   "context-menu":
     "Deleted deliberately. A context menu is `Menu` with a different trigger, which is what `MenuContextTrigger` is — nine of the ten exports were `data-slot` renames of `Menu`'s parts. `decisions/a-machine-with-a-switch-is-a-variant.md`; tombstoned in `index.test.ts`, `drops components superseded by composition or a merge`.",
-  "data-list": "Not built. No renderer in the library or the docs.",
   "date-input": "Not built. `DatePicker` over Ark's date-picker machine is the date surface here, and `parseDate` is re-exported from the barrel so its value can be built.",
   drawer: "Not built. `Sheet` is the side-anchored dialog in this library; Shark ships both over the same Ark dialog machine.",
   "floating-panel":

@@ -1,0 +1,61 @@
+---
+title: DataList
+description: A record read back — label and value, as a real `<dl>`.
+---
+
+<ComponentPreview componentName="data-list" />
+
+## Usage
+
+```tsx
+import {
+  DataList,
+  DataListItem,
+  DataListItemLabel,
+  DataListItemValue,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<DataList>
+  <DataListItem>
+    <DataListItemLabel>Contract</DataListItemLabel>
+    <DataListItemValue>Q-4417</DataListItemValue>
+  </DataListItem>
+</DataList>
+```
+
+## `DataListItem` is not decoration
+
+A `<dl>` may contain `<dt>`, `<dd>`, and a `<div>` wrapping a pair — and nothing else. That `div`
+**is** `DataListItem`, which is why a row is three components rather than two: a paragraph or a span
+placed beside the value is invalid markup that every browser renders anyway. Put it *inside*
+`DataListItemValue`.
+
+## Orientation is the list's, never the row's
+
+`orientation` is a `data-` attribute on the root and every part styles off
+`group-data-[orientation=…]`, so a list where some rows stack and others sit side by side cannot be
+expressed. That is the point: a record whose rows disagree about their own shape is two records.
+
+`horizontal` is the default and reads as two columns. `vertical` is what a narrow aside wants —
+a 6rem label column there would leave the value nothing to sit in.
+
+<ComponentPreview componentName="data-list" fileName="example-vertical" />
+
+## Where it is used
+
+Two inspectors, and they are why it exists: the graph workspace's node properties and the
+[Receipts](/docs/showcases/receipts) ticket panel had both hand-written this exact `dl` before the
+library adopted Shark's.
+
+## API Reference
+
+### DataList
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `orientation` | `"horizontal" \| "vertical"` | `"horizontal"` |
+
+`DataListItem`, `DataListItemLabel` and `DataListItemValue` take the props of the element they
+render (`div`, `dt`, `dd`).

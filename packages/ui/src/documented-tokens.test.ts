@@ -23,7 +23,7 @@ import { describe, expect, it } from "vitest";
  * the library's own component-tier declarations, the docs' stylesheet. Build output is excluded, and
  * that exclusion is load-bearing rather than hygiene: a first draft swept `docs/.next/`, which
  * declares Tailwind's `--default-font-family`, and that alone made `default` a namespace of ours —
- * so daisyUI's `--default`, quoted in `appearance-toggle.mdx` as *their* spelling, read as our own
+ * so daisyUI's `--default`, quoted in `theming.mdx` as *their* spelling, read as our own
  * undeclared token. A generated corpus makes a guard confidently wrong about who owns a name.
  *
  * **Checked** is a token named in a page whose first segment is a namespace we declare. That is the

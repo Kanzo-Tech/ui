@@ -50,7 +50,7 @@ The same document then decides:
 
 1. **the table** — `sh:name` is the header, `sh:order` the column order, `sh:datatype` whether the
    cell is an `Input` or a `NativeSelect`, and `sh:in` the select's options;
-2. **what the model is asked for** — the tool schema the route handler sends is generated from the
+2. **what the model is asked for** — the schema the live adapter sends is generated from the
    projected columns, and `key` is an **enum of those columns**, so every cell comes back as an
    explicit `{key, value}` pair. Nothing is positional: the model never returns "the third value",
    and a key outside the enum is rejected by structured outputs. What tells it *which* is which is
@@ -73,8 +73,8 @@ Why that is a decision rather than a convenience is in
 
 ## Why a model and not an OCR
 
-Three of the seven columns are **not printed on the ticket at all**. `MATRÍCULA`, `DRIVER` and
-`BASE/ESCOBA` are written on the paper in biro — a receipt OCR reads the printed layer and returns
+Three of the seven columns are **not printed on the ticket at all**. `Matrícula`, `Conductor` and
+`Base o escoba` are written on the paper in biro — a receipt OCR reads the printed layer and returns
 nothing for them. Every low confidence in the recorded run is on one of those three, or on the one
 ticket the photograph cuts in half.
 
@@ -103,18 +103,33 @@ Existing parts, arranged — nothing here is new:
 - **`useAiStream`** — the streaming engine, and its second consumer. It is domain-free by
   construction: a run of vision events uses it unchanged, alongside `Complete` and `Suggest`.
 - **`FileUpload` + `FileUploadDropzone`** — the empty state. One photo may hold several tickets.
-- **`Table` parts + `Input` + `NativeSelect`** — the editable ledger. The control a cell gets is
-  decided by its `sh:datatype` and `sh:in`, not by a switch written here.
+- **`@kanzo-tech/ui/table`** — the editable ledger, and the one call site here whose `ColumnDef[]`
+  is built at **runtime**: the columns come out of a shape the reader is editing in the next pane,
+  so the table redefines itself as they type. What survives that is the split between the two — the
+  definitions are a pure function of the projected columns, and everything that moves per keystroke
+  (the value, its findings, its confidence, the edit handler) reaches the cell through TanStack's
+  `meta`. Rebuilding the definitions instead would hand every column a new identity on every
+  keystroke, and column visibility is keyed off exactly that. The control a cell gets is decided by
+  its `sh:datatype` and `sh:in`, not by a switch written here.
+- **`DataList`** — the ticket panel's record, every column with what was read into it. Shark's, and
+  this was one of the two renderers that got it adopted.
 - **`DownloadTrigger`** — the CSV, `;`-separated with a BOM and the decimal comma left as typed,
   because that is the file Spanish Excel opens by double-click.
-- **`SegmentGroup`**, **`Tabs`**, **`ScrollArea`**, **`Badge`**, **`Show`** — the chrome.
+- **`ToggleGroup`** vertical — the activity bar. Two panes, independent, so it is `multiple`.
+- **`SegmentGroup`**, **`ScrollArea`**, **`Badge`**, **`Status`**, **`Show`** — the chrome.
 
 ## Running it against a real model
 
 The showcase ships a **recorded** run so the docs build is deterministic and needs no key. The same
-`(shots, signal) => AsyncIterable<ExtractEvent>` seam takes a live adapter: set `ANTHROPIC_API_KEY`
-and **Live model** stops being greyed out. The showcase asks the route handler whether a key
-exists before offering the option, rather than letting the button fail on click.
+`(shots, signal) => AsyncIterable<ExtractEvent>` seam takes a live adapter: paste your own Anthropic
+key into **Preferences** and **Live model** stops being greyed out. The option is greyed out until
+there is a key, rather than letting the button fail on click.
 
-The key never reaches the browser, and `@kanzo-tech/ui` never learns what SHACL is — the admission
-rule at the top of the barrel bars RDF by name, so every line of this lives in `showcases/`.
+**It runs in the browser, and there is no route handler.** A server hop would exist to hide a key,
+and on a public docs site there is no key of ours to hide — the one in play is the reader's, so the
+SDK's `dangerouslyAllowBrowser` is the honest arrangement and the key stays in their `localStorage`.
+Not in the theme's prefs, which these docs persist as a **cookie**: a secret there would travel to
+the server on every request, which is the hop this removed.
+
+`@kanzo-tech/ui` never learns what SHACL is either — the admission rule at the top of the barrel
+bars RDF by name, so every line of this lives in `showcases/`.

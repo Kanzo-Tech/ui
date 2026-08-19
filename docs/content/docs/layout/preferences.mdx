@@ -86,17 +86,20 @@ without being asked.
   nothing else.
 </Callout>
 
-<Callout type="info" title="Appearance has no section, and the colour cards still select it">
-  `appearance` is a preference, but it is not a *section*.
-  [`AppearanceToggle`](/docs/layout/appearance-toggle) sits beside the close button and flips
-  light ⇄ dark in one click — and it is the control that is always there, because `Colour` hides
-  itself below two published choices. Mount it anywhere else you like; the docs sidebar does.
+<Callout type="info" title="Appearance has no section, and no control of its own">
+  `appearance` is a preference, but it is not a *section*. **Pressing a side card in `Colour` wears
+  that side**, and that is the whole appearance control: the card is already a full-size depiction
+  of what you would get, and a depiction you cannot enter is worse than a card plus a button
+  elsewhere saying the same thing.
 
-  Where `Colour` does draw, **pressing a side card wears that side**. That is not a second control
-  sneaking back in: the card is already a full-size depiction of what you would get, and a
-  depiction you cannot enter is worse than the pair. It is also the only way in on a **page**, which
-  has no panel header to hang a toggle off — the rule is one control per preference, never one
-  control per application.
+  An `AppearanceToggle` — a sun/moon button beside the close X — used to say it anyway. It is
+  **deleted**, not moved: it flipped light ⇄ dark and so does a card, and "follow the OS" was never
+  on it (that is `""`, and `Reset` is the way back).
+
+  What that costs is worth knowing before you rely on it: `Colour` hides itself below two published
+  choices, so **a tenant with one palette and one brand now has no appearance control in this
+  panel.** Their users follow the OS, or the host mounts its own control against
+  `useKanzoTheme().setAppearance`.
 
   There is no third state on that flip: following the OS is `null`, the absence of a pinned side, and
   `DEFAULT_PREFS.appearance` is `""` — so an app with nothing stored follows the OS until the first

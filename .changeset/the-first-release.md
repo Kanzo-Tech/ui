@@ -301,6 +301,17 @@ decides. There is no `"system"`: following the OS is the absence of a value, whi
 itself does with `color-scheme`. A host speaking next-themes' `"system"` is translated on the way
 in and back out, in one place.
 
+**`DataList` is adopted.** Shark ships it; we did not build it until it had two renderers — the
+graph inspector's node properties and the Receipts ticket panel, both of which had hand-written the
+same `dl` / `div` / `dt` / `dd` tree. `DataListItem` is the `div` the spec requires, not decoration.
+
+**Appearance has one control and it is a colour card.** `PreferencesColor` draws one card per side
+and pressing a card wears that side; there is no `AppearanceToggle`, no `PreferencesAppearance`, and
+no sun/moon button in the panel's header. Note the shape of the hole that leaves: `PreferencesColor`
+hides itself below two published choices, so a tenant publishing one palette and one brand has no
+appearance control in the panel — their users follow the OS, or the host mounts its own against
+`useKanzoTheme().setAppearance`.
+
 **Appearance is a class on the element carrying the theme, never on an ancestor.** That is what
 makes a light preview inside a dark page possible. Whatever sets `data-palette` must also set the
 appearance class — a bare attribute on a div inside a dark page renders that document's *light*

@@ -5,8 +5,8 @@
 // An `Extractor` is a function returning an async iterable and honouring an `AbortSignal` —
 // the same contract `useAiStream` takes, for the same reason: the showcase does not care whether
 // the events came from a model, a fixture or a queue. `recorded` replays a real run over the photo
-// in `public/receipts/`; `live` (./live.ts) posts the images to a route handler that calls the
-// model. Nothing below imports either.
+// in `public/receipts/`; `live` (./live.ts) calls the model from the browser with
+// the visitor's own key. Nothing below imports either.
 //
 // Why a model and not an OCR: three of the seven columns are NOT PRINTED on the ticket at all.
 // MATRICULA, DRIVER and BASE are written on the paper in biro, and a receipt OCR reads the

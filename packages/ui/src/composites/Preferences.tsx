@@ -25,7 +25,6 @@ import {
   type ThemeContextValue,
 } from "../theme/KanzoThemeProvider.js";
 import { cn } from "../lib/cn.js";
-import { AppearanceToggle } from "./AppearanceToggle.js";
 import { Alert, AlertDescription, AlertTitle } from "../simples/alert.js";
 import { Badge } from "../simples/badge.js";
 import { Button } from "../simples/button.js";
@@ -68,13 +67,18 @@ import { Switch } from "../simples/switch.js";
  * of choice `appearance` makes between one document's two modes, one level up — and it shows itself
  * only when there are two to choose from.
  *
- * **Appearance has no section of its own, and is still selectable in the body**: `Colour` draws one
- * card per side, and pressing a card wears that side. That is not the rule breaking — the rule is
- * one control per preference, and `AppearanceToggle` in the header is the one that is always there:
- * `Colour` hides itself below two published choices, so on the common panel the toggle is the only
- * appearance control in the building. Where the section DOES draw, it depicts both sides at full
- * size, and a depiction of a state you cannot enter is worse than the pair of controls. What a
- * section of its own would have added is a third spelling of a choice already on screen twice.
+ * **Appearance has no section of its own, and no control of its own either**: `Colour` draws one
+ * card per side, and pressing a card wears that side. That IS the appearance control, and it is the
+ * only one — an `AppearanceToggle` sat in the header until 2026-08-19 and was the same preference
+ * wearing a second control twelve pixels from the first. It is deleted, not moved: it flipped
+ * light ⇄ dark and so does a card, and "follow the OS" was never on it — that is `""`, and Reset is
+ * the way back.
+ *
+ * **What that costs, stated rather than discovered.** `Colour` hides itself below two published
+ * choices, so a tenant that published one palette and one brand now has a panel with no appearance
+ * control at all. That is a real hole and the reason this paragraph exists; the fix, if it is
+ * wanted, is for the section to draw the two cards even where there is nothing to choose between —
+ * not for the button to come back.
  *
  * It has two states and not three: "follow the OS" is `""`, the absence of a pinned side, so the
  * way back to it is `Reset` — which UNSETS every preference rather than writing each default, and
@@ -221,9 +225,12 @@ function PreferencesPanel({
             "motion-reduce:animate-none!",
           )}
         >
-          {/* Header. Appearance sits here, beside the close X, and not as a body section: it is
-              one control, and a section of three cards was a second one for the same preference.
-              In the header it stays a one-click cycle and costs the body nothing. */}
+          {/* Header. Nothing but the title and the close X: a sun/moon toggle sat here, and it was
+              the same preference wearing a second control twelve pixels from the first. `Colour`
+              draws a card per side and pressing one wears it, which is the whole of what the
+              button did — it cycled nothing, since "follow the OS" is `""` and Reset is its way
+              back. What that costs is stated on `ColorSection`: below two published choices the
+              section returns null, and such a panel now offers no appearance control at all. */}
           <div className="px-5 pt-5 pb-3">
             <DialogTitle className="font-heading text-base font-semibold">{title}</DialogTitle>
             <DialogDescription className="mt-0.5 text-[length:var(--kanzo-font-size-small)] text-muted-foreground">
@@ -231,7 +238,6 @@ function PreferencesPanel({
             </DialogDescription>
           </div>
           <div className="absolute inset-e-3.5 top-3.5 flex items-center gap-0.5">
-            <AppearanceToggle size="icon-sm" className="opacity-64 hover:opacity-100" />
             <DialogClose asChild>
               <Button
                 type="button"

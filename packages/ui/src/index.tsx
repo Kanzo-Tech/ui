@@ -49,8 +49,10 @@ export {
   // First, and the only section that can vanish: it draws itself only where a tenant published more
   // than one identity. Colour is still not authored here — an identity is a block the client wrote.
   PreferencesColor,
-  // No `PreferencesAppearance`: appearance has ONE control, `AppearanceToggle`, which cycles all
-  // three states in the chrome. A panel section was the same preference wearing a second control.
+  // No `PreferencesAppearance`, and no `AppearanceToggle` beside it either. Appearance has ONE
+  // control and it is inside `PreferencesColor`: each side is a card, and pressing a card wears
+  // that side. A section of its own — and, latterly, a sun/moon button in the panel's own header —
+  // was the same preference wearing a second control.
   PreferencesRadius,
   PreferencesFont,
   PreferencesMonoFont,
@@ -66,8 +68,6 @@ export type {
   PreferencesColorProps,
   PreferencesSectionsProps,
 } from "./composites/Preferences.js";
-export { AppearanceToggle } from "./composites/AppearanceToggle.js";
-export type { AppearanceToggleProps, AppearanceToggleLabels } from "./composites/AppearanceToggle.js";
 // The panel may never be opened, and a retired identity is somebody looking at a brand they did not
 // choose. Opt-in rather than provider-rendered: the provider has no DOM, and two deleted themers say
 // it stays that way.
@@ -132,6 +132,7 @@ export * from "./simples/color-picker.js";
 export * from "./simples/collapsible.js";
 export * from "./simples/combobox.js";
 export * from "./simples/command.js";
+export * from "./simples/data-list.js";
 export * from "./simples/date-picker.js";
 export * from "./simples/dialog.js";
 export * from "./simples/editable.js";
