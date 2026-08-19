@@ -55,6 +55,12 @@ const ALLOWED: Record<string, string[]> = {
   // Ark measures the indicator into `--left`/`--width` as physical pixels, so the utility that
   // consumes them must be physical too. Mirroring needs Ark to publish logical vars first.
   "simples/segment-group.tsx": ["left-(--left)", "right-[calc(var(--left)", "border-l"],
+  // A photograph does not mirror, and neither do the eight compass points Ark writes as
+  // `data-position` on the handles that sit on its crop box: `e` is the box's right edge on screen
+  // in both directions. The image's anchor is the viewport's top-left corner for the same reason —
+  // it is a corner, not a reading direction. `docs/showcases/receipts/default.tsx` says the same
+  // thing about the same photograph.
+  "simples/image-cropper.tsx": ["left-0", "border-l", "border-r"],
   // Shark's own RTL handling: the physical default is paired with an explicit `rtl:` override.
   "simples/table.tsx": ["text-left", "text-right"],
   // Ark's viewport offsets are physical measurements of the toast region.

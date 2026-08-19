@@ -196,7 +196,8 @@ be skipped.
 `a-filter-is-a-predicate-not-a-mask`, `the-declaration-ships-with-the-library`,
 `a-preference-is-contributed-like-a-token`,
 `a-column-is-read-from-the-shape`,
-`a-far-view-is-a-sample-not-a-summary`, `an-edge-is-drawn-from-bytes-in-hand`.
+`a-far-view-is-a-sample-not-a-summary`, `an-edge-is-drawn-from-bytes-in-hand`,
+`a-class-list-is-source-so-the-barrel-budget-moves`.
 
 Also live — `a-compound-keeps-its-root-even-when-the-root-is-an-alias`,
 `steps-claims-a-tab-role-it-cannot-keep`, `prose-that-is-hashed-is-data`,

@@ -70,6 +70,16 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.DataListItem).toBeTypeOf("function");
     expect(UI.DataListItemLabel).toBeTypeOf("function");
     expect(UI.DataListItemValue).toBeTypeOf("function");
+    // Adopted for the same reason and in the same place: the Receipts ticket pane drew the crop
+    // extraction claimed and gave a reviewer no way to disagree with it. `useImageCropper` is the
+    // context hook here rather than Shark's machine hook — `simples/image-cropper.test.tsx` is
+    // where that binding is pinned, because a name comparison cannot see it.
+    expect(UI.ImageCropper).toBeTypeOf("function");
+    expect(UI.ImageCropperImage).toBeTypeOf("function");
+    expect(UI.ImageCropperSelection).toBeTypeOf("function");
+    expect(UI.ImageCropperHandle).toBeTypeOf("function");
+    expect(UI.ImageCropperGrid).toBeTypeOf("function");
+    expect(UI.useImageCropper).toBeTypeOf("function");
     expect(UI.Float).toBeTypeOf("function");
     expect(UI.useAiStream).toBeTypeOf("function");
     expect(UI.useCompletion).toBeTypeOf("function");

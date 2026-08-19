@@ -32,6 +32,9 @@ import {
   FileUploadDropzone,
   FileUploadHiddenInput,
   FileUploadTrigger,
+  ImageCropper,
+  ImageCropperImage,
+  ImageCropperSelection,
   Input,
   NativeSelect,
   NativeSelectOption,
@@ -149,37 +152,13 @@ function Ticket({
   crop,
   head,
   shot,
-  whole,
 }: {
   className?: string;
   crop: Crop;
   head?: boolean;
   shot: Shot;
-  /** The photograph the ticket was cut out of, with the cut marked on it. */
-  whole?: boolean;
 }) {
   const aspect = useAspect(shot.src);
-
-  if (whole) {
-    return (
-      <div className={cn("relative overflow-hidden rounded-md border bg-muted", className)}>
-        <img alt="" className="block w-full" src={shot.src} />
-        {/* Where this row came from, drawn on the paper it came from. Percentages, because the
-            crop is fractions of the image and the box is the image. `--brand` through the graph's
-            own rule: a selection is a selection. */}
-        <div
-          className="pointer-events-none absolute rounded-xs ring-2 ring-primary"
-          style={{
-            insetInlineStart: `${crop.x * 100}%`,
-            insetBlockStart: `${crop.y * 100}%`,
-            width: `${crop.w * 100}%`,
-            height: `${crop.h * 100}%`,
-            backgroundColor: "var(--brand-a3)",
-          }}
-        />
-      </div>
-    );
-  }
 
   return (
     <div
@@ -195,6 +174,112 @@ function Ticket({
           transform: `translate(${-crop.x * 100}%, ${-crop.y * 100}%)`,
         }}
       />
+    </div>
+  );
+}
+
+/** The whole sheet, with the row's box drawn on it. Read only, and that is the point: the answer
+ *  to "where did this number come from" is not a control, and a box that moves under a pointer
+ *  reads as a different ticket being chosen. Correcting it is {@link DrawBox}, which is a mode the
+ *  reader asks for.
+ *
+ *  Percentages, because the crop is fractions of the image and the box is the image. `--brand`
+ *  through the graph's own rule: a selection is a selection. */
+function Sheet({ crop, shot }: { crop: Crop; shot: Shot }) {
+  return (
+    <div className="relative overflow-hidden rounded-md border bg-muted">
+      <img alt="" className="block w-full" src={shot.src} />
+      <div
+        className="pointer-events-none absolute rounded-xs ring-2 ring-primary"
+        style={{
+          insetInlineStart: `${crop.x * 100}%`,
+          insetBlockStart: `${crop.y * 100}%`,
+          width: `${crop.w * 100}%`,
+          height: `${crop.h * 100}%`,
+          backgroundColor: "var(--brand-a3)",
+        }}
+      />
+    </div>
+  );
+}
+
+/**
+ * Drawing the box: the one gesture that was missing, and the only paper a row typed by hand has
+ * ever had.
+ *
+ * Two things it has to get right, and both are about the frame rather than the cropper.
+ *
+ * **The frame is the picture's own aspect.** Ark contains the image inside the viewport and reports
+ * the selection against the VIEWPORT, so at any other ratio the picture is letterboxed and the two
+ * boxes stop agreeing. Measured with `useAspect`, not assumed.
+ *
+ * **`maxZoom={1}` is what keeps the picture still.** At zoom 1 the pan offset clamps to zero, so
+ * the wheel and a drag on the image do nothing — the sheet stays where it is and the only thing
+ * that moves is the box. That is the answer to a box that seemed to be choosing a different ticket,
+ * and it also makes the arithmetic exact: viewport pixels over frame pixels ARE fractions of the
+ * image once the two are the same box.
+ *
+ * The ref is on the cropper ROOT, not on the bordered box around it, and the two are not the same
+ * rectangle: a border is two pixels of the outer one that the viewport never had, which reported
+ * every fraction about half a percent short. Measured inside the change handler rather than watched,
+ * because a `ResizeObserver`'s callbacks are delivered on the rendering loop — in a background tab
+ * it never fires at all, and a component that waits for one renders an empty box forever.
+ */
+function DrawBox({
+  onCancel,
+  onSave,
+  shot,
+}: {
+  onCancel: () => void;
+  onSave: (crop: Crop) => void;
+  shot: Shot;
+}) {
+  const aspect = useAspect(shot.src);
+  const frame = useRef<HTMLDivElement>(null);
+  const drawn = useRef<Crop | null>(null);
+
+  return (
+    <div className="space-y-1.5">
+      <div
+        className="overflow-hidden rounded-md border bg-muted"
+        style={{ aspectRatio: aspect ?? undefined }}
+      >
+        <Show when={aspect !== null}>
+          <ImageCropper
+            maxZoom={1}
+            onCropChange={({ crop }) => {
+              const box = frame.current?.getBoundingClientRect();
+              if (!box?.width || !box.height) return;
+              drawn.current = {
+                x: crop.x / box.width,
+                y: crop.y / box.height,
+                w: crop.width / box.width,
+                h: crop.height / box.height,
+              };
+            }}
+            ref={frame}
+            style={{ aspectRatio: aspect ?? undefined }}
+          >
+            <ImageCropperImage alt="" src={shot.src} />
+            <ImageCropperSelection />
+          </ImageCropper>
+        </Show>
+      </div>
+      <ButtonGroup aria-label="What to do with the box you drew" className="w-full">
+        <Button
+          className="flex-1"
+          onClick={() => {
+            const box = drawn.current;
+            if (box) onSave(box);
+          }}
+          size="sm"
+        >
+          Keep this box
+        </Button>
+        <Button className="flex-1" onClick={onCancel} size="sm" variant="outline">
+          Cancel
+        </Button>
+      </ButtonGroup>
     </div>
   );
 }
@@ -356,6 +441,8 @@ export function ReceiptsShowcase() {
   const [ticketOpen, setTicketOpen] = useState(true);
   /** Whether the ticket pane shows the cut or the sheet it was cut from. */
   const [whole, setWhole] = useState(false);
+  /** The row whose box is being drawn, and the only state that turns the pane into a control. */
+  const [drawing, setDrawing] = useState<string | null>(null);
   const [shapeText, setShapeText] = useState(TICKET_SHAPE);
   const [shapeError, setShapeError] = useState<string | null>(null);
 
@@ -454,6 +541,9 @@ export function ReceiptsShowcase() {
   const selected = Object.keys(table.getState().rowSelection)[0] ?? null;
   const selectedRow = rows.find((r) => r.id === selected) ?? null;
   const selectedCrop = selected ? cropOf(selected) : undefined;
+  /** The photograph the pane is about: the selected row's, or the first uploaded one for a row
+   *  that has no box yet. */
+  const sheet = selectedCrop?.shot ?? shots[0];
 
   // The first row to arrive is the one the ticket pane shows, so the pane is never empty while
   // the table is filling. Later rows do not steal it — that would move the paper under the reader.
@@ -819,7 +909,12 @@ export function ReceiptsShowcase() {
                                   ...prev,
                                   blankRow(id, columns.map((c) => c.key)),
                                 ]);
+                                // A row typed by hand used to arrive with no paper at all, which
+                                // is the one place this screen stopped being about the paper next
+                                // to the number. It opens the pane in drawing mode instead, so the
+                                // first thing the reader does is say which piece of paper it is.
                                 table.setRowSelection({ [id]: true });
+                                if (shots.length) setDrawing(id);
                               }}
                               size="sm"
                               variant="ghost"
@@ -912,32 +1007,66 @@ export function ReceiptsShowcase() {
                         }
                         when={Boolean(selectedRow)}
                       >
-                        {selectedCrop ? (
+                        {drawing && drawing === selected && sheet ? (
+                          /* The mode the reader asked for, and the only one where the pane is a
+                             control. It replaces the figure rather than sitting beside it: two
+                             copies of the same photograph, one of them live, is the arrangement
+                             that makes a reader wonder which box counts. */
+                          <DrawBox
+                            onCancel={() => setDrawing(null)}
+                            onSave={(crop) => {
+                              setCrops((prev) => ({ ...prev, [drawing]: { shot: sheet.id, crop } }));
+                              setDrawing(null);
+                              setWhole(true);
+                            }}
+                            shot={sheet}
+                          />
+                        ) : selected && selectedCrop ? (
                           /* The paper, and the one question a thumbnail cannot answer: WHERE on
-                             the photograph this came from. Pressing it swaps the cut for the whole
-                             sheet with the cut outlined, which is the same gesture a map gives you
-                             — and it is a `figure`, so the caption belongs to the image rather
-                             than floating under it. */
+                             the photograph this came from. Pressing the cut swaps it for the whole
+                             sheet with the box drawn on it — the same gesture a map gives you, and
+                             nothing on it moves. It is a `figure`, so the caption belongs to the
+                             image rather than floating under it. */
                           <figure className="space-y-1.5">
-                            <button
-                              aria-pressed={whole}
-                              className="block w-full cursor-zoom-in overflow-hidden rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
-                              onClick={() => setWhole((w) => !w)}
-                              type="button"
+                            <Show
+                              fallback={
+                                <button
+                                  className="block w-full cursor-zoom-in overflow-hidden rounded-md outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
+                                  onClick={() => setWhole(true)}
+                                  type="button"
+                                >
+                                  <Ticket crop={selectedCrop.crop} shot={selectedCrop.shot} />
+                                </button>
+                              }
+                              when={whole}
                             >
-                              <Ticket
-                                crop={selectedCrop.crop}
-                                shot={selectedCrop.shot}
-                                whole={whole}
-                              />
-                            </button>
+                              <Sheet crop={selectedCrop.crop} shot={selectedCrop.shot} />
+                            </Show>
                             {/* What you are looking at first, and only then which file it came
                                 from: the pane is the narrow one, and it is the file name that can
                                 afford to be cut. */}
                             <figcaption className="flex items-center gap-1.5 text-muted-foreground text-xs">
-                              <span className="shrink-0">
-                                {whole ? "the whole photograph" : "the ticket"}
-                              </span>
+                              <Show
+                                fallback={<span className="shrink-0">the ticket</span>}
+                                when={whole}
+                              >
+                                <Button
+                                  className="shrink-0 px-1.5 font-normal text-muted-foreground text-xs"
+                                  onClick={() => setWhole(false)}
+                                  size="sm"
+                                  variant="ghost"
+                                >
+                                  back to the cut
+                                </Button>
+                                <Button
+                                  className="shrink-0 px-1.5 font-normal text-muted-foreground text-xs"
+                                  onClick={() => setDrawing(selected)}
+                                  size="sm"
+                                  variant="ghost"
+                                >
+                                  redraw the box
+                                </Button>
+                              </Show>
                               <span className="min-w-0 truncate" title={selectedCrop.shot.name}>
                                 · {selectedCrop.shot.name}
                               </span>

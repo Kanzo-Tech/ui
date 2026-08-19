@@ -305,6 +305,13 @@ in and back out, in one place.
 graph inspector's node properties and the Receipts ticket panel, both of which had hand-written the
 same `dl` / `div` / `dt` / `dd` tree. `DataListItem` is the `div` the spec requires, not decoration.
 
+**`ImageCropper` is adopted, over Ark's image-cropper machine.** `ImageCropper` renders the root and
+the viewport together, so what you compose lands inside the frame; `ImageCropperSelection` draws its
+own handles and grid, and the two parts under them are there for a selection you assemble yourself.
+Two things to know before persisting a crop: `initialCrop` and `onCropChange` speak viewport pixels
+while `getCropData()` speaks the image's own, and `useImageCropper` is the **context** hook — the
+api of the cropper you are inside, not a machine to hand to a provider.
+
 **Appearance has one control and it is a colour card.** `PreferencesColor` draws one card per side
 and pressing a card wears that side; there is no `AppearanceToggle`, no `PreferencesAppearance`, and
 no sun/moon button in the panel's header. Note the shape of the hole that leaves: `PreferencesColor`

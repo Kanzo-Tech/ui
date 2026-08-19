@@ -60,7 +60,6 @@ export const UNADOPTED: Readonly<Record<string, string>> = {
   format: "Not built. `FormatByte` / `FormatNumber` / `FormatRelativeTime` are Ark's format parts; nothing here renders one yet.",
   frame: "Not built. `SectionRoot` and its parts are the framed-region composite in this library.",
   hint: "Not built. `Tooltip` is the hover surface here.",
-  "image-cropper": "Not built. No renderer in the library or the docs.",
   "input-otp":
     "Not adopted under this name. We ship `PinInput` over Ark's pin-input machine; Shark solves the same problem with `input-otp` and exports no hook for it, which is exactly why `usePinInput` is ours to decide rather than the reference's — `decisions/a-name-shark-ships-is-ours.md`.",
   "link-overlay": "Not built. No renderer in the library or the docs.",

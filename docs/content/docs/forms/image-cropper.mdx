@@ -1,0 +1,96 @@
+---
+title: ImageCropper
+description: A box drawn on a photograph, and the photograph read back through it.
+---
+
+<ComponentPreview componentName="image-cropper" />
+
+## Usage
+
+```tsx
+import {
+  ImageCropper,
+  ImageCropperImage,
+  ImageCropperSelection,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<ImageCropper className="aspect-[4/3] max-w-lg">
+  <ImageCropperImage alt="" src={photo} />
+  <ImageCropperSelection />
+</ImageCropper>
+```
+
+`ImageCropperSelection` draws its own eight handles and its own grid; `ImageCropperHandle` and
+`ImageCropperGrid` are exported for a selection you assemble differently, not for the one above.
+
+## Everything you compose lives inside the viewport
+
+`ImageCropper` renders the root **and** the viewport, so `children` land inside a clipped,
+`overflow-hidden` box that is exactly the size of the frame. A caption, a readout or a control
+placed there is positioned against the picture, which is usually what you want and is never
+optional — the cropper's api reaches a component through the root's React context, so a consumer
+of it has nowhere else to be.
+
+## The frame decides where the picture sits
+
+The image is `object-contain` inside the viewport, so the root's own aspect ratio is what decides
+whether the picture fills the frame or is letterboxed inside it. The default is `aspect-video`;
+give the root the picture's own ratio when the crop is meant to be expressed as a fraction of the
+image, because then viewport and image are the same box.
+
+## Viewport coordinates, and the one function that knows about zoom
+
+`initialCrop` and `onCropChange` both speak **viewport pixels** — the frame, not the picture.
+`getCropData()` on the api is the one that returns natural image pixels, with zoom, rotation and
+flip already applied, and it is what a stored crop should be computed from:
+
+<ComponentPreview componentName="image-cropper" fileName="example-read-out" />
+
+Mixing the two is the mistake this seam invites: a crop persisted from `onCropChange` is correct
+until somebody scrolls the wheel over the image. Pinning `maxZoom={1}` closes the gap the other way
+— the pan offset clamps to zero, the picture cannot move, and viewport pixels over frame pixels
+*are* fractions of the image.
+
+## A circle is a shape, not a mask
+
+`cropShape="circle"` rounds the selection and constrains the crop to a square; the image is not
+masked and nothing is cut. What comes out of `getCroppedImage()` is still the bounding square, and
+the circle is a promise you keep at the far end — an `Avatar`, a `border-radius`, a canvas clip.
+
+<ComponentPreview componentName="image-cropper" fileName="example-circle" />
+
+## Where it is used
+
+The [Receipts](/docs/showcases/receipts) showcase, in the pane that shows the sheet a row was read
+from. The box extraction reported is drawn on the sheet and does not move — an answer to *where did
+this come from* is not a control. Redrawing it is a mode the reader asks for, and that mode is this
+component; a row added by hand, which arrives with no box at all, opens straight into it.
+
+## API Reference
+
+### ImageCropper
+
+Ark's `ImageCropper.Root` props, whole. The ones worth knowing before reading Ark's list:
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `initialCrop` | `{ x, y, width, height }` in viewport pixels | a centred default |
+| `aspectRatio` | `number` | free |
+| `cropShape` | `"rectangle" \| "circle"` | `"rectangle"` |
+| `fixedCropArea` | `boolean` | `false` |
+| `minZoom` / `maxZoom` | `number` | `1` / `5` |
+| `onCropChange` | `(details: { crop: Rect }) => void` — viewport pixels | — |
+
+### ImageCropperSelection
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `axis` | `"horizontal" \| "vertical" \| "both"` | `"both"` |
+
+### useImageCropper
+
+The api of the cropper the component is inside — `crop`, `zoom`, `rotation`, `naturalSize`,
+`getCropData()`, `getCroppedImage()`, `reset()`, and the setters for each. It is the **context**
+hook, so it must be called from a component rendered inside `ImageCropper`.
