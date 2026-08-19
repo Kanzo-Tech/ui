@@ -102,6 +102,22 @@ export const kanzoHighlightStyle = HighlightStyle.define([
 /** The Kanzo highlight style as a ready-to-drop extension. */
 export const kanzoHighlighting: Extension = syntaxHighlighting(kanzoHighlightStyle, { fallback: true });
 
+/**
+ * The vertical rhythm, and it belongs to the CHROME rather than to the editor.
+ *
+ * It used to live in `baseTheme`, so every surface got it — including `chrome={false}`, where the
+ * caller owns the surface and the editor is usually flush against a pane header. There it read as
+ * a misalignment: eight pixels of dead paper above line 1 that nothing else on the pane shared.
+ * A field wants the inset (it is the same one `Textarea` has); a pane wants none, and can add its
+ * own if it disagrees.
+ *
+ * `paddingBlock` and not `padding`: the horizontal inset belongs to `.cm-line`, where a full-width
+ * line decoration can still reach the edges. It sits on `.cm-scroller` rather than `.cm-content`
+ * so the gutter shifts with the text and the numbers stay on their lines — see the note in
+ * `baseTheme`.
+ */
+const chromeRhythm = EditorView.theme({ ".cm-scroller": { paddingBlock: "0.5rem" } });
+
 const baseTheme = EditorView.theme({
   // `flex: 1`, not `height: 100%`: the chrome surface sizes with `min-height`/`max-height`, and
   // a percentage height does not resolve against a `min-height`'d parent — so the editor stayed
@@ -158,10 +174,6 @@ const baseTheme = EditorView.theme({
   // Courier on many systems — beside content in the Kanzo stack. It also made the gutter's
   // `min-width: 2.25ch` compute against the wrong font.
   ".cm-scroller": {
-    // The vertical rhythm, and it is here rather than on `.cm-content` so the gutter gets the same
-    // offset — see the note there. `paddingBlock` and not `padding`: horizontal inset belongs to
-    // `.cm-line`, where a full-width line decoration can still reach the edges.
-    paddingBlock: "0.5rem",
     fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)",
     lineHeight: "1.5",
     overflow: "auto",
@@ -393,8 +405,15 @@ export interface CodeEditorProps {
    * mount does nothing.
    */
   wrap?: boolean;
-  /** Wrap the editor in the styled focus-ring chrome (Box + inset ring + surface
-   *  background). Default true. Set false for a bare surface. */
+  /**
+   * Wrap the editor in the styled focus-ring chrome (Box + inset ring + surface background).
+   * Default true. Set false for a bare surface.
+   *
+   * It also decides the VERTICAL RHYTHM: chrome brings a `0.5rem` inset above the first line and
+   * below the last, the same one `Textarea` has, and a bare surface brings none — a pane docked
+   * under its own header wants the first line on the first row, and can add an inset of its own if
+   * it disagrees. See `chromeRhythm`.
+   */
   chrome?: boolean;
   /** Class applied to the editor host (only meaningful when `chrome={false}`). */
   className?: string;
@@ -457,6 +476,8 @@ export function CodeEditor(p: CodeEditorProps) {
           baseTheme,
         ]
       : [];
+    // The chrome's own inset, and only when there is chrome — see `chromeRhythm`.
+    const rhythm = basics && props.current.chrome !== false ? [chromeRhythm] : [];
     const v = new EditorView({
       parent: container.current!,
       state: EditorState.create({
@@ -465,6 +486,7 @@ export function CodeEditor(p: CodeEditorProps) {
           // Multiple cursors. Off by default in CodeMirror, and table stakes in an editor.
           EditorState.allowMultipleSelections.of(true),
           ...batteries,
+          ...rhythm,
           ...(props.current.lineNumbers ? [cmLineNumbers()] : []),
           ...(basics && props.current.lineNumbers ? [highlightActiveLineGutter(), foldGutter()] : []),
           ...(props.current.placeholder ? [cmPlaceholder(props.current.placeholder)] : []),

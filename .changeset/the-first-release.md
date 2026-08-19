@@ -305,6 +305,11 @@ in and back out, in one place.
 graph inspector's node properties and the Field notes slip panel, both of which had hand-written the
 same `dl` / `div` / `dt` / `dd` tree. `DataListItem` is the `div` the spec requires, not decoration.
 
+**`CodeEditor`'s vertical rhythm belongs to its chrome.** `chrome` already decided whether the
+editor wears the field's border, ring and surface; it decides the `0.5rem` inset above the first
+line too. A bare surface is flush, because a pane docked under its own header wants its first line
+on the first row and every other surface in that column starts at its own top edge.
+
 **`ImageCropper` is adopted, over Ark's image-cropper machine.** `ImageCropper` renders the root and
 the viewport together, so what you compose lands inside the frame; `ImageCropperSelection` draws its
 own handles and grid, and the two parts under them are there for a selection you assemble yourself.

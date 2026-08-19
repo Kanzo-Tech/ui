@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type ComponentType,
   createContext,
   Fragment,
   type ReactNode,
@@ -35,18 +36,13 @@ import {
   DatePicker,
   DatePickerContent,
   DatePickerInput,
-  DialogTrigger,
   Field,
   FieldArray,
   FieldDescription,
   FieldError,
   FieldLabel,
   FieldRequiredIndicator,
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
   Input,
-  Kbd,
   NativeSelect,
   NativeSelectOption,
   PreferencesDensity,
@@ -56,12 +52,12 @@ import {
   PreferencesPanel,
   PreferencesRadius,
   PreferencesRoot,
+  PreferencesTrigger,
   RadioGroup,
   RadioGroupCard,
   Resizable,
   ResizablePanel,
   ResizableResizeTrigger,
-  ScrollArea,
   ShellAside,
   ShellBody,
   ShellHeader,
@@ -107,9 +103,9 @@ import {
   ListOrderedIcon,
   ScrollTextIcon,
   Share2Icon,
-  XIcon,
 } from "lucide-react";
 import { RULES_SOURCE } from "@/example/rules";
+import { FindingsBadge, PaneHeader, PanelRail } from "../shared";
 import {
   BEAST_OPTIONS,
   BLANK,
@@ -380,12 +376,16 @@ function GroupBadge({ counts }: { counts: Counts }) {
  */
 function PanelShell({
   actions,
+  detail,
+  icon,
   title,
   subtitle,
   onClose,
   children,
 }: {
   actions?: ReactNode;
+  detail?: string;
+  icon: ComponentType<{ "aria-hidden"?: boolean; className?: string }>;
   title: string;
   subtitle: string;
   onClose: () => void;
@@ -393,22 +393,13 @@ function PanelShell({
 }) {
   return (
     <>
-      <div className="flex h-9 shrink-0 items-center gap-2 border-b px-3">
-        <div className="flex min-w-0 items-baseline gap-2">
-          <span className="shrink-0 font-medium text-xs">{title}</span>
-          <span className="truncate text-muted-foreground text-xs">{subtitle}</span>
-        </div>
-        {actions}
-        <Button
-          aria-label={`Close ${title}`}
-          className="ms-auto size-6 text-muted-foreground"
-          onClick={onClose}
-          size="icon-sm"
-          variant="ghost"
-        >
-          <XIcon />
-        </Button>
-      </div>
+      <PaneHeader
+        actions={actions}
+        detail={detail ?? subtitle}
+        icon={icon}
+        onClose={onClose}
+        title={title}
+      />
       <div className="flex min-h-0 flex-1 flex-col overflow-auto p-3">{children}</div>
     </>
   );
@@ -1162,23 +1153,30 @@ export function MetadataFormShowcase() {
   // Output (trailing aside) = what the posting BECOMES, derived live from the values: the writ a
   // clerk pins to the board, and the row the board files. Raw <pre> until the read-only CodeBlock
   // lands — CodeEditor is for editing, not this view.
+  // Which of the two documents the panel is showing is a question about the PANEL, so the control
+  // is in the panel's header — beside the standing-orders switcher's opposite number in
+  // `field-notes`, and for the same reason. It was a tab strip floating above a bordered card
+  // inside the body: two frames and two paddings to say one word.
+  const outputTabs = (
+    <TabsList className="h-6 shrink-0 p-0.5">
+      <TabsTrigger className="h-5 px-2 text-xs" value="record">
+        Record
+      </TabsTrigger>
+      <TabsTrigger className="h-5 px-2 text-xs" value="writ">
+        Writ
+      </TabsTrigger>
+    </TabsList>
+  );
+
   const outputPanel = (
-    <Tabs className="min-h-0 flex-1" defaultValue="record">
-      <TabsList>
-        <TabsTrigger value="record">Record</TabsTrigger>
-        <TabsTrigger value="writ">Writ</TabsTrigger>
-      </TabsList>
-      <TabsContent value="record">
-        <div className="overflow-auto rounded-lg border bg-muted/40 p-3">
-          <JsonTreeView data={JSON.parse(toRecord(values))} />
-        </div>
+    <>
+      <TabsContent className="min-h-0 flex-1 overflow-auto" value="record">
+        <JsonTreeView data={JSON.parse(toRecord(values))} />
       </TabsContent>
-      <TabsContent value="writ">
-        <pre className="overflow-auto rounded-lg border bg-muted/40 p-3 font-mono text-xs leading-relaxed">
-          {toWrit(values)}
-        </pre>
+      <TabsContent className="min-h-0 flex-1 overflow-auto" value="writ">
+        <pre className="font-mono text-xs leading-relaxed">{toWrit(values)}</pre>
       </TabsContent>
-    </Tabs>
+    </>
   );
 
   // ── Chrome ───────────────────────────────────────────────────────────────────
@@ -1221,99 +1219,22 @@ export function MetadataFormShowcase() {
               <Share2Icon />
               Share
             </Button>
-            {/* Source — the standing orders. Toggles the LEADING aside, independently. */}
-            <Button
-              className="gap-1.5"
-              onClick={() => setSourceOpen((o) => !o)}
-              size="sm"
-              variant={sourceOpen ? "secondary" : "outline"}
-            >
-              <FileTextIcon />
-              Source
-              <Badge size="xs" variant="secondary">
-                {ORDER_COUNT}
+            {/* The tally, and it is `field-notes`' badge — hover lists every failing field,
+                press marks them on the form. Both screens ship the same component now; the two
+                had drifted into a `HoverCard` here and a plain `Badge` there. */}
+            <FindingsBadge
+              active={gate.revealAll}
+              findings={report.map((iss) => ({ message: iss.message, where: iss.label }))}
+              label={violations === 1 ? "issue" : "issues"}
+              onToggle={() => setGate((g) => ({ ...g, revealAll: !g.revealAll }))}
+              summary="What the board would send back."
+              tone="destructive"
+            />
+            <Show when={valid}>
+              <Badge pill size="xs" variant="success">
+                Valid
               </Badge>
-              <Kbd>S</Kbd>
-            </Button>
-
-            {/* Output — the writ and the record. Toggles the TRAILING aside, independently. */}
-            <Button
-              className="gap-1.5"
-              onClick={() => setOutputOpen((o) => !o)}
-              size="sm"
-              variant={outputOpen ? "secondary" : "outline"}
-            >
-              <Code2Icon />
-              Output
-              <Badge size="xs" variant="secondary">
-                {writLines(values)}
-              </Badge>
-              <Kbd>O</Kbd>
-            </Button>
-
-            {/* Validation summary — hover lists every failing field, click shows them on the form.
-                The reveal lives on the badge and not inside the card: a hover card closes as soon
-                as the pointer leaves its trigger, so a control in there is one you cannot reliably
-                click. Hovering reads; clicking acts; the same element owns both. */}
-            <HoverCard openDelay={80}>
-              <HoverCardTrigger asChild>
-                <button
-                  aria-label={
-                    gate.revealAll
-                      ? "Hide issues until each field is edited"
-                      : "Show every issue on the form"
-                  }
-                  aria-pressed={gate.revealAll}
-                  disabled={report.length === 0}
-                  onClick={() => setGate((g) => ({ ...g, revealAll: !g.revealAll }))}
-                  type="button"
-                >
-                  <Badge size="lg" variant={valid ? "success" : "destructive"}>
-                    {valid ? "Valid" : `${violations} ${violations === 1 ? "issue" : "issues"}`}
-                  </Badge>
-                </button>
-              </HoverCardTrigger>
-              <HoverCardContent className="w-80 p-0">
-                <div className="border-b px-3 py-2">
-                  <p className="font-medium text-sm">Validation</p>
-                  <p className="text-muted-foreground text-xs">
-                    {valid
-                      ? "The board would take this posting."
-                      : "What the board would send back."}
-                  </p>
-                </div>
-                {report.length === 0 ? (
-                  <div className="flex items-center gap-2 px-3 py-3 text-sm">
-                    <CheckIcon className="size-4 text-success" />
-                    Ready to pin up.
-                  </div>
-                ) : (
-                  <ScrollArea className="max-h-64">
-                    <ul className="divide-y">
-                      {report.map((iss, i) => (
-                        <li className="flex items-start justify-between gap-3 px-3 py-1.5" key={i}>
-                          <span className="font-medium text-xs">{iss.label}</span>
-                          <span className={cn("text-end text-xs", SEVERITY_TEXT[iss.severity])}>
-                            {iss.message}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </ScrollArea>
-                )}
-                {/* What the click does, said where the reader is already looking. The tally is
-                    always honest about the whole posting; the fields stay quiet until edited, so
-                    this is how you ask the form to show its work — what a Submit would do, in an
-                    editor that has none. */}
-                <Show when={report.length > 0}>
-                  <p className="border-t px-3 py-2 text-muted-foreground text-xs">
-                    {gate.revealAll
-                      ? "Click the badge to hide these again until each field is edited."
-                      : "Click the badge to show these on the fields."}
-                  </p>
-                </Show>
-              </HoverCardContent>
-            </HoverCard>
+            </Show>
 
             {/* No appearance control in this header. It is one click, which is why it is not a
                 panel SECTION — but `PreferencesPanel` already carries it beside its close button,
@@ -1325,12 +1246,11 @@ export function MetadataFormShowcase() {
                 drawer) while leading with a custom Layout + display section. Flat exports, per the
                 RSC note in the component — `Preferences.X` statics do not survive the boundary. */}
             <PreferencesRoot hotkey="p">
-              <DialogTrigger asChild>
-                <Button className="gap-1.5" size="sm" variant="ghost">
-                  Preferences
-                  <Kbd>P</Kbd>
-                </Button>
-              </DialogTrigger>
+              {/* The library's own FAB — fixed bottom-end, a palette on a round surface, and the
+                  same one every other showcase uses. It was a `Preferences P` button in this row:
+                  a preference is not one of the screen's verbs, and standing among them it read as
+                  one. The `P` hotkey is unchanged and the FAB carries it in its own title. */}
+              <PreferencesTrigger />
               <PreferencesPanel>
                 <div className="flex flex-col gap-3">
                   <PreferencesField label="Layout">
@@ -1385,6 +1305,23 @@ export function MetadataFormShowcase() {
       </ShellHeader>
 
       <ShellBody>
+        {/* Which panels are open, drawn as icons on the edge they open on — the same rail
+            `field-notes` uses, and the reason the two `Source` / `Output` buttons left the header.
+            A toggle that opens a region belongs against the region, not among the verbs; the
+            counts they carried are in each panel's own header now. */}
+        <PanelRail
+          label="Panels"
+          onValueChange={(value) => {
+            setSourceOpen(value.includes("source"));
+            setOutputOpen(value.includes("output"));
+          }}
+          panels={[
+            { icon: FileTextIcon, label: "Source — the standing orders", value: "source" },
+            { icon: Code2Icon, label: "Output — the writ and the record", value: "output" },
+          ]}
+          value={[...(sourceOpen ? ["source"] : []), ...(outputOpen ? ["output"] : [])]}
+        />
+
         {/* A three-column workspace: the standing orders (leading) · the posting · writ & record
             (trailing), each column an independently resizable `Resizable` panel. The `<main>` is
             always the middle column; the two side columns are `<aside>` landmarks (`ShellAside
@@ -1416,6 +1353,8 @@ export function MetadataFormShowcase() {
               return (
                 <ShellAside aria-label="Source" className="min-h-0 flex-1 border-e-0 bg-card" side="start">
                   <PanelShell
+                    detail={`${ORDER_COUNT} rules`}
+                    icon={FileTextIcon}
                     actions={
                       <NativeSelect aria-label="Standing orders" className="w-44 shrink-0" defaultValue="amber" size="sm">
                         <NativeSelectOption value="amber">{ORDERS_LABEL}</NativeSelectOption>
@@ -1431,13 +1370,18 @@ export function MetadataFormShowcase() {
               );
             return (
               <ShellAside aria-label="Output" className="min-h-0 flex-1 border-s-0 bg-card" side="end">
-                <PanelShell
-                  onClose={() => setOutputOpen(false)}
-                  subtitle="writ & record"
-                  title="Output"
-                >
-                  {outputPanel}
-                </PanelShell>
+                <Tabs className="flex min-h-0 flex-1 flex-col" defaultValue="record">
+                  <PanelShell
+                    actions={outputTabs}
+                    detail={`${writLines(values)} lines`}
+                    icon={Code2Icon}
+                    onClose={() => setOutputOpen(false)}
+                    subtitle="writ & record"
+                    title="Output"
+                  >
+                    {outputPanel}
+                  </PanelShell>
+                </Tabs>
               </ShellAside>
             );
           };

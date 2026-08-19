@@ -31,9 +31,6 @@ import {
   FileUploadDropzone,
   FileUploadHiddenInput,
   FileUploadTrigger,
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
   ImageCropper,
   ImageCropperImage,
   ImageCropperSelection,
@@ -58,8 +55,6 @@ import {
   Show,
   Spinner,
   Status,
-  ToggleGroup,
-  ToggleGroupItem,
   useAiStream,
 } from "@kanzo-tech/ui";
 // TanStack-backed: the `/table` subpath, never the root barrel.
@@ -102,6 +97,7 @@ import {
   type Shot,
 } from "./extract";
 import { liveExtractor, readKey, writeKey } from "./live";
+import { type Finding, FindingsBadge, PaneHeader, PanelRail } from "../shared";
 import { FieldNotesPreferences } from "./preferences";
 import { openLedger, type Column, type Issue, type Ledger, type Row } from "./rudof";
 import { SHAPES, SLIP_SHAPE } from "./shape";
@@ -144,30 +140,23 @@ function useAspect(src: string): number | null {
   return aspect;
 }
 
-/** One slip, cut out of the photograph it was found in. `head` keeps the box square and shows the
- *  head of the slip — where the printed number is, and the whole reason to look at a thumbnail.
+/** One slip, cut out of the photograph it was found in.
+ *
+ *  ONE framing, and there were two: this used to take a `head` prop that squared the box and showed
+ *  the top of the slip, on the grounds that the annotation was up there. It is not — the ink is in
+ *  the middle of these slips — and the cost was that the same slip was a different picture in the
+ *  ledger than in the panel. A thumbnail and a detail differ in SIZE.
  *
  *  The offsets are a `translate`, not `top`/`left`: a percentage inset resolves against the
- *  CONTAINER, and in `head` the container is a square that has nothing to do with the crop's
- *  height. A percentage translate resolves against the IMAGE, which is the thing being moved.
- *  Physical directions on purpose — a photograph does not mirror in RTL. */
-function Slip({
-  className,
-  crop,
-  head,
-  shot,
-}: {
-  className?: string;
-  crop: Crop;
-  head?: boolean;
-  shot: Shot;
-}) {
+ *  CONTAINER, and a percentage translate resolves against the IMAGE, which is the thing being
+ *  moved. Physical directions on purpose — a photograph does not mirror in RTL. */
+function Slip({ className, crop, shot }: { className?: string; crop: Crop; shot: Shot }) {
   const aspect = useAspect(shot.src);
 
   return (
     <div
       className={cn("relative overflow-hidden rounded-md border bg-muted", className)}
-      style={head || !aspect ? undefined : { aspectRatio: (crop.w * aspect) / crop.h }}
+      style={aspect ? { aspectRatio: (crop.w * aspect) / crop.h } : undefined}
     >
       <img
         alt=""
@@ -334,14 +323,19 @@ function Cell({
   // `ring-inset` on the invalid state is not cosmetic: an outset ring is drawn OUTSIDE the cell,
   // so six of them overlap their neighbours and the table looks broken rather than the cells
   // looking wrong.
-  const shared =
-    "h-8 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-inset aria-invalid:ring-inset";
+  const shared = cn(
+    "h-8 rounded-none border-0 bg-transparent shadow-none focus-visible:ring-inset",
+    // A hairline, where the recipe's is three pixels: a field carries one invalid state and a
+    // ledger carries six at once, so the same weight that reads as "check this" on a form reads as
+    // "this table is broken". The badge's mark is the loud one, and it is loud on purpose.
+    "aria-invalid:ring-1 aria-invalid:ring-inset",
+  );
   // `NativeSelect` hands `className` to its WRAPPER, so nothing above reaches the control: the
   // border, the radius and the shadow are on the `select` inside it and have to be addressed there.
   const quietSelect = cn(
     "h-8 w-full",
     "[&_select]:h-8 [&_select]:rounded-none [&_select]:border-0 [&_select]:bg-transparent [&_select]:shadow-none",
-    "[&_select]:aria-invalid:ring-inset",
+    "[&_select]:aria-invalid:ring-1 [&_select]:aria-invalid:ring-inset",
   );
   // `text-decoration` does not render on a <select>, so an unsure option says so in the aside
   // rather than wearing a mark no browser draws.
@@ -360,6 +354,7 @@ function Cell({
             (column.type === "decimal" || column.type === "integer") && "text-end",
             unsure && unsureMark,
           )}
+          data-unread={value ? undefined : true}
           onChange={(e) => ledger.edit(row.id, column.key, e.target.value)}
           placeholder={invalid ? "—" : ""}
           value={value}
@@ -371,6 +366,7 @@ function Cell({
         aria-invalid={invalid}
         aria-label={column.label}
         className={quietSelect}
+        data-unread={value ? undefined : true}
         onChange={(e) => ledger.edit(row.id, column.key, e.target.value)}
         value={value}
       >
@@ -411,7 +407,7 @@ function ledgerColumns(columns: Column[]): ColumnDef<Row>[] {
         // `m-1.5` because the cells are `p-0` — that override is for the editable ones, whose
         // `Input` has to fill its cell, and the paper is the one cell that wants air.
         return found ? (
-          <Slip className="m-1.5 size-10" crop={found.crop} head shot={found.shot} />
+          <Slip className="m-1.5 h-10 w-auto" crop={found.crop} shot={found.shot} />
         ) : null;
       },
     },
@@ -467,8 +463,8 @@ export function FieldNotesShowcase() {
   const [whole, setWhole] = useState(false);
   /** The row whose box is being drawn, and the only state that turns the pane into a control. */
   const [drawing, setDrawing] = useState<string | null>(null);
-  /** Which tally the reader pressed, if any: the ledger shows only the rows it counted. */
-  const [only, setOnly] = useState<"unread" | "violations" | null>(null);
+  /** Which tally the reader pressed, if any: its cells are marked where they are. */
+  const [marking, setMarking] = useState<"unread" | "violations" | null>(null);
   const [shapeText, setShapeText] = useState(SLIP_SHAPE);
   const [shapeError, setShapeError] = useState<string | null>(null);
 
@@ -547,42 +543,32 @@ export function FieldNotesShowcase() {
    *
    * `unread` is what the MODEL could not read and `violations` is what the SHAPE refuses, and they
    * are not the same set: a cell nobody could read is usually both, and a slip number typed wrong
-   * by hand is only the second. Each carries the row's position in the ledger, because "row 4" is
-   * how a reader holding the paper finds it again.
+   * by hand is only the second. Each finding carries the row's position in the ledger, because
+   * "row 4" is how a reader holding the paper finds it again.
    */
-  const unread = useMemo(
+  const unread = useMemo<Finding[]>(
     () =>
       rows.flatMap((row, index) =>
         columns
           .filter((column) => !row.cells[column.key])
           .map((column) => ({
-            column: column.label,
             message: meta[row.id]?.[column.key]?.note ?? "Not read.",
-            row: index + 1,
-            rowId: row.id,
+            where: `row ${index + 1} · ${column.label}`,
           })),
       ),
     [columns, meta, rows],
   );
 
-  const violations = useMemo(
+  const violations = useMemo<Finding[]>(
     () =>
       issues.map((issue) => ({
-        column: columns.find((c) => c.key === issue.key)?.label ?? issue.key,
         message: issue.message,
-        row: rows.findIndex((r) => r.id === issue.rowId) + 1,
-        rowId: issue.rowId,
+        where: `row ${rows.findIndex((r) => r.id === issue.rowId) + 1} · ${
+          columns.find((c) => c.key === issue.key)?.label ?? issue.key
+        }`,
       })),
     [columns, issues, rows],
   );
-
-  /** What the ledger shows. A pressed tally is a filter over the rows, never over the columns —
-   *  the shape decides those, and a badge is not a shape. */
-  const shown = useMemo(() => {
-    if (!only) return rows;
-    const flagged = new Set((only === "unread" ? unread : violations).map((f) => f.rowId));
-    return rows.filter((row) => flagged.has(row.id));
-  }, [only, rows, unread, violations]);
 
   const defs = useMemo(() => ledgerColumns(columns), [columns]);
 
@@ -593,7 +579,7 @@ export function FieldNotesShowcase() {
    */
   const table = useDataTable<Row>({
     columns: defs,
-    data: shown,
+    data: rows,
     enableMultiRowSelection: false,
     getRowId: (row) => row.id,
     meta: {
@@ -749,20 +735,20 @@ export function FieldNotesShowcase() {
             <Show when={rows.length > 0}>
               <Show when={blanks > 0}>
                 <FindingsBadge
-                  active={only === "unread"}
-                  items={unread}
+                  active={marking === "unread"}
+                  findings={unread}
                   label="unread"
-                  onToggle={() => setOnly((o) => (o === "unread" ? null : "unread"))}
+                  onToggle={() => setMarking((m) => (m === "unread" ? null : "unread"))}
                   summary="Cells the model would not guess at, and why."
                   tone="warning"
                 />
               </Show>
               <Show when={violations.length > 0}>
                 <FindingsBadge
-                  active={only === "violations"}
-                  items={violations}
+                  active={marking === "violations"}
+                  findings={violations}
                   label="violations"
-                  onToggle={() => setOnly((o) => (o === "violations" ? null : "violations"))}
+                  onToggle={() => setMarking((m) => (m === "violations" ? null : "violations"))}
                   summary="What the shape refuses, straight out of the SHACL validator."
                   tone="destructive"
                 />
@@ -844,31 +830,18 @@ export function FieldNotesShowcase() {
       </ShellHeader>
 
       <ShellBody className="min-h-0">
-        {/* The activity bar: which panes are open, drawn as icons on the edge they open on. It is
-            a MULTIPLE, deselectable `ToggleGroup` because the two panes are independent — the
-            workspace's dock is the same machine with `multiple={false}`, because there exactly one
-            panel shows at a time. Either way the machine owns the pressed state and the roving
-            focus; a Button row would hand-roll `aria-pressed` and get one of the two wrong. */}
-        <ToggleGroup
-          aria-label="Panels"
-          className="shrink-0 border-e border-border bg-card px-1.5 py-2"
-          multiple
-          onValueChange={(d) => {
-            setShapeOpen(d.value.includes("shape"));
-            setSlipOpen(d.value.includes("slip"));
+        <PanelRail
+          label="Panels"
+          onValueChange={(value) => {
+            setShapeOpen(value.includes("shape"));
+            setSlipOpen(value.includes("slip"));
           }}
-          orientation="vertical"
-          size="sm"
-          spacing={2}
+          panels={[
+            { icon: FileCode2Icon, label: "The shape", value: "shape" },
+            { icon: ImageIcon, label: "The slip", value: "slip" },
+          ]}
           value={[...(shapeOpen ? ["shape"] : []), ...(slipOpen ? ["slip"] : [])]}
-        >
-          <ToggleGroupItem aria-label="The shape" title="The shape" value="shape">
-            <FileCode2Icon />
-          </ToggleGroupItem>
-          <ToggleGroupItem aria-label="The slip" title="The slip" value="slip">
-            <ImageIcon />
-          </ToggleGroupItem>
-        </ToggleGroup>
+        />
 
         <div className="flex min-w-0 flex-1">
           {/* The same three-column workspace `metadata-form` builds, and the same mechanism the
@@ -957,8 +930,23 @@ export function FieldNotesShowcase() {
                               input reads as a form in a table rather than as a sheet you type in.
                               `stickyHeader` with no `maxHeight` pins the header to the enclosing
                               scroller, which is this `ScrollArea`. */}
+                          {/* Pressing a tally MARKS its cells where they are; it does not filter
+                              the ledger down to them. Answering "which ones" by removing "out of
+                              what" is the wrong trade in a sheet somebody is checking.
+
+                              The mark is a wash on the cell, keyed off attributes the cell already
+                              writes — `aria-invalid` is what the shape refused, `data-unread` is
+                              what the model would not guess at. No second copy of either list
+                              reaches the table, and nothing here has to agree with the badge about
+                              which cells they are. */}
                           <DataTableContent<Row>
-                            className="rounded-none border-0 [&_td]:p-0 [&_td]:align-middle"
+                            className={cn(
+                              "rounded-none border-0 [&_td]:p-0 [&_td]:align-middle",
+                              marking === "unread" &&
+                                "[&_td:has([data-unread])]:bg-warning-a3 [&_td:has([data-unread])]:ring-1 [&_td:has([data-unread])]:ring-warning-a6 [&_td:has([data-unread])]:ring-inset",
+                              marking === "violations" &&
+                                "[&_td:has([aria-invalid=true])]:bg-destructive-a3 [&_td:has([aria-invalid=true])]:ring-1 [&_td:has([aria-invalid=true])]:ring-destructive-a6 [&_td:has([aria-invalid=true])]:ring-inset",
+                            )}
                             empty="Nothing read yet."
                             onRowClick={(row) => table.setRowSelection({ [row.id]: true })}
                             stickyHeader
@@ -1020,7 +1008,8 @@ export function FieldNotesShowcase() {
                       // Short enough to survive a narrow pane: the header is one line and the
                       // pane is the one a reader squeezes first.
                       detail={shapeError ?? `${columns.length} columns`}
-                    >
+                      actions={
+                        <>
                       {/* An empty value is not a third shape — it is what the select shows once
                           the text stops matching either document, which is the first keystroke a
                           reader types into the editor below. */}
@@ -1041,7 +1030,9 @@ export function FieldNotesShowcase() {
                           </NativeSelectOption>
                         ))}
                       </NativeSelect>
-                    </PaneHeader>
+                        </>
+                      }
+                    />
                     {/* CodeMirror-backed, so it comes from the `/editor` subpath and never the root
                         barrel — a static import of an optional peer there breaks `import { Button }`
                         for everyone who did not install it. */}
@@ -1326,115 +1317,38 @@ export function FieldNotesShowcase() {
  * by construction rather than by a second sentence somewhere.
  */
 /**
- * A tally that can be interrogated, which is `metadata-form`'s treatment and now this screen's too.
- *
- * A count on its own asks the reader to go and find the thing it counted. Hovering lists every one
- * of them — the row, the column, and what the model or the validator said; pressing it filters the
- * ledger down to exactly those rows, and pressing it again lets the rest back. The reveal lives on
- * the badge and not inside the card for the reason that showcase gives: a hover card closes as soon
- * as the pointer leaves its trigger, so a control in there is one you cannot reliably click.
- */
-function FindingsBadge({
-  active,
-  items,
-  label,
-  onToggle,
-  summary,
-  tone,
-}: {
-  active: boolean;
-  items: { column: string; message: string; row: number }[];
-  label: string;
-  onToggle: () => void;
-  summary: string;
-  tone: "destructive" | "warning";
-}) {
-  return (
-    <HoverCard openDelay={80}>
-      <HoverCardTrigger asChild>
-        <button
-          aria-label={active ? `Show every row again` : `Show only the rows with ${label}`}
-          aria-pressed={active}
-          className="rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring"
-          onClick={onToggle}
-          type="button"
-        >
-          <Badge pill size="xs" variant={active ? tone : "outline"}>
-            <Status
-              className="size-1.5"
-              variant={tone === "destructive" ? "destructive" : "warning"}
-            />
-            {items.length} {label}
-          </Badge>
-        </button>
-      </HoverCardTrigger>
-      <HoverCardContent className="w-80 p-0">
-        <div className="border-b px-3 py-2">
-          <p className="font-medium text-sm">{label[0]?.toUpperCase() + label.slice(1)}</p>
-          <p className="text-muted-foreground text-xs">{summary}</p>
-        </div>
-        <ScrollArea className="max-h-64">
-          <ul className="divide-y">
-            {items.map((item, i) => (
-              <li className="flex items-start justify-between gap-3 px-3 py-1.5" key={i}>
-                <span className="shrink-0 font-medium text-xs">
-                  <span className="text-muted-foreground">row {item.row} ·</span> {item.column}
-                </span>
-                <span className="text-end text-muted-foreground text-xs">{item.message}</span>
-              </li>
-            ))}
-          </ul>
-        </ScrollArea>
-        <p className="border-t px-3 py-2 text-muted-foreground text-xs">
-          {active
-            ? "Press the badge to bring the rest of the ledger back."
-            : "Press the badge to show only these rows."}
-        </p>
-      </HoverCardContent>
-    </HoverCard>
-  );
-}
-
-function PaneHeader({
-  children,
-  detail,
-  icon: Icon,
-  title,
-  tone,
-}: {
-  /** A control that governs THIS pane's document. The shape switcher lives here rather than in the
-   *  page header, where it stood beside verbs that act on the whole screen. */
-  children?: React.ReactNode;
-  detail: string;
-  icon: typeof FileCode2Icon;
-  title: string;
-  tone: "destructive" | "info" | "success";
-}) {
-  return (
-    <div className="flex h-9 shrink-0 items-center gap-2 border-b px-3">
-      <Icon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-      <span className="shrink-0 font-medium text-xs">{title}</span>
-      {children}
-      <span className="ms-auto flex min-w-0 items-center gap-1.5">
-        <Status
-          className="size-1.5"
-          variant={tone === "destructive" ? "destructive" : tone === "success" ? "success" : "info"}
-        />
-        <span className="truncate text-muted-foreground text-xs" title={detail}>
-          {detail}
-        </span>
-      </span>
-    </div>
-  );
-}
-
-/**
  * The photographs, before anything has been read out of them.
  *
  * This state did not exist: uploading went straight to an empty table, and `Extract` quietly fell
  * back to the sample photo when nothing had been dropped. Showing the paper first is also what
  * makes the button honest — you can see what it is about to read.
  */
+/**
+ * One uploaded photograph, at its own shape.
+ *
+ * It was `object-cover` into whatever height the grid gave it, which crops the picture to fit the
+ * box — so a photograph in the tray was a different picture from the same photograph in the panel,
+ * and the reader had to work out that they were the same one. The frame takes the image's aspect
+ * instead: the tray and the panel show the same rectangle, and only the size differs.
+ */
+function ShotThumb({ shot }: { shot: Shot }) {
+  const aspect = useAspect(shot.src);
+
+  return (
+    <figure className="min-w-0 space-y-1.5">
+      <div
+        className="overflow-hidden rounded-md border bg-muted"
+        style={{ aspectRatio: aspect ?? undefined }}
+      >
+        <img alt="" className="block size-full object-contain" src={shot.src} />
+      </div>
+      <figcaption className="truncate text-muted-foreground text-xs" title={shot.name}>
+        {shot.name}
+      </figcaption>
+    </figure>
+  );
+}
+
 function PhotoTray({ shots }: { shots: Shot[] }) {
   return (
     <ScrollArea className="h-full">
@@ -1443,18 +1357,9 @@ function PhotoTray({ shots }: { shots: Shot[] }) {
           {shots.length} {shots.length === 1 ? "photograph" : "photographs"}, not read yet. Every
           slip in {shots.length === 1 ? "it" : "them"} becomes a row.
         </p>
-        <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(12rem,1fr))]">
+        <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(14rem,1fr))]">
           {shots.map((shot) => (
-            <figure className="min-w-0 space-y-1.5" key={shot.id}>
-              <img
-                alt=""
-                className="w-full rounded-md border bg-muted object-cover"
-                src={shot.src}
-              />
-              <figcaption className="truncate text-muted-foreground text-xs" title={shot.name}>
-                {shot.name}
-              </figcaption>
-            </figure>
+            <ShotThumb key={shot.id} shot={shot} />
           ))}
         </div>
       </div>
