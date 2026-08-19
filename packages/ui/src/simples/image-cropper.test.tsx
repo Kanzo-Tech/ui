@@ -14,7 +14,7 @@ import {
 const cropper = (axis?: "horizontal" | "vertical" | "both") =>
   render(
     <ImageCropper>
-      <ImageCropperImage alt="" src="/receipts/tickets.jpg" />
+      <ImageCropperImage alt="" src="/example/sighting-slips.svg" />
       <ImageCropperSelection axis={axis} />
     </ImageCropper>,
   );
@@ -22,7 +22,7 @@ const cropper = (axis?: "horizontal" | "vertical" | "both") =>
 describe("useImageCropper", () => {
   // Shark binds this name to Ark's MACHINE hook and ships no `ImageCropperRootProvider`, so nothing
   // its own file renders can be handed the machine — the export is unreachable there. Every other
-  // `useX` in this library is the context hook, which is also the one the Receipts renderer calls
+  // `useX` in this library is the context hook, which is also the one the Field notes renderer calls
   // to read `getCropData()` from inside the tree. Asserted against Ark directly, because the parity
   // guard compares names and never bindings.
   it("is Ark's context hook, not the machine hook Shark binds", () => {

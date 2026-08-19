@@ -1,7 +1,7 @@
 "use client";
 
 // The shape, read. Everything the showcase knows about the ledger's columns comes through here,
-// and here reads exactly one document: `TICKET_SHAPE`.
+// and here reads exactly one document: `SLIP_SHAPE`.
 //
 // rudof — the SHACL/ShEx stack — runs the parse and the validation in wasm. There is no JS
 // re-implementation of either: `loadShapes` hands back the shape's own IR, so the column list IS
@@ -9,11 +9,11 @@
 // `@kanzo-tech/ui` never sees any of it; the admission rule bars RDF from the library, and a
 // showcase is where specificity is allowed to live.
 
-import { TICKET_SHAPE } from "./shape";
+import { SLIP_SHAPE } from "./shape";
 
 const XSD = "http://www.w3.org/2001/XMLSchema#";
 const RDF_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type";
-const TICKET_CLASS = "https://kanzo.tech/ns/ticket#FuelTicket";
+const SLIP_CLASS = "https://kanzo.tech/ns/sighting#SightingSlip";
 const ROW_BASE = "https://kanzo.tech/row/";
 
 /**
@@ -28,16 +28,16 @@ const ROW_BASE = "https://kanzo.tech/row/";
  * - RDF → table is *SPARQL 1.1 Query Results CSV/TSV* (Rec 2013): one row per solution, one
  *   column per projected variable. That IS our direction, and `toCsv` is shaped like it.
  *
- * Neither spec mints our subject for us, so it is stated here rather than guessed. The ticket
- * number is the identity, which is what makes the graph worth having: read the same photo twice
- * and the two runs merge instead of doubling. A row without one yet — freshly added by hand, or a
- * ticket the model could not read — falls back to its local id, which is honest: it has no
+ * Neither spec mints our subject for us, so it is stated here rather than guessed. The slip
+ * number is the identity, which is what makes the graph worth having: read the same photograph
+ * twice and the two runs merge instead of doubling. A row without one yet — freshly added by hand,
+ * or a slip the model could not read — falls back to its local id, which is honest: it has no
  * identity, and nothing should merge on it.
  */
-const IDENTITY = "ticket";
+const IDENTITY = "slip";
 const subjectOf = (row: Row) => {
   const key = row.cells[IDENTITY];
-  return `${ROW_BASE}${key ? `ticket/${key}` : `local/${row.id}`}`;
+  return `${ROW_BASE}${key ? `slip/${key}` : `local/${row.id}`}`;
 };
 
 /** The four lexical shapes a cell can carry, straight off `sh:datatype`. */
@@ -50,8 +50,8 @@ export interface Column {
   iri: string;
   /** `sh:name`, and the header the CSV writes. */
   label: string;
-  /** `sh:description` — what tells the model which value on the paper is this one. The ticket
-   *  prints a price per litre and a total; only this sentence says which one `importe` means. */
+  /** `sh:description` — what tells the model which value on the paper is this one. The hall
+   *  prints a standing rate and a bounty paid; only this sentence says which one `bounty` means. */
   description?: string;
   /** `sh:order`, and the column order everywhere. */
   order: number;
@@ -236,7 +236,7 @@ const severityOf = (iri: string | undefined): Severity =>
   iri?.endsWith("Warning") ? "warning" : iri?.endsWith("Info") ? "info" : "violation";
 
 /** Parse the shape and return the ledger it describes. */
-export async function openLedger(shape: string = TICKET_SHAPE): Promise<Ledger> {
+export async function openLedger(shape: string = SLIP_SHAPE): Promise<Ledger> {
   const s = await session();
   const model = s.loadShapes(shape, "text/turtle");
   const columns = (model.nodeShapes[0]?.properties ?? [])
@@ -248,7 +248,7 @@ export async function openLedger(shape: string = TICKET_SHAPE): Promise<Ledger> 
     s.newData();
     for (const row of rows) {
       const focus = named(subjectOf(row));
-      s.add(focus, named(RDF_TYPE), named(TICKET_CLASS));
+      s.add(focus, named(RDF_TYPE), named(SLIP_CLASS));
       for (const column of columns) {
         const value = row.cells[column.key] ?? "";
         if (!value) continue; // absent, which is what `sh:minCount` is for

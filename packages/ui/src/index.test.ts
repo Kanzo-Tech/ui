@@ -63,15 +63,15 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.ButtonGroup).toBeTypeOf("function");
     expect(UI.NumberInput).toBeTypeOf("function");
     expect(UI.Item).toBeTypeOf("function");
-    // Adopted the day it got its second renderer — the graph inspector and the receipts ticket
+    // Adopted the day it got its second renderer — the graph inspector and the field-notes slip
     // panel had both hand-written its `dl`. Its UNADOPTED entry in `shark-parity.divergences.ts`
     // is gone, which is the assertion that would go red if this left the barrel again.
     expect(UI.DataList).toBeTypeOf("function");
     expect(UI.DataListItem).toBeTypeOf("function");
     expect(UI.DataListItemLabel).toBeTypeOf("function");
     expect(UI.DataListItemValue).toBeTypeOf("function");
-    // Adopted for the same reason and in the same place: the Receipts ticket pane drew the crop
-    // extraction claimed and gave a reviewer no way to disagree with it. `useImageCropper` is the
+    // Adopted for the same reason and in the same place: the Field notes slip pane could show a
+    // reader where a row came from and gave them no way to disagree with it. `useImageCropper` is the
     // context hook here rather than Shark's machine hook — `simples/image-cropper.test.tsx` is
     // where that binding is pinned, because a name comparison cannot see it.
     expect(UI.ImageCropper).toBeTypeOf("function");

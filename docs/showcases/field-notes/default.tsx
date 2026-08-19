@@ -2,7 +2,7 @@
 
 // Photos in, a spreadsheet out — and one SHACL document deciding what "a spreadsheet" means.
 //
-// The arrangement is three panes: the shape, the ledger being filled, and the ticket the selected
+// The arrangement is three panes: the shape, the ledger being filled, and the slip the selected
 // row was read from. The middle pane is the point. Extraction gets most cells right and some cells
 // wrong, and the only version of this screen that is honest about that puts the paper next to the
 // number.
@@ -103,9 +103,9 @@ import {
   type Shot,
 } from "./extract";
 import { liveExtractor, readKey, writeKey } from "./live";
-import { ReceiptsPreferences } from "./preferences";
+import { FieldNotesPreferences } from "./preferences";
 import { openLedger, type Column, type Issue, type Ledger, type Row } from "./rudof";
-import { SHAPES, TICKET_SHAPE } from "./shape";
+import { SHAPES, SLIP_SHAPE } from "./shape";
 
 /** Turtle, through CodeMirror's legacy stream parser. `extensions` is the seam for a language
  *  brain, and this is defined at module scope so the editor never reconfigures its compartment. */
@@ -140,14 +140,14 @@ function useAspect(src: string): number | null {
   return aspect;
 }
 
-/** One ticket, cut out of the photo it was found in. `head` keeps the box square and shows the
- *  top of the ticket — where the biro annotation is, and the whole reason to look at a thumbnail.
+/** One slip, cut out of the photograph it was found in. `head` keeps the box square and shows the
+ *  head of the slip — where the printed number is, and the whole reason to look at a thumbnail.
  *
  *  The offsets are a `translate`, not `top`/`left`: a percentage inset resolves against the
  *  CONTAINER, and in `head` the container is a square that has nothing to do with the crop's
  *  height. A percentage translate resolves against the IMAGE, which is the thing being moved.
  *  Physical directions on purpose — a photograph does not mirror in RTL. */
-function Ticket({
+function Slip({
   className,
   crop,
   head,
@@ -180,7 +180,7 @@ function Ticket({
 
 /** The whole sheet, with the row's box drawn on it. Read only, and that is the point: the answer
  *  to "where did this number come from" is not a control, and a box that moves under a pointer
- *  reads as a different ticket being chosen. Correcting it is {@link DrawBox}, which is a mode the
+ *  reads as a different slip being chosen. Correcting it is {@link DrawBox}, which is a mode the
  *  reader asks for.
  *
  *  Percentages, because the crop is fractions of the image and the box is the image. `--brand`
@@ -215,7 +215,7 @@ function Sheet({ crop, shot }: { crop: Crop; shot: Shot }) {
  *
  * **`maxZoom={1}` is what keeps the picture still.** At zoom 1 the pan offset clamps to zero, so
  * the wheel and a drag on the image do nothing — the sheet stays where it is and the only thing
- * that moves is the box. That is the answer to a box that seemed to be choosing a different ticket,
+ * that moves is the box. That is the answer to a box that seemed to be choosing a different slip,
  * and it also makes the arithmetic exact: viewport pixels over frame pixels ARE fractions of the
  * image once the two are the same box.
  *
@@ -374,20 +374,20 @@ function ledgerColumns(columns: Column[]): ColumnDef<Row>[] {
 
   return [
     {
-      // NOT `"ticket"`. A column id has to be unique across the table, and the ids on the right of
-      // this list are the shape's own local names — `tk:ticket` projects to `ticket`, so the
-      // thumbnail collided with N TICKET: two columns and two header cells answering to one key,
+      // NOT `"slip"`. A column id has to be unique across the table, and the ids on the right of
+      // this list are the shape's own local names — `gs:slip` projects to `slip`, so the thumbnail
+      // collided with the slip number: two columns and two header cells answering to one key,
       // which React reported as duplicate children and TanStack keyed one visibility flag for
       // both. A colon cannot occur in an XML local name, so no shape can reach this one.
       id: "kanzo:paper",
       enableHiding: false,
-      header: () => <span className="sr-only">The ticket</span>,
+      header: () => <span className="sr-only">The slip</span>,
       cell: ({ row, table }) => {
         const found = metaOf(table.options.meta).cropOf(row.original.id);
         // `m-1.5` because the cells are `p-0` — that override is for the editable ones, whose
         // `Input` has to fill its cell, and the paper is the one cell that wants air.
         return found ? (
-          <Ticket className="m-1.5 size-10" crop={found.crop} head shot={found.shot} />
+          <Slip className="m-1.5 size-10" crop={found.crop} head shot={found.shot} />
         ) : null;
       },
     },
@@ -426,7 +426,7 @@ function ledgerColumns(columns: Column[]): ColumnDef<Row>[] {
 
 // ── The showcase ─────────────────────────────────────────────────────────────
 
-export function ReceiptsShowcase() {
+export function FieldNotesShowcase() {
   const [ledger, setLedger] = useState<Ledger | null>(null);
   const [boot, setBoot] = useState<string | null>(null);
   const [shots, setShots] = useState<Shot[]>([]);
@@ -438,12 +438,12 @@ export function ReceiptsShowcase() {
    *  render, and a value read at the top would be a hydration mismatch on the very first paint. */
   const [apiKey, setApiKey] = useState("");
   const [shapeOpen, setShapeOpen] = useState(false);
-  const [ticketOpen, setTicketOpen] = useState(true);
-  /** Whether the ticket pane shows the cut or the sheet it was cut from. */
+  const [slipOpen, setSlipOpen] = useState(true);
+  /** Whether the slip pane shows the cut or the sheet it was cut from. */
   const [whole, setWhole] = useState(false);
   /** The row whose box is being drawn, and the only state that turns the pane into a control. */
   const [drawing, setDrawing] = useState<string | null>(null);
-  const [shapeText, setShapeText] = useState(TICKET_SHAPE);
+  const [shapeText, setShapeText] = useState(SLIP_SHAPE);
   const [shapeError, setShapeError] = useState<string | null>(null);
 
   const engine = useAiStream<ExtractEvent>("Could not read the photo");
@@ -521,7 +521,7 @@ export function ReceiptsShowcase() {
   /**
    * Single selection, and it is the TABLE's rather than a second copy beside it. `getRowId` makes
    * the selection key the row's own id, so `data-state="selected"` — which `DataTableContent`
-   * already writes — is the highlight, and the ticket pane reads the same one value.
+   * already writes — is the highlight, and the slip pane reads the same one value.
    */
   const table = useDataTable<Row>({
     columns: defs,
@@ -545,7 +545,7 @@ export function ReceiptsShowcase() {
    *  that has no box yet. */
   const sheet = selectedCrop?.shot ?? shots[0];
 
-  // The first row to arrive is the one the ticket pane shows, so the pane is never empty while
+  // The first row to arrive is the one the slip pane shows, so the pane is never empty while
   // the table is filling. Later rows do not steal it — that would move the paper under the reader.
   useEffect(() => {
     const first = rows[0];
@@ -627,7 +627,7 @@ export function ReceiptsShowcase() {
         <div className="flex h-9 items-center gap-2.5 border-b px-3 text-xs">
           <span className="flex items-center gap-1.5 text-muted-foreground">
             <ScanTextIcon aria-hidden className="size-3.5" />
-            Receipts
+            Field notes
           </span>
 
           <span className="ms-1 text-muted-foreground">Shape</span>
@@ -650,7 +650,7 @@ export function ReceiptsShowcase() {
           </NativeSelect>
 
           {/* Without a key there is no choice to make, and a two-option control that can only land
-              on one of them is a lie — so what is left is a statement of fact: this is the recorded
+              on one of them is a lie — so what is left is a statement of fact: this is the demo
               run. The moment a key exists the choice does too, and the segments come back. */}
           <Show
             fallback={
@@ -658,10 +658,10 @@ export function ReceiptsShowcase() {
                 className="ms-auto"
                 pill
                 size="xs"
-                title="A recorded run of a real extraction. Paste your Anthropic key in Preferences to run it live."
+                title="A recorded run of a real extraction, replayed. Paste your Anthropic key in Preferences to run the model live."
                 variant="secondary"
               >
-                Recorded run
+                Demo run
               </Badge>
             }
             when={Boolean(apiKey)}
@@ -673,7 +673,7 @@ export function ReceiptsShowcase() {
             >
               <SegmentGroupIndicator />
               <SegmentGroupItem value="recorded">
-                <SegmentGroupItemText>Recorded</SegmentGroupItemText>
+                <SegmentGroupItemText>Demo run</SegmentGroupItemText>
               </SegmentGroupItem>
               <SegmentGroupItem value="live">
                 <SegmentGroupItemText>Live model</SegmentGroupItemText>
@@ -685,7 +685,7 @@ export function ReceiptsShowcase() {
         <SectionHeader className="px-6 py-3" scale="page">
           <SectionTitleGroup>
             <SectionTitle className="font-heading" level={1} scale="page">
-              Receipts
+              Field notes
             </SectionTitle>
             <SectionDescription className="truncate text-xs">
               the shape → the photographs → the sheet
@@ -791,17 +791,17 @@ export function ReceiptsShowcase() {
           multiple
           onValueChange={(d) => {
             setShapeOpen(d.value.includes("shape"));
-            setTicketOpen(d.value.includes("ticket"));
+            setSlipOpen(d.value.includes("slip"));
           }}
           orientation="vertical"
           size="sm"
           spacing={2}
-          value={[...(shapeOpen ? ["shape"] : []), ...(ticketOpen ? ["ticket"] : [])]}
+          value={[...(shapeOpen ? ["shape"] : []), ...(slipOpen ? ["slip"] : [])]}
         >
           <ToggleGroupItem aria-label="The shape" title="The shape" value="shape">
             <FileCode2Icon />
           </ToggleGroupItem>
-          <ToggleGroupItem aria-label="The ticket" title="The ticket" value="ticket">
+          <ToggleGroupItem aria-label="The slip" title="The slip" value="slip">
             <ImageIcon />
           </ToggleGroupItem>
         </ToggleGroup>
@@ -815,8 +815,8 @@ export function ReceiptsShowcase() {
             const columnIds = [
               ...(shapeOpen ? (["shape"] as const) : []),
               "table",
-              ...(ticketOpen ? (["ticket"] as const) : []),
-            ] as ("shape" | "table" | "ticket")[];
+              ...(slipOpen ? (["slip"] as const) : []),
+            ] as ("shape" | "table" | "slip")[];
 
             const tableMain = (
               <ShellMain className="min-w-0 bg-background p-0">
@@ -832,10 +832,10 @@ export function ReceiptsShowcase() {
                         <FileUploadDropzone className="py-16">
                           <UploadIcon aria-hidden className="size-6" />
                           <p className="font-medium text-foreground text-sm">
-                            Drop the photos of the tickets
+                            Drop the photographs of the slips
                           </p>
                           <p className="text-xs">
-                            One photo may hold several tickets; each one becomes a row.
+                            One photograph may hold several slips; each one becomes a row.
                           </p>
                           <FileUploadTrigger asChild>
                             <Button className="mt-2" size="sm" variant="outline">
@@ -854,7 +854,7 @@ export function ReceiptsShowcase() {
                           >
                             the sample photo
                           </Button>{" "}
-                          — five tickets, two of them partly unreadable.
+                          — five slips, three of them partly unreadable.
                         </p>
                       </FileUpload>
                     </div>
@@ -866,9 +866,9 @@ export function ReceiptsShowcase() {
                       <div className="flex h-full min-h-0 flex-col">
                         <DataTableToolbar className="shrink-0 border-b px-3 py-1.5">
                           {/* The global filter, not a column's: a reviewer holding a piece of
-                              paper searches for whatever is printed on it — a ticket number, a
-                              plate — and does not know which column it will land in. */}
-                          <DataTableSearch className="h-7 w-48" placeholder="Find a ticket…" />
+                              paper searches for whatever is written on it — a slip number, a
+                              hunter's name — and does not know which column it will land in. */}
+                          <DataTableSearch className="h-7 w-48" placeholder="Find a slip…" />
                           {/* One per closed vocabulary the shape declares, and none if it declares
                               none. `sh:in` is the option list. */}
                           {columns
@@ -979,13 +979,13 @@ export function ReceiptsShowcase() {
               }
               return (
                 <ShellAside
-                  aria-label="The ticket"
+                  aria-label="The slip"
                   className="min-h-0 flex-1 border-s-0 bg-card"
                   side="end"
                 >
                   <PaneHeader
                     icon={ImageIcon}
-                    title="The ticket"
+                    title="The slip"
                     tone={
                       selectedRow && issues.some((i) => i.rowId === selectedRow.id)
                         ? "destructive"
@@ -1035,7 +1035,7 @@ export function ReceiptsShowcase() {
                                   onClick={() => setWhole(true)}
                                   type="button"
                                 >
-                                  <Ticket crop={selectedCrop.crop} shot={selectedCrop.shot} />
+                                  <Slip crop={selectedCrop.crop} shot={selectedCrop.shot} />
                                 </button>
                               }
                               when={whole}
@@ -1047,7 +1047,7 @@ export function ReceiptsShowcase() {
                                 afford to be cut. */}
                             <figcaption className="flex items-center gap-1.5 text-muted-foreground text-xs">
                               <Show
-                                fallback={<span className="shrink-0">the ticket</span>}
+                                fallback={<span className="shrink-0">the slip</span>}
                                 when={whole}
                               >
                                 <Button
@@ -1076,7 +1076,7 @@ export function ReceiptsShowcase() {
                         {/* The whole record, not the broken part of it. A panel that listed only
                             the findings could not answer "what did it read here?", which is the
                             question somebody holding the paper actually has — and it made a clean
-                            ticket show an empty pane.
+                            slip show an empty pane.
 
                             `DataList` is Shark's, adopted the day this became its second renderer;
                             the messages live INSIDE the value, because a `dl > div` may hold
@@ -1184,7 +1184,7 @@ export function ReceiptsShowcase() {
 
       {/* The library's own FAB, bottom-end, which is where a preference belongs: it is not one of
           this screen's verbs, and in `SectionActions` it stood beside two that are. */}
-      <ReceiptsPreferences
+      <FieldNotesPreferences
         apiKey={apiKey}
         onApiKey={(key) => {
           setApiKey(key);
@@ -1244,7 +1244,7 @@ function PhotoTray({ shots }: { shots: Shot[] }) {
       <div className="space-y-3 p-4">
         <p className="text-muted-foreground text-xs">
           {shots.length} {shots.length === 1 ? "photograph" : "photographs"}, not read yet. Every
-          ticket in {shots.length === 1 ? "it" : "them"} becomes a row.
+          slip in {shots.length === 1 ? "it" : "them"} becomes a row.
         </p>
         <div className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(12rem,1fr))]">
           {shots.map((shot) => (
@@ -1265,4 +1265,4 @@ function PhotoTray({ shots }: { shots: Shot[] }) {
   );
 }
 
-export default ReceiptsShowcase;
+export default FieldNotesShowcase;

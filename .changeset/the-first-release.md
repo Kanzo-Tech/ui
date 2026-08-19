@@ -302,7 +302,7 @@ itself does with `color-scheme`. A host speaking next-themes' `"system"` is tran
 in and back out, in one place.
 
 **`DataList` is adopted.** Shark ships it; we did not build it until it had two renderers — the
-graph inspector's node properties and the Receipts ticket panel, both of which had hand-written the
+graph inspector's node properties and the Field notes slip panel, both of which had hand-written the
 same `dl` / `div` / `dt` / `dd` tree. `DataListItem` is the `div` the spec requires, not decoration.
 
 **`ImageCropper` is adopted, over Ark's image-cropper machine.** `ImageCropper` renders the root and

@@ -1,7 +1,7 @@
 // A box drawn on a photograph, and the photograph read back through it. Ark's image-cropper
 // machine, Shark's appearance.
 //
-// Shark's `image-cropper.tsx`, adopted the day it got a renderer: the Receipts showcase lets a
+// Shark's `image-cropper.tsx`, adopted the day it got a renderer: the Field notes showcase lets a
 // reader draw the box a row was read from, which is the only paper a row typed by hand has ever
 // had. Four differences from the reference file, all of them house rules or
 // classes that compile to nothing:

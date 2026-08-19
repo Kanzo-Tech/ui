@@ -5,7 +5,7 @@ import { JobStudioShowcase } from "@/showcases/job-studio/default";
 import { MetadataFormShowcase } from "@/showcases/metadata-form/default";
 import { PaletteOnboardingShowcase } from "@/showcases/palette-onboarding/default";
 import { PreferencesShowcase } from "@/showcases/preferences/default";
-import { ReceiptsShowcase } from "@/showcases/receipts/default";
+import { FieldNotesShowcase } from "@/showcases/field-notes/default";
 import { SettingsShowcase } from "@/showcases/settings/default";
 import { PreferencesExtendedShowcase } from "@/showcases/preferences/extended";
 import { PreferencesFontsShowcase } from "@/showcases/preferences/fonts";
@@ -45,7 +45,7 @@ const SHOWCASES = {
   // Photos of fuel tickets in, a spreadsheet out. The only showcase whose columns are not written
   // here at all: rudof parses one SHACL document in wasm and the table, the validation and the CSV
   // are three readings of it. Also `useAiStream`'s second consumer.
-  receipts: ReceiptsShowcase,
+  "field-notes": FieldNotesShowcase,
 } as const;
 
 type ShowcaseName = keyof typeof SHOWCASES;

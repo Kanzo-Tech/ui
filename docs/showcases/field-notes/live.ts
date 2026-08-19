@@ -20,7 +20,7 @@ const MODEL = "claude-opus-5";
 
 /** Where the visitor's key lives. Their browser, and nowhere else — not the prefs cookie, which
  *  travels to the server on every request, and not a route handler, which would be the server. */
-const STORAGE = "kanzo-receipts-anthropic-key";
+const STORAGE = "kanzo-field-notes-anthropic-key";
 
 export function readKey(): string {
   try {
@@ -89,13 +89,13 @@ function schemaFor(columns: Column[]) {
     properties: {
       rows: {
         type: "array",
-        description: "Un elemento por ticket encontrado, en el orden en que aparecen.",
+        description: "One entry per slip found, in the order they appear.",
         items: {
           type: "object",
           properties: {
             crop: {
               type: "object",
-              description: "Dónde está el ticket dentro de su foto, en fracciones de 0 a 1.",
+              description: "Where the slip sits inside its photograph, in fractions of 0 to 1.",
               properties: {
                 x: { type: "number" },
                 y: { type: "number" },
@@ -105,7 +105,7 @@ function schemaFor(columns: Column[]) {
               required: ["x", "y", "w", "h"],
               additionalProperties: false,
             },
-            shot: { type: "string", description: "El id de la foto donde está este ticket." },
+            shot: { type: "string", description: "The id of the photograph this slip is in." },
             cells: {
               type: "array",
               items: {
@@ -114,13 +114,13 @@ function schemaFor(columns: Column[]) {
                   key: { type: "string", enum: columns.map((c) => c.key) },
                   value: {
                     type: "string",
-                    description: "Cadena vacía si no se puede leer. Nunca inventes un valor.",
+                    description: "Empty string when it cannot be read. Never invent a value.",
                   },
                   confidence: { type: "number" },
                   note: {
                     type: "string",
                     description:
-                      "Por qué está vacío o es dudoso, para quien tenga que cotejarlo con el papel. Vacío si no hay nada que decir.",
+                      "Why it is empty or unsure, for whoever has to check it against the paper. Empty when there is nothing to say.",
                   },
                 },
                 required: ["key", "value", "confidence", "note"],
@@ -138,13 +138,13 @@ function schemaFor(columns: Column[]) {
   };
 }
 
-const system = (columns: Column[]) => `You transcribe Spanish fuel receipts into the rows of a ledger.
+const system = (columns: Column[]) => `You transcribe handwritten sighting slips into the rows of a ledger.
 
-One photo may hold several receipts: each receipt is one row, and you return its crop so whoever
+One photograph may hold several slips: each slip is one row, and you return its crop so whoever
 reviews it can look at the paper beside the number.
 
 The column list below is projected from a SHACL shape. Each entry carries the shape's own
-\`sh:description\`, which is what distinguishes values the receipt prints side by side — read them.
+\`sh:description\`, which is what distinguishes values the slip prints side by side — read them.
 
 Columns:
 ${columns.map(describe).join("\n")}
@@ -153,7 +153,7 @@ Rules:
 - A value you cannot read goes back empty, with a note saying why (covered, cut off, blurred,
   never written). Never infer it and never invent it: a human reviews these, and an empty cell
   costs one glance while an invented one costs a reconciliation.
-- Dates in ISO (2026-08-10). Amounts with a decimal comma, as they are typed in Spain.
+- Dates in ISO (2026-08-10). Decimals with a comma, the way the hall's press writes them.
 - \`confidence\` from 0 to 1, honest: print reads better than handwriting.
 - Notes in English; the values themselves exactly as the paper has them.`;
 
@@ -190,7 +190,7 @@ function* completedRows(buffer: string, from: number): Generator<[unknown, numbe
 }
 
 /** What a row the model closed becomes: the id is ours, because a model that repeated one would
- *  silently merge two tickets into a row. */
+ *  silently merge two slips into a row. */
 function* eventsFor(row: WireRow, index: number): Generator<ExtractEvent> {
   const rowId = `live-${index}`;
   yield { kind: "row", rowId, shot: row.shot, crop: row.crop };

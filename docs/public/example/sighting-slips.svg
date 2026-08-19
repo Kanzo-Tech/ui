@@ -1,0 +1,289 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="1500" viewBox="0 0 2000 1500" role="img" aria-label="Five sighting slips laid out on a table, two of them partly covered">
+  <title>Five of the Amber Hall’s sighting slips, photographed on the archivist’s table</title>
+  <defs>
+    <filter id="grain" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="3" seed="7"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.22"/></feComponentTransfer>
+    </filter>
+    <filter id="fibrefx" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.7" numOctaves="4" seed="19"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feComponentTransfer><feFuncA type="linear" slope="0.16"/></feComponentTransfer>
+    </filter>
+    <pattern id="fibre" width="2000" height="1500" patternUnits="userSpaceOnUse">
+      <rect width="2000" height="1500" filter="url(#fibrefx)"/>
+    </pattern>
+    <filter id="lift" x="-30%" y="-30%" width="180%" height="180%">
+      <feDropShadow dx="6" dy="14" stdDeviation="14" flood-color="#1b1209" flood-opacity="0.45"/>
+    </filter>
+    <filter id="soft" x="-40%" y="-40%" width="200%" height="200%">
+      <feDropShadow dx="10" dy="18" stdDeviation="18" flood-color="#1b1209" flood-opacity="0.5"/>
+    </filter>
+    <linearGradient id="shade" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="55%" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#3a2b18" stop-opacity="0.16"/>
+    </linearGradient>
+    <radialGradient id="lamplight" cx="42%" cy="26%" r="78%">
+      <stop offset="0%" stop-color="#fff3d4" stop-opacity="0.5"/>
+      <stop offset="55%" stop-color="#fff3d4" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#120c05" stop-opacity="0.5"/>
+    </radialGradient>
+    <linearGradient id="brass" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#6d5527"/>
+      <stop offset="35%" stop-color="#c9a45a"/>
+      <stop offset="100%" stop-color="#5c4620"/>
+    </linearGradient>
+    <linearGradient id="mugside" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#2f3b41"/>
+      <stop offset="40%" stop-color="#59707a"/>
+      <stop offset="100%" stop-color="#263136"/>
+    </linearGradient>
+  </defs>
+  <rect width="2000" height="1500" fill="#4a3524"/>
+  <g>
+    <path d="M0 0 C500 -9 1100 11 2000 -5" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 17 C600 26 1300 8 2000 21" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 34 C500 25 1100 45 2000 29" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 51 C600 60 1300 42 2000 55" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 68 C500 59 1100 79 2000 63" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 85 C600 94 1300 76 2000 89" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 102 C500 93 1100 113 2000 97" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 119 C600 128 1300 110 2000 123" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 136 C500 127 1100 147 2000 131" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 153 C600 162 1300 144 2000 157" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 170 C500 161 1100 181 2000 165" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 187 C600 196 1300 178 2000 191" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 204 C500 195 1100 215 2000 199" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 221 C600 230 1300 212 2000 225" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 238 C500 229 1100 249 2000 233" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 255 C600 264 1300 246 2000 259" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 272 C500 263 1100 283 2000 267" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 289 C600 298 1300 280 2000 293" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 306 C500 297 1100 317 2000 301" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 323 C600 332 1300 314 2000 327" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 340 C500 331 1100 351 2000 335" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 357 C600 366 1300 348 2000 361" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 374 C500 365 1100 385 2000 369" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 391 C600 400 1300 382 2000 395" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 408 C500 399 1100 419 2000 403" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 425 C600 434 1300 416 2000 429" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 442 C500 433 1100 453 2000 437" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 459 C600 468 1300 450 2000 463" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 476 C500 467 1100 487 2000 471" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 493 C600 502 1300 484 2000 497" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 510 C500 501 1100 521 2000 505" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 527 C600 536 1300 518 2000 531" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 544 C500 535 1100 555 2000 539" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 561 C600 570 1300 552 2000 565" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 578 C500 569 1100 589 2000 573" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 595 C600 604 1300 586 2000 599" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 612 C500 603 1100 623 2000 607" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 629 C600 638 1300 620 2000 633" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 646 C500 637 1100 657 2000 641" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 663 C600 672 1300 654 2000 667" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 680 C500 671 1100 691 2000 675" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 697 C600 706 1300 688 2000 701" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 714 C500 705 1100 725 2000 709" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 731 C600 740 1300 722 2000 735" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 748 C500 739 1100 759 2000 743" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 765 C600 774 1300 756 2000 769" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 782 C500 773 1100 793 2000 777" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 799 C600 808 1300 790 2000 803" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 816 C500 807 1100 827 2000 811" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 833 C600 842 1300 824 2000 837" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 850 C500 841 1100 861 2000 845" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 867 C600 876 1300 858 2000 871" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 884 C500 875 1100 895 2000 879" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 901 C600 910 1300 892 2000 905" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 918 C500 909 1100 929 2000 913" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 935 C600 944 1300 926 2000 939" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 952 C500 943 1100 963 2000 947" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 969 C600 978 1300 960 2000 973" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 986 C500 977 1100 997 2000 981" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 1003 C600 1012 1300 994 2000 1007" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 1020 C500 1011 1100 1031 2000 1015" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 1037 C600 1046 1300 1028 2000 1041" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 1054 C500 1045 1100 1065 2000 1049" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 1071 C600 1080 1300 1062 2000 1075" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 1088 C500 1079 1100 1099 2000 1083" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 1105 C600 1114 1300 1096 2000 1109" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 1122 C500 1113 1100 1133 2000 1117" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 1139 C600 1148 1300 1130 2000 1143" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 1156 C500 1147 1100 1167 2000 1151" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 1173 C600 1182 1300 1164 2000 1177" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 1190 C500 1181 1100 1201 2000 1185" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 1207 C600 1216 1300 1198 2000 1211" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 1224 C500 1215 1100 1235 2000 1219" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 1241 C600 1250 1300 1232 2000 1245" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 1258 C500 1249 1100 1269 2000 1253" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 1275 C600 1284 1300 1266 2000 1279" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 1292 C500 1283 1100 1303 2000 1287" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 1309 C600 1318 1300 1300 2000 1313" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 1326 C500 1317 1100 1337 2000 1321" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 1343 C600 1352 1300 1334 2000 1347" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 1360 C500 1351 1100 1371 2000 1355" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 1377 C600 1386 1300 1368 2000 1381" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 1394 C500 1385 1100 1405 2000 1389" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 1411 C600 1420 1300 1402 2000 1415" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 1428 C500 1419 1100 1439 2000 1423" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 1445 C600 1454 1300 1436 2000 1449" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 1462 C500 1453 1100 1473 2000 1457" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 1479 C600 1488 1300 1470 2000 1483" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+    <path d="M0 1496 C500 1487 1100 1507 2000 1491" stroke="#3d2b1c" stroke-width="7" fill="none" stroke-opacity="0.55"/>
+    <path d="M0 1513 C600 1522 1300 1504 2000 1517" stroke="#563e29" stroke-width="4" fill="none" stroke-opacity="0.4"/>
+  </g>
+  <g transform="rotate(-2.5 230.0 750.0)">
+    <rect x="60" y="300" width="340" height="900" rx="4" fill="#f6f1e4" filter="url(#lift)"/>
+    <rect x="60" y="300" width="340" height="900" rx="4" fill="url(#fibre)" opacity="0.5"/>
+    <path d="M60 300 L80 306 L100 300 L120 306 L140 300 L160 306 L180 300 L200 306 L220 300 L240 306 L260 300 L280 306 L300 300 L320 306 L340 300 L360 306 L380 300 L400 306 L400 300 L400 292 L60 292 Z" fill="#efe8d6"/>
+    <text x="230.0" y="362" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="27" letter-spacing="3" fill="#2f2a22">HUNTERS’ GUILD</text>
+    <text x="230.0" y="392" text-anchor="middle" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="17" fill="#6b6154">AMBER HALL · GREENHOLLOW</text>
+    <line x1="86" y1="412" x2="374" y2="412" stroke="#b9ae97" stroke-width="2"/>
+    <text x="230.0" y="448" text-anchor="middle" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="22" letter-spacing="2" fill="#2f2a22">SIGHTING SLIP</text>
+    <text x="86" y="496" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">No.</text>
+    <text x="90" y="530" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="27" fill="#2f2a22">262220788808</text>
+    <text x="86" y="580" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Date</text>
+    <text x="90" y="614" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="27" fill="#2f2a22">2026-08-10</text>
+    <line x1="86" y1="670" x2="374" y2="670" stroke="#cfc4ac" stroke-width="1.5" stroke-dasharray="6 6"/>
+    <text x="86" y="708" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Beast</text>
+    <text x="94" y="744" font-family="'Bradley Hand', 'Segoe Script', 'Brush Script MT', cursive" font-size="34" fill="#243a63" transform="rotate(-1.5 94 744)">Bog-hound</text>
+    <text x="86" y="792" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Observer</text>
+    <text x="94" y="828" font-family="'Bradley Hand', 'Segoe Script', 'Brush Script MT', cursive" font-size="34" fill="#243a63" transform="rotate(-1.5 94 828)">Piet Marrow</text>
+    <text x="86" y="876" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Verdict</text>
+    <text x="94" y="912" font-family="'Bradley Hand', 'Segoe Script', 'Brush Script MT', cursive" font-size="34" fill="#243a63" transform="rotate(-1.5 94 912)">confirmed</text>
+    <line x1="86" y1="966" x2="374" y2="966" stroke="#cfc4ac" stroke-width="1.5" stroke-dasharray="6 6"/>
+    <text x="86" y="1004" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Leagues</text>
+    <text x="90" y="1038" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="27" fill="#2f2a22">3,2</text>
+    <text x="86" y="1088" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Bounty</text>
+    <text x="90" y="1122" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="27" fill="#2f2a22">15 g</text>
+    <text x="230.0" y="1160" text-anchor="middle" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="15" fill="#8a7f6d">filed under seal of the hall</text>
+    <rect x="60" y="300" width="340" height="900" rx="4" fill="url(#shade)" opacity="0.5"/>
+  </g>
+  <g transform="rotate(1.5 610.0 740.0)">
+    <rect x="440" y="290" width="340" height="900" rx="4" fill="#f6f1e4" filter="url(#lift)"/>
+    <rect x="440" y="290" width="340" height="900" rx="4" fill="url(#fibre)" opacity="0.5"/>
+    <path d="M440 290 L460 296 L480 290 L500 296 L520 290 L540 296 L560 290 L580 296 L600 290 L620 296 L640 290 L660 296 L680 290 L700 296 L720 290 L740 296 L760 290 L780 296 L780 290 L780 282 L440 282 Z" fill="#efe8d6"/>
+    <text x="610.0" y="352" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="27" letter-spacing="3" fill="#2f2a22">HUNTERS’ GUILD</text>
+    <text x="610.0" y="382" text-anchor="middle" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="17" fill="#6b6154">AMBER HALL · GREENHOLLOW</text>
+    <line x1="466" y1="402" x2="754" y2="402" stroke="#b9ae97" stroke-width="2"/>
+    <text x="610.0" y="438" text-anchor="middle" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="22" letter-spacing="2" fill="#2f2a22">SIGHTING SLIP</text>
+    <text x="466" y="486" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">No.</text>
+    <text x="470" y="520" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="27" fill="#2f2a22">262230893850</text>
+    <text x="466" y="570" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Date</text>
+    <text x="470" y="604" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="27" fill="#2f2a22">2026-08-11</text>
+    <line x1="466" y1="660" x2="754" y2="660" stroke="#cfc4ac" stroke-width="1.5" stroke-dasharray="6 6"/>
+    <text x="466" y="698" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Beast</text>
+    <text x="474" y="734" font-family="'Bradley Hand', 'Segoe Script', 'Brush Script MT', cursive" font-size="34" fill="#243a63" transform="rotate(-1.5 474 734)">Bog-hound</text>
+    <text x="466" y="782" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Observer</text>
+    <text x="474" y="818" font-family="'Bradley Hand', 'Segoe Script', 'Brush Script MT', cursive" font-size="34" fill="#243a63" transform="rotate(-1.5 474 818)">Inés Vault</text>
+    <text x="466" y="866" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Verdict</text>
+    <text x="474" y="902" font-family="'Bradley Hand', 'Segoe Script', 'Brush Script MT', cursive" font-size="34" fill="#243a63" transform="rotate(-1.5 474 902)">confirmed</text>
+    <line x1="466" y1="956" x2="754" y2="956" stroke="#cfc4ac" stroke-width="1.5" stroke-dasharray="6 6"/>
+    <text x="466" y="994" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Leagues</text>
+    <text x="470" y="1028" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="27" fill="#2f2a22">2,8</text>
+    <text x="466" y="1078" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Bounty</text>
+    <text x="470" y="1112" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="27" fill="#2f2a22">12 g</text>
+    <text x="610.0" y="1150" text-anchor="middle" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="15" fill="#8a7f6d">filed under seal of the hall</text>
+    <rect x="440" y="290" width="340" height="900" rx="4" fill="url(#shade)" opacity="0.5"/>
+  </g>
+  <g transform="rotate(-1.0 990.0 756.0)">
+    <rect x="820" y="306" width="340" height="900" rx="4" fill="#f6f1e4" filter="url(#lift)"/>
+    <rect x="820" y="306" width="340" height="900" rx="4" fill="url(#fibre)" opacity="0.5"/>
+    <path d="M820 306 L840 312 L860 306 L880 312 L900 306 L920 312 L940 306 L960 312 L980 306 L1000 312 L1020 306 L1040 312 L1060 306 L1080 312 L1100 306 L1120 312 L1140 306 L1160 312 L1160 306 L1160 298 L820 298 Z" fill="#efe8d6"/>
+    <text x="990.0" y="368" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="27" letter-spacing="3" fill="#2f2a22">HUNTERS’ GUILD</text>
+    <text x="990.0" y="398" text-anchor="middle" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="17" fill="#6b6154">AMBER HALL · GREENHOLLOW</text>
+    <line x1="846" y1="418" x2="1134" y2="418" stroke="#b9ae97" stroke-width="2"/>
+    <text x="990.0" y="454" text-anchor="middle" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="22" letter-spacing="2" fill="#2f2a22">SIGHTING SLIP</text>
+    <text x="846" y="502" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">No.</text>
+    <text x="850" y="536" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="27" fill="#2f2a22">262230129159</text>
+    <text x="846" y="586" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Date</text>
+    <text x="850" y="620" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="27" fill="#2f2a22">2026-08-11</text>
+    <line x1="846" y1="676" x2="1134" y2="676" stroke="#cfc4ac" stroke-width="1.5" stroke-dasharray="6 6"/>
+    <text x="846" y="714" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Beast</text>
+    <text x="854" y="750" font-family="'Bradley Hand', 'Segoe Script', 'Brush Script MT', cursive" font-size="34" fill="#243a63" transform="rotate(-1.5 854 750)">Grimalkin</text>
+    <text x="846" y="798" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Observer</text>
+    <text x="854" y="834" font-family="'Bradley Hand', 'Segoe Script', 'Brush Script MT', cursive" font-size="34" fill="#243a63" transform="rotate(-1.5 854 834)">Hesper Vane</text>
+    <text x="846" y="882" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Verdict</text>
+    <line x1="846" y1="916" x2="1134" y2="916" stroke="#c6bba4" stroke-width="2"/>
+    <line x1="846" y1="972" x2="1134" y2="972" stroke="#cfc4ac" stroke-width="1.5" stroke-dasharray="6 6"/>
+    <text x="846" y="1010" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Leagues</text>
+    <text x="850" y="1044" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="27" fill="#2f2a22">0,8</text>
+    <text x="846" y="1094" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Bounty</text>
+    <text x="850" y="1128" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="27" fill="#2f2a22">8 g</text>
+    <text x="990.0" y="1166" text-anchor="middle" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="15" fill="#8a7f6d">filed under seal of the hall</text>
+    <rect x="820" y="306" width="340" height="900" rx="4" fill="url(#shade)" opacity="0.5"/>
+  </g>
+  <g transform="rotate(3.0 1370.0 734.0)">
+    <rect x="1200" y="284" width="340" height="900" rx="4" fill="#f6f1e4" filter="url(#lift)"/>
+    <rect x="1200" y="284" width="340" height="900" rx="4" fill="url(#fibre)" opacity="0.5"/>
+    <path d="M1200 284 L1220 290 L1240 284 L1260 290 L1280 284 L1300 290 L1320 284 L1340 290 L1360 284 L1380 290 L1400 284 L1420 290 L1440 284 L1460 290 L1480 284 L1500 290 L1520 284 L1540 290 L1540 284 L1540 276 L1200 276 Z" fill="#efe8d6"/>
+    <text x="1370.0" y="346" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="27" letter-spacing="3" fill="#2f2a22">HUNTERS’ GUILD</text>
+    <text x="1370.0" y="376" text-anchor="middle" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="17" fill="#6b6154">AMBER HALL · GREENHOLLOW</text>
+    <line x1="1226" y1="396" x2="1514" y2="396" stroke="#b9ae97" stroke-width="2"/>
+    <text x="1370.0" y="432" text-anchor="middle" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="22" letter-spacing="2" fill="#2f2a22">SIGHTING SLIP</text>
+    <text x="1226" y="480" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">No.</text>
+    <text x="1230" y="514" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="27" fill="#2f2a22">262240618448</text>
+    <text x="1226" y="564" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Date</text>
+    <text x="1230" y="598" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="27" fill="#2f2a22">2026-08-12</text>
+    <line x1="1226" y1="654" x2="1514" y2="654" stroke="#cfc4ac" stroke-width="1.5" stroke-dasharray="6 6"/>
+    <text x="1226" y="692" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Beast</text>
+    <text x="1234" y="728" font-family="'Bradley Hand', 'Segoe Script', 'Brush Script MT', cursive" font-size="34" fill="#243a63" transform="rotate(-1.5 1234 728)">Boghound</text>
+    <text x="1226" y="776" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Observer</text>
+    <text x="1234" y="812" font-family="'Bradley Hand', 'Segoe Script', 'Brush Script MT', cursive" font-size="34" fill="#243a63" transform="rotate(-1.5 1234 812)">Piet Marrow</text>
+    <text x="1226" y="860" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Verdict</text>
+    <text x="1234" y="896" font-family="'Bradley Hand', 'Segoe Script', 'Brush Script MT', cursive" font-size="34" fill="#243a63" transform="rotate(-1.5 1234 896)">confirmed</text>
+    <line x1="1226" y1="950" x2="1514" y2="950" stroke="#cfc4ac" stroke-width="1.5" stroke-dasharray="6 6"/>
+    <text x="1226" y="988" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Leagues</text>
+    <text x="1230" y="1022" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="27" fill="#2f2a22">3,4</text>
+    <text x="1226" y="1072" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Bounty</text>
+    <text x="1230" y="1106" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="27" fill="#2f2a22">16 g</text>
+    <text x="1370.0" y="1144" text-anchor="middle" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="15" fill="#8a7f6d">filed under seal of the hall</text>
+    <rect x="1200" y="284" width="340" height="900" rx="4" fill="url(#shade)" opacity="0.5"/>
+  </g>
+  <g transform="rotate(-2.0 1810.0 1190.0)">
+    <rect x="1640" y="740" width="340" height="900" rx="4" fill="#f6f1e4" filter="url(#lift)"/>
+    <rect x="1640" y="740" width="340" height="900" rx="4" fill="url(#fibre)" opacity="0.5"/>
+    <path d="M1640 740 L1660 746 L1680 740 L1700 746 L1720 740 L1740 746 L1760 740 L1780 746 L1800 740 L1820 746 L1840 740 L1860 746 L1880 740 L1900 746 L1920 740 L1940 746 L1960 740 L1980 746 L1980 740 L1980 732 L1640 732 Z" fill="#efe8d6"/>
+    <text x="1810.0" y="802" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="27" letter-spacing="3" fill="#2f2a22">HUNTERS’ GUILD</text>
+    <text x="1810.0" y="832" text-anchor="middle" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="17" fill="#6b6154">AMBER HALL · GREENHOLLOW</text>
+    <line x1="1666" y1="852" x2="1954" y2="852" stroke="#b9ae97" stroke-width="2"/>
+    <text x="1810.0" y="888" text-anchor="middle" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="22" letter-spacing="2" fill="#2f2a22">SIGHTING SLIP</text>
+    <text x="1666" y="936" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">No.</text>
+    <text x="1670" y="970" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="27" fill="#2f2a22">262260812341</text>
+    <text x="1666" y="1020" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Date</text>
+    <text x="1670" y="1054" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="27" fill="#2f2a22">2026-08-14</text>
+    <line x1="1666" y1="1110" x2="1954" y2="1110" stroke="#cfc4ac" stroke-width="1.5" stroke-dasharray="6 6"/>
+    <text x="1666" y="1148" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Beast</text>
+    <text x="1674" y="1184" font-family="'Bradley Hand', 'Segoe Script', 'Brush Script MT', cursive" font-size="34" fill="#243a63" transform="rotate(-1.5 1674 1184)">Basilisk</text>
+    <text x="1666" y="1232" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Observer</text>
+    <text x="1674" y="1268" font-family="'Bradley Hand', 'Segoe Script', 'Brush Script MT', cursive" font-size="34" fill="#243a63" transform="rotate(-1.5 1674 1268)">Tomas Quill</text>
+    <text x="1666" y="1316" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Verdict</text>
+    <line x1="1666" y1="1350" x2="1954" y2="1350" stroke="#c6bba4" stroke-width="2"/>
+    <line x1="1666" y1="1406" x2="1954" y2="1406" stroke="#cfc4ac" stroke-width="1.5" stroke-dasharray="6 6"/>
+    <text x="1666" y="1444" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Leagues</text>
+    <text x="1670" y="1478" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="27" fill="#2f2a22">6,0</text>
+    <text x="1666" y="1528" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="18" fill="#8a7f6d">Bounty</text>
+    <text x="1670" y="1562" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="27" fill="#2f2a22">21 g</text>
+    <text x="1810.0" y="1600" text-anchor="middle" font-family="'Courier New', 'Nimbus Mono PS', monospace" font-size="15" fill="#8a7f6d">filed under seal of the hall</text>
+    <rect x="1640" y="740" width="340" height="900" rx="4" fill="url(#shade)" opacity="0.5"/>
+  </g>
+  <g filter="url(#soft)">
+    <ellipse cx="606" cy="1078" rx="158" ry="54" fill="#1d262b" opacity="0.5"/>
+    <path d="M752 770 q68 12 68 76 t-72 78 l-8 -48 q36 -6 36 -30 t-32 -32 Z" fill="#3f5158"/>
+    <path d="M452 730 h308 v306 q0 58 -154 58 t-154 -58 Z" fill="url(#mugside)"/>
+    <ellipse cx="606" cy="730" rx="154" ry="44" fill="#7d949c"/>
+    <ellipse cx="606" cy="730" rx="126" ry="34" fill="#20140c"/>
+    <ellipse cx="606" cy="734" rx="112" ry="28" fill="#3a2413"/>
+  </g>
+  <g filter="url(#soft)">
+    <ellipse cx="1330" cy="722" rx="180" ry="64" fill="#161a12" opacity="0.45"/>
+    <ellipse cx="1330" cy="706" rx="176" ry="62" fill="#5c4620"/>
+    <ellipse cx="1330" cy="694" rx="176" ry="62" fill="url(#brass)"/>
+    <ellipse cx="1330" cy="690" rx="126" ry="42" fill="#a98a45"/>
+    <ellipse cx="1330" cy="686" rx="70" ry="24" fill="#7a6330"/>
+  </g>
+  <rect width="2000" height="1500" fill="url(#lamplight)"/>
+  <rect width="2000" height="1500" filter="url(#grain)" opacity="0.55"/>
+</svg>

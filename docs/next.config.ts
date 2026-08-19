@@ -13,7 +13,7 @@ const config: NextConfig = {
   /**
    * The one thing the browser build needs that the browser never runs.
    *
-   * `showcases/receipts/live.ts` calls the model from the client with the visitor's own key, so
+   * `showcases/field-notes/live.ts` calls the model from the client with the visitor's own key, so
    * `@anthropic-ai/sdk` is in the browser bundle. Its credential chain reaches for the machine's
    * own credentials — `await import("node:fs")` and friends — inside branches that only execute on
    * a server. Webpack resolves a dynamic import statically all the same, and a `node:` scheme in a

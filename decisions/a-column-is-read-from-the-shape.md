@@ -1,10 +1,10 @@
 # A ledger's columns are read from the shape, not written beside it
 
 - **Status** live — 2026-08-18
-- **Decided** The receipts showcase declares its columns once, as a SHACL node shape, and rudof parses and validates that document in wasm. The table's headers and order, the vision model's tool schema, the per-cell findings and the CSV's header row are four readings of it.
+- **Decided** The field-notes showcase declares its columns once, as a SHACL node shape, and rudof parses and validates that document in wasm. The table's headers and order, the vision model's tool schema, the per-cell findings and the CSV's header row are four readings of it.
 - **Because** A column written twice is a column that will disagree with itself, and here the disagreement leaves the building as a spreadsheet.
 - **Reversed by** A consumer that needs something the shape cannot say, or a wasm payload the docs build will not carry.
-- **Held by** `docs/showcases/receipts/shape.ts`, `TICKET_SHAPE`; `docs/showcases/receipts/rudof.ts`, `openLedger`; `docs/showcases/receipts/csv.test.ts`, "writes the header from sh:name, in sh:order"
+- **Held by** `docs/showcases/field-notes/shape.ts`, `SLIP_SHAPE`; `docs/showcases/field-notes/rudof.ts`, `openLedger`; `docs/showcases/field-notes/csv.test.ts`, "writes the header from sh:name, in sh:order"
 
 `@kanzo-tech/rudof-wasm` is the whole engine — `loadShapes` hands back the shape's own IR, so the
 column list *is* the shape rather than a transcription of it, and `validate` is the real SHACL

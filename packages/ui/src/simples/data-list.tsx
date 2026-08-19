@@ -3,7 +3,7 @@
 //
 // Shark's `data-list.tsx`, adopted verbatim in structure and class list. It was UNADOPTED with the
 // reason "no renderer in the library or the docs" until two appeared at once — the graph
-// inspector's node properties and the receipts showcase's ticket record, both of which had
+// inspector's node properties and the field-notes showcase's slip record, both of which had
 // hand-written the same `dl` / `div` / `dt` / `dd` tree with the same three utility classes.
 //
 // The one thing to understand before using it: `orientation` is a `data-` attribute on the ROOT and

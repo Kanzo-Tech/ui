@@ -1,22 +1,21 @@
 ---
-title: Receipts
-description: Photos of fuel tickets in, a spreadsheet out — with the columns declared once as a SHACL shape and read four ways, and a review step that puts the paper next to the number.
+title: Field notes
+description: Photographs of handwritten sighting slips in, a spreadsheet out — with the columns declared once as a SHACL shape and read four ways, and a review step that puts the paper next to the number.
 full: true
 ---
 
-<PreviewIframe name="receipts" title="Receipts showcase" className="h-[820px]" />
+<PreviewIframe name="field-notes" title="Field notes showcase" className="h-[820px]" />
 
-A photograph of five fuel tickets on a table becomes five rows of a ledger, and the ledger becomes
-the CSV the accountant already uses. `ShellHeader` is the same dense utility strip
-`metadata-form` uses — the source switch (**Recorded** · **Live model**), **Extract** and the
-**CSV** download; `ShellMain` holds the editable table; a trailing `ShellAside` shows the ticket
-the selected row was read from, above the findings against it, with **The shape** on the second
-tab.
+A photograph of five of the Amber Hall's sighting slips becomes five rows of a ledger, and the
+ledger becomes the CSV the archivist already keeps. `ShellHeader` is the same dense utility strip
+`metadata-form` uses — the source switch (**Demo run** · **Live model**), **Extract** and the
+**CSV** download; `ShellMain` holds the editable table; a trailing `ShellAside` shows the slip the
+selected row was read from, above the findings against it, with **The shape** on the second tab.
 
 It exists to answer a question the other showcases do not reach: what does a screen look like when
-the machine is *usually* right? Press **Extraer** and the rows fill in live. Six of the
-thirty-five cells arrive empty, because six of them are not in the photograph — and that is the
-screen, not a defect in the demo.
+the machine is *usually* right? Press **Extract** and the rows fill in live. Six of the thirty-five
+cells arrive empty, because six of them are not in the photograph — and that is the screen, not a
+defect in the demo.
 
 ## One declaration, four readings
 
@@ -24,13 +23,13 @@ The seven columns are written once, as a SHACL node shape, and nothing below res
 
 ```turtle
 sh:property [
-  sh:path tk:importe ;
-  sh:name "IMPORTE"@es ;
-  sh:description "El TOTAL en euros, el de «Total Venta». No el precio por litro de la columna €/L, ni el número de litros."@es ;
+  sh:path gs:bounty ;
+  sh:name "Bounty" ;
+  sh:description "The gold actually PAID, printed at the foot beside «Bounty». Not the standing rate the hall's board prints for that beast." ;
   sh:order 6 ;
   sh:datatype xsd:decimal ;
   sh:minCount 1 ;
-  sh:message "El importe total del ticket, en euros."@es ;
+  sh:message "The gold paid on this slip." ;
 ] ;
 ```
 
@@ -39,10 +38,6 @@ are SHACL's **non-validating property shape characteristics** — in the Recomme
 a tool can present a shape rather than only validate against it. The one term this shape declines
 is SHACL-UI's `shui:editor`: the control it would name is already implied by `sh:datatype` and
 `sh:in`.
-
-The strings are Spanish, tagged `@es`, while the chrome around them is English. That is the split,
-not an oversight: `sh:name` becomes a column header in a Spanish accountant's spreadsheet and
-`sh:message` is read by whoever checks a cell against Spanish paperwork.
 
 [rudof](https://github.com/rudof-project/rudof) — a Rust SHACL/ShEx stack compiled to
 WebAssembly — parses that document and hands back its own IR, so the column list *is* the shape.
@@ -54,55 +49,56 @@ The same document then decides:
    projected columns, and `key` is an **enum of those columns**, so every cell comes back as an
    explicit `{key, value}` pair. Nothing is positional: the model never returns "the third value",
    and a key outside the enum is rejected by structured outputs. What tells it *which* is which is
-   `sh:description` — the receipt prints a price per litre and a total side by side, and only that
-   sentence says which one `importe` means;
+   `sh:description` — the hall prints a standing rate and a bounty paid side by side, and only
+   that sentence says which one `bounty` means;
 3. **the findings** — `validate()` is the real SHACL validator running in wasm, not a lookalike;
 4. **the file** — `toCsv` reads `sh:name` for the header and `sh:datatype` to know a date from a
    decimal.
 
 Add a column to the shape and it appears in all four without a line changing anywhere else.
 
-The converse is the part worth saying out loud: **the shape is a projection.** The receipt also
-carries litres, €/L, the merchant, the concession, the operation number, the hour, the station and
-the card holder — the shape names seven properties, so everything else is dropped and does not
-exist downstream. That is what the accountant wants, and it is also why adding a column later
-means re-reading the photographs.
+The converse is the part worth saying out loud: **the shape is a projection.** The slip also
+carries the hall, the region, the seal, the warrant number and the hour the hunter came in — the
+shape names seven properties, so everything else is dropped and does not exist downstream. That is
+what the archivist wants, and it is also why adding a column later means re-reading the
+photographs.
 
 Why that is a decision rather than a convenience is in
 [`a-column-is-read-from-the-shape`](https://github.com/Kanzo-Tech/kanzo-ui/blob/main/decisions/a-column-is-read-from-the-shape.md).
 
 ## Why a model and not an OCR
 
-Three of the seven columns are **not printed on the ticket at all**. `Matrícula`, `Conductor` and
-`Base o escoba` are written on the paper in biro — a receipt OCR reads the printed layer and returns
-nothing for them. Every low confidence in the recorded run is on one of those three, or on the one
-ticket the photograph cuts in half.
+Three of the seven columns are **not printed on the slip at all**. `Beast`, `Observer` and
+`Verdict` are written in ink in the field — a form OCR reads the printed layer and returns nothing
+for them. Every low confidence in the demo run is on one of those three, or on the one slip the
+photograph cuts in half.
 
-That is also why the row thumbnail shows the *head* of each ticket rather than the whole of it:
-the annotation is the part a reviewer needs to see.
+That is also why the row thumbnail shows the *head* of each slip rather than the whole of it: the
+printed number is what tells two slips apart at thumbnail size.
 
 ## The review step is the screen
 
 Extraction gets most cells right and some cells wrong, and two independent mechanisms say so:
 
 - **the model's own note** — why a cell is empty or unsure, written for whoever has to check it
-  against the paper (`Tapado por el portátil.`, `El ticket está cortado por el borde de la foto.`);
+  against the paper (`Under the mug.`, `The slip runs off the bottom of the frame.`);
 - **the shape** — `sh:minCount` turns a cell nobody could read into a violation, `sh:pattern`
-  catches a mistyped ticket number, `sh:in` catches a base outside the vocabulary.
+  catches a mistyped slip number, `sh:in` catches a beast the bestiary does not know and a verdict
+  outside the three.
 
-They agree without knowing about each other, and the aside shows both beside the crop of the
-ticket. An unsure value carries a dotted amber underline; an invalid one gets `Input`'s own
-`aria-invalid` ring.
+They agree without knowing about each other, and the aside shows both beside the crop of the slip.
+An unsure value carries a dotted amber underline; an invalid one gets `Input`'s own `aria-invalid`
+ring.
 
 ## What it composes
 
 Existing parts, arranged — nothing here is new:
 
 - **`ShellRoot` / `ShellHeader` / `ShellBody` / `ShellMain` / `ShellAside`** — the frame. Exactly
-  one `<main>`; the ticket panel is an `<aside>` landmark.
+  one `<main>`; the slip panel is an `<aside>` landmark.
 - **`useAiStream`** — the streaming engine, and its second consumer. It is domain-free by
   construction: a run of vision events uses it unchanged, alongside `Complete` and `Suggest`.
-- **`FileUpload` + `FileUploadDropzone`** — the empty state. One photo may hold several tickets.
+- **`FileUpload` + `FileUploadDropzone`** — the empty state. One photograph may hold several slips.
 - **`@kanzo-tech/ui/table`** — the editable ledger, and the one call site here whose `ColumnDef[]`
   is built at **runtime**: the columns come out of a shape the reader is editing in the next pane,
   so the table redefines itself as they type. What survives that is the split between the two — the
@@ -111,16 +107,19 @@ Existing parts, arranged — nothing here is new:
   `meta`. Rebuilding the definitions instead would hand every column a new identity on every
   keystroke, and column visibility is keyed off exactly that. The control a cell gets is decided by
   its `sh:datatype` and `sh:in`, not by a switch written here.
-- **`DataList`** — the ticket panel's record, every column with what was read into it. Shark's, and
+- **`DataList`** — the slip panel's record, every column with what was read into it. Shark's, and
   this was one of the two renderers that got it adopted.
+- **`ImageCropper`** — the box a reader draws when the model put one in the wrong place, and the
+  only paper a row typed by hand ever gets. Shark's, and this is the renderer that adopted it.
 - **`DownloadTrigger`** — the CSV, `;`-separated with a BOM and the decimal comma left as typed,
-  because that is the file Spanish Excel opens by double-click.
+  because that is the file a European spreadsheet locale opens by double-click.
 - **`ToggleGroup`** vertical — the activity bar. Two panes, independent, so it is `multiple`.
 - **`SegmentGroup`**, **`ScrollArea`**, **`Badge`**, **`Status`**, **`Show`** — the chrome.
 
 ## Running it against a real model
 
-The showcase ships a **recorded** run so the docs build is deterministic and needs no key. The same
+The showcase ships a **demo** run — a real extraction, transcribed and replayed — so the docs build
+is deterministic and needs no key. The same
 `(shots, signal) => AsyncIterable<ExtractEvent>` seam takes a live adapter: paste your own Anthropic
 key into **Preferences** and **Live model** stops being greyed out. The option is greyed out until
 there is a key, rather than letting the button fail on click.

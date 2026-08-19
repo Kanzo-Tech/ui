@@ -32,7 +32,7 @@ import {
   PreferencesTrigger,
 } from "@kanzo-tech/ui";
 
-export function ReceiptsPreferences({
+export function FieldNotesPreferences({
   apiKey,
   onApiKey,
 }: {
@@ -73,4 +73,4 @@ export function ReceiptsPreferences({
   );
 }
 
-export default ReceiptsPreferences;
+export default FieldNotesPreferences;
