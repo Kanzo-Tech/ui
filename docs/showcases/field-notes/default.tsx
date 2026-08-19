@@ -57,6 +57,7 @@ import {
   ShellRoot,
   Show,
   Spinner,
+  Status,
   useAiStream,
 } from "@kanzo-tech/ui";
 // TanStack-backed: the `/table` subpath, never the root barrel.
@@ -640,20 +641,6 @@ export function FieldNotesShowcase() {
    *  that has no box yet. */
   const sheet = selectedCrop?.shot ?? shots[0];
 
-  /**
-   * The shape of the cut, and it decides how the panel is arranged.
-   *
-   * A sighting slip is a fifth as wide as it is tall, so it stands beside the record and a value
-   * sits at the height of the line it came from. Nothing about this screen requires that: a crop
-   * off a squarer photograph — a page, a label, a plate — is as wide as the panel, and beside the
-   * record it would leave the record nothing. So the arrangement follows the picture: portrait
-   * cuts stand beside, everything else sits above. The threshold is 0.9 rather than 1 because a
-   * cut a hair narrower than square still wastes the column it would stand in.
-   */
-  const shotAspect = useAspect(sheet?.src ?? "");
-  const cutAspect =
-    shotAspect && selectedCrop ? (selectedCrop.crop.w * shotAspect) / selectedCrop.crop.h : null;
-  const portrait = cutAspect === null || cutAspect < 0.9;
 
   // The first row to arrive is the one the slip pane shows, so the pane is never empty while
   // the table is filling. Later rows do not steal it — that would move the paper under the reader.
@@ -829,9 +816,18 @@ export function FieldNotesShowcase() {
                   disabled={!ledger || shots.length === 0}
                   onClick={run}
                   size="sm"
+                  // The verb changes once there is a ledger to lose, because the same press does a
+                  // different thing: a second run REPLACES what is on screen, corrections and
+                  // hand-drawn boxes included. Saying so on the button is cheaper than an undo
+                  // nobody would find.
+                  title={
+                    rows.length
+                      ? "Read the photographs again. This replaces every row on screen, including anything corrected by hand."
+                      : "Read the photographs"
+                  }
                 >
                   <ScanTextIcon />
-                  Extract
+                  {rows.length ? "Extract again" : "Extract"}
                 </Button>
               }
               when={streaming}
@@ -1127,7 +1123,7 @@ export function FieldNotesShowcase() {
                     }
                   />
                   <ScrollArea className="min-h-0 flex-1">
-                    <div className={cn("flex gap-3 p-3", portrait ? "items-start" : "flex-col")}>
+                    <div className="space-y-3 p-3">
                       <Show
                         fallback={
                           <p className="text-muted-foreground text-sm">
@@ -1137,35 +1133,36 @@ export function FieldNotesShowcase() {
                         when={Boolean(selectedRow)}
                       >
                         {selected && selectedCrop ? (
-                          /* The slip stands BESIDE the record, not above it, and that is the pane's
-                             own shape being used rather than fought. A slip is a fifth as wide as
-                             it is tall and the pane is twice as tall as it is wide: stacked, the
-                             paper took a band across the top and left its own column empty, and the
-                             values it is there to be checked against were a scroll away. Side by
-                             side, a value sits at the height of the line it came from.
+                          /* THE WHOLE PHOTOGRAPH, with the box drawn on it — and the cut on hover.
+                             That order is the answer to the question the panel is asked. "Which
+                             slip is this row" is a thing you point at on the sheet; the cut alone
+                             says what it says but never where, and the reader had to press to find
+                             out. Hovering swaps in the crop, at the same height, so the two are one
+                             gesture apart and neither needs a caption.
 
-                             One gesture on it, and the affordance is ON the paper rather than in a
-                             button under it: what fits in a 414 px column is a reference, and the
-                             sheet is a press away. */
-                          <figure
-                            className={cn("group relative", portrait ? "shrink-0" : "w-full")}
-                          >
+                             Pressing opens the viewer, where the ink is legible and the box can be
+                             redrawn — what fits in a docked pane is a reference either way. */
+                          <figure className="group relative">
                             <button
-                              className="block cursor-zoom-in overflow-hidden rounded-lg shadow-sm outline-none ring-1 ring-border focus-visible:ring-[3px] focus-visible:ring-ring"
+                              className="relative block w-full cursor-zoom-in overflow-hidden rounded-lg shadow-sm outline-none ring-1 ring-border focus-visible:ring-[3px] focus-visible:ring-ring"
                               onClick={() => setViewing(true)}
                               type="button"
                             >
-                              <Slip
-                                className={cn(
-                                  "rounded-none border-0",
-                                  portrait ? "h-[26rem] w-auto" : "h-auto w-full",
-                                )}
+                              <Sheet
+                                className="w-full rounded-none border-0 transition-opacity group-hover:opacity-0 motion-reduce:transition-none!"
                                 crop={selectedCrop.crop}
                                 shot={selectedCrop.shot}
                               />
+                              <span className="absolute inset-0 flex items-center justify-center bg-muted opacity-0 transition-opacity group-hover:opacity-100 motion-reduce:transition-none!">
+                                <Slip
+                                  className="h-full w-auto max-w-full rounded-none border-0"
+                                  crop={selectedCrop.crop}
+                                  shot={selectedCrop.shot}
+                                />
+                              </span>
                               <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-linear-to-t from-black/64 to-transparent p-2 pt-6 text-white text-xs opacity-0 transition-opacity group-hover:opacity-100 motion-reduce:transition-none!">
                                 <MaximizeIcon className="size-3" />
-                                The whole sheet
+                                Open the sheet
                               </span>
                             </button>
                           </figure>
@@ -1179,7 +1176,7 @@ export function FieldNotesShowcase() {
                             the messages live INSIDE the value, because a `dl > div` may hold
                             nothing but `dt` and `dd`. */}
                         {selectedRow ? (
-                          <DataList className="min-w-0 flex-1" orientation="vertical">
+                          <DataList className="min-w-0 flex-1">
                             {columns.map((column) => {
                               const cellIssues = issuesAt(selectedRow.id, column.key);
                               const cellMeta = meta[selectedRow.id]?.[column.key];
@@ -1188,25 +1185,15 @@ export function FieldNotesShowcase() {
                                 Boolean(value) && (cellMeta?.confidence ?? 1) < UNSURE;
                               return (
                                 <DataListItem
-                                  className={cn(
-                                    "-mx-2 gap-0.5 rounded-md px-2 py-1.5",
-                                    // The state of a row is a bar on its inline start, not a
-                                    // colour on its text: the value is what the reader is
-                                    // comparing against the paper, and a value that changes
-                                    // colour is a value that reads as a different value.
-                                    cellIssues.length > 0 && "border-destructive border-s-2",
-                                    cellIssues.length === 0 &&
-                                      (unsure || cellMeta?.note) &&
-                                      "border-s-2 border-warning",
-                                  )}
+                                  className="items-start gap-3 border-border/64 border-b py-1.5 last:border-0"
                                   key={column.key}
                                 >
-                                  <DataListItemLabel className="text-[0.6875rem] text-muted-foreground uppercase tracking-wide">
+                                  <DataListItemLabel className="w-20 shrink-0 pt-0.5 text-xs">
                                     {column.label}
                                   </DataListItemLabel>
                                   <DataListItemValue
                                     className={cn(
-                                      "min-w-0 break-words text-sm",
+                                      "min-w-0 flex-1 break-words",
                                       column.type !== "string" && "tabular-nums",
                                       !value && "text-muted-foreground",
                                       unsure &&
@@ -1216,18 +1203,22 @@ export function FieldNotesShowcase() {
                                     {value || "—"}
                                     {/* A finding and a note are two different claims about the
                                         same cell — the shape refusing it, and the model saying why
-                                        it could not read it. They live INSIDE the value, because a
-                                        `dl > div` may hold nothing but `dt` and `dd`. */}
+                                        it could not read it — so they are drawn as two different
+                                        marks rather than as two colours of the same one. Both live
+                                        INSIDE the value, because a `dl > div` may hold nothing but
+                                        `dt` and `dd`. */}
                                     {cellIssues.map((issue, i) => (
                                       <span
-                                        className="mt-1 block text-destructive text-xs"
+                                        className="mt-1 flex items-start gap-1.5 text-destructive text-xs"
                                         key={i}
                                       >
+                                        <Status className="mt-1 size-1.5" variant="destructive" />
                                         {issue.message}
                                       </span>
                                     ))}
                                     <Show when={Boolean(cellMeta?.note)}>
-                                      <span className="mt-1 block text-muted-foreground text-xs">
+                                      <span className="mt-1 flex items-start gap-1.5 text-muted-foreground text-xs">
+                                        <Status className="mt-1 size-1.5" variant="warning" />
                                         {cellMeta?.note}
                                       </span>
                                     </Show>
