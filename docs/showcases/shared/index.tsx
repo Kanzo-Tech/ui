@@ -190,9 +190,12 @@ export function FindingsBadge({
           onClick={onToggle}
           type="button"
         >
-          <Badge pill size="xs" variant={active ? tone : "outline"}>
+          <Badge className="tabular-nums" pill size="xs" variant={active ? tone : "outline"}>
             <Status className={cn("size-1.5", !active && "opacity-64")} variant={tone} />
-            {findings.length} {label}
+            {/* The number is right-aligned in a fixed cell, so 9 → 10 does not move the label (2ch, because a run of this size counts in tens) and
+                the label does not move whatever is beside it. A tally watched while it fills is a
+                tally that must not shuffle its neighbours on every event. */}
+            <span className="inline-block min-w-[2ch] text-end">{findings.length}</span> {label}
           </Badge>
         </button>
       </HoverCardTrigger>

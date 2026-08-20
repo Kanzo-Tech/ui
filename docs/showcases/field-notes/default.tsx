@@ -816,29 +816,34 @@ export function FieldNotesShowcase() {
           {/* Where the screen's verbs live, and its verdict beside them. The validation badges were
               in the footer, three regions away from the thing they judge; here they sit next to the
               button that would hand somebody the file they are a verdict on. */}
-          <div className="flex shrink-0 items-center gap-2">
+          {/* `ms-auto` lives HERE and not on whatever happens to be to the left of it. It used to
+              sit on the demo badge, so the day that badge became a watermark in the footer the
+              whole row of verbs slid over against the title. A row's end is a property of the row,
+              not of its last optional child. */}
+          <div className="ms-auto flex shrink-0 items-center gap-2">
+            {/* Both tallies stand from the first row to the last, at zero as much as at eleven.
+                They used to appear and disappear as the stream crossed zero and the digits grew,
+                so the verbs beside them shuffled sideways on almost every event — the one moment
+                the screen is being watched is the one moment it was moving. `FindingsBadge`
+                disables itself at zero and pins the number's width. */}
             <Show when={rows.length > 0}>
-              <Show when={blanks > 0}>
-                <FindingsBadge
-                  active={marking === "unread"}
-                  findings={unread}
-                  label="unread"
-                  onToggle={() => setMarking((m) => (m === "unread" ? null : "unread"))}
-                  summary="Cells the model would not guess at, and why."
-                  tone="warning"
-                />
-              </Show>
-              <Show when={violations.length > 0}>
-                <FindingsBadge
-                  active={marking === "violations"}
-                  findings={violations}
-                  label="violations"
-                  onToggle={() => setMarking((m) => (m === "violations" ? null : "violations"))}
-                  summary="What the shape refuses, straight out of the SHACL validator."
-                  tone="destructive"
-                />
-              </Show>
-              <Show when={issues.length === 0 && blanks === 0}>
+              <FindingsBadge
+                active={marking === "unread"}
+                findings={unread}
+                label="unread"
+                onToggle={() => setMarking((m) => (m === "unread" ? null : "unread"))}
+                summary="Cells the model would not guess at, and why."
+                tone="warning"
+              />
+              <FindingsBadge
+                active={marking === "violations"}
+                findings={violations}
+                label="violations"
+                onToggle={() => setMarking((m) => (m === "violations" ? null : "violations"))}
+                summary="What the shape refuses, straight out of the SHACL validator."
+                tone="destructive"
+              />
+              <Show when={issues.length === 0 && blanks === 0 && !streaming}>
                 <Badge pill size="xs" variant="success">
                   Valid
                 </Badge>
