@@ -1,15 +1,21 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "../lib/cn.js";
-import { Annotation, Compartment, EditorState, type Extension } from "@codemirror/state";
+import { type ReactPanelHost, kanzoSearch } from "./code-editor-search.js";
+import { Annotation, Compartment, EditorState, type Extension, RangeSet } from "@codemirror/state";
 import {
+  Decoration,
+  type DecorationSet,
   EditorView,
+  GutterMarker,
+  ViewPlugin,
+  type ViewUpdate,
   crosshairCursor,
   drawSelection,
   dropCursor,
-  highlightActiveLine,
-  highlightActiveLineGutter,
+  gutterLineClass,
   highlightSpecialChars,
   keymap,
   lineNumbers as cmLineNumbers,
@@ -101,6 +107,59 @@ export const kanzoHighlightStyle = HighlightStyle.define([
 
 /** The Kanzo highlight style as a ready-to-drop extension. */
 export const kanzoHighlighting: Extension = syntaxHighlighting(kanzoHighlightStyle, { fallback: true });
+
+/**
+ * The caret's line — **and only while nothing is selected.**
+ *
+ * `highlightActiveLine` decorates the line under every range's `head` whether the range is empty or
+ * not (`@codemirror/view@6.43.4`), so one line of a selection also wore the active-line band. Ours
+ * is `--muted`, which is *lighter* than the selection tint and runs the full width, so that line
+ * read as hovered rather than selected: two affordances arguing over one row. VS Code drops its
+ * line highlight while a selection exists, and this is that.
+ *
+ * Reimplemented rather than suppressed with a CSS rule. Overriding upstream would leave two
+ * extensions drawing the same decoration and the reason for it nowhere near the theme.
+ */
+const caretLine = Decoration.line({ class: "cm-activeLine" });
+
+const caretLineGutter = new (class extends GutterMarker {
+  override elementClass = "cm-activeLineGutter";
+})();
+
+/** The line start of each caret, empty while any range holds a selection. Ranges arrive sorted. */
+const caretLines = (state: EditorState): number[] => {
+  if (state.selection.ranges.some((r) => !r.empty)) return [];
+  const starts: number[] = [];
+  let last = -1;
+  for (const r of state.selection.ranges) {
+    const { from } = state.doc.lineAt(r.head);
+    if (from > last) {
+      starts.push(from);
+      last = from;
+    }
+  }
+  return starts;
+};
+
+const highlightCaretLine = ViewPlugin.fromClass(
+  class {
+    decorations: DecorationSet;
+    constructor(view: EditorView) {
+      this.decorations = build(view.state);
+    }
+    update(u: ViewUpdate) {
+      if (u.docChanged || u.selectionSet) this.decorations = build(u.state);
+    }
+  },
+  { decorations: (v) => v.decorations },
+);
+
+const build = (state: EditorState): DecorationSet =>
+  Decoration.set(caretLines(state).map((from) => caretLine.range(from)));
+
+const highlightCaretLineGutter = gutterLineClass.compute(["selection", "doc"], (state) =>
+  RangeSet.of(caretLines(state).map((from) => caretLineGutter.range(from))),
+);
 
 const baseTheme = EditorView.theme({
   // `flex: 1`, not `height: 100%`: the chrome surface sizes with `min-height`/`max-height`, and
@@ -229,6 +288,10 @@ const baseTheme = EditorView.theme({
     boxShadow: "0 4px 12px rgb(0 0 0 / 0.08)",
     overflow: "hidden",
   },
+  // The divider between an autocomplete tooltip's sections. CodeMirror's `&light` default is
+  // `1px solid #bbb`, and that applies in our dark mode too — a pale hairline inside a dark
+  // popover. Found by `codemirror-dark-parity.test.ts`, not by looking.
+  ".cm-tooltip-section:not(:first-child)": { borderTop: "1px solid var(--border)" },
   ".cm-tooltip .cm-tooltip-arrow:before": { borderTopColor: "var(--border)" },
   ".cm-tooltip .cm-tooltip-arrow:after": { borderTopColor: "var(--popover)" },
   ".cm-tooltip-autocomplete > ul": {
@@ -263,11 +326,27 @@ const baseTheme = EditorView.theme({
   },
   ".cm-panels.cm-panels-top": { borderBottom: "1px solid var(--border)" },
   ".cm-panels.cm-panels-bottom": { borderTop: "1px solid var(--border)" },
-  ".cm-panel.cm-search": { padding: "0.375rem 0.5rem", fontSize: "var(--kanzo-font-size-small, 12px)" },
-  ".cm-panel.cm-search input, .cm-panel.cm-search button, .cm-panel.cm-search label": {
-    fontSize: "inherit",
-  },
-  ".cm-panel.cm-search input[type=text]": {
+
+  // **`.cm-textfield` and `.cm-button` are no longer OUR controls, and that is the whole point of
+  // `code-editor-search.tsx`.** The find/replace panel is `InputGroup`, `Toggle`, `Button` and
+  // `ButtonGroup` now, rendered through a portal, so it wears the library's typography, focus ring
+  // and hover states rather than a run of rules restating them in CSS. Six selectors went with it:
+  // `.cm-panel.cm-search`, its `input, button, label { font-size: inherit }`, the two
+  // `.cm-textfield` rules and the two for `button[name=close]`.
+  //
+  // These two stay, unscoped, for the controls that are still CodeMirror's: `gotoLine`'s dialog
+  // (Mod-Alt-G), and any panel a caller's own extensions bring — `@codemirror/lint`'s is the
+  // obvious one, and it is a caller's dependency rather than ours.
+  //
+  // **They also have to stay because they are the only thing standing between a dark page and a
+  // white box.** `&light .cm-textfield { background: white; border: 1px solid silver }` and
+  // `&light .cm-button { background: linear-gradient(#eff1f5, #d9d9df) }` apply in BOTH our modes —
+  // this theme is registered without `{dark}`, so the `darkTheme` facet is false forever — and
+  // `codemirror-dark-parity.test.ts` fails the day either selector leaves this file. The previous
+  // spelling was `.cm-panel.cm-search .cm-textfield`, which covered the search field and left
+  // `gotoLine`'s identical field wearing the white default; before that it was `input[type=text]`,
+  // which matched nothing at all, because CodeMirror sets no `type` on it.
+  ".cm-textfield": {
     background: "var(--background)",
     color: "var(--foreground)",
     border: "1px solid var(--input)",
@@ -275,11 +354,11 @@ const baseTheme = EditorView.theme({
     padding: "0.125rem 0.375rem",
     outline: "none",
   },
-  ".cm-panel.cm-search input[type=text]:focus": {
+  ".cm-textfield:focus": {
     borderColor: "var(--ring)",
     boxShadow: "0 0 0 3px color-mix(in srgb, var(--ring) 32%, transparent)",
   },
-  ".cm-panel.cm-search button:not([name=close])": {
+  ".cm-button": {
     background: "var(--secondary)",
     color: "var(--secondary-foreground)",
     border: "1px solid transparent",
@@ -288,14 +367,12 @@ const baseTheme = EditorView.theme({
     padding: "0.125rem 0.5rem",
     cursor: "pointer",
   },
-  ".cm-panel.cm-search button:not([name=close]):hover": { background: "var(--accent)" },
-  ".cm-panel.cm-search button[name=close]": {
-    color: "var(--muted-foreground)",
-    cursor: "pointer",
-    fontSize: "1rem",
-    padding: "0 0.25rem",
-  },
-  ".cm-panel.cm-search button[name=close]:hover": { color: "var(--foreground)" },
+  ".cm-button:hover": { background: "var(--accent)" },
+  ".cm-button:active": { backgroundImage: "none" },
+  ".cm-dialog": { padding: "0.375rem 0.5rem", fontSize: "var(--kanzo-font-size-small, 12px)" },
+  ".cm-dialog label": { display: "inline-flex", alignItems: "center", gap: "0.375rem" },
+  ".cm-dialog-close": { color: "var(--muted-foreground)", cursor: "pointer" },
+  ".cm-dialog-close:hover": { color: "var(--foreground)" },
 
   // Search hits: the current one is the primary-tinted anchor, the rest are quieter so
   // "where am I" stays readable at a glance.
@@ -348,8 +425,22 @@ const baseTheme = EditorView.theme({
   "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": {
     backgroundColor: "var(--brand-a5)",
   },
+  // **A selection must not repaint the text, and ours repainted all of it.** `tokens.css` sets a
+  // document-wide `::selection { bg-primary/80 text-primary-foreground }`, which is right
+  // everywhere prose is selected and wrong inside an editor: `drawSelection` suppresses the native
+  // selection's *background* and not its `color`, so the fill came from `.cm-selectionBackground`
+  // — `--brand-a5`, black at 12% — while every glyph inside it took `--primary-foreground`.
+  //
+  // Measured on `/docs/forms/code-editor`: #fafafa text on a #dcdcdc block. Keys, strings and
+  // numbers all flattened to one near-white, so selecting seven lines of JSON erased the
+  // highlighting from them. It happens under every palette, because a `-foreground` role is a
+  // contrast colour for a fill that is not being painted here.
+  //
+  // `currentColor` is the fix, and it has to be `currentColor` and not a token: a fixed colour
+  // flattens the tokens just as thoroughly, one shade later.
   ".cm-selectionBackground, .cm-content ::selection": {
     backgroundColor: "var(--brand-a5)",
+    color: "currentColor",
   },
   ".cm-activeLine": { backgroundColor: "var(--editor-active-line, var(--muted))" },
   // The active line's gutter cell is emphasised beyond the row: stronger tint, full-strength
@@ -361,7 +452,16 @@ const baseTheme = EditorView.theme({
   },
   ".cm-matchingBracket, &.cm-focused .cm-matchingBracket": { backgroundColor: "var(--brand-a5)", outline: "1px solid var(--primary)" },
   ".cm-nonmatchingBracket": { backgroundColor: "var(--destructive-a4)" },
-  ".cm-selectionMatch": { backgroundColor: "var(--warning-a5)" },
+  // **A neutral tint, because it is not a search hit.** This wore `--warning-a5`, byte for byte
+  // what `.cm-searchMatch` wears — so the other occurrences of the word under your caret were
+  // indistinguishable from the hits of a query you actually typed, and the two co-occur constantly:
+  // open the find panel while a word is selected and every match looks like the same kind of thing.
+  //
+  // They are not. A search hit is something you asked for; this is the editor noticing a
+  // repetition. Every editor that draws both separates them the same way — the query keeps the
+  // colour, the passive one goes neutral — and `--base-a5` is the house's neutral wash. It also
+  // takes the collision off `--warning-a5`, which `Highlight` uses for a search-term mark in prose.
+  ".cm-selectionMatch": { backgroundColor: "var(--base-a5)" },
   ".cm-foldGutter .cm-gutterElement": { cursor: "pointer", color: "var(--faint)" },
   ".cm-foldPlaceholder": { background: "var(--muted)", border: "1px solid var(--border)", color: "var(--muted-foreground)", borderRadius: "var(--radius-sm)", padding: "0 4px" },
 });
@@ -417,9 +517,32 @@ export function CodeEditor(p: CodeEditorProps) {
   const langSlot = useRef(new Compartment());
   const editable = useRef(new Compartment());
 
+  // **CodeMirror's panels, rendered by React.** A `Panel` is an object with a `dom`, and nothing
+  // says who fills it — so we hand over an empty element and portal into it. The portals are
+  // children of THIS tree, which is the reason the host lives here and not in the panel's own
+  // module: a panel rendered from anywhere else loses every provider above the editor.
+  //
+  // `mount`/`destroy` are CodeMirror's, and they bracket the element's life in the document
+  // exactly. `mount` runs before React has rendered anything into it, which is why a panel that
+  // wants focus takes it in its own effect rather than relying on CodeMirror's.
+  const [panels, setPanels] = useState<{ id: number; dom: HTMLElement; node: ReactNode }[]>([]);
+
   // Build the editor once; long-lived callbacks read the latest props via the ref.
   useEffect(() => {
     const basics = props.current.basics ?? true;
+    let nextPanel = 0;
+    const panelHost: ReactPanelHost = {
+      panel: (node, opts) => {
+        const dom = document.createElement("div");
+        const id = ++nextPanel;
+        return {
+          dom,
+          top: opts?.top,
+          mount: () => setPanels((open) => [...open, { id, dom, node }]),
+          destroy: () => setPanels((open) => open.filter((entry) => entry.id !== id)),
+        };
+      },
+    };
     const updateListener = EditorView.updateListener.of((u) => {
       if (u.focusChanged) setFocused(u.view.hasFocus);
       if (!u.docChanged) return;
@@ -451,11 +574,17 @@ export function CodeEditor(p: CodeEditorProps) {
           // Alt-drag column selection, and the crosshair cursor that signals it is available.
           rectangularSelection(),
           crosshairCursor(),
-          highlightActiveLine(),
+          highlightCaretLine,
           bracketMatching(),
           closeBrackets(),
           indentOnInput(),
           highlightSelectionMatches(),
+          // **`search()` has to be in the configuration, and it was not.** `searchKeymap` was
+          // bound below and nothing installed the extension, so `openSearchPanel` appended the
+          // defaults itself the first time Mod-F was pressed — which works, and silently discards
+          // any configuration, `createPanel` included. Same shape as the `autocompletion()` bug
+          // noted further down: a keymap for an extension nobody added.
+          kanzoSearch(panelHost),
           kanzoHighlighting,
           baseTheme,
         ]
@@ -469,7 +598,7 @@ export function CodeEditor(p: CodeEditorProps) {
           EditorState.allowMultipleSelections.of(true),
           ...batteries,
           ...(props.current.lineNumbers ? [cmLineNumbers()] : []),
-          ...(basics && props.current.lineNumbers ? [highlightActiveLineGutter(), foldGutter()] : []),
+          ...(basics && props.current.lineNumbers ? [highlightCaretLineGutter, foldGutter()] : []),
           ...(props.current.placeholder ? [cmPlaceholder(props.current.placeholder)] : []),
           updateListener,
           langSlot.current.of(props.current.extensions ?? []),
@@ -515,6 +644,11 @@ export function CodeEditor(p: CodeEditorProps) {
     });
   }, [p.readOnly]);
 
+  // A portal contributes no DOM to the element it is written inside, so these are safe as children
+  // of the very element CodeMirror owns: React mounts each node into the panel's `dom` and nothing
+  // else. Written once and used by both branches below.
+  const portals = panels.map((entry) => createPortal(entry.node, entry.dom, String(entry.id)));
+
   // Bare surface (caller owns theme/chrome).
   //
   // `flex flex-col` is LOAD-BEARING, not styling. The theme sizes the editor with
@@ -531,7 +665,9 @@ export function CodeEditor(p: CodeEditorProps) {
         data-slot="code-editor"
         ref={container}
         style={{ minHeight: p.minHeight, maxHeight: p.maxHeight }}
-      />
+      >
+        {portals}
+      </div>
     );
   }
 
@@ -551,14 +687,16 @@ export function CodeEditor(p: CodeEditorProps) {
         ref={container}
         className={cn(
           "flex w-full flex-col overflow-hidden",
-          "rounded-lg border border-input bg-transparent shadow-xs/5 dark:bg-field",
+          "rounded-lg border border-input bg-transparent shadow-xs/5 bg-field",
           "transition-[color,box-shadow]",
           "data-focused:border-primary data-focused:ring-[3px] data-focused:ring-ring",
           "data-invalid:border-destructive data-invalid:ring-[3px] data-invalid:ring-destructive/24",
           "motion-reduce:transition-none!"
         )}
         style={{ minHeight: p.minHeight, maxHeight: p.maxHeight }}
-      />
+      >
+        {portals}
+      </div>
     </div>
   );
 }

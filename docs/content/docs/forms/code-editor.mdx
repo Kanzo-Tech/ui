@@ -36,6 +36,24 @@ changes rather than tearing the editor down.
 `value` is reconciled without clobbering the cursor, so the editor is safe to drive from state
 you also write to from elsewhere.
 
+## Find and replace
+
+`basics` includes CodeMirror's search, and the panel it opens is built from this library's own
+controls — `InputGroup`, `Toggle`, `Button`, `ButtonGroup` — rather than from CodeMirror's stock
+form. It opens at the top of the editor on <kbd>Mod</kbd>+<kbd>F</kbd>, closes on
+<kbd>Esc</kbd>, and <kbd>Enter</kbd> steps to the next match (<kbd>Shift</kbd>+<kbd>Enter</kbd> to
+the previous one). The three toggles in the field are case sensitivity, whole-word matching and
+regular expressions; the replace row is dropped on a read-only document.
+
+The search itself is CodeMirror's, unchanged: `setSearchQuery`, `findNext`, `replaceAll` and the
+rest are the public commands from `@codemirror/search`, and the panel only draws the form over
+them. So a caller who binds those commands elsewhere — a toolbar of their own, say — drives the
+same state and sees the same field update.
+
+Turn it off with `basics={false}` and bring your own `search()` configuration.
+
+<ComponentPreview componentName="code-editor" fileName="example-search" />
+
 ## Sizing
 
 CodeMirror's own `.cm-scroller` does the scrolling. Bound the height with `minHeight` /

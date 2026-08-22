@@ -43,3 +43,13 @@ if (typeof globalThis.IntersectionObserver === "undefined") {
     }
   } as unknown as typeof IntersectionObserver;
 }
+
+// CodeMirror measures the selection by asking a `Range` for its rectangles, and jsdom has no
+// layout engine at all — `document.createRange().getClientRects` is simply absent, so every
+// `drawSelection` measure pass throws a TypeError into stderr while the test itself passes. An
+// empty list is the truthful answer here: there are no rectangles, because nothing was laid out.
+if (typeof Range !== "undefined" && typeof Range.prototype.getClientRects !== "function") {
+  Range.prototype.getClientRects = () =>
+    Object.assign([], { item: () => null }) as unknown as DOMRectList;
+  Range.prototype.getBoundingClientRect = () => new DOMRect();
+}
