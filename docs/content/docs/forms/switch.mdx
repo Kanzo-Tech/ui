@@ -16,11 +16,16 @@ import { Switch } from "@kanzo-tech/ui";
 Use a Switch when the change takes effect at once, and a Checkbox when it is submitted with a
 form.
 
+**Give it children and they become its label** — which is also its accessible name, so a switch
+whose meaning is not already carried by a `Field` or a nearby heading wants one. Ark's root is the
+`<label>`, so the caption is a click target too: the whole sentence toggles, not a thirty-pixel
+track. Without children, name it yourself with `aria-label`.
+
 ## API Reference
 
 No props of its own — `Switch` is one export, not a set of parts. It renders Ark's
-`Switch.Control`, `Switch.Thumb` and `Switch.HiddenInput` itself, so the whole API is the
-machine's:
+`Switch.Control`, `Switch.Thumb`, `Switch.HiddenInput` and — when you pass children —
+`Switch.Label` itself, so the whole API is the machine's:
 
 | Prop | Type | Default |
 | --- | --- | --- |
