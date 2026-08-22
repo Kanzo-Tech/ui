@@ -14,5 +14,5 @@
   aliased exports and keying on the line collides with same-line parameters. A count that three
   passes get wrong three ways is a count nobody should retype.
 - **Held by** `packages/ui/src/index.test.ts`, which pins the surface it cares about by name;
-  `packages/theme/src/boundary.test.ts`, which counts `--chart-N` in the shipped sheet rather than
+  `packages/ui/src/lib/token-color.test.ts`, which counts the slots in every shipped theme rather than
   trusting either constant that declares it

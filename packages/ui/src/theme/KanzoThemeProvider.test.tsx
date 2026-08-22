@@ -1,12 +1,11 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { StrictMode } from "react";
 import {
   AXES,
   DEFAULT_PREFS,
   prefOptions,
   STORAGE_KEY,
-  type PaletteOption,
+  type ThemeOption,
   type SectionManifest,
   type ThemePrefs,
 } from "@kanzo-tech/theme";
@@ -63,7 +62,7 @@ const stored = () => JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}") as Re
  * the stored blob is a fresh literal on every render and depending on the object would re-resolve —
  * and therefore re-apply every attribute — every time. The cost of that decision is that adding an
  * axis to `AXES` does not add it to the deps, and nothing complains: the axis works on first mount
- * and then never updates again. `data-palette` shipped that way for exactly one commit.
+ * and then never updates again. `data-theme` shipped that way for exactly one commit.
  *
  * It moved from the write effect to the memo when the core started going through `resolvePref`: the
  * effect now depends on the memo's result, so the memo is where a missed axis goes stale.
@@ -504,158 +503,6 @@ describe("KanzoThemeProvider under a tenant's policy", () => {
  * notice: somebody chose gold and is looking at blue, and silence reads as a bug in our product
  * rather than a change in their client's.
  */
-describe("KanzoThemeProvider identity", () => {
-  const IDENTITIES: PaletteOption[] = [
-    { value: "retail-blue", label: "Retail" },
-    { value: "private-gold", label: "Private" },
-  ];
-
-  beforeEach(() => {
-    stubMatchMedia(false);
-    localStorage.clear();
-  });
-  afterEach(() => {
-    localStorage.clear();
-    html().classList.remove("dark");
-    for (const { attr } of AXES) html().removeAttribute(attr);
-  });
-
-  /**
-   * Identities reach the provider as the SELECTED palette's children, because that is what they are:
-   * a brand lives inside a document. `identities` used to be a prop beside `palettes` and a host
-   * could make the two disagree with nothing to catch it.
-   */
-  const within = (children?: PaletteOption[]) =>
-    children ? [{ value: "tenant", label: "Tenant", children }] : undefined;
-
-  function mount(
-    props: Partial<React.ComponentProps<typeof KanzoThemeProvider>> & { identities?: PaletteOption[] } = {},
-    { strict = false } = {},
-  ) {
-    const { identities, ...rest } = props;
-    const merged = { ...rest, ...(identities ? { palettes: within(identities) } : {}) };
-    let ctx!: ReturnType<typeof useKanzoTheme>;
-    const tree = (
-      <KanzoThemeProvider {...merged}>
-        <Probe onValue={(v) => (ctx = v)} />
-      </KanzoThemeProvider>
-    );
-    const utils = render(strict ? <StrictMode>{tree}</StrictMode> : tree);
-    return { ...utils, get ctx() { return ctx; } };
-  }
-
-  it("defaults `defaultIdentity` to the first published identity", () => {
-    const t = mount({ identities: IDENTITIES });
-
-    expect(t.ctx.defaultIdentity).toBe("retail-blue");
-    // …and with none published there is nothing to default to. `""` rather than `undefined`,
-    // because it is compared against the axis default to decide whether to write the attribute.
-    expect(mount().ctx.defaultIdentity).toBe("");
-  });
-
-  it("resolves an absent preference to the default identity", () => {
-    // The `appearance` / `resolvedAppearance` split: an empty preference is not a value, it is a
-    // deferral to the document, and `:root` is what the document paints without an attribute.
-    const t = mount({ identities: IDENTITIES });
-
-    expect(t.ctx.identity).toBe("");
-    expect(t.ctx.resolvedIdentity).toBe("retail-blue");
-    expect(html().hasAttribute("data-identity")).toBe(false);
-
-    act(() => t.ctx.set({ identity: "private-gold" }));
-
-    expect(t.ctx.resolvedIdentity).toBe("private-gold");
-    expect(html().getAttribute("data-identity")).toBe("private-gold");
-  });
-
-  it("honours an explicit `defaultIdentity` over the first published one", () => {
-    const t = mount({ identities: [IDENTITIES[1]!, IDENTITIES[0]!] });
-
-    expect(t.ctx.resolvedIdentity).toBe("private-gold");
-  });
-
-  it("clears a stored identity the tenant no longer publishes, notifying once", () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ identity: "withdrawn", radius: "lg" }));
-    const onIdentityRetired = vi.fn();
-
-    // StrictMode double-invokes the effect, which is exactly the case the `useRef` is there for:
-    // clearing the pref erases the CONDITION, but not before the second invocation has already
-    // read the pre-clear state and told the host a second time.
-    const t = mount({ identities: IDENTITIES, onIdentityRetired }, { strict: true });
-
-    expect(onIdentityRetired).toHaveBeenCalledTimes(1);
-    expect(onIdentityRetired).toHaveBeenCalledWith("withdrawn");
-    expect(t.ctx.identity).toBe("");
-    expect(t.ctx.resolvedIdentity).toBe("retail-blue");
-    expect(html().hasAttribute("data-identity")).toBe(false);
-    // Cleared in storage too, or the next reload asks the same question again.
-    expect(stored().identity).toBe("");
-    // The other axes in the same blob are untouched: this is one field going, not a reset.
-    expect(t.ctx.radius).toBe("lg");
-  });
-
-  it("keeps the retired id readable for the rest of the session", () => {
-    // Whatever says it — a panel section, a toast — may not be mounted for another five minutes,
-    // so the notice cannot be a transient the clear consumes.
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ identity: "withdrawn" }));
-    const t = mount({ identities: IDENTITIES });
-
-    expect(t.ctx.retiredIdentity).toBe("withdrawn");
-
-    act(() => t.ctx.set({ density: "compact" }));
-
-    expect(t.ctx.retiredIdentity).toBe("withdrawn");
-  });
-
-  it("leaves a stored identity alone when the host has published none", () => {
-    // `identities: []` is "the host has not wired the prop, or is loading it" — indistinguishable
-    // from here, and both mean a valid preference must survive. Treating it as retirement would
-    // wipe every user's choice in any app that fetches its document.
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ identity: "private-gold" }));
-    const onIdentityRetired = vi.fn();
-
-    const t = mount({ onIdentityRetired });
-
-    expect(t.ctx.identity).toBe("private-gold");
-    expect(html().getAttribute("data-identity")).toBe("private-gold");
-    expect(onIdentityRetired).not.toHaveBeenCalled();
-    expect(t.ctx.retiredIdentity).toBeNull();
-  });
-
-  it("says nothing when the stored identity is still published", () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ identity: "private-gold" }));
-    const onIdentityRetired = vi.fn();
-
-    const t = mount({ identities: IDENTITIES, onIdentityRetired }, { strict: true });
-
-    expect(t.ctx.identity).toBe("private-gold");
-    expect(t.ctx.resolvedIdentity).toBe("private-gold");
-    expect(t.ctx.retiredIdentity).toBeNull();
-    expect(onIdentityRetired).not.toHaveBeenCalled();
-  });
-
-  it("takes `data-identity` with it on unmount", () => {
-    // It comes off with the rest: the cleanup iterates AXES, so the axis that is not generated
-    // into themes.css is still one this provider owns while it is mounted.
-    const t = mount({ identities: IDENTITIES });
-    act(() => t.ctx.set({ identity: "private-gold" }));
-    expect(html().getAttribute("data-identity")).toBe("private-gold");
-
-    t.unmount();
-
-    expect(html().hasAttribute("data-identity")).toBe(false);
-  });
-
-  it("renders no UI of its own for a retirement", () => {
-    // The notice is a context field plus a callback; a separate opt-in composite draws it. A
-    // provider that rendered its own would put a surface inside every host's tree at a moment
-    // they did not choose — and it is a themer, which is why `KanzoTheme` was deleted.
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ identity: "withdrawn" }));
-    const t = mount({ identities: IDENTITIES });
-
-    expect(t.container.innerHTML).toBe("");
-  });
-});
 
 /**
  * The palette axis — the coarser of the two colour choices a tenant publishes.
@@ -664,10 +511,10 @@ describe("KanzoThemeProvider identity", () => {
  * a document is a stylesheet, so the server serves the chosen one from the cookie before the first
  * byte. These tests therefore assert on the context and on `<html>` staying untouched, which is the
  * shape of the bug worth guarding against — somebody deciding the symmetry with `identity` is
- * incomplete and adding a `data-palette` that no compiled sheet matches.
+ * incomplete and adding a `data-theme` that no compiled sheet matches.
  */
 describe("KanzoThemeProvider palette", () => {
-  const PALETTES: PaletteOption[] = [
+  const PALETTES: ThemeOption[] = [
     { value: "kanzo", label: "Kanzo" },
     { value: "dracula", label: "Dracula" },
   ];
@@ -693,17 +540,17 @@ describe("KanzoThemeProvider palette", () => {
   }
 
   it("resolves an empty preference to the first published palette", () => {
-    const t = mount({ palettes: PALETTES });
+    const t = mount({ themes: PALETTES });
 
     // The preference is a map and starts empty on both sides; the RESOLVED value is the tenant's
     // default. That split is the same one `appearance`/`resolvedAppearance` makes, and it is what
     // keeps "the user has not chosen" distinguishable from "the user chose the default".
-    expect(t.ctx.paletteByAppearance).toEqual({});
-    expect(t.ctx.defaultPalette).toBe("kanzo");
-    expect(t.ctx.resolvedPalette).toBe("kanzo");
+    expect(t.ctx.themeByAppearance).toEqual({});
+    expect(t.ctx.defaultTheme).toBe("kanzo");
+    expect(t.ctx.resolvedTheme).toBe("kanzo");
   });
 
-  it("writes `data-palette` for a chosen palette, and nothing at the default", () => {
+  it("writes `data-theme` for a chosen palette, and nothing at the default", () => {
     // This asserted the exact opposite — "an attribute here would match nothing in any compiled
     // sheet" — and it was right about the model it was written for: a palette WAS the whole
     // document, served by the server, with no block to select. `compile(doc, { scope })` emits one
@@ -712,104 +559,46 @@ describe("KanzoThemeProvider palette", () => {
     //
     // The `identity` asymmetry it was contrasting against is gone with it: both are attributes
     // selecting a block, at two grains of the same choice.
-    const t = mount({ palettes: PALETTES });
-    act(() => t.ctx.set({ paletteByAppearance: { light: "dracula" } }));
+    const t = mount({ themes: PALETTES });
+    act(() => t.ctx.set({ themeByAppearance: { light: "dracula" } }));
 
-    expect(t.ctx.resolvedPalette).toBe("dracula");
-    expect(html().getAttribute("data-palette")).toBe("dracula");
+    expect(t.ctx.resolvedTheme).toBe("dracula");
+    expect(html().getAttribute("data-theme")).toBe("dracula");
 
     // …and nothing at the default, which is what keeps a single-palette tenant's `<html>` clean:
     // `def: ""` means the write rule removes the attribute rather than spelling out the fallback.
-    act(() => t.ctx.set({ paletteByAppearance: { light: "" } }));
-    expect(html().hasAttribute("data-palette")).toBe(false);
+    act(() => t.ctx.set({ themeByAppearance: { light: "" } }));
+    expect(html().hasAttribute("data-theme")).toBe(false);
     expect([...html().attributes].map((a) => a.name).filter((n) => n.startsWith("data-"))).toEqual([]);
   });
 
   it("clears a palette the tenant no longer publishes, and says so once", () => {
-    const onPaletteRetired = vi.fn();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ paletteByAppearance: { light: "withdrawn" } }));
+    const onThemeRetired = vi.fn();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ themeByAppearance: { light: "withdrawn" } }));
 
-    const t = mount({ palettes: PALETTES, onPaletteRetired });
+    const t = mount({ themes: PALETTES, onThemeRetired });
 
-    expect(t.ctx.paletteByAppearance.light ?? "").toBe("");
-    expect(t.ctx.resolvedPalette).toBe("kanzo");
-    expect(t.ctx.retiredPalette).toBe("withdrawn");
-    expect(onPaletteRetired).toHaveBeenCalledTimes(1);
-    expect(onPaletteRetired).toHaveBeenCalledWith("withdrawn");
+    expect(t.ctx.themeByAppearance.light ?? "").toBe("");
+    expect(t.ctx.resolvedTheme).toBe("kanzo");
+    expect(t.ctx.retiredTheme).toBe("withdrawn");
+    expect(onThemeRetired).toHaveBeenCalledTimes(1);
+    expect(onThemeRetired).toHaveBeenCalledWith("withdrawn");
   });
 
   it("leaves the preference alone when the host published nothing", () => {
     // "Not wired", "still fetching the document" and "published nothing" are indistinguishable from
     // here, and all three mean a valid preference must survive rather than be treated as retired.
-    const onPaletteRetired = vi.fn();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ paletteByAppearance: { light: "dracula" } }));
+    const onThemeRetired = vi.fn();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ themeByAppearance: { light: "dracula" } }));
 
-    const t = mount({ onPaletteRetired });
+    const t = mount({ onThemeRetired });
 
-    expect(t.ctx.resolvedPalette).toBe("dracula");
-    expect(onPaletteRetired).not.toHaveBeenCalled();
+    expect(t.ctx.resolvedTheme).toBe("dracula");
+    expect(onThemeRetired).not.toHaveBeenCalled();
   });
 
-  it("files the identity per palette, and gives it back", () => {
-    // An identity belongs to its document, so switching palettes cannot carry one across — but
-    // discarding it is not right either, because the user did choose it. It is filed under the
-    // palette they were in and restored when they return.
-    const t = mount({
-      palettes: PALETTES.map((p, i) => (i === 0
-        ? { ...p, children: [
-            { value: "retail", label: "Retail" },
-            { value: "private", label: "Private" },
-          ] }
-        : p)),
-    });
 
-    act(() => t.ctx.set({ identity: "private" }));
-    act(() => t.ctx.setPalette("dracula"));
 
-    // Not carried across: `private` is a brand Dracula does not publish, and naming it there would
-    // be inert in the cascade and a false retirement on the way past.
-    expect(t.ctx.identity).toBe("");
-
-    act(() => t.ctx.setPalette("kanzo"));
-
-    expect(t.ctx.identity).toBe("private");
-  });
-
-  it("files it against the palette being LEFT, not the one being entered", () => {
-    // The off-by-one this is written to catch: reading the palette after the patch has been merged
-    // would file the outgoing identity under the incoming one, so a single switch would look right
-    // and the trip back would restore the wrong brand. `setPalette` reads `resolvedPalette`, which
-    // is still the outgoing document when it runs — and going through `set` instead skips the
-    // memory entirely, which is why this calls the one function that owns it.
-    const t = mount({
-      palettes: PALETTES.map((p, i) => (i === 0
-        ? { ...p, children: [{ value: "retail", label: "Retail" }] }
-        : p)),
-    });
-
-    act(() => t.ctx.set({ identity: "retail" }));
-    act(() => t.ctx.setPalette("dracula"));
-
-    // Under `kanzo`, its resolved id, and not under `""`, the preference that means it. The default
-    // palette has two spellings and the memory must only ever use one, or returning to it by name
-    // would look like a different document.
-    expect(stored().identityByPalette).toEqual({ kanzo: "retail" });
-  });
-
-  it("keeps the two published axes independent", () => {
-    // A palette and an identity are different grains of the same idea, and share one retirement
-    // helper — so the case that matters is that retiring one does not disturb the other.
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ paletteByAppearance: { light: "withdrawn" }, identity: "retail-blue" }));
-    const t = mount({
-      palettes: PALETTES.map((p, i) => (i === 0
-        ? { ...p, children: [{ value: "retail-blue", label: "Retail" }] }
-        : p)),
-    });
-
-    expect(t.ctx.retiredPalette).toBe("withdrawn");
-    expect(t.ctx.retiredIdentity).toBe(null);
-    expect(t.ctx.resolvedIdentity).toBe("retail-blue");
-  });
 });
 
 /**

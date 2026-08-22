@@ -6,9 +6,11 @@ import {
   ButtonGroup,
   Show,
   Spinner,
+} from "@kanzo-tech/ui";
+import {
   type Suggestion,
   useSuggestions,
-} from "@kanzo-tech/ui";
+} from "@kanzo-tech/ai";
 import { useState } from "react";
 
 // A stub `suggest`. It yields whole candidates — and deliberately repeats one already chosen,
@@ -32,11 +34,11 @@ async function* suggest(signal?: AbortSignal) {
 
 export default function Example() {
   const [chosen, setChosen] = useState<string[]>(["climate"]);
-  const suggestions = useSuggestions({ suggest, existing: chosen, window: 3 });
+  const suggestions = useSuggestions({ suggest, existing: chosen, limit: 3 });
 
-  const pick = (index: number, value: string) => {
+  const pick = (value: string) => {
     setChosen((prev) => [...prev, value]);
-    suggestions.dismiss(index);
+    suggestions.dismiss(value);
   };
 
   return (
@@ -50,8 +52,11 @@ export default function Example() {
       </div>
 
       <ButtonGroup aria-label="Suggestion controls">
-        <Button onClick={suggestions.start} size="sm" variant="outline">
+        <Button onClick={suggestions.ask} size="sm" variant="outline">
           Suggest keywords
+        </Button>
+        <Button onClick={suggestions.refresh} size="sm" variant="outline">
+          Again
         </Button>
         <Button onClick={suggestions.cancel} size="sm" variant="outline">
           Cancel
@@ -59,7 +64,7 @@ export default function Example() {
       </ButtonGroup>
 
       <ul className="flex flex-col gap-2">
-        {suggestions.items.map((item, index) => (
+        {suggestions.items.map((item) => (
           <li
             className="flex items-center gap-3 rounded-md border p-2"
             key={item.value}
@@ -71,10 +76,10 @@ export default function Example() {
               </Show>
             </span>
             <ButtonGroup aria-label={`Actions for ${item.value}`}>
-              <Button onClick={() => pick(index, item.value)} size="sm" variant="outline">
+              <Button onClick={() => pick(item.value)} size="sm" variant="outline">
                 Add
               </Button>
-              <Button onClick={() => suggestions.dismiss(index)} size="sm" variant="outline">
+              <Button onClick={() => suggestions.dismiss(item.value)} size="sm" variant="outline">
                 Skip
               </Button>
             </ButtonGroup>
@@ -82,7 +87,7 @@ export default function Example() {
         ))}
       </ul>
 
-      <Show when={suggestions.loading}>
+      <Show when={suggestions.status === "loading"}>
         <span className="flex items-center gap-2 text-muted-foreground text-sm">
           <Spinner className="size-4" /> Streaming candidates…
         </span>

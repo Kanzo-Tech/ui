@@ -57,7 +57,7 @@ export const SegmentGroup = (props: SegmentGroupProps) => {
         // The track border is solid: diluted, it composited to ramp step 5 on every backdrop
         // (ΔE 0.00–1.65), and step 5 is `--accent`. `--border` moved from 5 to 6 precisely so a
         // border and a hover surface would stop being the same colour.
-        "data-[variant=solid]:rounded-lg data-[variant=solid]:border data-[variant=solid]:border-border data-[variant=solid]:bg-muted data-[variant=solid]:p-1",
+        "data-[variant=solid]:rounded-field data-[variant=solid]:border data-[variant=solid]:border-border data-[variant=solid]:bg-muted data-[variant=solid]:p-1",
         className
       )}
       data-variant={variant}

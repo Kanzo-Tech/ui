@@ -8,8 +8,37 @@
  * after `.hidden` within this sheet) makes the last sheet authoritative and correctly ordered.
  */
 @source "../../packages/ui/src/**/*.{ts,tsx}";
+/*
+ * And the AI package, for the same reason plus a sharper one: NOTHING scans it. The library's own
+ * sheet globs its `.ts`/`.tsx` recursively from `packages/ui/src`, which cannot reach a sibling
+ * package, so every utility `@kanzo-tech/ai` uses and `@kanzo-tech/ui` does not was simply never
+ * emitted. Measured before this line existed: `max-w-[85%]`, the user bubble's width in
+ * `message.tsx`, appeared zero times in `packages/ui/dist/styles.css`, so message bubbles rendered
+ * full-width and the whole package was styled by coincidence — by whichever classes `ui` happened
+ * to share. A consumer outside this repo has the same hole; `@kanzo-tech/ai/styles.css` is what
+ * closes it for them.
+ */
+@source "../../packages/ai/src/**/*.{ts,tsx}";
 /* The design system's own tokens + compiled sheet — the docs eat the published artifact. */
 @import "@kanzo-tech/theme/tokens.css";
 @import "@kanzo-tech/theme/themes.css";
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
+
+/*
+ * The landing nav's collapsed menu, hidden once it has nothing to open.
+ *
+ * fumadocs marks the link list `max-sm:hidden` and the chevron that reveals it `lg:hidden`, so
+ * between 640px and 1024px the links are already inline and the panel's only other tenant was the
+ * appearance toggle. That toggle is gone — next-themes is disabled in `app/layout.tsx`, so it
+ * changed no pixel — and what it left behind is a control that expands an empty band.
+ *
+ * `#nd-nav` is the home layout's header and nothing else on the site renders it; inside it
+ * `[aria-expanded]` matches exactly one element, the trigger. Below `sm` the panel still carries
+ * the links, which is the one width where the chevron means something.
+ */
+@media (min-width: 40rem) {
+  #nd-nav [aria-expanded] {
+    display: none;
+  }
+}

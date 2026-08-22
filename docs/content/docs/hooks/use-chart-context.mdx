@@ -42,11 +42,10 @@ context, and it is what makes a part writable without forking `ChartLegend`.
 dual-purpose: Observable Plot's `isColor` rejects `var(--token)`, `color-mix()`, `oklch()` and
 `color(srgb …)` — hand it one and the string is read as a **column name**, killing the query with a
 binder error and leaving the plot on its previous render. The token is resolved against the element
-the chart lives in, so a scoped palette override on an ancestor wins.
+the chart lives in, so a scoped theme override on an ancestor wins.
 
 <Callout type="warn">
-Resolving is also what makes it a **snapshot**. Nothing re-calls `color` when the theme flips or the
-tenant's palette is swapped. If your sink is only a `style`, pass `var(--chart-N)` straight through
+Resolving is also what makes it a **snapshot**. Nothing re-calls `color` when the theme flips or the tenant's theme is swapped. If your sink is only a `style`, pass `var(--chart-N)` straight through
 and let the browser follow the theme for free — that is what `ChartLegend` does. Pair this with
 [`useThemeTick`](/docs/hooks/use-theme-tick) when you need the literal, which is to say when you are
 handing it to Plot or to a canvas.

@@ -1,12 +1,12 @@
 ---
 title: useThemeTick
-description: Re-render when the theme changes, so a surface painted from resolved tokens repaints instead of freezing the palette it mounted with.
+description: Re-render when the theme changes, so a surface painted from resolved tokens repaints instead of freezing the theme it mounted with.
 ---
 
 <ComponentPreview componentName="use-theme-tick" />
 
 Eight bars on a `<canvas>`, painted with `resolveTokenColor(host, "--chart-N")`. Flip the appearance
-toggle: nothing about that changes a prop, and without this hook the canvas would keep the palette
+toggle: nothing about that changes a prop, and without this hook the canvas would keep the theme
 it was born with.
 
 ## Usage
@@ -38,19 +38,19 @@ cascade changes, with no React involvement at all. **Take that route whenever yo
 
 A canvas is not CSS. `fillStyle` cannot take `var(--chart-1)`, and neither can Observable Plot,
 whose `isColor` reads an unresolved token as a *column name* and kills the query. So both have to be
-handed a literal — and a literal is a snapshot of whatever palette was live when it was read.
+handed a literal — and a literal is a snapshot of whatever theme was live when it was read.
 
-Things that move that palette, none of which re-render anything on their own:
+Things that move the theme, none of which re-render anything on their own:
 
-- `KanzoThemeProvider` writes its axes as `data-*` attributes on `<html>`
+- `KanzoThemeProvider` writes its axes as `data-*` attributes on `<html>` — `data-theme` included
 - next-themes toggles `.dark` on the same element
-- **the tenant's palette changes**, which moves nothing on `<html>` at all
+- **a stylesheet lands late**, which moves every token with the root untouched
 
-The first two are attribute writes on `document.documentElement`. The third is the one worth
-knowing about: a palette is a whole *document*, so switching one swaps a `<style>` in `<head>` and
-every token underneath changes value with the root untouched. An observer on the root cannot see
-it — which is why this hook also reads the provider's palette preference and watches `<head>`,
-where the stylesheet actually lands however a host applies it.
+The first two are attribute writes on `document.documentElement`, and a theme change is now one of
+them: it is `data-theme`, not a swapped document. **That is a simplification, and this hook kept the
+`<head>` observer anyway** — a host that loads the catalogue asynchronously, or code-splits a theme
+file, changes what every token resolves to without touching an attribute, and an observer on the
+root cannot see that. The third case is rarer than the swap it replaced; it is not gone.
 
 <Callout type="warn">
 Do **not** hand-roll the observer. The local copy this replaced filtered attributes down to `class`,
@@ -80,7 +80,7 @@ Takes no arguments.
 ### Returns
 
 `number` — a counter incremented on every attribute mutation of `document.documentElement`, on every
-`<head>` mutation, and whenever the provider's palette preference moves. Starts at `0`, including on
+`<head>` mutation, and whenever the provider's theme preference moves. Starts at `0`, including on
 the server and on the first client render, so it never causes a hydration mismatch. Feed it to an
 effect's dependency list; do not render it.
 

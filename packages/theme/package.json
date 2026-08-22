@@ -1,11 +1,20 @@
 {
   "name": "@kanzo-tech/theme",
   "version": "0.0.0",
-  "description": "Kanzo design tokens — a tenant palette document compiled to CSS, plus the four non-colour axes (radius / font / mono font / density) driven by data-* attributes on <html>.",
+  "description": "Kanzo design tokens \u2014 a catalogue of themes, each one flat block of CSS, plus the non-colour axes (radius / font / mono font / density) a user layers over them, driven by data-* attributes on <html>.",
   "type": "module",
   "license": "MIT",
-  "sideEffects": ["**/*.css"],
-  "files": ["dist", "palettes", "tokens.css", "themes.css", "theme-data.json", "README.md"],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "files": [
+    "dist",
+    "themes",
+    "tokens.css",
+    "themes.css",
+    "theme-data.json",
+    "README.md"
+  ],
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -16,21 +25,19 @@
     "./tokens.css": "./tokens.css",
     "./themes.css": "./themes.css",
     "./theme-data.json": "./theme-data.json",
-    "./palettes/*.json": "./palettes/*.json",
-    "./palettes/*.css": "./palettes/*.css",
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./themes/*.css": "./themes/*.css"
   },
   "scripts": {
     "build": "vite build",
     "//gen": "Three steps, in this order: the derivation made runnable from plain Node (its own tables, then its build), the four non-colour axes, and the default tenant's document compiled into tokens.css.",
-    "gen": "pnpm --filter @kanzo-tech/palette gen && node scripts/gen-theme.mjs && node scripts/gen-palette.mjs",
+    "gen": "node scripts/gen-theme.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
-  "//deps": "No React peer: this package ships tokens, the axis table and types. The provider that consumes them lives in @kanzo-tech/ui.",
-  "//devDeps": "@kanzo-tech/palette is a devDependency and must stay one — scripts/gen-palette.mjs and the tests derive with it, a browser never does. `boundary.test.ts` fails the build if it moves.",
+  "//deps": "No React peer and no derivation dependency: this package ships CSS, the axis table and types. The provider that consumes them lives in @kanzo-tech/ui. A theme is source, not output \u2014 there is nothing to derive it from.",
   "devDependencies": {
-    "@kanzo-tech/palette": "workspace:*",
     "tailwindcss": "4"
-  }
+  },
+  "//gen": "One step now: the non-colour axes and the theme catalogue. There is no colour generation \u2014 a theme is themes/<name>.css, hand-written source. scripts/extract-themes.mjs was the one-way migration that produced the first sixteen and does not run again."
 }

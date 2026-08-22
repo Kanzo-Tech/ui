@@ -1,0 +1,123 @@
+---
+title: Discovery
+description: A question over the Guild's archive, answered by a statement anybody can read — the phases as Task, the call as Tool, and the rows as a real table rather than a block of JSON.
+full: true
+---
+
+<PreviewIframe name="discovery" title="Discovery showcase" className="h-[820px]" />
+
+Somebody asks the archive a question in their own words, and gets back the statement that was
+written for it, the rows it returned, and a sentence quoting numbers it did not choose. The screen
+is a text-to-SQL panel — the shape every product grows once its data outlives the reports somebody
+built for it — and it is the second consumer of `@kanzo-tech/ai`, after the
+[Workspace](/docs/showcases/workspace)'s Ask dock.
+
+The split is the same one Ask makes and it is the only honest way to show this without a model:
+the **language** is canned, the **answer** is not. A question resolves to a recipe, the recipe
+carries a statement and a function that computes exactly what that statement says over the running
+example world — so the table under the answer is a real result set and the prose reads it back.
+
+Worth pressing in the frame:
+
+- The **✨** button lists the five questions this agent can answer, streamed one at a time with
+  the relation each would go to. Start typing one of them and the rest of it arrives as a ghost
+  that <kbd>Tab</kbd> accepts.
+- **Explain · Results · SQL** over an answer. One output, three readings — the toggle never goes
+  empty, because the third press would leave the panel showing nothing at all.
+- Ask **what each member was paid last winter**. The agent writes a statement, runs it, and the
+  call goes red: there is no `payments` relation, and the tool says so instead of joining two
+  things that both hold money. A refusal is a state of the call, not an error banner over the page.
+- Ask something outside the five. There is no call to fold a message into, so the turn carries the
+  refusal on its own.
+- Press **Stop** mid-answer. The phases freeze where they were and the step that was running wears
+  the failure, which is what `Task` is for — a spinner and a word cannot say *where* it stopped.
+
+## One answer, three readings
+
+`ToolInput` and `ToolOutput` take **children**, not a formatted-JSON prop, and this is the screen
+that pays for that decision. The columns of the result are not known until the statement has been
+written, so the output is a real `DataTableRoot` built from the result's own shape — with the same
+output read as prose, or as the statement itself with a `Clipboard` on it, in the same slot,
+switched by a `ToggleGroup`. A JSON prop can render one of those three, and it is the one nobody
+wanted.
+
+```tsx
+<ToolOutput>
+  <ToggleGroup multiple={false} value={[view]} variant="outline">…</ToggleGroup>
+  <Show when={view === "results"}>
+    <ResultTable columns={recipe.columns} rows={rows} />
+  </Show>
+</ToolOutput>
+```
+
+The table comes from the `@kanzo-tech/ui/table` subpath, never the root barrel — TanStack is an
+optional peer, and a reader who only wanted a transcript does not pay for it.
+
+## The phases are steps, not a spinner
+
+The hand-written screen this rebuilds carried a `phase` string — *generating*, *executing*,
+*explaining*, *done* — and drew it as a spinner beside a word. Those are `Task`'s labelled steps
+and `Tool`'s four states, and they share one vocabulary on purpose: `RunState` is declared once and
+`Tool` imports it, so a call and a step can never disagree about what *failed* means. The steps
+above an answer are the plan; the badge on the call is where the plan got to.
+
+`Reasoning` carries why the agent chose that relation. It opens itself while the thinking streams
+and closes itself when it ends — and stops doing either the moment the reader touches it, which is
+the behaviour that is the component.
+
+## What it composes
+
+```tsx
+import {
+  Conversation, ConversationContent, ConversationEmpty, ConversationScrollButton,
+  Message, MessageContent, MessageList,
+  PromptInput, PromptInputSubmit, PromptInputTextarea, PromptInputToolbar,
+  Reasoning, ReasoningContent, ReasoningTrigger,
+  Task, TaskList, TaskStatus, TaskTitle,
+  Tool, ToolContent, ToolHeader, ToolInput, ToolOutput,
+  useAiStream,
+} from "@kanzo-tech/ai";
+```
+
+- **`Conversation`** — the transcript's pin. It follows the tail only while the reader is already
+  at it, so scrolling up to re-read an earlier answer is not undone by the next token;
+  `ConversationScrollButton` appears exactly then, and pressing it takes the pin back.
+- **`Message` / `MessageContent` / `MessageList`** — one turn each way. The role is declared once
+  on the row and every part reads it off `data-role`.
+- **`PromptInput`** — the composer, which is the library's `InputGroup` as a form: <kbd>Enter</kbd>
+  submits, <kbd>Shift</kbd>+<kbd>Enter</kbd> is the newline, an IME's commit is not a submit, and
+  the button's icon and label come from `status` — Send, Stop, Retry — rather than from three
+  branches written here.
+- **`useAiStream`** — the engine under the fake. It takes a
+  `(signal: AbortSignal) => AsyncIterable<AskEvent>` and hands back `status`, which is the same
+  value the submit button reads; swapping the fake for a real endpoint is that one function.
+- **`CompleteRoot` + `CompleteTextarea` + `CompleteHint`** — the ghost continuation, below the
+  field because a question is prose. It wraps the composer rather than sitting inside it: the
+  `InputGroup` recipe selects its own direct children, and an element between the two unsets half
+  of it.
+- **`SuggestRoot`** — the ✨, anchored to its own trigger inside the composer so the surface opens
+  over the text it writes.
+- **`DataTableRoot` / `DataTableContent` / `DataTablePagination` / `useDataTable`** — the result
+  set, six rows to a page, columns derived from the projection.
+- **`ShellRoot` / `ShellHeader` / `ShellBody` / `ShellMain` / `ShellAside`** — the frame. The
+  schema rail is the `<aside>`; the transcript is the single `<main>`.
+- **`ToggleGroup`**, **`Clipboard`**, **`Badge`**, **`Separator`**, **`Show`** — the rest.
+
+## Where the domain lives
+
+Nothing above knows what a contract is. The archive is the docs' own running example — the Guild's
+board and its roster — and the two relations the rail lists are those two files described as a
+schema, row counts included. `data.ts` holds the five recipes, each with the statement it would
+send, the function that computes it, and the sentence that reads the rows back; `default.tsx` holds
+the arrangement.
+
+```text
+docs/showcases/discovery/
+├── default.tsx      — the shell, the transcript, the turn: Task steps, Tool call, the composer
+├── data.ts          — the schema rail's relations, the five recipes, and the faked event stream
+└── result-table.tsx — a result set as the real table, columns built from the projection
+```
+
+The agent refuses a sixth question rather than guessing a join, and that refusal is written in
+`data.ts` beside the statement it would have sent. A screen that answers everything is the one
+nobody can check.

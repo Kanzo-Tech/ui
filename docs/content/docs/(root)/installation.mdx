@@ -59,23 +59,23 @@ Its own database half sits behind `@kanzo-tech/graph/duckdb`, on the same rule a
 reason: a host drawing arrays it already holds takes `memorySource` and pays for no database, and
 the subpath is what makes that promise true rather than merely stated.
 
-</Step>
+### The AI surfaces are a package too
 
-<Step>
-
-### If you onboard tenants, add the palette package
-
-There is a third package, and most applications never install it.
-[`@kanzo-tech/palette`](/docs/theming#colour-the-palette-document) derives a tenant's colour document —
-ramps, the categorical search, the role table — and it is **authoring-time only**: the derivation
-runs once at onboarding and the runtime does nothing but apply the result. It is a separate
-package so that promise is structural rather than a convention.
+[`@kanzo-tech/ai`](/docs/ai) is the other sibling, and it is separate for a different reason — not a
+required renderer, but the barrel itself. The line is *does the component know a model exists*: a
+`Message` has a role and one of the roles is `assistant`, which is domain knowledge the generic
+vocabulary does not carry, and a consumer who wants a `Button` must not pay for a transcript.
 
 ```bash
-pnpm add -D @kanzo-tech/palette
+pnpm add @kanzo-tech/ai
 ```
 
+It has no optional peer and no subpath. Everything it draws with is `@kanzo-tech/ui` and Ark, both
+required peers, and its appearance comes from the same `styles.css` you import below — there is no
+second sheet.
+
 </Step>
+
 
 <Step>
 

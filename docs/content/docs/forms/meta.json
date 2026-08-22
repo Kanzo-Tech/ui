@@ -6,7 +6,6 @@
     "controls",
     "validation",
     "tanstack-form",
-    "ai",
     "---Text---",
     "field",
     "input",
@@ -38,6 +37,8 @@
     "password-input",
     "pin-input",
     "---Repeating---",
-    "field-array"
+    "field-array",
+    "---Sequences---",
+    "questionnaire"
   ]
 }

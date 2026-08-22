@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import type { PaletteOption } from "@kanzo-tech/theme";
+import type { ThemeOption } from "@kanzo-tech/theme";
 import { KanzoTheme } from "./KanzoTheme.js";
 import { KanzoThemeProvider } from "./KanzoThemeProvider.js";
 import { useKanzoThemeOptional } from "./theme-context.js";
@@ -12,16 +12,10 @@ import { useKanzoThemeOptional } from "./theme-context.js";
  * because a chart reads the context and would otherwise keep the page's colours in its buffers.
  */
 
-const PALETTES: PaletteOption[] = [
+const PALETTES: ThemeOption[] = [
   { value: "kanzo", label: "Kanzo" },
-  {
-    value: "bank",
-    label: "Bank",
-    children: [
-      { value: "retail", label: "Retail" },
-      { value: "private", label: "Private" },
-    ],
-  },
+  { value: "bank", label: "Bank" },
+  { value: "bank-private", label: "Bank · Private" },
 ];
 
 const scope = () => document.querySelector("[data-slot=kanzo-theme]") as HTMLElement;
@@ -29,7 +23,7 @@ const scope = () => document.querySelector("[data-slot=kanzo-theme]") as HTMLEle
 function Reads() {
   const ctx = useKanzoThemeOptional();
   return (
-    <span data-testid="reads">{`${ctx?.resolvedPalette ?? "-"}/${ctx?.resolvedIdentity ?? "-"}`}</span>
+    <span data-testid="reads">{ctx?.resolvedTheme ?? "-"}</span>
   );
 }
 
@@ -43,13 +37,12 @@ afterEach(() => {
 describe("KanzoTheme", () => {
   it("writes the axes it is given and leaves the rest to the cascade", () => {
     render(
-      <KanzoTheme palette="bank" identity="private">
+      <KanzoTheme theme="bank">
         <span />
       </KanzoTheme>,
     );
 
-    expect(scope().getAttribute("data-palette")).toBe("bank");
-    expect(scope().getAttribute("data-identity")).toBe("private");
+    expect(scope().getAttribute("data-theme")).toBe("bank");
     // Not written, so a scope that overrides colour keeps the page's radius, fonts and density —
     // the property that makes a one-axis preview a one-word change.
     for (const attr of ["data-radius", "data-font", "data-mono-font", "data-font-size"]) {
@@ -61,54 +54,54 @@ describe("KanzoTheme", () => {
     // The whole difference from the provider. If a scope wrote to the root it would not be a scope,
     // it would be a second provider fighting the first over the same attributes.
     render(
-      <KanzoThemeProvider palettes={PALETTES} storage={null}>
-        <KanzoTheme palette="bank">
+      <KanzoThemeProvider themes={PALETTES} storage={null}>
+        <KanzoTheme theme="bank">
           <span />
         </KanzoTheme>
       </KanzoThemeProvider>,
     );
 
-    expect(document.documentElement.hasAttribute("data-palette")).toBe(false);
+    expect(document.documentElement.hasAttribute("data-theme")).toBe(false);
   });
 
   it("reports what it paints, so a chart inside it re-resolves", () => {
-    // `useThemeTick` reads `resolvedPalette` during render. A scope that reported the page's palette
+    // `useThemeTick` reads `resolvedTheme` during render. A scope that reported the page's palette
     // would leave a WebGL graph painting the brand it was mounted with — the exact defect a swapped
     // stylesheet caused before, arriving by a different route.
     render(
-      <KanzoThemeProvider palettes={PALETTES} storage={null}>
-        <KanzoTheme palette="bank">
+      <KanzoThemeProvider themes={PALETTES} storage={null}>
+        <KanzoTheme theme="bank">
           <Reads />
         </KanzoTheme>
       </KanzoThemeProvider>,
     );
 
-    expect(screen.getByTestId("reads").textContent).toBe("bank/retail");
+    expect(screen.getByTestId("reads").textContent).toBe("bank");
   });
 
-  it("takes the scoped document's default identity, not the page's", () => {
-    // An identity belongs to a document. Carrying the page's across would name a brand the scoped
-    // palette does not publish — inert in the cascade, and wrong in any panel that reads the context.
+  it("reports the theme it paints, not the page's", () => {
+    // A scope reports the theme it PAINTS, not the page's — which is what makes a chart inside a
+    // scoped preview re-resolve its colours against the scope.
     render(
-      <KanzoThemeProvider palettes={PALETTES} storage={null} value={{ paletteByAppearance: { light: "bank" }, identity: "private" }}>
-        <KanzoTheme palette="kanzo">
+      <KanzoThemeProvider themes={PALETTES} storage={null} value={{ themeByAppearance: { light: "bank" } }}>
+        <KanzoTheme theme="kanzo">
           <Reads />
         </KanzoTheme>
       </KanzoThemeProvider>,
     );
 
-    expect(screen.getByTestId("reads").textContent).toBe("kanzo/");
+    expect(screen.getByTestId("reads").textContent).toBe("kanzo");
   });
 
   it("paints without a provider, because the cascade does not need React", () => {
     render(
-      <KanzoTheme palette="bank">
+      <KanzoTheme theme="bank">
         <Reads />
       </KanzoTheme>,
     );
 
-    expect(scope().getAttribute("data-palette")).toBe("bank");
-    expect(screen.getByTestId("reads").textContent).toBe("-/-");
+    expect(scope().getAttribute("data-theme")).toBe("bank");
+    expect(screen.getByTestId("reads").textContent).toBe("-");
   });
 
   it("writes the appearance class, following the page unless told otherwise", () => {
@@ -117,8 +110,8 @@ describe("KanzoTheme", () => {
     // selector list is what an element carrying the attribute matches by default. An island of
     // light Dracula in a dark page is not a thing anyone asked for.
     const { rerender } = render(
-      <KanzoThemeProvider palettes={PALETTES} storage={null} value={{ appearance: "dark" }}>
-        <KanzoTheme palette="bank">
+      <KanzoThemeProvider themes={PALETTES} storage={null} value={{ appearance: "dark" }}>
+        <KanzoTheme theme="bank">
           <span />
         </KanzoTheme>
       </KanzoThemeProvider>,
@@ -126,17 +119,17 @@ describe("KanzoTheme", () => {
     expect(scope().className).toBe("dark");
 
     // And pinned the other way it forces light — the direction that was impossible while `compile`
-    // emitted `.dark [data-palette="x"]` as a descendant, because the scope's `.light` tied with it
+    // emitted `.dark [data-theme="x"]` as a descendant, because the scope's `.light` tied with it
     // at (0,2,0) and the winner was decided by emit order.
     rerender(
-      <KanzoThemeProvider palettes={PALETTES} storage={null} value={{ appearance: "dark" }}>
-        <KanzoTheme appearance="light" palette="bank">
+      <KanzoThemeProvider themes={PALETTES} storage={null} value={{ appearance: "dark" }}>
+        <KanzoTheme appearance="light" theme="bank">
           <span />
         </KanzoTheme>
       </KanzoThemeProvider>,
     );
     expect(scope().className).toBe("light");
-    expect(scope().getAttribute("data-palette")).toBe("bank");
+    expect(scope().getAttribute("data-theme")).toBe("bank");
   });
 
   it("does not reach a portalled overlay, and that is the limit rather than a defect", () => {
@@ -145,13 +138,13 @@ describe("KanzoTheme", () => {
     // the PAGE's palette. Asserted with a bare portal rather than with a real Ark component so the
     // claim is about the DOM and not about one component's implementation.
     render(
-      <KanzoTheme palette="bank">
+      <KanzoTheme theme="bank">
         <span />
       </KanzoTheme>,
     );
     const portalled = document.body.appendChild(document.createElement("div"));
 
-    expect(portalled.closest("[data-palette]")).toBeNull();
-    expect(scope().closest("[data-palette]")).toBe(scope());
+    expect(portalled.closest("[data-theme]")).toBeNull();
+    expect(scope().closest("[data-theme]")).toBe(scope());
   });
 });

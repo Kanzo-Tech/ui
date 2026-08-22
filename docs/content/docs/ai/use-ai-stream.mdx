@@ -1,0 +1,121 @@
+---
+title: useAiStream
+description: The streaming engine under every AI surface — one iterator, one abort controller, one status. It never calls a model; you hand it a function returning an async iterable.
+---
+
+<ComponentPreview componentName="use-ai-stream" />
+
+## Usage
+
+```tsx
+import { useAiStream } from "@kanzo-tech/ai";
+```
+
+```tsx
+const engine = useAiStream<string>();
+
+engine.run(
+  (signal) => complete(value, signal),
+  (chunk) => append(chunk),
+);
+```
+
+It ships in [`@kanzo-tech/ai`](/docs/ai), and it is the one piece every surface in that package
+shares — the transcript, the composer and the two field affordances all pull from one iterator
+through this.
+
+<Callout type="info">
+Most of the time you want [`useInlineCompletion`](/docs/ai/use-inline-completion) or
+[`useSuggestions`](/docs/ai/use-suggestions), which are built on this and add the debounce,
+the min-length gate and the dedup. Reach for `useAiStream` to build a **third** interaction those
+two do not cover. The contract it consumes is explained once in
+[AI-assisted fields](/docs/ai/fields).
+</Callout>
+
+## What it owns
+
+Three things, and nothing else: the **iterator** currently open, the **`AbortController`** that
+cancels it, and the **status**. No markup, no value, no model.
+
+`run` takes a *factory* rather than an iterable — `(signal) => AsyncIterable<T>` — because the
+signal has to exist before the source does. Calling it aborts whatever was in flight and opens a
+fresh controller.
+
+## The engine owns the loop
+
+You do not write a pull loop, and that is the point. `run` walks the iterator itself and hands each
+value to your `each`; return `false` from it to stop early.
+
+```tsx
+let taken = 0;
+const outcome = await engine.run(source, (item) => {
+  add(item);
+  taken += 1;
+  return taken < 6; // a budget, enforced inside the run
+});
+```
+
+Stopping early aborts the source, because the source is the one holding the socket.
+
+<Callout type="warn">
+This replaced a `start` / `next` / `idle` triple where every consumer wrote the same twenty lines
+and the same abort-race protocol: capture the signal, pull, check it twice. `next()` read the
+*current* iterator, so a superseded loop could pull a chunk belonging to the run that replaced it —
+which is why every caller had to re-check a signal it had captured itself. Here the controller is a
+local of the run, so a superseded run cannot see the newer one at all.
+</Callout>
+
+## The outcome, not a second read path
+
+`run` resolves to what happened to **that run**: `"ready"`, `"error"`, or `"idle"` if it was
+cancelled or superseded. A loop outlives the render that started it, so reading `status` from the
+closure afterwards gives you the value from *before* the failure. Render from the fields, branch
+from the outcome.
+
+```tsx
+const outcome = await engine.run(source, append);
+if (outcome === "ready") finish();
+```
+
+An abort is not a failure, so it is not reported as one: only a source that throws sets `error`.
+
+## `cancel` vs `reset`
+
+| Call | In flight | Finished | Use it when |
+| --- | --- | --- | --- |
+| `cancel()` | aborted, status → `idle`, error cleared | status → `idle` | the request is dead — the user closed the surface or typed again |
+| `reset()` | untouched | status → `idle` | the answer has been consumed and asking again should be free |
+
+`cancel` clears `error` deliberately: a failure you have dismissed is not a failure still on screen.
+
+## API Reference
+
+### Parameters
+
+| Parameter | Type | Default |
+| --- | --- | --- |
+| `errorText` | `string` | `"Something went wrong"` |
+
+The fallback message written to `error` when the source throws without a message of its own.
+
+### Returns
+
+`AiStream<T>`:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `run` | `(source, each) => Promise<AiStatus>` | Open the source and pull it to the end; `each` returning `false` stops early. Supersedes anything in flight |
+| `cancel` | `() => void` | Abort, back to `idle`, error cleared |
+| `reset` | `() => void` | Forget a finished answer; a live stream is untouched |
+| `status` | `AiStatus` | `"idle" \| "loading" \| "ready" \| "error"` |
+| `error` | `string \| null` | Message when `status` is `"error"` |
+
+`source` is `(signal: AbortSignal) => AsyncIterable<T>` and `each` is
+`(value: T) => boolean | void`.
+
+`AiStatus` is one union for the engine, both hooks and
+[`PromptInputSubmit`](/docs/ai/prompt-input). `ready` means a run finished — with something or with
+nothing, which is the distinction a status plus a `loading` boolean could never draw.
+
+The hook aborts its controller on unmount, so a stream cannot outlive the component that started
+it.

@@ -1,0 +1,23 @@
+---
+title: Pane header
+description: A panel's own header — what the panel is, a control over its document, and how it is doing.
+---
+
+<ComponentPreview componentName="pane-header" />
+
+`h-9`, which is the height of the page header's own row and of every strip on either screen. A
+panel header that sets its own height is how two screens end up looking like two products; this
+one was `h-9` in one showcase and `h-12` in the other before it was named.
+
+**`actions` is for a control over *this* panel's document** — the shape switcher, the
+standing-orders switcher. A control that acts on the whole page belongs in the page header; one
+that replaces the document a panel is showing belongs here, against the document.
+
+The status dot and the detail sit at the reading end, together, because they are one sentence
+about the same thing: what is loaded and whether it is well.
+
+## Where it comes from
+
+```tsx
+import { PaneHeader } from "@/showcases/shared";
+```

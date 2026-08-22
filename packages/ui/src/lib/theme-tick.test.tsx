@@ -1,6 +1,6 @@
 import { act, render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import type { PaletteOption, ThemePrefs } from "@kanzo-tech/theme";
+import type { ThemeOption, ThemePrefs } from "@kanzo-tech/theme";
 import { KanzoThemeProvider, useKanzoTheme } from "../theme/KanzoThemeProvider.js";
 import { useThemeTick } from "./theme-tick.js";
 
@@ -14,7 +14,7 @@ import { useThemeTick } from "./theme-tick.js";
  * this counter moves, so a tick that misses the palette leaves it painting a brand nobody selected.
  */
 describe("useThemeTick", () => {
-  const PALETTES: PaletteOption[] = [
+  const PALETTES: ThemeOption[] = [
     { value: "kanzo", label: "Kanzo" },
     { value: "dracula", label: "Dracula" },
   ];
@@ -28,7 +28,7 @@ describe("useThemeTick", () => {
       return null;
     }
     render(
-      <KanzoThemeProvider palettes={PALETTES} storage={null}>
+      <KanzoThemeProvider themes={PALETTES} storage={null}>
         <Probe />
       </KanzoThemeProvider>,
     );
@@ -39,10 +39,10 @@ describe("useThemeTick", () => {
     const t = mount();
     const before = t.ticks.at(-1);
 
-    t.set({ paletteByAppearance: { light: "dracula" } });
+    t.set({ themeByAppearance: { light: "dracula" } });
 
     expect(t.ticks.at(-1)).not.toBe(before);
-    // `data-palette` is written to the root now — palette became an axis like any other when the
+    // `data-theme` is written to the root now — palette became an axis like any other when the
     // reference tier landed and `compile` started emitting one document per attribute. This
     // assertion used to read `hasAttribute(...) === false`, and it was the argument for why a
     // MutationObserver on the root could never be enough.
@@ -51,7 +51,7 @@ describe("useThemeTick", () => {
     // a document is swapped in `<head>`, every token underneath changes value, and the root is
     // untouched by that. The test below — a `<style>` arriving late — is the one that holds it,
     // and this one now only claims the tick fires, not that nothing moved.
-    expect(document.documentElement.getAttribute("data-palette")).toBe("dracula");
+    expect(document.documentElement.getAttribute("data-theme")).toBe("dracula");
   });
 
   it("stays put when a preference that is not colour changes", () => {
@@ -60,9 +60,9 @@ describe("useThemeTick", () => {
     const t = mount();
     const before = t.ticks.at(-1);
 
-    t.set({ paletteByAppearance: { light: "dracula" } });
+    t.set({ themeByAppearance: { light: "dracula" } });
     const afterPalette = t.ticks.at(-1);
-    t.set({ paletteByAppearance: { light: "dracula" } });
+    t.set({ themeByAppearance: { light: "dracula" } });
 
     expect(afterPalette).not.toBe(before);
     expect(t.ticks.at(-1)).toBe(afterPalette);

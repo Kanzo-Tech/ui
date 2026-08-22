@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { parseDate, type DateValue } from "@internationalized/date";
 import { clausePoints } from "@uwdata/mosaic-core";
 import { desc, sql } from "@uwdata/mosaic-sql";
@@ -21,9 +28,6 @@ import {
   ComboboxEmpty,
   ComboboxInput,
   ComboboxItem,
-  CompleteHint,
-  CompleteRoot,
-  CompleteTextarea,
   DataList,
   DataListItem,
   DataListItemLabel,
@@ -38,9 +42,7 @@ import {
   Input,
   InputGroup,
   InputGroupAddon,
-  InputGroupButton,
   InputGroupInput,
-  InputGroupTextarea,
   Select,
   SelectContent,
   SelectItem,
@@ -55,9 +57,6 @@ import {
   Show,
   Status,
   Skeleton,
-  SuggestContent,
-  SuggestRoot,
-  SuggestTrigger,
   Swatch,
   TagsInput,
   TagsInputContext,
@@ -71,8 +70,31 @@ import {
   useFilter,
   useListCollection,
   useChartCapacity,
-  type Suggestion,
 } from "@kanzo-tech/ui";
+import {
+  CompleteHint,
+  CompleteRoot,
+  CompleteTextarea,
+  Conversation,
+  ConversationContent,
+  ConversationEmpty,
+  ConversationScrollButton,
+  Message,
+  MessageContent,
+  MessageList,
+  PromptInput,
+  PromptInputSubmit,
+  PromptInputTextarea,
+  PromptInputToolbar,
+  Reasoning,
+  ReasoningContent,
+  ReasoningTrigger,
+  SuggestList,
+  SuggestMark,
+  SuggestRoot,
+  type Suggestion,
+  type InlineCompletionRequest,
+} from "@kanzo-tech/ai";
 import {
   Query,
   chartSeriesColor,
@@ -85,7 +107,7 @@ import {
   MaximizeIcon,
   RotateCcwIcon,
   SearchIcon,
-  SendIcon,
+  SparklesIcon,
   PlusIcon,
   UploadCloudIcon,
   XIcon,
@@ -146,7 +168,12 @@ import { Finding } from "./graph-finding";
  */
 
 export { GraphMosaic, KINDS } from "./graph-state";
-export { GraphCanvas, GraphSelection, GraphToolbar, GraphZoom } from "./graph-canvas";
+export {
+  GraphCanvas,
+  GraphSelection,
+  GraphToolbar,
+  GraphZoom,
+} from "./graph-canvas";
 
 // A SHACL bound is a plain ISO string — that is what compiles to SQL and what a Turtle document
 // carries — while `DatePicker` speaks `DateValue`. These two are the whole seam.
@@ -176,7 +203,10 @@ function IsoDateInput({
       positioning={{ placement: "bottom-end" }}
       value={toDateValues(value)}
     >
-      <DatePickerInput aria-invalid={invalid || undefined} aria-label={ariaLabel} />
+      <DatePickerInput
+        aria-invalid={invalid || undefined}
+        aria-label={ariaLabel}
+      />
       <DatePickerContent>
         <CalendarView view="day">
           <CalendarViewControl>
@@ -241,7 +271,9 @@ function LegendRows() {
             .where(filter)
             .groupby(spec.categoryField),
   });
-  const tally = new Map((rows ?? []).map((row) => [String(row.kind), Number(row.n)]));
+  const tally = new Map(
+    (rows ?? []).map((row) => [String(row.kind), Number(row.n)])
+  );
 
   return (
     <ul className="space-y-1">
@@ -250,7 +282,7 @@ function LegendRows() {
           <LegendSwatch kind={kind} />
           <span>{series.label}</span>
           <span className="ms-auto ps-4 text-muted-foreground tabular-nums">
-            {rows === null ? "—" : (tally.get(kind) ?? 0)}
+            {rows === null ? "—" : tally.get(kind) ?? 0}
           </span>
         </li>
       ))}
@@ -286,16 +318,23 @@ function CountRow() {
   const { spec } = useGraphView();
   const nodes = useChartQuery({
     deps: [spec],
-    query: (filter) => (spec === null ? null : Query.from(spec.table).select({ n: count() }).where(filter)),
+    query: (filter) =>
+      spec === null
+        ? null
+        : Query.from(spec.table).select({ n: count() }).where(filter),
   });
   const total = useChartQuery({
     filterBy: null,
     deps: [spec],
-    query: () => (spec === null ? null : Query.from(spec.table).select({ n: count() })),
+    query: () =>
+      spec === null ? null : Query.from(spec.table).select({ n: count() }),
   });
   const edges = useChartQuery({
     deps: [spec],
-    query: (filter) => (spec === null ? null : Query.from(spec.edges).select({ n: count() }).where(filter)),
+    query: (filter) =>
+      spec === null
+        ? null
+        : Query.from(spec.edges).select({ n: count() }).where(filter),
   });
 
   const shown = Number(nodes.row?.n ?? 0);
@@ -305,7 +344,9 @@ function CountRow() {
 
   return (
     <>
-      {shown === all ? all.toLocaleString() : `${shown.toLocaleString()} of ${all.toLocaleString()}`}{" "}
+      {shown === all
+        ? all.toLocaleString()
+        : `${shown.toLocaleString()} of ${all.toLocaleString()}`}{" "}
       nodes · {links.toLocaleString()} edges
     </>
   );
@@ -318,7 +359,10 @@ function CountRow() {
  * leaving either unlabelled — or only ever showing "settling…" — makes the canvas ambiguous exactly
  * when the reader is wondering whether it is stuck.
  */
-const MOTION: Record<Motion, { dot: "info" | "success" | "warning"; label: string }> = {
+const MOTION: Record<
+  Motion,
+  { dot: "info" | "success" | "warning"; label: string }
+> = {
   running: { dot: "info", label: "Settling" },
   settled: { dot: "success", label: "Settled" },
   paused: { dot: "warning", label: "Paused" },
@@ -399,11 +443,16 @@ const columnsOf = (spec: GraphSpec) => ({
  */
 function properties(node: NodeRow): { predicate: string; value: string }[] {
   const rows = [{ predicate: "kind", value: text(node.kind) }];
-  if (node.hall) rows.push({ predicate: "hall", value: hallName(text(node.hall)) });
+  if (node.hall)
+    rows.push({ predicate: "hall", value: hallName(text(node.hall)) });
   if (node.region) rows.push({ predicate: "region", value: text(node.region) });
   if (node.signed) rows.push({ predicate: "signed", value: text(node.signed) });
   if (node.closed) rows.push({ predicate: "closed", value: text(node.closed) });
-  if (node.tags) rows.push({ predicate: "tags", value: text(node.tags).split("|").join(", ") });
+  if (node.tags)
+    rows.push({
+      predicate: "tags",
+      value: text(node.tags).split("|").join(", "),
+    });
   rows.push({ predicate: "links", value: text(node.degree) });
   return rows;
 }
@@ -442,9 +491,14 @@ function InspectorBody() {
   });
 
   const rows = selection.rows;
-  if (spec === null || rows === null) return <Skeleton className="h-24 w-full" />;
+  if (spec === null || rows === null)
+    return <Skeleton className="h-24 w-full" />;
   if (rows.length === 0) {
-    return <p className="text-muted-foreground text-xs">Nothing in the current selection.</p>;
+    return (
+      <p className="text-muted-foreground text-xs">
+        Nothing in the current selection.
+      </p>
+    );
   }
 
   const all = rows as unknown as NodeRow[];
@@ -486,8 +540,12 @@ function InspectorBody() {
       <DataList orientation="vertical">
         {properties(head).map((p) => (
           <DataListItem className="gap-0.5 py-0" key={p.predicate}>
-            <DataListItemLabel className="text-xs">{p.predicate}</DataListItemLabel>
-            <DataListItemValue className="break-all">{p.value}</DataListItemValue>
+            <DataListItemLabel className="text-xs">
+              {p.predicate}
+            </DataListItemLabel>
+            <DataListItemValue className="break-all">
+              {p.value}
+            </DataListItemValue>
           </DataListItem>
         ))}
       </DataList>
@@ -512,7 +570,9 @@ function InspectorBody() {
                   // A px floor is the one size in this file that must NOT scale, because the bar
                   // it answers to does not. `decisions/density-has-no-legibility-floor.md`.
                   className="flex min-h-[24px] w-full items-center gap-2 rounded-sm px-1 py-0.5 text-start text-xs hover:bg-accent"
-                  onClick={() => commands.reveal(vertexId(spec.typeIndex, node.id))}
+                  onClick={() =>
+                    commands.reveal(vertexId(spec.typeIndex, node.id))
+                  }
                   type="button"
                 >
                   <Swatch
@@ -565,7 +625,11 @@ function ArchiveSearch() {
       spec === null
         ? null
         : Query.from(spec.table)
-            .select({ id: spec.idField, label: spec.labelField, kind: spec.categoryField })
+            .select({
+              id: spec.idField,
+              label: spec.labelField,
+              kind: spec.categoryField,
+            })
             .orderby(desc(spec.sizeField)),
   });
 
@@ -576,7 +640,7 @@ function ArchiveSearch() {
         value: String(row.id),
         kind: String(row.kind),
       })),
-    [rows],
+    [rows]
   );
 
   const { contains } = useFilter({ sensitivity: "base" });
@@ -602,7 +666,7 @@ function ArchiveSearch() {
         crossfilter.update(
           clausePoints(["id"], picked ? [[Number(picked)]] : undefined, {
             source: source.current,
-          }),
+          })
         );
       }}
     >
@@ -639,7 +703,11 @@ export function GraphInspector() {
             <InputGroupAddon align="inline-start">
               <SearchIcon className="size-3.5" />
             </InputGroupAddon>
-            <InputGroupInput disabled placeholder="Search the archive…" size="sm" />
+            <InputGroupInput
+              disabled
+              placeholder="Search the archive…"
+              size="sm"
+            />
           </InputGroup>
         )}
       </div>
@@ -676,15 +744,20 @@ const SEVERITY_LABEL: Record<Severity, string> = {
 
 // Built once, outside the component: a collection rebuilt every render gives the Select a new
 // identity on each keystroke elsewhere in the panel.
-const of = (values: readonly string[], label: (v: string) => string = (v) => v) =>
-  createListCollection({ items: values.map((value) => ({ label: label(value), value })) });
+const of = (
+  values: readonly string[],
+  label: (v: string) => string = (v) => v
+) =>
+  createListCollection({
+    items: values.map((value) => ({ label: label(value), value })),
+  });
 
 const TARGETS_LIST = of(SUPPORTED_TARGETS);
 const PATHS_LIST = of(SUPPORTED_PATHS);
 const KINDS_LIST = of(CONSTRAINT_KINDS);
 const SEVERITY_LIST = of(
   Object.keys(SEVERITY_LABEL) as Severity[],
-  (v) => SEVERITY_LABEL[v as Severity],
+  (v) => SEVERITY_LABEL[v as Severity]
 );
 
 /** One row of the sentence: a connective and the control that completes it. */
@@ -706,18 +779,25 @@ function RulePart({
 }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span className="w-16 shrink-0 text-end text-muted-foreground text-xs">{label}</span>
+      <span className="w-16 shrink-0 text-end text-muted-foreground text-xs">
+        {label}
+      </span>
       <Select
         className="min-w-0 flex-1"
         collection={collection}
-        onValueChange={(details) => details.value[0] && onChange(details.value[0])}
+        onValueChange={(details) =>
+          details.value[0] && onChange(details.value[0])
+        }
         positioning={{ sameWidth: true }}
         value={[value]}
       >
         {/* Mono for the term, sans for the connective: a property is a word out of the document and
             the list below already sets it that way, so a sans-serif `closed` in the form and a mono
             one in the list read as two different things. */}
-        <SelectTrigger aria-label={label} className={cn("h-8 w-full text-xs", mono && "font-mono")}>
+        <SelectTrigger
+          aria-label={label}
+          className={cn("h-8 w-full text-xs", mono && "font-mono")}
+        >
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -757,7 +837,7 @@ function OrderBuilder({
   // One constraint of a kind per property, because that is all the document can say apart: a second
   // `at least` on the same property would compile to an order with the same identity as the first.
   const duplicate = rules.some(
-    (rule) => rule.target === target && rule.path === path && rule.kind === kind,
+    (rule) => rule.target === target && rule.path === path && rule.kind === kind
   );
   // Two different reasons Add can be off, and the field only owns one of them: marking the value
   // invalid because the PROPERTY already has this constraint would blame the wrong control.
@@ -765,7 +845,8 @@ function OrderBuilder({
   const valid = valueOk && !duplicate;
   /** A bound on a date column is a date — the only place the control needs the property's datatype. */
   const isDateBound =
-    pathDatatype(path) === "date" && (kind === "not before" || kind === "not after");
+    pathDatatype(path) === "date" &&
+    (kind === "not before" || kind === "not after");
 
   return (
     <div className="space-y-1.5 border-t pt-3">
@@ -779,8 +860,18 @@ function OrderBuilder({
           that colour was the surface underneath. Solid `--muted` is step 3, a component's normal
           surface, and clears the card by ΔE 3.30 / 3.22. */}
       <div className="space-y-1.5 rounded-md border bg-muted p-2">
-        <RulePart collection={TARGETS_LIST} label="Every" onChange={setTarget} value={target} />
-        <RulePart collection={PATHS_LIST} label="must have" onChange={setPath} value={path} />
+        <RulePart
+          collection={TARGETS_LIST}
+          label="Every"
+          onChange={setTarget}
+          value={target}
+        />
+        <RulePart
+          collection={PATHS_LIST}
+          label="must have"
+          onChange={setPath}
+          value={path}
+        />
         <RulePart
           collection={KINDS_LIST}
           label="checked by"
@@ -810,7 +901,11 @@ function OrderBuilder({
                   <TagsInputContext>
                     {(api) =>
                       api.value.map((entry, index) => (
-                        <TagsInputItem index={index} key={`${entry}-${index}`} value={entry}>
+                        <TagsInputItem
+                          index={index}
+                          key={`${entry}-${index}`}
+                          value={entry}
+                        >
                           <TagsInputItemPreview>
                             <TagsInputItemText>{entry}</TagsInputItemText>
                             <TagsInputItemDeleteTrigger />
@@ -919,7 +1014,10 @@ function OrdersBody() {
   const [fileName, setFileName] = useState("amber-hall.orders");
   const [showSource, setShowSource] = useState(false);
 
-  const { orders, unsupported, errors } = useMemo(() => compileOrders(source), [source]);
+  const { orders, unsupported, errors } = useMemo(
+    () => compileOrders(source),
+    [source]
+  );
 
   // The same document, read as rules the builder can write back. `exact` is what makes editing
   // safe: regenerating the file drops whatever the builder could not read, so when anything would
@@ -950,8 +1048,11 @@ function OrdersBody() {
           // aggregate is the only SQL written here, and `s.failing` arrives already built.
           Query.from(spec.table).select(
             Object.fromEntries(
-              orders.map((s, i) => [`c${i}`, sql`count(*) FILTER (WHERE ${s.failing})`]),
-            ),
+              orders.map((s, i) => [
+                `c${i}`,
+                sql`count(*) FILTER (WHERE ${s.failing})`,
+              ])
+            )
           ),
   });
 
@@ -959,7 +1060,10 @@ function OrdersBody() {
   /** No row yet: the counts are being queried, not zero. */
   const pending = row === undefined;
   const total = (severity: Severity) =>
-    orders.reduce((n, s, i) => (s.severity === severity ? n + countOf(i) : n), 0);
+    orders.reduce(
+      (n, s, i) => (s.severity === severity ? n + countOf(i) : n),
+      0
+    );
   const violations = total("violation");
   const warnings = total("warning");
 
@@ -974,7 +1078,7 @@ function OrdersBody() {
   const failingIds = async (order: Order) => {
     if (spec === null) return [];
     const data = await coordinator.query(
-      Query.from(spec.table).select({ id: spec.idField }).where(order.failing),
+      Query.from(spec.table).select({ id: spec.idField }).where(order.failing)
     );
     return numbers(data, "id");
   };
@@ -1011,7 +1115,9 @@ function OrdersBody() {
         </FileUpload>
 
         <div className="flex items-center gap-2">
-          <code className="truncate font-mono text-[10px] text-muted-foreground">{fileName}</code>
+          <code className="truncate font-mono text-[10px] text-muted-foreground">
+            {fileName}
+          </code>
           <Button
             className="ms-auto h-6 shrink-0 text-xs"
             onClick={() => setShowSource((open) => !open)}
@@ -1061,7 +1167,10 @@ function OrdersBody() {
           <p className="text-xs">
             <span className="text-destructive">{violations} violations</span>
             <Show when={warnings > 0}>
-              <span className="text-muted-foreground"> · {warnings} warnings</span>
+              <span className="text-muted-foreground">
+                {" "}
+                · {warnings} warnings
+              </span>
             </Show>
           </p>
         )}
@@ -1090,7 +1199,8 @@ function OrdersBody() {
                         // the border band — for 2.03:1 in light and 2.26:1 in dark. Solid
                         // `--muted-foreground` is step 11: 9.19 / 8.37.
                         pending && "bg-muted-foreground",
-                        !pending && (clean ? "bg-success" : SEVERITY_DOT[order.severity]),
+                        !pending &&
+                          (clean ? "bg-success" : SEVERITY_DOT[order.severity])
                       )}
                     />
                     <code className="font-mono text-[10px] text-muted-foreground">
@@ -1099,7 +1209,7 @@ function OrdersBody() {
                     <span
                       className={cn(
                         "ms-auto text-xs tabular-nums",
-                        pending && "text-muted-foreground",
+                        pending && "text-muted-foreground"
                       )}
                     >
                       {pending ? "…" : clean ? "✓" : n}
@@ -1136,7 +1246,10 @@ function OrdersBody() {
               Read-only — this file says more than the builder can write
             </p>
             {lost.map((message) => (
-              <p className="font-mono text-[10px] text-muted-foreground" key={message}>
+              <p
+                className="font-mono text-[10px] text-muted-foreground"
+                key={message}
+              >
                 {message}
               </p>
             ))}
@@ -1189,7 +1302,10 @@ function OrdersBody() {
  * a key, `KbdGroup` for a chord.
  */
 const GESTURES: { keys: ReactNode; what: string }[] = [
-  { keys: <Kbd>Drag</Kbd>, what: "Pan the canvas — or pin a node where you drop it, if you grab one" },
+  {
+    keys: <Kbd>Drag</Kbd>,
+    what: "Pan the canvas — or pin a node where you drop it, if you grab one",
+  },
   { keys: <Kbd>Wheel</Kbd>, what: "Zoom where you point" },
   { keys: <Kbd>Click</Kbd>, what: "Focus a node together with its neighbours" },
   {
@@ -1203,7 +1319,10 @@ const GESTURES: { keys: ReactNode; what: string }[] = [
   },
   { keys: <Kbd>⌘ / Ctrl</Kbd>, what: "Add what you draw to the selection" },
   { keys: <Kbd>Alt</Kbd>, what: "Remove it from the selection instead" },
-  { keys: <Kbd>Esc</Kbd>, what: "Back out — the drag, then the tool, then the selection" },
+  {
+    keys: <Kbd>Esc</Kbd>,
+    what: "Back out — the drag, then the tool, then the selection",
+  },
 ];
 
 /**
@@ -1219,7 +1338,12 @@ const GESTURES: { keys: ReactNode; what: string }[] = [
  * one scale the buffers, the hover card and the legend already share. That is what stops the card
  * promising a picture the canvas does not paint.
  */
-const PREVIEW_NODES: { x: number; y: number; ordinal: number; degree: number }[] = [
+const PREVIEW_NODES: {
+  x: number;
+  y: number;
+  ordinal: number;
+  degree: number;
+}[] = [
   { x: 22, y: 20, ordinal: 0, degree: 1 },
   { x: 58, y: 8, ordinal: 1, degree: 0.3 },
   { x: 58, y: 32, ordinal: 1, degree: 0.3 },
@@ -1249,7 +1373,15 @@ const PREVIEW_EDGES: [number, number][] = [
  */
 const PREVIEW_SCALE = 0.55;
 
-function LookPreview({ channels, id, look }: { channels: Channels; id: string; look: Look }) {
+function LookPreview({
+  channels,
+  id,
+  look,
+}: {
+  channels: Channels;
+  id: string;
+  look: Look;
+}) {
   const scale = scaleOf(channels);
   const radius = (degree: number) => {
     const [min, max] = look.size;
@@ -1301,7 +1433,9 @@ function LookPreview({ channels, id, look }: { channels: Channels; id: string; l
             key={i}
             // `SHAPE_PATH` draws inside a 12-unit box, so a glyph of radius `r` is that box moved
             // to the vertex and scaled to `2r`.
-            transform={`translate(${node.x - r} ${node.y - r}) scale(${(r * 2) / 12})`}
+            transform={`translate(${node.x - r} ${node.y - r}) scale(${
+              (r * 2) / 12
+            })`}
           />
         );
       })}
@@ -1311,8 +1445,16 @@ function LookPreview({ channels, id, look }: { channels: Channels; id: string; l
         <>
           <defs>
             <radialGradient id={`look-vignette-${id}`}>
-              <stop offset="55%" stopColor="var(--background)" stopOpacity="0" />
-              <stop offset="100%" stopColor="var(--background)" stopOpacity="0.85" />
+              <stop
+                offset="55%"
+                stopColor="var(--background)"
+                stopOpacity="0"
+              />
+              <stop
+                offset="100%"
+                stopColor="var(--background)"
+                stopOpacity="0.85"
+              />
             </radialGradient>
           </defs>
           <rect fill={`url(#look-vignette-${id})`} height="40" width="208" />
@@ -1347,7 +1489,7 @@ export function GraphAppearance() {
               "w-full rounded-md border p-2 text-start transition-colors",
               arrangement === id
                 ? "border-primary bg-accent/40"
-                : "border-border hover:bg-accent/20",
+                : "border-border hover:bg-accent/20"
             )}
             key={id}
             onClick={() => wear(id)}
@@ -1358,7 +1500,9 @@ export function GraphAppearance() {
                 Keeping the full width is what lets the miniature be a graph rather than a
                 thumbnail of one. */}
             <LookPreview channels={PAIRINGS[id]} id={id} look={LOOKS[id]} />
-            <span className="mt-1.5 block font-medium text-xs">{LOOK_LABEL[id]}</span>
+            <span className="mt-1.5 block font-medium text-xs">
+              {LOOK_LABEL[id]}
+            </span>
             <span className="mt-0.5 block text-[10px] text-muted-foreground leading-relaxed">
               {LOOK_BLURB[id]}
             </span>
@@ -1375,7 +1519,15 @@ export function GraphAppearance() {
           `only` is what lets one section have two homes: the picture here, the forces in the dock. */}
       <PreferencesSections
         namespace="graph"
-        only={["marks", "links", "labels", "additive-links", "bowed-links", "vignette", "grid"]}
+        only={[
+          "marks",
+          "links",
+          "labels",
+          "additive-links",
+          "bowed-links",
+          "vignette",
+          "grid",
+        ]}
       />
     </div>
   );
@@ -1411,17 +1563,23 @@ export function GraphSettings() {
             <PreferencesSections namespace="graph" only={[CLUSTER]} />
             <p className="text-[11px] text-muted-foreground leading-relaxed">
               Pulls each node toward its{" "}
-              <code className="font-mono">{spec?.groupLabel ?? spec?.groupField}</code>. A node with no
-              value there belongs to no cluster, so anything shared drifts between the groups it
-              joins.
+              <code className="font-mono">
+                {spec?.groupLabel ?? spec?.groupField}
+              </code>
+              . A node with no value there belongs to no cluster, so anything
+              shared drifts between the groups it joins.
             </p>
           </Show>
-
         </div>
 
         <div className="space-y-2 border-t pt-3">
           <p className="font-medium text-muted-foreground text-xs">Camera</p>
-          <Button className="w-full" onClick={() => commands.fit()} size="sm" variant="outline">
+          <Button
+            className="w-full"
+            onClick={() => commands.fit()}
+            size="sm"
+            variant="outline"
+          >
             <MaximizeIcon />
             Fit to view
           </Button>
@@ -1433,7 +1591,9 @@ export function GraphSettings() {
             {GESTURES.map((gesture) => (
               <div className="flex items-baseline gap-2" key={gesture.what}>
                 <dt className="shrink-0">{gesture.keys}</dt>
-                <dd className="text-[11px] text-muted-foreground leading-snug">{gesture.what}</dd>
+                <dd className="text-[11px] text-muted-foreground leading-snug">
+                  {gesture.what}
+                </dd>
               </div>
             ))}
           </dl>
@@ -1471,10 +1631,13 @@ export function GraphSettings() {
  * "Focus" publishes the matching ids into the crossfilter and the canvas lights them up. Nothing
  * here pretends to have understood anything it did not.
  *
- * What it does demonstrate for real is the library's AI compounds: `SuggestRoot` streaming candidate
- * questions with their rationale, and `CompleteRoot` ghosting a continuation that Tab accepts. Both
- * take an async generator, which is exactly what a real model gives you — swapping the fake for a
- * stream from the API means changing these two functions and nothing else.
+ * What it does demonstrate for real is `@kanzo-tech/ai`: a `Conversation` that keeps the pin only
+ * while the reader is at the tail, `Message` per turn, `Reasoning` for how the count was reached,
+ * and `PromptInput` for the composer — Enter submits, Shift+Enter is the newline. Around them,
+ * `SuggestRoot` streams candidate questions with their rationale and `CompleteRoot` ghosts a
+ * continuation that Tab accepts. Both take an async generator, which is exactly what a real model
+ * gives you — swapping the fake for a stream from the API means changing these two functions and
+ * nothing else.
  */
 interface Intent {
   id: string;
@@ -1501,48 +1664,61 @@ const INTENTS: Intent[] = [
     id: "orphan",
     match: ["orphan", "unused", "tag", "lonely", "only one contract"],
     question: "Are there tags only one contract carries?",
-    answer: (n) => `${n} tags were used once and never again — a vocabulary of one.`,
+    answer: (n) =>
+      `${n} tags were used once and never again — a vocabulary of one.`,
     failing: "kind = 'tag' AND degree < 2",
   },
   {
     id: "filed",
     match: ["report", "filed", "who wrote", "cantor", "sapper", "alchemist"],
     question: "Which reports were filed by someone the orders do not send?",
-    answer: (n) => `${n} field reports were filed by a role other than a warden, archivist or scout.`,
-    failing: "kind = 'report' AND label NOT IN ('warden', 'archivist', 'scout')",
+    answer: (n) =>
+      `${n} field reports were filed by a role other than a warden, archivist or scout.`,
+    failing:
+      "kind = 'report' AND label NOT IN ('warden', 'archivist', 'scout')",
   },
   {
     id: "hubs",
     match: ["hub", "connected", "busiest", "central", "biggest", "most work"],
     question: "What holds the archive together?",
-    answer: (n) => `${n} nodes touch 60 others or more — the members, regions and tags everything hangs off.`,
+    answer: (n) =>
+      `${n} nodes touch 60 others or more — the members, regions and tags everything hangs off.`,
     failing: "degree >= 60",
   },
   {
     id: "hall",
     match: ["amber", "hall", "tenant", "whose"],
     question: "How much of this is the Amber Hall's?",
-    answer: (n) => `${n} nodes sit on the Amber Hall's arc — its contracts and their field reports.`,
+    answer: (n) =>
+      `${n} nodes sit on the Amber Hall's arc — its contracts and their field reports.`,
     failing: "hall = 'amber'",
   },
 ];
 
 /** Candidate questions, streamed the way a model would hand them over. */
-async function* askSuggestions(signal?: AbortSignal): AsyncIterable<Suggestion> {
+async function* askSuggestions(
+  signal?: AbortSignal
+): AsyncIterable<Suggestion> {
   for (const intent of INTENTS) {
     await new Promise((resolve) => setTimeout(resolve, 180));
     if (signal?.aborted) return;
-    yield { value: intent.question, rationale: `Answered by one count over the node relation.` };
+    yield {
+      value: intent.question,
+      rationale: `Answered by one count over the node relation.`,
+    };
   }
 }
 
 /** The ghost continuation. Canned, and only ever offered for a prefix it recognises. */
-async function* completeQuestion(value: string, signal?: AbortSignal) {
-  const typed = value.trim().toLowerCase();
+async function* completeQuestion({ value, position, signal }: InlineCompletionRequest) {
+  // What is being continued is what comes BEFORE the caret, not the whole value.
+  const typed = value.slice(0, position).trim().toLowerCase();
   if (typed.length < 3) return;
-  const hit = INTENTS.find((intent) => intent.question.toLowerCase().startsWith(typed));
+  const hit = INTENTS.find((intent) =>
+    intent.question.toLowerCase().startsWith(typed)
+  );
   if (!hit) return;
-  for (const chunk of hit.question.slice(value.length).split(/(?<=\s)/)) {
+  for (const chunk of hit.question.slice(position).split(/(?<=\s)/)) {
     await new Promise((resolve) => setTimeout(resolve, 40));
     if (signal?.aborted) return;
     yield chunk;
@@ -1555,9 +1731,15 @@ async function* completeQuestion(value: string, signal?: AbortSignal) {
  */
 function match(question: string): Intent | null {
   const asked = question.trim().toLowerCase();
-  const offered = INTENTS.find((intent) => intent.question.toLowerCase() === asked);
+  const offered = INTENTS.find(
+    (intent) => intent.question.toLowerCase() === asked
+  );
   if (offered) return offered;
-  return INTENTS.find((intent) => intent.match.some((word) => asked.includes(word))) ?? null;
+  return (
+    INTENTS.find((intent) =>
+      intent.match.some((word) => asked.includes(word))
+    ) ?? null
+  );
 }
 
 export function GraphAsk() {
@@ -1572,137 +1754,190 @@ export function GraphAsk() {
   return <AskBody />;
 }
 
-interface Answer {
-  intent: Intent;
-  count: number;
+/** One question and the answer it produced. `count` stays null while the query is in flight. */
+interface Exchange {
+  id: number;
+  question: string;
+  /** Null when nothing matched — the panel says so rather than inventing an answer. */
+  intent: Intent | null;
+  count: number | null;
+}
+
+/**
+ * The assistant half of one exchange: why this intent, then the count as something to press.
+ *
+ * `Reasoning` carries the match and the predicate. They used to sit in the answer card as a
+ * truncated `<code>` line, which put the machinery and the offer in the same box — the predicate is
+ * how the number was reached, and a reader wants it once, not under every answer forever.
+ */
+function AskAnswer(props: { turn: Exchange }) {
+  const { intent, count: found } = props.turn;
+  const { coordinator } = useMosaic();
+  const { spec } = useGraphView();
+
+  if (!intent) {
+    return (
+      <p className="text-warning text-xs">
+        That one is outside what this fake stream knows. Try the ✨ suggestions.
+      </p>
+    );
+  }
+
+  // Unfiltered for the same reason `failingIds` is: an answer that produces a selection cannot be a
+  // function of the selection.
+  const matchingIds = async () => {
+    if (spec === null) return [];
+    const data = await coordinator.query(
+      Query.from(spec.table).select({ id: spec.idField }).where(intent.failing)
+    );
+    return numbers(data, "id");
+  };
+
+  return (
+    <>
+      <Reasoning streaming={found === null}>
+        <ReasoningTrigger />
+        <ReasoningContent className="text-xs">
+          {`Read as “${intent.question}”, which one count over the node relation answers:\n${intent.failing}`}
+        </ReasoningContent>
+      </Reasoning>
+
+      {/* `&&` and not `Show`: the branch dereferences a count that may not be there yet. */}
+      {found !== null && (
+        // The answer IS the control, the same way a rule is. A count you can act on should not
+        // need a second widget to say so.
+        <Finding
+          disabled={found === 0}
+          label={intent.question}
+          load={matchingIds}
+          source="ask"
+        >
+          <span className="flex items-baseline gap-2">
+            <span className="flex-1 text-xs leading-relaxed">
+              {intent.answer(found)}
+            </span>
+            <span className="shrink-0 font-medium text-xs tabular-nums">
+              {found}
+            </span>
+          </span>
+        </Finding>
+      )}
+    </>
+  );
 }
 
 function AskBody() {
   const { coordinator } = useMosaic();
   const { spec } = useGraphView();
   const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState<Answer | null>(null);
-  const [missed, setMissed] = useState(false);
+  const [turns, setTurns] = useState<Exchange[]>([]);
   const [busy, setBusy] = useState(false);
+  const nextTurn = useRef(0);
 
   const submit = async (asked: string) => {
-    const intent = match(asked);
-    setAnswer(null);
-    setMissed(intent === null);
-    if (!intent) return;
+    const text = asked.trim();
+    if (text.length === 0 || busy) return;
+    const id = nextTurn.current++;
+    const intent = match(text);
+    setQuestion("");
+    setTurns((prev) => [...prev, { id, question: text, intent, count: null }]);
+    if (!intent || spec === null) return;
     setBusy(true);
-    if (spec === null) return;
-    const data = await coordinator.query(
-      Query.from(spec.table).select({ n: count() }).where(intent.failing),
-    );
-    const rows = Array.from(data as Iterable<Record<string, unknown>>);
-    setAnswer({ intent, count: Number(rows[0]?.n ?? 0) });
-    setBusy(false);
-  };
-
-  // Unfiltered for the same reason `failingIds` is: an answer that produces a selection cannot be a
-  // function of the selection.
-  const matchingIds = async (intent: Intent) => {
-    if (spec === null) return [];
-    const data = await coordinator.query(
-      Query.from(spec.table).select({ id: spec.idField }).where(intent.failing),
-    );
-    return numbers(data, "id");
+    try {
+      const data = await coordinator.query(
+        Query.from(spec.table).select({ n: count() }).where(intent.failing)
+      );
+      const rows = Array.from(data as Iterable<Record<string, unknown>>);
+      const found = Number(rows[0]?.n ?? 0);
+      setTurns((prev) =>
+        prev.map((turn) => (turn.id === id ? { ...turn, count: found } : turn))
+      );
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <div className="flex h-full flex-col">
-      <ScrollArea className="min-h-0 flex-1 p-3">
-        <div className="space-y-3">
-          <Show when={answer === null && !missed}>
-            <p className="text-muted-foreground text-xs">
-              Ask about the graph. Every answer is a query — the phrasing is canned, the numbers are
-              not.
-            </p>
+      <Conversation>
+        <ConversationContent className="p-3">
+          <Show when={turns.length === 0}>
+            <ConversationEmpty>
+              <SparklesIcon />
+              <p className="text-xs">
+                Ask about the graph. Every answer is a query — the phrasing is
+                canned, the numbers are not.
+              </p>
+            </ConversationEmpty>
           </Show>
 
-          <Show when={missed}>
-            <p className="text-warning text-xs">
-              That one is outside what this fake stream knows. Try the ✨ suggestions.
-            </p>
-          </Show>
+          <MessageList>
+            {turns.map((turn) => (
+              <Fragment key={turn.id}>
+                <Message role="user">
+                  <MessageContent className="text-xs">
+                    {turn.question}
+                  </MessageContent>
+                </Message>
+                <Message role="assistant">
+                  <MessageContent>
+                    <AskAnswer turn={turn} />
+                  </MessageContent>
+                </Message>
+              </Fragment>
+            ))}
+          </MessageList>
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
 
-          <Show when={busy}>
-            <Skeleton className="h-10 w-full" />
-          </Show>
+      {/* `CompleteRoot` wraps the composer rather than sitting inside it: `PromptInput` IS the
+          `InputGroup`, whose recipe selects its own direct children, and the root's `<div>` between
+          the two silently unsets half of it.
 
-          {/* The answer IS the control, the same way a rule is. A count you can act on should not
-              need a second widget to say so. */}
-          {answer ? (
-            <Finding
-              disabled={answer.count === 0}
-              label={answer.intent.question}
-              load={() => matchingIds(answer.intent)}
-              source="ask"
-            >
-              <span className="flex items-baseline gap-2">
-                <span className="flex-1 text-xs leading-relaxed">
-                  {answer.intent.answer(answer.count)}
-                </span>
-                <span className="shrink-0 font-medium text-xs tabular-nums">{answer.count}</span>
-              </span>
-              <code className="mt-1.5 block truncate font-mono text-[10px] text-muted-foreground">
-                {answer.intent.failing}
-              </code>
-            </Finding>
-          ) : null}
-
-        </div>
-      </ScrollArea>
-
-      {/* The composer, in the library's `InputGroup` idiom: the field is the box, and Suggest and
-          Ask live INSIDE it on the block-end edge. That is what fixes the ✨ popover — it used to
-          hang off a label row above the field and open against the dock's edge, far from the text
-          it writes; anchored to its own trigger inside the group it opens over the composer.
-
-          Textarea, not Input: a question is prose, and the library pairs `CompleteTextarea` with
-          `CompleteHint` (the continuation streams *below* the field) while reserving
-          `CompleteInput` + `CompleteGhost` for single-line values. The cost is Enter: it belongs to
-          the newline now, so submitting is ⌘/Ctrl+Enter or the button. */}
+          A question is prose, which is the only shape `Complete` composes over: a line takes
+          candidates, and that is what `SuggestRoot` outside is for. */}
       <div className="shrink-0 border-t border-border p-2">
-        <CompleteRoot complete={completeQuestion} onValueChange={setQuestion} value={question}>
-          <InputGroup>
-            <CompleteTextarea>
-              <InputGroupTextarea
-                className="min-h-16 resize-none text-sm"
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-                    event.preventDefault();
-                    void submit(question);
-                  }
-                }}
-                placeholder="Ask about your data…"
-              />
-            </CompleteTextarea>
-            <InputGroupAddon align="block-end">
-              <SuggestRoot
-                existing={[]}
-                onPick={(value) => {
-                  setQuestion(value);
-                  void submit(value);
-                }}
-                suggest={askSuggestions}
-              >
-                <SuggestTrigger label="Suggest a question" />
-                <SuggestContent />
-              </SuggestRoot>
-              <InputGroupButton
-                className="ms-auto"
-                disabled={question.trim().length === 0 || busy}
-                onClick={() => void submit(question)}
-              >
-                <SendIcon />
-                Ask
-              </InputGroupButton>
-            </InputGroupAddon>
-          </InputGroup>
-          <CompleteHint />
-        </CompleteRoot>
+        {/* `SuggestRoot` outside and `CompleteRoot` inside, for the reason the comment above gives
+            about `PromptInput`: the strip belongs under the whole composer. */}
+        <SuggestRoot
+          onPick={(value) => {
+            setQuestion(value);
+            void submit(value);
+          }}
+          suggest={askSuggestions}
+        >
+          <CompleteRoot
+            complete={completeQuestion}
+            onValueChange={setQuestion}
+            value={question}
+          >
+            <PromptInput
+              onSubmit={(event) => {
+                event.preventDefault();
+                void submit(question);
+              }}
+            >
+              <CompleteTextarea>
+                <PromptInputTextarea
+                  className="resize-none text-sm"
+                  placeholder="Ask about your data…"
+                />
+              </CompleteTextarea>
+              <PromptInputToolbar>
+                <SuggestMark label="Suggest a question" />
+                {/* Disabled while it runs: the count is a local query with nothing to abort, and a
+                  live Stop that only resubmits is worse than one that is plainly unavailable. */}
+                <PromptInputSubmit
+                  disabled={busy || question.trim().length === 0}
+                  status={busy ? "loading" : "idle"}
+                />
+              </PromptInputToolbar>
+            </PromptInput>
+            <CompleteHint />
+          </CompleteRoot>
+          <SuggestList />
+        </SuggestRoot>
       </div>
     </div>
   );

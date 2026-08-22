@@ -1,3 +1,4 @@
+import type { InlineCompletionRequest } from "@kanzo-tech/ai";
 // Fixtures for the metadata-form showcase — posting a contract to the Guild board.
 //
 // The design system owns error PRESENTATION, never error PRODUCTION (see DESIGN.md and
@@ -12,7 +13,9 @@
 // READ OUT OF IT rather than copied, so the panel on the left and the errors on the form cannot
 // drift apart.
 
-import type { Suggestion } from "@kanzo-tech/ui";
+import type {
+  Suggestion,
+} from "@kanzo-tech/ai";
 import { MEMBERS, member, membersOf } from "@/example/people";
 import { FEATURED, type Quest, dueOn, postedOn, questLabel } from "@/example/quests";
 import { ROSTER, availableNow } from "@/example/roster";
@@ -105,22 +108,48 @@ export interface Signatory {
 }
 
 export interface FormValues {
-  title: string; // writ:title
-  notices: Entry[]; // writ:notice
-  tags: Entry[]; // writ:tag
-  beasts: Entry[]; // writ:beast
-  region: string; // writ:region
-  grade: string; // writ:grade
-  posted: string | null; // writ:posted
-  due: string | null; // writ:due
-  poster: Poster | null; // writ:poster
-  stewards: Steward[]; // writ:ask
-  invited: Entry[]; // writ:invited
-  orders: string; // writ:orders
-  reward: string; // writ:reward
-  waypoints: Entry[]; // writ:waypoint
-  party: Signatory[]; // writ:party
+  title: string;
+  notices: Entry[];
+  tags: Entry[];
+  beasts: Entry[];
+  region: string;
+  grade: string;
+  posted: string | null;
+  due: string | null;
+  poster: Poster | null;
+  stewards: Steward[];
+  invited: Entry[];
+  orders: string;
+  reward: string;
+  waypoints: Entry[];
+  party: Signatory[];
 }
+
+/**
+ * The key each field writes into the record.
+ *
+ * One table rather than a literal per site: `toRecord` emits these, "Show ledger keys" reveals one
+ * beside a label, and a finding names one as the thing it points at. They were three copies of the
+ * same fifteen strings, and a `Record<keyof FormValues, string>` is the only one a typo cannot
+ * survive.
+ */
+export const LEDGER_KEYS: Record<keyof FormValues, string> = {
+  title: "writ:title",
+  notices: "writ:notice",
+  tags: "writ:tag",
+  beasts: "writ:beast",
+  region: "writ:region",
+  grade: "writ:grade",
+  posted: "writ:posted",
+  due: "writ:due",
+  poster: "writ:poster",
+  stewards: "writ:ask",
+  invited: "writ:invited",
+  orders: "writ:orders",
+  reward: "writ:reward",
+  waypoints: "writ:waypoint",
+  party: "writ:party",
+};
 
 // ── Controlled vocabularies (the `Select` sources) ───────────────────────────
 // Every one of these is the world's own list. A showcase that retyped the six regions would be
@@ -325,17 +354,33 @@ function order(name: string): string {
   return message;
 }
 
+/** Where each rule opens in `RULES_SOURCE`, 1-based — the line a finding's frame points at. */
+const ORDER_LINES: Record<string, number> = Object.fromEntries(
+  [...RULES_SOURCE.matchAll(/rule "([^"]+)"/g)].map((match) => [
+    match[1],
+    RULES_SOURCE.slice(0, match.index ?? 0).split("\n").length,
+  ]),
+);
+
+export const orderLine = (name: string): number | undefined => ORDER_LINES[name];
+
 // ── The faked rule engine ────────────────────────────────────────────────────
 
 export interface Issue {
-  /** Field key — how the summary and per-field lookup group issues. */
-  field: string;
+  /**
+   * The value it is against. A `keyof FormValues` rather than a string, because three things are
+   * looked up by it — the messages under the control, the ledger key, and the anchor a finding's
+   * frame jumps to — and a typo in any of them is a finding that points at nothing.
+   */
+  field: keyof FormValues;
   /** Human field label — what the summary shows on the left. */
   label: string;
   group: GroupId;
   severity: Severity;
   /** The message the product resolved — the `ReactNode` the library will just display. */
   message: string;
+  /** The standing order that reported it, where one did. A check we invented carries none. */
+  rule?: string;
 }
 
 const HANDLES = new Set<string>(MEMBERS.map((candidate) => candidate.handle));
@@ -357,12 +402,17 @@ const has = (values: FormValues, tag: Tag) =>
 export function validate(v: FormValues): Issue[] {
   const out: Issue[] = [];
   const add = (
-    field: string,
+    field: keyof FormValues,
     label: string,
     group: GroupId,
     severity: Severity,
     message: string,
   ) => out.push({ field, label, group, severity, message });
+
+  // A breach of a standing order, as against a check we invented: the order's name travels with it,
+  // so a reader can go and read the rule that objected.
+  const breach = (field: keyof FormValues, label: string, group: GroupId, name: string) =>
+    out.push({ field, label, group, severity: "violation", message: order(name), rule: name });
 
   // The work — what the board will not post without.
   if (!v.title.trim()) add("title", "Title", "work", "violation", "This field is required.");
@@ -381,7 +431,7 @@ export function validate(v: FormValues): Issue[] {
 
   // "children present" — a `forbid`, so it belongs to the tags rather than to any one of them.
   if (has(v, "children-present") && has(v, "no-open-flame"))
-    add("tags", "Tags", "work", "violation", order("children present"));
+    breach("tags", "Tags", "work", "children present");
 
   // The posting.
   if (!v.poster || !v.poster.hall)
@@ -440,11 +490,11 @@ export function validate(v: FormValues): Issue[] {
   });
 
   if (numericGrade >= 5 && (signed.length < 4 || !duties.includes("warden")))
-    add("party", "Party", "party", "violation", order("a writ needs a seal"));
+    breach("party", "Party", "party", "a writ needs a seal");
   if (numericGrade >= 4 && !duties.includes("cantor"))
-    add("party", "Party", "party", "violation", order("no ward left unlit"));
+    breach("party", "Party", "party", "no ward left unlit");
   if (has(v, "second-attempt") && ranks.length > 0 && Math.min(...ranks) < RANK_ORDER.indexOf("silver"))
-    add("party", "Party", "party", "violation", order("the second attempt"));
+    breach("party", "Party", "party", "the second attempt");
 
   return out;
 }
@@ -494,19 +544,19 @@ export function toWrit(v: FormValues): string {
 /** The row the board keeps — the same posting, as the clerk files it. */
 export function toRecord(v: FormValues): string {
   const node: Record<string, unknown> = {};
-  if (v.title.trim()) node["writ:title"] = v.title.trim();
+  if (v.title.trim()) node[LEDGER_KEYS.title] = v.title.trim();
   const notice = v.notices.map((entry) => entry.value.trim()).filter(Boolean);
-  if (notice.length) node["writ:notice"] = notice;
+  if (notice.length) node[LEDGER_KEYS.notices] = notice;
   const tags = v.tags.map((entry) => entry.value.trim()).filter(Boolean);
-  if (tags.length) node["writ:tag"] = tags;
+  if (tags.length) node[LEDGER_KEYS.tags] = tags;
   const beasts = v.beasts.filter((entry) => entry.value).map((entry) => entry.value);
-  if (beasts.length) node["writ:beast"] = beasts;
-  if (v.region) node["writ:region"] = v.region;
-  if (v.grade) node["writ:grade"] = Number(v.grade);
-  if (v.posted) node["writ:posted"] = v.posted;
-  if (v.due) node["writ:due"] = v.due;
+  if (beasts.length) node[LEDGER_KEYS.beasts] = beasts;
+  if (v.region) node[LEDGER_KEYS.region] = v.region;
+  if (v.grade) node[LEDGER_KEYS.grade] = Number(v.grade);
+  if (v.posted) node[LEDGER_KEYS.posted] = v.posted;
+  if (v.due) node[LEDGER_KEYS.due] = v.due;
   if (v.poster?.hall)
-    node["writ:poster"] = {
+    node[LEDGER_KEYS.poster] = {
       hall: v.poster.hall,
       ...(v.poster.handle.trim() ? { signs: v.poster.handle.trim() } : {}),
       ...(v.poster.muster.trim() ? { muster: v.poster.muster.trim() } : {}),
@@ -514,13 +564,13 @@ export function toRecord(v: FormValues): string {
   const stewards = v.stewards
     .filter((steward) => steward.who.trim() || steward.handle.trim())
     .map((steward) => ({ who: steward.who.trim(), handle: steward.handle.trim() }));
-  if (stewards.length) node["writ:ask"] = stewards;
+  if (stewards.length) node[LEDGER_KEYS.stewards] = stewards;
   const invited = v.invited.filter((entry) => entry.value).map((entry) => entry.value);
-  if (invited.length) node["writ:invited"] = invited;
-  if (v.orders.trim()) node["writ:orders"] = v.orders.trim();
-  if (v.reward.trim()) node["writ:reward"] = Number(v.reward.trim());
+  if (invited.length) node[LEDGER_KEYS.invited] = invited;
+  if (v.orders.trim()) node[LEDGER_KEYS.orders] = v.orders.trim();
+  if (v.reward.trim()) node[LEDGER_KEYS.reward] = Number(v.reward.trim());
   const waypoints = v.waypoints.map((entry) => entry.value.trim()).filter(Boolean);
-  if (waypoints.length) node["writ:waypoint"] = waypoints;
+  if (waypoints.length) node[LEDGER_KEYS.waypoints] = waypoints;
   const party = v.party
     .filter((row) => row.member)
     .map((row) => ({
@@ -528,7 +578,7 @@ export function toRecord(v: FormValues): string {
       ...(row.duty ? { duty: row.duty } : {}),
       ...(row.terms.trim() ? { terms: row.terms.trim() } : {}),
     }));
-  if (party.length) node["writ:party"] = party;
+  if (party.length) node[LEDGER_KEYS.party] = party;
   return JSON.stringify(node, null, 2);
 }
 
@@ -572,25 +622,30 @@ export async function* suggestTags(signal?: AbortSignal): AsyncIterable<Suggesti
   }
 }
 
-/** The `Input` `complete` source — a canned single-line continuation for the title. */
-export async function* completeTitle(
-  value: string,
-  signal?: AbortSignal,
-): AsyncIterable<string> {
-  const continuation = ", and it is not rats";
-  const words = continuation.split(/(?<=\s)/);
-  for (const w of words) {
-    await sleep(60);
+/**
+ * The title's candidate source — whole titles, not a continuation.
+ *
+ * A one-line field takes candidates: a ghost over an `<input>` can only ever show what fits in the
+ * width that is left, and the field cannot scroll to reveal text that is not in its value.
+ */
+export async function* suggestTitle(signal?: AbortSignal): AsyncIterable<Suggestion> {
+  const pool: Suggestion[] = [
+    { value: "Something in the millrace at Greenhollow", rationale: "Where it was seen." },
+    { value: "Greenhollow: the millrace, and it is not rats", rationale: "Rules out the cheap answer." },
+    { value: "Night work at the Greenhollow millrace", rationale: "Leads with when." },
+    { value: "The mill has stopped twice this week", rationale: "Leads with the cost." },
+  ];
+  for (const item of pool) {
+    await sleep(180);
     if (signal?.aborted) return;
-    yield w;
+    yield item;
   }
 }
 
 /** The `Textarea` `complete` source — streams a canned continuation for the notice. */
-export async function* completeDescription(
-  value: string,
-  signal?: AbortSignal,
-): AsyncIterable<string> {
+export async function* completeDescription({
+  signal,
+}: InlineCompletionRequest): AsyncIterable<string> {
   const continuation =
     " Two nights' work at most. The hall pays for rope and lamp-oil, the ferryman has been told to expect a party, and anyone who sees it first walks back and says so.";
   const words = continuation.split(/(?<=\s)/);

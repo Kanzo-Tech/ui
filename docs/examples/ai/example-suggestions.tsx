@@ -2,11 +2,11 @@
 
 import {
   Field,
+  FieldDescription,
   FieldLabel,
-  SuggestContent,
-  SuggestRoot,
-  SuggestTrigger,
-  type Suggestion,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
   TagsInput,
   TagsInputContext,
   TagsInputControl,
@@ -17,6 +17,7 @@ import {
   TagsInputItemPreview,
   TagsInputItemText,
 } from "@kanzo-tech/ui";
+import { SuggestList, SuggestMark, SuggestRoot, type Suggestion } from "@kanzo-tech/ai";
 import { useState } from "react";
 
 const POOL: Suggestion[] = [
@@ -36,40 +37,79 @@ async function* suggest(signal?: AbortSignal): AsyncIterable<Suggestion> {
   }
 }
 
+const TITLES: Suggestion[] = [
+  { value: "Bog-hounds on the Greenhollow causeway", rationale: "Names the beast and the place." },
+  { value: "Herd dog taken at the ford", rationale: "Leads with what was lost." },
+  { value: "Standing water below the lane", rationale: "Leads with the hazard." },
+  { value: "Second call: bog-hounds, Greenhollow", rationale: "The hall posted this once already." },
+];
+
+async function* suggestTitle(signal?: AbortSignal): AsyncIterable<Suggestion> {
+  for (const item of TITLES) {
+    await new Promise((r) => setTimeout(r, 200));
+    if (signal?.aborted) return;
+    yield item;
+  }
+}
+
 export default function Example() {
   const [tags, setTags] = useState<string[]>(["livestock"]);
+  const [title, setTitle] = useState("Bog-hounds took the herd dog");
 
   return (
-    <Field className="w-72">
-      <FieldLabel>
-        Tags
-        <SuggestRoot
-          existing={tags}
-          onPick={(value) => setTags((prev) => [...prev, value])}
-          suggest={suggest}
-        >
-          <SuggestTrigger className="ms-auto" label="Suggest tags" />
-          <SuggestContent />
-        </SuggestRoot>
-      </FieldLabel>
-      <TagsInput onValueChange={(d) => setTags(d.value)} value={tags}>
-        <TagsInputControl>
-          <TagsInputContext>
-            {(api) =>
-              api.value.map((value, index) => (
-                <TagsInputItem index={index} key={`${value}-${index}`} value={value}>
-                  <TagsInputItemPreview>
-                    <TagsInputItemText>{value}</TagsInputItemText>
-                    <TagsInputItemDeleteTrigger />
-                  </TagsInputItemPreview>
-                  <TagsInputItemInput />
-                </TagsInputItem>
-              ))
-            }
-          </TagsInputContext>
-          <TagsInputInput placeholder="Add tag…" />
-        </TagsInputControl>
-      </TagsInput>
+    <div className="flex w-full max-w-md flex-col gap-6">
+    <Field>
+      <FieldLabel>Title</FieldLabel>
+      {/* One line, so candidates — a continuation over an `<input>` can only show what fits in the
+          width that is left. The ✨ sits in the group; the candidates land under the field. */}
+      <SuggestRoot existing={[title]} onPick={setTitle} suggest={suggestTitle}>
+        <InputGroup>
+          <InputGroupInput
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. A wyrm under the granary"
+            value={title}
+          />
+          <InputGroupAddon align="inline-end">
+            <SuggestMark label="Suggest a title" />
+          </InputGroupAddon>
+        </InputGroup>
+        <SuggestList />
+      </SuggestRoot>
+      <FieldDescription>Whole values to pick from — the field keeps its own.</FieldDescription>
     </Field>
+
+    <Field className="w-72">
+      <FieldLabel>Tags</FieldLabel>
+      {/* The ✨ sits in the control, at the end of the row the tags flow along — the same place
+          `CompleteMark` sits. The candidates land underneath, where the field's helper text goes,
+          and only while the field has focus. */}
+      <SuggestRoot
+        existing={tags}
+        onPick={(value) => setTags((prev) => [...prev, value])}
+        suggest={suggest}
+      >
+        <TagsInput onValueChange={(d) => setTags(d.value)} value={tags}>
+          <TagsInputControl>
+            <TagsInputContext>
+              {(api) =>
+                api.value.map((value, index) => (
+                  <TagsInputItem index={index} key={`${value}-${index}`} value={value}>
+                    <TagsInputItemPreview>
+                      <TagsInputItemText>{value}</TagsInputItemText>
+                      <TagsInputItemDeleteTrigger />
+                    </TagsInputItemPreview>
+                    <TagsInputItemInput />
+                  </TagsInputItem>
+                ))
+              }
+            </TagsInputContext>
+            <TagsInputInput placeholder="Add tag…" />
+            <SuggestMark label="Suggest tags" />
+          </TagsInputControl>
+        </TagsInput>
+        <SuggestList />
+      </SuggestRoot>
+    </Field>
+    </div>
   );
 }

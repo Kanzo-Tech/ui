@@ -29,7 +29,7 @@ export type Tone = "default" | "success" | "info" | "warning" | "destructive";
 /**
  * A guild hall — the world's tenant.
  *
- * `heraldry` is a real seed pair: `brand` and `base` are the two inputs `derivePalette` takes,
+ * `heraldry` is a real seed pair: `brand` and `base` are where a theme author starts — a brand and a neutral,
  * so switching halls IS the white-label story rather than a fixture that demonstrates theming.
  */
 export interface Hall {
@@ -262,7 +262,7 @@ export function grade(value: Grade) {
 /**
  * Eight beasts — the categorical domain, sized to the eight-slot scheme on purpose.
  *
- * Eight is the number of categorical slots the palette checks actually validate, so a chart that
+ * Eight is the number of categorical slots a theme publishes, so a chart that
  * colours by beast is the one place in the docs where the data's cardinality and the scheme's
  * capacity are the same number by design rather than by luck.
  *

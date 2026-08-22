@@ -58,8 +58,10 @@ import {
   Show,
   Spinner,
   Status,
-  useAiStream,
 } from "@kanzo-tech/ui";
+import {
+  useAiStream,
+} from "@kanzo-tech/ai";
 // TanStack-backed: the `/table` subpath, never the root barrel.
 import {
   type ColumnDef,
@@ -736,15 +738,7 @@ export function FieldNotesShowcase() {
       Object.fromEntries(Object.entries(prev).filter(([id]) => handDrawn.current.has(id))),
     );
     table.resetRowSelection();
-    engine.start((signal) => extractor(shots, signal));
-    void (async () => {
-      for (;;) {
-        const event = await engine.next();
-        if (event == null) break;
-        apply(event);
-      }
-      engine.idle();
-    })();
+    void engine.run((signal) => extractor(shots, signal), apply);
   }, [apply, engine, extractor, shots, table]);
 
   const onFiles = useCallback((files: File[]) => {
@@ -767,7 +761,7 @@ export function FieldNotesShowcase() {
   // The same rows, serialised the other way. Not a second model of the data — `validate` already
   // builds this graph on every keystroke; this is the button that admits it exists.
   const turtle = useMemo(() => (ledger && rows.length ? ledger.turtle(rows) : ""), [ledger, rows]);
-  const streaming = engine.status === "streaming";
+  const streaming = engine.status === "loading";
   const blanks = unread.length;
 
   return (
@@ -882,7 +876,7 @@ export function FieldNotesShowcase() {
               }
               when={streaming}
             >
-              <Button className="gap-1.5" onClick={() => engine.abort()} size="sm" variant="outline">
+              <Button className="gap-1.5" onClick={() => engine.cancel()} size="sm" variant="outline">
                 <SquareIcon />
                 Stop
               </Button>

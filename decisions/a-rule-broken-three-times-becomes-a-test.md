@@ -10,8 +10,9 @@
 - **Reversed by** nothing. The counter-example would be a guard test that costs more to maintain
   than the defect costs to fix; none on the roster has. `CONVENTIONS.md`'s guard table is the set,
   and it is the thing to recount against — not a number written here.
-- **Held by** `packages/theme/src/boundary.test.ts`, which is the model — the promise, its reason
-  and its enforcement in one file; `packages/ui/src/alpha-steps.test.ts`, the same shape at length
+- **Held by** `packages/ui/src/no-literal-hues.test.ts`, which is the model — the promise, its reason, its
+  enforcement and its own blind spots in one file; `packages/ui/src/data-slot.test.tsx`, the same
+  shape at length
 
 `data-slot` was the case this record was written to argue for — three rounds of it being omitted,
 one regression, a written rule, and no enforcement. `packages/ui/src/data-slot.test.tsx` was written

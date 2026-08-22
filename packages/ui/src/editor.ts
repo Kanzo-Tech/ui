@@ -8,7 +8,10 @@
 // its props are `value` / `onChange` / `extensions` / `readOnly`, i.e. a control, and the
 // name made the whole layout layer read as incoherent. It is a composite — an assembly
 // with its own state, chrome and optional batteries.
-// Inline ghost completion is now a prop of `CodeEditor` (`complete`), not a standalone
-// `CompletionField` — one rich surface, driven by the headless `useCompletion` (root barrel).
+// Inline ghost completion is NOT a prop of this component and never was: `CodeEditorProps` is
+// `value` / `onChange` / `extensions` / `readOnly` / `basics`. A ghost is composed by the caller
+// through `extensions`, over `useInlineCompletion` — which ships from `@kanzo-tech/ai`, not from
+// this barrel. Three places claimed the prop existed; see
+// `decisions/the-ai-surfaces-are-their-own-package.md`.
 export { CodeEditor, kanzoHighlighting } from "./composites/CodeEditor.js";
 export type { CodeEditorProps } from "./composites/CodeEditor.js";

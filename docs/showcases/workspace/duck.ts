@@ -44,19 +44,21 @@ export function boot(): Promise<Boot> {
   return booted;
 }
 
-const relations = new Map<string, Promise<Coordinator>>();
+const relations = new Map<string, Promise<unknown>>();
 
 /**
- * Register a named set of relations exactly once, and hand back the shared coordinator.
+ * Register a named set of relations exactly once, and hand back whatever the load produced.
  * Concurrent callers await the same load rather than racing two `CREATE TABLE`s.
+ *
+ * The load returns rather than resolving to nothing, because registering a relation and knowing
+ * what it is called are the same act when the names are derived: opening a corpus hands back its
+ * views and the spec written over them, and a caller that only got the coordinator back would have
+ * to spell those names itself.
  */
-export function ensure(key: string, load: (boot: Boot) => Promise<void>): Promise<Coordinator> {
-  const existing = relations.get(key);
+export function ensure<T>(key: string, load: (boot: Boot) => Promise<T>): Promise<T> {
+  const existing = relations.get(key) as Promise<T> | undefined;
   if (existing) return existing;
-  const pending = boot().then(async (ctx) => {
-    await load(ctx);
-    return ctx.coordinator;
-  });
+  const pending = boot().then((ctx) => load(ctx));
   relations.set(key, pending);
   return pending;
 }

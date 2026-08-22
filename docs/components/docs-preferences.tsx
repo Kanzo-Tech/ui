@@ -12,14 +12,14 @@ import { DialogTrigger, PreferencesPanel, PreferencesRoot } from "@kanzo-tech/ui
  * the `Preferences.X` statics, which read back `undefined` across the RSC client boundary (the
  * library documents this).
  *
- * **Colour appears here because these docs publish six palettes**, and `PreferencesColor` hides
+ * **Colour appears here because these docs publish sixteen themes**, and `PreferencesColor` hides
  * itself below two choices — a tenant shipping one identity sees the four non-colour axes and
- * nothing else. What it offers is still not a hue: each entry is a whole palette DOCUMENT someone
- * already derived and measured, so the reader picks among validated identities rather than authoring
+ * nothing else. What it offers is still not a hue: each entry is a whole THEME someone
+ * already wrote, so the reader picks among validated identities rather than authoring
  * a colour. See [Theming](/docs/theming). Appearance is not a section either, for a different
  * reason: it has exactly one control and that control is a Colour card — pressing a side wears it.
  * The sun/moon toggle that used to sit to the left of Customize went with the component it was.
- * That is safe HERE because the section always draws; on a one-palette tenant it would not.
+ * That is safe HERE because the section always draws; on a one-theme tenant it would not.
  *
  * No `hotkey`: the library gives the prop no default on purpose, and a docs site is a host whose
  * global keymap is not ours to claim.

@@ -76,7 +76,17 @@ export function StatTile({ label, value, prefix, delta, trend, className }: Stat
 
   return (
     <div
-      className={cn("flex flex-col gap-1 rounded-lg border bg-card p-4", className)}
+      // **`Card`'s surface, at `Card`'s radius.** This read `rounded-lg` with no shadow — one step
+      // below every panel in the library (`Card`, `Alert`, `Popover` and `HoverCard` are all
+      // `rounded-xl`; `Dialog` and `Sheet` are `rounded-2xl`) and missing the lift they all carry.
+      // Nothing argued for the difference; it is a component Shark has no file for, so the only
+      // thing holding its appearance to the house was somebody remembering, and
+      // `shark-parity.test.ts` compares names and never a class string.
+      //
+      // Still its own element rather than a composed `Card`: `Card` is an `<article>` on a 24px
+      // `--space` with `gap-4`, and a tile is a 16px box with `gap-1`. Composing it would mean
+      // overriding both, which is a heavier lie than sharing the three surface utilities.
+      className={cn("flex flex-col gap-1 rounded-xl border bg-card p-4 shadow-xs/5", className)}
       data-slot="stat-tile"
     >
       <span className="text-muted-foreground text-sm">{label}</span>
@@ -90,7 +100,7 @@ export function StatTile({ label, value, prefix, delta, trend, className }: Stat
         <span
           className={cn(
             "flex items-center gap-1 text-xs font-medium",
-            good ? "text-success" : "text-destructive dark:text-destructive-foreground",
+            good ? "text-success" : "text-destructive-foreground",
           )}
         >
           <DeltaIcon className="size-3.5" />

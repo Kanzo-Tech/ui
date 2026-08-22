@@ -1,0 +1,17 @@
+{
+  "title": "AI",
+  "pages": [
+    "index",
+    "fields",
+    "conversation",
+    "message",
+    "prompt-input",
+    "reasoning",
+    "tool",
+    "task",
+    "---Hooks---",
+    "use-ai-stream",
+    "use-inline-completion",
+    "use-suggestions"
+  ]
+}

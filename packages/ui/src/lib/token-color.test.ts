@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { createRequire } from "node:module";
 import { describe, expect, it } from "vitest";
 import {
@@ -59,24 +60,40 @@ describe("resolveTokenColor", () => {
  * another through a token. These tests are the thing that keeps that from coming back.
  */
 describe("the categorical scheme", () => {
-  const tokens = readFileSync(
-    createRequire(import.meta.url).resolve("@kanzo-tech/theme/tokens.css"),
-    "utf8",
+  /**
+   * Every shipped theme that declares a categorical set, and the slots it declares.
+   *
+   * It used to read `tokens.css` and slice one list into a light half and a dark half. A theme is
+   * now one mode and one file, so there is no list to slice: there are themes, each of which either
+   * publishes a set or DECLINES the channel. Declining is legal and is what
+   * `decisions/monochrome-is-a-palette-not-a-look.md` requires a monochrome document to be able to
+   * say — so a theme with no slots is skipped, and a theme with SOME slots is the bug this catches.
+   */
+  const THEME_DIR = join(
+    dirname(createRequire(import.meta.url).resolve("@kanzo-tech/theme/themes.css")),
+    "themes",
   );
-  /** `--chart-N` declarations in source order — light comes first in the file, then `.dark`. */
-  const declared = (mode: "light" | "dark") =>
-    [...tokens.matchAll(/--chart-(\d+):\s*(#[0-9a-f]{6})/gi)]
-      .slice(mode === "light" ? 0 : CHART_SLOTS, mode === "light" ? CHART_SLOTS : undefined)
-      .map(([, , hex]) => (hex as string).toLowerCase());
+  const themes = readdirSync(THEME_DIR)
+    .filter((f) => f.endsWith(".css"))
+    .map((f) => ({
+      name: f.slice(0, -4),
+      // Any VALUE, not just a hex. A theme publishes all eight slots and says how many name a real
+      // category with `--chart-capacity`; past capacity `compile()` wrote `var(--muted-foreground)`,
+      // and the first version of this read hexes only, so `bank-private-dark` (capacity 7) looked
+      // like a theme with a partial set. Slot COUNT and capacity are different questions.
+      slots: [...readFileSync(join(THEME_DIR, f), "utf8").matchAll(/--chart-(\d+):\s*([^;]+);/g)]
+        .map(([, , value]) => (value as string).trim()),
+    }));
 
-  it("declares a full set of slots in both modes", () => {
-    // The literal-vs-token drift this file was written to catch is now structurally impossible:
-    // the library exports no scheme values at all, and `packages/theme` asserts `tokens.css` is
-    // `compile(kanzo.json)` byte for byte. What is left to own here is the contract between the
-    // stylesheet's slot COUNT and `categoricalColor`'s fold — an off-by-one there hands series 9
-    // the colour of series 1 silently.
-    expect(declared("light")).toHaveLength(CHART_SLOTS);
-    expect(declared("dark")).toHaveLength(CHART_SLOTS);
+  it("declares a full set of slots, or none at all, in every theme", () => {
+    // The literal-vs-token drift this file was written to catch is now structurally impossible: the
+    // library exports no scheme values at all. What is left to own is the contract between a
+    // theme's slot COUNT and `categoricalColor`'s fold — an off-by-one there hands series 9 the
+    // colour of series 1 silently.
+    expect(themes.length, "no themes found at all").toBeGreaterThan(1);
+    const partial = themes.filter((t) => t.slots.length > 0 && t.slots.length !== CHART_SLOTS);
+    expect(partial.map((t) => `${t.name}: ${t.slots.length}`), "a theme declares a partial set").toEqual([]);
+    expect(themes.some((t) => t.slots.length === CHART_SLOTS), "no theme publishes a set").toBe(true);
     expect(CHART_SLOTS).toBe(8);
   });
 

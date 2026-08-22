@@ -12,7 +12,7 @@
   by the library into a variable one paid by a consumer.
 - **Held by** `packages/ui/package.json`, `size-limit`; `packages/theme/src/index.test.ts`,
   "offers exactly the values it generated, so no list is typed twice";
-  `packages/theme/src/index.test.ts`, "names a SOURCE for the two axes whose options a tenant writes"
+  `packages/theme/src/index.test.ts`, "names a SOURCE for the axis whose options a tenant writes"
 
 ## The working
 

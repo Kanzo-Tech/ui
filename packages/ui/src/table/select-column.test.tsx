@@ -24,7 +24,11 @@ function Harness({ column }: { column: ColumnDef<Item, unknown> }) {
   );
 }
 
-const root = (name: string) => screen.getAllByRole("checkbox", { name })[0]!;
+// The control is the hidden `<input>`; `data-state` lives on `Checkbox`'s root, which is the
+// `<label>` around it. Those used to be the same element, because the root carried an explicit
+// `role="checkbox"` and two elements answered to the role — see the docblock on `Checkbox`.
+const root = (name: string) =>
+  screen.getByRole("checkbox", { name }).closest("label") as HTMLElement;
 
 describe("selectColumn", () => {
   it("labels the header and every row checkbox", () => {

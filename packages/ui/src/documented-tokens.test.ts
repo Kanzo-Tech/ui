@@ -80,7 +80,17 @@ function walk(dir: string, extensions: string[], out: string[] = []): string[] {
 const declared = new Set<string>();
 for (const root of DECLARING) {
   for (const file of walk(join(REPO, root), [".css", ".ts", ".tsx"])) {
-    for (const [, token] of readFileSync(file, "utf8").matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)) {
+    const text = readFileSync(file, "utf8");
+    for (const [, token] of text.matchAll(/(--[a-zA-Z0-9-]+)\s*:/g)) {
+      declared.add(token as string);
+    }
+    // A name is also declared by being the *overridable head* of a fallback in the bridge:
+    // `var(--sidebar, var(--popover, var(--card)))` says `--sidebar` is a token a theme may set,
+    // and it stays a token a theme may set on the day no shipped theme happens to set one. Reading
+    // only `--x:` made the vocabulary mean "what somebody wrote down today", so cutting a
+    // declaration that every theme had duplicated took the *name* out of the language with it and
+    // the page documenting it became the error.
+    for (const [, token] of text.matchAll(/var\(\s*(--[a-zA-Z0-9-]+)\s*,/g)) {
       declared.add(token as string);
     }
   }
@@ -112,7 +122,12 @@ describe("documented tokens", () => {
   it("the corpus is not empty on either side", () => {
     // A guard over two empty sets passes every assertion below it. Both halves are stated, because
     // a glob that silently stops matching is the failure mode this whole file exists to catch.
-    expect(declared.size).toBeGreaterThan(400);
+    // The floor moved 400 -> 140 when the derivation was cut and `packages/palette` was deleted:
+    // `tokens.css` used to carry a compiled document of 408 properties and six more of 199 each, and
+    // a theme is now about fifty-five. It is a floor against an EMPTY glob, not a record of the
+    // count — 173 today, and a number that tracked the corpus exactly would fail on every
+    // legitimate change.
+    expect(declared.size).toBeGreaterThan(140);
     expect(namespaces.size).toBeGreaterThan(20);
     expect(named.length).toBeGreaterThan(20);
   });

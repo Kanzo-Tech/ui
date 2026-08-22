@@ -1,8 +1,7 @@
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import themeData from "@kanzo-tech/theme/theme-data.json" with { type: "json" };
+import { label, sourceFiles } from "./guard-corpus";
 
 /**
  * A pressable size variant may not sit under 24 CSS pixels at the tightest density.
@@ -45,11 +44,15 @@ import themeData from "@kanzo-tech/theme/theme-data.json" with { type: "json" };
  * - **It trusts the `pointer-coarse` area not to count.** `InputGroupButton` carries a 44px
  *   `::after` for coarse pointers; it is not in the hit path for a mouse, so it does not lift the
  *   figure. If that reading is wrong, this test is too strict rather than too loose.
+ * - **The corpus is `ui` and `ai`, derived by `guard-corpus.ts`**, and it was `packages/ui/src`
+ *   alone until 2026-08-20. Widening it added `@kanzo-tech/ai`, which contributed **no recipe at
+ *   all** to `recipesRead`: measured over its twelve modules, the files that render a button
+ *   (`ai-mark.tsx`, `complete.tsx`, `prompt-input.tsx`, `suggest.tsx`) each pass a `size` to one of
+ *   `ui`'s recipes rather than declaring a `size:` variant of their own, so there is nothing here
+ *   for this rule to grade. That is a real reading and not a pass by absence — it is precisely the
+ *   "no size variant at all" blind spot above, and it is why the floor below is asserted on the
+ *   population rather than on the findings.
  */
-
-const SRC = dirname(fileURLToPath(import.meta.url));
-const REPO = resolve(SRC, "../../..");
-const UI = join(REPO, "packages/ui/src");
 
 /** Tailwind's `--spacing`, confirmed against the running stylesheet rather than assumed. */
 const SPACING_REM = 0.25;
@@ -74,16 +77,6 @@ const PRESSABLE = /ark\.button|<button|<Button|buttonVariants|InputGroupButton/;
 /** Comments are not code: a JSDoc inside a `size: {}` block was being read as an entry. */
 const stripComments = (source: string) =>
   source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-
-function walk(dir: string, out: string[] = []): string[] {
-  for (const name of readdirSync(dir)) {
-    if (name === "node_modules" || name === "dist") continue;
-    const path = join(dir, name);
-    if (statSync(path).isDirectory()) walk(path, out);
-    else if (path.endsWith(".tsx") && !path.includes(".test.")) out.push(path);
-  }
-  return out;
-}
 
 /** Every `size: { … }` object body in a file, brace-matched rather than regexed to a closing line. */
 function sizeVariantBodies(source: string): string[] {
@@ -111,7 +104,7 @@ interface Finding {
 const findings: Finding[] = [];
 let recipesRead = 0;
 
-for (const file of walk(UI)) {
+for (const file of sourceFiles(/\.tsx$/)) {
   const source = stripComments(readFileSync(file, "utf8"));
   if (!PRESSABLE.test(source)) continue;
 
@@ -127,7 +120,7 @@ for (const file of walk(UI)) {
           if (!size) continue;
           const px = toPx(Number(size[1]));
           if (px < BAR_PX) {
-            findings.push({ file: relative(REPO, file), variant: variant as string, utility: token, px });
+            findings.push({ file: label(file), variant: variant as string, utility: token, px });
           }
         }
       }

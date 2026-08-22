@@ -18,10 +18,10 @@ export type {
   KanzoDensity,
   KanzoFont,
   KanzoMonoFont,
-  KanzoIdentity,
+  KanzoThemeName,
   // Beside the axes rather than beside `FontOption`, because it is a data shape and not a React one:
   // the pre-hydration script reads the same axis table, and it never sees this package.
-  PaletteOption,
+  ThemeOption,
 } from "@kanzo-tech/theme";
 export { KanzoThemeProvider, useKanzoTheme, cookieStorageAdapter } from "./theme/KanzoThemeProvider.js";
 // The same attributes on a `<div>` instead of `<html>` — for previews, and only for previews: Ark's
@@ -71,8 +71,40 @@ export type {
 // The panel may never be opened, and a retired identity is somebody looking at a brand they did not
 // choose. Opt-in rather than provider-rendered: the provider has no DOM, and two deleted themers say
 // it stays that way.
-export { IdentityNotice } from "./composites/identity-notice.js";
-export type { IdentityNoticeProps, IdentityRetiredCopy } from "./composites/identity-notice.js";
+export { ThemeNotice } from "./composites/theme-notice.js";
+export type { ThemeNoticeProps, ThemeRetiredCopy } from "./composites/theme-notice.js";
+
+// One question at a time, over a `FieldSet` per question and Ark's Steps machine for the
+// navigation. Flat parts for the same RSC reason `Preferences` is flat.
+export {
+  Questionnaire,
+  QuestionnaireProgress,
+  QuestionnaireItem,
+  QuestionnaireTitle,
+  QuestionnaireDescription,
+  QuestionnaireError,
+  QuestionnaireChoices,
+  QuestionnaireChoice,
+  QuestionnaireInput,
+  QuestionnaireTextarea,
+  QuestionnaireActions,
+  QuestionnairePrevious,
+  QuestionnaireSkip,
+  QuestionnaireNext,
+  QuestionnaireSubmit,
+  useQuestionnaire,
+  useQuestionnaireItem,
+} from "./composites/Questionnaire.js";
+export type {
+  QuestionnaireAnswer,
+  QuestionnaireAnswers,
+  QuestionnaireQuestion,
+  QuestionnaireProps,
+  QuestionnaireItemProps,
+  QuestionnaireChoicesProps,
+  QuestionnaireChoiceProps,
+  QuestionnaireActionsProps,
+} from "./composites/Questionnaire.js";
 
 // ── Utilities ────────────────────────────────────────────────────────────────
 export { cn } from "./lib/cn.js";
@@ -135,6 +167,7 @@ export * from "./simples/command.js";
 export * from "./simples/data-list.js";
 export * from "./simples/date-picker.js";
 export * from "./simples/dialog.js";
+export * from "./simples/diagnostic.js";
 export * from "./simples/editable.js";
 export * from "./simples/field.js";
 export * from "./simples/file-upload.js";
@@ -172,6 +205,7 @@ export * from "./simples/skip-nav.js";
 export * from "./simples/slider.js";
 export * from "./simples/spinner.js";
 export * from "./simples/stat-tile.js";
+export * from "./simples/suggestions.js";
 export * from "./simples/swatch.js";
 export * from "./simples/status.js";
 export * from "./simples/steps.js";
@@ -186,9 +220,6 @@ export * from "./simples/toggle-group.js";
 export * from "./simples/tooltip.js";
 export * from "./simples/tour.js";
 export * from "./simples/tree-view.js";
-export * from "./simples/complete.js";
-export * from "./simples/suggest.js";
-export * from "./simples/use-ai.js";
 
 // ── simples — bespoke (no Shark equivalent) ─────────────────────────────────
 // GhostEditor / CodeEditor deliberately live ONLY on the `/editor` subpath: they import
@@ -197,7 +228,6 @@ export * from "./simples/use-ai.js";
 // for every consumer that had not installed it. Do not add them back.
 export { Link } from "./simples/Link.js";
 export type { LinkProps } from "./simples/Link.js";
-export type { Suggestion } from "./simples/types.js";
 export { FieldArray } from "./simples/FieldArray.js";
 export type { FieldArrayProps } from "./simples/FieldArray.js";
 // No `CardRadioGroup`. A card radio is `RadioGroupCard` — `radio-group.tsx`'s own item styled off

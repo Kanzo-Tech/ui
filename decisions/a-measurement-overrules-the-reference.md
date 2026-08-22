@@ -22,7 +22,7 @@
   to govern.
 - **Held by** `packages/ui/src/index.test.ts`, `tracks Shark's context aliases and parts, in both
   directions` — the reference half, asserted in both directions off one list;
-  `packages/ui/src/alpha-steps.test.ts`, the ring ban and the ratio that bought it — the
+  `packages/ui/src/simples/button.tsx`, `buttonVariants`, which carries the solid focus ring — the
   measurement half
 
 **No test holds the tie-break itself, and there is nothing to write.** Each half is guarded. The

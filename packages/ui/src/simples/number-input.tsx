@@ -16,8 +16,8 @@ const numberInputControlVariants = tv({
   base: [
     "group/number-input",
     "relative flex w-full min-w-0 items-stretch",
-    "bg-transparent dark:bg-field",
-    "rounded-lg border border-input shadow-xs/5",
+    "bg-field",
+    "rounded-field border border-input shadow-xs/5",
     "transition-[color,box-shadow]",
     "outline-none focus-within:border-primary focus-within:ring-[3px] focus-within:ring-ring",
     "data-invalid:border-destructive data-invalid:ring-[3px] data-invalid:ring-destructive/24",

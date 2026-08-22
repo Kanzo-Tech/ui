@@ -47,7 +47,7 @@ Both halves of appearance are extended by optional packages. Only one of them ha
 **Tokens.** `packages/theme/src/sections.ts` — a namespace, declared tokens, defaults expressed as
 bindings against the tenant's ramps, resolution by hierarchical fallback, validation against the
 owner's manifest. The core never learns a section exists, which is what keeps
-`packages/theme/src/boundary.test.ts` passing by text match rather than by discipline.
+`packages/theme/src/sections.test.ts` passing by text match rather than by discipline.
 
 **Preferences.** `ThemePrefs` is a closed interface and `AXES` a closed table, both in
 `packages/theme/src/index.ts`. The panel in `packages/ui/src/composites/Preferences.tsx` renders a
@@ -90,7 +90,7 @@ vocabulary.
 **The host registers, and that is what keeps the door shut.** Manifests reach the provider as a
 prop, so the arrow points host → core: nothing here names an optional package, and a host that never
 installed one cannot pass its manifest. Registration by import into the core would be the same
-mechanism with the dependency inverted, and `packages/theme/src/boundary.test.ts` is what would
+mechanism with the dependency inverted, and `packages/theme/src/sections.test.ts` is what would
 fail.
 
 **Application splits on whether the declaration carries an attribute** — see the next section — and

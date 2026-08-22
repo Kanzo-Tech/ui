@@ -64,7 +64,6 @@ export function GET(request: Request) {
     "- `@kanzo-tech/ui/analytics` — the charts. Needs `@uwdata/vgplot`, `@uwdata/mosaic-core`, `@uwdata/mosaic-sql`, `@duckdb/duckdb-wasm`.",
     "- `@kanzo-tech/ui/editor` — the CodeMirror editors. Needs `@codemirror/*` and `@lezer/highlight`.",
     "- `@kanzo-tech/theme` — tokens, the axis table, the value types. No React. Installed with the library.",
-    "- `@kanzo-tech/palette` — authoring-time colour derivation for a tenant. Installed only where a tenant is onboarded.",
     "",
     "A component that needs one of those engines is two components: the presentational half on the root barrel, the connected half on the subpath. Theming is `data-*` attributes on `<html>` plus a light/dark class — never a wrapper element.",
     "",

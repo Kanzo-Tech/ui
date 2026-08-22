@@ -31,6 +31,6 @@ describe("Highlight", () => {
     const mark = screen.getByText("token");
 
     expect(mark.tagName).toBe("MARK");
-    expect(mark.className).toContain("bg-warning-a5");
+    expect(mark.className).toContain("bg-warning/17");
   });
 });

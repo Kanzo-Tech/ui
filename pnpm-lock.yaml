@@ -69,6 +69,9 @@ importers:
       '@codemirror/lint':
         specifier: ^6.8.5
         version: 6.9.7
+      '@codemirror/search':
+        specifier: ^6.7.1
+        version: 6.7.1
       '@codemirror/state':
         specifier: ^6.6.0
         version: 6.7.0
@@ -84,12 +87,12 @@ importers:
       '@internationalized/date':
         specifier: ^3.12.2
         version: 3.12.2
+      '@kanzo-tech/ai':
+        specifier: workspace:*
+        version: link:../packages/ai
       '@kanzo-tech/graph':
         specifier: workspace:*
         version: link:../packages/graph
-      '@kanzo-tech/palette':
-        specifier: workspace:*
-        version: link:../packages/palette
       '@kanzo-tech/rudof-wasm':
         specifier: ^0.3.4
         version: 0.3.4
@@ -182,6 +185,58 @@ importers:
         specifier: ^5.7.3
         version: 5.9.3
 
+  packages/ai:
+    dependencies:
+      tailwind-variants:
+        specifier: ^3.2.2
+        version: 3.2.2(tailwind-merge@3.6.0)(tailwindcss@4.3.3)
+    devDependencies:
+      '@ark-ui/react':
+        specifier: ^5.37.2
+        version: 5.37.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@kanzo-tech/theme':
+        specifier: workspace:*
+        version: link:../theme
+      '@kanzo-tech/ui':
+        specifier: workspace:*
+        version: link:../ui
+      '@tailwindcss/cli':
+        specifier: '4'
+        version: 4.3.2
+      '@testing-library/dom':
+        specifier: ^10.4.1
+        version: 10.4.1
+      '@testing-library/react':
+        specifier: ^16.3.2
+        version: 16.3.2(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.17))(@types/react@19.2.17)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@testing-library/user-event':
+        specifier: ^14.6.1
+        version: 14.6.1(@testing-library/dom@10.4.1)
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.17
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.3(@types/react@19.2.17)
+      jsdom:
+        specifier: ^29.1.1
+        version: 29.1.1
+      lucide-react:
+        specifier: ^1.23.0
+        version: 1.23.0(react@19.2.7)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.7
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.7(react@19.2.7)
+      rollup-plugin-preserve-directives:
+        specifier: ^0.4.0
+        version: 0.4.0(rollup@4.62.2)
+      tailwindcss:
+        specifier: '4'
+        version: 4.3.3
+
   packages/graph:
     dependencies:
       '@kanzo-tech/ui':
@@ -225,17 +280,8 @@ importers:
         specifier: ^0.4.0
         version: 0.4.0(rollup@4.62.2)
 
-  packages/palette:
-    devDependencies:
-      tailwindcss:
-        specifier: '4'
-        version: 4.3.3
-
   packages/theme:
     devDependencies:
-      '@kanzo-tech/palette':
-        specifier: workspace:*
-        version: link:../palette
       tailwindcss:
         specifier: '4'
         version: 4.3.3
@@ -282,9 +328,6 @@ importers:
       '@codemirror/view':
         specifier: ^6.43.1
         version: 6.43.4
-      '@kanzo-tech/palette':
-        specifier: workspace:*
-        version: link:../palette
       '@lezer/highlight':
         specifier: ^1.2.3
         version: 1.2.3
@@ -988,14 +1031,8 @@ packages:
       '@noble/hashes':
         optional: true
 
-  '@floating-ui/core@1.7.5':
-    resolution: {integrity: sha512-1Ih4WTWyw0+lKyFMcBHGbb5U5FtuHJuujoyyr5zTaWS5EYMeT6Jb2AuDeftsCsEuchO+mM2ij5+q9crhydzLhQ==}
-
   '@floating-ui/core@1.8.0':
     resolution: {integrity: sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ==}
-
-  '@floating-ui/dom@1.7.6':
-    resolution: {integrity: sha512-9gZSAI5XM36880PPMm//9dfiEngYoC6Am2izES1FF406YFsjvyBMmeJ2g4SAju3xWwtuynNRFL2s9hgxpLI5SQ==}
 
   '@floating-ui/dom@1.8.0':
     resolution: {integrity: sha512-yXSrzeHZBTZadLOlfyhCkJHNeLJnHRnRInwdZ40L7ZiaAtrBwoYlsDrX3v5zB1Utk7CLfzcOVnVVWoXEky7Ceg==}
@@ -1005,9 +1042,6 @@ packages:
     peerDependencies:
       react: ^19.0.0
       react-dom: ^19.0.0
-
-  '@floating-ui/utils@0.2.11':
-    resolution: {integrity: sha512-RiB/yIh78pcIxl6lLMG0CgBXAZ2Y0eVHqMPYugu+9U0AeT6YBeiJpf7lbdJNIugFP5SIjwNRgo4DhR1Qxi26Gg==}
 
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
@@ -5974,18 +6008,9 @@ snapshots:
 
   '@exodus/bytes@1.15.1': {}
 
-  '@floating-ui/core@1.7.5':
-    dependencies:
-      '@floating-ui/utils': 0.2.11
-
   '@floating-ui/core@1.8.0':
     dependencies:
       '@floating-ui/utils': 0.2.12
-
-  '@floating-ui/dom@1.7.6':
-    dependencies:
-      '@floating-ui/core': 1.7.5
-      '@floating-ui/utils': 0.2.11
 
   '@floating-ui/dom@1.8.0':
     dependencies:
@@ -5997,8 +6022,6 @@ snapshots:
       '@floating-ui/dom': 1.8.0
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
-
-  '@floating-ui/utils@0.2.11': {}
 
   '@floating-ui/utils@0.2.12': {}
 
@@ -7824,7 +7847,7 @@ snapshots:
 
   '@zag-js/popper@1.41.2':
     dependencies:
-      '@floating-ui/dom': 1.7.6
+      '@floating-ui/dom': 1.8.0
       '@zag-js/dom-query': 1.41.2
       '@zag-js/utils': 1.41.2
 
@@ -10599,6 +10622,12 @@ snapshots:
   tailwind-variants@3.2.2(tailwind-merge@3.6.0)(tailwindcss@4.3.2):
     dependencies:
       tailwindcss: 4.3.2
+    optionalDependencies:
+      tailwind-merge: 3.6.0
+
+  tailwind-variants@3.2.2(tailwind-merge@3.6.0)(tailwindcss@4.3.3):
+    dependencies:
+      tailwindcss: 4.3.3
     optionalDependencies:
       tailwind-merge: 3.6.0
 

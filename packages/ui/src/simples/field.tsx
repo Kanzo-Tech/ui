@@ -16,7 +16,7 @@ const fieldVariants = tv({
     "group/field",
     "w-full",
     "flex gap-2",
-    "data-invalid:text-destructive",
+    "data-invalid:text-destructive-foreground",
     "dark:data-invalid:text-destructive-foreground",
   ],
   variants: {
@@ -77,7 +77,7 @@ export const FieldSet = (
       className={cn(
         "flex flex-col gap-6",
         "has-[>[data-slot=checkbox-group]]:gap-3 has-[>[data-slot=radio-group]]:gap-3",
-        "data-invalid:text-destructive",
+        "data-invalid:text-destructive-foreground",
         "dark:data-invalid:text-destructive-foreground",
         className
       )}
@@ -180,8 +180,7 @@ export const FieldRequiredIndicator = (
     <ArkField.RequiredIndicator
       aria-hidden
       className={cn(
-        "select-none text-destructive text-sm",
-        "dark:text-destructive-foreground",
+        "select-none text-destructive-foreground text-sm",
         className
       )}
       {...rest}
@@ -288,8 +287,7 @@ export const FieldError = (
   return (
     <ArkField.ErrorText
       className={cn(
-        "font-normal text-destructive text-sm",
-        "dark:text-destructive-foreground",
+        "font-normal text-destructive-foreground text-sm",
         className
       )}
       {...rest}
@@ -325,8 +323,7 @@ export const FieldSetError = (
   return (
     <ArkFieldset.ErrorText
       className={cn(
-        "font-normal text-destructive text-sm",
-        "dark:text-destructive-foreground",
+        "font-normal text-destructive-foreground text-sm",
         className
       )}
       {...rest}

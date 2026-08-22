@@ -34,9 +34,8 @@ first, a card per side with an `Active` pill and no verb on it — **pressing th
 gesture**. What is not borrowed is the semantics — GitHub pairs a day theme with a night theme
 because its themes are single-mode, and [ours each carry both](/docs/theming).
 
-Their tiles are drawn assets. Ours are the real cascade answering: each card sets `[data-palette]`
-plus the appearance class, so with the page in dark the **Light** card still resolves the light
-block. Both documents are on screen at once, and what you see is what selecting it will do.
+Their tiles are drawn assets. Ours are the real cascade answering: each card sets `[data-theme]`, so with the page in dark the **Light** card still resolves the light
+block. Both themes are on screen at once, and what you see is what selecting it will do.
 
 That is also why the page needs no appearance toggle in its chrome. It has no chrome to put one in,
 and it does not need one: the two states are on screen at full size and both are pressable.

@@ -1,6 +1,6 @@
 # A role earns its name, or it is a step wearing one
 
-- **Status** live — 2026-08-13
+- **Status** superseded by `a-theme-is-one-flat-block` — 2026-08-21
 - **Decided** A colour role exists only if it carries a **measured property** a step index cannot
   express — `fill`, `on-fill`, `boundary`, `quietest-ink`, `recess` — or is a name **Shark's recipes
   paste in verbatim**. Seventeen level-names failed both tests and are gone: `--secondary-wash`,
@@ -14,11 +14,9 @@
   defect the role table was built to remove, and it had grown one back.
 - **Reversed by** a level that stops being expressible as a step — a wash that had to composite
   against something the reference layer does not publish, or a tenant whose document made one of the
-  seventeen differ from its step in any block. Neither exists: `compile.test.ts` re-measures all
+  seventeen differ from its step in any block. Neither exists: the compile fixture re-measures all
   seventeen against the schema-v2 fixture on every run, and a divergence fails there first.
-- **Held by** `packages/palette/src/compile.test.ts`, "compiles a single-identity document to the
-  bytes v2 compiled it to", which pins each of the seventeen to the step that replaced it;
-  `packages/palette/src/roles.ts`, `ROLES`
+- **Held by** `decisions/a-theme-is-one-flat-block.md`, which carries the rule that replaced this one, and the guards it names
 
 The admission rule is mechanical on purpose, and that is what makes it hold. A binding is `step` or
 `alpha` in the source, so "is this a level with a noun on top?" is a property of the table rather

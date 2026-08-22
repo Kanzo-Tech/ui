@@ -199,6 +199,7 @@ be skipped.
 `a-class-list-is-source-so-the-barrel-budget-moves`,
 `a-hook-takes-the-name-of-the-request-it-makes`,
 `a-line-takes-candidates-a-paragraph-takes-a-continuation`, `a-theme-is-one-flat-block`,
+`the-obvious-ink-is-computed-in-the-form`,
 `a-tool-panel-composes-its-snippet`.
 
 Also live — `a-compound-keeps-its-root-even-when-the-root-is-an-alias`,

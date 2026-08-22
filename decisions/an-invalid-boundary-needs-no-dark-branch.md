@@ -11,7 +11,7 @@
   unnecessary.
 - **Reversed by** a document whose destructive fill stops clearing WCAG 1.4.11 against its own dark
   page. None does, and a client's destructive seed is not overridable — the four status families are
-  Kanzo's, so the only way to reach it is a change to the ramp, which `palettes.test.ts` re-measures
+  Kanzo's, so the only way to reach it is a change to the ramp, which the palette guard re-measures
   per tenant.
 - **Held by** `packages/ui/src/simples/input.tsx`, `inputVariants`, which carries the measurement and
   is the site the other eleven point at

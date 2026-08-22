@@ -1,0 +1,26 @@
+---
+title: Findings badge
+description: A tally that can be interrogated — hover to read them, press to see where they are.
+---
+
+<ComponentPreview componentName="findings-badge" />
+
+A count on its own asks the reader to go and find what it counted. Hovering lists every one of
+them; pressing shows them **where they are** — the fields on a form, the rows in a ledger.
+
+It does not hide anything, and that is the change worth recording: this used to filter the ledger
+down to the flagged rows, which answers *which ones* by removing the answer to *out of what*.
+
+The reveal lives on the badge and not inside the card, because a hover card closes as soon as the
+pointer leaves its trigger — a control in there is one you cannot reliably click. Hovering reads;
+pressing acts; the same element owns both.
+
+The number sits right-aligned in a fixed `2ch` cell so that 9 → 10 does not move the label, and
+the label does not move whatever is beside it. A tally watched while it fills must not shuffle its
+neighbours on every event.
+
+## Where it comes from
+
+```tsx
+import { FindingsBadge, type Finding } from "@/showcases/shared";
+```

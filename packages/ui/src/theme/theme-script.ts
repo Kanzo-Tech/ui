@@ -14,9 +14,9 @@
 // script (and the server) read from.
 //
 // It carries no colour VALUE. The tenant is known at request time, so the server inlines the
-// compiled palette document as a static <style> in <head> — the colour maths is done before a byte
+// theme catalogue in the stylesheet — there is no colour maths, and no document to choose between
 // is sent, and there is no pairing table, no base tint and no primary override left to resolve
-// here. `data-identity` is the one colour-adjacent thing it writes, and it writes it as a string
+// here. `data-theme` is the colour one it writes, and it writes it as a string
 // off the axis table like any other: choosing among the blocks that document already contains.
 //
 // MANDATORY under SSR, not an optimisation. Skipping it costs more than a flash: any control
@@ -65,7 +65,7 @@ export function themeScript({
   // publishes, which becomes `0` here and means *do not gate*. That is not a shortcut around a
   // limitation of this script — the provider passes no sources for those two either, deliberately,
   // so that the value this writes before the first paint and the value React writes after
-  // hydration cannot differ. See the identity block in `KanzoThemeProvider`.
+  // hydration cannot differ. See the theme block in `KanzoThemeProvider`.
   const row = (key: string) => {
     const decl = CORE_PREFS[key as keyof typeof CORE_PREFS];
     return [key, decl.attr ?? 0, decl.default, decl.byAppearance ?? 0, prefOptions(decl)?.map((o) => o.value) ?? 0];
@@ -94,14 +94,14 @@ export function themeScript({
     // never changed when `"system"` left the model. It was always the whole resolution.
     "var AP=" + appearance + ",av=pick(PO[AP[0]]||{},P[AP[0]],AP[2],AP[4]);" +
     "var W=(av==='light'||av==='dark')?av:((window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light');" +
-    // every axis, from the table itself. `data-identity` and `data-palette` carry no option list and
+    // every axis, from the table itself. `data-theme` carries no option list and
     // so are written VERBATIM, never checked against what the tenant published: an attribute
     // selector with no matching rule is inert and the cascade falls through to `:root`, which is the
     // default. Validating here would mean knowing the document, and the two sides would stop
     // agreeing the moment they disagreed about it.
     "var A=" + axes + ";for(var i=0;i<A.length;i++){var r=A[i],k=r[0],s=r[3]?((P[k]||{})[W]):P[k],v=pick(PO[k]||{},s,r[2],r[4]);if(v===r[2]){d.removeAttribute(r[1]);}else{d.setAttribute(r[1],v);}}" +
     // `style.colorScheme` is never written: an inline declaration outranks every rule permanently,
-    // and each block of the compiled palette document carries its own `color-scheme`.
+    // and each theme file carries its own `color-scheme`.
     "d.classList.toggle('dark',W==='dark');" +
     "}catch(e){}})();"
   );

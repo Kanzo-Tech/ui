@@ -20,8 +20,7 @@ import {
   StatusesTable,
 } from "@/components/guild";
 import { PreviewIframe } from "@/components/preview-iframe";
-import { ShowcasesList } from "@/components/showcases-list";
-import { TokenScale } from "@/components/token-scale";
+import { GalleryList } from "@/components/gallery-list";
 
 /**
  * The single MDX component map, per fumadocs convention — pages get these without importing
@@ -47,8 +46,7 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     ComponentPreview,
     ComponentsList,
     PreviewIframe,
-    ShowcasesList,
-    TokenScale,
+    GalleryList,
     // The example world's own tables — `/docs/the-guild` is the one page made of them.
     ArchiveFacts,
     BestiaryTable,

@@ -1,6 +1,6 @@
 # A categorical set may use the palette's own colours
 
-- **Status** live — 2026-08-17
+- **Status** superseded by `a-theme-is-one-flat-block` — 2026-08-21
 - **Decided** The categorical source becomes the brand wheel **plus the colours this document already
   publishes** — the syntax source's own accents — deduplicated by hue family, the document's colour
   winning where both name one. Those families are then **required**, and if requiring them puts the
@@ -11,9 +11,7 @@
 - **Reversed by** a client reporting that their charts moved to colours they did not choose. The
   wheel's answer is *derived* and the accents are *authored*, and a tenant who liked the derived one
   has no way back if this is not per-document.
-- **Held by** `packages/palette/src/compile.test.ts`, "compiles a single-identity document to the
-  bytes v2 compiled it to"; `packages/palette/src/derive-palette.ts`, `searchScheme`;
-  `packages/palette/scripts/measure-categorical-source.mjs`
+- **Held by** `decisions/a-theme-is-one-flat-block.md`, which carries the rule that replaced this one, and the guards it names
 
 ## The working
 
@@ -76,7 +74,7 @@ the interactive path is untouched.
 
 ## What landed, and the one document the table did not cover
 
-`searchScheme` in `derive-palette.ts`, and the source of the authored colours is **the syntax source
+`searchScheme` in the derivation, and the source of the authored colours is **the syntax source
 this document already carries** — `input.syntax`, never the fallback. That distinction is the whole
 of the rule: the fallback is *Kanzo's* accents, so reading it would hand a client somebody else's
 colours under the name of their own. It also means this reaches every document with a source of its
@@ -89,7 +87,7 @@ had none to read are different facts and were about to report the same one.
 it has no wheel — the default scheme stands in — but it *does* publish accents, and requiring them
 took the worst adjacent pair from **20.9 to 28.3 light / 28.5 dark** at the same eight categories.
 The default document's chart colours therefore changed, which is the one visible consequence of this
-record and the reason `compile.test.ts` now declares `--chart-*` among its licensed differences from
+record and the reason the compile fixture now declares `--chart-*` among its licensed differences from
 the v2 fixture. That exclusion is paid for: the same test asserts the eight slots are eight distinct
 colours and that none folded to `OTHER`, so "the charts may differ" cannot come to mean "the charts
 quietly collapsed".

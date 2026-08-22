@@ -139,12 +139,24 @@ export const ComboboxTrigger = (
 
   return (
     <ArkCombobox.Trigger
-      className={cn("absolute inset-e-1 inset-y-0", className)}
+      // **No positioning of its own, and the `absolute inset-e-1 inset-y-0` it carried was inert.**
+      // Both compositions lay it out already: `Combobox` puts it in an `InputGroupAddon`, and a
+      // caller composing by hand drops it into `ComboboxControl`, which is a `flex items-center`
+      // row. In the first, the `asChild` collapse merges it with `InputGroupButton`, whose base
+      // declares `relative` and wins — so the offsets resolved against nothing and the part was
+      // laid out as the flex child it looks like. Keeping a rule that only bites when a later merge
+      // stops overriding it is how a component acquires a bug it never had.
+      className={cn(className)}
       {...rest}
       asChild
     >
       {children ?? (
-        <Button className="size-4" slot="combobox-trigger" variant="ghost">
+        // **`size-8`, and it was `size-4`.** Measured 16×16 on `/docs/forms/combobox` — two thirds
+        // under the 24px WCAG 2.5.8 floor, and it only ever passed `pressable-floor.test.ts`
+        // because that guard grades a target by the last `size-*` it can see in source order. It
+        // also read as a different class of control beside the 32px marks every other in-group
+        // button is: `icon-sm` is the one size a control inside a group has.
+        <Button className="size-8" slot="combobox-trigger" variant="ghost">
           <ChevronsUpDownIcon />
         </Button>
       )}
@@ -187,7 +199,7 @@ export const ComboboxContent = (
             "p-1",
             "bg-popover",
             "text-popover-foreground",
-            "rounded-xl border shadow-lg/5",
+            "rounded-box border shadow-lg/5",
             "overflow-y-auto",
             "outline-none",
             "data-[state=closed]:animate-out data-[state=open]:animate-in",
@@ -253,7 +265,7 @@ export const comboboxItemVariants = tv({
     "py-1.5 ps-2",
     "text-sm",
     "flex w-full items-center gap-2",
-    "rounded-xl",
+    "rounded-box",
     "select-none",
     "cursor-default",
     "outline-hidden",

@@ -5,7 +5,7 @@
 //
 //   numeric      `leagues`  — distance from the nearest road, right-skewed
 //   numeric      `bounty`   — gold paid, loosely tracking distance, so a scatter has a real cloud
-//   categorical  `beast`    — eight, which is the number of slots the palette checks validate
+//   categorical  `beast`    — eight, which is the number of categorical slots a theme publishes
 //                `region`   — six
 //                `hall`     — five, the tenant column
 //                `verdict`  — three, ordered: confirmed → disputed → hoax

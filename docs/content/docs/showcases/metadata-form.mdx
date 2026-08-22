@@ -39,11 +39,11 @@ Almost nothing here is new — it is existing parts, arranged:
 - **`DatePicker`** — the posting and due dates. The ISO-string adapter the form wants is written
   out locally in the showcase, which is
   [where that seam belongs](/docs/forms/dates#an-iso-string-in-and-out).
-- **`useSuggestions` + `Popover`** — the ✨ beside Tags, streaming deduped suggestions as a
-  composition (no bespoke component).
-- **`CodeEditor` with `complete`** — the notice, with Tab-to-accept inline completion.
-  It is CodeMirror-backed, so it is imported from the `@kanzo-tech/ui/editor` subpath, never the root
-  barrel.
+- **`SuggestRoot` / `SuggestMark` / `SuggestList`** — the ✨ beside Tags, streaming deduped
+  candidates into a strip under the field while it has focus.
+- **`CompleteRoot` + `CompleteGhost`** — the title and the notice, with Tab-to-accept inline
+  completion over a plain `Input` and `Textarea`. `CodeEditor` has no completion prop and never
+  had one; the ghost is a compound composed *over* a pure primitive.
 - **`Steps` / `Tabs`** — the form re-lays-out live as sequential Cards, Tabs, or a Steps wizard.
 - **`Preferences` (extended)** — the library's own `PreferencesRoot` + `PreferencesPanel`
   (its "Preferences [P]" drawer) is reused as-is and given custom `children`: a **Layout**

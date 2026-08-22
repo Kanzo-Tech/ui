@@ -133,12 +133,12 @@ value is first saved, React remounts the input and the user loses focus mid-typi
 ## AI-assisted
 
 These take suggestions from a model, and the library never calls one — you pass a stream. See
-[AI-assisted fields](/docs/forms/ai) for the shared contract.
+[AI-assisted fields](/docs/ai/fields) for the shared contract.
 
 | Control | What it is | Reach for it when |
 |---|---|---|
-| [`useSuggestions`](/docs/forms/ai) + a `Popover` | A ✨ button beside a field that offers streamed candidates. | The user is choosing a value and needs options they did not think of. |
-| [`CodeEditor`](/docs/forms/ai) with `complete` | An editor that completes inline as you type (Tab to accept). | The user is writing prose and a streamed continuation helps. |
+| [`SuggestRoot`](/docs/ai/fields) + `SuggestMark` + `SuggestList` | A ✨ inside a field that streams candidates into a strip underneath it. | The user is choosing a value and needs options they did not think of. |
+| [`CompleteRoot`](/docs/ai/fields) + `CompleteGhost` | A field that completes inline as you type, Tab to accept. | The user is writing prose and a streamed continuation helps. |
 
 ---
 

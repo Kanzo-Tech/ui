@@ -47,6 +47,7 @@ export function Finding({ children, disabled, label, load, source }: FindingProp
     }
     setBusy(true);
     try {
+      if (spec === null) return;
       const dense = await load();
       select({ vertices: dense.map((id) => vertexId(spec.typeIndex, id)), source, label });
     } finally {

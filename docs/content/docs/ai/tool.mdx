@@ -1,0 +1,134 @@
+---
+title: Tool
+description: One call the model made — its name, its state, what went in and what came back. The payload is children, not a JSON prop, and that is the reason to use this one.
+---
+
+{/* The only preview in this group that overflows: the other nine fit 450 exactly. Its transcript
+    is a stretchy container, so what it "needs" moves with the frame — 583 at 450, 658 at 600 — and
+    720 is where it settles. It opened already scrolled without this, because the transcript pins to
+    its own tail. */}
+<ComponentPreview componentName="tool" height={720} />
+
+## Usage
+
+```tsx
+import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "@kanzo-tech/ai";
+```
+
+```tsx
+<Tool state="done">
+  <ToolHeader>board.query</ToolHeader>
+  <ToolContent>
+    <ToolInput>
+      <pre>{sql}</pre>
+    </ToolInput>
+    <ToolOutput>
+      <Table>{/* the rows that came back */}</Table>
+    </ToolOutput>
+  </ToolContent>
+</Tool>
+```
+
+## The payload is children
+
+This is the deliberate divergence from the source these shapes came from, and it is the reason to
+reach for ours.
+
+**AI Elements takes `input` and `output` as props and renders them as JSON.** That is right for a
+general chatbot: it cannot know what the tool was, so a formatted blob is the only honest rendering
+of an unknown value.
+
+**We always know.** Our input is a SQL statement and our output is a result table, and both already
+have a component in this house — [`Table`](/docs/data-display/table), the
+[`CodeEditor`](/docs/forms/code-editor), a [`DataTableRoot`](/docs/data-display/data-table), a
+[`ChartRoot`](/docs/analytics/charts).
+Rendering a SQL statement as a JSON blob discards it: the reader loses the syntax, the column
+alignment, the sort, and every affordance the real component has.
+
+So the payload is **composition**. `ToolInput` and `ToolOutput` take children, and a JSON rendering
+is what happens when the caller has nothing better:
+
+```tsx
+{/* composed — a real table, a real editor, a real chart */}
+<ToolOutput>
+  <Table>…</Table>
+</ToolOutput>
+
+{/* the fallback — a JsonTreeView, only when there is nothing better */}
+<ToolInput data={{ contract: "Q-1058", duty: "cantor" }} />
+```
+
+`data` is drawn with [`JsonTreeView`](/docs/data-display/json-tree-view) **only when there are no
+children**. Children always win, so a call that starts life as a JSON dump can grow a real rendering
+one line at a time without changing its shape.
+
+The trade is honest and worth stating: the props version is shorter for a chatbot that genuinely
+does not know its tools. If that is your case, pass `data` and you have written the same thing.
+
+## The four states
+
+`state` is `pending`, `running`, `done` or `failed` — the same four `Task` uses, from the same type,
+because a tool call *is* a step with a name, and giving the two their own four-word vocabularies is
+how they end up disagreeing.
+
+The header renders each as a [`Badge`](/docs/data-display/badge) with a matching tone and icon, and
+a `running` call gets a [`Spinner`](/docs/overlays/loading) instead of a glyph.
+
+**A finished call opens by default; the other three do not.** A call still running has nothing to
+show, and a reader who opens a finished one gets the result under their eyes without a second click.
+`defaultOpen` overrides it in either direction.
+
+<Callout type="warn">
+**The state sits on a wrapper, not on the collapsible**, and that is not tidiness. Ark writes its
+own `data-state` — `open` / `closed` — on a machine's root, so a tool state written there *replaces*
+it. The parts keep working and every `[data-state=open]` a consumer wrote silently stops matching,
+with nothing to see in a diff. Ours is a wrapping `div` carrying `data-state="done"`, with Ark's own
+root untouched inside it.
+</Callout>
+
+That wrapper is also what `ToolOutput` selects on: a failed call tints its output through
+`group-data-[state=failed]`, so an error message reads as one without the caller styling it.
+
+## Anatomy
+
+```text
+Tool                    (div, carries data-state and the group)
+└── Collapsible         (Ark's own root — its data-state is left alone)
+    ├── ToolHeader      (the trigger: name, Badge, indicator)
+    └── ToolContent
+        ├── ToolInput   (children, or `data` as a JSON tree)
+        └── ToolOutput  (children, or `data` as a JSON tree)
+```
+
+`ToolHeader` truncates its name rather than wrapping, because a tool name is an identifier and a
+wrapped identifier costs a line on every call in the transcript.
+
+## API Reference
+
+### Tool
+
+Renders a `div` around a [`Collapsible`](/docs/layout/collapsible).
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `state` | `"pending" \| "running" \| "done" \| "failed"` | `"pending"` |
+| `defaultOpen` | `boolean` | `state === "done"` |
+| `open` | `boolean` | — |
+| `onOpenChange` | `Collapsible`'s handler | — |
+
+`state` is the `RunState` type, shared with [`Task`](/docs/ai/task).
+
+### ToolInput · ToolOutput
+
+Both render a `div` and share `ToolIoProps`.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `data` | `unknown` | — |
+
+Drawn as a JSON tree when — and only when — there are no children.
+
+### ToolHeader
+
+Extends `CollapsibleTrigger`. Children are the tool's name; the badge and the indicator are
+supplied.

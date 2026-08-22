@@ -217,7 +217,7 @@ function PreferencesPanel({
             // strip; it now holds five sections plus however many the packages a host installed
             // contribute, and it is the one surface here that grows with somebody else's decision.
             // The extra 64px is what lets a palette card depict a document rather than gesture at
-            // one — see `PalettePreview`.
+            // one — see `ThemePreview`.
             "pointer-events-auto relative flex max-h-[calc(100dvh-2rem)] w-96 flex-col overflow-hidden",
             "rounded-lg border border-border bg-popover text-popover-foreground shadow-xl",
             "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-right-4",
@@ -409,44 +409,31 @@ const DEFAULT_RETIRED_TITLE = "Colours updated";
 const DEFAULT_RETIRED = ({ choice }: { choice: string }) =>
   `The colours you had chosen (${choice}) are no longer published, so these are the default ones.`;
 
-/** `palette` on its own, or `palette/identity` when the palette publishes more than one brand. */
-const KEY_SEPARATOR = "/";
-
 /**
- * One palette, drawn by ITSELF — a miniature of the interface rather than a list of its hexes.
+ * One theme, drawn by ITSELF — a miniature of the interface rather than a list of its hexes.
  *
- * **Nothing here is data.** The document is already in the page, compiled under its own
- * `[data-palette]`, so this span sets the attribute and every utility inside it resolves against
- * that document: `bg-primary` is that tenant's brand, `bg-chart-3` is their third categorical slot.
- * A strip of four hexes was the alternative and it could not depict a document — on Kanzo's own,
- * `--primary` and `--foreground` are the same value (the relief rule puts the fill on the ramp's
- * ink), so two of the four chips were one colour and the control said nothing.
+ * **Nothing here is data.** The theme is already in the page under its own `[data-theme]`, so this
+ * span sets the attribute and every utility inside it resolves against that theme: `bg-primary` is
+ * that tenant's brand, `bg-chart-3` is their third categorical slot. A strip of four hexes was the
+ * alternative and it could not depict a theme — on the default's own, `--primary` and `--foreground`
+ * are the same value, so two of the four chips were one colour and the control said nothing.
  *
- * **The appearance class is not optional.** `compile`'s scoped selectors are
- * `[data-palette="x"]`, `[data-palette="x"].light` and `[data-palette="x"].dark` — never
- * `.dark [data-palette="x"]` — precisely so a preview can force a side inside a page painted the
- * other way. Without the class this span would take the light block on a dark page.
+ * **Three things this used to need and no longer does**, and they are the same three the whole
+ * refactor removed:
  *
- * **The default palette carries no attribute, and that is the case that does not fit.** Its
- * document *is* `tokens.css`, emitted at `:root, .light` / `.dark` with no scope of its own, so
- * `[data-palette="kanzo"]` matches nothing and the cell would inherit whatever the page is wearing.
- * The class alone matches those blocks, and a declaration on this element beats an inherited value
- * whatever the specificity, so the default draws itself correctly even inside a Dracula page.
+ * · *The appearance class.* A document carried two blocks, so a preview had to force a side with
+ *   `.light` / `.dark` or it would take the wrong one on a dark page. A theme IS a side.
+ * · *A second attribute.* `data-identity` selected the brand within the document. A brand is a
+ *   theme, so there is one attribute.
+ * · *The default's special case.* The default document was emitted at bare `:root` with no scope of
+ *   its own, so `[data-palette="kanzo"]` matched nothing and the cell inherited whatever the page
+ *   wore — the class alone had to carry it. `themes/kanzo.css` answers to `:root` **and**
+ *   `[data-theme="kanzo"]`, so the default selects like every other theme.
  *
- * The categorical strip draws all eight slots on purpose. Past a document's `capacity`, `compile`
- * writes `var(--muted-foreground)`, so a set that holds seven says so by going grey at the end.
+ * The categorical strip draws all eight slots on purpose. Past a theme's `--chart-capacity` the
+ * slot is `var(--muted-foreground)`, so a set that holds seven says so by going grey at the end.
  */
-function PalettePreview({
-  appearance,
-  identity,
-  palette,
-}: {
-  appearance: string;
-  /** The brand within the document, or `""` for the one `:root` carries. */
-  identity: string;
-  /** The document's id, or `""` for the default — which has no scoped block to select. */
-  palette: string;
-}) {
+function ThemePreview({ theme }: { theme: string }) {
   return (
     <span
       aria-hidden
@@ -456,11 +443,9 @@ function PalettePreview({
         // had failed to load rather than as a denser one. GitHub's tile is 2:1 because it is a
         // screenshot with a screenshot's worth of content in it.
         "flex h-16 flex-col justify-between rounded-[4px] border border-border bg-background p-2",
-        appearance,
       )}
-      data-identity={identity || undefined}
-      data-palette={palette || undefined}
-      data-slot="palette-preview"
+      data-slot="theme-preview"
+      data-theme={theme || undefined}
     >
       {/* Chrome: the brand fill, and two weights of ink on the page. */}
       <span className="flex items-center gap-1">
@@ -516,43 +501,30 @@ function PalettePreview({
  * on preferences this component would have to read and agree with. Reading the element on the way
  * in cannot disagree with anything.
  */
-function usePalettePreview() {
-  const held = React.useRef<{ palette: string | null; identity: string | null } | null>(null);
+function useThemePreview() {
+  const held = React.useRef<{ theme: string | null } | null>(null);
 
   const restore = React.useCallback(() => {
     const snapshot = held.current;
     if (!snapshot) return;
     held.current = null;
     const el = document.documentElement;
-    for (const [attr, value] of [
-      ["data-palette", snapshot.palette],
-      ["data-identity", snapshot.identity],
-    ] as const) {
-      if (value === null) el.removeAttribute(attr);
-      else el.setAttribute(attr, value);
-    }
+    if (snapshot.theme === null) el.removeAttribute("data-theme");
+    else el.setAttribute("data-theme", snapshot.theme);
   }, []);
 
-  const preview = React.useCallback(
-    (palette: string, identity: string) => {
-      const el = document.documentElement;
-      // Only the FIRST entry into the list snapshots. Moving from one card to the next fires leave
-      // and enter in an order the pointer decides, and re-snapshotting mid-sweep would file the
-      // palette being previewed as the one to go back to.
-      held.current ??= {
-        palette: el.getAttribute("data-palette"),
-        identity: el.getAttribute("data-identity"),
-      };
-      if (palette) el.setAttribute("data-palette", palette);
-      else el.removeAttribute("data-palette");
-      if (identity) el.setAttribute("data-identity", identity);
-      else el.removeAttribute("data-identity");
-    },
-    [],
-  );
+  const preview = React.useCallback((theme: string) => {
+    const el = document.documentElement;
+    // Only the FIRST entry into the list snapshots. Moving from one card to the next fires leave
+    // and enter in an order the pointer decides, and re-snapshotting mid-sweep would file the theme
+    // being previewed as the one to go back to.
+    held.current ??= { theme: el.getAttribute("data-theme") };
+    if (theme) el.setAttribute("data-theme", theme);
+    else el.removeAttribute("data-theme");
+  }, []);
 
   // A panel closed mid-preview — Escape, a click on the trigger — never fires the leave handler,
-  // and would leave the reader wearing a palette they did not choose.
+  // and would leave the reader wearing a theme they did not choose.
   React.useEffect(() => restore, [restore]);
 
   return { preview, restore };
@@ -564,7 +536,7 @@ const APPEARANCES: Appearance[] = ["light", "dark"];
 /** `light` / `dark`, and the only two strings this section authors. */
 const DEFAULT_SIDE_LABEL = (side: Appearance) => (side === "light" ? "Light" : "Dark");
 
-type Entry = { identity: string; key: string; label: string; scope: string };
+type Entry = { key: string; label: string };
 
 /**
  * One side of the choice — which document this user wears in light, or in dark.
@@ -596,20 +568,19 @@ function SideCard({
   onRestore,
   selectedFor,
   setAppearance,
-  setPalette,
+  setTheme,
   side,
 }: {
   entries: Entry[];
   formatSide: (side: Appearance) => string;
   /** Whether this is the side currently applied. Only then does hovering preview anything. */
   live: boolean;
-  onPreview: (palette: string, identity: string) => void;
+  onPreview: (theme: string) => void;
   onRestore: () => void;
-  resolvedIdentity: string;
-  resolvedPalette: string;
+  resolvedTheme: string;
   selectedFor: (side: Appearance) => string;
   setAppearance: (appearance: Appearance) => void;
-  setPalette: (palette: string, options?: { appearance?: Appearance; identity?: string }) => void;
+  setTheme: (theme: string, options?: { appearance?: Appearance }) => void;
   side: Appearance;
 }) {
   const selected = selectedFor(side);
@@ -625,7 +596,7 @@ function SideCard({
     <RadioGroup
       className={cn(
         "flex flex-col gap-2 rounded-lg border p-2.5 transition-colors",
-        // Selected the way `RadioGroupCard` spells selected, minus its `bg-base-a5`: the chips
+        // Selected the way `RadioGroupCard` spells selected, minus its `bg-primary/17`: the chips
         // inside are radio cards too, and a checked chip on a tinted card is the same wash twice
         // with only a border left to tell them apart. A ring buys the same emphasis and leaves the
         // fill for the control that has nothing else.
@@ -635,9 +606,8 @@ function SideCard({
       onPointerLeave={onRestore}
       onValueChange={(d) => {
         if (!d.value) return;
-        const [palette, identity = ""] = d.value.split(KEY_SEPARATOR);
         onRestore();
-        setPalette(palette ?? "", { appearance: side, identity });
+        setTheme(d.value, { appearance: side });
       }}
       slot="preferences-side-card"
       value={selected}
@@ -665,7 +635,7 @@ function SideCard({
         aria-pressed={live}
         className={cn(
           "-m-1 flex cursor-pointer flex-col gap-2 rounded-md p-1 text-start transition-colors",
-          "hover:bg-base-a4",
+          "hover:bg-foreground/14",
           "outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
         )}
         onClick={() => setAppearance(side)}
@@ -682,11 +652,7 @@ function SideCard({
           </span>
         </RadioGroupLabel>
 
-        <PalettePreview
-          appearance={side}
-          identity={current?.identity ?? ""}
-          palette={current?.scope ?? ""}
-        />
+        <ThemePreview theme={current?.key ?? ""} />
       </button>
 
       {/* The chosen document's name — under the tile, with the chips it belongs to rather than
@@ -701,17 +667,16 @@ function SideCard({
             key={entry.key}
             // Hovering only previews on the side being worn. Previewing the other one would repaint
             // the page into a mode the reader did not ask for, which is a worse lie than no preview.
-            onFocus={live ? () => onPreview(entry.scope, entry.identity) : undefined}
-            onPointerEnter={live ? () => onPreview(entry.scope, entry.identity) : undefined}
+            onFocus={live ? () => onPreview(entry.key) : undefined}
+            onPointerEnter={live ? () => onPreview(entry.key) : undefined}
             title={entry.label}
             value={entry.key}
           >
             <span
               aria-hidden
-              className={cn("size-3.5 rounded-full bg-primary ring-1 ring-border", side)}
-              data-identity={entry.identity || undefined}
-              data-palette={entry.scope || undefined}
-              data-slot="palette-chip"
+              className="size-3.5 rounded-full bg-primary ring-1 ring-border"
+              data-slot="theme-chip"
+              data-theme={entry.key || undefined}
             />
             <ArkRadioGroup.ItemText className="sr-only">{entry.label}</ArkRadioGroup.ItemText>
           </RadioGroupCard>
@@ -729,67 +694,44 @@ function ColorSection({
 }: PreferencesColorProps = {}) {
   const {
     corePrefs,
-    defaultPalette,
-    paletteByAppearance,
-    palettes,
+    defaultTheme,
     resolvedAppearance,
-    resolvedPalette,
-    resolvedIdentity,
-    retiredPalette,
-    retiredIdentity,
+    resolvedTheme,
+    retiredTheme,
     setAppearance,
-    setPalette,
+    setTheme,
+    themeByAppearance,
+    themes,
   } = useKanzoTheme();
-  const { preview, restore } = usePalettePreview();
+  const { preview, restore } = useThemePreview();
 
-  // What the TENANT still lets this user choose. A pinned palette leaves exactly one document to
-  // offer — so the section either disappears (one brand inside it) or becomes the brand picker it
-  // already knew how to be. A pinned or withheld identity collapses the brands the same way. Both
+  // What the TENANT still lets this user choose. A pinned theme leaves exactly one to offer, so the
+  // section disappears — which is the white-label case working, not a control failing. The
   // fall out of the existing `entries.length < 2` rule rather than adding a second way to hide.
-  const offered = corePrefs.paletteByAppearance?.offered === false
-    ? palettes.filter((palette) => palette.value === resolvedPalette)
-    : palettes;
-  const brandsOffered = corePrefs.identity?.offered !== false;
+  const offered = corePrefs.themeByAppearance?.offered === false
+    ? themes.filter((theme) => theme.value === resolvedTheme)
+    : themes;
 
-  const prefixed = offered.length > 1;
-  const entries = offered.flatMap((palette) => {
-    // The default document is emitted unscoped, so its preview selects on the appearance class
-    // alone — see `PalettePreview`. Everywhere else this is the document's own id.
-    const scope = palette.value === defaultPalette ? "" : palette.value;
-    const brands = brandsOffered ? palette.children ?? [] : [];
-    if (brands.length < 2) {
-      return [{ identity: "", key: palette.value, label: palette.label, scope }];
-    }
-    return brands.map((brand) => ({
-      identity: brand.value,
-      key: `${palette.value}${KEY_SEPARATOR}${brand.value}`,
-      label: prefixed ? `${palette.label} · ${brand.label}` : brand.label,
-      scope,
-    }));
-  });
+  // **One entry per theme, and that is the whole of this now.** It used to be a flatMap over
+  // documents that expanded each into its brands, prefixing labels when more than one document was
+  // offered, and computing a `scope` because the default document had no selector of its own. A
+  // brand is a theme and every theme selects the same way, so the list is the list.
+  const entries: Entry[] = offered.map((theme) => ({ key: theme.value, label: theme.label }));
 
   if (entries.length < 2) return null;
 
-  const retired = retiredPalette ?? retiredIdentity;
+  const retired = retiredTheme;
 
   /**
    * Which entry a side is wearing.
    *
-   * For the applied side this is the RESOLVED pair, never the preference: an empty preference is a
-   * deferral to the document, and the entry that reads as checked has to be the one on screen.
-   * For the other side there is nothing on screen to agree with, so it falls back the same way the
-   * provider would — the stored value, or the tenant's default.
+   * For the applied side this is the RESOLVED theme, never the preference: an empty preference is a
+   * deferral to the tenant, and the entry that reads as checked has to be the one on screen. For the
+   * other side there is nothing on screen to agree with, so it falls back the same way the provider
+   * would — the stored value, or the tenant's default.
    */
-  const selectedFor = (side: Appearance) => {
-    const palette =
-      (side === resolvedAppearance ? resolvedPalette : paletteByAppearance[side]) || defaultPalette;
-    if (entries.some((entry) => entry.key === palette)) return palette;
-    const identity = side === resolvedAppearance ? resolvedIdentity : "";
-    const pair = `${palette}${KEY_SEPARATOR}${identity}`;
-    // A brand this user has not chosen on that side resolves to the document's first, which is the
-    // one `:root` paints — the same answer the provider gives, arrived at the same way.
-    return entries.some((entry) => entry.key === pair) ? pair : `${palette}${KEY_SEPARATOR}`;
-  };
+  const selectedFor = (side: Appearance) =>
+    (side === resolvedAppearance ? resolvedTheme : themeByAppearance[side]) || defaultTheme;
 
   return (
     // A plain heading, not `PrefFieldSet`, and that is forced rather than chosen. Ark's
@@ -802,10 +744,11 @@ function ColorSection({
       {/* Two sibling cards, one per side — GitHub's Appearance page, whose move this borrows: the
           tile shows the thing being themed rather than naming it.
           
-          What is NOT borrowed is their semantics. GitHub pairs a day theme with a night theme
-          because its themes are single-mode; ours each carry both, so a card is not "the light
-          theme" but *which of the tenant's documents this user wears on the light side*.
-          See `decisions/a-palette-is-chosen-per-appearance.md`.
+          The semantics ARE theirs now, and that is new. GitHub pairs a day theme with a night theme
+          because its themes are single-mode; ours used to each carry both, so a card meant *which
+          document this user wears on the light side*. A theme is one mode, so a card is the light
+          theme, and `decisions/a-palette-is-chosen-per-appearance.md` closed by becoming the
+          obvious shape rather than by being argued.
           
           A container query rather than a media query, because the question is how much room THIS
           section was given, not how big the window is. The same markup is one column inside a
@@ -821,11 +764,10 @@ function ColorSection({
               live={side === resolvedAppearance}
               onPreview={preview}
               onRestore={restore}
-              resolvedIdentity={resolvedIdentity}
-              resolvedPalette={resolvedPalette}
+              resolvedTheme={resolvedTheme}
               selectedFor={selectedFor}
               setAppearance={setAppearance}
-              setPalette={setPalette}
+              setTheme={setTheme}
               side={side}
             />
           ))}
@@ -879,6 +821,9 @@ function PrefControl({
   specimen?: (option: PrefOption) => React.ReactNode;
 }) {
   const { decl, value } = pref;
+  // The declaration's name, and the key when it has none — which is what every surface drew before
+  // a preference could carry one, and is still what an older manifest gets.
+  const title = decl.label ?? name;
 
   if (decl.kind === "toggle") {
     // `Field` and nothing else, because Ark's Switch **does** read the ambient field context — its
@@ -891,7 +836,7 @@ function PrefControl({
     // The control's role is `checkbox`, not `switch`: Ark renders a hidden `input type="checkbox"`
     // and does not set `role="switch"` on it. Upstream's call, adopted verbatim.
     return (
-      <PrefField label={name}>
+      <PrefField label={title}>
         <Switch
           checked={prefBoolean(value)}
           onCheckedChange={(d) => onChange(String(d.checked === true))}
@@ -911,7 +856,7 @@ function PrefControl({
         step={decl.step}
         value={[prefNumber(value, decl)]}
       >
-        <SliderLabel className={PREF_HEADING}>{name}</SliderLabel>
+        <SliderLabel className={PREF_HEADING}>{title}</SliderLabel>
       </Slider>
     );
   }
@@ -923,7 +868,7 @@ function PrefControl({
   // A specimen is wide and wants its name under it; a bare name is a row in a list. One rule, read
   // off the data, rather than a layout prop each call site has to remember to pass.
   return (
-    <PrefFieldSet label={name}>
+    <PrefFieldSet label={title}>
       <RadioGroup
         className={specimen ? "flex-row flex-wrap gap-2" : "gap-2"}
         onValueChange={(d) => d.value && onChange(d.value)}
@@ -1002,17 +947,14 @@ export interface PreferencesSectionsProps {
 }
 
 function ContributedSections({ namespace, only }: PreferencesSectionsProps = {}) {
-  const { identities, palettes, sectionPrefs, setSectionPref } = useKanzoTheme();
+  const { sectionPrefs, setSectionPref, themes } = useKanzoTheme();
 
-  // The two lists only a tenant can write, in the shape a declaration names them by. Built here and
+  // The one list only a tenant can write, in the shape a declaration names it by. Built here and
   // handed down rather than read inside the control, so the same control renders under a test that
   // has no provider.
   const sources: PrefSources = React.useMemo(
-    () => ({
-      palettes: palettes.map(({ label, value }) => ({ label, value })),
-      identities: identities.map(({ label, value }) => ({ label, value })),
-    }),
-    [identities, palettes],
+    () => ({ themes: themes.map(({ label, value }) => ({ label, value })) }),
+    [themes],
   );
 
   const drawn = namespace
@@ -1132,19 +1074,19 @@ const SPECIMENS: Record<string, Specimen> = {
 /**
  * One core axis, drawn by the one renderer.
  *
- * Everything that used to differ between the four is data now: the label is the section's, the
- * options and the kind are the declaration's, the specimen is a lookup, and whether to draw at all
- * is the chain's answer. What a host sees is unchanged — this is the same markup those components
+ * Everything that used to differ between the four is data now: the name, the options and the kind
+ * are the declaration's, the specimen is a lookup, and whether to draw at all is the chain's
+ * answer. What a host sees is unchanged — this is the same markup those components
  * emitted, which `Preferences.test.tsx` checks by rendering rather than by reading the source.
  */
-function CoreSection({ axis, label }: { axis: CorePrefKey; label: string }) {
+function CoreSection({ axis }: { axis: CorePrefKey }) {
   const theme = useKanzoTheme();
   const pref = theme.corePrefs[axis];
   if (!pref?.offered) return null;
   const specimen = SPECIMENS[axis];
   return (
     <PrefControl
-      name={label}
+      name={axis}
       onChange={(next) => theme.set({ [axis]: next })}
       pref={pref}
       sources={theme.sources}
@@ -1153,9 +1095,9 @@ function CoreSection({ axis, label }: { axis: CorePrefKey; label: string }) {
   );
 }
 
-const FontSection = () => <CoreSection axis="font" label="Font" />;
-const MonoFontSection = () => <CoreSection axis="monoFont" label="Mono font" />;
-const DensitySection = () => <CoreSection axis="density" label="Density" />;
+const FontSection = () => <CoreSection axis="font" />;
+const MonoFontSection = () => <CoreSection axis="monoFont" />;
+const DensitySection = () => <CoreSection axis="density" />;
 
 export interface PreferencesProps extends Omit<PreferencesRootProps, "children"> {
   /** Restyle or reposition the floating trigger (it is `fixed bottom-4 end-4` by default). */

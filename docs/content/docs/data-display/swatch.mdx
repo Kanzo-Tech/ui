@@ -12,7 +12,7 @@ import { Swatch, SwatchGroup } from "@kanzo-tech/ui";
 ```
 
 ```tsx
-<SwatchGroup colors={palette.accents} />
+<SwatchGroup colors={theme.chartSlots} />
 ```
 
 `Swatch` is `aria-hidden`, carries no role and is never focusable — colour is not an identity
@@ -22,7 +22,7 @@ that lives in a comment beside one call site is a rule the next hand-rolled stri
 and it has no `data-slot` to restyle either.
 
 `color` is the one sanctioned inline style in the system, because it is **data** — a value the
-user or the palette supplied — not a variant a token could ever name.
+user or the theme supplied — not a variant a token could ever name.
 
 ## Swatch or ColorPicker
 
@@ -31,7 +31,7 @@ user or the palette supplied — not a variant a token could ever name.
   the code we ship rather than assumed. All of them call `useColorPickerContext`, which is
   `strict` and throws outside a picker; `data-state="checked"` is computed as
   `color.isEqual(value)` against the single colour the machine holds, so in a sixteen-slot
-  palette strip the highlight lands on whichever slot happens to match; and every trigger is a
+  theme strip the highlight lands on whichever slot happens to match; and every trigger is a
   real button labelled `select #2e3440 as the color`, which is the wrong sentence when what the
   reader is choosing is "Nord". Neutralising them with `readOnly` yields `<button disabled>` —
   strictly worse for assistive tech than a decorative span.
@@ -39,7 +39,7 @@ user or the palette supplied — not a variant a token could ever name.
 
 So the split is by what the colour *means*. When the colour is the value the user is editing,
 that is [`ColorPicker`](/docs/forms/color-picker). When it merely pictures a value that has a
-name — a palette, a series, a theme — that is `Swatch`, and the name beside it is what the user
+name — a theme, a series, a slot — that is `Swatch`, and the name beside it is what the user
 is actually choosing. Wanting a focusable swatch means wanting the other one, or a
 [`RadioGroupCard`](/docs/forms/radio-group) wrapped around this.
 
@@ -58,7 +58,7 @@ changes.
 
 `SwatchGroup` takes the colours as data and lays them out — and **never sorts them**. Order is
 meaning: for a categorical scheme the sequence *is* the colour-blindness mechanism that
-`orderScheme` derives, and for a palette it is base16's slot order. A strip that tidied its
+`orderScheme` derives, and for a categorical set it is the theme's own slot order. A strip that tidied its
 input would be quietly discarding the reason it was ordered. It also survives a repeated colour
 — Dracula yields seven accents for eight slots, so `base0F` repeats `base08`.
 

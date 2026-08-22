@@ -21,9 +21,13 @@
 - `decisions/` — one record per decision. `Status` `live` is today's rule; anything else is
   history, and you can skip it.
 - The repo-wide guard tests are the rules nobody should have to remember. **Read the file, not a
-  summary of it** — each carries its own reasoning, and each says what it cannot prove:
+  summary of it** — each carries its own reasoning, and each says what it cannot prove.
+  `packages/ui/src/guard-corpus.ts` is what "repo-wide" means: the six appearance and boundary
+  guards scan every package that declares `tailwind-variants` (`ui` and `ai` today) and report
+  `<package>/<path under src>`. Widen that corpus; never copy a guard into a second package.
   `packages/ui/src/alpha-steps.test.ts` (seven banned token spellings), `no-literal-hues.test.ts`,
-  `logical-properties.test.ts`, `client-boundary.test.ts`, `data-slot.test.tsx`, `index.test.ts`
+  `logical-properties.test.ts`, `client-boundary.test.ts`, `data-slot.test.tsx`,
+  `list-semantics.test.ts`, `codemirror-dark-parity.test.ts`, `index.test.ts`
   (the pinned surface and the tombstones), `documented-exports.test.ts` (a page may not claim a
   symbol we do not export), `shark-parity.test.ts` (every difference from the reference is
   declared), `decisions.test.ts`, and `packages/theme/src/{boundary,palettes}.test.ts`.
@@ -36,8 +40,7 @@
   everyone who did not install it.
 - **Theme attributes go on `<html>`.** Ark's overlays portal to `document.body`, outside any
   wrapper, and density sets the root font-size the whole `rem` scale resolves against.
-- **`@kanzo-tech/palette` is authoring-time.** It is a devDependency of `@kanzo-tech/theme`, and
-  `packages/theme/src/boundary.test.ts` fails if that moves.
+- **A theme is source, not output.** `packages/theme/themes/*.css` and `tokens.css` are hand-written; only `themes.css` and `theme-data.json` are generated. There is no colour derivation — see `decisions/a-theme-is-one-flat-block.md`.
 - **Exactly one `<main>` per page**, owned by `ShellMain`. `SidebarInset` is a neutral `<div>`.
 
 ## Working here

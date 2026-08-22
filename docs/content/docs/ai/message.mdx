@@ -1,0 +1,177 @@
+---
+title: Message
+description: One turn in a transcript. The speaker is declared once on the row, and every part reads it back off the DOM.
+---
+
+<ComponentPreview componentName="message" />
+
+## Usage
+
+```tsx
+import {
+  Message,
+  MessageActions,
+  MessageAvatar,
+  MessageContent,
+  MessageList,
+} from "@kanzo-tech/ai";
+```
+
+```tsx
+<MessageList>
+  <Message role="user">
+    <MessageAvatar name="Ravenna Sarkis" />
+    <MessageContent>Is the quarry contract properly crewed?</MessageContent>
+  </Message>
+</MessageList>
+```
+
+Nothing here is stateful. A `Message` is markup — an `<li>` with a role on it — which is why the
+whole family renders on the server and costs nothing on the client.
+
+## The role is declared once
+
+`role` is `"user"`, `"assistant"` or `"system"`, it goes on the row, and it is mirrored to
+`data-role`. Every part below reads it back through a group selector: `MessageContent` picks up the
+bubble on a user turn, `MessageAvatar` hides itself on a system note, and `MessageActions` packs to
+the reading end.
+
+**Two surfaces, three roles.** A system note is not a speaker, so it takes neither the bubble nor
+the page — it is an aside *about* the conversation. Compose an [`Alert`](/docs/overlays/alert)
+inside the row and you get the shape the library already ships: a wash, a border, an icon slot,
+`role="status"`, and the ability to wrap.
+
+There used to be a third surface here, a centred `rounded-full` pill painted by `MessageContent`,
+and it was wrong twice. It respelled a shape the library already had; and the component it was
+imitating, `Badge`, is `whitespace-nowrap` at a fixed `h-5` and could never have rendered the
+sentence it was given — a full-round pill around a wrapped sentence is a stadium with dead corners.
+AI Elements types its role as the AI SDK's `UIMessage["role"]`, system included, and gives it no
+treatment at all.
+
+**Repeating the role as a prop on each part is how the two drift** — a content that thinks it is a
+user turn inside a row that says assistant. There is one declaration and one source.
+
+<Callout type="warn">
+`role` is the **speaker**, not the ARIA attribute. The HTML `role` is deliberately omitted from the
+props rather than merged, because two meanings under one name — with the wrong one reaching the DOM
+— is worse than an `<li>` nobody can re-role. If you need a different element, use `asChild`.
+</Callout>
+
+A user turn is laid out with `flex-row-reverse` rather than `justify-end`, so the row packs against
+the reading end and the avatar goes with it. That is direction-aware where a physical side is not,
+and it is why the transcript mirrors correctly under RTL without a second code path.
+
+## The parts
+
+`MessageContent` is the body: a min-width-0 column that wraps, so a long unbroken token cannot push
+the row wider than the transcript. On a user turn it caps at 85% and takes a filled rounded bubble;
+on an assistant turn it is bare text on the page, which is the shape long answers want. It has no
+system branch — see above.
+
+`MessageActions` is the affordance row under the turn — copy, retry, a source. It is `basis-full`,
+so it breaks onto its own line; that is what the row's `flex-wrap` is there for. Put a
+[`ButtonGroup`](/docs/actions/button-group) inside it rather than loose buttons, so the cluster is
+one control group with one label.
+
+`MessageAvatar` wraps [`Avatar`](/docs/data-display/avatar) at `size="sm"`. Give it `src` for an
+image, `name` for the alt text, or `name` alone and it derives two initials the way the rest of the
+library does.
+
+`MessageText` is the body of an answer that is still arriving. Hand it the string **so far** and a
+`streaming` boolean; it re-derives the words and settles each one in as it appears.
+
+## An answer arrives a word at a time
+
+**A word and not a chunk.** A model emits tokens and tokens cut words in half, so animating what
+arrives makes half a word fade in and the other half appear a frame later — a glitch, not writing.
+`MessageText` never sees the stream: it takes the text so far and re-derives the words from it, so
+there is no queue to keep in step and no arrival event to subscribe to.
+
+```tsx
+<MessageContent>
+  <MessageText streaming={status === "loading"}>{answer}</MessageText>
+</MessageContent>
+```
+
+The shape is Streamdown's — the renderer AI Elements uses for an answer and a reasoning block —
+and four things come from it, each one a bug this would otherwise have:
+
+- **Only what is new animates.** Here that falls out of the key: each word is keyed by its absolute
+  character offset, so React keeps the elements it already mounted. Keyed by the *word*, the last
+  one remounts on every frame while its own characters are still arriving, and it flashes instead
+  of settling.
+- **A batch cascades.** A stream does not deliver one word per frame; it delivers twenty at once
+  and then nothing for 200ms. Without a per-word delay the twenty fade in together — which is the
+  flash the animation exists to avoid.
+- **The cascade has a budget.** A stagger applied naively to a fast stream schedules words further
+  and further ahead of the text, so a queue of invisible words builds up behind a stream that has
+  already finished. The step compresses to fit, floored so the batch still cascades rather than
+  collapsing to zero.
+- **The tree does not change when the stream ends.** Same spans, same caret element — the caret is
+  hidden, not unmounted. A component that renders one shape while streaming and another when done
+  re-mounts every word at the finish, and the whole answer arrives twice.
+
+A message that mounts complete does not animate: a transcript loaded from history did not arrive.
+The fade is opacity only, 150ms, `ease` — Streamdown's default of three, the other two being a blur
+and a rise. Reduced motion turns it off and nothing else, because the words are already at their
+settled opacity with it off.
+
+<Callout type="info">
+**It renders text, not markdown.** Streamdown's larger job is closing *incomplete* markdown — an
+unterminated `**bold`, a half-arrived code fence — so an answer does not flicker as it completes.
+A plain string has no such problem and also no markdown. A source that streams markdown into this
+will want that, and it is a dependency rather than a rewrite.
+</Callout>
+
+## Anatomy
+
+```text
+MessageList                 (ul, the turns)
+└── Message                 (li, carries data-role)
+    ├── MessageAvatar
+    ├── MessageContent
+    │   └── MessageText     (optional — an answer still arriving)
+    └── MessageActions      (basis-full — its own line)
+```
+
+`MessageList` is a plain `ul` with the list markers off. It is not a scroll container and it does
+not follow a stream: that is [`Conversation`](/docs/ai/conversation), one level up.
+
+## API Reference
+
+### Message
+
+Renders an `li`.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `role` | `"user" \| "assistant" \| "system"` | `"assistant"` |
+
+The DOM `role` attribute is omitted from the props — see the callout above.
+
+### MessageAvatar
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `src` | `string` | — |
+| `name` | `string` | — |
+| `size` | inherited from `Avatar` | `"sm"` |
+
+`name` names the image and, when there is no image, supplies the fallback's initials. Pass children
+and they replace both — an [`AvatarBadge`](/docs/data-display/avatar), an icon, whatever the turn
+needs.
+
+### MessageText
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `children` | `string` | — |
+| `streaming` | `boolean` | `false` |
+
+`children` is a string and not a node: the component splits it, so it has to be text. `streaming`
+draws the caret and nothing else — the tint is per word and runs when a word appears.
+
+### Other parts
+
+`MessageList` renders a `ul`; `MessageContent` and `MessageActions` render a `div` and take that
+element's props. All of them carry a `data-slot`, and every one accepts `asChild`.

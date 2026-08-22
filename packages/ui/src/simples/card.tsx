@@ -17,7 +17,7 @@ export const Card = (props: React.ComponentProps<typeof ark.article>) => {
         "bg-card",
         "text-foreground",
         "has-data-[variant=image]:pt-0 has-data-[slot=card-footer]:pb-0",
-        "rounded-xl border shadow-xs/5",
+        "rounded-box border shadow-xs/5",
         className
       )}
       {...rest}

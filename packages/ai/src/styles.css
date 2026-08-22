@@ -1,0 +1,27 @@
+/*
+ * @kanzo-tech/ai — compiled stylesheet.
+ *
+ * A SUPPLEMENT, not a second copy. `@kanzo-tech/ui/styles.css` already ships the token layer, the
+ * preflight, the dark variant and every utility its own components use; this sheet emits only the
+ * utilities THIS package's source adds on top, and a consumer imports both, in this order:
+ *
+ *     import "@kanzo-tech/ui/styles.css";
+ *     import "@kanzo-tech/ai/styles.css";
+ *
+ * It exists because nothing was scanning `packages/ai/src` at all, and that was not a nuance —
+ * `max-w-[85%]`, the width of a user's message bubble, appeared zero times in the shipped sheet, so
+ * every bubble rendered full-width. The library's own sheet globs `./**` relative to
+ * `packages/ui/src` and cannot reach a sibling package, and the fix must not be to point it here:
+ * `ai` depends on `ui` and never the reverse (`decisions/the-ai-surfaces-are-their-own-package.md`),
+ * and a stylesheet that scans downstream inverts that in the one layer nobody typechecks.
+ *
+ * `theme(reference)` and `source(none)` are what keep it a supplement: the theme is available to
+ * resolve `bg-card` and `border-destructive-a6` against, and none of it is re-emitted; only the
+ * classes found under `@source` below are.
+ */
+@import "tailwindcss/theme.css" theme(reference);
+/* `@reference`, not `@import … theme(reference)`: tokens.css is `@theme inline` blocks AND `:root`
+   blocks, and the `theme(reference)` form refuses a file containing anything but `@theme`. */
+@reference "@kanzo-tech/theme/tokens.css";
+@import "tailwindcss/utilities.css" source(none);
+@source "./**/*.{ts,tsx}";

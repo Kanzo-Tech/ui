@@ -8,16 +8,16 @@ export const inputVariants = tv({
     "peer",
     "w-full min-w-0",
     "px-3",
-    "bg-transparent dark:bg-field",
+    "bg-field",
     "text-base md:text-sm",
-    "rounded-lg border border-input shadow-xs/5",
+    "rounded-field border border-input shadow-xs/5",
     "placeholder:text-faint",
     "file:inline-flex file:h-7 file:items-center file:border-0",
     "file:font-medium file:text-foreground file:text-sm",
     "transition-[color,box-shadow]",
     "outline-none focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-ring",
-    "aria-invalid:border-destructive aria-invalid:text-destructive aria-invalid:ring-[3px] aria-invalid:ring-destructive/24",
-    "data-invalid:border-destructive data-invalid:text-destructive data-invalid:ring-[3px] data-invalid:ring-destructive/24",
+    "aria-invalid:border-destructive aria-invalid:text-destructive-foreground aria-invalid:ring-[3px] aria-invalid:ring-destructive/24",
+    "data-invalid:border-destructive data-invalid:text-destructive-foreground data-invalid:ring-[3px] data-invalid:ring-destructive/24",
     // The dark branch is TEXT only, and this is the site the other eleven recipes point at.
     // Shark repaints the border and the ring here too; measured across all six compiled documents,
     // `--destructive` reads 4.15:1 against that document's own dark page — over the 3:1 WCAG 1.4.11
@@ -31,9 +31,9 @@ export const inputVariants = tv({
   ],
   variants: {
     size: {
-      sm: ["h-7"],
-      md: ["h-8"],
-      lg: ["h-9"],
+      sm: [],
+      md: [],
+      lg: [],
     },
   },
   defaultVariants: {

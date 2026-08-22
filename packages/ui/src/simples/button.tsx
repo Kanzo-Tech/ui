@@ -4,12 +4,26 @@ import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
 import { Spinner } from "./spinner";
 
+/**
+ * Everything a class list can say. The rest — the fill, the ink, the edge, the lift, the hover, the
+ * active and the height — is one block of real CSS in `styles.css`, written once in terms of three
+ * locals, and this file assigns those three.
+ *
+ * **That is the whole shape of the change, and it is daisyUI's.** Their `.btn-primary` is two
+ * custom-property assignments over a `.btn` that derives every state; ours was six variants of five
+ * to six utilities each, naming eight different tokens between them, with the hover of each written
+ * separately. A hover rule that lives in six places is a hover rule that drifts in six places, and
+ * three of the comments this file used to carry were measurements taken to settle one of those
+ * drifts.
+ *
+ * What a variant may set: `--btn-bg`, `--btn-fg`, `--btn-bd`. Nothing else here paints.
+ */
 export const buttonVariants = tv({
   base: [
     "relative",
     "inline-flex shrink-0 items-center justify-center gap-2",
     "whitespace-nowrap font-medium text-sm",
-    "rounded-lg",
+    "border-solid",
     "transition-all",
     "outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
     "disabled:pointer-events-none disabled:opacity-64",
@@ -23,84 +37,66 @@ export const buttonVariants = tv({
   variants: {
     variant: {
       default: [
-        "bg-primary",
-        "border border-transparent shadow-primary/24 shadow-sm",
-        "text-primary-foreground",
-        "hover:bg-primary/90",
+        "[--btn-bg:var(--primary)]",
+        "[--btn-fg:var(--primary-foreground)]",
         "focus-visible:border-background",
       ],
       outline: [
-        "bg-transparent",
-        "text-foreground",
-        "border border-input shadow-sm/5",
-        "hover:bg-accent hover:text-accent-foreground",
-        // The dark rest state and its hover used to be the same solid at two opacities, standing
-        // in for two ramp steps. One alpha token is the rest state; the hover is `bg-accent`,
-        // which is what it already is in light. (Tailwind scans comments, so the old classes are
-        // not quoted here — naming one would emit a live utility for it.)
-        "dark:bg-field",
+        "[--btn-bg:transparent]",
+        "[--btn-fg:var(--foreground)]",
+        "[--btn-bd:var(--input)]",
         "focus-visible:border-primary",
       ],
       destructive: [
-        "bg-destructive",
+        "[--btn-bg:var(--destructive)]",
         // Was `text-white` at 3.81 on red-500. The fill moved to `-600` and the ink became a token,
         // because no choice of ink rescued red-500: white 3.81, near-black 4.15, AA needs 4.5.
-        "text-destructive-content",
-        "border border-transparent shadow-destructive/24 shadow-sm",
-        "hover:bg-destructive/90",
+        "[--btn-fg:var(--destructive-content)]",
         "focus-visible:border-background focus-visible:ring-destructive-foreground/32",
       ],
       secondary: [
-        "bg-secondary",
-        "text-secondary-foreground",
-        "border border-transparent",
+        "[--btn-bg:var(--secondary)]",
+        "[--btn-fg:var(--secondary-foreground)]",
         "focus-visible:border-primary",
-        // `--secondary` is ramp step 4 and `--accent` is step 5, which is what "hover" means in
-        // this scale. The dilution replaced the fill, so it composited over the *page*, not over
-        // the button: ΔE 1.21 from the rest state in light and 1.73 in dark (0.86 on a popover),
-        // under the ramp's own ΔE-2 bar for a hover. `bg-accent` measures 3.96 and 4.61, and is
-        // already the hover the outline and ghost variants use.
-        "hover:bg-accent",
       ],
       ghost: [
-        "hover:bg-accent hover:text-accent-foreground",
-        "border border-transparent",
+        "[--btn-bg:transparent]",
+        "[--btn-fg:var(--foreground)]",
         "focus-visible:border-primary",
       ],
+      // The one variant that opts OUT of the shared hover, because a link's hover is an underline
+      // and not a wash. A utility beats the recipe base by cascade layer, which is what makes
+      // opting out one class rather than an exception in the CSS.
       link: [
-        "text-primary",
+        "[--btn-bg:transparent]",
+        "[--btn-fg:var(--primary)]",
         "underline-offset-4",
-        "border border-transparent",
-        "hover:underline",
+        "hover:bg-transparent hover:underline active:bg-transparent",
         "focus-visible:border-primary",
       ],
     },
+    /**
+     * Padding, gaps and icon sizes. **The heights are not here** — they are `--size-field` in
+     * `styles.css`, keyed off the `data-size` this recipe already writes, so a tenant can ask for
+     * compact controls without asking for tighter text.
+     *
+     * The floor is still measured rather than chosen. `xs` and `icon-xs` were both `1.5rem`, and
+     * every size is a `rem` against a root the density axis sets — 16px default, 14px compact, 18px
+     * comfortable — so they measured **21px in compact**, under the 24×24 WCAG 2.5.8 states in CSS
+     * pixels. `sm` is the smallest size that clears the bar in all three densities. No call site was
+     * failing: the spacing exception saves a clustered control, and every measured `xs` was in a
+     * cluster. The variant went because its NAME promised a size it could not deliver at one
+     * density, and nothing was published to break.
+     */
     size: {
-      /**
-       * The floor, and it is measured rather than chosen.
-       *
-       * `xs` and `icon-xs` were both `1.5rem`. Every size here is a `rem` against a root the density
-       * axis sets — 16px default, 14px compact, 18px comfortable — so they measured **21px in
-       * compact**, under the 24×24 WCAG 2.5.8 states in CSS pixels. `1.75rem` is 24.5px there, which
-       * makes `sm` the smallest size that clears the bar in all three densities.
-       *
-       * No call site was failing: the spacing exception saves a clustered control, and every
-       * measured `xs` was in a cluster. The variant went because its NAME promised a size it could
-       * not deliver at one density, and nothing was published to break.
-       */
-      sm: [
-        "h-7",
-        "px-2.5",
-        "gap-1.5",
-        "[&_svg:not([class*='size-'])]:size-3.5",
-      ],
-      md: ["h-8", "px-3", "py-2"],
-      lg: ["h-9", "px-3.5"],
-      xl: ["h-10", "text-base", "px-4"],
-      "icon-sm": "size-7",
-      "icon-md": "size-8",
-      "icon-lg": "size-9",
-      "icon-xl": "size-10 [&_svg:not([class*='size-'])]:size-5",
+      sm: ["px-2.5", "gap-1.5", "[&_svg:not([class*='size-'])]:size-3.5"],
+      md: ["px-3", "py-2"],
+      lg: ["px-3.5"],
+      xl: ["text-base", "px-4"],
+      "icon-sm": "",
+      "icon-md": "",
+      "icon-lg": "",
+      "icon-xl": "[&_svg:not([class*='size-'])]:size-5",
     },
     clickEffect: {
       true: "active:not-aria-[haspopup]:scale-[0.98]",

@@ -39,7 +39,7 @@ the structure worth having a WebGL canvas for: lasso one arc and you pull in wor
 was related.
 
 Because a hall carries `heraldry`, the arcs are the same tenants the
-[palette showcase](/docs/showcases/palette) derives a scheme from. Switching halls is the
+[theme studio](/docs/showcases/theme-studio) derives a scheme from. Switching halls is the
 white-label story, told in the graph rather than described beside it.
 
 ## The standing orders
@@ -75,8 +75,9 @@ under a full crossfilter dashboard: brush the hourly curve and every panel narro
 docs/showcases/workspace/
 ├── default.tsx           — the shell: sidebar, header, splitter, footer strip
 ├── data.tsx              — the chrome (halls, nav, viewer), straight from the world
-├── graph-data.ts         — the archive as two flat relations, layout baked into x/y
-├── graph-state.tsx       — the spec, the relations, and what the panels own
+├── graph-data.ts         — the archive as rows; what the corpus is compiled FROM, not read from
+├── corpus/               — the mapping, the shape and the script that compile it with fossil
+├── graph-state.tsx       — opening the corpus, the spec it yields, and what the panels own
 ├── graph-model.ts        — relation → GPU buffers and uniforms
 ├── graph-canvas.tsx      — cosmos.gl, the overlays, the canvas chrome
 ├── graph-view.tsx        — the four dock panels

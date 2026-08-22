@@ -120,7 +120,7 @@ export const ListboxContent = (
 };
 
 // Divergence from Shark, declared: Shark's listbox item is its own look — `px-2.5 py-2`,
-// `rounded-xl`, a checked background, `hover:` classes, a `text-primary` check. Ours is
+// `rounded-box`, a checked background, `hover:` classes, a `text-primary` check. Ours is
 // `SelectItem`'s geometry instead, because the first consumer renders this listbox inside a
 // Popover alongside Selects, and two lists of options that sit a few pixels apart must not
 // disagree about row height, indent or where the check lives. Four concrete changes:
@@ -165,8 +165,8 @@ const listboxItemVariants = tv({
         "data-highlighted:bg-accent data-highlighted:text-accent-foreground",
       ],
       destructive: [
-        "text-destructive dark:text-destructive-foreground",
-        "data-highlighted:bg-destructive-a4",
+        "text-destructive-foreground",
+        "data-highlighted:bg-destructive/14",
         "**:[svg]:text-destructive! dark:**:[svg]:text-destructive-foreground!",
       ],
     },

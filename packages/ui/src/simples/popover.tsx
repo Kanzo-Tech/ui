@@ -78,7 +78,7 @@ export const PopoverContent = (props: PopoverContentProps) => {
             "flex flex-col",
             "bg-popover",
             "text-popover-foreground",
-            "rounded-xl border shadow-lg/5",
+            "rounded-box border shadow-lg/5",
             "outline-hidden",
             "origin-(--transform-origin)",
             "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",

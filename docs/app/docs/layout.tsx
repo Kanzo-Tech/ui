@@ -1,17 +1,23 @@
 import type { ReactNode } from "react";
 import { DocsLayout } from "fumadocs-ui/layouts/docs";
+import { getComponentGroups, OWN_GALLERY } from "@/lib/component-groups";
 import { source } from "@/lib/source";
 import { DocsPreferences } from "@/components/docs-preferences";
 
 /**
- * Showcases are not components, and once layouts had their own group the sidebar was listing them
- * as if they were a fifth layer. They are whole screens — demonstrations of the other four
- * together — so they come out of the component nav and get a top-level link instead.
+ * A group with a gallery of its own is not a fifth layer of the library, and the sidebar was
+ * listing showcases as if it were once layouts got a group. Showcases are whole screens and blocks
+ * are the furniture two of them share; both are demonstrations of the four layers rather than a
+ * layer, so they come out of the component nav and get a top-level link each.
+ *
+ * `OWN_GALLERY` is the one place that set is written, shared with `ComponentsList` — the prefix
+ * used to be a literal here and the exclusion a second literal there, which is two spellings of
+ * one idea in two files. The titles come off the page tree for the same reason.
  *
  * The filter is applied to the *sidebar* tree only. `source.pageTree` keeps them, which is what
- * lets `/docs/components` still generate their cards and keeps every showcases page prerendered.
+ * lets each gallery still generate its cards and keeps every page prerendered.
  */
-const SHOWCASES_URL_PREFIX = "/docs/showcases/";
+const GALLERY_PREFIXES = OWN_GALLERY.map((slug) => `/docs/${slug}/`);
 
 const sidebarTree = {
   ...source.pageTree,
@@ -21,19 +27,24 @@ const sidebarTree = {
         node.type === "folder" &&
         node.children.length > 0 &&
         node.children.every(
-          (child) => child.type === "page" && child.url.startsWith(SHOWCASES_URL_PREFIX),
+          (child) =>
+            child.type === "page" &&
+            GALLERY_PREFIXES.some((prefix) => child.url.startsWith(prefix)),
         )
       ),
   ),
 };
 
+/** "Components", then one link per gallery, titled by its own `meta.json`. */
+const galleryLinks = OWN_GALLERY.flatMap((slug) => {
+  const group = getComponentGroups().find((g) => g.slug === slug);
+  return group ? [{ text: group.title, url: `/docs/${slug}` }] : [];
+});
+
 export default function Layout({ children }: { children: ReactNode }) {
   return (
     <DocsLayout
-      links={[
-        { text: "Components", url: "/docs/components" },
-        { text: "Showcases", url: "/docs/showcases" },
-      ]}
+      links={[{ text: "Components", url: "/docs/components" }, ...galleryLinks]}
       nav={{ title: "Kanzo UI" }}
       tree={sidebarTree}
       // Disable fumadocs' default appearance toggle: `DocsPreferences` renders its own (the same

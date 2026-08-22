@@ -9,9 +9,15 @@
   across consumers, and there is nothing to unify.
 - **Reversed by** a real second consumer with shared AI state. Gate any provider on that, not on a
   hypothesis.
-- **Held by** `packages/ui/src/simples/complete.tsx`, `simples/suggest.tsx`, `simples/use-ai.ts`;
-  `packages/ui/src/index.test.ts`, the `AiAssist` / `FieldSuggest` / `useAiField` tombstones
+- **Held by** `packages/ai/src/complete.tsx`, `packages/ai/src/suggest.tsx`,
+  `packages/ai/src/use-ai.ts`; `packages/ui/src/index.test.ts`, the `AiAssist` / `FieldSuggest` /
+  `useAiField` tombstones
 
 This is the ladder's rungs three and four chosen over rung one deliberately, and the extra rung
 buys core purity. It is also the third design of this feature; the first two were the prop and the
 provider.
+
+The three modules left `@kanzo-tech/ui` on 2026-08-20 for `@kanzo-tech/ai` — see
+`decisions/the-ai-surfaces-are-their-own-package.md`. Nothing this record decided moved with them:
+there is still no `complete` prop on a primitive, still no provider, and the engine is still two
+headless hooks. Only the address changed.

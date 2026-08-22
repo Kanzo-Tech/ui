@@ -100,8 +100,8 @@ export const RadioGroupItem = (
           // No border clause here: `data-invalid` below already paints it solid `--destructive`,
           // and the `/64` this used to carry made focus *weaken* the boundary 1.4.11 asks 3:1 of.
           "data-focus-visible:data-invalid:ring-destructive/48",
-          "data-invalid:border-destructive data-invalid:text-destructive data-invalid:ring-[3px] data-invalid:ring-destructive/24",
-          "dark:data-invalid:text-destructive dark:data-invalid:ring-[3px]",
+          "data-invalid:border-destructive data-invalid:text-destructive-foreground data-invalid:ring-[3px] data-invalid:ring-destructive/24",
+          "dark:data-invalid:text-destructive-foreground dark:data-invalid:ring-[3px]",
           "data-[state=checked]:bg-primary data-[state=checked]:before:bg-primary-foreground",
           "data-invalid:data-[state=checked]:bg-transparent data-invalid:data-[state=checked]:before:bg-destructive-foreground"
         )}
@@ -126,16 +126,28 @@ export const RadioGroupCard = (
   return (
     <ArkRadioGroup.Item
       className={cn(
-        "relative flex cursor-pointer gap-2 rounded-lg border border-input bg-transparent p-3 transition-colors",
+        "relative flex cursor-pointer gap-2 rounded-field border border-input bg-transparent p-3 transition-colors",
         // The rest state is the backdrop (`bg-transparent`) and a card can sit anywhere, so no
-        // solid and no percentage is right everywhere: a 50% `bg-accent` measures ΔE 0.00 from rest on
-        // an accent backdrop and solid `bg-secondary` measures 0.00 on a secondary one — a hover
-        // and a selected state a user cannot see, on the surface each is most likely to meet. The
-        // washes are the alpha steps of the same two levels: across the six surfaces the theme
-        // publishes they never fall below ΔE 4.32 (light) / 6.00 (dark) from rest, and selected
-        // clears hover by a further 3.75 / 3.16.
-        "hover:bg-base-a4",
-        "data-[state=checked]:border-primary data-[state=checked]:bg-base-a5",
+        // solid and no percentage is right everywhere: a 50% `bg-accent` measures ΔE 0.00 from rest
+        // on an accent backdrop and solid `bg-secondary` measures 0.00 on a secondary one — a hover
+        // and a selected state a user cannot see, on the surface each is most likely to meet. Both
+        // are therefore alpha steps, composited onto whatever is under them.
+        //
+        // **Selected is the BRAND's step and hover is the neutral's**, which is the half worth not
+        // undoing: the border already goes `--primary` when checked, so a neutral fill under a
+        // brand border was the one place a tenant's palette stopped at the outline. It is also what
+        // the reference does — shadcn's choice card is `border-primary` over a 5% `--primary`.
+        //
+        // Measured 2026-08-20 over `packages/theme/palettes/*.css` — six documents × two modes ×
+        // the six surfaces a card can sit on (background, card, popover, muted, secondary, accent),
+        // 72 pairs. Floors, light / dark: rest→hover ΔE 3.34 / 5.32, rest→selected 5.81 / 9.46,
+        // hover→selected **1.46 / 3.47**. That last figure is the one to read before changing this:
+        // the neutral `base-a5` it replaced measured 2.73 / 3.03 there, so the fill alone separates
+        // hover from selected LESS well than it did. **`border-input` → `border-primary` is what
+        // carries that step**, and it is a far larger signal than either fill; the fill's own job is
+        // rest→selected, which improved. Take the border away and this stops being measured.
+        "hover:bg-foreground/14",
+        "data-[state=checked]:border-primary data-[state=checked]:bg-primary/17",
         "data-disabled:pointer-events-none data-disabled:opacity-64",
         "has-data-focus-visible:border-primary has-data-focus-visible:ring-[3px] has-data-focus-visible:ring-ring",
         "data-invalid:border-destructive",

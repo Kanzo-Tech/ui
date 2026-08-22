@@ -17,12 +17,24 @@
 // anything with one call site belongs in that showcase's own directory.
 
 import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
   Badge,
   Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Checkbox,
   cn,
+  Field,
+  FieldLabel,
+  FieldTitle,
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
+  Input,
   Resizable,
   ResizablePanel,
   ResizableResizeTrigger,
@@ -32,7 +44,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@kanzo-tech/ui";
-import { XIcon } from "lucide-react";
+import { CalendarIcon, InfoIcon, SlidersHorizontalIcon as SlidersIcon, UsersIcon, XIcon } from "lucide-react";
 import { Fragment, type ComponentType, type ReactNode } from "react";
 
 /** One switch on the rail: which panel it opens, and how it is drawn and named. */
@@ -273,5 +285,155 @@ export function WorkspaceColumns({
         </Fragment>
       ))}
     </Resizable>
+  );
+}
+
+/**
+ * A screen, not a parts bin — the thing a theme is actually judged on.
+ *
+ * Shared because it has two call sites and they need the *same* screen, not a similar one. The
+ * studio shows it once, wearing the values you are editing; the gallery shows it many times, each
+ * wearing a different shipped theme. If the two drifted, the gallery would be comparing themes
+ * through two different interfaces and the comparison would be worthless — which is the failure
+ * this file exists to prevent, stated in its header.
+ *
+ * The first draft laid the components out in a row — five buttons, an input, a checkbox — and it
+ * read as a test page, because that is what it was. **The reference does not do that.** Its preview
+ * is realistic fragments in cards: a filter list with counts, a week strip with today filled in the
+ * brand, an event row, tabs. The difference is not decoration — a theme is judged on whether an
+ * *interface* holds together, and a row of loose controls cannot show that. A brand fill only looks
+ * right or wrong next to the surface it sits on and the ink it carries.
+ *
+ * Each fragment below is here because it is the only reader of something: the week strip for
+ * `--primary` doing real work at small size, the list for `--border` and `--muted-foreground` at
+ * their real weights, the status row for all eight status tokens at once, the form for the field
+ * radius and height. A fragment that moves under no knob would be decoration.
+ */
+export function ThemeScreen() {
+  return (
+    <div className="flex flex-col gap-5">
+      {/* A week, with today carrying the brand. The smallest thing that shows a fill working. */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <CalendarIcon className="size-4 text-muted-foreground" />
+            This week
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-1.5">
+            {["12 M", "13 T", "14 W", "15 T", "16 F", "17 S", "18 S"].map((day, i) => {
+              const [n, d] = day.split(" ");
+              const today = i === 2;
+              return (
+                <div
+                  className={cn(
+                    "flex flex-1 flex-col items-center gap-0.5 rounded-field py-2",
+                    today ? "bg-primary text-primary-foreground" : "text-foreground",
+                  )}
+                  key={day}
+                >
+                  <span className="font-semibold text-sm tabular-nums">{n}</span>
+                  <span className={cn("text-[10px]", today ? "opacity-80" : "text-muted-foreground")}>{d}</span>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* A list at real weights: the hairline between rows, the muted count, a badge per state. */}
+      <Card>
+        <CardHeader className="pb-3">
+          {/* `CardHeader` lays its children out in a grid, so a second child lands on a second row.
+              One flex row inside it is the composition, not a fight with the recipe. */}
+          <div className="flex items-center justify-between gap-2">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <UsersIcon className="size-4 text-muted-foreground" />
+              Members
+            </CardTitle>
+            <Button size="sm" variant="ghost">
+              Invite
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="flex flex-col">
+          {[
+            { name: "Ada Whitlock", role: "Owner", tone: "default" as const },
+            { name: "Rune Ashgrove", role: "Editor", tone: "secondary" as const },
+            { name: "Mira Sandoval", role: "Invited", tone: "warning" as const },
+          ].map((person, i) => (
+            <div
+              className={cn(
+                "flex items-center gap-3 py-2.5",
+                i > 0 && "border-border border-t",
+              )}
+              key={person.name}
+            >
+              <span
+                aria-hidden
+                className="grid size-7 shrink-0 place-items-center rounded-full bg-muted font-medium text-muted-foreground text-xs"
+              >
+                {person.name.slice(0, 1)}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm">{person.name}</span>
+              <Badge variant={person.tone}>{person.role}</Badge>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* The form half: field radius, field height, the checkbox and its selector knobs. */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <SlidersIcon className="size-4 text-muted-foreground" />
+            Settings
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <Field>
+            <FieldLabel>Workspace name</FieldLabel>
+            <Input defaultValue="Ashgrove Hall" />
+          </Field>
+          <Field orientation="horizontal">
+            <Checkbox defaultChecked />
+            <FieldTitle>Notify me when a party signs</FieldTitle>
+          </Field>
+          <div className="flex flex-wrap items-center gap-2 border-border border-t pt-4">
+            <Button>Save changes</Button>
+            <Button variant="outline">Cancel</Button>
+            <Button className="ms-auto" variant="destructive">
+              Delete
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* All four status families, fill and on-fill ink, in one glance. */}
+      <div className="grid gap-3 @2xl:grid-cols-2">
+        <Alert variant="info">
+          <InfoIcon />
+          <AlertTitle>A status tint</AlertTitle>
+          <AlertDescription>
+            Painted as a dilution of the status colour, which is what an alpha step used to be.
+          </AlertDescription>
+        </Alert>
+        <Card className="flex flex-col justify-center gap-2 p-4">
+          <span className="text-muted-foreground text-xs">Fills and their inks</span>
+          <div className="flex flex-wrap gap-1.5">
+            {(["destructive", "info", "success", "warning"] as const).map((tone) => (
+              <span
+                className="rounded-selector px-2 py-1 font-medium text-xs"
+                key={tone}
+                style={{ background: `var(--${tone})`, color: `var(--${tone}-content)` }}
+              >
+                {tone}
+              </span>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </div>
   );
 }

@@ -3,7 +3,8 @@ title: ImageCropper
 description: A box drawn on a photograph, and the photograph read back through it.
 ---
 
-<ComponentPreview componentName="image-cropper" />
+{/* 464 of content in 220: the cropper is a viewport, and a viewport is taller than its source. */}
+<ComponentPreview componentName="image-cropper" height={480} />
 
 ## Usage
 
@@ -59,7 +60,7 @@ until somebody scrolls the wheel over the image. Pinning `maxZoom={1}` closes th
 masked and nothing is cut. What comes out of `getCroppedImage()` is still the bounding square, and
 the circle is a promise you keep at the far end — an `Avatar`, a `border-radius`, a canvas clip.
 
-<ComponentPreview componentName="image-cropper" fileName="example-circle" />
+<ComponentPreview componentName="image-cropper" fileName="example-circle" height={480} />
 
 ## Where it is used
 

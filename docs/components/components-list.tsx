@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { cn } from "@kanzo-tech/ui";
-import { getComponentGroups } from "@/lib/component-groups";
+import { getComponentGroups, OWN_GALLERY } from "@/lib/component-groups";
 
 /**
  * Every documented component, as a card grid, grouped by layer.
@@ -15,9 +15,10 @@ import { getComponentGroups } from "@/lib/component-groups";
  * source of truth by construction — the point of this page is that there is only one.
  */
 export const ComponentsList = ({ className, ...rest }: React.ComponentProps<"div">) => {
-  // Showcases are whole arrangements, not components — they have their own index next to this
-  // one (`/docs/showcases`), so they are excluded here rather than listed as a fifth group.
-  const groups = getComponentGroups().filter((g) => g.slug !== "showcases");
+  // Showcases are whole arrangements and blocks are the furniture two of them share — neither is a
+  // component, and both have an index of their own next to this one, so they are excluded here
+  // rather than listed as two more layers. The set is `OWN_GALLERY`, not two string literals.
+  const groups = getComponentGroups().filter((g) => !OWN_GALLERY.includes(g.slug));
 
   return (
     <div className={cn("flex flex-col gap-12", className)} {...rest}>

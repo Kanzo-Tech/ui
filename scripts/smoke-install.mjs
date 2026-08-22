@@ -20,7 +20,12 @@
  *   7. `@kanzo-tech/graph` imports from its root with no Mosaic installed, and the DuckDB half is
  *      on `/duckdb` where it costs only the host that asks for it
  *
- * **Three packages, because the door is the same door.** `@kanzo-tech/graph` is the package that
+ * **Four packages, because the door is the same door.** `@kanzo-tech/ai` was outside this file
+ * entirely for as long as it existed — its client modules and its second stylesheet were bytes
+ * nothing here had read, which is the same shape of hole `packages/ui/src/guard-corpus.ts` closed
+ * on the source side. The count is printed by the run rather than written down here, for the reason
+ * `CONVENTIONS.md` gives: a tally with no corpus can only be deleted, never re-derived.
+ * `@kanzo-tech/graph` is the package that
  * crossed it: `src/index.ts` re-exported `onceQuery`, whose module imported
  * `@kanzo-tech/ui/analytics`, so `import { memorySource } from "@kanzo-tech/graph"` threw
  * ERR_MODULE_NOT_FOUND for every host that had not installed Mosaic — while the package promised in
@@ -67,10 +72,10 @@ const walk = (dir, test, out = []) => {
 
 const DIRECTIVE = /^\s*(?:\/\*[\s\S]*?\*\/\s*)?["']use client["']/;
 
-/** The packages that ship. Order is pack order and nothing else; npm installs all three at once. */
-const PACKAGES = ["theme", "ui", "graph"];
+/** The packages that ship. Order is pack order and nothing else; npm installs all four at once. */
+const PACKAGES = ["theme", "ui", "graph", "ai"];
 /** The ones with a client boundary to lose. `theme` is data and CSS and carries no directive. */
-const CLIENT_PACKAGES = ["ui", "graph"];
+const CLIENT_PACKAGES = ["ui", "graph", "ai"];
 
 const manifestOf = (pkg) =>
   JSON.parse(readFileSync(join(repoRoot, "packages", pkg, "package.json"), "utf8"));
@@ -296,13 +301,25 @@ const theme = await import("@kanzo-tech/theme");
 if (!theme.themeData?.radii) fail("themeData missing from the theme entry");
 else pass("themeData reachable from the theme JS entry (not a raw .json subpath)");
 
-// 6. The boundary, proved where it actually matters: in an installed tree, with
-// @kanzo-tech/palette nowhere in it. A tenant document is derived once at onboarding — the
-// categorical search alone costs 0.2-7.4 s — and the runtime only applies one.
+// 6. There is no derivation, proved where it actually matters: in an installed tree.
+//
+// This assertion used to read "the derivation stays in @kanzo-tech/palette, which a consumer never
+// installs", and it would now pass for a reason that is not the reason — the package is deleted, so
+// nothing could leak from it. **A guard whose subject no longer exists passes vacuously and reads
+// exactly like a guard that works**, which is the failure this file is otherwise full of warnings
+// about, so it is restated as what is actually being kept.
+//
+// What is kept: a theme is DATA, and applying one is writing an attribute. The names below are the
+// derivation's entry points; if one comes back onto the runtime path, a first paint starts paying
+// for colour maths again — the categorical search alone cost 0.2-7.4 s.
 for (const leaked of ["derivePalette", "compile", "deriveRamp", "checkScheme"]) {
   if (leaked in theme) fail(\`the theme entry re-exports \${leaked} — the derivation is on the runtime path\`);
 }
-pass("the derivation stays in @kanzo-tech/palette, which a consumer never installs");
+// And the package itself is gone rather than merely unimported, which is the half the loop above
+// cannot see: it would pass just as happily against a tree that still shipped it.
+const derivationResolves = await import("@kanzo-tech/palette").then(() => true, () => false);
+if (derivationResolves) fail("@kanzo-tech/palette resolves — the derivation was un-deleted");
+pass("no derivation on the runtime path, and none in the tree to import");
 
 // 7. The graph's own root barrel, which is the door this file was extended for. A host that draws
 // arrays it already holds installs cosmos.gl and nothing else, so this import must resolve with no
@@ -330,6 +347,16 @@ else pass("memorySource answers a slice with no database installed");
 // And the other side of the same door: the DuckDB source is on /duckdb, and that subpath is
 // where the cost lives. Without Mosaic installed it cannot resolve — which is the split being
 // real rather than merely documented.
+// 8. The AI package's own root barrel. It depends on \`@kanzo-tech/ui\` and never the reverse, so
+// this is also where that edge is checked from the outside: anything in \`ui\` reaching back into
+// \`ai\` would have thrown at the \`ui\` barrel above, before this line ran.
+const ai = await import("@kanzo-tech/ai");
+pass(\`ai root barrel imports with only non-optional peers (\${Object.keys(ai).length} exports)\`);
+for (const name of ["Conversation", "Message", "PromptInput", "Reasoning", "Tool", "Task", "AiMark"]) {
+  if (!(name in ai)) fail(\`@kanzo-tech/ai does not export \${name}\`);
+}
+pass("ai ships the seven surfaces the changeset names");
+
 await import("@kanzo-tech/graph/duckdb").then(
   () => fail("@kanzo-tech/graph/duckdb resolved without Mosaic — is the Mosaic import still there?"),
   (err) => {

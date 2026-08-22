@@ -52,7 +52,7 @@ Three escape hatches, in order of preference.
 
 ### Change a token
 
-The whole system re-skins. `--radius: 0` makes every corner square; a new `--primary` restains
+The whole system re-skins. `--radius-field: 0` squares every button and input; a new `--primary` restains
 every brand surface. Nothing about the components changes.
 
 <ComponentPreview componentName="styling" fileName="example-token" />
@@ -103,7 +103,7 @@ on specificity.
 ## Rules
 
 - Never inline `style` for variant appearance. One-off structural style (a computed width) is
-  fine, and so is a colour that is *data* — the one a user picked, or a palette's own — which is
+  fine, and so is a colour that is *data* — the one a user picked, or a theme's own — which is
   why [`Swatch`](/docs/data-display/swatch) exists rather than a `<span style>` per call site.
 - Only token-backed utilities. No raw hex, no raw palette classes. On a status fill the ink is
   `text-destructive-content` and its siblings, never `text-white` — see
@@ -111,7 +111,7 @@ on specificity.
 - Focus rings are `outline-none focus-visible:ring-[3px] focus-visible:ring-ring` — solid, never
   `ring-ring/NN`. A diluted ring measured 1.29:1 on the page, and WCAG 1.4.11 names a focus
   indicator first. `bg-field` is the related case: `border-input` outlines a control and
-  `bg-field` fills it, and the fill is a recess — an alpha step where one recedes, the page itself
+  `bg-field` fills it, and the fill is a recess — a dilution where one recedes, the page itself
   where none does — so it never takes a `/NN` either. An opacity dilutes a solid toward
   transparent and lands wherever the thing underneath puts it.
 - Exactly one `<main>` per page, and `ShellMain` owns it. Nestable containers use `<section>`.

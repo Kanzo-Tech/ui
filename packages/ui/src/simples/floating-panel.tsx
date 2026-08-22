@@ -99,7 +99,14 @@ export function FloatingPanel({
     <div
       className={cn(
         "flex overflow-hidden",
-        "rounded-lg border bg-popover/95 text-popover-foreground shadow-lg backdrop-blur-sm",
+        // `Popover`'s surface, at `Popover`'s radius and its shadow token. This was `rounded-lg`
+        // and a flat `shadow-lg` — a step below every panel here and a different lift from the one
+        // the floating surfaces share. Same cause as `StatTile`: no Shark file, so no guard, and
+        // `shark-parity.test.ts` reads names rather than classes.
+        //
+        // The `/95` and the blur stay: this panel floats over content a reader is still looking at,
+        // which a popover does not. It is the one place the translucency is the point.
+        "rounded-xl border bg-popover/95 text-popover-foreground shadow-lg/5 backdrop-blur-sm",
         className,
       )}
       style={{ width, ...style }}

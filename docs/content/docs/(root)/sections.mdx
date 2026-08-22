@@ -12,7 +12,7 @@ A **section** is how such a package contributes both halves of what it owns:
 
 | half | what it is | who decides it |
 | --- | --- | --- |
-| `tokens` | colours in the package's own namespace — `--graph-marquee` | the **tenant**, through their palette document |
+| `tokens` | colours in the package's own namespace — `--graph-marquee` | the **tenant**, through their theme |
 | `prefs` | choices with names — how dense the marks are, whether links add | the **user**, in the Preferences panel |
 
 Both are optional. A package may contribute tokens without preferences, preferences without tokens,
@@ -30,7 +30,7 @@ export const GRAPH_SECTION: SectionManifest = {
   version: 1,
   tokens: {
     marquee: {
-      default: { kind: "alpha", ramp: "brand", step: 5 },
+      default: "color-mix(in oklab, var(--primary) 20%, transparent)",
       doc: "The wash over a rubber-band selection.",
     },
   },
@@ -73,10 +73,10 @@ export const GRAPH_SECTION: SectionManifest = {
 </Callout>
 
 <Callout type="info" title="A token default is a binding, not a hex">
-  `(brand, alpha 5)` rather than `#8839ef22`. That is what makes a white-label palette reach a
-  package the core has never heard of: a bank changes their document and the marquee moves with it,
-  because the default names a place in *their* ramps. See [Theming](/docs/theming) for the ramps
-  themselves.
+  `color-mix(…, var(--primary) 20%, …)` rather than `#8839ef22`. That is what makes a white-label
+  theme reach a package the core has never heard of: a bank changes their theme and the marquee
+  moves with it, because the default is a CSS value pointing at what *their* theme publishes. See
+  [Theming](/docs/theming) for the twenty-one it may point at.
 </Callout>
 
 ### The three kinds

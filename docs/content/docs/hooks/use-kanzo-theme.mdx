@@ -31,8 +31,9 @@ Read the resolved value to draw something, and the preference only to say whethe
 
 <ComponentPreview componentName="use-kanzo-theme" fileName="example-appearance" />
 
-`identity` / `resolvedIdentity` and `palette` / `resolvedPalette` split the same way: an empty
-preference defers to what the tenant's palette document already paints.
+`themeByAppearance` / `resolvedTheme` split the same way: an empty preference defers to whichever
+theme the tenant makes default. The preference is a **map keyed by side**, because a theme *is* a
+side — "which theme" without "on which side" does not name a choice.
 
 ## Changing a preference
 
@@ -70,22 +71,21 @@ provider is above it.
 | `density` | `"default" \| "compact" \| "comfortable"` | Root font-size axis |
 | `font` | `string` | Sans typeface axis |
 | `monoFont` | `string` | Mono typeface axis |
-| `identity` | `string` | Sub-brand preference; `""` defers to the document |
-| `palette` | `string` | Palette-document preference; `""` defers to the server's default |
+| `themeByAppearance` | `Partial<Record<Appearance, string>>` | Which theme this user wears on each side; `{}` defers to the tenant's default |
 | `set` | `(patch: Partial<ThemePrefs>) => void` | Merges a partial patch into the preferences and persists it |
 | `fonts` | `FontOption[]` | The sans options the host wired, for a selector |
 | `monoFonts` | `FontOption[]` | The mono options the host wired |
-| `identities` | `PaletteOption[]` | The sub-brands the tenant published — `[]`, never `undefined` |
-| `defaultIdentity` | `string` | The id `:root` already paints |
-| `resolvedIdentity` | `string` | `identity` or `defaultIdentity` |
-| `retiredIdentity` | `string \| null` | An id the tenant withdrew out from under this user, held for the session |
-| `palettes` | `PaletteOption[]` | The palette documents the tenant published |
-| `defaultPalette` | `string` | The id the server serves when the preference is empty |
-| `resolvedPalette` | `string` | `palette` or `defaultPalette` |
-| `retiredPalette` | `string \| null` | A palette id the tenant withdrew, held for the session |
+| `themes` | `ThemeOption[]` | The themes the tenant published — `[]`, never `undefined`. A **flat** list: a brand is a theme, so there is no second level |
+| `defaultTheme` | `string` | The name applied when the preference is empty |
+| `resolvedTheme` | `string` | This side's preference, or `defaultTheme` |
+| `setTheme` | `(theme: string, options?: { appearance?: Appearance }) => void` | Choose a theme for one side — the applied one unless `appearance` names the other |
+| `retiredTheme` | `string \| null` | A theme the tenant withdrew out from under this user, held for the session |
+| `corePrefs` | `Record<string, ResolvedPref & { decl }>` | Every core axis **resolved** through the tenant's policy — value, `via`, `offered` |
+| `sources` | `PrefSources` | What this host published, in the shape a declaration names it by — `themes` |
+| `reset` | `() => void` | Unsets every axis, so the tenant's starting point applies again |
 | `sections` | `Record<string, Record<string, string>>` | What the user chose in the sections a host registered, keyed by namespace. Opaque: the core never parses it |
 | `sectionPrefs` | `Record<string, Record<string, ResolvedPref & { decl }>>` | Those same choices **resolved** — value, `via`, `offered` — each with its declaration beside it |
-| `setSectionPref` | `(namespace, key, value) => void` | Write one. Every other namespace rides through untouched |
+| `setSectionPref` | `(namespace, values: Record<string, string \| undefined>) => void` | Write into one namespace. Every other namespace rides through untouched |
 
 The preference fields are exactly `ThemePrefs`, so `set` accepts any subset of them.
 

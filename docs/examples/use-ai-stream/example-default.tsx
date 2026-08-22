@@ -1,6 +1,14 @@
 "use client";
 
-import { Badge, Button, ButtonGroup, Show, useAiStream } from "@kanzo-tech/ui";
+import {
+  Badge,
+  Button,
+  ButtonGroup,
+  Show,
+} from "@kanzo-tech/ui";
+import {
+  useAiStream,
+} from "@kanzo-tech/ai";
 import { useState } from "react";
 
 // A stub source. A product would open a `fetch` here; the engine only ever sees an async
@@ -21,26 +29,20 @@ async function* source(signal: AbortSignal) {
 export default function Example() {
   const engine = useAiStream<string>("Couldn’t reach the stub");
   const [text, setText] = useState("");
+  const [words, setWords] = useState(0);
 
-  // One consumer, one loop: `next()` serializes pulls, so this is the whole read side.
-  const pump = async () => {
-    for (;;) {
-      const chunk = await engine.next();
-      if (chunk == null) break;
-      setText((t) => t + chunk);
-    }
-    engine.idle();
-  };
-
-  const stream = () => {
+  // The whole read side. There is no loop to write: `run` owns the iterator and hands each value
+  // over, and returning `false` is how a consumer says it has enough.
+  const stream = (budget: number) => {
     setText("");
-    engine.start(source);
-    void pump();
-  };
-
-  const again = () => {
-    engine.restart();
-    void pump();
+    setWords(0);
+    let taken = 0;
+    void engine.run(source, (word) => {
+      taken += 1;
+      setText((t) => t + word);
+      setWords(taken);
+      return taken < budget;
+    });
   };
 
   return (
@@ -52,6 +54,9 @@ export default function Example() {
         <Show when={engine.error !== null}>
           <span className="text-destructive text-xs">{engine.error}</span>
         </Show>
+        <Show when={words > 0}>
+          <span className="text-muted-foreground text-xs">{words} pulled</span>
+        </Show>
       </div>
 
       <p className="min-h-20 rounded-md border bg-muted/40 p-3 text-sm">
@@ -61,25 +66,20 @@ export default function Example() {
       </p>
 
       <ButtonGroup aria-label="Stream controls">
-        <Button onClick={stream} size="sm" variant="outline">
-          Start
+        <Button onClick={() => stream(Number.POSITIVE_INFINITY)} size="sm" variant="outline">
+          Stream
         </Button>
-        {/* `restart` is a no-op once the controller is aborted — only a drained live stream. */}
+        {/* A budget is not a second machine: the same run stops itself and the source is aborted. */}
+        <Button onClick={() => stream(5)} size="sm" variant="outline">
+          First five
+        </Button>
         <Button
-          disabled={engine.status === "streaming" || engine.signal()?.aborted !== false}
-          onClick={again}
+          disabled={engine.status !== "loading"}
+          onClick={engine.cancel}
           size="sm"
           variant="outline"
         >
-          Restart
-        </Button>
-        <Button
-          disabled={engine.status !== "streaming"}
-          onClick={engine.abort}
-          size="sm"
-          variant="outline"
-        >
-          Abort
+          Cancel
         </Button>
       </ButtonGroup>
     </div>

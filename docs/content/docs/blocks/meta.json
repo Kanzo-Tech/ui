@@ -1,0 +1,5 @@
+{
+  "title": "Blocks",
+  "description": "Arrangements two showcases build the same way — named, so they stop being written twice.",
+  "pages": ["panel-rail", "pane-header", "workspace-columns", "findings-badge"]
+}

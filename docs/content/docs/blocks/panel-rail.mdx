@@ -1,0 +1,25 @@
+---
+title: Panel rail
+description: The activity rail — which panels are open, drawn as icons on the edge they open on.
+---
+
+<ComponentPreview componentName="panel-rail" />
+
+A `ShellAside` with a `ToggleGroup` inside it. Both halves matter, and the rail is the case that
+shows why: it *was* a bare `ToggleGroup` standing in for the region, and a `ToggleGroup` is a
+**control**, so its recipe carries `w-fit` and `rounded-lg`. Used as a region it brought its 8px
+radius with it, and the rail's top corner curled away from the header's border and left a step
+that read as a second border. Setting `rounded-none` on it would have hidden that; giving the
+region to the component whose job it is fixes it.
+
+`multiple`, because the panels are independent. The workspace showcase runs the same machine with
+`multiple={false}`, where exactly one panel shows at a time.
+
+## Where it comes from
+
+```tsx
+import { PanelRail, type RailPanel } from "@/showcases/shared";
+```
+
+`docs/showcases/shared/index.tsx`. It is not published, and it is not on its way to being — see
+[Blocks](/docs/blocks) for the line.

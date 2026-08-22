@@ -19,17 +19,19 @@ const read = (f: string) => readFileSync(resolve(pkgDir, f), "utf8");
  *
  * The rest is the shape of the package after colour left it, asserted as absences. `KanzoTheme` put
  * the theme attributes on a wrapper `<div>` and therefore could not reach Ark's overlays, which
- * portal to `document.body`. `data-base`, `data-accent`, `data-palette` and `data-chart-scheme`
- * were four runtime attributes each expressing *part* of a palette, replaced by a document compiled
- * before a byte is sent. Both are checked in the table and in the emitted CSS, because either one
- * surviving alone is a provider writing something nothing matches, or a selector nothing writes.
+ * portal to `document.body`. `data-base`, `data-accent`, `data-palette`, `data-identity` and
+ * `data-chart-scheme`
+ * were five runtime attributes each expressing *part* of the colour, replaced by one flat theme.
+ * Both are checked in the table and in the emitted CSS, because either one surviving alone is a
+ * provider writing something nothing matches, or a selector nothing writes.
  *
  * ## What this guard cannot prove
  *
  * - **Nothing about what the CSS does.** It asks whether `themes.css` contains `[data-x=` as a
  *   substring. A selector that is present, well-formed and sets the wrong custom properties — or
- *   one a later rule overrides — reads here as a pass. Colour is measured next door, in
- *   `palettes.test.ts`; the non-colour axes are measured nowhere.
+ *   one a later rule overrides — reads here as a pass. Colour contrast is measured in
+ *   `packages/ui/src/simples/status.test.ts`, over the shipped themes; the non-colour axes are
+ *   measured nowhere.
  * - **It checks defaults, not the other values.** Each axis default must exist in the generated
  *   table. The remaining values in that table are never asked to have a selector of their own, so a
  *   radius or a density that generates no CSS is invisible unless it happens to be the default.
@@ -57,44 +59,32 @@ describe("@kanzo-tech/theme", () => {
   });
 
   it("has no FREE colour axis left to write", () => {
-    // `data-base`, `data-accent`, `data-palette` and `data-chart-scheme` were four ways to express
-    // *part* of a palette at runtime; a document expresses all of it at once, before a byte is
-    // sent. An attribute surviving here would be a provider writing something no CSS matches.
+    // `data-base`, `data-accent`, `data-palette`, `data-identity` and `data-chart-scheme` were five
+    // ways to express *part* of the colour at runtime. A theme expresses all of it at once, in one
+    // flat block. An attribute surviving here would be a provider writing something no CSS matches.
     //
-    // `data-identity` is not one of them coming back. Those four selected from a catalogue the
-    // LIBRARY shipped, so an end user could overrule a client's branding; identity selects among
-    // values the client authored. Same mechanism, opposite authority — which is why the check is
-    // by name rather than by "is it colour".
+    // **`data-palette` and `data-identity` are the two most recent arrivals on this list**, and
+    // they are here for opposite reasons to the first three: not because a runtime fragment is
+    // wrong, but because a palette CONTAINING an identity is a level that stopped existing. A brand
+    // is a theme, and one attribute names it.
     //
-    // **`data-palette` is no longer among them, and the reason it used to be is worth keeping.**
-    // This test once read "the attribute is forbidden, and cannot come back, because a document is a
-    // stylesheet the server serves — no compiled sheet contains anything for it to match". That was
-    // the sharpest statement of the old model and it rested on an assumption about size that was
-    // never measured: the six documents are 63.6 kB raw and 8.6 kB gzipped together. They all travel
-    // now, `compile(doc, { scope })` puts each under its own attribute, and there is something to
-    // match.
-    //
-    // The other three stay forbidden, and the distinction is the same one `data-identity` always
-    // made: `data-base`, `data-accent` and `data-chart-scheme` expressed *part* of a palette from a
-    // catalogue the LIBRARY shipped, so an end user could overrule a client's branding. `data-palette`
-    // selects a whole document the TENANT published. Same mechanism, opposite authority.
     const themes = read("themes.css");
-    for (const attr of ["data-base", "data-accent", "data-chart-scheme"]) {
+    for (const attr of ["data-base", "data-accent", "data-chart-scheme", "data-palette", "data-identity"]) {
       expect(AXES.map((a) => a.attr), attr).not.toContain(attr);
       expect(themes, `themes.css still emits [${attr}]`).not.toContain(`[${attr}=`);
     }
-    // And `themes.css` must not grow palette blocks of its own: the four non-colour axes are
-    // generated there, colour comes from `compile()`, and one attribute written by two generators is
-    // how the axes and the documents would start disagreeing.
-    expect(themes, "themes.css emits palette blocks").not.toContain("[data-palette=");
-    expect(AXES.map((a) => a.attr)).toContain("data-palette");
-    // `palette` is `paletteByAppearance` now: the same axis, keyed by the side it applies to, so a
-    // user may wear one document by day and another by night. It is not a second colour axis — it
-    // is the one that was always here, with the map `decisions/a-palette-is-chosen-per-appearance.md`
-    // argues for, and no document gains a field for it.
+    // And `themes.css` must not grow theme blocks of its own. It carries the catalogue as `@import`s
+    // and the user's non-colour preferences; the selectors themselves live in hand-written theme
+    // files. One attribute written by two generators is how the axes and the themes would start
+    // disagreeing — which is also why the theme axis's `source` is `"document"`.
+    expect(themes, "themes.css authors theme blocks").not.toContain("[data-theme=");
+    expect(AXES.map((a) => a.attr)).toContain("data-theme");
+    // One colour axis, keyed by the side it applies to, so a user may wear one theme by day and
+    // another by night. A theme IS a side, so the key is not a refinement — it is the only shape
+    // the preference has.
     //
-    // `sections` is the ninth key and it is emphatically not a colour axis coming back. The four
-    // that were retired each expressed *part* of a palette from a catalogue the LIBRARY shipped;
+    // `sections` is the seventh key and it is emphatically not a colour axis coming back. The five
+    // that were retired each expressed *part* of the colour from a catalogue the LIBRARY shipped;
     // this holds what a package a HOST installed contributes, in that package's own namespace, out
     // of a closed list of options that package declared. The core never learns what is in it —
     // which is the property, not a side effect: it rides on one known key so the read-time whitelist
@@ -104,8 +94,7 @@ describe("@kanzo-tech/theme", () => {
     // declaration. `resolvePref` is where that is refused, and `sections.test.ts` is where the
     // refusal is asserted.
     expect(Object.keys(DEFAULT_PREFS).sort()).toEqual([
-      "appearance", "density", "font", "identity", "identityByPalette", "monoFont",
-      "paletteByAppearance", "radius", "sections",
+      "appearance", "density", "font", "monoFont", "radius", "sections", "themeByAppearance",
     ]);
     // And it starts empty rather than seeded from any manifest: a default that has been *stored*
     // can no longer move when the section, or a tenant's policy, changes it.
@@ -117,16 +106,16 @@ describe("@kanzo-tech/theme", () => {
   // not narrow to the union however the cast is written. These are that check, at runtime.
 
   it("declares every preference the core has, and nothing that is not one", () => {
-    // Two keys of `ThemePrefs` are deliberately absent and each has to justify itself:
-    // `identityByPalette` is a memory consulted when the palette changes, and `sections` is the
-    // opaque bag another package's preferences ride in. A NEW axis appearing in `DEFAULT_PREFS`
-    // without an entry here fails, which is the drift this file exists to catch — one that produces
-    // no type error, because the generated block is data.
+    // One key of `ThemePrefs` is deliberately absent and has to justify itself: `sections` is the
+    // opaque bag another package's preferences ride in. It was two — `identityByPalette` was a
+    // memory consulted when the palette changed, and there is no palette to change out of. A NEW
+    // axis appearing in `DEFAULT_PREFS` without an entry here fails, which is the drift this file
+    // exists to catch — one that produces no type error, because the generated block is data.
     expect(Object.keys(CORE_PREFS).sort()).toEqual([
-      "appearance", "density", "font", "identity", "monoFont", "paletteByAppearance", "radius",
+      "appearance", "density", "font", "monoFont", "radius", "themeByAppearance",
     ]);
     const undeclared = Object.keys(DEFAULT_PREFS).filter((key) => !(key in CORE_PREFS));
-    expect(undeclared.sort()).toEqual(["identityByPalette", "sections"]);
+    expect(undeclared.sort()).toEqual(["sections"]);
   });
 
   it("is well-formed — a kind, a default among its own options, and a doc", () => {
@@ -162,11 +151,12 @@ describe("@kanzo-tech/theme", () => {
     }
   });
 
-  it("names a SOURCE for the two axes whose options a tenant writes", () => {
-    // The other half of the same claim. These two may not carry a list: their values are brands a
-    // client authored at onboarding, and a literal here would be this package authoring a client's
-    // product — which is the line the whole colour layer holds.
-    for (const key of ["identity", "paletteByAppearance"] as const) {
+  it("names a SOURCE for the axis whose options a tenant writes", () => {
+    // The other half of the same claim. It may not carry a list: its values are themes a client
+    // wrote, and a literal here would be this package authoring a client's product — which is the
+    // line the whole colour layer holds. **It was two axes** — a palette and the brand inside it —
+    // and it is one because a brand is a theme.
+    for (const key of ["themeByAppearance"] as const) {
       const decl = CORE_PREFS[key];
       expect(decl.kind).toBe("choice");
       expect(Array.isArray(decl.kind === "choice" ? decl.options : []), `"${key}" lists options`)

@@ -36,7 +36,10 @@ const FIXTURE: SectionManifest = {
   namespace: "graph",
   version: 1,
   tokens: {
-    marquee: { default: { kind: "alpha", ramp: "brand", step: 5 }, doc: "the selection wash" },
+    marquee: {
+      default: "color-mix(in oklab, var(--primary) 20%, transparent)",
+      doc: "the selection wash",
+    },
     "point-size-min": { default: "4", doc: "the size floor" },
   },
 };
@@ -62,11 +65,14 @@ describe("the fallback chain", () => {
     expect(resolveSectionToken("--graph-point-size-min", both, FIXTURE)?.value).toBe("9");
   });
 
-  it("falls through to the manifest default, and hands a binding back unresolved", () => {
-    // Unresolved on purpose: turning `(brand, a5)` into a hex needs the tenant's ramps, and those
-    // live in @kanzo-tech/palette, which this package may not depend on.
+  it("falls through to the manifest default, and hands back the CSS value as written", () => {
+    // **As written, not resolved**, and there is nothing left to resolve: a default used to be an
+    // object in three shapes — `{kind: "alpha", ramp: "brand", step: 5}` and its siblings — that
+    // only the derivation could turn into a colour, so this function had to hand it back untouched
+    // and hope the caller could. Two of the three named a reference tier that no longer exists. A
+    // CSS value needs no resolver but the browser, on the element that uses it.
     expect(resolveSectionToken("--graph-marquee", {}, FIXTURE)).toEqual({
-      value: { kind: "alpha", ramp: "brand", step: 5 },
+      value: "color-mix(in oklab, var(--primary) 20%, transparent)",
       via: "graph:default",
     });
   });
@@ -240,48 +246,48 @@ describe("validating stored preferences", () => {
  * `KanzoThemeProvider` fills it from the right prop — `KanzoThemeProvider.test.tsx` is where that is.
  */
 describe("options a tenant owns", () => {
-  const IDENTITY = {
+  const THEME_PREF = {
     kind: "choice",
     default: "",
-    options: { from: "identities" },
-    doc: "which of the brands this document publishes",
+    options: { from: "themes" },
+    doc: "which theme is worn",
   } as const;
 
   it("answers the list the host published", () => {
-    const sources = { identities: [{ value: "retail", label: "Retail" }] };
-    expect(prefOptions(IDENTITY, sources)).toEqual(sources.identities);
+    const sources = { themes: [{ value: "retail", label: "Retail" }] };
+    expect(prefOptions(THEME_PREF, sources)).toEqual(sources.themes);
   });
 
   it("honours a stored value while the source is unanswered", () => {
     // The load-bearing one. A host still fetching its document, one that has not wired the prop, and
     // a tenant who published nothing are indistinguishable from here — and treating an empty list as
     // "nothing is legal" would clear a user's brand on the first render, before the fetch lands.
-    expect(prefOptions(IDENTITY, {})).toBeNull();
-    expect(prefOptions(IDENTITY, { identities: [] })).toBeNull();
-    expect(resolvePref(IDENTITY, "private")).toEqual({
+    expect(prefOptions(THEME_PREF, {})).toBeNull();
+    expect(prefOptions(THEME_PREF, { themes: [] })).toBeNull();
+    expect(resolvePref(THEME_PREF, "private")).toEqual({
       value: "private",
       via: "stored",
       offered: true,
     });
     // And validation says nothing rather than reporting a problem it cannot know it has.
-    const manifest: SectionManifest = { namespace: "bank", version: 1, prefs: { identity: IDENTITY } };
+    const manifest: SectionManifest = { namespace: "bank", version: 1, prefs: { identity: THEME_PREF } };
     expect(validatePrefs(manifest, { identity: "private" })).toEqual([]);
   });
 
   it("judges against the source once there is one", () => {
-    const sources = { identities: [{ value: "retail", label: "Retail" }] };
+    const sources = { themes: [{ value: "retail", label: "Retail" }] };
     // Retirement, expressed in the chain rather than in a second mechanism: the brand this user
     // chose is not published any more, so it does not apply.
-    expect(resolvePref(IDENTITY, "private", undefined, sources).via).toBe("default");
-    expect(resolvePref(IDENTITY, "retail", undefined, sources).via).toBe("stored");
-    const manifest: SectionManifest = { namespace: "bank", version: 1, prefs: { identity: IDENTITY } };
+    expect(resolvePref(THEME_PREF, "private", undefined, sources).via).toBe("default");
+    expect(resolvePref(THEME_PREF, "retail", undefined, sources).via).toBe("stored");
+    const manifest: SectionManifest = { namespace: "bank", version: 1, prefs: { identity: THEME_PREF } };
     expect(validatePrefs(manifest, { identity: "private" }, sources)[0]?.detail).toContain("retail");
   });
 
   it("lets a tenant pin one of their own brands", () => {
     // The white-label case at the grain a client cares about: their staff never choose a brand.
-    const sources = { identities: [{ value: "retail", label: "Retail" }] };
-    expect(resolvePref(IDENTITY, "", { pinned: "retail" }, sources)).toEqual({
+    const sources = { themes: [{ value: "retail", label: "Retail" }] };
+    expect(resolvePref(THEME_PREF, "", { pinned: "retail" }, sources)).toEqual({
       value: "retail",
       via: "pinned",
       offered: false,

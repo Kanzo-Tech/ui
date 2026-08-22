@@ -1,9 +1,8 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { existsSync, readFileSync } from "node:fs";
 import { render } from "@testing-library/react";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
+import { label, resolvePath, sourceFiles, subtrees, unreadable } from "./guard-corpus";
 import { Button } from "./simples/button";
 import { Card } from "./simples/card";
 import { DialogHeader } from "./simples/dialog";
@@ -56,9 +55,16 @@ import { ToggleGroup, ToggleGroupItem } from "./simples/toggle-group";
  *   and they cover three components, not ninety-nine.
  * - **It does not know which slots are selected on.** A slot no recipe uses and a slot three
  *   recipes depend on read identically here.
+ * - **The parse reads two packages; the render tests read one.** `guard-corpus.ts` widened the scan
+ *   to `ui` and `ai` on 2026-08-20, and the three rules above are enforced over both — they read
+ *   `.tsx` off disk and need no import. The `describe("the slot prop")` block at the bottom cannot
+ *   follow, and this is a fact about the workspace rather than a choice: `@kanzo-tech/ai`
+ *   peer-depends on `@kanzo-tech/ui`, so `ui` cannot depend back on it without a cycle, and
+ *   `packages/ui/node_modules/@kanzo-tech/` holds only `palette` and `theme` — an
+ *   `import { Message } from "@kanzo-tech/ai"` here does not resolve. `packages/ai` runs its own
+ *   vitest and is where a render test of an `ai` slot belongs. So the behavioural half of this file
+ *   covers `ui` components only, and says so rather than half-doing it.
  */
-
-const SRC = resolve(dirname(fileURLToPath(import.meta.url)));
 
 /**
  * Components whose whole render is an Ark provider — `Dialog.Root`, `Menu.Root`, `Popover.Root`,
@@ -70,34 +76,37 @@ const SRC = resolve(dirname(fileURLToPath(import.meta.url)));
  * `sheet`, `tooltip`, `tour`, `tree-view-node`.
  */
 const PROVIDER_ONLY: Record<string, string[]> = {
-  "simples/alert-dialog.tsx": ["AlertDialog"],
-  "simples/calendar.tsx": ["CalendarContext"],
-  "simples/hover-card.tsx": ["HoverCard"],
-  "simples/menu.tsx": ["Menu", "MenuSub"],
-  "simples/popover.tsx": ["Popover"],
-  "simples/sheet.tsx": ["Sheet"],
-  "simples/tooltip.tsx": ["Tooltip"],
-  "simples/tour.tsx": ["Tour"],
-  "simples/tree-view.tsx": ["TreeViewNode"],
+  "ui/simples/alert-dialog.tsx": ["AlertDialog"],
+  "ui/simples/calendar.tsx": ["CalendarContext"],
+  "ui/simples/hover-card.tsx": ["HoverCard"],
+  "ui/simples/menu.tsx": ["Menu", "MenuSub"],
+  "ui/simples/popover.tsx": ["Popover"],
+  "ui/simples/sheet.tsx": ["Sheet"],
+  "ui/simples/tooltip.tsx": ["Tooltip"],
+  "ui/simples/tour.tsx": ["Tour"],
+  "ui/simples/tree-view.tsx": ["TreeViewNode"],
 };
 
-function sources(dir: string, out: string[] = []): string[] {
-  for (const name of readdirSync(dir)) {
-    const path = join(dir, name);
-    if (statSync(path).isDirectory()) sources(path, out);
-    else if (/\.tsx$/.test(name) && !/\.test\.tsx$/.test(name)) out.push(path);
-  }
-  return out;
-}
-
-/** Names bound by a bare module specifier — Ark's parts, lucide's icons. Not ours to slot. */
+/**
+ * Names bound by a module specifier that is somebody else's — Ark's parts, lucide's icons.
+ *
+ * **A relative path is not the only way one of ours arrives.** While `ui` was the whole corpus,
+ * "ours" and "imported relatively" were the same set, and this function said so. They are not the
+ * same set in `@kanzo-tech/ai`: every component it draws with comes from `@kanzo-tech/ui`, through
+ * a bare specifier, so the widened scan excused `<Button data-slot="…">` in that package — rule 2
+ * silently unenforceable across the whole of the new half of the corpus. Measured with a planted
+ * violation on 2026-08-20, which is the only reason it was found. A `@kanzo-tech/` scope is ours
+ * whatever the shape of the import, and it is not a hedge for the future: the two rules below both
+ * turn on this set, and one of them was reporting a pass it had not earned.
+ */
 function foreignNames(file: ts.SourceFile): Set<string> {
   const names = new Set<string>();
   for (const statement of file.statements) {
     if (
       !ts.isImportDeclaration(statement) ||
       !ts.isStringLiteral(statement.moduleSpecifier) ||
-      statement.moduleSpecifier.text.startsWith(".")
+      statement.moduleSpecifier.text.startsWith(".") ||
+      statement.moduleSpecifier.text.startsWith("@kanzo-tech/")
     ) {
       continue;
     }
@@ -135,16 +144,32 @@ interface Site {
   foreignTag: boolean;
 }
 
-const FILES = sources(SRC).sort();
+const FILES = sourceFiles(/\.tsx$/);
 
-/** Every directory under `src/` that holds a `.tsx`, named so the walk cannot stop descending. */
-const LAYERS = ["charts", "composites", "layouts", "simples", "table", "theme"];
+/**
+ * Every subtree of the corpus that holds a `.tsx`, named so the walk cannot stop descending.
+ *
+ * Named rather than derived, unlike the other guards, because this one reads `.tsx` only and a
+ * derived list would include subtrees that legitimately hold none — `ui/lib/`, which has no JSX at
+ * all. The assertion below closes that from the other end: any subtree NOT named here has to be
+ * provably empty of `.tsx`, so a new one with components in it fails rather than being skipped.
+ */
+const LAYERS = [
+  "ai/",
+  "ui/",
+  "ui/charts/",
+  "ui/composites/",
+  "ui/layouts/",
+  "ui/simples/",
+  "ui/table/",
+  "ui/theme/",
+];
 
 /** Parsed once. Three assertions ask three questions of the same reading of the same files. */
 function slotSites(): Site[] {
   const sites: Site[] = [];
   for (const path of FILES) {
-    const key = relative(SRC, path);
+    const key = label(path);
     const file = ts.createSourceFile(
       path,
       readFileSync(path, "utf8"),
@@ -221,7 +246,7 @@ interface HandedSite {
 function handedSites(): HandedSite[] {
   const sites: HandedSite[] = [];
   for (const path of FILES) {
-    const key = relative(SRC, path);
+    const key = label(path);
     const file = ts.createSourceFile(
       path,
       readFileSync(path, "utf8"),
@@ -281,18 +306,31 @@ function handedSites(): HandedSite[] {
 const HANDED = handedSites();
 
 describe("a part owns its data-slot", () => {
-  it("reads every .tsx under src/, in every layer, and finds slots in them", () => {
+  it("reads every .tsx in the corpus, in every layer, and finds slots in them", () => {
     // All three assertions below are `toEqual([])`, which is also what an empty corpus produces.
     // The floors are floors, not counts — they only have to catch a scan that found nothing.
-    expect(FILES.length, "the walk found almost nothing — it is not reaching src/").toBeGreaterThan(
-      80
-    );
+    expect(
+      FILES.length,
+      "the walk found almost nothing — it is not reaching the packages' src/"
+    ).toBeGreaterThan(80);
     for (const layer of LAYERS) {
       expect(
-        FILES.filter((f) => relative(SRC, f).startsWith(`${layer}/`)).length,
-        `${layer}/ contributed no file to the scan`
+        FILES.filter((f) => label(f).startsWith(layer)).length,
+        `${layer} contributed no file to the scan`
       ).toBeGreaterThan(0);
     }
+
+    // The other end of the same claim: a subtree this file does not name must hold no `.tsx` at
+    // all. `ui/lib/` is the one, and it is why LAYERS is written out rather than derived — but a
+    // new directory with components in it, or a package joining the corpus, fails here instead of
+    // being scanned by nobody. That was the state `@kanzo-tech/ai` was in until 2026-08-20.
+    for (const subtree of subtrees().filter((s) => !LAYERS.includes(s))) {
+      expect(
+        FILES.filter((f) => label(f).startsWith(subtree)).length,
+        `${subtree} holds .tsx and is not in LAYERS — nothing is parsing it`
+      ).toBe(0);
+    }
+
     expect(
       SITES.length,
       "the parse found no data-slot at all — the reader is broken, not the code"
@@ -301,12 +339,8 @@ describe("a part owns its data-slot", () => {
     // A NUL byte reads as binary to `file(1)` and every `grep -I`, so a source carrying one is one
     // the next reader's first tool skips in silence. `charts/chart-inputs.tsx` held one, and the
     // three searches that missed it are why this assertion exists. It never said which file.
-    const binary = FILES.filter((f) => readFileSync(f).includes(0)).map((f) => relative(SRC, f));
+    const { binary, empty } = unreadable(FILES);
     expect(binary, "a NUL byte makes this file invisible to grep — strip it").toEqual([]);
-
-    const empty = FILES.filter((f) => readFileSync(f, "utf8").trim() === "").map((f) =>
-      relative(SRC, f)
-    );
     expect(empty, "an empty source file is a scan that proves nothing").toEqual([]);
   });
 
@@ -380,7 +414,7 @@ describe("a part owns its data-slot", () => {
     // nothing about it while still reporting green. So each entry has to still name something real.
     const stale: string[] = [];
     for (const [key, owners] of Object.entries(PROVIDER_ONLY)) {
-      const path = join(SRC, key);
+      const path = resolvePath(key);
       if (!existsSync(path)) {
         stale.push(`${key}: the file is gone`);
         continue;

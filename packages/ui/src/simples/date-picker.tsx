@@ -73,13 +73,13 @@ export const DatePickerInput = (props: DatePickerInputProps) => {
         </ArkDatePicker.Input>
 
         <InputGroupAddon align="inline-end">
+          {/* One size for the chain, and it used to declare two: the outer `InputGroupButton` asked
+              for `icon-sm` and the inner `Button` — which exists only because Ark's Trigger needs a
+              child to hand its props to — overrode it with `icon-md`. The outer one is the size a
+              control inside a group has, so the inner declares none. */}
           <InputGroupButton asChild size="icon-sm" variant="ghost">
             <ArkDatePicker.Trigger asChild>
-              <Button
-                size="icon-md"
-                slot="date-picker-trigger"
-                variant="ghost"
-              >
+              <Button slot="date-picker-trigger" variant="ghost">
                 <CalendarIcon aria-hidden className="text-muted-foreground" />
               </Button>
             </ArkDatePicker.Trigger>
@@ -129,7 +129,7 @@ export const DatePickerContent = (
             "p-3",
             "bg-popover",
             "text-popover-foreground",
-            "rounded-xl border shadow-lg/5",
+            "rounded-box border shadow-lg/5",
             "outline-none",
             "origin-(--transform-origin)",
             "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",

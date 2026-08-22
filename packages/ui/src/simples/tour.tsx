@@ -21,7 +21,21 @@ import {
 
 export type TourStepType = TourStepDetails;
 
-interface TourProviderProps {
+/**
+ * What `useTourContext()` hands back — **and it is not Ark's tour context**, which is the whole
+ * reason this type is exported rather than inferred.
+ *
+ * `shark-parity.divergences.ts` records the edge: the name matches Shark exactly and collides with
+ * `@ark-ui/react`'s own `useTourContext`, while returning something else entirely. A consumer with
+ * both packages in scope gets two hooks under one name with incompatible returns and no error to
+ * read — so the least this side can do is let them **name** what ours returns. Without it there was
+ * no way to type a variable holding it, or a helper taking it.
+ *
+ * `UseTourContextReturn`, on Ark's own `UseTourReturn` / `UseStepsReturn` pattern. It was
+ * `TourProviderProps`, which named a `<TourProvider>` component that does not exist and is not
+ * exported.
+ */
+export interface UseTourContextReturn {
   /**
    * The function to start the tour
    */
@@ -32,7 +46,7 @@ interface TourProviderProps {
   tour: UseTourReturn;
 }
 
-const TourProvider = React.createContext<TourProviderProps | null>(null);
+const TourProvider = React.createContext<UseTourContextReturn | null>(null);
 TourProvider.displayName = "TourContext";
 
 interface TourProps
@@ -413,7 +427,7 @@ export const useTourContext = () => {
   const context = React.use(TourProvider);
 
   if (!context) {
-    throw new Error("useTour must be used within a TourProvider");
+    throw new Error("useTourContext must be used inside a <Tour>");
   }
 
   return context;

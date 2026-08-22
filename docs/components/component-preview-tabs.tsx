@@ -7,30 +7,45 @@ interface ComponentPreviewTabsProps {
   component: ReactNode;
   source: ReactNode;
   fullBleed?: boolean;
-  hasMaxHeight?: boolean;
+  /** Both panes, in px. Absent, each takes what its content needs. */
+  height?: number;
+  /**
+   * `componentName/fileName`, written to `data-example` on the preview pane — but ONLY for the
+   * examples whose height is up for measurement. `scripts/measure-previews.mjs` selects on it, so
+   * an example that declares its own `height` deliberately carries no key and is never overwritten.
+   */
+  measureKey?: string;
   showBorders?: boolean;
 }
 
 /**
- * Preview | Code, matching Shark UI's docs exactly.
+ * Preview | Code, taken from Shark UI's docs with two deliberate differences.
  *
  * Tabs rather than a "show code" disclosure: Shark reserves the collapsible for the full
- * component source in its install step, and uses tabs for examples. Both panes are a fixed
- * 450px so switching does not shift the page under the reader — the code pane gets its height
- * from the codeblock viewport in `component-preview.tsx`.
+ * component source in its install step, and uses tabs for examples.
  *
- * The backdrop is four dashed 1px guides inset from each edge — Shark's padding guides — not
- * a dot grid. `inset-s-*` / `inset-e-*` are logical, so it mirrors correctly in RTL.
+ * **`height` is per example, not a constant**, and both panes share it — so switching still never
+ * shifts the page, which is what Shark's constant was for, without spending 73 % of a five-line
+ * example on emptiness. `component-preview.tsx` derives it and states the measurement.
  *
- * `fullBleed` drops all of that — frame, padding, centring and height cap — for components the
- * frame actively hides: a shell, a workspace, a panel. Those examples bring their own container,
- * so the outer border moves to the code pane rather than doubling up around theirs.
+ * The backdrop is four dashed 1px guides marking the padding box. `inset-s-*` / `inset-e-*` are
+ * logical, so it mirrors correctly in RTL. **They sit at the padding, and upstream's do not** —
+ * Shark writes `p-4 sm:p-10` with guides at `top-4 sm:top-10`, so above the `sm` breakpoint the
+ * lines land 8px inside the padding they are drawn to show, and below it the guides are hidden
+ * anyway. Ours are `sm:*-10` against the same `sm:p-10`. Measured 2026-08-20: padding 40px, guides
+ * were at 32px. It is a docs app rather than the registry, so `shark-parity.test.ts` has no opinion
+ * either way; the divergence is here so the comment above can be true.
+ *
+ * `fullBleed` drops all of that — frame, padding, centring and height — for components the frame
+ * actively hides: a shell, a workspace, a panel. Those examples bring their own container, so the
+ * outer border moves to the code pane rather than doubling up around theirs.
  */
 export const ComponentPreviewTabs = ({
   component,
   source,
   fullBleed = false,
-  hasMaxHeight = true,
+  height,
+  measureKey,
   showBorders = true,
 }: ComponentPreviewTabsProps) => (
   <Tabs defaultValue="preview" className="group relative mt-4 mb-12 flex flex-col gap-2">
@@ -50,19 +65,20 @@ export const ComponentPreviewTabs = ({
             // the Sidebar examples came from — `SidebarMenu` is a `<ul>`, byte-identical to
             // Shark's, and the dot was never part of the component at all.
             "not-prose",
-            hasMaxHeight && "h-[450px]",
             "relative w-full",
             !fullBleed && "flex items-center justify-center overflow-y-auto p-4 sm:p-10",
           )}
           data-slot="preview"
+          data-example={measureKey}
           data-full-bleed={fullBleed || undefined}
+          style={height ? { height } : undefined}
         >
           {showBorders && (
             <>
-              <div className="absolute inset-x-0 top-4 border border-border/64 border-dashed max-sm:hidden sm:top-8" />
-              <div className="absolute inset-x-0 bottom-4 border border-border/64 border-dashed max-sm:hidden sm:bottom-8" />
-              <div className="absolute inset-s-4 inset-y-0 border border-border/64 border-dashed max-sm:hidden sm:inset-s-8" />
-              <div className="absolute inset-e-4 inset-y-0 border border-border/64 border-dashed max-sm:hidden sm:inset-e-8" />
+              <div className="absolute inset-x-0 top-4 border border-border/64 border-dashed max-sm:hidden sm:top-10" />
+              <div className="absolute inset-x-0 bottom-4 border border-border/64 border-dashed max-sm:hidden sm:bottom-10" />
+              <div className="absolute inset-s-4 inset-y-0 border border-border/64 border-dashed max-sm:hidden sm:inset-s-10" />
+              <div className="absolute inset-e-4 inset-y-0 border border-border/64 border-dashed max-sm:hidden sm:inset-e-10" />
             </>
           )}
           {component}

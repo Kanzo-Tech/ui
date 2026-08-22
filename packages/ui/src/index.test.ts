@@ -81,15 +81,6 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.ImageCropperGrid).toBeTypeOf("function");
     expect(UI.useImageCropper).toBeTypeOf("function");
     expect(UI.Float).toBeTypeOf("function");
-    expect(UI.useAiStream).toBeTypeOf("function");
-    expect(UI.useCompletion).toBeTypeOf("function");
-    expect(UI.useSuggestions).toBeTypeOf("function");
-    expect(UI.CompleteRoot).toBeTypeOf("function");
-    expect(UI.CompleteInput).toBeTypeOf("function");
-    expect(UI.CompleteGhost).toBeTypeOf("function");
-    expect(UI.SuggestRoot).toBeTypeOf("function");
-    expect(UI.SuggestTrigger).toBeTypeOf("function");
-    expect(UI.SuggestContent).toBeTypeOf("function");
     expect(UI.ClientOnly).toBeTypeOf("function");
     expect(UI.DownloadTrigger).toBeTypeOf("function");
     expect(UI.Show).toBeTypeOf("function");
@@ -165,12 +156,24 @@ describe("@kanzo-tech/ui public surface", () => {
     // two choices `PreferencesColor` returns null, and that panel now has no appearance control.
     expect(surface.AppearanceToggle).toBeUndefined();
     // The AiAssist provider was over-engineered for one consumer, and a `complete` prop plus the
-    // monolithic FieldSuggest violated core purity. AI-assist is now two composed compounds —
+    // monolithic FieldSuggest violated core purity. AI-assist became two composed compounds —
     // `Complete` (over a pure Input/Textarea) and `Suggest` — with the engine hooks headless.
     expect(surface.AiAssist).toBeUndefined();
     expect(surface.useAiField).toBeUndefined();
     expect(surface.useAiFieldOptional).toBeUndefined();
     expect(surface.FieldSuggest).toBeUndefined();
+    // And then the two compounds and the engine left this package entirely, for
+    // `@kanzo-tech/ai` — `decisions/the-ai-surfaces-are-their-own-package.md`. The test that
+    // matters is not that they are gone but that NOTHING here depends on them: a barrel that
+    // still reached for `useInlineCompletion` would make `ui` depend on `ai`, and `ai` already
+    // depends on `ui`.
+    for (const name of [
+      "useAiStream", "useInlineCompletion", "useSuggestions", "cleanGhost",
+      "CompleteRoot", "CompleteTextarea", "CompleteGhost", "CompleteHint",
+      "SuggestRoot", "SuggestTrigger", "SuggestContent",
+    ]) {
+      expect(surface[name], name).toBeUndefined();
+    }
     // `Fieldset` and `FieldSet` wrapped the same `ArkFieldset.Root` and differed by one capital
     // letter, with a doc page each teaching it in near-identical sentences. `FieldSet` won — six
     // consumers to one, and a `variant` prop `FieldsetLegend` hardcoded. The fieldset-*scoped*
@@ -412,17 +415,6 @@ describe("@kanzo-tech/ui public surface", () => {
     // alias. `shark-parity.test.ts` holds both bindings so the pair cannot drift back into one.
     expect(surface.TagsInputRootProvider).toBeTypeOf("function");
     expect(surface.useTagsInputContext).toBeTypeOf("function");
-  });
-
-  it("keeps the AI engine hooks exported, and the CodeMirror style not", () => {
-    // `useAiStream` looks like the un-export candidates and is not one: DESIGN.md argues the engine
-    // "stays in the two headless hooks, **exposed for custom surfaces**", which is a promise about
-    // a surface we did not write. `kanzoHighlighting` is documented the same way, as reusable
-    // CodeMirror highlighting. `kanzoHighlightStyle` is the raw style array underneath it, with no
-    // consumer and no such promise — it left `@kanzo-tech/ui/editor`.
-    expect(UI.useAiStream).toBeTypeOf("function");
-    expect(UI.useCompletion).toBeTypeOf("function");
-    expect(UI.useSuggestions).toBeTypeOf("function");
   });
 
   it("exports every compound flat, with no dot-notation namespace", () => {

@@ -79,11 +79,12 @@ without being asked.
   was never true: `appearance` is colour. It is that the user never **authors** a colour value —
   they choose among colours someone already validated.
 
-  So `PreferencesColor` is here, and base, accent, chart scheme and the "Copy CSS" export are not. Those let a
-  user compose *part* of a palette a hue at a time; a [palette document](/docs/showcases/palette) is
-  derived and measured once at onboarding and chosen whole. The section hides itself below two
-  published choices, so a tenant with one palette and one brand sees the four axis sections and
-  nothing else.
+  So `PreferencesColor` is here, and base, accent and chart scheme are not. Those let a user compose
+  *part* of a palette a hue at a time; a theme is written once and chosen whole. **Authoring one is a
+  real surface, and it is a different one** — see the [theme
+  studio](/docs/showcases/theme-studio), which is where the "copy the CSS" half lives, aimed at
+  whoever writes a theme rather than at whoever wears it. The section hides itself below two
+  published themes, so a tenant shipping one sees the four axis sections and nothing else.
 </Callout>
 
 <Callout type="info" title="Appearance has no section, and no control of its own">
@@ -97,8 +98,7 @@ without being asked.
   on it (that is `""`, and `Reset` is the way back).
 
   What that costs is worth knowing before you rely on it: `Colour` hides itself below two published
-  choices, so **a tenant with one palette and one brand now has no appearance control in this
-  panel.** Their users follow the OS, or the host mounts its own control against
+  choices, so **a tenant shipping one theme now has no appearance control in this panel.** Their users follow the OS, or the host mounts its own control against
   `useKanzoTheme().setAppearance`.
 
   There is no third state on that flip: following the OS is `null`, the absence of a pinned side, and
@@ -123,50 +123,50 @@ Preferences.Root
 `Panel` renders that whole set when given no children, plus a pinned Reset · Done footer that
 stays whatever the children are. Pass children to choose your own set.
 
-Colour comes first, and it is **one** section rather than two. A palette and an identity are one
-abstraction with a parameter — how much of the document the choice replaces: an identity replaces the
-brand-derived slice and inherits every surface, a palette replaces all of it. They always shared the
-control, the option type, the hide-below-two rule and the retirement machinery, and the giveaway was
-the behaviour: changing palette *files and restores* the identity, which is containment, not
-siblinghood.
+Colour comes first, and it is **one** section and one list. It used to be one section over a *tree*:
+a palette contained identities, so an entry was a document or a brand inside one, and the panel
+flattened two levels into composed entries like `Bank · Retail` — prefixed only when there was more
+than one palette to disambiguate against.
 
-So a palette that publishes several brands contributes one entry per brand — `Bank · Retail`,
-`Bank · Private` — the way VS Code and Slack present variants. The prefix appears only when there is
-more than one palette to disambiguate against, so a client with a single palette and two brands sees
-`Retail` and `Private`. The model keeps the containment, because that is what guarantees a tenant's
-brands share a neutral and stay one product.
+**A brand is a theme now, so there is no tree left to flatten.** `bank` and `bank-private` are two
+entries beside `dracula`, and the containment that used to guarantee a tenant's brands share a
+neutral is the author's job instead: two themes share a neutral because whoever wrote them wrote the
+same one.
 
 It guards itself rather than being guarded at the call site — every section is exported flat for a
 host's own settings page, where a call-site guard would be invisible.
 
-### Each palette draws itself
+### Each theme draws itself
 
 There are two cards, one per side, and each is a **tile you press**: the tile wears that side, the
-chips beneath choose which document that side wears, and the pill in the corner says which side is
+chips beneath choose which theme that side wears, and the pill in the corner says which side is
 live. GitHub's Appearance page is the shape, minus its verbs — it has no `Use` button on a card
 either, because a control the size of the thing it selects does not need one, and a settings panel
 that keeps removing second controls should not have added one here.
 
-An entry is a **miniature of the interface**, not a strip of the document's hexes: a page, a brand
-fill, two lines of ink and the categorical set. None of it is data. Every palette a tenant publishes
-is already in the page under its own `[data-palette]`, so the cell sets that attribute and the
-utilities inside it resolve against that document — `bg-primary` is *that* tenant's brand.
+**The semantics are GitHub's now, and that is new.** They pair a day theme with a night theme
+because their themes are single-mode; ours used to each carry both, so a card meant *which document
+this user wears on the light side*. A theme is one mode, so a card is the light theme.
 
-A strip of four role colours was what this did, and it could not depict a document. On Kanzo's own,
-`--primary` and `--foreground` are the same value — the relief rule puts the fill on the ramp's ink
-when a seed carries no hue — so two of the four chips were one colour and the control said nothing
-about the palette it was offering. The categorical strip draws all eight slots on purpose: past a
-document's `capacity` the compiler writes `var(--muted-foreground)`, so a set holding seven says so
-by going grey at the end.
+An entry is a **miniature of the interface**, not a strip of hexes: a page, a brand fill, two lines
+of ink and the categorical set. None of it is data. Every theme a tenant publishes is already in the
+page under its own `[data-theme]`, so the cell sets that attribute and the utilities inside it
+resolve against that theme — `bg-primary` is *that* tenant's brand.
+
+A strip of four role colours was what this did, and it could not depict a theme. On the default's
+own, `--primary` and `--foreground` are the same value, so two of the four chips were one colour and
+the control said nothing about what it was offering. The categorical strip draws all eight slots on
+purpose: past a theme's `--chart-capacity` the author writes `var(--muted-foreground)` into the
+remaining slots, so a set holding seven says so by going grey at the end.
 
 <Callout type="info" title="Hovering previews, leaving puts it back">
   The reference behaviour is VS Code's and Zed's — a theme applies as you arrow through the list and
-  reverts when you leave — and it is affordable here because a palette is an attribute rather than a
+  reverts when you leave — and it is affordable here because a theme is an attribute rather than a
   stylesheet to fetch. Pointer or keyboard focus writes it on `<html>`; leaving restores the exact
   attributes that were there on the way in, rather than recomputing what they should be.
 </Callout>
 
-The grid is the other half. Stacked at full width, the five palettes this site publishes took over
+The grid is the other half. Stacked at full width, the themes this site publishes took over
 half the panel's scroll height and pushed density, radius and both font axes below the fold.
 
 ## What the installed packages add
@@ -331,17 +331,17 @@ separation; a line between two of them says one is a different *kind* of thing.
 
 Each reads and writes `useKanzoTheme()` directly. The four axis sections take no props; `Colour` takes
 a `label` for its legend and two strings for the retirement notice, which are its only
-library-authored copy — a palette's or a brand's own name was written by the client and passes
-through verbatim.
+library-authored copy — a theme's own name was written by the client and passes through verbatim.
 
-`Colour` writes **both halves in one patch**, because it is one choice: selecting `Bank · Private`
-sets `palette` and `identity` together. Only the brand half reaches `<html>`. The palette half
-repaints nothing by itself — a document is a stylesheet, so the next load is the palette, and a live
-swap is the host's to arrange, as the docs site does.
+`Colour` writes **one value**, keyed by the side it applies to. That sentence used to read "both
+halves in one patch, because it is one choice", and separately was not a style preference: writing
+the palette and the brand apart let the palette change file and restore a remembered brand over the
+top of the one being clicked, so the memory won against the user. There is one field now, and the
+memory it needed went with the containment.
 
 | Export | Axis | Attribute |
 | --- | --- | --- |
-| `PreferencesColor` | `palette` + `identity` + `appearance` | `data-identity` for the brand half only — a palette is a stylesheet the server serves; the side cards write `appearance` |
+| `PreferencesColor` | `themeByAppearance` + `appearance` | `data-theme`; the side cards write `appearance` |
 | `PreferencesDensity` | `density` | `data-font-size` |
 | `PreferencesRadius` | `radius` | `data-radius` |
 | `PreferencesFont` | `font` | `data-font` |

@@ -1,46 +1,49 @@
 # @kanzo-tech/theme
 
-Design tokens for Kanzo products. **Colour is a tenant palette document; everything else is an
-axis.**
+The theme catalogue and the axes a user layers over it. **A theme is one flat block of CSS, and it
+carries one mode.**
 
-- **Palette** — not an axis. Two seeds (brand + neutral) derived and measured once at onboarding,
-  stored as data, compiled to one stylesheet. See below.
-- **Radius** — `none` · `xs` · `sm` · `md` · `lg` (one `--radius` knob drives the scale).
-- **Font** / **Mono font** — `--font-sans` / `--font-mono`.
+- **Theme** — `packages/theme/themes/<name>.css`, hand-written source. Twenty-one authored colours,
+  the shape knobs, the font stacks and its own `color-scheme`. Selected with `data-theme`.
+- **Radius** — `none` · `xs` · `sm` · `md` · `lg`, a user preference over the theme's own three
+  radius knobs.
+- **Font** / **Mono font** — `--font-sans` / `--font-heading` / `--font-mono`.
 - **Density** — the root font-size the whole `rem` scale resolves against.
-- **Appearance** — `light` / `dark`, owned by the host (see below).
+- **Appearance** — `light` / `dark`, and it chooses *which theme* is worn, because a theme is a side.
 
-This package ships **no components** and no colour maths. It is CSS, the declared axes, and the value
-types. The derivation lives in [`@kanzo-tech/palette`](../palette), which this package depends on
-as a **devDependency** — the generator and the tests use it, a browser never does.
+This package ships **no components** and no colour maths. It is CSS, the declared axes and the value
+types.
 
-## Colour: the palette document
+## A theme
 
-A client's colour identity has to reach `--primary`, the surfaces, the charts, the graph and the
-dashboards, so there is exactly one artefact all of them read:
-
-```ts
-import { derivePalette, compile } from "@kanzo-tech/palette";
-
-const doc = derivePalette({ id: "acme", label: "Acme", brand: "#7f22fe", neutral: "#6b7280" });
-const css = compile(doc); // :root { … } .dark { … } — both modes, every token, ~4 KB
+```css
+/* packages/theme/themes/acme.css */
+[data-theme="acme"] {
+  color-scheme: light;
+  --background: #fbfcfd;  --foreground: #10151c;
+  --primary: #1f6feb;     --primary-foreground: #ffffff;
+  /* …nineteen more, then the shape knobs and the fonts… */
+  --radius-box: 0.75rem;  --radius-field: 0.5rem;  --radius-selector: 0.25rem;
+  --stroke: 1px;          --depth: 0;
+}
 ```
 
-`derivePalette` grows six ramps (the client's brand and neutral, plus Kanzo's four fixed status
-families) in both modes, spins a categorical set off the brand hue, resolves the role table, and
-writes down everything that did not go exactly as asked in `doc.record`. The gate policy is
-**adjust and publish** — never accept-and-warn, never refuse. Adding a client touches no code and
-needs no deploy: the server looks the document up at request time and inlines `compile(doc)` as a
-static `<style>` in `<head>`, so the colour maths is done before a byte is sent.
+That is the whole mechanism: a block somebody writes, an `@import` in `themes.css`, and an attribute
+on `<html>`. Adding a client touches no code and needs no deploy.
 
-There is no colour axis. `data-base`, `data-accent`, `data-palette` and `data-chart-scheme` were
-four ways to express *part* of a palette at runtime; a document expresses all of it at once.
+**Twenty-one carry a value; everything else uses one.** `--card-foreground`, the sidebar tokens and
+`--popover` are *uses*, bridged once in `tokens.css` through `@theme inline` and never re-declared —
+which is also what makes a scoped `<div data-theme="…">` resolve correctly, since a custom property
+declared in `:root` would inherit already substituted.
 
-**The default tenant is not a special case.** `palettes/kanzo.json` is a tenant whose document
-happens to be committed, derived from `PALETTE_SEEDS.kanzo` by exactly the code a client's goes
-through, and `tokens.css`'s colour half is that document compiled. `PALETTE_SEEDS` also carries
-four borrowed identities — Dracula, Nord, Catppuccin Latte and Mocha — as seed pairs for the docs
-showcase, which puts each authored original beside its derived result.
+**Light and dark are two themes.** There is no second block and no `.dark` that flips a token; the
+class survives only as the selector for the `dark:` variant at the call sites that still ask for one.
+
+**There is no derivation.** A `@kanzo-tech/palette` package used to take two seeds through thirteen
+stages and publish 144 reference steps; components used eighteen of them, and all eighteen were
+tints that `color-mix` now computes at the point of use. It is deleted. What that costs is a contrast
+guarantee at authoring time — the author answers for AA, and a guard over the shipped themes is what
+catches a mistake. See `decisions/a-theme-is-one-flat-block.md`.
 
 ## How the other axes work
 
@@ -104,22 +107,24 @@ import { themeScript, cookieStorageAdapter } from "@kanzo-tech/ui";
 
 The compiled styles ship with `@kanzo-tech/ui` (`import "@kanzo-tech/ui/styles.css"`), which
 already pulls in this package's `tokens.css` + `themes.css`. Subpath exports
-(`@kanzo-tech/theme/tokens.css`, `/themes.css`, `/palettes/kanzo.json`) are available for tooling.
+(`@kanzo-tech/theme/tokens.css`, `/themes.css`, `/themes/<name>.css`) are available for tooling —
+the last one so a consumer can import a subset of the catalogue instead of all of it.
 
-The four non-colour axis tables — and the DECLARATION of every axis, `CORE_PREFS`, generated beside
+The non-colour axis tables — and the DECLARATION of every axis, `CORE_PREFS`, generated beside
 them — are exported from the JS entry as `themeData` / `CORE_PREFS`. Import those, **not**
 `@kanzo-tech/theme/theme-data.json`. A raw JSON subpath import is an ESM JSON import at
 runtime, which Node rejects without `with { type: "json" }`, and Rollup strips that attribute
-when bundling. The tables a *derivation* reads are not here: they are inputs to colour maths that
-runs once at onboarding, and they live with it in `@kanzo-tech/palette`.
+when bundling. `themeData.themes` is the catalogue, read off the `themes/` directory by the
+generator, so adding a theme is adding a file and nothing lists them twice.
 
-`CHART_SLOTS` is here rather than with the derivation because it is a fact about the **sheet** —
-how many `--chart-*` properties it declares — and a chart resolving them off the cascade runs in a
-browser, where the derivation deliberately cannot be reached. `@kanzo-tech/palette` declares the
-same number, because it is what emits the properties; `src/boundary.test.ts` counts the
-declarations in the shipped `tokens.css` and holds both against it, so neither copy is trusted.
+`CHART_SLOTS` is a fact about the **sheet** — how many `--chart-*` properties a theme publishes —
+and a chart resolving them off the cascade runs in a browser. It is checked against what actually
+ships rather than trusted: `packages/ui/src/lib/token-color.test.ts` reads every theme file and
+fails on one that declares a partial set.
 
-`themes.css`, `theme-data.json`, `palettes/kanzo.json` and `tokens.css`'s colour half are all
-generated — **edit the generators (`scripts/gen-theme.mjs`, `scripts/gen-palette.mjs`), not the
-output**. `pnpm gen` builds `@kanzo-tech/palette` first and then runs both in order; CI
-regenerates and fails on any diff.
+`themes.css` and `theme-data.json` are generated — **edit `scripts/gen-theme.mjs`, not those two.**
+`pnpm gen` runs it; CI regenerates and fails on any diff.
+
+**`tokens.css` and `themes/*.css` are NOT generated.** They are hand-written source, and a guard that
+regenerated them would have nothing to regenerate them from. That is the whole shape of the change:
+colour stopped being output.

@@ -5,7 +5,7 @@ import type {
   Appearance,
   AppearancePref,
   CorePrefKey,
-  PaletteOption,
+  ThemeOption,
   PrefSources,
   ResolvedPref,
   SectionManifest,
@@ -174,8 +174,7 @@ const DEFAULT_MONO_FONTS = stacked("monoFont", themeData.monoFonts);
  * A host that never wires `identities` gets this one, not a fresh `[]` per render — the context is
  * memoised on it, and a new array every render re-renders every consumer of the theme.
  */
-const NO_IDENTITIES: PaletteOption[] = [];
-const NO_PALETTES: PaletteOption[] = [];
+const NO_THEMES: ThemeOption[] = [];
 // Same reason as the two above: a fresh literal per render is a new dependency every render, and
 // these feed a memo the whole context hangs off.
 const NO_SECTIONS: SectionManifest[] = [];
@@ -245,32 +244,26 @@ export interface KanzoThemeProviderProps {
   fonts?: FontOption[];
   monoFonts?: FontOption[];
   /**
-   * Called once, at most, when the stored identity is no longer published — somebody chose gold
-   * and is about to be looking at blue, and silence makes that read as a bug in our product rather
-   * than a change in their client's. The provider renders no notice itself; say it where the app
-   * says things.
-   */
-  onIdentityRetired?: (identity: string) => void;
-  /**
-   * The palettes the TENANT published — whole documents, where an identity is a brand inside one.
-   * Usually `paletteIndex` from `@kanzo-tech/theme`, or a tenant's own list mapped on the server.
+   * The themes the TENANT published. Usually `themeIndex` from `@kanzo-tech/theme`, or a tenant's
+   * own list mapped on the server.
    *
-   * **Wiring this applies it.** The sentence here used to be the opposite — "wiring this does not
-   * apply anything; a document is a stylesheet, so the server serves the chosen one from the cookie
-   * before the first byte" — which made this the one preference the provider owned and could not
-   * honour. It rested on an assumption about size that was never measured: the five documents this
-   * package ships are 63.6 kB raw and **8.6 kB gzipped together**.
+   * **Wiring this applies it.** A theme is a flat block of CSS that travels in the page under its
+   * own `[data-theme]`, so this provider writes the attribute like any other axis. A host still has
+   * to *load* the themes — import the sheets, or inline them — but it never chooses one per request,
+   * and a user switching theme never needs a round trip.
    *
-   * So they all travel, `compile(doc, { scope })` puts each under `[data-palette="<id>"]`, and this
-   * provider writes the attribute like any other axis. A host still has to *load* the documents —
-   * import their stylesheets, or inline them — but it no longer has to choose one per request, and a
-   * user switching palette no longer needs a round trip.
+   * **It is one prop where there were two.** `palettes` carried documents and each document carried
+   * its brands as `children`, so a host published a tree and the panel flattened it. A brand is a
+   * theme, so the tree is a list.
    */
-  palettes?: PaletteOption[];
-  /** The id the server serves when the preference is empty. Defaults to the first published one. */
-  defaultPalette?: string;
-  /** Called once, at most, when the stored palette is no longer published. */
-  onPaletteRetired?: (palette: string) => void;
+  themes?: ThemeOption[];
+  /** The name applied when the preference is empty. Defaults to the first published one. */
+  defaultTheme?: string;
+  /** Called once, at most, when the stored theme is no longer published — somebody chose gold and is
+   *  about to be looking at blue, and silence makes that read as a bug in our product rather than a
+   *  change in their client's. The provider renders no notice itself; say it where the app says
+   *  things. */
+  onThemeRetired?: (theme: string) => void;
   /**
    * The section manifests of the packages this host installed.
    *
@@ -315,13 +308,12 @@ export function KanzoThemeProvider({
   storageKey = STORAGE_KEY,
   fonts = DEFAULT_FONTS,
   monoFonts = DEFAULT_MONO_FONTS,
-  onIdentityRetired,
-  palettes = NO_PALETTES,
-  // The first published one, exactly as `defaultIdentity`. `paletteIndex` carries an `isDefault`
-  // flag, but it belongs to the host's mapper: a `PaletteOption` is what a CONTROL needs, and a
+  themes = NO_THEMES,
+  // The first published one. `themeIndex` carries no `isDefault`
+  // flag, but it belongs to the host's mapper: a `ThemeOption` is what a CONTROL needs, and a
   // control has no use for which one the server would have served anyway.
-  defaultPalette = palettes[0]?.value ?? "",
-  onPaletteRetired,
+  defaultTheme = themes[0]?.value ?? "",
+  onThemeRetired,
   sections = NO_SECTIONS,
   policy = NO_POLICY,
   appearance,
@@ -500,122 +492,61 @@ export function KanzoThemeProvider({
     storedPrefs.font,
     storedPrefs.monoFont,
     storedPrefs.density,
-    storedPrefs.identity,
-    storedPrefs.paletteByAppearance,
+    storedPrefs.themeByAppearance,
   ]);
 
-  // ── Palette ─────────────────────────────────────────────────────────────────────────────
-  // Which of the DOCUMENTS the tenant published is applied — the coarser of the two colour choices
-  // (a document is every colour token; an identity is a brand inside one).
+  // ── Theme ───────────────────────────────────────────────────────────────────────────────
+  // Which of the themes the tenant published is applied. An axis like any other: `AXES` carries
+  // `data-theme` and the effect below writes it.
   //
-  // It is an axis like any other: `AXES` carries `data-palette` and the effect below writes it.
-  //
-  // This paragraph used to say the opposite — "nothing here applies it; a document is a STYLESHEET,
-  // so the server reads this from the cookie and serves the right one before the first byte" — and
-  // the consequence it drew was that a multi-palette tenant *must* persist through
-  // `cookieStorageAdapter`, because a decision the server already took cannot be corrected in the
-  // browser without a flash. All of that followed from one unmeasured assumption. The five documents
-  // are 8.6 kB gzipped together, so they all travel, each under its own `[data-palette]`, and the
-  // cookie is now an optimisation rather than a requirement: localStorage plus the pre-paint script
-  // applies the attribute before anything is drawn, exactly as it does for radius and density.
-  //
-  const resolvedPalette = corePrefs.paletteByAppearance?.value || defaultPalette;
+  // **This block used to be two, and the second one was where the bugs lived.** A palette contained
+  // identities, so choosing a palette had to file the brand you were leaving, restore the brand you
+  // were entering, key both by the RESOLVED id because the default had two spellings, and not
+  // overwrite a brand named in the same call. Every clause of that was a real defect once. None of
+  // it exists now: a brand is a theme, so there is no containment to remember and nothing to carry
+  // across. The memory it needed (`identityByPalette`) went with it.
+  const resolvedTheme = corePrefs.themeByAppearance?.value || defaultTheme;
 
   /**
-   * Choose a palette for the side currently applied.
+   * Choose a theme for one side.
    *
-   * A call site says `setPalette("nord")` and means "on this side" — the keying lives here and not
-   * in every panel, the same way `setAppearance` owns translating a host's `"system"`. Spelled out
-   * at each call site it would be a spread of a map the caller has to remember is keyed at all.
+   * The side defaults to the one being worn, which is what a control inside the page means. A
+   * two-grid panel names the other one explicitly: choosing a night theme in daylight has to reach
+   * the dark key without repainting what the reader is looking at.
+   *
+   * The keying lives here and not in every panel, the same way `setAppearance` owns translating a
+   * host's `"system"`. Spelled at each call site it would be a spread of a map the caller has to
+   * remember is keyed at all.
    */
-  const setPalette = React.useCallback(
-    (palette: string, options: { appearance?: Appearance; identity?: string } = {}) => {
-      // The side defaults to the one being worn, which is what a control inside the page means. A
-      // two-card panel names the other one explicitly: choosing a night palette in daylight has to
-      // reach the dark key without repainting what the reader is looking at.
-      const { appearance: side = resolvedAppearance, identity } = options;
-      const next: Partial<ThemePrefs> = {
-        paletteByAppearance: { ...prefs.paletteByAppearance, [side]: palette },
-      };
-      // Switching palette carries the identity with it, both ways: what this user had chosen in the
-      // palette they are leaving is filed, and what they had chosen in the one they are entering is
-      // restored. Without it, every trip through a second palette silently discarded a brand choice.
-      //
-      // It lives here rather than in `set` because only this function knows which side is being
-      // written — and here rather than in an effect, because it is a consequence of one transition
-      // and not of a state. An effect watching the palette would also fire on mount, on StrictMode's
-      // second invocation, and on a host re-rendering controlled `value`.
-      // Both read from the side being written, never from the applied one — filing an outgoing
-      // brand under the wrong side is the same off-by-one as filing it under the wrong palette.
-      const leaving = prefs.paletteByAppearance[side] || defaultPalette;
-      const entering = palette || defaultPalette;
-      if (entering !== leaving) {
-        // Keyed by the RESOLVED id, never by the raw preference. The default palette has two
-        // spellings — `""`, which is what "no preference" stores, and its own id — and keying on the
-        // preference files them as two documents, so a user who returns to the default by name gets
-        // back the identity they chose under a different word for the same thing.
-        const remembered = { ...prefs.identityByPalette, [leaving]: prefs.identity };
-        next.identityByPalette = remembered;
-        // `?? ""` and not the current identity: an identity belongs to its document, so carrying one
-        // across would name a brand the new palette does not publish — inert in the cascade, and a
-        // false retirement notice on the way past.
-        next.identity = remembered[entering] ?? "";
-      }
-      // …unless the caller named one in the same call. The panel selects a palette and a brand at
-      // once — "Bank · Private" is one choice — so the memory must not overwrite what was asked for.
-      if (identity !== undefined) next.identity = identity;
-      set(next);
+  const setTheme = React.useCallback(
+    (theme: string, options: { appearance?: Appearance } = {}) => {
+      const side = options.appearance ?? resolvedAppearance;
+      set({ themeByAppearance: { ...prefs.themeByAppearance, [side]: theme } });
     },
-    [
-      defaultPalette, prefs.identity, prefs.identityByPalette, prefs.paletteByAppearance,
-      resolvedAppearance, set,
-    ],
+    [prefs.themeByAppearance, resolvedAppearance, set],
   );
 
+  // **Not resolved against what the tenant published**, though the declaration names that source and
+  // `resolvePref` would take it. Two reasons, and both are about keeping one behaviour rather than
+  // adding a second: an attribute selector with no matching rule is INERT, so an unknown name falls
+  // through to whatever `:root` paints, and the inline SSR script cannot know what the tenant
+  // published, so gating here and not there is exactly how the two sides start disagreeing about
+  // `<html>`. Retirement is already a mechanism, with a notice and a cleared preference; a silent
+  // gate would be half of it, done twice.
 
-  // ── Identity ────────────────────────────────────────────────────────────────────────────
-  // A preference among the identities the TENANT published, and the id `:root` already paints.
-  //
-  // **Neither this nor the palette above is resolved against what the tenant published**, though the
-  // declaration names that source and `resolvePref` would take it. Two reasons, and both are about
-  // keeping one behaviour rather than adding a second: an attribute selector with no matching rule
-  // is INERT, so an unknown id falls through to `:root` — which is the default identity — and the
-  // inline SSR script cannot know what the tenant published, so gating here and not there is exactly
-  // how the two sides start disagreeing about `<html>`. Retirement is already a mechanism, with a
-  // notice and a cleared preference; a silent gate would be half of it, done twice.
-  //
-  // The panel is where the published list belongs, and it has it: `sources` fills a control's
-  // options, and `useRetirement` below says out loud when what a user chose is gone.
-
-  // Derived from the selected palette rather than passed beside it: an identity belongs to a
-  // document, so "which identities exist" is not a second question a host can answer independently.
-  // A host that supplied both could disagree with itself, and nothing would catch it.
-  const identities = palettes.find((p) => p.value === resolvedPalette)?.children ?? NO_IDENTITIES;
-  const defaultIdentity = identities[0]?.value ?? "";
-  const resolvedIdentity = corePrefs.identity?.value || defaultIdentity;
-
-  // The two lists only a tenant can write, in the shape a declaration names them by — so a control
-  // for `{ from: "palettes" }` is filled from what this host actually published, and a package that
+  // The one list only a tenant can write, in the shape a declaration names it by — so a control for
+  // `{ from: "themes" }` is filled from what this host actually published, and a package that
   // declares such a choice needs no prop of its own to receive it.
   const sources: PrefSources = React.useMemo(
-    () => ({
-      palettes: palettes.map(({ label, value }) => ({ label, value })),
-      identities: identities.map(({ label, value }) => ({ label, value })),
-    }),
-    [identities, palettes],
+    () => ({ themes: themes.map(({ label, value }) => ({ label, value })) }),
+    [themes],
   );
 
-  const retiredIdentity = useRetirement(
-    prefs.identity,
-    identities,
-    React.useCallback(() => set({ identity: "" }), [set]),
-    onIdentityRetired,
-  );
-  const retiredPalette = useRetirement(
-    resolvedPalette,
-    palettes,
-    React.useCallback(() => setPalette(""), [setPalette]),
-    onPaletteRetired,
+  const retiredTheme = useRetirement(
+    resolvedTheme,
+    themes,
+    React.useCallback(() => setTheme(""), [setTheme]),
+    onThemeRetired,
   );
 
   // To the DOM: the axes become `data-*` attributes on <html> (set when non-default, removed
@@ -742,10 +673,10 @@ export function KanzoThemeProvider({
       // `density` means every reader sees `"compact"`, while storage keeps whatever this user chose
       // and hands it back the day the tenant stops pinning it.
       ...Object.fromEntries(Object.entries(corePrefs).map(([key, { value }]) => [key, value])),
-      // …except the one that is a map. `paletteByAppearance` stores a side→document map and the
-      // chain answers for ONE side, so writing the resolved string over it would change the field's
-      // shape under every reader. `resolvedPalette` is where the answer belongs, and it is below.
-      paletteByAppearance: prefs.paletteByAppearance,
+      // …except the one that is a map. `themeByAppearance` stores a side→theme map and the chain
+      // answers for ONE side, so writing the resolved string over it would change the field's shape
+      // under every reader. `resolvedTheme` is where the answer belongs, and it is below.
+      themeByAppearance: prefs.themeByAppearance,
       corePrefs,
       sources,
       set,
@@ -757,20 +688,15 @@ export function KanzoThemeProvider({
       appearance: appearancePref,
       resolvedAppearance,
       setAppearance,
-      identities,
-      defaultIdentity,
-      resolvedIdentity,
-      retiredIdentity,
-      palettes,
-      defaultPalette,
-      resolvedPalette,
-      setPalette,
-      retiredPalette,
+      themes,
+      defaultTheme,
+      resolvedTheme,
+      setTheme,
+      retiredTheme,
     }),
     [
       prefs, set, fonts, monoFonts, appearancePref, resolvedAppearance, setAppearance,
-      identities, defaultIdentity, resolvedIdentity, retiredIdentity,
-      palettes, defaultPalette, resolvedPalette, setPalette, retiredPalette,
+      themes, defaultTheme, resolvedTheme, setTheme, retiredTheme,
       sectionPrefs, setSectionPref, corePrefs, sources, reset,
     ],
   );

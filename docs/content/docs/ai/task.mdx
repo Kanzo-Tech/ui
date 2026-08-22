@@ -1,0 +1,89 @@
+---
+title: Task
+description: The life of one step — pending, running, done, failed. A list of what an agent is doing, in the same four words a tool call uses.
+---
+
+<ComponentPreview componentName="task" />
+
+## Usage
+
+```tsx
+import { Task, TaskList, TaskStatus, TaskTitle } from "@kanzo-tech/ai";
+```
+
+```tsx
+<TaskList>
+  <Task state="done">
+    <TaskStatus />
+    <TaskTitle>Read Q-1058 off the board</TaskTitle>
+  </Task>
+  <Task state="running">
+    <TaskStatus />
+    <TaskTitle>Find a cantor who is ready today</TaskTitle>
+  </Task>
+</TaskList>
+```
+
+A plan the model is working through, or a plan it says it will work through. Nothing here is
+stateful and nothing here streams — the states arrive from wherever your run does, and the list
+re-renders.
+
+## Four words, one vocabulary
+
+`RunState` is `pending`, `running`, `done` or `failed`, and [`Tool`](/docs/ai/tool) imports the same
+type. **A tool call is a step with a name**, so the two share one vocabulary rather than each
+growing their own four words that then disagree about whether a call is `error` or `failed`.
+
+`TaskStatus` draws the state: a [`Status`](/docs/data-display/status) dot in the matching tone, or a
+[`Spinner`](/docs/overlays/loading) while it runs. `TaskTitle` mutes a pending step and tints a
+failed one, both read off the row's `data-state` through a group selector — the same one-declaration
+rule [`Message`](/docs/ai/message) follows for its role.
+
+## The dot is not the announcement
+
+<Callout type="warn">
+`Status` is `aria-hidden`, and so is the spinner. **A coloured dot is not a status to a screen
+reader** — nothing about a green circle says "done" — so the state is carried by a visually hidden
+word inside `TaskStatus`: "Pending", "Running", "Done", "Failed".
+</Callout>
+
+Pass children to `TaskStatus` to say it in your own words — "Waiting on the archivist" rather than
+"Pending". The dot and the spinner are unaffected; only what is announced changes.
+
+That is also why the title is not enough on its own. A row that reads *Find a cantor who is ready
+today* with a red dot beside it says nothing at all to somebody who cannot see the dot.
+
+## Anatomy
+
+```text
+TaskList              (ol, the plan in order)
+└── Task              (li, carries data-state and the group)
+    ├── TaskStatus    (dot or spinner + the visually hidden word)
+    └── TaskTitle     (truncates — a step is one line)
+```
+
+`TaskList` is an ordered list, deliberately: the steps have an order, and a screen reader
+enumerating "3 of 5" is the cheapest progress indicator there is. `TaskTitle` truncates rather than
+wrapping, so a long step does not cost two lines on every row above and below it.
+
+## API Reference
+
+### Task
+
+Renders an `li`.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `state` | `"pending" \| "running" \| "done" \| "failed"` | `"pending"` |
+
+Mirrored to `data-state`, which is what the parts select on. `TaskStatus` throws by name if it is
+rendered outside a `Task`.
+
+### TaskStatus
+
+Renders a `span`. Children replace the announced word only; the marker is chosen from the state.
+
+### TaskList · TaskTitle
+
+`TaskList` renders an `ol` with the markers off; `TaskTitle` renders a `span`. Both take that
+element's props, carry a `data-slot`, and accept `asChild`.

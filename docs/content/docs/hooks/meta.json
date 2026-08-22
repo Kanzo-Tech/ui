@@ -19,9 +19,6 @@
     "use-selected",
     "use-data-table",
     "use-data-table-context",
-    "---AI---",
-    "use-ai-stream",
-    "use-completion",
-    "use-suggestions"
+    "---AI---"
   ]
 }

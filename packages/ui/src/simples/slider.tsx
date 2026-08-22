@@ -116,12 +116,12 @@ export const Slider = (props: SliderProps) => {
             // control fill: `--field` recedes to the page in dark, and a track that is the page
             // is a track nobody can see. a4 measures ΔE 5.11 light / 7.73 dark from every surface
             // the theme publishes, against `--field`'s 2.40 / 0.00-on-the-page.
-            "bg-base-a4",
+            "bg-foreground/14",
             "rounded-full",
             "select-none overflow-hidden",
             "data-[orientation=horizontal]:h-2 data-[orientation=horizontal]:w-full",
             "data-[orientation=vertical]:h-full data-[orientation=vertical]:w-2",
-            "data-invalid:bg-destructive-a3"
+            "data-invalid:bg-destructive/7"
           )}
           data-slot="slider-track"
         >

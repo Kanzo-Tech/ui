@@ -12,9 +12,7 @@
   stacked bar, a multi-series line, a pie. If readers lose the encoding there, monochrome is not a
   document-level state and belongs to whatever draws a graph.
 - **Held by** `packages/ui/src/lib/token-color.test.ts`, "honours a declared zero, because a document
-  may decline the channel"; `packages/palette/src/palettes.test.ts`, "survives derivation in both
-  modes, with a categorical set that can name something"; `packages/palette/src/derive-palette.ts`,
-  `categorical`; `packages/palette/src/compile.ts`, `capacityOf`
+  may decline the channel"; `packages/theme/themes/monochrome.css`, `--chart-capacity`
 
 ## Why this is not the graph's decision, which is where it lived
 
@@ -86,7 +84,7 @@ That is a separate piece of work and it is not assumed by this record.
 ## What landed, and the two things the record did not anticipate
 
 The declaration is `categorical: "declined"` on the derivation input, `source.from === "declined"`
-on the document, `--chart-capacity: 0` in the sheet. **Nothing in `roles.ts` or `compile.ts` needed
+on the document, `--chart-capacity: 0` in the sheet. **Nothing in the role table or the compiler needed
 changing to make the slots grey**: a slot past capacity already resolves to `OTHER`, so an empty set
 compiles to eight muted slots by the rule that was already there. The two edits that mattered were
 the declaration itself and the reader — `categoricalCapacity` used to fold every non-positive number

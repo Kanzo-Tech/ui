@@ -1,0 +1,115 @@
+---
+title: Conversation
+description: The transcript's scroll container. It follows a stream while the reader is at the tail and stops the moment they scroll up — which is the whole component.
+---
+
+<ComponentPreview componentName="conversation" />
+
+## Usage
+
+```tsx
+import {
+  Conversation,
+  ConversationContent,
+  ConversationEmpty,
+  ConversationScrollButton,
+} from "@kanzo-tech/ai";
+```
+
+```tsx
+<Conversation>
+  <ConversationContent>
+    <MessageList>{/* … */}</MessageList>
+  </ConversationContent>
+  <ConversationScrollButton />
+</Conversation>
+```
+
+`Conversation` is `flex-1` inside a column, so it wants a **bounded** parent — a panel with a
+height, or a flex column that has one. Given an unbounded one it grows with its content and there
+is nothing left to scroll, which is the failure that reads as "the pin does not work".
+
+## The pin is the component
+
+Everything else here is markup. The one behaviour is this:
+
+- **At the tail, growth follows.** New tokens keep the last line in view.
+- **Scrolled up, it stops.** The reader is reading; the stream is not allowed to interrupt them.
+- **`ConversationScrollButton` gives the pin back**, and is present only while it is released.
+
+<Callout type="warn">
+**The naive version is the one both real consumers wrote**, and it is worth naming so you recognise
+it: an effect on the message array calling `scrollTo({ top: scrollHeight, behavior: "smooth" })`.
+That follows the tail *unconditionally* — a reader who scrolled up to re-read something is dragged
+back down by the next token, every token, for as long as the answer is streaming. Following is only
+correct while the reader is **already** at the tail.
+</Callout>
+
+### Why two observers, and no scroll listener alone
+
+A scroll listener sees the reader move. It does not see the stream, and that is the part that
+catches people out: **a stream produces growth, not scrolling.** The content gets taller under a
+stationary `scrollTop`, and the browser fires no scroll event for that.
+
+So the viewport is observed *and* the inner content element is observed. Watching the viewport alone
+never sees it either — its own box did not change. Together they are about forty lines of listener
+and `ResizeObserver`, and no dependency.
+
+The "at the end" test carries a 24-pixel allowance, because a scroll position is fractional and
+rarely lands on the end exactly. Without it the pin releases itself on a sub-pixel rounding and the
+transcript stops following for no reason a reader can see.
+
+## The empty state
+
+`ConversationEmpty` is a centred column with muted text, and it sizes a bare child `svg` to 6×6 so
+an icon above the sentence needs no class. It is ordinary markup — put whatever the zero state
+should say inside it.
+
+Use [`Show`](/docs/layout/rendering) rather than `&&` to choose between it and the list.
+
+## Anatomy
+
+```text
+Conversation                 (relative, flex column — owns the pin)
+├── ConversationContent      (role="log", the scrolling viewport)
+│   └── MessageList          (the turns)
+│       └── Message
+├── ConversationEmpty        (the zero state, inside the content)
+└── ConversationScrollButton (absolute, present only while unpinned)
+```
+
+`ConversationScrollButton` is positioned against `Conversation`, not against the viewport, so it
+must be a sibling of `ConversationContent` rather than a child of it. Inside the viewport it scrolls
+away with the transcript, which is exactly the thing it exists to fix.
+
+## Accessibility
+
+`ConversationContent` carries `role="log"`, which brings an implicit `aria-live="polite"`: a message
+appended while the reader is somewhere else is announced **after** what they are on rather than over
+it. Nothing inside declares a role — a message is content, not a widget — so there is no keyboard
+contract owed and nothing steals a tab stop from the composer.
+
+`ConversationScrollButton` labels itself `"Scroll to the latest message"` when it has no children.
+Pass children and the label is dropped, because a label over a legible one renames it.
+
+## API Reference
+
+### Conversation
+
+Renders a `div` and takes that element's props. It owns the pin state and publishes it through
+context, so the parts below must render inside it — each throws by name if they do not.
+
+### ConversationContent
+
+Renders the scrolling `div`. `role` is set for you; overriding it is possible and is almost always
+the wrong move.
+
+### ConversationScrollButton
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `variant` | inherited from [`Button`](/docs/actions/button) | `"outline"` |
+| `size` | inherited from `Button` | `"icon-sm"` |
+
+Extends `Button`, so `className`, `asChild` and a handler of your own all pass through. Its
+`onClick` runs before the scroll and the scroll is skipped if you call `preventDefault()`.

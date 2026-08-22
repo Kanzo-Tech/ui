@@ -81,15 +81,13 @@ export const UNADOPTED: Readonly<Record<string, string>> = {
 export const OURS_ALONE: Readonly<Record<string, string>> = {
   FacetFilter: "Ours. The one facet-filter surface, built on `Listbox` because a filter is a value — `decisions/a-filter-is-a-value.md`. On the root barrel because its two consumers sit on subpaths that must not import each other.",
   FieldArray: "Ours. Repeatable field rows. No Ark machine and no Shark file; `index.test.ts` pins it.",
+  diagnostic: "Ours. A severity, a message and a list of source positions, over Ark's collapsible — the shape a validation violation, a compiler diagnostic and a stack trace all share. Shark has no file for it; `docs/content/docs/data-display/diagnostic.mdx` is the page, and the frames are the part nothing else here does.",
   Link: "Ours. The styled anchor, and the routing seam every composite reaches through `asChild` — `index.test.ts`, `drops the components that took a layout tree as an array prop`.",
-  complete: "Ours. Inline AI completion composed over a pure `Input` / `Textarea` — `decisions/ai-assist-composes-over-pure-inputs.md`.",
   "floating-panel": "Ours, and it collides with a Shark name. See the UNADOPTED entry, which is the other half of this one.",
   "pin-input": "Ours over Ark's pin-input machine. Shark's answer to the same problem is `input-otp`, under names that do not correspond.",
+  suggestions: "Ours. A row of values on offer, each committing a string and leaving no selection — which by `DESIGN.md`'s menu/listbox rule makes it a command surface and not a value one. It is in `ui` and not `@kanzo-tech/ai` because it does not know a model exists, which is the line `decisions/the-ai-surfaces-are-their-own-package.md` draws; the ✨ beside it does, and stays there. Shark has no file for it. **Admission rule 2 is not met yet**: `@kanzo-tech/ai`'s `SuggestList` is the one real consumer, and the second is expected to be a non-model one (recent values, saved filters).",
   "stat-tile": "Ours. A composite by the test in `decisions/a-machine-with-a-switch-is-a-variant.md`, which names this component as the worked example.",
-  suggest: "Ours. The suggestion compound half of the AI surface — `decisions/ai-assist-composes-over-pure-inputs.md`.",
   swatch: "Ours. A strip that only depicts; Ark's picker swatch parts all require a picker context and compute `checked` against its single value, so a sixteen-slot palette strip cannot be built from them (`index.test.ts`, `exposes the core surface`).",
-  types: "Type-only module. It contributes no name to the value surface, so parity has nothing to compare.",
-  "use-ai": "Ours. The two headless engine hooks, exposed for surfaces we did not write — `index.test.ts`, `keeps the AI engine hooks exported, and the CodeMirror style not`.",
 };
 
 /**
@@ -290,7 +288,7 @@ export const BEYOND_THE_SURFACE: readonly {
       "control's state — a live failure on the element that clause names first. The measurement " +
       "licenses exactly this and no neighbouring recipe.",
     held: [
-      "packages/ui/src/alpha-steps.test.ts",
+      "packages/ui/src/simples/button.tsx",
       "decisions/a-measurement-overrules-the-reference.md",
     ],
   },

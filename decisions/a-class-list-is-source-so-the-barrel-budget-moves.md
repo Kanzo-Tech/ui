@@ -28,6 +28,27 @@
 The limit is 43 kB now — the same 1% of headroom the crossed one had over its own measurement, so
 the entry stays a tripwire rather than becoming a ceiling nobody meets.
 
+### It fired a second time: `Suggestions`
+
+Measured on 2026-08-20 the same way — deleting `export * from "./simples/suggestions.js"` from
+`src/index.tsx`, rebuilding, re-running `pnpm --filter @kanzo-tech/ui size`:
+
+| root barrel (JS), brotlied | |
+| --- | --- |
+| without the component | 42.86 kB |
+| with it | 43.06 kB |
+| the limit it crossed | 43 kB |
+
+`Suggestions` / `Suggestion` is the row of buttons `SuggestList` renders — a dumb strip that knows
+nothing about a model, which is why it is in `ui` and not `ai`. The limit is 43.5 kB now, which is
+the same ~1% of headroom the rule above asks for.
+
+Two things this instance shows that the first one did not. The overage sat in the tree **failing on
+purpose** for a session before it moved, because the component that crossed it arrived in a session
+that also rewrote a compound around it, and raising a budget in the middle of that would have been
+raising it for the wrong reason. And the figure the rule wants is not the component's own size: the
+strip's source is bigger than 200 B, and what the barrel pays is what did not already exist in it.
+
 ## Why this component costs four times what a component usually costs
 
 `ImageCropperHandle` carries eight compass positions, each with its own cursor, its own two border

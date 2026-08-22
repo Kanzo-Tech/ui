@@ -1,54 +1,91 @@
 ---
 title: Theming
-description: Four user axes as data-* attributes on <html>, and colour as a per-tenant palette document.
+description: A theme is one flat block of CSS. The user layers four axes over it with data-* attributes.
 ---
 
 Two different things wear the word "theme", and this page is mostly about keeping them apart.
 
-**What a user chooses** is four axes plus appearance: how round, how dense, which typefaces,
-light or dark. Those are `data-*` attributes on `<html>` whose values live in static CSS.
+**What a client is** is a theme: one hand-written block of CSS under `[data-theme="<name>"]`, about
+fifty declarations carrying twenty-one colours, the shape knobs and the font stacks — and roughly
+thirty *decisions*, because the [theme studio](/docs/showcases/theme-studio) fills in the ink that
+follows from a fill. Adding a client is adding a file.
 
-**What a client is** is a colour identity, and that is not an axis at all. It is a **palette
-document** — derived and measured once at onboarding, stored as data, and applied at runtime as
-one compiled stylesheet. Adding a client touches no code and needs no deploy.
+**What a user chooses** is which theme they wear on each side, plus four axes layered over it: how
+round, how dense, which typefaces, light or dark. All of them are `data-*` attributes on `<html>`
+whose values live in static CSS.
 
-**And what a user chooses *within* that** is the part people expect to be forbidden and is not. The
-rule is not "the user touches no colour" — `appearance` is colour, and always was. It is: *the user
-never **authors** a colour value; they choose among colours someone already validated.* So a tenant
-may publish several, and the user picks:
+<Callout title="A theme is one MODE, and everything else follows from that">
+  Light and dark are two themes, not two blocks of one document — daisyUI's arrangement, adopted
+  after measurement. It is what lets a tint be written as a percentage (`bg-destructive/7`) without
+  landing on a different step in each mode, it is what makes a scoped preview a plain `div`, and it
+  is why "which theme" is stored per side: a theme *is* a side, so the question without the side
+  does not name a preference. The argument and the numbers are in [a theme is one flat
+  block](https://github.com/kanzo-tech/kanzo-ui/blob/main/decisions/a-theme-is-one-flat-block.md).
+</Callout>
+
+The rule about colour is not "the user touches no colour" — `appearance` is colour, and always was.
+It is: *the user never **authors** a colour value; they choose among themes someone already wrote.*
 
 | preference | what changes | attribute |
 | --- | --- | --- |
-| `palette` | a whole document — surfaces, statuses, syntax, brand | `data-palette` |
-| `identity` | brand-derived tokens only; neutral and statuses shared | `data-identity` |
-| `appearance` | which of the document's two blocks applies | **none**: it writes `.dark` |
+| `themeByAppearance` | the whole theme worn on that side | `data-theme` |
+| `appearance` | which side is worn | **none**: it writes `.dark` |
 
-Publish one of each and nothing appears — `Preferences.Colour` hides itself below two choices. A
-client wanting a single immutable brand does nothing to get one.
+Publish one theme and nothing appears — `Preferences.Colour` hides itself below two choices. A client
+wanting a single immutable brand does nothing to get one.
 
-<Callout type="info" title="Several palettes all travel, and the choice is an attribute">
-  Every document a tenant publishes ships in the page at once, each compiled under its own
-  `[data-palette="…"]` block, and choosing one writes the attribute. The six this site publishes
-  are **8.7 kB gzipped together**, which is what makes that affordable and what settles the question:
-  the earlier arrangement had the server pick one document from the request, and the cookie was
-  therefore mandatory, because a choice the server has already made cannot be corrected in the
-  browser without a flash.
+## The twenty-one, and the uses
 
-  So `cookieStorageAdapter` is an optimisation here, not a requirement — localStorage plus the
-  pre-paint script applies `data-palette` before anything is drawn, exactly as it does for radius and
-  density. A tenant publishing a single identity sends one block and sets no attribute.
+A theme authors twenty-one colours. **Every other name in the vocabulary is a *use* of one of them**,
+declared once in `tokens.css` through `@theme inline` and never re-declared.
+
+- **Surfaces and ink** — `--background`, `--foreground`, `--card`, `--muted`, `--muted-foreground`
+- **Brand** — `--primary`, `--secondary`, `--accent`, each with its `-foreground`
+- **Status** — `--destructive`, `--info`, `--success`, `--warning`, each with its `-content`
+- **Lines** — `--border`, `--ring`
+
+`--popover`, `--field`, `--faint`, `--input`, the eight sidebar names and the status
+`-foreground`s are uses. A theme overrides one only when it genuinely wants it different — and it is
+worth knowing which actually do, because "is a use" and "is left alone" are different claims:
+
+| name | what every shipped theme does |
+| --- | --- |
+| `--secondary-foreground` `--accent-foreground` `--sidebar` `--sidebar-foreground` | **none authors one.** Each was the same value as another token in all sixteen, so the declaration said nothing and came out. |
+| `--popover` | authored by the eight **dark** themes and none of the light ones — an overlay lifts off the card on the dark side and is the card on the light one. |
+| `--field` `--faint` `--input`, the status `-foreground`s | still authored by every theme. They are genuine values, not repetitions. |
+
+The middle row is the shape of the rule working: a name earns its declaration where it says
+something, and loses it where it does not, and the same theme file can do both.
+
+<Callout type="warn" title="Why a use is bridged and never declared in :root">
+  `:root { --sidebar-primary: var(--primary) }` looks equivalent to bridging it and is not. A custom
+  property inherits its **computed** value, so it resolves once on `<html>` — and a scoped
+  `<div data-theme="dracula">` then inherits the already-substituted answer, painting Dracula's
+  brand with the page's sidebar. Silently: nothing about it is a compile error. `@theme inline` puts
+  the value in the *utility*, so the `var()` resolves on the element wearing the class.
 </Callout>
 
-The panel shows them as **one list**: a palette that publishes several brands contributes one entry
-per brand. The two are one abstraction with a parameter — how much of the document the choice
-replaces — and the containment stays in the data, where it is what guarantees a tenant's brands share
-a neutral and remain one product.
+### The shape knobs
+
+They are what let a client look different without looking like a fork, and none of them existed
+before: only the radius did, as a single knob for everything.
+
+| knob | governs |
+| --- | --- |
+| `--radius-box` / `--radius-field` / `--radius-selector` | card and dialog / button, input and tab / checkbox and badge |
+| `--size-field` / `--size-selector` | the unit a control's height is a multiple of |
+| `--stroke` | line weight |
+| `--depth` | relief, `0`–`1`, multiplied into the shadow and the fill's edge |
+
+`--depth` is a **number, not a branch**: the recipes already contain
+`calc(var(--depth) * 30%)`, so `0` collapses the shadow to nothing and `1` gives it relief, from one
+stylesheet with no conditional in it.
 
 ## The user axes
 
 | Axis | Attribute | Sets |
 | --- | --- | --- |
-| radius | `data-radius` | `--radius`, which drives the whole `rounded-*` scale |
+| radius | `data-radius` | `--radius-box` / `--radius-field` / `--radius-selector`; the size-named `rounded-*` scale hangs off the field one |
 | font | `data-font` | `--font-sans` |
 | monoFont | `data-mono-font` | `--font-mono` |
 | density | `data-font-size` | the root font-size, which every `rem` in the system scales from |
@@ -62,17 +99,16 @@ import { CORE_PREFS, prefOptions } from "@kanzo-tech/theme";
 
 CORE_PREFS.density.attr; // "data-font-size"
 prefOptions(CORE_PREFS.density); // [{ value: "default", label: "Default" }, …]
-CORE_PREFS.identity.options; // { from: "identities" } — the list is the TENANT's
+CORE_PREFS.themeByAppearance.options; // { from: "themes" } — the list is the TENANT's
 ```
 
 A tenant may pin, withhold or restart any of them through one `policy` prop, under the namespace
 `theme`; see [contributing a section](/docs/sections#tenant-policy-selection-never-authorship),
 which is the same mechanism.
 
-Appearance is the fifth preference and the only colour-adjacent one, and it writes a **class**,
-not an attribute: `.dark` on `<html>`. It selects between the two blocks of the compiled
-document rather than between two identities, which is why it is a user preference and a hue
-is not.
+Appearance is the sixth preference, and it writes a **class**, not an attribute: `.dark` on
+`<html>`. It selects which SIDE is worn, and the theme axis is keyed by that side — so the two
+compose rather than competing, and neither is a hue somebody authored.
 
 <Callout type="warn" title="They must be on <html>, not a wrapper">
   Ark's overlays — Dialog, Popover, Menu, Select, Tooltip, Toast, HoverCard, Command — portal
@@ -115,306 +151,6 @@ import { Preferences } from "@kanzo-tech/ui";
   should not claim an unmodified key in its host's global keymap without being asked.
 </Callout>
 
-## Colour: the palette document
-
-There is one colour artefact per tenant and everything reads it — `--primary`, the surfaces,
-the charts, the graph, the editor. There is no place to configure a chart's colours; there is a
-palette, and the chart is a reading of it.
-
-```text
-two seeds  →  six ramps × two modes  →  the role table  →  compile()  →  one <style>
-brand      →  brand, base,           →  199 props       →  ~11 KB     →  :root { … }
-base       →  destructive, warning,     per block                        .dark { … }
-              success, info
-```
-
-Those 199 are two vocabularies over the same ramps, and it is worth knowing which you are reading.
-**144 are the reference tier** — `--base-1…12` and `--base-a1…12` for each of the six families,
-generated, with a matching Tailwind utility apiece. The other 55 are **39 roles**, **9 chart slots**
-and **7 syntax hues**.
-
-A role exists only if it carries a measured property a step index cannot express — `fill`,
-`on-fill`, `boundary`, `quietest-ink`, `recess` — or is a name Shark's recipes paste in verbatim.
-Seventeen that failed both tests were deleted rather than kept: every one was a pure alpha binding,
-byte-identical in every block to the step it named, so the sheet was carrying two spellings of one
-value. **Anything the roles do not name, spell as a reference step.** That is what the tier is for,
-and it is why the role list does not grow with each new consumer.
-
-### The reference tier, on the page you are reading
-
-Every step of every family, resolved off this document — change the palette under **Customize** and
-this repaints, because it is read with `resolveTokenColor` rather than printed from a table. The
-tall band is the solid step, the short one below it the alpha step of the same level, drawn over
-the page so you see what it actually composites to. Under each column is the duty the derivation
-owes that step; the blank ones owe nothing on their own.
-
-<TokenScale />
-
-Steps 6–8 are the border band and carry no contrast duty: WCAG 1.4.11 exempts a non-interactive
-separator. The step that *does* owe 3:1 is `boundary`, and it is measured per document rather than
-pinned to a column — which is why no column here is labelled with it.
-
-**Two seeds, from the client.** A brand colour and a neutral. The neutral is *tinted* — a low
-chroma at a hue, Radix-style — and it supplies that hue; the brand hue is the fallback when
-none is given. The four status families (`destructive` / `warning` / `success` / `info`) are
-fixed by Kanzo and are not client-overridable, because "this succeeded" must not change meaning
-per client. They are still **re-measured** per tenant: every obligation is graded against the
-surface, and the surface is the tenant's neutral. Constant input, per-tenant verdict.
-
-**Six ramps, twelve steps each, per mode.** Nothing in a ramp is chosen per token: three anchors
-and a growth rate produce twelve values, and each step carries a measured obligation —
-steps 1/2 are the page and its interchangeable twin, 3/4/5 are one component's normal / hover /
-active surface, 6–8 are borders, 9 is the solid, 11/12 are ink. Light and dark are separate
-generations, not a flip: a tint has to work harder against a dark ground, and the measured
-chroma profiles say so.
-
-**The role table** binds tokens to `(ramp, step)` — with four things that are *measured* rather
-than written, because writing them would be wrong for most seeds:
-
-The neutral ramp is called **`base`**, not `neutral`: `bg-base-3` beside Tailwind's own
-`bg-neutral-300` would be an error waiting to happen, and `base` is the word daisyUI already uses for
-exactly this. The rename is consistent down to the seed (`RampName`, `seeds`, `HueSource`).
-
-| token | binding |
-| --- | --- |
-| `--background` `--card` `--popover` `--sidebar` | `(base, 1)` at a per-surface elevation |
-| `--foreground` `--secondary-foreground` `--accent-foreground` | `(base, 12)` |
-| `--muted` / `--muted-foreground` | `(base, 3)` / `(base, 11)` |
-| `--faint` | `(base, quietest-ink)` — the quietest step still AA on the page |
-| `--secondary` / `--accent` | `(base, 4)` / `(base, 5)` |
-| `--border` | `(base, 6)` |
-| `--input` | `(base, boundary)` |
-| `--field` | `(base, recess 3)` — the alpha step if it recedes, else the page |
-| `--primary` / `--primary-foreground` | `(brand, fill)` / `(brand, on-fill)` |
-| `--ring` | `(brand, boundary)` |
-| `--destructive` / `-foreground` / `-content` | `(destructive, 9)` / `(…, 11)` / `(…, on-fill)` |
-| `--chart-1` … `--chart-8` | categorical slot *i* |
-| `--syntax-keyword` … ×7 | derived from the document's scheme, graded on `--editor-active-line` |
-
-### An alpha step is a level, painted onto something you do not own
-
-Not one of the rows above is an alpha binding, and that is recent: seventeen of them were, and all
-seventeen are now spelled as the reference step they always equalled. What the alpha tier is *for*
-has not changed — a library component does not know what it was dropped onto. `bg-accent/50` on an
-accent backdrop measures ΔE **0.00** from the rest state, a hover nobody can see, and solid
-`bg-secondary` measures 0.00 on a secondary one.
-
-A percentage fails a second way as well: mapped onto the family's own alpha scale, `/4` is a3 in
-light and a2 in dark, `/10` a4 and a3, `/20` a5 and a4, `/32` a6 and a5, because a tint has to
-work harder against a dark ground. **Every `bg-X/NN` is correct in at most one mode.** An alpha
-step is solved against each mode's own ramp at derivation time, so one spelling is right in both,
-and it composites back to its own solid over the page by obligation.
-
-So a table row's selected state is `bg-base-a5` and its hover is `bg-base-a4` — the level, in the
-tier that publishes levels. A name per use would mint one token for a card's hover, another for a
-calendar day's focus and a third for the row, all carrying the same value.
-
-`--field` is **not** a member of that set, because a wash sits *on* a surface and a field sits
-*under* one. In light an alpha step recedes; in dark **every** alpha step
-composites lighter than its ground, so a3 raised the field and `--faint` fell to 4.49:1 on the
-page, 4.37 on a card and 4.13 in a popover. Removing the fill entirely does not fix it — at a1
-(byte 0) a popover still reads 4.41, because a dark popover *is* step 3. So the binding names the
-direction and the ramp answers: take the alpha step if it recedes, otherwise take step 1, the page.
-Dark fields are now 4.74:1 on all three, at the cost of being byte-identical to the page when they
-sit on it — identified by `--input` at 4.18:1, which is what 1.4.11 asks. They still separate
-where the surface is raised: ΔE 1.43 on a card and 4.65 in a popover or sidebar.
-
-`boundary` is the first step reaching 3:1 against step 1, and it is **seed-dependent, not
-mode-determined**: measured over 116 seeds it is 9 in light 91 times and 8 the other 25, and 8 in
-dark 79 times and 9 the other 37. A table that hard-coded `--ring: step 8` would be correct for
-most clients and 2.3:1 for the others, with nothing saying so.
-
-`on-fill` is whatever measures highest contrast on the solid, with no "prefer white when legal"
-escape hatch — which is why Kanzo's own `--warning-content` is a near-black.
-
-`fill` is step 9 normally, and step 12 for a ramp that carries no identity — see below.
-
-### Elevation, not more tokens
-
-A raised surface is the same ramp at an offset into the same band, and only in dark: light
-expresses elevation with shadow, dark with value. Measured against the neutral ramp: page +0/+0,
-card +0/+1, popover +0/+2, sidebar +0/+2, clamped at 5 so a raised surface can never climb into
-the border band.
-
-That is what "the sixteen `--sidebar-*` tokens are a surface parameter, not twelve more steps"
-means: a sidebar and a popover are the same thing.
-
-### A failing gate adjusts, and publishes what moved
-
-Never accept-and-warn, never refuse. A client's brand red at 2.1:1 becomes a legal red of the
-same hue, and the document carries the record of that happening — from, to, the rule that forced
-it, ΔE, and the signed OKLCH components, so a person can be told "darker, and slightly less
-saturated" rather than "a different colour".
-
-There is exactly **one** obligation that can never become an adjustment: `carries-identity`,
-which fires when step 9 sits below the chroma floor of 0.1. A colour below the floor has no
-nearest legal value — the nearest chromatic colour would be a hue *we* chose — so it is published
-as **relief** instead.
-
-<Callout type="warn" title="Relief on the neutral ramp is the healthy answer">
-  A tinted neutral is *by definition* below the chroma floor, so `carries-identity` fires on
-  every one of them, by design. On the **brand** seed it is a warning: a monochrome brand has
-  nothing but lightness to spend, so `--primary` takes step 12 (the ramp's ink) rather than
-  step 9 (a mid-tone that reads as nothing). On the **neutral** seed it is the expected answer
-  and means nothing is wrong.
-
-  Distinguish by ramp, never by presence. Kanzo's own document publishes four relief rows and
-  zero adjustments — see the [palette onboarding showcase](/docs/showcases/palette).
-</Callout>
-
-### One mechanism at runtime
-
-`compile(doc)` emits `:root { color-scheme: light; … }` and `.dark { color-scheme: dark; … }` —
-both modes, every colour token, literal hex, about 4 KB. The tenant is known at request time, so
-the server inlines it as a static `<style>` in `<head>`: the colour maths is finished before a
-byte is sent, and the pre-hydration script shrinks to reading the appearance preference,
-toggling `.dark`, and writing the four non-colour axes.
-
-```tsx
-import { compile, derivePalette } from "@kanzo-tech/palette";
-
-// once, at onboarding — the categorical search alone costs 0.2–7.4 s
-const doc = derivePalette({
-  id: "acme",
-  label: "Acme",
-  identities: [{ id: "acme", label: "Acme", brand: "#8839ef" }],
-  base: "#9ca0b0",
-});
-
-// every request — just the string
-<style dangerouslySetInnerHTML={{ __html: compile(doc) }} />;
-```
-
-A tenant is a list of brands over one shared neutral, which is why the seed is `identities[]` rather
-than a `brand` field, and why the neutral is spelled `base` — the same rename the ramp carries. The
-whole pipeline, from the client's two colours to the served stylesheet, is
-[Onboarding a tenant](/docs/onboarding).
-
-<Callout title="Two packages, because the boundary is the point">
-  The derivation lives in **`@kanzo-tech/palette`** and nothing else does — ramps, the
-  categorical search, the role table, `compile`. **`@kanzo-tech/theme`** is the runtime half:
-  the stylesheets, the four non-colour axes and the preference types. `theme` depends on
-  `palette` as a *devDependency*, so the 0.2–7.4 s search is not merely something a browser
-  should not import — it is something a browser *cannot* reach.
-
-  Install `@kanzo-tech/palette` where you onboard a tenant. A product that only paints with a
-  stored document never needs it.
-</Callout>
-
-<Callout type="warn" title="A whole document switches; a part of one never does">
-  `data-palette` and `data-identity` select a **document** and a **brand within one** — both already
-  derived, measured and compiled. What does not exist, and is the distinction worth holding onto, is
-  any way to move *part* of a palette at runtime: no `data-base`, no `data-accent`, no
-  `data-chart-scheme`, no custom-base-tint or custom-primary path, and no inline
-  `--color-custom-*` or `--chart-*` override. Each of those expresses a fragment, and a document
-  expresses all of it at once, consistently, having been graded as a whole.
-
-  Nor is there a palette *pairing*: one document carries both modes, so there is no pair to resolve.
-</Callout>
-
-### A document may decline colour altogether
-
-`monochrome` is one of the six, and the difference between it and `kanzo` is a single field: it
-**declines the categorical channel**. Its set is empty, `--chart-capacity` is `0`, and every
-`--chart-*` slot resolves to the muted role — so a chart, a legend and a graph on that document all
-say the same thing, because they all read the same scale.
-
-```ts
-derivePalette({ ...seedInput("acme", seeds), categorical: "declined" });
-```
-
-That is where monochrome lives: **a palette, not a mode inside whatever draws a chart.** A canvas
-that swapped colour for shape when a look said so was a theme rewriting an encoding —
-`decisions/monochrome-is-a-palette-not-a-look.md` — and it could not have made a bar chart on the
-same page agree with it. This can, because it is one document and every surface reads it.
-
-What it does **not** decline is colour that carries meaning rather than identity. The four status
-fills stay: a state means the same thing in every tenant, and that is a rule one layer up. The seven
-syntax roles stay too, and that one was measured rather than assumed — seven greys inside a single
-legibility band collapse, and `deriveSyntax` reports the collapse as `distinct` relief instead of
-pretending otherwise.
-
-Choosing it has a cost worth knowing before you publish it. A bar chart whose categories are named
-on the axis loses nothing — colour was never distinguishing them. A stacked bar, a multi-series line
-or a pie loses the encoding outright, with no second channel to fall back on. A graph is the one
-surface that can answer, by binding its categories to `symbol` instead of `fill`.
-
-### base16 identities are seeds now
-
-Dracula, Nord and the two Catppuccins ship as `PALETTE_SEEDS`, and they go through
-`derivePalette` exactly as a client does. They are not a second shape — a base16 palette is a
-brand hue and a neutral hue, and two shapes for one idea is the defect this layer exists to
-remove.
-
-```tsx
-import { PALETTE_SEEDS, derivePalette, seedInput } from "@kanzo-tech/palette";
-
-const doc = derivePalette(seedInput("dracula", PALETTE_SEEDS.dracula));
-```
-
-A dark-native seed still gets a light side, and that is not an invention: a ramp keeps the
-seed's *hue* and gives up its mood, so a light Dracula is a **reading** of it. Measured —
-Dracula's brand `#ff79c6` ships as `#e562af` at step 9, moved 7.3 ΔE by the `visible-fill`
-rule.
-
-`BASE16_SLOTS` still holds the sixteen authored slots, and two things read them: the
-[showcase](/docs/showcases/palette) that puts the authored original beside the derived result, and
-the **syntax set** — because a base16 palette is a syntax scheme before it is anything else, and a
-seed pair taken from one carries its accent slots along with its brand and base.
-
-Seven of base16's eight accent slots become `--syntax-*` roles; the eighth, `base0F`
-(deprecated/invalid), does not, because *invalid* is a state and belongs to the destructive family.
-Six roles that used to be tokens of their own dissolved the same way — `comment` is `--faint`,
-`punctuation` is `--muted-foreground`, `operator` is `--foreground` — so thirteen became seven.
-
-The values are read for their **hues** and re-solved against this tenant's own editor, exactly as a
-foreign brand seed is: a scheme authored for dark, on a light document, is a reading rather than a
-transcription. That is why Dracula finally paints Dracula's keywords, and why its light half is
-legible rather than a copy of dark hexes onto white.
-
-## Reading a record
-
-A document publishes what the gates did to a client's colours: the rule that forced a move, the
-colour before and after, the ΔE and the signed OKLCH components — because "darker, and slightly less
-saturated" is a very different thing to hear than "a different colour". The
-[palette showcase](/docs/showcases/palette) renders one. Three facts about reading it:
-
-<Callout type="warn" title="Relief rows are the healthy state, and the ramp is what tells you which is which">
-  `carries-identity` — a step 9 below the chroma floor of 0.1 — is the one obligation that can
-  never become an adjustment. Below the floor there is no nearest legal value; the nearest
-  chromatic colour would be a hue *we* chose. So it is published as **relief** rather than
-  repaired.
-
-  A tinted neutral is a low chroma at a hue **by definition**, so it reports this every single
-  time. Every correct two-seed palette in the tabs above has relief rows, and Kanzo's own document
-  has four and zero adjustments. On the **neutral** ramp it is the expected answer; on the
-  **brand** ramp it is something to tell the client.
-
-  Distinguish by **ramp**, never by presence. A screen that renders any relief as an alert makes
-  every correct palette look broken.
-</Callout>
-
-<Callout type="info" title="Relief is not the fill rule, and Nord is why">
-  The consequence people expect from brand relief — `--primary` moving off step 9 onto step 12,
-  the ramp's ink — is **not** what this row triggers. That rule fires on a ramp with no hue at all
-  (`hue === null`, the encoding-noise regime below chroma 0.0035), and `carries-identity` grades
-  step 9 against a much higher bar, 0.1. Two of the ramp's three regimes therefore report it.
-
-  Nord is the case that separates them. Its brand `#88c0d0` reaches chroma 0.063 at step 9 —
-  under the floor, so the row is published — at hue 217.5°, which is unmistakably blue. It keeps
-  step 9: `--primary` is `#6299a9` in light and `#679eae` in dark. Read the relief as the fill rule
-  and it compiled to `#001016` and `#dcf1f7` instead, which is a client's blue thrown away.
-
-  Kanzo's own `#737373` is the other case: no hue, so step 12, `#0f0f0f` and `#efefef`.
-</Callout>
-
-<Callout type="info" title="Only the lightness moves">
-  Across all five shipped seed pairs, every adjustment is a lightness move: chroma shifts by at
-  most 0.001 and hue by under 0.21°. That is the price the system charges — a foreign seed keeps
-  its hue and gives up its place. Nord's brand pays 11.8 ΔE in light and 10.8 in dark, and every
-  point of that is lightness.
-</Callout>
-
 ## Dark mode
 
 `.dark` on `<html>` is the only mode selector, and `KanzoThemeProvider` writes it. Hand it to a
@@ -436,7 +172,7 @@ The preference is `"light" | "dark" | ""`, where `""` means the OS decides — t
 a third string. A host next-themes speaks `"system"`; the provider translates it to
 `""` on the way in and back on the way out, in one place, so the rest of the library never sees it.
 
-`""` is the same value `identity` and `palette` store for "defer to the document", and that is not a
+`""` is the same value the theme axis stores for "defer to the tenant", and that is not a
 coincidence: unset is one spelling here, which is what lets appearance be *declared* — and therefore
 resolved, pinned and offered — like every other axis.
 
@@ -444,7 +180,7 @@ resolved, pinned and offered — like every other axis.
   Two reasons, both measured. About 150 `dark:` variants need a class to key off; and
   `light-dark()` makes per-mode values unreadable to `getComputedStyle`, which is exactly how
   the [charts layer](/docs/analytics/charts) resolves `var(--chart-N)` for Observable Plot.
-  Each compiled block carries its own `color-scheme`. Never write
+  Each theme file carries its own `color-scheme`. Never write
   `documentElement.style.colorScheme` — an inline declaration outranks every rule, permanently.
 </Callout>
 
@@ -460,15 +196,60 @@ one is the point. `-foreground` is a readable-on-**background** variant of the s
 — for error text, invalid rings and destructive menu items. That it is not readable *on the fill*
 is not a contrast bug; it is Shark's convention, adopted verbatim.
 
-So on-fill text gets its own token, `-content`, bound to the ramp's measured `on-fill`.
+So on-fill text gets its own token, `-content` — daisyUI's word for exactly this role, adopted
+because it already existed and was right. It is **authored**: nothing derives it at runtime, and
+what checks it is a guard over the shipped themes. What does propose one is the studio, at authoring
+time — pick a fill and both of its inks are filled in, `-content` by daisyUI's own rule and
+`-foreground` by mixing the fill 60% toward `--foreground`. Both are proposals you overwrite, and
+what ships is the literal in the file.
 `bg-destructive text-destructive-content` is the readable pair. A literal `text-white` is not:
 measured, that white sits at 2.13:1 on the warning fill and 3.81 on destructive. An exception to
 "token-backed utilities only" is where a defect hides — with no token there is nothing to measure,
 and with nothing to measure there is no failing test.
 
+## Theming a region, not the document
+
+`[data-theme="nord"]` is an ordinary attribute selector. It matches an **element**, not a document,
+so the theme's custom properties land wherever you put the attribute and inherit into everything
+inside:
+
+```tsx
+<div data-theme="nord">
+  <Panel />
+</div>
+```
+
+That is the whole mechanism, and it is what makes a tenant-branded panel inside an otherwise neutral
+application possible without an iframe, a second stylesheet or any JavaScript. The
+[theme gallery](/docs/showcases/theme-gallery) is sixteen of them on one page.
+
+It works because of the bridge above, and it is the first thing a `:root` declaration would break: a
+custom property inherits its **computed** value, so a colour declared on `:root` resolves once on
+`<html>` and every region would paint the same theme.
+
+<Callout type="warn" title="Which is a rule with a scar on it">
+  `kanzo.css` opened with a bare `:root, [data-theme="kanzo"]` for a day. `:root` has the same
+  specificity as `[data-theme="x"]`, so the tie broke on source order — and the imports are
+  alphabetical, so every theme sorting before `kanzo.css` was silently repainted in kanzo's colours.
+  Eleven of the sixteen, dark ones included, `color-scheme` and all. The default theme now binds as
+  `:root:not([data-theme])`, and two assertions in `themes.test.ts` hold it there.
+</Callout>
+
+<Callout title="Set `color-scheme` alongside it">
+  The attribute carries the colours; it does not tell the browser which way the region leans, so
+  form controls, scrollbars and the caret keep the document's. A themed region wants
+  `style={{ colorScheme: "dark" }}` beside the attribute when the theme it wears is a dark one.
+</Callout>
+
 ## Generated output
 
-`themes.css` and `theme-data.json` are generated by `scripts/gen-theme.mjs`; `palettes/` and the
-colour half of `tokens.css` are generated by `scripts/gen-palette.mjs` — `palettes/kanzo.json` is
-a tenant whose document happens to be committed, nothing more. **Edit the generator, not the
-output** — CI regenerates and fails on any diff.
+`themes.css` and `theme-data.json` are generated by `scripts/gen-theme.mjs` — the catalogue of
+`@import`s, the user's non-colour preferences, and the table of what each name defers to, read out
+of `tokens.css` so nothing restates it. An authoring tool that shows you what a theme *looks like*
+has to follow the same chain the cascade follows, and that table is how it does it without keeping
+a second copy of the bridge. **Edit the generator, not those two**; CI
+regenerates and fails on any diff.
+
+**`tokens.css` and `themes/*.css` are NOT generated.** They are hand-written source, and a guard
+that regenerated them would have nothing to regenerate them from. That is the whole shape of the
+change: colour stopped being output.

@@ -1,0 +1,37 @@
+---
+title: Blocks
+description: The layer between a component and a showcase — furniture two showcases build the same way.
+full: true
+---
+
+A block is an arrangement **two showcases build**, and the library does not.
+
+That is a real third category and it existed here for months without a name. `field-notes` and
+`metadata-form` are the same arrangement seen from two sides: a workspace with a header, an
+activity rail, one `<main>`, and panels that open beside it. Everything specific to either one
+stays in its own directory — but the furniture between them was being written twice, and drifting
+apart while it was:
+
+- the panel headers were `h-9` in one showcase and `h-12` in the other;
+- the tally badge was a `HoverCard` with a reveal in one and a plain `Badge` in the other;
+- the activity rail existed in only one of them, as a `ToggleGroup` standing in for a region.
+
+None of that is a library defect. It is what
+[specificity is allowed to produce](/docs/philosophy#where-specificity-is-allowed-to-live) once
+there is more than one specific screen, and the answer is to name the shared half rather than to
+promote it.
+
+## Why these are not components
+
+A part here earns its place by having **two call sites in `showcases/`** — which is
+`an-export-needs-a-second-call-site` applied one layer down. Two showcases is not two products.
+Every one of these knows something the library must not: `PaneHeader` knows a panel has a document
+and a health, `FindingsBadge` knows a finding has a *where*, `PanelRail` knows the edge is where
+panels are switched. The library ships regions, toggles, badges and splitters; a block is one
+opinion about how to put four of them together.
+
+So they are not exported, not versioned and not on their way to being. They live in
+`docs/showcases/shared/index.tsx`, and anything with one call site belongs in that showcase's own
+directory instead.
+
+<GalleryList group="blocks" />

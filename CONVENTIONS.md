@@ -277,7 +277,7 @@ output rots when the output is regenerated. That is a reason to date them, not t
 - **Write one copy — one per package that enforces it, and never two inside one package.** State a
   fact where it is enforced and point at it from everywhere else. Where two packages enforce the
   same thing independently they each get a copy, because the lower one may not be sent into the
-  other's internals for its reasoning: `@kanzo-tech/palette` keeps its own statement of the
+  other's internals for its reasoning: a package keeps its own statement of the
   `.json`-subpath argument. Two copies inside one file is the version that is never defensible.
 - **Date a measurement, and name the set it was taken over** — by a name that exists in the source.
   A ratio read off `tokens.css` is a claim about a build artefact and the next `pnpm check:generated`
@@ -309,13 +309,22 @@ theme and palette run under node. The minimum bar for a component is a test that
 asserts the behaviour its recipe depends on. Two conventions beyond that:
 
 - **A test is a specification.** `describe("the control fill is an alpha step, not an opacity")`,
-  `it("keeps @kanzo-tech/palette out of dependencies")`. Name the claim, not the function.
+  `it("keeps the derivation off the runtime path")`. Name the claim, not the function.
 - **A deleted component gets a tombstone assertion** in `packages/ui/src/index.test.ts`, with the
   reason it went. That is what stops it being rebuilt.
 
 **The repo-wide guard tests.** Each carries its own reasoning, and this table is a routing aid, not
 a substitute for it — the right-hand column names the subject so you know which file to open, and
 every one of them enforces more, and less, than a row can say. **Read the file.**
+
+**What "repo-wide" means is `packages/ui/src/guard-corpus.ts`**, and it was a lie until 2026-08-20:
+every one of the six appearance and boundary guards walked from its own directory, so the corpus was
+`packages/ui/src` and `@kanzo-tech/ai` shipped ten modules none of them had read a line of. The
+corpus is now derived — **a package is scanned when it declares `tailwind-variants`**, which is the
+tell that it writes appearance in this house's idiom — and it throws at import if that resolves to
+fewer than two packages, because every rule built on it asserts an absence and a shrunken corpus
+passes all of them. A failure names its file `<package>/<path under src>`: `ui/simples/button.tsx`,
+`ai/message.tsx`. Extend the corpus; never copy a guard into a second package.
 
 | Guard | Enforces |
 |---|---|
@@ -325,6 +334,8 @@ every one of them enforces more, and less, than a row can say. **Read the file.*
 | `packages/ui/src/logical-properties.test.ts` | no physical direction utility in the three layers, outside a reviewed allowlist with a reason per entry |
 | `packages/ui/src/client-boundary.test.ts` | `"use client"` on every stateful module and on no other |
 | `packages/ui/src/data-slot.test.tsx` | `data-slot` after the spread, never bare on one of our components, never on a provider-only root |
+| `packages/ui/src/codemirror-dark-parity.test.ts` | every class CodeMirror gives an `&light` default has an override here — our theme is registered without `{dark}`, so those defaults paint in dark mode too |
+| `packages/ui/src/list-semantics.test.ts` | a file that writes `list-none` declares `role="list"` — WebKit drops list semantics when the markers go, and jsdom does not model it |
 | `packages/ui/src/documented-exports.test.ts` | no docs page claims a symbol the built surface does not export |
 | `packages/ui/src/shark-parity.test.ts` | every difference from Shark's registry is declared, with a reason |
 | `packages/ui/src/decisions.test.ts` | every decision record is well-formed, and `DESIGN.md`'s index agrees with it |
@@ -358,8 +369,7 @@ file's allowlist with the reason it does not depend on reading direction.
 
 ## Distribution
 
-- `@kanzo-tech/palette` — the derivation: ramps, the categorical search, the role table, `compile`.
-  **Authoring-time only**, and structurally so: see `decisions/palette-is-authoring-time.md`.
+
 - `@kanzo-tech/theme` — `tokens.css`, `themes.css`, the axis table (`AXES`, `DEFAULT_PREFS`) and the
   value types. **No React, no components, no colour maths.**
 - `@kanzo-tech/ui` — the components, `styles.css` (compiled, cascade-layered), and the three

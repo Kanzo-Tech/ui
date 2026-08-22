@@ -1,29 +1,25 @@
 "use client";
 
 import {
-  CompleteGhost,
-  CompleteHint,
-  CompleteInput,
-  CompleteRoot,
-  CompleteTextarea,
   Field,
   FieldDescription,
   FieldLabel,
-  Input,
-  Textarea,
+  InputGroup,
+  InputGroupAddon,
+  InputGroupTextarea,
 } from "@kanzo-tech/ui";
+import {
+  type InlineCompletionRequest,
+  CompleteError,
+  CompleteGhost,
+  CompleteKeys,
+  CompleteMark,
+  CompleteRoot,
+  CompleteTextarea,
+} from "@kanzo-tech/ai";
 import { useState } from "react";
 
-async function* completeTitle(_value: string, signal?: AbortSignal) {
-  const rest = " on the Greenhollow causeway";
-  for (const chunk of rest.split(/(?<=\s)/)) {
-    await new Promise((r) => setTimeout(r, 60));
-    if (signal?.aborted) return;
-    yield chunk;
-  }
-}
-
-async function* completeNotice(_value: string, signal?: AbortSignal) {
+async function* completeNotice({ signal }: InlineCompletionRequest) {
   const rest =
     " The ground is standing water from the ford to the lane, the herder walks back with the party, and nothing above a Nuisance is expected before dusk.";
   for (const chunk of rest.split(/(?<=\s)/)) {
@@ -34,32 +30,32 @@ async function* completeNotice(_value: string, signal?: AbortSignal) {
 }
 
 export default function Example() {
-  const [title, setTitle] = useState("Bog-hounds took the herd dog");
   const [notice, setNotice] = useState("Three hounds seen at the ford, in threes as they go");
 
   return (
-    <div className="flex w-full max-w-md flex-col gap-6">
-      <Field>
-        <FieldLabel>Title</FieldLabel>
-        <CompleteRoot complete={completeTitle} onValueChange={setTitle} value={title}>
-          <CompleteInput>
-            <Input placeholder="e.g. A wyrm under the granary" />
-          </CompleteInput>
-          <CompleteGhost />
-        </CompleteRoot>
-        <FieldDescription>Single line — Tab accepts the greyed continuation.</FieldDescription>
-      </Field>
-
-      <Field>
-        <FieldLabel>Notice</FieldLabel>
-        <CompleteRoot complete={completeNotice} onValueChange={setNotice} value={notice}>
+    <Field className="w-full max-w-md">
+      <FieldLabel>Notice</FieldLabel>
+      {/* The ✨ is an addon INSIDE the group, not a control on the label row: it marks this box as
+          assisted, and the group is what the ghost aligns against. */}
+      <CompleteRoot complete={completeNotice} onValueChange={setNotice} value={notice}>
+        <InputGroup>
           <CompleteTextarea>
-            <Textarea placeholder="What the party is walking into…" />
+            <InputGroupTextarea placeholder="What the party is walking into…" rows={4} />
           </CompleteTextarea>
-          <CompleteHint />
-        </CompleteRoot>
-        <FieldDescription>Multi-line — the suggestion streams as a hint below.</FieldDescription>
-      </Field>
-    </div>
+          <InputGroupAddon align="block-end">
+            <CompleteMark />
+            {/* The band under a textarea is where they belong: inside the field, beside the mark
+                that produced the offer. */}
+            <CompleteKeys className="ms-auto" />
+          </InputGroupAddon>
+        </InputGroup>
+        <CompleteGhost />
+        <CompleteError />
+      </CompleteRoot>
+      <FieldDescription>
+        A continuation is offered at the caret, not only at the end — and the field grows to hold
+        it.
+      </FieldDescription>
+    </Field>
   );
 }

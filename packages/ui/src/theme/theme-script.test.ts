@@ -134,16 +134,16 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
     // Identity is the axis the script CANNOT reason about: what a tenant published is in the
     // compiled document, not in storage. Both sides therefore write the stored id verbatim, and
     // an id no `[data-identity=…]` block matches is inert — the cascade falls to `:root`.
-    ["an identity the tenant published", { prefs: { identity: "private-gold" } }, false],
-    ["an identity the tenant has since retired", { prefs: { identity: "gone" } }, false],
-    ["identity alongside every other axis", { prefs: { radius: "xs", font: "inter", density: "comfortable", identity: "retail-blue", appearance: "dark" } }, true],
+    ["a theme the tenant published", { prefs: { themeByAppearance: { light: "nord" } } }, false],
+    ["a theme the tenant has since retired", { prefs: { themeByAppearance: { light: "gone" } } }, false],
+    ["a theme alongside every other axis", { prefs: { radius: "xs", font: "inter", density: "comfortable", themeByAppearance: { dark: "dracula" }, appearance: "dark" } }, true],
     // `""` is the default identity — a deferral to `:root`, not a value — so it must take the
     // same branch as an absent field on both sides.
-    ["identity: \"\", the default identity", { prefs: { identity: "" } }, false],
+    ["an empty theme map, which is a deferral and not a value", { prefs: { themeByAppearance: {} } }, false],
     // A blob is JSON from a browser and can hold anything. `String(v)` would write
     // `data-identity="[object Object]"` on both sides consistently, which is agreement about the
     // wrong thing; the `typeof` test on both sides is agreement about nothing being written.
-    ["a corrupt identity that is not a string", { prefs: { identity: { id: "gold" } } }, false],
+    ["a corrupt theme that is not a string", { prefs: { themeByAppearance: { light: { id: "gold" } } } }, false],
     // Real browsers hold blobs written before colour left the model. Neither side may act on them,
     // and the provider must not write them back — see the whitelist test in its own file.
     ["a retired colour key still in the stored blob", { prefs: { accent: "blue", baseTint: "#123456", appearance: "light" } }, true],
@@ -151,8 +151,10 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
     // one to serve is the server's decision from the cookie. So both sides must reach the same
     // `<html>` while disagreeing about nothing, which is what this case pins — the failure it guards
     // against is somebody "fixing" the asymmetry by adding an `AXES` row and a `data-palette`.
-    ["a chosen palette, which reaches <html> as nothing at all", { prefs: { palette: "dracula" } }, false],
-    ["a chosen palette beside every axis that IS one", { prefs: { palette: "nord", radius: "lg", identity: "gold", appearance: "dark" } }, false],
+    // A key no `ThemePrefs` has any more. Kept because BOTH sides must ignore it identically — the
+    // read-time whitelist drops it, and a regression where one side started honouring it is exactly
+    // the disagreement this file exists to catch.
+    ["a retired key from the free-colour era, which reaches <html> as nothing at all", { prefs: { palette: "dracula" } }, false],
   ];
 
   for (const [name, seed, osDark] of cases) {
@@ -237,7 +239,7 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
           // Keyed by side, and stored for BOTH here so the assertion holds whichever this run
           // resolves to. That the two sides may differ is the point of the axis; that they agree
           // about which one is applied is the point of this file.
-          paletteByAppearance: { light: "dracula", dark: "dracula" },
+          themeByAppearance: { light: "dracula", dark: "dracula" },
           base: "slate",
           accent: "blue",
           scheme: "vivid",
@@ -249,23 +251,23 @@ describe("themeScript ↔ KanzoThemeProvider agreement", () => {
       expect(script.attrs[attr], attr).toBeUndefined();
       expect(provider.attrs[attr], attr).toBeUndefined();
     }
-    expect(script.attrs["data-palette"]).toBe("dracula");
-    expect(provider.attrs["data-palette"]).toBe("dracula");
+    expect(script.attrs["data-theme"]).toBe("dracula");
+    expect(provider.attrs["data-theme"]).toBe("dracula");
   });
 
-  it("writes the identity attribute only for a chosen identity", () => {
-    // The three states of one axis, asserted as attribute presence rather than as equality, so a
-    // regression where BOTH sides start writing `data-identity=""` still fails here. An empty
-    // attribute matches `[data-identity]` and `[data-identity=""]`, neither of which `compile()`
-    // emits — it would be a selector nothing can clear, which is what killed `data-palette`.
-    const chosen = bothSides({ prefs: { identity: "private-gold" } }, false);
-    expect(chosen.script.attrs["data-identity"]).toBe("private-gold");
-    expect(chosen.provider.attrs["data-identity"]).toBe("private-gold");
+  it("writes the theme attribute only for a chosen theme", () => {
+    // The three states of one axis, asserted as attribute PRESENCE rather than as equality, so a
+    // regression where both sides start writing `data-theme=""` still fails here. An empty attribute
+    // matches `[data-theme]` and `[data-theme=""]`, and no theme file emits either — it would be a
+    // selector nothing can clear.
+    const chosen = bothSides({ prefs: { themeByAppearance: { light: "nord", dark: "nord" } } }, false);
+    expect(chosen.script.attrs["data-theme"]).toBe("nord");
+    expect(chosen.provider.attrs["data-theme"]).toBe("nord");
 
-    for (const seed of [{ prefs: { identity: "" } }, { prefs: { radius: "lg" } }, {}]) {
+    for (const seed of [{ prefs: { themeByAppearance: {} } }, { prefs: { radius: "lg" } }, {}]) {
       const { script, provider } = bothSides(seed, false);
-      expect(script.attrs["data-identity"], JSON.stringify(seed)).toBeUndefined();
-      expect(provider.attrs["data-identity"], JSON.stringify(seed)).toBeUndefined();
+      expect(script.attrs["data-theme"], JSON.stringify(seed)).toBeUndefined();
+      expect(provider.attrs["data-theme"], JSON.stringify(seed)).toBeUndefined();
     }
   });
 

@@ -11,8 +11,8 @@ Agents and new contributors start at [`CLAUDE.md`](CLAUDE.md). It names everythi
 
 | Package | What it is |
 |---|---|
-| `@kanzo-tech/palette` | The colour derivation — ramps, the categorical search, the role table. **Authoring-time only**: a tenant's palette is derived once and stored. No browser imports this. |
-| `@kanzo-tech/theme` | The stylesheets, the four non-colour axes (radius, font, mono font, font size) and the value types. No React, no components, no colour maths. |
+| `@kanzo-tech/theme` | The theme catalogue — one flat block of CSS per theme, hand-written — plus the non-colour axes a user layers over them and the value types. No React, no components, no colour maths. |
+
 | `@kanzo-tech/ui` | The components, the compiled stylesheet, and the theming runtime. |
 
 ## What lives here, and what does not

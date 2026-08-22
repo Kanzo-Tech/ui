@@ -1,0 +1,131 @@
+---
+title: Prompt input
+description: The composer, as a real form — so Enter and the button are one path. The submit button is one control wearing three labels.
+---
+
+<ComponentPreview componentName="prompt-input" />
+
+## Usage
+
+```tsx
+import {
+  PromptInput,
+  PromptInputSubmit,
+  PromptInputTextarea,
+  PromptInputToolbar,
+} from "@kanzo-tech/ai";
+```
+
+```tsx
+<PromptInput onSubmit={send}>
+  <PromptInputTextarea name="prompt" placeholder="Ask about the board…" />
+  <PromptInputToolbar>
+    <PromptInputSubmit status={status} />
+  </PromptInputToolbar>
+</PromptInput>
+```
+
+`PromptInput` **is a `<form>`**. That is the point of it: Enter and the button both go through
+`onSubmit`, so there is one code path to test and one place where "send" is decided. A composer
+built from a `div` and an `onClick` has two, and they drift.
+
+## It is an InputGroup, wearing a form
+
+The composer is [`InputGroup`](/docs/forms/input-group) with `asChild` on it, not an `InputGroup`
+inside a form.
+
+<Callout type="warn">
+That is load-bearing rather than tidy. `InputGroup`'s recipe selects its own **direct** children —
+`has-[>textarea]`, `has-[>[data-align=block-end]]` — so an element between the group and the field
+silently unsets half of it. The border no longer reacts to focus, the toolbar stops sitting flush,
+and nothing errors.
+</Callout>
+
+`PromptInputToolbar` is an `InputGroupAddon` pinned to `align="block-end"`, which is also not
+decoration: a popover trigger living in the toolbar anchors to the **composer**, so its surface
+opens over the text it writes. Hung off a label row above the field instead, it opened against the
+panel's edge, far from the value it was about.
+
+## Enter sends, Shift+Enter breaks the line
+
+`PromptInputTextarea` requests the form's submit on Enter, and leaves Shift+Enter to the browser.
+
+<Callout type="info">
+**`isComposing` is the trap.** An IME commits its candidate with Enter — Japanese, Chinese, Korean,
+and every accent picker that works the same way. Without checking `event.nativeEvent.isComposing`,
+the half-typed word is *sent* instead of *finished*, and the bug is invisible to anyone testing in
+a Latin keyboard layout. The check is here so no consumer has to know it exists.
+</Callout>
+
+Your own `onKeyDown` runs first, and calling `preventDefault()` in it stops the send — which is how
+you add a shortcut of your own without forking the part.
+
+## One button, three labels
+
+`PromptInputSubmit` takes `status` and changes what it says:
+
+| `status` | Icon | Label | The moment |
+| --- | --- | --- | --- |
+| `idle` · `ready` | send | Send | there is something to ask |
+| `loading` | square | Stop | an answer is arriving |
+| `error` | refresh | Retry | the last one failed |
+
+It stays `type="submit"` in all three, so all three arrive at your `onSubmit` and the handler is
+where the three meanings are told apart. That keeps Stop reachable by Enter as well as by pointer,
+which a separate cancel button beside the form does not.
+
+The label is applied as `aria-label` **only when the button has no visible text of its own**: an
+`aria-label` over a legible label renames the control, which is worse than not having one. The
+status is also mirrored to `data-status`, so a consumer's own styling can select on it.
+
+<Callout type="info">
+`status` is the same `AiStatus` the engine hooks report, so a composer wired to
+[`useAiStream`](/docs/ai/use-ai-stream) or [`useInlineCompletion`](/docs/ai/use-inline-completion) is
+`status={engine.status}` and nothing more. The type is
+`"idle" | "loading" | "ready" | "error"`, and the control wears three looks rather than four:
+`ready` and `idle` are one button, because an answer that has arrived leaves the composer ready for
+the next question. They are two states of the *stream*, not of this control.
+</Callout>
+
+## Anatomy
+
+```text
+PromptInput                 (form, rendered as an InputGroup)
+├── PromptInputTextarea     (the field — Enter submits)
+└── PromptInputToolbar      (block-end addon)
+    ├── InputGroupText      (a hint, a model name, a scope)
+    └── PromptInputSubmit   (ms-auto — it packs to the reading end)
+```
+
+Anything else you put in the toolbar is yours: a [`Menu`](/docs/overlays/menu) of models, a
+[`Popover`](/docs/overlays/popover) of attachments, a [`Toggle`](/docs/actions/toggle) for a mode.
+They anchor to the composer for the reason above.
+
+## API Reference
+
+### PromptInput
+
+Renders a `form` and takes that element's props — `onSubmit`, `action`, `noValidate`.
+
+### PromptInputTextarea
+
+Extends [`InputGroupTextarea`](/docs/forms/input-group).
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `rows` | `number` | `1` |
+
+The field is `min-h-16` so an empty composer still looks like somewhere to write.
+
+### PromptInputSubmit
+
+Extends `InputGroupButton`.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `status` | `AiStatus` | `"idle"` |
+| `type` | `string` | `"submit"` |
+| `variant` | inherited | `"default"` |
+| `size` | inherited | `"icon-sm"`, or `"sm"` with children |
+
+Pass children to say it in your own words; the icon and the `aria-label` both step aside.

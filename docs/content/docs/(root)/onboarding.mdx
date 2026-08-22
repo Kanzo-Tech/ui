@@ -1,266 +1,127 @@
 ---
 title: Onboarding a tenant
-description: Two colours in, one JSON out, one stylesheet served — the pipeline you run once per client.
+description: Write a theme, ship the file, let an attribute choose — the work you do once per client.
 ---
 
 There are two onboarding pipelines and they are easy to confuse, so this page is only the second
 one.
 
 **[Installation](/docs/installation) is per product, once**: the packages, the stylesheet, the
-provider, the pre-paint script. **This is per client, once**: two colours come in, a measured
-document goes to your database, and every surface the client ever sees is a reading of it.
+provider, the pre-paint script. **This is per client, once**: you write their theme, it ships as a
+file, and every surface the client ever sees is a reading of it.
 
-The property worth stating before the steps, because it is what the whole shape is for: **adding a
-client touches no code and needs no deploy.** A palette is data. If onboarding a tenant ever
-requires a build, something above has been wired wrong.
-
-```text
-two colours  →  derivePalette()  →  a JSON document  →  compile()  →  one <style> in <head>
-  the client       once, at            your database      per request      the attribute chooses
-                   onboarding
-```
-
-<Steps>
-
-<Step>
-
-### Collect the seeds
-
-A **brand** colour, and optionally a **base** — the neutral that paints most of the pixels. Take
-them as the client gives them; nothing here asks for a scale, a ramp or a dark variant.
-
-Leave the base out and it is built from the brand's hue, which is usually what a client with one
-brand wants. A tenant publishing **more than one brand** must give a base of their own:
-`derivePalette` refuses to carry a brand hue over, because a page tinted with the retail blue is the
-wrong ground to paint the private gold on.
-
-</Step>
-
-<Step>
-
-### Derive, once, out of the browser
-
-```ts title="scripts/onboard.ts"
-import { derivePalette } from "@kanzo-tech/palette";
-
-const doc = derivePalette({
-  id: "acme",
-  label: "Acme",
-  identities: [{ id: "acme", label: "Acme", brand: "#8839ef" }],
-  base: "#9ca0b0",
-});
-```
-
-A tenant with several brands lists them, and the first is the one `:root` carries unless
-`defaultIdentity` names another:
-
-```ts
-const doc = derivePalette({
-  id: "bank",
-  label: "Northgate",
-  identities: [
-    { id: "retail", label: "Retail", brand: "#1d4ed8" },
-    { id: "private", label: "Private", brand: "#a16207" },
-  ],
-  base: "#8f8f8f",
-});
-```
-
-<Callout type="warn" title="This runs at onboarding, never at request time">
-  The categorical search alone costs seconds per tenant. `@kanzo-tech/palette` is a
-  **devDependency** so that is structural rather than a convention — the derivation is not merely
-  something a browser should not import, it is something a browser cannot reach. Run this in a
-  script, a job, or an admin route; store what it returns.
+<Callout title="This page used to describe a derivation, and there is no derivation">
+  Until 2026-08-21 a tenant handed over two colours and a thirteen-stage pipeline produced a
+  measured document of 199 custom properties. That pipeline is deleted. A theme is now a block of
+  CSS somebody writes — see [a theme is one flat
+  block](https://github.com/kanzo-tech/kanzo-ui/blob/main/decisions/a-theme-is-one-flat-block.md)
+  for the measurement that authorised the cut. **What you gain is that a theme is legible, pasteable
+  and diffable. What you take on is contrast: nothing derives an ink for you.** The last section
+  says what still checks you.
 </Callout>
 
-If the client's identity *is* a published scheme, the seeds and its syntax colours come together:
+## Write the theme
 
-```ts
-import { PALETTE_SEEDS, derivePalette, seedInput } from "@kanzo-tech/palette";
+One file, one block, one mode. Copy the nearest shipped theme out of
+`@kanzo-tech/theme/themes/` and change the colours.
 
-const doc = derivePalette(seedInput("dracula", PALETTE_SEEDS.dracula));
+```css title="themes/acme.css"
+[data-theme="acme"] {
+  color-scheme: light;
+
+  /* The twenty-one. Everything else in the vocabulary is a USE of one of these. */
+  --background: #fbfcfd;   --foreground: #10151c;
+  --card: #ffffff;         --muted: #eef1f5;
+  --muted-foreground: #4a5464;
+  --primary: #1f6feb;      --primary-foreground: #ffffff;
+  --secondary: #e3e8ef;    --secondary-foreground: #10151c;
+  --accent: #d6dde7;       --accent-foreground: #10151c;
+  --destructive: #d61f27;  --destructive-content: #fff8f7;
+  --info: #1155cc;         --info-content: #f7fafe;
+  --success: #08794f;      --success-content: #f4fbf8;
+  --warning: #b45c00;      --warning-content: #fffaf5;
+  --border: #c2c9d4;       --ring: #1f6feb;
+
+  /* Shape. These are what let a client look different without looking like a fork. */
+  --radius-box: 0.75rem;   --radius-field: 0.5rem;  --radius-selector: 0.25rem;
+  --size-field: 0.25rem;   --size-selector: 0.25rem;
+  --stroke: 1px;           --depth: 0;
+
+  /* Optional. Omit them and the theme inherits; a theme that DECLINES the categorical
+     channel says so, which is what a monochrome theme is. */
+  --chart-1: #1f6feb;      /* … through --chart-8 */
+}
 ```
 
-</Step>
+Dark is a **second theme**, not a second block:
 
-<Step>
+```css title="themes/acme-dark.css"
+[data-theme="acme-dark"] {
+  color-scheme: dark;
+  /* …the same twenty-one, chosen for a dark ground. */
+}
+```
 
-### Read the record, and tell the client what moved
+<Callout type="warn" title="Twenty-one carry a value; nothing else does">
+  Do not write the card ink, the sidebar brand or the other names bridged in `tokens.css`.
+  They are *uses* of the twenty-one and are declared once, centrally — writing them again in a theme
+  is the duplication the whole layer exists to prevent. Override one only when this theme genuinely
+  wants it different, which is a decision, not a default.
 
-`doc.record` is the part of onboarding that is a conversation rather than a computation. It carries
-three lists:
-
-| list | what it is |
-| --- | --- |
-| `adjustments` | a seed that failed a gate and was moved to the nearest legal value — with the rule, the ΔE and the signed OKLCH components |
-| `relief` | an obligation that could not be met by moving anything |
-| `crossChecks` | measurements that only exist once six ramps share one page |
-
-An adjustment is what you read back to the client, and the components are why: *"darker, and
-slightly less saturated"* is a very different sentence to hear than *"a different colour"*.
-
-<Callout type="warn" title="Relief rows are usually the healthy answer">
-  `carries-identity` fires when a ramp's solid step sits below the chroma floor, and **a tinted
-  neutral is below that floor by definition** — so every correct two-seed document reports it on the
-  base ramp. Distinguish by **ramp**, never by presence: on `base` it means nothing is wrong, on a
-  brand it is something to tell the client. A screen that renders any relief as an alert makes every
-  correct palette look broken.
+  Worth knowing from the sixteen themes that ship: **not one of them ends up needing
+  `--secondary-foreground` or `--accent-foreground`.** Both were the same value as `--foreground` in
+  every single case, so both came out. They are above because the vocabulary allows them, not
+  because a theme is expected to fill them in — and the same is true of `--popover`, which only the
+  dark themes turned out to want.
 </Callout>
 
-A freshly derived document is `state: "draft"`, which is the flag to hang your review step on.
+## Ship the file
 
-</Step>
+Add it to the catalogue and regenerate:
 
-<Step>
+```bash
+pnpm --filter @kanzo-tech/theme gen
+```
 
-### Decide what this client's users may change
+That reads the `themes/` directory, writes the `@import` list into `themes.css` and records each
+theme's own `color-scheme` in `theme-data.json`. **Adding a theme is adding a file** — nothing lists
+them twice.
 
-Optional, and most tenants skip it. A tenant may **fix** a choice or **withhold** it — one client's
-product is always compact and square and their users never see those controls, another's exposes
-them, and it is the same panel and the same code.
+## Decide what this client's users may change
+
+A tenant policy is keyed by namespace, and the core answers to `theme` like any other section. Pin
+what the client insists on and withhold the control:
 
 ```tsx
 <KanzoThemeProvider
-  sections={[GRAPH_SECTION]}
-  policy={{
-    theme: { density: { default: "compact" }, radius: { pinned: "sm" } },
-    graph: { marks: { pinned: "legible" } },
-  }}
+  policy={{ theme: { themeByAppearance: { pinned: "acme" }, radius: { pinned: "sm" } } }}
+  themes={themeIndex}
 >
 ```
 
-`theme` is the core's own namespace, so this covers colour and geometry as well as whatever an
-optional package contributed. Pass the same object to `themeScript({ policy })`, or the page paints
-the user's value before the client's.
+A pinned theme leaves one to offer, so the colour section hides itself. That is the white-label case
+working, not a control failing.
 
-A policy selects among the options the owning package declared; it cannot author one. Withholding
-also keeps whatever the user had already chosen, so removing the policy later hands them their own
-choice back rather than a default. See [Contributing a section](/docs/sections).
+## Offer the choice, if there is one
 
-</Step>
+```tsx
+import { themeIndex } from "@kanzo-tech/theme";
 
-<Step>
-
-### Store the document
-
-It is JSON. Put it wherever the tenant's other data lives.
-
-Two fields make a stored document checkable later, and both matter the first time you change the
-derivation: `schemaVersion` says which shape it is, and `engine` carries a hash of the obligation
-table it was graded against. Compare it with `hashObligations` to find the documents that predate a
-rule change and re-derive those, rather than all of them.
-
-```ts
-import { PALETTE_SCHEMA_VERSION, hashObligations } from "@kanzo-tech/palette";
+<KanzoThemeProvider themes={themeIndex} onThemeRetired={(name) => notify(name)}>
 ```
 
-</Step>
+The panel draws two grids — the theme worn on the light side and the theme worn on the dark one —
+because a theme *is* a side. Each cell paints itself by setting `data-theme` on a `div`, so the
+preview is the real thing rather than a strip of swatches.
 
-<Step>
+## Verify
 
-### Serve every document, and let an attribute choose
+**Contrast is yours now, and one guard still checks the artefact.** `status.test.ts` reads every
+shipped theme and measures each status fill against the ink meant to sit on it, in all of them. It
+does not check every pair in the vocabulary — nothing does — so the ones to read yourself are:
 
-Compile each one under its own scope and inline them together in `<head>`. There is no request-time
-colour maths — `compile` is a string join over values that were solved at onboarding.
+- `--foreground` on `--background`, and on `--card` and `--muted` (4.5:1 for body text);
+- each `--*-content` on its own fill, which is what the guard covers;
+- `--border` against `--background`, which WCAG 1.4.11 asks 3:1 of where it identifies a control.
 
-```tsx title="app/layout.tsx"
-import { compile } from "@kanzo-tech/palette";
-
-const css = documents.map((doc) => compile(doc, { scope: doc.id })).join("\n");
-
-<style dangerouslySetInnerHTML={{ __html: css }} />;
-```
-
-<Callout type="info" title="Compiling on the server is fine; deriving is not">
-  `compile` is cheap and pure, so calling it per request costs little — but the usual shape is to
-  compile alongside the derivation and store the CSS too. What must never move to request time is
-  `derivePalette`.
-</Callout>
-
-A tenant publishing **one** palette can skip the scope entirely: `compile(doc)` emits plain
-`:root` / `.dark` blocks, and no attribute is written at all.
-
-Choosing is then `data-palette` on `<html>`, written by the provider and by the pre-paint script
-exactly like radius and density. That is the property that makes the choice correctable in the
-browser without a flash, and it is why the server does not need to know which palette the user
-picked.
-
-</Step>
-
-<Step>
-
-### Offer the choice, if there is one
-
-The panel needs one entry per published choice, with the brands nested inside their palette:
-
-```tsx title="app/layout.tsx"
-import type { PaletteOption } from "@kanzo-tech/theme";
-import { KanzoThemeProvider } from "@kanzo-tech/ui";
-
-const palettes: PaletteOption[] = documents.map((doc) => ({
-  value: doc.id,
-  label: doc.label,
-  ...(doc.identities.length > 1
-    ? { children: doc.identities.map((i) => ({ value: i.id, label: i.label })) }
-    : {}),
-}));
-
-<KanzoThemeProvider palettes={palettes}>{children}</KanzoThemeProvider>;
-```
-
-**An id and a name, and no colour.** The panel draws each entry by setting `data-palette` on the
-cell and letting the compiled document paint it — the same mechanism that paints the page, so the
-preview cannot disagree with what selecting it will do. Anything you copy out of a document to
-depict it can only be the same values or the wrong ones.
-
-Publish one of each and **nothing appears**: [`Preferences`](/docs/layout/preferences) hides its
-colour section below two choices, so a client wanting a single immutable brand does nothing to get
-one.
-
-<Callout type="info" title="The user chooses among colours, never authors one">
-  This is the line that makes several published palettes safe. What a tenant publishes has been
-  derived, graded and measured as a whole; what a user picks is one of those. There is no way to
-  move *part* of a palette at runtime, and that absence is the feature — see
-  [Theming](/docs/theming).
-</Callout>
-
-</Step>
-
-<Step>
-
-### Verify
-
-The document grades itself, so verification is reading rather than testing: no unexpected
-`adjustments`, `relief` only where the ramp explains it, and `crossChecks` clear.
-
-If your product ships a package that contributes its own appearance tokens — the graph does —
-check its payload against the manifest that owns it, which is what catches a name nobody declared
-before it paints something plausible:
-
-```ts
-import { validateSection } from "@kanzo-tech/theme";
-import { GRAPH_SECTION } from "@kanzo-tech/graph/section";
-```
-
-</Step>
-
-</Steps>
-
-## What this costs, measured
-
-The six documents this site publishes are **63.6 kB raw and 8.7 kB gzipped together**. That number is
-the reason the pipeline has the shape above: while a document was assumed too big to ship more than
-one of, the server had to choose from the request, the cookie was mandatory, and a choice already
-made upstream could not be corrected in the browser without a flash. It was never measured. The
-scale is repetitive and compresses hard, so every document travels and the choice became an
-attribute.
-
-## A worked example
-
-The [palette showcase](/docs/showcases/palette) runs this pipeline in the browser — seeds in, the
-derived document, the record and the compiled sheet, side by side with the authored original. It is
-the fastest way to see what a given pair of colours produces before you run it against a real
-client.
-
-This site is itself a tenant that publishes several palettes, so `docs/lib/palette.ts` is the same
-wiring at product scale: read the compiled documents, inline them once, map them to `PaletteOption`.
+Then look at it. Set `data-theme` on `<html>` in the docs and read a real screen.

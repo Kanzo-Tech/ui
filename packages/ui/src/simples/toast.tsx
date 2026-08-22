@@ -113,7 +113,7 @@ export const ToastItem = (props: ToastItemProps) => {
           className={cn(
             "in-data-[type=warning]:text-warning",
             "in-data-[type=success]:text-success",
-            "in-data-[type=error]:text-destructive",
+            "in-data-[type=error]:text-destructive-foreground",
             "in-data-[type=info]:text-info",
             "[&_svg]:pointer-events-none [&_svg]:h-lh [&_svg]:w-4 [&_svg]:shrink-0"
           )}

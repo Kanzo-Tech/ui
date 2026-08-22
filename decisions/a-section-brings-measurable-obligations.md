@@ -60,7 +60,7 @@ from systems that already ship them.
 `--graph-point-size-min` → `--point-size-min` → the manifest's default. The property that earns it
 over everything else surveyed: **contributing is *using* a name, not declaring one in the core.**
 The core never learns a section exists, so the one-way door stays shut structurally rather than by
-discipline — `packages/theme` gains no reference to `packages/graph`, and `boundary.test.ts` keeps
+discipline — `packages/theme` gains no reference to `packages/graph`, and `sections.test.ts` keeps
 passing by text match rather than by good intentions.
 
 **Validation is the half Neovim does not have.** There, a typo degrades silently to the parent. Here

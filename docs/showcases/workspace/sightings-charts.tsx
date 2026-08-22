@@ -144,6 +144,7 @@ function boot(): Promise<Coordinator> {
   return ensure(T, async ({ coordinator, db }) => {
     await db.registerFileText(FILE, sightingsCsv());
     await coordinator.exec(loadCSV(T, FILE));
+    return coordinator;
   });
 }
 

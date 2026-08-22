@@ -22,33 +22,29 @@
  *
  * ## A default may be derived, and that is what makes white-label flow
  *
- * VS Code spells derived defaults as imperative transforms (`darken`, `transparent`, `oneOf`). We
- * already have the better form: a **binding**, declarative against the tenant's ramps, the same
- * shape the role table uses. `--graph-marquee` defaults to `(brand, alpha 5)`, so a bank changing
- * its palette moves the marquee with it — **without the core knowing what a graph is**, and without
- * anyone copying a hex.
+ * VS Code spells derived defaults as imperative transforms (`darken`, `transparent`, `oneOf`). Ours
+ * is a **CSS value**, which is the same idea with nothing between it and the browser:
+ * `var(--primary)` points at what the theme publishes, and `color-mix(in oklab, var(--primary) 20%,
+ * transparent)` derives from it. A bank changing its theme moves both — **without the core knowing
+ * what a graph is**, and without anyone copying a hex.
+ *
+ * **It was an object with three shapes** — `{kind:"step"|"alpha", ramp, step}` and
+ * `{kind:"role", token}` — declarative against the tenant's *ramps*. Two of the three named a
+ * reference tier that no longer exists, and the third was `var()` wearing a wrapper. Collapsing them
+ * removed a type that had to be declared structurally in two packages at once, so it also removed
+ * the drift between the two declarations.
  *
  * That is why this is not the thing that was refused earlier. Minting a *role* in the core's
  * vocabulary for one consumer is how seventeen level-names happened. A section token lives in the
  * owner's namespace, is declared by the owner, and costs nothing to whoever never installs it.
  */
 
-/** How a section token's default is expressed. A literal, or something the palette can resolve. */
-export type SectionBinding =
-  | { kind: "step"; ramp: string; step: number }
-  | { kind: "alpha"; ramp: string; step: number }
-  /** Point at a role the document already publishes — the cheapest derived default. */
-  | { kind: "role"; token: string };
-
 export interface SectionTokenDecl {
   /**
-   * A literal, or a binding resolved against the tenant's ramps at compile time.
-   *
-   * The binding shape is declared structurally here rather than imported from
-   * `@kanzo-tech/palette`, which is authoring-time and must not enter this package's dependencies —
-   * `boundary.test.ts` fails if it does. The palette reads these; it does not export them.
+   * A CSS value. A literal, a `var()` at what the theme publishes, or a `color-mix()` derived from
+   * one — and nothing needs to resolve it but the browser.
    */
-  default: string | SectionBinding;
+  default: string;
   /** What the token is for, in one line. Shown by a panel that lists a section's vocabulary. */
   doc: string;
 }
@@ -59,6 +55,15 @@ interface PrefCommon {
   default: string;
   /** What the preference does, in one line. Shown by a surface beside the control. */
   doc: string;
+  /**
+   * What a surface CALLS it. Falls back to the key, which is what every surface used to draw.
+   *
+   * The options carried labels and the preference did not, so a generic control had a key for a
+   * legend: a dock offering the force coefficients announced `link-spring`. A name is authored where
+   * the values are, like everything else here — and it is not the `doc`, which is a sentence about
+   * what the thing does rather than the two words a control is titled with.
+   */
+  label?: string;
   /**
    * The stored value is a map keyed by the resolved appearance, not a plain string.
    *
@@ -87,18 +92,20 @@ export interface PrefOption {
 /**
  * Where a choice's options come from, when an author cannot list them.
  *
- * The two things a TENANT publishes and nobody else can know at authoring time: the palette
- * documents they compiled, and the brands inside the applied one. Closed on purpose — a source is
- * something the provider already receives and can hand to a resolver, not a hook for a package to
- * fetch from.
+ * The one thing a TENANT publishes that nobody can know at authoring time: the themes they wrote.
+ * Closed on purpose — a source is something the provider already receives and can hand to a
+ * resolver, not a hook for a package to fetch from.
+ *
+ * It was two, `"palettes"` and `"identities"`, while a palette contained brands and a control had to
+ * ask which level it was filling. A brand is a theme, so there is one level and one list.
  */
-export type PrefSource = "palettes" | "identities";
+export type PrefSource = "themes";
 
 /**
  * A list, or the name of the list's owner.
  *
  * This is the same move {@link SectionTokenDecl} already makes for colour — a **binding** instead of
- * a value — so the vocabulary stays one. It is what `identity` and `palette` need: their options are
+ * a value — so the vocabulary stays one. It is what `theme` needs: its options are
  * a client's brands, and an author who typed them would be authoring the client's product.
  */
 export type PrefOptions = readonly PrefOption[] | { from: PrefSource };
@@ -370,14 +377,14 @@ export function fallbackChain(token: string): string[] {
  *
  * `declared` is what the cascade or the document already provides, keyed by full token name. The
  * first member of the chain it answers wins; if none does, the manifest's default is returned —
- * and a *binding* default is returned unresolved, because resolving it needs the tenant's ramps and
- * those live in the palette. The caller compiles it.
+ * and a default is returned as written, because it is already a CSS value: the browser is what
+ * resolves it, on the element that uses it.
  */
 export function resolveSectionToken(
   token: string,
   declared: Readonly<Record<string, string>>,
   manifest: SectionManifest,
-): { value: string | SectionBinding; via: string } | null {
+): { value: string; via: string } | null {
   for (const candidate of fallbackChain(token)) {
     const hit = declared[candidate];
     if (hit !== undefined) return { value: hit, via: candidate };

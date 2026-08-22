@@ -21,6 +21,72 @@
     "compact": "14px",
     "comfortable": "18px"
   },
+  "themes": [
+    {
+      "name": "bank-dark",
+      "dark": true
+    },
+    {
+      "name": "bank-private-dark",
+      "dark": true
+    },
+    {
+      "name": "bank-private",
+      "dark": false
+    },
+    {
+      "name": "bank",
+      "dark": false
+    },
+    {
+      "name": "catppuccin-latte-dark",
+      "dark": true
+    },
+    {
+      "name": "catppuccin-latte",
+      "dark": false
+    },
+    {
+      "name": "catppuccin-mocha-dark",
+      "dark": true
+    },
+    {
+      "name": "catppuccin-mocha",
+      "dark": false
+    },
+    {
+      "name": "dracula-dark",
+      "dark": true
+    },
+    {
+      "name": "dracula",
+      "dark": false
+    },
+    {
+      "name": "kanzo-dark",
+      "dark": true
+    },
+    {
+      "name": "kanzo",
+      "dark": false
+    },
+    {
+      "name": "monochrome-dark",
+      "dark": true
+    },
+    {
+      "name": "monochrome",
+      "dark": false
+    },
+    {
+      "name": "nord-dark",
+      "dark": true
+    },
+    {
+      "name": "nord",
+      "dark": false
+    }
+  ],
   "prefs": {
     "appearance": {
       "kind": "choice",
@@ -39,6 +105,7 @@
         }
       ],
       "default": "",
+      "label": "Appearance",
       "doc": "which side of the document is worn"
     },
     "radius": {
@@ -68,6 +135,7 @@
       "default": "md",
       "attr": "data-radius",
       "source": "themes",
+      "label": "Radius",
       "doc": "how round a corner is"
     },
     "font": {
@@ -89,6 +157,7 @@
       "default": "system",
       "attr": "data-font",
       "source": "themes",
+      "label": "Font",
       "doc": "the face body text is set in"
     },
     "monoFont": {
@@ -110,6 +179,7 @@
       "default": "system",
       "attr": "data-mono-font",
       "source": "themes",
+      "label": "Mono font",
       "doc": "the face code is set in"
     },
     "density": {
@@ -131,28 +201,59 @@
       "default": "default",
       "attr": "data-font-size",
       "source": "themes",
+      "label": "Density",
       "doc": "the root size everything scales from"
     },
-    "identity": {
+    "themeByAppearance": {
       "kind": "choice",
       "options": {
-        "from": "identities"
+        "from": "themes"
       },
       "default": "",
-      "attr": "data-identity",
-      "source": "document",
-      "doc": "which of this document's brands is worn"
-    },
-    "paletteByAppearance": {
-      "kind": "choice",
-      "options": {
-        "from": "palettes"
-      },
-      "default": "",
-      "attr": "data-palette",
+      "attr": "data-theme",
       "source": "document",
       "byAppearance": true,
-      "doc": "which document is worn on this side"
+      "label": "Theme",
+      "doc": "which theme is worn on this side"
     }
+  },
+  "fallbacks": {
+    "--secondary-foreground": [
+      "--foreground"
+    ],
+    "--accent-foreground": [
+      "--foreground"
+    ],
+    "--popover": [
+      "--card"
+    ],
+    "--input": [
+      "--border"
+    ],
+    "--field": [
+      "--muted"
+    ],
+    "--faint": [
+      "--muted-foreground"
+    ],
+    "--destructive-foreground": [
+      "--destructive"
+    ],
+    "--info-foreground": [
+      "--info"
+    ],
+    "--success-foreground": [
+      "--success"
+    ],
+    "--warning-foreground": [
+      "--warning"
+    ],
+    "--sidebar": [
+      "--popover",
+      "--card"
+    ],
+    "--sidebar-foreground": [
+      "--muted-foreground"
+    ]
   }
 }

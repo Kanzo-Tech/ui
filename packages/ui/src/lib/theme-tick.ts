@@ -37,7 +37,7 @@ import { categoricalCapacity } from "./token-color.js";
  * Returns a counter to feed into an effect's dependency list.
  */
 export function useThemeTick(): number {
-  const palette = useKanzoThemeOptional()?.resolvedPalette ?? "";
+  const palette = useKanzoThemeOptional()?.resolvedTheme ?? "";
   const [state, setState] = useState({ tick: 0, palette });
 
   // Adjusted during render rather than in an effect: React re-runs this component before anything

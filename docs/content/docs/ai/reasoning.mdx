@@ -1,0 +1,117 @@
+---
+title: Reasoning
+description: A model's thinking, folded away. It opens itself while the thinking streams and folds a second after it stops, saying how long it took — until the reader touches it, after which it never moves on its own again.
+---
+
+<ComponentPreview componentName="reasoning" />
+
+## Usage
+
+```tsx
+import { Reasoning, ReasoningContent, ReasoningTrigger } from "@kanzo-tech/ai";
+```
+
+```tsx
+<Reasoning streaming={status === "streaming"}>
+  <ReasoningTrigger />
+  <ReasoningContent>{thought}</ReasoningContent>
+</Reasoning>
+```
+
+It is a [`Collapsible`](/docs/layout/collapsible) with one behaviour added, and that behaviour is
+the reason it exists as a component rather than as a snippet.
+
+## Open while it thinks, closed when it is done
+
+Pass `streaming` and the panel manages itself: it opens when the thinking starts and folds a second
+after it ends. The reader watches it happen and is not left with a wall of it afterwards — which is
+the whole argument for showing a model's reasoning at all.
+
+**The second is not a flourish.** Closing on the instant the last token lands takes the end of the
+thought away from whoever was reading it, and one beat is what makes the fold readable rather than
+abrupt. AI Elements waits the same second for the same reason.
+
+<Callout type="warn">
+**One exception, and it is the point of the design: a reader's own toggle ends the automatic
+behaviour for good.** Not for that cycle — for the life of the component. Anything else is a panel
+that reopens what somebody just closed, which is the version of this everyone has met and nobody
+wants.
+</Callout>
+
+That is why the "has the reader touched it" flag is a ref rather than state: it must not re-run the
+effect, only gate it.
+
+`Reasoning` also accepts `open` and `onOpenChange` from `Collapsible`, and a controlled `open` wins
+over the automatic behaviour outright. Take control when the transcript, not the panel, is what
+decides — a "collapse everything" button, for instance.
+
+## The trigger says what is happening
+
+`ReasoningTrigger` with no children says **"Thinking…"** beside a spinner while streaming, and
+**"Thought for N seconds"** beside a brain icon once it has finished. Before it has ever streamed
+there is nothing to report, so it reads **"Reasoning"** — a duration of `null` is not a duration of
+zero. Pass children to say it in your own words; the icon still swaps, because that half is state
+rather than copy.
+
+The duration is the one fact a folded-away thought has about itself, and it is what gives a reader
+a reason to open it — a static label gives none. It is taken from AI Elements, which reads *Thought
+for N seconds* in the same place.
+
+<Callout type="info">
+**A spinner and not a shimmer, which is a deliberate divergence.** AI Elements sweeps a gradient
+across the word *Thinking…* with `background-clip: text`, on a `motion/react` loop. That is a second
+vocabulary for *busy* beside the one this library already has, and it costs an animation dependency
+to say what a `Spinner` already says — the ✨ spins while a completion streams, and so does
+everything else here. One busy is a house principle, and AI Elements is a
+[source rather than a reference](/docs/ai).
+</Callout>
+
+The trigger's own floor is `min-h-[24px]` — written in pixels, not in `rem`. Every size in this
+library is a `rem` against a root the density axis sets, so `min-h-6` is 24px at the default density
+and 21px at compact: WCAG 2.5.8 asks for 24 CSS pixels, and a `rem` floor is the failure dressed as
+the fix.
+
+## The content is preformatted
+
+`ReasoningContent` keeps whitespace (`whitespace-pre-wrap`) and breaks long words, so a chain of
+thought arriving with its own line breaks keeps them. It is muted, small, and set off by a border on
+the start edge — a margin note rather than a second answer.
+
+If what you have is markdown rather than plain text, render it and wrap the result in
+[`Prose`](/docs/data-display/prose) inside `ReasoningContent`.
+
+## Anatomy
+
+```text
+Reasoning                 (Collapsible root, carries data-streaming)
+├── ReasoningTrigger      (spinner + "Thinking…" / brain + "Thought for N seconds")
+│   └── CollapsibleIndicator
+└── ReasoningContent      (whitespace-pre-wrap, muted, border on the start edge)
+```
+
+`CollapsibleIndicator` is placed for you inside the trigger. Pass children to the trigger and it
+stays — children replace the label, not the chrome.
+
+## API Reference
+
+### Reasoning
+
+Extends [`Collapsible`](/docs/layout/collapsible), so `open`, `defaultOpen`, `onOpenChange`,
+`lazyMount` and the rest of the Ark API pass through.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `streaming` | `boolean` | `false` |
+| `defaultOpen` | `boolean` | `false` |
+
+`streaming` is mirrored to `data-streaming` on the root, so a consumer's own rule can select the
+thinking state without reading context.
+
+### ReasoningTrigger
+
+Extends `CollapsibleTrigger`. Children replace the label; the spinner, the icon and the indicator
+are supplied.
+
+### ReasoningContent
+
+Extends `CollapsibleContent`. Takes the content element's props.

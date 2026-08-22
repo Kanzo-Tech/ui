@@ -1,6 +1,6 @@
 # A palette is chosen per appearance, by the user
 
-- **Status** open — 2026-08-16
+- **Status** superseded by `a-theme-is-one-flat-block` — 2026-08-21
 - **Decided** The `palette` preference becomes a map keyed by appearance: this user's light palette
   and this user's dark palette, resolved as `paletteByAppearance[resolvedAppearance]` falling back to
   the tenant's default. **This is not `pairsWith` coming back** — see below — and it changes nothing
@@ -12,10 +12,7 @@
 - **Reversed by** the map holding one distinct value across a real corpus of users. If everybody
   picks the same palette for both sides, this is a second way to express one choice, and the
   single `palette` axis was right.
-- **Held by** `packages/ui/src/theme/theme-script.test.ts`, "writes nothing for a retired colour
-  axis, and does write the palette"; `packages/theme/src/index.test.ts`, "every axis default matches
-  DEFAULT_PREFS, generated or not"; `packages/theme/src/index.ts`, `AXES`;
-  `packages/palette/scripts/gen-data.mjs`, `SLOT_NAMES`
+- **Held by** `decisions/a-theme-is-one-flat-block.md`, which carries the rule that replaced this one, and the guards it names
 
 ## What was deleted, and why this is not it
 
@@ -23,8 +20,8 @@
 a palette was dark-only or light-only, so a dark one had to name the light one it belonged with.
 `compile()` emitting both blocks is what made that meaningless — there is no single-mode document
 left to pair — and the field went with `appearance`, the declared brand/status roles and their
-provenance. The comment recording that is in `packages/palette/scripts/gen-data.mjs`, and the nine
-tests that covered it are named in `packages/theme/src/palettes.test.ts`'s header.
+provenance. The comment recording that is in the derivation's data generator, and the nine
+tests that covered it are named in the palette guard's header.
 
 **The reason for that deletion still holds and is not being reversed.** What this record adds lives
 one layer up and on the other side of the boundary: a *user preference* about which of the tenant's

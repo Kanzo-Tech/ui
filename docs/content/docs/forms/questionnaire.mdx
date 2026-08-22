@@ -1,0 +1,235 @@
+---
+title: Questionnaire
+description: A multi-step form that asks one question at a time, with progress, validation and navigation.
+links:
+  doc: https://ark-ui.com/docs/components/steps
+---
+
+{/* Measured by walking it with the frame unconstrained: 434 on arrival, 718 at the second question
+    and 774 from the third on, because a later question is a taller card and the last one prints a
+    summary. The number is the tallest state, not the first, and question one pays for it in white
+    space — which beats being clipped. */}
+<ComponentPreview componentName="questionnaire" fileName="example-default" height={780} />
+
+## Usage
+
+```tsx
+import {
+  Questionnaire,
+  QuestionnaireActions,
+  QuestionnaireChoice,
+  QuestionnaireChoices,
+  QuestionnaireItem,
+  QuestionnaireNext,
+  QuestionnairePrevious,
+  QuestionnaireProgress,
+  QuestionnaireSubmit,
+  QuestionnaireTitle,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<Questionnaire onSubmit={(answers) => file(answers)}>
+  <QuestionnaireProgress />
+  <QuestionnaireItem name="outcome" required>
+    <QuestionnaireTitle>How did it end?</QuestionnaireTitle>
+    <QuestionnaireChoices>
+      <QuestionnaireChoice description="Delivered, verified, and paid." value="settled">
+        Settled
+      </QuestionnaireChoice>
+      <QuestionnaireChoice description="The party did not come back." value="failed">
+        Failed
+      </QuestionnaireChoice>
+    </QuestionnaireChoices>
+  </QuestionnaireItem>
+</Questionnaire>
+```
+
+## Anatomy
+
+```text
+Questionnaire
+├── QuestionnaireProgress
+├── QuestionnaireItem
+│   ├── QuestionnaireTitle
+│   ├── QuestionnaireDescription
+│   ├── QuestionnaireChoices
+│   │   └── QuestionnaireChoice
+│   ├── QuestionnaireInput
+│   ├── QuestionnaireTextarea
+│   └── QuestionnaireError
+└── QuestionnaireActions
+    ├── QuestionnairePrevious
+    ├── QuestionnaireSkip
+    ├── QuestionnaireNext
+    └── QuestionnaireSubmit
+```
+
+## What the root owns, and what it does not
+
+The root owns the **order** of the questions, which one is active, the answers, validation,
+progress and navigation. That is the whole of it.
+
+Everything around those is the parent's: whether the form is on screen at all, what happens to
+the payload, whether an answer routes somewhere else. A questionnaire that decided when it
+appeared could not be put in a dialog, a sidebar and a page, and every product wants it in a
+different one — so `onSubmit` hands you the answers and stops there.
+
+Resuming a half-finished session is that division in one line: the parent stored the answers and
+the position, and hands both back as `defaultAnswers` and `defaultStep`.
+
+```tsx
+<Questionnaire defaultAnswers={saved.answers} defaultStep={saved.step} onAnswersChange={save}>
+```
+
+<Callout type="info">
+There is no navigation state machine here. Ark's Steps machine already owns the step index,
+`hasNextStep` / `hasPrevStep`, the percentage and — the part that is easy to miss — the guards
+that stop `Next`. A required question blocking and a skippable one not blocking are two callbacks
+into that machine, not two branches of ours.
+</Callout>
+
+## The four kinds of question
+
+`QuestionnaireItem` is the question, and its props are the whole vocabulary:
+
+- **Single choice** is the default: `QuestionnaireChoices` is a radio group and the answer is a
+  string.
+- **Multiple choice** is `multiple`: the same children become a checkbox group and the answer is
+  an array that accumulates.
+- **Freeform** is `QuestionnaireInput` for a line or `QuestionnaireTextarea` for a paragraph,
+  instead of choices.
+- **Skippable** is `skippable`: `QuestionnaireSkip` draws itself only on such a question, and
+  `Next` lets an empty answer through.
+
+`required` and `skippable` are read straight off the item, in source order, so the root never
+needs a second list of questions beside the ones you wrote.
+
+## What a choice looks like
+
+A choice is a **card**, not a radio with a word beside it: the control at the start, the label and
+an optional second line beside it, and the shortcut key as a chip at the far end. The card is the
+control's own `<label>`, so the whole of it is the target — 44 CSS pixels tall at every density,
+written in pixels because WCAG 2.5.8 states its bar in pixels and the density axis moves the root
+every `rem` resolves against.
+
+`description` is a `string` rather than a child, following `CardHeader`'s `title` and
+`description`: the label is already the children, and the control has to *name* itself off an
+element this part renders — a radio's hidden input points at Ark's item text, and a checkbox's is
+pointed at the title explicitly. Both name themselves from the label alone, so a description never
+lands in the accessible name.
+
+```tsx
+<QuestionnaireChoice description="Delivered, verified, and paid." value="settled">
+  Settled
+</QuestionnaireChoice>
+```
+
+`multiple` swaps the whole row's machine, not just the box: the same card becomes a checkbox card
+with a check instead of a dot. A freeform answer written after `QuestionnaireChoices` closes the
+gap up to the cards' own, so it reads as the last row of the same list rather than a field below
+it.
+
+## Validation, and the error
+
+`required` refuses `Next` until the question is answered — a non-blank string, or at least one
+selection. It does not disable the button: a disabled control says nothing about what is missing.
+Pressing `Next` reveals `QuestionnaireError` instead, and answering clears it.
+
+A question is a `FieldSet`, which is where its accessibility comes from rather than from anything
+hand-rolled here: the group is named by its own `<legend>` — that is `QuestionnaireTitle` — and
+described by `QuestionnaireDescription` and `QuestionnaireError`, with the error announced
+politely when it appears. Give `QuestionnaireError` children to say something better than the
+default sentence.
+
+```tsx
+<QuestionnaireError>Name at least one — “nothing” is not actionable.</QuestionnaireError>
+```
+
+## Shortcuts
+
+`shortcuts` puts `1`–`9` on the visible question's choices, in order, and prints the key on a
+`Kbd` chip at the end of each card so it is visible rather than folklore.
+
+It is **opt-in and has no default**, because it registers a window listener on bare, unmodified
+keys and a design system does not get to claim those in your keymap without being asked. Typing
+in a text control is ignored; a focused radio or checkbox is not — both are `<input>` elements,
+and treating them the same would switch the shortcuts off the moment somebody clicked an option.
+
+## Progress
+
+`QuestionnaireProgress` is a **reading, not a bar**: *Question 2 of 4*, small and muted, above the
+question. It is still a `role="progressbar"` — counting questions rather than percent, with
+`aria-valuetext` carrying the same sentence and `aria-live="polite"` announcing the move — so the
+position is machine-readable without a trough on screen. Ark's `Progress` is not underneath it,
+because zag puts the role on the *track*: a progress with no painted track has no role at all.
+
+Give it children to say it in another language; `useQuestionnaire()` carries the numbers.
+
+```tsx
+const { steps } = useQuestionnaire();
+<QuestionnaireProgress>Pregunta {steps.value + 1} de {steps.count}</QuestionnaireProgress>
+```
+
+## Actions
+
+`QuestionnaireActions` is a three-column row — Back at the start, Skip and Next at the end — and it
+needs an accessible name, for which it supplies a default. It is deliberately **not** a
+`ButtonGroup`: that collapses the inner radii and overlaps its children by a pixel, which is right
+for a cluster acting on one thing and wrong for the two ends of a journey. The columns hold their
+places while Back and Skip come and go, so nothing slides sideways between questions.
+
+`QuestionnairePrevious` draws itself only where there is somewhere to go back to, so the first
+question's row is a single solid `Next` and nothing else. `QuestionnaireNext` and
+`QuestionnaireSubmit` are a pair rather than a choice: `Next` stands down on the last question and
+`Submit` takes its place in the same column, so writing both is what makes the row complete.
+
+## API Reference
+
+### Questionnaire
+
+Extends `ark.form` (minus `onSubmit`, which is redefined).
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `defaultAnswers` | `QuestionnaireAnswers` | `{}` |
+| `defaultStep` | `number` | `0` |
+| `onAnswersChange` | `(answers) => void` | — |
+| `onStepChange` | `(details) => void` | — |
+| `onSubmit` | `(answers) => void` | — |
+| `shortcuts` | `boolean` | `false` |
+
+An answer is a `string` or a `string[]`; the payload is `QuestionnaireAnswers`, a record of them
+keyed by each item's `name`.
+
+### QuestionnaireItem
+
+Extends `FieldSet` (`disabled`, `invalid`, and every fieldset attribute).
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `name` | `string` | — (required) |
+| `multiple` | `boolean` | `false` |
+| `required` | `boolean` | `false` |
+| `skippable` | `boolean` | `false` |
+
+### QuestionnaireChoice
+
+Extends the control's own `<label>` element.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `value` | `string` | — (required) |
+| `description` | `string` | — |
+
+### The rest
+
+`QuestionnaireProgress` is a `<div>` carrying the progressbar role, `QuestionnaireTitle` extends
+`FieldLegend`, `QuestionnaireDescription` and `QuestionnaireError` extend the fieldset's own
+message parts, `QuestionnaireInput` extends `Input`, `QuestionnaireTextarea` extends `Textarea`,
+and the four action parts extend `Button` — so `variant`, `size` and children are yours on every
+one of them.
+
+`useQuestionnaire` and `useQuestionnaireItem` read the two contexts, for a part of your own that
+has to know where it is: the first carries the answers, the ordered questions and Ark's steps API,
+the second carries the item's own declaration.

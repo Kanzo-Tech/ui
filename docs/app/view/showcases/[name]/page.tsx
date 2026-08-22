@@ -1,12 +1,14 @@
 import { notFound } from "next/navigation";
 import { AppShellShowcase } from "@/showcases/app-shell/default";
+import { DiscoveryShowcase } from "@/showcases/discovery/default";
 import { GraphBenchShowcase } from "@/showcases/graph-bench/default";
 import { JobStudioShowcase } from "@/showcases/job-studio/default";
 import { MetadataFormShowcase } from "@/showcases/metadata-form/default";
-import { PaletteOnboardingShowcase } from "@/showcases/palette-onboarding/default";
 import { PreferencesShowcase } from "@/showcases/preferences/default";
 import { FieldNotesShowcase } from "@/showcases/field-notes/default";
 import { SettingsShowcase } from "@/showcases/settings/default";
+import { ThemeGalleryShowcase } from "@/showcases/theme-gallery/default";
+import { ThemeStudioShowcase } from "@/showcases/theme-studio/default";
 import { PreferencesExtendedShowcase } from "@/showcases/preferences/extended";
 import { PreferencesFontsShowcase } from "@/showcases/preferences/fonts";
 import { WorkspaceShowcase } from "@/showcases/workspace/default";
@@ -39,13 +41,22 @@ const SHOWCASES = {
   // one scrolling pane, GitHub's Appearance shape. It exists to demonstrate that a section is
   // independent of its surface: not one component below is a settings-page variant of anything.
   settings: SettingsShowcase,
-  // The colour half of the theme, which is not a panel at all. A SERVER component: it runs
-  // `derivePalette` at build time, which is where that cost belongs.
-  "palette-onboarding": PaletteOnboardingShowcase,
+  // The colour half, and it is not a panel: `Preferences` lets a USER choose among themes a tenant
+  // published, and nothing let anybody WRITE one. A theme is thirty-two declarations at its floor and fifty-five in the ones that ship, so
+  // authoring is a form — and the preview pane carries them as inline custom properties, which is
+  // what a `[data-theme]` block is, so the CSS it hands you cannot disagree with what you see.
+  "theme-studio": ThemeStudioShowcase,
+  // The catalogue seen rather than listed: the studio's own screen, drawn once per shipped theme.
+  // It reads what `themes/` publishes, so it cannot show a theme that does not exist.
+  "theme-gallery": ThemeGalleryShowcase,
   // Photos of fuel tickets in, a spreadsheet out. The only showcase whose columns are not written
   // here at all: rudof parses one SHACL document in wasm and the table, the validation and the CSV
   // are three readings of it. Also `useAiStream`'s second consumer.
   "field-notes": FieldNotesShowcase,
+  // A question over the archive, answered by a statement somebody can read: `Task` for the phases,
+  // `Tool` for the call, and `ToolOutput` holding a real `DataTableRoot` rather than JSON. The
+  // second consumer of `@kanzo-tech/ai`, and the one that pays for the io parts taking children.
+  discovery: DiscoveryShowcase,
 } as const;
 
 type ShowcaseName = keyof typeof SHOWCASES;

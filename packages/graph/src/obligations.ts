@@ -4,7 +4,7 @@ import { lookFrom, SHAPE, SHAPE_ORDER, SHAPE_OTHER, type Look } from "./graph-lo
 /**
  * What the graph's geometry owes, as a report rather than as prose.
  *
- * This is `@kanzo-tech/palette`'s `OBLIGATIONS` one section along, and the shape is deliberately the
+ * This is the retired derivation's `OBLIGATIONS` one section along, and the shape is deliberately the
  * same family: a stable `id` a caller can branch on, and a `reason` that is one line a panel can
  * show. What is added is the part that makes an obligation checkable instead of quotable — the
  * number, the bar, and what the number was measured against.

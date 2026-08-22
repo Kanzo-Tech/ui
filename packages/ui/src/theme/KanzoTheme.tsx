@@ -63,12 +63,10 @@ import { ThemeContext, useKanzoThemeOptional, type ThemeContextValue } from "./t
  * surprise than one that does not.
  */
 export interface KanzoThemeProps extends React.ComponentPropsWithoutRef<"div"> {
-  /** Which published document paints this subtree. Omit to inherit. */
-  palette?: string;
-  /** Which brand inside that document. Omit to take the document's default. */
-  identity?: string;
+  /** Which published theme paints this subtree. Omit to inherit. */
+  theme?: string;
   /**
-   * Which of the document's two blocks paints here — a *side*, never `null`.
+   * Which side paints here — a *side*, never `null`.
    *
    * There is no "ask the OS" at this level and its absence is deliberate: the OS question is answered
    * once, by the provider, and a scope either pins a side or follows the answer.
@@ -90,8 +88,7 @@ export interface KanzoThemeProps extends React.ComponentPropsWithoutRef<"div"> {
 const SCOPED = AXES.filter(({ attr }) => Boolean(attr));
 
 export function KanzoTheme({
-  palette,
-  identity,
+  theme,
   appearance,
   radius,
   font,
@@ -107,18 +104,17 @@ export function KanzoTheme({
   const overrides = React.useMemo(
     () =>
       ({
-        // A scope names ONE document for its whole subtree, so both sides carry it: the axis is
-        // keyed by appearance because a *user* may want different documents by day and by night,
-        // and a preview forcing a palette is not that user making a choice. `{}` when the prop is
-        // absent, which is what "inherit the page's" spells one level up.
-        paletteByAppearance: palette ? { light: palette, dark: palette } : {},
-        identity,
+        // A scope names ONE theme for its whole subtree, so both sides carry it: the axis is keyed
+        // by appearance because a *user* may want a different theme by day and by night, and a
+        // preview forcing one is not that user making a choice. `{}` when the prop is absent, which
+        // is what "inherit the page's" spells one level up.
+        themeByAppearance: theme ? { light: theme, dark: theme } : {},
         radius,
         font,
         monoFont,
         density,
       }) as Partial<ThemePrefs>,
-    [palette, identity, radius, font, monoFont, density],
+    [theme, radius, font, monoFont, density],
   );
 
   // Rendered as props rather than written in an effect: a scope is declarative and has no OS to
@@ -141,23 +137,18 @@ export function KanzoTheme({
 
   const ctx = React.useMemo<ThemeContextValue | null>(() => {
     if (!parent) return null;
-    const identities = palette
-      ? (parent.palettes.find((p) => p.value === palette)?.children ?? [])
-      : parent.identities;
     return {
       ...parent,
       ...overrides,
-      identities,
       appearance: appearance ?? parent.appearance,
       resolvedAppearance: resolvedAppearance ?? parent.resolvedAppearance,
       // A scope reports what it PAINTS, and this is the line that matters most: `useThemeTick` reads
-      // `resolvedPalette` during render, so a chart inside a scoped preview re-resolves its colours
-      // against the scope. Without it the chart would hold the page's palette in its buffers and
+      // `resolvedTheme` during render, so a chart inside a scoped preview re-resolves its colours
+      // against the scope. Without it the chart would hold the page's theme in its buffers and
       // quietly paint the wrong brand — the same defect a swapped stylesheet caused before.
-      resolvedPalette: palette || parent.resolvedPalette,
-      resolvedIdentity: identity || (palette ? (identities[0]?.value ?? "") : parent.resolvedIdentity),
+      resolvedTheme: theme || parent.resolvedTheme,
     };
-  }, [parent, overrides, palette, identity, appearance, resolvedAppearance]);
+  }, [parent, overrides, theme, appearance, resolvedAppearance]);
 
   const scoped = (
     <div

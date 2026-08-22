@@ -13,5 +13,5 @@
   and is recorded: the solid focus ring, kept against Shark's diluted one on a contrast
   measurement. That clause is now general, and says what a measurement is and what it is not:
   `decisions/a-measurement-overrules-the-reference.md`.
-- **Held by** `CONVENTIONS.md`, the `-foreground` rule; `packages/ui/src/alpha-steps.test.ts`,
-  the ring ban and the measurement that justifies the divergence
+- **Held by** `CONVENTIONS.md`, the `-foreground` rule; `packages/ui/src/simples/button.tsx`, `buttonVariants`,
+  which carries the solid focus ring and the measurement that justifies the divergence

@@ -56,7 +56,7 @@ export const HoverCardContent = (
             "bg-popover",
             "text-popover-foreground",
             "origin-(--transform-origin)",
-            "rounded-xl border shadow-lg/5",
+            "rounded-box border shadow-lg/5",
             "outline-hidden",
             "data-[state=closed]:zoom-out-[98%] data-[state=open]:zoom-in-[98%]",
             "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",

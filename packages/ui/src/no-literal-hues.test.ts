@@ -1,8 +1,6 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
-import { fileURLToPath } from "node:url";
-import { oklch, CHROMA_FLOOR } from "@kanzo-tech/palette";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { CHROMA_FLOOR, label, oklch, sourceFiles, subtrees, unreadable } from "./guard-corpus";
 
 /**
  * No hue is written by hand.
@@ -62,18 +60,20 @@ import { describe, expect, it } from "vitest";
  * - **`color()` is only understood in the sRGB spaces.** `color(display-p3 …)` and the other
  *   predefined spaces are not parsed; nothing in the repo emits one, and adding a reader for a
  *   space we do not produce would be a claim with no corpus behind it.
- * - **It does not read CSS, and one CSS file is standing inside the corpus.** The walk descends
- *   every directory under `src/`, then keeps only `.tsx?` — so `packages/ui/src/styles.css` is
- *   passed over in silence, by a filter, rather than by a decision anybody took about it. Measured
- *   (2026-07-30): it holds no hex, no `oklch(`, no `rgb(`/`hsl(` and no `color(` — zero colour
+ * - **It does not read CSS, and one CSS file per package is standing inside the corpus.** The walk
+ *   descends every directory under each package's `src/`, then keeps only `.tsx?` — so
+ *   `packages/ui/src/styles.css` and `packages/ai/src/styles.css` are passed over in silence, by a
+ *   filter, rather than by a decision anybody took about them. Measured (`ui` 2026-07-30, `ai`
+ *   2026-08-20): neither holds a hex, an `oklch(`, an `rgb(`/`hsl(` or a `color(` — zero colour
  *   notations of any kind, so nothing is hiding there today. That is worth writing down for the
  *   same reason ALLOWED below says why it is empty: an unexamined blind spot and a measured-empty
- *   one look identical from outside, and only one of them is a finding. A hue added to that file
+ *   one look identical from outside, and only one of them is a finding. A hue added to either file
  *   tomorrow would still pass. `alpha-steps.test.ts` and `logical-properties.test.ts` declare the
  *   same limit, from the same walk.
+ * - **The corpus is `ui` and `ai`, derived** — see `guard-corpus.ts` for how, and for why
+ *   `@kanzo-tech/palette` is deliberately not in it: a package whose subject is deriving hues would
+ *   read as one long violation of a rule that is about hues written *by hand*.
  */
-
-const SRC = dirname(fileURLToPath(import.meta.url));
 
 /**
  * Files whose subject matter *is* colour, where literals are the content rather than a decision.
@@ -236,34 +236,29 @@ const READERS: { name: string; pattern: RegExp; chroma: (m: RegExpMatchArray) =>
 const stripComments = (source: string) =>
   source.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/.*$/gm, "$1");
 
-function* walk(dir: string): Generator<string> {
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) yield* walk(path);
-    else if (/\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)) yield path;
-  }
-}
-
-const FILES = [...walk(SRC)].sort();
+const FILES = sourceFiles();
 
 /**
  * The corpus, stated so it cannot shrink without saying so.
  *
  * A floor rather than a count, because the point is not to freeze the file list — it is that a walk
  * which finds nothing, or a walk that stops descending, reports exactly the same green as a real
- * pass. Every directory under `src/` is named: `charts/` and `table/` were the two that a non-
- * recursive reader would have dropped, and they are the layers with the most colour in them.
+ * pass. Every subtree of every package is asked for a file of its own: `ui/charts/` and `ui/table/`
+ * were the two that a non-recursive reader would have dropped, and they are the layers with the most
+ * colour in them; `ai/` is the whole package that no scan in this directory read until 2026-08-20.
+ * The list is derived from the tree rather than written out here, because a hand-written one can
+ * only name the layers somebody remembered — which is the same not-seeing-the-corpus this guard is
+ * built to fail on.
  */
-const LAYERS = ["charts", "composites", "layouts", "lib", "simples", "table", "theme"];
-
 describe("no literal hues in the source", () => {
-  it("reads every source file under src/, in every layer", () => {
-    expect(FILES.length, "the walk found almost nothing — it is not reaching src/").toBeGreaterThan(
-      100,
-    );
-    for (const layer of LAYERS) {
-      const inLayer = FILES.filter((f) => relative(SRC, f).startsWith(`${layer}/`));
-      expect(inLayer.length, `${layer}/ contributed no file to the scan`).toBeGreaterThan(0);
+  it("reads every source file in every package of the corpus, in every layer", () => {
+    expect(
+      FILES.length,
+      "the walk found almost nothing — it is not reaching the packages' src/",
+    ).toBeGreaterThan(100);
+    for (const subtree of subtrees()) {
+      const inSubtree = FILES.filter((f) => label(f).startsWith(subtree));
+      expect(inSubtree.length, `${subtree} contributed no file to the scan`).toBeGreaterThan(0);
     }
   });
 
@@ -272,12 +267,8 @@ describe("no literal hues in the source", () => {
     // the largest file in the chart layer as binary and skip it in silence. `readFileSync(…, "utf8")`
     // reads it regardless, so this guard never had that hole — but a NUL is still a defect, and one
     // that would blind any tool a future reader reaches for first.
-    const binary = FILES.filter((f) => readFileSync(f).includes(0)).map((f) => relative(SRC, f));
+    const { binary, empty } = unreadable(FILES);
     expect(binary, "a NUL byte makes this file invisible to grep — strip it").toEqual([]);
-
-    const empty = FILES.filter((f) => readFileSync(f, "utf8").trim() === "").map((f) =>
-      relative(SRC, f),
-    );
     expect(empty, "an empty source file is a scan that proves nothing").toEqual([]);
   });
 
@@ -285,7 +276,7 @@ describe("no literal hues in the source", () => {
     const offenders: string[] = [];
 
     for (const file of FILES) {
-      const rel = relative(SRC, file);
+      const rel = label(file);
       if (ALLOWED.has(rel)) continue;
       const source = stripComments(readFileSync(file, "utf8"));
 
@@ -307,7 +298,7 @@ describe("no literal hues in the source", () => {
     const offenders: string[] = [];
 
     for (const file of FILES) {
-      const rel = relative(SRC, file);
+      const rel = label(file);
       if (ALLOWED.has(rel)) continue;
       for (const [hit] of stripComments(readFileSync(file, "utf8")).matchAll(TAILWIND_PALETTE)) {
         offenders.push(`${rel}: ${hit}`);

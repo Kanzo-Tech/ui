@@ -1,7 +1,6 @@
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { dirname, join, relative, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { label, resolvePath, sourceFiles, subtrees, unreadable } from "./guard-corpus";
 
 /**
  * The client boundary, as a test rather than as a habit.
@@ -44,9 +43,14 @@ import { describe, expect, it } from "vitest";
  *   hook-bearing module without a directive impossible.
  * - **It says nothing about `/editor`, `/table` and `/analytics` isolation**, which is
  *   `index.test.ts`'s claim, nor about whether a client module is *worth* being one.
+ * - **The corpus is `ui` and `ai`, derived by `guard-corpus.ts`.** It was `packages/ui/src` alone
+ *   until 2026-08-20, and `@kanzo-tech/ai` — a package whose every module is a React component
+ *   drawn with `ui`'s parts, and therefore exactly the population this rule is about — had never
+ *   been read. Widening it found one surplus directive, on `ai/ai-mark.tsx`. `@kanzo-tech/graph`
+ *   is out for the reason recorded in `guard-corpus.ts` and its `use-*.ts` modules are therefore
+ *   unchecked, which is the one open gap: they are hooks by name, so the shape most likely to be
+ *   wrong there is a *missing* directive — the expensive half.
  */
-
-const SRC = resolve(dirname(fileURLToPath(import.meta.url)));
 
 /**
  * Anything that makes a module stateful, and therefore a client module.
@@ -66,20 +70,8 @@ const SRC = resolve(dirname(fileURLToPath(import.meta.url)));
 const CLIENT_FEATURE =
   /\buse[A-Z]\w*\s*[(<]|\bcreateContext\s*[(<]|\.addEventListener\s*\(|\son[A-Z]\w*=\{/;
 
-function sources(dir: string, out: string[] = []): string[] {
-  for (const name of readdirSync(dir)) {
-    const path = join(dir, name);
-    if (statSync(path).isDirectory()) sources(path, out);
-    else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name)) out.push(path);
-  }
-  return out;
-}
-
-const files = sources(SRC);
+const files = sourceFiles();
 const text = new Map(files.map((f) => [f, readFileSync(f, "utf8")]));
-
-/** Every directory under `src/`, named so the walk cannot quietly stop descending. */
-const LAYERS = ["charts", "composites", "layouts", "lib", "simples", "table", "theme"];
 
 /**
  * A module needs the directive when **it itself** uses a client feature — not when something it
@@ -99,7 +91,7 @@ const read = (file: string) => {
   const source = text.get(file);
   // Without this, a renamed or deleted file reads as the string "undefined", matches nothing, and
   // every assertion about it passes. That is how a guard survives the disappearance of its subject.
-  if (source === undefined) throw new Error(`${relative(SRC, file)} is not in the scanned corpus`);
+  if (source === undefined) throw new Error(`${file} is not in the scanned corpus`);
   return source;
 };
 
@@ -108,29 +100,30 @@ const needsDirective = (file: string) => CLIENT_FEATURE.test(read(file));
 const has = (file: string) =>
   /^\s*(?:\/\/[^\n]*\n|\/\*[\s\S]*?\*\/\s*)*["']use client["']/.test(read(file));
 
-const name = (file: string) => relative(SRC, file);
+const name = label;
 
 describe("the client boundary", () => {
-  it("reads every source file under src/, in every layer", () => {
+  it("reads every source file in every package of the corpus, in every layer", () => {
     // A walk that finds nothing reports the same green as a real pass — and both assertions below
     // are `toEqual([])`, which is exactly what an empty corpus produces. 100 is a floor, not a count.
-    expect(files.length, "the walk found almost nothing — it is not reaching src/").toBeGreaterThan(
-      100,
-    );
-    for (const layer of LAYERS) {
+    expect(
+      files.length,
+      "the walk found almost nothing — it is not reaching the packages' src/",
+    ).toBeGreaterThan(100);
+    // Derived, so a layer added to `ui` and a package added to the corpus are both covered without
+    // an edit here. The hand-written list this replaced could only name what somebody remembered.
+    for (const subtree of subtrees()) {
       expect(
-        files.filter((f) => name(f).startsWith(`${layer}/`)).length,
-        `${layer}/ contributed no file to the scan`,
+        files.filter((f) => name(f).startsWith(subtree)).length,
+        `${subtree} contributed no file to the scan`,
       ).toBeGreaterThan(0);
     }
 
     // A NUL byte makes `file(1)` and every `grep -I` treat a source file as binary and skip it in
     // silence; `charts/chart-inputs.tsx` held one. `readFileSync(…, "utf8")` reads it regardless,
     // so this scan never had that hole — but the next reader will reach for grep first.
-    const binary = files.filter((f) => readFileSync(f).includes(0)).map(name);
+    const { binary, empty } = unreadable(files);
     expect(binary, "a NUL byte makes this file invisible to grep — strip it").toEqual([]);
-
-    const empty = files.filter((f) => read(f).trim() === "").map(name);
     expect(empty, "an empty source file is a scan that proves nothing").toEqual([]);
   });
 
@@ -162,12 +155,16 @@ describe("the client boundary", () => {
     // The specific regression: `chart-config.ts` calls `categoricalColor`, and both its callers are
     // public `/analytics` exports. If `lib/token-color.ts` ever becomes a client module again, a
     // Server Component calling `chartSeriesEntries` or `chartSeriesColor` throws.
-    for (const file of ["lib/token-color.ts", "charts/chart-config.ts", "charts/chart-spec.ts"]) {
+    // Spelled `<package>/<path under src>`, the same way this guard reports a failure — and
+    // resolved through `guard-corpus.ts`, so an entry naming a package that left the corpus throws
+    // rather than quietly asserting nothing.
+    for (const file of ["ui/lib/token-color.ts", "ui/charts/chart-config.ts", "ui/charts/chart-spec.ts"]) {
       // Named, so a rename cannot turn this into three assertions about nothing. `read` throws on
       // a file outside the corpus for the same reason — a missing file used to read as "undefined",
       // match no directive, and pass.
-      expect(existsSync(join(SRC, file)), `${file} has moved — this test names it`).toBe(true);
-      expect(has(join(SRC, file)), file).toBe(false);
+      const path = resolvePath(file);
+      expect(existsSync(path), `${file} has moved — this test names it`).toBe(true);
+      expect(has(path), file).toBe(false);
     }
   });
 
