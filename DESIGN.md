@@ -180,30 +180,38 @@ be skipped.
 `a-shell-has-two-legal-shapes`, `layout-is-not-ark-native`, `a-filter-is-a-value`,
 `a-grammar-ships-its-whole-vocabulary`, `charts-and-table-ship-code-forms-ship-a-guide`,
 `a-chart-fails-silently-and-well-painted`, `ai-assist-composes-over-pure-inputs`,
-`two-themers-and-one-root`, `palette-is-authoring-time`, `one-changeset-until-the-first-publish`,
+`two-themers-and-one-root`, `one-changeset-until-the-first-publish`,
 `match-the-reference`, `provenance-beats-purity`, `an-audit-is-a-map-not-an-oracle`,
 `a-rule-broken-three-times-becomes-a-test`, `a-docs-defect-is-a-library-defect`,
 `a-generated-index-with-no-second-list`, `a-name-shark-ships-is-ours`,
 `a-measurement-overrules-the-reference`, `a-house-principle-withholds-no-name`,
 `the-skip-target-is-the-main-landmark`, `a-part-is-named-by-its-machine`,
-`adopt-the-part-the-machine-ships`, `a-role-earns-its-name-or-becomes-a-step`,
-`an-invalid-boundary-needs-no-dark-branch`, `a-section-brings-measurable-obligations`,
+`adopt-the-part-the-machine-ships`, `an-invalid-boundary-needs-no-dark-branch`, `a-section-brings-measurable-obligations`,
 `density-has-no-legibility-floor`,
 `a-canvas-component-owns-the-three-that-never-differ`, `a-dense-id-is-thirty-two-bits`,
 `a-chart-needs-no-factory`, `a-tile-is-an-address-not-a-verb`,
 `a-look-is-form-and-a-channel-is-a-binding`, `monochrome-is-a-palette-not-a-look`,
-`a-categorical-set-may-use-the-palettes-own-colours`, `a-look-declares-what-it-changes`,
+`a-look-declares-what-it-changes`,
 `a-filter-is-a-predicate-not-a-mask`, `the-declaration-ships-with-the-library`,
 `a-preference-is-contributed-like-a-token`,
 `a-column-is-read-from-the-shape`,
 `a-far-view-is-a-sample-not-a-summary`, `an-edge-is-drawn-from-bytes-in-hand`,
-`a-class-list-is-source-so-the-barrel-budget-moves`.
+`a-class-list-is-source-so-the-barrel-budget-moves`,
+`a-hook-takes-the-name-of-the-request-it-makes`,
+`a-line-takes-candidates-a-paragraph-takes-a-continuation`, `a-theme-is-one-flat-block`,
+`a-tool-panel-composes-its-snippet`.
 
 Also live — `a-compound-keeps-its-root-even-when-the-root-is-an-alias`,
-`steps-claims-a-tab-role-it-cannot-keep`, `prose-that-is-hashed-is-data`,
-`the-coordinate-box-is-the-corpus-extent`.
+`steps-claims-a-tab-role-it-cannot-keep`, `the-coordinate-box-is-the-corpus-extent`, `the-ai-surfaces-are-their-own-package`,
+`ai-elements-is-a-source-not-a-reference`,
+`the-structure-view-is-treeview-until-the-data-nests`.
 
-**Open** — `a-palette-is-chosen-per-appearance`.
+**Open** — none.
 
-**Superseded** — `field-has-no-consumer`, by `adoption-before-design`.
+**Superseded** — `palette-is-authoring-time`, `a-role-earns-its-name-or-becomes-a-step`,
+`a-categorical-set-may-use-the-palettes-own-colours`, `prose-that-is-hashed-is-data` and
+`a-palette-is-chosen-per-appearance`, all by the flat-block record above: the colour derivation and
+the two-mode document they were written about are deleted, and the record that replaces them carries
+the measurement.
+`field-has-no-consumer`, by `adoption-before-design`.
 `one-theme-provider`, by `two-themers-and-one-root`.
