@@ -382,6 +382,29 @@ somebody meant to add one.
    two land and it needs no allowlist at all, which is the only version worth having: an allowlist
    is the second list `documented-exports.test.ts` argues against.
 
+   **Measured 2026-08-22, and the residue is 13 rather than 2.** The 2 was `ui`'s components; the
+   reverse question is asked of every entry point, so it also covers `theme`, `graph` and `ai`, and
+   `theme` is where the rest live. Six were closed the same day — `AlertDialogBody`,
+   `CalendarTodayTrigger`, `CalendarClearTrigger`, `ColorPickerTransparencyGrid`, `ChartFacetY`,
+   `chartSeriesColor` — plus `ToggleGroup`/`ToggleGroupItem`, which had no section anywhere and now
+   have one on `actions/toggle.mdx`. What is left is `KanzoTheme`, `ThemeNotice` and eleven of
+   `@kanzo-tech/theme`'s own exports: `CORE_NAMESPACE`, `DENSITY_OBLIGATIONS`, `STORAGE_KEY`,
+   `checkDensity`, `fallbackChain`, `inkFor`, `resolvePref`, `resolveSectionToken`, `sectionOf`,
+   `themeData`, `withSection`. **All thirteen belong to pages the theme refoundation holds open**
+   (`(root)/theming.mdx`, `(root)/sections.mdx`, `layout/preferences.mdx`), and the surface moved
+   twice during the measurement itself — `inkFor`, `AA`, `contrast`, `hex` and `oklch` appeared in
+   `theme`'s `dist` between two runs twenty minutes apart. Waiting is not caution here; the list
+   would be wrong by tomorrow.
+
+   **Do not reuse the claim sites for the reverse direction.** They are PascalCase-or-`use[A-Z]` by
+   construction, which is right for "is this name real?" and useless for "is this name mentioned?":
+   `cn`, `sql`, `min`, `buttonVariants` and 280 others can never be a claim, so the reverse question
+   asked that way reports 280 misses of which 267 are the extractor's shape rule. The site that
+   works is the flat one — **does the identifier appear anywhere in the corpus at all** — and its
+   own weakness has to be written into the guard: `sum`, `mode`, `column` and `forces` pass on any
+   page using the English word. That is the honest trade for a question about *absence*, where a
+   false pass costs a missing sentence and nothing else.
+
    Where it goes is settled too: **into `documented-exports.test.ts`, not a second file.** That
    guard already resolves every entry point's real export set through the TypeScript checker and
    already parses every page; the reverse assertion is the same two inputs read the other way, and

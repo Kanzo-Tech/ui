@@ -50,10 +50,13 @@ A hidden input is rendered inside the root, so the picker submits with a surroun
 
 ## Anatomy
 
-Two parts are not in the tree. `ColorPickerView` is the column that holds the area and the sliders,
+Three parts are not in the tree. `ColorPickerView` is the column that holds the area and the sliders,
 and it takes Ark's `format` — it is how one picker shows an `rgba` view and an `hsla` one without
 two pickers. `ColorPickerSwatchPreview` is the round chip of the current colour, sized off the
-`InputGroup` it sits in, and it is `pointer-events-none`: a preview, never a target.
+`InputGroup` it sits in, and it is `pointer-events-none`: a preview, never a target. And
+`ColorPickerTransparencyGrid` is the chequerboard that goes *behind* a swatch so alpha reads as
+alpha rather than as a paler colour — `ColorPickerSwatchPreview` already lays one down, and this is
+exported for the swatch you draw yourself.
 
 ```text
 <ColorPicker>

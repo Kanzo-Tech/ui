@@ -177,6 +177,8 @@ what it is made of.
 | `CalendarLabel` | The field's label. |
 | `CalendarTrigger` | The button that opens the popover. |
 | `CalendarPresetTrigger` | A button that sets a value — Ark's presets, so `value="last7Days"` and the rest. |
+| `CalendarTodayTrigger` | An outline `Button` reading "Today" that calls `selectToday()`. It renders its own `CalendarContext` to reach the machine, so it needs nothing passed to it. |
+| `CalendarClearTrigger` | Ark's clear trigger, unstyled — pass a `Button` with `asChild` and the label is yours. |
 | `CalendarContext` | The render prop. Takes a function, renders no element of its own, and is how `CalendarTableDays` reads the weeks. |
 
 `DatePicker` names two more, and both are worth knowing for what they are rather than what they

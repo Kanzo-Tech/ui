@@ -130,6 +130,10 @@ AlertDialogFooter
 └── AlertDialogAction     (default or destructive Button)
 ```
 
+`AlertDialogBody` is exported alongside them for prose longer than the header's `description` —
+it is `DialogBody` with one rule added, dropping its top padding when an `AlertDialogHeader` is
+already above it, so the two do not stack their spacing into a gap.
+
 `AlertDialogCancel` already wraps itself in a close trigger. `AlertDialogAction` does not — it
 is a plain Button, because the confirm path usually runs an async handler and decides for itself
 when to close; wrap it in `AlertDialogClose asChild` when it should close immediately.

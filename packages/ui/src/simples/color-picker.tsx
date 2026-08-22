@@ -502,13 +502,7 @@ export const ColorPickerSwatchPreview = (
       {...rest}
       data-slot={slot ?? "color-picker-input-swatch"}
     >
-      <ArkColorPicker.TransparencyGrid
-        className={cn(
-          "size-full rounded-[calc(var(--radius-sm)-0.5px)]",
-          "bg-[linear-gradient(45deg,#e4e4e4_25%,transparent_25%),linear-gradient(-45deg,#e4e4e4_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#e4e4e4_75%),linear-gradient(-45deg,transparent_75%,#e4e4e4_75%)]",
-          "bg-position-[0_0,0_4px,4px_-4px,-4px_0] bg-size-(--spacing(2))"
-        )}
-      />
+      <ColorPickerTransparencyGrid />
       <ArkColorPicker.ValueSwatch className="z-1 size-full" />
     </ark.div>
   );

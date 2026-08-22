@@ -55,7 +55,44 @@ icon follows the state without any of your own conditional rendering.
 
 <ComponentPreview componentName="toggle" fileName="example-disabled" />
 
+## As a group
+
+`ToggleGroup` holds several toggles as one control and owns their `variant`, `size` and `spacing` —
+`ToggleGroupItem` reads all three off it, so a group is styled in one place and an item never
+disagrees with its neighbours.
+
+<ComponentPreview componentName="toggle" fileName="example-group" />
+
+```tsx
+import { ToggleGroup, ToggleGroupItem } from "@kanzo-tech/ui";
+```
+
+```tsx
+<ToggleGroup aria-label="Text style" onValueChange={(d) => setMarks(d.value)} value={marks} variant="outline">
+  <ToggleGroupItem aria-label="Bold" value="bold">
+    <BoldIcon />
+  </ToggleGroupItem>
+</ToggleGroup>
+```
+
+`multiple` defaults to **true**, which is the opposite of Ark's: a group of independent marks is
+what a toggle group usually is, and one-of-N is `SegmentGroup`'s or `Tabs`'s job far more often than it
+is this one's. Pass `multiple={false}` where the choice really is exclusive and deselecting is
+meant to be possible — that is the one thing `SegmentGroup` will not do.
+
+`spacing` is a gap in spacing units and defaults to `0`, which is not "no styling" but the
+segmented look: at zero the items drop their inner radii, only the ends stay round, and an
+`outline` group collapses its shared borders into single hairlines. Any other value separates them
+into individual toggles.
+
+`orientation="vertical"` stacks the group and moves the rounding to the top and bottom ends —
+the activity rails in the [showcases](/docs/showcases) are this, and the
+[`PanelRail`](/docs/blocks/panel-rail) block is the composed version.
+
 ## API Reference
+
+`useToggleGroup` is Ark's `useToggleGroupContext`, re-exported: it reads the group's value and
+`setValue` from anywhere inside one.
 
 `toggleVariants` is exported for a pressed/unpressed control of your own — it is `buttonVariants` plus the `data-[state=on]` wash, which is the part worth not rewriting.
 

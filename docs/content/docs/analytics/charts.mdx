@@ -339,6 +339,11 @@ the *column* `region`. A series without a colour falls back to its slot in the c
 the token `var(--chart-N)`, not as a baked hex, so one answer follows both the light/dark flip and
 whichever client is being served.
 
+`chartSeriesColor(config, key)` is exported for anything outside the plot that has to agree with it
+— a chip beside a row, a heading, a sparkline of your own. It answers what the chart answered:
+`color` if the series declared one, its categorical slot if it did not, and `undefined` for a key
+the config does not carry.
+
 The categorical set belongs to the [tenant's palette document](/docs/theming),
 not to this layer: N hues written into `--chart-1..8` by whoever authored the theme. A chart reads the token
 and that is the **only** copy. A second source of truth in this layer — eight literal hexes, or a
@@ -572,6 +577,11 @@ rewrites the scales.
 | `domain` `scale` `inset` `padding` | |
 
 Anything else goes through `ChartRoot`'s `attributes`.
+
+`ChartFacetX` and `ChartFacetY` are the same descriptor over the `fx` and `fy` scales — the ones a
+faceted plot puts its small multiples on. Same props, minus the four that only mean something on a
+measure: a facet is always a band, so `scale`, `nice`, `zero` and `percent` are not there. `anchor`
+still hides the axis while keeping the panels.
 
 ### Legends
 
