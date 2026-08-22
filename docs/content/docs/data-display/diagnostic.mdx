@@ -1,0 +1,228 @@
+---
+title: Diagnostic
+description: A severity, a message, and the positions it points at — collapsible, and jumpable.
+---
+
+<ComponentPreview componentName="diagnostic" fileName="example-default" />
+
+## Usage
+
+```tsx
+import {
+  Diagnostic,
+  DiagnosticActions,
+  DiagnosticContent,
+  DiagnosticDescription,
+  DiagnosticFrame,
+  DiagnosticFrames,
+  DiagnosticHeader,
+  DiagnosticList,
+  DiagnosticSeverity,
+  DiagnosticSource,
+  DiagnosticTitle,
+  DiagnosticTrigger,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<Diagnostic variant="destructive">
+  <DiagnosticHeader>
+    <DiagnosticSeverity>error</DiagnosticSeverity>
+    <DiagnosticTitle>A writ may not be signed by fewer than four</DiagnosticTitle>
+    <DiagnosticSource>a writ needs a seal</DiagnosticSource>
+    <DiagnosticActions>
+      <DiagnosticTrigger>2 positions</DiagnosticTrigger>
+    </DiagnosticActions>
+  </DiagnosticHeader>
+
+  <DiagnosticContent>
+    <DiagnosticDescription>The party is three, and none of them a warden.</DiagnosticDescription>
+    <DiagnosticFrames>
+      <DiagnosticFrame
+        column={3}
+        label="the rule"
+        line={4}
+        onSelect={() => open("standing-orders.rules", 4)}
+        path="standing-orders.rules"
+      />
+      <DiagnosticFrame label="as claimed" path="ledger/Q-1058/party" secondary />
+    </DiagnosticFrames>
+  </DiagnosticContent>
+</Diagnostic>
+```
+
+A validation violation, a compiler diagnostic and a stack trace are the same three things: **a
+severity, a message, and a list of source positions you can jump to**. So this vocabulary is not
+about any of them in particular — the library displays errors, and where they came from is the
+product's business.
+
+Open, closed, the animation and the trigger's `aria-expanded` are Ark's
+[Collapsible](/docs/layout/collapsible). `defaultOpen`, `open` and `onOpenChange` pass straight
+through to it.
+
+## Collapsed is the state that matters
+
+Most diagnostics are never opened, so the header is the component. It holds four things — the
+severity, the message, what produced it, and the control that opens the rest — and stays on **one
+line wherever one line fits**. The title truncates rather than wrapping, and un-truncates when the
+row is open: a stack of six findings has to align down its left edge or it cannot be scanned at all.
+
+**Where one line does not fit, it wraps, and that is the correction.** The header was `flex-nowrap`,
+which is not the same rule: the severity, the source and the trigger are all `shrink-0`, so in a
+narrow column they take the width and the title — `flex-1` — shrinks to nothing. Measured on the
+[metadata-form](/docs/showcases/metadata-form) findings panel at 24 % of the workspace: a 143 px
+header with **the title 0 px wide, starting 72 px past its own right edge.** Not truncated with an
+ellipsis. Gone, leaving three rows reading *This field is required.* with nothing to tell them apart.
+
+Nothing changes for a header that fits — the title is `basis-0`, so it never forces a break on its
+own, and a collapsed row in a wide list is still 40 px. What it buys is that `basis-full` on
+`DiagnosticTitle` now means what you would expect: *this goes on its own line*, which is the shape
+a narrow column wants and the one every compiler prints.
+
+Everything else belongs in `DiagnosticContent`: the long form of the message, and the positions.
+
+## Severity
+
+`variant` (`destructive` · `warning` · `info`) is declared **once**, on the root:
+
+```tsx
+<Diagnostic variant="warning">
+  <DiagnosticHeader>
+    <DiagnosticSeverity>warning</DiagnosticSeverity>
+    …
+```
+
+It reaches the card and the badge on one transport, and it used to take two:
+
+- **Colour is the recipe's**, applied to the root like any other variant in this library. It used to
+  travel as `data-variant` read back through three `group-data-` lines that repainted, by hand, the
+  soft variants `Badge` already ships — a second spelling of the same three fills, which is exactly
+  what a second transport becomes.
+- **The icon and the badge's own variant** come from the root through context, because no selector
+  can produce an element and `Badge` takes its variant as a prop. `DiagnosticSeverity` draws the
+  glyph; the word beside it is yours.
+
+`data-variant` is still written on the root. It is a **styling hook for a consumer**, the same one
+every component here offers, and nothing inside reads it any more — which is the honest version of
+what this paragraph used to claim.
+
+The card wears its variant the way an [`Alert`](/docs/overlays/alert) does — the wash at `-a3`,
+the whole outline at `-a6`, the glyph at the family. A diagnostic *is* what an `Alert` is, a
+message with a severity, so it takes the same surface rather than a second one.
+
+It used to wear a **coloured inline-start edge** over a neutral wash: a card with a bar down one
+side. That shape appears nowhere in Shark UI and nowhere else in this library, and it is what made
+the component read as machine furniture rather than as one of these. The badge on the header went
+the same way — it was `Badge`'s recipe respelled by hand, three `group-data-` lines repainting the
+three soft variants `Badge` already ships, and it is now a real `Badge`.
+
+## Frames
+
+A frame is one position: a `path`, and optionally a `line`, a `column` and a `label`. It is drawn
+as a location rather than as a string — the directory recedes, the file carries the weight, and the
+line and column are tabular so a column of frames lines up:
+
+```text
+ledger/Q-1058/party:12:7            as claimed
+└ muted     └ the file  └ tabular
+```
+
+Those three pieces are `diagnostic-frame-directory`, `diagnostic-frame-file` and
+`diagnostic-frame-position`, so a consumer can restyle any of them without guessing.
+
+**A frame is a `<button>` only when the call site passes `onSelect`.** Without one it is static
+text, because a control that answers to nothing is still announced as a control:
+
+```tsx
+<DiagnosticFrame path="standing-orders.rules" line={4} onSelect={jump} />  {/* a button */}
+<DiagnosticFrame path="standing-orders.rules" line={4} />                  {/* static text */}
+```
+
+The two also **look** different at rest: a pressable frame carries a small arrow, because hover and
+focus are states nobody scanning a list is in yet. It also takes an `aria-label` composed from the
+position and the label, since the rhythm that separates them on screen is visual only.
+
+`secondary` marks a position the author did not write — inferred, generated, or upstream in a
+dependency. It is **dimmed, never hidden**: it is usually the frame that explains the others. It
+recedes on two channels — the row drops to the muted tier and the file loses its weight — so the
+distinction survives a reader who is scanning rather than reading. It dims to `--muted-foreground`
+rather than to `--faint`, which is a measurement and not a preference; the recipe carries it. The
+state is mirrored to `data-secondary`,
+so a consumer can collapse or filter on it in CSS without the component deciding.
+
+`DiagnosticFrames` declares no list role. A `role="listitem"` on a frame that is a `<button>`
+replaces the implicit `button` role — the trap [Item](/docs/data-display/item) documents — and a
+list whose items are only half announced is worse than a stack of controls with no list role.
+
+## Grouped
+
+`DiagnosticList` is a real `<ul>` and each `Diagnostic` a real `<li>` — the same pair as `ItemGroup`
+and `Item`, one level closer to the element. A run of findings from one check is a list; a single
+diagnostic in a panel does not need one.
+
+**The `<ul>` also declares `role="list"`, and that is not belt-and-braces.** WebKit removes list
+semantics from a list whose `list-style` is `none` — the whole list, items included — so a styled
+`<ul>` announces nothing in VoiceOver. This page claimed the roles for months while the DOM carried
+neither, and the tests agreed: jsdom does not model it, so `getByRole("listitem")` resolved off the
+element name and passed. `packages/ui/src/list-semantics.test.ts` is the guard that closed it, over
+this list, `MessageList` and `TaskList` — the three that had the same defect.
+
+## Anatomy
+
+```text
+DiagnosticList                     role="list"
+└── Diagnostic                     role="listitem", collapsible root, owns `variant`
+    ├── DiagnosticHeader           the always-visible row, one line
+    │   ├── DiagnosticSeverity     the badge — icon and colour from the root
+    │   ├── DiagnosticTitle        the short message
+    │   ├── DiagnosticSource       what produced it (a shape name, a rule id)
+    │   └── DiagnosticActions
+    │       └── DiagnosticTrigger  the expand control
+    └── DiagnosticContent          the collapsible body
+        ├── DiagnosticDescription  longer prose
+        └── DiagnosticFrames
+            └── DiagnosticFrame    one position — directory · file · line:column · label
+```
+
+## API Reference
+
+### Diagnostic
+
+Wraps `Collapsible`, so it takes that machine's props (`open`, `defaultOpen`, `onOpenChange`,
+`disabled`) as well as the ones below.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `variant` | `"destructive" \| "warning" \| "info"` | `"destructive"` |
+
+Carried in context for the badge's icon and its own variant, and mirrored to `data-variant` as a
+hook for a consumer. Neither is a prop on `DiagnosticSeverity`, which is what stops the two
+drifting apart.
+
+### DiagnosticFrame
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `path` | `string` | — (required) |
+| `line` | `number` | — |
+| `column` | `number` | — |
+| `label` | `string` | — |
+| `secondary` | `boolean` | `false` |
+| `onSelect` | `() => void` | — |
+
+With `onSelect` it renders an `ark.button`; without it, an `ark.span`. Its content comes from these
+props rather than from children — a path and a line are data, not a layout tree.
+
+### Other parts
+
+`DiagnosticTrigger` wraps [CollapsibleTrigger](/docs/layout/collapsible) and appends the chevron
+indicator, so its children are the label beside it; `DiagnosticContent` wraps `CollapsibleContent`.
+The rest render a `div`, a `span` or a `p` and take that element's props. Every part accepts `slot`
+to rename what it answers to.
+
+`DiagnosticSource` is the first thing to go when the row runs out of room — it is hidden below the
+`sm` breakpoint, because the message outranks the id of the rule that produced it.
+
+Cluster more than one control in the header with
+[ButtonGroup](/docs/actions/button-group) rather than by hand — a copy button beside the expand
+control is a group, not two loose buttons.
