@@ -1,217 +1,123 @@
 # The AI layer — where it stands and what is next
 
-**Read §0 and stop there.** It is the end-of-day state for 2026-08-21 and it supersedes everything
+**Read §0 and stop there.** It is the end-of-day state for 2026-08-22 and it supersedes everything
 under it; the rest is kept because it carries items §0 points at, not because it describes the tree.
 
 Started 2026-08-20. The design memo it continues is
 `https://claude.ai/code/artifact/4cea4027-0ef7-411c-9199-cbdb9fcb75bc` ("Where the AI Layer Goes");
 read that for the *why*, this for the *next*.
 
-**Nothing here is committed**, and a parallel session has uncommitted work in `packages/theme`.
+**Six commits landed on 2026-08-22 and the rest of the tree is not committed**, most of it a
+parallel session's theme refoundation. §0 has the list and the rule: commit by explicit path.
 
 ---
 
-## 0. START HERE — 2026-08-21, end of the second session
+## 0. START HERE — 2026-08-22, end of the third session
 
-**Read this section. §0b below is the same day's morning plan and its items are still live; §§2–8
-are older and only matter if you pick up one of the items they name.**
+**Read this section and stop. §0b below is the 21st's morning plan; its items are either closed
+here or named here as open. §§2–8 are older and only matter if you pick up something they name.**
 
 ### The tree
 
-**Nothing is committed.** 154 paths: 71 modified, 12 renamed, 3 deleted, 68 untracked — the
-untracked set includes `packages/ai` entirely, `.planning/`, five `decisions/` records and
-`docs/components/preview-heights.json`.
+**Six commits landed this session** — the first code committed on this branch since `494d6ea`:
 
-Green: `pnpm build`, `typecheck`, `lint`, `test` (**1065** — 212 · 67 · 579 · 77 · 89 · 41), `size`
-(root barrel 42.95 kB of 43.5, and that headroom is thin), `smoke`, and the docs build.
+```
+374c35b docs(ai): the group demonstrates more than one idea per page
+cba283c fix(ui): a diagnostic header wraps, and the message stops measuring zero
+783438d docs(tool): the panel composes a snippet rather than growing a third code chrome
+a93adae feat(ai): a turn is a list of parts, and the components finally join up
+9d92264 docs: every export is named somewhere, and three finished examples stop hiding
+623baad feat(ui): the find panel is ours, and the white field had nowhere left to hide
+```
 
-**`check:generated` is red, on two files and neither is stale.** `packages/theme/theme-data.json`
-is another session's. `packages/theme/tokens.css` is this session's `--animate-arrive` block, which
-lives **above** the generated marker and survives `gen` byte for byte (`git diff --stat` says 17
-lines added and nothing else). The check compares against HEAD, so any uncommitted edit to a file
-on that list makes it red. Do not regenerate to "fix" it.
+**Everything else is still uncommitted — 289 paths**, and the large majority is **another session's
+theme refoundation**, not this work. `packages/palette` is deleted, `packages/theme/palettes/` is
+deleted, `packages/theme` does not typecheck, and `docs/showcases/theme-studio/` is theirs.
+`.planning/THEME-REFOUNDATION.md` is their plan. **Commit by explicit path, and never
+`git add -A`.** Every commit above used `git commit -- <paths>` precisely because the index already
+held staged files from other sessions, two of them under `packages/theme`.
 
-**Traps that cost time today, so they do not cost it again:**
+Green as of the last run: `pnpm lint`, `packages/ui` build, `packages/ai` typecheck and its 93
+tests, `packages/ui` guards (`decisions` 14, `documented-exports` 5, `shark-parity` 11, `index` 15,
+`data-slot`, `logical-properties`, `no-literal-hues`, `client-boundary`, `codemirror-dark-parity`,
+`list-semantics`), `size`, `smoke`, and the docs typecheck apart from the theme errors above.
 
-- `packages/ai` is untracked, so a git worktree branched off this tree has none of it.
-- The docs dev server (`cd docs && pnpm dev`, port 3100, `--webpack`) died three times mid-session.
-  Restart it before probing the DOM; a `curl` returning 000 is the tell.
-- The box was running League of Legends for part of the afternoon. `palette` and `ui` failed with
-  `Test timed out`, **different tests each run** — that is contention, not a regression. Check
-  `uptime` before believing a red suite.
-- Chrome throttles `setTimeout` in a background tab, so a streaming demo measured from a tab the
-  user is not looking at appears frozen. Check `document.hidden`.
+The docs dev server is **running**, started this session — nothing imports the deleted
+`docs/lib/palette.ts` any more, so it comes up clean now. Port 3100, `--webpack`.
 
-### What shipped today
+### What closed — numbered by the old queue, not in order
 
-`useCompletion` → `useInlineCompletion` · a one-line field takes `Suggest` and `CompleteInput` is
-deleted · the selection defect in `Complete` · `MessageText` (rebuilt against Streamdown's real
-spec) · `Conversation` and `Reasoning` autoplay, and `Reasoning` reports its duration and lingers ·
-candidates can be dismissed · the system message pill deleted for an `Alert` · `InputGroup` takes
-`TagsInput`'s shape and `Combobox`/`DatePicker`'s triggers are legal targets · `Diagnostic` moved to
-`variant`/`Alert`'s surface/a real `Badge` · `StatTile` and `FloatingPanel` aligned · the
-`CodeEditor` selection colour, active line, dark-mode find field and two `&light` gaps.
-
-**Three new guards**, all registered in `CONVENTIONS.md`'s table and `CLAUDE.md`:
-`list-semantics.test.ts`, `codemirror-dark-parity.test.ts`, and the widened Diagnostic assertions.
-
-### Next, in the order I would take it
-
-1. ~~**The find/replace panel in our own components.**~~ **DONE 2026-08-21, second session.**
-   `packages/ui/src/composites/code-editor-search.tsx` and the portal host in `CodeEditor`.
-   `search({ createPanel })` gets an empty `div` and React renders `InputGroup`, `Toggle`, `Button`
-   and `ButtonGroup` into it through `createPortal` — no `Checkbox` and no `Kbd` in the end: the
-   three modifiers are `Toggle`s inside the field, which is where a modifier of a query belongs,
-   and the shortcuts are on the doc page rather than in the panel. Seven tests in
-   `code-editor-search.test.tsx`; the page has a `## Find and replace` section and
-   `example-search`, which needed `@codemirror/search` added to `docs`.
-
-   **Four things the work turned up that were not in the plan:**
-
-   - **`search()` was never in the configuration.** `searchKeymap` was bound and the extension was
-     not installed, so `openSearchPanel` appended the defaults itself on the first Mod-F — which
-     works, and silently discards any config, `createPanel` included. Same shape as the
-     `autocompletion()` bug this file already carried a note about.
-   - **`gotoLine`'s field was white-on-white in dark mode and nobody had seen it.** The
-     `.cm-textfield` rule was spelled `.cm-panel.cm-search .cm-textfield`, so it covered the search
-     field and left `gotoLine`'s identical one wearing CodeMirror's `&light` default. Unscoping it
-     to `.cm-textfield` fixes that; `.cm-textfield` and `.cm-button` also *have* to stay in the file
-     because `codemirror-dark-parity.test.ts` reads exactly that list.
-   - **A `Panel`'s `mount()` runs before React has rendered into its `dom`,** so a panel that wants
-     focus takes it in its own effect. CodeMirror's own focus path (`[main-field]`) only runs on the
-     *reopen*, and our input carries that attribute so it still works.
-   - **An `InputGroup` at `sm` is 38px and a `Button` at `icon-sm` is 28.** The two rows are one
-     CSS grid (`grid-cols-[1fr_auto_auto]`) so the fields end on one line and the two clusters — a
-     different number of buttons each — start on one, and the buttons are `icon-lg` (36) because
-     nothing in the size scale is 38. Measured live.
-
-   **Left open, and it is Angel's call:** `gotoLine` (Mod-Alt-G) is still CodeMirror's own dialog.
-   It cannot be replaced through a config hook — `showDialog` appends its own `×` and its `content`
-   must contain a real `<form>` synchronously — so making it ours means reimplementing the command
-   over `showPanel`, about 60 lines. It is correctly themed now, which is why this was not just
-   done.
-
-2. **`Diagnostic`'s header wrap contract**, settled with the metadata-form showcase rather than
-   against it. The last of the four structural moves.
-3. ~~**The example-coverage audit.**~~ **The list is done — `.planning/EXAMPLE-COVERAGE.md`.**
-   Nothing acted on yet, which is what the item asked for. The headline: **Angel's complaint
-   generalises exactly.** Ten of the eleven `ai/` pages carry one preview or none over six sections
-   each, against a median of two previews and five sections across all 138 pages — fewer
-   demonstrations over more ideas. And three findings the sweep turned up that are not about the
-   `ai` layer at all: three finished examples no page shows, **forty `ui` exports named nowhere in
-   the documentation** (nothing guards that direction — `documented-exports.test.ts` guards the
-   other one), and `@kanzo-tech/graph` at 35 of 36 exports with no example.
-   One claim I wrote and then had to withdraw, which is the reason to read the "cannot see"
-   section: `useTagsInput`/`useTagsInputContext` is a **settled** pair, documented in the file.
-   The one that is adrift is `useTourContext`.
-
-   **Four of the seven steps are closed** — see the head of `EXAMPLE-COVERAGE.md`. The three
-   orphans are wired, `CompleteHint` and `use-suggestions`' four states have examples, and
-   `use-inline-completion` no longer claims the hook drives a single-line `Input`, which is the
-   thing this repo measured as broken and deleted `CompleteInput` over. **Step 2 is blocked, not
-   skipped:** `layout/preferences` and `(root)/theming` are inside the other session's theme
-   refoundation, and none of it renders today.
-
-   **Six of the seven steps are closed now**, plus one example on `hooks/index` covering all
-   thirty-eight renamed context hooks. **Exports named nowhere in the documentation: `ui` 40 → 2,
-   `ui/analytics` 5 → 0, `ai` 1 → 0, `graph` 9 → 0.** `graph/index` has an `## API Reference`
-   covering all thirty-six names, checked against the built surface, **and its first example that is
-   not the database one** — `example-memory`, the `memorySource` + `useGraph` + `GraphRootProvider`
-   shape the page had only as snippets. `graph` exports with no example: 35 → 30, and the two
-   clusters worth doing next are named at the head of `EXAMPLE-COVERAGE.md`. The only two left are
-   `KanzoTheme` and `ThemeNotice`, blocked on the theme refoundation — so the guard specified at
-   the end of `EXAMPLE-COVERAGE.md` needs **no allowlist** the day those land, and is worth writing
-   then rather than now. **And one finding was withdrawn:** the proposed
-   `useTourContext` → `useTour` rename would have broken Shark parity, and
-   `shark-parity.divergences.ts` had already recorded the whole thing. What shipped instead is the
-   export of `UseTourContextReturn`, which is the gap that record itself names.
-
-   **Verified in a browser now, in part.** `use-suggestions/example-states` and
-   `ai/example-field-hint` are confirmed against their pages' own claims, with figures — see the
-   head of `EXAMPLE-COVERAGE.md`. `hooks/example-context` mounts without throwing and its contents
-   are unverified; `charts/example-stat` is unverified because **no tab is visible while driving
-   Chrome headlessly** — a freshly created one reports `document.hidden` too, since the window
-   itself is behind, and Mosaic stalls there. Earlier in the session the server also answers 200
-   and then reloads itself every few seconds — `[Fast Refresh] performing full reload because your application had
-   an unrecoverable error`, on the `docs/lib/palette.ts` and `packages/palette/dist/` that session
-   deleted. A streaming demo cannot be driven through that: the field remounts before the debounce
-   fires, so typing vanishes and no offer ever lands. **A 200 is not a working page here** — read
-   the console before believing one.
-4. ~~**The message-part union**~~ **DONE 2026-08-22.** `packages/ai/src/message-part.ts` — four
-   variants, four guards, `AiMessage`, and no renderer. Documented on `ai/index` as *A turn is a
-   list of parts*, and in the changeset.
-
-   **Three things §6 proposed that the source contradicted, all cut before they shipped:**
-
-   - **No `seconds` on the reasoning part.** `Reasoning` times itself off the `streaming`
-     transition and renders *Thought for N seconds* from its own state — a field on the part would
-     be a second measurement of one fact, and the one no component reads.
-   - **No `items` on the task part.** `Task` has `TaskTitle` and `TaskStatus` and nothing else, so
-     a list of sub-lines would describe a component that does not exist.
-   - **The reference's tool states are not adopted.** `input-streaming | input-available |
-     output-available | output-error` is `RunState` under a second spelling, and `RunState` already
-     ships with one label map and one icon family shared by `Task` and `Tool`.
-
-   **Mutation-tested, both halves**, per `CONVENTIONS.md`. Adding a fifth variant fails with
-   `Type 'AiFilePart' is not assignable to type 'never'`; widening the part's state past the
-   component's prop fails with `Type 'RunState | "queued" | undefined' is not assignable to type
-   'RunState | undefined'`. Note where they fail: **`pnpm typecheck`, not `pnpm test`** — the
-   type-level half of `message-part.test.ts` is invisible to a green vitest run, and the file says
-   so.
-
-   `ai` root barrel: 41 → 45 exports (the four guards; types cost nothing at runtime).
-5. **`Tool`'s syntax-highlighted snippet** — **the record is written and it is `open`:**
-   `decisions/a-tool-panel-composes-its-snippet.md`. **Two of the item's three premises did not
-   survive being checked.**
-
-   - **The blocked import is only blocked for `ai`.** `ToolInput` takes children, so a host composes
-     `<CodeEditor readOnly extensions={[sql()]} />` inside it and `ai` imports nothing. The
-     optional-peer door stays shut because the *host* opened it, which is what a subpath is for.
-   - **There is no highlighting gap.** `/editor` ships `kanzoHighlightStyle`; a `readOnly`
-     `CodeEditor` is a legal snippet and nobody had tried it.
-   - **There is a chrome gap and it is one site**, `docs/examples/tool`, which hand-rolls
-     `<pre className="overflow-x-auto rounded-md bg-muted p-2 font-mono text-xs">` — and that is a
-     *third* spelling, because `.kanzo-prose` already carries `--tw-prose-pre-bg` /
-     `--tw-prose-pre-code`. By admission rule 2 an examples directory is not a call site, so a
-     `Snippet` would enter on zero proven demand against 42.9 kB of a 43.5 kB barrel.
-
-   **Proposed: compose what exists**, and replace the example's `<pre>`. Left `open` rather than
-   `live` because the record names its own weak point — `Prose` is `max-w-[65ch]` and `mx-auto` and
-   built for *a tree you did not author*, so wrapping one statement in it reads like a workaround.
-   If that is the sticking point, shipping `Snippet` is the answer and the record is the argument to
-   overturn. **Nothing is implemented**: the tree still matches the option the record rejects.
-6. **`darkTheme` driven from the resolved appearance.** Smaller than it looked now that
-   `codemirror-dark-parity.test.ts` holds the list closed; it buys robustness, not a fix.
-
-### Open, and they need Angel
-
-**Three of these were answered on 2026-08-21 and are kept with the answer, because each one is a
-decision the next session has to act on rather than re-ask.**
-
-- **`ModelList` ships with admission rule 2 failing, and without a decision record.** Angel's call.
-  The second call site is keasy's provider picker, outside this repo. Design was settled already:
-  over `Command`, rows are `ComboboxItem`, and the root's `selectionBehavior="clear"` must be
-  overridden to `"preserve"` because a model is a value. **Not built yet.**
-- **`streamdown` is a direct dependency of `@kanzo-tech/ai`.** Angel's call, over an optional peer
-  on a subpath. So `MessageText` stops rendering plain text and gets incomplete-markdown repair
-  from the package that exists for it. **Not built yet** — and note what it costs: `ai`'s root
-  barrel is 41 exports and pays for streamdown from the first import.
-- **The colour layer is Angel's, on another branch.** Do not touch `packages/theme`,
-  `docs/lib/palette.ts`, `docs/showcases/palette-onboarding/` or `tokens.css` — as of this session
-  those are being rewritten in this same checkout, `packages/theme` does not typecheck, and the
-  docs dev server 500s on a deleted `docs/lib/palette.ts`. **That is theirs, not a regression.**
-- **`gotoLine`'s dialog** — see item 1 above.
+1. **The find/replace panel is ours** (`623baad`). `search({ createPanel })` plus a portal.
+2. **The example-coverage audit, and six of its seven steps** (`9d92264`, `374c35b`). The full
+   report is `.planning/EXAMPLE-COVERAGE.md` — read its head first, it carries what was done and
+   what was verified in a browser. **Exports named nowhere in the documentation: 55 → 2.**
+4. **The message-part union** (`a93adae`). `packages/ai/src/message-part.ts`.
+5. **`Tool`'s snippet** (`783438d`), as a decision rather than a component:
+   `decisions/a-tool-panel-composes-its-snippet.md`, `live`.
+2. **`Diagnostic`'s header wrap contract** (`cba283c`) — the last of the four structural moves,
+   and it turned out to be a defect rather than a preference. See below.
 
 ### The finding to carry forward
 
-**`shark-parity.test.ts` compares names and never a class string.** Every appearance drift found
-today was in a component Shark has no file for, and no guard could have said so. The list is
-`shark-parity.divergences.ts`'s `OURS_ALONE`; three of the ten had drifted the same way
-(`Diagnostic`, `StatTile`, `FloatingPanel`) and all three are fixed. **`FacetFilter`, `FieldArray`,
-`Link`, `floating-panel`'s remaining half, `pin-input` and `suggestions` have not been walked in
-detail** — only scanned for vocabulary and radius, which they passed.
+**`Diagnostic`'s header was losing the message, and nothing said so.** `flex-nowrap` was defending
+the wrong rule: a list of six aligns because the *title* is `basis-0` and truncates, not because
+the header refuses to wrap. What nowrap did was let the three `shrink-0` siblings take the width —
+measured on the metadata-form panel at 24 % of the workspace, **a 143 px header with the title 0 px
+wide, starting 72 px past its own right edge.** Gone, not truncated.
 
----
+Three things had been true at once and none of them was a failing test: the component's comment
+argued for one line, the docs page repeated it, and the showcase wrote `basis-full` with a comment
+claiming the header wrapped. **The test that existed asserted `not.toContain("flex-wrap")`** — it
+encoded the prose rather than the rule, so it passed while the message was invisible.
+
+### Next, in the order I would take it
+
+1. **`darkTheme` driven from the resolved appearance** (§0's old item 6). Source work, no browser.
+   Smaller than it looks now that `codemirror-dark-parity.test.ts` holds the list closed; it buys
+   robustness, not a fix.
+2. **`graph`'s two remaining example clusters.** The reference is done and covers all thirty-six
+   names; `example-memory` is its first non-database example. What is left wants a browser:
+   **overlays and selection** (`useGraphOverlays`, `GRID`, `useGraphSelection`, `cursorChip`) and
+   **the declared axes** (`lookFrom`, `simFrom`, `adaptive`, `clusterRing`).
+3. **The guard for exports named on no page.** Specified at the end of `EXAMPLE-COVERAGE.md`, and
+   it goes *inside* `documented-exports.test.ts` rather than in a second file. **Write it the day
+   `KanzoTheme` and `ThemeNotice` are documented** — they are the only two left, so it then needs
+   no allowlist, which is the only version worth having.
+4. **Commit or hand back the rest of this branch.** 289 uncommitted paths is where a merge starts
+   dropping things silently.
+
+### Open, and they need Angel
+
+- **`ModelList` ships with admission rule 2 failing, without a decision record.** His call, 08-21.
+  Design settled: over `Command`, rows are `ComboboxItem`, and the root's `selectionBehavior="clear"`
+  must be overridden to `"preserve"` because a model is a value. **Not built.**
+- **`streamdown` is a direct dependency of `@kanzo-tech/ai`.** His call, over a subpath. So
+  `MessageText` stops rendering plain text. **Not built** — and `ai`'s barrel pays for it from the
+  first import.
+- **The colour layer is his, on another branch.** Do not touch `packages/theme`, `packages/palette`
+  or `docs/showcases/theme-studio/`.
+
+### Traps that cost time, so they do not cost it again
+
+- **No browser tab is visible while driving Chrome headlessly.** `document.hidden` is `true` even in
+  a freshly created tab, because the *window* is behind. `requestAnimationFrame` never fires there,
+  so cosmos.gl never paints and Mosaic stalls — and `setTimeout` is throttled to ~1 s, which makes a
+  streaming demo look frozen. **Anything with a canvas, an animation or a query loop needs the
+  window brought to the front by hand.** Static layout measures fine.
+- **A 200 from the docs server is not a working page.** For most of the 21st it answered 200 and
+  then reloaded itself every few seconds — `[Fast Refresh] performing full reload because your
+  application had an unrecoverable error`. Read the console before believing a response code.
+- **Assert on a state that was not already true.** A poll that waits for `status: ready` when the
+  previous run left it at `ready` breaks instantly and reads a half-built DOM. Wait for the
+  intermediate state first.
+- **`pnpm install` folds another session's in-flight `package.json` edits into the lockfile.**
+  Adding one dependency to `docs` rewrote 65 lines: it dropped `packages/palette` and registered
+  `packages/ai`, because those were the tree's state at that moment.
+- **Two naming "findings" in the audit were settled decisions with the reasoning already written**,
+  and in both cases the file was one `grep` away — `useTagsInput`/`useTagsInputContext` in
+  `tags-input.tsx`, and `useTourContext` in `shark-parity.divergences.ts`. Five component names
+  were written into documentation and corrected before shipping. **A shape difference is a
+  question, not a finding.**
 
 ## 0b. Start here — 2026-08-21, morning (superseded by §0 above; kept for the items it still carries)
 
