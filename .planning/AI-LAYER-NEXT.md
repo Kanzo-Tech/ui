@@ -20,9 +20,10 @@ or named here as open.**
 
 ### The tree
 
-**Four more commits**, on top of the seven that were here:
+**Five more commits**, on top of the seven that were here:
 
 ```
+3129463 fix(graph): every write into cosmos.gl waits for its device, and a guard says so
 f8caf62 docs(graph): two example groups, and one corpus behind all three
 daf9e0a fix(ui): a switch given a label had none, and no accessible name either
 0128b41 docs: eight exports that no page had ever named, and one of them twice
@@ -64,8 +65,10 @@ Two fail, and **both belong to another session's uncommitted work**:
 3. **`Switch` had no accessible name** (`daf9e0a`) — the finding of the day, and the same shape as
    the `Diagnostic` one: `children` were accepted by the type and rendered nowhere, so the page's
    own first example passed a label and shipped a bare toggle. Measured live, fixed, tested.
-4. **`graph`'s two example groups** (`f8caf62`) — written, typechecked, linted, **not seen**. See
-   the trap below.
+4. **`graph`'s two example groups** (`f8caf62`) — written, typechecked, linted, and their **chrome
+   verified live**; the canvas behind them is blank for the reason below.
+5. **Nine unguarded writes into cosmos.gl** (`3129463`), with `when-ready.test.ts` to hold the rule.
+   It is a real bug class and it is **not** why the graph is blank.
 
 ### The guard for exports named on no page: measured, and still blocked
 
@@ -76,11 +79,29 @@ open**, and `theme`'s surface grew by five names *during* the measurement. The n
 and the one extraction trap are written at the end of `.planning/EXAMPLE-COVERAGE.md`. Write the
 guard the day those pages settle.
 
+### The graph does not draw, and it is not the examples
+
+**Every graph on `/docs/graph` is blank** — one preview on the page or four, `example-memory`
+included, which predates this session. The badge reports `552 drawn of 552`, the slice is right, the
+identities resolve, the chrome renders. Nothing paints. `/view/showcases/graph-bench` draws 10,000
+nodes at 62 fps in the same browser, so cosmos.gl and the GPU are fine; the bench builds its own
+instance and its own upload path, which is the difference.
+
+Chasing it found and fixed a real bug class that turned out **not** to be the cause — see the
+`when-ready` commit. What is left is somewhere in `memorySource` → `useGraph` and is **open**. Two
+hypotheses not yet tested: the coordinate box (`setConfigPartial({ spaceSize })` from the source's
+extent against positions written into the middle half of a 4,096 box), and the buffers themselves
+(`buffers()` returning sizes or colours that resolve to nothing under the refounded theme — the
+tokens read fine from the cascade, but what `scaleOf` does with them was not checked).
+
 ### Next, in the order I would take it
 
-1. **Look at the two graph examples in a browser**, which is the one thing they are owed.
-2. **The thirteen names, then the guard** — the day the theme pages settle.
-3. **`ModelList` and `streamdown`**, which are still Angel's calls (§0a).
+1. **Find out why the graph draws nothing.** Start by putting a `console.log` in
+   `use-graph-look.ts` on the buffers and one in `use-bounded-graph.ts` on the fitted box — the two
+   hypotheses above — and compare against `graph-bench`, which works.
+2. **Then look at the two new examples**, which have never been seen with a picture behind them.
+3. **The thirteen names, then the guard** — the day the theme pages settle.
+4. **`ModelList` and `streamdown`**, which are still Angel's calls (§0a).
 
 ### Traps, and the new one is the expensive one
 
