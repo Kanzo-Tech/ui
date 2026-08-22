@@ -88,17 +88,40 @@ nodes at 62 fps in the same browser, so cosmos.gl and the GPU are fine; the benc
 instance and its own upload path, which is the difference.
 
 Chasing it found and fixed a real bug class that turned out **not** to be the cause — see the
-`when-ready` commit. What is left is somewhere in `memorySource` → `useGraph` and is **open**. Two
-hypotheses not yet tested: the coordinate box (`setConfigPartial({ spaceSize })` from the source's
-extent against positions written into the middle half of a 4,096 box), and the buffers themselves
-(`buffers()` returning sizes or colours that resolve to nothing under the refounded theme — the
-tokens read fine from the cascade, but what `scaleOf` does with them was not checked).
+`when-ready` commit. **The instance is inert**, and this is how far the bisection got. Every step
+below was run in the browser against the live page, so start from the answers rather than the
+questions:
+
+- **The data path is right, end to end.** `api.slice` carries 552 marks, 1,104 position floats and
+  2,152 link floats; the corpus' first point is `(2389, 2263)` inside a 4,096 box; `spaceSize` is
+  4,096 and the zoom is 1. `Resident.indicesOf` resolves all fourteen hubs to `0…13`.
+- **The instance rejects everything.** `graph.getPointPositions()` returns **0** after the real
+  slice has been pushed, and still 0 after three hand-made points pushed from the console.
+  `getPointSizes()` and `getPointColors()` are 0 too, and `getZoomLevel()` goes to **0** after a
+  `render()`.
+- **A twin proves it is not the environment.** `new Graph(twin, {})` appended *inside the very same
+  container*, handed *the very same slice*, reads back **1,104** and a zoom of 0.69. cosmos.gl, the
+  GPU, the container and the data are all fine.
+- **Eliminated by direct experiment, each one built and measured:** the whole construction config
+  including every callback (works); `randomSeed`, `pixelRatio`, `fitView*`, `attribution`,
+  `enableDrag` individually (work); a host that is zero-sized or `display: none` at construction
+  and grown afterwards (works); construct → `destroy()` → construct into the same element, which is
+  what StrictMode does (works); colours and sizes pushed *before* positions (works); one preview on
+  the page rather than four (still blank).
+- **Chrome paints the canvas as a failed surface** — the glyph in the corner of each frame is the
+  canvas itself, not an image: `document.images.length` is 0 on that page.
+
+So the question is narrow: **why does this instance's context die when an identical one beside it
+lives?** The leading suspect left is the number of live WebGL contexts the page holds — the bench
+route has exactly one graph and draws — but that does not explain the single-preview run, so it is
+a suspect and not an answer.
 
 ### Next, in the order I would take it
 
-1. **Find out why the graph draws nothing.** Start by putting a `console.log` in
-   `use-graph-look.ts` on the buffers and one in `use-bounded-graph.ts` on the fitted box — the two
-   hypotheses above — and compare against `graph-bench`, which works.
+1. **Find out why the instance's context dies.** The bisection above closes the easy half; what is
+   left is to log `webglcontextlost` on the canvas cosmos.gl creates, and to count live contexts on
+   the page against the bench route. A twin built beside it works, so the answer is in what happens
+   to *ours* between construction and the first paint.
 2. **Then look at the two new examples**, which have never been seen with a picture behind them.
 3. **The thirteen names, then the guard** — the day the theme pages settle.
 4. **`ModelList` and `streamdown`**, which are still Angel's calls (§0a).
