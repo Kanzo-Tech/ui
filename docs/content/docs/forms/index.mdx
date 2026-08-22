@@ -63,6 +63,15 @@ FieldSet                      ← a titled group of related fields
 You will rarely use all of it. The common case is four lines: `Field`, `FieldLabel`, a control,
 `FieldError`.
 
+And `<control>` above really is any of them. A select, a textarea, a switch and a checkbox are
+composed identically here — the sameness is the pattern, not an accident of the example:
+
+<ComponentPreview componentName="forms" fileName="example-controls" />
+
+The checkbox is the one shape that differs, and only in where the words go: with a control that
+sits *beside* its label rather than under it, the text moves into `FieldContent` so the whole block
+stays one click target.
+
 ## The four states you set on the root
 
 These are the whole state API, and they all propagate to the control inside:

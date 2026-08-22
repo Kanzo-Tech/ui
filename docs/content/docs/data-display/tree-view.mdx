@@ -37,6 +37,11 @@ needs no adapter.
 
 ## Anatomy
 
+`TreeViewBranchIndicator` is the chevron that turns as a branch opens — 90 degrees on
+`data-[state=open]`, and nothing at all under `prefers-reduced-motion`. `TreeViewBranchItem` renders
+one for you ahead of the title, so reach for it directly only when the row is arranged differently
+and the indicator belongs somewhere other than first.
+
 ```text
 <TreeView collection>
   <TreeViewLabel />

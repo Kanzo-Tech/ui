@@ -233,6 +233,23 @@ page, flattened — a read model for a filter-chip row, **not** a publish target
 Use `reset()` for a "Clear filters" button: `Selection.reset()` travels downstream only, so
 resetting the crossfilter alone leaves every chart still holding its own pick.
 
+### Two legends, and only one of them is a control
+
+`ChartLegend` is ours and never publishes anything: an `ark.ul` you place where you like, reading
+the root's `config`, with the label — not the swatch — carrying the accessible channel.
+`ChartColorLegend` is vgplot's, drawn inside the plot, and it both publishes on click and reads the
+selection back, dropping unselected swatches to 0.2 opacity.
+
+The difference that looks like a detail and is not: its toggle is built with `peers: false`, so its
+clause is **not** hidden from the plot it belongs to. Click a swatch and that plot filters itself —
+where `<ChartToggleColor />` on the mark is skipped by the crossfilter for its own marks, which is
+the whole of the section above.
+
+<ComponentPreview componentName="charts" fileName="example-color-legend" />
+
+Both legends only stay complete because the `config` pins the colour domain. Without it the scale
+is ordered by the data, so filtering to one verdict leaves the legend holding one swatch.
+
 ### When you do wire it yourself
 
 - **You pass your own `crossfilter` to `MosaicProvider`.** `include` is constructor-only, so a
@@ -322,15 +339,13 @@ the *column* `region`. A series without a colour falls back to its slot in the c
 the token `var(--chart-N)`, not as a baked hex, so one answer follows both the light/dark flip and
 whichever client is being served.
 
-The categorical set belongs to the [tenant's palette document](/docs/theming#colour-the-palette-document),
-not to this layer: N hues spaced from the brand hue, snapped to hue families, ordered by
-colour-blind separation, and projected onto `--chart-1..8` by `compile()`. A chart reads the token
+The categorical set belongs to the [tenant's palette document](/docs/theming),
+not to this layer: N hues written into `--chart-1..8` by whoever authored the theme. A chart reads the token
 and that is the **only** copy. A second source of truth in this layer — eight literal hexes, or a
 table of them — makes the same series come out one colour through `ChartConfig` and another
 through a token.
 
-`CHART_SLOTS` is 8 because a stylesheet cannot have a variable number of custom properties. How
-many of those slots carry a *real* category is the document's `capacity`, which can be lower: past
+`CHART_SLOTS` is 8 because a stylesheet cannot have a variable number of custom properties. How many of those slots carry a *real* category is the theme's `--chart-capacity`, which can be lower: past
 it `compile` writes `var(--muted-foreground)`, because naming five categories honestly beats naming
 eight that a colour-blind reader sees as five. Past the eighth series, fold into "Other" —
 `categoricalColor(i)` returns the muted token rather than cycling, because a ninth series wearing
@@ -361,7 +376,7 @@ It throws outside a `ChartRoot`; `useChartContextOptional()` returns `null` inst
 
 ## Escape hatches
 
-Two, because wrapping vgplot must stay a convenience:
+Three, because wrapping vgplot must stay a convenience:
 
 - **`<ChartRaw spec={…} />`** — a `vg.*` directive (or an array of them) in its source position,
   with the same interactor-binding semantics as a wrapped mark. What it is mostly reached for is
@@ -372,6 +387,18 @@ Two, because wrapping vgplot must stay a convenience:
   live cascade rather than a frozen copy of it.
 - **`attributes` on `ChartRoot`** — raw directives applied *last*, so they win over anything the
   layer decided. For the ~225 plot attributes the axes do not cover.
+- **The Mosaic client protocol**, for a view that is not a plot at all — a WebGL canvas, a map, an
+  imperative widget. Subclass `MosaicClient` or wrap `makeClient`, declare a query, and publish one
+  of the five clauses: `clausePoint`, `clausePoints`, `clauseInterval`, `clauseIntervals`,
+  `clauseMatch`. That is the whole of it, and it is what makes such a view a **peer** of the plots
+  rather than a readout drifting beside them. All seven are re-exported from the subpath, so this
+  costs no direct `@uwdata` import.
+
+  Turning the answer back into values is the half the protocol does not give you, and it is where
+  every client independently writes `as { getChild(name: string): … }` — a cast that asserts
+  Arrow's shape rather than checking it, and is wrong the first time a query selects a string.
+  `column`, `fillColumn` and `numbers` are exported for that: Arrow only offers a typed column when
+  the type allows one, so the fallback is not a nicety.
 
 Neither hatch needs a source builder: `ChartRoot` already owns the `plot(…)` call, and a mark's
 `data` / `filterBy` props already name its relation. Anything past that — an expression builder, a
@@ -431,20 +458,10 @@ The frame and the grid are **not** library components: a titled card and an auto
 no behaviour, so they are arrangements you copy. The ones these docs use are in `docs/lib/`. The
 [gallery](/docs/analytics/gallery#dashboard) wires the whole thing together.
 
-```tsx
-import { StatTile } from "@kanzo-tech/ui";
-import { ChartStat, count } from "@kanzo-tech/ui/analytics";
+Both halves of the pair, side by side, because that is the only way to see why there are two of
+them. Click a region bar and watch which numbers move — and which one does not:
 
-<DashboardGrid minColumnWidth={280}>
-  {/* a number you already have */}
-  <StatTile label="Requests" value={12_402} delta={{ value: 4.2, label: "vs last week" }} />
-  {/* a number the relation answers, and re-answers on every brush */}
-  <ChartStat label="Selected" table="sightings" value={count()} />
-  <ChartCard title="Latency" description="p50 by hour" legend={<ChartLegend config={config} />}>
-    <ChartRoot table="sightings">…</ChartRoot>
-  </ChartCard>
-</DashboardGrid>
-```
+<ComponentPreview componentName="charts" fileName="example-stat" />
 
 ## Theming
 

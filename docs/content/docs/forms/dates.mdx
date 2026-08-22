@@ -145,3 +145,42 @@ Both roots extend `DatePicker.Root` from Ark, so `value`, `defaultValue`, `onVal
 `isDateUnavailable`, `open`, `disabled` and `readOnly` pass through. `lazyMount` and
 `unmountOnExit` default to `true`; `DatePicker`'s `positioning` defaults to
 `{ placement: "top" }`.
+
+### The parts the Anatomy does not show
+
+The tree above is the composition you write. These ship as well, and they are the tier below it:
+reach for them when you are rearranging the grid rather than using it.
+
+**The table, by hand.** `CalendarWeekDays` and `CalendarTableDays` exist so you never write these —
+the first renders the header row, the second the weeks. Both are assembled out of the five below,
+and the five are exported so a caller who wants a different cell can build the same table around it.
+
+| Part | What it is |
+| --- | --- |
+| `CalendarTableHead` | The `<thead>`. |
+| `CalendarTableHeader` | One weekday-name cell inside it. |
+| `CalendarTableBody` | The `<tbody>`. |
+| `CalendarTableRow` | One week. |
+| `CalendarTableCell` | One day. Takes the day as `value`, and its children are the label. |
+
+There is no `CalendarTableCellTrigger` on our surface and that is deliberate: `CalendarTableCell`
+renders Ark's cell **and** the trigger inside it, because every state a day carries — selected, in
+range, today, unavailable — is painted on the trigger while the rounding of a range's ends is
+painted on the cell. Two parts that can never be composed apart are one part.
+
+**The picker's own shell.** `DatePickerInput` renders the control and the trigger for you; these are
+what it is made of.
+
+| Part | What it is |
+| --- | --- |
+| `CalendarControl` | The row holding the input and the trigger. |
+| `CalendarLabel` | The field's label. |
+| `CalendarTrigger` | The button that opens the popover. |
+| `CalendarPresetTrigger` | A button that sets a value — Ark's presets, so `value="last7Days"` and the rest. |
+| `CalendarContext` | The render prop. Takes a function, renders no element of its own, and is how `CalendarTableDays` reads the weeks. |
+
+`DatePicker` names two more, and both are worth knowing for what they are rather than what they
+sound like. **`DatePickerPresetTrigger` is `CalendarPresetTrigger`** under the picker's own
+`data-slot` — the same shared machine, the same part. And **`DatePickerTimer` is a time field**, not
+a countdown: an `InputGroup` around `<input type="time" step="1">` with a clock addon, for the
+half of a timestamp a calendar cannot express.

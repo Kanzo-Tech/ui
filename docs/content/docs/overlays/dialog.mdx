@@ -56,6 +56,10 @@ Dialog
 sub-components for you, so the common case is one line. Pass children instead when the header
 needs more than text.
 
+The three the tree names in a parenthesis are exported too. `DialogContent` renders them, so you
+only reach for them to rearrange the floating layer: `DialogPositioner`, the box the content is
+placed in, and `DialogOverlay`, the scrim behind it. Ark's `Portal` is the third.
+
 ## Sizes
 
 <ComponentPreview componentName="dialog" fileName="example-sizes" />
@@ -133,6 +137,9 @@ when to close; wrap it in `AlertDialogClose asChild` when it should close immedi
 <ComponentPreview componentName="alert-dialog" fileName="example-variants" />
 
 ## API Reference
+
+`dialogContentVariants` and `dialogOverlayVariants` are exported for a floating layer you assemble
+yourself — the size scale and the scrim, so a hand-built dialog stays the same box as this one.
 
 ### Dialog
 

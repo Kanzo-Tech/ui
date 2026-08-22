@@ -43,10 +43,17 @@ import {
 ```
 
 `value` and `defaultValue` are plain strings here — Ark wants a parsed `Color` object, and
-this wrapper runs `parseColor` for you. `parseColor` is re-exported if you need one directly.
+this wrapper runs `parseColor` for you. `parseColor` is re-exported if you need one directly. `safeParseColor` is exported beside it and is the one to reach for on a string you did not
+write: `parseColor` throws on anything it cannot read, and this returns `undefined` instead — an
+empty field and a typo are the ordinary states of a colour input, not exceptions.
 A hidden input is rendered inside the root, so the picker submits with a surrounding form.
 
 ## Anatomy
+
+Two parts are not in the tree. `ColorPickerView` is the column that holds the area and the sliders,
+and it takes Ark's `format` — it is how one picker shows an `rgba` view and an `hsla` one without
+two pickers. `ColorPickerSwatchPreview` is the round chip of the current colour, sized off the
+`InputGroup` it sits in, and it is `pointer-events-none`: a preview, never a target.
 
 ```text
 <ColorPicker>

@@ -45,6 +45,11 @@ holds the items and gives you a `filter(inputValue)`, and `useFilter` supplies a
 
 ## Anatomy
 
+Two more ship and neither is in the tree. `ComboboxPositioner` is the floating box `ComboboxContent`
+places itself in, for a listing you position yourself. `ComboboxContext` is the render prop — it
+takes a function rather than elements and renders nothing of its own, which is how a caller reads
+the input value or the highlighted item without a hook.
+
 ```text
 Combobox
 ├── ComboboxInput          (wraps ComboboxControl + InputGroup)
@@ -132,6 +137,8 @@ Holding <kbd>Ctrl</kbd> or <kbd>Shift</kbd> hands the key back to the text field
 <kbd>Shift</kbd>+<kbd>Home</kbd> selects the query rather than jumping to the first option.
 
 ## API Reference
+
+`comboboxItemVariants` is exported for a row you assemble yourself: the highlighted, selected and disabled states are the ones a hand-written option always forgets.
 
 ### Combobox
 

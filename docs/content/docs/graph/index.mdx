@@ -17,12 +17,22 @@ is the same answer `palette` and `theme` already got — ours, shipped, not `ui`
 
 ## The smallest one
 
-Arrays in hand and no database — one source, one required callback, and chrome as `children`. The
-simulation stays off, which is its default: the positions are the authority, and that is the same
-reason it is off for a bounded source, whose coordinates are what the next spatial query is
-expressed in.
+A coordinator, where the corpus is, and one required callback. The simulation stays off, which is
+its default: the layout is the corpus' own, and moving it would move the picture out from under the
+index the next spatial query is expressed in.
 
 <ComponentPreview componentName="graph" hasMaxHeight />
+
+**This is worse as a first example than what it replaced, and the trade is deliberate.** It used to
+be three typed arrays and one call — no database, no build step, nothing to fetch. Now the smallest
+thing on this page boots DuckDB-WASM and reads a corpus that has to exist. What it buys is that the
+first thing you see is the path a product takes: this package exists to draw what `fossil` compiled,
+and an opening example that hands the canvas arrays teaches an API you would then have to unlearn.
+It is the archive the [workspace showcase](/docs/showcases/workspace) draws, opened the same way —
+one world, not a second one written for the docs.
+
+If you *do* hold the arrays already, `memorySource` is still there and still one call; it is the
+second thing on this page rather than the first.
 
 Everything else on this page is what you add when one of those assumptions stops holding.
 
@@ -101,6 +111,20 @@ A host that already holds its arrays wraps them in `memorySource(...)` instead �
 database. Under `limit` either source is asked once for everything and never again, so a graph that
 fits pays for nothing.
 
+<ComponentPreview componentName="graph" fileName="example-memory" hasMaxHeight />
+
+That is the sightings fixture drawn as the graph it already is: every report joined to the beast it
+names and the region it happened in, so the beasts and the regions are **hubs**. Pull on one arc and
+you get a beast's reports across every region at once — which is the thing the crossfilter charts
+over the same rows cannot do.
+
+Three things in it are worth reading rather than copying. It is `useGraph` + `GraphRootProvider`
+rather than `GraphCanvas`, because the count in the corner comes from `useGraphContext()` and a
+component that renders the root sits *above* the provider. The count is `marks` **of** `n`, because
+`n` is what the window matched before `limit` cut it and a truncated answer must not read like a
+complete one. And every vertex is `vertexId(type, dense)` rather than its buffer index — an index
+names a different vertex the moment the camera moves.
+
 ### The channels ride the question, not the source
 
 What a point wears is **bound on the canvas**, under the names Plot gives a point mark: `fill`,
@@ -146,8 +170,17 @@ Plot, Vega and every graphical grammar do. If the column is not there the query 
 | | for | what it needs to be told |
 |---|---|---|
 | `memorySource` | arrays you already hold | the arrays |
-| `duckBoundedSource` | any relation with `x`/`y` | the tables and the column names |
+| `duckBoundedSource` | any relation with `x`/`y` | the two relations, and which columns carry identity and position |
 | `openCorpus` | a tree `fossil` wrote | **where it is** |
+
+**None of them is told what to draw.** A source is *where the bytes are*; what colours a point and
+what the size ramp is spent on are channels on the canvas — `fill`, `r` — and they ride each
+request, so changing one re-asks and rebuilds nothing. A source that took `categoryField` is how
+recolouring used to mean constructing a new source and restarting the query loop.
+
+A channel is a column named as a string, which is what naming a column is, and nothing infers one:
+an unbound `fill` draws a single colour rather than picking a column that looked plausible. The
+archive corpus carries `cluster_id` and no `community`, so its host binds `fill="kind"` and says so.
 
 ```ts
 const { source, nodes, edges } = await openCorpus({ coordinator, dest: "/corpus/people" });
@@ -256,3 +289,94 @@ These are cosmos.gl behaviours that typecheck perfectly while being wrong.
 - **`requestAnimationFrame` never fires in a background tab**, and the simulation is driven by
   rendered frames. A backgrounded graph is stopped, not slow — and `graph.ready` has no failure
   path, so a device that cannot be created leaves the promise unsettled rather than rejecting.
+
+## API Reference
+
+Thirty-six names, grouped the way the barrel groups them. Most of a graph is composed from the
+first two blocks; the rest is here because a host that writes its own buffers, its own overlays or
+its own source needs the same functions this package uses, and two implementations of *what colour
+is `var(--primary)` here* is how a canvas ends up disagreeing with the page around it.
+
+### The canvas
+
+| Name | What it is |
+| --- | --- |
+| `GraphCanvas` | The shortcut: creates the api and renders the element. |
+| `useGraph` | **Creates** the api, for a host that renders the element itself. |
+| `useGraphContext` | **Reads** it, from inside the canvas. |
+| `GraphRootProvider` | What you reach for when a hook has to run *beside* the canvas — `useGraphOverlays` and the `events` block want `getGraph` and `getResident` from above the element, where no context is readable. |
+
+### The slice, and the arrays a renderer wants
+
+| Name | What it is |
+| --- | --- |
+| `buffers` | A slice in, the typed arrays out. The size ramp spans **this slice**, not the corpus — the trade ADR-0001 names. |
+| `scaleOf` | The categorical scale the channels imply: what colour and what shape an ordinal wears. `capacity` is where *Other* begins. |
+| `isColour` | Whether a channel's value is a colour, and therefore a constant rather than a column. The split it decides happens twice — the buffers paint the constant, and the query must not be asked to fetch a column called `var(--foreground)`. |
+| `neighboursOf` | The **renderer's** adjacency: what is on screen, which is what a hover highlight wants. The graph's own answer is a `neighbourhood` query on a source that supports one. |
+| `forces` | The simulation coefficients in cosmos.gl's spelling. |
+| `appearance` | The look as **uniforms**. A uniform is read fresh on every draw, so changing one rebuilds no array — which is why a look change costs a `setConfigPartial` and no upload at all. |
+
+### Identity
+
+A vertex is the pair `(type_idx, dense_id)`, because the renderer addresses points by position in
+the arrays it was handed and a resident set that comes and goes reuses every position.
+
+| Name | What it is |
+| --- | --- |
+| `vertexId` | The pair, packed. |
+| `typeOf` / `denseOf` | The two halves back out. Both are `number`: each is 32 bits, which a `number` holds exactly. |
+| `residentOf` | The map from identity to buffer index, rebuilt per answer. A host never builds its own — two maps of the same thing is how one ends up describing buffers that are no longer on screen. |
+
+### The look, and the shape channel
+
+Colour never comes from a look: a scale a graph invents is a scale that disagrees with the legend
+explaining it.
+
+| Name | What it is |
+| --- | --- |
+| `DEFAULT_LOOK` | The geometry a canvas draws when nothing is declared. |
+| `lookFrom` | The axes a person chose, as a `Look`. A missing key, or one the section never offered, takes the manifest's answer. |
+| `SHAPE` | The five shapes by name — `circle`, `square`, `triangle`, `diamond`, `cross`. |
+| `SHAPE_ORDER` | The scale, in slot order, and it is **four** long. Plot calls this channel `symbol` and gives it its own legend, which is the tell that it is a peer of colour and not decoration. |
+| `SHAPE_OTHER` | What a category past the scale wears — `cross`, worn by no slot. The shape channel's `--muted-foreground`: it says *not one of the four* rather than repeating the first one. |
+| `SHAPE_PATH` | Each shape as an SVG path, for a legend key drawn in the DOM. |
+
+### The simulation
+
+| Name | What it is |
+| --- | --- |
+| `DEFAULT_SIM` | The coefficients a graph starts from. |
+| `simFrom` | `lookFrom`'s sibling: the same declared axes, read as forces. |
+| `adaptive` | What a graph of a given size wants — repulsion down and friction up as the corpus grows, because bigger graphs otherwise never settle. Tuning, not level of detail, and it deliberately does **not** touch the space size: the box is the coordinate space a source's positions are expressed in, so resizing it by node count would move the index under the camera. |
+| `clusterRing` | Seeds each community on its own ring. The one thing a link-driven seed cannot supply when the grouping genuinely crosses the link structure — measured on the archive corpus, an angular hint decays to nothing by tick 50 while a ring holds, because it is a fixed geometry the simulation converges onto rather than a property it might find. |
+| `REHEAT` | `0.35` — the energy a wake puts back into a converged layout. Enough to reorganise around a changed force, not so much that the picture you were reading is thrown away. |
+
+### Bounded sources
+
+| Name | What it is |
+| --- | --- |
+| `memorySource` | The source for a host that already holds its arrays. Every consumer needs a source, including the ones bounding buys nothing for, so this one is written here once rather than at each call site differently. |
+| `BOUNDED_DEFAULTS` | The defaults, each with the reason it is that number — `limit` is 20,000, the **legibility** ceiling rather than the renderer's, because it arrives first and is the one a reader actually meets. |
+| `shouldSlice` | Whether to slice at all. `undefined` from a source that cannot say cheaply means *yes*: an unknown corpus is more likely to be the large kind. |
+| `SUPERSEDED` | The sentinel a query settles with when the camera has already moved on. A symbol and not a message, because *you moved on* and *the database said no* are the two things a query loop must tell apart, and a string comparison against a thrown value goes stale with nothing failing. |
+| `isSuperseded` | The test for it. A caller treats it as its own abort, never as a failure. |
+
+### Chrome you draw on top
+
+Both stay out of the canvas for the same reason: each needs a policy only a product can write.
+
+| Name | What it is |
+| --- | --- |
+| `useGraphOverlays` | The grid and the overlay painting, composed with `useGraph` through `GraphRootProvider`. |
+| `GRID` | `22` — dot spacing at zoom 1. The painter keeps the on-screen spacing inside `[GRID, 2·GRID)`. |
+| `useGraphSelection` | The drag gesture that selects — marquee and lasso, with the modifiers adding to or subtracting from the live selection, and a `tool` to switch between them. |
+| `cursorChip` | The drag's style, as `CSSProperties`. |
+
+### Colour
+
+| Name | What it is |
+| --- | --- |
+| `resolveToken` | A token resolved against a host element's live cascade — not a frozen copy of it. |
+| `toHex` | The `Rgba` it returns, as the string a GPU config wants. |
+

@@ -50,6 +50,9 @@ typeahead navigation matches against.
 
 ## Anatomy
 
+`MenuContent` renders the portal and the positioner for you. `MenuPositioner` is that positioner,
+exported for a menu whose floating layer you assemble yourself.
+
 ```text
 Menu
 ├── MenuTrigger                 (or MenuContextTrigger — one or the other)
@@ -138,6 +141,8 @@ A checkbox or radio item toggles under <kbd>Enter</kbd> like any other item, and
 with it unless you pass `closeOnSelect={false}`.
 
 ## API Reference
+
+`menuContentVariants` is exported for a surface that should read as a menu without being one.
 
 ### Menu
 

@@ -60,6 +60,12 @@ Sheet
 `left` and `right` sheets are capped at `max-w-md` and always leave a strip of the page
 visible; `top` and `bottom` size to their content.
 
+`SheetContent` renders the floating layer for you, and both halves are exported for when it has to
+be rearranged. `SheetPositioner` is the one with the placement on it — it takes `placement` and a
+`variant`, and it is what puts a sheet against an edge rather than in the middle. `SheetOverlay` is
+`DialogOverlay` under the sheet's own `data-slot`, which is the same sentence as "a Sheet is a
+Dialog with edge placement" written in the surface.
+
 <ComponentPreview componentName="sheet" fileName="example-placement" />
 
 ## Variants

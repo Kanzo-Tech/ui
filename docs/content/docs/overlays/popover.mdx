@@ -61,6 +61,9 @@ Read down the last column and the rule falls out:
 
 ## Anatomy
 
+`PopoverContent` portals and positions itself, so `PopoverPositioner` — the box Ark places against
+the trigger — is only needed when you are composing the floating layer by hand.
+
 ```text
 Popover
 ├── PopoverTrigger      (or PopoverAnchor, to position against something else)

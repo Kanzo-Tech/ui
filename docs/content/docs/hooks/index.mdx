@@ -1,15 +1,16 @@
 ---
 title: Hooks
-description: The library's headless surface — hooks we wrote, and thin renames of Ark UI's component context hooks. This page documents the renames; everything we wrote has its own page.
+description: The headless surface — hooks we wrote, and thin renames of Ark UI's component context hooks. This page documents the renames; everything we wrote has its own page.
 ---
 
-The library exports two kinds of hook, and telling them apart is the only thing you need to know
-before reading the rest of this section.
+There are two kinds of hook in this section, and telling them apart is the only thing you need to
+know before reading the rest of it.
 
 **Ours** — real code, one page each: theme (`useKanzoTheme`, `useIsMobile`), layout
-(`useSidebar`, `useTourContext`), charts and data (`useChartContext` and its variants, `useMosaic`,
-`useCrossfilter`, `useSelected`, `useDataTable`), and AI (`useAiStream`, `useCompletion`,
-`useSuggestions`). They are listed in the sidebar.
+(`useSidebar`, `useTourContext`) and charts and data (`useChartContext` and its variants,
+`useMosaic`, `useCrossfilter`, `useSelected`, `useDataTable`) from `@kanzo-tech/ui`, plus AI
+(`useAiStream`, `useInlineCompletion`, `useSuggestions`) from the sibling package
+[`@kanzo-tech/ai`](/docs/ai). They are listed in the sidebar.
 
 **Ark UI's, renamed** — the 38 below. Each is literally one line:
 
@@ -93,6 +94,19 @@ import { useSelect, useDialog, useTabs } from "@kanzo-tech/ui";
 A context hook throws when called outside its provider. Read it from a child of the component's
 root — not from the component that renders that root.
 </Callout>
+
+## One example covers all thirty-eight
+
+The shape never changes, so this is the only one on this page: compose the component, and read its
+machine from a **child**. Here `useFileUpload()` counts the plates and totals their bytes — one
+number per file is `FileUploadItemSizeText`'s job, and a count and a sum across all of them is
+arithmetic no part does.
+
+<ComponentPreview componentName="hooks" fileName="example-context" />
+
+Note where `Tally` sits. It is a child of `<FileUpload>`, because a component that renders the root
+is *above* the provider and the hook would throw there — the warning above, as code. Swap
+`useFileUpload` for any row in the table and nothing else about this changes.
 
 ## `useTagsInput` is the machine, and it names two hooks
 

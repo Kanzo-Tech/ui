@@ -55,6 +55,12 @@ previous step just opened.
 
 ## Anatomy
 
+Four parts sit under `TourContent` and are exported for rearranging it. `TourPositioner` places the
+step against its target; `TourOverlay` is the scrim, and is `DialogOverlay` under the tour's own
+`data-slot`; `TourSpotlight` is the hole punched through that scrim around the target;
+`TourActionTrigger` is the raw button behind `TourNextStep`, `TourPreviousStep` and `TourClose`,
+for a step whose footer needs an action those three do not name.
+
 ```text
 Tour                         (owns the tour machine)
 ├── TourTrigger              (starts it)
@@ -100,6 +106,22 @@ so there is nothing a second tour-shaped footer part would wire up.
 
 `Tour` creates the tour machine internally, so unlike Ark's root it takes `steps` instead of a
 `tour` instance. `useTourContext()` exposes that instance and `handleStart` to descendants.
+
+### useTourContext()
+
+```tsx
+const { tour, handleStart } = useTourContext();
+```
+
+Returns `UseTourContextReturn` — `tour`, Ark's machine api, and `handleStart`. Both are exported,
+so a helper that takes what the hook returns can name it.
+
+<Callout type="warn">
+**`@ark-ui/react` exports a `useTourContext` of its own, and it is a different hook.** Ours is the
+one bound to `Tour`, and it returns `{ tour, handleStart }` rather than Ark's tour context. The name
+matches the reference exactly, which is why it stays — but with both packages in scope the import
+is worth reading twice: there is no error to tell them apart.
+</Callout>
 
 ### TourStepType
 

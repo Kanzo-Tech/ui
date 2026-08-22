@@ -49,6 +49,11 @@ answered once, on [Controls](/docs/forms/controls#choice).
 
 ## Anatomy
 
+Two more ship and neither is in the tree. `SelectClearTrigger` is a button that empties the
+selection, for a select that is allowed to have no value. `SelectContext` is the render prop — a
+function instead of elements, rendering no element of its own, which is how a caller reads the
+selected items without `useSelect()`.
+
 ```text
 Select
 ├── SelectTrigger          renders Control > Trigger + ClearTrigger
