@@ -48,6 +48,30 @@ function hasWebGL(): boolean {
   }
 }
 
+/**
+ * **Give the WebGL context back, because cosmos.gl does not.**
+ *
+ * `destroy()` frees its own buffers and textures and leaves the context itself attached to the
+ * canvas — `WEBGL_lose_context` and `loseContext` appear **zero times** in `@cosmos.gl/graph@3.4.0`.
+ * A context released only by garbage collection is a context held for an unbounded time, and a
+ * browser has a hard budget for them: Chrome keeps sixteen per renderer process and **evicts the
+ * oldest** when a seventeenth is asked for. Eviction is not an error anywhere — the canvas simply
+ * stops painting, `getPointPositions()` reads back empty, and `getZoomLevel()` answers zero.
+ *
+ * That is not a large-application problem. `/docs/graph` mounts four graphs, React's StrictMode runs
+ * every effect setup → cleanup → setup, so eight contexts are created and four are orphaned on a
+ * single page load — and three of the four canvases measured `isContextLost === true` while the
+ * newest one drew. `/view/showcases/graph-bench` has one graph and has always looked fine, which is
+ * how this survived: the bug is invisible until a page holds more than one.
+ *
+ * The extension is absent on some drivers and the context may already be lost, and neither is worth
+ * reporting: this is a release, and a release that cannot happen has nothing to say.
+ */
+function releaseContext(canvas: HTMLCanvasElement | null): void {
+  const gl = canvas?.getContext("webgl2") ?? canvas?.getContext("webgl");
+  if (gl && !gl.isContextLost()) gl.getExtension("WEBGL_lose_context")?.loseContext();
+}
+
 export interface CosmosGraphOptions {
   /** The element cosmos.gl mounts its canvas into. */
   hostRef: RefObject<HTMLDivElement | null>;
@@ -295,6 +319,36 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
     }
     graphRef.current = graph;
     const painted = whenReady(graph, (ready) => ready.render());
+    /**
+     * **A lost context is silent, permanent, and indistinguishable from a graph with no data.**
+     *
+     * Losing one is not an exception: the canvas stops painting, `getPointPositions()` reads back
+     * empty and `getZoomLevel()` answers zero, while every setter keeps accepting arrays. Measured
+     * on `/docs/graph`, where three of four canvases sat at `isContextLost === true` with a badge
+     * beside each reporting a full slice — and the renderer had **fifteen free slots at the time**,
+     * because the loss happened during the load and nothing brings a context back.
+     *
+     * `preventDefault()` is what asks the browser to try a restore at all; without it there is no
+     * `webglcontextrestored` event to hear. We do not rebuild on it yet — that means re-uploading
+     * every buffer from a slice this hook does not hold — so the honest thing is to say so through
+     * the one callback this package makes required, and `decisions/` carries what a rebuild would
+     * take. An empty box that explains itself is the floor, not the ceiling.
+     */
+    const onLost = (event: Event) => {
+      event.preventDefault();
+      onFailure(
+        "The graph's WebGL context was lost. A browser keeps a limited number of them and drops the oldest; reload the page to get one back.",
+      );
+    };
+    // **Attached inside `whenReady`, and the first version of this was attached outside it and did
+    // nothing.** cosmos.gl creates its canvas with the device, which is asynchronous — so
+    // `host.querySelector("canvas")` in this line's position answers `null`, the listener goes on
+    // nothing, and the release below frees nothing. It looked correct and changed no behaviour at
+    // all, which is the second time on this hook that a device call has been written as though the
+    // instance were ready.
+    const listening = whenReady(graph, () => {
+      host.querySelector("canvas")?.addEventListener("webglcontextlost", onLost);
+    });
     // Without a simulation there is nothing to settle and nothing to wait for, so the badge starts
     // where it ends. With one, construction fires no `onSimulationStart` — the graph is already
     // turning by the time we get here, and without this the transport opens showing Play over a
@@ -304,7 +358,13 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
     return () => {
       clearTimeout(floor);
       painted();
+      listening();
+      // Read here rather than remembered from construction, and before `destroy()` rather than
+      // after: the element does not exist until the device does, and it goes away with the graph.
+      const canvas = host.querySelector("canvas");
+      canvas?.removeEventListener("webglcontextlost", onLost);
       graph.destroy();
+      releaseContext(canvas);
       graphRef.current = null;
     };
   }, [graphRef, hostRef, onFailure, progress, report, simulate]);
