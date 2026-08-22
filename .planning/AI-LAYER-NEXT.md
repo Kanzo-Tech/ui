@@ -20,9 +20,12 @@ or named here as open.**
 
 ### The tree
 
-**Five more commits**, on top of the seven that were here:
+**Seven code commits**, on top of the seven that were here (the `docs(planning)` ones between them
+are this file):
 
 ```
+a755f7b fix(docs): the tool example is a client module, and the build says why it must be
+111f257 fix(graph): the context comes back, and a lost one stops being silent
 3129463 fix(graph): every write into cosmos.gl waits for its device, and a guard says so
 f8caf62 docs(graph): two example groups, and one corpus behind all three
 daf9e0a fix(ui): a switch given a label had none, and no accessible name either
@@ -30,27 +33,24 @@ daf9e0a fix(ui): a switch given a label had none, and no accessible name either
 30d41e9 fix(ui): the editor wears the side the page wears, and the guard grew a half
 ```
 
-**291 paths are still uncommitted and none of them is this work.** They are two other sessions'
-in flight: the theme refoundation (`packages/theme`, `packages/palette` deleted,
-`docs/showcases/theme-studio/`, `docs/content/docs/(root)/theming.mdx`) and the AI layer
-(`packages/ai` is largely *untracked*, plus `docs/components/*` and an untracked
-`docs/content/docs/ai/tool.mdx`). Committing them would be committing somebody else's half-finished
-state. **Commit by explicit path, never `git add -A`** — every commit above used
-`git commit -- <paths>`.
+**The tree is clean.** The theme refoundation landed as `6c602df` from the parallel session while
+this was running, which took the 291 uncommitted paths with it. Nothing is outstanding. The rule
+still holds for the next session that shares this checkout: **commit by explicit path, never
+`git add -A`** — every commit here used `git commit -- <paths>`.
 
-### Green, and the two that are not
+### Every step is green
 
-`pnpm typecheck` (all five projects), `pnpm lint`, `pnpm test` — theme 62, ui 570, graph 77, ai 93,
-docs 43 — `pnpm size` (root barrel 42.39 kB of 43.5; analytics 66.26 kB of 68), `pnpm smoke`.
+For the first time this session, the whole of `CLAUDE.md`'s list passes: `pnpm build`, `typecheck`
+(all five projects), `lint`, `check:generated`, `test` — theme 62, ui 570, graph 84, ai 93, docs 50 —
+`size` (root barrel 42.39 kB of 43.5; analytics 66.26 of 68), `smoke`, and
+`pnpm --filter @kanzo-tech/docs build` at 438 of 438 pages.
 
-Two fail, and **both belong to another session's uncommitted work**:
-
-- **`pnpm check:generated`** — `packages/theme/theme-data.json` only. Their generator now emits role
-  entries (`--sidebar-foreground` among them) that the staged file does not carry. Do not hand-edit
-  it; it regenerates when they land.
-- **`pnpm --filter @kanzo-tech/docs build`** — dies prerendering `/docs/ai/tool` with
-  `RangeError: Maximum call stack size exceeded`, at 325 of 434 pages. That page is **untracked**
-  and `docs/components/component-preview.tsx` is modified beside it, both by the AI-layer session.
+The two that were red were not this work and both are closed: `check:generated` came back with the
+theme commit, and the docs build was `/docs/ai/tool` — fixed in `a755f7b`, and it was a real defect
+rather than an in-flight file. **A docs example with no `"use client"` handing a CodeMirror
+`Extension` to a client component**: a cyclic object graph through the RSC serializer, which walks
+it until the stack runs out. Invisible in development, because Vite ignores the directive and the
+dev server never evaluates the boundary.
 
 ### What closed
 
