@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Table,
   TableBody,
@@ -23,6 +25,14 @@ order by due;`;
 // The house has code chrome twice already — `.kanzo-prose`'s `--tw-prose-pre-*` and the whole
 // tokenised CodeMirror theme — so this composes the second rather than hand-rolling a third
 // `<pre>`. `decisions/a-tool-panel-composes-its-snippet.md`.
+//
+// **`"use client"` above is load-bearing and its absence broke the production build**, not the
+// preview. A CodeMirror `Extension` is a cyclic object graph, and without the directive this module
+// is a Server Component handing one to a client component as a prop — which the RSC serializer
+// walks until it runs out of stack. `RangeError: Maximum call stack size exceeded` while
+// prerendering `/docs/ai/tool`, with nothing naming the prop, the module or CodeMirror. Vite
+// ignores the directive entirely and `pnpm dev` never evaluated the boundary, so the page looked
+// right for as long as nobody ran `next build`.
 const SQL_MODE = StreamLanguage.define(standardSQL);
 
 const late = overdueQuests();
