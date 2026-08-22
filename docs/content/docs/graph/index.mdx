@@ -87,6 +87,31 @@ instance and its own upload path, because measuring the upload is the thing it i
 `GraphCanvas` is therefore a shape proven against one host, which the decision record says plainly
 rather than hiding. The second comes from migrating a real product screen, not from another example.
 
+Here is that shape with both hooks on it, over the fixture the next section takes apart — the dot
+grid locked to the graph's own space, standing labels on the hubs, a hover card that clears its own
+node, and a drag that selects. Pick a tool and drag a box; Shift borrows the marquee whichever tool
+is armed, and at release `Alt` removes what was drawn while `⌘`/`Ctrl` adds.
+
+<ComponentPreview componentName="graph" fileName="example-overlays" hasMaxHeight />
+
+Four things in it are the reason the hooks are hooks rather than parts of the canvas.
+
+**The overlays never paint on their own.** There is one `requestAnimationFrame` and the host decides
+when it fires, by wiring `onZoom` and `onTick` to `schedule`. That is not a detail you can leave
+out: leaving it out gives a grid that sits still while the graph pans under it, and nothing fails.
+
+**`track()` is caller-driven rather than a one-shot**, because cosmos.gl clears the tracked set on
+the render that follows `setPointPositions` — so the registration is lost exactly once per graph,
+at construction. And the positions it registers only become readable after a render, which is why
+the effect ends with a `requestAnimationFrame` rather than calling `schedule()` in the same tick.
+
+**An overlay is attached to a vertex, never to a slot.** Held as an index, a label would keep its
+position and silently start naming a different node the first time the resident set moved. The
+labels here are built from `vertexId(type, dense)` and resolved through `Resident` at paint time.
+
+**The gesture reads its modifiers at *release*, not at press**, which is the small decision that
+makes it feel right: release is when the reader has decided.
+
 <Cards>
   <Card title="Workspace" href="/view/showcases/workspace" description="The full arrangement: canvas, legend, inspector, rules, crossfilter." />
   <Card title="Graph scale" href="/view/showcases/graph-bench" description="The benchmark harness, and the second consumer that earned the extraction." />
@@ -270,6 +295,33 @@ force that moves them moves the picture out from under its own index — the cam
 the corpus within a frame. Lay the graph out once, store the coordinates, and render. Turn the
 simulation on for the other host: arrays in hand, no layout, few enough points that a live one is
 the cheapest way to get one.
+
+## The picture is declared, not hard-coded
+
+Nothing about how a graph looks is a literal here. `lookFrom` and `simFrom` read the same
+`Record<string, string>` a preferences section produces — `GRAPH_SECTION` on
+`@kanzo-tech/graph/section` is the declaration, a panel draws it, and these two are the only
+readers. The values are strings in all three kinds, so a key from a namespace this package has never
+heard of rides through a write untouched, and a key that is missing takes the manifest's answer.
+
+<ComponentPreview componentName="graph" fileName="example-axes" hasMaxHeight />
+
+The switches above the canvas stand in for that panel. Two of the four controls are not axes at all,
+and the difference is the point:
+
+- **`adaptive(nodes)`** is the question a person should not be asked. What a corpus of *this* size
+  wants — repulsion down, friction up — is computed continuously against node count rather than
+  snapped at breakpoints, because a graph crossing a threshold would visibly jump. It is tuning and
+  not level of detail, and it deliberately leaves the space size alone: that box is the coordinate
+  space a source's positions are expressed in, so resizing it by node count would move the index out
+  from under the camera. A host with a large corpus starts its users at this answer through the
+  tenant policy, not by writing values into storage nobody can then reset.
+- **`clusterRing`** is what the canvas calls the moment `clusters` is passed. Turn it off and watch
+  the communities stay tangled: `setPointClusters` alone pulls each node toward its own group's
+  centre of mass, which is a target that moves with the thing pulling it, so groups that start
+  overlapped have overlapping centroids and nothing asks them to move apart. Explicit ring positions
+  turn the same force into a positional constraint the simulation converges onto. It is exported for
+  a host seeding its own layout with the same geometry.
 
 ## Things the source will not tell you twice
 
