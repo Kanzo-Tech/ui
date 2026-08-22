@@ -1,0 +1,315 @@
+---
+title: AI-assisted fields
+description: Model assistance is two composed compounds — Complete for an inline ghost, Suggest for a strip of candidates — over pure inputs. Nothing here knows what a model is; you pass a stream.
+---
+
+The two compounds on this page ship in **`@kanzo-tech/ai`**, a sibling package of
+`@kanzo-tech/ui` — see [AI](/docs/ai) for why the two are separate and what else is in there. The
+field they compose over is an ordinary `@kanzo-tech/ui` primitive and stays one.
+
+```tsx
+import { InputGroup, InputGroupAddon, InputGroupTextarea } from "@kanzo-tech/ui";
+import {
+  CompleteError,
+  CompleteGhost,
+  CompleteKeys,
+  CompleteMark,
+  CompleteRoot,
+  CompleteTextarea,
+  SuggestList,
+  SuggestMark,
+  SuggestRoot,
+} from "@kanzo-tech/ai";
+```
+
+There is no "AI component", and no provider. Model assistance is two compounds you compose over a
+field you already have, leaving the primitive untouched:
+
+- **Inline ghost completion** — the **`Complete`** compound: `CompleteRoot` owns the value and the
+  stream, `CompleteTextarea` delegates to a pure `Textarea` via `asChild`, `CompleteGhost` paints
+  the preview over the field, and `CompleteMark` is the ✨.
+- **Candidate suggestions** — the **`Suggest`** compound: `SuggestRoot` / `SuggestMark` /
+  `SuggestList`, where the same ✨ streams candidates into a strip under the field.
+
+Both rest on one engine, `useAiStream`, and one contract — a function returning an async
+iterable, cancelled by an `AbortSignal`. That contract is worth understanding once.
+
+<Callout type="info">
+**Which of the two a field takes is decided by the field, not by taste: a line takes candidates, a
+paragraph takes a continuation.** `Complete` composes over a `Textarea` and there is no
+`CompleteInput`. A continuation drawn over an `<input>` can only ever show what fits in the width
+that is left — the field cannot scroll to reveal text that is not in its value — so a long offer
+was unreadable by any gesture and taking it meant taking it blind. No reference does it either:
+Gmail continues a body, Copilot an editor, and every one-line field in the wild offers a list.
+See [the record](https://github.com/kanzo-tech/kanzo-ui/blob/main/decisions/a-line-takes-candidates-a-paragraph-takes-a-continuation.md).
+</Callout>
+
+## The ✨ is a mark, not a door
+
+A field that a model can help with must **look** like one before anybody touches it. So the ✨ is a
+statement of capability first and a button second: `AiMark`, quiet at rest, brighter when there is
+something on offer, a spinner while a request is out. `SuggestMark` and `CompleteMark` are both it,
+which is why a suggested field and a completed field do not read as two different products.
+
+**Both bind it the same way**, and that is the rule rather than a coincidence:
+
+| Bound | Means |
+| --- | --- |
+| `offering` | there is something on offer — a ghost, or candidates on screen |
+| `busy` | a request is out and nothing has arrived yet: `loading && !offering` |
+| the press | *give me the assistance* |
+
+A press reads differently in each domain and means the same thing: a ghost is one offer that needs a
+gesture, so pressing takes it; a strip is N offers that already carry their own buttons, so pressing
+asks for a different set. Neither is ever inert. The only binding that differs is `disabled`, and it
+differs for a reason — there is nothing to continue below `minLength`, while a candidate source can
+answer from an empty field.
+
+Four things follow, and each of them is a rule rather than a taste:
+
+- **It lives inside the field**, in an `InputGroupAddon`, not on the label row. What it marks is the
+  control, so it belongs in the control's box — and it stays with it when the row above is a label,
+  a legend or nothing at all. (It used to be anchored there so a candidate *popover* would open over
+  the text it writes. There is no popover now, and the placement outlived the reason.)
+- **Nothing keys off `:hover`.** A mark revealed on hover does not exist for touch or for the
+  keyboard, and a request fired on hover bills a model for a pointer crossing the field. Focus and
+  a press are the gestures.
+- **The name carries the state, not the colour.** The mark renames itself to *Accept suggestion*
+  while it is holding one, and to *Suggest different values* while a strip is up, so a reader who
+  cannot see it light up is told the same thing.
+- **Busy is the primitive's, not ours.** `AiMark` passes `isLoading` to `Button` rather than
+  swapping in a spinner of its own. It did swap one in, and wrote its own `aria-busy` — which never
+  reached the DOM, because `Button` writes `aria-busy={isLoading}` *after* spreading props and
+  always won. The mark spun on screen while telling a screen reader it was idle, and stayed
+  pressable while it did.
+
+## Nothing here calls a model
+
+Everything takes a **function that returns an async iterable**, and cancels it with an
+`AbortSignal`:
+
+```tsx
+// `complete` — yields continuation chunks of one value
+complete: (value: string, signal?: AbortSignal) => AsyncIterable<string>
+
+// `suggest` — yields discrete candidates
+suggest: (signal?: AbortSignal) => AsyncIterable<Suggestion>
+```
+
+No API key, no provider, no prompt, no model name anywhere in `@kanzo-tech/ai`. That is not an
+oversight — it is what keeps this domain-free. Your product owns the model, the prompt, the auth
+and the cost; the package owns the interaction.
+
+It also means it works with anything that streams: a hosted model, a local one, a plain `fetch`
+of a cached list, or a hard-coded array in a test.
+
+## Why an async iterable
+
+Because suggestions arrive over time and the user keeps typing while they do. An async iterable
+is the smallest contract that gets both right:
+
+- **Partial results render immediately.** The first chunk is on screen before the last one
+  exists, which is the difference between a completion feeling instant and feeling broken.
+- **Cancellation is built in.** Every keystroke invalidates the request in flight. The stream is
+  aborted before the next one starts, so a slow response for text the user has already changed
+  can never overwrite what they are typing now.
+
+<Callout type="warn">
+**Honour the `AbortSignal`.** If your implementation ignores it, stale responses keep arriving
+and nothing can protect you from them — you get suggestions for text that no longer exists. Pass
+it straight through to `fetch`, or check `signal.aborted` between yields.
+</Callout>
+
+## Writing one
+
+```tsx
+async function* complete(value: string, signal?: AbortSignal) {
+  const res = await fetch("/api/complete", {
+    method: "POST",
+    body: JSON.stringify({ prefix: value }),
+    signal,                                  // <- the whole cancellation story
+  });
+
+  const reader = res.body!.pipeThrough(new TextDecoderStream()).getReader();
+  while (true) {
+    const { done, value: chunk } = await reader.read();
+    if (done) break;
+    yield chunk;                             // <- continuation, not the full text
+  }
+}
+```
+
+<Callout type="info">
+`complete` yields **continuation chunks** — what comes *after* the current text, not the whole
+value rewritten. `suggest` yields **whole candidates**, one object per row. The difference is why
+the two signatures are not identical: one is completing a single value, the other is producing a
+list.
+</Callout>
+
+## Inline completion — the `Complete` compound
+
+Compose `Complete` over a pure `Textarea`. `CompleteRoot` owns the controlled value and runs the
+stream; `CompleteTextarea` delegates to the bare primitive via `asChild`. `CompleteGhost` paints a
+greyed continuation at the caret through an `aria-hidden` overlay that copies the field's real
+metrics, so it wraps and scrolls exactly as the field does.
+
+Three keys, and the field says so rather than making you guess:
+
+| Key | Takes |
+|---|---|
+| `Tab` | the whole continuation |
+| `Ctrl` / `⌘` + → | one word, and the rest stays on offer |
+| `Esc` | nothing — and the ✨ is how you ask again |
+
+**The offer is made at the caret**, and the overlay draws it there — the value holds its own space
+on both sides of it. It used to be an append at the end of the value, so moving the caret one
+character to the left made the whole suggestion vanish. LSP 3.18 models an inline completion as a
+`range` plus an `insertText` for exactly this reason and prefers a replacement over an insertion;
+ours is the degenerate range, a position, because our fields hold prose and not code.
+
+**An offer that does not fit makes the field taller**, and is not cut. A wrapping field runs out of
+height and a `<textarea>` cannot push the lines below it down the way an editor can, so a mask on
+the last line still read as a sentence sliced through the middle of a line of type. The field takes
+the height the offer needs while the offer is on the table and gives it back on every accept,
+dismiss and keystroke that kills it — so `rows` is a floor, which is what `rows` already meant. It
+grows and does not shrink while one offer is live: taking a word makes the ghost shorter, and
+re-measuring down every word would jitter the box under a reader who is about to take another.
+
+**You write nothing for that.** The growth is `CompleteGhost`'s own layout effect, on the field's
+node — there is no `autoGrow` prop and no measurement to compose. It has to be script rather than
+the `field-sizing: content` the bare `Textarea` already carries, because the offer is not in the
+value and CSS cannot see it.
+
+A `sr-only` live region announces *that* a suggestion is ready — once, rather than re-reading a
+sentence that arrives a chunk per frame. `CompleteKeys` is the visible twin of that sentence, and
+until it existed the compound told one class of reader and nobody else.
+
+<ComponentPreview componentName="ai" fileName="example-field-complete" />
+
+```tsx
+<CompleteRoot complete={complete} value={value} onValueChange={setValue}>
+  <InputGroup>
+    <CompleteTextarea>
+      <InputGroupTextarea />
+    </CompleteTextarea>
+    <InputGroupAddon align="inline-end">
+      <CompleteMark />
+    </InputGroupAddon>
+  </InputGroup>
+  <CompleteGhost />
+  <CompleteKeys />
+  <CompleteError />
+</CompleteRoot>
+```
+
+`CompleteKeys` names <kbd>Tab</kbd> and <kbd>Esc</kbd>, and only while there is something to take.
+It is a part rather than a fixture because only the caller knows where it fits: in the `block-end`
+addon beside the ✨, under the field, nowhere at all on a form of eleven where one line of
+instruction beats eleven copies of it. There is no reference to copy — Gmail's
+Smart Compose taught <kbd>Tab</kbd> with a popup shown once ever and then never again, and Copilot
+puts a toolbar under the pointer, which is a gesture a keyboard cannot make.
+
+`CompleteError` prints what went wrong under the field, and renders nothing when nothing did. It is
+a part rather than a line inside `CompleteHint` because the usual presenter is `CompleteGhost`, an
+overlay with no room under it — and until it existed a failed completion said nothing at all: the
+✨ stopped spinning and `error` sat on the hook with no part reading it, while `SuggestList` had
+always printed its own.
+
+`CompleteHint` is the alternative presenter, for a field that cannot take the height — a composer
+docked in a pane, whose box is fixed by the layout and whose bottom edge belongs to its own toolbar.
+It streams the continuation *below* the field, wrapped, and carries the keys itself, so nothing
+composes `CompleteKeys` beside it. **It is a swap for `CompleteGhost`, not a companion**: two copies
+of one sentence is worse than either.
+
+<ComponentPreview componentName="ai" fileName="example-field-hint" />
+
+Everything above the presenter is unchanged — same `CompleteRoot`, same `CompleteTextarea` over the
+same bare primitive, same three keys. Which of the two you compose is the only decision, and it is
+made by whether the field is allowed to grow.
+
+<Callout type="info">
+`CompleteRoot` requires a **controlled** `value` — it owns it, so accepting a ghost is a plain
+`onValueChange`. The `Textarea` you pass stays byte-identical to the bare `@kanzo-tech/ui`
+primitive; the streaming is headless (`useInlineCompletion`, below) and pulls in no editor
+dependency.
+</Callout>
+
+## Candidate suggestions — the `Suggest` compound
+
+Compose `Suggest` around the field the candidates land in, and put the ✨ **inside** it — the end of
+a `TagsInput` control, an `InputGroupAddon`, a composer toolbar. `SuggestRoot` takes `suggest` (plus
+`existing` for the live dedup and `onPick` for where a chosen value goes) and owns the
+`useSuggestions` engine; `SuggestMark` is the ✨ and `SuggestList` is the strip. Feed `onPick` into
+the same `TagsInput` (or list) you type into, so the ✨ and typing write one value.
+
+**The candidates are buttons in the flow, not options in a popover**, and that is the correction
+this compound exists to make. Picking one leaves a value in a field and no selection anywhere —
+which by [the menu/listbox rule](/docs/philosophy#a-menu-is-a-command-a-listbox-is-a-value) makes
+this a command surface. The version it replaced was a listbox whose `value` was pinned empty
+forever, inside a popover that then needed a non-modal mode, an autofocus target, a keyboard twin
+for a dismiss button Tab could not reach, and a shared label id. None of that is here: the pills are
+`<button>`s in document order, so Tab reaches every one.
+
+**Focus decides what is visible; a press decides what is billed.** The strip is on screen while the
+field has focus and there is something to show — which is what keeps a form of eleven fields from
+becoming a wall, since only one field is focused at a time. Asking is `trigger`, and it defaults to
+`"press"`: `"focus"` prefetches and bills a model for a tab-through.
+
+<ComponentPreview componentName="ai" fileName="example-suggestions" />
+
+The stream is fetched once per `ask` and kept until `refresh`, `cancel`, or the last candidate
+leaves the strip, so browsing away and back does not re-bill the model — and the ✨ is live again
+the moment there is nothing on screen. Candidates matching what is already chosen — or each other,
+case-insensitively — are dropped before they are shown, and a picked one leaves the strip. Every
+part takes the props of the machine underneath it: `SuggestMark` is an `AiMark` and `SuggestList` is
+a `Suggestions`, which is an ordinary `@kanzo-tech/ui` component that knows nothing about a model.
+
+## The headless hooks
+
+Underneath both surfaces sit headless hooks, in the same package. They own the model interaction
+and nothing else: no markup, no value, no styling — so you can attach them to a control neither
+package pre-assembles.
+
+| Hook | Drives | What it gives you |
+|---|---|---|
+| `useInlineCompletion({ complete })` | the `Complete` compound | `ghost`, `status`, `error`, `setValue` (debounced), `ask` (now — the ✨), `dismiss()` |
+| `useSuggestions({ suggest, existing, limit })` | the `Suggest` compound, or a strip you compose | `items`, `status`, `error`, `ask()`, `refresh()`, `cancel()`, `dismiss(value)` — a deduped candidate list |
+| `useAiStream()` | both of the above | the raw engine: `run(source, each)` / `cancel` / `reset` — reach for it only to build a third interaction |
+
+There is no provider: the `Complete` and `Suggest` compounds each run the hook they need directly.
+The hooks are the way out for a control neither compound assembles — and a way out is what they
+are, not the path: reaching for `useInlineCompletion` over a one-line control is reaching past the
+rule at the top of this page.
+
+The contract is exactly the one above — a function returning an async iterable, cancelled by an
+`AbortSignal`. The hooks add the debounce, the min-length gate, the dedup and the abort
+bookkeeping; they do **not** call a model and do **not** own your input's value.
+
+All three report the same `AiStatus` — `"idle" | "loading" | "ready" | "error"` — so a surface
+learns one vocabulary. `ready` is the state that earns the union: a run that finished with nothing
+is a different fact from a run nobody started.
+
+<Callout type="info">
+`useInlineCompletion` deliberately does not hold the text. **The hook offers; you accept.** Read
+`ghost`, insert it where you want, and call `dismiss()` — that is what lets the hook drive a field
+it does not own without the two fighting over state.
+
+There is no `accept()` and no `clear()`. `clear` was a second name bound to `dismiss`, and `accept`
+returned the ghost and then dismissed — a getter with a side effect whose return value no consumer
+ever read, because every one of them already had `ghost` in hand.
+</Callout>
+
+## What none of this does
+
+- **It does not validate.** A suggestion is a value like any other; the field's own validation
+  applies unchanged. See [Validation](/docs/forms/validation).
+- **It does not persist or debounce your commit.** `useInlineCompletion` debounces its *request*,
+  not your save. What you do with the value is yours.
+- **It does not read the suggestion aloud.** `CompleteRoot` announces that one is ready and which
+  key takes it; the continuation itself is `aria-hidden`, because a polite region re-reading a
+  streamed sentence on every frame announces nothing. If the *content* is material rather than the
+  offer, put it in a region of your own.
+- **It does not offer a range, only a position.** LSP's `InlineCompletionItem` can *replace* the
+  text you have typed; ours inserts at the caret and nothing else. Sources here continue prose,
+  which is the degenerate case — a source that wants to correct the word under the caret has no way
+  to say so.

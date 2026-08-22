@@ -1,0 +1,182 @@
+---
+title: useInlineCompletion
+description: Ghost-text completion that does not own your input's value. It streams a continuation, debounces the request, and hands the string back for you to insert.
+---
+
+<ComponentPreview componentName="use-inline-completion" />
+
+## Usage
+
+```tsx
+import { useInlineCompletion } from "@kanzo-tech/ai";
+```
+
+```tsx
+const completion = useInlineCompletion({ complete });
+
+<Input
+  value={value}
+  onChange={(e) => {
+    setValue(e.target.value);
+    completion.setValue(e.target.value);
+  }}
+/>;
+```
+
+It ships in [`@kanzo-tech/ai`](/docs/ai), the sibling package that holds every surface which knows
+a model is on the other end.
+
+<Callout type="info">
+For a field that should just work — an aligned overlay ghost, `Tab` to accept, `Esc` to dismiss —
+compose the **`Complete`** compound instead; see
+[AI-assisted fields](/docs/ai/fields). This hook is the headless engine underneath it, for
+attaching the same capability to a control neither package pre-assembles.
+</Callout>
+
+## It does not own the text
+
+Your input owns the value. The hook only ever produces a `ghost` — the continuation — and **the
+hook offers, the caller accepts**:
+
+```tsx
+const accept = () => {
+  if (!completion.ghost) return;
+  setValue((v) => v.slice(0, caret) + completion.ghost + v.slice(caret));
+  completion.dismiss();
+};
+```
+
+There is no `accept()` on the hook. It used to return the ghost and then do exactly what `dismiss`
+does — a getter with a side effect whose return value no consumer read, because they all already
+hold `ghost`.
+
+That single decision is what lets one hook drive any field without the two fighting over state,
+and it means the hook cannot corrupt your value either: the worst it can do is offer a string you
+ignore.
+
+**What is not free is where the offer is drawn.** The hook hands you a string; putting it *inside*
+the box is a separate problem, and on a single-line field it has no answer — a continuation longer
+than the remaining width is masked at the edge and no gesture reaches it, because a field can only
+scroll through text it actually contains and the offer is not in the value.
+
+So the presenter is the decision, not the hook: `CompleteGhost` draws an overlay at the caret on a
+field that can grow, and `CompleteHint` streams the continuation wrapped underneath on a field that
+cannot. Both are on [the fields page](/docs/ai/fields), and the hook is the same either way.
+
+## The offer survives typing that agrees with it
+
+This is the difference a reader feels, and it is one rule: an offer made at a position stays on the
+table while what has been typed since is a prefix of it, and the `ghost` is simply what is left.
+
+```tsx
+completion.ask("Hello");            // ghost: " world"
+completion.setValue("Hello w", 7);  // ghost: "orld"  — nothing is requested
+completion.setValue("Hello!", 6);   // ghost: ""      — the offer is dead, a new one is debounced
+```
+
+It used to throw the whole offer away on every keystroke and start a fresh debounce, so the fastest
+a suggestion could come back was 350 ms plus a model. Smart Compose's budget is 60 ms at p90, and
+you do not get there by asking again — you get there by not asking. LSP 3.18 spells the same rule
+`filterText` ("an inline completion is shown if the text to replace is a prefix of the filter
+text"); Monaco spells it `inlineSuggest.mode: "prefix"`.
+
+## Two ways to ask
+
+| Call | Timing | `trigger` the source sees | The interaction it models |
+| --- | --- | --- | --- |
+| `setValue(value, position?)` | after `debounceMs`, and only if the offer died | `"automatic"` | the user is typing — coalesce keystrokes |
+| `ask(value, position?)` | immediately | `"invoked"` | the user asked — a ✨ button, a shortcut |
+
+`position` defaults to the end of the value, so a caller that does not track a caret gets the old
+behaviour and nothing else changes. Both are gated by `minLength`: below it, nothing is requested
+and any existing ghost is cleared. That gate is why a field does not fire a request on its first two
+characters, where a model has nothing to work with anyway.
+
+## The offer is made at the caret
+
+`complete` is handed an `InlineCompletionRequest` rather than a bare string, and the reason is
+`position`: a continuation is offered **where the caret is**, not appended to the end of the value.
+It was an append, which is why the ghost used to vanish the moment the caret moved one character
+left.
+
+```tsx
+interface InlineCompletionRequest {
+  value: string;      // the whole value; slice it yourself if you only want the prefix
+  position: number;   // where the continuation goes
+  trigger: "invoked" | "automatic";
+  signal?: AbortSignal;
+}
+```
+
+LSP 3.18 models this as a `range` plus an `insertText` and prefers a replacement over an insertion;
+ours is the degenerate range, a position, because our fields hold prose and not code. `trigger` is
+its `InlineCompletionTriggerKind` minus the `Kind`, and it exists for the reason the spec has it: a
+source may reasonably answer an explicit ask with something longer and dearer than it answers a
+keystroke.
+
+## The echo the hook removes
+
+Models frequently restate the whole value before continuing it. If the first chunks repeat the
+current text verbatim, that one unambiguous full-value echo is dropped — nothing finer. There is
+no character-level overlap matching, because that used to mangle continuations that happened to
+begin with the same word the field ended on.
+
+`cleanGhost(base, cont)` is that rule, exported so a source that has to do the same trimming on its
+own side can use the same one. It runs on the *accumulated* text once a frame, which is why it also
+returns `""` while an echo is still arriving: mid-stream the continuation is a strict prefix of the
+value, the full-echo rule cannot fire yet, and without the second case the field paints the sentence
+it already contains a second time. Measured live: a value of `Three hounds seen at the ford, in
+threes as they go` with a ghost reading `Three hou`. The cost is a genuine continuation that opens
+with the value's own first characters, hidden for the few frames until it diverges — invisible
+beside painting the value twice.
+
+<Callout type="warn">
+`complete` must yield the **continuation**, not the rewritten value. Yielding the whole text is
+only survivable because of the echo rule above; anything in between — a partial restatement —
+lands in the field as duplicated words.
+</Callout>
+
+## Cancellation is the point
+
+Every request supersedes the last one, and the engine closes that race rather than leaving it to
+you: a superseded run cannot reach your screen, because the controller it checks is a local of that
+run. That only holds if your `complete` honours the `AbortSignal` — pass it straight to `fetch`, or
+check `signal.aborted` between yields.
+
+`dismiss()` on blur if a stale ghost hanging around an unfocused field would be confusing; the
+example above keeps it so the accept buttons stay reachable.
+
+## API Reference
+
+### Parameters
+
+`UseInlineCompletionOptions`:
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `complete` | `(request: InlineCompletionRequest) => AsyncIterable<string>` | — |
+| `debounceMs` | `number` | `350` |
+| `minLength` | `number` | `4` |
+
+### Returns
+
+`InlineCompletion`:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `ghost` | `string` | The continuation on offer; empty when there is none |
+| `status` | `AiStatus` | `"idle" \| "loading" \| "ready" \| "error"`, shared with [`useAiStream`](/docs/ai/use-ai-stream) and [`useSuggestions`](/docs/ai/use-suggestions) |
+| `error` | `string \| null` | Message when the source threw |
+| `setValue` | `(value: string, position?: number) => void` | The field changed. Asks after the debounce **unless the offer on the table survives** |
+| `ask` | `(value: string, position?: number) => void` | Ask now, as `"invoked"` — the ✨ path |
+| `dismiss` | `() => void` | Forget the offer and stop anything in flight |
+
+There is no `hasGhost`, for the reason `useSuggestions` returns `items` and no `hasItems`: a derived
+boolean beside the thing it is derived from is a second spelling of one fact.
+
+**`ready` with an empty `ghost` is the model having nothing to add**, and it is a different fact
+from `idle`, which means nobody has asked. The three-state union this replaced could not tell them
+apart.
+
+Options are read from a ref on every run, so an inline arrow `complete` does not restart
+anything.

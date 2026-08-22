@@ -1,0 +1,124 @@
+---
+title: useSuggestions
+description: A deduped candidate strip streamed from your own source — asked once, deduped against what the field already holds, and back to idle when its answer has been taken.
+---
+
+<ComponentPreview componentName="use-suggestions" />
+
+## Usage
+
+```tsx
+import { useSuggestions } from "@kanzo-tech/ai";
+```
+
+```tsx
+const suggestions = useSuggestions({ suggest, existing: keywords, limit: 6 });
+
+<Button onClick={suggestions.ask}>Suggest</Button>;
+```
+
+It ships in [`@kanzo-tech/ai`](/docs/ai), the sibling package that holds every surface which knows
+a model is on the other end.
+
+<Callout type="info">
+For the ✨ and the strip already assembled, compose the **`Suggest`** compound — see
+[AI-assisted fields](/docs/ai/fields). This hook is what it runs on, for when the candidates belong
+somewhere else: a `Combobox`, a command palette, a panel of your own.
+</Callout>
+
+## A budget, not a window
+
+`limit` is how many are taken from the stream, and that is the end of it. Nothing refills when one
+is dismissed — the strip simply gets shorter, which is the honest picture of a source that has
+already answered.
+
+<Callout type="warn">
+It was a three-row window with a refill loop and a retry-when-dry, and every part of that existed
+to keep a popover full. The popover is gone; so is the machinery. A strip wraps, so there is
+nothing to keep full.
+</Callout>
+
+## Dedup, before anything is rendered
+
+Two things are dropped, case-insensitively and by trimmed value:
+
+- anything already in `existing` — the values the user has committed;
+- anything already shown this run.
+
+So a candidate never appears next to itself, and never offers what is already chosen. Keep
+`existing` fed from the same state your input writes to and the ✨ and typing stay one value.
+
+## Asked once, and free again when its answer is spent
+
+`ask()` does nothing unless the hook is `idle`: nothing in flight, nothing on screen. That is what
+keeps browsing away from a surface and back from re-billing the model.
+
+The other half is what happens when the answer runs out. **`dismiss()` on the last remaining
+candidate puts the hook back to `idle`**, because nothing left of an answer is not the same thing
+as an answer with nothing in it. Two consequences, and both are the point:
+
+- the ✨ works again — it used to be a button that did nothing for the rest of the session;
+- a strip does not say *Nothing to suggest.* at the reader who has just taken the last one.
+
+`refresh()` ignores the gate and asks again from scratch. It is also the retry after an error.
+
+## Four states, one union
+
+| `status` | What it means |
+| --- | --- |
+| `idle` | nobody has asked, or the answer has been cancelled or spent |
+| `loading` | a run is pulling |
+| `ready` | a run finished — **`ready` with no items means the source had nothing** |
+| `error` | the source threw; `error` carries the message |
+
+An empty `ready` is an answer a surface should say out loud rather than sitting blank. It is also
+the state a `status` plus a `loading` boolean could never express, which is why the boolean is
+gone.
+
+Steer the source into each of them:
+
+<ComponentPreview componentName="use-suggestions" fileName="example-states" />
+
+Two things in there are the sections above made visible rather than described. **Ask is disabled
+while a run is on screen** — that is the `idle` gate, and a gate you can see beats a button that
+does nothing. And **taking the last candidate lights Ask again**, because nothing left of an answer
+is not an answer with nothing in it.
+
+## API Reference
+
+### Parameters
+
+`UseSuggestionsOptions`:
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `suggest` | `(signal?: AbortSignal) => AsyncIterable<Suggestion>` | — |
+| `existing` | `string[]` | — |
+| `limit` | `number` | `6` |
+
+### `Suggestion`
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `value` | `string` | The primitive committed when the row is picked |
+| `label` | `string?` | Human label; defaults to `value` |
+| `rationale` | `string?` | Optional explanation shown under the label |
+
+### Returns
+
+`SuggestionsController`:
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `items` | `Suggestion[]` | What is on offer, deduped |
+| `status` | `AiStatus` | `"idle" \| "loading" \| "ready" \| "error"`, shared with [`useAiStream`](/docs/ai/use-ai-stream) and [`useInlineCompletion`](/docs/ai/use-inline-completion) |
+| `error` | `string \| null` | Message when the source threw |
+| `ask` | `() => void` | Ask the source; a no-op unless idle |
+| `refresh` | `() => void` | Ask again from scratch, and the retry after an error |
+| `cancel` | `() => void` | Abort in flight, and forget |
+| `dismiss` | `(value: string) => void` | Drop one candidate, **by value** |
+
+`dismiss` is by value and not by index: an index-addressed list forces every caller to keep a
+parallel lookup, and it is wrong the moment anything else mutates the array. Picking a row is
+`dismiss(value)` plus whatever your product does with it — the hook has no opinion about where a
+chosen suggestion goes.
