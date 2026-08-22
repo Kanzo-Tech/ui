@@ -1,23 +1,115 @@
 # The AI layer — where it stands and what is next
 
-**Read §0 and stop there.** It is the end-of-day state for 2026-08-22 and it supersedes everything
-under it; the rest is kept because it carries items §0 points at, not because it describes the tree.
+**Read §0 and stop there.** It is the end-of-day state for 2026-08-22, fourth session, and it
+supersedes everything under it; the rest is kept because it carries items §0 points at, not because
+it describes the tree.
 
 Started 2026-08-20. The design memo it continues is
 `https://claude.ai/code/artifact/4cea4027-0ef7-411c-9199-cbdb9fcb75bc` ("Where the AI Layer Goes");
 read that for the *why*, this for the *next*.
 
-**Six commits landed on 2026-08-22 and the rest of the tree is not committed**, most of it a
-parallel session's theme refoundation. §0 has the list and the rule: commit by explicit path.
+**Eleven commits on 2026-08-22 and the rest of the tree is not committed** — 291 paths, two other
+sessions' work. §0 has the list and the rule: commit by explicit path.
 
 ---
 
-## 0. START HERE — 2026-08-22, end of the third session
+## 0. START HERE — 2026-08-22, end of the fourth session
 
-**Read this section and stop. §0b below is the 21st's morning plan; its items are either closed
-here or named here as open. §§2–8 are older and only matter if you pick up something they name.**
+**Read this section and stop. §0a below is the third session's and its items are either closed here
+or named here as open.**
 
 ### The tree
+
+**Four more commits**, on top of the seven that were here:
+
+```
+f8caf62 docs(graph): two example groups, and one corpus behind all three
+daf9e0a fix(ui): a switch given a label had none, and no accessible name either
+0128b41 docs: eight exports that no page had ever named, and one of them twice
+30d41e9 fix(ui): the editor wears the side the page wears, and the guard grew a half
+```
+
+**291 paths are still uncommitted and none of them is this work.** They are two other sessions'
+in flight: the theme refoundation (`packages/theme`, `packages/palette` deleted,
+`docs/showcases/theme-studio/`, `docs/content/docs/(root)/theming.mdx`) and the AI layer
+(`packages/ai` is largely *untracked*, plus `docs/components/*` and an untracked
+`docs/content/docs/ai/tool.mdx`). Committing them would be committing somebody else's half-finished
+state. **Commit by explicit path, never `git add -A`** — every commit above used
+`git commit -- <paths>`.
+
+### Green, and the two that are not
+
+`pnpm typecheck` (all five projects), `pnpm lint`, `pnpm test` — theme 62, ui 570, graph 77, ai 93,
+docs 43 — `pnpm size` (root barrel 42.39 kB of 43.5; analytics 66.26 kB of 68), `pnpm smoke`.
+
+Two fail, and **both belong to another session's uncommitted work**:
+
+- **`pnpm check:generated`** — `packages/theme/theme-data.json` only. Their generator now emits role
+  entries (`--sidebar-foreground` among them) that the staged file does not carry. Do not hand-edit
+  it; it regenerates when they land.
+- **`pnpm --filter @kanzo-tech/docs build`** — dies prerendering `/docs/ai/tool` with
+  `RangeError: Maximum call stack size exceeded`, at 325 of 434 pages. That page is **untracked**
+  and `docs/components/component-preview.tsx` is modified beside it, both by the AI-layer session.
+
+### What closed
+
+1. **`darkTheme` from the resolved appearance** (`30d41e9`). The facet is set beside the theme
+   rather than baked into it by `EditorView.theme(spec, { dark })`, through a compartment, so an
+   appearance flip does not rebuild the view and lose undo history. It reached a list nobody had
+   tested: `&dark` styles `.cm-cursor` and the tooltip arrow where `&light` does not, and `&light`
+   styles the panel edges and a tooltip divider where `&dark` does not. Five classes newly
+   reachable, all five already covered — luck, so `codemirror-dark-parity.test.ts` now checks both
+   halves and `CodeEditor.test.tsx` is new.
+2. **Eight exports no page had ever named** (`0128b41`). See below for the guard.
+3. **`Switch` had no accessible name** (`daf9e0a`) — the finding of the day, and the same shape as
+   the `Diagnostic` one: `children` were accepted by the type and rendered nowhere, so the page's
+   own first example passed a label and shipped a bare toggle. Measured live, fixed, tested.
+4. **`graph`'s two example groups** (`f8caf62`) — written, typechecked, linted, **not seen**. See
+   the trap below.
+
+### The guard for exports named on no page: measured, and still blocked
+
+The residue is **13, not 2**: the audit counted `ui`'s components and the question is asked of
+`theme`, `graph` and `ai` too. Eight closed in `0128b41`. The thirteen left are `KanzoTheme`,
+`ThemeNotice` and eleven of `@kanzo-tech/theme`'s — **all on pages the theme refoundation holds
+open**, and `theme`'s surface grew by five names *during* the measurement. The numbers, the residue
+and the one extraction trap are written at the end of `.planning/EXAMPLE-COVERAGE.md`. Write the
+guard the day those pages settle.
+
+### Next, in the order I would take it
+
+1. **Look at the two graph examples in a browser**, which is the one thing they are owed.
+2. **The thirteen names, then the guard** — the day the theme pages settle.
+3. **`ModelList` and `streamdown`**, which are still Angel's calls (§0a).
+
+### Traps, and the new one is the expensive one
+
+- **A `<canvas>` needs a foreground window, and half a diagnosis is worse than none.** cosmos.gl
+  paints nothing while the tab is hidden, and *the failure does not look like a hidden tab*: it
+  looks like a specific, plausible bug in whatever you just wrote. Four measured iterations went
+  into "the tracked-position readback is broken" — an assertion that got as far as being written
+  into a documentation page — before a **screenshot** showed the pre-existing `example-memory`
+  blank beside it, and the console said `luma.gl: WebGL Link error … SharedRenderPipeline`. The
+  order that would have cost twenty minutes instead of two hours: **screenshot first, console
+  second, DOM numbers third.** A number read off a graph that never painted is a number about
+  nothing, and it will happily support a theory.
+- **`git checkout -- <file>` discards another session's uncommitted work, silently.** Done here to
+  `documented-exports.test.ts`, which was carrying an unfinished blocks-surface feature and an
+  `ai` entry point. Reconstructed from what was still in context; it is uncommitted again, as it
+  was found. **Check `git status` on a file before reverting it**, and prefer editing back over
+  reverting.
+- **`git commit --amend` with no paths commits the whole index**, which in this checkout holds
+  other sessions' staged files. It swept sixteen of them into a commit. `git reset --soft HEAD~1`
+  then re-commit by explicit path restores both the commit and the index.
+- **The docs dev server runs out of heap** under `--webpack` after a few edit cycles, and what you
+  see is a page that answers nothing while `location.pathname` reads `/`. Restart it with
+  `NODE_OPTIONS=--max-old-space-size=8192`.
+
+## 0a. The third session — 2026-08-22
+
+**Superseded by §0.**
+
+### The tree (third session)
 
 **Six commits landed this session** — the first code committed on this branch since `494d6ea`:
 
