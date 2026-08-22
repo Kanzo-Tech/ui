@@ -1,8 +1,8 @@
 ---
-"@kanzo-tech/palette": minor
 "@kanzo-tech/theme": minor
 "@kanzo-tech/ui": minor
 "@kanzo-tech/graph": minor
+"@kanzo-tech/ai": minor
 ---
 
 **The first release.** Four packages, arriving together. Nothing before this was published, so
@@ -72,48 +72,33 @@ So a client ships *our product is compact and square* as the point their users s
 user preference is an override on top of it. Storage holds only what a user chose, and `themeScript`
 takes the same policy — a policy only React knows about is a flash of one value before the other.
 
-### `@kanzo-tech/palette`
+### The colour layer, and what it stopped being
 
-The colour derivation: ramps, the categorical search, the role table, `compile`. A tenant's palette
-is a document derived once at onboarding, and everything downstream — the primary colour, the
-charts, the dashboards, the graph — comes from that one artefact.
+**A theme is one flat block of CSS.** `packages/theme/themes/<name>.css` — about fifty-five
+declarations somebody writes, pastes, reviews and diffs. Twenty-one of them are colours a theme
+authors; every other name in the vocabulary is a *use* of one of those, bridged once through
+`@theme inline` and never re-declared. Applying one is writing `data-theme` on `<html>`.
 
-**Two tiers of colour token, and knowing which you are reading matters.** The *reference* tier is
-`--{base,brand,destructive,warning,success,info}-{1..12,a1..a12}` — 144 generated properties with
-Radix's positional meaning and a Tailwind utility apiece, so `bg-base-3` and the alpha steps are
-yours to spell. The *role* tier is a name bound to one of those, and a role exists only if it
-carries a **measured property** a step index cannot express (`fill`, `on-fill`, `boundary`,
-`quietest-ink`, `recess`) or is a name Shark's recipes paste in verbatim. Anything the roles do not
-name, reach for the reference tier — that is what it is for, and it is why the role list does not
-grow with each new consumer.
+**A theme carries one mode.** Light and dark are two themes, not two blocks of one document. That is
+what lets a tint be written as a percentage without landing on a different step in each mode, what
+makes a scoped preview a plain `<div data-theme="…">` that nests without limit, and why the theme
+preference is keyed by side: a theme *is* a side.
 
-**A percentage is not an alpha step.** `bg-x/60` dilutes toward transparent and lands wherever the
-thing underneath puts it — and it lands on a *different* step in each mode, because the dark ramp is
-deliberately fatter at the bottom. Every family publishes twelve alpha steps solved to composite
-onto their own solid; use those.
+**There is no derivation, and this is the change to read first if you knew the old shape.** A
+`@kanzo-tech/palette` package took two seeds through thirteen stages and published 144 reference
+steps plus a role table. Measured over the whole library, components used **eighteen** of those 144
+and all eighteen were tints — `bg-destructive/7` compiles to the same `color-mix`, so CSS now
+computes at the point of use what eight thousand lines existed to name. The package is deleted, with
+no alias and no migration path.
 
-**A document's charts are drawn from its own colours.** The categorical source is the brand wheel
-plus whatever the document publishes — a base16 palette's accents, a client's syntax scheme — as
-families, deduplicated, with those families required unless requiring them puts the set under the
-separation bar. So Dracula's charts carry Dracula's red, green, purple and pink instead of a wheel's
-answer, and Kanzo's own worst adjacent pair under simulation went 20.9 to 28.3. The obvious version
-of this was measured and refused: sourcing from the accents *instead* of the wheel costs three or
-four categories and makes Nord unable to name any, because a palette's accents were authored to sit
-in an editor rather than to be told apart as marks.
+What you give up with it is a contrast guarantee made at authoring time: **the author answers for
+AA.** What still checks the artefact is a guard over the shipped themes, measuring each status fill
+against the ink meant to sit on it. `decisions/a-theme-is-one-flat-block.md` carries the numbers.
 
-**A document may decline the categorical channel**, and `monochrome` is the one that does:
-`categorical: "declined"` on the input, `source.from === "declined"` on the document,
-`--chart-capacity: 0` in the sheet and every `--chart-*` slot resolving to the muted role. That is
-how a monochrome product ships — one more palette, chosen in the same selector as any other, rather
-than a mode inside whatever draws a chart. A graph gets its categories back by binding them to
-`symbol`; a chart with a labelled axis was not using colour to distinguish anything and loses
-nothing; a stacked bar or a pie loses the encoding, which is the cost of choosing this document and
-is stated rather than hidden.
-
-The declaration is the point: a zero that is a decision and a zero that is damage are the same
-number, so readers branch on `source.from` and `categoricalCapacity` distinguishes a declared `0`
-from an undeclared property. `separation` is `null` for such a set — not zero, which would read as
-two categories nobody can tell apart, and not the infinity an empty pair list computes to.
+**The shape half is new.** `--radius-box` / `--radius-field` / `--radius-selector`, `--size-field` /
+`--size-selector`, `--stroke` and `--depth`. `--depth` is a plain number multiplied into a `calc()`
+the recipes already contain, so one stylesheet gives flat design at `0` and relief at `1` with no
+conditional anywhere — which is what lets a client look different without forking a recipe.
 
 ### `@kanzo-tech/graph`
 
@@ -269,9 +254,10 @@ These are the decisions a consumer cannot work around, so they are the ones wort
   overlays portal to `document.body`, outside any wrapper, and density sets the root font-size the
   whole `rem` scale resolves against. A wrapper element cannot theme this library. `KanzoTheme` is
   the scoped second themer, and it is for previews only, for exactly that reason.
-- **`@kanzo-tech/palette` is authoring-time.** It is a devDependency of `@kanzo-tech/theme`, not a
-  runtime dependency: the categorical search is measured in seconds and has no first-paint budget.
-  The runtime applies a stored document and derives nothing.
+- **A theme is source, not output.** `packages/theme/themes/*.css` and `tokens.css` are hand-written;
+  only `themes.css` and `theme-data.json` are generated. There is no colour derivation and no
+  authoring-time package: the runtime applies a theme and derives nothing, because there is nothing
+  to derive.
 - **Optional peers live on subpaths.** `@kanzo-tech/ui/editor` needs `@codemirror/*`, `/table` needs
   `@tanstack/react-table`, `/analytics` needs the DuckDB and Mosaic stack. The root barrel imports
   none of them, so `import { Button }` works without any of them installed.
@@ -287,7 +273,7 @@ only, with the neutral and the statuses shared — which is what keeps several p
 product), and `appearance` (which of the document's two blocks applies).
 
 **Every document a tenant publishes travels in the page**, each compiled under its own
-`[data-palette="…"]` block, and choosing one writes the attribute. The six this repository ships
+`[data-theme="…"]` block, and choosing one writes the attribute. The six this repository ships
 are 8.7 kB gzipped together, which is what makes that affordable — so `cookieStorageAdapter` is an
 optimisation rather than a requirement, and a tenant publishing a single identity sends one block
 and sets no attribute at all.
@@ -295,6 +281,11 @@ and sets no attribute at all.
 What does not exist is moving *part* of a palette at runtime: no `base`, no `accent`, no
 chart-scheme attribute, no inline `--color-custom-*`. Each expressed a fragment; a document
 expresses all of it at once, graded as a whole.
+
+**Where a tenant's brand actually shows** is worth one sentence, because a palette that reaches
+only the buttons is not white-label. A chosen card — `RadioGroupCard`, and the `Questionnaire`
+choice built on it — takes `--primary` on its border and the brand's own alpha step in its fill,
+so the identity a tenant published is in the answer they picked and not only in the submit button.
 
 **`appearance` is `"light" | "dark"`, and the preference is that or `null`** — `null` means the OS
 decides. There is no `"system"`: following the OS is the absence of a value, which is what CSS
@@ -312,6 +303,15 @@ supposed to be the top of a document. Both the chromed field and a bare pane are
 line numbers still sit on their lines — that is why the inset was on the scroller rather than on
 the content, and removing it keeps the property. A caller who wants an inset owns the surface.
 
+**`CodeEditor`'s find/replace panel is drawn from this library's controls.** `@codemirror/search`
+lets the whole panel be replaced — `search({ createPanel })` — so the editor hands CodeMirror an
+empty element and renders `InputGroup`, `Toggle`, `Button` and `ButtonGroup` into it through a
+portal. The search itself is untouched: `setSearchQuery`, `findNext`, `replaceAll` and the rest are
+the public commands, and binding them from a toolbar of your own drives the same state and updates
+the same field. What goes with it is the block of theme rules that repainted CodeMirror's stock
+form — which is where a white field on a white page had been hiding, behind a selector that matched
+nothing. `basics={false}` opts out of all of it, search included.
+
 **`ImageCropper` is adopted, over Ark's image-cropper machine.** `ImageCropper` renders the root and
 the viewport together, so what you compose lands inside the frame; `ImageCropperSelection` draws its
 own handles and grid, and the two parts under them are there for a selection you assemble yourself.
@@ -322,14 +322,14 @@ api of the cropper you are inside, not a machine to hand to a provider.
 **Appearance has one control and it is a colour card.** `PreferencesColor` draws one card per side
 and pressing a card wears that side; there is no `AppearanceToggle`, no `PreferencesAppearance`, and
 no sun/moon button in the panel's header. Note the shape of the hole that leaves: `PreferencesColor`
-hides itself below two published choices, so a tenant publishing one palette and one brand has no
+hides itself below two published choices, so a tenant publishing one theme has no
 appearance control in the panel — their users follow the OS, or the host mounts its own against
 `useKanzoTheme().setAppearance`.
 
-**Appearance is a class on the element carrying the theme, never on an ancestor.** That is what
-makes a light preview inside a dark page possible. Whatever sets `data-palette` must also set the
-appearance class — a bare attribute on a div inside a dark page renders that document's *light*
-half. `KanzoTheme` upholds this; hand-written attributes must too.
+**A scoped preview is `data-theme` on a `div`, and nothing else.** It used to need the appearance
+class beside it, because a document carried two blocks and a bare attribute inside a dark page
+rendered that document's *light* half. A theme is one mode, so the attribute is the whole of it —
+and it nests: three levels deep resolves correctly, which the old arrangement could not do.
 
 ### For the reviewer of this changeset, not for a consumer
 
@@ -341,11 +341,72 @@ Two claims that stood in the folded notes are **no longer true**, and are not re
   spelling?", and on that one all seventeen were byte-identical to a published reference step in
   every block of every shipped document. They are deleted; call sites spell the step. See
   `decisions/a-role-earns-its-name-or-becomes-a-step.md`.
-- `the-first-release.md` itself said `data-palette` "stays forbidden" and that a palette "writes no
-  attribute at all — it is served". `palette-is-an-attribute.md` reversed that, and the text above
-  now describes the shipped mechanism.
+- `the-first-release.md` itself described a two-tier colour vocabulary of 144 reference steps under
+  a role table, and `data-palette` beside `data-identity`. Both are gone: measured, components used
+  eighteen of the 144 and all eighteen were tints, and a palette containing identities was a level
+  that stopped existing when a brand became a theme. See `decisions/a-theme-is-one-flat-block.md`.
 
 The bumps are kept at `minor` (0.0.0 → 0.1.0) rather than raised to the `major` several folded
 notes carried. Those declared breakage against a version that was never published, so they have
 nothing to break; what number the first release takes is the owner's call, and raising it here would
 be taking it silently.
+
+### `@kanzo-tech/ai`
+
+The surfaces that know a model is on the other end: `Conversation` and `Message` for the
+transcript, `PromptInput` for the composer, `Reasoning` for the thinking, `Tool` for a call the
+model made, `Task` for the steps it took, and the two field affordances — `Complete`'s inline ghost
+and `Suggest`'s candidates — over the headless `useAiStream` / `useInlineCompletion` /
+`useSuggestions`.
+
+**`useInlineCompletion` is not the AI SDK's `useCompletion`, and the name says so.** LSP 3.18 ships
+`textDocument/completion` and `textDocument/inlineCompletion` as two requests on purpose; ours has
+the semantics of the second, so it takes that identifier. Theirs owns an HTTP endpoint and the
+input's value — you give it a URL and it holds `input`, `handleInputChange` and `handleSubmit`.
+Ours owns neither: you hand it a function returning an async iterable, and your field keeps its own
+value. The `Complete` compound keeps its name; it collides with nothing.
+
+**`MessageText` is the arrival of a streamed answer.** Hand it the string so far and a `streaming`
+boolean; it re-derives the words and settles each one in as it appears — a word and not a chunk,
+because a model emits tokens and tokens cut words in half. `SuggestList`'s candidates can now be
+refused as well as taken: each one is a `ButtonGroup` holding the pill and a ✕.
+
+**`Complete` composes over a `Textarea`, and a one-line field takes `Suggest` instead.** A
+continuation drawn over an `<input>` can only show what fits in the width that is left — the field
+cannot scroll to reveal text that is not in its value — so there is no `CompleteInput`. A line
+takes candidates, a paragraph takes a continuation.
+
+**A turn is a list of parts, and `AiMessage` is the join those components were missing.** Each was
+correct and none was wired to the next, so a host held its own shape and translated it into five
+sets of props by hand. Four variants — `AiTextPart`, `AiReasoningPart`, `AiToolPart`, `AiTaskPart` —
+each naming the component that draws it, plus `isTextPart` / `isReasoningPart` / `isToolPart` /
+`isTaskPart`, which exist because `part.type === "tool"` narrows inside a `switch` and does not
+survive a `.filter`. The state vocabularies are the package's own: `RunState` is the four `Task` and
+`Tool` already share, and the AI SDK's `input-streaming` / `input-available` / `output-available` /
+`output-error` is not adopted, because that is the same four states under a second spelling.
+
+**Nothing renders it.** There is no `<Message parts={…} />`: which part a product shows, in what
+order, with what chrome, is exactly what differs per product. What the union gives a host instead is
+exhaustiveness — a fifth variant with no case fails `tsc`. Four of the reference's nine have no call
+site here, and `source` is declined rather than deferred: a query's provenance is a statement plus
+rows, which is a tool call.
+
+A package rather than part of `@kanzo-tech/ui`, because the root barrel is a one-way door: a
+`Message` has a `role` and one of the roles is `assistant`, and a consumer who wants a `Button`
+should not pay for a transcript. It depends on `@kanzo-tech/ui` and never the reverse.
+
+Two things it does differently from the reference it takes its shapes from. `ToolInput` and
+`ToolOutput` take **children**, not an `input`/`output` prop rendered as JSON: a generic chatbot
+cannot know what its tool was, and we always do — ours is a SQL statement and a result table, and
+the JSON tree is the fallback for a caller with nothing better. And `Conversation` pins to the
+bottom only while the reader is already there: a stream produces *growth*, which fires no scroll
+event, so it observes the content as well as the viewport rather than calling `scrollTo` on every
+token and dragging the reader back down mid-sentence.
+
+Import both stylesheets, in this order — the second is a supplement, not a second copy of the
+token layer:
+
+```ts
+import "@kanzo-tech/ui/styles.css";
+import "@kanzo-tech/ai/styles.css";
+```

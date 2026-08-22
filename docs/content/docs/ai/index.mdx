@@ -1,0 +1,189 @@
+---
+title: AI
+description: The surfaces that know a model is on the other end — the transcript, the composer, a model's reasoning, the calls it makes, and the two field affordances. A sibling of @kanzo-tech/ui, never part of it.
+---
+
+`@kanzo-tech/ai` ships what a product needs once a model is answering: the transcript and its
+messages, the composer that sends to it, the thinking it did on the way, the tool calls it made,
+and the ✨ affordances that stream into a single field.
+
+It is a **sibling** of `@kanzo-tech/ui`, not part of it. It depends on the library; nothing in the
+library may depend on it.
+
+## Why it is not in the library
+
+The line is not *is it AI*. It is **does the component know a model exists**.
+
+A `Button` does not, a `Table` does not, and a `Collapsible` does not — which is why the transcript
+is built out of all three and none of them moved. A `Message` does: it has a `role`, and one of the
+roles is `assistant`. That is domain knowledge, and `DESIGN.md`'s first admission rule keeps the
+generic vocabulary free of it, the same way it keeps graphs out by name.
+
+There is a second, blunter reason, and it is the one the decision record leads with: **the root
+barrel is a one-way door.** A consumer who wants a `Button` must not pay for a transcript. Splitting
+the package is what makes that structural rather than aspirational.
+
+<Callout type="info">
+By the *does it know* test, the two field affordances should have stayed behind. `SuggestRoot` takes
+candidates and a callback, and a human typing would be indistinguishable; `useInlineCompletion`
+takes a function returning an async iterable and never makes a request. They moved anyway, on the
+owner's call, because the ✨ marks a field as model-assisted **to the reader** — and that mark is
+the thing being bought. A package that ships the transcript and leaves the mark behind splits one
+purchase across two installs. `decisions/the-ai-surfaces-are-their-own-package.md` records the cost
+as well as the call.
+</Callout>
+
+## Installing it
+
+```bash
+pnpm add @kanzo-tech/ai
+```
+
+Everything here draws with `@kanzo-tech/ui`'s parts and Ark's machines, so both are **required**
+peers rather than dependencies — two copies of Ark would mean two portals and two focus traps:
+
+```bash
+pnpm add @kanzo-tech/ui @ark-ui/react react react-dom lucide-react
+```
+
+There is **no optional peer and no subpath**. Nothing in this package reaches a database, an editor
+or a chart, so there is no engine to hold behind a door — the whole surface is on the root entry.
+The stylesheet is still `@kanzo-tech/ui`'s single `styles.css`; this package adds no second sheet.
+
+## What it ships
+
+| | For | Page |
+| --- | --- | --- |
+| `Conversation` | The scroll container that follows a stream without trapping the reader | [Conversation](/docs/ai/conversation) |
+| `Message` | One turn, and the parts that hang off it | [Message](/docs/ai/message) |
+| `PromptInput` | The composer, as a form | [Prompt input](/docs/ai/prompt-input) |
+| `Reasoning` | A model's thinking, folded away | [Reasoning](/docs/ai/reasoning) |
+| `Tool` | One call the model made, with what went in and what came back | [Tool](/docs/ai/tool) |
+| `Task` | The life of one step | [Task](/docs/ai/task) |
+| `CompleteRoot` · `SuggestRoot` | The two field affordances, composed over an input you already have | [AI-assisted fields](/docs/ai/fields) |
+| `useAiStream` · `useInlineCompletion` · `useSuggestions` | The headless engine underneath all of it | [useAiStream](/docs/ai/use-ai-stream) |
+
+The field affordances and the hooks moved here whole from `@kanzo-tech/ui`, and their pages stayed
+where a reader looks for them: a question about making *a field* model-assisted is a forms question,
+and a question about *a hook* is a hooks question. Only the import line changed.
+
+## A turn is a list of parts
+
+Every component above was correct and none of them was wired to the next: a host held its own shape
+and translated it into five sets of props by hand. `AiMessage` is the join.
+
+```ts
+interface AiMessage<METADATA = unknown, NAME extends string = string> {
+  id: string;
+  role: MessageRole;
+  metadata?: METADATA;
+  parts: AiMessagePart<NAME>[];
+}
+```
+
+Four variants, and each names the component that draws it:
+
+| Part | Carries | Drawn by |
+| --- | --- | --- |
+| `AiTextPart` | `text`, `state?: StreamState` | `MessageText` |
+| `AiReasoningPart` | `text`, `state?: StreamState` | `Reasoning` |
+| `AiToolPart` | `name`, `state?: RunState`, `input`, `output`, `errorText` | `Tool` |
+| `AiTaskPart` | `title`, `state?: RunState` | `Task` |
+
+So one `.map` with one `switch` renders a whole turn, and `isTextPart`, `isReasoningPart`,
+`isToolPart` and `isTaskPart` are exported because a `part.type === "tool"` narrows inside a switch
+and **does not survive a `.filter`**.
+
+```tsx
+{message.parts.map((part, i) => {
+  switch (part.type) {
+    case "text":
+      return <MessageText key={i} streaming={part.state === "streaming"}>{part.text}</MessageText>;
+    case "reasoning":
+      return <Reasoning key={i} streaming={part.state === "streaming"}>…</Reasoning>;
+    case "tool":
+      return <Tool key={i} state={part.state}>…</Tool>;
+    case "task":
+      return <Task key={i} state={part.state}>…</Task>;
+  }
+})}
+```
+
+**Nothing here renders.** There is no `<Message parts={…} />`, and that is the shape rather than an
+omission: which part a product shows, in what order, with what chrome around it, is exactly what
+differs per product. What the union gives the host instead is exhaustiveness — a fifth variant with
+no case fails `tsc` rather than a review.
+
+<Callout type="info">
+**The state vocabularies are the package's own, not the reference's.** `RunState` — `pending` ·
+`running` · `done` · `failed` — is the one `Task` and `Tool` already share, from one label map and
+one icon family. The AI SDK spells a tool's four `input-streaming` · `input-available` ·
+`output-available` · `output-error`; adopting that would be the same four states under two
+spellings. `StreamState` is `streaming` · `done`, because text and reasoning have two.
+</Callout>
+
+Four of the reference's nine variants — `file`, `data-*`, `step-start`, `dynamic-tool` — have no
+call site here. `source` is **declined rather than deferred**: a query's provenance is a statement
+plus rows, which is a tool call. It arrives the day an answer rests on a text somebody wrote.
+
+## It still never calls a model
+
+The contract is the one the field affordances already had, and the transcript did not change it:
+**a function returning an async iterable, cancelled by an `AbortSignal`.** No API key, no provider,
+no prompt and no model name appears anywhere in this package. Your product owns the model, the
+prompt, the auth and the cost; this package owns the interaction.
+
+[AI-assisted fields](/docs/ai/fields) explains that contract once, in full, including how to write
+one and why cancellation is the whole point.
+
+## AI Elements is a source, not a reference
+
+The shapes here — and the four-word state vocabulary the tool and the task share — come from
+Vercel's AI Elements. The names come from this house. That relationship is deliberately looser than
+the one `@kanzo-tech/ui` has with Shark UI, and the difference is written down in
+`decisions/ai-elements-is-a-source-not-a-reference.md`:
+
+- **A reference is a thing you can be held to.** Shark ships a registry we can resolve types from,
+  so `shark-parity.test.ts` can fail. AI Elements is not installable here, so holding this package
+  to it would buy a check nobody can run.
+- **The cost is real and worth watching**: nothing goes red when we drift from AI Elements, so drift
+  is invisible here in a way it is not one package along.
+
+**Taken whole**: the four call states, collapsed to `pending · running · done · failed`, and the
+rule that a finished call opens by default. The transcript's pin-to-bottom behaviour. Reasoning
+opening while it streams and closing when it stops.
+
+**Taken and re-pointed**: their `StackTrace` became [`Diagnostic`](/docs/data-display/diagnostic) in
+`@kanzo-tech/ui` — a severity, a message and a list of source positions is a SHACL violation and an
+LSP diagnostic, and neither is AI.
+
+**Refused**: `input` / `output` props rendered as JSON. See below.
+
+**Not built**: the Voice family, Artifact, Web Preview and Sandbox — no call site, present or
+planned — and Canvas / Node / Edge, which was wanted for a program summary that turns out to be a
+list of signatures rather than a diagram.
+
+## The two divergences to know before you choose this over a snippet
+
+Both are behaviours, not styling, and both are the reason a copy-pasted transcript ends up wrong.
+
+**A tool call's payload is children, not a JSON prop.** The reference takes `input` and renders it
+as JSON, which is right for a general chatbot that cannot know what the tool was. We always know:
+our input is a SQL statement and our output is a result table, and both already have a component in
+this house. So `ToolInput` and `ToolOutput` take **children**, and a JSON rendering is the fallback
+for when the caller has nothing better — never the one thing on offer. [Tool](/docs/ai/tool) has
+it in full.
+
+**Following a stream is conditional, and the naive version is the one everybody writes.** An effect
+on the message array that scrolls to the bottom follows the tail *unconditionally*, so a reader who
+scrolled up to re-read something is dragged back down by the next token, every token, for as long
+as the answer is streaming. `Conversation` follows only while the reader is already at the tail;
+scrolling up releases the pin and `ConversationScrollButton` is how they take it back.
+[Conversation](/docs/ai/conversation) has the two observers that make it work.
+
+<Cards>
+  <Card title="Conversation" href="/docs/ai/conversation" description="The transcript, and the pin that is the whole component." />
+  <Card title="Tool" href="/docs/ai/tool" description="One call, with the payload as composition rather than a blob." />
+  <Card title="AI-assisted fields" href="/docs/ai/fields" description="Complete and Suggest — the ✨ over a field you already have." />
+  <Card title="useAiStream" href="/docs/ai/use-ai-stream" description="The engine: one iterator, one controller, one status." />
+</Cards>
