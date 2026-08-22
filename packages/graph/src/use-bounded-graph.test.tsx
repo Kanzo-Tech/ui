@@ -65,9 +65,16 @@ function recording(total: number, box?: Viewport) {
 /**
  * Enough renderer to be asked where the camera is. The loop reads the transform off cosmos.gl rather
  * than recomputing it, so a fake that answers those two is the whole surface it touches.
+ *
+ * **`ready` is part of that surface and was missing**, which is how this file modelled an instance
+ * that is usable the moment it exists — the exact premise the geometry push was written on. It is
+ * not: cosmos.gl 3.x builds its device asynchronously, so a real instance rejects a
+ * `setPointPositions` for as long as the promise is pending. `pending()` below is the fake that
+ * says so.
  */
-function camera(fits: number[][] = [], boxes: number[] = []): Graph {
+function camera(fits: number[][] = [], boxes: number[] = [], ready = Promise.resolve()): Graph {
   return {
+    ready,
     getZoomLevel: () => 1,
     screenToSpacePosition: ([x, y]: [number, number]) => [x, y],
     setLinks: () => {},
@@ -213,6 +220,85 @@ describe("the opening view", () => {
     // Arrays with no layout have no opening view to be framed on, and guessing one is worse than
     // leaving the renderer where it started.
     expect(fits).toHaveLength(0);
+  });
+});
+
+/**
+ * **A non-null instance is not a usable one**, and for a while this file could not tell them apart.
+ *
+ * cosmos.gl 3.x builds its device asynchronously: the constructor returns, `graphRef.current` is
+ * set, and for tens of milliseconds — longer with several graphs on one page — the instance rejects
+ * every setter. `setPointPositions` on one throws `Cannot set properties of undefined (setting
+ * 'shouldSkipRescale')`, React swallows it into the effect boundary, and what a reader gets is a
+ * blank canvas beside a badge reporting a full slice with `onFailure` never called. Measured on
+ * `/docs/graph`, where three graphs mount together and none of them drew.
+ *
+ * ## What these cannot prove
+ *
+ * - **Nothing here is a device.** The fake resolves or does not; that a real cosmos.gl instance
+ *   throws before `ready` is upstream's behaviour, quoted in its own `.d.ts` for the two hit tests
+ *   in the same words — *must only be called when the graph is ready*.
+ * - **The hit tests are not covered.** `findPointsInRect` and `findPointsInPolygon` carry that same
+ *   warning and are called from `use-graph-selection.ts` with no gate, on the argument that a
+ *   gesture cannot start before the device exists. That argument is untested.
+ */
+describe("geometry waits for the device", () => {
+  it("writes nothing into a graph whose device has not arrived", async () => {
+    const { source } = recording(10);
+    const wrote: number[] = [];
+    let arrive: () => void = () => {};
+    const graph = camera([], [], new Promise<void>((resolve) => (arrive = resolve)));
+    (graph as unknown as { setPointPositions: (p: Float32Array) => void }).setPointPositions = (p) =>
+      wrote.push(p.length);
+    const graphRef = { current: graph };
+    const hostRef = { current: document.createElement("div") };
+
+    renderHook(() => useBoundedGraph({ graphRef, hostRef, limit: 1000, source }));
+    // The answer is in hand — this is not a test about the source being slow.
+    await waitFor(() => expect(wrote).toHaveLength(0));
+
+    await act(async () => {
+      arrive();
+    });
+
+    expect(wrote.length).toBeGreaterThan(0);
+  });
+
+  it("draws only the last slice when several arrive before the device does", async () => {
+    const { source } = recording(10);
+    const wrote: number[] = [];
+    let arrive: () => void = () => {};
+    const graph = camera([], [], new Promise<void>((resolve) => (arrive = resolve)));
+    (graph as unknown as { setPointPositions: (p: Float32Array) => void }).setPointPositions = (p) =>
+      wrote.push(p.length);
+    let push: ((slice: Slice) => void) | null = null;
+    const watched: BoundedSource = {
+      ...source,
+      watch(answered) {
+        push = answered;
+        return () => {
+          push = null;
+        };
+      },
+    };
+    const graphRef = { current: graph };
+    const hostRef = { current: document.createElement("div") };
+
+    renderHook(() => useBoundedGraph({ graphRef, hostRef, limit: 1000, source: watched }));
+    await waitFor(() => expect(push).not.toBeNull());
+
+    // A pan issues slices faster than a frame. Every one but the last is superseded before it could
+    // have been drawn, and drawing all of them in order would be a stutter through stale pictures.
+    await act(async () => {
+      push?.({ ...nothing(), n: 1, positions: new Float32Array(2) });
+      push?.({ ...nothing(), n: 2, positions: new Float32Array(4) });
+      push?.({ ...nothing(), n: 3, positions: new Float32Array(6) });
+    });
+    await act(async () => {
+      arrive();
+    });
+
+    expect(wrote).toEqual([6]);
   });
 });
 

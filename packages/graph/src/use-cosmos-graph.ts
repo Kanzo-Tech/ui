@@ -6,6 +6,7 @@ import { clusterRing } from "./cluster-ring";
 import { forces } from "./graph-model";
 import { DEFAULT_SIM, type Sim } from "./graph-sim";
 import type { Motion } from "./types";
+import { whenReady } from "./when-ready";
 
 /**
  * The renderer's whole life: built once, told what the forces are, destroyed on the way out.
@@ -193,7 +194,8 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
     const frameOnce = () => {
       if (framed.current) return;
       framed.current = true;
-      graphRef.current?.fitView(FIT_DURATION, FIT_PADDING);
+      const graph = graphRef.current;
+      if (graph) whenReady(graph, (ready) => ready.fitView(FIT_DURATION, FIT_PADDING));
     };
 
     // Which node the pointer is on, and which one the current gesture picked up. Locals rather than
@@ -292,7 +294,7 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
       return;
     }
     graphRef.current = graph;
-    graph.render();
+    const painted = whenReady(graph, (ready) => ready.render());
     // Without a simulation there is nothing to settle and nothing to wait for, so the badge starts
     // where it ends. With one, construction fires no `onSimulationStart` — the graph is already
     // turning by the time we get here, and without this the transport opens showing Play over a
@@ -301,6 +303,7 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
     const floor = setTimeout(frameOnce, FRAME_BY);
     return () => {
       clearTimeout(floor);
+      painted();
       graph.destroy();
       graphRef.current = null;
     };
@@ -316,11 +319,15 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
   useEffect(() => {
     const graph = graphRef.current;
     if (!graph || !simulate || !clusters) return;
-    graph.setPointClusters(clusters);
-    // The box the ring is placed in is the renderer's live one — `graph.config` is always fully
-    // populated, so this reads either cosmos.gl's default or the extent `useBoundedGraph` set.
-    graph.setClusterPositions(clusterRing(clusters, graph.config.spaceSize));
-    graph.render();
+    return whenReady(graph, (ready) => {
+      ready.setPointClusters(clusters);
+      // The box the ring is placed in is the renderer's live one — `graph.config` is always fully
+      // populated, so this reads either cosmos.gl's default or the extent `useBoundedGraph` set.
+      // Read after `ready` for the same reason it is written after it: before the device, the
+      // config is cosmos.gl's default and the ring would be sized for a box nobody is drawing in.
+      ready.setClusterPositions(clusterRing(clusters, ready.config.spaceSize));
+      ready.render();
+    });
   }, [clusters, graphRef, simulate]);
 
   // A change in the forces re-heats: the point of a live layout is that you can feel the parameter.
@@ -329,8 +336,10 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
     const graph = graphRef.current;
     if (!graph || !simulate || applied.current === sim) return;
     applied.current = sim;
-    graph.setConfigPartial(forces(sim));
-    graph.start(REHEAT);
+    return whenReady(graph, (ready) => {
+      ready.setConfigPartial(forces(sim));
+      ready.start(REHEAT);
+    });
   }, [graphRef, sim, simulate]);
 }
 

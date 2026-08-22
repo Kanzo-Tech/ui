@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { Graph } from "@cosmos.gl/graph";
 import type { Resident, VertexId } from "./resident";
+import { whenReady } from "./when-ready";
 
 /**
  * Everything that floats over the canvas and has to keep up with it: the hub labels, the hover
@@ -102,7 +103,11 @@ export function useGraphOverlays(options: GraphOverlayOptions): GraphOverlays {
       hovered === null || order.current.includes(hovered)
         ? order.current
         : [...order.current, hovered];
-    graph.trackPointPositionsByIndices(getResident().indicesOf(watched));
+    // Registration is a device call like any other, and this one is *only* reached before the
+    // device in the case that matters: a host registers its labels the moment the first slice
+    // lands, which is the same commit the graph is still being built in. Dropped there, the
+    // tracked map stays empty and every overlay sits at `opacity: 0` for ever.
+    whenReady(graph, (ready) => ready.trackPointPositionsByIndices(getResident().indicesOf(watched)));
   }, [getGraph, getResident]);
 
   const paint = useCallback(() => {

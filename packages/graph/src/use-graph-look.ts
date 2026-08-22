@@ -8,6 +8,7 @@ import { useThemeTick } from "@kanzo-tech/ui";
 import type { Slice } from "./bounded";
 import { appearance, buffers, type Channels } from "./graph-model";
 import type { Look } from "./graph-looks";
+import { whenReady } from "./when-ready";
 
 /**
  * Putting a look on the canvas, and keeping it there when the theme flips.
@@ -68,10 +69,16 @@ export function useGraphLook(options: {
     const host = hostRef.current;
     if (!slice || !graph || !host) return;
     const { colors, linkColors, shapes, sizes } = buffers(slice, look, host, channels);
-    graph.setPointColors(colors);
-    graph.setPointSizes(sizes);
-    graph.setPointShapes(shapes);
-    graph.setLinkColors(linkColors);
+    // **This is the quiet half of the readiness race and the one that cost the most to find.**
+    // These four raise a dirty flag and return, so a call before the device exists is not an error
+    // anywhere — it is simply a picture that never gets uploaded. Geometry can arrive correctly,
+    // the badge can report a full slice, and every point is still drawn at no size in no colour.
+    return whenReady(graph, (ready) => {
+      ready.setPointColors(colors);
+      ready.setPointSizes(sizes);
+      ready.setPointShapes(shapes);
+      ready.setLinkColors(linkColors);
+    });
   }, [channels, getGraph, hostRef, look, slice, themeTick]);
 
   // The paint, once, for both. These deps are a superset of the ones above, so whenever the buffers
@@ -82,8 +89,10 @@ export function useGraphLook(options: {
     const graph = getGraph();
     const host = hostRef.current;
     if (!slice || !graph || !host) return;
-    graph.setConfigPartial(appearance(look, host));
-    graph.render();
-    schedule();
+    return whenReady(graph, (ready) => {
+      ready.setConfigPartial(appearance(look, host));
+      ready.render();
+      schedule();
+    });
   }, [getGraph, hostRef, look, schedule, slice, themeTick]);
 }

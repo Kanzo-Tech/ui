@@ -12,6 +12,7 @@ import {
   type Viewport,
 } from "./bounded";
 import { residentOf, type Resident, type VertexId } from "./resident";
+import { whenReady } from "./when-ready";
 
 /**
  * The query loop: the camera moves, a bounded question is asked, the answer becomes the picture.
@@ -230,6 +231,11 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
       }
       const graph = graphRef.current;
       if (!graph) return;
+      // The quiet half of the race `whenReady` describes: a fit that arrives before the device is
+      // not applied and does not complain, so the camera stays on the default box while the corpus
+      // sits outside it. Awaited rather than wrapped because this function is already async and
+      // already the one place that waits.
+      const ready = await graph.ready.then(() => graph);
       /**
        * **The renderer's coordinate box, from the corpus rather than from a constant of ours.**
        *
@@ -252,11 +258,11 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
        * `spaceSize` enters every render path as a pure translation — it changed nothing anyone could
        * see, which is exactly why nothing caught it.
        */
-      graph.setConfigPartial({ spaceSize: Math.max(box.xMax - box.xMin, box.yMax - box.yMin) });
+      ready.setConfigPartial({ spaceSize: Math.max(box.xMax - box.xMin, box.yMax - box.yMin) });
       // Two corners are enough: cosmos.gl fits the bounding box of whatever positions it is handed,
       // and a rectangle is its own bounding box. Duration zero — an opening view that flies in from
       // the default box is animation for its own sake, and the reader has not asked for anything yet.
-      graph.fitViewByPointPositions([box.xMin, box.yMin, box.xMax, box.yMax], 0);
+      ready.fitViewByPointPositions([box.xMin, box.yMin, box.xMax, box.yMax], 0);
     },
     [graphRef],
   );
@@ -409,9 +415,18 @@ export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState
   useEffect(() => {
     const graph = graphRef.current;
     if (!graph || !slice) return;
-    graph.setPointPositions(slice.positions);
-    graph.setLinks(slice.links);
-    graph.render();
+    /**
+     * **Behind `ready`, because a non-null instance is not a usable one.**
+     *
+     * `whenReady` carries the whole argument; the cancel is what matters here. Slices arrive
+     * faster than a frame during a pan, and every one of them but the last is superseded before it
+     * could have been drawn.
+     */
+    return whenReady(graph, (ready) => {
+      ready.setPointPositions(slice.positions);
+      ready.setLinks(slice.links);
+      ready.render();
+    });
   }, [graphRef, slice]);
 
   // Memoised on the answer, because a fresh map per render would make every consumer that depends on
