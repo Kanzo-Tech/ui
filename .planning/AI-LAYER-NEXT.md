@@ -111,17 +111,25 @@ questions:
 - **Chrome paints the canvas as a failed surface** — the glyph in the corner of each frame is the
   canvas itself, not an image: `document.images.length` is 0 on that page.
 
-So the question is narrow: **why does this instance's context die when an identical one beside it
-lives?** The leading suspect left is the number of live WebGL contexts the page holds — the bench
-route has exactly one graph and draws — but that does not explain the single-preview run, so it is
-a suspect and not an answer.
+**Answered, and it was the contexts.** `isContextLost()` is `true` on three of the four canvases.
+Chrome keeps **sixteen** WebGL contexts per renderer and evicts the oldest — measured by asking for
+twenty-four and watching the first eight die. cosmos.gl never releases one (`loseContext`: zero
+occurrences in 3.4.0), so every StrictMode remount and every Fast Refresh leaked one until the page
+went over budget mid-load. Both halves are fixed in `111f257`, and a lost context now says so
+through `onFailure` instead of leaving an empty box: two of the four previews render the message.
+
+**The graph still draws nothing, and that is now a different question.** The canvas whose context
+survived is still blank with a badge reporting 552 of 552. One caveat on the measurement to carry
+forward: `canvas.getContext('webgl2')` from a probe **creates** a context when there is none, so a
+`lost: false` may mean *there was never one here* rather than *this one is healthy*. Probe with
+`getContext(…, {})` against a canvas you did not just touch, or count from the page instead.
 
 ### Next, in the order I would take it
 
-1. **Find out why the instance's context dies.** The bisection above closes the easy half; what is
-   left is to log `webglcontextlost` on the canvas cosmos.gl creates, and to count live contexts on
-   the page against the bench route. A twin built beside it works, so the answer is in what happens
-   to *ours* between construction and the first paint.
+1. **Find out why a graph with a live context still paints nothing.** The context question is
+   closed. What is left is the twin: `new Graph(twin, {})` beside ours, handed the same slice, reads
+   back all 1,104 positions, and ours reads back 0 — with the device ready and the writes now
+   behind `whenReady`. Diff the two instances' state rather than the code paths.
 2. **Then look at the two new examples**, which have never been seen with a picture behind them.
 3. **The thirteen names, then the guard** — the day the theme pages settle.
 4. **`ModelList` and `streamdown`**, which are still Angel's calls (§0a).
