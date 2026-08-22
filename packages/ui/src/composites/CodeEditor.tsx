@@ -4,6 +4,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "../lib/cn.js";
 import { type ReactPanelHost, kanzoSearch } from "./code-editor-search.js";
+import { useKanzoThemeOptional } from "../theme/theme-context.js";
 import { Annotation, Compartment, EditorState, type Extension, RangeSet } from "@codemirror/state";
 import {
   Decoration,
@@ -270,9 +271,9 @@ const baseTheme = EditorView.theme({
   },
   ".cm-foldGutter .cm-gutterElement:hover": { color: "var(--foreground)" },
   ".cm-placeholder": { color: "var(--muted-foreground)" },
-  // `highlightSpecialChars` ships its own `&light`/`&dark` rule at a raw `red` / `#f78`. Same
-  // trap as the selection: this theme declares no `{dark}`, so the LIGHT rule would apply in
-  // both modes. Tokenised here, at equal specificity and later in the sheet, so ours wins.
+  // `highlightSpecialChars` ships its own `&light`/`&dark` rule at a raw `red` / `#f78`. Whichever
+  // half the appearance selects is a raw hue nobody chose. Tokenised here, at equal specificity and
+  // later in the sheet, so ours wins in both.
   ".cm-specialChar": { color: "var(--destructive-foreground)" },
 
   // ── Floating surfaces ─────────────────────────────────────────────────────────
@@ -289,8 +290,9 @@ const baseTheme = EditorView.theme({
     overflow: "hidden",
   },
   // The divider between an autocomplete tooltip's sections. CodeMirror's `&light` default is
-  // `1px solid #bbb`, and that applies in our dark mode too — a pale hairline inside a dark
-  // popover. Found by `codemirror-dark-parity.test.ts`, not by looking.
+  // `1px solid #bbb`, and it is the half with no `&dark` counterpart — so before the facet followed
+  // the appearance it drew a pale hairline inside a dark popover, and it is *still* the rule that
+  // covers a light page. Found by `codemirror-dark-parity.test.ts`, not by looking.
   ".cm-tooltip-section:not(:first-child)": { borderTop: "1px solid var(--border)" },
   ".cm-tooltip .cm-tooltip-arrow:before": { borderTopColor: "var(--border)" },
   ".cm-tooltip .cm-tooltip-arrow:after": { borderTopColor: "var(--popover)" },
@@ -338,11 +340,12 @@ const baseTheme = EditorView.theme({
   // (Mod-Alt-G), and any panel a caller's own extensions bring — `@codemirror/lint`'s is the
   // obvious one, and it is a caller's dependency rather than ours.
   //
-  // **They also have to stay because they are the only thing standing between a dark page and a
-  // white box.** `&light .cm-textfield { background: white; border: 1px solid silver }` and
-  // `&light .cm-button { background: linear-gradient(#eff1f5, #d9d9df) }` apply in BOTH our modes —
-  // this theme is registered without `{dark}`, so the `darkTheme` facet is false forever — and
-  // `codemirror-dark-parity.test.ts` fails the day either selector leaves this file. The previous
+  // **They also have to stay because they are the only thing standing between a page and a box
+  // nobody themed.** `&light .cm-textfield { background: white; border: 1px solid silver }` and
+  // `&light .cm-button { background: linear-gradient(#eff1f5, #d9d9df) }` are one half of it and
+  // `&dark`'s `#333` and `linear-gradient(#393939, #111)` are the other; the `darkTheme` facet picks
+  // which, and neither is a token. `codemirror-dark-parity.test.ts` checks BOTH halves and fails the
+  // day either selector leaves this file. The previous
   // spelling was `.cm-panel.cm-search .cm-textfield`, which covered the search field and left
   // `gotoLine`'s identical field wearing the white default; before that it was `input[type=text]`,
   // which matched nothing at all, because CodeMirror sets no `type` on it.
@@ -420,8 +423,9 @@ const baseTheme = EditorView.theme({
   // (@codemirror/view), which compiles to specificity 0,5,0. A flat
   // `&.cm-focused .cm-selectionBackground` is 0,3,0 and LOSES — so the focused selection
   // rendered in CodeMirror's stock lavender (#d7d4f0) instead of a Kanzo token. Worse, that
-  // base rule is `&light`, and this theme is registered without `{dark}`, so the `darkTheme`
-  // facet stays false and the light lavender applied in dark mode too.
+  // base rule is `&light`, and for as long as the `darkTheme` facet was pinned false the light
+  // lavender applied in dark mode too. It is driven from the appearance now, which moves the
+  // default to `&dark`'s — a different stock colour, still not ours, still covered by this rule.
   "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": {
     backgroundColor: "var(--brand-a5)",
   },
@@ -465,6 +469,20 @@ const baseTheme = EditorView.theme({
   ".cm-foldGutter .cm-gutterElement": { cursor: "pointer", color: "var(--faint)" },
   ".cm-foldPlaceholder": { background: "var(--muted)", border: "1px solid var(--border)", color: "var(--muted-foreground)", borderRadius: "var(--radius-sm)", padding: "0 4px" },
 });
+
+/**
+ * **The base theme's other half, switched on by the side the page is wearing.**
+ *
+ * `EditorView.theme(spec, { dark })` bakes the answer into the theme, and ours cannot: it is ONE
+ * theme for both appearances, because the tokens flip underneath it. So the facet is set beside the
+ * theme instead of by it, from `resolvedAppearance`, and `codemirror-dark-parity.test.ts` widened to
+ * both halves the day this landed — until now only `&light` could ever apply, and now either can.
+ *
+ * `false` is spelled as *nothing*, not as `of(false)`: the facet combines with
+ * `values.indexOf(true) > -1`, so a `false` from us would not switch off a `true` a caller's own
+ * theme contributed, and pretending otherwise would be the more confusing lie.
+ */
+const darkFacet = (dark: boolean): Extension => (dark ? EditorView.darkTheme.of(true) : []);
 
 export interface CodeEditorProps {
   value: string;
@@ -516,6 +534,14 @@ export function CodeEditor(p: CodeEditorProps) {
 
   const langSlot = useRef(new Compartment());
   const editable = useRef(new Compartment());
+  const appearance = useRef(new Compartment());
+
+  // Optional, like every other reader of the cascade in this package: without a provider the facet
+  // stays false, which is where it sat before this existed, and the guard proves the `&light`
+  // defaults that then apply are all overridden anyway.
+  const dark = useKanzoThemeOptional()?.resolvedAppearance === "dark";
+  const darkNow = useRef(dark);
+  darkNow.current = dark;
 
   // **CodeMirror's panels, rendered by React.** A `Panel` is an object with a `dom`, and nothing
   // says who fills it — so we hand over an empty element and portal into it. The portals are
@@ -601,6 +627,7 @@ export function CodeEditor(p: CodeEditorProps) {
           ...(basics && props.current.lineNumbers ? [highlightCaretLineGutter, foldGutter()] : []),
           ...(props.current.placeholder ? [cmPlaceholder(props.current.placeholder)] : []),
           updateListener,
+          appearance.current.of(darkFacet(darkNow.current)),
           langSlot.current.of(props.current.extensions ?? []),
           editable.current.of([
             EditorView.editable.of(!props.current.readOnly),
@@ -633,6 +660,13 @@ export function CodeEditor(p: CodeEditorProps) {
   useEffect(() => {
     view.current?.dispatch({ effects: langSlot.current.reconfigure(p.extensions ?? []) });
   }, [p.extensions]);
+
+  // Follow the page's side. Nothing of ours is keyed off the facet — our rules are unprefixed and
+  // the tokens do the flipping — so what this moves is CodeMirror's own base theme and any theme a
+  // caller's extensions bring.
+  useEffect(() => {
+    view.current?.dispatch({ effects: appearance.current.reconfigure(darkFacet(dark)) });
+  }, [dark]);
 
   // Toggle editability when `readOnly` changes.
   useEffect(() => {
