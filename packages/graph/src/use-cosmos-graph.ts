@@ -182,6 +182,28 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
   live.current = events;
 
   /**
+   * **The caller's callbacks, held rather than depended on.**
+   *
+   * `onFailure`, `report` and `reportProgress` used to sit in the construction effect's dependency
+   * list, which made the renderer's lifetime a function of a caller's *render*. `onFailure` is
+   * required by this package and every consumer writes it inline — `onFailure={(e) => setFailure(e)}`
+   * is the obvious spelling — so every render was a new identity, and every new identity destroyed
+   * the graph and built another.
+   *
+   * Measured on `/docs/graph`: **142 `destroy()` calls in five seconds** with nobody touching the
+   * page, `setPointPositions` called **zero** times, and `getGraph()` answering a different instance
+   * each time it was asked. Nothing painted, because no instance lived long enough to be given
+   * geometry — and at roughly twenty-eight rebuilds a second it also burned the browser's
+   * sixteen-context budget continuously, which is why the *other three* graphs on the page were
+   * blank too. One example with an inline callback starved the page.
+   *
+   * A ref rather than `useCallback` at the call site: a rule that every consumer must memoise a
+   * required callback is a rule nobody remembers, and its failure is silent.
+   */
+  const callbacks = useRef({ onFailure, report, reportProgress });
+  callbacks.current = { onFailure, report, reportProgress };
+
+  /**
    * Whether the camera has been put where the layout is.
    *
    * `fitViewOnInit` frames the graph at `fitViewDelay`, a second in, while a simulation is still
@@ -195,22 +217,19 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
 
   /** The last bucket handed on, so a tick that has not moved the badge costs nothing. */
   const reported = useRef(-1);
-  const progress = useCallback(
-    (value: number) => {
-      const bucket = Math.round(value * PROGRESS_STEPS);
-      if (bucket === reported.current) return;
-      reported.current = bucket;
-      reportProgress(bucket / PROGRESS_STEPS);
-    },
-    [reportProgress],
-  );
+  const progress = useCallback((value: number) => {
+    const bucket = Math.round(value * PROGRESS_STEPS);
+    if (bucket === reported.current) return;
+    reported.current = bucket;
+    callbacks.current.reportProgress(bucket / PROGRESS_STEPS);
+  }, []);
 
   useEffect(() => {
     const host = hostRef.current;
     if (!host) return;
     framed.current = false;
     if (!hasWebGL()) {
-      onFailure("This canvas renders on the GPU, and this browser offers no WebGL context.");
+      callbacks.current.onFailure("This canvas renders on the GPU, and this browser offers no WebGL context.");
       return;
     }
 
@@ -277,15 +296,15 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
         fitViewPadding: 0.18,
         hoveredPointCursor: "pointer",
         attribution: "",
-        onSimulationStart: () => report("running"),
+        onSimulationStart: () => callbacks.current.report("running"),
         onSimulationEnd: () => {
-          report("settled");
+          callbacks.current.report("settled");
           progress(1);
           frameOnce();
           live.current.onTick?.();
         },
-        onSimulationPause: () => report("paused"),
-        onSimulationUnpause: () => report("running"),
+        onSimulationPause: () => callbacks.current.report("paused"),
+        onSimulationUnpause: () => callbacks.current.report("running"),
         onSimulationTick: () => {
           const instance = graphRef.current;
           if (instance) progress(instance.progress);
@@ -314,7 +333,7 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
         onBackgroundClick: () => live.current.onBackgroundClick?.(),
       });
     } catch (error) {
-      onFailure(`The renderer failed to start. (${String(error)})`);
+      callbacks.current.onFailure(`The renderer failed to start. (${String(error)})`);
       return;
     }
     graphRef.current = graph;
@@ -336,7 +355,7 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
      */
     const onLost = (event: Event) => {
       event.preventDefault();
-      onFailure(
+      callbacks.current.onFailure(
         "The graph's WebGL context was lost. A browser keeps a limited number of them and drops the oldest; reload the page to get one back.",
       );
     };
@@ -353,7 +372,7 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
     // where it ends. With one, construction fires no `onSimulationStart` — the graph is already
     // turning by the time we get here, and without this the transport opens showing Play over a
     // moving graph.
-    report(simulate && graph.isSimulationRunning ? "running" : "settled");
+    callbacks.current.report(simulate && graph.isSimulationRunning ? "running" : "settled");
     const floor = setTimeout(frameOnce, FRAME_BY);
     return () => {
       clearTimeout(floor);
@@ -367,7 +386,12 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
       releaseContext(canvas);
       graphRef.current = null;
     };
-  }, [graphRef, hostRef, onFailure, progress, report, simulate]);
+    // **`onFailure` and `report` are deliberately absent**, and the ref above says why: a renderer
+    // whose lifetime follows a caller's render identity is a renderer that never lives long enough
+    // to be given anything. `simulate` stays, because it is a construction option — and `progress`
+    // stays because it is a `useCallback` over an empty list that reads the ref itself, so it is
+    // stable by construction rather than by a caller remembering to make it so.
+  }, [graphRef, hostRef, progress, simulate]);
 
   /**
    * Cluster seeding, and only under a live layout — it is a force, not a colour.

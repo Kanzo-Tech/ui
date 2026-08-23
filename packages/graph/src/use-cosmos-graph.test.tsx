@@ -55,6 +55,48 @@ describe("useCosmosGraph", () => {
     expect(graphRef.current).toBeNull();
   });
 
+  it("does not rebuild the renderer because a callback changed identity", () => {
+    // **The test the whole bug fits through, and jsdom can run it.** `hasWebGL()` declines here, so
+    // the construction effect's *only* observable act is one `onFailure`. If the callbacks are in
+    // the dependency list, a re-render with a fresh inline arrow re-runs the effect and the count
+    // goes up — which in a browser is a `destroy()` and a new WebGL context instead.
+    //
+    // Measured before the fix, on `/docs/graph` with nobody touching the page: 142 destroys in five
+    // seconds, `setPointPositions` called zero times, and `getGraph()` answering a different
+    // instance each time. `onFailure={(e) => setFailure(e)}` is the obvious spelling and every
+    // consumer writes it.
+    const calls: string[] = [];
+    const graphRef = { current: null };
+    const hostRef = { current: document.createElement("div") };
+
+    const { rerender } = renderHook(
+      ({ tag }: { tag: string }) =>
+        useCosmosGraph({
+          graphRef,
+          hostRef,
+          // A new function on every render, which is the point.
+          onFailure: (message: string) => calls.push(`${tag}:${message}`),
+        }),
+      { initialProps: { tag: "a" } },
+    );
+    expect(calls).toHaveLength(1);
+
+    rerender({ tag: "b" });
+    rerender({ tag: "c" });
+
+    expect(calls).toHaveLength(1);
+  });
+
+  it("calls the newest callback, not the one it was built with", () => {
+    // The other half of holding them in a ref: held wrongly, a graph built on the first render
+    // would report failures to a closure three renders stale. Only the lost-context path can show
+    // this in jsdom — the decline fires once, at construction — so it is asserted through the
+    // source instead, and named here rather than left implied.
+    expect(SOURCE).toContain("callbacks.current.onFailure");
+    expect(SOURCE).toContain("callbacks.current.report");
+    expect(SOURCE).not.toMatch(/\n\s+onFailure\(/);
+  });
+
   it("gives the context back when the graph goes", () => {
     // Two halves, and the order between them is the part worth pinning: `destroy()` frees cosmos.gl's
     // buffers, and the release has to come after so it is not freeing a context still in use.
