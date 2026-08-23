@@ -37,10 +37,12 @@ path and check `git status` before and after.** `15fb850` swept up that session'
 pages because the working tree already held it; nothing was lost, but the commit message describes
 none of it, and that is the failure mode to avoid.
 
-**The branch is 57 commits ahead of `main` and none behind, and whether it merges now is Ángel's
-call — he has been asked and has not answered.** The phase itself is closed: the theme surfaces are
-routes, the colour layer is decided and held by a test, the catalogue is verified at all three
-densities, and preview frames have a guard that bites.
+**`main` is at `8d35f12`, which is this branch — Ángel called it and the phase landed.** Fifty-eight
+commits, fast-forwarded with `git fetch . ds-theme-daisy:main` rather than a checkout, because this
+tree is shared and the other session had uncommitted work in it; the working tree never moved and
+`ds-theme-daisy` stayed checked out. There is no remote, so nothing left this machine. The branch is
+**not** deleted: the other session is still working on it, and further commits go there and
+fast-forward again.
 
 ## 3. The two things that were owed a browser, both measured
 
@@ -101,9 +103,20 @@ fail on them; a floor is the answer if one ever needs it.
 - **The mobile drawer.** Structurally: there is exactly **one** theme control in the document, and
   the `max-md:hidden` that looks like it hides it is on the grid *placeholder*
   (`data-sidebar-placeholder`), not on the `aside`. The aside is absolutely positioned and the
-  mobile subnav's "Open Sidebar" reveals it, so the menu does reach a phone. **What is not verified
-  is how it looks there** — this environment's window will not actually narrow: `resize_window`
-  reports success and `innerWidth` stays 1920.
+  mobile subnav's "Open Sidebar" reveals it, so the menu does reach a phone.
+
+  **Now verified on screen as well.** This environment's window will not narrow — `resize_window`
+  reports success and `innerWidth` stays 1920 — so it was driven under Playwright, which sets a
+  viewport regardless of the window and was in the repository the whole time. At 390x844 and
+  360x780: the trigger is visible without opening the drawer at all, 36x28 so past 2.5.8's 24x24,
+  inside the viewport; the menu opens with all 32 entries, panel 256x384, fitting in both axes, zero
+  items overflowing and zero names clipped.
+
+  The screenshot showed the last visible row sliced in half, which the numbers had called fine. It
+  is not clipping: `menu-content` is the scroller, 1257 against 382 visible, it scrolls to 875, and
+  `synthwave` — the last of the thirty-two — is reachable inside the viewport. A half-drawn row is
+  the affordance, not a fault. Look at the picture even when the numbers are green, then go back to
+  the numbers to find out which of the two was lying.
 
 ## 6. Traps this branch paid for, that are not obvious from the code
 
