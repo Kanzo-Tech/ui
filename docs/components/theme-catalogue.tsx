@@ -85,8 +85,22 @@ export function ThemeCatalogue() {
           cards — theme name, four glyphs — and it fits a dozen on a screen, because the job of a
           catalogue is *browsing*. Ours keeps the screen instead of the glyphs, which is the whole
           argument of this page, so the way to get closer to that job is a smaller tile rather than
-          a poorer one: twenty-nine themes two per row is fifteen rows of scrolling. */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 2xl:grid-cols-3">
+          a poorer one: twenty-nine themes two per row is fifteen rows of scrolling.
+
+          **The track is `rem`, and that is the whole of why the caption survives Cozy.** It was
+          `grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3` — a column *count*, chosen against viewport
+          widths — while everything inside a tile is sized in `rem` and grows with the density. At
+          `comfortable` the two pull opposite ways: the content grows 12.5% and the tile *shrinks*
+          to 350px, because the container is rem-sized too. Measured, `catppuccin-latte-dark` wanted
+          171px in 142 and lost its `-dark`, which the `gap-1.5` below was supposed to have fixed
+          and had only fixed at one density. A track measured in the same unit as its contents
+          cannot go out of step with them: this drops to two columns at Cozy and stays at three
+          everywhere the old rule was already right — 354.7px at default and 333 at compact, to the
+          tenth of a pixel.
+
+          `min(22rem, 100%)` and not a bare `22rem`: below the track's own width `auto-fill` still
+          lays a 22rem track and the tile overflows its container — 352px inside 320, measured. */}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(min(22rem,100%),1fr))] gap-5">
         {themes.map((theme) => (
           <Tile
             key={theme.name}
@@ -119,7 +133,12 @@ function Tile({ name, onWear, worn }: { name: string; onWear: () => void; worn: 
           across is 355px, and the row is name · dots · rule · Wear it · Edit with four gaps between
           them: at 8px each, `catppuccin-latte-dark` wanted 152px and had 149, so the two longest
           names in the catalogue lost their `-dark` to an ellipsis — the one word on the tile that
-          says which side you are looking at. Six gives the name 157. */}
+          says which side you are looking at. Six gives the name 157.
+
+          Six is 4.5px of headroom, and that is not a lot — but the headroom is no longer what
+          holds this up. Two pixels of gap were never going to answer a density that moves the
+          content 19px; the rem track above is what does, and this stays because a tighter caption
+          is right on its own. */}
       <figcaption className="flex items-center gap-1.5">
         <span className="truncate font-mono text-muted-foreground text-xs">{name}</span>
         {/* The three brand fills, so a name can be scanned as a colour without reading the tile
