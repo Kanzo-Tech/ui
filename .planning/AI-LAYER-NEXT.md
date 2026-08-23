@@ -188,6 +188,30 @@ while the portaled menu had already recalculated — three contrast ratios of 1.
 nothing. Read again in a second call, the same element was correct. Both are the blank-canvas lesson
 wearing new clothes: a number is only as good as the frame under it.
 
+### The control-height fault, and the one step still owed
+
+`05f3a0a`. Every control height in the library was keyed on `data-slot`, which is the one attribute
+this house invites a caller to rename. `ConversationScrollButton` renames a `Button`, so its height
+rule stopped matching and it measured **16×16** in a live page where its siblings measured 28 and 32
+— under the 24×24 floor `pressable-floor.test.ts` adopted, with nothing reporting it. Seven more
+icon-only renames in `ui` sit on the same fault and were found by grep, not measured.
+
+The fix is daisyUI's placement, which is what Angel asked about and what settled it: the height goes
+on each recipe's `base` as `h-(--size)` and the size variants only move the property. We had already
+taken `--size-field` from them without taking the placement that makes it safe.
+`no-measurement-on-a-renameable-slot.test.ts` is new and was verified by planting the old rule back;
+`knobs-are-read.ts` grew to look in recipes as well as the stylesheet.
+
+**Verified in the built artefact, not yet on screen.** `packages/ui/dist/styles.css` carries one
+`height:var(--size)` and the four `--size:calc(var(--size-field) * N)` declarations, and no
+`[data-slot="button"][data-size=…]` rule survives. Every step of `CLAUDE.md`'s list is green
+including the docs build at 434 pages. What is **owed** is the eyeball pass: this touched every
+button, input and select in the library, so somebody has to look at a page of controls and confirm
+nothing moved at the defaults — the whole point is that only the renamed parts change. Chrome was
+held by another session's agent when this was written. Do not skip it; today's findings all came
+from looking.
+
+
 ### Next, in the order I would take it
 
 1. **The thirteen unnamed exports, then the guard.** Still blocked on the theme session, which is
