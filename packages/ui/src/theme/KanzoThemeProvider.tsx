@@ -353,9 +353,32 @@ export function KanzoThemeProvider({
     [defaults, storedPrefs],
   );
 
+  /**
+   * The latest written preferences, so that **two patches in one tick compose** instead of one
+   * silently winning.
+   *
+   * `set` merges its patch onto what it read at render, and every setter below is one `set`. Two of
+   * them in one handler therefore both merged onto the *same* snapshot, and the second overwrote
+   * the first's key — with no error, no warning, and a control that looks like it half worked.
+   *
+   * It is not hypothetical and it was found in a browser, not in a test. A theme menu is one act
+   * where the panel is two: `setTheme(name, { appearance })` files a theme under a side and
+   * `setAppearance(side)` wears that side, so a menu calls both — and what landed was the side
+   * alone, so the page switched to dark wearing whatever theme the dark side already held. The
+   * panel never hit it because its two acts are two clicks.
+   *
+   * A ref rather than a functional `setInternal` updater, because the write has to reach three
+   * places that a React updater may not: `onChange` in controlled mode, the storage adapter, and
+   * the next call in the same tick. An updater runs during render — twice under StrictMode — and
+   * putting a cookie write inside one is the impurity this avoids.
+   */
+  const latestPrefs = React.useRef(storedPrefs);
+  latestPrefs.current = storedPrefs;
+
   const set = React.useCallback(
     (patch: Partial<ThemePrefs>) => {
-      const next = { ...storedPrefs, ...patch };
+      const next = { ...latestPrefs.current, ...patch };
+      latestPrefs.current = next;
       if (controlled) {
         onChange?.(next);
       } else {
@@ -363,7 +386,7 @@ export function KanzoThemeProvider({
         storageAdapter?.set(next);
       }
     },
-    [storedPrefs, controlled, onChange, storageAdapter],
+    [controlled, onChange, storageAdapter],
   );
 
   /**
@@ -375,6 +398,9 @@ export function KanzoThemeProvider({
    * chain says — the client's starting point when they published one, ours when they did not.
    */
   const reset = React.useCallback(() => {
+    // The ref goes with it. It is the second writer of this state, so a `set` in the same tick as a
+    // Reset would otherwise merge its patch onto the values Reset just cleared and put them back.
+    latestPrefs.current = {};
     if (controlled) onChange?.({});
     else {
       setInternal({});

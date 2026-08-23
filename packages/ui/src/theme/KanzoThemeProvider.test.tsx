@@ -539,6 +539,33 @@ describe("KanzoThemeProvider palette", () => {
     return { ...utils, get ctx() { return ctx; } };
   }
 
+  it("composes two writes in one tick, which is what a menu does and a panel does not", async () => {
+    // **The bug this exists for shipped, and only a browser found it.** Every setter is one `set`,
+    // and `set` merged its patch onto the snapshot it read at render — so two of them in one
+    // handler both merged onto the SAME snapshot and the second silently dropped the first's key.
+    //
+    // The case is a theme menu. Choosing a dark theme from a light page is one act, and it takes
+    // both writes: `setTheme(name, { appearance })` files the theme UNDER a side, `setAppearance`
+    // wears that side. What landed was the side alone, so the page went dark wearing whatever the
+    // dark side already held — a control that looks like it half worked. The Preferences panel
+    // never hit it, because there the two writes are two clicks.
+    //
+    // Asserting the CONTEXT rather than storage, and both keys, so neither half can satisfy this
+    // on its own.
+    const t = mount({ themes: PALETTES });
+    expect(t.ctx.resolvedAppearance).toBe("light");
+
+    await act(async () => {
+      t.ctx.setTheme("dracula", { appearance: "dark" });
+      t.ctx.setAppearance("dark");
+    });
+
+    expect(t.ctx.themeByAppearance).toEqual({ dark: "dracula" });
+    expect(t.ctx.resolvedAppearance).toBe("dark");
+    expect(t.ctx.resolvedTheme).toBe("dracula");
+    expect(html().getAttribute("data-theme")).toBe("dracula");
+  });
+
   it("resolves an empty preference to the first published palette", () => {
     const t = mount({ themes: PALETTES });
 
