@@ -29,9 +29,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${jetbrainsMono.variable}`}
     >
       <body className="flex min-h-screen flex-col">
-        {/* No stylesheet is inlined here any more. The catalogue travels in `styles.css` — sixteen
-            themes, each one flat block under its own `[data-theme]` — so choosing one is an
-            attribute write and this layout stays static. It used to inline *the chosen document*,
+        {/* No stylesheet is inlined here any more. The catalogue travels in `styles.css` —
+            twenty-nine themes, each one flat block under its own `[data-theme]` — so choosing one
+            is an attribute write and this layout stays static. It used to inline *the chosen document*,
             read from a cookie, which made the layout async and every page under it dynamic. */}
         {/* next-themes OFF. `RootProvider` mounts it with `attribute: "class"`, which made two
             writers of `.dark` on <html>; and 0.4.6 defaults `enableColorScheme: true`, writing

@@ -12,7 +12,11 @@ import {
   ColorPickerControl,
   ColorPickerSlider,
   ColorPickerTrigger,
+  cn,
   Input,
+  NativeSelect,
+  NativeSelectOptGroup,
+  NativeSelectOption,
   ShellAside,
   ShellBody,
   ShellHeader,
@@ -21,9 +25,15 @@ import {
   Switch,
 } from "@kanzo-tech/ui";
 import { contrast as wcag, inkFor, pageInk, themeData, themeIndex } from "@kanzo-tech/theme";
-import { CheckIcon, CopyIcon, Link2Icon as LinkIcon, Link2OffIcon as UnlinkIcon } from "lucide-react";
+import {
+  CheckIcon,
+  CopyIcon,
+  Link2Icon as LinkIcon,
+  Link2OffIcon as UnlinkIcon,
+  PaletteIcon,
+} from "lucide-react";
 import * as React from "react";
-import { ThemeScreen } from "../shared";
+import { ThemeSampler } from "./theme-sampler";
 import { decode, encode } from "./link";
 
 /**
@@ -31,12 +41,18 @@ import { decode, encode } from "./link";
  *
  * **This is the surface the refactor was for, and the one `Preferences` is not.** The panel lets a
  * USER choose among themes a tenant published; nothing in the library let anybody *write* one,
- * because writing one meant running a thirteen-stage derivation. A theme is thirty-two declarations at its floor —
- * and fifty-five in the ones that ship, which also author the optional chart and syntax sets — so
- * authoring is a form — and this showcase is that form, in the same components a consumer
- * has.
+ * because writing one meant running a thirteen-stage derivation. A theme is thirty-two declarations
+ * at its floor — and about fifty in the ones that ship, which also author the optional chart and
+ * syntax sets — so authoring is a form, and this route is that form, in the same components a
+ * consumer has.
  *
- * It replaces `palette-onboarding`, which demonstrated the derivation and has nothing left to show.
+ * ## It is a page of the site, and it was a showcase in an iframe
+ *
+ * `/theme-generator`, under the site nav, which is where daisyUI keeps the same tool. A showcase is
+ * an arrangement the documentation *exhibits*; this is an instrument the documentation *offers*,
+ * and the iframe it used to sit in cost it a URL somebody could send, a title, its place in the
+ * nav, and the address bar its own Copy-link button had to stand in for. Nothing about the
+ * arrangement changed in the move: it is still a shell that claims what the nav leaves it.
  *
  * ## Nothing here is a preview OF a theme; it IS one
  *
@@ -55,7 +71,7 @@ import { decode, encode } from "./link";
  *
  * Picking a fill proposes the ink that belongs on it, by the rule in `packages/theme/src/ink.ts` —
  * daisyUI's own, recovered from its output and measured against it. **The proposal is not a
- * lock.** An ink you have changed stops following its fill, and the studio knows which is which by
+ * lock.** An ink you have changed stops following its fill, and the form knows which is which by
  * comparing the value to the rule rather than by remembering that you touched it: there is no
  * hidden dirty flag to get out of step with what you can see.
  *
@@ -171,22 +187,23 @@ function proposedPage(fill: string, ground: string): string | null {
   return HEX.test(fill.trim()) && HEX.test(ground.trim()) ? pageInk(fill.trim(), ground.trim()) : null;
 }
 
-/** The ratio, and whether it clears AA for body text. Red is a fact, not a refusal. */
-function Ratio({ fill, ink }: { fill: string; ink: string }) {
+/**
+ * The contrast of a pair, written on the pair itself.
+ *
+ * It was a chip — a rounded pill in `bg-success/15` or `bg-destructive/15` — and that was wrong once
+ * the row became a filled block: a tinted pill on a brand fill is a second surface fighting the one
+ * being judged, and on eleven of the twenty-nine themes it was a saturated colour on a saturated
+ * colour. The number now wears the row's own ink, which is also the honest thing: it is a *reading*
+ * of that pair, so it should be legible exactly when the pair is.
+ *
+ * A number and not a verdict. The mark for a failure is a `!`, because red is unavailable here (it
+ * would be a third colour on the fill) and because this page does not refuse — the guard over the
+ * shipped files does. `decisions/a-theme-is-one-flat-block.md`.
+ */
+function ratioOf(fill: string, ink: string): string {
   const value = contrast(fill, ink);
-  if (value === null) return null;
-  const passes = value >= 4.5;
-  return (
-    <span
-      className={cx(
-        "shrink-0 rounded-selector px-1 py-px font-mono text-[10px] tabular-nums",
-        passes ? "bg-success/15 text-success-foreground" : "bg-destructive/15 text-destructive-foreground",
-      )}
-      title={`${value.toFixed(2)}:1 — AA for body text needs 4.5`}
-    >
-      {value.toFixed(1)}
-    </span>
-  );
+  if (value === null) return "";
+  return value >= 4.5 ? value.toFixed(1) : `${value.toFixed(1)} !`;
 }
 
 /** Discrete steps, drawn rather than named — the reference's move, and it is the better one. */
@@ -196,6 +213,15 @@ const RADII = [
   { name: "--radius-selector", label: "Selectors", doc: "checkbox, badge", steps: ["0rem", "0.125rem", "0.25rem", "0.5rem", "9999px"] },
 ] as const;
 
+/**
+ * The five size steps, drawn AND named.
+ *
+ * Named because the reference names them — its `Sizes` section offers `xs` through `xl` — and
+ * because these five differ by hundredths of a rem: the drawn bars are two pixels apart, which
+ * shows you the direction and not the step you are on. The radius and stroke rows stay unnamed,
+ * where the drawing carries the whole difference.
+ */
+const SIZE_NAMES = ["xs", "sm", "md", "lg", "xl"] as const;
 const SIZES = [
   { name: "--size-field", label: "Fields", doc: "control height unit", steps: ["0.2rem", "0.225rem", "0.25rem", "0.3rem", "0.34rem"] },
   { name: "--size-selector", label: "Selectors", doc: "checkbox, toggle", steps: ["0.2rem", "0.225rem", "0.25rem", "0.3rem", "0.34rem"] },
@@ -317,7 +343,7 @@ function toCss(theme: Record<string, string>, name: string, dark: boolean) {
   ].join("\n");
 }
 
-export function ThemeStudioShowcase() {
+export function ThemeGenerator() {
   const [from, setFrom] = React.useState("kanzo");
   const [theme, setTheme] = React.useState<Record<string, string>>({});
   const [name, setName] = React.useState("acme");
@@ -326,7 +352,7 @@ export function ThemeStudioShowcase() {
   const [shareable, setShareable] = React.useState(false);
   const [href, setHref] = React.useState("");
 
-  // Read after mount, not during: `readTheme` touches `document` and the showcase renders on the
+  // Read after mount, not during: `readTheme` touches `document` and the route renders on the
   // server first. An empty first paint is the honest shape of "the values live in the stylesheet".
   React.useEffect(() => {
     // `""` means the values came from a fragment, so there is no shipped theme to re-read.
@@ -344,12 +370,12 @@ export function ThemeStudioShowcase() {
    * in the URL, which is the shape of bug where opening somebody's link silently replaces it.
    */
   /**
-   * `?from=<theme>` names a starting point; the gallery links here with one.
+   * `?from=<theme>` names a starting point; the [catalogue](/docs/themes) links here with one.
    *
-   * A name rather than an encoded document, deliberately. The gallery already knows every value of
+   * A name rather than an encoded document, deliberately. The catalogue already knows every value of
    * every theme — it is wearing them — and could hand them over, but then the link would carry a
-   * copy of the stylesheet and the studio would open on whatever the gallery believed at the time
-   * it rendered. A name makes the studio go and read the theme itself.
+   * copy of the stylesheet and this page would open on whatever the catalogue believed at the time
+   * it rendered. A name makes it go and read the theme itself.
    */
   React.useEffect(() => {
     const asked = new URLSearchParams(window.location.search).get("from");
@@ -447,47 +473,69 @@ export function ThemeStudioShowcase() {
   const css = toCss(theme, name || "untitled", dark);
 
   return (
-    <ShellRoot className="h-dvh">
-      <ShellHeader className="flex flex-wrap items-center gap-x-6 gap-y-3 border-border border-b px-5 py-3">
-        <div className="min-w-0 flex-1">
-          <h1 className="font-semibold text-sm leading-tight">Theme studio</h1>
-          <p className="text-muted-foreground text-xs leading-tight">
+    // The viewport minus the site nav, because this page sits under one. `flex-1` was the first
+    // answer and it was wrong: `body` is `min-h-screen`, so a flex child grows past the fold
+    // instead of being clipped by it — the shell's two panes stopped scrolling, the whole document
+    // scrolled, and the header went off the top on the way down. `--fd-nav-height` is declared in
+    // `global.css` beside the rest of the chrome's parameters, so the number is written once.
+    <ShellRoot className="h-[calc(100dvh-var(--fd-nav-height))]">
+      {/* The strip goes INSIDE the region, which is what `ShellHeader` is for: it is a `flex-col`
+          that bars stack in, so a row written onto the region itself is a row fighting the axis its
+          own recipe declares. That is what put the title in the middle of the bar — it looked
+          centred because it *was*, by `items-center` on a column — and the controls on a second
+          line under it. Everything else here follows from the row: the title does not take
+          `flex-1`, the description truncates and steps aside below `xl`, and the controls hold
+          their size on the end. */}
+      <ShellHeader>
+        <div className="flex items-center gap-4 px-5 py-2.5">
+        <div className="flex min-w-0 items-center gap-3">
+          <PaletteIcon className="size-4 shrink-0 text-muted-foreground" />
+          <h1 className="shrink-0 font-semibold text-sm">Theme generator</h1>
+          <span aria-hidden className="hidden h-4 w-px shrink-0 bg-border xl:block" />
+          <p className="hidden truncate text-muted-foreground text-xs xl:block">
             The pane on the right wears these values; the block at its foot is the same values,
             reformatted.
           </p>
         </div>
 
-        <div className="ms-auto flex items-center gap-4">
+        <div className="ms-auto flex shrink-0 items-center gap-2">
           {/* The catalogue, not a list typed here — `themeIndex` is read off disk by the generator
-              precisely so no second list can drift from what ships. Sixteen to start from, which is
-              the reference's move: nobody authors a theme from a blank page, they open the nearest
-              one and disagree with it. */}
+              precisely so no second list can drift from what ships. Twenty-nine to start from,
+              which is the reference's move: nobody authors a theme from a blank page, they open the
+              nearest one and disagree with it. Grouped by side because that is the one fact the
+              catalogue carries besides the name, and because a flat list of twenty-nine is a
+              scroll. It was a bare `<select>` with a hand-written class string until the studio
+              stopped being a showcase; `NativeSelect` is the same element with the recipe on it. */}
           <label className="flex items-center gap-2 text-xs" htmlFor="theme-from">
-            <span className="text-muted-foreground">Start from</span>
-            <select
-              className={cx(
-                "rounded-field border border-border bg-field px-2 py-1 font-mono text-xs",
-                "outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
-              )}
+            <span className="hidden text-muted-foreground lg:block">Start from</span>
+            <NativeSelect
+              className="font-mono"
               id="theme-from"
               onChange={(e) => setFrom(e.target.value)}
+              size="sm"
               value={from}
             >
               {from === "" && (
-                <option disabled value="">
+                <NativeSelectOption disabled value="">
                   a shared link
-                </option>
+                </NativeSelectOption>
               )}
-              {themeIndex.map((t) => (
-                <option key={t.name} value={t.name}>
-                  {t.name}
-                </option>
+              {(["light", "dark"] as const).map((side) => (
+                <NativeSelectOptGroup key={side} label={side}>
+                  {themeIndex
+                    .filter((t) => t.dark === (side === "dark"))
+                    .map((t) => (
+                      <NativeSelectOption key={t.name} value={t.name}>
+                        {t.name}
+                      </NativeSelectOption>
+                    ))}
+                </NativeSelectOptGroup>
               ))}
-            </select>
+            </NativeSelect>
           </label>
 
           <label className="flex items-center gap-2 text-xs" htmlFor="theme-name">
-            <span className="text-muted-foreground">Name</span>
+            <span className="hidden text-muted-foreground lg:block">Name</span>
             <Input
               className="w-36 font-mono"
               id="theme-name"
@@ -499,7 +547,7 @@ export function ThemeStudioShowcase() {
 
           {/* Not an appearance toggle: a theme IS a mode, so this decides what `color-scheme` the
               block says — which side you are authoring FOR, not which side you are looking at. */}
-          <label className="flex items-center gap-2 text-xs" htmlFor="theme-dark">
+          <label className="flex items-center gap-2 ps-1 text-xs" htmlFor="theme-dark">
             <span className="text-muted-foreground">Dark</span>
             <Switch
               checked={dark}
@@ -533,72 +581,68 @@ export function ThemeStudioShowcase() {
             Reset
           </Button>
         </div>
+        </div>
       </ShellHeader>
 
       <ShellBody>
         <ShellAside className="w-84 shrink-0 overflow-y-auto border-border border-e" side="start">
           <div className="flex flex-col gap-7 p-5">
             {GROUPS.map((group) => (
-              <section className="flex flex-col gap-3" key={group.title}>
+              <section className="flex flex-col gap-2" key={group.title}>
                 <SectionHead doc={group.doc} title={group.title} />
 
+                {/* One filled tile per token, the name written INSIDE it in the ink that belongs
+                    to it. That is the reference's control and it replaced a grid of small squares
+                    with the name underneath: a square tells you what you picked, a filled row with
+                    its own name on it tells you whether the pair *reads*, which is the only
+                    question either of them is for. It also ends the ragged half-rows — every token
+                    is one row of the same height, whether it has an ink, two inks or none. */}
                 {"row" in group ? (
-                  <div className="flex flex-col gap-2.5">
-                    {/* Three across, never five: at five the names collide, and the name is what
-                        tells you which token you are about to change. */}
-                    <div className="grid grid-cols-3 gap-1.5">
+                  <>
                     {group.row.map((one) => (
-                      <Chip
+                      <ColorRow
+                        fill={theme[one.token] ?? ""}
+                        ink={theme["--foreground"] ?? ""}
                         key={one.token}
                         label={one.label}
-                        onChange={setGround(one.token)}
-                        value={theme[one.token] ?? ""}
+                        onFill={setGround(one.token)}
                       />
                     ))}
-                    </div>
-                    {"inks" in group && group.inks.length > 0 ? (
-                      <div className="grid grid-cols-3 gap-1.5">
-                    {group.inks.map((ink) => (
-                      <Chip
-                        background={theme[ink.on] ?? ""}
+                    {/* An ink row is named for the INK and filled with the surface it is read on,
+                        so the row is the pair. Editing the row edits that surface — which is the
+                        same token the row above it edits, deliberately: they are one value, and a
+                        second control for it would be a second place for it to drift. */}
+                    {("inks" in group ? group.inks : []).map((ink) => (
+                      <ColorRow
+                        fill={theme[ink.on] ?? ""}
+                        ink={theme[ink.token] ?? ""}
                         key={ink.token}
                         label={ink.label}
-                        onChange={setGround(ink.token)}
-                        value={theme[ink.token] ?? ""}
-                      >
-                        <span
-                          aria-hidden
-                          className="font-semibold text-lg leading-none"
-                          style={{ color: theme[ink.token] }}
-                        >
-                          A
-                        </span>
-                      </Chip>
-                    ))}
-                      </div>
-                    ) : null}
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                    {group.pairs.map((pair) => (
-                      <SwatchPair
-                        background={"page" in pair ? (theme["--background"] ?? "") : undefined}
-                        fill={theme[pair.fill] ?? ""}
-                        ink={theme[pair.ink] ?? ""}
-                        key={pair.label}
-                        label={pair.label}
-                        onFill={setFill(pair.fill, pair.ink, "page" in pair ? pair.page : undefined)}
-                        onInk={(hex) => set(pair.ink, hex)}
-                        onPage={"page" in pair ? (hex) => set(pair.page, hex) : undefined}
-                        page={"page" in pair ? (theme[pair.page] ?? "") : undefined}
-                        pageSuggestion={
-                          "page" in pair
-                            ? proposedPage(theme[pair.fill] ?? "", theme["--foreground"] ?? "")
-                            : undefined
-                        }
+                        onFill={setGround(ink.on)}
+                        onInk={setGround(ink.token)}
                       />
                     ))}
-                  </div>
+                  </>
+                ) : (
+                  group.pairs.map((pair) => (
+                    <ColorRow
+                      fill={theme[pair.fill] ?? ""}
+                      ink={theme[pair.ink] ?? ""}
+                      inkSuggestion={proposed(theme[pair.fill] ?? "")}
+                      key={pair.label}
+                      label={pair.label}
+                      onFill={setFill(pair.fill, pair.ink, "page" in pair ? pair.page : undefined)}
+                      onInk={(hex) => set(pair.ink, hex)}
+                      onPage={"page" in pair ? (hex) => set(pair.page, hex) : undefined}
+                      page={"page" in pair ? (theme[pair.page] ?? "") : undefined}
+                      pageGround={"page" in pair ? (theme["--background"] ?? "") : undefined}
+                      pageSuggestion={
+                        "page" in pair
+                          ? proposedPage(theme[pair.fill] ?? "", theme["--foreground"] ?? "")
+                          : undefined
+                      }
+                    />
+                  ))
                 )}
               </section>
             ))}
@@ -622,6 +666,7 @@ export function ThemeStudioShowcase() {
                 <StepRow
                   key={row.name}
                   {...row}
+                  names={SIZE_NAMES}
                   onPick={(v) => set(row.name, v)}
                   render={(v, on) => <BarMark on={on} unit={v} />}
                   value={theme[row.name] ?? ""}
@@ -629,8 +674,12 @@ export function ThemeStudioShowcase() {
               ))}
             </section>
 
+            {/* Two sections where there was one. The reference keeps `Border Width` apart from its
+                `Effects`, and it is right to: a line weight is a measurement of the frame and
+                relief and grain are treatments of a surface. Under one heading called "Stroke,
+                depth and noise" the rail was reading as a bin for whatever was left. */}
             <section className="flex flex-col gap-3">
-              <SectionHead doc="line weight, relief, and grain" title="Stroke, depth and noise" />
+              <SectionHead doc="the weight of every line in the theme" title="Border width" />
               <StepRow
                 doc="hairline"
                 label="Stroke"
@@ -640,15 +689,21 @@ export function ThemeStudioShowcase() {
                 steps={STROKES}
                 value={theme["--stroke"] ?? ""}
               />
+            </section>
+
+            <section className="flex flex-col gap-3">
+              <SectionHead doc="relief and grain, over every fill" title="Effects" />
               {/* Three named steps rather than a slider: `--depth` reads as a *material*, and a
-                  number between Soft and Raised is not a decision anybody is making. */}
+                  number between Soft and Raised is not a decision anybody is making. The reference
+                  offers two — a checkbox, on or off — and the middle step is our one divergence
+                  here, because `--depth` multiplies into a `calc()` and 0.5 is a real value. */}
               <div className="flex flex-col gap-1.5">
                 <Legend doc="relief — a number, not a switch" label="Depth" />
                 <div className="flex gap-1.5">
                   {DEPTHS.map((step) => (
                     <button
                       aria-pressed={theme["--depth"] === step.value}
-                      className={cx(
+                      className={cn(
                         "flex-1 rounded-field border px-2 py-1.5 text-xs transition-colors",
                         "outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
                         theme["--depth"] === step.value
@@ -674,7 +729,7 @@ export function ThemeStudioShowcase() {
                       // theme declares this one, so "absent" and "smooth" are the same answer and
                       // the control must not show neither pressed.
                       aria-pressed={(theme["--noise"] || "0") === step.value}
-                      className={cx(
+                      className={cn(
                         "flex-1 rounded-field border px-2 py-1.5 text-xs transition-colors",
                         "outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
                         (theme["--noise"] || "0") === step.value
@@ -711,7 +766,7 @@ export function ThemeStudioShowcase() {
                     {FONTS.map((font) => (
                       <button
                         aria-pressed={theme[token] === font.value}
-                        className={cx(
+                        className={cn(
                           "flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-field border px-2 py-2",
                           "transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
                           theme[token] === font.value
@@ -743,19 +798,22 @@ export function ThemeStudioShowcase() {
           {/* THE theme. An inline declaration block on an element is what a `[data-theme]` rule is,
               so everything below reads the same tokens a shipped theme would publish. */}
           <div
-            className="flex min-h-full flex-col gap-7 bg-background p-8 text-foreground"
+            className="min-h-full bg-background text-foreground"
             style={{ ...theme, colorScheme: dark ? "dark" : "light" } as React.CSSProperties}
           >
-            <ThemeScreen />
-            <CssBlock css={css} link={href} />
+            {/* Capped and centred. Uncapped, every card stretched to the pane — a week strip with
+                seven days spread over 1,200px, which is a measurement of the window rather than of
+                the theme. A theme is judged at the width an interface is actually built at. */}
+            <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6">
+              <ThemeSampler />
+              <CssBlock css={css} link={href} />
+            </div>
           </div>
         </ShellMain>
       </ShellBody>
     </ShellRoot>
   );
 }
-
-const cx = (...parts: (string | false | undefined)[]) => parts.filter(Boolean).join(" ");
 
 /** A section's name, a hairline, and one line saying what it decides. The reference's header. */
 function SectionHead({ doc, title }: { doc: string; title: string }) {
@@ -780,83 +838,161 @@ function Legend({ doc, label }: { doc?: string; label: string }) {
 }
 
 /**
- * A fill and its ink, as two squares, with an `A` painted on the second.
+ * One token, as a filled row with its own name written on it.
  *
- * **The `A` is the whole idea, and it is the reference's.** A colour picker that shows you two
- * chips side by side tells you what you chose; one that paints the ink ON the fill tells you
- * whether the choice *works*, which is the only question either of them is for. It costs nothing
- * and it catches the exact failure this layer keeps having — an ink measured against one fill and
- * then put on another.
+ * **This is the reference's control, and the shape it replaced is the reason to say so.** The first
+ * draft drew a pair as two small squares with an `A` on the second and the name in mono underneath
+ * — which reads as a swatch library. daisyUI draws one wide block per colour with the token's name
+ * *inside it*, in the ink that belongs to that fill, and the difference is not decoration: a square
+ * tells you what you picked, and a filled row carrying its own name tells you whether the pair
+ * READS. That is the only question a colour control is for, and it is the failure this layer keeps
+ * having — an ink measured against one fill and then put on another.
+ *
+ * It also ended the ragged rail. Pairs came in twos and threes, so a two-column grid left half-rows
+ * everywhere and the names truncated to `dest…`; every token is one row of one height now, whether
+ * it carries no ink, one, or one plus a page ink.
+ *
+ * The two small squares on the end are the inks themselves, for when the proposal is not what you
+ * want: the first sits ON the fill, the second on `--background`, and each opens its own picker.
+ * The `A` is gone with the pair layout — the name in the row is a better specimen of the same
+ * thing, because it is text at text size rather than one letter at 18px.
  */
-function SwatchPair({
-  background,
+function ColorRow({
   fill,
   ink,
+  inkSuggestion,
   label,
   onFill,
   onInk,
   onPage,
   page,
+  pageGround,
   pageSuggestion,
 }: {
-  /** The surface a page ink is read on, when there is one. */
-  background?: string;
   fill: string;
+  /** What is written on the row. For a surface this is `--foreground`; for a pair, the fill's ink. */
   ink: string;
+  inkSuggestion?: string | null;
   label: string;
   onFill: (hex: string) => void;
-  onInk: (hex: string) => void;
+  /** Absent for a surface with no ink of its own — then the row is a specimen and not a pair. */
+  onInk?: (hex: string) => void;
   onPage?: (hex: string) => void;
-  /**
-   * The page ink the rule proposes, computed by the caller.
-   *
-   * Passed in rather than derived here because the two grounds are different tokens and confusing
-   * them is exactly the bug this had: a page ink is *mixed toward* `--foreground` — it is the fill
-   * pulled to the page's own ink until it reads — and *measured against* `--background`, which is
-   * the surface it is read on. Mixing toward the background gave a pale salmon on a pale page.
-   */
-  pageSuggestion?: string | null;
-  /**
-   * The same family, read on the page rather than on the fill.
-   *
-   * Drawn third and drawn ON the background, because the pair of them side by side is the only
-   * thing that explains the difference. `-content` and `-foreground` look like one token with two
-   * suffixes and are two unrelated jobs: white on a filled button, versus red text on the page.
-   * Every theme here authors both and nothing in the names says which is which.
-   */
+  /** The same family read on the page rather than on the fill — the status families' third token. */
   page?: string;
+  pageGround?: string;
+  pageSuggestion?: string | null;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
-      <div className="flex gap-1">
-        <Chip label={`${label} fill`} onChange={onFill} showLabel={false} value={fill} />
-        <Chip background={fill} label={`${label} ink`} onChange={onInk} showLabel={false} value={ink}>
-          <span aria-hidden className="font-semibold text-lg leading-none" style={{ color: ink }}>
-            A
-          </span>
-        </Chip>
-        {/* `&&`, not `Show`: its children are an eager prop and these dereference `page`, which a
-            pair without a page ink does not have. That exception is written down in
-            `docs/CLAUDE.md` and this is the case it names. */}
-        {page !== undefined && onPage !== undefined && (
-          <Chip background={background} label={`${label} on the page`} onChange={onPage} showLabel={false} value={page}>
-            <span aria-hidden className="font-semibold text-lg leading-none" style={{ color: page }}>
+    <div className="flex items-center gap-1.5">
+      <ColorPicker className="min-w-0 flex-1" onValueChange={(d) => onFill(d.valueAsHex)} value={fill}>
+        <ColorPickerControl className="w-full min-w-0">
+          <ColorPickerTrigger
+            className={cn(
+              "flex h-10 w-full items-center gap-2 rounded-field px-3",
+              // A near-white fill on a near-white page is invisible without one, and a strong ring
+              // would read as a selected state. `--foreground` at 14% is a hairline that is always
+              // there — and it is the PAGE's foreground, not the row's ink, because the outline
+              // belongs to the rail rather than to the colour it holds.
+              "border border-foreground/14 transition-transform hover:scale-[1.01]",
+              "outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
+            )}
+            style={{ background: fill }}
+            title={label}
+          >
+            <span className="truncate font-medium text-xs" style={{ color: ink }}>
+              {label}
+            </span>
+            <span className="ms-auto shrink-0 font-mono text-[10px]" style={{ color: ink }}>
+              {ratioOf(fill, ink)}
+            </span>
+          </ColorPickerTrigger>
+        </ColorPickerControl>
+        <ColorPickerContent>
+          <ColorPickerArea>
+            <ColorPickerAreaThumb />
+          </ColorPickerArea>
+          <ColorPickerSlider channel="hue" />
+        </ColorPickerContent>
+      </ColorPicker>
+
+      {/* `&&`, not `Show`: its children are an eager prop and these dereference values a row
+          without an ink does not have. That exception is written down in `docs/CLAUDE.md`. */}
+      {onInk !== undefined && (
+        <InkSquare
+          // ON the fill, always. Without a ground the square painted the ink as its own fill and
+          // then wrote the `A` in that same ink — black on black, white on white, invisible on
+          // every row that had one. An ink is never a fill; it is only ever a reading on something.
+          ground={fill}
+          label={`${label} ink`}
+          onChange={onInk}
+          suggestion={inkSuggestion ?? null}
+          value={ink}
+        />
+      )}
+      {page !== undefined && onPage !== undefined && (
+        <InkSquare
+          ground={pageGround}
+          label={`${label} on the page`}
+          onChange={onPage}
+          suggestion={pageSuggestion ?? null}
+          value={page}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * An ink, as a small square that opens a picker, with the link mark under it.
+ *
+ * `ground` draws it as ink ON a surface rather than as a fill of its own, which is the honest
+ * depiction for a page ink: that token is never a fill anywhere.
+ */
+function InkSquare({
+  ground,
+  label,
+  onChange,
+  suggestion,
+  value,
+}: {
+  /** The surface this ink is read on. Required in practice — see the note at the call site. */
+  ground?: string;
+  label: string;
+  onChange: (hex: string) => void;
+  suggestion: string | null;
+  value: string;
+}) {
+  // The link mark sits BESIDE the square, not under it. Under it, the mark added its own line to a
+  // column and the row grew past the 40px every other row is, so the rail read as ragged again for
+  // a reason that had nothing to do with colour.
+  return (
+    <div className="flex shrink-0 items-center gap-0.5">
+      <ColorPicker onValueChange={(d) => onChange(d.valueAsHex)} value={value}>
+        <ColorPickerControl>
+          <ColorPickerTrigger
+            className={cn(
+              "grid size-10 place-items-center rounded-field p-0",
+              "border border-foreground/14 transition-transform hover:scale-[1.03]",
+              "outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
+            )}
+            style={{ background: ground ?? value }}
+            title={label}
+          >
+            <span aria-hidden className="font-semibold text-base leading-none" style={{ color: value }}>
               A
             </span>
-          </Chip>
-        )}
-      </div>
-      <span className="flex min-w-0 items-center gap-1.5">
-        <span className="truncate font-mono text-[11px] text-muted-foreground">{label}</span>
-        <Ratio fill={fill} ink={ink} />
-        <Link ink={ink} onDerive={onInk} suggestion={proposed(fill)} />
-        {page !== undefined && background !== undefined && onPage !== undefined && (
-          <>
-            <Ratio fill={background} ink={page} />
-            <Link ink={page} onDerive={onPage} suggestion={pageSuggestion ?? null} />
-          </>
-        )}
-      </span>
+            <span className="sr-only">{label}</span>
+          </ColorPickerTrigger>
+        </ColorPickerControl>
+        <ColorPickerContent>
+          <ColorPickerArea>
+            <ColorPickerAreaThumb />
+          </ColorPickerArea>
+          <ColorPickerSlider channel="hue" />
+        </ColorPickerContent>
+      </ColorPicker>
+      <Link ink={value} onDerive={onChange} suggestion={suggestion} />
     </div>
   );
 }
@@ -894,7 +1030,7 @@ function Link({
   }
   return (
     <button
-      className={cx(
+      className={cn(
         "shrink-0 rounded-selector p-px text-muted-foreground transition-colors hover:text-foreground",
         "outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
       )}
@@ -908,58 +1044,11 @@ function Link({
   );
 }
 
-/** One square that opens a picker. `background` renders the swatch ON a fill instead of as one. */
-function Chip({
-  background,
-  children,
-  label,
-  onChange,
-  showLabel = true,
-  value,
-}: {
-  background?: string;
-  children?: React.ReactNode;
-  label: string;
-  onChange: (hex: string) => void;
-  /** A pair names itself ONCE, under both squares — two labels side by side collide. */
-  showLabel?: boolean;
-  value: string;
-}) {
-  return (
-    <ColorPicker className="min-w-0 flex-1" onValueChange={(d) => onChange(d.valueAsHex)} value={value}>
-      <ColorPickerControl className="flex w-full min-w-0 flex-col gap-1.5">
-        <ColorPickerTrigger
-          className={cx(
-            "grid h-11 w-full place-items-center rounded-selector p-0",
-            // A near-white fill on a near-white page is invisible without one, and a strong ring would
-            // read as a selected state. `--foreground` at 14% is a hairline that is always there.
-            "border border-foreground/14 transition-transform hover:scale-[1.03]",
-            "outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
-          )}
-          style={{ background: background ?? value }}
-          title={label}
-        >
-          {children}
-          <span className="sr-only">{label}</span>
-        </ColorPickerTrigger>
-        {showLabel ? (
-          <span className="truncate font-mono text-[11px] text-muted-foreground">{label}</span>
-        ) : null}
-      </ColorPickerControl>
-      <ColorPickerContent>
-        <ColorPickerArea>
-          <ColorPickerAreaThumb />
-        </ColorPickerArea>
-        <ColorPickerSlider channel="hue" />
-      </ColorPickerContent>
-    </ColorPicker>
-  );
-}
-
 /** Five discrete steps, each DRAWN. Picking a shape beats dragging a number toward one. */
 function StepRow({
   doc,
   label,
+  names,
   onPick,
   render,
   steps,
@@ -968,6 +1057,8 @@ function StepRow({
   doc?: string;
   label: string;
   name?: string;
+  /** A word under each mark, where the drawing alone cannot tell two steps apart. */
+  names?: readonly string[];
   onPick: (value: string) => void;
   render: (value: string, on: boolean) => React.ReactNode;
   steps: readonly string[];
@@ -977,13 +1068,14 @@ function StepRow({
     <div className="flex flex-col gap-1.5">
       <Legend doc={doc} label={label} />
       <div className="flex gap-1.5">
-        {steps.map((step) => (
+        {steps.map((step, i) => (
           <button
-            aria-label={`${label} ${step}`}
+            aria-label={`${label} ${names?.[i] ?? step}`}
             aria-pressed={value === step}
-            className={cx(
-              "grid h-9 flex-1 place-items-center rounded-field border transition-colors",
+            className={cn(
+              "flex flex-1 flex-col items-center justify-center gap-1 rounded-field border py-1.5 transition-colors",
               "outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
+              names ? "" : "h-9",
               value === step ? "border-primary bg-primary/10" : "border-border hover:bg-foreground/6",
             )}
             key={step}
@@ -991,6 +1083,9 @@ function StepRow({
             type="button"
           >
             {render(step, value === step)}
+            {names ? (
+              <span className="font-mono text-[10px] text-muted-foreground">{names[i]}</span>
+            ) : null}
           </button>
         ))}
       </div>
@@ -1003,7 +1098,7 @@ function CornerMark({ on, radius }: { on: boolean; radius: string }) {
   return (
     <span
       aria-hidden
-      className={cx("block size-5 border-t-2 border-s-2", on ? "border-primary" : "border-muted-foreground")}
+      className={cn("block size-5 border-t-2 border-s-2", on ? "border-primary" : "border-muted-foreground")}
       style={{ borderStartStartRadius: radius }}
     />
   );
@@ -1014,7 +1109,7 @@ function BarMark({ on, unit }: { on: boolean; unit: string }) {
   return (
     <span
       aria-hidden
-      className={cx("block w-4 rounded-[2px]", on ? "bg-primary" : "bg-muted-foreground")}
+      className={cn("block w-4 rounded-[2px]", on ? "bg-primary" : "bg-muted-foreground")}
       style={{ height: `calc(${unit} * 6)` }}
     />
   );
@@ -1024,7 +1119,7 @@ function StrokeMark({ on, width }: { on: boolean; width: string }) {
   return (
     <span
       aria-hidden
-      className={cx("block w-5 rounded-full", on ? "bg-primary" : "bg-muted-foreground")}
+      className={cn("block w-5 rounded-full", on ? "bg-primary" : "bg-muted-foreground")}
       style={{ height: width === "0px" ? "1px" : width, opacity: width === "0px" ? 0.3 : 1 }}
     />
   );
@@ -1041,14 +1136,24 @@ function StrokeMark({ on, width }: { on: boolean; width: string }) {
  */
 function CssBlock({ css, link }: { css: string; link: string }) {
   return (
-    <section className="flex flex-col gap-2">
-      <div className="flex items-center gap-3">
-        <h2 className="shrink-0 font-medium text-sm">The theme</h2>
-        <span aria-hidden className="h-px flex-1 bg-border" />
-        {/* Two things to take away, and they are for different moments: the block goes in the
-            repository, the link goes to whoever has to look at it first. The link earns its own
-            button rather than leaning on the address bar because this showcase is usually read
-            inside an iframe, where there is no address bar to copy from. */}
+    <section className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div className="min-w-0 flex-1">
+          {/* The reference's heading, in our words: it says what to DO with the block rather than
+              naming it. `The theme` named a thing already on screen, which is the one sentence a
+              heading here cannot afford — the block is the artefact, and the instruction is the
+              only part a reader does not already have. */}
+          <h2 className="font-medium text-sm">Add this theme to your CSS</h2>
+          <p className="text-muted-foreground text-xs">
+            Save it as <code className="font-mono">packages/theme/themes/&lt;name&gt;.css</code> and
+            run <code className="font-mono">pnpm --filter @kanzo-tech/theme gen</code>.
+          </p>
+        </div>
+        {/* Two things to take away, and they say which is which. `Copy` alone did not: beside a
+            `Copy link` it reads as the other half of a pair rather than as the CSS. The link
+            button existed because the studio lived in an iframe with no address bar, and it earns
+            its place anyway — the fragment is 435 characters, and selecting a URL by hand to send
+            it is worse than pressing a button that names what it copies. */}
         <Clipboard className="shrink-0" value={link}>
           <ClipboardTrigger>
             <Button size="sm" variant="ghost">
@@ -1061,20 +1166,15 @@ function CssBlock({ css, link }: { css: string; link: string }) {
         </Clipboard>
         <Clipboard className="shrink-0" value={css}>
           <ClipboardTrigger>
-            <Button size="sm" variant="outline">
+            <Button size="sm">
               <ClipboardIndicator copied={<CheckIcon />}>
                 <CopyIcon />
               </ClipboardIndicator>
-              Copy
+              Copy CSS
             </Button>
           </ClipboardTrigger>
         </Clipboard>
       </div>
-      <p className="text-muted-foreground text-xs">
-        Save it as{" "}
-        <code className="font-mono">packages/theme/themes/&lt;name&gt;.css</code> and run{" "}
-        <code className="font-mono">pnpm --filter @kanzo-tech/theme gen</code>.
-      </p>
       <pre className="max-h-96 overflow-auto rounded-box border border-border bg-muted p-4 font-mono text-[11px] leading-relaxed text-muted-foreground">
         {css}
       </pre>

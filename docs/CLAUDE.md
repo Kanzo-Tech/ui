@@ -26,3 +26,10 @@ The repository rules are in `../CLAUDE.md`. These five are true only here.
     `app/view/showcases/[name]/`, and embedded in an iframe. It claims the viewport and owns its
     scrolling, because a shell judged inside a centred box proves nothing. This is where
     specificity is allowed to live: an arrangement does not have to become a component.
+- **A tool the documentation *offers* is a route, not a showcase.** `/theme-generator` is the case
+  and the distinction is worth the line: a showcase is something the docs exhibit, so an iframe
+  costs it nothing; an instrument somebody uses needs a URL they can send, a title, and a place in
+  the nav, and an iframe takes all three away. It lives in `app/(home)/theme-generator/`, under the
+  site nav, which is where daisyUI keeps the same tool. Its shell is `h-auto flex-1`, never `h-dvh`
+  — the nav is above it — and the `(home)` layout's container slot is overridden to a `div` so
+  `ShellMain` stays the page's only `<main>`.

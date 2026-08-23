@@ -1,0 +1,207 @@
+---
+title: Themes
+description: The twenty-nine themes this library ships, each one drawn rather than listed — and the generator that writes the thirtieth.
+full: true
+---
+
+A list of theme names tells you nothing, and a row of swatches is barely better: it is a claim about
+colours that says nothing about whether an interface built from them holds together. So every theme
+below is drawn wearing the **same screen** — the one the [generator](/theme-generator) previews,
+imported rather than rebuilt — and the comparison happens where comparisons actually happen, which
+is between two screens rather than between two palettes.
+
+**Wear it** puts a theme on this site. The documentation is themed by the same attribute as the
+tiles, so the page you are reading becomes the specimen; the theme menu in the chrome is the same
+choice, one click away, on every page.
+
+<ThemeCatalogue />
+
+## Each tile is a theme, not a picture of one
+
+A tile is a `data-theme` attribute on a `div`:
+
+```tsx
+<div data-theme="nord">
+  <YourScreen />
+</div>
+```
+
+That is the whole mechanism. `[data-theme="nord"]` is an ordinary attribute selector — it matches an
+*element*, not a document — so the theme's custom properties land on that div and inherit into
+everything inside it. Twenty-nine themes cost twenty-nine attributes: **no iframe per tile, no
+stylesheet swapping, no JavaScript.** Each theme declares its own `color-scheme` inside its block,
+so the browser chrome inside a dark tile — scrollbars, form controls, caret — goes dark with it.
+
+This is worth knowing beyond this page, because it is what lets a product theme a *region*: a
+tenant-branded panel inside an otherwise neutral application is the same attribute in a different
+place. The only thing it asks of the theme layer is that colours are never declared on `:root`
+alone — a custom property inherits its **computed** value, so a `:root` declaration resolves once on
+`<html>` and every tile would paint the same theme.
+
+<Callout title="Which is a rule with a scar on it">
+  `kanzo.css` opened with a bare `:root, [data-theme="kanzo"]` for a day. `:root` has the same
+  specificity as `[data-theme="x"]`, so the tie broke on source order, and the imports are
+  alphabetical — every theme sorting before `kanzo.css` was silently repainted in kanzo's colours,
+  eleven of the sixteen there were then, dark ones included. It is now `:root:not([data-theme])`,
+  and two assertions in `themes.test.ts` hold it there.
+</Callout>
+
+## Light and dark are two sets, not a switch
+
+The control above the grid picks **which set of themes you are looking at**. It converts nothing,
+because there is nothing to convert: a theme carries one `color-scheme`, and light and dark are two
+themes rather than two halves of one. Eight of the twenty-nine are pairs named for it — `nord` and
+`nord-dark` — which is what the appearance toggle in **Customize** moves between; the other thirteen
+stand alone on whichever side they were written for. See [a theme is
+one flat block](https://github.com/kanzo-tech/kanzo-ui/blob/main/decisions/a-theme-is-one-flat-block.md).
+
+## Thirteen of these came from daisyUI
+
+`packages/theme/scripts/import-daisy.mjs` reads daisyUI's own theme package and writes a block per
+theme. It is **not** a generator: it runs by hand, and what it writes is source from that moment on.
+
+It **does not correct a colour.** A `pastel` with its four status pairs retouched until they pass AA
+is not `pastel`, and the name would be promising something it no longer delivers. So a theme whose
+own values fail the contrast guard is skipped and the reason printed — most of daisyUI's went that
+way, which is why thirteen arrived and not thirty-five. Four names were declined rather than
+measured: `dracula` and `nord`, because ours already mean something, and `light`/`dark`, because
+those are our two *sides* and `data-theme="light"` beside `.dark` is a sentence nobody should have
+to parse.
+
+They author twenty colours where we author twenty-one, and the sets do not line up. Five mapping
+decisions, each measured rather than assumed: `--card` takes `base-100` and not `base-200` (a card
+here rests *on* the page, and its raised surface is our `--muted`); `--border` takes `base-300`;
+`--ring` takes `primary`; `--muted-foreground` has no counterpart at all, so it is **searched
+for** — the palest mix toward `base-100` that still reads on all three of the surfaces that carry
+it; and `--accent` does **not** take their `accent`.
+
+<Callout type="warn" title="Because `accent` is one word for two roles">
+  Here it is Shark's: the quiet ground a row wears when it is hovered or selected, written as
+  `bg-accent` at twenty-four call sites across the library. In daisyUI it is the third *brand*
+  colour, saturated on purpose. Mapped straight across, eleven themes put a brand fill under every
+  hover — `dim`'s was `#c792e9`, and `--muted-foreground` on it measured **1.23:1**.
+
+  So it comes from their base scale, where the surface actually lives: `base-300` mixed 60% toward
+  `base-200`. The ratio is read off our own themes rather than chosen — across the sixteen written
+  here `--accent` sits at 0.56 to 0.62 of the way from `--muted` to `--border`, and 0.6 reproduces
+  all sixteen at ΔE ≤ 0.60. What those eleven give up is a colour this library has nowhere to put:
+  nothing renders a third brand fill. `themes.test.ts` holds the rule as a pair — a fill needs one
+  ink, a surface needs two.
+</Callout>
+
+<Callout title="What the importer exposed, and no guard could see">
+  An imported theme brings no page inks, so the four `--*-foreground` fell through the bridge to
+  `var(--destructive-foreground, var(--destructive))` — the fill at full strength, on the page. That
+  is **1.23:1** in `acid`'s warning. Nineteen unreadable pairs and nothing measuring them.
+  `themes.test.ts` now measures `--background` against all four, and the importer authors them with
+  `pageInk`.
+</Callout>
+
+## Writing one is a form
+
+Authoring a theme used to mean running a thirteen-stage derivation over two seeds, which is not a
+form, it is a build step. A theme is about fifty declarations of plain CSS and roughly **thirty
+decisions**, because the ink that follows from a fill is filled in for you. So there is a form, and
+it is the **[theme generator](/theme-generator)**.
+
+<Cards>
+  <Card
+    href="/theme-generator"
+    title="Theme generator"
+    description="Author a theme in the library's own controls, copy the block, send the link."
+  />
+  <Card
+    href="/docs/theming"
+    title="Theming"
+    description="What a theme declares, which names are uses of another, and how a tenant publishes one."
+  />
+</Cards>
+
+### The preview cannot disagree with the output
+
+The pane on the right carries the knobs as **inline custom properties**, and an inline declaration
+block on an element is exactly what a `[data-theme]` rule is: the same properties, the same cascade,
+resolved on the same elements. So the specimens are not an illustration painted from a state object
+— they are real `Button`s and `Input`s reading real tokens, and the CSS the page hands you is the
+style attribute reformatted.
+
+**There is no serialiser, so there is nothing for a serialiser to be wrong about.** That is the
+class of bug the arrangement is built to make impossible, and the reason the block sits in the same
+pane it describes rather than in a tab beside it.
+
+<Callout title="It works because of a bridge, and the bridge is not obvious">
+  Every name in the vocabulary that is a *use* of one of the twenty-one — the card's ink, the sidebar
+  tokens, the popover surface — is inlined into its **utility** by `@theme inline`, never declared as
+  a custom property of its own, which is why most of them do not appear in the block the generator
+  emits. The exception is the four status `-foreground`s: those are real values rather than
+  repetitions, so it proposes them and the block carries them. A custom property inherits its
+  computed value, so a `:root` declaration would resolve once on `<html>` and the preview pane would
+  keep the page's colours no matter what the knobs said. Nothing about that is a compile error; see
+  [a theme is one flat
+  block](https://github.com/kanzo-tech/kanzo-ui/blob/main/decisions/a-theme-is-one-flat-block.md).
+</Callout>
+
+### Drag `depth` first
+
+It is the knob that shows what the shape half buys. `--depth` is a plain **number** multiplied into
+a `calc()` that is already written into the recipes:
+
+```css
+--btn-lift: color-mix(in oklab, var(--btn-bg) calc(var(--depth) * 30%), transparent);
+--btn-edge: color-mix(in oklab, var(--btn-bd), var(--foreground) calc(var(--depth) * 8%));
+```
+
+At `0` the shadow is transparent and the edge is the fill; at `1` the control has relief. **One
+stylesheet gives flat design and skeuomorphism with no conditional anywhere**, which is what makes
+it a value a client can set rather than a variant somebody has to write.
+
+Two details worth noticing while you drag it. The formula **degrades on its own** for the
+transparent variants — an outline button at `depth: 1` has no shadow, because mixing `transparent`
+at 30% is still transparent, and no special case was needed to arrange that. And it mixes toward
+`--foreground` rather than toward black, which is a deliberate divergence from daisyUI: black is
+only "darker" on a light theme, and the foreground already changes sides.
+
+### It proposes, and it does not decide
+
+Pick a fill and its inks are filled in. Both of them, and they are different jobs that the names hide:
+`-content` sits **on** the fill — white on a red button — while `-foreground` is the same family read
+**on the page**, the error line under an input where the fill never appears.
+
+The rule for the first is daisyUI's own, recovered from its output rather than guessed at: of the
+280 fill/ink pairs across its 35 themes, 156 carry the fill's hue exactly, and within those the ink
+is the fill with its chroma cut to a fifth and its lightness pulled most of the way to the nearer
+end. Two departures, both measured. The branch is chosen by **which one actually contrasts more**
+rather than by daisyUI's lightness threshold, and 4.5:1 is a floor rather than a hope: over 9,178
+in-gamut fills the plain formula falls below AA on 11.3% and daisyUI's own shipped pairs fall below
+on 14.3%, where this returns nothing under 4.50:1. It still reproduces daisyUI's own values at ΔE
+0.60 median, and all 112 fill/ink pairs the sixteen hand-written themes ship.
+
+The page ink is a different formula — pulling it to an extreme would give near-black, which is no
+longer red — so it is the fill mixed 60% toward `--foreground`, measured against the surface it will
+be read on, with AA as a floor.
+
+**A proposal is not a lock.** An ink you change stops following its fill, and the generator knows
+which is which by comparing the value to the rule rather than by remembering that you touched it —
+so there is no hidden state to fall out of step with what you can see. The link mark beside each
+pair tells you which it is, and clicking it takes the proposal back.
+
+### Send it to somebody
+
+The URL carries the whole theme in its fragment — about 440 characters, deflate-compressed with the
+platform's own `CompressionStream`, no dependency. A fragment never reaches a server, so a client's
+unreleased palette does not leave their machine.
+
+This page links the other way, with `?from=<theme>`, and it deliberately sends the **name** rather
+than the values: a link carrying values would be a copy of the stylesheet, and the generator would
+open on whatever this page believed when it rendered. A name makes it go and read the theme itself.
+
+### What it does not do
+
+**It does not refuse.** The ratio beside each pair is a hint — red is a fact, not a veto — and what
+checks the *artefact* is a guard over the shipped files. A form that blocked you at 4.4:1 would be
+regrowing the refusal half of the pipeline through the back door; the honest place for that is a
+test over what ships.
+
+**It writes nothing** — no file, no attribute on `<html>`, no storage. You copy the block into
+`packages/theme/themes/` and run the generator, which is the whole of what shipping a theme is. See
+[onboarding a tenant](/docs/onboarding).

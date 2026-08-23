@@ -350,6 +350,10 @@ and that is the **only** copy. A second source of truth in this layer — eight 
 table of them — makes the same series come out one colour through `ChartConfig` and another
 through a token.
 
+A theme need not author them: `tokens.css` declares eight on `:root`, chosen to clear contrast and
+separation on every background the catalogue ships, so a theme that writes none still has a chart
+channel and one that writes some overrides them slot by slot.
+
 `CHART_SLOTS` is 8 because a stylesheet cannot have a variable number of custom properties. How many of those slots carry a *real* category is the theme's `--chart-capacity`, which can be lower: past
 it `compile` writes `var(--muted-foreground)`, because naming five categories honestly beats naming
 eight that a colour-blind reader sees as five. Past the eighth series, fold into "Other" —

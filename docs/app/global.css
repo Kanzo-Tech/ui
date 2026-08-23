@@ -34,7 +34,15 @@
 /* The design system's own tokens + compiled sheet — the docs eat the published artifact. */
 @import "@kanzo-tech/theme/tokens.css";
 @import "@kanzo-tech/theme/themes.css";
-@import "fumadocs-ui/css/neutral.css";
+/*
+ * fumadocs' colour names, minus its palette. `neutral.css` is gone: it published a grey scale of
+ * its own, so the chrome — sidebar, nav, search, callouts — stayed neutral while the content
+ * re-themed underneath it, and the site wore two palettes at once. `lib/default-colors.css` is the
+ * half of that file worth keeping: the `fd` names nothing here answers (`overlay`, the diff
+ * colours, the four semantic hues the MDX callouts use) and the values every `--color-fd-*`
+ * falls back to. What paints them is the block at the bottom of this file.
+ */
+@import "fumadocs-ui/css/lib/default-colors.css";
 @import "fumadocs-ui/css/preset.css";
 
 /*
@@ -53,4 +61,70 @@
   #nd-nav [aria-expanded] {
     display: none;
   }
+}
+
+/*
+ * fumadocs' navbar height, named once so an arrangement can subtract it.
+ *
+ * `#nd-nav` is `sticky h-14` and fumadocs publishes no variable for it, so a full-height page under
+ * the nav — `/theme-generator` is the one — either hard-codes the number or grows past the bottom
+ * of the window and takes the whole document's scrollbar with it. It did the second: the shell's
+ * two panes stopped scrolling and the page scrolled instead, which loses the header on the way
+ * down. One spelling, here, next to the rest of the chrome's parameters.
+ */
+:root {
+  --fd-nav-height: 3.5rem;
+}
+
+/*
+ * ── The docs chrome wears the chosen theme ────────────────────────────────────────────────────
+ *
+ * Every `--color-fd-*` fumadocs paints its chrome with, assigned from the theme's own tokens. Pick
+ * `dracula` in the theme menu and the sidebar, the nav, the search dialog and the table of contents
+ * go with it — which is the whole claim a theme makes, and the site was not making it: the chrome
+ * was fumadocs' greys and only the examples changed colour.
+ *
+ * **This is `fumadocs-ui/css/shadcn.css`, hand-copied, and the copy is not laziness.** That file
+ * exists for exactly this and its left-hand side is right; its right-hand side names six custom
+ * properties our themes never declare — `--card-foreground`, `--popover-foreground`,
+ * `--secondary-foreground`, `--accent-foreground`, `--sidebar` and `--sidebar-foreground`. Those
+ * are *uses* of one of the twenty-one: `@theme inline` resolves them into each utility and never
+ * emits a property to read back (`--color-card-foreground` appears zero times in the built sheet).
+ * Imported verbatim, six `fd` tokens would resolve to nothing and the chrome would paint with
+ * whatever `color:` it inherited. So the chains are spelled here, and they are the same chains
+ * `packages/theme/tokens.css` bridges — that file is the source; if one changes, this follows.
+ *
+ * `:root, .dark` is fumadocs' own selector and it is load-bearing: `default-colors.css` redefines
+ * the lot under `.dark`, which outranks a bare `:root`. Matching its selector *list* means ours
+ * wins on source order on both sides. It is not a second appearance axis — a theme carries its own
+ * `color-scheme`, and this block resolves against whichever `[data-theme]` is on `<html>`.
+ */
+:root,
+.dark {
+  --color-fd-background: var(--background);
+  --color-fd-foreground: var(--foreground);
+  --color-fd-muted: var(--muted);
+  --color-fd-muted-foreground: var(--muted-foreground);
+  --color-fd-popover: var(--popover, var(--card));
+  --color-fd-popover-foreground: var(--foreground);
+  --color-fd-card: var(--card);
+  --color-fd-card-foreground: var(--foreground);
+  --color-fd-border: var(--border);
+  --color-fd-primary: var(--primary);
+  --color-fd-primary-foreground: var(--primary-foreground);
+  --color-fd-secondary: var(--secondary);
+  --color-fd-secondary-foreground: var(--secondary-foreground, var(--foreground));
+  --color-fd-accent: var(--accent);
+  --color-fd-accent-foreground: var(--accent-foreground, var(--foreground));
+  --color-fd-ring: var(--ring);
+}
+
+/*
+ * The sidebar is a surface of its own in this vocabulary, and the theme layer already says which:
+ * `--sidebar` defers to `--popover` and on to `--card`. Spelled here for the same reason as above.
+ * `neutral.css` used to hard-code three greys onto this element in dark mode; that is what went.
+ */
+#nd-sidebar {
+  --color-fd-card: var(--sidebar, var(--popover, var(--card)));
+  --color-fd-muted-foreground: var(--sidebar-foreground, var(--muted-foreground));
 }

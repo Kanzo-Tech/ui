@@ -7,7 +7,7 @@ Two different things wear the word "theme", and this page is mostly about keepin
 
 **What a client is** is a theme: one hand-written block of CSS under `[data-theme="<name>"]`, about
 fifty declarations carrying twenty-one colours, the shape knobs and the font stacks — and roughly
-thirty *decisions*, because the [theme studio](/docs/showcases/theme-studio) fills in the ink that
+thirty *decisions*, because the [theme generator](/theme-generator) fills in the ink that
 follows from a fill. Adding a client is adding a file.
 
 **What a user chooses** is which theme they wear on each side, plus four axes layered over it: how
@@ -48,14 +48,20 @@ declared once in `tokens.css` through `@theme inline` and never re-declared.
 `-foreground`s are uses. A theme overrides one only when it genuinely wants it different — and it is
 worth knowing which actually do, because "is a use" and "is left alone" are different claims:
 
-| name | what every shipped theme does |
-| --- | --- |
-| `--secondary-foreground` `--accent-foreground` `--sidebar` `--sidebar-foreground` | **none authors one.** Each was the same value as another token in all sixteen, so the declaration said nothing and came out. |
-| `--popover` | authored by the eight **dark** themes and none of the light ones — an overlay lifts off the card on the dark side and is the card on the light one. |
-| `--field` `--faint` `--input`, the status `-foreground`s | still authored by every theme. They are genuine values, not repetitions. |
+The counts below are measured over the twenty-nine files, and they split by origin: sixteen are
+hand-written here (49–50 declarations each) and thirteen were imported from daisyUI (33).
 
-The middle row is the shape of the rule working: a name earns its declaration where it says
-something, and loses it where it does not, and the same theme file can do both.
+| name | what the shipped themes actually do |
+| --- | --- |
+| `--sidebar` `--sidebar-foreground` `--accent-foreground` | **none of the twenty-nine authors one.** Each was the same value as another token in every single file, so the declaration said nothing and came out. `--accent-foreground` joined them when `--accent` stopped being imported as a brand fill: an on-fill ink is half a pair, and its other half is a surface now. |
+| `--secondary-foreground` | **none of the sixteen; all thirteen imported ones.** Here it was `--foreground` every time, so it came out. daisyUI authors an on-fill ink for `secondary` and it is *not* the page ink, so an imported theme brings a real value and says so. |
+| `--popover` | the eight hand-written **dark** themes and no light one — an overlay lifts off the card on the dark side and is the card on the light one. An imported theme leaves it to the chain. |
+| `--field` `--faint` `--input` | the sixteen author all three; the thirteen author none. Genuine values, not repetitions — daisyUI simply has no name for them. |
+| the four status `-foreground`s | **all twenty-nine.** The imported ones do not bring them, so the importer computes them with `pageInk` — without that they fell through the bridge to the fill at full strength, which is 1.23:1 in one case. |
+
+The second row is the shape of the rule working, and it is the interesting one: the same name is a
+repetition in one theme and a real value in another, so what earns a declaration is measured per
+file rather than decided once for the vocabulary.
 
 <Callout type="warn" title="Why a use is bridged and never declared in :root">
   `:root { --sidebar-primary: var(--primary) }` looks equivalent to bridging it and is not. A custom
@@ -244,7 +250,8 @@ inside:
 
 That is the whole mechanism, and it is what makes a tenant-branded panel inside an otherwise neutral
 application possible without an iframe, a second stylesheet or any JavaScript. The
-[theme gallery](/docs/showcases/theme-gallery) is sixteen of them on one page.
+[theme catalogue](/docs/themes) is twenty-nine of them on one page, each drawn wearing the same
+screen.
 
 It works because of the bridge above, and it is the first thing a `:root` declaration would break: a
 custom property inherits its **computed** value, so a colour declared on `:root` resolves once on
@@ -254,7 +261,8 @@ custom property inherits its **computed** value, so a colour declared on `:root`
   `kanzo.css` opened with a bare `:root, [data-theme="kanzo"]` for a day. `:root` has the same
   specificity as `[data-theme="x"]`, so the tie broke on source order — and the imports are
   alphabetical, so every theme sorting before `kanzo.css` was silently repainted in kanzo's colours.
-  Eleven of the sixteen, dark ones included, `color-scheme` and all. The default theme now binds as
+  Eleven of the sixteen there were then, dark ones included, `color-scheme` and all. The default
+  theme now binds as
   `:root:not([data-theme])`, and two assertions in `themes.test.ts` hold it there.
 </Callout>
 

@@ -1,21 +1,26 @@
 import type { ReactNode } from "react";
 import { HomeLayout } from "fumadocs-ui/layouts/home";
+import { HomeContainer } from "@/components/home-container";
+import { baseOptions, THEMES_LINK } from "@/lib/layout.config";
 
+/**
+ * The chrome for everything outside `/docs`: the landing page and the theme generator.
+ *
+ * The container slot is overridden so this layout stops rendering a `<main>` of its own — see
+ * `HomeContainer`, which also carries why it has to be a client module.
+ */
 export default function Layout({ children }: { children: ReactNode }) {
   return (
     <HomeLayout
-      nav={{ title: "Kanzo UI" }}
+      {...baseOptions}
       links={[
         { text: "Docs", url: "/docs" },
         { text: "Components", url: "/docs/components" },
         { text: "Blocks", url: "/docs/blocks" },
+        THEMES_LINK,
         { text: "Showcases", url: "/docs/showcases" },
       ]}
-      // Same reason as `app/docs/layout.tsx`: next-themes is disabled in the root layout, so
-      // fumadocs' appearance toggle called `useTheme()` into nothing and was a control that
-      // changed no pixel. Appearance is the design system's — it lives on the Colour card in
-      // `Preferences`, which the landing page does not mount.
-      themeSwitch={{ enabled: false }}
+      slots={{ ...baseOptions.slots, container: HomeContainer }}
     >
       {children}
     </HomeLayout>

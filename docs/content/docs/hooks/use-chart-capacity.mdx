@@ -41,6 +41,13 @@ not a colour — a custom property and not a JS constant, because the cascade is
 scoped theme override travels down, and it is the same channel `--chart-*` itself arrives on. A
 stylesheet that declares nothing falls back to `CHART_SLOTS`.
 
+**Saying nothing and saying zero are different answers, and the difference is the whole reason this
+is a number rather than a flag.** A theme that authors no `--chart-*` inherits the eight
+`tokens.css` publishes — see [themes](/docs/themes) — so silence means *the default set, all eight
+of it*. Zero means **this theme declines the channel**: one ink, no category carried by colour, and
+past capacity `compile` writes `var(--muted-foreground)`. Exactly one shipped theme says zero, and
+it is `monochrome`.
+
 <Callout type="info">
 Past capacity, fold into **Other** — never cycle. A ninth series wearing slot 1 claims to be the
 first one, and identity stops meaning anything. `categoricalColor(i, other, capacity)` already

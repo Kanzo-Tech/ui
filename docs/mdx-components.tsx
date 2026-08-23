@@ -21,6 +21,7 @@ import {
 } from "@/components/guild";
 import { PreviewIframe } from "@/components/preview-iframe";
 import { GalleryList } from "@/components/gallery-list";
+import { ThemeCatalogue } from "@/components/theme-catalogue";
 
 /**
  * The single MDX component map, per fumadocs convention — pages get these without importing
@@ -47,6 +48,8 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     ComponentsList,
     PreviewIframe,
     GalleryList,
+    // The theme catalogue, live rather than in an iframe — `/docs/themes` is its only page.
+    ThemeCatalogue,
     // The example world's own tables — `/docs/the-guild` is the one page made of them.
     ArchiveFacts,
     BestiaryTable,

@@ -7,8 +7,6 @@ import { MetadataFormShowcase } from "@/showcases/metadata-form/default";
 import { PreferencesShowcase } from "@/showcases/preferences/default";
 import { FieldNotesShowcase } from "@/showcases/field-notes/default";
 import { SettingsShowcase } from "@/showcases/settings/default";
-import { ThemeGalleryShowcase } from "@/showcases/theme-gallery/default";
-import { ThemeStudioShowcase } from "@/showcases/theme-studio/default";
 import { PreferencesExtendedShowcase } from "@/showcases/preferences/extended";
 import { PreferencesFontsShowcase } from "@/showcases/preferences/fonts";
 import { WorkspaceShowcase } from "@/showcases/workspace/default";
@@ -41,14 +39,10 @@ const SHOWCASES = {
   // one scrolling pane, GitHub's Appearance shape. It exists to demonstrate that a section is
   // independent of its surface: not one component below is a settings-page variant of anything.
   settings: SettingsShowcase,
-  // The colour half, and it is not a panel: `Preferences` lets a USER choose among themes a tenant
-  // published, and nothing let anybody WRITE one. A theme is thirty-two declarations at its floor and fifty-five in the ones that ship, so
-  // authoring is a form — and the preview pane carries them as inline custom properties, which is
-  // what a `[data-theme]` block is, so the CSS it hands you cannot disagree with what you see.
-  "theme-studio": ThemeStudioShowcase,
-  // The catalogue seen rather than listed: the studio's own screen, drawn once per shipped theme.
-  // It reads what `themes/` publishes, so it cannot show a theme that does not exist.
-  "theme-gallery": ThemeGalleryShowcase,
+  // No theme-studio and no theme-gallery here any more. Both left `showcases/` entirely: the
+  // studio is the route `/theme-generator` and the gallery is the page `/docs/themes`. Neither was
+  // an arrangement the documentation exhibits — one is an instrument it offers and the other is a
+  // catalogue — and an iframe was costing them a URL, a title and their place in the nav.
   // Photos of fuel tickets in, a spreadsheet out. The only showcase whose columns are not written
   // here at all: rudof parses one SHACL document in wasm and the table, the validation and the CSV
   // are three readings of it. Also `useAiStream`'s second consumer.

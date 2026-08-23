@@ -18,14 +18,19 @@ import { describe, expect, it } from "vitest";
  * ## What this cannot prove
  *
  * - **That `readTheme` reads the right thing.** It asserts an absence. A `readTheme` that returned
- *   an empty object would pass here and the studio would open blank, which is the kind of failure
+ *   an empty object would pass here and the generator would open blank, which is the kind of failure
  *   the browser catches and a string search never will.
- * - **Anything about the other showcases.** A demo that draws a chart legend in fixed colours is a
+ * - **Anything about the showcases.** A demo that draws a chart legend in fixed colours is a
  *   different question with a different answer, and `no-literal-hues.test.ts` is where the
  *   repository-wide version of it lives.
  */
-describe("the theme studio", () => {
-  const source = readFileSync(join(__dirname, "default.tsx"), "utf8");
+describe("the theme generator", () => {
+  // Both files of the route, because the rule is about the SURFACE and not about one module. The
+  // preview moved into `theme-sampler.tsx` when it stopped being a mock screen, and a guard that
+  // kept reading only the form would have let a literal in through the pane it is aimed at.
+  const source = ["theme-generator.tsx", "theme-sampler.tsx"]
+    .map((file) => readFileSync(join(__dirname, file), "utf8"))
+    .join("\n");
 
   it("holds no colour literal", () => {
     const hex = [...source.matchAll(/#[0-9a-fA-F]{6}\b/g)].map((m) => m[0]);
@@ -36,7 +41,11 @@ describe("the theme studio", () => {
     // The absence above is only half the rule: a file with no hex and no `readTheme` is a studio
     // that seeds from nothing. Both halves, so neither can be satisfied by deleting the other.
     expect(source).toMatch(/function readTheme\(/);
-    expect(source).toMatch(/themeIndex\.map\(/);
+    // `themeIndex`, however it is walked. This asserted `themeIndex.map(` and broke the day the
+    // "Start from" control grouped its options by side — `themeIndex.filter(…).map(…)` — which is
+    // the same catalogue read the same way. What the rule is about is that the list is not typed
+    // here, and a matcher pinned to one call shape was testing the spelling instead.
+    expect(source).toMatch(/\bthemeIndex\b/);
     // And the fallback chain comes from the generated table rather than a copy of `tokens.css`.
     expect(source).toMatch(/themeData\.fallbacks/);
   });

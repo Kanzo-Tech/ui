@@ -47,8 +47,8 @@ export const KanzoProvider = ({
   children: ReactNode;
   /**
    * What this tenant publishes — a flat list, because a brand is a theme. The docs site publishes
-   * sixteen; a client usually publishes two (one per side) and sees no
-   * colour control at all.
+   * the whole catalogue, twenty-nine of them; a client usually publishes two (one per side) and
+   * sees neither the theme menu in the chrome nor a colour section in the panel.
    */
   themes: ThemeOption[];
   defaultTheme: string;
