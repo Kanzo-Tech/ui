@@ -252,13 +252,25 @@ from looking.
    moves under it, two are done and the fourth has a false premise, all written up below. **Nothing
    is owed here.** The lesson is the item, not the answer: a queue is a claim like any other, and
    this one was re-stated by three sessions without one of them opening the file it points at.
-4. **The autoplaying-previews worktree** (`agent-adcbff1e9bd7122d0`, at `494d6ea`) — integrate by
-   cherry-picking the files, not by merging the branch; it now sits a long way behind.
+4. ~~**The autoplaying-previews worktree**~~ — **landed** (`dff1cc8`, `73bfd48`). There was nothing
+   to merge: `494d6ea` is an ancestor of this branch and the work was nine uncommitted files in the
+   worktree's tree. Ported by hand, because the page it edited has moved from `hooks/` to `ai/` and
+   one of its three examples was renamed — the diff was the source of the idea, not of the lines.
+
+   `docs/lib/preview-autoplay.tsx` is the mechanism and carries its four decisions. All three
+   examples measured from a cold load with nothing touched: the stream ends `ready` with 19 pulled,
+   the ghost arrives, the strip fills with three and drops the duplicate. **One honest gap:**
+   `useSuggestions` cues `refresh` and not `ask` — right on its own terms, since `ask` is gated on
+   `status === "idle"` and a cue is not a second press — but with `ask` the strip stayed empty for
+   a clean thirty-second observation and **the reason was never isolated**. The hook's status
+   starts `idle`, and the same wiring cues correctly on the other two pages.
 
 
 ### Traps, and the new one is the expensive one
 
-- **Two builds over one `.next` corrupt the webpack cache, and the symptom points nowhere.** What
+- **Two builds over one `.next` corrupt the webpack cache, and the symptom points nowhere.**
+  Reproduced first-hand later the same day: a `next start` of mine left running while I built was
+  enough. `rm -rf .next/cache`, green first try. What
   you get is `⨯ uncaughtException: TypeError: Cannot read properties of undefined (reading
   'length')` with the frames hidden, and — under `next dev` — a process that stays alive holding the
   port and never answers again, which reads exactly like a hang. `rm -rf .next/cache` and it is
