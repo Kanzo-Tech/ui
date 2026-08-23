@@ -102,11 +102,31 @@ config — all taken off a canvas that was being torn down between the measureme
 `sameInstance: false` from two calls to `getGraph()` five seconds apart is what finally said it.
 **When a component's state makes no sense, ask whether it is the same component.**
 
+### `streamdown` landed, and a measurement reversed the recorded decision
+
+`MessageMarkdown` is on **`@kanzo-tech/ai/markdown`** with `streamdown` as an optional peer
+(`b8aea87`), not a direct dependency on the root barrel as §0a recorded. The figure is why:
+streamdown bundles to **495 kB minified, 128 kB brotli** on its own against a **20 kB** budget for
+the whole barrel, which measures 8.34. Angel chose the subpath once that was in front of him —
+`decisions/a-measurement-overrules-the-reference.md` in practice.
+
+Root barrel unchanged at 8.34 kB, subpath 347 B, and `smoke` holds the door: it installs the
+tarball without the optional peers and requires `/markdown` to fail while the barrel resolves.
+
+**It has not been looked at.** Every check is green and the docs build prerenders the page, but the
+rendered markdown was never seen — the dev server died on an unrelated `fumadocs-mdx` exception and
+the browser tab would not stay put. Open `/docs/ai/message`, find *When the answer is markdown*, and
+watch it stream. The thing to watch for is the `@source` line in `docs/app/global.css` doing its
+job: without it the markdown comes out structurally right and completely unspaced.
+
 ### Next, in the order I would take it
 
-1. **`ModelList` and `streamdown`**, which are Angel's calls (§0a) — and on `ModelList` he asked for
-   the decision record that says why it enters with one call site.
-2. **The thirteen unnamed exports, then the guard**, the day the theme pages settle.
+1. **`ModelList`** — Angel asked for the decision record that says why it enters with one call site,
+   so build it and write `decisions/…md` alongside. Design settled in §0a: over `Command`, rows are
+   `ComboboxItem`, and the root's `selectionBehavior="clear"` is overridden to `"preserve"` because
+   a model is a value.
+2. **Look at `MessageMarkdown` in a browser**, which is the one thing it is owed.
+3. **The thirteen unnamed exports, then the guard**, the day the theme pages settle.
 
 
 ### Traps, and the new one is the expensive one
