@@ -102,6 +102,17 @@ config — all taken off a canvas that was being torn down between the measureme
 `sameInstance: false` from two calls to `getGraph()` five seconds apart is what finally said it.
 **When a component's state makes no sense, ask whether it is the same component.**
 
+### `Suggestion` → `Candidate`, and the alias that was hiding it
+
+Done (`baf48c4`), with `decisions/a-type-and-a-component-may-not-share-a-name.md`. The tell was in
+the file all along: `packages/ai/src/suggest.tsx` imported **its own package's type** under an alias
+to keep it out of the way of `@kanzo-tech/ui`'s `Suggestion` component, three lines below. An import
+that renames a symbol to be usable is the collision announcing itself. Shark ships the component, so
+that half was never ours to move.
+
+Seven source files, seven documentation files, two showcases consuming it as a published type. The
+rename promotes the word the code was already using in private rather than inventing one.
+
 ### `ModelList` landed, with the record instead of the exception
 
 `ModelList` and `ModelListItem` on the root barrel (`2930cdd`), entering against the second-call-site
@@ -135,7 +146,12 @@ job: without it the markdown comes out structurally right and completely unspace
 1. **Look at `MessageMarkdown` and `ModelList` in a browser.** Neither has been clicked. Both build,
    both are documented, every check is green, and that is not the same thing — the last four
    sessions' worth of findings all came from looking.
-2. **The thirteen unnamed exports, then the guard**, the day the theme pages settle.
+2. **The thirteen unnamed exports, then the guard.** The theme refoundation landed, so the premise
+   changed — but the same session is now moving `theme-studio` to `theme-generator` with files
+   renamed and untracked. Re-measure when it stops, not before.
+3. **`Diagnostic`: `severity` or `variant`?** Still Angel's, still blocking the rest of that rework.
+4. **The autoplaying-previews worktree** (`agent-adcbff1e9bd7122d0`, at `494d6ea`) — integrate by
+   cherry-picking the files, not by merging the branch; it now sits a long way behind.
 
 
 ### Traps, and the new one is the expensive one
