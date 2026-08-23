@@ -65,6 +65,14 @@ function utilityFor(knob: string): string | null {
 
 describe("every shape knob is read by something", () => {
   const all = knobs();
+  /**
+   * A knob may be read from a recipe as well as from the stylesheet, and `--size-field` is why this
+   * exists: control heights used to be CSS rules keyed on `[data-slot="button"]`, which is the one
+   * attribute a caller may rename, so a renamed part lost its height. The heights moved onto each
+   * recipe's `base` as `h-(--size)` with the variants spelling `[--size:calc(var(--size-field)*7)]`
+   * — the knob is read exactly as much as before, from a file this guard was not looking at.
+   */
+  const sources = sourceFiles().map((file) => readFileSync(file, "utf8"));
 
   it("finds the knobs at all", () => {
     // A parse that silently returned nothing would make the assertion below vacuous, and this is
@@ -75,15 +83,16 @@ describe("every shape knob is read by something", () => {
   });
 
   it.each(knobs())("%s reaches a component", (knob) => {
-    const readDirectly = sheet.includes(`var(${knob}`);
+    const readDirectly =
+      sheet.includes(`var(${knob}`) || sources.some((source) => source.includes(`var(${knob}`));
     const utility = utilityFor(knob);
-    const used =
-      utility !== null && sourceFiles().some((file) => readFileSync(file, "utf8").includes(utility));
+    const used = utility !== null && sources.some((source) => source.includes(utility));
     expect(
       readDirectly || used,
-      `${knob} is declared in the vocabulary and read by nothing: no var(${knob}) in styles.css, and ${
-        utility === null ? "no binding in tokens.css" : `nothing uses \`${utility}\``
-      }`,
+      `${knob} is declared in the vocabulary and read by nothing: no var(${knob}) in styles.css or in\n` +
+        `any recipe, and ${
+          utility === null ? "no binding in tokens.css" : `nothing uses \`${utility}\``
+        }`,
     ).toBe(true);
   });
 });

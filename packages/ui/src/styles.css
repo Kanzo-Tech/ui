@@ -225,22 +225,16 @@
     background-color: color-mix(in oklab, var(--btn-bg), var(--foreground) 16%);
   }
 
-  /* Control height is `--size-field`; padding and gaps stay on Tailwind's `--spacing`. That split
-     is daisyUI's and it is the point of having the knob at all: a tenant asking for compact
-     controls is not asking for tighter text. `data-size` is already on the element — the recipe
-     writes it — so this needs no new attribute.
+  /* Control height was here, keyed `[data-slot="button"][data-size="sm"]`, and that is exactly one
+     attribute too many. `data-slot` is the seam a call site is invited to RENAME — `slot?: string`
+     exists for it — so every renamed part quietly lost its height and collapsed to its content.
+     `ConversationScrollButton` measured 16×16 against the 24×24 floor of WCAG 2.5.8, with no type
+     error, no failing test and nothing to grep for.
 
-     At the default `--size-field: 0.25rem` every row below is byte-identical to the `h-*` utility
-     it replaces (`* 8` = 2rem = `h-8`), so this changes what is adjustable, not what is drawn. */
-  [data-slot="button"][data-size="sm"] { height: calc(var(--size-field) * 7); }
-  [data-slot="button"][data-size="md"] { height: calc(var(--size-field) * 8); }
-  [data-slot="button"][data-size="lg"] { height: calc(var(--size-field) * 9); }
-  [data-slot="button"][data-size="xl"] { height: calc(var(--size-field) * 10); }
-  [data-slot="button"][data-size^="icon-"] { aspect-ratio: 1; padding-inline: 0; }
-  [data-slot="button"][data-size="icon-sm"] { height: calc(var(--size-field) * 7); }
-  [data-slot="button"][data-size="icon-md"] { height: calc(var(--size-field) * 8); }
-  [data-slot="button"][data-size="icon-lg"] { height: calc(var(--size-field) * 9); }
-  [data-slot="button"][data-size="icon-xl"] { height: calc(var(--size-field) * 10); }
+     It now lives on each recipe's `base`, where the size variants only move `--size` — which is
+     what daisyUI's `.btn { height: var(--size) }` does, and we had already taken the `--size-field`
+     knob from them without taking the placement that makes it safe. What identifies a part cannot
+     be what a consumer is allowed to change. `no-measurement-on-a-renameable-slot.test.ts`. */
 }
 
 @layer components {
@@ -263,10 +257,4 @@
     background-size: calc(var(--noise, 0) * 33%);
   }
 
-  [data-slot="input"][data-size="sm"],
-  [data-slot="native-select"][data-size="sm"] { height: calc(var(--size-field) * 7); }
-  [data-slot="input"][data-size="md"],
-  [data-slot="native-select"][data-size="md"] { height: calc(var(--size-field) * 8); }
-  [data-slot="input"][data-size="lg"],
-  [data-slot="native-select"][data-size="lg"] { height: calc(var(--size-field) * 9); }
 }

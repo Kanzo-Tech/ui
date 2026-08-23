@@ -203,6 +203,7 @@ be skipped.
 `the-categorical-default-is-one-set-for-every-theme`,
 `accent-is-a-surface-not-a-third-brand`,
 `a-tool-panel-composes-its-snippet`, `a-model-is-a-value-so-the-picker-is-a-select`,
+`what-identifies-a-part-is-not-what-a-caller-may-change`,
 `a-type-and-a-component-may-not-share-a-name`.
 
 Also live — `a-compound-keeps-its-root-even-when-the-root-is-an-alias`,

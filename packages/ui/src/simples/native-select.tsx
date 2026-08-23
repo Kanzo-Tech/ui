@@ -8,6 +8,9 @@ import { cn } from "../lib/cn";
 export const nativeSelectVariants = tv({
   base: [
     "appearance-none",
+    // On the base, not on the size — see `button.tsx`. The `h-7/8/9` these variants carried was a
+    // second answer to the same question, and the one that ignored the density knob.
+    "h-(--size)",
     "w-full min-w-0",
     "ps-2.5 pe-8",
     "select-none text-sm",
@@ -24,9 +27,9 @@ export const nativeSelectVariants = tv({
   ],
   variants: {
     size: {
-      sm: ["h-7"],
-      md: ["h-8"],
-      lg: ["h-9"],
+      sm: ["[--size:calc(var(--size-field)*7)]"],
+      md: ["[--size:calc(var(--size-field)*8)]"],
+      lg: ["[--size:calc(var(--size-field)*9)]"],
     },
   },
   defaultVariants: {

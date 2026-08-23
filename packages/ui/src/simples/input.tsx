@@ -6,6 +6,8 @@ import { cn } from "../lib/cn";
 export const inputVariants = tv({
   base: [
     "peer",
+    // On the base, not on the size — see `button.tsx`.
+    "h-(--size)",
     "w-full min-w-0",
     "px-3",
     "bg-field",
@@ -31,9 +33,9 @@ export const inputVariants = tv({
   ],
   variants: {
     size: {
-      sm: [],
-      md: [],
-      lg: [],
+      sm: ["[--size:calc(var(--size-field)*7)]"],
+      md: ["[--size:calc(var(--size-field)*8)]"],
+      lg: ["[--size:calc(var(--size-field)*9)]"],
     },
   },
   defaultVariants: {

@@ -164,7 +164,11 @@ export const ConversationScrollButton = (props: React.ComponentProps<typeof Butt
     <Button
       aria-label={children === undefined ? "Scroll to the latest message" : undefined}
       className={cn(
-        "absolute inset-x-0 bottom-4 z-10 mx-auto w-fit",
+        "absolute inset-x-0 bottom-4 z-10 mx-auto",
+        // `inset-x-0` is what centres it, and it also stretches it, so the width has to be stated.
+        // The icon size states its own — `w-(--size)`, square — and a `w-fit` here would win the
+        // merge and hand it the icon's width against the control's height.
+        children === undefined ? undefined : "w-fit",
         "bg-background shadow-lg/5",
         "fade-in-0 zoom-in-95 slide-in-from-bottom-2 animate-in",
         "motion-reduce:animate-none!",
