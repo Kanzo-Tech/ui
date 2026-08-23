@@ -342,6 +342,35 @@ These are cosmos.gl behaviours that typecheck perfectly while being wrong.
   rendered frames. A backgrounded graph is stopped, not slow — and `graph.ready` has no failure
   path, so a device that cannot be created leaves the promise unsettled rather than rejecting.
 
+## The types it exports
+
+Every shape below is exported, because a host writing its own source or its own panels implements
+them rather than passes them.
+
+**The source contracts.** `BoundedSource` is the whole of what the canvas asks of your data — answer
+"what is in this rectangle, at this zoom, in at most this many marks". `SliceRequest` is that
+question; `ExploringSource` is a source that can also answer a topological one, and `ExploreRequest`
+is that second question: where to start and how far out. `MemoryGraph` is the shape the in-memory
+source takes — `vertices`, `positions` as `[x0, y0, …]` and `links` as indices into them.
+
+**The hook.** `UseGraphProps` is what `useGraph` takes, `GraphApi` what a graph publishes to its own
+chrome and to its host, `GraphEvents` the gestures in this package's terms, and `GraphCommands` what
+the canvas can be told to do — registered by the canvas, called by the panels. `GraphOverlays` and
+`GraphOverlayOptions` are the label and card layer over the canvas, which is DOM rather than WebGL.
+
+**The vocabulary.** `Motion` is `"running" | "settled" | "paused"`, and the difference that matters
+is that `settled` converged on its own while `paused` is waiting for you. `SelectionSource` says
+where a selection came from — `"marquee" | "lasso" | "node" | "order" | "ask"` — and is open-ended
+so a host with its own panels can add its own. `ShapeId` is a slot in the four-shape scale, the
+sibling of the colour scale. `Channels` is what each channel is bound to, in Plot's names and under
+Plot's rule about what a value means. `Buffers` is the four `Float32Array`s the renderer fills.
+`Sim` is the force coefficients, handed straight to the GPU simulation.
+
+**On `@kanzo-tech/graph/duckdb`.** `DuckSource` is a `BoundedSource` that also publishes the
+reader's selection as a clause the rest of the page filters by, and `DuckSourceOptions` is what it
+takes. `openCorpus` takes `OpenCorpusOptions` and returns an `OpenedCorpus` — the source for the
+canvas, and the handle for everything else the corpus holds.
+
 ## API Reference
 
 Thirty-six names, grouped the way the barrel groups them. Most of a graph is composed from the
@@ -432,3 +461,5 @@ Both stay out of the canvas for the same reason: each needs a policy only a prod
 | `resolveToken` | A token resolved against a host element's live cascade — not a frozen copy of it. |
 | `toHex` | The `Rgba` it returns, as the string a GPU config wants. |
 
+Every part's props are exported as an interface — `GraphCanvasProps` and `GraphRootProviderProps` —
+so a wrapper can take the same props without restating them.

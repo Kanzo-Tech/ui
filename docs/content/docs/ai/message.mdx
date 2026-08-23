@@ -238,3 +238,6 @@ part inherits it.
 
 `MessageList` renders a `ul`; `MessageContent` and `MessageActions` render a `div` and take that
 element's props. All of them carry a `data-slot`, and every one accepts `asChild`.
+
+Every part's props are exported as an interface — `MessageAvatarProps`, `MessageMarkdownProps`,
+`MessageProps` and `MessageTextProps` — so a wrapper can take the same props without restating them.

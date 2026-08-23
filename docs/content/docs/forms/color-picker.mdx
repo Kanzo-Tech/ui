@@ -125,3 +125,9 @@ to a colour.
 | `size` | `ButtonProps["size"]` | `"icon-md"` |
 
 `useColorPicker` re-exports Ark's `useColorPickerContext`.
+
+`ColorPickerProps` is exported, so a wrapper can take the same props without restating them.
+
+`ColorPickerChangeDetails` is Ark's change details plus the one format most consumers actually
+store: the machine's `format` is `"rgba" | "hsla" | "hsba"` and has no `"hex"` member, so
+`valueAsString` is never hex and this adds it.

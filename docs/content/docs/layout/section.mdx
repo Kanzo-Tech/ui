@@ -133,3 +133,7 @@ Renders `<section>`, never `<main>`. Extends `ComponentProps<typeof ark.section>
 own and extend `ComponentProps<typeof ark.div>`; `SectionDescription` is `ark.p` and
 `SectionFooter` is `ark.footer`. All of them take `asChild`, `ref` and their element's native
 props.
+
+Every part's props are exported as an interface — `SectionBodyProps`, `SectionHeaderProps`,
+`SectionRootProps` and `SectionTitleProps` — so a wrapper can take the same props without restating
+them.

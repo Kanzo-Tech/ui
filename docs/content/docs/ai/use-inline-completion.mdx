@@ -180,3 +180,7 @@ apart.
 
 Options are read from a ref on every run, so an inline arrow `complete` does not restart
 anything.
+
+`InlineCompletionTrigger` is exported and is `"invoked" | "automatic"` — LSP 3.18's trigger kinds
+with the word *kind* dropped, so a source that already speaks the protocol needs no adapter to tell
+a keystroke from a request somebody made.

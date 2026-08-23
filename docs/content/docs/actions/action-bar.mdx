@@ -73,3 +73,7 @@ clipped by the scroll container the selection lives in. Escape closes it.
 | `label` | `string` | — |
 
 Extends `Badge`; renders `children ?? label ?? count`.
+
+Every part's props are exported as an interface — `ActionBarCloseProps`, `ActionBarContentProps`,
+`ActionBarProps`, `ActionBarSeparatorProps`, `ActionBarTriggerProps` and `ActionBarValueProps` — so
+a wrapper can take the same props without restating them.

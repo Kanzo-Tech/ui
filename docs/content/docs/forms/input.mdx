@@ -80,3 +80,5 @@ No props of its own — and deliberately no `size`, unlike `Input` above: the he
 Extends `React.ComponentProps<typeof ArkField.Textarea>`, so `ref`, `value` / `defaultValue`,
 `onChange`, `rows`, `placeholder`, `disabled` and `aria-invalid` pass through. Inside a `Field`
 it also picks up `data-invalid` from the machine, which paints the same way `aria-invalid` does.
+
+`TextareaProps` is exported, so a wrapper can take the same props without restating them.

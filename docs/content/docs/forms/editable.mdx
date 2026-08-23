@@ -97,3 +97,6 @@ the control it is about to become.
 triggers render bare — pass a styled `Input` / `Textarea` or `Button` with `asChild`;
 `EditableInput` omits the native `size` attribute, the way [`Input`](/docs/forms/input) does.
 `useEditable` re-exports Ark's `useEditableContext`.
+
+Every part's props are exported as an interface — `EditableInputProps` and `EditableProps` — so a
+wrapper can take the same props without restating them.

@@ -313,3 +313,15 @@ ever read, because every one of them already had `ghost` in hand.
   text you have typed; ours inserts at the caret and nothing else. Sources here continue prose,
   which is the degenerate case — a source that wants to correct the word under the caret has no way
   to say so.
+
+Every part's props are exported as an interface — `AiMarkProps`, `CompleteRootProps`,
+`SuggestListProps` and `SuggestRootProps` — so a wrapper can take the same props without restating
+them.
+
+`SuggestTrigger` is exported and is `"press" | "focus"`: on the ✨, or as soon as the field
+takes focus. The second prefetches and bills a model for a tab-through, which is why it is not the
+default.
+
+One row of the list is a `Suggestion` and its props are `SuggestionProps`. It is a `Button` under
+the pills' treatment, so it takes `value` and reports `onSelect` beside the click — a caller that
+only wants the text can ignore both.

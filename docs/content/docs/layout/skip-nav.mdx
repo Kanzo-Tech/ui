@@ -82,3 +82,6 @@ and the browser resolves it to whichever comes first.
 
 **Name your own id when a page needs more than the default.** Pass the same `id` to both parts —
 on `SkipNavLink` it is the target's id and becomes the `href` fragment, not an id on the anchor.
+
+Every part's props are exported as an interface — `SkipNavContentProps` and `SkipNavLinkProps` — so
+a wrapper can take the same props without restating them.

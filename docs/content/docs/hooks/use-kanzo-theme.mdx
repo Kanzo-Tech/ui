@@ -96,3 +96,16 @@ The preference fields are exactly `ThemePrefs`, so `set` accepts any subset of t
   `sections` only to say what the user themselves chose. See
   [Contributing a section](/docs/sections).
 </Callout>
+
+`KanzoThemeProviderProps` is exported, so a wrapper can take the same props without restating them.
+
+**The rest of the theme surface, for a host that builds its own controls.** `KanzoTheme` and its
+`KanzoThemeProps` set the axes on a subtree without a provider of their own; `ThemeNotice` and
+`ThemeNoticeProps` are the notice a reader gets when the theme they had chosen is gone, and
+`ThemeRetiredCopy` translates it — pass both `title` and the body composer or it ends up half
+translated. `ThemeStorage` is the two-method adapter the provider reads and writes through: `get`
+returns a **sparse** document, because a key is absent when nobody has chosen it, not when it is at
+its default. `ThemeScriptOptions` is what the blocking script takes, and its `storageKey` must match
+the provider's. `AppearanceController` is where a foreign appearance model enters — next-themes
+spells its third value `"system"` and this package spells it `""`, and that translation happens in
+exactly one place.

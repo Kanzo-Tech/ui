@@ -480,6 +480,33 @@ re-skins CodeMirror. Axis text inherits `--foreground` through `currentColor`, s
 in light and dark. Tokens are resolved against the chart's own host element, so a scoped theme
 override wins.
 
+
+## The compile surface, for a mark this layer does not ship
+
+Every chart child is **inert**: it renders `null` and carries its compilation on a static. That
+shape is `ChartDescriptor<P>` and the function on it is `ChartCompile<P>` — `(props, ctx)` in,
+directives out — so a host that needs a mark this layer does not wrap writes one child rather than
+a fork.
+
+What comes out is a `ChartDirective`, and it is plain data in all four of its cases: a
+`ChartMarkDirective`, a `ChartInteractorDirective`, a `ChartAttributeDirective`, or a
+`ChartRawDirective`, which is the escape hatch — a `vg.*` value the layer does not wrap, passed
+through untouched. What goes in is `ChartSpecContext`, which carries the relation every table-backed
+mark reads from; `ChartSpecOptions` extends `ChartFacetOptions` with the rest of what a spec needs,
+and `ChartMargin` is the four numbers around it.
+
+The mark's own shapes are `ChartMarkProps` and `ChartMarkSource` — data comes from the table, from a
+literal array, or from a query — and `ChartInteractorProps` is the interactor equivalent. A series
+is configured with `ChartSeriesConfig` and read back as a `ChartSeriesEntry`, a facet with
+`ChartFacetOptions`, and a filter offers `ChartFilterOption`s.
+
+Two of these are not about charts at all and are exported because the inputs are. `MosaicInputOptions<T>`
+and `MosaicInputState<T>` are what a control needs to be a Mosaic client — the shape behind every
+filter input on this page — and `IdSetClientOptions` is the same for a client that publishes a set
+of ids rather than a range. `ExprValue` is anything Mosaic will accept where an expression is
+expected, and `NumericArray` is the union of typed arrays a column may arrive in:
+`Float32Array | Float64Array | Uint32Array | Uint16Array | Int32Array`.
+
 ## API Reference
 
 ### MosaicProvider
@@ -610,3 +637,9 @@ an escape hatch *is*.
 
 For a descriptor of your own, `chartDescriptor(displayName, compile)` mints one; `compile` returns
 plain data (`{ kind: "mark", mark: "barY", source, options }`), never a `vg.*` call.
+
+Every part's props are exported as an interface — `ChartAxisXProps`, `ChartAxisYProps`,
+`ChartColorLegendProps`, `ChartFacetXProps`, `ChartFacetYProps`, `ChartFilterProps`,
+`ChartHighlightProps`, `ChartLegendProps`, `ChartPanZoomProps`, `ChartRawProps`, `ChartRootProps`,
+`ChartSearchProps`, `ChartSliderProps`, `ChartStatProps` and `MosaicProviderProps` — so a wrapper
+can take the same props without restating them.

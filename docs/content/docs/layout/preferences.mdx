@@ -358,3 +358,7 @@ For sections of your own, so a product's controls are indistinguishable from the
 | --- | --- | --- |
 | `PreferencesField` | `label`, `children` | one control (`Field` + `FieldLabel`) |
 | `PreferencesFieldSet` | `label`, `children` | a group of controls (`FieldSet` + `FieldLegend`) |
+
+Every part's props are exported as an interface — `PreferencesColorProps`, `PreferencesProps`,
+`PreferencesRootProps` and `PreferencesSectionsProps` — so a wrapper can take the same props without
+restating them.

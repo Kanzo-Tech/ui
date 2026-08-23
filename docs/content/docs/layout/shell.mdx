@@ -112,3 +112,5 @@ fills its container.
 `ComponentProps<typeof ark.div>`; `ShellMain` extends `ComponentProps<typeof ark.main>`.
 `asChild`, `ref`, `role` and `aria-label` pass through — no region declares a landmark role
 itself, so the call site names them.
+
+`ShellAsideProps` is exported, so a wrapper can take the same props without restating them.

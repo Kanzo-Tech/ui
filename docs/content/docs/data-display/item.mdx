@@ -105,6 +105,9 @@ That trades the row for the clamp, which is the right trade for a title that is 
 [Separator](/docs/layout/separator); `ItemDescription` renders a `<p>` and clamps at two lines
 (`line-clamp-none` to undo it). The remaining parts render a `div` and take that element's props.
 
+Every part's props are exported as an interface — `ItemMediaProps` and `ItemProps` — so a wrapper
+can take the same props without restating them.
+
 ## An empty state
 
 A zero-state placeholder is a vertical `Item` — the same media · content · actions vocabulary,

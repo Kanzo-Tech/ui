@@ -86,3 +86,6 @@ built in so consumers stop hand-rolling the track. Shown here driven by `options
 Extends `SegmentGroup.Root` from Ark, so `value`, `defaultValue`, `onValueChange`,
 `disabled`, `readOnly`, `invalid`, `name` and `form` pass through. `SegmentGroupItem` takes
 `value` and `disabled`, and renders its own control and hidden input.
+
+`SegmentGroupOption` is one segment as data — `value`, a `label` node and an optional `disabled` —
+for a caller that would rather map over a list than write the children out.

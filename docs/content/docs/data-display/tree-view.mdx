@@ -111,3 +111,7 @@ Passing `null` for an icon removes it entirely rather than falling back to the d
 `collection`, `selectionMode`, `expandedValue` and the rest come from Ark's `TreeView.Root`;
 `TreeViewCheckbox` is available for `selectionMode="multiple"`, and `useTreeView` re-exports
 Ark's context hook.
+
+`TreeNodeType` is one node — `id`, `name`, optional `children` and its two icons — and
+`TreeCollection` is Ark's collection over them, re-exported so a host builds one without importing
+Ark directly. `NodeProviderProps` is the provider a custom node renderer sits inside.
