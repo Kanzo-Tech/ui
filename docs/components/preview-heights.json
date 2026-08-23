@@ -199,7 +199,7 @@
   "radio-group/example-invalid": 220,
   "radio-group/example-with-label": 220,
   "rating/example-default": 220,
-  "reasoning/example-default": 220,
+  "reasoning/example-default": 280,
   "resizable/example-default": 336,
   "resizable/example-vertical": 336,
   "rtl/example-default": 289,
@@ -303,5 +303,6 @@
   "use-theme-tick/example-default": 244,
   "use-tour-context/example-default": 220,
   "use-tour-context/example-resume": 220,
-  "workspace-columns/example-default": 312
+  "workspace-columns/example-default": 312,
+  "tool/example-default": 780
 }

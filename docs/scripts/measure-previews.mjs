@@ -50,6 +50,18 @@ const CEILING = 900;
 const FLOORS = {
   // Four title candidates open, plus the tag strip, which wraps further at `w-72`.
   "ai/example-suggestions": 380,
+  // The thinking, open. This one is not waiting for a press — it streams on load and folds itself a
+  // second after it stops — so the probe catches it mid-thought and derives a frame that clips the
+  // block the reader then opens. Measured on `/docs/ai/reasoning` with the stream finished and the
+  // trigger pressed: 231px, of which 163 is `ReasoningContent`. The floor is set above it because
+  // the thought is generated from the example world and its length is not fixed.
+  "reasoning/example-default": 280,
+  // Not an interaction at all: this one measures 724 against a 720px frame and overflows by **four
+  // pixels**. Nothing visible is lost, which is why it survived — but four pixels are enough to make
+  // the preview a scroll container, and it then eats the wheel: a reader scrolling the page with the
+  // cursor over the example scrolls the example instead. A frame that clips by a hair is worse than
+  // one that is plainly too small, because only the second one looks wrong.
+  "tool/example-default": 780,
 };
 
 /** Every page that holds a `<ComponentPreview>`, as a route. */
