@@ -56,6 +56,15 @@ const codePane = (height: number | undefined, title: string) =>
   }) satisfies CodeBlockProps;
 
 export interface ComponentPreviewProps {
+  /**
+   * Cue the example to demonstrate itself when it scrolls into view.
+   *
+   * Opt-in per example and inert unless the example calls `useAutoplay` — an example that is
+   * about motion shows nothing at rest, and a page of those reads as a wall of screenshots.
+   * `docs/lib/preview-autoplay.tsx` holds the mechanism and the four decisions behind it.
+   * Never set it on an example whose source is a live model call.
+   */
+  autoplay?: boolean;
   /** Directory under `docs/examples` — usually the component slug. */
   componentName: string;
   /** File basename, no extension. */
@@ -141,6 +150,7 @@ export const ComponentPreview = async (props: ComponentPreviewProps) => {
 
   return (
     <ComponentPreviewTabs
+      autoplay={props.autoplay ?? false}
       component={<Example.default />}
       fullBleed={fullBleed}
       height={height}

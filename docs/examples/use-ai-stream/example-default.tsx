@@ -10,6 +10,7 @@ import {
   useAiStream,
 } from "@kanzo-tech/ai";
 import { useState } from "react";
+import { useAutoplay } from "@/lib/preview-autoplay";
 
 // A stub source. A product would open a `fetch` here; the engine only ever sees an async
 // iterable and an `AbortSignal`, so a hard-coded array is a legitimate implementation.
@@ -18,13 +19,18 @@ const WORDS =
     /(?<=\s)/,
   );
 
-async function* source(signal: AbortSignal) {
-  for (const word of WORDS) {
-    await new Promise((r) => setTimeout(r, 90));
-    if (signal.aborted) return;
-    yield word;
-  }
-}
+const PACE = 90;
+
+// The per-chunk delay is a parameter so `settle` can run the SAME source at 0 ms: under reduced
+// motion the reader gets the finished text, not a stream and not a placeholder.
+const source = (pace: number) =>
+  async function* (signal: AbortSignal) {
+    for (const word of WORDS) {
+      await new Promise((r) => setTimeout(r, pace));
+      if (signal.aborted) return;
+      yield word;
+    }
+  };
 
 export default function Example() {
   const engine = useAiStream<string>("Couldn’t reach the stub");
@@ -33,17 +39,25 @@ export default function Example() {
 
   // The whole read side. There is no loop to write: `run` owns the iterator and hands each value
   // over, and returning `false` is how a consumer says it has enough.
-  const stream = (budget: number) => {
+  const stream = (budget: number, pace = PACE) => {
     setText("");
     setWords(0);
     let taken = 0;
-    void engine.run(source, (word) => {
+    void engine.run(source(pace), (word) => {
       taken += 1;
       setText((t) => t + word);
       setWords(taken);
       return taken < budget;
     });
   };
+
+  // A second run would abort the live controller and leave the old pump to report a status the
+  // new one has already moved past, so a reader scrolling back into a stream in flight is left to
+  // watch it — which is what they wanted anyway.
+  useAutoplay((mode) => {
+    if (engine.status === "loading") return;
+    stream(Number.POSITIVE_INFINITY, mode === "settle" ? 0 : PACE);
+  });
 
   return (
     <div className="flex w-full max-w-md flex-col gap-4">

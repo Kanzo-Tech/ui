@@ -2,10 +2,13 @@
 
 import type { ReactNode } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger, cn } from "@kanzo-tech/ui";
+import { PreviewAutoplayProvider, usePreviewAutoplay } from "@/lib/preview-autoplay";
 
 interface ComponentPreviewTabsProps {
   component: ReactNode;
   source: ReactNode;
+  /** Cue an example that has opted in, once, when the pane is half in view. */
+  autoplay?: boolean;
   fullBleed?: boolean;
   /** Both panes, in px. Absent, each takes what its content needs. */
   height?: number;
@@ -43,11 +46,15 @@ interface ComponentPreviewTabsProps {
 export const ComponentPreviewTabs = ({
   component,
   source,
+  autoplay = false,
   fullBleed = false,
   height,
   measureKey,
   showBorders = true,
-}: ComponentPreviewTabsProps) => (
+}: ComponentPreviewTabsProps) => {
+  const { paneRef, cue, halt } = usePreviewAutoplay(autoplay);
+
+  return (
   <Tabs defaultValue="preview" className="group relative mt-4 mb-12 flex flex-col gap-2">
     <TabsList>
       <TabsTrigger value="preview">Preview</TabsTrigger>
@@ -71,6 +78,12 @@ export const ComponentPreviewTabs = ({
           data-slot="preview"
           data-example={measureKey}
           data-full-bleed={fullBleed || undefined}
+          // Capture, so a handler inside the example cannot swallow it first. Pointer and key
+          // together are the whole surface: clicking a control and typing in a field are the two
+          // ways a reader takes over, and autoplay dispatches neither, so it never halts itself.
+          onKeyDownCapture={autoplay ? halt : undefined}
+          onPointerDownCapture={autoplay ? halt : undefined}
+          ref={autoplay ? paneRef : undefined}
           style={height ? { height } : undefined}
         >
           {showBorders && (
@@ -81,7 +94,7 @@ export const ComponentPreviewTabs = ({
               <div className="absolute inset-e-4 inset-y-0 border border-border/64 border-dashed max-sm:hidden sm:inset-e-10" />
             </>
           )}
-          {component}
+          <PreviewAutoplayProvider cue={cue}>{component}</PreviewAutoplayProvider>
         </div>
       </TabsContent>
 
@@ -95,4 +108,5 @@ export const ComponentPreviewTabs = ({
       </TabsContent>
     </div>
   </Tabs>
-);
+  );
+};
