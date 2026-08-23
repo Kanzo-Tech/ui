@@ -55,6 +55,14 @@ import { ToggleGroup, ToggleGroupItem } from "./simples/toggle-group";
  *   and they cover three components, not ninety-nine.
  * - **It does not know which slots are selected on.** A slot no recipe uses and a slot three
  *   recipes depend on read identically here.
+ * - **A third-party tag is excused, and one of them ate the attribute.** `foreignTag` treats a
+ *   lowercase tag and an import from outside `@kanzo-tech/` alike, on the assumption that both
+ *   forward what they do not consume the way an intrinsic element does. `streamdown` does not:
+ *   `<Streamdown data-slot="message-markdown" data-streaming>` reached no attribute at all, and
+ *   the `data-streaming` written beside it had been dead since the day it was written. Nothing
+ *   static can see that — it is a fact about a dependency's render — so the check lives where the
+ *   dependency does, in `packages/ai/src/markdown.test.tsx`. A wrapper this package owns is the
+ *   fix, and any part built on a foreign renderer owes the same test.
  * - **The parse reads two packages; the render tests read one.** `guard-corpus.ts` widened the scan
  *   to `ui` and `ai` on 2026-08-20, and the three rules above are enforced over both — they read
  *   `.tsx` off disk and need no import. The `describe("the slot prop")` block at the bottom cannot

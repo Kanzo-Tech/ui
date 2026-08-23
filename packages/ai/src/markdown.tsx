@@ -46,29 +46,44 @@ export interface MessageMarkdownProps
   children: string;
   /** More is coming: closes the incomplete markdown, animates the arrival, draws the caret. */
   streaming?: boolean;
+  /**
+   * Renames the part. Declared here and nowhere else in the package: every other component takes
+   * `slot` for free from `React.HTMLAttributes`, and `StreamdownProps` is react-markdown's
+   * `Options` rather than the attributes of an element, so it carries no `slot` to inherit.
+   */
+  slot?: string;
 }
 
 /** `MessageText`'s cascade, so the two components keep the same rhythm. See its docblock. */
 const STAGGER = 18;
 
 export const MessageMarkdown = (props: MessageMarkdownProps) => {
-  const { children, streaming = false, className, ...rest } = props;
+  const { children, streaming = false, className, slot, ...rest } = props;
 
   return (
-    <Streamdown
-      animated={streaming ? { sep: "word", stagger: STAGGER } : false}
+    // The element exists so the part has one. `Streamdown` renders a `div` of its own but drops
+    // every prop it does not consume — measured, not assumed, and `markdown.test.tsx` is what keeps
+    // it measured: `data-slot` and `data-streaming` handed to it reach no attribute at all. So the
+    // two things a consumer selects on are written here, on an element we own, and only
+    // Streamdown's own options are passed down.
+    <div
       className={cn("min-w-0 break-words", className)}
-      // Streamdown's own caret, rather than the `<span>` `MessageText` draws: it belongs at the end
-      // of the last *rendered* block, which only the renderer knows — a caret appended by us would
-      // sit after a table rather than inside the paragraph the model is still writing.
-      caret={streaming ? "block" : undefined}
       data-streaming={streaming || undefined}
-      mode={streaming ? "streaming" : "static"}
-      // The whole point. `false` renders `**bo` as two asterisks and a `bo`.
-      parseIncompleteMarkdown={streaming}
-      {...rest}
+      data-slot={slot ?? "message-markdown"}
     >
-      {children}
-    </Streamdown>
+      <Streamdown
+        animated={streaming ? { sep: "word", stagger: STAGGER } : false}
+        // Streamdown's own caret, rather than the `<span>` `MessageText` draws: it belongs at the
+        // end of the last *rendered* block, which only the renderer knows — a caret appended by us
+        // would sit after a table rather than inside the paragraph the model is still writing.
+        caret={streaming ? "block" : undefined}
+        mode={streaming ? "streaming" : "static"}
+        // The whole point. `false` renders `**bo` as two asterisks and a `bo`.
+        parseIncompleteMarkdown={streaming}
+        {...rest}
+      >
+        {children}
+      </Streamdown>
+    </div>
   );
 };

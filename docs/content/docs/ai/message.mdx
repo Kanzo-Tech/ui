@@ -177,6 +177,7 @@ MessageList                 (ul, the turns)
     ├── MessageAvatar
     ├── MessageContent
     │   └── MessageText     (optional — an answer still arriving)
+    │       MessageMarkdown (or this one, when the answer is markdown)
     └── MessageActions      (basis-full — its own line)
 ```
 
@@ -226,6 +227,12 @@ On `@kanzo-tech/ai/markdown`, not the root barrel. Same two props as `MessageTex
 | --- | --- | --- |
 | `children` | `string` | — |
 | `streaming` | `boolean` | `false` |
+| `slot` | `string` | `"message-markdown"` |
+
+It renders a `div` of its own, and that element is not decoration: `Streamdown` drops every prop it
+does not consume, so `data-slot` and `data-streaming` handed to it reach no attribute at all. They
+are written on the element above it instead, which is why `slot` is declared here when every other
+part inherits it.
 
 ### Other parts
 
