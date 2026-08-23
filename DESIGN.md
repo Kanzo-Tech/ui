@@ -200,7 +200,9 @@ be skipped.
 `a-hook-takes-the-name-of-the-request-it-makes`,
 `a-line-takes-candidates-a-paragraph-takes-a-continuation`, `a-theme-is-one-flat-block`,
 `the-obvious-ink-is-computed-in-the-form`,
-`a-tool-panel-composes-its-snippet`, `a-picker-that-forgets-its-value-is-a-defect`,
+`the-categorical-default-is-one-set-for-every-theme`,
+`accent-is-a-surface-not-a-third-brand`,
+`a-tool-panel-composes-its-snippet`, `a-model-is-a-value-so-the-picker-is-a-select`,
 `a-type-and-a-component-may-not-share-a-name`.
 
 Also live — `a-compound-keeps-its-root-even-when-the-root-is-an-alias`,
@@ -217,3 +219,4 @@ the two-mode document they were written about are deleted, and the record that r
 the measurement.
 `field-has-no-consumer`, by `adoption-before-design`.
 `one-theme-provider`, by `two-themers-and-one-root`.
+`a-picker-that-forgets-its-value-is-a-defect`, by `a-model-is-a-value-so-the-picker-is-a-select`.

@@ -106,7 +106,10 @@
   --color-sidebar-accent-foreground: var(--accent-foreground);
   --color-sidebar-ring: var(--ring);
 
-  /* ── The categorical set. A theme that declines the channel omits them. ───── */
+  /* ── The categorical set ──────────────────────────────────────────────────────
+     A theme authors these or it does not; the eight it gets by saying nothing are DECLARED in the
+     `:root` block at the foot of this file rather than written as a fallback here, and the note
+     there says why this one default is a value where every other is an alias. */
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
@@ -226,6 +229,50 @@
 }
 
 :root {
+  /* ── The categorical set a theme gets by saying nothing ───────────────────────
+     Sixteen themes author their own; thirteen do not, because daisyUI has no such channel to
+     import, and their slots resolved to nothing.
+
+     **Declared here, not bridged, and it is the one fallback in this file that is a literal.**
+     Every other name above defers to another token, so it must resolve on the element that uses
+     it — hence `@theme inline`. These defer to nothing: they are values. That makes a plain `:root`
+     declaration correct where it would be a bug anywhere else, and it is the only shape that
+     works, because a chart does not read a utility. `categoricalColor` returns `var(--chart-N)`
+     and the chart pipeline resolves it against the live element, so a fallback written into the
+     bridge would reach `bg-chart-1` and never reach a mark. Declared here it inherits, a
+     `[data-theme]` block overrides it slot by slot on the element that carries it, and both paths
+     get the same answer.
+
+     Chosen by search under the bars a chart is actually read against, all of them re-run by
+     `categorical.test.ts` over the shipped files rather than trusted here:
+
+       · every slot inside OKLCH L 0.48–0.67, the INTERSECTION of the light band (0.43–0.77) and
+         the dark one — the only way one set is in band on `#ffffff` and on `#09002f`;
+       · ≥ 3:1 against **all twenty-nine** backgrounds, not against the two ends. The ends are not
+         the hard case: `dim` (#2a303c) and `cyberpunk` (#fff248) between them leave a window of
+         relative luminance 0.188–0.251, and a set validated only at the extremes failed on six
+         themes in the middle;
+       · worst adjacent pair 17.6 ΔE under protan/deutan simulation, 14.4 under tritan and 21.4 to
+         normal vision. The old per-document bar was 15;
+       · ≥ 8 ΔE from all fifty-two distinct status fills the twenty-nine publish, so a series does
+         not read as a state.
+
+     There is no deriving these from `--primary`: `--chart-6` takes twelve distinct values across
+     the sixteen authored sets. A set answers to *separation*, which is a property of the eight
+     together. `decisions/the-categorical-default-is-one-set-for-every-theme.md`.
+
+     A theme that declines the channel outright still says so with `--chart-capacity: 0`, and these
+     colours simply go unread — `monochrome` is the one, and `monochrome-is-a-palette-not-a-look`
+     is the record. */
+  --chart-1: #aa5aee;
+  --chart-2: #dc356d;
+  --chart-3: #737fee;
+  --chart-4: #b36d2a;
+  --chart-5: #2d84bf;
+  --chart-6: #96822c;
+  --chart-7: #d036b6;
+  --chart-8: #6a8a2a;
+
   /* The shape knobs with no theme applied. Plain values, never `var()` of one another — see the
      inheritance note on the radius scale. `themes.css` re-points them per `data-radius`, which is
      the user's preference layered over the theme's own declaration.

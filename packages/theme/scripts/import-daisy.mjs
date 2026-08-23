@@ -27,13 +27,32 @@
  *   palest mix of `base-content` toward `base-100` that still clears AA on **both** surfaces that
  *   carry it — `--muted` and, through the fallback chain, `--card`. A fixed ratio would have been a
  *   guess that fails on the dark themes.
+ * · **`--accent` does NOT take their `accent`, and this is the decision that cost the most.** The
+ *   word means two different things in the two systems. Here it is Shark's: the quiet surface a row
+ *   wears when it is hovered or selected, and `bg-accent` is written at twenty-four call sites
+ *   across `ui` and `ai` for exactly that. Over there it is the *third brand colour*, saturated on
+ *   purpose. Mapping one onto the other put a brand fill under every hover in eleven themes —
+ *   `dim`'s was `#c792e9`, and `--muted-foreground` on it measures **1.2:1**.
+ *
+ *   So it is derived from their base scale instead, where the surface actually lives: `base-300`
+ *   mixed 60% toward `base-200` — `--border` toward `--muted` in our names. The ratio is measured,
+ *   not chosen: across the sixteen themes written in this house `--accent` sits at 0.56–0.62 of the
+ *   way from `--muted` to `--border`, and 0.6 reproduces all sixteen at **ΔE ≤ 0.60, median 0.40**.
+ *   0.55 and 0.65 are both worse. What those eleven lose is a colour this library has nowhere to
+ *   put: nothing renders a third brand fill.
+ *
+ *   `--accent-foreground` goes with it. It was `accent-content` — the ink daisyUI chose to sit on a
+ *   brand fill — and half a pair whose other half is gone is worse than no half at all. Absent, it
+ *   falls through the bridge to `--foreground`, which is what all sixteen do and what a neutral
+ *   surface wants.
  *
  * ## The one place a value is dropped rather than carried
  *
- * `--secondary-foreground` and `--accent-foreground` are the two inks a theme may leave to
- * `--foreground`, and none of the sixteen written in this house authors either. So when daisyUI's
- * own value does not read on its fill, the import declines to write it — that is not correcting
- * their colour, it is refusing to publish an ink that fails, and the default is right there.
+ * `--secondary-foreground` is an ink a theme may leave to `--foreground`, and none of the sixteen
+ * written in this house authors one. So when daisyUI's own value does not read on its fill, the
+ * import declines to write it — that is not correcting their colour, it is refusing to publish an
+ * ink that fails, and the default is right there. (`--accent-foreground` used to be in this loop
+ * and is not any more: it is dropped unconditionally now, for the reason on `--accent` above.)
  *
  * It only helps where the fill is close to the page: measured, it rescues `light` and makes `aqua`,
  * `emerald` and `valentine` *worse* (3.86 → 2.87 on emerald), because a mid-tone fill reads with
@@ -93,6 +112,9 @@ const PAIRS = [
   ["--primary", "--primary-foreground"],
   ["--secondary", "--secondary-foreground"],
   ["--accent", "--accent-foreground"],
+  // A surface carries both weights — see the same pair in `themes.test.ts`, which is the guard this
+  // list exists to agree with.
+  ["--accent", "--muted-foreground"],
   ["--destructive", "--destructive-content"],
   ["--info", "--info-content"],
   ["--success", "--success-content"],
@@ -116,15 +138,30 @@ function translate(file) {
   ];
   if (!page || !ink || !raised || !line) return { skipped: "no base scale" };
 
+  // `--accent` before `--muted-foreground`, because the ink is searched against it. It depends on
+  // the base scale alone, so there is no circle here.
+  const accent = blend(line, raised, 0.6);
+
+  // THREE surfaces, not two. `--muted` and — through the fallback chain — `--card` were the two
+  // this searched against, and that was the whole set while `--accent` was a brand fill nobody read
+  // muted text on. It is a surface now, and it is the one furthest from the page, so it is the
+  // hardest of the three: with two constraints the search stopped early and left `lemonade` at
+  // 4.03, `cmyk` at 4.19, `synthwave` at 4.22, `wireframe` at 4.31 and `luxury` at 4.37 — five
+  // themes under AA on a surface that had just become readable. It always terminates: at `p = 1`
+  // the candidate is `--foreground` itself, which clears 7.66 on the worst of the thirteen.
   let muted = null;
   for (let p = 0.55; p <= 1.001; p += 0.01) {
     const candidate = blend(ink, page, p);
-    if (contrast(candidate, raised) >= AA && contrast(candidate, page) >= AA) {
+    if (
+      contrast(candidate, raised) >= AA &&
+      contrast(candidate, page) >= AA &&
+      contrast(candidate, accent) >= AA
+    ) {
       muted = candidate;
       break;
     }
   }
-  if (!muted) return { skipped: "no muted ink reads on both surfaces" };
+  if (!muted) return { skipped: "no muted ink reads on all three surfaces" };
 
   const tokens = {
     "--background": page,
@@ -136,8 +173,8 @@ function translate(file) {
     "--primary-foreground": colour("primary-content"),
     "--secondary": colour("secondary"),
     "--secondary-foreground": colour("secondary-content"),
-    "--accent": colour("accent"),
-    "--accent-foreground": colour("accent-content"),
+    // Their base scale, not their brand — see the note on `--accent` in the header.
+    "--accent": accent,
     "--destructive": colour("error"),
     "--destructive-content": colour("error-content"),
     "--info": colour("info"),
@@ -161,7 +198,7 @@ function translate(file) {
   }
 
   const deferred = [];
-  for (const optional of ["--secondary-foreground", "--accent-foreground"]) {
+  for (const optional of ["--secondary-foreground"]) {
     const fill = optional.replace("-foreground", "");
     if (!tokens[optional] || !tokens[fill]) continue;
     if (contrast(tokens[fill], tokens[optional]) >= AA) continue;

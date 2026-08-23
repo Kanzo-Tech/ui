@@ -93,6 +93,17 @@ const PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["--primary", "--primary-foreground"],
   ["--secondary", "--secondary-foreground"],
   ["--accent", "--accent-foreground"],
+  // **The pair that says `--accent` is a SURFACE and not a fill**, and it is here because the
+  // distinction was lost in an import and nothing noticed. `--accent` is the ground a row wears
+  // when it is hovered or selected — `bg-accent` at twenty-four call sites — so it carries both
+  // weights of ink, exactly as `--card` and `--muted` do. daisyUI's `accent` is the third brand
+  // colour, which carries only its own; mapped straight across, eleven themes put a brand fill
+  // under every hover in the library and `--muted-foreground` on `dim`'s measured **1.2:1**.
+  //
+  // A fill needs one ink and a surface needs two, so asking for the second is the whole test. It
+  // also constrains the import upstream: the searched `--muted-foreground` answers to three
+  // surfaces now rather than two, because this is the furthest of them from the page.
+  ["--accent", "--muted-foreground"],
   ["--destructive", "--destructive-content"],
   ["--info", "--info-content"],
   ["--success", "--success-content"],

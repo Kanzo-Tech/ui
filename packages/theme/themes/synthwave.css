@@ -14,13 +14,12 @@
   --foreground: #a1b1ff;
   --card: #09002f;
   --muted: #120b3d;
-  --muted-foreground: #6e79be;
+  --muted-foreground: #737ec4;
   --primary: #f861b4;
   --primary-foreground: #500323;
   --secondary: #71d1fe;
   --secondary-foreground: #042e49;
-  --accent: #ff8904;
-  --accent-foreground: #421104;
+  --accent: #181345;
   --destructive: #ec8c78;
   --destructive-content: #201047;
   --info: #00bafe;
@@ -47,10 +46,9 @@
   --stroke: 1px;
   --depth: 0;
 
-  /* daisyUI has no categorical channel, so this theme declines one rather than inheriting eight
-     slots it never chose. An ABSENT capacity reads as the full count — see `categoricalCapacity`,
-     which is explicit that a declared zero is an answer and an absence is not — so saying nothing
-     here would have a chart claim eight colours and paint them with a `var()` that resolves to
-     nothing. Give it a set by hand and raise this number. */
-  --chart-capacity: 0;
+  /* daisyUI has no categorical channel, so this theme authors no `--chart-*` and takes the eight
+     `tokens.css` publishes as its fallback. It does NOT declare `--chart-capacity: 0`: zero means
+     *this theme declines the channel*, which is `monochrome`'s answer and not this one — an absent
+     capacity reads as the full count, which is now true because there is a full set behind it.
+     Author eight of your own here and they win, slot by slot. */
 }

@@ -74,10 +74,13 @@ takes the same policy — a policy only React knows about is a flash of one valu
 
 ### The colour layer, and what it stopped being
 
-**A theme is one flat block of CSS.** `packages/theme/themes/<name>.css` — about fifty-five
+**A theme is one flat block of CSS.** `packages/theme/themes/<name>.css` — about fifty
 declarations somebody writes, pastes, reviews and diffs. Twenty-one of them are colours a theme
 authors; every other name in the vocabulary is a *use* of one of those, bridged once through
-`@theme inline` and never re-declared. Applying one is writing `data-theme` on `<html>`.
+`@theme inline` and never re-declared. Applying one is writing `data-theme` on `<html>`. Twenty-nine
+ship, thirteen of them imported from daisyUI, and the [theme
+generator](https://kanzo-tech.github.io/kanzo-ui/theme-generator) is a form that writes the block
+for you.
 
 **A theme carries one mode.** Light and dark are two themes, not two blocks of one document. That is
 what lets a tint be written as a percentage without landing on a different step in each mode, what
@@ -94,6 +97,13 @@ no alias and no migration path.
 What you give up with it is a contrast guarantee made at authoring time: **the author answers for
 AA.** What still checks the artefact is a guard over the shipped themes, measuring each status fill
 against the ink meant to sit on it. `decisions/a-theme-is-one-flat-block.md` carries the numbers.
+
+**Charts work on a theme that authors no chart colours.** `tokens.css` declares eight categorical
+slots on `:root`; a theme's own `--chart-*` override them slot by slot. The eight are one set for
+every theme, which is a harder thing than a set for one: they sit inside the lightness band both
+sides share, clear 3:1 against every background in the catalogue, keep adjacent pairs apart under
+all three dichromacies, and stay clear of every status fill so a series cannot read as a state. A
+theme that means to publish no categorical channel at all still says so with `--chart-capacity: 0`.
 
 **The shape half is new.** `--radius-box` / `--radius-field` / `--radius-selector`, `--size-field` /
 `--size-selector`, `--stroke` and `--depth`. `--depth` is a plain number multiplied into a `calc()`
@@ -371,11 +381,11 @@ value. The `Complete` compound keeps its name; it collides with nothing.
 boolean; it re-derives the words and settles each one in as it appears — a word and not a chunk,
 because a model emits tokens and tokens cut words in half.
 
-**`ModelList` is choosing which model answers**, and it is a `Command` that keeps what you picked.
-`Command` pins `selectionBehavior="clear"` and `CommandItem` pins `showIndicator: false`, both right
-for a palette — a command is an act, and a verb has nothing to tick. A model is a *value*, so this
-overrides both, and the failure when you do not is silent: the control forgets what it is set to on
-the frame after being told. No trigger and no popover — the arrangement is yours.
+**There is no model picker**, and that is deliberate. Choosing which model answers is a `Select`
+in `PromptInputToolbar` with the trigger's border, fill and shadow taken off — a model is a value,
+and a value control keeps its value without being told to. Reach for a palette and you inherit its
+rule that a selection is discarded on click, which is a defect you then override your way out of.
+`docs/ai/prompt-input` has the composition in full.
 
 **`MessageMarkdown` is the same thing for a model that answers in markdown**, and it is on
 `@kanzo-tech/ai/markdown` with `streamdown` as an optional peer. The hard part is the *incomplete*
