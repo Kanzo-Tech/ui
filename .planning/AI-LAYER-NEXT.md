@@ -244,7 +244,14 @@ from looking.
    pinned to 220 px in `docs/components/preview-heights.json` and measures 231 open, so the box
    clips at rest. They are fixing it. `tool/example-default` overflows by **4 px**, which clips
    nothing but is enough to make the preview a scroll container that swallows the page's wheel.
-3. **`Diagnostic`: `severity` or `variant`?** Still Angel's, still blocking the rest of that rework.
+3. ~~**`Diagnostic`: `severity` or `variant`?**~~ — **stale, and it had been for two days.** This
+   line survived three sessions and was quoted as "Angel's, blocking" as recently as today. It is
+   not: §0's own item 4 records the question CLOSED on 2026-08-21, Shark's `alert.tsx` answered it
+   (`variant`, families `default | destructive | info | warning | success`), and
+   `simples/diagnostic.tsx` has shipped `variant` with `destructive` since. Of the four structural
+   moves under it, two are done and the fourth has a false premise, all written up below. **Nothing
+   is owed here.** The lesson is the item, not the answer: a queue is a claim like any other, and
+   this one was re-stated by three sessions without one of them opening the file it points at.
 4. **The autoplaying-previews worktree** (`agent-adcbff1e9bd7122d0`, at `494d6ea`) — integrate by
    cherry-picking the files, not by merging the branch; it now sits a long way behind.
 
