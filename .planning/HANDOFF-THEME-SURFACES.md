@@ -21,11 +21,26 @@ docs build; there is no need for a separate `--filter docs` run), `typecheck`, `
 | `089aa55` | The six browser findings: four tokens the studio never set, `--faint` never painted, menu rows become tiles, the catalogue's truncation, `Customize` out of the chrome. |
 | `fba2d10` | (parallel session) A document that says it is dark stops painting the light theme. See §3. |
 | `15fb850` | `--check` for preview frames, and the six tags that pinned a height are unpinned. |
+| `c19b8a0` | The catalogue's grid track becomes `rem`, which is what actually answers Cozy density. |
+| `3b6c75a` | The sweep stops guessing at the three `useAutoplay` demos, stops overwriting the corpus, and refuses to run against a dead server. |
 
 ## 2. Nothing of this work is uncommitted
 
-The tree at the end of this session holds only the parallel session's in-flight
-`packages/ui/src/documented-exports.test.ts` and its 48 pages. Do not stage those.
+Every commit above was verified with the full chain from the repo root before it landed — the last
+of them at `test` 890 (theme 71, ui 583, graph 86, ai 100, docs 50), `size` unmoved against every
+limit, `smoke`, and `check:previews` reading `325 previews measured, every one inside its own
+frame`.
+
+Whatever is in `git status` when you arrive belongs to the parallel session — it was working on
+`ask`, on the test flake, and on `PreferencesReset` when this was written. **Commit by explicit
+path and check `git status` before and after.** `15fb850` swept up that session's prose in five
+pages because the working tree already held it; nothing was lost, but the commit message describes
+none of it, and that is the failure mode to avoid.
+
+**The branch is 57 commits ahead of `main` and none behind, and whether it merges now is Ángel's
+call — he has been asked and has not answered.** The phase itself is closed: the theme surfaces are
+routes, the colour layer is decided and held by a test, the catalogue is verified at all three
+densities, and preview frames have a guard that bites.
 
 ## 3. The two things that were owed a browser, both measured
 
