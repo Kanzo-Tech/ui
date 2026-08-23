@@ -87,6 +87,7 @@ const FLOORS = {
   // trigger pressed: 231px, of which 163 is `ReasoningContent`. The floor is set above it because
   // the thought is generated from the example world and its length is not fixed.
   "reasoning/example-default": 280,
+
   // Not an interaction at all: this one overflows its 720px frame by a hair — four pixels when it
   // was found, eight measured on 2026-08-23. Nothing visible is lost, which is why it survived —
   // but a few pixels are enough to make the preview a scroll container, and it then eats the wheel:
@@ -200,8 +201,26 @@ const PROBE = `(key) => {
   return { px: Math.ceil((a - 400 * slope) / (1 - slope)), stretchy: true };
 }`;
 
+// Fail before opening a browser rather than reporting 321 routes that "did not settle". A dead
+// server produces a run that looks like a measurement and is not one — the reason the write above
+// merges, and the reason this check is cheaper than relying on it.
+const reachable = await fetch(url).then((r) => r.ok).catch(() => false);
+if (!reachable) {
+  console.error(`Nothing answering at ${url}. Start the docs server first (\`next start\`).`);
+  process.exit(2);
+}
+
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+// **`reducedMotion: "reduce"`, and it is a correctness knob here rather than a courtesy.** Three
+// examples drive themselves with `useAutoplay` — `use-inline-completion`, `use-suggestions` and
+// `use-ai-stream` — and each types its content out over a second or more. The probe solves a line
+// through TWO measurements, at 400 and at 800, so on an example mid-animation the two samples come
+// from different frames and the solve describes a shape that never existed. It showed as flapping:
+// three runs against one artefact clipped a *different* one of the three each time, by 23, 32 and
+// nothing. `useAutoplay` reads this media query and switches to its `settle` mode, which puts the
+// finished content on screen at once — the state the frame actually has to hold. Deterministic, and
+// it is the taller state too, so nothing is measured smaller than it renders.
+const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, reducedMotion: "reduce" });
 const heights = {};
 const resting = {};
 const notes = [];
@@ -235,9 +254,21 @@ const sorted = Object.fromEntries(Object.keys(heights).sort().map((k) => [k, hei
 const published = JSON.parse(await readFile(OUT, "utf-8").catch(() => "{}"));
 
 if (!check) {
-  await writeFile(OUT, `${JSON.stringify(sorted, null, 2)}\n`);
+  // **Merged onto what is published, never substituted for it — a run that measures less than the
+  // corpus must not be able to delete the rest.** Proven the hard way on 2026-08-23: a sweep where
+  // most routes failed `networkidle` wrote its handful of survivors over the file and took 325 keys
+  // down to a few, and every preview in the documentation would have fallen back to a line count.
+  // A route that did not settle simply keeps the number it already had, which is the only honest
+  // thing to do with a measurement that was not taken.
+  const merged = { ...published, ...sorted };
+  const out = Object.fromEntries(Object.keys(merged).sort().map((k) => [k, merged[k]]));
+  await writeFile(OUT, `${JSON.stringify(out, null, 2)}\n`);
   const moved = Object.keys(sorted).filter((k) => published[k] !== sorted[k]).length;
-  console.log(`${Object.keys(sorted).length} measured, ${moved} changed`);
+  const stale = Object.keys(published).filter((k) => !(k in sorted)).length;
+  console.log(`${Object.keys(sorted).length} measured, ${moved} changed, ${Object.keys(out).length} published`);
+  // Loud, because a run this partial is not a measurement of the corpus and its output should not
+  // be committed as if it were.
+  if (stale) console.log(`  ! ${stale} key(s) not reached this run — previous values kept, not deleted`);
   for (const n of notes) console.log(`  · ${n}`);
 } else {
   // A frame is wrong when the number that SHIPS is under the content at rest, so the published
