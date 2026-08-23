@@ -251,6 +251,16 @@ from looking.
 
 ### Traps, and the new one is the expensive one
 
+- **Two builds over one `.next` corrupt the webpack cache, and the symptom points nowhere.** What
+  you get is `⨯ uncaughtException: TypeError: Cannot read properties of undefined (reading
+  'length')` with the frames hidden, and — under `next dev` — a process that stays alive holding the
+  port and never answers again, which reads exactly like a hang. `rm -rf .next/cache` and it is
+  green first try. Measured by the theme session on 2026-08-23 after our two builds overlapped;
+  it is also the best candidate for the "died on an unrelated `fumadocs-mdx` exception" written a
+  few paragraphs above, which was never actually traced. In a checkout several sessions share,
+  **say so before you build**: it is one message, and the alternative is an hour spent in your own
+  code looking for a bug that is not there.
+
 - **A `<canvas>` needs a foreground window, and half a diagnosis is worse than none.** cosmos.gl
   paints nothing while the tab is hidden, and *the failure does not look like a hidden tab*: it
   looks like a specific, plausible bug in whatever you just wrote. Four measured iterations went
