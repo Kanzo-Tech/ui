@@ -141,14 +141,62 @@ the browser tab would not stay put. Open `/docs/ai/message`, find *When the answ
 watch it stream. The thing to watch for is the `@source` line in `docs/app/global.css` doing its
 job: without it the markdown comes out structurally right and completely unspaced.
 
+### 2026-08-23, fifth session — the looking finally happened
+
+Three commits, all by explicit path, on a tree two other sessions were writing to:
+
+```
+d37fbfe fix(ai): the attribute streamdown was eating, and the element that stops it
+73d7421 fix(docs): a demo that never rests, and a title dropped into a sentence
+4b8aec7 refactor(ai)!: no model picker, because the source never needed one
+```
+
+**Queue item 1 is closed, and it paid for itself four times.** Every finding below came from opening
+the page, which every check had already called green.
+
+1. **`Streamdown` drops every prop it does not consume.** `MessageMarkdown` handed it `data-slot`
+   and `data-streaming`; the only thing of ours that reaches the DOM is `className`. The
+   `data-streaming` had been dead since the day it was written — the `Switch`-with-children shape
+   again. Fixed with an element we own, and `markdown.test.tsx` is new, because the component had
+   **no test at all**. `data-slot.test.tsx` now says the hole out loud: `foreignTag` excuses a
+   third-party tag on the assumption that it forwards, and one of them does not.
+2. **The markdown demo never rested.** `upto` reset to zero on the tick it reached the end, so the
+   finished answer stood for one 60 ms frame; the docblock promised a list nobody had ever seen.
+3. **`ModelList` is deleted.** Angel: "es feo de narices", and base it on AI Elements. The source
+   has **no** model list — its picker is a `Select` in the tool row, wrappers thin enough to be
+   `(props) => <Select {...props} />`. The defect the compound existed to prevent only exists if you
+   build on `Command` in the first place. `decisions/a-model-is-a-value-so-the-picker-is-a-select.md`
+   supersedes the three-day-old record, and the composition is a section of `docs/ai/prompt-input`.
+   Root barrel 8.43 kB → 8.34, exactly what it had added.
+4. **`--accent` meant two different things**, found by measuring why the picker looked wrong.
+   daisyUI's `accent` is a third *brand* colour; Shark's is the neutral hover surface, and
+   `bg-accent` is written at 24 sites in 17 files. Eleven of twenty-nine themes carried the brand
+   reading, and `--muted-foreground` over it measured **1.7:1**. Handed to the theme session with the
+   numbers; they rewrote all thirteen imported themes and added the pair to `themes.test.ts`. Not
+   ours, and it would not have surfaced without a picker that looked ugly.
+
+**Green on the tree as it stands:** build, typecheck (five projects), lint, `check:generated`,
+`test` — theme 70, ui 580, graph 86, ai 97, docs 50 — `size`, `smoke` (45 `ai` exports, was 47), and
+the docs build at 434 pages. `DESIGN.md` and `.changeset/the-first-release.md` carry my edits **and
+the theme session's**, so neither is committed here.
+
+**The trap of the day, and it nearly bought a false finding twice.** A background tab throttles
+timers to ~1 Hz: a 100 ms `setInterval` fired **7 times in 20 seconds**, which turned a 5-second demo
+into a 90-second one and looked exactly like "the list never renders". And `getComputedStyle` read
+straight after `setAttribute("data-theme")` returned the **stale** value for an element in the page
+while the portaled menu had already recalculated — three contrast ratios of 1.0–1.3 that measured
+nothing. Read again in a second call, the same element was correct. Both are the blank-canvas lesson
+wearing new clothes: a number is only as good as the frame under it.
+
 ### Next, in the order I would take it
 
-1. **Look at `MessageMarkdown` and `ModelList` in a browser.** Neither has been clicked. Both build,
-   both are documented, every check is green, and that is not the same thing — the last four
-   sessions' worth of findings all came from looking.
-2. **The thirteen unnamed exports, then the guard.** The theme refoundation landed, so the premise
-   changed — but the same session is now moving `theme-studio` to `theme-generator` with files
-   renamed and untracked. Re-measure when it stops, not before.
+1. **The thirteen unnamed exports, then the guard.** Still blocked on the theme session, which is
+   still moving pages — `theme-studio` became `/theme-generator`, `theme-gallery` became
+   `/docs/themes`, and `--accent` was rewritten across thirteen themes today. Re-measure when it
+   stops. The count itself needs redoing before the guard is written.
+2. **Look at the rest of the AI pages the way `message` was looked at.** `MessageMarkdown` and the
+   model picker are done. `Reasoning`, `Task` and `Tool` have never been clicked either, and the two
+   findings today that mattered most were invisible to every check we run.
 3. **`Diagnostic`: `severity` or `variant`?** Still Angel's, still blocking the rest of that rework.
 4. **The autoplaying-previews worktree** (`agent-adcbff1e9bd7122d0`, at `494d6ea`) — integrate by
    cherry-picking the files, not by merging the branch; it now sits a long way behind.
