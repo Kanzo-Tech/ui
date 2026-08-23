@@ -64,13 +64,33 @@ fail on them; a floor is the answer if one ever needs it.
 
 ## 5. Open
 
-- **The mobile drawer and Cozy density.** Nothing in `089aa55` was looked at in either. The
-  catalogue's truncation fix has **~0px of slack** at default density — at Cozy it has none, and
-  that is the first thing to check.
-- **`PreferencesReset` in the ten showcases**, per §3.
+- **`PreferencesReset` in the ten showcases**, per §3. The parallel session has it.
+- **`ask` and the candidate strip.** The example uses `refresh` today (`73bfd48`); what is still
+  unexplained is a thirty-second *visual* observation, under `ask`, where the strip stayed empty.
+  The parallel session ruled out the obvious cause with a literal jsdom repro — the
+  `status !== "idle"` gate and the effect order fire the strip in all four combinations — so
+  whatever it is, jsdom does not have it. **Do not confuse this with the measurement defect closed
+  in `3b6c75a`**: that one explains why the published heights flapped, and the probe was never in
+  this loop.
 - **keasy.** Recon done and parked: 44 shadcn primitives in `web/src/components/ui`, nine component
-  areas, thirty routes, at `/Users/angel.ip/dev/kanzo/keasy/keasy/web`. Ángel's call whether this is
-  next.
+  areas, thirty routes, at `/Users/angel.ip/dev/kanzo/keasy/keasy/web`. Ángel has set it aside.
+
+### Closed since this file was written
+
+- **Cozy density.** The catalogue truncated there — `catppuccin-latte-dark` wanted 171px in 142 —
+  and the cause was not the gap `089aa55` tightened: the grid counted *columns* against viewport
+  widths while its contents are sized in `rem`, so at 18px root the content grows 12.5% and the tile
+  *shrinks* to 350px. `c19b8a0` makes the track `rem` too. Verified at all three densities on the
+  built artefact: compact 3 × 333, default 3 × 354.7, Cozy 2 × 536.8, none truncated. Default and
+  compact are unchanged to the tenth of a pixel.
+- **The mobile drawer.** Structurally: there is exactly **one** theme control in the document, and
+  the `max-md:hidden` that looks like it hides it is on the grid *placeholder*
+  (`data-sidebar-placeholder`), not on the `aside`. The aside is absolutely positioned and the
+  mobile subnav's "Open Sidebar" reveals it, so the menu does reach a phone. **What is not verified
+  is how it looks there** — this environment's window will not actually narrow: `resize_window`
+  reports success and `innerWidth` stays 1920.
+
+## 6. Traps this branch paid for, that are not obvious from the code
 
 ## 6. Traps this branch paid for, that are not obvious from the code
 
@@ -85,6 +105,17 @@ fail on them; a floor is the answer if one ever needs it.
   `next build` is a corrupted webpack cache**, left by two sessions building the same `.next` at
   once. `rm -rf .next/cache` and it is green first try. It reads exactly like a `fumadocs-mdx`
   exception and was wrongly recorded as one for hours.
+- **Three build failures in one afternoon, and not one first diagnosis was right.** Twice the
+  symptom said "corrupted webpack cache" and the cause was a process: a `next build` of mine still
+  running in the background (`Another next build process is already running`), and a dead server
+  that made the sweep report 321 routes as "did not settle". Check for a live build and a live
+  server before touching `.next/cache`.
+- **`pkill -f "next start …"` kills the shell that runs it**, because the pattern matches its own
+  command line. Exit 144, and the build it interrupts leaves a lock behind. Kill by PID from
+  `lsof -t`.
+- **`setTimeout` is throttled to ~1/s in a tab that is not in the foreground**, so a sampling loop
+  of 120 × 60ms takes two minutes and blows the 45s CDP budget. Same family as the rAF trap: keep
+  driven-browser loops to a dozen iterations.
 - **A red test under two sessions' concurrent load is not a red test.**
   `data-table-toolbar.test.tsx > DataTableFacetFilter` failed once in a root run while the other
   session was running its own suite; it passes alone, and the package passes 583 twice in a row.
