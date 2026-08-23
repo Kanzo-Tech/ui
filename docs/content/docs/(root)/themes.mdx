@@ -129,12 +129,22 @@ style attribute reformatted.
 class of bug the arrangement is built to make impossible, and the reason the block sits in the same
 pane it describes rather than in a tab beside it.
 
+What the arrangement does *not* make impossible is a name being left off the list, and it happened:
+`--popover`, `--field`, `--input` and `--faint` are authored by the shipped themes and had no knob,
+so the pane never set them and the block never carried them. A name the pane does not set is not
+painted from the theme you are editing — it falls through to whatever this documentation site is
+wearing — and a block missing them is a theme whose field borders come out at the weight of
+`--border` and whose placeholders come out at `--muted-foreground`. They are seeded and emitted now,
+knob or no knob. The property to rely on is narrower than it first reads: **the preview cannot
+disagree with the output about a token either of them carries.**
+
 <Callout title="It works because of a bridge, and the bridge is not obvious">
   Every name in the vocabulary that is a *use* of one of the twenty-one — the card's ink, the sidebar
-  tokens, the popover surface — is inlined into its **utility** by `@theme inline`, never declared as
+  tokens, the tooltip surface — is inlined into its **utility** by `@theme inline`, never declared as
   a custom property of its own, which is why most of them do not appear in the block the generator
-  emits. The exception is the four status `-foreground`s: those are real values rather than
-  repetitions, so it proposes them and the block carries them. A custom property inherits its
+  emits. The exceptions are the ones that are real values rather than repetitions: the four status
+  `-foreground`s, which it proposes, and `--popover`, `--field`, `--input` and `--faint`, which it
+  carries without a knob because their formulas disperse too far to propose one. A custom property inherits its
   computed value, so a `:root` declaration would resolve once on `<html>` and the preview pane would
   keep the page's colours no matter what the knobs said. Nothing about that is a compile error; see
   [a theme is one flat

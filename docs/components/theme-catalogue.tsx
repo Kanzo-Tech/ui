@@ -115,7 +115,12 @@ export function ThemeCatalogue() {
 function Tile({ name, onWear, worn }: { name: string; onWear: () => void; worn: boolean }) {
   return (
     <figure className="flex min-w-0 flex-col gap-2">
-      <figcaption className="flex items-center gap-2">
+      {/* `gap-1.5` and not `gap-2`, measured at the tile width this grid actually produces. Three
+          across is 355px, and the row is name · dots · rule · Wear it · Edit with four gaps between
+          them: at 8px each, `catppuccin-latte-dark` wanted 152px and had 149, so the two longest
+          names in the catalogue lost their `-dark` to an ellipsis — the one word on the tile that
+          says which side you are looking at. Six gives the name 157. */}
+      <figcaption className="flex items-center gap-1.5">
         <span className="truncate font-mono text-muted-foreground text-xs">{name}</span>
         {/* The three brand fills, so a name can be scanned as a colour without reading the tile
             below it — the reference puts four glyphs on its card for exactly this. Outside the

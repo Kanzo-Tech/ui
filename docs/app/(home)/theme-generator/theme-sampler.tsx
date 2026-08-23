@@ -154,7 +154,9 @@ export function ThemeSampler() {
 
         <Group title="Fields" doc="--field, --input, the selector radius and the two size units">
           <div className="flex flex-col gap-2">
-            <Input defaultValue="Ashgrove Hall" placeholder="Workspace name" />
+            {/* Empty, because a placeholder is the only reader of `--faint`: eight field recipes
+                draw it through `placeholder:text-faint` and a field with a value never shows it. */}
+            <Input placeholder="Workspace name" />
             <Input aria-invalid defaultValue="not a hall" />
             <NativeSelect className="w-full" defaultValue="amber">
               <NativeSelectOption value="amber">Amber Hall</NativeSelectOption>

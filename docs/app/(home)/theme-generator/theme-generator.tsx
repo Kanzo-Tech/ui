@@ -60,7 +60,13 @@ import { decode, encode } from "./link";
  * an element is exactly what a `[data-theme]` block is — same properties, same cascade, resolved on
  * the same elements. So the specimens below are not approximations painted from a state object:
  * they are real components reading real tokens, and the CSS this page hands you is the style
- * attribute reformatted. **There is no serialiser to disagree with the preview.**
+ * attribute reformatted. **There is no serialiser to disagree with the preview** — and that is a
+ * property of the list, not of the mechanism, which is the thing to hold on to. It held for the
+ * twenty-five names the form has knobs for and was false for four it did not: `--popover`,
+ * `--field`, `--input` and `--faint` were neither seeded nor emitted, so the pane resolved them
+ * against the docs site's own theme and the block came out incomplete. `UNPICKERED` carries them
+ * now. **Anything a theme authors has to be in one of those lists, knob or no knob**, because a
+ * name the pane does not set is a name it paints from somewhere else.
  *
  * That only works because of the bridge in `tokens.css`: every name in the vocabulary that is a
  * *use* of one of the twenty-one is inlined into its utility, so `bg-sidebar-primary` resolves on
@@ -280,6 +286,29 @@ const AUTHORED = [
   ),
 ] as const;
 
+/**
+ * Authored by every shipped theme, offered by no picker here — and **carried anyway**.
+ *
+ * `GROUPS` is the form, and `AUTHORED` is derived from it, so for a while "has a control" and "is
+ * in the theme" were the same list. They are not the same thing. These four are authored by all
+ * sixteen files in `packages/theme/themes/` and the form has no mando for them, for a reason that
+ * is recorded: their formulas disperse too far across the catalogue to propose a value from a fill.
+ *
+ * Leaving them out of the list cost two things, both of them real:
+ *
+ * · The block the page hands you was not a complete theme. A theme written here shipped with its
+ *   field borders at the weight of `--border` and its placeholders at `--muted-foreground`,
+ *   because that is what `tokens.css` defers to when a theme is silent about them.
+ * · The preview pane sets the theme as inline custom properties and carries no `data-theme`, so a
+ *   name it does not set resolves against the *docs site's* ambient theme instead of the one being
+ *   edited. Four tokens in the pane were painting somebody else's colours.
+ *
+ * That second one is why the file docblock's "there is no serialiser to disagree with the preview"
+ * needed the qualifier it now carries: the claim held for the twenty-five with knobs and failed
+ * for exactly these.
+ */
+const UNPICKERED = ["--popover", "--field", "--input", "--faint"] as const;
+
 const SHAPE = [
   ...RADII.map((r) => r.name),
   ...SIZES.map((r) => r.name),
@@ -316,7 +345,8 @@ function readTheme(name: string): Record<string, string> {
   root.setAttribute("data-theme", name);
   const style = getComputedStyle(root);
   const out: Record<string, string> = {};
-  for (const token of [...AUTHORED, ...SHAPE, ...TYPE]) out[token] = resolve(style, token);
+  for (const token of [...AUTHORED, ...UNPICKERED, ...SHAPE, ...TYPE])
+    out[token] = resolve(style, token);
   if (previous === null) root.removeAttribute("data-theme");
   else root.setAttribute("data-theme", previous);
   return out;
@@ -337,6 +367,9 @@ function toCss(theme: Record<string, string>, name: string, dark: boolean) {
     `[data-theme="${name}"] {`,
     `  color-scheme: ${dark ? "dark" : "light"};`,
     block("The twenty-one", [...AUTHORED]),
+    // The shipped files keep these in their own block under the same heading, and the block a
+    // reader pastes should look like the ones beside it.
+    block("Authored pending a measured color-mix default", [...UNPICKERED]),
     block("Shape", [...SHAPE]),
     block("Type", [...TYPE]),
     "}",
@@ -566,7 +599,9 @@ export function ThemeGenerator() {
                 const source = readTheme(other);
                 setTheme((prev) => ({
                   ...prev,
-                  ...Object.fromEntries(AUTHORED.map((t) => [t, source[t] ?? prev[t] ?? ""])),
+                  ...Object.fromEntries(
+                    [...AUTHORED, ...UNPICKERED].map((t) => [t, source[t] ?? prev[t] ?? ""]),
+                  ),
                 }));
               }}
             />

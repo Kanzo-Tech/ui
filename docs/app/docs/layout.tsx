@@ -3,7 +3,6 @@ import { DocsLayout } from "fumadocs-ui/layouts/docs";
 import { baseOptions, THEMES_LINK } from "@/lib/layout.config";
 import { getComponentGroups, OWN_GALLERY } from "@/lib/component-groups";
 import { source } from "@/lib/source";
-import { DocsPreferences } from "@/components/docs-preferences";
 
 /**
  * A group with a gallery of its own is not a fifth layer of the library, and the sidebar was
@@ -48,12 +47,12 @@ export default function Layout({ children }: { children: ReactNode }) {
       {...baseOptions}
       links={[{ text: "Components", url: "/docs/components" }, THEMES_LINK, ...galleryLinks]}
       tree={sidebarTree}
-      // The live theme customizer sits in the sidebar footer, under the theme menu that
-      // `baseOptions` puts in the row above it (fumadocs' `themeSwitch` slot). It is the library's
-      // own `Preferences` panel (see `docs-preferences.tsx`); opening it re-themes the whole site.
-      // Keyed because `Sidebar` renders this same node in two arrays — the desktop aside and the
-      // mobile drawer — and React asks for a key on both.
-      sidebar={{ footer: <DocsPreferences key="docs-preferences" /> }}
+      // **No sidebar footer, and the Customize panel that was in it is gone from the site chrome.**
+      // The theme menu in the row above (fumadocs' `themeSwitch` slot, filled by `baseOptions`)
+      // carries the whole colour axis now, appearance included, and what the panel had left was
+      // four shape-and-type knobs nobody opens from a documentation page. `Preferences` is still
+      // demonstrated — ten showcases and its own page — so nothing about the component went with
+      // it; what went was a second control cluster twelve pixels from the first.
     >
       {children}
     </DocsLayout>

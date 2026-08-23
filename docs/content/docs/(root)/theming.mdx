@@ -63,6 +63,42 @@ The second row is the shape of the rule working, and it is the interesting one: 
 repetition in one theme and a real value in another, so what earns a declaration is measured per
 file rather than decided once for the vocabulary.
 
+### What the generator edits, and the three names people ask about
+
+[`/theme-generator`](/theme-generator) carries **twenty-five pickers**: the twenty-one, plus the four
+status `-foreground`s that every one of the twenty-nine authors. The specimen pane on the right is
+sized to those — a group that no control moves would be decoration. Three names sit outside that set
+and get asked about often enough to settle here, with the counts that settle them:
+
+| name | call sites in `packages/*/src` | themes authoring it | verdict |
+| --- | --- | --- | --- |
+| `--sidebar` | `bg-sidebar` on five recipes in `sidebar.tsx` | **none of the twenty-nine** | **neither a picker nor a specimen, and that is the answer.** |
+| `--faint` | fifteen: the placeholder ink of eight field recipes, the ghost text in `CompleteGhost`, and five inks in `CodeEditor` | sixteen, and the value differs from `--muted-foreground` in fourteen of them | a real tier. It has no specimen, and that is a gap. |
+| `--input` | twenty: `border-input` on sixteen of them, plus the switch track, the scroll-area thumb and an unfilled star | sixteen, and the value differs from `--border` in **all sixteen** | already drawn, on every field in the pane. A field border is not an indirect showing of `--input`; it is what `--input` *is*. |
+
+`--sidebar` is the case worth stating plainly, because "a token nobody draws" reads like an
+oversight and is not one. No theme authors it, so its value is decided entirely by the chain —
+`--sidebar` → `--popover` → `--card` — and both of those already have representation: `--card` has a
+picker, `--popover` has a specimen of its own. A `bg-sidebar` swatch would repaint one of them at a
+different label, which is the second spelling the rule at the top of this page exists to refuse. A
+picker would be worse: it would let a generated theme author a name that sixteen hand-written themes
+and thirteen imported ones all declined to. **Nothing is missing here. Do not add one.**
+
+`--faint` is the opposite result from the same measurement. Fourteen of the sixteen give it a value
+its fallback does not have — it is the tier quieter than `--muted-foreground`, and it is what every
+placeholder and every code comment in the library reads at. Nothing in the specimen pane renders it
+today, for a small reason: every field in the `Fields` group carries a `defaultValue`, so no
+placeholder ever appears.
+
+<Callout title="A block copied out of the generator is not yet a hand-written theme">
+  The generator serialises exactly what it edits, so what you paste into `packages/theme/themes/`
+  authors twenty-five names and takes `--popover`, `--field`, `--input` and `--faint` off the chain.
+  The sixteen hand-written themes all author those four with genuine values, so a theme that skips
+  them draws its field borders at the page's border weight and its placeholders at
+  `--muted-foreground`. Type them in after you paste; that is the difference between the imported
+  shape (thirty-three declarations) and the shape this repository writes (forty-nine to fifty).
+</Callout>
+
 <Callout type="warn" title="Why a use is bridged and never declared in :root">
   `:root { --sidebar-primary: var(--primary) }` looks equivalent to bridging it and is not. A custom
   property inherits its **computed** value, so it resolves once on `<html>` — and a scoped

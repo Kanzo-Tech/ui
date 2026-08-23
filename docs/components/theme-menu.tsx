@@ -21,9 +21,9 @@ import { ChevronDownIcon, MonitorIcon, MoonIcon, PaletteIcon, SunIcon } from "lu
  * It fills fumadocs' `themeSwitch` slot, which is the reserved place for exactly this control: the
  * navbar on the landing layout, the sidebar's footer row in the docs. Both layouts used to pass
  * `themeSwitch={{ enabled: false }}`, because fumadocs' own switch calls next-themes' `useTheme()`
- * and next-themes is off here — so the slot sat empty and the only way to change theme was the
- * Customize panel, three clicks down. A design system's documentation that hides its themes has
- * mislaid the argument.
+ * and next-themes is off here — so the slot sat empty and the only way to change theme was a
+ * Customize panel in the sidebar footer, three clicks down. A design system's documentation that
+ * hides its themes has mislaid the argument.
  *
  * ## A row is the theme, not a picture of one
  *
@@ -49,11 +49,15 @@ import { ChevronDownIcon, MonitorIcon, MoonIcon, PaletteIcon, SunIcon } from "lu
  * own `color-scheme`: it is what the `dark:` variant selects on at the call sites that still ask
  * for one, and the provider writes it from the appearance preference rather than from the theme.
  *
- * ## It is a shortcut, not a second preference
+ * ## It is the whole control now, not a shortcut to one
  *
- * The Customize panel still offers Colour, and both controls write the same value through the same
- * provider, so they cannot drift apart — a menu is one click and the panel is where appearance
- * ("follow the OS") and the four non-colour axes live.
+ * There used to be a Customize panel in the sidebar footer offering Colour beside four shape-and-
+ * type knobs, and this menu was the one-click way to the same value. **The panel is gone from the
+ * site chrome** — `docs-preferences.tsx` is deleted and `app/docs/layout.tsx` passes no
+ * `sidebar.footer`. Once appearance moved here the panel's colour card was a second control for a
+ * preference this one already owned, twelve pixels away in the same corner, and what remained under
+ * it was four axes nobody opens from a documentation page. `Preferences` itself loses nothing: ten
+ * showcases and its own page demonstrate it, which is where a whole-screen control belongs.
  */
 export function ThemeMenu({ className }: { className?: string }) {
   const { appearance, resolvedTheme, setAppearance, setTheme, themes } = useKanzoTheme();
@@ -72,7 +76,7 @@ export function ThemeMenu({ className }: { className?: string }) {
     const side = dark ? "dark" : "light";
     // **Both calls, and the browser is what showed why.** `setTheme(value, { appearance })` files a
     // theme UNDER a side; it does not move you to that side — the preference is one theme per side,
-    // so the panel's Colour card writes the theme with its radio and wears the side with its
+    // so `PreferencesColor` writes the theme with its radio and wears the side with its
     // header button, two acts. From a menu there is only one act. Choosing `forest` while the
     // light side was worn stored it and changed not one pixel, which reads as a control that does
     // nothing. Picking a theme here means "show me this", so the side comes with it.
@@ -129,21 +133,45 @@ export function ThemeMenu({ className }: { className?: string }) {
           >
             {sides[side].map((theme) => (
               <MenuRadioItem
-                // The dots sit at the far edge, which needs the machine's own text part to grow —
-                // it is a flex child sized to its content otherwise, and `ms-auto` inside it has
+                // **A card of the theme, not a band of its colour.** The row used to be a bare
+                // `bg-background`, which read as a stripe: the menu's own surface showed between
+                // one row and the next and the indicator gutter left it lopsided down the start
+                // edge. Ground, line and corner together read as a *specimen* — and the corner is
+                // the theme's `--radius-field`, so a theme that squares its fields is square here
+                // and one that rounds them is round. That is real information about the theme and
+                // it costs one class.
+                //
+                // The indicator moves to the end edge, after the colours, and the `ps-8` the recipe
+                // reserves for it goes with it — `cn` is tailwind-merge, so the later `ps-2` is what
+                // survives. The `[&>…]` variants outrank the recipe's own `inset-s-2` on
+                // specificity rather than on order, which is what makes the move reliable.
+                //
+                // `data-[highlighted]:bg-accent` stays the recipe's, and inside a themed row that
+                // is now the theme's OWN accent — the hover state is drawn in the specimen too.
+                //
+                // The colours sit at the far edge, which needs the machine's own text part to grow
+                // — it is a flex child sized to its content otherwise, and `ms-auto` inside it has
                 // nothing to push against. `data-slot` is the seam this library puts on every part
                 // for exactly this, rather than a prop per part.
-                className="bg-background text-foreground [&>[data-slot=menu-radio-item-text]]:flex-1"
+                className={cn(
+                  "my-0.5 rounded-field border border-border bg-background text-foreground",
+                  "ps-2 pe-8",
+                  "[&>[data-part=item-indicator]]:end-2 [&>[data-part=item-indicator]]:start-auto",
+                  "[&>[data-slot=menu-radio-item-text]]:flex-1",
+                )}
                 data-theme={theme.value}
                 key={theme.value}
                 value={theme.value}
               >
                 <span className="flex items-center gap-2">
                   <span className="truncate">{theme.label}</span>
+                  {/* Squares, and `rounded-selector` rather than `rounded-full`: the same argument
+                      as the row's own corner, one knob down. A theme sets three radii and this menu
+                      now shows two of them. */}
                   <span aria-hidden className="ms-auto flex items-center gap-1">
-                    <span className="size-3 rounded-full bg-primary ring-1 ring-border" />
-                    <span className="size-3 rounded-full bg-secondary ring-1 ring-border" />
-                    <span className="size-3 rounded-full bg-accent ring-1 ring-border" />
+                    <span className="size-3 rounded-selector bg-primary ring-1 ring-border" />
+                    <span className="size-3 rounded-selector bg-secondary ring-1 ring-border" />
+                    <span className="size-3 rounded-selector bg-accent ring-1 ring-border" />
                   </span>
                 </span>
               </MenuRadioItem>
