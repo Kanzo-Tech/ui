@@ -5,11 +5,7 @@ links:
   doc: https://ark-ui.com/docs/components/steps
 ---
 
-{/* Measured by walking it with the frame unconstrained: 434 on arrival, 718 at the second question
-    and 774 from the third on, because a later question is a taller card and the last one prints a
-    summary. The number is the tallest state, not the first, and question one pays for it in white
-    space — which beats being clipped. */}
-<ComponentPreview componentName="questionnaire" fileName="example-default" height={780} />
+<ComponentPreview componentName="questionnaire" fileName="example-default" />
 
 ## Usage
 
@@ -233,3 +229,11 @@ one of them.
 `useQuestionnaire` and `useQuestionnaireItem` read the two contexts, for a part of your own that
 has to know where it is: the first carries the answers, the ordered questions and Ark's steps API,
 the second carries the item's own declaration.
+
+Every part's props are exported as an interface — `QuestionnaireActionsProps`,
+`QuestionnaireChoiceProps`, `QuestionnaireChoicesProps`, `QuestionnaireItemProps` and
+`QuestionnaireProps` — so a wrapper can take the same props without restating them.
+
+`QuestionnaireQuestion` is what the root reads off an item to steer the machine — `name`,
+`multiple`, `required`, `skippable` — and an answer is a `QuestionnaireAnswer`, which is a `string`
+for a single choice and a `string[]` for a multiple.

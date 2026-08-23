@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "postinstall": "fumadocs-mdx",
     "test": "vitest run",
-    "measure:previews": "node scripts/measure-previews.mjs"
+    "measure:previews": "node scripts/measure-previews.mjs",
+    "check:previews": "node scripts/measure-previews.mjs --check"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",

@@ -95,8 +95,7 @@ Give a column a `footer` and the table renders a `<tfoot>` — totals, counts, a
 Columns without one leave an empty footer cell; if no column defines a footer, no `<tfoot>` is
 emitted at all.
 
-{/* A table with a footer row runs 603 past the 450 cap. */}
-<ComponentPreview componentName="data-table" fileName="example-footer" height={620} />
+<ComponentPreview componentName="data-table" fileName="example-footer" />
 
 ## The parts
 
@@ -143,8 +142,7 @@ though a single page fits.
 
 ## Column visibility
 
-{/* The toolbar plus a full page of rows: 610. */}
-<ComponentPreview componentName="data-table" fileName="example-column-visibility" height={620} />
+<ComponentPreview componentName="data-table" fileName="example-column-visibility" />
 
 `DataTableViewOptions` lists every column whose `getCanHide()` is true, labelling each by its
 `header` **when that header is a string**. A column whose header is `sortableHeader("Reward")`
@@ -370,3 +368,12 @@ Extends `ark.div`. Renders nothing when there is one page, no selection and no `
 
 A column `filterFn` that keeps rows whose value is one of the selected facets. Required on any
 column driven by `DataTableFacetFilter`.
+
+Every part's props are exported as an interface — `DataTableContentProps`,
+`DataTableFacetFilterProps`, `DataTablePaginationProps`, `DataTableRootProps`,
+`DataTableSearchProps` and `DataTableViewOptionsProps` — so a wrapper can take the same props
+without restating them.
+
+`SelectColumnOptions` is exported — the third argument to the checkbox column, carrying `id`,
+`headerLabel` and a `rowLabel(row)` for the per-row accessible name. It is generic in the row type,
+so a column built for your data keeps it.

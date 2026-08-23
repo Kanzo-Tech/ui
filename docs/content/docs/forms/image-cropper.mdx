@@ -3,8 +3,7 @@ title: ImageCropper
 description: A box drawn on a photograph, and the photograph read back through it.
 ---
 
-{/* 464 of content in 220: the cropper is a viewport, and a viewport is taller than its source. */}
-<ComponentPreview componentName="image-cropper" height={480} />
+<ComponentPreview componentName="image-cropper" />
 
 ## Usage
 
@@ -60,7 +59,7 @@ until somebody scrolls the wheel over the image. Pinning `maxZoom={1}` closes th
 masked and nothing is cut. What comes out of `getCroppedImage()` is still the bounding square, and
 the circle is a promise you keep at the far end — an `Avatar`, a `border-radius`, a canvas clip.
 
-<ComponentPreview componentName="image-cropper" fileName="example-circle" height={480} />
+<ComponentPreview componentName="image-cropper" fileName="example-circle" />
 
 ## Where it is used
 
@@ -95,3 +94,6 @@ Ark's `ImageCropper.Root` props, whole. The ones worth knowing before reading Ar
 The api of the cropper the component is inside — `crop`, `zoom`, `rotation`, `naturalSize`,
 `getCropData()`, `getCroppedImage()`, `reset()`, and the setters for each. It is the **context**
 hook, so it must be called from a component rendered inside `ImageCropper`.
+
+`ImageCropperSelectionProps` is exported, so a wrapper can take the same props without restating
+them.

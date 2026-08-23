@@ -7,7 +7,7 @@ description: One call the model made — its name, its state, what went in and w
     is a stretchy container, so what it "needs" moves with the frame — 583 at 450, 658 at 600 — and
     720 is where it settles. It opened already scrolled without this, because the transcript pins to
     its own tail. */}
-<ComponentPreview componentName="tool" height={720} />
+<ComponentPreview componentName="tool" />
 
 ## Usage
 
@@ -132,3 +132,5 @@ Drawn as a JSON tree when — and only when — there are no children.
 
 Extends `CollapsibleTrigger`. Children are the tool's name; the badge and the indicator are
 supplied.
+
+`ToolProps` is exported, so a wrapper can take the same props without restating them.
