@@ -145,7 +145,7 @@ const DARK_PULL = 0.8;
  *
  * Measured, not preferred. Against daisyUI's own fixture the two are indistinguishable — 21 of 23
  * within ΔE 8 either way, median 0.60 — because daisyUI's dark fills are few and it hand-picked
- * most of their inks anyway. Against the 112 fill/ink pairs the sixteen themes here ship, 0.8
+ * most of their inks anyway. Against the 112 fill/ink pairs the sixteen hand-written themes ship, 0.8
  * reproduces 84% and 0.9 reproduces **all of them**, and every one of 0.8's misses is the same
  * shape: a dark fill where the house wrote a near-white ink and daisyUI's constant stops at a
  * tinted grey.
@@ -171,10 +171,11 @@ const LIGHT_PULL = 0.9;
  * So it is not {@link inkFor}: pulling to the far end would give near-black, which is not red any
  * more. It is the fill walked *toward the page's own ink* until it reads, which keeps the hue.
  *
- * Sixty percent, and the number is measured rather than chosen: across the sixteen themes this
- * repository ships it reproduces all four authored values at ΔE 4.6 in the worst case and about 3
- * at the median. The per-token optima were 60, 60, 59 and 62, which is one number with rounding on
- * it rather than four.
+ * Sixty percent, and the number is measured rather than chosen: across the sixteen hand-written
+ * themes it reproduces all sixty-four authored values at ΔE 4.6 in the worst case and about 3 at
+ * the median. The per-token optima were 60, 60, 59 and 62, which is one number with rounding on it
+ * rather than four. The thirteen themes imported from daisyUI author fifty-two more and they are
+ * not evidence either way: `import-daisy.mjs` calls this function to write them.
  *
  * `surface` is the page the ink is read on, and it is optional because the mix does not need it —
  * only the *floor* does. Given one, the result is walked further toward `ground` until it clears
@@ -197,8 +198,10 @@ export function pageInk(fill: string, ground: string, surface?: string): string 
   if (surface === undefined || contrast(measured, surface) >= AA) return measured;
   // Sixty percent is where the authored values sit, not a floor. Give it the surface the ink is
   // read on and it becomes one: walk further toward `ground` until the pair clears AA. Every value
-  // the sixteen themes here author already does, so this changes nothing for them and only answers
-  // for fills nobody wrote down — daisyUI's `lemonade` lands at 3.93 and is the reason it exists.
+  // the sixteen hand-written themes author already does, so this changes nothing for them. It
+  // answers for the imported ones, and `lemonade` — imported since, and the reason this exists — is
+  // the whole of it: all four of its page inks land at 3.85–3.93 and are walked back until they
+  // clear.
   for (let p = 0.58; p >= 0; p -= 0.02) {
     const candidate = at(p);
     if (contrast(candidate, surface) >= AA) return candidate;

@@ -188,9 +188,16 @@ describe("inkFor", () => {
 
 describe("pageInk", () => {
   /**
-   * The four `--*-foreground` values the sixteen shipped themes author, beside the fill and the
-   * ground they were chosen against. This is the whole corpus, not a sample: the claim is that one
-   * ratio reproduces every one of them, and a sample could not carry that.
+   * The four `--*-foreground` values every shipped theme authors — one hundred and sixteen across
+   * the twenty-nine — beside the fill and the ground they were chosen against. This is the whole
+   * corpus, not a sample: the claim is that one ratio reproduces every one of them, and a sample
+   * could not carry that.
+   *
+   * The two halves are not the same kind of evidence, and the number is worth splitting. Sixty-four
+   * are the hand-written themes' own choices, and they are what calibrated 0.6 — worst ΔE 4.64,
+   * median 2.88. The other fifty-two came out of `pageInk` itself, through `import-daisy.mjs`, so
+   * they can only catch a drift between the two call sites; they sit at ΔE 0 at the median and the
+   * four that do not are `lemonade`'s, floored against its surface.
    */
   it("reproduces every authored page ink in the corpus", () => {
     const themeDir = resolve(__dirname, "..", "themes");

@@ -9,10 +9,15 @@ import { AA, contrast } from "./ink";
  * Every other guard over this corpus reads a literal out of a theme file and skips the token when
  * it is absent — deliberately, because an absence means "use the one above". That was safe while
  * every theme wrote every token. It stopped being safe the moment declarations started coming out:
- * `--secondary-foreground` was `--foreground` in all sixteen themes and `--sidebar` was `--popover`
- * in all sixteen, so both were deleted and both now resolve through a fallback in `tokens.css`.
- * A guard that skips absent tokens would have called that a seventy-two-declaration improvement in
- * coverage it had actually just lost.
+ * `--secondary-foreground` was `--foreground` in all sixteen hand-written themes and `--sidebar` was
+ * `--popover` in all sixteen, so both were deleted and both now resolve through a fallback in
+ * `tokens.css`. A guard that skips absent tokens would have called that a seventy-two-declaration
+ * improvement in coverage it had actually just lost.
+ *
+ * Absence is not the corpus-wide answer, which is the other half of why resolution is the only way
+ * to read this: of the twenty-nine published, the thirteen imported from daisyUI *do* author
+ * `--secondary-foreground`, and in all thirteen it differs from `--foreground`. Both spellings ship
+ * side by side and only a resolved value sees them the same way.
  *
  * So this one resolves the chain first, and the chain is **read out of `tokens.css`** rather than
  * restated here. That matters more than it looks: a hand-copied table of "what falls back to what"
@@ -190,8 +195,10 @@ describe("a theme resolves through the bridge", () => {
   });
 
   it("keeps a deleted declaration honest — the fallback lands where the token used to", () => {
-    // The five that came out, and what each was in all sixteen themes before it did. If a bridge
-    // edit re-points one of these, this says so in the language of the change that made it safe.
+    // The four that came out, and what each was in the sixteen hand-written themes before they did.
+    // If a bridge edit re-points one of these, this says so in the language of the change that made
+    // it safe. A theme that declares one for itself is skipped below, which is how the thirteen
+    // imported themes' own `--secondary-foreground` stays out of a claim it was never part of.
     const WAS: ReadonlyArray<readonly [string, string]> = [
       ["--secondary-foreground", "--foreground"],
       ["--accent-foreground", "--foreground"],

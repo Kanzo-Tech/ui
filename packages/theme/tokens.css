@@ -19,13 +19,15 @@
  * theme would plausibly give it a different value, and a name that can only ever repeat another is
  * a second spelling.
  *
- * Eight names were measured against that rule and lost. Across all sixteen shipped blocks,
- * `--card-foreground` and `--popover-foreground` are byte-identical to `--foreground`, and six of
- * the eight sidebar tokens are byte-identical to the core token they shadow — ninety-six
- * declarations writing a value that was already written. The NAMES stay, because Shark's recipes
- * paste them verbatim and that clause is what keeps a Shark name alive. What stopped is authoring
- * them per theme. `scripts/extract-themes.mjs` asserts the aliasing and refuses to run if one of
- * them ever differs, so this is checked rather than remembered.
+ * Eight names were measured against that rule and lost. Across the sixteen hand-written blocks that
+ * authored them, `--card-foreground` and `--popover-foreground` were byte-identical to
+ * `--foreground`, and six of the eight sidebar tokens were byte-identical to the core token they
+ * shadow — ninety-six declarations writing a value that was already written. Nothing authors any of
+ * the eight today, in any of the twenty-nine. The NAMES stay, because Shark's recipes paste them
+ * verbatim and that clause is what keeps a Shark name alive. What stopped is authoring them per
+ * theme. `themes.test.ts` resolves each deleted name through this bridge in every shipped theme and
+ * fails if a fallback lands somewhere other than the token it replaced, so this is checked rather
+ * than remembered.
  *
  * ## Why they are bridged here and NOT declared in `:root`
  *
@@ -93,10 +95,11 @@
   --color-warning-foreground: var(--warning-foreground, var(--warning));
 
   /* ── Sidebar: none authored, eight that only ever repeated ───────────────────
-     `--sidebar` was `--popover` in all sixteen shipped themes and `--sidebar-foreground` was
+     `--sidebar` was `--popover` in all sixteen hand-written themes and `--sidebar-foreground` was
      `--muted-foreground` in all sixteen, so the fallbacks point there and the themes stopped
      writing them. The chain for `--sidebar` runs on to `--card`, which is where `--popover` itself
-     defers. A theme that wants a sidebar of its own still says so; none does today. */
+     defers. A theme that wants a sidebar of its own still says so; none of the twenty-nine does
+     today, and the thirteen imported from daisyUI never had a sidebar channel to carry. */
   --color-sidebar: var(--sidebar, var(--popover, var(--card)));
   --color-sidebar-foreground: var(--sidebar-foreground, var(--muted-foreground));
   --color-sidebar-border: var(--border);
