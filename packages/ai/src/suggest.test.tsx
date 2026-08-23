@@ -3,9 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { Input } from "@kanzo-tech/ui";
 import { SuggestList, SuggestMark, SuggestRoot } from "./suggest.js";
-import type { Suggestion } from "./types.js";
+import type { Candidate } from "./types.js";
 
-const suggest = async function* (): AsyncIterable<Suggestion> {
+const suggest = async function* (): AsyncIterable<Candidate> {
   yield { value: "alpha", rationale: "the first letter" };
   yield { value: "beta" };
 };
@@ -13,7 +13,7 @@ const suggest = async function* (): AsyncIterable<Suggestion> {
 function Harness(props: {
   existing?: string[];
   onPick?: (v: string) => void;
-  src?: (signal?: AbortSignal) => AsyncIterable<Suggestion>;
+  src?: (signal?: AbortSignal) => AsyncIterable<Candidate>;
   trigger?: "press" | "focus";
 }) {
   const { existing, onPick = vi.fn(), src = suggest, trigger } = props;
@@ -69,7 +69,7 @@ describe("Suggest", () => {
    * the context from the start; no part called it, so the capability was wired end to end and drawn
    * nowhere. The ✕ went with the popover this compound replaced and never came back.
    *
-   * The dismiss is a SIBLING of the pill, not a child of it: `Suggestion` is a `<button>`, and the
+   * The dismiss is a SIBLING of the pill, not a child of it: `Candidate` is a `<button>`, and the
    * DOM has no button inside a button.
    */
   it("refuses a candidate without taking it, and leaves the rest", async () => {
@@ -155,7 +155,7 @@ describe("Suggest", () => {
 
   it("says so when the source had nothing", async () => {
     const user = userEvent.setup();
-    const empty = async function* (): AsyncIterable<Suggestion> {};
+    const empty = async function* (): AsyncIterable<Candidate> {};
     render(<Harness src={empty} />);
 
     await user.click(mark());

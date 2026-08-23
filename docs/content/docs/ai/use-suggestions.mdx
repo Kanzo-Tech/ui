@@ -92,11 +92,11 @@ is not an answer with nothing in it.
 
 | Prop | Type | Default |
 | --- | --- | --- |
-| `suggest` | `(signal?: AbortSignal) => AsyncIterable<Suggestion>` | — |
+| `suggest` | `(signal?: AbortSignal) => AsyncIterable<Candidate>` | — |
 | `existing` | `string[]` | — |
 | `limit` | `number` | `6` |
 
-### `Suggestion`
+### `Candidate`
 
 | Field | Type | Description |
 | --- | --- | --- |
@@ -110,7 +110,7 @@ is not an answer with nothing in it.
 
 | Field | Type | Description |
 | --- | --- | --- |
-| `items` | `Suggestion[]` | What is on offer, deduped |
+| `items` | `Candidate[]` | What is on offer, deduped |
 | `status` | `AiStatus` | `"idle" \| "loading" \| "ready" \| "error"`, shared with [`useAiStream`](/docs/ai/use-ai-stream) and [`useInlineCompletion`](/docs/ai/use-inline-completion) |
 | `error` | `string \| null` | Message when the source threw |
 | `ask` | `() => void` | Ask the source; a no-op unless idle |

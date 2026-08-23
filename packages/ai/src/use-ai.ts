@@ -8,7 +8,7 @@
 // here would make `ui` depend on `ai` and `ai` already depends on `ui`.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Suggestion } from "./types.js";
+import type { Candidate } from "./types.js";
 
 /**
  * The continuation is meant to be appended verbatim. Two safety nets, and no character-level
@@ -414,7 +414,7 @@ export function useInlineCompletion(options: UseInlineCompletionOptions): Inline
 const norm = (v: string) => v.trim().toLowerCase();
 
 export interface UseSuggestionsOptions {
-  suggest: (signal?: AbortSignal) => AsyncIterable<Suggestion>;
+  suggest: (signal?: AbortSignal) => AsyncIterable<Candidate>;
   /** Current values — a candidate equal to one of these (case-insensitively) never appears. */
   existing?: string[];
   /**
@@ -427,7 +427,7 @@ export interface UseSuggestionsOptions {
 }
 
 export interface SuggestionsController {
-  items: Suggestion[];
+  items: Candidate[];
   /** `ready` with no items means the source had nothing — not that its answer was consumed. */
   status: AiStatus;
   error: string | null;
@@ -455,18 +455,18 @@ export interface SuggestionsController {
  * — those existed to keep exactly three rows alive inside a popover, and the popover is gone.
  */
 export function useSuggestions(options: UseSuggestionsOptions): SuggestionsController {
-  const { run, cancel: abort, reset, status, error } = useAiStream<Suggestion>(
+  const { run, cancel: abort, reset, status, error } = useAiStream<Candidate>(
     "Couldn’t load suggestions",
   );
-  const [items, setItems] = useState<Suggestion[]>([]);
+  const [items, setItems] = useState<Candidate[]>([]);
   // A ref beside the state so `dismiss` can filter what is on screen *now* without taking `items`
   // as a dependency — which would hand every consumer a new callback on every render.
-  const shown = useRef<Suggestion[]>([]);
+  const shown = useRef<Candidate[]>([]);
 
   const opts = useRef(options);
   opts.current = options;
 
-  const put = useCallback((next: Suggestion[]) => {
+  const put = useCallback((next: Candidate[]) => {
     shown.current = next;
     setItems(next);
   }, []);
@@ -474,7 +474,7 @@ export function useSuggestions(options: UseSuggestionsOptions): SuggestionsContr
   const refresh = useCallback(() => {
     const { existing = [], limit = 6, suggest } = opts.current;
     const seen = new Set(existing.map(norm).filter(Boolean));
-    const taken: Suggestion[] = [];
+    const taken: Candidate[] = [];
     put([]);
     void run(
       (signal) => suggest(signal),

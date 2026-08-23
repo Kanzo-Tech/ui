@@ -8,14 +8,14 @@ import {
   Spinner,
 } from "@kanzo-tech/ui";
 import {
-  type Suggestion,
+  type Candidate,
   useSuggestions,
 } from "@kanzo-tech/ai";
 import { useState } from "react";
 
 // A stub `suggest`. It yields whole candidates — and deliberately repeats one already chosen,
 // to show the dedup dropping it before it is ever rendered.
-const POOL: Suggestion[] = [
+const POOL: Candidate[] = [
   { value: "climate", rationale: "Already chosen — dropped by the dedup." },
   { value: "meteorology", rationale: "The domain vocabulary uses this term." },
   { value: "observations", rationale: "Matches the source table name." },

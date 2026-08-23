@@ -17,10 +17,10 @@ import {
   TagsInputItemPreview,
   TagsInputItemText,
 } from "@kanzo-tech/ui";
-import { SuggestList, SuggestMark, SuggestRoot, type Suggestion } from "@kanzo-tech/ai";
+import { SuggestList, SuggestMark, SuggestRoot, type Candidate } from "@kanzo-tech/ai";
 import { useState } from "react";
 
-const POOL: Suggestion[] = [
+const POOL: Candidate[] = [
   { value: "standing-water", rationale: "Bog-hounds hold wet ground, and the ford is out." },
   { value: "night-work", rationale: "Both sightings were at dusk." },
   { value: "bring-rope", rationale: "The causeway is under water below the lane." },
@@ -29,7 +29,7 @@ const POOL: Suggestion[] = [
   { value: "second-attempt", rationale: "The hall posted this once already and it failed." },
 ];
 
-async function* suggest(signal?: AbortSignal): AsyncIterable<Suggestion> {
+async function* suggest(signal?: AbortSignal): AsyncIterable<Candidate> {
   for (const item of POOL) {
     await new Promise((r) => setTimeout(r, 240));
     if (signal?.aborted) return;
@@ -37,14 +37,14 @@ async function* suggest(signal?: AbortSignal): AsyncIterable<Suggestion> {
   }
 }
 
-const TITLES: Suggestion[] = [
+const TITLES: Candidate[] = [
   { value: "Bog-hounds on the Greenhollow causeway", rationale: "Names the beast and the place." },
   { value: "Herd dog taken at the ford", rationale: "Leads with what was lost." },
   { value: "Standing water below the lane", rationale: "Leads with the hazard." },
   { value: "Second call: bog-hounds, Greenhollow", rationale: "The hall posted this once already." },
 ];
 
-async function* suggestTitle(signal?: AbortSignal): AsyncIterable<Suggestion> {
+async function* suggestTitle(signal?: AbortSignal): AsyncIterable<Candidate> {
   for (const item of TITLES) {
     await new Promise((r) => setTimeout(r, 200));
     if (signal?.aborted) return;

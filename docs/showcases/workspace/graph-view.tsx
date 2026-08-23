@@ -92,7 +92,7 @@ import {
   SuggestList,
   SuggestMark,
   SuggestRoot,
-  type Suggestion,
+  type Candidate,
   type InlineCompletionRequest,
 } from "@kanzo-tech/ai";
 import {
@@ -1698,7 +1698,7 @@ const INTENTS: Intent[] = [
 /** Candidate questions, streamed the way a model would hand them over. */
 async function* askSuggestions(
   signal?: AbortSignal
-): AsyncIterable<Suggestion> {
+): AsyncIterable<Candidate> {
   for (const intent of INTENTS) {
     await new Promise((resolve) => setTimeout(resolve, 180));
     if (signal?.aborted) return;

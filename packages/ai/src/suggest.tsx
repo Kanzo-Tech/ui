@@ -5,7 +5,10 @@ import { ark } from "@ark-ui/react/factory";
 import * as React from "react";
 import { Button, ButtonGroup, cn, Spinner, Suggestion, Suggestions } from "@kanzo-tech/ui";
 import { AiMark, type AiMarkProps } from "./ai-mark.js";
-import type { Suggestion as Candidate } from "./types.js";
+// No alias any more, and that is the whole of this rename: the type and `@kanzo-tech/ui`'s
+// `Suggestion` component were both in scope in this file, both on public barrels, and one of them
+// had to be renamed at the import to be usable at all.
+import type { Candidate } from "./types.js";
 import { type AiStatus, useSuggestions } from "./use-ai.js";
 
 interface SuggestCtx {

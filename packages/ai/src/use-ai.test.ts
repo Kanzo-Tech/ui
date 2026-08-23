@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
-import type { Suggestion } from "./types.js";
+import type { Candidate } from "./types.js";
 import {
   cleanGhost,
   type InlineCompletionRequest,
@@ -55,7 +55,7 @@ function subject<T>() {
 /** A finite async generator over `values`, honouring the signal — the shape a real product
  *  `suggest` / `complete` has. */
 const genValues = (values: string[]) =>
-  async function* (signal?: AbortSignal): AsyncGenerator<Suggestion> {
+  async function* (signal?: AbortSignal): AsyncGenerator<Candidate> {
     for (const value of values) {
       if (signal?.aborted) return;
       yield { value };

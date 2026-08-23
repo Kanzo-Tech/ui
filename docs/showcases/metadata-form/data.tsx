@@ -14,7 +14,7 @@ import type { InlineCompletionRequest } from "@kanzo-tech/ai";
 // drift apart.
 
 import type {
-  Suggestion,
+  Candidate,
 } from "@kanzo-tech/ai";
 import { MEMBERS, member, membersOf } from "@/example/people";
 import { FEATURED, type Quest, dueOn, postedOn, questLabel } from "@/example/quests";
@@ -608,13 +608,13 @@ const TAG_NOTES: Partial<Record<Tag, string>> = {
   "hall-honours": "Settles between halls rather than in gold",
 };
 
-const TAG_POOL: Suggestion[] = Object.entries(TAG_NOTES).map(([value, rationale]) => ({
+const TAG_POOL: Candidate[] = Object.entries(TAG_NOTES).map(([value, rationale]) => ({
   value,
   rationale,
 }));
 
 /** `useSuggestions`' `suggest` — streams candidate tags one at a time. */
-export async function* suggestTags(signal?: AbortSignal): AsyncIterable<Suggestion> {
+export async function* suggestTags(signal?: AbortSignal): AsyncIterable<Candidate> {
   for (const s of TAG_POOL) {
     await sleep(180);
     if (signal?.aborted) return;
@@ -628,8 +628,8 @@ export async function* suggestTags(signal?: AbortSignal): AsyncIterable<Suggesti
  * A one-line field takes candidates: a ghost over an `<input>` can only ever show what fits in the
  * width that is left, and the field cannot scroll to reveal text that is not in its value.
  */
-export async function* suggestTitle(signal?: AbortSignal): AsyncIterable<Suggestion> {
-  const pool: Suggestion[] = [
+export async function* suggestTitle(signal?: AbortSignal): AsyncIterable<Candidate> {
+  const pool: Candidate[] = [
     { value: "Something in the millrace at Greenhollow", rationale: "Where it was seen." },
     { value: "Greenhollow: the millrace, and it is not rats", rationale: "Rules out the cheap answer." },
     { value: "Night work at the Greenhollow millrace", rationale: "Leads with when." },

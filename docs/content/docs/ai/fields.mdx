@@ -93,7 +93,7 @@ Everything takes a **function that returns an async iterable**, and cancels it w
 complete: (value: string, signal?: AbortSignal) => AsyncIterable<string>
 
 // `suggest` — yields discrete candidates
-suggest: (signal?: AbortSignal) => AsyncIterable<Suggestion>
+suggest: (signal?: AbortSignal) => AsyncIterable<Candidate>
 ```
 
 No API key, no provider, no prompt, no model name anywhere in `@kanzo-tech/ai`. That is not an

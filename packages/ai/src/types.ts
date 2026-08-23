@@ -1,5 +1,5 @@
 /** A streamed value candidate produced by `useSuggestions`. */
-export interface Suggestion {
+export interface Candidate {
   /** Primitive value committed when the row is picked. */
   value: string;
   /** Human label; defaults to `value`. */

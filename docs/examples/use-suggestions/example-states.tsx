@@ -10,7 +10,7 @@ import {
   Show,
   Spinner,
 } from "@kanzo-tech/ui";
-import { type Suggestion, useSuggestions } from "@kanzo-tech/ai";
+import { type Candidate, useSuggestions } from "@kanzo-tech/ai";
 import { useState } from "react";
 
 // Three sources, so every one of the four states is reachable from the page rather than described.
@@ -18,7 +18,7 @@ import { useState } from "react";
 // to say is an answer, and a surface that renders it as blank is a surface that looks broken.
 type Source = "answers" | "empty" | "throws";
 
-const POOL: Suggestion[] = [
+const POOL: Candidate[] = [
   { value: "ford", rationale: "Named in four of the last six notices." },
   { value: "nightfall", rationale: "Every sighting is after dusk." },
 ];

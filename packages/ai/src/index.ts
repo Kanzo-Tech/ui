@@ -75,7 +75,7 @@ export type {
   UseSuggestionsOptions,
 } from "./use-ai.js";
 
-export type { Suggestion } from "./types.js";
+export type { Candidate } from "./types.js";
 
 // Choosing which model answers. Two overrides over `Command`, and each is a defect when it is
 // missing — `decisions/a-picker-that-forgets-its-value-is-a-defect.md`.

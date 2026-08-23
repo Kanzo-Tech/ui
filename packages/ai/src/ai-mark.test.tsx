@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { InputGroup, InputGroupAddon, InputGroupTextarea } from "@kanzo-tech/ui";
 import { CompleteMark, CompleteRoot, CompleteTextarea } from "./complete.js";
 import { SuggestMark, SuggestRoot } from "./suggest.js";
-import type { Suggestion } from "./types.js";
+import type { Candidate } from "./types.js";
 
 /** A source that yields nothing until it is let go, so the busy phase can be observed. */
 function gate<T>(values: T[]) {
@@ -29,7 +29,7 @@ const paint = (el: HTMLElement) => ({
 });
 
 const ghost = gate(["o world"]);
-const candidates = gate<Suggestion>([{ value: "livestock" }, { value: "night-work" }]);
+const candidates = gate<Candidate>([{ value: "livestock" }, { value: "night-work" }]);
 
 function CompleteHarness() {
   const [value, setValue] = useState("Hell");
