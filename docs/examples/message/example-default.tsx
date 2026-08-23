@@ -31,7 +31,7 @@ export default function Example() {
 
       <Message role="user">
         <MessageAvatar name={VIEWER.name} />
-        <MessageContent>Is {writ.title} properly crewed?</MessageContent>
+        <MessageContent>{writ.title} — is it properly crewed?</MessageContent>
       </Message>
 
       <Message>

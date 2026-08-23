@@ -38,12 +38,26 @@ const ANSWER = [
 /** A word every 60 ms — slow enough to read the arrival, which is what this page is about. */
 const WORD_MS = 60;
 
+/**
+ * How long the finished answer stands before the demo starts over, in ticks.
+ *
+ * Without it there is no finished answer to see: `upto` reached the end and was reset to zero on
+ * the very same tick, so the list at the bottom — the last thing to arrive — was on screen for one
+ * 60 ms frame and the reader never got a rest state. Past the end `nextWord` returns 1, so these
+ * are plain ticks, and `streaming` is false for all of them: the pause also shows the static mode,
+ * which is the other half of what this component does.
+ */
+const REST_TICKS = 2000 / WORD_MS;
+
 export default function Example() {
   const [upto, setUpto] = useState(0);
 
   useEffect(() => {
     // Restarts from zero, so the demo can be watched more than once without a reload.
-    const id = setInterval(() => setUpto((n) => (n >= ANSWER.length ? 0 : n + nextWord(n))), WORD_MS);
+    const id = setInterval(
+      () => setUpto((n) => (n >= ANSWER.length + REST_TICKS ? 0 : n + nextWord(n))),
+      WORD_MS,
+    );
     return () => clearInterval(id);
   }, []);
 
