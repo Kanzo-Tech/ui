@@ -2,7 +2,7 @@
   "name": "@kanzo-tech/docs",
   "private": true,
   "version": "0.0.0",
-  "description": "Kanzo UI documentation \u2014 Next.js App Router + fumadocs, mirroring Shark UI's docs stack. Doubles as the RSC fixture: Vite ignores \"use client\", so this is the only place the library's client/server boundary is actually exercised.",
+  "description": "Kanzo UI documentation — Next.js App Router + fumadocs, mirroring Shark UI's docs stack. Doubles as the RSC fixture: Vite ignores \"use client\", so this is the only place the library's client/server boundary is actually exercised.",
   "type": "module",
   "scripts": {
     "dev": "next dev --webpack --port 3100",
@@ -47,6 +47,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "shiki": "^4.2.0",
+    "streamdown": "^2.5.0",
     "zod": "^4.4.3"
   },
   "//deps": "@kanzo-tech/{ui,theme,graph,ai} are workspace deps. There is no colour-derivation package any more: a theme is a flat CSS file that ships with @kanzo-tech/theme.",

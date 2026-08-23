@@ -123,6 +123,52 @@ A plain string has no such problem and also no markdown. A source that streams m
 will want that, and it is a dependency rather than a rewrite.
 </Callout>
 
+## When the answer is markdown
+
+`MessageText` renders text. The moment a model emits a list, a fence or a `**bold`, you want
+`MessageMarkdown` — and it is on a **subpath**:
+
+```tsx
+import { MessageMarkdown } from "@kanzo-tech/ai/markdown";
+```
+
+```tsx
+<MessageContent>
+  <MessageMarkdown streaming={status === "loading"}>{answer}</MessageMarkdown>
+</MessageContent>
+```
+
+<ComponentPreview componentName="message" fileName="example-markdown" />
+
+**The hard part is not the markdown, it is the incomplete markdown.** A stream delivers `**bo`,
+then `**bold`, then `**bold**`, and a parser that renders each of those honestly makes the answer
+flicker between literal asterisks and emphasis as it completes. Closing them is what
+[Streamdown](https://streamdown.ai) is for, and it is a parser's worth of work rather than a
+component's — so this wraps it rather than reimplementing it, and the per-word cascade becomes
+Streamdown's own `animated` instead of the copy `MessageText` carries.
+
+**Why a subpath, measured rather than assumed.** `streamdown` bundles to **495 kB minified, 128 kB
+brotli** on its own — `parse5` alone is 123 kB, for `rehype-raw`'s HTML. The whole of
+`@kanzo-tech/ai`'s root barrel is budgeted at 20 kB and measures 8.34. A host answering in prose
+must not pay for a markdown parser to write `import { Message }`, which is the same door
+[`@kanzo-tech/ui/editor`](/docs/forms/code-editor) stands behind for CodeMirror.
+
+So `streamdown` is an **optional peer**: install it yourself, and add its dist to whatever scans
+your classes, because `MessageMarkdown` renders somebody else's element tree.
+
+```bash
+npm install streamdown
+```
+
+```css
+@source "../node_modules/streamdown/dist/*.js";
+```
+
+Without that second line the markdown comes out structurally correct and completely unspaced —
+headings at body size, lists with no indent. `@kanzo-tech/ai/styles.css` deliberately does not carry
+it: emitting Streamdown's utilities for everyone would undo in CSS exactly the door the subpath
+holds shut in JavaScript.
+
 ## Anatomy
 
 ```text
@@ -170,6 +216,16 @@ needs.
 
 `children` is a string and not a node: the component splits it, so it has to be text. `streaming`
 draws the caret and nothing else — the tint is per word and runs when a word appears.
+
+### MessageMarkdown
+
+On `@kanzo-tech/ai/markdown`, not the root barrel. Same two props as `MessageText`, plus everything
+`Streamdown` takes.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `children` | `string` | — |
+| `streaming` | `boolean` | `false` |
 
 ### Other parts
 

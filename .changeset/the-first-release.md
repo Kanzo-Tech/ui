@@ -259,8 +259,9 @@ These are the decisions a consumer cannot work around, so they are the ones wort
   authoring-time package: the runtime applies a theme and derives nothing, because there is nothing
   to derive.
 - **Optional peers live on subpaths.** `@kanzo-tech/ui/editor` needs `@codemirror/*`, `/table` needs
-  `@tanstack/react-table`, `/analytics` needs the DuckDB and Mosaic stack. The root barrel imports
-  none of them, so `import { Button }` works without any of them installed.
+  `@tanstack/react-table`, `/analytics` needs the DuckDB and Mosaic stack, and
+  `@kanzo-tech/ai/markdown` needs `streamdown`. No root barrel imports any of them, so
+  `import { Button }` and `import { Message }` both work without any of them installed.
 - **Dark mode belongs to the host.** Pass your theme manager in as `appearance={{ resolvedTheme,
   setTheme }}`, or omit it and the provider toggles `.dark` itself. For SSR, `themeScript()` in
   `<head>` plus `cookieStorageAdapter()`.
@@ -368,7 +369,14 @@ value. The `Complete` compound keeps its name; it collides with nothing.
 
 **`MessageText` is the arrival of a streamed answer.** Hand it the string so far and a `streaming`
 boolean; it re-derives the words and settles each one in as it appears — a word and not a chunk,
-because a model emits tokens and tokens cut words in half. `SuggestList`'s candidates can now be
+because a model emits tokens and tokens cut words in half.
+
+**`MessageMarkdown` is the same thing for a model that answers in markdown**, and it is on
+`@kanzo-tech/ai/markdown` with `streamdown` as an optional peer. The hard part is the *incomplete*
+markdown — a stream delivers `**bo`, then `**bold`, then `**bold**`, and a parser that renders each
+honestly makes the answer flicker as it completes — so this wraps the renderer that closes them
+rather than reimplementing it. It is a subpath because `streamdown` measures 128 kB brotli against
+a 20 kB budget for the whole root barrel: a host answering in prose does not pay for a parser. `SuggestList`'s candidates can now be
 refused as well as taken: each one is a `ButtonGroup` holding the pill and a ✕.
 
 **`Complete` composes over a `Textarea`, and a one-line field takes `Suggest` instead.** A

@@ -1,7 +1,7 @@
 {
   "name": "@kanzo-tech/ai",
   "version": "0.0.0",
-  "description": "Kanzo AI surfaces \u2014 the transcript, the composer, a model's reasoning and the calls it makes, plus the field affordances that stream into a value. Sibling of @kanzo-tech/ui, not part of it: a Message has a role and one of the roles is `assistant`, which is domain knowledge the generic vocabulary does not carry.",
+  "description": "Kanzo AI surfaces — the transcript, the composer, a model's reasoning and the calls it makes, plus the field affordances that stream into a value. Sibling of @kanzo-tech/ui, not part of it: a Message has a role and one of the roles is `assistant`, which is domain knowledge the generic vocabulary does not carry.",
   "type": "module",
   "license": "MIT",
   "sideEffects": [
@@ -18,6 +18,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./markdown": {
+      "types": "./dist/markdown.d.ts",
+      "import": "./dist/markdown.js"
+    },
     "./package.json": "./package.json",
     "./styles.css": "./dist/styles.css"
   },
@@ -28,13 +32,14 @@
     "size": "size-limit",
     "build:css": "tailwindcss -i src/styles.css -o dist/styles.css --minify"
   },
-  "//peers": "Everything here draws with @kanzo-tech/ui's parts and Ark's machines, so both are required peers rather than dependencies \u2014 two copies of Ark would mean two portals and two focus traps. There is no optional peer and no subpath: nothing in this package reaches a database, an editor or a chart.",
+  "//peers": "Everything on the root barrel draws with @kanzo-tech/ui's parts and Ark's machines, so both are required peers rather than dependencies — two copies of Ark would mean two portals and two focus traps. streamdown is the one OPTIONAL peer, and it is why ./markdown exists: it measures 495 kB minified and 128 kB brotli on its own, against a 20 kB budget for the whole root barrel, so a host that renders plain text must not pay for a markdown parser. Same door as @kanzo-tech/ui/editor and @kanzo-tech/graph/duckdb.",
   "peerDependencies": {
     "@ark-ui/react": "^5.37.2",
     "@kanzo-tech/ui": "workspace:*",
     "lucide-react": ">=1",
     "react": ">=19",
-    "react-dom": ">=19"
+    "react-dom": ">=19",
+    "streamdown": ">=2"
   },
   "dependencies": {
     "tailwind-variants": "^3.2.2"
@@ -54,6 +59,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "rollup-plugin-preserve-directives": "^0.4.0",
+    "streamdown": "^2.5.0",
     "tailwindcss": "4"
   },
   "//size-limit": "First measurement taken at the split, so this budget is a change detector from day one rather than a number inherited from somewhere. The four AI-assist modules that moved here cost @kanzo-tech/ui's root barrel about 4 kB when they arrived (38 -> 42 kB, recorded in that package's own note); the barrel is rebaselined down by the same move.",
@@ -71,6 +77,26 @@
         "lucide-react",
         "tailwind-variants"
       ]
+    },
+    {
+      "name": "markdown subpath (JS)",
+      "path": "dist/markdown.js",
+      "limit": "3 kB",
+      "ignore": [
+        "react",
+        "react-dom",
+        "react/jsx-runtime",
+        "@ark-ui/react",
+        "@kanzo-tech/ui",
+        "lucide-react",
+        "tailwind-variants",
+        "streamdown"
+      ]
     }
-  ]
+  ],
+  "peerDependenciesMeta": {
+    "streamdown": {
+      "optional": true
+    }
+  }
 }

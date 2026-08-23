@@ -357,6 +357,18 @@ for (const name of ["Conversation", "Message", "PromptInput", "Reasoning", "Tool
 }
 pass("ai ships the seven surfaces the changeset names");
 
+await import("@kanzo-tech/ai/markdown").then(
+  () => fail("@kanzo-tech/ai/markdown resolved without streamdown — is the import still there?"),
+  (err) => {
+    // The door this subpath exists for. streamdown bundles to 128 kB brotli against a 20 kB budget
+    // for the whole root barrel, so a host rendering plain prose must not pay for a markdown
+    // parser — and the only way to know it does not is to install without the optional peer and
+    // watch the import fail here while the barrel above still resolved.
+    if (err.code === "ERR_MODULE_NOT_FOUND") pass("@kanzo-tech/ai/markdown is where the streamdown cost is");
+    else fail("@kanzo-tech/ai/markdown failed for the wrong reason: " + err.message);
+  },
+);
+
 await import("@kanzo-tech/graph/duckdb").then(
   () => fail("@kanzo-tech/graph/duckdb resolved without Mosaic — is the Mosaic import still there?"),
   (err) => {

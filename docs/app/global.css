@@ -19,6 +19,18 @@
  * closes it for them.
  */
 @source "../../packages/ai/src/**/*.{ts,tsx}";
+/*
+ * And streamdown's own dist, which is the line every consumer of `@kanzo-tech/ai/markdown` has to
+ * write for themselves — it is in streamdown's install instructions and it is the same hole one
+ * line up, one package further out. `MessageMarkdown` renders somebody else's element tree, so its
+ * classes live in a `.js` file no glob of ours reaches. Without this the markdown renders with
+ * correct structure and no spacing at all: headings the size of body text, lists with no indent.
+ *
+ * The library's own sheet deliberately does NOT carry it. `streamdown` is an optional peer behind a
+ * subpath, and a stylesheet that emitted its utilities for everyone would undo in CSS exactly the
+ * door `packages/ai/vite.config.ts` holds shut in JS.
+ */
+@source "../../node_modules/.pnpm/streamdown@*/node_modules/streamdown/dist/*.js";
 /* The design system's own tokens + compiled sheet — the docs eat the published artifact. */
 @import "@kanzo-tech/theme/tokens.css";
 @import "@kanzo-tech/theme/themes.css";
