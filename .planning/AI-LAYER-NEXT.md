@@ -218,8 +218,13 @@ from looking.
    still moving pages — `theme-studio` became `/theme-generator`, `theme-gallery` became
    `/docs/themes`, and `--accent` was rewritten across thirteen themes today. Re-measure when it
    stops. The count itself needs redoing before the guard is written.
-2. **`Conversation` and `AI-assisted fields` are the two AI pages still never clicked.**
-   `Reasoning`, `Task` and `Tool` were looked at on 2026-08-23 and **nothing came back**, which is
+2. **`AI-assisted fields` is the last AI page never clicked.** `Conversation` was looked at the same
+   day and held: sampled while the transcript grew past its box, it stayed pinned to the tail in
+   **70 of 72** samples — the two that were not are the frames after a turn is appended — and the
+   scroll button appears once the reader is away from the bottom, `aria-label="Scroll to the latest
+   message"`. Read the DOM for it in the SAME call that scrolls and it is not there yet: the
+   component is two intersection observers, which fire a task later. `Reasoning`, `Task` and `Tool`
+   were looked at on 2026-08-23 and **nothing came back**, which is
    worth writing down because the four sessions before it found something every time. What was
    checked and held: `Reasoning` measures with `Date.now()` and nulls `startedAt` on stop, so a
    second run does not accumulate; its mid-stream clipping is Ark's `expand` animation with
