@@ -208,6 +208,18 @@ const DEPTHS = [
   { value: "1", label: "Raised" },
 ] as const;
 
+/**
+ * Two, not a slider.
+ *
+ * `--noise` multiplies the grain layer's *size*, so at 0 it is not painted and at 1 it tiles.
+ * Anything between is a texture drawn larger than its tile, which is a smear rather than a
+ * quantity of grain — the knob reads as on or off because that is what it does.
+ */
+const NOISES = [
+  { value: "0", label: "Smooth" },
+  { value: "1", label: "Grain" },
+] as const;
+
 const FONTS = [
   { value: "ui-sans-serif, system-ui, sans-serif", label: "System" },
   { value: "Georgia, ui-serif, serif", label: "Serif" },
@@ -242,7 +254,13 @@ const AUTHORED = [
   ),
 ] as const;
 
-const SHAPE = [...RADII.map((r) => r.name), ...SIZES.map((r) => r.name), "--stroke", "--depth"] as const;
+const SHAPE = [
+  ...RADII.map((r) => r.name),
+  ...SIZES.map((r) => r.name),
+  "--stroke",
+  "--depth",
+  "--noise",
+] as const;
 const TYPE = ["--font-sans", "--font-heading"] as const;
 
 /** Follow `--x`, then whatever `tokens.css` says `--x` defers to, until something has a value. */
@@ -612,7 +630,7 @@ export function ThemeStudioShowcase() {
             </section>
 
             <section className="flex flex-col gap-3">
-              <SectionHead doc="line weight, and how far a surface lifts" title="Stroke and depth" />
+              <SectionHead doc="line weight, relief, and grain" title="Stroke, depth and noise" />
               <StepRow
                 doc="hairline"
                 label="Stroke"
@@ -639,6 +657,32 @@ export function ThemeStudioShowcase() {
                       )}
                       key={step.value}
                       onClick={() => set("--depth", step.value)}
+                      type="button"
+                    >
+                      {step.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Legend doc="grain over every fill — off, or on" label="Noise" />
+                <div className="flex gap-1.5">
+                  {NOISES.map((step) => (
+                    <button
+                      // `|| "0"` mirrors the sheet, which writes `var(--noise, 0)`: no shipped
+                      // theme declares this one, so "absent" and "smooth" are the same answer and
+                      // the control must not show neither pressed.
+                      aria-pressed={(theme["--noise"] || "0") === step.value}
+                      className={cx(
+                        "flex-1 rounded-field border px-2 py-1.5 text-xs transition-colors",
+                        "outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
+                        (theme["--noise"] || "0") === step.value
+                          ? "border-primary bg-primary/10 font-medium"
+                          : "border-border hover:bg-foreground/6",
+                      )}
+                      key={step.value}
+                      onClick={() => set("--noise", step.value)}
                       type="button"
                     >
                       {step.label}

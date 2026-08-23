@@ -1,0 +1,56 @@
+/* sunset — imported from daisyUI 5.7.20 (MIT), converted from OKLCh to hex.
+   Copyright (c) 2020 Pouya Saadeghi. https://github.com/saadeghi/daisyui
+
+   Their twenty colours mapped onto our twenty-one; the mapping and what it decides are in
+   `scripts/import-daisy.mjs`. Not one value was corrected — a theme whose own colours failed the
+   contrast guard was skipped rather than nudged, because a nudged `pastel` is not `pastel`.
+
+   SOURCE from here on. Edit it by hand; nothing regenerates it. */
+[data-theme="sunset"] {
+  color-scheme: dark;
+
+  /* The twenty-one */
+  --background: #121c22;
+  --foreground: #9fb9d0;
+  --card: #121c22;
+  --muted: #0e171e;
+  --muted-foreground: #708597;
+  --primary: #ff865b;
+  --primary-foreground: #160603;
+  --secondary: #fd6f9c;
+  --secondary-foreground: #160409;
+  --accent: #b387fa;
+  --accent-foreground: #0c0615;
+  --destructive: #ffbbbd;
+  --destructive-content: #160d0d;
+  --info: #89e0eb;
+  --info-content: #071213;
+  --success: #addfad;
+  --success-content: #0b120b;
+  --warning: #f1c892;
+  --warning-content: #140f08;
+  --border: #091319;
+  --ring: #ff865b;
+
+  /* The same families, read on the page rather than on their fill */
+  --destructive-foreground: #dbbbc5;
+  --info-foreground: #94d0e0;
+  --success-foreground: #a7d0bc;
+  --warning-foreground: #d1c3ae;
+
+  /* Shape */
+  --radius-box: 1rem;
+  --radius-field: 0.5rem;
+  --radius-selector: 1rem;
+  --size-field: 0.25rem;
+  --size-selector: 0.25rem;
+  --stroke: 1px;
+  --depth: 0;
+
+  /* daisyUI has no categorical channel, so this theme declines one rather than inheriting eight
+     slots it never chose. An ABSENT capacity reads as the full count — see `categoricalCapacity`,
+     which is explicit that a declared zero is an answer and an absence is not — so saying nothing
+     here would have a chart claim eight colours and paint them with a `var()` that resolves to
+     nothing. Give it a set by hand and raise this number. */
+  --chart-capacity: 0;
+}

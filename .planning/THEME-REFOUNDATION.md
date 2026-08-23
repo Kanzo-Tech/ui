@@ -1115,8 +1115,70 @@ abriría con lo que la galería creyera al renderizar. Un nombre hace que el est
 
 ### Lo que queda
 
+### `--noise`, con call sites
+
+Pedido, así que entra. El mecanismo es el de Daisy y es el mismo truco que `--depth`:
+`background-size: calc(var(--noise, 0) * 100%)` — a 0 la capa mide cero y no se pinta, a 1 tesela.
+**Sin un condicional.** El grano (`--fx-noise`, un SVG de `feTurbulence` inline) es una constante de
+la hoja, no una decisión del tema: un tema dice cuánta textura quiere, nunca cuál.
+
+Tres call sites, los de la referencia: el botón al 100% y los controles de selección al 33% (una
+caja de 1rem teselada a tamaño completo es un borrón, no una textura). Ningún tema publicado lo
+declara — el defecto vive en `var(--noise, 0)`, como en el corte de alias.
+
+Guard nuevo, `knobs-are-read.test.ts`, que codifica la regla que se rompió: **un knob que no lee
+nadie miente**. Un tenant lo pone, no se mueve nada, y el tema parece roto en vez de ignorado —que
+es peor, porque un tema roto se depura y una declaración ignorada se encoge de hombros. Cuenta dos
+caminos: `var(--knob)` en la hoja, o binding en `tokens.css` cuya utilidad alguien usa. Verificado
+mordiendo: quitando los call sites falla nombrando el knob.
+
+Y el estudio gana el control, de dos pasos y no un slider: `--noise` multiplica el *tamaño* de la
+capa, así que un valor intermedio es una textura dibujada más grande que su tesela, o sea un borrón.
+
+### Lo que queda
+
+### Los temas de Daisy: 13 de 35
+
+`scripts/import-daisy.mjs`, que **no es un generador**: corre a mano y lo que escribe es fuente
+desde ese momento, como hizo `extract-themes.mjs`. `check:generated` no lo conoce y no debe.
+
+**No corrige un color.** Un `pastel` con sus cuatro pares de estado retocados hasta pasar AA no es
+`pastel`, y el nombre prometería algo que ya no entrega. Así que un tema cuyos propios valores
+fallan se salta, y se imprime por qué: 19 de 35 por ahí, más `dracula` y `nord` (el nombre está
+cogido) y `light`/`dark` (son nuestros dos *lados*, no nombres de tema).
+
+Ojo con la cifra: dije 21 y son **13**. Aquellos 21 sólo medían los pares de estado; el guard mide
+doce pares resueltos, incluido el de la barra lateral, que cae por la cadena a `--card` /
+`--muted-foreground`.
+
+Ellos autoran 20 colores y nosotros 21, y los conjuntos no coinciden. Cuatro decisiones de mapeo:
+`--card` toma `base-100` y no `base-200` (una tarjeta aquí se apoya en la página, y su superficie
+elevada es nuestro `--muted`); `--border` toma `base-300`; `--ring` toma `primary`; y
+`--muted-foreground` no tiene equivalente, así que se **busca**: la mezcla más pálida hacia
+`base-100` que aún se lee sobre las dos superficies que la llevan. Una proporción fija habría sido
+una suposición que falla en los oscuros.
+
+**Un hallazgo que el importador destapó y ningún guard veía.** Los temas importados no traen las
+cuatro tintas de página, así que caían al puente —`var(--destructive-foreground, var(--destructive))`,
+o sea el relleno a plena fuerza sobre la página— y eso da **1.23:1** en el warning de `acid`.
+Diecinueve pares ilegibles y nada los medía. Ahora `themes.test.ts` mide `--background` contra las
+cuatro, y el importador las autora con `pageInk`, que gana un tercer argumento: la superficie sobre
+la que se lee. Con ella el 60% deja de ser el valor y pasa a ser el punto de partida, con AA de
+suelo — la misma disciplina que `inkFor`. No cambia nada en los dieciséis de casa, que ya cumplían;
+existe por `lemonade`, que se quedaba en 3.93.
+
+Los importados traen **28 declaraciones**, que es exactamente el número de Daisy. Los nuestros, 49.
+
+Catálogo: 29 temas, 15 oscuros y 14 claros.
 - `--faint` e `--input` siguen autorados a propósito: sus fórmulas ajustan de mediana (ΔE 1,5 y 2,1)
   pero tienen un tema que se va a 14 y a 7,8. Con esa dispersión una propuesta estorba más que ayuda.
+- **El canal categórico de los importados: declinado, no resuelto.** Los trece declaran
+  `--chart-capacity: 0`, que es la respuesta honesta y la que el contrato de `categoricalCapacity`
+  ya contemplaba —una capacidad *ausente* lee como ocho, así que callarse hacía que un chart
+  reclamara ocho colores y los pintara con un `var()` que no resuelve—. Lo que queda es el diseño:
+  **un set por defecto en `tokens.css`**, para que cualquier tema tenga charts sin autorar ocho
+  colores. Medido y pendiente: `--chart-6` toma 12 valores distintos en 16 temas, así que el set no
+  puede derivarse de `--primary`; tiene que elegirse una vez y validarse sobre fondo claro y oscuro.
 ### La documentación, al día
 
 `theme-studio.mdx`: cifras corregidas (~50 declaraciones, ~30 decisiones), fuera «no comprueba
@@ -1141,10 +1203,13 @@ dieciséis acabó necesitando `--secondary-foreground` ni `--accent-foreground`.
 
 - `--faint` e `--input` siguen autorados a propósito: sus fórmulas ajustan de mediana (ΔE 1,5 y 2,1)
   pero tienen un tema que se va a 14 y a 7,8. Con esa dispersión una propuesta estorba más que ayuda.
-- **El build de docs sigue roto y no es de esta rama.** `/docs/ai/tool` revienta con
-  `Maximum call stack size exceeded` en el prerender. Rastreado: `packages/ai/src/tool.tsx` (del 21,
-  commiteado) → `packages/ui/src/simples/json-tree-view.tsx` (del 4 de agosto, sin tocar), que es un
-  envoltorio fino sobre el `JsonTreeView` de Ark. **La recursión es de Ark bajo prerender RSC.**
-  Sale por `<ToolInput data={{…}} />` en `tool.mdx`; el propio docblock de `ToolInput` dice que
-  prefiere hijos a la prop `data`, así que cambiar la página lo esquivaría — pero eso enmascara un
-  bug de upstream y merece su propio registro antes que un parche.
+- ~~El build de docs roto~~ — **resuelto, y no era de nadie.** `/docs/ai/tool` reventaba con
+  `Maximum call stack size exceeded` en el prerender y lo atribuí a un bug de Ark en
+  `JsonTreeView`. **Falso**: lo reproduje en SSR aislado y renderiza bien; el JSX de esa página está
+  dentro de vallas de código, así que no monta nada. La causa la explicaba el propio
+  `examples/tool/example-default.tsx` desde el día 21 —un `Extension` de CodeMirror es un grafo
+  cíclico y sin `"use client"` el serializador RSC lo recorre hasta agotar la pila— y la directiva
+  estaba puesta. Lo que fallaba era correr `pnpm --filter docs build` **en aislamiento**: eso
+  consume el `dist` de `packages/ai` sin reconstruirlo, y llevaba tres horas y media por detrás de
+  un `src` que otra sesión editaba. **Correr siempre el `pnpm build` de raíz**, que construye en
+  orden topológico, antes de creerse un error del build de docs.

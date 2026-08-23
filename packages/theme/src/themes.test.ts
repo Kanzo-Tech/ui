@@ -98,6 +98,17 @@ const PAIRS: ReadonlyArray<readonly [string, string]> = [
   ["--success", "--success-content"],
   ["--warning", "--warning-content"],
   ["--sidebar", "--sidebar-foreground"],
+  // The status families' OTHER ink, and the pair its name promises. `--destructive-content` sits on
+  // the fill; `--destructive-foreground` is destructive text on the page — an error line under an
+  // input, where the fill never appears — so the surface it answers to is `--background`.
+  //
+  // Unmeasured until an import made it matter: a theme that leaves these to the bridge gets
+  // `var(--destructive-foreground, var(--destructive))`, which paints the fill at full strength on
+  // the page. On a pale theme that is 1.26:1, and nothing here could see it.
+  ["--background", "--destructive-foreground"],
+  ["--background", "--info-foreground"],
+  ["--background", "--success-foreground"],
+  ["--background", "--warning-foreground"],
 ] as const;
 
 describe("a theme resolves through the bridge", () => {

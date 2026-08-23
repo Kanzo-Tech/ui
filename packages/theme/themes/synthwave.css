@@ -1,0 +1,56 @@
+/* synthwave — imported from daisyUI 5.7.20 (MIT), converted from OKLCh to hex.
+   Copyright (c) 2020 Pouya Saadeghi. https://github.com/saadeghi/daisyui
+
+   Their twenty colours mapped onto our twenty-one; the mapping and what it decides are in
+   `scripts/import-daisy.mjs`. Not one value was corrected — a theme whose own colours failed the
+   contrast guard was skipped rather than nudged, because a nudged `pastel` is not `pastel`.
+
+   SOURCE from here on. Edit it by hand; nothing regenerates it. */
+[data-theme="synthwave"] {
+  color-scheme: dark;
+
+  /* The twenty-one */
+  --background: #09002f;
+  --foreground: #a1b1ff;
+  --card: #09002f;
+  --muted: #120b3d;
+  --muted-foreground: #6e79be;
+  --primary: #f861b4;
+  --primary-foreground: #500323;
+  --secondary: #71d1fe;
+  --secondary-foreground: #042e49;
+  --accent: #ff8904;
+  --accent-foreground: #421104;
+  --destructive: #ec8c78;
+  --destructive-content: #201047;
+  --info: #00bafe;
+  --info-content: #042e49;
+  --success: #00d3bb;
+  --success-content: #002d2c;
+  --warning: #fede1c;
+  --warning-content: #733e0a;
+  --border: #1c184b;
+  --ring: #f861b4;
+
+  /* The same families, read on the page rather than on their fill */
+  --destructive-foreground: #d19eb1;
+  --info-foreground: #65b7fe;
+  --success-foreground: #68c7d7;
+  --warning-foreground: #d7d0a0;
+
+  /* Shape */
+  --radius-box: 1rem;
+  --radius-field: 0.5rem;
+  --radius-selector: 1rem;
+  --size-field: 0.25rem;
+  --size-selector: 0.25rem;
+  --stroke: 1px;
+  --depth: 0;
+
+  /* daisyUI has no categorical channel, so this theme declines one rather than inheriting eight
+     slots it never chose. An ABSENT capacity reads as the full count — see `categoricalCapacity`,
+     which is explicit that a declared zero is an answer and an absence is not — so saying nothing
+     here would have a chart claim eight colours and paint them with a `var()` that resolves to
+     nothing. Give it a set by hand and raise this number. */
+  --chart-capacity: 0;
+}

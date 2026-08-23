@@ -175,18 +175,35 @@ const LIGHT_PULL = 0.9;
  * repository ships it reproduces all four authored values at ΔE 4.6 in the worst case and about 3
  * at the median. The per-token optima were 60, 60, 59 and 62, which is one number with rounding on
  * it rather than four.
+ *
+ * `surface` is the page the ink is read on, and it is optional because the mix does not need it —
+ * only the *floor* does. Given one, the result is walked further toward `ground` until it clears
+ * AA there, which is the same discipline {@link inkFor} applies to its own pair. Without it the
+ * function answers what daisyUI's generator would have answered, and the caller measures.
  */
-export function pageInk(fill: string, ground: string): string {
+export function pageInk(fill: string, ground: string, surface?: string): string {
   const [a, b] = [oklch(fill), oklch(ground)];
-  const mix = (x: number, y: number) => x * 0.6 + y * 0.4;
   const rad = (v: Oklch) => (v.h * Math.PI) / 180;
-  const A = mix(a.c * Math.cos(rad(a)), b.c * Math.cos(rad(b)));
-  const B = mix(a.c * Math.sin(rad(a)), b.c * Math.sin(rad(b)));
-  return hex({
-    l: mix(a.l, b.l),
-    c: Math.hypot(A, B),
-    h: ((Math.atan2(B, A) * 180) / Math.PI + 360) % 360,
-  });
+  const at = (p: number) => {
+    const A = a.c * Math.cos(rad(a)) * p + b.c * Math.cos(rad(b)) * (1 - p);
+    const B = a.c * Math.sin(rad(a)) * p + b.c * Math.sin(rad(b)) * (1 - p);
+    return hex({
+      l: a.l * p + b.l * (1 - p),
+      c: Math.hypot(A, B),
+      h: ((Math.atan2(B, A) * 180) / Math.PI + 360) % 360,
+    });
+  };
+  const measured = at(0.6);
+  if (surface === undefined || contrast(measured, surface) >= AA) return measured;
+  // Sixty percent is where the authored values sit, not a floor. Give it the surface the ink is
+  // read on and it becomes one: walk further toward `ground` until the pair clears AA. Every value
+  // the sixteen themes here author already does, so this changes nothing for them and only answers
+  // for fills nobody wrote down — daisyUI's `lemonade` lands at 3.93 and is the reason it exists.
+  for (let p = 0.58; p >= 0; p -= 0.02) {
+    const candidate = at(p);
+    if (contrast(candidate, surface) >= AA) return candidate;
+  }
+  return at(0);
 }
 
 /** Walk one branch out to its end, giving up lightness first and chroma only when that runs out. */

@@ -1,0 +1,56 @@
+/* coffee — imported from daisyUI 5.7.20 (MIT), converted from OKLCh to hex.
+   Copyright (c) 2020 Pouya Saadeghi. https://github.com/saadeghi/daisyui
+
+   Their twenty colours mapped onto our twenty-one; the mapping and what it decides are in
+   `scripts/import-daisy.mjs`. Not one value was corrected — a theme whose own colours failed the
+   contrast guard was skipped rather than nudged, because a nudged `pastel` is not `pastel`.
+
+   SOURCE from here on. Edit it by hand; nothing regenerates it. */
+[data-theme="coffee"] {
+  color-scheme: dark;
+
+  /* The twenty-one */
+  --background: #261b25;
+  --foreground: #c59f61;
+  --card: #261b25;
+  --muted: #1e151d;
+  --muted-foreground: #a08155;
+  --primary: #db924c;
+  --primary-foreground: #110802;
+  --secondary: #273e3f;
+  --secondary-foreground: #d0d5d5;
+  --accent: #11576d;
+  --accent-foreground: #d0dbe0;
+  --destructive: #fc9581;
+  --destructive-content: #150806;
+  --info: #8ecac1;
+  --info-content: #070f0e;
+  --success: #9db787;
+  --success-content: #090c07;
+  --warning: #ffd260;
+  --warning-content: #161003;
+  --border: #120a11;
+  --ring: #db924c;
+
+  /* The same families, read on the page rather than on their fill */
+  --destructive-foreground: #e69a75;
+  --info-foreground: #a8ba9d;
+  --success-foreground: #afae78;
+  --warning-foreground: #e7bd61;
+
+  /* Shape */
+  --radius-box: 1rem;
+  --radius-field: 0.5rem;
+  --radius-selector: 1rem;
+  --size-field: 0.25rem;
+  --size-selector: 0.25rem;
+  --stroke: 1px;
+  --depth: 0;
+
+  /* daisyUI has no categorical channel, so this theme declines one rather than inheriting eight
+     slots it never chose. An ABSENT capacity reads as the full count — see `categoricalCapacity`,
+     which is explicit that a declared zero is an answer and an absence is not — so saying nothing
+     here would have a chart claim eight colours and paint them with a `var()` that resolves to
+     nothing. Give it a set by hand and raise this number. */
+  --chart-capacity: 0;
+}

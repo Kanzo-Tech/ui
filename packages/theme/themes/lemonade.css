@@ -1,0 +1,56 @@
+/* lemonade — imported from daisyUI 5.7.20 (MIT), converted from OKLCh to hex.
+   Copyright (c) 2020 Pouya Saadeghi. https://github.com/saadeghi/daisyui
+
+   Their twenty colours mapped onto our twenty-one; the mapping and what it decides are in
+   `scripts/import-daisy.mjs`. Not one value was corrected — a theme whose own colours failed the
+   contrast guard was skipped rather than nudged, because a nudged `pastel` is not `pastel`.
+
+   SOURCE from here on. Edit it by hand; nothing regenerates it. */
+[data-theme="lemonade"] {
+  color-scheme: light;
+
+  /* The twenty-one */
+  --background: #f8fdef;
+  --foreground: #151614;
+  --card: #f8fdef;
+  --muted: #e1e6d9;
+  --muted-foreground: #636660;
+  --primary: #419400;
+  --primary-foreground: #010800;
+  --secondary: #bdc000;
+  --secondary-foreground: #0d0e00;
+  --accent: #edd000;
+  --accent-foreground: #141000;
+  --destructive: #efc6c2;
+  --destructive-content: #140e0e;
+  --info: #b1d9e9;
+  --info-content: #0c1113;
+  --success: #b9dbc6;
+  --success-content: #0d110e;
+  --warning: #d7d3b0;
+  --warning-content: #11100c;
+  --border: #cbcfc3;
+  --ring: #419400;
+
+  /* The same families, read on the page rather than on their fill */
+  --destructive-foreground: #826e6b;
+  --info-foreground: #63777e;
+  --success-foreground: #67786d;
+  --warning-foreground: #767462;
+
+  /* Shape */
+  --radius-box: 1rem;
+  --radius-field: 0.5rem;
+  --radius-selector: 1rem;
+  --size-field: 0.25rem;
+  --size-selector: 0.25rem;
+  --stroke: 1px;
+  --depth: 0;
+
+  /* daisyUI has no categorical channel, so this theme declines one rather than inheriting eight
+     slots it never chose. An ABSENT capacity reads as the full count — see `categoricalCapacity`,
+     which is explicit that a declared zero is an answer and an absence is not — so saying nothing
+     here would have a chart claim eight colours and paint them with a `var()` that resolves to
+     nothing. Give it a set by hand and raise this number. */
+  --chart-capacity: 0;
+}

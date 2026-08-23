@@ -70,6 +70,29 @@ something, and loses it where it does not, and the same theme file can do both.
 They are what let a client look different without looking like a fork, and none of them existed
 before: only the radius did, as a single knob for everything.
 
+`--noise` is the newest and the one that shows the pattern most plainly. It multiplies the *size*
+of a grain layer the recipes already paint:
+
+```css
+background-image: var(--fx-noise);
+background-size: calc(var(--noise, 0) * 100%);
+```
+
+At `0` the layer is sized to nothing and never drawn; at `1` it tiles. **One rule, no variant, no
+conditional** — which is what makes texture a value a tenant sets rather than a look somebody has to
+write, exactly as `--depth` does for relief. The grain itself is a constant in the library's sheet:
+a theme says how much it wants, never what it is.
+
+No shipped theme declares it, so `var(--noise, 0)` is where "off" lives. A theme that wants texture
+writes the line; one that does not says nothing, which is the same rule the colour names follow.
+
+<Callout title="A knob nothing reads is worse than a missing one">
+  `--size-field` and `--size-selector` were declarations no recipe read: a tenant set them, nothing
+  moved, and the theme looked *broken* rather than ignored. `--noise` was a stranger version — named
+  in the vocabulary and referenced nowhere at all. `knobs-are-read.test.ts` now fails for any knob
+  that reaches neither a `var()` in the sheet nor a utility the library uses.
+</Callout>
+
 | knob | governs |
 | --- | --- |
 | `--radius-box` / `--radius-field` / `--radius-selector` | card and dialog / button, input and tab / checkbox and badge |

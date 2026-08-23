@@ -1,0 +1,56 @@
+/* luxury — imported from daisyUI 5.7.20 (MIT), converted from OKLCh to hex.
+   Copyright (c) 2020 Pouya Saadeghi. https://github.com/saadeghi/daisyui
+
+   Their twenty colours mapped onto our twenty-one; the mapping and what it decides are in
+   `scripts/import-daisy.mjs`. Not one value was corrected — a theme whose own colours failed the
+   contrast guard was skipped rather than nudged, because a nudged `pastel` is not `pastel`.
+
+   SOURCE from here on. Edit it by hand; nothing regenerates it. */
+[data-theme="luxury"] {
+  color-scheme: dark;
+
+  /* The twenty-one */
+  --background: #09090b;
+  --foreground: #dca54d;
+  --card: #09090b;
+  --muted: #171618;
+  --muted-foreground: #a0793d;
+  --primary: #ffffff;
+  --primary-foreground: #161616;
+  --secondary: #152747;
+  --secondary-foreground: #cbd0d7;
+  --accent: #513448;
+  --accent-foreground: #dad3d7;
+  --destructive: #ff6f6f;
+  --destructive-content: #160404;
+  --info: #67c6ff;
+  --info-content: #040e16;
+  --success: #87d03a;
+  --success-content: #061001;
+  --warning: #e2d563;
+  --warning-content: #121003;
+  --border: #1e1d1f;
+  --ring: #ffffff;
+
+  /* The same families, read on the page rather than on their fill */
+  --destructive-foreground: #f28763;
+  --info-foreground: #a1bdc0;
+  --success-foreground: #b0c043;
+  --warning-foreground: #e0c25a;
+
+  /* Shape */
+  --radius-box: 1rem;
+  --radius-field: 0.5rem;
+  --radius-selector: 1rem;
+  --size-field: 0.25rem;
+  --size-selector: 0.25rem;
+  --stroke: 1px;
+  --depth: 1;
+
+  /* daisyUI has no categorical channel, so this theme declines one rather than inheriting eight
+     slots it never chose. An ABSENT capacity reads as the full count — see `categoricalCapacity`,
+     which is explicit that a declared zero is an answer and an absence is not — so saying nothing
+     here would have a chart claim eight colours and paint them with a `var()` that resolves to
+     nothing. Give it a set by hand and raise this number. */
+  --chart-capacity: 0;
+}

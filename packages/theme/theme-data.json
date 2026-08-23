@@ -23,6 +23,10 @@
   },
   "themes": [
     {
+      "name": "acid",
+      "dark": false
+    },
+    {
       "name": "bank-dark",
       "dark": true
     },
@@ -55,12 +59,32 @@
       "dark": false
     },
     {
+      "name": "cmyk",
+      "dark": false
+    },
+    {
+      "name": "coffee",
+      "dark": true
+    },
+    {
+      "name": "cyberpunk",
+      "dark": false
+    },
+    {
+      "name": "dim",
+      "dark": true
+    },
+    {
       "name": "dracula-dark",
       "dark": true
     },
     {
       "name": "dracula",
       "dark": false
+    },
+    {
+      "name": "forest",
+      "dark": true
     },
     {
       "name": "kanzo-dark",
@@ -71,6 +95,18 @@
       "dark": false
     },
     {
+      "name": "lemonade",
+      "dark": false
+    },
+    {
+      "name": "lofi",
+      "dark": false
+    },
+    {
+      "name": "luxury",
+      "dark": true
+    },
+    {
       "name": "monochrome-dark",
       "dark": true
     },
@@ -79,11 +115,27 @@
       "dark": false
     },
     {
+      "name": "night",
+      "dark": true
+    },
+    {
       "name": "nord-dark",
       "dark": true
     },
     {
       "name": "nord",
+      "dark": false
+    },
+    {
+      "name": "sunset",
+      "dark": true
+    },
+    {
+      "name": "synthwave",
+      "dark": true
+    },
+    {
+      "name": "wireframe",
       "dark": false
     }
   ],

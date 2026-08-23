@@ -1,0 +1,56 @@
+/* wireframe — imported from daisyUI 5.7.20 (MIT), converted from OKLCh to hex.
+   Copyright (c) 2020 Pouya Saadeghi. https://github.com/saadeghi/daisyui
+
+   Their twenty colours mapped onto our twenty-one; the mapping and what it decides are in
+   `scripts/import-daisy.mjs`. Not one value was corrected — a theme whose own colours failed the
+   contrast guard was skipped rather than nudged, because a nudged `pastel` is not `pastel`.
+
+   SOURCE from here on. Edit it by hand; nothing regenerates it. */
+[data-theme="wireframe"] {
+  color-scheme: light;
+
+  /* The twenty-one */
+  --background: #ffffff;
+  --foreground: #161616;
+  --card: #ffffff;
+  --muted: #f5f5f5;
+  --muted-foreground: #707070;
+  --primary: #d4d4d4;
+  --primary-foreground: #242424;
+  --secondary: #d4d4d4;
+  --secondary-foreground: #242424;
+  --accent: #d4d4d4;
+  --accent-foreground: #242424;
+  --destructive: #9d0410;
+  --destructive-content: #fec8c8;
+  --info: #005889;
+  --info-content: #b8e6fe;
+  --success: #006044;
+  --success-content: #a3f2ce;
+  --warning: #963b00;
+  --warning-content: #fde484;
+  --border: #ebebeb;
+  --ring: #d4d4d4;
+
+  /* The same families, read on the page rather than on their fill */
+  --destructive-foreground: #651b18;
+  --info-foreground: #173d58;
+  --success-foreground: #184131;
+  --warning-foreground: #602e16;
+
+  /* Shape */
+  --radius-box: 0.25rem;
+  --radius-field: 0.25rem;
+  --radius-selector: 0rem;
+  --size-field: 0.25rem;
+  --size-selector: 0.25rem;
+  --stroke: 1px;
+  --depth: 0;
+
+  /* daisyUI has no categorical channel, so this theme declines one rather than inheriting eight
+     slots it never chose. An ABSENT capacity reads as the full count — see `categoricalCapacity`,
+     which is explicit that a declared zero is an answer and an absence is not — so saying nothing
+     here would have a chart claim eight colours and paint them with a `var()` that resolves to
+     nothing. Give it a set by hand and raise this number. */
+  --chart-capacity: 0;
+}

@@ -1,0 +1,56 @@
+/* cyberpunk — imported from daisyUI 5.7.20 (MIT), converted from OKLCh to hex.
+   Copyright (c) 2020 Pouya Saadeghi. https://github.com/saadeghi/daisyui
+
+   Their twenty colours mapped onto our twenty-one; the mapping and what it decides are in
+   `scripts/import-daisy.mjs`. Not one value was corrected — a theme whose own colours failed the
+   contrast guard was skipped rather than nudged, because a nudged `pastel` is not `pastel`.
+
+   SOURCE from here on. Edit it by hand; nothing regenerates it. */
+[data-theme="cyberpunk"] {
+  color-scheme: light;
+
+  /* The twenty-one */
+  --background: #fff248;
+  --foreground: #000000;
+  --card: #fff248;
+  --muted: #f7e83a;
+  --muted-foreground: #555012;
+  --primary: #ff6596;
+  --primary-foreground: #180408;
+  --secondary: #00e8ff;
+  --secondary-foreground: #001316;
+  --accent: #ce74ff;
+  --accent-foreground: #0f0517;
+  --destructive: #ff5861;
+  --destructive-content: #000000;
+  --info: #00b5ff;
+  --info-content: #000000;
+  --success: #00a96e;
+  --success-content: #000000;
+  --warning: #ffbe00;
+  --warning-content: #000000;
+  --border: #e3d40e;
+  --ring: #ff6596;
+
+  /* The same families, read on the page rather than on their fill */
+  --destructive-foreground: #80282d;
+  --info-foreground: #005980;
+  --success-foreground: #005333;
+  --warning-foreground: #805e00;
+
+  /* Shape */
+  --radius-box: 0rem;
+  --radius-field: 0rem;
+  --radius-selector: 0rem;
+  --size-field: 0.25rem;
+  --size-selector: 0.25rem;
+  --stroke: 1px;
+  --depth: 0;
+
+  /* daisyUI has no categorical channel, so this theme declines one rather than inheriting eight
+     slots it never chose. An ABSENT capacity reads as the full count — see `categoricalCapacity`,
+     which is explicit that a declared zero is an answer and an absence is not — so saying nothing
+     here would have a chart claim eight colours and paint them with a `var()` that resolves to
+     nothing. Give it a set by hand and raise this number. */
+  --chart-capacity: 0;
+}

@@ -1,0 +1,56 @@
+/* night — imported from daisyUI 5.7.20 (MIT), converted from OKLCh to hex.
+   Copyright (c) 2020 Pouya Saadeghi. https://github.com/saadeghi/daisyui
+
+   Their twenty colours mapped onto our twenty-one; the mapping and what it decides are in
+   `scripts/import-daisy.mjs`. Not one value was corrected — a theme whose own colours failed the
+   contrast guard was skipped rather than nudged, because a nudged `pastel` is not `pastel`.
+
+   SOURCE from here on. Edit it by hand; nothing regenerates it. */
+[data-theme="night"] {
+  color-scheme: dark;
+
+  /* The twenty-one */
+  --background: #0f172a;
+  --foreground: #c9cbd0;
+  --card: #0f172a;
+  --muted: #0c1425;
+  --muted-foreground: #7b808d;
+  --primary: #3abdf7;
+  --primary-foreground: #010d15;
+  --secondary: #818cf8;
+  --secondary-foreground: #060715;
+  --accent: #f471b5;
+  --accent-foreground: #14040c;
+  --destructive: #fb7085;
+  --destructive-content: #150406;
+  --info: #0ca5e9;
+  --info-content: #000000;
+  --success: #2fd4bf;
+  --success-content: #01100d;
+  --warning: #f4bf51;
+  --warning-content: #140d02;
+  --border: #0a1120;
+  --ring: #3abdf7;
+
+  /* The same families, read on the page rather than on their fill */
+  --destructive-foreground: #ec98a3;
+  --info-foreground: #74b6e0;
+  --success-foreground: #83d1c6;
+  --warning-foreground: #e3c58d;
+
+  /* Shape */
+  --radius-box: 1rem;
+  --radius-field: 0.5rem;
+  --radius-selector: 1rem;
+  --size-field: 0.25rem;
+  --size-selector: 0.25rem;
+  --stroke: 1px;
+  --depth: 0;
+
+  /* daisyUI has no categorical channel, so this theme declines one rather than inheriting eight
+     slots it never chose. An ABSENT capacity reads as the full count — see `categoricalCapacity`,
+     which is explicit that a declared zero is an answer and an absence is not — so saying nothing
+     here would have a chart claim eight colours and paint them with a `var()` that resolves to
+     nothing. Give it a set by hand and raise this number. */
+  --chart-capacity: 0;
+}

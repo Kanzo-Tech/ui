@@ -1,0 +1,56 @@
+/* acid — imported from daisyUI 5.7.20 (MIT), converted from OKLCh to hex.
+   Copyright (c) 2020 Pouya Saadeghi. https://github.com/saadeghi/daisyui
+
+   Their twenty colours mapped onto our twenty-one; the mapping and what it decides are in
+   `scripts/import-daisy.mjs`. Not one value was corrected — a theme whose own colours failed the
+   contrast guard was skipped rather than nudged, because a nudged `pastel` is not `pastel`.
+
+   SOURCE from here on. Edit it by hand; nothing regenerates it. */
+[data-theme="acid"] {
+  color-scheme: light;
+
+  /* The twenty-one */
+  --background: #f8f8f8;
+  --foreground: #000000;
+  --card: #f8f8f8;
+  --muted: #eeeeee;
+  --muted-foreground: #535353;
+  --primary: #ff00ff;
+  --primary-foreground: #180017;
+  --secondary: #ff6e00;
+  --secondary-foreground: #180400;
+  --accent: #c8ff00;
+  --accent-foreground: #0f1600;
+  --destructive: #ff0000;
+  --destructive-content: #190000;
+  --info: #007fff;
+  --info-content: #000616;
+  --success: #00ff8a;
+  --success-content: #001607;
+  --warning: #ffe200;
+  --warning-content: #161200;
+  --border: #e1e1e1;
+  --ring: #ff00ff;
+
+  /* The same families, read on the page rather than on their fill */
+  --destructive-foreground: #800000;
+  --info-foreground: #003c80;
+  --success-foreground: #008042;
+  --warning-foreground: #807100;
+
+  /* Shape */
+  --radius-box: 1rem;
+  --radius-field: 1rem;
+  --radius-selector: 1rem;
+  --size-field: 0.25rem;
+  --size-selector: 0.25rem;
+  --stroke: 1px;
+  --depth: 1;
+
+  /* daisyUI has no categorical channel, so this theme declines one rather than inheriting eight
+     slots it never chose. An ABSENT capacity reads as the full count — see `categoricalCapacity`,
+     which is explicit that a declared zero is an answer and an absence is not — so saying nothing
+     here would have a chart claim eight colours and paint them with a `var()` that resolves to
+     nothing. Give it a set by hand and raise this number. */
+  --chart-capacity: 0;
+}

@@ -3,6 +3,7 @@
    whatever theme is on. A theme is `themes/<name>.css` and is SOURCE — hand-written, one flat
    block. This file never contains a colour. */
 
+@import "./themes/acid.css";
 @import "./themes/bank-dark.css";
 @import "./themes/bank-private-dark.css";
 @import "./themes/bank-private.css";
@@ -11,14 +12,26 @@
 @import "./themes/catppuccin-latte.css";
 @import "./themes/catppuccin-mocha-dark.css";
 @import "./themes/catppuccin-mocha.css";
+@import "./themes/cmyk.css";
+@import "./themes/coffee.css";
+@import "./themes/cyberpunk.css";
+@import "./themes/dim.css";
 @import "./themes/dracula-dark.css";
 @import "./themes/dracula.css";
+@import "./themes/forest.css";
 @import "./themes/kanzo-dark.css";
 @import "./themes/kanzo.css";
+@import "./themes/lemonade.css";
+@import "./themes/lofi.css";
+@import "./themes/luxury.css";
 @import "./themes/monochrome-dark.css";
 @import "./themes/monochrome.css";
+@import "./themes/night.css";
 @import "./themes/nord-dark.css";
 @import "./themes/nord.css";
+@import "./themes/sunset.css";
+@import "./themes/synthwave.css";
+@import "./themes/wireframe.css";
 
 /* ── Radius (data-radius) ───────────────────────────────────────────────── */
 [data-radius="none"] {
