@@ -194,9 +194,21 @@ wearing new clothes: a number is only as good as the frame under it.
    still moving pages — `theme-studio` became `/theme-generator`, `theme-gallery` became
    `/docs/themes`, and `--accent` was rewritten across thirteen themes today. Re-measure when it
    stops. The count itself needs redoing before the guard is written.
-2. **Look at the rest of the AI pages the way `message` was looked at.** `MessageMarkdown` and the
-   model picker are done. `Reasoning`, `Task` and `Tool` have never been clicked either, and the two
-   findings today that mattered most were invisible to every check we run.
+2. **`Conversation` and `AI-assisted fields` are the two AI pages still never clicked.**
+   `Reasoning`, `Task` and `Tool` were looked at on 2026-08-23 and **nothing came back**, which is
+   worth writing down because the four sessions before it found something every time. What was
+   checked and held: `Reasoning` measures with `Date.now()` and nulls `startedAt` on stop, so a
+   second run does not accumulate; its mid-stream clipping is Ark's `expand` animation with
+   `overflow: hidden`, not lost content — 1 sample of 10 showed a 91 px deficit and the resting
+   state is 163/163. `Task` is an `ol` of `li` where every row carries an `sr-only` state word, and
+   the `Spinner` beside it is `aria-hidden`, so the state is announced once and not twice. `Tool`
+   renders its payload as children — highlighted SQL and a real table — which is the claim the page
+   makes for existing.
+
+   The one thing that came out of it belongs to the theme session: `reasoning/example-default` is
+   pinned to 220 px in `docs/components/preview-heights.json` and measures 231 open, so the box
+   clips at rest. They are fixing it. `tool/example-default` overflows by **4 px**, which clips
+   nothing but is enough to make the preview a scroll container that swallows the page's wheel.
 3. **`Diagnostic`: `severity` or `variant`?** Still Angel's, still blocking the rest of that rework.
 4. **The autoplaying-previews worktree** (`agent-adcbff1e9bd7122d0`, at `494d6ea`) — integrate by
    cherry-picking the files, not by merging the branch; it now sits a long way behind.
