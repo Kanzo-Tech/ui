@@ -521,4 +521,48 @@ describe("the documented surface", () => {
     // name — either the page stopped saying it, or the export arrived. Delete the entry.
     expect(stale).toEqual([]);
   });
+  /**
+   * The same two inputs, read the other way: every name we EXPORT is named on some page.
+   *
+   * The forward question — "is this name real?" — has been asked here since the file was written.
+   * This is its reverse, and it catches the defect the forward one cannot see: a symbol on the
+   * barrel that no page mentions is a symbol a reader can only find by reading `index.ts`. It is
+   * asked of every entry point, so `theme`, `graph` and `ai` are in it too, and it needs no
+   * allowlist — an allowlist here would be the second list this whole module argues against.
+   *
+   * **The site is the flat one, deliberately.** Not the claim sites above: those are
+   * PascalCase-or-`use[A-Z]` by construction, which is right for "is this real?" and useless for
+   * "is this mentioned?" — `cn`, `sql`, `min` and two hundred others can never be a claim, so the
+   * reverse question asked that way reports misses that are the extractor's shape rule and not
+   * defects. Measured on this corpus at 280 of them.
+   *
+   * ## What this cannot prove
+   *
+   * - **A word is not a mention.** `sum`, `mode`, `column` and `forces` pass on any page using the
+   *   English word. That is the honest trade for a question about *absence*: a false pass costs a
+   *   missing sentence, and a false failure would cost an allowlist.
+   * - **It does not read what the page says.** A name in a fenced import, in a prop table or in a
+   *   sentence saying the export is deprecated all read the same. Whether the mention is useful is
+   *   what review is for.
+   * - **Types and values are one question here.** `getExportsOfModule` returns both, and requiring
+   *   a page to name every interface is the stricter of the two readings — chosen deliberately on
+   *   2026-08-23, measured at 178 type names against 14 values, and closed rather than excused.
+   */
+  it("names every export we ship on some page", () => {
+    const corpus = [...PAGE_TEXT.values()].join("\n");
+    const unnamed: string[] = [];
+    for (const [spec, names] of surface().bySpec) {
+      for (const name of names) {
+        const word = new RegExp(`\\b${name.replace(/[$]/g, "\\$")}\\b`);
+        if (!word.test(corpus)) unnamed.push(`${spec}: ${name}`);
+      }
+    }
+
+    expect(
+      unnamed.sort(),
+      `An export no page names is one a reader can only find by opening \`index.ts\`. Say it\n` +
+        `somewhere — a sentence, a row in a prop table, a line in an anatomy block. There is no\n` +
+        `allowlist on purpose:\n${unnamed.join("\n")}`
+    ).toEqual([]);
+  });
 });
