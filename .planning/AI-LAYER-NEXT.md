@@ -20,10 +20,11 @@ or named here as open.**
 
 ### The tree
 
-**Seven code commits**, on top of the seven that were here (the `docs(planning)` ones between them
+**Eight code commits**, on top of the seven that were here (the `docs(planning)` ones between them
 are this file):
 
 ```
+87a8524 fix(graph): the renderer stops being rebuilt on every render, and draws
 a755f7b fix(docs): the tool example is a client module, and the build says why it must be
 111f257 fix(graph): the context comes back, and a lost one stops being silent
 3129463 fix(graph): every write into cosmos.gl waits for its device, and a guard says so
@@ -65,8 +66,9 @@ dev server never evaluates the boundary.
 3. **`Switch` had no accessible name** (`daf9e0a`) — the finding of the day, and the same shape as
    the `Diagnostic` one: `children` were accepted by the type and rendered nowhere, so the page's
    own first example passed a label and shipped a bare toggle. Measured live, fixed, tested.
-4. **`graph`'s two example groups** (`f8caf62`) — written, typechecked, linted, and their **chrome
-   verified live**; the canvas behind them is blank for the reason below.
+4. **`graph`'s two example groups** (`f8caf62`) — and **verified live**, picture included, once the
+   rebuild loop below was fixed: 552 points sized by degree, ten hub labels placed with the
+   declutter hiding four, and the marquee counting 186 → 378 → 493 → 530 into "Marquee: 530".
 5. **Nine unguarded writes into cosmos.gl** (`3129463`), with `when-ready.test.ts` to hold the rule.
    It is a real bug class and it is **not** why the graph is blank.
 
@@ -79,60 +81,33 @@ open**, and `theme`'s surface grew by five names *during* the measurement. The n
 and the one extraction trap are written at the end of `.planning/EXAMPLE-COVERAGE.md`. Write the
 guard the day those pages settle.
 
-### The graph does not draw, and it is not the examples
+### The graph draws now, and the cause was one dependency array
 
-**Every graph on `/docs/graph` is blank** — one preview on the page or four, `example-memory`
-included, which predates this session. The badge reports `552 drawn of 552`, the slice is right, the
-identities resolve, the chrome renders. Nothing paints. `/view/showcases/graph-bench` draws 10,000
-nodes at 62 fps in the same browser, so cosmos.gl and the GPU are fine; the bench builds its own
-instance and its own upload path, which is the difference.
+**Closed.** `useCosmosGraph`'s construction effect listed the caller's callbacks in its dependency
+array. `onFailure` is required by this package and every consumer writes it inline, so every render
+was a new identity and every new identity destroyed the graph and built another — **142 `destroy()`
+in five seconds** with nobody touching the page, `setPointPositions` called **zero** times.
+`87a8524` holds them in a ref instead, the way `events` already was three lines above.
 
-Chasing it found and fixed a real bug class that turned out **not** to be the cause — see the
-`when-ready` commit. **The instance is inert**, and this is how far the bisection got. Every step
-below was run in the browser against the live page, so start from the answers rather than the
-questions:
+**The two things chased before it were real and were symptoms.** At ~28 rebuilds a second it burned
+the browser's sixteen-context budget continuously, which is why the other three graphs on the page
+were blank and why three of four canvases read `isContextLost === true` with fifteen slots free —
+and why the overlay labels never placed, because the tracked positions were registered against
+instances that were already gone. Both fixes stand on their own (`3129463`, `111f257`) and neither
+was the cause.
 
-- **The data path is right, end to end.** `api.slice` carries 552 marks, 1,104 position floats and
-  2,152 link floats; the corpus' first point is `(2389, 2263)` inside a 4,096 box; `spaceSize` is
-  4,096 and the zoom is 1. `Resident.indicesOf` resolves all fourteen hubs to `0…13`.
-- **The instance rejects everything.** `graph.getPointPositions()` returns **0** after the real
-  slice has been pushed, and still 0 after three hand-made points pushed from the console.
-  `getPointSizes()` and `getPointColors()` are 0 too, and `getZoomLevel()` goes to **0** after a
-  `render()`.
-- **A twin proves it is not the environment.** `new Graph(twin, {})` appended *inside the very same
-  container*, handed *the very same slice*, reads back **1,104** and a zoom of 0.69. cosmos.gl, the
-  GPU, the container and the data are all fine.
-- **Eliminated by direct experiment, each one built and measured:** the whole construction config
-  including every callback (works); `randomSeed`, `pixelRatio`, `fitView*`, `attribution`,
-  `enableDrag` individually (work); a host that is zero-sized or `display: none` at construction
-  and grown afterwards (works); construct → `destroy()` → construct into the same element, which is
-  what StrictMode does (works); colours and sizes pushed *before* positions (works); one preview on
-  the page rather than four (still blank).
-- **Chrome paints the canvas as a failed surface** — the glyph in the corner of each frame is the
-  canvas itself, not an image: `document.images.length` is 0 on that page.
-
-**Answered, and it was the contexts.** `isContextLost()` is `true` on three of the four canvases.
-Chrome keeps **sixteen** WebGL contexts per renderer and evicts the oldest — measured by asking for
-twenty-four and watching the first eight die. cosmos.gl never releases one (`loseContext`: zero
-occurrences in 3.4.0), so every StrictMode remount and every Fast Refresh leaked one until the page
-went over budget mid-load. Both halves are fixed in `111f257`, and a lost context now says so
-through `onFailure` instead of leaving an empty box: two of the four previews render the message.
-
-**The graph still draws nothing, and that is now a different question.** The canvas whose context
-survived is still blank with a badge reporting 552 of 552. One caveat on the measurement to carry
-forward: `canvas.getContext('webgl2')` from a probe **creates** a context when there is none, so a
-`lost: false` may mean *there was never one here* rather than *this one is healthy*. Probe with
-`getContext(…, {})` against a canvas you did not just touch, or count from the page instead.
+**What it cost, and the lesson under it:** four wrong diagnoses, each supported by real
+measurements — the label readback, the environment's WebGL, the context budget, the construction
+config — all taken off a canvas that was being torn down between the measurement and the next one.
+`sameInstance: false` from two calls to `getGraph()` five seconds apart is what finally said it.
+**When a component's state makes no sense, ask whether it is the same component.**
 
 ### Next, in the order I would take it
 
-1. **Find out why a graph with a live context still paints nothing.** The context question is
-   closed. What is left is the twin: `new Graph(twin, {})` beside ours, handed the same slice, reads
-   back all 1,104 positions, and ours reads back 0 — with the device ready and the writes now
-   behind `whenReady`. Diff the two instances' state rather than the code paths.
-2. **Then look at the two new examples**, which have never been seen with a picture behind them.
-3. **The thirteen names, then the guard** — the day the theme pages settle.
-4. **`ModelList` and `streamdown`**, which are still Angel's calls (§0a).
+1. **`ModelList` and `streamdown`**, which are Angel's calls (§0a) — and on `ModelList` he asked for
+   the decision record that says why it enters with one call site.
+2. **The thirteen unnamed exports, then the guard**, the day the theme pages settle.
+
 
 ### Traps, and the new one is the expensive one
 
@@ -145,6 +120,11 @@ forward: `canvas.getContext('webgl2')` from a probe **creates** a context when t
   order that would have cost twenty minutes instead of two hours: **screenshot first, console
   second, DOM numbers third.** A number read off a graph that never painted is a number about
   nothing, and it will happily support a theory.
+- **When a component's state makes no sense, ask whether it is the same component.** Four wrong
+  diagnoses went past before `getGraph()` returning a different instance five seconds apart said
+  what was actually happening. Every one of the four was supported by real measurements, and every
+  measurement was taken off an instance that was destroyed before the next one. `sameInstance` is a
+  one-line check and it should have been the first, not the fifth.
 - **`git checkout -- <file>` discards another session's uncommitted work, silently.** Done here to
   `documented-exports.test.ts`, which was carrying an unfinished blocks-surface feature and an
   `ai` entry point. Reconstructed from what was still in context; it is uncommitted again, as it
