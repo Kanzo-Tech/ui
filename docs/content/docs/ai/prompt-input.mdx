@@ -87,6 +87,27 @@ status is also mirrored to `data-status`, so a consumer's own styling can select
 the next question. They are two states of the *stream*, not of this control.
 </Callout>
 
+## Choosing which model answers
+
+<ComponentPreview componentName="prompt-input" fileName="example-model" />
+
+A model is a **value**, so the picker is a [`Select`](/docs/forms/select) and there is no component
+here for it. A value control keeps its value without being told to; reach for a palette instead and
+you inherit its rule that a selection is thrown away on click, which is a defect you then have to
+override your way out of. AI Elements — the source these shapes come from — puts a `Select` in this
+strip and never needed the override. The record is
+`decisions/a-picker-that-forgets-its-value-is-a-defect.md`.
+
+What the composer asks of it is that it stop looking like a form field. The strip is a row of
+controls, not a row of inputs, so the trigger drops its border, its fill and its shadow and takes
+the hover the rest of the row takes:
+
+```tsx
+<SelectTrigger className="w-auto border-none bg-transparent shadow-none text-muted-foreground hover:bg-accent hover:text-foreground">
+  <SelectValue />
+</SelectTrigger>
+```
+
 ## Anatomy
 
 ```text
@@ -97,7 +118,7 @@ PromptInput                 (form, rendered as an InputGroup)
     └── PromptInputSubmit   (ms-auto — it packs to the reading end)
 ```
 
-Anything else you put in the toolbar is yours: a [`Menu`](/docs/overlays/menu) of models, a
+Anything else you put in the toolbar is yours: the [`Select`](/docs/forms/select) above, a
 [`Popover`](/docs/overlays/popover) of attachments, a [`Toggle`](/docs/actions/toggle) for a mode.
 They anchor to the composer for the reason above.
 

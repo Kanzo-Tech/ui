@@ -9,7 +9,6 @@
     "reasoning",
     "tool",
     "task",
-    "model-list",
     "---Hooks---",
     "use-ai-stream",
     "use-inline-completion",

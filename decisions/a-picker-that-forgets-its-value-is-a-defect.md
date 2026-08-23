@@ -1,6 +1,6 @@
 # A picker that forgets its value is a defect, so `ModelList` enters with one call site
 
-- **Status** live — 2026-08-23
+- **Status** superseded by `a-model-is-a-value-so-the-picker-is-a-select` — 2026-08-23, the same day
 - **Decided** `@kanzo-tech/ai` ships `ModelList` and `ModelListItem` over `Command`, with **one**
   call site in this repository — the docs example — which is admission rule 2 unmet. It ships
   anyway. `ModelList` overrides `Command`'s `selectionBehavior` to `"preserve"`; `ModelListItem` is
@@ -21,8 +21,8 @@
   keasy's provider picker, the second call site this was written for, lands on composing `Command`
   and `ComboboxItem` by hand anyway, then the compound was not what a real host reached for and it
   should be deleted rather than kept for symmetry.
-- **Held by** `packages/ai/src/model-list.tsx`, `ModelList` and `ModelListItem`;
-  `packages/ui/src/simples/command.tsx`, `selectionBehavior` and `showIndicator`
+- **Held by** `packages/ui/src/simples/command.tsx`, `selectionBehavior` and `showIndicator` — the
+  two pins the argument turned on, and the only half of it that still exists
 
 ## What the argument against it was, and why it did not win
 

@@ -77,10 +77,6 @@ export type {
 
 export type { Candidate } from "./types.js";
 
-// Choosing which model answers. Two overrides over `Command`, and each is a defect when it is
-// missing — `decisions/a-picker-that-forgets-its-value-is-a-defect.md`.
-export { ModelList, ModelListItem } from "./model-list.js";
-
 // The wire format the components draw. Types plus four guards — this module renders nothing, and
 // the `switch` over `part.type` stays the host's.
 export { isTextPart, isReasoningPart, isToolPart, isTaskPart } from "./message-part.js";

@@ -381,11 +381,6 @@ const DELIBERATE: Record<string, string[]> = {
   // line's height" — the paragraph explains why the part was not written. `simples/skeleton.tsx`
   // carries the same argument.
   "overlays/loading.mdx": ["SkeletonText"],
-  // "There is no `Model` type here on purpose: a model is whatever shape your registry returns, and
-  // a fourth way to describe a collection item is not worth the name." The paragraph is about the
-  // collection trio being re-exported, which is what puts it in front of the prose site at all.
-  // `decisions/a-picker-that-forgets-its-value-is-a-defect.md` carries the same sentence.
-  "ai/model-list.mdx": ["Model"],
 };
 
 /**
