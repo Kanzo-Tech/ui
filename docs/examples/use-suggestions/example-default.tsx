@@ -11,7 +11,8 @@ import {
   type Candidate,
   useSuggestions,
 } from "@kanzo-tech/ai";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useAutoplay } from "@/lib/preview-autoplay";
 
 // A stub `suggest`. It yields whole candidates — and deliberately repeats one already chosen,
 // to show the dedup dropping it before it is ever rendered.
@@ -24,17 +25,36 @@ const POOL: Candidate[] = [
   { value: "spain", rationale: "Every record carries an ES region code." },
 ];
 
-async function* suggest(signal?: AbortSignal) {
-  for (const item of POOL) {
-    await new Promise((r) => setTimeout(r, 260));
-    if (signal?.aborted) return;
-    yield item;
-  }
-}
+const PACE = 260;
 
 export default function Example() {
   const [chosen, setChosen] = useState<string[]>(["climate"]);
+
+  // The cadence is a ref so `settle` can run the SAME stub at 0 ms — under reduced motion the
+  // three rows are simply present. `useSuggestions` reads its options through a ref of its own,
+  // so redefining `suggest` every render costs nothing.
+  const pace = useRef(PACE);
+
+  const suggest = async function* (signal?: AbortSignal) {
+    for (const item of POOL) {
+      await new Promise((r) => setTimeout(r, pace.current));
+      if (signal?.aborted) return;
+      yield item;
+    }
+  };
+
   const suggestions = useSuggestions({ suggest, existing: chosen, limit: 3 });
+
+  // `refresh` and not `ask`. `ask` is gated on `status === "idle"` — the ✨'s own rule, so that a
+  // second press while an answer is on screen does nothing — and a cue is not a second press: a
+  // reader scrolling back to a strip they already saw is asking to watch it again, which is what
+  // the "Again" button does. Still guarded on `loading`, so a cue landing mid-fill lets the run
+  // that is already arriving finish.
+  useAutoplay((mode) => {
+    if (suggestions.status === "loading") return;
+    pace.current = mode === "settle" ? 0 : PACE;
+    suggestions.refresh();
+  });
 
   const pick = (value: string) => {
     setChosen((prev) => [...prev, value]);

@@ -15,20 +15,39 @@ import {
   useInlineCompletion,
 } from "@kanzo-tech/ai";
 import { useRef, useState } from "react";
+import { useAutoplay } from "@/lib/preview-autoplay";
 
-// A stub `complete`. It yields the CONTINUATION, never the whole value, and stops on abort.
-async function* complete({ signal }: InlineCompletionRequest) {
-  for (const chunk of " across every autonomous community, sampled hourly.".split(/(?<=\s)/)) {
-    await new Promise((r) => setTimeout(r, 55));
-    if (signal?.aborted) return;
-    yield chunk;
-  }
-}
+const PACE = 55;
+const NOTES = "Air quality stations, one row per reading";
 
 export default function Example() {
-  const [value, setValue] = useState("Air quality stations, one row per reading");
+  const [value, setValue] = useState(NOTES);
   const ref = useRef<HTMLTextAreaElement>(null);
+
+  // The cadence is a ref so `settle` can run the SAME stub at 0 ms — under reduced motion the
+  // ghost is simply there rather than typed out. `useInlineCompletion` reads its options through
+  // a ref of its own, so redefining `complete` every render costs nothing.
+  const pace = useRef(PACE);
+
+  // A stub `complete`. It yields the CONTINUATION, never the whole value, and stops on abort.
+  const complete = async function* ({ signal }: InlineCompletionRequest) {
+    for (const chunk of " across every autonomous community, sampled hourly.".split(/(?<=\s)/)) {
+      await new Promise((r) => setTimeout(r, pace.current));
+      if (signal?.aborted) return;
+      yield chunk;
+    }
+  };
+
   const completion = useInlineCompletion({ complete, debounceMs: 250, minLength: 3 });
+
+  // `ask` aborts whatever was in flight first and each run captures its own signal, so a replay
+  // cannot interleave with the run it replaces. **No focus is taken**: a preview that grabbed the
+  // caret on scroll would hijack the reader's keyboard mid-page.
+  useAutoplay((mode) => {
+    pace.current = mode === "settle" ? 0 : PACE;
+    setValue(NOTES);
+    completion.ask(NOTES);
+  });
 
   // The hook offers; this owns the value, so this is what inserts.
   const accept = () => {
