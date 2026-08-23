@@ -102,6 +102,17 @@ config — all taken off a canvas that was being torn down between the measureme
 `sameInstance: false` from two calls to `getGraph()` five seconds apart is what finally said it.
 **When a component's state makes no sense, ask whether it is the same component.**
 
+### `ModelList` landed, with the record instead of the exception
+
+`ModelList` and `ModelListItem` on the root barrel (`2930cdd`), entering against the second-call-site
+rule with `decisions/a-picker-that-forgets-its-value-is-a-defect.md` beside them. The record states
+the counter it loses to — *two prop overrides are not a component* — and names what reverses it:
+`Command` ceasing to pin `selectionBehavior`, or keasy's provider picker composing `Command` by
+hand anyway. Root barrel 8.34 kB → 8.43, limit 20.
+
+`documented-exports.test.ts` gained its second `DELIBERATE` entry, which is the mechanism working:
+the page names `Model` in order to say there is no such type.
+
 ### `streamdown` landed, and a measurement reversed the recorded decision
 
 `MessageMarkdown` is on **`@kanzo-tech/ai/markdown`** with `streamdown` as an optional peer
@@ -121,12 +132,10 @@ job: without it the markdown comes out structurally right and completely unspace
 
 ### Next, in the order I would take it
 
-1. **`ModelList`** — Angel asked for the decision record that says why it enters with one call site,
-   so build it and write `decisions/…md` alongside. Design settled in §0a: over `Command`, rows are
-   `ComboboxItem`, and the root's `selectionBehavior="clear"` is overridden to `"preserve"` because
-   a model is a value.
-2. **Look at `MessageMarkdown` in a browser**, which is the one thing it is owed.
-3. **The thirteen unnamed exports, then the guard**, the day the theme pages settle.
+1. **Look at `MessageMarkdown` and `ModelList` in a browser.** Neither has been clicked. Both build,
+   both are documented, every check is green, and that is not the same thing — the last four
+   sessions' worth of findings all came from looking.
+2. **The thirteen unnamed exports, then the guard**, the day the theme pages settle.
 
 
 ### Traps, and the new one is the expensive one
