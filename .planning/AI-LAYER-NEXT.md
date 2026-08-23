@@ -202,7 +202,13 @@ taken `--size-field` from them without taking the placement that makes it safe.
 `no-measurement-on-a-renameable-slot.test.ts` is new and was verified by planting the old rule back;
 `knobs-are-read.ts` grew to look in recipes as well as the stylesheet.
 
-**Verified in the built artefact, not yet on screen.** `packages/ui/dist/styles.css` carries one
+**Verified on screen, both halves, 2026-08-23.** `/docs/actions/button`: twenty-one buttons, heights
+by size **sm 28, md 32, lg 36, xl 40**, `icon-md` square at 32 — that is `--size-field` (0.25rem) by
+7/8/9/10, so nothing moved at the defaults. `/docs/ai/conversation`: the renamed part,
+`conversation-scroll-button`, measures **28×28** with `--size: calc(.25rem * 7)` and keeps its
+`aria-label`, against 16×16 before. The fault and the fix are both measured rather than argued.
+
+**Verified in the built artefact too.** `packages/ui/dist/styles.css` carries one
 `height:var(--size)` and the four `--size:calc(var(--size-field) * N)` declarations, and no
 `[data-slot="button"][data-size=…]` rule survives. Every step of `CLAUDE.md`'s list is green
 including the docs build at 434 pages. What is **owed** is the eyeball pass: this touched every
