@@ -1,0 +1,77 @@
+---
+title: ModelList
+description: Choosing which model answers. A Command that keeps what you picked, because a model is a value and not an act.
+---
+
+<ComponentPreview componentName="model-list" />
+
+## Usage
+
+```tsx
+import { ModelList, ModelListItem } from "@kanzo-tech/ai";
+import { CommandEmpty, CommandInput, CommandList, createListCollection } from "@kanzo-tech/ui";
+```
+
+```tsx
+<ModelList collection={models} onValueChange={(d) => setModel(d.value[0])} value={[model]}>
+  <CommandInput placeholder="Search models" />
+  <CommandList>
+    <CommandEmpty>No model by that name.</CommandEmpty>
+    {models.items.map((m) => (
+      <ModelListItem item={m} key={m.value}>
+        {m.label}
+      </ModelListItem>
+    ))}
+  </CommandList>
+</ModelList>
+```
+
+The collection is Ark's — `createListCollection` or `useListCollection`, both re-exported from
+`@kanzo-tech/ui`. There is no `Model` type here on purpose: a model is whatever shape your registry
+returns, and a fourth way to describe a collection item is not worth the name.
+
+## Why it is not just `Command`
+
+A list of models is a search over a set, which is exactly `Command`'s shape. What it is **not** is a
+palette, and the two differences are both silent when you get them wrong.
+
+**`selectionBehavior`.** `Command` pins `"clear"`. That is right for a palette — you run *Rename
+file*, the query is thrown away, and nothing is selected afterwards, because a command is an act. A
+model is a **value**: it stays chosen, the list reopens on it, and clearing on pick means the
+control forgets what it is set to on the frame after being told. `ModelList` overrides it to
+`"preserve"`.
+
+**The row.** `CommandItem` pins `showIndicator: false` — right again, because a verb has nothing to
+tick. Here a single model is in force and a list of values with no mark on the current one cannot
+answer *which*. `ModelListItem` is [`ComboboxItem`](/docs/forms/combobox) with the indicator left
+on, plus a `data-slot` of its own.
+
+Neither override announces itself when it is missing. A palette-shaped model picker looks correct in
+a screenshot, filters correctly, and is wrong only in the moment after a click — which is why this
+is a component rather than a sentence, and why it enters against the rule that an export needs a
+second call site. `decisions/a-picker-that-forgets-its-value-is-a-defect.md` carries that argument
+and what would reverse it.
+
+## What it does not ship
+
+**No trigger and no popover.** A model picker is a popover in one product, a settings row in the
+next and a sidebar section in the third. The arrangement is yours; this is the list. Wrap it in
+[`Popover`](/docs/overlays/popover) or drop it into a panel — it is a flex column that fills what it
+is given.
+
+## API Reference
+
+### ModelList
+
+Extends `Combobox.Root` from Ark, so `collection`, `value`, `onValueChange`, `multiple` and the rest
+pass through. It renders `Command`, which means every `Command*` part composes inside it —
+`CommandInput`, `CommandList`, `CommandGroup`, `CommandEmpty`, `CommandSeparator`, `CommandFooter`.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `selectionBehavior` | `"preserve" \| "clear" \| "replace"` | `"preserve"` |
+
+### ModelListItem
+
+Extends `ComboboxItem`, so `item` is required and `showIndicator` defaults to `true`. Carries
+`data-slot="model-list-item"`.

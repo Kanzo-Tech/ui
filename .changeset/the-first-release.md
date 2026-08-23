@@ -371,6 +371,12 @@ value. The `Complete` compound keeps its name; it collides with nothing.
 boolean; it re-derives the words and settles each one in as it appears — a word and not a chunk,
 because a model emits tokens and tokens cut words in half.
 
+**`ModelList` is choosing which model answers**, and it is a `Command` that keeps what you picked.
+`Command` pins `selectionBehavior="clear"` and `CommandItem` pins `showIndicator: false`, both right
+for a palette — a command is an act, and a verb has nothing to tick. A model is a *value*, so this
+overrides both, and the failure when you do not is silent: the control forgets what it is set to on
+the frame after being told. No trigger and no popover — the arrangement is yours.
+
 **`MessageMarkdown` is the same thing for a model that answers in markdown**, and it is on
 `@kanzo-tech/ai/markdown` with `streamdown` as an optional peer. The hard part is the *incomplete*
 markdown — a stream delivers `**bo`, then `**bold`, then `**bold**`, and a parser that renders each

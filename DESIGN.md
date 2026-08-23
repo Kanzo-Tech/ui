@@ -200,7 +200,7 @@ be skipped.
 `a-hook-takes-the-name-of-the-request-it-makes`,
 `a-line-takes-candidates-a-paragraph-takes-a-continuation`, `a-theme-is-one-flat-block`,
 `the-obvious-ink-is-computed-in-the-form`,
-`a-tool-panel-composes-its-snippet`.
+`a-tool-panel-composes-its-snippet`, `a-picker-that-forgets-its-value-is-a-defect`.
 
 Also live — `a-compound-keeps-its-root-even-when-the-root-is-an-alias`,
 `steps-claims-a-tab-role-it-cannot-keep`, `the-coordinate-box-is-the-corpus-extent`, `the-ai-surfaces-are-their-own-package`,
