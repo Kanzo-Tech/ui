@@ -175,23 +175,52 @@ describe("a theme resolves through the bridge", () => {
       // which is what happened, and is worth the line: a rule about selectors must look at
       // selectors.
       const css = readFileSync(join(THEME_DIR, f), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-      // `:root` not immediately narrowed by `:not([data-theme])` is the whole failure.
+      // `:root` not narrowed by `:not([data-theme])` is the whole failure. `.dark` may sit between
+      // the two — that is the dark side's own default binding, and it is MORE specific than the
+      // light one rather than tied with it, so the alphabet never gets a vote.
       for (const [, next] of css.matchAll(/:root(\S*)/g)) {
-        if (!(next as string).startsWith(":not([data-theme])")) bare.push(`${f}: ":root${next}"`);
+        const tail = next as string;
+        const ok = tail.startsWith(":not([data-theme])") || tail.startsWith(".dark:not([data-theme])");
+        if (!ok) bare.push(`${f}: ":root${tail}"`);
       }
     }
     expect(bare).toEqual([]);
   });
 
-  it("gives exactly one theme the default binding", () => {
-    // Two defaults is the same bug wearing the other hat: both match a document that chose nothing,
-    // they tie on specificity, and the alphabet decides which one a product actually gets.
+  it("gives exactly one theme the default binding per side", () => {
+    // Two defaults on the SAME side is the original bug wearing the other hat: both match a document
+    // that chose nothing, they tie on specificity, and the alphabet decides which one a product
+    // actually gets. One per side is a different thing and is what a document needs, because
+    // `.dark` is decided by the OS before any theme is chosen.
     const defaults = readdirSync(THEME_DIR)
       .filter((n) => n.endsWith(".css"))
       .filter((n) =>
         readFileSync(join(THEME_DIR, n), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").includes(":root"),
       );
-    expect(defaults).toEqual(["kanzo.css"]);
+    expect(defaults).toEqual(["kanzo-dark.css", "kanzo.css"]);
+  });
+
+  it("leaves no dark document painted by a light theme", () => {
+    // What shipped, and no interaction was needed to reach it: a first-time visitor with the OS in
+    // dark has an empty `localStorage`, so `themeByAppearance` resolves to its `""` default and no
+    // `data-theme` is written — while the blocking theme script has already put `.dark` on `<html>`.
+    // Only `kanzo.css` claimed the unattributed document, so the page carried `.dark`, resolved
+    // `color-scheme: light` and painted `#fafafa`. Measured on a clean load of a docs page.
+    const strip = (f: string) =>
+      readFileSync(join(THEME_DIR, f), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    const dark = strip("kanzo-dark.css");
+    expect(dark, "the dark side claims no unattributed document").toContain(
+      ":root.dark:not([data-theme])",
+    );
+    // The binding is worth nothing if the block it opens is not the dark one.
+    const block = dark.slice(dark.indexOf(":root.dark:not([data-theme])"));
+    expect(block.slice(0, block.indexOf("}")), "the dark default is not dark").toContain(
+      "color-scheme: dark",
+    );
+    // And the light default must not reach that document. It is narrower than a bare `:root` and
+    // wider than the dark binding, which is exactly the middle rank it needs.
+    expect(strip("kanzo.css")).toContain(":root:not([data-theme])");
+    expect(strip("kanzo.css")).not.toContain(":root.dark");
   });
 
   it("keeps a deleted declaration honest — the fallback lands where the token used to", () => {
