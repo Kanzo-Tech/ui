@@ -62,8 +62,9 @@ light`, body painted `#fafafa`. The incoherent state the old handoff attributed 
 `PreferencesReset` was **the first-load default** — Reset was returning you to a prístine state that
 was already broken. `fba2d10` binds `kanzo-dark.css` to `:root.dark:not([data-theme])`, which
 outranks the light default by the class rather than tying with it. Re-measured after: `color-scheme:
-dark`, body `#0a0a0a`, luminance 0.003, coherent. `PreferencesReset` itself, in the ten showcases,
-is still unlooked-at — but if the prístine state is coherent, returning to it should be too.
+dark`, body `#0a0a0a`, luminance 0.003, coherent. `PreferencesReset` itself has since been pressed
+in all eight showcases that have one, and the inference held — see §5's closed list for the record
+each was compared against.
 
 ## 4. `--check`, and what it does not cover
 
@@ -81,18 +82,66 @@ fail on them; a floor is the answer if one ever needs it.
 
 ## 5. Open
 
-- **`PreferencesReset` in the ten showcases**, per §3. The parallel session has it.
-- **`ask` and the candidate strip.** The example uses `refresh` today (`73bfd48`); what is still
-  unexplained is a thirty-second *visual* observation, under `ask`, where the strip stayed empty.
-  The parallel session ruled out the obvious cause with a literal jsdom repro — the
-  `status !== "idle"` gate and the effect order fire the strip in all four combinations — so
-  whatever it is, jsdom does not have it. **Do not confuse this with the measurement defect closed
-  in `3b6c75a`**: that one explains why the published heights flapped, and the probe was never in
-  this loop.
 - **keasy.** Recon done and parked: 44 shadcn primitives in `web/src/components/ui`, nine component
   areas, thirty routes, at `/Users/angel.ip/dev/kanzo/keasy/keasy/web`. Ángel has set it aside.
+- **The `settings` showcase has no way back to the defaults.** It renders the same five sections as
+  a page rather than a drawer, and Reset lives in the panel's footer — so the one act that *unsets*
+  rather than writing each default is reachable in eight showcases and not in the ninth. Found while
+  sweeping §3, left alone deliberately: whether a settings page owes a Reset is a design call, not a
+  defect to fix on the way past.
 
 ### Closed since this file was written
+
+- **`PreferencesReset` in the showcases.** Pressed in every one that has it, under Playwright, on
+  the built artefact. Eleven routes: eight carry a Reset and all eight were dirtied on every axis
+  the surface offers — the other appearance card, one unselected option per radiogroup, the radius
+  slider three steps along — and all eight came back to the pristine state exactly, compared as a
+  record and not by eye: `<html>`'s `data-*` set, root font-size, body background and colour,
+  `--radius`, the resolved font stack and `localStorage`. Zero console errors. Three have no Reset,
+  each for its own reason: `graph-bench` and `discovery` mount no Preferences at all, and `settings`
+  is the open item above.
+
+  Two things the sweep only learned by being wrong first. `t` is **opt-in and undeclared almost
+  everywhere** — the showcases that answer a key use `p`, and three open `defaultOpen`, so pressing
+  the trigger *closes* them; entering has to try the dialog, then the trigger, then the key, in that
+  order. And the panel's radios are 1×1 `<input>`s under their card, so every click was intercepted
+  and silently swallowed by a `.catch()` — the run reported five groups touched and had touched
+  none. The label is the control a reader presses. A sweep that dirties nothing restores perfectly.
+
+- **`ask` and the candidate strip — no defect.** `ask` fires the strip, measured twice. In the
+  browser, with the example temporarily cueing `ask` on a real build: three candidates, `climate`
+  deduped, zero console errors. In jsdom, with a literal repro of the seam: `ask` and `refresh` ×
+  with and without StrictMode, all four fill. So the thirty-second observation in `73bfd48` had a
+  confound — almost certainly a look at an artefact that had not been rebuilt, which is this
+  branch's most-repeated defect and not a new one.
+
+  What IS real, and now measured rather than argued, is the difference the example's comment claims.
+  On the **second** cue — leave the viewport entirely, come back — `ask` is a no-op (three items
+  stay, no spinner) and `refresh` empties the strip and refills it over ~2.5 s. `refresh` is the
+  right call for the reason written beside it, and it is no longer a workaround for a mystery.
+
+- **`data-table-toolbar.test.tsx` — unreproduced, and the two obvious mechanisms are excluded.**
+  76 process-runs of the file: 12 rounds of two suites in parallel, 6 rounds of eight concurrent,
+  and one round of sixteen at once. Zero failures. The `findBy*` calls pass with
+  `asyncUtilTimeout` at **4 ms** instead of 1000, so the popover is open by the time `user.click`
+  resolves and the query never waits — a timeout there would need the machine 250× slower. Per-test
+  duration alone tops out at 96 ms; under sixteen-way starvation the slowest is **322 ms** against a
+  5000 ms budget. Reading the file, there is no race to fix either: every assertion after an
+  `await user.*` is synchronous over synchronous TanStack state, with no timers.
+
+  So "it was only load" is *less* supported than it looked, not more. The re-run advice stands, and
+  the missing evidence is the failure output itself — nobody kept it. **Next time it goes red, save
+  the message before re-running.**
+
+- **Three type tokens were deleted with the colour layer.** `6c602df` dropped
+  `--kanzo-font-size-{base,small,xs}` from `tokens.css` while `badge.tsx`, `Preferences.tsx` and
+  `CodeEditor.tsx` still read them, and nothing went red: an undefined custom property makes the
+  declaration invalid at computed-value time, so it is dropped and the element inherits. `Badge
+  size="xs"` computed a **16px** font in its own 16px box and, because the recipe carries
+  `overflow-hidden`, clipped its text by 3px — 19px of content in 16 — wherever a "Coming soon"
+  marker appears. Restored, and measured on the rebuilt artefact: 10px, 74px wide instead of 107,
+  `scrollHeight` 15 inside `offsetHeight` 16, nothing clipped. `packages/ui/src/theme-tokens.test.ts`
+  is the guard, in both directions, and it was checked by deleting a token and watching it fail.
 
 - **Cozy density.** The catalogue truncated there — `catppuccin-latte-dark` wanted 171px in 142 —
   and the cause was not the gap `089aa55` tightened: the grid counted *columns* against viewport
@@ -120,7 +169,13 @@ fail on them; a floor is the answer if one ever needs it.
 
 ## 6. Traps this branch paid for, that are not obvious from the code
 
-## 6. Traps this branch paid for, that are not obvious from the code
+- **The 404 in the `workspace` showcase is the end of the chunk list, not a missing file.**
+  `GET /corpus/archive/vertex/Node/chunk1.parquet` → 404 on every load, and it is the only failed
+  request on the page. `Node.vertex.yml` declares `chunk_size: 4096` and **no vertex count**, so a
+  reader addressing tiles by address has no way to know where the list ends except by asking for one
+  past it. The corpus holds `chunk0.parquet` alone. Changing that means the writer emitting a count,
+  which is ADR territory (`graphar-already-specifies-tiling`), not a fix to make in passing — but do
+  not spend an hour on it the way this session nearly did.
 
 - **`setTheme(name, { appearance })` files a theme under a side; it does not move you to it.** A
   menu is one act, so it must call `setAppearance` too — which only works because `set` composes.
