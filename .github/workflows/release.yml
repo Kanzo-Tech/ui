@@ -22,9 +22,10 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@v4
+      # No `version:` here on purpose. `packageManager: pnpm@9.0.0` in the root package.json is
+      # the single source, and declaring it in both makes the action refuse to run:
+      # `Multiple versions of pnpm specified`. One spelling of one fact.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
       - uses: actions/setup-node@v4
         with:
           node-version: 24
