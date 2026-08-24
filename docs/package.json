@@ -1,7 +1,7 @@
 {
   "name": "@kanzo-tech/docs",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "Kanzo UI documentation — Next.js App Router + fumadocs, mirroring Shark UI's docs stack. Doubles as the RSC fixture: Vite ignores \"use client\", so this is the only place the library's client/server boundary is actually exercised.",
   "type": "module",
   "scripts": {

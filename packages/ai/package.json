@@ -1,6 +1,6 @@
 {
   "name": "@kanzo-tech/ai",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Kanzo AI surfaces — the transcript, the composer, a model's reasoning and the calls it makes, plus the field affordances that stream into a value. Sibling of @kanzo-tech/ui, not part of it: a Message has a role and one of the roles is `assistant`, which is domain knowledge the generic vocabulary does not carry.",
   "type": "module",
   "license": "MIT",
