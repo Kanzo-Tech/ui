@@ -211,20 +211,51 @@ by size **sm 28, md 32, lg 36, xl 40**, `icon-md` square at 32 — that is `--si
 **Verified in the built artefact too.** `packages/ui/dist/styles.css` carries one
 `height:var(--size)` and the four `--size:calc(var(--size-field) * N)` declarations, and no
 `[data-slot="button"][data-size=…]` rule survives. Every step of `CLAUDE.md`'s list is green
-including the docs build at 434 pages. What is **owed** is the eyeball pass: this touched every
-button, input and select in the library, so somebody has to look at a page of controls and confirm
-nothing moved at the defaults — the whole point is that only the renamed parts change. Chrome was
-held by another session's agent when this was written. Do not skip it; today's findings all came
-from looking.
+including the docs build at 434 pages.
+
+**The eyeball pass this paragraph used to say was owed is DONE**, and has been since 2026-08-23 —
+`HANDOFF-THEME-SURFACES.md` §3 has it: twenty-one buttons on `/docs/actions/button` at sm 28 / md 32
+/ lg 36 / xl 40, which is `--size-field` × 7/8/9/10 exactly, `icon-md` square at 32, and the renamed
+part at 28×28 against 16×16 before. Nothing moved at the defaults, which was the whole claim. The
+line survived here for a day after it stopped being true and cost a later session a wrong answer.
 
 
 ### Next, in the order I would take it
 
-1. **The thirteen unnamed exports, then the guard.** Still blocked on the theme session, which is
-   still moving pages — `theme-studio` became `/theme-generator`, `theme-gallery` became
-   `/docs/themes`, and `--accent` was rewritten across thirteen themes today. Re-measure when it
-   stops. The count itself needs redoing before the guard is written.
-2. **`AI-assisted fields` is the last AI page never clicked.** `Conversation` was looked at the same
+> **DEAD — every item below is closed, checked one at a time on 2026-08-24.** Read this box and
+> skip the list; it is kept only because two of the four say something worth keeping.
+>
+> This queue has now sent two sessions down a path that was already walked. It is the failure its
+> own item 3 names — *a queue is a claim like any other, and this one was re-stated by three
+> sessions without one of them opening the file it points at* — and item 3 did not stop item 2 from
+> doing it again. **The document contradicted itself in two places**: it says `AI-assisted fields`
+> was never clicked, and six hundred lines further down it carries the measurement taken on that
+> page on 2026-08-21; it says the control-height eyeball pass is owed, and
+> `HANDOFF-THEME-SURFACES.md` §3 — newer — records both halves measured on screen and closes it.
+>
+> The rule that would have caught all of it: **a queue item is checked against the code or the
+> newest document, never against the queue.** What each item cost to verify was one grep.
+>
+> 1. Closed by `0f5dcc0` and the guard by `617fd7f`. It was 192 exports, not thirteen.
+> 2. False. `/docs/ai/fields` was measured 2026-08-21, and everything the measurement found is
+>    fixed: `InputGroup` sizes from its content (`min-h-*` + padding, `TagsInput`'s shape, with the
+>    arithmetic in the recipe's own comment), `ComboboxTrigger` is `size-8` where it was `size-4`,
+>    and `DatePickerInput` declares one size where it declared two.
+> 3. Already struck below, and correctly.
+> 4. Landed, and its "honest gap" is closed too — `ask` fires the strip, measured in the browser and
+>    in jsdom. See `HANDOFF-THEME-SURFACES.md` §5.
+>
+> **What is actually open, and it is one thing:** the `settings` showcase renders the preference
+> sections as a page, and Reset lives in the panel's footer, so the one act that *unsets* is
+> reachable in eight showcases and not there. Whether a settings page owes a Reset is Angel's call,
+> not a defect. And keasy, which he has parked.
+
+1. ~~**The thirteen unnamed exports, then the guard.**~~ — **closed.** `0f5dcc0` named them and
+   `617fd7f` is the guard in the other direction. The count was 192.
+2. ~~**`AI-assisted fields` is the last AI page never clicked.**~~ — **false when written.** It was
+   measured on 2026-08-21 and the measurement is in this same document, under "the ✨ paints over
+   the group's border". Every defect it found is fixed. The rest of this item is the `Conversation`
+   record, which is worth keeping. `Conversation` was looked at the same
    day and held: sampled while the transcript grew past its box, it stayed pinned to the tail in
    **70 of 72** samples — the two that were not are the frames after a turn is appended — and the
    scroll button appears once the reader is away from the bottom, `aria-label="Scroll to the latest
@@ -380,6 +411,11 @@ encoded the prose rather than the rule, so it passed while the message was invis
    dropping things silently.
 
 ### Open, and they need Angel
+
+> **STALE — this is the third session's section and all three are closed.** §0 above has
+> "`ModelList` landed, with the record instead of the exception" and "`streamdown` landed, and a
+> measurement reversed the recorded decision", and the colour layer came back onto this branch and
+> shipped. Kept for the reasoning, not as a queue. 2026-08-24.
 
 - **`ModelList` ships with admission rule 2 failing, without a decision record.** His call, 08-21.
   Design settled: over `Command`, rows are `ComboboxItem`, and the root's `selectionBehavior="clear"`
@@ -1308,6 +1344,23 @@ before branching a worktree off this tree.
 - **`Diagnostic`: `severity` or `variant`?** `CONVENTIONS.md` says a semantic vocabulary uses
   `variant`, and `Alert`, `Status` and `Badge` all colour by state under it. Everything else in that
   rework is mechanical and waits on this.
-- **`shark-parity.test.ts`'s reason check is a length check.** `reason.trim().length >= 40`, so a
-  declaration that is not one of the four shapes its own header requires passes green. The
-  `diagnostic` entry is one. That blind spot is not in the guard's "what this cannot prove" list.
+- ~~**`shark-parity.test.ts`'s reason check is a length check.**~~ — **closed 2026-08-24, and the
+  answer is not the one this item asked for.** Two halves of the claim, and they land differently.
+
+  *It is not in the "cannot prove" list* — **false when written.** The list has carried "It cannot
+  tell a good reason from a bad one. It checks that a reason exists…" the whole time. It is now
+  sharper: it names the `length >= 40` and says why.
+
+  *A declaration that is not one of the four shapes passes green* — **true, and the four is the
+  part that was wrong.** Counted before writing the classifier that would have enforced them: over
+  87 declarations the shapes are six. 53 cite a decision record, 8 cite a guard, 2 measure, **0**
+  are `Undecided`, and 24 are neither — 19 `Not built.`, 3 `Ours…`, one cross-reference and one
+  prose entry. Those 24 are not a choice against the reference at all; they record an absence. The
+  header claimed four and the file had used six for months, so the guard was not failing to enforce
+  a rule, the rule was mis-stated. The header is corrected and the counts are in it.
+
+  **And the classifier is rejected on its merits, not skipped.** Sorting six shapes apart means
+  regexes over English: it would pass `Not built, obviously` and fail the first well-formed reason
+  phrased a new way — a grep wearing a parser's name, which is exactly the third thing
+  `CONVENTIONS.md` says a guard owes. A length floor plus the citation check plus review is the
+  honest line, and it is now written down as a choice instead of surviving as an oversight.
