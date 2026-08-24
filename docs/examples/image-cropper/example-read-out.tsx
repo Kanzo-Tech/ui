@@ -6,6 +6,7 @@ import {
   ImageCropperSelection,
   useImageCropper,
 } from "@kanzo-tech/ui";
+import { asset } from "@/example/assets";
 
 /** Inside the cropper, because the api arrives through the root's context and nowhere else. */
 function Readout() {
@@ -28,7 +29,7 @@ function Readout() {
 export default function Example() {
   return (
     <ImageCropper className="aspect-[4/3] max-w-lg">
-      <ImageCropperImage alt="A surveyor's map of the Guild's six regions" src="/example/guild-map.svg" />
+      <ImageCropperImage alt="A surveyor's map of the Guild's six regions" src={asset("guild-map.svg")} />
       <ImageCropperSelection />
       <Readout />
     </ImageCropper>

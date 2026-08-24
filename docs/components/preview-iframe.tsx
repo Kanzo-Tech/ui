@@ -39,17 +39,26 @@ export const PreviewIframe = ({
     code = null;
   }
 
+  // **Prefixed by hand, and the trailing slash is not decoration.** An `iframe`'s `src` and an
+  // `<a href>` built as a string are not URLs Next rewrites — only `Link` and `next/image` get the
+  // `basePath` for free — so under a project page at `/ui` a bare `/view/showcases/x` points at the
+  // ORG's root, outside this site entirely, and every showcase on every page is a 404 inside a box.
+  // The slash matches `trailingSlash: true`: the export writes `…/x/index.html`, and a static host
+  // has no redirect to offer the version without it. Same variable as the corpus path in
+  // `showcases/workspace/graph-state.tsx`; empty in development.
+  const href = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/view/showcases/${name}/`;
+
   const iframe = (
     <iframe
       className={cn("min-h-[450px] w-full", className)}
-      src={`/view/showcases/${name}`}
+      src={href}
       title={title ?? `${name} showcase preview`}
     />
   );
 
   return (
     <PreviewIframeTabs
-      fullUrl={`/view/showcases/${name}`}
+      fullUrl={href}
       iframe={iframe}
       source={
         code ? <ServerCodeBlock code={code} codeblock={CODE_PANE} lang="tsx" /> : undefined

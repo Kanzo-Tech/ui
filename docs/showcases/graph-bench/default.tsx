@@ -871,7 +871,12 @@ export function GraphBenchShowcase() {
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink href="/docs/graph/benchmarks">Benchmarks</BreadcrumbLink>
+              {/* `BreadcrumbLink` is `ark.a`, a plain anchor, so this href gets no `basePath` —
+                  the only real link out of this showcase, and under `/ui` it would leave the site.
+                  See `example/assets.ts` for the same trap on an image. */}
+              <BreadcrumbLink href={`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/docs/graph/benchmarks`}>
+                Benchmarks
+              </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>

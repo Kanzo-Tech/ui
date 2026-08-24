@@ -17,6 +17,13 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["example/**/*.test.ts", "showcases/**/*.test.ts", "app/**/*.test.ts"],
+    include: [
+      "example/**/*.test.ts",
+      "showcases/**/*.test.ts",
+      "app/**/*.test.ts",
+      // `lib/base-path.test.ts` scans the whole app for site paths written as bare strings —
+      // the one class of defect that builds, renders, and 404s only on the published site.
+      "lib/**/*.test.ts",
+    ],
   },
 });

@@ -14,6 +14,7 @@
 // one slip the frame cuts in half.
 
 import type { Row } from "./rudof";
+import { asset } from "@/example/assets";
 
 /** One uploaded image. `src` is whatever an `<img>` can load — an object URL, or a public path. */
 export interface Shot {
@@ -50,7 +51,7 @@ export type Extractor = (shots: Shot[], signal: AbortSignal) => AsyncIterable<Ex
 export const SAMPLE: Shot = {
   id: "sample",
   name: "sighting-slips.svg",
-  src: "/example/sighting-slips.svg",
+  src: asset("sighting-slips.svg"),
 };
 
 interface RecordedCell {
