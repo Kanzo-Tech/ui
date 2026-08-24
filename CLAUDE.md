@@ -25,7 +25,8 @@
   `packages/ui/src/guard-corpus.ts` is what "repo-wide" means: the six appearance and boundary
   guards scan every package that declares `tailwind-variants` (`ui` and `ai` today) and report
   `<package>/<path under src>`. Widen that corpus; never copy a guard into a second package.
-  `packages/ui/src/alpha-steps.test.ts` (seven banned token spellings), `no-literal-hues.test.ts`,
+  `packages/ui/src/alpha-steps.test.ts` (seven banned token spellings),
+  `theme-tokens.test.ts` (a `--kanzo-*` is declared and is read), `no-literal-hues.test.ts`,
   `logical-properties.test.ts`, `client-boundary.test.ts`, `data-slot.test.tsx`,
   `list-semantics.test.ts`, `codemirror-dark-parity.test.ts`, `index.test.ts`
   (the pinned surface and the tombstones), `documented-exports.test.ts` (a page may not claim a

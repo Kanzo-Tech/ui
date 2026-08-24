@@ -287,4 +287,25 @@
   --depth: 0;
   --size-field: 0.25rem;
   --size-selector: 0.25rem;
+
+  /* ── The three type sizes below Tailwind's floor ──────────────────────────────
+     Not in Shark, and not in Tailwind either: its scale stops at `text-xs`, 12px. These are the
+     IDE tier — a code pane, a preferences label, a marker badge — and they exist because the
+     smallest thing Tailwind offers is too big for all three.
+
+     **They were deleted by `6c602df` and three components kept asking for them**, which is why
+     this comment is longer than the block. That commit's subject is colour and its scope was the
+     colour half of this file; the block went with it, and nothing failed — an undefined custom
+     property makes `font-size` invalid at computed-value time, so the declaration is dropped and
+     the element silently inherits. Measured on 2026-08-23: `Badge size="xs"` computed 16px inside
+     its own `h-4` box, and since the recipe carries `overflow-hidden` the text was clipped by
+     3px — a 19px content in a 16px box, visible in `app-shell` and `job-studio` and in no test.
+     `theme-tokens.test.ts` is the guard that makes the next deletion fail out loud.
+
+     `CodeEditor` reads two of these with a literal fallback and so kept rendering — at 14px and
+     12px rather than 13px and 11px. That is the same defect wearing a fallback, and it is the
+     reason a fallback is not the fix here. */
+  --kanzo-font-size-base: 0.8125rem;   /* 13px — IDE base (below Tailwind text-xs) */
+  --kanzo-font-size-small: 0.6875rem;  /* 11px */
+  --kanzo-font-size-xs: 0.625rem;      /* 10px — `obligations.ts` grades this one */
 }

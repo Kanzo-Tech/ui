@@ -330,6 +330,7 @@ passes all of them. A failure names its file `<package>/<path under src>`: `ui/s
 |---|---|
 | `packages/ui/src/index.test.ts` | the enumerated public surface, the tombstones, optional-peer isolation — an enumeration, not an exhaustive pin; `shark-parity.test.ts` is what catches a silent deletion |
 | `packages/ui/src/alpha-steps.test.ts` | the seven banned token spellings above |
+| `packages/ui/src/theme-tokens.test.ts` | every `--kanzo-*` a component reads is declared by the theme, and every one declared is read — an undefined custom property does not warn, it drops the declaration and inherits |
 | `packages/ui/src/no-literal-hues.test.ts` | no chromatic literal in the source |
 | `packages/ui/src/logical-properties.test.ts` | no physical direction utility in the three layers, outside a reviewed allowlist with a reason per entry |
 | `packages/ui/src/client-boundary.test.ts` | `"use client"` on every stateful module and on no other |

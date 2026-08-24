@@ -72,6 +72,14 @@ So a client ships *our product is compact and square* as the point their users s
 user preference is an override on top of it. Storage holds only what a user chose, and `themeScript`
 takes the same policy — a policy only React knows about is a flash of one value before the other.
 
+`tokens.css` also carries three type sizes that are not an axis and never move: 13px, 11px and 10px,
+under `--kanzo-font-size-{base,small,xs}`. They exist because Tailwind's scale stops at 12px and
+three things in this house are smaller than that — a code pane, a preferences label, a marker badge.
+Nothing else in the vocabulary is spelled as a raw custom property, so `theme-tokens.test.ts` holds
+both directions: every `--kanzo-*` a component reads is declared, and every one declared is read. It
+is a guard rather than a convention because the failure is invisible — an undefined custom property
+does not warn, it makes the declaration invalid and the element inherits.
+
 ### The colour layer, and what it stopped being
 
 **A theme is one flat block of CSS.** `packages/theme/themes/<name>.css` — about fifty
