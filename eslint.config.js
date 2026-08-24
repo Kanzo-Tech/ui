@@ -6,7 +6,10 @@ export default tseslint.config(
   // `.next` and `.source` are build output the same way `dist` is — Next's compiled bundles and
   // fumadocs' generated map. Linting them is 35,000 findings about code nobody wrote, which is how
   // `docs/` came to be excluded from linting altogether; excluded properly, the real count is 75.
-  { ignores: ["**/dist/**", "**/node_modules/**", "**/.next/**", "**/.source/**"] },
+  // `docs/out/` joined this list when the documentation gained a static export: it is `.next/`'s
+  // output under a name that does not start with a dot, so nothing was skipping it and `pnpm lint`
+  // started reporting `'self' is not defined` inside minified webpack chunks.
+  { ignores: ["**/dist/**", "**/node_modules/**", "**/.next/**", "**/.source/**", "docs/out/**"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

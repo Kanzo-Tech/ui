@@ -1,0 +1,69 @@
+# Publishes the documentation to GitHub Pages, at kanzo-tech.github.io/ui.
+#
+# It does NOT re-run the checks — `ci.yml` owns those and runs on the same push. Two workflows
+# asserting the same thing is two things to keep in step, and this one's job is the artefact.
+#
+# The build differs from the local one in exactly two variables, and they are here rather than in
+# `next.config.ts` so the difference is visible from the outside:
+#
+# · `DOCS_STATIC_EXPORT=1` turns on `output: "export"`, which removes `next start` — and with it
+#   `check:previews`, which drives a running server. That is why it is opt-in; see the config.
+# · `NEXT_PUBLIC_BASE_PATH=/ui` is the project-page prefix. A project page is served from
+#   `<org>.github.io/<repo>`, and the same variable reaches the client, because a string handed to
+#   DuckDB is not a URL Next can rewrite.
+name: Deploy docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time, and never cancel one in flight: a half-uploaded artefact is a broken site,
+# and the queued run would publish the same commit a minute later anyway.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: static export
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # `docs/` consumes `dist/`, not `src/` — the exports maps point there, so the docs build
+      # cannot resolve @kanzo-tech/theme on a clean checkout until the packages are built. The
+      # docs app itself is deliberately NOT in this filter: it is built below, differently.
+      - name: Build the packages the docs consume
+        run: pnpm -r --filter "./packages/*" build
+
+      - name: Static export
+        run: pnpm --filter @kanzo-tech/docs build:static
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/out
+
+  deploy:
+    name: publish
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

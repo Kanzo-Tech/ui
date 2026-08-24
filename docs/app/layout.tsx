@@ -38,7 +38,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             `documentElement.style.colorScheme` — an inline declaration that outranks every rule
             permanently, so the `color-scheme` each theme file declares could never
             set it. `.dark` is written by KanzoThemeProvider, alone. */}
-        <RootProvider theme={{ enabled: false }}>
+        {/* `search.options.type: "static"` is the client half of `app/api/search/route.ts`'s
+            `staticGET`: it fetches the emitted index once and searches it in the browser, because
+            a static host has nothing to answer a query with. Setting one without the other fails
+            the way this repository keeps paying for — no error, just a search box that returns
+            nothing. */}
+        <RootProvider search={{ options: { type: "static" } }} theme={{ enabled: false }}>
           <KanzoProvider defaultTheme="kanzo" themes={themeIndex.map((t) => ({ value: t.name, label: t.name }))}>
             {children}
           </KanzoProvider>

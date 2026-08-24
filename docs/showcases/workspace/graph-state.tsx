@@ -53,8 +53,16 @@ import {
  * of translating a loop on screen into `dense_id IN (…)`, which is all it can honestly say.
  */
 
-/** Where the compiled archive is served from. Written by `corpus/build-corpus.mjs`. */
-const CORPUS = "/corpus/archive";
+/**
+ * Where the compiled archive is served from. Written by `corpus/build-corpus.mjs`.
+ *
+ * **Prefixed, because this is the one asset URL Next does not fix for us.** `Link` and
+ * `next/image` rewrite themselves under `basePath`; a string handed to DuckDB is just a string, so
+ * under a project page at `/ui` a bare `/corpus/…` is a 404 with no error anywhere — the canvas
+ * simply stays empty. `NEXT_PUBLIC_BASE_PATH` is the same variable `next.config.ts` reads, so the
+ * two cannot disagree, and it is empty in development.
+ */
+const CORPUS = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/corpus/archive`;
 
 /**
  * One row per edge, carrying its source vertex's columns — this showcase's view, named by it.

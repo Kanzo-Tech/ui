@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "next dev --webpack --port 3100",
     "build": "next build --webpack",
+    "//build:static": "What GitHub Pages gets: `output: \"export\"` plus the project-page prefix, then the post-build pass that puts the `.mdx` source files back at the URLs the rewrite used to serve. Separate from `build` because `output: \"export\"` removes `next start`, and `check:previews` drives a running server. Override NEXT_PUBLIC_BASE_PATH to serve it from anywhere else.",
+    "build:static": "DOCS_STATIC_EXPORT=1 NEXT_PUBLIC_BASE_PATH=\"${NEXT_PUBLIC_BASE_PATH-/ui}\" next build --webpack && node scripts/materialise-mdx.mjs",
     "start": "next start --port 3100",
     "typecheck": "tsc --noEmit",
     "postinstall": "fumadocs-mdx",

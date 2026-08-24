@@ -1,6 +1,7 @@
 # docs/ — rules local to this app
 
-The repository rules are in `../CLAUDE.md`. These five are true only here.
+The repository rules are in `../CLAUDE.md`. What follows is true only here. (It said "these five"
+while listing six; a count in a heading is a fact nobody updates, so there is no count now.)
 
 - **`--webpack`, always.** Both `dev` and `build` pass it. vgplot trips a temporal-dead-zone error
   under Turbopack, so charts do not mount without it. Do not "modernise" the scripts.
@@ -33,3 +34,28 @@ The repository rules are in `../CLAUDE.md`. These five are true only here.
   site nav, which is where daisyUI keeps the same tool. Its shell is `h-auto flex-1`, never `h-dvh`
   — the nav is above it — and the `(home)` layout's container slot is overridden to a `div` so
   `ShellMain` stays the page's only `<main>`.
+- **The published site is a DIFFERENT build, and it is opt-in on purpose.** GitHub Pages runs
+  nothing, so `pnpm --filter @kanzo-tech/docs build:static` sets `DOCS_STATIC_EXPORT=1` and
+  `NEXT_PUBLIC_BASE_PATH=/ui` and then runs `scripts/materialise-mdx.mjs`. `build` is untouched,
+  because `output: "export"` removes `next start` — and `check:previews` drives a running server, so
+  turning the export on globally would silently retire the guard that caught seven clipped frames.
+  `.github/workflows/deploy-docs.yml` is the only place those two variables are set for real.
+
+  Three things it costs, each answered where it lives rather than switched off:
+  - **`basePath` reaches the client through one variable**, read by `next.config.ts` *and* by
+    `showcases/workspace/graph-state.tsx`. `Link` and `next/image` prefix themselves; a string
+    handed to DuckDB does not, and a bare `/corpus/…` under `/ui` is a 404 with no error anywhere.
+  - **Search is a file, not a server** — `staticGET` in `app/api/search/route.ts` and
+    `search={{ options: { type: "static" } }}` on `RootProvider`. Both halves or neither: one alone
+    is a search box that finds nothing and never errors. The index is 8 MB, 1.5 MB over the wire,
+    fetched when a reader opens search.
+  - **A `.mdx` source route emits the extension in its PATH.** `/docs/ai` is a page *and* the parent
+    of `/docs/ai/use-suggestions`, so a static export asks for one name to be a file and a directory
+    and dies on `EISDIR` — after prerendering all 434 pages, so it reads as a late failure of
+    something else. `generateStaticParams` appends `.mdx` to the last segment and `GET` strips it
+    back off; the index page has its own route for the same reason.
+
+- **The workspace showcase's corpus is not in the repository**, so the published site has no
+  archive to read unless that changes. It is 108 kB under `public/corpus/`, `.gitignore`d as
+  compiler output, and regenerating it needs the `fossil` binary, which CI does not have. Locally it
+  is there and the showcase draws 1,543 nodes; on Pages it will not be.
