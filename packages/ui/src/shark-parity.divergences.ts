@@ -10,7 +10,8 @@
  *
  * **A reason is not a note.** `CONVENTIONS.md`, *The reference, and what overrules it*: the
  * reference governs the surface, a measurement overrules the reference, and a house principle
- * overrules neither. So a reason here is one of four things, and saying which is the point:
+ * overrules neither. So where this library made a CHOICE against Shark, the reason is one of four
+ * things, and saying which is the point:
  *
  * 1. a measurement — a number, what it was measured against, a threshold it crosses;
  * 2. a decision record, cited by path, which carries its own evidence and its own reversal;
@@ -21,8 +22,21 @@
  *    and the test pins the exact list, so one cannot be added or quietly resolved without an edit
  *    somebody reviews.
  *
+ * **And two more, because most entries here are not a choice at all** — this paragraph exists
+ * because the list above said "one of four things" while the file had used six for months, and a
+ * queue item was filed against the guard for not enforcing the four. Counted 2026-08-24 over all 87
+ * declarations: 53 cite a decision record, 8 cite a guard, 2 measure, **0** are `Undecided` (that
+ * went 21 → 0 and the test pins the empty list), and the remaining 24 are:
+ *
+ * 5. `Not built. …` — 19 of them. Shark ships a component and we have not written one. There is no
+ *    divergence to justify, only an absence to record, and what the entry owes is what stands in
+ *    its place or that nothing does.
+ * 6. `Ours…` — 3, plus one cross-reference to a sibling entry and one prose entry in
+ *    `BEYOND_THE_SURFACE` for a difference that is not a name at all. A name we ship and Shark does
+ *    not is the mirror of 5 and owes the same thing.
+ *
  * Anything cited by path is checked to exist. A reason pointing at a file somebody deleted is not
- * a reason.
+ * a reason. The shape itself is NOT checked — see the guard's own "what it cannot prove".
  */
 
 /** Shark's registry filename → our module, relative to `src/`, where the two do not match. */

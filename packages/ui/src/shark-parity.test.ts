@@ -87,9 +87,19 @@ import {
  * - **Only Shark's `registry/react/components/`.** Its 95 example directories are not fetched, so
  *   the claim in `decisions/a-name-shark-ships-is-ours.md` that the aliases have no call site
  *   inside Shark is, as measured here, a claim about the component files only.
- * - **It cannot tell a good reason from a bad one.** It checks that a reason exists, that anything
- *   it cites by path exists, and that the undecided ones are named. Whether the reason is right is
- *   review's job.
+ * - **It cannot tell a good reason from a bad one, and it does not check the SHAPE either.** What
+ *   it checks is that a reason exists — `trim().length >= 40` — that anything it cites by path
+ *   exists, and that the undecided ones are named. Whether the reason is right is review's job.
+ *
+ *   The length check was filed as a weakness: the divergences file's header requires a reason to be
+ *   one of a few kinds, and 40 characters is not that. **Measured 2026-08-24 before writing the
+ *   classifier that would fix it, and the classifier is the wrong answer.** Over 87 declarations the
+ *   kinds are six, not four — 53 cite a decision record, 8 a guard, 2 measure, 19 are `Not built.`,
+ *   3 are `Ours…`, one refers to a sibling entry and one is prose about a difference that is not a
+ *   name. Sorting those apart means regexes over English, which is a grep wearing a parser's name:
+ *   it would pass `Not built, obviously` and fail the first well-formed reason phrased a new way,
+ *   and CONVENTIONS.md's third obligation is the one it would break. The header was wrong about its
+ *   own file and is now corrected; this stays a length check on purpose.
  *
  * ## Mutation-tested
  *
