@@ -85,5 +85,14 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
+    // Vitest's default is 5 s, which is not a budget anyone here chose. The slowest honest
+    // test in this suite (Preferences pressing its Colour card) takes 2.83 s on a quiet
+    // machine, and the whole run costs 39 s; under a loaded one — `pnpm test` alone
+    // oversubscribes 14 cores with two packages of forks, and other sessions build in this
+    // same checkout — the run costs 84 s and six or seven of these userEvent tests cross the
+    // 5 s line. The failing set *shifts* between runs, which is the signature of contention
+    // and not of a regression: every one of them passes alone. A red suite that means
+    // "the machine was busy" cannot tell a new break from an inherited one.
+    testTimeout: 15_000,
   },
 });

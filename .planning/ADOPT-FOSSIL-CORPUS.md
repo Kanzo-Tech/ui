@@ -77,16 +77,35 @@ No son defectos observados; son preguntas con su evidencia, para hacerlas antes 
    extensión al escribir** es una política de una línea que quita el techo. Es la mejora de diseño de
    más valor que sé nombrar, y no es del lector.
 
-## 4.5 · Seis tests rojos en `packages/ui`, que no son del grafo
+## 4.5 · Los seis rojos eran el reloj, no el tema — cerrado el 25
 
-Medido el 25, con el renombre ya dentro y **sin un solo fichero de `packages/ui` tocado**:
-`CodeEditor` (2), `Preferences` (*«wears a side by pressing its Colour card, with no toggle in the
-header»*), `Questionnaire` y `code-editor-search`. Los nombres apuntan a la refundación del tema
-—`data-theme` sustituyendo a `data-palette`/`data-identity`— que aterrizó mientras esta sesión no
-miraba. `build`, `typecheck`, `lint` y `size` están verdes; sólo `test` no.
+El diagnóstico que había aquí («la refundación del tema, `data-theme` sustituyendo a
+`data-palette`») **era falso**, y lo desmiente la propia forma del fallo: los seis decían
+`Test timed out in 5000ms`, ninguno falló una aserción.
 
-**Quien retome: esto es lo primero, antes que F1.** Un repo cuyo `pnpm test` está rojo no puede
-distinguir un fallo nuevo de uno heredado, que es la propiedad que hace útil la cadena entera.
+Lo medido:
+
+- Cada uno de los cinco ficheros **pasa en solitario**: `code-editor-search` en 669 ms, los cinco
+  juntos en 21 s, y el más lento de todos —*Preferences, «wears a side by pressing its Colour
+  card»*— en **2,83 s**, a un pelo del límite por defecto de 5 s.
+- La suite entera de `ui` pasó **586/586 en 38,9 s** con la máquina tranquila, sin tocar nada.
+- Con `pnpm test` en la raíz, que arranca `theme` y `ui` a la vez sobre 14 núcleos, salieron
+  **siete** rojos y **el conjunto cambió**: entraron *«writes the choice to `<html>`»* y *«retracts
+  the filter when the last value is unticked»*, y salió *«stands aside while a freeform answer is
+  being typed»*. Un conjunto que se mueve entre ejecuciones es contención, no una regresión.
+
+La causa es la sobresuscripción: dos paquetes × (núcleos − 1) forks, cada uno con su jsdom, más
+las otras sesiones que compilan en este mismo checkout. La suite completa cuesta 39 s en reposo y
+146 s bajo carga — casi 4×.
+
+**Arreglo:** `testTimeout: 15_000` en `packages/ui/vite.config.ts`, con la medición en el
+comentario. Cinco veces el test honesto más lento; los 5 s eran el defecto de Vitest, no un
+presupuesto que eligiera nadie aquí. Deliberadamente **no** se limita la concurrencia: eso
+ralentizaría todas las ejecuciones para protegerse de una condición que también provocan sesiones
+ajenas, y contra esas un tope de forks no puede nada.
+
+**Verificado:** `pnpm test` en la raíz, con la máquina a carga 12–14, verde de punta a punta —
+891 tests en `theme` (71), `ui` (586), `graph` (86), `ai` (96) y `docs` (52). `lint` verde.
 
 ## 5 · Verificación, en este orden
 
