@@ -21,6 +21,17 @@ supersede con un fichero que se queda al lado del árbol.**
 | — en `.changeset/` | 6 |
 | — en la raíz | el resto: `DESIGN.md`, `CONVENTIONS.md`, `CLAUDE.md`, `README.md`, `BENCHMARKS.md` |
 | guard | `packages/ui/src/decisions.test.ts`, que verifica cinco reglas de forma y dos de contenido |
+| citas hacia `DESIGN.md` | **368** |
+| citas hacia `CONVENTIONS.md` | **293** |
+| **total a reescribir** | **~893** |
+
+**Y `DESIGN.md` ya está duplicado.** `docs/content/docs/(root)/philosophy.mdx` son 290 líneas con
+las mismas secciones —la restricción que gobierna, las tres capas, los tres ejes, la regla del
+motor, la del nombre, la admisión, menú contra listbox, la frontera de cliente, dónde vive la
+especificidad—. O sea que la fuente doble que hay que cerrar no es sólo `decisions/`: **ya hay dos
+copias de las reglas y la del sitio es la que se queda.** `CONVENTIONS.md` sólo está duplicado a
+medias: `styling.mdx` lleva la receta, y la mitad de autor —nombres, frontera de cliente,
+comentarios, tests, distribución— no tiene página.
 
 ## Lo que hay que decidir por registro, y no es mecánico
 
