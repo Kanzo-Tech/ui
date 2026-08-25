@@ -4,7 +4,12 @@ Escrito para sobrevivir a un `/clear`. Lo que hay aquí es estado medido el 25, 
 
 ## 0 · Dónde estamos, con evidencia
 
-- **`@fossil-lang/graph@0.3.0-alpha.1` está publicado en npm.** Aquí no dependemos de él todavía.
+- **Lo publicado en npm NO es lo que necesitamos, y esta línea decía lo contrario.** El último
+  alfa es `0.3.0-alpha.3`, del **16 de junio** — más de dos meses. Su barril exporta cuatro cosas:
+  `initFossilGraphWasm`, `createGraphClient`, `GraphClient` y los tipos generados. **Ni `openCorpus`,
+  ni `resolveCorpus`, ni `address`**: el tarball no contiene esos ficheros. En rmlext el paquete es
+  `0.0.0-development` y los únicos tags son `v0.1` y `v0.2`. Medido el 25 desempaquetando el tarball.
+  Todo lo que sigue está leído del checkout hermano, no de npm.
 - **El direccionamiento salió del lector.** `packages/graph/src/address.ts` en rmlext, y es
   **síncrono**: no toma `fetch`, no abre conexión, no devuelve promesa. Mejor que lo que pedimos —
   mi propuesta llevaba un `fetch` dentro.
@@ -17,22 +22,62 @@ Escrito para sobrevivir a un `/clear`. Lo que hay aquí es estado medido el 25, 
 - `HANDOFF-FROM-KANZO-UI.md` fue borrado en rmlext, que era la instrucción.
 - **Nuestro árbol está limpio y verde** (`pnpm typecheck` = 0). `duck-source.ts` son 1.216 líneas.
 
-## 1 · Dos incógnitas que hay que resolver ANTES de planificar fases
+## 1 · Las dos incógnitas, contestadas el 25 — leyendo `rmlext`, no ejecutando
 
-Deciden cuánto se borra, y no las he mirado:
+Decidían cuánto se borra. Ya no están abiertas.
 
-1. **¿`window()` habla en coordenadas de mundo, y toma un presupuesto?** Un rectángulo no es una
-   cámara: falta la escala, que es lo que decide el muestreo. Si `window` no toma un `limit`, la
-   regla de la zancada sobre Morton se queda de este lado y su respuesta de completitud es relativa
-   a un número que inventa quien llama.
-2. **¿Está escrita ya la disposición de un fichero con row groups de 4.096 en los corpus servidos?**
-   De eso depende que dejemos de sondear footers, y que la caché de cajas sobre.
+**1 · `window()` habla en coordenadas de mundo, y NO toma presupuesto.**
+
+`Box` es, literalmente, *«a rectangle in the corpus's own coordinates»*, y `corpus.extent` existe
+para que quien sólo tiene una URL tenga coordenadas que meter en ella. Hasta ahí, lo que pedíamos.
+
+Pero `WindowParams extends Box` añade exactamente dos campos opcionales, `type` y `directions`.
+**No hay `limit`, ni escala, ni muestreo.** Y el contrato es explícito en que `complete` no
+significa «no se truncó»: *«It is not "the answer is large" or "nothing was truncated" — neither
+member truncates»*. Un rectángulo devuelve **todos** sus vértices.
+
+La consecuencia manda sobre F2: la regla de la zancada sobre Morton y la política de cuándo
+muestrear **se quedan de este lado**, tal como el §2 ya listaba. Y `window()` **no puede servir la
+vista lejana**: encuadrar la extensión de un corpus de cinco millones es pedir cinco millones de
+filas. F2 se apoya en `openCorpus` para la lectura *acotada*, y no para la panorámica.
+
+**2 · Sí: 4.096, es una fila de grupo por tesela, y está argumentado.**
+
+`crates/fossil-df/src/files.rs::batches_to_parquet` fija
+`max_row_group_row_count = DEFAULT_CHUNK_SIZE = 1 << TILE_SHIFT = 4096`, con un test que se llama
+`a_row_group_is_a_tile`. Como el grupo de filas *es* la tesela, el footer lleva **una caja `x`/`y`
+por tesela direccionable** — que es justo el índice que estábamos sondeando a mano.
+
+Y trae medida la pregunta que F1 iba a contestar ejecutando. A cinco millones: **1.221 grupos de
+filas, footer de 496 kB, 5,6 peticiones de rango y 1,38 MB por ventana**, contra 22,3 peticiones
+para las mismas teselas como 1.221 ficheros sueltos. La elección de 4.096 la decide `λ·β` con el
+enlace multiplexado, y la curva de bytes es plana entre 1.024 y 8.192 — *«a change there is not an
+improvement, it is noise with a `git blame` on it»*.
+
+**Lo que esto no dice:** es lo que hace el escritor *hoy*. Antes era 122.880, el defecto de DuckDB,
+así que un corpus servido y escrito con la versión vieja tiene la disposición vieja. Comprobarlo es
+mirar el footer del corpus concreto, no el escritor.
+
+**Y una del §4 que también cae: `resolveCorpus` es público a propósito.** Tiene subruta propia,
+`@fossil-lang/graph/address`, más una reexportación en el barril, y la cabecera argumenta por qué
+(no necesita WASM, ni `query`, ni promesa: *«a notebook, a CLI or a server opens the same corpus
+with this and a Parquet reader of its own choosing»*). La pregunta 4.1 sigue en pie como pregunta
+de diseño, pero su premisa está confirmada, no era una lectura errónea.
 
 ## 2 · Las fases
 
-**F1 · Spike, sin tocar el lector.** Añadir la dependencia y abrir un corpus con su API en un
-fichero aparte. Salida: qué devuelve `window()`, en qué coordenadas, y cuántas peticiones cuesta.
-Con eso se contestan las dos incógnitas y esta planificación se vuelve concreta.
+**F1 · Spike, sin tocar el lector.** Su salida —qué devuelve `window()`, en qué coordenadas y
+cuántas peticiones cuesta— **está contestada por lectura** en el §1, así que lo que queda del spike
+es ejecutarlo, y eso **está bloqueado: no hay nada publicado que traiga `openCorpus`**. Tres salidas,
+y ninguna es esperar callados:
+
+- **(a) Depender del checkout hermano** (`link:` a `../rmlext/packages/graph`) para el spike. Corre
+  hoy; no es commiteable como dependencia real, y hay que acordar que el spike vive con esa marca.
+- **(b) Pedir un alfa con la mitad de corpus dentro.** Es una publicación, no trabajo de diseño, y
+  desbloquea F2 de verdad.
+- **(c) Adelantar el diseño de F2 contra la fuente leída** y cablearlo cuando exista el paquete. El
+  riesgo es escribir contra una API que aún se mueve — aunque su cabecera dice que la forma está
+  cerrada en cuatro miembros.
 
 **F2 · Adoptar en un solo sitio.** El `BoundedSource` que la canvas consume pasa a apoyarse en
 `openCorpus` de fossil. Sabremos que salió bien cuando **la mitad que desaparece de
