@@ -57,21 +57,35 @@ about a curve that behaves**, and it is not the one anybody would guess.
 
 <WriteScaling />
 
-**Reading is not bounded by the window, and the answer is not why.** The same rectangle — one
+**Reading was not bounded by the window, and the answer was never why.** The same rectangle — one
 percent of the extent — answers 812 vertices at a million and 771 at five, both out of a single
-tile, and takes 75.6 ms and 1,000.8 ms. Same answer, same tile, thirteen times the clock. At ten
-million it is 4.7 seconds.
+tile, and it took 75.6 ms and 1,000.8 ms. At ten million, 4.7 seconds for 3,152 vertices.
 
-The cause is one query. `openCorpus` hands DuckDB **every tile URL in the corpus** for the vertex
-half and prunes with a `WHERE` — 245 paths at a million, 2,442 at ten, a statement 245,649
-characters long — so a window opens `ceil(N / 4096)` Parquet footers however few rows it wants. The
-edge queries in the same window open two, because they are addressed from the tiles the vertex
-answer reported. **The addressing works; one query does not use it.**
+The cause was one query. `openCorpus` handed DuckDB **every tile URL in the corpus** for the vertex
+half and pruned with a `WHERE` — 245 paths at a million, 2,442 at ten, a statement 245,649
+characters long — so a window opened `ceil(N / 4096)` Parquet footers however few rows it wanted.
+The edge queries in the same window opened two, because they are addressed from the tiles the vertex
+answer reported. **The addressing worked; one query did not use it.**
 
-This page named that exact defect in our own reader before the addressed one existed: *hands DuckDB
-every chunk URL and prunes with a `WHERE`, so it skips no row group*. It is worth being plain that
-it came back on the other side of the seam, and that nothing here would have caught it — a window
-returning the right answer looks identical to a window returning it cheaply.
+**It is fixed, and the shape of the fix is the point.** The arithmetic says which tiles exist and
+only the footers say which ones a rectangle intersects, so the boxes are read once per corpus and
+kept — a few thousand rows of metadata, no column data — and every window after that opens the tiles
+it names: 13.6 ms at a million, 15.2 at five, 64.7 at ten, one file each and two at ten million.
+Same answers, `complete` still true, fossil's eighty-eight tests green. It is `010451a` in the
+fossil checkout, and the reasoning now lives on [the cost model](https://github.com/kanzo-tech/fossil)
+page beside the streaming one.
+
+**What is still unbounded is the first window.** The boxes have to come from somewhere, so opening a
+corpus and asking once costs 112 ms at a million, 1,117 at five and 5,327 at ten. Locally that is a
+footer read; over HTTP it is thousands of range requests before anything is drawn, which is the cost
+a page actually feels. The writer knows every tile's box when it cuts it, and publishing them —
+`tile, min_x, max_x, min_y, max_y`, about 100 kB at ten million — is what would make a cold window
+bounded too.
+
+**None of this page would have caught it.** A window returning the right answer looks exactly like a
+window returning it cheaply, and it took timing the same rectangle against two corpus sizes from
+outside the repository. The assertion that does catch it is a shape rather than a number: *files
+opened per window does not grow with N*. A pinned number was always correct.
 
 **Writing is bounded by the machine, and that part is structural.** The whole build peaks at 20.72
 GiB at ten million for 1.5 GB of corpus, and the curve has no ceiling in it: extrapolated, it meets

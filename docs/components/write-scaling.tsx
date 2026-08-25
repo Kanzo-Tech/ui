@@ -47,30 +47,50 @@ const BUILD: Point[] = [
  * One window of the same shape — a rectangle covering one percent of the extent, at the corner the
  * extent knows — asked of every corpus through `openCorpus`, best of three after a warm-up.
  *
- * It should be flat: the answers are the same size (812 vertices at a million, 771 at five) and
- * they live in one tile. It is not flat, and the second series is why — the vertex query is handed
- * every tile URL in the corpus and prunes with a `WHERE`, so a window opens `ceil(N / 4096)`
- * Parquet footers however few rows it wants. The edge queries in the same window open two.
+ * Two series, because the fix is the finding. `before` is the reader as published: the vertex query
+ * was handed every tile URL in the corpus and pruned with a `WHERE`, so a window opened
+ * `ceil(N / 4096)` Parquet footers however few rows it wanted. `now` reads the tile boxes once per
+ * corpus and then opens only the tiles a rectangle names.
  */
 const WINDOW_MS: Point[] = [
-  { nodes: 2_000, value: 3.6, series: "ms" },
-  { nodes: 10_000, value: 3.9, series: "ms" },
-  { nodes: 50_000, value: 12.5, series: "ms" },
-  { nodes: 200_000, value: 15.9, series: "ms" },
-  { nodes: 1_000_000, value: 75.6, series: "ms" },
-  { nodes: 5_000_000, value: 1000.8, series: "ms" },
-  { nodes: 10_000_000, value: 4738.5, series: "ms" },
+  { nodes: 2_000, value: 3.6, series: "before" },
+  { nodes: 10_000, value: 3.9, series: "before" },
+  { nodes: 50_000, value: 12.5, series: "before" },
+  { nodes: 200_000, value: 15.9, series: "before" },
+  { nodes: 1_000_000, value: 75.6, series: "before" },
+  { nodes: 5_000_000, value: 1000.8, series: "before" },
+  { nodes: 10_000_000, value: 4738.5, series: "before" },
+  { nodes: 2_000, value: 3.3, series: "now" },
+  { nodes: 10_000, value: 3.6, series: "now" },
+  { nodes: 50_000, value: 11.3, series: "now" },
+  { nodes: 200_000, value: 8.2, series: "now" },
+  { nodes: 1_000_000, value: 13.6, series: "now" },
+  { nodes: 5_000_000, value: 15.2, series: "now" },
+  { nodes: 10_000_000, value: 64.7, series: "now" },
 ];
 
 const FILES: Point[] = [
-  { nodes: 2_000, value: 1, series: "files" },
-  { nodes: 10_000, value: 3, series: "files" },
-  { nodes: 50_000, value: 13, series: "files" },
-  { nodes: 200_000, value: 49, series: "files" },
-  { nodes: 1_000_000, value: 245, series: "files" },
-  { nodes: 5_000_000, value: 1221, series: "files" },
-  { nodes: 10_000_000, value: 2442, series: "files" },
+  { nodes: 2_000, value: 1, series: "before" },
+  { nodes: 10_000, value: 3, series: "before" },
+  { nodes: 50_000, value: 13, series: "before" },
+  { nodes: 200_000, value: 49, series: "before" },
+  { nodes: 1_000_000, value: 245, series: "before" },
+  { nodes: 5_000_000, value: 1221, series: "before" },
+  { nodes: 10_000_000, value: 2442, series: "before" },
+  { nodes: 2_000, value: 1, series: "now" },
+  { nodes: 10_000, value: 1, series: "now" },
+  { nodes: 50_000, value: 1, series: "now" },
+  { nodes: 200_000, value: 1, series: "now" },
+  { nodes: 1_000_000, value: 1, series: "now" },
+  { nodes: 5_000_000, value: 1, series: "now" },
+  { nodes: 10_000_000, value: 2, series: "now" },
 ];
+
+/** Named for what they are rather than for the change: a reader arrives after the fix has landed. */
+const WINDOW_SERIES: ChartConfig = {
+  before: { label: "Every tile, pruned by WHERE" },
+  now: { label: "Only the tiles the box names" },
+};
 
 /**
  * `examples/enrich_memory`, which runs the real layout pass over a wide-row fixture at mean degree
@@ -114,24 +134,26 @@ export function WriteScaling() {
     <MosaicBoot>
       <div className="grid gap-4 md:grid-cols-2">
         <Frame
-          note="A rectangle covering one percent of the extent, best of three, warm. The answers are the same size at every corpus, so this should be a flat line."
+          note="A rectangle covering one percent of the extent, best of three, warm. The answers are the same size at every corpus, so this should be a flat line — and now it is."
           title="One window against corpus"
         >
-          <ChartRoot attributes={LOG_XY} height={220} margin={{ bottom: 34, left: 52, right: 16, top: 8 }}>
-            <ChartLine data={WINDOW_MS} stroke="var(--primary)" strokeWidth={1.5} x="nodes" y="value" />
-            <ChartDot data={WINDOW_MS} fill="var(--primary)" r={4} tip x="nodes" y="value" />
+          <ChartLegend config={WINDOW_SERIES} />
+          <ChartRoot attributes={LOG_XY} config={WINDOW_SERIES} height={220} margin={{ bottom: 34, left: 52, right: 16, top: 8 }}>
+            <ChartLine data={WINDOW_MS} stroke="series" strokeWidth={1.5} x="nodes" y="value" />
+            <ChartDot data={WINDOW_MS} fill="series" r={4} tip x="nodes" y="value" />
             <ChartAxisX label="vertices" ticks={5} />
             <ChartAxisY grid label="window (ms)" />
           </ChartRoot>
         </Frame>
 
         <Frame
-          note="And the reason, which is not the answer's size: the vertex query is handed every tile URL in the corpus. The edge queries beside it open two."
+          note="And the reason, which was never the answer's size: the vertex query was handed every tile URL in the corpus. The edge queries beside it always opened two."
           title="Parquet files opened per window"
         >
-          <ChartRoot attributes={LOG_XY} height={220} margin={{ bottom: 34, left: 52, right: 16, top: 8 }}>
-            <ChartLine data={FILES} stroke="var(--destructive)" strokeWidth={1.5} x="nodes" y="value" />
-            <ChartDot data={FILES} fill="var(--destructive)" r={4} tip x="nodes" y="value" />
+          <ChartLegend config={WINDOW_SERIES} />
+          <ChartRoot attributes={LOG_XY} config={WINDOW_SERIES} height={220} margin={{ bottom: 34, left: 52, right: 16, top: 8 }}>
+            <ChartLine data={FILES} stroke="series" strokeWidth={1.5} x="nodes" y="value" />
+            <ChartDot data={FILES} fill="series" r={4} tip x="nodes" y="value" />
             <ChartAxisX label="vertices" ticks={5} />
             <ChartAxisY grid label="files" />
           </ChartRoot>
