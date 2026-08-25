@@ -969,6 +969,70 @@ be given a memory budget it will honour**, which it could not before. Whether a 
 the machine can actually be written is untested, and on these numbers the answer at 100M would be
 no.
 
+### The layout is linear in N, and `community_hierarchy` never stopped asking
+
+Measured 2026-08-25 on today's fossil binary (`feat/pg-canonical-mir`, built from the sibling
+checkout), with fossil's own two harnesses and `FOSSIL_MEM_PROBE=1`. The previous section's 1M-vs-10M
+table is from 2026-08-05 and predates `97efc79`, the change that took `community_hierarchy` from
++2.09 GiB to a reported **+0.08 GiB** at ten million. Nobody had re-measured the *curve* since.
+
+**`enrich_layout` end to end** — `examples/enrich_memory`, which builds a wide-row fixture at mean
+degree 10 and runs the real pass over it:
+
+| N | vertex file | peak RSS | GiB per million |
+|---|---|---|---|
+| 1M | 116.9 MB | 1.03 G | 1.03 |
+| 2M | 235.9 MB | 1.82 G | 0.91 |
+| 4M | 473.8 MB | 3.72 G | 0.93 |
+| 8M | 949.8 MB | 7.06 G | 0.88 |
+
+**The layout core alone** — `examples/layout_memory`, Louvain on a synthetic graph at mean degree 14,
+no I/O in the process. At ten million it builds 69.5M edges against the real corpus's 71.0M, so it is
+a close proxy for the corpus the ADR measures:
+
+| N | edges | peak RSS | GiB per million | seconds |
+|---|---|---|---|---|
+| 1M | 6.95M | 0.28 G | 0.280 | 4.8 |
+| 2M | 13.90M | 0.58 G | 0.290 | 12.0 |
+| 4M | 27.80M | 1.19 G | 0.297 | 31.1 |
+| 8M | 55.61M | 2.39 G | 0.299 | 73.0 |
+| 10M | 69.51M | 2.90 G | 0.290 | 94.7 |
+
+**Memory is linear in N to three digits; time is not.** 0.29 GiB per million across a 10× range, and
+4.8 s to 94.7 s for the same range — 19.7× for 10×, so wall clock goes as roughly N^1.3. The write
+path's ceiling is therefore arithmetic and not a tuning question: **≈0.9 GiB of resident set per
+million vertices**, which on this 48 GB machine puts the wall somewhere near fifty million, with no
+spill path anywhere in the pass.
+
+**And `community_hierarchy` is still the largest term.** The row the ADR reports at +0.08 GiB, taken
+from `enrich_memory`'s own probe on the same code path — it reads the CSR in a phase of its own
+first, so this is the post-`97efc79` shape and not the bag-of-pairs entry:
+
+| N | `read CSR + CSC` | `community_hierarchy` | `read vertices` | `remap adjacencies` |
+|---|---|---|---|---|
+| 1M | +0.06 G | **+0.39 G** | +0.17 G | +0.10 G |
+| 2M | +0.09 G | **+0.89 G** | +0.20 G | +0.20 G |
+| 4M | +0.18 G | **+1.79 G** | +0.53 G | +0.42 G |
+| 8M | +0.51 G | **+3.30 G** | +1.03 G | +0.81 G |
+
+0.41 GiB per million, linear, and between three and five times every other phase. Against a reported
++0.08 GiB at ten million that is not a discrepancy in degree — it is two different things being
+measured.
+
+**What reconciles them, and why it matters.** An RSS *delta* only sees a phase that makes the process
+ask the OS for more. In the full run `enrich_layout` starts at 6.82 GiB, so the allocator is holding
+gigabytes of freed pages and Louvain's three fit inside without RSS moving. In `enrich_memory` the
+process starts at 0.24 G and every byte shows. So the sentence the ADR draws from that row — *"the
+memory did not move somewhere else — it stopped being asked for"* — does not survive: **the step still
+asks for it, and in the full run it is served out of headroom the executor already took.** The peak
+falling from 10.10 to 8.39 GiB is a real result and is not in question; its explanation is.
+
+**What this does not measure.** Not `execute_graph`, which is not in either process — the budgeted
+executor's half is untouched here and the 2026-08-05 numbers stand. Not a real corpus: both fixtures
+are synthetic, at mean degree 14 and 10 against the real corpus's 7.1, and Louvain's state follows
+degree as well as N. And not `fossil run` end to end, which needs the CSV generator that produced the
+ten-million build and is not in this repo.
+
 ### But the explanation in the ADR is wrong, and §3 rests on it
 
 The addressing design says *"la maquetación es grumosa, una comunidad es un disco compacto y una
