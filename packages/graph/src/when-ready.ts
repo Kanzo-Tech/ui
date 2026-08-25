@@ -25,7 +25,7 @@ import type { Graph } from "@cosmos.gl/graph";
  *
  * **`ready` has no failure path.** When the device cannot be made, cosmos.gl does not reject — the
  * promise simply never settles, so `apply` never runs and the canvas stays empty. That is the state
- * `hasWebGL()` in `use-cosmos-graph.ts` probes for before any of this, and it is why this returns a
+ * `hasWebGL()` in `use-renderer.ts` probes for before any of this, and it is why this returns a
  * cancel rather than being awaited: nothing here may hold a caller open.
  *
  * @returns a cancel. Call it from an effect's cleanup — during a pan the slices arrive faster than

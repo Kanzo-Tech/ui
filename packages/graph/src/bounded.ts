@@ -306,7 +306,7 @@ export function isSuperseded(error: unknown): boolean {
  * with `x`/`y` and a spatial index answers regions and nothing else; one that holds adjacency — or
  * that can reach fossil's `expand` — answers both.
  *
- * `useBoundedGraph` narrows with `"explore" in source`, which is the check a caller writes once.
+ * `useQueryLoop` narrows with `"explore" in source`, which is the check a caller writes once.
  */
 export interface ExploringSource extends BoundedSource {
   explore(request: ExploreRequest): Promise<Slice>;
@@ -336,7 +336,7 @@ export function shouldSlice(total: number | undefined, limit: number): boolean {
  * The camera→rectangle conversion that used to live here is gone: cosmos.gl owns the screen↔space
  * transform and answers it through `screenToSpacePosition`, so deriving the rectangle from the
  * camera and the space size was a second implementation of the renderer's own maths, free to drift
- * from it. `useBoundedGraph` asks the renderer instead.
+ * from it. `useQueryLoop` asks the renderer instead.
  */
 export const BOUNDED_DEFAULTS = {
   /**

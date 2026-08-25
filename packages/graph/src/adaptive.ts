@@ -50,7 +50,7 @@ function scaleOfCount(nodes: number): number {
  * positions are authority: the box is the coordinate space a source's positions are expressed in and
  * a spatial query is asked against, so resizing it by node count would move the index under the
  * camera. It is not a constant of ours either, for the same reason turned around — it is the
- * source's `extent()`, and `useBoundedGraph` sets it from there.
+ * source's `extent()`, and `useQueryLoop` sets it from there.
  */
 export function adaptive(nodes: number): { sim: Sim; links: boolean } {
   const t = scaleOfCount(nodes);

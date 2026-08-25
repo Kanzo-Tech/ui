@@ -27,7 +27,7 @@ import { whenReady } from "./when-ready";
  * every camera move costs a query, which at 200,000 nodes is the trade that buys the ceiling away.
  */
 
-export interface BoundedGraphOptions {
+export interface QueryLoopOptions {
   source: BoundedSource | null;
   /** The live renderer, for reading the camera and receiving each answer. */
   graphRef: RefObject<Graph | null>;
@@ -65,7 +65,7 @@ export interface BoundedGraphOptions {
   onError?: (message: string) => void;
 }
 
-export interface BoundedGraphState {
+export interface QueryLoopState {
   /** The answer currently drawn, or `null` before the first one. */
   slice: Slice | null;
   /**
@@ -133,7 +133,7 @@ function cameraViewport(graph: Graph, host: HTMLElement): { view: Viewport; perP
   return { view, perPixel };
 }
 
-export function useBoundedGraph(options: BoundedGraphOptions): BoundedGraphState {
+export function useQueryLoop(options: QueryLoopOptions): QueryLoopState {
   const {
     debounce = DEBOUNCE_MS,
     fill,

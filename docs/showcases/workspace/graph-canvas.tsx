@@ -391,7 +391,7 @@ function CanvasBody({ source, spec }: { source: DuckSource; spec: GraphSpec }) {
     /**
      * Ask again, because the pinned set is part of the question.
      *
-     * `useBoundedGraph` says this in as many words — *wire it to the camera, and call it when the
+     * `useQueryLoop` says this in as many words — *wire it to the camera, and call it when the
      * pinned set changes* — and this host did not, which the migration is what surfaced: `refresh`
      * came back from the loop and the only thing that used it was `onZoom`, which `useGraph` now
      * does itself, leaving the binding unused.
@@ -702,7 +702,7 @@ function CanvasBody({ source, spec }: { source: DuckSource; spec: GraphSpec }) {
    *
    * `slice` is a dependency because every answer re-uploads positions, and that is what clears the
    * registration on its way through. The ordering worry this used to carry is gone: it was placed
-   * "after the constructor" because effects run in declaration order and `useCosmosGraph` was a
+   * "after the constructor" because effects run in declaration order and `useRenderer` was a
    * sibling call here. The constructor is inside `useGraph` now, so it has already run.
    */
   useEffect(() => {

@@ -619,7 +619,7 @@ export function GraphBenchShowcase() {
       // Frame it again once it has stopped moving. `fitViewOnInit` fires at `fitViewDelay`, while
       // the layout is still spreading, so on its own it frames a graph that no longer exists a
       // second later — the canvas showed the corner of a hairball. This is the same correction
-      // `useCosmosGraph` makes for the real canvas, for the same reason.
+      // `useRenderer` makes for the real canvas, for the same reason.
       onSimulationEnd: () => {
         graph.fitView(450, 0.3);
         if (live) setSettled(true);

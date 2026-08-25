@@ -8,8 +8,8 @@ import { isColour, type Channels } from "./graph-model";
 import { residentOf, type Resident, type VertexId } from "./resident";
 import type { Sim } from "./graph-sim";
 import type { Motion } from "./types";
-import { useBoundedGraph } from "./use-bounded-graph";
-import { useCosmosGraph, type CosmosGraphOptions } from "./use-cosmos-graph";
+import { useQueryLoop } from "./use-query-loop";
+import { useRenderer, type RendererOptions } from "./use-renderer";
 import { useGraphLook } from "./use-graph-look";
 
 /**
@@ -158,7 +158,7 @@ export interface UseGraphProps {
  *
  * **There is no `graphRef` here, and that is deliberate.** `getGraph()` answers every read of it,
  * and a ref object as well would be two ways to express one thing — with the second one writable,
- * which nothing outside `useCosmosGraph` may be.
+ * which nothing outside `useRenderer` may be.
  */
 export interface GraphApi {
   /**
@@ -229,7 +229,7 @@ export function useGraph(props: UseGraphProps): GraphApi {
   const graphRef = useRef<Graph | null>(null);
   const residentRef = useRef<Resident>(NOBODY);
 
-  const { explore, pending, refresh, resident, slice, sliced, total } = useBoundedGraph({
+  const { explore, pending, refresh, resident, slice, sliced, total } = useQueryLoop({
     debounce,
     fill: asked,
     graphRef,
@@ -266,7 +266,7 @@ export function useGraph(props: UseGraphProps): GraphApi {
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
 
-  const wired = useMemo<CosmosGraphOptions["events"]>(
+  const wired = useMemo<RendererOptions["events"]>(
     () => ({
       onBackgroundClick: () => live.current?.onBackgroundClick?.(),
       onDragEnd: (index) => {
@@ -305,7 +305,7 @@ export function useGraph(props: UseGraphProps): GraphApi {
    * commit. A host that calls `useGraph` and renders no surface at all gets a hook that returns
    * early, forever, which is the honest outcome for a graph with nowhere to go.
    */
-  useCosmosGraph({
+  useRenderer({
     clusters,
     events: wired,
     graphRef,

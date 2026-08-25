@@ -1,8 +1,8 @@
 # The coordinate box is the corpus's extent, and this side declares no default for it
 
 - **Status** live — 2026-08-19
-- **Decided** `@kanzo-tech/graph` exports no `SPACE`. `useCosmosGraph` passes no `spaceSize` to
-  cosmos.gl at construction, and `useBoundedGraph`'s framing — the one place that already awaits an
+- **Decided** `@kanzo-tech/graph` exports no `SPACE`. `useRenderer` passes no `spaceSize` to
+  cosmos.gl at construction, and `useQueryLoop`'s framing — the one place that already awaits an
   `extent()` — sets it from that extent's larger side before the first slice is asked for.
   `clusterRing` is handed the box it is placing a ring in rather than reading a constant.
 - **Because** the coordinate box is owned by whatever wrote the positions, and this side was
@@ -16,7 +16,7 @@
   that exists yet.
 - **Held by** `packages/graph/src/coordinate-box.test.ts`, whose `sourcesUnder` scan fails on a
   numeric `spaceSize` or a `SPACE` declaration anywhere in the package; then
-  `packages/graph/src/use-bounded-graph.test.tsx`, whose framing test pins `boxes` to the extent it
+  `packages/graph/src/use-query-loop.test.tsx`, whose framing test pins `boxes` to the extent it
   was given; and the tombstone in `packages/graph/src/index.test.ts`.
 
 `SPACE = 4096` was passed to cosmos.gl as `spaceSize` and **hand-copied into both bench

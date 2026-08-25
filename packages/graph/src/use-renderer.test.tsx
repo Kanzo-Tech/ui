@@ -3,7 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { useCosmosGraph } from "./use-cosmos-graph.js";
+import { useRenderer } from "./use-renderer.js";
 
 /**
  * **The context is a resource with a hard budget, and this holds the two things we owe it.**
@@ -28,18 +28,18 @@ import { useCosmosGraph } from "./use-cosmos-graph.js";
  *   guard. What replaces them is a **source scan** — weak, and it fails when somebody removes the
  *   release, which is the failure that actually happened.
  * - **Nothing counts contexts.** The sixteen, the eviction order and the fifteen free slots are
- *   browser behaviour measured once by hand and written into `use-cosmos-graph.ts`.
+ *   browser behaviour measured once by hand and written into `use-renderer.ts`.
  * - **Nothing rebuilds after a restore.** `preventDefault()` asks the browser to try, and we do not
  *   listen for `webglcontextrestored` — re-uploading every buffer needs a slice this hook does not
  *   hold. The graph stays blank; it just stops being blank *and silent*.
  */
 
 const SOURCE = readFileSync(
-  join(dirname(fileURLToPath(import.meta.url)), "use-cosmos-graph.ts"),
+  join(dirname(fileURLToPath(import.meta.url)), "use-renderer.ts"),
   "utf8",
 );
 
-describe("useCosmosGraph", () => {
+describe("useRenderer", () => {
   it("declines in an environment with no WebGL, and says so once", () => {
     // jsdom is that environment, which makes this the one claim about the hook itself that can be
     // made here — and it is the claim that keeps `onFailure` from being silent, which is the
@@ -48,7 +48,7 @@ describe("useCosmosGraph", () => {
     const graphRef = { current: null };
     const hostRef = { current: document.createElement("div") };
 
-    renderHook(() => useCosmosGraph({ graphRef, hostRef, onFailure }));
+    renderHook(() => useRenderer({ graphRef, hostRef, onFailure }));
 
     expect(onFailure).toHaveBeenCalledTimes(1);
     expect(String(onFailure.mock.calls[0]?.[0])).toMatch(/WebGL/i);
@@ -71,7 +71,7 @@ describe("useCosmosGraph", () => {
 
     const { rerender } = renderHook(
       ({ tag }: { tag: string }) =>
-        useCosmosGraph({
+        useRenderer({
           graphRef,
           hostRef,
           // A new function on every render, which is the point.

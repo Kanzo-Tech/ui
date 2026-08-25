@@ -33,7 +33,7 @@ rendering hooks do not, and a host drawing arrays it already has should not pay 
 
 ## The two halves
 
-**Data.** A **source** answers one question — *what should I draw* — and `useBoundedGraph` asks it.
+**Data.** A **source** answers one question — *what should I draw* — and `useQueryLoop` asks it.
 The answer is a `Slice`: at most `limit` points as parallel typed arrays, whose size follows the
 question rather than the corpus. Moving the camera re-asks, and a window holding more than `limit`
 is **sampled** rather than truncated — one row every `ceil(matched / limit)` over the corpus'
@@ -50,7 +50,7 @@ a graph that fits pays for nothing.
 in the arrays it was last handed, so index 7 is whatever the current answer put seventh. A vertex is
 therefore `vertexId(type, dense)` — a `bigint`, and `Slice.vertices` a `BigUint64Array`, because the
 pair is 64 bits and a `number` holds 53. Anything that outlives one answer is held as a `VertexId`
-and resolved through the `Resident` that `useBoundedGraph` rebuilds per answer. Do not build a second
+and resolved through the `Resident` that `useQueryLoop` rebuilds per answer. Do not build a second
 map: a copy assembled beside it is the same value one render later, with no way to notice it has
 fallen behind the buffers on screen.
 

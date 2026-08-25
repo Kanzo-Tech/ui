@@ -72,7 +72,7 @@ export function denseOf(vertex: VertexId): number {
  *
  * Built once per residency change and never mutated, because that is what a residency change *is*: a
  * different set of vertices, in a different order. It belongs to whoever owns residency — that is
- * `useBoundedGraph`, which holds the answer — and is read from there by everything else, because a
+ * `useQueryLoop`, which holds the answer — and is read from there by everything else, because a
  * second copy is a second copy that can disagree with the buffers on screen.
  */
 export interface Resident {

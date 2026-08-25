@@ -70,7 +70,7 @@ describe("@kanzo-tech/graph public surface", () => {
     // Tombstone. `SPACE = 4096` was the renderer's coordinate box declared here and owned by
     // whatever wrote the positions; a corpus fossil wrote spans 157× it and nothing failed, because
     // `spaceSize` is a translation in every render path. The box is the source's `extent()` now, set
-    // where `useBoundedGraph` already awaits one — `coordinate-box.test.ts` is the guard.
+    // where `useQueryLoop` already awaits one — `coordinate-box.test.ts` is the guard.
     expect((GRAPH as Record<string, unknown>).SPACE).toBeUndefined();
     expect(GRAPH.GRID).toBeTypeOf("number");
     expect(GRAPH.REHEAT).toBeTypeOf("number");
@@ -165,8 +165,8 @@ describe("@kanzo-tech/graph public surface", () => {
     // `decisions/a-chart-needs-no-factory.md`: there is no `useChart` factory, so charts ship exactly
     // one way and the reference this copied no longer reads that way. Measured after the workspace
     // migrated to `useGraph`: zero call sites outside this package, comments aside.
-    expect(surface.useCosmosGraph).toBeUndefined();
-    expect(surface.useBoundedGraph).toBeUndefined();
+    expect(surface.useRenderer).toBeUndefined();
+    expect(surface.useQueryLoop).toBeUndefined();
     expect(surface.useGraphLook).toBeUndefined();
     // ADR-0001. `load()` read the whole relation into memory — every id, every row, an id→index map
     // — which made the working set N and the ceiling whatever N the machine could hold. A source

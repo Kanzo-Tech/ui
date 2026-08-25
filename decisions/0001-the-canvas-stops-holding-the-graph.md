@@ -57,7 +57,7 @@ know it is a consequence — an hour was spent worrying about it.
 We will make the canvas a client of a bounded source, and delete the path that
 holds everything.
 
-**A hook owns the query loop.** `useBoundedGraph(source, options)` observes the
+**A hook owns the query loop.** `useQueryLoop(source, options)` observes the
 camera, debounces, cancels superseded requests, reconciles the answer into the
 renderer, and returns state. The canvas stays presentational. This is the split
 `DESIGN.md` already requires of anything with an engine — *"a component that needs

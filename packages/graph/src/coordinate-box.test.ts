@@ -18,7 +18,7 @@ import { describe, expect, it } from "vitest";
  * a false statement, silently.
  *
  * So: no numeric `spaceSize` anywhere in the package, and no `SPACE` on the barrel. What replaces it
- * is `useBoundedGraph`'s framing, which already awaits `extent()` and sets the box from it.
+ * is `useQueryLoop`'s framing, which already awaits `extent()` and sets the box from it.
  *
  * **What this cannot prove.** Three things, and they are the reason it is a small guard:
  * - It cannot prove the box that *is* set is right. `spaceSize` is a translation in every render
@@ -81,7 +81,7 @@ describe("the coordinate box is the corpus's, not a constant of this package's",
       };
       visit(source);
     }
-    expect(offenders, "the box comes from `extent()`; see `useBoundedGraph`'s framing").toEqual([]);
+    expect(offenders, "the box comes from `extent()`; see `useQueryLoop`'s framing").toEqual([]);
   });
 
   it("declares no coordinate-space constant of its own", () => {

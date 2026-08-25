@@ -15,7 +15,7 @@ import { whenReady } from "./when-ready";
  * a tidy-up. Construction used to depend on a `Loaded`, which was harmless when the data arrived
  * once; under a bounded path a slice arrives on every camera move, and a construction effect keyed
  * on it would tear down and rebuild a WebGL context per pan. Geometry is pushed in by
- * `useBoundedGraph`; the instance outlives every slice it draws.
+ * `useQueryLoop`; the instance outlives every slice it draws.
  *
  * Everything about the picture — colours, sizes, shapes, the look, the camera, and since 3.0 even
  * whether a simulation runs at all — is a `setConfigPartial` somewhere else. **Three fields are
@@ -72,7 +72,7 @@ function releaseContext(canvas: HTMLCanvasElement | null): void {
   if (gl && !gl.isContextLost()) gl.getExtension("WEBGL_lose_context")?.loseContext();
 }
 
-export interface CosmosGraphOptions {
+export interface RendererOptions {
   /** The element cosmos.gl mounts its canvas into. */
   hostRef: RefObject<HTMLDivElement | null>;
   /**
@@ -155,9 +155,9 @@ export interface CosmosGraphOptions {
  * indirection below exists to avoid in the first place.
  */
 const noop = () => {};
-const EMPTY_EVENTS: NonNullable<CosmosGraphOptions["events"]> = Object.freeze({});
+const EMPTY_EVENTS: NonNullable<RendererOptions["events"]> = Object.freeze({});
 
-export function useCosmosGraph(options: CosmosGraphOptions): void {
+export function useRenderer(options: RendererOptions): void {
   const {
     clusters,
     events = EMPTY_EVENTS,
@@ -260,7 +260,7 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
          * disagreement, because `spaceSize` enters every render path as a translation and the camera
          * is fitted from the extent anyway; the box was simply a false statement.
          *
-         * So the box arrives with the first `extent()` — `useBoundedGraph` sets it where it already
+         * So the box arrives with the first `extent()` — `useQueryLoop` sets it where it already
          * awaits one — and until then cosmos.gl's own default stands. A default of ours would be a
          * second way to answer a question one side already owns.
          */
@@ -406,7 +406,7 @@ export function useCosmosGraph(options: CosmosGraphOptions): void {
     return whenReady(graph, (ready) => {
       ready.setPointClusters(clusters);
       // The box the ring is placed in is the renderer's live one — `graph.config` is always fully
-      // populated, so this reads either cosmos.gl's default or the extent `useBoundedGraph` set.
+      // populated, so this reads either cosmos.gl's default or the extent `useQueryLoop` set.
       // Read after `ready` for the same reason it is written after it: before the device, the
       // config is cosmos.gl's default and the ring would be sized for a box nobody is drawing in.
       ready.setClusterPositions(clusterRing(clusters, ready.config.spaceSize));

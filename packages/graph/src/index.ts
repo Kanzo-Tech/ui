@@ -69,7 +69,7 @@ export {
 } from "./graph-canvas";
 export { useGraph, type GraphApi, type GraphEvents, type UseGraphProps } from "./use-graph";
 
-// `useCosmosGraph`, `useBoundedGraph` and `useGraphLook` are **not here**, and the argument that
+// `useRenderer`, `useQueryLoop` and `useGraphLook` are **not here**, and the argument that
 // used to keep them here died this week.
 //
 // They shipped beside the canvas as an escape hatch, justified in one sentence: *the relationship is
@@ -81,7 +81,7 @@ export { useGraph, type GraphApi, type GraphEvents, type UseGraphProps } from ".
 // One way to have a graph: `useGraph`, or `GraphCanvas` for the common case. The two hooks below
 // are not a second way — they are chrome you draw *on top of* one, and they stay out of the canvas
 // for the reason they always did: both need a policy only a product can write.
-export { REHEAT } from "./use-cosmos-graph";
+export { REHEAT } from "./use-renderer";
 // `GraphOverlays` is exported alongside its options because a host composing it with `useGraph` has
 // to name the returned object: the two are mutually dependent — overlays need `getGraph`, and the
 // graph's repaint owes the overlays a nudge — so one of them is held in a ref, and a ref needs a type.
@@ -99,7 +99,7 @@ export { useGraphSelection, cursorChip } from "./use-graph-selection";
  * The renderer addresses points by position in the arrays it was handed, and a resident set that
  * comes and goes reuses every position. So a vertex is the pair `(type_idx, dense_id)`, and
  * everything that outlives one answer is held as one and re-resolved through the `Resident` that
- * `useBoundedGraph` rebuilds per answer. A host never builds its own: two maps of the same thing is
+ * `useQueryLoop` rebuilds per answer. A host never builds its own: two maps of the same thing is
  * how one of them ends up describing buffers that are no longer on screen.
  */
 export {
@@ -134,7 +134,7 @@ export {
  * with `x`/`y` and a spatial predicate is another. This package renders and does not learn a storage layout,
  * which is what removed the ceiling rather than raising it.
  *
- * `useBoundedGraph` is the loop that asks — it observes the camera, debounces, cancels what the
+ * `useQueryLoop` is the loop that asks — it observes the camera, debounces, cancels what the
  * camera has already superseded, and pushes each answer into the renderer. `memorySource` is the
  * answer for a host that already holds its arrays: every consumer needs a source now, including the
  * ones bounding buys nothing for, so that one is written here once rather than at each call site

@@ -14,7 +14,7 @@ import type { Sim } from "./graph-sim";
  * ranking out. ADR-0001 deleted it: the working set was N, so the ceiling was whatever N the machine
  * could hold, and 1,225 ms of first paint at 200,000 nodes was the measurement that ended the
  * argument. What replaces it is not a faster loader but a different question — `BoundedSource`
- * answers *what should I draw*, `useBoundedGraph` asks it, and this turns the answer into buffers.
+ * answers *what should I draw*, `useQueryLoop` asks it, and this turns the answer into buffers.
  *
  * The visible consequence is that **a category is an ordinal here, never a name.** A slice carries
  * `Uint16Array` category codes because carrying twenty thousand label strings to colour twenty

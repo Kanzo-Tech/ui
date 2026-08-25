@@ -23,7 +23,7 @@ import { SliceRead } from "./slice-client";
  *   exercised. A latency measured under this harness would be a fiction.
  * - **Nothing about the coordinator's own re-query on a selection change.** That path is
  *   `updateSelection`'s and it is asserted here through a real `Selection`; what it cannot see is
- *   whether a *host* wired `watch`, which is `use-bounded-graph.test.tsx`'s.
+ *   whether a *host* wired `watch`, which is `use-query-loop.test.tsx`'s.
  */
 
 /** Every query the coordinator issued, and a fixed answer for each. */

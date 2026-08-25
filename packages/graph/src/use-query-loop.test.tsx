@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { Graph } from "@cosmos.gl/graph";
 import type { BoundedSource, Slice, SliceRequest, Viewport } from "./bounded";
 import { isColour } from "./graph-model";
-import { useBoundedGraph } from "./use-bounded-graph";
+import { useQueryLoop } from "./use-query-loop";
 
 /**
  * The query loop, on the one thing that is a behaviour rather than a shape: **a channel is part of
@@ -95,7 +95,7 @@ describe("a channel is part of the question", () => {
 
     const { rerender } = renderHook(
       (props: { fill: string; r?: string }) =>
-        useBoundedGraph({ graphRef, hostRef, limit: 1000, source, ...props }),
+        useQueryLoop({ graphRef, hostRef, limit: 1000, source, ...props }),
       { initialProps: { fill: "kind", r: "degree" } },
     );
 
@@ -123,7 +123,7 @@ describe("a channel is part of the question", () => {
 
     const { rerender } = renderHook(
       (props: { fill: string }) =>
-        useBoundedGraph({ debounce: 0, graphRef, hostRef, limit: 100, source, ...props }),
+        useQueryLoop({ debounce: 0, graphRef, hostRef, limit: 100, source, ...props }),
       { initialProps: { fill: "kind" } },
     );
 
@@ -147,7 +147,7 @@ describe("a channel is part of the question", () => {
  * The column a slice's one categorical array comes from, when the bindings disagree about who names
  * it.
  *
- * This is not `useBoundedGraph`'s decision — it is `useGraph`'s, one layer up, where the single
+ * This is not `useQueryLoop`'s decision — it is `useGraph`'s, one layer up, where the single
  * vocabulary the caller writes splits into what the query fetches and what the buffers paint. It is
  * tested here because the loop is what receives the answer, and because the failure it prevents was
  * live for one render: `fill` as a CSS constant left the request with no column, the source fell back
@@ -185,7 +185,7 @@ describe("the opening view", () => {
 
     const { rerender } = renderHook(
       (props: { fill: string }) =>
-        useBoundedGraph({ graphRef, hostRef, limit: 1000, source, ...props }),
+        useQueryLoop({ graphRef, hostRef, limit: 1000, source, ...props }),
       { initialProps: { fill: "kind" } },
     );
 
@@ -214,7 +214,7 @@ describe("the opening view", () => {
     const graphRef = { current: camera(fits) };
     const hostRef = { current: document.createElement("div") };
 
-    renderHook(() => useBoundedGraph({ graphRef, hostRef, limit: 1000, source }));
+    renderHook(() => useQueryLoop({ graphRef, hostRef, limit: 1000, source }));
 
     await waitFor(() => expect(asks).toHaveLength(1));
     // Arrays with no layout have no opening view to be framed on, and guessing one is worse than
@@ -259,7 +259,7 @@ describe("geometry waits for the device", () => {
     const graphRef = { current: graph };
     const hostRef = { current: document.createElement("div") };
 
-    renderHook(() => useBoundedGraph({ graphRef, hostRef, limit: 1000, source }));
+    renderHook(() => useQueryLoop({ graphRef, hostRef, limit: 1000, source }));
     // The answer is in hand — this is not a test about the source being slow.
     await waitFor(() => expect(wrote).toHaveLength(0));
 
@@ -291,7 +291,7 @@ describe("an answer the camera did not ask for", () => {
     const hostRef = { current: document.createElement("div") };
 
     const { result, unmount } = renderHook(() =>
-      useBoundedGraph({ graphRef, hostRef, limit: 1000, source: watched }),
+      useQueryLoop({ graphRef, hostRef, limit: 1000, source: watched }),
     );
     await waitFor(() => expect(asks).toHaveLength(1));
     expect(push).not.toBeNull();

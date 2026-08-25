@@ -28,7 +28,7 @@ import { describe, expect, it } from "vitest";
  * - **It does not check the cancel is used.** `whenReady` returns one so an effect can drop a
  *   superseded write, and a call site that ignores it passes. **Nothing else holds that half
  *   either** — the test written for it flaked one run in six and was deleted rather than kept, and
- *   `use-bounded-graph.test.tsx` records why.
+ *   `use-query-loop.test.tsx` records why.
  * - **It says nothing about `isReady`.** The two hit tests answer synchronously and are guarded by
  *   the predicate instead; that they are is asserted below by name, which is as far as a text scan
  *   can go.

@@ -13,7 +13,7 @@
   `packages/graph/src/duck-source.test.ts`, "carries the page's predicate into the query that draws";
   `packages/graph/src/duck-source.test.ts`, "asks two questions where it used to ask three";
   `packages/graph/src/duck-source.test.ts`, "exempts the graph from the clause the graph publishes";
-  `packages/graph/src/use-bounded-graph.test.tsx`, "is drawn, and the watch is released with the loop";
+  `packages/graph/src/use-query-loop.test.tsx`, "is drawn, and the watch is released with the loop";
   `packages/graph/src/index.test.ts`, "keeps the Mosaic/DuckDB half off the root barrel".
 
 ## What the mask cost, measured

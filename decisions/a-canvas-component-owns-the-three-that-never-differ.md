@@ -57,7 +57,7 @@ reversal of the argument; it is a reversal of what the argument was applied to.
 
 `CanvasBody` in the workspace showcase is 707 lines. The call sites of the five package hooks inside
 it were measured before anything was written, and they total 73 lines — of which the `events` block
-of `useCosmosGraph` is 56, and that block is product logic: what a click means, what a drag end
+of `useRenderer` is 56, and that block is product logic: what a click means, what a drag end
 pins, what a hover shows. Under a component it does not vanish, it moves to a prop.
 
 So the honest saving is small — two refs, a container, and the plumbing between the hooks — and
@@ -81,7 +81,7 @@ premature, and `keasy`'s migration is where the second host comes from.
 
 ## What it does not touch
 
-- **The hooks are not deprecated and are not a fallback.** `useCosmosGraph`, `useBoundedGraph`,
+- **The hooks are not deprecated and are not a fallback.** `useRenderer`, `useQueryLoop`,
   `useGraphLook`, `useGraphOverlays` and `useGraphSelection` stay on the barrel, and the last two
   were deliberately left out of the component because both need a policy only a product can write.
   The relationship is `ChartRoot` to `useChart`, not v2 to v1.
