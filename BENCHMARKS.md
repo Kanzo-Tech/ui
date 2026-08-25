@@ -1108,9 +1108,26 @@ ours for.
 **And the fix is in this repo, in the half of `duck-source.ts` that adoption is supposed to delete.**
 `src/duck-source.ts:1070` sweeps `parquet_metadata` over every tile **once**, at open, keeping each
 tile's `x`/`y` box — 2,442 rows at ten million — and `:1203` then reads only the window's own tiles.
-One sweep per corpus rather than one per window. That is the piece that must land in fossil *before*
-F3 deletes ours, or the only implementation that got it right stops existing. `COST-MODEL.md` in the
-fossil checkout carries the measurement, the fix and the assertion that would have caught it.
+One sweep per corpus rather than one per window.
+
+**It landed in fossil the same day** (`010451a`), written the same way, and the measurement repeats:
+
+| corpus | files, before | files, now | warm, before | warm, now |
+|---|---|---|---|---|
+| 1,000,000 | 245 | **1** | 75.6 ms | **13.6 ms** |
+| 5,000,000 | 1,221 | **1** | 1,000.8 ms | **15.2 ms** |
+| 10,000,000 | 2,442 | **2** | 4,738.5 ms | **64.7 ms** |
+
+Same answers, `complete` still true everywhere, their eighty-eight tests green. So F2 can adopt
+without regressing, and F3 can delete our reader without deleting the only copy of what it knew.
+
+**And the term is moved rather than gone.** The boxes have to come from somewhere, so the first
+window of a corpus pays the sweep: 112 ms at a million, 1,117 at five, **5,327 at ten**. Locally that
+is a footer read; over HTTP it is `ceil(vertex_count / chunk_size)` range requests before anything is
+drawn, which is the cost a page feels. Publishing `tile, min_x, max_x, min_y, max_y` from the writer
+— 2,442 rows, about 100 kB at ten million — is what makes a cold window bounded, and it is a format
+question rather than a reader one. `docs/design/cost` in the fossil docs is where the obligation now
+lives, with the assertion that would have caught the original defect.
 
 ## Requests and bytes per pan — and the request count is the term that follows N
 
