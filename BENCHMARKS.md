@@ -1065,6 +1065,53 @@ Morton-adjacent — at which point the tile is a Morton range, which is exactly 
 what makes a window cheap to *fetch*. Whether it is what makes a zoomed-out view mean anything is a
 different question and is unmeasured.
 
+## The addressed reader came back unaddressed, on the other side of the seam
+
+Measured 2026-08-25 against `@fossil-lang/graph`'s `openCorpus` from the sibling checkout, DuckDB-WASM
+under `NODE_RUNTIME` over local paths. Every corpus below was rewritten the same day by today's
+`fossil run`, `chunk_size` 4,096, both orientations tiled. One rectangle covering 1% of the extent,
+best of three, warm.
+
+| corpus | answer | tiles | files opened | window |
+|---|---|---|---|---|
+| 2,000 | 2 v / 24 e | 1 | 1 | 3.6 ms |
+| 10,000 | 2 v / 24 e | 1 | 3 | 3.9 ms |
+| 50,000 | 647 v / 7,906 e | 1 | 13 | 12.5 ms |
+| 200,000 | 339 v / 4,909 e | 1 | 49 | 15.9 ms |
+| 1,000,000 | 812 v / 7,293 e | 1 | 245 | 75.6 ms |
+| 5,000,000 | 771 v / 5,316 e | 1 | 1,221 | 1,000.8 ms |
+| 10,000,000 | 3,152 v / 34,172 e | 2 | 2,442 | 4,738.5 ms |
+
+**The answer does not grow and the clock does** — 812 vertices at a million and 771 at five, each out
+of one tile, thirteen times apart. Every answer is correct and `complete` is `true` everywhere, which
+is the point: a window returning the right answer looks exactly like a window returning it cheaply.
+
+Logging the SQL that reaches the host's `query` callback names the term in one line. A window issues
+three statements, and two of them are exemplary:
+
+```
+10,000,000  245,649 chars, 2,442 parquet paths  SELECT * FROM read_parquet([… every vertex tile …])
+               627 chars,      4 parquet paths  SELECT src_dense, dst_dense FROM read_parquet([…by_source…])
+               627 chars,      4 parquet paths  SELECT src_dense, dst_dense FROM read_parquet([…by_target…])
+```
+
+The vertex half is handed **every tile URL in the corpus** and prunes with a `WHERE`, so it opens
+`ceil(vertex_count / chunk_size)` footers whatever it wants; the edge half opens four, addressed from
+the tiles the vertex answer reported. The addressing works — the same window proves it — and one
+statement does not use it.
+
+**This page named that exact defect on our side before an addressed reader existed**, two sections
+up: *hands DuckDB every chunk URL and prunes with a `WHERE`, so it skips no row group.* It is worth
+recording plainly that it reappeared across the seam, in the reader we intend to adopt and delete
+ours for.
+
+**And the fix is in this repo, in the half of `duck-source.ts` that adoption is supposed to delete.**
+`src/duck-source.ts:1070` sweeps `parquet_metadata` over every tile **once**, at open, keeping each
+tile's `x`/`y` box — 2,442 rows at ten million — and `:1203` then reads only the window's own tiles.
+One sweep per corpus rather than one per window. That is the piece that must land in fossil *before*
+F3 deletes ours, or the only implementation that got it right stops existing. `COST-MODEL.md` in the
+fossil checkout carries the measurement, the fix and the assertion that would have caught it.
+
 ## Requests and bytes per pan — and the request count is the term that follows N
 
 Measured 2026-08-05 by `corpus/measure-requests.mjs`. The corpus is served over a **plain HTTP
