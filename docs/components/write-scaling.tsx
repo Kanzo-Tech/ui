@@ -1,6 +1,6 @@
 "use client";
 
-import { xScale } from "@uwdata/vgplot";
+import { xScale, yScale } from "@uwdata/vgplot";
 import {
   ChartAxisX,
   ChartAxisY,
@@ -40,6 +40,36 @@ const BUILD: Point[] = [
   { nodes: 200_000, value: 0.563, series: "build" },
   { nodes: 1_000_000, value: 3.35, series: "build" },
   { nodes: 5_000_000, value: 11.91, series: "build" },
+  { nodes: 10_000_000, value: 20.72, series: "build" },
+];
+
+/**
+ * One window of the same shape — a rectangle covering one percent of the extent, at the corner the
+ * extent knows — asked of every corpus through `openCorpus`, best of three after a warm-up.
+ *
+ * It should be flat: the answers are the same size (812 vertices at a million, 771 at five) and
+ * they live in one tile. It is not flat, and the second series is why — the vertex query is handed
+ * every tile URL in the corpus and prunes with a `WHERE`, so a window opens `ceil(N / 4096)`
+ * Parquet footers however few rows it wants. The edge queries in the same window open two.
+ */
+const WINDOW_MS: Point[] = [
+  { nodes: 2_000, value: 3.6, series: "ms" },
+  { nodes: 10_000, value: 3.9, series: "ms" },
+  { nodes: 50_000, value: 12.5, series: "ms" },
+  { nodes: 200_000, value: 15.9, series: "ms" },
+  { nodes: 1_000_000, value: 75.6, series: "ms" },
+  { nodes: 5_000_000, value: 1000.8, series: "ms" },
+  { nodes: 10_000_000, value: 4738.5, series: "ms" },
+];
+
+const FILES: Point[] = [
+  { nodes: 2_000, value: 1, series: "files" },
+  { nodes: 10_000, value: 3, series: "files" },
+  { nodes: 50_000, value: 13, series: "files" },
+  { nodes: 200_000, value: 49, series: "files" },
+  { nodes: 1_000_000, value: 245, series: "files" },
+  { nodes: 5_000_000, value: 1221, series: "files" },
+  { nodes: 10_000_000, value: 2442, series: "files" },
 ];
 
 /**
@@ -66,6 +96,9 @@ const LAYOUT_SERIES: ChartConfig = {
 /** Referentially stable — a new array rebuilds the plot on every render. */
 const LOG_X = [xScale("log")];
 
+/** Both decades apart: a line that spans 3.6 ms to 4.7 s is unreadable on a linear y. */
+const LOG_XY = [xScale("log"), yScale("log")];
+
 function Frame(props: { children: React.ReactNode; note: string; title: string }) {
   return (
     <div className="rounded-lg border p-4">
@@ -80,6 +113,30 @@ export function WriteScaling() {
   return (
     <MosaicBoot>
       <div className="grid gap-4 md:grid-cols-2">
+        <Frame
+          note="A rectangle covering one percent of the extent, best of three, warm. The answers are the same size at every corpus, so this should be a flat line."
+          title="One window against corpus"
+        >
+          <ChartRoot attributes={LOG_XY} height={220} margin={{ bottom: 34, left: 52, right: 16, top: 8 }}>
+            <ChartLine data={WINDOW_MS} stroke="var(--primary)" strokeWidth={1.5} x="nodes" y="value" />
+            <ChartDot data={WINDOW_MS} fill="var(--primary)" r={4} tip x="nodes" y="value" />
+            <ChartAxisX label="vertices" ticks={5} />
+            <ChartAxisY grid label="window (ms)" />
+          </ChartRoot>
+        </Frame>
+
+        <Frame
+          note="And the reason, which is not the answer's size: the vertex query is handed every tile URL in the corpus. The edge queries beside it open two."
+          title="Parquet files opened per window"
+        >
+          <ChartRoot attributes={LOG_XY} height={220} margin={{ bottom: 34, left: 52, right: 16, top: 8 }}>
+            <ChartLine data={FILES} stroke="var(--destructive)" strokeWidth={1.5} x="nodes" y="value" />
+            <ChartDot data={FILES} fill="var(--destructive)" r={4} tip x="nodes" y="value" />
+            <ChartAxisX label="vertices" ticks={5} />
+            <ChartAxisY grid label="files" />
+          </ChartRoot>
+        </Frame>
+
         <Frame
           note="The whole build, unbounded. The rule is this machine's memory — where the line meets it is the ceiling, and it is arithmetic rather than a tuning question."
           title="Peak resident set against corpus"

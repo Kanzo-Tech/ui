@@ -49,33 +49,53 @@ a million is a picture that moves at the display's rate and becomes *correct* ab
 The canvas never waits — geometry is pushed when a slice lands and the last one keeps being drawn —
 so the pair measures the gap between moving and being right.
 
-## Writing has a ceiling, and reading does not
+## Neither half is flat, and they fail for opposite reasons
 
-The sweep above is the reading half, and its finding is flatness: a window costs what a window
-costs. The writing half is the opposite shape, and the two belong on one page because they are the
-same corpus seen from either end.
+Writing is bounded by the machine and reading is supposed to be bounded by the window. Measured
+2026-08-25 against corpora from two thousand to ten million, **only one of those two sentences is
+about a curve that behaves**, and it is not the one anybody would guess.
 
 <WriteScaling />
 
-**Reading is bounded by the window.** Asked of the five-million corpus through `openCorpus`, a
-rectangle covering one percent of the extent answers 771 vertices and 4,781 edges in **two queries**
-— one per orientation — and it costs what the same rectangle costs over two thousand. The tile list
-comes back as a *result*, never as a request: DuckDB prunes row groups off the Parquet footers, and
-the corpus writes one row group per tile so those footers are the index.
+**Reading is not bounded by the window, and the answer is not why.** The same rectangle — one
+percent of the extent — answers 812 vertices at a million and 771 at five, both out of a single
+tile, and takes 75.6 ms and 1,000.8 ms. Same answer, same tile, thirteen times the clock. At ten
+million it is 4.7 seconds.
 
-**Writing is bounded by the machine.** The whole build is linear in N with a large constant, and
-there is no spill path anywhere in the layout pass — so exceeding the machine is a dead run, not a
-slow one, which is the opposite of what the guarantee says. The peak is a peak because three stages
-hold a whole value instead of passing batches through: `community_hierarchy` keeps a community array
-per vertex plus a contracted graph per level, `read vertices` materialises the vertex file to permute
-it into Morton order, and `GraphArData` collects every batch before a byte is written. A stage that
-streams has a flat working set; a stage that accumulates makes the high-water mark follow the corpus.
+The cause is one query. `openCorpus` hands DuckDB **every tile URL in the corpus** for the vertex
+half and prunes with a `WHERE` — 245 paths at a million, 2,442 at ten, a statement 245,649
+characters long — so a window opens `ceil(N / 4096)` Parquet footers however few rows it wants. The
+edge queries in the same window open two, because they are addressed from the tiles the vertex
+answer reported. **The addressing works; one query does not use it.**
+
+This page named that exact defect in our own reader before the addressed one existed: *hands DuckDB
+every chunk URL and prunes with a `WHERE`, so it skips no row group*. It is worth being plain that
+it came back on the other side of the seam, and that nothing here would have caught it — a window
+returning the right answer looks identical to a window returning it cheaply.
+
+**Writing is bounded by the machine, and that part is structural.** The whole build peaks at 20.72
+GiB at ten million for 1.5 GB of corpus, and the curve has no ceiling in it: extrapolated, it meets
+this machine's memory somewhere between twenty and thirty million vertices. There is no spill path
+anywhere in the layout pass, so exceeding the machine is a dead run rather than a slow one — the
+opposite of the guarantee.
+
+The peak is a peak because three stages hold a whole value instead of passing batches through:
+`community_hierarchy` keeps a community array per vertex plus a contracted graph per level,
+`read vertices` materialises the vertex file to permute it into Morton order, and `GraphArData`
+collects every batch before a byte is written. A stage that streams has a flat working set; a stage
+that accumulates makes the high-water mark follow the corpus.
+
+**And the writer's half is not intrinsic.** Louvain's levels collapse at the first one — ten million
+vertices become 22,171 communities, then 2,736, then 1,365 — so every level above zero fits
+anywhere. The whole cost is level zero, and level zero is the graph whose CSR is already on disk in
+the artefact, already sorted. A pass that scanned it and kept only `community[u]` would hold O(V) of
+`u32` — 40 MB at ten million — instead of 0.41 GiB per million.
 
 <Callout type="warn" title="Two harnesses, two graphs — do not read across the charts">
-The left chart is the whole build at the generator's own degree; the right is fossil's
-`enrich_memory` at mean degree 10. Louvain's state follows degree as well as N, so the two are
-comparable *within* a chart and not *between* them. `BENCHMARKS.md` carries the run-by-run figures
-and the one row of fossil's own documentation that did not reproduce.
+The memory charts come from two processes: the whole build at the generator's own degree, and
+fossil's `enrich_memory` at mean degree 10. Louvain's state follows degree as well as N, so the
+series are comparable *within* a chart and not *between* them. `BENCHMARKS.md` carries the
+run-by-run figures and the one row of fossil's own documentation that did not reproduce.
 </Callout>
 
 ## The claim is not flat, and the reason is the edge join
