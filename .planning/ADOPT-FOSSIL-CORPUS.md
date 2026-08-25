@@ -136,6 +136,13 @@ seis corpus de `bench/` con los tres campos**. Sin él, ninguno abre.
 
 ## 2 · Las fases
 
+**F0 · Los manifiestos. Hecho el 25.** Primero parcheando los tres campos contados de los bytes
+—los siete corpus abrieron—, y luego mejor: el `fossil` de hoy los emite solo **y además tesela
+`by_target/`**, que cierra el hueco `dst:not-declared`. Así que se regeneran con
+`FOSSIL_BIN=… node docs/showcases/graph-bench/corpus/build-corpus.mjs --sizes …`, que es el
+generador que este plan daba por perdido y estaba en `docs/showcases/graph-bench/corpus/`.
+`docs/public/corpus/archive` sigue siendo la copia parcheada, no regenerada.
+
 **F1 · Spike, sin tocar el lector.** Su salida —qué devuelve `window()`, en qué coordenadas y
 cuántas peticiones cuesta— **está contestada por lectura** en el §1, así que lo que queda del spike
 es ejecutarlo, y eso **está bloqueado: no hay nada publicado que traiga `openCorpus`**. Tres salidas,

@@ -49,6 +49,35 @@ a million is a picture that moves at the display's rate and becomes *correct* ab
 The canvas never waits — geometry is pushed when a slice lands and the last one keeps being drawn —
 so the pair measures the gap between moving and being right.
 
+## Writing has a ceiling, and reading does not
+
+The sweep above is the reading half, and its finding is flatness: a window costs what a window
+costs. The writing half is the opposite shape, and the two belong on one page because they are the
+same corpus seen from either end.
+
+<WriteScaling />
+
+**Reading is bounded by the window.** Asked of the five-million corpus through `openCorpus`, a
+rectangle covering one percent of the extent answers 771 vertices and 4,781 edges in **two queries**
+— one per orientation — and it costs what the same rectangle costs over two thousand. The tile list
+comes back as a *result*, never as a request: DuckDB prunes row groups off the Parquet footers, and
+the corpus writes one row group per tile so those footers are the index.
+
+**Writing is bounded by the machine.** The whole build is linear in N with a large constant, and
+there is no spill path anywhere in the layout pass — so exceeding the machine is a dead run, not a
+slow one, which is the opposite of what the guarantee says. The peak is a peak because three stages
+hold a whole value instead of passing batches through: `community_hierarchy` keeps a community array
+per vertex plus a contracted graph per level, `read vertices` materialises the vertex file to permute
+it into Morton order, and `GraphArData` collects every batch before a byte is written. A stage that
+streams has a flat working set; a stage that accumulates makes the high-water mark follow the corpus.
+
+<Callout type="warn" title="Two harnesses, two graphs — do not read across the charts">
+The left chart is the whole build at the generator's own degree; the right is fossil's
+`enrich_memory` at mean degree 10. Louvain's state follows degree as well as N, so the two are
+comparable *within* a chart and not *between* them. `BENCHMARKS.md` carries the run-by-run figures
+and the one row of fossil's own documentation that did not reproduce.
+</Callout>
+
 ## The claim is not flat, and the reason is the edge join
 
 `BENCHMARKS.md` carries the recorded runs and the arguments. The one thing worth knowing before you
