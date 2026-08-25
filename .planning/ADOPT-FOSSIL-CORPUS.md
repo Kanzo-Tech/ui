@@ -64,6 +64,76 @@ mirar el footer del corpus concreto, no el escritor.
 with this and a Parquet reader of its own choosing»*). La pregunta 4.1 sigue en pie como pregunta
 de diseño, pero su premisa está confirmada, no era una lectura errónea.
 
+## 1.5 · F1 ejecutado el 25, con `link:` al hermano — y los corpus servidos no abren
+
+**Cómo.** `link:` desde un paquete de usar y tirar a `../rmlext/packages/graph`, cuyo `dist` estaba
+sin `corpus.js` (se compiló con `tsc -p`; `dist/` está en su `.gitignore`, no se ensucia su árbol).
+Motor: `@duckdb/duckdb-wasm` bajo `NODE_RUNTIME` contra rutas locales, que es el mismo arnés que
+usa su `tests/corpus.test.ts`. El spike vive fuera del repo: **nada de `link:` en un `package.json`
+nuestro**, que sería una mina para `smoke` y para cualquiera que clone.
+
+**Lo primero que pasó: `openCorpus` se niega a abrir nuestros corpus.**
+
+```
+CorpusManifestError: vertex/Node.vertex.yml declares no vertex_count, so how many tiles
+Node has is not derivable — tiles are addressed and never listed, and HTTP gives no
+directory to fall back on
+```
+
+A los seis corpus de `docs/public/bench/` les faltan **tres campos** que el escritor de hoy sí
+emite, y ninguno es opcional para el lector:
+
+| campo | dónde | nuestro corpus | el de conformidad |
+|---|---|---|---|
+| `vertex_count` | `*.vertex.yml` | ausente | `300` |
+| `edge_count` | `*.edge.yml` | ausente | `596` |
+| `prefix` por orientación | `adj_lists[]` | ausente | `by_source/`, `by_target/` |
+
+El tercero es el silencioso: sin `prefix` la orientación **se salta sin error** —*«an orientation
+declared without it has tiles nobody can address»*— y el corpus abre con `directions: []`, cero
+aristas y un `gap` de `not-declared` en cada ventana. Un grafo sin aristas que no se queja.
+
+Los tres se derivan de los bytes que ya tenemos (1.000.000 vértices y 6.897.357 aristas, contados
+con `duckdb`), así que **no es un rescribir: es volver a emitir los manifiestos**. Y confirma lo
+que ya avisaba `run-status-duplicates-the-manifest`: el número va en el YAML.
+
+**Con los manifiestos parcheados, el millón abre y responde.** Medido sobre copia con enlaces
+simbólicos al payload real:
+
+| paso | consultas | tiempo |
+|---|---|---|
+| `openCorpus` | **3** (dos `read_text`, un `DESCRIBE`) | 105 ms |
+| `extent()` | 1 | 95 ms |
+| ventana | **2**, sea cual sea su tamaño (1 si no hay aristas) | ver abajo |
+
+| ventana | vértices | aristas | teselas | tiempo |
+|---|---|---|---|---|
+| 0,1% de la extensión | 0 | 0 | 0 | 82 ms |
+| 1% | 131 | 952 | 4 | 89 ms |
+| 10% | 12.635 | 84.063 | 7 | 160 ms |
+| 50% | 308.844 | 2.072.775 | 79 | 2.701 ms |
+| **100%** | **999.967** | **6.897.348** | 245 | **11.076 ms** |
+
+Cinco cosas que sólo se ven ejecutando:
+
+1. **Una ventana es una consulta por orientación, no una por tesela.** El podado sale del footer
+   dentro de DuckDB; la lista de teselas es un *resultado* (`tiles`, *«reported, never asked for»*),
+   no una petición. Contra ficheros locales, claro: **esto son consultas, no peticiones HTTP**, y
+   ese número sigue sin medirse con corpus nuestro. El suyo dice 5,6 rangos por ventana a 5M.
+2. **El coste va con las filas, no con las teselas.** 79 teselas → 2,7 s; 245 → 11 s. Es lineal en
+   lo que devuelve, que es exactamente lo que dice el §1: no hay presupuesto.
+3. **Encuadrar la extensión entera funciona.** No falla, no trunca: tarda 11 s y materializa ~7,9
+   millones de objetos en JS. Ése es el precio de «no toma presupuesto», con número.
+4. **La ventana de la extensión completa NO es el corpus completo**: 999.967 de 1.000.000 y
+   6.897.348 de 6.897.357. La caja se compara medio abierta, así que la fila del borde `maxX` se
+   cae. La vista lejana tiene que acolchar, o contará de menos y nadie lo notará.
+5. **El 0,1% centrado en el centroide da cero vértices.** No es un fallo del lector: es
+   `layout-draws-a-different-partition` otra vez, el centro geométrico está vacío.
+
+**Lo que esto le hace a las fases.** F2 puede escribirse ya contra una API que responde. Pero antes
+de que sirva para algo hay un paso que no estaba en el plan: **F0 · reemitir los manifiestos de los
+seis corpus de `bench/` con los tres campos**. Sin él, ninguno abre.
+
 ## 2 · Las fases
 
 **F1 · Spike, sin tocar el lector.** Su salida —qué devuelve `window()`, en qué coordenadas y
