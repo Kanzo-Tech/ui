@@ -1,0 +1,5 @@
+{
+  "title": "The design of Kanzo UI",
+  "description": "Why the library is like this, what was measured, and what would reverse each of it.",
+  "pages": ["index", "admission", "references", "naming", "colour", "graph"]
+}

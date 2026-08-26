@@ -1,0 +1,210 @@
+---
+title: How a rule lives here
+description: Every rule in this section says what would reverse it. That sentence is the mechanism, not a flourish — a rule you cannot falsify is a rule nobody can reopen.
+---
+
+This section is for whoever works on the library. The pages before it teach the components; these
+six say why the components are shaped that way, what was measured, and — for every rule — **the
+evidence that would say it is wrong**.
+
+That last part is the whole of why the section exists. Any decision here may be reopened, and
+reopening one should be editing a paragraph rather than winning an argument again. So each rule
+ends the same way: *what would reverse it*. Sometimes that is a measurement with a threshold,
+sometimes a second consumer, sometimes a change upstream. Where the honest answer is **nothing**,
+it says nothing and says why the constraint is physical rather than chosen.
+
+Beside it, where one exists, is the guard that fails when the code stops matching, written as a
+*Held by* line. A rule with a test behind it is a rule you do not have to remember; a rule without
+one is a rule under review.
+
+<Callout type="info">
+**Two spellings in a *Held by* line are load-bearing, and `packages/ui/src/documented-evidence.test.ts`
+runs them.** A test cited **by its quoted title** must be a real `it()` or `describe()` in the file
+beside it — not a comment, and not a title as you remember it. And `` `!Name` `` means *the file
+beside it asserts `Name` is off `@kanzo-tech/ui`'s public surface*; the guard imports the barrel and
+checks. Both exist because the sentence that reaches **outside** the page making it is the one that
+rots: no page here has been wrong about its own subject, and twenty-six were wrong about something
+else — *a test holds this*, *that export was removed*, *this is the only one*. Write the declaration
+whenever an argument depends on an absence: prose saying "the export has since been removed" is
+unfalsifiable, it was wrong about `ProgressTrack` within hours, and a reader who believed it deleted
+a shipped export.
+</Callout>
+
+## A rule broken three times becomes a test
+
+When a mistake recurs, write the guard rather than the paragraph, and put the reason **in the test
+file, beside the assertion**. The document carries a pointer and no restatement.
+
+The two rules this library broke most — an untokenised colour, and a percentage where an alpha step
+was needed — stopped recurring on the day each became a test, and neither has returned. The rules
+still being broken are the ones that exist only as prose. `no-literal-hues.test.ts` is the model:
+the promise, its reason, its enforcement and its own blind spots in one file. `data-slot.test.tsx`
+is the same shape at length, and it was written in the same commit as this rule, over the case that
+argued for it — three rounds of a slot being omitted, one regression, a written rule, and nothing
+enforcing it.
+
+**What this does not yet cover:** a claim that reaches *outside* the file making it. That recurred
+twenty-six times across the guidance corpus before anything caught it, and the fix was the same move
+one rung further out — `packages/ui/src/documented-evidence.test.ts` checks that a test cited by
+name is a real assertion and that a name declared absent is really absent.
+
+**What would reverse it.** A guard that costs more to maintain than the defect costs to fix. None on
+the roster has; `CONVENTIONS.md`'s guard table is the set to recount against.
+
+*Held by* `packages/ui/src/no-literal-hues.test.ts` and `packages/ui/src/data-slot.test.tsx`, the two
+that carry their own reasoning and their own blind spots.
+
+## A count belongs in a script, not in prose
+
+No guidance document carries a measurement. If a number matters, a test prints it or asserts it; if
+no test wants it, it was noise. The same goes for a `file:line` — cite a file and a symbol.
+
+The export census was written into the guidance as the authoritative correction of an earlier wrong
+count, and three careful independent recounts then produced three different answers, each wrong in a
+different direction. Prose survives; numbers and paths rot.
+
+**What would reverse it: nothing**, and the recounts disagreed for reasons that generalise. The
+repository carries whole working copies of itself under `.claude/worktrees/`, so a scan that does not
+exclude them reports every symbol as consumed and no export as dead. And an intra-module reference
+join has to key on absolute declaration position: keying on the name misses aliased exports, keying
+on the line collides with same-line parameters. A count that three passes get wrong three ways is a
+count nobody should retype. `packages/ui/src/index.test.ts` pins the surface it cares about by name,
+and `lib/token-color.test.ts` counts the slots in every shipped theme rather than trusting either
+constant that declares it.
+
+*Held by* `packages/ui/src/index.test.ts`, the pinned surface; `packages/ui/src/lib/token-color.test.ts`,
+"declares a full set of slots, or none at all, in every theme".
+
+## An audit is a map, not an oracle
+
+Verify every finding against the code before acting on it — including findings on this page, and
+including your own. **Audit a commit, never a working tree**, and say which commit in the report's
+first line.
+
+The first architecture audit did not survive contact with the code: the status-token rename it asked
+for was applied and fully reverted, the "dead" `Appearance` type was live and load-bearing, and one
+migration step broke at runtime when applied literally. Every later round has had to correct its own
+premises.
+
+The sharpest instance is a failure mode of its own, and it is why the commit clause is here. One
+audit ran against another session's uncommitted working tree, so several findings quote strings that
+exist nowhere on this branch — a ramp count, a test fixture, a whole file. Those findings were not
+stale; they were **measuring a different tree**, and no amount of care in the reading would have
+caught it, because the text they cite is real somewhere. The corollary for a reviewer: when a
+finding cites a string you cannot find, the first hypothesis is not that the finding is wrong, but
+that you and the auditor are looking at different trees.
+
+**What would reverse it: nothing.** Each round of auditing has produced its own falsified findings,
+and the rule has never had a counter-example.
+
+*Held by* `packages/theme/src/index.ts`, `Appearance` — the type an audit called dead, still exported
+and still load-bearing.
+
+## A defect visible in `docs/` is a library defect until proven otherwise
+
+Fix it at the source. A containment rule in the consumer is a fix for one consumer.
+
+The library's stylesheet once shipped the typography plugin under `.prose`, whose generated
+selectors outrank Preflight — so every consumer that happens to use that class name (fumadocs does,
+and it is a common choice) had its anchors, headings, lists and tables repainted by a design system
+it had only asked for a `Button`. The first fix was a containment rule in the docs app; the same bug
+came back, and the real fix was renaming the plugin's class in `packages/ui/src/styles.css`, where
+the `@plugin "@tailwindcss/typography"` block still carries the reason.
+
+The standing corollary: **`docs/` consumes `dist/`, not `src/`.** A rename typechecks clean while
+the docs build fails, and a fix in `src/` does not reach the docs app until the package is rebuilt.
+
+**What would reverse it** for a given defect: one that is genuinely the docs app's own — its MDX
+pipeline, its routing, its Shiki rendering. The test is whether a consumer who never opens our docs
+would hit it.
+
+*Held by* `packages/ui/src/styles.css`, the `@plugin "@tailwindcss/typography"` block and the comment
+above it.
+
+## A chart fails silently and well-painted
+
+Chart work is verified in a browser against a real coordinator. A unit test is not evidence that a
+chart works.
+
+The failures this layer produces render cleanly: an empty plot with correct axes, a legend for a
+scale nothing uses, a brush that publishes into a selection no client reads. A DuckDB binder error
+surfaces as a chart with no marks, and jsdom has no DuckDB, so the test covering the component
+passes. `charts/chart-inputs.test.tsx` and `charts/chart-stat.test.tsx` say so in their own headers:
+the coordinator there is a double that plays the moves a real one makes.
+
+Two operational consequences. The docs app builds and serves charts under `--webpack` only — vgplot
+trips a temporal-dead-zone error under Turbopack. And one coordinator serves a whole page: the
+active-coordinator setter is process-wide, so a second one leaves the first page's charts empty.
+Each `MosaicProvider` still owns its own selections, so one example's brush never reaches the next.
+
+**What would reverse it.** A harness that can run the real coordinator headlessly and assert on
+marks rather than on React output.
+
+*Held by* `packages/ui/src/charts/chart-inputs.test.tsx` and `packages/ui/src/charts/chart-stat.test.tsx`,
+whose own headers state the limit.
+
+## The size limit moves when an adoption crosses it, in the commit that crosses it
+
+A `size-limit` entry that a newly adopted component pushes over is raised **in the same commit**,
+with the before and after figures written down and the component named. It is never raised on a tree
+that adopted nothing.
+
+A Tailwind utility only compiles if it is written out as literal text, so a component's appearance
+is source that cannot be compressed, and the barrel is their sum. `ImageCropperHandle` is why:
+eight compass positions, each with its own cursor, its own two border sides and its own hover,
+written as sixteen literal class strings because that is the only form Tailwind's scanner reads. A
+template literal or a lookup keyed on `position` would compress to nothing in the bundle and emit no
+CSS at all — a defect that renders as an unstyled handle rather than as a build error.
+
+It has fired twice, and the second time taught something the first did not. `image-cropper` crossed
+42.5 kB (41.94 → 42.60 kB brotlied, measured by deleting its one `export *` line and rebuilding),
+and the limit went to 43 kB. `Suggestions` then crossed 43 kB (42.86 → 43.06 kB) and it went to
+43.5 kB. Both times the new limit keeps the same ~1% of headroom the crossed one had, so the entry
+stays a tripwire rather than becoming a ceiling nobody meets. The overage sat in the tree **failing
+on purpose** for a session before it moved, because the component that crossed it arrived alongside
+a compound rewrite, and raising a budget in the middle of that would have been raising it for the
+wrong reason. And the figure the rule wants is not the component's own size: what the barrel pays is
+what did not already exist in it.
+
+This licenses nothing about the other entries, and it excuses no component from
+[admission](/docs/design/admission). A component with no renderer costs the same bytes and buys
+nothing; the budget is not the gate, admission is.
+
+**What would reverse it.** The same measurement rising on a tree where no module was added — that is
+a regression the budget exists to catch, and no adoption pays for it. Or a build step that emitted
+class lists from something Tailwind could scan, which would make the strings compressible after all.
+
+*Held by* `packages/ui/package.json`, `size-limit`; `packages/ui/src/simples/image-cropper.tsx`,
+`ImageCropperHandle`.
+
+## The components index is generated, and keeps no second list
+
+The docs' component grid is derived from the page tree, in `docs/components/components-list.tsx`.
+Shark's version keeps a hand-maintained thumbnail map beside it; that half is deliberately not
+copied. A hand-kept map is a second list of every component, and this repository's dominant failure
+is a second way to say one thing — it goes stale on the first rename and nothing fails.
+
+**What would reverse it.** A thumbnail that cannot be derived and is worth more than the drift. None
+has been asked for.
+
+*Held by* `docs/components/components-list.tsx`.
+
+## One changeset until the first publish
+
+`.changeset/` holds a **single** changeset describing what the packages are, until something is
+actually published. The accumulated ones were deleted, not archived: they were a work journal
+wearing release-note clothes, describing an intermediate history no consumer ever saw, announcing
+renames to names that were then deleted, and documenting an API the colour work removed. A changeset
+says what a *consumer* must do differently; the reason a decision was taken belongs on these pages.
+
+**What would reverse it: the first publish.** After it there is a released version to describe
+changes against, and the normal one-changeset-per-change rule resumes — that is when a bump level
+starts meaning something, and when a `!` in a commit subject must be a `major`.
+
+*Held by* `.changeset/README.md`, which states it beside the changesets themselves.
+
+<Callout type="warn">
+On any merge from a parallel session, this needs doing again. Fold what a consumer must know into
+the single changeset and delete the rest — but read them first where two of them litigate the same
+axis against each other, because the collapse would otherwise silently pick a winner.
+</Callout>

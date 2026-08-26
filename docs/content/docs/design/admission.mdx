@@ -1,0 +1,328 @@
+---
+title: What earns a name
+description: The rules that decide whether something becomes a component at all — the taxonomy test, the second call site, the layers that ship code and the ones that ship a guide.
+---
+
+The [admission rules](/docs/philosophy#admission) say what may enter `@kanzo-tech/ui`. This page is
+the case law: the tests that have actually decided arguments, and what would decide them the other
+way.
+
+## A machine with a switch is a variant; a new content contract is a composite
+
+The test for *should this be a new component?*, in one line: **a machine with a switch → a variant or
+a mode; a new content contract assembled on a primitive → a PascalCase composite.**
+
+Every taxonomy argument in this library reduces to it. `AlertDialog` is `Dialog` with
+`role="alertdialog"` plus a convention layer — one machine, one switch — which is the same shape as a
+context menu against `Menu`, and why neither is a separate primitive. `Preferences` spans structure,
+a content contract *and* behaviour over the dialog, field and radio-group parts, so it is a composite
+and not `Dialog variant="preferences"`.
+
+Ark models `alertdialog` as a role, not as a machine. Radix separates them because there they
+genuinely are two primitives; copying that split here would fork us from our own behaviour library
+for no gain.
+
+**What would reverse it: nothing found in five rounds of applying it.** Where this and the
+single-axis rule disagree, they have always disagreed about a component that should not have
+existed.
+
+*Held by* `packages/ui/src/simples/alert-dialog.tsx`, which is literally `Dialog` with a role;
+`packages/ui/src/index.test.ts`, the `ContextMenu*` tombstones.
+
+## Adopt before extending
+
+A family whose existing parts have no renderer does not get a new part. The highest-value move on an
+unused model is a call site, not a design round. `field.tsx` shipped its whole anatomy with no
+consumer while four rounds of design went into one more part.
+
+**What would reverse it: nothing yet — but the worked example closed, and the rule did not.** *field
+has no consumer* was a record of its own until `Field` gained renderers: the family is now imported
+across the docs site and by modules inside `packages/ui/src`, and every labelled machine takes
+`FieldLabel` from it. Two parts remain without one, `FieldSeparator` and `useField`. The two
+adoption examples that closed it the other way — `ChartStat` and `ChartColorLegend`, each with a doc
+block, a test and a documented reason to exist and no renderer at all — are what the rule looks like
+when it is applied.
+
+*Held by* `packages/ui/src/index.test.ts`, the pinned surface and the tombstones `!TextField`,
+`!NumberField`, `!DateField`; `packages/ui/src/simples/field.test.tsx`.
+
+## An export needs a second call site, and one example is not it
+
+An export whose only consumer is one `docs/examples/<slug>/` directory has not met admission rule 2.
+Delete the export. Keep the symbol when its own root renders it. An example is the page proving the
+part exists, not a consumer choosing it — and there is no compatibility question, because nothing is
+published.
+
+The care this needs is the whole finding. A naive sweep breaks components: an export can have no
+*export* consumer purely because its own root renders it — `SheetOverlay`, `SheetPositioner`,
+`TourPositioner`, `TourOverlay`, `TourSpotlight`, `ClipboardIndicator`. And a recipe can read as
+"used only by its own file" while another module imports it in type position: `statusVariants` is
+imported by `avatar.tsx` for `VariantProps<typeof statusVariants>`, which still requires the value to
+be exported.
+
+`ProgressTrack` was held up as the ideal version of this shape — the part a consumer never places. It
+was not, and the way it failed is the more useful lesson. `Progress` renders the track
+unconditionally, so a consumer who followed the export got two troughs; confirmed independently
+twice, the export was deleted on that observation. **It is exported again today**, because Shark's own
+`progress.tsx` renders the same two parts in the same place and exports both anyway. The observation
+was right and the conclusion was not: a doubled part is evidence about a *composition*, and this rule
+is about an *export*.
+
+So this rule has no worked example of its own left standing, and that is the honest state of it. What
+it governs is every name that is ours alone, where the reference is silent — `SuggestItem` and
+`usePinInput` are the two decided that way, and a reader looking for a case to copy should take one
+of those rather than the track.
+
+**What would reverse it: a second independent call site.** One carve-out, which is not a reversal:
+[the reference governs the surface](/docs/design/references), so the names Shark's registry exports
+ship without a call site of their own.
+
+*Held by* `packages/ui/src/index.test.ts`, the pinned set and the tombstones, `!SuggestItem` and
+`!usePinInput` — the two names this rule decided where the reference is silent.
+
+## A layout tree is children, never an attribute
+
+**No prop whose value is markup.** A record or an array of `ReactNode`s is a layout tree written as
+an attribute, and a caller handed one cannot reorder the regions, wrap one, spread `className` /
+`data-*` / `aria-*` / a handler onto one, or use `asChild` on one. `CardHeader`, not
+`<Card header={…} />`.
+
+`CardRadioGroup` was deleted for it. A card radio is `RadioGroupCard`, and the grid it owned became
+`columns` on `RadioGroup`, written to a `--columns` custom property so a caller can override it per
+breakpoint — which an attribute could not.
+
+**What would reverse it:** a compound whose arrangement is genuinely closed and which no caller has
+ever needed to reorder. Three attempts have not found one. The exemption that *is* real is a
+collection a machine navigates — Ark's `createListCollection` cannot be built from children — so
+`FacetFilter`'s `items`, `Tour`'s `steps` and a faceted column's values stay props.
+
+*Held by* `packages/ui/src/composites/SidebarIdentity.tsx`, the doc comment on `SidebarIdentity`,
+which is the canonical statement; `packages/ui/src/index.test.ts`, the `CardRadioGroup` tombstone and
+`!SidebarNav`, `!InstanceSwitcher`, `!MadeWith`, the three composites deleted for taking one;
+`packages/ui/src/simples/FieldArray.tsx`, `children`, which is the sanctioned alternative when you
+want the ergonomics of a list.
+
+## A compound keeps its root, even when the root is an alias
+
+`Sheet` stays, as `(props) => <Dialog {...props} />`, and `MenuSub` stays as the same over `Menu`. A
+root that renders nothing of its own is not a cut, when the family below it is real.
+
+The root is the family's **name**, not a component in its own right. Ark's dialog and menu roots
+render providers and no element, so once their dead `data-slot` came off there was nothing left in
+the body — but the thing that makes a sheet a sheet lives in `SheetContent`, and deleting the alias
+would force `<Dialog><SheetContent /></Dialog>`, which reads as a mistake and breaks the naming
+rule's own promise that a compound is greppable as one vocabulary.
+
+Written down because a minimality sweep will find these again and the export census already lists
+them as thin renames. The census is right about the shape and wrong about the conclusion, and the
+difference is one question: **is the root the only thing that is thin, or is the family?** An export
+with no body is evidence, not a verdict.
+
+**What would reverse it:** the family below the root ceasing to be distinct. That is the real test,
+and it has been applied in the other direction — `ContextMenu` **was** cut, because its parts were
+each a `data-slot` rename of `Menu`'s with no appearance of their own, and the one genuine difference
+survived as `MenuContextTrigger`.
+
+*Held by* `packages/ui/src/simples/sheet.tsx`, `SheetContent`; `packages/ui/src/simples/menu.tsx`,
+`MenuSubContent` and `MenuSubTrigger`; `packages/ui/src/index.test.ts`, the `ContextMenu*` tombstones,
+which are the contrast.
+
+## A grammar ships its whole vocabulary
+
+The chart mark and interactor wrappers stay, and stay **complete**, even where no example draws one.
+This is one of the two standing exceptions to admission rule 2 — the other is
+[the names the reference ships](/docs/design/references) — and it covers `/analytics` only: one-line
+descriptors over somebody else's grammar, and the re-exported aggregate vocabulary beside them.
+
+A vocabulary with holes sends the author to `@uwdata` for the one aggregate we left out, which is
+exactly the import this barrel exists to remove — and a mark you write yourself is a mark you write
+wrong. Curating a grammar costs more than cataloguing it.
+
+The six marks withheld on purpose are part of the same decision, and they are the shape of its limit:
+axes here compile to plot *attributes*, so an axis mark would steal the binding from the interactor
+after it. A vocabulary is complete where completeness is free and withheld where it breaks the layer.
+
+**What would reverse it:** the wrappers acquiring bodies. The exception is priced on their being one
+line each; a wrapper that grows logic is a component again and answers to the admission rules like
+everything else. It is also reversed by the grammar itself shrinking — a closed, named set is
+re-exported, an open one stays a direct import.
+
+*Held by* `packages/ui/src/analytics.ts`, the notes on the aggregate exports and on the six withheld
+axis marks.
+
+## Charts and the data table ship code; forms ship a guide
+
+Mosaic and TanStack Table get a thin layer of our own — `/analytics`, `/table`. Validation gets a
+[documented pattern](/docs/forms/validation) and no layer.
+
+The two engines have one obvious binding each, and the whole cost is wiring it correctly once.
+Validation has no obvious binding, because our own consumers validate in ways with almost nothing in
+common, so any model rich enough for both would be shaped by whichever shouted loudest.
+
+The corollary that shaped both layers: **a mark cannot be an Ark part**, because vgplot replaces the
+host's children wholesale and there is no DOM for a part to own. That is why `/analytics` is
+descriptors and a root rather than a compound.
+
+**What would reverse it:** a second validation consumer that agrees with the first about keys,
+severity and cardinality. Two have not.
+
+*Held by* `packages/ui/src/table.ts` and `packages/ui/src/analytics.ts`, the two layers that were
+built; `.planning/FORMS-DECISION.md`, the full reasoning.
+
+## A chart needs no factory
+
+The analytics layer stops at `ChartRoot` and `useChartContext()`. There is no `useChart(props) → api`
+and no `ChartRootProvider`, and the `as` prop stays the way a caller owns the selection a root would
+otherwise mint.
+
+`@kanzo-tech/graph` grew Ark's four pieces the same week — `useGraph`, `GraphRootProvider`,
+`GraphCanvas`, `useGraphContext` — and the obvious next move was to do it again here for symmetry.
+The question that stopped it: **what would `useChart(props)` actually return**, given how much of a
+chart's state lives in Mosaic's coordinator rather than in an object of ours? The answer is
+`ChartContextValue`, which already exists and is already published. That is not a factory; it is the
+context with a second way to reach it.
+
+What forced the factory in the graph was measured and specific: two consumers there take `getGraph`
+and `getResident` as arguments to hooks called *above* the canvas element, where no context is
+readable yet. Nothing in analytics has that shape — `useChartQuery`, `useCrossfilter`, `useSelected`
+and `useChartCapacity` each read `useMosaic()`, which is the provider *above* the root rather than the
+root itself, so there is no circularity to break.
+
+Three things here look like state and are not. The **compiled spec** is a pure function of `children`,
+and `children` is a render input — a factory taking props could not see it without being handed it, at
+which point the factory is the render. The **context** is entirely derived; `color` reads a token off
+the live host element at call time, and the DOM is below. The **host ref** is kept so a scoped theme
+override wins when a token resolves, and never published. The one thing a root does mint is its own
+`Selection.union()`, and the escape hatch for owning it externally already exists: the `as` prop.
+
+**What would reverse it:** a hook that must be called beside a `ChartRoot` and needs a value only the
+root owns. That is the exact shape that forced `useGraph`, and it would force this.
+
+*Held by* `packages/ui/src/charts/chart-root.test.tsx`, "exposes the series colour and a locale number
+formatter through useChartContext" and "gives each root its own selection, distinct from the
+provider's shared pair".
+
+## The AI surfaces are their own package
+
+`@kanzo-tech/ai` ships the transcript, the composer, a model's reasoning, the calls it makes, and the
+two field affordances. It depends on `@kanzo-tech/ui`; **nothing in `ui` may import it.** The root
+barrel is a one-way door, and a consumer who wants a `Button` must not pay for a transcript.
+
+The line is not *is it AI*. It is **does the component know a model exists** — and by that test the two
+field affordances should have stayed behind. `Suggest` takes candidates and a callback, and a human
+typing would be indistinguishable; `useInlineCompletion` takes a function returning an async iterable
+and never makes a request. They moved anyway, on the owner's call, and the reason is not the code: the
+✨ marks a field as model-assisted *to the reader*, and that mark is the thing being bought. A package
+that ships the transcript and leaves the mark behind splits one purchase across two installs.
+
+`@kanzo-tech/ui/editor`'s `CodeEditor` was checked before the move and imports nothing from the engine
+— the only completion in that file is CodeMirror's own `autocompletion` and `completionKeymap`. That
+is what makes the split produce no cycle; had it imported `useInlineCompletion`, `ui/editor` would
+have depended on `ai`, and `ai` already depends on `ui`.
+
+<Callout type="warn">
+An earlier draft of that paragraph said `CodeEditor` "takes a `complete` prop", and it does not:
+`CodeEditorProps` is `value` / `onChange` / `extensions` / `readOnly` / `basics`. The claim came from
+`editor.ts`'s own comment and from a row in `forms/controls.mdx`, both describing a design that was
+never shipped. The conclusion survived its premise — which is the shape
+[a citation that reaches outward](/docs/design) always takes.
+</Callout>
+
+**What would reverse it:** a second package needing the engine hooks without the surfaces, which would
+make the hooks a third package rather than move them back.
+
+*Held by* `packages/ui/src/index.test.ts`, "drops components superseded by composition or a merge",
+`!SuggestRoot`, `!CompleteRoot`, `!useAiStream`; `packages/ui/src/documented-exports.test.ts`,
+"resolves every entry point and every declared peer".
+
+## AI assist composes over the pure inputs
+
+Two compounds — `Complete` over `Input` / `Textarea` via `asChild`, and `Suggest`, a candidate popover
+— with the engine in two headless hooks. **No `complete` prop on the primitives, no `AiAssist`
+provider, no field context.**
+
+A prop on `Input` welds the model into the primitive: the core stops being Shark-verbatim and imports
+the engine. A provider would only earn its place by unifying state across consumers, and there is
+nothing to unify. This is the ladder's rungs three and four chosen over rung one deliberately, and the
+extra rung buys core purity. It is also the third design of this feature; the first two were the prop
+and the provider.
+
+The three modules moved to `@kanzo-tech/ai` in August 2026 and nothing this rule decided moved with
+them: still no `complete` prop on a primitive, still no provider, still two headless hooks. Only the
+address changed.
+
+**What would reverse it:** a real second consumer with shared AI state. Gate any provider on that, not
+on a hypothesis.
+
+*Held by* `packages/ai/src/complete.tsx`, `packages/ai/src/suggest.tsx`, `packages/ai/src/use-ai.ts`;
+`packages/ui/src/index.test.ts`, the `AiAssist` / `FieldSuggest` / `useAiField` tombstones.
+
+## A tool panel composes its snippet; the house ships no third code chrome
+
+`@kanzo-tech/ai` ships no code-snippet component and imports nothing from `@codemirror/*`. A caller
+who wants a tool's input highlighted composes `CodeEditor` from `@kanzo-tech/ui/editor` as a
+`readOnly` child; a caller who wants only the chrome wraps the block in `Prose`, which already carries
+it.
+
+The house has code chrome twice already, and a third would be a third spelling: the typography
+plugin's `--tw-prose-pre-bg` / `--tw-prose-pre-code` under `.kanzo-prose`, and the whole tokenised
+CodeMirror theme on `/editor`. And `ToolInput` was designed for exactly this — *the payload is
+composition, and JSON is only the default for when the caller has nothing better* — so a snippet
+component in `ai` would answer a question the compound already answers.
+
+Two of the three premises behind the original request did not survive being checked. **The blocked
+import is only blocked for `ai`, not for a caller**: `ToolInput` takes children, so a host composes
+`<CodeEditor readOnly extensions={[sql()]} />` inside it and `ai` imports nothing — the optional-peer
+door stays shut because the *host* opened it, which is what a subpath is for. And **there is no
+highlighting gap**: `/editor` carries `kanzoHighlightStyle`, and a `readOnly` `CodeEditor` is a legal
+way to draw a snippet. Nobody had tried it.
+
+There is a chrome gap and it is smaller than it looks. Exactly **one** site invented chrome — a
+hand-written `<pre>` in `docs/examples/tool/` — and by the rule above an examples directory is not a
+call site at all. A `Snippet` in the root barrel would enter on zero proven demand, against a barrel
+with barely half a kilobyte of headroom.
+
+**What this cannot settle:** whether `Prose` is the right wrapper. It is only *not yet needed* — the
+one site that had the problem wanted highlighting, so it took `CodeEditor` and the question never came
+up. The day a caller wants the chrome without a language, this has nothing to offer them but a
+`max-w-[65ch]` container built for something else.
+
+**What would reverse it:** a second in-repo call site that needs a *static, unhighlighted* snippet and
+cannot reach `Prose`, or a measurement showing that composing `CodeEditor` for a five-line SQL
+statement costs a consumer more than a purpose-built block would. keasy's Ask panel is the one outside
+consumer; if it lands on inventing its own `<pre>` too, that is the second call site.
+
+*Held by* `packages/ai/src/tool.tsx`, `ToolInput`; `packages/ui/src/styles.css`, `.kanzo-prose`.
+
+## The structure view is `TreeView` until the data nests
+
+The library ships **no schema display**. A structure — a shape's fields, a relation's columns, a
+module's declarations — is rendered with [`TreeView`](/docs/data-display/tree-view) where it nests and
+[`DataList`](/docs/data-display/data-list) where it does not. This declines AI Elements'
+`SchemaDisplay`, assistant-ui's spec sheet and the `Declaration` an AI-layer memo gated, which are one
+question under three names.
+
+Neither shape document we ship has recursive data, so a tree buys nothing over a labelled list. The
+boundary object exists and it is flat: `field-notes`' `Column` is what a real SHACL parse produces
+here — a key, an IRI, a label, an order, a type, a pattern, an option list and a required flag, one
+`sh:` characteristic each — and it survives the round trip to both other dialects intact, compiling
+into JSON Schema for a vision model and into one prose line per field. `discovery`'s `Relation` is the
+same thing without the constraints. Re-derive the nesting claim with
+`grep -cE 'sh:(node|or|xone|and|not) ' docs/showcases/field-notes/shape.ts` — the trailing space
+matters, because a bare `sh:or` false-matches `sh:order`.
+
+**The case that does not fit:** `discovery`'s `Schema` *is* a hand-rolled schema display. That is one
+renderer where the rule above asks for two, and it is visibly below what a component could give —
+`discovery/data.ts` types its fields as strings with the name and the type crammed into one, so a
+component could not render them apart without that call site being rewritten first. Two showcases that
+look like they should count do not: `metadata-form` holds no shape at all, and `field-notes` shows its
+shape as **source**, in a `CodeEditor`, editable, so that the panel and the engine cannot drift apart.
+A display cannot be an editor, so replacing it would mean overturning a stated design reason to
+manufacture the missing call site.
+
+**What would reverse it:** a shape that nests — `sh:node`, `sh:or`, `sh:xone` — or a second renderer
+for the flat case. fossil's outline gaining nesting and a type is the same condition reached from the
+other side.
+
+*Held by* `docs/showcases/field-notes/rudof.ts`, `Column`; `docs/showcases/discovery/data.ts`,
+`Relation`; `packages/ui/src/simples/tree-view.tsx`, `TreeViewItem`.

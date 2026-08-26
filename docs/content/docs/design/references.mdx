@@ -1,0 +1,355 @@
+---
+title: The references, and who wins
+description: Ark owns behaviour, Shark owns surface, AI Elements is a source and not a reference — and a measurement overrules all of them. The order an argument ends in, and the three shapes it does not decide.
+---
+
+## A measurement overrules the reference; nothing else does
+
+When a rule of this repository and a reference system point opposite ways over the same thing, the
+order is:
+
+1. **the reference governs the surface**,
+2. **a measurement overrules the reference**,
+3. **a house principle overrules neither.**
+
+A measurement is what a required comment is — a number, what it was measured against, and a threshold
+it crosses — and it licenses exactly the divergence it measures. Where the reference is silent, the
+house rules decide, not preference. Where none of that decides, the owner does, and the case is
+recorded as **undecided** rather than argued into one of the branches.
+
+The reason is falsifiability: a divergence has to be checkable by someone who was not in the
+argument, against a source outside this repository, today and in a year. A ratio is. A principle,
+however correctly applied, is not.
+
+**The collision this settles.** An export audit deleted the one-line `useX` context aliases under
+[the second-call-site rule](/docs/design/admission) — renaming somebody else's export is not an API.
+Shark's `registry/react/components/` ships nearly all of the same names, as the same one-line
+renames. Both rules were applied correctly, and the evidence was **identical on both sides**: Shark's
+aliases have no call site inside Shark either, so matching the reference meant shipping exports the
+reference itself does not consume. Work stopped and the owner arbitrated, for the reference. What
+made the house rule lose is not that it is the worse rule — it is that it had a principle where the
+reference had a registry, and a registry answers to a fetch.
+
+**Where this does not decide.** Two shapes have come up and each goes to the owner; neither is a gap
+to be closed by reading harder.
+
+- **The two references disagree with each other.** Ark owns behaviour and Shark owns surface, so they
+  rarely meet; where they do, nothing here ranks them.
+- **A product question wearing accessibility's clothes.** Whether a stepper may be skipped ahead
+  decides `Steps`'s `linear` default, and half of its ARIA defect with it. No measurement says what a
+  stepper is for.
+
+**What would reverse it:** a divergence that is right and has no number behind it — a defect in the
+reference with nothing to count against it. The one candidate has since been settled the other way
+(see *Steps* below), and had it closed by our stripping the role, this rule would have been too
+narrow and *measurement* would have had to widen to admit a named clause of an external standard
+cited with the case that violates it. Separately and more cheaply: Shark ceasing to be a reference we
+track, at which point it has no surface left to govern.
+
+<Callout type="info">
+**No test holds the tie-break itself, and there is nothing to write.** Each half is guarded; the
+ordering between them is a rule about how an argument ends, and the only thing that can fail it is a
+person.
+</Callout>
+
+*Held by* `packages/ui/src/index.test.ts`, "tracks Shark's context aliases and parts, in both
+directions" — the reference half, asserted in both directions off one list;
+`packages/ui/src/simples/button.tsx`, `buttonVariants`, which carries the solid focus ring — the
+measurement half.
+
+## Match the reference; do not invent
+
+Before changing a token, a recipe or a convention that came from Shark UI, **read Shark's source**:
+
+```bash
+gh api "repos/sharkui-inc/shark-ui/contents/<path>" --jq '.content' | base64 -d
+```
+
+Docs sites go stale; the repo does not. (`vinihvc/shark-ui` was the old owner and still redirects,
+which is why the wrong name went unnoticed for a while. `sharkui-inc` is the one to write.)
+
+An audit once called the status tokens self-contradictory, and `--destructive-foreground` was renamed
+to an invented `--destructive-emphasis` — then Shark turned out to define the identical pair and use
+the second as a background. Fully reverted. Fixing a defect that is an upstream convention forks the
+library for nothing.
+
+**What would reverse it:** a divergence we can measure and Shark cannot answer. That has happened
+once and is recorded — the solid focus ring, kept against Shark's diluted one on a contrast
+measurement — and the general form of it is the ordering above.
+
+*Held by* `CONVENTIONS.md`, the `-foreground` rule; `packages/ui/src/simples/button.tsx`,
+`buttonVariants`.
+
+## A name Shark ships is ours; a name it does not is not
+
+The context aliases and the re-exported Ark parts track Shark UI's registry **in both directions**. A
+`useX` or a part Shark's `registry/react/components/<name>.tsx` exports, we export under that name;
+one it does not export, we do not. For these names this overrides the second-call-site rule — they
+ship without a call site of their own — because a consumer arriving from Shark meets the same
+vocabulary, and that claim is checkable against a source outside this repository. *We might need them
+later* is not.
+
+The reversal this records: an export audit deleted every one of these, tombstoned them, and rewrote
+eleven doc pages to point at Ark's hooks instead. Then the reference was read. Shark ships them, with
+these names, as the same one-line renames — **including the ones no mechanical rule would produce**:
+`useResizable` is Ark's `useSplitterContext`, `useRating` its `useRatingGroupContext`, `useSheet` its
+`useDialogContext`. Those three are the whole of the non-mechanical set, recountable in
+`packages/ui/src/simples` as the aliases whose right-hand side is not the left plus `Context`, and all
+three match Shark exactly — which is as close to conclusive as provenance gets.
+
+The conflict with the house rule is on identical evidence, and saying so is the point. These aliases
+have no call site inside Shark either, so matching the reference here means shipping exports the
+reference itself does not consume. The rule is not being satisfied by some consumer we overlooked; it
+is being **overruled**, on the narrow ground that a shared vocabulary is the thing being bought and a
+vocabulary with holes is not one.
+
+**`usePinInput` is the exception, and it is a different kind of absence.** Shark has no pin-input
+component at all — it solves that problem with `input-otp.tsx`, which exports no hook. The name was
+never the reference's, so parity neither grants it nor refuses it, and it falls back to the house
+rule. `ListboxContext` and the three `ColorPicker*` parts are the plain case instead: Shark's files
+export the neighbours and not these. The other direction is not empty either — `ADDED`, in
+`packages/ui/src/shark-parity.divergences.ts`, declares twenty names we export that Shark's matching
+file does not, each with the reason it survives.
+
+**The rule is over *names*, and `useTagsInput` is why that wording is deliberate.** Ours aliased Ark's
+`useTagsInputContext`; Shark's aliases Ark's `useTagsInput`, the machine hook, and ships the context
+one beside it. So the name matched and the binding did not. Closed by taking Shark's shape for that
+file whole — the plain name is the machine hook, `useTagsInputContext` is the context one, and
+`TagsInputRootProvider`, the reason the pair has to exist at all, is adopted with them. A second
+name-versus-binding case would be as invisible to the comparison as this one was.
+
+**What would reverse it:** Shark dropping them, or the library gaining a reason to define its own
+context surface rather than re-export Ark's — at which point the names are ours to choose and the
+reference stops answering the question.
+
+*Held by* `packages/ui/src/index.test.ts`, "tracks Shark's context aliases and parts, in both
+directions", which asserts the presences and the absences from the same list.
+
+## A house principle withholds no name the reference ships
+
+Every name Shark UI's `registry/react/components/<file>.tsx` exports, we export — **including a part
+our own root already renders, and including a `tv()` recipe**. The two house rules that had been
+withholding names still govern everything the reference is silent about, and nothing it speaks about.
+
+Thirty-three names were withheld under *does not export a part its own root already renders* —
+thirty-one parts the component places itself, plus two hooks that came back with them — and four under
+*a class list is not API*: `alertVariants`, `badgeVariants`, `menuContentVariants`, `toggleVariants`.
+Both arguments are good. Neither is checkable by somebody who was not in the argument, which is the
+whole of why they lose.
+
+**Seven were doubly evidenced, and that is what forced the question.** Our own pages documented them
+as reachable — `ClipboardIndicator` inside a Usage import block, so that example did not compile;
+`ComboboxClear`, `ComboboxGroupLabel`, `PopoverClose` and `TourClose` in anatomy trees; `ToastItem` in
+a sentence saying outright that it is exported so a custom `Toaster` can reuse it; and
+`ScrollAreaScrollbar` in a sentence that had already been deleted once rather than made true.
+`documented-exports.test.ts` found six of them and could not choose which side to fix. The reference
+chose.
+
+**The composition audit, which is the knowledge this bought.** A name is not the whole of parity; the
+composition is too, and restoring an export blind would have shipped a defect on purpose. So for every
+one of the thirty-one whose root renders it, Shark's own file was fetched and read. **Our roots and
+Shark's render the same parts in the same places, without exception.** `Progress` renders
+`<ProgressTrack><ProgressRange /></ProgressTrack>` unconditionally and after `{children}` — and so
+does Shark's, which exports both anyway. `ScrollArea` places two scrollbars, `Checkbox` two indicators,
+`PopoverContent` a positioner and a close, `Toaster` a `ToastItem` per toast; Shark does each
+identically. Restoring an export is **not** permission to change a composition: check what the
+reference's root renders before assuming a doubled part is ours.
+
+`ClipboardIndicator` is the one that is not quite either. Shark's `ClipboardTrigger` renders only what
+it is given; ours defaults `children` to a `ClipboardIndicator`, which the page documents and which a
+caller overrides simply by passing children. A divergence in the trigger's defaulting, not a doubled
+part.
+
+**What restoring cost that nobody had counted: two hooks that collide with Ark.** `useCombobox` and
+`useTourContext` came back with the parts, and both are the `useTagsInput` shape a second and a third
+time — a name matching the reference exactly whose binding is not the one the name implies. Neither
+diverges from Shark; the clash is with **Ark**. `@ark-ui/react` exports `useCombobox`, the machine
+hook that takes props, *and* `useComboboxContext`; ours is the second under the first's name, so a
+consumer with both packages in scope has two `useCombobox` with incompatible signatures and nothing to
+read the difference off. `useTourContext` is worse for ending in `Context` while returning something
+that is not Ark's tour context. Parity over names cannot see any of this, and it takes the count of
+known name-versus-binding mismatches from one to three. The next will arrive the same way.
+
+**What would reverse it:** a consumer depending on a recipe's internals in a way that blocks a
+restyle — reading a variant key, composing the returned class string, or overriding one of its
+utilities by specificity. That is the honest cost of the recipe half, accepted knowingly rather than
+argued away: exporting `alertVariants` freezes our class list as public API, which is a different kind
+of commitment from exporting a component, because a component promises a shape and a recipe promises
+the appearance we most want to keep changing. If one turns up, the recipes come back off the surface
+and the parts stay — the two halves reverse separately.
+
+*Held by* `packages/ui/src/index.test.ts`, "exports every part Shark's registry exports, including the
+ones our own root renders" and "keeps a recipe off the public surface unless the reference or another
+module ships it"; `packages/ui/src/shark-parity.test.ts`, "ships every name Shark ships, or declares
+why not", which is what makes the claim checkable against a source outside this repository.
+
+## A part is named by its machine
+
+Where Ark and Shark spell the same part differently, the exported name is **Ark's**.
+`AccordionItemTrigger`, not `AccordionTrigger`. `NumberInputIncrementTrigger`, not
+`NumberInputIncrement`. `PaginationPrevTrigger`, not `PaginationPrevious`. `FileUploadItemSizeText`,
+not `FileUploadItemSize`. Nine parts, one rule.
+
+The name of a part is a fact about the machine underneath it, not a choice about how the surface
+looks, so it belongs to the reference that owns the machine. A reader who meets `AccordionItemTrigger`
+and goes to Ark's documentation finds it under that name; one who meets `AccordionTrigger` has to
+guess which part of the machine it wraps before they can look anything up. Shark shortens because it
+flattens compounds for a copy-paste registry, which is a different problem from the one this library
+has.
+
+**This settles nine names and not the general question.** It does not rank Ark against Shark; it says
+only that a *part name* is behaviour's to give. The owner was offered the general question and chose
+the narrow answer, which is the right size — a tie-break invented ahead of the cases it must settle is
+how a rule ends up claiming more than it can prove.
+
+**What would reverse it:** a part whose Ark name describes the machine's internals rather than the
+thing a caller places — a name that is precise and useless. None of the nine is: every one names an
+element a consumer writes by hand. Also reversed if **Ark itself renames a part**, in which case the
+exported name follows Ark rather than freezing, because the reason here is the pointer to the
+documentation and not the spelling.
+
+*Held by* `packages/ui/src/shark-parity.divergences.ts`, whose `RENAMED` table declares all nine as a
+pair; `packages/ui/src/shark-parity.test.ts`, which reads that table and fails; `CONVENTIONS.md`,
+*Naming*, whose base-plus-part rule this is the reference-level justification for.
+
+## Adopt the part the machine ships; decline the one the reference composed
+
+Where Shark exports a name we do not, and neither the reference rule, a measurement nor a house rule
+settles it, the tie-break is **Ark**: adopt the name if `@ark-ui/react` already ships the part
+underneath, decline it if Shark composed the part itself. Where the machine ships the part, adopting is
+a thin wrapper over something we already depend on, and declining leaves our compound missing a part
+the machine offers; where the reference composed it, the name carries a layout choice we did not make.
+
+**Adopted** — `ClipboardValue` (as `ClipboardValueText`, Ark's spelling), `FileUploadClearTrigger`,
+`FileUploadItemPreviewImage`, `FileUploadRootProvider`, `useHighlight`, `MenuArrow`. Ark ships
+`clipboard-value-text`, `file-upload-clear-trigger`, `file-upload-item-preview-image`,
+`file-upload-root-provider`, `use-highlight`, `menu-arrow` and `menu-arrow-tip`.
+
+**Declined, no such part** — `FileUploadTitle`, `FileUploadDescription`, `FileUploadHelper`,
+`FileUploadDropzoneIcon`, `TourBody`. Each is a bare `ark.div` in Shark's file under a component's
+name; Ark's file-upload and tour anatomies have none of them.
+
+**Declined, no machine at all** — `SkeletonCircle`, `SkeletonText`. `Skeleton` is a shadcn-shaped
+primitive, an `ark.div` with a pulse, so there is no part to have provenance.
+
+**Declined, the reference composed it** — `FileUploadList`, `PaginationItems`, `PaginationItemLink`.
+The first two are loops over context that fix an arrangement a caller cannot reorder; the third
+hand-writes an `<a href="?page=N">`, which is a routing convention rather than a part.
+
+This settles the names the divergences file was holding as undecided and nothing wider. It is not a
+general rule for adopting from Shark, and it reopens nothing already decided.
+
+**What would reverse it:** a declined name a consumer or a docs page turns out to want — the shape
+being a page that has to describe the part in prose because there is nothing to import, or a caller
+rebuilding one of the twelve by hand. **That is a low bar on purpose**, because the line here is
+defensible and not principled.
+
+*Held by* `packages/ui/src/index.test.ts`, "adopts the Shark names Ark ships a part for, and declines
+the ones Shark composed" — the seven presences and the twelve absences off one list;
+`packages/ui/src/shark-parity.test.ts`, "names the divergences nobody has decided yet", which pins what
+is still open; `packages/ui/src/documented-exports.test.ts`, `!SkeletonText`.
+
+## A vendored shape is not a defect
+
+Where a simple is a faithful Shark vendoring, its shape answers to Shark, not to a purity audit.
+Reversing an upstream convention forks us for no accessibility gain.
+
+Four components were flagged as hand-rolled behaviour and all four were exonerated against Shark's
+registry source: `resizable` is a thin wrapper over Ark's Splitter with no dragging of its own; `tour`
+imports Ark's real machine and adds only Shark's start callback; `command` is Ark's Combobox inside
+Ark's Dialog, with Shark's own two presentational leaves; and `sidebar` hand-rolls its context, its
+shortcut and its mobile swap **because Ark ships no sidebar** — Shark's own file does the same.
+
+**What would reverse it:** a divergence we can measure, which is the same bar as above. A rule
+violated only by inherited shapes is a rule aimed at the wrong file.
+
+*Held by* `packages/ui/src/simples/resizable.tsx`, `simples/tour.tsx`, `simples/command.tsx`,
+`packages/ui/src/composites/sidebar.tsx`.
+
+## "Idiomatic to Ark" is a category error for layout
+
+The layout layer takes its references from the app-shell libraries built on a headless core — shadcn,
+Mantine, Ant. Ark supplies the authoring idiom (Root, named parts, `ark.*`) and the Splitter machine,
+and nothing else. `data-slot` is **not** Ark's — its dist emits none; that convention comes from Shark
+and we hand-write it.
+
+Ark is a behaviour library and ships no layout: the one layout-adjacent primitive is `Splitter`, which
+is our `Resizable`. There is nothing upstream to match, so *make it Ark-native* asks for conformance to
+an empty set.
+
+**What would reverse it:** Ark shipping a layout family. Its component directory is the check.
+
+*Held by* `.planning/LAYOUT-ARK-NATIVE-REVIEW.md`, the full grounding;
+`packages/ui/src/simples/resizable.tsx`, the one place the Splitter is used.
+
+## AI Elements is a source, not a reference
+
+`@kanzo-tech/ai` takes its shapes and its state vocabulary from Vercel's AI Elements and its **names**
+from this house. There is no second parity snapshot and no second divergences file; Shark UI remains
+the only *reference*, and it governs `@kanzo-tech/ui` alone. A reference is a thing you can be held to,
+and holding a package to a registry we cannot install would buy a check nobody can run.
+
+**Taken whole:** the four tool states, collapsed to `pending | running | done | failed`, and the rule
+that a finished call opens by default. The transcript's pin-to-bottom behaviour, which is the only part
+of a conversation that is not markup. Reasoning opening while it streams and closing when it stops.
+
+**Taken and re-pointed:** their `StackTrace` became [`Diagnostic`](/docs/data-display/diagnostic) in
+`@kanzo-tech/ui`, because a severity, a message and a list of source positions is a SHACL violation and
+an LSP diagnostic, and neither is AI. Their `SchemaDisplay` loses its REST half.
+
+**Refused:** `ToolInput` and `ToolOutput` taking `input`/`output` props rendered as JSON. That is right
+for a chatbot that cannot know what the tool was; we always know, and rendering a SQL statement as a
+JSON blob discards it. Ours take children and fall back to a JSON rendering.
+
+**Not built:** the Voice family, Artifact, Web Preview and Sandbox — no call site, present or planned —
+and Canvas / Node / Edge, which was wanted for a fossil program summary that turns out to be a list of
+signatures rather than a diagram.
+
+**What would reverse it:** a shipped npm package we can resolve types from, which is what would make
+parity checkable rather than aspirational.
+
+*Held by* `packages/ui/src/shark-parity.test.ts`, "ships every name Shark ships, or declares why not";
+`packages/ui/src/shark-surface.json`.
+
+## Steps claims a tab role that nothing keyboard-implements
+
+`linear` keeps the machine's default of `false`, and the role stays — it is **not** to be stripped on
+our side. Zag emits `role="tab"` together with the `aria-selected` / `aria-controls` / `id` wiring that
+makes the relationship legible, so removing the role alone leaves `aria-selected` on a non-widget role
+— a second defect on top of the first — and removing all of it means hand-rolling the ARIA
+relationship, which the accessibility rule forbids outright.
+
+**The two halves, because only one of them is upstream's.** Verified against `@zag-js/steps@1.41.2`:
+`getListProps` emits `role="tablist"`, `getTriggerProps` emits `role="tab"`, and the package contains
+no `onKeyDown` at all — no arrow keys, no Home/End. That half is genuinely upstream's.
+
+The half we own is the `linear` prop. `tabIndex: !prop("linear") || itemState.current ? 0 : -1` means
+the default of `linear: false` gives **every** trigger a tab stop — precisely the *each item
+independently tabbable, no roving focus* shape our own conventions name as worse than no role at all.
+
+**Why `linear: true` was rejected, and it is not the reason this was opened with.** It looked like a
+product trade — one tab stop, at the cost of jumping ahead to an incomplete step. Then
+`steps.connect.js` turned out to gate a second thing on the same prop: under `linear` the trigger's
+click handler **returns early**. So a non-current trigger goes to `tabIndex: -1`, gets no arrow keys
+because the package has none, *and* stops responding to a pointer — unreachable by either route while
+still announcing `role="tab"`. That is a larger accessibility defect than the default, not a smaller
+one, and it closed the only alternative that existed.
+
+What remains is *arrow keys and Home/End do nothing*, which no default can fix.
+[The Steps page](/docs/navigation/steps) says which keys actually work — `Tab` and `Enter`, and nothing
+the role advertises — because a page that omits that lets a reader assume the contract holds. Filing
+upstream is not planned, and the check below is why that costs nothing: what a report would buy us is
+knowing when it is fixed, and the test tells us that on the next install.
+
+**What would reverse it:** Zag shipping key handling, which closes it; or a decision that `Steps` is
+linear, which closes the worse half without touching upstream.
+
+<Callout type="info">
+One correction found while measuring: the arrow keys and `Home`/`End` are written as object-method
+shorthand in Zag's keymap, so a scan for quoted key names reports `@zag-js/tabs` as handling nothing.
+The claim was right; the obvious way to check it is not.
+</Callout>
+
+*Held by* `packages/ui/src/simples/steps.tsx`; `packages/ui/src/simples/steps.test.ts`, which reads the
+shipped bundle and fails when `@zag-js/steps` grows a key handler — the reversing condition, measured
+instead of remembered.
