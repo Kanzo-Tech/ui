@@ -5,7 +5,7 @@ import { label, resolvePath, sourceFiles, subtrees, unreadable } from "./guard-c
 /**
  * The client boundary, as a test rather than as a habit.
  *
- * CONVENTIONS.md: *a file gets `"use client"` **iff it itself** is stateful — it calls a hook,
+ * The rule: *a file gets `"use client"` **iff it itself** is stateful — it calls a hook,
  * calls `createContext`, registers a listener, or writes an inline JSX event handler. Importing a
  * stateful module is not a reason. Components that are none of those must not have it, so they stay
  * server-renderable.* `CLIENT_FEATURE` below is that sentence as a regex, and it is the definition
@@ -38,7 +38,7 @@ import { label, resolvePath, sourceFiles, subtrees, unreadable } from "./guard-c
  *   render. Measured across the current corpus, no file's verdict changes either way.
  * - **It cannot see a hook reached through a value.** `const h = useSidebar; h()`, a hook behind an
  *   indirection, or a listener registered by a library on our behalf all read as pure here.
- * - **The transitive half of the CONVENTIONS.md sentence is not enforced, and must not be** — see
+ * - **The transitive half of that sentence is not enforced, and must not be** — see
  *   the note on `needsDirective`. It is safe only because the first assertion below makes a
  *   hook-bearing module without a directive impossible.
  * - **It says nothing about `/editor`, `/table` and `/analytics` isolation**, which is
@@ -78,8 +78,8 @@ const text = new Map(files.map((f) => [f, readFileSync(f, "utf8")]));
  * imports does.
  *
  * The rule used to be phrased "…or imports a module that does", which is a shade too strong and is
- * why 59 files ended up carrying it for nothing. That phrasing is gone from CONVENTIONS.md and from
- * the docs, and this is the note that says why. The boundary is established *once*, by the
+ * why 59 files ended up carrying it for nothing. That phrasing is gone from the docs, and this is
+ * the note that says why. The boundary is established *once*, by the
  * module with the hook in it, and every importer above that point stays server-renderable and
  * renders it as a client boundary. Ark relies on exactly this — it ships the directive on its own
  * dist files, which is what lets a hook-free wrapper of an Ark machine be a Server Component.

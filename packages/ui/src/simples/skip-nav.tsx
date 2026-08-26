@@ -9,7 +9,7 @@ import { cn } from "../lib/cn";
  * ## ARIA contract
  *
  * Ark ships no machine for this, and it is right not to: a skip link is markup plus a focus
- * target, with no state to keep. So the contract is written here, per `CONVENTIONS.md`.
+ * target, with no state to keep. So the contract is written here, as a bespoke part owes.
  *
  * - **Roles.** `SkipNavLink` is a bare `<a href="#…">` — role `link`, no ARIA attribute of any
  *   kind. `SkipNavContent` declares no role either; when it is the shell's `<main>` (see below)
@@ -37,7 +37,7 @@ import { cn } from "../lib/cn";
  *   this file. What is left is one pixel of width, chosen so the ring matches every other focusable
  *   thing in the library. Appearance is explicitly outside `shark-parity.test.ts`'s claim.
  * - **No `"use client"`.** Shark ships the directive; this module calls no hook, registers no
- *   listener and writes no inline handler, so under `CONVENTIONS.md` it must not have one and
+ *   listener and writes no inline handler, so under the client-boundary rule it must not have one and
  *   `packages/ui/src/client-boundary.test.ts` enforces that in both directions.
  *
  * Kept verbatim, and deliberately: `focus:inset-s-4` is already logical (Tailwind v4 compiles it to

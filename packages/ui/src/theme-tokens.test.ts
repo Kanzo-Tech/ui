@@ -23,7 +23,7 @@ import { label, REPO, sourceFiles } from "./guard-corpus";
  * this house's own extras, written as raw `var()` inside an arbitrary-value class, which is exactly
  * the spelling no other check reads.
  *
- * Mutation-tested the way `CONVENTIONS.md` asks: `--kanzo-font-size-xs` was commented out of
+ * Mutation-tested, as every guard here owes: `--kanzo-font-size-xs` was commented out of
  * `tokens.css` and the first assertion failed with
  * `--kanzo-font-size-xs — read by ui/simples/badge.tsx, declared nowhere`.
  *

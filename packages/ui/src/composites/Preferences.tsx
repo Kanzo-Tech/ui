@@ -1114,7 +1114,7 @@ export interface PreferencesProps extends Omit<PreferencesRootProps, "children">
  * `Object.assign`, and those statics do NOT survive React Server Components: once the module
  * becomes a client reference, `Preferences.Density` reads back as `undefined` and React throws
  * "Element type is invalid". It was a broken API kept beside the working one — and it was the
- * single counter-example to CONVENTIONS.md's "no component exports dot-notation today".
+ * single counter-example to "no component exports dot-notation".
  */
 export function Preferences({ triggerClassName, ...rootProps }: PreferencesProps = {}) {
   return (

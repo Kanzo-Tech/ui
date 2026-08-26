@@ -17,8 +17,11 @@
 - `docs/content/docs/(root)/philosophy.mdx` — what the system is: the axes, the layers, the layout
   tree, the engine and naming rules, the taxonomy test, admission, the client boundary. It is a
   page on the site (`/docs/philosophy`), and it is the only copy: there is no `DESIGN.md`.
-- `CONVENTIONS.md` — how to write a file: the reference and what overrules it, the recipe, tokens,
-  props, the client boundary, naming, comments, tests.
+- `docs/content/docs/(root)/conventions.mdx` — how to write a file: the reference and what overrules
+  it, structure and props, naming, comments, tests and what a guard owes. It is a page on the site
+  (`/docs/conventions`), and it is the only copy: there is no `CONVENTIONS.md`. The half a consumer
+  also needs is on the pages beside it — the recipe and the recipe/inline line on `styling.mdx`,
+  the token vocabulary on `theming.mdx`.
 - `decisions/` — one record per decision. `Status` `live` is today's rule; anything else is
   history, and you can skip it.
 - The repo-wide guard tests are the rules nobody should have to remember. **Read the file, not a
@@ -26,14 +29,11 @@
   `packages/ui/src/guard-corpus.ts` is what "repo-wide" means: the six appearance and boundary
   guards scan every package that declares `tailwind-variants` (`ui` and `ai` today) and report
   `<package>/<path under src>`. Widen that corpus; never copy a guard into a second package.
-  `packages/ui/src/alpha-steps.test.ts` (seven banned token spellings),
-  `theme-tokens.test.ts` (a `--kanzo-*` is declared and is read), `no-literal-hues.test.ts`,
-  `logical-properties.test.ts`, `client-boundary.test.ts`, `data-slot.test.tsx`,
-  `list-semantics.test.ts`, `codemirror-dark-parity.test.ts`, `index.test.ts`
-  (the pinned surface and the tombstones), `documented-exports.test.ts` (a page may not claim a
-  symbol we do not export), `shark-parity.test.ts` (every difference from the reference is
-  declared), `decisions.test.ts`, and `packages/theme/src/{boundary,palettes}.test.ts`.
-  `CONVENTIONS.md` has the table and the three things a guard owes.
+  **They are the `*.test.ts` files beside the source they scan** — `packages/ui/src` and
+  `packages/theme/src` — and there is deliberately no list of them here. The one that used to be
+  here rotted: it named `alpha-steps.test.ts` and `packages/theme/src/{boundary,palettes}.test.ts`,
+  all three deleted in the theme refoundation, and missed five guards that do exist. `ls` is
+  current and a transcription is not. The three things a guard owes are on `/docs/conventions`.
 
 ## Four one-way doors
 

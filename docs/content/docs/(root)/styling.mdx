@@ -102,9 +102,20 @@ on specificity.
 
 ## Rules
 
-- Never inline `style` for variant appearance. One-off structural style (a computed width) is
-  fine, and so is a colour that is *data* — the one a user picked, or a theme's own — which is
-  why [`Swatch`](/docs/data-display/swatch) exists rather than a `<span style>` per call site.
+**Themeable or structural** is the line, and it is about re-themeability rather than class-name
+purity. Anything a token or a theme axis could change — colour, radius, typography, the spacing
+scale, borders, shadows, animation — belongs in the `tv()` recipe, *including when it is
+conditional*: a ternary assembling `border-e border-border` in the function body is the same
+violation as an inline `style`, wearing a different hat. Pure box model no theme touches — `flex`,
+`min-w-0`, `shrink-0`, `absolute inset-0`, `overflow-hidden` — is fine inline, and a variant-less
+`tv()` is a string with extra steps. The test: *if a consumer re-skinned the library through tokens,
+would they expect this to change?*
+
+- Never inline `style` for variant appearance. A one-off **computed** structural style (a width
+  derived from drag state) is fine; a hard-coded constant is not — `minWidth: 200` belongs in
+  `min-w-[200px]`, where a class can still override it. A colour that is *data* is the sanctioned
+  exception — the one a user picked, or a theme's own — which is why
+  [`Swatch`](/docs/data-display/swatch) exists rather than a `<span style>` per call site.
 - Only token-backed utilities. No raw hex, no raw palette classes. On a status fill the ink is
   `text-destructive-content` and its siblings, never `text-white` — see
   [Theming](/docs/theming#tokens) for why that is a third token and not `-foreground`.
@@ -114,6 +125,12 @@ on specificity.
   `bg-field` fills it, and the fill is a recess — a dilution where one recedes, the page itself
   where none does — so it never takes a `/NN` either. An opacity dilutes a solid toward
   transparent and lands wherever the thing underneath puts it.
+- A pressable target owes its 24×24 floor in **pixels**, not in `rem`. WCAG 2.5.8 states CSS
+  pixels, and every `rem` here resolves against a root font-size the density axis moves — 16px
+  default, **14px compact**, 18px comfortable. So `min-h-6` is 24px at default and 21px at compact:
+  the failure dressed as the fix. Write `min-h-[24px]`. It is the one size in a recipe that must not
+  scale, because the bar it answers to does not — and it applies just as much to a `className` that
+  overrides one.
 - Exactly one `<main>` per page, and `ShellMain` owns it. Nestable containers use `<section>`.
   `SidebarInset` is a neutral offset `<div>` that carries no landmark — the `ShellMain` you place
   inside it does.
@@ -128,3 +145,16 @@ import { Dialog, DialogContent, DialogTitle } from "@kanzo-tech/ui";
 ```
 
 Not `Dialog.Content`. Flat exports tree-shake per part and match Shark.
+
+Which name a part gets follows from what it wraps. An Ark machine takes the bare name — `Accordion`,
+`Field`, `Pagination`, `Table`, `InputGroup` — and its parts are base plus part: `AccordionItem`,
+`FieldLabel`. A compound of our own takes `*Root`, because the bare name would name a *concept*
+rather than an element: `ShellRoot`, `SectionRoot`, `ChartRoot`.
+
+There is a harder reason than two dialects to avoid the namespace, and `Preferences` learned it: an
+`Object.assign` namespace does not survive the RSC client boundary. Once the module becomes a client
+reference, `Preferences.Density` reads back as `undefined` and React throws "Element type is
+invalid". A dot-notation namespace is allowed only beside the flat names, never instead of them.
+
+The rules for writing a part rather than using one — `ark.*` everywhere, who owns a `data-slot`, why
+a layout tree may not be a prop — are on [Conventions](/docs/conventions).

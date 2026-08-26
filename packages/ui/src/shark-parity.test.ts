@@ -26,7 +26,7 @@ import {
 /**
  * "We follow Shark UI" as a checkable fact.
  *
- * `CONVENTIONS.md` says the reference governs the surface, and until now nothing checked it. What
+ * The reference governs the surface, and until now nothing checked that it did. What
  * that cost, twice, in opposite directions: an export audit deleted 31 one-line `useX` context
  * aliases on the house rule that renaming somebody else's export is not an API — Shark ships 38 of
  * the 43 names involved, and nobody noticed for two days
@@ -98,8 +98,8 @@ import {
  *   3 are `Ours…`, one refers to a sibling entry and one is prose about a difference that is not a
  *   name. Sorting those apart means regexes over English, which is a grep wearing a parser's name:
  *   it would pass `Not built, obviously` and fail the first well-formed reason phrased a new way,
- *   and CONVENTIONS.md's third obligation is the one it would break. The header was wrong about its
- *   own file and is now corrected; this stays a length check on purpose.
+ *   and the third thing a guard owes — parse, do not grep — is the one it would break. The header
+ *   was wrong about its own file and is now corrected; this stays a length check on purpose.
  *
  * ## Mutation-tested
  *
@@ -402,7 +402,7 @@ describe("the declared divergences", () => {
     // A reason pointing at a deleted file is not a reason. Paths are matched wherever they appear —
     // in a `held` list or inside the prose — because the citation is the checkable part.
     const cited = new Set<string>();
-    const PATH = /(?:decisions|packages|docs|simples|composites|layouts|lib|scripts)\/[\w./-]+\.\w+|\b(?:CONVENTIONS|DESIGN)\.md\b/g;
+    const PATH = /(?:decisions|packages|docs|simples|composites|layouts|lib|scripts)\/[\w./-]+\.\w+|\bDESIGN\.md\b/g;
     for (const text of [...reasons, ...BEYOND_THE_SURFACE.flatMap((d) => d.held)]) {
       for (const match of text.matchAll(PATH)) cited.add(match[0]);
     }

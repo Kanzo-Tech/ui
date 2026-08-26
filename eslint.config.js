@@ -49,7 +49,7 @@ export default tseslint.config(
   },
   {
     // The simples are adopted from Shark UI, with declared divergences — the focus ring
-    // is solid where Shark dilutes it, on a measured contrast finding (CONVENTIONS.md).
+    // is solid where Shark dilutes it, on a measured contrast finding.
     // Do not "restore" a difference to match upstream without reading why it is there.
     // These three rules only ever fire on Shark's own conventions, none of which are
     // real defects:

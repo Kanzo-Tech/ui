@@ -23,8 +23,8 @@
  * **Four packages, because the door is the same door.** `@kanzo-tech/ai` was outside this file
  * entirely for as long as it existed — its client modules and its second stylesheet were bytes
  * nothing here had read, which is the same shape of hole `packages/ui/src/guard-corpus.ts` closed
- * on the source side. The count is printed by the run rather than written down here, for the reason
- * `CONVENTIONS.md` gives: a tally with no corpus can only be deleted, never re-derived.
+ * on the source side. The count is printed by the run rather than written down here, because a
+ * tally with no corpus can only be deleted, never re-derived.
  * `@kanzo-tech/graph` is the package that
  * crossed it: `src/index.ts` re-exported `onceQuery`, whose module imported
  * `@kanzo-tech/ui/analytics`, so `import { memorySource } from "@kanzo-tech/graph"` threw

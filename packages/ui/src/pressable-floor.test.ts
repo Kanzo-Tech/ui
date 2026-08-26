@@ -33,8 +33,8 @@ import { label, sourceFiles } from "./guard-corpus";
  *
  * - **It cannot see a target with no size variant at all.** A hand-rolled row — a `<button>` with
  *   `px-1 py-0.5` in a showcase — has no recipe and no `size` key, and that is precisely how the
- *   defect that prompted all of this got written. The rule in `CONVENTIONS.md` is what covers that
- *   case, and nothing enforces it.
+ *   defect that prompted all of this got written. Only the written rule covers that case, and
+ *   nothing enforces it.
  * - **It cannot see width.** A target is 24×24; this reads the height axis, because that is the one
  *   these variants name. A `size-N` entry covers both and is checked once.
  * - **It says nothing about the spacing exception.** 2.5.8 forgives an undersized target with
@@ -70,7 +70,7 @@ const toPx = (units: number) => units * SPACING_REM * tightestRootPx;
  * `<Button` and `InputGroupButton` are in here because the first draft matched only `<button` and
  * `ark.button`, and therefore skipped `input-group.tsx` — the component whose `xs` was its own
  * *default*, and the worse of the two defects this exists to catch. A guard that cannot see the
- * case that motivated it is the failure mode `CONVENTIONS.md` asks every guard to state.
+ * case that motivated it is the failure mode every guard here owes a sentence about.
  */
 const PRESSABLE = /ark\.button|<button|<Button|buttonVariants|InputGroupButton/;
 

@@ -1,0 +1,247 @@
+---
+title: Conventions
+description: How a file in this library is written — the rules for changing it, rather than for using it.
+---
+
+Everything else on this site answers *how do I use this?* This page answers *how do I write one?*,
+and it is addressed to whoever adds a component, changes a recipe or lands a guard. If you are
+building an application with the library, [Styling](/docs/styling) and
+[Theming](/docs/theming) are the pages you want.
+
+It states nothing the other pages state. [Philosophy](/docs/philosophy) has the three concerns, the
+layers, admission and the client boundary; [Styling](/docs/styling) has the recipe every component
+follows and the line between a recipe and an inline utility; [Theming](/docs/theming#tokens) has the
+token vocabulary and the two things `-foreground` means.
+
+## The reference, and what overrules it
+
+Ark for behaviour, Shark UI for appearance and surface — and the export list is surface, because a
+name is the first thing a consumer meets. Two house rules once pointed opposite ways over that, on
+identical evidence, and neither yielded. So the order is written down:
+
+> **The reference governs the surface; a measurement governs the reference; nothing else governs
+> either.**
+
+[Philosophy](/docs/philosophy#admission) is where that sentence sits beside what it decided. Five
+things it does not say on its own:
+
+- **A measurement is a number, what it was measured against, and a threshold it crosses.** The
+  diluted focus ring measured 1.29:1 against the 3:1 WCAG 1.4.11 asks of a component state; without
+  the last clause it is a fact about a colour, not a reason. A failing test counts when what it
+  asserts is a measurement or an external standard, and does not when it asserts a house preference
+  — that is the preference wearing a test's clothes. The question is: *would the divergence still
+  be right if whoever wanted it left?*
+- **A measurement licenses exactly the divergence it measures**, and no neighbouring one. White on
+  the status fills, measured at 2.13–3.81:1 against AA's 4.5, bought `destructive-content` and its
+  three siblings. It bought nothing else in those recipes.
+- **A house principle loses to the reference**, however good it is and however correctly it was
+  applied. "A name needs a second call site" is right everywhere "a name Shark ships is ours" does
+  not overrule it, and it was overruled while being correct.
+- **A reference that is wrong is still the reference**, and the first move is the fix that is not a
+  divergence — a prop we already own, an upstream report. `Steps` keeps Zag's `role="tab"` with no
+  key handling anywhere in Zag and Shark wrapping it unchanged, because stripping the role leaves
+  `aria-selected` on a non-widget role, and stripping all of it means hand-rolling the ARIA the
+  accessibility clauses below forbid. Upstream changes that, or our own `linear` prop. Discomfort
+  does not.
+- **Silence returns the question to the house rules; it does not open it.** Shark ships no
+  `pin-input` file at all, so parity neither grants nor refuses `PinInput`, and admission rule 2
+  decides it like anything else of ours.
+
+**Where this does not decide, the owner does** — the two references disagreeing, a name that matches
+while its binding does not, a product question in accessibility's clothes. Record the case as
+undecided rather than arguing it into a branch. A tie-break claiming more than it settles is the
+same defect as a guard claiming more than it proves.
+
+## Structure and props
+
+- **`ark.*` on every part that renders a DOM element** — simples, composites *and* layouts, with no
+  exemption. `<ark.div>` renders a `div` and forwards everything, so it costs nothing at runtime;
+  what it adds is `asChild`, universally. Type props as `React.ComponentProps<typeof ark.div>`,
+  never `ComponentProps<"div">`. A component that promises `asChild` in a doc comment without
+  `ark.*` is promising something it does not have.
+- **`data-slot` on every targetable part**, spelled `<component>-<part>`. Three rules keep it a
+  contract rather than decoration, and each has a scar on it:
+  - **The primitive owns its slot: write `data-slot={slot ?? "<component>-<part>"}` *after*
+    `{...rest}`, never before.** Before the spread, a caller's `data-slot` wins and the primitive's
+    own disappears, taking every recipe that selects it with no error and no visible symptom.
+  - **`slot?: string` is the sanctioned way to re-slot a part, and the only one.** Never declare a
+    type for it and never add a `SlotProps` interface — React's `HTMLAttributes` already carries
+    `slot`, so every `React.ComponentProps<typeof ark.*>` has it. The exception is a props type
+    extending an Ark *machine's* props rather than HTML attributes, which has no `slot` to inherit;
+    `SidebarProps` is the one, and it already had to declare `className` for the same reason.
+    Renaming is then explicit, erasing is impossible, and a guard can tell the two apart — which it
+    could not while both were spelled `data-slot`.
+  - **Never write a bare `data-slot` on one of our components** — only on the DOM element itself.
+    TypeScript will not stop you: it does not typecheck a hyphenated JSX attribute, so `data-slot`
+    is accepted on any component and silently does nothing on the ten Ark roots that render no
+    element at all. Asking for `slot` instead is what surfaced those ten in one `tsc` run. Under
+    `asChild` the child wins, so push the slot down: `<Button slot="combobox-trigger">`, not a
+    `data-slot` on the trigger that wraps it.
+- **A layout tree is children, never an attribute.** If a prop's value is markup, it is children. A
+  record or array of `ReactNode`s is a layout tree written as an attribute: the caller cannot
+  reorder the regions, wrap one, spread `className` / `data-*` / `aria-*` / a handler onto one, or
+  use `asChild` on one. `CardHeader`, not `<Card header={…} />`.
+  - **The line is what the value *is*, not whether it is an array.** A collection a machine
+    navigates is data and belongs in a prop — Ark's `createListCollection` cannot be built from
+    children, so `FacetFilter`'s `items`, `Tour`'s `steps` and a faceted column's values are
+    correct. Numbers, ids and strings are data. **`ReactNode` in the field type is the tell**, and a
+    `separatorBefore: boolean` is the confession: a separator between children, in a shape that has
+    no children to put one between.
+  - When you want the ergonomics of a list, take a **render prop**. `FieldArray`'s
+    `children: (index) => ReactNode` keeps composition and still owns the loop.
+  - A convenience that flattens a compound into an array is rung 1 of
+    [the ladder](/docs/philosophy#reach-for-a-new-component-last) wearing rung 5's clothes. It goes
+    in `docs/examples/`, where it is a demonstration rather than an API.
+
+**Accessibility, two clauses**, because "accessibility comes from Ark" is not true of this codebase:
+Ark ships no sidebar, app shell, field array or facet filter, and our chart, table and editor layers
+are ours.
+
+- **Where Ark ships an equivalent, use it.** Never hand-roll focus, keyboard or ARIA it already
+  provides. Check `@ark-ui/react/dist/components/` — resolvable from `packages/ui`, not from the
+  repository root — before writing a state machine.
+- **Where Ark has none**, the bespoke part documents its ARIA contract in a comment and is covered
+  by a test, and **never declares a composite role** (`toolbar`, `listbox`, `tree`, `grid`,
+  `tablist`) without implementing that role's keyboard contract. A `role="toolbar"` whose items are
+  each independently tabbable, with no roving focus, is worse than no role at all: it promises
+  assistive tech a navigation model that is not there.
+
+## Naming
+
+**Files are kebab-case**, matching Shark. A few older files are PascalCase — drift, not a semantic
+marker. Never rely on case-insensitive resolution: CI is case-sensitive even though macOS is not, so
+a case-mismatched import is a failure you cannot reproduce locally. No such pair exists today and
+none can be added by accident: `tsconfig.base.json` sets `forceConsistentCasingInFileNames`, and two
+paths differing only by case cannot both be checked out here in the first place.
+
+The export rules — flat rather than dot-notation, the bare name for an Ark machine, `*Root` for a
+compound of ours, and the RSC reason a namespace is not merely a second dialect — are on
+[Styling](/docs/styling#compound-components), because they are what a consumer types.
+
+## The client boundary, past the rule
+
+[Philosophy](/docs/philosophy#the-client-boundary) states the rule: a file gets `"use client"` iff
+*it itself* is stateful, and importing a stateful module is not a reason. Three things that follow
+from it and belong to whoever writes the file:
+
+- **If you want the directive because something you import is stateful and lacks its own, fix that
+  module instead.** That is the only form of the transitive case, and the first half of the rule
+  makes it impossible.
+- **Both halves are enforced** by `packages/ui/src/client-boundary.test.ts`. The one case it cannot
+  see is a browser global reached at module scope; there are none today, and the rule still bans
+  them.
+- **The build must preserve the directives**: `preserveModules` plus
+  `rollup-plugin-preserve-directives`. Rollup strips them when it merges modules, and that failure
+  is invisible to any Vite-based harness, because Vite ignores `"use client"` entirely. `pnpm smoke`
+  and the docs App Router build are what catch it.
+
+## Comments
+
+A comment is code that cannot be tested, so it decays silently. Write one only when the code cannot
+carry the fact. **Four are required; everything else is absent by default.**
+
+1. **A measurement.** A contrast ratio, a ΔE, a byte count, a timing. Cite the number and what it
+   was measured against.
+2. **A decision a naive reader would undo.** The reason, not the history. The test: *if this line
+   were deleted, would the next reader change the code back?*
+3. **An ARIA contract**, on every bespoke part where Ark ships no equivalent. Name the roles, the
+   keys, and what is announced.
+4. **A constraint invisible in the code** — that Tailwind scans comments, so a retired class cannot
+   be quoted; that a hoisted object exists because a hook memoises on identity.
+
+**Do not write** what the code says; a `@param` or `@returns` restating a type (we use prose JSDoc,
+with `@default`, `@link` and `@example` as the only tags); an empty banner; commented-out code
+(there is none — keep it that way); or any legacy, migration or back-compat note, because nothing is
+published and such a comment explains code that should not exist.
+
+### Six rules that keep a required comment true
+
+The comment problem here is not ceremony — there is no commented-out code and restating comments are
+rare. It is duplication and staleness: one paragraph written out in many places, several copies of
+which went stale independently.
+
+- **Write one copy — one per package that enforces it, and never two inside one package.** State a
+  fact where it is enforced and point at it from everywhere else. Where two packages enforce the
+  same thing independently they each get a copy, because the lower one may not be sent into the
+  other's internals for its reasoning. Two copies inside one file is the version that is never
+  defensible.
+- **Date a measurement, and name the set it was taken over** — by a name that exists in the source.
+  A ratio read off `tokens.css` is a claim about a build artefact and the next `pnpm check:generated`
+  can falsify it, so write *"measured 2026-07"* rather than *"today's border ships"*. A tally whose
+  corpus has no name cannot be re-derived, only deleted: *"measured over 118 seeds"* cost an hour to
+  reconstruct and turned out to be a set that had since changed size. A count of call sites rots the
+  same way; prefer a test that counts.
+- **Prose that is hashed, serialised or rendered is data, not a comment.** Correcting it is a code
+  change with a changeset, and it may not be safe at all — a stale tally inside a digest cannot be
+  fixed, because the string is what the digest claims. Before editing any string, check whether
+  something downstream reads it.
+- **Fix the code, not the prose — unless the wrong value is pinned.** A comment describing a wrong
+  fixture is usually a wrong fixture. Try the code fix first. When assertions depend on the wrong
+  value, correct the comment *and say in it that the value is pinned and why*, or the next reader
+  makes the same attempt and reverts it.
+- **Cite a symbol, never a line.** A line reference moves silently; several here did.
+- **Attach the comment to the thing.** A `/** */` followed by a blank line documents nothing, and no
+  editor will show it.
+
+Keep a "used to be X" only when it names the mistake it prevents, and say which mistake.
+
+## Tests and guards
+
+`pnpm test` runs vitest across the packages; `packages/ui` sets `environment: "jsdom"` and the rest
+run under node. The minimum bar for a component is a test that renders it and asserts the behaviour
+its recipe depends on. Two conventions beyond that:
+
+- **A test is a specification.** `describe("a styled list keeps its semantics")`,
+  `it("bites on a stripped list with no role, and not on one that declares it")`. Name the claim,
+  not the function.
+- **A deleted component gets a tombstone assertion** in `packages/ui/src/index.test.ts`, with the
+  reason it went. That is what stops it being rebuilt.
+
+**What "repo-wide" means is `packages/ui/src/guard-corpus.ts`**, and it was a lie until 2026-08-20:
+every appearance and boundary guard walked from its own directory, so the corpus was
+`packages/ui/src` and `@kanzo-tech/ai` shipped ten modules none of them had read a line of. The
+corpus is now derived — **a package is scanned when it declares `tailwind-variants`**, which is the
+tell that it writes appearance in this house's idiom — and it throws at import if that resolves to
+fewer than two packages, because every rule built on it asserts an absence and a shrunken corpus
+passes all of them. A failure names its file `<package>/<path under src>`: `ui/simples/button.tsx`,
+`ai/message.tsx`. Extend the corpus; never copy a guard into a second package.
+
+**The guards are the `*.test.ts` files beside the source they scan** — `packages/ui/src` and
+`packages/theme/src`. There is deliberately no table of them here. One existed for months and rotted
+in exactly the way this page warns about: it named three files that no longer exist, and missed five
+that do. A routing aid nobody re-derives is worse than the `ls` it replaces, and every one of them
+enforces more, and less, than a row could say. **Read the file.**
+
+### Three things a guard owes
+
+- **Say what it cannot prove.** `pnpm smoke` compares the bytes of a built artefact, so it catches
+  Rollup dropping a `"use client"` directive and cannot tell you the boundary is in the right
+  *place*; only the docs RSC build evaluates that. A guard that states its own blind spot is one
+  nobody over-trusts.
+- **Mutation-test it.** Write the violation, watch the assertion fail with the message you meant,
+  then remove it. A guard nobody has seen fail is a guard nobody has tested. The leak check in
+  `pnpm smoke` guarded two symbols that had never existed in this repository, so it could not fail
+  and did not, for months.
+- **Parse, do not grep, and never let the corpus shrink silently.** `charts/chart-inputs.tsx`
+  contained a raw NUL byte, which made `file(1)` and every `grep -I` treat the largest file in the
+  chart layer as binary — a grep-based guard would have skipped it and reported a pass. The scan now
+  asserts no source file contains one. The general rule: a guard that can silently *not see* part of
+  its corpus is worse than no guard, because it reports the same green as a real pass.
+
+**Logical properties, never physical** — `border-e` / `border-s`, `side="start" | "end"`. One code
+path mirrors correctly under RTL, and [RTL](/docs/rtl) is the page about it. The test is the rule; if
+you need an exception, add it to that file's allowlist with the reason it does not depend on reading
+direction.
+
+**When a mistake recurs, write the test, not the paragraph.** Three is where a rule becomes a guard.
+
+## Distribution
+
+The package split and the optional-peer subpaths are on [Installation](/docs/installation). One rule
+that is not: semver goes through changesets, **a changeset says what a consumer must do
+differently**, and its bump matches the commit subject's own claim — a `!` in the subject is a
+`major`. Why a decision was taken is not what a changeset is for.
+
+`tailwind-variants` is imported directly, never through a local shim. A `lib/tv.ts` re-export
+existed, was bypassed by most of its callers, and was deleted. If a shared `twMergeConfig` is ever
+needed, that is the moment to reintroduce one seam — with a lint rule to enforce it.

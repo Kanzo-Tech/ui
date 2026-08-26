@@ -15,8 +15,8 @@ import { CHROMA_FLOOR, label, oklch, sourceFiles, subtrees, unreadable } from ".
  * failed the colour checks; the Preferences swatches drifted a whole Tailwind major away from the
  * accents they stood for. Both were hand-written hues, and nothing could tell.
  *
- * A second half of the same rule is a *class* rather than a value. CONVENTIONS.md forbids "raw
- * palette" and names a slate background as the example. Such a class carries no hex a scanner can
+ * A second half of the same rule is a *class* rather than a value: "raw palette" is forbidden too,
+ * and a slate background is the example. Such a class carries no hex a scanner can
  * measure, but it is still somebody else's palette compiled in at build time, and it moves when
  * Tailwind moves rather than when the tenant document does. That half is banned by *name*, not by
  * chroma, and it covers all twenty-two v4 families including the five greys: `slate` is a blue-grey,

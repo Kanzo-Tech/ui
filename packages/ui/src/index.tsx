@@ -1,8 +1,8 @@
 // @kanzo-tech/ui — the shared design-system surface.
 //
 // `simples/` are adopted from Shark UI and rebranded to our tokens — adopted, not vendored:
-// where we diverge, CONVENTIONS.md records the measurement that justifies it, and the solid focus
-// ring is not a diff to reconcile. `composites/` and `layouts/` are ours. Everything runs on
+// where we diverge, `shark-parity.divergences.ts` records the measurement that justifies it, and
+// the solid focus ring is not a diff to reconcile. `composites/` and `layouts/` are ours. Everything runs on
 // Ark UI + tailwind-variants + tokens + tw-animate-css.
 //
 // Admission rule: nothing that knows about RDF / SHACL / fossil / graphs / auth.

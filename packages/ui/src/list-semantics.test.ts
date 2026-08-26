@@ -18,7 +18,7 @@ import { label, sourceFiles } from "./guard-corpus";
  * this at all**: `getByRole("listitem")` resolves off the element name and passed the whole time.
  * A claim that three files, one page and a passing assertion all agreed on, and no browser did.
  *
- * Three is where `CONVENTIONS.md` says a rule becomes a test, and this is the third.
+ * Three is where a rule becomes a test, and this is the third.
  *
  * ## What this guard cannot prove
  *

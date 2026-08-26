@@ -4,8 +4,8 @@ import { ShellBody, ShellMain, ShellRoot } from "../layouts/shell.js";
 import { SkipNavContent, SkipNavLink } from "./skip-nav.js";
 
 /**
- * `CONVENTIONS.md` requires a bespoke part — one Ark ships no machine for — to document its ARIA
- * contract and be covered by a test. The contract is in `skip-nav.tsx`; this is the cover.
+ * A bespoke part — one Ark ships no machine for — owes a documented ARIA contract and a test that
+ * covers it. The contract is in `skip-nav.tsx`; this is the cover.
  *
  * ## What these assertions cannot prove
  *
