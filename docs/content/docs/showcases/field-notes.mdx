@@ -81,8 +81,30 @@ shape names seven properties, so everything else is dropped and does not exist d
 what the archivist wants, and it is also why adding a column later means re-reading the
 photographs.
 
-Why that is a decision rather than a convenience is in
-[`a-column-is-read-from-the-shape`](https://github.com/Kanzo-Tech/kanzo-ui/blob/main/decisions/a-column-is-read-from-the-shape.md).
+Why that is a decision rather than a convenience: **a column written twice is a column that will
+disagree with itself**, and here the disagreement leaves the building as a spreadsheet.
+
+`@kanzo-tech/rudof-wasm` is the whole engine — `loadShapes` hands back the shape's own IR, so the
+column list *is* the shape rather than a transcription of it, and `validate` is the real SHACL
+validator rather than a lookalike written in the showcase. The wasm is 2.7 MB unpacked and loads
+lazily on mount; the docs build is green with it, which was the question that decided the design and
+was checked before any of the screen was written.
+
+**The case that does not fit.** rudof returns its own message and the shape's `sh:message` in one array
+with nothing marking which is which, and the order is not stable between runs. `spoken()` in `rudof.ts`
+picks the one that does not say "not satisfied" — the single place this design guesses, and it is a
+guess about the engine's wording, not about the shape.
+
+**What this does not touch:** `@kanzo-tech/ui` still knows nothing about RDF. The admission rule at the
+top of its barrel bars it by name, and every line above lives in `docs/showcases/`. A showcase is where
+specificity is allowed to live, and none of this is a candidate for the library until a second call site
+asks for it.
+
+**What would reverse it:** a consumer that needs something the shape cannot say, or a wasm payload the
+docs build will not carry.
+
+*Held by* `docs/showcases/field-notes/shape.ts`, `SLIP_SHAPE`; `docs/showcases/field-notes/csv.test.ts`,
+"writes the header from sh:name, in sh:order".
 
 ## Why a model and not an OCR
 

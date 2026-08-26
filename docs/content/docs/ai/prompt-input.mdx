@@ -95,8 +95,21 @@ A model is a **value**, so the picker is a [`Select`](/docs/forms/select) and th
 here for it. A value control keeps its value without being told to; reach for a palette instead and
 you inherit its rule that a selection is thrown away on click, which is a defect you then have to
 override your way out of. AI Elements — the source these shapes come from — puts a `Select` in this
-strip and never needed the override. The record is
-`decisions/a-picker-that-forgets-its-value-is-a-defect.md`.
+strip and never needed the override, and ours diverged from that source without saying why.
+
+`ModelList` and `ModelListItem` existed here for one release and are deleted, with no alias. The
+defect they were built to prevent turned out to be an artefact of the primitive they were built on:
+`Command` pins its selection behaviour to *clear* because a command is an act, so the control forgot
+what it was set to a frame after being told. A `Select` is a value control by construction — nothing
+to override, no silent failure to prevent, and therefore no capability left for a name to carry.
+
+**What would reverse it:** a host whose model registry is long enough that picking from it is a search
+rather than a choice — twenty entries, not four. A `Select` has no filter input, and at that length the
+argument flips back to `Command`: the palette semantics are still wrong, but a list you cannot search
+is worse. **The measurement is a real registry, not a hypothetical one.**
+
+*Held by* `docs/examples/prompt-input/example-model.tsx`, the composition in full;
+`packages/ai/src/index.ts`, which exports no picker.
 
 What the composer asks of it is that it stop looking like a form field. The strip is a row of
 controls, not a row of inputs, so the trigger drops its border, its fill and its shadow and takes

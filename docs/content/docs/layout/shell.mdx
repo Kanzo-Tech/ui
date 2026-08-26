@@ -42,6 +42,19 @@ size — an IDE aesthetic, which is a product decision rather than a system one.
 copy it if you want that look.
 </Callout>
 
+This was decided the expensive way. `Toolbar`, `StatusBar` and `TopBarUtility` were three copies of
+one strip; merging them into a generic `ShellBar` kept the fixed height, the card surface, the muted
+ink and the eleven-pixel font — the IDE aesthetic of the component the owner had explicitly rejected.
+**Generalising an implementation while preserving a rejected appearance is not generalising.**
+
+**What would reverse it:** a caller who cannot express the strip they want by putting content in a
+region. Three attempts produced no such caller; the dense IDE strip now lives in the workspace
+showcase, where anyone who wants that look copies it.
+
+*Held by* `packages/ui/src/layouts/shell.tsx`, the region set;
+`packages/ui/src/layouts/shell.test.tsx`, "declare no role, so the call site owns the landmark" and
+"impose no height, surface or typography of their own".
+
 So a status strip is ordinary composition:
 
 ```tsx
@@ -62,6 +75,29 @@ So a status strip is ordinary composition:
 **Exactly one `<main>` per page.** `ShellMain` renders it. Nested containers use `<section>` —
 two `<main>` elements are a conformance error and make "skip to main content" ambiguous. The link
 that phrase names is [`SkipNavLink`](/docs/layout/skip-nav), and `ShellMain` is what it lands on.
+
+<Callout type="warn">
+**`SidebarInset` is a neutral offset `<div>` and carries no landmark.** It is a styling wrapper — the
+inset margin, radius and shadow — and the `ShellMain` placed inside it is what holds the region.
+shadcn makes `SidebarInset` the `<main>` because it has no separate region layer; we do, which is
+exactly why our answer differs from the one you will find upstream, and **there is nothing that would
+reverse it**. This is the most-copied false claim in the repository: four documents have asserted
+that `SidebarInset` renders the landmark, and a reader who follows them ships a page with no landmark
+and an ambiguous skip link.
+
+*Held by* `packages/ui/src/layouts/shell.test.tsx`, "renders exactly one `<main>`, and it is
+ShellMain"; `packages/ui/src/composites/sidebar.tsx`, the comment above `SidebarInset`.
+</Callout>
+
+**A shell has two legal shapes, and they do not mix.** Either the header and footer go *inside*
+`SidebarInset`, right of the rail — the shadcn model, and the canonical one here — or the sidebar is
+in-flow (`collapsible="none"`, or a `ShellAside`) and a spanning header is legitimate. Never both. A
+`fixed` rail (`collapsible="icon"` or `"offcanvas"`) starts at viewport top and paints *over* any
+header that spans across it, so **nothing reverses this either**: it is a consequence of the rail's
+positioning, not a preference.
+
+*Held by* `packages/ui/src/composites/sidebar.tsx`, the rail variants;
+`packages/ui/src/layouts/shell.tsx`, the regions.
 
 **Asides are landmarks.** `ShellAside` renders `<aside>`, so two of them need `aria-label` to be
 told apart. That is also why asides may repeat where `<main>` may not.

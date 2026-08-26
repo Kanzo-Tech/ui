@@ -41,7 +41,13 @@ paragraph takes a continuation.** `Complete` composes over a `Textarea` and ther
 that is left — the field cannot scroll to reveal text that is not in its value — so a long offer
 was unreadable by any gesture and taking it meant taking it blind. No reference does it either:
 Gmail continues a body, Copilot an editor, and every one-line field in the wild offers a list.
-See [the record](https://github.com/kanzo-tech/kanzo-ui/blob/main/decisions/a-line-takes-candidates-a-paragraph-takes-a-continuation.md).
+
+**What would reverse it:** a single-line field whose offers are reliably short enough to fit, measured
+rather than assumed — or a browser giving an `<input>` a way to scroll text it does not contain.
+
+*Held by* `packages/ai/src/complete.tsx`, `CompleteTextarea`; `packages/ui/src/index.test.ts`, "drops
+components superseded by composition or a merge", `!CompleteTextarea`; `packages/ai/src/complete.test.tsx`,
+"streams an end-of-value ghost over a pure Textarea and Tab accepts it".
 </Callout>
 
 ## The ✨ is a mark, not a door

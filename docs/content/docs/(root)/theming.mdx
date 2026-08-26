@@ -309,6 +309,28 @@ custom property inherits its **computed** value, so a colour declared on `:root`
 </Callout>
 
 
+### Two themers, and only one of them owns the root
+
+`KanzoThemeProvider` writes the axes to `document.documentElement` and is **the app's themer**.
+`KanzoTheme` writes the same attributes to a `<div>` and is **for previews** — a gallery of five
+themes on one page is a real screen, and the root-only provider cannot express it. Both ship, they are
+not interchangeable, and the difference is asserted rather than described.
+
+<Callout type="warn">
+**Never reach for `KanzoTheme` as the app's provider.** Ark's overlays — Dialog, Popover, Menu,
+Select, Tooltip, Toast, HoverCard, Command — portal into `document.body`, outside any wrapper, so a
+wrapper cannot theme them; and density sets the root font-size that the whole `rem` scale resolves
+against, so on a wrapper it is broken outright. There was once only one provider for exactly that
+reason, and the one that wrote to a wrapper was deleted with no alias — it had been the *documented*
+entry point while a repo-wide grep found zero usages of it.
+</Callout>
+
+**What would reverse it:** a scope that could theme Ark's portalled overlays. It cannot, and that is a
+fact about the portal target rather than a preference — which is why the root provider stays the app's.
+
+*Held by* `packages/ui/src/index.test.ts`, "exposes two themers, and they are not interchangeable";
+`packages/ui/src/theme/KanzoTheme.tsx`.
+
 ## What `@kanzo-tech/theme` exports besides CSS
 
 The stylesheet is the product; these are the shapes a host needs when it builds its own control,

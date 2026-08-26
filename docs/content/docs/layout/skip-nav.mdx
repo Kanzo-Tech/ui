@@ -46,6 +46,18 @@ Without a shell, render it on its own — `<SkipNavContent>{children}</SkipNavCo
 because it has no layout layer.
 </Callout>
 
+`ShellMain` takes **no skip-target opinion of its own and gains no prop for one**: the composition is
+the whole mechanism.
+
+**What would reverse it:** a page that must skip to something which is *not* its `<main>` while still
+having one — a mail client landing on the message list rather than on the whole reading pane is the
+shape to watch for. Also Ark's `asChild` ceasing to merge attributes down onto a component child,
+which is what makes this a composition rather than a copy.
+
+*Held by* `packages/ui/src/simples/skip-nav.test.tsx`, "puts the id and the focus on the `<main>`
+itself, not on a div inside it" and "still renders exactly one `<main>`, and it is still ShellMain's
+slot"; `packages/ui/src/simples/skip-nav.tsx`, `SkipNavContent`.
+
 ## Why `tabIndex={-1}` is the load-bearing half
 
 A fragment link on its own only **scrolls**. Focus stays on the link, so the reader's next Tab
