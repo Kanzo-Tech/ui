@@ -1,7 +1,7 @@
 # `decisions/` deja de existir, y la documentación es la única fuente de verdad
 
-Plan escrito el 2026-08-25. Alcance inferido del árbol de rmlext, no supuesto: **allí no hay
-`DESIGN.md` ni `CONVENTIONS.md`** — toda la prosa de diseño vive en
+Plan escrito el 2026-08-25, mapa de destinos el 2026-08-26. Alcance inferido del árbol de rmlext,
+no supuesto: **allí no hay `DESIGN.md` ni `CONVENTIONS.md`** — toda la prosa de diseño vive en
 `apps/docs/content/docs/design/`, y `CLAUDE.md` es el puntero para quien trabaja. Eso es lo que
 significa aquí «como en rmlext».
 
@@ -10,65 +10,136 @@ significa aquí «como en rmlext».
 La suya, y se copia literal: **un registro se sustituye por lo que decía, nunca se anota y nunca se
 supersede con un fichero que se queda al lado del árbol.**
 
+Y su lección sobre las citas: *«the rest were provenance labels in doc-comments where the sentence
+beside them already carried the rule»* — **ésas se borran, no se reescriben.**
+
 ## El inventario, medido
 
 | | |
 |---|---|
-| registros | 73 ficheros — **63 `live`**, 8 `superseded`, más `README`, la plantilla y el `ADR 0001` |
-| citas hacia `decisions/` | **232** |
-| — en `packages/` | 125, casi todas etiquetas de procedencia en un doc-comment cuya frase de al lado ya lleva la regla |
-| — en `docs/content/` | 15 |
+| registros | 73 ficheros — **62 `live`** con los cinco campos, 8 `superseded`, el `ADR 0001`, `README` y la plantilla |
+| citas hacia `decisions/` | 337 apariciones; **191 líneas** fuera de `decisions/` y `.planning/` |
+| — en `packages/` | 125 apariciones, casi todas etiquetas de procedencia en un doc-comment cuya frase de al lado ya lleva la regla |
+| — en `docs/` | 20 líneas |
 | — en `.changeset/` | 6 |
-| — en la raíz | el resto: `DESIGN.md`, `CONVENTIONS.md`, `CLAUDE.md`, `README.md`, `BENCHMARKS.md` |
-| guard | `packages/ui/src/decisions.test.ts`, que verifica cinco reglas de forma y dos de contenido |
-| citas hacia `DESIGN.md` | **368** |
-| citas hacia `CONVENTIONS.md` | **293** |
-| **total a reescribir** | **~893** |
+| guard | `packages/ui/src/decisions.test.ts`, cinco reglas de forma y dos de contenido |
 
-**Y `DESIGN.md` ya está duplicado.** `docs/content/docs/(root)/philosophy.mdx` son 290 líneas con
-las mismas secciones —la restricción que gobierna, las tres capas, los tres ejes, la regla del
-motor, la del nombre, la admisión, menú contra listbox, la frontera de cliente, dónde vive la
-especificidad—. O sea que la fuente doble que hay que cerrar no es sólo `decisions/`: **ya hay dos
-copias de las reglas y la del sitio es la que se queda.** `CONVENTIONS.md` sólo está duplicado a
-medias: `styling.mdx` lleva la receta, y la mitad de autor —nombres, frontera de cliente,
-comentarios, tests, distribución— no tiene página.
-
-## Lo que hay que decidir por registro, y no es mecánico
-
-De los 63 vivos, la mayoría **no son de cara al usuario**: son reglas de la casa —nombres, guards,
-la frontera de cliente, tokens— que hoy viven en `DESIGN.md` y `CONVENTIONS.md`. Un puñado sí tiene
-página (`a-theme-is-one-flat-block`, `exactly-one-main`, `a-shell-has-two-legal-shapes`). Así que el
-destino no es uno:
-
-- **una sección `docs/content/docs/design/` nueva**, que es donde aterriza `DESIGN.md` entero y la
-  mayoría de los registros;
-- **la página del componente**, cuando el registro es sobre una superficie que ya se documenta;
-- **nada**, cuando el registro es historia: los 8 `superseded` se sustituyen por la frase que los
-  reemplazó, allí donde esa frase ya está.
-
-## Los pasos
-
-1. **`docs/content/docs/design/` existe**, con una página por eje y `DESIGN.md` dentro. Sin borrar
-   nada todavía.
-2. **Los 63 vivos entran**, en la página que les toca, como prosa y no como ficha. El `Held by` deja
-   de ser un campo y pasa a ser la frase que nombra el guard.
-3. **Las 232 citas**: reescritas a la ruta del sitio donde apuntaban a un registro que ahora es una
-   página; borradas donde eran procedencia y la frase de al lado ya lleva la regla.
-4. **El guard**: `decisions.test.ts` pierde las cinco reglas de forma —no hay fichas que validar— y
-   conserva las dos que valen, apuntadas a las páginas: *un título de test citado existe* y *un
-   nombre declarado ausente no está en el barril*.
-5. **El borrado**: `decisions/`, `DESIGN.md`, `CONVENTIONS.md`. `CLAUDE.md` se queda y apunta al
-   sitio.
-
-## Lo que se queda a propósito
-
-Las menciones **en pasado** en `BENCHMARKS.md` y en los guards: son la evidencia medida de por qué
-esto se va, no punteros hacia dentro. Igual que ellos conservaron las suyas.
-
-## El riesgo, dicho antes de empezar
+## El mecanismo que no se puede perder
 
 `CLAUDE.md` declara `decisions/` como una de sus tres constantes: *«Any decision may be reopened.
-They live in `decisions/`, one file each, each carrying the evidence that would reverse it.»* Ese
-mecanismo —la evidencia que revertiría cada decisión— es la parte con valor y **no tiene equivalente
-en una página de prosa**. Si al terminar no se puede señalar, en la página, qué medición reabre una
-regla, esto habrá sido una pérdida y no una consolidación. Es la única cosa que hay que vigilar.
+They live in `decisions/`, one file each, each carrying the evidence that would reverse it.»* Esa
+evidencia —el campo `Reversed by`— es la parte con valor. **Sobrevive como frase dentro de la
+prosa**, igual que en rmlext: «lo que diría que esto está mal es…», «lo que lo cumpliría es…». Si al
+terminar no se puede señalar qué mediría reabrir una regla, esto habrá sido una pérdida.
+
+Los `Held by` no se pierden tampoco: dejan de ser un campo y pasan a ser la frase que nombra el
+guard, que es lo que el guard superviviente sigue comprobando.
+
+## El destino, por registro
+
+### `docs/content/docs/design/` — la sección nueva, tras el divisor de mantenedores
+
+Seis páginas. La mayoría de los registros **no son de cara al usuario**: son reglas de la casa.
+
+**`design/index.mdx`** — cómo se escribe una regla aquí, y las reglas de trabajo:
+`a-count-belongs-in-a-script`, `a-rule-broken-three-times-becomes-a-test`,
+`an-audit-is-a-map-not-an-oracle`, `a-docs-defect-is-a-library-defect`,
+`a-chart-fails-silently-and-well-painted`, `one-changeset-until-the-first-publish`,
+`a-class-list-is-source-so-the-barrel-budget-moves`, `a-generated-index-with-no-second-list`. **(8)**
+
+**`design/admission.mdx`** — qué se gana un nombre en un barril: `adoption-before-design`
+(absorbe el superseded `field-has-no-consumer`, que es su ejemplo cerrado),
+`an-export-needs-a-second-call-site`, `a-machine-with-a-switch-is-a-variant`,
+`a-compound-keeps-its-root-even-when-the-root-is-an-alias`, `a-layout-tree-is-children`,
+`a-grammar-ships-its-whole-vocabulary`, `charts-and-table-ship-code-forms-ship-a-guide`,
+`the-ai-surfaces-are-their-own-package`, `a-tool-panel-composes-its-snippet`,
+`the-structure-view-is-treeview-until-the-data-nests`, `a-chart-needs-no-factory`,
+`ai-assist-composes-over-pure-inputs`. **(12)**
+
+**`design/references.mdx`** — el orden de autoridad: `a-measurement-overrules-the-reference` es el
+dueño y los demás lo instancian. `match-the-reference`, `a-name-shark-ships-is-ours`,
+`a-house-principle-withholds-no-name`, `a-part-is-named-by-its-machine`,
+`adopt-the-part-the-machine-ships`, `provenance-beats-purity`,
+`ai-elements-is-a-source-not-a-reference`, `layout-is-not-ark-native`,
+`steps-claims-a-tab-role-it-cannot-keep`. **(10)**
+
+**`design/naming.mdx`** — nombres y `data-slot`: `a-primitive-owns-its-slot`,
+`what-identifies-a-part-is-not-what-a-caller-may-change`,
+`a-type-and-a-component-may-not-share-a-name`,
+`a-hook-takes-the-name-of-the-request-it-makes`. **(4)**
+
+**`design/colour.mdx`** — el documento de tema y lo que se contribuye a él:
+`a-theme-is-one-flat-block` (dueño; absorbe cinco superseded),
+`the-categorical-default-is-one-set-for-every-theme`, `accent-is-a-surface-not-a-third-brand`,
+`the-obvious-ink-is-computed-in-the-form`, `monochrome-is-a-palette-not-a-look`,
+`an-invalid-boundary-needs-no-dark-branch`, `a-section-brings-measurable-obligations`,
+`density-has-no-legibility-floor`, `a-preference-is-contributed-like-a-token`,
+`the-declaration-ships-with-the-library`. **(10)**
+
+**`design/graph.mdx`** — el lector acotado: `ADR 0001` (el número se queda como etiqueta del suceso,
+porque fossil cita por número, y la frase de al lado dice lo que decidió),
+`a-tile-is-an-address-not-a-verb`, `a-far-view-is-a-sample-not-a-summary`,
+`an-edge-is-drawn-from-bytes-in-hand`, `a-filter-is-a-predicate-not-a-mask`,
+`the-coordinate-box-is-the-corpus-extent`, `a-dense-id-is-thirty-two-bits`,
+`a-look-is-form-and-a-channel-is-a-binding`, `a-look-declares-what-it-changes`,
+`a-canvas-component-owns-the-three-that-never-differ`. **(10)**
+
+### La página del componente — donde el registro es sobre una superficie que ya se documenta
+
+| registro | destino |
+|---|---|
+| `exactly-one-main` | `/docs/layout/shell` |
+| `a-shell-has-two-legal-shapes` | `/docs/layout/shell` |
+| `a-region-carries-no-aesthetic` | `/docs/layout/shell` — **ya está ahí**, sólo le falta la evidencia que lo revertiría |
+| `the-skip-target-is-the-main-landmark` | `/docs/layout/skip-nav` |
+| `a-filter-is-a-value` | `/docs/forms/facet-filter` |
+| `two-themers-and-one-root` | `/docs/theming` |
+| `a-model-is-a-value-so-the-picker-is-a-select` | `/docs/ai/prompt-input` — **ya está ahí** |
+| `a-line-takes-candidates-a-paragraph-takes-a-continuation` | `/docs/ai/fields` |
+| `a-column-is-read-from-the-shape` | `/docs/showcases/field-notes` |
+
+**(9)** — 8 + 12 + 10 + 4 + 10 + 10 + 9 = 63, que son los 62 vivos más el ADR.
+
+### Nada — los ocho `superseded`
+
+Se sustituyen por la frase que los reemplazó, allí donde esa frase ya esté; y ya está en todos.
+
+| registro | lo reemplazó | qué se conserva |
+|---|---|---|
+| `a-categorical-set-may-use-the-palettes-own-colours` | `a-theme-is-one-flat-block` | nada: la derivación entera se borró |
+| `a-palette-is-chosen-per-appearance` | `a-theme-is-one-flat-block` | nada |
+| `a-role-earns-its-name-or-becomes-a-step` | `a-theme-is-one-flat-block` | nada: los 53 roles se cortaron |
+| `palette-is-authoring-time` | `a-theme-is-one-flat-block` | nada: `@kanzo-tech/palette` no existe |
+| `prose-that-is-hashed-is-data` | `a-theme-is-one-flat-block` | nada: no hay digest |
+| `one-theme-provider` | `two-themers-and-one-root` | la razón del portal, que el sucesor ya lleva |
+| `field-has-no-consumer` | `adoption-before-design` | una frase: es el ejemplo que cerró |
+| `a-picker-that-forgets-its-value-is-a-defect` | `a-model-is-a-value-so-la-picker-is-a-select` | el argumento del `selectionBehavior`, que el sucesor ya lleva en su `Because` |
+
+## Las citas
+
+- **Se borran** donde eran procedencia y la frase de al lado ya lleva la regla — la mayoría de
+  `packages/`.
+- **Se reescriben** a la ruta del sitio donde apuntaban a un registro que ahora es una página.
+- **Se quedan en pasado** donde son la evidencia medida de por qué esto se va: `BENCHMARKS.md` y las
+  menciones de los guards a lo que costó descubrir una regla.
+
+## El guard
+
+`decisions.test.ts` pierde las cinco reglas de forma —no hay fichas que validar— y conserva las dos
+que valen, apuntadas a las páginas: *un título de test citado existe de verdad* y *un nombre
+declarado ausente no está en el barril*. El fichero pasa a llamarse por lo que comprueba.
+
+## Lo que no es de esta obra
+
+`DESIGN.md`, `CONVENTIONS.md`, `philosophy.mdx`, `styling.mdx`, `BENCHMARKS.md`, `packages/graph/` y
+`docs/components/write-scaling.tsx` los llevan otras sesiones. La sección `## Decisions` de
+`DESIGN.md` es un índice de estos registros y **muere con ellos**: se borra al final, cuando el otro
+agente haya terminado con el fichero.
+
+## Por dónde voy
+
+- [x] El mapa, arriba.
+- [ ] `design/` existe, con index, admission, references, naming.
+- [ ] `design/colour.mdx` y `design/graph.mdx`.
+- [ ] Las páginas de componente.
+- [ ] Las citas, el guard, el borrado, `CLAUDE.md`.
