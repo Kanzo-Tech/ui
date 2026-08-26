@@ -871,32 +871,63 @@ size. Edge over-read is 1.08–1.64× against what is actually drawable.
 The control: **20,000 ids drawn at random are 19,916 runs.** The spatial window is 169. So the
 contiguity is real and it is the ordering that produces it — a 118× difference.
 
-### Writing ten million costs 16.4 GiB, which is the larger-than-RAM claim failing early
+### The whole build, as a curve: 20.72 GiB and 404.4 s at ten million
 
-`/usr/bin/time -l` over the whole build — the generator plus `fossil run` — at ten million vertices
-and 71,024,690 edges:
+`/usr/bin/time -l` over `corpus/build-corpus.mjs` — the generator plus `fossil run`, unbounded,
+which is what `--memory-gib` is absent from. Today's binary, 2026-08-25, on a 48 GB machine:
 
-| | |
-|---|---|
-| wall clock | **262.6 s** |
-| peak RSS | **16.4 GiB** |
-| corpus on disk | 713 MB |
+| N | peak RSS | wall |
+|---|---|---|
+| 200,000 | 0.56 GiB | 3.4 s |
+| 1,000,000 | 3.35 GiB | 20.7 s |
+| 5,000,000 | 11.91 GiB | 154.5 s |
+| 10,000,000 | **20.72 GiB** | **404.4 s** |
 
-**Twenty-three times the corpus, resident.** The architecture calls larger-than-RAM its central
-claim and had recorded that it was never tested; this is the first number against it, and it
-is about the *writer*. The reader's working set is a window and is not implicated — but a corpus
-nobody can write is not a corpus anybody can read, and the ADR says as much: *"que fossil no pueda
-escribir un corpus larger-than-RAM sería un hallazgo tan importante como cualquiera de lectura."*
+**For 1.5 GB of corpus on disk** — `du -sh docs/public/bench/10000000`, and the number to hold
+against the peak. Fourteen times the artefact, resident.
 
-For scale, the same build with the pre-layout binary took 123.3 s, so the layout pass is roughly
-half the wall clock. Louvain running in memory over the whole graph is the suspected term and is
-not yet isolated — that measurement is a fossil-side task, not one this harness can take.
+**One point could not say whether this has a ceiling in it and four can: it does not.** At about
+0.9 GiB of resident set per million vertices the line meets this machine's memory somewhere between
+twenty and thirty million, and there is no spill path anywhere in the layout pass — so exceeding the
+machine is a **failed** run rather than a slow one, which is the opposite of the guarantee. The
+architecture calls larger-than-RAM its central claim and had recorded that it was never tested; this
+is the curve against it, and it is about the *writer*. The reader's working set is a window and is
+not implicated — but a corpus nobody can write is not a corpus anybody can read.
+
+The two sections below predate this table and are the reason it reads the way it does. They were
+taken on the 2026-08-04 binary, where the same measurement at ten million read **16.4 GiB, 262.6 s
+and a 713 MB corpus** — a different tile size and a different layout pass, so the pair is not a
+before/after of one change.
+
+### A compaction of `dense_id` is 9.6 s, against 20.5 s of renumbering the pass already does
+
+Measured 2026-08-26 by `crates/fossil-layout/examples/compaction_pass.rs` over
+`docs/public/bench/10000000` — 2,442 tiles, 142,049,380 adjacency rows, fourteen cores:
+
+| ten million | wall | peak RSS |
+|---|---|---|
+| compact `dense_id` — remap adjacencies and rewrite the tiles | **9.6 s** | **3.72 GiB** |
+| the whole write it would be added to | 404.4 s | 20.72 GiB |
+| `enrich_layout`, the pass it would be folded *into* | 289.0 s | 8.47 GiB |
+| ↳ the renumbering that pass already does every run | 20.5 s | |
+
+**2.4% of the write and 3.3% of the layout pass**, and its peak fits inside the 8.39 GiB that pass
+already reaches — so a compaction adds no high-water mark, only wall clock. The argument is the last
+row: `enrich_layout` **already** assigns `dense_id` in Morton order and remaps every adjacency on
+every run, and that half of it costs 20.5 s. Compacting is less than half of work the writer is
+paying for anyway.
+
+It is stable rather than lucky: a second run over the same corpus agreed to 0.0 s and 0.00 GiB,
+injecting 46,059 holes cost 9.7 s and 3.53 GiB, and `--no-resort` is 8.9 s and 2.91 GiB — the spread
+is inside the 0.2 GiB error bar the rest of these figures carry. Of the 289.0 s pass,
+`community_hierarchy` alone is 265.6 s and +3.96 GiB, which is where the wall clock actually lives
+and is not what a compaction touches.
 
 ### The sixteen gigabytes are the executor's, not the corpus's — and a budget takes them to 9.87
 
 Measured 2026-08-05 on the fossil side (`FOSSIL_MEM_PROBE=1`, rmlext `d52b6c5`/`cc48499`), over
 `fossil run` alone on the same ten-million CSVs. Not the whole build: the generator is not in the
-process, which is why these figures and the 16.4 GiB above are not the same measurement.
+process, which is why these figures and that day's 16.4 GiB are not the same measurement.
 
 **The graph that gets handed to the writer is 1.64 GiB.** Every vertex batch plus both orientations
 of every edge table — 10M vertices, 71,024,690 edges — counted in Arrow. The process holds **15.68
@@ -956,18 +987,48 @@ The same 4 GiB budget at both sizes, so the only variable is the corpus:
 Ten times the corpus, four times the peak. The pool caps the executor and nothing else, and **three
 terms outside it are unbounded in N** — the retained Arrow exactly so, 10.3× for 10×.
 
-They are all ours, and all the same shape: a stage boundary that is a whole value rather than a
-stream. `GraphArData` holds every batch before a byte is written; `to_files()` encodes every Parquet
-file before touching disk (+0.58 GiB at ten million); and the layout pass reads the whole edge list
-into a `Vec` while Louvain holds O(n) state (+2.22 GiB). The engine streams — DataFusion hands
-batches out lazily — and our seams collect. That is a property of the seams we wrote, not of the
-executor, and it is the same finding rmlext ADR-0043 reached one floor down when `query_map` turned
-out to materialise while `stream_arrow` is genuinely lazy.
+**And the peak inside the executor is the dedup, not a seam that collects — which is what this
+section used to say.** Measured 2026-08-26 by `crates/fossil-df/examples/dense_id_ranges.rs`, which
+runs each level of the real ten-million vertex plan **in its own process**, by `--level`, so a
+level's peak is its own and not the one above it:
+
+| the vertex plan at ten million, level by level | peak RSS |
+|---|---|
+| `SortExec` — the merge | **13.72 GiB** |
+| the `FinalPartitioned` aggregate under it | **13.85 GiB** |
+| the hash repartition under that | **5.91 GiB** |
+
+**Deleting the `collect()` leaves ~13.9 GiB.** The term that follows N is the aggregate that holds
+every distinct subject; the `Vec` the collect builds is **1.64 GiB** at ten million, sitting on top
+of a plan already holding 13.7–13.9. The old sentence here — *"a property of the seams we wrote, not
+of the executor"* — had it backwards for the executor's own high-water mark.
+
+**And that term obeys a declared budget.** `--memory-gib` is a `FairSpillPool` with consumer
+tracking around the same plan and the same corpus:
+
+| pool | peak RSS | seconds |
+|---|---|---|
+| unbounded | 13.72 GiB | 3.1 |
+| 8 GiB | **4.84 GiB** | 9.2 |
+| 4 GiB | **3.67 / 3.70 GiB** | 7.4 / 7.0 |
+| 2 GiB | **2.30 GiB** | 9.2 |
+
+It spills and it honours the number, for about 2.5× the wall clock. Two runs at 4 GiB agree to
+0.03 GiB, which is the error bar on the rest of the column.
+
+What the pool does **not** reach is everything after `execute_graph`: `enrich_layout` takes the run's
+`memory_bytes` and discards it, so three of our stages sit outside it and are the reason the *whole
+build* still peaks at 20.72 GiB with an executor budget in force. `GraphArData` holds every batch
+before a byte is written; `to_files()` encodes every Parquet file before touching disk (+0.58 GiB at
+ten million); and the layout pass reads the whole edge list into a `Vec` while Louvain holds O(n)
+state. That half stands, and it is the same finding rmlext ADR-0043 reached one floor down when
+`query_map` turned out to materialise while `stream_arrow` is genuinely lazy. What does not stand is
+reading the executor's fourteen gigabytes as theirs.
 
 So the claim that survives today is narrower than "larger-than-RAM works": **the write path can now
-be given a memory budget it will honour**, which it could not before. Whether a corpus larger than
-the machine can actually be written is untested, and on these numbers the answer at 100M would be
-no.
+be given a memory budget the executor will honour**, and the stages after it will ignore. Whether a
+corpus larger than the machine can actually be written is untested, and on these numbers the answer
+at 100M would be no.
 
 ### The layout is linear in N, and `community_hierarchy` never stopped asking
 
@@ -1128,6 +1189,109 @@ drawn, which is the cost a page feels. Publishing `tile, min_x, max_x, min_y, ma
 — 2,442 rows, about 100 kB at ten million — is what makes a cold window bounded, and it is a format
 question rather than a reader one. `docs/design/cost` in the fossil docs is where the obligation now
 lives, with the assertion that would have caught the original defect.
+
+### And in requests: the window is bounded, opening the corpus is not
+
+The same 2026-08-25 family priced over a **plain HTTP origin** — single ranges, a 206, no directory
+listing, no coalescing proxy, which is what a bucket looks like from the reader's side. Recorded in
+fossil's `docs/design/cost`; the harness that produced it is on this side of the seam.
+
+| corpus | tiles | opening it | one window |
+|---|---|---|---|
+| 2,000 | 1 | 10 req · 0.03 MB | 17 req · 0.21 MB |
+| 50,000 | 13 | 34 req · 0.23 MB | 22 req · 0.40 MB |
+| 200,000 | 49 | 106 req · 0.82 MB | 25 req · 0.39 MB |
+| 1,000,000 | 245 | 498 req · 4.03 MB | 28 req · 0.42 MB |
+| 5,000,000 | 1,221 | 2,450 req · 20.02 MB | 61 req · 0.89 MB |
+| 10,000,000 | 2,442 | **4,892 req · 40.03 MB** | **71 req · 0.97 MB** |
+
+**Seventeen requests to seventy-one across five thousand times the corpus, against ten to 4,892.**
+That is the architecture's own sentence with the two halves finally separated: a window is bounded
+and opening a corpus is linear in its tile count, at two range requests and about 16 kB of footer
+per tile. `2·tiles + 8` reproduces every row of the third column to the request.
+
+It is also the same shape as the `3·chunks + 1` law measured over our own reader on 2026-08-05,
+further down this page — a different reader and a different multiplier, and still one HTTP request
+per file in the corpus per query. The tile boxes fix the *window*; nothing yet fixes the open, which
+is what publishing the boxes from the writer is for.
+
+### The container is a manifest field now, and it is 5× on the same corpus
+
+`fossil` writes a tile as its own file or as a row group inside one file, and both readers read both.
+Measured by `apps/corpus/conformance/containers.mjs`, a window over every tile of 20,000 vertices in
+5 tiles of 4,096 — a vertex tile plus a `by_source` and a `by_target` tile each:
+
+| container | files a window opens |
+|---|---|
+| one file per tile | **15** |
+| row groups in one file | **3** |
+
+And from the writer's side, where the unit is a range request rather than a file —
+`crates/fossil-df/examples/tile_layout.rs`, five million vertices in 1,221 tiles, a run of
+consecutive selected row groups counting as one range:
+
+| container | requests per window | bytes per window | footer |
+|---|---|---|---|
+| 1,221 files | 22.3 | 1.40 MB | 1,150,490 B in 1,221 pieces |
+| one file | **5.6** | 1.38 MB | **496,373 B** in one |
+
+**Four times fewer requests for the same bytes, and less than half the footer.** The stored size is
+the same to within 1% (75.81 MB against 76.46), so this is a container result and not a different
+corpus — which is exactly the claim `containers.mjs` exists to hold, one corpus written both ways
+answering identically.
+
+**Neither pair is pinned anywhere.** `containers.mjs` prints them and the TypeScript twin asserts
+only `rowgroups < files`; the 5.6/22.3 pair lives in six doc comments and one mermaid diagram, all
+transcribed from a harness that recomputes. That is the shape this page has been burned by before —
+a number nobody re-runs, read back from a comment.
+
+## The seventeen conventions are checked, and the two things that check cannot see
+
+`apps/corpus/guards/guards.mjs` is fossil's repo-wide guard on the corpus format: seventeen rules,
+each carrying what it proves and what it cannot. Two of them are worth recording here, because both
+gaps are about *scale* and this page is the only place that has corpora at scale.
+
+**`spatial-tiles` is the one that would have caught the reader defect, and it is not exercised where
+it bites.** It asks what the Morton order was *for*, on the footer a reader actually has: the mean
+tile bounding box against the corpus extent, failing over `MAX_MEAN_BOX_SHARE = 0.5`. Run here over
+`docs/public/bench/1000000` — 245 tiles, `min(x)`/`max(x)`/`min(y)`/`max(y)` per chunk against the
+union of all of them:
+
+| corpus | tiles | mean tile box, as a share of the extent |
+|---|---|---|
+| `bench/1000000`, planted communities | 245 | **0.89%** |
+| the guard's own fixture, Morton-ordered | 18 | 12.4% |
+| the same fixture, `dense_id` at random | 18 | 99% |
+| **the corpus CI actually runs it on** | **5** | — |
+
+**The corpus the guard is published against is 300 vertices in five tiles of 64.** A bound of 50%
+separates having a spatial order from not having one, which is all its own docstring claims for it —
+but the number it is separating is measured on five tiles, and the behaviour it is a proxy for
+appears at 245 and 2,442. A guard that never sees a corpus large enough to have the property is
+checking arithmetic, not a corpus.
+
+**And a graph with no spatial structure fails it, correctly.** The counter-example on record is a
+ring of 10,000 where each vertex knows only the next: no communities, so nothing to group, and the
+tile boxes are reported at **57.2%** — over the bound. That is the guard working rather than the
+layout failing; a ring has no spatial structure to find. *Not reproduced here* — no ring generator
+or recorded run exists in either checkout, so unlike the 0.89% above it is a claim and not a record.
+
+**`writer.mjs` runs in no CI job, and that is why two containers could both be wrong.** The seventeen
+conventions are checked against two corpora and both are written by JavaScript: `guards/fixture.mjs`
+for the mutation suite, and the checked-in `conformance/corpus` for the real one. `corpus.yml` runs
+`self-test.mjs`, `check.mjs conformance/corpus` and `verify.mjs`, and `conformance/writer.mjs` — the
+one harness that asks **fossil** to write a corpus and then checks it — is in no script and no
+workflow. Its own header says so: *"`expected.json` was written by whoever read the conventions last,
+the corpus under it was written by `guards/fixture.mjs`, and `fossil` was not consulted by either."*
+
+That is the mechanism behind the defect two sections up. Two implementations of one convention were
+diffed against each other and agreed, because they made the same mistake — and a diff between two
+implementations sees nothing when both are wrong the same way. It also exits `2` when `fossil` or
+`duckdb` is absent, and its header warns that **`2` is not a pass**, which is the failure mode a
+workflow would have to be written carefully to avoid re-introducing.
+
+Worth knowing beside it: `check.mjs conformance/corpus` is knowingly **16/17** — the checked-in
+corpus still ships `by_source.parquet` beside `by_source/`, so the green CI job is green on sixteen.
 
 ## Requests and bytes per pan — and the request count is the term that follows N
 

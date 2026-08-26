@@ -77,27 +77,52 @@ page beside the streaming one.
 
 **What is still unbounded is the first window.** The boxes have to come from somewhere, so opening a
 corpus and asking once costs 112 ms at a million, 1,117 at five and 5,327 at ten. Locally that is a
-footer read; over HTTP it is thousands of range requests before anything is drawn, which is the cost
-a page actually feels. The writer knows every tile's box when it cuts it, and publishing them —
-`tile, min_x, max_x, min_y, max_y`, about 100 kB at ten million — is what would make a cold window
-bounded too.
+footer read; over HTTP it is range requests before anything is drawn, and the last chart prices them
+over a plain origin: **4,892 requests and 40 MB to open a ten-million corpus, against 71 requests and
+0.97 MB for a window of it** — two ranges and about 16 kB of footer per tile, so `2·tiles + 8`
+reproduces the curve to the request. The writer knows every tile's box when it cuts it, and
+publishing them — `tile, min_x, max_x, min_y, max_y`, about 100 kB at ten million — is what would
+make a cold window bounded too.
+
+**And how a tile is stored is now a manifest field rather than an assumption.** fossil writes a tile
+as its own file or as a row group inside one file, and both readers read both. On the same corpus,
+answering identically: a window opens **15 files one way and 3 the other**, and priced in ranges at
+five million, **5.6 requests per window against 22.3** with the footer in one 496 kB piece instead of
+1,221 totalling 1.15 MB. Same bytes stored to within one percent. The charts above are the
+one-file-per-tile container throughout.
 
 **None of this page would have caught it.** A window returning the right answer looks exactly like a
 window returning it cheaply, and it took timing the same rectangle against two corpus sizes from
 outside the repository. The assertion that does catch it is a shape rather than a number: *files
 opened per window does not grow with N*. A pinned number was always correct.
 
-**Writing is bounded by the machine, and that part is structural.** The whole build peaks at 20.72
-GiB at ten million for 1.5 GB of corpus, and the curve has no ceiling in it: extrapolated, it meets
-this machine's memory somewhere between twenty and thirty million vertices. There is no spill path
-anywhere in the layout pass, so exceeding the machine is a dead run rather than a slow one — the
-opposite of the guarantee.
+**Nor would the conventions suite, and the reason is worth the line.** fossil checks seventeen corpus
+conventions, and both corpora it checks them against are written by JavaScript — the harness that
+asks `fossil` itself to write one runs in no CI job. Two implementations of one convention were
+diffed against each other and agreed, because they made the same mistake. The guard that does bear on
+this, `spatial-tiles`, is exercised on a **300-vertex** corpus in five tiles; measured here on
+`bench/1000000` its number is 0.89% against a bound of 50%, which is a property the published fixture
+is far too small to have. `BENCHMARKS.md` carries both.
 
-The peak is a peak because three stages hold a whole value instead of passing batches through:
+**Writing is bounded by the machine, and that part is structural.** The whole build peaks at 20.72
+GiB at ten million — 404.4 seconds, for 1.5 GB of corpus — and the curve has no ceiling in it:
+extrapolated, it meets this machine's memory somewhere between twenty and thirty million vertices.
+There is no spill path anywhere in the layout pass, so exceeding the machine is a dead run rather
+than a slow one — the opposite of the guarantee.
+
+The peak is a peak because stages hold a whole value instead of passing batches through:
 `community_hierarchy` keeps a community array per vertex plus a contracted graph per level,
 `read vertices` materialises the vertex file to permute it into Morton order, and `GraphArData`
 collects every batch before a byte is written. A stage that streams has a flat working set; a stage
 that accumulates makes the high-water mark follow the corpus.
+
+**The largest of them is the one that was not on that list, and it is the only one already bounded.**
+Run level by level with each level in its own process, the vertex plan at ten million peaks at 13.72
+GiB in the merge over a 13.85 GiB aggregate — the dedup that holds every distinct subject. Deleting
+the `collect()` beneath it leaves about 13.9 GiB, so the collect is not the term; it is 1.64 GiB
+sitting on top of one. And that dedup honours `--memory-gib`: **4.84 GiB under an 8 GiB pool, 3.67
+under 4, 2.30 under 2**, for roughly 2.5× the wall clock. What the pool does not reach is everything
+after `execute_graph`, which is where the other stages are and where the 20.72 GiB stays.
 
 **And the writer's half is not intrinsic.** Louvain's levels collapse at the first one — ten million
 vertices become 22,171 communities, then 2,736, then 1,365 — so every level above zero fits

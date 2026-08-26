@@ -93,6 +93,35 @@ const WINDOW_SERIES: ChartConfig = {
 };
 
 /**
+ * The same corpora priced over a **plain HTTP origin** — single ranges, a 206, no directory listing,
+ * no coalescing proxy, which is what a bucket looks like from the reader's side. Recorded in
+ * fossil's `docs/design/cost`; `2·tiles + 8` reproduces the `open` series to the request, being two
+ * range reads and about 16 kB of footer per tile.
+ *
+ * This is the milliseconds chart beside it, in the currency a network charges in — and it is the
+ * one that separates the two halves of the claim: the window is flat and the open is not.
+ */
+const REQUESTS: Point[] = [
+  { nodes: 2_000, value: 10, series: "open" },
+  { nodes: 50_000, value: 34, series: "open" },
+  { nodes: 200_000, value: 106, series: "open" },
+  { nodes: 1_000_000, value: 498, series: "open" },
+  { nodes: 5_000_000, value: 2_450, series: "open" },
+  { nodes: 10_000_000, value: 4_892, series: "open" },
+  { nodes: 2_000, value: 17, series: "window" },
+  { nodes: 50_000, value: 22, series: "window" },
+  { nodes: 200_000, value: 25, series: "window" },
+  { nodes: 1_000_000, value: 28, series: "window" },
+  { nodes: 5_000_000, value: 61, series: "window" },
+  { nodes: 10_000_000, value: 71, series: "window" },
+];
+
+const REQUEST_SERIES: ChartConfig = {
+  open: { label: "Opening the corpus" },
+  window: { label: "One window" },
+};
+
+/**
  * `examples/enrich_memory`, which runs the real layout pass over a wide-row fixture at mean degree
  * 10. Two series from one harness, so they are comparable to each other; they are NOT comparable to
  * the build above, which is a different graph at a different degree in a different process.
@@ -147,7 +176,7 @@ export function WriteScaling() {
         </Frame>
 
         <Frame
-          note="And the reason, which was never the answer's size: the vertex query was handed every tile URL in the corpus. The edge queries beside it always opened two."
+          note="And the reason, which was never the answer's size: the vertex query was handed every tile URL in the corpus. The edge queries beside it always opened two. Both series are the one-file-per-tile container — the other one opens fewer still."
           title="Parquet files opened per window"
         >
           <ChartLegend config={WINDOW_SERIES} />
@@ -189,6 +218,26 @@ export function WriteScaling() {
             <ChartAxisY grid label="GiB" />
           </ChartRoot>
         </Frame>
+
+        <div className="md:col-span-2">
+          <Frame
+            note="Over a plain origin — single ranges, a 206, no listing, no coalescing. Seventeen requests to seventy-one across five thousand times the corpus, against ten to 4,892: the two halves of the claim, in the currency a network charges in."
+            title="HTTP requests, against corpus"
+          >
+            <ChartLegend config={REQUEST_SERIES} />
+            <ChartRoot
+              attributes={LOG_XY}
+              config={REQUEST_SERIES}
+              height={220}
+              margin={{ bottom: 34, left: 52, right: 16, top: 8 }}
+            >
+              <ChartLine data={REQUESTS} stroke="series" strokeWidth={1.5} x="nodes" y="value" />
+              <ChartDot data={REQUESTS} fill="series" r={4} tip x="nodes" y="value" />
+              <ChartAxisX label="vertices" ticks={5} />
+              <ChartAxisY grid label="requests" />
+            </ChartRoot>
+          </Frame>
+        </div>
       </div>
     </MosaicBoot>
   );
