@@ -29,8 +29,8 @@ candidates and a callback, and a human typing would be indistinguishable; `useIn
 takes a function returning an async iterable and never makes a request. They moved anyway, on the
 owner's call, because the ✨ marks a field as model-assisted **to the reader** — and that mark is
 the thing being bought. A package that ships the transcript and leaves the mark behind splits one
-purchase across two installs. `decisions/the-ai-surfaces-are-their-own-package.md` records the cost
-as well as the call.
+purchase across two installs. [Admission](/docs/design/admission) records the cost as well as the
+call.
 </Callout>
 
 ## Installing it
@@ -141,7 +141,7 @@ one and why cancellation is the whole point.
 The shapes here — and the four-word state vocabulary the tool and the task share — come from
 Vercel's AI Elements. The names come from this house. That relationship is deliberately looser than
 the one `@kanzo-tech/ui` has with Shark UI, and the difference is written down in
-`decisions/ai-elements-is-a-source-not-a-reference.md`:
+[the references](/docs/design/references#ai-elements-is-a-source-not-a-reference):
 
 - **A reference is a thing you can be held to.** Shark ships a registry we can resolve types from,
   so `shark-parity.test.ts` can fail. AI Elements is not installable here, so holding this package

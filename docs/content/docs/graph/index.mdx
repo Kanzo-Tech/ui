@@ -77,7 +77,7 @@ hook has to sit beside the canvas.
 
 This page said for a long time that there was no canvas component at all. That argument was right
 about the chrome and wrong about what sat underneath it; what changed and what would change it back
-is in `decisions/a-canvas-component-owns-the-three-that-never-differ.md`.
+is on [the bounded reader](/docs/design/graph).
 
 **The split is proven unevenly, and it is worth being exact about where.** The *source* half has two
 call sites: the workspace showcase and `graph-bench/measure-bounded.ts`, which drives
@@ -172,8 +172,8 @@ those two a look preferred. A bare word is always a column, so a corpus with a c
 not a trap.
 
 A `Look` is **form only** — sizes, link width and curve, labels, vignette. It used to decide whether
-identity reached the GPU as colour or as shape, which is a theme rewriting an encoding:
-`decisions/a-look-is-form-and-a-channel-is-a-binding.md`. Binding `symbol` takes on an obligation —
+identity reached the GPU as colour or as shape, which is a theme rewriting an encoding — see [a look
+is form, a channel is a binding](/docs/design/graph). Binding `symbol` takes on an obligation —
 `gradeComposition(look, channels)` returns the four-pixel radius floor that shape and size spent
 together require, and pairing a glyph with a dense form's ramp now reports.
 
@@ -227,7 +227,7 @@ identity column, off by default because it costs about twice the drawing tile.
 stopped growing with the corpus — 73 ms at two hundred thousand against 72 at a million. First paint
 got *slower*, and that is the trade rather than a defect: the opening view is the whole extent, so
 every tile intersects it and there are no bytes to skip. [Benchmarks](/docs/graph/benchmarks) has the
-figures and `decisions/a-tile-is-an-address-not-a-verb.md` has the argument, including why the camera
+figures and [the bounded reader](/docs/design/graph) has the argument, including why the camera
 is not one of fossil's verbs — it was, and it was deleted.
 
 **A point is addressed by index and identified by pair.** cosmos.gl numbers points by their position

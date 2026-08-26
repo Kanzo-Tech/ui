@@ -568,7 +568,7 @@ function InspectorBody() {
                   // than the fix. Measured before: 20.0px tall at default and 17.5 at compact,
                   // centres 22.0 and 19.3 apart, failing 2.5.8 AA at two of the three densities.
                   // A px floor is the one size in this file that must NOT scale, because the bar
-                  // it answers to does not. `decisions/density-has-no-legibility-floor.md`.
+                  // it answers to does not.
                   className="flex min-h-[24px] w-full items-center gap-2 rounded-sm px-1 py-0.5 text-start text-xs hover:bg-accent"
                   onClick={() =>
                     commands.reveal(vertexId(spec.typeIndex, node.id))
@@ -1467,8 +1467,8 @@ function LookPreview({
 /**
  * The graph's APPEARANCE, and it lives in Preferences rather than in the dock.
  *
- * The split is not "graph things here, product things there" — it is the one
- * `decisions/a-section-brings-measurable-obligations.md` draws. A look and a display are an
+ * The split is not "graph things here, product things there" — it is the one a section's
+ * obligations draw. A look and a display are an
  * appearance vocabulary whose obligations return a measured claim: `shape-capacity` puts the
  * ceiling at five shapes against seven colours, and `shape-floor` is a minimum radius a look
  * spending shape on identity may not go below. Gravity and friction are simulation coefficients and

@@ -27,7 +27,7 @@ apps  →  domain libs  →  @kanzo-tech/ui + @kanzo-tech/theme  →  Ark UI + T
 
 The dependency direction is never reversed. The docs site's Philosophy page (`/docs/philosophy`)
 has the full admission rules and the ladder you walk before adding anything; the documentation site's **Conventions** page
-(`docs/content/docs/(root)/conventions.mdx`) has how a file is written; `decisions/` has why
+(`docs/content/docs/(root)/conventions.mdx`) has how a file is written; `/docs/design` has why
 each rule holds and what would reverse it.
 
 ## Consuming

@@ -592,7 +592,7 @@ function SideCard({
     // inheriting the fieldset's legend. Two groups under one legend both answered to "Colour", which
     // is a screen reader hearing the same name twice with no way to tell the sides apart — and an
     // `aria-label` could not fix it, because zag points `aria-labelledby` at the legend and that
-    // wins. `decisions/adopt-the-part-the-machine-ships.md` is the rule; this is the case.
+    // wins. The Ark tie-break at `/docs/design/references` is the rule; this is the case.
     <RadioGroup
       className={cn(
         "flex flex-col gap-2 rounded-lg border p-2.5 transition-colors",
@@ -747,7 +747,7 @@ function ColorSection({
           The semantics ARE theirs now, and that is new. GitHub pairs a day theme with a night theme
           because its themes are single-mode; ours used to each carry both, so a card meant *which
           document this user wears on the light side*. A theme is one mode, so a card is the light
-          theme, and `decisions/a-palette-is-chosen-per-appearance.md` closed by becoming the
+          theme, and the per-appearance palette question closed by becoming the
           obvious shape rather than by being argued.
           
           A container query rather than a media query, because the question is how much room THIS

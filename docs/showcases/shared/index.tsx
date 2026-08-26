@@ -13,7 +13,7 @@
 //   · the activity rail existed in one of them, as a `ToggleGroup` standing in for a region.
 //
 // It is NOT a component library. A part here earns its place by having two call sites in
-// `showcases/`, which is `decisions/an-export-needs-a-second-call-site.md` applied one layer down;
+// `showcases/`, which is admission rule 2 applied one layer down;
 // anything with one call site belongs in that showcase's own directory.
 
 import {

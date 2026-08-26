@@ -65,7 +65,7 @@ import { CircleAlertIcon, CircleCheckIcon, InfoIcon, TriangleAlertIcon } from "l
  * the categorical channel a theme author has to know, because it is the one part of a theme you get
  * without writing it. Editing them is a text editor's job: there are eight of them, they answer to
  * separation rather than to taste, and a picker per slot would invite exactly the fiddling that
- * `decisions/the-categorical-default-is-one-set-for-every-theme.md` measured its way out of.
+ * the categorical default measured its way out of.
  *
  * ## Nothing here portals
  *

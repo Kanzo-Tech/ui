@@ -24,7 +24,7 @@ order by due;`;
 
 // The house has code chrome twice already — `.kanzo-prose`'s `--tw-prose-pre-*` and the whole
 // tokenised CodeMirror theme — so this composes the second rather than hand-rolling a third
-// `<pre>`. `decisions/a-tool-panel-composes-its-snippet.md`.
+// `<pre>`.
 //
 // **`"use client"` above is load-bearing and its absence broke the production build**, not the
 // preview. A CodeMirror `Extension` is a cyclic object graph, and without the directive this module

@@ -49,7 +49,7 @@ export const checkboxVariants = tv({
  * go: `children` arrived through `...rest` above hardcoded JSX children, JSX children win, and
  * `<Checkbox>Sealed orders</Checkbox>` rendered `textContent: ""`. Four docs examples are written
  * that way, the default one included, so the Checkbox page shipped unlabelled boxes
- * (`decisions/a-docs-defect-is-a-library-defect.md`). `RadioGroupItem` one file over already had
+ *. `RadioGroupItem` one file over already had
  * the right shape — box on the control, root as the row, children beside it — and this now matches
  * it. `checkboxVariants` still names the box; what changed is which element wears it.
  *

@@ -4,7 +4,7 @@ import { cn } from "../lib/cn";
 
 /**
  * Skip navigation — the affordance four places in this library already cite as the reason for
- * `decisions/exactly-one-main.md`, and which nothing implemented until now.
+ * exactly one `<main>`, and which nothing implemented until now.
  *
  * ## ARIA contract
  *
@@ -29,11 +29,11 @@ import { cn } from "../lib/cn";
  * ## What we changed from Shark UI, and why
  *
  * - **`data-slot` after `{...rest}`, plus a `slot` prop.** Shark writes the attribute before the
- *   spread, where a caller's own `data-slot` silently wins — `decisions/a-primitive-owns-its-slot.md`,
- *   held by `packages/ui/src/data-slot.test.tsx`.
+ *   spread, where a caller's own `data-slot` silently wins. Ours is held by
+ *   `packages/ui/src/data-slot.test.tsx`.
  * - **The focus ring is the house spelling**, `ring-[3px]`, where Shark's file writes `ring-2`.
  *   Note what this is *not*: Shark's ring here is already solid, so the 1.29:1 measurement that
- *   bought `decisions/a-measurement-overrules-the-reference.md` its divergence does not apply to
+ *   bought the button's solid ring its divergence does not apply to
  *   this file. What is left is one pixel of width, chosen so the ring matches every other focusable
  *   thing in the library. Appearance is explicitly outside `shark-parity.test.ts`'s claim.
  * - **No `"use client"`.** Shark ships the directive; this module calls no hook, registers no
@@ -107,7 +107,7 @@ export interface SkipNavContentProps extends React.ComponentProps<typeof ark.div
  * The target the link lands on.
  *
  * **In a shell, hand it to `ShellMain` rather than nesting it inside one** —
- * `decisions/the-skip-target-is-the-main-landmark.md`:
+ * `/docs/layout/skip-nav`:
  *
  * ```tsx
  * <SkipNavContent asChild>

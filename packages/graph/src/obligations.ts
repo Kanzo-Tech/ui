@@ -12,7 +12,7 @@ import { lookFrom, SHAPE, SHAPE_ORDER, SHAPE_OTHER, type Look } from "./graph-lo
  * **Why this file exists.** The colour section publishes twenty-one obligations and the graph
  * section published none, while having four that were perfectly real and living in comments. That
  * asymmetry made "are these two the same kind of thing?" an argument. With both sections reporting,
- * it is an observation. See `decisions/a-section-brings-measurable-obligations.md`.
+ * it is an observation.
  *
  * **What `OBLIGATIONS` does not do.** It grades constants of ours — the shape scale and the three
  * shipped forms — so it cannot fail at runtime for a consumer; it is the section's own claim about
@@ -50,8 +50,8 @@ const maxCurve = lookFrom({ "bowed-links": "true" }).link.curve;
  * The floor a **composition** owes, not a look — and that move is the point rather than a detail.
  *
  * Graded against the three shipped looks it could not fail for a consumer: it read *the smallest
- * radius among looks that encode identity as shape*, and after
- * `decisions/a-look-is-form-and-a-channel-is-a-binding.md` there are no such looks, because a look
+ * radius among looks that encode identity as shape*, and after the form/binding split there are no
+ * such looks, because a look
  * no longer encodes anything. Graded against a composition it covers strictly more — it catches a
  * host pairing `symbol` with a dense form's ramp, which is a picture nobody can read and which
  * nothing previously reported.

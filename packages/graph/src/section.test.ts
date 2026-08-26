@@ -6,7 +6,7 @@ import { GRAPH_SECTION } from "./section";
 /**
  * The axes, and the claim that makes them affordable.
  *
- * `decisions/a-look-declares-what-it-changes.md` replaced a `choice` of three names — Nebula, Atlas,
+ * `/docs/design/graph` replaced a `choice` of three names — Nebula, Atlas,
  * Ink — with five axes, on the measurement that six of the ten fields separating two of those names
  * moved by 7–17%. The risk of that trade is **expressiveness**: a panel of axes that cannot draw the
  * pictures the names drew is a worse panel however honest its numbers are.

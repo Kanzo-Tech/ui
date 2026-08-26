@@ -54,7 +54,8 @@ section on it, because a chart whose query dies keeps its previous render.
   the config, the selections, the coordinator, and the `color` / `formatNumber` helpers.
 
 `useChartContext` **reads**; there is no `useChart` that creates. That is deliberate and recorded —
-`decisions/a-chart-needs-no-factory.md` has the argument, and the short version is that every hook
+[Admission](/docs/design/admission#a-chart-needs-no-factory) has the argument, and the short version
+is that every hook
 in this layer reads the *provider* rather than the root, so there is no circularity for a factory to
 break.
 

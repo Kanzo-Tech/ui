@@ -25,7 +25,7 @@ export const inputVariants = tv({
     // `--destructive` reads 4.15:1 against that document's own dark page — over the 3:1 WCAG 1.4.11
     // asks of the visual information identifying a control or its state, so the border and the ring
     // were buying a hue rather than contrast. Text owes AA's 4.5 and 4.15 misses it, so this half
-    // stays. `decisions/an-invalid-boundary-needs-no-dark-branch.md`.
+    // stays.
     "dark:aria-invalid:text-destructive-foreground",
     "dark:data-invalid:text-destructive-foreground",
     "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-64",

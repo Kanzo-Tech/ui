@@ -350,8 +350,8 @@ export function useRenderer(options: RendererOptions): void {
      * `preventDefault()` is what asks the browser to try a restore at all; without it there is no
      * `webglcontextrestored` event to hear. We do not rebuild on it yet — that means re-uploading
      * every buffer from a slice this hook does not hold — so the honest thing is to say so through
-     * the one callback this package makes required, and `decisions/` carries what a rebuild would
-     * take. An empty box that explains itself is the floor, not the ceiling.
+     * the one callback this package makes required, and `/docs/design/graph` carries what a rebuild
+     * would take. An empty box that explains itself is the floor, not the ceiling.
      */
     const onLost = (event: Event) => {
       event.preventDefault();

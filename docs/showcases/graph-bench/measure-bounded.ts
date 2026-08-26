@@ -306,12 +306,12 @@ if (typeof window !== "undefined") {
   hooks.measureSlicePath = measureSlicePath;
   // The coordinator itself, so a question nobody anticipated can be asked of the live database
   // without a rebuild — which is how the two probes above were arrived at, and how the figures in
-  // `decisions/a-filter-is-a-predicate-not-a-mask.md` were taken. A measurement whose harness has
+  // `/docs/design/graph` were taken. A measurement whose harness has
   // been deleted cannot be re-derived, only believed.
   hooks.graphBoot = boot;
   // And the reader itself, so a posture nobody wrote a probe for — a far view, a corpus that is not
   // the default one — can be driven from the console against the live database. The far-view figures
-  // in `decisions/a-far-view-is-a-sample-not-a-summary.md` were taken this way.
+  // on `/docs/design/graph` were taken this way.
   hooks.openCorpus = openCorpus;
 }
 
@@ -367,8 +367,7 @@ async function corpus(pointCount: number, report?: (stage: string) => void): Pro
    * fossil, the `chunk{k}.parquet` naming, the edge directory, GraphAr's column names, and the
    * twenty-line note about why a glob cannot work over a plain HTTP origin — is `openCorpus`'s
    * now, read from the manifest rather than written down here. That constant went stale once and
-   * silently read a fraction of the corpus, which is the whole argument for this move and is
-   * `decisions/a-tile-is-an-address-not-a-verb.md`.
+   * silently read a fraction of the corpus, which is the whole argument for this move.
    */
   const { source } = await openCorpus({ coordinator, dest: base });
   const { source: named } = await openCorpus({ coordinator, dest: base, subjects: true });

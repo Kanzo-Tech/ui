@@ -1,27 +1,22 @@
 ---
 title: The references, and who wins
-description: Ark owns behaviour, Shark owns surface, AI Elements is a source and not a reference — and a measurement overrules all of them. The order an argument ends in, and the three shapes it does not decide.
+description: The case law under one sentence — Ark owns behaviour, Shark owns surface, AI Elements is a source and not a reference, and a measurement overrules all of them.
 ---
 
 ## A measurement overrules the reference; nothing else does
 
-When a rule of this repository and a reference system point opposite ways over the same thing, the
-order is:
+> **The reference governs the surface; a measurement governs the reference; nothing else governs
+> either.**
 
-1. **the reference governs the surface**,
-2. **a measurement overrules the reference**,
-3. **a house principle overrules neither.**
+[Conventions](/docs/conventions#the-reference-and-what-overrules-it) owns that sentence and the five
+things it does not say on its own. This page is the case law under it: what it has actually decided,
+and what would decide each of those the other way.
 
-A measurement is what a required comment is — a number, what it was measured against, and a threshold
-it crosses — and it licenses exactly the divergence it measures. Where the reference is silent, the
-house rules decide, not preference. Where none of that decides, the owner does, and the case is
-recorded as **undecided** rather than argued into one of the branches.
-
-The reason is falsifiability: a divergence has to be checkable by someone who was not in the
+The reason it is *falsifiability*: a divergence has to be checkable by someone who was not in the
 argument, against a source outside this repository, today and in a year. A ratio is. A principle,
 however correctly applied, is not.
 
-**The collision this settles.** An export audit deleted the one-line `useX` context aliases under
+**The collision this settles.** An export audit deleted the one-line context aliases under
 [the second-call-site rule](/docs/design/admission) — renaming somebody else's export is not an API.
 Shark's `registry/react/components/` ships nearly all of the same names, as the same one-line
 renames. Both rules were applied correctly, and the evidence was **identical on both sides**: Shark's
@@ -29,15 +24,6 @@ aliases have no call site inside Shark either, so matching the reference meant s
 reference itself does not consume. Work stopped and the owner arbitrated, for the reference. What
 made the house rule lose is not that it is the worse rule — it is that it had a principle where the
 reference had a registry, and a registry answers to a fetch.
-
-**Where this does not decide.** Two shapes have come up and each goes to the owner; neither is a gap
-to be closed by reading harder.
-
-- **The two references disagree with each other.** Ark owns behaviour and Shark owns surface, so they
-  rarely meet; where they do, nothing here ranks them.
-- **A product question wearing accessibility's clothes.** Whether a stepper may be skipped ahead
-  decides `Steps`'s `linear` default, and half of its ARIA defect with it. No measurement says what a
-  stepper is for.
 
 **What would reverse it:** a divergence that is right and has no number behind it — a defect in the
 reference with nothing to count against it. The one candidate has since been settled the other way
@@ -69,7 +55,7 @@ Docs sites go stale; the repo does not. (`vinihvc/shark-ui` was the old owner an
 which is why the wrong name went unnoticed for a while. `sharkui-inc` is the one to write.)
 
 An audit once called the status tokens self-contradictory, and `--destructive-foreground` was renamed
-to an invented `--destructive-emphasis` — then Shark turned out to define the identical pair and use
+to an invented `destructive-emphasis` — then Shark turned out to define the identical pair and use
 the second as a background. Fully reverted. Fixing a defect that is an upstream convention forks the
 library for nothing.
 
@@ -77,13 +63,14 @@ library for nothing.
 once and is recorded — the solid focus ring, kept against Shark's diluted one on a contrast
 measurement — and the general form of it is the ordering above.
 
-*Held by* `CONVENTIONS.md`, the `-foreground` rule; `packages/ui/src/simples/button.tsx`,
-`buttonVariants`.
+*Held by* `packages/ui/src/simples/button.tsx`, `buttonVariants`, which carries the solid focus ring
+and the measurement that justifies the divergence.
 
 ## A name Shark ships is ours; a name it does not is not
 
 The context aliases and the re-exported Ark parts track Shark UI's registry **in both directions**. A
-`useX` or a part Shark's `registry/react/components/<name>.tsx` exports, we export under that name;
+context alias or a part that Shark's `registry/react/components/<name>.tsx` exports, we export under
+that name;
 one it does not export, we do not. For these names this overrides the second-call-site rule — they
 ship without a call site of their own — because a consumer arriving from Shark meets the same
 vocabulary, and that claim is checkable against a source outside this repository. *We might need them
@@ -209,8 +196,9 @@ exported name follows Ark rather than freezing, because the reason here is the p
 documentation and not the spelling.
 
 *Held by* `packages/ui/src/shark-parity.divergences.ts`, whose `RENAMED` table declares all nine as a
-pair; `packages/ui/src/shark-parity.test.ts`, which reads that table and fails; `CONVENTIONS.md`,
-*Naming*, whose base-plus-part rule this is the reference-level justification for.
+pair; `packages/ui/src/shark-parity.test.ts`, which reads that table and fails. It is the
+reference-level justification for the base-plus-part rule on
+[Conventions](/docs/conventions#naming).
 
 ## Adopt the part the machine ships; decline the one the reference composed
 

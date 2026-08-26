@@ -54,7 +54,7 @@ import { Textarea } from "../simples/textarea.js";
  * A required question blocking Next and a skippable one not blocking are therefore two callbacks,
  * not two branches. None of Ark's Steps *parts* are used: `getContentProps` declares
  * `role="tabpanel"` and points `aria-labelledby` at a trigger, and this renders no tablist for
- * either to belong to — see `decisions/a-role-earns-its-name-or-becomes-a-step.md`.
+ * either to belong to.
  *
  * **A question is a `FieldSet`.** That is what carries the ARIA rather than anything hand-rolled:
  * Ark's fieldset names the group from its own legend, describes it from the helper and error text,

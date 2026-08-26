@@ -274,7 +274,7 @@ moved into `ingest`, where the fixture's own work belongs.
 **And first paint got worse: 931 ms to 1,221 at a million.** That is not a regression to fix, it is
 the trade stated plainly. The opening view is the whole extent, every tile intersects it, and
 addressing cannot read fewer bytes — so the footer pass and the probe are added cost with nothing to
-recover them. `decisions/a-tile-is-an-address-not-a-verb.md` predicted exactly this before the code
+recover them. `/docs/design/graph` predicted exactly this before the code
 was written, which is the only reason it is being published rather than explained away.
 
 **`matched` is the whole corpus at every size**, which is what says the manifest-driven tile count is
@@ -445,7 +445,7 @@ more than twenty thousand marks — and it grows with the corpus while the pictu
 The predicate costs the opposite. The same window, one query, with and without a filter over a real
 column: **8.4 ms filtered against 12.0 ms unfiltered.** Filtering the drawing query is *cheaper*
 than not filtering it, because fewer rows survive to be numbered and sorted, and the 377 ms is not
-replaced by anything. `decisions/a-filter-is-a-predicate-not-a-mask.md` carries the rest.
+replaced by anything. `/docs/design/graph` carries the rest.
 
 ### A tile held is a window that costs nothing — and holding everything costs eighteen seconds
 

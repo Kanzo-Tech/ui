@@ -96,8 +96,7 @@ ShellBody.displayName = "ShellBody";
  * containers use `<section>`.
  *
  * That skip link is `SkipNavLink`, and this is what it lands on: wrap this element in
- * `<SkipNavContent asChild>` rather than nesting a target inside it —
- * `decisions/the-skip-target-is-the-main-landmark.md`.
+ * `<SkipNavContent asChild>` rather than nesting a target inside it.
  */
 export function ShellMain({ className, slot, ...rest }: ComponentProps<typeof ark.main>) {
   return (

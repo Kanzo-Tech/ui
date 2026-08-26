@@ -12,7 +12,7 @@
  * `max-w-[85%]`, the width of a user's message bubble, appeared zero times in the shipped sheet, so
  * every bubble rendered full-width. The library's own sheet globs `./**` relative to
  * `packages/ui/src` and cannot reach a sibling package, and the fix must not be to point it here:
- * `ai` depends on `ui` and never the reverse (`decisions/the-ai-surfaces-are-their-own-package.md`),
+ * `ai` depends on `ui` and never the reverse,
  * and a stylesheet that scans downstream inverts that in the one layer nobody typechecks.
  *
  * `theme(reference)` and `source(none)` are what keep it a supplement: the theme is available to

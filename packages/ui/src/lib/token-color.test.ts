@@ -65,9 +65,8 @@ describe("the categorical scheme", () => {
    *
    * It used to read `tokens.css` and slice one list into a light half and a dark half. A theme is
    * now one mode and one file, so there is no list to slice: there are themes, each of which either
-   * publishes a set or DECLINES the channel. Declining is legal and is what
-   * `decisions/monochrome-is-a-palette-not-a-look.md` requires a monochrome document to be able to
-   * say — so a theme with no slots is skipped, and a theme with SOME slots is the bug this catches.
+   * publishes a set or DECLINES the channel. Declining is legal, and a monochrome document has to
+   * be able to say it — so a theme with no slots is skipped, and a theme with SOME slots is the bug this catches.
    */
   const THEME_DIR = join(
     dirname(createRequire(import.meta.url).resolve("@kanzo-tech/theme/themes.css")),
@@ -151,7 +150,7 @@ describe("categoricalCapacity", () => {
     // colours on the one document that published none.
     //
     // The cascade is what tells a decision from an omission: an undeclared property comes back as
-    // an empty string, never as "0". See `decisions/monochrome-is-a-palette-not-a-look.md`.
+    // an empty string, never as "0".
     expect(withProperty("0")).toBe(0);
     expect(categoricalColor(0, undefined, withProperty("0"))).toBe("var(--muted-foreground)");
     // Still not a licence for nonsense: a negative is damage, not a declaration.

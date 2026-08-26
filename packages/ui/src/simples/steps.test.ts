@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 /**
  * `Steps` announces `role="tab"` and no key that role promises works.
  *
- * This is the upstream half of `decisions/steps-claims-a-tab-role-it-cannot-keep.md`, kept as a
+ * This is the upstream half of the `role="tab"` divergence at `/docs/design/references`, kept as a
  * check rather than as a report. Nothing here is ours to fix: Zag emits the role together with the
  * `aria-selected` / `aria-controls` wiring that makes the relationship legible, so stripping the
  * role alone leaves `aria-selected` on a non-widget role, and stripping all of it means hand-rolling
@@ -64,7 +64,7 @@ describe("the Steps machine's tab role", () => {
     expect(
       steps.sources.some((s) => /onKeyDown|keyMap/.test(s)),
       `@zag-js/steps@${steps.version} has grown a key handler. That closes\n` +
-        `decisions/steps-claims-a-tab-role-it-cannot-keep.md — read it, set Status, and delete this.`
+        `the Steps rule at /docs/design/references — read it, rewrite it, and delete this.`
     ).toBe(false);
   });
 

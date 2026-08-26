@@ -204,7 +204,7 @@ function proposedPage(fill: string, ground: string): string | null {
  *
  * A number and not a verdict. The mark for a failure is a `!`, because red is unavailable here (it
  * would be a third colour on the fill) and because this page does not refuse — the guard over the
- * shipped files does. `decisions/a-theme-is-one-flat-block.md`.
+ * shipped files does.
  */
 function ratioOf(fill: string, ink: string): string {
   const value = contrast(fill, ink);

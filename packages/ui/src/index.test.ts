@@ -116,7 +116,7 @@ describe("@kanzo-tech/ui public surface", () => {
     // `ListboxShortcut` was the one name in this file's set that had to be *written* rather than
     // un-hidden: a third `data-slot` rename of `MenuShortcut`'s span, with no renderer here, deleted
     // on admission rule 2. Shark's `listbox.tsx` exports it, and a house principle does not overrule
-    // the reference — `decisions/a-house-principle-withholds-no-name.md`.
+    // the reference.
     expect(UI.ListboxShortcut).toBeTypeOf("function");
   });
 
@@ -163,7 +163,7 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(surface.useAiFieldOptional).toBeUndefined();
     expect(surface.FieldSuggest).toBeUndefined();
     // And then the two compounds and the engine left this package entirely, for
-    // `@kanzo-tech/ai` — `decisions/the-ai-surfaces-are-their-own-package.md`. The test that
+    // `@kanzo-tech/ai`. The test that
     // matters is not that they are gone but that NOTHING here depends on them: a barrel that
     // still reached for `useInlineCompletion` would make `ui` depend on `ai`, and `ai` already
     // depends on `ui`.
@@ -276,7 +276,7 @@ describe("@kanzo-tech/ui public surface", () => {
     // The rule this guards: a name Shark UI ships is ours, and a name it does not is not. These
     // were deleted once on the argument that renaming somebody else's export is not an API, and
     // restored once the reference was actually read — Shark ships them, under these names, as the
-    // same one-line renames. See `decisions/a-name-shark-ships-is-ours.md`.
+    // same one-line renames.
     //
     // Checkable, which is the point of the rule: every name below is one fetch away from
     // `raw.githubusercontent.com/sharkui-inc/shark-ui/main/registry/react/components/<file>.tsx`.
@@ -335,7 +335,7 @@ describe("@kanzo-tech/ui public surface", () => {
     // principle overrules neither it nor a measurement. Shark's `registry/react/components/<file>.tsx` exports every name below, so the
     // whole of this list is one fetch away from being falsified by a source outside this repository,
     // which is the property the sweep's argument never had.
-    // `decisions/a-house-principle-withholds-no-name.md` carries the composition audit that went
+    // `/docs/design/references` carries the composition audit that went
     // with it: for every one of these, Shark's own root renders the part exactly where ours does.
     // The double-render is upstream's shape and we match it — the export was never the defect.
     for (const name of [
@@ -359,16 +359,16 @@ describe("@kanzo-tech/ui public surface", () => {
     // And the other direction, which is what keeps this a rule about the reference rather than a
     // preference for wide surfaces. `SuggestItem` was in the same sweep and stays un-exported:
     // Shark ships no `suggest.tsx` at all, so parity neither grants nor refuses the name, and
-    // `decisions/an-export-needs-a-second-call-site.md` decides it like anything else of ours.
+    // admission rule 2 decides it like anything else of ours.
     expect((UI as Record<string, unknown>).SuggestItem).toBeUndefined();
   });
 
   it("adopts the Shark names Ark ships a part for, and declines the ones Shark composed", () => {
-    // `decisions/adopt-the-part-the-machine-ships.md` closed the twenty-one names
+    // The Ark tie-break at `/docs/design/references` closed the twenty-one names
     // `shark-parity.divergences.ts` had pinned as undecided. Every name below was one of them, and
     // the line between the two lists is one question: does `@ark-ui/react`'s own dist ship the part
     // underneath. `ClipboardValueText` is Shark's `ClipboardValue` under Ark's spelling
-    // (`decisions/a-part-is-named-by-its-machine.md`), which is why the parity file declares it as
+    //, which is why the parity file declares it as
     // a rename and not as an addition.
     for (const name of [
       "ClipboardValueText",
@@ -441,8 +441,7 @@ describe("@kanzo-tech/ui public surface", () => {
     // The reference, for the four Shark's own registry exports. That is the owner's call and it was
     // taken against a stated reservation — a recipe is a different kind of commitment from a
     // component, because what it promises is *our* class list rather than a shape. It is recorded
-    // with the condition that would reverse it in
-    // `decisions/a-house-principle-withholds-no-name.md`.
+    // with the condition that would reverse it at `/docs/design/references`.
     expect(UI.alertVariants).toBeTypeOf("function");
     expect(UI.badgeVariants).toBeTypeOf("function");
     expect(UI.menuContentVariants).toBeTypeOf("function");

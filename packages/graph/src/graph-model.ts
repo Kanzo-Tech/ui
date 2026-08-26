@@ -28,8 +28,7 @@ import type { Sim } from "./graph-sim";
  * **A CSS colour is a constant; anything else is a column name.** `fill="kind"` spends colour on a
  * category; `fill="var(--foreground)"` paints every point one ink and leaves colour free to mean the
  * selection. That is not our invention: it is how Plot reads the same string, and it is what makes
- * "monochrome" expressible without a look that rebinds an encoding —
- * `decisions/a-look-is-form-and-a-channel-is-a-binding.md`.
+ * "monochrome" expressible without a look that rebinds an encoding.
  *
  * The rule is spelled narrowly on purpose: a constant is `var(…)`, a hex, or a CSS colour function.
  * **A bare word is always a column**, so a corpus with a column called `red` is not a trap. The cost

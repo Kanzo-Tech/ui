@@ -318,7 +318,7 @@ const strideSql = (limit: number) => `greatest(1, CAST(ceil(matched / ${limit}.0
  * stratified sample; the same `LIMIT` with no stride returns a contiguous run of the curve, which is
  * a sub-region. Measured against the truth at screen resolution, L1@8px over blocks of eight pixels:
  * a stride sample of 20,000 scores 0.167 / 0.240 / 0.269 at 200k / 1M / 5M against a uniform null of
- * 1.044 / 0.829 / 0.731 — see `decisions/a-far-view-is-a-sample-not-a-summary.md`.
+ * 1.044 / 0.829 / 0.731 — see `/docs/design/graph`.
  *
  * @param matched Whether to project the pre-sample count out to the caller.
  *
@@ -726,8 +726,8 @@ function countOf(rows: unknown, field: string): number {
  * the chunk URLs from a `chunk_size` copied by hand, knowing how a tile is named, knowing what the
  * edge directory is called, knowing GraphAr's column names, and knowing that a glob cannot work over
  * a plain HTTP origin because there is no listing. Five conventions and about forty lines, none of
- * it the business of something that wants to draw a graph. `decisions/a-tile-is-an-address-not-a-verb.md`
- * carries the argument; the copied `chunk_size` carries the evidence, because it went stale and read
+ * it the business of something that wants to draw a graph. `/docs/design/graph` carries the
+ * argument; the copied `chunk_size` carries the evidence, because it went stale and read
  * a fraction of a corpus in silence for as long as it did.
  *
  * The consumer knows one thing: **where the corpus is.**
@@ -911,7 +911,7 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
    *
    * **A tile address is what makes this possible at all**, and it is why the cache lives here rather
    * than in the render loop: a rectangle is a continuous key nothing can memoise, and a tile index is
-   * a discrete one. `decisions/a-tile-is-an-address-not-a-verb.md` argued the camera is addressed;
+   * a discrete one. `/docs/design/graph` argued the camera is addressed;
    * this is the first thing that spends the address on something.
    *
    * **The trade is honest and it is not free.** A registered tile is the *whole* tile, where DuckDB

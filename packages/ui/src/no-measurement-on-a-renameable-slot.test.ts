@@ -9,7 +9,7 @@ import { label, sourceFiles } from "./guard-corpus";
  * site styles against — `[data-slot=message-text]` in a consumer's own CSS — and the house makes it
  * renameable on purpose: every part takes `slot?: string`, spelled `data-slot={slot ?? "the-part"}`,
  * because renaming a part so it answers to a different recipe is a real need
- * (`decisions/a-primitive-owns-its-slot.md`). Hang a measurement the component *needs in order to
+ *. Hang a measurement the component *needs in order to
  * work* off that same attribute and the seam becomes a load-bearing wall: exercising the rename
  * breaks the control, silently.
  *

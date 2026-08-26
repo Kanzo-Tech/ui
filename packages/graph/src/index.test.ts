@@ -63,7 +63,7 @@ describe("@kanzo-tech/graph public surface", () => {
     expect(GRAPH.residentOf).toBeTypeOf("function");
     // The tables and constants a call site cannot reconstruct.
     // No table of named looks: what a person chooses is declared as axes in `section.ts` and
-    // resolved here — `decisions/a-look-declares-what-it-changes.md`.
+    // resolved here.
     expect(GRAPH.lookFrom).toBeTypeOf("function");
     expect(GRAPH.DEFAULT_LOOK.size.length).toBe(2);
     expect(GRAPH.SHAPE_ORDER.length).toBeGreaterThan(0);
@@ -130,7 +130,7 @@ describe("@kanzo-tech/graph public surface", () => {
     // `withAlpha([r, g, b], a)` was a three-element destructure and a fourth value — an array
     // literal with a name. It had zero references anywhere in the repository: not another module in
     // this package, not a test, not a showcase, not a doc page.
-    // `decisions/an-export-needs-a-second-call-site.md` decides that case, and there is no carve-out
+    // Admission rule 2 decides that case, and there is no carve-out
     // to reach for: the reference is silent about graphs, so the house principle is all there is.
     // `resolveToken` and `toHex` stay — both are called by `graph-model.ts` and by the benchmark
     // showcase, and they are the shared answer to "what colour is `var(--primary)` here", which is
@@ -143,7 +143,7 @@ describe("@kanzo-tech/graph public surface", () => {
   it("ships a canvas that owns the renderer, and neither load nor Loaded", () => {
     const surface = GRAPH as Record<string, unknown>;
     // This assertion was the reverse of itself, and the reversal is the record rather than a fix:
-    // `decisions/a-canvas-component-owns-the-three-that-never-differ.md`. What the old argument got
+    // `/docs/design/graph`. What the old argument got
     // right is still true — a toolbar, a legend, an inspector and a hover card answer differently
     // per product, and none of them is in here. What it missed is the three underneath that were
     // identical everywhere and hand-wired at each call site.
@@ -162,7 +162,7 @@ describe("@kanzo-tech/graph public surface", () => {
     expect(GRAPH.useGraphSelection).toBeTypeOf("function");
     // The machine's own three are gone. They shipped as an escape hatch on one sentence — *the
     // relationship is `ChartRoot` to `useChart`* — and that analogy died with
-    // `decisions/a-chart-needs-no-factory.md`: there is no `useChart` factory, so charts ship exactly
+    // the analytics layer: there is no `useChart` factory, so charts ship exactly
     // one way and the reference this copied no longer reads that way. Measured after the workspace
     // migrated to `useGraph`: zero call sites outside this package, comments aside.
     expect(surface.useRenderer).toBeUndefined();
@@ -182,7 +182,7 @@ describe("@kanzo-tech/graph public surface", () => {
    * They are asserted here because the thing that makes them tempting is that they *sound* right:
    * zoom out far enough and individual points stop being information, so collapse them into one
    * mark per group. Measured, that is the worst thing on the list —
-   * `decisions/a-far-view-is-a-sample-not-a-summary.md` carries the table, and the sentence to
+   * `/docs/design/graph` carries the table, and the sentence to
    * remember is that eight super-nodes per `community` scored **worse than a uniform grey box**
    * over the corpus' own bounding box.
    */

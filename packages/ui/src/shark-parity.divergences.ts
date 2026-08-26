@@ -5,7 +5,7 @@
  * registry and requires that every entry it finds is declared here — and that every entry declared
  * here is still a real difference. Both halves matter. The first is what would have caught 31
  * context aliases being deleted on a house rule while Shark shipped 38 of the 43 names involved
- * (`decisions/a-name-shark-ships-is-ours.md`); the second is what stops this file rotting into an
+ *; the second is what stops this file rotting into an
  * allowlist that only ever grows.
  *
  * **A reason is not a note.** The reference governs the surface, a measurement overrules the
@@ -14,11 +14,11 @@
  * things, and saying which is the point:
  *
  * 1. a measurement — a number, what it was measured against, a threshold it crosses;
- * 2. a decision record, cited by path, which carries its own evidence and its own reversal;
+ * 2. a rule on `/docs/design`, cited by path, which carries its own evidence and what would
+ *    reverse it;
  * 3. an assertion in another guard, cited by file and test name;
  * 4. `Undecided — …`, where nothing above applies. That is a legitimate state
- *    (`decisions/a-measurement-overrules-the-reference.md`: *where none of that decides, the owner
- *    does, and the case is recorded as undecided rather than argued into one of the branches*),
+ *    (`/docs/design/references`: *where none of that decides, the owner does, and the case is recorded as undecided rather than argued into one of the branches*),
  *    and the test pins the exact list, so one cannot be added or quietly resolved without an edit
  *    somebody reviews.
  *
@@ -50,23 +50,22 @@ export const MODULE_MAP: Readonly<Record<string, string>> = {
  * A Shark component we do not ship, keyed by its registry filename.
  *
  * Most of these are the ordinary shape of adopting a reference incrementally rather than a
- * disagreement with it: `decisions/adoption-before-design.md` and
- * `decisions/an-export-needs-a-second-call-site.md` between them say a family nobody renders does
- * not get built. Where we solve the same problem differently, the entry names what we solve it
+ * disagreement with it: `/docs/design/admission` says a family nobody renders does not get
+ * built, and an export needs a second call site. Where we solve the same problem differently, the entry names what we solve it
  * with, because that is the thing a reader is looking for.
  */
 export const UNADOPTED: Readonly<Record<string, string>> = {
   announcement: "Not built. A pill with a title and a variant; `Badge` is what the library composes for this today.",
   "aspect-ratio": "Not built. Tailwind's `aspect-*` utility is the whole of it — a wrapper would add a name, not a capability.",
-  autocomplete: "Not built. Shark's own file wraps Ark's combobox machine; ours is `Combobox`, and the difference is a prop on the same machine (`decisions/a-machine-with-a-switch-is-a-variant.md`).",
-  "bottom-navigation": "Not built. Mobile chrome for a shell that is sidebar-first — `decisions/a-shell-has-two-legal-shapes.md` names the two shapes, and this is not one of them.",
+  autocomplete: "Not built. Shark's own file wraps Ark's combobox machine; ours is `Combobox`, and the difference is a prop on the same machine.",
+  "bottom-navigation": "Not built. Mobile chrome for a shell that is sidebar-first — `/docs/layout/shell` names the two shapes, and this is not one of them.",
   carousel: "Not built. No renderer in the library or the docs.",
   chart:
-    "Not adopted, and not comparable: Shark's chart wraps Recharts, ours is `@kanzo-tech/ui/analytics` over Mosaic and vgplot — a different engine with a different vocabulary (`decisions/a-grammar-ships-its-whole-vocabulary.md`). The optional-peer subpaths are outside this guard's corpus in any case; see the blind spots in `shark-parity.test.ts`.",
+    "Not adopted, and not comparable: Shark's chart wraps Recharts, ours is `@kanzo-tech/ui/analytics` over Mosaic and vgplot — a different engine with a different vocabulary. The optional-peer subpaths are outside this guard's corpus in any case; see the blind spots in `shark-parity.test.ts`.",
   "circular-progress": "Not built. No renderer in the library or the docs.",
   "circular-slider": "Not built. No renderer in the library or the docs.",
   "context-menu":
-    "Deleted deliberately. A context menu is `Menu` with a different trigger, which is what `MenuContextTrigger` is — nine of the ten exports were `data-slot` renames of `Menu`'s parts. `decisions/a-machine-with-a-switch-is-a-variant.md`; tombstoned in `index.test.ts`, `drops components superseded by composition or a merge`.",
+    "Deleted deliberately. A context menu is `Menu` with a different trigger, which is what `MenuContextTrigger` is — nine of the ten exports were `data-slot` renames of `Menu`'s parts. `/docs/design/admission`; tombstoned in `index.test.ts`, `drops components superseded by composition or a merge`.",
   "date-input": "Not built. `DatePicker` over Ark's date-picker machine is the date surface here, and `parseDate` is re-exported from the barrel so its value can be built.",
   drawer: "Not built. `Sheet` is the side-anchored dialog in this library; Shark ships both over the same Ark dialog machine.",
   "floating-panel":
@@ -75,7 +74,7 @@ export const UNADOPTED: Readonly<Record<string, string>> = {
   frame: "Not built. `SectionRoot` and its parts are the framed-region composite in this library.",
   hint: "Not built. `Tooltip` is the hover surface here.",
   "input-otp":
-    "Not adopted under this name. We ship `PinInput` over Ark's pin-input machine; Shark solves the same problem with `input-otp` and exports no hook for it, which is exactly why `usePinInput` is ours to decide rather than the reference's — `decisions/a-name-shark-ships-is-ours.md`.",
+    "Not adopted under this name. We ship `PinInput` over Ark's pin-input machine; Shark solves the same problem with `input-otp` and exports no hook for it, which is exactly why `usePinInput` is ours to decide rather than the reference's.",
   "link-overlay": "Not built. No renderer in the library or the docs.",
   locale: "Not built as a component. `useFilter` from `@ark-ui/react/locale` is re-exported from the barrel because `Combobox` cannot be used without it; Ark's `LocaleProvider` has no such forcing consumer.",
   marquee: "Not built. No renderer in the library or the docs.",
@@ -93,14 +92,14 @@ export const UNADOPTED: Readonly<Record<string, string>> = {
  * instead — admission, and a second call site.
  */
 export const OURS_ALONE: Readonly<Record<string, string>> = {
-  FacetFilter: "Ours. The one facet-filter surface, built on `Listbox` because a filter is a value — `decisions/a-filter-is-a-value.md`. On the root barrel because its two consumers sit on subpaths that must not import each other.",
+  FacetFilter: "Ours. The one facet-filter surface, built on `Listbox` because a filter is a value. On the root barrel because its two consumers sit on subpaths that must not import each other.",
   FieldArray: "Ours. Repeatable field rows. No Ark machine and no Shark file; `index.test.ts` pins it.",
   diagnostic: "Ours. A severity, a message and a list of source positions, over Ark's collapsible — the shape a validation violation, a compiler diagnostic and a stack trace all share. Shark has no file for it; `docs/content/docs/data-display/diagnostic.mdx` is the page, and the frames are the part nothing else here does.",
   Link: "Ours. The styled anchor, and the routing seam every composite reaches through `asChild` — `index.test.ts`, `drops the components that took a layout tree as an array prop`.",
   "floating-panel": "Ours, and it collides with a Shark name. See the UNADOPTED entry, which is the other half of this one.",
   "pin-input": "Ours over Ark's pin-input machine. Shark's answer to the same problem is `input-otp`, under names that do not correspond.",
-  suggestions: "Ours. A row of values on offer, each committing a string and leaving no selection — which by the menu/listbox rule makes it a command surface and not a value one. It is in `ui` and not `@kanzo-tech/ai` because it does not know a model exists, which is the line `decisions/the-ai-surfaces-are-their-own-package.md` draws; the ✨ beside it does, and stays there. Shark has no file for it. **Admission rule 2 is not met yet**: `@kanzo-tech/ai`'s `SuggestList` is the one real consumer, and the second is expected to be a non-model one (recent values, saved filters).",
-  "stat-tile": "Ours. A composite by the test in `decisions/a-machine-with-a-switch-is-a-variant.md`, which names this component as the worked example.",
+  suggestions: "Ours. A row of values on offer, each committing a string and leaving no selection — which by the menu/listbox rule makes it a command surface and not a value one. It is in `ui` and not `@kanzo-tech/ai` because it does not know a model exists, which is the line `/docs/design/admission` draws; the ✨ beside it does, and stays there. Shark has no file for it. **Admission rule 2 is not met yet**: `@kanzo-tech/ai`'s `SuggestList` is the one real consumer, and the second is expected to be a non-model one (recent values, saved filters).",
+  "stat-tile": "Ours. A composite by the test in `/docs/design/admission`, which names this component as the worked example.",
   swatch: "Ours. A strip that only depicts; Ark's picker swatch parts all require a picker context and compute `checked` against its single value, so a sixteen-slot palette strip cannot be built from them (`index.test.ts`, `exposes the core surface`).",
 };
 
@@ -128,7 +127,7 @@ function ARK_PART_NAME(part: string): string {
   return (
     `Both wrap Ark's \`${part}\`. The naming rule: a part is base plus part, so the ` +
     `Ark spelling is the one that survives — Shark shortens it instead. Settled 2026-07-31 in ` +
-    `\`decisions/a-part-is-named-by-its-machine.md\`: a part name is a fact about the machine, so ` +
+    `\`/docs/design/references\`: a part name is a fact about the machine, so ` +
     `it belongs to the reference that owns the machine. That record settles these nine and ` +
     `deliberately not the general case of the two references disagreeing.`
   );
@@ -137,11 +136,11 @@ function ARK_PART_NAME(part: string): string {
 const DIALOG_OWNS_THE_TITLE =
   "`DialogTitle` / `DialogDescription` are the parts, and both components say so in their own " +
   "source: `AlertDialog` is `Dialog` with a role and `Sheet` is `Dialog` with a side, one machine " +
-  "each (`decisions/a-machine-with-a-switch-is-a-variant.md`). Shark ships the renamed pair anyway. " +
+  "each. Shark ships the renamed pair anyway. " +
   "The name is missing; the capability is not.";
 
 /**
- * The line `decisions/adopt-the-part-the-machine-ships.md` draws, spelled once.
+ * The line `/docs/design/references` draws, spelled once.
  *
  * It has two named weaknesses, both in the record: a part's provenance says nothing about whether
  * we need it, and the rule is silent on the case that turned out to be the commonest here — Ark
@@ -149,13 +148,13 @@ const DIALOG_OWNS_THE_TITLE =
  */
 const ARK_SHIPS_NO_SUCH_PART = (composed: string): string =>
   `Declined. Ark's machine ships no such part: ${composed}. ` +
-  `\`decisions/adopt-the-part-the-machine-ships.md\` adopts the names whose part Ark already ` +
+  `\`/docs/design/references\` adopts the names whose part Ark already ` +
   `ships and declines the ones the reference composed itself.`;
 
 const ALREADY_OURS_UNDER_ARKS_NAME = (part: string): string =>
   `Declined. Ark ships the part and we already export it, as \`${part}\` — so this is a second ` +
   `spelling rather than a missing capability, which is the case ` +
-  `\`decisions/adopt-the-part-the-machine-ships.md\` does not reach and says so. The same shape ` +
+  `\`/docs/design/references\` does not reach and says so. The same shape ` +
   `as the four dialog titles above.`;
 
 const DECLINED_FILE_UPLOAD = ARK_SHIPS_NO_SUCH_PART(
@@ -168,11 +167,11 @@ const DECLINED_PAGINATION =
   "`PaginationItemLink` hand-writes an `<a href=\"?page=N\">` — a routing convention, not a part: " +
   "`Link` is the routing seam here and it goes through `asChild`. Ark's parts are `Item`, " +
   "`Ellipsis` and `Context`, and all three are on the barrel, so the loop is four lines a caller " +
-  "writes against exports they already have. `decisions/adopt-the-part-the-machine-ships.md`.";
+  "writes against exports they already have.";
 
 const DECLINED_SKELETON =
   "Declined. `Skeleton` has no Ark machine at all — it is an `ark.div` with a pulse — so there is " +
-  "no part to adopt, and `decisions/adopt-the-part-the-machine-ships.md` decides it on that. " +
+  "no part to adopt, and `/docs/design/references` decides it on that. " +
   "`simples/skeleton.tsx` carries the older half of the argument: a circle is `size-10 shrink-0 " +
   "rounded-full` on the one export, and `SkeletonText` forced every line to a height its only " +
   "caller did not want. `packages/ui/src/documented-exports.test.ts` holds " +
@@ -189,8 +188,8 @@ const DECLINED_TOUR_BODY = ARK_SHIPS_NO_SUCH_PART(
  *
  * This map used to be dominated by the parts sweep — thirty-four names withheld because our own
  * root renders the part, plus four recipes withheld because a class list is not API. Both were
- * house principles, and `decisions/a-house-principle-withholds-no-name.md` restored all thirty-eight
- * against `decisions/a-measurement-overrules-the-reference.md`. What is left is the shape a
+ * house principles, and parity restored all thirty-eight against the reference order —
+ * `/docs/design/references`. What is left is the shape a
  * withheld name is supposed to have: a decision with its own record, or an open question with
  * nobody's name on it yet.
  */
@@ -202,7 +201,7 @@ export const WITHHELD: Readonly<Record<string, string>> = {
   "sheet:SheetDescription": DIALOG_OWNS_THE_TITLE,
 
   // ── Declined on Ark provenance ───────────────────────────────────────────────────────────────
-  // `decisions/adopt-the-part-the-machine-ships.md` settled the twenty-one names this map held as
+  // `/docs/design/references` settled the twenty-one names this map held as
   // undecided. Seven were adopted and are gone from here; twelve are below; two are still open.
   "command:CommandDialogTrigger": ALREADY_OURS_UNDER_ARKS_NAME("DialogTrigger"),
   "command:CommandGroupLabel": ALREADY_OURS_UNDER_ARKS_NAME("ComboboxGroupLabel"),
@@ -213,8 +212,8 @@ export const WITHHELD: Readonly<Record<string, string>> = {
   "file-upload:FileUploadList":
     "Declined. Not a part in either machine: Shark's `FileUploadList` reads `acceptedFiles` off " +
     "the context and renders the whole item — preview, name, size, delete button, icon — as a " +
-    "fixed arrangement a caller cannot reorder or wrap. `decisions/a-layout-tree-is-children.md` " +
-    "is the rule it fails, and `decisions/adopt-the-part-the-machine-ships.md` the one that " +
+    "fixed arrangement a caller cannot reorder or wrap. `/docs/design/admission` " +
+    "is the rule it fails, and `/docs/design/references` the one that " +
     "declines it: Ark ships `ItemGroup` and `Item`, which is the composition without the loop.",
   "pagination:PaginationItemLink": DECLINED_PAGINATION,
   "pagination:PaginationItems": DECLINED_PAGINATION,
@@ -227,14 +226,14 @@ export const WITHHELD: Readonly<Record<string, string>> = {
     "`ALREADY_OURS_UNDER_ARKS_NAME` case, in the shape the rule does not reach. Ark's `Control` " +
     "is a bare `ark.div` with static anatomy attributes and no machine wiring, so a caller laying " +
     "footer content out by hand wants `DialogFooter`. " +
-    "`decisions/adopt-the-part-the-machine-ships.md`.",
+    "`/docs/design/references`.",
 
 };
 
 /**
  * A name we export that Shark's matching component does not, keyed `"<shark file>:<Name>"`.
  *
- * `decisions/a-name-shark-ships-is-ours.md` reads, as written, in both directions: *a `useX` or a
+ * `/docs/design/references` reads, as written, in both directions: *a `useX` or a
  * part Shark's registry exports, we export under that name; one it does not export, we do not.*
  * Thirteen of the entries below are Ark parts Shark's file does not export, so under the widest
  * reading of that sentence they should not exist. They do exist for one reason, and it is a real
@@ -258,7 +257,7 @@ export const ADDED: Readonly<Record<string, string>> = {
     "The field `FacetFilter`'s `searchable` draws. An Ark part Shark's listbox omits, so nothing upstream would notice it going missing — `index.test.ts`, `exposes the one facet-filter surface, on the root barrel`.",
   "listbox:ListboxLabel": THIN_ROOT("Listbox"),
   "menu:MenuContextTrigger":
-    "The whole of what `context-menu.tsx` was, once its nine `data-slot` renames of `Menu`'s parts were removed — `decisions/a-machine-with-a-switch-is-a-variant.md`. Shark keeps the separate file; this name is what replaces it.",
+    "The whole of what `context-menu.tsx` was, once its nine `data-slot` renames of `Menu`'s parts were removed. Shark keeps the separate file; this name is what replaces it.",
   "number-input:NumberInputLabel": THIN_ROOT("NumberInput"),
   "number-input:NumberInputValueText": THIN_ROOT("NumberInput"),
   "radio-group:RadioGroupCard":
@@ -278,7 +277,7 @@ function THIN_ROOT(component: string): string {
     `An Ark part our \`${component}\` root does not render, so a caller composes it and must be able ` +
     `to import it. Shark's root pre-arranges the same part internally and exports nothing for it — ` +
     `the divergence is where the layout lives, not which parts exist. This is the direction ` +
-    `\`decisions/a-name-shark-ships-is-ours.md\` reads on least comfortably; BEYOND_THE_SURFACE ` +
+    `\`/docs/design/references\` reads on least comfortably; BEYOND_THE_SURFACE ` +
     `records that.`
   );
 }
@@ -303,7 +302,7 @@ export const BEYOND_THE_SURFACE: readonly {
       "licenses exactly this and no neighbouring recipe.",
     held: [
       "packages/ui/src/simples/button.tsx",
-      "decisions/a-measurement-overrules-the-reference.md",
+      "docs/content/docs/design/references.mdx",
     ],
   },
   {
@@ -325,7 +324,7 @@ export const BEYOND_THE_SURFACE: readonly {
       "on, with no error and nothing to grep for. Renaming a part is a real need, so it is served " +
       "by a declared `slot?: string` written after the spread.",
     held: [
-      "decisions/a-primitive-owns-its-slot.md",
+      "docs/content/docs/design/naming.mdx",
       "packages/ui/src/data-slot.test.tsx",
     ],
   },
@@ -335,7 +334,7 @@ export const BEYOND_THE_SURFACE: readonly {
       "the same names.",
     why:
       "Both were withheld under the parts sweep and both came back with it " +
-      "(`decisions/a-house-principle-withholds-no-name.md`). Neither is a divergence from Shark — " +
+      ". Neither is a divergence from Shark — " +
       "it binds each one the way we do, and its files export no second hook beside them, so this " +
       "guard reports parity and is right to. The cost is one nobody had counted: `@ark-ui/react` " +
       "exports `useCombobox`, the machine hook that takes props, *and* `useComboboxContext`, and " +
@@ -346,7 +345,7 @@ export const BEYOND_THE_SURFACE: readonly {
       "whose type is not exported either. This was invisible while the names were withheld, which " +
       "is the honest reason it is being written down now rather than then.",
     held: [
-      "decisions/a-house-principle-withholds-no-name.md",
+      "docs/content/docs/design/references.mdx",
       "packages/ui/src/shark-parity.test.ts",
       "packages/ui/src/simples/tour.tsx",
     ],
@@ -362,8 +361,7 @@ export const BEYOND_THE_SURFACE: readonly {
       "and not by binding, which a name-level comparison reports as parity. `shark-parity.test.ts` " +
       "asserts both bindings against Ark, and that no second `useXContext` has appeared beside them.",
     held: [
-      "decisions/a-house-principle-withholds-no-name.md",
-      "decisions/adopt-the-part-the-machine-ships.md",
+      "docs/content/docs/design/references.mdx",
       "packages/ui/src/simples/tags-input.tsx",
     ],
   },
@@ -374,7 +372,7 @@ export const BEYOND_THE_SURFACE: readonly {
     why:
       "`alertVariants`, `badgeVariants`, `menuContentVariants` and `toggleVariants` were withheld " +
       "on the house rule that an exported `tv()` freezes a class list as API, and " +
-      "`decisions/a-house-principle-withholds-no-name.md` restored them for parity. The " +
+      "`/docs/design/references` restored them for parity. The " +
       "reservation the owner stated while choosing parity anyway is the divergence this guard " +
       "cannot see: it compares names and never class strings, and every one of these four differs " +
       "from Shark's in the utilities it holds — `toggleVariants` composes our `buttonVariants` and " +
@@ -383,7 +381,7 @@ export const BEYOND_THE_SURFACE: readonly {
       "does not. The reversal condition is in the record: a consumer reaching into one of these in " +
       "a way that blocks a restyle.",
     held: [
-      "decisions/a-house-principle-withholds-no-name.md",
+      "docs/content/docs/design/references.mdx",
       "packages/ui/src/index.test.ts",
       "packages/ui/src/simples/toggle.tsx",
     ],
@@ -392,27 +390,24 @@ export const BEYOND_THE_SURFACE: readonly {
     what: "Thirteen Ark parts we export that Shark's matching file does not.",
     why:
       "The mirror image of the sweep, and the reading of " +
-      "`decisions/a-name-shark-ships-is-ours.md` that its own text does not settle: the decision " +
+      "`/docs/design/references` that its own text does not settle: the decision " +
       "governs *context aliases and re-exported Ark parts*, and taken at that width it forbids " +
       "these. The reason they exist is structural rather than preferential — our roots are thin " +
       "where Shark's pre-arrange — but that argument is nowhere in the record, which is why it is " +
       "written here.",
-    held: ["decisions/a-name-shark-ships-is-ours.md"],
+    held: ["docs/content/docs/design/references.mdx"],
   },
   {
     what: "Nine parts spelled with Ark's name where Shark shortens it.",
     why:
       "The two references disagreeing, which the tie-break assigns to the owner rather than to " +
       "either rule — and the owner took it, narrowly, in " +
-      "`decisions/a-part-is-named-by-its-machine.md`: a part name is a fact about the machine. " +
+      "`/docs/design/references`: a part name is a fact about the machine. " +
       "This entry used to read that the eight had never been weighed against parity, which stopped " +
       "being true the day that record landed and is corrected here. `ClipboardValueText` is the " +
       "ninth, adopted under the same rule. Nothing is missing either way — RENAMED carries both " +
       "halves — and what stays open is the general case of the two references colliding, which " +
       "that record deliberately does not settle.",
-    held: [
-      "decisions/a-part-is-named-by-its-machine.md",
-      "decisions/a-name-shark-ships-is-ours.md",
-    ],
+    held: ["docs/content/docs/design/references.mdx"],
   },
 ];

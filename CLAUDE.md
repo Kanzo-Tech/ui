@@ -9,8 +9,10 @@
    **Before adding a way to express something, grep for the ways it is already expressed.**
    Collapsing two or three implementations of one idea is among the most common commits here —
    `git log --oneline` and read the subjects if you want the shape of it.
-3. **Any decision may be reopened.** They live in `decisions/`, one file each, each carrying the
-   evidence that would reverse it. Reopening is editing a field, not winning an argument again.
+3. **Any decision may be reopened.** Every rule on `/docs/design` ends with the evidence that would
+   reverse it — *what would reverse it* — and where the honest answer is nothing, it says nothing
+   and says why. Reopening is editing that paragraph, not winning an argument again. A rule written
+   without it is unfinished.
 
 ## Where the rules are
 
@@ -22,8 +24,16 @@
   (`/docs/conventions`), and it is the only copy: there is no `CONVENTIONS.md`. The half a consumer
   also needs is on the pages beside it — the recipe and the recipe/inline line on `styling.mdx`,
   the token vocabulary on `theming.mdx`.
-- `decisions/` — one record per decision. `Status` `live` is today's rule; anything else is
-  history, and you can skip it.
+- `docs/content/docs/design/` — why the library is like this: what earns a name, the references and
+  who wins, names and slots, the colour document, and the bounded reader. Six pages behind a
+  maintainers' divider on the site (`/docs/design`), and the only copy: there is no `decisions/`. A
+  rule that has been reversed is replaced by the sentence that replaced it, never kept beside the
+  tree with a header saying so.
+  - Two spellings in a *Held by* line are machine-checked by
+    `packages/ui/src/documented-evidence.test.ts`: a test cited by its **quoted title** must be a
+    real `it()` in the file beside it, and `` `!Name` `` declares that the cited file asserts `Name`
+    is off `@kanzo-tech/ui`'s barrel. Write the second one whenever an argument depends on an
+    absence — the outward-reaching sentence is the only kind that has ever rotted here.
 - The repo-wide guard tests are the rules nobody should have to remember. **Read the file, not a
   summary of it** — each carries its own reasoning, and each says what it cannot prove.
   `packages/ui/src/guard-corpus.ts` is what "repo-wide" means: the six appearance and boundary
@@ -42,7 +52,7 @@
   everyone who did not install it.
 - **Theme attributes go on `<html>`.** Ark's overlays portal to `document.body`, outside any
   wrapper, and density sets the root font-size the whole `rem` scale resolves against.
-- **A theme is source, not output.** `packages/theme/themes/*.css` and `tokens.css` are hand-written; only `themes.css` and `theme-data.json` are generated. There is no colour derivation — see `decisions/a-theme-is-one-flat-block.md`.
+- **A theme is source, not output.** `packages/theme/themes/*.css` and `tokens.css` are hand-written; only `themes.css` and `theme-data.json` are generated. There is no colour derivation — see `/docs/design/colour`.
 - **Exactly one `<main>` per page**, owned by `ShellMain`. `SidebarInset` is a neutral `<div>`.
 
 ## Working here
@@ -65,8 +75,8 @@
   `themes.css`, `theme-data.json`, `palettes/` and the colour half of `tokens.css`, and fails on a
   diff.
 - **Until the first publish there is one changeset**, and it describes what the packages are — see
-  `decisions/one-changeset-until-the-first-publish.md`. Add to it rather than adding a second. The
-  per-change rule, addressed to a consumer, resumes after that. The *reason* goes in `decisions/`.
+  `/docs/design`. Add to it rather than adding a second. The per-change rule, addressed to a
+  consumer, resumes after that. The *reason* goes on `/docs/design`.
 - Other sessions write to this checkout, and `.claude/worktrees/` holds further full copies of the
   repository. Attribute a stray edit before acting on it, commit by explicit path, and exclude
   those worktrees from any repo-wide count.

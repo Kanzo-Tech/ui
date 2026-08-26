@@ -23,7 +23,7 @@ import { contrast, oklch } from "./ink";
  * The model is the data-viz standard the reference systems use, not one invented here: OKLab ΔE
  * ×100 over Machado, Oliveira & Fernandes (2009) dichromacy simulation at severity 1.0. The bands
  * and floors are that standard's; the *status* floor is ours, and it is the surviving half of
- * `decisions/a-categorical-set-may-use-the-palettes-own-colours.md` — a set must not put a series
+ * the categorical rule at `/docs/design/colour` — a set must not put a series
  * in a colour that reads as a state.
  *
  * The eight were found by search over the OKLCH grid rather than picked: L in the band both sides

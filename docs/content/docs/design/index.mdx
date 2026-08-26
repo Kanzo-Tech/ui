@@ -20,9 +20,9 @@ one is a rule under review.
 <Callout type="info">
 **Two spellings in a *Held by* line are load-bearing, and `packages/ui/src/documented-evidence.test.ts`
 runs them.** A test cited **by its quoted title** must be a real `it()` or `describe()` in the file
-beside it — not a comment, and not a title as you remember it. And `` `!Name` `` means *the file
-beside it asserts `Name` is off `@kanzo-tech/ui`'s public surface*; the guard imports the barrel and
-checks. Both exist because the sentence that reaches **outside** the page making it is the one that
+beside it — not a comment, and not a title as you remember it. And `` `!Something` `` means *the file
+beside it asserts that name is off `@kanzo-tech/ui`'s public surface*; the guard imports the barrel
+and checks. Both exist because the sentence that reaches **outside** the page making it is the one that
 rots: no page here has been wrong about its own subject, and twenty-six were wrong about something
 else — *a test holds this*, *that export was removed*, *this is the only one*. Write the declaration
 whenever an argument depends on an absence: prose saying "the export has since been removed" is
@@ -49,7 +49,8 @@ one rung further out — `packages/ui/src/documented-evidence.test.ts` checks th
 name is a real assertion and that a name declared absent is really absent.
 
 **What would reverse it.** A guard that costs more to maintain than the defect costs to fix. None on
-the roster has; `CONVENTIONS.md`'s guard table is the set to recount against.
+the roster has; the guard table on [Conventions](/docs/conventions#tests-and-guards) is the set to
+recount against.
 
 *Held by* `packages/ui/src/no-literal-hues.test.ts` and `packages/ui/src/data-slot.test.tsx`, the two
 that carry their own reasoning and their own blind spots.

@@ -94,7 +94,8 @@ default `linear={false}` every trigger is its own tab stop, so the list is reach
 `linear={true}` is not the fix and is a worse state: it drops the non-current triggers to
 `tabIndex: -1` *and* makes their click handler return early, so a step becomes unreachable by
 pointer and keyboard alike while still announcing `role="tab"`. The reasoning is in
-`decisions/steps-claims-a-tab-role-it-cannot-keep.md`, and `packages/ui/src/simples/steps.test.ts`
+[the references](/docs/design/references#steps-claims-a-tab-role-that-nothing-keyboard-implements),
+and `packages/ui/src/simples/steps.test.ts`
 holds the measurement — it fails on the day Ark ships the keymap, which is when this section
 should be rewritten.
 

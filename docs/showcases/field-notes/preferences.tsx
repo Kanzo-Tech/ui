@@ -4,7 +4,7 @@
 //
 // The key had to go somewhere the moment the live model moved into the browser, and the answer
 // was NOT a dialog of ours beside the panel: that is the several-products-in-one-window failure
-// `decisions/a-preference-is-contributed-like-a-token.md` exists to remove. A host composes the
+// a contributed preference section exists to remove. A host composes the
 // panel from the flat part exports and adds its own field — `PreferencesField` is exported for
 // exactly this, and `PreferencesSections` is listed explicitly because `children` REPLACES the
 // canonical body, so a composed panel that forgot it would silently drop every choice an

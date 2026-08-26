@@ -74,9 +74,8 @@ import { HOME_HALL, hall } from "@/example/world";
  *
  * The reference is GitHub's Appearance page, down to the sub-sidebar: grouped nav on the inline
  * start, one scrolling pane, the appearance controls first and the rest of the account's settings
- * around them. What is deliberately NOT copied is their theme pairing — see
- * `decisions/a-palette-is-chosen-per-appearance.md`, and the cards themselves for what ours can do
- * that a drawn tile cannot.
+ * around them. What is deliberately NOT copied is their theme pairing — see the cards themselves
+ * for what ours can do that a drawn tile cannot.
  */
 /** The product's own places. A settings screen is somewhere you go, not somewhere you live. */
 const PLACES = [

@@ -104,7 +104,7 @@ no alias and no migration path.
 
 What you give up with it is a contrast guarantee made at authoring time: **the author answers for
 AA.** What still checks the artefact is a guard over the shipped themes, measuring each status fill
-against the ink meant to sit on it. `decisions/a-theme-is-one-flat-block.md` carries the numbers.
+against the ink meant to sit on it. `/docs/design/colour` carries the numbers.
 
 **Charts work on a theme that authors no chart colours.** `tokens.css` declares eight categorical
 slots on `:root`; a theme's own `--chart-*` override them slot by slot. The eight are one set for
@@ -166,7 +166,7 @@ inside the rectangle. In the other direction, pass `perPixel` on a slice request
 screen pixel covers — and an edge under three pixels long is discarded in the query rather than
 dimmed in the shader. Together, on five windows of a million-node corpus: a fifth to a third fewer
 rows, and 86% of a window's incident edges drawn where 68% were.
-`decisions/an-edge-is-drawn-from-bytes-in-hand.md` has the measurements and what would reverse them.
+`/docs/design/graph` has the measurements and what would reverse them.
 
 A `Look` is **form only**: sizes, link width and curve, whether links add where they overlap,
 labels, vignette. It used to decide whether
@@ -358,12 +358,11 @@ Two claims that stood in the folded notes are **no longer true**, and are not re
   on the evidence that all seventeen were used across 53 call sites. That measurement was sound and
   answered "is this vocabulary dead?" — but the deciding question turned out to be "is this a second
   spelling?", and on that one all seventeen were byte-identical to a published reference step in
-  every block of every shipped document. They are deleted; call sites spell the step. See
-  `decisions/a-role-earns-its-name-or-becomes-a-step.md`.
+  every block of every shipped document. They are deleted; call sites spell the step.
 - `the-first-release.md` itself described a two-tier colour vocabulary of 144 reference steps under
   a role table, and `data-palette` beside `data-identity`. Both are gone: measured, components used
   eighteen of the 144 and all eighteen were tints, and a palette containing identities was a level
-  that stopped existing when a brand became a theme. See `decisions/a-theme-is-one-flat-block.md`.
+  that stopped existing when a brand became a theme.
 
 The bumps are kept at `minor` (0.0.0 → 0.1.0) rather than raised to the `major` several folded
 notes carried. Those declared breakage against a version that was never published, so they have

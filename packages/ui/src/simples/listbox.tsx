@@ -310,9 +310,8 @@ export const ListboxEmpty = (
 
 // The third rename of `MenuShortcut`'s span, beside `CommandShortcut`. It had no renderer here and
 // was withheld for it; the reference ships it, and a house principle withholds no name the
-// reference ships — `decisions/a-house-principle-withholds-no-name.md`. The rename is `slot` and
-// not a literal `data-slot`, which is the one thing we do not copy from Shark's version of it:
-// `decisions/a-primitive-owns-its-slot.md`.
+// reference ships. The rename is `slot` and
+// not a literal `data-slot`, which is the one thing we do not copy from Shark's version of it.
 export const ListboxShortcut = (
   { slot, ...rest }: React.ComponentProps<typeof MenuShortcut>
 ) => <MenuShortcut {...rest} slot={slot ?? "listbox-shortcut"} />;

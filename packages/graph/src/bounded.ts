@@ -62,8 +62,8 @@ export interface Viewport {
  * than its first `limit` rows; `n` reports the window either way.
  *
  * **A struct, and it used to be a tagged union.** `mode` picked between points and super-nodes and
- * only the second branch carried `weights`. Both are gone — see
- * `decisions/a-far-view-is-a-sample-not-a-summary.md` — and with one branch left a discriminant is a
+ * only the second branch carried `weights`. Both are gone — see `/docs/design/graph` — and with one
+ * branch left a discriminant is a
  * field with one legal value.
  */
 export interface Slice {

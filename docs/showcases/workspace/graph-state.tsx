@@ -169,8 +169,8 @@ function specFor(opened: OpenedCorpus): GraphSpec {
 /**
  * The three arrangements this app offers: a **form**, and the bindings that were bundled with it.
  *
- * A look used to carry both, and that was a theme reaching into an encoding —
- * `decisions/a-look-is-form-and-a-channel-is-a-binding.md`. What survives the split is this table,
+ * A look used to carry both, and that was a theme reaching into an encoding. What survives the
+ * split is this table,
  * and it lives here rather than in the package because **the host is what offers arrangements**: a
  * product publishing three it authored is not the same act as a preference silently discarding the
  * caller's binding.
@@ -184,8 +184,8 @@ function specFor(opened: OpenedCorpus): GraphSpec {
 /**
  * The three arrangements this product offers, and **they are the host's now**.
  *
- * `LOOKS` and `LookId` left the package with
- * `decisions/a-look-declares-what-it-changes.md`: six of the ten fields separating Nebula from
+ * `LOOKS` and `LookId` left the package when a look became a set of axes: six of the ten fields
+ * separating Nebula from
  * Atlas moved by 7–17%, under the package's own threshold for a difference meaning anything, so
  * what it ships is the axes a person chooses and one resolver. A name for a composition is a
  * product's word, not a library's — the same call the pairings below already make about bindings.
@@ -373,8 +373,8 @@ interface GraphViewValue {
   /**
    * Which of this product's arrangements is worn — the CHANNELS half, which is the host's.
    *
-   * The geometry left for the preferences and the bindings did not, and that is
-   * `decisions/a-look-is-form-and-a-channel-is-a-binding.md` holding: what colour means and what
+   * The geometry left for the preferences and the bindings did not, and that is the form/binding
+   * split holding: what colour means and what
    * shape means is an encoding this app authored, not a value a panel may overwrite. Picking one
    * writes the axes that name it *and* takes its bindings; moving an axis afterwards leaves the
    * bindings alone, which is why this is one field and not a derivation.

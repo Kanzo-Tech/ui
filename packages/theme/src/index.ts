@@ -224,9 +224,9 @@ export interface ThemePrefs {
    *
    * A map rather than a string because the choice is per appearance, and with one-mode themes that
    * is not a refinement but the only shape available: a theme IS a side, so "which theme" without
-   * "on which side" does not name a preference. It is also exactly what
-   * `decisions/a-palette-is-chosen-per-appearance.md` asked for, arrived at from the other
-   * direction — that record invented a map over documents that each carried both modes, to say
+   * "on which side" does not name a preference. It is also exactly what the per-appearance palette
+   * proposal asked for, arrived at from the other
+   * direction — that proposal invented a map over documents that each carried both modes, to say
    * something the two-mode document made awkward and the one-mode theme makes trivial.
    *
    * The ordering that makes it possible: the pre-hydration script resolves appearance before it

@@ -35,8 +35,8 @@ import { vertexId } from "./resident";
  *   `region`, `visibleCte` and `watcher`, which is what makes the coverage worth having at all.
  * - **That the sample is spatially stratified, or that it is a sample at all.** `id % stride = 0`
  *   over a Morton-ordered `dense_id` is the claim, and no stub can evaluate a modulo. What runs it
- *   is `docs/showcases/graph-bench`, and the far-view figures in
- *   `decisions/a-far-view-is-a-sample-not-a-summary.md` were taken there.
+ *   is `docs/showcases/graph-bench`, and the far-view figures on `/docs/design/graph` were taken
+ *   there.
  * - **Anything at all about the anchor branch, which is the larger half of this change.** `out`,
  *   `span` and `anchor` are only built when a source says what bytes it is holding, and the only
  *   source that can is `openCorpus` — which fetches manifests over HTTP before it queries. So what
@@ -44,8 +44,7 @@ import { vertexId } from "./resident";
  *   belongs here: a relation has nothing in hand, and building it there would join the whole node
  *   table twice per camera move. That it produces the right picture is
  *   `graph-model.test.ts`, "draws the far end of an edge that leaves the window", which runs the same
- *   rule in JavaScript over arrays, plus the browser figures in
- *   `decisions/an-edge-is-drawn-from-bytes-in-hand.md`.
+ *   rule in JavaScript over arrays, plus the browser figures on `/docs/design/graph`.
  */
 
 function harness() {

@@ -43,7 +43,7 @@ class survives only as the selector for the `dark:` variant at the call sites th
 stages and publish 144 reference steps; components used eighteen of them, and all eighteen were
 tints that `color-mix` now computes at the point of use. It is deleted. What that costs is a contrast
 guarantee at authoring time — the author answers for AA, and a guard over the shipped themes is what
-catches a mistake. See `decisions/a-theme-is-one-flat-block.md`.
+catches a mistake.
 
 ## How the other axes work
 

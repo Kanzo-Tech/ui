@@ -249,8 +249,8 @@ export function useQueryLoop(options: QueryLoopOptions): QueryLoopState {
        * fit slides the picture the reader was just given. The fit absorbs it in this order.
        *
        * A box past the device's `maxTextureDimension2D` is halved by cosmos.gl with a console line
-       * of its own; that is left visible rather than clamped here, and
-       * `decisions/the-coordinate-box-is-the-corpus-extent.md` says why.
+       * of its own; that is left visible rather than clamped here, and `/docs/design/graph` says
+       * why.
        *
        * The larger side, because the box is a square. There used to be an exported `SPACE = 4096`
        * declaring it, hand-copied into both bench generators, and a corpus fossil wrote ignored it:

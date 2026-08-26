@@ -11,7 +11,6 @@
 // Inline ghost completion is NOT a prop of this component and never was: `CodeEditorProps` is
 // `value` / `onChange` / `extensions` / `readOnly` / `basics`. A ghost is composed by the caller
 // through `extensions`, over `useInlineCompletion` — which ships from `@kanzo-tech/ai`, not from
-// this barrel. Three places claimed the prop existed; see
-// `decisions/the-ai-surfaces-are-their-own-package.md`.
+// this barrel. Three places claimed the prop existed, and all three were corrected.
 export { CodeEditor, kanzoHighlighting } from "./composites/CodeEditor.js";
 export type { CodeEditorProps } from "./composites/CodeEditor.js";

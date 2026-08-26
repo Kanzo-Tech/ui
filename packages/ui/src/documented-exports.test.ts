@@ -19,7 +19,7 @@ import { beforeAll, describe, expect, it } from "vitest";
  * - `layout/scroll-area.mdx` said `ScrollAreaScrollbar` "is exported for the rare case you need to
  *   place one yourself". It was a module-local `const` at the time, and the sentence was deleted
  *   rather than the export added. The export came later, from the other direction entirely —
- *   `decisions/a-house-principle-withholds-no-name.md` — which is the thing to notice: the page was
+ *   the reference's own registry — which is the thing to notice: the page was
  *   right about the surface the library should have, and a guard over pages can only ever report
  *   that the two disagree.
  * - `forms/index.mdx` and `forms/field.mdx` carried `FieldSeparator` in anatomy diagrams after it
@@ -381,6 +381,14 @@ const DELIBERATE: Record<string, string[]> = {
   // line's height" — the paragraph explains why the part was not written. `simples/skeleton.tsx`
   // carries the same argument.
   "overlays/loading.mdx": ["SkeletonText"],
+  // The four Shark spellings the naming rule declines. Naming them is the whole of the paragraph:
+  // "`AccordionItemTrigger`, not `AccordionTrigger`" is unreadable without the half we do not ship.
+  "design/references.mdx": [
+    "AccordionTrigger",
+    "NumberInputIncrement",
+    "PaginationPrevious",
+    "FileUploadItemSize",
+  ],
 };
 
 /**
@@ -394,7 +402,7 @@ const DELIBERATE: Record<string, string[]> = {
  * `ComboboxGroupLabel`, `PopoverClose` and `TourClose` in anatomy trees, and `ToastItem` in a
  * sentence claiming outright that it is exported — resolved in the direction this guard cannot
  * choose between: the pages were right and the barrel was wrong. Shark's registry exports every
- * one of them, and `decisions/a-house-principle-withholds-no-name.md` is why that settles it. The
+ * one of them, and `/docs/design/references` is why that settles it. The
  * list stays because the next defect of this shape needs somewhere to be written down before
  * anybody decides which side of it to fix.
  *

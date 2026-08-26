@@ -82,8 +82,7 @@ export interface GraphCanvasProps extends UseGraphProps {
  * a child.
  *
  * This component exists against an earlier decision that there should be no canvas component, and
- * `decisions/a-canvas-component-owns-the-three-that-never-differ.md` carries what changed and what
- * would reverse it.
+ * `/docs/design/graph` carries what changed and what would reverse it.
  */
 export function GraphCanvas(props: GraphCanvasProps) {
   const { children, className, slot, ...rest } = props;

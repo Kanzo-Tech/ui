@@ -30,7 +30,7 @@ import {
  * that cost, twice, in opposite directions: an export audit deleted 31 one-line `useX` context
  * aliases on the house rule that renaming somebody else's export is not an API — Shark ships 38 of
  * the 43 names involved, and nobody noticed for two days
- * (`decisions/a-name-shark-ships-is-ours.md`). The same blind spot the other way: Shark exports
+ *. The same blind spot the other way: Shark exports
  * `ScrollAreaScrollbar` and we do not, found in passing, never decided.
  *
  * So: every difference between the two export surfaces must be declared, with a reason, in
@@ -85,7 +85,7 @@ import {
  * - **Only type-free value exports.** `export type` on either side is dropped: a shape is not a
  *   name a consumer calls.
  * - **Only Shark's `registry/react/components/`.** Its 95 example directories are not fetched, so
- *   the claim in `decisions/a-name-shark-ships-is-ours.md` that the aliases have no call site
+ *   the claim at `/docs/design/references` that the aliases have no call site
  *   inside Shark is, as measured here, a claim about the component files only.
  * - **It cannot tell a good reason from a bad one, and it does not check the SHAPE either.** What
  *   it checks is that a reason exists — `trim().length >= 40` — that anything it cites by path
@@ -296,7 +296,7 @@ describe("the Shark UI surface", () => {
   });
 
   it("declares every name it ships that Shark's own file does not", () => {
-    // The half `decisions/a-name-shark-ships-is-ours.md` is worded to cover and nothing enforced:
+    // The half *a name Shark ships is ours* is worded to cover and nothing enforced:
     // *a part Shark's registry does not export, we do not*. Thirteen Ark parts sit under it today,
     // each declared with the structural reason it exists.
     const undeclared = added.filter((k) => !(k in ADDED));
@@ -369,7 +369,7 @@ describe("the Shark UI surface", () => {
   });
 
   it("holds the two hooks restored with the parts to bindings that are not Ark's", () => {
-    // `decisions/a-house-principle-withholds-no-name.md` restored `useCombobox` and
+    // Restoring every name the reference ships brought back `useCombobox` and
     // `useTourContext` with the parts, and both are the `useTagsInput` shape a second and a third
     // time — a name that matches the reference exactly and clashes with **Ark's** export of the
     // same name. Shark binds each the way we do, so parity is genuinely satisfied and the
@@ -414,7 +414,7 @@ describe("the declared divergences", () => {
   });
 
   it("names the divergences nobody has decided yet", () => {
-    // `decisions/a-measurement-overrules-the-reference.md`: where neither the reference, a
+    // Where neither the reference, a
     // measurement nor a house rule decides, the owner does, and the case is recorded as undecided
     // rather than argued into one of the branches. Pinned so that one cannot appear, or quietly
     // stop being open, without an edit somebody reviews. The list is the agenda.
@@ -425,7 +425,7 @@ describe("the declared divergences", () => {
       .filter(([, reason]) => isUndecided(reason))
       .map(([k]) => k)
       .sort();
-    // Twenty-one until `decisions/adopt-the-part-the-machine-ships.md`, which adopted seven and
+    // Twenty-one until the Ark tie-break at `/docs/design/references`, which adopted seven and
     // declined twelve. The tags-input pair stayed open one record longer: provenance was never what
     // was in the way there, the binding was, and it is closed by taking Shark's shape whole.
     expect(open).toEqual([]);

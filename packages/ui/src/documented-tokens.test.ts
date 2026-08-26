@@ -43,7 +43,7 @@ import { describe, expect, it } from "vitest";
  *   happen to name a step would notice.
  * - **It says nothing about whether a documented binding is still the right one.** `--input` is
  *   `(base, boundary)` here; a page claiming it is `(base, 8)` names a property that exists, and
- *   this passes. That class is what `decisions/` and review are for.
+ *   this passes. That class is what `/docs/design` and review are for.
  * - **A namespace collision still hides a foreign token.** Radix's `--accent-a5` is skipped only
  *   because we happen to declare `--accent`; it is checked, resolves, and passes for the wrong
  *   reason. The rule holds while our names and theirs agree, and nothing here would report it if

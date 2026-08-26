@@ -83,7 +83,7 @@ somebody types — fifty-four of them per theme, which is how the studio's seed 
 `kanzo.css` on five tokens without anybody noticing.
 
 **What the measurement was.** daisyUI derives nothing at runtime — zero `oklch(from …)` and zero
-`color-mix` in 5.7.20, and `var(--color-primary-content)` used bare 136 times with no fallback. Its 35
+`color-mix` in 5.7.20, and their `primary-content` variable read bare 136 times with no fallback. Its 35
 themes ship all 28 values flat. But they were *generated*, and of 280 fill/ink pairs 156 carry the
 fill's hue to four decimals, from which the rule reads off: **carry the hue, cut the chroma to a
 fifth, pull the lightness most of the way to the nearer end.**

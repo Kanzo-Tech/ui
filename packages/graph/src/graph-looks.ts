@@ -1,5 +1,5 @@
-// Three registers the same graph can be *drawn* in. Not three palettes, and — since
-// `decisions/a-look-is-form-and-a-channel-is-a-binding.md` — not three encodings either.
+// Three registers the same graph can be *drawn* in. Not three palettes, and — since a channel is a
+// binding on the request — not three encodings either.
 //
 // **A look is form and nothing else.** No colours: colour belongs to the theme's categorical
 // scheme, the way it belongs to a chart, so every surface showing the same categories gets the same
@@ -154,7 +154,7 @@ export interface Look {
  * fields separated two of the three by 7–17%, under this file's own threshold for a difference
  * meaning anything — a luminance JND of 6.48–11.30 ΔL*. What is left of them is this: every number
  * appears once, where the axis that owns it is read, and the axis is declared next door in
- * `section.ts` for a panel to draw. See `decisions/a-look-declares-what-it-changes.md`.
+ * `section.ts` for a panel to draw.
  *
  * **Link opacity and width ride the mark**, and that is what the numbers said rather than a tidy
  * guess: 0.42 and 0.45 on the two dense forms against 0.28 on the legible one. A form that spends

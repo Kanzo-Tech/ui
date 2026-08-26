@@ -275,8 +275,7 @@ describe("memorySource", () => {
 
   it("draws a view of everything from both ends of it, not from one group per category", async () => {
     // The whole extent, with room for four of the six. Zoomed all the way out used to be a different
-    // question — one super-node per category, at its centroid — and it scored worse than a grey box:
-    // `decisions/a-far-view-is-a-sample-not-a-summary.md`.
+    // question — one super-node per category, at its centroid — and it scored worse than a grey box.
     const answer = await memorySource(graph).slice({
       ...request,
       limit: 2,

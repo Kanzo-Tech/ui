@@ -10,8 +10,8 @@ packages are.** Nothing has ever been released, so a note about what changed has
 no released version to change *from*. Fold anything a consumer must know into
 `the-first-release.md` and delete the rest — including any changesets that
 arrive on a merge from another branch. The reasoning, and what reverses it, is
-in `decisions/one-changeset-until-the-first-publish.md`.
+on `/docs/design`.
 
-A changeset addresses a **consumer**. The reason a decision was taken goes in
-`decisions/`, not here — that split is why the last set of these grew to a
+A changeset addresses a **consumer**. The reason a decision was taken goes on
+`/docs/design`, not here — that split is why the last set of these grew to a
 thousand-odd lines of design prose and three dead component names.

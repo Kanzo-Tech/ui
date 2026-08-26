@@ -19,7 +19,7 @@ import {
  * cannot reveal text that is not in its value — so a long offer was unreadable by any gesture and
  * accepting it meant accepting blind. No reference does it either: Gmail continues a body, Copilot
  * an editor, and every single-line field in the wild offers a *list*. That is `Suggest`, and it is
- * already here. See `decisions/a-line-takes-candidates-a-paragraph-takes-a-continuation.md`.
+ * already here.
  */
 type FieldEl = HTMLTextAreaElement;
 

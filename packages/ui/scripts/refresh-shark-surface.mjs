@@ -10,8 +10,8 @@
 //
 // **This script's own blind spot is the one that produced it.** `raw.githubusercontent.com` serves
 // `vinihvc/shark-ui` — the previous owner — with HTTP 200 and no redirect at all, so a URL that
-// nobody maintains looks exactly like a URL that somebody does, and `decisions/match-the-reference.md`
-// cited the stale owner for as long as it did for that reason. Neither the status code nor the
+// nobody maintains looks exactly like a URL that somebody does, and this repository cited the
+// stale owner for as long as it did for that reason. Neither the status code nor the
 // final URL can tell you. What can is the repository API, which answers with the *canonical*
 // `full_name` whoever you asked for: that is the assertion below, and it is why this script talks
 // to the API at all rather than fetching 95 files and stopping.
@@ -92,7 +92,7 @@ async function main() {
     throw new Error(
       `Shark UI now answers to ${repo.full_name}, not ${REPO}. Raw URLs will keep serving the old ` +
         `name with a 200, so nothing else would have told you. Update REPO here, the pin in ` +
-        `src/shark-parity.test.ts, and every citation in decisions/ — then re-run.`,
+        `src/shark-parity.test.ts, and every citation on /docs/design — then re-run.`,
     );
   }
   if (repo.default_branch !== REF) {

@@ -17,7 +17,7 @@ describe("the graph section's obligations", () => {
   });
 
   it("grades at least one, which is what admits it as a section", () => {
-    // The admission rule in `decisions/a-section-brings-measurable-obligations.md`: a section enters
+    // The admission rule at `/docs/design/colour`: a section enters
     // only if its obligations return at least one measurable claim. If this ever reaches zero the
     // graph stops being a section and becomes a preference table, which is where radius, font and
     // density sit today.

@@ -51,7 +51,7 @@ import { CHROMA_FLOOR, label, oklch, sourceFiles, subtrees, unreadable } from ".
  *
  *   `slider`'s is the reference's, verbatim — Shark's `slider.tsx` Thumb carries the same
  *   `"bg-white"` in the same position among the same token-backed neighbours. So
- *   `decisions/match-the-reference.md` settles it unless a measurement overrules it, and none does:
+ *   the reference settles it unless a measurement overrules it, and none does:
  *   white on a dark track is high contrast, not low. The dark-mode worry was about the metaphor, a
  *   knob that does not follow the theme, and that is a design choice Shark took and we follow.
  * - **It measures chroma, not contrast.** A tokenised colour can still fail AA. That is

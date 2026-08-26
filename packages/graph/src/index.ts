@@ -7,7 +7,7 @@
  * is still true and they are still yours. What the argument missed is that underneath them sit
  * three things that were identical everywhere and re-wired by hand each time: the renderer's
  * lifetime, the query loop that follows the camera, and the buffers a look implies.
- * `decisions/a-canvas-component-owns-the-three-that-never-differ.md` has the measurement.
+ * `/docs/design/graph` has the measurement.
  *
  * **Why a package and not `@kanzo-tech/ui`.** The first admission rule is *domain-free —
  * nothing about RDF / SHACL / fossil / graphs / auth*. Graphs are excluded by name, deliberately:
@@ -38,7 +38,7 @@ export {
   DEFAULT_LOOK,
   // The other end of `@kanzo-tech/graph/section`: the axes a person chose, as a form. The
   // manifest declares them, a host registers it, the panel draws them, and this reads the answer.
-  // There is no table of named looks any more — see `decisions/a-look-declares-what-it-changes.md`.
+  // There is no table of named looks any more — see `/docs/design/graph`.
   lookFrom,
   SHAPE,
   SHAPE_ORDER,
@@ -74,7 +74,7 @@ export { useGraph, type GraphApi, type GraphEvents, type UseGraphProps } from ".
 //
 // They shipped beside the canvas as an escape hatch, justified in one sentence: *the relationship is
 // `ChartRoot` to `useChart`, not v2 to v1.* That analogy is gone — there is no `useChart` factory
-// and `decisions/a-chart-needs-no-factory.md` says why, so charts ship exactly one way and the
+// and `/docs/design/admission` says why, so charts ship exactly one way and the
 // reference the graph was copying no longer reads that way. Measured after the workspace migrated:
 // the three have **zero call sites** outside this package, comments mentioning them aside.
 //

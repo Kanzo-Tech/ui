@@ -84,7 +84,7 @@ describe("the skip link", () => {
 });
 
 describe("the skip target in a shell", () => {
-  /** The composition `decisions/the-skip-target-is-the-main-landmark.md` records. */
+  /** The composition `/docs/layout/skip-nav` records. */
   function Page() {
     return (
       <ShellRoot>
@@ -119,7 +119,7 @@ describe("the skip target in a shell", () => {
 
     // `asChild` hands the parent's attributes down and the child writes its own `data-slot` after
     // its own spread, so `shell-main` survives — every recipe selecting it keeps working.
-    // `decisions/a-primitive-owns-its-slot.md`, and `decisions/exactly-one-main.md` for the count.
+    // The slot rule is at `/docs/design/naming`, and the count at `/docs/layout/shell`.
     expect(screen.getAllByRole("main")).toHaveLength(1);
     expect(screen.getByRole("main").getAttribute("data-slot")).toBe("shell-main");
   });

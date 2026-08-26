@@ -6,8 +6,7 @@ import { check, OBLIGATIONS } from "./obligations.js";
  * The density section grades itself, and one of its bars is currently red.
  *
  * **That is recorded, not hidden, and not treated as a reason to demote the section.** A section is
- * admitted for HAVING a measurable bar, never for passing it —
- * `decisions/a-section-brings-measurable-obligations.md`. The opposite rule would mean fixing a
+ * admitted for HAVING a measurable bar, never for passing it. The opposite rule would mean fixing a
  * defect downgrades a section to a preference, which is absurd.
  *
  * So the failing obligation is pinned by id: the suite stays green, the defect stays visible, and a
@@ -25,7 +24,7 @@ describe("the density section's obligations", () => {
     // `target-size`: `Button size="xs"` is 1.5rem = 21.0 CSS px at compact's 14px root, against
     // WCAG 2.5.8 AA's 24. Open, and NOT to be closed by quietly raising `h-6` — measured over three
     // showcases, no `size="xs"` button actually failed in situ: 2.5.8's spacing exception saved
-    // every undersized target. See `decisions/density-has-no-legibility-floor.md`.
+    // every undersized target.
     expect(failing).toEqual(["target-size"]);
   });
 
