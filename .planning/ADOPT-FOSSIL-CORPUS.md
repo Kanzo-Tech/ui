@@ -17,10 +17,18 @@ Escrito para sobrevivir a un `/clear`. Lo que hay aquí es estado medido el 25, 
 > - **F4 igual.** Sus tres rutas se apoyan en los pasos 3, 6 y 10 de `ONE-PATH.md`, que son las
 >   únicas descripciones que existen de multitipo por vecindad, de la segunda pasada de aristas y de
 >   subir el cromo al paquete con el workspace como prueba.
-> - **Una deuda que F2 hereda:** `without-fossil.mdx` de rmlext nos publica como su prueba de
->   existencia — *«kanzo-ui lee corpus escritos por fossil sin ninguna dependencia `@fossil-lang/*`»*.
->   Adoptar `openCorpus` es exactamente la dependencia que esa frase niega, así que F2 le debe una
->   línea a esa página. Está anotado en `.planning/README.md` para que no se pierda.
+> - **F2 está PARADA, y no por trabajo: por una dependencia que no existe.** Ver §1.6. Adoptar es
+>   importar `@fossil-lang/graph`, y lo publicado en npm sigue siendo `0.3.0-alpha.3` del 16 de junio,
+>   sin `corpus` ni `address` dentro del tarball. La salida (a) —`link:` al hermano— sirvió para el
+>   spike y **no es commiteable**: sería una mina para `smoke` y para cualquiera que clone. Hace falta
+>   la salida (b), una publicación, y eso es decisión del dueño.
+> - **Una deuda que F2 hereda, ya resuelta por el dueño.** `without-fossil.mdx` de rmlext nos publica
+>   como su prueba de existencia — *«kanzo-ui lee corpus escritos por fossil sin ninguna dependencia
+>   `@fossil-lang/*`»*. Adoptar `openCorpus` es exactamente la dependencia que esa frase niega.
+>   **Resolución de Ángel: se adopta, y su página cambia** — su prueba de existencia pasa a ser
+>   `apps/corpus/guards/reader.mjs`, que está escrito sólo desde las convenciones publicadas, no
+>   importa nada suyo, y ya es exactamente eso aunque su página no lo sepa. **El repo hermano no se
+>   toca desde aquí**; esta línea existe para que salga en el siguiente traspaso.
 
 ## 0 · Dónde estamos, con evidencia
 
@@ -154,6 +162,60 @@ Cinco cosas que sólo se ven ejecutando:
 de que sirva para algo hay un paso que no estaba en el plan: **F0 · reemitir los manifiestos de los
 seis corpus de `bench/` con los tres campos**. Sin él, ninguno abre.
 
+## 1.6 · F2 parada el 26, y qué es exactamente lo que falta
+
+Medido el 26, no recordado.
+
+**1 · La dependencia no existe, y no hay rodeo.** `npm view @fossil-lang/graph versions` da tres:
+`0.3.0-alpha.1`, `.2` y `.3`, y `dist-tags` es `{ latest: 0.3.0-alpha.1, alpha: 0.3.0-alpha.3 }`.
+Desempaquetado el tarball de `@alpha`, `tar tzf … | grep -E "corpus|address"` **no devuelve nada**.
+Nuestro árbol no nombra `@fossil-lang/*` en ningún `package.json` — las nueve citas que hay son
+comentarios y planificación. Así que F2 no es trabajo pendiente: es la salida **(b)** del §2, una
+publicación, y es del dueño.
+
+**2 · La pieza que hay que adoptar es `resolveCorpus`, no `openCorpus`.** Esto corrige el nombre que
+el plan lleva desde el 25, y lo decide el §1 de aquí: `corpus.window()` no toma presupuesto y
+materializa todas las filas del rectángulo (11 s y ~7,9 M objetos a un millón), así que no puede ser
+el camino del `slice`. Lo que sí encaja exactamente es `resolveCorpus`
+(`@fossil-lang/graph/address`, 704 líneas, **síncrono y sin WASM**): toma `manifestFiles:
+Record<string, string>` ya traídos por el host más un `base`, y devuelve `vertexType().tileUrl(t)`,
+`files()` y `window({ tiles, directions })` → `{ vertexUrls, edgeUrls, complete, gaps }`. Es
+literalmente la mitad de `duck-source.ts` que sabe de prefijos, y deja intacto todo lo del §2 que no
+se muda — la caché de teselas, el `MosaicClient`, `Resident`, cosmos.gl.
+
+**3 · Lo que se iría de `duck-source.ts`, contado.** El fichero son **1.216 líneas**. Lo que
+`resolveCorpus` sustituye es: `scalar`/`listItems` (el escáner de YAML a mano, 791–806), la lectura
+de `type`/`prefix`/`chunk_size` y el emparejado del edge por `src_type` (856–883), `tileUrl` y
+`edgeTileUrl` (900–901), y el sondeo de existencia por `HEAD` doblando y bisectando más el
+`ceil(V/chunk_size)` que lo motiva (1.018–1.054). Son **~120 líneas, y son exactamente las de
+prefijos** — el criterio de éxito que el §2 escribe. Lo que **no** se va, y hay que decirlo antes de
+prometer una cifra mayor: el lector de cajas por `parquet_metadata` (1.064–1.081) es nuestro, porque
+`resolveCorpus` direcciona y no lee footers, y `intersecting` se queda porque la aritmética sobre
+cajas es nuestra.
+
+**4 · Y el formato se movió otra vez hoy, en la dirección que refuerza adoptar.** `818218c`
+(26-08, 16:56) introduce `container: 'files' | 'rowgroups'` en `graph.graph.yml`: *«un fichero por
+tesela con la dirección en el nombre»* frente a *«un Parquet por conjunto cuyos grupos de fila son
+las teselas»*, y **ausente significa `files`**. Nuestro lector no tiene ese concepto y hoy asume los
+dos a la vez sin saberlo: la línea 901 direcciona `by_source/tile{k}.parquet` (contenedor `files`) y
+la 1.133 registra la vista sobre `by_source.parquet` (contenedor `rowgroups`). Funciona sólo porque
+el escritor viejo emite **ambos** — verificado en `docs/public/bench/2000/edge/Node_linksTo_Node/`,
+que tiene `by_source/`, `by_source.parquet`, `by_target/` y `by_target.parquet`. En cuanto un corpus
+declare un contenedor y emita uno solo, una de las dos líneas apunta a un fichero que no está. Es la
+tercera vez que este lado copia lo que el otro posee, después de `chunk_size` y de los tres campos
+de F0.
+
+**5 · Trampa viva ahora mismo: el binario está caducado.** `rmlext/target/release/fossil` es del
+**25 a las 23:29** y `crates/fossil-sinks/src/manifest.rs` es del **26 a las 16:56**. Regenerar los
+corpus con ese binario —que es lo que dice el comando de F0— escribe manifiestos **sin `container`**.
+No falla; escribe la disposición vieja en silencio, que es la trampa 2 de `ONE-SOURCE.md` repitiéndose
+con otro campo. Recompilar antes de regenerar nada.
+
+**Qué desbloquea F2, en una frase:** un alfa de `@fossil-lang/graph` que lleve `dist/address.js` y
+`dist/manifest.js` dentro del tarball. La subruta `./address` ya está declarada en su
+`package.json` y su `tests/address-standalone.test.ts` ya compila ese cierre sin `pkg/`, así que no
+falta diseño: falta `npm publish`.
+
 ## 2 · Las fases
 
 **F0 · Los manifiestos. Hecho el 25.** Primero parcheando los tres campos contados de los bytes
@@ -178,14 +240,30 @@ en cuanto haga falta una API suya que no esté publicada:
   riesgo es escribir contra una API que aún se mueve — aunque su cabecera dice que la forma está
   cerrada en cuatro miembros.
 
-**F2 · Adoptar en un solo sitio.** El `BoundedSource` que la canvas consume pasa a apoyarse en
-`openCorpus` de fossil. Sabremos que salió bien cuando **la mitad que desaparece de
-`duck-source.ts` sea la que sabía de prefijos**.
+**F2 · Adoptar en un solo sitio. PARADA el 26 — ver §1.6.** El `BoundedSource` que la canvas consume
+pasa a apoyarse en el direccionamiento de fossil. Sabremos que salió bien cuando **la mitad que
+desaparece de `duck-source.ts` sea la que sabía de prefijos**: están identificadas y son ~120 de las
+1.216, más el `container` que hoy no sabemos leer. No se puede ejecutar sin una publicación —
+importar `@fossil-lang/graph` desde un `package.json` nuestro es una dependencia real, y la que hay
+en npm no trae la mitad de corpus. **Y la pieza es `resolveCorpus`, no `openCorpus`**, que es lo
+único de este plan que estaba mal nombrado.
 
 **F3 · Los borrados que ya estaban pendientes**, y que esta adopción hace baratos: `memorySource`,
 `duckBoundedSource`, la lápida de `IdSetClient` — el «paso 10» del plan anterior. **Su lista de
 trabajo es `ONE-SOURCE.md` §4**, que enumera los cinco sitios que rompe y lo que cada borrado debe
 mudar antes de irse; ejecutar F3 sin ella es descubrirlos de uno en uno con `smoke` en rojo.
+
+> **No corrió el 26, y no está bloqueada: es independiente de F2** —la decisión «una sola fuente y es
+> la del corpus» es de Ángel y no depende de quién direccione por dentro, porque nuestro `openCorpus`
+> ya existe y responde. Lo que la paró fue el presupuesto de una sesión: el borrado toca
+> `packages/graph/{index.ts,index.test.ts,memory-source.ts,duck-source.ts}`,
+> `packages/ui/src/documented-exports.test.ts` (dos entradas), `scripts/smoke-install.mjs` (su única
+> aserción de comportamiento, que **cambia** y no desaparece), tres `.mdx` con la tabla «tres fuentes,
+> tres trabajos», tres ejemplos de `docs/examples/graph/`, `docs/lib/sightings-graph.ts` y el
+> changeset — y detrás la cadena entera. Dejarlo a medias en un checkout que comparten otras sesiones
+> es peor que no empezarlo. Los tamaños, para dimensionarlo: `memory-source.ts` son **282 líneas**
+> enteras, y `duckBoundedSource` más `DuckSourceOptions` son **~120** (49–101 y 188–255) de las 1.216
+> de `duck-source.ts`. Recuerda que la línea que condena `explore` está **revertida**.
 
 **F4 · Las tres rutas**, ya sobre una API que no se mueve: teselado y zoom (la que enseña),
 larger-than-RAM, y benchmarks (el `graph-bench` que hoy no tiene página, sólo
