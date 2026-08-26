@@ -21,8 +21,7 @@ package that ships the transcript and leaves the mark behind splits one purchase
 installs.
 
 What that costs, and it is worth writing down because it is the argument for the other answer:
-`@kanzo-tech/ui` now exports two fewer compounds than a reader of `DESIGN.md`'s AI paragraph
-expects, and `decisions/ai-assist-composes-over-pure-inputs.md` — which is still live, and still
+`@kanzo-tech/ui` now exports two fewer compounds than a reader of the AI page expects, and `decisions/ai-assist-composes-over-pure-inputs.md` — which is still live, and still
 right about *no prop on the primitives and no provider* — now describes a shape that lives next
 door. That record was edited to say where, not reopened: nothing it decided changed.
 

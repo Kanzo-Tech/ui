@@ -25,8 +25,8 @@ LSP or the graph, it is domain code and belongs with its product.
 apps  →  domain libs  →  @kanzo-tech/ui + @kanzo-tech/theme  →  Ark UI + Tailwind
 ```
 
-The dependency direction is never reversed. `DESIGN.md` has the full admission rules and the ladder
-you walk before adding anything; `CONVENTIONS.md` has how a file is written; `decisions/` has why
+The dependency direction is never reversed. The docs site's Philosophy page (`/docs/philosophy`)
+has the full admission rules and the ladder you walk before adding anything; `CONVENTIONS.md` has how a file is written; `decisions/` has why
 each rule holds and what would reverse it.
 
 ## Consuming

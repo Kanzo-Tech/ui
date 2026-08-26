@@ -14,15 +14,15 @@ import { Button, type ButtonProps } from "./button";
  * one component; the ✨ beside it is what says a model wrote these, and that stays next door.
  *
  * **Not a listbox, and this is the correction it exists to make.** Picking one leaves an *effect* —
- * a value in a field — not a selection in a list, which by the rule in `DESIGN.md` makes it a
- * command surface rather than a value surface. The version this replaces was an Ark listbox whose
+ * a value in a field — not a selection in a list, which makes it a command surface rather than a
+ * value surface. The version this replaces was an Ark listbox whose
  * `value` was pinned to a hoisted empty array forever, with a comment explaining why; that comment
  * was the rule being noticed and worked around instead of read.
  *
  * ARIA: nothing is declared. Each pill is a `<button>` with its own accessible name, in document
  * order, so Tab reaches every one and a screen reader announces them as what they are. A
- * `role="listbox"` here would promise a navigation model that is not implemented — the failure
- * `CONVENTIONS.md` names under composite roles.
+ * `role="listbox"` here would promise a navigation model that is not implemented — the failure a
+ * composite role without its keyboard contract always is.
  *
  * Wraps by default. A caller that wants one scrolling line passes `flex-nowrap overflow-x-auto`.
  */

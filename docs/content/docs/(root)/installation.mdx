@@ -49,7 +49,8 @@ nothing else:
 [`@kanzo-tech/graph`](/docs/graph) is installed separately, and the reason it is not a fourth row
 above is the reason it is not in `@kanzo-tech/ui` at all: its renderer peer is **required**, not
 optional. There is nothing left of the package without one, and a required WebGL dependency would
-change what the base library is — `DESIGN.md`'s first admission rule excludes graphs by name.
+change what the base library is — [the first admission rule](/docs/philosophy#admission)
+excludes graphs by name.
 
 ```bash
 pnpm add @kanzo-tech/graph @cosmos.gl/graph

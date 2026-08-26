@@ -10,8 +10,8 @@ import { XIcon } from "lucide-react";
  *
  * `Selection.clauses` is the read model `MosaicProvider` documents ("a filter-chip row or a
  * readout"), and reading it is what lets a panel report filters it did not publish — a brush on a
- * plot, a bar someone clicked, a lasso around a cluster. Two showcases needed it, so per DESIGN.md's
- * ladder it is a frame in `docs/lib/`, not a component in the library.
+ * plot, a bar someone clicked, a lasso around a cluster. Two showcases needed it, and a frame with
+ * no new behaviour is an example: it is in `docs/lib/`, not a component in the library.
  */
 
 /** A clause, as something a person can read. */

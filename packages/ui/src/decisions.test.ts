@@ -9,8 +9,8 @@ import * as UI from "./index";
  *
  * `decisions/README.md` states five: five fields first and in order, a `Status` from a closed set,
  * a `Because` with no number in it, a `Held by` that cites a file and a symbol and never a line,
- * and a superseded record that is edited rather than deleted. `DESIGN.md` carries an index of the
- * same records, grouped by status. Every one of those was a convention held by memory — two audits
+ * and a superseded record that is edited rather than deleted. Every one of those was a convention
+ * held by memory — two audits
  * reported "both record guards re-run clean", and the guards were throwaway scripts in a scratchpad
  * that were never committed. A rule nobody can run is a rule that has already decayed; this is the
  * run.
@@ -78,9 +78,6 @@ import * as UI from "./index";
  * - **The rule README calls "no record restates a rule" is not checked at all.** It is a judgement
  *   about prose. So is "`Because` is one line, the reason and not the evidence". Both are left to
  *   review, and saying so here is the point of this section.
- * - **`DESIGN.md`'s index is parsed by its current formatting.** The live group is spread over a
- *   bold heading and a second, unbolded "Also live" line; both are read, and a third spelling would
- *   silently drop its slugs — which is why the two-way count below is asserted rather than assumed.
  */
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -474,67 +471,6 @@ describe("the decisions/ records", () => {
       wrong.sort(),
       `A record declaring a name absent is read as licence to delete it. When the name comes back,\n` +
         `this is what is supposed to fail instead of the next reader:\n${wrong.join("\n")}`,
-    ).toEqual([]);
-  });
-});
-
-describe("DESIGN.md's index of the decisions", () => {
-  const design = readFileSync(join(ROOT, "DESIGN.md"), "utf8");
-  const heading = design.indexOf("## Decisions");
-  const section = design.slice(heading);
-
-  /** Slug → the group DESIGN.md files it under. "Also live" is a second, unbolded live line. */
-  const indexed = new Map<string, string>();
-  let group: string | null = null;
-  for (const line of section.split("\n")) {
-    const marker = /^\*\*(Live|Open|Superseded)\*\*|^Also live/.exec(line);
-    if (marker) group = (marker[1] ?? "Live").toLowerCase();
-    if (!group) continue;
-    // In the superseded group each entry reads "`slug`, by `successor`" — only the first is filed.
-    const text = group === "superseded" ? (line.split(", by ")[0] as string) : line;
-    for (const [, slug = ""] of text.matchAll(/`([a-z0-9-]+)`/g)) {
-      if (SLUGS.includes(slug)) indexed.set(slug, group);
-    }
-  }
-
-  it("has a section to read at all", () => {
-    expect(heading, "DESIGN.md no longer has a `## Decisions` section").toBeGreaterThan(0);
-    expect(indexed.size, "the index parsed to no slugs — its formatting has changed").toBeGreaterThan(
-      20,
-    );
-  });
-
-  it("lists every record, and every slug it lists is a record", () => {
-    const unlisted = SLUGS.filter((slug) => !indexed.has(slug));
-    expect(
-      unlisted.sort(),
-      `A record DESIGN.md does not list is a rule nobody arriving through DESIGN.md will find:\n` +
-        unlisted.join("\n"),
-    ).toEqual([]);
-
-    // The other direction, off the same parse: a slug in the index with no record behind it.
-    const invented = [...section.matchAll(/`([a-z0-9-]{8,})`/g)]
-      .map(([, slug = ""]) => slug)
-      .filter((slug) => slug.includes("-") && !SLUGS.includes(slug) && slug !== "component-name");
-    expect(
-      [...new Set(invented)].sort(),
-      `DESIGN.md names a decision that has no record. Either write the record or drop the name:\n` +
-        invented.join("\n"),
-    ).toEqual([]);
-  });
-
-  it("files each record under the status the record itself carries", () => {
-    const mismatched = RECORDS.flatMap((record) => {
-      const { kind } = statusOf(record);
-      const filed = indexed.get(record.slug);
-      if (!filed || filed === kind) return [];
-      return [`${record.slug}: the record says ${kind}, DESIGN.md files it under ${filed}`];
-    });
-
-    expect(
-      mismatched.sort(),
-      `The index is what an agent greps to get today's rules. A live record filed as superseded is\n` +
-        `a rule that has been switched off by a list:\n${mismatched.join("\n")}`,
     ).toEqual([]);
   });
 });

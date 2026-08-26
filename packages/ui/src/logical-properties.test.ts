@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { label, resolvePath, sourceFiles, subtrees, unreadable } from "./guard-corpus";
 
 /**
- * DESIGN.md: "Logical properties, never physical … One code path mirrors correctly under RTL."
+ * Logical properties, never physical: one code path mirrors correctly under RTL.
  * A rule nobody can grep is a rule that decays, so this is the grep.
  *
  * ## What this guard cannot prove

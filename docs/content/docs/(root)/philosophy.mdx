@@ -87,6 +87,29 @@ is two parts wearing one name — which is exactly why there is no bar component
 [Shell](/docs/layout/shell): a dense IDE strip is something you *put in* a region, and the region
 itself carries no aesthetic.
 
+## The layout layer
+
+The structure axis has exactly one vocabulary, and it is a tree:
+
+```
+ShellRoot                         full-height column, owns the viewport
+├── ShellHeader                   ┐
+├── ShellBody                     │ structural only:
+│   ├── ShellAside side="start"   │ placement, the separating border,
+│   ├── ShellMain                 │ what shrinks and what scrolls
+│   └── ShellAside side="end"     │
+└── ShellFooter                   ┘
+```
+
+**The regions place their children and declare no role.** Everything visible inside is the
+caller's, and the call site passes the landmark — a top region is often `banner` and a bottom one
+`contentinfo`, but a strip is neither and a shell may have several.
+
+**Exactly one `<main>` per page**, owned by [`ShellMain`](/docs/layout/shell); nested containers
+are `<section>`. [`SidebarInset`](/docs/navigation/sidebar) is a neutral offset `<div>`, not a
+`<main>` — it is the inset styling wrapper, and the `ShellMain` inside it owns the landmark. shadcn
+does the opposite because it has no region layer; we do.
+
 ## The engine rule
 
 > **A component that needs an engine is the presentational one plus the engine — two components,
@@ -128,7 +151,17 @@ The rule cuts both ways, and the second direction is the one that keeps the libr
 convenience whose only content is a fixed arrangement of the primitive's parts is an **example**,
 not a component. `TextField` was `InputGroup` with the composition already done, and `DateField`
 was `DatePicker` plus a twenty-line adapter; both are now written out where they are used, which
-is where a reader can see them.
+is where a reader can see them. `NumberField`, `EmptyState` and `Ribbon` went the same way, and
+they are tombstoned so the names cannot quietly come back. **A convenience earns the name by being
+*more capable* than the composition, never by being shorter than it.**
+
+### The taxonomy test
+
+> **A machine with a switch is a variant or a mode. A new content contract assembled on a
+> primitive is a PascalCase composite.**
+
+Two sentences, and between them they place almost everything. It is prose, not a guard: no test
+classifies a component for you.
 
 Parts themselves are exported **flat, never as a namespace** — `DialogContent`, not
 `Dialog.Content` — for the reasons on [Styling](/docs/styling#compound-components).

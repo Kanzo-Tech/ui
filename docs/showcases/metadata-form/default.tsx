@@ -153,7 +153,7 @@ import {
   writLines,
 } from "./data";
 
-// The library models validation as a boolean + a node (DESIGN.md, FORMS-DECISION.md). So a
+// The library models validation as a boolean + a node (FORMS-DECISION.md). So a
 // VIOLATION goes through `Field`'s own channel (`invalid` + `FieldError`), while WARNING / INFO
 // — severities the library deliberately does not model — are product-rendered nodes.
 

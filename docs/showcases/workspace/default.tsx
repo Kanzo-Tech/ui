@@ -119,7 +119,7 @@ import {
  *      ├─ ShellBody             Resizable: ShellMain view  ⟷  docked ShellAside inspector
  *      └─ ShellFooter           status bar: node/edge count at start, panel-tab icons at end
  *
- * The dock is drag-resizable: per DESIGN.md ("resizing is composed, not a prop") the main region and
+ * The dock is drag-resizable, and resizing is composed rather than a prop: the main region and
  * the aside are the two panels of a `Resizable` (our Ark Splitter wrapper), so the drag, keyboard
  * resize and ARIA all come from the machine. The Sidebar stays OUTSIDE the splitter.
  *
@@ -509,7 +509,7 @@ function ArchiveShell() {
 
 			{/* SidebarInset is a neutral offset column; the content shell lives inside it so ShellMain
 			    owns the one <main> and the fixed rail never overlaps the header (a fixed sidebar and a
-			    full-width top region are mutually exclusive — DESIGN.md). */}
+			    full-width top region are mutually exclusive). */}
 			<SidebarInset>
 				{/* `min-w-0` is what lets the trail shrink instead of pushing the strip wide. Miss it
 				    on one region and the breadcrumb breaks onto a second line, which a fixed-height

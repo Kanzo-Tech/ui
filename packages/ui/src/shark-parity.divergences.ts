@@ -8,9 +8,9 @@
  * (`decisions/a-name-shark-ships-is-ours.md`); the second is what stops this file rotting into an
  * allowlist that only ever grows.
  *
- * **A reason is not a note.** `CONVENTIONS.md`, *The reference, and what overrules it*: the
- * reference governs the surface, a measurement overrules the reference, and a house principle
- * overrules neither. So where this library made a CHOICE against Shark, the reason is one of four
+ * **A reason is not a note.** The reference governs the surface, a measurement overrules the
+ * reference, and a house principle overrules neither. So where this library made a CHOICE against
+ * Shark, the reason is one of four
  * things, and saying which is the point:
  *
  * 1. a measurement — a number, what it was measured against, a threshold it crosses;
@@ -99,7 +99,7 @@ export const OURS_ALONE: Readonly<Record<string, string>> = {
   Link: "Ours. The styled anchor, and the routing seam every composite reaches through `asChild` — `index.test.ts`, `drops the components that took a layout tree as an array prop`.",
   "floating-panel": "Ours, and it collides with a Shark name. See the UNADOPTED entry, which is the other half of this one.",
   "pin-input": "Ours over Ark's pin-input machine. Shark's answer to the same problem is `input-otp`, under names that do not correspond.",
-  suggestions: "Ours. A row of values on offer, each committing a string and leaving no selection — which by `DESIGN.md`'s menu/listbox rule makes it a command surface and not a value one. It is in `ui` and not `@kanzo-tech/ai` because it does not know a model exists, which is the line `decisions/the-ai-surfaces-are-their-own-package.md` draws; the ✨ beside it does, and stays there. Shark has no file for it. **Admission rule 2 is not met yet**: `@kanzo-tech/ai`'s `SuggestList` is the one real consumer, and the second is expected to be a non-model one (recent values, saved filters).",
+  suggestions: "Ours. A row of values on offer, each committing a string and leaving no selection — which by the menu/listbox rule makes it a command surface and not a value one. It is in `ui` and not `@kanzo-tech/ai` because it does not know a model exists, which is the line `decisions/the-ai-surfaces-are-their-own-package.md` draws; the ✨ beside it does, and stays there. Shark has no file for it. **Admission rule 2 is not met yet**: `@kanzo-tech/ai`'s `SuggestList` is the one real consumer, and the second is expected to be a non-model one (recent values, saved filters).",
   "stat-tile": "Ours. A composite by the test in `decisions/a-machine-with-a-switch-is-a-variant.md`, which names this component as the worked example.",
   swatch: "Ours. A strip that only depicts; Ark's picker swatch parts all require a picker context and compute `checked` against its single value, so a sixteen-slot palette strip cannot be built from them (`index.test.ts`, `exposes the core surface`).",
 };
@@ -107,7 +107,7 @@ export const OURS_ALONE: Readonly<Record<string, string>> = {
 /**
  * The same Ark part under a different exported name. Declaring these as a pair rather than as one
  * absence plus one addition is the honest shape: nothing is missing and nothing is extra, the two
- * references simply disagree about spelling, and `CONVENTIONS.md` picks Ark's part name.
+ * references simply disagree about spelling, and the naming rule picks Ark's part name.
  *
  * Keyed `"<shark file>:<Shark's name>"`.
  */
@@ -126,7 +126,7 @@ export const RENAMED: Readonly<Record<string, { readonly ours: string; readonly 
 /** The one rule behind all nine renames, spelled once so it cannot drift into nine variants. */
 function ARK_PART_NAME(part: string): string {
   return (
-    `Both wrap Ark's \`${part}\`. \`CONVENTIONS.md\`, *Naming*: a part is base plus part, so the ` +
+    `Both wrap Ark's \`${part}\`. The naming rule: a part is base plus part, so the ` +
     `Ark spelling is the one that survives — Shark shortens it instead. Settled 2026-07-31 in ` +
     `\`decisions/a-part-is-named-by-its-machine.md\`: a part name is a fact about the machine, so ` +
     `it belongs to the reference that owns the machine. That record settles these nine and ` +
@@ -402,7 +402,7 @@ export const BEYOND_THE_SURFACE: readonly {
   {
     what: "Nine parts spelled with Ark's name where Shark shortens it.",
     why:
-      "The two references disagreeing, which `CONVENTIONS.md` assigns to the owner rather than to " +
+      "The two references disagreeing, which the tie-break assigns to the owner rather than to " +
       "either rule — and the owner took it, narrowly, in " +
       "`decisions/a-part-is-named-by-its-machine.md`: a part name is a fact about the machine. " +
       "This entry used to read that the eight had never been weighed against parity, which stopped " +
@@ -411,7 +411,6 @@ export const BEYOND_THE_SURFACE: readonly {
       "halves — and what stays open is the general case of the two references colliding, which " +
       "that record deliberately does not settle.",
     held: [
-      "CONVENTIONS.md",
       "decisions/a-part-is-named-by-its-machine.md",
       "decisions/a-name-shark-ships-is-ours.md",
     ],

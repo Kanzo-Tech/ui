@@ -36,8 +36,8 @@ describe("Suggest", () => {
 
   /**
    * The candidates are BUTTONS, in the flow, in document order — not options in a listbox behind a
-   * popover. Picking one leaves a value in a field and no selection anywhere, which by `DESIGN.md`
-   * is a command and not a value; the version this replaced pinned a listbox's `value` to an empty
+   * popover. Picking one leaves a value in a field and no selection anywhere, which makes it a
+   * command and not a value; the version this replaced pinned a listbox's `value` to an empty
    * array forever to say the same thing.
    */
   it("offers candidates as buttons, and picking one commits its value", async () => {

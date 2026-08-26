@@ -4,8 +4,8 @@
 - **Decided** No guidance document carries a measurement. If a number matters, a test prints it or
   asserts it; if no test wants it, it was noise. The same applies to a `file:line` — cite a file
   and a symbol.
-- **Because** the export census was written into `DESIGN.md` as the authoritative correction of an
-  earlier wrong count, and three careful independent recounts then produced three different
+- **Because** the export census was written into the root design document as the authoritative
+  correction of an earlier wrong count, and three careful independent recounts then produced three different
   answers, each wrong in a different direction. Prose survives; numbers and paths rot.
 - **Reversed by** nothing. The recounts disagreed for reasons that generalise: the repository
   carries whole working copies of itself under `.claude/worktrees/`, so a scan that does not

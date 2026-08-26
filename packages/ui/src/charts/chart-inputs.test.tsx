@@ -68,7 +68,7 @@ const HOST_COUNTS: Row[] = [
 
 describe("ChartFilter", () => {
   // A `FacetFilter`: the rows are listbox `option`s, because the ticked values are the page's filter
-  // state and not a command. See DESIGN.md, "A menu is a command; a listbox is a value".
+  // state and not a command.
   const open = async (user: ReturnType<typeof userEvent.setup>, name = /Host/) => {
     await user.click(screen.getByRole("button", { name }));
     return screen.findAllByRole("option");

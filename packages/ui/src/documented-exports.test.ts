@@ -33,17 +33,17 @@ import { beforeAll, describe, expect, it } from "vitest";
  * whole reason a rename typechecks clean while the docs build fails. The export set is read out of
  * the emitted `.d.ts` for the root barrel and every subpath in each package's own `exports` map, by
  * the TypeScript checker rather than by a regex over the file: `dist/index.d.ts` is 90 lines of
- * `export *`, and following those by hand is exactly the kind of not-seeing-part-of-the-corpus that
- * `CONVENTIONS.md` bans.
+ * `export *`, and following those by hand is exactly the kind of not-seeing-part-of-the-corpus a
+ * guard may not do.
  *
  * **What this cannot prove**, in the order the gaps matter:
  * - It cannot see a symbol documented by *description* rather than by name. A page that says "the
  *   root re-exports the context hook" without naming it passes.
  * - It cannot see a page that is simply missing. Nothing here maps exports to pages, so a component
  *   with no page at all is invisible — and nothing else guards it either. This is the only test
- *   file in the repository that reads `docs/content/docs` at all, and DESIGN.md's taxonomy test is
- *   one prose sentence about classifying a component as a variant or a composite; it is not
- *   executable and it is not about pages. The blind spot is open, not covered.
+ *   file in the repository that reads `docs/content/docs` at all, and the taxonomy test on
+ *   `/docs/philosophy` is prose about classifying a component as a variant or a composite; it is
+ *   not executable and it is not about pages. The blind spot is open, not covered.
  * - It cannot see prose that *uses* a name without claiming it exists. Two of the eleven alias
  *   pages read "`useEditable` reads the …" and "`usePinInput` exposes the machine context" — true
  *   sentences about a deleted export, and neither site below fires on them. Widening to all prose
@@ -206,7 +206,7 @@ function surface(): Surface {
  * known-external names. It was rejected after measuring it: MDX prose backticks `useState`,
  * `asChild`, `data-slot`, `ark.div`, CSS classes, token names, prop names and type names, and the
  * naive version reported 43 hits, six of them real. A guard with that ratio is switched off
- * inside a week, and CONVENTIONS.md's whole argument for guard tests is that they are trusted.
+ * inside a week, and the whole argument for a guard test is that it is trusted.
  *
  * So each site below is a place where a page makes a *structured claim about the API*, and the
  * three together caught 12 of the 14 pages in the two historical commits that fixed this defect:

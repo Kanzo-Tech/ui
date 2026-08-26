@@ -14,8 +14,9 @@
 
 ## Where the rules are
 
-- `DESIGN.md` — what the system is: the axes, the layers, the engine and naming rules, admission,
-  the taxonomy tests, and the index of decisions.
+- `docs/content/docs/(root)/philosophy.mdx` — what the system is: the axes, the layers, the layout
+  tree, the engine and naming rules, the taxonomy test, admission, the client boundary. It is a
+  page on the site (`/docs/philosophy`), and it is the only copy: there is no `DESIGN.md`.
 - `CONVENTIONS.md` — how to write a file: the reference and what overrules it, the recipe, tokens,
   props, the client boundary, naming, comments, tests.
 - `decisions/` — one record per decision. `Status` `live` is today's rule; anything else is

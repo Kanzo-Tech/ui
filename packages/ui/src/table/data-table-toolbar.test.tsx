@@ -85,8 +85,7 @@ describe("DataTableSearch", () => {
 
 describe("DataTableFacetFilter", () => {
   // A `FacetFilter`, so the rows are `option`s in a listbox and not `menuitemcheckbox`es: the
-  // filter is the column's value, and a menu leaves only an effect behind. See DESIGN.md,
-  // "A menu is a command; a listbox is a value".
+  // filter is the column's value, and a menu leaves only an effect behind.
   const open = async (user: ReturnType<typeof userEvent.setup>, name = "Status") => {
     await user.click(screen.getByRole("button", { name: new RegExp(name) }));
     return screen.findAllByRole("option");

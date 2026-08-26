@@ -348,7 +348,7 @@ export const SidebarRail = (props: React.ComponentProps<typeof ark.button>) => {
 };
 
 // A neutral offset column, not `<main>`: the content shell goes inside it and `ShellMain` owns
-// the landmark (one `<main>` per page; DESIGN.md "a region declares no role").
+// the landmark (one `<main>` per page; a region declares no role).
 export const SidebarInset = (props: React.ComponentProps<typeof ark.div>) => {
   const { className, slot, ...rest } = props;
 

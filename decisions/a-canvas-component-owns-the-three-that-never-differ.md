@@ -85,7 +85,7 @@ premature, and `keasy`'s migration is where the second host comes from.
   `useGraphLook`, `useGraphOverlays` and `useGraphSelection` stay on the barrel, and the last two
   were deliberately left out of the component because both need a policy only a product can write.
   The relationship is `ChartRoot` to `useChart`, not v2 to v1.
-- **It is not in `@kanzo-tech/ui`, and could not be.** `DESIGN.md`'s first admission rule is
-  domain-free and names graphs.
+- **It is not in `@kanzo-tech/ui`, and could not be.** The first admission rule is domain-free and
+  names graphs.
 - **`onFailure` stays required** while everything else on the component is optional. Its silence is
   a defect rather than a choice: unhandled, a browser with no WebGL context shows an empty box.

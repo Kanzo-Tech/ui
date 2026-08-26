@@ -617,9 +617,8 @@ export function JobStudioShowcase() {
           onStepChange={(d) => setStep(Math.min(d.step, STEPS.length - 1))}
           step={step}
         >
-          {/* ONE row, which is what the reference does. shadcn's dashboard and sidebar blocks
-              — the layout references DESIGN.md names, alongside Mantine and Ant — put a single
-              `h-16` strip inside the content column holding a trigger, a separator and the trail,
+          {/* ONE row, which is what the reference does. shadcn's dashboard and sidebar blocks,
+              alongside Mantine and Ant, put a single `h-16` strip inside the content column holding a trigger, a separator and the trail,
               and NO primary actions: those live in the rail or in the content. This was two
               half-empty rows carrying a duplicate error count and an attribution that competes
               with the job's own name. */}
@@ -749,8 +748,8 @@ export function JobStudioShowcase() {
                   </MenuItem>
                   <MenuSeparator />
                   {/* A RADIO group, not a row of commands. Which starter is loaded is state that
-                      survives closing the surface, and DESIGN.md's test for that is explicit:
-                      "if closing the surface leaves state, it is a listbox". Ark's menu has the
+                      survives closing the surface, and the test for that is explicit: if closing
+                      the surface leaves state, it is a listbox. Ark's menu has the
                       radio variant for exactly this, so the value keeps its checkmark. */}
                   <MenuRadioGroup
                     onValueChange={(d) => loadTemplate(d.value)}
@@ -820,7 +819,7 @@ export function JobStudioShowcase() {
 /**
  * The tally and what it is made of — metadata-form's control, wearing the same chrome, fed by
  * this screen's analysis instead of a SHACL report. Deliberately not extracted into the library:
- * DESIGN.md's forms decision is that products produce errors and the library only displays them,
+ * products produce errors and the library only displays them,
  * and these two issue models share almost nothing — one is keyed by form field with a label, the
  * other by document offset with a line number.
  *

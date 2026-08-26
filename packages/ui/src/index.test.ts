@@ -107,7 +107,7 @@ describe("@kanzo-tech/ui public surface", () => {
     // Both consumers sit on subpaths that must not import each other — `/table` would pull in
     // Mosaic, `/analytics` would pull in TanStack. FacetFilter is presentational, so the root
     // barrel is the only place it can serve both. It is built on `Listbox`, not on `Menu`:
-    // a filter is a value, so its surface is a listbox (DESIGN.md, admission rules).
+    // a filter is a value, so its surface is a listbox.
     expect(UI.FacetFilter).toBeTypeOf("function");
     expect(UI.ListboxItem).toBeTypeOf("function");
     // The filter field `searchable` draws. An Ark part Shark's listbox omits, so nothing upstream
@@ -331,9 +331,8 @@ describe("@kanzo-tech/ui public surface", () => {
   it("exports every part Shark's registry exports, including the ones our own root renders", () => {
     // These were un-exported in one sweep, on the house principle that a part its own root places
     // needs no export and that exporting one advertises a composition the root does not allow. The
-    // principle is a good one and it lost: `CONVENTIONS.md`, *The reference, and what overrules it*
-    // — the reference governs the surface, and a house principle overrules neither it nor a
-    // measurement. Shark's `registry/react/components/<file>.tsx` exports every name below, so the
+    // principle is a good one and it lost: the reference governs the surface, and a house
+    // principle overrules neither it nor a measurement. Shark's `registry/react/components/<file>.tsx` exports every name below, so the
     // whole of this list is one fetch away from being falsified by a source outside this repository,
     // which is the property the sweep's argument never had.
     // `decisions/a-house-principle-withholds-no-name.md` carries the composition audit that went

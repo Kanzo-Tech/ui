@@ -200,7 +200,7 @@ function initials(name: string) {
  * The screen a product opens on: a collapsing rail, a header, a KPI row, one actionable table
  * and a rail of supporting cards.
  *
- * The layout follows the shadcn model DESIGN.md calls canonical — `SidebarProvider` is the
+ * The layout follows the canonical shadcn model — `SidebarProvider` is the
  * viewport frame, and the header and footer live INSIDE `SidebarInset`, to the inline end of the
  * fixed rail, never spanning it. `ShellMain` owns the page's single `<main>`; everything nested
  * under it is a `<section>`.

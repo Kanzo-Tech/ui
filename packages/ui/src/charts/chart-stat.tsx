@@ -10,8 +10,8 @@ import { useChartQuery } from "./use-chart-query.js";
 
 /**
  * `StatTile` with the figure it shows read from the relation, under the same crossfilter as the
- * plots. The connected half of the pair — see the engine rule in `DESIGN.md`: `StatTile` takes a
- * number and lives in the root barrel, this one queries for it and lives here.
+ * plots. The connected half of the pair, which is the engine rule: `StatTile` takes a number and
+ * lives in the root barrel, this one queries for it and lives here.
  */
 
 export interface ChartStatProps extends Omit<StatTileProps, "value" | "trend"> {

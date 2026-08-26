@@ -12,7 +12,7 @@
   where anyone who wants that look copies it.
 - **Held by** `packages/ui/src/layouts/shell.tsx`, the region set;
   `packages/ui/src/layouts/shell.test.tsx`, "declare no role, so the call site owns the landmark"
-  and "impose no height, surface or typography of their own"; `DESIGN.md`, the layout layer
+  and "impose no height, surface or typography of their own"
 
 The role half is a rule of its own: a bottom region is often `contentinfo`, a top one often
 `banner`, a strip is neither, and a shell may have several. The call site passes the landmark. A

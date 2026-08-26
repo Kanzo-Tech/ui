@@ -67,8 +67,8 @@ export interface FacetFilterProps
  * The surface behind every facet filter: a trigger that reports its own count, a listbox of
  * values, and a way out.
  *
- * A filter is **a value**, not a command, so this is a listbox and not a menu of checkbox items —
- * see DESIGN.md, "A menu is a command; a listbox is a value". Where the values come from and
+ * A filter is **a value**, not a command, so this is a listbox and not a menu of checkbox items.
+ * Where the values come from and
  * where the choice goes are the caller's: TanStack facets on one side of this library, a Mosaic
  * clause on the other. What is *not* the caller's are the two rules below, which both adapters
  * had independently rediscovered, and which are invisible until they bite — and which both have to

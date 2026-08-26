@@ -19,8 +19,8 @@ import { Button, KanzoThemeProvider } from "@kanzo-tech/ui";
 - **`layouts/`** — the Shell and Section regions. Structure only, no appearance.
 
 Everything is exported flat from the root, so a component moving between layers is never a breaking
-change. The docs site lists the surface with a live example per component; `DESIGN.md` in the
-repository says how the three layers divide and what has to be true before a component is added.
+change. The docs site lists the surface with a live example per component, and its Philosophy page
+says how the three layers divide and what has to be true before a component is added.
 
 ## Subpaths
 

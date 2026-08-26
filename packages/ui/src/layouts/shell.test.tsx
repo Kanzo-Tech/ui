@@ -35,7 +35,7 @@ const panels = [
 function StatusStrip({ active = "files" }: { active?: string }) {
   return (
     // The IDE density (h-[1.625rem], the small font) is the CALLER's, applied here as
-    // ordinary classes. The region itself has no aesthetic — see DESIGN.md.
+    // ordinary classes. The region itself has no aesthetic.
     <ShellFooter
       aria-label="Status"
       className="h-[1.625rem] flex-row items-center gap-2 bg-card px-1.5 text-[11px] text-muted-foreground"

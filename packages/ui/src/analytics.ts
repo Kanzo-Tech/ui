@@ -86,8 +86,8 @@ export type { MosaicInputOptions, MosaicInputState } from "./charts/chart-inputs
 export { ChartLegend, ChartColorLegend } from "./charts/chart-legend.js";
 export type { ChartLegendProps, ChartColorLegendProps } from "./charts/chart-legend.js";
 
-// The connected half of the tile pair: `StatTile` (root barrel) takes a number, this one queries
-// for it under the crossfilter. See "the engine rule" in DESIGN.md.
+// The connected half of the tile pair, which is the engine rule: `StatTile` (root barrel) takes a
+// number, this one queries for it under the crossfilter.
 export { ChartStat } from "./charts/chart-stat.js";
 export type { ChartStatProps } from "./charts/chart-stat.js";
 
@@ -95,7 +95,7 @@ export type { ChartStatProps } from "./charts/chart-stat.js";
 export { useChartQuery, Query } from "./charts/use-chart-query.js";
 export type { ChartQueryOptions, ChartQueryResult, ChartQueryRow } from "./charts/use-chart-query.js";
 // `ChartCard` and `DashboardGrid` are gone: a titled frame and a responsive grid are arrangements
-// with no behaviour, so per DESIGN.md's ladder they are copied, not imported. They live in
+// with no behaviour, so they are copied, not imported. They live in
 // `docs/lib/` for the showcases that use them.
 
 // For a descriptor of your own: `chartDescriptor` mints one, and the types below are the contract

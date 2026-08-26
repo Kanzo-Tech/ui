@@ -13,8 +13,7 @@
 - **Held by** `packages/ui/src/index.test.ts`, "exposes the one facet-filter surface, on the root
   barrel"; `packages/ui/src/simples/listbox.test.tsx`, which pins `deselectable`;
   `packages/ui/src/simples/FacetFilter.test.tsx`, "keeps the popover non-modal, so the table it
-  filters stays reachable" — the popover is the filter's own, and the listbox it wraps has none;
-  `DESIGN.md`, the menu-versus-listbox test
+  filters stays reachable" — the popover is the filter's own, and the listbox it wraps has none
 
 `FacetFilter` sits on the root barrel because its two consumers are on subpaths that must not see
 each other — `/table` would drag in Mosaic, `/analytics` would drag in TanStack — and being

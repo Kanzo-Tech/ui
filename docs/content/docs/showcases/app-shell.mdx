@@ -16,7 +16,7 @@ It is also where the five sidebar composites the library no longer ships are wri
 breadcrumb trail with a collapsed middle. That hand-composition **is** the documentation: an
 arrangement does not have to become a component, and here you can read the whole of it.
 
-The layout is the shadcn model DESIGN.md calls canonical, and it is the whole reason a fixed rail
+The layout is the canonical shadcn model, and it is the whole reason a fixed rail
 and a full-width header are mutually exclusive: `SidebarProvider` is the viewport frame, and
 `ShellHeader` / `ShellMain` / `ShellFooter` live **inside** `SidebarInset`, to the inline end of
 the rail — never spanning it. `SidebarInset` carries no landmark; `ShellMain` owns the page's

@@ -10,8 +10,9 @@ It is a **sibling** of `@kanzo-tech/ui`, not part of it.
 
 ## Why it is not in the library
 
-`DESIGN.md`'s first admission rule is *domain-free — nothing about RDF / SHACL / **graphs** / auth*.
-Graphs are excluded by name, and deliberately: `ui` is the generic vocabulary every product shares,
+[The first admission rule](/docs/philosophy#admission) is *domain-free — nothing about RDF /
+SHACL / **graphs** / auth*. Graphs are excluded by name, and deliberately: `ui` is the generic
+vocabulary every product shares,
 and a renderer with a **required** WebGL peer would change what that package is. A separate package
 is the same answer `palette` and `theme` already got — ours, shipped, not `ui`.
 
