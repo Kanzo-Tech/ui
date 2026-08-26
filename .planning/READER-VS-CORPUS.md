@@ -1,6 +1,27 @@
 # El lector contra las cinco convenciones — auditoría, 2026-08-14
 
-Trabajo A de `.planning/ANALYTICS-AND-GRAPH.md`. Lectura pura: `conventions/{identity, addressing,
+> **EVIDENCIA, no dirección — el veredicto de este fichero está revertido. Revisado 2026-08-26.**
+>
+> **§0 es falso desde que aterrizó `openCorpus`**, y lo fue durante nueve días sin que nadie lo
+> marcase: *«no hay un lector direccionado»* describe un árbol que ya no existe. También son falsos
+> §2 (`parquet_metadata` sí aparece en `packages/`), §3 (`by_target` está teselado y las anclas se
+> dibujan), §4 en su mitad de Morton (`strideSql` es un muestreo por zancada), §5 (`detail()` va
+> plegado en `count(*) OVER ()`) y §6 en su premisa (los siete corpus se regeneraron en
+> `ADOPT-FOSSIL-CORPUS.md` F0). Las conclusiones vivas están en `/docs/design/graph`.
+>
+> **Se queda por dos cosas que no están en ningún otro sitio**, y por `BENCHMARKS.md`, que lo cita:
+>
+> 1. **§4 refuta `payload.mdx` de rmlext.** «`x` e `y` separados para que suban a la GPU sin
+>    transformación» es falso para el consumidor de GPU que la propia página cita:
+>    `graph.setPointPositions` sólo acepta un `Float32Array` intercalado. Es una corrección que
+>    seguimos debiendo a ese repo, y F2 la vuelve urgente, no menos.
+> 2. **§6 tiene la aritmética del fallo silencioso**: con `CHUNK_SIZE = 122_880` contra teselas de
+>    4.096, un corpus de un millón genera 9 URLs de las 245, las nueve existen, y la vista abre el
+>    3,7% del corpus publicando un primer pintado estupendo. El mecanismo está documentado en dos
+>    sitios; **la cantidad, sólo aquí**, y es el ejemplo trabajado de una clase de fallo que este
+>    repo nombra a menudo.
+
+Trabajo A de `ANALYTICS-AND-GRAPH.md` (borrado el 26). Lectura pura: `conventions/{identity, addressing,
 adjacency, order, payload}.mdx` de `rmlext/apps/corpus` contra `packages/graph/src/{bounded,
 duck-source, resident, memory-source}.ts`, más el único sitio que abre un corpus de verdad,
 `docs/showcases/graph-bench/measure-bounded.ts`.

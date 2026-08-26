@@ -8,6 +8,31 @@ Este fichero es la arquitectura y el orden. `ONE-SOURCE.md` sigue siendo el cort
 fuente» y no se contradice con éste — pero **una de sus decisiones se revierte aquí**, y está dicho
 abajo con su razón.
 
+> **VIVO. Estado verificado contra el árbol el 2026-08-26.**
+>
+> **Cerrados y confirmados cerrados:** pasos 1, 2, 5, 7, 8 y 9 — la caché de teselas, el
+> `MosaicClient`, la vista lejana como muestra, la caja de coordenadas. Muertos también dos
+> apartados que este fichero proponía: `SPACE = 4096` no se exporta (lo prohíbe
+> `coordinate-box.test.ts`) y `lodThreshold` no existe.
+>
+> **Abiertos, y no están en ningún otro plan** — `ADOPT-FOSSIL-CORPUS.md` los nombra en una frase
+> cada uno o en ninguna:
+> - **paso 3**, multitipo por vecindad;
+> - **paso 6**, la capa de aristas: las anclas aterrizaron, la segunda pasada por `by_target` y la
+>   densidad no;
+> - **paso 10**, el cromo sube al paquete y el workspace reescrito es la prueba. No hay
+>   `GraphLegend`, `GraphToolbar` ni `GraphInspector` en el barril. Su condición de aceptación
+>   —«si no baja a decenas de líneas más sus paneles de producto, la API no está terminada»— no
+>   está escrita en ningún otro sitio.
+>
+> **Y una corrección que `BENCHMARKS.md` todavía no ha absorbido:** el §final dice que dos de las
+> tres costuras del escritor están refutadas por medición (`to_files` a 0,02 GB; el `Vec` del layout
+> a CSR en streaming, −1,71 GiB) y que sólo queda `GraphArData`. `BENCHMARKS.md` sigue listando las
+> tres como abiertas. Ese fichero lo lleva otra sesión; la corrección es de aquí.
+>
+> Las rutas `decisions/…` de abajo están muertas: el directorio se borró el 26 y cada registro se
+> sustituyó por lo que decía, en `/docs/design/graph`.
+
 ---
 
 ## Qué es «de referencia» aquí

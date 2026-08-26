@@ -4,6 +4,12 @@ Written 2026-07-22, from a design discussion that went four rounds and ended som
 different from where it started. The reversals are recorded on purpose: the reasoning is
 the valuable part, and the final answer only makes sense against what it rejected.
 
+> **EVIDENCE. Reviewed 2026-08-26 and the decision still holds.** `/docs/design/admission` cites
+> this file as *the full reasoning* behind "no validation model", and the rule there carries what
+> would reverse it: a second validation consumer that agrees with the first about keys, severity
+> and cardinality. Two have not. The only thing that has moved is the follow-up — "keasy migrates
+> to the `Field` in the barrel" is parked, not done, and it is keasy's move rather than this repo's.
+
 ---
 
 ## The decision

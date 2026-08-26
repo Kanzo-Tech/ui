@@ -7,6 +7,27 @@ mantenemos.
 Este fichero es el corte: lo hecho está en `main`, lo que falta está aquí con el porqué, para que
 una ventana limpia lo continúe sin reconstruir el razonamiento.
 
+> **VIVO, y estrecho. Estado verificado contra el árbol el 2026-08-26.**
+>
+> **§1 y §2 están hechos:** el workspace abre por `openCorpus` (`graph-state.tsx`, `specFor(opened)`,
+> `idField: "dense_id"`) y el ejemplo existe. **§3 y §4 no**: `memorySource` sigue en
+> `memory-source.ts` y en el barril, y `duckBoundedSource` sigue en `duck-source.ts`. Eso es la F3
+> de `ADOPT-FOSSIL-CORPUS.md`, que la nombra en una sola frase — **§4 de aquí es su única lista de
+> trabajo**, y enumera los cinco sitios que el borrado rompe, empezando por la única aserción de
+> comportamiento que `smoke` tiene sobre el barril raíz sin peers opcionales.
+>
+> **Dos avisos antes de ejecutar §3 al pie de la letra:**
+> 1. **La línea que condena `explore`, `ExploringSource` y `ExploreRequest` está revertida** por
+>    `ONE-PATH.md`, que asciende `explore` de comodidad a mecanismo obligatorio. Borrarlo sería
+>    borrar lo que el otro plan promovió.
+> 2. **«`GraphSpec` desaparece entero» no pasó**, y ya no es lo que se pide: `GraphSpec` sigue vivo
+>    en el workspace. Lo que sí aterrizó es la otra mitad — los canales son props y `openCorpus`
+>    perdió `categoryField`.
+>
+> El estado del árbol que describe §5 es del 16 de agosto y no vale para nada; la trampa 2 (recompilar
+> `fossil` o escribe el `chunk_size` viejo) la absorbió F0 de `ADOPT-FOSSIL-CORPUS.md`. Las rutas
+> `decisions/…` están muertas: `/docs/design/graph` es donde fueron.
+
 ---
 
 ## Hecho

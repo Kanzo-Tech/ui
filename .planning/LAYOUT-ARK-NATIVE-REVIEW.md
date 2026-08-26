@@ -5,8 +5,18 @@ Written 2026-07-23. A review-only pass (no code changed) answering one question 
 is grounded in a URL or a `file:line` in this repo, because the previous audits shipped three
 findings that turned out to be wrong (`decisions/an-audit-is-a-map-not-an-oracle.md`).
 
-Companion docs: `DESIGN.md` ("The layout layer") and
-`decisions/layout-is-not-ark-native.md`, which is this document's conclusion in five lines.
+> **EVIDENCE. Reviewed 2026-08-26 and still the grounding it is cited as.** `/docs/design/references`
+> names this file under *Held by* for the claim that "make it Ark-native" asks for conformance to an
+> empty set. Nothing here directs work: §2's double-`<main>` shipped and is one of the four one-way
+> doors in `CLAUDE.md`; §4 and §5 are the composition the shell has.
+>
+> **Every `DESIGN.md`, `CONVENTIONS.md` and `decisions/…` path below is dead** — all three were
+> deleted on 2026-08-26 and each record was replaced by what it said. The layout prose is
+> `/docs/philosophy`, the file rules are `/docs/conventions`, and this document's own five-line
+> conclusion is on `/docs/design/references`. The paths are left as written because re-pointing
+> a dozen of them would edit the grounding rather than date it; read them as "the design prose of
+> the day", and the line numbers as gone.
+
 `.planning/LAYOUT-DESIGN.md` was the spec it amends at §6.1; that spec was executed and deleted,
 and `packages/ui/src/layouts/shell.tsx` is its outcome.
 

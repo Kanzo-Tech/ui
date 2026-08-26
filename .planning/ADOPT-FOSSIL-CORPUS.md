@@ -2,6 +2,26 @@
 
 Escrito para sobrevivir a un `/clear`. Lo que hay aquí es estado medido el 25, no recuerdo.
 
+> **Al día el 2026-08-26. F0 y F1 están cerradas; F2, F3 y F4 no.** Éste es el plan de referencia de
+> `packages/graph`, y es el único fichero de `.planning/` que dirige el grafo de punta a punta.
+>
+> - **F1 ya no está bloqueada: corrió.** `openCorpus` existe con sus cuatro miembros, y nuestro
+>   lector y el suyo leen los dos contenedores de tesela y dan respuestas idénticas. La salida (a)
+>   del §2 —depender del checkout hermano para el spike— fue la que se tomó, y contestó lo que el
+>   spike iba a preguntar.
+> - **F3 tiene su lista de trabajo en otro fichero.** Aquí es una frase; los cinco sitios que el
+>   borrado de `memorySource` y `duckBoundedSource` rompe están enumerados en `ONE-SOURCE.md` §4, y
+>   el primero es la única aserción de comportamiento que `smoke` tiene sobre el barril raíz sin
+>   peers opcionales. **No ejecutes F3 sin leerla**, y lee también su cabecera: su §3 condena
+>   `explore`, que `ONE-PATH.md` revirtió.
+> - **F4 igual.** Sus tres rutas se apoyan en los pasos 3, 6 y 10 de `ONE-PATH.md`, que son las
+>   únicas descripciones que existen de multitipo por vecindad, de la segunda pasada de aristas y de
+>   subir el cromo al paquete con el workspace como prueba.
+> - **Una deuda que F2 hereda:** `without-fossil.mdx` de rmlext nos publica como su prueba de
+>   existencia — *«kanzo-ui lee corpus escritos por fossil sin ninguna dependencia `@fossil-lang/*`»*.
+>   Adoptar `openCorpus` es exactamente la dependencia que esa frase niega, así que F2 le debe una
+>   línea a esa página. Está anotado en `.planning/README.md` para que no se pierda.
+
 ## 0 · Dónde estamos, con evidencia
 
 - **Lo publicado en npm NO es lo que necesitamos, y esta línea decía lo contrario.** El último
@@ -143,10 +163,12 @@ seis corpus de `bench/` con los tres campos**. Sin él, ninguno abre.
 generador que este plan daba por perdido y estaba en `docs/showcases/graph-bench/corpus/`.
 `docs/public/corpus/archive` sigue siendo la copia parcheada, no regenerada.
 
-**F1 · Spike, sin tocar el lector.** Su salida —qué devuelve `window()`, en qué coordenadas y
-cuántas peticiones cuesta— **está contestada por lectura** en el §1, así que lo que queda del spike
-es ejecutarlo, y eso **está bloqueado: no hay nada publicado que traiga `openCorpus`**. Tres salidas,
-y ninguna es esperar callados:
+**F1 · Spike, sin tocar el lector. Hecho el 25–26.** Su salida —qué devuelve `window()`, en qué
+coordenadas y cuántas peticiones cuesta— estaba contestada por lectura en el §1, y ejecutarlo estaba
+bloqueado porque nada publicado traía `openCorpus`. **Se tomó la salida (a)**: `link:` al checkout
+hermano. `openCorpus` abre con sus cuatro miembros, los dos contenedores de tesela se leen desde los
+dos lados y las respuestas coinciden. Las tres salidas quedan escritas porque el bloqueo se repetirá
+en cuanto haga falta una API suya que no esté publicada:
 
 - **(a) Depender del checkout hermano** (`link:` a `../rmlext/packages/graph`) para el spike. Corre
   hoy; no es commiteable como dependencia real, y hay que acordar que el spike vive con esa marca.
@@ -161,11 +183,17 @@ y ninguna es esperar callados:
 `duck-source.ts` sea la que sabía de prefijos**.
 
 **F3 · Los borrados que ya estaban pendientes**, y que esta adopción hace baratos: `memorySource`,
-`duckBoundedSource`, la lápida de `IdSetClient` — el «paso 10» del plan anterior.
+`duckBoundedSource`, la lápida de `IdSetClient` — el «paso 10» del plan anterior. **Su lista de
+trabajo es `ONE-SOURCE.md` §4**, que enumera los cinco sitios que rompe y lo que cada borrado debe
+mudar antes de irse; ejecutar F3 sin ella es descubrirlos de uno en uno con `smoke` en rojo.
 
 **F4 · Las tres rutas**, ya sobre una API que no se mueve: teselado y zoom (la que enseña),
 larger-than-RAM, y benchmarks (el `graph-bench` que hoy no tiene página, sólo
-`/view/showcases/graph-bench`).
+`/view/showcases/graph-bench`). **Lo que hay que escribir para cada una está en `ONE-PATH.md`**,
+pasos 3, 6 y 10 — y el paso 10 trae la condición de aceptación de toda la API: si el workspace no
+baja a decenas de líneas más sus paneles de producto, no está terminada. De la ruta
+larger-than-RAM: dos de las tres costuras del escritor están refutadas por medición y sólo queda
+`GraphArData`; `BENCHMARKS.md` todavía lista las tres.
 
 **Lo que NO se muda, y es la línea que protege «fossil no envía visor»:** caché de teselas,
 debounce, cancelación por supersede, el `MosaicClient` con el predicado del crossfilter, `Resident`
@@ -178,9 +206,11 @@ y los buffers, la política de cuándo muestrear, y cosmos.gl entero.
   fue renombrar cuatro, y las citas eran de cuatro registros y no de tres.
 - **`adaptive()`**: exportado, **cero llamadas** (medido el 19). El repo tiene un registro que se
   llama `an-export-needs-a-second-call-site`.
-- **`.planning/` miente por partes.** `READER-VS-CORPUS.md` abre con *«no hay un lector
-  direccionado»* y `openCorpus` aterrizó después. Un directorio de planes donde un tercio de los
-  ficheros afirma cosas falsas es peor que ninguno: o se fecha y se marca, o se borra.
+- ~~**`.planning/` miente por partes.**~~ **Hecho el 26.** De 34 ficheros quedan 9 y un índice:
+  11.887 líneas borradas, 2.530 conservadas. Cada superviviente lleva su fecha y su estado
+  verificado contra el árbol, y `README.md` dice bajo qué regla se queda cada uno y qué se rescató
+  de los que se fueron. `READER-VS-CORPUS.md` es de los que se quedan, con su §0 marcado como
+  revertido: lo cita `BENCHMARKS.md`, y tiene dos cosas que no están en ningún otro sitio.
 
 ## 4 · Del diseño de fossil, tres cosas que preguntaría
 

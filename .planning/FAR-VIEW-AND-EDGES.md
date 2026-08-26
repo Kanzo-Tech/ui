@@ -6,6 +6,13 @@ queda como recomendación sin respaldo, y lo que no se puede probar está en la 
 
 Nada de aquí es código. La entrega es este fichero.
 
+> **EVIDENCIA. Revisado 2026-08-26.** No dirige nada: las dos secciones que cerraba están
+> implementadas y su regla vive en `/docs/design/graph`. Se queda porque es *el trabajo* detrás de
+> tres afirmaciones que el código cita por ruta —`packages/graph/src/bounded.ts` tres veces y
+> `duck-source.test.ts` una— y ninguna de las tres se puede rederivar leyendo el código: el corte de
+> 3 px (27,5–35,3% de las filas, 99,9–100% de los píxeles entintados), la mediana de arista por
+> tamaño de corpus, y por qué el extremo lejano es el vértice y no un punto en el borde.
+
 ---
 
 ## De qué corpus salen los números, y qué pasa si se re-tesela

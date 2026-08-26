@@ -29,8 +29,8 @@ import { statusVariants } from "./status.js";
  * declares — `color-scheme` — and the measurement went from ten pairs to five variants across
  * however many themes ship.
  *
- * **That is the check `.planning/THEME-REFOUNDATION.md` section 8 promised to bring back, and it
- * turned out to already be here.** Cutting the derivation gave up a contrast measurement made at
+ * **That is the check the theme refoundation promised to bring back, and it turned out to already
+ * be here.** Cutting the derivation gave up a contrast measurement made at
  * DERIVATION time; this measures the artefact instead, which needs no ramps and no palette package
  * — a contrast function and the files we ship. It is the difference between "the author answers for
  * AA" and "the author answers for AA and finds out when they are wrong".

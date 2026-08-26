@@ -1,5 +1,10 @@
 # Qué commit trajo realmente qué, 2026-08-19
 
+> **EVIDENCIA. Revisado 2026-08-26 y sigue siendo cierto.** No dirige trabajo: es lo único que
+> traduce cinco mensajes de commit a lo que sus diffs llevaban de verdad, y no se puede derivar de
+> `git log` porque el índice compartido no deja marca. Se borra el día que la historia deje de
+> consultarse.
+
 Decisión de Ángel: **no se reescribe la historia** — hay varias sesiones commiteando a la vez sobre
 este checkout y no hay remoto, así que un rebase bajo ellas es cómo se pierde trabajo de verdad. La
 verdad se escribe aquí en su lugar. Esto es peor que tenerla en el mensaje del commit y mejor que

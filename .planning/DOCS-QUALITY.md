@@ -7,6 +7,27 @@ and were **out of scope**, as were `docs/examples/charts/`, `showcases/app-shell
 
 Status key: **FIXED** · **OPEN** · **DECISION** (needs the owner)
 
+> **LIVE, and re-verified row by row on 2026-08-26.** Written 2026-08-04; the site has been
+> rewritten around it twice since, so read this box before believing a row.
+>
+> **Still open — nine rows and two decisions:**
+> - **§2, six bare previews.** `forms/{switch,checkbox,input,slider,textarea}` and `navigation/link`
+>   are still five-line files showing one naked control. The composition never happened; the labels
+>   did.
+> - **§1.2**, the React key warning from the unkeyed `links` array passed to `DocsLayout`.
+> - **§5.2**, `AvatarGroup` uses `-space-x-2` and does not mirror in RTL. It is a source defect in a
+>   shipped package, `logical-properties.test.ts` does not catch it, and it is a one-token fix.
+> - **§4, both DECISIONs, unchanged since the day this was written**: `<TypeTable>` is registered in
+>   `mdx-components.tsx` and used on **0 of 146** pages — adopt it or delete the registration; and
+>   callouts still have no house rule across 80-odd uses.
+>
+> **Closed or moot, do not re-open:** §5.1 — the `.prose` collision — was fixed at the source, the
+> plugin class is `kanzo-prose` in `packages/ui/src/styles.css` and the docs-side containment rule
+> is gone. §2's badge example, §3's page-length rows and §6's dark sweep are closed (the sweep by
+> `status.test.ts`, which measures every shipped theme in both `color-scheme`s rather than two
+> blocks of one document). `forms/text-field`, `layout/made-with` and `overlays/skeleton` are moot:
+> two components were cut and the page was merged into `overlays/loading`.
+
 ---
 
 ## 0. Method note
