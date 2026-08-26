@@ -230,9 +230,14 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(surface.Breadcrumbs).toBeUndefined();
     expect(UI.Breadcrumb).toBeTypeOf("function");
     expect(UI.BreadcrumbEllipsis).toBeTypeOf("function");
-    // `MadeWith` hard-coded the English "Made with"/"at" and defaulted `by` to the brand name
-    // "Kanzo", in a library whose first admission rule is domain-freedom.
-    expect(surface.MadeWith).toBeUndefined();
+    // `MadeWith` was here, and is back — narrower. The charge was the hard-coding, not the idea:
+    // it fixed the English "Made with"/"at" and defaulted `by` to the brand name "Kanzo", in a
+    // library whose first admission rule is domain-freedom. Both are gone. The brand is children
+    // with no default, so the library names nobody, and the two English words are props whose
+    // defaults a caller replaces to translate. It reopened because the products this library is
+    // built for all ship the line, and four elements written out per product is the duplication
+    // a design system exists to end.
+    expect(UI.MadeWith).toBeTypeOf("function");
     // The routing seam for all five. `asChild` on the part that renders the anchor reaches every
     // part, not just the one a `linkComponent` prop was wired to — and `DefaultLink` was a second
     // component emitting `data-slot="link"`, against `Link`, which is the styled one.

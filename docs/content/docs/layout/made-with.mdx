@@ -1,0 +1,54 @@
+---
+title: MadeWith
+description: A "Made with ♥ at …" attribution line, styled once.
+---
+
+```tsx
+import { MadeWith, type MadeWithProps } from "@kanzo-tech/ui";
+```
+
+```tsx
+<MadeWith href="https://kanzo.tech">Kanzo</MadeWith>
+```
+
+The heart carries `role="img"` and an accessible name, so the line reads as "Made with love at
+Kanzo" rather than dropping the word a sighted reader gets from the glyph.
+
+## It was deleted, and came back narrower
+
+An earlier `MadeWith` was removed in `396bfd7` with a charge worth keeping in view: it hard-coded
+the English "Made with" / "at" and defaulted `by` to the brand name "Kanzo", in a library whose
+first admission rule is domain-freedom.
+
+Both are gone. **The brand is `children` and has no default**, so the library names nobody — and
+markup as a prop was half the original complaint. The two English words are `prefix` and `infix`,
+props with English defaults, which is a convenience a caller replaces to translate rather than a
+domain the component carries. `linkComponent` is gone with `DefaultLink`: a router reaches the
+anchor through `asChild` on `Link`.
+
+What reopened it is not an argument about the rule. It is that every product this library is built
+for ships this line, and writing four elements per product is the duplication a design system
+exists to end.
+
+*What would reverse it:* a second product finding the sentence shape wrong — a different word
+order, a brand that is not last, a line needing two links. At that point this is one arrangement
+pretending to be a component, and four elements are cheap.
+
+## Translating
+
+```tsx
+<MadeWith prefix="Hecho con" infix="en" loveLabel="amor" href="https://kanzo.tech">
+  Kanzo
+</MadeWith>
+```
+
+## API Reference
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `children` | `ReactNode` | — (required; the brand) |
+| `href` | `string` | — |
+| `prefix` | `string` | `"Made with"` |
+| `infix` | `string` | `"at"` |
+| `loveLabel` | `string` | `"love"` |
+| `className` | `string` | — |

@@ -73,6 +73,8 @@ export type {
 // it stays that way.
 export { ThemeNotice } from "./composites/theme-notice.js";
 export type { ThemeNoticeProps, ThemeRetiredCopy } from "./composites/theme-notice.js";
+export { MadeWith } from "./composites/MadeWith.js";
+export type { MadeWithProps } from "./composites/MadeWith.js";
 
 // One question at a time, over a `FieldSet` per question and Ark's Steps machine for the
 // navigation. Flat parts for the same RSC reason `Preferences` is flat.
