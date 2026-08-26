@@ -23,7 +23,7 @@ import { label, resolvePath, sourceFiles, subtrees, unreadable } from "./guard-c
  * and the boundary is already established one level down. And `react-dom/server` outside an RSC
  * bundler ignores the directive entirely, so the smoke test's `renderToString` passes either way.
  *
- * So the invariant is checked here, statically, the way `alpha-steps` and `no-literal-hues` are.
+ * So the invariant is checked here, statically, the way `no-literal-hues` is.
  *
  * ## What this guard cannot prove
  *

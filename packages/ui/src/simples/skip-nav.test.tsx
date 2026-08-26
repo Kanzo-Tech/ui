@@ -18,8 +18,9 @@ import { SkipNavContent, SkipNavLink } from "./skip-nav.js";
  *   `focus:not-sr-only` are Tailwind classes, so "hidden until focused" is asserted as the class
  *   contract rather than as a computed style. The assertion that matters and *is* real is the other
  *   half: the element is in the accessibility tree at rest, which `getByRole` proves.
- * - **That the ring is 3px.** Same reason. `alpha-steps.test.ts` owns the ring's colour rule; no
- *   test in this repository measures a rendered ring.
+ * - **That the ring is 3px.** Same reason — and its colour is not owned either: the guard that held
+ *   that rule went with the tokens it named, so no test in this repository measures a rendered ring
+ *   or the colour it is drawn in.
  */
 
 describe("the skip link", () => {

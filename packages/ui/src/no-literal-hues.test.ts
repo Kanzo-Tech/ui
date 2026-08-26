@@ -26,7 +26,7 @@ import { CHROMA_FLOOR, label, oklch, sourceFiles, subtrees, unreadable } from ".
  * `styles.css` points its `@source` at every `.ts` and `.tsx` under `src/`, tests included — so a
  * literal example would emit a real utility for the very class the rule forbids. Every family and
  * every utility prefix therefore appears only as an alternation fragment, and the assertions join
- * their examples at runtime. `alpha-steps.test.ts` takes the same precaution for the same reason.)
+ * their examples at runtime.)
  *
  * ## What this guard cannot prove
  *
@@ -68,8 +68,8 @@ import { CHROMA_FLOOR, label, oklch, sourceFiles, subtrees, unreadable } from ".
  *   notations of any kind, so nothing is hiding there today. That is worth writing down for the
  *   same reason ALLOWED below says why it is empty: an unexamined blind spot and a measured-empty
  *   one look identical from outside, and only one of them is a finding. A hue added to either file
- *   tomorrow would still pass. `alpha-steps.test.ts` and `logical-properties.test.ts` declare the
- *   same limit, from the same walk.
+ *   tomorrow would still pass. `logical-properties.test.ts` declares the same limit, from the same
+ *   walk.
  * - **The corpus is `ui` and `ai`, derived** — see `guard-corpus.ts` for how, and for why
  *   `@kanzo-tech/palette` is deliberately not in it: a package whose subject is deriving hues would
  *   read as one long violation of a rule that is about hues written *by hand*.

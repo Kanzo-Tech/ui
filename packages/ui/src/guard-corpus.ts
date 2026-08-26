@@ -8,10 +8,10 @@ import { fileURLToPath } from "node:url";
  * Every one of them used to open with `const SRC = dirname(fileURLToPath(import.meta.url))` and walk
  * from there — which is `packages/ui/src` and nothing else. That was true enough to be invisible
  * while `ui` was the only package with components in it. `@kanzo-tech/ai` shipped ten modules that
- * no guard had ever read a line of, and `alpha-steps.test.ts` said so in its own blind-spot section
- * while every reader took `CLAUDE.md`'s "the repo-wide guard tests" at face value.
+ * no guard had ever read a line of, and one of the appearance guards said so in its own blind-spot
+ * section while every reader took `CLAUDE.md`'s "the repo-wide guard tests" at face value.
  *
- * The fix is a corpus, not six copies of a rule. A second `alpha-steps.test.ts` under `packages/ai`
+ * The fix is a corpus, not six copies of a rule. A second `no-literal-hues.test.ts` under `packages/ai`
  * would be the shape this repository collapses on sight, and it would rot the first time somebody
  * edited one copy.
  *
