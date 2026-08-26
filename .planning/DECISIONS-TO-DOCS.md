@@ -136,10 +136,35 @@ declarado ausente no está en el barril*. El fichero pasa a llamarse por lo que 
 `DESIGN.md` es un índice de estos registros y **muere con ellos**: se borra al final, cuando el otro
 agente haya terminado con el fichero.
 
-## Por dónde voy
+## Hecho — 2026-08-26
 
-- [x] El mapa, arriba.
-- [ ] `design/` existe, con index, admission, references, naming.
-- [ ] `design/colour.mdx` y `design/graph.mdx`.
-- [ ] Las páginas de componente.
-- [ ] Las citas, el guard, el borrado, `CLAUDE.md`.
+- [x] El mapa.
+- [x] `design/` existe: `index`, `admission`, `references`, `naming`, `colour`, `graph`, tras un
+      divisor «For maintainers» en `docs/content/docs/meta.json`. Los 62 vivos y el `ADR 0001`
+      dentro, como prosa, y cada regla termina con **«What would reverse it»**.
+- [x] Los nueve que hablaban de una superficie documentada, en la página del componente.
+- [x] Los ocho `superseded`: seis mueren en una frase de `design/colour.mdx` (cinco) y de
+      `design/admission.mdx` (uno); de los otros dos se conserva una frase cada uno.
+- [x] Las citas. **191 apariciones fuera del directorio**, no 232 — el plan contaba también las de
+      dentro. Quedan tres, y las tres son en pasado: `BENCHMARKS.md` sobre rmlext, `CLAUDE.md`
+      diciendo que aquí no hay ninguno, y el guard nuevo explicando de qué es el reemplazo.
+      Reparto: 76 borradas, 88 reescritas, 16 que se fueron con el guard, 11 menciones sueltas.
+- [x] `decisions.test.ts` → `packages/ui/src/documented-evidence.test.ts`: pierde las cinco reglas
+      de forma, conserva las dos de contenido leyendo las líneas *Held by* del sitio.
+- [x] `decisions/` borrado. `CLAUDE.md` reescribe su tercera constante.
+
+Verde en `lint`, `check:generated`, 575 tests en `ui`, 71 en `theme`, 86 en `graph`, 96 en `ai`,
+`docs` typecheck y la build de docs.
+
+## Lo que queda abierto
+
+- **`design/references.mdx` y `/docs/conventions` se rozan.** La sesión de `CONVENTIONS.md` aterrizó
+  el orden de autoridad —«la referencia gobierna la superficie; una medición gobierna la
+  referencia»— y sus cinco elaboraciones en `conventions.mdx` mientras esta escribía la
+  jurisprudencia. La página de diseño ya no repite la frase y apunta a la suya, pero *Steps* y
+  `usePinInput` aparecen en las dos: allí como una línea de la regla, aquí con la medición contra
+  `@zag-js/steps@1.41.2`. Si alguien quiere una sola, la de `conventions.mdx` es la que se recorta.
+- **`size` no se corrió.** Nada de esta obra toca código enviado: son comentarios, cadenas de un
+  fichero que sólo importa un test, y páginas MDX. La cifra a batir sigue siendo 66.24 kB en
+  `/analytics`.
+- **`smoke` tampoco.** Por lo mismo.
