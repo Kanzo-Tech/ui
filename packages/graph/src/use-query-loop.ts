@@ -17,7 +17,7 @@ import { whenReady } from "./when-ready";
 /**
  * The query loop: the camera moves, a bounded question is asked, the answer becomes the picture.
  *
- * This is the half `DESIGN.md` requires of anything with an engine — the canvas stays presentational
+ * This is the half the engine rule requires of anything with an engine — the canvas stays presentational
  * and this owns the asking. It debounces, cancels what the camera has already superseded, and pushes
  * each answer's geometry into the renderer. A host that already holds its arrays wraps them in a
  * source and gets the same path; there is no second one.

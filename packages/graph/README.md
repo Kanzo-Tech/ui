@@ -16,7 +16,7 @@ is not the only possible one.
 
 ## Why a package, and not part of `@kanzo-tech/ui`
 
-`DESIGN.md`'s first admission rule is *domain-free — nothing about RDF / SHACL / fossil / **graphs**
+The [first admission rule](/docs/philosophy#admission) is *domain-free — nothing about RDF / SHACL / fossil / **graphs**
 / auth*. Graphs are excluded by name, deliberately: `ui` is the generic vocabulary every product
 shares. A sibling package is also the only honest home for a **required** WebGL peer — as an
 optional peer of `ui` it would have been a lie about what the package is.

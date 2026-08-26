@@ -1,7 +1,7 @@
 {
   "name": "@kanzo-tech/graph",
   "version": "0.0.0",
-  "description": "Kanzo graph rendering — a GPU force layout over cosmos.gl, the DuckDB relation that feeds it, and the Mosaic client that keeps it inside a crossfilter. Sibling of @kanzo-tech/ui, not part of it: DESIGN.md's admission rules exclude graphs from the generic vocabulary by name.",
+  "description": "Kanzo graph rendering — a GPU force layout over cosmos.gl, the DuckDB relation that feeds it, and the Mosaic client that keeps it inside a crossfilter. Sibling of @kanzo-tech/ui, not part of it: the admission rules exclude graphs from the generic vocabulary by name.",
   "type": "module",
   "license": "MIT",
   "sideEffects": false,

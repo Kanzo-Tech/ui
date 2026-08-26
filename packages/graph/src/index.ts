@@ -9,7 +9,7 @@
  * lifetime, the query loop that follows the camera, and the buffers a look implies.
  * `decisions/a-canvas-component-owns-the-three-that-never-differ.md` has the measurement.
  *
- * **Why a package and not `@kanzo-tech/ui`.** DESIGN.md's first admission rule is *domain-free —
+ * **Why a package and not `@kanzo-tech/ui`.** The first admission rule is *domain-free —
  * nothing about RDF / SHACL / fossil / graphs / auth*. Graphs are excluded by name, deliberately:
  * `ui` is the generic vocabulary shared by every product. A sibling package is also the only place
  * a required WebGL peer belongs.
