@@ -287,8 +287,8 @@ y los buffers, la política de cuándo muestrear, y cosmos.gl entero.
 - ~~**`.planning/` miente por partes.**~~ **Hecho el 26.** De 34 ficheros quedan 9 y un índice:
   11.887 líneas borradas, 2.530 conservadas. Cada superviviente lleva su fecha y su estado
   verificado contra el árbol, y `README.md` dice bajo qué regla se queda cada uno y qué se rescató
-  de los que se fueron. `READER-VS-CORPUS.md` es de los que se quedan, con su §0 marcado como
-  revertido: lo cita `BENCHMARKS.md`, y tiene dos cosas que no están en ningún otro sitio.
+  de los que se fueron. La auditoría del lector contra las cinco convenciones también se fue, ya el
+  26: sus dos mediciones se mandaron a rmlext, que es a quien se le debían.
 
 ## 4 · Del diseño de fossil, tres cosas que preguntaría
 

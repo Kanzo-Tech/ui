@@ -272,7 +272,8 @@ Y estas cuatro trampas, que costaron tiempo hoy y no están en ningún guard:
 4. **`packages/ui` puede estar en rojo y no ser tuyo.** Otra sesión escribe en este mismo checkout.
    Antes de arreglar un test de theme o palette, mira `git status` y atribúyelo.
 
-El contexto largo —la auditoría contra las cinco convenciones, las mediciones y por qué la cámara no
-es un verbo— está en `.planning/READER-VS-CORPUS.md`, `BENCHMARKS.md` y
-`decisions/a-tile-is-an-address-not-a-verb.md`. No hace falta leerlos para empezar; hacen falta
-antes de discutir cualquiera de las decisiones.
+El contexto largo —las mediciones y por qué la cámara no es un verbo— está en `BENCHMARKS.md` y
+`decisions/a-tile-is-an-address-not-a-verb.md`. La auditoría contra las cinco convenciones se borró
+el 26: su veredicto estaba revertido y sus dos mediciones vivas se mandaron a la documentación de
+rmlext, `format/conventions/addressing.mdx`. No hace falta leerlos para empezar; hacen falta antes
+de discutir cualquiera de las decisiones.
