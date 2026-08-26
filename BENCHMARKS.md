@@ -158,9 +158,11 @@ carry; the magnitude need not. And "cold" here means a fresh process, not a cold
 first run of each arm was slower (661 ms for the large-row-group file) and is excluded from the
 median, so the comparison is warm-server for all three.
 
-**It is the sharpest argument yet for the addressed reader.** `.planning/READER-VS-CORPUS.md` §2
-calls reading an addressed corpus with a predicate our one head-on divergence with the conventions,
-and this is the first time it has a cost attached: **5.3× on the query that is first paint.**
+**It was the sharpest argument for the addressed reader, and the reader landed.** Reading an
+addressed corpus with a predicate was our one head-on divergence from the conventions, and this is
+the measurement that put a cost on it: **5.3× on the query that is first paint.** The divergence is
+closed — the rule that replaced it is *A tile is an address, not a verb* on `/docs/design/graph`, and
+that page is where the argument lives now.
 
 ### The addressed reader is not a rewrite — it is a list of URLs, and it is 60×
 
@@ -1017,13 +1019,36 @@ It spills and it honours the number, for about 2.5× the wall clock. Two runs at
 0.03 GiB, which is the error bar on the rest of the column.
 
 What the pool does **not** reach is everything after `execute_graph`: `enrich_layout` takes the run's
-`memory_bytes` and discards it, so three of our stages sit outside it and are the reason the *whole
-build* still peaks at 20.72 GiB with an executor budget in force. `GraphArData` holds every batch
-before a byte is written; `to_files()` encodes every Parquet file before touching disk (+0.58 GiB at
-ten million); and the layout pass reads the whole edge list into a `Vec` while Louvain holds O(n)
-state. That half stands, and it is the same finding rmlext ADR-0043 reached one floor down when
-`query_map` turned out to materialise while `stream_arrow` is genuinely lazy. What does not stand is
-reading the executor's fourteen gigabytes as theirs.
+`memory_bytes` and discards it, so what our own stages hold sits outside it and is the reason the
+*whole build* still peaks at 20.72 GiB with an executor budget in force.
+
+**But that used to be read as three stages and it is one.** This page listed `GraphArData`,
+`to_files()` and the layout pass's edge `Vec` as three seams of the same shape; two of them were
+closed on 2026-08-17 and the correction never arrived here.
+
+| the seam | then | now |
+|---|---|---|
+| `to_files()` encodes every Parquet before touching disk | +0.58 GiB at ten million | **0.02 GB — absent, not small** |
+| the layout pass reads the edge list into a `Vec` | +2.22 GiB | **−1.71 GiB**, it streams the CSR |
+| `GraphArData` holds every batch before a byte is written | — | **still open** |
+
+The 0.02 GB is inside the noise on a figure whose error bar is 0.2 GiB, so the honest reading is that
+the stage is not there rather than that it is cheap. The layout pass now reads the CSR in a phase of
+its own — which is visible in the phase table two sections down, where `read CSR + CSC` bills +0.06
+to +0.51 GiB at one to eight million rather than a whole edge list.
+
+**So one seam is left, and what is written about it is a hypothesis and not a measurement.**
+`GraphArData` retains every batch; *"write each table and drop it"* frees nothing on the corpus where
+the 1.64 GiB was measured, because the vertex half cannot stream — the edge phase joins against the
+same Arrow buffers registered as `MemTable`. The edge half is held by nobody and is ~65% of the total
+by row arithmetic, which is where the next attempt points. `FOSSIL_MEM_PROBE=1` before and after is
+what would turn that into a number. It is still the same finding rmlext ADR-0043 reached one floor
+down when `query_map` turned out to materialise while `stream_arrow` is genuinely lazy — one seam of
+it, not three.
+
+Recorded in `.planning/ONE-PATH.md`, verified against the tree 2026-08-26. Two sessions are changing
+the writer in `../rmlext` as this is written, so treat the surviving row as the one to re-measure and
+not as a standing fact.
 
 So the claim that survives today is narrower than "larger-than-RAM works": **the write path can now
 be given a memory budget the executor will honour**, and the stages after it will ignore. Whether a
@@ -1099,7 +1124,7 @@ ten-million build and is not in this repo.
 The addressing design says *"la maquetación es grumosa, una comunidad es un disco compacto y una
 ventana contiene comunidades **enteras**; cada comunidad es un tramo Morton contiguo"* — it lived in
 rmlext ADR-0042 until `43991ac` deleted `decisions/`, and now in
-`apps/corpus/content/docs/conventions/addressing.mdx` — and §3 builds the tile pyramid on it:
+`apps/docs/content/docs/format/conventions/addressing.mdx` — and §3 builds the tile pyramid on it:
 **una tesela es una comunidad**. Measured at five million, neither cluster column can
 be that:
 
