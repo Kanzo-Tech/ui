@@ -20,8 +20,9 @@ guard tests. This directory is the residue, and it should be shrinking.
 
 **If a line here and the tree disagree, the tree wins and the line is a bug in this file.** That is
 not a disclaimer: this directory was swept because a third of it asserted things that had stopped
-being true, and `READER-VS-CORPUS.md` had been opening with *«no hay un lector direccionado»* for
-nine days after `openCorpus` landed.
+being true — the reader audit had been opening with *«no hay un lector direccionado»* for nine days
+after `openCorpus` landed, and it was deleted rather than corrected once the two measurements it was
+kept for had been sent where they belonged.
 
 ## What is here
 
@@ -31,7 +32,6 @@ nine days after `openCorpus` landed.
 | `ONE-PATH.md` | **live** | The architecture behind F2–F4. Steps 1, 2, 5, 7, 8, 9 are struck and confirmed struck; **steps 3, 6 and 10 are open and are in no other plan.** |
 | `ONE-SOURCE.md` | **live** | §1 and §2 are done — the workspace opens through `openCorpus`. **§3 and §4 are what F3 actually costs**, and §4 is the only enumeration of the five call sites the deletion breaks. Read the header before executing §3. |
 | `DOCS-QUALITY.md` | **live** | The docs worklist of 2026-08-04. Re-verified row by row: nine rows and two DECISIONs are genuinely still open, the rest are closed or moot. Header carries the split. |
-| `READER-VS-CORPUS.md` | **evidence** | Its verdict is reversed and its header says so. Kept for two things: the cosmos.gl refutation of fossil's `payload.mdx` (§4), which is a correction still owed to the other repo, and the arithmetic of the silent `CHUNK_SIZE` failure (§6). **Cited from inside this directory only** — `BENCHMARKS.md` cited it until `8d5f43c` repointed that sentence at `/docs/design/graph`, which is where it belonged. By the rule above that is a warning and not a verdict: `ONE-SOURCE.md` is live and cites it, and the two things it is kept for are owed to the other repo rather than to this one. If §4 lands there, this file has no reason left. |
 | `FAR-VIEW-AND-EDGES.md` | **evidence** | The working behind the 3 px edge cut and the far-end anchors. Cited by `packages/graph/src/bounded.ts` in three places and by `duck-source.test.ts`. |
 | `FORMS-DECISION.md` | **evidence** | Why the library gets no validation model. Cited by `/docs/design/admission` as *the full reasoning*. |
 | `LAYOUT-ARK-NATIVE-REVIEW.md` | **evidence** | Why "Ark-native" is a category error for layout. Cited by `/docs/design/references` as *Held by*. |
@@ -65,6 +65,18 @@ belongs here, and this section should empty rather than grow.
   `ai/index`, `analytics/index`, `graph/benchmarks`. `AiMark` and `cleanGhost` are in no example.
 - **The tile payload format is undecided** — Parquet against Arrow IPC for a tile. `BENCHMARKS.md`
   forward-references this question and nothing answers it.
+
+**Two that were sent and are therefore no longer here**
+
+- **The `x`/`y` interleaving refutation** was owed to rmlext and is **no longer owed**: their
+  `payload.mdx` went with `eab4bd9`, and what replaced it —
+  `format/reading/without-fossil.mdx`, *«the layout does not remove that pass, it moves it»* — is
+  the correction, already written on their side, without cosmos.gl in it.
+- **The arithmetic of the silent `CHUNK_SIZE` failure** — 9 URLs of 245, all resolving, 3.7% of the
+  corpus at a flattering latency — is in their `format/conventions/addressing.mdx`, under *the
+  address is published, not described*, which is the claim it is evidence for. The failure shape on
+  our side is guarded at `docs/showcases/graph-bench/measure-bounded.ts:459`, and `openCorpus` reads
+  the size from the manifest, so this particular drift cannot recur here.
 
 **Three defects the sweep found in shipped code, none of them ours to fix here**
 
