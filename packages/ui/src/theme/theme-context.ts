@@ -67,8 +67,13 @@ export interface ThemeContextValue extends ThemePrefs {
   setAppearance: (appearance: AppearancePref) => void;
   /** The themes the tenant published. `[]` — never `undefined` — when the host wired nothing. */
   themes: ThemeOption[];
-  /** The name applied when the preference is empty; the panel needs it to show a selection. */
+  /** The name the APPLIED side falls back to when the preference is empty; the panel needs it to
+   *  show a selection. */
   defaultTheme: string;
+  /** The same answer for either side. A tenant may publish a different default per side — a theme
+   *  carries its own palette, so one name cannot serve both — and a panel that draws the side you
+   *  are not wearing has to ask for that side. */
+  defaultThemeFor: (side: Appearance) => string;
   /**
    * The APPLIED theme — this side's preference, or `defaultTheme`.
    *

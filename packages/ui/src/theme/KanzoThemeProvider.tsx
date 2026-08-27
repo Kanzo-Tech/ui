@@ -257,8 +257,15 @@ export interface KanzoThemeProviderProps {
    * theme, so the tree is a list.
    */
   themes?: ThemeOption[];
-  /** The name applied when the preference is empty. Defaults to the first published one. */
-  defaultTheme?: string;
+  /**
+   * The name applied when the preference is empty. Defaults to the first published one.
+   *
+   * **A pair, when the two sides differ.** A theme carries its own light or dark palette, so one
+   * name cannot answer for both sides: naming a night theme here paints it in daylight too, with
+   * `.dark` off. Pass `{ light, dark }` to say which theme each side defers to — the same shape the
+   * preference already stores, and the same reason it is a map there.
+   */
+  defaultTheme?: string | Partial<Record<Appearance, string>>;
   /** Called once, at most, when the stored theme is no longer published — somebody chose gold and is
    *  about to be looking at blue, and silence makes that read as a bug in our product rather than a
    *  change in their client's. The provider renders no notice itself; say it where the app says
@@ -491,6 +498,12 @@ export function KanzoThemeProvider({
   //
   // No `sources` are passed: see the identity block below for why the two axes a tenant publishes
   // are deliberately not gated against what they published.
+  // The tenant's default for ONE side. A string answers for both; a map answers per side and falls
+  // back to nothing, which is inert — an unknown `data-theme` matches no rule.
+  const defaultThemeFor = React.useCallback(
+    (side: Appearance) => (typeof defaultTheme === "string" ? defaultTheme : (defaultTheme[side] ?? "")),
+    [defaultTheme],
+  );
   type Entry = ResolvedPref & { decl: SectionPrefDecl };
   const corePrefs = React.useMemo(() => {
     const out: Record<string, Entry> = { appearance: { ...appearanceResolved, decl: CORE_PREFS.appearance } };
@@ -531,7 +544,7 @@ export function KanzoThemeProvider({
   // overwrite a brand named in the same call. Every clause of that was a real defect once. None of
   // it exists now: a brand is a theme, so there is no containment to remember and nothing to carry
   // across. The memory it needed (`identityByPalette`) went with it.
-  const resolvedTheme = corePrefs.themeByAppearance?.value || defaultTheme;
+  const resolvedTheme = corePrefs.themeByAppearance?.value || defaultThemeFor(resolvedAppearance);
 
   /**
    * Choose a theme for one side.
@@ -715,14 +728,17 @@ export function KanzoThemeProvider({
       resolvedAppearance,
       setAppearance,
       themes,
-      defaultTheme,
+      // The applied side's default. The pair is behind `defaultThemeFor`, because a panel drawing
+      // the OTHER side needs that side's answer and a single string cannot give it.
+      defaultTheme: defaultThemeFor(resolvedAppearance),
+      defaultThemeFor,
       resolvedTheme,
       setTheme,
       retiredTheme,
     }),
     [
       prefs, set, fonts, monoFonts, appearancePref, resolvedAppearance, setAppearance,
-      themes, defaultTheme, resolvedTheme, setTheme, retiredTheme,
+      themes, defaultThemeFor, resolvedTheme, setTheme, retiredTheme,
       sectionPrefs, setSectionPref, corePrefs, sources, reset,
     ],
   );

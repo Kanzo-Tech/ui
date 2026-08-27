@@ -694,7 +694,7 @@ function ColorSection({
 }: PreferencesColorProps = {}) {
   const {
     corePrefs,
-    defaultTheme,
+    defaultThemeFor,
     resolvedAppearance,
     resolvedTheme,
     retiredTheme,
@@ -731,7 +731,7 @@ function ColorSection({
    * would — the stored value, or the tenant's default.
    */
   const selectedFor = (side: Appearance) =>
-    (side === resolvedAppearance ? resolvedTheme : themeByAppearance[side]) || defaultTheme;
+    (side === resolvedAppearance ? resolvedTheme : themeByAppearance[side]) || defaultThemeFor(side);
 
   return (
     // A plain heading, not `PrefFieldSet`, and that is forced rather than chosen. Ark's

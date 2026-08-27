@@ -76,7 +76,8 @@ provider is above it.
 | `fonts` | `FontOption[]` | The sans options the host wired, for a selector |
 | `monoFonts` | `FontOption[]` | The mono options the host wired |
 | `themes` | `ThemeOption[]` | The themes the tenant published — `[]`, never `undefined`. A **flat** list: a brand is a theme, so there is no second level |
-| `defaultTheme` | `string` | The name applied when the preference is empty |
+| `defaultTheme` | `string` | The name the applied side falls back to when the preference is empty |
+| `defaultThemeFor` | `(side: Appearance) => string` | The same answer for either side — a tenant may publish `{ light, dark }`, since a theme carries its own palette |
 | `resolvedTheme` | `string` | This side's preference, or `defaultTheme` |
 | `setTheme` | `(theme: string, options?: { appearance?: Appearance }) => void` | Choose a theme for one side — the applied one unless `appearance` names the other |
 | `retiredTheme` | `string \| null` | A theme the tenant withdrew out from under this user, held for the session |
