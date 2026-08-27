@@ -386,6 +386,31 @@ await import("@kanzo-tech/graph/duckdb").then(
     else fail("@kanzo-tech/graph/duckdb failed for the wrong reason: " + err.message);
   },
 );
+
+// 9. The other three doors of the same kind, and they are all in \`ui\`. That package declares
+// twelve optional peers, and they are not one cost but three, each behind its own subpath:
+// \`@codemirror/*\` plus \`@lezer/highlight\` on ./editor, \`@tanstack/react-table\` on ./table, and
+// the Mosaic/DuckDB stack on ./analytics.
+//
+// Only two doors were named here before, and both were in the OTHER packages — so \`ui\`, which
+// has by far the most to leak, carried only the negative half of the guard. The barrel check
+// above proves the root does not reach an optional peer; nothing proved the subpath still does.
+// Both halves matter: the first catches a cost escaping onto the root, the second catches a door
+// that has quietly stopped leading anywhere, which is what a deleted or inlined import looks
+// like from the outside.
+for (const [subpath, cost] of [
+  ["@kanzo-tech/ui/editor", "the CodeMirror cost"],
+  ["@kanzo-tech/ui/table", "the react-table cost"],
+  ["@kanzo-tech/ui/analytics", "the Mosaic cost"],
+]) {
+  await import(subpath).then(
+    () => fail(subpath + " resolved with no optional peer installed — is the import still there?"),
+    (err) => {
+      if (err.code === "ERR_MODULE_NOT_FOUND") pass(subpath + " is where " + cost + " is");
+      else fail(subpath + " failed for the wrong reason: " + err.message);
+    },
+  );
+}
 `
   );
 
