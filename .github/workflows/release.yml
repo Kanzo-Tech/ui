@@ -46,6 +46,20 @@ jobs:
       - run: pnpm test
       - run: pnpm size
       - run: pnpm smoke
+      # NPM_TOKEN, not OIDC, and the reason is a chicken-and-egg rather than a
+      # preference. A trusted publisher is configured per package on npmjs.com, and
+      # a package only comes into existence by being published — so the FIRST
+      # publish of a package can never be the one authenticated by OIDC. The
+      # registry shows both sides of it on @kanzo-tech/rudof-wasm: 0.3.4, its first
+      # version, carries no attestations; 0.3.5, published once the package existed
+      # and the publisher was configured, carries SLSA provenance.
+      #
+      # So: token now, because none of these four packages exist yet. Once the
+      # first release lands, configure the Trusted Publisher for each of them
+      # (npmjs.com → package → Settings → GitHub Actions: owner Kanzo-Tech, repo
+      # ui, workflow release.yml), then drop `NODE_AUTH_TOKEN` and this comment —
+      # `id-token: write` above is already in place for that day, and it is what
+      # buys the provenance a token publish does not get.
       - name: Create release PR or publish
         uses: changesets/action@v1
         with:
@@ -53,3 +67,4 @@ jobs:
           publish: pnpm release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
