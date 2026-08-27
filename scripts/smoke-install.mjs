@@ -81,6 +81,16 @@ const manifestOf = (pkg) =>
   JSON.parse(readFileSync(join(repoRoot, "packages", pkg, "package.json"), "utf8"));
 
 /**
+ * The tarball `pnpm pack` writes for a package — its name derived from the manifest, never
+ * assumed. Every version here was `0.0.0` while nothing had shipped, and writing that literal
+ * into the filename made this whole guard silently version-dependent: the first release to carry
+ * any other number packs `kanzo-tech-theme-0.1.0.tgz` and every check below fails on a missing
+ * file, reporting a packaging fault where there is none. A guard that only runs before the first
+ * release is not a guard.
+ */
+const tarballOf = (pkg) => `kanzo-tech-${pkg}-${manifestOf(pkg).version}.tgz`;
+
+/**
  * Everything any packed manifest marks optional — none of it is installed below.
  *
  * The union rather than `ui`'s alone: a peer that is optional for one package is the thing the
@@ -111,7 +121,7 @@ try {
     for (const pkg of PACKAGES) {
       const manifest = run(
         "tar",
-        ["-xzOf", join(workDir, `kanzo-tech-${pkg}-0.0.0.tgz`), "package/package.json"],
+        ["-xzOf", join(workDir, tarballOf(pkg)), "package/package.json"],
         workDir
       );
       if (manifest.includes("workspace:")) {
@@ -147,7 +157,7 @@ try {
       "--no-audit",
       "--no-fund",
       "--legacy-peer-deps",
-      ...PACKAGES.map((pkg) => `./kanzo-tech-${pkg}-0.0.0.tgz`),
+      ...PACKAGES.map((pkg) => `./${tarballOf(pkg)}`),
       "react@19",
       "react-dom@19",
       "lucide-react@^1",
