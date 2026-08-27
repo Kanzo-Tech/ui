@@ -2,22 +2,22 @@
   "name": "kanzo-ui",
   "private": true,
   "version": "0.0.0",
-  "description": "Kanzo design system \u2014 a domain-free component library over Ark UI, the design tokens it is themed by, and the colour derivation behind them.",
+  "description": "Kanzo design system — a domain-free component library over Ark UI, the design tokens it is themed by, and the colour derivation behind them.",
   "type": "module",
   "scripts": {
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "//lint": "packages *and* docs. `docs/` was outside this for as long as it existed, so 13,000 lines of showcase went unlinted \u2014 including the four Node scripts that produce BENCHMARKS.md.",
+    "//lint": "packages *and* docs. `docs/` was outside this for as long as it existed, so 13,000 lines of showcase went unlinted — including the four Node scripts that produce BENCHMARKS.md.",
     "lint": "eslint packages docs",
     "size": "pnpm -r size",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "smoke": "node scripts/smoke-install.mjs",
-    "//check:generated": "themes.css and theme-data.json are generated \u2014 the catalogue of themes plus the non-colour axes. Regenerate and fail if the checked-in copies differ, so a hand-edit or a stale commit cannot ship. `tokens.css` and `themes/*.css` are NOT here: they are hand-written source now, and a guard that regenerated them would have nothing to regenerate them from.",
+    "//check:generated": "themes.css and theme-data.json are generated — the catalogue of themes plus the non-colour axes. Regenerate and fail if the checked-in copies differ, so a hand-edit or a stale commit cannot ship. `tokens.css` and `themes/*.css` are NOT here: they are hand-written source now, and a guard that regenerated them would have nothing to regenerate them from.",
     "check:generated": "pnpm --filter @kanzo-tech/theme gen && git diff --exit-code -- packages/theme/themes.css packages/theme/theme-data.json",
     "//release": "Scoped to packages/*: the docs app must never sit on the publish path.",
-    "release": "pnpm -r --filter \"./packages/*\" build && changeset publish"
+    "release": "pnpm -r --filter \"./packages/*\" build"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.0",
