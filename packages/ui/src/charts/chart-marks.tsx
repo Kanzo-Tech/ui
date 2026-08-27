@@ -10,9 +10,28 @@ import {
 
 /**
  * The mark vocabulary. Every component here renders `null` — `ChartRoot` reads the `__chart`
- * static off the element type and compiles it. `"use client"` is load-bearing even though nothing
- * here uses a hook: a server-rendered descriptor would collapse to `null` before `ChartRoot`
- * ever sees it.
+ * static off the element type and compiles it.
+ *
+ * This file carries no `"use client"`, and the docblock claimed the opposite for as long as it
+ * existed: "load-bearing even though nothing here uses a hook". The rule the repo actually
+ * enforces is in `client-boundary.test.ts` — a file declares the directive **iff it is itself
+ * stateful** — and nothing here is, so the guard would reject it. The claim and the code were
+ * never both true.
+ *
+ * What the claim got right is the mechanism, and it is worth keeping: a descriptor rendered on the
+ * server DOES collapse to `null` before `ChartRoot` sees the element, because the `__chart` static
+ * lives on the element *type* and a Server Component is invoked before serialisation. What it got
+ * wrong is what prevents it. Not a directive here — the consumer. Every chart is written inside a
+ * client component, necessarily: `MosaicProvider` is one, and there is no coordinator without it.
+ * All 38 chart examples in `docs/examples` open with `"use client"`.
+ *
+ * So the trap is real and it belongs to a CONSUMER who writes a chart in a Server Component: the
+ * marks vanish and the plot renders empty, with no error anywhere. Nothing catches that today —
+ * `client-boundary.test.ts` matches shape and this file's shape is pure, `pnpm smoke` compares
+ * built bytes against source, and the docs RSC build only exercises the client path our own
+ * examples take. Fixing it properly means either the directive plus an exception in that guard for
+ * descriptor modules, or a check that a `chartDescriptor` element type survives the boundary. Both
+ * are decisions rather than edits, so this says what is true instead of pretending it is handled.
  */
 
 export interface ChartMarkProps {
