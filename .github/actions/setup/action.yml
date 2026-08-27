@@ -9,6 +9,19 @@ description: pnpm, Node and an installed workspace — the four lines every job 
 # it is cloned, and hiding the clone would make `fetch-depth`/`ref` unreachable
 # where a job needs them.
 
+inputs:
+  registry-url:
+    description: >-
+      npm registry to authenticate against. Pass it ONLY where the job publishes.
+      `setup-node` writes ~/.npmrc with the literal line
+      `//<registry>/:_authToken=${NODE_AUTH_TOKEN}` and it writes it only when this
+      is set — so without it the publish step's token is read by nobody and auth
+      fails with no missing-secret to point at. That is also why the env var is
+      NODE_AUTH_TOKEN and not NPM_TOKEN: the secret is named NPM_TOKEN, but the
+      name npmrc expands is fixed by setup-node.
+    required: false
+    default: ""
+
 runs:
   using: composite
   steps:
@@ -20,5 +33,6 @@ runs:
       with:
         node-version: 24
         cache: pnpm
+        registry-url: ${{ inputs.registry-url }}
     - run: pnpm install --frozen-lockfile
       shell: bash

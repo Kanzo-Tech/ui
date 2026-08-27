@@ -40,10 +40,15 @@ export default defineConfig({
         id === "react" ||
         id === "react-dom" ||
         id === "react/jsx-runtime" ||
-        // Both the package and its subpaths (`@kanzo-tech/theme/tokens.css`) — matching only
-        // the bare id silently inlined the subpath entries.
-        id === "@kanzo-tech/theme" ||
-        id.startsWith("@kanzo-tech/theme/") ||
+        // Every sibling, by scope rather than by name. Naming them one at a time is a list that
+        // adding a package does not update, and it failed exactly that way: extracting
+        // `@kanzo-tech/mosaic` left this predicate matching only the siblings that existed when it
+        // was written, so Rollup INLINED the new one — `@kanzo-tech/graph/duckdb` shipped its own
+        // copy of the Arrow reader under a relative path, which is the duplication the extraction
+        // was meant to end. A workspace package never bundles a sibling; that is a rule, so it is
+        // written as one. Subpaths included: matching the bare id alone silently inlined
+        // `@kanzo-tech/theme/tokens.css` once already.
+        /^@kanzo-tech\//.test(id) ||
         // A real dependency, but one with its own tzdata payload: bundling it duplicated the
         // library in any consumer that also uses it directly.
         id === "@internationalized/date" ||

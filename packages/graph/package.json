@@ -31,28 +31,21 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
-  "//peers": "cosmos.gl is a real, required peer — this package is a renderer and there is nothing left of it without one. The Mosaic/DuckDB half is optional and lives entirely on `./duckdb`: `duckBoundedSource` and `onceQuery` need it, the rendering hooks do not, and a consumer drawing a graph from arrays it already has should not pay for a database. The optional list is what `./duckdb` actually REACHES, and it was short by one for as long as it existed: `@kanzo-tech/ui/analytics` statically imports @uwdata/vgplot as well as mosaic-core and mosaic-sql, so a host that installed the two declared ones still could not import the subpath. @duckdb/duckdb-wasm is deliberately NOT here — it is an optional peer of @kanzo-tech/ui and nothing in either package's dist names it; a host that boots its own DuckDB depends on it directly. `scripts/smoke-install.mjs` installs none of these and imports the root barrel, which is the check that reads this list rather than trusting it.",
+  "//peers": "cosmos.gl is a real, required peer — this package is a renderer and there is nothing left of it without one. The Mosaic half is optional and lives entirely on `./duckdb`: `duckBoundedSource` and `openCorpus` need it, the rendering hooks do not, and a consumer drawing a graph from arrays it already has should not pay for a database. That half is now ONE entry, `@kanzo-tech/mosaic`, and the list is shorter than the thing it replaced for a reason worth keeping: this package used to reach the coordinator through `@kanzo-tech/ui/analytics`, whose barrel re-exports the React charts and `@uwdata/vgplot` with them. The import is static, so a host that installed the two peers we documented — mosaic-core and mosaic-sql — still could not open `./duckdb`, and vgplot had to be declared here to paper over a dependency this package never names. It names none of the three now: they are `@kanzo-tech/mosaic`'s peers, declared once, which is also why their version ranges can no longer disagree. @duckdb/duckdb-wasm stays absent for the reason it always was — nothing in any of our dist names it, and a host that boots its own DuckDB depends on it directly. `scripts/smoke-install.mjs` installs no optional peer and imports the root barrel, which is the check that reads this list rather than trusting it.",
   "peerDependencies": {
     "@cosmos.gl/graph": "^3.4.0",
+    "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",
-    "@uwdata/mosaic-core": "^0.29.0",
-    "@uwdata/mosaic-sql": "^0.29.0",
-    "@uwdata/vgplot": "^0.29.2",
     "react": "^19.0.0"
   },
   "peerDependenciesMeta": {
-    "@uwdata/mosaic-core": {
-      "optional": true
-    },
-    "@uwdata/mosaic-sql": {
-      "optional": true
-    },
-    "@uwdata/vgplot": {
+    "@kanzo-tech/mosaic": {
       "optional": true
     }
   },
   "devDependencies": {
     "@cosmos.gl/graph": "^3.4.0",
+    "@kanzo-tech/mosaic": "workspace:*",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.0.0",

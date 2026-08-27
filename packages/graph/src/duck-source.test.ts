@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Coordinator, Selection } from "@kanzo-tech/ui/analytics";
+import { Coordinator, Selection } from "@kanzo-tech/mosaic";
 import { duckBoundedSource } from "./duck-source";
 import { vertexId } from "./resident";
 

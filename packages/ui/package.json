@@ -47,7 +47,6 @@
     "@codemirror/search": ">=6",
     "@codemirror/state": ">=6",
     "@codemirror/view": ">=6",
-    "@duckdb/duckdb-wasm": "^1.33.1-dev57.0",
     "@lezer/highlight": ">=1",
     "@tanstack/react-table": ">=8",
     "@uwdata/mosaic-core": "^0.29.2",
@@ -68,9 +67,6 @@
       "optional": true
     },
     "@uwdata/mosaic-sql": {
-      "optional": true
-    },
-    "@duckdb/duckdb-wasm": {
       "optional": true
     },
     "@codemirror/autocomplete": {
@@ -98,6 +94,7 @@
   "dependencies": {
     "@ark-ui/react": "^5.37.2",
     "@internationalized/date": "^3.12.2",
+    "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/theme": "workspace:*",
     "clsx": "^2.1.1",
     "tailwind-merge": "^3.6.0",

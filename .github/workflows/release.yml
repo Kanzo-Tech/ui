@@ -63,6 +63,9 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup
+        with:
+          # Only here. This is what makes ~/.npmrc reference NODE_AUTH_TOKEN below.
+          registry-url: "https://registry.npmjs.org"
       # npm >= 11.5.1 for Trusted Publishing.
       - name: Upgrade npm
         run: npm install -g npm@latest

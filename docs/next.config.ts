@@ -58,7 +58,10 @@ const config: NextConfig = {
   // and — more importantly — so this app exercises the REAL client/server boundary of the
   // library. Vite ignores "use client" entirely, which is why the stripped-directive bug
   // survived every hour spent in the old playground.
-  transpilePackages: ["@kanzo-tech/ui", "@kanzo-tech/theme"],
+  // `@kanzo-tech/mosaic` belongs here for a different reason than the other two: nothing in this
+  // app imports it directly, but `@kanzo-tech/ui/analytics` re-exports its coordinator, clients and
+  // Arrow reader, so every chart page reaches it one hop in.
+  transpilePackages: ["@kanzo-tech/ui", "@kanzo-tech/theme", "@kanzo-tech/mosaic"],
   /**
    * The one thing the browser build needs that the browser never runs.
    *

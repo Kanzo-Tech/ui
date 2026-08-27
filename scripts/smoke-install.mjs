@@ -72,8 +72,8 @@ const walk = (dir, test, out = []) => {
 
 const DIRECTIVE = /^\s*(?:\/\*[\s\S]*?\*\/\s*)?["']use client["']/;
 
-/** The packages that ship. Order is pack order and nothing else; npm installs all four at once. */
-const PACKAGES = ["theme", "ui", "graph", "ai"];
+/** The packages that ship. Order is pack order and nothing else; npm installs all five at once. */
+const PACKAGES = ["theme", "mosaic", "ui", "graph", "ai"];
 /** The ones with a client boundary to lose. `theme` is data and CSS and carries no directive. */
 const CLIENT_PACKAGES = ["ui", "graph", "ai"];
 
@@ -106,6 +106,23 @@ const optionalPeers = [
     )
   ),
 ];
+
+/**
+ * The peers a package declares as REQUIRED — the exemption the union above needs now that one of
+ * ours requires what the others make optional.
+ *
+ * `@kanzo-tech/mosaic` requires `@uwdata/mosaic-core` and `@uwdata/mosaic-sql`: there is no
+ * package without them, that is what it IS. Under a flat union its own barrel reads as a violation
+ * of a rule written before any package required Mosaic. The rule survives with the exemption
+ * stated — a module may name a peer its own package requires, and nothing else — which is stricter
+ * than dropping the entry, because `@kanzo-tech/ui` naming mosaic-core on its root barrel is still
+ * caught.
+ */
+const requiredPeersOf = (pkg) => {
+  const manifest = manifestOf(pkg);
+  const meta = manifest.peerDependenciesMeta ?? {};
+  return Object.keys(manifest.peerDependencies ?? {}).filter((name) => !meta[name]?.optional);
+};
 
 try {
   // `pnpm pack`, never `npm pack`: only pnpm rewrites the `workspace:*` dependency on
@@ -169,8 +186,33 @@ try {
   const installedRoot = join(workDir, "node_modules/@kanzo-tech");
   const installed = join(installedRoot, "ui");
 
+  // The regression guard for the defect `@kanzo-tech/mosaic` exists to end, stated as the two
+  // names that must not appear rather than as a symptom. `@kanzo-tech/graph/duckdb` used to reach
+  // its coordinator through `@kanzo-tech/ui/analytics`, whose barrel re-exports the React charts
+  // and calls `@uwdata/vgplot`. Because the import is static, a host that installed the two peers
+  // graph documented — mosaic-core and mosaic-sql — still could not open the subpath, and graph
+  // declared vgplot as an optional peer to hide a dependency it never names.
+  //
+  // The door check further down cannot see this: it asserts the subpath throws without its peers,
+  // and it threw just as convincingly when the missing peer was the wrong one. What went wrong was
+  // WHICH module the failure came from, so that is what this reads.
+  check("graph/duckdb reaches Mosaic directly, not through the charts barrel", () => {
+    const duck = readFileSync(join(installedRoot, "graph/dist/duck-source.js"), "utf8");
+    if (!duck.includes("@kanzo-tech/mosaic")) {
+      fail("@kanzo-tech/graph/duckdb no longer names @kanzo-tech/mosaic — where does it get the coordinator?");
+    }
+    for (const forbidden of ["@kanzo-tech/ui", "@uwdata/"]) {
+      if (duck.includes(forbidden)) {
+        fail(`@kanzo-tech/graph/duckdb names ${forbidden} again — the charts barrel is back on this path`);
+      }
+    }
+  });
+
   check(`installed with none of the ${optionalPeers.length} optional peers present`, () => {
-    for (const peer of optionalPeers) {
+    // Our own packages are excluded: all five tarballs are installed by definition here, so a
+    // sibling declared optional — `@kanzo-tech/mosaic` is one, for graph's `./duckdb` door — is
+    // present on purpose. What must be absent is the third-party engine underneath it.
+    for (const peer of optionalPeers.filter((p) => !p.startsWith("@kanzo-tech/"))) {
       try {
         statSync(join(workDir, "node_modules", peer));
         fail(`${peer} is an optional peer and the install pulled it in — the test tree is wrong`);
@@ -220,6 +262,11 @@ try {
   // defect. `@kanzo-tech/ui/analytics` is not an optional peer and never will be — it is the
   // subpath that EXISTS to hold them. A relative-only walk stops at that specifier and reports
   // green while the module one hop further imports the entire Mosaic stack.
+  //
+  // `@kanzo-tech/mosaic` is now the same kind of specifier and is followed for the same reason: it
+  // is one of ours, it is not an optional peer, and everything it re-exports is. What changed is
+  // that following it no longer arrives at `@uwdata/vgplot` — which is the defect this walk
+  // reported green on for as long as graph reached its coordinator through the charts barrel.
   const SPECIFIERS = [
     /\b(?:import|export)\b[^;"'`]*?\bfrom\s*["']([^"']+)["']/g,
     /\bimport\s*["']([^"']+)["']/g,
@@ -267,7 +314,14 @@ try {
           queue.push({ path: resolve(dirname(path), specifier), entry });
           continue;
         }
-        if (optionalPeers.some((peer) => specifier === peer || specifier.startsWith(peer + "/"))) {
+        // Which of ours this module belongs to — `mosaic/dist/index.js` → `mosaic` — so a peer it
+        // declares as required is not read as somebody else's optional one.
+        const owner = relative(installedRoot, path).split("/")[0];
+        const allowed = PACKAGES.includes(owner) ? requiredPeersOf(owner) : [];
+        if (
+          !allowed.some((peer) => specifier === peer || specifier.startsWith(peer + "/")) &&
+          optionalPeers.some((peer) => specifier === peer || specifier.startsWith(peer + "/"))
+        ) {
           fail(
             `${entry} reaches the optional peer ${specifier}, via ${relative(installedRoot, path)}`
           );
@@ -340,7 +394,7 @@ pass(\`graph root barrel imports with only non-optional peers (\${Object.keys(gr
 for (const name of ["memorySource", "buffers", "useGraph", "vertexId"]) {
   if (typeof graph[name] !== "function") fail(\`@kanzo-tech/graph does not export \${name}\`);
 }
-if ("onceQuery" in graph) fail("onceQuery is back on the root barrel — it imports @kanzo-tech/ui/analytics");
+if ("onceQuery" in graph) fail("onceQuery is back on the root barrel — it imports the Mosaic stack");
 for (const name of ["duckBoundedSource", "openCorpus", "SliceRead"]) {
   if (name in graph) fail(\`\${name} is on the root barrel — it is the DuckDB half\`);
 }

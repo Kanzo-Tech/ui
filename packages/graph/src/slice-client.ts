@@ -1,7 +1,7 @@
 "use client";
 
-import { MosaicClient } from "@kanzo-tech/ui/analytics";
-import type { Coordinator, FilterExpr, Selection } from "@kanzo-tech/ui/analytics";
+import { MosaicClient } from "@kanzo-tech/mosaic";
+import type { Coordinator, FilterExpr, Selection } from "@kanzo-tech/mosaic";
 import { SUPERSEDED } from "./bounded";
 
 /**

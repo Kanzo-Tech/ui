@@ -37,8 +37,15 @@ export default defineConfig({
         id === "react-dom" ||
         id === "react/jsx-runtime" ||
         id === "@cosmos.gl/graph" ||
-        id === "@kanzo-tech/ui" ||
-        id.startsWith("@kanzo-tech/ui/") ||
+        // Every sibling, by scope rather than by name. Naming them one at a time is a list that
+        // adding a package does not update, and it failed exactly that way: extracting
+        // `@kanzo-tech/mosaic` left this predicate matching only the siblings that existed when it
+        // was written, so Rollup INLINED the new one — `@kanzo-tech/graph/duckdb` shipped its own
+        // copy of the Arrow reader under a relative path, which is the duplication the extraction
+        // was meant to end. A workspace package never bundles a sibling; that is a rule, so it is
+        // written as one. Subpaths included: matching the bare id alone silently inlined
+        // `@kanzo-tech/theme/tokens.css` once already.
+        /^@kanzo-tech\//.test(id) ||
         /^@uwdata\//.test(id) ||
         /^@duckdb\//.test(id),
       // Rollup drops `"use client"` when it merges modules, which in `@kanzo-tech/ui` silently

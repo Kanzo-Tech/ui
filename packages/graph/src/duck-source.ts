@@ -1,7 +1,7 @@
 "use client";
 
-import { clausePoints, column, fillColumn, numbers } from "@kanzo-tech/ui/analytics";
-import type { Coordinator, FilterExpr, Selection } from "@kanzo-tech/ui/analytics";
+import { clausePoints, column, fillColumn, numbers } from "@kanzo-tech/mosaic";
+import type { Coordinator, FilterExpr, Selection } from "@kanzo-tech/mosaic";
 import { BOUNDED_DEFAULTS, SUPERSEDED, type BoundedSource, type Slice, type SliceRequest, type Viewport } from "./bounded";
 import { SliceRead } from "./slice-client";
 import { denseOf, typeOf, vertexId, type VertexId } from "./resident";

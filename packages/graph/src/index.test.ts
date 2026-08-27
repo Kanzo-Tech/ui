@@ -17,7 +17,9 @@ import * as GRAPH from "./index";
  * `import { memorySource } from "@kanzo-tech/graph"` threw ERR_MODULE_NOT_FOUND for every host that
  * had not installed a database, while `src/index.ts`, `src/duck-source.ts`, the manifest and the
  * README each promised in their own words that it would not. The name no longer exists anywhere:
- * `slice-client.ts` replaced it with a client the coordinator owns. It is still asserted below,
+ * `slice-client.ts` replaced it with a client the coordinator owns. That barrel is no longer the
+ * way in either: the Mosaic half comes from `@kanzo-tech/mosaic`, which is why `./duckdb` no longer
+ * drags vgplot behind it. It is still asserted below,
  * because what the assertion is for is the *door* rather than the name — the next module to import
  * the Mosaic stack will not be called `onceQuery` either.
  *
@@ -102,7 +104,7 @@ describe("@kanzo-tech/graph public surface", () => {
   it("keeps the Mosaic/DuckDB half off the root barrel", () => {
     // The one-way door CLAUDE.md names, and the one this package had already crossed.
     //
-    // `onceQuery` was a `MosaicClient` subclass — its module imported `@kanzo-tech/ui/analytics`,
+    // `onceQuery` was a `MosaicClient` subclass — its module imported the Mosaic stack,
     // which statically imports the whole Mosaic stack, all of it optional. Re-exported here it made
     // `import { memorySource } from "@kanzo-tech/graph"` throw ERR_MODULE_NOT_FOUND for anyone
     // without a database, which is the exact failure `/editor`, `/table` and `/analytics` exist to
@@ -117,7 +119,7 @@ describe("@kanzo-tech/graph public surface", () => {
     expect(surface.duckBoundedSource).toBeUndefined();
     expect(surface.openCorpus).toBeUndefined();
     expect(surface.SliceRead).toBeUndefined();
-    // The client is not here under any name either. It lives in `@kanzo-tech/ui/analytics` as
+    // The client is not here under any name either. It lives in `@kanzo-tech/mosaic` as
     // `IdSetClient`, because a graph, a map and an imperative widget all publish the same
     // enumerated set of ids and none of that is cosmos.gl-specific. `CosmosClient` was the name it
     // had here; re-teaching it would be re-teaching a retired one.

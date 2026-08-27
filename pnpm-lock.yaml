@@ -248,13 +248,13 @@ importers:
       '@kanzo-tech/ui':
         specifier: workspace:*
         version: link:../ui
-      '@uwdata/vgplot':
-        specifier: ^0.29.2
-        version: 0.29.2
     devDependencies:
       '@cosmos.gl/graph':
         specifier: ^3.4.0
         version: 3.4.0
+      '@kanzo-tech/mosaic':
+        specifier: workspace:*
+        version: link:../mosaic
       '@testing-library/dom':
         specifier: ^10.4.1
         version: 10.4.1
@@ -286,6 +286,15 @@ importers:
         specifier: ^0.4.0
         version: 0.4.0(rollup@4.62.2)
 
+  packages/mosaic:
+    devDependencies:
+      '@uwdata/mosaic-core':
+        specifier: ^0.29.2
+        version: 0.29.2
+      '@uwdata/mosaic-sql':
+        specifier: ^0.29.0
+        version: 0.29.0
+
   packages/theme:
     devDependencies:
       tailwindcss:
@@ -297,12 +306,12 @@ importers:
       '@ark-ui/react':
         specifier: ^5.37.2
         version: 5.37.2(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@duckdb/duckdb-wasm':
-        specifier: ^1.33.1-dev57.0
-        version: 1.33.1-dev57.0
       '@internationalized/date':
         specifier: ^3.12.2
         version: 3.12.2
+      '@kanzo-tech/mosaic':
+        specifier: workspace:*
+        version: link:../mosaic
       '@kanzo-tech/theme':
         specifier: workspace:*
         version: link:../theme

@@ -118,6 +118,15 @@ export type {
 // Re-exported so a consumer writes a whole chart — and boots the coordinator under it — without a
 // direct @uwdata import, the way `/table` re-exports its TanStack types.
 //
+// The data half of that list now comes from `@kanzo-tech/mosaic` rather than from `@uwdata/*` and
+// two local files. The surface below is unchanged — every name still resolves here — but the
+// coordinator, the clients, the clauses and the Arrow reader are no longer OWNED by a component
+// library. They were only ever here because the first chart needed them, and the cost of that
+// showed up somewhere else: `@kanzo-tech/graph/duckdb` reached them through this barrel, which
+// re-exports the React charts above and `@uwdata/vgplot` with them, so a host with mosaic-core and
+// mosaic-sql installed still could not open that subpath. The plotting half stays here, because
+// plotting is what this subpath is.
+//
 // The list below is drawn on one rule, because the list it replaced was drawn on none: a set is
 // re-exported when it is **closed and named**, and stays a direct import when it is open. vgplot's
 // ~250 plot attributes and mosaic-sql's expression builders are open — `ChartRoot`'s `attributes`
@@ -132,10 +141,10 @@ export type {
 
 // Boot: the coordinator, its connector, and the loaders that put a relation in front of it. The
 // "bring your own coordinator" recipe is four lines, and the fourth used to be a direct import.
-export { Coordinator, Selection, wasmConnector } from "@uwdata/mosaic-core";
+export { Coordinator, Selection, wasmConnector } from "@kanzo-tech/mosaic";
 export {
   loadCSV, loadJSON, loadObjects, loadParquet, loadSpatial, loadExtension,
-} from "@uwdata/mosaic-sql";
+} from "@kanzo-tech/mosaic";
 
 // Channels: what `x` / `y` / `r` take. The aggregate vocabulary is complete on purpose. `min`,
 // `max`, `mode` and `stddev` are one line each and today nothing imports them — but a vocabulary
@@ -144,7 +153,7 @@ export {
 // never want a standard deviation" that survives contact with a chart author. Same argument that
 // keeps the marks in `chart-marks.tsx` that no example draws.
 export { count, sum, avg, min, max, median, quantile, stddev, mode, bin, sql } from "@uwdata/vgplot";
-export type { ExprValue } from "@uwdata/mosaic-sql";
+export type { ExprValue } from "@kanzo-tech/mosaic";
 
 // The six marks the layer withholds on purpose, because axes here compile to plot *attributes* — an
 // axis mark would steal the binding from the interactor after it. They are a closed set the docs
@@ -160,24 +169,22 @@ export { axisX, axisY, axisFx, axisFy, gridFx, gridFy } from "@uwdata/vgplot";
 export {
   MosaicClient, makeClient,
   clausePoint, clausePoints, clauseInterval, clauseIntervals, clauseMatch,
-} from "@uwdata/mosaic-core";
-export type { SelectionClause } from "@uwdata/mosaic-core";
-export type { FilterExpr } from "@uwdata/mosaic-sql";
+} from "@kanzo-tech/mosaic";
+export type { SelectionClause, FilterExpr } from "@kanzo-tech/mosaic";
 
 // The other half of that protocol, and the half it does not give you. Declaring a query is small
 // and publishing a clause is documented; turning the ANSWER into values is where every client
 // independently writes `as { getChild(name: string): … }` — a cast asserting Arrow's shape rather
 // than checking it, and wrong the first time the query selects a string. Arrow only offers a typed
 // column when the type allows one, so the fallback is not a nicety.
-export { column, fillColumn, numbers, type NumericArray } from "./charts/arrow.js";
+export { column, fillColumn, numbers, type NumericArray } from "@kanzo-tech/mosaic";
 
 // And the client that protocol is usually reached for. A view whose positions are not in the
 // database — a GPU canvas, a map, an imperative widget — cannot publish `weight BETWEEN …`, because
 // there is no column to write the predicate over. It can only enumerate what was hit. That shape is
 // the same every time: fade by the surviving ids, publish a points clause, and decline the
 // self-exemption so the fade reads as the brush.
-export { IdSetClient } from "./charts/id-set-client.js";
-export type { IdSetClientOptions } from "./charts/id-set-client.js";
+export { IdSetClient, type IdSetClientOptions } from "@kanzo-tech/mosaic";
 
 // The five preset charts (Histogram, BarChart, LineChart, ScatterPlot, BarSeriesChart) are gone —
 // they were five parallel hardcoded `vg.plot(...)` calls that could not be composed. Each one is

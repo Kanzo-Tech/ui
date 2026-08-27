@@ -1,0 +1,44 @@
+{
+  "name": "@kanzo-tech/mosaic",
+  "version": "0.1.0",
+  "description": "The Mosaic conversation, without React — coordinator, clients and clauses re-exported as one surface, plus the Arrow column reader and the id-set client that every consumer of them was writing by hand.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "//peers": "mosaic-core and mosaic-sql are REQUIRED, not optional, and that is the whole point of this package: there is nothing here without them, so a host installs them once and both @kanzo-tech/ui/analytics and @kanzo-tech/graph/duckdb see the same coordinator. Two copies would be two crossfilters. @uwdata/vgplot is deliberately absent — it is a plotting library, it belongs to the charts in @kanzo-tech/ui, and its accidental presence on this path is exactly the bug this package exists to end. @duckdb/duckdb-wasm is absent for the same reason it is absent from @kanzo-tech/graph: nothing here names it, and a host that boots its own DuckDB depends on it directly. The two ranges differ — mosaic-core ^0.29.2, mosaic-sql ^0.29.0 — and that is not drift: mosaic-sql published exactly one release in the 0.29 line, so ^0.29.2 does not resolve. Each range names the newest patch that exists.",
+  "peerDependencies": {
+    "@uwdata/mosaic-core": "^0.29.2",
+    "@uwdata/mosaic-sql": "^0.29.0"
+  },
+  "devDependencies": {
+    "@uwdata/mosaic-core": "^0.29.2",
+    "@uwdata/mosaic-sql": "^0.29.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kanzo-Tech/ui.git",
+    "directory": "packages/mosaic"
+  },
+  "homepage": "https://kanzo-tech.github.io/ui",
+  "bugs": {
+    "url": "https://github.com/Kanzo-Tech/ui/issues"
+  }
+}

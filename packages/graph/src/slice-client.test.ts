@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { Coordinator, Selection } from "@kanzo-tech/ui/analytics";
+import { Coordinator, Selection } from "@kanzo-tech/mosaic";
 import { SUPERSEDED } from "./bounded";
 import { SliceRead } from "./slice-client";
 
