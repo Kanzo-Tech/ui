@@ -19,13 +19,26 @@ name: Release
 # The release tag carries the version: `v0.1.0`, or `v0.2.0-rc.1`, whose
 # prerelease identifier becomes the dist-tag so `latest` stays where it was.
 #
-# AUTH IS OIDC — no NPM_TOKEN. Provenance is not decoration here: npm verifies the
-# signed statement against the manifest, and a package whose `repository.url` does
-# not match the building repo is REJECTED with a 422. That is not a lint anyone
-# runs; it is enforced at publish. All four declare `repository` for this reason.
-# A package's first publish can never be the OIDC one, since a trusted publisher
-# is configured per package and a package exists only once published — so a brand
-# new package needs one token-authenticated publish before it can join this path.
+# AUTH. OIDC is the destination, NPM_TOKEN is the ramp, and both are here on
+# purpose right now.
+#
+# A trusted publisher is configured per package on npmjs.com, and a package exists
+# only once it has been published — so a package's FIRST publish can never be the
+# OIDC one. @kanzo-tech/theme and @kanzo-tech/ui cleared that bar with 0.0.1-alpha
+# and have publishers configured against THIS file. @kanzo-tech/graph and
+# @kanzo-tech/ai have never been published, and `pnpm publish -r` aborts on the
+# first package the registry refuses — so without a token the whole release fails
+# at graph, however well theme and ui went.
+#
+# NODE_AUTH_TOKEN is therefore the fallback for exactly those two, for exactly one
+# release. Once all four are on the registry, configure a Trusted Publisher for
+# graph and ai as well (npmjs.com → package → Settings → GitHub Actions: owner
+# Kanzo-Tech, repo ui, workflow release.yml) and DELETE the `env:` block below.
+#
+# Provenance is not decoration: npm verifies the signed statement against the
+# manifest and REJECTS the publish with a 422 when `repository.url` does not match
+# the building repo. No local lint catches that — publint passes a package with no
+# `repository` at all — it is enforced at the registry. All four declare it now.
 
 on:
   release:
@@ -93,6 +106,11 @@ jobs:
       # --no-git-checks because the stamp above leaves the tree dirty by design.
       - name: Publish
         if: ${{ github.event_name == 'release' || !inputs.dry-run }}
+        # Temporary — see AUTH above. theme and ui authenticate by OIDC and are
+        # signed; graph and ai fall back to this until they exist and can have
+        # publishers of their own.
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           pnpm -r --filter "./packages/*" publish \
             --access public --tag "${{ steps.ver.outputs.tag }}" --no-git-checks
