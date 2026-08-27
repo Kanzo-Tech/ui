@@ -1,8 +1,13 @@
-name: Publish
+name: Release
 
 # Publishes all four @kanzo-tech packages when a GitHub Release is published.
-# Same shape as rudof: the release is the decision, made by a person, and this
-# workflow is only what carries it out. No version PR, nothing to merge.
+# Same shape as rudof's publish.yml: the release is the decision, made by a person,
+# and this workflow is only what carries it out. No version PR, nothing to merge.
+# It keeps the name `release.yml` rather than rudof's `publish.yml` for two
+# reasons: there is no second workflow here to distinguish it from — rudof's
+# release.yml bumps and tags, which is the part done by hand here — and npm ties a
+# package's trusted publisher to a workflow FILENAME, so renaming this file
+# silently invalidates the OIDC configuration of every package pointing at it.
 #
 # FOUR PACKAGES, ONE VERSION, ONE RELEASE — a constraint, not a preference.
 # `packages/ui` depends on `@kanzo-tech/theme` through `workspace:*`, which pnpm
