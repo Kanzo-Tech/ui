@@ -98,5 +98,14 @@
     "streamdown": {
       "optional": true
     }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kanzo-Tech/ui.git",
+    "directory": "packages/ai"
+  },
+  "homepage": "https://kanzo-tech.github.io/ui",
+  "bugs": {
+    "url": "https://github.com/Kanzo-Tech/ui/issues"
   }
 }

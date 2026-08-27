@@ -17,7 +17,11 @@
     "//check:generated": "themes.css and theme-data.json are generated — the catalogue of themes plus the non-colour axes. Regenerate and fail if the checked-in copies differ, so a hand-edit or a stale commit cannot ship. `tokens.css` and `themes/*.css` are NOT here: they are hand-written source now, and a guard that regenerated them would have nothing to regenerate them from.",
     "check:generated": "pnpm --filter @kanzo-tech/theme gen && git diff --exit-code -- packages/theme/themes.css packages/theme/theme-data.json",
     "//release": "Scoped to packages/*: the docs app must never sit on the publish path.",
-    "release": "pnpm -r --filter \"./packages/*\" build"
+    "release": "pnpm -r --filter \"./packages/*\" build",
+    "//publint": "Export-map correctness for all four published packages. publint resolves from the root devDependency; the filter only picks the directory it runs in.",
+    "publint": "pnpm -r --filter \"./packages/*\" exec publint",
+    "//verify": "The whole gate, in one place. CI and the publish workflow both run THIS, so the list cannot drift between them — it already had: the release path was missing the RSC fixture and publint, so a publish could ship what CI would have rejected. Order matters: build first, because packages typecheck against each other emitted .d.ts and the exports maps point at dist/.",
+    "verify": "pnpm build && pnpm typecheck && pnpm lint && pnpm check:generated && pnpm test && pnpm size && pnpm smoke && pnpm --filter @kanzo-tech/docs build && pnpm publint"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.0",

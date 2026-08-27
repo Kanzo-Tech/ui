@@ -63,5 +63,14 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "rollup-plugin-preserve-directives": "^0.4.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kanzo-Tech/ui.git",
+    "directory": "packages/graph"
+  },
+  "homepage": "https://kanzo-tech.github.io/ui",
+  "bugs": {
+    "url": "https://github.com/Kanzo-Tech/ui/issues"
   }
 }

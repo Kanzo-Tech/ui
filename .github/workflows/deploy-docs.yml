@@ -34,16 +34,8 @@ jobs:
     name: static export
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      # No `version:` here on purpose. `packageManager: pnpm@9.0.0` in the root package.json is
-      # the single source, and declaring it in both makes the action refuse to run:
-      # `Multiple versions of pnpm specified`. One spelling of one fact.
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
 
       # `docs/` consumes `dist/`, not `src/` — the exports maps point there, so the docs build
       # cannot resolve @kanzo-tech/theme on a clean checkout until the packages are built. The
@@ -54,7 +46,7 @@ jobs:
       - name: Static export
         run: pnpm --filter @kanzo-tech/docs build:static
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: docs/out
 
@@ -67,4 +59,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

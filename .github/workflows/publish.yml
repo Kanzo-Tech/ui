@@ -1,0 +1,99 @@
+name: Publish
+
+# Publishes all four @kanzo-tech packages when a GitHub Release is published.
+# Same shape as rudof: the release is the decision, made by a person, and this
+# workflow is only what carries it out. No version PR, nothing to merge.
+#
+# FOUR PACKAGES, ONE VERSION, ONE RELEASE — a constraint, not a preference.
+# `packages/ui` depends on `@kanzo-tech/theme` through `workspace:*`, which pnpm
+# rewrites to theme's exact version at pack time: a ui published without theme
+# names a version the registry does not have, so `npm install` fails outright
+# (check 1 of `scripts/smoke-install.mjs` is that exact failure). `graph` and `ai`
+# peer-depend on `ui` and carry the coupling one step further out.
+#
+# The release tag carries the version: `v0.1.0`, or `v0.2.0-rc.1`, whose
+# prerelease identifier becomes the dist-tag so `latest` stays where it was.
+#
+# AUTH IS OIDC — no NPM_TOKEN. Provenance is not decoration here: npm verifies the
+# signed statement against the manifest, and a package whose `repository.url` does
+# not match the building repo is REJECTED with a 422. That is not a lint anyone
+# runs; it is enforced at publish. All four declare `repository` for this reason.
+# A package's first publish can never be the OIDC one, since a trusted publisher
+# is configured per package and a package exists only once published — so a brand
+# new package needs one token-authenticated publish before it can join this path.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: "Dry run: run the gate and pack, without publishing"
+        type: boolean
+        default: true
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  publish:
+    name: Publish @kanzo-tech/*
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # OIDC token for npm Trusted Publishing, and what signs the provenance.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      # npm >= 11.5.1 for Trusted Publishing.
+      - name: Upgrade npm
+        run: npm install -g npm@latest
+
+      # On a release the tag is the version. On a manual dispatch there is no tag,
+      # so the committed version stands in — which is only ever useful for a dry
+      # run, and that is what the input defaults to.
+      - name: Resolve version and dist-tag
+        id: ver
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "release" ]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            version="$(node -p "require('./packages/ui/package.json').version")"
+          fi
+          case "$version" in
+            *-*) tag="${version#*-}"; tag="${tag%%.*}" ;;
+            *)   tag="latest" ;;
+          esac
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "$version → dist-tag $tag"
+
+      # The committed versions are placeholders; the release is the statement.
+      - name: Stamp the version on all four packages
+        run: |
+          set -euo pipefail
+          for pkg in theme ui graph ai; do
+            (cd "packages/$pkg" && npm pkg set version="${{ steps.ver.outputs.version }}")
+          done
+
+      # The same `pnpm verify` CI runs — one definition, so the release gate can
+      # never be the weaker of the two again. It runs AFTER the stamp, so what is
+      # checked is what ships. npm versions are immutable after 72 hours; a red
+      # build must not reach the registry.
+      - run: pnpm verify
+
+      # `pnpm publish`, never `npm publish`: only pnpm rewrites `workspace:*` into
+      # a real range, and -r publishes in dependency order so theme precedes ui.
+      # --no-git-checks because the stamp above leaves the tree dirty by design.
+      - name: Publish
+        if: ${{ github.event_name == 'release' || !inputs.dry-run }}
+        run: |
+          pnpm -r --filter "./packages/*" publish \
+            --access public --tag "${{ steps.ver.outputs.tag }}" --no-git-checks
+
+      - name: Dry run — pack only
+        if: ${{ github.event_name != 'release' && inputs.dry-run }}
+        run: |
+          pnpm -r --filter "./packages/*" publish \
+            --access public --tag "${{ steps.ver.outputs.tag }}" --no-git-checks --dry-run

@@ -39,5 +39,14 @@
   "devDependencies": {
     "tailwindcss": "4"
   },
-  "//gen": "One step now: the non-colour axes and the theme catalogue. There is no colour generation — a theme is themes/<name>.css, hand-written source. scripts/extract-themes.mjs was the one-way migration that produced the first sixteen and does not run again."
+  "//gen": "One step now: the non-colour axes and the theme catalogue. There is no colour generation — a theme is themes/<name>.css, hand-written source. scripts/extract-themes.mjs was the one-way migration that produced the first sixteen and does not run again.",
+  "homepage": "https://kanzo-tech.github.io/ui",
+  "bugs": {
+    "url": "https://github.com/Kanzo-Tech/ui/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kanzo-Tech/ui.git",
+    "directory": "packages/theme"
+  }
 }

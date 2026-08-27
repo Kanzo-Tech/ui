@@ -1,0 +1,24 @@
+name: Setup
+description: pnpm, Node and an installed workspace — the four lines every job here began with.
+
+# Every workflow opened with the same four steps and the same paragraph explaining
+# the third one. Four copies of one fact is four things to keep in step, and they
+# had already drifted: two workflows pinned Node 20 and one pinned 24.
+#
+# Checkout stays in the job. A composite action cannot see the repository before
+# it is cloned, and hiding the clone would make `fetch-depth`/`ref` unreachable
+# where a job needs them.
+
+runs:
+  using: composite
+  steps:
+    # No `version:` here on purpose. `packageManager: pnpm@9.0.0` in the root
+    # package.json is the single source, and declaring it in both makes the action
+    # refuse to run: `Multiple versions of pnpm specified`. One spelling of one fact.
+    - uses: pnpm/action-setup@v6
+    - uses: actions/setup-node@v7
+      with:
+        node-version: 24
+        cache: pnpm
+    - run: pnpm install --frozen-lockfile
+      shell: bash
