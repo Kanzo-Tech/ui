@@ -1,0 +1,93 @@
+name: Prerelease (npm)
+
+# Publishes a PRERELEASE of @kanzo-tech/theme + @kanzo-tech/ui from a tag.
+#
+# This is deliberately NOT the release path. `release.yml` owns that: changesets
+# accumulate on main, the action opens a version PR, merging it publishes. That
+# flow is the one with a changelog and a reviewable diff, and nothing here
+# replaces it. This exists for the case changesets is bad at — putting a build in
+# a consumer's hands today, under a dist-tag nobody installs by accident.
+#
+# Trigger: a tag of the form `ui-v<version>`, e.g. `ui-v0.0.1-alpha`.
+#
+# THEME AND UI SHIP TOGETHER, ALWAYS. `packages/ui` depends on
+# `@kanzo-tech/theme: "workspace:*"`, and pnpm rewrites that to theme's exact
+# version at pack time. Publishing ui alone emits a dependency on a theme version
+# that is not on the registry, so `npm install @kanzo-tech/ui` fails outright —
+# check 1 of `scripts/smoke-install.mjs` is this exact failure. Two packages, one
+# version, one tag.
+#
+# Auth is NPM_TOKEN here rather than the OIDC Trusted Publishing `release.yml`
+# uses, because a trusted publisher is configured per package + workflow and this
+# is a different workflow.
+
+on:
+  push:
+    tags:
+      - "ui-v*"
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  prerelease:
+    name: Publish theme + ui
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # No `version:` — `packageManager` in the root package.json is the single
+      # source, and declaring it twice makes the action refuse to run.
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          registry-url: "https://registry.npmjs.org"
+      - run: pnpm install --frozen-lockfile
+
+      # The tag is the version. The dist-tag is the prerelease identifier, so
+      # `0.0.1-alpha` lands on `alpha` and `npm install @kanzo-tech/ui` — which
+      # resolves `latest` — keeps ignoring it. A tag with no prerelease part is
+      # refused: `latest` belongs to release.yml.
+      - name: Resolve version and dist-tag
+        id: ver
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#ui-v}"
+          case "$version" in
+            *-*) tag="${version#*-}"; tag="${tag%%.*}" ;;
+            *) echo "::error::$version has no prerelease part; release.yml owns latest." >&2; exit 1 ;;
+          esac
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "publishing $version under dist-tag $tag"
+
+      - name: Stamp the version on both packages
+        run: |
+          set -euo pipefail
+          for pkg in theme ui; do
+            (cd "packages/$pkg" && npm pkg set version="${{ steps.ver.outputs.version }}")
+          done
+
+      # The same gate as release.yml, for the same reason its comment gives: npm
+      # versions are immutable after 72 hours, so a red build must never reach the
+      # registry. It runs AFTER the version stamp so what is checked is what ships.
+      # `smoke` is the one that matters most here — it packs the real tarballs and
+      # installs them, which is the only check that sees the workspace: rewrite.
+      - run: pnpm -r --filter "./packages/*" build
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm check:generated
+      - run: pnpm test
+      - run: pnpm size
+      - run: pnpm smoke
+
+      # `pnpm publish`, never `npm publish`: only pnpm rewrites `workspace:*` into
+      # a real range. -r publishes in dependency order, so theme precedes ui.
+      # --no-git-checks because the version stamp above leaves the tree dirty by
+      # design; the tag, not the worktree, is the thing being released.
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          pnpm -r --filter "@kanzo-tech/theme" --filter "@kanzo-tech/ui" publish \
+            --access public --tag "${{ steps.ver.outputs.tag }}" --no-git-checks
