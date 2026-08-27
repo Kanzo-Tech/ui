@@ -1,7 +1,7 @@
 {
   "name": "@kanzo-tech/theme",
-  "version": "0.0.0",
-  "description": "Kanzo design tokens \u2014 a catalogue of themes, each one flat block of CSS, plus the non-colour axes (radius / font / mono font / density) a user layers over them, driven by data-* attributes on <html>.",
+  "version": "0.1.0",
+  "description": "Kanzo design tokens — a catalogue of themes, each one flat block of CSS, plus the non-colour axes (radius / font / mono font / density) a user layers over them, driven by data-* attributes on <html>.",
   "type": "module",
   "license": "MIT",
   "sideEffects": [
@@ -35,9 +35,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
-  "//deps": "No React peer and no derivation dependency: this package ships CSS, the axis table and types. The provider that consumes them lives in @kanzo-tech/ui. A theme is source, not output \u2014 there is nothing to derive it from.",
+  "//deps": "No React peer and no derivation dependency: this package ships CSS, the axis table and types. The provider that consumes them lives in @kanzo-tech/ui. A theme is source, not output — there is nothing to derive it from.",
   "devDependencies": {
     "tailwindcss": "4"
   },
-  "//gen": "One step now: the non-colour axes and the theme catalogue. There is no colour generation \u2014 a theme is themes/<name>.css, hand-written source. scripts/extract-themes.mjs was the one-way migration that produced the first sixteen and does not run again."
+  "//gen": "One step now: the non-colour axes and the theme catalogue. There is no colour generation — a theme is themes/<name>.css, hand-written source. scripts/extract-themes.mjs was the one-way migration that produced the first sixteen and does not run again."
 }
