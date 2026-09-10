@@ -81,6 +81,9 @@ function harness() {
 const WINDOW = {
   view: { xMin: 0, yMin: 0, xMax: 10, yMax: 10 },
   limit: 100,
+  // Both are required on a `SliceRequest`, because `useQueryLoop` resolves them before a source is
+  // asked anything. This source used to read the threshold out of an exported table instead.
+  minLinkPixels: 3,
 };
 
 describe("a duck source's slice", () => {

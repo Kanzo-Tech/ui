@@ -1,5 +1,4 @@
 import {
-  BOUNDED_DEFAULTS,
   type ExploreRequest,
   type ExploringSource,
   type Slice,
@@ -73,15 +72,23 @@ export function memorySource(graph: MemoryGraph): ExploringSource {
     // renderer's default box.
     extent: () => Promise.resolve(boundsOf(graph.positions)),
     slice(request: SliceRequest): Promise<Slice> {
-      const { limit, perPixel, pinned, view } = request;
-      return Promise.resolve(gather(graph, inside(graph, view, pinned), limit, perPixel));
+      const { limit, minLinkPixels, perPixel, pinned, view } = request;
+      return Promise.resolve(
+        gather(graph, inside(graph, view, pinned), limit, perPixel, minLinkPixels),
+      );
     },
     // The only source we ship that has this at all: a rectangle needs a spatial predicate, which
     // every source has, and a neighbourhood needs adjacency, which only a host holding its own links
     // does. So the bounded canvas is an explorer here while a SQL source leaves it a map.
     explore(request: ExploreRequest): Promise<Slice> {
       return Promise.resolve(
-        gather(graph, expand(request.seeds, request.depth), request.limit, request.perPixel),
+        gather(
+          graph,
+          expand(request.seeds, request.depth),
+          request.limit,
+          request.perPixel,
+          request.minLinkPixels,
+        ),
       );
     },
   };
@@ -154,6 +161,7 @@ function gather(
   chosen: number[],
   limit: number,
   perPixel: number | undefined,
+  minLinkPixels: number,
 ): Slice {
   const matched = chosen.length;
   const stride = Math.max(1, Math.ceil(matched / limit));
@@ -193,9 +201,11 @@ function gather(
    * it fetched; this one reaches it out of the arrays it was handed.
    *
    * `perPixel` given, an edge shorter than `minLinkPixels` on screen is not sent at all — it is a
-   * dot on top of two dots the point layer has already drawn.
+   * dot on top of two dots the point layer has already drawn. Both numbers come off the request:
+   * this source used to read the threshold out of an exported table, which is the thing that made a
+   * request something a source had to complete rather than answer.
    */
-  const floor = perPixel !== undefined && perPixel > 0 ? BOUNDED_DEFAULTS.minLinkPixels * perPixel : 0;
+  const floor = perPixel !== undefined && perPixel > 0 ? minLinkPixels * perPixel : 0;
   const anchors: number[] = [];
   const anchorOf = (from: number): number => {
     const seen = local[from] as number;

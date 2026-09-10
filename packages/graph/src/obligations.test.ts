@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lookFrom, SHAPE, SHAPE_ORDER, SHAPE_OTHER } from "./graph-looks";
+import { lookFrom, SHAPE_INDEX, SHAPE_ORDER, SHAPE_OTHER } from "./graph-looks";
 import { check, gradeComposition, OBLIGATIONS } from "./obligations";
 
 /**
@@ -63,8 +63,13 @@ describe("the graph section's obligations", () => {
 
   it("keeps the past-capacity glyph out of the ordered four, and off cosmos.gl's None", () => {
     expect(SHAPE_ORDER).not.toContain(SHAPE_OTHER);
-    expect(SHAPE_OTHER).toBe(SHAPE.cross);
-    // 8 is `None` in cosmos.gl's enum; the fragment shader discards a NONE point with no image.
-    expect(SHAPE_OTHER as number).not.toBe(8);
+    // A name, since a shape stopped being cosmos.gl's enum index and became what it is called. The
+    // assertion reads as the rule it holds — the fallback is the cross — rather than as `7`.
+    expect(SHAPE_OTHER).toBe("cross");
+    // 8 is `None` in cosmos.gl's enum; the fragment shader discards a NONE point with no image. The
+    // translation is the only place that number can enter, so this is where it is checked: no name
+    // this scale can produce may map onto it.
+    expect(SHAPE_INDEX[SHAPE_OTHER]).not.toBe(8);
+    expect(Object.values(SHAPE_INDEX)).not.toContain(8);
   });
 });

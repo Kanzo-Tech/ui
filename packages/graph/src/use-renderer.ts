@@ -414,17 +414,38 @@ export function useRenderer(options: RendererOptions): void {
     });
   }, [clusters, graphRef, simulate]);
 
-  // A change in the forces re-heats: the point of a live layout is that you can feel the parameter.
-  // Equality on mount is what keeps a re-render from disturbing a settled graph.
+  /**
+   * A change in the forces re-heats: the point of a live layout is that you can feel the parameter.
+   * Equality on mount is what keeps a re-render from disturbing a settled graph.
+   *
+   * **By value, not by reference**, and the reason is what `sim` became. It takes a `Partial<Sim>` at
+   * the top of the stack now, which invites the literal a host writes without thinking —
+   * `sim={{ gravity: 0.2 }}` — and a fresh object per render against a reference comparison is a
+   * `start()` per render into a layout nobody touched. `useGraph` memoises the merge, so this only
+   * bites where the memo cannot help; six numbers is a cheap thing to be certain about.
+   */
   useEffect(() => {
     const graph = graphRef.current;
-    if (!graph || !simulate || applied.current === sim) return;
+    if (!graph || !simulate || sameForces(applied.current, sim)) return;
     applied.current = sim;
     return whenReady(graph, (ready) => {
       ready.setConfigPartial(forces(sim));
       ready.start(REHEAT);
     });
   }, [graphRef, sim, simulate]);
+}
+
+/** Whether two sets of coefficients would produce the same simulation. Six numbers, all of them. */
+function sameForces(a: Sim, b: Sim): boolean {
+  return (
+    a === b ||
+    (a.gravity === b.gravity &&
+      a.repulsion === b.repulsion &&
+      a.linkSpring === b.linkSpring &&
+      a.linkDistance === b.linkDistance &&
+      a.friction === b.friction &&
+      a.cluster === b.cluster)
+  );
 }
 
 /**

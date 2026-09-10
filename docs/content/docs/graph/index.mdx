@@ -82,7 +82,7 @@ is on [the bounded reader](/docs/design/graph).
 **The split is proven unevenly, and it is worth being exact about where.** The *source* half has two
 call sites: the workspace showcase and `graph-bench/measure-bounded.ts`, which drives
 `duckBoundedSource`, `shouldSlice` and `Slice` against synthetic generators. The *renderer* half —
-`buffers()` and the hooks — has **one**: the workspace. The benchmark route builds its own cosmos.gl
+the hooks, and the buffer building they do internally — has **one**: the workspace. The benchmark route builds its own cosmos.gl
 instance and its own upload path, because measuring the upload is the thing it is for.
 
 `GraphCanvas` is therefore a shape proven against one host, which the decision record says plainly
@@ -263,12 +263,13 @@ worth stating because they are losses, not refactors: **a slice carries category
 label budget has no global ordering** — "the most important labels" became a property of the answer,
 which is the biggest nodes *here* rather than anywhere.
 
-**Appearance.** `buffers(slice, look, host)` turns a look and the *live theme* into per-point
-colours, sizes and shapes. A `Look` carries **geometry only** — colour comes from the page's
-categorical scale, because a scale a graph invents is a scale that disagrees with the legend
-explaining it.
+**Appearance.** The canvas turns a look and the *live theme* into per-point colours, sizes and
+shapes on every slice. A `Look` carries **geometry only** — colour comes from the page's categorical
+scale, because a scale a graph invents is a scale that disagrees with the legend explaining it. None
+of that conversion is on the barrel: it is a step the canvas takes, and nothing outside this package
+had ever called one of its four functions.
 
-`appearance()` is the other side of that line, and it is a performance boundary rather than a
+The uniforms are the other side of that line, and the split is a performance boundary rather than a
 stylistic one: anything that is *one number for the whole canvas* belongs in a cosmos.gl **uniform**,
 read fresh on every draw. Multiply an opacity slider into half a million per-instance values and
 every tick re-uploads the array; put it in a uniform and the same change costs nothing.
@@ -317,12 +318,13 @@ and the difference is the point:
   space a source's positions are expressed in, so resizing it by node count would move the index out
   from under the camera. A host with a large corpus starts its users at this answer through the
   tenant policy, not by writing values into storage nobody can then reset.
-- **`clusterRing`** is what the canvas calls the moment `clusters` is passed. Turn it off and watch
-  the communities stay tangled: `setPointClusters` alone pulls each node toward its own group's
-  centre of mass, which is a target that moves with the thing pulling it, so groups that start
-  overlapped have overlapping centroids and nothing asks them to move apart. Explicit ring positions
-  turn the same force into a positional constraint the simulation converges onto. It is exported for
-  a host seeding its own layout with the same geometry.
+- **The cluster ring** is what the canvas seeds the moment `clusters` is passed. Turn it off and
+  watch the communities stay tangled: `setPointClusters` alone pulls each node toward its own
+  group's centre of mass, which is a target that moves with the thing pulling it, so groups that
+  start overlapped have overlapping centroids and nothing asks them to move apart. Explicit ring
+  positions turn the same force into a positional constraint the simulation converges onto. It is
+  not exported: the ring is placed in the renderer's live coordinate box, which is a number a caller
+  would have to read back off the graph to get right.
 
 ## Things the source will not tell you twice
 
@@ -354,18 +356,29 @@ question; `ExploringSource` is a source that can also answer a topological one, 
 is that second question: where to start and how far out. `MemoryGraph` is the shape the in-memory
 source takes — `vertices`, `positions` as `[x0, y0, …]` and `links` as indices into them.
 
+**A question arrives finished.** `limit` and `minLinkPixels` are **required** fields, filled in by
+the query loop before your source is called: read `request.limit`, read `request.minLinkPixels`, and
+never look up what this package would have chosen. That is a change — those two used to live on an
+exported `BOUNDED_DEFAULTS` table that a source consulted when a request left them out, so a request
+arrived incomplete and every source finished it in its own words. `minLinkPixels` is in **screen**
+pixels: multiply by `perPixel` for a length in the graph's own space, and discard nothing when
+`perPixel` is absent, because a threshold in pixels with no pixels is not a threshold. Nothing about
+the host side changed — `limit` is still optional on `useGraph`.
+
 **The hook.** `UseGraphProps` is what `useGraph` takes, `GraphApi` what a graph publishes to its own
 chrome and to its host, `GraphEvents` the gestures in this package's terms, and `GraphCommands` what
-the canvas can be told to do — registered by the canvas, called by the panels. `GraphOverlays` and
-`GraphOverlayOptions` are the label and card layer over the canvas, which is DOM rather than WebGL.
+the canvas can be told to do — registered by the canvas, called by the panels. `GraphOverlays` is
+the label and card layer over the canvas, which is DOM rather than WebGL; `GraphOverlayOptions` is
+gone, because that hook takes the api rather than a shape you assemble from it. `LookPatch` is the
+`look` prop: every field of a `Look` optional, `link` merged one level down.
 
 **The vocabulary.** `Motion` is `"running" | "settled" | "paused"`, and the difference that matters
 is that `settled` converged on its own while `paused` is waiting for you. `SelectionSource` says
 where a selection came from — `"marquee" | "lasso" | "node" | "order" | "ask"` — and is open-ended
-so a host with its own panels can add its own. `ShapeId` is a slot in the four-shape scale, the
-sibling of the colour scale. `Channels` is what each channel is bound to, in Plot's names and under
-Plot's rule about what a value means. `Buffers` is the four `Float32Array`s the renderer fills.
-`Sim` is the force coefficients, handed straight to the GPU simulation.
+so a host with its own panels can add its own. `Shape` is the glyph, by name — the sibling of the
+colour scale, and `ShapeGlyphProps` is what draws one. `Channels` is what each channel is bound to,
+in Plot's names and under Plot's rule about what a value means. `Sim` is the force coefficients,
+handed straight to the GPU simulation.
 
 **On `@kanzo-tech/graph/duckdb`.** `DuckSource` is a `BoundedSource` that also publishes the
 reader's selection as a clause the rest of the page filters by, and `DuckSourceOptions` is what it
@@ -374,10 +387,17 @@ canvas, and the handle for everything else the corpus holds.
 
 ## API Reference
 
-Thirty-six names, grouped the way the barrel groups them. Most of a graph is composed from the
-first two blocks; the rest is here because a host that writes its own buffers, its own overlays or
-its own source needs the same functions this package uses, and two implementations of *what colour
-is `var(--primary)` here* is how a canvas ends up disagreeing with the page around it.
+Twenty-one names, grouped the way the barrel groups them. It was thirty-six, and the fifteen that
+left were measured rather than judged: a census of every import of this package — this repository,
+its showcases and examples, and the one consumer outside it — found that eight of them appeared in
+no import list anywhere, and the rest were a default a host had to spread, a constant this package
+applies itself, or a number belonging to cosmos.gl's enum rather than to us.
+
+`packages/graph/src/index.test.ts` now pins the list: adding an export fails that file until
+somebody writes the name into it. Most of a graph is composed from the first block; the rest is
+here because a host writing its own source, its own overlays or its own legend has to ask the same
+questions the canvas asks, and two implementations of *what colour is `var(--primary)` here* is how
+a canvas ends up disagreeing with the page around it.
 
 ### The canvas
 
@@ -386,18 +406,20 @@ is `var(--primary)` here* is how a canvas ends up disagreeing with the page arou
 | `GraphCanvas` | The shortcut: creates the api and renders the element. |
 | `useGraph` | **Creates** the api, for a host that renders the element itself. |
 | `useGraphContext` | **Reads** it, from inside the canvas. |
-| `GraphRootProvider` | What you reach for when a hook has to run *beside* the canvas — `useGraphOverlays` and the `events` block want `getGraph` and `getResident` from above the element, where no context is readable. |
+| `GraphRootProvider` | What you reach for when a hook has to run *beside* the canvas — `useGraphOverlays` takes the api, and the `events` block wants `getGraph` and `getResident` off it, both from above the element where no context is readable. |
 
 ### The slice, and the arrays a renderer wants
 
 | Name | What it is |
 | --- | --- |
-| `buffers` | A slice in, the typed arrays out. The size ramp spans **this slice**, not the corpus — the trade ADR-0001 names. |
 | `scaleOf` | The categorical scale the channels imply: what colour and what shape an ordinal wears. `capacity` is where *Other* begins. |
-| `isColour` | Whether a channel's value is a colour, and therefore a constant rather than a column. The split it decides happens twice — the buffers paint the constant, and the query must not be asked to fetch a column called `var(--foreground)`. |
 | `neighboursOf` | The **renderer's** adjacency: what is on screen, which is what a hover highlight wants. The graph's own answer is a `neighbourhood` query on a source that supports one. |
-| `forces` | The simulation coefficients in cosmos.gl's spelling. |
-| `appearance` | The look as **uniforms**. A uniform is read fresh on every draw, so changing one rebuilds no array — which is why a look change costs a `setConfigPartial` and no upload at all. |
+
+`buffers`, `appearance`, `forces` and `isColour` were on this barrel and are not any more. They are
+the steps the canvas takes on your behalf — `useGraphLook` calls the first two, `useRenderer` the
+third, `useGraph` the fourth — and no importer of this package had ever named one. The two that
+stayed are the two that answer a question from *outside* the render path: a legend asks `scaleOf`
+what colour a category is, and a click handler asks `neighboursOf` what is next to what.
 
 ### Identity
 
@@ -417,32 +439,59 @@ explaining it.
 
 | Name | What it is |
 | --- | --- |
-| `DEFAULT_LOOK` | The geometry a canvas draws when nothing is declared. |
 | `lookFrom` | The axes a person chose, as a `Look`. A missing key, or one the section never offered, takes the manifest's answer. |
-| `SHAPE` | The five shapes by name — `circle`, `square`, `triangle`, `diamond`, `cross`. |
-| `SHAPE_ORDER` | The scale, in slot order, and it is **four** long. Plot calls this channel `symbol` and gives it its own legend, which is the tell that it is a peer of colour and not decoration. |
-| `SHAPE_OTHER` | What a category past the scale wears — `cross`, worn by no slot. The shape channel's `--muted-foreground`: it says *not one of the four* rather than repeating the first one. |
-| `SHAPE_PATH` | Each shape as an SVG path, for a legend key drawn in the DOM. |
+| `ShapeGlyph` | The glyph the canvas draws for a category, in the DOM — `<ShapeGlyph shape="cross" color={scale.color(o)} />` for a legend key or a hover card. Sized from outside; the twelve-unit box, the fill and the path are its own. |
+
+**A shape is a name.** `type Shape = "circle" | "square" | "triangle" | "diamond" | "cross"`, and
+`scaleOf(...).shape(ordinal)` answers with one.
+
+Five names on this barrel used to hold that one concept: a `SHAPE` table of numbers, the type of
+those numbers, the four-slot cycle, the past-capacity glyph and a table of SVG paths. The numbers
+were never ours — they are cosmos.gl's `setPointShapes` enum indices, which the jump from `3` to `7`
+gives away — so a host holding `3` was holding the renderer's internal numbering under our name. The
+scale is still four slots plus a fifth for everything past them, which is the shape channel's
+measured capacity; that cycle and that fallback are decisions the scale makes, one layer under
+anything you name.
+
+**`DEFAULT_LOOK` is gone, and `look` takes a patch.** It was `lookFrom()` under a second name,
+exported so a host could write `{ ...DEFAULT_LOOK, vignette: true }` — a spread that *copies* every
+number this package chose and stops tracking all of them the moment one moves. Pass
+`look={{ vignette: true }}`; `link` merges one level down, so `{ link: { render: false } }` keeps the
+measured opacity and width.
 
 ### The simulation
 
 | Name | What it is |
 | --- | --- |
-| `DEFAULT_SIM` | The coefficients a graph starts from. |
-| `simFrom` | `lookFrom`'s sibling: the same declared axes, read as forces. |
+| `simFrom` | `lookFrom`'s sibling: the same declared axes, read as forces. Called with nothing, it is what a graph simulates with — `sim` takes a `Partial<Sim>` and merges, so `DEFAULT_SIM` left with `DEFAULT_LOOK`. |
 | `adaptive` | What a graph of a given size wants — repulsion down and friction up as the corpus grows, because bigger graphs otherwise never settle. Tuning, not level of detail, and it deliberately does **not** touch the space size: the box is the coordinate space a source's positions are expressed in, so resizing it by node count would move the index under the camera. |
-| `clusterRing` | Seeds each community on its own ring. The one thing a link-driven seed cannot supply when the grouping genuinely crosses the link structure — measured on the archive corpus, an angular hint decays to nothing by tick 50 while a ring holds, because it is a fixed geometry the simulation converges onto rather than a property it might find. |
-| `REHEAT` | `0.35` — the energy a wake puts back into a converged layout. Enough to reorganise around a changed force, not so much that the picture you were reading is thrown away. |
+
+`clusterRing` seeded each community on its own ring and is no longer exported: it is what the
+renderer calls the moment `clusters` is passed, which is how every caller reached it, and calling it
+yourself means supplying the renderer's live `spaceSize` — a number you would have to read back off
+the graph and would get wrong the first time a corpus set a different box. `REHEAT` went the same
+way: `0.35` is the energy the renderer puts back when the forces change, and the only way to spend
+it from outside is to call `start` on the cosmos.gl instance, at which point the alpha is your
+decision rather than a constant to borrow.
 
 ### Bounded sources
 
 | Name | What it is |
 | --- | --- |
 | `memorySource` | The source for a host that already holds its arrays. Every consumer needs a source, including the ones bounding buys nothing for, so this one is written here once rather than at each call site differently. |
-| `BOUNDED_DEFAULTS` | The defaults, each with the reason it is that number — `limit` is 20,000, the **legibility** ceiling rather than the renderer's, because it arrives first and is the one a reader actually meets. |
 | `shouldSlice` | Whether to slice at all. `undefined` from a source that cannot say cheaply means *yes*: an unknown corpus is more likely to be the large kind. |
-| `SUPERSEDED` | The sentinel a query settles with when the camera has already moved on. A symbol and not a message, because *you moved on* and *the database said no* are the two things a query loop must tell apart, and a string comparison against a thrown value goes stale with nothing failing. |
-| `isSuperseded` | The test for it. A caller treats it as its own abort, never as a failure. |
+
+**The defaults are resolved, not published.** `BOUNDED_DEFAULTS` was here, and a source imported it
+to find out what a request meant when it said nothing — `limit` 20,000, the **legibility** ceiling
+rather than the renderer's, and `minLinkPixels` 3. Both are required fields of `SliceRequest` now,
+filled in by the query loop before your source is called. The table is gone because nothing outside
+this package has to look one up any more.
+
+**Cancellation is the platform's.** A source that cancels rejects with `signal.reason` — an
+`AbortError` — and the query loop tests `error.name`, so a source written over `fetch` with the
+signal passed through is correct without importing anything from us. `SUPERSEDED` and
+`isSuperseded` were a symbol and a predicate of ours doing the same job, which meant the obvious
+source produced the standard rejection and was reported to the host as a database failure.
 
 ### Chrome you draw on top
 
@@ -450,8 +499,7 @@ Both stay out of the canvas for the same reason: each needs a policy only a prod
 
 | Name | What it is |
 | --- | --- |
-| `useGraphOverlays` | The grid and the overlay painting, composed with `useGraph` through `GraphRootProvider`. |
-| `GRID` | `22` — dot spacing at zoom 1. The painter keeps the on-screen spacing inside `[GRID, 2·GRID)`. |
+| `useGraphOverlays` | The grid and the overlay painting. Takes the api — call it after `useGraph` — and composes with it through `GraphRootProvider`. It owns the grid element's spacing: seed nothing, and pass `gridRef` an element you have given a `background-image`. |
 | `useGraphSelection` | The drag gesture that selects — marquee and lasso, with the modifiers adding to or subtracting from the live selection, and a `tool` to switch between them. |
 | `cursorChip` | The drag's style, as `CSSProperties`. |
 

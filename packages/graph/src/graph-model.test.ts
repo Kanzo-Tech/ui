@@ -131,7 +131,10 @@ describe("memorySource", () => {
     links: Float32Array.from([0, 1, 1, 2, 2, 0, 3, 4, 4, 5, 5, 3]),
     categories: Uint16Array.from([0, 0, 0, 1, 1, 1]),
   };
-  const request = { limit: 100 };
+  // The two the loop resolves before a source ever sees a question. They are required on
+  // `SliceRequest` for exactly that reason — a source reads them rather than looking up a table of
+  // ours — so a test that builds a request by hand states them the way the loop would.
+  const request = { limit: 100, minLinkPixels: 3 };
 
   it("answers a rectangle with what is inside it, as identities", async () => {
     const answer = await memorySource(graph).slice({

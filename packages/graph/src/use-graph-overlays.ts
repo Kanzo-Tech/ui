@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import type { Graph } from "@cosmos.gl/graph";
-import type { Resident, VertexId } from "./resident";
+import type { VertexId } from "./resident";
+import type { GraphApi } from "./use-graph";
 import { whenReady } from "./when-ready";
 
 /**
@@ -26,8 +26,15 @@ import { whenReady } from "./when-ready";
  * 700-line component and would have been obvious here.
  */
 
-/** Dot spacing at zoom 1. The painter keeps the on-screen spacing inside [GRID, 2·GRID). */
-export const GRID = 22;
+/**
+ * Dot spacing at zoom 1. The painter keeps the on-screen spacing inside [GRID, 2·GRID).
+ *
+ * **Not on the barrel any more.** Both call sites that imported it wrote the same line —
+ * `backgroundSize: \`${GRID}px ${GRID}px\`` — as the *initial* value of a style `paint` overwrites
+ * on its first frame. So the number was public to spell a value this hook was about to replace, and
+ * the effect below writes it instead: the element the hook owns is seeded by the hook that owns it.
+ */
+const GRID = 22;
 
 /** How far the hover card clears its node, and the margin it keeps from the canvas edge. */
 const CARD_GAP = 14;
@@ -64,14 +71,28 @@ export interface GraphOverlays {
   schedule: () => void;
 }
 
-export interface GraphOverlayOptions {
-  getGraph: () => Graph | null;
-  /** Who is drawn right now, for turning a tracked vertex into the buffer index cosmos.gl wants. */
-  getResident: () => Resident;
-}
-
-export function useGraphOverlays(options: GraphOverlayOptions): GraphOverlays {
-  const { getGraph, getResident } = options;
+/**
+ * **The api, not two getters off it.**
+ *
+ * This took `{ getGraph, getResident }` — an options object whose two members were copied out of
+ * `GraphApi` — and that shape is the reason `getGraph` and `getResident` are on the api at all
+ * beside the `slice` and `resident` values it already publishes. A host composing the two wrote the
+ * hook's argument by hand out of the object it had just been given, which is a re-statement rather
+ * than a decision: there is no useful call where the two come from different graphs.
+ *
+ * `GraphOverlayOptions` went with it. It named a shape a caller had to assemble, and what a caller
+ * has is the api.
+ *
+ * **The ordering follows, and it is the honest one.** This has to be called *after* `useGraph`,
+ * because it now takes what `useGraph` returns. The other half of the cycle — a look change owes the
+ * overlays a repaint, and a look change does not tick — stays where it was: `useGraph` takes a
+ * `schedule` callback, and a host bridges the two with one ref. One indirection, in the direction
+ * that genuinely needs one, instead of two accessors threaded around an object the host is holding.
+ */
+export function useGraphOverlays(api: GraphApi): GraphOverlays {
+  // Both are built once by `useGraph` and are stable for the life of the component, which is what
+  // makes them safe to name in the dependency arrays below.
+  const { getGraph, getResident } = api;
   const hostRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -232,6 +253,24 @@ export function useGraphOverlays(options: GraphOverlayOptions): GraphOverlays {
     });
     observer.observe(host);
     return () => observer.disconnect();
+  }, []);
+
+  /**
+   * The grid's spacing at rest, written before the camera has said anything.
+   *
+   * `paint` sets this every frame from the live zoom, but only once there is a graph and a zoom to
+   * read — and the element is mounted well before that. The two hosts that drew a grid were each
+   * writing this same line inline off an exported `GRID`, which is a constant published so a call
+   * site could spell the value this hook was about to overwrite. Seeding it here is the same picture
+   * with the number staying where the painter that maintains it lives.
+   *
+   * The `backgroundImage` is not seeded: what the dots are made of is the host's decision — the
+   * border colour, a gradient, whatever the surface wants — and only the *spacing* has to agree with
+   * the camera.
+   */
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (grid) grid.style.backgroundSize = `${GRID}px ${GRID}px`;
   }, []);
 
   const schedule = useCallback(() => {

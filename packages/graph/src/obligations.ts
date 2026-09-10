@@ -1,5 +1,5 @@
 import type { Channels } from "./graph-model";
-import { lookFrom, SHAPE, SHAPE_ORDER, SHAPE_OTHER, type Look } from "./graph-looks";
+import { lookFrom, SHAPE_ORDER, SHAPE_OTHER, type Look } from "./graph-looks";
 
 /**
  * What the graph's geometry owes, as a report rather than as prose.
@@ -192,5 +192,6 @@ export function check(): Check[] {
   }));
 }
 
-/** `SHAPE.cross` is the past-capacity glyph and `SHAPE` is re-exported so a caller can name it. */
-export { SHAPE };
+// `SHAPE` was re-exported here "so a caller can name it", and a caller names it as `"cross"` now.
+// A shape is a string union rather than an object of cosmos.gl enum indices, so there is no table
+// left to hand out for the sake of a name — the name IS the value. `graph-looks.ts` says why.

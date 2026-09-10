@@ -76,7 +76,7 @@ export interface GraphCanvasProps extends UseGraphProps {
  *
  * **Overlays and selection are not in here on purpose.** `useGraphOverlays` and `useGraphSelection`
  * need callbacks only the product can write — what a click means, what a lasso commits to. They also
- * need `getGraph` and `getResident` from *above* this element, where a context cannot be read, which
+ * need the api from *above* this element, where a context cannot be read, which
  * is the whole reason `useGraph` and `GraphRootProvider` exist beside this shortcut. A host with
  * overlays calls those two; a host with only chrome calls this one and reads `useGraphContext` from
  * a child.

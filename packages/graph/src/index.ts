@@ -21,32 +21,56 @@
  */
 
 // A slice in, the arrays a renderer wants out. `load()` was here and is gone — see ADR-0001.
-export {
-  buffers,
-  scaleOf,
-  isColour,
-  forces,
-  appearance,
-  neighboursOf,
-  type Buffers,
-  type Channels,
-} from "./graph-model";
+//
+// **Only the two a host asks something with.** `buffers`, `appearance`, `forces` and `isColour` were
+// the conversion path published as four names, and a census of every import of this package —
+// kanzo-ui, its showcases and examples, and fossil — found **zero** call sites for any of them.
+// They are the canvas' own steps: `useGraphLook` calls the first two, `useRenderer` the third and
+// `useGraph` the fourth, all inside this package. They were exported for a host writing its own
+// buffers, and the one host that does write its own draws cosmos.gl directly and imports none of
+// them. `Buffers` went with `buffers`: it is that function's return type and had no second producer.
+//
+// `scaleOf` and `neighboursOf` stay because they answer a question from *outside* the render path —
+// a legend and a hover card ask the first what colour a category is, and the second is what a click
+// handler wants. They tell a host something; the four above did something on its behalf.
+export { scaleOf, neighboursOf, type Channels } from "./graph-model";
 
 // The look: geometry only. Colour comes from the page's categorical scale, never from a look —
 // a scale a graph invents is a scale that disagrees with the legend explaining it.
+//
+// **The shape scale is internal.** `SHAPE`, `SHAPE_ORDER` and `SHAPE_OTHER` were three exports of
+// one decision — which glyph an ordinal wears — and no importer of this package has ever named any
+// of them. The census is the argument: the numbers in `SHAPE` are cosmos.gl's own enum indices, and
+// the jump from `3` to `7` is what gives that away. A host given them is being handed the
+// renderer's internal numbering under our name, which is a thing we then owe compatibility on.
+//
+// **`DEFAULT_LOOK` is gone and the reason is what replaced it.** It was `lookFrom()` — a second
+// public name for a value this package already hands out on request — and it existed because `look`
+// took a whole `Look`, so a host changing one field wrote `{ ...DEFAULT_LOOK, vignette: true }`. A
+// spread of a default is a **copy** of it: the host takes ownership of every number in it and stops
+// tracking any of them the moment one moves here. `look` takes a `LookPatch` now and the merge
+// happens on our side, so `{ vignette: true }` says the one thing the host decided.
+//
+// `lookFrom` stays and is not the same kind of thing at all: it parses a form's string answers —
+// what `@kanzo-tech/graph/section` declares and a preferences panel writes — into a typed value.
+// That is work, and there is nowhere else it can be done.
 export {
-  DEFAULT_LOOK,
   // The other end of `@kanzo-tech/graph/section`: the axes a person chose, as a form. The
   // manifest declares them, a host registers it, the panel draws them, and this reads the answer.
   // There is no table of named looks any more — see `/docs/design/graph`.
   lookFrom,
-  SHAPE,
-  SHAPE_ORDER,
-  SHAPE_OTHER,
-  SHAPE_PATH,
   type Look,
-  type ShapeId,
+  type LookPatch,
+  type Shape,
 } from "./graph-looks";
+
+// The glyph itself, for a legend key or a hover card that has to show what the canvas draws.
+//
+// `SHAPE_PATH` was here and this is what replaced it: the table handed a host path data plus three
+// facts it had to keep in step with by reading a comment — a twelve-unit box, a `fill` rather than a
+// `stroke`, and which enum index keys each glyph. A component carries all three. What is left at the
+// call site is what the host actually decides, which is how big and what colour.
+export { ShapeGlyph, type ShapeGlyphProps } from "./shape-glyph";
 
 /**
  * The graph, in Ark's four pieces.
@@ -54,8 +78,9 @@ export {
  * `useGraph(props)` **creates** the api and `useGraphContext()` **reads** it, which is Ark's
  * convention and was inverted here: the reader was `useGraphCanvas` and there was no creator.
  * `GraphCanvas` is the shortcut that does both, and `GraphRootProvider` is what a host reaches for
- * when it has to call a hook *beside* the canvas — `useGraphOverlays` and the `events` block want
- * `getGraph` and `getResident` from above the element, where no context is readable.
+ * when it has to call a hook *beside* the canvas — `useGraphOverlays` takes the api and the `events`
+ * block reads `getGraph`/`getResident` off it, both from above the element where no context is
+ * readable.
  *
  * That was not a symmetry we wanted for its own sake: it is what the workspace could not adopt
  * `GraphCanvas` without, and the `graphRef`/`residentRef` props that stood in for it are gone.
@@ -81,16 +106,25 @@ export { useGraph, type GraphApi, type GraphEvents, type UseGraphProps } from ".
 // One way to have a graph: `useGraph`, or `GraphCanvas` for the common case. The two hooks below
 // are not a second way — they are chrome you draw *on top of* one, and they stay out of the canvas
 // for the reason they always did: both need a policy only a product can write.
-export { REHEAT } from "./use-renderer";
-// `GraphOverlays` is exported alongside its options because a host composing it with `useGraph` has
-// to name the returned object: the two are mutually dependent — overlays need `getGraph`, and the
-// graph's repaint owes the overlays a nudge — so one of them is held in a ref, and a ref needs a type.
-export {
-  useGraphOverlays,
-  GRID,
-  type GraphOverlayOptions,
-  type GraphOverlays,
-} from "./use-graph-overlays";
+//
+// **`REHEAT` and `GRID` are not here either, and both were tuning this package applies itself.**
+// `REHEAT = 0.35` is the energy `useRenderer` puts back when the forces change, and the only way to
+// spend it from outside is to reach past this package into the cosmos.gl instance and call `start`
+// on it — at which point the number is that caller's decision, not a constant it should be borrowing
+// from us. `GRID = 22` is the dot spacing the overlay painter keeps the on-screen grid inside, and
+// the painter now seeds the element's own `background-size` from it: the two call sites that
+// imported it were both writing the *initial* value of a style this hook overwrites on the first
+// frame anyway.
+//
+// `useGraphOverlays(api)` — the api, not two getters copied out of it. It took a
+// `GraphOverlayOptions` of `{ getGraph, getResident }`, which every host assembled by hand from the
+// object `useGraph` had just handed it; there is no useful call where the two come from different
+// graphs. That options type is gone with the shape it named.
+//
+// `GraphOverlays` stays, because a host composing the two has to name the *returned* object: the
+// dependency is genuinely mutual — this takes the api, and a look change owes the overlays a repaint
+// that no tick will produce — so the second direction goes through one ref, and a ref needs a type.
+export { useGraphOverlays, type GraphOverlays } from "./use-graph-overlays";
 export { useGraphSelection, cursorChip } from "./use-graph-selection";
 
 /**
@@ -147,11 +181,27 @@ export {
  * ones bounding buys nothing for, so that one is written here once rather than at each call site
  * differently.
  */
+//
+// **Cancellation is the platform's, not ours.** `SUPERSEDED` and `isSuperseded` were here — an
+// exported `Symbol` a source threw to say *you moved on*, and the predicate a caller tested it
+// with. `SliceRequest.signal` already carried an `AbortSignal`, so the package published two
+// cancellation contracts and a source had to import ours to be cancellable at all. A source cancels
+// by rejecting with the signal's reason now, which is an `AbortError` — the same rejection `fetch`
+// produces, from a source that only passed the signal along. `SliceRequest` carries the argument.
+//
+// **`BOUNDED_DEFAULTS` is gone, and the fix was not to delete it.** It was read from the *other* end
+// of the contract: a source honoured `limit` and `minLinkPixels` when a request omitted them, so it
+// had to import our table to find out what it was being asked. Two sources did, one of them in
+// another repository, each finishing the same request in its own words.
+//
+// That is the defect, and it is not that the default was public — **a request that arrives
+// unresolved is an incomplete request.** `useQueryLoop` fills both in before the question leaves, so
+// they are required fields of `SliceRequest` now. A source reads `request.limit` and
+// `request.minLinkPixels` and is done; it never needs to know what this package would have chosen,
+// and there is nothing left to export. The host-facing side is unchanged — `limit` is still optional
+// on `UseGraphProps`, and `minLinkPixels` was never a host's business.
 export {
-  BOUNDED_DEFAULTS,
-  isSuperseded,
   shouldSlice,
-  SUPERSEDED,
   type BoundedSource,
   type Slice,
   type ExploringSource,
@@ -166,8 +216,12 @@ export { memorySource, type MemoryGraph } from "./memory-source";
 // `openCorpus` is the one that matters: it takes where a corpus is and gives back both halves —
 // a source for the canvas and registered views for the charts, the crossfilter and the verbs.
 
-// Cluster seeding — what actually separates communities, as opposed to what looks like it should.
-export { clusterRing } from "./cluster-ring";
+// Cluster seeding is **not here**. `clusterRing` is what actually separates communities, as opposed
+// to what looks like it should — and it is what `useRenderer` calls the moment `clusters` is passed,
+// which is the only way anybody has ever reached it. Nothing outside this package imported it: a
+// host that wants seeded communities passes `clusters`, and one that does not gets no ring. Exported
+// it was a second way to do the thing the prop already does, against a `spaceSize` the host would
+// have had to read off the renderer itself.
 
 // What a graph of a given size wants, for the host that runs a live layout. Absorbed from
 // `@fossil-lang/viewer` per ADR-0040 — see the file for why it is tuning rather than level of detail.
@@ -190,4 +244,7 @@ export {
 // sibling. `Display` is not here and has no successor: what survived of it is `link.render` and
 // `grid` on the `Look`, and the two multipliers it carried were a second way to say what `marks`
 // already says.
-export { DEFAULT_SIM, simFrom, type Sim } from "./graph-sim";
+//
+// `DEFAULT_SIM` left with `DEFAULT_LOOK` and for the same argument: it is `simFrom()`, and `sim`
+// takes a `Partial<Sim>` now, so there is nothing left to spread it for.
+export { simFrom, type Sim } from "./graph-sim";

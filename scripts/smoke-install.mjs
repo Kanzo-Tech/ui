@@ -391,7 +391,11 @@ pass("no derivation on the runtime path, and none in the tree to import");
 // gone from the repository now and is still named below, because what is guarded is the door.
 const graph = await import("@kanzo-tech/graph");
 pass(\`graph root barrel imports with only non-optional peers (\${Object.keys(graph).length} exports)\`);
-for (const name of ["memorySource", "buffers", "useGraph", "vertexId"]) {
+// \`buffers\` stood here and is no longer on the barrel: it is a step \`useGraphLook\` takes rather than
+// a question a host asks, and no importer of this package had ever named it. \`GraphCanvas\` takes its
+// place because what this line checks is that the **drawing** half resolves with no database in the
+// tree, and the canvas is that half now.
+for (const name of ["memorySource", "GraphCanvas", "useGraph", "vertexId"]) {
   if (typeof graph[name] !== "function") fail(\`@kanzo-tech/graph does not export \${name}\`);
 }
 if ("onceQuery" in graph) fail("onceQuery is back on the root barrel — it imports the Mosaic stack");

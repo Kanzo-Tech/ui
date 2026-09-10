@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { Graph } from "@cosmos.gl/graph";
 import {
-  BOUNDED_DEFAULTS,
-  isSuperseded,
+  DEFAULT_LIMIT,
+  DEFAULT_MIN_LINK_PIXELS,
+  isAbort,
   shouldSlice,
   type BoundedSource,
   type ExploringSource,
@@ -25,6 +26,12 @@ import { whenReady } from "./when-ready";
  * **A graph that fits pays for nothing.** `total()` is asked first, and under the limit the source is
  * asked once for everything and never again — panning is then free exactly when it can be. Above it,
  * every camera move costs a query, which at 200,000 nodes is the trade that buys the ceiling away.
+ *
+ * **It is also where the question is finished.** A host's `limit` is optional and `minLinkPixels` is
+ * not a host's business at all, and both are **required** on the `SliceRequest` a source receives —
+ * resolved here, once, from `DEFAULT_LIMIT` and `DEFAULT_MIN_LINK_PIXELS`. They used to reach a
+ * source as an exported `BOUNDED_DEFAULTS` table it looked them up in, which made a request
+ * something a source had to *complete* rather than answer, in its own words, in two repositories.
  */
 
 export interface QueryLoopOptions {
@@ -139,7 +146,7 @@ export function useQueryLoop(options: QueryLoopOptions): QueryLoopState {
     fill,
     graphRef,
     hostRef,
-    limit = BOUNDED_DEFAULTS.limit,
+    limit = DEFAULT_LIMIT,
     onError,
     pinned,
     r,
@@ -181,10 +188,21 @@ export function useQueryLoop(options: QueryLoopOptions): QueryLoopState {
         if (controller.signal.aborted) return;
         setSlice(answer);
       } catch (error) {
-        // An abort is the loop working, not a failure: the camera moved on before the answer landed.
-        // `SUPERSEDED` is the source's half of the same event — it answers one question at a time, so
-        // it settles the one the camera replaced rather than leaving this `finally` unrun.
-        if (controller.signal.aborted || isSuperseded(error)) return;
+        /**
+         * An abort is the loop working, not a failure: the camera moved on before the answer landed.
+         *
+         * Two halves, and they are two because only one of them is this loop's own doing. The first
+         * is the controller above — this loop aborted the request itself, so the signal says so
+         * without anything having been thrown. The second is the **source's** half: a source that
+         * holds one standing question settles the one a newer caller replaced, and that rejection
+         * arrives here for a request whose signal was never aborted at all.
+         *
+         * `isAbort` reads `error.name`, which is what makes a source written over `fetch` — or over
+         * `AbortSignal.timeout`, or a stream — correct here without importing anything from us. It
+         * was `isSuperseded(error)` against an exported `Symbol`, and that symbol was the reason a
+         * source doing the standard thing was reported to the host as a failure.
+         */
+        if (controller.signal.aborted || isAbort(error)) return;
         report.current?.(String(error));
       } finally {
         if (inFlight.current === controller) {
@@ -287,7 +305,16 @@ export function useQueryLoop(options: QueryLoopOptions): QueryLoopState {
       if (!graph || !host) return;
       const { perPixel, view } = cameraViewport(graph, host);
       void ask((s, signal) =>
-        s.slice({ view, perPixel, pinned: held.current, fill, r, limit, signal }),
+        s.slice({
+          view,
+          perPixel,
+          pinned: held.current,
+          fill,
+          r,
+          limit,
+          minLinkPixels: DEFAULT_MIN_LINK_PIXELS,
+          signal,
+        }),
       );
     }, debounce);
     // The channels are dependencies rather than a ref, unlike `pinned`: a new one is a new question
@@ -317,6 +344,7 @@ export function useQueryLoop(options: QueryLoopOptions): QueryLoopState {
           fill,
           r,
           limit,
+          minLinkPixels: DEFAULT_MIN_LINK_PIXELS,
           signal,
         }),
       );
@@ -377,7 +405,15 @@ export function useQueryLoop(options: QueryLoopOptions): QueryLoopState {
       if (slicing.current) refresh();
       else
         await ask((s, signal) =>
-          s.slice({ view: EVERYTHING, pinned: held.current, fill, r, limit, signal }),
+          s.slice({
+            view: EVERYTHING,
+            pinned: held.current,
+            fill,
+            r,
+            limit,
+            minLinkPixels: DEFAULT_MIN_LINK_PIXELS,
+            signal,
+          }),
         );
     })();
   }, [ask, counted, fill, frame, limit, r, refresh, source]);

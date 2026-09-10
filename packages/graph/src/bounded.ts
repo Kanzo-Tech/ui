@@ -198,8 +198,29 @@ export interface SliceRequest {
    * **Above it a source samples the window; it does not take the front of it.** Which is the second
    * half of `n`'s honesty: `n` says how many matched, and this says the answer is a *sample* of
    * those rather than whichever ones an `ORDER BY` happened to put first.
+   *
+   * Required, and always filled: a host's `limit` is optional all the way down to `useQueryLoop`,
+   * which resolves it before the question leaves. A source never has to know what this package
+   * would have chosen.
    */
   limit: number;
+  /**
+   * The shortest edge worth a row, **in screen pixels** — multiply by `perPixel` for a length in the
+   * graph's own space.
+   *
+   * **What it buys is on `perPixel` below**: two of every three edges a five-million-node window
+   * draws are under one pixel long, and discarding everything under three sends a third of the rows
+   * for an identical picture.
+   *
+   * Required for the reason `limit` is, and it is the field this whole shape exists for. It used to
+   * live on an exported `BOUNDED_DEFAULTS` that a source read to find out what it was being asked —
+   * so a request arrived incomplete and every source finished it in its own words. There were two,
+   * one of them in another repository. Now the loop resolves it and a source reads it here.
+   *
+   * Meaningless without `perPixel`, and a source with no resolution discards nothing: a threshold in
+   * pixels with no pixels is not a threshold.
+   */
+  minLinkPixels: number;
   /**
    * How much of the graph's own space one screen pixel covers — the resolution the answer is going
    * to be looked at.
@@ -220,6 +241,33 @@ export interface SliceRequest {
    * with no pixels is not a threshold.
    */
   perPixel?: number;
+  /**
+   * Stop: the caller does not want this answer any more.
+   *
+   * **A cancelled question rejects with `signal.reason`, and that is the whole contract.** The
+   * camera moves faster than a database answers, so a source that can only hold one question at a
+   * time is routinely asked a second before the first has landed. The first caller is still holding
+   * a promise; dropping it leaves that caller's `finally` unrun, which in `useQueryLoop` reads as a
+   * query permanently in flight for the rest of the session. So the stale promise is **settled**,
+   * and this says with what.
+   *
+   * `AbortController.abort()` puts a `DOMException` named `AbortError` in `reason`, and `throw
+   * signal.reason` is the whole implementation. A source that cancels for its own reasons — one
+   * standing question re-aimed by a newer caller, a connection let go — throws an `AbortError` it
+   * builds itself, which is what `abortError()` below is for.
+   *
+   * **This replaced a sentinel of ours, and the argument for the sentinel was real.** `SUPERSEDED`
+   * was an exported `Symbol` with `isSuperseded` beside it, on the reasoning that *you moved on* and
+   * *the database said no* are the two things a query loop must tell apart, and a string comparison
+   * against a thrown value goes stale with nothing failing. All of that is true and none of it is an
+   * argument for a *private* sentinel: `AbortError` is the name the platform already gives that
+   * distinction, `fetch` rejects with it, and every third-party async primitive a source is written
+   * over — `fetch`, `AbortSignal.timeout`, a WHATWG stream — produces one without being told to.
+   * Ours meant a source had to import a symbol from us to be cancellable at all, and a source that
+   * simply passed the signal to `fetch` did the standard thing and was reported to the host as a
+   * failure. The comparison is against `error.name`, which is the platform's contract rather than a
+   * message.
+   */
   signal?: AbortSignal;
 }
 
@@ -281,21 +329,37 @@ export interface BoundedSource {
 }
 
 /**
- * What a superseded question rejects with.
+ * A cancellation this source is raising itself, in the platform's own shape.
  *
- * A source may answer one question at a time — a shared connection, one client, one in-flight read —
- * so a camera that moves faster than the database answers leaves a promise with a caller awaiting
- * it. Dropping it leaves that caller's `finally` unrun and the loop reporting a query in flight for
- * the rest of the session, so it is *settled*, and this is what with.
+ * For the case a `signal` cannot express: a source holding **one** standing question, re-aimed by a
+ * newer caller. There is no signal for the caller that lost — its request was never aborted, it was
+ * simply overtaken — so the source builds the rejection, and it builds the same kind the platform
+ * would have. `message` says what overtook it; `name` is what anybody tests.
  *
- * **A caller treats it as its own abort, never as a failure.** A sentinel rather than a message,
- * because "you moved on" and "the database said no" are the two things a query loop must tell apart,
- * and a string comparison against a thrown value goes stale with nothing failing.
+ * Not on the barrel. A source outside this package cancels by passing the `signal` it was handed to
+ * whatever it is waiting on, or by `throw signal.reason` — both of which produce an `AbortError`
+ * with nothing imported from us. This exists for the one case that has no signal to reach for, and
+ * `new DOMException(message, "AbortError")` is the whole of it if a third source ever needs it too.
  */
-export const SUPERSEDED = Symbol("superseded");
+export function abortError(message: string): DOMException {
+  return new DOMException(message, "AbortError");
+}
 
-export function isSuperseded(error: unknown): boolean {
-  return error === SUPERSEDED;
+/**
+ * Whether a rejection means *you moved on* rather than *the answer failed*.
+ *
+ * `error.name` and not `instanceof`: the same `AbortError` reaches here as a `DOMException` from
+ * `AbortController`, as one of ours from `abortError`, and — for a source written over `fetch` in
+ * another realm, an iframe or a worker — as an object no `instanceof` in this realm matches. The
+ * name is what WHATWG specifies and what every producer agrees on.
+ *
+ * Not on the barrel either, for the same reason as `abortError`: a caller of this package awaits
+ * `slice()` behind an `AbortController` it owns, so `controller.signal.aborted` already answers the
+ * question for it. This is the branch `useQueryLoop` needs for the *other* half — a source that
+ * cancelled a question the loop had not aborted.
+ */
+export function isAbort(error: unknown): boolean {
+  return typeof error === "object" && error !== null && (error as { name?: unknown }).name === "AbortError";
 }
 
 /**
@@ -331,35 +395,50 @@ export function shouldSlice(total: number | undefined, limit: number): boolean {
 }
 
 /**
- * Sensible defaults, and the reason each one is that number.
+ * What a question means when the host says nothing — **resolved before a source ever sees it.**
  *
- * The camera→rectangle conversion that used to live here is gone: cosmos.gl owns the screen↔space
- * transform and answers it through `screenToSpacePosition`, so deriving the rectangle from the
- * camera and the space size was a second implementation of the renderer's own maths, free to drift
- * from it. `useQueryLoop` asks the renderer instead.
+ * These were `BOUNDED_DEFAULTS`, an exported table, and a source read it to find out what it was
+ * being asked. That is the defect, stated plainly: a request that arrives unresolved is an
+ * *incomplete* request, and every source outside this package had to know a constant of ours to
+ * finish it. Two of them did — `duck-source.ts` here, and fossil's tile reader — and each finished
+ * it in its own words, which is two chances to disagree about one number.
+ *
+ * `useQueryLoop` fills both in on every call now, so `limit` and `minLinkPixels` are **required**
+ * fields of `SliceRequest`: a source reads `request.limit` and is done. The numbers stay module
+ * scoped and off the barrel, because nobody outside needs to look them up any more.
+ *
+ * The camera→rectangle conversion that used to live beside them is gone for the sibling reason:
+ * cosmos.gl owns the screen↔space transform and answers it through `screenToSpacePosition`, so
+ * deriving the rectangle from the camera and the space size was a second implementation of the
+ * renderer's own maths, free to drift from it. `useQueryLoop` asks the renderer instead.
  */
-export const BOUNDED_DEFAULTS = {
-  /**
-   * Twenty thousand marks.
-   *
-   * Above about 50,000 points a live layout stops being comfortable and the edge layer is already
-   * fog well before that, so a limit far below the renderer's ceiling is not a compromise — it is
-   * the legibility ceiling, which arrives first and is the one a reader actually meets.
-   */
-  limit: 20_000,
-  /**
-   * The shortest edge worth a row — three screen pixels.
-   *
-   * Measured over the drawn edges of five windows per corpus, 2026-08-17: the median edge is 1.60 px
-   * at 200k, 1.47 at a million and **0.52 at five million**, where 64.6% are under one pixel. An edge
-   * that short is a dot on top of two dots the point layer has already drawn. Discarding under 3 px
-   * sends 27.5–35.3% of the rows and leaves 99.9–100% of the inked pixels identical — the working is
-   * in `.planning/FAR-VIEW-AND-EDGES.md`.
-   *
-   * Three rather than two because both were measured against the same five windows of
-   * `docs/public/bench/1000000`: 2 px sends 5.6–25.8% more rows, mean 19%, for the same 0.1% of
-   * image. Not on `SliceRequest`, because there is one call site and a knob with one call site is a
-   * knob nobody has an opinion about — it moves when a second reader disagrees with the measurement.
-   */
-  minLinkPixels: 3,
-} as const;
+
+/**
+ * Twenty thousand marks.
+ *
+ * Above about 50,000 points a live layout stops being comfortable and the edge layer is already
+ * fog well before that, so a limit far below the renderer's ceiling is not a compromise — it is
+ * the legibility ceiling, which arrives first and is the one a reader actually meets.
+ */
+export const DEFAULT_LIMIT = 20_000;
+
+/**
+ * The shortest edge worth a row — three screen pixels.
+ *
+ * Measured over the drawn edges of five windows per corpus, 2026-08-17: the median edge is 1.60 px
+ * at 200k, 1.47 at a million and **0.52 at five million**, where 64.6% are under one pixel. An edge
+ * that short is a dot on top of two dots the point layer has already drawn. Discarding under 3 px
+ * sends 27.5–35.3% of the rows and leaves 99.9–100% of the inked pixels identical — the working is
+ * in `.planning/FAR-VIEW-AND-EDGES.md`.
+ *
+ * Three rather than two because both were measured against the same five windows of
+ * `docs/public/bench/1000000`: 2 px sends 5.6–25.8% more rows, mean 19%, for the same 0.1% of
+ * image.
+ *
+ * **It is on `SliceRequest` now, and the argument against that has been overtaken.** It used to say:
+ * one call site, and a knob with one call site is a knob nobody has an opinion about. There were
+ * two call sites by then and one of them was in another repository, both reading the constant off
+ * the barrel to reconstruct the same product. Whether it is a *knob* is still open — no caller
+ * overrides it — but it is a **fact about the question**, and a question carries its own facts.
+ */
+export const DEFAULT_MIN_LINK_PIXELS = 3;

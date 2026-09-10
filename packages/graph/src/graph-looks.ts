@@ -18,16 +18,38 @@
 // is not the same act as a preference silently discarding the caller's binding.
 
 /**
- * cosmos.gl's `setPointShapes` enum — the members this canvas draws.
+ * The glyphs this canvas draws — **by name**, because a name is what the concept is.
  *
- * The library ships nine: `0` Circle … `4` Pentagon, `5` Hexagon, `6` Star, `7` Cross, `8` None.
- * `None` is missing here on purpose: the point fragment shader `discard`s a `NONE` point that
- * carries no image, so "past capacity" spelled as `None` would delete the node from the picture.
- * A category nobody can name is still a node with edges.
+ * This was five exports of one idea: a `SHAPE` object mapping names to numbers, a `ShapeId` type
+ * that was the union of those numbers, `SHAPE_ORDER`, `SHAPE_OTHER` and `SHAPE_PATH` keyed by them.
+ * The numbers were never ours. They are cosmos.gl's `setPointShapes` enum indices, and the jump from
+ * `3` (diamond) to `7` (cross) is what gives that away — there is no `4`, `5` or `6` here because
+ * Pentagon, Hexagon and Star are members this canvas does not draw. Publishing them made the
+ * renderer's internal numbering part of a contract, so a host held `3` where it meant *diamond*, and
+ * an upstream enum that renumbered would have moved every legend on every page silently.
+ *
+ * A string union says the same thing, reads at the call site — `<ShapeGlyph shape="cross" />` — and
+ * makes the mapping this file's private business, which is what it always was.
  */
-export const SHAPE = { circle: 0, square: 1, triangle: 2, diamond: 3, cross: 7 } as const;
+export type Shape = "circle" | "square" | "triangle" | "diamond" | "cross";
 
-export type ShapeId = (typeof SHAPE)[keyof typeof SHAPE];
+/**
+ * The name → cosmos.gl enum index, and the one place that translation happens.
+ *
+ * `None` (`8`) has no name here on purpose: the point fragment shader `discard`s a `NONE` point that
+ * carries no image, so "past capacity" spelled as `None` would delete the node from the picture, and
+ * a category nobody can name is still a node with edges. `obligations.ts` grades that.
+ *
+ * Module-scoped and off the barrel. `buffers` reads it on the way to the GPU; nothing else needs it,
+ * and anything that did would be reaching for the enum this type exists to hide.
+ */
+export const SHAPE_INDEX: Record<Shape, number> = {
+  circle: 0,
+  square: 1,
+  triangle: 2,
+  diamond: 3,
+  cross: 7,
+};
 
 /**
  * The shape scale, in slot order — the sibling of the colour scale.
@@ -50,7 +72,7 @@ export type ShapeId = (typeof SHAPE)[keyof typeof SHAPE];
  * is the most dangerous shape a comment can have — see `OBLIGATIONS` in `./obligations.ts` for what
  * the floor actually protects.
  */
-export const SHAPE_ORDER: ShapeId[] = [SHAPE.circle, SHAPE.square, SHAPE.triangle, SHAPE.diamond];
+export const SHAPE_ORDER: Shape[] = ["circle", "square", "triangle", "diamond"];
 
 /**
  * What a category past the scale wears — the shape channel's `--muted-foreground`.
@@ -59,7 +81,7 @@ export const SHAPE_ORDER: ShapeId[] = [SHAPE.circle, SHAPE.square, SHAPE.triangl
  * the first one. This is the half that used to be missing, and the comment above was false without
  * it — `SHAPE_ORDER[4]` is `undefined`, and the fallback was `circle`.
  */
-export const SHAPE_OTHER: ShapeId = SHAPE.cross;
+export const SHAPE_OTHER: Shape = "cross";
 
 /**
  * The geometry a canvas draws — and nothing else.
@@ -206,16 +228,56 @@ export function lookFrom(values: Readonly<Record<string, string | undefined>> = 
   };
 }
 
-/** What a canvas draws when nobody has chosen anything. */
+/**
+ * What a canvas draws when nobody has chosen anything.
+ *
+ * **Not on the barrel, and it used to be.** It is literally `lookFrom()` — a second public name for
+ * a value the package already hands out on request — and the reason it was exported is the one
+ * `resolveLook` below removes: a host that wanted one field different had to start from the whole
+ * object, because `look` took a whole `Look`. Spreading a default you were given is a copy of it,
+ * and a copy is what stops tracking the original the next time a number here moves.
+ */
 export const DEFAULT_LOOK: Look = lookFrom();
 
-/** The SVG path for a shape glyph inside a 12×12 box — the legend draws what the canvas draws. */
-export const SHAPE_PATH: Record<ShapeId, string> = {
-  [SHAPE.circle]: "M6 1.6a4.4 4.4 0 1 0 0 8.8 4.4 4.4 0 0 0 0-8.8Z",
-  [SHAPE.square]: "M2 2h8v8H2Z",
-  [SHAPE.triangle]: "M6 1.6 10.6 10H1.4Z",
-  [SHAPE.diamond]: "M6 1 11 6l-5 5-5-5Z",
+/**
+ * A look in the pieces a caller wants different — everything else is this package's answer.
+ *
+ * Two levels, because a `Look` has exactly two: the fields, and `link`. Deep-merging arbitrarily
+ * would be a guess about a shape that is right here in this file, and `size` and `fade` are tuples
+ * that must be replaced whole rather than merged element-wise.
+ */
+export interface LookPatch extends Partial<Omit<Look, "link">> {
+  link?: Partial<Look["link"]>;
+}
+
+/**
+ * A patch over the package's own default — the merge `DEFAULT_LOOK` existed so a host could do by
+ * hand.
+ *
+ * **Nothing, and it is the shared constant rather than a copy of it.** That identity matters: the
+ * buffers are rebuilt whenever the look's reference changes, so a fresh object per render would
+ * mean a full colour/size/shape upload on every render of every canvas that never asked for one.
+ */
+export function resolveLook(patch?: LookPatch): Look {
+  if (!patch) return DEFAULT_LOOK;
+  return { ...DEFAULT_LOOK, ...patch, link: { ...DEFAULT_LOOK.link, ...patch.link } };
+}
+
+/**
+ * The SVG path for a shape glyph inside a 12×12 box — the legend draws what the canvas draws.
+ *
+ * **Off the barrel, and `ShapeGlyph` is what replaced it.** One host imported this, to fill a
+ * `<path>` in a legend key and a hover card. What that host actually wanted was *the glyph*, and
+ * handing it the path data made it responsible for the viewBox, the fill and the fact that the box
+ * is twelve units — three facts it had to keep in step with this file by reading the comment above.
+ * A component carries all three and cannot fall out of step with itself.
+ */
+export const SHAPE_PATH: Record<Shape, string> = {
+  circle: "M6 1.6a4.4 4.4 0 1 0 0 8.8 4.4 4.4 0 0 0 0-8.8Z",
+  square: "M2 2h8v8H2Z",
+  triangle: "M6 1.6 10.6 10H1.4Z",
+  diamond: "M6 1 11 6l-5 5-5-5Z",
   // The proportions are cosmos.gl's own `crossDistance`: a plus with arms at 0.8 of the radius and
   // a bar 0.3 thick, so the legend's glyph is the shape the shader draws.
-  [SHAPE.cross]: "M4.2 1.2h3.6v3h3v3.6h-3v3H4.2v-3h-3V4.2h3Z",
+  cross: "M4.2 1.2h3.6v3h3v3.6h-3v3H4.2v-3h-3V4.2h3Z",
 };

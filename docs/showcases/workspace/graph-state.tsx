@@ -20,8 +20,6 @@ import {
 import { openCorpus, type DuckSource, type OpenedCorpus } from "@kanzo-tech/graph/duckdb";
 import { ensure } from "./duck";
 import {
-  DEFAULT_LOOK,
-  DEFAULT_SIM,
   type Channels,
   type GraphCommands,
   lookFrom,
@@ -338,8 +336,6 @@ function openArchive(): Promise<Archive> {
  * every panel hands the canvas. Re-exported here so this file stays the one import a panel needs.
  */
 export {
-  DEFAULT_LOOK,
-  DEFAULT_SIM,
   type GraphCommands,
   type Motion,
   type Selection,
@@ -442,8 +438,12 @@ const GraphViewContext = createContext<GraphViewValue>({
   ready: false,
   spec: null,
   source: null,
-  look: DEFAULT_LOOK,
-  sim: DEFAULT_SIM,
+  // `lookFrom()` and `simFrom()` rather than the `DEFAULT_LOOK`/`DEFAULT_SIM` constants that used to
+  // be exported for exactly this: the builders called with nothing ARE those two values, which is
+  // what made a second name for them something to remove. This is the context's value before a
+  // provider is mounted, so it is never the one a canvas draws.
+  look: lookFrom(),
+  sim: simFrom(),
   arrangement: "atlas",
   wear: () => {},
   resetLayout: () => {},
@@ -552,7 +552,7 @@ export function GraphMosaic({ children }: { children: ReactNode }) {
    * Put the forces back — by UNSETTING them, not by writing the defaults.
    *
    * Where that lands is the chain's answer: this package's numbers when nobody said otherwise, and
-   * the tenant's starting point when they did. Writing `DEFAULT_SIM` here would make the reset the
+   * the tenant's starting point when they did. Writing `simFrom()` here would make the reset the
    * one act that pins a reader against their own client's document.
    */
   const resetLayout = useCallback(() => {
@@ -563,7 +563,7 @@ export function GraphMosaic({ children }: { children: ReactNode }) {
   }, [setSectionPref]);
 
   // `via` rather than a comparison against the defaults: a tenant who starts their users somewhere
-  // else leaves `sim` different from `DEFAULT_SIM` for everybody, and a reset that stayed lit for
+  // else leaves `sim` different from `simFrom()` for everybody, and a reset that stayed lit for
   // all of them would be a button that does nothing.
   const layoutStored = [...FORCES, CLUSTER].some(
     (key) => sectionPrefs.graph?.[key]?.via === "stored",

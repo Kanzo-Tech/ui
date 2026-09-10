@@ -308,3 +308,115 @@ describe("an answer the camera did not ask for", () => {
     expect(released).toBe(1);
   });
 });
+
+/**
+ * Cancellation, from the source's side — the contract a third source has to be able to read off
+ * `SliceRequest` and get right without importing anything from this package.
+ *
+ * The loop's own cancellation is invisible from here: it aborts its controller before superseding a
+ * request, so the stale promise's rejection never reaches the `catch` as anything but
+ * `signal.aborted`. What these two cover is the half only a **source** can produce — a source that
+ * holds one standing question and settles the one a newer caller overtook. That rejection arrives
+ * for a request whose signal was never aborted, so the only thing separating it from a database
+ * saying no is what it rejected *with*.
+ *
+ * This is the guard on the removal of `SUPERSEDED`. That symbol answered the same question and
+ * answered it only for sources that imported it: the obvious source — `fetch`, signal passed
+ * through — produced the platform's `AbortError` and was reported to the host as a failure. The
+ * assertion below is written the way a source author would write the source: by rejecting with what
+ * an `AbortController` puts in `signal.reason`, and by never naming this package.
+ */
+describe("a source cancels the way the platform does", () => {
+  /** A source that rejects every question with `thrown`, and counts what it was asked. */
+  function refusing(thrown: unknown) {
+    let asked = 0;
+    const source: BoundedSource = {
+      async total() {
+        return 10;
+      },
+      async slice() {
+        asked += 1;
+        throw thrown;
+      },
+    };
+    return { asked: () => asked, source };
+  }
+
+  it("treats an AbortError as the loop working, not as a failure", async () => {
+    // Exactly what `AbortController.abort()` leaves in `signal.reason` — built here rather than
+    // imported, because that is the point: a source produces this without knowing we exist.
+    const controller = new AbortController();
+    controller.abort();
+    const { asked, source } = refusing(controller.signal.reason);
+    const graphRef = createRef<Graph | null>() as { current: Graph | null };
+    const hostRef = { current: document.createElement("div") };
+    const reported: string[] = [];
+
+    const { result } = renderHook(() =>
+      useQueryLoop({ graphRef, hostRef, limit: 1000, onError: (m) => reported.push(m), source }),
+    );
+
+    await waitFor(() => expect(asked()).toBe(1));
+    // Silent, and — the half that made the old sentinel worth having at all — `pending` comes back
+    // down. A rejection swallowed instead of settled leaves the badge saying "asking" for ever.
+    await waitFor(() => expect(result.current.pending).toBe(false));
+    expect(reported).toEqual([]);
+  });
+
+  it("still reports a source that actually failed", async () => {
+    // The other side of the same branch, and the reason it is a name comparison rather than a
+    // catch-all: a database refusing a query must reach the host, and it does not carry the name.
+    const { asked, source } = refusing(new Error('Referenced column "community" not found'));
+    const graphRef = createRef<Graph | null>() as { current: Graph | null };
+    const hostRef = { current: document.createElement("div") };
+    const reported: string[] = [];
+
+    renderHook(() =>
+      useQueryLoop({ graphRef, hostRef, limit: 1000, onError: (m) => reported.push(m), source }),
+    );
+
+    await waitFor(() => expect(asked()).toBe(1));
+    await waitFor(() => expect(reported).toHaveLength(1));
+    expect(reported[0]).toContain("community");
+  });
+});
+
+/**
+ * The question is finished before it is asked, which is what removed `BOUNDED_DEFAULTS`.
+ *
+ * That constant was exported so a **source** could look up what a request meant when it said
+ * nothing — and a source is written outside this package, so two of them imported it and each
+ * completed the same request in its own words. The defect is not that the default was public: it is
+ * that the request arrived unresolved. This is the assertion that it no longer does.
+ *
+ * `limit` is optional all the way down to this hook and `minLinkPixels` is not a host's business at
+ * all, and both are required fields by the time a source is handed one.
+ */
+describe("a source is handed a resolved request", () => {
+  it("fills the bounded defaults in, with the host having said nothing", async () => {
+    const { asks, source } = recording(10);
+    const graphRef = createRef<Graph | null>() as { current: Graph | null };
+    const hostRef = { current: document.createElement("div") };
+
+    // No `limit`. Ten vertices under the resolved default, so this is the whole-corpus branch — the
+    // one that used to hand a source `{ view: EVERYTHING, limit }` and nothing about edge length.
+    renderHook(() => useQueryLoop({ graphRef, hostRef, source }));
+
+    await waitFor(() => expect(asks).toHaveLength(1));
+    expect(asks[0]?.limit).toBe(20_000);
+    expect(asks[0]?.minLinkPixels).toBe(3);
+  });
+
+  it("carries the host's own limit through, and still resolves the rest", async () => {
+    const { asks, source } = recording(10);
+    const graphRef = createRef<Graph | null>() as { current: Graph | null };
+    const hostRef = { current: document.createElement("div") };
+
+    renderHook(() => useQueryLoop({ graphRef, hostRef, limit: 512, source }));
+
+    await waitFor(() => expect(asks).toHaveLength(1));
+    expect(asks[0]?.limit).toBe(512);
+    // Not the host's to set, and still not something a source has to look up.
+    expect(asks[0]?.minLinkPixels).toBe(3);
+  });
+});

@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 import { Coordinator, Selection } from "@kanzo-tech/mosaic";
-import { SUPERSEDED } from "./bounded";
 import { SliceRead } from "./slice-client";
 
 /**
@@ -129,13 +128,21 @@ describe("a source's read is a client of the page's coordinator", () => {
    * A camera moves faster than a database answers, and the previous caller is still holding a
    * promise. Dropping it leaves that caller's `finally` unrun, which in the query loop reads as a
    * request permanently in flight.
+   *
+   * **An `AbortError`, and the name is the assertion.** This rejected with a `SUPERSEDED` symbol
+   * this package exported, which made "was I cancelled" a question only a caller holding our symbol
+   * could answer — and made a source written over `fetch`, which produces the standard rejection
+   * without being told to, look like a database failure to the loop. There is no signal to rethrow
+   * here: nobody aborted the first question, a second one overtook it, so this read builds the
+   * rejection the platform would have built. `useQueryLoop` tests `error.name`, so that is what is
+   * asserted rather than the class or the message.
    */
-  it("settles a superseded question rather than dropping it", async () => {
+  it("settles a superseded question as an abort rather than dropping it", async () => {
     const { coordinator } = harness();
     const read = new SliceRead(coordinator);
     const first = read.ask(() => "SELECT 1");
     const second = read.ask(() => "SELECT 2");
-    await expect(first).rejects.toBe(SUPERSEDED);
+    await expect(first).rejects.toMatchObject({ name: "AbortError" });
     await expect(second).resolves.toBeDefined();
     read.release();
   });

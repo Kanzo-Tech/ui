@@ -4,7 +4,7 @@ import type { Graph, GraphConfig } from "@cosmos.gl/graph";
 import { CHART_SLOTS, categoricalCapacity, categoricalColor } from "@kanzo-tech/ui";
 import type { Slice } from "./bounded";
 import { resolveToken, toHex, type Rgba } from "./css-color";
-import { SHAPE, SHAPE_ORDER, SHAPE_OTHER, type Look, type ShapeId } from "./graph-looks";
+import { SHAPE_INDEX, SHAPE_ORDER, SHAPE_OTHER, type Look, type Shape } from "./graph-looks";
 import type { Sim } from "./graph-sim";
 
 /**
@@ -96,8 +96,13 @@ export function scaleOf(channels: Channels, capacity = CHART_SLOTS) {
     // The shape order runs out at four, so the fifth ordinal and anything past it land on
     // `SHAPE_OTHER` — which is what makes the scale's claim true. Falling back to `circle` would
     // hand category 5 the glyph category 0 already wears.
-    shape: (ordinal: number): ShapeId =>
-      shaped ? (SHAPE_ORDER[ordinal] ?? SHAPE_OTHER) : SHAPE.circle,
+    //
+    // A **name**, not cosmos.gl's enum index. This returned a `ShapeId` — the union of the numbers
+    // `setPointShapes` takes — so a legend drawing what this scale answered was holding the
+    // renderer's internal numbering. `buffers` does the translation below, at the one point where a
+    // number is what the GPU wants.
+    shape: (ordinal: number): Shape =>
+      shaped ? (SHAPE_ORDER[ordinal] ?? SHAPE_OTHER) : "circle",
   };
 }
 
@@ -185,7 +190,9 @@ export function buffers(
     colors.set(colourOf(ordinal), i * 4);
     const t = ramp ? (Math.sqrt(ramp[i] as number) - lo) / span : 0;
     sizes[i] = look.size[0] + t * (look.size[1] - look.size[0]);
-    shapes[i] = scale.shape(ordinal);
+    // The one place a glyph becomes a number: `setPointShapes` takes cosmos.gl's enum, and this is
+    // the only consumer of it. Everything above and outside says `"cross"`.
+    shapes[i] = SHAPE_INDEX[scale.shape(ordinal)] as number;
   }
 
   const count = slice.links.length / 2;

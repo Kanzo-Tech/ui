@@ -62,12 +62,12 @@ import {
 } from "./measure";
 import {
   BOUNDED_SIZES,
+  BOUNDED_LIMIT,
   BOUNDED_STRESS_SIZES,
   type BoundedSample,
   measureBounded,
 } from "./measure-bounded";
 import { ResultsChart } from "./results-chart";
-import { BOUNDED_DEFAULTS } from "@kanzo-tech/graph";
 
 /**
  * How far this renderer goes, in both senses.
@@ -408,7 +408,7 @@ function BoundedTable(props: {
         <p className="px-4 py-6 text-sm text-muted-foreground">
           Run the sweep to push {sizes.map(compact).join(" · ")} through the bounded path — ask the
           total, take one slice of the visible rectangle capped at{" "}
-          {compact(BOUNDED_DEFAULTS.limit)} marks, upload it, then pan six times across the space.
+          {compact(BOUNDED_LIMIT)} marks, upload it, then pan six times across the space.
           Nothing here ever holds the whole graph, and nothing here builds one: the corpus is read
           from Parquet over HTTP, which is why the sweep reaches a million.
         </p>

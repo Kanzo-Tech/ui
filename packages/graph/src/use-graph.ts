@@ -3,10 +3,10 @@
 import type { Graph } from "@cosmos.gl/graph";
 import { useCallback, useMemo, useRef, type RefObject } from "react";
 import type { BoundedSource, Slice } from "./bounded";
-import { DEFAULT_LOOK, type Look } from "./graph-looks";
+import { resolveLook, type LookPatch } from "./graph-looks";
 import { isColour, type Channels } from "./graph-model";
 import { residentOf, type Resident, type VertexId } from "./resident";
-import type { Sim } from "./graph-sim";
+import { resolveSim, type Sim } from "./graph-sim";
 import type { Motion } from "./types";
 import { useQueryLoop } from "./use-query-loop";
 import { useRenderer, type RendererOptions } from "./use-renderer";
@@ -18,10 +18,10 @@ import { useGraphLook } from "./use-graph-look";
  * **This is Ark's `useX(props) → api`, and the reason it exists is a host that could not adopt
  * `GraphCanvas`.** The component owned the renderer, the query loop and the look, and published them
  * through a context — which a legend or an inspector can read, because those are `children`. What
- * cannot read a context is anything that sits *above* the element: `useGraphOverlays` wants
- * `getGraph` and `getResident`, the `events` block wants the same accessors, and both are arguments
- * to a hook called in the component that renders the canvas rather than inside it. The workspace
- * needed them in thirty places and so kept its own copy of all three.
+ * cannot read a context is anything that sits *above* the element: `useGraphOverlays` wants the api
+ * itself, the `events` block wants the accessors on it, and both are arguments to a hook called in
+ * the component that renders the canvas rather than inside it. The workspace needed them in thirty
+ * places and so kept its own copy of all three.
  *
  * The general answer to that circularity is Ark's, and it is a shape rather than a feature: the
  * factory builds the api where the host can hold it, the provider takes it and renders. What the
@@ -67,9 +67,23 @@ export interface UseGraphProps {
    * **One appearance input**, where there were two: a `Display` rode beside this with its own
    * defaults, spelling the edge layer, the backdrop and two multipliers over numbers the look
    * already computes. `lookFrom(values)` resolves the whole picture from the axes a person chose.
+   *
+   * **A patch, not a whole `Look` — which is what `DEFAULT_LOOK` was for.** This took the complete
+   * object, so a host that wanted the vignette on wrote `{ ...DEFAULT_LOOK, vignette: true }` and
+   * the package exported the default to make that expressible. That spread is a *copy*: the host
+   * now holds every number this package chose, and stops tracking any of them the moment one moves
+   * here. Passing `{ vignette: true }` says what the host decided and leaves the rest ours. `link`
+   * merges one level down, so `{ link: { render: false } }` keeps the measured opacity and width.
+   *
+   * Memoise it, or pass a literal only when it does not change: the reference is what the buffers
+   * are rebuilt on. Omitted entirely, it costs nothing — the shared default is returned by identity.
    */
-  look?: Look;
-  sim?: Sim;
+  look?: LookPatch;
+  /**
+   * The force coefficients, as a patch over this package's own — `look`'s twin in every respect,
+   * including why `DEFAULT_SIM` is no longer exported to spread from.
+   */
+  sim?: Partial<Sim>;
   /**
    * Off by default, and that is the correct default rather than a cautious one: a bounded source
    * hands back the coordinates its next spatial query is expressed in, so a force moves the picture
@@ -140,9 +154,9 @@ export interface UseGraphProps {
    * off. A host drawing no labels passes nothing.
    *
    * It goes through the props rather than being read off the api because `useGraphOverlays` is
-   * declared *after* this hook — it needs `getGraph` and `getResident` from it. A host bridges the
-   * two with one ref, which is the smallest honest answer to a cycle that is genuinely mutual:
-   * overlays need the graph, and the graph's repaint owes the overlays a nudge.
+   * declared *after* this hook — it takes what this hook returns. A host bridges the two with one
+   * ref, which is the smallest honest answer to a cycle that is genuinely mutual: the overlays need
+   * the graph, and the graph's repaint owes the overlays a nudge.
    */
   schedule?: () => void;
 }
@@ -166,6 +180,20 @@ export interface GraphApi {
    * attaches it itself, and nothing works until something does.
    */
   hostRef: RefObject<HTMLDivElement | null>;
+  /**
+   * The renderer and the current map, read from inside a callback that was created once.
+   *
+   * **These two nearly left with `GraphOverlayOptions`, and the census is why they stayed.** The
+   * reason they were on the api was that `useGraphOverlays` asked for them as a pair, so every host
+   * copied them out of this object into that hook's argument — which is a re-statement, and that
+   * hook takes the api now. What kept them is a different set of readers: `useGraphSelection` takes
+   * both (its `commit` is a policy only a product can write, so it cannot be folded into the api the
+   * way the overlays were), and a real consumer outside this repository reads `getGraph` and
+   * `getResident` off `useGraphContext()` to paint its own mask over the buffers. Both are reads
+   * from inside a callback registered once, which is exactly the case `slice` and `resident` cannot
+   * serve — a value would re-render every consumer on every camera move to hand back a reference
+   * they only dereference when something is clicked.
+   */
   getGraph: () => Graph | null;
   getResident: () => Resident;
   /** The answer currently drawn, or `null` before the first one. */
@@ -194,19 +222,31 @@ export function useGraph(props: UseGraphProps): GraphApi {
     events,
     fill,
     limit,
-    look = DEFAULT_LOOK,
+    look: lookPatch,
     onFailure,
     pinned,
     r,
     report,
     reportProgress,
     schedule,
-    sim,
+    sim: simPatch,
     simulate = false,
     source,
     stroke,
     symbol,
   } = props;
+
+  /**
+   * The patch, merged with what this package chose — once per change of the patch, not per render.
+   *
+   * The memo is the whole reason this is not inlined. Both resolved values are compared **by
+   * reference** downstream: the look's identity is what `useGraphLook` rebuilds the GPU buffers on,
+   * and the sim's is what `useRenderer` tests before putting energy back into a settled layout. A
+   * merge on every render would upload the same colours sixty times a second and re-heat a graph
+   * nobody had touched.
+   */
+  const look = useMemo(() => resolveLook(lookPatch), [lookPatch]);
+  const sim = useMemo(() => resolveSim(simPatch), [simPatch]);
 
   /**
    * The two destinations one vocabulary splits into — and the one column they share.

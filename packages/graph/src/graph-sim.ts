@@ -51,5 +51,23 @@ export function simFrom(values: Readonly<Record<string, string | undefined>> = {
   };
 }
 
-/** What a canvas simulates with when nobody has chosen anything. */
+/**
+ * What a canvas simulates with when nobody has chosen anything.
+ *
+ * **Not on the barrel, and it used to be** — for the reason its twin was: it is `simFrom()`, a
+ * second public name for a value already available on request, exported only because `sim` took a
+ * whole `Sim` and a host changing `gravity` had to supply the other five.
+ */
 export const DEFAULT_SIM: Sim = simFrom();
+
+/**
+ * The coefficients a caller wants different, over the ones this package chose.
+ *
+ * Flat, so a spread is the whole merge. `undefined` returns the shared constant rather than a copy:
+ * `useRenderer` re-heats when the forces change and tells them apart by reference, so a fresh object
+ * per render would put energy back into a settled layout on every render.
+ */
+export function resolveSim(patch?: Partial<Sim>): Sim {
+  if (!patch) return DEFAULT_SIM;
+  return { ...DEFAULT_SIM, ...patch };
+}

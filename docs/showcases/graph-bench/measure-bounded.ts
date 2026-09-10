@@ -2,7 +2,7 @@
 
 import { Graph } from "@cosmos.gl/graph";
 import { type Coordinator, numbers } from "@kanzo-tech/ui/analytics";
-import { BOUNDED_DEFAULTS, shouldSlice, type Slice } from "@kanzo-tech/graph";
+import { shouldSlice, type Slice } from "@kanzo-tech/graph";
 import { boot } from "../workspace/duck";
 import { openCorpus } from "@kanzo-tech/graph/duckdb";
 import type { BoundedSource } from "@kanzo-tech/graph";
@@ -114,12 +114,33 @@ export const BOUNDED_SIZES = [2_000, 10_000, 50_000, 200_000, 1_000_000];
 export const BOUNDED_STRESS_SIZES = [5_000_000];
 
 /**
+ * The cap this harness measures at — twenty thousand marks.
+ *
+ * **This benchmark's number now, and that is the honest place for it.** It was
+ * `BOUNDED_DEFAULTS.limit`, imported from `@kanzo-tech/graph`, and that export is gone: a `limit`
+ * is resolved by the query loop before a source is asked anything, so nothing outside the package
+ * has to look one up. This harness does not use the loop — it drives a source directly, which is
+ * what makes it a measurement of the source — so it states the cap it is measuring at, in one
+ * place, the way any benchmark states its own conditions. It matches the loop's default on purpose:
+ * the point of the sweep is what a reader actually gets.
+ */
+export const BOUNDED_LIMIT = 20_000;
+
+/**
  * Vertices a pan window holds, whatever the corpus is — the zoom, expressed as what fits on screen.
  *
  * Set to the slice limit, so the window asks for about as much as the path is willing to return. A
  * window that grew with N would make "does the pan stop growing with N" unanswerable.
  */
-const PAN_NODES = BOUNDED_DEFAULTS.limit;
+const PAN_NODES = BOUNDED_LIMIT;
+
+/**
+ * The edge-length floor a request carries, in screen pixels.
+ *
+ * Required on a `SliceRequest`, because the loop fills it in before a source sees the question —
+ * this harness is the caller here, so it says it. Three, which is the loop's own answer.
+ */
+const MIN_LINK_PIXELS = 3;
 
 /**
  * What cosmos.gl is told its coordinate space is — and the one number here that does not match the
@@ -278,7 +299,8 @@ export async function measureSlicePath(path = "/bench/1000000"): Promise<{
     const started = performance.now();
     const slice = await source.slice({
       view: window_(dx),
-      limit: BOUNDED_DEFAULTS.limit,
+      limit: BOUNDED_LIMIT,
+      minLinkPixels: MIN_LINK_PIXELS,
     });
     return { ms: performance.now() - started, slice };
   };
@@ -455,7 +477,7 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
     const startedTotal = performance.now();
     const total = await source.total?.();
     base.totalMs = performance.now() - startedTotal;
-    base.sliced = shouldSlice(total, BOUNDED_DEFAULTS.limit);
+    base.sliced = shouldSlice(total, BOUNDED_LIMIT);
 
     /**
      * The corpus is the size its directory says, or the row is a failure rather than a fast number.
@@ -490,7 +512,8 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
     const startedSlice = performance.now();
     const first: Slice = await source.slice({
       view,
-      limit: BOUNDED_DEFAULTS.limit,
+      limit: BOUNDED_LIMIT,
+      minLinkPixels: MIN_LINK_PIXELS,
     });
     base.firstSliceMs = performance.now() - startedSlice;
     base.returned = first.positions.length / 2;
@@ -509,7 +532,8 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
     const startedNamed = performance.now();
     const namedSlice: Slice = await fixtured.named.slice({
       view,
-      limit: BOUNDED_DEFAULTS.limit,
+      limit: BOUNDED_LIMIT,
+      minLinkPixels: MIN_LINK_PIXELS,
     });
     base.namedSliceMs = performance.now() - startedNamed;
     base.named = namedSlice.subjects?.length ?? 0;
@@ -588,7 +612,8 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
           xMax: x + width / 2,
           yMax: midY + height / 2,
         },
-        limit: BOUNDED_DEFAULTS.limit,
+        limit: BOUNDED_LIMIT,
+        minLinkPixels: MIN_LINK_PIXELS,
       });
       if (cancelled()) return { ...base, failure: "cancelled" };
     }

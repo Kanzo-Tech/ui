@@ -2,7 +2,7 @@
 
 import { MosaicClient } from "@kanzo-tech/mosaic";
 import type { Coordinator, FilterExpr, Selection } from "@kanzo-tech/mosaic";
-import { SUPERSEDED } from "./bounded";
+import { abortError } from "./bounded";
 
 /**
  * One read of a corpus, as a client of the page's coordinator.
@@ -86,7 +86,12 @@ export class SliceRead extends MosaicClient {
       // A superseded question is settled rather than dropped. The camera moves faster than DuckDB
       // answers, so the previous promise has a caller awaiting it; leaving it unsettled leaves that
       // caller's `finally` unrun and the loop reporting a query in flight for the rest of the session.
-      this.#settle?.reject(SUPERSEDED);
+      //
+      // An `AbortError`, because that is what it is: the older caller does not want this answer any
+      // more, and there is no signal to reach for — nobody aborted it, a newer question overtook it.
+      // It used to be a `SUPERSEDED` symbol of ours, which meant a caller had to import a name from
+      // this package to tell a cancellation from a failure. `bounded.ts` carries that argument.
+      this.#settle?.reject(abortError("superseded: this read was re-aimed at a newer question"));
       this.#settle = { resolve, reject };
     });
     if (this.#connected) {
@@ -116,7 +121,7 @@ export class SliceRead extends MosaicClient {
 
   /** Let go: no more queries, and the coordinator stops walking us on every selection change. */
   release(): void {
-    this.#settle?.reject(SUPERSEDED);
+    this.#settle?.reject(abortError("released: this read let go of the coordinator"));
     this.#settle = null;
     this.#onAnswer = null;
     this.#build = null;

@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  GRID,
   cursorChip,
   denseOf,
   memorySource,
@@ -23,8 +22,8 @@ import { KIND, sightingsGraph } from "@/lib/sightings-graph";
  * The chrome the canvas deliberately does not own: the grid that belongs to the graph's space,
  * standing labels on the hubs, a hover card, and a drag that selects.
  *
- * Both hooks want `getGraph` and `getResident` from *above* the element, where a context cannot be
- * read — which is why this is `useGraph` + `GraphRootProvider`'s shape rather than `GraphCanvas`,
+ * Both hooks want the graph from *above* the element, where a context cannot be read — which is why
+ * this is `useGraph` + `GraphRootProvider`'s shape rather than `GraphCanvas`,
  * and why the two are exported at all instead of living inside it. What a lasso commits to is a
  * policy only a product can write; everything below `commit` is this example's, not the package's.
  *
@@ -40,12 +39,11 @@ export default function Example() {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [hovered, setHovered] = useState<VertexId | null>(null);
 
-  // The overlays need the api and the api owes the overlays a repaint, so one of the two is held in
-  // a ref. That mutual dependency is the reason `GraphOverlays` is an exported type.
+  // One ref, in the one direction that needs it. The overlays take the api, so they are declared
+  // after it; the api owes the overlays a repaint after a look upload — which does not tick, so
+  // nothing else would ask for one — and that is what this bridges. It used to be two refs and two
+  // accessors, because the hook wanted `getGraph` and `getResident` rather than the api.
   const overlaysRef = useRef<ReturnType<typeof useGraphOverlays> | null>(null);
-  const apiRef = useRef<ReturnType<typeof useGraph> | null>(null);
-  const getGraph = useCallback(() => apiRef.current?.getGraph() ?? null, []);
-  const getResident = useCallback(() => apiRef.current!.getResident(), []);
   const schedule = useCallback(() => overlaysRef.current?.schedule(), []);
 
   const api = useGraph({
@@ -64,9 +62,7 @@ export default function Example() {
       onBackgroundClick: () => setSelection(null),
     },
   });
-  apiRef.current = api;
-
-  const overlays = useGraphOverlays({ getGraph, getResident });
+  const overlays = useGraphOverlays(api);
   overlaysRef.current = overlays;
   const { cardRef, gridRef, hostRef, labelRef, setLabelOrder, setHovered: setOverlayHover, track } = overlays;
 
@@ -99,8 +95,9 @@ export default function Example() {
       : graph.hubs.regions[denseOf(vertex)];
 
   const gesture = useGraphSelection({
-    getGraph,
-    getResident,
+    // Straight off the api: both are built once by `useGraph` and stable for the component's life.
+    getGraph: api.getGraph,
+    getResident: api.getResident,
     getSelection: useCallback(() => selection, [selection]),
     commit: (vertices, from, label) =>
       setSelection(vertices === null ? null : { vertices: [...vertices], source: from, label }),
@@ -124,15 +121,16 @@ export default function Example() {
 
           {/* Over the canvas rather than behind it: cosmos.gl paints an opaque background so its
               greyout maths knows what it is dimming against. The hook locks the pattern to the
-              graph's own space, keeping the on-screen spacing inside [GRID, 2·GRID) at every zoom —
-              which is what makes a pan read as motion rather than as a redraw. */}
+              graph's own space, keeping the on-screen spacing inside one octave at every zoom —
+              which is what makes a pan read as motion rather than as a redraw.
+
+              No `backgroundSize`: `useGraphOverlays` owns the spacing of the element it is given,
+              seeding it on mount and rewriting it every frame. What the dots are made of stays
+              here — the hook never touches `background-image`. */}
           <div
             className="pointer-events-none absolute inset-0"
             ref={gridRef}
-            style={{
-              backgroundImage: "radial-gradient(var(--border) 1px, transparent 1px)",
-              backgroundSize: `${GRID}px ${GRID}px`,
-            }}
+            style={{ backgroundImage: "radial-gradient(var(--border) 1px, transparent 1px)" }}
           />
 
           <div className="pointer-events-none absolute inset-0 overflow-hidden">

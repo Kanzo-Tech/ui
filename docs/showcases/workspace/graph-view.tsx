@@ -149,14 +149,14 @@ import {
 } from "./graph-state";
 import {
   denseOf,
-  SHAPE_PATH,
+  ShapeGlyph,
   scaleOf,
   vertexId,
   type Channels,
   type Look,
 } from "@kanzo-tech/graph";
 import type { NodeKind } from "./graph-data";
-import { ShapeGlyph, text } from "./graph-canvas";
+import { text } from "./graph-canvas";
 import { Finding } from "./graph-finding";
 
 /**
@@ -253,6 +253,7 @@ function LegendSwatch({ kind }: { kind: string }) {
   const scale = scaleOf(PAIRINGS[arrangement], capacity);
   return (
     <ShapeGlyph
+      className="size-2.5 shrink-0"
       color={scale.color(ordinalOf(kind))}
       shape={scale.shape(ordinalOf(kind))}
     />
@@ -1334,7 +1335,7 @@ const GESTURES: { keys: ReactNode; what: string }[] = [
  * drawing the looks side by side is to remove taste from the comparison.
  *
  * It draws what the canvas draws rather than something evocative of it: the glyphs are
- * `SHAPE_PATH`, the same paths the point shader fills, and the colours come from `scaleOf` — the
+ * `ShapeGlyph`, the same paths the point shader fills, and the colours come from `scaleOf` — the
  * one scale the buffers, the hover card and the legend already share. That is what stops the card
  * promising a picture the canvas does not paint.
  */
@@ -1427,15 +1428,19 @@ function LookPreview({
       {PREVIEW_NODES.map((node, i) => {
         const r = radius(node.degree);
         return (
-          <path
-            d={SHAPE_PATH[scale.shape(node.ordinal)]}
-            fill={scale.color(node.ordinal)}
+          // A nested `<svg>` rather than a `<path>` with a transform. It used to reach for
+          // `SHAPE_PATH` and place the glyph by hand — `translate` to the vertex, `scale` by
+          // `2r / 12` — which meant this file knew the paths are authored inside a twelve-unit box.
+          // `ShapeGlyph` is that box, so `x`/`y`/`width`/`height` place and size it and the 12 does
+          // not appear here at all.
+          <ShapeGlyph
+            color={scale.color(node.ordinal)}
+            height={r * 2}
             key={i}
-            // `SHAPE_PATH` draws inside a 12-unit box, so a glyph of radius `r` is that box moved
-            // to the vertex and scaled to `2r`.
-            transform={`translate(${node.x - r} ${node.y - r}) scale(${
-              (r * 2) / 12
-            })`}
+            shape={scale.shape(node.ordinal)}
+            width={r * 2}
+            x={node.x - r}
+            y={node.y - r}
           />
         );
       })}

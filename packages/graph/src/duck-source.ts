@@ -2,7 +2,7 @@
 
 import { clausePoints, column, fillColumn, numbers } from "@kanzo-tech/mosaic";
 import type { Coordinator, FilterExpr, Selection } from "@kanzo-tech/mosaic";
-import { BOUNDED_DEFAULTS, SUPERSEDED, type BoundedSource, type Slice, type SliceRequest, type Viewport } from "./bounded";
+import type { BoundedSource, Slice, SliceRequest, Viewport } from "./bounded";
 import { SliceRead } from "./slice-client";
 import { denseOf, typeOf, vertexId, type VertexId } from "./resident";
 
@@ -243,12 +243,12 @@ export function duckBoundedSource(options: DuckSourceOptions): DuckSource {
      * throw; now the absence is the statement, and asking is a compile error.
      */
     async slice(request: SliceRequest): Promise<Slice> {
-      const { fill, limit, perPixel, pinned, r, view } = request;
+      const { fill, limit, minLinkPixels, perPixel, pinned, r, view } = request;
       const asked: Columns = { ...columns, category: fill, size: r };
       // No `held`: this source reads a relation rather than addressing bytes, so there is nothing
       // "already in hand" to draw a far end from — see `anchorCte`.
       return watching.run(
-        region(nodes, edges, asked, view, limit, typeIndex, pinned, perPixel, undefined),
+        region(nodes, edges, asked, view, limit, typeIndex, pinned, perPixel, minLinkPixels, undefined),
       );
     },
   };
@@ -374,9 +374,14 @@ function visibleCte(
  * rather than a permissive one — a request with no canvas behind it (`EVERYTHING`) has no pixels to
  * measure three of.
  */
-function longEnough(a: string, b: string, perPixel: number | undefined): string {
+function longEnough(
+  a: string,
+  b: string,
+  perPixel: number | undefined,
+  minLinkPixels: number,
+): string {
   if (perPixel === undefined || !Number.isFinite(perPixel) || perPixel <= 0) return "";
-  const floor = BOUNDED_DEFAULTS.minLinkPixels * perPixel;
+  const floor = minLinkPixels * perPixel;
   return `(${a}.x - ${b}.x) * (${a}.x - ${b}.x) + (${a}.y - ${b}.y) * (${a}.y - ${b}.y) >= ${floor * floor}`;
 }
 
@@ -415,9 +420,10 @@ function anchorCte(
   spatial: string,
   filter: string,
   perPixel: number | undefined,
+  minLinkPixels: number,
 ): string {
   const outside = both(`NOT (${spatial})`, filter);
-  const long = longEnough("a", "b", perPixel);
+  const long = longEnough("a", "b", perPixel, minLinkPixels);
   return `, out AS (
     SELECT ${c.id} AS id, ${c.x} AS x, ${c.y} AS y FROM ${held} WHERE ${outside}
   ), reach AS (
@@ -468,6 +474,7 @@ function region(
   typeIndex: number,
   pinned: VertexId[] | undefined,
   perPixel: number | undefined,
+  minLinkPixels: number,
   held: string | undefined,
 ): Plan {
   const bbox = bboxSql(c, view);
@@ -490,9 +497,11 @@ function region(
   const where = (filter: FilterExpr) => both(spatial, predicateSql(filter));
   const size = c.size ? ", size" : "";
   const subject = c.subject ? ", subject" : "";
-  const near = longEnough("s", "t", perPixel);
+  const near = longEnough("s", "t", perPixel, minLinkPixels);
   const anchors = (filter: FilterExpr) =>
-    held ? anchorCte(held, edges, c, spatial, predicateSql(filter), perPixel) : "";
+    held
+      ? anchorCte(held, edges, c, spatial, predicateSql(filter), perPixel, minLinkPixels)
+      : "";
 
   return {
     /**
@@ -1160,7 +1169,7 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
     // needs adjacency this source does not index, and fossil's `expand` is what answers it —
     // `ExploringSource` is the shape waiting for whoever writes that one.
     async slice(request: SliceRequest): Promise<Slice> {
-      const { fill, limit, perPixel, pinned, r, signal, view } = request;
+      const { fill, limit, minLinkPixels, perPixel, pinned, r, signal, view } = request;
       const columns: Columns = { ...fixed, category: fill, size: r };
       const all = await load();
       /**
@@ -1198,8 +1207,12 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
        * Checked here rather than left to the caller because of what comes next: the reads hold one
        * standing question each, so a request that resumes after the loop moved on would *supersede*
        * the newer one and reject it — the stale question winning the race against the live one.
+       *
+       * `signal.reason` and not a sentinel of ours: an aborted signal already carries what it was
+       * aborted with, which for `AbortController.abort()` is a `DOMException` named `AbortError`.
+       * Rethrowing it is the whole of the cancellation contract a source owes — see `SliceRequest`.
        */
-      if (signal?.aborted) throw SUPERSEDED;
+      if (signal?.aborted) throw signal.reason;
       const nodes = `read_parquet([${vertexTiles.join(", ")}])`;
       const relation = `read_parquet([${edgeTiles.join(", ")}])`;
 
@@ -1207,7 +1220,7 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
       // bytes the reader is holding, so the tiles that answer "what is in the rectangle" also answer
       // "where is the far end of an edge that leaves it".
       return watching.run(
-        region(nodes, relation, columns, view, limit, 0, pinned, perPixel, nodes),
+        region(nodes, relation, columns, view, limit, 0, pinned, perPixel, minLinkPixels, nodes),
       );
     },
   };

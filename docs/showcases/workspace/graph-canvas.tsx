@@ -33,15 +33,12 @@ import {
 import {
   cursorChip,
   denseOf,
-  GRID,
   neighboursOf,
-  REHEAT,
   residentOf,
   scaleOf,
-  SHAPE_PATH,
+  ShapeGlyph,
   type GraphApi,
   type GraphOverlays,
-  type ShapeId,
   type Slice,
   type VertexId,
   useGraph,
@@ -100,6 +97,31 @@ const SELECTION_WASH = "var(--brand-a5)";
 const NOBODY = residentOf(null);
 
 /**
+ * The placeholder's dot spacing, which is this file's number rather than the renderer's.
+ *
+ * It was `GRID`, imported from `@kanzo-tech/graph` — the spacing the overlay painter keeps the
+ * *live* grid inside. The placeholder has no camera and no graph: it is a picture of the canvas this
+ * page is about to become, drawn so the wait does not read as a broken page, and nothing about it
+ * has to agree with a transform that does not exist yet. Borrowing the renderer's constant for it
+ * was borrowing a number for its looks.
+ */
+const PLACEHOLDER_GRID = 22;
+
+/**
+ * How much energy to put back into a layout that has already settled.
+ *
+ * **This file's decision, because this file is the one reaching past the package.** The panels ask
+ * for an intent — resume, unpin — and the mechanism is cosmos.gl's `start(alpha)`, called on the
+ * instance through `getGraph()`. A host doing that is outside anything `@kanzo-tech/graph` promises,
+ * so the alpha it spends is its own. It used to import `REHEAT` for it, which made a number the
+ * renderer applies internally look like part of the contract.
+ *
+ * 0.35, which is what that constant was: enough to reorganise around a changed force, not so much
+ * that the picture you were reading is thrown away. `start(1)` is what Re-run is for.
+ */
+const WAKE = 0.35;
+
+/**
  * The canvas: cosmos.gl driving the picture, Mosaic driving the questions.
  *
  * **The crossfilter is the source's, not this component's.** A graph used to be joined to the page
@@ -133,7 +155,7 @@ function CanvasPlaceholder({ note }: { note: string }) {
         className="absolute inset-0"
         style={{
           backgroundImage: "radial-gradient(var(--border) 1px, transparent 1px)",
-          backgroundSize: `${GRID}px ${GRID}px`,
+          backgroundSize: `${PLACEHOLDER_GRID}px ${PLACEHOLDER_GRID}px`,
         }}
       />
       <p
@@ -285,9 +307,9 @@ function CanvasBody({ source, spec }: { source: DuckSource; spec: GraphSpec }) {
    * The overlays, reached from inside the graph's own callbacks.
    *
    * This ref is the whole of what it costs to compose the two, and the cycle it breaks is real
-   * rather than an artefact: `useGraphOverlays` needs `getGraph` and `getResident`, which only exist
-   * once `useGraph` has run, and the graph's `onTick`/`onZoom`/`onPointerOver` owe the overlays a
-   * repaint. Something has to be declared first, and a ref written on render is the standard answer.
+   * rather than an artefact: `useGraphOverlays` takes the api, which only exists once `useGraph` has
+   * run, and the graph's `onTick`/`onZoom`/`onPointerOver` owe the overlays a repaint. Something has
+   * to be declared first, and a ref written on render is the standard answer.
    *
    * It replaced four hand-built pieces — a `graphRef`, a `residentRef`, and a `useCallback` accessor
    * for each — that existed only to be threaded between hooks in the right order. Those are
@@ -494,7 +516,10 @@ function CanvasBody({ source, spec }: { source: DuckSource; spec: GraphSpec }) {
   apiRef.current = api;
   const { resident, slice, total } = api;
 
-  const overlays = useGraphOverlays({ getGraph, getResident });
+  // The api itself. This used to be `{ getGraph, getResident }`, two members copied out of the
+  // object on the line above — which is what made those getters look like part of the overlays'
+  // contract rather than the graph's.
+  const overlays = useGraphOverlays(api);
   overlaysRef.current = overlays;
   const { cardRef, gridRef, hostRef, labelRef, setLabelOrder, track } = overlays;
 
@@ -617,7 +642,7 @@ function CanvasBody({ source, spec }: { source: DuckSource; spec: GraphSpec }) {
       resume: () => {
         const graph = getGraph();
         if (!graph) return;
-        if (motionRef.current === "settled") graph.start(REHEAT);
+        if (motionRef.current === "settled") graph.start(WAKE);
         else graph.unpause();
       },
       /**
@@ -639,7 +664,7 @@ function CanvasBody({ source, spec }: { source: DuckSource; spec: GraphSpec }) {
         applyPins();
         // Released nodes are where the drag left them and nothing is pulling on them yet, so
         // without a nudge the picture keeps the shape the pins gave it and the button looks broken.
-        getGraph()?.start(REHEAT);
+        getGraph()?.start(WAKE);
       },
       /**
        * The same thing a click on the canvas does, plus the camera.
@@ -777,9 +802,14 @@ function CanvasBody({ source, spec }: { source: DuckSource; spec: GraphSpec }) {
             <div
               className="pointer-events-none absolute inset-0"
               ref={gridRef}
+              /* No `backgroundSize` here on purpose. `useGraphOverlays` owns this element's spacing
+                 — it seeds it on mount and rewrites it every frame so the on-screen grid stays
+                 locked to the graph's own space. Writing it here too was spelling the hook's
+                 constant at the call site to set a value the hook overwrites on its first paint,
+                 which is why `GRID` was exported and why it no longer is. What the dots are MADE of
+                 is still ours: the hook never touches `background-image`. */
               style={{
                 backgroundImage: "radial-gradient(var(--border) 1px, transparent 1px)",
-                backgroundSize: `${GRID}px ${GRID}px`,
               }}
             />
           </Show>
@@ -841,6 +871,7 @@ function CanvasBody({ source, spec }: { source: DuckSource; spec: GraphSpec }) {
                     and the point on screen are visibly the same claim. */}
                 <div className="flex items-center gap-2 border-b px-2.5 py-2">
                   <ShapeGlyph
+                    className="size-2.5 shrink-0"
                     color={scale.color(hoveredOrdinal)}
                     shape={scale.shape(hoveredOrdinal)}
                   />
@@ -935,22 +966,12 @@ function CanvasBody({ source, spec }: { source: DuckSource; spec: GraphSpec }) {
 
 // ── Canvas chrome ────────────────────────────────────────────────────────────
 
-/** A small filled glyph of the shape the canvas draws for a kind. */
-export function ShapeGlyph({
-  className,
-  color,
-  shape,
-}: {
-  className?: string;
-  color: string;
-  shape: ShapeId;
-}) {
-  return (
-    <svg className={cn("size-2.5 shrink-0", className)} viewBox="0 0 12 12">
-      <path d={SHAPE_PATH[shape]} fill={color} />
-    </svg>
-  );
-}
+// `ShapeGlyph` was declared here — an `<svg viewBox="0 0 12 12">` around
+// `<path d={SHAPE_PATH[shape]} />` — and it is `@kanzo-tech/graph`'s now. The package exported the
+// path table, so this file owned the three facts that go with it: the twelve-unit box, the fill, and
+// which key each glyph sits under. None of them is this page's decision, and all three had to be
+// kept in step with `graph-looks.ts` by reading a comment. What is left here is the sizing, which is
+// the only part a page genuinely chooses.
 
 /**
  * The selection tools — the only control on the canvas that changes what a gesture *means*, which
