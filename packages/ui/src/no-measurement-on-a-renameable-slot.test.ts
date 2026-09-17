@@ -32,9 +32,15 @@ import { label, sourceFiles } from "./guard-corpus";
  *   the promise, and a promise nobody has taken up yet is still a promise.
  * - **It only knows the properties in `MEASURES`.** A component could depend on `flex-basis` or a
  *   `grid-template` written the same wrong way and this would pass. The list is what has bitten.
- * - **It says nothing about appearance.** Colour, radius and shadow keyed on a renameable slot are
- *   *supposed* to be there: losing them on a rename is the caller asking for a different look,
- *   which is what the seam is for. Only measurement is load-bearing.
+ * - **It says nothing about appearance**, and that was a hole rather than a boundary. This bullet
+ *   used to read "colour, radius and shadow keyed on a renameable slot are *supposed* to be there:
+ *   losing them on a rename is the caller asking for a different look." True about a caller; never
+ *   true about us. Thirty-one call sites in this library rename a `Button` to give a consumer a
+ *   hook, not to ask for a different look, and all thirty-one shipped with no fill, no ink and no
+ *   edge.
+ *   `no-paint-on-a-renameable-slot.test.ts` is the sibling that covers it, and the two together are
+ *   one rule: what a component needs in order to be itself — its size or its look — may not hang
+ *   off the name a caller may change.
  */
 
 /** Properties a control needs to be the size it claims. Losing one is a defect, not a restyle. */
@@ -105,8 +111,15 @@ describe("a measurement on a renameable slot", () => {
   it("still sees the shapes it was written for", () => {
     // Two assertions of absence stand on this: the CSS parse and the slot scan. Either going quiet
     // reports the same green as a clean tree, so the floor is on the population.
+    //
+    // The CSS floor was `> 3` and is `> 0`. `Button`'s paint left this stylesheet for the recipe
+    // base — see `no-paint-on-a-renameable-slot.test.ts` — and took eight of its rules with it, so
+    // the old number was an assertion that the tree had not been fixed. Three rules are left, all
+    // three keyed on slots that are literals. A stylesheet that ends up with none is a tree with
+    // nothing to violate; a slot scan that finds none is a scan that broke, which is why only that
+    // floor stays high.
     const slotRules = RULES.filter((rule) => rule.selector.includes("[data-slot="));
-    expect(slotRules.length, "no CSS rule keys on data-slot — this guard is parsing nothing").toBeGreaterThan(3);
+    expect(slotRules.length, "no CSS rule keys on data-slot — this guard is parsing nothing").toBeGreaterThan(0);
     expect(SLOTS.size, "no component takes `slot ?? \"…\"` — the rename is what this guards").toBeGreaterThan(40);
   });
 });

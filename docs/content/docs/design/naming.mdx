@@ -60,11 +60,11 @@ values.
 
 ## What identifies a part is not what a caller may change
 
-A **measurement** a component needs in order to work may not be keyed on `data-slot`. Control heights
-live on each recipe's `base` as `h-(--size)`, where the size variants only move a custom property:
-`[--size:calc(var(--size-field)*7)]`. The density knob is untouched and still `--size-field`.
-Appearance keyed on `data-slot` is fine and stays — losing a colour on a rename is the caller asking
-for a different look, which is what the seam is for.
+**Nothing a component needs in order to be itself may be keyed on `data-slot`** — not its size and
+not its look. Control heights live on each recipe's `base` as `h-(--size)`, where the size variants
+only move a custom property: `[--size:calc(var(--size-field)*7)]`. `Button`'s fill, ink, edge, lift,
+grain and both state washes live there too, and the variants only assign `--btn-bg`, `--btn-fg` and
+`--btn-bd`. The density knob is untouched and still `--size-field`.
 
 `data-slot` is two things at once and only one of them is stable. It is the seam a call site styles
 against, and this house makes it **renameable on purpose**: every part takes `slot?: string`. A
@@ -93,7 +93,38 @@ which a custom property on the base cannot express. The three families here did 
 and `native-select` all used the same formula per size (`sm` ×7, `md` ×8, `lg` ×9), so the slot in
 those fifteen selectors was carrying no information at all, only the fault.
 
+### The half this was first written without
+
+The paragraph above used to end "appearance keyed on `data-slot` is fine and stays — losing a colour
+on a rename is the caller asking for a different look, which is what the seam is for." That sentence
+is true about a **caller** and was never true about **us**, and the distinction is the whole of the
+reversal. Thirty-one call sites in this library hand `Button` a `slot`, and not one was asking
+for a different look: they were asking for a different *hook*, so a consumer could target the part.
+`[data-slot="button"]` was the only rule that read `--btn-bg`, `--btn-fg` and `--btn-bd`, so all
+thirty-one shipped with no fill, no ink and no edge while their variants went on assigning all
+three. `AlertDialogAction` and `AlertDialogCancel` are the two that were caught: measured in a live
+document, both footer buttons of the library's own alert dialog reported their `data-variant`
+correctly and `background-color: rgba(0, 0, 0, 0)`.
+
+`05f3a0a` had the argument in its hands and stopped one attribute short. The height it moved and the
+colour it left were in the *same selector*, and the carve-out was written to justify the half that
+was not moved rather than measured. That is the failure worth naming: a rule that explains why the
+remaining case is fine, written in the same commit that fixed the case beside it.
+
+The cost is real and is the one the stylesheet predicted. A `color-mix()` spelled as a Tailwind
+arbitrary property — brackets, underscores for spaces, no line breaks — is materially worse to read
+than the CSS it replaces, and `buttonVariants`' base now carries five of them. That price was always
+the argument for the old placement; what nobody weighed it against was a control that does not
+paint.
+
+**What would reverse it:** a part whose look genuinely has to vary on the slot rather than on a
+variant — a rule that must apply to one renaming of a component and not to another. None of the
+thirty-one is that: every one of them takes a `variant` and gets it right. A consumer's own
+`[data-slot=…]` rules are untouched by this and always were; the ban is on **our** stylesheet
+painting **our** parts through a name the consumer owns.
+
 *Held by* `packages/ui/src/no-measurement-on-a-renameable-slot.test.ts`, "is written nowhere";
+`packages/ui/src/no-paint-on-a-renameable-slot.test.ts`, "is never read only from under a renameable slot";
 `packages/ui/src/simples/button.tsx`, the `h-(--size)` on `base`.
 
 ## A type and a component may not share a name across two barrels

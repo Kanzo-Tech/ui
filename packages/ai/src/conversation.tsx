@@ -150,9 +150,14 @@ export const ConversationEmpty = (props: React.ComponentProps<typeof ark.div>) =
  * Present only while the pin is released, and pressing it takes the pin back.
  *
  * It floats *over* a transcript that is still growing underneath it, which is why it enters rather
- * than appears and why it paints its own ground: `variant="outline"` is `bg-transparent` in light
- * mode, so without `bg-background` the message it covers reads straight through it. Dark keeps the
- * variant's own `bg-field`.
+ * than appears and why it paints its own ground: `variant="outline"` sets `--btn-bg: transparent`,
+ * so without a ground of its own the message it covers reads straight through it.
+ *
+ * It asks for that ground by **moving the variable**, not by writing `bg-background` on top. The
+ * two look identical at rest and diverge the moment you hover: the wash is
+ * `color-mix(…, var(--btn-bg), …)`, so a `bg-background` that only overrode the resting fill left
+ * the hover mixing from `transparent` and the transcript showed through the button exactly when the
+ * pointer was on it. `--btn-bg` is the seam the recipe documents; this is what it is for.
  */
 export const ConversationScrollButton = (props: React.ComponentProps<typeof Button>) => {
   const { className, children, onClick, slot, ...rest } = props;
@@ -169,7 +174,7 @@ export const ConversationScrollButton = (props: React.ComponentProps<typeof Butt
         // The icon size states its own — `w-(--size)`, square — and a `w-fit` here would win the
         // merge and hand it the icon's width against the control's height.
         children === undefined ? undefined : "w-fit",
-        "bg-background shadow-lg/5",
+        "[--btn-bg:var(--background)] shadow-lg/5",
         "fade-in-0 zoom-in-95 slide-in-from-bottom-2 animate-in",
         "motion-reduce:animate-none!",
         className

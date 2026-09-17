@@ -5,28 +5,76 @@ import { cn } from "../lib/cn";
 import { Spinner } from "./spinner";
 
 /**
- * Everything a class list can say. The rest — the fill, the ink, the edge, the lift, the hover, the
- * active and the height — is one block of real CSS in `styles.css`, written once in terms of three
- * locals, and this file assigns those three.
+ * The whole control: the fill, the ink, the edge, the lift, both washes and the height, all on the
+ * `base` and all written once in terms of three locals a variant assigns.
  *
- * **That is the whole shape of the change, and it is daisyUI's.** Their `.btn-primary` is two
- * custom-property assignments over a `.btn` that derives every state; ours was six variants of five
- * to six utilities each, naming eight different tokens between them, with the hover of each written
- * separately. A hover rule that lives in six places is a hover rule that drifts in six places, and
- * three of the comments this file used to carry were measurements taken to settle one of those
- * drifts.
+ * **The shape is daisyUI's.** Their `.btn-primary` is two custom-property assignments over a `.btn`
+ * that derives every state; ours was six variants of five to six utilities each, naming eight
+ * different tokens between them, with the hover of each written separately. A hover rule that lives
+ * in six places is a hover rule that drifts in six places.
+ *
+ * **The placement is daisyUI's too, and that half arrived late.** The derivations sat in
+ * `styles.css` under `[data-slot="button"]`, which is the one attribute this library invites a
+ * caller to RENAME — every part takes `slot?: string`. So every component of ours that renames a
+ * `Button` got the variant's three assignments and no rule that read them: `AlertDialogAction` and
+ * `AlertDialogCancel` reported their `data-variant` correctly and `background-color:
+ * rgba(0, 0, 0, 0)` in a live document, and twenty-nine more call sites sat on the same fault.
+ * `05f3a0a` had already moved the *height* here for exactly this reason and left the colour behind,
+ * on the argument that losing a colour on a rename is a caller asking for a different look — which
+ * is true of a caller and was never true of us. `no-paint-on-a-renameable-slot.test.ts` holds it.
  *
  * What a variant may set: `--btn-bg`, `--btn-fg`, `--btn-bd`. Nothing else here paints.
  */
 export const buttonVariants = tv({
   base: [
     "relative",
-    // The height is HERE, on the base, and every size variant only moves `--size`. Keyed off the
-    // part's own name instead — `[data-slot="button"][data-size="sm"]` — it was keyed off the one
-    // attribute this library lets a caller rename, and a renamed part silently lost its height:
-    // `ConversationScrollButton` measured 16×16 against a 24×24 floor. daisyUI's `.btn` does it
-    // this way for the same reason, and `no-measurement-on-a-renameable-slot.test.ts` holds it.
+    // Nothing below may be keyed on `data-slot`. See the docblock: `--size` was moved here first,
+    // in `05f3a0a`, and the paint followed it once the same rename was measured against the colour.
     "h-(--size)",
+    // The only one of the three locals a variant may leave unset — `outline` is the sole variant
+    // that assigns `--btn-bd`, while all six assign the fill and the ink. A default for those two
+    // would be a line that is overwritten every single render.
+    "[--btn-bd:transparent]",
+    // Derived, never assigned by a variant. `--depth: 0` collapses the edge and the lift to
+    // nothing, which is what the library looks like today; `1` gives it relief. Same classes.
+    //
+    // daisyUI darkens a fill with `color-mix(in oklab, var(--btn-bg), #000 5%)`. Mixing toward
+    // `--foreground` instead is a divergence taken on a reason: `black` is only "darker" in a light
+    // theme, and on a dark one the hover of a pale button should move toward white. One formula
+    // reads as "push this fill away from the page and toward the ink" in both, and it follows a
+    // tenant's document instead of a constant — which is also why `--depth` can be a single number.
+    // Their half-pixel inset gloss needs a colour that is toward the light side in both modes and
+    // neither `--foreground` nor `--background` is that, so it waits for a reason to exist.
+    "[--btn-edge:color-mix(in_oklab,var(--btn-bd),var(--foreground)_calc(var(--depth)*8%))]",
+    "[--btn-lift:color-mix(in_oklab,var(--btn-bg)_calc(var(--depth)*30%),transparent)]",
+    "bg-(--btn-bg) text-(--btn-fg)",
+    // The grain, and the whole of the conditional that switches it off: at `--noise: 0` the layer
+    // is sized to zero and never painted, at `1` it tiles. No variant — which is the property that
+    // lets it be a value a tenant sets rather than a look somebody has to write. It defaults to `0`
+    // here rather than in every theme, because a theme that wants no texture is saying nothing.
+    "bg-(image:--fx-noise) bg-size-[calc(var(--noise,0)*100%)]",
+    // `rounded-[var(--radius-field)]` and not `rounded-field`, which is the same radius and the
+    // spelling every other recipe here uses: `tailwind-merge` knows nothing about a theme key it
+    // was never configured with, so `rounded-field` and a caller's `rounded-full` both survive the
+    // merge and the winner is whichever Tailwind happened to emit last. The `pill` variant is that
+    // caller. An arbitrary value is in a group the merge does know.
+    "border-[length:var(--stroke)] border-(--btn-edge) rounded-[var(--radius-field)]",
+    // As `shadow-*` rather than a raw `box-shadow`, so it composes with `focus-visible:ring-[3px]`
+    // through Tailwind's shadow chain instead of being replaced by it. At `--depth: 0` the lift is
+    // transparent and nothing is drawn either way, which is why that was invisible before.
+    "shadow-[0_3px_2px_-2px_var(--btn-lift),0_4px_3px_-2px_var(--btn-lift)]",
+    // One hover and one active for every variant, solid and transparent alike — and the transparent
+    // case is the tell that the formula is right. Mixing `transparent` with the foreground at 10%
+    // IS the foreground at 10% alpha, which is exactly the wash a ghost button wants.
+    //
+    // The CSS rule guarded these with `:not(:disabled, [aria-disabled="true"], [data-disabled])`.
+    // All three spellings already carry `pointer-events-none` on this same base and an element with
+    // `pointer-events: none` can match neither `:hover` nor `:active`, so the guard was
+    // belt-and-braces. Dropping it is not tidiness: with the plain modifier, `tailwind-merge` can
+    // see a variant's own `hover:bg-*` as the same utility and let it win — which is how `link`
+    // opts out in one class, instead of losing to a longer selector on specificity.
+    "hover:bg-[color-mix(in_oklab,var(--btn-bg),var(--foreground)_10%)]",
+    "active:bg-[color-mix(in_oklab,var(--btn-bg),var(--foreground)_16%)]",
     "inline-flex shrink-0 items-center justify-center gap-2",
     "whitespace-nowrap font-medium text-sm",
     "border-solid",
@@ -71,8 +119,9 @@ export const buttonVariants = tv({
         "focus-visible:border-primary",
       ],
       // The one variant that opts OUT of the shared hover, because a link's hover is an underline
-      // and not a wash. A utility beats the recipe base by cascade layer, which is what makes
-      // opting out one class rather than an exception in the CSS.
+      // and not a wash. Same modifier and same utility group as the base's wash, so
+      // `tailwind-variants` merges the two and the variant wins — which is what makes opting out
+      // one class rather than an exception somewhere else.
       link: [
         "[--btn-bg:transparent]",
         "[--btn-fg:var(--primary)]",
@@ -82,9 +131,9 @@ export const buttonVariants = tv({
       ],
     },
     /**
-     * Padding, gaps and icon sizes. **The heights are not here** — they are `--size-field` in
-     * `styles.css`, keyed off the `data-size` this recipe already writes, so a tenant can ask for
-     * compact controls without asking for tighter text.
+     * Padding, gaps and icon sizes. A size variant only **moves `--size`** — the height that reads
+     * it is on the `base` — so a tenant can ask for compact controls, through `--size-field`,
+     * without asking for tighter text.
      *
      * The floor is still measured rather than chosen. `xs` and `icon-xs` were both `1.5rem`, and
      * every size is a `rem` against a root the density axis sets — 16px default, 14px compact, 18px

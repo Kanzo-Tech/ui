@@ -614,6 +614,12 @@ export const SidebarMenuButton = ({
         // light and 1.42–1.46 in dark against the surfaces the sidebar sits on, against 4.54 and
         // 3.89–4.18 solid. Nothing else here changes on focus, so the ring is the whole indicator.
         "outline-none focus-visible:ring-[3px] focus-visible:ring-sidebar-ring",
+        // The resting ink is stated rather than inherited. `variant="ghost"` sets
+        // `--btn-fg: var(--foreground)` and the recipe's base reads it, so a menu button that said
+        // nothing would answer to the document's ink instead of the sidebar's — invisible while the
+        // two agree, wrong the moment a theme parts them. Eight other parts in this file already
+        // spell it exactly this way.
+        "text-sidebar-foreground",
         "active:bg-sidebar-accent active:text-sidebar-accent-foreground",
         "data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground",
         "group-has-data-[sidebar=menu-action]/menu-item:pe-8",
