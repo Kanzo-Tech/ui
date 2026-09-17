@@ -44,8 +44,8 @@ depends on nothing of the library's.
 
 **There is no sign-in screen**, no user menu and no organization switcher. A sign-in screen is a
 logo, a legal line, a privacy notice and a button, and every product answers those differently —
-`@kanzo-tech/ui` has the parts to draw one, and the [Gatehouse](/docs/showcases/gatehouse) showcase
-draws all three out of them.
+`@kanzo-tech/ui` has the parts to draw all three, and [the auth
+layer](/docs/design/auth#no-sign-in-screen-ships) is why none of them is shipped from here.
 
 **There is no protocol in it either.** PKCE, silent renewal, token storage and cross-tab
 coordination belong to `oidc-client-ts`, behind `./browser`; the confidential client belongs to
@@ -127,9 +127,14 @@ the same answer for *anonymous* and *we have not looked yet*. Drawing a sign-in 
 second is the flicker every application with a session has shipped at least once.
 
 Every example on these pages runs against a fabricated session rather than a realm, from one file —
-`docs/lib/guild-auth.ts`, which builds a claim set and runs the package's own reader over it. The
-[Gatehouse](/docs/showcases/gatehouse) showcase runs the same one, signed out to begin with, and
-says why an interface this small can be faked at all.
+`docs/lib/guild-auth.ts`, which builds a **claim set** and runs the package's own reader over it, so
+what they draw is what a token would produce rather than a `Session` somebody typed. `Auth` is five
+members — `getSession`, `subscribe`, `signIn`, `signOut` and a `fetch` — which is what makes faking
+it possible at all, and it is the same smallness that lets one provider serve both patterns.
+
+[What the token actually carries](/docs/auth/keycloak#reading-it-yourself) puts that claim set and
+the `Session` it becomes side by side, with the reading client id as a control: the machinery is on
+screen rather than described.
 
 ## Installing it
 

@@ -112,6 +112,18 @@ import { claims, type ClaimsConfig } from "@kanzo-tech/auth";
 const session = claims(decoded, { clientId: "board" });
 ```
 
+<ComponentPreview componentName="auth" fileName="example-claims" />
+
+The claim set on the left is the one above with the Guild's names in it; the `Session` on the right
+is what this package makes of it, and the control changes **which application is asking**. Read as
+`board`, `/ledger/reader` resolves to nothing and Ravenna is a warden of the Amber Hall; read as
+`ledger`, every `/board/…` path is dropped instead and the same token makes her a reader of one hall
+and nothing anywhere else. One token, two applications, and neither one's roles reaching the other.
+
+The table underneath is `roleFromGroupPath` per path, which is the rule the two readings differ by —
+and the reason the filtering is not a nicety: without it, a role granted in the ledger would
+authorise its holder on the board.
+
 Both doors run this one function, which is why a claim reaches a browser session and a server
 session as the same thing. It throws only for a claim set with no `sub` — not a session at all, but
 a misconfiguration worth being loud about. Everything else degrades quietly to empty: holding no

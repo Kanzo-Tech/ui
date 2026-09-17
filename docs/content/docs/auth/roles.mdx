@@ -37,7 +37,10 @@ rather than a yes or no.
 
 Ravenna is a warden in her own hall and an archivist or a scout in the two she visits, so the
 control appears and disappears without the session changing at all. That is `can`'s organization
-argument, drawn.
+argument, drawn — and the predicate is on the screen beside the thing it decides, with the roles the
+token carries for that hall above it, because *why* a gate is shut is the part worth reading. Two of
+the five halls are ones she holds nothing in: those answer `false` because there is no membership at
+all, which is a different sentence from being a member and not a warden.
 
 ```tsx
 <Gate fallback={<p>Only a warden signs for a party.</p>} organization="amber" role="warden">
@@ -82,7 +85,9 @@ A single-segment path is the deliberate exception — a role the organization gr
 which is what you want for something like an organization's own administrator.
 
 [What the token actually carries](/docs/auth/keycloak#what-the-token-actually-carries) is this rule
-meeting a recorded claim set: one person, one organization, two applications' roles inside it.
+meeting a recorded claim set: one person, one organization, two applications' roles inside it. The
+[live reading](/docs/auth/keycloak#reading-it-yourself) under it lets you switch the asking client
+and watch every path change hands.
 
 ## `useOrganization`
 
