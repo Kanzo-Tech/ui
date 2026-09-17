@@ -1,6 +1,6 @@
 name: Release
 
-# Publishes all four @kanzo-tech packages when a GitHub Release is published.
+# Publishes every @kanzo-tech package when a GitHub Release is published.
 # Same shape as rudof's publish.yml: the release is the decision, made by a person,
 # and this workflow is only what carries it out. No version PR, nothing to merge.
 # It keeps the name `release.yml` rather than rudof's `publish.yml` for two
@@ -9,12 +9,19 @@ name: Release
 # package's trusted publisher to a workflow FILENAME, so renaming this file
 # silently invalidates the OIDC configuration of every package pointing at it.
 #
-# FOUR PACKAGES, ONE VERSION, ONE RELEASE — a constraint, not a preference.
-# `packages/ui` depends on `@kanzo-tech/theme` through `workspace:*`, which pnpm
-# rewrites to theme's exact version at pack time: a ui published without theme
-# names a version the registry does not have, so `npm install` fails outright
-# (check 1 of `scripts/smoke-install.mjs` is that exact failure). `graph` and `ai`
-# peer-depend on `ui` and carry the coupling one step further out.
+# EVERY PACKAGE, ONE VERSION, ONE RELEASE — a constraint, not a preference.
+# `packages/ui` depends on `@kanzo-tech/theme` and `@kanzo-tech/mosaic` through
+# `workspace:*`, which pnpm rewrites to their exact versions at pack time: a ui
+# published without them names a version the registry does not have, so
+# `npm install` fails outright (check 1 of `scripts/smoke-install.mjs` is that
+# exact failure). `graph` and `ai` peer-depend on `ui` and carry the coupling one
+# step further out.
+#
+# `@kanzo-tech/auth` names none of them and is the one package that could move on
+# its own. It moves with the rest anyway, because the alternative is two cadences
+# to reason about and a second release path to keep correct — and the count is
+# deliberately not written down here any more. It was, and it went stale the day a
+# package was added; the stamp below derives it instead.
 #
 # The release tag carries the version: `v0.1.0`, or `v0.2.0-rc.1`, whose
 # prerelease identifier becomes the dist-tag so `latest` stays where it was.
@@ -24,16 +31,19 @@ name: Release
 #
 # A trusted publisher is configured per package on npmjs.com, and a package exists
 # only once it has been published — so a package's FIRST publish can never be the
-# OIDC one. @kanzo-tech/theme and @kanzo-tech/ui cleared that bar with 0.0.1-alpha
-# and have publishers configured against THIS file. @kanzo-tech/graph and
-# @kanzo-tech/ai have never been published, and `pnpm publish -r` aborts on the
-# first package the registry refuses — so without a token the whole release fails
-# at graph, however well theme and ui went.
+# OIDC one, and `pnpm publish -r` aborts on the first package the registry
+# refuses, which takes the whole release down however well the others went.
 #
-# NODE_AUTH_TOKEN is therefore the fallback for exactly those two, for exactly one
-# release. Once all four are on the registry, configure a Trusted Publisher for
-# graph and ai as well (npmjs.com → package → Settings → GitHub Actions: owner
-# Kanzo-Tech, repo ui, workflow release.yml) and DELETE the `env:` block below.
+# theme, ui, graph, ai and mosaic are all on the registry at 0.1.0 now, so the
+# ramp has done its job for them; what it is still carrying is
+# **@kanzo-tech/auth**, which has never been published. NODE_AUTH_TOKEN is the
+# fallback for exactly that package, for exactly one release.
+#
+# Afterwards, configure a Trusted Publisher for every package that lacks one
+# (npmjs.com → package → Settings → GitHub Actions: owner Kanzo-Tech, repo ui,
+# workflow release.yml) and DELETE the `env:` block below. Check graph, ai and
+# mosaic while you are there: they were published under this token too, and a
+# token that publishes is not a publisher that is configured.
 #
 # Provenance is not decoration: npm verifies the signed statement against the
 # manifest and REJECTS the publish with a 422 when `repository.url` does not match
@@ -91,12 +101,43 @@ jobs:
           echo "$version → dist-tag $tag"
 
       # The committed versions are placeholders; the release is the statement.
-      - name: Stamp the version on all four packages
+      #
+      # DERIVED, not listed. This loop named four packages by hand and was correct
+      # the day it was written; `@kanzo-tech/mosaic` was extracted later and nobody
+      # added it, so it sat published at 0.1.0 while the others moved — and since
+      # `ui` depends on it through `workspace:*`, which pnpm rewrites to an exact
+      # version at pack time, the next release would have shipped a `ui` pinned to
+      # a frozen mosaic and then failed outright republishing 0.1.0. Exactly the
+      # failure the header calls a constraint, reached by the one route the header
+      # did not cover: a package added after it.
+      #
+      # So the roster is whatever `packages/*` holds that is not private, which is
+      # the same answer `pnpm -r --filter "./packages/*" publish` gives itself two
+      # steps below. One source, so they cannot drift.
+      - name: Stamp the version on every publishable package
         run: |
           set -euo pipefail
-          for pkg in theme ui graph ai; do
-            (cd "packages/$pkg" && npm pkg set version="${{ steps.ver.outputs.version }}")
+          stamped=0
+          for manifest in packages/*/package.json; do
+            # An unmatched glob is the literal pattern in bash. Without this the
+            # failure would be a `require` stack trace, which reads like a broken
+            # manifest rather than an empty roster.
+            [ -e "$manifest" ] || continue
+            if [ "$(node -p "require('./$manifest').private === true")" = "true" ]; then
+              echo "  skipped $(dirname "$manifest") — private"
+              continue
+            fi
+            (cd "$(dirname "$manifest")" && npm pkg set version="${{ steps.ver.outputs.version }}")
+            echo "  $(node -p "require('./$manifest').name")@${{ steps.ver.outputs.version }}"
+            stamped=$((stamped + 1))
           done
+          # A roster that silently resolved to nothing would sail through every step
+          # below and publish the versions already committed.
+          if [ "$stamped" -eq 0 ]; then
+            echo "no publishable package found under packages/ — the derivation is broken" >&2
+            exit 1
+          fi
+          echo "stamped $stamped package(s) at ${{ steps.ver.outputs.version }}"
 
       # The same `pnpm verify` CI runs — one definition, so the release gate can
       # never be the weaker of the two again. It runs AFTER the stamp, so what is
@@ -109,9 +150,9 @@ jobs:
       # --no-git-checks because the stamp above leaves the tree dirty by design.
       - name: Publish
         if: ${{ github.event_name == 'release' || !inputs.dry-run }}
-        # Temporary — see AUTH above. theme and ui authenticate by OIDC and are
-        # signed; graph and ai fall back to this until they exist and can have
-        # publishers of their own.
+        # Temporary — see AUTH above. Whatever has a trusted publisher authenticates
+        # by OIDC and is signed; @kanzo-tech/auth falls back to this until it exists
+        # on the registry and can have a publisher of its own.
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
