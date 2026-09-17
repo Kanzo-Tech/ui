@@ -6,6 +6,7 @@ import { JobStudioShowcase } from "@/showcases/job-studio/default";
 import { MetadataFormShowcase } from "@/showcases/metadata-form/default";
 import { PreferencesShowcase } from "@/showcases/preferences/default";
 import { FieldNotesShowcase } from "@/showcases/field-notes/default";
+import { GatehouseShowcase } from "@/showcases/gatehouse/default";
 import { SettingsShowcase } from "@/showcases/settings/default";
 import { PreferencesExtendedShowcase } from "@/showcases/preferences/extended";
 import { PreferencesFontsShowcase } from "@/showcases/preferences/fonts";
@@ -51,6 +52,10 @@ const SHOWCASES = {
   // `Tool` for the call, and `ToolOutput` holding a real `DataTableRoot` rather than JSON. The
   // second consumer of `@kanzo-tech/ai`, and the one that pays for the io parts taking children.
   discovery: DiscoveryShowcase,
+  // The two screens `@kanzo-tech/auth` deliberately does not ship — a sign-in card and the shell
+  // behind it — over a fake `Auth`, so signing in and out is live in the frame. It is also the
+  // destination for the sidebar page's "there is no logout affordance in the library" callout.
+  gatehouse: GatehouseShowcase,
 } as const;
 
 type ShowcaseName = keyof typeof SHOWCASES;

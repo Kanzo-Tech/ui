@@ -1,0 +1,121 @@
+---
+title: Next.js
+description: The Backend For Frontend in the three files an App Router product already has — authRoutes, authSession and authMiddleware over the confidential client, and nothing on the edge behind the middleware.
+---
+
+```ts
+import { authMiddleware, authRoutes, authSession } from "@kanzo-tech/auth/next";
+```
+
+Three names over [the confidential client](/docs/auth/server), in the three files an App Router
+product already has:
+
+```ts title="app/api/auth/[...auth]/route.ts"
+export const { GET, POST } = authRoutes({ clientId, clientSecret, issuer, secret });
+```
+
+```ts title="auth.ts"
+export const getSession = authSession({ clientId, clientSecret, issuer, secret });
+```
+
+```ts title="middleware.ts"
+export const middleware = authMiddleware({ public: ["/health"] });
+```
+
+Three factories, and two of them take the same config object — the one
+[`relyingParty`](/docs/auth/server) takes. The third takes no secret at all, because it never
+unseals anything. And there is no fourth concept: a server component asks about a role with `can`
+and `organizationOf` from the root barrel, exactly as `Gate` asks in the browser.
+
+<Callout type="info">
+**There is no `requireRole`.** It would have added no new evaluation of a role — only a *throw* —
+and which throw (`notFound()`, a redirect, a rendered explanation) is a product's answer rather
+than a library's. `packages/auth/src/next.test.ts` is what keeps it absent, rather than this
+sentence.
+</Callout>
+
+## `authSession`, and why it is a factory
+
+The call site is `await getSession()`; what moved is where the binding is made. A zero-argument
+import would have to find its secret somewhere ambient — an environment variable this package would
+then be naming and documenting forever — and it could never be handed a `SessionStore`, which is an
+object rather than a string. So a consumer binds it once, in the module that already holds the
+config `authRoutes` takes, and every server component calls the result.
+
+That also makes all three names one shape rather than two factories and an exception.
+
+No authorization request is built here, only a cookie unsealed and a store asked, and neither of
+those has a browser to send anywhere — which is why the config is one field smaller than
+`relyingParty`'s.
+
+Reading is memoised per request through React's `cache`, so a page that asks in a layout, a
+breadcrumb and a menu unseals the cookie once. Outside a React request scope `cache` simply calls
+through, which is why this is a property of a request and never something to rely on across one.
+
+## `authRoutes`
+
+Give it a `redirectUri` or let it derive one from the incoming request — the origin it arrived at,
+the path this route file sits on, and `/callback`.
+
+Deriving it trusts the `Host` header, which is chosen by whoever made the request. **That is a
+bounded trust**: a forged host produces a `redirect_uri` Keycloak has not registered, and Keycloak
+refuses it. A deployment behind a proxy that rewrites the host should still say the URL out loud
+rather than discover this.
+
+## `authMiddleware` arrives on the edge with nothing behind it
+
+`public` is matched on **segment boundaries**, so `/health` exempts `/health` and `/health/live`
+and does not exempt `/healthcare`. A plain `startsWith` is one keystroke away from opening a route
+nobody meant to open. `basePath` is always public: it is how a person signs in.
+
+<Callout type="warn">
+**Middleware runs in the edge runtime, and `openid-client` must not follow it there.** The three
+names share a barrel and still do not share a bundle: the middleware module imports only
+`next/server`, the package is `sideEffects: false`, and the build writes one file per module — so a
+`middleware.ts` importing this barrel is left holding that one module. The three are kept in three
+files for exactly that reason rather than tidied into one.
+</Callout>
+
+The middleware checks for the cookie's **presence** and nothing more — no key, no unsealing, no
+store. That is not a weaker check hiding in a stronger place: **a redirect is not an
+authorization.** Letting a request past grants nothing, because the page behind it reads the
+session itself and the resource server behind *that* validates an access token. A forged cookie
+gets somebody as far as a page that will find no session and say so.
+
+A `middleware.ts` also exports its own matcher, and a matcher that misses static files is how an
+application ends up serving its `.wasm` from the sign-in page and loading without it. The exemption
+is applied on the path here too, so it holds whatever matcher you write — but start from this one:
+
+```ts title="middleware.ts"
+export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)"] };
+```
+
+## API Reference
+
+### `authSession`
+
+`AuthSessionConfig` is [`RelyingPartyConfig`](/docs/auth/server#relyingparty) without `redirectUri`.
+Returns `() => Promise<Session | null>`.
+
+### `authRoutes`
+
+`AuthRoutesConfig` is `AuthSessionConfig` plus one optional field:
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `redirectUri` | `string` | derived from the request, as above |
+
+Returns `AuthRouteHandlers` — a `GET` and a `POST`, each taking a web `Request` and answering a web
+`Response`, which is the shape an App Router route file wants.
+
+### `authMiddleware`
+
+`AuthMiddlewareConfig`:
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `public` | `readonly string[]` | nothing is exempt |
+| `basePath` | `string` | `/api/auth` |
+| `cookieName` | `string` | `__Host-kanzo-session` |
+
+Returns the `middleware` function Next expects: a `NextRequest` in, a `NextResponse` out.

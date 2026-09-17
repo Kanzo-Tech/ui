@@ -1,0 +1,165 @@
+---
+title: Keycloak
+description: The realm this package expects — role claims on both tokens, an audience mapper naming your API, and the organization scope with the star.
+---
+
+This is the page to hand to whoever runs the realm. Nothing here is invented: every claim the
+package reads is one Keycloak emits, and the configuration below is what makes it emit them on the
+token that needs them.
+
+`kanzo-auth` is the service half — Keycloak with its realm as code. `@kanzo-tech/auth` is the
+library that consumes it. Without the first, the second has nothing to talk to.
+
+## One realm, one client per application
+
+**One realm for the whole platform**, not one per product. Give each product its own realm and the
+same person becomes two different users with two different subjects, and every product that wants
+to know who they are has to reconcile them. Products are not tenants — they are OIDC clients of one
+realm. **The tenants are the organizations.**
+
+So a client is an *application*: `board`, `ledger`, `viewer`. Not a tenant. A client per tenant is
+how this was done before Organizations existed, and it makes onboarding a customer a deployment
+instead of an operation.
+
+## Role claims on both tokens
+
+Roles must be on the **access token** so an API can authorize, and on the **ID token** so an
+interface can draw. This is the one setting most likely to be wrong, and both failures are quiet:
+
+- roles on the ID token only — your API cannot authorize anything from the credential it was sent,
+  so authorization moves somewhere it can be forged or somewhere it has to be looked up again;
+- roles on the access token only — the browser has nothing to draw with, and the tempting fix is
+  to open the access token in the client, which [it must never do](/docs/auth#the-one-rule-to-read-before-anything-else).
+
+The role mappers are Keycloak's own and need no renaming. The package reads:
+
+| Claim | Emitted by | Becomes |
+| --- | --- | --- |
+| `sub`, `email`, `name` (or `given_name` + `family_name`), `preferred_username` | the `profile` and `email` scopes | `session.user` |
+| `realm_access.roles` | the realm role mapper | `session.roles` |
+| `resource_access.<clientId>.roles` | the client role mapper | `session.roles`, unioned with the above |
+| `organization` | the `organization` scope | `session.organizations` |
+| `exp` | the token | `session.expiresAt`, in milliseconds |
+
+<Callout type="warn">
+**Do not rename a claim.** A mapper with `claim.name` rewritten to something like `app:role`
+renames what Keycloak already publishes for free, and a colon is not a JWT naming convention in the
+first place. Every deployment that does it has bought itself a translation layer and lost the one
+this package ships.
+</Callout>
+
+## The audience mapper
+
+The access token needs an **audience mapper naming your API**, because a resource server validates
+`aud` before it trusts anything else in the token. Without one, the audience is whatever client
+asked for the token — which works only while the relying party and the resource server are the same
+process, and stops working the moment they are not.
+
+Add an *audience* protocol mapper on the application's client, with the API's client id as the
+included audience, and *Add to access token* on.
+
+## The scope with the star
+
+**Ask for `organization:*`.** The shape matters, and the three spellings do different things:
+
+| Requested scope | What comes back |
+| --- | --- |
+| `organization:*` | every organization the person belongs to |
+| `organization:amber organization:salt` | the two that were named |
+| `organization` | the only one when there is one — and **a prompt to choose** when there are several |
+
+That last row is the whole reason the star is the default. It is the documented behaviour behind
+more than one report of the `organization` claim "disappearing" for people who belong to several
+organizations: it never disappeared. Keycloak stopped the flow on a *"Select an organization to
+proceed"* page, issued no code at all, and a product that never shows a chooser saw nothing come
+back.
+
+`browserAuth` requests `openid profile email organization:*` by default. `SignInOptions.organization`
+narrows it to one, by replacement rather than by appending — asking for both the star and a name
+would defeat the point of naming one.
+
+## What the token actually carries
+
+Organization Groups give every organization its own isolated hierarchy — which is exactly what
+shared realm groups could not do — and one claim carries all of it, every organization and every
+path inside it:
+
+```json
+"organization": {
+  "acme":   { "id": "a05d65ca-…", "groups": ["/keasy/owner", "/vocab-browser/editor"] },
+  "globex": { "id": "4ba7c7b1-…", "groups": ["/keasy/member"] }
+}
+```
+
+Read under client `keasy`, that is an owner of acme and a member of globex — and **nothing** of
+`/vocab-browser/editor`, which is another application's role sitting inside the very same
+organization. That is [the group-path rule](/docs/auth/roles#the-first-segment-of-a-group-path-is-the-application)
+meeting a token that really does carry two applications at once, and the claim above is a recorded
+token rather than an illustration: `packages/auth/src/claims.test.ts` holds it and asserts both
+readings of it.
+
+The `id` is the uuid and the key is the alias. Store the id: an alias can be renamed, and it is the
+alias that appears in a hostname.
+
+### Reading it yourself
+
+The reader is public and pure — a decoded claim set and a `ClaimsConfig` in, a `Session` out, with
+no network, no storage and no React anywhere near it:
+
+```ts
+import { claims, type ClaimsConfig } from "@kanzo-tech/auth";
+
+const session = claims(decoded, { clientId: "board" });
+```
+
+Both doors run this one function, which is why a claim reaches a browser session and a server
+session as the same thing. It throws only for a claim set with no `sub` — not a session at all, but
+a misconfiguration worth being loud about. Everything else degrades quietly to empty: holding no
+roles and belonging to no organization are legitimate states, and a token that merely omits a scope
+must not take the application down.
+
+<Callout type="info">
+**A person who belongs to no organization gets no `organization` claim at all.** Keycloak drops
+`organization:*` from the granted scope when there is nothing to fill it, so a single-tenant
+product asking for the star pays exactly nothing: the claim is absent, `session.organizations` is
+`[]`, and the same code runs. Multi-tenant and single-tenant are not two code paths here — one of
+them just has an empty list.
+</Callout>
+
+## What your API must validate
+
+The package obtains the credential, attaches it, and defines the claim model. **Validating it is
+the resource server's job**, and yours are probably not written in TypeScript — so this is the
+contract in words rather than a module, and this page is the only place it is agreed.
+
+Validate, and refuse the request if any of it fails:
+
+| | |
+| --- | --- |
+| `iss` | exactly your realm's issuer |
+| `aud` | contains your API's client id — the audience mapper above is what puts it there |
+| `exp` | not past |
+| signature | against the realm's JWKS, with the key fetched by `kid` and cached |
+
+Then authorize on:
+
+| | |
+| --- | --- |
+| `resource_access.<clientId>.roles` | what this person may do in this application |
+| `organization.<alias>.groups` | which organizations they belong to, and what they are in each |
+
+And one rule that belongs beside them, because it is the line between a multi-tenant product and a
+leak between customers: **the host is a hint and the token is the authority** — the same rule
+`useOrganization` follows in the browser, [stated in full on Roles](/docs/auth/roles#useorganization).
+Resolve the hint against the `organization` claim, refuse on a miss, and do it **before** anything
+opens a database.
+
+## Onboarding a customer
+
+With Organizations, creating a customer is an operation rather than a deployment: create the
+organization, invite the people, done. There is no tenant table anywhere — existing means existing
+in Keycloak — and there is no client, no pair of roles and no set of protocol mappers to provision
+per customer.
+
+What would end that is needing something per organization Keycloak cannot hold. It holds attributes,
+so nothing has yet.

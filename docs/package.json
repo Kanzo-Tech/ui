@@ -29,6 +29,7 @@
     "@duckdb/duckdb-wasm": "1.33.1-dev57.0",
     "@internationalized/date": "^3.12.2",
     "@kanzo-tech/ai": "workspace:*",
+    "@kanzo-tech/auth": "workspace:*",
     "@kanzo-tech/graph": "workspace:*",
     "@kanzo-tech/rudof-wasm": "^0.3.4",
     "@kanzo-tech/theme": "workspace:*",
@@ -53,7 +54,7 @@
     "streamdown": "^2.5.0",
     "zod": "^4.4.3"
   },
-  "//deps": "@kanzo-tech/{ui,theme,graph,ai} are workspace deps. There is no colour-derivation package any more: a theme is a flat CSS file that ships with @kanzo-tech/theme.",
+  "//deps": "@kanzo-tech/{ui,theme,graph,ai,auth} are workspace deps. There is no colour-derivation package any more: a theme is a flat CSS file that ships with @kanzo-tech/theme.",
   "devDependencies": {
     "@codemirror/legacy-modes": "^6.5.3",
     "@tailwindcss/postcss": "4",

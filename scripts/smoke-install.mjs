@@ -72,10 +72,10 @@ const walk = (dir, test, out = []) => {
 
 const DIRECTIVE = /^\s*(?:\/\*[\s\S]*?\*\/\s*)?["']use client["']/;
 
-/** The packages that ship. Order is pack order and nothing else; npm installs all five at once. */
-const PACKAGES = ["theme", "mosaic", "ui", "graph", "ai"];
+/** The packages that ship. Order is pack order and nothing else; npm installs them all at once. */
+const PACKAGES = ["theme", "mosaic", "ui", "graph", "ai", "auth"];
 /** The ones with a client boundary to lose. `theme` is data and CSS and carries no directive. */
-const CLIENT_PACKAGES = ["ui", "graph", "ai"];
+const CLIENT_PACKAGES = ["ui", "graph", "ai", "auth"];
 
 const manifestOf = (pkg) =>
   JSON.parse(readFileSync(join(repoRoot, "packages", pkg, "package.json"), "utf8"));
@@ -205,6 +205,44 @@ try {
       if (duck.includes(forbidden)) {
         fail(`@kanzo-tech/graph/duckdb names ${forbidden} again — the charts barrel is back on this path`);
       }
+    }
+  });
+
+  // `@kanzo-tech/auth`'s central promise is an ABSENCE: the root barrel carries no engine, so a
+  // single-page application installs the package and nothing else. That is a claim about what
+  // Rollup wrote, and the door check below cannot see it — the failure mode here is the opposite
+  // one. A leaked engine does not make the barrel throw; it makes it keep working while dragging
+  // `oidc-client-ts` or `openid-client` in behind it, and the consumer finds out when their browser
+  // bundle grows or a `node:` scheme breaks their web build. Same shape as the defect above, so the
+  // same answer: read the bytes.
+  check("auth's root barrel names no engine", () => {
+    const barrel = readFileSync(join(installedRoot, "auth/dist/index.js"), "utf8");
+    for (const engine of ["oidc-client-ts", "openid-client", "jose", "next"]) {
+      if (barrel.includes(engine)) {
+        fail(`@kanzo-tech/auth's root barrel names ${engine} — an engine reached the door that has none`);
+      }
+    }
+  });
+
+  // The other direction of the same rule, and the one that costs a package when it is wrong:
+  // `./server` runs in Node, so it must not reach React. Importing the root barrel to reuse
+  // `claims()` would drag a provider and three hooks into a server process — which is exactly how
+  // `@kanzo-tech/graph/duckdb` came to pull `vgplot` through a charts barrel. The door check cannot
+  // see it either: the subpath would resolve perfectly well while being wrong.
+  check("auth's Node doors reach the claim reader without reaching React", () => {
+    for (const door of ["server", "next"]) {
+      const built = readFileSync(join(installedRoot, `auth/dist/${door}.js`), "utf8");
+      for (const forbidden of ["react", "./index.js"]) {
+        if (built.includes(`from"${forbidden}"`) || built.includes(`from "${forbidden}"`)) {
+          fail(
+            `@kanzo-tech/auth/${door} imports ${forbidden} — a Node door is reaching into the browser one`,
+          );
+        }
+      }
+    }
+    const server = readFileSync(join(installedRoot, "auth/dist/server.js"), "utf8");
+    if (!server.includes("claims")) {
+      fail("@kanzo-tech/auth/server no longer names the claim reader — where does it read a token?");
     }
   });
 
@@ -469,6 +507,41 @@ for (const [subpath, cost] of [
     },
   );
 }
+
+// 10. \`@kanzo-tech/auth\`, whose central promise is an ABSENCE: the root barrel carries no engine,
+// so a single-page application installs the package and nothing else. That claim cannot be checked
+// from source — it is a claim about what Rollup wrote — and it cannot be checked by a failing
+// import either, because the failure mode is the opposite one: the barrel keeps working while
+// quietly dragging \`oidc-client-ts\` or \`openid-client\` in behind it, and a consumer only finds out
+// when their browser bundle grows or a \`node:\` scheme breaks their web build.
+//
+// This is the same defect that cost a package: \`@kanzo-tech/graph/duckdb\` reached its coordinator
+// through a barrel that called \`vgplot\` on the way, and the door check could not see it because
+// the subpath threw just as convincingly with the wrong peer missing. So this reads the bytes.
+const auth = await import("@kanzo-tech/auth");
+pass(\`auth root barrel imports with react alone (\${Object.keys(auth).length} exports)\`);
+for (const name of ["claims", "can", "authFetch", "organizationOf", "AuthError", "AuthProvider", "useSession", "useOrganization", "Gate", "bffAuth"]) {
+  if (!(name in auth)) fail(\`@kanzo-tech/auth does not export \${name}\`);
+}
+pass("auth ships the session, the predicate and both halves a product draws with");
+
+// \`bffAuth\` is on the FREE door on purpose: with the token on the server there is no protocol left
+// in the browser, so the Backend-For-Frontend pattern costs a consumer nothing beyond react. The
+// browser pattern is the one with an engine, and this is where that asymmetry is checked.
+for (const [subpath, cost] of [
+  ["@kanzo-tech/auth/browser", "the oidc-client-ts cost"],
+  ["@kanzo-tech/auth/server", "the openid-client cost"],
+  ["@kanzo-tech/auth/next", "the next cost"],
+]) {
+  await import(subpath).then(
+    () => fail(subpath + " resolved with no optional peer installed — is the import still there?"),
+    (err) => {
+      if (err.code === "ERR_MODULE_NOT_FOUND") pass(subpath + " is where " + cost + " is");
+      else fail(subpath + " failed for the wrong reason: " + err.message);
+    },
+  );
+}
+
 `
   );
 

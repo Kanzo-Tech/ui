@@ -1,0 +1,180 @@
+---
+title: Server
+description: The confidential client behind @kanzo-tech/auth/server — five methods, strings in and strings out, a sealed cookie, and a store for when a cookie is not enough.
+---
+
+```ts
+import { relyingParty } from "@kanzo-tech/auth/server";
+```
+
+This door is the other half of the [Backend For Frontend](/docs/auth/session#two-patterns-one-session):
+the tokens live on your server and the browser gets a cookie it cannot read. It needs
+`openid-client` and `jose`, and it reaches no React at all.
+
+What it answers is a `RelyingParty` and not an `Auth`: the five methods below are `begin`,
+`complete`, `read`, `refresh` and `end`, so the name carries no `Auth` suffix — [the suffix is a
+promise](/docs/auth#what-a-name-means-here).
+
+**Nothing here implements OAuth.** `openid-client` runs the flow, verifies the ID token and builds
+the end-session URL; `jose` seals the cookie. What is written here is the short sequence a route
+handler needs, the cookie discipline around it, and Keycloak's claims read into one `Session`.
+
+## Strings in, strings out
+
+There is no `Request` in any signature, and that is deliberate: a `Request` parameter would make
+one framework's flavour of it the one that fits. A URL and a `Cookie` header go in; a URL and
+`Set-Cookie` values come out, so the same five methods sit under an App Router handler, an Express
+route or anything else.
+
+```ts
+const party = relyingParty({
+  clientId: "board",
+  issuer: "https://id.kanzo.tech/realms/kanzo",
+  redirectUri: "https://board.kanzo.tech/api/auth/callback",
+  scope: "openid profile email organization:*",
+  secret: process.env.AUTH_SECRET!,
+});
+```
+
+| Method | Answers | For |
+| --- | --- | --- |
+| `begin(options?)` | `Redirect` — the authorization URL, and the cookie that remembers this attempt | `GET /api/auth/signin` |
+| `complete({ url, cookie })` | `SignedIn` — a session, its cookies, and where the person was going | the callback |
+| `read(cookie)` | `Session \| null` | `GET /api/auth/session`, on every request |
+| `refresh(cookie)` | `Renewed` — the session and a reissued cookie | when the access token is near expiry |
+| `end(cookie, options?)` | `Redirect` — clears the cookie and ends it at the IdP too | `GET /api/auth/signout` |
+
+`Redirect`, `SignedIn` and `Renewed` are the three answer shapes, and every one of them carries its
+`cookies` as `Set-Cookie` values for the caller to attach. A handler that forgets to attach them is
+a handler whose sign-in appears to work and whose session is never there.
+
+Sign-out goes through `buildEndSessionUrl`, not a URL assembled by hand: it discovers the
+end-session endpoint and sends the `id_token_hint`, and a hand-built URL gets both wrong with
+neither failure visible.
+
+## The cookies
+
+One mechanism, used twice: for the session that outlives a request, and for the short-lived
+transaction that carries `state`, `nonce` and the PKCE verifier between the two legs of the code
+flow. Keeping the transaction in a cookie rather than in server memory is what makes this
+**stateless by default**.
+
+`sealedCookie` is that mechanism, `SealedCookieConfig` configures it, `SealedCookie<T>` is what it
+returns, and `cookieValue` is the one-line reader for pulling a named cookie out of a `Cookie`
+header. Four attributes, each for a reason:
+
+| | |
+| --- | --- |
+| `__Host-` prefix | Forces `Secure` and `Path=/` and forbids `Domain`. Without it, anything that can serve a sibling subdomain can set a cookie that arrives looking exactly like ours — and the prefix is not declinable here |
+| `HttpOnly` | In a BFF the browser is not supposed to hold the credential at all; this is that sentence enforced |
+| `SameSite=Lax` | Not `Strict`. `Strict` withholds the cookie on the navigation *back* from the IdP, so the callback arrives without the transaction it needs and every sign-in fails |
+| JWE, not a signature | The payload is a refresh token. Signing would authenticate it and leave it readable to anyone who can see the cookie |
+
+<Callout type="warn">
+**A browser is only required to keep 4 KB of cookie, and an oversized one is dropped silently** —
+no error, a sign-in that appears to work, and a session that never appears. Sealing throws with
+that byte count rather than letting it happen, and the way out is a `SessionStore`.
+</Callout>
+
+## When a cookie is not enough
+
+`statelessStore` is the default and it holds nothing: the ticket *is* the record. What it cannot do
+is stated here rather than discovered later — **`drop` does nothing.** Signing out clears the
+cookie, which is enough for the person holding the browser and is not enough for anybody else: a
+copy taken beforehand keeps working until it expires. Under this store a session lifetime is a real
+security parameter, and *sign out everywhere* is not implementable at all.
+
+`SessionStore` is three methods, and `SessionRecord` is what they carry — the session, plus the
+refresh token and ID token the browser must never see. They live on the record and not on
+`Session` for exactly that reason: a type carrying both would make the leak one typo away.
+
+```ts
+interface SessionStore {
+  put(record: SessionRecord): Promise<string>;
+  get(ticket: string): Promise<SessionRecord | null>;
+  drop(ticket: string): Promise<void>;
+}
+```
+
+A deployment that needs one live session per person enforces it in `put`, by dropping that person's
+previous ticket as it issues the new one. One interface, one default implementation, and no
+catalogue: a Redis or SQL store is three methods somebody writes, not a decision this package makes
+on its way past.
+
+## Discovery, and reaching Keycloak from inside a cluster
+
+```ts
+import { issuer, rewriteOrigin, type Issuer, type IssuerConfig } from "@kanzo-tech/auth/server";
+```
+
+`relyingParty` takes everything `IssuerConfig` does, so most products never call `issuer` directly.
+Two behaviours are worth knowing whichever way you reach them.
+
+**The origin the server uses can differ from the one the browser is sent to.** In a cluster the
+browser goes to the public issuer and the server reaches `http://keycloak:8080`. `internalOrigin`
+rewrites the *transport* rather than the issuer, so discovery still validates the `issuer` in the
+document against the public URL — which is what Keycloak puts there. `rewriteOrigin` is that
+rewrite on its own, and when the two origins are equal it is a pass-through, which is why there is
+no second code path for the ordinary case.
+
+**Discovery is allowed to fail.** Keycloak is frequently not up when the application is, and a
+library hiding a retry loop inside itself takes that decision away from the caller. A failed
+discovery is simply not cached, so the next call tries again — the retry is your `await`, on your
+schedule. `Issuer.rediscover()` throws away what was discovered, which is the answer to signing-key
+rotation, and it is deliberately reactive: the trigger is a verification that failed, never a
+timer. A timer refreshes when nothing is wrong and is still stale at the moment something is.
+
+`privateKey` selects `private_key_jwt` over a shared `clientSecret` and wins when both are given:
+the secret never travels. `allowInsecureHttp` is what lets a compose file on a laptop serve
+`http://localhost:8080`.
+
+## API Reference
+
+### `relyingParty`
+
+`RelyingPartyConfig` extends `IssuerConfig` with:
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `redirectUri` | `string` | — |
+| `secret` | `string \| Uint8Array` | — |
+| `scope` | `string` | `openid profile email` |
+| `store` | `SessionStore` | `statelessStore()` |
+| `maxAge` | `number` | eight hours, in seconds |
+| `postLogoutRedirectUri` | `string` | — |
+
+Returns a `RelyingParty`.
+
+### `IssuerConfig`
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `issuer` | `string` | — |
+| `clientId` | `string` | — |
+| `clientSecret` | `string` | — |
+| `privateKey` | `CryptoKey \| PrivateKey` | — |
+| `internalOrigin` | `string` | the issuer's own origin |
+| `fetch` | `typeof fetch` | the global |
+| `allowInsecureHttp` | `boolean` | `false` |
+| `verifySignatures` | `boolean` | whether the token endpoint is reached over TLS |
+| `timeout` | `number` | — |
+
+`verifySignatures` defaults to a derivation rather than to `false`, and the reason is worth the
+line: the specification lets a code grant skip ID-token signature verification because the TLS
+channel to the token endpoint vouches for it — and an `internalOrigin` of `http://keycloak:8080`
+withdraws exactly that premise. [The signature check follows the
+channel](/docs/design/auth#the-signature-check-follows-the-channel-not-a-default) is the argument
+in full, with the clause it rests on and what would reverse it.
+
+### `sealedCookie`
+
+`SealedCookieConfig`:
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `name` | `string` | The name **after** the `__Host-` prefix, which is added here |
+| `secret` | `string \| Uint8Array` | Any length — generate it, do not choose it |
+| `maxAge` | `number` | Seconds. Both the cookie's `Max-Age` and the JWE's `exp` |
+
+`SealedCookie<T>` carries `name`, `seal(value)`, `read(header)` and `clear()`. `read` answers
+`null` for absent, tampered and expired alike — three ways of not having a session are one answer.

@@ -1,0 +1,177 @@
+---
+title: Auth
+description: Keycloak's claims read into one Session, a role predicate that knows about organizations, and a fetch that stays authenticated. A sibling of @kanzo-tech/ui, never part of it.
+---
+
+`@kanzo-tech/auth` is what a product needs once there is somebody signed in: the claim vocabulary
+read into one session, the role evaluation that knows about organizations, and a `fetch` that keeps
+carrying the credential.
+
+It is a **sibling** of `@kanzo-tech/ui`, not part of it. It does not depend on the library, and
+nothing in the library may depend on it.
+
+## The one rule to read before anything else
+
+**What a client knows about its roles is for drawing, never for deciding.**
+
+The roles in a session are a *copy*, and a copy is something an attacker owns the moment it reaches
+the browser. `Gate` hides a control and `can` answers a question about what to draw; the resource
+server, validating the access token it was sent, is what refuses the request behind the button. **A
+product gated only here is ungated.**
+
+The same rule one level down: **never open the access token in the client.** It is opaque to a
+client by definition, its format is not guaranteed to stay stable, and it may be encrypted for the
+resource — which is why depending on its contents is, in Microsoft's words for exactly this
+mistake, *"one of the most common sources of errors and client logic breakage."* Roles for drawing
+come from the session; the session comes from the ID token or from your own server.
+
+<Callout type="warn">
+This is physical rather than a preference, so there is no configuration that changes it and no
+future release that softens it. Every other page assumes it and points back here rather than
+arguing it again; [the auth layer](/docs/design/auth#the-client-draws-the-resource-server-decides)
+is why it is the first thing this page says, and what else follows from it.
+</Callout>
+
+## Why it is not in the library
+
+[The first admission rule](/docs/philosophy#admission) is *domain-free — nothing about RDF / SHACL /
+fossil / graphs / **auth***. Auth is excluded **by name**, and there is a second, blunter reason that
+the root barrel makes structural: a consumer who wants a `Button` must not pay for a session.
+[The auth layer](/docs/design/auth) has the composite that made the rule, and why this package
+depends on nothing of the library's.
+
+## What it is not
+
+**There is no sign-in screen**, no user menu and no organization switcher. A sign-in screen is a
+logo, a legal line, a privacy notice and a button, and every product answers those differently —
+`@kanzo-tech/ui` has the parts to draw one, and the [Gatehouse](/docs/showcases/gatehouse) showcase
+draws all three out of them.
+
+**There is no protocol in it either.** PKCE, silent renewal, token storage and cross-tab
+coordination belong to `oidc-client-ts`, behind `./browser`; the confidential client belongs to
+`openid-client`, behind `./server`. Writing either by hand is where a mistake stops being a bug and
+becomes a vulnerability.
+
+What is left after those two subtractions is the whole of the package: **Keycloak's claims as one
+`Session`, a role predicate that understands organizations, one `fetch` that stays authenticated,
+and the same session shape across two deployment patterns that otherwise share no code.**
+
+## Adding auth to a product
+
+Four short blocks, and the first one is the only place the deployment pattern is named.
+
+```ts title="auth.ts"
+import { browserAuth } from "@kanzo-tech/auth/browser";
+
+export const auth = browserAuth({
+  clientId: "board",
+  issuer: "https://id.kanzo.tech/realms/kanzo",
+});
+```
+
+```tsx title="main.tsx"
+import { AuthProvider } from "@kanzo-tech/auth";
+
+<AuthProvider auth={auth}>
+  <App />
+</AuthProvider>;
+```
+
+```ts title="api/client.ts"
+// Every request from here on carries the session. No call site changes.
+createClient<paths>({ baseUrl: "/", fetch: auth.fetch });
+```
+
+```tsx title="anywhere"
+import { Gate, useSession } from "@kanzo-tech/auth";
+
+const { session } = useSession();
+
+<Gate organization="amber" role="warden">
+  <Button>Post a contract</Button>
+</Gate>;
+```
+
+Moving to the Backend-For-Frontend pattern costs **one line, the first one**: `bffAuth()` from the
+root barrel instead. `auth.fetch`, `useSession` and `Gate` are unchanged, so nothing downstream
+learns which pattern is underneath — which is what lets two products with incompatible deployments
+share this package. [Session](/docs/auth/session) has both patterns in full.
+
+<Callout type="info">
+`browserAuth` and `bffAuth` are built **outside React**, on purpose. A product's API client is a
+module rather than a component, and a `fetch` reachable only from a hook would drag every call site
+into the tree to get at it.
+</Callout>
+
+## What a name means here
+
+The shape of a name says what it gives you, and there are three families:
+
+| Shape | What it answers | Names |
+| --- | --- | --- |
+| `<pattern>Auth` | an `Auth`, which is what `AuthProvider` takes | `browserAuth`, `bffAuth` |
+| `auth<Thing>` | an auth-flavoured *thing* | `authFetch` a `fetch`; on `./next`, `authRoutes`, `authSession` and `authMiddleware` |
+| anything else | itself | `relyingParty`, `issuer`, `sealedCookie`, `claims`, `can` |
+
+The suffix is a promise, so the third family is not a leftover: the server half answers `begin`,
+`complete`, `read`, `refresh` and `end` rather than `getSession`, `signIn` and `fetch`, and a name
+ending in `Auth` would hand you the wrong shape twice — once at the call site and once at the
+provider. *Relying party* is the term the specification already uses for it.
+
+## Who is signed in
+
+<ComponentPreview componentName="auth" />
+
+`useSession` is the hook, and `status` is the field to branch on — not `session === null`, which is
+the same answer for *anonymous* and *we have not looked yet*. Drawing a sign-in prompt during the
+second is the flicker every application with a session has shipped at least once.
+
+Every example on these pages runs against a fabricated session rather than a realm, from one file —
+`docs/lib/guild-auth.ts`, which builds a claim set and runs the package's own reader over it. The
+[Gatehouse](/docs/showcases/gatehouse) showcase runs the same one, signed out to begin with, and
+says why an interface this small can be faked at all.
+
+## Installing it
+
+```bash
+pnpm add @kanzo-tech/auth
+```
+
+That is the whole of it for a single-page application. **The root barrel carries no engine** —
+`react` and nothing else — which is why every consumer imports it whatever pattern they run.
+
+| Door | What it is | Peer to install |
+| --- | --- | --- |
+| `@kanzo-tech/auth` | Types, the claim reader, `can`, the provider, the hooks, `Gate`, `bffAuth` and the authenticated `fetch` | none |
+| `@kanzo-tech/auth/browser` | `browserAuth` — the public client with PKCE, for a SPA with no server | `oidc-client-ts` |
+| `@kanzo-tech/auth/server` | `relyingParty` — the confidential client: exchange, sealed cookie, rotation, end-session | `openid-client`, `jose` |
+| `@kanzo-tech/auth/next` | `authRoutes`, `authSession`, `authMiddleware` — the same client as a route file, a middleware and an RSC reader | `next` |
+
+A door exists here only because it imports an engine, which is [the engine
+rule](/docs/philosophy#the-engine-rule) the library's own subpaths follow. A consumer installs the
+peer for the door they open and no other.
+
+```bash
+pnpm add @kanzo-tech/auth oidc-client-ts   # a SPA
+pnpm add @kanzo-tech/auth openid-client jose   # a server
+```
+
+The two Node doors never reach React: they import the modules under the root barrel directly, so a
+server process does not pull a component library in behind an import of an OAuth client. `pnpm smoke`
+reads the installed bytes for it.
+
+## The realm it expects
+
+`kanzo-auth` is the service half — Keycloak with its realm as code — and it is a separate
+deliverable that shares a surname. What this package needs from it is small and none of it is
+invented: role claims on **both** tokens, an audience mapper naming your API, and the
+`organization:*` scope. [Keycloak](/docs/auth/keycloak) is that page, and it is the one to hand to
+whoever runs the realm.
+
+<Cards>
+  <Card title="Session" href="/docs/auth/session" description="The shape, the two patterns, and why there is no active organization on it." />
+  <Card title="Roles" href="/docs/auth/roles" description="can, Gate, useOrganization, and the group path whose first segment is the application." />
+  <Card title="Keycloak" href="/docs/auth/keycloak" description="The realm a consumer needs: two token toggles, an audience mapper, and the scope with the star." />
+  <Card title="Server" href="/docs/auth/server" description="The confidential client: five methods, strings in and strings out, and a sealed cookie." />
+  <Card title="Next.js" href="/docs/auth/next" description="The BFF in the three files an App Router product already has." />
+</Cards>

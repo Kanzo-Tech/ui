@@ -1,0 +1,273 @@
+---
+title: Session
+description: One session shape over two deployment patterns — browserAuth for a SPA, bffAuth where there is a server — and why the active organization is not on it.
+---
+
+```tsx
+import { AuthProvider, useSession, type Session } from "@kanzo-tech/auth";
+```
+
+A `Session` is the whole of what the client knows about who is signed in.
+
+```ts
+interface Session {
+  user: AuthUser;
+  roles: readonly string[];
+  organizations: readonly Organization[];
+  expiresAt: number;
+}
+
+interface AuthUser {
+  id: string;
+  email?: string;
+  name?: string;
+  username?: string;
+}
+
+interface Organization {
+  alias: string;
+  id?: string;
+  roles: readonly string[];
+}
+```
+
+`user.id` is the IdP's stable subject, never an email: an email can be reassigned to somebody else
+and a subject cannot. Every other field is optional because a realm decides which scopes it grants,
+and a token that merely omits one must not take the application down.
+
+`expiresAt` is epoch **milliseconds** — the token carries seconds, and everything in JavaScript is
+milliseconds, so the conversion happens once, here, rather than at every call site that ever
+compares it to a clock. The client uses it to renew early and never to decide access.
+
+## There is no active organization on it
+
+**The session says which organizations you are a member of. The request says which one you are
+looking at.** Those are two different questions and the absence of the second from `Session` is the
+design rather than an omission.
+
+Membership comes from the token and is stable. The organization you are *in* is a property of the
+request — the URL — and deriving it per request is what lets two tabs sit in two organizations at
+once. Store it on the session instead and those two tabs share one value: the last one to navigate
+wins in both, and the reader of the other is looking at a hall they did not open.
+
+<ComponentPreview componentName="auth" fileName="example-organization" />
+
+The switcher above holds the alias in component state because an example has no URL to read; a
+product reads it off the hostname or the path. [`useOrganization`](/docs/auth/roles#useorganization)
+is the hook that resolves it against the session, and the rule it follows when the session does not
+back the candidate is on that page.
+
+The other half of the same separation is on the shape above: `roles` are the realm and client roles,
+global to the person, and the roles held *inside* an organization live on that `Organization`. They
+are never merged — [being an owner of one says nothing about another](/docs/auth/roles#asking-the-question).
+
+## Two patterns, one session
+
+RFC 10017 — the current best practice for OAuth in browser-based applications — names three
+architectures, and this package implements the two that are deployed here.
+[Why those two and not the third](/docs/design/auth#two-patterns-one-session) is on the auth layer's
+page.
+
+| | The door | When | What carries the credential |
+| --- | --- | --- | --- |
+| **Backend For Frontend** | `bffAuth`, root barrel | There is a server of your own | A cookie the browser cannot read |
+| **Browser-based OAuth client** | `browserAuth`, `./browser` | A SPA with no server at all | A bearer token, held in memory |
+
+There is no preference between them to express: the first is the one to take wherever there is a
+server to put a confidential client in, and the second is not a lesser choice made carelessly — it
+is the only architecture available to an application that has none.
+
+Both satisfy one interface, which is the only seam between them:
+
+```ts
+interface Auth {
+  getSession(): Promise<Session | null>;
+  subscribe(onChange: () => void): () => void;
+  signIn(options?: SignInOptions): Promise<void>;
+  signOut(options?: { returnTo?: string }): Promise<void>;
+  readonly fetch: typeof globalThis.fetch;
+}
+```
+
+A product names its pattern on one line at startup and nothing downstream knows which it chose.
+That is what lets `useSession`, `Gate` and `auth.fetch` be written once.
+
+<Callout type="info">
+**Two factories rather than one that guesses.** A single `createAuth` choosing by the shape of its
+argument would have to import both engines to do it, which is exactly the defect the doors exist to
+prevent: `bffAuth` on the root barrel pulls in nothing, and `browserAuth` on `./browser` pulls in
+`oidc-client-ts`.
+</Callout>
+
+### A SPA with no server
+
+```ts
+import { browserAuth } from "@kanzo-tech/auth/browser";
+
+export const auth = browserAuth({
+  clientId: "board",
+  issuer: "https://id.kanzo.tech/realms/kanzo",
+  redirectUri: "https://board.kanzo.tech",
+});
+```
+
+Everything about the protocol — PKCE, the callback, silent renewal, storage, cross-tab
+coordination, RP-initiated logout — is `oidc-client-ts`'s. This door is an adapter over it, and two
+of its settings are ours rather than the library's defaults:
+
+- **Tokens live in memory only.** The library defaults to `sessionStorage`; under a public client
+  anything a script can read is something an XSS can steal, and a token on disk outlives the page
+  that was compromised to get it. The cost is real and is the whole of the trade: a full page load
+  starts with nothing, so the session is re-established by a silent renewal rather than read back.
+- **`state`, `nonce` and the PKCE verifier live in `sessionStorage`.** They are not tokens, and
+  they cannot be in memory: the page is unloaded by the navigation to the IdP and memory goes with
+  it. Per tab, gone when the tab closes, and invisible to a second tab racing the same sign-in.
+
+`OidcUserManager` is the slice of the library's manager this door calls and `OidcUser` the slice of
+its user that it reads — the access token is carried, never opened. Both are public because
+`createManager` injects one, which is what lets the door be tested with no network, no IdP and no
+iframe.
+
+`monitorSession` polls the OP's session state so a sign-out performed elsewhere reaches this tab.
+It is **off by default** and that is not caution about cost: it runs a hidden cross-site iframe,
+and a browser that partitions third-party cookies makes it report nothing rather than fail loudly.
+
+### Where there is a server
+
+```ts
+import { bffAuth } from "@kanzo-tech/auth";
+
+export const auth = bffAuth({ basePath: "/api/auth" });
+```
+
+No engine, no protocol, no storage, and no token in the browser at all — which is why this one sits
+on the root barrel beside the hooks. What it needs from the server is three routes under
+`basePath`: `GET /session`, `/signin` and `/signout`. [`@kanzo-tech/auth/server`](/docs/auth/server)
+is the other half — `relyingParty` holds the confidential client, the sealed cookie and the
+rotation, and a product wires its five methods into whatever router it already has.
+
+The answer from `/session` is **checked rather than cast**, by `readSession`. It is your own server
+on the other end and it is still data off the wire: a cast would let a deploy skew or a proxy's
+error page arrive as a `Session` whose `user` is undefined, and the failure would surface three
+components away as a property read on nothing. Anything unrecognisable reads as *not signed in*,
+which is the safe direction.
+
+## Keeping requests authenticated
+
+**The seam is the `fetch`, and a product already has exactly one.** Handing your API client
+`auth.fetch` changes one line and no call site:
+
+```ts
+createClient<paths>({ baseUrl: "/", fetch: auth.fetch });
+```
+
+What it does depends on the pattern, and the difference never leaves this function:
+
+| | Attaches | And then |
+| --- | --- | --- |
+| BFF | nothing — the cookie rides along on a same-origin request by itself | a 401 means the session is *gone*, so the tree is told |
+| Public client | `Authorization: Bearer …` | renews once and retries once, and only on a 401 it sent a token for |
+
+The retry is once, and never on a 403: that is an answer, not a stale credential. A request whose
+body is a stream is not retried at all, because a body can be read once and a second send would
+deliver an empty one — silently, with a misleading error at the far end.
+
+<Callout type="warn">
+**The renewal path is single-flight, and that is a rule rather than an optimisation.** The
+specification requires a browser client's refresh token to rotate on every use, so a renewal spends
+the token it was called with. Ten requests noticing an expiring token in the same tick would fire
+ten renewals, nine of them replaying a token the first already spent — and an authorization server
+is entitled to read that as theft and revoke the whole chain. The session does not degrade under
+load; it dies under load, which is the worst way to find out.
+</Callout>
+
+`authFetch` and `singleFlight` are on the barrel for a transport that is not `fetch` — a streaming
+reader, a WebSocket handshake — rather than because a product should be assembling its own client.
+`authFetch` takes a `TokenSource`, which is two methods: `current()`, called on every request and
+answering from cache, and `renew()`. A BFF returns `null` from both, because there is no token in
+the browser to hold.
+
+<Callout type="info">
+**`EventSource` cannot carry an `Authorization` header.** The ways out are a token in the query
+string, which is the logging leak the specification faults the implicit flow for; a cookie, which
+needs a server; or server-sent events over `fetch` with a `ReadableStream`, which works under both
+patterns and is the one to take.
+</Callout>
+
+## When a credential is refused
+
+A boolean cannot be acted on. *Not signed in* sends the person to the IdP; *signed in but not a
+member* sends them to a page that says so, and telling those apart is the difference between an
+explanation and a redirect loop. So a failure carries a code:
+
+```ts
+import { AuthError, type AuthErrorCode } from "@kanzo-tech/auth";
+```
+
+| Code | What happened |
+| --- | --- |
+| `claims.no-subject` | The claim set carries no `sub`. Not a session at all — a realm fault, never a person's |
+| `session.absent` | There is no session: not signed in, or it expired |
+| `organization.not-a-member` | Signed in, and holds no membership of the organization being addressed |
+| `callback.state-mismatch` | The callback's `state` is absent, different, or matches no transaction |
+| `callback.nonce-mismatch` | The ID token's `nonce` is not the one that was sent — a replay |
+| `token.exchange-failed` | The token endpoint refused the code or the refresh token, or returned no ID token |
+
+## API Reference
+
+### `useSession`
+
+Returns the context — `AuthContextValue` — plus the two actions, so a component that draws a
+sign-out button needs one hook rather than two.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `session` | `Session \| null` | Who is signed in |
+| `status` | `AuthStatus` | `"loading" \| "authenticated" \| "anonymous"` — **branch on this** |
+| `auth` | `Auth` | The instance the provider was given |
+| `signIn` | `(options?: SignInOptions) => Promise<void>` | Send the person to the IdP |
+| `signOut` | `(options?: { returnTo?: string }) => Promise<void>` | End the session |
+
+It throws when called outside `AuthProvider`, with the two factory names in the message.
+
+### `AuthProvider`
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `auth` | `Auth` | — |
+| `children` | `React.ReactNode` | — |
+
+One per application, at the root. A session that cannot be read fails to `anonymous` rather than
+holding `loading`: the first is recoverable by signing in, and the second is a spinner nobody can
+escape.
+
+### `browserAuth`
+
+`BrowserAuthConfig`:
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `issuer` | `string` | — |
+| `clientId` | `string` | — |
+| `redirectUri` | `string` | the current origin |
+| `postLogoutRedirectUri` | `string` | the current origin |
+| `scope` | `string` | `openid profile email organization:*` |
+| `monitorSession` | `boolean` | `false` |
+| `createManager` | `(settings: UserManagerSettings) => OidcUserManager` | a real `UserManager` |
+
+### `bffAuth`
+
+`BffAuthConfig`:
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `basePath` | `string` | `/api/auth` |
+| `fetch` | `typeof fetch` | the global |
+| `navigate` | `(url: string) => void` | assigns `window.location` |
+
+### `SignInOptions`
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `returnTo` | `string` | Where to come back to. Defaults to the current URL |
+| `organization` | `string` | Ask for one organization's scope instead of every one — see [Keycloak](/docs/auth/keycloak#the-scope-with-the-star) |

@@ -1,0 +1,135 @@
+{
+  "name": "@kanzo-tech/auth",
+  "version": "0.1.0",
+  "description": "Kanzo authentication over Keycloak — the claim vocabulary read into one Session, the role evaluation that knows about organizations, and an authenticated fetch. Sibling of @kanzo-tech/ui, not part of it: the admission rules exclude auth from the generic vocabulary by name.",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/browser.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
+    },
+    "./next": {
+      "types": "./dist/next.d.ts",
+      "import": "./dist/next.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "size": "size-limit"
+  },
+  "//peers": "react is REQUIRED: the root barrel exports a provider and hooks, and two copies of React are two context trees. Everything else is optional and lives behind a subpath, because the two deployment patterns in RFC 10017 need different engines and no consumer needs both — oidc-client-ts is the browser protocol behind `./browser`, openid-client and jose are the confidential client behind `./server`, and next is behind `./next`. A SPA installs this package alone. Deliberately absent: tailwind-variants, because nothing here draws — which is also what keeps this package out of the appearance guards, whose corpus in packages/ui/src/guard-corpus.ts selects on exactly that dependency. The day this package grows a screen the dependency arrives with it and the guards pick it up unasked; no list anywhere needs editing.",
+  "peerDependencies": {
+    "jose": "^6",
+    "next": ">=15",
+    "oidc-client-ts": "^3",
+    "openid-client": "^6",
+    "react": ">=19"
+  },
+  "peerDependenciesMeta": {
+    "jose": {
+      "optional": true
+    },
+    "next": {
+      "optional": true
+    },
+    "oidc-client-ts": {
+      "optional": true
+    },
+    "openid-client": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "jose": "^6.2.12",
+    "jsdom": "^29.1.1",
+    "next": "^16.2.7",
+    "oidc-client-ts": "^3.5.0",
+    "openid-client": "^6.8.8",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "rollup-plugin-preserve-directives": "^0.4.0"
+  },
+  "//size-limit": "The root barrel was 677 B at the first commit — the claim reader, the role predicate and the types — against a 1 kB budget set deliberately tight, with a note saying the raise would be a line in the commit that landed the hooks rather than a quiet edit. This is that line: 677 B -> 2.19 kB, and the budget goes to 2.5 kB. What grew is the provider, three hooks, `Gate` and `bffAuth`, which is the whole of what a consumer imports to have a session. Every budget here is set just above its first measurement for the same reason: one with 70% headroom detects nothing. Each subpath ignores its own engine, because the consumer installs that explicitly and what is being measured is our adapter over it. What these numbers are really watching for is a door reaching through another: the root barrel must never learn a protocol, and the two Node doors must never learn React. A jump of kilobytes on any of them means one of those happened, and `scripts/smoke-install.mjs` reads the built bytes to say which.",
+  "size-limit": [
+    {
+      "name": "root barrel (JS)",
+      "path": "dist/index.js",
+      "limit": "2.5 kB",
+      "ignore": [
+        "react",
+        "react-dom",
+        "react/jsx-runtime"
+      ]
+    },
+    {
+      "name": "browser subpath (JS)",
+      "path": "dist/browser.js",
+      "limit": "2 kB",
+      "ignore": [
+        "react",
+        "react-dom",
+        "react/jsx-runtime",
+        "oidc-client-ts"
+      ]
+    },
+    {
+      "name": "server subpath (JS)",
+      "path": "dist/server.js",
+      "limit": "3.2 kB",
+      "ignore": [
+        "react",
+        "react-dom",
+        "react/jsx-runtime",
+        "openid-client",
+        "jose"
+      ]
+    },
+    {
+      "name": "next subpath (JS)",
+      "path": "dist/next.js",
+      "limit": "4 kB",
+      "ignore": [
+        "react",
+        "react-dom",
+        "react/jsx-runtime",
+        "openid-client",
+        "jose",
+        "next",
+        "next/server",
+        "next/headers"
+      ]
+    }
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kanzo-Tech/ui.git",
+    "directory": "packages/auth"
+  },
+  "homepage": "https://kanzo-tech.github.io/ui",
+  "bugs": {
+    "url": "https://github.com/Kanzo-Tech/ui/issues"
+  }
+}

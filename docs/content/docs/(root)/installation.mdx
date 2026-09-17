@@ -75,6 +75,31 @@ It has no optional peer and no subpath. Everything it draws with is `@kanzo-tech
 required peers, and its appearance comes from the same `styles.css` you import below — there is no
 second sheet.
 
+### Authentication is a package that draws nothing
+
+[`@kanzo-tech/auth`](/docs/auth) is the third sibling, and it is the one that needs none of the
+above: it does not import `@kanzo-tech/ui`, it ships no component and it has no stylesheet. The
+first admission rule excludes auth by name, for the reason the log-out affordance is missing from
+[the sidebar](/docs/navigation/sidebar) — a library whose vocabulary every product shares should not
+know what a session is.
+
+```bash
+pnpm add @kanzo-tech/auth
+```
+
+That is the whole install for a single-page application: the root barrel carries no engine, which is
+what makes it the door every consumer opens. The other three each name theirs, and you install only
+the one you open.
+
+| subpath | what it is | install alongside |
+| --- | --- | --- |
+| `@kanzo-tech/auth/browser` | a public client with PKCE, for a SPA with no server | `oidc-client-ts` |
+| `@kanzo-tech/auth/server` | the confidential client, framework-agnostic | `openid-client`, `jose` |
+| `@kanzo-tech/auth/next` | App Router routes, middleware and a session reader | `next` |
+
+The two server doors are Node's, and nothing on them reaches React — `pnpm smoke` reads the packed
+bytes to say so, rather than trusting this sentence.
+
 </Step>
 
 

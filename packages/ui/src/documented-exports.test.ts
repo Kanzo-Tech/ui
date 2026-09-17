@@ -98,7 +98,7 @@ function entryPoints(pkgDir: string): Entry[] {
  * brings `@kanzo-tech/graph/duckdb` in for free, which is the subpath the optional peers live on —
  * a page that puts `duckBoundedSource` in an import from the root barrel now fails here.
  */
-const ENTRIES = ["ui", "theme", "graph", "ai"].flatMap((name) =>
+const ENTRIES = ["ui", "theme", "graph", "ai", "auth"].flatMap((name) =>
   entryPoints(join(REPO, "packages", name)),
 );
 

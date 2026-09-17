@@ -3,7 +3,7 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * What "repo-wide" means, in one place, for the six guards that claim it.
+ * What "repo-wide" means, in one place, for every guard that claims it.
  *
  * Every one of them used to open with `const SRC = dirname(fileURLToPath(import.meta.url))` and walk
  * from there — which is `packages/ui/src` and nothing else. That was true enough to be invisible
@@ -11,32 +11,40 @@ import { fileURLToPath } from "node:url";
  * no guard had ever read a line of, and one of the appearance guards said so in its own blind-spot
  * section while every reader took `CLAUDE.md`'s "the repo-wide guard tests" at face value.
  *
- * The fix is a corpus, not six copies of a rule. A second `no-literal-hues.test.ts` under `packages/ai`
- * would be the shape this repository collapses on sight, and it would rot the first time somebody
- * edited one copy.
+ * The fix is a corpus, not one copy of a rule per package. A second `no-literal-hues.test.ts` under
+ * `packages/ai` would be the shape this repository collapses on sight, and it would rot the first
+ * time somebody edited one copy. How many guards import this module is not written down here for the
+ * same reason the corpus is not: `grep -rl 'from "./guard-corpus"'` is current and a transcription
+ * is not — the last count that lived in this sentence was wrong within two packages of being typed.
  *
  * ## Which packages are in, and why that is derived rather than listed
  *
  * **A package is scanned when it declares `tailwind-variants` as a dependency.** That is the tell
  * that it writes appearance in this house's idiom — a `tv()` recipe over token-backed utilities —
- * and it is the exact population every one of these six rules is about. Measured 2026-08-20 over the
- * five workspace packages it selects `ui` and `ai` and rejects three, each for a reason that is the
- * right reason and not an accident of the filter:
+ * and it is the exact population every one of these rules is about. Measured 2026-09-17 over the six
+ * workspace packages it selects `ui` and `ai` and rejects four, each for a reason that is the right
+ * reason and not an accident of the filter:
  *
- * · `@kanzo-tech/palette` is colour *derivation*. Its whole subject is hues written as numbers, so
- *   `no-literal-hues` would report the package as one long violation. Its own guards are
- *   `packages/theme/src/{boundary,palettes}.test.ts` and the checks inside `packages/palette`.
- * · `@kanzo-tech/theme` ships `tokens.css` and an axis table. No JSX, no classes, and the colour in
- *   it is generated — `pnpm check:generated` is what holds it, not a scan of hand-written source.
- * · `@kanzo-tech/graph` renders, but it draws with WebGL: one `className` in the package
- *   (`graph-canvas.tsx`) and no `tv()` anywhere. When it grows a recipe it will declare
- *   `tailwind-variants` and join this corpus with nobody remembering to add it — which is the whole
- *   argument for deriving the list. Until then a scan of it would assert an absence over a corpus
- *   that never had the shape.
+ * · `@kanzo-tech/theme` ships `tokens.css`, the theme catalogue and an axis table. No JSX, no
+ *   classes, and what colour it holds is either hand-written source (`themes/*.css`) or generated —
+ *   `pnpm check:generated` and `themes.test.ts` are what hold it, not a scan of `.ts` under `src/`.
+ * · `@kanzo-tech/mosaic` is the Mosaic conversation without React: five modules, no JSX, and
+ *   `className` appears nowhere in it.
+ * · `@kanzo-tech/graph` renders, but it draws with WebGL: one file writing classes by hand
+ *   (`graph-canvas.tsx`, two literal strings in it) and no `tv()` anywhere. When it grows a recipe it
+ *   will declare `tailwind-variants` and join this corpus with nobody remembering to add it — which
+ *   is the whole argument for deriving the list. Until then a scan of it would assert an absence over
+ *   a corpus that never had the shape.
+ * · `@kanzo-tech/auth` draws nothing at all. Its one component, `Gate`, renders `children` or does
+ *   not; there is no element in the package that could carry a class. `tailwind-variants` is
+ *   deliberately absent from its manifest and its `//peers` note says so, so the day somebody gives
+ *   it a screen the dependency arrives with the screen and the package joins this corpus by itself.
  *
  * The alternative — "every publishable package's `src`" — reads better and is wrong: it takes
- * `palette` and `theme` with it, and the first thing it would do is fail on the two packages whose
- * job is the thing being banned.
+ * `theme` with it, and the first thing it would do is fail on the package whose job is the thing
+ * being banned. (It used to take `@kanzo-tech/palette` too — thirteen stages of colour derivation,
+ * hues written as numbers, `no-literal-hues` reporting the whole package as one long violation. That
+ * package is deleted, and its guards with it; the argument survives it.)
  *
  * ## What a reported path looks like
  *

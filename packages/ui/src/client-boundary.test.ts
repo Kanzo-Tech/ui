@@ -46,10 +46,32 @@ import { label, resolvePath, sourceFiles, subtrees, unreadable } from "./guard-c
  * - **The corpus is `ui` and `ai`, derived by `guard-corpus.ts`.** It was `packages/ui/src` alone
  *   until 2026-08-20, and `@kanzo-tech/ai` — a package whose every module is a React component
  *   drawn with `ui`'s parts, and therefore exactly the population this rule is about — had never
- *   been read. Widening it found one surplus directive, on `ai/ai-mark.tsx`. `@kanzo-tech/graph`
- *   is out for the reason recorded in `guard-corpus.ts` and its `use-*.ts` modules are therefore
- *   unchecked, which is the one open gap: they are hooks by name, so the shape most likely to be
- *   wrong there is a *missing* directive — the expensive half.
+ *   been read. Widening it found one surplus directive, on `ai/ai-mark.tsx`.
+ * - **`@kanzo-tech/graph` and `@kanzo-tech/auth` are unchecked, and that is this guard's one open
+ *   gap.** Both declare `react` as a peer and neither declares `tailwind-variants`, so the corpus
+ *   that selects on appearance rejects them — correctly for every rule about colour and classes, and
+ *   wrongly for this one, which is about React and not about drawing. `graph`'s `use-*.ts` and
+ *   `auth`'s `use-session` / `use-organization` are hooks by name, so the shape most likely to be
+ *   wrong in either is a *missing* directive: the expensive half.
+ *
+ *   **A corpus of its own — every package declaring `react` as a peer — was measured on 2026-09-17
+ *   and not adopted.** That selects `ui`, `ai`, `graph` and `auth`, and run over all four it reports
+ *   three findings in `graph` and none in `auth`: `graph/duck-source.ts` and `graph/slice-client.ts`
+ *   carry the directive and use no client feature (genuine, and somebody else's to remove — neither
+ *   is React, one is a `MosaicClient` subclass), and `graph/index.ts` reads as *missing* one purely
+ *   because its docblock quotes `useGraph(props)` and `useGraphOverlays(api)`. That third is the
+ *   "comments are NOT stripped" blind spot above firing for real, which retires the measurement
+ *   beside it — "no file's verdict changes either way" is true of `ui` and `ai` and false of `graph`.
+ *   So the widening cannot land without either a pinned exception for one barrel or a comment
+ *   stripper, and a stripper is a regex over both comment forms that would have to be right about
+ *   every URL and string literal in the corpus to avoid deleting real code. Both are worse than
+ *   this paragraph.
+ *   `auth` is clean on its own — 22 files, nothing missing, nothing surplus — so what blocks the
+ *   widening is one sibling's barrel, not the new package.
+ *
+ *   *What would reverse it:* `graph/index.ts` losing the two hook names from its prose, or those two
+ *   surplus directives coming off — at which point the corpus swap is three lines and green, and the
+ *   honest reason to leave the hole is gone.
  */
 
 /**

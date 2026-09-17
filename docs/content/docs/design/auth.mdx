@@ -1,0 +1,326 @@
+---
+title: The auth layer
+description: Why authentication is a sibling package rather than a component, why a browser draws instead of deciding, and why two deployment patterns share one session.
+---
+
+[The auth pages](/docs/auth) are what `@kanzo-tech/auth` ships. This page is why it is shaped that
+way — and more of it than usual is decided by somebody else, because the protocol, the claim
+vocabulary and the architecture catalogue are all external and all citable.
+
+## Auth is a package, and the admission rule excludes it by name
+
+`@kanzo-tech/auth` is a **sibling** of `@kanzo-tech/ui`, not a part of it. The first
+[admission rule](/docs/philosophy#admission) is *domain-free — nothing about RDF, SHACL, fossil,
+graphs or auth*, and auth is on that list by name rather than by inference.
+
+The rule was written after the library shipped one. A sidebar composite carried a hard-coded log-out
+flow, its confirmation dialog and its untranslatable English copy included — an auth flow inside a
+library whose first rule excludes auth. The instructive part is the fix that did not hold: the flow
+became one entry in an array of menu items the caller passed in, which traded a domain leak for a
+[layout tree written as an attribute](/docs/design/admission), so the composite went too. A log-out
+item is markup a product writes out of the menu and sidebar parts, and the product owns its wording.
+
+The package **depends on nothing of `@kanzo-tech/ui`'s**, and that is not incidental. It lives in
+this repository for the build, the release, the guards and the docs pipeline, not because it belongs
+to the component library — which is what would make moving it later cost a directory rename and no
+consumer's line. The budget on the root barrel is what notices the day that stops being true: a
+recipe, a component or a second engine does not fit inside it.
+
+**What would reverse it:** the first admission rule losing that word. There is no measurement here
+and there should not be — this is a statement about what `ui` is for, and the evidence that it was
+right is one composite, not a number. The cheap direction of reversal is the other one: because
+nothing of `ui`'s is imported, the day auth belongs somewhere else it can go there.
+
+*Held by* `packages/ui/src/index.test.ts`, `!SidebarUser` and `!InstanceSwitcher` — the composite
+that shipped the flow, asserted absent under both of the names it had;
+`packages/auth/package.json`, `size-limit`.
+
+## The client draws; the resource server decides
+
+[The rule itself](/docs/auth#the-one-rule-to-read-before-anything-else) is on the package's front
+page, where a consumer meets it. What is here is why it is the *first* thing that page says, and
+what follows from it that would otherwise look like four unrelated decisions.
+
+Two of them are realm configuration, and [the Keycloak page](/docs/auth/keycloak) is where they are
+set. The role mappers are marked for [**both**
+tokens](/docs/auth/keycloak#role-claims-on-both-tokens) — the access token so an API can authorise,
+the ID token so an interface can draw — and the access token carries [an audience
+mapper](/docs/auth/keycloak#the-audience-mapper) naming the API, because a resource server validates
+`aud` before it trusts anything else. Neither is a Keycloak convention we happen to follow; each is
+the rule applied once.
+
+The third is a division of labour that is easy to lose: the package obtains and attaches the
+credential and defines the claim model; **validating is the API's**, and ours are Rust. That
+agreement is a contract in words — what is validated (`iss`, `aud`, `exp`, the signature via JWKS)
+and what is authorised on (`resource_access.<clientId>.roles`, `organization.<alias>.groups`) — and
+[the Keycloak page](/docs/auth/keycloak#what-your-api-must-validate) is its only copy, because a
+second one in each language's source is a second thing to keep true.
+
+The fourth is the rule one level down, and it is a subtraction rather than a warning: nothing in
+this package decodes an access token, so there is no code to get wrong. Roles for drawing come from
+the ID token's claims under the browser pattern and from the session endpoint under the BFF one, and
+both paths reach the same reader — so *where did this role come from* has one answer whichever door
+a product opened. Downward too: a `Session` handed to a browser holds no refresh token, and under
+the BFF pattern no token at all, because there is none in the browser to hold.
+
+**What would reverse it: nothing**, twice over, and for two different reasons. The first is
+physical: the decision has to be made where the attacker is not, and the attacker is on the other
+side of the `fetch`; the only thing that moves is *where* the resource server is, which changes
+nothing about who decides. The second is ownership: an access token's format belongs to the
+authorization server and the resource that consumes it, and neither has promised the client sitting
+between them anything. An authorization server publishing that format *to clients* as a contract
+would reverse it — and publishing it is precisely what an access token is defined not to do.
+
+*Held by* `packages/auth/src/can.ts`, `can`; `packages/auth/src/can.test.ts`, "is closed by default";
+`packages/auth/src/gate.tsx`, `Gate`; `packages/auth/src/browser.ts`, `OidcUser`;
+`packages/auth/src/browser.test.ts`, "reads Keycloak's claims into a Session through the one claim
+reader"; `packages/auth/src/server.test.ts`, "holds no refresh token on the Session it hands out".
+
+<Callout type="warn">
+No guard can fail on a product that decides in the browser, and none here claims to — the code that
+would be wrong is in the consumer. What the tests above hold is that the predicate answers `false`
+for an absent session and never widens a role, so a product following the rule is not fighting the
+library.
+</Callout>
+
+## Two patterns, one `Session`
+
+RFC 10017 — a BCP, July 2026 — names **three** architectures for browser applications, and this
+package implements two of them.
+
+| pattern | who here | why |
+| --- | --- | --- |
+| **Backend For Frontend** | keasy | *"strongly recommended for business applications, sensitive applications, and applications that handle personal data"* |
+| **browser-based OAuth 2.0 client** | `agents/viewer`, `hub/browser` | a public client with PKCE is the only architecture available when there is no server |
+| *token-mediating backend* | nobody | the norm itself says to evaluate a full BFF instead |
+
+The third is declined on the specification's own advice, not on ours, and the two that ship are not
+a preference between them: `agents/viewer` is a Vite single-page application with no server anywhere
+in its deployment, so a pattern needing one could never have served it, and keasy handles personal
+data behind a backend that already exists. **One pattern could not have covered both consumers**, and
+that — rather than generality — is why there are two.
+
+What is ours is that they produce **one `Session`**. `bffAuth` and `browserAuth` are the only two
+lines of a product that differ; `useSession`, `Gate` and `auth.fetch` are written once and never
+learn which is underneath. That is a need no library can have, because no library has both of our
+consumers.
+
+The second pattern arrives with an obligation the norm attaches to it — refresh tokens rotate on
+every use — and that obligation, not a performance argument, is why
+[the renewal path is single-flight](/docs/auth/session#keeping-requests-authenticated). It is worth
+noticing here only because it is the one place where choosing a pattern buys a rule rather than a
+dependency.
+
+**What would reverse it:** a revision of RFC 10017 that recommends the token-mediating backend, or a
+consumer that has a backend which must not hold tokens — the shape the third pattern exists for. The
+*one `Session`* half reverses differently, and more cheaply: a field one pattern can fill and the
+other cannot ends it, and the honest answer then is two types rather than one with a hole in it.
+
+*Held by* `packages/auth/src/types.ts`, `Auth`; `packages/auth/src/bff-auth.test.ts`, "attaches no
+Authorization header, because the cookie rides along by itself";
+`packages/auth/src/browser.test.ts`, "renews once for ten concurrent requests that all get a 401";
+`packages/auth/src/single-flight.test.ts`, "runs the work once for every caller that arrives while
+it is running".
+
+## The protocol is somebody else's
+
+Admission rule 3 is *wraps, does not reinvent*, so the first question was who had already done this.
+Four candidates, and two of them win half each.
+
+| | what it is | why it does not win the whole |
+| --- | --- | --- |
+| **Auth.js** | route handlers for Next, Qwik, SvelteKit, Express | *"This cannot be used as a purely static browser SPA without backend infrastructure."* One pattern of the two |
+| **better-auth** | an auth framework with SSO and organization plugins | *"Better Auth requires a database to store user data"* — it would own the user store Keycloak already owns, which is not a design but a synchronisation problem |
+| **oidc-client-ts** | the browser protocol | **wins** the browser half |
+| **openid-client** | the server protocol, and what Auth.js is built on | **wins** the server half |
+
+So PKCE, silent renewal, storage, cross-tab coordination, the confidential client, discovery and
+RP-initiated logout are **not written here**. `./browser` is an adapter over a `UserManager`;
+`./server` is a configuration and a set of verbs over `openid-client`, and
+[what is left after that subtraction](/docs/auth#what-it-is-not) is the whole of the package.
+
+**What would reverse the `./next` choice specifically** — and it is the one place Auth.js genuinely
+competes, because it does that half entire. It loses on owning the session model and on dragging a
+registry of providers nobody here uses, and what we ship instead is three factories over one config
+object. **If our own cookie and session handling grows to rival Auth.js's in size, the answer is to
+adopt it rather than to keep growing.** That is a measurement anyone can take, and the `size-limit`
+entry on `dist/next.js` is where it would first be visible.
+
+*Held by* `packages/auth/src/browser.ts`, `UserManager`; `packages/auth/src/issuer.ts`, `discovery`;
+`packages/auth/src/cookie-session.test.ts`, "refuses a cookie sealed with another secret".
+
+## One door per engine, and the door everyone opens carries none
+
+The placement rule is the library's own: *a part belongs on a subpath only if it imports that
+subpath's engine.* Here that produces one door per engine — `oidc-client-ts` behind `./browser`,
+`openid-client` and `jose` behind `./server`, `next` behind `./next` — and, more importantly, a
+**root barrel with no engine at all**. That is why a single-page application installs this package
+and nothing else, and why the transport for the BFF pattern lives on the root rather than behind a
+door: with the token on the server there is no protocol left in the browser, only a `fetch` to a
+session endpoint. Each of them is declared in the `exports` map on the day its file exists and never
+before, so no commit ships a door pointing at a path Rollup did not write.
+
+It is also why there are [two factories rather than
+one](/docs/auth/session#two-patterns-one-session) that picks by the shape of its argument: choosing
+at run time means importing both engines to be able to choose, which is the exact defect the doors
+exist to prevent.
+
+The precedent is not hypothetical. `@kanzo-tech/graph/duckdb` reached its coordinator through
+`@kanzo-tech/ui/analytics`, whose barrel names `@uwdata/vgplot` on the way past — a static import, so
+a host that installed the two peers the docs named still could not open the subpath, and `graph` had
+ended up declaring vgplot an optional peer to hide a dependency it never mentions. The fix was a
+package, `@kanzo-tech/mosaic`. The same shape in the other direction is what `./server` must not do:
+importing the root barrel to reuse the claim reader would drag a provider and three hooks into a
+Node process, so modules inside this package import each other directly and never through the barrel.
+
+None of this is visible to a door test, and that is the point of checking it the way it is checked.
+A leaked engine does not make the barrel throw — it keeps working while pulling `openid-client` in
+behind it, and the consumer finds out when a `node:` scheme breaks their web build. So the assertion
+reads the **bytes of the installed tarball**, which is the only check in the repository that sees the
+built artefact rather than the source.
+
+**What would reverse it:** the engines merging upstream. If `openid-client` grew a supported browser
+client, or `oidc-client-ts` a confidential one, one door would be the honest shape and two would be
+ceremony. Short of that, the reversal is a measurement anyone can take — an engine that every
+consumer installs anyway is not paying for its door.
+
+<Callout type="warn">
+**The client boundary in this package is compared, never evaluated.** `pnpm smoke` checks that every
+module carrying `"use client"` in `src/` still carries it in `dist/`, which catches Rollup dropping a
+directive and nothing else. The guard that asks whether the directive is in the *right place*,
+`packages/ui/src/client-boundary.test.ts`, runs over the corpus in
+`packages/ui/src/guard-corpus.ts` — every package declaring `tailwind-variants` — and `auth`
+deliberately declares none, because nothing here draws. So `graph` and `auth` share one hole, and
+`auth` is the worse half of it: its `use-*.ts` modules are hooks by name, where the likely error is
+a **missing** directive rather than a surplus one. The fix is the corpus rule applied a second time —
+*widen it, never copy the guard* — with that guard given its own derivation: **every package
+declaring `react` as a peer.** It is named here rather than fixed because it is one edit to a shared
+file that two packages' guards read.
+</Callout>
+
+*Held by* `scripts/smoke-install.mjs`, "auth's root barrel names no engine" and "auth's Node doors
+reach the claim reader without reaching React"; `packages/auth/src/server.test.ts`, "imports no
+React, no barrel and no component from the server door".
+
+## Membership is in the session; the active organization is not
+
+[The absence itself](/docs/auth/session#there-is-no-active-organization-on-it) is on the Session
+page, with the two tabs that are the whole of the argument. What is here is what sits under it.
+
+Deriving the active organization per render makes **the URL the truth**, and that has a second face:
+the hostname carrying it is a [hint and never an authority](/docs/auth/roles#useorganization). Those
+two are one decision, and together they are the line between a multi-tenant product and a leak
+between customers — the derivation says where to look, the resolution against a signed claim says
+whether to believe it.
+
+Two claims about the realm sit under all of this, and the difference between them is worth writing
+down, because it is the difference between a rule this repository can hold and one it cannot. That
+the `organization` claim reaches the **access** token, carrying each organization's id and its group
+paths, is held by a *recorded* token in the test corpus rather than a hand-written fixture — the
+only thing here that would notice Keycloak changing its mind. That plain `organization` stops a
+multi-organization sign-in on a chooser page instead of issuing a code is held by nothing, and
+nothing here could hold it: it is a page Keycloak draws. It is why
+[the default scope is `organization:*`](/docs/auth/keycloak#the-scope-with-the-star), where the
+question never arises — and it is the shape of claim this section is most likely to be wrong about
+later.
+
+**What would reverse it:** a consumer whose organization is genuinely not addressable — no
+per-organization host, no per-organization route, nothing in the URL to derive from. Then the active
+organization has nowhere else to live and the two-tab cost is real rather than hypothetical. Every
+consumer so far addresses by hostname.
+
+*Held by* `packages/auth/src/types.ts`, `Session`; `packages/auth/src/host.ts`,
+`organizationFromHost`; `packages/auth/src/use-organization.test.tsx`, "refuses a hostname the
+session does not back, and does not substitute another" and "still reports the membership while the
+active organization is unresolved"; `packages/auth/src/claims.test.ts`, "a real token, taken off a
+live Keycloak 26.6.4".
+
+## A role in one scope does not authorise in another
+
+Roles held **inside** an organization live on that organization and are never merged into the global
+ones — [not once, and not for convenience](/docs/auth/roles#asking-the-question). **Two** separations
+are doing that work rather than one, at two levels, and only the second costs anything: it is why
+the claim reader takes a client id at all.
+
+That second one is [the group-path
+rule](/docs/auth/roles#the-first-segment-of-a-group-path-is-the-application), and what earns it a
+place on this page rather than only on that one is the evidence behind it. The recorded token is one
+person holding `/keasy/owner` and `/vocab-browser/editor` in the *same* organization, so the two
+applications really do arrive together, really must not see each other's roles, and the fixture
+would notice if they ever stopped arriving that way.
+
+[There is no hierarchy in the predicate](/docs/auth/roles#no-hierarchy-and-no-way-to-configure-one)
+either, and that is the same separation refusing a third time.
+
+**What would reverse it: nothing**, and the reason is that the alternative is already expressible.
+A role meant to hold everywhere is a realm role, and a role meant to hold across every application
+inside one organization is a single-segment group path — both exist, both are read, and neither
+needs the sets merged. A deployment asking for the merge is asking for one of those two and has
+picked the wrong one.
+
+*Held by* `packages/auth/src/can.test.ts`, "does not carry a role from one organization into
+another" and "does not mix the global roles into an organization's, or the reverse";
+`packages/auth/src/claims.test.ts`, "does not let another application's role in, from inside the
+same organization" and "refuses another application's, which is the whole reason it filters".
+
+## The signature check follows the channel, not a default
+
+`openid-client` does not verify the ID token's signature in an authorization code grant, and it is
+right not to: an ID token arriving over a TLS connection to the token endpoint, in the answer to a
+request authenticated as this client, is vouched for **by the channel** — OpenID Connect Core
+§3.1.3.7 step 6 says so, and that is why a sign-in normally fetches no JWKS at all.
+
+This package keeps the exemption and derives it instead of inheriting it. **The exemption is a claim
+about the channel**, and an internal origin of `http://keycloak:8080` — which is what reaching
+Keycloak inside a cluster looks like — withdraws the channel: the hop TLS was supposed to protect is
+plaintext, so nothing is vouching for anything. Taking the reference's default there would be
+inheriting its conclusion without its premise. So the default is read off the protocol of the origin
+this process actually reaches, and it can still be set either way explicitly.
+
+What makes the two origins differ at all is [the origin
+rewrite](/docs/auth/server#discovery-and-reaching-keycloak-from-inside-a-cluster), which is on the
+Server page because a consumer configures it. The part that matters here is only that it rewrites
+the *transport* and not the issuer, which is what leaves a plaintext hop to notice.
+
+**What would reverse it:** a plaintext hop that is authenticated some other way — mutual TLS
+terminated by a sidecar, a service mesh that proves both ends — which restores the premise without
+restoring `https:`, and would make the derivation wrong in the safe direction rather than the
+dangerous one. Upstream reverses it too: `openid-client` changing its default, or the specification
+withdrawing the step-6 exemption, and then the derivation is doing work nobody asked for.
+
+*Held by* `packages/auth/src/issuer.ts`, `verifySignatures`; `packages/auth/src/server.test.ts`,
+"fetches no keys when the token endpoint is reached over TLS, because the channel vouches" and
+"fetches the keys when the hop is plaintext, because then nothing vouches".
+
+## No sign-in screen ships
+
+[No sign-in screen, no user menu and no organization switcher](/docs/auth#what-it-is-not) — stated
+on the front page rather than discovered, the same way `@kanzo-tech/graph`'s opens with its own
+absence, because a shape stated late reads as a gap.
+
+The part that is a design decision and not a description: **nothing in this package draws at all**,
+which is why it declares no `tailwind-variants`. That absence is what keeps it out of the six
+appearance guards, correctly — they would be scanning for a shape it never has — and it is the
+tripwire below, rather than a rule anybody has to remember.
+
+What is genuinely shared sits underneath the screen, and it is what is here: the claims, the
+predicate, the derivation, the `fetch`. The [Gatehouse](/docs/showcases/gatehouse) showcase draws
+the other three out of `@kanzo-tech/ui`'s parts, which is where an arrangement belongs — and it is
+what the sidebar page's callout has been pointing at since it said there is no logout affordance in
+the library.
+
+**What would reverse it:** two products whose sign-in screens differ only in the logo. That is a
+comparison anyone can make by putting them side by side, and it is the same condition that would
+admit any other composite: a second call site that wants the same arrangement, not a first one that
+wants it once.
+
+<Callout type="info">
+Nothing fails when a screen is added, and no guard could — a component that appears is not an
+invariant that breaks. The nearest thing to a tripwire is the budget on the root barrel, which a
+drawn component would blow, and the fact that a screen would have to bring `tailwind-variants` with
+it, pulling this package into the appearance corpus in a commit somebody has to write. Both are
+tells rather than gates.
+</Callout>
+
+*Held by* `packages/auth/package.json`, `//peers` and `size-limit`;
+`packages/ui/src/guard-corpus.ts`, `IDIOM`.

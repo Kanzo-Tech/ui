@@ -1,1 +1,21 @@
-{"root": true, "pages": ["(root)", "forms", "actions", "navigation", "overlays", "data-display", "analytics", "graph", "ai", "layout", "hooks", "blocks", "showcases", "---For maintainers---", "design"]}
+{
+  "root": true,
+  "pages": [
+    "(root)",
+    "forms",
+    "actions",
+    "navigation",
+    "overlays",
+    "data-display",
+    "analytics",
+    "graph",
+    "ai",
+    "auth",
+    "layout",
+    "hooks",
+    "blocks",
+    "showcases",
+    "---For maintainers---",
+    "design"
+  ]
+}

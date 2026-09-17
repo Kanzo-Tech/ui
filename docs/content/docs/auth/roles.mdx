@@ -1,0 +1,170 @@
+---
+title: Roles
+description: can, Gate and useOrganization — asking a role question inside an organization, the group path whose first segment is the application, and why there is no hierarchy.
+---
+
+```tsx
+import { Gate, can, organizationOf, useOrganization } from "@kanzo-tech/auth";
+```
+
+<Callout type="warn">
+Everything on this page decides **what to draw**, and none of it decides what is allowed — see
+[the one rule](/docs/auth#the-one-rule-to-read-before-anything-else).
+</Callout>
+
+## Asking the question
+
+```ts
+can(session, "gold");              // a realm or client role — Ravenna's rank
+can(session, "warden", "amber");   // a role held inside that organization
+```
+
+With an organization, the question is asked *inside* it: the person's roles there, which is a
+different set from their realm and client roles and is deliberately **not merged** with them. A
+role held in one organization says nothing about another, and the day those two sets are unioned
+for convenience is the day one organization's owner is every organization's owner.
+
+It is closed by default. No session, or no membership of the named organization, is `false` rather
+than a throw — a predicate that raises is a predicate every call site has to guard, and a guard
+somebody forgets is a control drawn for a stranger.
+
+`organizationOf(session, alias)` is the lookup underneath, for when you want the membership itself
+rather than a yes or no.
+
+## `Gate`
+
+<ComponentPreview componentName="auth" fileName="example-gate" />
+
+Ravenna is a warden in her own hall and an archivist or a scout in the two she visits, so the
+control appears and disappears without the session changing at all. That is `can`'s organization
+argument, drawn.
+
+```tsx
+<Gate fallback={<p>Only a warden signs for a party.</p>} organization="amber" role="warden">
+  <Button>Post a contract</Button>
+</Gate>
+```
+
+**While the session is loading, neither branch is drawn.** Neither answer is known to be true yet,
+and both of the alternatives are worse: rendering the fallback flashes *you cannot do this* at
+somebody who can, for as long as the session endpoint takes, and rendering the children offers a
+control and then retracts it.
+
+## No hierarchy, and no way to configure one
+
+That `owner` outranks `member` is a fact about a product, not about the predicate. So a product
+spells it out where it can be read:
+
+```ts
+const isMember = (org: string) => can(session, "owner", org) || can(session, "member", org);
+```
+
+Written out, the order is where a reader can see it and where it can be made to agree with the
+server's — which is the one deciding, and which reads the same group paths.
+
+## The first segment of a group path is the application
+
+Keycloak writes group membership as a path, one hierarchy per organization rather than one shared
+across the realm. The convention this package reads is that the first segment of such a path names
+the application:
+
+```text
+/board/warden     under client `board`   →  warden
+/ledger/reader    under client `board`   →  nothing: another application's role
+/warden           under any client       →  warden, granted across all of them
+```
+
+`roleFromGroupPath(path, clientId)` is that rule as a function, and it is the whole of why the
+filtering is not a nicety: without it, a role granted to somebody in the ledger would authorise
+them on the board, which is the exact failure the separation exists to prevent.
+
+A single-segment path is the deliberate exception — a role the organization grants everywhere,
+which is what you want for something like an organization's own administrator.
+
+[What the token actually carries](/docs/auth/keycloak#what-the-token-actually-carries) is this rule
+meeting a recorded claim set: one person, one organization, two applications' roles inside it.
+
+## `useOrganization`
+
+Which organization this view is *in*, resolved per render rather than stored.
+
+```ts
+const { isMember, organization, organizations } = useOrganization(alias);
+```
+
+`alias` names it explicitly; omitted, it is read from the hostname — `amber.kanzo.tech` is `amber`,
+and `kanzo.tech` is nothing, because a two-label host is the site rather than a tenant of it.
+`organizationFromHost` is that reading on its own, for a server that needs the same answer.
+
+**The hostname is a hint and never an authority.** Anyone can send `Host: amber.kanzo.tech`; what
+makes an organization real for a session is the claim in a token Keycloak signed. So the candidate
+is resolved against `session.organizations`, and a miss is:
+
+```ts
+{ organization: undefined, isMember: false }
+```
+
+— never a throw, and **never the first organization instead**. Falling back is how somebody ends up
+reading another customer's data believing it is their own.
+
+`isMember` answers about the *candidate*, which is a different question from
+`organizations.length > 0`: a product with exactly one membership, addressed at the wrong host, is
+a member of something and a member of nothing here.
+
+<Callout type="info">
+There is no hydration mismatch to manage. The hostname is read at render and is `undefined` on a
+server, but the session itself arrives in the provider's effect — so the server render and the
+first client render both resolve against `null` and agree whatever the hostname says.
+</Callout>
+
+## API Reference
+
+### `can`
+
+```ts
+can(session: Session | null | undefined, role: string, organization?: string): boolean
+```
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `session` | `Session \| null \| undefined` | `null` is `false`, not an error |
+| `role` | `string` | The role name, without any group path around it |
+| `organization` | `string?` | Omitted, asks against `session.roles` |
+
+### `organizationOf`
+
+```ts
+organizationOf(session: Session | null | undefined, alias: string): Organization | undefined
+```
+
+### `Gate`
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `role` | `string` | — |
+| `organization` | `string?` | asks against `session.roles` |
+| `fallback` | `React.ReactNode` | `null` |
+| `children` | `React.ReactNode` | — |
+
+### `useOrganization`
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `organization` | `Organization \| undefined` | The candidate, resolved against membership |
+| `organizations` | `readonly Organization[]` | Everything the session carries |
+| `isMember` | `boolean` | Whether the candidate resolved |
+
+### `roleFromGroupPath`
+
+```ts
+roleFromGroupPath(path: string, clientId: string): string | null
+```
+
+### `organizationFromHost`
+
+```ts
+organizationFromHost(hostname: string | undefined): string | undefined
+```
+
+`amber.localhost` yields `amber`, which is how a developer reaches a tenant without editing DNS. An
+IP address yields nothing.
