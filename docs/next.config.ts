@@ -61,7 +61,7 @@ const config: NextConfig = {
   // `@kanzo-tech/mosaic` belongs here for a different reason than the other two: nothing in this
   // app imports it directly, but `@kanzo-tech/ui/analytics` re-exports its coordinator, clients and
   // Arrow reader, so every chart page reaches it one hop in.
-  transpilePackages: ["@kanzo-tech/ui", "@kanzo-tech/theme", "@kanzo-tech/mosaic", "@kanzo-tech/auth"],
+  transpilePackages: ["@kanzo-tech/ui", "@kanzo-tech/theme", "@kanzo-tech/mosaic"],
   /**
    * The one thing the browser build needs that the browser never runs.
    *
