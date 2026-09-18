@@ -84,6 +84,9 @@ importers:
       '@duckdb/duckdb-wasm':
         specifier: 1.33.1-dev57.0
         version: 1.33.1-dev57.0
+      '@fossil-lang/corpus':
+        specifier: link:../../rmlext/packages/corpus
+        version: link:../../rmlext/packages/corpus
       '@internationalized/date':
         specifier: ^3.12.2
         version: 3.12.2
@@ -294,6 +297,9 @@ importers:
       '@cosmos.gl/graph':
         specifier: ^3.4.0
         version: 3.4.0
+      '@fossil-lang/corpus':
+        specifier: link:../../../rmlext/packages/corpus
+        version: link:../../../rmlext/packages/corpus
       '@kanzo-tech/mosaic':
         specifier: workspace:*
         version: link:../mosaic

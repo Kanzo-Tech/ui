@@ -17,6 +17,9 @@ import {
   Selection as MosaicSelection,
   type ChartConfig,
 } from "@kanzo-tech/ui/analytics";
+// The addressing runs in WASM and takes the module's LOCATION, because only a bundler knows where
+// an asset lands. `next.config.ts` emits `.wasm` as `asset/resource`, so this import is the URL.
+import corpusWasmUrl from "@fossil-lang/corpus/pkg/fossil_graph_wasm_bg.wasm";
 import { openCorpus, type DuckSource, type OpenedCorpus } from "@kanzo-tech/graph/duckdb";
 import { ensure } from "./duck";
 import {
@@ -294,8 +297,25 @@ export const KINDS: ChartConfig = {
  * panels read. One value, because opening the corpus is one act and all four come out of it.
  *
  * **The crossfilter is made here rather than by `MosaicProvider`**, which is the one thing a corpus
- * changes about the wiring: the source puts the page's predicate *in the slice query*, so it has to
- * be handed the same `Selection` the charts publish into, and that has to exist before either does.
+ * changes about the wiring: `openCorpus` takes the `Selection` as `filterBy` and writes the page's
+ * predicate *into the slice query*, so it has to exist before the source does — and the provider's
+ * own default is minted in an effect when it mounts, which is after. Everything under
+ * `GraphMosaic` reads this one: the canvas, the Info search, the legend tally and the footer count.
+ *
+ * **It is not the Sightings charts' crossfilter, and nothing here says it should be.**
+ * `sightings-charts.tsx` mints its own — `Selection.crossfilter({ include: [hall, beast] })`, since
+ * `include` is constructor-only — and mounts its own `MosaicProvider`, which shadows this one for
+ * that subtree. So: two crossfilters, two providers, two relations (this side's `corpus_Node` over
+ * the corpus Parquet, that side's `loadCSV`'d `sightings`), and the nine controls over there have
+ * never reached the canvas. Only the `Coordinator` is shared, by `./duck`'s `boot()`, because
+ * vgplot resolves marks through a single *active* one.
+ *
+ * **And the two views never coexist**: `default.tsx` renders `ArchiveCanvas` *or* `SightingsRegion`,
+ * so there is no frame in which one crossfilter is visibly failing to drive the other. Merging them
+ * is an open decision with a cost neither side pays today — six of the nine chart publishers name
+ * `beast`, `leagues`, `hour` or `bounty`, none of which the corpus carries (only the region and
+ * hall controls, and the hall pick, name a column it has), and both graph publishers name a dense
+ * id, which `sightings` does not.
  */
 export interface Archive {
   coordinator: Coordinator;
@@ -314,6 +334,7 @@ function openArchive(): Promise<Archive> {
       coordinator,
       dest: `${window.location.origin}${CORPUS}`,
       filterBy: crossfilter,
+      wasmUrl: corpusWasmUrl,
     });
     if (opened.edges === undefined) {
       throw new Error(`corpus: ${CORPUS} declares no edges for its vertex type`);

@@ -20,8 +20,11 @@ GraphAr tree once, offline, and the browser only reads it.
 node docs/showcases/graph-bench/corpus/build-corpus.mjs
 ```
 
-They land in `docs/public/bench/<size>/` and are gitignored — tens of megabytes, 93 MB at a million.
-A sweep against a size nobody wrote is a row of 404s, which is the honest failure.
+They land in `docs/public/bench/<size>/` and are gitignored — **213 MB at a million and 1.10 GiB at
+five**, measured with `du -sh` on 2026-09-18. The million used to be 93 MB, and what moved is the
+corpus rather than the machine: the format now carries an identity index, a five-rung pyramid with
+quotients, `coordinates`, `channels`, `privacy`, and `cardinality`/`scale` on the projections. A
+sweep against a size nobody wrote is a row of 404s, which is the honest failure.
 
 ## What the sweep asks
 
@@ -109,6 +112,14 @@ GiB at ten million — 404.4 seconds, for 1.5 GB of corpus — and the curve has
 extrapolated, it meets this machine's memory somewhere between twenty and thirty million vertices.
 There is no spill path anywhere in the layout pass, so exceeding the machine is a dead run rather
 than a slow one — the opposite of the guarantee.
+
+**And every figure in that chart is the writer as it was on 2026-08-25, which the corpora on disk no
+longer are.** Only `bench/10000000` is still the tree those numbers were taken against; two thousand
+through five million were rewritten on 2026-09-18, which is where 93 MB at a million became 213 MB.
+The ten-million row is the one that cannot be retaken cheaply — an hour of build, for a corpus
+nothing in this repository loads — so it is left standing and said to be old rather than re-stated
+from the sizes beside it. The shape of the claim survives either way: the curve has no ceiling, and
+a format that writes more per vertex moves it towards the machine rather than away.
 
 The peak is a peak because stages hold a whole value instead of passing batches through:
 `community_hierarchy` keeps a community array per vertex plus a contracted graph per level,

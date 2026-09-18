@@ -1,5 +1,12 @@
 "use client";
 
+import {
+  PAYLOAD_ADDRESS,
+  PAYLOAD_COORDINATES,
+  PAYLOAD_IDENTITY,
+  open as openFossilCorpus,
+} from "@fossil-lang/corpus";
+import type { OpenOptions } from "@fossil-lang/corpus";
 import { clausePoints, column, fillColumn, numbers } from "@kanzo-tech/mosaic";
 import type { Coordinator, FilterExpr, Selection } from "@kanzo-tech/mosaic";
 import type { BoundedSource, Slice, SliceRequest, Viewport } from "./bounded";
@@ -729,7 +736,7 @@ function countOf(rows: unknown, field: string): number {
 }
 
 /**
- * A corpus that fossil wrote, read by address.
+ * A corpus that fossil wrote, read by address — **and the addressing is fossil's.**
  *
  * **The five things a call site used to know, and now does not.** Drawing a corpus meant deriving
  * the chunk URLs from a `chunk_size` copied by hand, knowing how a tile is named, knowing what the
@@ -742,13 +749,22 @@ function countOf(rows: unknown, field: string): number {
  * The consumer knows one thing: **where the corpus is.**
  *
  * ```ts
- * const { source } = await openCorpus({ coordinator, dest: "/bench/1000000" });
+ * const { source } = await openCorpus({ coordinator, dest: "/bench/1000000", wasmUrl });
  * ```
  *
- * **Addressed, not queried.** The manifest and the per-tile boxes are read once and kept; after that
- * a camera move is arithmetic over boxes and a list of URLs. There is deliberately no request on the
- * path between the camera moving and a URL being computable — the moment there is one, this has
- * become the `viewport` verb fossil deleted.
+ * **And this side no longer knows the conventions either, which is the change.** It used to remove
+ * that defect for its callers by committing it one level down — a YAML line-scanner, a
+ * `chunk{k}.parquet` spelling, a `by_source/tile{k}.parquet` spelling and a `HEAD`-probing search
+ * for a tile count — and by the time those were deleted all four were **wrong**: fossil writes
+ * `container: rowgroups`, one `tiles.parquet` whose row groups are the tiles, and `vertex_count`
+ * had been in the manifest the whole time the search was probing for it. Fossil's `open` is
+ * `fossil_graph::plan` compiled to wasm32: the arithmetic the native reader runs, not a second
+ * implementation of it that agrees until it does not.
+ *
+ * **Addressed, not queried.** The manifests and the per-tile boxes are read once and kept; after
+ * that a camera move is arithmetic over boxes and a list of URLs. There is deliberately no request
+ * on the path between the camera moving and a URL being computable — the moment there is one, this
+ * has become the `viewport` verb fossil deleted.
  *
  * **What it is not.** It takes no column names and no type index. Those come from the manifest or
  * they do not come: a corpus reader that also accepts `idField` is `duckBoundedSource` with extra
@@ -767,6 +783,17 @@ export interface OpenCorpusOptions {
   /** Where the corpus lives, without a trailing slash — the directory holding `graph.graph.yml`. */
   dest: string;
   /**
+   * Where `fossil_graph_wasm_bg.wasm` is.
+   *
+   * **The one thing about fossil's reader a caller still has to say, and not ours to default.** The
+   * addressing runs in WASM, so the module has to be up before a URL can be composed, and only the
+   * caller knows how its bundler resolves an asset — `?url` under Vite, an asset import under Next,
+   * a `Response` over the bytes in Node. Passed straight through, spelled as fossil spells it.
+   * Omitted, the boot is left to whoever already did it: it is memoised for the session, so a host
+   * on its second corpus need not say it again.
+   */
+  wasmUrl?: OpenOptions["wasmUrl"];
+  /**
    * Which vertex type to draw, when a corpus carries more than one.
    *
    * Defaults to the first the manifest names. A corpus of one type never passes it; a corpus of
@@ -781,7 +808,7 @@ export interface OpenCorpusOptions {
   subjects?: boolean;
 }
 
-/** One tile's bounding box, from the footer. `null` for a tile whose statistics are missing. */
+/** One tile's bounding box, from the footer. A tile with no `x`/`y` statistics is not in the list. */
 interface TileBox {
   tile: number;
   x0: number;
@@ -791,32 +818,20 @@ interface TileBox {
 }
 
 /**
- * The manifests, flat enough to read with a line scan.
+ * One manifest, as text — **the whole of what this file still knows about reading a corpus.**
  *
- * A YAML library would be a dependency for six keys, and fossil's own checker makes the same call —
- * sixty lines that refuse what they cannot parse rather than guessing at it. This does the same: a
- * key it cannot find is an error naming the file, not a default that draws an empty graph.
+ * It takes an absolute URL because that is what fossil's door hands it. `open(dest, { readText })`
+ * composes every address itself: it reads the index, then the per-type manifests the index names,
+ * and nothing else. Which files those are is no longer a question asked on this side — the
+ * twelve-line scan of the index's `vertices:`/`edges:` lists that used to stand here was the third
+ * copy of a sequence the door now publishes, and the index's own file name left this file with it.
+ *
+ * A file that is not there raises here and reaches the caller as a `CorpusManifestError` naming the
+ * URL, which is a better error than any invented on this side.
  */
-function scalar(yaml: string, key: string): string | undefined {
-  const line = yaml.split("\n").find((row) => row.startsWith(`${key}:`));
-  return line?.slice(key.length + 1).trim().replace(/^['"]|['"]$/g, "");
-}
-
-function listItems(yaml: string, key: string): string[] {
-  const rows = yaml.split("\n");
-  const at = rows.findIndex((row) => row.startsWith(`${key}:`));
-  if (at < 0) return [];
-  const items: string[] = [];
-  for (const row of rows.slice(at + 1)) {
-    if (!row.startsWith("- ")) break;
-    items.push(row.slice(2).trim());
-  }
-  return items;
-}
-
-async function manifest(dest: string, path: string): Promise<string> {
-  const response = await fetch(`${dest}/${path}`);
-  if (!response.ok) throw new Error(`corpus: ${path} is not readable (${response.status})`);
+async function manifest(url: string): Promise<string> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`corpus: ${url} is not readable (${response.status})`);
   return response.text();
 }
 
@@ -856,46 +871,46 @@ export interface OpenedCorpus {
 }
 
 export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorpus> {
-  const { coordinator, dest, filterBy, subjects = false, vertexType } = options;
+  const { coordinator, dest, filterBy, subjects = false, vertexType, wasmUrl } = options;
 
   const reads = openReads(coordinator, filterBy);
   const meta = metaAsker(reads.meta);
   const watching = watcher(reads);
 
-  const root = await manifest(dest, "graph.graph.yml");
-  const vertexPaths = listItems(root, "vertices");
-  const edgePaths = listItems(root, "edges");
+  /**
+   * The addressing — **one `await`, one lent capability, and no arithmetic of ours.**
+   *
+   * Fossil's `open` takes where the corpus is and a way to read text, and hands back every URL the
+   * corpus can produce, whichever container it declares. It needs no engine on this rung: lent a
+   * reader, it fetches the index and the per-type manifests the index names, and nothing more.
+   * What used to stand here — a line-scanning YAML reader, a `chunk{k}` spelling, an
+   * edge-directory spelling and a `HEAD`-probing search for a tile count — was four conventions
+   * fossil owns, written down on this side, and stale in all four by the time they were deleted.
+   * A fifth went the same way once the door published the sequence rather than the file name: the
+   * scan that worked out which manifests to ask for.
+   *
+   * **`readText` and not `manifestFiles`**, which is the other engine-free rung: holding the bytes
+   * is what that one is for, and this never held them for its own sake — it fetched them only to
+   * hand them over.
+   */
+  const addressing = await openFossilCorpus(dest, { readText: manifest, wasmUrl });
 
-  const vertices = await Promise.all(vertexPaths.map((p) => manifest(dest, p)));
-  const wanted =
-    vertexType === undefined
-      ? vertices[0]
-      : vertices.find((y) => scalar(y, "type") === vertexType);
-  if (!wanted) {
-    throw new Error(
-      `corpus: no vertex type ${vertexType ?? "(none declared)"} in ${dest}/graph.graph.yml`,
-    );
-  }
-
-  const type = scalar(wanted, "type");
-  const prefix = scalar(wanted, "prefix");
-  const chunkSize = Number(scalar(wanted, "chunk_size"));
-  if (!type || !prefix || !Number.isFinite(chunkSize) || chunkSize <= 0) {
-    throw new Error(`corpus: ${dest} declares no usable type, prefix and chunk_size`);
-  }
-
-  // The edge relation whose source is this vertex type. Its tiles are keyed by the same range as the
-  // vertices — `src_chunk_size` equals the source type's `chunk_size`, and a different number there
-  // would address nothing — which is what lets one tile set serve both relations.
-  const edges = await Promise.all(edgePaths.map((p) => manifest(dest, p)));
-  const edge = edges.find((y) => scalar(y, "src_type") === type);
-  const edgePrefix = edge ? scalar(edge, "prefix") : undefined;
+  const type = addressing.vertexType(vertexType);
+  /**
+   * The relation whose SOURCE is this type — the CSR orientation, which is the drawing read.
+   *
+   * `by_target` is not asked for and its absence is reported rather than hidden: a window's
+   * drawable edges all have their source on screen, so the source-aligned tiles are complete for
+   * drawing and incomplete for incidence. `tilesFor` says which below, in `gaps`.
+   */
+  const edge = addressing.incident(type.type).find((e) => e.srcType === type.type);
+  const adjacency = edge?.adjacency("src") ?? null;
 
   /**
    * The boxes, and the one query this source makes that is not a slice.
    *
    * Read on first use rather than in the factory: a host that constructs a source and never draws
-   * should not pay for it, and the cost is a footer read over every tile. Kept forever after —
+   * should not pay for it, and the cost is a footer read over the payload. Kept forever after —
    * tiles are precomputed and their boxes cannot move without the corpus being rewritten.
    *
    * **Held as the promise rather than as the answer**, which the move to one shared metadata client
@@ -904,10 +919,6 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
    * tile range twice.
    */
   let loading: Promise<TileBox[]> | null = null;
-  let total: number | undefined;
-
-  const tileUrl = (k: number) => `'${dest}/${prefix}chunk${k}.parquet'`;
-  const edgeTileUrl = (k: number) => `'${dest}/${edgePrefix}by_source/tile${k}.parquet'`;
 
   /**
    * The tiles a window needs, held as bytes so that **panning back is free**.
@@ -918,16 +929,14 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
    * footers and column chunks over HTTP. A tile fetched once and registered as a file is read from
    * memory forever after — no request, no range negotiation, no metadata round trip.
    *
-   * **A tile address is what makes this possible at all**, and it is why the cache lives here rather
-   * than in the render loop: a rectangle is a continuous key nothing can memoise, and a tile index is
-   * a discrete one. `/docs/design/graph` argued the camera is addressed;
-   * this is the first thing that spends the address on something.
+   * **Keyed on the URL and not on the tile**, which is what makes it container-independent for
+   * free: under `files` a tile is a file and the two keys agree, and under `rowgroups` every tile
+   * names one `tiles.parquet`, which a tile-keyed cache would fetch once per tile.
    *
-   * **The trade is honest and it is not free.** A registered tile is the *whole* tile, where DuckDB
-   * over HTTP reads only the column chunks a query projects — so the first visit costs more bytes and
-   * every later one costs none. Which way that nets out depends on tile size, which is the corpus's
-   * to choose and not ours: at 122,880 rows a tile is about a megabyte, and at the 4,096 the request
-   * arithmetic asks for it is about forty kilobytes.
+   * **The trade is honest and not free.** A registered file is the *whole* file, where DuckDB over
+   * HTTP reads only the column chunks a query projects — the first visit costs more bytes and every
+   * later one costs none. Which way that nets out depends on how the corpus is cut, which is the
+   * corpus's decision and not ours.
    *
    * Discovered rather than required: a coordinator whose connector is not DuckDB-WASM has no
    * filesystem to register into, and reads by URL exactly as before. `@duckdb/duckdb-wasm` is
@@ -950,8 +959,10 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
     }
   };
 
-  /** Registered tile name → how many bytes it is holding. Insertion order is the eviction order. */
+  /** Registered name → how many bytes it is holding. Insertion order is the eviction order. */
   const resident = new Map<string, number>();
+  /** URL → the name DuckDB should read it from, once that has been decided one way or the other. */
+  const decided = new Map<string, string>();
   let held = 0;
 
   /**
@@ -966,56 +977,64 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
   const BUDGET = 64 * 1024 * 1024;
 
   /**
-   * A tile is worth holding when it is **cheap to fetch whole** — 256 KB, and the number is measured.
+   * A file is worth holding when it is **cheap to fetch whole** — 256 KB, and the number is
+   * measured.
    *
-   * Registering a tile means downloading all of it, where DuckDB over HTTP reads only the column
-   * chunks a query projects. On the million-node corpus a vertex tile is 74 KB and the edge tiles are
-   * far larger, and caching both took a cold window from about 200 ms to **17,979 ms** while a repeat
-   * of the same window fell to **11 ms**. Holding everything is a thousandfold win on revisit paid
-   * for with an eighteen-second first paint, which is not a trade anybody would take.
+   * Registering a file means downloading all of it. On the million-node corpus a vertex chunk was
+   * 74 KB and the edge chunks far larger, and caching both took a cold window from about 200 ms to
+   * **17,979 ms** while a repeat fell to **11 ms** — a thousandfold win on revisit paid for with an
+   * eighteen-second first paint, which is not a trade anybody would take.
    *
-   * So the rule is a property of the tile rather than a flag: under the bar it is cached, over it the
-   * URL is handed to DuckDB and the range reads happen as before. It also means the corpus decides —
-   * `BENCHMARKS.md` asks for 4,096-row tiles on the request arithmetic alone, and at that size every
-   * tile falls under this bar and the whole read path becomes cacheable without a line changing here.
+   * So the rule is a property of the file rather than a flag, and the corpus decides: one
+   * `tiles.parquet` per set decides against, which is right for it — the row groups a window wants
+   * are a byte range, and a range read is what DuckDB already does.
    */
   const WORTH_HOLDING = 256 * 1024;
 
   /**
-   * The names DuckDB should read these tiles from — registered buffers where possible, URLs where
-   * not.
+   * The names DuckDB should read these URLs from — registered buffers where possible, URLs where
+   * not, quoted either way.
    *
-   * Fetched concurrently, because a window is a handful of tiles and they are independent; a
-   * sequential loop here would make the first paint the sum of its tiles rather than the slowest.
+   * Fetched concurrently, because a window is a handful of files and they are independent; a
+   * sequential loop here would make the first paint the sum of them rather than the slowest.
    */
-  async function readable(kind: "vertex" | "edge", tiles: number[]): Promise<string[]> {
-    const url = kind === "vertex" ? tileUrl : edgeTileUrl;
+  async function readable(urls: readonly string[]): Promise<string[]> {
+    if (urls.length === 0) return [];
     const db = await registrar();
-    if (!db) return tiles.map(url);
+    if (!db) return urls.map((url) => `'${url}'`);
     const names = await Promise.all(
-      tiles.map(async (k) => {
-        const name = `corpus_${type}_${kind}_${k}.parquet`;
-        if (resident.has(name)) return name;
-        const address = url(k).slice(1, -1);
+      urls.map(async (url) => {
+        const already = decided.get(url);
+        if (already !== undefined && (!already.startsWith("'") ? resident.has(already) : true)) {
+          return already;
+        }
+        // A name DuckDB can hold a buffer under, derived from the URL so that two tiles of two
+        // types never collide and the same tile twice never registers twice.
+        const name = `corpus_${url.replace(/[^A-Za-z0-9]+/g, "_")}`;
         // The size first, which is one metadata request against a body that may be megabytes — and
-        // the same request the tile count already probes with, so the shape is not new here.
-        const probe = await fetch(address, { method: "HEAD" });
+        // the same request a footer read already makes, so the shape is not new here.
+        const probe = await fetch(url, { method: "HEAD" });
         const size = Number(probe.headers.get("content-length"));
-        if (!probe.ok || !Number.isFinite(size) || size > WORTH_HOLDING) return url(k);
-        const response = await fetch(address);
-        // A tile that will not load is not a reason to fail the whole window: fall back to the URL
+        if (!probe.ok || !Number.isFinite(size) || size > WORTH_HOLDING) {
+          const plain = `'${url}'`;
+          decided.set(url, plain);
+          return plain;
+        }
+        const response = await fetch(url);
+        // A file that will not load is not a reason to fail the whole window: fall back to the URL
         // and let DuckDB report whatever it finds there, which is the error a reader can act on.
-        if (!response.ok) return url(k);
+        if (!response.ok) return `'${url}'`;
         const bytes = new Uint8Array(await response.arrayBuffer());
         await db.registerFileBuffer(name, bytes);
         resident.set(name, bytes.byteLength);
+        decided.set(url, name);
         held += bytes.byteLength;
         return name;
       }),
     );
     while (held > BUDGET && resident.size > 0) {
       const [oldest, size] = resident.entries().next().value as [string, number];
-      // Never evict a tile this very window is about to read, or the query reads a dropped file.
+      // Never evict a file this very window is about to read, or the query reads a dropped file.
       if (names.includes(oldest)) break;
       resident.delete(oldest);
       held -= size;
@@ -1024,64 +1043,57 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
     return names.map((n) => (n.startsWith("'") ? n : `'${n}'`));
   }
 
+  /**
+   * Where the payload is, as the list of files that hold it.
+   *
+   * One file per tile under `container: files`, one file in total under `rowgroups` — and this side
+   * does not know or care which, because the address is asked for rather than composed. Throws when
+   * the manifest declares no `vertex_count`, which is the one absence that makes a corpus
+   * un-enumerable.
+   */
+  const payloadFiles = type.files();
+  /** A URL list as a SQL list literal. Every read below composes one and none of them composes a URL. */
+  const quoted = (urls: readonly string[]) =>
+    urls.map((url) => `'${url.replace(/'/g, "''")}'`).join(", ");
+
+  /**
+   * The boxes, from the footer — **which tile a row group is, asked of the addressing.**
+   *
+   * `parquet_metadata` reports a `file_name` and a `row_group_id`, and which of the two names the
+   * tile is the container's business: under `rowgroups` row group `k` IS tile `k`; under `files`
+   * the file is, and its row groups are the writer's business, so their boxes are merged. This used
+   * to read the tile out of the URL with `regexp_extract(file_name, 'chunk(\d+)')` — one
+   * container's spelling hard-coded into a query, and `NULL` for every row of a corpus fossil
+   * writes today.
+   *
+   * `min_value`/`max_value`, never `min`/`max`. Parquet's original statistics fields are defined by
+   * *signed* byte comparison, which is meaningless for an unsigned column — a writer that gets this
+   * right leaves them empty. A reader that only knows the deprecated pair concludes the footer
+   * carries no box for the column the whole address is built on. `coalesce` keeps the float columns
+   * working either way.
+   */
   function load(): Promise<TileBox[]> {
     loading ??= (async () => {
-      /**
-       * How many tiles there are, without listing anything.
-       *
-       * `ceil(V / chunk_size)` is the published arithmetic and it needs `V`, which **no manifest
-       * carries** — the vertex YAML declares the type, the prefix and the chunk size and stops. So
-       * the count has to come from the tiles themselves, and the obvious route is the one that does
-       * not work: `read_parquet('…/chunk*.parquet')` expands a glob, expanding a glob lists a
-       * directory, and a plain HTTP origin has no listing. It succeeds against a local path and
-       * against a bucket, which is what makes the mistake easy to keep.
-       *
-       * So the last tile is found by probing — double until a `HEAD` misses, then bisect. That is
-       * about a dozen requests once for a corpus of any size, and every one of them is a request a
-       * plain origin can answer.
-       */
-      const exists = async (k: number) =>
-        (await fetch(`${dest}/${prefix}chunk${k}.parquet`, { method: "HEAD" })).ok;
-      if (!(await exists(0))) throw new Error(`corpus: ${dest}/${prefix} holds no chunk0`);
-      let low = 0;
-      let high = 1;
-      while (await exists(high)) {
-        low = high;
-        high *= 2;
-      }
-      while (high - low > 1) {
-        const mid = Math.floor((low + high) / 2);
-        if (await exists(mid)) low = mid;
-        else high = mid;
-      }
-      const tiles = low + 1;
-      // The last tile is short unless the count divides evenly, and its footer says by how much —
-      // metadata only, so this reads no column.
-      const tail = await meta(
-        `SELECT num_rows AS n FROM parquet_file_metadata('${tileUrl(low).slice(1, -1)}')`,
-      );
-      total = low * chunkSize + Number(numbers(tail, "n")[0] ?? 0);
-      const urls = Array.from({ length: tiles }, (_, k) => tileUrl(k)).join(", ");
-      /**
-       * `min_value`/`max_value`, never `min`/`max`.
-       *
-       * Parquet's original statistics fields are defined by *signed* byte comparison, which is
-       * meaningless for an unsigned column — a writer that gets this right leaves them empty. A
-       * reader that only knows the deprecated pair concludes the footer carries no box for the column
-       * the whole address is built on. `coalesce` keeps the float columns working either way.
-       */
+      const files = quoted(payloadFiles);
+      const [xCol, yCol] = PAYLOAD_COORDINATES;
+      // Which of `file_name` and `row_group_id` names the tile, as an expression rather than as a
+      // branch in JavaScript: the grouping has to happen where the rows are either way.
+      const tile =
+        addressing.container === "rowgroups"
+          ? "row_group_id"
+          : `list_position([${files}], file_name) - 1`;
       const stats = await meta(
-        `SELECT CAST(regexp_extract(file_name, 'chunk(\\d+)', 1) AS INTEGER) AS tile,
-           min(CASE WHEN path_in_schema = 'x' THEN coalesce(stats_min_value, stats_min)::DOUBLE END) AS x0,
-           max(CASE WHEN path_in_schema = 'x' THEN coalesce(stats_max_value, stats_max)::DOUBLE END) AS x1,
-           min(CASE WHEN path_in_schema = 'y' THEN coalesce(stats_min_value, stats_min)::DOUBLE END) AS y0,
-           max(CASE WHEN path_in_schema = 'y' THEN coalesce(stats_max_value, stats_max)::DOUBLE END) AS y1
-         FROM parquet_metadata([${urls}])
-         WHERE path_in_schema IN ('x', 'y') GROUP BY 1 ORDER BY 1`,
+        `SELECT ${tile} AS tile,
+           min(CASE WHEN path_in_schema = '${xCol}' THEN coalesce(stats_min_value, stats_min)::DOUBLE END) AS x0,
+           max(CASE WHEN path_in_schema = '${xCol}' THEN coalesce(stats_max_value, stats_max)::DOUBLE END) AS x1,
+           min(CASE WHEN path_in_schema = '${yCol}' THEN coalesce(stats_min_value, stats_min)::DOUBLE END) AS y0,
+           max(CASE WHEN path_in_schema = '${yCol}' THEN coalesce(stats_max_value, stats_max)::DOUBLE END) AS y1
+         FROM parquet_metadata([${files}])
+         WHERE path_in_schema IN ('${xCol}', '${yCol}') GROUP BY 1 ORDER BY 1`,
       );
-      const tile = numbers(stats, "tile");
+      const tiles = numbers(stats, "tile");
       const [x0, x1, y0, y1] = ["x0", "x1", "y0", "y1"].map((f) => numbers(stats, f));
-      return tile.map((t, i) => ({
+      return tiles.map((t, i) => ({
         tile: t as number,
         x0: x0?.[i] as number,
         x1: x1?.[i] as number,
@@ -1092,7 +1104,7 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
     return loading;
   }
 
-  /** The tiles a rectangle touches. Pure — this is the whole of the addressing, and it makes no call. */
+  /** The tiles a rectangle touches. Pure — this is the whole of the selection, and it makes no call. */
   function intersecting(all: TileBox[], view: Viewport): number[] {
     return all
       .filter((b) => b.x1 >= view.xMin && b.x0 <= view.xMax && b.y1 >= view.yMin && b.y0 <= view.yMax)
@@ -1100,19 +1112,20 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
   }
 
   /**
-   * Everything the corpus fixes, and nothing it does not.
+   * Everything the corpus fixes, and nothing it does not — **by ROLE, not by name.**
    *
-   * `dense_id`, `subject`, `x` and `y` are facts of the format — a corpus has them under those
-   * names or it is not one. What colours and what sizes are channels, so they arrive with the
-   * request and are filled in per slice.
+   * The address, the identity and the coordinates are facts of the format, and the names they are
+   * written under come off `@fossil-lang/corpus`'s generated column table rather than four string
+   * literals here. The endpoint columns come off the adjacency's own address. What colours and what
+   * sizes are channels, so they arrive with the request and are filled in per slice.
    */
   const fixed = {
-    id: "dense_id",
-    subject: subjects ? "subject" : undefined,
-    x: "x",
-    y: "y",
-    source: "src_dense",
-    target: "dst_dense",
+    id: PAYLOAD_ADDRESS[0] as string,
+    subject: subjects ? (PAYLOAD_IDENTITY[0] as string) : undefined,
+    x: PAYLOAD_COORDINATES[0] as string,
+    y: PAYLOAD_COORDINATES[1] as string,
+    source: adjacency?.column ?? "src_dense",
+    target: edge?.adjacency("dst")?.column ?? "dst_dense",
   } as const;
 
   /**
@@ -1122,24 +1135,20 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
    * working set the whole bounded path exists to refuse. A view leaves the bytes where they are and
    * lets each query fetch the ranges it needs.
    *
-   * Over **every** tile, deliberately — this is the surface that answers *what does it mean*, and a
-   * count, a histogram or a crossfilter clause is a question about the corpus rather than about the
-   * window. The addressed reading is `slice`, beside it, and the two are different access to the
-   * same bytes rather than two versions of one.
+   * Over **every** file of the payload, deliberately — this is the surface that answers *what does
+   * it mean*, and a count, a histogram or a crossfilter clause is a question about the corpus rather
+   * than about the window. The addressed reading is `slice`, beside it, and the two are different
+   * access to the same bytes rather than two versions of one.
    */
-  const nodesView = `corpus_${type}`;
-  const edgesView = edgePrefix ? `corpus_${type}_edges` : undefined;
-  const allTiles = async () => {
-    const boxes = await load();
-    return boxes.map((b) => tileUrl(b.tile)).join(", ");
-  };
+  const nodesView = `corpus_${type.type}`;
+  const edgesView = adjacency ? `corpus_${type.type}_edges` : undefined;
   await coordinator.exec(
-    `CREATE OR REPLACE VIEW ${nodesView} AS SELECT * FROM read_parquet([${await allTiles()}])`,
+    `CREATE OR REPLACE VIEW ${nodesView} AS SELECT * FROM read_parquet([${quoted(payloadFiles)}])`,
   );
-  if (edgesView) {
+  if (edgesView && edge) {
     await coordinator.exec(
       `CREATE OR REPLACE VIEW ${edgesView} AS
-         SELECT * FROM read_parquet('${dest}/${edgePrefix}by_source.parquet')`,
+         SELECT * FROM read_parquet([${quoted(edge.projectionFiles(1, "src"))}])`,
     );
   }
 
@@ -1150,9 +1159,18 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
       publishSelection(reads, filterBy, fixed.id, vertices);
     },
 
+    /**
+     * How many vertices there are — **read, not probed.**
+     *
+     * The manifest declares `vertex_count`. What stood here was a note saying no manifest carries
+     * it, and a doubling-then-bisecting `HEAD` search for the last chunk plus a
+     * `parquet_file_metadata` read of its row count — about a dozen requests and a query, per
+     * corpus, for a number already in hand.
+     */
     async total() {
-      await load();
-      return total ?? 0;
+      if (type.count !== null) return Number(type.count);
+      const rows = await meta(`SELECT count(*) AS n FROM ${nodesView}`);
+      return Number(numbers(rows, "n")[0] ?? 0);
     },
 
     async extent() {
@@ -1182,7 +1200,7 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
        */
       const selected = intersecting(all, view);
       // Nothing selected is a legitimate answer — the camera is over empty space — and asking
-      // `read_parquet([])` is a syntax error rather than an empty result. Checked before the tiles
+      // `read_parquet([])` is a syntax error rather than an empty result. Checked before the files
       // are fetched, so an empty window costs no bytes at all.
       if (selected.length === 0) {
         return {
@@ -1195,11 +1213,23 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
         };
       }
 
-      // Both halves at once: the vertex tiles and the edge tiles a window touches are independent
+      /**
+       * The URLs those tiles are in — **asked, not composed**, and distinct.
+       *
+       * `directions: ['src']` is the drawing read: every edge a window can draw has its source on
+       * screen, therefore in one of these files. The answer says so — `complete: false` with a
+       * `not-requested` gap for `dst`.
+       */
+      const addressed = addressing.tilesFor({
+        type: type.type,
+        tiles: selected,
+        directions: ["src"],
+      });
+      // Both halves at once: the vertex files and the edge files a window touches are independent
       // reads, and the window is not drawable until both have landed.
-      const [vertexTiles, edgeTiles] = await Promise.all([
-        readable("vertex", selected),
-        readable("edge", edgePrefix ? selected : []),
+      const [vertexFiles, edgeFiles] = await Promise.all([
+        readable(addressed.vertexUrls),
+        readable(addressed.edgeUrls),
       ]);
       /**
        * The camera moved while the tiles were arriving, so this question is already the wrong one.
@@ -1213,8 +1243,14 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
        * Rethrowing it is the whole of the cancellation contract a source owes — see `SliceRequest`.
        */
       if (signal?.aborted) throw signal.reason;
-      const nodes = `read_parquet([${vertexTiles.join(", ")}])`;
-      const relation = `read_parquet([${edgeTiles.join(", ")}])`;
+      const nodes = `read_parquet([${vertexFiles.join(", ")}])`;
+      // A corpus that declares no adjacency for this type still has to answer: the links query is
+      // built either way, so what it reads is an empty relation of the right shape rather than a
+      // `read_parquet([])`, which is a syntax error, or the vertex view, which has neither column.
+      const relation =
+        edgeFiles.length > 0
+          ? `read_parquet([${edgeFiles.join(", ")}])`
+          : `(SELECT NULL::BIGINT AS ${columns.source}, NULL::BIGINT AS ${columns.target} WHERE FALSE)`;
 
       // `nodes` twice, and the repetition is the statement: the relation this window reads *is* the
       // bytes the reader is holding, so the tiles that answer "what is in the rectangle" also answer

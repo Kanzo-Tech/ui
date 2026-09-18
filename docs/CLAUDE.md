@@ -56,6 +56,10 @@ while listing six; a count in a heading is a fact nobody updates, so there is no
     back off; the index page has its own route for the same reason.
 
 - **The workspace showcase's corpus is not in the repository**, so the published site has no
-  archive to read unless that changes. It is 108 kB under `public/corpus/`, `.gitignore`d as
-  compiler output, and regenerating it needs the `fossil` binary, which CI does not have. Locally it
-  is there and the showcase draws 1,543 nodes; on Pages it will not be.
+  archive to read unless that changes. It is 276 kB under `public/corpus/`, `.gitignore`d as
+  compiler output, and regenerating it needs the `fossil` binary, which CI does not have — through
+  `showcases/workspace/corpus/build-corpus.mjs`, which is NOT the benchmark's generator beside it
+  and has to be run under `--import ./register.mjs` for the one TypeScript path alias it crosses.
+  Locally it is there and the showcase draws 1,543 nodes; on Pages it will not be. (It was 108 kB
+  and the writer's output grew: a corpus now carries an identity index and a holon pyramid beside
+  the payload, which is most of the difference.)

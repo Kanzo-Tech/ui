@@ -32,19 +32,25 @@
     "test": "vitest run"
   },
   "//peers": "cosmos.gl is a real, required peer — this package is a renderer and there is nothing left of it without one. The Mosaic half is optional and lives entirely on `./duckdb`: `duckBoundedSource` and `openCorpus` need it, the rendering hooks do not, and a consumer drawing a graph from arrays it already has should not pay for a database. That half is now ONE entry, `@kanzo-tech/mosaic`, and the list is shorter than the thing it replaced for a reason worth keeping: this package used to reach the coordinator through `@kanzo-tech/ui/analytics`, whose barrel re-exports the React charts and `@uwdata/vgplot` with them. The import is static, so a host that installed the two peers we documented — mosaic-core and mosaic-sql — still could not open `./duckdb`, and vgplot had to be declared here to paper over a dependency this package never names. It names none of the three now: they are `@kanzo-tech/mosaic`'s peers, declared once, which is also why their version ranges can no longer disagree. @duckdb/duckdb-wasm stays absent for the reason it always was — nothing in any of our dist names it, and a host that boots its own DuckDB depends on it directly. `scripts/smoke-install.mjs` installs no optional peer and imports the root barrel, which is the check that reads this list rather than trusting it.",
+  "//fossil": "LOCAL LINK, NOT A RELEASE STATE. The devDependency below is `link:` at a fossil checkout beside this one, because the `@fossil-lang/corpus` this needs is not on npm yet — the peer range is `*` for the same reason and becomes a real one at the first publish. The peer itself is not temporary: fossil's reader sits beside `@kanzo-tech/mosaic` on `./duckdb` and is wanted for the same reason — a host reading a corpus brings its own, and a host drawing arrays pays for neither. The residual cost is real and named: `duckBoundedSource` does not need it and shares the subpath with `openCorpus` that does, so a host on the first still installs it or splits the entry.",
   "peerDependencies": {
     "@cosmos.gl/graph": "^3.4.0",
+    "@fossil-lang/corpus": "*",
     "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",
     "react": "^19.0.0"
   },
   "peerDependenciesMeta": {
+    "@fossil-lang/corpus": {
+      "optional": true
+    },
     "@kanzo-tech/mosaic": {
       "optional": true
     }
   },
   "devDependencies": {
     "@cosmos.gl/graph": "^3.4.0",
+    "@fossil-lang/corpus": "link:../../../rmlext/packages/corpus",
     "@kanzo-tech/mosaic": "workspace:*",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",

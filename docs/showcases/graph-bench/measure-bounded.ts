@@ -4,6 +4,8 @@ import { Graph } from "@cosmos.gl/graph";
 import { type Coordinator, numbers } from "@kanzo-tech/ui/analytics";
 import { shouldSlice, type Slice } from "@kanzo-tech/graph";
 import { boot } from "../workspace/duck";
+// See `graph-state.tsx`: the corpus addressing is a WASM module and this import is its URL.
+import corpusWasmUrl from "@fossil-lang/corpus/pkg/fossil_graph_wasm_bg.wasm";
 import { openCorpus } from "@kanzo-tech/graph/duckdb";
 import type { BoundedSource } from "@kanzo-tech/graph";
 // The offscreen element and the rectangle it defines are `measure.ts`'s, so the two harnesses draw
@@ -275,7 +277,7 @@ export async function measureSlicePath(path = "/bench/1000000"): Promise<{
 }> {
   const { coordinator } = await boot();
   await forget(coordinator);
-  const { source } = await openCorpus({ coordinator, dest: `${window.location.origin}${path}` });
+  const { source } = await openCorpus({ coordinator, dest: `${window.location.origin}${path}`, wasmUrl: corpusWasmUrl });
   if (!source.extent) throw new Error("bench: the corpus source cannot say its extent");
   const bounds = await source.extent();
   const total = (await source.total?.()) ?? 1;
@@ -391,8 +393,8 @@ async function corpus(pointCount: number, report?: (stage: string) => void): Pro
    * now, read from the manifest rather than written down here. That constant went stale once and
    * silently read a fraction of the corpus, which is the whole argument for this move.
    */
-  const { source } = await openCorpus({ coordinator, dest: base });
-  const { source: named } = await openCorpus({ coordinator, dest: base, subjects: true });
+  const { source } = await openCorpus({ coordinator, dest: base, wasmUrl: corpusWasmUrl });
+  const { source: named } = await openCorpus({ coordinator, dest: base, subjects: true, wasmUrl: corpusWasmUrl });
 
   /**
    * The extent, from the boxes the source already holds. No scan.
@@ -485,8 +487,8 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
      * This guarded a constant that no longer exists: `CHUNK_SIZE` lived here, went stale against
      * fossil, and silently derived too few chunk URLs — every one of which resolved, so the sweep
      * measured a fraction of the corpus at a flattering latency and reported no error at all.
-     * `openCorpus` reads the chunk size from the manifest now, so that particular drift cannot
-     * happen; the check stays because it costs one comparison against a number already timed, and
+     * `openCorpus` composes no URL at all now — fossil's `open` does, out of the manifests — so that
+     * particular drift cannot happen; the check stays because it costs one comparison, and
      * because *the reader found fewer vertices than the corpus holds* is the failure shape, not the
      * one cause that used to produce it.
      */

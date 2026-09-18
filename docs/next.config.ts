@@ -77,6 +77,18 @@ const config: NextConfig = {
    * handlers and the MDX pipeline are built on.
    */
   webpack(config, { isServer, webpack }) {
+    /**
+     * `.wasm` as a URL, which is the only thing this app wants one for.
+     *
+     * `@fossil-lang/corpus` resolves a corpus's addressing in `fossil_graph::plan` compiled to
+     * wasm32, and it takes the module's LOCATION rather than instantiating one for you — because
+     * only the bundler knows where an asset lands. Next does not emit `.wasm` by default: with
+     * `asyncWebAssembly` off the import is an error, and with it on the module would be
+     * instantiated by webpack, which is not what a `wasmUrl` is. `asset/resource` is the third
+     * thing and the right one — the file is copied to `_next/static/media` and the import is the
+     * URL, `basePath` already applied.
+     */
+    config.module.rules.push({ test: /\.wasm$/, type: "asset/resource" });
     if (isServer) return config;
     config.plugins.push(
       new webpack.NormalModuleReplacementPlugin(/^node:/, (resource: { request: string }) => {

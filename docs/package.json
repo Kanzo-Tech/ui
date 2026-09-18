@@ -16,7 +16,9 @@
     "measure:previews": "node scripts/measure-previews.mjs",
     "check:previews": "node scripts/measure-previews.mjs --check"
   },
+  "//fossil": "LOCAL LINK, NOT A RELEASE STATE — see `packages/graph/package.json`. The two graph showcases import fossil's wasm asset by path, so the package is a direct dependency here as well as a transitive one.",
   "dependencies": {
+    "@fossil-lang/corpus": "link:../../rmlext/packages/corpus",
     "@anthropic-ai/sdk": "^0.117.1",
     "@codemirror/autocomplete": "^6.18.6",
     "@codemirror/lang-json": "^6.0.2",

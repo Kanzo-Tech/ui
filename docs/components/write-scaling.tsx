@@ -23,6 +23,14 @@ import MosaicBoot from "@/examples/charts/mosaic-boot";
  * binary built from `feat/pg-canonical-mir`. `docs/showcases/graph-bench/corpus/build-corpus.mjs`
  * under `/usr/bin/time -l`, so the figure is the generator plus `fossil run` — the whole build,
  * unbounded, which is what `--memory-gib` is absent from.
+ *
+ * **Not re-measured since the corpus format grew, and that is named rather than quietly carried.**
+ * The corpora these figures were taken against were rewritten on 2026-09-18 and a million went from
+ * 93 MB to 213 MB — an identity index, a five-rung pyramid with quotients, `coordinates`,
+ * `channels`, `privacy`, and `cardinality`/`scale` on the projections. Ten million was not rewritten
+ * (nothing loads it) and costs about an hour of build to take again, so the series stands as the
+ * measurement it was and no row of it has been restated from a size on disk.
+ * `/docs/graph/benchmarks` says the same beside the chart.
  */
 
 /** GiB of physical memory on the machine every figure here was taken on. */

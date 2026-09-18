@@ -663,9 +663,16 @@ function ArchiveSearch() {
       collection={collection}
       onInputValueChange={(details) => filter(details.inputValue)}
       onValueChange={(details) => {
+        if (spec === null) return;
         const picked = details.value[0];
+        // `spec.idField` and not `"id"`. The query above aliases it — `select({ id: … })` — and the
+        // canvas' slice does the same, so a clause over `id` binds there against the alias in the
+        // very SELECT whose WHERE it lands in. Every OTHER client of this crossfilter reads the
+        // relation directly: `SELECT count(*) FROM corpus_Node WHERE id = …` has no alias to bind
+        // to and DuckDB refuses it, so picking a node used to break the legend tally and both
+        // footer counts. The clause names the column, never the alias.
         crossfilter.update(
-          clausePoints(["id"], picked ? [[Number(picked)]] : undefined, {
+          clausePoints([spec.idField], picked ? [[Number(picked)]] : undefined, {
             source: source.current,
           })
         );
