@@ -33,6 +33,10 @@ import { vertexId } from "./resident";
  * - **Nothing about `openCorpus`.** It fetches manifests over HTTP before it queries anything, so
  *   its half of this shape is exercised by the showcase rather than here. What is shared is
  *   `region`, `visibleCte` and `watcher`, which is what makes the coverage worth having at all.
+ *   Its *import surface* is the one part of it that is checked without a network:
+ *   `fossil-import.test.ts` beside this file holds the names `duck-source.ts` takes off
+ *   `@fossil-lang/corpus` against the real package, because this suite loaded a module for months
+ *   whose imports did not resolve and said nothing.
  * - **That the sample is spatially stratified, or that it is a sample at all.** `id % stride = 0`
  *   over a Morton-ordered `dense_id` is the claim, and no stub can evaluate a modulo. What runs it
  *   is `docs/showcases/graph-bench`, and the far-view figures on `/docs/design/graph` were taken
