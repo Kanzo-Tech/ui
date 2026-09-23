@@ -143,20 +143,15 @@ export interface Slice {
 
 /**
  * A **region** is a map question: what is inside this rectangle. It suits an overview, a minimap, a
- * reader panning across a laid-out corpus, and it is what every source can answer.
+ * reader panning across a laid-out corpus, and it is what a corpus can answer by address.
  *
- * A **neighbourhood** is the graph question, and it lives on [`ExploringSource`] rather than here.
- * A network has no spatial "near"; it has topological near, and a rectangle cannot express "two hops
- * from this node" no matter how it is positioned. Leaving it out of the render contract was a real
- * design error — a contract that only spoke rectangles imposed a map metaphor on a network — and
- * putting it back as a *variant of the same call* was a second one, which is what this shape fixes.
- *
- * **The three ways a source used to say "not that question".** A member of a query union, a
- * `supports(kind)` predicate, and a `throw` at the top of `slice`. Three spellings of one idea, and
- * the only one a caller could act on before making the call was the middle one — so asking a
- * relational source for a neighbourhood was a runtime error that typechecked. It is a separate,
- * optional method now: a source that cannot walk edges does not have it, and asking is a compile
- * error rather than a promise that rejects.
+ * **It is the only question this contract asks, and that is a narrowing rather than the natural
+ * shape.** A network has no spatial "near"; it has topological near, and a rectangle cannot express
+ * "two hops from this node" no matter how it is positioned — so a contract that only speaks
+ * rectangles imposes the map metaphor on a network. `ExploringSource` said the second question here
+ * and is deleted with the source that answered it; `index.test.ts` carries the tombstone and the
+ * seam it named. What it comes back as is fossil's `expand`, addressed rather than joined — not a
+ * second variant of this call.
  */
 export interface SliceRequest {
   /** The rectangle. */
@@ -360,28 +355,6 @@ export function abortError(message: string): DOMException {
  */
 export function isAbort(error: unknown): boolean {
   return typeof error === "object" && error !== null && (error as { name?: unknown }).name === "AbortError";
-}
-
-/**
- * A source that can also be asked a topological question.
- *
- * Separate from [`BoundedSource`] rather than optional on it, because *can you walk edges* is a fact
- * about a source that a caller should learn from the type rather than from a predicate. A relation
- * with `x`/`y` and a spatial index answers regions and nothing else; one that holds adjacency — or
- * that can reach fossil's `expand` — answers both.
- *
- * `useQueryLoop` narrows with `"explore" in source`, which is the check a caller writes once.
- */
-export interface ExploringSource extends BoundedSource {
-  explore(request: ExploreRequest): Promise<Slice>;
-}
-
-/** Where to start and how far out. Everything else is the same bounding as a region. */
-export interface ExploreRequest extends Omit<SliceRequest, "view"> {
-  /** Where to start, as identities — not buffer indices, which do not survive an answer. */
-  seeds: VertexId[];
-  /** How many hops out. One is the ego network; beyond three is usually the whole graph. */
-  depth: number;
 }
 
 /**

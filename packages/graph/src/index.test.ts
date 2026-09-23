@@ -34,9 +34,12 @@ import * as GRAPH from "./index";
  * - **Nothing about the built artefact, and nothing about the peers.** It imports `./index`, which
  *   is source, in a workspace where every optional peer is present. `pnpm smoke` is the only thing
  *   that sees the packed `dist/` in a tree without them.
- * - **Nothing about shape.** `toBeTypeOf("function")` is satisfied by any function; the one
- *   behavioural assertion below is `memorySource` answering a slice, and it is there to prove the
- *   no-database path *works* rather than merely resolves.
+ * - **Nothing about shape, and there is no behaviour left here to check.** `toBeTypeOf("function")`
+ *   is satisfied by any function. There used to be two assertions below that *ran* something —
+ *   `memorySource` answering a slice, and the same source sampling a window it could not fit — and
+ *   they went with the source. This barrel ships no source now, so the only thing it can be asked is
+ *   what is on it; what it *draws* is `@kanzo-tech/graph/duckdb`'s to answer, and
+ *   `duck-source.test.ts` is where that is asked.
  * - **Nothing about types.** `export type` contributes no runtime binding, so `Slice`, `Look`,
  *   `VertexId` and the rest of the type surface are outside this file by construction.
  * - **It cannot tell a tombstone from a name nobody has written yet.** `toBeUndefined()` reads the
@@ -75,7 +78,6 @@ const VALUES = [
   "cursorChip",
   "denseOf",
   "lookFrom",
-  "memorySource",
   "neighboursOf",
   "residentOf",
   "resolveToken",
@@ -134,25 +136,6 @@ describe("@kanzo-tech/graph public surface", () => {
     expect((GRAPH as Record<string, unknown>).DEFAULT_DISPLAY).toBeUndefined();
   });
 
-  it("draws a graph from arrays a host already holds, with no database anywhere", async () => {
-    // The promise the package makes in four places, exercised rather than restated. `memorySource`
-    // is on the root barrel precisely because this path must not reach Mosaic.
-    const source = GRAPH.memorySource({
-      vertices: new BigUint64Array([GRAPH.vertexId(0, 0), GRAPH.vertexId(0, 1)]),
-      positions: new Float32Array([0, 0, 1, 1]),
-      links: new Float32Array([0, 1]),
-    });
-    const slice = await source.slice({
-      limit: 10,
-      // Required, and always filled by the time a source sees a question — `useQueryLoop` resolves
-      // both before the request leaves, which is what removed `BOUNDED_DEFAULTS` from this barrel.
-      minLinkPixels: 3,
-      view: { xMin: -Infinity, xMax: Infinity, yMin: -Infinity, yMax: Infinity },
-    });
-    expect(slice.vertices.length).toBe(2);
-    expect(GRAPH.residentOf(slice).indicesOf([GRAPH.vertexId(0, 1)])).toEqual([1]);
-  });
-
   it("keeps the Mosaic/DuckDB half off the root barrel", () => {
     // The one-way door CLAUDE.md names, and the one this package had already crossed.
     //
@@ -168,6 +151,9 @@ describe("@kanzo-tech/graph public surface", () => {
     // the workspace) and would make this file the thing that reaches it.
     const surface = GRAPH as Record<string, unknown>;
     expect(surface.onceQuery).toBeUndefined();
+    // `duckBoundedSource` was on the subpath and is now nowhere: it is asserted here rather than
+    // dropped, because the name is the obvious one to reach for the next time somebody wants a graph
+    // over two relations they already have, and the answer is that a corpus declares those columns.
     expect(surface.duckBoundedSource).toBeUndefined();
     expect(surface.openCorpus).toBeUndefined();
     expect(surface.SliceRead).toBeUndefined();
@@ -439,7 +425,73 @@ describe("@kanzo-tech/graph public surface", () => {
     // answers a bounded question instead, and `Loaded` went with it.
     expect(surface.load).toBeUndefined();
     expect(surface.Loaded).toBeUndefined();
-    expect(GRAPH.memorySource).toBeTypeOf("function");
+  });
+
+  /**
+   * `memorySource` — the arrays-in-hand source, and what its going costs.
+   *
+   * It existed on one sentence and the sentence was true: ADR-0001 deleted `load()`, so **every**
+   * consumer needs a source, including the ones bounding buys nothing for, and "wrap your arrays"
+   * was one import rather than a hundred lines each call site wrote differently. It was also the
+   * cheapest thing on this page — three typed arrays, one call, no database — and the reason it is
+   * gone is that cheapness: it taught an API no product takes, and keeping the easy door open meant
+   * a second implementation of sampling, anchoring and the link-length discard, in JavaScript,
+   * running nowhere but its own tests.
+   *
+   * **What goes with it is a guarantee, and it is worth naming rather than mourning.**
+   * `scripts/smoke-install.mjs` used to install the tarball with no optional peer and *draw* — the
+   * only behavioural proof anywhere that the root barrel did not reach the Mosaic stack. There is
+   * nothing on this barrel left to draw with, so what that check asserts now is that the barrel
+   * **imports** under those conditions, which is the weaker half of the same door and the half that
+   * actually broke once.
+   *
+   * **What would reverse it:** a host that genuinely holds arrays and cannot compile a corpus — a
+   * live simulation over a few thousand points, which is the case `adaptive` and `simulate` are
+   * still here for. That host writes fifteen lines against `BoundedSource`, which is exported, and
+   * the day two of them write the same fifteen lines the source comes back.
+   */
+  it("ships no source at all, which is what one source means", () => {
+    const surface = GRAPH as Record<string, unknown>;
+    expect(surface.memorySource).toBeUndefined();
+    expect(surface.MemoryGraph).toBeUndefined();
+    // The contract stays, and it is the whole of what a host needs to write one: `BoundedSource` is
+    // a type, so what stands in for its presence here is `shouldSlice`, which is the only value on
+    // this barrel that speaks the bounded vocabulary.
+    expect(GRAPH.shouldSlice).toBeTypeOf("function");
+  });
+
+  /**
+   * `explore`, `ExploringSource` and `ExploreRequest` — the topological question, deleted.
+   *
+   * Two sentences, because a deletion that takes its own argument with it is how the next person
+   * rediscovers what we removed.
+   *
+   * **A rectangle cannot express "two hops from this node", and a contract that only spoke
+   * rectangles imposed the metaphor of a map on a network.** The neighbourhood was not a
+   * convenience: it was added correcting a real design error, and the error is still in the shape —
+   * `SliceRequest` is a rectangle and a network has no spatial near.
+   *
+   * **`/docs/design/graph`'s *a tile is an address, not a verb* names it as the seam fossil's
+   * `expand` comes in through.** That is the whole reason it was promoted from comfort to mechanism
+   * once, and it is the reason the name is worth remembering rather than reinventing.
+   *
+   * What removed it anyway: `memorySource` was the only implementation, and it went. A recursive CTE
+   * over the edge relation was tried on 2026-08-17 and abandoned on measurement — one hop from one
+   * seed over 6.9M edges did not return in 45 s, and Mosaic serialises on one connection, so it took
+   * the tab with it. The right shape is the addressed one: a hop is the `by_source` and `by_target`
+   * tiles the seed's `dense_id` falls in, which is two 74 kB reads the tile cache already serves, and
+   * it needs `by_target` tiled the way `by_source` is — which is the corpus' side of the seam.
+   *
+   * **What would reverse it:** that tiling landing. Then `explore` comes back as a second method on
+   * the source, not as a variant of `slice`, and this test is what says so.
+   */
+  it("keeps the neighbourhood question deleted, and says what it was for", () => {
+    const surface = GRAPH as Record<string, unknown>;
+    // `ExploringSource` and `ExploreRequest` are types and leave no binding; what stands in for them
+    // is the api, which no longer publishes the verb they existed to carry.
+    expect(surface.explore).toBeUndefined();
+    expect(surface.ExploringSource).toBeUndefined();
+    expect(surface.ExploreRequest).toBeUndefined();
   });
 
   /**
@@ -472,40 +524,5 @@ describe("@kanzo-tech/graph public surface", () => {
     // `SliceMode` and the `weights` branch are types, so there is no runtime binding to assert —
     // what stands in for them is `graph-model.test.ts`, "spends the ramp on the column the source
     // ranks by, and knows no second one".
-  });
-
-  /**
-   * The behaviour the deletion is for, on the one source that needs no database.
-   *
-   * A window holding more than `limit` used to come back as its first `limit` rows in id order,
-   * which is a *contiguous run* of whatever that order follows — a corner of the window drawn as if
-   * it were the window. This is the assertion that a sample is spread over what it samples.
-   */
-  it("samples a window it cannot fit rather than drawing the front of it", async () => {
-    // A thousand points on a line, in order. `limit` 10 must reach the far end; a prefix stops at 9.
-    const n = 1000;
-    const positions = new Float32Array(n * 2);
-    const vertices = new BigUint64Array(n);
-    for (let i = 0; i < n; i++) {
-      positions[i * 2] = i;
-      vertices[i] = GRAPH.vertexId(0, i);
-    }
-    const source = GRAPH.memorySource({ vertices, positions, links: new Float32Array(0) });
-    const slice = await source.slice({
-      limit: 10,
-      // Required, and always filled by the time a source sees a question — `useQueryLoop` resolves
-      // both before the request leaves, which is what removed `BOUNDED_DEFAULTS` from this barrel.
-      minLinkPixels: 3,
-      view: { xMin: -Infinity, xMax: Infinity, yMin: -Infinity, yMax: Infinity },
-    });
-
-    expect(slice.vertices.length).toBe(10);
-    // What matched is still reported whole: the sample is how it draws, not what it claims.
-    expect(slice.n).toBe(n);
-    const xs = [...slice.positions].filter((_, i) => i % 2 === 0);
-    expect(Math.min(...xs)).toBe(0);
-    // One in every hundred, so the tenth is at 900. A prefix answers 9 — the first hundredth of the
-    // window, drawn as if it were the window.
-    expect(Math.max(...xs)).toBe(900);
   });
 });

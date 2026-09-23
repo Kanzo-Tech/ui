@@ -14,17 +14,18 @@ import { SliceRead } from "./slice-client";
 import { denseOf, typeOf, vertexId, type VertexId } from "./resident";
 
 /**
- * A `BoundedSource` over two ordinary relations in DuckDB.
+ * The source: a corpus fossil wrote, read through DuckDB.
  *
- * On a subpath because Mosaic is an optional peer and this is the half that needs it: a host drawing
- * arrays it already holds takes `memorySource` and pays for no database. Splitting them is what lets
- * that promise be true rather than merely stated.
+ * On a subpath because Mosaic and fossil's reader are optional peers and this is the half that needs
+ * them. The root barrel ships no source at all, which is the whole of what that split now means: a
+ * host that installs neither gets the rendering surface and draws nothing.
  *
- * **Neutral about storage, and that is the point.** The neutrality let bounded be measured against
- * unbounded before anything committed to a layout on disk — and it is the reason this file survived
- * a decision on the other side of the seam. The verb it was written to sit beside never landed:
- * `viewport` was dropped and GraphAr with it, because the camera is addressed rather than queried.
- * What replaces it is a tile fetched by a computed URL, which is another source.
+ * **There used to be two here and the second was neutral about storage.** `duckBoundedSource` took
+ * two ordinary relations and the column names that made sense of them, and that neutrality earned
+ * its keep once — it let bounded be measured against unbounded before anything committed to a layout
+ * on disk. What it cost afterwards is the reason it is gone: a corpus already declares those names
+ * in its manifest, so the second source was this side writing down what the other side owns, and the
+ * two answered the same question in two dialects of the same SQL.
  *
  * **Every query in this file goes through a `SliceRead`, and there is no other path.** `onceQuery`
  * was the other one — a throwaway client per query, on this subpath, re-exported for the two
@@ -53,59 +54,21 @@ export interface DuckSource extends BoundedSource {
   publish(vertices: readonly VertexId[] | null): void;
 }
 
-export interface DuckSourceOptions {
-  coordinator: Coordinator;
-  /**
-   * The crossfilter this graph draws inside.
-   *
-   * Given, the page's predicate rides in the slice query and the canvas draws **what survives**.
-   * Omitted, the source is a reader of a relation and nothing else — which is what a graph with no
-   * charts beside it is.
-   */
-  filterBy?: Selection;
-  /** The node relation. */
-  nodes: string;
-  /** The edge relation, as pairs of node ids. */
-  edges: string;
-  /**
-   * Which vertex type this relation is.
-   *
-   * Required, and with no default, because the source is the only thing that knows: a `dense_id`
-   * numbers within one type, so the identity a slice carries is only completed here. A corpus of one
-   * type is type `0` and has to say so — a defaulted `0` would let a second relation ship the same
-   * identities as the first with nothing raised.
-   */
-  typeIndex: number;
-  /**
-   * A **dense** integer id — `0..n-1`, no gaps.
-   *
-   * Dense because `links` refers to positions rather than to ids, so a consumer never pays for an
-   * id→index map. GraphAr's `dense_id` is this column by another name.
-   */
-  idField?: string;
-  /**
-   * The identity column — the subject IRI. **Omitted, a slice carries addresses only.**
-   *
-   * A `dense_id` says where a vertex is; the IRI says which vertex it is, and only the second
-   * survives the layout being redone. The corpus writes it as `subject`, non-null and unique within
-   * a type, which is why that is the name here — but it stays opt-in rather than defaulted, because
-   * reading it costs 1.87× the drawing tile and most points are painted rather than named.
-   *
-   * Set it when something outlives a session: a bookmark, a link out, a selection that has to mean
-   * the same thing after the next `fossil run`.
-   */
-  subjectField?: string;
-  xField?: string;
-  yField?: string;
-  /**
-   * **What colours and what sizes are not here**, and their absence is the shape rather than an
-   * omission: they are `fill` and `r` on the request, because a channel is what the caller wants
-   * drawn now and this object is where the bytes are. Given here too, recolouring meant building a
-   * second source — and two places deciding one colour is the state that move ended.
-   */
-  sourceField?: string;
-  targetField?: string;
-}
+/**
+ * The type index every vertex this source returns wears — **zero, because there is one of them.**
+ *
+ * A `dense_id` numbers within one vertex type, so an identity is the pair and the second half has to
+ * come from somewhere. It used to be an option: the general source took a `typeIndex` because only
+ * the caller knew which relation it had handed over, and a defaulted `0` would have let a second
+ * relation ship the first one's identities with nothing raised. `openCorpus` draws **one** vertex
+ * type — `vertexType` picks which, and it is numbered zero either way — so the option had one legal
+ * argument and it is written here instead, once, where the reason fits beside it.
+ *
+ * **What would reverse it:** a canvas drawing two vertex types at once, which is what a multi-type
+ * corpus asks for. Then the number comes back — off the manifest's own type ordering rather than off
+ * a caller, because by then the corpus is what knows.
+ */
+const VERTEX_TYPE = 0;
 
 interface Columns {
   id: string;
@@ -190,75 +153,6 @@ function both(left: string, right: string): string {
   if (!left) return right || "TRUE";
   if (!right) return left;
   return `(${left}) AND (${right})`;
-}
-
-export function duckBoundedSource(options: DuckSourceOptions): DuckSource {
-  const { coordinator, edges, filterBy, nodes, typeIndex } = options;
-  /**
-   * Everything this relation *is*, and nothing about what to draw.
-   *
-   * `category` and `size` are absent here and filled in per request from `fill` and `r` — the same
-   * split `openCorpus` makes with its own `fixed` block, for the same reason.
-   */
-  const columns: Omit<Columns, "category" | "size"> = {
-    id: options.idField ?? "id",
-    subject: options.subjectField,
-    x: options.xField ?? "x",
-    y: options.yField ?? "y",
-    source: options.sourceField ?? "source",
-    target: options.targetField ?? "target",
-  };
-
-  const reads = openReads(coordinator, filterBy);
-  const meta = metaAsker(reads.meta);
-  const watching = watcher(reads);
-
-  return {
-    ...watching.api,
-
-    publish(vertices) {
-      publishSelection(reads, filterBy, columns.id, vertices);
-    },
-
-    async total() {
-      const rows = await meta(`SELECT count(*) AS n FROM ${nodes}`);
-      return Number(numbers(rows, "n")[0] ?? 0);
-    },
-
-    /**
-     * Four aggregates, so the canvas can frame what is actually there.
-     *
-     * One scan of two columns, once — against a first paint that otherwise opens on the renderer's
-     * default box and finds the corpus occupying a corner of it.
-     */
-    async extent() {
-      const rows = await meta(
-        `SELECT min(${columns.x}) AS x0, max(${columns.x}) AS x1,
-                min(${columns.y}) AS y0, max(${columns.y}) AS y1
-         FROM ${nodes}`,
-      );
-      const at = (field: string) => Number(numbers(rows, field)[0] ?? 0);
-      return { xMin: at("x0"), yMin: at("y0"), xMax: at("x1"), yMax: at("y1") };
-    },
-
-    /**
-     * Regions only, and it says so by **not having** `explore`.
-     *
-     * This source is two relations and a spatial predicate — it has no adjacency index, so a
-     * neighbourhood query would mean recursive joins over the whole edge table, which is the
-     * unbounded pattern wearing a bounded interface. It used to say that with a predicate and a
-     * throw; now the absence is the statement, and asking is a compile error.
-     */
-    async slice(request: SliceRequest): Promise<Slice> {
-      const { fill, limit, minLinkPixels, perPixel, pinned, r, view } = request;
-      const asked: Columns = { ...columns, category: fill, size: r };
-      // No `held`: this source reads a relation rather than addressing bytes, so there is nothing
-      // "already in hand" to draw a far end from — see `anchorCte`.
-      return watching.run(
-        region(nodes, edges, asked, view, limit, typeIndex, pinned, perPixel, minLinkPixels, undefined),
-      );
-    },
-  };
 }
 
 /**
@@ -416,9 +310,10 @@ function longEnough(
  * the long tail stays undrawn because its bytes are not here — not because we decided.
  *
  * @param held The relation whose rows the reader is holding — the tiles a corpus fetched for this
- *   window. **`undefined` for a source over an ordinary relation, and that is not a downgrade, it is
- *   the truth:** nothing is "already in hand" there, so `held` would be the whole node table and the
- *   join would scan the corpus twice per camera move. Only an addressed source knows what it holds.
+ *   window, which is the same relation the marks were read from. **Only an addressed source can name
+ *   one**, and that is why there is no longer a branch here for a source that cannot: over an
+ *   ordinary relation `held` would be the whole node table, and the join would scan the corpus twice
+ *   per camera move — the unbounded pattern wearing a bounded interface.
  */
 function anchorCte(
   held: string,
@@ -478,11 +373,9 @@ function region(
   c: Columns,
   view: Viewport,
   limit: number,
-  typeIndex: number,
   pinned: VertexId[] | undefined,
   perPixel: number | undefined,
   minLinkPixels: number,
-  held: string | undefined,
 ): Plan {
   const bbox = bboxSql(c, view);
   // A dragged node is drawn where the reader dropped it and indexed where it always was, so the
@@ -490,8 +383,9 @@ function region(
   // stays a predicate rather than a second query so the numbering still covers everything returned.
   //
   // Only this relation's own vertices: a pinned set spans the whole canvas, and asking one node
-  // table for another type's dense ids returns the wrong rows rather than none.
-  const mine = (pinned ?? []).filter((v) => typeOf(v) === typeIndex).map(denseOf);
+  // table for another type's dense ids returns the wrong rows rather than none. `VERTEX_TYPE` is the
+  // whole of what "this relation" means here — see the constant.
+  const mine = (pinned ?? []).filter((v) => typeOf(v) === VERTEX_TYPE).map(denseOf);
   const pins = mine.length > 0 ? ` OR ${c.id} IN (${mine.join(",")})` : "";
   const spatial = `(${bbox})${pins}`;
   /**
@@ -504,11 +398,11 @@ function region(
   const where = (filter: FilterExpr) => both(spatial, predicateSql(filter));
   const size = c.size ? ", size" : "";
   const subject = c.subject ? ", subject" : "";
-  const near = longEnough("s", "t", perPixel, minLinkPixels);
+  // The relation the marks were read from *is* what the reader is holding, so the anchor CTE is
+  // unconditional: there is no source left that fetches a window without also fetching the tiles
+  // around it.
   const anchors = (filter: FilterExpr) =>
-    held
-      ? anchorCte(held, edges, c, spatial, predicateSql(filter), perPixel, minLinkPixels)
-      : "";
+    anchorCte(nodes, edges, c, spatial, predicateSql(filter), perPixel, minLinkPixels);
 
   return {
     /**
@@ -520,39 +414,27 @@ function region(
      */
     points: (filter) =>
       `${visibleCte(nodes, c, where(filter), limit)}${anchors(filter)}
-       SELECT local, id, x, y, category, matched, TRUE AS mark${size}${subject} FROM vis${
-         held
-           ? `
+       SELECT local, id, x, y, category, matched, TRUE AS mark${size}${subject} FROM vis
        UNION ALL
        SELECT local, id, x, y, 0::INTEGER, NULL::BIGINT, FALSE AS mark${
          c.size ? ", CAST(NULL AS DOUBLE)" : ""
-       }${c.subject ? ", CAST(NULL AS VARCHAR)" : ""} FROM anchor`
-           : ""
-       }
+       }${c.subject ? ", CAST(NULL AS VARCHAR)" : ""} FROM anchor
        ORDER BY local`,
     /**
-     * One end drawn and both ends positioned — or, where nothing is held, both ends drawn.
+     * One end drawn and both ends positioned.
      *
-     * The second form is what a source over an ordinary relation gets, and it is the old query plus
-     * the length predicate. It still drops an edge that leaves the window, and the reason is now
-     * exact rather than a limitation of the reader: no bytes beyond the rectangle were fetched, so
-     * there is no position to draw the far end at. A corpus fetches tiles and therefore has some.
+     * There was a second form here — both ends drawn, edges leaving the window dropped — for a source
+     * that fetched no bytes beyond the rectangle and therefore had no position to put a far end at.
+     * It went with that source, and `longEnough` with it — the length predicate lives in `anchorCte`
+     * now, on the same span, which is where it has to sit once the join runs over the held rows
+     * rather than over the visible ones.
      */
     links: (filter) =>
-      held
-        ? `${visibleCte(nodes, c, where(filter), limit, false)}${anchors(filter)}
+      `${visibleCte(nodes, c, where(filter), limit, false)}${anchors(filter)}
         SELECT coalesce(sp.src, sa.local) AS src, coalesce(sp.dst, da.local) AS dst
         FROM span sp
         LEFT JOIN anchor sa ON sa.id = sp.src_id
-        LEFT JOIN anchor da ON da.id = sp.dst_id`
-        : `${visibleCte(nodes, c, where(filter), limit, false)}
-        SELECT s.local AS src, t.local AS dst
-        FROM ${edges} e
-        JOIN vis s ON e.${c.source} = s.id
-        JOIN vis t ON e.${c.target} = t.id${
-          near ? `
-        WHERE ${near}` : ""
-        }`,
+        LEFT JOIN anchor da ON da.id = sp.dst_id`,
     assemble: (points, links) => ({
       /**
        * How many matched, separately from how many came back.
@@ -563,7 +445,7 @@ function region(
        * column, and an empty answer has no row and no matches, which agree.
        */
       n: Number(numbers(points, "matched")[0] ?? 0),
-      ...arrays(points, links, typeIndex, c.size ? "size" : undefined, c.subject !== undefined),
+      ...arrays(points, links, c.size ? "size" : undefined, c.subject !== undefined),
     }),
   };
 }
@@ -664,7 +546,6 @@ function publishSelection(
 function arrays(
   points: unknown,
   links: unknown,
-  typeIndex: number,
   sizeField?: string,
   withSubjects = false,
 ): Omit<Slice, "n"> {
@@ -694,7 +575,7 @@ function arrays(
   const dense = new Float64Array(n);
   fillColumn(points, "id", dense);
   const vertices = new BigUint64Array(n);
-  for (let i = 0; i < n; i++) vertices[i] = vertexId(typeIndex, dense[i] as number);
+  for (let i = 0; i < n; i++) vertices[i] = vertexId(VERTEX_TYPE, dense[i] as number);
   const categories = new Uint16Array(n);
   fillColumn(points, "category", categories);
 
@@ -767,9 +648,10 @@ function countOf(rows: unknown, field: string): number {
  * has become the `viewport` verb fossil deleted.
  *
  * **What it is not.** It takes no column names and no type index. Those come from the manifest or
- * they do not come: a corpus reader that also accepts `idField` is `duckBoundedSource` with extra
- * steps, and there is already one of those for the case this is not — an arbitrary relation with
- * `x`/`y` that nobody wrote as a corpus.
+ * they do not come. There used to be a second source here for the case this is not — an arbitrary
+ * relation with `x`/`y` that nobody wrote as a corpus — and taking `idField` here would have been
+ * that one with extra steps. It is gone, so the rule is simpler than the guard against it: a column
+ * name reaching this door is a name the manifest should have carried.
  */
 
 export interface OpenCorpusOptions {
@@ -1206,9 +1088,9 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
       };
     },
 
-    // Regions only, said the same way `duckBoundedSource` says it: no `explore`. A neighbourhood
-    // needs adjacency this source does not index, and fossil's `expand` is what answers it —
-    // `ExploringSource` is the shape waiting for whoever writes that one.
+    // Regions only, and it says so by being the only method there is. A neighbourhood needs
+    // adjacency this source does not index; `ExploringSource` declared the second question here and
+    // was deleted with it — `index.test.ts` carries why, and fossil's `expand` is what answers it.
     async slice(request: SliceRequest): Promise<Slice> {
       const { fill, limit, minLinkPixels, perPixel, pinned, r, signal, view } = request;
       const columns: Columns = { ...fixed, category: fill, size: r };
@@ -1275,12 +1157,10 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
           ? `read_parquet([${edgeFiles.join(", ")}])`
           : `(SELECT NULL::BIGINT AS ${columns.source}, NULL::BIGINT AS ${columns.target} WHERE FALSE)`;
 
-      // `nodes` twice, and the repetition is the statement: the relation this window reads *is* the
-      // bytes the reader is holding, so the tiles that answer "what is in the rectangle" also answer
-      // "where is the far end of an edge that leaves it".
-      return watching.run(
-        region(nodes, relation, columns, view, limit, 0, pinned, perPixel, minLinkPixels, nodes),
-      );
+      // `nodes` is both the window's rows and the bytes the reader holds: the tiles that answer
+      // "what is in the rectangle" are the tiles that answer "where is the far end of an edge that
+      // leaves it".
+      return watching.run(region(nodes, relation, columns, view, limit, pinned, perPixel, minLinkPixels));
     },
   };
 

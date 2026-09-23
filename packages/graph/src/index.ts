@@ -149,7 +149,7 @@ export {
 //
 // `onceQuery` was on this barrel, and it imported the Mosaic stack — which arrived through
 // `@kanzo-tech/ui/analytics` back when that was where a coordinator came from. So
-// `import { memorySource } from "@kanzo-tech/graph"` threw ERR_MODULE_NOT_FOUND for every host that
+// `import { GraphCanvas } from "@kanzo-tech/graph"` threw ERR_MODULE_NOT_FOUND for every host that
 // had not installed an optional peer, while four places in this package promised the opposite.
 // `scripts/smoke-install.mjs` holds the door shut now — and the name itself is gone from the
 // repository: a `DuckSource` is a client of the page's coordinator, so there is no second query
@@ -176,10 +176,11 @@ export {
  * which is what removed the ceiling rather than raising it.
  *
  * `useQueryLoop` is the loop that asks — it observes the camera, debounces, cancels what the
- * camera has already superseded, and pushes each answer into the renderer. `memorySource` is the
- * answer for a host that already holds its arrays: every consumer needs a source now, including the
- * ones bounding buys nothing for, so that one is written here once rather than at each call site
- * differently.
+ * camera has already superseded, and pushes each answer into the renderer. **The source itself is
+ * not here and there is one of it**: `openCorpus`, on `@kanzo-tech/graph/duckdb`, because a corpus
+ * is read through a database and a database is an optional peer. What is left on this barrel is the
+ * rendering surface — the hooks, the look, identity and the buffers a slice implies — and it draws
+ * nothing on its own.
  */
 //
 // **Cancellation is the platform's, not ours.** `SUPERSEDED` and `isSuperseded` were here — an
@@ -204,17 +205,20 @@ export {
   shouldSlice,
   type BoundedSource,
   type Slice,
-  type ExploringSource,
-  type ExploreRequest,
   type SliceRequest,
   type Viewport,
 } from "./bounded";
-export { memorySource, type MemoryGraph } from "./memory-source";
-// The DuckDB sources are on `@kanzo-tech/graph/duckdb`, not here: Mosaic is an optional peer and
-// that is the half that needs it. A host drawing arrays it already holds should not import a
-// database to find out it did not need one. Two live there and they are different jobs —
-// `openCorpus` is the one that matters: it takes where a corpus is and gives back both halves —
-// a source for the canvas and registered views for the charts, the crossfilter and the verbs.
+// The source is on `@kanzo-tech/graph/duckdb`, not here, and there is exactly one of it:
+// `openCorpus` takes where a corpus is and gives back both halves — a source for the canvas and
+// registered views for the charts, the crossfilter and the verbs. Mosaic and fossil's reader are
+// optional peers and that is the half that needs them, so **this barrel ships no source at all**
+// and a host that installs neither gets the rendering surface and no picture.
+//
+// `memorySource` was here and the argument for it was *every consumer needs a source, including the
+// ones bounding buys nothing for*. That is still true and it is no longer ours to answer: a host
+// holding three typed arrays was being taught an API no product takes, and keeping the easy door
+// open cost a second implementation of sampling, anchoring and the link-length discard, in
+// JavaScript, that nothing but its own tests ever ran.
 
 // Cluster seeding is **not here**. `clusterRing` is what actually separates communities, as opposed
 // to what looks like it should — and it is what `useRenderer` calls the moment `clusters` is passed,

@@ -208,8 +208,6 @@ export interface GraphApi {
   sliced: boolean;
   /** Ask again about wherever the camera is now. Wired to the camera already. */
   refresh: () => void;
-  /** Ask a topological question instead of a spatial one, when the source supports one. */
-  explore: (seeds: VertexId[], depth: number) => void;
 }
 
 /** The empty answer, built once — a ref has to hold something before the first slice arrives. */
@@ -269,7 +267,7 @@ export function useGraph(props: UseGraphProps): GraphApi {
   const graphRef = useRef<Graph | null>(null);
   const residentRef = useRef<Resident>(NOBODY);
 
-  const { explore, pending, refresh, resident, slice, sliced, total } = useQueryLoop({
+  const { pending, refresh, resident, slice, sliced, total } = useQueryLoop({
     debounce,
     fill: asked,
     graphRef,
@@ -359,5 +357,5 @@ export function useGraph(props: UseGraphProps): GraphApi {
 
   useGraphLook({ channels, getGraph, hostRef, look, schedule, slice });
 
-  return { explore, getGraph, getResident, hostRef, pending, refresh, resident, slice, sliced, total };
+  return { getGraph, getResident, hostRef, pending, refresh, resident, slice, sliced, total };
 }

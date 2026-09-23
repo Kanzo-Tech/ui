@@ -8,7 +8,6 @@ import {
   isAbort,
   shouldSlice,
   type BoundedSource,
-  type ExploringSource,
   type Slice,
   type Viewport,
 } from "./bounded";
@@ -20,8 +19,8 @@ import { whenReady } from "./when-ready";
  *
  * This is the half the engine rule requires of anything with an engine — the canvas stays presentational
  * and this owns the asking. It debounces, cancels what the camera has already superseded, and pushes
- * each answer's geometry into the renderer. A host that already holds its arrays wraps them in a
- * source and gets the same path; there is no second one.
+ * each answer's geometry into the renderer. There is one source and it is `openCorpus`; this loop is
+ * written against the contract rather than against it, which is what keeps a second one possible.
  *
  * **A graph that fits pays for nothing.** `total()` is asked first, and under the limit the source is
  * asked once for everything and never again — panning is then free exactly when it can be. Above it,
@@ -98,8 +97,6 @@ export interface QueryLoopState {
   sliced: boolean;
   /** Ask again. Wire it to the camera, and call it when the pinned set changes. */
   refresh: () => void;
-  /** Ask a topological question instead of a spatial one, when the source supports one. */
-  explore: (seeds: VertexId[], depth: number) => void;
 }
 
 const EVERYTHING: Viewport = {
@@ -323,36 +320,6 @@ export function useQueryLoop(options: QueryLoopOptions): QueryLoopState {
   }, [ask, debounce, fill, graphRef, hostRef, limit, r]);
 
   /**
-   * Ask a topological question, when the source is one that can answer.
-   *
-   * `"explore" in source` is the narrowing, and it is the whole check — a source that cannot walk
-   * edges does not carry the method, so this is the one place a caller pays for the distinction
-   * instead of every source restating it in a predicate and a throw.
-   */
-  const explore = useCallback(
-    (seeds: VertexId[], depth: number) => {
-      if (!source || !("explore" in source)) {
-        report.current?.("this source answers regions only");
-        return;
-      }
-      if (timer.current) clearTimeout(timer.current);
-      void ask((s, signal) =>
-        (s as ExploringSource).explore({
-          seeds,
-          depth,
-          pinned: held.current,
-          fill,
-          r,
-          limit,
-          minLinkPixels: DEFAULT_MIN_LINK_PIXELS,
-          signal,
-        }),
-      );
-    },
-    [ask, fill, limit, r, source],
-  );
-
-  /**
    * How big it is — asked once per source, and the answer decides whether there is a query loop at
    * all: under the limit one slice covers everything and the camera is never consulted again. A
    * source that cannot say cheaply is treated as large, because an unknown corpus is more likely to
@@ -469,7 +436,7 @@ export function useQueryLoop(options: QueryLoopOptions): QueryLoopState {
   // it re-run for a value that had not changed.
   const resident = useMemo(() => residentOf(slice), [slice]);
 
-  return { slice, resident, pending, total, sliced, refresh, explore };
+  return { slice, resident, pending, total, sliced, refresh };
 }
 
 /**

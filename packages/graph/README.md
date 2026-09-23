@@ -28,8 +28,15 @@ pnpm add @kanzo-tech/graph @cosmos.gl/graph
 ```
 
 `@cosmos.gl/graph` is a required peer: this is a renderer, and there is nothing left of it without
-one. The Mosaic peers are **optional** — `duckBoundedSource()` and `openCorpus()` need them, the
-rendering hooks do not, and a host drawing arrays it already has should not pay for a database.
+one. The Mosaic peers and fossil's corpus reader are **optional** — `openCorpus()` needs them and
+the rendering hooks do not.
+
+**So the root barrel draws nothing, and that is the shape rather than an oversight.** The reason for
+the split used to be *a host drawing arrays it already has should not pay for a database*, and that
+host no longer exists here: `memorySource` is deleted and this package sends **one** source, the
+corpus'. What the split protects now is a barrel that is a rendering surface — hooks, looks,
+identity, the buffers a slice implies — for a host whose slices arrive from somewhere else, its own
+`BoundedSource` included. A picture costs `@kanzo-tech/graph/duckdb`.
 
 ## The two halves
 
@@ -40,11 +47,12 @@ is **sampled** rather than truncated — one row every `ceil(matched / limit)` o
 Morton-ordered `dense_id`, which spreads the marks over the window instead of drawing a corner of
 it. So a view of everything is still a few thousand marks, and they are still everywhere.
 
-`duckBoundedSource` — on `@kanzo-tech/graph/duckdb`, because that is the half that needs Mosaic —
-answers over two DuckDB relations and takes the column names as options, so pointing it at another
-corpus is a change of argument, not of code. A host that already holds its arrays takes
-`memorySource` and pays for no database; under `limit` either one is asked once and never again, so
-a graph that fits pays for nothing.
+`openCorpus` — on `@kanzo-tech/graph/duckdb`, because that is the half that needs Mosaic and
+fossil's reader — takes where a corpus is and hands back both halves: the source the canvas draws
+from, and the relations registered under their own names for the charts, the crossfilter and the
+verbs. It takes no column names and no type index; those come off the manifest or they do not come.
+Under `limit` it is asked once for everything and never again, so a corpus that fits pays for
+nothing.
 
 **A point is addressed by index and identified by pair.** cosmos.gl numbers points by their position
 in the arrays it was last handed, so index 7 is whatever the current answer put seventh. A vertex is

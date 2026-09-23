@@ -27,10 +27,10 @@
  * tally with no corpus can only be deleted, never re-derived.
  * `@kanzo-tech/graph` is the package that
  * crossed it: `src/index.ts` re-exported `onceQuery`, whose module imported
- * `@kanzo-tech/ui/analytics`, so `import { memorySource } from "@kanzo-tech/graph"` threw
+ * `@kanzo-tech/ui/analytics`, so `import { GraphCanvas } from "@kanzo-tech/graph"` threw
  * ERR_MODULE_NOT_FOUND for every host that had not installed Mosaic — while the package promised in
- * four places that a host drawing its own arrays pays for no database. Nothing saw it because the
- * one check that exists for this class ran on `packages/ui` alone.
+ * four places that its root barrel needs no database. Nothing saw it because the one check that
+ * exists for this class ran on `packages/ui` alone.
  *
  * **What it does not prove.** Check 2 is a byte comparison, not an RSC evaluation: it fails if
  * Rollup merged a module and dropped the directive, which is the failure it exists for, but it
@@ -423,17 +423,17 @@ const derivationResolves = await import("@kanzo-tech/palette").then(() => true, 
 if (derivationResolves) fail("@kanzo-tech/palette resolves — the derivation was un-deleted");
 pass("no derivation on the runtime path, and none in the tree to import");
 
-// 7. The graph's own root barrel, which is the door this file was extended for. A host that draws
-// arrays it already holds installs cosmos.gl and nothing else, so this import must resolve with no
-// Mosaic in the tree. It threw ERR_MODULE_NOT_FOUND until \`onceQuery\` left the barrel; that name is
-// gone from the repository now and is still named below, because what is guarded is the door.
+// 7. The graph's own root barrel, which is the door this file was extended for. The barrel is a
+// rendering surface and ships no source, so a host that installs cosmos.gl and nothing else must
+// still be able to import it. It threw ERR_MODULE_NOT_FOUND until \`onceQuery\` left the barrel; that
+// name is gone from the repository now and is still named below, because what is guarded is the door.
 const graph = await import("@kanzo-tech/graph");
 pass(\`graph root barrel imports with only non-optional peers (\${Object.keys(graph).length} exports)\`);
 // \`buffers\` stood here and is no longer on the barrel: it is a step \`useGraphLook\` takes rather than
 // a question a host asks, and no importer of this package had ever named it. \`GraphCanvas\` takes its
 // place because what this line checks is that the **drawing** half resolves with no database in the
 // tree, and the canvas is that half now.
-for (const name of ["memorySource", "GraphCanvas", "useGraph", "vertexId"]) {
+for (const name of ["GraphCanvas", "useGraph", "vertexId"]) {
   if (typeof graph[name] !== "function") fail(\`@kanzo-tech/graph does not export \${name}\`);
 }
 if ("onceQuery" in graph) fail("onceQuery is back on the root barrel — it imports the Mosaic stack");
@@ -442,13 +442,11 @@ for (const name of ["duckBoundedSource", "openCorpus", "SliceRead"]) {
 }
 pass("the DuckDB half is not on the root barrel");
 
-const slice = graph.memorySource({
-  vertices: new BigUint64Array([graph.vertexId(0, 0), graph.vertexId(0, 1)]),
-  positions: new Float32Array([0, 0, 1, 1]),
-  links: new Float32Array([0, 1]),
-}).slice({ limit: 10, view: { xMin: -Infinity, xMax: Infinity, yMin: -Infinity, yMax: Infinity } });
-if ((await slice).vertices.length !== 2) fail("memorySource answered nothing — the no-database path is broken");
-else pass("memorySource answers a slice with no database installed");
+// The behavioural assertion that stood here is gone, and losing it is the cost of one source.
+// It was \`memorySource\` answering a slice with no database installed — the ONLY check anywhere that
+// the root barrel could actually *draw* under those conditions, rather than merely resolve. There is
+// nothing on the barrel left to draw with, so what remains is the import above: the weaker half of
+// the same door, and the half that broke in the first place.
 
 // And the other side of the same door: the DuckDB source is on /duckdb, and that subpath is
 // where the cost lives. Without Mosaic installed it cannot resolve — which is the split being

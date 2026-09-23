@@ -96,7 +96,7 @@ function entryPoints(pkgDir: string): Entry[] {
  * `graph` is here for the reason the comment above predicted: `docs/content/docs/(root)/graph.mdx`
  * documents `@kanzo-tech/graph`, and until this line the page could name anything at all. It also
  * brings `@kanzo-tech/graph/duckdb` in for free, which is the subpath the optional peers live on —
- * a page that puts `duckBoundedSource` in an import from the root barrel now fails here.
+ * a page that puts `openCorpus` in an import from the root barrel now fails here.
  */
 const ENTRIES = ["ui", "theme", "graph", "ai", "auth"].flatMap((name) =>
   entryPoints(join(REPO, "packages", name)),
@@ -466,11 +466,13 @@ describe("the documented surface", () => {
       ["@kanzo-tech/ui/analytics", "ChartRoot"],
       ["@kanzo-tech/ui/editor", "CodeEditor"],
       ["@kanzo-tech/theme", "AXES"],
-      ["@kanzo-tech/graph", "memorySource"],
+      ["@kanzo-tech/graph", "GraphCanvas"],
       ["@kanzo-tech/ai", "SuggestRoot"],
       // On the subpath and not the barrel — the optional-peer door. `index.test.ts` in that package
-      // asserts the same split from the runtime side.
-      ["@kanzo-tech/graph/duckdb", "duckBoundedSource"],
+      // asserts the same split from the runtime side. It was `duckBoundedSource`, which is deleted:
+      // the package sends one source and `openCorpus` is it, so the canary and the thing it guards
+      // are now the same name.
+      ["@kanzo-tech/graph/duckdb", "openCorpus"],
     ] as const) {
       expect(bySpec.get(spec)?.has(canary), `${spec} should export ${canary}`).toBe(true);
     }
