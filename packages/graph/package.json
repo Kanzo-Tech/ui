@@ -35,7 +35,7 @@
   "//fossil": "The reader is on npm, so the range is a range. This entry said LOCAL LINK, NOT A RELEASE STATE while `@fossil-lang/corpus` existed only in a checkout beside this one; it was published as `0.3.0-alpha.5` and the `link:` and the `*` went with the reason for them. The peer itself is not temporary: fossil's reader sits beside `@kanzo-tech/mosaic` on `./duckdb` and is wanted for the same reason — a host reading a corpus brings its own, and a host that only renders pays for neither. The residual cost this entry used to name is GONE rather than mitigated: `duckBoundedSource` shared the subpath and did not need this peer, so a host on it either installed the reader or the entry had to be split. There is nothing on `./duckdb` now that does not want fossil, so the subpath and the peer are the same decision and there is no entry to split.",
   "peerDependencies": {
     "@cosmos.gl/graph": "^3.4.0",
-    "@fossil-lang/corpus": "^0.3.0-alpha.5",
+    "@fossil-lang/corpus": "^0.3.0-alpha.6",
     "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",
     "react": "^19.0.0"
@@ -50,7 +50,7 @@
   },
   "devDependencies": {
     "@cosmos.gl/graph": "^3.4.0",
-    "@fossil-lang/corpus": "^0.3.0-alpha.5",
+    "@fossil-lang/corpus": "^0.3.0-alpha.6",
     "@kanzo-tech/mosaic": "workspace:*",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",

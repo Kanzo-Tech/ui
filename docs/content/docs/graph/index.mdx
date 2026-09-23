@@ -421,6 +421,11 @@ every other one incident to it comes back as an `UndrawnRelation` with the reaso
 for the crossing above, `not-declared` for a relation that publishes no source-ordered orientation
 to read. Nothing is dropped in silence, and nothing crosses.
 
+That rule is not written here. `@fossil-lang/corpus`'s `addressing.drawing(type)` answers it —
+`ReadPlan::drawing`, in Rust, beside the window that answers incidence — and `UndrawnRelation.reason`
+is fossil's own `GapReason`. `tilesFor` is the other question and not a narrowing of this one: its
+`edgeUrls` is every relation whose *source* is the drawn type, cross-type ones included.
+
 ## API Reference
 
 Twenty names, grouped the way the barrel groups them. It was thirty-six, and the sixteen that

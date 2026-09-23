@@ -6,7 +6,7 @@ import {
   PAYLOAD_IDENTITY,
   open as openFossilCorpus,
 } from "@fossil-lang/corpus";
-import type { EdgeAddress, OpenOptions, ProjectionAddress } from "@fossil-lang/corpus";
+import type { EdgeAddress, GapReason, OpenOptions, ProjectionAddress } from "@fossil-lang/corpus";
 import { clausePoints, column, fillColumn, numbers } from "@kanzo-tech/mosaic";
 import type { Coordinator, FilterExpr, Selection } from "@kanzo-tech/mosaic";
 import type { BoundedSource, Slice, SliceRequest, Viewport } from "./bounded";
@@ -709,66 +709,13 @@ export interface OpenCorpusOptions {
   readText?: OpenOptions["readText"];
 }
 
-/** A relation this source reads: its identity, its address, and the adjacency it reads it from. */
-interface DrawnRelation extends EdgeRelation {
+/** A relation this source draws: its address, the adjacency it reads it from, and its view name. */
+interface DrawnRelation {
   readonly address: EdgeAddress;
   /** The source-ordered orientation — the CSR one, which is the drawing read. */
   readonly adjacency: ProjectionAddress;
-}
-
-/**
- * Which incident relations this source may read — **the guard against crossing `dense_id` spaces,
- * and the only place the edge files come from.**
- *
- * A `dense_id` numbers *within one vertex type*, so `dst_dense = 7` on a `Person -placed-> Order`
- * row is the seventh Order and `dense_id = 7` in the payload this source holds is the seventh
- * Person. They are different vertices and they compare equal, so a join across them matches, and
- * what it draws is a line between two vertices that have no relation at all. Nothing downstream can
- * tell those rows from real ones: the two columns are `BIGINT` either way.
- *
- * So the crossing is refused **here, by construction**, rather than defended against in SQL: a
- * relation is drawable only where `srcType` and `dstType` are both the drawn type, and every edge
- * URL this source ever reads is composed off one of the {@link DrawnRelation.adjacency} addresses
- * below. `CorpusAddressing.tilesFor` cannot be used for them — its `edgeUrls` is every relation
- * whose *source* is this type, cross-type ones included (`crates/fossil-graph/src/plan.rs`,
- * `ReadPlan::window`, keeps an orientation whose ALIGNED endpoint is the window's), which is the
- * set that was being read.
- *
- * **`filter`, not `find`** — that is the other half, and it is `frame`'s own line
- * (`packages/corpus/src/corpus.ts`, `addressing.edges.filter((e) => e.srcType === address.type)`).
- * A corpus with two edge labels between the same pair of types declares two relations, and picking
- * the first drew one of them and said nothing about the other.
- *
- * What is refused is reported: a host that opens a corpus of Orders and Persons is told its
- * `placed` edges are not on this canvas, which is the question the missing lines would otherwise
- * raise. Drawing them wants the other type's payload, which is a second canvas and not a widening
- * of this one — see `VERTEX_TYPE`.
- */
-function relationsOf(
-  incident: readonly EdgeAddress[],
-  type: string,
-): { drawn: DrawnRelation[]; undrawn: UndrawnRelation[] } {
-  const drawn: DrawnRelation[] = [];
-  const undrawn: UndrawnRelation[] = [];
-  for (const edge of incident) {
-    const identity = { edgeType: edge.edgeType, srcType: edge.srcType, dstType: edge.dstType };
-    if (edge.srcType !== type || edge.dstType !== type) {
-      undrawn.push({ ...identity, reason: "other-space" });
-      continue;
-    }
-    const adjacency = edge.adjacency("src");
-    if (adjacency === null) {
-      undrawn.push({ ...identity, reason: "not-declared" });
-      continue;
-    }
-    drawn.push({
-      ...identity,
-      address: edge,
-      adjacency,
-      view: `corpus_${edge.srcType}_${edge.edgeType}_${edge.dstType}`,
-    });
-  }
-  return { drawn, undrawn };
+  /** The registered view name — `corpus_{src}_{edge}_{dst}`. */
+  readonly view: string;
 }
 
 /** One tile's bounding box, from the footer. A tile with no `x`/`y` statistics is not in the list. */
@@ -867,18 +814,23 @@ export interface EdgeRelation {
   readonly view: string;
 }
 
-/** One relation incident to the drawn type that this source cannot read, and why. */
+/**
+ * One relation incident to the drawn type that this source cannot read, and why.
+ *
+ * **The reason is fossil's {@link GapReason} and not a second spelling of it** — `other-space` when
+ * an endpoint is another vertex type, so the `dense_id` on that side numbers a different set of
+ * vertices and this source holds no coordinates for any of them; `not-declared` when both endpoints
+ * are this type and the corpus publishes no source-ordered adjacency to read. The two the drawing
+ * read can produce; the third, `not-requested`, is `tilesFor`'s and never reaches here.
+ *
+ * What this adds to a `Gap` is the endpoint pair, which a `Gap` does not carry: it names a relation
+ * by label and orientation, and a corpus may declare two relations under one label.
+ */
 export interface UndrawnRelation {
   readonly edgeType: string;
   readonly srcType: string;
   readonly dstType: string;
-  /**
-   * `other-space`: an endpoint is another vertex type, so the `dense_id` on that side numbers a
-   * different set of vertices and this source holds no coordinates for any of them.
-   * `not-declared`: both endpoints are this type and the corpus publishes no source-ordered
-   * adjacency to read.
-   */
-  readonly reason: "other-space" | "not-declared";
+  readonly reason: GapReason;
 }
 
 export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorpus> {
@@ -909,15 +861,53 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
 
   const type = addressing.vertexType(vertexType);
   /**
-   * **Every** relation whose two endpoints are this type — their CSR orientation, which is the
-   * drawing read — and the incident ones that are not, named rather than dropped.
+   * Which relations this canvas may draw, and which incident ones it may not — **asked, not
+   * derived.**
+   *
+   * A picture is one type's `dense_id` space, so a relation that LEAVES the type has its far ends
+   * numbered in another type's, both spaces are dense from zero, and `BIGINT` compares against
+   * `BIGINT` without complaining: the join matches and draws a line between two vertices with
+   * nothing between them. The rule that refuses it used to be written here too — a filter over
+   * `incident` on `srcType`/`dstType` plus a null check on the source-ordered adjacency — which was
+   * the second copy of a rule that belongs to the addressing. It is `ReadPlan::drawing`
+   * (`crates/fossil-graph/src/plan.rs`), in Rust, said once, and this is the call.
+   *
+   * **Not `tilesFor`, which answers the other question.** Its `edgeUrls` is every relation whose
+   * *source* is this type, cross-type ones included — right for incidence, unusable for a picture.
+   * Confusing the two is the bug this call closes.
    *
    * `by_target` is not asked for and its absence is reported rather than hidden: a window's
    * drawable edges all have their source on screen, so the source-aligned tiles are complete for
    * drawing and incomplete for incidence. `tilesFor` says which below, in `gaps`.
    */
-  const { drawn, undrawn } = relationsOf(addressing.incident(type.type), type.type);
+  const drawing = addressing.drawing(type.type);
+  const drawn: DrawnRelation[] = drawing.relations.map((address) => ({
+    address,
+    // Never null on a drawn relation: a declared source-ordered adjacency is what `drawing` admits
+    // one for, and `not-declared` is why the others are in `undrawn` instead.
+    adjacency: address.adjacency("src") as ProjectionAddress,
+    view: `corpus_${address.srcType}_${address.edgeType}_${address.dstType}`,
+  }));
   const adjacencies = drawn.map((relation) => relation.adjacency);
+  /**
+   * The rejected ones, with their endpoints — **the reasons are fossil's, the endpoints are the
+   * corpus's, and neither is a judgement of ours.**
+   *
+   * The two lists are one partition of `incident` in declaration order: fossil walks the plan's
+   * edges once and puts each incident one in `relations` or in `undrawn`, so the incident relations
+   * missing from the first are the gaps of the second, in order. That join is here because a `Gap`
+   * names a relation by label and orientation, and a label does not identify one — two relations
+   * may share it — so the endpoint types cannot be read back off the gap alone.
+   */
+  const undrawn: UndrawnRelation[] = addressing
+    .incident(type.type)
+    .filter((edge) => !drawing.relations.includes(edge))
+    .map((edge, index) => ({
+      edgeType: edge.edgeType,
+      srcType: edge.srcType,
+      dstType: edge.dstType,
+      reason: drawing.undrawn[index]!.reason,
+    }));
 
   /**
    * The boxes, and the one query this source makes that is not a slice.
@@ -1235,7 +1225,7 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
        * The vertex half off `tilesFor`; the edge half off each drawn relation's own adjacency,
        * which is `frame`'s shape for the same reason (`corpus.ts`, `edgeLevels.flatMap((set) =>
        * held.map((tile) => set.tileUrl(tile)))`). `tilesFor`'s `edgeUrls` is every relation whose
-       * SOURCE is this type, so a cross-type one is in it — and `relationsOf` is where that set is
+       * SOURCE is this type, so a cross-type one is in it — and `drawing` is where that set is
        * narrowed to the relations whose far end this source can position. The source-ordered
        * orientation is the drawing read either way: every edge a window can draw has its source on
        * screen, therefore in one of these files.
@@ -1285,10 +1275,10 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
   return {
     source,
     nodes: nodesView,
-    edges: drawn.map(({ edgeType, srcType, dstType, view }) => ({
-      edgeType,
-      srcType,
-      dstType,
+    edges: drawn.map(({ address, view }) => ({
+      edgeType: address.edgeType,
+      srcType: address.srcType,
+      dstType: address.dstType,
       view,
     })),
     undrawn,
