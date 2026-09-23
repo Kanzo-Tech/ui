@@ -407,6 +407,20 @@ reader's selection as a clause the rest of the page filters by. `openCorpus` tak
 everything else the corpus holds. `DuckSourceOptions` was the general source's options object and is
 gone with it.
 
+**`OpenedCorpus.edges` is a list, and `undrawn` is the rest of the answer.** A corpus declares as
+many edge relations as it likes, so each one that this canvas draws is registered as its own view —
+an `EdgeRelation`: the three names that identify it, and `view`, which is `corpus_{src}_{edge}_{dst}`.
+One view per relation rather than a union, because a relation carries its own properties and a
+unioned pair would have to agree on a schema before anything could read it.
+
+A canvas draws **one vertex type**, and a `dense_id` numbers within a type — so `dst_dense` on a
+`Person -placed-> Order` row is an Order's number and the payload on screen holds Persons. They are
+both `BIGINT`, so a join across them matches and draws a line between two vertices that have no
+relation at all. A relation is therefore drawable only where **both** endpoints are the drawn type;
+every other one incident to it comes back as an `UndrawnRelation` with the reason — `other-space`
+for the crossing above, `not-declared` for a relation that publishes no source-ordered orientation
+to read. Nothing is dropped in silence, and nothing crosses.
+
 ## API Reference
 
 Twenty names, grouped the way the barrel groups them. It was thirty-six, and the sixteen that

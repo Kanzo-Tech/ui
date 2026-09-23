@@ -6,7 +6,7 @@ import {
   PAYLOAD_IDENTITY,
   open as openFossilCorpus,
 } from "@fossil-lang/corpus";
-import type { OpenOptions } from "@fossil-lang/corpus";
+import type { EdgeAddress, OpenOptions, ProjectionAddress } from "@fossil-lang/corpus";
 import { clausePoints, column, fillColumn, numbers } from "@kanzo-tech/mosaic";
 import type { Coordinator, FilterExpr, Selection } from "@kanzo-tech/mosaic";
 import type { BoundedSource, Slice, SliceRequest, Viewport } from "./bounded";
@@ -709,6 +709,68 @@ export interface OpenCorpusOptions {
   readText?: OpenOptions["readText"];
 }
 
+/** A relation this source reads: its identity, its address, and the adjacency it reads it from. */
+interface DrawnRelation extends EdgeRelation {
+  readonly address: EdgeAddress;
+  /** The source-ordered orientation — the CSR one, which is the drawing read. */
+  readonly adjacency: ProjectionAddress;
+}
+
+/**
+ * Which incident relations this source may read — **the guard against crossing `dense_id` spaces,
+ * and the only place the edge files come from.**
+ *
+ * A `dense_id` numbers *within one vertex type*, so `dst_dense = 7` on a `Person -placed-> Order`
+ * row is the seventh Order and `dense_id = 7` in the payload this source holds is the seventh
+ * Person. They are different vertices and they compare equal, so a join across them matches, and
+ * what it draws is a line between two vertices that have no relation at all. Nothing downstream can
+ * tell those rows from real ones: the two columns are `BIGINT` either way.
+ *
+ * So the crossing is refused **here, by construction**, rather than defended against in SQL: a
+ * relation is drawable only where `srcType` and `dstType` are both the drawn type, and every edge
+ * URL this source ever reads is composed off one of the {@link DrawnRelation.adjacency} addresses
+ * below. `CorpusAddressing.tilesFor` cannot be used for them — its `edgeUrls` is every relation
+ * whose *source* is this type, cross-type ones included (`crates/fossil-graph/src/plan.rs`,
+ * `ReadPlan::window`, keeps an orientation whose ALIGNED endpoint is the window's), which is the
+ * set that was being read.
+ *
+ * **`filter`, not `find`** — that is the other half, and it is `frame`'s own line
+ * (`packages/corpus/src/corpus.ts`, `addressing.edges.filter((e) => e.srcType === address.type)`).
+ * A corpus with two edge labels between the same pair of types declares two relations, and picking
+ * the first drew one of them and said nothing about the other.
+ *
+ * What is refused is reported: a host that opens a corpus of Orders and Persons is told its
+ * `placed` edges are not on this canvas, which is the question the missing lines would otherwise
+ * raise. Drawing them wants the other type's payload, which is a second canvas and not a widening
+ * of this one — see `VERTEX_TYPE`.
+ */
+function relationsOf(
+  incident: readonly EdgeAddress[],
+  type: string,
+): { drawn: DrawnRelation[]; undrawn: UndrawnRelation[] } {
+  const drawn: DrawnRelation[] = [];
+  const undrawn: UndrawnRelation[] = [];
+  for (const edge of incident) {
+    const identity = { edgeType: edge.edgeType, srcType: edge.srcType, dstType: edge.dstType };
+    if (edge.srcType !== type || edge.dstType !== type) {
+      undrawn.push({ ...identity, reason: "other-space" });
+      continue;
+    }
+    const adjacency = edge.adjacency("src");
+    if (adjacency === null) {
+      undrawn.push({ ...identity, reason: "not-declared" });
+      continue;
+    }
+    drawn.push({
+      ...identity,
+      address: edge,
+      adjacency,
+      view: `corpus_${edge.srcType}_${edge.edgeType}_${edge.dstType}`,
+    });
+  }
+  return { drawn, undrawn };
+}
+
 /** One tile's bounding box, from the footer. A tile with no `x`/`y` statistics is not in the list. */
 interface TileBox {
   tile: number;
@@ -770,8 +832,53 @@ export interface OpenedCorpus {
    * crossfilter serve the canvas and the charts.
    */
   nodes: string;
-  /** The source-ordered edge relation, or `undefined` when the corpus declares no edge for this type. */
-  edges: string | undefined;
+  /**
+   * The source-ordered edge relations this canvas draws, registered one view per relation.
+   *
+   * **A list, because a corpus declares a list.** This was one name, picked with `.find` over the
+   * relations whose source is this type — so a corpus declaring two edge labels registered the
+   * first and dropped the second with nothing raised, and a chart over `corpus_Person_edges` was a
+   * chart over half the graph. `frame` on the other side takes every one of them
+   * (`packages/corpus/src/corpus.ts`, `edges.filter((e) => e.srcType === address.type)`), and
+   * fossil's own `verbs()` registers a view per relation under `{src}_{edge}_{dst}` rather than
+   * unioning them — which is also what keeps two relations' differing property columns from having
+   * to agree on one schema.
+   *
+   * Empty when the corpus declares no relation this source can draw; {@link OpenedCorpus.undrawn}
+   * is then where the ones it declared went.
+   */
+  edges: readonly EdgeRelation[];
+  /**
+   * The relations incident to this type that the canvas does **not** read, and why.
+   *
+   * A single-type canvas can draw a relation only where *both* endpoints are numbered in its own
+   * `dense_id` space. The rest are dropped from the read rather than mixed into it, and reported
+   * here rather than dropped in silence.
+   */
+  undrawn: readonly UndrawnRelation[];
+}
+
+/** One edge relation of the drawn type, and the view its source-ordered adjacency is registered under. */
+export interface EdgeRelation {
+  readonly edgeType: string;
+  readonly srcType: string;
+  readonly dstType: string;
+  /** The registered view name — `corpus_{src}_{edge}_{dst}`. */
+  readonly view: string;
+}
+
+/** One relation incident to the drawn type that this source cannot read, and why. */
+export interface UndrawnRelation {
+  readonly edgeType: string;
+  readonly srcType: string;
+  readonly dstType: string;
+  /**
+   * `other-space`: an endpoint is another vertex type, so the `dense_id` on that side numbers a
+   * different set of vertices and this source holds no coordinates for any of them.
+   * `not-declared`: both endpoints are this type and the corpus publishes no source-ordered
+   * adjacency to read.
+   */
+  readonly reason: "other-space" | "not-declared";
 }
 
 export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorpus> {
@@ -802,14 +909,15 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
 
   const type = addressing.vertexType(vertexType);
   /**
-   * The relation whose SOURCE is this type — the CSR orientation, which is the drawing read.
+   * **Every** relation whose two endpoints are this type — their CSR orientation, which is the
+   * drawing read — and the incident ones that are not, named rather than dropped.
    *
    * `by_target` is not asked for and its absence is reported rather than hidden: a window's
    * drawable edges all have their source on screen, so the source-aligned tiles are complete for
    * drawing and incomplete for incidence. `tilesFor` says which below, in `gaps`.
    */
-  const edge = addressing.incident(type.type).find((e) => e.srcType === type.type);
-  const adjacency = edge?.adjacency("src") ?? null;
+  const { drawn, undrawn } = relationsOf(addressing.incident(type.type), type.type);
+  const adjacencies = drawn.map((relation) => relation.adjacency);
 
   /**
    * The boxes, and the one query this source makes that is not a slice.
@@ -1029,8 +1137,8 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
     subject: subjects ? (PAYLOAD_IDENTITY[0] as string) : undefined,
     x: PAYLOAD_COORDINATES[0] as string,
     y: PAYLOAD_COORDINATES[1] as string,
-    source: adjacency?.column ?? "src_dense",
-    target: edge?.adjacency("dst")?.column ?? "dst_dense",
+    source: adjacencies[0]?.column ?? "src_dense",
+    target: drawn[0]?.address.adjacency("dst")?.column ?? "dst_dense",
   } as const;
 
   /**
@@ -1046,14 +1154,17 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
    * access to the same bytes rather than two versions of one.
    */
   const nodesView = `corpus_${type.type}`;
-  const edgesView = adjacency ? `corpus_${type.type}_edges` : undefined;
   await coordinator.exec(
     `CREATE OR REPLACE VIEW ${nodesView} AS SELECT * FROM read_parquet([${quoted(payloadFiles)}])`,
   );
-  if (edgesView && edge) {
+  // One view per relation and never a union of them: a relation carries its own properties, so two
+  // unioned relations would have to agree on a schema to be readable at all, and a caller reading
+  // the result could not say which label a row came from. `{src}_{edge}_{dst}` is the name fossil's
+  // own `verbs()` registers them under, prefixed here because these views are not `TEMP`.
+  for (const relation of drawn) {
     await coordinator.exec(
-      `CREATE OR REPLACE VIEW ${edgesView} AS
-         SELECT * FROM read_parquet([${quoted(edge.projectionFiles(1, "src"))}])`,
+      `CREATE OR REPLACE VIEW ${relation.view} AS
+         SELECT * FROM read_parquet([${quoted(relation.address.projectionFiles(1, "src"))}])`,
     );
   }
 
@@ -1121,20 +1232,27 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
       /**
        * The URLs those tiles are in — **asked, not composed**, and distinct.
        *
-       * `directions: ['src']` is the drawing read: every edge a window can draw has its source on
-       * screen, therefore in one of these files. The answer says so — `complete: false` with a
-       * `not-requested` gap for `dst`.
+       * The vertex half off `tilesFor`; the edge half off each drawn relation's own adjacency,
+       * which is `frame`'s shape for the same reason (`corpus.ts`, `edgeLevels.flatMap((set) =>
+       * held.map((tile) => set.tileUrl(tile)))`). `tilesFor`'s `edgeUrls` is every relation whose
+       * SOURCE is this type, so a cross-type one is in it — and `relationsOf` is where that set is
+       * narrowed to the relations whose far end this source can position. The source-ordered
+       * orientation is the drawing read either way: every edge a window can draw has its source on
+       * screen, therefore in one of these files.
        */
       const addressed = addressing.tilesFor({
         type: type.type,
         tiles: selected,
         directions: ["src"],
       });
+      const edgeUrls = [
+        ...new Set(adjacencies.flatMap((a) => selected.map((tile) => a.tileUrl(tile)))),
+      ];
       // Both halves at once: the vertex files and the edge files a window touches are independent
       // reads, and the window is not drawable until both have landed.
       const [vertexFiles, edgeFiles] = await Promise.all([
         readable(addressed.vertexUrls),
-        readable(addressed.edgeUrls),
+        readable(edgeUrls),
       ]);
       /**
        * The camera moved while the tiles were arriving, so this question is already the wrong one.
@@ -1164,5 +1282,15 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
     },
   };
 
-  return { source, nodes: nodesView, edges: edgesView };
+  return {
+    source,
+    nodes: nodesView,
+    edges: drawn.map(({ edgeType, srcType, dstType, view }) => ({
+      edgeType,
+      srcType,
+      dstType,
+      view,
+    })),
+    undrawn,
+  };
 }

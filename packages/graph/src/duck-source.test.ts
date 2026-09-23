@@ -13,13 +13,16 @@ import { openCorpus } from "./duck-source";
  * `@kanzo-tech/graph` sends one source and it is the corpus' — and the tests went with it because a
  * test needs something to call.
  *
- * **The coverage is genuinely gone and nothing replaced it.** `openCorpus` fetches manifests over
- * HTTP and boots a wasm module before it builds a single query, so a stub connector cannot reach
- * `region`, `visibleCte` or `anchorCte` the way `duckBoundedSource` could — jsdom has no module and
- * this file does not invent one. What holds those now is the browser: `docs/showcases/workspace`
- * draws the archive and `docs/showcases/graph-bench` measures the generated corpora, and the figures
- * on `/docs/design/graph` were taken there. That is a slower loop than a unit test and it is the
- * honest description of where the guard is.
+ * **The coverage is largely gone, and the part of that sentence that was wrong is now `corpus-
+ * relations.test.ts`.** `openCorpus` fetches manifests over HTTP and boots a wasm module before it
+ * builds a single query, and this file read that as *unreachable from a test* — but the manifests
+ * are read through `readText`, which is a parameter, and the wasm module ships inside
+ * `@fossil-lang/corpus` and instantiates from bytes, which is how fossil's own suite boots it. So a
+ * stub connector does reach `region`, `visibleCte` and `anchorCte`, over fossil's real addressing,
+ * and the two defects that found is what that file is. What is still only held by the browser is
+ * everything those queries *return*: `docs/showcases/workspace` draws the archive and
+ * `docs/showcases/graph-bench` measures the generated corpora, and the figures on
+ * `/docs/design/graph` were taken there.
  *
  * Two things still hold without a network, and they are why this file exists at all. Its **import
  * surface**: `fossil-import.test.ts` beside this one holds the names `duck-source.ts` takes off

@@ -336,14 +336,22 @@ function openArchive(): Promise<Archive> {
       filterBy: crossfilter,
       wasmUrl: corpusWasmUrl,
     });
-    if (opened.edges === undefined) {
+    if (opened.edges.length === 0) {
       throw new Error(`corpus: ${CORPUS} declares no edges for its vertex type`);
     }
     // `src_dense` is GraphAr's name for the endpoint and the one convention the opening does not
     // hand back — the join key is the only thing this file still spells that the corpus owns.
+    //
+    // One join per relation, unioned: the opening registers a view per edge label, because a label
+    // is what a relation's properties belong to. One row per edge is still what this view is, so
+    // the count below it still counts edges.
     await coordinator.exec(
-      `CREATE OR REPLACE VIEW ${EDGE_ROWS} AS
-         SELECT s.* FROM ${opened.edges} e JOIN ${opened.nodes} s ON e.src_dense = s.dense_id`,
+      `CREATE OR REPLACE VIEW ${EDGE_ROWS} AS ${opened.edges
+        .map(
+          (relation) =>
+            `SELECT s.* FROM ${relation.view} e JOIN ${opened.nodes} s ON e.src_dense = s.dense_id`,
+        )
+        .join(" UNION ALL ")}`,
     );
     return { coordinator, crossfilter, source: opened.source, spec: specFor(opened) };
   });
