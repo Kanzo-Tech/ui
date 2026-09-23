@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Coordinator, Selection } from "@kanzo-tech/mosaic";
-import { duckBoundedSource } from "./duck-source";
+import { duckBoundedSource, openCorpus } from "./duck-source";
 import { vertexId } from "./resident";
 
 /**
@@ -30,13 +30,15 @@ import { vertexId } from "./resident";
  * - **That `count(*) OVER ()` is evaluated before `LIMIT`.** That is DuckDB's semantics, asserted by
  *   *equality with the number the deleted query returned* — 28,424 matched, both ways, on the
  *   million-node corpus — and not by anything in this file.
- * - **Nothing about `openCorpus`.** It fetches manifests over HTTP before it queries anything, so
- *   its half of this shape is exercised by the showcase rather than here. What is shared is
- *   `region`, `visibleCte` and `watcher`, which is what makes the coverage worth having at all.
- *   Its *import surface* is the one part of it that is checked without a network:
+ * - **Almost nothing about `openCorpus`.** It fetches manifests over HTTP before it queries
+ *   anything, so its half of this shape is exercised by the showcase rather than here. What is
+ *   shared is `region`, `visibleCte` and `watcher`, which is what makes the coverage worth having at
+ *   all. Two parts of it *are* checked without a network. Its **import surface**:
  *   `fossil-import.test.ts` beside this file holds the names `duck-source.ts` takes off
  *   `@fossil-lang/corpus` against the real package, because this suite loaded a module for months
- *   whose imports did not resolve and said nothing.
+ *   whose imports did not resolve and said nothing. And **which reader reads the manifests**, in the
+ *   last describe below — the one thing that happens before a byte of payload is wanted, which is
+ *   what makes it reachable from here.
  * - **That the sample is spatially stratified, or that it is a sample at all.** `id % stride = 0`
  *   over a Morton-ordered `dense_id` is the claim, and no stub can evaluate a modulo. What runs it
  *   is `docs/showcases/graph-bench`, and the far-view figures on `/docs/design/graph` were taken
@@ -349,5 +351,43 @@ describe("a duck source's slice", () => {
 
     expect(answers).toEqual([1]);
     release();
+  });
+});
+
+/**
+ * Which reader reads the manifests — the one question about `openCorpus` a stub can answer.
+ *
+ * `fetch` is right for a corpus served off an origin the page can already read, and wrong for a host
+ * whose blobs sit behind a signature: the URL fossil composes is correct and unreadable, and nothing
+ * else on the options carries a credential. The alternative such a host reaches for is composing the
+ * addresses itself, which is the convention-copying the door exists to end — so the reader is lent
+ * instead, and fossil signs nothing it does not already address.
+ *
+ * **What this cannot prove:** that anything after the index reads. The call below raises on the WASM
+ * boot, because jsdom has no module and the test says nothing about where one would come from —
+ * addressing is `fossil_graph::plan` compiled to wasm32 and there is no stub for it. What is
+ * asserted is the part that happens first and is the whole of the pass-through: *who* was asked,
+ * and *for what*.
+ */
+describe("opening a corpus", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("asks the host's reader for the manifest, and never fetches", async () => {
+    const fetching = vi.fn();
+    vi.stubGlobal("fetch", fetching);
+    const reading = vi.fn(async () => "vertices: []\nedges: []\n");
+    const { coordinator } = harness();
+
+    await openCorpus({
+      coordinator,
+      dest: "https://signed.example/corpus/archive",
+      readText: reading,
+    }).catch(() => undefined);
+
+    // The index, at the address fossil composed — this side names no file and joins no path.
+    expect(reading.mock.calls).toEqual([["https://signed.example/corpus/archive/graph.graph.yml"]]);
+    expect(fetching).not.toHaveBeenCalled();
   });
 });

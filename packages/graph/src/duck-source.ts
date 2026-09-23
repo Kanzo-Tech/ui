@@ -806,6 +806,25 @@ export interface OpenCorpusOptions {
    * asks for names when something has to be *named* rather than painted.
    */
   subjects?: boolean;
+  /**
+   * How a manifest is read, when a plain `fetch` of its URL is not how this host reads one.
+   *
+   * **The default is `manifest` below, and it is the whole of what this file knows about reading a
+   * corpus** — right for a corpus served off an origin the page can already read, and wrong for a
+   * host whose blobs sit behind a signature. There the URL fossil composes is correct and
+   * unreadable, and nothing else on these options carries a credential.
+   *
+   * Passed straight through to fossil's `open`, which is where the capability belongs: `open`
+   * composes every address and lends the reader to each one, so a host that signs a URL signs the
+   * index and the per-type manifests the index names **without knowing which files those are**.
+   * That is the point of lending a reader rather than handing over bytes — and it is what keeps a
+   * signing host on this door, because the alternative it otherwise reaches for is composing the
+   * addresses itself, which is the convention-copying `openCorpus` exists to end.
+   *
+   * It reads manifests and nothing else. The payload is read by the coordinator's own connector,
+   * which is the host's already.
+   */
+  readText?: OpenOptions["readText"];
 }
 
 /** One tile's bounding box, from the footer. A tile with no `x`/`y` statistics is not in the list. */
@@ -828,6 +847,9 @@ interface TileBox {
  *
  * A file that is not there raises here and reaches the caller as a `CorpusManifestError` naming the
  * URL, which is a better error than any invented on this side.
+ *
+ * The default rather than the only one: `OpenCorpusOptions.readText` replaces it, and a host behind
+ * signed URLs is the case that needs to.
  */
 async function manifest(url: string): Promise<string> {
   const response = await fetch(url);
@@ -871,7 +893,7 @@ export interface OpenedCorpus {
 }
 
 export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorpus> {
-  const { coordinator, dest, filterBy, subjects = false, vertexType, wasmUrl } = options;
+  const { coordinator, dest, filterBy, readText = manifest, subjects = false, vertexType, wasmUrl } = options;
 
   const reads = openReads(coordinator, filterBy);
   const meta = metaAsker(reads.meta);
@@ -891,9 +913,10 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
    *
    * **`readText` and not `manifestFiles`**, which is the other engine-free rung: holding the bytes
    * is what that one is for, and this never held them for its own sake — it fetched them only to
-   * hand them over.
+   * hand them over. It is the host's reader where one was given, and `fetch` where none was; either
+   * way the addresses it is lent to are fossil's, which is the half that does not move.
    */
-  const addressing = await openFossilCorpus(dest, { readText: manifest, wasmUrl });
+  const addressing = await openFossilCorpus(dest, { readText, wasmUrl });
 
   const type = addressing.vertexType(vertexType);
   /**
