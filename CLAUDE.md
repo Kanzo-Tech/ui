@@ -2,9 +2,14 @@
 
 ## Three standing constraints
 
-1. **No legacy, no backwards compatibility, no deprecation shims.** Every package is `0.0.0` and
-   there are no tags; nothing has ever been published. Rename and delete outright — an alias is
-   permanent and a clean rename is free. A document that hedges on compatibility is wrong.
+1. **No legacy, no backwards compatibility, no deprecation shims.** Rename and delete outright — an
+   alias is permanent and a clean rename is free. A document that hedges on compatibility is wrong.
+   **This survived the first publish, which is when a rule like it usually dies.** Two releases are
+   out — `v0.1.0` on 2026-08-27 and `v0.2.0` on 2026-09-17 — so a rename is now a breaking change a
+   changeset has to state in the consumer's words rather than a free edit. It is still taken. What
+   would reverse it is a consumer we cannot ask to edit an import: an installed base large enough
+   that the cost of the edit lands on people who did not choose it. There is none at `0.x`, and the
+   day there is, this paragraph is the thing that changes.
 2. **Minimal and generic.** The fundamental pieces to grow from, not a catalogue of conveniences.
    **Before adding a way to express something, grep for the ways it is already expressed.**
    Collapsing two or three implementations of one idea is among the most common commits here —

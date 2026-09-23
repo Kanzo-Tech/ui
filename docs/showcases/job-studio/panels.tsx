@@ -234,8 +234,10 @@ export function ConfigureForm({
             <RadioGroupIndicator className="order-last mt-0.5 ms-auto" />
           </RadioGroupCard>
 
-          {/* Not shipped. `Ribbon` says so ON the control and disables it, instead of a
-              hand-rolled wrapper and a `disabled` prop that leaves the reason unsaid. */}
+          {/* Not shipped, and the badge says so ON the control rather than leaving `disabled` to
+              mean whatever a reader guesses. `Float` over a `relative` box is the whole of it —
+              there was a `Ribbon` wrapping exactly this and it was deleted, because a fixed
+              arrangement of parts that already ship is written out where it is used. */}
           <div className="relative">
             <RadioGroupCard className="items-start" disabled value="scheduled">
               <CalendarClockIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />

@@ -66,8 +66,14 @@ branch unreachable, and the only gate on submission was "is the text non-empty".
 job the editor had marked red.
 
 **Several pieces were hand-rolled over parts that already exist.** The step indicator, the field
-frame, the "coming soon" wrapper and a radio card written as a bordered `<label>` are `Steps`,
-`Field`, `Ribbon` and `RadioGroupCard`.
+frame and a radio card written as a bordered `<label>` are `Steps`, `Field` and `RadioGroupCard`.
+
+The "coming soon" wrapper is the exception, and it is the more interesting one: this screen composes
+it here, out of `Float` and `Badge` over a `relative` box. There was a `Ribbon` for it, and it was
+deleted — its whole render was that box with four scalar props around it, which is
+[a fixed arrangement of parts that already ship](/docs/philosophy#the-naming-rule), and
+those are written out where they are used rather than hidden behind a name. The composition is four
+lines and a reader can see all four, which is the trade that rule is making.
 
 ## Three pages, and what went in the bin getting here
 
