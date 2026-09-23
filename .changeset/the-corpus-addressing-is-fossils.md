@@ -25,9 +25,10 @@ you open a corpus.**
 pnpm add @fossil-lang/corpus
 ```
 
-Nothing on the root barrel is affected, and neither are the rendering hooks. The residual cost is
-real and named rather than hidden: `duckBoundedSource` does not need this peer and shares the subpath
-with `openCorpus`, which does — so a host on the first either installs it or the entry gets split.
+Nothing on the root barrel is affected, and neither are the rendering hooks. There is no residual
+cost left to name: `duckBoundedSource` shared this subpath and did not need the peer, so a host on it
+either installed the reader or the entry had to be split — and that source is deleted in the same
+release. Everything on `./duckdb` wants fossil now, so the subpath and the peer are one decision.
 The declared range is `*` until fossil publishes, and becomes a real one then.
 
 **Two options on `OpenCorpusOptions`, for the two things only a host can answer.**

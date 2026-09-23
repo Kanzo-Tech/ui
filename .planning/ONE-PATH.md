@@ -235,12 +235,22 @@ propia cláusula: un lazo filtra los gráficos y deja el lienzo mostrando el laz
 **Trampa que no se puede olvidar:** el consolidador difiere cada lote por `requestAnimationFrame`,
 que no dispara en pestaña oculta. Puentearlo deja correr la tubería y **falsea las latencias**.
 
-### `explore` se implementa — y **sale de la lista de borrado**
+### `explore` se BORRA — y la reversión de §3 queda a su vez revertida
 
-`ONE-SOURCE.md` §3 lo tenía condenado porque `memorySource` era su única implementación. **Se
-revierte**: la razón por la que existía —*un rectángulo no puede expresar «dos saltos desde este
-nodo»*— es exactamente lo que Ángel pide («obtén todas las aristas vecinas»), y es la costura por
-donde entra el `expand` de fossil.
+> **Corregido 2026-09-23.** Este apartado decía *«`explore` se implementa — y sale de la lista de
+> borrado»*, y eso ya no describe el árbol. Ángel decidió el borrado literal de §3 de
+> `ONE-SOURCE.md`: `explore`, `ExploringSource` y `ExploreRequest` están **fuera** del paquete, y
+> `GraphApi.explore` con ellos. La lápida vive en `packages/graph/src/index.test.ts`, "keeps the
+> neighbourhood question deleted, and says what it was for", y lleva las dos frases obligatorias —
+> el rectángulo que no expresa dos saltos, y `/docs/design/graph` nombrándolo como la costura del
+> `expand`. Lo que sigue abajo **no se toca**: sigue siendo el porqué y sigue siendo el camino de
+> vuelta, y la medición que lo descartó es exactamente lo que hace que volver sea barato de decidir.
+
+`ONE-SOURCE.md` §3 lo tenía condenado porque `memorySource` era su única implementación. La razón por
+la que existía —*un rectángulo no puede expresar «dos saltos desde este nodo»*— es exactamente lo que
+Ángel pide («obtén todas las aristas vecinas»), y es la costura por donde entra el `expand` de
+fossil. Eso sigue siendo verdad; lo que cambió es que el paquete no lo declara mientras no haya nadie
+que lo responda.
 
 **Intentado el 2026-08-17 con una CTE recursiva sobre la relación de aristas, y descartado por
 medición:** un salto desde una semilla sobre 6,9M de aristas no volvió en 45 s, y como Mosaic
@@ -427,8 +437,9 @@ barato y es lo primero que se nota.
   `decisions/a-look-is-form-and-a-channel-is-a-binding.md`, que otra sesión dejó abierta.
   Trampa que costó un render: con `fill` constante la consulta se queda sin columna categórica y cae
   al defecto del origen. La columna que se pide es **la primera vinculación que nombra una**.
-- **El lienzo encuadra lo que hay.** `extent()` sube a `BoundedSource` como opcional, `duckBoundedSource`
-  gana la suya, `CorpusSource` se borra, y el bucle encuadra **antes** de la primera pregunta.
+- **El lienzo encuadra lo que hay.** `extent()` sube a `BoundedSource` como opcional, `CorpusSource`
+  se borra, y el bucle encuadra **antes** de la primera pregunta. (`duckBoundedSource` ganó la suya
+  en su día y se borró entero el 2026-09-23 con §3 de `ONE-SOURCE.md`.)
 - **Los enlaces dejan de sumarse por defecto** (`link.blend`). Era el defecto de cosmos.gl que nadie
   había elegido, y era la causa de que el archivo se viera como una nube blanca.
 

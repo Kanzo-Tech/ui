@@ -7,22 +7,33 @@ mantenemos.
 Este fichero es el corte: lo hecho está en `main`, lo que falta está aquí con el porqué, para que
 una ventana limpia lo continúe sin reconstruir el razonamiento.
 
-> **VIVO, y estrecho. Estado verificado contra el árbol el 2026-08-26.**
+> **HECHO. §1–§4 ejecutados; verificado contra el árbol el 2026-09-23.**
 >
-> **§1 y §2 están hechos:** el workspace abre por `openCorpus` (`graph-state.tsx`, `specFor(opened)`,
-> `idField: "dense_id"`) y el ejemplo existe. **§3 y §4 no**: `memorySource` sigue en
-> `memory-source.ts` y en el barril, y `duckBoundedSource` sigue en `duck-source.ts`. Eso es la F3
-> de `ADOPT-FOSSIL-CORPUS.md`, que la nombra en una sola frase — **§4 de aquí es su única lista de
-> trabajo**, y enumera los cinco sitios que el borrado rompe, empezando por la única aserción de
-> comportamiento que `smoke` tiene sobre el barril raíz sin peers opcionales.
+> **§1 y §2** aterrizaron el 26 de agosto: el workspace abre por `openCorpus` (`graph-state.tsx`,
+> `specFor(opened)`, `idField: "dense_id"`) y el ejemplo existe.
 >
-> **Dos avisos antes de ejecutar §3 al pie de la letra:**
-> 1. **La línea que condena `explore`, `ExploringSource` y `ExploreRequest` está revertida** por
->    `ONE-PATH.md`, que asciende `explore` de comodidad a mecanismo obligatorio. Borrarlo sería
->    borrar lo que el otro plan promovió.
-> 2. **«`GraphSpec` desaparece entero» no pasó**, y ya no es lo que se pide: `GraphSpec` sigue vivo
->    en el workspace. Lo que sí aterrizó es la otra mitad — los canales son props y `openCorpus`
->    perdió `categoryField`.
+> **§3 y §4 se ejecutaron el 2026-09-23, al pie de la letra y con las dos decisiones que quedaban
+> abiertas resueltas por Ángel:**
+> - `memory-source.ts` borrado entero, con `MemoryGraph` y los nueve tests de
+>   `describe("memorySource")`.
+> - `explore`, `ExploringSource` y `ExploreRequest` **también borrados** — es decir, el aviso 1 de
+>   abajo queda a su vez revertido, y `ONE-PATH.md` está corregido para no decir lo contrario del
+>   árbol. La lápida obligatoria está en `packages/graph/src/index.test.ts`, "keeps the neighbourhood
+>   question deleted, and says what it was for", con las dos frases.
+> - `duckBoundedSource` y `DuckSourceOptions` borrados, y con ellos los diez tests de
+>   `duck-source.test.ts` que eran su único conductor. `Columns.subject` **no** quedó huérfano
+>   (`openCorpus` lo usa con `subjects: true`); `typeIndex` sí, y es `VERTEX_TYPE = 0` en
+>   `duck-source.ts`. `held` quedó dead-by-construction y se colapsó con él.
+> - La aserción de `smoke` cambió a *«graph root barrel imports with only non-optional peers»*, y el
+>   changeset `one-source-and-it-reads-a-corpus.md` dice que el barril raíz ya no dibuja.
+> - Las tres previews de doc (`example-memory`, `example-overlays`, `example-axes`) se reescribieron
+>   sobre `openCorpus` contra `docs/public/corpus/archive`, compartiendo un solo DuckDB por
+>   `docs/lib/archive-corpus.ts`. `sightings-graph.ts` borrado; `force-layout.ts` y `rng.ts` **no**,
+>   porque `showcases/workspace/graph-data.ts` todavía los importa.
+>
+> **«`GraphSpec` desaparece entero» no pasó**, y no era lo que se pedía: `GraphSpec` sigue vivo en el
+> workspace. Lo que aterrizó es la otra mitad — los canales son props y `openCorpus` perdió
+> `categoryField`.
 >
 > El estado del árbol que describe §5 es del 16 de agosto y no vale para nada; la trampa 2 (recompilar
 > `fossil` o escribe el `chunk_size` viejo) la absorbió F0 de `ADOPT-FOSSIL-CORPUS.md`. Las rutas
