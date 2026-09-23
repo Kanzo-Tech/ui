@@ -32,8 +32,12 @@ and an opening example that hands the canvas arrays teaches an API you would the
 It is the archive the [workspace showcase](/docs/showcases/workspace) draws, opened the same way —
 one world, not a second one written for the docs.
 
-If you *do* hold the arrays already, `memorySource` is still there and still one call; it is the
-second thing on this page rather than the first.
+**There is no second source to fall back to, and that is the same decision said twice.** A host
+holding three typed arrays used to have `memorySource`, one call, no database. It is deleted:
+keeping it meant a second implementation of sampling, anchoring and the link-length discard, in
+JavaScript, that nothing but its own tests ever ran — and it kept the first example teaching an API
+no product takes. A host that genuinely has arrays writes a `BoundedSource`, which is exported and is
+one method.
 
 Everything else on this page is what you add when one of those assumptions stops holding.
 
@@ -80,18 +84,18 @@ about the chrome and wrong about what sat underneath it; what changed and what w
 is on [the bounded reader](/docs/design/graph).
 
 **The split is proven unevenly, and it is worth being exact about where.** The *source* half has two
-call sites: the workspace showcase and `graph-bench/measure-bounded.ts`, which drives
-`duckBoundedSource`, `shouldSlice` and `Slice` against synthetic generators. The *renderer* half —
-the hooks, and the buffer building they do internally — has **one**: the workspace. The benchmark route builds its own cosmos.gl
-instance and its own upload path, because measuring the upload is the thing it is for.
+call sites: the workspace showcase and `graph-bench/measure-bounded.ts`, which drives `openCorpus`,
+`shouldSlice` and `Slice` against generated corpora. The *renderer* half — the hooks, and the buffer
+building they do internally — has **one**: the workspace. The benchmark route builds its own
+cosmos.gl instance and its own upload path, because measuring the upload is the thing it is for.
 
 `GraphCanvas` is therefore a shape proven against one host, which the decision record says plainly
 rather than hiding. The second comes from migrating a real product screen, not from another example.
 
-Here is that shape with both hooks on it, over the fixture the next section takes apart — the dot
-grid locked to the graph's own space, standing labels on the hubs, a hover card that clears its own
-node, and a drag that selects. Pick a tool and drag a box; Shift borrows the marquee whichever tool
-is armed, and at release `Alt` removes what was drawn while `⌘`/`Ctrl` adds.
+Here is that shape with both hooks on it, over the same archive — the dot grid locked to the graph's
+own space, standing labels on the hubs, a hover card that clears its own node, and a drag that
+selects. Pick a tool and drag a box; Shift borrows the marquee whichever tool is armed, and at
+release `Alt` removes what was drawn while `⌘`/`Ctrl` adds.
 
 <ComponentPreview componentName="graph" fileName="example-overlays" hasMaxHeight />
 
@@ -109,6 +113,12 @@ the effect ends with a `requestAnimationFrame` rather than calling `schedule()` 
 **An overlay is attached to a vertex, never to a slot.** Held as an index, a label would keep its
 position and silently start naming a different node the first time the resident set moved. The
 labels here are built from `vertexId(type, dense)` and resolved through `Resident` at paint time.
+
+**And the label text is a query, not a slice field.** A slice carries positions, identities and
+category *ordinals* — never names, because a name is a string and the drawing path carries addresses
+at a measured 1.87× saving. So the example asks the **relation** `openCorpus` registered for the
+fourteen hubs it wants to label, once, and holds them by `dense_id`. Hover anything else and the card
+shows the address, which is what this page actually knows.
 
 **The gesture reads its modifiers at *release*, not at press**, which is the small decision that
 makes it feel right: release is when the reader has decided.
@@ -128,28 +138,22 @@ Morton-ordered `dense_id`, which spreads the marks over the window instead of dr
 it. So a view of everything is still a few thousand marks, and they are still everywhere.
 
 ```ts
-const source = duckBoundedSource({ coordinator, nodes: "nodes", edges: "edges" });
+const { source } = await openCorpus({ coordinator, dest: "/corpus/archive" });
 const { slice, refresh } = useGraph({ source, onFailure });
 // The camera is already wired: moving it re-asks.
 ```
 
-A host that already holds its arrays wraps them in `memorySource(...)` instead — same path, no
-database. Under `limit` either source is asked once for everything and never again, so a graph that
-fits pays for nothing.
+Under `limit` the source is asked once for everything and never again, so a corpus that fits pays for
+nothing.
 
 <ComponentPreview componentName="graph" fileName="example-memory" hasMaxHeight />
 
-That is the sightings fixture drawn as the graph it already is: every report joined to the beast it
-names and the region it happened in, so the beasts and the regions are **hubs**. Pull on one arc and
-you get a beast's reports across every region at once — which is the thing the crossfilter charts
-over the same rows cannot do.
-
-Three things in it are worth reading rather than copying. It is `useGraph` + `GraphRootProvider`
+Two things in it are worth reading rather than copying. It is `useGraph` + `GraphRootProvider`
 rather than `GraphCanvas`, because the count in the corner comes from `useGraphContext()` and a
-component that renders the root sits *above* the provider. The count is `marks` **of** `n`, because
-`n` is what the window matched before `limit` cut it and a truncated answer must not read like a
-complete one. And every vertex is `vertexId(type, dense)` rather than its buffer index — an index
-names a different vertex the moment the camera moves.
+component that renders the root sits *above* the provider. And the count is `marks` **of** `n`,
+because `n` is what the window matched before `limit` cut it and a truncated answer must not read
+like a complete one. Over the archive the two agree — 1,543 vertices is under the limit — and they
+part the first time a window holds more than it can draw.
 
 ### The channels ride the question, not the source
 
@@ -191,15 +195,19 @@ spatial question is asked against.
 Both are strings naming a column, and there is nothing to be done about that: naming a column is what
 Plot, Vega and every graphical grammar do. If the column is not there the query fails and says so.
 
-### Three sources, three jobs
+### One source, one job
 
 | | for | what it needs to be told |
 |---|---|---|
-| `memorySource` | arrays you already hold | the arrays |
-| `duckBoundedSource` | any relation with `x`/`y` | the two relations, and which columns carry identity and position |
 | `openCorpus` | a tree `fossil` wrote | **where it is** |
 
-**None of them is told what to draw.** A source is *where the bytes are*; what colours a point and
+There were three. `memorySource` took the arrays you already held; `duckBoundedSource` took any
+relation with `x`/`y` plus the columns that carried identity and position. Both are deleted, and the
+two deletions are one argument: a corpus already declares those names in its manifest, so a source
+that *accepts* them is this side writing down what the other side owns — and the general source was
+the general case of exactly that. What is left is a door that takes one argument.
+
+**It is not told what to draw either.** A source is *where the bytes are*; what colours a point and
 what the size ramp is spent on are channels on the canvas — `fill`, `r` — and they ride each
 request, so changing one re-asks and rebuilds nothing. A source that took `categoryField` is how
 recolouring used to mean constructing a new source and restarting the query loop.
@@ -218,10 +226,10 @@ a glob, because expanding one means listing a directory — and reads each tile'
 the footer once. After that a camera move is arithmetic over those boxes and a list of URLs, with no
 request between the camera moving and a URL being computable.
 
-It takes **no column names and no type index**, deliberately. Those come from the manifest or they
-do not come: a corpus reader that also accepted `idField` would be `duckBoundedSource` with extra
-steps, and there is already one of those for the case this is not. `subjects: true` adds the
-identity column, off by default because it costs about twice the drawing tile.
+It takes **no column names and no type index**, deliberately. Those come from the manifest or they do
+not come — which used to be argued against the sibling that did take them, and now has to stand on
+its own. `subjects: true` adds the identity column, off by default because it costs about twice the
+drawing tile.
 
 **What it buys, and what it does not.** Panning a million-vertex corpus went from 534 ms to 72, and
 stopped growing with the corpus — 73 ms at two hundred thousand against 72 at a million. First paint
@@ -326,6 +334,12 @@ and the difference is the point:
   not exported: the ring is placed in the renderer's live coordinate box, which is a number a caller
   would have to read back off the graph to get right.
 
+  **The preview above no longer passes one, and the reason is worth reading.** `clusters` is one
+  group per **buffer position**, and a slice carries positions, identities and ordinals — a corpus'
+  own `cluster_id` is a column of the relation, not of the answer, so seeding the ring would mean a
+  second query per camera move to feed a force. The host that has a grouping in hand is the host that
+  laid the graph out in the tab, and that host is the one this package stopped shipping a source for.
+
 ## Things the source will not tell you twice
 
 These are cosmos.gl behaviours that typecheck perfectly while being wrong.
@@ -350,11 +364,18 @@ These are cosmos.gl behaviours that typecheck perfectly while being wrong.
 Every shape below is exported, because a host writing its own source or its own panels implements
 them rather than passes them.
 
-**The source contracts.** `BoundedSource` is the whole of what the canvas asks of your data — answer
-"what is in this rectangle, at this zoom, in at most this many marks". `SliceRequest` is that
-question; `ExploringSource` is a source that can also answer a topological one, and `ExploreRequest`
-is that second question: where to start and how far out. `MemoryGraph` is the shape the in-memory
-source takes — `vertices`, `positions` as `[x0, y0, …]` and `links` as indices into them.
+**The source contract.** `BoundedSource` is the whole of what the canvas asks of your data — answer
+"what is in this rectangle, at this zoom, in at most this many marks" — and `SliceRequest` is that
+question. It is one method and it is exported precisely so a host we did not anticipate can write
+one.
+
+`ExploringSource` and `ExploreRequest` said the *other* question — a neighbourhood, where to start
+and how far out — and they are deleted with the only source that answered it. A rectangle cannot
+express "two hops from this node", so leaving it out narrows the contract rather than simplifying
+it; that is stated rather than hidden because the tried alternative failed on measurement, not on
+taste: a recursive CTE over 6.9M edges did not return in 45 seconds and took the tab with it. The
+shape that works is addressed — the two tiles a seed's `dense_id` falls in — and it needs `by_target`
+tiled the way `by_source` is, which is the corpus' side of the seam.
 
 **A question arrives finished.** `limit` and `minLinkPixels` are **required** fields, filled in by
 the query loop before your source is called: read `request.limit`, read `request.minLinkPixels`, and
@@ -381,13 +402,14 @@ in Plot's names and under Plot's rule about what a value means. `Sim` is the for
 handed straight to the GPU simulation.
 
 **On `@kanzo-tech/graph/duckdb`.** `DuckSource` is a `BoundedSource` that also publishes the
-reader's selection as a clause the rest of the page filters by, and `DuckSourceOptions` is what it
-takes. `openCorpus` takes `OpenCorpusOptions` and returns an `OpenedCorpus` — the source for the
-canvas, and the handle for everything else the corpus holds.
+reader's selection as a clause the rest of the page filters by. `openCorpus` takes
+`OpenCorpusOptions` and returns an `OpenedCorpus` — the source for the canvas, and the handle for
+everything else the corpus holds. `DuckSourceOptions` was the general source's options object and is
+gone with it.
 
 ## API Reference
 
-Twenty-one names, grouped the way the barrel groups them. It was thirty-six, and the fifteen that
+Twenty names, grouped the way the barrel groups them. It was thirty-six, and the sixteen that
 left were measured rather than judged: a census of every import of this package — this repository,
 its showcases and examples, and the one consumer outside it — found that eight of them appeared in
 no import list anywhere, and the rest were a default a host had to spread, a constant this package
@@ -413,7 +435,7 @@ a canvas ends up disagreeing with the page around it.
 | Name | What it is |
 | --- | --- |
 | `scaleOf` | The categorical scale the channels imply: what colour and what shape an ordinal wears. `capacity` is where *Other* begins. |
-| `neighboursOf` | The **renderer's** adjacency: what is on screen, which is what a hover highlight wants. The graph's own answer is a `neighbourhood` query on a source that supports one. |
+| `neighboursOf` | The **renderer's** adjacency: what is on screen, which is what a hover highlight wants — and the only adjacency this package answers. The graph's own answer is a question for `fossil`'s `expand`. |
 
 `buffers`, `appearance`, `forces` and `isColour` were on this barrel and are not any more. They are
 the steps the canvas takes on your behalf — `useGraphLook` calls the first two, `useRenderer` the
@@ -478,8 +500,12 @@ decision rather than a constant to borrow.
 
 | Name | What it is |
 | --- | --- |
-| `memorySource` | The source for a host that already holds its arrays. Every consumer needs a source, including the ones bounding buys nothing for, so this one is written here once rather than at each call site differently. |
 | `shouldSlice` | Whether to slice at all. `undefined` from a source that cannot say cheaply means *yes*: an unknown corpus is more likely to be the large kind. |
+
+**There is no source on this barrel.** `memorySource` was here — the one for a host that already
+holds its arrays — and it is deleted along with `duckBoundedSource` on the subpath. What is left is
+the *contract*, which is a type and therefore not in this table: `BoundedSource` is one method, and a
+host whose bytes arrive some other way implements it. A picture costs `@kanzo-tech/graph/duckdb`.
 
 **The defaults are resolved, not published.** `BOUNDED_DEFAULTS` was here, and a source imported it
 to find out what a request meant when it said nothing — `limit` 20,000, the **legibility** ceiling

@@ -4,8 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   cursorChip,
   denseOf,
-  memorySource,
-  typeOf,
   useGraph,
   useGraphOverlays,
   useGraphSelection,
@@ -15,39 +13,53 @@ import {
   type VertexId,
 } from "@kanzo-tech/graph";
 import { Alert, AlertDescription, Badge, Show, ToggleGroup, ToggleGroupItem } from "@kanzo-tech/ui";
+import { Query, column, numbers } from "@kanzo-tech/ui/analytics";
 import { LassoIcon, SquareDashedIcon } from "lucide-react";
-import { KIND, sightingsGraph } from "@/lib/sightings-graph";
+import { archiveCoordinator, useArchive } from "@/lib/archive-corpus";
 
 /**
  * The chrome the canvas deliberately does not own: the grid that belongs to the graph's space,
  * standing labels on the hubs, a hover card, and a drag that selects.
  *
  * Both hooks want the graph from *above* the element, where a context cannot be read — which is why
- * this is `useGraph` + `GraphRootProvider`'s shape rather than `GraphCanvas`,
- * and why the two are exported at all instead of living inside it. What a lasso commits to is a
- * policy only a product can write; everything below `commit` is this example's, not the package's.
+ * this is `useGraph`'s shape rather than `GraphCanvas`, and why the two are exported at all instead
+ * of living inside it. What a lasso commits to is a policy only a product can write; everything
+ * below `commit` is this example's, not the package's.
  *
  * Pick a tool and drag. Shift borrows the marquee whichever tool is armed, and at release `Alt`
  * removes what was drawn while `⌘`/`Ctrl` adds — read at release rather than at press, because that
  * is when the reader has decided. No tool at all is the reading posture: a drag pans.
+ *
+ * **The labels are the part this rewrite made honest.** A slice carries positions, identities and
+ * category *ordinals* — never names, because a name is a string and the drawing path carries
+ * addresses. So a label comes from the relation, and the relation is the other half `openCorpus`
+ * handed back: one query at open for the fourteen hubs the archive has, keyed by `dense_id`, held as
+ * a map. Hover anything else and the card says the address, which is the truth — this page never
+ * asked what that vertex is called. A product asks: the workspace showcase's inspector queries the
+ * handful it is about to draw, and that is a second request, which is why it is not free here.
  */
+
+/** The two vertex kinds every report points at. Fourteen rows, so the labels are worth the ink. */
+const HUBS = "kind IN ('beast', 'region')";
+
 export default function Example() {
-  const graph = useMemo(sightingsGraph, []);
-  const source = useMemo(() => memorySource(graph), [graph]);
+  const { opened, unopened } = useArchive();
   const [failure, setFailure] = useState<string | null>(null);
   const [tool, setTool] = useState<Tool>("rect");
   const [selection, setSelection] = useState<Selection | null>(null);
   const [hovered, setHovered] = useState<VertexId | null>(null);
+  const [names, setNames] = useState<Map<number, string>>(new Map());
 
   // One ref, in the one direction that needs it. The overlays take the api, so they are declared
   // after it; the api owes the overlays a repaint after a look upload — which does not tick, so
-  // nothing else would ask for one — and that is what this bridges. It used to be two refs and two
-  // accessors, because the hook wanted `getGraph` and `getResident` rather than the api.
+  // nothing else would ask for one — and that is what this bridges.
   const overlaysRef = useRef<ReturnType<typeof useGraphOverlays> | null>(null);
   const schedule = useCallback(() => overlaysRef.current?.schedule(), []);
 
   const api = useGraph({
-    source,
+    source: opened?.source ?? null,
+    fill: "kind",
+    r: "degree",
     onFailure: setFailure,
     schedule,
     // **The overlays never paint on their own, and that is the whole of why they are a hook.**
@@ -66,16 +78,33 @@ export default function Example() {
   overlaysRef.current = overlays;
   const { cardRef, gridRef, hostRef, labelRef, setLabelOrder, setHovered: setOverlayHover, track } = overlays;
 
-  // The hubs carry the labels: they are the only points whose name is worth the ink at this scale.
+  /**
+   * The hubs, by name — the one question this example asks the *relation* rather than the source.
+   *
+   * `coordinator.query` rather than a client, because the names do not move with the page: nothing
+   * here publishes a filter. A readout that must follow a crossfilter is a `MosaicClient`, and the
+   * workspace showcase is where those are.
+   */
+  useEffect(() => {
+    if (!opened) return;
+    let live = true;
+    void archiveCoordinator()
+      .query(Query.from(opened.nodes).select({ id: "dense_id", label: "label" }).where(HUBS))
+      .then((rows: unknown) => {
+        if (!live) return;
+        const ids = numbers(rows, "id") ?? [];
+        const labels = (column(rows, "label") ?? []) as string[];
+        setNames(new Map([...ids].map((id, i) => [Number(id), labels[i] ?? ""])));
+      });
+    return () => {
+      live = false;
+    };
+  }, [opened]);
+
   // Built from identity and not from who is resident — an overlay is attached to a vertex, and the
-  // hook resolves it through `Resident` at the moment of painting.
-  const labelled = useMemo(
-    () => [
-      ...graph.hubs.beasts.map((_, i) => vertexId(0, i)),
-      ...graph.hubs.regions.map((_, i) => vertexId(1, i)),
-    ],
-    [graph],
-  );
+  // hook resolves it through `Resident` at the moment of painting. `openCorpus` draws one vertex
+  // type and numbers it zero, which is the whole of why the type half is a literal here.
+  const labelled = useMemo(() => [...names.keys()].map((id) => vertexId(0, id)), [names]);
 
   useEffect(() => {
     setLabelOrder(labelled);
@@ -89,10 +118,8 @@ export default function Example() {
     return () => cancelAnimationFrame(frame);
   }, [labelled, hovered, setOverlayHover, setLabelOrder, track, schedule, api.slice]);
 
-  const name = (vertex: VertexId) =>
-    typeOf(vertex) === 0
-      ? graph.hubs.beasts[denseOf(vertex)]
-      : graph.hubs.regions[denseOf(vertex)];
+  /** A name where one was asked for, and the address where none was. */
+  const name = (vertex: VertexId) => names.get(denseOf(vertex)) ?? `#${denseOf(vertex)}`;
 
   const gesture = useGraphSelection({
     // Straight off the api: both are built once by `useGraph` and stable for the component's life.
@@ -111,10 +138,10 @@ export default function Example() {
       <Show
         fallback={
           <Alert variant="destructive">
-            <AlertDescription>{failure}</AlertDescription>
+            <AlertDescription>{unopened ?? failure}</AlertDescription>
           </Alert>
         }
-        when={failure === null}
+        when={unopened === null && failure === null}
       >
         <div className="relative isolate size-full overflow-hidden bg-background" ref={hostRef}>
           <div className="size-full" ref={api.hostRef} />
@@ -150,11 +177,7 @@ export default function Example() {
               ref={cardRef}
             >
               {/* `&&` rather than `Show`: its children are an eager prop, and this dereferences. */}
-              {hovered !== null && (
-                <span>
-                  {KIND[typeOf(hovered)]} · {name(hovered)}
-                </span>
-              )}
+              {hovered !== null && <span>{name(hovered)}</span>}
             </div>
           </div>
 

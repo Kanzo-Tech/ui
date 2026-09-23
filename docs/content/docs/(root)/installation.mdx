@@ -56,9 +56,15 @@ excludes graphs by name.
 pnpm add @kanzo-tech/graph @cosmos.gl/graph
 ```
 
-Its own database half sits behind `@kanzo-tech/graph/duckdb`, on the same rule and for the same
-reason: a host drawing arrays it already holds takes `memorySource` and pays for no database, and
-the subpath is what makes that promise true rather than merely stated.
+Its own database half sits behind `@kanzo-tech/graph/duckdb`, on the same rule — and the reason
+changed when the package went down to one source. It used to be *a host drawing arrays it already
+holds pays for no database*; there is no such host now, because the only source is the one that reads
+a corpus. What the subpath protects is the root barrel, which is a rendering surface — hooks, looks,
+identity, buffers — and draws nothing on its own. Opening a corpus is what costs a database:
+
+```bash
+pnpm add @kanzo-tech/mosaic @fossil-lang/corpus
+```
 
 ### The AI surfaces are a package too
 

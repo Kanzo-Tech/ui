@@ -1,46 +1,34 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import {
-  GraphRootProvider,
-  memorySource,
-  useGraph,
-  useGraphContext,
-} from "@kanzo-tech/graph";
+import { useState } from "react";
+import { GraphRootProvider, useGraph, useGraphContext } from "@kanzo-tech/graph";
 import { Alert, AlertDescription, Badge, Show } from "@kanzo-tech/ui";
-import { sightingsGraph } from "@/lib/sightings-graph";
+import { useArchive } from "@/lib/archive-corpus";
 
 /**
- * The same canvas with no database at all — arrays in hand, wrapped in `memorySource`.
+ * The same archive, drawn by the **api** rather than by the component — and the count that needs it.
  *
- * It draws the sightings fixture as the graph it already is: every report joined to the beast it
- * names and the region it happened in, so the beasts and the regions are **hubs**. That is the one
- * thing a graph shows that the crossfilter charts over the same rows cannot — pull on one arc and
- * you get the reports of a beast across every region at once.
+ * `GraphCanvas` is `useGraph` and `GraphRootProvider` in one call, and it is what you want until
+ * something has to read the graph from *above* the element. The badge is that something: it reads
+ * `slice` off `useGraphContext()`, so it has to be a child of the provider, and a component that
+ * renders the provider sits above it where no context is readable. Hence the two pieces.
  *
- * And it is the `useGraph` + `GraphRootProvider` shape rather than `GraphCanvas`, because the count
- * below is read from `useGraphContext()` and a component that renders the root sits *above* the
- * provider, where no context is readable.
+ * **This example used to be the one with no database at all** — three typed arrays wrapped in
+ * `memorySource`, the cheapest thing on the page. That source is deleted: this package sends one
+ * source and it reads a corpus, so an arrays-in-hand example taught an API no product takes. What
+ * the example is about did not change, because it was never the arrays; it was the two pieces and
+ * the honest count.
  *
- * **This is not the first example, and that is the point.** `example-default` used to be an
- * arrays-in-hand one and was deliberately replaced by the corpus: a first example that hands the
- * package three typed arrays teaches an API no product uses. So the corpus opens the page and this
- * sits under the sentence that names `memorySource` — the path for a host whose graph already fits
- * in hand. Restoring it as the first example would undo that argument rather than continue it.
- *
- * The arrays themselves are `@/lib/sightings-graph`, because three examples on this page draw the
- * same graph and the whole point of the other two is that they are this one wearing different
- * chrome. How you fill a `Float32Array` is generic; what `memorySource` asks for is the composition
- * below.
+ * `marks` **of** `n`, never `marks` alone: `n` is what the window matched before `limit` cut it, and
+ * a truncated answer that reads like a complete one is the one thing a bounded view owes its reader
+ * not to do. Over the whole archive the two agree — 1,543 vertices is under the limit, so the source
+ * is asked once for everything — and they part the moment a window holds more than it can draw.
  */
 
 /** A child of the provider, because that is the only place the context is readable. */
 function Tally() {
   const { slice } = useGraphContext();
 
-  // `marks` of `n`, never `marks` alone: `n` is what the window matched before `limit` cut it, and a
-  // truncated answer that reads like a complete one is the one thing a bounded view owes its reader
-  // not to do.
   return (
     <Badge className="absolute top-2 left-2" variant="secondary">
       <Show fallback="asking…" when={slice !== null}>
@@ -51,21 +39,27 @@ function Tally() {
 }
 
 export default function Example() {
-  const graph = useMemo(sightingsGraph, []);
-  const source = useMemo(() => memorySource(graph), [graph]);
+  const { opened, unopened } = useArchive();
   const [failure, setFailure] = useState<string | null>(null);
 
-  const api = useGraph({ source, onFailure: (error) => setFailure(String(error)) });
+  const api = useGraph({
+    // `null` until the manifests have been read, which the api takes: a graph with no source asks
+    // nothing and draws nothing, rather than this component holding two shapes of itself.
+    source: opened?.source ?? null,
+    fill: "kind",
+    r: "degree",
+    onFailure: (error) => setFailure(String(error)),
+  });
 
   return (
     <div className="h-96 w-full">
       <Show
         fallback={
           <Alert variant="destructive">
-            <AlertDescription>{failure}</AlertDescription>
+            <AlertDescription>{unopened ?? failure}</AlertDescription>
           </Alert>
         }
-        when={failure === null}
+        when={unopened === null && failure === null}
       >
         <GraphRootProvider value={api}>
           <Tally />

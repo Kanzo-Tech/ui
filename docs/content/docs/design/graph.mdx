@@ -99,18 +99,21 @@ the tiles, and reading only those is worth a large multiple over handing every U
 reader looks at first: the opening view is the whole extent, every tile intersects it, and no
 cleverness reads fewer bytes. Addressing is for the camera *moving*.
 
-**Two things it must never become.** A second way to say what the general source says — column names, a
-type index and a table name come from the manifest or they do not come, and a corpus reader that also
-takes `idField` has become the general source with extra steps. And a **fetch on the camera path**: the
-moment a camera move costs a request before it can compute a URL, `viewport` is back.
+**Two things it must never become.** A source that takes column names — they come from the manifest or
+they do not come. That used to be stated against a sibling, `duckBoundedSource`, which took two ordinary
+relations and the names that made sense of them; the sibling is deleted and this package sends one
+source, so the rule no longer has a bad example to point at and has to stand on its own. And a **fetch on
+the camera path**: the moment a camera move costs a request before it can compute a URL, `viewport` is
+back.
 
 **What would reverse it:** an aggregation level whose tile set cannot be derived from what a reader
 already holds. Levels are separate relations with their own numbering, and if choosing among them ever
 needs an answer from the corpus rather than a number from the manifest, the camera has become a
 question and this is wrong.
 
-*Held by* `packages/graph/src/duck-source.ts`, `openCorpus`; `packages/graph/src/bounded.ts`,
-`ExploringSource`.
+*Held by* `packages/graph/src/duck-source.ts`, `openCorpus`; `packages/graph/src/index.test.ts`, "keeps
+the neighbourhood question deleted, and says what it was for" — which is where `ExploringSource` went,
+and why the seam this rule names is still the one `expand` arrives through.
 
 ## A far view is a sample, not a summary
 
@@ -174,9 +177,9 @@ the same way against the uniform null before it is believed — or a mark budget
 density mipmap becomes the smaller payload rather than the larger one.
 
 *Held by* `packages/graph/src/duck-source.ts`, `strideSql`; `packages/graph/src/index.test.ts`, "keeps
-the aggregate far view deleted, names and all" and "samples a window it cannot fit rather than drawing
-the front of it"; `packages/graph/src/duck-source.test.ts`, "takes the same sample in both reads, so the
-links land on points that came back".
+the aggregate far view deleted, names and all". Two tests used to stand here as well — one running the
+stride over arrays, one checking both reads compute the same divisor — and both belonged to sources that
+are deleted. What runs the arithmetic now is the browser, in `docs/showcases/graph-bench`.
 
 ## An edge is drawn from bytes in hand
 
@@ -211,9 +214,11 @@ share, and a re-*layout* invalidates every figure above.
 rectangle are not in the tiles it reads — measured the same way, as the share of a window's lost edges
 the read tiles can answer — or a canvas at a resolution where the median drawn edge clears three pixels.
 
-*Held by* `packages/graph/src/duck-source.ts`, `anchorCte` and `longEnough`;
-`packages/graph/src/graph-model.test.ts`, "draws the far end of an edge that leaves the window" and "does
-not send an edge shorter than three screen pixels".
+*Held by* `packages/graph/src/duck-source.ts`, `anchorCte` and `longEnough` — **and by nothing else, which
+is a loss this line states rather than hides.** Both halves ran over arrays in
+`packages/graph/src/graph-model.test.ts` until `memorySource` was deleted, and the SQL they mirror has no
+stub that can reach it: `openCorpus` boots wasm and fetches manifests before it builds a query. The
+figures above and the archive on screen are what is left.
 
 ## A filter is a predicate, not a mask
 
@@ -272,9 +277,10 @@ owes its reader honestly.
 server answering fixed URLs, a level of detail that is a different relation rather than a `WHERE` — where
 the surviving ids really are the only thing the two halves can exchange.
 
-*Held by* `packages/graph/src/slice-client.ts`, `SliceRead`; `packages/graph/src/duck-source.test.ts`,
-"carries the page's predicate into the query that draws", "asks two questions where it used to ask three"
-and "exempts the graph from the clause the graph publishes".
+*Held by* `packages/graph/src/slice-client.ts`, `SliceRead`, and by the measurements above. The three
+tests that used to stand here — the predicate reaching both reads, two queries where there were three,
+and the canvas' exemption from its own clause — drove `duckBoundedSource`, which is the source that was
+deleted; `packages/graph/src/duck-source.test.ts` says so at the top rather than quietly shrinking.
 
 ## The coordinate box is the corpus's extent, and this side declares no default
 

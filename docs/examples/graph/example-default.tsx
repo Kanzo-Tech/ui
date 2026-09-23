@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { GraphCanvas } from "@kanzo-tech/graph";
 import { openCorpus, type DuckSource } from "@kanzo-tech/graph/duckdb";
-import { Coordinator, wasmConnector } from "@kanzo-tech/ui/analytics";
 import { Show, Skeleton } from "@kanzo-tech/ui";
+import { ARCHIVE, archiveCoordinator, corpusWasmUrl } from "@/lib/archive-corpus";
 
 /**
  * The archive the workspace showcase draws, drawn by the smallest host that can.
@@ -21,19 +21,22 @@ import { Show, Skeleton } from "@kanzo-tech/ui";
  *
  * No `MosaicProvider` here: it registers its coordinator as vgplot's process-wide active one, and
  * nothing on this page draws a chart. The source holds the coordinator it queries through.
+ *
+ * The coordinator and the wasm URL come from `@/lib/archive-corpus` rather than from here, and that
+ * is one decision rather than a helper: `wasmConnector()` boots a worker and a database, and this
+ * page carries four previews of the same archive. One database, four previews. The call itself stays
+ * in front of you, because it is what this example is.
  */
-const CORPUS = "/corpus/archive";
-
 let opening: Promise<DuckSource> | null = null;
 
 function open(): Promise<DuckSource> {
   opening ??= (async () => {
-    const coordinator = new Coordinator(wasmConnector());
     // Origin-qualified: DuckDB-WASM resolves a root-relative path against its own virtual
     // filesystem rather than the page's origin, and finds nothing there.
     const { source } = await openCorpus({
-      coordinator,
-      dest: `${window.location.origin}${CORPUS}`,
+      coordinator: archiveCoordinator(),
+      dest: `${window.location.origin}${ARCHIVE}`,
+      wasmUrl: corpusWasmUrl,
     });
     return source;
   })();
