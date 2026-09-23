@@ -85,8 +85,8 @@ importers:
         specifier: 1.33.1-dev57.0
         version: 1.33.1-dev57.0
       '@fossil-lang/corpus':
-        specifier: link:../../rmlext/packages/corpus
-        version: link:../../rmlext/packages/corpus
+        specifier: ^0.3.0-alpha.5
+        version: 0.3.0-alpha.5
       '@internationalized/date':
         specifier: ^3.12.2
         version: 3.12.2
@@ -298,8 +298,8 @@ importers:
         specifier: ^3.4.0
         version: 3.4.0
       '@fossil-lang/corpus':
-        specifier: link:../../../rmlext/packages/corpus
-        version: link:../../../rmlext/packages/corpus
+        specifier: ^0.3.0-alpha.5
+        version: 0.3.0-alpha.5
       '@kanzo-tech/mosaic':
         specifier: workspace:*
         version: link:../mosaic
@@ -1117,6 +1117,9 @@ packages:
 
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
+
+  '@fossil-lang/corpus@0.3.0-alpha.5':
+    resolution: {integrity: sha512-hGeJI2KYjsm+4O7HZEg/IysW/Hl5atrejSExrKeXBf4U5kqGH4kRtKlgwVqqFKjHz9cmb1rwv5IY3iO1t41/FA==}
 
   '@fumadocs/tailwind@0.0.5':
     resolution: {integrity: sha512-ENKPWUDRmriccsrUDE4bDBq3FNr/ms3BP2rWlsAEMV1yP23pcCaan+ceGfeBUsAQjw7sj9Q3R4Kl3g/TCStPzQ==}
@@ -6363,6 +6366,8 @@ snapshots:
       react-dom: 19.2.7(react@19.2.7)
 
   '@floating-ui/utils@0.2.12': {}
+
+  '@fossil-lang/corpus@0.3.0-alpha.5': {}
 
   '@fumadocs/tailwind@0.0.5(@tailwindcss/oxide@4.3.3)(tailwindcss@4.3.2)':
     optionalDependencies:

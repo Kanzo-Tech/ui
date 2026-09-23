@@ -32,10 +32,10 @@
     "test": "vitest run"
   },
   "//peers": "cosmos.gl is a real, required peer — this package is a renderer and there is nothing left of it without one. The Mosaic half is optional and lives entirely on `./duckdb`, and the reason moved when the second source left: it used to be `a consumer drawing a graph from arrays it already has should not pay for a database`, which stopped being true the day `memorySource` was deleted — there is no arrays-in-hand consumer to protect any more. What the split protects now is the ROOT BARREL, which is a rendering surface: hooks, looks, identity, the buffers a slice implies, and no source at all. A host embedding a canvas whose slices arrive from somewhere else — its own `BoundedSource`, a worker, a test — installs cosmos.gl and nothing else, and `openCorpus` is what costs a database. That half is now ONE entry, `@kanzo-tech/mosaic`, and the list is shorter than the thing it replaced for a reason worth keeping: this package used to reach the coordinator through `@kanzo-tech/ui/analytics`, whose barrel re-exports the React charts and `@uwdata/vgplot` with them. The import is static, so a host that installed the two peers we documented — mosaic-core and mosaic-sql — still could not open `./duckdb`, and vgplot had to be declared here to paper over a dependency this package never names. It names none of the three now: they are `@kanzo-tech/mosaic`'s peers, declared once, which is also why their version ranges can no longer disagree. @duckdb/duckdb-wasm stays absent for the reason it always was — nothing in any of our dist names it, and a host that boots its own DuckDB depends on it directly. `scripts/smoke-install.mjs` installs no optional peer and imports the root barrel, which is the check that reads this list rather than trusting it.",
-  "//fossil": "LOCAL LINK, NOT A RELEASE STATE. The devDependency below is `link:` at a fossil checkout beside this one, because the `@fossil-lang/corpus` this needs is not on npm yet — the peer range is `*` for the same reason and becomes a real one at the first publish. The peer itself is not temporary: fossil's reader sits beside `@kanzo-tech/mosaic` on `./duckdb` and is wanted for the same reason — a host reading a corpus brings its own, and a host that only renders pays for neither. The residual cost this entry used to name is GONE rather than mitigated: `duckBoundedSource` shared the subpath and did not need this peer, so a host on it either installed the reader or the entry had to be split. There is nothing on `./duckdb` now that does not want fossil, so the subpath and the peer are the same decision and there is no entry to split.",
+  "//fossil": "The reader is on npm, so the range is a range. This entry said LOCAL LINK, NOT A RELEASE STATE while `@fossil-lang/corpus` existed only in a checkout beside this one; it was published as `0.3.0-alpha.5` and the `link:` and the `*` went with the reason for them. The peer itself is not temporary: fossil's reader sits beside `@kanzo-tech/mosaic` on `./duckdb` and is wanted for the same reason — a host reading a corpus brings its own, and a host that only renders pays for neither. The residual cost this entry used to name is GONE rather than mitigated: `duckBoundedSource` shared the subpath and did not need this peer, so a host on it either installed the reader or the entry had to be split. There is nothing on `./duckdb` now that does not want fossil, so the subpath and the peer are the same decision and there is no entry to split.",
   "peerDependencies": {
     "@cosmos.gl/graph": "^3.4.0",
-    "@fossil-lang/corpus": "*",
+    "@fossil-lang/corpus": "^0.3.0-alpha.5",
     "@kanzo-tech/mosaic": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",
     "react": "^19.0.0"
@@ -50,7 +50,7 @@
   },
   "devDependencies": {
     "@cosmos.gl/graph": "^3.4.0",
-    "@fossil-lang/corpus": "link:../../../rmlext/packages/corpus",
+    "@fossil-lang/corpus": "^0.3.0-alpha.5",
     "@kanzo-tech/mosaic": "workspace:*",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",

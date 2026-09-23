@@ -16,9 +16,9 @@
     "measure:previews": "node scripts/measure-previews.mjs",
     "check:previews": "node scripts/measure-previews.mjs --check"
   },
-  "//fossil": "LOCAL LINK, NOT A RELEASE STATE — see `packages/graph/package.json`. The two graph showcases import fossil's wasm asset by path, so the package is a direct dependency here as well as a transitive one.",
+  "//fossil": "The reader is on npm — see `packages/graph/package.json`. This entry said LOCAL LINK, NOT A RELEASE STATE while `@fossil-lang/corpus` was a `link:` at a fossil checkout beside this one; it is `0.3.0-alpha.5` on the registry now and the range is a range. The two graph showcases import fossil's wasm asset by path, so the package is a direct dependency here as well as a transitive one.",
   "dependencies": {
-    "@fossil-lang/corpus": "link:../../rmlext/packages/corpus",
+    "@fossil-lang/corpus": "^0.3.0-alpha.5",
     "@anthropic-ai/sdk": "^0.117.1",
     "@codemirror/autocomplete": "^6.18.6",
     "@codemirror/lang-json": "^6.0.2",
