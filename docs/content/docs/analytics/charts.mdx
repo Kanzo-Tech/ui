@@ -629,11 +629,12 @@ Re-exported so a whole chart is written without a direct `@uwdata` import: the a
 `count` `sum` `avg` `min` `max` `median` `quantile` `stddev` `mode` `bin` `sql`; the six axis
 marks the descriptors withhold on purpose, `axisX` `axisY` `axisFx` `axisFy` `gridFx` `gridFy`,
 which are what [`ChartRaw`](#escape-hatches) is for; the boot vocabulary `Coordinator` `Selection`
-`wasmConnector` and the `load*` loaders.
+`wasmConnector` and the `load*` loaders; and `asc` `desc`, the two directions
+[`Query`](/docs/hooks/use-chart-query)'s own `.orderby()` takes.
 
 A set is re-exported when it is **closed and named**. vgplot's ~250 plot attributes and
 mosaic-sql's expression builders are open, so they stay a direct import — taking them raw is what
-an escape hatch *is*.
+an escape hatch *is*. Ordering is not one of those: `asc` and `desc` are the whole of it.
 
 For a descriptor of your own, `chartDescriptor(displayName, compile)` mints one; `compile` returns
 plain data (`{ kind: "mark", mark: "barY", source, options }`), never a `vg.*` call.

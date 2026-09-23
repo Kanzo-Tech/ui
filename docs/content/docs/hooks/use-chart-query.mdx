@@ -87,4 +87,5 @@ function useChartQuery(options: ChartQueryOptions): ChartQueryResult;
 
 `Query` is re-exported from the subpath, so a query is built without a direct `@uwdata/mosaic-sql`
 import; so are the aggregates (`count`, `sum`, `avg`, `min`, `max`, `median`, `quantile`, `stddev`,
-`mode`, `bin`, `sql`).
+`mode`, `bin`, `sql`) and the two sort directions `.orderby()` takes, `asc` and `desc` — a bare
+column already sorts ascending, so `orderby(desc(col))` is how the other one is spelled.

@@ -155,6 +155,20 @@ export {
 export { count, sum, avg, min, max, median, quantile, stddev, mode, bin, sql } from "@uwdata/vgplot";
 export type { ExprValue } from "@kanzo-tech/mosaic";
 
+// Ordering, for the builder that is already on this barrel. `Query…orderby(col)` takes a bare
+// column and sorts ascending; there is no second argument, so any other direction is `desc(col)`
+// and nothing else. A host that took `Query` from here was still opening `@uwdata/mosaic-sql` for
+// that one function — the same vocabulary with a hole in it the aggregates above are complete to
+// avoid, and a plainer one, because the method that accepts them was exported and the argument it
+// accepts was not. Two names is a closed set: it is the whole of ordering.
+//
+// No type comes with them. `ExprValue` is what they take and it is on the line above; what they
+// return goes straight into `.orderby()`, so nothing makes a consumer spell its name — `FilterExpr`
+// and `NumericArray` are here because `useChartQuery`'s `query` signature and `numbers`' result
+// do. What would reverse that: a consumer who has to name it, a helper handing a sort spec back to
+// its caller, at which point `OrderByNode` follows the same rule in the other direction.
+export { asc, desc } from "@kanzo-tech/mosaic";
+
 // The six marks the layer withholds on purpose, because axes here compile to plot *attributes* — an
 // axis mark would steal the binding from the interactor after it. They are a closed set the docs
 // enumerate twice, and they are what `ChartRaw` was built for: the measure scale repeated at the top

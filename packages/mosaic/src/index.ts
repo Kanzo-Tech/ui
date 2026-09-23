@@ -37,6 +37,8 @@ export {
 
 export {
   Query,
+  asc,
+  desc,
   loadCSV,
   loadJSON,
   loadObjects,
