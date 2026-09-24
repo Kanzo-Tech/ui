@@ -216,6 +216,33 @@ Returns `() => Promise<Session | null>`.
 Returns `AuthRouteHandlers` — a `GET` and a `POST`, each taking a web `Request` and answering a web
 `Response`, which is the shape an App Router route file wants.
 
+### `authToken`
+
+`authToken(config: AuthSessionConfig)` returns
+`(cookie: string | null | undefined, options?: { renewWithin?: number }) => Promise<Token | null>`.
+[`Token`](/docs/auth/server#token) is the access token, the session and the cookies to attach.
+
+The cookie is a required argument and there is no zero-argument form —
+[the reason](#who-may-renew-and-who-may-only-read) is that a React Server Component could call one
+and could not keep what it produced.
+
+### `authProxy`
+
+`AuthProxyConfig` is `AuthSessionConfig` plus:
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `target` | `string` | — |
+| `basePath` | `string` | — |
+| `renewWithin` | `number` | `60`, in seconds |
+
+Returns `AuthProxyHandlers` — `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD` and `OPTIONS`, each
+taking a web `Request` and answering a web `Response`, which is what a catch-all route file wants:
+
+```ts title="app/api/data/[...path]/route.ts"
+export const { GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS } = authProxy({ … });
+```
+
 ### `authMiddleware`
 
 `AuthMiddlewareConfig`:
