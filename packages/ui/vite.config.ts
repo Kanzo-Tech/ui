@@ -74,13 +74,8 @@ export default defineConfig({
         preserveModulesRoot: "src",
         entryFileNames: "[name].js",
         chunkFileNames: "chunks/[name]-[hash].js",
-        // All component CSS (`import "./x.css"`) merges into one importable sheet:
-        //   consumers add `import "@kanzo-tech/ui/styles.css"` once. No runtime
-        //   <style> injection, no FOUC.
-        assetFileNames: (info) => (info.names?.some((n) => n.endsWith(".css")) ? "styles.css" : "assets/[name]-[hash][extname]"),
       },
     },
-    cssCodeSplit: false,
     sourcemap: true,
     emptyOutDir: true,
   },

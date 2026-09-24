@@ -9,6 +9,7 @@
   ],
   "files": [
     "dist",
+    "src/tailwind.css",
     "README.md"
   ],
   "module": "./dist/index.js",
@@ -22,15 +23,14 @@
       "types": "./dist/markdown.d.ts",
       "import": "./dist/markdown.js"
     },
-    "./package.json": "./package.json",
-    "./styles.css": "./dist/styles.css"
+    "./tailwind.css": "./src/tailwind.css",
+    "./package.json": "./package.json"
   },
   "scripts": {
-    "build": "vite build && pnpm build:css",
+    "build": "vite build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "size": "size-limit",
-    "build:css": "tailwindcss -i src/styles.css -o dist/styles.css --minify"
+    "size": "size-limit"
   },
   "//peers": "Everything on the root barrel draws with @kanzo-tech/ui's parts and Ark's machines, so both are required peers rather than dependencies — two copies of Ark would mean two portals and two focus traps. streamdown is the one OPTIONAL peer, and it is why ./markdown exists: it measures 495 kB minified and 128 kB brotli on its own, against a 20 kB budget for the whole root barrel, so a host that renders plain text must not pay for a markdown parser. Same door as @kanzo-tech/ui/editor and @kanzo-tech/graph/duckdb.",
   "peerDependencies": {
@@ -48,7 +48,6 @@
     "@ark-ui/react": "^5.37.2",
     "@kanzo-tech/theme": "workspace:*",
     "@kanzo-tech/ui": "workspace:*",
-    "@tailwindcss/cli": "4",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -59,8 +58,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "rollup-plugin-preserve-directives": "^0.4.0",
-    "streamdown": "^2.5.0",
-    "tailwindcss": "4"
+    "streamdown": "^2.5.0"
   },
   "//size-limit": "First measurement taken at the split, so this budget is a change detector from day one rather than a number inherited from somewhere. The four AI-assist modules that moved here cost @kanzo-tech/ui's root barrel about 4 kB when they arrived (38 -> 42 kB, recorded in that package's own note); the barrel is rebaselined down by the same move.",
   "size-limit": [

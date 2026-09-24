@@ -22,11 +22,10 @@ import { CHROMA_FLOOR, label, oklch, sourceFiles, subtrees, unreadable } from ".
  * chroma, and it covers all twenty-two v4 families including the five greys: `slate` is a blue-grey,
  * and picking it over `zinc` is a palette decision even though both sit under the chroma floor.
  *
- * (No example in this file is spelled out as a whole class, here or in the assertions below.
- * `styles.css` points its `@source` at every `.ts` and `.tsx` under `src/`, tests included — so a
- * literal example would emit a real utility for the very class the rule forbids. Every family and
- * every utility prefix therefore appears only as an alternation fragment, and the assertions join
- * their examples at runtime.)
+ * (No example in this file is spelled out as a whole class: every family and utility prefix is an
+ * alternation fragment, joined at runtime. That was load-bearing while the stylesheet scanned
+ * `src/`, tests included, and a literal example emitted the very utility the rule forbids.
+ * `tailwind.css` scans the shipped `dist/` now, which carries no test.)
  *
  * ## What this guard cannot prove
  *
@@ -62,8 +61,8 @@ import { CHROMA_FLOOR, label, oklch, sourceFiles, subtrees, unreadable } from ".
  *   space we do not produce would be a claim with no corpus behind it.
  * - **It does not read CSS, and one CSS file per package is standing inside the corpus.** The walk
  *   descends every directory under each package's `src/`, then keeps only `.tsx?` — so
- *   `packages/ui/src/styles.css` and `packages/ai/src/styles.css` are passed over in silence, by a
- *   filter, rather than by a decision anybody took about them. Measured (`ui` 2026-07-30, `ai`
+ *   `packages/ui/src/tailwind.css` and `packages/ai/src/tailwind.css` are passed over in silence, by
+ *   a filter, rather than by a decision anybody took about them. Measured (`ui` 2026-07-30, `ai`
  *   2026-08-20): neither holds a hex, an `oklch(`, an `rgb(`/`hsl(` or a `color(` — zero colour
  *   notations of any kind, so nothing is hiding there today. That is worth writing down for the
  *   same reason ALLOWED below says why it is empty: an unexamined blind spot and a measured-empty

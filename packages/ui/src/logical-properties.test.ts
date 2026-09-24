@@ -30,7 +30,7 @@ import { label, resolvePath, sourceFiles, subtrees, unreadable } from "./guard-c
  * - **It cannot tell you the mirroring is correct**, only that no physical utility was written.
  *   `left-1/2` paired with `-translate-x-1/2` is centring and is fine; the pair is not checked,
  *   the reason in the allowlist is what stands in for it, and a reason is not a test.
- * - **It does not read CSS.** `styles.css` and `packages/theme/tokens.css` can spell a physical
+ * - **It does not read CSS.** `tailwind.css` and `packages/theme/tokens.css` can spell a physical
  *   property directly and nothing here sees it.
  */
 /**

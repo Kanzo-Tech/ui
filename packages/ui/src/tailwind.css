@@ -1,9 +1,14 @@
 /*
- * @kanzo-tech/ui — compiled stylesheet (APPEARANCE). Built with Tailwind v4 over the
- * design tokens; consumers import the ONE emitted sheet: `@kanzo-tech/ui/styles.css`.
- * Ships the token layer + every utility the components use, in cascade layers.
+ * @kanzo-tech/ui — the Tailwind v4 entry. Source, not output: the consumer compiles it in its own
+ * build, after its own `@import "tailwindcss"`, so there is one preflight, one utilities layer and
+ * one variant order for the whole page.
+ *
+ *     @import "tailwindcss";
+ *     @import "@kanzo-tech/ui/tailwind.css";
+ *
+ * Every path below resolves from THIS file's location, which is why it can declare its own plugin,
+ * variant and `@source` rather than asking each consumer to restate them.
  */
-@import "tailwindcss";
 @import "tw-animate-css";
 /* Typography plugin — supplies the class that `Prose` applies. It is the only component whose
    appearance we do not own outright, and that is deliberate: rendered markdown has dozens of
@@ -63,8 +68,9 @@
 /* The `expand` / `collapse` keyframes live in `@kanzo-tech/theme/tokens.css`. Every other
    enter/exit animation comes from tw-animate-css utilities. */
 
-/* Scan the component source for the utilities to emit. */
-@source "./**/*.{ts,tsx}";
+/* The published modules, not `src/`: `src/` is not in the tarball, and what ships is what must be
+   scanned. In this repository the docs build first, so the path is the same in both places. */
+@source "../dist/**/*.js";
 
 /* Observable Plot, re-tokenised — the same move as `.kanzo-prose` below, for the same reason.
    Plot hardcodes `--plot-background: white` on its own `<svg>` and paints every floating surface
