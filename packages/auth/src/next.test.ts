@@ -46,8 +46,14 @@ function reachable(entry: string): Set<string> {
 }
 
 describe("@kanzo-tech/auth/next", () => {
-  it("is three names and nothing else", () => {
-    expect(Object.keys(door).sort()).toEqual(["authMiddleware", "authRoutes", "authSession"]);
+  it("is five names and nothing else", () => {
+    expect(Object.keys(door).sort()).toEqual([
+      "authMiddleware",
+      "authProxy",
+      "authRoutes",
+      "authSession",
+      "authToken",
+    ]);
   });
 
   /**
@@ -96,5 +102,18 @@ describe("@kanzo-tech/auth/next", () => {
    */
   it("serves its routes without importing next", () => {
     expect(source("next-routes")).not.toContain('"next/');
+  });
+
+  /**
+   * The same rule for the two doors added beside them, and for the same reason: a `Request` in and
+   * a `Response` out is the whole of what a route file needs, so reaching for `NextRequest` here
+   * would buy nothing and would make both untestable without the framework. `authSession` is the
+   * one module that genuinely cannot be written this way — `next/headers` is how a server
+   * component reaches a request it was never handed — and it is the only one that imports it.
+   */
+  it("proxies and mints tokens without importing next either", () => {
+    expect(source("next-proxy")).not.toContain('"next/');
+    expect(source("next-token")).not.toContain('"next/');
+    expect(source("next-session")).toContain('from "next/headers"');
   });
 });
