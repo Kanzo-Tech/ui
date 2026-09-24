@@ -141,10 +141,11 @@ export const auth = bffAuth({ basePath: "/api/auth" });
 ```
 
 No engine, no protocol, no storage, and no token in the browser at all — which is why this one sits
-on the root barrel beside the hooks. What it needs from the server is three routes under
-`basePath`: `GET /session`, `/signin` and `/signout`. [`@kanzo-tech/auth/server`](/docs/auth/server)
-is the other half — `relyingParty` holds the confidential client, the sealed cookie and the
-rotation, and a product wires its five methods into whatever router it already has.
+on the root barrel beside the hooks. What it needs from the server is four routes under
+`basePath`: `GET /session`, `/signin`, `/signout` and `POST /refresh`.
+[`@kanzo-tech/auth/server`](/docs/auth/server) is the other half — `relyingParty` holds the
+confidential client, the sealed cookie and the rotation, and a product wires its six methods into
+whatever router it already has, or takes [`authRoutes`](/docs/auth/next), which is all four.
 
 The answer from `/session` is **checked rather than cast**, by `readSession`. It is your own server
 on the other end and it is still data off the wire: a cast would let a deploy skew or a proxy's
@@ -165,8 +166,18 @@ What it does depends on the pattern, and the difference never leaves this functi
 
 | | Attaches | And then |
 | --- | --- | --- |
-| BFF | nothing — the cookie rides along on a same-origin request by itself | a 401 means the session is *gone*, so the tree is told |
+| BFF | nothing — the cookie rides along on a same-origin request by itself | `POST`s `/refresh`, and retries once if it worked |
 | Public client | `Authorization: Bearer …` | renews once and retries once, and only on a 401 it sent a token for |
+
+**A 401 under the BFF is ambiguous in a way it is not under the public client**, and that is why
+the two columns now say the same thing. The cookie *was* sent and *was* accepted; what expired is
+the access token behind it, which the browser half cannot see. So the 401 means "renew and try
+again" first, and "the session is gone" only once the renewal is refused — at which point the tree
+is told, which is what it did before and all it did before.
+
+Without that, a cookie good for eight hours in front of a token good for one produces seven hours
+in which `/session` answers 200, the whole application draws, and every request for data is a 401
+nothing acts on.
 
 The retry is once, and never on a 403: that is an answer, not a stale credential. A request whose
 body is a stream is not retried at all, because a body can be read once and a second send would
@@ -209,6 +220,7 @@ import { AuthError, type AuthErrorCode } from "@kanzo-tech/auth";
 | `claims.no-subject` | The claim set carries no `sub`. Not a session at all — a realm fault, never a person's |
 | `session.absent` | There is no session: not signed in, or it expired |
 | `organization.not-a-member` | Signed in, and holds no membership of the organization being addressed |
+| `organization.invalid` | The organization asked for is not an alias — a space in it would inject a second scope |
 | `callback.state-mismatch` | The callback's `state` is absent, different, or matches no transaction |
 | `callback.nonce-mismatch` | The ID token's `nonce` is not the one that was sent — a replay |
 | `token.exchange-failed` | The token endpoint refused the code or the refresh token, or returned no ID token |
