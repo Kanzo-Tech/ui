@@ -1,9 +1,10 @@
+import { isSameSite } from "./same-site";
 import type { AuthSessionConfig } from "./next-session";
 import { relyingParty, type RelyingParty } from "./server";
 import { AuthError } from "./types";
 
 /**
- * The four routes a Backend For Frontend needs, as one App Router catch-all.
+ * The five routes a Backend For Frontend needs, as one App Router catch-all.
  *
  * ```ts
  * // app/api/auth/[...auth]/route.ts
@@ -23,10 +24,21 @@ import { AuthError } from "./types";
  * ## The other end of the contract
  *
  * `bffAuth` in the root barrel is the browser half, and it is specific: it `GET`s
- * `${basePath}/session` and reads **401 as "nobody is signed in"**, not as a failure; it navigates
- * to `${basePath}/signin?returnTo=…&organization=…` and `${basePath}/signout?returnTo=…`. Those
- * four paths and that status code are the contract, and `next-routes.test.ts` drives a real
- * `bffAuth` against these handlers rather than trusting the two descriptions to agree.
+ * `${basePath}/session` and reads **401 as "nobody is signed in"**, not as a failure; it `POST`s
+ * `${basePath}/refresh` when a request of its own comes back 401, and retries that request once if
+ * the renewal worked; it navigates to `${basePath}/signin?returnTo=…&organization=…` and
+ * `${basePath}/signout?returnTo=…`. Those five paths and those status codes are the contract, and
+ * `next-routes.test.ts` drives a real `bffAuth` against these handlers rather than trusting the
+ * two descriptions to agree.
+ *
+ * ## Which routes a cross-site request may reach
+ *
+ * `callback` and `signin` must be reachable from anywhere — one *is* a navigation from the
+ * identity provider, and the other is a link somebody is allowed to put on another page. The other
+ * three are not: `signout` reached cross-site is a logout anyone can cause, `refresh` is a
+ * rotation anyone can cause, and `session` is a person's identity read from a page that is not
+ * ours. `same-site.ts` carries the check and the reason the package rather than the product owes
+ * it.
  */
 
 /** The session endpoint answers about a person; no cache may ever hold that answer. */
@@ -123,13 +135,24 @@ export function authRoutes(config: AuthRoutesConfig): AuthRouteHandlers {
     const cookie = request.headers.get("cookie");
     const auth = authFor(config.redirectUri ?? `${url.origin}${base}/callback`);
 
+    if (action !== "callback" && action !== "signin" && !isSameSite(request)) {
+      return new Response(null, { status: 403, headers: { "cache-control": "no-store" } });
+    }
+
     switch (action) {
       case "signin": {
-        const started = await auth.begin({
-          returnTo: sameOrigin(url.searchParams.get("returnTo"), url.origin) ?? "/",
-          organization: url.searchParams.get("organization") ?? undefined,
-        });
-        return redirect(started.url, started.cookies);
+        try {
+          const started = await auth.begin({
+            returnTo: sameOrigin(url.searchParams.get("returnTo"), url.origin) ?? "/",
+            organization: url.searchParams.get("organization") ?? undefined,
+          });
+          return redirect(started.url, started.cookies);
+        } catch (error) {
+          // `organization` arrives from a query parameter and `begin` refuses one that is not an
+          // alias, because a space in it injects scopes. Without this `catch` that refusal is a
+          // 500 on a link somebody typed wrong.
+          return failure(error);
+        }
       }
 
       case "callback": {
@@ -158,6 +181,28 @@ export function authRoutes(config: AuthRoutesConfig): AuthRouteHandlers {
         return new Response(JSON.stringify(session), { status: 200, headers: PRIVATE });
       }
 
+      case "refresh": {
+        // `POST` only, and it is the one route here that constrains its verb. The others are
+        // reached by navigation, where the verb is the browser's to choose; this one spends a
+        // refresh token, and a `GET` that spends something is a link, a prefetch and a preview
+        // pane away from spending it. The 405 says so rather than answering 404 for a route that
+        // is plainly there.
+        if (request.method !== "POST") {
+          return new Response(null, { status: 405, headers: { allow: "POST" } });
+        }
+        try {
+          const renewed = await auth.refresh(cookie);
+          const headers = new Headers(PRIVATE);
+          for (const value of renewed.cookies) headers.append("set-cookie", value);
+          return new Response(JSON.stringify(renewed.session), { status: 200, headers });
+        } catch (error) {
+          // A refused refresh is the end of the session, and `failure` already answers 401 for
+          // `session.absent`. `token.exchange-failed` is a 400 and means the same thing to the
+          // browser: there is nothing left to renew, go and sign in.
+          return failure(error);
+        }
+      }
+
       default:
         return new Response(null, { status: 404 });
     }
@@ -165,6 +210,7 @@ export function authRoutes(config: AuthRoutesConfig): AuthRouteHandlers {
 
   // One handler behind both verbs. Every route here is reached by navigation or by `fetch`, and
   // which verb a product uses for sign-out — a link or a form — is its choice, not ours to
-  // constrain with a second table that could drift from this one.
+  // constrain with a second table that could drift from this one. `refresh` is the exception and
+  // checks its own method, because it is the only one that spends something.
   return { GET: handle, POST: handle };
 }
