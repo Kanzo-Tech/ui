@@ -93,9 +93,9 @@ export interface Auth {
  * redirect loop and an explanation. The shape is borrowed from `agents/gateway`, which reports
  * `validity.expired` / `proof.signature-invalid` / `issuer.unexpected` for the same reason.
  *
- * **These codes are about a credential, and only about a credential.** A programming or deployment
- * fault is not one: `useSession` called outside its provider, or a session too large for a cookie,
- * both throw a plain `Error` on purpose. Giving those codes would invite a product to `catch` them
+ * **These codes are about a credential, or about the request for one, and about nothing else.** A
+ * programming or deployment fault is not one: `useSession` called outside its provider, or a
+ * session too large for a cookie, both throw a plain `Error` on purpose. Giving those codes would invite a product to `catch` them
  * beside a refusal and route them to a sign-in page, which is the wrong answer to "you wired this
  * up wrong" — and it would put a deployment mistake in the same type as a user's session expiring.
  *
@@ -109,6 +109,15 @@ export type AuthErrorCode =
   | "session.absent"
   /** Signed in, but holds no membership of the organization being addressed. */
   | "organization.not-a-member"
+  /**
+   * The organization asked for is not an alias, so it was not put into a scope.
+   *
+   * The one code here about the *request for* a credential rather than about a credential, and it
+   * earns that because the value reaches `begin` from a query parameter on every product with an
+   * organization switcher: a space in it is scope injection, and a product wants to answer "no
+   * such organization" rather than let an unreadable 400 arrive at someone who typed a link wrong.
+   */
+  | "organization.invalid"
   /** The callback's `state` is absent, different, or has no transaction to match against. */
   | "callback.state-mismatch"
   /** The ID token's `nonce` is not the one that was sent — a replay. */

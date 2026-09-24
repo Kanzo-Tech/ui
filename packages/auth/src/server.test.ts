@@ -44,6 +44,9 @@ async function fakeKeycloak() {
     publishedKids: ["key-a"],
     idTokenClaims: {} as Record<string, unknown>,
     refreshToken: "refresh-1",
+    /** What the token endpoint hands back and for how long — both are what `token` reads. */
+    accessToken: "at",
+    expiresIn: 300 as number | undefined,
     /** Every request the client made, in order. */
     calls: [] as string[],
     /** Bodies posted to the token endpoint, so a test can look at what was actually sent. */
@@ -99,9 +102,9 @@ async function fakeKeycloak() {
         return json({ error: "invalid_grant" }, state.tokenEndpointStatus);
       }
       return json({
-        access_token: "at",
+        access_token: state.accessToken,
         token_type: "Bearer",
-        expires_in: 300,
+        ...(state.expiresIn === undefined ? {} : { expires_in: state.expiresIn }),
         refresh_token: state.refreshToken,
         id_token: await signIdToken(),
       });
@@ -197,6 +200,39 @@ describe("relyingParty", () => {
       expect(new URL(url).searchParams.get("scope")).toBe(
         "openid profile email organization:acme",
       );
+    });
+
+    /**
+     * `scope` is a space-delimited list, so an alias with a space in it is not one scope with a
+     * space in it — it is two scopes, and the second is whatever was written. Every product with
+     * an organization switcher passes a query parameter straight into this, and `authRoutes` did.
+     */
+    it("refuses an organization that would inject a second scope", async () => {
+      const auth = relyingParty(config);
+
+      await expect(auth.begin({ organization: "acme offline_access" })).rejects.toMatchObject({
+        code: "organization.invalid",
+      });
+      await expect(auth.begin({ organization: "acme\toffline_access" })).rejects.toMatchObject({
+        code: "organization.invalid",
+      });
+      await expect(auth.begin({ organization: "" })).rejects.toMatchObject({
+        code: "organization.invalid",
+      });
+      await expect(auth.begin({ organization: "acme:*" })).rejects.toMatchObject({
+        code: "organization.invalid",
+      });
+    });
+
+    it("still takes the aliases a realm actually mints, and the star", async () => {
+      const auth = relyingParty(config);
+
+      for (const alias of ["acme", "beta-labs", "a.b_c-9", "*"]) {
+        const { url } = await auth.begin({ organization: alias });
+        expect(new URL(url).searchParams.get("scope")).toBe(
+          `openid profile email organization:${alias}`,
+        );
+      }
     });
 
     it("reaches Keycloak on the internal origin while sending the browser to the public one", async () => {
@@ -522,6 +558,141 @@ describe("relyingParty", () => {
       await expect(auth.refresh(asRequestHeader(done.cookies))).rejects.toMatchObject({
         code: "token.exchange-failed",
       });
+    });
+
+    /**
+     * The failure `single-flight.ts` was written for, asserted on the path that can actually cause
+     * it. Ten requests noticing an expiring token in the same tick fire ten refreshes with the
+     * same token under rotation, nine of which are replays of a token the first already spent —
+     * and an authorization server is entitled to read that as theft and revoke the chain. Before
+     * this, the primitive existed and nothing on this path called it.
+     */
+    it("spends one refresh token for a burst of concurrent renewals", async () => {
+      const auth = relyingParty(config);
+      const { done } = await signIn(auth, realm);
+      const cookie = asRequestHeader(done.cookies);
+
+      const renewed = await Promise.all(Array.from({ length: 10 }, () => auth.refresh(cookie)));
+
+      const grants = realm.state.posted.filter((body) => body.get("grant_type") === "refresh_token");
+      expect(grants).toHaveLength(1);
+      // And every caller was handed the cookie that one renewal issued, not nine empty answers.
+      for (const one of renewed) expect(one.cookies[0]).toBe(renewed[0]?.cookies[0]);
+    });
+
+    it("keeps two people's renewals apart", async () => {
+      const auth = relyingParty(config);
+      const ada = await signIn(auth, realm, { sub: "ada" });
+      const grace = await signIn(auth, realm, { sub: "grace" });
+      const before = realm.state.posted.length;
+
+      const [first, second] = await Promise.all([
+        auth.refresh(asRequestHeader(ada.done.cookies)),
+        auth.refresh(asRequestHeader(grace.done.cookies)),
+      ]);
+
+      // Two sessions, two slots, two grants. A single unkeyed slot would have made this one grant
+      // and handed one of them the cookie the other was issued — silently, and only under load.
+      expect(realm.state.posted.length - before).toBe(2);
+      expect(first?.cookies[0]).not.toBe(second?.cookies[0]);
+    });
+  });
+
+  describe("token", () => {
+    /**
+     * The field that was missing, and the reason it mattered: with no access token on the record a
+     * product forwards the **ID token** to its resource server instead. That works on a realm that
+     * happens to put the same audience in both, and stops the day the resource server checks
+     * `typ == "Bearer"` — which is what it should be doing.
+     */
+    it("answers the access token the grant returned, and not the ID token", async () => {
+      const auth = relyingParty(config);
+      realm.state.accessToken = "the-access-token";
+      const { done } = await signIn(auth, realm);
+
+      const held = await auth.token(asRequestHeader(done.cookies));
+
+      expect(held?.accessToken).toBe("the-access-token");
+      expect(held?.session.user.id).toBe("u-1");
+    });
+
+    it("answers null when there is no session", async () => {
+      await expect(relyingParty(config).token(null)).resolves.toBeNull();
+    });
+
+    it("does not renew a token with time left on it", async () => {
+      const auth = relyingParty(config);
+      const { done } = await signIn(auth, realm);
+
+      const held = await auth.token(asRequestHeader(done.cookies));
+
+      expect(realm.state.posted).toHaveLength(1);
+      // Nothing was renewed, so there is nothing to attach — and a caller that always has cookies
+      // to set is a caller that stops checking.
+      expect(held?.cookies).toEqual([]);
+    });
+
+    /**
+     * The seven hours the host measured: a cookie good for eight and a token good for one. This is
+     * the line where they stop being two clocks with nothing between them.
+     */
+    it("renews a token inside the window and hands back the cookie to set", async () => {
+      const auth = relyingParty(config);
+      realm.state.expiresIn = 30;
+      realm.state.accessToken = "about-to-expire";
+      const { done } = await signIn(auth, realm);
+
+      realm.state.accessToken = "renewed";
+      realm.state.refreshToken = "refresh-2";
+      const held = await auth.token(asRequestHeader(done.cookies));
+
+      expect(held?.accessToken).toBe("renewed");
+      expect(held?.cookies[0]?.startsWith("__Host-kanzo-session=")).toBe(true);
+      expect(realm.state.posted[1]?.get("grant_type")).toBe("refresh_token");
+
+      // And the cookie it handed back carries the rotated token, so the next renewal works.
+      realm.state.refreshToken = "refresh-3";
+      await auth.refresh(asRequestHeader(held?.cookies ?? []));
+      expect(realm.state.posted[2]?.get("refresh_token")).toBe("refresh-2");
+    });
+
+    it("takes a window of its own", async () => {
+      const auth = relyingParty(config);
+      realm.state.expiresIn = 300;
+      const { done } = await signIn(auth, realm);
+
+      await auth.token(asRequestHeader(done.cookies), { renewWithin: 600 });
+
+      expect(realm.state.posted[1]?.get("grant_type")).toBe("refresh_token");
+    });
+
+    /**
+     * A realm that omits `expires_in` is one this cannot count down, and the safe direction is not
+     * the obvious one: treating unknown as expired renews on *every* request, which under rotation
+     * is the replay storm the single-flight slot exists to prevent, arriving one request at a time
+     * where no slot can collapse it.
+     */
+    it("does not renew on every request when the realm gives no expiry", async () => {
+      const auth = relyingParty(config);
+      realm.state.expiresIn = undefined;
+      const { done } = await signIn(auth, realm);
+
+      await auth.token(asRequestHeader(done.cookies));
+      await auth.token(asRequestHeader(done.cookies));
+
+      expect(realm.state.posted).toHaveLength(1);
+    });
+
+    it("spends one refresh token for a burst of expiring requests", async () => {
+      const auth = relyingParty(config);
+      realm.state.expiresIn = 10;
+      const { done } = await signIn(auth, realm);
+      const cookie = asRequestHeader(done.cookies);
+
+      await Promise.all(Array.from({ length: 8 }, () => auth.token(cookie)));
+
+      const grants = realm.state.posted.filter((body) => body.get("grant_type") === "refresh_token");
+      expect(grants).toHaveLength(1);
     });
   });
 

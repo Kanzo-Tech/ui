@@ -12,6 +12,7 @@ import {
 import { claims } from "./claims";
 import { sealedCookie, type SealedCookie } from "./cookie-session";
 import { issuer, type IssuerConfig } from "./issuer";
+import { keyedSingleFlight } from "./single-flight";
 import { statelessStore, type SessionRecord, type SessionStore } from "./store";
 import { AuthError, type AuthErrorCode, type Session, type SignInOptions } from "./types";
 
@@ -46,6 +47,15 @@ const DEFAULT_SCOPE = "openid profile email";
 const DEFAULT_MAX_AGE = 8 * 60 * 60;
 /** Ten minutes is long enough to type a password and short enough that an abandoned leg expires. */
 const TRANSACTION_MAX_AGE = 10 * 60;
+/**
+ * Renew an access token with a minute left on it rather than after it dies.
+ *
+ * The window pays for two things at once: the flight time of the request we are about to send, and
+ * the clock skew between this server and the one that will validate the token. A minute covers
+ * both on every deployment anyone has run; going to zero means shipping tokens that expire in the
+ * air, and going large means renewing constantly on a realm with a five-minute token.
+ */
+const DEFAULT_RENEW_WITHIN = 60;
 
 function refuse(code: AuthErrorCode, message: string, cause?: unknown): never {
   const error = new AuthError(code, message);
@@ -110,6 +120,37 @@ function isStaleKeyMaterial(error: unknown): boolean {
   return codeOf(error) === "OAUTH_KEY_SELECTION_FAILED";
 }
 
+/**
+ * A Keycloak organization alias, or `*`. Anything else is not put into a scope string.
+ *
+ * `scope` is a **space-delimited list**, so a value with a space in it does not become one scope
+ * with a space in it — it becomes two scopes, and the second one is whatever the caller wrote.
+ * `?organization=x%20offline_access` reaching `begin` unchecked is an authorization request for
+ * `offline_access`, which is a refresh token that outlives the browser session, asked for by
+ * whoever composed the link. That is scope injection, and the place to stop it is here rather than
+ * at whichever door happened to be the one taking query parameters today.
+ *
+ * The alphabet is Keycloak's own for an alias — it is a hostname-ish name, and the realm will not
+ * mint one outside this set — plus the `*` that asks for every organization at once.
+ */
+const ORGANIZATION = /^(\*|[A-Za-z0-9](?:[A-Za-z0-9._-]{0,62}[A-Za-z0-9])?)$/;
+
+/**
+ * One renewal per ticket, for the whole process rather than per `relyingParty`.
+ *
+ * `singleFlight`'s own header says why a second concurrent renewal is a revoked token chain and
+ * not a wasted round trip. What that header does not say is that a server builds more than one
+ * relying party: `authRoutes` rebuilds its own when the derived callback URL changes, `authToken`
+ * and `authProxy` each hold theirs, and an instance-level slot would let a refresh from the route
+ * and a refresh from the proxy replay the same token at the same moment. The ticket names the
+ * session, so the ticket is the right key, and it is the same ticket whichever instance holds it.
+ *
+ * **It is per process.** Two Node instances behind a load balancer can still collide, and the
+ * answer to that is a `SessionStore` whose `put` is the point of coordination — not a lock here,
+ * which would be a distributed one pretending to be a `Map`.
+ */
+const renewals = keyedSingleFlight<Adopted>();
+
 /** What `begin` and `end` answer: where to send the browser, and what to set on the way. */
 export interface Redirect {
   readonly url: string;
@@ -125,6 +166,33 @@ export interface Renewed {
 /** What `complete` answers: a renewal, plus where the person was going before they were asked who they are. */
 export interface SignedIn extends Renewed {
   readonly returnTo: string;
+}
+
+/**
+ * What `token` answers: the credential a resource server takes, and what to set on the way out.
+ *
+ * **`cookies` is not optional to attach.** It is empty when nothing was renewed and carries a
+ * rotated session when something was, and under the rotation RFC 10017 requires, dropping it
+ * throws away the only refresh token still valid — the session does not go stale, it ends. A
+ * caller with nowhere to put a `Set-Cookie` is a caller that must not be asking for this.
+ */
+export interface Token {
+  readonly accessToken: string;
+  readonly session: Session;
+  readonly cookies: readonly string[];
+}
+
+/**
+ * Everything a successful grant produced: what the caller is told, and the record behind it.
+ *
+ * The two are separate and only the first is ever returned from a public method, because a
+ * `SessionRecord` holds the refresh token and a `Renewed` is the sort of thing a route handler
+ * writes straight into a response body. Structural typing would have let one extra field ride
+ * along unnoticed all the way to the browser.
+ */
+interface Adopted {
+  readonly renewed: Renewed;
+  readonly record: SessionRecord;
 }
 
 export interface RelyingPartyConfig extends IssuerConfig {
@@ -149,7 +217,29 @@ export interface RelyingParty {
   complete(request: { readonly url: string | URL; readonly cookie: string | null }): Promise<SignedIn>;
   /** The session a request carries, or `null`. The read a route handler does on every request. */
   read(cookie: string | null | undefined): Promise<Session | null>;
-  /** Spend the refresh token, take the new one, and reissue the cookie. */
+  /**
+   * The access token a request carries, renewed when it is about to expire — or `null` when there
+   * is no session at all.
+   *
+   * This is the *token-mediating backend*: the browser holds a cookie, the resource server is
+   * given a bearer token, and the two never meet. {@link read} is its sibling for identity, and
+   * the difference in the signature is the whole of the difference in what they may be called
+   * from — this one can answer with a `Set-Cookie` and therefore must be called somewhere that can
+   * send one.
+   *
+   * Renewal is single-flight per ticket, so a page that fires eight requests at an expiring token
+   * spends it once.
+   */
+  token(
+    cookie: string | null | undefined,
+    options?: { readonly renewWithin?: number },
+  ): Promise<Token | null>;
+  /**
+   * Spend the refresh token, take the new one, and reissue the cookie.
+   *
+   * Single-flight per ticket across the whole process: a second concurrent call joins the first
+   * rather than replaying a token it already spent. See `renewals`.
+   */
   refresh(cookie: string | null | undefined): Promise<Renewed>;
   /** RP-initiated logout: forget the record here, clear the cookie, and end it at the IdP too. */
   end(cookie: string | null | undefined, options?: { readonly returnTo?: string }): Promise<Redirect>;
@@ -196,7 +286,7 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
   };
 
   /** Everything a successful grant produces, in the one place both grants can use it. */
-  const adopt = async (tokens: Tokens, previous: SessionRecord | null): Promise<Renewed> => {
+  const adopt = async (tokens: Tokens, previous: SessionRecord | null): Promise<Adopted> => {
     // A refresh that returns no new ID token leaves the identity as it was; only the tokens moved.
     const idClaims = tokens.claims();
     const next = idClaims === undefined ? previous?.session : claims(idClaims, config);
@@ -204,15 +294,57 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
       refuse("token.exchange-failed", "the token response carried no ID token, so it names nobody");
     }
 
-    const ticket = await store.put({
+    // `expiresIn()` counts down from the moment the response was parsed, which is the only honest
+    // reading: the token endpoint says `expires_in`, never an absolute time, because it has no
+    // opinion about our clock. Absent, the expiry is unknown rather than zero — a record that
+    // claimed to have expired at the epoch would be renewed on every single request.
+    const lifetime = tokens.expiresIn();
+
+    const record: SessionRecord = {
       session: next,
+      accessToken: tokens.access_token,
+      accessTokenExpiresAt: lifetime === undefined ? undefined : Date.now() + lifetime * 1000,
       // RFC 10017 requires rotation, so the newly issued token is the only one still valid. An
       // authorization server that did not rotate returns none, and the one we hold stays good.
       refreshToken: tokens.refresh_token ?? previous?.refreshToken,
       idToken: tokens.id_token ?? previous?.idToken,
-    });
+    };
 
-    return { session: next, cookies: [await session.seal({ ticket })] };
+    const ticket = await store.put(record);
+    return { renewed: { session: next, cookies: [await session.seal({ ticket })] }, record };
+  };
+
+  /** The renewal both `refresh` and `token` run, with the record they each need a different half of. */
+  const renew = async (cookie: string | null | undefined): Promise<Adopted> => {
+    const sealed = await session.read(cookie);
+    const record = sealed === null ? null : await store.get(sealed.ticket);
+    if (sealed === null || record === null) {
+      refuse("session.absent", "there is no session cookie to refresh");
+    }
+    const spent = record.refreshToken;
+    if (spent === undefined) {
+      refuse("session.absent", "the session holds no refresh token, so it cannot be renewed");
+    }
+
+    // Everything above is a read and may run concurrently; everything below spends a token that can
+    // only be spent once, so it is the half behind the slot. A caller that joins gets the cookie
+    // the first one was issued, which is the cookie it would have been issued anyway.
+    return renewals(sealed.ticket, async () => {
+      let tokens: Tokens;
+      try {
+        tokens = await refreshTokenGrant(await provider.configuration(), spent);
+      } catch (error) {
+        // Under rotation a refused refresh is often a *replayed* token rather than an expired one,
+        // and the authorization server may have revoked the whole chain. Either way the session is
+        // over; the slot above exists to keep us from causing it.
+        refuse("token.exchange-failed", "the refresh token was refused", error);
+      }
+
+      // The superseded ticket goes first: a store that enforces one live session per person must
+      // not briefly hold two, and for the stateless default this is a no-op.
+      await store.drop(sealed.ticket);
+      return adopt(tokens, record);
+    });
   };
 
   return {
@@ -222,6 +354,13 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
       const verifier = randomPKCECodeVerifier();
       const state = randomState();
       const nonce = randomNonce();
+
+      if (options.organization !== undefined && !ORGANIZATION.test(options.organization)) {
+        refuse(
+          "organization.invalid",
+          `\`${options.organization}\` is not an organization alias, and a scope is a space-delimited list: see ORGANIZATION`,
+        );
+      }
 
       const parameters: Record<string, string> = {
         redirect_uri: config.redirectUri,
@@ -309,7 +448,7 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
       // session cookie this callback happened to arrive with is not read. keasy's Rust calls
       // `cycle_id()` here for the same reason — an attacker who planted a session before sign-in
       // must not find themselves holding the one that sign-in produced.
-      const renewed = await adopt(tokens, null);
+      const { renewed } = await adopt(tokens, null);
 
       return {
         ...renewed,
@@ -322,30 +461,31 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
       return (await recordFrom(cookie))?.session ?? null;
     },
 
+    async token(cookie, options = {}) {
+      const record = await recordFrom(cookie);
+      if (record === null) return null;
+
+      const within = (options.renewWithin ?? DEFAULT_RENEW_WITHIN) * 1000;
+      const held = record.accessToken;
+      // An unknown expiry is not treated as expired: a realm that omits `expires_in` would
+      // otherwise be renewed on every request, which is the replay this package exists to avoid.
+      const stale =
+        record.accessTokenExpiresAt !== undefined &&
+        record.accessTokenExpiresAt - Date.now() <= within;
+
+      if (held !== undefined && !stale) {
+        return { accessToken: held, session: record.session, cookies: [] };
+      }
+
+      const { renewed, record: fresh } = await renew(cookie);
+      if (fresh.accessToken === undefined) {
+        refuse("token.exchange-failed", "the token response carried no access token");
+      }
+      return { accessToken: fresh.accessToken, session: renewed.session, cookies: renewed.cookies };
+    },
+
     async refresh(cookie) {
-      const sealed = await session.read(cookie);
-      const record = sealed === null ? null : await store.get(sealed.ticket);
-      if (sealed === null || record === null) {
-        refuse("session.absent", "there is no session cookie to refresh");
-      }
-      if (record.refreshToken === undefined) {
-        refuse("session.absent", "the session holds no refresh token, so it cannot be renewed");
-      }
-
-      let tokens: Tokens;
-      try {
-        tokens = await refreshTokenGrant(await provider.configuration(), record.refreshToken);
-      } catch (error) {
-        // Under rotation a refused refresh is often a *replayed* token rather than an expired one,
-        // and the authorization server may have revoked the whole chain. Either way the session is
-        // over; `single-flight.ts` exists to keep us from causing it.
-        refuse("token.exchange-failed", "the refresh token was refused", error);
-      }
-
-      // The superseded ticket goes first: a store that enforces one live session per person must
-      // not briefly hold two, and for the stateless default this is a no-op.
-      await store.drop(sealed.ticket);
-      return adopt(tokens, record);
+      return (await renew(cookie)).renewed;
     },
 
     async end(cookie, options = {}) {
@@ -372,4 +512,11 @@ export function relyingParty(config: RelyingPartyConfig): RelyingParty {
 
 export { issuer, rewriteOrigin, type Issuer, type IssuerConfig } from "./issuer";
 export { sealedCookie, cookieValue, type SealedCookie, type SealedCookieConfig } from "./cookie-session";
-export { statelessStore, type SessionRecord, type SessionStore } from "./store";
+export {
+  statelessStore,
+  ticketStore,
+  type SessionRecord,
+  type SessionStore,
+  type TicketAdapter,
+  type TicketStoreConfig,
+} from "./store";
