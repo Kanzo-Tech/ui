@@ -108,7 +108,8 @@ export function sealedCookie<T>(config: SealedCookieConfig): SealedCookie<T> {
         throw new Error(
           `${name} is ${header.length} bytes and a browser is only required to keep ${COOKIE_LIMIT}; ` +
             "a cookie over the limit is dropped silently and the session simply never appears. " +
-            "Give relyingParty a SessionStore so the cookie carries a ticket instead of the tokens.",
+            "Give relyingParty `store: ticketStore(adapter)` so the cookie carries an opaque " +
+            "ticket instead of the tokens: a record holding an access token does not fit here.",
         );
       }
       return header;

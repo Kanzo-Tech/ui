@@ -138,9 +138,11 @@ describe("sealedCookie", () => {
       maxAge: 60,
     });
 
-    // Two Keycloak JWTs in one cookie is roughly this much, which is the failure `SessionStore`
-    // exists for: over 4 KB the browser keeps nothing and nothing reports it.
-    await expect(cookie.seal({ padding: "x".repeat(5000) })).rejects.toThrow(/SessionStore/);
+    // Three Keycloak JWTs in one cookie is roughly this much, which is the failure `ticketStore`
+    // exists for: over 4 KB the browser keeps nothing and nothing reports it. The message names
+    // the way out, because the symptom — a sign-in that works and a session that never appears —
+    // names nothing at all.
+    await expect(cookie.seal({ padding: "x".repeat(5000) })).rejects.toThrow(/ticketStore/);
   });
 });
 
