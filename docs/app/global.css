@@ -1,39 +1,12 @@
-@import "tailwindcss";
 /*
- * Scan the design system's component source so the docs' own (last-loaded) Tailwind sheet emits
- * the SAME utilities the components use — notably the Sidebar's responsive `md:block`/`md:flex`.
- * Without this the docs sheet had `.hidden` but no `.md:block`, and since it loads AFTER
- * @kanzo-tech/ui/styles.css, that late `.hidden` won the cascade over the library sheet's
- * `md:block` — the desktop sidebar computed display:none at every width. Emitting md:* here (sorted
- * after `.hidden` within this sheet) makes the last sheet authoritative and correctly ordered.
- */
-@source "../../packages/ui/src/**/*.{ts,tsx}";
-/*
- * And the AI package, for the same reason plus a sharper one: NOTHING scans it. The library's own
- * sheet globs its `.ts`/`.tsx` recursively from `packages/ui/src`, which cannot reach a sibling
- * package, so every utility `@kanzo-tech/ai` uses and `@kanzo-tech/ui` does not was simply never
- * emitted. Measured before this line existed: `max-w-[85%]`, the user bubble's width in
- * `message.tsx`, appeared zero times in `packages/ui/dist/styles.css`, so message bubbles rendered
- * full-width and the whole package was styled by coincidence — by whichever classes `ui` happened
- * to share. A consumer outside this repo has the same hole; `@kanzo-tech/ai/styles.css` is what
- * closes it for them.
- */
-@source "../../packages/ai/src/**/*.{ts,tsx}";
-/*
- * And streamdown's own dist, which is the line every consumer of `@kanzo-tech/ai/markdown` has to
- * write for themselves — it is in streamdown's install instructions and it is the same hole one
- * line up, one package further out. `MessageMarkdown` renders somebody else's element tree, so its
- * classes live in a `.js` file no glob of ours reaches. Without this the markdown renders with
- * correct structure and no spacing at all: headings the size of body text, lists with no indent.
+ * The published contract, and nothing beside it: the three lines a consumer writes, with fumadocs'
+ * sheets between the first and the other two. The docs used to `@source` the packages' `src/` and
+ * streamdown from here, so the site never exercised what shipped — and the shipped path broke.
  *
- * The library's own sheet deliberately does NOT carry it. `streamdown` is an optional peer behind a
- * subpath, and a stylesheet that emitted its utilities for everyone would undo in CSS exactly the
- * door `packages/ai/vite.config.ts` holds shut in JS.
+ * fumadocs goes BEFORE the library, and that is load-bearing: `lib/base.css` declares its own
+ * `@variant dark` (`.dark` with no `.light` scope), and in one build the last declaration wins.
  */
-@source "../../node_modules/.pnpm/streamdown@*/node_modules/streamdown/dist/*.js";
-/* The design system's own tokens + compiled sheet — the docs eat the published artifact. */
-@import "@kanzo-tech/theme/tokens.css";
-@import "@kanzo-tech/theme/themes.css";
+@import "tailwindcss";
 /*
  * fumadocs' colour names, minus its palette. `neutral.css` is gone: it published a grey scale of
  * its own, so the chrome — sidebar, nav, search, callouts — stayed neutral while the content
@@ -44,6 +17,8 @@
  */
 @import "fumadocs-ui/css/lib/default-colors.css";
 @import "fumadocs-ui/css/preset.css";
+@import "@kanzo-tech/ui/tailwind.css";
+@import "@kanzo-tech/ai/tailwind.css";
 
 /*
  * The landing nav's collapsed menu, hidden once it has nothing to open.
