@@ -3,7 +3,6 @@ import { Geist, Geist_Mono, Inter, JetBrains_Mono } from "next/font/google";
 import { RootProvider } from "fumadocs-ui/provider/next";
 import { KanzoProvider } from "@/components/kanzo-provider";
 import { themeIndex } from "@kanzo-tech/theme";
-import "@kanzo-tech/ui/styles.css";
 import "./global.css";
 
 // The theme's `data-font` / `data-mono-font` axes resolve `--font-sans` / `--font-mono` to these
@@ -29,7 +28,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${jetbrainsMono.variable}`}
     >
       <body className="flex min-h-screen flex-col">
-        {/* No stylesheet is inlined here any more. The catalogue travels in `styles.css` —
+        {/* No stylesheet is inlined here any more. The catalogue travels in `global.css` —
             twenty-nine themes, each one flat block under its own `[data-theme]` — so choosing one
             is an attribute write and this layout stays static. It used to inline *the chosen document*,
             read from a cookie, which made the layout async and every page under it dynamic. */}

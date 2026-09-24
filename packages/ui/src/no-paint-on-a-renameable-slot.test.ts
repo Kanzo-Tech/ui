@@ -187,7 +187,7 @@ describe("the paint a component needs to look like itself", () => {
     // the population, not on the result.
     //
     // The CSS floor is `> 0` rather than the sibling's `> 3`, and the difference is this fix: after
-    // the button's paint left, `styles.css` keys on three slots, all three of them literals. That
+    // the button's paint left, `tailwind.css` keys on three slots, all three of them literals. That
     // number is now allowed to fall to one without this guard lying, because a stylesheet with no
     // `[data-slot=…]` rule left in it is a tree with nothing to violate — whereas a recipe corpus
     // that assigns no custom property, or a library where no part is renameable, means the scan

@@ -59,7 +59,7 @@ import { fileURLToPath } from "node:url";
  * - **It reads manifests, not imports.** A package that writes Tailwind classes by hand without
  *   `tailwind-variants` is outside every scan and nothing says so. That is `graph` today, measured
  *   above; it is a judgement about one file, and it expires the moment that file grows.
- * - **It reads `src/`, and only `.ts`/`.tsx` under it.** A `styles.css` in either package is passed
+ * - **It reads `src/`, and only `.ts`/`.tsx` under it.** A `tailwind.css` in either package is passed
  *   over by a filter rather than by a decision — see the note each guard carries about its own.
  * - **It cannot see a package that is not in `packages/`.** The workspace globs are `packages/*` and
  *   `docs`; `docs` is not a library and has never been in scope for these rules.

@@ -13,7 +13,7 @@ Agents and new contributors start at [`CLAUDE.md`](CLAUDE.md). It names everythi
 |---|---|
 | `@kanzo-tech/theme` | The theme catalogue — one flat block of CSS per theme, hand-written — plus the non-colour axes a user layers over them and the value types. No React, no components, no colour maths. |
 
-| `@kanzo-tech/ui` | The components, the compiled stylesheet, and the theming runtime. |
+| `@kanzo-tech/ui` | The components, the Tailwind v4 entry, and the theming runtime. |
 
 ## What lives here, and what does not
 
@@ -32,13 +32,18 @@ each rule holds and what would reverse it.
 
 ## Consuming
 
-Import the one compiled stylesheet at the root and wrap your app in `KanzoThemeProvider`. It writes
+Add the Tailwind v4 entries to your stylesheet and wrap your app in `KanzoThemeProvider`. It writes
 the theme axes as `data-*` attributes on `<html>` — which is where they have to be, because Ark's
 overlays portal to `document.body`, outside any wrapper element, and density sets the root font-size
 the whole `rem` scale resolves against.
 
+```css
+@import "tailwindcss";
+@import "@kanzo-tech/ui/tailwind.css";
+@import "@kanzo-tech/ai/tailwind.css"; /* only with @kanzo-tech/ai */
+```
+
 ```tsx
-import "@kanzo-tech/ui/styles.css";
 import { KanzoThemeProvider } from "@kanzo-tech/ui";
 
 export function Root({ children }) {

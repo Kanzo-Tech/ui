@@ -1,0 +1,21 @@
+/*
+ * @kanzo-tech/ai — the Tailwind v4 entry, imported after `@kanzo-tech/ui`'s:
+ *
+ *     @import "tailwindcss";
+ *     @import "@kanzo-tech/ui/tailwind.css";
+ *     @import "@kanzo-tech/ai/tailwind.css";
+ *
+ * Sources and nothing else. The tokens, the variant and the plugin are `ui`'s, and this package
+ * depends on `ui` and never the reverse — so `ui`'s entry cannot name this one, and this one does
+ * not re-import `ui`'s.
+ */
+@source "../dist/**/*.js";
+
+/* streamdown's element tree, which `MessageMarkdown` renders and whose classes live in its own
+   `dist`. Without it the markdown has structure and no spacing: headings at body size, lists with
+   no indent. An optional peer, so it sits in one of the two places Node would look for a peer of
+   this package — its own `node_modules` (a nested install, and this repository) or the one it is
+   installed in (npm's hoisted tree, pnpm's virtual store). Absent, neither path exists and nothing
+   is emitted. */
+@source "../node_modules/streamdown/dist/*.js";
+@source "../../../streamdown/dist/*.js";

@@ -161,10 +161,9 @@
 
   /* Height-based expand/collapse for Ark Collapsible / TreeView. Ark supplies `--height`
      at runtime (tw-animate-css can't measure it), so we ship the `expand`/`collapse` pair
-     its components reference. These live in the TOKEN layer, not the bundled `styles.css`,
-     because Tailwind-native consumers (the playground, keasy) scan the DS source and emit
-     `animate-expand` / `animate-[collapse_…]` themselves — they import these tokens, not
-     the compiled sheet. Without the keyframes here the exit animation never runs, so Ark's
+     its components reference, beside the `--animate-*` names that emit `animate-expand` /
+     `animate-[collapse_…]`, so whatever compiles these tokens gets both halves. Without the
+     keyframes the exit animation never runs, so Ark's
      `unmountOnExit` never fires its `animationend` and collapsed branches stay mounted. */
   --animate-expand: expand 200ms ease-out;
   --animate-collapse: collapse 200ms ease-out;
@@ -201,14 +200,11 @@
 }
 
 /* Element-level base defaults that the COMPONENTS depend on (Shark's canonical base
-   layer). These live in the token layer — not the bundled `styles.css` — because Shark's
-   primitives write bare `border` / `border-t` (no colour) and rely on this rule to paint
-   them with `--border`; without it, Tailwind v4 falls back to `currentColor`, so every
-   card/dialog/table border inherits the (dark) text colour instead. Tailwind-native
-   consumers (the playground, keasy) import these tokens, not the compiled sheet, so the
-   rule must ship here for their borders + focus outlines to resolve correctly.
-   Document/app-shell defaults (`html`, `body`) stay in `styles.css` — a library shouldn't
-   impose page background on a Tailwind-native consumer.
+   layer). They live beside the tokens because Shark's primitives write bare `border` /
+   `border-t` (no colour) and rely on this rule to paint them with `--border`; without it,
+   Tailwind v4 falls back to `currentColor`, so every card/dialog/table border inherits the
+   (dark) text colour instead. Document/app-shell defaults (`html`, `body`) are
+   `@kanzo-tech/ui/tailwind.css`'s, not the tokens'.
 
    `border-width` reads the theme's `--stroke` rather than Tailwind's 1px, which is what makes
    "this tenant draws a 2px hairline" a theme declaration instead of a fork. `--stroke` and not

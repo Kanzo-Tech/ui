@@ -17,7 +17,7 @@ import { sourceFiles } from "./guard-corpus";
  * So every knob has to be reachable from a consumer, by one of the two routes this library
  * actually uses — and both count, because they are the same claim made in two syntaxes:
  *
- * · **Read directly.** `var(--depth)` in `styles.css`, where a recipe does the arithmetic itself.
+ * · **Read directly.** `var(--depth)` in `tailwind.css`, where a recipe does the arithmetic itself.
  * · **Bound in the bridge.** `tokens.css` maps `--radius-box` into Tailwind's scale, which is what
  *   makes `rounded-box` exist — so the knob is read by every class that uses it. A binding with no
  *   user is not enough: the utility has to appear in the library's own source, or the knob reaches
@@ -34,7 +34,7 @@ import { sourceFiles } from "./guard-corpus";
 
 const themeDir = dirname(createRequire(import.meta.url).resolve("@kanzo-tech/theme/tokens.css"));
 const tokens = readFileSync(join(themeDir, "tokens.css"), "utf8");
-const sheet = readFileSync(resolve(__dirname, "styles.css"), "utf8");
+const sheet = readFileSync(resolve(__dirname, "tailwind.css"), "utf8");
 
 /**
  * The knobs, and where the list comes from.
@@ -89,7 +89,7 @@ describe("every shape knob is read by something", () => {
     const used = utility !== null && sources.some((source) => source.includes(utility));
     expect(
       readDirectly || used,
-      `${knob} is declared in the vocabulary and read by nothing: no var(${knob}) in styles.css or in\n` +
+      `${knob} is declared in the vocabulary and read by nothing: no var(${knob}) in tailwind.css or in\n` +
         `any recipe, and ${
           utility === null ? "no binding in tokens.css" : `nothing uses \`${utility}\``
         }`,

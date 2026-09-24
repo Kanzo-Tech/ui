@@ -105,7 +105,7 @@ export const CHART_SLOTS = 8;
  * colours, so `.dark` survives only as the selector for the `dark:` VARIANT at the call sites that
  * still ask for one.
  *
- * Requires `@kanzo-tech/ui/styles.css` (or the raw token/theme CSS) imported once at the root.
+ * Requires `@kanzo-tech/ui/tailwind.css` (or the raw token/theme CSS) in the host's Tailwind build.
  */
 
 /**

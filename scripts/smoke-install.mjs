@@ -19,6 +19,7 @@
  *   6. the palette's derivation is not re-exported from the theme
  *   7. `@kanzo-tech/graph` imports from its root with no Mosaic installed, and the DuckDB half is
  *      on `/duckdb` where it costs only the host that asks for it
+ *   8. the consumer's Tailwind contract — see `cssContract` below
  *
  * **Four packages, because the door is the same door.** `@kanzo-tech/ai` was outside this file
  * entirely for as long as it existed — its client modules and its second stylesheet were bytes
@@ -41,6 +42,7 @@
  * right *source* files. This checks the build did not lose them.
  */
 import { execFileSync } from "node:child_process";
+import { brotliCompressSync } from "node:zlib";
 import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
@@ -123,6 +125,83 @@ const requiredPeersOf = (pkg) => {
   const meta = manifest.peerDependenciesMeta ?? {};
   return Object.keys(manifest.peerDependencies ?? {}).filter((name) => !meta[name]?.optional);
 };
+
+/**
+ * 8. The consumer's Tailwind contract, compiled from the installed tarballs exactly as a host
+ * writes it. The packages ship Tailwind source, so the page is ONE build: what this proves is that
+ * the entries resolve from `node_modules`, that their `@source`s reach the published `dist/`, and
+ * that everything a compiled sheet used to lose — a `@custom-variant`, cross-sheet variant order,
+ * a single preflight — survives.
+ *
+ * Compiled twice: without streamdown, because it is an optional peer and its absence must be
+ * silent, and with it, because `@kanzo-tech/ai/markdown` renders its classes.
+ */
+const CONTRACT = `@import "tailwindcss";
+@import "@kanzo-tech/ui/tailwind.css";
+@import "@kanzo-tech/ai/tailwind.css";
+`;
+/**
+ * Brotli of the minified page, streamdown included, for a consumer with no classes of its own.
+ * Measured at 29.18 kB when it replaced size-limit's 40 kB gate on `ui`'s compiled sheet alone —
+ * which never counted `ai`'s second sheet or the duplicate preflight a host paid on top. Set just
+ * above, so real growth trips it.
+ */
+const CSS_BUDGET = 30_000;
+
+function cssContract() {
+  run("npm", ["install", "--no-audit", "--no-fund", "--legacy-peer-deps", "tailwindcss@4", "@tailwindcss/cli@4"], workDir);
+  writeFileSync(join(workDir, "app.css"), CONTRACT);
+  const compile = () => {
+    run(join(workDir, "node_modules/.bin/tailwindcss"), ["-i", "app.css", "-o", "out.css", "--minify"], workDir);
+    return readFileSync(join(workDir, "out.css"), "utf8");
+  };
+
+  const bare = compile();
+  check("the contract compiles with streamdown absent, and emits none of its classes", () => {
+    if (bare.includes("--sdm-")) fail("streamdown's classes were emitted with streamdown not installed");
+  });
+
+  run("npm", ["install", "--no-audit", "--no-fund", "--legacy-peer-deps", "streamdown@^2"], workDir);
+  const css = compile();
+
+  const layer = (name) => {
+    const open = css.indexOf(`@layer ${name}{`);
+    if (open === -1) return "";
+    let depth = 0;
+    for (let i = open; i < css.length; i++) {
+      if (css[i] === "{") depth++;
+      else if (css[i] === "}" && --depth === 0) return css.slice(open, i + 1);
+    }
+    return "";
+  };
+  const utilities = layer("utilities");
+
+  check("the Sidebar's `hidden md:block` resolves to block at md: both in one utilities layer, md after", () => {
+    const hidden = utilities.indexOf(".hidden{");
+    const mdBlock = utilities.indexOf(".md\\:block{");
+    if (hidden === -1 || mdBlock === -1) fail("`.hidden` or `.md:block` is missing from the utilities layer");
+    else if (mdBlock < hidden) fail("`.md:block` precedes `.hidden` — the Sidebar is display:none at every width");
+    if (css.split(".hidden{").length !== 2) fail("`.hidden` is emitted more than once — a second build is on the page");
+  });
+  check("`dark:` is the library's class variant, not Tailwind's media query", () => {
+    if (!/\.dark\\:[^{]*:not\(\.light/.test(utilities)) fail("no `dark:` utility carries the `.light` scope — the @custom-variant was lost");
+  });
+  check("`kanzo-prose` is emitted", () => {
+    if (!css.includes(".kanzo-prose")) fail("`.kanzo-prose` is missing — the typography plugin did not load");
+  });
+  check("an ai-only utility (`max-w-[85%]`, the user bubble) and streamdown's classes are emitted", () => {
+    if (!css.includes("max-w-\\[85\\%\\]")) fail("`max-w-[85%]` is missing — @kanzo-tech/ai's @source did not reach its dist");
+    if (!css.includes("--sdm-")) fail("streamdown is installed and none of its classes were emitted");
+  });
+  check("exactly one preflight", () => {
+    const preflights = css.split("-webkit-text-size-adjust:100%").length - 1;
+    if (preflights !== 1) fail(`${preflights} preflights on the page`);
+  });
+  const size = brotliCompressSync(css).length;
+  check(`the page's stylesheet is ${(size / 1000).toFixed(2)} kB brotli, within ${CSS_BUDGET / 1000} kB`, () => {
+    if (size > CSS_BUDGET) fail(`the compiled contract is ${size} B brotli, over the ${CSS_BUDGET} B budget`);
+  });
+}
 
 try {
   // `pnpm pack`, never `npm pack`: only pnpm rewrites the `workspace:*` dependency on
@@ -546,6 +625,8 @@ for (const [subpath, cost] of [
   const out = run("node", ["smoke.mjs"], workDir);
   process.stdout.write(out);
   if (out.includes("FAIL")) fail("see the FAIL lines above");
+
+  cssContract();
 } catch (err) {
   fail(`${err.stdout?.toString() ?? ""}${err.stderr?.toString() ?? err}`);
 } finally {

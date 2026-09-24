@@ -4,10 +4,17 @@ Kanzo's shared UI surface — **Ark UI** behaviour, **tailwind-variants** appear
 between them. The component set is adopted from [Shark UI](https://shark.vini.one) and re-branded to
 the Kanzo tokens.
 
+```css
+@import "tailwindcss";
+@import "@kanzo-tech/ui/tailwind.css";
+```
+
 ```tsx
-import "@kanzo-tech/ui/styles.css";
 import { Button, KanzoThemeProvider } from "@kanzo-tech/ui";
 ```
+
+The package ships Tailwind v4 source, not compiled CSS: your build compiles it with your own
+utilities, once.
 
 ## What is in it
 
