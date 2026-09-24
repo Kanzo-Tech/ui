@@ -104,11 +104,60 @@ describe("bffAuth", () => {
     await expect(auth.getSession()).resolves.toBeNull();
   });
 
-  it("re-reads the session when a request comes back 401, and tells the tree", async () => {
+  /**
+   * The failure this retry exists for, in the shape the host measured it: a session cookie good
+   * for eight hours in front of an access token good for one. For the seven hours in between,
+   * `/session` answers 200 and the whole application draws while every request for data is a 401 —
+   * and before this, nothing in the package turned that into a renewal.
+   */
+  it("renews and retries once when a request comes back 401", async () => {
     const fetchMock = vi
       .fn<typeof globalThis.fetch>()
       .mockImplementationOnce(async () => jsonOnce(body))
       .mockImplementationOnce(async () => new Response("no", { status: 401 }))
+      .mockImplementationOnce(async () => jsonOnce(body))
+      .mockImplementationOnce(async () => new Response("the jobs", { status: 200 }));
+    const auth = bffAuth({ fetch: fetchMock });
+
+    await auth.getSession();
+    const changed = vi.fn();
+    auth.subscribe(changed);
+
+    const response = await auth.fetch("/v1/jobs");
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe("the jobs");
+    // The renewal is a POST to the refresh route, and the request that saw the 401 is sent again.
+    expect(fetchMock.mock.calls[2]?.[0]).toBe("/api/auth/refresh");
+    expect(fetchMock.mock.calls[2]?.[1]?.method).toBe("POST");
+    expect(fetchMock.mock.calls[3]?.[0]).toBe("/v1/jobs");
+    // Nothing about the person changed, so the tree is not re-rendered for a renewal.
+    expect(changed).not.toHaveBeenCalled();
+  });
+
+  it("spends one renewal for a burst of 401s", async () => {
+    const fetchMock = vi.fn<typeof globalThis.fetch>(async (input) => {
+      if (String(input).endsWith("/session")) return jsonOnce(body);
+      if (String(input).endsWith("/refresh")) return jsonOnce(body);
+      return new Response("", { status: 401 });
+    });
+    const auth = bffAuth({ fetch: fetchMock });
+    await auth.getSession();
+
+    // Six components noticing at once is six refresh tokens replayed under rotation, and an
+    // authorization server is entitled to read that as theft and revoke the chain.
+    await Promise.all(Array.from({ length: 6 }, () => auth.fetch("/v1/jobs")));
+
+    const renewals = fetchMock.mock.calls.filter(([input]) => String(input).endsWith("/refresh"));
+    expect(renewals).toHaveLength(1);
+  });
+
+  it("re-reads the session when the renewal is refused, and tells the tree", async () => {
+    const fetchMock = vi
+      .fn<typeof globalThis.fetch>()
+      .mockImplementationOnce(async () => jsonOnce(body))
+      .mockImplementationOnce(async () => new Response("no", { status: 401 }))
+      .mockImplementationOnce(async () => new Response("", { status: 401 }))
       .mockImplementationOnce(async () => new Response("", { status: 401 }));
     const auth = bffAuth({ fetch: fetchMock });
 
@@ -120,11 +169,29 @@ describe("bffAuth", () => {
 
     const response = await auth.fetch("/v1/jobs");
 
-    // The caller still sees its own 401 — the session is gone, not stale, and there is nothing to
-    // retry with.
+    // The caller still sees its own 401: the session is gone rather than stale, and the renewal
+    // that would have been the thing to retry with was refused.
     expect(response.status).toBe(401);
     await expect(auth.getSession()).resolves.toBeNull();
     expect(changed).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not retry a request whose body cannot be sent twice", async () => {
+    const fetchMock = vi.fn<typeof globalThis.fetch>(async (input) => {
+      if (String(input).endsWith("/session")) return jsonOnce(body);
+      if (String(input).endsWith("/refresh")) return jsonOnce(body);
+      return new Response("", { status: 401 });
+    });
+    const auth = bffAuth({ fetch: fetchMock });
+    await auth.getSession();
+
+    // A stream is read once. Retrying it sends an empty body and a misleading error at the far
+    // end, which is worse than the 401 the caller was going to see anyway.
+    const body_ = new ReadableStream();
+    const response = await auth.fetch("/v1/upload", { method: "POST", body: body_ });
+
+    expect(response.status).toBe(401);
+    expect(fetchMock.mock.calls.filter(([input]) => String(input) === "/v1/upload")).toHaveLength(1);
   });
 
   it("passes a request that is not a 401 straight through", async () => {
