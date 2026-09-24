@@ -28,8 +28,12 @@ export interface TokenSource {
  * A body that is a stream can be read once, so a retry would send an empty one — silently, with a
  * misleading error at the far end. Where we cannot prove the body is replayable we do not retry: the
  * 401 reaches the caller, which is honest, rather than a corrupted request reaching the server.
+ *
+ * Exported for `bff-auth.ts`, which retries for a different reason — a renewed cookie rather than
+ * a renewed bearer token — and must not answer the question differently. It is not on the barrel:
+ * it is a shared predicate between two implementations, not a thing a consumer holds.
  */
-function isReplayable(input: RequestInfo | URL, init?: RequestInit): boolean {
+export function isReplayable(input: RequestInfo | URL, init?: RequestInit): boolean {
   if (typeof Request !== "undefined" && input instanceof Request && input.body !== null) return false;
   const body = init?.body;
   if (body === undefined || body === null) return true;

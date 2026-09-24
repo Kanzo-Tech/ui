@@ -1,3 +1,4 @@
+import { isReplayable } from "./auth-fetch";
 import { singleFlight } from "./single-flight";
 import type { Auth, Organization, Session, SignInOptions } from "./types";
 
@@ -98,6 +99,25 @@ export function bffAuth(config: BffAuthConfig = {}): Auth {
     return readSession(await response.json().catch(() => null));
   });
 
+  /**
+   * Ask the BFF to spend the refresh token, once for however many requests noticed at the moment.
+   *
+   * This is the browser end of the renewal, and without it the session cookie's lifetime and the
+   * access token's are two different clocks with nothing between them: a cookie good for eight
+   * hours in front of a token good for one produces seven hours in which `/session` answers 200,
+   * the whole application draws, and every request for data is a 401 that nothing acts on.
+   *
+   * `POST`, because the route only answers `POST` — it spends something, and a `GET` that spends
+   * something is one prefetch away from spending it unasked.
+   */
+  const renew = singleFlight(async (): Promise<boolean> => {
+    const response = await doFetch(`${base}/refresh`, {
+      method: "POST",
+      headers: { Accept: "application/json" },
+    });
+    return response.ok;
+  });
+
   const refresh = async (): Promise<Session | null> => {
     const next = cached;
     cached = await read();
@@ -132,15 +152,31 @@ export function bffAuth(config: BffAuthConfig = {}): Auth {
       go(query ? `${base}/signout?${query}` : `${base}/signout`);
     },
 
-    // No `Authorization` header, and no retry: the cookie rides along on a same-origin request by
-    // itself, so there is no stale token to renew. A 401 means the session is *gone* rather than
-    // stale, and the useful response to that is to tell the tree — which is what re-reading does.
+    /**
+     * No `Authorization` header — the cookie rides along on a same-origin request by itself — and
+     * **one** retry, behind one renewal.
+     *
+     * A 401 here is ambiguous in a way it is not under `browserAuth`: the cookie was sent and was
+     * accepted, so what expired is the access token *behind* the cookie, which this half of the
+     * pattern cannot see. So the 401 is taken as "renew and try again" first and as "the session
+     * is gone" only when the renewal is refused — at which point re-reading tells the tree, which
+     * is what it did before and all it did before.
+     *
+     * The retry is once, for the reason `authFetch` gives: twice turns an ended session into a
+     * loop against the authorization server. A request whose body cannot be replayed is not
+     * retried at all, and `isReplayable` is the same predicate the bearer-token path uses.
+     */
     fetch: async (input, init) => {
       const response = await doFetch(input, init);
-      if (response.status === 401 && known) {
-        known = false;
-        await refresh();
+      if (response.status !== 401 || !known) return response;
+
+      if (await renew()) {
+        if (!isReplayable(input, init)) return response;
+        return doFetch(input, init);
       }
+
+      known = false;
+      await refresh();
       return response;
     },
   };

@@ -11,9 +11,9 @@ This door is the other half of the [Backend For Frontend](/docs/auth/session#two
 the tokens live on your server and the browser gets a cookie it cannot read. It needs
 `openid-client` and `jose`, and it reaches no React at all.
 
-What it answers is a `RelyingParty` and not an `Auth`: the five methods below are `begin`,
-`complete`, `read`, `refresh` and `end`, so the name carries no `Auth` suffix — [the suffix is a
-promise](/docs/auth#what-a-name-means-here).
+What it answers is a `RelyingParty` and not an `Auth`: the six methods below are `begin`,
+`complete`, `read`, `token`, `refresh` and `end`, so the name carries no `Auth` suffix — [the
+suffix is a promise](/docs/auth#what-a-name-means-here).
 
 **Nothing here implements OAuth.** `openid-client` runs the flow, verifies the ID token and builds
 the end-session URL; `jose` seals the cookie. What is written here is the short sequence a route
@@ -41,12 +41,53 @@ const party = relyingParty({
 | `begin(options?)` | `Redirect` — the authorization URL, and the cookie that remembers this attempt | `GET /api/auth/signin` |
 | `complete({ url, cookie })` | `SignedIn` — a session, its cookies, and where the person was going | the callback |
 | `read(cookie)` | `Session \| null` | `GET /api/auth/session`, on every request |
-| `refresh(cookie)` | `Renewed` — the session and a reissued cookie | when the access token is near expiry |
+| `token(cookie, options?)` | `Token \| null` — the access token, renewed when it is near expiry | forwarding to a resource server |
+| `refresh(cookie)` | `Renewed` — the session and a reissued cookie | `POST /api/auth/refresh` |
 | `end(cookie, options?)` | `Redirect` — clears the cookie and ends it at the IdP too | `GET /api/auth/signout` |
 
-`Redirect`, `SignedIn` and `Renewed` are the three answer shapes, and every one of them carries its
-`cookies` as `Set-Cookie` values for the caller to attach. A handler that forgets to attach them is
-a handler whose sign-in appears to work and whose session is never there.
+`Redirect`, `SignedIn`, `Renewed` and `Token` are the four answer shapes, and every one of them
+carries its `cookies` as `Set-Cookie` values for the caller to attach. A handler that forgets to
+attach them is a handler whose sign-in appears to work and whose session is never there — and on
+`token`, worse than that: under rotation the refresh token it spent is gone and the one it minted
+was never kept, so a dropped `Set-Cookie` there ends the session rather than merely failing.
+
+## The token-mediating backend
+
+`token` is the credential half of `read`. It answers the **access token**, which is what a resource
+server takes, and renews it when less than `renewWithin` seconds remain — sixty by default, which
+covers both the flight time of the request about to be sent and the clock skew between this server
+and the one that will validate the token.
+
+```ts
+const held = await party.token(request.headers.get("cookie"));
+if (held === null) return new Response(null, { status: 401 });
+
+const upstream = await fetch(REPORTS, {
+  headers: { authorization: `Bearer ${held.accessToken}` },
+});
+const answer = new Response(upstream.body, upstream);
+for (const cookie of held.cookies) answer.headers.append("set-cookie", cookie);
+return answer;
+```
+
+`cookies` is empty when nothing was renewed. [`authProxy`](/docs/auth/next#authproxy) is that
+whole handler, already written.
+
+<Callout type="warn">
+**The access token is the credential, and the ID token is not.** A product without a way to ask for
+the first reaches for the second, which works on a realm that happens to put the same audience in
+both and stops working the day the resource server checks `typ == "Bearer"` — which is what it
+should be doing. An ID token says *who signed in*; it was never a key to an API, and it is not what
+`/token/introspect` or `/revoke` take either.
+</Callout>
+
+Renewal is **single-flight per ticket, for the whole process**. A page that fires eight requests at
+an expiring token spends it once, and it is per ticket rather than per instance because a server
+builds more than one relying party — `authRoutes` rebuilds its own when the derived callback URL
+changes, `authToken` and `authProxy` each hold theirs — and an instance-level slot would let two of
+them replay the same token at the same moment. Two Node processes behind a load balancer can still
+collide; the answer to that is a `SessionStore` whose `put` is the point of coordination, not a
+lock here pretending a `Map` is a distributed one.
 
 Sign-out goes through `buildEndSessionUrl`, not a URL assembled by hand: it discovers the
 end-session endpoint and sends the `id_token_hint`, and a hand-built URL gets both wrong with
@@ -73,19 +114,29 @@ header. Four attributes, each for a reason:
 <Callout type="warn">
 **A browser is only required to keep 4 KB of cookie, and an oversized one is dropped silently** —
 no error, a sign-in that appears to work, and a session that never appears. Sealing throws with
-that byte count rather than letting it happen, and the way out is a `SessionStore`.
+that byte count rather than letting it happen, and the way out is `ticketStore`.
 </Callout>
 
 ## When a cookie is not enough
 
-`statelessStore` is the default and it holds nothing: the ticket *is* the record. What it cannot do
-is stated here rather than discovered later — **`drop` does nothing.** Signing out clears the
-cookie, which is enough for the person holding the browser and is not enough for anybody else: a
-copy taken beforehand keeps working until it expires. Under this store a session lifetime is a real
-security parameter, and *sign out everywhere* is not implementable at all.
+`statelessStore` is the default and it holds nothing: the ticket *is* the record. Two things it
+cannot do, both stated here rather than discovered later.
+
+**`drop` does nothing.** Signing out clears the cookie, which is enough for the person holding the
+browser and is not enough for anybody else: a copy taken beforehand keeps working until it expires.
+Under this store a session lifetime is a real security parameter, and *sign out everywhere* is not
+implementable at all.
+
+**It does not fit a record carrying an access token, and the numbers are the argument.** Sealed
+with the three tokens a token-mediating backend holds, a realistic Keycloak record — two
+organizations and the roles that come with them — measures **6407 bytes** against a limit of 4096.
+It measured **4068** before the access token joined it, which is 28 bytes of margin and was never a
+design: one more organization went over it. `store.test.ts` holds both figures. So the stateless
+default is for a product that reads identity and calls no resource server; the moment there is an
+API to call, the cookie carries a ticket instead of the tokens.
 
 `SessionStore` is three methods, and `SessionRecord` is what they carry — the session, plus the
-refresh token and ID token the browser must never see. They live on the record and not on
+access, refresh and ID tokens the browser must never see. They live on the record and not on
 `Session` for exactly that reason: a type carrying both would make the leak one typo away.
 
 ```ts
@@ -97,9 +148,40 @@ interface SessionStore {
 ```
 
 A deployment that needs one live session per person enforces it in `put`, by dropping that person's
-previous ticket as it issues the new one. One interface, one default implementation, and no
-catalogue: a Redis or SQL store is three methods somebody writes, not a decision this package makes
-on its way past.
+previous ticket as it issues the new one.
+
+### `ticketStore`, and the database you already have
+
+No backend ships here — a driver is a dependency and a deployment decision, and neither is this
+package's to make on its way past. What does ship is the shape, because without it every product
+that wants a real sign-out writes its own sealing, and a logout that invalidates nothing is the
+thing they all ship instead.
+
+```ts
+relyingParty({
+  …,
+  store: ticketStore({
+    read: (key) => redis.get(key),
+    write: (key, value, ttl) => redis.set(key, value, { EX: ttl }),
+    delete: (key) => redis.del(key),
+  }),
+});
+```
+
+The cookie then carries an opaque ticket of 256 bits from the CSPRNG — under 400 bytes sealed,
+whatever the realm puts in a token — and the record lives in your own database. **`drop` deletes**,
+so every copy of that cookie ends at once.
+
+A ticket is `<subject>:<random>`. The random half is the whole of the security and the subject is
+neither secret nor trusted on the way back in — the record is read from the row, never from the
+key. What the prefix buys is the one query a flat random key makes impossible: *every session
+belonging to this person*. `SCAN sub:*` is then something a deployment can write, and "sign out on
+every device" stops being a feature this package has to grow an API for.
+
+`ttl` defaults to eight hours and should be set to the `maxAge` you gave `relyingParty`, which is
+the lifetime of the cookie carrying the ticket. **Honouring it is the adapter's job**, because
+every store that could hold this already has an expiry of its own — `EX` on Redis, a column and a
+sweep on SQL — and a timer here would be one that dies with the process.
 
 ## Discovery, and reaching Keycloak from inside a cluster
 
@@ -144,6 +226,46 @@ the secret never travels. `allowInsecureHttp` is what lets a compose file on a l
 | `postLogoutRedirectUri` | `string` | — |
 
 Returns a `RelyingParty`.
+
+### `Token`
+
+What `token` answers.
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `accessToken` | `string` | The bearer credential for a resource server |
+| `session` | `Session` | Who it belongs to |
+| `cookies` | `readonly string[]` | `Set-Cookie` values to attach. Empty when nothing was renewed — **attaching them is not optional** |
+
+`token` takes `{ renewWithin?: number }`, seconds, default `60`.
+
+### `SessionRecord`
+
+| Field | Type | Description |
+| --- | --- | --- |
+| `session` | `Session` | What the browser is allowed to see |
+| `accessToken` | `string` | The credential for a resource server |
+| `accessTokenExpiresAt` | `number` | Epoch ms, from the response's `expires_in` rather than from opening the token |
+| `refreshToken` | `string` | Rotated on every use; the stored one is always the newest issued |
+| `idToken` | `string` | Kept for `id_token_hint` at the end-session endpoint |
+
+### `ticketStore`
+
+`ticketStore(adapter: TicketAdapter, config?: TicketStoreConfig): SessionStore`
+
+`TicketAdapter`:
+
+| Method | Signature |
+| --- | --- |
+| `read` | `(key: string) => Promise<string \| null>` |
+| `write` | `(key: string, value: string, ttl: number) => Promise<void>` |
+| `delete` | `(key: string) => Promise<void>` |
+
+`TicketStoreConfig`:
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `ttl` | `number` | eight hours, in seconds |
 
 ### `IssuerConfig`
 

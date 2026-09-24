@@ -72,7 +72,7 @@
     "react-dom": "^19.0.0",
     "rollup-plugin-preserve-directives": "^0.4.0"
   },
-  "//size-limit": "The root barrel was 677 B at the first commit — the claim reader, the role predicate and the types — against a 1 kB budget set deliberately tight, with a note saying the raise would be a line in the commit that landed the hooks rather than a quiet edit. This is that line: 677 B -> 2.19 kB, and the budget goes to 2.5 kB. What grew is the provider, three hooks, `Gate` and `bffAuth`, which is the whole of what a consumer imports to have a session. Every budget here is set just above its first measurement for the same reason: one with 70% headroom detects nothing. Each subpath ignores its own engine, because the consumer installs that explicitly and what is being measured is our adapter over it. What these numbers are really watching for is a door reaching through another: the root barrel must never learn a protocol, and the two Node doors must never learn React. A jump of kilobytes on any of them means one of those happened, and `scripts/smoke-install.mjs` reads the built bytes to say which.",
+  "//size-limit": "The root barrel was 677 B at the first commit — the claim reader, the role predicate and the types — against a 1 kB budget set deliberately tight, with a note saying the raise would be a line in the commit that landed the hooks rather than a quiet edit. This is that line: 677 B -> 2.19 kB, and the budget goes to 2.5 kB. What grew is the provider, three hooks, `Gate` and `bffAuth`, which is the whole of what a consumer imports to have a session. Every budget here is set just above its first measurement for the same reason: one with 70% headroom detects nothing. Each subpath ignores its own engine, because the consumer installs that explicitly and what is being measured is our adapter over it. What these numbers are really watching for is a door reaching through another: the root barrel must never learn a protocol, and the two Node doors must never learn React. A jump of kilobytes on any of them means one of those happened, and `scripts/smoke-install.mjs` reads the built bytes to say which. Second raise, and it is a decision rather than a quiet edit: the session lifecycle — a refresh route, `authToken`, `authProxy`, `ticketStore` and the same-site check — moved the two Node doors, `server` 3.2 kB -> 3.4 kB (budget 3.6) and `next` 4 kB -> 4.59 kB (budget 5). What is being watched for is unchanged and still holds: neither door learned React and the barrel learned no protocol, which is why the other two numbers barely moved.",
   "size-limit": [
     {
       "name": "root barrel (JS)",
@@ -98,7 +98,7 @@
     {
       "name": "server subpath (JS)",
       "path": "dist/server.js",
-      "limit": "3.2 kB",
+      "limit": "3.6 kB",
       "ignore": [
         "react",
         "react-dom",
@@ -110,7 +110,7 @@
     {
       "name": "next subpath (JS)",
       "path": "dist/next.js",
-      "limit": "4 kB",
+      "limit": "5 kB",
       "ignore": [
         "react",
         "react-dom",

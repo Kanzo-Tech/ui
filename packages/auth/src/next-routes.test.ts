@@ -85,6 +85,16 @@ function get(
   );
 }
 
+/** A request with a verb and headers of its own, for the routes that care about either. */
+function send(
+  routes: ReturnType<typeof authRoutes>,
+  method: "GET" | "POST",
+  path: string,
+  headers: Record<string, string> = {},
+): Promise<Response> {
+  return routes[method](new Request(`${ORIGIN}${path}`, { method, headers }));
+}
+
 describe("authRoutes", () => {
   let realm: Realm;
   let config: AuthRoutesConfig;
@@ -152,6 +162,33 @@ describe("authRoutes", () => {
       expect(new URL(response.headers.get("location") ?? "").searchParams.get("scope")).toBe(
         "openid profile email organization:acme",
       );
+    });
+
+    /**
+     * `?organization=acme%20offline_access` is a query parameter composed by whoever made the
+     * link, and `scope` is a space-delimited list — so an unchecked space is not a strange alias,
+     * it is a second scope. `offline_access` in particular asks for a refresh token that outlives
+     * the browser session. The refusal is `begin`'s; what this asserts is that it arrives as a
+     * code rather than as a 500 on a mistyped link.
+     */
+    it("refuses an organization that would inject a scope, as a code rather than a 500", async () => {
+      const response = await get(
+        routes,
+        `/api/auth/signin?organization=${encodeURIComponent("acme offline_access")}`,
+      );
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({ error: "organization.invalid" });
+    });
+
+    it("lets a cross-site link start a sign-in, because that is what a sign-in link is", async () => {
+      // Starting a flow grants nothing — `state`, `nonce` and PKCE bind the rest of it — and a
+      // product may legitimately be linked to from anywhere with "sign in to X".
+      const response = await send(routes, "GET", "/api/auth/signin", {
+        "sec-fetch-site": "cross-site",
+      });
+
+      expect(response.status).toBe(302);
     });
   });
 
@@ -284,6 +321,114 @@ describe("authRoutes", () => {
 
       expect(response.status).toBe(302);
     });
+
+    /**
+     * The cost of `SameSite=Lax`, which this package chose on a consumer's behalf and therefore
+     * owes the compensation for: a cross-site *top-level navigation* still carries the cookie, so
+     * `<img src="…/api/auth/signout">` on any page anywhere is a logout anyone can cause.
+     */
+    it("refuses a cross-site logout", async () => {
+      const { cookie } = await signIn();
+      const response = await routes.GET(
+        new Request(`${ORIGIN}/api/auth/signout`, {
+          headers: { cookie, "sec-fetch-site": "cross-site" },
+        }),
+      );
+
+      expect(response.status).toBe(403);
+      expect(response.headers.getSetCookie()).toEqual([]);
+    });
+  });
+
+  describe("refresh", () => {
+    /**
+     * The route that was missing, and the one the whole package was already built for:
+     * `relyingParty.refresh` rotates the token and `single-flight.ts` was written for the burst,
+     * and nothing called either. A token of an hour behind a cookie of eight hours meant seven
+     * hours in which the application drew and every request for data was a 401.
+     */
+    it("renews the session and reissues the cookie", async () => {
+      const { cookie } = await signIn();
+
+      const response = await routes.POST(
+        new Request(`${ORIGIN}/api/auth/refresh`, { method: "POST", headers: { cookie } }),
+      );
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ user: { id: "u-1" } });
+      const reissued = response.headers.getSetCookie();
+      expect(reissued).toHaveLength(1);
+      expect(reissued[0]?.startsWith("__Host-kanzo-session=")).toBe(true);
+      expect(response.headers.get("cache-control")).toBe("no-store");
+    });
+
+    it("answers 401 when there is nothing to renew", async () => {
+      const response = await send(routes, "POST", "/api/auth/refresh");
+
+      expect(response.status).toBe(401);
+      expect(await response.json()).toMatchObject({ error: "session.absent" });
+    });
+
+    /**
+     * The only route here that constrains its verb. The others are reached by navigation, where
+     * the verb is the browser's to choose; this one *spends* a refresh token, and a `GET` that
+     * spends something is one prefetch, one link preview or one crawler away from spending it.
+     */
+    it("answers 405 to a GET, because it spends something", async () => {
+      const { cookie } = await signIn();
+      const response = await get(routes, "/api/auth/refresh", cookie);
+
+      expect(response.status).toBe(405);
+      expect(response.headers.get("allow")).toBe("POST");
+    });
+
+    it("refuses a cross-site renewal", async () => {
+      const { cookie } = await signIn();
+      const response = await routes.POST(
+        new Request(`${ORIGIN}/api/auth/refresh`, {
+          method: "POST",
+          headers: { cookie, "sec-fetch-site": "cross-site" },
+        }),
+      );
+
+      expect(response.status).toBe(403);
+    });
+  });
+
+  it("refuses a cross-site read of who is signed in", async () => {
+    const { cookie } = await signIn();
+    const response = await routes.GET(
+      new Request(`${ORIGIN}/api/auth/session`, {
+        headers: { cookie, "sec-fetch-site": "cross-site" },
+      }),
+    );
+
+    expect(response.status).toBe(403);
+  });
+
+  /**
+   * The callback *is* a cross-site top-level navigation — it is the identity provider sending the
+   * browser back — so the check that covers the other routes must not cover this one. Asserted
+   * because a later tidy-up that applied the guard uniformly would break every sign-in, and would
+   * break it only against a real IdP.
+   */
+  it("still accepts the callback, which arrives cross-site by definition", async () => {
+    const started = await get(routes, "/api/auth/signin?returnTo=/dashboard");
+    const away = new URL(started.headers.get("location") ?? "");
+    realm.state.idTokenClaims = { nonce: away.searchParams.get("nonce"), sub: "u-1" };
+
+    const done = await routes.GET(
+      new Request(`${ORIGIN}/api/auth/callback?code=c&state=${away.searchParams.get("state")}`, {
+        headers: {
+          cookie: asRequestHeader(started.headers.getSetCookie()),
+          "sec-fetch-site": "cross-site",
+          "sec-fetch-mode": "navigate",
+        },
+      }),
+    );
+
+    expect(done.status).toBe(302);
+    expect(done.headers.get("location")).toBe(`${ORIGIN}/dashboard`);
   });
 
   it("answers 404 for a path this door does not serve", async () => {
@@ -303,10 +448,10 @@ describe("authRoutes", () => {
    */
   describe("against bffAuth, the other end of the contract", () => {
     const through = (routes: ReturnType<typeof authRoutes>, cookie: string) =>
-      ((input: RequestInfo | URL, init?: RequestInit) =>
-        routes.GET(
-          new Request(new URL(String(input), ORIGIN), { ...init, headers: { cookie } }),
-        )) as unknown as typeof globalThis.fetch;
+      ((input: RequestInfo | URL, init?: RequestInit) => {
+        const request = new Request(new URL(String(input), ORIGIN), { ...init, headers: { cookie } });
+        return request.method === "POST" ? routes.POST(request) : routes.GET(request);
+      }) as unknown as typeof globalThis.fetch;
 
     it("reads the session endpoint into a Session", async () => {
       const { cookie } = await signIn("/", { sub: "u-1", email: "ada@example.test" });
@@ -332,6 +477,37 @@ describe("authRoutes", () => {
       for (const url of visited) {
         expect((await get(routes, url)).status).toBe(302);
       }
+    });
+
+    /**
+     * The whole renewal, end to end, with a real `bffAuth` in front of these real handlers: a
+     * request for data answers 401 because the access token behind the cookie has expired, the
+     * browser half posts to the refresh route these handlers serve, and the request goes again.
+     * Two descriptions of that contract is how it drifts, so it is exercised instead.
+     */
+    it("recovers a 401 for data by renewing through the refresh route", async () => {
+      const { cookie } = await signIn();
+      const asked: string[] = [];
+
+      const fetchImpl = ((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        asked.push(url);
+        if (url.startsWith("/api/auth")) {
+          const request = new Request(new URL(url, ORIGIN), { ...init, headers: { cookie } });
+          return request.method === "POST" ? routes.POST(request) : routes.GET(request);
+        }
+        // The resource server: a 401 first, and an answer once the token behind the cookie is new.
+        const renewed = asked.includes("/api/auth/refresh");
+        return Promise.resolve(new Response(renewed ? "the jobs" : "", { status: renewed ? 200 : 401 }));
+      }) as unknown as typeof globalThis.fetch;
+
+      const auth = bffAuth({ fetch: fetchImpl, navigate: () => {} });
+      await auth.getSession();
+
+      const response = await auth.fetch("/v1/jobs");
+
+      expect(response.status).toBe(200);
+      expect(asked).toContain("/api/auth/refresh");
     });
   });
 });

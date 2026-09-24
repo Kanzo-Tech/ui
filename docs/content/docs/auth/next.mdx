@@ -1,14 +1,14 @@
 ---
 title: Next.js
-description: The Backend For Frontend in the three files an App Router product already has — authRoutes, authSession and authMiddleware over the confidential client, and nothing on the edge behind the middleware.
+description: The Backend For Frontend in the files an App Router product already has — authRoutes, authSession, authToken, authProxy and authMiddleware over the confidential client, and nothing on the edge behind the middleware.
 ---
 
 ```ts
-import { authMiddleware, authRoutes, authSession } from "@kanzo-tech/auth/next";
+import { authMiddleware, authProxy, authRoutes, authSession, authToken } from "@kanzo-tech/auth/next";
 ```
 
-Three names over [the confidential client](/docs/auth/server), in the three files an App Router
-product already has:
+Five names over [the confidential client](/docs/auth/server), in the files an App Router product
+already has:
 
 ```ts title="app/api/auth/[...auth]/route.ts"
 export const { GET, POST } = authRoutes({ clientId, clientSecret, issuer, secret });
@@ -16,16 +16,25 @@ export const { GET, POST } = authRoutes({ clientId, clientSecret, issuer, secret
 
 ```ts title="auth.ts"
 export const getSession = authSession({ clientId, clientSecret, issuer, secret });
+export const getToken = authToken({ clientId, clientSecret, issuer, secret });
+```
+
+```ts title="app/api/data/[...path]/route.ts"
+export const { GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS } = authProxy({
+  clientId, clientSecret, issuer, secret,
+  basePath: "/api/data",
+  target: "https://reports.internal/v1",
+});
 ```
 
 ```ts title="middleware.ts"
 export const middleware = authMiddleware({ public: ["/health"] });
 ```
 
-Three factories, and two of them take the same config object — the one
-[`relyingParty`](/docs/auth/server) takes. The third takes no secret at all, because it never
-unseals anything. And there is no fourth concept: a server component asks about a role with `can`
-and `organizationOf` from the root barrel, exactly as `Gate` asks in the browser.
+Five factories, and four of them take the same config object — the one
+[`relyingParty`](/docs/auth/server) takes. `authMiddleware` takes no secret at all, because it
+never unseals anything. And there is no further concept: a server component asks about a role with
+`can` and `organizationOf` from the root barrel, exactly as `Gate` asks in the browser.
 
 <Callout type="info">
 **There is no `requireRole`.** It would have added no new evaluation of a role — only a *throw* —
@@ -52,6 +61,28 @@ Reading is memoised per request through React's `cache`, so a page that asks in 
 breadcrumb and a menu unseals the cookie once. Outside a React request scope `cache` simply calls
 through, which is why this is a property of a request and never something to rely on across one.
 
+## Who may renew, and who may only read
+
+`authSession` reads `next/headers` and answers an identity. `authToken` is *handed* a `Cookie`
+header and answers a credential **plus the cookies to set**. The asymmetry is the design rather
+than an oversight.
+
+<Callout type="warn">
+**A React Server Component cannot write cookies in Next**, and a renewal whose `Set-Cookie` is
+dropped does not go stale — under the rotation the specification requires, the refresh token it
+spent is gone and the one it minted was never kept, so the session is *over*. A zero-argument
+`authToken` reading `next/headers` would work inside an RSC exactly well enough to destroy the
+session on its first renewal.
+</Callout>
+
+So there is no zero-argument form. The signature asks for something a **route handler**, a
+**middleware** and a **server action** have and an RSC does not — and each of those can answer with
+the `Set-Cookie` that comes back. An RSC that wants to know who is signed in calls `authSession`,
+which only ever reads.
+
+The same reasoning is why renewal does not happen lazily inside `authSession`: there is nowhere in
+a server component to put the result.
+
 ## `authRoutes`
 
 Give it a `redirectUri` or let it derive one from the incoming request — the origin it arrived at,
@@ -61,6 +92,83 @@ Deriving it trusts the `Host` header, which is chosen by whoever made the reques
 bounded trust**: a forged host produces a `redirect_uri` Keycloak has not registered, and Keycloak
 refuses it. A deployment behind a proxy that rewrites the host should still say the URL out loud
 rather than discover this.
+
+### The five routes
+
+| Path | Verb | Answers |
+| --- | --- | --- |
+| `/signin` | `GET`, `POST` | 302 to the authorization endpoint, with the transaction cookie |
+| `/callback` | `GET`, `POST` | 302 to where the person was going, with the session cookie |
+| `/session` | `GET`, `POST` | the `Session` as JSON, or **401 and no body** |
+| `/refresh` | `POST` | the renewed `Session` and a reissued cookie, or 401 |
+| `/signout` | `GET`, `POST` | 302 to the end-session endpoint, clearing the cookie |
+
+`/refresh` is the one route that constrains its verb. The others are reached by navigation, where
+the verb is the browser's to choose; this one *spends* a refresh token, and a `GET` that spends
+something is one prefetch, one link preview or one crawler away from spending it unasked. A `GET`
+gets a 405 rather than a 404, because the route is plainly there.
+
+`bffAuth` is the other end of this contract and drives it without the product orchestrating
+anything: on a 401 from a request of its own it `POST`s `/refresh`, and retries that request once
+if the renewal worked. [The ambiguity that makes that the right reading of a
+401](/docs/auth/session#keeping-requests-authenticated) is on the session page.
+
+### Which routes a cross-site request may reach
+
+The session cookie is `SameSite=Lax`, and that is not a preference — `Strict` withholds it on the
+navigation *back* from the identity provider, so every sign-in would fail. What `Lax` costs is
+exactly one thing: a cross-site **top-level navigation** still sends the cookie. So
+`<img src="…/api/auth/signout">` on any page anywhere is a logout anyone can cause.
+
+**The package that chose `Lax` is the one that owes the compensation**, so the check is here rather
+than in every product:
+
+| Route | From a cross-site page |
+| --- | --- |
+| `/callback` | allowed — it *is* a cross-site navigation, from the IdP |
+| `/signin` | allowed — starting a flow grants nothing, and "sign in to X" is a link people write |
+| `/session`, `/refresh`, `/signout` | **403** |
+
+`Sec-Fetch-Site` is read first, because a browser sets it and script cannot. `same-origin` and
+`none` pass — `none` is a bookmark or a typed URL, which is the person acting. `same-site` is
+refused along with `cross-site`: the cookie is `__Host-` and therefore host-only, but host-only
+says where the cookie *lives*, not who may cause a request to it, so anything that can serve a
+sibling subdomain could otherwise sign its readers out. Without the header, `Origin` is compared;
+without either, the request is allowed, because something carrying no evidence of where it came
+from also carries no evidence that it came from a *page*, and a page is the attack.
+
+### `organization` is validated before it becomes a scope
+
+`scope` is a space-delimited list, so `?organization=acme%20offline_access` reaching `begin`
+unchecked is not a strange alias — it is a **second scope**, asking for a refresh token that
+outlives the browser session, chosen by whoever composed the link. `begin` refuses anything that is
+not an alias or `*`, and this route answers 400 with `organization.invalid` rather than a 500 on a
+mistyped link.
+
+## `authProxy`
+
+Ninety lines every product writes the same way, and one of them is load-bearing in a way that does
+not look it: **the `cookie` header must not be forwarded**. Leave it on and the resource server
+receives a second credential beside the bearer token it asked for, which is the confusion the BFF
+pattern exists to remove — from then on a bug at the far end can act as the *person* rather than as
+the token, and the token's scope and lifetime stop being the boundary.
+
+What else it does, none of which is a product's idea of its own domain: strips the hop-by-hop
+headers, forwards the body as a stream with `duplex: "half"` so an upload is never read into
+memory and an SSE stream is never buffered until it ends, sets `redirect: "manual"` so a `Location`
+from the upstream cannot send the bearer token to whatever host it names, drops `set-cookie` from
+the answer, and drops `content-encoding` and `content-length` with it — `fetch` already decoded the
+body, so both describe a representation that no longer exists and no browser recovers from that.
+
+It answers **401** when there is no session or the renewal was refused, **403** when the request is
+not same-site, and **400** for a path outside its mount.
+
+<Callout type="info">
+**The upstream is reached with the global `fetch`, not with the inherited `IssuerConfig` one.**
+That field exists to reach the *identity provider* — it is the seam `internalOrigin` uses to come
+at Keycloak from inside a cluster — and a deployment that set it and found its resource-server
+traffic going the same way would have every right to be surprised.
+</Callout>
 
 ## `authMiddleware` arrives on the edge with nothing behind it
 
@@ -107,6 +215,33 @@ Returns `() => Promise<Session | null>`.
 
 Returns `AuthRouteHandlers` — a `GET` and a `POST`, each taking a web `Request` and answering a web
 `Response`, which is the shape an App Router route file wants.
+
+### `authToken`
+
+`authToken(config: AuthSessionConfig)` returns
+`(cookie: string | null | undefined, options?: { renewWithin?: number }) => Promise<Token | null>`.
+[`Token`](/docs/auth/server#token) is the access token, the session and the cookies to attach.
+
+The cookie is a required argument and there is no zero-argument form —
+[the reason](#who-may-renew-and-who-may-only-read) is that a React Server Component could call one
+and could not keep what it produced.
+
+### `authProxy`
+
+`AuthProxyConfig` is `AuthSessionConfig` plus:
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `target` | `string` | — |
+| `basePath` | `string` | — |
+| `renewWithin` | `number` | `60`, in seconds |
+
+Returns `AuthProxyHandlers` — `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD` and `OPTIONS`, each
+taking a web `Request` and answering a web `Response`, which is what a catch-all route file wants:
+
+```ts title="app/api/data/[...path]/route.ts"
+export const { GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS } = authProxy({ … });
+```
 
 ### `authMiddleware`
 
