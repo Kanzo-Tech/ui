@@ -212,7 +212,12 @@ describe("the 4096 bytes a browser is required to keep", () => {
 
   it("is not enough for a stateless record once it holds an access token", async () => {
     const stateless = statelessStore();
-    const { accessToken: _a, accessTokenExpiresAt: _e, ...before } = KEYCLOAK;
+    /** The same record as it was before this release: the two identity tokens and no credential. */
+    const before: SessionRecord = {
+      session: KEYCLOAK.session,
+      refreshToken: KEYCLOAK.refreshToken,
+      idToken: KEYCLOAK.idToken,
+    };
 
     // 4068 of 4096 without the access token, which is 28 bytes of margin and was never a design —
     // one more organization went over it. With the access token there is no version of this that
