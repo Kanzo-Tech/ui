@@ -1,6 +1,6 @@
 ---
 title: Installation
-description: The packages, the peers you may not need, one stylesheet and one provider.
+description: The packages, the peers you may not need, one Tailwind build and one provider.
 ---
 
 <Steps>
@@ -21,10 +21,11 @@ npm install @kanzo-tech/ui
 
 ### Install the peers
 
-React 19 or later, plus `lucide-react` for icons.
+React 19 or later, `lucide-react` for icons, and Tailwind CSS v4 — the library ships Tailwind
+source, and your build compiles it.
 
 ```npm
-npm install react react-dom lucide-react
+npm install react react-dom lucide-react tailwindcss
 ```
 
 Everything else is **optional**, and only if you import the matching subpath. Each subpath
@@ -78,8 +79,8 @@ pnpm add @kanzo-tech/ai
 ```
 
 It has no optional peer and no subpath. Everything it draws with is `@kanzo-tech/ui` and Ark, both
-required peers, and its appearance comes from the same `styles.css` you import below — there is no
-second sheet.
+required peers, and its appearance is one more line in the stylesheet below — its own `@source`s,
+streamdown's included, and nothing else.
 
 ### Authentication is a package that draws nothing
 
@@ -111,14 +112,20 @@ bytes to say so, rather than trusting this sentence.
 
 <Step>
 
-### Import the stylesheet once, at the root
+### Import the entries into your Tailwind stylesheet
 
-```tsx title="app/layout.tsx"
-import "@kanzo-tech/ui/styles.css";
+```css title="app/globals.css"
+@import "tailwindcss";
+@import "@kanzo-tech/ui/tailwind.css";
+@import "@kanzo-tech/ai/tailwind.css"; /* only with @kanzo-tech/ai */
 ```
 
-This one sheet carries the tokens, the generated themes and every component's compiled CSS.
-There is no runtime style injection, so no flash of unstyled content.
+The entries are Tailwind source, not compiled CSS. `@kanzo-tech/ui`'s carries the tokens, the
+generated themes, the `dark` variant, the typography plugin and the `@source` that finds its own
+components; `@kanzo-tech/ai`'s adds its components and streamdown's. Your build compiles the page
+once — one preflight, one utilities layer, one variant order — and your own utilities resolve
+against the same tokens. Do not import `@kanzo-tech/theme/tokens.css` beside them: the entry
+already does.
 
 </Step>
 

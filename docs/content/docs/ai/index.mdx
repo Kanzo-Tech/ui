@@ -48,7 +48,8 @@ pnpm add @kanzo-tech/ui @ark-ui/react react react-dom lucide-react
 
 There is **no optional peer and no subpath**. Nothing in this package reaches a database, an editor
 or a chart, so there is no engine to hold behind a door — the whole surface is on the root entry.
-The stylesheet is still `@kanzo-tech/ui`'s single `styles.css`; this package adds no second sheet.
+Its stylesheet is one line after `@kanzo-tech/ui`'s — `@import "@kanzo-tech/ai/tailwind.css"` —
+and carries sources only: the tokens and variants are `ui`'s.
 
 ## What it ships
 

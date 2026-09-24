@@ -109,7 +109,7 @@ The library's stylesheet once shipped the typography plugin under `.prose`, whos
 selectors outrank Preflight — so every consumer that happens to use that class name (fumadocs does,
 and it is a common choice) had its anchors, headings, lists and tables repainted by a design system
 it had only asked for a `Button`. The first fix was a containment rule in the docs app; the same bug
-came back, and the real fix was renaming the plugin's class in `packages/ui/src/styles.css`, where
+came back, and the real fix was renaming the plugin's class in `packages/ui/src/tailwind.css`, where
 the `@plugin "@tailwindcss/typography"` block still carries the reason.
 
 The standing corollary: **`docs/` consumes `dist/`, not `src/`.** A rename typechecks clean while
@@ -119,8 +119,36 @@ the docs build fails, and a fix in `src/` does not reach the docs app until the 
 pipeline, its routing, its Shiki rendering. The test is whether a consumer who never opens our docs
 would hit it.
 
-*Held by* `packages/ui/src/styles.css`, the `@plugin "@tailwindcss/typography"` block and the comment
+*Held by* `packages/ui/src/tailwind.css`, the `@plugin "@tailwindcss/typography"` block and the comment
 above it.
+
+## The packages ship Tailwind source, and the page is one build
+
+`@kanzo-tech/ui` and `@kanzo-tech/ai` publish `tailwind.css`, an entry the consumer imports after
+its own `@import "tailwindcss"`. Each declares its own plugin, variant, tokens and `@source`,
+relative to where it sits in the tarball; the consumer compiles once. It is the model Tailwind v4
+describes for libraries and the one daisyUI, HeroUI and Flowbite ship.
+
+They used to ship compiled sheets, and three Tailwind builds on one page cannot be ordered. `ai`'s
+`.hidden` came after `ui`'s `md:block` and the sidebar was `display: none` at every width — putting
+both in the same layer does not help, because two separately compiled sheets still sort by which
+loaded last. A `@custom-variant` does not survive compilation either, so every host restated
+`dark`, and every host `@source`d streamdown, a dependency of `ai`'s. None of it showed here: the
+docs ran one build over `packages/*/src`, so the tested path was not the shipped one. Now
+`docs/app/global.css` is the three lines a consumer writes, and the entries' `@source` reads `dist/`
+in this workspace exactly as it does in a tarball.
+
+streamdown is `ai`'s optional peer, so its `@source` is written for the two places a peer of the
+package can be installed — its own `node_modules` (a nested install, and this workspace) and the
+`node_modules` it is installed in (npm's hoisted tree and pnpm's virtual store alike). `@source` takes a path, not a specifier, so
+this is the resolution Tailwind leaves to the package; absent, neither path exists and nothing is
+emitted.
+
+**What would reverse it.** A consumer that is not Tailwind v4 — the decision is that there is none.
+Or `@source` gaining module resolution, which would collapse streamdown's two lines to one.
+
+*Held by* `scripts/smoke-install.mjs`, `cssContract`, which compiles the three lines against the
+packed tarballs.
 
 ## A chart fails silently and well-painted
 

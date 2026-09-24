@@ -14,7 +14,7 @@ import { Spinner } from "./spinner";
  * in six places is a hover rule that drifts in six places.
  *
  * **The placement is daisyUI's too, and that half arrived late.** The derivations sat in
- * `styles.css` under `[data-slot="button"]`, which is the one attribute this library invites a
+ * the stylesheet under `[data-slot="button"]`, which is the one attribute this library invites a
  * caller to RENAME — every part takes `slot?: string`. So every component of ours that renames a
  * `Button` got the variant's three assignments and no rule that read them: `AlertDialogAction` and
  * `AlertDialogCancel` reported their `data-variant` correctly and `background-color:

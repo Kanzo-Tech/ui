@@ -66,7 +66,6 @@ Writing them is `<KanzoThemeProvider>`'s job, from `@kanzo-tech/ui`:
 
 ```tsx
 import { KanzoThemeProvider } from "@kanzo-tech/ui";
-import "@kanzo-tech/ui/styles.css"; // once, at the root
 
 <KanzoThemeProvider defaults={{ radius: "md", density: "compact" }}>
   {children}
@@ -105,7 +104,7 @@ import { themeScript, cookieStorageAdapter } from "@kanzo-tech/ui";
 
 ## What's in the package
 
-The compiled styles ship with `@kanzo-tech/ui` (`import "@kanzo-tech/ui/styles.css"`), which
+The Tailwind entry ships with `@kanzo-tech/ui` (`@import "@kanzo-tech/ui/tailwind.css"`), which
 already pulls in this package's `tokens.css` + `themes.css`. Subpath exports
 (`@kanzo-tech/theme/tokens.css`, `/themes.css`, `/themes/<name>.css`) are available for tooling —
 the last one so a consumer can import a subset of the catalogue instead of all of it.

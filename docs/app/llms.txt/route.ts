@@ -59,7 +59,7 @@ export function GET(request: Request) {
     // or a chart: the page list says what exists, never where it is imported from.
     "## Packages and entry points",
     "",
-    "- `@kanzo-tech/ui` — every component. Import `@kanzo-tech/ui/styles.css` once at the root and wrap the app in `KanzoThemeProvider`.",
+    "- `@kanzo-tech/ui` — every component. Add `@import \"tailwindcss\"; @import \"@kanzo-tech/ui/tailwind.css\";` to the Tailwind v4 stylesheet and wrap the app in `KanzoThemeProvider`.",
     "- `@kanzo-tech/ui/table` — the connected data table. Needs `@tanstack/react-table`.",
     "- `@kanzo-tech/ui/analytics` — the charts. Needs `@uwdata/vgplot`, `@uwdata/mosaic-core`, `@uwdata/mosaic-sql`, `@duckdb/duckdb-wasm`.",
     "- `@kanzo-tech/ui/editor` — the CodeMirror editors. Needs `@codemirror/*` and `@lezer/highlight`.",

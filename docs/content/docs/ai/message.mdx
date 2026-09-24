@@ -153,21 +153,16 @@ brotli** on its own — `parse5` alone is 123 kB, for `rehype-raw`'s HTML. The w
 must not pay for a markdown parser to write `import { Message }`, which is the same door
 [`@kanzo-tech/ui/editor`](/docs/forms/code-editor) stands behind for CodeMirror.
 
-So `streamdown` is an **optional peer**: install it yourself, and add its dist to whatever scans
-your classes, because `MessageMarkdown` renders somebody else's element tree.
+So `streamdown` is an **optional peer**: install it yourself.
 
 ```bash
 npm install streamdown
 ```
 
-```css
-@source "../node_modules/streamdown/dist/*.js";
-```
-
-Without that second line the markdown comes out structurally correct and completely unspaced —
-headings at body size, lists with no indent. `@kanzo-tech/ai/styles.css` deliberately does not carry
-it: emitting Streamdown's utilities for everyone would undo in CSS exactly the door the subpath
-holds shut in JavaScript.
+`MessageMarkdown` renders somebody else's element tree, so its classes live in streamdown's `dist`,
+and `@kanzo-tech/ai/tailwind.css` is what scans it — there is no `@source` for you to write. It
+looks where a peer of the package is installed, so a host that never installed streamdown emits
+none of its utilities: the door the subpath holds shut in JavaScript stays shut in CSS.
 
 ## Anatomy
 
