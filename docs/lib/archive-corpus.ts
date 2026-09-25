@@ -1,9 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-// The addressing runs in WASM and takes the module's LOCATION, because only a bundler knows where an
-// asset lands. `next.config.ts` emits `.wasm` as `asset/resource`, so this import is the URL.
-import wasmUrl from "@fossil-lang/corpus/pkg/fossil_graph_wasm_bg.wasm";
 import { openCorpus, type OpenedCorpus } from "@kanzo-tech/graph/duckdb";
 import { Coordinator, wasmConnector } from "@kanzo-tech/ui/analytics";
 
@@ -36,14 +33,6 @@ import { Coordinator, wasmConnector } from "@kanzo-tech/ui/analytics";
  */
 export const ARCHIVE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/corpus/archive`;
 
-/**
- * Where `fossil_graph_wasm_bg.wasm` landed, for a preview that calls `openCorpus` itself.
- *
- * It is re-exported rather than imported twice because only a bundler knows how an asset resolves,
- * and two spellings of that would be two chances to get it wrong.
- */
-export { wasmUrl as corpusWasmUrl };
-
 let coordinating: Coordinator | null = null;
 
 /** The page's one database. Built on first ask, because a page with no graph on it should boot none. */
@@ -64,7 +53,6 @@ export function archive(): Promise<OpenedCorpus> {
   opening ??= openCorpus({
     coordinator: archiveCoordinator(),
     dest: `${window.location.origin}${ARCHIVE}`,
-    wasmUrl,
   });
   return opening;
 }

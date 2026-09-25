@@ -4,8 +4,6 @@ import { Graph } from "@cosmos.gl/graph";
 import { type Coordinator, numbers } from "@kanzo-tech/ui/analytics";
 import { shouldSlice, type Slice } from "@kanzo-tech/graph";
 import { boot } from "../workspace/duck";
-// See `graph-state.tsx`: the corpus addressing is a WASM module and this import is its URL.
-import corpusWasmUrl from "@fossil-lang/corpus/pkg/fossil_graph_wasm_bg.wasm";
 import { openCorpus } from "@kanzo-tech/graph/duckdb";
 import type { BoundedSource } from "@kanzo-tech/graph";
 // The offscreen element and the rectangle it defines are `measure.ts`'s, so the two harnesses draw
@@ -277,7 +275,7 @@ export async function measureSlicePath(path = "/bench/1000000"): Promise<{
 }> {
   const { coordinator } = await boot();
   await forget(coordinator);
-  const { source } = await openCorpus({ coordinator, dest: `${window.location.origin}${path}`, wasmUrl: corpusWasmUrl });
+  const { source } = await openCorpus({ coordinator, dest: `${window.location.origin}${path}`});
   if (!source.extent) throw new Error("bench: the corpus source cannot say its extent");
   const bounds = await source.extent();
   const total = (await source.total?.()) ?? 1;
@@ -393,8 +391,8 @@ async function corpus(pointCount: number, report?: (stage: string) => void): Pro
    * now, read from the manifest rather than written down here. That constant went stale once and
    * silently read a fraction of the corpus, which is the whole argument for this move.
    */
-  const { source } = await openCorpus({ coordinator, dest: base, wasmUrl: corpusWasmUrl });
-  const { source: named } = await openCorpus({ coordinator, dest: base, subjects: true, wasmUrl: corpusWasmUrl });
+  const { source } = await openCorpus({ coordinator, dest: base});
+  const { source: named } = await openCorpus({ coordinator, dest: base, subjects: true});
 
   /**
    * The extent, from the boxes the source already holds. No scan.

@@ -16,9 +16,9 @@
     "measure:previews": "node scripts/measure-previews.mjs",
     "check:previews": "node scripts/measure-previews.mjs --check"
   },
-  "//fossil": "The reader is on npm — see `packages/graph/package.json`. This entry said LOCAL LINK, NOT A RELEASE STATE while `@fossil-lang/corpus` was a `link:` at a fossil checkout beside this one; it is on the registry now and the range is a range. The two graph showcases import fossil's wasm asset by path, so the package is a direct dependency here as well as a transitive one.",
+  "//fossil": "The reader is on npm — see `packages/graph/package.json`. This entry said LOCAL LINK, NOT A RELEASE STATE while `@fossil-lang/corpus` was a `link:` at a fossil checkout beside this one; it is on the registry now and the range is a range. It is a direct dependency here because it is an optional peer of `@kanzo-tech/graph/duckdb`, and an optional peer is only satisfied by the host installing it. Nothing here imports its `.wasm`: since `0.3.0-alpha.8` the module resolves its own through `new URL(…, import.meta.url)` and webpack emits it as an asset.",
   "dependencies": {
-    "@fossil-lang/corpus": "^0.3.0-alpha.6",
+    "@fossil-lang/corpus": "^0.3.0-alpha.8",
     "@anthropic-ai/sdk": "^0.117.1",
     "@codemirror/autocomplete": "^6.18.6",
     "@codemirror/lang-json": "^6.0.2",
