@@ -12,8 +12,8 @@ import {
   type ChartConfig,
   type Coordinator,
   MosaicProvider,
+  engine,
 } from "@kanzo-tech/ui/analytics";
-import { boot } from "../workspace/duck";
 import type { BoundedSample } from "./measure-bounded";
 import type { Sample } from "./measure";
 
@@ -38,7 +38,7 @@ import type { Sample } from "./measure";
  * The provider exists because `ChartRoot` reads a coordinator from context — but nothing here
  * queries: every mark carries its own `data`, so the rows are the samples this tab already has.
  *
- * It is handed **`boot()`'s coordinator**, the same memoised instance the bounded harness runs its
+ * It is handed **`engine()`'s coordinator**, the same per-document instance the bounded harness runs its
  * sweep through. A second coordinator on one page is how vgplot's global gets fought over; there is
  * one here, and this borrows it rather than building another.
  */
@@ -46,7 +46,7 @@ function useBenchCoordinator(): Coordinator | null {
   const [coordinator, setCoordinator] = useState<Coordinator | null>(null);
   useEffect(() => {
     let live = true;
-    void boot().then(({ coordinator: c }) => {
+    void engine().then(({ coordinator: c }) => {
       if (live) setCoordinator(c);
     });
     return () => {

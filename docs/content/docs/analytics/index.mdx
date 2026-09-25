@@ -33,7 +33,7 @@ pnpm add @kanzo-tech/ui @uwdata/vgplot @uwdata/mosaic-core @uwdata/mosaic-sql
 `@duckdb/duckdb-wasm` is a fifth, and whether you need it depends on where the data is. A host that
 already has a coordinator connected to a server-side DuckDB does not; a host that wants the database
 in the tab does. That is the same choice as [bringing your own
-coordinator](/docs/analytics/charts#bring-your-own-coordinator).
+coordinator](/docs/analytics/charts#the-pages-one-engine).
 
 If one is missing you find out at import time, which is the good failure. The bad one — a chart that
 renders empty and says nothing — is a different problem and [`charts`](/docs/analytics/charts) has a

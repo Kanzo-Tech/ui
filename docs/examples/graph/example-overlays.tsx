@@ -13,9 +13,9 @@ import {
   type VertexId,
 } from "@kanzo-tech/graph";
 import { Alert, AlertDescription, Badge, Show, ToggleGroup, ToggleGroupItem } from "@kanzo-tech/ui";
-import { Query, column, numbers } from "@kanzo-tech/ui/analytics";
+import { Query, column, engine, numbers } from "@kanzo-tech/ui/analytics";
 import { LassoIcon, SquareDashedIcon } from "lucide-react";
-import { archiveCoordinator, useArchive } from "@/lib/archive-corpus";
+import { useArchive } from "@/lib/archive-corpus";
 
 /**
  * The chrome the canvas deliberately does not own: the grid that belongs to the graph's space,
@@ -88,8 +88,12 @@ export default function Example() {
   useEffect(() => {
     if (!opened) return;
     let live = true;
-    void archiveCoordinator()
-      .query(Query.from(opened.nodes).select({ id: "dense_id", label: "label" }).where(HUBS))
+    void engine()
+      .then(({ coordinator }) =>
+        coordinator.query(
+          Query.from(opened.nodes).select({ id: "dense_id", label: "label" }).where(HUBS),
+        ),
+      )
       .then((rows: unknown) => {
         if (!live) return;
         const ids = numbers(rows, "id") ?? [];

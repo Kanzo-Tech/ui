@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { openCorpus, type OpenedCorpus } from "@kanzo-tech/graph/duckdb";
-import { Coordinator, wasmConnector } from "@kanzo-tech/ui/analytics";
+import { engine } from "@kanzo-tech/ui/analytics";
 
 /**
  * The Guild's archive, opened once for the whole graph page.
@@ -14,9 +14,8 @@ import { Coordinator, wasmConnector } from "@kanzo-tech/ui/analytics";
  * and handed to `memorySource` as three typed arrays; that source is deleted, so a graph on this
  * page is a corpus `fossil` compiled, read through DuckDB.
  *
- * **And sharing is no longer only tidiness — it is one DuckDB.** `wasmConnector()` boots a worker
- * and a WASM database; four of them on one page is four. So the coordinator is memoised here and the
- * opening with it, and every preview on the page asks this module rather than constructing its own.
+ * **And sharing is no longer only tidiness — it is one DuckDB.** The database is `engine()`'s, the
+ * page's one; what is memoised here is the opening, so four previews open the archive once.
  *
  * The corpus is gitignored and built by `showcases/workspace/corpus/build-corpus.mjs`. A checkout
  * that has not built it gets `unopened` below — the reader's own error, naming the URL — rather than
@@ -33,14 +32,6 @@ import { Coordinator, wasmConnector } from "@kanzo-tech/ui/analytics";
  */
 export const ARCHIVE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/corpus/archive`;
 
-let coordinating: Coordinator | null = null;
-
-/** The page's one database. Built on first ask, because a page with no graph on it should boot none. */
-export function archiveCoordinator(): Coordinator {
-  coordinating ??= new Coordinator(wasmConnector());
-  return coordinating;
-}
-
 let opening: Promise<OpenedCorpus> | null = null;
 
 /**
@@ -50,10 +41,9 @@ let opening: Promise<OpenedCorpus> | null = null;
  * rather than against the page's origin, and finds nothing there.
  */
 export function archive(): Promise<OpenedCorpus> {
-  opening ??= openCorpus({
-    coordinator: archiveCoordinator(),
-    dest: `${window.location.origin}${ARCHIVE}`,
-  });
+  opening ??= engine().then(({ coordinator }) =>
+    openCorpus({ coordinator, dest: `${window.location.origin}${ARCHIVE}` }),
+  );
   return opening;
 }
 

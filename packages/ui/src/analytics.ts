@@ -139,9 +139,10 @@ export type {
 // owns the `plot(...)` call and the mark's `data` / `filterBy` props already own the source. What a
 // `ChartRaw` actually reaches for is one of the six axis marks below.
 
-// Boot: the coordinator, its connector, and the loaders that put a relation in front of it. The
-// "bring your own coordinator" recipe is four lines, and the fourth used to be a direct import.
-export { Coordinator, Selection, wasmConnector } from "@kanzo-tech/mosaic";
+// Boot: the page's one engine, and the loaders that put a relation in front of it. `Coordinator`
+// stays for a host that brings a connector of its own; the DuckDB-WASM one is `engine()`, because a
+// second boot on the page is a second database the last-mounted chart wins.
+export { Coordinator, Selection, engine, type Engine } from "@kanzo-tech/mosaic";
 export {
   loadCSV, loadJSON, loadObjects, loadParquet, loadSpatial, loadExtension,
 } from "@kanzo-tech/mosaic";
