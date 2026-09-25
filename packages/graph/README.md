@@ -63,7 +63,7 @@ const { source, nodes, edges } = await openCorpus({ corpus, engine: e });
 ```
 
 Opening is the host's: a host whose files sit behind a signature opens the corpus under a name,
-`open(`jobs/${id}`, { engine: e, host })`, and hands over the same `corpus`. Closing it is the
+`` open(`jobs/${id}`, { engine: e, host }) ``, and hands over the same `corpus`. Closing it is the
 host's too. It takes no column names and no type index; those come off the manifest or they do not come.
 Under `limit` it is asked once for everything and never again, so a corpus that fits pays for
 nothing.
