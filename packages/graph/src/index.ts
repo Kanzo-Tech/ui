@@ -252,3 +252,7 @@ export {
 // `DEFAULT_SIM` left with `DEFAULT_LOOK` and for the same argument: it is `simFrom()`, and `sim`
 // takes a `Partial<Sim>` now, so there is nothing left to spread it for.
 export { simFrom, type Sim } from "./graph-sim";
+
+// The two readers above, joined to the provider's resolved `sectionPrefs` for `GRAPH_SECTION` — the
+// eight lines every host under a preferences panel was writing for itself.
+export { useGraphPrefs } from "./use-graph-prefs";

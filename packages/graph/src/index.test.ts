@@ -89,6 +89,7 @@ const VALUES = [
   "useGraph",
   "useGraphContext",
   "useGraphOverlays",
+  "useGraphPrefs",
   "useGraphSelection",
   "vertexId",
 ];

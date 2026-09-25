@@ -10,7 +10,7 @@ import { openCorpus } from "./duck-source";
  * `duck-source.test.ts` beside this one says a stub connector cannot reach this module's SQL,
  * because `openCorpus` boots a WASM module before it builds a query and jsdom has no module. That
  * is true of a module nobody hands it and false of one somebody does: `@fossil-lang/corpus`'s own
- * tests read `fossil_graph_wasm_bg.wasm` off disk and pass the bytes as `wasmUrl`
+ * tests read `fossil_graph_wasm_bg.wasm` off disk and pass the bytes as `wasm`
  * (`packages/corpus/tests/boot.ts`), and the package ships that file. So the addressing here is
  * fossil's real addressing over manifests written out below, and the only thing stubbed is the
  * connector — which is what makes the SQL assertable.
@@ -131,7 +131,7 @@ async function opening(files: Record<string, string>, vertexType?: string) {
       if (text === undefined) throw new Error(`no manifest at ${url}`);
       return text;
     },
-    wasmUrl: WASM as unknown as URL,
+    wasm: WASM,
   });
   return { asked, opened };
 }

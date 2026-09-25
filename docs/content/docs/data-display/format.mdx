@@ -1,0 +1,48 @@
+---
+title: Format
+description: Byte sizes, numbers and relative dates, formatted by Intl in the page's locale.
+links:
+  doc: https://ark-ui.com/docs/utilities/format-byte
+---
+
+<ComponentPreview componentName="format" />
+
+## Usage
+
+```tsx
+import { FormatByte, FormatNumber, FormatRelativeTime } from "@kanzo-tech/ui";
+```
+
+```tsx
+<FormatByte value={48_213_504} />                 // 48.2 MB
+<FormatNumber style="percent" value={0.9372} />   // 94%
+<FormatRelativeTime value={modifiedAt} />         // 3 days ago
+```
+
+Ark's formatters, re-exported as they are. Each renders a bare string — no element, so there is
+nothing to slot and nothing to style; put it inside whatever carries the typography. The locale is
+the nearest Ark `LocaleProvider`'s, and `en-US` without one.
+
+Reach for these before writing an `Intl` wrapper of your own: a size helper that divides by 1024 in
+one file and by 1000 in the next is how two screens disagree about the same file.
+
+## API Reference
+
+### FormatByte
+
+`FormatByteProps`:
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `value` | `number` | — |
+| `unit` | `"byte" \| "bit"` | `"byte"` |
+| `unitDisplay` | `"short" \| "long" \| "narrow"` | `"short"` |
+| `unitSystem` | `"decimal" \| "binary"` | `"decimal"` |
+
+### FormatNumber
+
+`FormatNumberProps`: `value: number`, plus every `Intl.NumberFormatOptions` field as a prop.
+
+### FormatRelativeTime
+
+`FormatRelativeTimeProps`: `value: Date`, plus every `Intl.RelativeTimeFormatOptions` field as a prop.

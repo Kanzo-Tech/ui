@@ -175,6 +175,7 @@ export * from "./simples/field.js";
 export * from "./simples/file-upload.js";
 export * from "./simples/float.js";
 export * from "./simples/floating-panel.js";
+export * from "./simples/format.js";
 export * from "./simples/highlight.js";
 export * from "./simples/hover-card.js";
 export * from "./simples/image-cropper.js";

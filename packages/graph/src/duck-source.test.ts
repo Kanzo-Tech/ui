@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Coordinator } from "@kanzo-tech/mosaic";
 import { openCorpus } from "./duck-source";
@@ -88,12 +90,16 @@ function harness() {
  * addresses itself, which is the convention-copying the door exists to end — so the reader is lent
  * instead, and fossil signs nothing it does not already address.
  *
- * **What this cannot prove:** that anything after the index reads. The call below raises on the WASM
- * boot, because jsdom has no module and the test says nothing about where one would come from —
- * addressing is `fossil_graph::plan` compiled to wasm32 and there is no stub for it. What is
- * asserted is the part that happens first and is the whole of the pass-through: *who* was asked,
- * and *for what*.
+ * **What this cannot prove:** that anything after the index reads. The index below names no type,
+ * so the call stops there. What is asserted is the part that happens first and is the whole of the
+ * pass-through: *who* was asked, and *for what*. The module is booted from the bytes the package
+ * ships, because fossil awaits its boot before the first read and jsdom's `fetch` cannot load it —
+ * which is also what `wasm` on the options is for.
  */
+const WASM = readFileSync(
+  resolve(process.cwd(), "node_modules/@fossil-lang/corpus/pkg/fossil_graph_wasm_bg.wasm"),
+);
+
 describe("opening a corpus", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -109,6 +115,7 @@ describe("opening a corpus", () => {
       coordinator,
       dest: "https://signed.example/corpus/archive",
       readText: reading,
+      wasm: WASM,
     }).catch(() => undefined);
 
     // The index, at the address fossil composed — this side names no file and joins no path.

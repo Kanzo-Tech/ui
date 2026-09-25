@@ -70,7 +70,6 @@ export const UNADOPTED: Readonly<Record<string, string>> = {
   drawer: "Not built. `Sheet` is the side-anchored dialog in this library; Shark ships both over the same Ark dialog machine.",
   "floating-panel":
     "Name collision, not adoption. Shark's wraps Ark's floating-panel machine (fifteen parts, drag, stage, minimise/maximise). Ours is a plain resizable surface over a `<div>` with two exports, for floating over a canvas or a graph. Same name, different component — the entry in OURS_ALONE is the other half of this one.",
-  format: "Not built. `FormatByte` / `FormatNumber` / `FormatRelativeTime` are Ark's format parts; nothing here renders one yet.",
   frame: "Not built. `SectionRoot` and its parts are the framed-region composite in this library.",
   hint: "Not built. `Tooltip` is the hover surface here.",
   "input-otp":

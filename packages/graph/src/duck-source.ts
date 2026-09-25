@@ -630,7 +630,7 @@ function countOf(rows: unknown, field: string): number {
  * The consumer knows one thing: **where the corpus is.**
  *
  * ```ts
- * const { source } = await openCorpus({ coordinator, dest: "/bench/1000000", wasmUrl });
+ * const { source } = await openCorpus({ coordinator, dest: "/bench/1000000" });
  * ```
  *
  * **And this side no longer knows the conventions either, which is the change.** It used to remove
@@ -665,16 +665,14 @@ export interface OpenCorpusOptions {
   /** Where the corpus lives, without a trailing slash — the directory holding `graph.graph.yml`. */
   dest: string;
   /**
-   * Where `fossil_graph_wasm_bg.wasm` is.
+   * The reader's `.wasm`, for a host with no bundler — and only for one.
    *
-   * **The one thing about fossil's reader a caller still has to say, and not ours to default.** The
-   * addressing runs in WASM, so the module has to be up before a URL can be composed, and only the
-   * caller knows how its bundler resolves an asset — `?url` under Vite, an asset import under Next,
-   * a `Response` over the bytes in Node. Passed straight through, spelled as fossil spells it.
-   * Omitted, the boot is left to whoever already did it: it is memoised for the session, so a host
-   * on its second corpus need not say it again.
+   * Omit it anywhere a bundler runs: fossil's module resolves its own `.wasm` with
+   * `new URL(…, import.meta.url)`, which Vite, webpack 5 and Turbopack all emit as an asset. Node is
+   * the host that needs it, because its `fetch` rejects `file://` — a script or a test passes the
+   * bytes or a `Response`. Passed straight through to fossil's `open`, spelled as fossil spells it.
    */
-  wasmUrl?: OpenOptions["wasmUrl"];
+  wasm?: OpenOptions["wasm"];
   /**
    * Which vertex type to draw, when a corpus carries more than one.
    *
@@ -834,7 +832,7 @@ export interface UndrawnRelation {
 }
 
 export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorpus> {
-  const { coordinator, dest, filterBy, readText = manifest, subjects = false, vertexType, wasmUrl } = options;
+  const { coordinator, dest, filterBy, readText = manifest, subjects = false, vertexType, wasm } = options;
 
   const reads = openReads(coordinator, filterBy);
   const meta = metaAsker(reads.meta);
@@ -857,7 +855,7 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
    * hand them over. It is the host's reader where one was given, and `fetch` where none was; either
    * way the addresses it is lent to are fossil's, which is the half that does not move.
    */
-  const addressing = await openFossilCorpus(dest, { readText, wasmUrl });
+  const addressing = await openFossilCorpus(dest, { readText, wasm });
 
   const type = addressing.vertexType(vertexType);
   /**

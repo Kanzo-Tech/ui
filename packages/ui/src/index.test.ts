@@ -82,6 +82,11 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.useImageCropper).toBeTypeOf("function");
     expect(UI.Float).toBeTypeOf("function");
     expect(UI.ClientOnly).toBeTypeOf("function");
+    // Ark's formatters, re-exported so a host formats a file size or a date without its own
+    // `Intl` wrapper or a direct `@ark-ui/react` dependency.
+    expect(UI.FormatByte).toBeTypeOf("function");
+    expect(UI.FormatNumber).toBeTypeOf("function");
+    expect(UI.FormatRelativeTime).toBeTypeOf("function");
     expect(UI.DownloadTrigger).toBeTypeOf("function");
     expect(UI.Show).toBeTypeOf("function");
     expect(UI.JsonTreeView).toBeTypeOf("function");

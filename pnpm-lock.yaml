@@ -85,8 +85,8 @@ importers:
         specifier: 1.33.1-dev57.0
         version: 1.33.1-dev57.0
       '@fossil-lang/corpus':
-        specifier: ^0.3.0-alpha.6
-        version: 0.3.0-alpha.6
+        specifier: ^0.3.0-alpha.8
+        version: 0.3.0-alpha.8
       '@internationalized/date':
         specifier: ^3.12.2
         version: 3.12.2
@@ -292,8 +292,8 @@ importers:
         specifier: ^3.4.0
         version: 3.4.0
       '@fossil-lang/corpus':
-        specifier: ^0.3.0-alpha.6
-        version: 0.3.0-alpha.6
+        specifier: ^0.3.0-alpha.8
+        version: 0.3.0-alpha.8
       '@kanzo-tech/mosaic':
         specifier: workspace:*
         version: link:../mosaic
@@ -1109,8 +1109,8 @@ packages:
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
 
-  '@fossil-lang/corpus@0.3.0-alpha.6':
-    resolution: {integrity: sha512-rZkRAqK6EZ0G8rVfVjR4wh6JV1/520jMv+0P7AhfXEpoV5F04uiV9KlacRbZhzgNbGWf+mjCrxUImINIMT54cQ==}
+  '@fossil-lang/corpus@0.3.0-alpha.8':
+    resolution: {integrity: sha512-jckvV6quBGqXJEheT538W2p7baTLc869w9UzE8OdsRTQRsN9gJBjKni2Ker4j4MwDbmWCU8HSZxihwUa+Llm6Q==}
 
   '@fumadocs/tailwind@0.0.5':
     resolution: {integrity: sha512-ENKPWUDRmriccsrUDE4bDBq3FNr/ms3BP2rWlsAEMV1yP23pcCaan+ceGfeBUsAQjw7sj9Q3R4Kl3g/TCStPzQ==}
@@ -6175,7 +6175,7 @@ snapshots:
 
   '@floating-ui/utils@0.2.12': {}
 
-  '@fossil-lang/corpus@0.3.0-alpha.6': {}
+  '@fossil-lang/corpus@0.3.0-alpha.8': {}
 
   '@fumadocs/tailwind@0.0.5(@tailwindcss/oxide@4.3.3)(tailwindcss@4.3.2)':
     optionalDependencies:
