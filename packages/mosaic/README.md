@@ -15,10 +15,19 @@ Mosaic are two coordinators, and two coordinators are two crossfilters that neve
 ```ts
 import { Coordinator, Selection, MosaicClient, clausePoints } from "@kanzo-tech/mosaic";
 import { column, fillColumn, numbers, IdSetClient } from "@kanzo-tech/mosaic";
+import { engine } from "@kanzo-tech/mosaic";
 ```
 
-- **Re-exports** of the coordinator, the clients, the five clause builders, the loaders and the
-  connector — so a consumer boots a coordinator without a direct `@uwdata` import.
+- **`engine()`** — the page's one DuckDB-WASM database: `{ coordinator, query, lend, hold, drop }`,
+  one per document however many callers ask. vgplot has one active coordinator, so a second boot is
+  a second database the last-mounted chart wins. `lend({ name: url })` registers a URL under a name:
+  the same URL is a no-op, a different one drops the old lease and registers the new, which is what
+  DuckDB-WASM's `File already registered` was refusing. `hold(name, bytes)` registers a copy of a
+  buffer; `drop(names)` forgets. It is fossil's `Engine` structurally, without depending on fossil.
+
+- **Re-exports** of the coordinator, the clients, the five clause builders and the loaders — so a
+  consumer never needs a direct `@uwdata` import. The DuckDB-WASM connector is not among them:
+  `engine()` is the only boot.
 - **`column` / `fillColumn` / `numbers`** — the half of the client protocol the protocol does not
   give you. The coordinator answers with an Arrow table, and Arrow offers a typed column only when
   the type allows one: an integer id gives an array, a dictionary-encoded label gives nothing
