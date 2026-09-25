@@ -31,7 +31,6 @@ export {
   clauseInterval,
   clauseIntervals,
   clauseMatch,
-  wasmConnector,
   type SelectionClause,
 } from "@uwdata/mosaic-core";
 
@@ -54,3 +53,10 @@ export { column, fillColumn, numbers, type NumericArray } from "./arrow.js";
 
 /** Ours: the crossfilter adapter for a view whose positions are not in the database. */
 export { IdSetClient, type IdSetClientOptions } from "./id-set-client.js";
+
+/**
+ * Ours: the page's one DuckDB-WASM engine — the coordinator and the file registry beside it. It is
+ * the only door to `wasmConnector`, which is why that is no longer re-exported: a second boot is a
+ * second database, and every host that wrote its own boot also wrote its own registry policy.
+ */
+export { engine, type Engine } from "./engine.js";
