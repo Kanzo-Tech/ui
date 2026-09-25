@@ -1,27 +1,23 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Coordinator, MosaicProvider, loadObjects, wasmConnector } from "@kanzo-tech/ui/analytics";
+import { MosaicProvider, engine, loadObjects, type Coordinator } from "@kanzo-tech/ui/analytics";
 import { Skeleton } from "@kanzo-tech/ui";
 import { SIGHTINGS_TABLE, sightingRows } from "@/example/sightings";
 
-// Bring-your-own-coordinator: the library never imports DuckDB. This island boots DuckDB-WASM,
-// loads the sample table and owns the `Coordinator`.
-//
-// One coordinator for the WHOLE page, memoised at module scope. `MosaicProvider` registers its
-// coordinator as vgplot's active one, and that setter is process-wide — two coordinators on one
-// page and the last mounted wins, leaving the other page's charts empty. Every example below
-// shares this instance; each `MosaicProvider` still gets its own pair of `Selection`s, so one
-// example's brush never reaches into the next.
-let booting: Promise<Coordinator> | null = null;
+// The page's one engine, from `engine()`, and the sample table loaded into it once. `engine()` is
+// memoised per document, which is what lets every example below share one database; each
+// `MosaicProvider` still gets its own pair of `Selection`s, so one example's brush never reaches
+// into the next.
+let loading: Promise<Coordinator> | null = null;
 
 function boot(): Promise<Coordinator> {
-  booting ??= (async () => {
-    const coordinator = new Coordinator(wasmConnector());
+  loading ??= (async () => {
+    const { coordinator } = await engine();
     await coordinator.exec(loadObjects(SIGHTINGS_TABLE, sightingRows()));
     return coordinator;
   })();
-  return booting;
+  return loading;
 }
 
 export default function MosaicBoot({ children }: { children: ReactNode }) {

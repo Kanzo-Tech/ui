@@ -305,7 +305,7 @@ export const KINDS: ChartConfig = {
  * `include` is constructor-only — and mounts its own `MosaicProvider`, which shadows this one for
  * that subtree. So: two crossfilters, two providers, two relations (this side's `corpus_Node` over
  * the corpus Parquet, that side's `loadCSV`'d `sightings`), and the nine controls over there have
- * never reached the canvas. Only the `Coordinator` is shared, by `./duck`'s `boot()`, because
+ * never reached the canvas. Only the engine is shared — `engine()`, the page's one — because
  * vgplot resolves marks through a single *active* one.
  *
  * **And the two views never coexist**: `default.tsx` renders `ArchiveCanvas` *or* `SightingsRegion`,

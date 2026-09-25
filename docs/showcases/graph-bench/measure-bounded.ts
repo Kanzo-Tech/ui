@@ -1,9 +1,8 @@
 "use client";
 
 import { Graph } from "@cosmos.gl/graph";
-import { type Coordinator, numbers } from "@kanzo-tech/ui/analytics";
+import { type Coordinator, engine, numbers } from "@kanzo-tech/ui/analytics";
 import { shouldSlice, type Slice } from "@kanzo-tech/graph";
-import { boot } from "../workspace/duck";
 import { openCorpus } from "@kanzo-tech/graph/duckdb";
 import type { BoundedSource } from "@kanzo-tech/graph";
 // The offscreen element and the rectangle it defines are `measure.ts`'s, so the two harnesses draw
@@ -232,10 +231,14 @@ export async function probeConnectionOverlap(): Promise<{
   slowMs: number;
   fastMs: number;
 }> {
-  const { db } = await boot();
-  const handle = db as unknown as {
-    connect(): Promise<{ query(sql: string): Promise<unknown>; close(): Promise<void> }>;
+  // Below the engine on purpose: the question is what two raw connections do, and the engine has one.
+  const { coordinator } = await engine();
+  const connector = coordinator.databaseConnector() as unknown as {
+    getDuckDB(): Promise<{
+      connect(): Promise<{ query(sql: string): Promise<unknown>; close(): Promise<void> }>;
+    }>;
   };
+  const handle = await connector.getDuckDB();
   const [slowConn, fastConn] = await Promise.all([handle.connect(), handle.connect()]);
   const started = performance.now();
 
@@ -273,7 +276,7 @@ export async function measureSlicePath(path = "/bench/1000000"): Promise<{
   matched: number;
   links: number;
 }> {
-  const { coordinator } = await boot();
+  const { coordinator } = await engine();
   await forget(coordinator);
   const { source } = await openCorpus({ coordinator, dest: `${window.location.origin}${path}`});
   if (!source.extent) throw new Error("bench: the corpus source cannot say its extent");
@@ -326,11 +329,11 @@ if (typeof window !== "undefined") {
   const hooks = window as unknown as Record<string, unknown>;
   hooks.probeConnectionOverlap = probeConnectionOverlap;
   hooks.measureSlicePath = measureSlicePath;
-  // The coordinator itself, so a question nobody anticipated can be asked of the live database
+  // The engine itself, so a question nobody anticipated can be asked of the live database
   // without a rebuild — which is how the two probes above were arrived at, and how the figures in
   // `/docs/design/graph` were taken. A measurement whose harness has
   // been deleted cannot be re-derived, only believed.
-  hooks.graphBoot = boot;
+  hooks.graphEngine = engine;
   // And the reader itself, so a posture nobody wrote a probe for — a far view, a corpus that is not
   // the default one — can be driven from the console against the live database. The far-view figures
   // on `/docs/design/graph` were taken this way.
@@ -375,7 +378,7 @@ interface Fixtured {
  * already resolved. Nothing is renamed on the way in — the source takes the names it is given.
  */
 async function corpus(pointCount: number, report?: (stage: string) => void): Promise<Fixtured> {
-  const { coordinator } = await boot();
+  const { coordinator } = await engine();
   await forget(coordinator);
   const base = `${window.location.origin}/bench/${pointCount}`;
 
@@ -470,7 +473,7 @@ export async function measureBounded(options: BoundedOptions): Promise<BoundedSa
     const fixtured = await corpus(pointCount, report);
     const { extent, source } = fixtured;
     base.ingestMs = fixtured.ingestMs;
-    base.threads = await duckThreads((await boot()).coordinator);
+    base.threads = await duckThreads((await engine()).coordinator);
     if (cancelled()) return { ...base, failure: "cancelled" };
 
     report?.("asking the total");

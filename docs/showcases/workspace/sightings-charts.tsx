@@ -126,7 +126,7 @@ function wirePicks(): Picks {
 const COLUMNS = ["beast", "region", "hall", "hour", "leagues", "bounty", "verdict"] as const;
 
 /**
- * The world's rows as CSV text, for `registerFileText` + `loadCSV`.
+ * The world's rows as CSV text, for `hold` + `loadCSV`.
  *
  * Not `loadObjects`: that builds one `SELECT … UNION ALL` per row, and DuckDB's parser walks every
  * one of them. The world hands over objects because a fixture should not have to know how it will be
@@ -141,8 +141,8 @@ function sightingsCsv(): string {
 
 /** The sightings relation, on the coordinator the graph view also uses. See `./duck`. */
 function boot(): Promise<Coordinator> {
-  return ensure(T, async ({ coordinator, db }) => {
-    await db.registerFileText(FILE, sightingsCsv());
+  return ensure(T, async ({ coordinator, hold }) => {
+    await hold(FILE, new TextEncoder().encode(sightingsCsv()));
     await coordinator.exec(loadCSV(T, FILE));
     return coordinator;
   });
