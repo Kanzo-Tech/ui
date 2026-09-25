@@ -27,6 +27,7 @@ import {
   type GraphCommands,
   lookFrom,
   simFrom,
+  useGraphPrefs,
   type Look,
   type Motion,
   type Selection,
@@ -555,13 +556,7 @@ export function GraphMosaic({ children }: { children: ReactNode }) {
   // The preferences this host's graph section contributes, resolved — pinned, stored, the tenant's
   // starting point, the manifest's default. The dock reads the answer and never the storage.
   const { sectionPrefs, setSectionPref } = useKanzoTheme();
-  const values = useMemo(() => {
-    const resolved = sectionPrefs.graph ?? {};
-    return Object.fromEntries(Object.entries(resolved).map(([key, pref]) => [key, pref.value]));
-  }, [sectionPrefs.graph]);
-
-  const look = useMemo(() => lookFrom(values), [values]);
-  const sim = useMemo(() => simFrom(values), [values]);
+  const { look, sim } = useGraphPrefs();
 
   /**
    * Wear one of this product's arrangements: take its bindings, and write the axes that name it.

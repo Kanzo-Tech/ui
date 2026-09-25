@@ -314,6 +314,20 @@ Nothing about how a graph looks is a literal here. `lookFrom` and `simFrom` read
 readers. The values are strings in all three kinds, so a key from a namespace this package has never
 heard of rides through a write untouched, and a key that is missing takes the manifest's answer.
 
+A host under a preferences panel never calls them itself. `useGraphPrefs()` reads the provider's
+resolved `sectionPrefs` for this section and answers `{ look, sim }` — pinned, stored, the tenant's
+starting point or the manifest's default, whichever the chain gave — with a stable identity until
+one of them moves:
+
+```tsx
+import { GraphCanvas, useGraphPrefs } from "@kanzo-tech/graph";
+import { GRAPH_SECTION } from "@kanzo-tech/graph/section";
+
+// <KanzoThemeProvider sections={[GRAPH_SECTION]}> somewhere above
+const { look, sim } = useGraphPrefs();
+<GraphCanvas look={look} sim={sim} source={source} />
+```
+
 <ComponentPreview componentName="graph" fileName="example-axes" hasMaxHeight />
 
 The switches above the canvas stand in for that panel. Two of the four controls are not axes at all,
@@ -505,6 +519,7 @@ measured opacity and width.
 | Name | What it is |
 | --- | --- |
 | `simFrom` | `lookFrom`'s sibling: the same declared axes, read as forces. Called with nothing, it is what a graph simulates with — `sim` takes a `Partial<Sim>` and merges, so `DEFAULT_SIM` left with `DEFAULT_LOOK`. |
+| `useGraphPrefs` | Both, joined to `useKanzoTheme().sectionPrefs` for `GRAPH_SECTION`: `{ look, sim }` as the provider resolved them. Without the section registered on the provider, both are the manifest's defaults. |
 | `adaptive` | What a graph of a given size wants — repulsion down and friction up as the corpus grows, because bigger graphs otherwise never settle. Tuning, not level of detail, and it deliberately does **not** touch the space size: the box is the coordinate space a source's positions are expressed in, so resizing it by node count would move the index under the camera. |
 
 `clusterRing` seeded each community on its own ring and is no longer exported: it is what the
