@@ -17,6 +17,8 @@ import {
   Selection as MosaicSelection,
   type ChartConfig,
 } from "@kanzo-tech/ui/analytics";
+import { open } from "@fossil-lang/corpus";
+import { verbatim, type VerbatimNode } from "@uwdata/mosaic-sql";
 import { openCorpus, type DuckSource, type OpenedCorpus } from "@kanzo-tech/graph/duckdb";
 import { ensure } from "./duck";
 import {
@@ -96,8 +98,13 @@ const EDGE_ROWS = "archive_edge_rows";
  * belongs to one hall, and only the second is what a reader is arranging the picture around.
  */
 export interface GraphSpec {
-  /** The vertex relation the opening registered. */
-  table: string;
+  /**
+   * The vertex relation fossil registered — its qualified name, as a node rather than a string.
+   *
+   * `Query.from("x")` treats a string as ONE identifier and quotes it again, so `"catalog"."Node"`
+   * handed over as text reaches DuckDB as a single, nonexistent name. A node is written out as is.
+   */
+  table: VerbatimNode;
   /** The edge view above, joined to its source vertex. */
   edges: string;
   /**
@@ -147,7 +154,7 @@ export interface GraphSpec {
  */
 function specFor(opened: OpenedCorpus): GraphSpec {
   return {
-    table: opened.nodes,
+    table: verbatim(opened.nodes),
     edges: EDGE_ROWS,
     typeIndex: 0,
     idField: "dense_id",
@@ -303,7 +310,7 @@ export const KINDS: ChartConfig = {
  * **It is not the Sightings charts' crossfilter, and nothing here says it should be.**
  * `sightings-charts.tsx` mints its own — `Selection.crossfilter({ include: [hall, beast] })`, since
  * `include` is constructor-only — and mounts its own `MosaicProvider`, which shadows this one for
- * that subtree. So: two crossfilters, two providers, two relations (this side's `corpus_Node` over
+ * that subtree. So: two crossfilters, two providers, two relations (this side's `Node`, fossil's view over
  * the corpus Parquet, that side's `loadCSV`'d `sightings`), and the nine controls over there have
  * never reached the canvas. Only the engine is shared — `engine()`, the page's one — because
  * vgplot resolves marks through a single *active* one.
@@ -323,23 +330,21 @@ export interface Archive {
 }
 
 function openArchive(): Promise<Archive> {
-  return ensure(CORPUS, async ({ coordinator }) => {
+  return ensure(CORPUS, async (engine) => {
+    const { coordinator } = engine;
     const crossfilter = MosaicSelection.crossfilter();
     // Origin-qualified, and it has to be: the manifests are `fetch`ed, where a root-relative path is
     // fine, but the tiles are read by DuckDB-WASM, which resolves one as a path in its own virtual
     // filesystem and reports "No files found that match the pattern".
-    const opened = await openCorpus({
-      coordinator,
-      dest: `${window.location.origin}${CORPUS}`,
-      filterBy: crossfilter,
-    });
+    const corpus = await open(`${window.location.origin}${CORPUS}`, { query: engine.query });
+    const opened = await openCorpus({ corpus, engine, filterBy: crossfilter });
     if (opened.edges.length === 0) {
       throw new Error(`corpus: ${CORPUS} declares no edges for its vertex type`);
     }
     // `src_dense` is GraphAr's name for the endpoint and the one convention the opening does not
     // hand back — the join key is the only thing this file still spells that the corpus owns.
     //
-    // One join per relation, unioned: the opening registers a view per edge label, because a label
+    // One join per relation, unioned: fossil registers a view per edge label, because a label
     // is what a relation's properties belong to. One row per edge is still what this view is, so
     // the count below it still counts edges.
     await coordinator.exec(

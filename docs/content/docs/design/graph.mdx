@@ -217,8 +217,8 @@ the read tiles can answer — or a canvas at a resolution where the median drawn
 *Held by* `packages/graph/src/duck-source.ts`, `anchorCte` and `longEnough` — **and by nothing else, which
 is a loss this line states rather than hides.** Both halves ran over arrays in
 `packages/graph/src/graph-model.test.ts` until `memorySource` was deleted, and the SQL they mirror has no
-stub that can reach it: `openCorpus` boots wasm and fetches manifests before it builds a query. The
-figures above and the archive on screen are what is left.
+stub that asserts what it returns: `corpus-relations.test.ts` reaches the SQL through a stub connector,
+and a stub answers no rows. The figures above and the archive on screen are what is left.
 
 ## A filter is a predicate, not a mask
 

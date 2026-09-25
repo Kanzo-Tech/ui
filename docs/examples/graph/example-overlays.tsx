@@ -14,6 +14,7 @@ import {
 } from "@kanzo-tech/graph";
 import { Alert, AlertDescription, Badge, Show, ToggleGroup, ToggleGroupItem } from "@kanzo-tech/ui";
 import { Query, column, engine, numbers } from "@kanzo-tech/ui/analytics";
+import { verbatim } from "@uwdata/mosaic-sql";
 import { LassoIcon, SquareDashedIcon } from "lucide-react";
 import { useArchive } from "@/lib/archive-corpus";
 
@@ -91,7 +92,7 @@ export default function Example() {
     void engine()
       .then(({ coordinator }) =>
         coordinator.query(
-          Query.from(opened.nodes).select({ id: "dense_id", label: "label" }).where(HUBS),
+          Query.from(verbatim(opened.nodes)).select({ id: "dense_id", label: "label" }).where(HUBS),
         ),
       )
       .then((rows: unknown) => {
