@@ -30,7 +30,7 @@ import * as fossil from "@fossil-lang/corpus";
  * drift.
  *
  * **What it cannot check is the type import**, and that is not a gap this side can close:
- * `OpenOptions` is erased before anything runs, so `tsc` is the only thing that ever sees it —
+ * `Corpus` is erased before anything runs, so `tsc` is the only thing that ever sees it —
  * `pnpm typecheck` is the guard for that half, against the `.d.ts` the linked package emits.
  *
  * Read from `process.cwd()` and not from `import.meta.url`, which is how every guard in
@@ -62,14 +62,5 @@ describe("what duck-source.ts takes off fossil's door", () => {
   it("finds every one of them on the package", () => {
     const missing = imported().filter((name) => !(name in fossil));
     expect(missing).toEqual([]);
-  });
-
-  /**
-   * One name pinned, because `open` is the whole shape of the collapse: the depth of the answer
-   * follows the capability the caller lends, so there is exactly one callable here and it is this.
-   * A package that exported it as anything but a function would satisfy the test above.
-   */
-  it("answers with a callable door", () => {
-    expect(typeof fossil.open).toBe("function");
   });
 });

@@ -48,9 +48,23 @@ Morton-ordered `dense_id`, which spreads the marks over the window instead of dr
 it. So a view of everything is still a few thousand marks, and they are still everywhere.
 
 `openCorpus` — on `@kanzo-tech/graph/duckdb`, because that is the half that needs Mosaic and
-fossil's reader — takes where a corpus is and hands back both halves: the source the canvas draws
-from, and the relations registered under their own names for the charts, the crossfilter and the
-verbs. It takes no column names and no type index; those come off the manifest or they do not come.
+fossil's reader — takes the corpus the host opened with fossil's `open` and the page's `engine()`,
+and hands back both halves: the source the canvas draws from, and the names fossil's verbs query
+the relations by, for the charts and the crossfilter.
+
+```ts
+import { open } from "@fossil-lang/corpus";
+import { engine } from "@kanzo-tech/mosaic";
+import { openCorpus } from "@kanzo-tech/graph/duckdb";
+
+const e = await engine();
+const corpus = await open("/corpus/people", { query: e.query });
+const { source, nodes, edges } = await openCorpus({ corpus, engine: e });
+```
+
+Opening is the host's: a host whose files sit behind a signature opens the corpus under a name,
+`open(`jobs/${id}`, { engine: e, host })`, and hands over the same `corpus`. Closing it is the
+host's too. It takes no column names and no type index; those come off the manifest or they do not come.
 Under `limit` it is asked once for everything and never again, so a corpus that fits pays for
 nothing.
 

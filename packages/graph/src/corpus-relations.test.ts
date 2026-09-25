@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { Coordinator } from "@kanzo-tech/mosaic";
+import { open } from "@fossil-lang/corpus";
 import { openCorpus } from "./duck-source";
 
 /**
@@ -13,7 +14,8 @@ import { openCorpus } from "./duck-source";
  * tests read `fossil_graph_wasm_bg.wasm` off disk and pass the bytes as `wasm`
  * (`packages/corpus/tests/boot.ts`), and the package ships that file. So the addressing here is
  * fossil's real addressing over manifests written out below, and the only thing stubbed is the
- * connector — which is what makes the SQL assertable.
+ * connector — which is what makes the SQL assertable. The corpus is fossil's `open` over those
+ * manifests, as a host hands it over.
  *
  * Two defects are what this file exists for, and a corpus of one edge label between one pair of
  * types hides both:
@@ -44,6 +46,7 @@ const vertexManifest = (type: string) =>
     "- path: ''",
     "  scale: 1",
     "  file_type: parquet",
+    "  properties: []",
     "version: gar/v1",
     "",
   ].join("\n");
@@ -55,6 +58,8 @@ const edgeManifest = (src: string, label: string, dst: string, orientations = ["
     `edge_type: ${label}`,
     `dst_type: ${dst}`,
     "chunk_size: 4096",
+    "edge_count: 0",
+    "directed: true",
     "src_chunk_size: 4096",
     "dst_chunk_size: 4096",
     `prefix: edge/${src}_${label}_${dst}/`,
@@ -65,6 +70,7 @@ const edgeManifest = (src: string, label: string, dst: string, orientations = ["
       `  aligned_by: ${aligned}`,
       "  ordered: true",
       "  file_type: parquet",
+      "  properties: []",
     ]),
     "version: gar/v1",
     "",
@@ -74,7 +80,9 @@ const edgeManifest = (src: string, label: string, dst: string, orientations = ["
  * A corpus, as the manifests fossil's `open` will ask for — and nothing else exists.
  *
  * No payload is written: every assertion below is about which URLs are composed, and a URL is
- * composed from the manifests alone. The connector never reaches one.
+ * composed from the manifests alone. The connector never reaches one: it answers the footer read
+ * with one box, a relation's row count with 3 — the one number fossil's `schema` cannot do without —
+ * and everything else with no rows.
  */
 function corpus(options: {
   types: string[];
@@ -87,7 +95,7 @@ function corpus(options: {
       "container: files",
       "vertices:",
       ...options.types.map((type) => `- vertex/${type}.vertex.yml`),
-      ...(options.relations.length === 0 ? [] : ["edges:"]),
+      options.relations.length === 0 ? "edges: []" : "edges:",
       ...options.relations.map(([src, label, dst]) => `- edge/${src}_${label}_${dst}.edge.yml`),
       "version: gar/v1",
       "",
@@ -109,34 +117,23 @@ function corpus(options: {
  */
 async function opening(files: Record<string, string>, vertexType?: string) {
   const asked: string[] = [];
-  const connector = {
-    query: ({ sql }: { sql: string }) => {
-      asked.push(sql);
-      return Promise.resolve(
-        sql.includes("parquet_metadata") ? [{ tile: 0, x0: 0, x1: 10, y0: 0, y1: 10 }] : [],
-      );
-    },
+  const query = async (sql: string) => {
+    asked.push(sql);
+    // The one answer fossil's `schema` cannot do without: a relation's row count.
+    if (sql.startsWith("SELECT count(*) AS n FROM")) return [{ n: 3 }];
+    return sql.includes("parquet_metadata") ? [{ tile: 0, x0: 0, x1: 10, y0: 0, y1: 10 }] : [];
   };
+  const connector = { query: ({ sql }: { sql: string }) => query(sql) };
   const coordinator = new Coordinator(connector as never, {
     logger: null,
     consolidate: false,
     cache: false,
   });
-  const opened = await openCorpus({
-    coordinator,
-    dest: BASE,
-    vertexType,
-    readText: async (url: string) => {
-      const text = files[url.slice(`${BASE}/`.length)];
-      if (text === undefined) throw new Error(`no manifest at ${url}`);
-      return text;
-    },
-    wasm: WASM,
-  });
+  const corpus = await open(BASE, { query, manifestFiles: files, wasm: WASM });
+  const opened = await openCorpus({ corpus, engine: { coordinator }, vertexType });
   return { asked, opened };
 }
 
-/** The links half of a slice over the whole plane — the query that joins the two endpoints. */
 async function linksSql(opened: { source: { slice: (r: never) => Promise<unknown> } }, asked: string[]) {
   await opened.source.slice({
     limit: 100,
@@ -149,7 +146,7 @@ async function linksSql(opened: { source: { slice: (r: never) => Promise<unknown
 }
 
 describe("the relations a corpus' canvas reads", () => {
-  it("registers a view for every edge label between the drawn type and itself", async () => {
+  it("hands on fossil's relation for every edge label between the drawn type and itself", async () => {
     const { asked, opened } = await opening(
       corpus({
         types: ["Person"],
@@ -162,23 +159,25 @@ describe("the relations a corpus' canvas reads", () => {
 
     // Each over its own relation's files, and neither over the other's — one view registered here
     // is the defect: `works_with` had no name to be queried under and nothing said so.
-    const views = asked.filter((sql) => sql.startsWith("CREATE OR REPLACE VIEW corpus_Person_"));
+    const views = asked.filter((sql) =>
+      sql.startsWith(`CREATE OR REPLACE VIEW "${BASE}"."Person_`),
+    );
     expect(views).toHaveLength(2);
-    expect(views[0]).toContain("edge/Person_knows_Person/by_source/chunk0.parquet");
-    expect(views[1]).toContain("edge/Person_works_with_Person/by_source/chunk0.parquet");
+    expect(views[0]).toContain("edge/Person_knows_Person/by_source/");
+    expect(views[1]).toContain("edge/Person_works_with_Person/by_source/");
 
     expect(opened.edges).toEqual([
       {
         edgeType: "knows",
         srcType: "Person",
         dstType: "Person",
-        view: "corpus_Person_knows_Person",
+        view: `"${BASE}"."Person_knows_Person"`,
       },
       {
         edgeType: "works_with",
         srcType: "Person",
         dstType: "Person",
-        view: "corpus_Person_works_with_Person",
+        view: `"${BASE}"."Person_works_with_Person"`,
       },
     ]);
     expect(opened.undrawn).toEqual([]);
@@ -216,10 +215,12 @@ describe("the relations a corpus' canvas reads", () => {
     const links = await linksSql(opened, asked);
     expect(links).toContain("edge/Person_knows_Person/by_source/chunk0.parquet");
     expect(links).not.toContain("Person_placed_Order");
-    // Nor registered — a view over it is the same crossing one `JOIN` later.
-    expect(asked.some((sql) => sql.includes("Person_placed_Order"))).toBe(false);
+    // Nor handed on as one of the canvas' relations below. Fossil views every relation for its own
+    // verbs, which is its business; the canvas' reads never touch this one.
+    const reads = asked.filter((sql) => sql.includes("parquet_metadata") || sql.includes("FROM span"));
+    expect(reads.some((sql) => sql.includes("Person_placed_Order"))).toBe(false);
 
-    expect(opened.edges.map((relation) => relation.view)).toEqual(["corpus_Person_knows_Person"]);
+    expect(opened.edges.map((relation) => relation.view)).toEqual([`"${BASE}"."Person_knows_Person"`]);
     expect(opened.undrawn).toEqual([
       { edgeType: "placed", srcType: "Person", dstType: "Order", reason: "other-space" },
     ]);
