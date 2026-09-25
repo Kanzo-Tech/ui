@@ -6,12 +6,10 @@ import { Selection, coordinator as setActiveCoordinator, type Coordinator } from
 /**
  * MosaicProvider — the crossfilter context every chart on this subpath reads from.
  *
- * **Bring-your-own coordinator**, the way CodeEditor is bring-your-own-language. The package
- * never instantiates a `Coordinator` and never imports DuckDB-WASM: the consumer builds the
- * coordinator over their own backend (`wasmConnector()` + `new Coordinator(connector)`, a
- * socket/REST connector, a shared worker…) and passes it in. That single decision is what keeps
- * DuckDB-WASM out of the library bundle and out of any React Server Component — the whole boot
- * lives in the consumer's `"use client"` island.
+ * **Bring-your-own coordinator**, the way CodeEditor is bring-your-own-language. The provider
+ * never instantiates a `Coordinator`: the consumer passes one in — `engine()`'s, the page's one
+ * DuckDB-WASM database, or one over a socket/REST connector of their own. That keeps the boot out
+ * of any React Server Component — it lives in the consumer's `"use client"` island.
  *
  * The provider does two things: it registers the caller's coordinator as vgplot's active one, so
  * `vg.plot(...)` marks resolve their queries through it, and it hands every descendant chart a

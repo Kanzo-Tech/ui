@@ -13,9 +13,10 @@ import { ChartRoot, ChartBarY, ChartToggleX, count } from "@kanzo-tech/ui/analyt
 ```
 
 Like [CodeEditor](/docs/forms/code-editor) with CodeMirror, the library wraps the engine and
-never owns the runtime: it is **bring-your-own-coordinator**. The package never imports DuckDB-WASM
-and never builds a `Coordinator` — you wire one in a `"use client"` island and pass it in, which is
-what keeps the analytics stack out of the base bundle and out of every React Server Component.
+never owns the runtime: it is **bring-your-own-coordinator**. No chart builds a `Coordinator` — you
+take the page's one from `engine()` (or build your own) in a `"use client"` island and pass it in,
+which is what keeps the analytics stack out of the base bundle and out of every React Server
+Component.
 `@uwdata/vgplot`, `@uwdata/mosaic-core`, `@uwdata/mosaic-sql` and `@duckdb/duckdb-wasm` are all
 **optional peers**, so `import { Button }` keeps working for everyone who has not installed them.
 </Callout>
@@ -102,27 +103,30 @@ Mosaic/DuckDB stack is heavy and optional. Install the peers alongside the libra
 pnpm add @uwdata/vgplot @uwdata/mosaic-core @uwdata/mosaic-sql @duckdb/duckdb-wasm
 ```
 
-## Bring your own coordinator
+## The page's one engine
 
-The library never touches DuckDB-WASM. You build the `Coordinator` — over `wasmConnector()`, a
-socket/REST connector, or a shared worker — and hand it to `MosaicProvider`, which registers it as
-vgplot's active coordinator and shares a pair of `Selection`s with every chart beneath it: one the
-interactors publish into, one the marks filter by ([why two](#feedback-on-the-chart-that-filters)).
-DuckDB-WASM is browser-only, so boot it in a `"use client"` island loaded with `ssr: false`, render
-a skeleton until it is ready, and let the chart hydrate:
+`engine()` is the page's DuckDB-WASM database: one per document, however many islands ask, with
+the Mosaic `Coordinator` over it and the file registry beside it. Hand its coordinator to
+`MosaicProvider`, which registers it as vgplot's active coordinator and shares a pair of
+`Selection`s with every chart beneath it: one the interactors publish into, one the marks filter by
+([why two](#feedback-on-the-chart-that-filters)). DuckDB-WASM is browser-only, so ask for it in a
+`"use client"` island loaded with `ssr: false`, render a skeleton until it is ready, and let the
+chart hydrate:
 
 ```tsx
 "use client";
 
 import { useEffect, useState } from "react";
-import { Coordinator, MosaicProvider, loadObjects, wasmConnector } from "@kanzo-tech/ui/analytics";
+import { MosaicProvider, engine, loadObjects, type Coordinator } from "@kanzo-tech/ui/analytics";
 
 export default function Analytics({ children }: { children: React.ReactNode }) {
   const [coordinator, setCoordinator] = useState<Coordinator | null>(null);
 
   useEffect(() => {
-    const coord = new Coordinator(wasmConnector());
-    coord.exec(loadObjects("sightings", rows)).then(() => setCoordinator(coord));
+    engine().then(async ({ coordinator }) => {
+      await coordinator.exec(loadObjects("sightings", rows));
+      setCoordinator(coordinator);
+    });
   }, []);
 
   if (!coordinator) return <Skeleton className="h-40 w-full" />;
@@ -131,10 +135,18 @@ export default function Analytics({ children }: { children: React.ReactNode }) {
 }
 ```
 
-`Coordinator`, `Selection` and `wasmConnector` are re-exported from the subpath, along with the
-loaders (`loadObjects`, `loadCSV`, `loadJSON`, `loadParquet`, `loadSpatial`, `loadExtension`), so
-you wire the backend without a direct `@uwdata` import. vgplot's own `coordinator()` setter is
-**not** re-exported: `MosaicProvider` is the only thing that should ever call it.
+The engine also owns what DuckDB reads by name. `lend({ name: url })` registers a URL under a
+name — the same URL again is a no-op, a different one replaces the lease, so a re-signed URL never
+meets DuckDB's `File already registered` — `hold(name, bytes)` registers a copy of a buffer, and
+`drop(names)` forgets them. `query(sql)` answers rows as objects, uncached. That is the shape
+fossil's `Engine` asks for, so the engine you chart through is the one a corpus opens into.
+
+A backend that is not DuckDB-WASM — a socket or REST connector — is still a `Coordinator` you build
+yourself and hand to `MosaicProvider`; `Coordinator` and `Selection` are re-exported for it.
+`engine`, the loaders (`loadObjects`, `loadCSV`, `loadJSON`, `loadParquet`, `loadSpatial`,
+`loadExtension`) and those two are on the subpath, so you wire the backend without a direct
+`@uwdata` import. vgplot's own `coordinator()` setter is **not** re-exported: `MosaicProvider` is
+the only thing that should ever call it.
 
 <Callout type="warn">
 **One coordinator per page.** `MosaicProvider` registers its coordinator as vgplot's active one,
@@ -628,8 +640,8 @@ still hides the axis while keeping the panels.
 Re-exported so a whole chart is written without a direct `@uwdata` import: the aggregates
 `count` `sum` `avg` `min` `max` `median` `quantile` `stddev` `mode` `bin` `sql`; the six axis
 marks the descriptors withhold on purpose, `axisX` `axisY` `axisFx` `axisFy` `gridFx` `gridFy`,
-which are what [`ChartRaw`](#escape-hatches) is for; the boot vocabulary `Coordinator` `Selection`
-`wasmConnector` and the `load*` loaders; and `asc` `desc`, the two directions
+which are what [`ChartRaw`](#escape-hatches) is for; the boot vocabulary `engine` `Coordinator`
+`Selection` and the `load*` loaders; and `asc` `desc`, the two directions
 [`Query`](/docs/hooks/use-chart-query)'s own `.orderby()` takes.
 
 A set is re-exported when it is **closed and named**. vgplot's ~250 plot attributes and
