@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { open } from "@fossil-lang/corpus";
 import { openCorpus, type OpenedCorpus } from "@kanzo-tech/graph/duckdb";
 import { engine } from "@kanzo-tech/ui/analytics";
 
@@ -35,15 +36,17 @@ export const ARCHIVE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/corpus/archiv
 let opening: Promise<OpenedCorpus> | null = null;
 
 /**
- * The opened archive — source for a canvas, and the relations registered under their own names.
+ * The opened archive — source for a canvas, and the names fossil queries its relations by.
  *
  * Origin-qualified: DuckDB-WASM resolves a root-relative path against its own virtual filesystem
  * rather than against the page's origin, and finds nothing there.
  */
 export function archive(): Promise<OpenedCorpus> {
-  opening ??= engine().then(({ coordinator }) =>
-    openCorpus({ coordinator, dest: `${window.location.origin}${ARCHIVE}` }),
-  );
+  opening ??= (async () => {
+    const e = await engine();
+    const corpus = await open(`${window.location.origin}${ARCHIVE}`, { query: e.query });
+    return openCorpus({ corpus, engine: e });
+  })();
   return opening;
 }
 

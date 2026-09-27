@@ -116,7 +116,7 @@ labels here are built from `vertexId(type, dense)` and resolved through `Residen
 
 **And the label text is a query, not a slice field.** A slice carries positions, identities and
 category *ordinals* — never names, because a name is a string and the drawing path carries addresses
-at a measured 1.87× saving. So the example asks the **relation** `openCorpus` registered for the
+at a measured 1.87× saving. So the example asks the **relation** `openCorpus` hands on for the
 fourteen hubs it wants to label, once, and holds them by `dense_id`. Hover anything else and the card
 shows the address, which is what this page actually knows.
 
@@ -138,7 +138,9 @@ Morton-ordered `dense_id`, which spreads the marks over the window instead of dr
 it. So a view of everything is still a few thousand marks, and they are still everywhere.
 
 ```ts
-const { source } = await openCorpus({ coordinator, dest: "/corpus/archive" });
+const e = await engine();
+const corpus = await open("/corpus/archive", { query: e.query }); // @fossil-lang/corpus
+const { source } = await openCorpus({ corpus, engine: e });
 const { slice, refresh } = useGraph({ source, onFailure });
 // The camera is already wired: moving it re-asks.
 ```
@@ -199,13 +201,13 @@ Plot, Vega and every graphical grammar do. If the column is not there the query 
 
 | | for | what it needs to be told |
 |---|---|---|
-| `openCorpus` | a tree `fossil` wrote | **where it is** |
+| `openCorpus` | a corpus `fossil` opened | **the corpus, and the page's engine** |
 
 There were three. `memorySource` took the arrays you already held; `duckBoundedSource` took any
 relation with `x`/`y` plus the columns that carried identity and position. Both are deleted, and the
 two deletions are one argument: a corpus already declares those names in its manifest, so a source
 that *accepts* them is this side writing down what the other side owns — and the general source was
-the general case of exactly that. What is left is a door that takes one argument.
+the general case of exactly that. What is left is a door that takes what fossil already opened.
 
 **It is not told what to draw either.** A source is *where the bytes are*; what colours a point and
 what the size ramp is spent on are channels on the canvas — `fill`, `r` — and they ride each
@@ -217,13 +219,16 @@ an unbound `fill` draws a single colour rather than picking a column that looked
 archive corpus carries `cluster_id` and no `community`, so its host binds `fill="kind"` and says so.
 
 ```ts
-const { source, nodes, edges } = await openCorpus({ coordinator, dest: "/corpus/people" });
+const e = await engine();
+const corpus = await open("/corpus/people", { query: e.query });
+const { source, nodes, edges } = await openCorpus({ corpus, engine: e });
 ```
 
-That is the whole call. It reads `graph.graph.yml`, takes the chunk size and the prefixes from the
-manifests, finds the last tile by probing rather than by listing — a plain HTTP origin cannot expand
-a glob, because expanding one means listing a directory — and reads each tile's bounding box from
-the footer once. After that a camera move is arithmetic over those boxes and a list of URLs, with no
+That is the whole call, and **opening is the host's.** Fossil's `open` reads `graph.graph.yml` and
+the manifests it names and composes every address; a host whose files sit behind a signature opens
+under a name instead — `` open(`jobs/${id}`, { engine: e, host }) `` — and fossil signs and lends the
+files to the engine itself. `openCorpus` draws whichever it is handed, and never opens a second copy.
+It reads each tile's bounding box from the footer once. After that a camera move is arithmetic over those boxes and a list of URLs, with no
 request between the camera moving and a URL being computable.
 
 It takes **no column names and no type index**, deliberately. Those come from the manifest or they do
@@ -422,8 +427,9 @@ everything else the corpus holds. `DuckSourceOptions` was the general source's o
 gone with it.
 
 **`OpenedCorpus.edges` is a list, and `undrawn` is the rest of the answer.** A corpus declares as
-many edge relations as it likes, so each one that this canvas draws is registered as its own view —
-an `EdgeRelation`: the three names that identify it, and `view`, which is `corpus_{src}_{edge}_{dst}`.
+many edge relations as it likes, so each one that this canvas draws is its own relation — an
+`EdgeRelation`: the three names that identify it, and `view`, which is fossil's own name for it,
+qualified by the corpus's catalog (`"jobs/1"."Person_knows_Person"`).
 One view per relation rather than a union, because a relation carries its own properties and a
 unioned pair would have to agree on a schema before anything could read it.
 

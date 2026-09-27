@@ -209,8 +209,8 @@ export {
   type Viewport,
 } from "./bounded";
 // The source is on `@kanzo-tech/graph/duckdb`, not here, and there is exactly one of it:
-// `openCorpus` takes where a corpus is and gives back both halves — a source for the canvas and
-// registered views for the charts, the crossfilter and the verbs. Mosaic and fossil's reader are
+// `openCorpus` takes the corpus fossil opened and gives back both halves — a source for the canvas
+// and fossil's relation names for the charts, the crossfilter and the verbs. Mosaic and fossil's reader are
 // optional peers and that is the half that needs them, so **this barrel ships no source at all**
 // and a host that installs neither gets the rendering surface and no picture.
 //

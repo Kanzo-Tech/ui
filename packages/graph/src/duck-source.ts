@@ -1,14 +1,15 @@
 "use client";
 
-import {
-  PAYLOAD_ADDRESS,
-  PAYLOAD_COORDINATES,
-  PAYLOAD_IDENTITY,
-  open as openFossilCorpus,
+import { PAYLOAD_ADDRESS, PAYLOAD_COORDINATES, PAYLOAD_IDENTITY } from "@fossil-lang/corpus";
+import type {
+  Corpus,
+  CorpusRelation,
+  EdgeAddress,
+  GapReason,
+  ProjectionAddress,
 } from "@fossil-lang/corpus";
-import type { EdgeAddress, GapReason, OpenOptions, ProjectionAddress } from "@fossil-lang/corpus";
 import { clausePoints, column, fillColumn, numbers } from "@kanzo-tech/mosaic";
-import type { Coordinator, FilterExpr, Selection } from "@kanzo-tech/mosaic";
+import type { Coordinator, Engine, FilterExpr, Selection } from "@kanzo-tech/mosaic";
 import type { BoundedSource, Slice, SliceRequest, Viewport } from "./bounded";
 import { SliceRead } from "./slice-client";
 import { denseOf, typeOf, vertexId, type VertexId } from "./resident";
@@ -627,10 +628,12 @@ function countOf(rows: unknown, field: string): number {
  * argument; the copied `chunk_size` carries the evidence, because it went stale and read
  * a fraction of a corpus in silence for as long as it did.
  *
- * The consumer knows one thing: **where the corpus is.**
+ * The consumer holds two things: **the corpus fossil opened, and the page's engine.**
  *
  * ```ts
- * const { source } = await openCorpus({ coordinator, dest: "/bench/1000000" });
+ * const e = await engine();
+ * const corpus = await open("/bench/1000000", { query: e.query });
+ * const { source } = await openCorpus({ corpus, engine: e });
  * ```
  *
  * **And this side no longer knows the conventions either, which is the change.** It used to remove
@@ -655,24 +658,27 @@ function countOf(rows: unknown, field: string): number {
  */
 
 export interface OpenCorpusOptions {
-  coordinator: Coordinator;
+  /**
+   * The corpus, as fossil's `open` answered it — **opened by the host, and once.**
+   *
+   * This door used to open one itself from a `dest`, a `readText` and a `wasm`, which made it the
+   * third open of the same corpus on a keasy discover visit: the host had already opened it to
+   * query it, and opened it again only so that this could. Opening is the host's, because what it
+   * takes is the host's — where the corpus is, and what signs it. Drawing takes the result.
+   */
+  corpus: Corpus;
+  /**
+   * The page's engine — `engine()` from `@kanzo-tech/mosaic`. The canvas reads its tiles and
+   * publishes its clauses through the coordinator; the files are the ones the corpus already made
+   * readable, by the names its addressing gives them.
+   */
+  engine: Pick<Engine, "coordinator">;
   /**
    * The crossfilter this graph draws inside — the same `Selection` the page's charts filter by.
    *
    * Given, the predicate rides in the slice query and the canvas draws what survives.
    */
   filterBy?: Selection;
-  /** Where the corpus lives, without a trailing slash — the directory holding `graph.graph.yml`. */
-  dest: string;
-  /**
-   * The reader's `.wasm`, for a host with no bundler — and only for one.
-   *
-   * Omit it anywhere a bundler runs: fossil's module resolves its own `.wasm` with
-   * `new URL(…, import.meta.url)`, which Vite, webpack 5 and Turbopack all emit as an asset. Node is
-   * the host that needs it, because its `fetch` rejects `file://` — a script or a test passes the
-   * bytes or a `Response`. Passed straight through to fossil's `open`, spelled as fossil spells it.
-   */
-  wasm?: OpenOptions["wasm"];
   /**
    * Which vertex type to draw, when a corpus carries more than one.
    *
@@ -686,34 +692,13 @@ export interface OpenCorpusOptions {
    * asks for names when something has to be *named* rather than painted.
    */
   subjects?: boolean;
-  /**
-   * How a manifest is read, when a plain `fetch` of its URL is not how this host reads one.
-   *
-   * **The default is `manifest` below, and it is the whole of what this file knows about reading a
-   * corpus** — right for a corpus served off an origin the page can already read, and wrong for a
-   * host whose blobs sit behind a signature. There the URL fossil composes is correct and
-   * unreadable, and nothing else on these options carries a credential.
-   *
-   * Passed straight through to fossil's `open`, which is where the capability belongs: `open`
-   * composes every address and lends the reader to each one, so a host that signs a URL signs the
-   * index and the per-type manifests the index names **without knowing which files those are**.
-   * That is the point of lending a reader rather than handing over bytes — and it is what keeps a
-   * signing host on this door, because the alternative it otherwise reaches for is composing the
-   * addresses itself, which is the convention-copying `openCorpus` exists to end.
-   *
-   * It reads manifests and nothing else. The payload is read by the coordinator's own connector,
-   * which is the host's already.
-   */
-  readText?: OpenOptions["readText"];
 }
 
-/** A relation this source draws: its address, the adjacency it reads it from, and its view name. */
+/** A relation this source draws: its address, and the adjacency it reads it from. */
 interface DrawnRelation {
   readonly address: EdgeAddress;
   /** The source-ordered orientation — the CSR one, which is the drawing read. */
   readonly adjacency: ProjectionAddress;
-  /** The registered view name — `corpus_{src}_{edge}_{dst}`. */
-  readonly view: string;
 }
 
 /** One tile's bounding box, from the footer. A tile with no `x`/`y` statistics is not in the list. */
@@ -726,38 +711,13 @@ interface TileBox {
 }
 
 /**
- * One manifest, as text — **the whole of what this file still knows about reading a corpus.**
- *
- * It takes an absolute URL because that is what fossil's door hands it. `open(dest, { readText })`
- * composes every address itself: it reads the index, then the per-type manifests the index names,
- * and nothing else. Which files those are is no longer a question asked on this side — the
- * twelve-line scan of the index's `vertices:`/`edges:` lists that used to stand here was the third
- * copy of a sequence the door now publishes, and the index's own file name left this file with it.
- *
- * A file that is not there raises here and reaches the caller as a `CorpusManifestError` naming the
- * URL, which is a better error than any invented on this side.
- *
- * The default rather than the only one: `OpenCorpusOptions.readText` replaces it, and a host behind
- * signed URLs is the case that needs to.
- */
-async function manifest(url: string): Promise<string> {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`corpus: ${url} is not readable (${response.status})`);
-  return response.text();
-}
-
-/**
  * An opened corpus: the half that **draws** and the half that **answers**.
  *
  * A host needs both over the same bytes and they are not the same access. The canvas reads tiles by
  * address — a handful of files per camera move, chosen from the footer's boxes, with no query. A
  * chart, a crossfilter clause or a verb reads the *relation*: every row, by column name, in SQL.
  * Hiding the URLs behind `source` is right for the first and leaves the second with nothing to
- * query, so opening a corpus registers views for it.
- *
- * This is the other side's own shape. `fossil-mcp` describes itself as opening a dataset,
- * *registering views over the Parquet the corpus already holds*, and dispatching a verb — the same
- * two halves, named the same way, one call apart.
+ * query, so this hands on the names fossil's verbs already query the corpus by.
  */
 export interface OpenedCorpus {
   /**
@@ -770,7 +730,7 @@ export interface OpenedCorpus {
    */
   source: DuckSource;
   /**
-   * The vertex relation, registered and ready to query by name.
+   * The vertex relation, as fossil registered it — qualified by the corpus's catalog.
    *
    * Every column the manifest declares, including the corpus' own properties — so a clause a chart
    * publishes over `kind` or `region` lands here with no translation, which is what makes one
@@ -778,7 +738,7 @@ export interface OpenedCorpus {
    */
   nodes: string;
   /**
-   * The source-ordered edge relations this canvas draws, registered one view per relation.
+   * The source-ordered edge relations this canvas draws, one fossil relation each.
    *
    * **A list, because a corpus declares a list.** This was one name, picked with `.find` over the
    * relations whose source is this type — so a corpus declaring two edge labels registered the
@@ -803,12 +763,12 @@ export interface OpenedCorpus {
   undrawn: readonly UndrawnRelation[];
 }
 
-/** One edge relation of the drawn type, and the view its source-ordered adjacency is registered under. */
+/** One edge relation of the drawn type, and the relation fossil registered its adjacency as. */
 export interface EdgeRelation {
   readonly edgeType: string;
   readonly srcType: string;
   readonly dstType: string;
-  /** The registered view name — `corpus_{src}_{edge}_{dst}`. */
+  /** Fossil's relation, qualified by the corpus's catalog — its `CorpusRelation.sql`. */
   readonly view: string;
 }
 
@@ -832,30 +792,12 @@ export interface UndrawnRelation {
 }
 
 export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorpus> {
-  const { coordinator, dest, filterBy, readText = manifest, subjects = false, vertexType, wasm } = options;
+  const { corpus, engine, filterBy, subjects = false, vertexType } = options;
+  const { addressing } = corpus;
 
-  const reads = openReads(coordinator, filterBy);
+  const reads = openReads(engine.coordinator, filterBy);
   const meta = metaAsker(reads.meta);
   const watching = watcher(reads);
-
-  /**
-   * The addressing — **one `await`, one lent capability, and no arithmetic of ours.**
-   *
-   * Fossil's `open` takes where the corpus is and a way to read text, and hands back every URL the
-   * corpus can produce, whichever container it declares. It needs no engine on this rung: lent a
-   * reader, it fetches the index and the per-type manifests the index names, and nothing more.
-   * What used to stand here — a line-scanning YAML reader, a `chunk{k}` spelling, an
-   * edge-directory spelling and a `HEAD`-probing search for a tile count — was four conventions
-   * fossil owns, written down on this side, and stale in all four by the time they were deleted.
-   * A fifth went the same way once the door published the sequence rather than the file name: the
-   * scan that worked out which manifests to ask for.
-   *
-   * **`readText` and not `manifestFiles`**, which is the other engine-free rung: holding the bytes
-   * is what that one is for, and this never held them for its own sake — it fetched them only to
-   * hand them over. It is the host's reader where one was given, and `fetch` where none was; either
-   * way the addresses it is lent to are fossil's, which is the half that does not move.
-   */
-  const addressing = await openFossilCorpus(dest, { readText, wasm });
 
   const type = addressing.vertexType(vertexType);
   /**
@@ -884,7 +826,6 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
     // Never null on a drawn relation: a declared source-ordered adjacency is what `drawing` admits
     // one for, and `not-declared` is why the others are in `undrawn` instead.
     adjacency: address.adjacency("src") as ProjectionAddress,
-    view: `corpus_${address.srcType}_${address.edgeType}_${address.dstType}`,
   }));
   const adjacencies = drawn.map((relation) => relation.adjacency);
   /**
@@ -920,129 +861,6 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
    * tile range twice.
    */
   let loading: Promise<TileBox[]> | null = null;
-
-  /**
-   * The tiles a window needs, held as bytes so that **panning back is free**.
-   *
-   * This is the one item on `BENCHMARKS.md`'s fix list that no amount of query tuning substitutes
-   * for, and the measurement that puts it there is blunt: two of six drag steps at ten million
-   * transfer zero new bytes and still cost 247 requests each, because every visit re-reads the same
-   * footers and column chunks over HTTP. A tile fetched once and registered as a file is read from
-   * memory forever after — no request, no range negotiation, no metadata round trip.
-   *
-   * **Keyed on the URL and not on the tile**, which is what makes it container-independent for
-   * free: under `files` a tile is a file and the two keys agree, and under `rowgroups` every tile
-   * names one `tiles.parquet`, which a tile-keyed cache would fetch once per tile.
-   *
-   * **The trade is honest and not free.** A registered file is the *whole* file, where DuckDB over
-   * HTTP reads only the column chunks a query projects — the first visit costs more bytes and every
-   * later one costs none. Which way that nets out depends on how the corpus is cut, which is the
-   * corpus's decision and not ours.
-   *
-   * Discovered rather than required: a coordinator whose connector is not DuckDB-WASM has no
-   * filesystem to register into, and reads by URL exactly as before. `@duckdb/duckdb-wasm` is
-   * deliberately not a dependency of this package, so the capability is named structurally.
-   */
-  interface Registrar {
-    registerFileBuffer(name: string, buffer: Uint8Array): Promise<void>;
-    dropFile(name: string): Promise<void>;
-  }
-  const registrar = async (): Promise<Registrar | null> => {
-    const connector = coordinator.databaseConnector?.() as
-      | { getDuckDB?: () => Promise<Registrar> }
-      | null
-      | undefined;
-    if (!connector?.getDuckDB) return null;
-    try {
-      return await connector.getDuckDB();
-    } catch {
-      return null;
-    }
-  };
-
-  /** Registered name → how many bytes it is holding. Insertion order is the eviction order. */
-  const resident = new Map<string, number>();
-  /** URL → the name DuckDB should read it from, once that has been decided one way or the other. */
-  const decided = new Map<string, string>();
-  let held = 0;
-
-  /**
-   * Sixty-four megabytes of tiles, evicted oldest-first.
-   *
-   * A budget rather than a count, because a tile's size is the corpus's decision and a count would
-   * mean something different for every one. Oldest-first rather than least-recently-used: a reader
-   * pans, and a pan revisits what it just left, so recency and insertion order agree where it
-   * matters — and an LRU's bookkeeping is a second structure to keep correct for a difference nobody
-   * has measured.
-   */
-  const BUDGET = 64 * 1024 * 1024;
-
-  /**
-   * A file is worth holding when it is **cheap to fetch whole** — 256 KB, and the number is
-   * measured.
-   *
-   * Registering a file means downloading all of it. On the million-node corpus a vertex chunk was
-   * 74 KB and the edge chunks far larger, and caching both took a cold window from about 200 ms to
-   * **17,979 ms** while a repeat fell to **11 ms** — a thousandfold win on revisit paid for with an
-   * eighteen-second first paint, which is not a trade anybody would take.
-   *
-   * So the rule is a property of the file rather than a flag, and the corpus decides: one
-   * `tiles.parquet` per set decides against, which is right for it — the row groups a window wants
-   * are a byte range, and a range read is what DuckDB already does.
-   */
-  const WORTH_HOLDING = 256 * 1024;
-
-  /**
-   * The names DuckDB should read these URLs from — registered buffers where possible, URLs where
-   * not, quoted either way.
-   *
-   * Fetched concurrently, because a window is a handful of files and they are independent; a
-   * sequential loop here would make the first paint the sum of them rather than the slowest.
-   */
-  async function readable(urls: readonly string[]): Promise<string[]> {
-    if (urls.length === 0) return [];
-    const db = await registrar();
-    if (!db) return urls.map((url) => `'${url}'`);
-    const names = await Promise.all(
-      urls.map(async (url) => {
-        const already = decided.get(url);
-        if (already !== undefined && (!already.startsWith("'") ? resident.has(already) : true)) {
-          return already;
-        }
-        // A name DuckDB can hold a buffer under, derived from the URL so that two tiles of two
-        // types never collide and the same tile twice never registers twice.
-        const name = `corpus_${url.replace(/[^A-Za-z0-9]+/g, "_")}`;
-        // The size first, which is one metadata request against a body that may be megabytes — and
-        // the same request a footer read already makes, so the shape is not new here.
-        const probe = await fetch(url, { method: "HEAD" });
-        const size = Number(probe.headers.get("content-length"));
-        if (!probe.ok || !Number.isFinite(size) || size > WORTH_HOLDING) {
-          const plain = `'${url}'`;
-          decided.set(url, plain);
-          return plain;
-        }
-        const response = await fetch(url);
-        // A file that will not load is not a reason to fail the whole window: fall back to the URL
-        // and let DuckDB report whatever it finds there, which is the error a reader can act on.
-        if (!response.ok) return `'${url}'`;
-        const bytes = new Uint8Array(await response.arrayBuffer());
-        await db.registerFileBuffer(name, bytes);
-        resident.set(name, bytes.byteLength);
-        decided.set(url, name);
-        held += bytes.byteLength;
-        return name;
-      }),
-    );
-    while (held > BUDGET && resident.size > 0) {
-      const [oldest, size] = resident.entries().next().value as [string, number];
-      // Never evict a file this very window is about to read, or the query reads a dropped file.
-      if (names.includes(oldest)) break;
-      resident.delete(oldest);
-      held -= size;
-      await db.dropFile(oldest);
-    }
-    return names.map((n) => (n.startsWith("'") ? n : `'${n}'`));
-  }
 
   /**
    * Where the payload is, as the list of files that hold it.
@@ -1130,31 +948,22 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
   } as const;
 
   /**
-   * The relation half, registered once at open.
+   * The relation half — **fossil's views, not a second set of ours.**
    *
-   * A view rather than a table: `CREATE TABLE AS` would pull the corpus into memory, which is the
-   * working set the whole bounded path exists to refuse. A view leaves the bytes where they are and
-   * lets each query fetch the ranges it needs.
-   *
-   * Over **every** file of the payload, deliberately — this is the surface that answers *what does
-   * it mean*, and a count, a histogram or a crossfilter clause is a question about the corpus rather
-   * than about the window. The addressed reading is `slice`, beside it, and the two are different
-   * access to the same bytes rather than two versions of one.
+   * A chart, a count or a crossfilter clause reads every row by name, so the canvas has to hand a
+   * host relation names as well as tiles. This used to register its own: persistent `corpus_*`
+   * views over the same files fossil's verbs already viewed as `TEMP`, with a different rule for
+   * which edge files a relation is — two view sets over one corpus, and the persistent one outlived
+   * it. `relations()` answers with the names the verbs query, qualified by the corpus's own catalog,
+   * so closing the corpus takes them with it.
    */
-  const nodesView = `corpus_${type.type}`;
-  await coordinator.exec(
-    `CREATE OR REPLACE VIEW ${nodesView} AS SELECT * FROM read_parquet([${quoted(payloadFiles)}])`,
-  );
-  // One view per relation and never a union of them: a relation carries its own properties, so two
-  // unioned relations would have to agree on a schema to be readable at all, and a caller reading
-  // the result could not say which label a row came from. `{src}_{edge}_{dst}` is the name fossil's
-  // own `verbs()` registers them under, prefixed here because these views are not `TEMP`.
-  for (const relation of drawn) {
-    await coordinator.exec(
-      `CREATE OR REPLACE VIEW ${relation.view} AS
-         SELECT * FROM read_parquet([${quoted(relation.address.projectionFiles(1, "src"))}])`,
-    );
-  }
+  const relations = await corpus.relations();
+  const relationOf = (match: (r: CorpusRelation) => boolean, what: string): string => {
+    const found = relations.find(match);
+    if (!found) throw new Error(`openCorpus: the corpus registers no relation for ${what}`);
+    return found.sql;
+  };
+  const nodesView = relationOf((r) => r.kind === "vertex" && r.name === type.type, type.type);
 
   const source: DuckSource = {
     ...watching.api,
@@ -1238,10 +1047,6 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
       ];
       // Both halves at once: the vertex files and the edge files a window touches are independent
       // reads, and the window is not drawable until both have landed.
-      const [vertexFiles, edgeFiles] = await Promise.all([
-        readable(addressed.vertexUrls),
-        readable(edgeUrls),
-      ]);
       /**
        * The camera moved while the tiles were arriving, so this question is already the wrong one.
        *
@@ -1254,13 +1059,13 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
        * Rethrowing it is the whole of the cancellation contract a source owes — see `SliceRequest`.
        */
       if (signal?.aborted) throw signal.reason;
-      const nodes = `read_parquet([${vertexFiles.join(", ")}])`;
+      const nodes = `read_parquet([${quoted(addressed.vertexUrls)}])`;
       // A corpus that declares no adjacency for this type still has to answer: the links query is
       // built either way, so what it reads is an empty relation of the right shape rather than a
       // `read_parquet([])`, which is a syntax error, or the vertex view, which has neither column.
       const relation =
-        edgeFiles.length > 0
-          ? `read_parquet([${edgeFiles.join(", ")}])`
+        edgeUrls.length > 0
+          ? `read_parquet([${quoted(edgeUrls)}])`
           : `(SELECT NULL::BIGINT AS ${columns.source}, NULL::BIGINT AS ${columns.target} WHERE FALSE)`;
 
       // `nodes` is both the window's rows and the bytes the reader holds: the tiles that answer
@@ -1273,11 +1078,18 @@ export async function openCorpus(options: OpenCorpusOptions): Promise<OpenedCorp
   return {
     source,
     nodes: nodesView,
-    edges: drawn.map(({ address, view }) => ({
+    edges: drawn.map(({ address }) => ({
       edgeType: address.edgeType,
       srcType: address.srcType,
       dstType: address.dstType,
-      view,
+      view: relationOf(
+        (r) =>
+          r.kind === "edge" &&
+          r.edgeType === address.edgeType &&
+          r.srcType === address.srcType &&
+          r.dstType === address.dstType,
+        `${address.srcType}_${address.edgeType}_${address.dstType}`,
+      ),
     })),
     undrawn,
   };

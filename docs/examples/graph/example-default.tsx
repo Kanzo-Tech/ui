@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { GraphCanvas } from "@kanzo-tech/graph";
+import { open } from "@fossil-lang/corpus";
 import { openCorpus, type DuckSource } from "@kanzo-tech/graph/duckdb";
 import { Show, Skeleton } from "@kanzo-tech/ui";
 import { engine } from "@kanzo-tech/ui/analytics";
@@ -16,7 +17,7 @@ import { ARCHIVE } from "@/lib/archive-corpus";
  * is not the one you would use. So it boots DuckDB-WASM and opens the same
  * `docs/public/corpus/archive` the workspace does — one world, not two.
  *
- * Four things and no more: a coordinator, where the corpus is, a source, and `onFailure`. The
+ * Four things and no more: the page's engine, the corpus fossil opens, a source, and `onFailure`. The
  * simulation stays off — its default — because the positions are the corpus' own layout and a force
  * would move the picture out from under the index the next query is expressed in.
  *
@@ -28,14 +29,13 @@ import { ARCHIVE } from "@/lib/archive-corpus";
  */
 let opening: Promise<DuckSource> | null = null;
 
-function open(): Promise<DuckSource> {
+function opened(): Promise<DuckSource> {
   opening ??= (async () => {
+    const e = await engine();
     // Origin-qualified: DuckDB-WASM resolves a root-relative path against its own virtual
     // filesystem rather than the page's origin, and finds nothing there.
-    const { source } = await openCorpus({
-      coordinator: (await engine()).coordinator,
-      dest: `${window.location.origin}${ARCHIVE}`,
-    });
+    const corpus = await open(`${window.location.origin}${ARCHIVE}`, { query: e.query });
+    const { source } = await openCorpus({ corpus, engine: e });
     return source;
   })();
   return opening;
@@ -50,9 +50,9 @@ export default function Example() {
 
   useEffect(() => {
     let live = true;
-    open().then(
-      (opened) => {
-        if (live) setSource(opened);
+    opened().then(
+      (source) => {
+        if (live) setSource(source);
       },
       // The corpus is gitignored, so "not readable" is what a fresh checkout sees, and saying it is
       // better than a spinner that never resolves.

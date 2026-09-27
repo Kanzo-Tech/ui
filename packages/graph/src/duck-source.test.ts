@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Coordinator } from "@kanzo-tech/mosaic";
+import { open } from "@fossil-lang/corpus";
 import { openCorpus } from "./duck-source";
 
 /**
@@ -16,9 +17,9 @@ import { openCorpus } from "./duck-source";
  * test needs something to call.
  *
  * **The coverage is largely gone, and the part of that sentence that was wrong is now `corpus-
- * relations.test.ts`.** `openCorpus` fetches manifests over HTTP and boots a wasm module before it
- * builds a single query, and this file read that as *unreachable from a test* — but the manifests
- * are read through `readText`, which is a parameter, and the wasm module ships inside
+ * relations.test.ts`.** `openCorpus` takes a corpus fossil opened, which boots a wasm module before
+ * it builds a single query, and this file read that as *unreachable from a test* — but the
+ * manifests can be handed to fossil's `open` as bytes, and the wasm module ships inside
  * `@fossil-lang/corpus` and instantiates from bytes, which is how fossil's own suite boots it. So a
  * stub connector does reach `region`, `visibleCte` and `anchorCte`, over fossil's real addressing,
  * and the two defects that found is what that file is. What is still only held by the browser is
@@ -29,9 +30,7 @@ import { openCorpus } from "./duck-source";
  * Two things still hold without a network, and they are why this file exists at all. Its **import
  * surface**: `fossil-import.test.ts` beside this one holds the names `duck-source.ts` takes off
  * `@fossil-lang/corpus` against the real package, because this suite loaded a module for months
- * whose imports did not resolve and said nothing. And **which reader reads the manifests**, below —
- * the one thing that happens before a byte of payload is wanted, which is what makes it reachable
- * from here.
+ * whose imports did not resolve and said nothing. And **what the payload is read by**, below.
  *
  * ## The one rule that lost its witness, named rather than left dangling
  *
@@ -52,74 +51,76 @@ import { openCorpus } from "./duck-source";
 
 function harness() {
   const asked: string[] = [];
-  const connector = {
-    query: ({ sql }: { sql: string }) => {
-      asked.push(sql);
-      // One row, in the shape both reads answer in: `column`/`fillColumn` fall back to iterating
-      // plain objects when there is no Arrow child, which is what makes a stub possible at all.
-      return Promise.resolve([
-        {
-          local: 0,
-          id: 3,
-          x: 1,
-          y: 2,
-          category: 0,
-          matched: 41,
-          mark: 1,
-          src: 0,
-          dst: 0,
-          weight: 1,
-        },
-      ]);
-    },
+  const query = async (sql: string) => {
+    asked.push(sql);
+    if (sql.includes("parquet_metadata")) return [{ tile: 0, x0: 0, x1: 10, y0: 0, y1: 10 }];
+    if (sql.startsWith("SELECT count(*) AS n FROM")) return [{ n: 3 }];
+    return [];
   };
+  const connector = { query: ({ sql }: { sql: string }) => query(sql) };
   const coordinator = new Coordinator(connector as never, {
     logger: null,
     consolidate: false,
     cache: false,
   });
-  return { asked, coordinator };
+  return { asked, coordinator, query };
 }
 
 /**
- * Which reader reads the manifests — the one question about `openCorpus` a stub can answer.
+ * The payload is read by the names the corpus's addressing gives it — **and nothing on this side
+ * fetches.**
  *
- * `fetch` is right for a corpus served off an origin the page can already read, and wrong for a host
- * whose blobs sit behind a signature: the URL fossil composes is correct and unreadable, and nothing
- * else on the options carries a credential. The alternative such a host reaches for is composing the
- * addresses itself, which is the convention-copying the door exists to end — so the reader is lent
- * instead, and fossil signs nothing it does not already address.
+ * A host that signs opens the corpus under a namespace, `jobs/1`, and fossil lends every file to
+ * the engine under `jobs/1/<path>`: those names are what DuckDB reads, and they are not URLs. This
+ * side used to `HEAD` every address to decide whether to hold it as a buffer, which against a name
+ * resolved to the page's own origin and 404'd — a request per file per window, spent to learn
+ * nothing. The cache it fed is gone, and so is every request this module made on its own.
  *
- * **What this cannot prove:** that anything after the index reads. The index below names no type,
- * so the call stops there. What is asserted is the part that happens first and is the whole of the
- * pass-through: *who* was asked, and *for what*. The module is booted from the bytes the package
- * ships, because fossil awaits its boot before the first read and jsdom's `fetch` cannot load it —
- * which is also what `wasm` on the options is for.
+ * **What this cannot prove:** that DuckDB reads those names. That is the engine's `lend`, and
+ * `@kanzo-tech/mosaic`'s tests hold it.
  */
 const WASM = readFileSync(
   resolve(process.cwd(), "node_modules/@fossil-lang/corpus/pkg/fossil_graph_wasm_bg.wasm"),
 );
+
+const MANIFESTS = {
+  "graph.graph.yml": "name: graph\nprefix: ''\ncontainer: files\nvertices:\n- vertex/Person.vertex.yml\nedges: []\nversion: gar/v1\n",
+  "vertex/Person.vertex.yml": [
+    "type: Person",
+    "vertex_count: 3",
+    "chunk_size: 4096",
+    "prefix: vertex/Person/",
+    "projections:",
+    "- path: ''",
+    "  scale: 1",
+    "  file_type: parquet",
+    "  properties: []",
+    "version: gar/v1",
+    "",
+  ].join("\n"),
+};
 
 describe("opening a corpus", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it("asks the host's reader for the manifest, and never fetches", async () => {
+  it("reads the payload by the corpus's names, and never fetches", async () => {
     const fetching = vi.fn();
     vi.stubGlobal("fetch", fetching);
-    const reading = vi.fn(async () => "vertices: []\nedges: []\n");
-    const { coordinator } = harness();
+    const { asked, coordinator, query } = harness();
+    const corpus = await open("jobs/1", { query, manifestFiles: MANIFESTS, wasm: WASM });
 
-    await openCorpus({
-      coordinator,
-      dest: "https://signed.example/corpus/archive",
-      readText: reading,
-      wasm: WASM,
-    }).catch(() => undefined);
+    const { source, nodes } = await openCorpus({ corpus, engine: { coordinator } });
+    await source.slice({
+      limit: 100,
+      minLinkPixels: 0,
+      view: { xMin: 0, yMin: 0, xMax: 10, yMax: 10 },
+    } as never);
 
-    // The index, at the address fossil composed — this side names no file and joins no path.
-    expect(reading.mock.calls).toEqual([["https://signed.example/corpus/archive/graph.graph.yml"]]);
+    expect(nodes).toBe('"jobs/1"."Person"');
+    const slice = asked.find((sql) => sql.includes("FROM span"));
+    expect(slice).toContain("'jobs/1/vertex/Person/chunk0.parquet'");
     expect(fetching).not.toHaveBeenCalled();
   });
 });

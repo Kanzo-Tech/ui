@@ -3,6 +3,7 @@
 import { Graph } from "@cosmos.gl/graph";
 import { type Coordinator, engine, numbers } from "@kanzo-tech/ui/analytics";
 import { shouldSlice, type Slice } from "@kanzo-tech/graph";
+import { open } from "@fossil-lang/corpus";
 import { openCorpus } from "@kanzo-tech/graph/duckdb";
 import type { BoundedSource } from "@kanzo-tech/graph";
 // The offscreen element and the rectangle it defines are `measure.ts`'s, so the two harnesses draw
@@ -276,9 +277,11 @@ export async function measureSlicePath(path = "/bench/1000000"): Promise<{
   matched: number;
   links: number;
 }> {
-  const { coordinator } = await engine();
+  const e = await engine();
+  const { coordinator } = e;
   await forget(coordinator);
-  const { source } = await openCorpus({ coordinator, dest: `${window.location.origin}${path}`});
+  const opened = await open(`${window.location.origin}${path}`, { query: e.query });
+  const { source } = await openCorpus({ corpus: opened, engine: e });
   if (!source.extent) throw new Error("bench: the corpus source cannot say its extent");
   const bounds = await source.extent();
   const total = (await source.total?.()) ?? 1;
@@ -378,7 +381,8 @@ interface Fixtured {
  * already resolved. Nothing is renamed on the way in — the source takes the names it is given.
  */
 async function corpus(pointCount: number, report?: (stage: string) => void): Promise<Fixtured> {
-  const { coordinator } = await engine();
+  const e = await engine();
+  const { coordinator } = e;
   await forget(coordinator);
   const base = `${window.location.origin}/bench/${pointCount}`;
 
@@ -386,7 +390,7 @@ async function corpus(pointCount: number, report?: (stage: string) => void): Pro
   report?.("opening the corpus · manifest");
 
   /**
-   * One argument: where the corpus is.
+   * One argument: the corpus fossil opened from where it is.
    *
    * Everything this used to derive by hand — the chunk count from a `chunk_size` copied out of
    * fossil, the `chunk{k}.parquet` naming, the edge directory, GraphAr's column names, and the
@@ -394,8 +398,9 @@ async function corpus(pointCount: number, report?: (stage: string) => void): Pro
    * now, read from the manifest rather than written down here. That constant went stale once and
    * silently read a fraction of the corpus, which is the whole argument for this move.
    */
-  const { source } = await openCorpus({ coordinator, dest: base});
-  const { source: named } = await openCorpus({ coordinator, dest: base, subjects: true});
+  const opened = await open(base, { query: e.query });
+  const { source } = await openCorpus({ corpus: opened, engine: e });
+  const { source: named } = await openCorpus({ corpus: opened, engine: e, subjects: true });
 
   /**
    * The extent, from the boxes the source already holds. No scan.
