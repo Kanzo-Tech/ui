@@ -32,11 +32,11 @@ const connector = {
     return request.type === "json" ? [{ one: 1 }] : undefined;
   }),
 };
-const booted = vi.fn(() => connector);
+const booted = vi.fn<(options?: unknown) => typeof connector>(() => connector);
 
 vi.mock("@uwdata/mosaic-core", async (original) => ({
   ...(await original<typeof import("@uwdata/mosaic-core")>()),
-  wasmConnector: () => booted(),
+  wasmConnector: (options?: unknown) => booted(options),
 }));
 
 const { engine } = await import("./engine.js");
@@ -51,6 +51,11 @@ describe("engine", () => {
     expect(a).toBe(b);
     expect(await engine()).toBe(a);
     expect(booted).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens the database refusing whole-file reads, so a lent file is read by range", async () => {
+    await engine();
+    expect(booted).toHaveBeenCalledWith({ config: { filesystem: { forceFullHTTPReads: false } } });
   });
 
   it("applies its settings once, at boot", async () => {

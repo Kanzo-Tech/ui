@@ -41,11 +41,20 @@ interface Registry {
 /** `DuckDBDataProtocol.HTTP` — a numeric enum, spelled here so the type never has to be imported. */
 const HTTP = 4;
 
+/**
+ * DuckDB-WASM >= 1.30 downloads a lent file whole unless full reads are refused outright: its range
+ * probe reads `Content-Length` where it meant `Content-Range` and falls through to a whole-file GET
+ * (duckdb/duckdb-wasm#2228). Refused, it reaches its `HEAD` fallback and reads by range, which is the
+ * whole reason a file is lent rather than fetched. The fallback needs a URL that answers `HEAD` — a
+ * presigned GET does not; the host's redirect that signs per method does.
+ */
+const RANGE_READS = { filesystem: { forceFullHTTPReads: false } };
+
 /** A buffer is not a URL, so a held name never compares equal to a lent one. */
 const HELD = Symbol("held");
 
 async function boot(): Promise<Engine> {
-  const connector = wasmConnector();
+  const connector = wasmConnector({ config: RANGE_READS });
   const coordinator = new Coordinator(connector);
   const db = (await connector.getDuckDB()) as unknown as Registry;
   // Lent files are read lazily by range; caching their metadata is what keeps a pan from re-probing.
