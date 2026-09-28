@@ -16,6 +16,11 @@ import { Coordinator, wasmConnector } from "@uwdata/mosaic-core";
  * the old lease and registers the new. That indirection is also why the registry is kept rather than
  * reading `https://…` directly — a view names a stable file, and only the lease behind it rotates.
  *
+ * **It reads `s3://` from boot.** DuckDB's `httpfs` is loaded before the engine is handed out, so a
+ * reader that holds a credential scoped to a prefix makes it readable with one statement through
+ * `query` — `CREATE OR REPLACE SECRET … (TYPE s3, …, SCOPE 's3://bucket/prefix/')` — and names the
+ * objects by their own URLs. There is no method for it: the secret is SQL, and `query` is the door.
+ *
  * It satisfies fossil's `Engine` structurally; this package does not depend on fossil, and does not
  * name `@duckdb/duckdb-wasm` either — the connector hands the database over untyped.
  */
@@ -23,7 +28,11 @@ export interface Engine {
   readonly coordinator: Coordinator;
   /** Rows as objects, uncached: a read after a `lend` must see the new lease. */
   query(sql: string): Promise<Record<string, unknown>[]>;
-  /** name → URL. The same URL is a no-op; a different one replaces the lease. */
+  /**
+   * name → URL. The same URL is a no-op; a different one replaces the lease. The name has no scheme:
+   * with `httpfs` loaded, `https://…` or `s3://…` in SQL is read by `httpfs` before the registry is
+   * asked, so a lease under such a name is never consulted.
+   */
   lend(files: Record<string, string>): Promise<void>;
   /** Registers a copy of `bytes` under `name`, replacing whatever was there. */
   hold(name: string, bytes: Uint8Array): Promise<void>;
@@ -44,11 +53,35 @@ const HTTP = 4;
 /**
  * DuckDB-WASM >= 1.30 downloads a lent file whole unless full reads are refused outright: its range
  * probe reads `Content-Length` where it meant `Content-Range` and falls through to a whole-file GET
- * (duckdb/duckdb-wasm#2228). Refused, it reaches its `HEAD` fallback and reads by range, which is the
- * whole reason a file is lent rather than fetched. The fallback needs a URL that answers `HEAD` — a
- * presigned GET does not; the host's redirect that signs per method does.
+ * (duckdb/duckdb-wasm#2228). Refused, it reaches its `HEAD` fallback and reads by range. Measured on
+ * a 160 MiB Parquet file, a count, a point lookup and a max: 1.3 MiB in eight ranges with this, the
+ * whole file in one GET without it.
+ *
+ * It governs `lend` alone. `s3://` and a URL named in SQL go through `httpfs`, which reads by range
+ * either way (the same queries: 1.8 MiB in four requests, flag or not). What still lends is a store
+ * DuckDB-WASM has no extension for — Azure, reached by a SAS URL — and that is a URL which answers
+ * `HEAD`, which the fallback needs.
  */
 const RANGE_READS = { filesystem: { forceFullHTTPReads: false } };
+
+/**
+ * `httpfs`, from beside this package rather than from extensions.duckdb.org: `scripts/extensions.mjs`
+ * fetches the pinned builds into `extensions/` and the tarball carries them, and the host's bundler
+ * emits each one as an asset. It is `LOAD`ed by URL, which DuckDB accepts under a hashed file name as
+ * long as the name still starts `httpfs.` — the entrypoint is looked up by that prefix.
+ *
+ * One per bundle `wasmConnector` can select, keyed on what `PRAGMA platform` answers.
+ */
+function httpfs(platform: string): URL {
+  switch (platform) {
+    case "wasm_mvp":
+      return new URL("../extensions/wasm_mvp/httpfs.duckdb_extension.wasm", import.meta.url);
+    case "wasm_eh":
+      return new URL("../extensions/wasm_eh/httpfs.duckdb_extension.wasm", import.meta.url);
+    default:
+      throw new Error(`engine: no httpfs is shipped for the ${platform} bundle`);
+  }
+}
 
 /** A buffer is not a URL, so a held name never compares equal to a lent one. */
 const HELD = Symbol("held");
@@ -57,7 +90,13 @@ async function boot(): Promise<Engine> {
   const connector = wasmConnector({ config: RANGE_READS });
   const coordinator = new Coordinator(connector);
   const db = (await connector.getDuckDB()) as unknown as Registry;
-  // Lent files are read lazily by range; caching their metadata is what keeps a pan from re-probing.
+  const [{ platform }] = (await coordinator.query("PRAGMA platform", {
+    type: "json",
+    cache: false,
+  })) as [{ platform: string }];
+  // Against the page: webpack's asset URL is root-relative, and DuckDB fetches it from a `blob:` worker.
+  await coordinator.exec(`LOAD '${new URL(httpfs(platform).href, location.href).href}'`);
+  // Files are read lazily by range; caching their metadata is what keeps a pan from re-probing.
   await coordinator.exec("SET enable_http_metadata_cache = true");
 
   const behind = new Map<string, string | typeof HELD>();

@@ -25,6 +25,14 @@ import { engine } from "@kanzo-tech/mosaic";
   DuckDB-WASM's `File already registered` was refusing. `hold(name, bytes)` registers a copy of a
   buffer; `drop(names)` forgets. It is fossil's `Engine` structurally, without depending on fossil.
 
+  It boots with DuckDB's `httpfs` loaded, so `s3://` is readable once a secret says how:
+  `query("CREATE OR REPLACE SECRET job (TYPE s3, …, SCOPE 's3://bucket/prefix/')")`, then name the
+  objects by their URLs. The extension ships in this package (`extensions/`, fetched and hash-pinned
+  at build by `scripts/extensions.mjs`) and is reached through `new URL(…, import.meta.url)`, so your
+  bundler emits it as an asset and the page loads it from your origin, not from extensions.duckdb.org.
+  A lent name has no scheme: `https://…` and `s3://…` in SQL are `httpfs`'s, and it answers before the
+  registry is asked.
+
 - **Re-exports** of the coordinator, the clients, the five clause builders and the loaders — so a
   consumer never needs a direct `@uwdata` import. The DuckDB-WASM connector is not among them:
   `engine()` is the only boot.

@@ -29,10 +29,13 @@ const connector = {
   getDuckDB: vi.fn(async () => db),
   query: vi.fn(async (request: { type: string; sql: string }) => {
     sql.push(request.sql);
+    if (request.sql === "PRAGMA platform") return [{ platform: "wasm_eh" }];
     return request.type === "json" ? [{ one: 1 }] : undefined;
   }),
 };
 const booted = vi.fn<(options?: unknown) => typeof connector>(() => connector);
+
+vi.stubGlobal("location", new URL("https://page.test/docs/"));
 
 vi.mock("@uwdata/mosaic-core", async (original) => ({
   ...(await original<typeof import("@uwdata/mosaic-core")>()),
@@ -56,6 +59,16 @@ describe("engine", () => {
   it("opens the database refusing whole-file reads, so a lent file is read by range", async () => {
     await engine();
     expect(booted).toHaveBeenCalledWith({ config: { filesystem: { forceFullHTTPReads: false } } });
+  });
+
+  // Without it a vended credential has nowhere to go: `CREATE SECRET (TYPE s3 …)` is httpfs's.
+  it("loads httpfs at boot, the build for the bundle it booted, from beside the package", async () => {
+    await engine();
+    const loads = sql.filter((s) => s.startsWith("LOAD "));
+    expect(loads).toHaveLength(1);
+    const url = new URL(loads[0]!.slice("LOAD '".length, -1));
+    expect(url.pathname).toMatch(/\/extensions\/wasm_eh\/httpfs\.duckdb_extension\.wasm$/);
+    expect(url.protocol).toBe("file:");
   });
 
   it("applies its settings once, at boot", async () => {
