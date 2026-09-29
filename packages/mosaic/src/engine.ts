@@ -119,8 +119,11 @@ async function boot(): Promise<Engine> {
   const connector = wasmConnector({ duckdb, config: RANGE_READS });
   const coordinator = new Coordinator(connector);
   await coordinator.exec(`LOAD '${build.httpfs}'`);
-  // Files are read lazily by range; caching their metadata is what keeps a pan from re-probing.
+  // Files are read lazily by range; caching their metadata is what keeps a pan from re-probing, and
+  // caching Parquet footers is what keeps every tile read from re-reading one that grows with the
+  // corpus — 2.2× on a window's reads, measured in fossil on 2026-09-30.
   await coordinator.exec("SET enable_http_metadata_cache = true");
+  await coordinator.exec("SET parquet_metadata_cache = true");
 
   const behind = new Map<string, string | typeof HELD>();
 

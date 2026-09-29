@@ -140,6 +140,7 @@ describe("engine", () => {
   it("applies its settings once, at boot", async () => {
     await engine();
     expect(sql.filter((s) => s.includes("enable_http_metadata_cache"))).toHaveLength(1);
+    expect(sql.filter((s) => s.includes("parquet_metadata_cache"))).toHaveLength(1);
   });
 
   it("answers in columns, as DuckDB-WASM produced them", async () => {
