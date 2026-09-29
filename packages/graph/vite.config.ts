@@ -21,10 +21,7 @@ export default defineConfig({
     lib: {
       entry: {
         index: resolve(__dirname, "src/index.ts"),
-        // A second entry, not a re-export: `@kanzo-tech/graph/duckdb` is where the Mosaic-dependent
-        // source lives, so the main entry stays importable without the optional peer installed.
-        "duck-source": resolve(__dirname, "src/duck-source.ts"),
-        // A third entry for the same reason, pointing the other way: the appearance-document
+        // A second entry: the appearance-document
         // contribution is reached BY a host, never imported by the core, so it must not be on the
         // root barrel where `@kanzo-tech/theme` could come to depend on it.
         "section": resolve(__dirname, "src/section.ts"),
@@ -40,7 +37,7 @@ export default defineConfig({
         // Every sibling, by scope rather than by name. Naming them one at a time is a list that
         // adding a package does not update, and it failed exactly that way: extracting
         // `@kanzo-tech/mosaic` left this predicate matching only the siblings that existed when it
-        // was written, so Rollup INLINED the new one — `@kanzo-tech/graph/duckdb` shipped its own
+        // was written, so Rollup INLINED the new one — this package shipped its own
         // copy of the Arrow reader under a relative path, which is the duplication the extraction
         // was meant to end. A workspace package never bundles a sibling; that is a rule, so it is
         // written as one. Subpaths included: matching the bare id alone silently inlined
