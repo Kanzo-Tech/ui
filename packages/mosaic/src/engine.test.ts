@@ -19,10 +19,18 @@ const connection = {
     if (text.includes("slow")) await new Promise<void>((resolve) => (running.release = resolve));
     const column = { length: 1, get: () => 1, toArray: () => Int32Array.of(1), concat: () => column };
     const batch = { numRows: 1, getChildAt: (i: number) => (i === 0 ? column : null) };
+    // As apache-arrow's reader behaves: a schema only while open, and none once iterated to the end.
+    let schema: { fields: { name: string }[] } | undefined;
     return {
-      schema: { fields: [{ name: "one" }] },
+      get schema() {
+        return schema;
+      },
+      async open() {
+        schema = { fields: [{ name: "one" }] };
+      },
       async *[Symbol.asyncIterator]() {
         yield batch;
+        schema = undefined;
       },
     };
   }),

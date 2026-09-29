@@ -180,8 +180,14 @@ async function boot(): Promise<Engine> {
 }
 
 interface Sent {
-  send(sql: string): Promise<AsyncIterable<Batch> & { readonly schema: { readonly fields: readonly { readonly name: string }[] } }>;
+  send(sql: string): Promise<Reader>;
   cancelSent(): Promise<boolean>;
+}
+
+/** apache-arrow's `AsyncRecordBatchStreamReader`: its schema exists once it is open, and not after it closes. */
+interface Reader extends AsyncIterable<Batch> {
+  open(): Promise<unknown>;
+  readonly schema: { readonly fields: readonly { readonly name: string }[] } | undefined;
 }
 
 interface Batch {
@@ -196,10 +202,12 @@ async function answer(pending: Promise<Sent>, sql: string, signal?: AbortSignal)
   signal?.addEventListener("abort", interrupt, { once: true });
   try {
     const reader = await connection.send(sql);
+    await reader.open();
+    const fields = reader.schema?.fields ?? [];
     const batches: Batch[] = [];
     for await (const batch of reader) batches.push(batch);
     signal?.throwIfAborted();
-    return columnsOf(reader.schema.fields, batches);
+    return columnsOf(fields, batches);
   } catch (error) {
     if (signal?.aborted) throw signal.reason;
     throw error;
