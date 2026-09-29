@@ -25,7 +25,8 @@ through a selector.
   declares ranks by its ordinal; for any other the keys' order is the rank, so a colour no longer
   moves as tiles arrive.
 - **`corpus` takes a promise.** Pass the opening and the graph reports `status: "opening"` until it
-  settles; `null` is no corpus. `status` is `none`, `opening`, `reading`, `idle` or `failed`.
+  settles; `null` is no corpus. `status` is `none`, `opening`, `reading`, `idle` or `failed` — the
+  last also when the canvas cannot start a renderer. `reveal` selects and focuses without one.
 - **`frameBox(box, { duration, padding })`** frames a box in the corpus's coordinates.
 
 What to edit:
