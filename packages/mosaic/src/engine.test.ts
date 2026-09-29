@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const registry = new Map<string, string>();
 const calls: string[] = [];
 const db = {
+  instantiate: vi.fn<(module: string) => Promise<void>>(async () => {}),
   registerFileURL: vi.fn(async (name: string, url: string) => {
     if (registry.has(name) && registry.get(name) !== url) {
       throw new Error(`File already registered: ${name}`);
@@ -26,13 +27,35 @@ const db = {
 };
 const sql: string[] = [];
 const connector = {
-  getDuckDB: vi.fn(async () => db),
   query: vi.fn(async (request: { type: string; sql: string }) => {
     sql.push(request.sql);
     return request.type === "json" ? [{ one: 1 }] : undefined;
   }),
 };
 const booted = vi.fn<(options?: unknown) => typeof connector>(() => connector);
+const workers: string[] = [];
+
+vi.stubGlobal("location", new URL("https://page.test/docs/"));
+vi.stubGlobal(
+  "Worker",
+  class {
+    constructor(url: string) {
+      workers.push(url);
+    }
+  },
+);
+
+vi.mock("@duckdb/duckdb-wasm", async (original) => ({
+  ...(await original<typeof import("@duckdb/duckdb-wasm")>()),
+  // What a browser with WebAssembly exceptions is given.
+  selectBundle: async (bundles: { eh: { mainModule: string; mainWorker: string } }) => ({
+    ...bundles.eh,
+    pthreadWorker: null,
+  }),
+  AsyncDuckDB: function () {
+    return db;
+  },
+}));
 
 vi.mock("@uwdata/mosaic-core", async (original) => ({
   ...(await original<typeof import("@uwdata/mosaic-core")>()),
@@ -55,7 +78,32 @@ describe("engine", () => {
 
   it("opens the database refusing whole-file reads, so a lent file is read by range", async () => {
     await engine();
-    expect(booted).toHaveBeenCalledWith({ config: { filesystem: { forceFullHTTPReads: false } } });
+    expect(booted).toHaveBeenCalledWith({
+      duckdb: db,
+      config: { filesystem: { forceFullHTTPReads: false } },
+    });
+  });
+
+  // The CSP a host can hold is `'self'` because of this: no CDN, no `blob:` worker. Unbundled, the
+  // specifier resolves against the module; a bundler resolves it to the dependency and emits it.
+  it("boots the bundle it selected from the package's own DuckDB-WASM", async () => {
+    await engine();
+    expect(workers).toHaveLength(1);
+    const worker = new URL(workers[0]!);
+    const module = new URL(db.instantiate.mock.calls[0]![0]);
+    expect(worker.pathname).toMatch(/\/@duckdb\/duckdb-wasm\/dist\/duckdb-browser-eh\.worker\.js$/);
+    expect(module.pathname).toMatch(/\/@duckdb\/duckdb-wasm\/dist\/duckdb-eh\.wasm$/);
+    expect([worker.protocol, module.protocol]).toEqual(["file:", "file:"]);
+  });
+
+  // Without it a vended credential has nowhere to go: `CREATE SECRET (TYPE s3 …)` is httpfs's.
+  it("loads httpfs at boot, the build for the bundle it booted, from beside the package", async () => {
+    await engine();
+    const loads = sql.filter((s) => s.startsWith("LOAD "));
+    expect(loads).toHaveLength(1);
+    const url = new URL(loads[0]!.slice("LOAD '".length, -1));
+    expect(url.pathname).toMatch(/\/extensions\/wasm_eh\/httpfs\.duckdb_extension\.wasm$/);
+    expect(url.protocol).toBe("file:");
   });
 
   it("applies its settings once, at boot", async () => {

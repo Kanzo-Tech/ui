@@ -81,9 +81,6 @@ importers:
       '@cosmos.gl/graph':
         specifier: ^3.4.0
         version: 3.4.0
-      '@duckdb/duckdb-wasm':
-        specifier: 1.33.1-dev57.0
-        version: 1.33.1-dev57.0
       '@fossil-lang/corpus':
         specifier: ^0.3.0-alpha.10
         version: 0.3.0-alpha.10
@@ -329,6 +326,10 @@ importers:
         version: 0.4.0(rollup@4.62.2)
 
   packages/mosaic:
+    dependencies:
+      '@duckdb/duckdb-wasm':
+        specifier: 1.33.1-dev57.0
+        version: 1.33.1-dev57.0
     devDependencies:
       '@uwdata/mosaic-core':
         specifier: ^0.29.2

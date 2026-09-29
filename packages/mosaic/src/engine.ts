@@ -1,3 +1,4 @@
+import { AsyncDuckDB, DuckDBDataProtocol, VoidLogger, selectBundle } from "@duckdb/duckdb-wasm";
 import { Coordinator, wasmConnector } from "@uwdata/mosaic-core";
 
 /**
@@ -16,14 +17,26 @@ import { Coordinator, wasmConnector } from "@uwdata/mosaic-core";
  * the old lease and registers the new. That indirection is also why the registry is kept rather than
  * reading `https://…` directly — a view names a stable file, and only the lease behind it rotates.
  *
- * It satisfies fossil's `Engine` structurally; this package does not depend on fossil, and does not
- * name `@duckdb/duckdb-wasm` either — the connector hands the database over untyped.
+ * **It reads `s3://` from boot.** DuckDB's `httpfs` is loaded before the engine is handed out, so a
+ * reader that holds a credential scoped to a prefix makes it readable with one statement through
+ * `query` — `CREATE OR REPLACE SECRET … (TYPE s3, …, SCOPE 's3://bucket/prefix/')` — and names the
+ * objects by their own URLs. There is no method for it: the secret is SQL, and `query` is the door.
+ *
+ * **Nothing is fetched from a CDN.** DuckDB-WASM's worker and module and its `httpfs` are named with
+ * `new URL(…, import.meta.url)`, so the host's bundler emits them as assets and the page loads all of
+ * it from its own origin: `script-src 'self'`, `worker-src 'self'` and `connect-src 'self' <storage>`.
+ *
+ * It satisfies fossil's `Engine` structurally; this package does not depend on fossil.
  */
 export interface Engine {
   readonly coordinator: Coordinator;
   /** Rows as objects, uncached: a read after a `lend` must see the new lease. */
   query(sql: string): Promise<Record<string, unknown>[]>;
-  /** name → URL. The same URL is a no-op; a different one replaces the lease. */
+  /**
+   * name → URL. The same URL is a no-op; a different one replaces the lease. The name has no scheme:
+   * with `httpfs` loaded, `https://…` or `s3://…` in SQL is read by `httpfs` before the registry is
+   * asked, so a lease under such a name is never consulted.
+   */
   lend(files: Record<string, string>): Promise<void>;
   /** Registers a copy of `bytes` under `name`, replacing whatever was there. */
   hold(name: string, bytes: Uint8Array): Promise<void>;
@@ -31,33 +44,60 @@ export interface Engine {
   drop(names: readonly string[]): Promise<void>;
 }
 
-/** The slice of DuckDB-WASM's `AsyncDuckDB` the registry uses. */
-interface Registry {
-  registerFileURL(name: string, url: string, protocol: number, directIO: boolean): Promise<void>;
-  registerFileBuffer(name: string, buffer: Uint8Array): Promise<void>;
-  dropFile(name: string): Promise<void>;
-}
-
-/** `DuckDBDataProtocol.HTTP` — a numeric enum, spelled here so the type never has to be imported. */
-const HTTP = 4;
-
 /**
  * DuckDB-WASM >= 1.30 downloads a lent file whole unless full reads are refused outright: its range
  * probe reads `Content-Length` where it meant `Content-Range` and falls through to a whole-file GET
- * (duckdb/duckdb-wasm#2228). Refused, it reaches its `HEAD` fallback and reads by range, which is the
- * whole reason a file is lent rather than fetched. The fallback needs a URL that answers `HEAD` — a
- * presigned GET does not; the host's redirect that signs per method does.
+ * (duckdb/duckdb-wasm#2228). Refused, it reaches its `HEAD` fallback and reads by range. Measured on
+ * a 160 MiB Parquet file, a count, a point lookup and a max: 1.3 MiB in eight ranges with this, the
+ * whole file in one GET without it.
+ *
+ * It governs `lend` alone. `s3://` and a URL named in SQL go through `httpfs`, which reads by range
+ * either way (the same queries: 1.8 MiB in four requests, flag or not). What still lends is a store
+ * DuckDB-WASM has no extension for — Azure, reached by a SAS URL — and that is a URL which answers
+ * `HEAD`, which the fallback needs.
  */
 const RANGE_READS = { filesystem: { forceFullHTTPReads: false } };
+
+/** Absolute, against the page: webpack under Next hands back a root-relative URL. */
+const served = (asset: URL) => new URL(asset.href, location.href).href;
+
+/**
+ * One build per bundle `selectBundle` chooses between, each with the `httpfs` built for it. The worker
+ * and module are `@duckdb/duckdb-wasm`'s own, the release this package pins, named by specifier as
+ * DuckDB-WASM documents for webpack: the bundler resolves it to that dependency. `httpfs` is not on npm,
+ * so `scripts/extensions.mjs` fetches the pinned builds into `extensions/` and the tarball carries
+ * them. It is `LOAD`ed by URL, which DuckDB accepts under a hashed file name as long as the name still
+ * starts `httpfs.` — the entrypoint is looked up by that prefix.
+ */
+function builds() {
+  return {
+    mvp: {
+      mainModule: served(new URL("@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm", import.meta.url)),
+      mainWorker: served(new URL("@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js", import.meta.url)),
+      httpfs: served(new URL("../extensions/wasm_mvp/httpfs.duckdb_extension.wasm", import.meta.url)),
+    },
+    eh: {
+      mainModule: served(new URL("@duckdb/duckdb-wasm/dist/duckdb-eh.wasm", import.meta.url)),
+      mainWorker: served(new URL("@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js", import.meta.url)),
+      httpfs: served(new URL("../extensions/wasm_eh/httpfs.duckdb_extension.wasm", import.meta.url)),
+    },
+  };
+}
 
 /** A buffer is not a URL, so a held name never compares equal to a lent one. */
 const HELD = Symbol("held");
 
 async function boot(): Promise<Engine> {
-  const connector = wasmConnector({ config: RANGE_READS });
+  const all = builds();
+  const { mainModule } = await selectBundle(all);
+  const build = mainModule === all.eh.mainModule ? all.eh : all.mvp;
+  const duckdb = new AsyncDuckDB(new VoidLogger(), new Worker(build.mainWorker));
+  await duckdb.instantiate(build.mainModule);
+
+  const connector = wasmConnector({ duckdb, config: RANGE_READS });
   const coordinator = new Coordinator(connector);
-  const db = (await connector.getDuckDB()) as unknown as Registry;
-  // Lent files are read lazily by range; caching their metadata is what keeps a pan from re-probing.
+  await coordinator.exec(`LOAD '${build.httpfs}'`);
+  // Files are read lazily by range; caching their metadata is what keeps a pan from re-probing.
   await coordinator.exec("SET enable_http_metadata_cache = true");
 
   const behind = new Map<string, string | typeof HELD>();
@@ -73,7 +113,7 @@ async function boot(): Promise<Engine> {
 
   const release = async (name: string) => {
     if (!behind.has(name)) return;
-    await db.dropFile(name);
+    await duckdb.dropFile(name);
     behind.delete(name);
   };
 
@@ -86,7 +126,7 @@ async function boot(): Promise<Engine> {
         for (const [name, url] of Object.entries(files)) {
           if (behind.get(name) === url) continue;
           await release(name);
-          await db.registerFileURL(name, url, HTTP, false);
+          await duckdb.registerFileURL(name, url, DuckDBDataProtocol.HTTP, false);
           behind.set(name, url);
         }
       }),
@@ -94,7 +134,7 @@ async function boot(): Promise<Engine> {
       serial(async () => {
         await release(name);
         // A copy, because DuckDB-WASM transfers the buffer to its worker and detaches the caller's.
-        await db.registerFileBuffer(name, bytes.slice());
+        await duckdb.registerFileBuffer(name, bytes.slice());
         behind.set(name, HELD);
       }),
     drop: (names) =>

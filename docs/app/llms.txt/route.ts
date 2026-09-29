@@ -61,7 +61,7 @@ export function GET(request: Request) {
     "",
     "- `@kanzo-tech/ui` — every component. Add `@import \"tailwindcss\"; @import \"@kanzo-tech/ui/tailwind.css\";` to the Tailwind v4 stylesheet and wrap the app in `KanzoThemeProvider`.",
     "- `@kanzo-tech/ui/table` — the connected data table. Needs `@tanstack/react-table`.",
-    "- `@kanzo-tech/ui/analytics` — the charts. Needs `@uwdata/vgplot`, `@uwdata/mosaic-core`, `@uwdata/mosaic-sql`, `@duckdb/duckdb-wasm`.",
+    "- `@kanzo-tech/ui/analytics` — the charts. Needs `@uwdata/vgplot`, `@uwdata/mosaic-core`, `@uwdata/mosaic-sql`.",
     "- `@kanzo-tech/ui/editor` — the CodeMirror editors. Needs `@codemirror/*` and `@lezer/highlight`.",
     "- `@kanzo-tech/theme` — tokens, the axis table, the value types. No React. Installed with the library.",
     "",

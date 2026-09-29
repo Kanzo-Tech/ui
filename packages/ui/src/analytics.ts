@@ -5,10 +5,10 @@
 // read the same relation. The components stay `Chart*`: those are charts.
 //
 // Kept off the root barrel so the base bundle never carries the DuckDB/Mosaic analytics stack.
-// `@uwdata/vgplot`, `@uwdata/mosaic-core`, `@uwdata/mosaic-sql` and `@duckdb/duckdb-wasm` are all
-// **optional peer dependencies** — the package never imports DuckDB-WASM and never instantiates a
-// Coordinator. The consumer builds one over their own backend (in a `"use client"` island) and
-// passes it to `MosaicProvider`, which is what keeps DuckDB-WASM out of every Server Component.
+// `@uwdata/vgplot`, `@uwdata/mosaic-core` and `@uwdata/mosaic-sql` are **optional peer
+// dependencies**; DuckDB-WASM arrives with `@kanzo-tech/mosaic`, whose `engine()` is re-exported here.
+// No chart instantiates a Coordinator: the consumer takes one (in a `"use client"` island) and passes
+// it to `MosaicProvider`, which is what keeps DuckDB-WASM out of every Server Component.
 //
 // The layer is a grammar, not a set of chart types: `ChartRoot` compiles its inert descriptor
 // children (marks, interactors, axes) into one `vg.plot(...)`, so a bar and a line share a plot and
