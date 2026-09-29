@@ -2,18 +2,22 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { PIN } from "./extensions.mjs";
 
+const manifest = (path) => JSON.parse(readFileSync(new URL(path, import.meta.url), "utf8"));
+
 /**
- * The DuckDB-WASM that `engine()` boots is whichever release `@uwdata/mosaic-core` pins, and an
- * extension loads only into the DuckDB version it was built for. So the pin follows mosaic-core, and
- * this fails the day mosaic-core moves on and the pin does not — in CI rather than on a page, where
- * DuckDB's refusal would be the first anyone heard of it.
+ * An extension loads only into the DuckDB version it was built for, so the pin follows the
+ * DuckDB-WASM `engine()` boots — and mosaic-core's is held to the same release, or the tree carries a
+ * second engine nothing boots. Either moving without the pin fails here, in CI rather than on a page,
+ * where DuckDB's refusal would be the first anyone heard of it.
  */
 describe("extensions", () => {
-  it("are built for the DuckDB-WASM mosaic-core boots", () => {
+  it("are built for the DuckDB-WASM engine() boots", () => {
+    expect(manifest("../package.json").dependencies["@duckdb/duckdb-wasm"]).toBe(PIN.duckdbWasm);
+  });
+
+  it("are built for the DuckDB-WASM mosaic-core depends on", () => {
     // By path: mosaic-core's `exports` does not publish its package.json.
-    const core = JSON.parse(
-      readFileSync(new URL("../node_modules/@uwdata/mosaic-core/package.json", import.meta.url), "utf8"),
-    );
+    const core = manifest("../node_modules/@uwdata/mosaic-core/package.json");
     expect(core.dependencies["@duckdb/duckdb-wasm"]).toBe(PIN.duckdbWasm);
   });
 });

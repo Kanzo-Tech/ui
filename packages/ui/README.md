@@ -40,7 +40,7 @@ entry:
 | `@kanzo-tech/ui` | none beyond React and `lucide-react` |
 | `@kanzo-tech/ui/editor` | `@codemirror/*` |
 | `@kanzo-tech/ui/table` | `@tanstack/react-table` |
-| `@kanzo-tech/ui/analytics` | `@uwdata/vgplot`, `@uwdata/mosaic-*`, `@duckdb/duckdb-wasm` |
+| `@kanzo-tech/ui/analytics` | `@uwdata/vgplot`, `@uwdata/mosaic-*` |
 
 ## Theming
 

@@ -15,10 +15,10 @@ axis (`hour`) and a series (`verdict`).
 
 <Callout type="warn">
 Everything here imports from `@kanzo-tech/ui/analytics`, not the root barrel, and that subpath
-needs four **optional peers** installed alongside the library:
+needs three **optional peers** installed alongside the library:
 
 ```bash
-pnpm add @uwdata/vgplot @uwdata/mosaic-core @uwdata/mosaic-sql @duckdb/duckdb-wasm
+pnpm add @uwdata/vgplot @uwdata/mosaic-core @uwdata/mosaic-sql
 ```
 
 You also bring the coordinator, usually `engine()`'s — see [Charts](/docs/analytics/charts#the-pages-one-engine).

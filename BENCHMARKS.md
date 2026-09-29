@@ -364,10 +364,11 @@ it was is not reproducible.
 The obvious cause is the obvious fix and it is neither. `selectBundle` takes the threaded `coi`
 build only when the document is cross-origin isolated, and by default it is not — no
 `SharedArrayBuffer`, no threads. Serving the route with `Cross-Origin-Opener-Policy: same-origin`
-and `Cross-Origin-Embedder-Policy: credentialless` (`credentialless`, because DuckDB's bundles come
-from jsDelivr by `importScripts` and its httpfs extension from `extensions.duckdb.org` — both
-no-cors loads that `require-corp` blocks) does make `crossOriginIsolated` true and
-`SharedArrayBuffer` exist. **`threads` stays 1 and nothing gets faster.**
+and `Cross-Origin-Embedder-Policy: credentialless` (`credentialless`, because DuckDB's bundles then
+came from another origin — no-cors loads that `require-corp` blocks) does make
+`crossOriginIsolated` true and `SharedArrayBuffer` exist. **`threads` stays 1 and nothing gets
+faster.** That is why `engine()`, which now serves DuckDB from the page's own origin, offers
+`selectBundle` no `coi` build at all.
 
 Controlled on the same page minutes apart, one variable:
 

@@ -17,7 +17,7 @@ never owns the runtime: it is **bring-your-own-coordinator**. No chart builds a 
 take the page's one from `engine()` (or build your own) in a `"use client"` island and pass it in,
 which is what keeps the analytics stack out of the base bundle and out of every React Server
 Component.
-`@uwdata/vgplot`, `@uwdata/mosaic-core`, `@uwdata/mosaic-sql` and `@duckdb/duckdb-wasm` are all
+`@uwdata/vgplot`, `@uwdata/mosaic-core` and `@uwdata/mosaic-sql` are all
 **optional peers**, so `import { Button }` keeps working for everyone who has not installed them.
 </Callout>
 
@@ -100,7 +100,7 @@ The charts live on the `@kanzo-tech/ui/analytics` subpath, never the root barrel
 Mosaic/DuckDB stack is heavy and optional. Install the peers alongside the library:
 
 ```bash
-pnpm add @uwdata/vgplot @uwdata/mosaic-core @uwdata/mosaic-sql @duckdb/duckdb-wasm
+pnpm add @uwdata/vgplot @uwdata/mosaic-core @uwdata/mosaic-sql
 ```
 
 ## The page's one engine
@@ -143,10 +143,15 @@ fossil's `Engine` asks for, so the engine you chart through is the one a corpus 
 
 It boots with DuckDB's `httpfs` loaded, so object storage is SQL rather than another method: a
 reader holding a credential scoped to a prefix runs `CREATE OR REPLACE SECRET … (TYPE s3, …, SCOPE
-'s3://bucket/prefix/')` through `query` and reads `s3://…` by range. The extension is part of
-`@kanzo-tech/mosaic` and your bundler emits it as an asset, so the page never fetches code from
-extensions.duckdb.org. Lend under a name without a scheme: with `httpfs` loaded, `https://…` and
-`s3://…` in SQL are read by it before the registry is asked.
+'s3://bucket/prefix/')` through `query` and reads `s3://…` by range. Lend under a name without a
+scheme: with `httpfs` loaded, `https://…` and `s3://…` in SQL are read by it before the registry is
+asked.
+
+Nothing it runs comes from a CDN. DuckDB-WASM's worker and module and the `httpfs` extension are
+part of `@kanzo-tech/mosaic`, named with `new URL(…, import.meta.url)`, so your bundler emits them
+as assets and the page loads them from your own origin — there is nothing to copy into `public/`.
+Serve `.wasm` as `application/wasm`, and the page's policy needs no host but yours and your
+storage's: `script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' <storage>`.
 
 A backend that is not DuckDB-WASM — a socket or REST connector — is still a `Coordinator` you build
 yourself and hand to `MosaicProvider`; `Coordinator` and `Selection` are re-exported for it.

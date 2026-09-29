@@ -1,3 +1,4 @@
+import { AsyncDuckDB, DuckDBDataProtocol, VoidLogger, selectBundle } from "@duckdb/duckdb-wasm";
 import { Coordinator, wasmConnector } from "@uwdata/mosaic-core";
 
 /**
@@ -21,8 +22,11 @@ import { Coordinator, wasmConnector } from "@uwdata/mosaic-core";
  * `query` — `CREATE OR REPLACE SECRET … (TYPE s3, …, SCOPE 's3://bucket/prefix/')` — and names the
  * objects by their own URLs. There is no method for it: the secret is SQL, and `query` is the door.
  *
- * It satisfies fossil's `Engine` structurally; this package does not depend on fossil, and does not
- * name `@duckdb/duckdb-wasm` either — the connector hands the database over untyped.
+ * **Nothing is fetched from a CDN.** DuckDB-WASM's worker and module and its `httpfs` are named with
+ * `new URL(…, import.meta.url)`, so the host's bundler emits them as assets and the page loads all of
+ * it from its own origin: `script-src 'self'`, `worker-src 'self'` and `connect-src 'self' <storage>`.
+ *
+ * It satisfies fossil's `Engine` structurally; this package does not depend on fossil.
  */
 export interface Engine {
   readonly coordinator: Coordinator;
@@ -40,16 +44,6 @@ export interface Engine {
   drop(names: readonly string[]): Promise<void>;
 }
 
-/** The slice of DuckDB-WASM's `AsyncDuckDB` the registry uses. */
-interface Registry {
-  registerFileURL(name: string, url: string, protocol: number, directIO: boolean): Promise<void>;
-  registerFileBuffer(name: string, buffer: Uint8Array): Promise<void>;
-  dropFile(name: string): Promise<void>;
-}
-
-/** `DuckDBDataProtocol.HTTP` — a numeric enum, spelled here so the type never has to be imported. */
-const HTTP = 4;
-
 /**
  * DuckDB-WASM >= 1.30 downloads a lent file whole unless full reads are refused outright: its range
  * probe reads `Content-Length` where it meant `Content-Range` and falls through to a whole-file GET
@@ -64,38 +58,45 @@ const HTTP = 4;
  */
 const RANGE_READS = { filesystem: { forceFullHTTPReads: false } };
 
+/** Absolute, against the page: webpack under Next hands back a root-relative URL. */
+const served = (asset: URL) => new URL(asset.href, location.href).href;
+
 /**
- * `httpfs`, from beside this package rather than from extensions.duckdb.org: `scripts/extensions.mjs`
- * fetches the pinned builds into `extensions/` and the tarball carries them, and the host's bundler
- * emits each one as an asset. It is `LOAD`ed by URL, which DuckDB accepts under a hashed file name as
- * long as the name still starts `httpfs.` — the entrypoint is looked up by that prefix.
- *
- * One per bundle `wasmConnector` can select, keyed on what `PRAGMA platform` answers.
+ * One build per bundle `selectBundle` chooses between, each with the `httpfs` built for it. The worker
+ * and module are `@duckdb/duckdb-wasm`'s own, the release this package pins, named by specifier as
+ * DuckDB-WASM documents for webpack: the bundler resolves it to that dependency. `httpfs` is not on npm,
+ * so `scripts/extensions.mjs` fetches the pinned builds into `extensions/` and the tarball carries
+ * them. It is `LOAD`ed by URL, which DuckDB accepts under a hashed file name as long as the name still
+ * starts `httpfs.` — the entrypoint is looked up by that prefix.
  */
-function httpfs(platform: string): URL {
-  switch (platform) {
-    case "wasm_mvp":
-      return new URL("../extensions/wasm_mvp/httpfs.duckdb_extension.wasm", import.meta.url);
-    case "wasm_eh":
-      return new URL("../extensions/wasm_eh/httpfs.duckdb_extension.wasm", import.meta.url);
-    default:
-      throw new Error(`engine: no httpfs is shipped for the ${platform} bundle`);
-  }
+function builds() {
+  return {
+    mvp: {
+      mainModule: served(new URL("@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm", import.meta.url)),
+      mainWorker: served(new URL("@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js", import.meta.url)),
+      httpfs: served(new URL("../extensions/wasm_mvp/httpfs.duckdb_extension.wasm", import.meta.url)),
+    },
+    eh: {
+      mainModule: served(new URL("@duckdb/duckdb-wasm/dist/duckdb-eh.wasm", import.meta.url)),
+      mainWorker: served(new URL("@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js", import.meta.url)),
+      httpfs: served(new URL("../extensions/wasm_eh/httpfs.duckdb_extension.wasm", import.meta.url)),
+    },
+  };
 }
 
 /** A buffer is not a URL, so a held name never compares equal to a lent one. */
 const HELD = Symbol("held");
 
 async function boot(): Promise<Engine> {
-  const connector = wasmConnector({ config: RANGE_READS });
+  const all = builds();
+  const { mainModule } = await selectBundle(all);
+  const build = mainModule === all.eh.mainModule ? all.eh : all.mvp;
+  const duckdb = new AsyncDuckDB(new VoidLogger(), new Worker(build.mainWorker));
+  await duckdb.instantiate(build.mainModule);
+
+  const connector = wasmConnector({ duckdb, config: RANGE_READS });
   const coordinator = new Coordinator(connector);
-  const db = (await connector.getDuckDB()) as unknown as Registry;
-  const [{ platform }] = (await coordinator.query("PRAGMA platform", {
-    type: "json",
-    cache: false,
-  })) as [{ platform: string }];
-  // Against the page: webpack's asset URL is root-relative, and DuckDB fetches it from a `blob:` worker.
-  await coordinator.exec(`LOAD '${new URL(httpfs(platform).href, location.href).href}'`);
+  await coordinator.exec(`LOAD '${build.httpfs}'`);
   // Files are read lazily by range; caching their metadata is what keeps a pan from re-probing.
   await coordinator.exec("SET enable_http_metadata_cache = true");
 
@@ -112,7 +113,7 @@ async function boot(): Promise<Engine> {
 
   const release = async (name: string) => {
     if (!behind.has(name)) return;
-    await db.dropFile(name);
+    await duckdb.dropFile(name);
     behind.delete(name);
   };
 
@@ -125,7 +126,7 @@ async function boot(): Promise<Engine> {
         for (const [name, url] of Object.entries(files)) {
           if (behind.get(name) === url) continue;
           await release(name);
-          await db.registerFileURL(name, url, HTTP, false);
+          await duckdb.registerFileURL(name, url, DuckDBDataProtocol.HTTP, false);
           behind.set(name, url);
         }
       }),
@@ -133,7 +134,7 @@ async function boot(): Promise<Engine> {
       serial(async () => {
         await release(name);
         // A copy, because DuckDB-WASM transfers the buffer to its worker and detaches the caller's.
-        await db.registerFileBuffer(name, bytes.slice());
+        await duckdb.registerFileBuffer(name, bytes.slice());
         behind.set(name, HELD);
       }),
     drop: (names) =>

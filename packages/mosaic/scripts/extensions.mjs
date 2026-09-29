@@ -12,8 +12,8 @@
  * `LOAD`, but that says who built it, not that it is the build we tested. When upstream re-uploads an
  * extension for the same DuckDB version the build fails here, and re-pinning is a decision.
  *
- * `mvp` and `eh` only: those are the two bundles `@uwdata/mosaic-core`'s `wasmConnector` selects
- * between, so a `threads` build would be bytes no page can load.
+ * `mvp` and `eh` only: those are the two bundles `engine()` hands `selectBundle`, so a `threads`
+ * build would be bytes no page can load.
  */
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -21,9 +21,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * `duckdbWasm` is the DuckDB-WASM release `@uwdata/mosaic-core` pins, and `duckdb` the library version
+ * `duckdbWasm` is the DuckDB-WASM release this package depends on, and `duckdb` the library version
  * that release reports (`SELECT library_version FROM pragma_version()`), which is the directory
- * extensions are published under. `extensions.test.ts` fails when mosaic-core moves and this does not.
+ * extensions are published under. `extensions.test.mjs` fails when a dependency moves and this does not.
  */
 export const PIN = {
   duckdbWasm: "1.33.1-dev57.0",

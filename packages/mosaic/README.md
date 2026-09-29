@@ -27,11 +27,19 @@ import { engine } from "@kanzo-tech/mosaic";
 
   It boots with DuckDB's `httpfs` loaded, so `s3://` is readable once a secret says how:
   `query("CREATE OR REPLACE SECRET job (TYPE s3, …, SCOPE 's3://bucket/prefix/')")`, then name the
-  objects by their URLs. The extension ships in this package (`extensions/`, fetched and hash-pinned
-  at build by `scripts/extensions.mjs`) and is reached through `new URL(…, import.meta.url)`, so your
-  bundler emits it as an asset and the page loads it from your origin, not from extensions.duckdb.org.
-  A lent name has no scheme: `https://…` and `s3://…` in SQL are `httpfs`'s, and it answers before the
-  registry is asked.
+  objects by their URLs. A lent name has no scheme: `https://…` and `s3://…` in SQL are `httpfs`'s,
+  and it answers before the registry is asked.
+
+  **Nothing is fetched from a CDN.** DuckDB-WASM's worker and module come from
+  `@duckdb/duckdb-wasm`, a dependency at the exact release `httpfs` was built for; `httpfs` ships in
+  this package (`extensions/`, fetched and hash-pinned at build by `scripts/extensions.mjs`). All
+  three are reached through `new URL(…, import.meta.url)`, so your bundler emits them as assets —
+  under Next, `/_next/static/media/duckdb-browser-eh.worker.<hash>.js`, `duckdb-eh.<hash>.wasm` and
+  `httpfs.duckdb_extension.<hash>.wasm`, or their `mvp` siblings on a browser without WebAssembly
+  exceptions — and there is nothing to copy. Serve `.wasm` as `application/wasm` (Next does), and
+  the page needs no origin but yours:
+  `script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; connect-src 'self' <your storage>`. No
+  `blob:`: the worker is started from its own URL.
 
 - **Re-exports** of the coordinator, the clients, the five clause builders and the loaders — so a
   consumer never needs a direct `@uwdata` import. The DuckDB-WASM connector is not among them:
