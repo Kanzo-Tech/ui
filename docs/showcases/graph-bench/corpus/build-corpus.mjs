@@ -11,9 +11,9 @@
  *
  * **`fossil run` is the writer, and the only one.** It emits the GraphAr tree and then runs the W3
  * layout pass — weakly-connected components for `cluster_id`, phyllotaxis placement for `x`/`y`,
- * and a rewrite of each vertex Parquet in Morton order. That ordering is the point: a bbox query
+ * and a rewrite of each vertex Parquet in Hilbert order. That ordering is the point: a bbox query
  * against it prunes whole row groups on their statistics, which is the larger-than-RAM half
- * ADR-0001 records as unmeasured. Computing Morton here instead would be a second implementation of
+ * ADR-0001 records as unmeasured. Computing the curve here instead would be a second implementation of
  * something fossil owns, and two writers is how they come to disagree.
  *
  * Usage:  node build-corpus.mjs [--sizes 2000,10000] [--fossil <path>]

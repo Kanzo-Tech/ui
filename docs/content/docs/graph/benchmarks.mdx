@@ -229,6 +229,51 @@ their rows pass the 20,000 limit and a rung is chosen instead. **A payload tile 
 — one `scan.read` and two `edges` reads, each a statement of its own on the one connection — which is
 what a pan that crosses into new tiles pays.
 
+### The data path, a batch per camera move
+
+Measured 2026-09-30 on the same M4 Pro, after fossil made `dense_id` a Hilbert rank and made
+`scan(…).read` and `edges` take a list of addresses. Both corpora were rebuilt with that writer. The
+probe is the one above — the tileset's selection, over the real reader, without a renderer — run in
+headless Chromium through Playwright against the docs dev server, medians of five fresh pages. Three
+shapes of the same reads, each over the same corpus and engine:
+
+- **per tile, uncached** — a call per tile and per half, three a payload tile, with
+  `parquet_metadata_cache` off: what the tileset did before either change.
+- **per tile** — the same calls with the engine's footer cache on, which `engine()` now sets.
+- **batched** — what the tileset does now: the tiles one camera move wants are one `read`, one
+  `edges` source half and one target half.
+
+| | tiles · runs | calls | requests · bytes | per tile, uncached | per tile | batched |
+|---|---|---|---|---|---|---|
+| 200k, whole extent | 4 at z 7 · 1 | 8 → 2 | 12 → **6** · 0.93 MB | 75 ms | 74 ms | **59 ms** |
+| 200k, zoom to ~5,000 | 4 at z 8 · 3 | 12 → 3 | 26 · 0.98 MB | 93 ms | 83 ms | 83 ms |
+| 200k, pan into 2 new tiles | 2 · 2 | 6 → 3 | 12 · 0.46 MB | 41 ms | 35 ms | 38 ms |
+| 200k, pan into 3 new tiles | 3 · 1 | 9 → 3 | 18 · 0.75 MB | 67 ms | 55 ms | **45 ms** |
+| 1M, whole extent | 4 at z 7 · 1 | 8 → 2 | 14 → **8** · 1.57 MB | 106 ms | 105 ms | **91 ms** |
+| 1M, zoom to ~5,000 | 3 at z 9 · 3 | 9 → 3 | 22 · 0.94 MB | 138 ms | 104 ms | 101 ms |
+| 1M, pan into 2 new tiles | 2 · 2 | 4 → 2 | 10 · 0.67 MB | 44 ms | 43 ms | 48 ms |
+
+Four of the six pans at each size read nothing, as before. Opening costs 6 requests, 110 kB at 200k
+and 451 kB at 1M.
+
+**Bytes do not move, and requests move only where tiles are consecutive.** A batch reads exactly the
+bytes its tiles read one by one. Where the tiles are one run — the whole extent, or a pan that
+crosses into a strip of the curve — the requests halve, because the run is one statement and one
+footer; where they fall in as many runs as tiles, as the ~5,000-vertex zoom does, the batch is the
+same statements and the same requests, and the gain is the cache's alone. **The time follows the
+runs**: 15–20% where a batch is one run, and within noise where it is not. The two-run pans read a
+few milliseconds slower batched; that is inside the spread of five runs and it is the case the
+design page names as the one to watch.
+
+**What this cannot show is latency.** The origin is a dev server on the same machine, so a request
+costs almost nothing and the halved requests show as milliseconds rather than round trips. fossil's
+own measurement at 10 ms a request is where they show (*The backend*, *a read does not cost the
+corpus*). And these times are not comparable with the table above: the requests and bytes of the
+whole extent at both sizes and of the zoom at 200k are identical to it, request for request, and the
+times are a tenth of it,
+because that table was taken in a hidden tab and this one in a headless browser. The environment moved,
+not the reader.
+
 ### Bounded, over a compiled corpus — superseded
 
 Measured cold on 2026-08-01, M4 Pro, at a tile size fossil has since retired and through a reader that
