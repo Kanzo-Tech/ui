@@ -34,7 +34,7 @@ function opened(): Promise<DuckSource> {
     const e = await engine();
     // Origin-qualified: DuckDB-WASM resolves a root-relative path against its own virtual
     // filesystem rather than the page's origin, and finds nothing there.
-    const corpus = await open(`${window.location.origin}${ARCHIVE}`, { query: e.query });
+    const corpus = await open(`${window.location.origin}${ARCHIVE}`, { engine: e });
     const { source } = await openCorpus({ corpus, engine: e });
     return source;
   })();

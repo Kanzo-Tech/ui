@@ -44,7 +44,7 @@ let opening: Promise<OpenedCorpus> | null = null;
 export function archive(): Promise<OpenedCorpus> {
   opening ??= (async () => {
     const e = await engine();
-    const corpus = await open(`${window.location.origin}${ARCHIVE}`, { query: e.query });
+    const corpus = await open(`${window.location.origin}${ARCHIVE}`, { engine: e });
     return openCorpus({ corpus, engine: e });
   })();
   return opening;

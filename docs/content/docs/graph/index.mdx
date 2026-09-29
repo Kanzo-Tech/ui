@@ -147,7 +147,7 @@ it. So a view of everything is still a few thousand marks, and they are still ev
 
 ```ts
 const e = await engine();
-const corpus = await open("/corpus/archive", { query: e.query }); // @fossil-lang/corpus
+const corpus = await open("/corpus/archive", { engine: e }); // @fossil-lang/corpus
 const { source } = await openCorpus({ corpus, engine: e });
 const { slice, refresh } = useGraph({ source, onFailure });
 // The camera is already wired: moving it re-asks.
@@ -228,7 +228,7 @@ archive corpus carries `cluster_id` and no `community`, so its host binds `fill=
 
 ```ts
 const e = await engine();
-const corpus = await open("/corpus/people", { query: e.query });
+const corpus = await open("/corpus/people", { engine: e });
 const { source, nodes, edges } = await openCorpus({ corpus, engine: e });
 ```
 

@@ -280,7 +280,7 @@ export async function measureSlicePath(path = "/bench/1000000"): Promise<{
   const e = await engine();
   const { coordinator } = e;
   await forget(coordinator);
-  const opened = await open(`${window.location.origin}${path}`, { query: e.query });
+  const opened = await open(`${window.location.origin}${path}`, { engine: e });
   const { source } = await openCorpus({ corpus: opened, engine: e });
   if (!source.extent) throw new Error("bench: the corpus source cannot say its extent");
   const bounds = await source.extent();
@@ -398,7 +398,7 @@ async function corpus(pointCount: number, report?: (stage: string) => void): Pro
    * now, read from the manifest rather than written down here. That constant went stale once and
    * silently read a fraction of the corpus, which is the whole argument for this move.
    */
-  const opened = await open(base, { query: e.query });
+  const opened = await open(base, { engine: e });
   const { source } = await openCorpus({ corpus: opened, engine: e });
   const { source: named } = await openCorpus({ corpus: opened, engine: e, subjects: true });
 

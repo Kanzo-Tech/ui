@@ -30,8 +30,16 @@ import { Coordinator, wasmConnector } from "@uwdata/mosaic-core";
  */
 export interface Engine {
   readonly coordinator: Coordinator;
-  /** Rows as objects, uncached: a read after a `lend` must see the new lease. */
-  query(sql: string): Promise<Record<string, unknown>[]>;
+  /**
+   * One statement, answered in columns as DuckDB-WASM produced them — nothing turns them into
+   * objects.
+   *
+   * **An abort interrupts the running statement**, not only the queue in front of it: the engine's
+   * connection runs one statement at a time, so a stale one left to finish holds the next reader
+   * back. It is `send` then `cancelSent()`, and the promise rejects with `signal.reason` at once.
+   * Statements run one after another on a connection of their own, beside the coordinator's.
+   */
+  query(sql: string, options?: { readonly signal?: AbortSignal }): Promise<Columns>;
   /**
    * name → URL. The same URL is a no-op; a different one replaces the lease. The name has no scheme:
    * with `httpfs` loaded, `https://…` or `s3://…` in SQL is read by `httpfs` before the registry is
@@ -42,6 +50,20 @@ export interface Engine {
   hold(name: string, bytes: Uint8Array): Promise<void>;
   /** Unregisters the names. A name the engine does not hold is not an error. */
   drop(names: readonly string[]): Promise<void>;
+}
+
+/** An answer in columns: the part of apache-arrow's `Table` a reader reads. */
+export interface Columns {
+  readonly numRows: number;
+  readonly schema: { readonly fields: readonly { readonly name: string }[] };
+  getChild(name: string): Column | null;
+}
+
+/** One column of {@link Columns}: a typed array for a fixed-width type, where a null reads as zero. */
+export interface Column {
+  readonly length: number;
+  get(index: number): unknown;
+  toArray(): ArrayLike<unknown>;
 }
 
 /**
@@ -117,10 +139,23 @@ async function boot(): Promise<Engine> {
     behind.delete(name);
   };
 
+  const connection = duckdb.connect();
+  let queue: Promise<unknown> = Promise.resolve();
+  const query = (sql: string, options: { readonly signal?: AbortSignal } = {}) => {
+    const { signal } = options;
+    const run = queue.then(() => answer(connection, sql, signal));
+    queue = run.catch(() => {});
+    if (!signal) return run;
+    return new Promise<Columns>((resolve, reject) => {
+      const abort = () => reject(signal.reason);
+      signal.addEventListener("abort", abort, { once: true });
+      run.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
+    });
+  };
+
   return {
     coordinator,
-    query: (sql) =>
-      coordinator.query(sql, { type: "json", cache: false }) as Promise<Record<string, unknown>[]>,
+    query,
     lend: (files) =>
       serial(async () => {
         for (const [name, url] of Object.entries(files)) {
@@ -141,6 +176,57 @@ async function boot(): Promise<Engine> {
       serial(async () => {
         for (const name of names) await release(name);
       }),
+  };
+}
+
+interface Sent {
+  send(sql: string): Promise<AsyncIterable<Batch> & { readonly schema: { readonly fields: readonly { readonly name: string }[] } }>;
+  cancelSent(): Promise<boolean>;
+}
+
+interface Batch {
+  readonly numRows: number;
+  getChildAt(index: number): (Column & { concat(...others: Column[]): Column }) | null;
+}
+
+async function answer(pending: Promise<Sent>, sql: string, signal?: AbortSignal): Promise<Columns> {
+  signal?.throwIfAborted();
+  const connection = await pending;
+  const interrupt = () => void connection.cancelSent();
+  signal?.addEventListener("abort", interrupt, { once: true });
+  try {
+    const reader = await connection.send(sql);
+    const batches: Batch[] = [];
+    for await (const batch of reader) batches.push(batch);
+    signal?.throwIfAborted();
+    return columnsOf(reader.schema.fields, batches);
+  } catch (error) {
+    if (signal?.aborted) throw signal.reason;
+    throw error;
+  } finally {
+    signal?.removeEventListener("abort", interrupt);
+  }
+}
+
+const NO_ROWS: Column = { length: 0, get: () => null, toArray: () => [] };
+
+/** Arrow's own `Vector.concat` joins a column's batches; a column with no batch is empty. */
+function columnsOf(fields: readonly { readonly name: string }[], batches: readonly Batch[]): Columns {
+  const joined = new Map<string, Column>();
+  return {
+    numRows: batches.reduce((sum, batch) => sum + batch.numRows, 0),
+    schema: { fields },
+    getChild(name) {
+      const at = fields.findIndex((field) => field.name === name);
+      if (at < 0) return null;
+      let column = joined.get(name);
+      if (!column) {
+        const [first, ...rest] = batches.map((batch) => batch.getChildAt(at)).filter((c) => c !== null);
+        column = first ? (rest.length > 0 ? first.concat(...rest) : first) : NO_ROWS;
+        joined.set(name, column);
+      }
+      return column;
+    },
   };
 }
 

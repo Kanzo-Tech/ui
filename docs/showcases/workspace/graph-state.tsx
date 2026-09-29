@@ -336,7 +336,7 @@ function openArchive(): Promise<Archive> {
     // Origin-qualified, and it has to be: the manifests are `fetch`ed, where a root-relative path is
     // fine, but the tiles are read by DuckDB-WASM, which resolves one as a path in its own virtual
     // filesystem and reports "No files found that match the pattern".
-    const corpus = await open(`${window.location.origin}${CORPUS}`, { query: engine.query });
+    const corpus = await open(`${window.location.origin}${CORPUS}`, { engine });
     const opened = await openCorpus({ corpus, engine, filterBy: crossfilter });
     if (opened.edges.length === 0) {
       throw new Error(`corpus: ${CORPUS} declares no edges for its vertex type`);
