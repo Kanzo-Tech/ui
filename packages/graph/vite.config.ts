@@ -34,6 +34,7 @@ export default defineConfig({
         id === "react-dom" ||
         id === "react/jsx-runtime" ||
         id === "@cosmos.gl/graph" ||
+        /^lucide-react(\/|$)/.test(id) ||
         // Every sibling, by scope rather than by name. Naming them one at a time is a list that
         // adding a package does not update, and it failed exactly that way: extracting
         // `@kanzo-tech/mosaic` left this predicate matching only the siblings that existed when it

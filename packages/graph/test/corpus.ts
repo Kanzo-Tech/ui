@@ -114,7 +114,7 @@ export function fakeCorpus({ tileRows = 4, vertices = 16 }: { tileRows?: number;
         {
           type: TYPE,
           count: BigInt(vertices),
-          fields: [],
+          fields: ["dense_id", "subject", "x", "y", "cluster_id", "degree"].map((name) => ({ name, type: "UINTEGER" })),
           identity: "subject",
           geometry: true,
           indexed: false,
@@ -135,7 +135,8 @@ export function fakeCorpus({ tileRows = 4, vertices = 16 }: { tileRows?: number;
         );
       const read = (address: TileAddress, options: { signal?: AbortSignal } = {}) =>
         held({ kind: "rows", address, signal: options.signal }, () => {
-          const ids = range(address);
+          const only = params.filter && "op" in params.filter && params.filter.op === "=" ? Number(params.filter.value) : null;
+          const ids = range(address).filter((i) => only === null || i === only);
           return address.z === 1
             ? batch({ dense_id: ids, x: ids, y: ids.map(() => 0), cluster_id: ids.map((i) => i % 4), degree: ids.map((i) => i + 1) })
             : batch({

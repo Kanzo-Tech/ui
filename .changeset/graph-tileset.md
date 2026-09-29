@@ -28,13 +28,15 @@ What to edit:
   `GraphCanvas` inside it.
 - `useGraphOverlays`, `useGraphSelection` and `cursorChip` — the canvas draws the grid, the vignette,
   the labels, the hover card and the marquee and lasso itself. Label text is the new `title`
-  channel; the tool is `api.tool` / `api.setTool`.
+  channel; the tool is `useGraphState((s) => s.tool)` and `api.setTool`.
 - `events`, `schedule`, `report`, `reportProgress`, `pinned` and `clusters` — gone. A click selects a
   vertex and its neighbours and focuses it: listen with `onSelect` and `onFocus`. Motion, progress,
-  pins, selection and focus are on the api (`useGraphContext()`), with the commands `zoomBy`, `fit`,
-  `pause`, `resume`, `restart`, `unpin`, `reveal`, `frameSelection` and `clear`.
-- `api.slice`, `api.resident`, `api.sliced`, `api.refresh` — read `api.drawn` (`marks`,
-  `represented`, `domain`) and `api.total`; `api.getResident()` resolves a buffer index.
+  pins, selection and focus are read with `useGraphState`, and the commands — `zoomBy`, `fit`,
+  `pause`, `resume`, `restart`, `unpin`, `reveal`, `frameSelection` and `clear` — are on
+  `useGraphContext()`.
+- `api.slice`, `api.resident`, `api.sliced`, `api.refresh` — read `drawn` (`marks`,
+  `represented`, `domain`) and `total` with `useGraphState`; `api.getResident()` resolves a buffer
+  index.
 - `residentOf`, `neighboursOf`, `resolveToken`, `toHex`, `shouldSlice` and the `BoundedSource`,
   `Slice`, `SliceRequest`, `Viewport`, `DuckSource`, `EdgeRelation`, `UndrawnRelation` types —
   removed. cosmos.gl's `getNeighboringPointIndices` is the neighbourhood.

@@ -12,7 +12,8 @@
  * - `react/` — `useGraph`, `GraphRoot`, `GraphRootProvider`, `useGraphContext`: Ark's four; and
  *   `useGraphState`, TanStack Store's selector, because the api is commands and the state moves at
  *   frame rate.
- * - `parts/` — `GraphCanvas`, one element reading the context.
+ * - `parts/` — `GraphCanvas`, `GraphLegend`, `GraphToolbar`, `GraphInspector`: flat parts over the
+ *   one context. They own the vocabulary; the root's callbacks are the host's policy.
  *
  * **Why a package and not `@kanzo-tech/ui`.** The first admission rule is *domain-free — nothing
  * about RDF / SHACL / fossil / graphs / auth*. Graphs are excluded by name, and a sibling package is
@@ -31,6 +32,9 @@ export { useGraphState } from "./react/use-graph-state";
 export { useGraphPrefs } from "./react/use-graph-prefs";
 
 export { GraphCanvas, type GraphCanvasProps } from "./parts/graph-canvas";
+export { GraphLegend, type GraphLegendProps } from "./parts/graph-legend";
+export { GraphToolbar, type GraphToolbarProps } from "./parts/graph-toolbar";
+export { GraphInspector, type GraphInspectorProps } from "./parts/graph-inspector";
 export { ShapeGlyph, type ShapeGlyphProps } from "./parts/shape-glyph";
 
 // The picture: form, forces and the scale a legend asks what a category wears. `lookFrom` and
@@ -47,3 +51,4 @@ export { vertexId, typeOf, denseOf, type Resident, type VertexId } from "./core/
 
 export type { GraphCommands, Motion, Selection, SelectionSource, Tool } from "./core/types";
 export type { Drawn, GraphState, GraphStatus } from "./core/state";
+export type { VertexDetail } from "./core/detail";

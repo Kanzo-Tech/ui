@@ -1,3 +1,6 @@
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import * as GRAPH from "./index";
 
@@ -13,8 +16,11 @@ import * as GRAPH from "./index";
  */
 const VALUES = [
   "GraphCanvas",
+  "GraphInspector",
+  "GraphLegend",
   "GraphRoot",
   "GraphRootProvider",
+  "GraphToolbar",
   "ShapeGlyph",
   "adaptive",
   "denseOf",
@@ -102,6 +108,15 @@ describe("@kanzo-tech/graph public surface", () => {
     expect(GRAPH.simFrom({ gravity: "0.5" }).gravity).toBe(0.5);
   });
 
+  it("ships the parts flat, each reading the one context", () => {
+    for (const part of ["GraphCanvas", "GraphLegend", "GraphToolbar", "GraphInspector"]) {
+      expect(surface[part], part).toBeTypeOf("function");
+    }
+    expect(surface.GraphSelection).toBeUndefined();
+    expect(surface.GraphZoom).toBeUndefined();
+    expect(surface.GraphCounts).toBeUndefined();
+  });
+
   it("ships a canvas that owns the renderer, and neither load nor Loaded", () => {
     expect(GRAPH.GraphCanvas).toBeTypeOf("function");
     expect(surface.load).toBeUndefined();
@@ -119,5 +134,57 @@ describe("@kanzo-tech/graph public surface", () => {
     // A far view is a coarser zoom of fossil's cell pyramid; nothing groups by a column.
     expect(surface.SUPERNODE).toBeUndefined();
     expect(surface.lodThreshold).toBeUndefined();
+  });
+});
+
+/**
+ * **The parts own the vocabulary; the root owns the policy.** What a click means, what a lasso
+ * commits to and what a failure shows are `onSelect`, `onFocus` and `onFailure` on the root, and a
+ * part that grew a callback of its own would be a second place for a product's policy to live. Read
+ * with the type checker off the barrel's exports, so a callback inherited from a DOM element — the
+ * `onClick` every `div` carries — is told apart from one a part declared.
+ *
+ * What it cannot prove: a render prop that is a policy in disguise. `children` is allowed to be a
+ * function, because a render prop draws markup; one that returned a verdict would pass.
+ */
+describe("the parts' props", () => {
+  const SRC = dirname(fileURLToPath(import.meta.url));
+  const ROOT_PROPS = new Set(["GraphRootProps", "GraphRootProviderProps", "UseGraphProps"]);
+
+  it("carry no callback but the root's", () => {
+    const program = ts.createProgram([join(SRC, "index.ts")], {
+      jsx: ts.JsxEmit.ReactJSX,
+      module: ts.ModuleKind.ESNext,
+      moduleResolution: ts.ModuleResolutionKind.Bundler,
+      target: ts.ScriptTarget.ES2022,
+      strict: true,
+      skipLibCheck: true,
+      noEmit: true,
+    });
+    const checker = program.getTypeChecker();
+    const barrel = program.getSourceFile(join(SRC, "index.ts"));
+    if (!barrel) throw new Error("the barrel did not parse");
+    const exports = checker.getExportsOfModule(checker.getSymbolAtLocation(barrel) as ts.Symbol);
+    const props = exports.filter((symbol) => symbol.name.endsWith("Props") && !ROOT_PROPS.has(symbol.name));
+    expect(props.map((symbol) => symbol.name).sort()).toEqual([
+      "GraphCanvasProps",
+      "GraphInspectorProps",
+      "GraphLegendProps",
+      "GraphToolbarProps",
+      "ShapeGlyphProps",
+    ]);
+    const offenders: string[] = [];
+    for (const symbol of props) {
+      const type = checker.getDeclaredTypeOfSymbol(checker.getAliasedSymbol(symbol));
+      for (const property of type.getProperties()) {
+        const ours = property.declarations?.some((d) => d.getSourceFile().fileName.startsWith(SRC)) ?? false;
+        if (!ours || property.name === "children") continue;
+        const declaration = property.valueDeclaration ?? property.declarations?.[0];
+        const shape = declaration ? checker.getTypeOfSymbolAtLocation(property, declaration) : undefined;
+        const callable = shape?.getNonNullableType().getCallSignatures().length ?? 0;
+        if (callable > 0 || /^on[A-Z]/.test(property.name)) offenders.push(`${symbol.name}.${property.name}`);
+      }
+    }
+    expect(offenders, "a part's callback is a second home for the host's policy").toEqual([]);
   });
 });
