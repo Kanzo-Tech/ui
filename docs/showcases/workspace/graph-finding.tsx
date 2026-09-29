@@ -2,8 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { cn } from "@kanzo-tech/ui";
-import { vertexId } from "@kanzo-tech/graph";
-import { useGraphView, type SelectionSource } from "./graph-state";
+import { useGraphContext, useGraphState, vertexId, type SelectionSource } from "@kanzo-tech/graph";
 
 /**
  * A finding you can point the canvas at.
@@ -26,17 +25,20 @@ export interface FindingProps {
    *
    * Dense ids rather than identities because a panel's answer *is* a query: `SELECT id FROM …` over
    * one relation, and a row has no type column. Completing the pair is this component's job, once,
-   * from the spec that says which relation it was.
+   * from `typeIndex`, which says which relation it was.
    */
   load: () => Promise<number[]>;
+  /** The drawn type's place in the corpus — the type half of every vertex this finding names. */
+  typeIndex: number;
   /** Shown in the corner and used as this finding's identity, so keep it distinct within a panel. */
   label: string;
   source: SelectionSource;
   disabled?: boolean;
 }
 
-export function Finding({ children, disabled, label, load, source }: FindingProps) {
-  const { select, selection, spec } = useGraphView();
+export function Finding({ children, disabled, label, load, source, typeIndex }: FindingProps) {
+  const { select } = useGraphContext();
+  const selection = useGraphState((s) => s.selection);
   const [busy, setBusy] = useState(false);
   const active = selection?.source === source && selection.label === label;
 
@@ -47,9 +49,8 @@ export function Finding({ children, disabled, label, load, source }: FindingProp
     }
     setBusy(true);
     try {
-      if (spec === null) return;
       const dense = await load();
-      select({ vertices: dense.map((id) => vertexId(spec.typeIndex, id)), source, label });
+      select(dense.map((id) => vertexId(typeIndex, id)), source, label);
     } finally {
       setBusy(false);
     }

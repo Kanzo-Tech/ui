@@ -8,7 +8,7 @@ const withMDX = createMDX();
  *
  * A project page is served from `<org>.github.io/<repo>`, so every URL the app emits needs that
  * prefix. Next rewrites the ones it owns (`Link`, `next/image`, `_next/*`); it cannot rewrite a
- * string handed to `fetch` or to DuckDB, and `showcases/workspace/graph-state.tsx` reads this same
+ * string handed to `fetch` or to DuckDB, and `showcases/workspace/graph-view.tsx` reads this same
  * variable for exactly that reason. Two spellings of the prefix would drift the first time one
  * moved, which is why this is not typed twice.
  */

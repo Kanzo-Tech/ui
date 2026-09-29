@@ -17,30 +17,20 @@ picks what the main region shows (**Graph** · **Sightings**), the footer strip 
 the dock holds (Info · Ask · Orders · Settings) and collapses it when you click the active icon
 again, a state `Tabs` cannot express.
 
-## Everything on the page is one question
+## The graph is one composition
 
-The library ships no graph engine, and that boundary is the point. cosmos.gl draws the picture;
-[the analytics subpath](/docs/analytics/charts) asks the questions; and the canvas joins the
-page's crossfilter by declaring a query and publishing a clause — the same contract a brushed
-histogram honours. So a lasso on the canvas retallies the legend, re-ranks the inspector and moves
-the footer's counts, with nothing wired between them.
+The canvas, the toolbar, the legend and the inspector are [`@kanzo-tech/graph`](/docs/graph)'s
+parts under one `GraphRoot`, and the showcase writes none of them. What it writes is what is the
+product's: the three named arrangements of look and channels, the hall's name in the inspector, the
+archive search, and the panels. fossil reads the corpus by tile and the graph draws it; the
+[analytics subpath](/docs/analytics/charts) asks the panels' questions over the same engine.
 
 The split that makes it fast: **anything answerable is SQL, anything merely visible is GPU state.**
-A look, a slider or a zoom costs no round trip. Only two gestures cross back into the database — a
-lasso and a click, both as `id IN (…)`.
+A look, a slider or a zoom costs no round trip. A lasso or a click publishes the reader's pick into
+the page's crossfilter as one `dense_id` clause, and every panel reading that crossfilter follows.
 
-## The halls are the clusters
-
-A contract belongs to the hall that posted it, and that is what the canvas arranges the picture
-around: five arcs, one per hall, placed by cosmos.gl's cluster force against explicit ring
-positions. Everything the halls *share* — a member who has worked for four of them, a beast that
-ranges, a tag off the board — carries no hall at all and drifts between the arcs it joins. That is
-the structure worth having a WebGL canvas for: lasso one arc and you pull in work you did not know
-was related.
-
-Because a hall carries `heraldry`, the arcs are the same tenants the
-[theme generator](/theme-generator) writes a theme for. Switching halls is the
-white-label story, told in the graph rather than described beside it.
+Because a hall carries `heraldry`, the palette the canvas is drawn in is the same tenant's the
+[theme generator](/theme-generator) writes a theme for.
 
 ## The standing orders
 
@@ -64,25 +54,21 @@ read".
 
 ## Worth exercising in the frame
 
-Lasso a cluster and watch the footer and the legend follow. Drag a node — it pins where you drop it,
-and the release control appears. Switch the Look in Settings; Ink moves identity from colour to
-shape. Focus an order. Then switch to **Sightings**, which puts the world's own analytical relation
+Lasso a cluster and watch the toolbar count it. Find a contract in the Info search and the canvas
+frames it while the inspector reads its row. Switch the Look in Preferences; Ink moves identity from
+colour to shape, and the legend's rows do not move. Focus an order. Then switch to **Sightings**, which puts the world's own analytical relation
 under a full crossfilter dashboard: brush the hourly curve and every panel narrows with it.
 
 ## Source
 
 ```text
 docs/showcases/workspace/
-├── default.tsx           — the shell: sidebar, header, splitter, footer strip
+├── default.tsx           — the shell: sidebar, header, splitter, footer strip, the canvas's parts placed
 ├── data.tsx              — the chrome (halls, nav, viewer), straight from the world
 ├── graph-data.ts         — the archive as rows; what the corpus is compiled FROM, not read from
 ├── corpus/               — the mapping, the shape and the script that compile it with fossil
-├── graph-state.tsx       — opening the corpus, the spec it yields, and what the panels own
-├── graph-model.ts        — relation → GPU buffers and uniforms
-├── graph-canvas.tsx      — cosmos.gl, the overlays, the canvas chrome
-├── graph-view.tsx        — the four dock panels
-├── graph-looks.ts        — three ways to draw it; geometry only, no colour
-├── cluster-ring.ts       — where each hall's arc sits
+├── graph-view.tsx        — the GraphRoot composition, the named arrangements, and the dock panels
+├── graph-finding.tsx     — a finding a panel can point the canvas at
 ├── orders.ts             — the standing-orders language, compiled to SQL predicates
 ├── order-builder.ts      — the same document, written back out
 └── sightings-charts.tsx  — the crossfilter dashboard over the world's sightings

@@ -93,19 +93,17 @@ import {
 } from "./data";
 import { hall, HOME_HALL, type HallId } from "@/example/world";
 import { initialsOf } from "@/example/people";
+import { GraphCanvas, GraphLegend, GraphToolbar, useGraphState } from "@kanzo-tech/graph";
 import {
-	GraphAsk,
-	GraphCanvas,
+	ArchiveCounts,
+	ArchiveGraph,
 	GraphAppearance,
-	GraphCounts,
-	GraphInspector,
-	GraphLegend,
-	GraphMosaic,
+	GraphAsk,
+	GraphInfo,
 	GraphOrders,
-	GraphSelection,
 	GraphSettings,
-	GraphToolbar,
-	GraphZoom,
+	type LookId,
+	useArrangement,
 } from "./graph-view";
 
 /**
@@ -170,7 +168,7 @@ const PANELS = [
 type PanelId = (typeof PANELS)[number]["id"];
 
 const PANEL_BODY: Record<PanelId, React.ComponentType> = {
-	info: GraphInspector,
+	info: GraphInfo,
 	ask: GraphAsk,
 	orders: GraphOrders,
 	settings: GraphSettings,
@@ -185,23 +183,21 @@ const VIEWS = [
 type ViewId = (typeof VIEWS)[number]["id"];
 
 /** The graph region — one `<main>`, filling whichever box holds it (a splitter panel, or the whole
- *  body when the dock is collapsed). */
+ *  body when the dock is collapsed). The package's parts, placed at the corners. */
 function ArchiveCanvas() {
+	const failed = useGraphState((s) => s.status === "failed");
 	return (
 		<ShellMain className="relative size-full bg-background">
-			<GraphCanvas />
-			{/* Chrome, at the four corners: what is selected and the tools that select it on top,
-			    the legend and the camera below. All of it floats over a WebGL surface it never talks
-			    to — each one publishes into the crossfilter or calls one of the graph's commands.
-			    The look lives in Settings, because a canvas you are reading should not carry the
-			    controls for how it was drawn. */}
-			<GraphSelection />
-			<GraphToolbar />
-			<GraphLegend />
-			{/* Zoom / fit — an ACTION cluster (three independent commands, not a choice), so a
-			    vertical ButtonGroup: it collapses the shared borders into one segmented control and
-			    keeps each button's focus ring un-clipped. */}
-			<GraphZoom />
+			<GraphCanvas className="absolute inset-0">
+				<GraphToolbar className="absolute end-2 top-2 z-10" />
+				<GraphLegend className="absolute start-2 bottom-2 z-10" />
+				<Show when={failed}>
+					<p className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground text-sm">
+						The archive could not be drawn here — the corpus would not open, or this browser offers no
+						WebGL context.
+					</p>
+				</Show>
+			</GraphCanvas>
 		</ShellMain>
 	);
 }
@@ -481,7 +477,7 @@ function HallNav() {
 	);
 }
 
-function ArchiveShell() {
+function ArchiveShell({ arrangement, wear }: { arrangement: LookId; wear: (id: LookId) => void }) {
 	const [active, setActive] = useState<PanelId>("info");
 	const [panelOpen, setPanelOpen] = useState(true);
 	const [view, setView] = useState<ViewId>("graph");
@@ -583,7 +579,7 @@ function ArchiveShell() {
 						    them in the header it read as one. The `P` hotkey is unchanged. */}
 						<PreferencesTrigger />
 						<PreferencesPanel>
-							<GraphAppearance />
+							<GraphAppearance arrangement={arrangement} wear={wear} />
 							<PreferencesColor />
 							<PreferencesDensity />
 							<PreferencesRadius />
@@ -646,7 +642,7 @@ function ArchiveShell() {
 				</ShellBody>
 
 				<ShellFooter className="h-8 flex-row items-center justify-between px-2">
-					<GraphCounts />
+					<ArchiveCounts />
 					{/* The panel switcher is a single-select, DESELECTABLE ToggleGroup, not a Button
 					    row and not Tabs: one panel shows at a time and clicking the active icon again
 					    collapses the dock (value → none) — a state Tabs cannot express. The machine
@@ -684,14 +680,15 @@ function ArchiveShell() {
 export default WorkspaceShowcase;
 
 /**
- * The provider sits outside the shell so the canvas, the inspector and the footer all read the one
- * crossfilter: lasso the graph and the Info panel and the counts follow, with nothing wired between
- * them but the selection.
+ * The graph's root sits outside the shell so the canvas, the inspector and the panels all read one
+ * graph and one crossfilter: lasso the canvas and the Info panel follows, with nothing wired between
+ * them but the selection. The arrangement is the product's, so it is held here and handed down.
  */
 export function WorkspaceShowcase() {
+	const [arrangement, wear] = useArrangement();
 	return (
-		<GraphMosaic>
-			<ArchiveShell />
-		</GraphMosaic>
+		<ArchiveGraph arrangement={arrangement}>
+			<ArchiveShell arrangement={arrangement} wear={wear} />
+		</ArchiveGraph>
 	);
 }
