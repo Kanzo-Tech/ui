@@ -1,304 +1,171 @@
 ---
 title: Graph
-description: A GPU force layout over cosmos.gl — what @kanzo-tech/graph ships, what it deliberately does not, and how far it scales.
+description: The graph view over a fossil corpus — a tileset over its scan, drawn with cosmos.gl, inside the page's crossfilter.
 ---
 
-`@kanzo-tech/graph` renders a knowledge graph on the GPU: the DuckDB relation that feeds it, the
-buffers that colour it from the page's own theme, and the hooks that own the renderer's lifetime.
+`@kanzo-tech/graph` draws a corpus fossil compiled. fossil is the backend and this package is the
+view: the host opens the corpus, `GraphRoot` draws it one tile at a time, and nothing crosses
+between the two but the corpus contract. No SQL is written here.
 
 It is a **sibling** of `@kanzo-tech/ui`, not part of it.
-
-<Callout type="warn">
-**This page describes what ships today, and the package is being rebuilt.** [The graph
-view](/docs/design/graph) is the architecture it is rebuilt to: a tileset over fossil's scan in place
-of the sampled window, the parts in place of chrome at the call site, and no source contract or
-`./duckdb` entry at all. Where the two disagree, the design page is the target and this page is
-rewritten with the code.
-</Callout>
 
 ## Why it is not in the library
 
 [The first admission rule](/docs/philosophy#admission) is *domain-free — nothing about RDF /
 SHACL / **graphs** / auth*. Graphs are excluded by name, and deliberately: `ui` is the generic
-vocabulary every product shares,
-and a renderer with a **required** WebGL peer would change what that package is. A separate package
-is the same answer `palette` and `theme` already got — ours, shipped, not `ui`.
+vocabulary every product shares, and a renderer with a **required** WebGL peer would change what
+that package is. A separate package is the same answer `palette` and `theme` already got — ours,
+shipped, not `ui`.
 
-## The smallest one
+## The one path
 
-A coordinator, where the corpus is, and one required callback. The simulation stays off, which is
-its default: the layout is the corpus' own, and moving it would move the picture out from under the
-index the next spatial query is expressed in.
+```tsx
+import { open } from "@fossil-lang/corpus";
+import { engine } from "@kanzo-tech/ui/analytics";
+import { GraphCanvas, GraphRoot } from "@kanzo-tech/graph";
+
+const corpus = await open(url, { engine: await engine() });
+
+<GraphRoot corpus={corpus} fill="kind" r="degree" title="label" onFailure={setFailure}>
+  <GraphCanvas />
+</GraphRoot>;
+```
 
 <ComponentPreview componentName="graph" hasMaxHeight />
 
-**This is worse as a first example than what it replaced, and the trade is deliberate.** It used to
-be three typed arrays and one call — no database, no build step, nothing to fetch. Now the smallest
-thing on this page boots DuckDB-WASM and reads a corpus that has to exist. What it buys is that the
-first thing you see is the path a product takes: this package exists to draw what `fossil` compiled,
-and an opening example that hands the canvas arrays teaches an API you would then have to unlearn.
+**Opening is the host's.** Where the corpus is and what signs it are the host's to say: a corpus at
+a URL opens as `open(url, { engine })`, and a private one under a name with a `host` that lends the
+files, `` open(`jobs/${id}`, { engine, host }) ``. `GraphRoot` takes what came back and never opens
+a second copy; closing it is the host's too. Until it has opened, pass `corpus={null}` — the canvas
+is mounted and waits over an empty surface, because a canvas gated on its first answer has no
+camera to ask with.
+
 It is the archive the [workspace showcase](/docs/showcases/workspace) draws, opened the same way —
 one world, not a second one written for the docs.
 
-**There is no second source to fall back to, and that is the same decision said twice.** A host
-holding three typed arrays used to have `memorySource`, one call, no database. It is deleted:
-keeping it meant a second implementation of sampling, anchoring and the link-length discard, in
-JavaScript, that nothing but its own tests ever ran — and it kept the first example teaching an API
-no product takes. A host that genuinely has arrays writes a `BoundedSource`, which is exported and is
-one method.
+## What the root and the canvas own
 
-Everything else on this page is what you add when one of those assumptions stops holding.
+`GraphRoot` holds the graph's state outside React: the tiles, the channels, the selection, the focus
+and the motion. It is `useGraph` plus a context, and neither renders an element. `GraphCanvas` is the
+element: cosmos.gl's surface, and what the look declares over it — the grid, the vignette, the
+labels, the hover card — plus the marquee and lasso gesture. Its children are chrome positioned over
+it, and each reads the root through `useGraphContext`.
 
-## What the canvas owns, and what it does not
+**Policy stays with the host, through the root's callbacks.** A click selects a vertex and its
+neighbours and focuses it; a lasso selects what it encloses; a failure is reported. What the host
+does with each is `onSelect`, `onFocus` and `onFailure`. `onFailure` is the one required prop:
+unhandled, a browser with no WebGL context shows an empty box.
 
-`GraphCanvas` owns three things: the renderer across React's lifecycle, the query loop that follows
-the camera, and the buffers a look implies. Those were identical in every host and re-wired by hand
-at each one. It publishes what its chrome needs through `useGraphContext`.
+### Ark's four: `useGraph` and `GraphRootProvider`
 
-**It owns nothing above that, and that is the shape rather than an omission.** A toolbar, a legend,
-an inspector, a hover card and a search box answer differently per product, so they are `children`.
-Overlays and selection are left out for a sharper reason: `useGraphOverlays` and `useGraphSelection`
-need callbacks only a product can write — what a click means, what a lasso commits to — so they stay
-hooks you call with `getGraph` and `getResident`. The relationship is the one `ChartRoot` has with
-`useChartContext`, not a v2 replacing a v1.
+`useGraph` **creates** the api, `GraphRoot` is `useGraph` plus the context, `GraphRootProvider`
+takes an api a host built itself, and `useGraphContext` **reads** it — `useDialog`, `DialogRoot`,
+`DialogRootProvider` and `useDialogContext`, one for one. Reach for the pair when the host needs the
+api above the parts:
 
-### When the shortcut is not enough: `useGraph` and `GraphRootProvider`
+<ComponentPreview componentName="graph" fileName="example-provider" hasMaxHeight />
 
-Those two hooks are the reason the graph has Ark's four pieces rather than one component. Both take
-`getGraph` and `getResident`, and both are called *beside* the canvas — above the element, where a
-context cannot be read yet. So there is a factory that builds the api where you can hold it, and a
-provider that renders the surface over one:
+The count in the corner is a part: it reads `drawn` — the marks on the canvas and the vertices they
+stand for — and `total`, the manifest's vertex count, which does not shrink with a filter. Over the
+archive every tile is the finest one and the two agree; zoomed out over a larger corpus a mark is a
+cell of fossil's pyramid, and one mark stands for many.
 
-```tsx
-const api = useGraph({ source, onFailure });
-const overlays = useGraphOverlays({ getGraph: api.getGraph, getResident: api.getResident });
-
-return (
-  <GraphRootProvider value={api}>
-    <Legend />
-  </GraphRootProvider>
-);
-```
-
-`useGraph` **creates** and `useGraphContext` **reads**, which is Ark's convention throughout. What is
-deliberately *not* copied is the substance of an Ark api: its value is prop getters that distribute
-props across many parts, and a canvas is one element, so there is no `getRootProps()` here.
-
-`GraphCanvas` is `useGraph` and `GraphRootProvider` in one call, and it is what you want until a
-hook has to sit beside the canvas.
-
-This page said for a long time that there was no canvas component at all. That argument was right
-about the chrome and wrong about what sat underneath it; what changed and what would change it back
-is on [the graph view](/docs/design/graph).
-
-**The split is proven unevenly, and it is worth being exact about where.** The *source* half has two
-call sites: the workspace showcase and `graph-bench/measure-bounded.ts`, which drives `openCorpus`,
-`shouldSlice` and `Slice` against generated corpora. The *renderer* half — the hooks, and the buffer
-building they do internally — has **one**: the workspace. The benchmark route builds its own
-cosmos.gl instance and its own upload path, because measuring the upload is the thing it is for.
-
-`GraphCanvas` is therefore a shape proven against one host, which the decision record says plainly
-rather than hiding. The second comes from migrating a real product screen, not from another example.
-
-Here is that shape with both hooks on it, over the same archive — the dot grid locked to the graph's
-own space, standing labels on the hubs, a hover card that clears its own node, and a drag that
-selects. Pick a tool and drag a box; Shift borrows the marquee whichever tool is armed, and at
-release `Alt` removes what was drawn while `⌘`/`Ctrl` adds.
+### The canvas's own overlays
 
 <ComponentPreview componentName="graph" fileName="example-overlays" hasMaxHeight />
 
-Four things in it are the reason the hooks are hooks rather than parts of the canvas.
+Pick a tool and drag a box; Shift borrows the marquee whichever tool is armed, and at release `Alt`
+removes what was drawn while `⌘`/`Ctrl` adds. The tool is the root's state, so the toggle above is a
+part that calls `setTool` and draws nothing else.
 
-**The overlays never paint on their own.** There is one `requestAnimationFrame` and the host decides
-when it fires, by wiring `onZoom` and `onTick` to `schedule`. That is not a detail you can leave
-out: leaving it out gives a grid that sits still while the graph pans under it, and nothing fails.
+**A label is the `title` column, read with the tile.** The canvas labels the biggest vertices in view
+by the `r` ramp, up to the look's label budget, with the text of the column `title` binds — so the
+text is bytes in hand and hovering costs nothing. Unbound, there are no labels and the hover card
+shows the address.
 
-**`track()` is caller-driven rather than a one-shot**, because cosmos.gl clears the tracked set on
-the render that follows `setPointPositions` — so the registration is lost exactly once per graph,
-at construction. And the positions it registers only become readable after a render, which is why
-the effect ends with a `requestAnimationFrame` rather than calling `schedule()` in the same tick.
+**An overlay is attached to a vertex, never to a slot.** Buffer positions do not survive a change of
+tiles, so a label, a hover, a selection and a pin are held as a `VertexId` and resolved against each
+composition.
 
-**An overlay is attached to a vertex, never to a slot.** Held as an index, a label would keep its
-position and silently start naming a different node the first time the resident set moved. The
-labels here are built from `vertexId(type, dense)` and resolved through `Resident` at paint time.
+## The camera is addressed
 
-**And the label text is a query, not a slice field.** A slice carries positions, identities and
-category *ordinals* — never names, because a name is a string and the drawing path carries addresses
-at a measured 1.87× saving. So the example asks the **relation** `openCorpus` hands on for the
-fourteen hubs it wants to label, once, and holds them by `dense_id`. Hover anything else and the card
-shows the address, which is what this page actually knows.
+The canvas never asks a question per camera move. `tileMatrix(type)` lists every tile of every zoom
+with its rows and its box when the corpus opens; the view culls those boxes against the camera, picks
+**the finest zoom whose tiles in view hold at most `limit` rows** — 20,000 by default — and reads the
+tiles it lacks, nearest the centre first, one at a time. A tile already read is never asked again; a
+tile the camera has left is aborted, and the engine interrupts the running statement.
 
-**The gesture reads its modifiers at *release*, not at press**, which is the small decision that
-makes it feel right: release is when the reader has decided.
+**A far view is a coarser zoom of fossil's cell pyramid.** Below the payload a row is a cell: a
+summary the writer computed, drawn at the centroid of its members and sized by its count. There is
+no sample and no zoom threshold. A cell summarises one channel, so on a cell `fill` is its `mode`
+when `fill` binds the column the pyramid's mode is of, and `r` can only mean its count.
 
-<Cards>
-  <Card title="Workspace" href="/view/showcases/workspace" description="The full arrangement: canvas, legend, inspector, rules, crossfilter." />
-  <Card title="Graph scale" href="/view/showcases/graph-bench" description="The benchmark harness, and the second consumer that earned the extraction." />
-</Cards>
+**An edge is drawn from bytes in hand.** Each tile's relations are read in both directions, and an
+edge is composed when both of its ends are in tiles already read; below the payload the lines are
+the pyramid's quotient between cells. An edge shorter than three screen pixels is not composed.
 
-## The two halves
+[The graph view](/docs/design/graph) has the reference each layer copies, deck.gl's `Tileset2D` for
+the tiles and TanStack Query's store for the adapter, and the measurements that decided each rule.
 
-**Data.** A **source** answers one question — *what should I draw* — and `useGraph` asks it.
-The answer is a `Slice`: at most `limit` points, as parallel typed arrays, whose size follows the
-question rather than the corpus. Moving the camera re-asks, and a window holding more than `limit`
-is **sampled** rather than truncated — one row every `ceil(matched / limit)` over the corpus'
-Morton-ordered `dense_id`, which spreads the marks over the window instead of drawing a corner of
-it. So a view of everything is still a few thousand marks, and they are still everywhere.
+## The channels are bindings
 
-```ts
-const e = await engine();
-const corpus = await open("/corpus/archive", { engine: e }); // @fossil-lang/corpus
-const { source } = await openCorpus({ corpus, engine: e });
-const { slice, refresh } = useGraph({ source, onFailure });
-// The camera is already wired: moving it re-asks.
-```
-
-Under `limit` the source is asked once for everything and never again, so a corpus that fits pays for
-nothing.
-
-<ComponentPreview componentName="graph" fileName="example-memory" hasMaxHeight />
-
-Two things in it are worth reading rather than copying. It is `useGraph` + `GraphRootProvider`
-rather than `GraphCanvas`, because the count in the corner comes from `useGraphContext()` and a
-component that renders the root sits *above* the provider. And the count is `marks` **of** `n`,
-because `n` is what the window matched before `limit` cut it and a truncated answer must not read
-like a complete one. Over the archive the two agree — 1,543 vertices is under the limit — and they
-part the first time a window holds more than it can draw.
-
-### The channels ride the question, not the source
-
-What a point wears is **bound on the canvas**, under the names Plot gives a point mark: `fill`,
-`symbol`, `r` and `stroke`.
+What a point wears is **bound on the root**, under the names Plot gives a point mark: `fill`,
+`symbol`, `r`, `stroke` and `title`.
 
 ```tsx
-<GraphCanvas source={source} fill="kind" r="degree" onFailure={setFailure} />
+<GraphRoot corpus={corpus} fill="kind" r="degree" onFailure={setFailure}>
 ```
 
 **A CSS colour is a constant; anything else is a column.** That is Plot's rule, and it is what makes
 the monochrome picture a binding rather than a theme:
 
 ```tsx
-<GraphCanvas source={source} fill="var(--foreground)" symbol="kind" r="degree" onFailure={…} />
+<GraphRoot corpus={corpus} fill="var(--foreground)" symbol="kind" r="degree" onFailure={setFailure}>
 ```
 
 Identity has moved to shape, colour is free to mean the selection, and nothing had to know which of
-those two a look preferred. A bare word is always a column, so a corpus with a column called `red` is
+the two a look preferred. A bare word is always a column, so a corpus with a column called `red` is
 not a trap.
 
-A `Look` is **form only** — sizes, link width and curve, labels, vignette. It used to decide whether
-identity reached the GPU as colour or as shape, which is a theme rewriting an encoding — see [a look
-is form, a channel is a binding](/docs/design/graph). Binding `symbol` takes on an obligation —
-`gradeComposition(look, channels)` returns the four-pixel radius floor that shape and size spent
-together require, and pairing a glyph with a dense form's ramp now reports.
+**A binding is a projection.** `fill`, `r` and `title` as columns become the scan's `select`, so
+changing one builds a new scan over the same tiles, which reloads them while keeping the picture.
+`fill` as a constant, `symbol` and `stroke` never reach a scan. A column the corpus does not carry
+fails when the scan is built and reaches `onFailure`.
 
-A source says *where the bytes are*; a channel says *what I want drawn*. They used to be one thing —
-the column names were given to the source at construction — and the cost of that was concrete:
-recolouring meant building a second source, which restarts the query loop and re-counts the corpus to
-answer a question about colour. Changing one of these re-asks over the same bytes and nothing else
-moves. It is the reference's own arrangement: in Plot the mark carries the channels and the mark is
-what produces the query.
+**`x` and `y` are not channels.** In a laid-out corpus a position is a fact rather than an encoding —
+a layout pass wrote it, and it is the index every tile is culled against.
 
-**`x` and `y` are not channels**, and that is the real difference from Plot. In a laid-out corpus a
-position is a fact rather than an encoding — a layout pass wrote it, and it is the index every
-spatial question is asked against.
+A `Look` is **form only** — sizes, link width and curve, labels, vignette. Binding `symbol` takes on
+an obligation — `gradeComposition(look, channels)` returns the four-pixel radius floor that shape and
+size spent together require.
 
-Both are strings naming a column, and there is nothing to be done about that: naming a column is what
-Plot, Vega and every graphical grammar do. If the column is not there the query fails and says so.
+## A filter is a predicate
 
-### One source, one job
+`filterBy` is the page's crossfilter, a Mosaic `Selection`. The graph listens to it rather than
+being a client of the coordinator: each clause is translated into scan's typed filter — comparisons,
+`BETWEEN`, `IN`, `IS NULL`, `AND`, `OR`, `NOT` — and the canvas draws what survives. A clause it
+cannot translate reaches `onFailure` and is never dropped, because a dropped clause draws an
+unfiltered picture that reads as a filtered one.
 
-| | for | what it needs to be told |
-|---|---|---|
-| `openCorpus` | a corpus `fossil` opened | **the corpus, and the page's engine** |
+**The reader's pick is published back.** A click or a lasso publishes a `dense_id` clause into the
+same crossfilter, naming the graph as the clause's client — so every chart filters by it and the
+graph does not, and a lasso of thirteen does not remove the other fifteen hundred.
 
-There were three. `memorySource` took the arrays you already held; `duckBoundedSource` took any
-relation with `x`/`y` plus the columns that carried identity and position. Both are deleted, and the
-two deletions are one argument: a corpus already declares those names in its manifest, so a source
-that *accepts* them is this side writing down what the other side owns — and the general source was
-the general case of exactly that. What is left is a door that takes what fossil already opened.
+## Identity
 
-**It is not told what to draw either.** A source is *where the bytes are*; what colours a point and
-what the size ramp is spent on are channels on the canvas — `fill`, `r` — and they ride each
-request, so changing one re-asks and rebuilds nothing. A source that took `categoryField` is how
-recolouring used to mean constructing a new source and restarting the query loop.
+A vertex is `vertexId(type, dense)`: the pair, because `dense_id` numbers within one vertex type. It
+is a `bigint`, because the pair is 64 bits and a `number` holds 53 — `mapbox/node-s2` binds the
+reference C++ and still returns `1152921504606847000` where Java and Go give
+`1152921504606846977`. `typeOf` and `denseOf` are the two halves back out, and `denseOf` is the way
+down to SQL, where a clause is `dense_id IN (…)` over one relation.
 
-A channel is a column named as a string, which is what naming a column is, and nothing infers one:
-an unbound `fill` draws a single colour rather than picking a column that looked plausible. The
-archive corpus carries `cluster_id` and no `community`, so its host binds `fill="kind"` and says so.
-
-```ts
-const e = await engine();
-const corpus = await open("/corpus/people", { engine: e });
-const { source, nodes, edges } = await openCorpus({ corpus, engine: e });
-```
-
-That is the whole call, and **opening is the host's.** Fossil's `open` reads `graph.graph.yml` and
-the manifests it names and composes every address; a host whose files sit behind a signature opens
-under a name instead — `` open(`jobs/${id}`, { engine: e, host }) `` — and fossil signs and lends the
-files to the engine itself. `openCorpus` draws whichever it is handed, and never opens a second copy.
-It reads each tile's bounding box from the footer once. After that a camera move is arithmetic over those boxes and a list of URLs, with no
-request between the camera moving and a URL being computable.
-
-It takes **no column names and no type index**, deliberately. Those come from the manifest or they do
-not come — which used to be argued against the sibling that did take them, and now has to stand on
-its own. `subjects: true` adds the identity column, off by default because it costs about twice the
-drawing tile.
-
-**What it buys, and what it does not.** Panning a million-vertex corpus went from 534 ms to 72, and
-stopped growing with the corpus — 73 ms at two hundred thousand against 72 at a million. First paint
-got *slower*, and that is the trade rather than a defect: the opening view is the whole extent, so
-every tile intersects it and there are no bytes to skip. [Benchmarks](/docs/graph/benchmarks) has the
-figures and [the graph view](/docs/design/graph) has the argument, including why the camera
-is not one of fossil's verbs — it was, and it was deleted.
-
-**A point is addressed by index and identified by pair.** cosmos.gl numbers points by their position
-in the arrays it was last handed, so index 7 is whatever the current answer put seventh — and an
-answer that comes and goes reuses every index while the vertices behind them change. A vertex is
-therefore `vertexId(type, dense)`: the pair, because `dense_id` numbers *within one vertex type*, so
-a union of two types repeats every value and a `LIMIT` breaks the correspondence with position
-regardless. Everything that outlives one answer — a selection, a label, a hover, a pin — is held as a
-`VertexId` and resolved through the `Resident` that `useGraph` rebuilds per answer.
-
-`VertexId` is a `bigint`, and `Slice.vertices` a `BigUint64Array`, because the pair is 64 bits and a
-`number` holds 53. That is not a hypothetical: `mapbox/node-s2` binds the reference C++ and still
-returns `1152921504606847000` where Java and Go give `1152921504606846977`, open since 2017, and H3
-answered the same problem by typing `H3Index` as a string. It is also the guard — a buffer index is
-a `number`, so mixing the two is a type error and not a naming convention. Nothing changes for the
-GPU: positions and indices stay `number` and `Float32Array`.
-
-```ts
-const { resident } = useGraph({ source, onFailure });
-graph.setConfigPartial({ highlightedPointIndices: resident.indicesOf(selection.vertices) });
-```
-
-Do not build a second map. `resident` is a function of the current answer and nothing else, so a copy
-assembled beside it is the same value one render later, with no way to notice it has fallen behind
-the buffers on screen. `denseOf(vertex)` is the way back down to SQL, where a clause is `id IN (…)`
-over one relation and the type is what the table already is.
-
-**There is no `load()`.** It read the whole relation into memory — every id, every row, an id→index
-map — and that made the working set N, so the ceiling was whatever N the machine could hold: 1,225 ms
-of first paint at 200,000 nodes. ADR-0001 deleted it rather than optimising it. Two consequences are
-worth stating because they are losses, not refactors: **a slice carries category ordinals, not names**
-(what an ordinal is *called* is a question for a legend, and a legend asks the source), and **the
-label budget has no global ordering** — "the most important labels" became a property of the answer,
-which is the biggest nodes *here* rather than anywhere.
-
-**Appearance.** The canvas turns a look and the *live theme* into per-point colours, sizes and
-shapes on every slice. A `Look` carries **geometry only** — colour comes from the page's categorical
-scale, because a scale a graph invents is a scale that disagrees with the legend explaining it. None
-of that conversion is on the barrel: it is a step the canvas takes, and nothing outside this package
-had ever called one of its four functions.
-
-The uniforms are the other side of that line, and the split is a performance boundary rather than a
-stylistic one: anything that is *one number for the whole canvas* belongs in a cosmos.gl **uniform**,
-read fresh on every draw. Multiply an opacity slider into half a million per-instance values and
-every tick re-uploads the array; put it in a uniform and the same change costs nothing.
+cosmos.gl answers in **buffer indices**, and every one of them dies with the composition. The api's
+`getResident()` resolves one to a vertex and back; nothing outside the package builds that map.
 
 ## How far it goes
 
-Measured on an Apple M4 Pro, not quoted. The recorded tables are on [Benchmarks](/docs/graph/benchmarks), and
-`/view/showcases/graph-bench` re-runs it.
+Measured on an Apple M4 Pro, not quoted. The recorded tables are on [Benchmarks](/docs/graph/benchmarks),
+and `/view/showcases/graph-bench` re-runs them.
 
 | Nodes | Links | Per simulation step | Ceiling |
 |---|---|---|---|
@@ -307,65 +174,36 @@ Measured on an Apple M4 Pro, not quoted. The recorded tables are on [Benchmarks]
 | 200,000 | 1.4M | 61.6 ms | 16 fps |
 | 1,000,000 | 6.9M | 441 ms | 2 fps |
 
-Nothing failed at any size — a million points initialise, upload and simulate. **The ceiling is not
-the renderer, it is the layout.** A live simulation is comfortable to about 50,000 points and
-finished by 200,000.
-
-**Past that, positions become a column.** Drawing a million points is cheap; solving them sixty
-times a second is not, and no renderer changes that. So a simulation is **off by default**: the
-coordinates a source hands back are the index the next spatial question is asked against, and a
-force that moves them moves the picture out from under its own index — the camera drifts away from
-the corpus within a frame. Lay the graph out once, store the coordinates, and render. Turn the
-simulation on for the other host: arrays in hand, no layout, few enough points that a live one is
-the cheapest way to get one.
+**The ceiling is not the renderer, it is the layout.** A live simulation is comfortable to about
+50,000 points and finished by 200,000. Past that, positions are a column — so a simulation is **off
+by default**: a corpus's positions are the index the tiles are culled against, and a force that moves
+them moves the picture out from under its own index.
 
 ## The picture is declared, not hard-coded
 
 Nothing about how a graph looks is a literal here. `lookFrom` and `simFrom` read the same
 `Record<string, string>` a preferences section produces — `GRAPH_SECTION` on
 `@kanzo-tech/graph/section` is the declaration, a panel draws it, and these two are the only
-readers. The values are strings in all three kinds, so a key from a namespace this package has never
-heard of rides through a write untouched, and a key that is missing takes the manifest's answer.
-
-A host under a preferences panel never calls them itself. `useGraphPrefs()` reads the provider's
-resolved `sectionPrefs` for this section and answers `{ look, sim }` — pinned, stored, the tenant's
-starting point or the manifest's default, whichever the chain gave — with a stable identity until
-one of them moves:
+readers. A host under a preferences panel never calls them itself: `useGraphPrefs()` reads the
+provider's resolved `sectionPrefs` for this section and answers `{ look, sim }`.
 
 ```tsx
-import { GraphCanvas, useGraphPrefs } from "@kanzo-tech/graph";
+import { GraphCanvas, GraphRoot, useGraphPrefs } from "@kanzo-tech/graph";
 import { GRAPH_SECTION } from "@kanzo-tech/graph/section";
 
 // <KanzoThemeProvider sections={[GRAPH_SECTION]}> somewhere above
 const { look, sim } = useGraphPrefs();
-<GraphCanvas look={look} sim={sim} source={source} />
+<GraphRoot corpus={corpus} look={look} sim={sim} onFailure={setFailure}>
+  <GraphCanvas />
+</GraphRoot>;
 ```
 
 <ComponentPreview componentName="graph" fileName="example-axes" hasMaxHeight />
 
-The switches above the canvas stand in for that panel. Two of the four controls are not axes at all,
-and the difference is the point:
-
-- **`adaptive(nodes)`** is the question a person should not be asked. What a corpus of *this* size
-  wants — repulsion down, friction up — is computed continuously against node count rather than
-  snapped at breakpoints, because a graph crossing a threshold would visibly jump. It is tuning and
-  not level of detail, and it deliberately leaves the space size alone: that box is the coordinate
-  space a source's positions are expressed in, so resizing it by node count would move the index out
-  from under the camera. A host with a large corpus starts its users at this answer through the
-  tenant policy, not by writing values into storage nobody can then reset.
-- **The cluster ring** is what the canvas seeds the moment `clusters` is passed. Turn it off and
-  watch the communities stay tangled: `setPointClusters` alone pulls each node toward its own
-  group's centre of mass, which is a target that moves with the thing pulling it, so groups that
-  start overlapped have overlapping centroids and nothing asks them to move apart. Explicit ring
-  positions turn the same force into a positional constraint the simulation converges onto. It is
-  not exported: the ring is placed in the renderer's live coordinate box, which is a number a caller
-  would have to read back off the graph to get right.
-
-  **The preview above no longer passes one, and the reason is worth reading.** `clusters` is one
-  group per **buffer position**, and a slice carries positions, identities and ordinals — a corpus'
-  own `cluster_id` is a column of the relation, not of the answer, so seeding the ring would mean a
-  second query per camera move to feed a force. The host that has a grouping in hand is the host that
-  laid the graph out in the tab, and that host is the one this package stopped shipping a source for.
+**`adaptive(nodes)`** is the question a person should not be asked: what a corpus of *this* size
+wants — repulsion down, friction up — computed continuously against vertex count, because a graph
+crossing a threshold would visibly jump. It is tuning and not level of detail, and it leaves the
+coordinate box alone: that box is the corpus's extent.
 
 ## Things the source will not tell you twice
 
@@ -375,214 +213,55 @@ These are cosmos.gl behaviours that typecheck perfectly while being wrong.
   Use `setConfigPartial`. Only three fields are genuinely init-only: `initialZoomLevel`,
   `randomSeed` and `attribution`.
 - **`getConnectedLinkIndices` is not a neighbourhood.** It returns only links whose *other* endpoint
-  is also in the argument — an induced subgraph, which for a single point means its self-loops. Use
-  `neighboursOf(graph, index)`. It answers in **buffer indices**, like every other cosmos.gl call, so
-  its result is `resident.verticesAt(...)` away from being something you can keep.
-- **Every index cosmos.gl hands you dies with the answer.** `findPointsInRect`, `findPointsInPolygon`,
-  `onPointClick`, `onDragEnd`, `getTrackedPointPositionsMap` — all of them speak positions in the
-  current buffers, and none of them says so. Nothing raises when one is kept: it stays a valid index
-  and starts naming a different vertex.
-- **`requestAnimationFrame` never fires in a background tab**, and the simulation is driven by
-  rendered frames. A backgrounded graph is stopped, not slow — and `graph.ready` has no failure
-  path, so a device that cannot be created leaves the promise unsettled rather than rejecting.
-
-## The types it exports
-
-Every shape below is exported, because a host writing its own source or its own panels implements
-them rather than passes them.
-
-**The source contract.** `BoundedSource` is the whole of what the canvas asks of your data — answer
-"what is in this rectangle, at this zoom, in at most this many marks" — and `SliceRequest` is that
-question. It is one method and it is exported precisely so a host we did not anticipate can write
-one.
-
-`ExploringSource` and `ExploreRequest` said the *other* question — a neighbourhood, where to start
-and how far out — and they are deleted with the only source that answered it. A rectangle cannot
-express "two hops from this node", so leaving it out narrows the contract rather than simplifying
-it; that is stated rather than hidden because the tried alternative failed on measurement, not on
-taste: a recursive CTE over 6.9M edges did not return in 45 seconds and took the tab with it. The
-shape that works is addressed — the two tiles a seed's `dense_id` falls in — and it needs `by_target`
-tiled the way `by_source` is, which is the corpus' side of the seam.
-
-**A question arrives finished.** `limit` and `minLinkPixels` are **required** fields, filled in by
-the query loop before your source is called: read `request.limit`, read `request.minLinkPixels`, and
-never look up what this package would have chosen. That is a change — those two used to live on an
-exported `BOUNDED_DEFAULTS` table that a source consulted when a request left them out, so a request
-arrived incomplete and every source finished it in its own words. `minLinkPixels` is in **screen**
-pixels: multiply by `perPixel` for a length in the graph's own space, and discard nothing when
-`perPixel` is absent, because a threshold in pixels with no pixels is not a threshold. Nothing about
-the host side changed — `limit` is still optional on `useGraph`.
-
-**The hook.** `UseGraphProps` is what `useGraph` takes, `GraphApi` what a graph publishes to its own
-chrome and to its host, `GraphEvents` the gestures in this package's terms, and `GraphCommands` what
-the canvas can be told to do — registered by the canvas, called by the panels. `GraphOverlays` is
-the label and card layer over the canvas, which is DOM rather than WebGL; `GraphOverlayOptions` is
-gone, because that hook takes the api rather than a shape you assemble from it. `LookPatch` is the
-`look` prop: every field of a `Look` optional, `link` merged one level down.
-
-**The vocabulary.** `Motion` is `"running" | "settled" | "paused"`, and the difference that matters
-is that `settled` converged on its own while `paused` is waiting for you. `SelectionSource` says
-where a selection came from — `"marquee" | "lasso" | "node" | "order" | "ask"` — and is open-ended
-so a host with its own panels can add its own. `Shape` is the glyph, by name — the sibling of the
-colour scale, and `ShapeGlyphProps` is what draws one. `Channels` is what each channel is bound to,
-in Plot's names and under Plot's rule about what a value means. `Sim` is the force coefficients,
-handed straight to the GPU simulation.
-
-**On `@kanzo-tech/graph/duckdb`.** `DuckSource` is a `BoundedSource` that also publishes the
-reader's selection as a clause the rest of the page filters by. `openCorpus` takes
-`OpenCorpusOptions` and returns an `OpenedCorpus` — the source for the canvas, and the handle for
-everything else the corpus holds. `DuckSourceOptions` was the general source's options object and is
-gone with it.
-
-**`OpenedCorpus.edges` is a list, and `undrawn` is the rest of the answer.** A corpus declares as
-many edge relations as it likes, so each one that this canvas draws is its own relation — an
-`EdgeRelation`: the three names that identify it, and `view`, which is fossil's own name for it,
-qualified by the corpus's catalog (`"jobs/1"."Person_knows_Person"`).
-One view per relation rather than a union, because a relation carries its own properties and a
-unioned pair would have to agree on a schema before anything could read it.
-
-A canvas draws **one vertex type**, and a `dense_id` numbers within a type — so `dst_dense` on a
-`Person -placed-> Order` row is an Order's number and the payload on screen holds Persons. They are
-both `BIGINT`, so a join across them matches and draws a line between two vertices that have no
-relation at all. A relation is therefore drawable only where **both** endpoints are the drawn type;
-every other one incident to it comes back as an `UndrawnRelation` with the reason — `other-space`
-for the crossing above, `not-declared` for a relation that publishes no source-ordered orientation
-to read. Nothing is dropped in silence, and nothing crosses.
-
-That rule is not written here. `@fossil-lang/corpus`'s `addressing.drawing(type)` answers it —
-`ReadPlan::drawing`, in Rust, beside the window that answers incidence — and `UndrawnRelation.reason`
-is fossil's own `GapReason`. `tilesFor` is the other question and not a narrowing of this one: its
-`edgeUrls` is every relation whose *source* is the drawn type, cross-type ones included.
+  is also in the argument. `getNeighboringPointIndices` is the neighbourhood, in buffer indices.
+- **Every index cosmos.gl hands you dies with the composition.** `findPointsInRect`,
+  `onPointClick`, `getTrackedPointPositionsMap` — all of them speak positions in the current
+  buffers. Nothing raises when one is kept: it stays a valid index and starts naming a different
+  vertex.
+- **`requestAnimationFrame` never fires in a background tab**, and the canvas draws on animation
+  frames. A backgrounded graph is stopped, not slow — and `graph.ready` has no failure path, so a
+  device that cannot be created leaves the promise unsettled rather than rejecting.
 
 ## API Reference
 
-Twenty names, grouped the way the barrel groups them. It was thirty-six, and the sixteen that
-left were measured rather than judged: a census of every import of this package — this repository,
-its showcases and examples, and the one consumer outside it — found that eight of them appeared in
-no import list anywhere, and the rest were a default a host had to spread, a constant this package
-applies itself, or a number belonging to cosmos.gl's enum rather than to us.
+`packages/graph/src/index.test.ts` pins the list: adding a name fails that file until somebody
+writes it in.
 
-`packages/graph/src/index.test.ts` now pins the list: adding an export fails that file until
-somebody writes the name into it. Most of a graph is composed from the first block; the rest is
-here because a host writing its own source, its own overlays or its own legend has to ask the same
-questions the canvas asks, and two implementations of *what colour is `var(--primary)` here* is how
-a canvas ends up disagreeing with the page around it.
-
-### The canvas
+### The root and the parts
 
 | Name | What it is |
 | --- | --- |
-| `GraphCanvas` | The shortcut: creates the api and renders the element. |
-| `useGraph` | **Creates** the api, for a host that renders the element itself. |
-| `useGraphContext` | **Reads** it, from inside the canvas. |
-| `GraphRootProvider` | What you reach for when a hook has to run *beside* the canvas — `useGraphOverlays` takes the api, and the `events` block wants `getGraph` and `getResident` off it, both from above the element where no context is readable. |
+| `GraphRoot` | `useGraph` plus the context. Renders no element. |
+| `GraphRootProvider` | Takes an api a host built with `useGraph`. |
+| `useGraph` | **Creates** the api: a store created once, subscribed with `useSyncExternalStore`, given the props when one changes. |
+| `useGraphContext` | **Reads** it, from any part under a root. |
+| `GraphCanvas` | The element, the grid, the vignette, the labels, the hover card and the gesture. |
+| `ShapeGlyph` | The glyph the canvas draws for a category, in the DOM — for a legend key or a card. |
 
-### The slice, and the arrays a renderer wants
+### The picture
 
 | Name | What it is |
 | --- | --- |
-| `scaleOf` | The categorical scale the channels imply: what colour and what shape an ordinal wears. `capacity` is where *Other* begins. |
-| `neighboursOf` | The **renderer's** adjacency: what is on screen, which is what a hover highlight wants — and the only adjacency this package answers. The graph's own answer is a question for `fossil`'s `expand`. |
-
-`buffers`, `appearance`, `forces` and `isColour` were on this barrel and are not any more. They are
-the steps the canvas takes on your behalf — `useGraphLook` calls the first two, `useRenderer` the
-third, `useGraph` the fourth — and no importer of this package had ever named one. The two that
-stayed are the two that answer a question from *outside* the render path: a legend asks `scaleOf`
-what colour a category is, and a click handler asks `neighboursOf` what is next to what.
+| `lookFrom` | The axes a person chose, as a `Look`. |
+| `simFrom` | The same axes, read as forces. |
+| `useGraphPrefs` | Both, joined to the provider's resolved `sectionPrefs` for `GRAPH_SECTION`. |
+| `adaptive` | What a graph of a given size wants from a live layout. |
+| `scaleOf` | The categorical scale the channels imply: what colour and what shape a category wears. |
 
 ### Identity
 
-A vertex is the pair `(type_idx, dense_id)`, because the renderer addresses points by position in
-the arrays it was handed and a resident set that comes and goes reuses every position.
-
 | Name | What it is |
 | --- | --- |
-| `vertexId` | The pair, packed. |
-| `typeOf` / `denseOf` | The two halves back out. Both are `number`: each is 32 bits, which a `number` holds exactly. |
-| `residentOf` | The map from identity to buffer index, rebuilt per answer. A host never builds its own — two maps of the same thing is how one ends up describing buffers that are no longer on screen. |
+| `vertexId` | The pair `(type_idx, dense_id)`, packed into a `bigint`. |
+| `typeOf` / `denseOf` | The two halves back out, each 32 bits. |
 
-### The look, and the shape channel
+### The types
 
-Colour never comes from a look: a scale a graph invents is a scale that disagrees with the legend
-explaining it.
-
-| Name | What it is |
-| --- | --- |
-| `lookFrom` | The axes a person chose, as a `Look`. A missing key, or one the section never offered, takes the manifest's answer. |
-| `ShapeGlyph` | The glyph the canvas draws for a category, in the DOM — `<ShapeGlyph shape="cross" color={scale.color(o)} />` for a legend key or a hover card. Sized from outside; the twelve-unit box, the fill and the path are its own. |
-
-**A shape is a name.** `type Shape = "circle" | "square" | "triangle" | "diamond" | "cross"`, and
-`scaleOf(...).shape(ordinal)` answers with one.
-
-Five names on this barrel used to hold that one concept: a `SHAPE` table of numbers, the type of
-those numbers, the four-slot cycle, the past-capacity glyph and a table of SVG paths. The numbers
-were never ours — they are cosmos.gl's `setPointShapes` enum indices, which the jump from `3` to `7`
-gives away — so a host holding `3` was holding the renderer's internal numbering under our name. The
-scale is still four slots plus a fifth for everything past them, which is the shape channel's
-measured capacity; that cycle and that fallback are decisions the scale makes, one layer under
-anything you name.
-
-**`DEFAULT_LOOK` is gone, and `look` takes a patch.** It was `lookFrom()` under a second name,
-exported so a host could write `{ ...DEFAULT_LOOK, vignette: true }` — a spread that *copies* every
-number this package chose and stops tracking all of them the moment one moves. Pass
-`look={{ vignette: true }}`; `link` merges one level down, so `{ link: { render: false } }` keeps the
-measured opacity and width.
-
-### The simulation
-
-| Name | What it is |
-| --- | --- |
-| `simFrom` | `lookFrom`'s sibling: the same declared axes, read as forces. Called with nothing, it is what a graph simulates with — `sim` takes a `Partial<Sim>` and merges, so `DEFAULT_SIM` left with `DEFAULT_LOOK`. |
-| `useGraphPrefs` | Both, joined to `useKanzoTheme().sectionPrefs` for `GRAPH_SECTION`: `{ look, sim }` as the provider resolved them. Without the section registered on the provider, both are the manifest's defaults. |
-| `adaptive` | What a graph of a given size wants — repulsion down and friction up as the corpus grows, because bigger graphs otherwise never settle. Tuning, not level of detail, and it deliberately does **not** touch the space size: the box is the coordinate space a source's positions are expressed in, so resizing it by node count would move the index under the camera. |
-
-`clusterRing` seeded each community on its own ring and is no longer exported: it is what the
-renderer calls the moment `clusters` is passed, which is how every caller reached it, and calling it
-yourself means supplying the renderer's live `spaceSize` — a number you would have to read back off
-the graph and would get wrong the first time a corpus set a different box. `REHEAT` went the same
-way: `0.35` is the energy the renderer puts back when the forces change, and the only way to spend
-it from outside is to call `start` on the cosmos.gl instance, at which point the alpha is your
-decision rather than a constant to borrow.
-
-### Bounded sources
-
-| Name | What it is |
-| --- | --- |
-| `shouldSlice` | Whether to slice at all. `undefined` from a source that cannot say cheaply means *yes*: an unknown corpus is more likely to be the large kind. |
-
-**There is no source on this barrel.** `memorySource` was here — the one for a host that already
-holds its arrays — and it is deleted along with `duckBoundedSource` on the subpath. What is left is
-the *contract*, which is a type and therefore not in this table: `BoundedSource` is one method, and a
-host whose bytes arrive some other way implements it. A picture costs `@kanzo-tech/graph/duckdb`.
-
-**The defaults are resolved, not published.** `BOUNDED_DEFAULTS` was here, and a source imported it
-to find out what a request meant when it said nothing — `limit` 20,000, the **legibility** ceiling
-rather than the renderer's, and `minLinkPixels` 3. Both are required fields of `SliceRequest` now,
-filled in by the query loop before your source is called. The table is gone because nothing outside
-this package has to look one up any more.
-
-**Cancellation is the platform's.** A source that cancels rejects with `signal.reason` — an
-`AbortError` — and the query loop tests `error.name`, so a source written over `fetch` with the
-signal passed through is correct without importing anything from us. `SUPERSEDED` and
-`isSuperseded` were a symbol and a predicate of ours doing the same job, which meant the obvious
-source produced the standard rejection and was reported to the host as a database failure.
-
-### Chrome you draw on top
-
-Both stay out of the canvas for the same reason: each needs a policy only a product can write.
-
-| Name | What it is |
-| --- | --- |
-| `useGraphOverlays` | The grid and the overlay painting. Takes the api — call it after `useGraph` — and composes with it through `GraphRootProvider`. It owns the grid element's spacing: seed nothing, and pass `gridRef` an element you have given a `background-image`. |
-| `useGraphSelection` | The drag gesture that selects — marquee and lasso, with the modifiers adding to or subtracting from the live selection, and a `tool` to switch between them. |
-| `cursorChip` | The drag's style, as `CSSProperties`. |
-
-### Colour
-
-| Name | What it is |
-| --- | --- |
-| `resolveToken` | A token resolved against a host element's live cascade — not a frozen copy of it. |
-| `toHex` | The `Rgba` it returns, as the string a GPU config wants. |
-
-Every part's props are exported as an interface — `GraphCanvasProps` and `GraphRootProviderProps` —
-so a wrapper can take the same props without restating them.
+`GraphRootProps` is `UseGraphProps` plus `children`: `corpus`, `type`, the channels, `filterBy`,
+`limit`, `look`, `sim`, `simulate`, `onFailure`, `onSelect` and `onFocus`. `GraphApi` is what a part
+reads — `total`, `z`, `pending`, `drawn`, `selection`, `focus`, `hovered`, `pinned`, `tool`,
+`motion` and `declined`, the `GraphCommands` (`zoomBy`, `fit`, `pause`, `resume`, `restart`,
+`unpin`, `reveal`, `frameSelection`, `clear`), `select`, `setFocus`, `setTool`, and `getGraph` and
+`getResident` for a callback created once. `GraphCanvasProps`, `GraphRootProviderProps` and
+`ShapeGlyphProps` are the parts' props; `Channels`, `Look`, `LookPatch`, `Shape`, `Sim`, `Motion`,
+`Selection`, `SelectionSource`, `Tool`, `VertexId` and `Resident` are the vocabulary.

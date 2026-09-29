@@ -1,91 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { GraphCanvas } from "@kanzo-tech/graph";
-import { open } from "@fossil-lang/corpus";
-import { openCorpus, type DuckSource } from "@kanzo-tech/graph/duckdb";
-import { Show, Skeleton } from "@kanzo-tech/ui";
-import { engine } from "@kanzo-tech/ui/analytics";
-import { ARCHIVE } from "@/lib/archive-corpus";
+import { useState } from "react";
+import { GraphCanvas, GraphRoot } from "@kanzo-tech/graph";
+import { Show } from "@kanzo-tech/ui";
+import { useArchive } from "./archive";
 
 /**
- * The archive the workspace showcase draws, drawn by the smallest host that can.
- *
- * **This example got bigger, and the page says so.** It used to be arrays in hand and one call —
- * no database, no corpus, nothing to build. What it demonstrated was a path no product takes: the
- * package reads a corpus, and a first example that hands it three typed arrays teaches an API that
- * is not the one you would use. So it boots DuckDB-WASM and opens the same
- * `docs/public/corpus/archive` the workspace does — one world, not two.
- *
- * Four things and no more: the page's engine, the corpus fossil opens, a source, and `onFailure`. The
- * simulation stays off — its default — because the positions are the corpus' own layout and a force
- * would move the picture out from under the index the next query is expressed in.
- *
- * No `MosaicProvider` here: it registers its coordinator as vgplot's process-wide active one, and
- * nothing on this page draws a chart. The source holds the coordinator it queries through.
- *
- * The coordinator is `engine()`'s, the page's one database, so four previews of the same archive
- * share it. The call itself stays in front of you, because it is what this example is.
+ * The whole of it: the corpus fossil opened, handed to `GraphRoot`, drawn by `GraphCanvas`. Until
+ * the archive has opened the root is given `null` and the canvas waits over an empty surface.
  */
-let opening: Promise<DuckSource> | null = null;
-
-function opened(): Promise<DuckSource> {
-  opening ??= (async () => {
-    const e = await engine();
-    // Origin-qualified: DuckDB-WASM resolves a root-relative path against its own virtual
-    // filesystem rather than the page's origin, and finds nothing there.
-    const corpus = await open(`${window.location.origin}${ARCHIVE}`, { engine: e });
-    const { source } = await openCorpus({ corpus, engine: e });
-    return source;
-  })();
-  return opening;
-}
-
 export default function Example() {
-  const [source, setSource] = useState<DuckSource | null>(null);
-  // Two failures, because they fail at different times: one is the corpus not opening, which
-  // replaces the canvas; the other is the canvas having no WebGL, which draws over it.
-  const [unopened, setUnopened] = useState<string | null>(null);
+  const { corpus, unopened } = useArchive();
   const [failure, setFailure] = useState<string | null>(null);
-
-  useEffect(() => {
-    let live = true;
-    opened().then(
-      (source) => {
-        if (live) setSource(source);
-      },
-      // The corpus is gitignored, so "not readable" is what a fresh checkout sees, and saying it is
-      // better than a spinner that never resolves.
-      (error: unknown) => {
-        if (live) setUnopened(error instanceof Error ? error.message : String(error));
-      },
-    );
-    return () => {
-      live = false;
-    };
-  }, []);
-
-  if (unopened !== null) {
-    return (
-      <p className="grid h-80 place-items-center rounded-lg border border-border bg-card p-6 text-center text-muted-foreground text-sm">
-        {unopened}
-      </p>
-    );
-  }
-  if (source === null) return <Skeleton className="h-80 w-full" />;
-
   return (
-    <GraphCanvas
-      className="rounded-lg border border-border bg-card"
-      fill="kind"
-      onFailure={setFailure}
-      source={source}
-    >
-      <Show when={failure !== null}>
-        <p className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground text-sm">
-          {failure}
-        </p>
-      </Show>
-    </GraphCanvas>
+    <div className="h-80 w-full overflow-hidden rounded-lg border border-border bg-card">
+      <GraphRoot corpus={corpus} fill="kind" onFailure={setFailure} r="degree" title="label">
+        <GraphCanvas>
+          <Show when={unopened !== null || failure !== null}>
+            <p className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground text-sm">
+              {unopened ?? failure}
+            </p>
+          </Show>
+        </GraphCanvas>
+      </GraphRoot>
+    </div>
   );
 }
