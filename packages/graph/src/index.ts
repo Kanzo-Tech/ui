@@ -9,7 +9,9 @@
  *   store in TanStack Query's observer shape. No React, no cosmos.gl, no SQL.
  * - `render/` — tiles to cosmos.gl buffers: encoded once per tile, uploaded by kind, rendered once a
  *   frame.
- * - `react/` — `useGraph`, `GraphRoot`, `GraphRootProvider`, `useGraphContext`: Ark's four.
+ * - `react/` — `useGraph`, `GraphRoot`, `GraphRootProvider`, `useGraphContext`: Ark's four; and
+ *   `useGraphState`, TanStack Store's selector, because the api is commands and the state moves at
+ *   frame rate.
  * - `parts/` — `GraphCanvas`, one element reading the context.
  *
  * **Why a package and not `@kanzo-tech/ui`.** The first admission rule is *domain-free — nothing
@@ -25,6 +27,7 @@ export {
   type GraphRootProviderProps,
 } from "./react/graph-root";
 export { useGraph, type GraphApi, type UseGraphProps } from "./react/use-graph";
+export { useGraphState } from "./react/use-graph-state";
 export { useGraphPrefs } from "./react/use-graph-prefs";
 
 export { GraphCanvas, type GraphCanvasProps } from "./parts/graph-canvas";
@@ -43,3 +46,4 @@ export type { Channels } from "./core/channels";
 export { vertexId, typeOf, denseOf, type Resident, type VertexId } from "./core/resident";
 
 export type { GraphCommands, Motion, Selection, SelectionSource, Tool } from "./core/types";
+export type { Drawn, GraphState, GraphStatus } from "./core/state";

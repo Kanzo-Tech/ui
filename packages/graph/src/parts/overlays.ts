@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import type { VertexId } from "../core/resident";
-import type { GraphApi } from "../react/use-graph";
+import type { Graph } from "@cosmos.gl/graph";
+import type { Resident, VertexId } from "../core/resident";
 import { whenReady } from "../render/when-ready";
 
 /**
@@ -75,7 +75,7 @@ export interface GraphOverlays {
  * The labels, the hover card and the grid, positioned from the renderer every frame: points are
  * tracked by index through the resident map, and every overlay is held by identity.
  */
-export function useOverlays(api: Pick<GraphApi, "getGraph" | "getResident">): GraphOverlays {
+export function useOverlays(api: { getGraph: () => Graph | null; getResident: () => Resident }): GraphOverlays {
   // Both are built once by `useGraph` and are stable for the life of the component, which is what
   // makes them safe to name in the dependency arrays below.
   const { getGraph, getResident } = api;

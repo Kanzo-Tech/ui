@@ -87,4 +87,46 @@ describe("the graph store", () => {
     unsubscribe();
     expect(fake.reads[0]?.signal?.aborted).toBe(true);
   });
+
+  it("says it is opening while a promised corpus opens, and has none without one", async () => {
+    const fake = fakeCorpus();
+    let resolve: (corpus: typeof fake.corpus) => void = () => {};
+    const promised = new Promise<typeof fake.corpus>((r) => (resolve = r));
+    const store = createGraph({ corpus: promised, onFailure: () => {} });
+    expect(store.getSnapshot().status).toBe("opening");
+    resolve(fake.corpus);
+    await promised;
+    await Promise.resolve();
+    expect(store.getSnapshot().status).toBe("reading");
+    expect(store.getSnapshot().total).toBe(16);
+    store.setOptions({ ...store.getOptions(), corpus: null });
+    expect(store.getSnapshot().status).toBe("none");
+  });
+
+  it("fails, and says so once, when the promised corpus does not open", async () => {
+    const onFailure = vi.fn();
+    const store = createGraph({ corpus: Promise.reject(new Error("no manifest")), onFailure });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(store.getSnapshot().status).toBe("failed");
+    expect(onFailure).toHaveBeenCalledExactlyOnceWith("no manifest");
+  });
+
+  it("is idle only once everything in view is drawn", async () => {
+    const { fake, store } = subscribed();
+    store.setViewport(near);
+    await fake.settle();
+    const { visible } = store.getSnapshot();
+    expect(store.getSnapshot().status).toBe("reading");
+    store.reportDrawn(visible, { marks: 4, represented: 4, domain: [], tally: [] });
+    expect(store.getSnapshot().status).toBe("idle");
+    store.setViewport(far);
+    expect(store.getSnapshot().status).toBe("reading");
+  });
+
+  it("fixes the categorical domain from the manifest before a tile arrives", () => {
+    const { store } = subscribed();
+    expect(store.getSnapshot().domain).toEqual([0, 1, 2, 3]);
+    store.setOptions({ ...store.getOptions(), fill: "kind", categories: { beast: "Beast", tag: "Tag" } });
+    expect(store.getSnapshot().domain).toEqual(["beast", "tag"]);
+  });
 });

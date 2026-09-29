@@ -13,13 +13,19 @@ const KEY = PAYLOAD_ADDRESS[0] as string;
 const [X, Y] = PAYLOAD_COORDINATES as [string, string];
 
 /**
- * Values to codes, in the order first seen — stable for the life of a binding. A legend asks it what
- * a code is called; composition ranks the codes by value, so colours follow the values' order
- * rather than the order the tiles arrived in.
+ * Values to codes, in the order first seen — stable for the life of a binding. **The seed ranks
+ * first, in its own order**: the manifest's ordinals or the host's named values, so a colour is
+ * decided before a tile arrives. Only a value outside it is ranked by value, after the seed.
  */
 export class Dictionary {
   readonly values: unknown[] = [];
   readonly #codes = new Map<unknown, number>();
+  readonly #seeded: number;
+
+  constructor(seed: readonly unknown[] = []) {
+    for (const value of seed) this.code(value);
+    this.#seeded = this.values.length;
+  }
 
   code(value: unknown): number {
     const key = typeof value === "bigint" ? Number(value) : value;
@@ -32,13 +38,14 @@ export class Dictionary {
     return code;
   }
 
-  /** Each code's rank among the values seen, numbers before strings. */
+  /** Each code's rank: the seed's own order, then every other value seen, numbers before strings. */
   ranks(): Uint32Array {
-    const order = this.values.map((value, code) => ({ value, code }));
-    order.sort((a, b) => compare(a.value, b.value));
     const ranks = new Uint32Array(this.values.length);
-    order.forEach(({ code }, rank) => {
-      ranks[code] = rank;
+    for (let code = 0; code < this.#seeded; code++) ranks[code] = code;
+    const rest = this.values.slice(this.#seeded).map((value, i) => ({ value, code: this.#seeded + i }));
+    rest.sort((a, b) => compare(a.value, b.value));
+    rest.forEach(({ code }, i) => {
+      ranks[code] = this.#seeded + i;
     });
     return ranks;
   }

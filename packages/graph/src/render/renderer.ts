@@ -10,6 +10,7 @@ import { resolveLook, type Look } from "./graph-looks";
 import { appearance, forces, paint } from "./graph-model";
 import { resolveSim, type Sim } from "./graph-sim";
 import { isReady, whenReady } from "./when-ready";
+import { hasWebGL, releaseContext } from "./webgl";
 
 export interface RendererEvents {
   /** After every frame and every camera move — where the overlays repaint. */
@@ -27,32 +28,6 @@ export interface Renderer extends GraphCommands {
   /** The drawn points inside a screen rectangle or polygon, once the device is ready. */
   hit(shape: { rect: [[number, number], [number, number]] } | { polygon: [number, number][] }): number[];
   destroy(): void;
-}
-
-/**
- * Whether this browser can run the renderer at all. cosmos.gl draws its own message rather than
- * throwing, and under 3.x `graph.ready` never settles when no device can be made — so the probe
- * answers the common case before either can happen.
- */
-function hasWebGL(): boolean {
-  if (typeof document === "undefined") return false;
-  try {
-    const probe = document.createElement("canvas");
-    return probe.getContext("webgl2") !== null || probe.getContext("webgl") !== null;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * **Give the WebGL context back, because cosmos.gl does not.** `WEBGL_lose_context` appears zero times
- * in `@cosmos.gl/graph@3.4.0`, and Chrome keeps sixteen contexts per renderer process and evicts the
- * oldest without an error: `/docs/graph` mounts four graphs under StrictMode and three of them
- * measured `isContextLost === true` before this existed.
- */
-function releaseContext(canvas: HTMLCanvasElement | null): void {
-  const gl = canvas?.getContext("webgl2") ?? canvas?.getContext("webgl");
-  if (gl && !gl.isContextLost()) gl.getExtension("WEBGL_lose_context")?.loseContext();
 }
 
 const FIT_DURATION = 420;
@@ -196,6 +171,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
         typeIndex: snapshot.typeIndex,
         binding: snapshot.binding,
         modeColumn: snapshot.modeColumn,
+        domain: snapshot.domain,
         visible: snapshot.visible,
         cached: snapshot.cached,
         perPixel: viewport()?.perPixel ?? 0,
@@ -207,7 +183,6 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
         dirty.paint = true;
         dirty.state = true;
         changed = true;
-        store.reportDrawn({ marks: next.marks, represented: next.represented, domain: next.domain });
         events.onComposed?.(next);
         if (pendingReveal !== null && next.resident.indexOf(pendingReveal) !== undefined) {
           const vertex = pendingReveal;
@@ -215,6 +190,8 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
           queueMicrotask(() => reveal(vertex));
         }
       }
+      const drawn = next && { marks: next.marks, represented: next.represented, domain: next.domain, tally: next.tally };
+      store.reportDrawn(snapshot.visible, drawn);
     }
     if (dirty.paint && composition) {
       dirty.paint = false;
@@ -257,7 +234,9 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     const snapshot = store.getSnapshot();
     const options = store.getOptions();
     frameExtent(snapshot);
-    if (snapshot.visible !== last.visible || snapshot.binding !== last.binding) dirty.compose = true;
+    if (snapshot.visible !== last.visible || snapshot.binding !== last.binding || snapshot.domain !== last.domain) {
+      dirty.compose = true;
+    }
     if (options.look !== lookPatch) {
       lookPatch = options.look;
       look = resolveLook(options.look);
@@ -368,6 +347,9 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       whenReady(graph, (ready) => ready.start(REHEAT));
     },
     reveal,
+    frameBox(box, { duration = FIT_DURATION, padding = FIT_PADDING } = {}) {
+      whenReady(graph, (ready) => ready.fitViewByPointPositions(corners(box), duration, padding));
+    },
     frameSelection() {
       const indices = resident().indicesOf(store.getSnapshot().selection?.vertices ?? []);
       if (indices.length > 0) whenReady(graph, (ready) => ready.fitViewByPointIndices(indices, FIT_DURATION, 0.25));

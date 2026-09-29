@@ -1,9 +1,11 @@
-import { render, renderHook } from "@testing-library/react";
+import { act, render, renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { fakeCorpus } from "../../test/corpus";
 import { GraphCanvas } from "../parts/graph-canvas";
 import { GraphRoot, useGraphContext } from "./graph-root";
-import { useGraph } from "./use-graph";
+import { vertexId } from "../core/resident";
+import { internalsOf, useGraph } from "./use-graph";
+import { useGraphState } from "./use-graph-state";
 
 /**
  * The adapter: the store's lifetime in React, and the renderer's in the element. jsdom has no WebGL,
@@ -47,7 +49,7 @@ describe("GraphRoot and GraphCanvas", () => {
   it("gives its parts the api through the context, and refuses outside a root", () => {
     const seen: unknown[] = [];
     function Part() {
-      seen.push(useGraphContext().total);
+      seen.push(useGraphState((s) => s.total));
       return null;
     }
     const { corpus } = fakeCorpus();
@@ -61,6 +63,48 @@ describe("GraphRoot and GraphCanvas", () => {
   });
 });
 
+describe("useGraphState", () => {
+  it("keeps the api's identity across hovers, and re-renders a part only on the slice it selects", () => {
+    const { corpus } = fakeCorpus();
+    const apis = new Set<unknown>();
+    let toolRenders = 0;
+    let hoverRenders = 0;
+    function Host() {
+      apis.add(useGraphContext());
+      return null;
+    }
+    function ToolPart() {
+      useGraphState((s) => s.tool);
+      toolRenders += 1;
+      return null;
+    }
+    function HoverPart() {
+      useGraphState((s) => s.hovered);
+      hoverRenders += 1;
+      return null;
+    }
+    const held: { store: ReturnType<typeof internalsOf>["store"] | null } = { store: null };
+    function Hold() {
+      held.store = internalsOf(useGraphContext()).store;
+      return null;
+    }
+    render(
+      <GraphRoot corpus={corpus} onFailure={() => {}}>
+        <Host />
+        <ToolPart />
+        <HoverPart />
+        <Hold />
+      </GraphRoot>,
+    );
+    const [tools, hovers] = [toolRenders, hoverRenders];
+    act(() => held.store?.hover(vertexId(0, 3)));
+    act(() => held.store?.hover(vertexId(0, 4)));
+    expect(hoverRenders - hovers).toBe(2);
+    expect(toolRenders).toBe(tools);
+    expect(apis.size).toBe(1);
+  });
+});
+
 describe("useGraph", () => {
   it("does not reach setOptions on a render that changed no prop", () => {
     const { corpus } = fakeCorpus();
@@ -69,10 +113,10 @@ describe("useGraph", () => {
       ({ tag }: { tag: string }) => useGraph({ corpus, fill: "cluster_id", look, onFailure: () => void tag }),
       { initialProps: { tag: "a" } },
     );
-    const options = result.current.options;
+    const options = result.current.getState().options;
     rerender({ tag: "b" });
     rerender({ tag: "c" });
-    expect(result.current.options).toBe(options);
+    expect(result.current.getState().options).toBe(options);
   });
 
   it("hands the store a new binding when a prop moves", () => {

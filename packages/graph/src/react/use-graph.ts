@@ -1,56 +1,51 @@
 "use client";
 
-import type { Graph } from "@cosmos.gl/graph";
-import type { Gap } from "@fossil-lang/corpus";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Resident, VertexId } from "../core/resident";
-import { createGraph, type Drawn, type GraphOptions, type GraphStore } from "../core/store";
-import type { GraphCommands, Motion, Selection, SelectionSource, Tool } from "../core/types";
+import { createGraph, type GraphOptions, type GraphState, type GraphStore } from "../core/store";
+import type { GraphCommands, SelectionSource, Tool } from "../core/types";
 import { createRenderer, type Renderer, type RendererEvents } from "../render/renderer";
 
 export type UseGraphProps = GraphOptions;
 
 /**
- * What a graph publishes to its parts and its host: the store's snapshot, the commands, and the two
- * readers a callback registered once needs.
+ * **The commands, and the door to the state — stable for the life of the root.** Zag's split of an
+ * api from its state, in TanStack Store's shape: the state is read through `useGraphState(selector)`
+ * so a part re-renders on what it shows, and a host holding the api never re-renders because a
+ * vertex was hovered.
  */
 export interface GraphApi extends GraphCommands {
-  /** Vertices of the drawn type, from the manifest — it does not shrink with a filter. */
-  readonly total: number | undefined;
-  /** The zoom drawn, coarsest `0`; the payload is the last. */
-  readonly z: number | null;
-  /** Whether a tile in view is still being read. */
-  readonly pending: boolean;
-  /** What is on the canvas, or `null` before the first composition. */
-  readonly drawn: Drawn | null;
-  readonly selection: Selection | null;
-  readonly focus: VertexId | null;
-  readonly hovered: VertexId | null;
-  readonly pinned: readonly VertexId[];
-  readonly tool: Tool;
-  readonly motion: Motion;
-  readonly progress: number;
-  /** Relations the corpus declined to answer, with fossil's reason. */
-  readonly declined: readonly Gap[];
-  /** The bindings, as given. */
-  readonly options: UseGraphProps;
   select(vertices: readonly VertexId[] | null, source?: SelectionSource, label?: string): void;
   setFocus(vertex: VertexId | null): void;
   setTool(tool: Tool): void;
-  /** The renderer, from inside a callback created once. `null` until a canvas is attached. */
-  getGraph(): Graph | null;
+  subscribe(listener: () => void): () => void;
+  /** The state now, for a callback; a render reads it with `useGraphState`. */
+  getState(): GraphState;
+  /** Who is drawn right now, to resolve a buffer index to an identity. */
   getResident(): Resident;
-  /** Mount the renderer into an element; `GraphCanvas` does. Returns the detach. */
+}
+
+/** What the parts in this package reach and a host does not: the element and the renderer. */
+interface Internals {
+  store: GraphStore;
   attach(host: HTMLDivElement, events?: RendererEvents): () => void;
-  /** The renderer itself, for the parts in this package. */
-  getRenderer(): Renderer | null;
+  renderer(): Renderer | null;
+}
+
+const INTERNALS = new WeakMap<GraphApi, Internals>();
+
+/** The parts' door to the renderer. Not on the barrel, and not on `GraphApi`'s type. */
+export function internalsOf(api: GraphApi): Internals {
+  const found = INTERNALS.get(api);
+  if (!found) throw new Error("a graph part was given an api useGraph did not build");
+  return found;
 }
 
 /**
- * **`useBaseQuery`'s three moves**: the store is created once in `useState`, subscribed with
- * `useSyncExternalStore`, and handed the latest props with `setOptions` in an effect — whose
- * dependencies are the props themselves, so a render that changed none does not reach it. Callbacks
- * are read through a ref, so a host's inline `onFailure` is never a change of options.
+ * **`useBaseQuery`'s three moves**: the store is created once in `useState`, handed the latest props
+ * with `setOptions` in an effect — whose dependencies are the props themselves, so a render that
+ * changed none does not reach it — and read through `useSyncExternalStore`, in `useGraphState`.
+ * Callbacks are read through a ref, so a host's inline `onFailure` is never a change of options.
  */
 export function useGraph(props: UseGraphProps): GraphApi {
   const latest = useRef(props);
@@ -64,75 +59,61 @@ export function useGraph(props: UseGraphProps): GraphApi {
     }),
     [],
   );
-  const [store] = useState<GraphStore>(() => createGraph(forward(props)));
+  const [api] = useState<GraphApi>(() => build(createGraph(forward(props))));
+  const { store } = internalsOf(api);
 
-  const { corpus, fill, filterBy, limit, look, r, sim, simulate, stroke, symbol, title, type } = props;
+  const { categories, corpus, fill, filterBy, limit, look, r, sim, simulate, stroke, symbol, title, type } = props;
   useEffect(() => {
     store.setOptions(forward(latest.current));
-  }, [store, forward, corpus, fill, filterBy, limit, look, r, sim, simulate, stroke, symbol, title, type]);
+  }, [store, forward, categories, corpus, fill, filterBy, limit, look, r, sim, simulate, stroke, symbol, title, type]);
 
-  const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
+  // Subscribed here as well as by the parts, so the store's first-subscriber and last-subscriber
+  // moves follow the root's lifetime and not whichever part happened to mount first.
+  useEffect(() => store.subscribe(() => {}), [store]);
 
-  const renderer = useRef<Renderer | null>(null);
-  const attach = useCallback(
-    (host: HTMLDivElement, events?: RendererEvents) => {
+  return api;
+}
+
+function build(store: GraphStore): GraphApi {
+  let renderer: Renderer | null = null;
+  const on =
+    <K extends keyof GraphCommands>(name: K) =>
+    (...args: Parameters<GraphCommands[K]>) =>
+      (renderer?.[name] as ((...a: Parameters<GraphCommands[K]>) => void) | undefined)?.(...args);
+  const api: GraphApi = {
+    zoomBy: on("zoomBy"),
+    fit: on("fit"),
+    frameBox: on("frameBox"),
+    pause: on("pause"),
+    resume: on("resume"),
+    restart: on("restart"),
+    unpin: on("unpin"),
+    reveal: on("reveal"),
+    frameSelection: on("frameSelection"),
+    clear: () => {
+      store.select(null);
+      store.focus(null);
+    },
+    select: (vertices, source, label) => store.select(vertices, source, label),
+    setFocus: (vertex) => store.focus(vertex),
+    setTool: (tool) => store.setTool(tool),
+    subscribe: (listener) => store.subscribe(listener),
+    getState: () => store.getSnapshot(),
+    getResident: () => renderer?.resident() ?? NOBODY,
+  };
+  INTERNALS.set(api, {
+    store,
+    renderer: () => renderer,
+    attach(host, events) {
       const mounted = createRenderer(host, store, events);
-      renderer.current = mounted;
+      renderer = mounted;
       return () => {
         mounted?.destroy();
-        if (renderer.current === mounted) renderer.current = null;
+        if (renderer === mounted) renderer = null;
       };
     },
-    [store],
-  );
-
-  const commands = useMemo(() => {
-    const on = <K extends keyof GraphCommands>(name: K) =>
-      ((...args: Parameters<GraphCommands[K]>) =>
-        (renderer.current?.[name] as ((...a: Parameters<GraphCommands[K]>) => void) | undefined)?.(...args)) as GraphCommands[K];
-    return {
-      zoomBy: on("zoomBy"),
-      fit: on("fit"),
-      pause: on("pause"),
-      resume: on("resume"),
-      restart: on("restart"),
-      unpin: on("unpin"),
-      reveal: on("reveal"),
-      frameSelection: on("frameSelection"),
-      clear: () => {
-        store.select(null);
-        store.focus(null);
-      },
-      select: (vertices: readonly VertexId[] | null, source?: SelectionSource, label?: string) =>
-        store.select(vertices, source, label),
-      setFocus: (vertex: VertexId | null) => store.focus(vertex),
-      setTool: (tool: Tool) => store.setTool(tool),
-      getGraph: () => renderer.current?.graph ?? null,
-      getResident: () => renderer.current?.resident() ?? NOBODY,
-      getRenderer: () => renderer.current,
-      attach,
-    };
-  }, [attach, store]);
-
-  return useMemo<GraphApi>(
-    () => ({
-      ...commands,
-      total: snapshot.total,
-      z: snapshot.z,
-      pending: snapshot.pending,
-      drawn: snapshot.drawn,
-      selection: snapshot.selection,
-      focus: snapshot.focus,
-      hovered: snapshot.hovered,
-      pinned: snapshot.pinned,
-      tool: snapshot.tool,
-      motion: snapshot.motion,
-      progress: snapshot.progress,
-      declined: snapshot.declined,
-      options: store.getOptions(),
-    }),
-    [commands, snapshot, store],
-  );
+  });
+  return api;
 }
 
 const NOBODY: Resident = {

@@ -19,6 +19,7 @@ function composed(over: Partial<Composition> = {}): Composition {
     sizes: null,
     titles: null,
     domain: [],
+    tally: [],
     represented: marks,
     ...over,
   };

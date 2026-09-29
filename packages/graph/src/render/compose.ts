@@ -27,8 +27,10 @@ export interface Composition {
   readonly sizes: Float32Array | null;
   /** Per vertex slot: its title, when `title` is bound. */
   readonly titles: readonly string[] | null;
-  /** What each rank is, for a legend: the values the dictionary has seen, in rank order. */
+  /** What each rank is, for a legend: the seed, then the other values seen, in rank order. */
   readonly domain: readonly unknown[];
+  /** Per rank, the vertices the marks of that rank stand for. */
+  readonly tally: readonly number[];
   /** Vertices the marks stand for — a cell counts its members. */
   readonly represented: number;
 }
@@ -38,6 +40,8 @@ export interface ComposeInput {
   readonly typeIndex: number;
   readonly binding: Binding;
   readonly modeColumn: string | null;
+  /** The categorical domain fixed before any tile: it ranks first, in its own order. */
+  readonly domain: readonly unknown[];
   readonly visible: readonly TileView[];
   readonly cached: readonly TileView[];
   /** Graph units per screen pixel when composed, for the stub discard. */
@@ -52,6 +56,7 @@ export interface ComposeInput {
 export function createComposer(): (input: ComposeInput) => Composition | null {
   let bindingKey = "";
   let dictionary = new Dictionary();
+  let seed: readonly unknown[] = [];
   let encoded = new WeakMap<TileContent, Encoded>();
   let setKey = "";
 
@@ -66,9 +71,10 @@ export function createComposer(): (input: ComposeInput) => Composition | null {
 
   return (input) => {
     const key = `${input.binding.category}|${input.binding.size}|${input.binding.title}|${input.modeColumn}`;
-    if (key !== bindingKey) {
+    if (key !== bindingKey || input.domain !== seed) {
       bindingKey = key;
-      dictionary = new Dictionary();
+      seed = input.domain;
+      dictionary = new Dictionary(seed);
       encoded = new WeakMap();
       setKey = "";
     }
@@ -106,6 +112,7 @@ function assemble(
   const codes: number[] = [];
   const ramp: number[] = [];
   const titles: string[] = [];
+  const counts: number[] = [];
   const vertices = new BigUint64Array(vertexMarks);
   const slot = new Map<number, Map<number, number>>();
   const slotsAt = (z: number) => {
@@ -126,7 +133,9 @@ function assemble(
   for (const { encoded, view } of ordered) {
     for (let i = 0; i < encoded.n; i++) {
       const at = place(view.address.z, encoded, i);
-      represented += encoded.counts[i] ?? 0;
+      const count = encoded.counts[i] ?? 0;
+      counts[at] = count;
+      represented += count;
       if (!encoded.cells) {
         vertices[at] = vertexId(input.typeIndex, encoded.keys[i] as number);
         titles.push(encoded.titles?.[i] ?? "");
@@ -185,6 +194,11 @@ function assemble(
   ranks.forEach((rank, code) => {
     domain[rank] = dictionary.values[code];
   });
+  const tally = domain.map(() => 0);
+  for (let i = 0; i < marks; i++) {
+    const rank = categories[i] ?? 0;
+    tally[rank] = (tally[rank] ?? 0) + (counts[i] ?? 0);
+  }
   const bound = ordered.some(({ encoded }) => encoded.sizes !== null);
 
   return {
@@ -198,6 +212,7 @@ function assemble(
     sizes: bound ? Float32Array.from(ramp) : null,
     titles: input.binding.title === undefined ? null : titles,
     domain,
+    tally,
     represented,
   };
 }

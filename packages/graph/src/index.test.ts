@@ -25,6 +25,7 @@ const VALUES = [
   "useGraph",
   "useGraphContext",
   "useGraphPrefs",
+  "useGraphState",
   "vertexId",
 ];
 

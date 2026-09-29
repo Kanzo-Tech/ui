@@ -15,6 +15,7 @@
  * nothing.
  */
 
+import type { Box } from "@fossil-lang/corpus";
 import type { VertexId } from "./resident";
 
 /**
@@ -74,5 +75,10 @@ export interface GraphCommands {
   reveal(vertex: VertexId): void;
   /** Frame whatever the canvas currently has selected. */
   frameSelection(): void;
+  /**
+   * Frame a box in the corpus's coordinates — a tile's `bbox`, the extent, a window a host chose.
+   * The camera's only door: nothing outside the package reaches the renderer to move it.
+   */
+  frameBox(box: Box, options?: { duration?: number; padding?: number }): void;
   clear(): void;
 }

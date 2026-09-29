@@ -8,116 +8,20 @@ import {
   type TileAddress,
   type TileMatrixSet,
 } from "@fossil-lang/corpus";
-import type { MosaicClient, Selection as Crossfilter } from "@kanzo-tech/mosaic";
-import type { LookPatch } from "../render/graph-looks";
-import type { Sim } from "../render/graph-sim";
-import { bindingOf, projectionOf, type Binding, type Channels } from "./channels";
+import type { MosaicClient } from "@kanzo-tech/mosaic";
+import { domainOf } from "./categories";
+import { bindingOf, projectionOf, type Binding } from "./channels";
 import { filterFor, graphClient, publish } from "./filter";
-import { denseOf, type VertexId } from "./resident";
+import { denseOf } from "./resident";
+import type { GraphOptions, GraphSnapshot, GraphStatus, GraphStore, TileView } from "./state";
 import type { TileContent } from "./tile";
 import type { Viewport } from "./tile-matrix";
 import { Tileset2D } from "./tileset";
-import type { Motion, Selection, SelectionSource, Tool } from "./types";
+
+export type { Drawn, GraphOptions, GraphSnapshot, GraphState, GraphStatus, GraphStore, TileView } from "./state";
 
 /** Twenty thousand marks: what a canvas draws at once before a coarser zoom is chosen. */
 export const DEFAULT_LIMIT = 20_000;
-
-export interface GraphOptions extends Channels {
-  /** The corpus the host opened with fossil's `open`. `null` while it is still opening. */
-  corpus: Corpus | null;
-  /** The vertex type drawn. The first type with a position when absent. */
-  type?: string;
-  /** Which column the size ramp is spent on — Plot's `r`. */
-  r?: string;
-  /** Which column a label and the hover card show — Plot's `title`. */
-  title?: string;
-  /** The page's crossfilter: its clauses filter what is read, and the reader's pick is published into it. */
-  filterBy?: Crossfilter;
-  /** The most marks drawn at once; a coarser zoom is chosen above it. */
-  limit?: number;
-  /** Form: a patch over this package's own look. Memoise it — its identity is what repaints. */
-  look?: LookPatch;
-  /** The force coefficients, as a patch over this package's own. */
-  sim?: Partial<Sim>;
-  /** A live layout. Off: a corpus's positions are the index every read is asked against. */
-  simulate?: boolean;
-  /** Required: unhandled, a browser with no WebGL context shows an empty box. */
-  onFailure: (message: string) => void;
-  onSelect?: (selection: Selection | null) => void;
-  onFocus?: (vertex: VertexId | null) => void;
-}
-
-/** One tile the picture is made of: where it is, and what it holds. */
-export interface TileView {
-  readonly address: TileAddress;
-  readonly kind: "rows" | "cells";
-  readonly content: TileContent;
-}
-
-export interface GraphSnapshot {
-  readonly matrix: TileMatrixSet | null;
-  /** The drawn type's position in `corpus.types.vertices` — the type half of a `VertexId`. */
-  readonly typeIndex: number;
-  readonly binding: Binding;
-  /** The payload column a cell's `mode` is the majority of, or `null` where the tree names none. */
-  readonly modeColumn: string | null;
-  /** The zoom the camera is drawn at, or `null` before the first selection. */
-  readonly z: number | null;
-  /** Tiles drawn now: the selected ones holding content, and best-available stand-ins. */
-  readonly visible: readonly TileView[];
-  /** Every tile holding content — where a far end is looked up. */
-  readonly cached: readonly TileView[];
-  /** Whether a selected tile is still being read. */
-  readonly pending: boolean;
-  /** Vertices of the drawn type, from the manifest; the one number that does not shrink with a filter. */
-  readonly total: number | undefined;
-  /** Relations the corpus declined to answer, with fossil's reason. */
-  readonly declined: readonly Gap[];
-  readonly selection: Selection | null;
-  readonly focus: VertexId | null;
-  readonly hovered: VertexId | null;
-  readonly pinned: readonly VertexId[];
-  readonly tool: Tool;
-  readonly motion: Motion;
-  /** How far through settling a live layout is, `0`–`1`. */
-  readonly progress: number;
-  /** What the renderer last composed, or `null` before it has. */
-  readonly drawn: Drawn | null;
-}
-
-/** What is on the canvas, as the renderer composed it. */
-export interface Drawn {
-  /** Points drawn — vertices and cells. */
-  readonly marks: number;
-  /** Vertices those marks stand for: a cell counts its members. */
-  readonly represented: number;
-  /** What each category rank is — the values the bound column has shown, in rank order. */
-  readonly domain: readonly unknown[];
-}
-
-/**
- * **The graph's state, outside React** — TanStack Query's `QueryObserver` shape: `subscribe`,
- * `getSnapshot`, `setOptions`, `destroy`. Tiles arrive, the camera moves and a filter lands at
- * frame rate and none of it is a render; the snapshot is a new object only when something a reader
- * can see changed, and the same object between notifications.
- */
-export interface GraphStore {
-  subscribe(listener: () => void): () => void;
-  getSnapshot(): GraphSnapshot;
-  getOptions(): GraphOptions;
-  setOptions(options: GraphOptions): void;
-  destroy(): void;
-  /** The camera, from the renderer: the rectangle in view. */
-  setViewport(viewport: Viewport): void;
-  select(vertices: readonly VertexId[] | null, source?: SelectionSource, label?: string): void;
-  focus(vertex: VertexId | null): void;
-  hover(vertex: VertexId | null): void;
-  pin(vertices: readonly VertexId[]): void;
-  setTool(tool: Tool): void;
-  report(motion: Motion): void;
-  reportProgress(value: number): void;
-  reportDrawn(drawn: Drawn): void;
-}
 
 const NO_BINDING: Binding = bindingOf({});
 const KEY = PAYLOAD_ADDRESS[0] as string;
@@ -132,11 +36,23 @@ const sameFilter = (a: Filter | undefined, b: Filter | undefined) =>
   JSON.stringify(a, (_, v: unknown) => (typeof v === "bigint" ? `${v}n` : v)) ===
   JSON.stringify(b, (_, v: unknown) => (typeof v === "bigint" ? `${v}n` : v));
 
+const isPromise = (value: unknown): value is PromiseLike<Corpus> =>
+  typeof (value as PromiseLike<Corpus> | null)?.then === "function";
+
+/** The same array while the set of tiles in it is the same, so a reader can compare by identity. */
+function keep(previous: readonly TileView[], next: TileView[]): readonly TileView[] {
+  if (previous.length !== next.length) return next;
+  return next.every((view, i) => view.content === previous[i]?.content) ? previous : next;
+}
+
 export function createGraph(initial: GraphOptions): GraphStore {
   let options = initial;
   const listeners = new Set<() => void>();
   const self: MosaicClient = graphClient();
 
+  let corpus: Corpus | null = null;
+  let opening: PromiseLike<Corpus> | null = null;
+  let failed = false;
   let matrix: TileMatrixSet | null = null;
   let typeIndex = 0;
   let modeColumn: string | null = null;
@@ -145,6 +61,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
   let filter: Filter | undefined;
   let viewport: Viewport | null = null;
   let declined: Gap[] = [];
+  let composed: readonly TileView[] | null = null;
   let unlisten: (() => void) | null = null;
   let active = false;
   let lastFrame = -1;
@@ -156,7 +73,6 @@ export function createGraph(initial: GraphOptions): GraphStore {
   const tileset = new Tileset2D({
     debounceTime: 60,
     load: async (address, signal) => {
-      const corpus = options.corpus;
       if (!corpus || !scan) throw new Error("the graph has no scan to read with");
       const rows = await scan.read(address, { signal });
       const cells = matrix?.tileMatrices[address.z]?.kind === "cells";
@@ -184,10 +100,12 @@ export function createGraph(initial: GraphOptions): GraphStore {
   });
 
   let snapshot: GraphSnapshot = {
+    status: "none",
     matrix: null,
     typeIndex: 0,
     modeColumn: null,
     binding: NO_BINDING,
+    domain: [],
     z: null,
     visible: [],
     cached: [],
@@ -202,6 +120,8 @@ export function createGraph(initial: GraphOptions): GraphStore {
     motion: "settled",
     progress: 1,
     drawn: null,
+    options,
+    corpus: null,
   };
 
   const viewOf = (tile: { address: TileAddress; content: TileContent | null }): TileView => ({
@@ -210,29 +130,48 @@ export function createGraph(initial: GraphOptions): GraphStore {
     content: tile.content as TileContent,
   });
 
+  let domain: { key: unknown[]; value: readonly unknown[] } = { key: [], value: [] };
+  function domainNow(): readonly unknown[] {
+    const key = [corpus, typeIndex, binding.category, options.categories];
+    if (key.some((part, i) => part !== domain.key[i])) domain = { key, value: domainOf(corpus, typeIndex, binding, options.categories) };
+    return domain.value;
+  }
+
+  function statusOf(pending: boolean, visible: readonly TileView[]): GraphStatus {
+    if (failed) return "failed";
+    if (opening) return "opening";
+    if (!corpus) return "none";
+    return pending || composed !== visible || snapshot.drawn === null ? "reading" : "idle";
+  }
+
   function notify(patch: Partial<GraphSnapshot> = {}): void {
     lastFrame = tileset.frame;
     const tiles = tileset.tiles.filter((tile) => tile.content !== null);
+    const visible = keep(snapshot.visible, tiles.filter((tile) => tile.isVisible).map(viewOf));
+    const pending = tileset.selectedTiles.some((tile) => tile.isLoading);
     snapshot = {
       ...snapshot,
       matrix,
       typeIndex,
       modeColumn,
       binding,
+      domain: domainNow(),
       z: tileset.z,
-      visible: tiles.filter((tile) => tile.isVisible).map(viewOf),
-      cached: tiles.map(viewOf),
-      pending: tileset.selectedTiles.some((tile) => tile.isLoading),
+      visible,
+      cached: keep(snapshot.cached, tiles.map(viewOf)),
+      pending,
       total: matrix ? Number(matrix.tileMatrices[matrix.tileMatrices.length - 1]?.count ?? 0) : undefined,
       declined,
+      options,
+      corpus,
       ...patch,
     };
+    snapshot = { ...snapshot, status: statusOf(pending, snapshot.visible) };
     for (const listener of listeners) listener();
   }
 
   /** A binding or a filter is a new scan, planned once and never per camera move. */
   function rescan(): void {
-    const corpus = options.corpus;
     if (!corpus || !matrix) return;
     try {
       const fixed = [KEY, ...PAYLOAD_COORDINATES];
@@ -249,12 +188,14 @@ export function createGraph(initial: GraphOptions): GraphStore {
   }
 
   function reopen(): void {
-    const corpus = options.corpus;
+    failed = false;
     matrix = null;
     scan = null;
     declined = [];
+    composed = null;
     tileset.finalize();
-    if (!corpus) return notify({ selection: null, focus: null, hovered: null, pinned: [], drawn: null });
+    const cleared = { selection: null, focus: null, hovered: null, pinned: [], drawn: null };
+    if (!corpus) return notify(cleared);
     const types = corpus.types.vertices;
     const type = options.type ?? types.find((t) => t.geometry)?.type ?? types[0]?.type;
     typeIndex = Math.max(0, types.findIndex((t) => t.type === type));
@@ -265,10 +206,38 @@ export function createGraph(initial: GraphOptions): GraphStore {
       modeColumn = types[typeIndex]?.channels.find((channel) => channel.name === mode)?.column ?? null;
       tileset.setMatrix(matrix);
     } catch (error) {
+      failed = true;
       fail(error);
     }
-    snapshot = { ...snapshot, selection: null, focus: null, hovered: null, pinned: [], drawn: null };
+    snapshot = { ...snapshot, ...cleared };
     rescan();
+  }
+
+  /** A promise is adopted when it settles, and only if it is still the corpus the host means. */
+  function adopt(given: GraphOptions["corpus"]): void {
+    corpus = null;
+    opening = isPromise(given) ? given : null;
+    if (!opening) {
+      corpus = given as Corpus | null;
+      return reopen();
+    }
+    const promised = opening;
+    reopen();
+    promised.then(
+      (opened) => {
+        if (opening !== promised) return;
+        opening = null;
+        corpus = opened;
+        reopen();
+      },
+      (error: unknown) => {
+        if (opening !== promised) return;
+        opening = null;
+        failed = true;
+        fail(error);
+        notify();
+      },
+    );
   }
 
   function listen(): void {
@@ -323,7 +292,8 @@ export function createGraph(initial: GraphOptions): GraphStore {
         nextBinding.title !== binding.title;
       binding = nextBinding;
       if (next.corpus !== previous.corpus || next.type !== previous.type) {
-        reopen();
+        if (next.corpus !== previous.corpus) adopt(next.corpus);
+        else reopen();
         if (active && next.filterBy !== previous.filterBy) listen();
         return;
       }
@@ -369,12 +339,14 @@ export function createGraph(initial: GraphOptions): GraphStore {
     reportProgress(value) {
       if (value !== snapshot.progress) notify({ progress: value });
     },
-    reportDrawn(drawn) {
-      notify({ drawn });
+    reportDrawn(visible, drawn) {
+      if (composed === visible && drawn === null) return;
+      composed = visible;
+      notify(drawn ? { drawn } : {});
     },
   };
 
   binding = bindingOf(initial);
-  reopen();
+  adopt(initial.corpus);
   return store;
 }

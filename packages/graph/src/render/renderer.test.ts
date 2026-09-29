@@ -120,7 +120,7 @@ describe("the renderer's lifetime", () => {
   const SOURCE = readFileSync(resolve(process.cwd(), "src/render/renderer.ts"), "utf8");
 
   it("gives the context back when the graph goes", () => {
-    expect(SOURCE).toContain("WEBGL_lose_context");
+    expect(readFileSync(resolve(process.cwd(), "src/render/webgl.ts"), "utf8")).toContain("WEBGL_lose_context");
     expect(SOURCE).toContain("releaseContext(canvas)");
     expect(SOURCE.indexOf("graph.destroy()")).toBeLessThan(SOURCE.indexOf("releaseContext(canvas)"));
   });

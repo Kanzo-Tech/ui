@@ -7,7 +7,8 @@ import { useGraph, type GraphApi, type UseGraphProps } from "./use-graph";
  * Ark's four, one for one — `useDialog`, `DialogRoot`, `DialogRootProvider`, `useDialogContext`:
  * `useGraph` creates the api, `GraphRoot` is `useGraph` plus the context, `GraphRootProvider` takes
  * an api a host built itself, and `useGraphContext` reads it. Neither root renders an element; the
- * canvas is a part.
+ * canvas is a part. The api is stable, so the context never changes value: state is read through
+ * `useGraphState`.
  */
 const GraphContext = createContext<GraphApi | null>(null);
 

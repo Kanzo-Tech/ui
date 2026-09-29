@@ -43,11 +43,14 @@ function view(z: number, tile: number, batch: Batch, links: EdgeBatch[]): TileVi
   };
 }
 
+const NO_DOMAIN: readonly unknown[] = [];
+
 const input = (visible: TileView[], cached: TileView[] = visible, perPixel = 0.01): ComposeInput => ({
   matrix,
   typeIndex: 0,
   binding: bindingOf({ fill: "cluster_id" }),
   modeColumn: "cluster_id",
+  domain: NO_DOMAIN,
   visible,
   cached,
   perPixel,
@@ -116,5 +119,24 @@ describe("composition", () => {
     expect(compose(input([left]))).not.toBeNull();
     expect(compose(input([left]))).toBeNull();
     expect(compose(input([{ ...left, content: { ...left.content } }]))).not.toBeNull();
+  });
+
+  it("keeps a category's rank however the tiles arrive, once the domain is fixed", () => {
+    const ones = view(1, 0, rows([1, 3]), []);
+    const both = view(1, 1, rows([4, 5]), []);
+    const rankOfOne = (compose: ReturnType<typeof createComposer>, seed: readonly unknown[], visible: TileView[]) =>
+      compose({ ...input(visible), domain: seed })?.categories[0];
+
+    const unseeded = createComposer();
+    expect(rankOfOne(unseeded, NO_DOMAIN, [ones])).toBe(0);
+    expect(rankOfOne(unseeded, NO_DOMAIN, [ones, both])).toBe(1);
+
+    const seed = [0, 1];
+    const seeded = createComposer();
+    expect(rankOfOne(seeded, seed, [ones])).toBe(1);
+    const composed = seeded({ ...input([ones, both]), domain: seed });
+    expect(composed?.categories[0]).toBe(1);
+    expect(composed?.domain).toEqual([0, 1]);
+    expect(composed?.tally).toEqual([1, 3]);
   });
 });
