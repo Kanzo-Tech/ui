@@ -22,13 +22,21 @@ vi.stubGlobal(
 );
 
 describe("GraphRoot and GraphCanvas", () => {
-  it("declines in an environment with no WebGL, and says so once", () => {
+  it("declines in an environment with no WebGL, says so once, and says it failed", () => {
     const onFailure = vi.fn();
+    const statuses: string[] = [];
+    function Status() {
+      statuses.push(useGraphState((s) => s.status));
+      return null;
+    }
+    const { corpus } = fakeCorpus();
     render(
-      <GraphRoot corpus={null} onFailure={onFailure}>
+      <GraphRoot corpus={corpus} onFailure={onFailure}>
         <GraphCanvas />
+        <Status />
       </GraphRoot>,
     );
+    expect(statuses.at(-1)).toBe("failed");
     expect(onFailure).toHaveBeenCalledTimes(1);
     expect(String(onFailure.mock.calls[0]?.[0])).toMatch(/WebGL/i);
   });

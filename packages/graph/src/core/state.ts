@@ -45,7 +45,8 @@ export interface GraphOptions extends Channels {
 /**
  * Where the graph is in its life. `none` is no corpus; `opening` is a corpus promised and not yet
  * open; `reading` is a tile in view not yet read or not yet drawn; `idle` is everything in view
- * drawn; `failed` is a corpus that would not open or a type it cannot draw.
+ * drawn; `failed` is a corpus that would not open, a type it cannot draw, or a canvas that could not
+ * start a renderer.
  */
 export type GraphStatus = "none" | "opening" | "reading" | "idle" | "failed";
 
@@ -130,6 +131,8 @@ export interface GraphStore {
   setTool(tool: Tool): void;
   report(motion: Motion): void;
   reportProgress(value: number): void;
+  /** Whether the canvas has a renderer: without one nothing in view will ever be drawn. */
+  setRenderable(renderable: boolean): void;
   /** The renderer drew `visible`; `drawn` is what it composed, or `null` when the set was unchanged. */
   reportDrawn(visible: readonly TileView[], drawn: Drawn | null): void;
 }

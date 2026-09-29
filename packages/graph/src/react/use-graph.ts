@@ -88,7 +88,12 @@ function build(store: GraphStore): GraphApi {
     resume: on("resume"),
     restart: on("restart"),
     unpin: on("unpin"),
-    reveal: on("reveal"),
+    // Selecting and focusing are state, and hold without a renderer; centring is the camera's.
+    reveal: (vertex) => {
+      if (renderer) return renderer.reveal(vertex);
+      store.select([vertex], "node", "Node");
+      store.focus(vertex);
+    },
     frameSelection: on("frameSelection"),
     clear: () => {
       store.select(null);
@@ -107,6 +112,7 @@ function build(store: GraphStore): GraphApi {
     attach(host, events) {
       const mounted = createRenderer(host, store, events);
       renderer = mounted;
+      store.setRenderable(mounted !== null);
       return () => {
         mounted?.destroy();
         if (renderer === mounted) renderer = null;

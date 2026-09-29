@@ -53,6 +53,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
   let corpus: Corpus | null = null;
   let opening: PromiseLike<Corpus> | null = null;
   let failed = false;
+  let unrenderable = false;
   let matrix: TileMatrixSet | null = null;
   let typeIndex = 0;
   let modeColumn: string | null = null;
@@ -138,7 +139,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
   }
 
   function statusOf(pending: boolean, visible: readonly TileView[]): GraphStatus {
-    if (failed) return "failed";
+    if (failed || unrenderable) return "failed";
     if (opening) return "opening";
     if (!corpus) return "none";
     return pending || composed !== visible || snapshot.drawn === null ? "reading" : "idle";
@@ -338,6 +339,11 @@ export function createGraph(initial: GraphOptions): GraphStore {
     },
     reportProgress(value) {
       if (value !== snapshot.progress) notify({ progress: value });
+    },
+    setRenderable(renderable) {
+      if (unrenderable === !renderable) return;
+      unrenderable = !renderable;
+      notify();
     },
     reportDrawn(visible, drawn) {
       if (composed === visible && drawn === null) return;
