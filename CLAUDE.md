@@ -79,9 +79,10 @@
 - Do not hand-edit generated files. `check:generated` regenerates `palette-data.json`,
   `themes.css`, `theme-data.json`, `palettes/` and the colour half of `tokens.css`, and fails on a
   diff.
-- **Until the first publish there is one changeset**, and it describes what the packages are — see
-  `/docs/design`. Add to it rather than adding a second. The per-change rule, addressed to a
-  consumer, resumes after that. The *reason* goes on `/docs/design`.
+- **One changeset per change a consumer can see**, in the consumer's words. The tag decides the
+  version, so a changeset is only release notes: it is copied onto the GitHub Release and deleted
+  when that release ships (`.changeset/README.md`). There is no `CHANGELOG.md`. The *reason* goes
+  on `/docs/design`.
 - Other sessions write to this checkout, and `.claude/worktrees/` holds further full copies of the
   repository. Attribute a stray edit before acting on it, commit by explicit path, and exclude
   those worktrees from any repo-wide count.

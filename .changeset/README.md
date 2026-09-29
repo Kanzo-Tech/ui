@@ -1,17 +1,13 @@
 # Changesets
 
-This folder holds [changesets](https://github.com/changesets/changesets). Run
-`pnpm changeset` to record a version bump for the packages you touched; CI turns
-accumulated changesets into version bumps + npm publishes (see
-`.github/workflows/release.yml`).
+This folder holds [changesets](https://github.com/changesets/changesets), and a changeset here is
+**release notes waiting for a release**, nothing else. `pnpm changeset` records one for the packages
+you touched.
 
-**Until the first publish there is one changeset, and it describes what the
-packages are.** Nothing has ever been released, so a note about what changed has
-no released version to change *from*. Fold anything a consumer must know into
-`the-first-release.md` and delete the rest — including any changesets that
-arrive on a merge from another branch. The reasoning, and what reverses it, is
-on `/docs/design`.
+The git tag decides the version (`.github/workflows/release.yml`), so `changeset version` is never
+run and no `CHANGELOG.md` is kept. When a release is published, its notes are written from the
+changesets in this folder onto the GitHub Release, and those changesets are deleted in the same
+change. A changeset present here is therefore one no release has shipped yet.
 
-A changeset addresses a **consumer**. The reason a decision was taken goes on
-`/docs/design`, not here — that split is why the last set of these grew to a
-thousand-odd lines of design prose and three dead component names.
+A changeset addresses a **consumer**: what changed for them, and what to edit if it breaks them. The
+reason a decision was taken goes on `/docs/design`, not here.
