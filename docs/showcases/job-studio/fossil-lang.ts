@@ -10,7 +10,7 @@ import type { Connection } from "./data";
 /**
  * A fossil language for CodeMirror, written HERE and not imported.
  *
- * ADR-0040 retires `@fossil-lang/{ui,editor,codemirror-fossil}` — fossil ships an LSP and its
+ * fossil retired `@fossil-lang/{ui,editor}` — it ships an LSP and its
  * verbs, nothing visual. So the surface a product needs is exactly what `CodeEditor` already
  * models: a domain-free lifecycle core plus an `extensions` slot the consumer fills. This file
  * is that slot, and the showcase is the proof it is enough.
@@ -205,7 +205,7 @@ export function analyse(program: string, connections: Connection[]): Finding[] {
   }
 
   // 1 — a `@conn` that does not exist. The one error only the HOST can detect: fossil treats
-  //     `@weather/x.csv` as opaque text (ADR-0029), so whether `weather` resolves is a keasy
+  //     `@weather/x.csv` as opaque text, so whether `weather` resolves is a keasy
   //     question, not a compiler one. This is the reason the product owns a linter at all.
   for (const ref of connectionRefs(program)) {
     if (!known.has(ref.name)) {

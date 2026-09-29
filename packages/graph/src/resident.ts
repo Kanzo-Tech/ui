@@ -32,7 +32,7 @@ import type { Slice } from "./bounded";
  * where Java and Go both give `1152921504606846977`. JavaScript's `number` is 53 bits and a cell id
  * is 64, and a binding cannot protect a language boundary that cannot hold the value. H3 settled it
  * by decree before anyone could get it wrong: `h3-js` types `H3Index` as a string. This is the same
- * decree with the type JavaScript grew for it. See rmlext ADR-0045.
+ * decree with the type JavaScript grew for it.
  *
  * **And `>>` means three different things across our three layers.** In JavaScript it converts its
  * operand to *32 bits* and takes the shift count modulo 32, so the obvious `dense | (type << 32)`

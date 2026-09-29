@@ -227,7 +227,7 @@ export {
 // have had to read off the renderer itself.
 
 // What a graph of a given size wants, for the host that runs a live layout. Absorbed from
-// `@fossil-lang/viewer` per ADR-0040 — see the file for why it is tuning rather than level of detail.
+// `@fossil-lang/viewer`, which fossil no longer ships — see the file for why it is tuning rather than level of detail.
 export { adaptive } from "./adaptive";
 
 // Theme colours as GPU floats. Exported because a host writing its own buffers needs the same
