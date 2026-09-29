@@ -22,12 +22,16 @@ shipped, not `ui`.
 ```tsx
 import { open } from "@fossil-lang/corpus";
 import { engine } from "@kanzo-tech/ui/analytics";
-import { GraphCanvas, GraphRoot } from "@kanzo-tech/graph";
+import { GraphCanvas, GraphInspector, GraphLegend, GraphRoot, GraphToolbar } from "@kanzo-tech/graph";
 
 const corpus = await open(url, { engine: await engine() });
 
 <GraphRoot corpus={corpus} fill="kind" r="degree" title="label" onFailure={setFailure}>
-  <GraphCanvas />
+  <GraphCanvas>
+    <GraphToolbar />
+    <GraphLegend />
+  </GraphCanvas>
+  <GraphInspector />
 </GraphRoot>;
 ```
 
@@ -36,25 +40,36 @@ const corpus = await open(url, { engine: await engine() });
 **Opening is the host's.** Where the corpus is and what signs it are the host's to say: a corpus at
 a URL opens as `open(url, { engine })`, and a private one under a name with a `host` that lends the
 files, `` open(`jobs/${id}`, { engine, host }) ``. `GraphRoot` takes what came back and never opens
-a second copy; closing it is the host's too. Until it has opened, pass `corpus={null}` — the canvas
-is mounted and waits over an empty surface, because a canvas gated on its first answer has no
-camera to ask with.
+a second copy; closing it is the host's too. **`corpus` takes the opening itself** — the promise
+`open` returns — and the root reports `status: "opening"` until it settles and `onFailure` if it
+does not; `null` is no corpus at all. The canvas is mounted either way and waits over an empty
+surface, because a canvas gated on its first answer has no camera to ask with.
 
 It is the archive the [workspace showcase](/docs/showcases/workspace) draws, opened the same way —
 one world, not a second one written for the docs.
 
-## What the root and the canvas own
+## What the root and the parts own
 
 `GraphRoot` holds the graph's state outside React: the tiles, the channels, the selection, the focus
-and the motion. It is `useGraph` plus a context, and neither renders an element. `GraphCanvas` is the
-element: cosmos.gl's surface, and what the look declares over it — the grid, the vignette, the
-labels, the hover card — plus the marquee and lasso gesture. Its children are chrome positioned over
-it, and each reads the root through `useGraphContext`.
+and the motion. It is `useGraph` plus a context, and neither renders an element. The parts are flat
+and each reads the root: `GraphCanvas` is the element — cosmos.gl's surface, and what the look
+declares over it, the grid, the vignette, the labels, the hover card, plus the marquee and lasso
+gesture — and its children are chrome positioned over it. `GraphLegend`, `GraphToolbar` and
+`GraphInspector` are that chrome, and each is a part of the root rather than of the canvas, so it
+can sit anywhere under it.
+
+**The api is the commands; the state is a selector.** `useGraphContext()` answers with an object
+that never changes — `zoomBy`, `fit`, `frameBox`, `reveal`, `select`, `setTool` and the rest — and
+`useGraphState(selector)` reads a slice of the state and re-renders only when that slice moves. The
+state changes at frame rate, a hover and a tile and a tick of the layout, so a part that read all of
+it would re-render on every hover. It is TanStack Store's `useStore(store, selector)`; inside a
+callback, `api.getState()` reads it without subscribing.
 
 **Policy stays with the host, through the root's callbacks.** A click selects a vertex and its
 neighbours and focuses it; a lasso selects what it encloses; a failure is reported. What the host
-does with each is `onSelect`, `onFocus` and `onFailure`. `onFailure` is the one required prop:
-unhandled, a browser with no WebGL context shows an empty box.
+does with each is `onSelect`, `onFocus` and `onFailure`, and **no part takes a callback of its
+own** — the package's barrel test holds that. `onFailure` is the one required prop: unhandled, a
+browser with no WebGL context shows an empty box.
 
 ### Ark's four: `useGraph` and `GraphRootProvider`
 
@@ -65,18 +80,46 @@ api above the parts:
 
 <ComponentPreview componentName="graph" fileName="example-provider" hasMaxHeight />
 
-The count in the corner is a part: it reads `drawn` — the marks on the canvas and the vertices they
-stand for — and `total`, the manifest's vertex count, which does not shrink with a filter. Over the
+The count in the corner is a part: it selects `drawn` — the marks on the canvas and the vertices they
+stand for — `total`, the manifest's vertex count, which does not shrink with a filter, and `status`,
+which is `opening`, `reading` or `idle` once everything in view is drawn. Over the
 archive every tile is the finest one and the two agree; zoomed out over a larger corpus a mark is a
 cell of fossil's pyramid, and one mark stands for many.
 
-### The canvas's own overlays
+### `GraphToolbar`
 
-<ComponentPreview componentName="graph" fileName="example-overlays" hasMaxHeight />
+<ComponentPreview componentName="graph" fileName="example-toolbar" hasMaxHeight />
 
-Pick a tool and drag a box; Shift borrows the marquee whichever tool is armed, and at release `Alt`
-removes what was drawn while `⌘`/`Ctrl` adds. The tool is the root's state, so the toggle above is a
-part that calls `setTool` and draws nothing else.
+The commands, drawn: the selection tools, the selection and what to do with it, zoom and fit, and —
+when `simulate` is on — the layout's transport. Each cluster is a `ButtonGroup`, because a cluster is
+a claim that its buttons do one job. Pick a tool and drag a box; Shift borrows the marquee whichever
+tool is armed, and at release `Alt` removes what was drawn while `⌘`/`Ctrl` adds. The toolbar
+declares no `toolbar` role: that role promises roving focus, and each button here is its own tab
+stop. `orientation="vertical"` stacks the clusters.
+
+### `GraphLegend`
+
+<ComponentPreview componentName="graph" fileName="example-legend" hasMaxHeight />
+
+The categorical scale the canvas draws, as rows: the glyph, the name, and how many vertices the
+marks of that category stand for in view — then what is drawn of the whole. **A row never moves.**
+The domain is fixed before a tile arrives: a column the manifest's `channels:` declares ranks by its
+own ordinal, and any other ranks by the keys of the root's `categories`, which is also what names the
+values. A category past the palette's capacity is Other, on the legend as on the canvas.
+
+The names are the root's, never the legend's, so the hover card and the inspector say the same
+thing. A legend that renamed a category would be a part encoding one product's policy.
+
+### `GraphInspector`
+
+<ComponentPreview componentName="graph" fileName="example-inspector" hasMaxHeight />
+
+The focused vertex — a click, or `reveal` — read and laid out. A tile carries what the channels
+project and nothing else, so the rest of the row is read when a reader focuses it: one payload tile,
+filtered to one `dense_id`, cancelled when the focus moves on. The fields are the vertex type's, in
+the order the corpus declares them. **`children` is a render prop** that receives the row and draws
+fields of the product's own, a `DataListItem` each — the hall's name above, where the relation
+stores its id.
 
 **A label is the `title` column, read with the tile.** The canvas labels the biggest vertices in view
 by the `r` ramp, up to the look's label budget, with the text of the column `title` binds — so the
@@ -233,9 +276,13 @@ writes it in.
 | --- | --- |
 | `GraphRoot` | `useGraph` plus the context. Renders no element. |
 | `GraphRootProvider` | Takes an api a host built with `useGraph`. |
-| `useGraph` | **Creates** the api: a store created once, subscribed with `useSyncExternalStore`, given the props when one changes. |
-| `useGraphContext` | **Reads** it, from any part under a root. |
+| `useGraph` | **Creates** the api: a store created once and given the props when one changes. |
+| `useGraphContext` | **Reads** it, from any part under a root: the commands, stable for the root's life. |
+| `useGraphState` | A slice of the state, and a render only when it moves. |
 | `GraphCanvas` | The element, the grid, the vignette, the labels, the hover card and the gesture. |
+| `GraphLegend` | The categorical scale the canvas draws, with the tally in view. |
+| `GraphToolbar` | The tools, the selection, zoom and fit, and a live layout's transport. |
+| `GraphInspector` | The focused vertex's row, with a render prop for fields a product adds. |
 | `ShapeGlyph` | The glyph the canvas draws for a category, in the DOM — for a legend key or a card. |
 
 ### The picture
@@ -257,11 +304,15 @@ writes it in.
 
 ### The types
 
-`GraphRootProps` is `UseGraphProps` plus `children`: `corpus`, `type`, the channels, `filterBy`,
-`limit`, `look`, `sim`, `simulate`, `onFailure`, `onSelect` and `onFocus`. `GraphApi` is what a part
-reads — `total`, `z`, `pending`, `drawn`, `selection`, `focus`, `hovered`, `pinned`, `tool`,
-`motion` and `declined`, the `GraphCommands` (`zoomBy`, `fit`, `pause`, `resume`, `restart`,
-`unpin`, `reveal`, `frameSelection`, `clear`), `select`, `setFocus`, `setTool`, and `getGraph` and
-`getResident` for a callback created once. `GraphCanvasProps`, `GraphRootProviderProps` and
-`ShapeGlyphProps` are the parts' props; `Channels`, `Look`, `LookPatch`, `Shape`, `Sim`, `Motion`,
-`Selection`, `SelectionSource`, `Tool`, `VertexId` and `Resident` are the vocabulary.
+`GraphRootProps` is `UseGraphProps` plus `children`: `corpus` (or the promise of it), `type`, the
+channels, `categories`, `filterBy`, `limit`, `look`, `sim`, `simulate`, `onFailure`, `onSelect` and
+`onFocus`. `GraphApi` is the commands — the `GraphCommands` (`zoomBy`, `fit`, `frameBox`, `pause`,
+`resume`, `restart`, `unpin`, `reveal`, `frameSelection`, `clear`), `select`, `setFocus`, `setTool` —
+with `subscribe`, `getState` and `getResident`. `GraphState` is what `useGraphState` selects from:
+`status` (a `GraphStatus`), `total`, `z`, `pending`, `drawn` (a `Drawn`: `marks`, `represented`,
+`domain`, `tally`), `domain`, `selection`, `focus`, `hovered`, `pinned`, `tool`, `motion`,
+`progress`, `declined`, `options` and `corpus`. `GraphCanvasProps`, `GraphLegendProps`,
+`GraphToolbarProps`, `GraphInspectorProps`, `GraphRootProviderProps` and `ShapeGlyphProps` are the
+parts' props, and `VertexDetail` is what the inspector's render prop receives; `Channels`, `Look`,
+`LookPatch`, `Shape`, `Sim`, `Motion`, `Selection`, `SelectionSource`, `Tool`, `VertexId` and
+`Resident` are the vocabulary.

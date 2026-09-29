@@ -7,29 +7,34 @@ the host opens the corpus, and `GraphRoot` draws it by tile — no SQL is writte
 ## Install
 
 ```sh
-pnpm add @kanzo-tech/graph @cosmos.gl/graph @fossil-lang/corpus @kanzo-tech/mosaic @uwdata/mosaic-core @uwdata/mosaic-sql
+pnpm add @kanzo-tech/graph @cosmos.gl/graph @fossil-lang/corpus @kanzo-tech/mosaic @kanzo-tech/ui lucide-react @uwdata/mosaic-core @uwdata/mosaic-sql
 ```
 
 Every peer is required. `@fossil-lang/corpus` reads the corpus, `@kanzo-tech/mosaic` is the page's one
-DuckDB-WASM engine and its crossfilter, and cosmos.gl draws.
+DuckDB-WASM engine and its crossfilter, cosmos.gl draws, and the parts are built from
+`@kanzo-tech/ui` and its icons.
 
 ## The one path
 
 ```tsx
 import { open } from "@fossil-lang/corpus";
 import { engine } from "@kanzo-tech/mosaic";
-import { GraphCanvas, GraphRoot } from "@kanzo-tech/graph";
+import { GraphCanvas, GraphInspector, GraphLegend, GraphRoot, GraphToolbar } from "@kanzo-tech/graph";
 
-const corpus = await open(url, { engine: await engine() });
+const corpus = engine().then((e) => open(url, { engine: e }));
 
 <GraphRoot corpus={corpus} fill="kind" r="degree" title="label" filterBy={crossfilter} onFailure={setFailure}>
-  <GraphCanvas />
+  <GraphCanvas>
+    <GraphToolbar />
+    <GraphLegend />
+  </GraphCanvas>
+  <GraphInspector />
 </GraphRoot>;
 ```
 
 **Opening is the host's.** Where the corpus is and what signs it are the host's to say — a private
-corpus opens as `` open(`jobs/${id}`, { engine, host }) `` — and `GraphRoot` takes what came back.
-Closing it is the host's too.
+corpus opens as `` open(`jobs/${id}`, { engine, host }) `` — and `GraphRoot` takes what came back,
+or the promise of it, which is what lets it say it is opening. Closing it is the host's too.
 
 **The channels are Plot's**: `fill`, `symbol`, `r`, `stroke` and `title`, where a CSS colour is a
 constant and anything else is a column. A column binding is a projection: changing one builds a new
@@ -48,9 +53,13 @@ dropped. A lasso or a click publishes the reader's pick back into it, exempting 
 ## The pieces
 
 - `GraphRoot` — `useGraph` plus the context. `GraphRootProvider` takes an api a host built with
-  `useGraph`; `useGraphContext` reads it — Ark's four, one for one.
+  `useGraph`; `useGraphContext` reads it — Ark's four, one for one. The api is the commands and
+  never changes; `useGraphState(selector)` reads a slice of the state.
 - `GraphCanvas` — the element, the grid, the vignette, the labels, the hover card and the marquee
   and lasso gesture. Children are chrome positioned over it.
+- `GraphLegend`, `GraphToolbar`, `GraphInspector` — the categorical scale with its tally, the
+  commands drawn, and the focused vertex's row with a render prop for a product's own fields. No
+  part takes a callback: what a click means is `onSelect`, `onFocus` and `onFailure` on the root.
 - `lookFrom`, `simFrom`, `useGraphPrefs` — the form and the forces from a preferences panel's
   answers; `scaleOf` — what colour and shape a category wears; `adaptive` — simulation tuning by size.
 - `vertexId`, `typeOf`, `denseOf` — a vertex is `(type_idx, dense_id)` packed into a `bigint`, and

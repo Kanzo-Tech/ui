@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { Corpus } from "@fossil-lang/corpus";
 import { GraphCanvas, GraphRoot, adaptive, lookFrom, simFrom } from "@kanzo-tech/graph";
 import { Alert, AlertDescription, Badge, Show, Switch, ToggleGroup, ToggleGroupItem } from "@kanzo-tech/ui";
 import { useArchive } from "./archive";
@@ -15,14 +16,16 @@ import { useArchive } from "./archive";
  * move while the tiles do not.
  */
 export default function Example() {
-  const { corpus, unopened } = useArchive();
+  const corpus = useArchive();
+  const [opened, setOpened] = useState<Corpus | null>(null);
+  useEffect(() => void corpus?.then(setOpened, () => {}), [corpus]);
   const [failure, setFailure] = useState<string | null>(null);
   const [marks, setMarks] = useState("dense");
   const [bowed, setBowed] = useState(true);
   const [simulate, setSimulate] = useState(false);
   const [fitted, setFitted] = useState(false);
 
-  const total = corpus ? Number(corpus.types.vertices[0]?.count ?? 0) : 0;
+  const total = opened ? Number(opened.types.vertices[0]?.count ?? 0) : 0;
   const fit = useMemo(() => adaptive(total), [total]);
   const values = useMemo(
     () => ({ marks, "bowed-links": String(bowed), links: String(fit.links), labels: "0", grid: "false" }),
@@ -61,10 +64,10 @@ export default function Example() {
       <Show
         fallback={
           <Alert variant="destructive">
-            <AlertDescription>{unopened ?? failure}</AlertDescription>
+            <AlertDescription>{failure}</AlertDescription>
           </Alert>
         }
-        when={unopened === null && failure === null}
+        when={failure === null}
       >
         <GraphRoot
           corpus={corpus}

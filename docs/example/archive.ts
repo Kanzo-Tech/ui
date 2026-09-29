@@ -203,3 +203,17 @@ export function archiveScale(): { contracts: number; reports: number; nodes: num
     nodes: contracts + reports + MEMBERS.length + BEASTS.length + REGIONS.length + TAGS.length,
   };
 }
+
+/**
+ * What a vertex of the archive's graph is, and what each kind is called — the `kind` column the
+ * compiled corpus carries, in the order a legend ranks them. The corpus declares no domain for it,
+ * so this order is the one every colour is decided by.
+ */
+export const ARCHIVE_KINDS = {
+  contract: "Contract",
+  report: "Field report",
+  tag: "Tag",
+  beast: "Beast",
+  member: "Member",
+  region: "Region",
+} as const;
