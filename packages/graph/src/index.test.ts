@@ -24,16 +24,15 @@ import * as GRAPH from "./index";
  * the Mosaic stack will not be called `onceQuery` either.
  *
  * The absence below is the cheap half and it is not the proof: Mosaic IS installed in this
- * workspace, so `./index` would import happily even with the re-export back. What proves it is
- * `pnpm smoke`, which packs the tarball, installs it with none of the optional peers and imports the
- * root barrel there. This file's job is to make the *intent* fail loudly at the moment somebody
- * writes the export, minutes before the tarball would.
+ * workspace, so `./index` would import happily even with the re-export back. Nothing proves it any
+ * more: the install smoke test that imported the packed root barrel without the peers was deleted on
+ * 2026-09-29. This file makes the *intent* fail loudly at the moment somebody writes the export.
  *
  * ## What this guard cannot prove
  *
  * - **Nothing about the built artefact, and nothing about the peers.** It imports `./index`, which
- *   is source, in a workspace where every optional peer is present. `pnpm smoke` is the only thing
- *   that sees the packed `dist/` in a tree without them.
+ *   is source, in a workspace where every optional peer is present. Nothing sees the packed `dist/`
+ *   in a tree without them.
  * - **Nothing about shape, and there is no behaviour left here to check.** `toBeTypeOf("function")`
  *   is satisfied by any function. There used to be two assertions below that *ran* something —
  *   `memorySource` answering a slice, and the same source sampling a window it could not fit — and
@@ -439,12 +438,10 @@ describe("@kanzo-tech/graph public surface", () => {
    * a second implementation of sampling, anchoring and the link-length discard, in JavaScript,
    * running nowhere but its own tests.
    *
-   * **What goes with it is a guarantee, and it is worth naming rather than mourning.**
-   * `scripts/smoke-install.mjs` used to install the tarball with no optional peer and *draw* — the
-   * only behavioural proof anywhere that the root barrel did not reach the Mosaic stack. There is
-   * nothing on this barrel left to draw with, so what that check asserts now is that the barrel
-   * **imports** under those conditions, which is the weaker half of the same door and the half that
-   * actually broke once.
+   * **What went with it is a guarantee, and it is worth naming rather than mourning.** The install
+   * smoke test used to install the tarball with no optional peer and *draw* — the only behavioural
+   * proof anywhere that the root barrel did not reach the Mosaic stack. With nothing left to draw
+   * with, and that test itself deleted on 2026-09-29, the door is held by the absence above alone.
    *
    * **What would reverse it:** a host that genuinely holds arrays and cannot compile a corpus — a
    * live simulation over a few thousand points, which is the case `adaptive` and `simulate` are

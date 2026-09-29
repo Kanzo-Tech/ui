@@ -27,8 +27,7 @@ import {
  *
  * So the trap is real and it belongs to a CONSUMER who writes a chart in a Server Component: the
  * marks vanish and the plot renders empty, with no error anywhere. Nothing catches that today —
- * `client-boundary.test.ts` matches shape and this file's shape is pure, `pnpm smoke` compares
- * built bytes against source, and the docs RSC build only exercises the client path our own
+ * `client-boundary.test.ts` matches shape and this file's shape is pure, and the docs RSC build only exercises the client path our own
  * examples take. Fixing it properly means either the directive plus an exception in that guard for
  * descriptor modules, or a check that a `chartDescriptor` element type survives the boundary. Both
  * are decisions rather than edits, so this says what is true instead of pretending it is handled.

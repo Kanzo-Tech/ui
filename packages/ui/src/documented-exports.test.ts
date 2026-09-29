@@ -8,8 +8,7 @@ import { beforeAll, describe, expect, it } from "vitest";
  * A page may not document a symbol the library does not export.
  *
  * This is the defect that recurred more than any other, and nothing in the pipeline could see it:
- * `tsc` never reads MDX, the docs build renders prose without evaluating it, and `pnpm smoke`
- * compares bytes of a tarball. In two days it happened five separate times.
+ * `tsc` never reads MDX and the docs build renders prose without evaluating it. In two days it happened five separate times.
  *
  * - Eleven pages named a `useX` context alias after an export audit deleted it; one of them named
  *   it inside an import block, so the example on the page did not compile.

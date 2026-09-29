@@ -66,11 +66,11 @@
   `pnpm typecheck` on a clean tree cannot resolve `@kanzo-tech/theme` at all. `docs/` consumes
   `dist/` for the same reason: a rename typechecks clean while the docs build fails.
 - Before calling work done, in this order: `pnpm build`, `typecheck`, `lint`, `check:generated`,
-  `test`, `size`, `smoke`, then `pnpm --filter @kanzo-tech/docs build`. `smoke` packs the real
-  tarballs and installs them without the optional peers, which is the only check that sees the
-  built artefact rather than the source. The docs build is the RSC fixture, and the only thing that
-  *evaluates* the client boundary — Vite ignores the directive entirely, and `smoke` can only
-  compare bytes.
+  `test`, `size`, then `pnpm --filter @kanzo-tech/docs build` and `publint` — `pnpm verify` runs
+  exactly that list. The docs build is the RSC fixture, and the only thing that *evaluates* the
+  client boundary — Vite ignores the directive entirely. Nothing installs the packed tarballs any
+  more: the install smoke test was deleted on 2026-09-29, so a defect that lives only in `dist/`
+  (a lost `"use client"`, an optional peer reached from a root barrel) is caught by no gate.
   - **`size` is green, and was red for a long time before it was.** The analytics subpath sat over
     the 60 kB limit set in `5a0c880`; `eb63d16` rebaselined it to 68 kB once the theme context left
     the provider, and it measures 66.24 kB. Every step now passes on a clean tree, so treat any

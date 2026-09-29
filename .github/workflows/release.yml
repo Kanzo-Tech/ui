@@ -13,8 +13,7 @@ name: Release
 # `packages/ui` depends on `@kanzo-tech/theme` and `@kanzo-tech/mosaic` through
 # `workspace:*`, which pnpm rewrites to their exact versions at pack time: a ui
 # published without them names a version the registry does not have, so
-# `npm install` fails outright (check 1 of `scripts/smoke-install.mjs` is that
-# exact failure). `graph` and `ai` peer-depend on `ui` and carry the coupling one
+# `npm install` fails outright. `graph` and `ai` peer-depend on `ui` and carry the coupling one
 # step further out.
 #
 # `@kanzo-tech/auth` names none of them and is the one package that could move on

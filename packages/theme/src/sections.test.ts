@@ -25,7 +25,7 @@ import {
  *   it, or the one-way door this design exists to keep shut would be open inside the test suite.
  * - **It cannot see a section nobody declares.** The whole point is that the core does not know
  *   what sections exist, so "is every `--graph-*` in this document declared somewhere?" is a
- *   question only a host with that package installed can ask. `pnpm smoke` covers the other half —
+ *   question only a host with that package installed can ask, and nothing asks the other half —
  *   that a consumer *without* it still resolves a whole document.
  * - **Fallback and validation can disagree by design.** Resolution answers from the cascade before
  *   it ever reaches a manifest, so a token that validation would reject can still resolve, if

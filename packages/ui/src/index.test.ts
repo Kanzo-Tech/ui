@@ -36,8 +36,8 @@ import * as UI from "./index";
  *
  * - **Nothing about the built artefact.** It imports `./index`, which is source. `docs/` resolves
  *   the package to `dist/`, which is how a rename typechecks clean and breaks the docs build.
- *   `documented-exports.test.ts` is the file that reads the emitted `.d.ts`; `pnpm smoke` is the
- *   one that installs the tarball without the optional peers.
+ *   `documented-exports.test.ts` is the file that reads the emitted `.d.ts`; nothing installs the
+ *   tarball without the optional peers.
  * - **Nothing about shape.** `toBeTypeOf("function")` is satisfied by any function. A component
  *   that renders nothing, a hook that throws, a recipe whose variant keys were all renamed — each
  *   passes. The one binding checked by identity rather than by type is checked in
