@@ -36,8 +36,7 @@
  * ## This door must never reach React's client half
  *
  * The modules behind it import `./server` and `./claims` directly and never `./index`, for the
- * reason `server.ts`'s own header gives. `next.test.ts` walks the relative imports from here, and
- * `scripts/smoke-install.mjs` reads the built bytes.
+ * reason `server.ts`'s own header gives. `next.test.ts` walks the relative imports from here.
  *
  * ## Why one barrel does not put `openid-client` on the edge
  *

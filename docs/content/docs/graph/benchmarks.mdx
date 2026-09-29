@@ -105,7 +105,7 @@ asks `fossil` itself to write one runs in no CI job. Two implementations of one 
 diffed against each other and agreed, because they made the same mistake. The guard that does bear on
 this, `spatial-tiles`, is exercised on a **300-vertex** corpus in five tiles; measured here on
 `bench/1000000` its number is 0.89% against a bound of 50%, which is a property the published fixture
-is far too small to have. `BENCHMARKS.md` carries both.
+is far too small to have.
 
 **Writing is bounded by the machine, and that part is structural.** The whole build peaks at 20.72
 GiB at ten million — 404.4 seconds, for 1.5 GB of corpus — and the curve has no ceiling in it:
@@ -144,14 +144,12 @@ the artefact, already sorted. A pass that scanned it and kept only `community[u]
 <Callout type="warn" title="Two harnesses, two graphs — do not read across the charts">
 The memory charts come from two processes: the whole build at the generator's own degree, and
 fossil's `enrich_memory` at mean degree 10. Louvain's state follows degree as well as N, so the
-series are comparable *within* a chart and not *between* them. `BENCHMARKS.md` carries the
-run-by-run figures and the one row of fossil's own documentation that did not reproduce.
+series are comparable *within* a chart and not *between* them.
 </Callout>
 
 ## The claim is not flat, and the reason is the edge join
 
-`BENCHMARKS.md` carries the recorded runs and the arguments. The one thing worth knowing before you
-read a table: first paint **does** grow with the corpus, and the growing term is the slice rather
+The one thing worth knowing before you read a table: first paint **does** grow with the corpus, and the growing term is the slice rather
 than the upload — the upload is flat, around thirty milliseconds at every size.
 
 Which part of the slice is a live question and the obvious answer is measured wrong. The edge join
@@ -162,8 +160,7 @@ the whole extent, so every tile intersects and every one is opened.
 
 There is a second, sharper cost measured the same way: this reader hands DuckDB every chunk URL and
 prunes with a `WHERE`, so it skips no row group — and a corpus tiled finely for a reader that *does*
-skip costs it several times over. That is the strongest argument for an addressed reader, and it is
-written up in `BENCHMARKS.md` with the isolation that produced it.
+skip costs it several times over. That is the strongest argument for an addressed reader.
 
 <Callout type="warn" title="A flat line is a cache until proven otherwise">
 Run twice on one page, this sweep once reported a beautiful flat 60–71 ms at every size including a
@@ -176,3 +173,45 @@ first size also pays for DuckDB-WASM booting and fetching its httpfs extension, 
 `threads` rides along in every row because a page that is not cross-origin isolated gets a
 single-threaded DuckDB however many cores the machine has.
 </Callout>
+
+## Recorded runs
+
+Two tables survive from the long record this page used to point at. The rest of it — forty sections
+of runs, levers that turned out not to exist and their isolation — was deleted on 2026-09-29 because
+nothing read it any more; `git show 441257a:BENCHMARKS.md` is where it is kept.
+
+### The engine
+
+`Per step` is the mean of batched `graph.step()` calls flushed by a `getPointPositions()`
+readback, so it is real GPU work. `Step ceiling` is what that cost implies on its own.
+`Frames` counts cosmos.gl's own `onSimulationTick` over a wall-clock window — not our waits:
+counting `requestAnimationFrame` published a flat 60 fps at every size, which is the monitor's
+number, not the graph's.
+
+**Read `Step ceiling`, not `Frames`, to judge whether a layout keeps up.** The two disagree on
+purpose. WebGL commands queue without the CPU waiting, so the loop keeps presenting frames at
+vsync while the GPU falls behind — the picture is smooth and stale at once. Only the readback
+in `Per step` forces the queue to drain, which is why it is the honest one. Where they converge
+(1M) the queue has stopped absorbing the difference.
+
+| Nodes | Links | Generate | Upload | Per step | Step ceiling | Frames |
+|---|---|---|---|---|---|---|
+| 2k | 12.5k | 5 ms | 60 ms | 1.52 ms | 656 fps | 120 fps |
+| 10k | 69.3k | 15 ms | 79 ms | 4.35 ms | 230 fps | 120 fps |
+| 50k | 331.6k | 65 ms | 192 ms | 10.03 ms | 100 fps | 80 fps |
+| 200k | 1.4M | 454 ms | 751 ms | 61.00 ms | 16 fps | 61 fps |
+
+
+### Bounded, over a compiled corpus — superseded
+
+Measured cold on 2026-08-01, M4 Pro, at a tile size fossil has since retired and through a reader that
+handed DuckDB every chunk URL. It is the source of the "five hundred times the corpus for 2.6× the
+first paint" figure, and it is history, not a current number.
+
+
+| Nodes | Links | Attach | `total()` | First slice | Upload | **First paint** | Pan | Redraw | Shown / matched |
+|---|---|---|---|---|---|---|---|---|---|
+| 2k | 12.5k | 130 ms | 14 ms | 61 ms | 25 ms | **100 ms** | 21 ms | 0.47 ms | 2k / 2k |
+| 10k | 69k | 36 ms | 18 ms | 35 ms | 30 ms | **86 ms** | 24 ms | 2.98 ms | 10k / 10k |
+| 50k | 332k | 37 ms | 17 ms | 43 ms | 30 ms | **90 ms** | 33 ms | 2.83 ms | 20k / 50k |
+| 200k | 1.37M | 37 ms | 16 ms | 74 ms | 41 ms | **132 ms** | 48 ms | 1.41 ms | 20k / 200k |

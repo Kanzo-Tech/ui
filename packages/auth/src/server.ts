@@ -33,7 +33,7 @@ import { AuthError, type AuthErrorCode, type Session, type SignInOptions } from 
  * **This module must not reach React.** It imports its siblings directly — `./claims`, never
  * `./index` — because importing the root barrel would drag React into a Node process. That is not
  * a hypothetical: it is the exact defect that forced `@kanzo-tech/mosaic` out of
- * `@kanzo-tech/ui`, and `scripts/smoke-install.mjs` asserts the built bytes for it.
+ * `@kanzo-tech/ui`, and `server.test.ts` asserts it over source.
  *
  * ## Framework-agnostic on purpose
  *

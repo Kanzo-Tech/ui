@@ -15,7 +15,7 @@ A file stays here only if it is one of two things, and its header says which:
   nobody cites is a file whose evidence should have moved.
 
 Everything else goes. The design prose lives on the site (`/docs/philosophy`, `/docs/conventions`,
-`/docs/design`), the numbers live in `BENCHMARKS.md`, and the rules that must not be forgotten are
+`/docs/design`), the numbers live on `/docs/graph/benchmarks`, and the rules that must not be forgotten are
 guard tests. This directory is the residue, and it should be shrinking.
 
 **If a line here and the tree disagree, the tree wins and the line is a bug in this file.** That is
@@ -26,16 +26,13 @@ kept for had been sent where they belonged.
 
 ## What is here
 
-| file | kind | what it is, and what was verified on 2026-08-26 |
+| file | kind | what it is, and what was verified on 2026-09-29 |
 |---|---|---|
-| `ADOPT-FOSSIL-CORPUS.md` | **live** | The graph plan. F0 and F1 are done; **F2, F3 and F4 are not.** The current plan of record for `packages/graph`. |
-| `ONE-PATH.md` | **live** | The architecture behind F2–F4. Steps 1, 2, 5, 7, 8, 9 are struck and confirmed struck; **steps 3, 6 and 10 are open and are in no other plan.** |
-| `ONE-SOURCE.md` | **live** | §1 and §2 are done — the workspace opens through `openCorpus`. **§3 and §4 are what F3 actually costs**, and §4 is the only enumeration of the five call sites the deletion breaks. Read the header before executing §3. |
+| `ONE-PATH.md` | **live** | Steps 3, 6 and 10 are open. The plan of 2026-09-29 supersedes how they close: fossil's `corpus.scan()` becomes the one query, `openCorpus` and `./duckdb` go, and step 10's chrome moves into the package. Delete this file when that lands. |
 | `DOCS-QUALITY.md` | **live** | The docs worklist of 2026-08-04. Re-verified row by row: nine rows and two DECISIONs are genuinely still open, the rest are closed or moot. Header carries the split. |
-| `FAR-VIEW-AND-EDGES.md` | **evidence** | The working behind the 3 px edge cut and the far-end anchors. Cited by `packages/graph/src/bounded.ts` in three places and by `duck-source.test.ts`. |
+| `FAR-VIEW-AND-EDGES.md` | **evidence** | The working behind the 3 px edge cut and the far-end anchors. Cited by `packages/graph/src/bounded.ts` in three places. |
 | `FORMS-DECISION.md` | **evidence** | Why the library gets no validation model. Cited by `/docs/design/admission` as *the full reasoning*. |
 | `LAYOUT-ARK-NATIVE-REVIEW.md` | **evidence** | Why "Ark-native" is a category error for layout. Cited by `/docs/design/references` as *Held by*. |
-| `HISTORY-CROSSED.md` | **evidence** | Which commit actually brought which change, when parallel sessions committed a shared index. Not derivable from `git log`, which is the point. |
 
 ## Carried forward from the twenty-five that went
 
@@ -44,8 +41,6 @@ belongs here, and this section should empty rather than grow.
 
 **Open work, unowned**
 
-- **`packages/ui/package.json:4` still sells "Level 1 / Level 2"** — the vocabulary was abolished
-  everywhere else. It is the npm landing description, and the last instance in the repo.
 - **No `LICENSE` file and no `repository` field** in any `package.json`. Both matter at the first
   publish and at no point before it.
 - **Nothing guards a dead name in prose.** `decisions/` was a machine-checked format; the 62 rules
@@ -59,12 +54,10 @@ belongs here, and this section should empty rather than grow.
 - **The Zag report on `Steps` was drafted and never filed.** `/docs/conventions` still says the
   divergence is owed an upstream report.
 - **`build-corpus.mjs` does not check its binary.** It should refuse, or warn, when `FOSSIL_BIN`
-  predates the last commit touching the layout — which is exactly the command `ADOPT-FOSSIL-CORPUS`
-  F0 documents.
+  predates the last commit touching the layout.
 - **Five docs pages carry an API section and no preview**: `(root)/theming`, `forms/validation`,
   `ai/index`, `analytics/index`, `graph/benchmarks`. `AiMark` and `cleanGhost` are in no example.
-- **The tile payload format is undecided** — Parquet against Arrow IPC for a tile. `BENCHMARKS.md`
-  forward-references this question and nothing answers it.
+- **The tile payload format is undecided** — Parquet against Arrow IPC for a tile. Nothing answers it.
 
 **Two that were sent and are therefore no longer here**
 
@@ -93,8 +86,8 @@ belongs here, and this section should empty rather than grow.
 - **The other repo publishes us as its existence proof.** `rmlext/apps/corpus/…/reading/without-fossil.mdx`
   names us: *«kanzo-ui reads fossil-written corpora with no `@fossil-lang/*` dependency at all,
   reimplementing the read shape against DuckDB and Mosaic.»* If our reader diverges from a
-  convention, the page that goes false is theirs — and adopting `openCorpus` is precisely the
-  dependency that sentence denies. F2 owes that page a line.
+  convention, the page that goes false is theirs. We now depend on `@fossil-lang/corpus`, so that
+  sentence is false and their page owes a correction.
 - **4,096 was derived twice, independently, from opposite ends** — their `λ·β` argument over range
   requests and our tile measurement — and agreed. That is the reason to trust the number, and it is
   the kind of agreement that cannot be manufactured.

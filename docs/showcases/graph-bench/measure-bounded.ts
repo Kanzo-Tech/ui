@@ -18,7 +18,7 @@ import { CANVAS, host, nextFrame } from "./measure";
  *
  * **First paint** should collapse, because the work stops scaling with the corpus and starts
  * scaling with the window. Holding the whole relation cost 1,225 ms at 200,000 nodes to show a
- * picture — the figure `BENCHMARKS.md` keeps as a record, since ADR-0001 deleted the path that
+ * picture — the figure the benchmark record (`git show 441257a:BENCHMARKS.md`) keeps, since ADR-0001 deleted the path that
  * produced it — and this should pay for twenty thousand marks whatever N is.
  *
  * **Panning** should appear from nowhere. Unbounded loads once and then pans on the GPU for free;
@@ -157,7 +157,7 @@ const MIN_LINK_PIXELS = 3;
  *
  * Left as it is because changing it moves every recorded figure, and the simulation is off and the
  * view is fitted from the measured extent, so what it costs is not visible in the timings. It is an
- * open item, not a resolved one — see BENCHMARKS.md before trusting a *picture* from this harness.
+ * open item, not a resolved one — see the benchmark record (`git show 441257a:BENCHMARKS.md`) before trusting a *picture* from this harness.
  */
 const RENDER_SPACE = 8_192;
 const PANS = 6;
@@ -208,7 +208,7 @@ function duckThreads(coordinator: Coordinator): Promise<number> {
 /**
  * Does DuckDB-WASM answer two connections at once, or one after the other?
  *
- * `BENCHMARKS.md` twice called concurrent queries the largest single win on this list, reasoning
+ * the benchmark record (`git show 441257a:BENCHMARKS.md`) twice called concurrent queries the largest single win on this list, reasoning
  * that a pan costs the *sum* of its three queries where it could cost the *max*. That arithmetic is
  * sound and the conclusion does not follow from it: `threads = 1` here, DuckDB-WASM lives in one
  * worker, and every query reaches it over one message port. If connections do not overlap, issuing
@@ -261,7 +261,7 @@ export async function probeConnectionOverlap(): Promise<{
  * The sweep answers *does the curve stay flat in N*; this answers *what did that change cost*, over
  * one corpus, in three postures a reader actually meets — a window arrived at cold, the same window
  * again, and a window half a screen along. It is the shape the tile cache was measured in
- * (`BENCHMARKS.md`, 2026-08-17: 82 ms cold, 3 ms repeat, 41 ms overlapping pan) and keeping it makes
+ * (benchmark record, 2026-08-17: 82 ms cold, 3 ms repeat, 41 ms overlapping pan) and keeping it makes
  * the next change comparable with that row instead of with a memory of it.
  *
  * **Mosaic's cache is cleared and DuckDB's is not**, and there is no way to clear the second from a

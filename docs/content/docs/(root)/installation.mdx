@@ -104,8 +104,9 @@ the one you open.
 | `@kanzo-tech/auth/server` | the confidential client, framework-agnostic | `openid-client`, `jose` |
 | `@kanzo-tech/auth/next` | App Router routes, middleware and a session reader | `next` |
 
-The two server doors are Node's, and nothing on them reaches React — `pnpm smoke` reads the packed
-bytes to say so, rather than trusting this sentence.
+The two server doors are Node's, and nothing on them reaches React —
+`packages/auth/src/server.test.ts` imports them without React to say so, rather than trusting this
+sentence.
 
 </Step>
 

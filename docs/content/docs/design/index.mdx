@@ -147,8 +147,9 @@ emitted.
 **What would reverse it.** A consumer that is not Tailwind v4 — the decision is that there is none.
 Or `@source` gaining module resolution, which would collapse streamdown's two lines to one.
 
-*Held by* `scripts/smoke-install.mjs`, `cssContract`, which compiles the three lines against the
-packed tarballs.
+*Held by* nothing. The install smoke test compiled these three lines against the packed tarballs
+until 2026-09-29, when it was deleted; a wrong `@source` path now shows up as a consumer's missing
+styles, not as a red gate.
 
 ## A chart fails silently and well-painted
 

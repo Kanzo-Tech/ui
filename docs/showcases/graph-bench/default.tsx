@@ -106,7 +106,7 @@ declare global {
  * **There used to be a third, and its absence is the result.** `+ our pipeline` measured `load()`:
  * the whole relation into typed arrays, every id, an id→index map. ADR-0001 deleted that path, and a
  * benchmark cannot measure code that is gone — keeping it alive to be measured is the shim the
- * repository's own rule forbids. Its numbers stay in `BENCHMARKS.md`, dated and attributed to the
+ * repository's own rule forbids. Its numbers stay on `/docs/graph/benchmarks`, dated and attributed to the
  * machine that produced them, which is what a record is for. The comparison they justified is
  * settled; what is still worth running is whether the surviving path holds its shape.
  */
@@ -123,7 +123,7 @@ const LAYERS: { id: Layer; label: string; hint: string }[] = [
 ];
 
 /**
- * What holding the whole corpus cost, at 200,000 nodes, on the machine in `BENCHMARKS.md`.
+ * What holding the whole corpus cost, at 200,000 nodes, on the machine `/docs/graph/benchmarks` names.
  *
  * A number rather than a column, because the path that produced it was deleted by ADR-0001 and a
  * benchmark cannot run code that is gone. It is here so the bounded figure has something to be
@@ -145,7 +145,7 @@ const HELD_FIRST_PAINT_MS = 1_225;
  * first paint and 30 ms of pan, from 2026-07-31 — a corpus written at a tile size fossil has since
  * retired, read by a source that handed DuckDB every chunk URL and pruned with a `WHERE`. Both sides
  * of that changed, so the numbers described a system that no longer exists while sitting beside live
- * ones that did. `BENCHMARKS.md` keeps them where a superseded measurement belongs.
+ * ones that did. the benchmark record (`git show 441257a:BENCHMARKS.md`) keeps them where a superseded measurement belongs.
  */
 const RECORDED = {
   firstPaintMs: 299,
@@ -163,7 +163,7 @@ const RECORDED = {
   redrawFps: 708,
 } as const;
 
-/** The same recorded run, for the control condition. `BENCHMARKS.md` layer 1, 200,000 nodes. */
+/** The same recorded run, for the control condition. `/docs/graph/benchmarks`, the engine table, 200,000 nodes. */
 const RECORDED_ENGINE = {
   stepMs: 61,
   ceilingFps: 16,
@@ -322,7 +322,7 @@ const SHAPES: { id: Shape; label: string; hint: string }[] = [
  * Sizes the preview offers — all the way to a million, which is as far as the renderer goes.
  *
  * Stopping at 200,000 is a limit of the **fixture**, not of the renderer, and the distinction is
- * the whole point. Drawing a million precomputed points is cheap — `BENCHMARKS.md` records it.
+ * the whole point. Drawing a million precomputed points is cheap — `/docs/graph/benchmarks` records it.
  * *Building* a million-node graph in this tab is not: generation is 454 ms at 200,000 and scales
  * with N, the upload is 751 ms for 1.4M links and there are seven million at a million nodes, and
  * the preview does both synchronously in an effect that never yields. That is six seconds of frozen
@@ -334,12 +334,12 @@ const SHAPES: { id: Shape; label: string; hint: string }[] = [
  * **The real answer is not to build the corpus here at all.** A Parquet corpus written once by
  * fossil and read by address never generates anything in the browser — which is exactly the
  * larger-than-RAM half ADR-0001 records as unmeasured, and what would make a million nodes cost the
- * same as two thousand. Layer 4 of `BENCHMARKS.md` is that measurement: 253 ms at a million.
+ * same as two thousand. The superseded bounded table on `/docs/graph/benchmarks` is that measurement: 253 ms at a million.
  */
 const PREVIEW_SIZES = [2_000, 10_000, 50_000, 200_000];
 
 /**
- * Where a live layout stops being viable, from `BENCHMARKS.md` — 61 ms a step at 200,000, and
+ * Where a live layout stops being viable, from `/docs/graph/benchmarks` — 61 ms a step at 200,000, and
  * 441 ms at a million.
  *
  * Kept as its own number rather than folded into the size list, because it is a fact about the
@@ -1116,7 +1116,7 @@ export function GraphBenchShowcase() {
 
       <ShellFooter className="h-9 flex-row items-center gap-2 border-t px-4 text-muted-foreground text-xs">
           <span>
-            Measured in this tab, on this machine. `BENCHMARKS.md` carries the recorded run.
+            Measured in this tab, on this machine. /docs/graph/benchmarks carries the recorded run.
           </span>
           <span className="ms-auto tabular-nums">
             {layer === "engine"

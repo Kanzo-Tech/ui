@@ -26,7 +26,7 @@ export default defineConfig({
         // A third, and the one that must never reach React: `openid-client` and `jose` run in a
         // Node process. Reaching them through the root barrel would drag a provider and three hooks
         // into a server — the exact shape of the defect that forced `@kanzo-tech/mosaic` out of
-        // `@kanzo-tech/ui`, which is why `scripts/smoke-install.mjs` reads these bytes.
+        // `@kanzo-tech/ui`.
         server: resolve(__dirname, "src/server.ts"),
         // A fourth, thin over the third: `./server` speaks strings, so this is only the mapping to
         // `Request`/`Response`, `next/headers` and `next/server`. The middleware half must stay

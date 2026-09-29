@@ -89,7 +89,7 @@ nothing.
 
 ## Scale
 
-Measured, not asserted — see `BENCHMARKS.md` at the repository root, and
+Measured, not asserted — see the [benchmarks page](https://kanzo-tech.github.io/ui/docs/graph/benchmarks), and
 `/view/showcases/graph-bench` to re-run it.
 
 A live simulation is comfortable to about **50,000** points and finished by **200,000** (a step

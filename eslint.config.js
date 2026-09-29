@@ -40,7 +40,7 @@ export default tseslint.config(
         // A Node global since 18, and `package.json` requires >=20, so a script that talks to a
         // network (`packages/ui/scripts/refresh-shark-surface.mjs`) needs no import for it.
         fetch: "readonly",
-        // `run-bench.mjs` drives a page: these appear inside `page.evaluate` callbacks, which are
+        // `measure-previews.mjs` drives a page: these appear inside `page.evaluate` callbacks, which are
         // serialised and run in the browser, not here.
         document: "readonly",
         window: "readonly",

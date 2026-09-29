@@ -162,8 +162,7 @@ pnpm add @kanzo-tech/auth openid-client jose   # a server
 ```
 
 The two Node doors never reach React: they import the modules under the root barrel directly, so a
-server process does not pull a component library in behind an import of an OAuth client. `pnpm smoke`
-reads the installed bytes for it.
+server process does not pull a component library in behind an import of an OAuth client.
 
 ## The realm it expects
 

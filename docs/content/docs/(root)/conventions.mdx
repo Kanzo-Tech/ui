@@ -132,8 +132,8 @@ from it and belong to whoever writes the file:
   them.
 - **The build must preserve the directives**: `preserveModules` plus
   `rollup-plugin-preserve-directives`. Rollup strips them when it merges modules, and that failure
-  is invisible to any Vite-based harness, because Vite ignores `"use client"` entirely. `pnpm smoke`
-  and the docs App Router build are what catch it.
+  is invisible to any Vite-based harness, because Vite ignores `"use client"` entirely. The docs App
+  Router build is what catches it.
 
 ## Comments
 
@@ -214,13 +214,13 @@ enforces more, and less, than a row could say. **Read the file.**
 
 ### Three things a guard owes
 
-- **Say what it cannot prove.** `pnpm smoke` compares the bytes of a built artefact, so it catches
-  Rollup dropping a `"use client"` directive and cannot tell you the boundary is in the right
-  *place*; only the docs RSC build evaluates that. A guard that states its own blind spot is one
+- **Say what it cannot prove.** `client-boundary.test.ts` reads source, so it can tell you a
+  stateful file says `"use client"` and cannot tell you Rollup kept the directive in `dist/`; only
+  the docs RSC build evaluates that. A guard that states its own blind spot is one
   nobody over-trusts.
 - **Mutation-test it.** Write the violation, watch the assertion fail with the message you meant,
-  then remove it. A guard nobody has seen fail is a guard nobody has tested. The leak check in
-  `pnpm smoke` guarded two symbols that had never existed in this repository, so it could not fail
+  then remove it. A guard nobody has seen fail is a guard nobody has tested. The install smoke test
+  this repository used to run guarded two symbols that had never existed here, so it could not fail
   and did not, for months.
 - **Parse, do not grep, and never let the corpus shrink silently.** `charts/chart-inputs.tsx`
   contained a raw NUL byte, which made `file(1)` and every `grep -I` treat the largest file in the

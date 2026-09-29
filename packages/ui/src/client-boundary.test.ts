@@ -18,20 +18,18 @@ import { label, resolvePath, sourceFiles, subtrees, unreadable } from "./guard-c
  *   `/analytics` export.
  * - 59 files carried the directive and needed none, each one losing server rendering for nothing.
  *
- * Neither CI nor `pnpm smoke` catches any of that. The CI workflow says so in writing: removing the
- * directive from a thin Ark wrapper does not fail the build, because Ark ships it on its own files
- * and the boundary is already established one level down. And `react-dom/server` outside an RSC
- * bundler ignores the directive entirely, so the smoke test's `renderToString` passes either way.
+ * CI does not catch any of that, and says so in writing: removing the directive from a thin Ark
+ * wrapper does not fail the build, because Ark ships it on its own files and the boundary is already
+ * established one level down.
  *
  * So the invariant is checked here, statically, the way `no-literal-hues` is.
  *
  * ## What this guard cannot prove
  *
  * - **It is a shape match, not an evaluation.** Only the docs RSC build *runs* the boundary; this
- *   asks whether a file looks stateful and whether it says so. `pnpm smoke` compares the bytes of a
- *   built artefact, so it catches Rollup dropping a directive and cannot tell you the boundary is
- *   in the right place. Three different checks, three different claims, and this is the weakest of
- *   them — it is also the only one that runs in under a second.
+ *   asks whether a file looks stateful and whether it says so. Nothing checks that Rollup kept the
+ *   directive in `dist/`. Two checks, two claims, and this is the weaker — it is also the only one
+ *   that runs in under a second.
  * - **Comments are NOT stripped, on purpose.** A docblock quoting `useSidebar()` will make this
  *   guard demand the directive on a file that does not need one. That is the safe direction to be
  *   wrong in: the cost is one file losing server rendering, against a Server Component throwing at

@@ -4,7 +4,7 @@ import type { Sim } from "./graph-sim";
  * How a graph of *this size* should be drawn — force coefficients and two render
  * switches, interpolated continuously against node count.
  *
- * Absorbed from `@fossil-lang/viewer`'s `getAdaptiveConfig` per ADR-0040, which files it under
+ * Absorbed from `@fossil-lang/viewer`'s `getAdaptiveConfig` when fossil stopped shipping a viewer, which filed it under
  * "level-of-detail policy". Reading it, that is not quite what it is, and the difference matters:
  * almost all of it is **simulation tuning** — repulsion, friction, spring, gravity — plus two
  * genuinely render-side switches. Level of detail in the bounded sense is the sample a source takes

@@ -14,7 +14,7 @@
  * `ui` is the generic vocabulary shared by every product. A sibling package is also the only place
  * a required WebGL peer belongs.
  *
- * **The measurements that shape it** are in `BENCHMARKS.md`: a live simulation is comfortable to
+ * **The measurements that shape it** are on `/docs/graph/benchmarks`: a live simulation is comfortable to
  * about 50,000 points and finished by 200,000, and past that the honest design is positions
  * precomputed once and stored as a column — which is why a simulation is opt-in here and off by
  * default, and why the render path is bounded rather than fast.
@@ -151,15 +151,14 @@ export {
 // `@kanzo-tech/ui/analytics` back when that was where a coordinator came from. So
 // `import { GraphCanvas } from "@kanzo-tech/graph"` threw ERR_MODULE_NOT_FOUND for every host that
 // had not installed an optional peer, while four places in this package promised the opposite.
-// `scripts/smoke-install.mjs` holds the door shut now — and the name itself is gone from the
-// repository: a `DuckSource` is a client of the page's coordinator, so there is no second query
+// The name itself is gone from the repository: a `DuckSource` is a client of the page's coordinator, so there is no second query
 // path left for a throwaway client to be.
 //
 // The Mosaic half now comes from `@kanzo-tech/mosaic`, and the difference is not cosmetic. Reaching
 // it through the charts barrel meant `./duckdb` also pulled `@uwdata/vgplot`, which nothing here
 // uses, so a host that installed the two peers this package documented still could not open the
 // subpath — and vgplot had to be declared a peer to hide it. Nothing on this path names @uwdata at
-// all now, and `scripts/smoke-install.mjs` asserts that rather than trusting this paragraph.
+// all now.
 //
 // A client is not re-exported here under any name. The one on `@kanzo-tech/graph/duckdb` is the
 // source's own mouth and is not a thing to hand around; the generic shape — a view whose positions
@@ -228,7 +227,7 @@ export {
 // have had to read off the renderer itself.
 
 // What a graph of a given size wants, for the host that runs a live layout. Absorbed from
-// `@fossil-lang/viewer` per ADR-0040 — see the file for why it is tuning rather than level of detail.
+// `@fossil-lang/viewer`, which fossil no longer ships — see the file for why it is tuning rather than level of detail.
 export { adaptive } from "./adaptive";
 
 // Theme colours as GPU floats. Exported because a host writing its own buffers needs the same

@@ -185,9 +185,9 @@ ceremony. Short of that, the reversal is a measurement anyone can take — an en
 consumer installs anyway is not paying for its door.
 
 <Callout type="warn">
-**The client boundary in this package is compared, never evaluated.** `pnpm smoke` checks that every
-module carrying `"use client"` in `src/` still carries it in `dist/`, which catches Rollup dropping a
-directive and nothing else. The guard that asks whether the directive is in the *right place*,
+**The client boundary in this package is never evaluated.** Nothing checks that a module carrying
+`"use client"` in `src/` still carries it in `dist/` — the install smoke test that compared those
+bytes was deleted on 2026-09-29. The guard that asks whether the directive is in the *right place*,
 `packages/ui/src/client-boundary.test.ts`, runs over the corpus in
 `packages/ui/src/guard-corpus.ts` — every package declaring `tailwind-variants` — and `auth`
 deliberately declares none, because nothing here draws. So `graph` and `auth` share one hole, and
@@ -198,8 +198,7 @@ declaring `react` as a peer.** It is named here rather than fixed because it is 
 file that two packages' guards read.
 </Callout>
 
-*Held by* `scripts/smoke-install.mjs`, "auth's root barrel names no engine" and "auth's Node doors
-reach the claim reader without reaching React"; `packages/auth/src/server.test.ts`, "imports no
+*Held by* `packages/auth/src/server.test.ts`, "imports no
 React, no barrel and no component from the server door".
 
 ## Membership is in the session; the active organization is not

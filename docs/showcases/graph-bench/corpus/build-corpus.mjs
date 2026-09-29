@@ -130,7 +130,7 @@ function build(size, fossil) {
  * `1 << 12`. Nothing here reads the manifest, so a number written down on this side is a number
  * that can fall behind; `measure-bounded.ts` says what that costs and now asserts against it.
  *
- * The measurement it existed for is kept in `BENCHMARKS.md` and its answer was no, twice: at a
+ * The measurement it existed for is kept in the benchmark record (`git show 441257a:BENCHMARKS.md`) and its answer was no, twice: at a
  * million the slice went 219 ms → 229/244 ms, and at five million — the size the first result was
  * excused with — 611 groups took the slice from 974 ms to 1,072 ms. Per-group metadata cost more
  * than the pruning saved. What chunks change is not that, it is that a chunk is a URL a browser and

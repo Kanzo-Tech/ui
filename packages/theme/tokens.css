@@ -4,8 +4,7 @@
  * This file used to have two halves: a hand-written one and a generated one carrying a compiled
  * palette document. **The generated half is gone**, and with it the thirteen-stage derivation that
  * produced it. A theme is now `themes/<name>.css` — one flat block of about fifty-five
- * declarations that a person writes, pastes, reviews and diffs. See
- * `.planning/THEME-REFOUNDATION.md`.
+ * declarations that a person writes, pastes, reviews and diffs. See `/docs/design/colour`.
  *
  * What is left here is the bridge: `@theme inline` is what makes `bg-primary` and
  * `text-muted-foreground` resolve to a theme's tokens and follow it live. Plus the shape scale, the

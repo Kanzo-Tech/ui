@@ -1,8 +1,7 @@
 // Measures every docs preview and writes `components/preview-heights.json`.
 //
-// It drives the real pages rather than reimplementing the layout, which is the same reason
-// `showcases/graph-bench/run-bench.mjs` drives its route: one measurement harness, and no second
-// copy to disagree with the first.
+// It drives the real pages rather than reimplementing the layout: one measurement harness, and no
+// second copy to disagree with the first.
 //
 // **Why at build time and not in the browser.** A client measurement would be right, and would
 // resize every frame once per page load, forever, to learn a number that does not change between

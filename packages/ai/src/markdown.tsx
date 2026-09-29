@@ -25,8 +25,8 @@ import { cn } from "@kanzo-tech/ui";
  *
  * So it lives here, behind `@kanzo-tech/ai/markdown`, with `streamdown` as an **optional peer** —
  * the same door `@kanzo-tech/ui/editor` stands behind for CodeMirror and `@kanzo-tech/graph/duckdb`
- * for Mosaic, and `scripts/smoke-install.mjs` is what holds it shut: it packs the real tarball,
- * installs it *without* the optional peers, and imports the root barrel.
+ * for Mosaic. Nothing installs the tarball without the peers any more, so the door is held only by
+ * `index.ts` never naming `./markdown` — the `size` budget is what would notice it opening.
  *
  * ## The animation is Streamdown's now, not ours
  *

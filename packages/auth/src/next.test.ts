@@ -73,8 +73,7 @@ describe("@kanzo-tech/auth/next", () => {
   /**
    * The rule that cost `@kanzo-tech/ui` a package: a server door must not reach React's client
    * half. `./index` re-exports a provider and three hooks, so importing it from here would put
-   * them in a Node process — and `scripts/smoke-install.mjs` reads the built bytes for exactly
-   * this, on the sibling door, which is a slower way to find out.
+   * them in a Node process. This walk over source is the only check left for it.
    */
   it("reaches no client module", () => {
     const modules = [...reachable("next")];

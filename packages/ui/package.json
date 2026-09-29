@@ -1,7 +1,7 @@
 {
   "name": "@kanzo-tech/ui",
   "version": "0.1.0",
-  "description": "Kanzo shared UI — Ark UI + tailwind-variants primitives (Level 1) and domain-free shells (Level 2), token-themed.",
+  "description": "Kanzo shared UI — domain-free components over Ark UI and tailwind-variants, themed by tokens.",
   "type": "module",
   "license": "MIT",
   "sideEffects": [
