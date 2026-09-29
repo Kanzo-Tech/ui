@@ -196,7 +196,7 @@ function bboxSql(c: Columns, view: Viewport): string {
  * **In SQL rather than in JavaScript because the number it divides is only known inside the query.**
  * `matched` is a window aggregate over the rows the `WHERE` kept, so a caller wanting to compute
  * this outside would have to count first and slice second — two round trips down a connection that
- * answers one at a time, which is the shape `BENCHMARKS.md` records as a hung tab rather than a slow
+ * answers one at a time, which is the shape the benchmark record describes as a hung tab rather than a slow
  * one. As a column reference it costs the pass that was being made anyway.
  *
  * `greatest(1, …)` because an empty window makes the divisor zero, and a modulo by zero is an error

@@ -14,7 +14,7 @@
  * `ui` is the generic vocabulary shared by every product. A sibling package is also the only place
  * a required WebGL peer belongs.
  *
- * **The measurements that shape it** are in `BENCHMARKS.md`: a live simulation is comfortable to
+ * **The measurements that shape it** are on `/docs/graph/benchmarks`: a live simulation is comfortable to
  * about 50,000 points and finished by 200,000, and past that the honest design is positions
  * precomputed once and stored as a column — which is why a simulation is opt-in here and off by
  * default, and why the render path is bounded rather than fast.

@@ -8,7 +8,7 @@
     "build": "pnpm -r build",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "//lint": "packages *and* docs. `docs/` was outside this for as long as it existed, so 13,000 lines of showcase went unlinted — including the four Node scripts that produce BENCHMARKS.md.",
+    "//lint": "packages *and* docs. `docs/` was outside this for as long as it existed, so 13,000 lines of showcase went unlinted.",
     "lint": "eslint packages docs",
     "size": "pnpm -r size",
     "changeset": "changeset",

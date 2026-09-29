@@ -27,7 +27,7 @@ export interface Sim {
  *
  * Chosen against a corpus of that size, and they are a starting point rather than a law: a graph
  * two orders of magnitude larger wants less repulsion and more friction, and the measurements in
- * `BENCHMARKS.md` say a live simulation is finished by around 200,000 points regardless. What a
+ * `/docs/graph/benchmarks` say a live simulation is finished by around 200,000 points regardless. What a
  * corpus of a given size wants is computed rather than chosen — see `adaptive` — and a host that
  * knows its corpus should start its users at that answer through the tenant policy.
  *
