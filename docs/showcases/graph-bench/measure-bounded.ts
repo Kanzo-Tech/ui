@@ -2,8 +2,8 @@
 
 import { createElement, useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import { open, type Corpus, type Scan, type TileAddress } from "@fossil-lang/corpus";
-import { GraphCanvas, GraphRoot, useGraphContext, type GraphApi } from "@kanzo-tech/graph";
+import { open, type Box, type Corpus, type Scan, type TileAddress } from "@fossil-lang/corpus";
+import { GraphCanvas, GraphRoot, useGraphContext, useGraphState, type GraphApi } from "@kanzo-tech/graph";
 import { type Coordinator, type Engine, engine, numbers } from "@kanzo-tech/ui/analytics";
 import { CANVAS, host, nextFrame, visible } from "./measure";
 
@@ -254,25 +254,25 @@ function counted(corpus: Corpus, watch: Watch): Corpus {
 
 function Probe({ watch }: { watch: Watch }) {
   const api = useGraphContext();
+  const drawn = useGraphState((s) => s.drawn);
   useEffect(() => {
-    if (watch.api?.drawn !== api.drawn && api.drawn !== null) {
-      watch.drawnAt = performance.now();
-      watch.firstDrawnAt ||= watch.drawnAt;
-    }
     watch.api = api;
-  }, [api, watch]);
+    if (drawn === null) return;
+    watch.drawnAt = performance.now();
+    watch.firstDrawnAt ||= watch.drawnAt;
+  }, [api, drawn, watch]);
   return null;
 }
 
-/** Until something is on the canvas, nothing is loading, and that has held for `QUIET_MS`. */
+/** Until the graph says it is idle, no read is in flight, and that has held for `QUIET_MS`. */
 async function settle(watch: Watch): Promise<void> {
   const started = performance.now();
   let quietSince: number | null = null;
   for (;;) {
     if (watch.failure) throw new Error(watch.failure);
-    const api = watch.api;
+    const state = watch.api?.getState();
     const now = performance.now();
-    const calm = api !== null && api.drawn !== null && !api.pending && watch.inflight === 0;
+    const calm = state?.status === "idle" && watch.inflight === 0;
     if (!calm) quietSince = null;
     else if (quietSince === null) quietSince = now;
     else if (now - quietSince >= QUIET_MS) return;
@@ -381,12 +381,11 @@ export async function measureGraph(path: string, options: { limit?: number } = {
     sample.requests = first.requests;
     sample.bytes = first.bytes;
     const api = watch.api as GraphApi | null;
-    sample.marks = api?.drawn?.marks ?? 0;
-    sample.represented = api?.drawn?.represented ?? 0;
-    sample.z = api?.z ?? null;
-
-    const graph = api?.getGraph();
-    if (!graph) throw new Error("the canvas never attached a renderer");
+    if (!api) throw new Error("the root never mounted");
+    const drawn = api.getState();
+    sample.marks = drawn.drawn?.marks ?? 0;
+    sample.represented = drawn.drawn?.represented ?? 0;
+    sample.z = drawn.z;
 
     sample.fpsIdle = await framesPerSecond();
 
@@ -395,31 +394,31 @@ export async function measureGraph(path: string, options: { limit?: number } = {
     const w = Math.min(extent.w, Math.sqrt(share * extent.w * extent.h * aspect));
     const h = Math.min(extent.h, w / aspect);
     const cy = extent.y + extent.h / 2;
-    const at = (cx: number) => [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2];
+    const at = (cx: number): Box => ({ x: cx - w / 2, y: cy - h / 2, w, h });
     const step = (extent.w - w) / PANS;
     const x0 = extent.x + w / 2;
 
-    const move = async (box: number[]): Promise<Move> => {
+    const move = async (box: Box): Promise<Move> => {
       await traffic.start();
       const before = watch.log.length;
       const started = performance.now();
       watch.drawnAt = 0;
       watch.lastReadAt = 0;
-      graph.fitViewByPointPositions(box, 0, 0);
+      api.frameBox(box, { duration: 0, padding: 0 });
       await settle(watch);
       const reads = watch.log.slice(before);
       const scans = reads.filter((r) => r.kind === "scan").length;
       const done = Math.max(watch.drawnAt, watch.lastReadAt);
       const { bytes, requests } = await traffic.read();
-      const now = watch.api as GraphApi | null;
+      const now = api.getState();
       return {
         ms: done > started ? done - started : 0,
         reads: scans,
         edgeReads: reads.length - scans,
         requests,
         bytes,
-        z: now?.z ?? null,
-        marks: now?.drawn?.marks ?? 0,
+        z: now.z,
+        marks: now.drawn?.marks ?? 0,
         changed: watch.drawnAt > started,
       };
     };
@@ -433,7 +432,7 @@ export async function measureGraph(path: string, options: { limit?: number } = {
     const sway = Math.max(step, w / 8) / 4;
     const xEnd = x0 + step * PANS;
     sample.fpsPanning = await framesPerSecond((frame) =>
-      graph.fitViewByPointPositions(at(xEnd - sway * (frame % 8)), 0, 0),
+      api.frameBox(at(xEnd - sway * (frame % 8)), { duration: 0, padding: 0 }),
     );
     await settle(watch);
     return sample;
