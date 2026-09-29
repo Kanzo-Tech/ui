@@ -30,7 +30,7 @@
   also needs is on the pages beside it — the recipe and the recipe/inline line on `styling.mdx`,
   the token vocabulary on `theming.mdx`.
 - `docs/content/docs/design/` — why the library is like this: what earns a name, the references and
-  who wins, names and slots, the colour document, and the bounded reader. Six pages behind a
+  who wins, names and slots, the colour document, and the graph view. Six pages behind a
   maintainers' divider on the site (`/docs/design`), and the only copy: there is no `decisions/`. A
   rule that has been reversed is replaced by the sentence that replaced it, never kept beside the
   tree with a header saying so.

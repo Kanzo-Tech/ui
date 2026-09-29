@@ -8,6 +8,14 @@ buffers that colour it from the page's own theme, and the hooks that own the ren
 
 It is a **sibling** of `@kanzo-tech/ui`, not part of it.
 
+<Callout type="warn">
+**This page describes what ships today, and the package is being rebuilt.** [The graph
+view](/docs/design/graph) is the architecture it is rebuilt to: a tileset over fossil's scan in place
+of the sampled window, the parts in place of chrome at the call site, and no source contract or
+`./duckdb` entry at all. Where the two disagree, the design page is the target and this page is
+rewritten with the code.
+</Callout>
+
 ## Why it is not in the library
 
 [The first admission rule](/docs/philosophy#admission) is *domain-free — nothing about RDF /
@@ -81,7 +89,7 @@ hook has to sit beside the canvas.
 
 This page said for a long time that there was no canvas component at all. That argument was right
 about the chrome and wrong about what sat underneath it; what changed and what would change it back
-is on [the bounded reader](/docs/design/graph).
+is on [the graph view](/docs/design/graph).
 
 **The split is proven unevenly, and it is worth being exact about where.** The *source* half has two
 call sites: the workspace showcase and `graph-bench/measure-bounded.ts`, which drives `openCorpus`,
@@ -240,7 +248,7 @@ drawing tile.
 stopped growing with the corpus — 73 ms at two hundred thousand against 72 at a million. First paint
 got *slower*, and that is the trade rather than a defect: the opening view is the whole extent, so
 every tile intersects it and there are no bytes to skip. [Benchmarks](/docs/graph/benchmarks) has the
-figures and [the bounded reader](/docs/design/graph) has the argument, including why the camera
+figures and [the graph view](/docs/design/graph) has the argument, including why the camera
 is not one of fossil's verbs — it was, and it was deleted.
 
 **A point is addressed by index and identified by pair.** cosmos.gl numbers points by their position
