@@ -192,7 +192,7 @@ function ArchiveCanvas() {
 			<GraphCanvas />
 			{/* Chrome, at the four corners: what is selected and the tools that select it on top,
 			    the legend and the camera below. All of it floats over a WebGL surface it never talks
-			    to — each one publishes into the crossfilter or calls a command the canvas registered.
+			    to — each one publishes into the crossfilter or calls one of the graph's commands.
 			    The look lives in Settings, because a canvas you are reading should not carry the
 			    controls for how it was drawn. */}
 			<GraphSelection />

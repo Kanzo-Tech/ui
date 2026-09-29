@@ -227,35 +227,20 @@ function IsoDateInput({
 
 // ── Legend and counts ────────────────────────────────────────────────────────
 
-/** The legend draws the glyph the canvas draws, so a look that encodes kind as shape stays legible. */
 /**
- * The domain the swatches are drawn against — **sorted**, and that is not a tidy-up.
- *
- * A slice carries category *ordinals*, not names, and the ordinal is whatever the source ranked the
- * column into: `dense_rank() OVER (ORDER BY kind)`, which is alphabetical. `KINDS` is the fixture's
- * declared order, and the two are not the same list — this corpus has six kinds and `member` sits
- * fifth here and third alphabetically. Left unsorted this legend would name colours the canvas gives
- * to different kinds.
- *
- * The gap the old comment called hypothetical — the cross-panel binding problem, Vega-Lite's
- * `resolve: {scale: {color: shared}}` — is now load-bearing, because the binding is a number crossing
- * a query boundary rather than a string both sides happen to agree on. Sorting is the whole of the
- * agreement: the source ranks by value, so the domain is the distinct values in that same order.
+ * The legend draws the glyph the canvas draws. The rank the canvas gave a kind is its place in the domain it drew — values seen so far, sorted —
+ * so the swatch reads it back rather than assuming every kind is on screen. `-1` for one not drawn.
  */
-const LEGEND_DOMAIN = Object.keys(KINDS).sort();
-
-/** A category name to the ordinal the canvas knows it by. `-1` for a kind the corpus does not hold. */
-const ordinalOf = (kind: string): number => LEGEND_DOMAIN.indexOf(kind);
-
 function LegendSwatch({ kind }: { kind: string }) {
-  const { arrangement } = useGraphView();
+  const { arrangement, domain } = useGraphView();
   const capacity = useChartCapacity();
   const scale = scaleOf(PAIRINGS[arrangement], capacity);
+  const rank = domain.indexOf(kind);
   return (
     <ShapeGlyph
       className="size-2.5 shrink-0"
-      color={scale.color(ordinalOf(kind))}
-      shape={scale.shape(ordinalOf(kind))}
+      color={scale.color(rank)}
+      shape={scale.shape(rank)}
     />
   );
 }

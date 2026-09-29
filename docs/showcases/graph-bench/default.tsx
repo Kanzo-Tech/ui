@@ -46,8 +46,7 @@ import {
   TableHeader,
   TableRow,
 } from "@kanzo-tech/ui";
-import { categoricalCapacity, categoricalColor } from "@kanzo-tech/ui";
-import { resolveToken, toHex, type Rgba } from "@kanzo-tech/graph";
+import { categoricalCapacity, categoricalColor, resolveTokenColor } from "@kanzo-tech/ui";
 import type { Generated } from "./generate";
 import {
   generate,
@@ -101,7 +100,7 @@ declare global {
  *
  * `engine` is cosmos.gl fed typed arrays straight from a generator: the most the GPU can do with
  * nothing of ours in the way. `bounded` is the same graph arriving as a real one does, through a
- * source that answers rectangles — DuckDB, a slice, `buffers()`, then the upload.
+ * corpus fossil opens and `GraphRoot` draws, a tile read per camera move.
  *
  * **There used to be a third, and its absence is the result.** `+ our pipeline` measured `load()`:
  * the whole relation into typed arrays, every id, an id→index map. ADR-0001 deleted that path, and a
@@ -153,14 +152,6 @@ const RECORDED = {
   shown: 20_000,
   matched: 200_000,
   atNodes: 200_000,
-  /**
-   * The renderer's ceiling at the same size, from layer 4 — layer 3 never measured it.
-   *
-   * Two layers in one constant, which is worth the seam: the tile it feeds exists to be read
-   * *against* the update rate beside it, and a placeholder there would leave the page's sharpest
-   * comparison blank until someone waits out a sweep.
-   */
-  redrawFps: 708,
 } as const;
 
 /** The same recorded run, for the control condition. `/docs/graph/benchmarks`, the engine table, 200,000 nodes. */
@@ -210,29 +201,19 @@ function Headline(props: {
             value={`${format(1000 / RECORDED.panMs, 1)} /s`}
           />
           <StatTile
-            label="Redraw ceiling · recorded"
-            value={`${format(RECORDED.redrawFps, 0)} fps`}
-          />
-          <StatTile
             label="Shown of matched · recorded"
             value={`${compact(RECORDED.shown)} / ${compact(RECORDED.matched)}`}
           />
         </div>
       );
     }
-    const paint = done.map((s) => s.totalMs + s.firstSliceMs + s.uploadMs);
+    const paint = done.map((s) => s.firstPaintMs);
     const first = paint.at(-1) ?? 0;
     return (
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile
           label={`First paint at ${compact(last.pointCount)}`}
           value={`${format(first, 0)} ms`}
-          // Down is the good direction here, which is not the tile's default — a first paint that
-          // grew would be the whole argument failing.
-          //
-          // The comparison names its own basis, because the compiled sweep ends at a million while
-          // the held figure is a 200,000 one. An unlabelled percentage there would read as
-          // like-for-like and be understating itself by a factor of five.
           delta={{
             value: Math.round(((first - HELD_FIRST_PAINT_MS) / HELD_FIRST_PAINT_MS) * 100),
             goodWhenUp: false,
@@ -241,36 +222,20 @@ function Headline(props: {
           }}
           trend={paint}
         />
-        {/*
-          The two rates, next to each other, because neither means anything alone.
-
-          A benchmark that published one "fps" here would be publishing whichever of them flattered
-          it. The renderer's ceiling is hundreds of frames a second and never follows N — the slice
-          cannot exceed the limit — so quoting it would say the view is fast when what a reader
-          feels at a million is a picture that becomes *correct* ten times a second. Quoting only
-          the update rate would blame the renderer for a cost that is entirely the query's.
-
-          The canvas itself never waits: geometry is pushed when a slice lands and the last one
-          keeps being drawn meanwhile, so the picture moves at the display's rate throughout. What
-          the pair measures is the gap between moving and being right.
-        */}
         <StatTile
-          label="Updates per second"
-          value={`${format(1000 / last.panMs, 1)} /s`}
-          // The cost that did not exist before: holding the corpus pans on the GPU for free.
-          trend={done.map((s) => 1000 / s.panMs)}
+          label="Pan"
+          value={`${format(last.panMs, 0)} ms`}
+          trend={done.map((s) => s.panMs)}
         />
         <StatTile
-          label="Redraw ceiling"
-          value={`${format(1000 / last.drawMs, 0)} fps`}
-          // Follows the slice's *links*, not the corpus — which is why a million is the cheapest of
-          // all of them, and why this number is here to be ruled out rather than admired.
-          trend={done.map((s) => 1000 / s.drawMs)}
+          label="Per pan"
+          value={`${format(last.readsPerPan, 1)} reads · ${bytes(last.bytesPerPan)}`}
+          trend={done.map((s) => s.bytesPerPan ?? 0)}
         />
         <StatTile
-          label="Shown of matched"
-          value={`${compact(last.returned)} / ${compact(last.matched)}`}
-          trend={done.map((s) => s.returned)}
+          label="Frames while panning"
+          value={last.fpsPanning === null ? "tab hidden" : `${format(last.fpsPanning, 0)} fps`}
+          trend={done.map((s) => s.fpsPanning ?? 0)}
         />
       </div>
     );
@@ -348,6 +313,19 @@ const PREVIEW_SIZES = [2_000, 10_000, 50_000, 200_000];
  */
 const LIVE_LAYOUT_CEILING = 200_000;
 
+type Rgba = [number, number, number, number];
+
+/** A theme colour as the four 0..1 floats `setPointColors` takes. */
+function rgba(host: Element, value: string): Rgba {
+  const token = value.trim().replace(/^var\(\s*|\s*\)$/g, "");
+  const [r = 179, g = 179, b = 179, a = 1] = resolveTokenColor(host, token).match(/-?[\d.]+/g)?.map(Number) ?? [];
+  return [r / 255, g / 255, b / 255, a];
+}
+
+/** cosmos.gl's config colours go through d3-color, which wants hex. */
+const hex = ([r, g, b]: Rgba) =>
+  `#${[r, g, b].map((c) => Math.round(Math.min(1, Math.max(0, c)) * 255).toString(16).padStart(2, "0")).join("")}`;
+
 /**
  * One RGBA per point, keyed by community.
  *
@@ -359,7 +337,7 @@ function communityColors(data: Generated, host: Element): Float32Array {
   const capacity = categoricalCapacity(host);
   const palette: Rgba[] = [];
   for (let slot = 0; slot < capacity; slot++) {
-    palette.push(resolveToken(host, categoricalColor(slot, undefined, capacity)));
+    palette.push(rgba(host, categoricalColor(slot, undefined, capacity)));
   }
   const colors = new Float32Array(data.pointCount * 4);
   for (let i = 0; i < data.pointCount; i++) {
@@ -376,6 +354,13 @@ function format(value: number, digits = 1): string {
   });
 }
 
+function bytes(value: number | null): string {
+  if (value === null) return "—";
+  if (value >= 1_048_576) return `${format(value / 1_048_576, 1)} MB`;
+  if (value >= 1_024) return `${format(value / 1_024, 0)} kB`;
+  return `${format(value, 0)} B`;
+}
+
 function compact(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(value % 1_000_000 ? 1 : 0)}M`;
   if (value >= 1_000) return `${(value / 1_000).toFixed(value % 1_000 ? 1 : 0)}k`;
@@ -383,16 +368,10 @@ function compact(value: number): string {
 }
 
 /**
- * The bounded path, and the two numbers that decide whether it is worth it.
- *
- * `First paint` should stop scaling with the corpus — it is the cost of a window, not of N.
- * `Pan` is the cost that did not exist before: unbounded loads once and moves the camera on the
- * GPU for free, while this asks the database every time. A bounded path that pans slowly is not an
- * improvement, it is a different kind of unusable, so the column stays even though it flatters
- * nothing.
- *
- * `Shown / matched` is the honesty column. When they differ the view is not showing everything in
- * the rectangle, and a reader is owed that.
+ * The bounded path as a host runs it: fossil's `open`, then `GraphRoot` and `GraphCanvas`. `First
+ * paint` is mount to a quiet canvas; `Reads` and `Bytes` are what it took. `Pan` is the cost that did
+ * not exist before — a camera move is tile reads — so it stays beside its reads and bytes. `Zoom` is
+ * the pyramid level drawn at first paint and after zooming in, of how many there are.
  */
 function BoundedTable(props: {
   sizes: number[];
@@ -406,11 +385,10 @@ function BoundedTable(props: {
       when={samples.length > 0 || running}
       fallback={
         <p className="px-4 py-6 text-sm text-muted-foreground">
-          Run the sweep to push {sizes.map(compact).join(" · ")} through the bounded path — ask the
-          total, take one slice of the visible rectangle capped at{" "}
-          {compact(BOUNDED_LIMIT)} marks, upload it, then pan six times across the space.
-          Nothing here ever holds the whole graph, and nothing here builds one: the corpus is read
-          from Parquet over HTTP, which is why the sweep reaches a million.
+          Run the sweep to open {sizes.map(compact).join(" · ")} with fossil and draw each with{" "}
+          <code>GraphRoot</code> at {compact(BOUNDED_LIMIT)} marks — first paint, then a zoom into a
+          window and six pans across the extent, counting every tile read and every byte DuckDB
+          fetched. Nothing is built in this tab: the corpus is Parquet over HTTP.
         </p>
       }
     >
@@ -418,19 +396,17 @@ function BoundedTable(props: {
         <TableHeader>
           <TableRow>
             <TableHead>Nodes</TableHead>
-            <TableHead className="text-right">total()</TableHead>
-            <TableHead className="text-right">First slice</TableHead>
-            {/* The same rectangle read with the identity column, as an absolute rather than a
-                delta. A delta is what this column was first, and the first sweep came back negative
-                at two sizes — the two queries read overlapping bytes and whichever runs second
-                reads them warm, which is DuckDB's page cache and not a saving. `namedSliceMs` says
-                why the subtraction is gone. */}
-            <TableHead className="text-right">With subject</TableHead>
-            <TableHead className="text-right">Upload</TableHead>
+            <TableHead className="text-right">Open</TableHead>
             <TableHead className="text-right">First paint</TableHead>
+            <TableHead className="text-right">Reads</TableHead>
+            <TableHead className="text-right">Bytes</TableHead>
+            <TableHead className="text-right">Zoom in</TableHead>
             <TableHead className="text-right">Pan</TableHead>
-            <TableHead className="text-right">Redraw</TableHead>
-            <TableHead className="text-right">Shown / matched</TableHead>
+            <TableHead className="text-right">Reads/pan</TableHead>
+            <TableHead className="text-right">Bytes/pan</TableHead>
+            <TableHead className="text-right">Marks</TableHead>
+            <TableHead className="text-right">Zoom</TableHead>
+            <TableHead className="text-right">Frames</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -440,54 +416,46 @@ function BoundedTable(props: {
               <Show
                 when={!sample.failure}
                 fallback={
-                  <TableCell colSpan={8} className="text-destructive">
+                  <TableCell colSpan={11} className="text-destructive">
                     {sample.failure}
                   </TableCell>
                 }
               >
-                <TableCell className="text-right tabular-nums">
-                  {format(sample.totalMs, 0)} ms
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {format(sample.firstSliceMs, 0)} ms
-                </TableCell>
-                {/* Read beside `First slice`, never subtracted from it — the two share a warm page
-                    cache, so the difference is not a cost. The IRI count rides along because a zero
-                    there is the one thing that would mean the column never came back at all. */}
                 <TableCell className="text-right tabular-nums text-muted-foreground">
-                  <Show when={sample.named > 0} fallback={<span>—</span>}>
-                    {format(sample.namedSliceMs, 0)} ms · {compact(sample.named)}
-                  </Show>
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {format(sample.uploadMs, 0)} ms
+                  {format(sample.openMs, 0)} ms
                 </TableCell>
                 <TableCell className="text-right font-medium tabular-nums">
-                  {format(sample.totalMs + sample.firstSliceMs + sample.uploadMs, 0)} ms
+                  {format(sample.firstPaintMs, 0)} ms
                 </TableCell>
                 <TableCell className="text-right tabular-nums">
+                  {sample.reads} + {sample.edgeReads}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">{bytes(sample.bytes)}</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {format(sample.zoomIn.ms, 0)} ms
+                </TableCell>
+                <TableCell className="text-right font-medium tabular-nums">
                   {format(sample.panMs, 0)} ms
                 </TableCell>
-                {/* The renderer's own ceiling, beside `Pan` so the two are read together: this one
-                    never follows N because the slice never exceeds the limit, which is what makes
-                    `Pan` the number that decides how the view feels.
-
-                    A rate rather than the millisecond it was measured in, because the tile above
-                    states it as one and a reader should not have to invert 2.67 ms in their head to
-                    check it against "374 fps". Every other column here is a latency, where ms is
-                    the right unit; this is the one column that is a frequency. */}
+                <TableCell className="text-right tabular-nums">{format(sample.readsPerPan, 1)}</TableCell>
+                <TableCell className="text-right tabular-nums">{bytes(sample.bytesPerPan)}</TableCell>
                 <TableCell className="text-right tabular-nums text-muted-foreground">
-                  {format(1000 / sample.drawMs, 0)} fps
+                  {compact(sample.marks)} / {compact(sample.represented)}
                 </TableCell>
                 <TableCell className="text-right tabular-nums text-muted-foreground">
-                  {compact(sample.returned)} / {compact(sample.matched)}
+                  {sample.z ?? "—"} → {sample.zoomIn.z ?? "—"} / {sample.zooms - 1}
+                </TableCell>
+                <TableCell className="text-right tabular-nums text-muted-foreground">
+                  <Show when={sample.fpsIdle !== null} fallback={<span>tab hidden</span>}>
+                    {format(sample.fpsIdle ?? 0, 0)} / {format(sample.fpsPanning ?? 0, 0)} fps
+                  </Show>
                 </TableCell>
               </Show>
             </TableRow>
           ))}
           <Show when={running && samples.length < sizes.length}>
             <TableRow>
-              <TableCell colSpan={9} className="text-muted-foreground">
+              <TableCell colSpan={12} className="text-muted-foreground">
                 <span className="inline-flex items-center gap-2">
                   <Spinner className="size-3" /> {stage ?? "measuring"}…
                 </span>
@@ -589,7 +557,7 @@ export function GraphBenchShowcase() {
       spaceSize: SPACE,
       // The theme's surface, resolved against this element. Left unset, cosmos.gl pins a dark plane
       // of its own and the canvas becomes the one panel on the page that ignores light mode.
-      backgroundColor: toHex(resolveToken(element, "var(--background)")),
+      backgroundColor: hex(rgba(element, "var(--background)")),
       // Off past the ceiling: a simulation that needs half a second a step is not a layout, it is a
       // stall with a progress bar. The generator's positions are already a real layout.
       enableSimulation: previewSize <= LIVE_LAYOUT_CEILING,
@@ -751,11 +719,7 @@ export function GraphBenchShowcase() {
         if (stop.current) break;
         setCurrent(size);
         for (let i = 0; i < 3; i++) await nextFrame();
-        const sample = await measureBounded({
-          pointCount: size,
-          cancelled: () => stop.current,
-          onStage: setStageLabel,
-        });
+        const sample = await measureBounded({ pointCount: size, onStage: setStageLabel });
         collected.push(sample);
         setBoundedSamples([...collected]);
         publish({ bounded: [...collected] }, true, false);

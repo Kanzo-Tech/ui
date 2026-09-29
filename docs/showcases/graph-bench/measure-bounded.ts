@@ -1,238 +1,129 @@
 "use client";
 
-import { Graph } from "@cosmos.gl/graph";
-import { type Coordinator, engine, numbers } from "@kanzo-tech/ui/analytics";
-import { shouldSlice, type Slice } from "@kanzo-tech/graph";
-import { open } from "@fossil-lang/corpus";
-import { openCorpus } from "@kanzo-tech/graph/duckdb";
-import type { BoundedSource } from "@kanzo-tech/graph";
-// The offscreen element and the rectangle it defines are `measure.ts`'s, so the two harnesses draw
-// into the same one. They had a copy each — identical to the character, which is the kind of
-// duplicate that stays true right up until one of them is tuned.
-import { CANVAS, host, nextFrame } from "./measure";
+import { createElement, useEffect } from "react";
+import { createRoot } from "react-dom/client";
+import { open, type Corpus, type Scan, type TileAddress } from "@fossil-lang/corpus";
+import { GraphCanvas, GraphRoot, useGraphContext, type GraphApi } from "@kanzo-tech/graph";
+import { type Coordinator, type Engine, engine, numbers } from "@kanzo-tech/ui/analytics";
+import { CANVAS, host, nextFrame, visible } from "./measure";
 
 /**
- * What the bounded path costs — the claim the page exists to make, against cosmos.gl alone.
+ * What the bounded path costs, measured through the path a host runs: fossil's `open` on the page's
+ * `engine()`, drawn by `<GraphRoot><GraphCanvas/></GraphRoot>`. Nothing here reaches past the
+ * package's public API; the corpus handed to the root is the real one with `scan(...).read` and
+ * `edges` wrapped to count and time every tile read.
  *
- * Two numbers matter and they pull opposite ways.
- *
- * **First paint** should collapse, because the work stops scaling with the corpus and starts
- * scaling with the window. Holding the whole relation cost 1,225 ms at 200,000 nodes to show a
- * picture — the figure the benchmark record (`git show 441257a:BENCHMARKS.md`) keeps, since ADR-0001 deleted the path that
- * produced it — and this should pay for twenty thousand marks whatever N is.
- *
- * **Panning** should appear from nowhere. Unbounded loads once and then pans on the GPU for free;
- * bounded issues a query per camera move. That is the cost of the trade and the reason it is
- * measured rather than assumed — a bounded path that costs 200 ms a pan is not an improvement, it
- * is a different kind of unusable.
- *
- * **There is one fixture, and it is the compiled corpus.** There used to be a second that built the
- * graph in the tab and handed DuckDB two CSVs; it measured the same code over a worse fixture,
- * capped the sweep at what a tab can generate, and spent the main thread doing it. Keeping both
- * would have been keeping a slower way to learn the same thing.
+ * **Bytes come from DuckDB's HTTP log, not from Resource Timing.** Every byte of a corpus — the
+ * manifests included — is read by `httpfs` inside DuckDB-WASM's worker, and a worker's requests are
+ * on the worker's own performance timeline, which the page cannot see. Resource Timing is the
+ * fallback when the engine will not log, and it will then report only what the main thread fetched.
  */
 
-export interface BoundedSample {
-  pointCount: number;
-  /** Getting the relations queryable: parsing a CSV, or opening a Parquet footer. */
-  ingestMs: number;
-  /** `total()` — the question that decides whether to slice at all. */
-  totalMs: number;
-  /** Whether the corpus was big enough to need slicing. */
-  sliced: boolean;
-  /** The opening slice, from query to typed arrays. */
-  firstSliceMs: number;
-  /**
-   * The same rectangle, asked of a source that also reads `subject`. **An absolute, and there is
-   * deliberately no delta against `firstSliceMs`.**
-   *
-   * The corpus measures the identity column at 1.87× the drawing tile in compressed bytes on disk,
-   * and the first version of this field tried to be the reader's half of that figure: subtract the
-   * plain slice from the naming one and publish the difference. **The first sweep refuted it.** The
-   * difference came out *negative* at two thousand and again at a million — naming apparently
-   * cheaper than not naming — which is not a cost, it is a cache.
-   *
-   * The confound is DuckDB's own page cache and it cannot be dropped from a tab. The two queries
-   * read overlapping bytes of the same chunk files, so whichever runs second reads them warm. The
-   * `forget()` above clears Mosaic's result cache, which is keyed by SQL text and therefore does
-   * nothing here: the two queries have different text and never shared an entry. Reordering does not
-   * help either — it moves which side is flattered, not whether one is.
-   *
-   * So the honest publication is the absolute, beside `firstSliceMs`, with the reader told they
-   * share a warm cache. An isolated A/B needs a cold engine per arm, which is a different harness.
-   */
-  namedSliceMs: number;
-  /** How many IRIs that slice actually carried — a zero here means the column was not read. */
-  named: number;
-  /** Handing that slice to the renderer, flushed by a readback. */
-  uploadMs: number;
-  /** Mean of several slices at shifted viewports — the cost of moving the camera. */
-  panMs: number;
-  /**
-   * Mean cost of one full redraw of the slice on screen, flushed by a readback.
-   *
-   * The renderer's own ceiling, and it is here to be *ruled out*. This path never draws more than
-   * the limit, so the frame rate cannot follow N and the question "how do we make it smoother" has
-   * to be answered somewhere else — `panMs` is where. Measuring only one of the two would let a
-   * display-capped 60 fps stand in for an experience that updates ten times a second.
-   */
-  drawMs: number;
-  /** Points the opening slice actually returned. */
-  returned: number;
-  /** Points that matched it, before the limit. The gap is what the view is not showing. */
-  matched: number;
-  /**
-   * DuckDB's thread count, so the row says which machine it is describing.
-   *
-   * `1` means the page was not cross-origin isolated and DuckDB-WASM took the single-threaded
-   * bundle regardless of the cores available. Without it two runs of this table are not comparable.
-   */
+export interface TileRead {
+  kind: "scan" | "edges";
+  /** `z/tile`. */
+  address: string;
+  ms: number;
+  ok: boolean;
+}
+
+export interface Move {
+  /** From the camera move to the last change of the drawn set (or the last read, if none changed). */
+  ms: number;
+  reads: number;
+  edgeReads: number;
+  requests: number | null;
+  bytes: number | null;
+  z: number | null;
+  marks: number;
+  /** Whether the drawn set changed at all — a pan that stayed inside held tiles does not. */
+  changed: boolean;
+}
+
+export interface GraphSample {
+  path: string;
+  /** Vertices of the drawn type, from the manifest. */
+  total: number | null;
+  /** Zooms in the tile pyramid, payload included. */
+  zooms: number;
   threads: number;
+  /** fossil's `open`: the manifests, read once. */
+  openMs: number;
+  /** Mount to the first composition on the canvas. */
+  firstMarkMs: number;
+  /** Mount to the last composition before the view went quiet — the finished first picture. */
+  firstPaintMs: number;
+  reads: number;
+  edgeReads: number;
+  requests: number | null;
+  bytes: number | null;
+  /** Open's traffic, apart from the first paint's. */
+  openBytes: number | null;
+  marks: number;
+  represented: number;
+  z: number | null;
+  /** From the whole extent into a window holding about `PAN_NODES` vertices. */
+  zoomIn: Move;
+  pans: Move[];
+  panMs: number;
+  readsPerPan: number;
+  bytesPerPan: number | null;
+  /** rAF over one second, idle and while the camera moves every frame. `null` in a hidden tab. */
+  fpsIdle: number | null;
+  fpsPanning: number | null;
+  bytesFrom: "duckdb-log" | "resource-timing";
+  log: TileRead[];
   failure?: string;
 }
 
-/**
- * Every size that has a corpus on disk.
- *
- * A million is in the list because reading one that fossil already wrote costs a Parquet footer,
- * where building one in the tab is 8.6 s of main-thread JavaScript before DuckDB sees a byte. That
- * is the whole reason the fixture is compiled.
- */
+export interface BoundedSample extends GraphSample {
+  pointCount: number;
+}
+
 export const BOUNDED_SIZES = [2_000, 10_000, 50_000, 200_000, 1_000_000];
 
 /**
- * The size that asks whether any of this keeps its shape, and it is opt-in for two reasons.
- *
- * It has to be **built first** — the corpora are compiler output and gitignored, so a sweep against
- * a size nobody wrote is four hundred megabytes of 404 and a row of failures. And at five million
- * the interesting term stops being the window: the edge join is the one part of a slice that scans
- * something proportional to the corpus with nothing to prune, so this is the size that says whether
- * "the working set is the window" survives contact with an edge list.
- *
- *   node docs/showcases/graph-bench/corpus/build-corpus.mjs --sizes 5000000
+ * Opt-in: it has to be built first (`node docs/showcases/graph-bench/corpus/build-corpus.mjs --sizes
+ * 5000000`), and a sweep against a size nobody wrote is a row of failures.
  */
 export const BOUNDED_STRESS_SIZES = [5_000_000];
 
-/**
- * The cap this harness measures at — twenty thousand marks.
- *
- * **This benchmark's number now, and that is the honest place for it.** It was
- * `BOUNDED_DEFAULTS.limit`, imported from `@kanzo-tech/graph`, and that export is gone: a `limit`
- * is resolved by the query loop before a source is asked anything, so nothing outside the package
- * has to look one up. This harness does not use the loop — it drives a source directly, which is
- * what makes it a measurement of the source — so it states the cap it is measuring at, in one
- * place, the way any benchmark states its own conditions. It matches the loop's default on purpose:
- * the point of the sweep is what a reader actually gets.
- */
+/** The marks the harness draws at — `GraphRoot`'s own default, stated here as a condition. */
 export const BOUNDED_LIMIT = 20_000;
 
-/**
- * Vertices a pan window holds, whatever the corpus is — the zoom, expressed as what fits on screen.
- *
- * Set to the slice limit, so the window asks for about as much as the path is willing to return. A
- * window that grew with N would make "does the pan stop growing with N" unanswerable.
- */
-const PAN_NODES = BOUNDED_LIMIT;
-
-/**
- * The edge-length floor a request carries, in screen pixels.
- *
- * Required on a `SliceRequest`, because the loop fills it in before a source sees the question —
- * this harness is the caller here, so it says it. Three, which is the loop's own answer.
- */
-const MIN_LINK_PIXELS = 3;
-
-/**
- * What cosmos.gl is told its coordinate space is — and the one number here that does not match the
- * corpus it draws.
- *
- * It reads 8,192 because the generator's space is 8,192, and this file used to draw the generator's
- * output. It no longer does: fossil centres coordinates on the origin and scales them to N, so the
- * compiled corpus does not fill it — and the figures this comment used to quote, ±535 at two
- * thousand and ±11,968 at a million, are themselves stale: the extent moved when `enrich_layout`
- * began partitioning by community, and a million now spans about −345 to 645,396. The opening view
- * is asked of the source rather than assumed, which is why a wrong number here costs nothing but a
- * reader's confidence. Deliberately **not** unified with `measure.ts`'s `SPACE`,
- * which is a fact about the generator and would only make one wrong number look authoritative.
- *
- * Left as it is because changing it moves every recorded figure, and the simulation is off and the
- * view is fitted from the measured extent, so what it costs is not visible in the timings. It is an
- * open item, not a resolved one — see the benchmark record (`git show 441257a:BENCHMARKS.md`) before trusting a *picture* from this harness.
- */
-const RENDER_SPACE = 8_192;
+/** A pan window holds about this many vertices of a uniformly dense corpus. */
+const PAN_NODES = BOUNDED_LIMIT / 4;
 const PANS = 6;
-const DRAWS = 30;
-const DRAW_WARMUP = 5;
+const FILL = "cluster_id";
+/** Longer than the tileset's 60 ms debounce, so a quiet view is one with nothing left to ask. */
+const QUIET_MS = 150;
+const SETTLE_TIMEOUT = 60_000;
+const FPS_WINDOW = 1_000;
 
-/**
- * Throw away what the last run remembered, or measure the memory instead of the graph.
- *
- * Mosaic caches results **by SQL text**, and a repeated sweep asks the identical questions — same
- * view names, same rectangle, same limit. The second run of this page reported 60–71 ms of first
- * paint at every size including a million, flat and beautiful and entirely a cache. Only the cache
- * goes: the clients are the harness's own and disconnecting them mid-sweep would strand a slice.
- *
- * This is the third time this benchmark has measured its own scaffolding — after a frame counter
- * that counted its own `await` and a layer 2 that ran the 2,000-node graph at every size. The
- * pattern is always the same and so is the defence: check the number against something that must
- * change with N, and disbelieve a flat line until it survives a cold start.
- */
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 async function forget(coordinator: Coordinator): Promise<void> {
   coordinator.clear({ cache: true, clients: false });
 }
 
-/**
- * How many cores DuckDB actually has, which is part of the measurement and not trivia.
- *
- * `selectBundle` picks the threaded `coi` build only when the document is cross-origin isolated;
- * otherwise DuckDB-WASM runs single-threaded however many cores the machine has. A page reporting
- * "220 ms at a million" without saying which of those two it was is not reproducible, so the number
- * rides along with the samples rather than living in someone's memory of how the server was
- * configured that afternoon.
- *
- * Asked once. It cannot change without a reload, and asking per size would put a query in front of
- * every measurement to learn something already known.
- */
 let threadsAsked: Promise<number> | null = null;
 function duckThreads(coordinator: Coordinator): Promise<number> {
-  // Straight at the coordinator, because there is nothing here for a client to be: a DuckDB setting
-  // is not a fact about the relation and no crossfilter can reach it. That is the case `onceQuery`
-  // existed to serve, and one line of `coordinator.query` says it without a second query path.
   threadsAsked ??= Promise.resolve(coordinator.query("SELECT current_setting('threads') AS n"))
     .then((rows) => Number(numbers(rows, "n")[0] ?? 0))
     .catch(() => 0);
   return threadsAsked;
 }
 
-
 /**
- * Does DuckDB-WASM answer two connections at once, or one after the other?
- *
- * the benchmark record (`git show 441257a:BENCHMARKS.md`) twice called concurrent queries the largest single win on this list, reasoning
- * that a pan costs the *sum* of its three queries where it could cost the *max*. That arithmetic is
- * sound and the conclusion does not follow from it: `threads = 1` here, DuckDB-WASM lives in one
- * worker, and every query reaches it over one message port. If connections do not overlap, issuing
- * the three differently changes nothing and the lever is imaginary.
- *
- * So it is asked rather than assumed. One connection gets a query that cannot be folded away — a
- * sort, because `count(*) FROM range(n)` is answered from the cardinality and returns in 37 ms
- * having computed nothing, which is how the first version of this probe measured nothing at all —
- * and a second connection gets a trivial one in the same tick. **If the trivial query answers while
- * the sort is still running, connections overlap.** If it lands with the sort, they queue.
- *
- * No timer separates the two, deliberately: a background tab throttles `setTimeout` (the first
- * version asked for 100 ms and got 497), so the delay would have become part of the measurement.
- * Issuing both in one tick needs no clock to be honest.
- *
- * Kept rather than deleted after answering: it is two connections and forty lines, and the next
- * person to propose parallel queries should be able to re-run it instead of re-reasoning it.
+ * Does DuckDB-WASM answer two connections at once, or one after the other? A sort on one
+ * connection and `SELECT 1` on another in the same tick: if the trivial one lands in a fraction of
+ * the sort's time, connections overlap.
  */
 export async function probeConnectionOverlap(): Promise<{
   overlaps: boolean;
   slowMs: number;
   fastMs: number;
 }> {
-  // Below the engine on purpose: the question is what two raw connections do, and the engine has one.
   const { coordinator } = await engine();
   const connector = coordinator.databaseConnector() as unknown as {
     getDuckDB(): Promise<{
@@ -250,389 +141,336 @@ export async function probeConnectionOverlap(): Promise<{
 
   const [slowMs, fastMs] = await Promise.all([slow, fast]);
   await Promise.all([slowConn.close(), fastConn.close()]);
-
-  // Answering in a fraction of the sort's time is the whole question.
   return { overlaps: fastMs < slowMs / 2, slowMs, fastMs };
 }
 
-/**
- * What one window costs, driven straight through `openCorpus` rather than through the sweep.
- *
- * The sweep answers *does the curve stay flat in N*; this answers *what did that change cost*, over
- * one corpus, in three postures a reader actually meets — a window arrived at cold, the same window
- * again, and a window half a screen along. It is the shape the tile cache was measured in
- * (benchmark record, 2026-08-17: 82 ms cold, 3 ms repeat, 41 ms overlapping pan) and keeping it makes
- * the next change comparable with that row instead of with a memory of it.
- *
- * **Mosaic's cache is cleared and DuckDB's is not**, and there is no way to clear the second from a
- * tab — so "cold" here means cold to the query cache and to this corpus reader, over an engine whose
- * buffers may be warm. Compare runs of this function with each other, never a number here with a
- * number from a freshly loaded page.
- */
-export async function measureSlicePath(path = "/bench/1000000"): Promise<{
-  coldMs: number;
-  repeatMs: number;
-  panMs: number;
-  returned: number;
-  matched: number;
-  links: number;
-}> {
-  const e = await engine();
-  const { coordinator } = e;
-  await forget(coordinator);
-  const opened = await open(`${window.location.origin}${path}`, { engine: e });
-  const { source } = await openCorpus({ corpus: opened, engine: e });
-  if (!source.extent) throw new Error("bench: the corpus source cannot say its extent");
-  const bounds = await source.extent();
-  const total = (await source.total?.()) ?? 1;
+interface Traffic {
+  requests: number;
+  bytes: number;
+}
 
-  // The same window definition the sweep pans with: the radius that holds `PAN_NODES` vertices of a
-  // uniformly dense corpus, reshaped to the canvas.
-  const half = Math.max(bounds.xMax - bounds.xMin, bounds.yMax - bounds.yMin) / 2;
-  const reach = half * Math.sqrt(PAN_NODES / Math.max(1, total));
-  const aspect = Math.sqrt(CANVAS.width / CANVAS.height);
-  const width = 2 * reach * aspect;
-  const height = (2 * reach) / aspect;
-  const midX = (bounds.xMin + bounds.xMax) / 2;
-  const midY = (bounds.yMin + bounds.yMax) / 2;
-  const window_ = (dx: number) => ({
-    xMin: midX + dx - width / 2,
-    xMax: midX + dx + width / 2,
-    yMin: midY - height / 2,
-    yMax: midY + height / 2,
-  });
-  const ask = async (dx: number) => {
+interface Meter {
+  from: GraphSample["bytesFrom"];
+  start(): Promise<void>;
+  read(): Promise<Traffic>;
+}
+
+const RANGE = /\brange=bytes=(\d+)-(\d+)/i;
+const LENGTH = /\bcontent-length=(\d+)/i;
+
+/** Every GET under `base` since `start`: a range request counts its range, anything else its length. */
+async function meter(e: Engine, base: string): Promise<Meter> {
+  const read = async (): Promise<Traffic> => {
+    const answer = await e.query(
+      `SELECT request.type AS method, request.url AS url,
+              CAST(request.headers AS VARCHAR) AS sent, CAST(response.headers AS VARCHAR) AS got
+       FROM duckdb_logs_parsed('HTTP')`,
+    );
+    const method = answer.getChild("method")?.toArray() ?? [];
+    const url = answer.getChild("url")?.toArray() ?? [];
+    const sent = answer.getChild("sent")?.toArray() ?? [];
+    const got = answer.getChild("got")?.toArray() ?? [];
+    let requests = 0;
+    let bytes = 0;
+    for (let i = 0; i < answer.numRows; i++) {
+      if (method[i] !== "GET" || !String(url[i] ?? "").startsWith(base)) continue;
+      requests += 1;
+      const range = RANGE.exec(String(sent[i] ?? ""));
+      if (range) bytes += Number(range[2]) - Number(range[1]) + 1;
+      else bytes += Number(LENGTH.exec(String(got[i] ?? ""))?.[1] ?? 0);
+    }
+    return { requests, bytes };
+  };
+  try {
+    await e.query("CALL enable_logging('HTTP')");
+    await read();
+    return { from: "duckdb-log", start: async () => void (await e.query("CALL truncate_duckdb_logs()")), read };
+  } catch {
+    let mark = performance.now();
+    return {
+      from: "resource-timing",
+      start: async () => void (mark = performance.now()),
+      read: async () => {
+        const entries = (performance.getEntriesByType("resource") as PerformanceResourceTiming[]).filter(
+          (entry) => entry.startTime >= mark && entry.name.startsWith(base),
+        );
+        return {
+          requests: entries.length,
+          bytes: entries.reduce((sum, entry) => sum + (entry.transferSize || entry.encodedBodySize), 0),
+        };
+      },
+    };
+  }
+}
+
+interface Watch {
+  api: GraphApi | null;
+  inflight: number;
+  lastReadAt: number;
+  drawnAt: number;
+  firstDrawnAt: number;
+  failure: string | null;
+  log: TileRead[];
+}
+
+const addressOf = (address: TileAddress) => `${address.z}/${address.tile}`;
+
+/** The real corpus, with every tile read counted and timed. Everything else is the corpus's own. */
+function counted(corpus: Corpus, watch: Watch): Corpus {
+  const timed = async <T>(kind: TileRead["kind"], address: TileAddress, run: () => Promise<T>): Promise<T> => {
+    watch.inflight += 1;
     const started = performance.now();
-    const slice = await source.slice({
-      view: window_(dx),
-      limit: BOUNDED_LIMIT,
-      minLinkPixels: MIN_LINK_PIXELS,
-    });
-    return { ms: performance.now() - started, slice };
+    let ok = false;
+    try {
+      const answer = await run();
+      ok = true;
+      return answer;
+    } finally {
+      watch.inflight -= 1;
+      watch.lastReadAt = performance.now();
+      watch.log.push({ kind, address: addressOf(address), ms: watch.lastReadAt - started, ok });
+    }
   };
-
-  const cold = await ask(0);
-  const repeat = await ask(0);
-  // Half a window along, so most tiles are held and at least one is not — the posture a drag is
-  // made of, and the only one of the three that a payload cache does not simply answer.
-  const pan = await ask(width / 2);
-
-  return {
-    coldMs: +cold.ms.toFixed(1),
-    repeatMs: +repeat.ms.toFixed(1),
-    panMs: +pan.ms.toFixed(1),
-    returned: cold.slice.positions.length / 2,
-    matched: cold.slice.n,
-    links: cold.slice.links.length / 2,
-  };
+  return new Proxy(corpus, {
+    get(target, key) {
+      if (key === "scan") {
+        return (params: Parameters<Corpus["scan"]>[0]): Scan => {
+          const scan = target.scan(params);
+          return {
+            params: scan.params,
+            plan: () => scan.plan(),
+            read: (address, options) => timed("scan", address, () => scan.read(address, options)),
+          };
+        };
+      }
+      if (key === "edges") {
+        return (params: Parameters<Corpus["edges"]>[0]) => timed("edges", params.from, () => target.edges(params));
+      }
+      const value: unknown = Reflect.get(target, key, target);
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
 }
 
-// Reachable from the console, because these questions are asked by hand and rarely.
-if (typeof window !== "undefined") {
-  const hooks = window as unknown as Record<string, unknown>;
-  hooks.probeConnectionOverlap = probeConnectionOverlap;
-  hooks.measureSlicePath = measureSlicePath;
-  // The engine itself, so a question nobody anticipated can be asked of the live database
-  // without a rebuild — which is how the two probes above were arrived at, and how the figures in
-  // `/docs/design/graph` were taken. A measurement whose harness has
-  // been deleted cannot be re-derived, only believed.
-  hooks.graphEngine = engine;
-  // And the reader itself, so a posture nobody wrote a probe for — a far view, a corpus that is not
-  // the default one — can be driven from the console against the live database. The far-view figures
-  // on `/docs/design/graph` were taken this way.
-  hooks.openCorpus = openCorpus;
+function Probe({ watch }: { watch: Watch }) {
+  const api = useGraphContext();
+  useEffect(() => {
+    if (watch.api?.drawn !== api.drawn && api.drawn !== null) {
+      watch.drawnAt = performance.now();
+      watch.firstDrawnAt ||= watch.drawnAt;
+    }
+    watch.api = api;
+  }, [api, watch]);
+  return null;
 }
 
-/** The rectangle the corpus actually occupies — the camera's space, never rescaled on the way in. */
-interface Extent {
-  xMin: number;
-  yMin: number;
-  xMax: number;
-  yMax: number;
+/** Until something is on the canvas, nothing is loading, and that has held for `QUIET_MS`. */
+async function settle(watch: Watch): Promise<void> {
+  const started = performance.now();
+  let quietSince: number | null = null;
+  for (;;) {
+    if (watch.failure) throw new Error(watch.failure);
+    const api = watch.api;
+    const now = performance.now();
+    const calm = api !== null && api.drawn !== null && !api.pending && watch.inflight === 0;
+    if (!calm) quietSince = null;
+    else if (quietSince === null) quietSince = now;
+    else if (now - quietSince >= QUIET_MS) return;
+    if (now - started > SETTLE_TIMEOUT) {
+      throw new Error(
+        visible() ? `the view did not settle in ${SETTLE_TIMEOUT} ms` : "the tab is hidden, so nothing is drawn",
+      );
+    }
+    await sleep(4);
+  }
 }
 
-interface Fixtured {
-  source: BoundedSource;
-  /**
-   * The same two relations, read with the identity column as well.
-   *
-   * A second source rather than a flag on the first, because the comparison is the point: the plain
-   * one is what the drawing path uses, and this one is what a host pays when it needs to name what
-   * it drew. Same coordinator, same views, one more column.
-   */
-  named: BoundedSource;
-  extent: Extent;
-  /** Half-width of a window holding [`PAN_NODES`] vertices — the camera's reach at a usable zoom. */
-  panReach: number;
-  ingestMs: number;
+async function framesPerSecond(each?: (frame: number) => void): Promise<number | null> {
+  if (!visible()) return null;
+  let frames = 0;
+  const started = performance.now();
+  while (performance.now() - started < FPS_WINDOW) {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    frames += 1;
+    each?.(frames);
+  }
+  return (frames * 1000) / (performance.now() - started);
 }
 
 /**
- * The compiled fixture: point DuckDB at the GraphAr tree and never hold it.
- *
- * A **view**, not a table. `CREATE TABLE AS` would pull the whole corpus into WASM memory, which is
- * the working set ADR-0001 exists to refuse — at a million that is the 93 MB on disk plus whatever
- * DuckDB expands it to. A view leaves the bytes on the server and lets every slice fetch the ranges
- * it needs, which is what makes the bbox predicate a *read* strategy rather than a filter applied
- * after the fact.
- *
- * The column names are GraphAr's rather than ours: `dense_id` is the dense index the contract asks
- * for by another name, and the edge file speaks `src_dense`/`dst_dense` because it was written
- * already resolved. Nothing is renamed on the way in — the source takes the names it is given.
+ * One corpus, end to end: open, mount, first paint, a zoom into a window, `PANS` pans across the
+ * extent, and the frame rate idle and moving. `path` is under the page's origin (`/bench/200000`).
  */
-async function corpus(pointCount: number, report?: (stage: string) => void): Promise<Fixtured> {
+export async function measureGraph(path: string, options: { limit?: number } = {}): Promise<GraphSample> {
+  const limit = options.limit ?? BOUNDED_LIMIT;
+  const base = `${window.location.origin}${path}`;
+  const watch: Watch = { api: null, inflight: 0, lastReadAt: 0, drawnAt: 0, firstDrawnAt: 0, failure: null, log: [] };
+  const idle: Move = { ms: 0, reads: 0, edgeReads: 0, requests: null, bytes: null, z: null, marks: 0, changed: false };
+  const sample: GraphSample = {
+    path,
+    total: null,
+    zooms: 0,
+    threads: 0,
+    openMs: 0,
+    firstMarkMs: 0,
+    firstPaintMs: 0,
+    reads: 0,
+    edgeReads: 0,
+    requests: null,
+    bytes: null,
+    openBytes: null,
+    marks: 0,
+    represented: 0,
+    z: null,
+    zoomIn: idle,
+    pans: [],
+    panMs: 0,
+    readsPerPan: 0,
+    bytesPerPan: null,
+    fpsIdle: null,
+    fpsPanning: null,
+    bytesFrom: "duckdb-log",
+    log: watch.log,
+  };
+
   const e = await engine();
-  const { coordinator } = e;
-  await forget(coordinator);
-  const base = `${window.location.origin}/bench/${pointCount}`;
+  await forget(e.coordinator);
+  sample.threads = await duckThreads(e.coordinator);
+  const traffic = await meter(e, base);
+  sample.bytesFrom = traffic.from;
 
-  const started = performance.now();
-  report?.("opening the corpus · manifest");
+  const element = host();
+  const root = createRoot(element);
+  let corpus: Corpus | null = null;
+  try {
+    await traffic.start();
+    const opening = performance.now();
+    corpus = await open(base, { engine: e });
+    sample.openMs = performance.now() - opening;
+    sample.openBytes = (await traffic.read()).bytes;
 
-  /**
-   * One argument: the corpus fossil opened from where it is.
-   *
-   * Everything this used to derive by hand — the chunk count from a `chunk_size` copied out of
-   * fossil, the `chunk{k}.parquet` naming, the edge directory, GraphAr's column names, and the
-   * twenty-line note about why a glob cannot work over a plain HTTP origin — is `openCorpus`'s
-   * now, read from the manifest rather than written down here. That constant went stale once and
-   * silently read a fraction of the corpus, which is the whole argument for this move.
-   */
-  const opened = await open(base, { engine: e });
-  const { source } = await openCorpus({ corpus: opened, engine: e });
-  const { source: named } = await openCorpus({ corpus: opened, engine: e, subjects: true });
+    const type = corpus.types.vertices.find((t) => t.geometry)?.type;
+    if (!type) throw new Error(`the corpus at ${path} has no vertex type with a position`);
+    const matrix = corpus.tileMatrix(type);
+    const extent = matrix.extent;
+    if (!extent) throw new Error(`${type} publishes no extent`);
+    sample.zooms = matrix.tileMatrices.length;
+    sample.total = Number(matrix.tileMatrices.at(-1)?.count ?? 0);
 
-  /**
-   * The extent, from the boxes the source already holds. No scan.
-   *
-   * This used to be `min(x), max(x), min(y), max(y)` over the whole relation, labelled as the
-   * fixture's own cost with a note that a real reader takes its space from the manifest. It still
-   * does not come from the manifest — GraphAr declares no extent — but it does now come from the
-   * row-group statistics an addressed reader reads anyway, which is the same answer for free.
-   */
-  report?.("opening the corpus · extent");
-  // Optional on the contract now — every laid-out source has one, a source over arrays with no
-  // layout does not — and this fixture is a corpus, so its absence is a broken fixture and not a
-  // case to handle.
-  if (!source.extent) throw new Error("bench: the corpus source cannot say its extent");
-  const bounds = await source.extent();
+    await traffic.start();
+    const mounted = performance.now();
+    root.render(
+      createElement(
+        GraphRoot,
+        {
+          corpus: counted(corpus, watch),
+          fill: FILL,
+          limit,
+          onFailure: (message: string) => void (watch.failure ??= message),
+        },
+        createElement(GraphCanvas),
+        createElement(Probe, { watch }),
+      ),
+    );
+    await settle(watch);
+    sample.firstMarkMs = watch.firstDrawnAt - mounted;
+    sample.firstPaintMs = watch.drawnAt - mounted;
+    sample.reads = watch.log.filter((r) => r.kind === "scan").length;
+    sample.edgeReads = watch.log.length - sample.reads;
+    const first = await traffic.read();
+    sample.requests = first.requests;
+    sample.bytes = first.bytes;
+    const api = watch.api as GraphApi | null;
+    sample.marks = api?.drawn?.marks ?? 0;
+    sample.represented = api?.drawn?.represented ?? 0;
+    sample.z = api?.z ?? null;
 
-  /**
-   * How far the camera reaches at a zoom that shows [`PAN_NODES`] vertices.
-   *
-   * **This changed with the move to `openCorpus` and the number is not the old one.** It was the
-   * exact Chebyshev radius around the centre holding `PAN_NODES` vertices — a sort over the whole
-   * corpus — and the relation that query needed is exactly what the source now hides. What replaces
-   * it is the area-proportional radius: the fraction of the extent whose area holds that share of a
-   * uniformly dense corpus.
-   *
-   * The two agree only when density is uniform and this layout's is not, so **`panMs` before and
-   * after this commit are not the same measurement.** Recorded rather than smoothed over, because
-   * the pan window has already been corrected twice in this file's history and both times the
-   * lesson was that a window redefined quietly makes a table that cannot be compared with itself.
-   *
-   * What survives the change is the property the measurement exists for: the window is sized by how
-   * much it *holds* rather than as a fraction of a space that grows with N, so a pan that stops
-   * growing with the corpus is still the question being asked.
-   */
-  report?.("opening the corpus · reach");
-  const half = Math.max(bounds.xMax - bounds.xMin, bounds.yMax - bounds.yMin) / 2;
-  const corpusTotal = (await source.total?.()) ?? pointCount;
-  const panReach = half * Math.sqrt(PAN_NODES / Math.max(1, corpusTotal));
-  const ingestMs = performance.now() - started;
+    const graph = api?.getGraph();
+    if (!graph) throw new Error("the canvas never attached a renderer");
 
-  return { source, named, extent: bounds, panReach, ingestMs };
+    sample.fpsIdle = await framesPerSecond();
+
+    const aspect = CANVAS.width / CANVAS.height;
+    const share = Math.min(0.25, PAN_NODES / Math.max(1, sample.total));
+    const w = Math.min(extent.w, Math.sqrt(share * extent.w * extent.h * aspect));
+    const h = Math.min(extent.h, w / aspect);
+    const cy = extent.y + extent.h / 2;
+    const at = (cx: number) => [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2];
+    const step = (extent.w - w) / PANS;
+    const x0 = extent.x + w / 2;
+
+    const move = async (box: number[]): Promise<Move> => {
+      await traffic.start();
+      const before = watch.log.length;
+      const started = performance.now();
+      watch.drawnAt = 0;
+      watch.lastReadAt = 0;
+      graph.fitViewByPointPositions(box, 0, 0);
+      await settle(watch);
+      const reads = watch.log.slice(before);
+      const scans = reads.filter((r) => r.kind === "scan").length;
+      const done = Math.max(watch.drawnAt, watch.lastReadAt);
+      const { bytes, requests } = await traffic.read();
+      const now = watch.api as GraphApi | null;
+      return {
+        ms: done > started ? done - started : 0,
+        reads: scans,
+        edgeReads: reads.length - scans,
+        requests,
+        bytes,
+        z: now?.z ?? null,
+        marks: now?.drawn?.marks ?? 0,
+        changed: watch.drawnAt > started,
+      };
+    };
+
+    sample.zoomIn = await move(at(x0));
+    for (let i = 1; i <= PANS; i++) sample.pans.push(await move(at(x0 + step * i)));
+    sample.panMs = mean(sample.pans.map((p) => p.ms));
+    sample.readsPerPan = mean(sample.pans.map((p) => p.reads));
+    sample.bytesPerPan = mean(sample.pans.map((p) => p.bytes ?? 0));
+
+    const sway = Math.max(step, w / 8) / 4;
+    const xEnd = x0 + step * PANS;
+    sample.fpsPanning = await framesPerSecond((frame) =>
+      graph.fitViewByPointPositions(at(xEnd - sway * (frame % 8)), 0, 0),
+    );
+    await settle(watch);
+    return sample;
+  } catch (error) {
+    return { ...sample, failure: error instanceof Error ? error.message : String(error) };
+  } finally {
+    root.unmount();
+    element.remove();
+    await corpus?.close().catch(() => {});
+    await nextFrame();
+  }
 }
+
+const mean = (values: number[]) => (values.length === 0 ? 0 : values.reduce((a, b) => a + b, 0) / values.length);
 
 export interface BoundedOptions {
   pointCount: number;
-  cancelled?: () => boolean;
   onStage?: (stage: string) => void;
 }
 
 export async function measureBounded(options: BoundedOptions): Promise<BoundedSample> {
   const { pointCount } = options;
-  const cancelled = options.cancelled ?? (() => false);
-  const report = options.onStage;
-
-  const base: BoundedSample = {
-    pointCount,
-    ingestMs: 0,
-    totalMs: 0,
-    sliced: false,
-    firstSliceMs: 0,
-    namedSliceMs: 0,
-    named: 0,
-    uploadMs: 0,
-    panMs: 0,
-    drawMs: 0,
-    threads: 0,
-    returned: 0,
-    matched: 0,
-  };
-
-  const element = host();
-  let graph: Graph | undefined;
-  try {
-    report?.("opening the corpus");
-    const fixtured = await corpus(pointCount, report);
-    const { extent, source } = fixtured;
-    base.ingestMs = fixtured.ingestMs;
-    base.threads = await duckThreads((await engine()).coordinator);
-    if (cancelled()) return { ...base, failure: "cancelled" };
-
-    report?.("asking the total");
-    const startedTotal = performance.now();
-    const total = await source.total?.();
-    base.totalMs = performance.now() - startedTotal;
-    base.sliced = shouldSlice(total, BOUNDED_LIMIT);
-
-    /**
-     * The corpus is the size its directory says, or the row is a failure rather than a fast number.
-     *
-     * This guarded a constant that no longer exists: `CHUNK_SIZE` lived here, went stale against
-     * fossil, and silently derived too few chunk URLs — every one of which resolved, so the sweep
-     * measured a fraction of the corpus at a flattering latency and reported no error at all.
-     * `openCorpus` composes no URL at all now — fossil's `open` does, out of the manifests — so that
-     * particular drift cannot happen; the check stays because it costs one comparison, and
-     * because *the reader found fewer vertices than the corpus holds* is the failure shape, not the
-     * one cause that used to produce it.
-     */
-    if (total !== undefined && total !== pointCount) {
-      return {
-        ...base,
-        failure: `the corpus at /bench/${pointCount} holds ${total} vertices, not ${pointCount}`,
-      };
-    }
-
-    // The opening view: the whole space. There is no shortcut left to fall into — a window holding
-    // more than the limit is sampled by stride, at whatever zoom, so this measures the one path.
-    //
-    // The space is the corpus's own, asked rather than assumed. fossil writes coordinates centred on
-    // the origin and scaled to N, and the extent moved again when the layout began partitioning by
-    // community — a million spans about −345 to 645,396 today. A rectangle nailed to `0..SPACE`
-    // would measure an empty corner and report a very fast first paint for showing nothing, which
-    // is why this is asked rather than assumed. (`RENDER_SPACE` above is the one place that did not
-    // get this memo, and says so.)
-    const view = { ...extent };
-
-    report?.("first slice");
-    const startedSlice = performance.now();
-    const first: Slice = await source.slice({
-      view,
-      limit: BOUNDED_LIMIT,
-      minLinkPixels: MIN_LINK_PIXELS,
-    });
-    base.firstSliceMs = performance.now() - startedSlice;
-    base.returned = first.positions.length / 2;
-    base.matched = first.n;
-    if (cancelled()) return { ...base, failure: "cancelled" };
-
-    /**
-     * The same question, of the source that also names.
-     *
-     * After the plain one and never before it: Mosaic caches by SQL text, and these two are
-     * different texts, so neither warms the other. What would spoil it is asking this one first and
-     * letting its scan warm DuckDB's own buffers for the second — hence this order, which puts the
-     * cost of a cold read on the column the product actually uses.
-     */
-    report?.("naming the slice");
-    const startedNamed = performance.now();
-    const namedSlice: Slice = await fixtured.named.slice({
-      view,
-      limit: BOUNDED_LIMIT,
-      minLinkPixels: MIN_LINK_PIXELS,
-    });
-    base.namedSliceMs = performance.now() - startedNamed;
-    base.named = namedSlice.subjects?.length ?? 0;
-    if (cancelled()) return { ...base, failure: "cancelled" };
-
-    report?.("uploading");
-    graph = new Graph(element, {
-      spaceSize: RENDER_SPACE,
-      enableSimulation: false,
-      fitViewOnInit: false,
-      attribution: "",
-    });
-    const ready = await Promise.race([
-      graph.ready.then(() => true),
-      new Promise<false>((resolve) => setTimeout(() => resolve(false), 30_000)),
-    ]);
-    if (!ready) return { ...base, failure: "the GPU device never initialised" };
-
-    const startedUpload = performance.now();
-    graph.setPointPositions(first.positions);
-    graph.setLinks(first.links);
-    graph.render();
-    graph.getPointPositions();
-    base.uploadMs = performance.now() - startedUpload;
-    if (cancelled()) return { ...base, failure: "cancelled" };
-
-    /**
-     * What it costs to draw what is already on screen.
-     *
-     * Timed the way layer 1 times a step — a batch of redraws flushed by one `getPointPositions()`
-     * readback — and never by counting `requestAnimationFrame`, which reports the monitor's
-     * schedule whether or not the renderer did anything. There is no simulation here to count ticks
-     * from, so the readback is the only honest flush.
-     */
-    report?.("drawing");
-    for (let i = 0; i < DRAW_WARMUP; i++) graph.render();
-    graph.getPointPositions();
-    const startedDrawing = performance.now();
-    for (let i = 0; i < DRAWS; i++) graph.render();
-    graph.getPointPositions();
-    base.drawMs = (performance.now() - startedDrawing) / DRAWS;
-    if (cancelled()) return { ...base, failure: "cancelled" };
-
-    /**
-     * Panning, measured as the reader would feel it.
-     *
-     * Six windows a quarter of the space wide, walked across the corpus — not six repeats of the
-     * same rectangle, which DuckDB would answer from cache and which would report a latency nobody
-     * experiences.
-     *
-     * **Shaped like the canvas, and sized by what it holds.** Two corrections, both of the same
-     * kind: the window used to span the full height, which cuts across the Morton order the corpus
-     * is written in, and it used to be a quarter of the *space*, which grows with N. Measured, the
-     * strip needed 7 chunks of 9 against 4 for a canvas-shaped rectangle; and the fixed fraction
-     * matched 62,112 rows at a million against 426,611 at five, so a pan measured that way could
-     * only grow with the corpus whatever the engine did.
-     *
-     * Now it is a camera: [`PAN_NODES`] vertices on screen, in the element's aspect ratio, walked
-     * across the corpus. The area comes from `panReach` — the radius that holds that many — and is
-     * reshaped to the canvas without changing it.
-     */
-    report?.("panning");
-    const startedPanning = performance.now();
-    const span = extent.xMax - extent.xMin;
-    const step = span / (PANS + 1);
-    const aspect = Math.sqrt(CANVAS.width / CANVAS.height);
-    const width = 2 * fixtured.panReach * aspect;
-    const height = (2 * fixtured.panReach) / aspect;
-    const midY = (extent.yMin + extent.yMax) / 2;
-    for (let i = 0; i < PANS; i++) {
-      const x = extent.xMin + step * (i + 1);
-      await source.slice({
-        view: {
-          xMin: x - width / 2,
-          yMin: midY - height / 2,
-          xMax: x + width / 2,
-          yMax: midY + height / 2,
-        },
-        limit: BOUNDED_LIMIT,
-        minLinkPixels: MIN_LINK_PIXELS,
-      });
-      if (cancelled()) return { ...base, failure: "cancelled" };
-    }
-    base.panMs = (performance.now() - startedPanning) / PANS;
-
-    return base;
-  } catch (error) {
-    return { ...base, failure: String(error) };
-  } finally {
-    graph?.destroy();
-    element.remove();
-    await nextFrame();
+  options.onStage?.(`measuring ${pointCount.toLocaleString("en-US")}`);
+  const sample = await measureGraph(`${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/bench/${pointCount}`);
+  if (!sample.failure && sample.total !== null && sample.total !== pointCount) {
+    return {
+      ...sample,
+      pointCount,
+      failure: `the corpus at /bench/${pointCount} holds ${sample.total} vertices, not ${pointCount}`,
+    };
   }
+  return { ...sample, pointCount };
+}
+
+if (typeof window !== "undefined") {
+  const hooks = window as unknown as Record<string, unknown>;
+  hooks.measureGraph = measureGraph;
+  hooks.probeConnectionOverlap = probeConnectionOverlap;
+  hooks.graphEngine = engine;
 }

@@ -6,7 +6,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -17,15 +16,16 @@ import {
   Selection as MosaicSelection,
   type ChartConfig,
 } from "@kanzo-tech/ui/analytics";
-import { open } from "@fossil-lang/corpus";
+import { open, type Corpus } from "@fossil-lang/corpus";
 import { verbatim, type VerbatimNode } from "@uwdata/mosaic-sql";
-import { openCorpus, type DuckSource, type OpenedCorpus } from "@kanzo-tech/graph/duckdb";
 import { ensure } from "./duck";
 import {
   type Channels,
   type GraphCommands,
+  GraphRootProvider,
   lookFrom,
   simFrom,
+  useGraph,
   useGraphPrefs,
   type Look,
   type Motion,
@@ -42,8 +42,8 @@ import {
  * in the tab, serialise two CSVs and `loadCSV` them — which drew a picture and taught the wrong
  * thing, because the package ships one source and that source reads a corpus.
  * `corpus/build-corpus.mjs` compiles the same archive with the real writer into
- * `docs/public/corpus/archive`; opening it registers the relations every panel queries and hands
- * back the source the canvas draws from, which reads tiles by address and never the whole thing.
+ * `docs/public/corpus/archive`; opening it registers the relations every panel queries, and the
+ * graph reads the same corpus by tile address, never the whole thing.
  *
  * The corpus is gitignored, so a checkout that has not built it gets the canvas' own failure
  * message rather than a fixture invented to fill the box.
@@ -77,19 +77,10 @@ const EDGE_ROWS = "archive_edge_rows";
 /**
  * Which column means what, for this corpus.
  *
- * **A local type now, and that is the point.** `@kanzo-tech/graph` used to export this shape,
- * because `load()` took one and read the relation itself. ADR-0001 deleted that: a source answers
- * *what should I draw* and the package never sees a column name again. So the description of a
- * corpus went where it always belonged — beside the corpus. A renderer that asks "which column
- * groups these?" can be pointed at any relation; one that knows this answer can be pointed at
- * exactly one.
- *
- * **And it is a value of the opening, not a constant.** `table` names a relation the corpus
- * registers, and a spec written at module scope would have had to spell the name the package
- * derives — this side copying a convention the other side owns, which is the defect `openCorpus`
- * exists to remove. It comes out of `openArchive()` beside `ready`, and reaches panels through
- * context. There is no `xField` or `yField` for the same reason: the layout is the corpus' own, and
- * the source that reads it came back from the same call.
+ * **A value of the opening, not a constant.** `table` names a relation the corpus registers, and a
+ * spec written at module scope would have had to spell the name fossil derives. It comes out of
+ * `openArchive()` beside `ready`, and reaches panels through context. There is no `xField` or
+ * `yField`: the layout is the corpus' own.
  *
  * `hall` is the group, and that choice is the white-label story told in the graph rather than
  * described beside it: a hall carries `heraldry`, the same seed pair the palette showcase derives
@@ -110,7 +101,7 @@ export interface GraphSpec {
   /**
    * Which vertex type this relation is.
    *
-   * Zero, because `openCorpus` draws one vertex type and numbers it zero. It is written down rather
+   * Zero, because the archive has one vertex type and it is the first. It is written down rather
    * than assumed: a `dense_id` numbers within a type, so an id on its own names a row and not a
    * vertex, and every panel that hands the canvas one builds it through this. The moment a second
    * relation joins the canvas — which is what the multi-type knowledge graph demo is for — the two
@@ -125,8 +116,7 @@ export interface GraphSpec {
    * tab, so the IRIs would be carried for nothing: measured 2026-08 over
    * `docs/public/corpus/archive`, `subject` is 56,009 bytes against `dense_id`'s 6,199 in the
    * chunk, 7,431 against 6,202 once Parquet has compressed them. The day the inspector grows a
-   * "copy link" or a bookmark, the column is already in the manifest and `openCorpus` takes
-   * `subjects`.
+   * "copy link" or a bookmark, the column is already in the manifest.
    */
   idField: string;
   labelField: string;
@@ -140,8 +130,6 @@ export interface GraphSpec {
   groupField?: string;
   /** How to name that column to a reader, so no control has to hardcode a schema. */
   groupLabel?: string;
-  /** Extra columns for the hover card, in the order they should read. */
-  detailFields?: { field: string; label: string }[];
 }
 
 /**
@@ -152,9 +140,9 @@ export interface GraphSpec {
  * corpus carries `cluster_id`, the layout pass' own partition, and nothing here guesses a column
  * for a role.
  */
-function specFor(opened: OpenedCorpus): GraphSpec {
+function specFor(nodes: string): GraphSpec {
   return {
-    table: verbatim(opened.nodes),
+    table: verbatim(nodes),
     edges: EDGE_ROWS,
     typeIndex: 0,
     idField: "dense_id",
@@ -163,12 +151,6 @@ function specFor(opened: OpenedCorpus): GraphSpec {
     sizeField: "degree",
     groupField: "hall",
     groupLabel: "hall",
-    detailFields: [
-      { field: "hall", label: "Hall" },
-      { field: "region", label: "Region" },
-      { field: "signed", label: "Signed by" },
-      { field: "closed", label: "Closed" },
-    ],
   };
 }
 
@@ -298,36 +280,28 @@ export const KINDS: ChartConfig = {
 };
 
 /**
- * An opened archive: the coordinator, the crossfilter, the source the canvas draws and the spec the
+ * An opened archive: the coordinator, the crossfilter, the corpus the canvas draws and the spec the
  * panels read. One value, because opening the corpus is one act and all four come out of it.
  *
- * **The crossfilter is made here rather than by `MosaicProvider`**, which is the one thing a corpus
- * changes about the wiring: `openCorpus` takes the `Selection` as `filterBy` and writes the page's
- * predicate *into the slice query*, so it has to exist before the source does — and the provider's
- * own default is minted in an effect when it mounts, which is after. Everything under
- * `GraphMosaic` reads this one: the canvas, the Info search, the legend tally and the footer count.
+ * **The crossfilter is made here rather than by `MosaicProvider`**: the graph takes it as `filterBy`,
+ * and the provider's own default is minted in an effect when it mounts, which is after. Everything
+ * under `GraphMosaic` reads this one: the canvas, the Info search, the legend tally and the footer
+ * count.
  *
- * **It is not the Sightings charts' crossfilter, and nothing here says it should be.**
- * `sightings-charts.tsx` mints its own — `Selection.crossfilter({ include: [hall, beast] })`, since
- * `include` is constructor-only — and mounts its own `MosaicProvider`, which shadows this one for
- * that subtree. So: two crossfilters, two providers, two relations (this side's `Node`, fossil's view over
- * the corpus Parquet, that side's `loadCSV`'d `sightings`), and the nine controls over there have
- * never reached the canvas. Only the engine is shared — `engine()`, the page's one — because
- * vgplot resolves marks through a single *active* one.
- *
- * **And the two views never coexist**: `default.tsx` renders `ArchiveCanvas` *or* `SightingsRegion`,
- * so there is no frame in which one crossfilter is visibly failing to drive the other. Merging them
- * is an open decision with a cost neither side pays today — six of the nine chart publishers name
- * `beast`, `leagues`, `hour` or `bounty`, none of which the corpus carries (only the region and
- * hall controls, and the hall pick, name a column it has), and both graph publishers name a dense
- * id, which `sightings` does not.
+ * **It is not the Sightings charts' crossfilter.** `sightings-charts.tsx` mints its own and mounts
+ * its own `MosaicProvider`, which shadows this one for that subtree; only the engine is shared,
+ * because vgplot resolves marks through a single *active* one. The two views never coexist:
+ * `default.tsx` renders `ArchiveCanvas` *or* `SightingsRegion`.
  */
 export interface Archive {
   coordinator: Coordinator;
   crossfilter: MosaicSelection;
-  source: DuckSource;
+  corpus: Corpus;
   spec: GraphSpec;
 }
+
+/** The vertex type the canvas draws — the archive's one, `Node`. */
+const TYPE = "Node";
 
 function openArchive(): Promise<Archive> {
   return ensure(CORPUS, async (engine) => {
@@ -337,25 +311,19 @@ function openArchive(): Promise<Archive> {
     // fine, but the tiles are read by DuckDB-WASM, which resolves one as a path in its own virtual
     // filesystem and reports "No files found that match the pattern".
     const corpus = await open(`${window.location.origin}${CORPUS}`, { engine });
-    const opened = await openCorpus({ corpus, engine, filterBy: crossfilter });
-    if (opened.edges.length === 0) {
-      throw new Error(`corpus: ${CORPUS} declares no edges for its vertex type`);
-    }
-    // `src_dense` is GraphAr's name for the endpoint and the one convention the opening does not
-    // hand back — the join key is the only thing this file still spells that the corpus owns.
-    //
-    // One join per relation, unioned: fossil registers a view per edge label, because a label
-    // is what a relation's properties belong to. One row per edge is still what this view is, so
-    // the count below it still counts edges.
+    const relations = await corpus.relations();
+    const nodes = relations.find((relation) => relation.kind === "vertex" && relation.name === TYPE);
+    const edges = relations.filter((relation) => relation.kind === "edge" && relation.srcType === TYPE);
+    if (!nodes) throw new Error(`corpus: ${CORPUS} declares no ${TYPE} vertices`);
+    if (edges.length === 0) throw new Error(`corpus: ${CORPUS} declares no edges for its vertex type`);
+    // `src_dense` is GraphAr's name for the endpoint. One join per relation, unioned, so the count
+    // below it still counts edges.
     await coordinator.exec(
-      `CREATE OR REPLACE VIEW ${EDGE_ROWS} AS ${opened.edges
-        .map(
-          (relation) =>
-            `SELECT s.* FROM ${relation.view} e JOIN ${opened.nodes} s ON e.src_dense = s.dense_id`,
-        )
+      `CREATE OR REPLACE VIEW ${EDGE_ROWS} AS ${edges
+        .map((relation) => `SELECT s.* FROM ${relation.sql} e JOIN ${nodes.sql} s ON e.src_dense = s.dense_id`)
         .join(" UNION ALL ")}`,
     );
-    return { coordinator, crossfilter, source: opened.source, spec: specFor(opened) };
+    return { coordinator, crossfilter, corpus, spec: specFor(nodes.sql) };
   });
 }
 
@@ -378,32 +346,19 @@ export {
 
 
 interface GraphViewValue {
+  /** Whether the corpus is open and its relations registered — what every panel's query waits on. */
   ready: boolean;
-  /**
-   * Which column means what — `null` until the corpus is open, which is what `ready` reports.
-   *
-   * The canvas reads columns through this and never by name.
-   */
+  /** Which column means what — `null` until the corpus is open, which is what `ready` reports. */
   spec: GraphSpec | null;
-  /** What the canvas draws: the corpus' own source, addressed by tile. `null` until it is open. */
-  source: DuckSource | null;
-  /**
-   * The geometry the canvas draws, resolved from the preferences a person chose.
-   *
-   * A `Look`, not an id: what is stored is the axes, and `lookFrom` is the one reader. This used to
-   * be a `LookId` in React state beside a `Display` and a `Sim` — three stores for what the theme
-   * provider was already resolving, and a dock that hand-rolled a control for each.
-   */
+  /** Why the canvas cannot draw: the corpus would not open, or the renderer would not start. */
+  failure: string | null;
+  /** The geometry the canvas draws, resolved from the preferences a person chose. */
   look: Look;
   /** The force coefficients, from the same place by the same route. */
   sim: Sim;
   /**
-   * Which of this product's arrangements is worn — the CHANNELS half, which is the host's.
-   *
-   * The geometry left for the preferences and the bindings did not, and that is the form/binding
-   * split holding: what colour means and what
-   * shape means is an encoding this app authored, not a value a panel may overwrite. Picking one
-   * writes the axes that name it *and* takes its bindings; moving an axis afterwards leaves the
+   * Which of this product's arrangements is worn — the CHANNELS half, which is the host's. Picking
+   * one writes the axes that name it *and* takes its bindings; moving an axis afterwards leaves the
    * bindings alone, which is why this is one field and not a derivation.
    */
   arrangement: LookId;
@@ -412,46 +367,26 @@ interface GraphViewValue {
   resetLayout: () => void;
   /** Whether any of them is a stored choice — which is what makes the reset worth offering. */
   layoutStored: boolean;
-  /**
-   * What the layout is doing. Reported by the canvas.
-   *
-   * Three states, not a boolean: a graph that stopped because it converged and a graph that stopped
-   * because you stopped it look identical, and only one of them is waiting for you.
-   */
   motion: Motion;
-  setMotion: (value: Motion) => void;
-  /**
-   * How many nodes are pinned where you dropped them.
-   *
-   * A count, not the set: nothing outside the canvas needs the indices, and the one thing this has
-   * to support is the release control existing at all. A pin is invisible — cosmos.gl draws a
-   * pinned point exactly like any other — so a reader who forgets they made one has this number and
-   * the button it labels, and Re-run underneath as the blunt way out.
-   */
+  /** How many nodes are pinned where you dropped them. */
   pinned: number;
-  setPinned: (count: number) => void;
-  /**
-   * How far through settling, `0`–`1`. cosmos.gl's own `graph.progress`, quantised on the way here.
-   *
-   * Only meaningful while `motion` is `running`; it is what makes "Settling" a determinate claim
-   * instead of a spinner that might mean stuck.
-   */
+  /** How far through settling, `0`–`1`. Only meaningful while `motion` is `running`. */
   progress: number;
-  setProgress: (value: number) => void;
   /** The clicked node, if any — the inspector reads it instead of guessing at the selection. */
   focused: VertexId | null;
-  setFocused: (vertex: VertexId | null) => void;
   tool: Tool;
   setTool: (tool: Tool) => void;
   /** The one live selection, whoever made it. */
   selection: Selection | null;
   select: (next: Selection | null) => void;
-  /** How many nodes exist at all. Reported by the canvas once the relation is read. */
+  /** How many nodes exist at all, from the manifest. */
   corpus: number | null;
-  setCorpus: (total: number) => void;
-  register: (commands: GraphCommands | null) => void;
+  /** What each category rank the canvas drew is — the legend's ordinals. */
+  domain: readonly unknown[];
   commands: GraphCommands;
 }
+
+const NO_DOMAIN: readonly unknown[] = [];
 
 const NOOP: GraphCommands = {
   zoomBy: () => {},
@@ -468,11 +403,7 @@ const NOOP: GraphCommands = {
 const GraphViewContext = createContext<GraphViewValue>({
   ready: false,
   spec: null,
-  source: null,
-  // `lookFrom()` and `simFrom()` rather than the `DEFAULT_LOOK`/`DEFAULT_SIM` constants that used to
-  // be exported for exactly this: the builders called with nothing ARE those two values, which is
-  // what made a second name for them something to remove. This is the context's value before a
-  // provider is mounted, so it is never the one a canvas draws.
+  failure: null,
   look: lookFrom(),
   sim: simFrom(),
   arrangement: "atlas",
@@ -480,20 +411,15 @@ const GraphViewContext = createContext<GraphViewValue>({
   resetLayout: () => {},
   layoutStored: false,
   motion: "settled",
-  setMotion: () => {},
   pinned: 0,
-  setPinned: () => {},
   progress: 0,
-  setProgress: () => {},
   focused: null,
-  setFocused: () => {},
   tool: null,
   setTool: () => {},
   selection: null,
   select: () => {},
   corpus: null,
-  setCorpus: () => {},
-  register: () => {},
+  domain: NO_DOMAIN,
   commands: NOOP,
 });
 
@@ -503,67 +429,54 @@ export const useGraphView = () => useContext(GraphViewContext);
  * Wraps the whole archive shell so the canvas, the inspector and the footer all read one
  * crossfilter. Children render immediately — DuckDB-WASM takes a moment, and blanking the shell
  * while it boots would be worse than the parts that need it saying so themselves via `ready`.
+ *
+ * The graph itself is `useGraph`'s: this provider opens the corpus, hands it over with the
+ * arrangement's channels, and reads the rest of its state back off the api.
  */
 export function GraphMosaic({ children }: { children: ReactNode }) {
   const [archive, setArchive] = useState<Archive | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
   // Atlas, not Nebula, out of the box: it is the one built from the theme tokens, so the canvas
-  // arrives in whatever mode the rest of the app is in. Nebula is a deliberate choice — a fixed
-  // deep-space canvas is striking, but as a default it drops a black rectangle into a light page.
-  //
-  // What is left in React state is the BINDINGS this arrangement carries. The geometry and the
-  // forces are preferences now: stored by the theme provider, resolved by its chain, and drawn by
-  // its renderer wherever a surface asks for them.
+  // arrives in whatever mode the rest of the app is in.
   const [arrangement, setArrangement] = useState<LookId>("atlas");
-  const [motion, setMotion] = useState<Motion>("running");
-  const [pinned, setPinned] = useState(0);
-  const [progress, setProgress] = useState(0);
-  const [focused, setFocused] = useState<VertexId | null>(null);
-  const [tool, setTool] = useState<Tool>(null);
-  const [selection, select] = useState<Selection | null>(null);
-  const [corpus, setCorpus] = useState<number | null>(null);
-  const commandsRef = useRef<GraphCommands | null>(null);
 
   useEffect(() => {
     let mounted = true;
-    void openArchive().then((opened) => {
-      if (mounted) setArchive(opened);
-    });
+    openArchive().then(
+      (opened) => {
+        if (mounted) setArchive(opened);
+      },
+      (error: unknown) => {
+        if (mounted) setFailure(error instanceof Error ? error.message : String(error));
+      },
+    );
     return () => {
       mounted = false;
     };
   }, []);
 
-  const register = useCallback((commands: GraphCommands | null) => {
-    commandsRef.current = commands;
-  }, []);
-
-  // A façade with a stable identity, so a panel holding it never re-renders when the canvas
-  // remounts and swaps the implementation underneath.
-  const commands = useMemo<GraphCommands>(
-    () => ({
-      zoomBy: (factor) => commandsRef.current?.zoomBy(factor),
-      fit: () => commandsRef.current?.fit(),
-      pause: () => commandsRef.current?.pause(),
-      resume: () => commandsRef.current?.resume(),
-      restart: () => commandsRef.current?.restart(),
-      unpin: () => commandsRef.current?.unpin(),
-      reveal: (vertex) => commandsRef.current?.reveal(vertex),
-      frameSelection: () => commandsRef.current?.frameSelection(),
-      clear: () => commandsRef.current?.clear(),
-    }),
-    [],
-  );
-
-  // The preferences this host's graph section contributes, resolved — pinned, stored, the tenant's
-  // starting point, the manifest's default. The dock reads the answer and never the storage.
   const { sectionPrefs, setSectionPref } = useKanzoTheme();
   const { look, sim } = useGraphPrefs();
+  const channels = PAIRINGS[arrangement];
+
+  const api = useGraph({
+    corpus: archive?.corpus ?? null,
+    type: TYPE,
+    fill: channels.fill,
+    symbol: channels.symbol,
+    stroke: channels.stroke,
+    r: archive?.spec.sizeField,
+    title: archive?.spec.labelField,
+    filterBy: archive?.crossfilter,
+    look,
+    sim,
+    onFailure: setFailure,
+  });
 
   /**
    * Wear one of this product's arrangements: take its bindings, and write the axes that name it.
-   *
-   * One write, not four. Four `setSectionPref` calls in one handler each read the same pre-render
-   * map, so three of them are lost — which is why the write takes a record.
+   * One write, not four — four `setSectionPref` calls in one handler each read the same pre-render
+   * map, so three of them are lost.
    */
   const wear = useCallback(
     (id: LookId) => {
@@ -573,13 +486,8 @@ export function GraphMosaic({ children }: { children: ReactNode }) {
     [setSectionPref],
   );
 
-  /**
-   * Put the forces back — by UNSETTING them, not by writing the defaults.
-   *
-   * Where that lands is the chain's answer: this package's numbers when nobody said otherwise, and
-   * the tenant's starting point when they did. Writing `simFrom()` here would make the reset the
-   * one act that pins a reader against their own client's document.
-   */
+  // Unset rather than write the defaults, so the reset lands on the chain's answer — the tenant's
+  // starting point when there is one.
   const resetLayout = useCallback(() => {
     setSectionPref(
       "graph",
@@ -587,18 +495,28 @@ export function GraphMosaic({ children }: { children: ReactNode }) {
     );
   }, [setSectionPref]);
 
-  // `via` rather than a comparison against the defaults: a tenant who starts their users somewhere
-  // else leaves `sim` different from `simFrom()` for everybody, and a reset that stayed lit for
-  // all of them would be a button that does nothing.
   const layoutStored = [...FORCES, CLUSTER].some(
     (key) => sectionPrefs.graph?.[key]?.via === "stored",
+  );
+
+  // Field by field rather than on `api`, whose identity moves with every hover: the panels re-render
+  // on what they show.
+  const { drawn, focus, motion, pinned, progress, select: pick, selection, setTool, tool, total } = api;
+  const { clear, fit, frameSelection, pause, restart, resume, reveal, unpin, zoomBy } = api;
+  const select = useCallback(
+    (next: Selection | null) => pick(next ? next.vertices : null, next?.source, next?.label),
+    [pick],
+  );
+  const commands = useMemo<GraphCommands>(
+    () => ({ clear, fit, frameSelection, pause, restart, resume, reveal, unpin, zoomBy }),
+    [clear, fit, frameSelection, pause, restart, resume, reveal, unpin, zoomBy],
   );
 
   const value = useMemo<GraphViewValue>(
     () => ({
       ready: archive !== null,
       spec: archive?.spec ?? null,
-      source: archive?.source ?? null,
+      failure,
       look,
       sim,
       arrangement,
@@ -606,24 +524,20 @@ export function GraphMosaic({ children }: { children: ReactNode }) {
       resetLayout,
       layoutStored,
       motion,
-      setMotion,
-      pinned,
-      setPinned,
+      pinned: pinned.length,
       progress,
-      setProgress,
-      focused,
-      setFocused,
+      focused: focus,
       tool,
       setTool,
       selection,
       select,
-      corpus,
-      setCorpus,
-      register,
+      corpus: total ?? null,
+      domain: drawn?.domain ?? NO_DOMAIN,
       commands,
     }),
     [
       archive,
+      failure,
       look,
       sim,
       arrangement,
@@ -633,16 +547,22 @@ export function GraphMosaic({ children }: { children: ReactNode }) {
       motion,
       pinned,
       progress,
-      focused,
+      focus,
       tool,
+      setTool,
       selection,
-      corpus,
-      register,
+      select,
+      total,
+      drawn,
       commands,
     ],
   );
 
-  const inner = <GraphViewContext.Provider value={value}>{children}</GraphViewContext.Provider>;
+  const inner = (
+    <GraphRootProvider value={api}>
+      <GraphViewContext.Provider value={value}>{children}</GraphViewContext.Provider>
+    </GraphRootProvider>
+  );
   if (!archive) return inner;
   return (
     <MosaicProvider coordinator={archive.coordinator} crossfilter={archive.crossfilter}>
