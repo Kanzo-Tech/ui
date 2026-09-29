@@ -1,7 +1,7 @@
 import type { TileAddress, TileMatrixSet } from "@fossil-lang/corpus";
 import { refine } from "./refine";
 import { RequestScheduler } from "./scheduler";
-import { Tile, type TileLoader } from "./tile";
+import { Tile, type TileContent, type TileLoader } from "./tile";
 import { centreOf, parentOf, selectLevel, tileId, type Viewport } from "./tile-matrix";
 
 /** deck.gl's `DEFAULT_CACHE_SCALE`: the cache holds five times what is selected. */
@@ -16,7 +16,7 @@ export interface TilesetOptions {
   maxCacheSize?: number;
   /** Bytes kept; unbounded when absent. */
   maxCacheByteSize?: number;
-  /** One: see `RequestScheduler`. */
+  /** Batches in flight — one: see `RequestScheduler`. */
   maxRequests?: number;
   debounceTime?: number;
 }
@@ -28,12 +28,12 @@ export interface TilesetOptions {
  * `update(viewport)` selects, then sets tile states, then prunes requests, then resizes the cache,
  * in deck.gl's order. Where it departs is `/docs/design/graph`'s table: a tile is fossil's
  * `{ type, z, tile }`, the level is chosen by published row counts, a tile is in view by its
- * published box, and an in-flight tile nobody wants is always aborted, because the one slot is
- * the only one.
+ * published box, and the tiles wanted in one tick are read as one batch, whose read is aborted once
+ * no tile in it is wanted.
  */
 export class Tileset2D {
   readonly #options: TilesetOptions;
-  readonly #scheduler: RequestScheduler<Tile>;
+  readonly #scheduler: RequestScheduler<Tile, TileContent>;
   readonly #cache = new Map<string, Tile>();
   #matrix: TileMatrixSet | null = null;
   #planned: ReadonlyMap<number, ReadonlySet<number>> = new Map();
@@ -48,6 +48,7 @@ export class Tileset2D {
   constructor(options: TilesetOptions) {
     this.#options = options;
     this.#scheduler = new RequestScheduler({
+      run: (tiles, signal) => options.load(tiles.map((tile) => tile.address), signal),
       debounceTime: options.debounceTime,
       maxRequests: options.maxRequests ?? 1,
     });
@@ -195,7 +196,6 @@ export class Tileset2D {
     for (const tile of this.#selected) {
       if (tile.isLoaded || tile.isLoading) continue;
       void tile.loadData({
-        load: this.#options.load,
         scheduler: this.#scheduler,
         priority: (t) => this.#priority(t),
         onLoad: (t) => this.#options.onTileLoad?.(t),
@@ -215,11 +215,12 @@ export class Tileset2D {
     return Math.hypot(centre[0] - (view.xMin + view.xMax) / 2, centre[1] - (view.yMin + view.yMax) / 2);
   }
 
-  /** Always, where deck.gl waits for `maxRequests` to be exceeded: the one slot is the only one. */
+  /**
+   * Always, where deck.gl waits for `maxRequests` to be exceeded: the one slot is the only one. A
+   * batch is the unit aborted, so a tile nobody wants rides out a batch somebody else still does.
+   */
   #pruneRequests(): void {
-    for (const tile of this.#cache.values()) {
-      if (tile.isLoading && !tile.isSelected && !tile.isVisible) tile.abort();
-    }
+    this.#scheduler.prune();
   }
 
   /** Evicts tiles neither visible nor selected, in insertion order — deck.gl's, and not LRU. */

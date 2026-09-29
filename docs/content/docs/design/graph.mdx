@@ -17,7 +17,7 @@ half of the acceptance test: the same composition drawing in keasy's discover sc
 
 fossil reads the corpus and this package draws it, and nothing crosses between them except the
 corpus contract as fossil wrote it — the contract section of fossil's own design page, *The
-backend*: `open`, `tileMatrix`, `scan(…).plan()`, `scan(…).read(address)`, `edges`, `node`
+backend*: `open`, `tileMatrix`, `scan(…).plan()`, `scan(…).read(addresses)`, `edges`, `node`
 and `types`. **No SQL is written in `@kanzo-tech/graph`.** Every question the view asks is a call on the
 corpus, and a second way to reach the same bytes is deleted rather than kept beside the first.
 
@@ -26,8 +26,8 @@ fossil (backend)                               @kanzo-tech/graph (view)
 open(url, { engine })  → Corpus                    parts     GraphCanvas · GraphLegend · GraphToolbar · GraphInspector
 tileMatrix(type) → matrices, tiles, boxes          adapter   useGraph · GraphRoot · GraphRootProvider · useGraphContext · useGraphState
 scan({ type, filter, select }).plan() → tasks      render    batches → cosmos.gl buffers, one render per frame
-scan.read({ type, z, tile }, { signal }) → Batch   core      tileset: cull · select · refine · cache · cancel
-edges({ from, direction, signal }) → batches, gaps filter    the page's crossfilter → scan's typed filter
+scan.read([{ type, z, tile }, …]) → Batch[]    core      tileset: cull · select · refine · cache · cancel
+edges({ from: […], direction }) → answers      filter    the page's crossfilter → scan's typed filter
 ```
 
 What that deleted was not a style. `duck-source.ts` was 1,096 lines, and it was this package writing
@@ -124,7 +124,7 @@ packages/graph/src/
 │   ├── tile.ts               one tile: load, abort, content, byteLength, parent/children (Tile2DHeader)
 │   ├── tileset.ts            update(viewport) → selected; tree; cache; prune          (Tileset2D)
 │   ├── refine.ts             best-available, and only it                              (STRATEGY_DEFAULT)
-│   ├── scheduler.ts          priority queue, maxRequests, debounce, cancel by priority (RequestScheduler)
+│   ├── scheduler.ts          priority queue, one batch in flight, debounce, prune     (RequestScheduler)
 │   ├── filter.ts             a Mosaic predicate → scan's filter; the clause the graph publishes
 │   ├── channels.ts           Plot's bindings, and the projection they imply
 │   ├── store.ts              createGraph(options): subscribe · getSnapshot · setOptions (QueryObserver)
@@ -172,11 +172,13 @@ who does not can read deck.gl's.
 
 **Taken verbatim:**
 
-- **The load.** Loading a tile is deck.gl's `getTileData({ index, id, bbox, signal })` — here,
-  `scan.read(address, { signal })` and the tile's edges, with the `AbortSignal` owned by the tile's
-  own `AbortController` exactly as `Tile2DHeader._loadData` owns it. A result whose loader id is no
-  longer the tile's is discarded as stale. The signal reaches the running statement: fossil's
-  `Engine.query` takes it and interrupts the query, not only the queue in front of it.
+- **The load.** Loading a tile is deck.gl's `getTileData({ index, id, bbox, signal })` — here, a
+  batch: `scan.read(addresses, { signal })` and the batch's edges, answering one content per tile,
+  with the `AbortSignal` owned by the batch rather than by the tile (see
+  [*one batch in flight*](#one-batch-in-flight)). A result whose loader id is no longer the tile's
+  is discarded as stale, as `Tile2DHeader._loadData` discards it. The signal reaches the running
+  statement: fossil's `Engine.query` takes it and interrupts the query, not only the queue in front
+  of it.
 - **The tile's states.** `isLoaded`, `isLoading`, `needsReload`, `isSelected`, `isVisible`, `parent`,
   `children`, `content`, `byteLength` — the same flags, meaning the same things.
 - **`update(viewport)`.** Selection is recomputed when the viewport changed; then tile states, then
@@ -188,8 +190,9 @@ who does not can read deck.gl's.
   2026-09-29, and it is what `'best-available'` already does, since a tile at rest has no unloaded
   selected descendant to stand in for.
 - **Scheduling.** A queued request whose tile is neither selected nor visible gets priority `-1` and
-  is cancelled before it is issued; the rest are issued nearest-the-centre first. That is
-  `Tileset2D._getRequestPriority` over loaders.gl's `RequestScheduler`.
+  is cancelled before it is issued; the rest are ranked nearest-the-centre first. That is
+  `Tileset2D._getRequestPriority` over loaders.gl's `RequestScheduler` — which issues a batch where
+  loaders.gl issues a request.
 - **The cache.** `maxCacheSize` defaults to five times the selected count (`DEFAULT_CACHE_SCALE`),
   `maxCacheByteSize` is optional, and eviction removes tiles that are neither visible nor selected, in
   insertion order. That order is deck.gl's, and it is not LRU; it is copied knowingly.
@@ -201,12 +204,12 @@ who does not can read deck.gl's.
 
 | deck.gl | here | why |
 |---|---|---|
-| a tile is `{ x, y, z }`, id `` `${x}-${y}-${z}` `` | a tile is fossil's `TileAddress`, `{ type, z, tile }`, id `` `${type}-${z}-${tile}` `` | `dense_id` is a vertex's **rank** in the Morton order, so a matrix is one-dimensional: a tile is a contiguous id range, not a cell of a grid |
+| a tile is `{ x, y, z }`, id `` `${x}-${y}-${z}` `` | a tile is fossil's `TileAddress`, `{ type, z, tile }`, id `` `${type}-${z}-${tile}` `` | `dense_id` is a vertex's **rank** along a Hilbert curve, so a matrix is one-dimensional: a tile is a contiguous id range, not a cell of a grid |
 | `getParentIndex`: `{ x/2, y/2, z − 1 }` | the parent of `(z, t)` is `(z − 1, t >> (shift(z − 1) − shift(z)))` | a tree on the rank axis, from the `shift` each matrix publishes: four children per tile between rungs, and `2^B` — sixteen at sixteen vertices a cell — between the payload and the first rung |
 | `getOSMTileIndices` or `getIdentityTileIndices`: indices from the viewport by arithmetic | **a cull**: a tile is in view when its published `bbox` meets the viewport | where a rank falls on the plane depends on the positions, so no arithmetic over the matrix can locate it; `tileMatrix(type)` lists every tile with its box, synchronously, and no tile is empty |
 | `z` from the viewport's zoom plus `zoomOffset`, tiles of `tileSize` pixels | `z` is the **finest level whose tiles in view hold, by their published `rows`, at most `limit` marks** | the budget is marks rather than pixels, and the counts are the manifest's — see the next rule |
-| `maxRequests: 6` | **one** read in flight, the queue ordered by priority | six is the browser's connections per HTTP/1.1 origin; our reader is DuckDB-WASM, one worker behind one port, where a second concurrent request queues rather than overlaps — measured, see [the filter rule](#a-filter-is-a-predicate-not-a-mask) |
-| in-flight tiles aborted only while `ongoingRequestCount > maxRequests` | an in-flight tile that stops being selected or visible is **always** aborted | deck.gl keeps a finished request because a parallel slot costs nothing; here the one slot is the only one, and a superseded read holds it |
+| `maxRequests: 6`, a request per tile | **one batch** in flight: every tile queued when the slot frees is one `read` and one `edges` call per half | six is the browser's connections per HTTP/1.1 origin; our reader is DuckDB-WASM, one worker behind one port, where a second concurrent request queues rather than overlaps — measured, see [the filter rule](#a-filter-is-a-predicate-not-a-mask) — and fossil reads a run of consecutive tiles as one statement only when it is handed them together |
+| in-flight tiles aborted only while `ongoingRequestCount > maxRequests` | an in-flight batch is aborted **as soon as none of its tiles** is selected or visible, and not before | see [*one batch in flight*](#one-batch-in-flight) |
 | `refinementStrategy`: three values and a function | `'best-available'`, fixed | a coarse tile is a stand-in while its children load, never a resting state |
 | `renderSubLayers` per tile, a layer per tile | tiles are **composed into one buffer set** for one cosmos.gl instance | cosmos.gl has one set of buffers per graph, not layers; see [the renderer rule](#the-renderer-uploads-what-changed-and-renders-once-a-frame) |
 | `zRange`, `modelMatrix` | none | a laid-out graph is flat and unrotated; nothing asks for either |
@@ -222,10 +225,49 @@ measured as first paint and as the median pan over the same corpus and the same 
 not expected: the window read is the sum of the tile reads plus the join that combined them.
 
 *Held by* `packages/graph/src/core/tileset.test.ts`, against a stub corpus: "reads a selected tile
-once, and never asks a loaded tile again", "aborts an in-flight tile that stops being selected or
-visible", "never issues a queued tile nobody wants any more", "never evicts a visible tile, and evicts
-the rest in insertion order", "draws a parent only while a selected child is loading", "keeps the old
-content when the question changes, until the new answer arrives".
+once, and never asks a loaded tile again", "never issues a queued tile nobody wants any more", "never
+evicts a visible tile, and evicts the rest in insertion order", "draws a parent only while a selected
+child is loading", "keeps the old content when the question changes, until the new answer arrives".
+
+### One batch in flight
+
+**The tiles the tileset wants in one tick are one call.** When the debounce settles, or the batch in
+flight lands, everything queued is ranked, the unwanted dropped, and the rest issued together:
+`scan.read(addresses)`, `edges({ from: addresses, direction: "src" })`, and `direction: "dst"` over
+the payload tiles among them. fossil answers one batch per address, so the tileset still caches,
+refines and reloads **per tile** — a batch is how tiles are asked, never what is kept. How the batch
+becomes statements is fossil's: it sorts the addresses and reads each run of consecutive tiles as one
+conjunctive range (*The backend*, *a read does not cost the corpus*). The view does not know which of
+its tiles are consecutive, and must not: that is arithmetic over the matrix, and the reader's.
+
+**A batch is aborted when none of its tiles is wanted, and never while one is.** deck.gl aborts a
+tile's request when the tile stops being selected or visible and too many are in flight; with one
+`AbortSignal` per batch, aborting for one tile would throw away the others' answers, which the next
+batch would then ask again. So a tile nobody wants any more **rides out** a batch that is still
+answering somebody, and keeps what it read — the bytes are paid, and a pan back finds it in the
+cache. A tile *explicitly* dropped — evicted, or marked for reload because the question changed —
+resolves `null` at once and discards its answer, and when every tile in a batch is dropped or
+unwanted, the batch's signal aborts the running statement. A queued tile nobody wants is never
+issued, as before.
+
+The price is that a batch is all or nothing: one tile's failure fails the batch, and the nearest
+tile's answer waits for the farthest one's. Measured over the rebuilt bench corpora
+([Benchmarks](/docs/graph/benchmarks), *the data path*), a batch costs the same bytes as its tiles
+read one by one, three calls where there were three a tile, and half the requests when its tiles are
+one run — 59 ms against 74 for the whole extent at 200k, 91 against 105 at a million. Where its
+tiles fall in as many runs as there are tiles it saves nothing, and costs nothing measurable.
+
+**What would reverse it:** a camera move whose batch is slower to its **first** drawn tile than the
+same tiles read one by one nearest-first — measured as time to the first composition over the same
+camera path — which would happen if a window's tiles stopped falling in runs, or if one batch grew
+large enough that the far tiles dominate. Then the batch is capped — by count, never by run, which
+stays the reader's arithmetic. And the abort rule reverses on a measurement of a batch finishing for one wanted tile while
+a superseding batch waited long enough to show: the waste would then be the slot, not the bytes.
+
+*Held by* `packages/graph/src/core/tileset.test.ts`: "reads the tiles wanted in one tick as one
+batch", "keeps one batch in flight, and asks what queued behind it as the next one", "lets a batch
+finish while any tile in it is wanted, and keeps what it read", "aborts a batch once none of its tiles
+is selected or visible".
 
 ## A far view is a coarser level of the pyramid
 
@@ -322,7 +364,7 @@ under another name.
 **The architecture is three lines, and the seam draws the first:**
 
 ```text
-draw    camera → cull over published boxes → scan.read(address)    memory, then a read per tile
+draw    camera → cull over published boxes → scan.read(addresses)  memory, then a read per batch
 ask     verb → rows → ids                                          the verbs, or SQL, on fossil's side
 join    ids → what the canvas draws                                the predicate, below
 ```
@@ -364,8 +406,8 @@ cache, not only the tiles in view — and it is keyed by its pair of `VertexId`s
 its source's tile and the copy read from its target's tile are one edge. An edge shorter than **three
 screen pixels** is not composed.
 
-**Edges are read per tile, in both directions.** `corpus.edges({ from: address, direction })` answers
-a tile's relations out of the half aligned on `direction` — `src` for the source-aligned adjacency,
+**Edges are read per tile, in both directions.** `corpus.edges({ from: addresses, direction })` answers
+each tile's relations out of the half aligned on `direction` — `src` for the source-aligned adjacency,
 `dst` for the target-aligned one — as batches of `src` and `dst` ids. The `dst` half is what the old
 reader could not ask: an edge whose source was outside the window lived in a tile the window did not
 read, and was never drawn (inefficiency 10). Reading both is also what retires the anchor query — the
@@ -454,7 +496,7 @@ restored 1,543 and 4,280.
 the reasoning that three queries on separate connections would collapse to the slowest. Across four
 runs, a trivial query on a second connection answered at 511.8, 462.9, 454.8 and 449.5 ms against
 sorts of 511.7, 462.8, 454.7 and 449.4. DuckDB-WASM is one worker behind one message port. That is why
-the tileset keeps one read in flight and spends its effort on the order of the queue.
+the tileset keeps one batch in flight and spends its effort on what goes into it.
 </Callout>
 
 **What this does not touch:** the reads about the corpus rather than about the page — the tile matrix,
@@ -707,13 +749,13 @@ the shape that lets them.
 
 | # | the cost | closed by | how |
 |---|---|---|---|
-| 1 | under `rowgroups`, each slice read the whole vertex file and the whole `by_source` file | backend | `scan.read(address)` reads one row group; the view asks per tile |
+| 1 | under `rowgroups`, each slice read the whole vertex file and the whole `by_source` file | backend | `scan.read(addresses)` reads one row group a tile, a run of them in one statement; the view asks per batch |
 | 2 | the anchor CTE's `NOT (bbox)` scanned every vertex outside the window | view | far ends come from the tile cache; there is no anchor query |
-| 3 | the edge join was `O(E)` per slice | backend | `edges({ from: address })` reads one tile's adjacency by its `dense_id` range |
+| 3 | the edge join was `O(E)` per slice | backend | `edges({ from: addresses })` reads each tile's adjacency by its `dense_id` range |
 | 4 | the same CTEs ran twice per slice, for points and for links | view | SQL leaves the package; a tile is read once and its edges once |
 | 5 | `count(*) OVER ()` materialised the whole match before sampling | view, writer | counts are the manifest's; the level is chosen from them and nothing is sampled |
 | 6 | no cache; every pan re-asked the full rectangle | view | the tileset's cache: a loaded tile is never asked again |
-| 7 | superseded questions were not cancelled | view, backend | priority `-1` drops a queued read; an in-flight read's signal is aborted, and `Engine.query` interrupts the running statement |
+| 7 | superseded questions were not cancelled | view, backend | priority `-1` drops a queued read; an in-flight batch's signal is aborted once none of its tiles is wanted, and `Engine.query` interrupts the running statement |
 | 8 | opening read a footer over every payload file — 4,892 requests, 40 MB at 10M | writer | every tile's box and rows in the manifest, 2,654 entries at 10M; `tileMatrix` lists them |
 | 9 | every slice re-uploaded every buffer and rendered twice | view | encode once per tile, dirty flags by kind, one render per frame |
 | 10 | no `by_target` read, so an edge whose source was off-screen was never drawn | backend, view | `edges({ direction: "dst" })`, and the view reads both directions |

@@ -6,9 +6,9 @@ import { Tileset2D, type TilesetOptions } from "./tileset";
 
 /**
  * The tileset against a corpus on a line — sixteen vertices, four payload tiles of four at `z = 1`,
- * one tile of four cells at `z = 0` — with every read held until the test lets it go. What it
- * cannot prove is the order DuckDB-WASM answers in; the one-slot claim is the scheduler's, measured
- * in the browser (`/docs/design/graph`).
+ * one tile of four cells at `z = 0` — with every read held until the test lets it go. A read is
+ * one call, over a batch of addresses. What it cannot prove is that a batch is cheaper than its
+ * tiles one by one; that is fossil's claim, measured in the browser (`/docs/design/graph`).
  */
 
 const tile = (t: number): Viewport => ({ xMin: t * 4 + 0.5, xMax: t * 4 + 2.5, yMin: -1, yMax: 1 });
@@ -18,12 +18,8 @@ function tilesetOver(fake: FakeCorpus, options: Partial<TilesetOptions> = {}) {
   const scan = fake.corpus.scan({ type: "Node" });
   const tileset = new Tileset2D({
     debounceTime: 0,
-    load: async (address, signal): Promise<TileContent> => ({
-      rows: await scan.read(address, { signal }),
-      edges: [],
-      declined: [],
-      byteLength: 1,
-    }),
+    load: async (addresses, signal): Promise<TileContent[]> =>
+      (await scan.read(addresses, { signal })).map((rows) => ({ rows, edges: [], declined: [], byteLength: 1 })),
     onTileLoad: () => tileset.refresh(),
     ...options,
   });
@@ -33,7 +29,9 @@ function tilesetOver(fake: FakeCorpus, options: Partial<TilesetOptions> = {}) {
 }
 
 const tick = (ms = 0) => new Promise((resolve) => setTimeout(resolve, ms));
-const read = (fake: FakeCorpus) => fake.reads.map((r) => `${r.address.z}/${r.address.tile}`);
+const read = (fake: FakeCorpus) =>
+  fake.reads.map((r) => r.addresses.map((a) => `${a.z}/${a.tile}`).sort().join(","));
+const content = (tileset: Tileset2D, t: number) => tileset.tiles.find((x) => x.z === 1 && x.address.tile === t)?.content;
 
 describe("Tileset2D over a corpus", () => {
   it("chooses the finest zoom whose tiles in view fit the limit", () => {
@@ -61,28 +59,65 @@ describe("Tileset2D over a corpus", () => {
     expect(read(fake)).toEqual(["1/0", "1/1"]);
   });
 
-  it("aborts an in-flight tile that stops being selected or visible", async () => {
+  it("reads the tiles wanted in one tick as one batch", async () => {
+    const fake = fakeCorpus();
+    const tileset = tilesetOver(fake);
+    tileset.update(all, 20);
+    await fake.settle();
+    expect(read(fake)).toEqual(["1/0,1/1,1/2,1/3"]);
+    expect(tileset.selectedTiles.every((t) => t.content !== null)).toBe(true);
+  });
+
+  it("keeps one batch in flight, and asks what queued behind it as the next one", async () => {
     const fake = fakeCorpus();
     const tileset = tilesetOver(fake);
     tileset.update(tile(0), 20);
     await tick();
+    tileset.update({ xMin: 0.5, xMax: 10.5, yMin: -1, yMax: 1 }, 20);
+    await tick();
     expect(read(fake)).toEqual(["1/0"]);
+    await fake.settle();
+    expect(read(fake)).toEqual(["1/0", "1/1,1/2"]);
+  });
+
+  it("lets a batch finish while any tile in it is wanted, and keeps what it read", async () => {
+    const fake = fakeCorpus();
+    const tileset = tilesetOver(fake);
+    tileset.update({ xMin: 0.5, xMax: 6.5, yMin: -1, yMax: 1 }, 20);
+    await tick();
+    expect(read(fake)).toEqual(["1/0,1/1"]);
+    tileset.update(tile(1), 20);
+    expect(fake.reads[0]?.signal?.aborted).toBe(false);
+    await fake.settle();
+    expect(read(fake)).toEqual(["1/0,1/1"]);
+    expect(content(tileset, 0)).not.toBeNull();
+    expect(content(tileset, 1)).not.toBeNull();
+  });
+
+  it("aborts a batch once none of its tiles is selected or visible", async () => {
+    const fake = fakeCorpus();
+    const tileset = tilesetOver(fake);
+    tileset.update({ xMin: 0.5, xMax: 6.5, yMin: -1, yMax: 1 }, 20);
+    await tick();
     tileset.update(tile(3), 20);
     expect(fake.reads[0]?.signal?.aborted).toBe(true);
     await fake.settle();
-    expect(tileset.tiles.find((t) => t.address.tile === 3)?.content).not.toBeNull();
+    expect(read(fake)).toEqual(["1/0,1/1", "1/3"]);
+    expect(content(tileset, 3)).not.toBeNull();
+    expect(content(tileset, 0) ?? null).toBeNull();
   });
 
   it("never issues a queued tile nobody wants any more", async () => {
     const fake = fakeCorpus();
     const tileset = tilesetOver(fake);
+    tileset.update(tile(0), 20);
+    await tick();
     tileset.update({ xMin: 0.5, xMax: 6.5, yMin: -1, yMax: 1 }, 20);
     await tick();
-    expect(read(fake)).toHaveLength(1);
+    expect(read(fake)).toEqual(["1/0"]);
     tileset.update(tile(3), 20);
     await fake.settle();
-    expect(read(fake)).not.toContain("1/1");
-    expect(read(fake).at(-1)).toBe("1/3");
+    expect(read(fake)).toEqual(["1/0", "1/3"]);
   });
 
   it("never evicts a visible tile, and evicts the rest in insertion order", async () => {

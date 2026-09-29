@@ -1,6 +1,7 @@
 import {
   PAYLOAD_ADDRESS,
   PAYLOAD_COORDINATES,
+  type Batch,
   type Corpus,
   type Filter,
   type Gap,
@@ -73,16 +74,23 @@ export function createGraph(initial: GraphOptions): GraphStore {
 
   const tileset = new Tileset2D({
     debounceTime: 60,
-    load: async (address, signal) => {
+    load: async (addresses, signal) => {
       if (!corpus || !scan) throw new Error("the graph has no scan to read with");
-      const rows = await scan.read(address, { signal });
-      const cells = matrix?.tileMatrices[address.z]?.kind === "cells";
-      const src = await corpus.edges({ from: address, direction: "src", signal });
-      const dst = cells ? null : await corpus.edges({ from: address, direction: "dst", signal });
-      const edges = [...src.batches, ...(dst?.batches ?? [])];
-      const gaps = [...src.declined, ...(dst?.declined ?? [])].filter((gap) => !(cells && gap.direction === "dst"));
-      const content = { rows, edges, declined: gaps };
-      return { ...content, byteLength: bytesOf(content) };
+      const isCells = (address: TileAddress) => matrix?.tileMatrices[address.z]?.kind === "cells";
+      const rows = await scan.read(addresses, { signal });
+      const src = await corpus.edges({ from: addresses, direction: "src", signal });
+      const payload = addresses.filter((address) => !isCells(address));
+      const dst = payload.length > 0 ? await corpus.edges({ from: payload, direction: "dst", signal }) : [];
+      const dstOf = new Map(payload.map((address, i) => [address, dst[i]]));
+      return addresses.map((address, i) => {
+        const out = src[i];
+        const back = dstOf.get(address);
+        const edges = [...(out?.batches ?? []), ...(back?.batches ?? [])];
+        const gaps = [...(out?.declined ?? []), ...(back?.declined ?? [])];
+        const declined = isCells(address) ? gaps.filter((gap) => gap.direction !== "dst") : gaps;
+        const content = { rows: rows[i] as Batch, edges, declined };
+        return { ...content, byteLength: bytesOf(content) };
+      });
     },
     onTileLoad: (tile) => {
       for (const gap of tile.content?.declined ?? []) {

@@ -17,11 +17,12 @@ import type {
  * cell to the next.
  *
  * Reads are recorded and held until the test releases them, so a test can see what is in flight,
- * what was aborted, and what was never sent.
+ * what was aborted, and what was never sent. A read is one call, and a call takes a batch of
+ * addresses, as fossil's does.
  */
 export interface Read {
   readonly kind: "rows" | "edges";
-  readonly address: TileAddress;
+  readonly addresses: readonly TileAddress[];
   readonly direction?: "src" | "dst";
   readonly signal?: AbortSignal;
   released: boolean;
@@ -133,11 +134,10 @@ export function fakeCorpus({ tileRows = 4, vertices = 16 }: { tileRows?: number;
             ? []
             : m.tiles.map((t) => ({ type: TYPE, z: m.z, tile: t.tile, rows: t.rows, bbox: t.bbox, residual: null })),
         );
-      const read = (address: TileAddress, options: { signal?: AbortSignal } = {}) =>
-        held({ kind: "rows", address, signal: options.signal }, () => {
-          const only = params.filter && "op" in params.filter && params.filter.op === "=" ? Number(params.filter.value) : null;
-          const ids = range(address).filter((i) => only === null || i === only);
-          return address.z === 1
+      const one = (address: TileAddress) => {
+        const only = params.filter && "op" in params.filter && params.filter.op === "=" ? Number(params.filter.value) : null;
+        const ids = range(address).filter((i) => only === null || i === only);
+        return address.z === 1
             ? batch({ dense_id: ids, x: ids, y: ids.map(() => 0), cluster_id: ids.map((i) => i % 4), degree: ids.map((i) => i + 1) })
             : batch({
                 cell_id: ids,
@@ -146,15 +146,16 @@ export function fakeCorpus({ tileRows = 4, vertices = 16 }: { tileRows?: number;
                 count: ids.map(() => PER_CELL),
                 mode: ids.map((c) => c % 4),
               });
-        });
+      };
+      const read = (addresses: readonly TileAddress[], options: { signal?: AbortSignal } = {}) =>
+        held({ kind: "rows", addresses, signal: options.signal }, () => addresses.map(one));
       return { params, plan, read };
     },
-    edges(params: EdgesParams): Promise<EdgeAnswer> {
-      const { direction, from, signal } = params;
-      if (from.z === 0 && direction === "dst") {
-        return Promise.resolve({ batches: [], declined: [{ edgeType: "linksTo", direction, reason: "not-declared" }] });
-      }
-      return held({ kind: "edges", address: from, direction, signal }, () => {
+    edges(params: EdgesParams): Promise<readonly EdgeAnswer[]> {
+      const { direction, from: addresses, signal } = params;
+      const declines = (from: TileAddress) => from.z === 0 && direction === "dst";
+      const answer = (from: TileAddress): EdgeAnswer => {
+        if (declines(from)) return { batches: [], declined: [{ edgeType: "linksTo", direction, reason: "not-declared" }] };
         const ids = range(from);
         const last = (from.z === 1 ? vertices : cells) - 1;
         const pairs = ids
@@ -173,7 +174,9 @@ export function fakeCorpus({ tileRows = 4, vertices = 16 }: { tileRows?: number;
           ],
           declined: [],
         };
-      });
+      };
+      if (addresses.every(declines)) return Promise.resolve(addresses.map(answer));
+      return held({ kind: "edges", addresses, direction, signal }, () => addresses.map(answer));
     },
   } as unknown as Corpus;
 

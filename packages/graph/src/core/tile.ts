@@ -10,12 +10,14 @@ export interface TileContent {
   readonly byteLength: number;
 }
 
-/** deck.gl's `getTileData`, with fossil's address where deck.gl has `{ x, y, z }`. */
-export type TileLoader = (address: TileAddress, signal: AbortSignal) => Promise<TileContent>;
+/**
+ * deck.gl's `getTileData`, over a batch: fossil's addresses where deck.gl has `{ x, y, z }`, and one
+ * content per address, in order, because the corpus reads a run of consecutive tiles in one statement.
+ */
+export type TileLoader = (addresses: readonly TileAddress[], signal: AbortSignal) => Promise<readonly TileContent[]>;
 
 export interface TileLoad {
-  load: TileLoader;
-  scheduler: RequestScheduler<Tile>;
+  scheduler: RequestScheduler<Tile, TileContent>;
   priority: (tile: Tile) => number;
   onLoad: (tile: Tile) => void;
   onError: (error: unknown, tile: Tile) => void;
@@ -38,7 +40,7 @@ export class Tile {
   parent: Tile | null = null;
   children: Tile[] = [];
 
-  #controller: AbortController | null = null;
+  #scheduler: RequestScheduler<Tile, TileContent> | null = null;
   #loader: Promise<void> | null = null;
   #loaderId = 0;
   #loaded = false;
@@ -73,6 +75,7 @@ export class Tile {
   }
 
   loadData(options: TileLoad): Promise<void> {
+    this.#scheduler = options.scheduler;
     this.#loaded = false;
     this.#cancelled = false;
     this.#needsReload = false;
@@ -82,11 +85,14 @@ export class Tile {
     return loader;
   }
 
-  /** A finished tile has nothing to abort; a queued or running one is cancelled. */
+  /**
+   * A finished tile has nothing to abort; a queued or running one is cancelled, and its batch is
+   * aborted once no tile in it is wanted.
+   */
   abort(): void {
     if (this.#loaded || this.#loader === null) return;
     this.#cancelled = true;
-    this.#controller?.abort();
+    this.#scheduler?.cancel(this);
   }
 
   setNeedsReload(): void {
@@ -97,40 +103,21 @@ export class Tile {
     this.#needsReload = true;
   }
 
-  async #load({ load, onError, onLoad, priority, scheduler }: TileLoad): Promise<void> {
+  async #load({ onError, onLoad, priority, scheduler }: TileLoad): Promise<void> {
     const loaderId = this.#loaderId;
-    const controller = new AbortController();
-    this.#controller = controller;
-    const token = await scheduler.schedule(this, priority);
-    if (loaderId !== this.#loaderId) {
-      token?.done();
-      return;
-    }
-    if (!token || this.#cancelled) {
-      token?.done();
-      this.#cancelled = true;
-      this.#loader = null;
-      return;
-    }
-    let content: TileContent | null = null;
-    let failure: unknown = null;
-    try {
-      content = await load(this.address, controller.signal);
-    } catch (error) {
-      failure = error ?? new Error("the tile failed to load");
-    } finally {
-      token.done();
-    }
+    const outcome = await scheduler.schedule(this, priority);
     if (loaderId !== this.#loaderId) return;
     this.#loader = null;
-    this.#controller = null;
-    if (this.#cancelled || controller.signal.aborted) {
+    if (outcome === null || this.#cancelled) {
       this.#cancelled = true;
       return;
     }
     this.#loaded = true;
-    if (content) this.content = content;
-    if (failure !== null) onError(failure, this);
-    else onLoad(this);
+    if ("value" in outcome) {
+      this.content = outcome.value;
+      onLoad(this);
+    } else {
+      onError(outcome.error ?? new Error("the tile failed to load"), this);
+    }
   }
 }

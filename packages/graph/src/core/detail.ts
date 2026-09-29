@@ -29,8 +29,8 @@ export async function readVertex(
   if (!address || !type) return null;
   const names = type.fields.map((field) => field.name).filter((name) => !HIDDEN.has(name));
   const scan = corpus.scan({ type: matrix.type, filter: { column: KEY, op: "=", value: dense }, select: [KEY, ...names] });
-  const rows = await scan.read(address, { signal });
-  if (rows.numRows === 0) return null;
+  const [rows] = await scan.read([address], { signal });
+  if (!rows || rows.numRows === 0) return null;
   return {
     vertex,
     fields: names.map((name) => ({ name, value: rows.getChild(name)?.toArray()[0] ?? null })),

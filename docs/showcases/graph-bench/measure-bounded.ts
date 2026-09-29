@@ -19,10 +19,11 @@ import { CANVAS, host, nextFrame, visible } from "./measure";
  * fallback when the engine will not log, and it will then report only what the main thread fetched.
  */
 
+/** One call on the corpus: a batch of tiles, read in as few statements as the corpus makes of it. */
 export interface TileRead {
   kind: "scan" | "edges";
-  /** `z/tile`. */
-  address: string;
+  /** `z/tile`, one per tile in the batch. */
+  addresses: string[];
   ms: number;
   ok: boolean;
 }
@@ -217,7 +218,7 @@ const addressOf = (address: TileAddress) => `${address.z}/${address.tile}`;
 
 /** The real corpus, with every tile read counted and timed. Everything else is the corpus's own. */
 function counted(corpus: Corpus, watch: Watch): Corpus {
-  const timed = async <T>(kind: TileRead["kind"], address: TileAddress, run: () => Promise<T>): Promise<T> => {
+  const timed = async <T>(kind: TileRead["kind"], addresses: readonly TileAddress[], run: () => Promise<T>): Promise<T> => {
     watch.inflight += 1;
     const started = performance.now();
     let ok = false;
@@ -228,7 +229,7 @@ function counted(corpus: Corpus, watch: Watch): Corpus {
     } finally {
       watch.inflight -= 1;
       watch.lastReadAt = performance.now();
-      watch.log.push({ kind, address: addressOf(address), ms: watch.lastReadAt - started, ok });
+      watch.log.push({ kind, addresses: addresses.map(addressOf), ms: watch.lastReadAt - started, ok });
     }
   };
   return new Proxy(corpus, {
@@ -239,7 +240,7 @@ function counted(corpus: Corpus, watch: Watch): Corpus {
           return {
             params: scan.params,
             plan: () => scan.plan(),
-            read: (address, options) => timed("scan", address, () => scan.read(address, options)),
+            read: (addresses, options) => timed("scan", addresses, () => scan.read(addresses, options)),
           };
         };
       }

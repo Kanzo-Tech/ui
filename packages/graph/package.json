@@ -28,7 +28,7 @@
     "test": "vitest run"
   },
   "//peers": "All required. cosmos.gl draws; `lucide-react` is the icon set the parts draw their buttons with, `@kanzo-tech/ui`'s own peer; `@fossil-lang/corpus` is the backend — the host opens a corpus with its `open` on `@kanzo-tech/mosaic`'s `engine()` and this package draws it through `tileMatrix`, `scan` and `edges`, writing no SQL of its own; `@kanzo-tech/mosaic` carries the crossfilter the graph listens to and publishes into. They were optional while a root barrel with no source and a `./duckdb` entry with one existed side by side; there is one path now and nothing on it is optional (`/docs/design/graph`, *the one host path*). The Mosaic stack itself — mosaic-core, mosaic-sql — is `@kanzo-tech/mosaic`'s peer, declared once there.",
-  "//fossil": "The floor is the release that publishes `tileMatrix`, `scan` and `edges`, and an `Engine.query` that answers in columns and interrupts on abort. Only types and the writer's role table (`PAYLOAD_*`) are imported; `src/layers.test.ts` holds that.",
+  "//fossil": "The floor is the release whose `scan(…).read` and `edges` take a list of addresses and answer one batch per tile, and an `Engine.query` that answers in columns and interrupts on abort. Only types and the writer's role table (`PAYLOAD_*`) are imported; `src/layers.test.ts` holds that.",
   "peerDependencies": {
     "@cosmos.gl/graph": "^3.4.0",
     "@fossil-lang/corpus": "^0.3.0-alpha.10",
