@@ -32,7 +32,7 @@
     "test": "vitest run",
     "size": "size-limit"
   },
-  "//peers": "Everything on the root barrel draws with @kanzo-tech/ui's parts and Ark's machines, so both are required peers rather than dependencies — two copies of Ark would mean two portals and two focus traps. streamdown is the one OPTIONAL peer, and it is why ./markdown exists: it measures 495 kB minified and 128 kB brotli on its own, against a 20 kB budget for the whole root barrel, so a host that renders plain text must not pay for a markdown parser. Same door as @kanzo-tech/ui/editor and @kanzo-tech/graph/duckdb.",
+  "//peers": "Everything on the root barrel draws with @kanzo-tech/ui's parts and Ark's machines, so both are required peers rather than dependencies — two copies of Ark would mean two portals and two focus traps. streamdown is the one OPTIONAL peer, and it is why ./markdown exists: it measures 495 kB minified and 128 kB brotli on its own, against a 20 kB budget for the whole root barrel, so a host that renders plain text must not pay for a markdown parser. Same door as @kanzo-tech/ui/editor and @kanzo-tech/ui/analytics.",
   "peerDependencies": {
     "@ark-ui/react": "^5.37.2",
     "@kanzo-tech/ui": "workspace:*",

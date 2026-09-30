@@ -24,8 +24,8 @@ import { cn } from "@kanzo-tech/ui";
  * roughly 136, for a parser it never calls.
  *
  * So it lives here, behind `@kanzo-tech/ai/markdown`, with `streamdown` as an **optional peer** —
- * the same door `@kanzo-tech/ui/editor` stands behind for CodeMirror and `@kanzo-tech/graph/duckdb`
- * for Mosaic. Nothing installs the tarball without the peers any more, so the door is held only by
+ * the same door `@kanzo-tech/ui/editor` stands behind for CodeMirror and `@kanzo-tech/ui/analytics`
+ * for vgplot. Nothing installs the tarball without the peers any more, so the door is held only by
  * `index.ts` never naming `./markdown` — the `size` budget is what would notice it opening.
  *
  * ## The animation is Streamdown's now, not ours
