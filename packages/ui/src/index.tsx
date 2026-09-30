@@ -287,6 +287,8 @@ export {
   EmptyContent,
 } from "./layouts/empty.js";
 export type { EmptyIndicatorProps } from "./layouts/empty.js";
+export { GatedRoot, GatedContent, GatedBadge } from "./layouts/gated.js";
+export type { GatedBadgeProps } from "./layouts/gated.js";
 export * from "./composites/sidebar.js";
 export {
   SidebarIdentity,

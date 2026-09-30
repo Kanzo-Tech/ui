@@ -232,7 +232,7 @@ export interface StandingOrder {
 }
 
 // The one authored fixture with no world counterpart, and deliberately so: standing orders are the
-// feature this screen gates behind a "Coming soon" `Ribbon`. The tags are real board tags.
+// feature this screen gates behind a "Coming soon" `GatedBadge`. The tags are real board tags.
 export const STANDING: StandingOrder[] = [
   { id: "o1", name: "Night patrol, the cliff road", cadence: "Every night, dusk to the third bell", tag: "night-work" },
   { id: "o2", name: "Ward-check at the north gate", cadence: "Every seventh day", tag: "warding" },

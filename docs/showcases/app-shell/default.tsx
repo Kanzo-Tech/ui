@@ -29,6 +29,9 @@ import {
   EmptyRoot,
   EmptyTitle,
   Float,
+  GatedBadge,
+  GatedContent,
+  GatedRoot,
   isActivePath,
   Item,
   ItemActions,
@@ -626,14 +629,11 @@ function Shell() {
                     </TabsContent>
                   </Tabs>
 
-                  {/* A status badge pinned to a whole region: `Float` over a positioned wrapper,
-                      plus a `Badge`. The card is gated as well as labelled — `inert` (not
-                      `aria-hidden`) leaves it readable to a screen reader while making every
-                      control in it unreachable, and the dimming says the same thing visually.
-                      Space it with MARGIN: padding would move the card and leave the badge
-                      behind, overlapping the row above. */}
-                  <div className="relative mt-6">
-                    <div className="pointer-events-none opacity-50" inert>
+                  {/* `inert` takes the card out of the accessibility tree as well as out of reach,
+                      so the group is named here and the badge is the only thing read. The margin
+                      leaves room for the badge's overhang; padding would move the card instead. */}
+                  <GatedRoot aria-label="Scheduled runs" className="mt-6">
+                    <GatedContent>
                       <Card>
                         <CardHeader>
                           <CardTitle className="text-base">Scheduled runs</CardTitle>
@@ -667,12 +667,9 @@ function Shell() {
                           </ItemGroup>
                         </CardContent>
                       </Card>
-                    </div>
-
-                    <Float className="-end-2 -top-2" placement="top-end">
-                      <Badge size="xs">Coming soon</Badge>
-                    </Float>
-                  </div>
+                    </GatedContent>
+                    <GatedBadge>Coming soon</GatedBadge>
+                  </GatedRoot>
                 </SectionRoot>
 
                 <div className="min-w-0 space-y-6">
