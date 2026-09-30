@@ -1,6 +1,6 @@
 ---
 title: Benchmarks
-description: How far the bounded path goes, what it costs to move the camera, and the one number that is not flat in N.
+description: Our viewer against cosmos.gl alone on the same positions, how far the renderer goes, and the measurements of the tiled path it replaced.
 ---
 
 The harness is a showcase you can run: it sweeps five corpus sizes through the real reader, the real
@@ -14,7 +14,9 @@ renderer and a real DuckDB, and parks its results where a headless runner can re
 
 The fixture is **compiled, not generated**. The page used to build its own graph in the tab, which
 capped the sweep at what a tab can generate and spent the main thread doing it; now `fossil` writes a
-GraphAr tree once, offline, and the browser only reads it.
+corpus once, offline, and the browser only reads it. **The graph reads `fossil/1` now, and the script
+below still writes the tiled tree fossil wrote before it** — it has to be re-run with a fossil whose
+writer emits `fossil/1` before the viewer layer can measure anything.
 
 ```bash
 node docs/showcases/graph-bench/corpus/build-corpus.mjs
@@ -28,39 +30,34 @@ sweep against a size nobody wrote is a row of 404s, which is the honest failure.
 
 ## What the sweep asks
 
-Two layers, and they are not variants of each other. **Bounded** is the path a product uses: the
-corpus opened with fossil's `open` and drawn by `<GraphRoot><GraphCanvas/></GraphRoot>`, a tileset
-that reads only the tiles in view. **cosmos.gl alone** is the control — the same renderer fed typed
-arrays with nothing of ours in the way.
-
-The bounded half counts what it reads rather than inferring it: the corpus handed to the root is the
-real one with `scan(…).read` and `edges` wrapped, and bytes come from DuckDB's own HTTP log, because
-`httpfs` fetches inside the DuckDB-WASM worker where the page's Resource Timing cannot see.
-
-- **First paint** should follow the window rather than the corpus. It is the claim the page exists
-  to make.
-- **Pan**, **reads per pan** and **bytes per pan** are the cost that did not exist before. A tile
-  already read is never asked again, so most pans at one zoom read nothing.
-- **Frames** is counted idle and while the camera moves every frame, and only in a visible tab.
-- **Marks** is marks drawn over the vertices they stand for: a far view is a coarser zoom of the
-  cell pyramid, and a mark there is a cell.
+Two layers, and they are not variants of each other. **GraphRoot** is the path a product uses: the
+corpus opened with fossil's `open` and drawn whole by `<GraphRoot><GraphCanvas/></GraphRoot>`.
+**cosmos.gl alone** is the control — the same renderer fed typed arrays with nothing of ours in the
+way.
 
 ## Our viewer against cosmos.gl alone
 
-The question the sweep does not ask: on the same positions, how much of a frame is ours?
-`measureViewer(pointCount)` — registered on `window` by the showcase — reads a built corpus's payload
-level once and draws it twice, with cosmos.gl alone and with `<GraphRoot><GraphCanvas/></GraphRoot>`
-drawing every vertex, alternating the two three times. Each run follows one camera path, a change
-every frame from the whole extent into a sixteenth of it and across, and records the interval
-between frames; each also counts the `requestAnimationFrame` calls made during a second of nothing,
-which is zero for a loop that idles.
+On the same positions, how much of a frame is ours? `measureViewer(pointCount)` — the GraphRoot
+layer, and registered on `window` by the showcase — reads every drawn table of a built corpus once
+and draws it twice, with cosmos.gl alone and with `<GraphRoot><GraphCanvas/></GraphRoot>`,
+alternating the two three times. Each run follows one camera path — the same wheel events on each
+canvas, a change every frame, zooming into a quarter of the extent and then in and out at a point
+that sweeps across it — and records the interval between frames; each also counts the
+`requestAnimationFrame` calls made during a second of nothing, which is zero for a loop that idles.
 
 ```js
 await measureViewer(200000); // in the showcase's console, in a foreground window
 ```
 
 **The gate is the viewer's p95 frame interval within 15 % of cosmos.gl's**, the median over the
-three runs. It has not been run yet; the table goes here when it has.
+three runs. It has not been run yet — it needs the `fossil/1` corpora above — and the table goes here
+when it has.
+
+<Callout type="info">
+Past the engine's two rates, the sections below measured the reader and the tileset the graph used
+until 2026-09-30, when it started reading the whole corpus once. They are kept as the record they
+are: dated, on the machine named, over corpora in the format of the day.
+</Callout>
 
 ## Read the two rates together, never one of them
 

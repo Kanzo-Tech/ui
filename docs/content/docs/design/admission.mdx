@@ -287,8 +287,8 @@ chart's state lives in Mosaic's coordinator rather than in an object of ours? Th
 `ChartContextValue`, which already exists and is already published. That is not a factory; it is the
 context with a second way to reach it.
 
-What forces the factory in the graph is specific: its state lives outside React — tiles arrive and
-the camera moves at frame rate — so a store of ours owns it, and `useGraph` is what creates that store
+What forces the factory in the graph is specific: its state lives outside React — the graph loads,
+a layout ticks and a hover moves at frame rate — so a store of ours owns it, and `useGraph` is what creates that store
 and subscribes to it ([the graph view](/docs/design/graph)). Nothing in analytics has that shape — `useChartQuery`, `useCrossfilter`, `useSelected`
 and `useChartCapacity` each read `useMosaic()`, which is the provider *above* the root rather than the
 root itself, so there is no circularity to break.

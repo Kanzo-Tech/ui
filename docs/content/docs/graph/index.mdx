@@ -1,11 +1,16 @@
 ---
 title: Graph
-description: The graph view over a fossil corpus — a tileset over its scan, drawn with cosmos.gl, inside the page's crossfilter.
+description: The graph view over a fossil corpus — the whole of it, read once through its scan and drawn with cosmos.gl, inside the page's crossfilter.
 ---
 
 `@kanzo-tech/graph` draws a corpus fossil compiled. fossil is the backend and this package is the
-view: the host opens the corpus, `GraphRoot` draws it one tile at a time, and nothing crosses
-between the two but the corpus contract. No SQL is written here.
+view: the host opens the corpus, `GraphRoot` draws the whole of it, and nothing crosses between the
+two but the corpus contract. No SQL is written here.
+
+<Callout type="info">
+The graph reads fossil's `fossil/1` format, which `@fossil-lang/corpus` publishes in
+`0.3.0-alpha.15`. Until it does, these examples open the archive with a stand-in of its `open`.
+</Callout>
 
 It is a **sibling** of `@kanzo-tech/ui`, not part of it.
 
@@ -26,7 +31,7 @@ import { GraphCanvas, GraphInspector, GraphLegend, GraphRoot, GraphToolbar } fro
 
 const corpus = await open(url, { engine: await engine() });
 
-<GraphRoot corpus={corpus} fill="kind" r="degree" title="label" onFailure={setFailure}>
+<GraphRoot corpus={corpus} r="degree" onFailure={setFailure}>
   <GraphCanvas>
     <GraphToolbar />
     <GraphLegend />
@@ -50,8 +55,8 @@ one world, not a second one written for the docs.
 
 ## What the root and the parts own
 
-`GraphRoot` holds the graph's state outside React: the tiles, the channels, the selection, the focus
-and the motion. It is `useGraph` plus a context, and neither renders an element. The parts are flat
+`GraphRoot` holds the graph's state outside React: the loaded graph, the channels, the selection, the
+focus and the motion. It is `useGraph` plus a context, and neither renders an element. The parts are flat
 and each reads the root: `GraphCanvas` is the element — cosmos.gl's surface, and what the look
 declares over it, the grid, the vignette, the labels, the hover card, plus the marquee and lasso
 gesture — and its children are chrome positioned over it. `GraphLegend`, `GraphToolbar` and
@@ -59,9 +64,9 @@ gesture — and its children are chrome positioned over it. `GraphLegend`, `Grap
 can sit anywhere under it.
 
 **The api is the commands; the state is a selector.** `useGraphContext()` answers with an object
-that never changes — `zoomBy`, `fit`, `frameBox`, `reveal`, `select`, `setTool` and the rest — and
+that never changes — `zoomBy`, `fit`, `reveal`, `select`, `setTool` and the rest — and
 `useGraphState(selector)` reads a slice of the state and re-renders only when that slice moves. The
-state changes at frame rate, a hover and a tile and a tick of the layout, so a part that read all of
+state changes at frame rate, a hover and a load and a tick of the layout, so a part that read all of
 it would re-render on every hover. It is TanStack Store's `useStore(store, selector)`; inside a
 callback, `api.getState()` reads it without subscribing.
 
@@ -80,11 +85,9 @@ api above the parts:
 
 <ComponentPreview componentName="graph" fileName="example-provider" hasMaxHeight />
 
-The count in the corner is a part: it selects `drawn` — the marks on the canvas and the vertices they
-stand for — `total`, the manifest's vertex count, which does not shrink with a filter, and `status`,
-which is `opening`, `reading` or `idle` once everything in view is drawn. Over the
-archive every tile is the finest one and the two agree; zoomed out over a larger corpus a mark is a
-cell of fossil's pyramid, and one mark stands for many.
+The count in the corner is a part: it selects `drawn` — the vertices on the canvas, which a filter
+shrinks — `total`, the manifest's vertex count, which it does not, and `status`, which is `opening`,
+`loading` or `idle` once the whole graph is drawn.
 
 ### `GraphToolbar`
 
@@ -102,10 +105,10 @@ stop. `orientation="vertical"` stacks the clusters.
 
 <ComponentPreview componentName="graph" fileName="example-legend" hasMaxHeight />
 
-The categorical scale the canvas draws, as rows: the glyph, the name, and how many vertices the
-marks of that category stand for in view — then what is drawn of the whole. **A row never moves.**
-The domain is fixed before a tile arrives: a column the manifest's `channels:` declares ranks by its
-own ordinal, and any other ranks by the keys of the root's `categories`, which is also what names the
+The categorical scale the canvas draws, as rows: the glyph, the name, and how many vertices of that
+category are drawn — then what is drawn of the whole. With nothing bound to `fill`, the categories
+are the vertex types. **A row never moves.** The domain is fixed before the graph loads: the drawn
+types in the manifest's order, or the keys of the root's `categories`, which is also what names the
 values. A category past the palette's capacity is Other, on the legend as on the canvas.
 
 The names are the root's, never the legend's, so the hover card and the inspector say the same
@@ -115,41 +118,29 @@ thing. A legend that renamed a category would be a part encoding one product's p
 
 <ComponentPreview componentName="graph" fileName="example-inspector" hasMaxHeight />
 
-The focused vertex — a click, or `reveal` — read and laid out. A tile carries what the channels
-project and nothing else, so the rest of the row is read when a reader focuses it: one payload tile,
-filtered to one `dense_id`, cancelled when the focus moves on. The fields are the vertex type's, in
-the order the corpus declares them. **`children` is a render prop** that receives the row and draws
+The focused vertex — a click, or `reveal` — read and laid out. The loaded graph carries what the
+channels project and nothing else, so the rest of the row is read when a reader focuses it: a scan of
+its table, filtered to its `dense_id`, cancelled when the focus moves on. The fields are the table's,
+in the order the manifest declares them. **`children` is a render prop** that receives the row and draws
 fields of the product's own, a `DataListItem` each — the hall's name above, where the relation
 stores its id.
 
-**A label is the `title` column, read with the tile.** The canvas labels the biggest vertices in view
-by the `r` ramp, up to the look's label budget, with the text of the column `title` binds — so the
-text is bytes in hand and hovering costs nothing. Unbound, there are no labels and the hover card
-shows the address.
+**A label is the `title` column, read for the vertices that carry one.** The canvas labels the
+biggest vertices by the `r` ramp, up to the look's label budget, and reads their text — the column
+`title` binds, or each table's declared `identity` where it is unbound. The hover card reads the one
+under the pointer the same way.
 
-**An overlay is attached to a vertex, never to a slot.** Buffer positions do not survive a change of
-tiles, so a label, a hover, a selection and a pin are held as a `VertexId` and resolved against each
-composition.
+## The whole corpus, read once
 
-## The camera is addressed
+When the corpus opens, the graph reads **every vertex table with a position** — fossil's layout, or
+columns the program mapped — and **every relation whose two ends are drawn**, one scan per table, into
+arrays indexed by each vertex's `dense_id`, and uploads them to cosmos.gl once. A type with no
+position is not drawn. Nothing is read because the camera moved: panning and zooming are cosmos.gl's
+alone. Changing a column binding re-reads that column and uploads colours and sizes; positions and
+links stay where they were.
 
-The canvas never asks a question per camera move. `tileMatrix(type)` lists every tile of every zoom
-with its rows and its box when the corpus opens; the view culls those boxes against the camera, picks
-**the finest zoom whose tiles in view hold at most `limit` rows** — 20,000 by default — and reads the
-tiles it lacks, nearest the centre first, one at a time. A tile already read is never asked again; a
-tile the camera has left is aborted, and the engine interrupts the running statement.
-
-**A far view is a coarser zoom of fossil's cell pyramid.** Below the payload a row is a cell: a
-summary the writer computed, drawn at the centroid of its members and sized by its count. There is
-no sample and no zoom threshold. A cell summarises one channel, so on a cell `fill` is its `mode`
-when `fill` binds the column the pyramid's mode is of, and `r` can only mean its count.
-
-**An edge is drawn from bytes in hand.** Each tile's relations are read in both directions, and an
-edge is composed when both of its ends are in tiles already read; below the payload the lines are
-the pyramid's quotient between cells. An edge shorter than three screen pixels is not composed.
-
-[The graph view](/docs/design/graph) has the reference each layer copies, deck.gl's `Tileset2D` for
-the tiles and TanStack Query's store for the adapter, and the measurements that decided each rule.
+[The graph view](/docs/design/graph) has the reference each layer copies and the measurements that
+decided each rule.
 
 ## The channels are bindings
 
@@ -160,7 +151,8 @@ What a point wears is **bound on the root**, under the names Plot gives a point 
 <GraphRoot corpus={corpus} fill="kind" r="degree" onFailure={setFailure}>
 ```
 
-**A CSS colour is a constant; anything else is a column.** That is Plot's rule, and it is what makes
+**Unbound, colour is the vertex type**, so a corpus with several types reads as several colours with
+nothing passed. **A CSS colour is a constant; anything else is a column.** That is Plot's rule, and it is what makes
 the monochrome picture a binding rather than a theme:
 
 ```tsx
@@ -171,23 +163,24 @@ Identity has moved to shape, colour is free to mean the selection, and nothing h
 the two a look preferred. A bare word is always a column, so a corpus with a column called `red` is
 not a trap.
 
-**A binding is a projection.** `fill`, `r` and `title` as columns become the scan's `select`, so
-changing one builds a new scan over the same tiles, which reloads them while keeping the picture.
-`fill` as a constant, `symbol` and `stroke` never reach a scan. A column the corpus does not carry
-fails when the scan is built and reaches `onFailure`.
+**A binding is a projection.** `fill` and `r` as columns become the scan's `select` for each table
+that has them; a table without the column draws its vertices as the null category. `fill` as a
+constant and `stroke` never reach a scan.
 
-**`x` and `y` are not channels.** In a laid-out corpus a position is a fact rather than an encoding —
-a layout pass wrote it, and it is the index every tile is culled against.
+**`x` and `y` are not channels.** A position is a fact rather than an encoding — a layout pass or the
+program wrote it, and the manifest says which columns hold it.
 
 A `Look` is **form only** — sizes, link width and curve, labels, vignette. Binding `symbol` takes on
 an obligation — `gradeComposition(look, channels)` returns the four-pixel radius floor that shape and
 size spent together require.
 
-## A filter is a predicate
+## A filter is a predicate, applied as a mask
 
 `filterBy` is the page's crossfilter, a Mosaic `Selection`. The graph listens to it rather than
 being a client of the coordinator: each clause is translated into scan's typed filter — comparisons,
-`BETWEEN`, `IN`, `IS NULL`, `AND`, `OR`, `NOT` — and the canvas draws what survives. A clause it
+`BETWEEN`, `IN`, `IS NULL`, `AND`, `OR`, `NOT` — read against each drawn table that has every column
+it names, and the vertices that do not survive are hidden. A table without one of those columns is
+not filtered. A clause it
 cannot translate reaches `onFailure` and is never dropped, because a dropped clause draws an
 unfiltered picture that reads as a filtered one.
 
@@ -197,14 +190,10 @@ graph does not, and a lasso of thirteen does not remove the other fifteen hundre
 
 ## Identity
 
-A vertex is `vertexId(type, dense)`: the pair, because `dense_id` numbers within one vertex type. It
-is a `bigint`, because the pair is 64 bits and a `number` holds 53 — `mapbox/node-s2` binds the
-reference C++ and still returns `1152921504606847000` where Java and Go give
-`1152921504606846977`. `typeOf` and `denseOf` are the two halves back out, and `denseOf` is the way
-down to SQL, where a clause is `dense_id IN (…)` over one relation.
-
-cosmos.gl answers in **buffer indices**, and every one of them dies with the composition. The api's
-`getResident()` resolves one to a vertex and back; nothing outside the package builds that map.
+A `VertexId` is the corpus's `dense_id`, a `number`: fossil numbers every vertex of the corpus
+`0 … V − 1` across all its tables, the drawn types first, so a drawn vertex's id is also its index in
+cosmos.gl's buffers. An id from SQL — `SELECT dense_id FROM …` — is a vertex as it stands, for
+`select` or `reveal`.
 
 ## How far it goes
 
@@ -220,8 +209,7 @@ and `/view/showcases/graph-bench` re-runs them.
 
 **The ceiling is not the renderer, it is the layout.** A live simulation is comfortable to about
 50,000 points and finished by 200,000. Past that, positions are a column — so a simulation is **off
-by default**: a corpus's positions are the index the tiles are culled against, and a force that moves
-them moves the picture out from under its own index.
+by default**, and the toolbar runs one from where the points are.
 
 ## The picture is declared, not hard-coded
 
@@ -244,10 +232,8 @@ const { look, sim } = useGraphPrefs();
 
 <ComponentPreview componentName="graph" fileName="example-axes" hasMaxHeight />
 
-**`adaptive(nodes)`** is the question a person should not be asked: what a corpus of *this* size
-wants — repulsion down, friction up — computed continuously against vertex count, because a graph
-crossing a threshold would visibly jump. It is tuning and not level of detail, and it leaves the
-coordinate box alone: that box is the corpus's extent.
+A host that knows its corpus is large starts its users at other forces through the tenant policy,
+over the same declared axes.
 
 ## Things the source will not tell you twice
 
@@ -258,10 +244,9 @@ These are cosmos.gl behaviours that typecheck perfectly while being wrong.
   `randomSeed` and `attribution`.
 - **`getConnectedLinkIndices` is not a neighbourhood.** It returns only links whose *other* endpoint
   is also in the argument. `getNeighboringPointIndices` is the neighbourhood, in buffer indices.
-- **Every index cosmos.gl hands you dies with the composition.** `findPointsInRect`,
-  `onPointClick`, `getTrackedPointPositionsMap` — all of them speak positions in the current
-  buffers. Nothing raises when one is kept: it stays a valid index and starts naming a different
-  vertex.
+- **Every index cosmos.gl hands you is a buffer position.** `findPointsInRect`, `onPointClick`,
+  `getTrackedPointPositionsMap` — here a buffer position is the vertex's `dense_id`, because the
+  graph uploads the corpus in id order; in another host it would name nothing stable.
 - **`requestAnimationFrame` never fires in a background tab**, and the canvas draws on animation
   frames. A backgrounded graph is stopped, not slow — and `graph.ready` has no failure path, so a
   device that cannot be created leaves the promise unsettled rather than rejecting.
@@ -293,27 +278,18 @@ writes it in.
 | `lookFrom` | The axes a person chose, as a `Look`. |
 | `simFrom` | The same axes, read as forces. |
 | `useGraphPrefs` | Both, joined to the provider's resolved `sectionPrefs` for `GRAPH_SECTION`. |
-| `adaptive` | What a graph of a given size wants from a live layout. |
 | `scaleOf` | The categorical scale the channels imply: what colour and what shape a category wears. |
-
-### Identity
-
-| Name | What it is |
-| --- | --- |
-| `vertexId` | The pair `(type_idx, dense_id)`, packed into a `bigint`. |
-| `typeOf` / `denseOf` | The two halves back out, each 32 bits. |
 
 ### The types
 
-`GraphRootProps` is `UseGraphProps` plus `children`: `corpus` (or the promise of it), `type`, the
-channels, `categories`, `filterBy`, `limit`, `look`, `sim`, `simulate`, `onFailure`, `onSelect` and
-`onFocus`. `GraphApi` is the commands — the `GraphCommands` (`zoomBy`, `fit`, `frameBox`, `pause`,
-`resume`, `restart`, `unpin`, `reveal`, `frameSelection`, `clear`), `select`, `setFocus`, `setTool` —
-with `subscribe`, `getState` and `getResident`. `GraphState` is what `useGraphState` selects from:
-`status` (a `GraphStatus`), `total`, `z`, `pending`, `drawn` (a `Drawn`: `marks`, `represented`,
-`domain`, `tally`), `domain`, `selection`, `focus`, `hovered`, `pinned`, `tool`, `motion`,
-`progress`, `declined`, `options` and `corpus`. `GraphCanvasProps`, `GraphLegendProps`,
+`GraphRootProps` is `UseGraphProps` plus `children`: `corpus` (or the promise of it), the channels,
+`categories`, `filterBy`, `look`, `sim`, `simulate`, `onFailure`, `onSelect` and `onFocus`.
+`GraphApi` is the commands — the `GraphCommands` (`zoomBy`, `fit`, `pause`, `resume`, `restart`,
+`unpin`, `reveal`, `frameSelection`, `clear`), `select`, `setFocus`, `setTool` — with `subscribe` and
+`getState`. `GraphState` is what `useGraphState` selects from: `status` (a `GraphStatus`), `total`,
+`drawn` (a `Drawn`: `vertices`, `domain`, `tally`), `domain`, `selection`, `focus`, `hovered`,
+`pinned`, `tool`, `motion`, `progress`, `options` and `corpus`. `GraphCanvasProps`, `GraphLegendProps`,
 `GraphToolbarProps`, `GraphInspectorProps`, `GraphRootProviderProps` and `ShapeGlyphProps` are the
 parts' props, and `VertexDetail` is what the inspector's render prop receives; `Channels`, `Look`,
-`LookPatch`, `Shape`, `Sim`, `Motion`, `Selection`, `SelectionSource`, `Tool`, `VertexId` and
-`Resident` are the vocabulary.
+`LookPatch`, `Shape`, `Sim`, `Motion`, `Selection`, `SelectionSource`, `Tool` and `VertexId` are the
+vocabulary.
