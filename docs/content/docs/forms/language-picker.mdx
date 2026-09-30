@@ -71,6 +71,7 @@ Props are `LanguagePickerProps`; `translations` takes a `Partial<LanguagePickerT
 | `onValueChange` | `(tag: string) => void` | required |
 | `languages` | `readonly string[]` — the closed set | a broad default set, and free entry |
 | `inline` | `boolean` | `false` |
+| `size` | `"sm" \| "md" \| "lg"`; ignored with `inline`, which is the height of the field it sits in | `"md"` |
 | `disabled` / `readOnly` / `invalid` | `boolean` | from the `Field` |
 | `translations` | `Partial<{ placeholder, filterPlaceholder, noMatches }>` | English |
 | `aria-label` | `string` | none — give one when there is no `FieldLabel` |

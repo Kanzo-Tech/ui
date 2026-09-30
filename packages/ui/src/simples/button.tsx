@@ -2,6 +2,7 @@ import { ark } from "@ark-ui/react/factory";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
+import { controlHeight, controlSizes } from "../lib/control-size";
 import { Spinner } from "./spinner";
 
 /**
@@ -30,7 +31,7 @@ export const buttonVariants = tv({
     "relative",
     // Nothing below may be keyed on `data-slot`. See the docblock: `--size` was moved here first,
     // in `05f3a0a`, and the paint followed it once the same rename was measured against the colour.
-    "h-(--size)",
+    controlHeight,
     // The only one of the three locals a variant may leave unset — `outline` is the sole variant
     // that assigns `--btn-bd`, while all six assign the fill and the ink. A default for those two
     // would be a line that is overwritten every single render.
@@ -144,15 +145,15 @@ export const buttonVariants = tv({
      * density, and nothing was published to break.
      */
     size: {
-      sm: ["[--size:calc(var(--size-field)*7)]", "px-2.5", "gap-1.5", "[&_svg:not([class*='size-'])]:size-3.5"],
-      md: ["[--size:calc(var(--size-field)*8)]", "px-3", "py-2"],
-      lg: ["[--size:calc(var(--size-field)*9)]", "px-3.5"],
+      sm: [controlSizes.sm, "px-2.5", "gap-1.5", "[&_svg:not([class*='size-'])]:size-3.5"],
+      md: [controlSizes.md, "px-3", "py-2"],
+      lg: [controlSizes.lg, "px-3.5"],
       xl: ["[--size:calc(var(--size-field)*10)]", "text-base", "px-4"],
       // Square, and the width is stated rather than left to `aspect-ratio`: a caller who writes
       // `w-fit` on top of an aspect ratio gets the icon's own width and a control twice as tall.
-      "icon-sm": ["[--size:calc(var(--size-field)*7)]", "w-(--size)", "px-0"],
-      "icon-md": ["[--size:calc(var(--size-field)*8)]", "w-(--size)", "px-0"],
-      "icon-lg": ["[--size:calc(var(--size-field)*9)]", "w-(--size)", "px-0"],
+      "icon-sm": [controlSizes.sm, "w-(--size)", "px-0"],
+      "icon-md": [controlSizes.md, "w-(--size)", "px-0"],
+      "icon-lg": [controlSizes.lg, "w-(--size)", "px-0"],
       "icon-xl": [
         "[--size:calc(var(--size-field)*10)]",
         "w-(--size)",

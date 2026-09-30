@@ -1,8 +1,21 @@
 import { Switch as ArkSwitch, useSwitchContext } from "@ark-ui/react/switch";
 import type React from "react";
+import { tv } from "tailwind-variants";
 import { cn } from "../lib/cn";
+import { controlMinHeight, controlSizes } from "../lib/control-size";
 
 export const useSwitch = useSwitchContext;
+
+/**
+ * The row an indicator and its label sit in. **Labelled, it is one control tall** — the shared
+ * height, centred — so a switch, a checkbox or a radio lines up with an input beside it and with the
+ * rows above and below in a form. Alone (no children: a cell in a table) it is the indicator and
+ * nothing else, and the height is not asked of it.
+ */
+const switchRowVariants = tv({
+  base: ["inline-flex items-center gap-2", "text-sm", "data-disabled:opacity-64"],
+  variants: { labelled: { true: [controlSizes.md, controlMinHeight] } },
+});
 
 export const Switch = (props: React.ComponentProps<typeof ArkSwitch.Root>) => {
   const { children, className, tabIndex, slot, ...rest } = props;
@@ -12,8 +25,9 @@ export const Switch = (props: React.ComponentProps<typeof ArkSwitch.Root>) => {
       className={cn(
         "group/switch",
         "[--thumb-size:--spacing(5)] sm:[--thumb-size:--spacing(4)]",
-        "inline-flex w-fit items-center gap-2",
-        "data-disabled:pointer-events-none data-disabled:opacity-64",
+        "w-fit",
+        "data-disabled:pointer-events-none",
+        switchRowVariants({ labelled: children !== undefined }),
         className
       )}
       {...rest}

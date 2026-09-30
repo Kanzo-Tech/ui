@@ -6,6 +6,7 @@ import { CheckIcon, MinusIcon } from "lucide-react";
 import type React from "react";
 import { tv } from "tailwind-variants";
 import { cn } from "../lib/cn";
+import { controlMinHeight, controlSizes } from "../lib/control-size";
 
 export const useCheckbox = useCheckboxContext;
 
@@ -22,6 +23,17 @@ export const CheckboxGroup = (
     />
   );
 };
+
+/**
+ * The row an indicator and its label sit in. **Labelled, it is one control tall** — the shared
+ * height, centred — so a switch, a checkbox or a radio lines up with an input beside it and with the
+ * rows above and below in a form. Alone (no children: a cell in a table) it is the indicator and
+ * nothing else, and the height is not asked of it.
+ */
+const checkboxRowVariants = tv({
+  base: ["inline-flex items-center gap-2", "text-sm", "data-disabled:opacity-64"],
+  variants: { labelled: { true: [controlSizes.md, controlMinHeight] } },
+});
 
 export const checkboxVariants = tv({
   base: [
@@ -73,11 +85,7 @@ export const Checkbox = (
 
   return (
     <ArkCheckbox.Root
-      className={cn(
-        "inline-flex items-center gap-2",
-        "data-disabled:opacity-64",
-        className
-      )}
+      className={cn(checkboxRowVariants({ labelled: children != null }), className)}
       {...rest}
       data-slot={slot ?? "checkbox"}
     >

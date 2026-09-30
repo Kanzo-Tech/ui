@@ -4,6 +4,7 @@ import { ark } from "@ark-ui/react/factory";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
+import { controlMinHeight, controlSizes } from "../lib/control-size";
 import { Button } from "./button";
 import { Input } from "./input";
 import { Textarea } from "./textarea";
@@ -17,24 +18,20 @@ const inpuGroupVariants = tv({
     "bg-background bg-field",
     "rounded-lg border border-input shadow-xs/5",
     "transition-[color,box-shadow]",
-    // **The group holds its controls; it does not press them against its border.**
+    // **One height, the shared one — see `lib/control-size.ts`.** A group is `min-h-(--size)`
+    // rather than `h-(--size)` because it also holds a `Textarea` and the two block addons, and
+    // those grow it; what it may never do is come out TALLER than an `Input` beside it because of
+    // what it holds. It did, by 14px: the `<input>` inside carried its own `h-8` and the group added
+    // `p-1.5` around it, so a group at `md` measured 46px against an input's 32 — measured
+    // 2026-09-30 on `/docs/forms/controls`, along with every control built on a group (combobox,
+    // date picker, password input, language picker).
     //
-    // The height used to be fixed — `h-8` at `md`, a border-box 32px with 1px of border — while
-    // `InputGroupButton`'s `icon-sm` is `size-8`, also 32px. A fixed box cannot contain a control
-    // its own size, so the ✨ painted over the border a pixel above and below, and two at `sm`.
-    // Measured on `/docs/ai/fields`.
-    //
-    // Sizing the control down instead was tried and rejected on sight: it made the ✨ a different
-    // size here than the identical mark inside a `TagsInput`, which is the same component doing
-    // the same job. **`TagsInput` is the shape, and it is now literally the same one** — `p-1.5`
-    // around a `min-h-*` box, so the group grows to whatever it holds and every control keeps the
-    // size it has everywhere else. A group holding a 32px mark measures 46px, exactly as
-    // `TagsInputControl` does.
-    //
-    // The input's own `px-3` is replaced by `px-1.5` so the group's padding and the field's do not
-    // add up: 1px of border plus 6px of padding plus 6px is the 13px of inset the fixed-height
-    // version had, unchanged.
-    "[&>input]:px-1.5 [&>textarea]:px-1.5",
+    // So the `<input>` inside does not carry a height of its own: it stretches to the group's
+    // content box (`InputGroupInput`), and the controls beside it are 24px (`InputGroupButton`),
+    // which leaves a 32px group 4px of inset around them, and there is no padding to add to it: at
+    // `sm` and compact density the group is 24.5px, and a 24px control plus the border already
+    // asks 26. That one case is the exception the pressable floor buys (see `InputGroupButton`).
+    controlMinHeight,
     "has-[>[data-align=block-start]]:h-auto has-[>[data-align=block-start]]:flex-col has-[>[data-align=block-start]]:[&>input]:pb-3",
     "has-[>[data-align=block-end]]:h-auto has-[>[data-align=block-end]]:flex-col has-[>[data-align=block-end]]:[&>input]:pt-3",
     "outline-none focus-within:border-primary focus-within:ring-[3px] focus-within:ring-ring",
@@ -43,20 +40,7 @@ const inpuGroupVariants = tv({
     "motion-reduce:transition-none!",
   ],
   variants: {
-    // `min-h`, not `h`: the box is sized by what it holds, and this is the floor it starts from.
-    // A fixed height is what made a control the same size as the group overflow it.
-    //
-    // **The padding is what the size axis now moves, and it has to be.** A content-sized box whose
-    // size variant only sets a floor is a size variant that does nothing: every group came out
-    // 46px — `sm`, `md` and `lg` alike — because the `<input>` inside carries its own `h-8` and
-    // that plus the padding cleared every floor. Measured on `/docs/forms/input-group`. Scaling
-    // the inset instead keeps the controls identical across the three, which is the whole point of
-    // this shape: an ✨ is the same ✨ in a small group, a large one and a `TagsInput`.
-    size: {
-      sm: ["min-h-7", "p-1"],
-      md: ["min-h-8", "p-1.5"],
-      lg: ["min-h-9", "p-2"],
-    },
+    size: controlSizes,
   },
   defaultVariants: {
     size: "md",
@@ -104,8 +88,8 @@ const inputGroupAddonVariants = tv({
       // **A button needs no padding beside it — the group's own `p-1.5` is the inset**, and this
       // is what puts the ✨ the same distance from the border here as inside a `TagsInputControl`.
       // Text and a `kbd` still take theirs, because neither carries a box of its own.
-      "inline-start": ["order-first ps-3", "has-[>button]:ps-0", "has-[>kbd]:ps-2"],
-      "inline-end": ["order-last pe-3", "has-[>button]:pe-0", "has-[>kbd]:pe-2"],
+      "inline-start": ["order-first ps-3", "has-[>button]:ps-0.75", "has-[>kbd]:ps-2"],
+      "inline-end": ["order-last pe-3", "has-[>button]:pe-0.75", "has-[>kbd]:pe-2"],
       // The block padding lives on the two block aligns and nowhere else. It was `py-1.5` in the
       // base, which is right for a band across the field and wrong for a control tucked into its
       // end: measured on `docs/ai/fields`, an `inline-end` addon was **44px tall inside a 32px
@@ -176,8 +160,11 @@ const inputGroupButtonVariants = tv({
        * the hit path. This is the one thing `Button` does not carry, and it is why the two were
        * decided separately rather than in one sweep.
        */
-      sm: ["h-8", "gap-1.5", "px-2.5", "rounded-md", "has-[>svg]:px-2.5"],
-      "icon-sm": ["size-8", "p-0", "has-[>svg]:p-0"],
+      // 24 CSS pixels, not `h-6`: a `rem` is 21px at compact, under the bar above, and this is the
+      // one size in a recipe that must not scale. Inside a group the bar and the group's own 28px
+      // at `sm` (24.5px at compact) are the same number, which is why 24 fits at every size.
+      sm: ["h-[24px]", "gap-1.5", "px-2.5", "rounded-md", "has-[>svg]:px-2.5"],
+      "icon-sm": ["size-[24px]", "p-0", "has-[>svg]:p-0"],
     },
   },
   defaultVariants: {
@@ -236,7 +223,10 @@ export const InputGroupInput = (props: React.ComponentProps<typeof Input>) => {
   return (
     <Input
       className={cn(
-        "flex-1",
+        // `h-auto self-stretch`: the group's height, not the input's own. An `Input` is
+        // `h-(--size)` and its size is its own, so inside a group of another size it would be a
+        // different height from the box around it.
+        "h-auto flex-1 self-stretch",
         "bg-transparent",
         "rounded-none border-0 shadow-none",
         "focus-visible:ring-0",

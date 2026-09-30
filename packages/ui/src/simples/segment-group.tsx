@@ -7,6 +7,7 @@ import {
 } from "@ark-ui/react/segment-group";
 import type React from "react";
 import { cn } from "../lib/cn";
+import { controlSizes } from "../lib/control-size";
 
 export const useSegmentGroup = useSegmentGroupContext;
 
@@ -26,6 +27,13 @@ interface SegmentGroupProps
    * @default "default"
    */
   variant?: SegmentGroupVariant;
+  /**
+   * The height of a segment row: the same token, and the same height, as an `Input` of that size.
+   * A vertical group stacks rows of that height.
+   *
+   * @default "md"
+   */
+  size?: keyof typeof controlSizes;
   /** Data-driven items rendered before `children` (additive with the compound API). */
   options?: readonly SegmentGroupOption[];
   /** Extra classes applied to each `options`-rendered item. */
@@ -39,6 +47,7 @@ export const SegmentGroup = (props: SegmentGroupProps) => {
   const {
     orientation = "horizontal",
     variant = "default",
+    size = "md",
     options,
     itemClassName,
     className,
@@ -54,6 +63,11 @@ export const SegmentGroup = (props: SegmentGroupProps) => {
       className={cn(
         "group/segment-group relative",
         "flex gap-2",
+        controlSizes[size],
+        // A horizontal group is one control tall, whatever its variant: the track's border and
+        // padding are inside that height, so the segments are what is left of it. Vertical is a
+        // stack of them.
+        "data-[orientation=horizontal]:h-(--size)",
         "isolate",
         "data-[orientation=vertical]:flex-col",
         "data-disabled:opacity-64",
@@ -84,7 +98,7 @@ export const SegmentGroup = (props: SegmentGroupProps) => {
           key={o.value}
           value={o.value}
           disabled={o.disabled}
-          className={cn("px-3 py-1.5", itemClassName)}
+          className={cn("px-3", itemClassName)}
         >
           <SegmentGroupItemText className="flex items-center justify-center gap-2 text-sm font-medium">
             {o.label}
@@ -106,6 +120,7 @@ export const SegmentGroupItem = (
     <ArkSegmentGroup.Item
       className={cn(
         "relative z-1",
+        "data-[orientation=horizontal]:h-full data-[orientation=vertical]:h-(--size)",
         "inline-flex items-center justify-center",
         "cursor-pointer select-none",
         "text-sm font-medium text-muted-foreground transition-colors",

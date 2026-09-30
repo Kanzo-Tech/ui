@@ -4,14 +4,17 @@ import { ChevronsUpDownIcon } from "lucide-react";
 import type React from "react";
 import { tv, type VariantProps } from "tailwind-variants";
 import { cn } from "../lib/cn";
+import { controlHeight, controlSizes } from "../lib/control-size";
 
 export const nativeSelectVariants = tv({
   base: [
     "appearance-none",
     // On the base, not on the size — see `button.tsx`. The `h-7/8/9` these variants carried was a
     // second answer to the same question, and the one that ignored the density knob.
-    "h-(--size)",
-    "w-full min-w-0",
+    controlHeight,
+    // `block`: an inline-level select sits on a line box, and the wrapper measured 29px around a
+    // 28px `sm` — the descender room under the baseline.
+    "block w-full min-w-0",
     "ps-2.5 pe-8",
     "select-none text-sm",
     "bg-field",
@@ -27,9 +30,7 @@ export const nativeSelectVariants = tv({
   ],
   variants: {
     size: {
-      sm: ["[--size:calc(var(--size-field)*7)]"],
-      md: ["[--size:calc(var(--size-field)*8)]"],
-      lg: ["[--size:calc(var(--size-field)*9)]"],
+      ...controlSizes,
     },
   },
   defaultVariants: {

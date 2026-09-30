@@ -106,14 +106,16 @@ export const ComboboxInput = (props: ComboboxInputProps) => {
         </ArkCombobox.Input>
         <InputGroupAddon align="inline-end">
           {showTrigger && (
-            <InputGroupButton
-              asChild
-              className="group-has-data-[slot=combobox-clear]/input-group:hidden"
-              size="icon-sm"
-              variant="ghost"
-            >
-              <ComboboxTrigger />
-            </InputGroupButton>
+            <ComboboxTrigger>
+              <InputGroupButton
+                className="group-has-data-[slot=combobox-clear]/input-group:hidden"
+                size="icon-sm"
+                slot="combobox-trigger"
+                variant="ghost"
+              >
+                <ChevronsUpDownIcon />
+              </InputGroupButton>
+            </ComboboxTrigger>
           )}
           {showClear && inputValue && (
             <ComboboxClear asChild>
@@ -151,12 +153,11 @@ export const ComboboxTrigger = (
       asChild
     >
       {children ?? (
-        // **`size-8`, and it was `size-4`.** Measured 16×16 on `/docs/forms/combobox` — two thirds
+        // **`icon-sm`, and it was `size-4`.** Measured 16×16 on `/docs/forms/combobox` — two thirds
         // under the 24px WCAG 2.5.8 floor, and it only ever passed `pressable-floor.test.ts`
-        // because that guard grades a target by the last `size-*` it can see in source order. It
-        // also read as a different class of control beside the 32px marks every other in-group
-        // button is: `icon-sm` is the one size a control inside a group has.
-        <Button className="size-8" slot="combobox-trigger" variant="ghost">
+        // because that guard grades a target by the last `size-*` it can see in source order. A
+        // size token rather than a literal, so it follows the control height with the rest.
+        <Button size="icon-sm" slot="combobox-trigger" variant="ghost">
           <ChevronsUpDownIcon />
         </Button>
       )}
