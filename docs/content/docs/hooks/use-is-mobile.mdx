@@ -17,13 +17,18 @@ the library.
 
 <Callout type="warn">
 `useIsMobile` is **not on the public barrel** today: it is declared in
-`packages/ui/src/simples/use-is-mobile.tsx` and consumed internally by `SidebarProvider`.
+`packages/ui/src/lib/use-is-mobile.ts` and consumed internally by `SidebarProvider`.
 The value it computes is public through [`useSidebar`](/docs/hooks/use-sidebar), which is what
 the example above reads:
 
 ```tsx
 const { isMobile } = useSidebar();
 ```
+
+It stays off the barrel on purpose: it has one consumer, and its 768px is the sidebar's own
+breakpoint rather than a viewport question the library answers for you. A name needs a second call
+site outside the component that owns it ([admission](/docs/design/admission)), and a caller who wants
+the viewport asks `useSidebar` or writes the media query for the breakpoint *they* mean.
 </Callout>
 
 ## It is false on the first render

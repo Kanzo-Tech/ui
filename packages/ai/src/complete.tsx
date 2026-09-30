@@ -507,7 +507,17 @@ export function CompleteKeys({
 }
 
 /** Below-field alternative to `CompleteGhost`, for a field the overlay cannot sit over. */
-export function CompleteHint({ className }: { className?: string }) {
+export function CompleteHint({
+  acceptLabel,
+  className,
+  dismissLabel,
+}: {
+  /** The word after the `Tab` key, as on `CompleteKeys`. */
+  acceptLabel?: string;
+  className?: string;
+  /** The word after the `Esc` key, as on `CompleteKeys`. */
+  dismissLabel?: string;
+}) {
   const ctx = useCtx("CompleteHint");
   if (!ctx.ghost) return null;
   return (
@@ -516,7 +526,7 @@ export function CompleteHint({ className }: { className?: string }) {
       data-slot="complete-hint"
     >
       <ark.span className="text-faint">{ctx.ghost.replace(/^\s+/, "")}</ark.span>{" "}
-      <CompleteKeys />
+      <CompleteKeys acceptLabel={acceptLabel} dismissLabel={dismissLabel} />
     </ark.p>
   );
 }

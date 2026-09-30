@@ -350,6 +350,7 @@ function TranslatedHarness() {
       </CompleteTextarea>
       <CompleteMark label="Asistente" offeringLabel="Aceptar sugerencia" />
       <CompleteKeys acceptLabel="aceptar" dismissLabel="descartar" />
+      <CompleteHint acceptLabel="aceptar" dismissLabel="descartar" />
     </CompleteRoot>
   );
 }
@@ -368,5 +369,11 @@ describe("the words it draws, in the host's language", () => {
     const keys = container.querySelector('[data-slot="complete-keys"]')?.textContent;
     expect(keys).toContain("aceptar");
     expect(keys).toContain("descartar");
+    // `CompleteHint` draws the same two words through its own `CompleteKeys`, and used to draw the
+    // English default whatever it was told.
+    const hint = container.querySelector('[data-slot="complete-hint"]')?.textContent;
+    expect(hint).toContain("aceptar");
+    expect(hint).toContain("descartar");
+    expect(hint).not.toMatch(/accept|dismiss/);
   });
 });
