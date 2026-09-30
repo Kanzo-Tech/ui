@@ -1,0 +1,69 @@
+---
+title: Gated
+description: A region shown but not yet usable — dimmed, out of reach, and announced by the reason pinned to its corner.
+---
+
+<ComponentPreview componentName="gated" />
+
+## Usage
+
+```tsx
+import { GatedRoot, GatedContent, GatedBadge } from "@kanzo-tech/ui";
+```
+
+```tsx
+<GatedRoot aria-label="Search the archive">
+  <GatedContent>…the gated UI…</GatedContent>
+  <GatedBadge>Coming soon</GatedBadge>
+</GatedRoot>
+```
+
+## Anatomy
+
+```text
+GatedRoot        (role="group", positioned, described by the badge)
+├── GatedContent (inert and muted)
+└── GatedBadge   (a Badge in a Float, pinned to a corner)
+```
+
+## What a screen reader hears
+
+`GatedContent` is [`inert`](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/inert).
+That takes it out of the tab order and out of hit-testing, and it also takes it **out of the
+accessibility tree**: inert content is no more readable to assistive tech than `aria-hidden`
+content. Nothing inside it can name or describe anything.
+
+So the badge is the only readable part, and the root is a `group` described by it. Name the group
+after the feature with `aria-label` — the visible title is inside the inert subtree — and a screen
+reader announces *"Search the archive, group, Coming soon"* where the region was.
+
+## Where not to use it
+
+A form control that is only unavailable is `disabled`, not gated. A `disabled` radio stays in its
+group's accessibility tree and is announced as unavailable; an inert one disappears, and the group
+loses an option. Pin the reason beside a disabled control with [`Float`](/docs/layout/float) and a
+[`Badge`](/docs/data-display/badge) instead.
+
+## Spacing
+
+The badge straddles the edge it is pinned to, so it overhangs the root by half its height. Leave
+room with **margin** on `GatedRoot` where something sits close above it: padding would move the
+content and leave the badge where it was.
+
+## API Reference
+
+### GatedBadge
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `placement` | `"top-start" \| "top-center" \| "top-end" \| "middle-start" \| "middle-center" \| "middle-end" \| "bottom-start" \| "bottom-center" \| "bottom-end"` | `"top-end"` |
+
+Every other prop is `Badge`'s, with `size="xs"` and `variant="secondary"` as the defaults; its
+props are exported as `GatedBadgeProps`. Its `id` is the one the root's `aria-describedby` names,
+so leave it to the root.
+
+### Other parts
+
+`GatedRoot` and `GatedContent` have no props of their own and extend
+`ComponentProps<typeof ark.div>`. All three take `asChild`, `ref` and `slot`. The file is a client
+component: the root mints the badge's id with `useId` and hands it down through context.

@@ -140,6 +140,7 @@
   "forms/example-complete": 336,
   "forms/example-controls": 344,
   "forms/example-states": 417,
+  "gated/example-default": 260,
   "graph/example-axes": 464,
   "graph/example-memory": 464,
   "graph/example-overlays": 464,

@@ -263,10 +263,13 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.EmptyTitle).toBeTypeOf("function");
     expect(UI.EmptyDescription).toBeTypeOf("function");
     expect(UI.EmptyContent).toBeTypeOf("function");
-    // `Ribbon`'s whole render was `<div class="relative">{children}<Float><Badge/></Float></div>`.
+    // `Ribbon`'s whole render was `<div class="relative">{children}<Float><Badge/></Float></div>`,
+    // with the badge's text as a prop. A gate is parts now, because the composition written out
+    // at every call site claimed `inert` left the region readable, and it does not.
     expect(surface.Ribbon).toBeUndefined();
-    expect(UI.Float).toBeTypeOf("function");
-    expect(UI.Badge).toBeTypeOf("function");
+    expect(UI.GatedRoot).toBeTypeOf("function");
+    expect(UI.GatedContent).toBeTypeOf("function");
+    expect(UI.GatedBadge).toBeTypeOf("function");
     // `TextField`'s `iconStart`/`iconEnd` were named regions as attributes over `InputGroup` +
     // `InputGroupAddon`. It also used the forbidden `forwardRef`.
     expect(surface.TextField).toBeUndefined();

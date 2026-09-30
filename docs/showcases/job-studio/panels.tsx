@@ -235,9 +235,9 @@ export function ConfigureForm({
           </RadioGroupCard>
 
           {/* Not shipped, and the badge says so ON the control rather than leaving `disabled` to
-              mean whatever a reader guesses. `Float` over a `relative` box is the whole of it —
-              there was a `Ribbon` wrapping exactly this and it was deleted, because a fixed
-              arrangement of parts that already ship is written out where it is used. */}
+              mean whatever a reader guesses. Not `GatedRoot`: its content is `inert`, which would
+              take this option out of the radio group's accessibility tree, where a `disabled`
+              radio stays in it and is announced as unavailable. */}
           <div className="relative">
             <RadioGroupCard className="items-start" disabled value="scheduled">
               <CalendarClockIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />

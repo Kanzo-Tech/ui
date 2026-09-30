@@ -5,6 +5,7 @@
     "skip-nav",
     "section",
     "empty",
+    "gated",
     "resizable",
     "scroll-area",
     "floating-panel",

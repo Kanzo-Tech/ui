@@ -68,12 +68,12 @@ job the editor had marked red.
 **Several pieces were hand-rolled over parts that already exist.** The step indicator, the field
 frame and a radio card written as a bordered `<label>` are `Steps`, `Field` and `RadioGroupCard`.
 
-The "coming soon" wrapper is the exception, and it is the more interesting one: this screen composes
-it here, out of `Float` and `Badge` over a `relative` box. There was a `Ribbon` for it, and it was
-deleted — its whole render was that box with four scalar props around it, which is
-[a fixed arrangement of parts that already ship](/docs/philosophy#the-naming-rule), and
-those are written out where they are used rather than hidden behind a name. The composition is four
-lines and a reader can see all four, which is the trade that rule is making.
+The "coming soon" marker is the exception, and it is the more interesting one: this screen composes
+it here, out of `Float` and `Badge` over a `relative` box, rather than taking
+[`Gated`](/docs/layout/gated). The two options it marks are radios, and `Gated` makes what it holds
+`inert`, which takes it out of the accessibility tree — the radio group would lose an option rather
+than announce it as unavailable. A `disabled` radio already says that, so all the marker adds is
+the reason, pinned beside it.
 
 ## Three pages, and what went in the bin getting here
 

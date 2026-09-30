@@ -156,6 +156,36 @@ it only from a prop. Either one sends it back to being an example.
 part"; `packages/ui/src/index.test.ts`, "drops the pre-arrangements over parts that already ship",
 `!EmptyState`.
 
+## A gate is a compound, because the composition was wrong about what it hid
+
+[`Gated`](/docs/layout/gated) ships as three parts: `GatedRoot`, `GatedContent`, `GatedBadge`.
+`Ribbon` stays a tombstone — a positioned box, a `Float` and a `Badge` behind scalar props, shorter
+than the composition and no more capable. What changed is that the composition turned out to be
+wrong where it was written out. The app-shell showcase and the Badge page both said `inert` "leaves
+it readable to a screen reader", and it does not: inert content is withheld from the accessibility
+tree, like `aria-hidden`. The only thing left to read was a badge saying *Coming soon* about nothing
+a reader could perceive. keasy builds the same gate for a connection location that is not available
+yet, in `connections/new/page.tsx`, so it had a second call site outside the showcases.
+
+That is the naming rule's own test passed, not waived: the parts are more capable than the
+composition, because the root is a `group` the badge describes and the caller names, so the reason
+is announced where the region was. The muted treatment is `opacity-64`, `disabled`'s own, and the
+`pointer-events-none` the showcase carried is dropped because `inert` already hit-tests that way.
+No `data-gated`: nothing selects on it, and `data-slot="gated"` already marks the root for a
+caller.
+
+A `disabled` control is not gated. `job-studio`'s two *Coming soon* radios stay a `Float` and a
+`Badge` beside a `disabled` card, because an inert radio would leave its group rather than be
+announced as unavailable.
+
+**What would reverse it:** a browser exposing inert content to assistive tech after all, which puts
+the gate back to being an attribute; or a gate whose reason cannot be a badge — a sentence, a link —
+which would want the reason as its own part rather than a `Badge` with an id.
+
+*Held by* `packages/ui/src/layouts/gated.test.tsx`, "names the group after the feature and describes
+it with the badge"; `packages/ui/src/index.test.ts`, "drops the pre-arrangements over parts that
+already ship", `!Ribbon`.
+
 ## A grammar ships its whole vocabulary
 
 The chart mark and interactor wrappers stay, and stay **complete**, even where no example draws one.
