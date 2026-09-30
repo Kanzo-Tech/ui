@@ -7,9 +7,8 @@ export interface MadeWithProps {
   /**
    * Where the brand points. Omit for a plain, unlinked line.
    *
-   * There is no `linkComponent`: a router reaches the anchor through `asChild` on
-   * `Link`, which works on every part rather than the one a prop was wired to. A
-   * caller with a routed anchor composes the line itself — it is four elements.
+   * There is no `linkComponent`. A caller with a routed anchor composes the line
+   * itself — it is four elements.
    */
   href?: string;
   /** Words before the heart. Replace to translate. */

@@ -15,8 +15,8 @@ import { Link } from "@kanzo-tech/ui";
 <Link href="/board/Q-1058">Read the contract</Link>
 ```
 
-This is a plain `<a>`. For router navigation, wear your framework's link with
-[`asChild`](#a-router-link) — the design system deliberately knows nothing about any router.
+This is a plain `<a>`, and the design system knows nothing about any router — see
+[a router link](#a-router-link).
 
 ## Variants
 
@@ -37,15 +37,8 @@ Extends `React.ComponentProps<"a">`, so `href`, `target`, `rel` and `ref` pass t
 
 ## A router link
 
-`asChild` is the whole routing seam, here and everywhere else in the library — there is no
-`linkComponent` prop on any component, and nothing imports a router:
-
-```tsx
-<Link asChild>
-  <NextLink href="/datasets">Datasets</NextLink>
-</Link>
-```
-
-The recipe itself is deliberately **not** exported. A link treatment that can be applied to
-arbitrary markup is a second way to spell what `asChild` already does, and two spellings of one
-idea is the thing this library keeps collapsing.
+`Link` takes no `asChild`, and its recipe is not exported, so a framework's link component cannot
+wear this treatment today. There is no `linkComponent` prop on any component and nothing imports a
+router; a plain `href` is a full navigation. A link treatment applied to arbitrary markup would be a
+second spelling of what `asChild` does, so the missing piece is `asChild` on `Link`, not an
+exported recipe.

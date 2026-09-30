@@ -4,8 +4,8 @@ import { cn } from "../lib/cn.js";
 
 /**
  * Link — a token-styled anchor, and the only component in the library emitting
- * `data-slot="link"`. `variant` picks the treatment; a router link takes the same treatment by
- * spreading `linkVariants()` onto it. (Generic layout stays in the product via Tailwind — the DS
+ * `data-slot="link"`. `variant` picks the treatment. It takes no `asChild`, so a router's link
+ * cannot wear it yet. (Generic layout stays in the product via Tailwind — the DS
  * ships no `Flex`/`Box`/`Grid`.)
  *
  * `linkVariants` is module-level and deliberately not on the barrel, which is where every other
