@@ -103,6 +103,7 @@ import {
   Query,
   Selection as MosaicSelection,
   count,
+  numbers,
   useChartQuery,
   useMosaic,
 } from "@kanzo-tech/ui/analytics";
@@ -147,7 +148,6 @@ import {
   ruleFrom,
   toOrders,
 } from "./order-builder";
-import { numbers } from "@/lib/arrow";
 import { open, type Corpus } from "@/lib/fossil-corpus";
 import { ARCHIVE_KINDS as KINDS } from "@/example/archive";
 import { HALLS, isoDay } from "@/example/world";
