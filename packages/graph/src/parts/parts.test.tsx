@@ -80,20 +80,15 @@ describe("GraphToolbar", () => {
     expect(screen.queryByRole("group", { name: "Current selection" })).toBeNull();
   });
 
-  it("offers the layout's transport only when the layout is live", () => {
+  it("offers to run the layout without a simulate prop", () => {
     const { corpus } = fakeCorpus();
-    const { rerender } = render(
+    render(
       <GraphRoot corpus={corpus} onFailure={() => {}}>
         <GraphToolbar />
       </GraphRoot>,
     );
-    expect(screen.queryByRole("group", { name: "Layout" })).toBeNull();
-    rerender(
-      <GraphRoot corpus={corpus} onFailure={() => {}} simulate>
-        <GraphToolbar />
-      </GraphRoot>,
-    );
-    expect(screen.getByRole("group", { name: "Layout" })).toBeTruthy();
+    const layout = screen.getByRole("group", { name: "Layout" });
+    expect(layout.querySelector('[aria-label="Run the layout"]')).toBeTruthy();
   });
 });
 

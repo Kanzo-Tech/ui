@@ -39,6 +39,9 @@ vi.mock("@cosmos.gl/graph", () => ({
     setPinnedPoints = () => calls.push("pinned");
     setConfigPartial = (config: Record<string, unknown>) => calls.push(`config:${Object.keys(config).join(",")}`);
     fitViewByPointPositions = () => calls.push("fit");
+    start = () => calls.push("start");
+    pause = () => calls.push("pause");
+    unpause = () => calls.push("unpause");
   },
 }));
 
@@ -127,6 +130,31 @@ describe("the renderer's frame", () => {
     await frame();
     expect(calls.length).toBeGreaterThan(0);
     expect(calls.filter((call) => !call.startsWith("config:"))).toEqual([]);
+  });
+});
+
+describe("the live layout", () => {
+  it("runs only when asked, from the positions it has, and stops where they are", async () => {
+    const { renderer, store } = await drawing();
+    expect(calls).not.toContain("start");
+    calls.length = 0;
+    renderer?.resume();
+    expect(calls.find((call) => call.startsWith("config:"))).toMatch(/enableSimulation/);
+    expect(calls).toContain("start");
+    renderer?.pause();
+    expect(calls.at(-1)).toBe("pause");
+    store.setOptions({ ...store.getOptions(), sim: { gravity: 0.5 } });
+    await frame();
+    expect(calls).not.toContain("positions");
+  });
+
+  it("starts and stops with the simulate prop, after the first load", async () => {
+    const { store } = await drawing();
+    calls.length = 0;
+    store.setOptions({ ...store.getOptions(), simulate: true });
+    expect(calls).toContain("start");
+    store.setOptions({ ...store.getOptions(), simulate: false });
+    expect(calls.at(-1)).toBe("pause");
   });
 });
 

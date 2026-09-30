@@ -37,12 +37,12 @@ const ZOOM = 1.4;
 const TRANSPORT: Record<Motion, { pause: boolean; label: string }> = {
   running: { pause: true, label: "Pause the layout" },
   paused: { pause: false, label: "Resume the layout" },
-  settled: { pause: false, label: "Wake the layout — it has settled" },
+  settled: { pause: false, label: "Run the layout" },
 };
 
 /**
  * **The commands, drawn** — the selection tools, the selection and what to do with it, the camera, and
- * the live layout's transport when there is one. Each cluster is a `ButtonGroup`, because a cluster
+ * the live layout's transport, which starts a layout from the points where they are. Each cluster is a `ButtonGroup`, because a cluster
  * is a claim that its buttons do one job; the part declares no `toolbar` role, since a `role` of that
  * kind promises roving focus and each button here is its own tab stop.
  *
@@ -55,7 +55,6 @@ export function GraphToolbar({ className, orientation = "horizontal", slot, ...r
   const tool = useGraphState((s) => s.tool);
   const selection = useGraphState((s) => s.selection);
   const total = useGraphState((s) => s.total);
-  const simulate = useGraphState((s) => s.options.simulate ?? false);
   const motion = useGraphState((s) => s.motion);
   const pinned = useGraphState((s) => s.pinned.length);
   const transport = TRANSPORT[motion];
@@ -123,31 +122,29 @@ export function GraphToolbar({ className, orientation = "horizontal", slot, ...r
         </Button>
       </ButtonGroup>
 
-      <Show when={simulate}>
-        <ButtonGroup aria-label="Layout" className={CLUSTER} orientation={orientation}>
-          <Button
-            aria-label={transport.label}
-            aria-pressed={motion === "paused"}
-            disabled={!ready}
-            onClick={() => (transport.pause ? api.pause() : api.resume())}
-            size="icon-sm"
-            title={transport.label}
-            variant={motion === "paused" ? "default" : "ghost"}
-          >
-            {motion === "running" ? <PauseIcon /> : <PlayIcon />}
-          </Button>
+      <ButtonGroup aria-label="Layout" className={CLUSTER} orientation={orientation}>
+        <Button
+          aria-label={transport.label}
+          aria-pressed={motion === "paused"}
+          disabled={!ready}
+          onClick={() => (transport.pause ? api.pause() : api.resume())}
+          size="icon-sm"
+          title={transport.label}
+          variant={motion === "paused" ? "default" : "ghost"}
+        >
+          {motion === "running" ? <PauseIcon /> : <PlayIcon />}
+        </Button>
+        <ButtonGroupSeparator />
+        <Button aria-label="Re-run the layout" disabled={!ready} onClick={() => api.restart()} size="icon-sm" title="Re-run the layout" variant="ghost">
+          <RotateCcwIcon />
+        </Button>
+        <Show when={pinned > 0}>
           <ButtonGroupSeparator />
-          <Button aria-label="Re-run the layout" disabled={!ready} onClick={() => api.restart()} size="icon-sm" title="Re-run the layout" variant="ghost">
-            <RotateCcwIcon />
+          <Button aria-label={release} onClick={() => api.unpin()} size="icon-sm" title={release} variant="ghost">
+            <PinOffIcon />
           </Button>
-          <Show when={pinned > 0}>
-            <ButtonGroupSeparator />
-            <Button aria-label={release} onClick={() => api.unpin()} size="icon-sm" title={release} variant="ghost">
-              <PinOffIcon />
-            </Button>
-          </Show>
-        </ButtonGroup>
-      </Show>
+        </Show>
+      </ButtonGroup>
     </div>
   );
 }

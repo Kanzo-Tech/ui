@@ -16,11 +16,7 @@ export interface RendererEvents {
   onFrame?: () => void;
   /** A new composition was uploaded. */
   onComposed?: (composition: Composition) => void;
-  /**
-   * Where the hovered point is, in space, as cosmos.gl reports it: on the hover, on every tick of a
-   * running layout and on every step of a drag. The card follows this rather than a tracked point,
-   * which would cost a GPU readback per hover.
-   */
+  /** Where the hovered point is in space, as cosmos.gl reports it: no GPU readback per hover. */
   onHover?: (position: [number, number] | null) => void;
 }
 
@@ -53,10 +49,9 @@ const corners = (box: Box) => [box.x, box.y, box.x + box.w, box.y + box.h];
  *   `render()` walks every point and link in JS, and `setConfigPartial` asks for its own frame;
  * - a snapshot that changed none of those schedules nothing.
  *
- * `transitionDuration` is 0: cosmos.gl's default animates every upload for 800 ms, and while it runs
- * the loop never idles.
- *
- * Every callback reads the store's latest options, so a host's inline `onFailure` never rebuilds it.
+ * `transitionDuration` is 0: the default animates every upload for 800 ms and keeps the loop awake.
+ * The live layout is off unless `simulate` or the toolbar asks, and runs from the current positions;
+ * a drag needs none, since cosmos.gl moves the dragged point itself. Every callback reads the store's latest options, so a host's inline `onFailure` never rebuilds it.
  */
 export function createRenderer(host: HTMLDivElement, store: GraphStore, events: RendererEvents = {}): Renderer | null {
   const fail = (message: string) => store.getOptions().onFailure(message);
@@ -66,6 +61,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   }
 
   let sim: Sim = resolveSim(store.getOptions().sim);
+  let live = store.getOptions().simulate ?? false;
   let hovering: number | null = null;
   let dragging: number | null = null;
   let reported = -1;
@@ -111,7 +107,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       // between them means the cull and the viewport describe different places.
       rescalePositions: false,
       transitionDuration: 0,
-      enableSimulation: store.getOptions().simulate ?? false,
+      enableSimulation: live,
       ...forces(sim),
       // Frames to convergence: alpha reaches its floor after exactly this many rendered frames.
       simulationDecay: 400,
@@ -268,18 +264,32 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     }
     if (snapshot.selection !== last.selection || snapshot.focus !== last.focus) dirty.state = true;
     if (snapshot.pinned !== last.pinned) dirty.pinned = true;
-    if (options.sim !== lastOptions.sim || options.simulate !== lastOptions.simulate) applyForces(options.sim, options.simulate);
+    if (options.sim !== lastOptions.sim) applyForces(options.sim);
+    if ((options.simulate ?? false) !== (lastOptions.simulate ?? false)) {
+      if (options.simulate) run(REHEAT);
+      else graph.pause();
+    }
     last = snapshot;
     lastOptions = options;
     if (dirty.compose || dirty.paint || dirty.state || dirty.pinned) schedule();
   });
 
-  function applyForces(patch: Partial<Sim> | undefined, simulate = false): void {
+  function applyForces(patch: Partial<Sim> | undefined): void {
     const next = resolveSim(patch);
     const moved = Object.keys(next).some((key) => next[key as keyof Sim] !== sim[key as keyof Sim]);
     sim = next;
-    graph.setConfigPartial({ enableSimulation: simulate, ...forces(next) });
-    if (simulate && moved) graph.start(REHEAT);
+    if (!live) return;
+    graph.setConfigPartial(forces(next));
+    if (moved && store.getSnapshot().motion !== "paused") graph.start(REHEAT);
+  }
+
+  /** A layout runs from where the points are: enabling cosmos.gl's simulation keeps its positions. */
+  function run(alpha: number): void {
+    if (!live) {
+      live = true;
+      graph.setConfigPartial({ enableSimulation: true, ...forces(sim) });
+    }
+    graph.start(alpha);
   }
 
   function focusOn(vertex: VertexId, index: number): void {
@@ -321,7 +331,7 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   void graph.ready.then(() => {
     if (!destroyed) host.querySelector("canvas")?.addEventListener("webglcontextlost", onLost);
   });
-  store.report(store.getOptions().simulate && graph.isSimulationRunning ? "running" : "settled");
+  store.report(live && graph.isSimulationRunning ? "running" : "settled");
   frameExtent(last);
   schedule();
 
@@ -348,17 +358,17 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
     pause: () => graph.pause(),
     resume() {
       const settled = store.getSnapshot().motion === "settled";
-      if (settled) graph.start(REHEAT);
+      if (settled || !live) run(REHEAT);
       else graph.unpause();
     },
     restart() {
       store.pin([]);
-      graph.start(1);
+      run(1);
     },
     unpin() {
       if (store.getSnapshot().pinned.length === 0) return;
       store.pin([]);
-      graph.start(REHEAT);
+      if (store.getSnapshot().motion === "running") graph.start(REHEAT);
     },
     reveal,
     frameBox(box, { duration = FIT_DURATION, padding = FIT_PADDING } = {}) {
@@ -382,10 +392,4 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
   };
 }
 
-const EMPTY: Resident = {
-  size: 0,
-  indexOf: () => undefined,
-  at: () => undefined,
-  indicesOf: () => [],
-  verticesAt: () => [],
-};
+const EMPTY: Resident = { size: 0, indexOf: () => undefined, at: () => undefined, indicesOf: () => [], verticesAt: () => [] };
