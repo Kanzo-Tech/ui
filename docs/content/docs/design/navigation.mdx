@@ -132,18 +132,22 @@ The platform limits this on purpose. Browser-UI Back is cancellable only while t
 **history-action activation**, and cancelling spends it, so a second Back with no click in between
 goes through. That is the platform's rule against trapping somebody on a page, and it stands.
 
-**WebKit is measured broken here.** In Playwright's WebKit 26.5 the `navigate` event for Back is
-cancellable and the dialog appears — but WebKit has already moved its own session-history index, so
-after *Stay* the next Back skips an entry, and after *Leave* `traverseTo` reloads the page instead
-of going back. The page's `navigation.currentEntry` is right throughout, so there is nothing for a
-page to read and correct. Chromium 151 and Firefox 153 are clean. Per the rule written before the
-measurement, the answer is a caveat in the coverage table, not a `history.go(-delta)` replay — and
-not a user-agent test, which would be a second code path nobody can run in CI.
+**Safari (26.x, measured 2026-09-30 in real Safari): cancelling a traversal is not honoured.** Back
+goes through, and the dialog appears on the next Forward — the block for the Back, arriving late. A
+Safari bug, not guarded against. Playwright's WebKit 26.5 fails differently and no better: it does
+cancel, but moves its own history index anyway, so after *Stay* the next Back skips an entry and
+after *Leave* `traverseTo` reloads. Chromium 151 and Firefox 153 are clean.
 
-**What would reverse it:** the e2e row printing `pass` in WebKit, which deletes the caveat and its
-`known` entry. In the other direction, Safari's share of the product's users making a skipped Back
-entry worse than a lost form — then traversals stop being cancelled at all and the row reads *not
-covered* in every browser.
+The guard is the same code in every browser. It does not test the user agent, and it does not try
+to detect the outcome of a cancellation and quietly drop the question either: both are a second
+code path for one engine's defect, and neither can be exercised in CI against the engine that
+needs it. Per the rule written before the measurement, the answer is this caveat in the coverage
+table, not a `history.go(-delta)` replay.
+
+**What would reverse it:** Safari honouring `navigate` cancellation for traversals — the e2e row
+printing `pass` in WebKit deletes the caveat and its `known` entry. In the other direction, Safari's
+share of the product's users making a late dialog worse than a lost form — then traversals stop
+being cancelled at all and the row reads *not covered* in every browser.
 
 *Held by* `packages/navigation/src/use-blocker.test.tsx`, "cancels a back traversal and says what it
 was" and "holds a blocked navigation until proceed, then replays it once";

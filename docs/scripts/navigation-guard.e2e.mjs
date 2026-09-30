@@ -123,8 +123,10 @@ const ROWS = [
     kind: "expect",
     known: {
       webkit:
-        "WebKit moves its own session-history index on a traversal that `navigate` cancelled: " +
-        "the next Back skips an entry, and `traverseTo` on the cancelled key reloads instead",
+        "Safari (26.x, measured 2026-09-30 in real Safari): cancelling a traversal is not honoured — " +
+        "Back goes through and the dialog appears on the next Forward. A Safari bug, not guarded " +
+        "against. Playwright's WebKit fails it differently: it cancels, but its history index moves " +
+        "anyway, so the next Back skips an entry and `traverseTo` reloads",
     },
     run: async (page) => {
       await dirtyForm(page);

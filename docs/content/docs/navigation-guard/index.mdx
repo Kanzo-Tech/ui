@@ -114,7 +114,7 @@ does. **Measured** is the end-to-end fixture — `docs/scripts/navigation-guard.
 | --- | --- | --- | --- |
 | `Link` — including as the `asChild` child of `SidebarMenuButton`, `BreadcrumbLink` or `MenuItem` | `/next`'s `Link`, through `onNavigate`; a `proceed` re-issues it with `router.push`/`replace` and the same `scroll` | A raw `next/link` import — [the lint rule](/docs/navigation-guard/next#close-the-door-behind-you) closes it. The re-issued navigation has no `useLinkStatus` pending state | all three |
 | `router.push`, `router.replace` | `/next`'s `useRouter` | A raw `useRouter` import, closed by the same rule. `router.refresh` is not guarded: it does not leave the page | all three |
-| Back, forward, `history.go`, `router.back()` | The Navigation API's `navigate` event, cancelled before the traversal commits — so Next never sees a `popstate` | Browser UI Back is cancellable only while the page has **history-action activation**, and cancelling spends it: a second Back with no click in between goes through. That is the platform's rule against trapping somebody on a page, and it stands. **Safari**: see below | Chromium, Firefox |
+| Back, forward, `history.go`, `router.back()` | The Navigation API's `navigate` event, cancelled before the traversal commits — so Next never sees a `popstate` | Browser UI Back is cancellable only while the page has **history-action activation**, and cancelling spends it: a second Back with no click in between goes through. That is the platform's rule against trapping somebody on a page, and it stands. **Safari**: not honoured — see below | Chromium, Firefox |
 | Plain `<a href>`, `location.assign`, a GET form | The cross-document `navigate` event, cancelled, then replayed with `navigation.navigate` on `proceed` | A cross-origin destination in Safari: WebKit fires no `navigate` event for it, and `beforeunload` is what is left | all three same-origin; cross-origin Chromium, Firefox |
 | Reload, closing the tab, the URL bar | `beforeunload`, while `enableBeforeUnload` holds | The dialog is the browser's own: your text is ignored, it needs the page to have been interacted with, and it is unreliable on mobile | all three (native dialog) |
 | A POST form, a download | — | A POST cannot be replayed through `navigation.navigate`, and a download leaves the page as it was. `beforeunload` still asks where the page unloads | — |
@@ -126,11 +126,12 @@ Without the Navigation API — Chrome before 102, Firefox before 147, Safari bef
 unloads.
 
 <Callout type="warn">
-**Safari: a cancelled Back leaves WebKit's history one step ahead of the page.** Measured in
-Playwright's WebKit 26.5: the `navigate` event for Back is cancellable and the dialog appears, but
-after *Stay* the next Back skips an entry, and after *Leave* the replay reloads the page instead of
-going back. The page's own `navigation.currentEntry` is correct throughout; the index WebKit
-traverses from is not, so there is nothing a page can read to correct it. Chromium and Firefox are
-clean. [The navigation layer](/docs/design/navigation#back-and-forward-are-cancelled-not-replayed)
-has what would change this.
+**Safari (26.x, measured 2026-09-30 in real Safari): cancelling a traversal is not honoured.** Back
+goes through, and the dialog appears on the next Forward. A Safari bug, not guarded against: the
+guard behaves the same in every browser and carries no code that detects one. Playwright's WebKit
+26.5 differs in the details — it does cancel, but its history index moves anyway, so after *Stay*
+the next Back skips an entry and after *Leave* the page reloads — and agrees on the verdict.
+Chromium and Firefox are clean. [The navigation
+layer](/docs/design/navigation#back-and-forward-are-cancelled-not-replayed) has what would change
+this.
 </Callout>
