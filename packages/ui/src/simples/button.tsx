@@ -99,7 +99,7 @@ export const buttonVariants = tv({
       outline: [
         "[--btn-bg:transparent]",
         "[--btn-fg:var(--foreground)]",
-        "[--btn-bd:var(--input)]",
+        "[--btn-bd:var(--input,var(--border))]",
         "focus-visible:border-primary",
       ],
       destructive: [
@@ -111,7 +111,7 @@ export const buttonVariants = tv({
       ],
       secondary: [
         "[--btn-bg:var(--secondary)]",
-        "[--btn-fg:var(--secondary-foreground)]",
+        "[--btn-fg:var(--secondary-foreground,var(--foreground))]",
         "focus-visible:border-primary",
       ],
       ghost: [
