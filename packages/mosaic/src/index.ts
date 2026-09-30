@@ -1,24 +1,13 @@
 /**
- * The Mosaic conversation, as one import.
+ * The Mosaic conversation, as one import, with no React in it.
  *
- * This package exists because of a bug that shipped. `@kanzo-tech/graph/duckdb` reached its
- * coordinator, clients and clauses through `@kanzo-tech/ui/analytics`, whose barrel re-exports the
- * React charts first — and `@uwdata/vgplot` with them. The import is static, so a host that
- * installed the two peers the documentation asked for, `mosaic-core` and `mosaic-sql`, still could
- * not open the subpath: vgplot came along, unasked and unused. `@kanzo-tech/graph` ended up
- * declaring vgplot as an optional peer to paper over a dependency it never names.
+ * Reading a column out of an Arrow answer and publishing a clause are not user-interface concerns,
+ * so they live here and both `@kanzo-tech/graph` and `@kanzo-tech/ui/analytics` depend on this
+ * rather than on each other; the graph never pulls in vgplot. `@kanzo-tech/ui/analytics` re-exports
+ * these names.
  *
- * The cause was a layer in the wrong package rather than a missing entry in a list. Reading a
- * column out of an Arrow answer and publishing a points clause are not user-interface concerns;
- * they were only in a component library because that is where the first chart needed them.
- *
- * So: the data half lives here, with no React anywhere in it, and both consumers depend on this
- * rather than on each other. `@kanzo-tech/ui/analytics` keeps every chart and re-exports these
- * names unchanged, so nothing on that surface moves.
- *
- * The re-exports below are deliberate rather than lazy. A single import site for `Coordinator` and
- * `Selection` is what makes one copy of Mosaic the easy outcome, and two copies would be two
- * crossfilters that never hear each other.
+ * The re-exports are deliberate: one import site for `Coordinator` and `Selection` makes one copy
+ * of Mosaic the easy outcome, and two copies would be two crossfilters that never hear each other.
  */
 
 export {

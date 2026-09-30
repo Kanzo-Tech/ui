@@ -58,13 +58,10 @@ import { engine } from "@kanzo-tech/mosaic";
 
 ## Why it is not part of `@kanzo-tech/ui`
 
-It was, and the cost landed somewhere else. `@kanzo-tech/graph/duckdb` reached its coordinator
-through `@kanzo-tech/ui/analytics`, whose barrel re-exports the React charts first — and calls
-`@uwdata/vgplot` doing it. The import is static, so a host that installed the two peers the docs
-asked for still could not open that subpath: vgplot came along, unasked and unused.
+Reading a column out of an answer and publishing a clause are not user-interface concerns, and the
+consumers that need them are not all charts. `@kanzo-tech/graph` depends on this package and not on
+`@kanzo-tech/ui/analytics`, whose barrel imports `@uwdata/vgplot` statically: a host that draws a
+graph and no chart installs no vgplot.
 
-Reading a column out of an answer and publishing a clause are not user-interface concerns. They
-lived in a component library only because that is where the first chart needed them.
-
-The charts did not move. [`@kanzo-tech/ui/analytics`](https://kanzo-tech.github.io/ui) exports
-every name it exported before, these among them.
+`@kanzo-tech/ui/analytics` keeps the charts and re-exports these names, so a chart consumer imports
+from one place.

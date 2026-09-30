@@ -118,26 +118,16 @@ export type {
 // Re-exported so a consumer writes a whole chart — and boots the coordinator under it — without a
 // direct @uwdata import, the way `/table` re-exports its TanStack types.
 //
-// The data half of that list now comes from `@kanzo-tech/mosaic` rather than from `@uwdata/*` and
-// two local files. The surface below is unchanged — every name still resolves here — but the
-// coordinator, the clients, the clauses and the Arrow reader are no longer OWNED by a component
-// library. They were only ever here because the first chart needed them, and the cost of that
-// showed up somewhere else: `@kanzo-tech/graph/duckdb` reached them through this barrel, which
-// re-exports the React charts above and `@uwdata/vgplot` with them, so a host with mosaic-core and
-// mosaic-sql installed still could not open that subpath. The plotting half stays here, because
-// plotting is what this subpath is.
+// The data half comes from `@kanzo-tech/mosaic`, which owns it; the plotting half is what this
+// subpath is.
 //
-// The list below is drawn on one rule, because the list it replaced was drawn on none: a set is
+// The list below is drawn on one rule: a set is
 // re-exported when it is **closed and named**, and stays a direct import when it is open. vgplot's
 // ~250 plot attributes and mosaic-sql's expression builders are open — `ChartRoot`'s `attributes`
 // takes them raw, and taking them raw is what an escape hatch *is*, so `yRange([72, -18])` on a
-// ridgeline still says `@uwdata/vgplot` and should. Four exports failed that rule and are gone:
-// `coordinator` (vgplot's process-wide active-coordinator setter — `MosaicProvider` is the only
-// thing that should ever call it), `Fixed` (a scale-domain sentinel for the open attribute set, and
-// not even assignable to our own `ChartAxisY domain`), and `from` / `plot`, which claimed to
-// complete the `ChartRaw` hatch and did not: no `ChartRaw` needs either, because `ChartRoot` already
-// owns the `plot(...)` call and the mark's `data` / `filterBy` props already own the source. What a
-// `ChartRaw` actually reaches for is one of the six axis marks below.
+// ridgeline still says `@uwdata/vgplot` and should.
+// vgplot's `coordinator` setter is not re-exported: `MosaicProvider` is the only thing that should
+// call it.
 
 // Boot: the page's one engine, and the loaders that put a relation in front of it. `Coordinator`
 // stays for a host that brings a connector of its own; the DuckDB-WASM one is `engine()`, because a

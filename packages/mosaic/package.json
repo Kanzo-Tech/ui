@@ -1,7 +1,7 @@
 {
   "name": "@kanzo-tech/mosaic",
   "version": "0.1.0",
-  "description": "The Mosaic conversation, without React — coordinator, clients and clauses re-exported as one surface, plus the Arrow column reader and the id-set client that every consumer of them was writing by hand.",
+  "description": "The Mosaic conversation, without React — coordinator, clients and clauses re-exported as one surface, plus the Arrow column reader and the page's one DuckDB-WASM engine.",
   "type": "module",
   "license": "MIT",
   "sideEffects": false,
