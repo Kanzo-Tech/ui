@@ -173,8 +173,8 @@ crossfilter `Selection`.
 
 ## A relation in another catalog
 
-Every `table` — on `ChartRoot`, a mark, `ChartStat`, `ChartFilter`, `ChartSearch`, `ChartSlider`,
-`IdSetClient` — is a `TableExpr`, and it reads the way Mosaic reads one. A **string is one
+Every `table` — on `ChartRoot`, a mark, `ChartStat`, `ChartFilter`, `ChartSearch`, `ChartSlider` —
+is a `TableExpr`, and it reads the way Mosaic reads one. A **string is one
 identifier** in the default catalog: `"sightings"` is `FROM "sightings"`, and a dot inside it is
 part of the name, not a path. A relation anywhere else is a **mosaic-sql node**, which goes into
 the SQL as written: `asTableRef(["guild", "sightings"])` for a path you hold in parts, `verbatim(sql)`
@@ -563,8 +563,7 @@ is configured with `ChartSeriesConfig` and read back as a `ChartSeriesEntry`, a 
 
 Two of these are not about charts at all and are exported because the inputs are. `MosaicInputOptions<T>`
 and `MosaicInputState<T>` are what a control needs to be a Mosaic client — the shape behind every
-filter input on this page — and `IdSetClientOptions` is the same for a client that publishes a set
-of ids rather than a range. `ExprValue` is anything Mosaic will accept where an expression is
+filter input on this page. `ExprValue` is anything Mosaic will accept where an expression is
 expected, and `NumericArray` is the union of typed arrays a column may arrive in:
 `Float32Array | Float64Array | Uint32Array | Uint16Array | Int32Array`.
 

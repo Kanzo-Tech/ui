@@ -90,8 +90,9 @@ cell of fossil's pyramid, and one mark stands for many.
 
 <ComponentPreview componentName="graph" fileName="example-toolbar" hasMaxHeight />
 
-The commands, drawn: the selection tools, the selection and what to do with it, zoom and fit, and —
-when `simulate` is on — the layout's transport. Each cluster is a `ButtonGroup`, because a cluster is
+The commands, drawn: the selection tools, the selection and what to do with it, zoom and fit, and the
+layout's transport. The graph loads at the corpus's positions with no layout running; play runs the
+force layout from where the points are, and pause leaves them there. Each cluster is a `ButtonGroup`, because a cluster is
 a claim that its buttons do one job. Pick a tool and drag a box; Shift borrows the marquee whichever
 tool is armed, and at release `Alt` removes what was drawn while `⌘`/`Ctrl` adds. The toolbar
 declares no `toolbar` role: that role promises roving focus, and each button here is its own tab

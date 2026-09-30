@@ -64,10 +64,11 @@ break.
 Two escape hatches, and both are on this subpath for the same reason as everything else.
 
 `useChartQuery` runs a query beside the charts and hands back rows — the supported way to read a
-relation without drawing it, instead of a hand-written client at each call site. `IdSetClient`
-publishes an enumerated set of ids as a clause, which is what a view whose positions live **outside**
-the database needs: a graph canvas, a map, an imperative widget. `@kanzo-tech/graph` uses that one to
-put a lasso into the same crossfilter a brushed histogram publishes into.
+relation without drawing it, instead of a hand-written client at each call site. A view whose
+positions live **outside** the database — a graph canvas, a map, an imperative widget — publishes
+what it hit with Mosaic's own `clausePoints`: `selection.update(clausePoints([column], ids.map((id)
+=> [id]), { source }))`. `@kanzo-tech/graph` does exactly that to put a lasso into the same
+crossfilter a brushed histogram publishes into.
 
 <Cards>
   <Card title="Charts" href="/docs/analytics/charts" description="The grammar: roots, marks, interactors, selections, and what fails silently." />

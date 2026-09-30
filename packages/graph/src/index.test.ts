@@ -69,7 +69,6 @@ describe("@kanzo-tech/graph public surface", () => {
   it("keeps the Mosaic stack off the barrel as a name, though it is a required peer now", () => {
     expect(surface.onceQuery).toBeUndefined();
     expect(surface.CosmosClient).toBeUndefined();
-    expect(surface.IdSetClient).toBeUndefined();
   });
 
   // The canvas draws its overlays and its gesture itself; a host reaches the renderer through the

@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { Graph } from "@cosmos.gl/graph";
 import type { Resident, VertexId } from "../core/resident";
-import { whenReady } from "../render/when-ready";
 
 /**
  * Everything that floats over the canvas and has to keep up with it: the hub labels, the hover
@@ -57,9 +56,12 @@ export interface GraphOverlays {
   labelRef: (vertex: VertexId) => (element: HTMLElement | null) => void;
   /** The labelled vertices, in the order the declutter pass should place them. */
   setLabelOrder: (vertices: VertexId[]) => void;
+  /** The vertex the card names; its box is measured again on the next paint. */
   setHovered: (vertex: VertexId | null) => void;
+  /** Where the hovered point is, in space — from the renderer, never read back from the GPU. */
+  hoverAt: (position: [number, number] | null) => void;
   /**
-   * Re-register the tracked points with cosmos.gl.
+   * Re-register the labelled points with cosmos.gl.
    *
    * Call it after the graph exists and whenever the set of overlaid nodes changes. It has to be
    * driven from outside because effects run in declaration order, so this hook's own effects cannot
@@ -87,6 +89,7 @@ export function useOverlays(api: { getGraph: () => Graph | null; getResident: ()
   const widths = useRef(new Map<VertexId, number>());
   const order = useRef<VertexId[]>([]);
   const hoveredRef = useRef<VertexId | null>(null);
+  const hoveredAt = useRef<[number, number] | null>(null);
   /** The card's box, measured once per hover, for the same reason. */
   const cardSize = useRef<{ width: number; height: number } | null>(null);
   /** The canvas' own box, kept by a `ResizeObserver` — see the effect below. */
@@ -94,7 +97,8 @@ export function useOverlays(api: { getGraph: () => Graph | null; getResident: ()
   const frame = useRef(0);
 
   /**
-   * Tell cosmos.gl which points the overlays are watching: the labelled ones, plus the hovered one.
+   * Tell cosmos.gl which points the labels are watching. The hovered one is not among them: a change
+   * of tracked set costs a readback, and the renderer already reports where the hovered point is.
    *
    * Registration is *not* self-maintaining. `Points.updatePositions()` ends in an argument-less
    * `trackPointsByIndices()` that clears it, and that runs whenever `isPointPositionsUpdateNeeded`
@@ -105,16 +109,7 @@ export function useOverlays(api: { getGraph: () => Graph | null; getResident: ()
   const track = useCallback(() => {
     const graph = getGraph();
     if (!graph) return;
-    const hovered = hoveredRef.current;
-    const watched =
-      hovered === null || order.current.includes(hovered)
-        ? order.current
-        : [...order.current, hovered];
-    // Registration is a device call like any other, and this one is *only* reached before the
-    // device in the case that matters: the canvas registers its labels the moment the first
-    // composition lands, which is the same commit the graph is still being built in. Dropped there, the
-    // tracked map stays empty and every overlay sits at `opacity: 0` for ever.
-    whenReady(graph, (ready) => ready.trackPointPositionsByIndices(getResident().indicesOf(watched)));
+    graph.trackPointPositionsByIndices(getResident().indicesOf(order.current));
   }, [getGraph, getResident]);
 
   const paint = useCallback(() => {
@@ -208,7 +203,7 @@ export function useOverlays(api: { getGraph: () => Graph | null; getResident: ()
     const card = cardRef.current;
     const hovered = hoveredRef.current;
     if (card && hovered !== null && bounds) {
-      const point = at(hovered);
+      const point = resident.indexOf(hovered) === undefined ? null : hoveredAt.current;
       if (point) {
         const [x, y] = graph.spaceToScreenPosition(point);
         let size = cardSize.current;
@@ -297,5 +292,13 @@ export function useOverlays(api: { getGraph: () => Graph | null; getResident: ()
     cardSize.current = null;
   }, []);
 
-  return { hostRef, gridRef, cardRef, labelRef, setLabelOrder, setHovered, track, schedule };
+  const hoverAt = useCallback(
+    (position: [number, number] | null) => {
+      hoveredAt.current = position;
+      schedule();
+    },
+    [schedule],
+  );
+
+  return { hostRef, gridRef, cardRef, labelRef, setLabelOrder, setHovered, hoverAt, track, schedule };
 }

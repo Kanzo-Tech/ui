@@ -136,7 +136,7 @@ packages/graph/src/
 │   ├── encode.ts             one tile's Batch → its typed arrays, once per tile per channel binding
 │   ├── compose.ts            visible tiles → one buffer set; the link join
 │   ├── renderer.ts           cosmos.gl's lifetime, dirty flags by kind, and the frame that renders once
-│   └── graph-looks · graph-model · graph-sim · obligations · css-color · adaptive · when-ready · webgl
+│   └── graph-looks · graph-model · graph-sim · obligations · css-color · adaptive · webgl
 ├── react/
 │   ├── use-graph.ts          the store once, setOptions per changed prop; the stable api
 │   ├── use-graph-state.ts    a slice of the state, over useSyncExternalStore
@@ -531,8 +531,20 @@ the granularity cosmos.gl offers: the *kind* of buffer, and the *set* of tiles.
 - **Each kind has a dirty flag.** A change of visible tiles dirties positions, links and the per-point
   arrays; a look or a theme change dirties colours, sizes and shapes and nothing else; an `update` that
   selects the same visible set dirties nothing, and nothing is uploaded.
-- **One frame renders once.** Every flag is discharged in one `requestAnimationFrame` that calls
-  `render()` a single time.
+- **One frame renders once, and only for an upload.** Every flag is discharged in one
+  `requestAnimationFrame`, which calls `render()` a single time when it uploaded a buffer. A
+  selection, a focus or a pin calls no `render()`: cosmos.gl's `render()` walks every point and link
+  in JS whether or not they changed, and `setConfigPartial` and `setPinnedPoints` ask for their own
+  frame.
+- **Nothing animates.** cosmos.gl's default `transitionDuration` is 800 ms, and every upload started
+  an animation that kept the frame loop running for its length, so tiles arriving during a pan never
+  let it idle. The renderer sets it to 0.
+- **Nothing waits for the device by hand.** cosmos.gl 3.4 queues every setter and command called
+  before its device exists (`ensureDevice`) and answers `[]` from `findPointsInRect` and
+  `findPointsInPolygon` until then, so the renderer calls it directly. A helper that wrapped every
+  call in `graph.ready` and a guard that scanned for unwrapped calls were written against 3.x, where
+  a setter before the device threw or dropped its upload; both are deleted. Only the canvas element
+  is still reached through `graph.ready`, because cosmos.gl creates it with the device.
 
 What this closes is inefficiency 9: today a new answer uploads positions and links and renders in one
 effect, while the look's effect uploads the per-point arrays and renders again in the same commit — two
@@ -546,13 +558,16 @@ already was per answer. Everything that outlives one composition is still held a
 **What would reverse it:** cosmos.gl gaining a sub-range upload, at which point the unit of change
 becomes a tile's range and composition stops copying. Or a measurement where concatenating cached
 arrays costs more than re-encoding from rows — which would mean the cache is holding the wrong thing.
+A transition comes back only if a picture needs one to be read, measured against the frames it
+costs; a `render()` comes back on a state change only if cosmos.gl stops applying config without it;
+and the wait for the device comes back with a cosmos.gl release that stops queueing.
 
 *Held by* `packages/graph/src/render/renderer.test.ts`, "uploads each buffer once for a change of
 tiles, and renders once", "repaints colours, sizes and shapes on a look change, and uploads no
-geometry", "uploads nothing when an update selects the same visible set";
+geometry", "uploads nothing when an update selects the same visible set", "constructs cosmos.gl with
+no simulation and no transition", "a selection sets config and calls no render and no setter";
 `packages/graph/src/render/compose.test.ts`, "composes nothing new when the visible set has not
-changed"; `packages/graph/src/render/when-ready.test.ts`, "has no module calling a setter on an
-instance it has not waited for"; `packages/graph/src/react/graph-root.test.tsx`, "does not rebuild
+changed"; `packages/graph/src/react/graph-root.test.tsx`, "does not rebuild
 the renderer because a callback changed identity".
 
 ## The React API is a store and an adapter

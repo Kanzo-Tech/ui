@@ -10,7 +10,7 @@ import preserveDirectives from "rollup-plugin-preserve-directives";
 // module that touches `streamdown`, which measures 495 kB minified and 128 kB brotli on its own —
 // against a 20 kB budget for the whole root barrel. A static import of it from `index.ts` would
 // break `import { Message }` for every host that renders plain text, which is the same one-way door
-// `@kanzo-tech/ui/editor` and `@kanzo-tech/graph/duckdb` already stand behind.
+// `@kanzo-tech/ui/editor` and `@kanzo-tech/ui/analytics` already stand behind.
 export default defineConfig({
   plugins: [
     react(),

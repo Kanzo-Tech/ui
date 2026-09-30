@@ -161,7 +161,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     return pending || composed !== visible || snapshot.drawn === null ? "reading" : "idle";
   }
 
-  function notify(patch: Partial<GraphSnapshot> = {}): void {
+  function notify(fields: Partial<GraphSnapshot> = {}): void {
     lastFrame = tileset.frame;
     const tiles = tileset.tiles.filter((tile) => tile.content !== null);
     const visible = keep(snapshot.visible, tiles.filter((tile) => tile.isVisible).map(viewOf));
@@ -181,9 +181,19 @@ export function createGraph(initial: GraphOptions): GraphStore {
       declined,
       options,
       corpus,
-      ...patch,
+      ...fields,
     };
     snapshot = { ...snapshot, status: statusOf(pending, snapshot.visible) };
+    emit();
+  }
+
+  /** A change of state only — hover, focus, selection, tool, motion — rebuilds no tile view. */
+  function patch(fields: Partial<GraphSnapshot>): void {
+    snapshot = { ...snapshot, ...fields };
+    emit();
+  }
+
+  function emit(): void {
     for (const listener of listeners) listener();
   }
 
@@ -336,29 +346,29 @@ export function createGraph(initial: GraphOptions): GraphStore {
     },
     select(vertices, source = "node", label = "") {
       const selection = vertices && vertices.length > 0 ? { vertices: [...vertices], source, label } : null;
-      notify({ selection });
+      patch({ selection });
       options.onSelect?.(selection);
       if (options.filterBy) publish(options.filterBy, self, KEY, selection ? selection.vertices.map(denseOf) : null);
     },
     focus(vertex) {
       if (vertex === snapshot.focus) return;
-      notify({ focus: vertex });
+      patch({ focus: vertex });
       options.onFocus?.(vertex);
     },
     hover(vertex) {
-      if (vertex !== snapshot.hovered) notify({ hovered: vertex });
+      if (vertex !== snapshot.hovered) patch({ hovered: vertex });
     },
     pin(vertices) {
-      notify({ pinned: [...vertices] });
+      patch({ pinned: [...vertices] });
     },
     setTool(tool) {
-      if (tool !== snapshot.tool) notify({ tool });
+      if (tool !== snapshot.tool) patch({ tool });
     },
     report(motion) {
-      if (motion !== snapshot.motion) notify({ motion });
+      if (motion !== snapshot.motion) patch({ motion });
     },
     reportProgress(value) {
-      if (value !== snapshot.progress) notify({ progress: value });
+      if (value !== snapshot.progress) patch({ progress: value });
     },
     setRenderable(renderable) {
       if (unrenderable === !renderable) return;

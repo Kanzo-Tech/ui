@@ -25,7 +25,8 @@
   "scripts": {
     "build": "vite build",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "size": "size-limit"
   },
   "//peers": "All required. cosmos.gl draws; `lucide-react` is the icon set the parts draw their buttons with, `@kanzo-tech/ui`'s own peer; `@fossil-lang/corpus` is the backend — the host opens a corpus with its `open` on `@kanzo-tech/mosaic`'s `engine()` and this package draws it through `tileMatrix`, `scan` and `edges`, writing no SQL of its own; `@kanzo-tech/mosaic` carries the crossfilter the graph listens to and publishes into. They were optional while a root barrel with no source and a `./duckdb` entry with one existed side by side; there is one path now and nothing on it is optional (`/docs/design/graph`, *the one host path*). The Mosaic stack itself — mosaic-core, mosaic-sql — is `@kanzo-tech/mosaic`'s peer, declared once there.",
   "//fossil": "The floor is `0.3.0-alpha.14`, the release whose `scan(…).read` and `edges` take a list of addresses and answer one batch per tile, and an `Engine.query` that answers in columns and interrupts on abort, over corpora whose `dense_id` is the Hilbert rank. Only types and the writer's role table (`PAYLOAD_*`) are imported; `src/layers.test.ts` holds that.",
@@ -53,6 +54,24 @@
     "react-dom": "^19.0.0",
     "rollup-plugin-preserve-directives": "^0.4.0"
   },
+  "//size-limit": "Budgets our code only: `ignore` mirrors the peers the build externalises in vite.config.ts, cosmos.gl included (about 190 kB gzipped on its own, and the consumer pays it once whatever this package does). First measured 2026-09-30 at 19.07 kB, before the lag work of `perf/phase1-lag`; budget set just above so real growth trips the gate.",
+  "size-limit": [
+    {
+      "name": "root barrel (JS)",
+      "path": "dist/index.js",
+      "limit": "19.5 kB",
+      "ignore": [
+        "react",
+        "react-dom",
+        "react/jsx-runtime",
+        "@cosmos.gl/graph",
+        "@fossil-lang/corpus",
+        "@kanzo-tech/mosaic",
+        "@kanzo-tech/ui",
+        "lucide-react"
+      ]
+    }
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Kanzo-Tech/ui.git",

@@ -3,10 +3,17 @@ import { describe, expect, it, vi } from "vitest";
 import { fakeCorpus } from "../../test/corpus";
 import { vertexId } from "../core/resident";
 import { GraphRoot, useGraphContext } from "../react/graph-root";
-import type { GraphApi } from "../react/use-graph";
+import { internalsOf, type GraphApi } from "../react/use-graph";
+import { GraphCanvas } from "./graph-canvas";
 import { GraphInspector } from "./graph-inspector";
 import { GraphLegend } from "./graph-legend";
 import { GraphToolbar } from "./graph-toolbar";
+import { useOverlays } from "./overlays";
+
+vi.mock("./overlays", async (actual) => {
+  const module = await actual<typeof import("./overlays")>();
+  return { ...module, useOverlays: vi.fn(module.useOverlays) };
+});
 
 /**
  * The parts over a root with no renderer — jsdom has no WebGL — which is enough to see what each
@@ -73,20 +80,15 @@ describe("GraphToolbar", () => {
     expect(screen.queryByRole("group", { name: "Current selection" })).toBeNull();
   });
 
-  it("offers the layout's transport only when the layout is live", () => {
+  it("offers to run the layout without a simulate prop", () => {
     const { corpus } = fakeCorpus();
-    const { rerender } = render(
+    render(
       <GraphRoot corpus={corpus} onFailure={() => {}}>
         <GraphToolbar />
       </GraphRoot>,
     );
-    expect(screen.queryByRole("group", { name: "Layout" })).toBeNull();
-    rerender(
-      <GraphRoot corpus={corpus} onFailure={() => {}} simulate>
-        <GraphToolbar />
-      </GraphRoot>,
-    );
-    expect(screen.getByRole("group", { name: "Layout" })).toBeTruthy();
+    const layout = screen.getByRole("group", { name: "Layout" });
+    expect(layout.querySelector('[aria-label="Run the layout"]')).toBeTruthy();
   });
 });
 
@@ -110,5 +112,33 @@ describe("GraphInspector", () => {
     const labels = [...document.querySelectorAll("dt")].map((dt) => dt.textContent);
     expect(labels).toEqual(["subject", "cluster_id", "degree"]);
     expect(fake.scans.at(-1)?.filter).toEqual({ column: "dense_id", op: "=", value: 6 });
+  });
+});
+
+describe("GraphCanvas", () => {
+  it("re-renders the card on a hover, and not the canvas", () => {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        observe() {}
+        disconnect() {}
+      },
+    );
+    const { corpus } = fakeCorpus();
+    const held: { api: GraphApi | null } = { api: null };
+    render(
+      <GraphRoot corpus={corpus} onFailure={() => {}}>
+        <GraphCanvas />
+        <Hold into={held} />
+      </GraphRoot>,
+    );
+    if (!held.api) throw new Error("no api");
+    const { store } = internalsOf(held.api);
+    const renders = vi.mocked(useOverlays).mock.calls.length;
+    act(() => store.hover(vertexId(0, 3)));
+    act(() => store.hover(vertexId(0, 4)));
+    act(() => store.hover(null));
+    expect(vi.mocked(useOverlays).mock.calls.length).toBe(renders);
+    vi.unstubAllGlobals();
   });
 });

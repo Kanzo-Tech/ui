@@ -34,7 +34,10 @@ export interface GraphOptions extends Channels {
   look?: LookPatch;
   /** The force coefficients, as a patch over this package's own. */
   sim?: Partial<Sim>;
-  /** A live layout. Off: a corpus's positions are the index every read is asked against. */
+  /**
+   * Runs the live layout while true, from the points' current positions. Off by default: the corpus's
+   * positions are drawn as they are. `GraphToolbar` starts and stops the layout whatever this says.
+   */
   simulate?: boolean;
   /** Required: unhandled, a browser with no WebGL context shows an empty box. */
   onFailure: (message: string) => void;

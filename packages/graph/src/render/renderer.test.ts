@@ -10,10 +10,15 @@ import { createGraph } from "../core/store";
  */
 
 const calls: string[] = [];
+const constructed: Record<string, unknown>[] = [];
 
 vi.mock("@cosmos.gl/graph", () => ({
   Graph: class {
+    constructor(_host: HTMLElement, config: Record<string, unknown>) {
+      constructed.push(config);
+    }
     ready = Promise.resolve();
+    isReady = true;
     progress = 1;
     isSimulationRunning = false;
     graph = {};
@@ -34,6 +39,9 @@ vi.mock("@cosmos.gl/graph", () => ({
     setPinnedPoints = () => calls.push("pinned");
     setConfigPartial = (config: Record<string, unknown>) => calls.push(`config:${Object.keys(config).join(",")}`);
     fitViewByPointPositions = () => calls.push("fit");
+    start = () => calls.push("start");
+    pause = () => calls.push("pause");
+    unpause = () => calls.push("unpause");
   },
 }));
 
@@ -44,6 +52,7 @@ const count = (name: string) => calls.filter((call) => call === name).length;
 
 beforeEach(() => {
   calls.length = 0;
+  constructed.length = 0;
   vi.stubGlobal("requestAnimationFrame", (run: () => void) => setTimeout(run, 0));
   vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({} as RenderingContext);
@@ -105,14 +114,47 @@ describe("the renderer's frame", () => {
     expect(calls.filter((call) => call === "config:spaceSize")).toHaveLength(1);
   });
 
-  it("sets the selection as config and uploads no buffer", async () => {
-    const { store } = await drawing();
+  it("constructs cosmos.gl with no simulation and no transition", async () => {
+    await drawing();
+    expect(constructed).toHaveLength(1);
+    expect(constructed[0]).toMatchObject({ enableSimulation: false, transitionDuration: 0 });
+  });
+
+  it("a selection sets config and calls no render and no setter", async () => {
+    const { renderer, store } = await drawing();
+    const vertex = renderer?.resident().at(0);
+    if (vertex === undefined) throw new Error("nothing was drawn");
     calls.length = 0;
-    store.select(null);
-    store.focus(null);
+    store.select([vertex]);
+    store.focus(vertex);
+    await frame();
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls.filter((call) => !call.startsWith("config:"))).toEqual([]);
+  });
+});
+
+describe("the live layout", () => {
+  it("runs only when asked, from the positions it has, and stops where they are", async () => {
+    const { renderer, store } = await drawing();
+    expect(calls).not.toContain("start");
+    calls.length = 0;
+    renderer?.resume();
+    expect(calls.find((call) => call.startsWith("config:"))).toMatch(/enableSimulation/);
+    expect(calls).toContain("start");
+    renderer?.pause();
+    expect(calls.at(-1)).toBe("pause");
+    store.setOptions({ ...store.getOptions(), sim: { gravity: 0.5 } });
     await frame();
     expect(calls).not.toContain("positions");
-    expect(calls).not.toContain("colors");
+  });
+
+  it("starts and stops with the simulate prop, after the first load", async () => {
+    const { store } = await drawing();
+    calls.length = 0;
+    store.setOptions({ ...store.getOptions(), simulate: true });
+    expect(calls).toContain("start");
+    store.setOptions({ ...store.getOptions(), simulate: false });
+    expect(calls.at(-1)).toBe("pause");
   });
 });
 
@@ -126,7 +168,7 @@ describe("the renderer's lifetime", () => {
   });
 
   it("hears a lost context and asks for a restore", () => {
-    expect(SOURCE).toMatch(/whenReady\(graph, \(\) => \{\n\s+host\.querySelector\("canvas"\)\?\.addEventListener/);
+    expect(SOURCE).toMatch(/graph\.ready\.then\(\(\) => \{\n\s+if \(!destroyed\) host\.querySelector\("canvas"\)\?\.addEventListener/);
     expect(SOURCE).toContain("event.preventDefault()");
     expect(SOURCE).toContain('removeEventListener("webglcontextlost"');
   });

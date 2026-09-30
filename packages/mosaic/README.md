@@ -14,7 +14,7 @@ Mosaic are two coordinators, and two coordinators are two crossfilters that neve
 
 ```ts
 import { Coordinator, Selection, MosaicClient, clausePoints } from "@kanzo-tech/mosaic";
-import { column, fillColumn, numbers, IdSetClient } from "@kanzo-tech/mosaic";
+import { column, fillColumn, numbers } from "@kanzo-tech/mosaic";
 import { engine } from "@kanzo-tech/mosaic";
 ```
 
@@ -55,9 +55,6 @@ import { engine } from "@kanzo-tech/mosaic";
 - **`TableExpr`** — what a `table` takes, here and in the charts: a string is one identifier in the
   default catalog, a mosaic-sql node is a relation named in SQL — `verbatim(relation.sql)` for a
   fossil corpus's catalog-qualified relation.
-- **`IdSetClient`** — the crossfilter adapter for a view whose positions are not in the database.
-  A GPU canvas or a map cannot publish `weight BETWEEN …`; there is no column to write the
-  predicate over. It can only enumerate what was hit.
 
 ## Why it is not part of `@kanzo-tech/ui`
 
