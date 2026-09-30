@@ -56,7 +56,7 @@ export default function Example() {
           positioning={{ placement: "bottom-start" }}
           value={value}
         >
-          <DatePickerInput />
+          <DatePickerInput aria-label="Departs" />
           <DatePickerContent>
             <CalendarView view="day">
               <CalendarViewControl>

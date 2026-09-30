@@ -105,21 +105,32 @@ input shows both, in the locale's format, at the height of every other input. Th
 calendar with a `DatePickerTimer` under it, and the timer *is the picker's time* — setting it sets the
 picker's value, and picking a day keeps it.
 
-- **`granularity="minute"`** shows `03/14/2026, 06:30 PM`; **`"second"`** adds the seconds. It is
-  `"day"` by default, which is the date-only picker above and changes nothing.
+- **`granularity="minute"`** shows `3/14/2026, 6:30 PM` in `en-US` and `14/3/2026, 18:30` in
+  `es-ES`; **`"second"`** adds the seconds. It is `"day"` by default, which is the date-only picker
+  above and changes nothing. The order, the separators and the 12- or 24-hour clock come from the
+  [`LocaleProvider`](/docs/i18n) around it.
+- **The input is segmented.** Day, month, year, hour, minute and, in a 12-hour locale, AM/PM are
+  separate editable parts — Ark's `DateInput`, the machine Shark's `DateInput` is made of — because
+  a date and a time cannot be typed as one string into Ark's date input, which admits only digits and
+  the date separator. Click in and type a digit run, `14032026`, and each part fills and hands on to
+  the next, at typing speed; arrows step a part, `Backspace` clears it. **The picker reports a value
+  only when every part is filled**; clearing any part empties it, and an incomplete entry is never
+  reported. Numbers that are not a date cannot be typed at all, so there is no invalid text to
+  report — `invalid` on the `Field` styles the parts, and `min` and `max` clamp what is entered.
+- **Paste** takes an ISO timestamp (`2026-03-14T18:30`) or one in the locale's order
+  (`14/03/2026 18:30`, `3/14/2026, 6:30 PM`) and sets every part at once; anything that is not a
+  date is ignored. A date pasted with no time keeps the value's time, and is midnight without one.
 - **The value is a `CalendarDateTime`.** `parseDateTime("2026-03-14T18:30")` builds one, exactly as
   `parseDate` builds a date, and `value.toString()` reads it back as `2026-03-14T18:30:00`. A day
-  picked while there is no value arrives at midnight, and a time chosen before any day takes the day
-  the calendar is showing.
+  picked in the calendar while there is no value arrives at midnight — **also in an uncontrolled
+  picker, which reports and shows midnight until a time is set** — and a time chosen before any day
+  takes the day the calendar is showing.
 - **The popover stays open after a day**, so the time can be set; `Esc` or a click outside closes it.
-- **Keyboard.** The timer is a native time field — arrows change a segment, digits type one. The
-  input can be edited **in place**: select a digit of the date or the time, type over it, and press
-  `Enter`. A date typed with no time keeps the value's time. What it cannot do is be *typed from
-  empty*: Ark's date input admits only digits and the date separator, so a `:` or `PM` cannot be
-  inserted, only kept — use the timer for a time that is not there yet.
+  The timer is a native time field: arrows change a segment, digits type one.
 - **Clearing** is a `CalendarClearTrigger`, wherever you put it in the popover.
 - **Field state.** Inside a `Field`, the picker and the timer both read `disabled`, `invalid`,
-  `readOnly` and `required`.
+  `readOnly` and `required`. Name the segmented field with `aria-label` on `DatePickerInput`: there
+  is no single `<input>` for a `FieldLabel` to point at.
 
 The stored value is one ISO string, and the adapter is the whole of the example: a zone suffix
 (`Z`, `+01:00`) is not the picker's — it holds local date-times — so the example sets it aside on

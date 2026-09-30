@@ -5,15 +5,18 @@ import {
   useDatePickerContext,
 } from "@ark-ui/react/date-picker";
 import { type UseFieldContext, useFieldContext } from "@ark-ui/react/field";
+import { DateInput as ArkDateInput } from "@ark-ui/react/date-input";
 import { Portal } from "@ark-ui/react/portal";
+import { useLocale } from "./locale";
 import { CalendarIcon, ClockIcon } from "lucide-react";
 import {
   CalendarDate,
   CalendarDateTime,
   type DateValue,
+  parseDateTime,
   toCalendarDateTime,
 } from "@internationalized/date";
-import { createContext, useContext, useRef } from "react";
+import { createContext, useContext } from "react";
 import type React from "react";
 import { cn } from "../lib/cn";
 import {
@@ -36,78 +39,70 @@ export const useDatePicker = useDatePickerContext;
  */
 export type DatePickerGranularity = "day" | "minute" | "second";
 
-// Provided by `DatePicker` and read by `DatePickerTimer`, which is how the timer knows it is inside
-// a picker (and so edits the picker's value) rather than standing alone as a time field. A context
-// of ours rather than a probe of Ark's, whose hook throws outside a picker and cannot be asked.
-const GranularityContext = createContext<DatePickerGranularity | null>(null);
-
-const TIME = /(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([ap])\.?m?\.?/i;
-const TIME_24H = /(\d{1,2}):(\d{2})(?::(\d{2}))?/;
-
-/** The input's text for a date-and-time, in the locale's own format. */
-function formatTyped(granularity: DatePickerGranularity) {
-  return (date: DateValue, details: { locale: string; timeZone: string }) =>
-    new Intl.DateTimeFormat(details.locale, {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      ...(granularity === "second" ? { second: "2-digit" } : {}),
-      timeZone: details.timeZone,
-    }).format(toCalendarDateTime(date).toDate(details.timeZone));
-}
+// Provided by `DatePicker` and read by `DatePickerInput` and `DatePickerTimer`, which is how they
+// know they are inside a timed picker (and so edit the picker's value) rather than standing alone.
+// A context of ours rather than a probe of Ark's, whose hook throws outside a picker.
+const TimedContext = createContext<TimedPicker | null>(null);
 
 /**
- * A date read from what someone typed, in the locale's field order (`14/03/2026`, `3/14/2026`),
- * or year-first when the first number has four digits (`2026-03-14`). `undefined` for anything else,
- * which the machine treats as "not a date yet".
+ * What a timed picker's input needs from the picker around it: its own machine reads none of this,
+ * because that input is Ark's segmented `DateInput`, a second machine bound to the picker's value.
  */
-function parseLocalDate(text: string, locale: string): CalendarDate | undefined {
-  const numbers = text.match(/\d+/g)?.map(Number);
-  if (numbers?.length !== 3) return undefined;
-  const first = text.match(/\d+/)?.[0] ?? "";
-  const order =
-    first.length === 4
-      ? ["year", "month", "day"]
-      : new Intl.DateTimeFormat(locale, { year: "numeric", month: "2-digit", day: "2-digit" })
-          .formatToParts(new Date(2001, 10, 22))
-          .map((part) => part.type)
-          .filter((type) => type === "year" || type === "month" || type === "day");
-  const at = (type: string) => numbers[order.indexOf(type)] as number;
-  const year = at("year");
-  const month = at("month");
-  const day = at("day");
-  if (month < 1 || month > 12 || day < 1 || day > 31) return undefined;
-  const date = new CalendarDate(year < 100 ? 2000 + year : year, month, day);
-  return date.day === day ? date : undefined;
+interface TimedPicker {
+  granularity: Exclude<DatePickerGranularity, "day">;
+  locale: string;
+  name?: string;
+  disabled?: boolean;
+  readOnly?: boolean;
+  invalid?: boolean;
+  required?: boolean;
+  min?: DateValue;
+  max?: DateValue;
 }
 
-/** A date and a time read from what someone typed, `14/03/2026, 18:30` or `3/14/2026, 6:30 PM`. */
-function parseTyped(
-  text: string,
-  details: { locale: string },
-  kept?: DateValue
-): DateValue | undefined {
-  const meridiem = TIME.exec(text);
-  const time = meridiem ?? TIME_24H.exec(text);
-  const date = parseLocalDate(text.replace(time?.[0] ?? "", " "), details.locale);
-  if (!date) return undefined;
-  // A date typed with no time keeps the time the value had — the machine's own rule when a day is
-  // picked in the grid — and midnight when it had none.
+const CLOCK = /(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*([ap])\.?\s*m?\.?)?/i;
+
+/**
+ * A date and a time read from pasted text: an ISO string (`2026-03-14T18:30`), or the locale's own
+ * order (`14/03/2026 18:30`, `3/14/2026, 6:30 PM`). Ark's segments take a paste only as a bare ISO
+ * date and drop it silently otherwise, which is the one thing a segmented field owes a form that
+ * receives a copied timestamp. A date with no time keeps the time of `kept`, and is midnight
+ * without one. `undefined` for anything that is not a date.
+ */
+function parsePasted(text: string, locale: string, kept?: DateValue): DateValue | undefined {
+  try {
+    return parseDateTime(text.replace(/(Z|[+-]\d{2}:\d{2})$/, ""));
+  } catch {
+    // Not ISO: read it in the locale's field order.
+  }
+  const clock = CLOCK.exec(text);
+  const numbers = text.replace(clock?.[0] ?? "", " ").match(/\d+/g)?.map(Number);
+  if (numbers?.length !== 3) return undefined;
+  const yearFirst = /^\D*\d{4}\b/.test(text);
+  const order = yearFirst
+    ? ["year", "month", "day"]
+    : new Intl.DateTimeFormat(locale, { year: "numeric", month: "2-digit", day: "2-digit" })
+        .formatToParts(new Date(2001, 10, 22))
+        .map((part) => part.type)
+        .filter((type) => type === "year" || type === "month" || type === "day");
+  const at = (type: string) => numbers[order.indexOf(type)] as number;
   const held = kept && "hour" in kept ? kept : undefined;
-  let hour = Number(time?.[1] ?? held?.hour ?? 0);
-  if (meridiem) hour = (hour % 12) + (meridiem[4]?.toLowerCase() === "p" ? 12 : 0);
-  const minute = Number(time?.[2] ?? held?.minute ?? 0);
-  const second = Number(time?.[3] ?? held?.second ?? 0);
-  if (hour > 23 || minute > 59 || second > 59) return undefined;
+  let hour = Number(clock?.[1] ?? held?.hour ?? 0);
+  if (clock?.[4]) hour = (hour % 12) + (clock[4].toLowerCase() === "p" ? 12 : 0);
+  const minute = Number(clock?.[2] ?? held?.minute ?? 0);
+  const second = Number(clock?.[3] ?? held?.second ?? 0);
+  const date = new CalendarDate(at("year"), at("month"), at("day"));
+  if (date.month !== at("month") || date.day !== at("day") || hour > 23 || minute > 59) {
+    return undefined;
+  }
   return new CalendarDateTime(date.year, date.month, date.day, hour, minute, second);
 }
 
 export interface DatePickerProps extends React.ComponentProps<typeof Calendar> {
   /**
    * What the picker holds. With `"minute"` or `"second"` the value is a date **and** a time: the
-   * input shows both in the locale's format and can be typed into, picking a day keeps the time, a
+   * input is segmented — day, month, year, hour, minute in the locale's order and clock — so both can
+   * be typed from empty, picking a day keeps the time, a
    * `DatePickerTimer` in the popover sets the time, and the popover stays open after a day is
    * picked so the time can be set. The value is then a `CalendarDateTime` — build one with
    * `parseDateTime` — and a day picked while there is none arrives at midnight.
@@ -132,13 +127,30 @@ export const DatePicker = (props: DatePickerProps) => {
 
   const field: UseFieldContext | undefined = useFieldContext();
   const timed = granularity !== "day";
-  // What the picker holds, for the parser to keep the time of: the caller's `value`, or the last
-  // one an uncontrolled picker reported.
-  const reported = useRef<DateValue | undefined>(rest.defaultValue?.[0]);
-  const kept = (rest.value ?? [reported.current])[0];
+  const { locale: contextLocale } = useLocale();
+  const disabled = rest.disabled ?? field?.disabled;
+  const invalid = rest.invalid ?? field?.invalid;
+  const readOnly = rest.readOnly ?? field?.readOnly;
+  const required = rest.required ?? field?.required;
 
   return (
-    <GranularityContext value={granularity}>
+    <TimedContext
+      value={
+        timed
+          ? {
+              granularity,
+              locale: rest.locale ?? contextLocale,
+              name: rest.name,
+              disabled,
+              readOnly,
+              invalid,
+              required,
+              min: rest.min,
+              max: rest.max,
+            }
+          : null
+      }
+    >
       <Calendar
         closeOnSelect={!timed}
         disabled={field?.disabled}
@@ -147,20 +159,19 @@ export const DatePicker = (props: DatePickerProps) => {
         positioning={positioning}
         readOnly={field?.readOnly}
         required={field?.required}
-        {...(timed ? { format: formatTyped(granularity), parse: (text, details) => parseTyped(text, details, kept) } : {})}
         {...rest}
         onValueChange={
           timed
-            ? (details) => {
-                const value = details.value.map((v) => toCalendarDateTime(v));
-                reported.current = value[0];
-                onValueChange?.({ ...details, value });
-              }
+            ? (details) =>
+                onValueChange?.({
+                  ...details,
+                  value: details.value.map((v) => toCalendarDateTime(v)),
+                })
             : onValueChange
         }
         slot={slot ?? "date-picker"}
       />
-    </GranularityContext>
+    </TimedContext>
   );
 };
 
@@ -192,8 +203,32 @@ interface DatePickerInputProps
   extends Omit<React.ComponentProps<typeof ArkDatePicker.Input>, "size">,
     InputProps {}
 
+/**
+ * The picker's field, and the calendar button beside it.
+ *
+ * In a date picker it is a text input that reads what is typed in the locale's date format. In one
+ * with a `granularity` it is **segmented** — day, month, year, hour, minute and, in a 12-hour
+ * locale, AM/PM, each its own editable part in the locale's order — because a date and a time cannot
+ * be typed as one string: Ark's date input admits only digits and the date separator, so a `:` or
+ * `PM` never gets in. The segments are Ark's `DateInput`, bound to the picker's value both ways.
+ */
 export const DatePickerInput = (props: DatePickerInputProps) => {
-  const { size, className, slot, ...rest } = props;
+  const timed = useContext(TimedContext);
+  return timed ? <SegmentedInput {...props} timed={timed} /> : <TextInput {...props} />;
+};
+
+const CalendarButton = () => (
+  <InputGroupAddon align="inline-end">
+    <ArkDatePicker.Trigger asChild>
+      <InputGroupButton size="icon-sm" slot="date-picker-trigger" variant="ghost">
+        <CalendarIcon aria-hidden className="text-muted-foreground" />
+      </InputGroupButton>
+    </ArkDatePicker.Trigger>
+  </InputGroupAddon>
+);
+
+const TextInput = (props: DatePickerInputProps) => {
+  const { size, slot, ...rest } = props;
 
   return (
     <ArkDatePicker.Control data-slot="date-picker-control">
@@ -201,18 +236,78 @@ export const DatePickerInput = (props: DatePickerInputProps) => {
         <ArkDatePicker.Input asChild {...rest}>
           <InputGroupInput slot={slot ?? "date-picker-input"} />
         </ArkDatePicker.Input>
+        <CalendarButton />
+      </InputGroup>
+    </ArkDatePicker.Control>
+  );
+};
 
-        <InputGroupAddon align="inline-end">
-          <ArkDatePicker.Trigger asChild>
-            <InputGroupButton
-              size="icon-sm"
-              slot="date-picker-trigger"
-              variant="ghost"
-            >
-              <CalendarIcon aria-hidden className="text-muted-foreground" />
-            </InputGroupButton>
-          </ArkDatePicker.Trigger>
-        </InputGroupAddon>
+const SegmentedInput = (props: DatePickerInputProps & { timed: TimedPicker }) => {
+  const { size, slot, timed, className, "aria-label": ariaLabel } = props;
+  const api = useDatePickerContext();
+
+  return (
+    <ArkDatePicker.Control data-slot="date-picker-control">
+      <InputGroup size={size}>
+        <ArkDateInput.Root
+          aria-invalid={timed.invalid || undefined}
+          className={cn(
+            "flex min-w-0 flex-1 items-center self-stretch px-3",
+            "text-base md:text-sm",
+            className
+          )}
+          data-slot={slot ?? "date-picker-input"}
+          disabled={timed.disabled}
+          granularity={timed.granularity}
+          invalid={timed.invalid}
+          locale={timed.locale}
+          max={timed.max}
+          min={timed.min}
+          name={timed.name}
+          onValueChange={(details) => {
+            const [value] = details.value;
+            api.setValue(value ? [toCalendarDateTime(value)] : []);
+          }}
+          onPaste={(event) => {
+            const pasted = parsePasted(
+              event.clipboardData.getData("text/plain").trim(),
+              timed.locale,
+              api.value[0]
+            );
+            if (pasted) api.setValue([pasted]);
+          }}
+          readOnly={timed.readOnly}
+          required={timed.required}
+          value={api.value.map((v) => toCalendarDateTime(v))}
+        >
+          <ArkDateInput.Control className="flex min-w-0 items-center" data-slot="date-picker-segments">
+            <ArkDateInput.SegmentGroup aria-label={ariaLabel} className="flex items-center gap-px">
+              <ArkDateInput.SegmentContext>
+                {(segment) => (
+                  <ArkDateInput.Segment
+                    className={cn(
+                      "tabular-nums",
+                      "rounded-sm px-0.5 outline-none",
+                      "focus:bg-primary focus:text-primary-foreground",
+                      "data-placeholder-shown:text-faint",
+                      "data-[type=literal]:select-none data-[type=literal]:px-px data-[type=literal]:text-muted-foreground",
+                      "data-readonly:cursor-default",
+                      "group-data-invalid/input-group:text-destructive-foreground",
+                      "group-data-invalid/input-group:focus:bg-destructive group-data-invalid/input-group:focus:text-destructive-content"
+                    )}
+                    data-slot="date-picker-segment"
+                    // The separators are the runtime's (`Intl`), and the server's and the browser's
+                    // ICU can disagree on which space one is.
+                    segment={segment}
+                    suppressHydrationWarning
+                  />
+                )}
+              </ArkDateInput.SegmentContext>
+            </ArkDateInput.SegmentGroup>
+          </ArkDateInput.Control>
+          <ArkDateInput.HiddenInput />
+        </ArkDateInput.Root>
+        <CalendarButton />
       </InputGroup>
     </ArkDatePicker.Control>
   );
@@ -252,9 +347,9 @@ const two = (n: number) => String(n).padStart(2, "0");
  * The group around it is `w-full`; size it with the element you put it in.
  */
 export const DatePickerTimer = (props: DatePickerTimerProps) => {
-  const granularity = useContext(GranularityContext);
-  return granularity ? (
-    <PickerTimer granularity={granularity} {...props} />
+  const timed = useContext(TimedContext);
+  return timed ? (
+    <PickerTimer granularity={timed.granularity} {...props} />
   ) : (
     <TimeInput {...props} />
   );

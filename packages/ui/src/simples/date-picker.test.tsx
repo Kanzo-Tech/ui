@@ -2,6 +2,7 @@ import { parseDateTime } from "@internationalized/date";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import { LocaleProvider } from "./locale.js";
 import { DatePicker, DatePickerContent, DatePickerInput, DatePickerTimer } from "./date-picker.js";
 import { Field, FieldLabel } from "./field.js";
 
@@ -111,23 +112,41 @@ describe("DatePickerTimer, standing alone", () => {
 describe("a picker with a granularity holds a date and a time", () => {
   const timed = (props: React.ComponentProps<typeof DatePicker> = {}) => (
     <DatePicker granularity="minute" {...props}>
-      <DatePickerInput />
+      <DatePickerInput aria-label="Departs" />
       <DatePickerContent>
         <DatePickerTimer aria-label="Time" />
       </DatePickerContent>
     </DatePicker>
   );
+  const segments = () =>
+    [...document.querySelectorAll("[data-slot=date-picker-segment]")]
+      .map((el) => el.textContent)
+      .join("")
+      .replace(/[\u2066\u2069]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
 
-  it("shows the date and the time together, in one input", () => {
+  it("shows the date and the time together, in one segmented field", () => {
     render(timed({ value: [parseDateTime("2026-03-14T18:30")] }));
 
-    expect(input().value).toBe("03/14/2026, 06:30 PM");
+    expect(segments()).toBe("3/14/2026, 6:30 PM");
+    expect(document.querySelectorAll("input:not([type=hidden])")).toHaveLength(0);
+  });
+
+  it("follows the locale's order and clock", () => {
+    render(
+      <LocaleProvider locale="es-ES">
+        {timed({ value: [parseDateTime("2026-03-14T18:30")] })}
+      </LocaleProvider>,
+    );
+
+    expect(segments()).toBe("14/3/2026, 18:30");
   });
 
   it("shows seconds only at the `second` granularity", () => {
     render(timed({ granularity: "second", value: [parseDateTime("2026-03-14T18:30:15")] }));
 
-    expect(input().value).toBe("03/14/2026, 06:30:15 PM");
+    expect(segments()).toBe("3/14/2026, 6:30:15 PM");
   });
 
   it("sets the picker's value from the timer inside its popover", async () => {
@@ -142,15 +161,26 @@ describe("a picker with a granularity holds a date and a time", () => {
     expect(onValueChange.mock.calls[0]?.[0].value.map(String)).toEqual(["2026-03-14T07:45:00"]);
   });
 
-  it("reads a typed date-and-time, and keeps the time when only the date is typed", async () => {
+  it("takes a pasted timestamp, ISO or in the locale's order, and ignores one that is not a date", async () => {
     const onValueChange = vi.fn();
-    render(timed({ onValueChange, value: [parseDateTime("2026-03-14T18:30")] }));
-    const user = userEvent.setup();
+    render(
+      <LocaleProvider locale="es-ES">
+        {timed({ onValueChange, value: [parseDateTime("2026-03-14T18:30")] })}
+      </LocaleProvider>,
+    );
+    const segment = () => document.querySelector("[data-slot=date-picker-segment]") as HTMLElement;
+    const paste = (text: string) =>
+      fireEvent.paste(segment(), { clipboardData: { getData: () => text } });
+    const last = () => onValueChange.mock.calls.at(-1)?.[0].value.map(String);
 
-    await user.clear(input());
-    await user.type(input(), "04/15/2027{Enter}");
-
-    expect(onValueChange.mock.calls.at(-1)?.[0].value.map(String)).toEqual(["2027-04-15T18:30:00"]);
+    paste("14/04/2027 09:05");
+    await waitFor(() => expect(last()).toEqual(["2027-04-14T09:05:00"]));
+    paste("2028-01-02T03:04");
+    await waitFor(() => expect(last()).toEqual(["2028-01-02T03:04:00"]));
+    paste("31/02/2027 09:05");
+    paste("tomorrow");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(onValueChange).toHaveBeenCalledTimes(2);
   });
 
   it("stays a plain date picker with no granularity", () => {
