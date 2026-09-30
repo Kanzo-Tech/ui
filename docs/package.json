@@ -18,7 +18,7 @@
   },
   "//fossil": "The reader, a required peer of `@kanzo-tech/graph`: the docs open every corpus with its `open` on the page's `engine()` and hand `GraphRoot` the result. Nothing here imports its `.wasm`: the module resolves its own through `new URL(…, import.meta.url)` and webpack emits it as an asset.",
   "dependencies": {
-    "@fossil-lang/corpus": "^0.3.0-alpha.13",
+    "@fossil-lang/corpus": "^0.3.0-alpha.14",
     "@anthropic-ai/sdk": "^0.117.1",
     "@codemirror/autocomplete": "^6.18.6",
     "@codemirror/lang-json": "^6.0.2",

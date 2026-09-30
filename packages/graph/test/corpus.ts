@@ -83,6 +83,7 @@ export function fakeCorpus({ tileRows = 4, vertices = 16 }: { tileRows?: number;
     type: TYPE,
     extent: box(0, vertices - 1),
     coordinates: "layout",
+    mode: { name: "community", column: "cluster_id", scale: "categorical", domain: 4, derivedBy: null },
     tileMatrices: [rung, payload],
   };
 
@@ -124,7 +125,6 @@ export function fakeCorpus({ tileRows = 4, vertices = 16 }: { tileRows?: number;
       ],
       edges: [],
     },
-    addressing: { vertexType: () => ({ cells: { modeChannel: "community" } }) },
     tileMatrix: () => matrix,
     scan(params: ScanParams) {
       scans.push(params);

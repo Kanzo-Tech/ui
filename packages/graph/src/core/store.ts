@@ -219,8 +219,7 @@ export function createGraph(initial: GraphOptions): GraphStore {
     try {
       if (type === undefined) throw new Error("the corpus has no vertex type to draw");
       matrix = corpus.tileMatrix(type);
-      const mode = corpus.addressing.vertexType(type).cells?.modeChannel ?? null;
-      modeColumn = types[typeIndex]?.channels.find((channel) => channel.name === mode)?.column ?? null;
+      modeColumn = matrix.mode?.column ?? null;
       tileset.setMatrix(matrix);
     } catch (error) {
       failed = true;
