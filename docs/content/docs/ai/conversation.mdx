@@ -11,7 +11,6 @@ description: The transcript's scroll container. It follows a stream while the re
 import {
   Conversation,
   ConversationContent,
-  ConversationEmpty,
   ConversationScrollButton,
 } from "@kanzo-tech/ai";
 ```
@@ -61,9 +60,22 @@ transcript stops following for no reason a reader can see.
 
 ## The empty state
 
-`ConversationEmpty` is a centred column with muted text, and it sizes a bare child `svg` to 6×6 so
-an icon above the sentence needs no class. It is ordinary markup — put whatever the zero state
-should say inside it.
+There is no conversation-specific part for it. The zero state is [`Empty`](/docs/layout/empty)'s
+parts, from `@kanzo-tech/ui`, placed inside `ConversationContent`: `EmptyRoot` is `flex-1`, and the
+content column is `flex-1` while the transcript is short, so the root centres itself in the panel.
+
+```tsx
+<ConversationContent>
+  <EmptyRoot>
+    <EmptyHeader>
+      <EmptyIndicator>
+        <MessagesSquareIcon />
+      </EmptyIndicator>
+      <EmptyDescription>Nothing asked yet.</EmptyDescription>
+    </EmptyHeader>
+  </EmptyRoot>
+</ConversationContent>
+```
 
 Use [`Show`](/docs/layout/rendering) rather than `&&` to choose between it and the list.
 
@@ -72,9 +84,9 @@ Use [`Show`](/docs/layout/rendering) rather than `&&` to choose between it and t
 ```text
 Conversation                 (relative, flex column — owns the pin)
 ├── ConversationContent      (role="log", the scrolling viewport)
-│   └── MessageList          (the turns)
-│       └── Message
-├── ConversationEmpty        (the zero state, inside the content)
+│   ├── MessageList          (the turns)
+│   │   └── Message
+│   └── EmptyRoot            (the zero state, from @kanzo-tech/ui)
 └── ConversationScrollButton (absolute, present only while unpinned)
 ```
 

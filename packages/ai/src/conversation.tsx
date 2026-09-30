@@ -112,7 +112,7 @@ export const ConversationContent = (props: React.ComponentProps<typeof ark.div>)
       data-slot={slot ?? "conversation-content"}
     >
       {/* `flex-1` gives the inner element the viewport's height when the transcript is short, which
-          is what lets `ConversationEmpty` centre itself in the panel rather than sit at the top. */}
+          is what lets an `EmptyRoot` centre the zero state in the panel rather than sit at the top. */}
       <ark.div
         className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6"
         ref={ctx.contentRef}
@@ -120,29 +120,6 @@ export const ConversationContent = (props: React.ComponentProps<typeof ark.div>)
         {children}
       </ark.div>
     </ark.div>
-  );
-};
-
-/**
- * The stage for the zero state, not the zero state itself: a centred column with a reading measure,
- * which the caller's markup is composed into. There is deliberately no `title` / `description` /
- * `icon` prop — `EmptyState` was exactly that and it is a tombstone in `@kanzo-tech/ui`.
- */
-export const ConversationEmpty = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, slot, ...rest } = props;
-
-  return (
-    <ark.div
-      className={cn(
-        "flex flex-1 flex-col items-center justify-center gap-3",
-        "mx-auto max-w-md px-4 py-12",
-        "text-balance text-center text-muted-foreground text-sm",
-        "[&_svg:not([class*='size-'])]:size-6",
-        className
-      )}
-      {...rest}
-      data-slot={slot ?? "conversation-empty"}
-    />
   );
 };
 

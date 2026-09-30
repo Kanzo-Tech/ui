@@ -13,7 +13,6 @@
 export {
   Conversation,
   ConversationContent,
-  ConversationEmpty,
   ConversationScrollButton,
 } from "./conversation.js";
 export {

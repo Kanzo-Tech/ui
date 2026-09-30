@@ -1,11 +1,17 @@
 "use client";
 
 import { MessagesSquareIcon } from "lucide-react";
-import { Button, Show } from "@kanzo-tech/ui";
+import {
+  Button,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyIndicator,
+  EmptyRoot,
+  Show,
+} from "@kanzo-tech/ui";
 import {
   Conversation,
   ConversationContent,
-  ConversationEmpty,
   ConversationScrollButton,
   Message,
   MessageContent,
@@ -95,10 +101,14 @@ export default function Example() {
         <ConversationContent>
           <Show
             fallback={
-              <ConversationEmpty>
-                <MessagesSquareIcon />
-                Nothing asked yet. The board is quiet.
-              </ConversationEmpty>
+              <EmptyRoot>
+                <EmptyHeader>
+                  <EmptyIndicator>
+                    <MessagesSquareIcon />
+                  </EmptyIndicator>
+                  <EmptyDescription>Nothing asked yet. The board is quiet.</EmptyDescription>
+                </EmptyHeader>
+              </EmptyRoot>
             }
             when={shown.length > 0}
           >

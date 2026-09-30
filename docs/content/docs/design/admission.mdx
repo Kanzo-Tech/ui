@@ -188,6 +188,20 @@ it only from a prop. Either one sends it back to being an example.
 part"; `packages/ui/src/index.test.ts`, "drops the pre-arrangements over parts that already ship",
 `!EmptyState`.
 
+`@kanzo-tech/ai` had a zero state of its own, and it is gone. `ConversationEmpty` was a centred
+`flex-1` column with a `max-w-md` measure, muted small text and a bare `svg` sized to 6×6: `EmptyRoot`,
+`EmptyHeader`, `EmptyDescription` and `EmptyIndicator` under a second name, and nothing a transcript
+knows that a panel does not. Composing it from the parts would have kept the name and added nothing
+to it, so it was deleted rather than rebuilt, and the zero state of a conversation is the `Empty`
+parts inside `ConversationContent`. A sibling package does not get its own copy of a ui idea because
+the idea happens to appear inside one of its components.
+
+**What would reverse it:** a conversation's zero state needing something only the transcript knows —
+the pin, the stream, the turns — that an `Empty` placed inside the content cannot be told.
+
+*Held by* `packages/ai/src/conversation.test.tsx`, "names its parts, and the zero state is ui's
+EmptyRoot rather than a part of its own".
+
 ## A gate is a compound, because the composition was wrong about what it hid
 
 [`Gated`](/docs/layout/gated) ships as three parts: `GatedRoot`, `GatedContent`, `GatedBadge`.
