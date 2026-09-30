@@ -131,8 +131,8 @@ yourself reimplementing the markup on the subpath, you have built two components
 and a half.
 
 The corollary is a placement test: **a part belongs on a subpath only if it imports that subpath's
-engine.** Thematic neighbourhood is not a reason — the stat tile sat under the chart subpath for a
-while without importing a line of Mosaic, and cost every consumer of a number a database.
+engine.** Thematic neighbourhood is not a reason: a stat figure on `/analytics` that imports no
+Mosaic costs every consumer of a number a database.
 
 ## The naming rule
 
@@ -319,8 +319,11 @@ Not everything belongs in the library, and that is not a loss:
   nothing.
 - **The products** — anything that knows a domain, any router integration, any validation engine,
   any persistence.
-- **Sibling packages** — what several products need and `ui` must not know, released beside it and
-  depending on nothing of it. `@kanzo-tech/auth` is the first admission rule's *auth*, by name.
+- **Sibling packages** — what several products need and `ui` must not know, released beside it;
+  `ui` depends on none of them. `@kanzo-tech/auth` is the first admission rule's *auth*, by name.
+  `@kanzo-tech/graph` is its *graphs*: it draws a [fossil](/docs/graph) corpus with `ui`'s parts,
+  so it depends on `ui` and not the other way round; fossil is the backend and these packages are
+  the views, on one path.
   `@kanzo-tech/navigation` is a router integration that earned a package: keasy wrote its
   unsaved-changes guard as a `history` patch, and doing it without one takes the Navigation API, a
   door into Next's public router and an end-to-end fixture in three engines — none of which a

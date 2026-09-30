@@ -3,7 +3,7 @@ title: Contributing a section
 description: How an optional package adds its own appearance tokens and its own user preference, without the core ever naming it.
 ---
 
-Some packages carry appearance of their own. The graph has a marquee wash and a rubber-band edge; an
+Some packages carry appearance of their own. The graph has a dot grid and a hover ring; an
 editor would have its own type size. Neither belongs in the core's vocabulary — a role minted for one
 consumer is how a token list grows past anyone's ability to read it — and neither should cost a
 product that never installs the package.
@@ -12,7 +12,7 @@ A **section** is how such a package contributes both halves of what it owns:
 
 | half | what it is | who decides it |
 | --- | --- | --- |
-| `tokens` | colours in the package's own namespace — `--graph-marquee` | the **tenant**, through their theme |
+| `tokens` | colours in the package's own namespace — `--graph-grid` | the **tenant**, through their theme |
 | `prefs` | choices with names — how dense the marks are, whether links add | the **user**, in the Preferences panel |
 
 Both are optional. A package may contribute tokens without preferences, preferences without tokens,
@@ -22,17 +22,15 @@ or both.
 
 One value, published by the package that owns the namespace, reached by subpath:
 
-```ts title="packages/graph/src/section.ts"
+```ts title="section.ts"
 import type { SectionManifest } from "@kanzo-tech/theme";
 
 export const GRAPH_SECTION: SectionManifest = {
   namespace: "graph",
   version: 1,
   tokens: {
-    marquee: {
-      default: "color-mix(in oklab, var(--primary) 20%, transparent)",
-      doc: "The wash over a rubber-band selection.",
-    },
+    grid: { default: "var(--border)", doc: "The dot grid behind the canvas." },
+    "point-ring-hover": { default: "var(--primary)", doc: "The ring around a hovered point." },
   },
   prefs: {
     marks: {
@@ -62,20 +60,14 @@ export const GRAPH_SECTION: SectionManifest = {
 ```
 
 <Callout type="info" title="Axes, not a list of names">
-  This offered one `choice` of three — Nebula, Atlas, Ink — and the measurement that ended it is
-  worth knowing before you declare a section of your own: six of the ten fields separating two of
-  those names moved by 7–17%, under the package's own threshold for a difference meaning anything.
-  Two pictures nobody can tell apart were about to become two names a person had to choose between.
-
-  **Declare what a reader can name.** The three names are still expressible — they are points in the
-  space these axes span, and `lookFrom` builds one — but what the panel offers is the axes. See
-  [the measurement that decided it](/docs/design/graph).
+  **Declare what a reader can name.** A named look is a point in the space the axes span —
+  `lookFrom` builds one from them — so the panel offers the axes, not a list of looks two people
+  could not tell apart. See [the measurement that decided it](/docs/design/graph).
 </Callout>
 
 <Callout type="info" title="A token default is a binding, not a hex">
-  `color-mix(…, var(--primary) 20%, …)` rather than `#8839ef22`. That is what makes a white-label
-  theme reach a package the core has never heard of: a bank changes their theme and the marquee
-  moves with it, because the default is a CSS value pointing at what *their* theme publishes. See
+  `var(--border)` rather than `#c9c9c9`. That is what makes a white-label theme reach a package
+  the core has never heard of: a bank changes their theme and the grid moves with it, because the default is a CSS value pointing at what *their* theme publishes. See
   [Theming](/docs/theming) for the twenty-one it may point at.
 </Callout>
 
@@ -101,7 +93,7 @@ prefs: {
   A section may offer a value it has measured; it may not offer a text field. So each kind knows
   what an illegal value is — outside `options`, not `"true"`/`"false"`, outside the declared bounds
   — and a stored value that fails declines to the default rather than being applied. That is the
-  version-skew case: a slider that used to run to 5 and now stops at 2.5 must not paint 5 because
+  version-skew case: a slider whose bound drops from 5 to 2.5 must not paint 5 because
   storage remembers it.
 
   Values are strings in all three. One storage shape is what lets an unrecognised namespace ride
@@ -122,8 +114,8 @@ import { GRAPH_SECTION } from "@kanzo-tech/graph/section";
 **The arrow points host → core, and that is the whole design.** Nothing in `@kanzo-tech/theme` or
 `@kanzo-tech/ui` names an optional package, so a product that never installed the graph cannot pass
 its manifest and pays nothing for it. Registration by import into the core would be the same
-mechanism with the dependency inverted — and it is checked rather than trusted:
-`packages/theme/src/boundary.test.ts` fails on a text match.
+mechanism with the dependency inverted, and neither core package declares a dependency on a
+section's package, so under pnpm such an import does not resolve.
 
 The panel then draws the section's preferences in the same list as radius and density. Nothing else
 is wired: that is the difference between one product and several sharing a window.
@@ -201,9 +193,7 @@ their users never see the control, another exposes it, and it is the same panel 
 ```
 
 So a client ships *our product is compact and square* as the point their users start from, colour
-and geometry alike, and a user preference is an override on top of it. It used to be that a tenant
-could pin the graph's look and could **not** pin the radius: the newer mechanism had this chain and
-the older one read a stored blob.
+and geometry alike, and a user preference is an override on top of it.
 
 <Callout type="warn" title="Pass the same policy to `themeScript`">
   The pre-hydration script resolves the identical chain, and it can only resolve what it is given:

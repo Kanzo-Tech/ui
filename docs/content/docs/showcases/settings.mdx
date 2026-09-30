@@ -27,15 +27,16 @@ That is deliberate rather than convenient. The question a section asks is how mu
 given, never how big the window is — a page handing it a layout prop would be the surface deciding
 for the section again, which is exactly what the mechanism exists to stop.
 
-## What the tiles do that a drawn tile cannot
+## What the cards do that a drawn card cannot
 
 GitHub's Appearance page is the shape this borrows: grouped menu, one scrolling pane, appearance
 first, a card per side with an `Active` pill and no verb on it — **pressing the card is the whole
-gesture**. What is not borrowed is the semantics — GitHub pairs a day theme with a night theme
-because its themes are single-mode, and [ours each carry both](/docs/theming).
+gesture**. The semantics are borrowed too: GitHub pairs a day theme with a night theme because
+its themes are single-mode, and [so are ours](/docs/theming) — a card per side says which theme
+each side wears.
 
-Their tiles are drawn assets. Ours are the real cascade answering: each card sets `[data-theme]`, so with the page in dark the **Light** card still resolves the light
-block. Both themes are on screen at once, and what you see is what selecting it will do.
+Their cards are drawn assets. Ours are the real cascade answering: each card sets `[data-theme]`,
+so with the page in dark the **Light** card still resolves the light theme. Both themes are on screen at once, and what you see is what selecting it will do.
 
 That is also why the page needs no appearance toggle in its chrome. It has no chrome to put one in,
 and it does not need one: the two states are on screen at full size and both are pressable.

@@ -180,9 +180,9 @@ part of the name, not a path. A relation anywhere else is a **mosaic-sql node**,
 the SQL as written: `asTableRef(["guild", "sightings"])` for a path you hold in parts, `verbatim(sql)`
 for a name a backend hands you already quoted.
 
-A fossil corpus is the second case. Its relations live in the corpus's own catalog, and
-`corpus.relations()` names each one as SQL — `relation.sql` is `"jobs/7"."Sighting"`, catalog and
-all. Pass it on as it came; never rebuild the bare type name, which no longer exists:
+A fossil corpus is the second case. `open` registers every table as a view in a catalog named
+after the corpus, so a vertex type is `"<corpus.url>"."Sighting"`, catalog and all; the bare type
+name is nothing in the default catalog:
 
 ```tsx
 "use client";
@@ -200,7 +200,7 @@ function SightingsByRegion({ relation }: { relation: string }) {
   );
 }
 
-// relation: (await corpus.relations()).find((r) => r.name === "Sighting")!.sql
+// relation: `"${corpus.url.replaceAll('"', '""')}"."Sighting"`
 ```
 
 A node is keyed by its SQL, not by its identity, so writing `verbatim(relation)` inline does not
