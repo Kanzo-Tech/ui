@@ -1,6 +1,6 @@
 import { Dictionary } from "./categories";
 import { projectionOf, type Binding } from "./channels";
-import type { Batch, Corpus, EdgeTable, Filter, VertexTable } from "./corpus-contract";
+import type { Batch, Corpus, EdgeTable, Filter, VertexTable } from "@fossil-lang/corpus";
 import { columnsOf } from "./filter";
 
 /**

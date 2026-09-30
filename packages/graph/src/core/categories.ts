@@ -1,5 +1,5 @@
 import type { Binding } from "./channels";
-import type { VertexTable } from "./corpus-contract";
+import type { VertexTable } from "@fossil-lang/corpus";
 
 /**
  * **The categorical domain, fixed before the graph loads.** Colour by vertex type ranks the drawn

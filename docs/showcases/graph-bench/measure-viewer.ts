@@ -5,7 +5,7 @@ import { createRoot } from "react-dom/client";
 import { Graph } from "@cosmos.gl/graph";
 import { GraphCanvas, GraphRoot, useGraphContext, type GraphApi } from "@kanzo-tech/graph";
 import { engine } from "@kanzo-tech/ui/analytics";
-import { open, type Corpus } from "@/lib/fossil-corpus";
+import { open, type Corpus } from "@fossil-lang/corpus";
 import { host, nextFrame, visible } from "./measure";
 
 /**
@@ -17,8 +17,7 @@ import { host, nextFrame, visible } from "./measure";
  * every frame, through cosmos.gl's own d3-zoom and nothing else — and the page records the interval
  * between frames. The gate is the median over the repeats of the viewer's p95 against the raw one's.
  *
- * The corpora at `/bench/<n>` have to be `fossil/1`, which fossil's writer does not emit yet: this
- * runs the day `corpus/build-corpus.mjs` is re-run with a writer that does.
+ * The corpora at `/bench/<n>` are the ones `corpus/build-corpus.mjs` writes.
  *
  * `idleFrames` counts `requestAnimationFrame` calls from anyone on the page during a second of
  * nothing: a loop that does not idle shows up here and nowhere else.

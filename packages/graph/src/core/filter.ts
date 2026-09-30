@@ -1,4 +1,4 @@
-import type { Filter, Literal } from "./corpus-contract";
+import type { Filter, Literal } from "@fossil-lang/corpus";
 import { MosaicClient, clausePoints, type Selection } from "@kanzo-tech/mosaic";
 
 /**

@@ -1,7 +1,7 @@
 import type { MosaicClient } from "@kanzo-tech/mosaic";
 import { domainOf } from "./categories";
 import { bindingOf } from "./channels";
-import type { Corpus, Filter, VertexTable } from "./corpus-contract";
+import type { Corpus, Filter, VertexTable } from "@fossil-lang/corpus";
 import { filterFor, graphClient, publish } from "./filter";
 import { drawnTables, loadEncoding, loadGraph, maskOf, readKept, type Encoding, type Geometry, type Kept } from "./load";
 import type { Drawn, GraphOptions, GraphSnapshot, GraphStatus, GraphStore } from "./state";

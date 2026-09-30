@@ -1,4 +1,4 @@
-import type { Batch, Corpus, Filter, Literal, Manifest, ScanParams, ScanTask } from "../src/core/corpus-contract";
+import type { Batch, Corpus, Filter, Literal, Manifest, ScanParams, ScanTask } from "@fossil-lang/corpus";
 
 /**
  * A `fossil/1` corpus in memory, small enough to count by hand, answering the contract's `scan`.

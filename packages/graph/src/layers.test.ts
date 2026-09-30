@@ -6,9 +6,8 @@ import { describe, expect, it } from "vitest";
 
 /**
  * The layers of `/docs/design/graph`, held where they can be read off the source: one reader, which
- * is fossil's, reached through its types alone — `core/corpus-contract.ts` stands in for them until
- * `fossil/1` is published, and is held to the same rule; no module past the size a named reference is
- * the shape of; and a core that knows nothing of React or cosmos.gl.
+ * is fossil's, reached through its types alone; no module past the size a named reference is the
+ * shape of; and a core that knows nothing of React or cosmos.gl.
  *
  * What it cannot prove: a query assembled from fragments no one of which looks like SQL, or a value
  * reached through a re-export under another name. It reads literals and import declarations, and
@@ -26,8 +25,8 @@ const parse = (name: string, text: string) =>
 /** Upper-case, as every query this package ever wrote spelled them — prose says "where" too. */
 const SQL = /\b(SELECT|FROM|WHERE|JOIN|CREATE (OR REPLACE )?(VIEW|TABLE))\s|read_parquet|parquet_metadata/;
 
-/** fossil's reader, or the file that stands in for it until `fossil/1` is published. */
-const FOSSIL = (from: string) => from === "@fossil-lang/corpus" || /(^|\/)corpus-contract$/.test(from);
+/** fossil's reader. */
+const FOSSIL = (from: string) => from === "@fossil-lang/corpus";
 
 describe("the graph's layers", () => {
   it("scans a corpus that has not quietly shrunk", () => {
@@ -41,9 +40,6 @@ describe("the graph's layers", () => {
       const visit = (node: ts.Node): void => {
         if ((ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateHead(node)) && SQL.test(node.text)) {
           offenders.push(`${name}: SQL in a string — ${node.text.slice(0, 60)}`);
-        }
-        if (name.endsWith("corpus-contract.ts") && (ts.isFunctionDeclaration(node) || ts.isVariableStatement(node) || ts.isClassDeclaration(node))) {
-          offenders.push(`${name}: the stand-in for fossil's types declares a value`);
         }
         if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
           const from = node.moduleSpecifier.text;

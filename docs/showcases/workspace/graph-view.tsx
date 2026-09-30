@@ -148,7 +148,7 @@ import {
   ruleFrom,
   toOrders,
 } from "./order-builder";
-import { open, type Corpus } from "@/lib/fossil-corpus";
+import { open, type Corpus } from "@fossil-lang/corpus";
 import { ARCHIVE_KINDS as KINDS } from "@/example/archive";
 import { HALLS, isoDay } from "@/example/world";
 import { ensure } from "./duck";
@@ -166,8 +166,7 @@ import { Finding } from "./graph-finding";
  */
 
 /**
- * Where the compiled archive is served from, written by `corpus/build-fossil1.mjs` until fossil's
- * writer emits `fossil/1` and `corpus/build-corpus.mjs` takes over again. Prefixed, because
+ * Where the compiled archive is served from, written by `corpus/build-corpus.mjs`. Prefixed, because
  * a string handed to DuckDB is not rewritten under `basePath` the way `Link` is: under `/ui` a bare
  * `/corpus/…` is a 404 with no error anywhere. `NEXT_PUBLIC_BASE_PATH` is the variable
  * `next.config.ts` reads, so the two cannot disagree.

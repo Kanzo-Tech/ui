@@ -2,7 +2,7 @@ import type { Selection as Crossfilter } from "@kanzo-tech/mosaic";
 import type { LookPatch } from "../render/graph-looks";
 import type { Sim } from "../render/graph-sim";
 import type { Binding, Channels } from "./channels";
-import type { Corpus } from "./corpus-contract";
+import type { Corpus } from "@fossil-lang/corpus";
 import type { Encoding, Geometry } from "./load";
 import type { Motion, Selection, SelectionSource, Tool, VertexId } from "./types";
 

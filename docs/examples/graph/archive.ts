@@ -2,14 +2,13 @@
 
 import { engine } from "@kanzo-tech/ui/analytics";
 import { useEffect, useState } from "react";
-import { open, type Corpus } from "@/lib/fossil-corpus";
+import { open, type Corpus } from "@fossil-lang/corpus";
 
 export { ARCHIVE_KINDS } from "@/example/archive";
 
 /**
- * The archive the workspace showcase draws, as `fossil/1` — written by
- * `showcases/workspace/corpus/build-fossil1.mjs` until fossil's writer emits it. Prefixed, because a
- * path handed to DuckDB is not.
+ * The archive the workspace showcase draws, as `fossil/1` — written by fossil's executor through
+ * `showcases/workspace/corpus/build-corpus.mjs`. Prefixed, because a path handed to DuckDB is not.
  */
 export const ARCHIVE = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/corpus/archive`;
 

@@ -1,4 +1,4 @@
-import type { Corpus, VertexTable } from "./corpus-contract";
+import type { Corpus, VertexTable } from "@fossil-lang/corpus";
 import type { Geometry } from "./load";
 import type { VertexId } from "./types";
 

@@ -8,12 +8,11 @@ why — and every rule here was decided by a number or by a reference we can fet
 size taste is not available.
 
 <Callout type="info">
-**The store reads `fossil/1`, which fossil has not published yet.** The package is written against
-the contract fossil and this repository agreed on 2026-09-30 — a `fossil.json` manifest, one table
-per vertex type and per relation, and a `dense_id` that is global and dense — through a stand-in for
-fossil's types in `packages/graph/src/core/corpus-contract.ts`. The day `@fossil-lang/corpus`
-publishes it, that file is deleted and its imports point at fossil. What still leads is the second
-half of the acceptance test: the same composition drawing in keasy's discover screen.
+**The store reads `fossil/1`, which `@fossil-lang/corpus` publishes from `0.3.0-alpha.15`** — the
+contract fossil and this repository agreed on 2026-09-30: a `fossil.json` manifest, one table per
+vertex type and per relation, and a `dense_id` that is global and dense. The package imports fossil's
+types and nothing else, and the docs' corpora are written by fossil's own executor. What still leads
+is the second half of the acceptance test: the same composition drawing in keasy's discover screen.
 </Callout>
 
 ## One path: fossil is the backend, this package is the view
@@ -153,7 +152,6 @@ is enforceable:
 ```text
 packages/graph/src/
 ├── core/                     no React; nothing here imports cosmos.gl
-│   ├── corpus-contract.ts    fossil/1's types, until @fossil-lang/corpus publishes them
 │   ├── load.ts               one scan per table → arrays indexed by dense_id; the filter's mask
 │   ├── filter.ts             a Mosaic predicate → scan's filter; the clause the graph publishes
 │   ├── channels.ts           Plot's bindings, and the projection they imply
@@ -717,9 +715,6 @@ interrupts the running statement on the signal.
 
 What is still open, each fossil's to answer or the owner's to rule on:
 
-- **Publishing it.** Until `@fossil-lang/corpus` ships `fossil/1`, `core/corpus-contract.ts` holds its
-  types, the docs open their fixture with a stand-in of the contract's `open`, and the archive is
-  written by a DuckDB script rather than fossil's writer. All three are deleted the day it ships.
 - **Names for a channel's values.** The manifest names no categories, so the host passes them as the
   root's `categories`, which is data rather than policy; if the manifest ever carries them, the
   manifest's win and the prop names only what it leaves unnamed.
