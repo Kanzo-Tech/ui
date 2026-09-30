@@ -41,10 +41,10 @@ the page — it is an aside *about* the conversation. Compose an [`Alert`](/docs
 inside the row and you get the shape the library already ships: a wash, a border, an icon slot,
 `role="status"`, and the ability to wrap.
 
-There used to be a third surface here, a centred `rounded-full` pill painted by `MessageContent`,
-and it was wrong twice. It respelled a shape the library already had; and the component it was
-imitating, `Badge`, is `whitespace-nowrap` at a fixed `h-5` and could never have rendered the
-sentence it was given — a full-round pill around a wrapped sentence is a stadium with dead corners.
+There is no third surface, such as a centred `rounded-full` pill painted by `MessageContent`. It
+would respell a shape the library already has, and the component it would imitate, `Badge`, is
+`whitespace-nowrap` at a fixed `h-5` and cannot render a sentence — a full-round pill around a
+wrapped sentence is a stadium with dead corners.
 AI Elements types its role as the AI SDK's `UIMessage["role"]`, system included, and gives it no
 treatment at all.
 

@@ -70,8 +70,9 @@ and a question about *a hook* is a hooks question. Only the import line changed.
 
 ## A turn is a list of parts
 
-Every component above was correct and none of them was wired to the next: a host held its own shape
-and translated it into five sets of props by hand. `AiMessage` is the join.
+Every component above is correct alone, and without a shared shape none of them is wired to the
+next: a host holds its own shape and translates it into five sets of props by hand. `AiMessage` is
+the join.
 
 ```ts
 interface AiMessage<METADATA = unknown, NAME extends string = string> {
@@ -129,7 +130,7 @@ plus rows, which is a tool call. It arrives the day an answer rests on a text so
 
 ## It still never calls a model
 
-The contract is the one the field affordances already had, and the transcript did not change it:
+The transcript and the field affordances share one contract:
 **a function returning an async iterable, cancelled by an `AbortSignal`.** No API key, no provider,
 no prompt and no model name appears anywhere in this package. Your product owns the model, the
 prompt, the auth and the cost; this package owns the interaction.
@@ -154,15 +155,15 @@ the one `@kanzo-tech/ui` has with Shark UI, and the difference is written down i
 rule that a finished call opens by default. The transcript's pin-to-bottom behaviour. Reasoning
 opening while it streams and closing when it stops.
 
-**Taken and re-pointed**: their `StackTrace` became [`Diagnostic`](/docs/data-display/diagnostic) in
+**Taken and re-pointed**: the part their `StackTrace` covers is [`Diagnostic`](/docs/data-display/diagnostic) in
 `@kanzo-tech/ui` — a severity, a message and a list of source positions is a SHACL violation and an
 LSP diagnostic, and neither is AI.
 
 **Refused**: `input` / `output` props rendered as JSON. See below.
 
 **Not built**: the Voice family, Artifact, Web Preview and Sandbox — no call site, present or
-planned — and Canvas / Node / Edge, which was wanted for a program summary that turns out to be a
-list of signatures rather than a diagram.
+planned — and Canvas / Node / Edge, because the program summary they would draw is a list of signatures
+rather than a diagram.
 
 ## The two divergences to know before you choose this over a snippet
 

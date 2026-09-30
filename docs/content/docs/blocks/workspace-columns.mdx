@@ -5,7 +5,7 @@ description: Panels beside one main region, every seam draggable.
 
 <ComponentPreview componentName="workspace-columns" />
 
-Two things it decides rather than the caller, and both were bugs first.
+Two things it decides rather than the caller.
 
 **One column is not a workspace.** With nothing to resize against, the splitter is dead chrome, so
 a single column is returned bare rather than wrapped in a row that cannot move.
@@ -14,9 +14,9 @@ a single column is returned bare rather than wrapped in a row that cannot move.
 leaving without a new key leaves that model describing a row that is no longer on screen, and the
 next drag resizes the wrong seam — try it in the preview above: close a panel, then drag.
 
-This was written out twice, identically, once in each showcase: the same `Resizable`, the same
+Two showcases need it, and written out by hand each would be the same `Resizable`, the same
 `Fragment` loop, the same `key`, the same `ResizableResizeTrigger` between every pair. Only the
-column ids and the default split differed, and both are arguments.
+column ids and the default split differ, and both are arguments.
 
 ## Where it comes from
 

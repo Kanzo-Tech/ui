@@ -130,8 +130,8 @@ implementable at all.
 **It does not fit a record carrying an access token, and the numbers are the argument.** Sealed
 with the three tokens a token-mediating backend holds, a realistic Keycloak record — two
 organizations and the roles that come with them — measures **6407 bytes** against a limit of 4096.
-It measured **4068** before the access token joined it, which is 28 bytes of margin and was never a
-design: one more organization went over it. `store.test.ts` holds both figures. So the stateless
+Without the access token it measures **4068**, which is 28 bytes of margin and not a design: one more
+organization goes over it. `store.test.ts` holds both figures. So the stateless
 default is for a product that reads identity and calls no resource server; the moment there is an
 API to call, the cookie carries a ticket instead of the tokens.
 

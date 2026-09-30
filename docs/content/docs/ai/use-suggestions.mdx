@@ -33,9 +33,8 @@ is dismissed — the strip simply gets shorter, which is the honest picture of a
 already answered.
 
 <Callout type="warn">
-It was a three-row window with a refill loop and a retry-when-dry, and every part of that existed
-to keep a popover full. The popover is gone; so is the machinery. A strip wraps, so there is
-nothing to keep full.
+There is no window, refill loop or retry-when-dry: that machinery exists to keep a popover full, and
+a strip wraps, so there is nothing to keep full.
 </Callout>
 
 ## Dedup, before anything is rendered
@@ -57,7 +56,7 @@ The other half is what happens when the answer runs out. **`dismiss()` on the la
 candidate puts the hook back to `idle`**, because nothing left of an answer is not the same thing
 as an answer with nothing in it. Two consequences, and both are the point:
 
-- the ✨ works again — it used to be a button that did nothing for the rest of the session;
+- the ✨ works again, rather than being a button that does nothing for the rest of the session;
 - a strip does not say *Nothing to suggest.* at the reader who has just taken the last one.
 
 `refresh()` ignores the gate and asks again from scratch. It is also the retry after an error.

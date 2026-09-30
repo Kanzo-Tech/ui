@@ -54,18 +54,18 @@ machine to wrap. It stays in the showcase: one call site is not the two admissio
 
 ## What it changes from the original
 
-This is a rebuild of keasy's job editor, and three of its decisions did not survive the move.
+This is a rebuild of keasy's job editor, and three of the original's decisions are not carried over.
 
-**The wizard used to hide the program.** Each step returned a different tree, so by the time you were
-choosing an output destination the `source @stations/…` that motivated it was off screen. Here it
+**The original's wizard hides the program.** Each step returns a different tree, so by the time you
+are choosing an output destination the `source @stations/…` that motivated it is off screen. Here it
 is two pages of one job, and the connections stay beside the program that references them.
 
-**Validation never reached the chrome.** The original's diagnostics lived inside the editor's LSP and
-nothing else could see them — its `validating` flag is declared and never set, its "Validating…"
-branch unreachable, and the only gate on submission was "is the text non-empty". You could create a
-job the editor had marked red.
+**The original's validation never reaches the chrome.** Its diagnostics live inside the editor's LSP
+and nothing else can see them — its `validating` flag is declared and never set, its "Validating…"
+branch unreachable, and the only gate on submission is "is the text non-empty". You can create a
+job the editor has marked red.
 
-**Several pieces were hand-rolled over parts that already exist.** The step indicator, the field
+**Several of the original's pieces are hand-rolled over parts that already exist.** The step indicator, the field
 frame and a radio card written as a bordered `<label>` are `Steps`, `Field` and `RadioGroupCard`.
 
 The "coming soon" marker is the exception, and it is the more interesting one: this screen composes
@@ -75,43 +75,36 @@ it here, out of `Float` and `Badge` over a `relative` box, rather than taking
 than announce it as unavailable. A `disabled` radio already says that, so all the marker adds is
 the reason, pinned beside it.
 
-## Three pages, and what went in the bin getting here
+## Three pages
 
-The layout took four tries, and the discarded ones are the useful part.
+**`Steps` spans the header because each step is a whole page.** A full-width `Steps` band over a
+single editor page would span the screen while governing one column, promising to command the
+editor and not doing it — the same reason workspace's dock explains in writing that its switcher is
+a deselectable `ToggleGroup` and not `Tabs`.
 
-A full-width `Steps` band came first, over a single editor page. It spanned the screen while
-governing one column, so it promised to command the editor and did not — the same reason
-workspace's dock explains in writing that its switcher is a deselectable `ToggleGroup` and not
-`Tabs`. `Steps` is back now because each step is a whole PAGE, which is the condition it was
-failing before, not a look it was wearing wrong.
+**The rail holds connections and nothing else.** A rail is for what ACCOMPANIES the thing you are
+editing; settings you visit once and leave are a page. Only the Editor page has a rail, which is
+why the dock switcher in the status strip appears there and nowhere else.
 
-Then configuration lived in that rail, as one panel among three. A rail is for what ACCOMPANIES
-the thing you are editing; settings you visit once and leave are a page. So the rail holds
-connections and nothing else — and only the Editor page has one, which is why the dock switcher in
-the status strip appears there and nowhere else.
-
-The header is ONE row, which is what the references do. shadcn's dashboard and sidebar blocks,
+**The header is ONE row**, which is what the references do. shadcn's dashboard and sidebar blocks,
 with Mantine and Ant, put a single strip inside the content column carrying a trigger, a separator
-and the trail, and **no primary actions**: those live in the
-rail or in the content. This screen had two half-empty rows, a duplicated error count and an
-attribution competing with the job's own name. Now: trigger, the name as an `Editable`, the steps
-centred in their own grid column, and one secondary split button. `Create job` moved onto the
-Summary page, beside what it creates.
+and the trail, and **no primary actions**: those live in the rail or in the content. Here that is
+the trigger, the name as an `Editable`, the steps centred in their own grid column, and one
+secondary split button. `Create job` sits on the Summary page, beside what it creates.
 
-No breadcrumb either. The sidebar says where you are, and when the trail's leaf was the rename
-control it clipped to 40px of 183px and the name disappeared — a trail is the part you can infer,
-and a name is not.
+No breadcrumb either. The sidebar says where you are, and a trail whose leaf is the rename control
+clips it to 40px of 183px and loses the name — a trail is the part you can infer, and a name is not.
 
-**Configure is a settings page, not a form.** It was a narrow column of `Card`s first — three
-controls with a great deal of nothing either side. A card around a single control is chrome
-standing in for content, and metadata-form's measure is earned by thirty fields, not by three. So
-it takes the shape a settings page actually has: what the setting is on the left, the control on
-the right, a rule between sections. The destination shows the path it resolves to rather than the
-rule for building it.
+**Configure is a settings page, not a form.** A narrow column of `Card`s would be three controls
+with a great deal of nothing either side. A card around a single control is chrome standing in for
+content, and metadata-form's measure is earned by thirty fields, not by three. So it takes the shape
+a settings page actually has: what the setting is on the left, the control on the right, a rule
+between sections. The destination shows the path it resolves to rather than the rule for building
+it.
 
-**Summary shows what comes OUT.** It restated the form first — name, run mode, destination, DCAT,
-sources, three of which you had just typed and one of which is in the title bar. A review step that
-re-reads its own inputs is a receipt, not a review. It reads the mappings now: each class, the
+**Summary shows what comes OUT.** Restating the form — name, run mode, destination, DCAT, sources,
+three of which you have just typed and one of which is in the title bar — would make it a receipt,
+not a review. It reads the mappings: each class, the
 source it is minted from, the subject template, and every predicate with where its value comes
 from. metadata-form's third column shows generated Turtle and JSON-LD for the same reason.
 

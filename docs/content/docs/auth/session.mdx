@@ -170,10 +170,10 @@ What it does depends on the pattern, and the difference never leaves this functi
 | Public client | `Authorization: Bearer …` | renews once and retries once, and only on a 401 it sent a token for |
 
 **A 401 under the BFF is ambiguous in a way it is not under the public client**, and that is why
-the two columns now say the same thing. The cookie *was* sent and *was* accepted; what expired is
+the two columns say the same thing. The cookie *was* sent and *was* accepted; what expired is
 the access token behind it, which the browser half cannot see. So the 401 means "renew and try
 again" first, and "the session is gone" only once the renewal is refused — at which point the tree
-is told, which is what it did before and all it did before.
+is told.
 
 Without that, a cookie good for eight hours in front of a token good for one produces seven hours
 in which `/session` answers 200, the whole application draws, and every request for data is a 401

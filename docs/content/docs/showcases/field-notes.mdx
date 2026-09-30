@@ -87,8 +87,7 @@ disagree with itself**, and here the disagreement leaves the building as a sprea
 `@kanzo-tech/rudof-wasm` is the whole engine — `loadShapes` hands back the shape's own IR, so the
 column list *is* the shape rather than a transcription of it, and `validate` is the real SHACL
 validator rather than a lookalike written in the showcase. The wasm is 2.7 MB unpacked and loads
-lazily on mount; the docs build is green with it, which was the question that decided the design and
-was checked before any of the screen was written.
+lazily on mount, and the docs build is green with it — the condition the design rests on.
 
 **The case that does not fit.** rudof returns its own message and the shape's `sh:message` in one array
 with nothing marking which is which, and the order is not stable between runs. `spoken()` in `rudof.ts`
@@ -147,8 +146,7 @@ Existing parts, arranged — nothing here is new:
   `meta`. Rebuilding the definitions instead would hand every column a new identity on every
   keystroke, and column visibility is keyed off exactly that. The control a cell gets is decided by
   its `sh:datatype` and `sh:in`, not by a switch written here.
-- **`DataList`** — the slip panel's record, every column with what was read into it. Shark's, and
-  this was one of the two renderers that got it adopted.
+- **`DataList`** — the slip panel's record, every column with what was read into it. Shark's.
 - **`ImageCropper`** — the box a reader draws when the model put one in the wrong place, and the
   only paper a row typed by hand ever gets. Shark's, and this is the renderer that adopted it.
 - **`DownloadTrigger`** — the CSV, `;`-separated with a BOM and the decimal comma left as typed,

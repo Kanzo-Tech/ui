@@ -23,8 +23,8 @@ and the same session shape across two deployment patterns that otherwise share n
 
 The [first admission rule](https://kanzo-tech.github.io/ui/docs/philosophy#admission) is *domain-free
 — nothing about RDF / SHACL / fossil / graphs / **auth***. Auth is excluded by name, deliberately:
-`ui` is the generic vocabulary every product shares. The rule was written after a sidebar composite
-shipped a hard-coded log-out flow, confirmation dialog and untranslatable copy included.
+`ui` is the generic vocabulary every product shares, and a sidebar composite that carries a log-out
+flow ships a hard-coded confirmation dialog and untranslatable copy with it.
 
 ## The one rule to read first
 

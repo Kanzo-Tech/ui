@@ -37,7 +37,7 @@ inside a form.
 <Callout type="warn">
 That is load-bearing rather than tidy. `InputGroup`'s recipe selects its own **direct** children —
 `has-[>textarea]`, `has-[>[data-align=block-end]]` — so an element between the group and the field
-silently unsets half of it. The border no longer reacts to focus, the toolbar stops sitting flush,
+silently unsets half of it. The border stops reacting to focus, the toolbar stops sitting flush,
 and nothing errors.
 </Callout>
 
@@ -95,13 +95,12 @@ A model is a **value**, so the picker is a [`Select`](/docs/forms/select) and th
 here for it. A value control keeps its value without being told to; reach for a palette instead and
 you inherit its rule that a selection is thrown away on click, which is a defect you then have to
 override your way out of. AI Elements — the source these shapes come from — puts a `Select` in this
-strip and never needed the override, and ours diverged from that source without saying why.
+strip and needs no override.
 
-`ModelList` and `ModelListItem` existed here for one release and are deleted, with no alias. The
-defect they were built to prevent turned out to be an artefact of the primitive they were built on:
-`Command` pins its selection behaviour to *clear* because a command is an act, so the control forgot
-what it was set to a frame after being told. A `Select` is a value control by construction — nothing
-to override, no silent failure to prevent, and therefore no capability left for a name to carry.
+`Command` pins its selection behaviour to *clear* because a command is an act, so a model picker
+built on it forgets what it was set to a frame after being told. A `Select` is a value control by
+construction — nothing to override, no silent failure to prevent, and therefore no capability left
+for a named component to carry.
 
 **What would reverse it:** a host whose model registry is long enough that picking from it is a search
 rather than a choice — twenty entries, not four. A `Select` has no filter input, and at that length the

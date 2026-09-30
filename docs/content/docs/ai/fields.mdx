@@ -39,7 +39,7 @@ iterable, cancelled by an `AbortSignal`. That contract is worth understanding on
 paragraph takes a continuation.** `Complete` composes over a `Textarea` and there is no
 `CompleteInput`. A continuation drawn over an `<input>` can only ever show what fits in the width
 that is left — the field cannot scroll to reveal text that is not in its value — so a long offer
-was unreadable by any gesture and taking it meant taking it blind. No reference does it either:
+is unreadable by any gesture and taking it means taking it blind. No reference does it either:
 Gmail continues a body, Copilot an editor, and every one-line field in the wild offers a list.
 
 **What would reverse it:** a single-line field whose offers are reliably short enough to fit, measured
@@ -75,8 +75,7 @@ Four things follow, and each of them is a rule rather than a taste:
 
 - **It lives inside the field**, in an `InputGroupAddon`, not on the label row. What it marks is the
   control, so it belongs in the control's box — and it stays with it when the row above is a label,
-  a legend or nothing at all. (It used to be anchored there so a candidate *popover* would open over
-  the text it writes. There is no popover now, and the placement outlived the reason.)
+  a legend or nothing at all.
 - **Nothing keys off `:hover`.** A mark revealed on hover does not exist for touch or for the
   keyboard, and a request fired on hover bills a model for a pointer crossing the field. Focus and
   a press are the gestures.
@@ -84,10 +83,10 @@ Four things follow, and each of them is a rule rather than a taste:
   while it is holding one, and to *Suggest different values* while a strip is up, so a reader who
   cannot see it light up is told the same thing.
 - **Busy is the primitive's, not ours.** `AiMark` passes `isLoading` to `Button` rather than
-  swapping in a spinner of its own. It did swap one in, and wrote its own `aria-busy` — which never
-  reached the DOM, because `Button` writes `aria-busy={isLoading}` *after* spreading props and
-  always won. The mark spun on screen while telling a screen reader it was idle, and stayed
-  pressable while it did.
+  swapping in a spinner of its own. A spinner of its own would need its own `aria-busy`, which never
+  reaches the DOM, because `Button` writes `aria-busy={isLoading}` *after* spreading props and
+  always wins — the mark would spin on screen while telling a screen reader it is idle, and stay
+  pressable while it does.
 
 ## Nothing here calls a model
 
@@ -168,8 +167,8 @@ Three keys, and the field says so rather than making you guess:
 | `Esc` | nothing — and the ✨ is how you ask again |
 
 **The offer is made at the caret**, and the overlay draws it there — the value holds its own space
-on both sides of it. It used to be an append at the end of the value, so moving the caret one
-character to the left made the whole suggestion vanish. LSP 3.18 models an inline completion as a
+on both sides of it. Appended at the end of the value instead, the whole suggestion would vanish the
+moment the caret moved one character to the left. LSP 3.18 models an inline completion as a
 `range` plus an `insertText` for exactly this reason and prefers a replacement over an insertion;
 ours is the degenerate range, a position, because our fields hold prose and not code.
 
@@ -221,9 +220,8 @@ puts a toolbar under the pointer, which is a gesture a keyboard cannot make.
 
 `CompleteError` prints what went wrong under the field, and renders nothing when nothing did. It is
 a part rather than a line inside `CompleteHint` because the usual presenter is `CompleteGhost`, an
-overlay with no room under it — and until it existed a failed completion said nothing at all: the
-✨ stopped spinning and `error` sat on the hook with no part reading it, while `SuggestList` had
-always printed its own.
+overlay with no room under it. Without it a failed completion says nothing at all: the ✨ stops
+spinning and `error` sits on the hook with no part reading it. `SuggestList` prints its own.
 
 `CompleteHint` is the alternative presenter, for a field that cannot take the height — a composer
 docked in a pane, whose box is fixed by the layout and whose bottom edge belongs to its own toolbar.
@@ -252,13 +250,13 @@ a `TagsInput` control, an `InputGroupAddon`, a composer toolbar. `SuggestRoot` t
 `useSuggestions` engine; `SuggestMark` is the ✨ and `SuggestList` is the strip. Feed `onPick` into
 the same `TagsInput` (or list) you type into, so the ✨ and typing write one value.
 
-**The candidates are buttons in the flow, not options in a popover**, and that is the correction
-this compound exists to make. Picking one leaves a value in a field and no selection anywhere —
+**The candidates are buttons in the flow, not options in a popover**, and that is the point of
+this compound. Picking one leaves a value in a field and no selection anywhere —
 which by [the menu/listbox rule](/docs/philosophy#a-menu-is-a-command-a-listbox-is-a-value) makes
-this a command surface. The version it replaced was a listbox whose `value` was pinned empty
-forever, inside a popover that then needed a non-modal mode, an autofocus target, a keyboard twin
-for a dismiss button Tab could not reach, and a shared label id. None of that is here: the pills are
-`<button>`s in document order, so Tab reaches every one.
+this a command surface. As a listbox its `value` would be pinned empty forever, inside a popover
+that then needs a non-modal mode, an autofocus target, a keyboard twin for a dismiss button Tab
+cannot reach, and a shared label id. None of that is here: the pills are `<button>`s in document
+order, so Tab reaches every one.
 
 **Focus decides what is visible; a press decides what is billed.** The strip is on screen while the
 field has focus and there is something to show — which is what keeps a form of eleven fields from
@@ -304,9 +302,9 @@ is a different fact from a run nobody started.
 `ghost`, insert it where you want, and call `dismiss()` — that is what lets the hook drive a field
 it does not own without the two fighting over state.
 
-There is no `accept()` and no `clear()`. `clear` was a second name bound to `dismiss`, and `accept`
-returned the ghost and then dismissed — a getter with a side effect whose return value no consumer
-ever read, because every one of them already had `ghost` in hand.
+There is no `accept()` and no `clear()`. `clear` would be a second name bound to `dismiss`, and
+`accept` would return the ghost and then dismiss — a getter with a side effect whose return value no
+consumer reads, because every one of them already has `ghost` in hand.
 </Callout>
 
 ## What none of this does

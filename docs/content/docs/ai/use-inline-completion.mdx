@@ -46,8 +46,8 @@ const accept = () => {
 };
 ```
 
-There is no `accept()` on the hook. It used to return the ghost and then do exactly what `dismiss`
-does — a getter with a side effect whose return value no consumer read, because they all already
+There is no `accept()` on the hook. It would return the ghost and then do exactly what `dismiss`
+does — a getter with a side effect whose return value no consumer reads, because they all already
 hold `ghost`.
 
 That single decision is what lets one hook drive any field without the two fighting over state,
@@ -74,8 +74,8 @@ completion.setValue("Hello w", 7);  // ghost: "orld"  — nothing is requested
 completion.setValue("Hello!", 6);   // ghost: ""      — the offer is dead, a new one is debounced
 ```
 
-It used to throw the whole offer away on every keystroke and start a fresh debounce, so the fastest
-a suggestion could come back was 350 ms plus a model. Smart Compose's budget is 60 ms at p90, and
+Throwing the whole offer away on every keystroke and starting a fresh debounce would make the
+fastest a suggestion could come back 350 ms plus a model. Smart Compose's budget is 60 ms at p90, and
 you do not get there by asking again — you get there by not asking. LSP 3.18 spells the same rule
 `filterText` ("an inline completion is shown if the text to replace is a prefix of the filter
 text"); Monaco spells it `inlineSuggest.mode: "prefix"`.
@@ -87,8 +87,7 @@ text"); Monaco spells it `inlineSuggest.mode: "prefix"`.
 | `setValue(value, position?)` | after `debounceMs`, and only if the offer died | `"automatic"` | the user is typing — coalesce keystrokes |
 | `ask(value, position?)` | immediately | `"invoked"` | the user asked — a ✨ button, a shortcut |
 
-`position` defaults to the end of the value, so a caller that does not track a caret gets the old
-behaviour and nothing else changes. Both are gated by `minLength`: below it, nothing is requested
+`position` defaults to the end of the value, so a caller that does not track a caret gets an append. Both are gated by `minLength`: below it, nothing is requested
 and any existing ghost is cleared. That gate is why a field does not fire a request on its first two
 characters, where a model has nothing to work with anyway.
 
@@ -96,8 +95,7 @@ characters, where a model has nothing to work with anyway.
 
 `complete` is handed an `InlineCompletionRequest` rather than a bare string, and the reason is
 `position`: a continuation is offered **where the caret is**, not appended to the end of the value.
-It was an append, which is why the ghost used to vanish the moment the caret moved one character
-left.
+An append makes the ghost vanish the moment the caret moves one character left.
 
 ```tsx
 interface InlineCompletionRequest {
@@ -118,8 +116,8 @@ keystroke.
 
 Models frequently restate the whole value before continuing it. If the first chunks repeat the
 current text verbatim, that one unambiguous full-value echo is dropped — nothing finer. There is
-no character-level overlap matching, because that used to mangle continuations that happened to
-begin with the same word the field ended on.
+no character-level overlap matching, because that mangles continuations that happen to begin with
+the same word the field ended on.
 
 `cleanGhost(base, cont)` is that rule, exported so a source that has to do the same trimming on its
 own side can use the same one. It runs on the *accumulated* text once a frame, which is why it also
@@ -175,8 +173,7 @@ There is no `hasGhost`, for the reason `useSuggestions` returns `items` and no `
 boolean beside the thing it is derived from is a second spelling of one fact.
 
 **`ready` with an empty `ghost` is the model having nothing to add**, and it is a different fact
-from `idle`, which means nobody has asked. The three-state union this replaced could not tell them
-apart.
+from `idle`, which means nobody has asked. A three-state union cannot tell them apart.
 
 Options are read from a ref on every run, so an inline arrow `complete` does not restart
 anything.
