@@ -108,6 +108,31 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.parseDate("2026-07-31").toString()).toBe("2026-07-31");
   });
 
+  it("exposes LanguagePicker, which is a vocabulary over Combobox and not a pre-arrangement of it", () => {
+    // `DateField` was tombstoned for being `DatePicker` plus a fixed arrangement of its parts and
+    // strictly less capable. This is the other side of the rule ("a convenience earns the name by
+    // being *more capable* than the composition"): it owns endonyms, the default set, what a tag is
+    // and a closed/open switch, none of which the parts have.
+    expect(UI.LanguagePicker).toBeTypeOf("function");
+  });
+
+  it("exposes the locale provider Shark ships, under Shark's names", () => {
+    // Reversed: `LocaleProvider` was withheld for having "no forcing consumer", which is a house
+    // rule applied where the reference speaks. Shark's `locale.tsx` exports it and `useLocale`, so
+    // the names are ours; the words a component draws are still props, not a catalogue.
+    expect(UI.LocaleProvider).toBeTypeOf("function");
+    expect(UI.useLocale).toBeTypeOf("function");
+  });
+
+  it("exposes the two hooks for a control whose owner is elsewhere", () => {
+    // `useAsyncCollection` is Ark's `useAsyncList` plus the pause, the collection and the labels a
+    // Combobox needs; `useDebouncedCommit` is the draft a text control keeps while its owner is
+    // expensive to write to. Neither has a domain word in it, and both were written twice in one
+    // consumer before they were written here.
+    expect(UI.useAsyncCollection).toBeTypeOf("function");
+    expect(UI.useDebouncedCommit).toBeTypeOf("function");
+  });
+
   it("exposes the one facet-filter surface, on the root barrel", () => {
     // Both consumers sit on subpaths that must not import each other — `/table` would pull in
     // Mosaic, `/analytics` would pull in TanStack. FacetFilter is presentational, so the root

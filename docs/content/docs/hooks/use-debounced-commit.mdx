@@ -1,0 +1,62 @@
+---
+title: useDebouncedCommit
+description: A control that keeps what is being typed to itself and tells its owner once typing pauses.
+---
+
+<ComponentPreview componentName="use-debounced-commit" />
+
+## Usage
+
+```tsx
+import { useDebouncedCommit } from "@kanzo-tech/ui";
+```
+
+```tsx
+const { draft, change, flush } = useDebouncedCommit(value, onChange);
+
+<Input value={draft} onChange={(e) => change(e.target.value)} onBlur={flush} />
+```
+
+For an owner that is expensive to write to — a form model that revalidates, a request, a document
+that re-renders — and a control that would otherwise write on every keystroke. The control shows
+`draft`, which is the last thing typed; the owner hears the last one, after the pause.
+
+`draft` follows `value` whenever nothing is pending, so a change made elsewhere — a reset, another
+editor — still lands in the control, and one made while the user is typing does not overwrite the
+word they are in the middle of.
+
+## Blur, picks and unmount
+
+- **`flush` on blur.** It commits a pending draft at once and does nothing when there is none.
+  This is what keeps the last characters from being lost when the control goes away before the
+  timer fires.
+- **`commit(next)` for a pick.** A choice made from a list supersedes typing: it commits now and
+  drops anything pending.
+- **Nothing is committed on unmount.** A cleanup that commits also commits in Strict Mode's
+  mount–unmount–mount, and the owner then hears a value nobody typed.
+
+It is generic over the value, so a control that holds `string | null` or a number needs no
+wrapper: whatever you pass as `value` is what `change` and `commit` take.
+
+## API Reference
+
+### useDebouncedCommit
+
+```ts
+function useDebouncedCommit<T>(
+  value: T,
+  onCommit: (next: T) => void,
+  delay?: number,
+): DebouncedCommit<T>;
+```
+
+`delay` is in milliseconds and defaults to `250`.
+
+#### Returns
+
+| Name | Type | What it is |
+| --- | --- | --- |
+| `draft` | `T` | What the control shows. |
+| `change` | `(next: T) => void` | A keystroke: updates `draft` now, commits after `delay`. |
+| `flush` | `() => void` | Commits a pending draft now. |
+| `commit` | `(next: T) => void` | Commits `next` now and drops anything pending. |

@@ -1,3 +1,6 @@
+"use client";
+
+import { type UseFieldContext, useFieldContext } from "@ark-ui/react/field";
 import {
   SegmentGroup as ArkSegmentGroup,
   useSegmentGroupContext,
@@ -29,6 +32,9 @@ interface SegmentGroupProps
   itemClassName?: string;
 }
 
+// Ark's `useSegmentGroup` reads no `useFieldContext`, so a `Field disabled` left the segments
+// clickable. Bridged here the way `RadioGroup` does it — state flags only, explicit props win, and
+// with no `Field` ancestor every flag is `undefined`, which Ark strips before the machine sees it.
 export const SegmentGroup = (props: SegmentGroupProps) => {
   const {
     orientation = "horizontal",
@@ -40,6 +46,8 @@ export const SegmentGroup = (props: SegmentGroupProps) => {
     slot,
     ...rest
   } = props;
+
+  const field: UseFieldContext | undefined = useFieldContext();
 
   return (
     <ArkSegmentGroup.Root
@@ -61,7 +69,11 @@ export const SegmentGroup = (props: SegmentGroupProps) => {
         className
       )}
       data-variant={variant}
+      disabled={field?.disabled}
+      invalid={field?.invalid}
       orientation={orientation}
+      readOnly={field?.readOnly}
+      required={field?.required}
       {...rest}
       data-slot={slot ?? "segment-group"}
     >

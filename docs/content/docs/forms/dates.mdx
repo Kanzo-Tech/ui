@@ -14,6 +14,10 @@ The grid is a real `role="grid"` with roving tabindex, arrow-key navigation and 
 quick-nav, and `CalendarTableDays` / `CalendarWeekDays` read the weeks and weekday names off the
 machine, so a locale change reflows it with no work on your side.
 
+Inside a [`Field`](/docs/forms/field), `DatePicker` reads `disabled`, `invalid`, `readOnly` and
+`required` from it, so a disabled field keeps its popover shut as well as its input grey; an explicit
+prop on the picker still wins.
+
 ## Usage
 
 ```tsx
@@ -93,6 +97,13 @@ Ark's `DateValue`. The adapter between them is two small functions, and it belon
 rather than in the library — which side of it your product lives on is a product decision.
 
 <ComponentPreview componentName="date-picker" fileName="example-iso-value" />
+
+For a date **and** a time, the picker stays date-only and `DatePickerTimer` is the second half:
+the stored value is one ISO string (`2026-03-14T18:30`), split into the two on the way in and
+joined on the way out. There is no `DateField` for either — it was a fixed arrangement of these
+parts and strictly less capable than them, so the adapter is written out where it is used.
+
+<ComponentPreview componentName="date-picker" fileName="example-iso-datetime" />
 
 Reading a string out is one line, because `onValueChange` hands you both representations. Going
 the other way — hydrating a **stored** string back into the picker — needs `parseDate`, which

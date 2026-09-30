@@ -113,18 +113,44 @@ export const FieldLegend = (props: FieldLegendProps) => {
   );
 };
 
-export const FieldGroup = (props: React.ComponentProps<typeof ark.div>) => {
-  const { className, slot, ...rest } = props;
+const fieldGroupVariants = tv({
+  base: [
+    "group/field-group @container/field-group",
+    "w-full gap-4",
+    "data-[data-slot=checkbox-group]:gap-3",
+    "*:data-[slot=field-group]:gap-4",
+  ],
+  variants: {
+    // A closed set of counts, each a whole class, so a caller overrides one per breakpoint with a
+    // class of its own — `columns={1} className="sm:grid-cols-2"`. It was a `--columns` custom
+    // property written to `style`, as `RadioGroup` does, and an inline property beats every class,
+    // so that override was the one thing it could not express.
+    columns: {
+      stack: "flex flex-col",
+      1: "grid grid-cols-1",
+      2: "grid grid-cols-2",
+      3: "grid grid-cols-3",
+      4: "grid grid-cols-4",
+      auto: "grid grid-cols-[repeat(auto-fit,minmax(14rem,1fr))]",
+    },
+  },
+  defaultVariants: { columns: "stack" },
+});
+
+interface FieldGroupProps extends React.ComponentProps<typeof ark.div> {
+  /**
+   * Lay the fields out in a grid: one to four equal columns, or `"auto"` to fit as many as the
+   * width allows. Omitted, they stack. A field that should span the row takes `col-span-full`.
+   */
+  columns?: 1 | 2 | 3 | 4 | "auto";
+}
+
+export const FieldGroup = (props: FieldGroupProps) => {
+  const { columns = "stack", className, slot, ...rest } = props;
 
   return (
     <ark.div
-      className={cn(
-        "group/field-group @container/field-group",
-        "flex w-full flex-col gap-4",
-        "data-[data-slot=checkbox-group]:gap-3",
-        "*:data-[slot=field-group]:gap-4",
-        className
-      )}
+      className={cn(fieldGroupVariants({ columns }), className)}
       {...rest}
       data-slot={slot ?? "field-group"}
     />
@@ -281,14 +307,37 @@ export const FieldSeparator = (props: React.ComponentProps<typeof ark.div>) => {
   );
 };
 
-export const FieldHelper = (
-  props: React.ComponentProps<typeof ArkField.HelperText>
-) => {
-  const { className, slot, ...rest } = props;
+const fieldHelperVariants = tv({
+  base: "text-sm",
+  variants: {
+    // `muted` is what a helper always was. The two others are for a message that is neither
+    // guidance nor an error: a warning the value survives, or a note about what it will do. They
+    // are text colours and nothing else — a message that must block belongs in `FieldError`.
+    tone: {
+      muted: "text-muted-foreground",
+      info: "text-info-foreground",
+      warning: "text-warning-foreground",
+    },
+  },
+  defaultVariants: { tone: "muted" },
+});
+
+interface FieldHelperProps
+  extends React.ComponentProps<typeof ArkField.HelperText>,
+    VariantProps<typeof fieldHelperVariants> {}
+
+/**
+ * The one message wired into the control's `aria-describedby`, and there is one per `Field`: Ark
+ * gives every `HelperText` the same id, so a second would collide. A warning beside a description
+ * is therefore this part with a `tone` for the warning and `FieldDescription` for the description.
+ */
+export const FieldHelper = (props: FieldHelperProps) => {
+  const { tone = "muted", className, slot, ...rest } = props;
 
   return (
     <ArkField.HelperText
-      className={cn("text-muted-foreground text-sm", className)}
+      className={cn(fieldHelperVariants({ tone }), className)}
+      data-tone={tone}
       {...rest}
       data-slot={slot ?? "field-helper"}
     />

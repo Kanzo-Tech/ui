@@ -46,6 +46,9 @@ measured item, so the container carries the rounding and background you want it 
 Pass `options` for the data-driven shorthand — each `{ value, label, disabled? }` becomes an
 item, rendered before any explicit `children` (the two APIs are additive).
 
+Inside a [`Field`](/docs/forms/field) it reads `disabled`, `invalid`, `readOnly` and `required` from
+it, like the other controls do; an explicit prop on the group still wins.
+
 ## Anatomy
 
 ```text

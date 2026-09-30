@@ -335,3 +335,38 @@ describe("a continuation that does not fit", () => {
     await waitFor(() => expect(field.style.getPropertyValue("min-height")).toBe(""));
   });
 });
+
+function TranslatedHarness() {
+  const [value, setValue] = useState("Hel");
+  return (
+    <CompleteRoot
+      announcement="Sugerencia lista. Tab para aceptar, Esc para descartar."
+      complete={completeRest}
+      onValueChange={setValue}
+      value={value}
+    >
+      <CompleteTextarea>
+        <Textarea />
+      </CompleteTextarea>
+      <CompleteMark label="Asistente" offeringLabel="Aceptar sugerencia" />
+      <CompleteKeys acceptLabel="aceptar" dismissLabel="descartar" />
+    </CompleteRoot>
+  );
+}
+
+describe("the words it draws, in the host's language", () => {
+  it("takes the offer's name, the screen-reader sentence and the two key words from the host", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<TranslatedHarness />);
+
+    await type(user);
+
+    await screen.findByRole("button", { name: "Aceptar sugerencia" });
+    expect(container.querySelector('[data-slot="complete-status"]')?.textContent).toBe(
+      "Sugerencia lista. Tab para aceptar, Esc para descartar.",
+    );
+    const keys = container.querySelector('[data-slot="complete-keys"]')?.textContent;
+    expect(keys).toContain("aceptar");
+    expect(keys).toContain("descartar");
+  });
+});

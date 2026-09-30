@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { Field } from "./field.js";
 import {
   SegmentGroup,
   SegmentGroupItem,
@@ -54,5 +55,42 @@ describe("SegmentGroup options", () => {
 
     expect((screen.getByRole("radio", { name: "Off" }) as HTMLInputElement).disabled).toBe(true);
     expect((screen.getByRole("radio", { name: "On" }) as HTMLInputElement).disabled).toBe(false);
+  });
+});
+
+describe("SegmentGroup field state", () => {
+  const options = [
+    { value: "start", label: "Start" },
+    { value: "end", label: "End" },
+  ];
+  const root = () => document.querySelector("[data-slot=segment-group]");
+
+  it("inherits `disabled` and `invalid` from an ancestor Field", () => {
+    render(
+      <Field disabled invalid>
+        <SegmentGroup aria-label="Side" defaultValue="start" options={options} />
+      </Field>,
+    );
+
+    expect(root()?.hasAttribute("data-disabled")).toBe(true);
+    expect(root()?.hasAttribute("data-invalid")).toBe(true);
+    expect((screen.getByRole("radio", { name: "Start" }) as HTMLInputElement).disabled).toBe(true);
+  });
+
+  it("lets an explicit prop override the Field", () => {
+    render(
+      <Field invalid>
+        <SegmentGroup aria-label="Side" invalid={false} options={options} />
+      </Field>,
+    );
+
+    expect(root()?.hasAttribute("data-invalid")).toBe(false);
+  });
+
+  it("stays enabled with no Field ancestor", () => {
+    render(<SegmentGroup aria-label="Side" options={options} />);
+
+    expect(root()?.hasAttribute("data-disabled")).toBe(false);
+    expect((screen.getByRole("radio", { name: "Start" }) as HTMLInputElement).disabled).toBe(false);
   });
 });

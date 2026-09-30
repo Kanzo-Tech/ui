@@ -110,12 +110,27 @@ export interface CompleteRootProps {
   onValueChange: (value: string) => void;
   debounceMs?: number;
   minLength?: number;
+  /**
+   * What a screen reader hears once, when a suggestion lands.
+   *
+   * @default "Suggestion ready. Press Tab to accept, Escape to dismiss."
+   */
+  announcement?: string;
   className?: string;
   children: React.ReactNode;
 }
 
 export function CompleteRoot(props: CompleteRootProps) {
-  const { complete, value, onValueChange, debounceMs, minLength, className, children } = props;
+  const {
+    announcement = "Suggestion ready. Press Tab to accept, Escape to dismiss.",
+    complete,
+    value,
+    onValueChange,
+    debounceMs,
+    minLength,
+    className,
+    children,
+  } = props;
   const completion = useInlineCompletion({ complete, debounceMs, minLength });
   const fieldRef = React.useRef<FieldEl | null>(null);
   const rootRef = React.useRef<HTMLDivElement>(null);
@@ -285,7 +300,7 @@ export function CompleteRoot(props: CompleteRootProps) {
             read the same sentence twenty times. This sentence changes once, when there is
             something to take. */}
         <ark.span aria-live="polite" className="sr-only" data-slot="complete-status">
-          {ghost ? "Suggestion ready. Press Tab to accept, Escape to dismiss." : ""}
+          {ghost ? announcement : ""}
         </ark.span>
       </ark.div>
     </Ctx.Provider>
@@ -320,8 +335,17 @@ export function CompleteTextarea({ children }: { children: React.ReactElement })
  * two readings on purpose: it is the only way to accept without a keyboard, and the only way back
  * after Escape, which otherwise ends the field's assistance until the next keystroke.
  */
-export function CompleteMark(props: Omit<AiMarkProps, "busy" | "offering">) {
-  const { label = "AI assist", ...rest } = props;
+export function CompleteMark(
+  props: Omit<AiMarkProps, "busy" | "offering"> & {
+    /**
+     * The accessible name while a suggestion is on offer, when `label` names the mark at rest.
+     *
+     * @default "Accept suggestion"
+     */
+    offeringLabel?: string;
+  }
+) {
+  const { label = "AI assist", offeringLabel = "Accept suggestion", ...rest } = props;
   const ctx = useCtx("CompleteMark");
   const offering = ctx.ghost.length > 0;
 
@@ -332,7 +356,7 @@ export function CompleteMark(props: Omit<AiMarkProps, "busy" | "offering">) {
       // taste: there is nothing to continue below `minLength`, while a candidate source can answer
       // from an empty field. Everything else about the two marks is bound identically.
       disabled={!offering && !ctx.askable}
-      label={offering ? "Accept suggestion" : label}
+      label={offering ? offeringLabel : label}
       offering={offering}
       onClick={offering ? ctx.accept : ctx.request}
       {...rest}
@@ -454,7 +478,17 @@ export function CompleteGhost({ className }: { className?: string }) {
  * toolbar under the pointer, which is a gesture a keyboard cannot make. Naming the key next to the
  * offer is the version that works for both.
  */
-export function CompleteKeys({ className }: { className?: string }) {
+export function CompleteKeys({
+  acceptLabel = "accept",
+  className,
+  dismissLabel = "dismiss",
+}: {
+  /** The word after the `Tab` key. */
+  acceptLabel?: string;
+  className?: string;
+  /** The word after the `Esc` key. */
+  dismissLabel?: string;
+}) {
   const ctx = useCtx("CompleteKeys");
   if (!ctx.ghost) return null;
   return (
@@ -463,10 +497,10 @@ export function CompleteKeys({ className }: { className?: string }) {
       data-slot="complete-keys"
     >
       <ark.span className="inline-flex items-center gap-1 whitespace-nowrap">
-        <Kbd>Tab</Kbd> accept
+        <Kbd>Tab</Kbd> {acceptLabel}
       </ark.span>
       <ark.span className="inline-flex items-center gap-1 whitespace-nowrap">
-        <Kbd>Esc</Kbd> dismiss
+        <Kbd>Esc</Kbd> {dismissLabel}
       </ark.span>
     </ark.span>
   );

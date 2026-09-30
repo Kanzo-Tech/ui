@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   Field,
   FieldError,
+  FieldGroup,
   FieldHelper,
   FieldLabel,
   FieldLegend,
@@ -107,6 +108,68 @@ describe("field-scoped messages", () => {
         slot("field-error")?.id,
       );
     });
+  });
+});
+
+describe("FieldGroup columns", () => {
+  const group = () => slot("field-group") as HTMLElement;
+
+  it("stacks its fields when `columns` is omitted", () => {
+    render(<FieldGroup />);
+
+    expect(group().className).toContain("flex-col");
+    expect(group().className).not.toContain("grid");
+  });
+
+  it("lays a number of equal columns out, and lets a breakpoint class override the count", () => {
+    render(<FieldGroup className="sm:grid-cols-2" columns={1} />);
+
+    // Both survive the merge: they sit at different breakpoints, which is what makes the override
+    // expressible at all.
+    expect(group().className).toContain("grid-cols-1");
+    expect(group().className).toContain("sm:grid-cols-2");
+    expect(group().className).not.toContain("flex-col");
+  });
+
+  it("fits as many columns as the width allows for `auto`", () => {
+    render(<FieldGroup columns="auto" />);
+
+    expect(group().className).toContain("auto-fit");
+  });
+});
+
+describe("FieldHelper tone", () => {
+  it("is muted by default and takes the tone's colour otherwise", () => {
+    const { rerender } = render(
+      <Field>
+        <Input />
+        <FieldHelper>Street and number.</FieldHelper>
+      </Field>,
+    );
+    expect(slot("field-helper")?.getAttribute("data-tone")).toBe("muted");
+    expect(slot("field-helper")?.className).toContain("text-muted-foreground");
+
+    rerender(
+      <Field>
+        <Input />
+        <FieldHelper tone="warning">Looks like a P.O. box.</FieldHelper>
+      </Field>,
+    );
+    expect(slot("field-helper")?.className).toContain("text-warning-foreground");
+    expect(slot("field-helper")?.className).not.toContain("text-muted-foreground");
+  });
+
+  it("stays the control's description whatever its tone", () => {
+    render(
+      <Field>
+        <Input />
+        <FieldHelper tone="info">Shown on invoices.</FieldHelper>
+      </Field>,
+    );
+
+    expect(screen.getByRole("textbox").getAttribute("aria-describedby")).toBe(
+      slot("field-helper")?.id,
+    );
   });
 });
 

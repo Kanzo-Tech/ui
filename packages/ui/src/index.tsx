@@ -108,6 +108,12 @@ export type {
   QuestionnaireActionsProps,
 } from "./composites/Questionnaire.js";
 
+// A `Combobox` that knows what a language tag is: names in their own language, and what counts as
+// one. Not a `simples/` file — Shark has none, and this is not a fixed arrangement of Combobox
+// parts but a vocabulary over them.
+export { LanguagePicker } from "./composites/language-picker.js";
+export type { LanguagePickerProps, LanguagePickerTranslations } from "./composites/language-picker.js";
+
 // ── Utilities ────────────────────────────────────────────────────────────────
 export { cn } from "./lib/cn.js";
 
@@ -124,6 +130,14 @@ export {
   resolveTokenColor,
 } from "./lib/token-color.js";
 export { useChartCapacity, useThemeTick } from "./lib/theme-tick.js";
+
+// Two hooks for a control whose owner is somewhere else: a `Combobox` over a source that is
+// fetched, and a text control whose owner is expensive to write to. Neither knows what the item
+// or the owner is.
+export { useAsyncCollection } from "./lib/use-async-collection.js";
+export type { AsyncCollection, AsyncCollectionOptions } from "./lib/use-async-collection.js";
+export { useDebouncedCommit } from "./lib/use-debounced-commit.js";
+export type { DebouncedCommit } from "./lib/use-debounced-commit.js";
 
 // Ark collection helpers — required by consumers to build the `collection` that
 // Select / Combobox demand (Ark's own list-collection utilities, surfaced here so
@@ -185,6 +199,7 @@ export * from "./simples/item.js";
 export * from "./simples/json-tree-view.js";
 export * from "./simples/kbd.js";
 export * from "./simples/listbox.js";
+export * from "./simples/locale.js";
 export * from "./simples/menu.js";
 export * from "./simples/native-select.js";
 export * from "./simples/number-input.js";

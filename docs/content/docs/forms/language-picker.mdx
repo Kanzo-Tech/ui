@@ -1,0 +1,76 @@
+---
+title: Language picker
+description: A searchable picker for BCP 47 language tags, with each language named in its own language.
+links:
+  doc: https://ark-ui.com/docs/components/combobox
+---
+
+<ComponentPreview componentName="language-picker" />
+
+## Usage
+
+```tsx
+import { LanguagePicker } from "@kanzo-tech/ui";
+```
+
+```tsx
+<LanguagePicker value={tag} onValueChange={setTag} />
+```
+
+The value is a BCP 47 tag — the `lang` of a string, a page or a document — or `""` for none. Each
+row shows the language's name in **its own language** beside its tag, "Español · es", so a reader
+finds theirs without knowing the code, and the search matches either: "spa", "es" and "español"
+all find it. The names come from the runtime's `Intl.DisplayNames`, so a language it cannot name
+is listed by its tag.
+
+Underneath it is [`Combobox`](/docs/forms/combobox), which is why it reads its state from an
+ancestor [`Field`](/docs/forms/field) and is that field's control. What this adds is the
+vocabulary: the names, a default set, and what counts as a tag.
+
+## A closed set
+
+Pass `languages` and the list is exactly those tags. A tag outside it cannot be entered, and an
+input that matches nothing reverts on blur.
+
+<ComponentPreview componentName="language-picker" fileName="example-languages" />
+
+Without it, the list is a broad default set of suggestions and any well-formed tag can be typed:
+`es-mx` is reported as `es-MX`, and `e_` is not reported at all. A typed tag is reported when the
+input is **left**, not per keystroke — "es" is a tag on the way to "es-MX", and reporting it
+early would swap the text for the name of the language the user was still spelling. A tag picked
+from the list is reported at once. Well-formedness is the runtime's (`Intl.getCanonicalLocales`),
+not a pattern of ours; it says a tag is *shaped* like one, not that anybody speaks it.
+
+## Beside the text it tags
+
+`inline` draws only the input, for a slot inside another field's control: the trailing addon of
+an `InputGroup`. The group around it supplies the box, so the picker draws no border, ring or
+chevron of its own. It also gives its input an id of its own, because inside a `Field` the machine
+would otherwise take the id the text input has already claimed.
+
+<ComponentPreview componentName="language-picker" fileName="example-inline" />
+
+## Words
+
+The three phrases it draws — the placeholder, the filter placeholder and "no matches" — are
+English by default and replaceable with `translations`, which takes any subset:
+
+```tsx
+<LanguagePicker translations={{ noMatches: "Sin resultados" }} value={tag} onValueChange={setTag} />
+```
+
+## API Reference
+
+### LanguagePicker
+
+Props are `LanguagePickerProps`; `translations` takes a `Partial<LanguagePickerTranslations>`.
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `value` | `string` | required |
+| `onValueChange` | `(tag: string) => void` | required |
+| `languages` | `readonly string[]` — the closed set | a broad default set, and free entry |
+| `inline` | `boolean` | `false` |
+| `disabled` / `readOnly` / `invalid` | `boolean` | from the `Field` |
+| `translations` | `Partial<{ placeholder, filterPlaceholder, noMatches }>` | English |
+| `aria-label` | `string` | none — give one when there is no `FieldLabel` |

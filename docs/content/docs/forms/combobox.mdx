@@ -95,6 +95,14 @@ The selection is still only ever an item from the collection. A custom value rea
 `onInputValueChange`, and it is yours to keep: push it into the collection, submit it as free
 text, or validate and reject it.
 
+## Fetched as you type
+
+When the options live behind a request, [`useAsyncCollection`](/docs/hooks/use-async-collection)
+builds the collection: a debounced query, a request that aborts when a newer one starts, and
+`loading` and `empty` for the two states a list has that a static one does not.
+
+<ComponentPreview componentName="combobox" fileName="example-async" />
+
 ## Clearable
 
 The clear button only appears once there is something to clear, and it replaces the open
