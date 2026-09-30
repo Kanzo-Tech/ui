@@ -162,3 +162,19 @@ describe("Suggest", () => {
     expect(await screen.findByText("Nothing to suggest.")).not.toBeNull();
   });
 });
+
+describe("Suggest, in the host's language", () => {
+  it("names the mark differently once candidates are on offer", async () => {
+    const user = userEvent.setup();
+    render(
+      <SuggestRoot onPick={vi.fn()} suggest={suggest}>
+        <Input aria-label="Tag" />
+        <SuggestMark label="Sugerir" offeringLabel="Sugerir otros valores" />
+        <SuggestList />
+      </SuggestRoot>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Sugerir" }));
+    expect(await screen.findByRole("button", { name: "Sugerir otros valores" })).toBeTruthy();
+  });
+});

@@ -158,8 +158,17 @@ export function SuggestRoot(props: SuggestRootProps) {
  * Pressing it asks. It no longer opens or closes a layer, so there is no `data-state` to light it
  * from and nothing to trap focus in.
  */
-export function SuggestMark(props: Omit<AiMarkProps, "busy" | "offering">) {
-  const { label = "Suggest", onClick, ...rest } = props;
+export function SuggestMark(
+  props: Omit<AiMarkProps, "busy" | "offering"> & {
+    /**
+     * The accessible name while candidates are on offer, when `label` names the mark at rest.
+     *
+     * @default "Suggest different values"
+     */
+    offeringLabel?: string;
+  }
+) {
+  const { label = "Suggest", offeringLabel = "Suggest different values", onClick, ...rest } = props;
   const ctx = useCtx("SuggestMark");
   // Bound exactly as `CompleteMark` binds it. A mark that paints one way over a ghost and another
   // over a strip reads as two products; `ai-mark.test.tsx` is the guard on that.
@@ -168,7 +177,7 @@ export function SuggestMark(props: Omit<AiMarkProps, "busy" | "offering">) {
   return (
     <AiMark
       busy={ctx.status === "loading" && !offering}
-      label={offering ? "Suggest different values" : label}
+      label={offering ? offeringLabel : label}
       offering={offering}
       onClick={(event) => {
         onClick?.(event);
