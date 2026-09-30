@@ -45,6 +45,23 @@ real one with `scan(…).read` and `edges` wrapped, and bytes come from DuckDB's
 - **Marks** is marks drawn over the vertices they stand for: a far view is a coarser zoom of the
   cell pyramid, and a mark there is a cell.
 
+## Our viewer against cosmos.gl alone
+
+The question the sweep does not ask: on the same positions, how much of a frame is ours?
+`measureViewer(pointCount)` — registered on `window` by the showcase — reads a built corpus's payload
+level once and draws it twice, with cosmos.gl alone and with `<GraphRoot><GraphCanvas/></GraphRoot>`
+drawing every vertex, alternating the two three times. Each run follows one camera path, a change
+every frame from the whole extent into a sixteenth of it and across, and records the interval
+between frames; each also counts the `requestAnimationFrame` calls made during a second of nothing,
+which is zero for a loop that idles.
+
+```js
+await measureViewer(200000); // in the showcase's console, in a foreground window
+```
+
+**The gate is the viewer's p95 frame interval within 15 % of cosmos.gl's**, the median over the
+three runs. It has not been run yet; the table goes here when it has.
+
 ## Read the two rates together, never one of them
 
 A benchmark that published a single "fps" here would be publishing whichever one flattered it. The

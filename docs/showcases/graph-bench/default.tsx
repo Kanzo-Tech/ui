@@ -70,6 +70,8 @@ import {
   type BoundedSample,
   measureBounded,
 } from "./measure-bounded";
+// Registers `window.measureViewer`, the viewer against cosmos.gl alone; driven from the console.
+import "./measure-viewer";
 import { ResultsChart } from "./results-chart";
 
 /**
