@@ -278,6 +278,15 @@ export type {
   SectionTitleProps,
   SectionBodyProps,
 } from "./layouts/section.js";
+export {
+  EmptyRoot,
+  EmptyHeader,
+  EmptyIndicator,
+  EmptyTitle,
+  EmptyDescription,
+  EmptyContent,
+} from "./layouts/empty.js";
+export type { EmptyIndicatorProps } from "./layouts/empty.js";
 export * from "./composites/sidebar.js";
 export {
   SidebarIdentity,

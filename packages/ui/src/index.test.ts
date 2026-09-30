@@ -253,13 +253,16 @@ describe("@kanzo-tech/ui public surface", () => {
   it("drops the pre-arrangements over parts that already ship", () => {
     const surface = UI as Record<string, unknown>;
     // `EmptyState` was `icon`/`title`/`description`/`action` as four `ReactNode` props over a raw
-    // `<div>` — no `ark.*`, no recipe. `Item` and its parts compose to exactly this.
+    // `<div>` — no `ark.*`, no recipe. Its replacement was a vertical `Item`, which was wrong twice:
+    // `role="listitem"` outside any list, and a `self-center` override keyed on an internal slot.
+    // The zero state is its own compound now, of parts, never of props.
     expect(surface.EmptyState).toBeUndefined();
-    expect(UI.Item).toBeTypeOf("function");
-    expect(UI.ItemMedia).toBeTypeOf("function");
-    expect(UI.ItemTitle).toBeTypeOf("function");
-    expect(UI.ItemDescription).toBeTypeOf("function");
-    expect(UI.ItemActions).toBeTypeOf("function");
+    expect(UI.EmptyRoot).toBeTypeOf("function");
+    expect(UI.EmptyHeader).toBeTypeOf("function");
+    expect(UI.EmptyIndicator).toBeTypeOf("function");
+    expect(UI.EmptyTitle).toBeTypeOf("function");
+    expect(UI.EmptyDescription).toBeTypeOf("function");
+    expect(UI.EmptyContent).toBeTypeOf("function");
     // `Ribbon`'s whole render was `<div class="relative">{children}<Float><Badge/></Float></div>`.
     expect(surface.Ribbon).toBeUndefined();
     expect(UI.Float).toBeTypeOf("function");
@@ -464,13 +467,14 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.inputVariants).toBeTypeOf("function");
     expect(UI.statusVariants).toBeTypeOf("function");
     // Everything else stays internal, and the reason is the same rule read the other way: Shark's
-    // registry exports no recipe under any of these names. For `Link`, `Section*`, `Shell*`,
-    // `Swatch` and `PinInput` it has no file at all; for `float`, `button-group`, `number-input`
+    // registry exports no recipe under any of these names. For `Empty*`, `Link`, `Section*`,
+    // `Shell*`, `Swatch` and `PinInput` it has no file at all; for `float`, `button-group`, `number-input`
     // and `sidebar` it has one that keeps its own recipe local. Silence returns the question to the
     // house rules.
     const surface = UI as Record<string, unknown>;
     for (const name of [
       "buttonGroupVariants",
+      "emptyIndicatorVariants",
       "floatVariants",
       "linkVariants",
       "numberInputControlVariants",

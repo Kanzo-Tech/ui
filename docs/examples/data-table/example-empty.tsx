@@ -1,7 +1,13 @@
 "use client";
 
 import { ScrollTextIcon } from "lucide-react";
-import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from "@kanzo-tech/ui";
+import {
+  EmptyDescription,
+  EmptyHeader,
+  EmptyIndicator,
+  EmptyRoot,
+  EmptyTitle,
+} from "@kanzo-tech/ui";
 import {
   type ColumnDef,
   DataTableContent,
@@ -23,17 +29,17 @@ export default function Example() {
       <DataTableRoot table={table}>
         <DataTableContent
           empty={
-            <Item className="flex-col text-center">
-              <ItemMedia className="text-muted-foreground">
-                <ScrollTextIcon className="size-8" />
-              </ItemMedia>
-              <ItemContent className="items-center">
-                <ItemTitle>Nothing on the board</ItemTitle>
-                <ItemDescription className="max-w-[420px] text-center">
+            <EmptyRoot className="md:p-6">
+              <EmptyHeader>
+                <EmptyIndicator variant="icon">
+                  <ScrollTextIcon />
+                </EmptyIndicator>
+                <EmptyTitle>Nothing on the board</EmptyTitle>
+                <EmptyDescription>
                   Every contract in Greenhollow has been claimed. Try another region.
-                </ItemDescription>
-              </ItemContent>
-            </Item>
+                </EmptyDescription>
+              </EmptyHeader>
+            </EmptyRoot>
           }
         />
       </DataTableRoot>

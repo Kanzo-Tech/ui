@@ -4,6 +4,7 @@
     "shell",
     "skip-nav",
     "section",
+    "empty",
     "resizable",
     "scroll-area",
     "floating-panel",

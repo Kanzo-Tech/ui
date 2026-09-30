@@ -110,13 +110,6 @@ can take the same props without restating them.
 
 ## An empty state
 
-A zero-state placeholder is a vertical `Item` — the same media · content · actions vocabulary,
-centred — not a component of its own. There is one shape in it worth copying rather than
-re-deriving: cap the description at `max-w-[420px]`, or the sentence stretches the full width of
-whatever table it is standing in for.
-
-<ComponentPreview componentName="item" fileName="example-empty" />
-
-Put the title in the surrounding document outline with `asChild`: an empty state inside a section
-under an `h2` is an `h3`. That is the detail a props-shaped component used to decide for you, and
-the reason it is better decided at the call site is that only the call site knows the outline.
+A zero-state placeholder is **not** an `Item`. `Item` is a `role="listitem"`, and an empty state is
+not inside a list; centring one also meant overriding a selector keyed on `ItemMedia`'s internal
+slot. It is [`Empty`](/docs/layout/empty).

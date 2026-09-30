@@ -125,8 +125,8 @@ export const ConversationContent = (props: React.ComponentProps<typeof ark.div>)
 
 /**
  * The stage for the zero state, not the zero state itself: a centred column with a reading measure,
- * which `Item` and its parts are then composed into. There is deliberately no `title` / `description`
- * / `icon` prop — `EmptyState` was exactly that and it is a tombstone in `@kanzo-tech/ui`.
+ * which the caller's markup is composed into. There is deliberately no `title` / `description` /
+ * `icon` prop — `EmptyState` was exactly that and it is a tombstone in `@kanzo-tech/ui`.
  */
 export const ConversationEmpty = (props: React.ComponentProps<typeof ark.div>) => {
   const { className, slot, ...rest } = props;

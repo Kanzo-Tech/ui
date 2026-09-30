@@ -1,0 +1,86 @@
+---
+title: Empty
+description: The zero state of a region — an indicator, a title, a sentence and what to do next, centred.
+---
+
+<ComponentPreview componentName="empty" />
+
+## Usage
+
+```tsx
+import {
+  EmptyRoot, EmptyHeader, EmptyIndicator, EmptyTitle, EmptyDescription, EmptyContent,
+} from "@kanzo-tech/ui";
+```
+
+```tsx
+<EmptyRoot>
+  <EmptyHeader>
+    <EmptyIndicator variant="icon"><ClockIcon /></EmptyIndicator>
+    <EmptyTitle asChild><h3>Nothing overdue</h3></EmptyTitle>
+    <EmptyDescription>Anything afield and late shows up here.</EmptyDescription>
+  </EmptyHeader>
+  <EmptyContent>
+    <Button size="sm">Open the board</Button>
+  </EmptyContent>
+</EmptyRoot>
+```
+
+## Anatomy
+
+```text
+EmptyRoot              (fills the region, centres on both axes)
+├── EmptyHeader        (the text block: a tighter gap and a reading measure)
+│   ├── EmptyIndicator (icon or image; variant="icon" puts a glyph on a muted tile)
+│   ├── EmptyTitle
+│   └── EmptyDescription
+└── EmptyContent       (actions, a link, a search field)
+```
+
+`EmptyRoot` is `flex-1`, so in a flex column it takes the space the missing content would have, and
+centres in it. `EmptyHeader` is a part rather than a class on the root because the root's gap is
+the space between the text and the actions; the title and its sentence need a smaller one, and
+both blocks need the `max-w-sm` measure.
+
+## A title in the outline
+
+`EmptyTitle` renders a `div`. Only the call site knows where the empty state sits in the document,
+so give it a heading with `asChild`: an empty state in a section under an `h2` is an `h3`.
+
+```tsx
+<EmptyTitle asChild>
+  <h3>Nothing archived yet</h3>
+</EmptyTitle>
+```
+
+## Outline
+
+The root carries `rounded-lg border-dashed`, and no border width. Add `border` where the empty
+state stands in for something that had an edge — a table, a drop zone.
+
+<ComponentPreview componentName="empty" fileName="example-outline" />
+
+## No list semantics
+
+No part declares a role. An empty state is not an item of the list it replaces, so it is not an
+[`Item`](/docs/data-display/item), whose `role="listitem"` would tell assistive tech otherwise. As
+the `empty` of a [`DataTableContent`](/docs/data-display/data-table#empty-state) it sits in the
+table's one cell.
+
+## API Reference
+
+### EmptyIndicator
+
+| Prop | Type | Default |
+| --- | --- | --- |
+| `variant` | `"default" \| "icon"` | `"default"` |
+
+`default` leaves an avatar or an illustration as it is. `icon` draws a `size-10` muted tile and
+sizes a bare `svg` to 6×6. Extends `ComponentProps<typeof ark.div>`; its props are exported as
+`EmptyIndicatorProps`.
+
+### Other parts
+
+`EmptyRoot`, `EmptyHeader`, `EmptyTitle` and `EmptyContent` have no props of their own and extend
+`ComponentProps<typeof ark.div>`; `EmptyDescription` is `ark.p`. All of them take `asChild`, `ref`,
+`slot` and their element's native props. None is stateful, so none is a client component.
