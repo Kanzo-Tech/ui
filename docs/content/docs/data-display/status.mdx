@@ -31,18 +31,17 @@ either carries contrast or does not. Open it to an arbitrary `color` and there i
 to assert: the ink no longer has a fill it was measured against.
 
 So the five are measured. `status.test.ts` reads the recipe back rather than trusting it —
-whatever `statusVariants` emits is parsed into a fill and an ink per mode, resolved against the
-shipped `tokens.css`, and asserted at AA. Every variant clears 4.5:1 in both modes; the tightest
-margins are `destructive` in light at **4.57** and `info` in dark at **4.58**.
+whatever `statusVariants` emits is parsed into a fill and an ink, resolved in every shipped theme,
+and asserted at AA. Every variant clears 4.5:1 in every theme; the tightest margin is `destructive`
+at **4.57** in the light hand-written themes (measured 2026-09-30).
 
 <Callout type="warn">
-That test exists because the gap was already used. The recipe carried
-`dark:bg-destructive-foreground`, which Shark ships and which reads as unremarkable in review —
-it moved the **fill** and left the **ink**. A glyph on the resulting `#ff8677` under an unchanged
-`--destructive-content` `#ffffff` measured **2.35:1** in dark. That is exactly the `text-white`
-defect the `--*-content` tokens were created to kill, coming back in through a `dark:` override.
-The override is gone, and the test also asserts the *shape*: no variant may repaint its colour in
-one mode only. The class of defect is what is guarded, not the single token that caused it.
+Shark's recipe carries `dark:bg-destructive-foreground`, which reads as unremarkable in review — it
+moves the **fill** and leaves the **ink**. Here a glyph on that fill under `--destructive-content`
+measured **2.35:1** in dark: the `text-white` defect the `--*-content` tokens exist to kill, coming
+back through a `dark:` override. So this recipe has no such override, and the test asserts the
+*shape*: no variant may repaint its colour in one mode only. The class of defect is what is
+guarded, not the single token that caused it.
 </Callout>
 
 ## Sizes

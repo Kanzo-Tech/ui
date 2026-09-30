@@ -95,12 +95,11 @@ which a custom property on the base cannot express. The three families here did 
 and `native-select` all used the same formula per size (`sm` ×7, `md` ×8, `lg` ×9), so the slot in
 those fifteen selectors was carrying no information at all, only the fault.
 
-### The half this was first written without
+### Colour is not keyed on a slot either
 
-The paragraph above used to end "appearance keyed on `data-slot` is fine and stays — losing a colour
-on a rename is the caller asking for a different look, which is what the seam is for." That sentence
-is true about a **caller** and was never true about **us**, and the distinction is the whole of the
-reversal. Thirty-one call sites in this library hand `Button` a `slot`, and not one was asking
+"Losing a colour on a rename is the caller asking for a different look" is true about a **caller**
+and not about **us**, and the distinction is the whole rule.
+Thirty-one call sites in this library hand `Button` a `slot`, and not one was asking
 for a different look: they were asking for a different *hook*, so a consumer could target the part.
 `[data-slot="button"]` was the only rule that read `--btn-bg`, `--btn-fg` and `--btn-bd`, so all
 thirty-one shipped with no fill, no ink and no edge while their variants went on assigning all
@@ -127,7 +126,8 @@ painting **our** parts through a name the consumer owns.
 
 *Held by* `packages/ui/src/no-measurement-on-a-renameable-slot.test.ts`, "is written nowhere";
 `packages/ui/src/no-paint-on-a-renameable-slot.test.ts`, "is never read only from under a renameable slot";
-`packages/ui/src/simples/button.tsx`, the `h-(--size)` on `base`.
+`packages/ui/src/lib/control-size.ts`, `controlHeight`, the `h-(--size)` each control recipe spreads
+into its `base`.
 
 ## A type and a component may not share a name across two barrels
 

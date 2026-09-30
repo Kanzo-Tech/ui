@@ -1,10 +1,14 @@
 # @kanzo-tech/theme
 
-The theme catalogue and the axes a user layers over it. **A theme is one flat block of CSS, and it
-carries one mode.**
+The themes and the axes a user layers over them. **A theme is one flat block of CSS, and it carries
+one mode.**
 
-- **Theme** — `packages/theme/themes/<name>.css`, hand-written source. Twenty-one authored colours,
-  the shape knobs, the font stacks and its own `color-scheme`. Selected with `data-theme`.
+The themes in `themes/` are **provisional test themes** — sixteen written here to exercise the
+vocabulary and thirteen imported from daisyUI — that the guards measure. They are not a curated set;
+names, values and the count will change, and a product ships its own.
+
+- **Theme** — `packages/theme/themes/<name>.css`, hand-written source. Its colours, the shape knobs,
+  optionally its font stacks, and its own `color-scheme`. Selected with `data-theme`.
 - **Radius** — `none` · `xs` · `sm` · `md` · `lg`, a user preference over the theme's own three
   radius knobs.
 - **Font** / **Mono font** — `--font-sans` / `--font-heading` / `--font-mono`.
@@ -22,7 +26,7 @@ types.
   color-scheme: light;
   --background: #fbfcfd;  --foreground: #10151c;
   --primary: #1f6feb;     --primary-foreground: #ffffff;
-  /* …nineteen more, then the shape knobs and the fonts… */
+  /* …the rest of the colours, then the rest of the shape knobs… */
   --radius-box: 0.75rem;  --radius-field: 0.5rem;  --radius-selector: 0.25rem;
   --stroke: 1px;          --relief: 0;
 }
@@ -39,11 +43,10 @@ declared in `:root` would inherit already substituted.
 **Light and dark are two themes.** There is no second block and no `.dark` that flips a token; the
 class survives only as the selector for the `dark:` variant at the call sites that still ask for one.
 
-**There is no derivation.** A `@kanzo-tech/palette` package used to take two seeds through thirteen
-stages and publish 144 reference steps; components used eighteen of them, and all eighteen were
-tints that `color-mix` now computes at the point of use. It is deleted. What that costs is a contrast
-guarantee at authoring time — the author answers for AA, and a guard over the shipped themes is what
-catches a mistake.
+**There is no derivation and there are no step tokens.** A tint is a percentage on the role,
+computed where it is used — `bg-destructive/7`, or `color-mix(in oklab, var(--destructive) 7%,
+transparent)` where no utility reaches. The author answers for AA, and guards over the shipped themes
+are what catch a mistake.
 
 ## How the other axes work
 
@@ -52,7 +55,7 @@ Every axis is a `data-*` attribute **on `<html>`**, and the token values behind 
 
 | Axis | Attribute | Sets |
 |---|---|---|
-| radius | `data-radius` | `--radius` |
+| radius | `data-radius` | `--radius-box` / `--radius-field` / `--radius-selector` |
 | font | `data-font` | `--font-sans` |
 | monoFont | `data-mono-font` | `--font-mono` |
 | density | `data-font-size` | the root font-size |
@@ -77,8 +80,9 @@ Read or change the live preferences with `useKanzoTheme()`, or drop in the ready
 
 ## Dark mode
 
-Not owned here. The host toggles `.dark` on `<html>`, and the `.dark` block of the compiled
-document keys off it. If you already run a theme manager, hand it to the provider:
+Not owned here. `.dark` on `<html>` says which side is worn: the provider writes the theme chosen for
+that side to `data-theme`, and the `dark:` variant keys off the class. If you already run a theme
+manager, hand it to the provider:
 
 ```tsx
 import { useTheme } from "next-themes";
@@ -125,5 +129,4 @@ fails on one that declares a partial set.
 `pnpm gen` runs it; CI regenerates and fails on any diff.
 
 **`tokens.css` and `themes/*.css` are NOT generated.** They are hand-written source, and a guard that
-regenerated them would have nothing to regenerate them from. That is the whole shape of the change:
-colour stopped being output.
+regenerated them would have nothing to regenerate them from.

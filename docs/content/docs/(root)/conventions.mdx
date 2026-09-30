@@ -151,8 +151,8 @@ carry the fact. **Four are required; everything else is absent by default.**
 
 **Do not write** what the code says; a `@param` or `@returns` restating a type (we use prose JSDoc,
 with `@default`, `@link` and `@example` as the only tags); an empty banner; commented-out code
-(there is none — keep it that way); or any legacy, migration or back-compat note, because nothing is
-published and such a comment explains code that should not exist.
+(there is none — keep it that way); or any legacy, migration or back-compat note, because a rename
+here is taken outright and such a comment explains code that should not exist.
 
 ### Six rules that keep a required comment true
 
@@ -166,8 +166,8 @@ which went stale independently.
   other's internals for its reasoning. Two copies inside one file is the version that is never
   defensible.
 - **Date a measurement, and name the set it was taken over** — by a name that exists in the source.
-  A ratio read off `tokens.css` is a claim about a build artefact and the next `pnpm check:generated`
-  can falsify it, so write *"measured 2026-07"* rather than *"today's border ships"*. A tally whose
+  A ratio read off a theme file is a claim about a file anybody may edit, so write *"measured
+  2026-07"* rather than *"today's border ships"*. A tally whose
   corpus has no name cannot be re-derived, only deleted: *"measured over 118 seeds"* cost an hour to
   reconstruct and turned out to be a set that had since changed size. A count of call sites rots the
   same way; prefer a test that counts.
@@ -197,14 +197,15 @@ its recipe depends on. Two conventions beyond that:
 - **A deleted component gets a tombstone assertion** in `packages/ui/src/index.test.ts`, with the
   reason it went. That is what stops it being rebuilt.
 
-**What "repo-wide" means is `packages/ui/src/guard-corpus.ts`**, and it was a lie until 2026-08-20:
-every appearance and boundary guard walked from its own directory, so the corpus was
-`packages/ui/src` and `@kanzo-tech/ai` shipped ten modules none of them had read a line of. The
-corpus is now derived — **a package is scanned when it declares `tailwind-variants`**, which is the
-tell that it writes appearance in this house's idiom — and it throws at import if that resolves to
-fewer than two packages, because every rule built on it asserts an absence and a shrunken corpus
-passes all of them. A failure names its file `<package>/<path under src>`: `ui/simples/button.tsx`,
-`ai/message.tsx`. Extend the corpus; never copy a guard into a second package.
+**What "repo-wide" means is `packages/ui/src/guard-corpus.ts`.** A guard that walks from its own
+directory reads one package and reports a pass for the others. The corpus is derived — **a package is
+scanned when it declares `tailwind-variants`**, which is the tell that it writes appearance in this
+house's idiom — and it throws at import if that resolves to fewer than two packages, because every
+rule built on it asserts an absence and a shrunken corpus passes all of them. A failure names its
+file `<package>/<path under src>`: `ui/simples/button.tsx`, `ai/message.tsx`. A second population,
+`READERS` — every published package's `src/` plus `docs/` — is what `theme-tokens.test.ts` reads:
+every custom property read there must resolve in every theme. Extend a corpus; never copy a guard
+into a second package.
 
 **The guards are the `*.test.ts` files beside the source they scan** — `packages/ui/src` and
 `packages/theme/src`. There is deliberately no table of them here. One existed for months and rotted
@@ -238,10 +239,10 @@ direction.
 ## Distribution
 
 The package split and the optional-peer subpaths are on [Installation](/docs/installation). One rule
-that is not: semver goes through changesets, **a changeset says what a consumer must do
-differently**, and its bump matches the commit subject's own claim — a `!` in the subject is a
-`major`. Why a decision was taken is not what a changeset is for.
+that is not: the git tag decides the version, and a changeset is release notes — **it says what a
+consumer must do differently**, in their words, and is deleted when the release that carries it
+ships (`.changeset/README.md`). Why a decision was taken is not what a changeset is for.
 
-`tailwind-variants` is imported directly, never through a local shim. A `lib/tv.ts` re-export
-existed, was bypassed by most of its callers, and was deleted. If a shared `twMergeConfig` is ever
-needed, that is the moment to reintroduce one seam — with a lint rule to enforce it.
+`tailwind-variants` is imported directly, never through a local shim: a re-export that most callers
+bypass is two ways to write one import. If a shared `twMergeConfig` is ever needed, that is the
+moment for one seam — with a lint rule to enforce it.

@@ -119,6 +119,11 @@ would they expect this to change?*
 - Only token-backed utilities. No raw hex, no raw palette classes. On a status fill the ink is
   `text-destructive-content` and its siblings, never `text-white` — see
   [Theming](/docs/theming#tokens) for why that is a third token and not `-foreground`.
+- A tint is a percentage on the role: `bg-destructive/7`, `border-warning/30`. Where no utility
+  reaches — a `style` object, a CodeMirror theme, a canvas — write what that utility compiles to,
+  `color-mix(in oklab, var(--destructive) 7%, transparent)`. There are no step tokens for a
+  dilution, and a `var()` of a name no theme declares resolves to nothing without an error;
+  `theme-tokens.test.ts` fails on one.
 - Focus rings are `outline-none focus-visible:ring-[3px] focus-visible:ring-ring` — solid, never
   `ring-ring/NN`. A diluted ring measured 1.29:1 on the page, and WCAG 1.4.11 names a focus
   indicator first. `bg-field` is the related case: `border-input` outlines a control and

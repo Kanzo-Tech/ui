@@ -1,6 +1,6 @@
 ---
 title: Themes
-description: The twenty-nine themes this library ships, each one drawn rather than listed — and the generator that writes the thirtieth.
+description: The test themes this library ships, each one drawn rather than listed — and the generator that writes your own.
 full: true
 ---
 
@@ -9,6 +9,13 @@ colours that says nothing about whether an interface built from them holds toget
 below is drawn wearing the **same screen** — the one the [generator](/theme-generator) previews,
 imported rather than rebuilt — and the comparison happens where comparisons actually happen, which
 is between two screens rather than between two palettes.
+
+<Callout type="info" title="These are test themes">
+  Every theme here is provisional: sixteen written in this repository to exercise the vocabulary,
+  thirteen imported from daisyUI to check it holds for somebody else's colours. The guards measure
+  them, which is why they exist. They are not a curated set — names, values and the count will
+  change — and a product ships its own.
+</Callout>
 
 **Wear it** puts a theme on this site. The documentation is themed by the same attribute as the
 tiles, so the page you are reading becomes the specimen; the theme menu in the chrome is the same
@@ -28,7 +35,7 @@ A tile is a `data-theme` attribute on a `div`:
 
 That is the whole mechanism. `[data-theme="nord"]` is an ordinary attribute selector — it matches an
 *element*, not a document — so the theme's custom properties land on that div and inherit into
-everything inside it. Twenty-nine themes cost twenty-nine attributes: **no iframe per tile, no
+everything inside it. Every theme costs one attribute: **no iframe per tile, no
 stylesheet swapping, no JavaScript.** Each theme declares its own `color-scheme` inside its block,
 so the browser chrome inside a dark tile — scrollbars, form controls, caret — goes dark with it.
 
@@ -38,21 +45,19 @@ place. The only thing it asks of the theme layer is that colours are never decla
 alone — a custom property inherits its **computed** value, so a `:root` declaration resolves once on
 `<html>` and every tile would paint the same theme.
 
-<Callout title="Which is a rule with a scar on it">
-  `kanzo.css` opened with a bare `:root, [data-theme="kanzo"]` for a day. `:root` has the same
-  specificity as `[data-theme="x"]`, so the tie broke on source order, and the imports are
-  alphabetical — every theme sorting before `kanzo.css` was silently repainted in kanzo's colours,
-  eleven of the sixteen there were then, dark ones included. It is now `:root:not([data-theme])`,
-  and two assertions in `themes.test.ts` hold it there.
+<Callout title="The default theme binds as :root:not([data-theme])">
+  Not a bare `:root`, which has the same specificity as `[data-theme="x"]`: the tie would break on
+  source order, and the imports are alphabetical, so every theme sorting before `kanzo.css` would
+  be repainted in kanzo's colours. Two assertions in `themes.test.ts` hold it.
 </Callout>
 
 ## Light and dark are two sets, not a switch
 
 The control above the grid picks **which set of themes you are looking at**. It converts nothing,
 because there is nothing to convert: a theme carries one `color-scheme`, and light and dark are two
-themes rather than two halves of one. Eight of the twenty-nine are pairs named for it — `nord` and
-`nord-dark` — which is what the appearance toggle in **Customize** moves between; the other thirteen
-stand alone on whichever side they were written for. See [a theme is
+themes rather than two halves of one. The sixteen written here are eight pairs named for it — `nord`
+and `nord-dark` — which is what the appearance toggle in **Customize** moves between; the thirteen
+imported ones stand alone on whichever side they were written for. See [a theme is
 one flat block](/docs/design/colour).
 
 ## Thirteen of these came from daisyUI
@@ -89,20 +94,18 @@ it; and `--accent` does **not** take their `accent`.
   ink, a surface needs two.
 </Callout>
 
-<Callout title="What the importer exposed, and no guard could see">
-  An imported theme brings no page inks, so the four `--*-foreground` fell through the bridge to
-  `var(--destructive-foreground, var(--destructive))` — the fill at full strength, on the page. That
-  is **1.23:1** in `acid`'s warning. Nineteen unreadable pairs and nothing measuring them.
-  `themes.test.ts` now measures `--background` against all four, and the importer authors them with
-  `pageInk`.
+<Callout title="An imported theme brings no page inks">
+  Left alone, the four `--*-foreground` would fall through the bridge to
+  `var(--destructive-foreground, var(--destructive))` — the fill at full strength, on the page,
+  which is **1.23:1** on `acid`'s warning. So the importer authors them with `pageInk`, and
+  `themes.test.ts` measures `--background` against all four in every theme.
 </Callout>
 
 ## Writing one is a form
 
-Authoring a theme used to mean running a thirteen-stage derivation over two seeds, which is not a
-form, it is a build step. A theme is about fifty declarations of plain CSS and roughly **thirty
-decisions**, because the ink that follows from a fill is filled in for you. So there is a form, and
-it is the **[theme generator](/theme-generator)**.
+A theme is about fifty declarations of plain CSS and roughly **thirty decisions**, because the ink
+that follows from a fill is filled in for you. So there is a form, and it is the
+**[theme generator](/theme-generator)**.
 
 <Cards>
   <Card
@@ -129,14 +132,12 @@ style attribute reformatted.
 class of bug the arrangement is built to make impossible, and the reason the block sits in the same
 pane it describes rather than in a tab beside it.
 
-What the arrangement does *not* make impossible is a name being left off the list, and it happened:
-`--popover`, `--field`, `--input` and `--faint` are authored by the shipped themes and had no knob,
-so the pane never set them and the block never carried them. A name the pane does not set is not
-painted from the theme you are editing — it falls through to whatever this documentation site is
-wearing — and a block missing them is a theme whose field borders come out at the weight of
-`--border` and whose placeholders come out at `--muted-foreground`. They are seeded and emitted now,
-knob or no knob. The property to rely on is narrower than it first reads: **the preview cannot
-disagree with the output about a token either of them carries.**
+What the arrangement does *not* make impossible is a name being left off the list. A name the pane
+does not set is not painted from the theme you are editing — it falls through to whatever this
+documentation site is wearing — and a block missing it is a theme that defers it to the bridge. So
+`--popover`, `--field`, `--input` and `--faint`, which have no knob, are seeded and emitted anyway.
+The property to rely on is narrower than it first reads: **the preview cannot disagree with the
+output about a token either of them carries.**
 
 <Callout title="It works because of a bridge, and the bridge is not obvious">
   Every name in the vocabulary that is a *use* of one of the twenty-one — the card's ink, the sidebar
@@ -151,10 +152,10 @@ disagree with the output about a token either of them carries.**
   block](/docs/design/colour).
 </Callout>
 
-### Drag `depth` first
+### Drag **Depth** first
 
-It is the knob that shows what the shape half buys. `--relief` is a plain **number** multiplied into
-a `calc()` that is already written into the recipes:
+It is the control that shows what the shape half buys. It sets `--relief`, a plain **number**
+multiplied into a `calc()` that is already written into the recipes:
 
 ```css
 --btn-lift: color-mix(in oklab, var(--btn-bg) calc(var(--relief) * 30%), transparent);
@@ -166,7 +167,7 @@ stylesheet gives flat design and skeuomorphism with no conditional anywhere**, w
 it a value a client can set rather than a variant somebody has to write.
 
 Two details worth noticing while you drag it. The formula **degrades on its own** for the
-transparent variants — an outline button at `depth: 1` has no shadow, because mixing `transparent`
+transparent variants — an outline button at `--relief: 1` has no shadow, because mixing `transparent`
 at 30% is still transparent, and no special case was needed to arrange that. And it mixes toward
 `--foreground` rather than toward black, which is a deliberate divergence from daisyUI: black is
 only "darker" on a light theme, and the foreground already changes sides.

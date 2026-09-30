@@ -92,29 +92,24 @@ Everything else belongs in `DiagnosticContent`: the long form of the message, an
     …
 ```
 
-It reaches the card and the badge on one transport, and it used to take two:
+It reaches the card and the badge on one transport:
 
-- **Colour is the recipe's**, applied to the root like any other variant in this library. It used to
-  travel as `data-variant` read back through three `group-data-` lines that repainted, by hand, the
-  soft variants `Badge` already ships — a second spelling of the same three fills, which is exactly
-  what a second transport becomes.
+- **Colour is the recipe's**, applied to the root like any other variant in this library — not
+  `data-variant` read back through `group-data-` lines, which would repaint by hand the soft
+  variants `Badge` already ships.
 - **The icon and the badge's own variant** come from the root through context, because no selector
   can produce an element and `Badge` takes its variant as a prop. `DiagnosticSeverity` draws the
   glyph; the word beside it is yours.
 
-`data-variant` is still written on the root. It is a **styling hook for a consumer**, the same one
-every component here offers, and nothing inside reads it any more — which is the honest version of
-what this paragraph used to claim.
+`data-variant` is also written on the root. It is a **styling hook for a consumer**, the same one
+every component here offers, and nothing inside reads it.
 
-The card wears its variant the way an [`Alert`](/docs/overlays/alert) does — the wash at `-a3`,
-the whole outline at `-a6`, the glyph at the family. A diagnostic *is* what an `Alert` is, a
-message with a severity, so it takes the same surface rather than a second one.
-
-It used to wear a **coloured inline-start edge** over a neutral wash: a card with a bar down one
-side. That shape appears nowhere in Shark UI and nowhere else in this library, and it is what made
-the component read as machine furniture rather than as one of these. The badge on the header went
-the same way — it was `Badge`'s recipe respelled by hand, three `group-data-` lines repainting the
-three soft variants `Badge` already ships, and it is now a real `Badge`.
+The card wears its variant the way an [`Alert`](/docs/overlays/alert) does — the wash at 7% of the
+family (`bg-warning/7`), the whole outline at 30% (`border-warning/30`), the glyph at the family. A
+diagnostic *is* what an `Alert` is, a message with a severity, so it takes the same surface rather
+than a second one. There is no coloured inline-start edge: that shape appears nowhere in Shark UI
+or elsewhere in this library. The badge on the header is a real `Badge` wearing the root's variant,
+not its recipe respelled.
 
 ## Frames
 

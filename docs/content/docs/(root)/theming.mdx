@@ -5,10 +5,17 @@ description: A theme is one flat block of CSS. The user layers four axes over it
 
 Two different things wear the word "theme", and this page is mostly about keeping them apart.
 
-**What a client is** is a theme: one hand-written block of CSS under `[data-theme="<name>"]`, about
-fifty declarations carrying twenty-one colours, the shape knobs and the font stacks — and roughly
-thirty *decisions*, because the [theme generator](/theme-generator) fills in the ink that
-follows from a fill. Adding a client is adding a file.
+**What a client is** is a theme: one hand-written block of CSS under `[data-theme="<name>"]`
+carrying its colours, the shape knobs and, if it wants them, its font stacks — and roughly thirty
+*decisions*, because the [theme generator](/theme-generator) fills in the ink that follows from a
+fill. Adding a client is adding a file.
+
+<Callout type="info" title="The shipped themes are test themes">
+  The files in `packages/theme/themes/` are provisional. Sixteen were written here to exercise the
+  vocabulary and thirteen were imported from daisyUI to see whether it holds for somebody else's
+  colours. They are fixtures the guards measure, not a curated catalogue: names, values and the
+  count will change, and a product should ship its own.
+</Callout>
 
 **What a user chooses** is which theme they wear on each side, plus four axes layered over it: how
 round, how dense, which typefaces, light or dark. All of them are `data-*` attributes on `<html>`
@@ -16,8 +23,8 @@ whose values live in static CSS.
 
 <Callout title="A theme is one MODE, and everything else follows from that">
   Light and dark are two themes, not two blocks of one document — daisyUI's arrangement, adopted
-  after measurement. It is what lets a tint be written as a percentage (`bg-destructive/7`) without
-  landing on a different step in each mode, it is what makes a scoped preview a plain `div`, and it
+  after measurement. It is what lets a tint be written as a percentage on the role
+  (`bg-destructive/7`) with one meaning per theme, it is what makes a scoped preview a plain `div`, and it
   is why "which theme" is stored per side: a theme *is* a side, so the question without the side
   does not name a preference. The argument and the numbers are in [a theme is one flat
   block](/docs/design/colour).
@@ -31,16 +38,17 @@ It is: *the user never **authors** a colour value; they choose among themes some
 | `themeByAppearance` | the whole theme worn on that side | `data-theme` |
 | `appearance` | which side is worn | **none**: it writes `.dark` |
 
-Publish one theme and nothing appears — `Preferences.Colour` hides itself below two choices. A client
-wanting a single immutable brand does nothing to get one.
+Publish one theme and nothing appears — `PreferencesColor` draws itself only where there is more
+than one theme to choose. A client wanting a single immutable brand does nothing to get one.
 
 ## The twenty-one, and the uses
 
-A theme authors twenty-one colours. **Every other name in the vocabulary is a *use* of one of them**,
+The vocabulary has twenty-one colours a theme authors. **Every other name is a *use* of one of them**,
 declared once in `tokens.css` through `@theme inline` and never re-declared.
 
 - **Surfaces and ink** — `--background`, `--foreground`, `--card`, `--muted`, `--muted-foreground`
-- **Brand** — `--primary`, `--secondary`, `--accent`, each with its `-foreground`
+- **Brand** — `--primary`, `--secondary`, `--accent`, each with its `-foreground` (the last two
+  fall back to `--foreground` when a theme leaves them out)
 - **Status** — `--destructive`, `--info`, `--success`, `--warning`, each with its `-content`
 - **Lines** — `--border`, `--ring`
 
@@ -48,16 +56,16 @@ declared once in `tokens.css` through `@theme inline` and never re-declared.
 `-foreground`s are uses. A theme overrides one only when it genuinely wants it different — and it is
 worth knowing which actually do, because "is a use" and "is left alone" are different claims:
 
-The counts below are measured over the twenty-nine files, and they split by origin: sixteen are
-hand-written here (49–50 declarations each) and thirteen were imported from daisyUI (33).
+The counts below are measured over the shipped files (2026-09-30), and they split by origin: sixteen
+are hand-written here (49–50 custom properties each) and thirteen were imported from daisyUI (31).
 
 | name | what the shipped themes actually do |
 | --- | --- |
-| `--sidebar` `--sidebar-foreground` `--accent-foreground` | **none of the twenty-nine authors one.** Each was the same value as another token in every single file, so the declaration said nothing and came out. `--accent-foreground` joined them when `--accent` stopped being imported as a brand fill: an on-fill ink is half a pair, and its other half is a surface now. |
-| `--secondary-foreground` | **none of the sixteen; all thirteen imported ones.** Here it was `--foreground` every time, so it came out. daisyUI authors an on-fill ink for `secondary` and it is *not* the page ink, so an imported theme brings a real value and says so. |
+| `--sidebar` `--sidebar-foreground` `--accent-foreground` | **no theme authors one.** Each would repeat another token in every file, so the bridge names the token and no theme restates it. `--accent` is a surface, not a fill, so its ink is the page's. |
+| `--secondary-foreground` | **none of the sixteen; all thirteen imported ones.** Here it would be `--foreground` every time. daisyUI authors an on-fill ink for `secondary` and it is *not* the page ink, so an imported theme brings a real value and says so. |
 | `--popover` | the eight hand-written **dark** themes and no light one — an overlay lifts off the card on the dark side and is the card on the light one. An imported theme leaves it to the chain. |
 | `--field` `--faint` `--input` | the sixteen author all three; the thirteen author none. Genuine values, not repetitions — daisyUI simply has no name for them. |
-| the four status `-foreground`s | **all twenty-nine.** The imported ones do not bring them, so the importer computes them with `pageInk` — without that they fell through the bridge to the fill at full strength, which is 1.23:1 in one case. |
+| the four status `-foreground`s | **every theme.** daisyUI has no page ink, so the importer computes them with `pageInk`; left to the bridge they would resolve to the fill at full strength, which is 1.23:1 on `acid`'s warning. |
 
 The second row is the shape of the rule working, and it is the interesting one: the same name is a
 repetition in one theme and a real value in another, so what earns a declaration is measured per
@@ -66,15 +74,15 @@ file rather than decided once for the vocabulary.
 ### What the generator edits, and the three names people ask about
 
 [`/theme-generator`](/theme-generator) carries **twenty-five pickers**: the twenty-one, plus the four
-status `-foreground`s that every one of the twenty-nine authors. The specimen pane on the right is
+status `-foreground`s that every shipped theme authors. The specimen pane on the right is
 sized to those — a group that no control moves would be decoration. Three names sit outside that set
 and get asked about often enough to settle here, with the counts that settle them:
 
 | name | call sites in `packages/*/src` | themes authoring it | verdict |
 | --- | --- | --- | --- |
-| `--sidebar` | `bg-sidebar` on five recipes in `sidebar.tsx` | **none of the twenty-nine** | **neither a picker nor a specimen, and that is the answer.** |
-| `--faint` | fifteen: the placeholder ink of eight field recipes, the ghost text in `CompleteGhost`, and five inks in `CodeEditor` | sixteen, and the value differs from `--muted-foreground` in fourteen of them | a real tier. It has no specimen, and that is a gap. |
-| `--input` | twenty: `border-input` on sixteen of them, plus the switch track, the scroll-area thumb and an unfilled star | sixteen, and the value differs from `--border` in **all sixteen** | already drawn, on every field in the pane. A field border is not an indirect showing of `--input`; it is what `--input` *is*. |
+| `--sidebar` | `bg-sidebar` in `sidebar.tsx` | **none** | **neither a picker nor a specimen, and that is the answer.** |
+| `--faint` | the placeholder ink of the field recipes, the ghost text in `CompleteGhost`, and inks in `CodeEditor` | the sixteen hand-written, and the value differs from `--muted-foreground` in fourteen of them | a real tier. It has no specimen, and that is a gap. |
+| `--input` | `border-input` on the field recipes, plus the switch track, the scroll-area thumb and an unfilled star | the sixteen hand-written, and the value differs from `--border` in **all sixteen** | already drawn, on every field in the pane. A field border is not an indirect showing of `--input`; it is what `--input` *is*. |
 
 `--sidebar` is the case worth stating plainly, because "a token nobody draws" reads like an
 oversight and is not one. No theme authors it, so its value is decided entirely by the chain —
@@ -109,10 +117,9 @@ placeholder ever appears.
 
 ### The shape knobs
 
-They are what let a client look different without looking like a fork, and none of them existed
-before: only the radius did, as a single knob for everything.
+They are what let a client look different without looking like a fork.
 
-`--noise` is the newest and the one that shows the pattern most plainly. It multiplies the *size*
+`--noise` is the one that shows the pattern most plainly. It multiplies the *size*
 of a grain layer the recipes already paint:
 
 ```css
@@ -129,10 +136,9 @@ No shipped theme declares it, so `var(--noise, 0)` is where "off" lives. A theme
 writes the line; one that does not says nothing, which is the same rule the colour names follow.
 
 <Callout title="A knob nothing reads is worse than a missing one">
-  `--size-field` and `--size-selector` were declarations no recipe read: a tenant set them, nothing
-  moved, and the theme looked *broken* rather than ignored. `--noise` was a stranger version — named
-  in the vocabulary and referenced nowhere at all. `knobs-are-read.test.ts` now fails for any knob
-  that reaches neither a `var()` in the sheet nor a utility the library uses.
+  A tenant sets it, nothing moves, and the theme looks *broken* rather than ignored.
+  `knobs-are-read.test.ts` fails for any knob that reaches neither a `var()` in the sheet nor a
+  utility the library uses.
 </Callout>
 
 | knob | governs |
@@ -140,7 +146,7 @@ writes the line; one that does not says nothing, which is the same rule the colo
 | `--radius-box` / `--radius-field` / `--radius-selector` | card and dialog / button, input and tab / checkbox and badge |
 | `--size-field` / `--size-selector` | the unit a control's height is a multiple of |
 | `--stroke` | line weight |
-| `--relief` | relief, `0`–`1`, multiplied into the shadow and the fill's edge |
+| `--relief` | relief, `0`–`1`, multiplied into the shadow and the fill's edge. Not `--depth`: that name is Zag's, set per node on a tree item |
 
 `--relief` is a **number, not a branch**: the recipes already contain
 `calc(var(--relief) * 30%)`, so `0` collapses the shadow to nothing and `1` gives it relief, from one
@@ -242,7 +248,7 @@ coincidence: unset is one spelling here, which is what lets appearance be *decla
 resolved, pinned and offered — like every other axis.
 
 <Callout type="info" title="Why a class and not light-dark()">
-  Two reasons, both measured. About 150 `dark:` variants need a class to key off; and
+  Two reasons. The recipes' `dark:` variants need a class to key off; and
   `light-dark()` makes per-mode values unreadable to `getComputedStyle`, which is exactly how
   the [charts layer](/docs/analytics/charts) resolves `var(--chart-N)` for Observable Plot.
   Each theme file carries its own `color-scheme`. Never write
@@ -257,8 +263,8 @@ Two families, two different rules — this trips people up, so it is worth stati
 that fill. `bg-primary text-primary-foreground` is a readable pair.
 
 **Status** (`destructive` / `info` / `success` / `warning`): three tokens, not two, and the extra
-one is the point. `-foreground` is a readable-on-**background** variant of the same hue (step 11)
-— for error text, invalid rings and destructive menu items. That it is not readable *on the fill*
+one is the point. `-foreground` is a readable-on-**background** variant of the same hue — for
+error text, invalid rings and destructive menu items. That it is not readable *on the fill*
 is not a contrast bug; it is Shark's convention, adopted verbatim.
 
 So on-fill text gets its own token, `-content` — daisyUI's word for exactly this role, adopted
@@ -286,20 +292,18 @@ inside:
 
 That is the whole mechanism, and it is what makes a tenant-branded panel inside an otherwise neutral
 application possible without an iframe, a second stylesheet or any JavaScript. The
-[theme catalogue](/docs/themes) is twenty-nine of them on one page, each drawn wearing the same
+[theme catalogue](/docs/themes) is every shipped theme on one page, each drawn wearing the same
 screen.
 
 It works because of the bridge above, and it is the first thing a `:root` declaration would break: a
 custom property inherits its **computed** value, so a colour declared on `:root` resolves once on
 `<html>` and every region would paint the same theme.
 
-<Callout type="warn" title="Which is a rule with a scar on it">
-  `kanzo.css` opened with a bare `:root, [data-theme="kanzo"]` for a day. `:root` has the same
-  specificity as `[data-theme="x"]`, so the tie broke on source order — and the imports are
-  alphabetical, so every theme sorting before `kanzo.css` was silently repainted in kanzo's colours.
-  Eleven of the sixteen there were then, dark ones included, `color-scheme` and all. The default
-  theme now binds as
-  `:root:not([data-theme])`, and two assertions in `themes.test.ts` hold it there.
+<Callout type="warn" title="The default theme binds as :root:not([data-theme])">
+  Not a bare `:root`. `:root` has the same specificity as `[data-theme="x"]`, so the tie breaks on
+  source order — and `themes.css` imports alphabetically, so every theme sorting before `kanzo.css`
+  would be repainted in kanzo's colours, `color-scheme` and all. `themes.test.ts`, "binds the default
+  theme so it cannot outrank a chosen one", holds it.
 </Callout>
 
 <Callout title="Set `color-scheme` alongside it">
@@ -320,9 +324,7 @@ not interchangeable, and the difference is asserted rather than described.
 **Never reach for `KanzoTheme` as the app's provider.** Ark's overlays — Dialog, Popover, Menu,
 Select, Tooltip, Toast, HoverCard, Command — portal into `document.body`, outside any wrapper, so a
 wrapper cannot theme them; and density sets the root font-size that the whole `rem` scale resolves
-against, so on a wrapper it is broken outright. There was once only one provider for exactly that
-reason, and the one that wrote to a wrapper was deleted with no alias — it had been the *documented*
-entry point while a repo-wide grep found zero usages of it.
+against, so on a wrapper it is broken outright.
 </Callout>
 
 **What would reverse it:** a scope that could theme Ark's portalled overlays. It cannot, and that is a
@@ -367,10 +369,10 @@ multiplies the root font-size the whole `rem` scale resolves against, so it is a
 both layers can break — which is why it is graded here and why a specific failure may still belong
 to the component that declared the row.
 
-**Authoring colour.** `inkFor` returns the ink that belongs on a fill, as a hex ready to be written
-into a theme, and `Oklch` is a colour in OKLCh with `l` from 0 to 1 and `h` in degrees. This is the
-only derivation in the package and it runs in a form while somebody picks a colour, never in a page
-painting one.
+**Authoring colour.** `inkFor` returns the ink that belongs on a fill and `pageInk` the same family
+read on the page, each as a hex ready to be written into a theme. `contrast` is the WCAG ratio, `AA`
+its 4.5 floor, and `oklch`/`hex` convert between a hex and an `Oklch` (`l` from 0 to 1, `h` in
+degrees). These run in a form while somebody picks a colour, never in a page painting one.
 
 ## Generated output
 
@@ -382,5 +384,4 @@ a second copy of the bridge. **Edit the generator, not those two**; CI
 regenerates and fails on any diff.
 
 **`tokens.css` and `themes/*.css` are NOT generated.** They are hand-written source, and a guard
-that regenerated them would have nothing to regenerate them from. That is the whole shape of the
-change: colour stopped being output.
+that regenerated them would have nothing to regenerate them from.

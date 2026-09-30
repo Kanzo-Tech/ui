@@ -37,8 +37,9 @@ a shipped export.
 When a mistake recurs, write the guard rather than the paragraph, and put the reason **in the test
 file, beside the assertion**. The document carries a pointer and no restatement.
 
-The two rules this library broke most — an untokenised colour, and a percentage where an alpha step
-was needed — stopped recurring on the day each became a test, and neither has returned. The rules
+The rule this library broke most — an untokenised colour — stopped recurring on the day it became a
+test, and has not returned. A read of a token no theme declares is the same shape: it fails
+silently, and `theme-tokens.test.ts` is what makes it fail out loud. The rules
 still being broken are the ones that exist only as prose. `no-literal-hues.test.ts` is the model:
 the promise, its reason, its enforcement and its own blind spots in one file. `data-slot.test.tsx`
 is the same shape at length, and it was written in the same commit as this rule, over the case that
@@ -51,8 +52,8 @@ one rung further out — `packages/ui/src/documented-evidence.test.ts` checks th
 name is a real assertion and that a name declared absent is really absent.
 
 **What would reverse it.** A guard that costs more to maintain than the defect costs to fix. None on
-the roster has; the guard table on [Conventions](/docs/conventions#tests-and-guards) is the set to
-recount against.
+the roster has; the roster is the `*.test.ts` files beside the source they scan, as
+[Conventions](/docs/conventions#tests-and-guards) says, and `ls` is the set to recount against.
 
 *Held by* `packages/ui/src/no-literal-hues.test.ts` and `packages/ui/src/data-slot.test.tsx`, the two
 that carry their own reasoning and their own blind spots.
