@@ -22,17 +22,13 @@ const VALUES = [
   "GraphRootProvider",
   "GraphToolbar",
   "ShapeGlyph",
-  "adaptive",
-  "denseOf",
   "lookFrom",
   "scaleOf",
   "simFrom",
-  "typeOf",
   "useGraph",
   "useGraphContext",
   "useGraphPrefs",
   "useGraphState",
-  "vertexId",
 ];
 
 const surface = GRAPH as Record<string, unknown>;
@@ -71,8 +67,8 @@ describe("@kanzo-tech/graph public surface", () => {
     expect(surface.CosmosClient).toBeUndefined();
   });
 
-  // The canvas draws its overlays and its gesture itself; a host reaches the renderer through the
-  // api's `getGraph` and `getResident`, and builds no map of its own.
+  // The canvas draws its overlays and its gesture itself; a host moves the camera through the api's
+  // commands, and a vertex's id is its index, so there is no map to build.
   it("keeps the canvas's own steps internal", () => {
     expect(surface.useGraphOverlays).toBeUndefined();
     expect(surface.useGraphSelection).toBeUndefined();
@@ -130,9 +126,19 @@ describe("@kanzo-tech/graph public surface", () => {
   });
 
   it("keeps the aggregate far view deleted, names and all", () => {
-    // A far view is a coarser zoom of fossil's cell pyramid; nothing groups by a column.
+    // The whole graph is drawn; nothing groups by a column to stand in for it.
     expect(surface.SUPERNODE).toBeUndefined();
     expect(surface.lodThreshold).toBeUndefined();
+  });
+
+  it("keeps the tiles and the identity packing deleted, since an id is an index", () => {
+    // A vertex was `(type_idx, dense_id)` resolved through a `Resident` per composition of tiles;
+    // fossil's `dense_id` is global and dense now, and the drawn types take the first ids.
+    expect(surface.vertexId).toBeUndefined();
+    expect(surface.typeOf).toBeUndefined();
+    expect(surface.denseOf).toBeUndefined();
+    expect(surface.Tileset2D).toBeUndefined();
+    expect(surface.adaptive).toBeUndefined();
   });
 });
 

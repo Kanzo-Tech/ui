@@ -68,8 +68,8 @@ describe("the look axes", () => {
 
   it("simulates what a graph simulated before any of this existed", () => {
     // `simFrom`'s half of the claim above. Its defaults are tuned for a few hundred nodes and a
-    // corpus two orders of magnitude larger wants other numbers — which is `adaptive`'s job, and a
-    // computed fit reaches a user as the tenant's starting point rather than as a different default.
+    // corpus two orders of magnitude larger wants other numbers, which reach a user as the tenant's
+    // starting point rather than as a different default.
     expect(DEFAULT_SIM).toEqual(simFrom());
     for (const [key, decl] of Object.entries(GRAPH_SECTION.prefs ?? {})) {
       expect(simFrom({ [key]: decl.default }), key).toEqual(DEFAULT_SIM);

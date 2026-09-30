@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 import { fakeCorpus } from "../../test/corpus";
 import { GraphCanvas } from "../parts/graph-canvas";
 import { GraphRoot, useGraphContext } from "./graph-root";
-import { vertexId } from "../core/resident";
 import { internalsOf, useGraph } from "./use-graph";
 import { useGraphState } from "./use-graph-state";
 
@@ -105,8 +104,8 @@ describe("useGraphState", () => {
       </GraphRoot>,
     );
     const [tools, hovers] = [toolRenders, hoverRenders];
-    act(() => held.store?.hover(vertexId(0, 3)));
-    act(() => held.store?.hover(vertexId(0, 4)));
+    act(() => held.store?.hover(3));
+    act(() => held.store?.hover(4));
     expect(hoverRenders - hovers).toBe(2);
     expect(toolRenders).toBe(tools);
     expect(apis.size).toBe(1);
@@ -127,11 +126,12 @@ describe("useGraph", () => {
     expect(result.current.getState().options).toBe(options);
   });
 
-  it("hands the store a new binding when a prop moves", () => {
+  it("hands the store a new binding when a prop moves", async () => {
     const fake = fakeCorpus();
     const { rerender } = renderHook(({ fill }: { fill: string }) => useGraph({ corpus: fake.corpus, fill, onFailure: () => {} }), {
       initialProps: { fill: "cluster_id" },
     });
+    await act(() => fake.settle());
     rerender({ fill: "degree" });
     expect(fake.scans.at(-1)?.select).toContain("degree");
   });

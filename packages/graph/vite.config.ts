@@ -44,8 +44,8 @@ export default defineConfig({
         // written as one. Subpaths included: matching the bare id alone silently inlined
         // `@kanzo-tech/theme/tokens.css` once already.
         /^@kanzo-tech\//.test(id) ||
-        // fossil's reader, the same rule: the corpus addressing is `fossil_graph::plan` compiled
-        // to wasm32, and inlining it would bundle a second copy of a WASM module the host loads once.
+        // fossil's reader, the same rule: the host loads it once, and a second copy would be a second
+        // reader.
         /^@fossil-lang\//.test(id) ||
         /^@uwdata\//.test(id) ||
         /^@duckdb\//.test(id),

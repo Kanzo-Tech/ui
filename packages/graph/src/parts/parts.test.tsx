@@ -1,7 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { fakeCorpus } from "../../test/corpus";
-import { vertexId } from "../core/resident";
 import { GraphRoot, useGraphContext } from "../react/graph-root";
 import { internalsOf, type GraphApi } from "../react/use-graph";
 import { GraphCanvas } from "./graph-canvas";
@@ -26,7 +25,7 @@ function Hold({ into }: { into: { api: GraphApi | null } }) {
 }
 
 describe("GraphLegend", () => {
-  it("draws the manifest's domain before a tile has arrived, named by the root", () => {
+  it("draws the domain before the graph has loaded, named by the root", () => {
     const { corpus } = fakeCorpus();
     render(
       <GraphRoot categories={{ 0: "Amber", 3: "Salt" }} corpus={corpus} fill="cluster_id" onFailure={() => {}}>
@@ -34,8 +33,20 @@ describe("GraphLegend", () => {
       </GraphRoot>,
     );
     const rows = screen.getAllByRole("listitem").map((row) => row.textContent);
-    expect(rows).toEqual(["Amber—", "1—", "2—", "Salt—"]);
+    expect(rows).toEqual(["Amber—", "Salt—"]);
     expect(screen.getByText("— of 16 drawn")).toBeTruthy();
+  });
+
+  it("draws the vertex types when nothing is bound, with what each has drawn", async () => {
+    const fake = fakeCorpus();
+    render(
+      <GraphRoot corpus={fake.corpus} onFailure={() => {}}>
+        <GraphLegend />
+      </GraphRoot>,
+    );
+    await act(() => fake.settle());
+    expect(screen.getAllByRole("listitem").map((row) => row.textContent)).toEqual(["Person10", "Place6"]);
+    expect(screen.getByText("16 of 16 drawn")).toBeTruthy();
   });
 
   it("draws no rows when colour is a constant and nothing carries a category", () => {
@@ -74,7 +85,7 @@ describe("GraphToolbar", () => {
       </GraphRoot>,
     );
     expect(screen.queryByRole("group", { name: "Current selection" })).toBeNull();
-    act(() => held.api?.select([vertexId(0, 1), vertexId(0, 2)], "order", "Two"));
+    act(() => held.api?.select([1, 2], "order", "Two"));
     expect(screen.getByRole("group", { name: "Current selection" }).textContent).toContain("2 of 16 selected");
     fireEvent.click(screen.getByRole("button", { name: "Clear the selection" }));
     expect(screen.queryByRole("group", { name: "Current selection" })).toBeNull();
@@ -106,12 +117,13 @@ describe("GraphInspector", () => {
       </GraphRoot>,
     );
     expect(screen.getByText("Click a vertex on the canvas to inspect it.")).toBeTruthy();
-    act(() => held.api?.setFocus(vertexId(0, 6)));
+    await act(() => fake.settle());
+    act(() => held.api?.setFocus(6));
     await act(() => fake.settle());
     await waitFor(() => expect(screen.getByTestId("extra").textContent).toBe("degree plus one: 8"));
     const labels = [...document.querySelectorAll("dt")].map((dt) => dt.textContent);
     expect(labels).toEqual(["subject", "cluster_id", "degree"]);
-    expect(fake.scans.at(-1)?.filter).toEqual({ column: "dense_id", op: "=", value: 6 });
+    expect(fake.scans.at(-1)).toMatchObject({ table: "Person", filter: { column: "dense_id", op: "=", value: 6 } });
   });
 });
 
@@ -135,8 +147,8 @@ describe("GraphCanvas", () => {
     if (!held.api) throw new Error("no api");
     const { store } = internalsOf(held.api);
     const renders = vi.mocked(useOverlays).mock.calls.length;
-    act(() => store.hover(vertexId(0, 3)));
-    act(() => store.hover(vertexId(0, 4)));
+    act(() => store.hover(3));
+    act(() => store.hover(4));
     act(() => store.hover(null));
     expect(vi.mocked(useOverlays).mock.calls.length).toBe(renders);
     vi.unstubAllGlobals();

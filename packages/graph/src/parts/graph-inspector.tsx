@@ -17,10 +17,9 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { nameOf } from "../core/categories";
 import { bindingOf } from "../core/channels";
 import { readVertex, type VertexDetail } from "../core/detail";
-import { denseOf } from "../core/resident";
+import type { VertexId } from "../core/types";
 import { useGraphContext } from "../react/graph-root";
-import { internalsOf } from "../react/use-graph";
-import { useGraphState } from "../react/use-graph-state";
+import { useGraphSnapshot, useGraphState } from "../react/use-graph-state";
 import { scaleOf } from "../render/graph-model";
 import { ShapeGlyph } from "./shape-glyph";
 
@@ -40,18 +39,19 @@ const text = (value: unknown): string => {
   return String(value);
 };
 
-type Answer = { vertex: bigint; detail: VertexDetail | null } | null;
+type Answer = { vertex: VertexId; detail: VertexDetail | null } | null;
 
 /**
- * **The focused vertex, fetched and laid out by the corpus's own types.** A tile carries what the
- * channels project and nothing else, so the rest of the row is read when a reader focuses it — one
- * payload tile, filtered to one `dense_id`, cancelled when the focus moves on. The fields are the
- * type's, in the order the corpus declares them; the address and the position are the canvas's.
+ * **The focused vertex, fetched and laid out by the corpus's own tables.** The loaded graph carries
+ * what the channels project and nothing else, so the rest of the row is read when a reader focuses
+ * it — a scan of its table, filtered to its key, cancelled when the focus moves on. The fields are the
+ * table's, in the order the manifest declares them; the key and the position are the canvas's.
  */
 export function GraphInspector({ children, className, slot, ...rest }: GraphInspectorProps) {
   const api = useGraphContext();
   const focus = useGraphState((s) => s.focus);
   const corpus = useGraphState((s) => s.corpus);
+  const geometry = useGraphSnapshot((s) => s.geometry);
   const options = useGraphState((s) => s.options);
   const domain = useGraphState((s) => s.drawn?.domain ?? s.domain);
   const capacity = useChartCapacity();
@@ -59,10 +59,9 @@ export function GraphInspector({ children, className, slot, ...rest }: GraphInsp
   const [answer, setAnswer] = useState<Answer>(null);
 
   useEffect(() => {
-    const matrix = internalsOf(api).store.getSnapshot().matrix;
-    if (focus === null || !corpus || !matrix) return;
+    if (focus === null || !corpus || !geometry) return;
     const aborter = new AbortController();
-    readVertex(corpus, matrix, focus, aborter.signal).then(
+    readVertex(corpus, geometry, focus, aborter.signal).then(
       (detail) => !aborter.signal.aborted && setAnswer({ vertex: focus, detail }),
       (error: unknown) => {
         if (aborter.signal.aborted) return;
@@ -71,13 +70,16 @@ export function GraphInspector({ children, className, slot, ...rest }: GraphInsp
       },
     );
     return () => aborter.abort();
-  }, [api, corpus, focus]);
+  }, [api, corpus, focus, geometry]);
 
   const current = answer !== null && answer.vertex === focus ? answer.detail : undefined;
   const field = (name: string | undefined) => current?.fields.find((f) => f.name === name)?.value;
-  const category = bindingOf(options).category;
-  const value = field(category);
-  const rank = domain.indexOf(typeof value === "bigint" ? Number(value) : value);
+  const binding = bindingOf(options);
+  const category = binding.byTable ? current?.table : field(binding.category);
+  const rank = domain.findIndex((value) => String(value) === String(category));
+  const bound = binding.byTable || binding.category !== undefined;
+  const identity = geometry?.tables.find((table) => table.name === current?.table)?.identity;
+  const heading = field(options.title) ?? field(identity);
 
   return (
     <div {...rest} className={cn("space-y-3 text-sm", className)} data-slot={slot ?? "graph-inspector"}>
@@ -94,17 +96,17 @@ export function GraphInspector({ children, className, slot, ...rest }: GraphInsp
         <>
           <div>
             <p className="truncate font-medium" data-slot="graph-inspector-title">
-              {options.title === undefined ? `#${denseOf(current.vertex)}` : text(field(options.title))}
+              {heading === undefined || heading === null ? `#${current.vertex}` : text(heading)}
             </p>
             <div className="mt-1 flex items-center gap-1.5">
-              <Show when={category !== undefined}>
+              <Show when={bound}>
                 <Badge className="gap-1 text-[10px]" size="xs" variant="outline">
                   <ShapeGlyph
                     className="size-2 shrink-0"
                     color={scale.color(Math.max(0, rank))}
                     shape={scale.shape(Math.max(0, rank))}
                   />
-                  {nameOf(value, options.categories)}
+                  {nameOf(category, options.categories)}
                 </Badge>
               </Show>
               <Button

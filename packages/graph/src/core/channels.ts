@@ -4,10 +4,10 @@
  * paints every point one ink and leaves colour free to mean the selection.
  */
 export interface Channels {
-  /** Which column colours a point, or a CSS colour every point wears. */
+  /** Which column colours a point, or a CSS colour every point wears. Absent, colour is the vertex type. */
   fill?: string;
   /**
-   * Which column a point's shape carries. A tile carries one categorical column, so bound beside a
+   * Which column a point's shape carries. The graph holds one categorical column, so bound beside a
    * `fill` column this reads the same one; a second would need a second array everywhere.
    */
   symbol?: string;
@@ -22,8 +22,10 @@ export function isColour(value: string | undefined): value is string {
 
 /** The columns a binding reads, which is what a scan projects. */
 export interface Binding {
-  /** The one categorical column: `fill` when it names one, `symbol` when `fill` is a constant. */
+  /** The one categorical column: `fill` when it names one, `symbol` when `fill` is a constant or absent. */
   readonly category: string | undefined;
+  /** No column and no constant: the category is the vertex type. */
+  readonly byTable: boolean;
   /** What the size ramp is spent on — Plot's `r`. */
   readonly size: string | undefined;
   /** The text a label and the hover card show — Plot's `title`. */
@@ -31,14 +33,16 @@ export interface Binding {
 }
 
 export function bindingOf(options: Channels & { r?: string; title?: string }): Binding {
-  return {
-    category: isColour(options.fill) ? options.symbol : options.fill,
-    size: options.r,
-    title: options.title,
-  };
+  const constant = isColour(options.fill);
+  const category = constant ? options.symbol : (options.fill ?? options.symbol);
+  return { category, byTable: !constant && category === undefined, size: options.r, title: options.title };
 }
 
-/** A binding is a projection: `fill`, `r` and `title` as columns become the scan's `select`. */
-export function projectionOf(binding: Binding, fixed: readonly string[]): string[] {
-  return [...new Set([...fixed, binding.category, binding.size, binding.title].filter((c) => c !== undefined))];
+/**
+ * A binding is a projection: `fill` and `r` as columns become the scan's `select`, where the table
+ * has them. `title` is not: a label's text is read for the few vertices that carry one.
+ */
+export function projectionOf(binding: Binding, fixed: readonly string[], has: (column: string) => boolean): string[] {
+  const bound = [binding.category, binding.size].filter((c): c is string => c !== undefined && has(c));
+  return [...new Set([...fixed, ...bound])];
 }

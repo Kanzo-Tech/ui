@@ -1,14 +1,14 @@
 /**
  * The graph view over a fossil corpus. fossil reads and this package draws, and nothing crosses
  * between them but the corpus contract: the host opens the corpus with fossil's `open` on the page's
- * `engine()`, and `GraphRoot` draws it.
+ * `engine()`, and `GraphRoot` draws the whole of it.
  *
  * Four layers, each the shape of a named reference — `/docs/design/graph`:
  *
- * - `core/` — a headless tileset in deck.gl's `Tileset2D` shape over `tileMatrix` and `scan`, and a
+ * - `core/` — the loader, one `scan` per table read whole into arrays indexed by `dense_id`, and a
  *   store in TanStack Query's observer shape. No React, no cosmos.gl, no SQL.
- * - `render/` — tiles to cosmos.gl buffers: encoded once per tile, uploaded by kind, rendered once a
- *   frame.
+ * - `render/` — those arrays to cosmos.gl: uploaded once per corpus, repainted by kind, rendered once
+ *   a frame.
  * - `react/` — `useGraph`, `GraphRoot`, `GraphRootProvider`, `useGraphContext`: Ark's four; and
  *   `useGraphState`, TanStack Store's selector, because the api is commands and the state moves at
  *   frame rate.
@@ -41,14 +41,9 @@ export { ShapeGlyph, type ShapeGlyphProps } from "./parts/shape-glyph";
 // `simFrom` parse what `@kanzo-tech/graph/section` declares and a preferences panel writes.
 export { lookFrom, type Look, type LookPatch, type Shape } from "./render/graph-looks";
 export { simFrom, type Sim } from "./render/graph-sim";
-export { adaptive } from "./render/adaptive";
 export { scaleOf } from "./render/graph-model";
 export type { Channels } from "./core/channels";
 
-// Identity: a vertex is `(type_idx, dense_id)`, and everything that outlives one composition is held
-// as one and re-resolved through the api's `Resident`. A host never builds its own map.
-export { vertexId, typeOf, denseOf, type Resident, type VertexId } from "./core/resident";
-
-export type { GraphCommands, Motion, Selection, SelectionSource, Tool } from "./core/types";
+export type { GraphCommands, Motion, Selection, SelectionSource, Tool, VertexId } from "./core/types";
 export type { Drawn, GraphState, GraphStatus } from "./core/state";
 export type { VertexDetail } from "./core/detail";

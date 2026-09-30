@@ -1,13 +1,13 @@
 "use client";
 
 import { useRef, useSyncExternalStore } from "react";
-import type { GraphState } from "../core/store";
+import type { GraphSnapshot, GraphState } from "../core/store";
 import { useGraphContext } from "./graph-root";
 
 /**
  * **A slice of the graph's state, and a render only when that slice moves** — TanStack Store's
  * `useStore(store, selector)`, over the root in context. The state changes at frame rate — a hover, a
- * tile, a tick of the layout — so reading all of it would re-render a toolbar on every hover.
+ * load, a tick of the layout — so reading all of it would re-render a toolbar on every hover.
  *
  * The selection is kept while the snapshot is the same object, and while `isEqual` says the new slice
  * equals the last one, so a selector may build an object as long as it passes a comparison for it.
@@ -28,4 +28,9 @@ export function useGraphState<T>(selector: (state: GraphState) => T, isEqual: (a
     return value;
   };
   return useSyncExternalStore(api.subscribe, read, read);
+}
+
+/** The parts' selector over what only they and the renderer read. Not on the barrel. */
+export function useGraphSnapshot<T>(selector: (state: GraphSnapshot) => T): T {
+  return useGraphState((state) => selector(state as GraphSnapshot));
 }

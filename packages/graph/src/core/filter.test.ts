@@ -2,13 +2,12 @@ import { Selection, clauseInterval, clauseMatch, clausePoint, clausePoints } fro
 import { describe, expect, it, vi } from "vitest";
 import { fakeCorpus } from "../../test/corpus";
 import { graphClient, translate } from "./filter";
-import { vertexId } from "./resident";
 import { createGraph } from "./store";
 
 /**
  * The bridge from the page's crossfilter to scan's typed filter, against a real Mosaic `Selection`.
- * What it cannot prove is that fossil binds what this builds — `scan`'s own tests do, against its
- * column kinds.
+ * What it cannot prove is that fossil renders what this builds as the SQL it means — fossil's own
+ * tests do.
  */
 
 const chart = graphClient();
@@ -45,11 +44,11 @@ describe("a Mosaic predicate as scan's filter", () => {
   // arrives a microtask later.
   it("is re-asked when the page filters something", async () => {
     const crossfilter = Selection.crossfilter();
-    const { fake } = graphOver(crossfilter);
-    expect(fake.scans).toHaveLength(1);
+    const { fake, store } = graphOver(crossfilter);
+    const filtered = () => fake.scans.filter((scan) => scan.filter !== undefined);
     crossfilter.update(clauseInterval("degree", [2, 5], { source: chart }));
-    expect(fake.scans).toHaveLength(2);
-    expect(fake.scans[1]?.filter).toEqual({
+    expect(filtered().map((scan) => scan.table)).toEqual(["Person", "Place"]);
+    expect(filtered()[0]?.filter).toEqual({
       and: [
         { column: "degree", op: ">=", value: 2 },
         { column: "degree", op: "<=", value: 5 },
@@ -57,24 +56,27 @@ describe("a Mosaic predicate as scan's filter", () => {
     });
     crossfilter.update(clauseInterval("degree", null, { source: chart }));
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(fake.scans).toHaveLength(3);
-    expect(fake.scans[2]?.filter).toBeUndefined();
+    expect(filtered()).toHaveLength(2);
+    await fake.settle();
+    expect(store.getSnapshot().mask).toBeNull();
   });
 
   it("is exempt from a clause that names it", () => {
     const crossfilter = Selection.crossfilter();
     const { fake, store } = graphOver(crossfilter);
-    store.select([vertexId(0, 3), vertexId(0, 4)], "marquee", "Marquee");
-    expect(fake.scans).toHaveLength(1);
+    const before = fake.scans.length;
+    store.select([3, 4], "marquee", "Marquee");
+    expect(fake.scans).toHaveLength(before);
     expect(String(crossfilter.predicate(chart))).toContain("dense_id");
   });
 
   it("reports a node it cannot translate, and never draws the unfiltered picture as filtered", () => {
     const crossfilter = Selection.crossfilter();
     const { fake, onFailure } = graphOver(crossfilter);
+    const before = fake.scans.length;
     crossfilter.update(clauseMatch("label", "grey", { source: chart, method: "contains" }));
     expect(onFailure).toHaveBeenCalledTimes(1);
     expect(String(onFailure.mock.calls[0]?.[0])).toMatch(/cannot express/);
-    expect(fake.scans).toHaveLength(1);
+    expect(fake.scans).toHaveLength(before);
   });
 });

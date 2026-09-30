@@ -13,10 +13,10 @@ export type GraphLegendProps = React.ComponentProps<"div">;
 const shallow = (a: readonly unknown[], b: readonly unknown[]) => a.length === b.length && a.every((v, i) => v === b[i]);
 
 /**
- * **The categorical scale the canvas draws, as rows** — glyph, name and how many vertices the marks of
- * that category stand for in view, then what is drawn of the whole. The rows are the domain fixed
- * before any tile arrived, so a row never moves and a colour never changes hands; a category past the
- * palette's capacity is Other, as it is on the canvas.
+ * **The categorical scale the canvas draws, as rows** — glyph, name and how many vertices of that
+ * category are drawn, then what is drawn of the whole. Unbound, the categories are the vertex types.
+ * The rows are the domain fixed before the graph loaded, so a row never moves and a colour never
+ * changes hands; a category past the palette's capacity is Other, as it is on the canvas.
  *
  * Names are the root's `categories`, never this part's: a legend that renamed a category would be
  * encoding one product's policy, which is the parts rule's reversal.
@@ -25,11 +25,12 @@ export function GraphLegend({ className, slot, ...rest }: GraphLegendProps) {
   const options = useGraphState((s) => s.options);
   const domain = useGraphState((s) => s.drawn?.domain ?? s.domain, shallow);
   const tally = useGraphState((s) => s.drawn?.tally ?? null);
-  const represented = useGraphState((s) => s.drawn?.represented ?? null);
+  const vertices = useGraphState((s) => s.drawn?.vertices ?? null);
   const total = useGraphState((s) => s.total);
   const capacity = useChartCapacity();
   const scale = useMemo(() => scaleOf(options, capacity), [options, capacity]);
-  const bound = bindingOf(options).category !== undefined;
+  const binding = bindingOf(options);
+  const bound = binding.byTable || binding.category !== undefined;
   const shown = domain.slice(0, capacity);
   const other = tally ? tally.slice(capacity).reduce((sum, n) => sum + n, 0) : null;
   const count = (n: number | null | undefined) => (n === null || n === undefined ? "—" : n.toLocaleString());
@@ -62,7 +63,7 @@ export function GraphLegend({ className, slot, ...rest }: GraphLegendProps) {
         className={cn("text-muted-foreground tabular-nums", bound && shown.length > 0 && "mt-1 border-t pt-1")}
         data-slot="graph-legend-count"
       >
-        {count(represented)} of {count(total)} drawn
+        {count(vertices)} of {count(total)} drawn
       </p>
     </div>
   );

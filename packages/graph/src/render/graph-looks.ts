@@ -151,9 +151,8 @@ export interface Look {
   // pair (0.28 legible, 0.42 dense) is the whole argument of `marks`; a slider on top of it is the
   // post-process `graph-model.ts` forbids one layer down, wearing a preference's clothes.
   //
-  // What is lost with them is the fit-to-corpus case, and it was never a preference: `adaptive`
-  // scales a mark by node count, and a computed fit belongs to the tenant's starting point — which
-  // is a policy, and which is now expressible.
+  // What is lost with them is the fit-to-corpus case, and it was never a preference: a computed fit
+  // belongs to the tenant's starting point — which is a policy, and which is now expressible.
 
   // There is no `filter`, and its absence is a rule rather than an omission. Nebula carried
   // `saturate(1.1)` on the canvas element — the one thing left in a Look that touched hue, and a

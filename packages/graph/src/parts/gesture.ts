@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
 import type { Graph } from "@cosmos.gl/graph";
-import type { Resident, VertexId } from "../core/resident";
-import type { Selection, SelectionSource, Tool } from "../core/types";
+import type { Selection, SelectionSource, Tool, VertexId } from "../core/types";
 
 /**
  * Drawing a selection on the canvas: the marquee, the lasso, and the keys that modify them.
@@ -53,14 +52,6 @@ export interface GraphSelectionGesture {
 
 export interface GraphSelectionOptions {
   getGraph: () => Graph | null;
-  /**
-   * Who is drawn right now — the only thing that can turn a hit-test index into an identity.
-   *
-   * A gesture selects positions on screen, and a position is a buffer index, which the next
-   * residency reuses for a different vertex. So the gesture resolves to identities here and now,
-   * while the answer that produced them is still the one on screen.
-   */
-  getResident: () => Resident;
   /** The live selection, for the modifiers to add to or subtract from. */
   getSelection: () => Selection | null;
   commit: (vertices: Set<VertexId> | null, source: SelectionSource, label: string) => void;
@@ -74,7 +65,7 @@ const NAME: Record<"rect" | "lasso", { source: SelectionSource; label: string }>
 };
 
 export function useGesture(options: GraphSelectionOptions): GraphSelectionGesture {
-  const { commit, getGraph, getResident, getSelection, setTool, tool } = options;
+  const { commit, getGraph, getSelection, setTool, tool } = options;
   const [drag, setDrag] = useState<Drag | null>(null);
   const [preview, setPreview] = useState<number | null>(null);
   const [shift, setShift] = useState(false);
@@ -153,9 +144,8 @@ export function useGesture(options: GraphSelectionOptions): GraphSelectionGestur
     setDrag(null);
     setPreview(null);
     if (!shape) return;
-    // The one line the whole gesture turns on: the hit test answers in buffer indices, and they stop
-    // meaning anything the moment the resident set changes.
-    const vertices = new Set(getResident().verticesAt(hitTest(shape)));
+    // The hit test answers in buffer indices, and a drawn vertex's index is its id.
+    const vertices = new Set<VertexId>(hitTest(shape));
     // A gesture that caught nothing and asked for nothing is a misfire, not a request to clear —
     // clearing is what the corner's own button and Escape are for.
     if (vertices.size === 0 && !event.altKey) return;

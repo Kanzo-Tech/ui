@@ -1,4 +1,4 @@
-import type { Filter, Literal } from "@fossil-lang/corpus";
+import type { Filter, Literal } from "./corpus-contract";
 import { MosaicClient, clausePoints, type Selection } from "@kanzo-tech/mosaic";
 
 /**
@@ -112,6 +112,15 @@ export function translate(node: unknown): Filter {
 
 const and = (clauses: Filter[]): Filter => (clauses.length === 1 ? (clauses[0] as Filter) : { and: clauses });
 
+/** Every column a filter names, once each. */
+export function columnsOf(filter: Filter): string[] {
+  if ("column" in filter) return [filter.column];
+  if ("and" in filter) return [...new Set(filter.and.flatMap(columnsOf))];
+  if ("or" in filter) return [...new Set(filter.or.flatMap(columnsOf))];
+  if ("not" in filter) return columnsOf(filter.not);
+  return [];
+}
+
 /**
  * The page's filter for the graph, or `undefined` for none. `selection.predicate` skips the clause
  * the graph published itself, which is the exemption the next function takes back.
@@ -139,10 +148,10 @@ export function publish(
   selection: Selection,
   self: MosaicClient,
   column: string,
-  dense: readonly number[] | null,
+  ids: readonly number[] | null,
 ): void {
   selection.update(
-    clausePoints([column], dense && dense.length > 0 ? dense.map((d) => [d]) : undefined, {
+    clausePoints([column], ids && ids.length > 0 ? ids.map((d) => [d]) : undefined, {
       source: self,
       clients: new Set([self]),
     }),

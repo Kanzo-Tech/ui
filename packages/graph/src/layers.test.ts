@@ -6,8 +6,9 @@ import { describe, expect, it } from "vitest";
 
 /**
  * The layers of `/docs/design/graph`, held where they can be read off the source: one reader, which
- * is fossil's; no module past the size a named reference is the shape of; and a core that knows
- * nothing of React or cosmos.gl.
+ * is fossil's, reached through its types alone — `core/corpus-contract.ts` stands in for them until
+ * `fossil/1` is published, and is held to the same rule; no module past the size a named reference is
+ * the shape of; and a core that knows nothing of React or cosmos.gl.
  *
  * What it cannot prove: a query assembled from fragments no one of which looks like SQL, or a value
  * reached through a re-export under another name. It reads literals and import declarations, and
@@ -25,34 +26,35 @@ const parse = (name: string, text: string) =>
 /** Upper-case, as every query this package ever wrote spelled them — prose says "where" too. */
 const SQL = /\b(SELECT|FROM|WHERE|JOIN|CREATE (OR REPLACE )?(VIEW|TABLE))\s|read_parquet|parquet_metadata/;
 
-/** fossil's writer role table is what `@fossil-lang/corpus` exports for a reader to name columns by. */
-const ROLE_TABLE = /^PAYLOAD_[A-Z]+$/;
+/** fossil's reader, or the file that stands in for it until `fossil/1` is published. */
+const FOSSIL = (from: string) => from === "@fossil-lang/corpus" || /(^|\/)corpus-contract$/.test(from);
 
 describe("the graph's layers", () => {
   it("scans a corpus that has not quietly shrunk", () => {
-    expect(modules.length).toBeGreaterThan(25);
+    expect(modules.length).toBeGreaterThan(20);
     for (const { name, text } of modules) expect(text.includes("\0"), `${name} contains a NUL byte`).toBe(false);
   });
 
-  it("writes no SQL, and reaches fossil only through its types and its role table", () => {
+  it("writes no SQL, and reaches fossil only through its types", () => {
     const offenders: string[] = [];
     for (const { name, text } of modules) {
       const visit = (node: ts.Node): void => {
         if ((ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) || ts.isTemplateHead(node)) && SQL.test(node.text)) {
           offenders.push(`${name}: SQL in a string — ${node.text.slice(0, 60)}`);
         }
+        if (name.endsWith("corpus-contract.ts") && (ts.isFunctionDeclaration(node) || ts.isVariableStatement(node) || ts.isClassDeclaration(node))) {
+          offenders.push(`${name}: the stand-in for fossil's types declares a value`);
+        }
         if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
           const from = node.moduleSpecifier.text;
           const clause = node.importClause;
           if (from.startsWith("@uwdata/mosaic-sql")) offenders.push(`${name}: imports ${from}`);
-          if (from === "@fossil-lang/corpus" && clause && !clause.isTypeOnly) {
+          if (FOSSIL(from) && clause && !clause.isTypeOnly) {
             const named = clause.namedBindings;
             if (clause.name || !named || !ts.isNamedImports(named)) offenders.push(`${name}: imports fossil's door as a value`);
             else
               for (const element of named.elements) {
-                if (!element.isTypeOnly && !ROLE_TABLE.test((element.propertyName ?? element.name).text)) {
-                  offenders.push(`${name}: imports ${(element.propertyName ?? element.name).text} from fossil as a value`);
-                }
+                if (!element.isTypeOnly) offenders.push(`${name}: imports ${(element.propertyName ?? element.name).text} from fossil as a value`);
               }
           }
         }

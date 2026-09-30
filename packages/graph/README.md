@@ -2,7 +2,7 @@
 
 The graph view over a [fossil](https://github.com/kanzo-tech/fossil) corpus, drawn with
 [cosmos.gl](https://cosmosgl.github.io/graph). fossil is the backend and this package is the view:
-the host opens the corpus, and `GraphRoot` draws it by tile — no SQL is written here.
+the host opens the corpus, and `GraphRoot` draws the whole of it — no SQL is written here.
 
 ## Install
 
@@ -23,7 +23,7 @@ import { GraphCanvas, GraphInspector, GraphLegend, GraphRoot, GraphToolbar } fro
 
 const corpus = engine().then((e) => open(url, { engine: e }));
 
-<GraphRoot corpus={corpus} fill="kind" r="degree" title="label" filterBy={crossfilter} onFailure={setFailure}>
+<GraphRoot corpus={corpus} r="degree" filterBy={crossfilter} onFailure={setFailure}>
   <GraphCanvas>
     <GraphToolbar />
     <GraphLegend />
@@ -36,18 +36,16 @@ const corpus = engine().then((e) => open(url, { engine: e }));
 corpus opens as `` open(`jobs/${id}`, { engine, host }) `` — and `GraphRoot` takes what came back,
 or the promise of it, which is what lets it say it is opening. Closing it is the host's too.
 
+**The whole corpus is drawn**: every vertex table with a position — fossil's layout or the
+program's own columns — and every relation whose two ends are drawn, read once, one scan per table,
+and uploaded once. A vertex's `dense_id` is its index in the buffers. The camera reads nothing.
+
 **The channels are Plot's**: `fill`, `symbol`, `r`, `stroke` and `title`, where a CSS colour is a
-constant and anything else is a column. A column binding is a projection: changing one builds a new
-scan and reloads the tiles while keeping the picture.
+constant and anything else is a column. Unbound, colour is the vertex type and a label is the table's
+`identity`. Changing a column binding re-reads that column and nothing else.
 
-**The camera is addressed.** A tileset in deck.gl's `Tileset2D` shape culls the tile matrix fossil
-published, picks the finest zoom whose tiles in view hold at most `limit` rows (20,000 by default),
-reads one tile at a time nearest the centre first, cancels what the camera has left, and keeps five
-times what it selected. A far view is a coarser rung of fossil's cell pyramid; an edge is drawn when
-both of its ends are in tiles already read.
-
-**`filterBy` is the page's crossfilter.** Its clauses are translated into scan's filter, so the
-canvas draws what survives; a clause that cannot be translated reaches `onFailure` rather than being
+**`filterBy` is the page's crossfilter.** Its clauses are translated into scan's filter, and what
+does not survive is hidden; a clause that cannot be translated reaches `onFailure` rather than being
 dropped. A lasso or a click publishes the reader's pick back into it, exempting the graph itself.
 
 ## The pieces
@@ -61,9 +59,8 @@ dropped. A lasso or a click publishes the reader's pick back into it, exempting 
   commands drawn, and the focused vertex's row with a render prop for a product's own fields. No
   part takes a callback: what a click means is `onSelect`, `onFocus` and `onFailure` on the root.
 - `lookFrom`, `simFrom`, `useGraphPrefs` — the form and the forces from a preferences panel's
-  answers; `scaleOf` — what colour and shape a category wears; `adaptive` — simulation tuning by size.
-- `vertexId`, `typeOf`, `denseOf` — a vertex is `(type_idx, dense_id)` packed into a `bigint`, and
-  everything that outlives one composition is held as one.
+  answers; `scaleOf` — what colour and shape a category wears.
+- `VertexId` — a vertex is its `dense_id`, a `number`.
 
 ## Why a package, and not part of `@kanzo-tech/ui`
 

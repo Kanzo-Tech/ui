@@ -1,7 +1,9 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Selection, clauseInterval } from "@kanzo-tech/mosaic";
 import { fakeCorpus } from "../../test/corpus";
+import { graphClient } from "../core/filter";
 import { createGraph } from "../core/store";
 
 /**
@@ -61,22 +63,22 @@ afterEach(() => vi.restoreAllMocks());
 
 async function drawing() {
   const fake = fakeCorpus();
-  const store = createGraph({ corpus: fake.corpus, fill: "cluster_id", r: "degree", onFailure: () => {} });
+  const crossfilter = Selection.crossfilter();
+  const store = createGraph({ corpus: fake.corpus, fill: "cluster_id", filterBy: crossfilter, r: "degree", onFailure: () => {} });
   const host = document.createElement("div");
-  host.getBoundingClientRect = () => ({ width: 300, height: 100 }) as DOMRect;
   const renderer = createRenderer(host, store);
   await fake.settle();
   await frame();
-  return { fake, renderer, store };
+  return { crossfilter, fake, renderer, store };
 }
 
 describe("the renderer's frame", () => {
-  it("uploads each buffer once for a change of tiles, and renders once", async () => {
+  it("uploads positions and links once per corpus, and renders once", async () => {
     await drawing();
     expect(count("positions")).toBe(1);
     expect(count("links")).toBe(1);
     expect(count("colors")).toBe(1);
-    // One from the frame; the other is the first paint of the background before any tile.
+    // One from the frame; the other is the first paint of the background before anything loaded.
     expect(count("render")).toBe(2);
   });
 
@@ -93,23 +95,33 @@ describe("the renderer's frame", () => {
     expect(count("render")).toBe(1);
   });
 
-  it("uploads nothing when an update selects the same visible set", async () => {
-    const { store } = await drawing();
+  it("uploads positions alone for a filter", async () => {
+    const { crossfilter, fake } = await drawing();
     calls.length = 0;
-    store.setViewport({ xMin: 0, xMax: 3, yMin: 0, yMax: 1 });
-    store.setViewport({ xMin: 0, xMax: 3, yMin: 0, yMax: 1 });
+    crossfilter.update(clauseInterval("degree", [2, 5], { source: graphClient() }));
+    await fake.settle();
     await frame();
-    expect(calls.filter((call) => call !== "render")).toEqual([]);
-    expect(count("render")).toBe(0);
+    expect(calls.filter((call) => !call.startsWith("config:"))).toEqual(["positions", "render"]);
   });
 
-  it("frames the corpus's extent before it reads anything, and only once", async () => {
+  it("a camera move notifies nobody", async () => {
+    const { store } = await drawing();
+    const heard = vi.fn();
+    store.subscribe(heard);
+    calls.length = 0;
+    (constructed[0]?.onZoom as () => void)();
+    await frame();
+    expect(heard).not.toHaveBeenCalled();
+    expect(calls).toEqual([]);
+  });
+
+  it("frames the corpus's extent before it draws anything, and only once", async () => {
     const { store } = await drawing();
     const framed = calls.indexOf("config:spaceSize");
     expect(framed).toBeGreaterThanOrEqual(0);
     expect(framed).toBeLessThan(calls.indexOf("positions"));
     expect(calls.indexOf("fit")).toBeLessThan(calls.indexOf("positions"));
-    store.setViewport({ xMin: 4, xMax: 8, yMin: 0, yMax: 1 });
+    store.setOptions({ ...store.getOptions(), r: "cluster_id" });
     await frame();
     expect(calls.filter((call) => call === "config:spaceSize")).toHaveLength(1);
   });
@@ -121,12 +133,10 @@ describe("the renderer's frame", () => {
   });
 
   it("a selection sets config and calls no render and no setter", async () => {
-    const { renderer, store } = await drawing();
-    const vertex = renderer?.resident().at(0);
-    if (vertex === undefined) throw new Error("nothing was drawn");
+    const { store } = await drawing();
     calls.length = 0;
-    store.select([vertex]);
-    store.focus(vertex);
+    store.select([3]);
+    store.focus(3);
     await frame();
     expect(calls.length).toBeGreaterThan(0);
     expect(calls.filter((call) => !call.startsWith("config:"))).toEqual([]);

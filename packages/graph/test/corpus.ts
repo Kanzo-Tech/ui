@@ -1,29 +1,19 @@
-import type {
-  Batch,
-  Corpus,
-  EdgeAnswer,
-  EdgesParams,
-  ScanParams,
-  ScanTask,
-  TileAddress,
-  TileMatrix,
-  TileMatrixSet,
-} from "@fossil-lang/corpus";
+import type { Batch, Corpus, Filter, Literal, Manifest, ScanParams, ScanTask } from "../src/core/corpus-contract";
 
 /**
- * A corpus on a line, small enough to count by hand: vertex `i` sits at `(i, 0)`, a payload tile
- * holds `tileRows` consecutive vertices, and every vertex links to the next. Below the payload one
- * rung of cells, four vertices a cell, each at its members' centroid, with the quotient linking each
- * cell to the next.
+ * A `fossil/1` corpus in memory, small enough to count by hand, answering the contract's `scan`.
  *
- * Reads are recorded and held until the test releases them, so a test can see what is in flight,
- * what was aborted, and what was never sent. A read is one call, and a call takes a batch of
- * addresses, as fossil's does.
+ * - `Person`, laid out: ids `0 … 9` at `(i, 0)`, `cluster_id = i % 4`, `degree = i + 1`.
+ * - `Place`, placed by the program's `lon`/`lat`: ids `10 … 15` at `(i, 1)`.
+ * - `Tag`, no position: ids `16 … 19`, never drawn.
+ * - `Person_knows_Person` links `i → i + 1`; `Person_livesIn_Place` links `i → 10 + i % 6`; and
+ *   `Person_tagged_Tag`, whose far end is not drawn, is never read.
+ *
+ * Reads are recorded and held until the test releases them, so a test can see what is in flight and
+ * what was aborted.
  */
 export interface Read {
-  readonly kind: "rows" | "edges";
-  readonly addresses: readonly TileAddress[];
-  readonly direction?: "src" | "dst";
+  readonly params: ScanParams;
   readonly signal?: AbortSignal;
   released: boolean;
   release(): void;
@@ -38,54 +28,140 @@ export interface FakeCorpus {
   readonly scans: ScanParams[];
 }
 
-const TYPE = "Node";
-const PER_CELL = 4;
+type Row = Record<string, Literal | null>;
 
-const column = (values: number[]) => ({ toArray: () => Float64Array.from(values) });
+const people: Row[] = Array.from({ length: 10 }, (_, i) => ({
+  dense_id: i,
+  subject: `https://example.org/person/${i}`,
+  x: i,
+  y: 0,
+  cluster_id: i % 4,
+  degree: i + 1,
+}));
+const places: Row[] = Array.from({ length: 6 }, (_, i) => ({
+  dense_id: 10 + i,
+  subject: `https://example.org/place/${i}`,
+  name: `Place ${i}`,
+  lon: i,
+  lat: 1,
+  degree: 1,
+}));
+const tags: Row[] = Array.from({ length: 4 }, (_, i) => ({ dense_id: 16 + i, subject: `https://example.org/tag/${i}` }));
+const knows: Row[] = Array.from({ length: 9 }, (_, i) => ({ src: i, dst: i + 1 }));
+const livesIn: Row[] = Array.from({ length: 10 }, (_, i) => ({ src: i, dst: 10 + (i % 6) }));
+const tagged: Row[] = [{ src: 0, dst: 16 }];
 
-function batch(columns: Record<string, number[]>): Batch {
-  const n = Object.values(columns)[0]?.length ?? 0;
-  return { numRows: n, getChild: (name) => (columns[name] ? column(columns[name]) : null) };
+const ROWS: Record<string, Row[]> = {
+  Person: people,
+  Place: places,
+  Tag: tags,
+  Person_knows_Person: knows,
+  Person_livesIn_Place: livesIn,
+  Person_tagged_Tag: tagged,
+};
+
+const prop = (name: string, type: string) => ({ name, type });
+const edge = (name: string, label: string, src: string, dst: string, count: number) => ({
+  name,
+  label,
+  path: `edge/${name}.parquet`,
+  source: { key: "src", references: src },
+  destination: { key: "dst", references: dst },
+  record_count: count,
+  properties: [prop("src", "uint32"), prop("dst", "uint32")],
+});
+
+export const MANIFEST: Manifest = {
+  format: "fossil/1",
+  vertex_tables: [
+    {
+      name: "Person",
+      path: "vertex/Person.parquet",
+      key: "dense_id",
+      identity: "subject",
+      record_count: people.length,
+      properties: [
+        prop("dense_id", "uint32"),
+        prop("subject", "string"),
+        prop("x", "float32"),
+        prop("y", "float32"),
+        prop("cluster_id", "uint32"),
+        prop("degree", "int32"),
+      ],
+      position: { by: "layout", x: "x", y: "y" },
+    },
+    {
+      name: "Place",
+      path: "vertex/Place.parquet",
+      key: "dense_id",
+      identity: "subject",
+      record_count: places.length,
+      properties: [
+        prop("dense_id", "uint32"),
+        prop("subject", "string"),
+        prop("name", "string"),
+        prop("lon", "float64"),
+        prop("lat", "float64"),
+        prop("degree", "int32"),
+      ],
+      position: { by: "program", x: "lon", y: "lat" },
+    },
+    {
+      name: "Tag",
+      path: "vertex/Tag.parquet",
+      key: "dense_id",
+      identity: "subject",
+      record_count: tags.length,
+      properties: [prop("dense_id", "uint32"), prop("subject", "string")],
+    },
+  ],
+  edge_tables: [
+    edge("Person_knows_Person", "knows", "Person", "Person", knows.length),
+    edge("Person_livesIn_Place", "livesIn", "Person", "Place", livesIn.length),
+    edge("Person_tagged_Tag", "tagged", "Person", "Tag", tagged.length),
+  ],
+};
+
+function compare(value: Literal | null, op: string, literal: Literal): boolean {
+  if (value === null) return false;
+  switch (op) {
+    case "=":
+      return value === literal;
+    case "!=":
+      return value !== literal;
+    case "<":
+      return value < literal;
+    case "<=":
+      return value <= literal;
+    case ">":
+      return value > literal;
+    default:
+      return value >= literal;
+  }
 }
 
-export function fakeCorpus({ tileRows = 4, vertices = 16 }: { tileRows?: number; vertices?: number } = {}): FakeCorpus {
+/** The contract's `Filter`, evaluated as SQL would: a comparison with a null is not a match. */
+function matches(row: Row, filter: Filter): boolean {
+  if ("and" in filter) return filter.and.every((f) => matches(row, f));
+  if ("or" in filter) return filter.or.some((f) => matches(row, f));
+  if ("not" in filter) return !matches(row, filter.not);
+  if ("bbox" in filter) return true;
+  const value = row[filter.column] ?? null;
+  if (!("value" in filter) && !("values" in filter)) return (value === null) === (filter.op === "is null");
+  if ("values" in filter) return value !== null && filter.values.includes(value) === (filter.op === "in");
+  return compare(value, filter.op, filter.value);
+}
+
+function batchOf(rows: readonly Row[], columns: readonly string[]): Batch {
+  return {
+    numRows: rows.length,
+    getChild: (name) => (columns.includes(name) ? { toArray: () => rows.map((row) => row[name] ?? null) } : null),
+  };
+}
+
+export function fakeCorpus(manifest: Manifest = MANIFEST): FakeCorpus {
   const reads: Read[] = [];
   const scans: ScanParams[] = [];
-  const cells = Math.ceil(vertices / PER_CELL);
-  const tilesOf = (rows: number) => Math.ceil(rows / tileRows);
-  const box = (lo: number, hi: number) => ({ x: lo, y: 0, w: hi - lo, h: 0 });
-
-  const payload: TileMatrix = {
-    z: 1,
-    kind: "rows",
-    count: BigInt(vertices),
-    shift: 0,
-    tileRows,
-    tiles: Array.from({ length: tilesOf(vertices) }, (_, tile) => {
-      const lo = tile * tileRows;
-      const hi = Math.min(vertices, lo + tileRows) - 1;
-      return { tile, rows: hi - lo + 1, bbox: box(lo, hi) };
-    }),
-  };
-  const rung: TileMatrix = {
-    z: 0,
-    kind: "cells",
-    count: BigInt(cells),
-    shift: 2,
-    tileRows,
-    tiles: Array.from({ length: tilesOf(cells) }, (_, tile) => {
-      const lo = tile * tileRows;
-      const hi = Math.min(cells, lo + tileRows) - 1;
-      return { tile, rows: hi - lo + 1, bbox: box(lo * PER_CELL, hi * PER_CELL + PER_CELL - 1) };
-    }),
-  };
-  const matrix: TileMatrixSet = {
-    type: TYPE,
-    extent: box(0, vertices - 1),
-    coordinates: "layout",
-    mode: { name: "community", column: "cluster_id", scale: "categorical", domain: 4, derivedBy: null },
-    tileMatrices: [rung, payload],
-  };
 
   const held = <T>(read: Omit<Read, "release" | "released">, answer: () => T): Promise<T> =>
     new Promise<T>((resolve, reject) => {
@@ -103,82 +179,24 @@ export function fakeCorpus({ tileRows = 4, vertices = 16 }: { tileRows?: number;
       reads.push(entry);
     });
 
-  const range = (address: TileAddress) => {
-    const lo = address.tile * tileRows;
-    const count = address.z === 1 ? vertices : cells;
-    return Array.from({ length: Math.max(0, Math.min(count, lo + tileRows) - lo) }, (_, i) => lo + i);
-  };
-
-  const corpus = {
+  const corpus: Corpus = {
     url: "fake://corpus",
-    types: {
-      vertices: [
-        {
-          type: TYPE,
-          count: BigInt(vertices),
-          fields: ["dense_id", "subject", "x", "y", "cluster_id", "degree"].map((name) => ({ name, type: "UINTEGER" })),
-          identity: "subject",
-          geometry: true,
-          indexed: false,
-          channels: [{ name: "community", column: "cluster_id", scale: "categorical", domain: 4, derivedBy: null }],
-        },
-      ],
-      edges: [],
-    },
-    tileMatrix: () => matrix,
-    scan(params: ScanParams) {
+    manifest,
+    scan(params) {
+      const rows = ROWS[params.table];
+      if (!rows) throw new Error(`no table ${params.table}`);
       scans.push(params);
-      const plan = (): ScanTask[] =>
-        matrix.tileMatrices.flatMap((m) =>
-          params.filter !== undefined && m.kind === "cells"
-            ? []
-            : m.tiles.map((t) => ({ type: TYPE, z: m.z, tile: t.tile, rows: t.rows, bbox: t.bbox, residual: null })),
-        );
-      const one = (address: TileAddress) => {
-        const only = params.filter && "op" in params.filter && params.filter.op === "=" ? Number(params.filter.value) : null;
-        const ids = range(address).filter((i) => only === null || i === only);
-        return address.z === 1
-            ? batch({ dense_id: ids, x: ids, y: ids.map(() => 0), cluster_id: ids.map((i) => i % 4), degree: ids.map((i) => i + 1) })
-            : batch({
-                cell_id: ids,
-                x: ids.map((c) => c * PER_CELL + 1.5),
-                y: ids.map(() => 0),
-                count: ids.map(() => PER_CELL),
-                mode: ids.map((c) => c % 4),
-              });
-      };
-      const read = (addresses: readonly TileAddress[], options: { signal?: AbortSignal } = {}) =>
-        held({ kind: "rows", addresses, signal: options.signal }, () => addresses.map(one));
+      const columns = params.select ?? Object.keys(rows[0] ?? {});
+      const plan = (): ScanTask[] => [{ table: params.table }];
+      const read = (_tasks: readonly ScanTask[], options: { signal?: AbortSignal } = {}) =>
+        held({ params, signal: options.signal }, () => {
+          const kept = rows.filter((row) => params.filter === undefined || matches(row, params.filter));
+          return [batchOf(kept.slice(0, params.limit ?? kept.length), columns)];
+        });
       return { params, plan, read };
     },
-    edges(params: EdgesParams): Promise<readonly EdgeAnswer[]> {
-      const { direction, from: addresses, signal } = params;
-      const declines = (from: TileAddress) => from.z === 0 && direction === "dst";
-      const answer = (from: TileAddress): EdgeAnswer => {
-        if (declines(from)) return { batches: [], declined: [{ edgeType: "linksTo", direction, reason: "not-declared" }] };
-        const ids = range(from);
-        const last = (from.z === 1 ? vertices : cells) - 1;
-        const pairs = ids
-          .map((i) => (direction === "src" ? [i, i + 1] : [i - 1, i]))
-          .filter(([a, b]) => (a as number) >= 0 && (b as number) <= last);
-        return {
-          batches: [
-            {
-              edgeType: "linksTo",
-              srcType: TYPE,
-              dstType: TYPE,
-              src: BigUint64Array.from(pairs.map(([a]) => BigInt(a as number))),
-              dst: BigUint64Array.from(pairs.map(([, b]) => BigInt(b as number))),
-              weight: from.z === 1 ? null : BigUint64Array.from(pairs.map(() => 3n)),
-            },
-          ],
-          declined: [],
-        };
-      };
-      if (addresses.every(declines)) return Promise.resolve(addresses.map(answer));
-      return held({ kind: "edges", addresses, direction, signal }, () => addresses.map(answer));
-    },
-  } as unknown as Corpus;
+    close: () => Promise.resolve(),
+  };
 
   return {
     corpus,
@@ -190,7 +208,7 @@ export function fakeCorpus({ tileRows = 4, vertices = 16 }: { tileRows?: number;
         await new Promise((resolve) => setTimeout(resolve, 0));
         const waiting = open();
         if (waiting.length === 0) {
-          await new Promise((resolve) => setTimeout(resolve, 100));
+          await new Promise((resolve) => setTimeout(resolve, 20));
           if (open().length === 0) return;
           continue;
         }

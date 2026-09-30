@@ -1,7 +1,7 @@
 import type { GraphConfig } from "@cosmos.gl/graph";
 import { CHART_SLOTS, categoricalCapacity, categoricalColor } from "@kanzo-tech/ui";
 import { isColour, type Channels } from "../core/channels";
-import type { Composition } from "./compose";
+import type { Encoding, Geometry } from "../core/load";
 import { resolveToken, toHex, type Rgba } from "./css-color";
 import { SHAPE_INDEX, SHAPE_ORDER, SHAPE_OTHER, type Look, type Shape } from "./graph-looks";
 import type { Sim } from "./graph-sim";
@@ -33,19 +33,17 @@ export interface Paint {
   sizes: Float32Array;
   shapes: Float32Array;
   linkColors: Float32Array;
-  linkWidths: Float32Array;
 }
 
 /**
- * Every per-point and per-link attribute, from one composition and the live theme — what a look or a
- * theme change re-uploads, and all it re-uploads.
+ * Every per-point and per-link attribute, from the loaded graph and the live theme — what a binding,
+ * a look or a theme change re-uploads, and all it re-uploads.
  *
  * `host` is the element the tokens are read against, so `var(--primary)` resolves for the tree the
- * canvas sits in. The ramp is `√value` over **this composition** — the biggest node here is what a
- * reader is looking at. A far end past `marks` is drawn at radius zero and alpha zero: it is in the
- * buffers only so an edge has somewhere to end.
+ * canvas sits in. The ramp is `√value` over the whole graph, and a vertex with no value takes the
+ * smallest radius.
  */
-export function paint(composition: Composition, look: Look, host: Element, channels: Channels = {}): Paint {
+export function paint(geometry: Geometry, encoding: Encoding, look: Look, host: Element, channels: Channels = {}): Paint {
   const scale = scaleOf(channels, categoricalCapacity(host));
   const rgba = new Map<number, Rgba>();
   const colourOf = (ordinal: number): Rgba => {
@@ -53,17 +51,17 @@ export function paint(composition: Composition, look: Look, host: Element, chann
     if (!resolved) rgba.set(ordinal, (resolved = resolveToken(host, scale.color(ordinal))));
     return resolved;
   };
-  const n = composition.positions.length / 2;
+  const n = geometry.size;
   const colors = new Float32Array(n * 4);
   const sizes = new Float32Array(n);
   const shapes = new Float32Array(n);
-  const ramp = composition.sizes;
+  const ramp = encoding.sizes;
   let lo = 0;
   let span = 1;
-  if (ramp && composition.marks > 0) {
+  if (ramp) {
     let min = Number.POSITIVE_INFINITY;
     let max = 0;
-    for (let i = 0; i < composition.marks; i++) {
+    for (let i = 0; i < n; i++) {
       const value = ramp[i] as number;
       if (value < min) min = value;
       if (value > max) max = value;
@@ -71,30 +69,28 @@ export function paint(composition: Composition, look: Look, host: Element, chann
     lo = Math.sqrt(Number.isFinite(min) ? min : 0);
     span = Math.sqrt(max) - lo || 1;
   }
-  for (let i = 0; i < composition.marks; i++) {
-    const ordinal = composition.categories[i] ?? 0;
+  for (let i = 0; i < n; i++) {
+    const ordinal = encoding.ranks[i] ?? 0;
     colors.set(colourOf(ordinal), i * 4);
-    const t = ramp ? (Math.sqrt(ramp[i] as number) - lo) / span : 0;
+    const value = ramp ? (ramp[i] as number) : Number.NaN;
+    const t = Number.isNaN(value) ? 0 : (Math.sqrt(value) - lo) / span;
     sizes[i] = look.size[0] + t * (look.size[1] - look.size[0]);
     shapes[i] = SHAPE_INDEX[scale.shape(ordinal)] as number;
   }
 
-  const count = composition.links.length / 2;
+  const count = geometry.links.length / 2;
   const linkColors = new Float32Array(count * 4);
-  const linkWidths = new Float32Array(count);
   const neutral = channels.stroke ? resolveToken(host, channels.stroke) : null;
   for (let e = 0; e < count; e++) {
-    const src = composition.links[e * 2] ?? 0;
+    const src = geometry.links[e * 2] ?? 0;
     // Link alpha stays 1: `linkOpacity` and the distance fade multiply into it, and a second
     // opacity here would compound with both.
-    linkColors.set(
-      neutral ? [neutral[0], neutral[1], neutral[2], 1] : [colors[src * 4] ?? 0.7, colors[src * 4 + 1] ?? 0.7, colors[src * 4 + 2] ?? 0.7, 1],
-      e * 4,
-    );
-    const weight = composition.weights?.[e] ?? 1;
-    linkWidths[e] = look.link.width * (1 + Math.log2(Math.max(1, weight)) / 2);
+    linkColors[e * 4] = neutral ? neutral[0] : (colors[src * 4] ?? 0.7);
+    linkColors[e * 4 + 1] = neutral ? neutral[1] : (colors[src * 4 + 1] ?? 0.7);
+    linkColors[e * 4 + 2] = neutral ? neutral[2] : (colors[src * 4 + 2] ?? 0.7);
+    linkColors[e * 4 + 3] = 1;
   }
-  return { colors, sizes, shapes, linkColors, linkWidths };
+  return { colors, sizes, shapes, linkColors };
 }
 
 /** The simulation coefficients, in cosmos.gl's spelling. Shared by construction and every change. */

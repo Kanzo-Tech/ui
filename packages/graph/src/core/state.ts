@@ -1,12 +1,10 @@
-import type { Corpus, Gap, TileAddress, TileMatrixSet } from "@fossil-lang/corpus";
 import type { Selection as Crossfilter } from "@kanzo-tech/mosaic";
 import type { LookPatch } from "../render/graph-looks";
 import type { Sim } from "../render/graph-sim";
 import type { Binding, Channels } from "./channels";
-import type { VertexId } from "./resident";
-import type { TileContent } from "./tile";
-import type { Viewport } from "./tile-matrix";
-import type { Motion, Selection, SelectionSource, Tool } from "./types";
+import type { Corpus } from "./corpus-contract";
+import type { Encoding, Geometry } from "./load";
+import type { Motion, Selection, SelectionSource, Tool, VertexId } from "./types";
 
 export interface GraphOptions extends Channels {
   /**
@@ -14,22 +12,17 @@ export interface GraphOptions extends Channels {
    * *opening* a state the graph can report; `null` is no corpus at all.
    */
   corpus: Corpus | PromiseLike<Corpus> | null;
-  /** The vertex type drawn. The first type with a position when absent. */
-  type?: string;
   /** Which column the size ramp is spent on — Plot's `r`. */
   r?: string;
-  /** Which column a label and the hover card show — Plot's `title`. */
+  /** Which column a label and the hover card show — Plot's `title`. Absent, each table's `identity`. */
   title?: string;
   /**
-   * What the categorical channel's values are called, keyed by value. For a column the manifest's
-   * `channels:` declares, the ordinals rank themselves and this only names them; for one it does not,
-   * the keys' order is also the rank, so a colour never moves because a tile arrived.
+   * What the categorical channel's values are called, keyed by value; the keys' order is also the
+   * rank, so a colour never moves because a row arrived. With colour by type, the keys are table names.
    */
   categories?: Readonly<Record<string, string>>;
-  /** The page's crossfilter: its clauses filter what is read, and the reader's pick is published into it. */
+  /** The page's crossfilter: its clauses filter what is drawn, and the reader's pick is published into it. */
   filterBy?: Crossfilter;
-  /** The most marks drawn at once; a coarser zoom is chosen above it. */
-  limit?: number;
   /** Form: a patch over this package's own look. Memoise it — its identity is what repaints. */
   look?: LookPatch;
   /** The force coefficients, as a patch over this package's own. */
@@ -47,36 +40,30 @@ export interface GraphOptions extends Channels {
 
 /**
  * Where the graph is in its life. `none` is no corpus; `opening` is a corpus promised and not yet
- * open; `reading` is a tile in view not yet read or not yet drawn; `idle` is everything in view
- * drawn; `failed` is a corpus that would not open, a type it cannot draw, or a canvas that could not
- * start a renderer.
+ * open; `loading` is the graph, a binding or a filter not yet read or not yet drawn; `idle` is all of
+ * it drawn; `failed` is a corpus that would not open or read, or a canvas that could not start a
+ * renderer.
  */
-export type GraphStatus = "none" | "opening" | "reading" | "idle" | "failed";
+export type GraphStatus = "none" | "opening" | "loading" | "idle" | "failed";
 
-/** What is on the canvas, as the renderer composed it. */
+/** What the loaded graph holds, under the page's filter. */
 export interface Drawn {
-  /** Points drawn — vertices and cells. */
-  readonly marks: number;
-  /** Vertices those marks stand for: a cell counts its members. */
-  readonly represented: number;
-  /** What each category rank is: the declared or named values first, then any other seen, in rank order. */
+  /** Vertices drawn: every one with a position that survives the filter. */
+  readonly vertices: number;
+  /** What each category rank is: the seed first, then any other value seen, in rank order. */
   readonly domain: readonly unknown[];
-  /** Per rank, the vertices drawn marks stand for. */
+  /** Per rank, the vertices drawn. */
   readonly tally: readonly number[];
 }
 
 /** What a host and the parts read, through `useGraphState`. */
 export interface GraphState {
   readonly status: GraphStatus;
-  /** Vertices of the drawn type, from the manifest — it does not shrink with a filter. */
+  /** Vertices of the drawn types, from the manifest — it does not shrink with a filter. */
   readonly total: number | undefined;
-  /** The zoom drawn, coarsest `0`; the payload is the last. */
-  readonly z: number | null;
-  /** Whether a tile in view is still being read. */
-  readonly pending: boolean;
-  /** What is on the canvas, or `null` before the first composition. */
+  /** What is loaded, or `null` before the graph has loaded. */
   readonly drawn: Drawn | null;
-  /** The categorical domain before anything is drawn: the manifest's ordinals, or the host's names. */
+  /** The categorical domain before anything is loaded: the drawn tables, or the host's names. */
   readonly domain: readonly unknown[];
   readonly selection: Selection | null;
   readonly focus: VertexId | null;
@@ -86,32 +73,18 @@ export interface GraphState {
   readonly motion: Motion;
   /** How far through settling a live layout is, `0`–`1`. */
   readonly progress: number;
-  /** Relations the corpus declined to answer, with fossil's reason. */
-  readonly declined: readonly Gap[];
   /** The options as given, with the corpus once it is open. */
   readonly options: GraphOptions;
   readonly corpus: Corpus | null;
 }
 
-/** One tile the picture is made of: where it is, and what it holds. */
-export interface TileView {
-  readonly address: TileAddress;
-  readonly kind: "rows" | "cells";
-  readonly content: TileContent;
-}
-
-/** The state, plus what only the renderer reads. */
+/** The state, plus what only the renderer and the parts read. */
 export interface GraphSnapshot extends GraphState {
-  readonly matrix: TileMatrixSet | null;
-  /** The drawn type's position in `corpus.types.vertices` — the type half of a `VertexId`. */
-  readonly typeIndex: number;
   readonly binding: Binding;
-  /** The payload column a cell's `mode` is the majority of, or `null` where the tree names none. */
-  readonly modeColumn: string | null;
-  /** Tiles drawn now; the same array until the set changes. */
-  readonly visible: readonly TileView[];
-  /** Every tile holding content — where a far end is looked up. */
-  readonly cached: readonly TileView[];
+  readonly geometry: Geometry | null;
+  readonly encoding: Encoding | null;
+  /** `1` where a vertex survives the page's filter; `null` when nothing is filtered. */
+  readonly mask: Uint8Array | null;
 }
 
 /**
@@ -125,8 +98,6 @@ export interface GraphStore {
   getOptions(): GraphOptions;
   setOptions(options: GraphOptions): void;
   destroy(): void;
-  /** The camera, from the renderer: the rectangle in view. */
-  setViewport(viewport: Viewport): void;
   select(vertices: readonly VertexId[] | null, source?: SelectionSource, label?: string): void;
   focus(vertex: VertexId | null): void;
   hover(vertex: VertexId | null): void;
@@ -134,8 +105,8 @@ export interface GraphStore {
   setTool(tool: Tool): void;
   report(motion: Motion): void;
   reportProgress(value: number): void;
-  /** Whether the canvas has a renderer: without one nothing in view will ever be drawn. */
+  /** Whether the canvas has a renderer: without one nothing will ever be drawn. */
   setRenderable(renderable: boolean): void;
-  /** The renderer drew `visible`; `drawn` is what it composed, or `null` when the set was unchanged. */
-  reportDrawn(visible: readonly TileView[], drawn: Drawn | null): void;
+  /** The renderer uploaded this snapshot's geometry, encoding and mask. */
+  reportDrawn(snapshot: GraphSnapshot): void;
 }

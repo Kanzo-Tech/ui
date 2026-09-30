@@ -3,12 +3,13 @@
 import { categoricalCapacity, cn, Show, useThemeTick } from "@kanzo-tech/ui";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { nameOf } from "../core/categories";
-import { denseOf, type VertexId } from "../core/resident";
+import { readTitles } from "../core/detail";
+import type { Encoding, Geometry } from "../core/load";
 import type { GraphOptions } from "../core/state";
+import type { VertexId } from "../core/types";
 import { useGraphContext } from "../react/graph-root";
 import { internalsOf } from "../react/use-graph";
-import { useGraphState } from "../react/use-graph-state";
-import type { Composition } from "../render/compose";
+import { useGraphSnapshot, useGraphState } from "../react/use-graph-state";
 import { resolveLook } from "../render/graph-looks";
 import { scaleOf } from "../render/graph-model";
 import { cursorChip, useGesture } from "./gesture";
@@ -22,31 +23,50 @@ export interface GraphCanvasProps extends React.ComponentProps<"div"> {
 
 const WASH = "var(--brand-a5)";
 
-interface Label {
-  vertex: VertexId;
-  text: string;
+/**
+ * The biggest `budget` surviving vertices by the ramp, the focused one first. One pass, keeping the
+ * best few in order: a sort of every vertex to name twenty-six of them is the cost this avoids.
+ */
+function labelled(geometry: Geometry, encoding: Encoding, mask: Uint8Array | null, budget: number, focus: VertexId | null): VertexId[] {
+  const ramp = encoding.sizes;
+  const best: VertexId[] = [];
+  if (ramp && budget > 0) {
+    for (let id = 0; id < geometry.size; id++) {
+      const value = ramp[id] as number;
+      if ((mask && !mask[id]) || Number.isNaN(value)) continue;
+      if (best.length === budget && value <= (ramp[best[budget - 1] as number] as number)) continue;
+      let at = best.length;
+      while (at > 0 && (ramp[best[at - 1] as number] as number) < value) at--;
+      best.splice(at, 0, id);
+      if (best.length > budget) best.pop();
+    }
+  }
+  return focus === null || best.includes(focus) ? best : [focus, ...best];
 }
 
-/** The biggest `budget` vertices by the ramp, the focused one first, each with its `title`. */
-function labelsOf(composition: Composition, budget: number, focus: VertexId | null): Label[] {
-  const titles = composition.titles;
-  if (!titles || budget <= 0) return [];
-  const order = Array.from({ length: composition.vertices }, (_, i) => i);
-  const ramp = composition.sizes;
-  if (ramp) order.sort((a, b) => (ramp[b] ?? 0) - (ramp[a] ?? 0));
-  const chosen = order.slice(0, budget);
-  const focused = focus === null ? undefined : composition.resident.indexOf(focus);
-  if (focused !== undefined && !chosen.includes(focused)) chosen.unshift(focused);
-  return chosen.flatMap((i) => {
-    const vertex = composition.resident.at(i);
-    const text = titles[i];
-    return vertex === undefined || !text ? [] : [{ vertex, text }];
-  });
+/** A label's text is read for the vertices that carry one, never carried for every vertex. */
+function useTitles(vertices: readonly VertexId[]): ReadonlyMap<VertexId, string> {
+  const api = useGraphContext();
+  const corpus = useGraphState((s) => s.corpus);
+  const title = useGraphState((s) => s.options.title);
+  const geometry = useGraphSnapshot((s) => s.geometry);
+  const [titles, setTitles] = useState<ReadonlyMap<VertexId, string>>(() => new Map());
+  const key = vertices.join(",");
+  useEffect(() => {
+    if (!corpus || !geometry || key === "") return;
+    const aborter = new AbortController();
+    readTitles(corpus, geometry, key.split(",").map(Number), title, aborter.signal).then(
+      (found) => !aborter.signal.aborted && setTitles(found),
+      (error: unknown) => !aborter.signal.aborted && api.getState().options.onFailure(error instanceof Error ? error.message : String(error)),
+    );
+    return () => aborter.abort();
+  }, [api, corpus, geometry, key, title]);
+  return titles;
 }
 
 const WAITING: Partial<Record<string, string>> = {
   opening: "Opening the corpus…",
-  reading: "Reading the corpus…",
+  loading: "Loading the graph…",
 };
 
 /**
@@ -69,15 +89,17 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
   const waiting = useGraphState((s) => (s.drawn === null ? WAITING[s.status] : undefined));
   const look = useMemo(() => resolveLook(options.look), [options.look]);
   const getGraph = useCallback(() => renderer()?.graph ?? null, [renderer]);
-  const overlays = useOverlays({ getGraph, getResident: api.getResident });
+  const overlays = useOverlays({ getGraph });
   const { cardRef, gridRef, hostRef, hoverAt, labelRef, schedule, setHovered, setLabelOrder, track } = overlays;
   const surfaceRef = useRef<HTMLDivElement>(null);
-  const [composition, setComposition] = useState<Composition | null>(null);
+  const geometry = useGraphSnapshot((s) => s.geometry);
+  const encoding = useGraphSnapshot((s) => s.encoding);
+  const mask = useGraphSnapshot((s) => s.mask);
 
   useEffect(() => {
     const surface = surfaceRef.current;
     if (!surface) return;
-    return attach(surface, { onFrame: schedule, onComposed: setComposition, onHover: hoverAt });
+    return attach(surface, { onFrame: schedule, onHover: hoverAt });
   }, [attach, hoverAt, schedule]);
 
   const themeTick = useThemeTick();
@@ -85,9 +107,14 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
     renderer()?.repaint();
   }, [renderer, themeTick]);
 
+  const labelledIds = useMemo(
+    () => (geometry && encoding ? labelled(geometry, encoding, mask, look.labels, focus) : []),
+    [geometry, encoding, mask, focus, look.labels],
+  );
+  const titles = useTitles(labelledIds);
   const labels = useMemo(
-    () => (composition ? labelsOf(composition, look.labels, focus) : []),
-    [composition, focus, look.labels],
+    () => labelledIds.flatMap((vertex) => (titles.get(vertex) ? [{ vertex, text: titles.get(vertex) as string }] : [])),
+    [labelledIds, titles],
   );
   useEffect(() => {
     setLabelOrder(labels.map((label) => label.vertex));
@@ -97,7 +124,6 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
 
   const gesture = useGesture({
     getGraph,
-    getResident: api.getResident,
     getSelection: useCallback(() => api.getState().selection, [api]),
     commit: (vertices, source, label) => api.select(vertices ? [...vertices] : null, source, label),
     setTool: api.setTool,
@@ -141,8 +167,8 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
         ))}
         <HoverCard
           cardRef={cardRef}
-          composition={composition}
           domain={domain}
+          encoding={encoding}
           options={options}
           scale={scale}
           schedule={schedule}
@@ -201,8 +227,8 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
 
 interface HoverCardProps {
   cardRef: React.RefObject<HTMLDivElement | null>;
-  composition: Composition | null;
   domain: readonly unknown[];
+  encoding: Encoding | null;
   options: GraphOptions;
   scale: ReturnType<typeof scaleOf>;
   schedule: () => void;
@@ -210,18 +236,17 @@ interface HoverCardProps {
 }
 
 /** The only part that re-renders on a hover: the canvas and its labels do not. */
-function HoverCard({ cardRef, composition, domain, options, scale, schedule, setHovered }: HoverCardProps) {
+function HoverCard({ cardRef, domain, encoding, options, scale, schedule, setHovered }: HoverCardProps) {
   const hovered = useGraphState((s) => s.hovered);
+  const titles = useTitles(useMemo(() => (hovered === null ? [] : [hovered]), [hovered]));
   useEffect(() => {
     setHovered(hovered);
     schedule();
-  }, [hovered, schedule, setHovered]);
+  }, [hovered, schedule, setHovered, titles]);
 
-  const index = hovered === null ? undefined : composition?.resident.indexOf(hovered);
-  if (hovered === null || !composition || index === undefined) return null;
-  const rank = composition.categories[index] ?? 0;
-  const bound = options.fill !== undefined || options.symbol !== undefined;
-  const category = bound && rank < domain.length ? nameOf(domain[rank], options.categories) : null;
+  if (hovered === null || !encoding || hovered >= encoding.ranks.length) return null;
+  const rank = encoding.ranks[hovered] ?? 0;
+  const category = rank < domain.length ? nameOf(domain[rank], options.categories) : null;
   return (
     <div
       className="absolute top-0 left-0 flex w-max max-w-60 items-center gap-2 rounded-lg border bg-popover px-2.5 py-2 opacity-0 shadow-lg"
@@ -230,7 +255,7 @@ function HoverCard({ cardRef, composition, domain, options, scale, schedule, set
     >
       <ShapeGlyph className="size-2.5 shrink-0" color={scale.color(rank)} shape={scale.shape(rank)} />
       <span className="truncate font-medium text-popover-foreground text-sm leading-none">
-        {composition.titles?.[index] || `#${denseOf(hovered)}`}
+        {titles.get(hovered) || `#${hovered}`}
       </span>
       <Show when={category !== null}>
         <span className="text-muted-foreground text-xs">{category}</span>

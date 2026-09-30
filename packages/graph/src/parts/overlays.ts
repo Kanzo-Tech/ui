@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import type { Graph } from "@cosmos.gl/graph";
-import type { Resident, VertexId } from "../core/resident";
+import type { VertexId } from "../core/types";
 
 /**
  * Everything that floats over the canvas and has to keep up with it: the hub labels, the hover
@@ -13,11 +13,8 @@ import type { Resident, VertexId } from "../core/resident";
  * overlays move by imperative style writes, and a re-render per frame would be a re-render per
  * frame.
  *
- * **An overlay is attached to a vertex, not to a slot.** Everything here outlives an answer — a
- * label element is kept across renders, a hover survives a query — so the tracked set is identities
- * and the buffer index is resolved through `Resident` at the moment of painting. Held as indices, a
- * label would keep its position and change which node it was naming the first time the resident set
- * moved, with the text and the dot disagreeing and nothing raised.
+ * **An overlay is attached to a vertex**, and a vertex's id is its index in the buffers, so the
+ * tracked set is the ids themselves. A vertex the page's filter hides has no position, and no overlay.
  *
  * This lived inside the canvas component among seven other concerns, and that is not a filing
  * detail: the scheduler below once kept a cancelled `requestAnimationFrame` handle in `frame`,
@@ -74,13 +71,12 @@ export interface GraphOverlays {
 }
 
 /**
- * The labels, the hover card and the grid, positioned from the renderer every frame: points are
- * tracked by index through the resident map, and every overlay is held by identity.
+ * The labels, the hover card and the grid, positioned from the renderer every frame.
  */
-export function useOverlays(api: { getGraph: () => Graph | null; getResident: () => Resident }): GraphOverlays {
-  // Both are built once by `useGraph` and are stable for the life of the component, which is what
-  // makes them safe to name in the dependency arrays below.
-  const { getGraph, getResident } = api;
+export function useOverlays(api: { getGraph: () => Graph | null }): GraphOverlays {
+  // Built once by the canvas and stable for its life, which is what makes it safe to name in the
+  // dependency arrays below.
+  const { getGraph } = api;
   const hostRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -109,13 +105,12 @@ export function useOverlays(api: { getGraph: () => Graph | null; getResident: ()
   const track = useCallback(() => {
     const graph = getGraph();
     if (!graph) return;
-    graph.trackPointPositionsByIndices(getResident().indicesOf(order.current));
-  }, [getGraph, getResident]);
+    graph.trackPointPositionsByIndices(order.current);
+  }, [getGraph]);
 
   const paint = useCallback(() => {
     const graph = getGraph();
     if (!graph) return;
-    const resident = getResident();
     /**
      * Positions come from the tracking API, not from `getPointPositions()`.
      *
@@ -129,19 +124,11 @@ export function useOverlays(api: { getGraph: () => Graph | null; getResident: ()
     // Read lazily: with labels off and nothing hovered, the only overlay left is the grid, which
     // needs the transform and not the points.
     let positions: ReadonlyMap<number, [number, number]> | null = null;
-    /**
-     * Where a vertex is on screen, or `null` when it is not drawn at all.
-     *
-     * Two ways to be absent and they are one answer here: not resident — the query moved on and this
-     * vertex is not in the current buffers — or resident and not yet tracked. Both mean *do not draw
-     * an overlay for it*, and the alternative to asking is drawing it at whatever the stale index now
-     * holds, which is a label on the wrong node.
-     */
+    /** Where a vertex is in space, or `null` when it is not tracked yet or has no position. */
     const at = (vertex: VertexId): [number, number] | null => {
-      const index = resident.indexOf(vertex);
-      if (index === undefined) return null;
       positions ??= graph.getTrackedPointPositionsMap();
-      return positions.get(index) ?? null;
+      const point = positions.get(vertex);
+      return point && !Number.isNaN(point[0]) ? point : null;
     };
 
     // Placed boxes, in importance order. A label that would land on one already down is dropped
@@ -203,7 +190,7 @@ export function useOverlays(api: { getGraph: () => Graph | null; getResident: ()
     const card = cardRef.current;
     const hovered = hoveredRef.current;
     if (card && hovered !== null && bounds) {
-      const point = resident.indexOf(hovered) === undefined ? null : hoveredAt.current;
+      const point = hoveredAt.current;
       if (point) {
         const [x, y] = graph.spaceToScreenPosition(point);
         let size = cardSize.current;
@@ -220,7 +207,7 @@ export function useOverlays(api: { getGraph: () => Graph | null; getResident: ()
         card.style.opacity = "1";
       }
     }
-  }, [getGraph, getResident]);
+  }, [getGraph]);
 
   // The canvas' box, measured when it changes rather than when it is read. `getBoundingClientRect()`
   // inside `paint` was one forced layout per animation frame, in a painter that caches `offsetWidth`

@@ -15,8 +15,11 @@
  * nothing.
  */
 
-import type { Box } from "@fossil-lang/corpus";
-import type { VertexId } from "./resident";
+/**
+ * A vertex: its `dense_id`, which fossil numbers `0 … V − 1` across every vertex table of the corpus.
+ * The drawn types take the first ids, so a drawn vertex's id is also its index in cosmos.gl's buffers.
+ */
+export type VertexId = number;
 
 /**
  * The selection tools, and the gesture that reaches them without a mode.
@@ -49,13 +52,6 @@ export type SelectionSource = "marquee" | "lasso" | "node" | "order" | "ask";
  * points at part of it.
  */
 export interface Selection {
-  /**
-   * Identities, never buffer indices.
-   *
-   * A selection is the one thing on this canvas guaranteed to outlive the answer that made it: a
-   * reader selects, pans, and expects to come back to it. An index would have been reused by then,
-   * and by a different vertex.
-   */
   vertices: VertexId[];
   source: SelectionSource;
   /** What the corner calls it. */
@@ -75,10 +71,5 @@ export interface GraphCommands {
   reveal(vertex: VertexId): void;
   /** Frame whatever the canvas currently has selected. */
   frameSelection(): void;
-  /**
-   * Frame a box in the corpus's coordinates — a tile's `bbox`, the extent, a window a host chose.
-   * The camera's only door: nothing outside the package reaches the renderer to move it.
-   */
-  frameBox(box: Box, options?: { duration?: number; padding?: number }): void;
   clear(): void;
 }

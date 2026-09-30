@@ -1,9 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Resident, VertexId } from "../core/resident";
 import { createGraph, type GraphOptions, type GraphState, type GraphStore } from "../core/store";
-import type { GraphCommands, SelectionSource, Tool } from "../core/types";
+import type { GraphCommands, SelectionSource, Tool, VertexId } from "../core/types";
 import { createRenderer, type Renderer, type RendererEvents } from "../render/renderer";
 
 export type UseGraphProps = GraphOptions;
@@ -21,8 +20,6 @@ export interface GraphApi extends GraphCommands {
   subscribe(listener: () => void): () => void;
   /** The state now, for a callback; a render reads it with `useGraphState`. */
   getState(): GraphState;
-  /** Who is drawn right now, to resolve a buffer index to an identity. */
-  getResident(): Resident;
 }
 
 /** What the parts in this package reach and a host does not: the element and the renderer. */
@@ -62,10 +59,10 @@ export function useGraph(props: UseGraphProps): GraphApi {
   const [api] = useState<GraphApi>(() => build(createGraph(forward(props))));
   const { store } = internalsOf(api);
 
-  const { categories, corpus, fill, filterBy, limit, look, r, sim, simulate, stroke, symbol, title, type } = props;
+  const { categories, corpus, fill, filterBy, look, r, sim, simulate, stroke, symbol, title } = props;
   useEffect(() => {
     store.setOptions(forward(latest.current));
-  }, [store, forward, categories, corpus, fill, filterBy, limit, look, r, sim, simulate, stroke, symbol, title, type]);
+  }, [store, forward, categories, corpus, fill, filterBy, look, r, sim, simulate, stroke, symbol, title]);
 
   // Subscribed here as well as by the parts, so the store's first-subscriber and last-subscriber
   // moves follow the root's lifetime and not whichever part happened to mount first.
@@ -83,7 +80,6 @@ function build(store: GraphStore): GraphApi {
   const api: GraphApi = {
     zoomBy: on("zoomBy"),
     fit: on("fit"),
-    frameBox: on("frameBox"),
     pause: on("pause"),
     resume: on("resume"),
     restart: on("restart"),
@@ -104,7 +100,6 @@ function build(store: GraphStore): GraphApi {
     setTool: (tool) => store.setTool(tool),
     subscribe: (listener) => store.subscribe(listener),
     getState: () => store.getSnapshot(),
-    getResident: () => renderer?.resident() ?? NOBODY,
   };
   INTERNALS.set(api, {
     store,
@@ -122,10 +117,3 @@ function build(store: GraphStore): GraphApi {
   return api;
 }
 
-const NOBODY: Resident = {
-  size: 0,
-  indexOf: () => undefined,
-  at: () => undefined,
-  indicesOf: () => [],
-  verticesAt: () => [],
-};

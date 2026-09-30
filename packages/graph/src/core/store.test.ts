@@ -1,15 +1,13 @@
+import { Selection, clauseInterval } from "@kanzo-tech/mosaic";
 import { describe, expect, it, vi } from "vitest";
-import { fakeCorpus } from "../../test/corpus";
+import { MANIFEST, fakeCorpus } from "../../test/corpus";
+import { graphClient } from "./filter";
 import { createGraph } from "./store";
-import type { Viewport } from "./tile-matrix";
 
 /**
- * The store with no React in it: what a subscriber hears, and how often. The adapter half is in
- * `react/graph-root.test.tsx`.
+ * The store with no React in it: what it reads, what a subscriber hears, and how often. The adapter
+ * half is in `react/graph-root.test.tsx`.
  */
-
-const near: Viewport = { xMin: 0.5, xMax: 2.5, yMin: -1, yMax: 1 };
-const far: Viewport = { xMin: -1, xMax: 17, yMin: -1, yMax: 1 };
 
 function subscribed() {
   const fake = fakeCorpus();
@@ -20,93 +18,107 @@ function subscribed() {
   return { fake, heard, onFailure, store, unsubscribe };
 }
 
+const tables = (scans: readonly { table: string }[]) => scans.map((scan) => scan.table);
+
 describe("the graph store", () => {
   it("holds a failure found while it is built, and reports it to the first subscriber", () => {
     // `useGraph` builds the store inside `useState`, so a failure found here is found during a
     // render, and a host's `onFailure` is usually a `setState` — React refuses it there.
-    const fake = fakeCorpus();
+    const fake = fakeCorpus({ ...MANIFEST, vertex_tables: MANIFEST.vertex_tables.filter((table) => !table.position) });
     const onFailure = vi.fn();
-    const corpus = {
-      ...fake.corpus,
-      tileMatrix: () => {
-        throw new Error("no such type");
-      },
-    };
-    const store = createGraph({ corpus, onFailure });
+    const store = createGraph({ corpus: fake.corpus, onFailure });
 
     expect(onFailure).not.toHaveBeenCalled();
 
     const unsubscribe = store.subscribe(() => {});
-    expect(onFailure).toHaveBeenCalledExactlyOnceWith("no such type");
+    expect(onFailure).toHaveBeenCalledExactlyOnceWith("the corpus has no vertex type with a position to draw");
 
     unsubscribe();
     store.subscribe(() => {});
     expect(onFailure).toHaveBeenCalledTimes(1);
   });
 
-  it("notifies subscribers once when a tile loads", async () => {
+  it("loads every vertex type with a position, indexed by its dense_id", async () => {
+    const { fake, store } = subscribed();
+    await fake.settle();
+    const { geometry, encoding } = store.getSnapshot();
+    expect(geometry?.tables.map((table) => table.name)).toEqual(["Person", "Place"]);
+    expect(geometry?.size).toBe(16);
+    expect(Array.from(geometry?.positions.subarray(6, 8) ?? [])).toEqual([3, 0]);
+    expect(Array.from(geometry?.positions.subarray(24, 26) ?? [])).toEqual([2, 1]);
+    expect(geometry?.table[12]).toBe(1);
+    expect(encoding?.sizes?.[3]).toBe(4);
+    expect(store.getSnapshot().drawn?.vertices).toBe(16);
+  });
+
+  it("loads the relations whose two ends are drawn, and no other", async () => {
+    const { fake, store } = subscribed();
+    await fake.settle();
+    expect(tables(fake.scans)).not.toContain("Person_tagged_Tag");
+    expect(tables(fake.scans)).not.toContain("Tag");
+    const links = store.getSnapshot().geometry?.links;
+    expect(links?.length).toBe(2 * (9 + 10));
+    expect(Array.from(links?.subarray(0, 2) ?? [])).toEqual([0, 1]);
+  });
+
+  it("notifies subscribers once when the graph loads", async () => {
     const { fake, heard, store } = subscribed();
-    store.setViewport(near);
     const before = heard.mock.calls.length;
     await fake.settle();
     expect(heard.mock.calls.length - before).toBe(1);
-    expect(store.getSnapshot().visible).toHaveLength(1);
-    expect(fake.reads.map((r) => `${r.kind}:${r.direction ?? ""}`)).toEqual(["rows:", "edges:src", "edges:dst"]);
+    expect(store.getSnapshot().geometry).not.toBeNull();
   });
 
   it("keeps getSnapshot stable between notifications", async () => {
     const { fake, heard, store } = subscribed();
-    store.setViewport(near);
     await fake.settle();
     const snapshot = store.getSnapshot();
     const calls = heard.mock.calls.length;
-    store.setViewport({ ...near });
-    store.setViewport({ ...near, xMax: 2.6 });
+    store.hover(null);
+    store.setTool(null);
     expect(heard.mock.calls.length).toBe(calls);
     expect(store.getSnapshot()).toBe(snapshot);
   });
 
-  it("plans once per question, never per camera move", async () => {
+  it("reads once per question, never per camera move", async () => {
     const { fake, store } = subscribed();
-    store.setViewport(near);
-    store.setViewport(far);
-    store.setViewport({ ...near, xMin: 4.5, xMax: 6.5 });
     await fake.settle();
-    expect(fake.scans).toHaveLength(1);
+    expect(tables(fake.scans)).toEqual(["Person", "Place", "Person_knows_Person", "Person_livesIn_Place"]);
+    const geometry = store.getSnapshot().geometry;
     store.setOptions({ ...store.getOptions(), r: "cluster_id" });
-    expect(fake.scans).toHaveLength(2);
-    expect(fake.scans[1]?.select).toContain("cluster_id");
+    await fake.settle();
+    expect(tables(fake.scans.slice(4))).toEqual(["Person", "Place"]);
+    expect(fake.scans[4]?.select).toEqual(["dense_id", "cluster_id"]);
+    expect(store.getSnapshot().geometry).toBe(geometry);
   });
 
   it("projects the bound columns and nothing a constant names", () => {
     const fake = fakeCorpus();
-    createGraph({ corpus: fake.corpus, fill: "var(--foreground)", symbol: "kind", title: "label", onFailure: () => {} });
-    expect(fake.scans[0]?.select).toEqual(["dense_id", "x", "y", "kind", "label"]);
+    createGraph({ corpus: fake.corpus, fill: "var(--foreground)", symbol: "cluster_id", title: "subject", onFailure: () => {} });
+    expect(fake.scans[0]?.select).toEqual(["dense_id", "x", "y", "cluster_id"]);
+    expect(fake.scans[1]?.select).toEqual(["dense_id", "lon", "lat"]);
   });
 
-  it("reads the payload at a close camera and a rung at a far one", async () => {
-    const { fake, store } = subscribed();
-    store.setOptions({ ...store.getOptions(), limit: 8 });
-    store.setViewport(far);
+  it("a filter masks the survivors and reads no geometry", async () => {
+    const fake = fakeCorpus();
+    const crossfilter = Selection.crossfilter();
+    const store = createGraph({ corpus: fake.corpus, filterBy: crossfilter, onFailure: () => {} });
+    store.subscribe(() => {});
     await fake.settle();
-    expect(store.getSnapshot().z).toBe(0);
-    store.setViewport(near);
+    const geometry = store.getSnapshot().geometry;
+    const before = fake.scans.length;
+    crossfilter.update(clauseInterval("cluster_id", [1, 1], { source: graphClient() }));
     await fake.settle();
-    expect(store.getSnapshot().z).toBe(1);
+    expect(fake.scans.slice(before).map((scan) => [scan.table, scan.select])).toEqual([["Person", ["dense_id"]]]);
+    expect(store.getSnapshot().geometry).toBe(geometry);
+    const mask = store.getSnapshot().mask;
+    expect([...Array(16).keys()].filter((id) => mask?.[id])).toEqual([1, 5, 9, 10, 11, 12, 13, 14, 15]);
+    expect(store.getSnapshot().drawn?.vertices).toBe(9);
   });
 
-  it("reports what the corpus declined, once per relation and direction", async () => {
-    const { fake, store } = subscribed();
-    store.setOptions({ ...store.getOptions(), limit: 4 });
-    store.setViewport(far);
-    await fake.settle();
-    expect(store.getSnapshot().declined).toEqual([]);
-  });
-
-  it("lets the tiles go when the last subscriber leaves", async () => {
-    const { fake, store, unsubscribe } = subscribed();
-    store.setViewport(near);
-    await new Promise((resolve) => setTimeout(resolve, 80));
+  it("lets the graph go when the last subscriber leaves", async () => {
+    const { fake, unsubscribe } = subscribed();
+    await new Promise((resolve) => setTimeout(resolve, 0));
     unsubscribe();
     expect(fake.reads[0]?.signal?.aborted).toBe(true);
   });
@@ -120,7 +132,7 @@ describe("the graph store", () => {
     resolve(fake.corpus);
     await promised;
     await Promise.resolve();
-    expect(store.getSnapshot().status).toBe("reading");
+    expect(store.getSnapshot().status).toBe("loading");
     expect(store.getSnapshot().total).toBe(16);
     store.setOptions({ ...store.getOptions(), corpus: null });
     expect(store.getSnapshot().status).toBe("none");
@@ -134,22 +146,30 @@ describe("the graph store", () => {
     expect(onFailure).toHaveBeenCalledExactlyOnceWith("no manifest");
   });
 
-  it("is idle only once everything in view is drawn", async () => {
+  it("is idle only once the graph is loaded and drawn", async () => {
     const { fake, store } = subscribed();
-    store.setViewport(near);
+    expect(store.getSnapshot().status).toBe("loading");
     await fake.settle();
-    const { visible } = store.getSnapshot();
-    expect(store.getSnapshot().status).toBe("reading");
-    store.reportDrawn(visible, { marks: 4, represented: 4, domain: [], tally: [] });
+    expect(store.getSnapshot().status).toBe("loading");
+    store.reportDrawn(store.getSnapshot());
     expect(store.getSnapshot().status).toBe("idle");
-    store.setViewport(far);
-    expect(store.getSnapshot().status).toBe("reading");
+    store.setOptions({ ...store.getOptions(), fill: "degree" });
+    expect(store.getSnapshot().status).toBe("loading");
   });
 
-  it("fixes the categorical domain from the manifest before a tile arrives", () => {
-    const { store } = subscribed();
-    expect(store.getSnapshot().domain).toEqual([0, 1, 2, 3]);
+  it("fixes the categorical domain before the graph loads", () => {
+    const fake = fakeCorpus();
+    const store = createGraph({ corpus: fake.corpus, onFailure: () => {} });
+    expect(store.getSnapshot().domain).toEqual(["Person", "Place"]);
     store.setOptions({ ...store.getOptions(), fill: "kind", categories: { beast: "Beast", tag: "Tag" } });
     expect(store.getSnapshot().domain).toEqual(["beast", "tag"]);
+  });
+
+  it("colours by vertex type unless fill binds a column", async () => {
+    const fake = fakeCorpus();
+    const store = createGraph({ corpus: fake.corpus, onFailure: () => {} });
+    store.subscribe(() => {});
+    await fake.settle();
+    expect(store.getSnapshot().drawn).toEqual({ vertices: 16, domain: ["Person", "Place"], tally: [10, 6] });
   });
 });

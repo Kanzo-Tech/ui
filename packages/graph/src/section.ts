@@ -117,7 +117,7 @@ export const GRAPH_SECTION: SectionManifest = {
       kind: "toggle",
       label: "Show links",
       default: "true",
-      doc: "Draw the edge layer at all. Past a few hundred thousand links it is fog that costs a draw call a frame, and `adaptive` says where that is.",
+      doc: "Draw the edge layer at all. Past a few hundred thousand links it is fog that costs a draw call a frame.",
     },
     grid: {
       kind: "toggle",
@@ -137,12 +137,8 @@ export const GRAPH_SECTION: SectionManifest = {
      *
      * The bounds are cosmos.gl's useful range rather than its legal one, and a stored value outside
      * them is declined: a slider that used to run to 5 and now stops at 3 must not paint 5 because
-     * storage remembers it.
-     *
-     * **`adaptive(nodes)` still exists and still knows better.** What a corpus of this size wants is
-     * computed, not chosen, and these defaults are tuned for a few hundred nodes. A host with a
-     * large corpus should start its users at `adaptive`'s answer through the tenant policy — which
-     * is the mechanism's own way of saying "start somewhere else" — rather than by writing values
+     * storage remembers it. These defaults are tuned for a few hundred nodes; a host with a large
+     * corpus starts its users elsewhere through the tenant policy, rather than by writing values
      * into storage nobody can then reset.
      */
     gravity: {
