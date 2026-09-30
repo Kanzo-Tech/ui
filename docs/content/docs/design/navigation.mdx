@@ -1,0 +1,202 @@
+---
+title: The navigation layer
+description: Why the unsaved-changes guard is a sibling package, why it copies TanStack Router's shape, why Next needs a door of its own, and why nothing in it patches history.
+---
+
+[The navigation guard pages](/docs/navigation-guard) are what `@kanzo-tech/navigation` ships. This
+page is why it is shaped that way. It was issue #6: keasy had a guard that patched
+`history.pushState`, it was removed as a hack, and what was left covered reload and close but no
+link inside the app.
+
+## A router integration is a sibling package
+
+`@kanzo-tech/navigation` is **not** in `@kanzo-tech/ui`. [Where specificity is allowed to
+live](/docs/philosophy#where-specificity-is-allowed-to-live) puts *any router integration* in the
+products, and this is one: nothing in it draws, and its only reason to exist is a router that
+commits too late. It lives in this repository for the build, the release and the guards, and it
+depends on nothing of `ui`'s, as [`@kanzo-tech/auth`](/docs/design/auth) does.
+
+The issue's own proposal was a `NavigationGuard` context that `SidebarMenuButton asChild`,
+`BreadcrumbLink` and `MenuItem asChild` would consult. It fails on the parts' own terms: **those
+parts never navigate.** `asChild` hands navigation to the child, and the child is the product's
+router link. It would also have covered only the links drawn with those parts — a second, partial
+guard beside whatever caught the rest.
+
+**What would reverse it:** a ruling that router integrations may live in `ui` — the philosophy
+sentence edited first — at which point this package collapses into a `ui/next` subpath, because it
+already has the shape of one.
+
+*Held by* `packages/ui/src/index.test.ts`, "keeps the navigation guard in its own package",
+`!NavigationGuard` and `!useBlocker`; `packages/navigation/package.json`, `//peers`.
+
+## One hook, in TanStack Router's shape
+
+`useBlocker({ shouldBlockFn, enableBeforeUnload, disabled, withResolver })` returning
+`{ status, current, next, action, proceed, reset }` is TanStack Router's API, name for name, and so
+are the semantics: blockers are asked in registration order, the first `true` blocks, `proceed`
+continues and `reset` stays, and a replayed navigation is not blocked a second time. It was picked
+over React Router's `useBlocker` (data routers only, SPA navigations only, no `action`, no
+`beforeunload`) and SvelteKit's `beforeNavigate` (the cleanest of the three, but `cancel()` is
+synchronous and has no resolver for a dialog of one's own). A product that moves to TanStack Router
+keeps its call sites.
+
+What differs is stated rather than hidden:
+
+- **`current` and `next` are URL parts**, not `{ routeId, fullPath, params }`: Next matches routes
+  on the server, and a client can only honestly name a URL.
+- **No `Block` component** — a render-prop spelling of the same hook is a second way to write it.
+  **No deprecated overloads** (`blockerFn`, `condition`), and **no `confirm` option**
+  (`next-navigation-guard`'s), because `withResolver` already is one.
+- **The options are read at navigation time, and the blocker registers once.** TanStack re-registers
+  whenever `shouldBlockFn` changes identity, which for an inline function is every render — and
+  which moves the blocker to the end of the order. Order is part of the contract, so it is kept.
+- **A synchronous `false` lets the navigation go untouched.** See [below](#cancel-now-decide-later).
+
+`enableBeforeUnload` defaults to `true`, as TanStack's does, and is **not** derived from
+`shouldBlockFn`: the browser asks synchronously and `shouldBlockFn` may not answer that way. The
+consequence is written on the consumer page as the idiom — `disabled: !dirty` — because the
+alternative asks on every reload of a clean page.
+
+**What would reverse it:** keasy leaving Next for TanStack Router, which deletes this package in
+favour of TanStack's own hook with no call site changing shape. Or TanStack changing its shape,
+which this follows.
+
+*Held by* `packages/navigation/src/surface.test.ts`, "is one hook at the root" and "offers no Block
+component and no useBeforeUnload"; `packages/navigation/src/use-blocker.test.tsx`, "asks
+beforeunload by enableBeforeUnload, never by shouldBlockFn" and "keeps its place in the order when
+its options change identity".
+
+## A `/next` door, because Next commits before it reports
+
+Read in Next's source — 16.1.6, which keasy ran, and canary:
+
+- **Next writes history after the new route has rendered.** `HistoryUpdater` calls
+  `history.pushState` inside `useInsertionEffect`, during the commit of the new router state. A
+  guard that cancels at `pushState` — keasy's patch — is too late: the new page is on screen under
+  the old URL. A Navigation API `navigate` listener sees that same late same-document push, and
+  has the same problem. The comment `TODO: Use Navigation API if available` is still on canary.
+- **`Link` does not go through `AppRouterContext`.** Its click handler dispatches straight to the
+  router instance, so wrapping the context — `next-navigation-guard`'s technique — cannot see a link,
+  which is why that library also captures clicks on the document.
+- **The one public, cancellable moment is `Link`'s `onNavigate`**, since 15.3. Next's own
+  documentation solves this problem with it — a context and a custom `Link` — and so does Vercel's
+  answer on discussion #41934. `onRouterTransitionStart` only observes: its return value is ignored.
+  There is no blocking API on canary.
+
+So the root holds what the browser can cancel, and `/next` holds the two things Next can: a `Link`
+with `onNavigate` wired to the blockers, and a `useRouter` whose `push` and `replace` ask first. It
+imports `next/link` and `next/navigation` and nothing under them, and relies on three *behaviours*
+rather than on internals — that `onNavigate` runs before the dispatch, that Next's own history write
+is a same-document push, and that back and forward reach Next only through `popstate`. The
+end-to-end fixture drives all three against the installed `next`.
+
+**What would reverse it:** Next shipping a blocking API, or moving its navigations onto
+`navigation.navigate()` — its own `TODO` points there. Either shrinks `/next` to nothing, because the
+root's `navigate` listener would then see `Link` and `push` before they commit.
+
+*Held by* `packages/navigation/src/next.test.tsx`, "cancels in onNavigate and re-issues the push on
+proceed" and "guards push and replace, and replays them with their options on proceed";
+`packages/navigation/src/surface.test.ts`, "keeps next out of everything the root reaches";
+`docs/scripts/navigation-guard.e2e.mjs`, `ROWS`.
+
+## Nothing is patched
+
+No `history.pushState` or `replaceState`, no `AppRouterContext`, no `next/dist/*`, no
+`window.next.router`, no capture-phase click listener on the document, and no synthetic
+`popstate`. That list is `next-navigation-guard`'s technique, item for item, and it is the reason
+that library was not adopted — beside the fact that its published release declares no Next 16.
+
+What is not caught is written in [the coverage table](/docs/navigation-guard#what-it-covers) with the
+reason, instead of being reached by a patch: a server action's `redirect()`, a client `redirect()`
+or `notFound()`, `next/form`, `router.refresh`, a POST form. In practice the first three follow a
+save, when there is nothing left to block.
+
+**What would reverse it:** a navigation that keasy's users actually take with unsaved work, that
+only a patch can reach — measured in the product, not imagined here. None of the uncovered rows is
+one today.
+
+*Held by* `packages/navigation/src/surface.test.ts`, "patches no history, reads no router internals
+and captures no clicks".
+
+## Back and forward are cancelled, not replayed
+
+Traversals go through the Navigation API's `navigate` event with `navigationType: "traverse"`, which
+fires *before* the traversal commits: cancelled there, it never produces a `popstate`, so Next is
+never told. `proceed` is `navigation.traverseTo(key)` past the blocker.
+
+The alternative — let the traversal happen, swallow the `popstate`, `history.go(-delta)` back — is
+what TanStack's own history does, because TanStack owns history. Next does, so doing it here means
+hiding Next's `popstate` listener from it, which is a patch.
+
+The platform limits this on purpose. Browser-UI Back is cancellable only while the page holds
+**history-action activation**, and cancelling spends it, so a second Back with no click in between
+goes through. That is the platform's rule against trapping somebody on a page, and it stands.
+
+**Safari (26.x, measured 2026-09-30 in real Safari): cancelling a traversal is not honoured.** Back
+goes through, and the dialog appears on the next Forward — the block for the Back, arriving late. A
+Safari bug, not guarded against. Playwright's WebKit 26.5 fails differently and no better: it does
+cancel, but moves its own history index anyway, so after *Stay* the next Back skips an entry and
+after *Leave* `traverseTo` reloads. Chromium 151 and Firefox 153 are clean.
+
+The guard is the same code in every browser. It does not test the user agent, and it does not try
+to detect the outcome of a cancellation and quietly drop the question either: both are a second
+code path for one engine's defect, and neither can be exercised in CI against the engine that
+needs it. Per the rule written before the measurement, the answer is this caveat in the coverage
+table, not a `history.go(-delta)` replay.
+
+**What would reverse it:** Safari honouring `navigate` cancellation for traversals — the e2e row
+printing `pass` in WebKit deletes the caveat and its `known` entry. In the other direction, Safari's
+share of the product's users making a late dialog worse than a lost form — then traversals stop
+being cancelled at all and the row reads *not covered* in every browser.
+
+*Held by* `packages/navigation/src/use-blocker.test.tsx`, "cancels a back traversal and says what it
+was" and "holds a blocked navigation until proceed, then replays it once";
+`docs/scripts/navigation-guard.e2e.mjs`, `known`.
+
+## Cancel now, decide later
+
+`onNavigate` and `navigate` both demand a synchronous `preventDefault()`, and `shouldBlockFn` may
+return a promise and `withResolver` always waits for a person. So while a blocker says anything but
+a synchronous `false`, the navigation is cancelled on the spot and **replayed** if the answer turns
+out to be *go* — through `router.push` for a `Link`, `navigation.navigate` for an anchor,
+`traverseTo` for a traversal — with a one-shot pass so the replay is not asked about again. That is
+TanStack's model, and its `ignoreNextBeforeUnload` is the same pass.
+
+A synchronous `false` is the one case where nothing is cancelled: the navigation goes exactly as it
+would have, so a clean form's `Link` keeps its pending state and its transition. The cost lands
+only on a navigation somebody actually confirmed.
+
+**What would reverse it:** an asynchronous cancellation point — Next awaiting `onNavigate`, or the
+Navigation API letting a cross-document navigation be deferred — at which point there is nothing to
+replay.
+
+*Held by* `packages/navigation/src/use-blocker.test.tsx`, "lets a navigation through untouched when
+shouldBlockFn answers false synchronously", "cancels now and replays later when shouldBlockFn
+answers with a promise" and "lets the replay of a cross-document navigation unload without asking
+again".
+
+## Listeners exist only while a blocker does
+
+The `navigate` and `beforeunload` listeners are attached when the first blocker registers and
+removed with the last. MDN: a `beforeunload` listener costs a page its back/forward cache in
+Firefox, so a page with nothing to protect must carry none — and `disabled: !dirty` is how a clean
+page has nothing to protect.
+
+**What would reverse it: nothing**, because the cost is the browser's and a listener that does
+nothing buys nothing.
+
+*Held by* `packages/navigation/src/use-blocker.test.tsx`, "listens only while a blocker is
+registered".
+
+## No dialog ships
+
+The confirm is the product's `AlertDialog` driven by `status`, `proceed` and `reset`. The package
+ships no dialog composite and no copy, for the argument [the auth layer](/docs/design/auth#no-sign-in-screen-ships)
+makes about a log-out flow: the wording is the product's, and a library that picks it has picked
+wrong for every product but one.
+
+**What would reverse it:** two products whose confirm dialogs differ in nothing — not the title, not
+the buttons, not the language. There is one product today.
+
+*Held by* `packages/navigation/package.json`, `//peers` — no `@kanzo-tech/ui` and no
+`tailwind-variants`, so there is nothing here to draw a dialog with.

@@ -1,0 +1,137 @@
+---
+title: Navigation guard
+description: One useBlocker, in TanStack Router's shape, that keeps somebody on a page they have not finished with — over the Navigation API and beforeunload, with no history patch. A sibling of @kanzo-tech/ui, never part of it.
+---
+
+`@kanzo-tech/navigation` asks before somebody leaves a page with unsaved changes. It is one hook,
+`useBlocker`, and a [`/next` door](/docs/navigation-guard/next) for the two App Router navigations
+the browser cannot see in time.
+
+It is a **sibling** of `@kanzo-tech/ui`, not part of it: [`/docs/philosophy`](/docs/philosophy#where-specificity-is-allowed-to-live)
+puts *any router integration* in the products, and nothing here draws. [The navigation
+layer](/docs/design/navigation) is why it exists at all, rather than a paragraph telling a host it
+cannot be done.
+
+```sh
+pnpm add @kanzo-tech/navigation
+```
+
+## `useBlocker`
+
+```ts
+import { useBlocker } from "@kanzo-tech/navigation";
+
+const blocker = useBlocker({
+  shouldBlockFn: ({ current, next, action }) => boolean | Promise<boolean>,
+  enableBeforeUnload, // boolean | (() => boolean), true by default
+  disabled,           // boolean
+  withResolver,       // boolean
+});
+// with withResolver: { status: "idle" | "blocked", current, next, action, proceed, reset }
+```
+
+TanStack Router's `useBlocker`, option for option, so a call site reads the same on either router.
+`current` and `next` are `{ href, pathname, search, hash }`; `action` is `"PUSH"`, `"REPLACE"`,
+`"BACK"`, `"FORWARD"` or `"GO"`. The types carry TanStack's names too: `UseBlockerOpts`,
+`ShouldBlockFn`, `ShouldBlockFnArgs`, `ShouldBlockFnLocation`, `HistoryAction` and
+`BlockerResolver`.
+
+- **`shouldBlockFn`** is asked about every navigation the guard can see. `true` blocks. It may
+  return a promise.
+- **`withResolver`** holds a blocked navigation instead of dropping it: `status` becomes
+  `"blocked"`, with `current`, `next` and `action` filled in, until **`proceed()`** lets it continue
+  or **`reset()`** stays. Both are `undefined` while `status` is `"idle"`.
+- **`enableBeforeUnload`** asks the browser's own dialog on reload, close and the URL bar. It is
+  **not** derived from `shouldBlockFn` — the browser asks synchronously, and `shouldBlockFn` is
+  allowed not to answer that way. So it is on for as long as the hook is.
+- **`disabled`** removes the blocker entirely, listeners included.
+
+<Callout type="warn">
+**`disabled: !dirty` is the idiom, not `shouldBlockFn: () => dirty`.** With only the second, a
+clean page still carries a `beforeunload` listener — which asks on every reload and, in Firefox,
+costs the page its back/forward cache. With the first, a clean page has no blocker and no listener,
+and a `Link` navigates exactly as `next/link` would.
+</Callout>
+
+Several blockers on one page are asked **in the order they mounted**, and the first to say `true`
+blocks. A navigation a resolver is holding is asked of the next blocker only after `proceed`.
+
+## The dialog is yours
+
+There is no dialog in the package and no copy: what to call the changes, and what the buttons say,
+is the product's. `status`, `proceed` and `reset` drive the existing
+[`AlertDialog`](/docs/overlays/dialog#alert-mode):
+
+```tsx
+import { useBlocker } from "@kanzo-tech/navigation";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+} from "@kanzo-tech/ui";
+
+export function UnsavedChanges({ dirty }: { dirty: boolean }) {
+  const blocker = useBlocker({ shouldBlockFn: () => true, disabled: !dirty, withResolver: true });
+
+  return (
+    <AlertDialog
+      open={blocker.status === "blocked"}
+      onOpenChange={(details) => {
+        if (!details.open) blocker.reset?.();
+      }}
+    >
+      <AlertDialogContent size="sm">
+        <AlertDialogHeader
+          title="Discard the charter?"
+          description="The hall and the fee you set are not saved yet."
+        />
+        <AlertDialogFooter>
+          <AlertDialogCancel>Keep editing</AlertDialogCancel>
+          <AlertDialogAction variant="destructive" onClick={blocker.proceed}>
+            Discard
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+```
+
+Escape, a click outside and *Keep editing* all close the dialog, and closing it is `reset`.
+*Discard* closes it too — after `proceed` has already settled the navigation, which is why the
+`reset?.()` that follows does nothing.
+
+## What it covers
+
+Every way to leave a page, and for each one either the public API that catches it or why nothing
+does. **Measured** is the end-to-end fixture — `docs/scripts/navigation-guard.e2e.mjs` driving
+`/fixtures/navigation-guard` in Playwright's Chromium 151, Firefox 153 and WebKit 26.5.
+
+| Navigation | Caught by | Not caught, and why | Measured |
+| --- | --- | --- | --- |
+| `Link` — including as the `asChild` child of `SidebarMenuButton`, `BreadcrumbLink` or `MenuItem` | `/next`'s `Link`, through `onNavigate`; a `proceed` re-issues it with `router.push`/`replace` and the same `scroll` | A raw `next/link` import — [the lint rule](/docs/navigation-guard/next#close-the-door-behind-you) closes it. The re-issued navigation has no `useLinkStatus` pending state | all three |
+| `router.push`, `router.replace` | `/next`'s `useRouter` | A raw `useRouter` import, closed by the same rule. `router.refresh` is not guarded: it does not leave the page | all three |
+| Back, forward, `history.go`, `router.back()` | The Navigation API's `navigate` event, cancelled before the traversal commits — so Next never sees a `popstate` | Browser UI Back is cancellable only while the page has **history-action activation**, and cancelling spends it: a second Back with no click in between goes through. That is the platform's rule against trapping somebody on a page, and it stands. **Safari**: not honoured — see below | Chromium, Firefox |
+| Plain `<a href>`, `location.assign`, a GET form | The cross-document `navigate` event, cancelled, then replayed with `navigation.navigate` on `proceed` | A cross-origin destination in Safari: WebKit fires no `navigate` event for it, and `beforeunload` is what is left | all three same-origin; cross-origin Chromium, Firefox |
+| Reload, closing the tab, the URL bar | `beforeunload`, while `enableBeforeUnload` holds | The dialog is the browser's own: your text is ignored, it needs the page to have been interacted with, and it is unreliable on mobile | all three (native dialog) |
+| A POST form, a download | — | A POST cannot be replayed through `navigation.navigate`, and a download leaves the page as it was. `beforeunload` still asks where the page unloads | — |
+| Next's own history write, a `#hash`, a `pushState` from a query-state library | Deliberately ignored | Next writes the URL of a page it has already rendered: too late to cancel, and the other two do not leave the page | all three |
+| A server action's `redirect()`, a client `redirect()` or `notFound()`, `next/form` | — | Next dispatches these through its internals with no public hook. In practice they follow a save, when there is nothing left to block | — |
+
+Without the Navigation API — Chrome before 102, Firefox before 147, Safari before 26.2 — there is no
+`navigate` event: back, forward and plain anchors go through, and `beforeunload` still covers the
+unloads.
+
+<Callout type="warn">
+**Safari (26.x, measured 2026-09-30 in real Safari): cancelling a traversal is not honoured.** Back
+goes through, and the dialog appears on the next Forward. A Safari bug, not guarded against: the
+guard behaves the same in every browser and carries no code that detects one. Playwright's WebKit
+26.5 differs in the details — it does cancel, but its history index moves anyway, so after *Stay*
+the next Back skips an entry and after *Leave* the page reloads — and agrees on the verdict.
+Chromium and Firefox are clean. [The navigation
+layer](/docs/design/navigation#back-and-forward-are-cancelled-not-replayed) has what would change
+this.
+</Callout>

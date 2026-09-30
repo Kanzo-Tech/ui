@@ -11,6 +11,7 @@
     "graph",
     "ai",
     "auth",
+    "navigation-guard",
     "layout",
     "hooks",
     "blocks",

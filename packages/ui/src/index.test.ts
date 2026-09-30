@@ -500,6 +500,18 @@ describe("@kanzo-tech/ui public surface", () => {
     }
   });
 
+  it("keeps the navigation guard in its own package", () => {
+    // Issue #6 proposed a `NavigationGuard` context that `SidebarMenuButton asChild`,
+    // `BreadcrumbLink` and `MenuItem asChild` would consult. Those parts never navigate — `asChild`
+    // hands navigation to the child, which is the product's router link — and a router integration
+    // is product territory by `/docs/philosophy`. The guard is `@kanzo-tech/navigation`, and
+    // nothing of it is here: `/docs/design/navigation`.
+    const surface = UI as Record<string, unknown>;
+    expect(surface.NavigationGuard).toBeUndefined();
+    expect(surface.useBlocker).toBeUndefined();
+    expect(surface.useBeforeUnload).toBeUndefined();
+  });
+
   it("keeps CodeMirror-backed components off the root barrel", () => {
     // They import @codemirror/*, an OPTIONAL peer. Re-exporting them here made the root entry
     // statically import CodeMirror, so `import { Button }` threw for anyone without it.

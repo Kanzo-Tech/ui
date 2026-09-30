@@ -45,12 +45,14 @@ import { label, resolvePath, sourceFiles, subtrees, unreadable } from "./guard-c
  *   until 2026-08-20, and `@kanzo-tech/ai` — a package whose every module is a React component
  *   drawn with `ui`'s parts, and therefore exactly the population this rule is about — had never
  *   been read. Widening it found one surplus directive, on `ai/ai-mark.tsx`.
- * - **`@kanzo-tech/graph` and `@kanzo-tech/auth` are unchecked, and that is this guard's one open
- *   gap.** Both declare `react` as a peer and neither declares `tailwind-variants`, so the corpus
- *   that selects on appearance rejects them — correctly for every rule about colour and classes, and
- *   wrongly for this one, which is about React and not about drawing. `graph`'s `react/` and
- *   `parts/` and `auth`'s `use-session` / `use-organization` are hooks and components, so the shape
- *   most likely to be wrong in either is a *missing* directive: the expensive half.
+ * - **`@kanzo-tech/graph`, `@kanzo-tech/auth` and `@kanzo-tech/navigation` are unchecked, and that is
+ *   this guard's one open gap.** All three declare `react` as a peer and none declares
+ *   `tailwind-variants`, so the corpus that selects on appearance rejects them — correctly for every
+ *   rule about colour and classes, and wrongly for this one, which is about React and not about
+ *   drawing. `graph`'s `react/` and `parts/`, `auth`'s `use-session` / `use-organization` and
+ *   `navigation`'s hook and `Link` are hooks and components, so the shape most likely to be wrong in
+ *   any of them is a *missing* directive: the expensive half. `navigation`'s modules are exercised by
+ *   the docs build all the same — `/fixtures/navigation-guard` is a server page rendering them.
  *
  *   **A corpus of its own — every package declaring `react` as a peer — was measured on 2026-09-17
  *   and not adopted.** That selects `ui`, `ai`, `graph` and `auth`, and run over all four it reported
