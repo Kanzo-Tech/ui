@@ -113,7 +113,8 @@ const textOf = (path: string) => {
  * Every `it`/`describe`/`test` title in a file, however it is quoted.
  *
  * Titles wrap across lines at the print width, so they are flattened the same way a *Held by* line
- * is; a citation and a title that differ only in where the line broke have to compare equal.
+ * is; a citation and a title that differ only in where the line broke have to compare equal. Code
+ * spans are dropped on both sides, since a citation's backticks are how the page quotes it.
  */
 const titleCache = new Map<string, string[]>();
 function testTitles(path: string): string[] {
@@ -123,7 +124,7 @@ function testTitles(path: string): string[] {
       path,
       [
         ...source.matchAll(/\b(?:it|test|describe)\s*(?:\.\w+)?\s*\(\s*(["'`])((?:[^\\]|\\.)*?)\1/g),
-      ].map(([, , title = ""]) => flatten(title)),
+      ].map(([, , title = ""]) => flatten(title).replace(/`/g, "")),
     );
   }
   return titleCache.get(path) as string[];
@@ -142,7 +143,7 @@ interface Held {
 
 const HELD: Held[] = MDX.flatMap((page) => {
   const source = readFileSync(join(ROOT, page), "utf8");
-  return [...source.matchAll(/^\*Held by\*([\s\S]*?)(?:\n\s*\n|$)/gm)].map(([, body = ""]) => ({
+  return [...source.matchAll(/^\*Held by\*([\s\S]*?)(?:\n\s*\n|(?![\s\S]))/gm)].map(([, body = ""]) => ({
     page,
     line: flatten(body),
   }));
