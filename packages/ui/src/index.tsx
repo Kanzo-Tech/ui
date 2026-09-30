@@ -125,6 +125,14 @@ export {
 } from "./lib/token-color.js";
 export { useChartCapacity, useThemeTick } from "./lib/theme-tick.js";
 
+// Two hooks for a control whose owner is somewhere else: a `Combobox` over a source that is
+// fetched, and a text control whose owner is expensive to write to. Neither knows what the item
+// or the owner is.
+export { useAsyncCollection } from "./lib/use-async-collection.js";
+export type { AsyncCollection, AsyncCollectionOptions } from "./lib/use-async-collection.js";
+export { useDebouncedCommit } from "./lib/use-debounced-commit.js";
+export type { DebouncedCommit } from "./lib/use-debounced-commit.js";
+
 // Ark collection helpers — required by consumers to build the `collection` that
 // Select / Combobox demand (Ark's own list-collection utilities, surfaced here so
 // downstreams don't need a direct @ark-ui/react dependency).

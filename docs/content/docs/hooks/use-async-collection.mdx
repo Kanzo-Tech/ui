@@ -1,0 +1,84 @@
+---
+title: useAsyncCollection
+description: Items fetched as the user types — a debounced query, a request that aborts when a newer one starts, and the loading, empty and error states of the last one.
+---
+
+<ComponentPreview componentName="use-async-collection" />
+
+## Usage
+
+```tsx
+import { useAsyncCollection } from "@kanzo-tech/ui";
+```
+
+```tsx
+const { collection, setQuery, loading, empty } = useAsyncCollection({
+  load: (query, signal) => fetch(`/tags?q=${query}`, { signal }).then((r) => r.json()),
+});
+
+<Combobox collection={collection} onInputValueChange={(d) => setQuery(d.inputValue)}>
+```
+
+Filtering is the server's. The `Combobox` machine never mutates the collection it is given, so a
+list that is fetched needs nothing from it but the input text — which is what `setQuery` takes.
+`load` is called with an empty query on mount, so a list can be offered before anything is typed,
+and a request the user has already typed past is aborted rather than merely ignored: pass `signal`
+to `fetch`.
+
+The machine underneath is Ark's `useAsyncList`. What this adds is the pause before it runs, the
+`ListCollection` a `Combobox`, `Select` or `Listbox` takes, and `labelOf`.
+
+## Loading, empty and error
+
+`loading` is a request in flight; the previous items stay in `collection` until it lands, so the
+list does not blank between keystrokes. `empty` is the last request landing with nothing — it is
+`false` while loading, so a `ComboboxEmpty` gated on it never says "no results" over a request that
+has not answered. `error` is the last failure, and the previous items stay too. Where those are
+drawn is yours: the parts do not draw a spinner.
+
+## Multiple, and custom values
+
+`multiple` is a prop of the `Combobox`, not of the hook. What it needs from the hook is
+`labelOf`: a selected value's label exists only in the batch that offered it, and the next
+keystroke replaces the batch, so a chip drawn from `collection` turns back into its raw value
+the moment the user types again.
+
+<ComponentPreview componentName="combobox" fileName="example-async-multiple" />
+
+A value nobody offered — a reference someone types in full — is `allowCustomValue`, and it reaches
+you through `onInputValueChange`. If writing it is expensive, pair it with
+[`useDebouncedCommit`](/docs/hooks/use-debounced-commit):
+
+<ComponentPreview componentName="combobox" fileName="example-async-custom-value" />
+
+## API Reference
+
+### useAsyncCollection
+
+```ts
+function useAsyncCollection<T extends CollectionItem>(
+  options: AsyncCollectionOptions<T>,
+): AsyncCollection<T>;
+```
+
+#### Options
+
+| Option | Type | Default |
+| --- | --- | --- |
+| `load` | `(query: string, signal: AbortSignal \| undefined) => Promise<T[]>` | required |
+| `itemToValue` | `(item: T) => string` | `item.value` |
+| `itemToString` | `(item: T) => string` | `item.label` |
+| `debounce` | `number` — milliseconds typing must pause before `load` runs | `250` |
+| `initialItems` | `T[]` | none |
+
+#### Returns
+
+| Name | Type | What it is |
+| --- | --- | --- |
+| `collection` | `ListCollection<T>` | What to hand the control. Rebuilt when a load lands. |
+| `setQuery` | `(query: string) => void` | Wire to `onInputValueChange`. |
+| `loading` | `boolean` | A request is in flight. |
+| `empty` | `boolean` | The last request landed and offered nothing. |
+| `error` | `unknown` | The last failure. |
+| `reload` | `() => void` | Ask again for the current query. |
+| `labelOf` | `(value: string) => string \| undefined` | The label of any value this hook has offered. |

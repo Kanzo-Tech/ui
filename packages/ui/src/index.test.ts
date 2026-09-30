@@ -108,6 +108,15 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.parseDate("2026-07-31").toString()).toBe("2026-07-31");
   });
 
+  it("exposes the two hooks for a control whose owner is elsewhere", () => {
+    // `useAsyncCollection` is Ark's `useAsyncList` plus the pause, the collection and the labels a
+    // Combobox needs; `useDebouncedCommit` is the draft a text control keeps while its owner is
+    // expensive to write to. Neither has a domain word in it, and both were written twice in one
+    // consumer before they were written here.
+    expect(UI.useAsyncCollection).toBeTypeOf("function");
+    expect(UI.useDebouncedCommit).toBeTypeOf("function");
+  });
+
   it("exposes the one facet-filter surface, on the root barrel", () => {
     // Both consumers sit on subpaths that must not import each other — `/table` would pull in
     // Mosaic, `/analytics` would pull in TanStack. FacetFilter is presentational, so the root
