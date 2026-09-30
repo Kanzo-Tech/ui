@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   type DateValue,
-  parseDate,
+  parseDateTime,
+  Button,
+  CalendarClearTrigger,
   CalendarMonthSelect,
   CalendarNextTrigger,
   CalendarPrevTrigger,
@@ -21,19 +23,16 @@ import {
   FieldLabel,
 } from "@kanzo-tech/ui";
 
-// The picker is date-only, so a date-time is a date plus a time input — not a second machine. The
-// stored value is one ISO string, split here into the two halves and joined on the way back.
-// A time with no date is not a value, and midnight is the only defensible completion of a date
-// picked with no time.
-const split = (iso: string | null) => {
-  const [date = "", time = ""] = (iso ?? "").split("T");
-  return { date, time: time.slice(0, 5) };
-};
+// A date and a time is one value, so it is one picker: `granularity` makes the input show both, and
+// the timer inside the popover sets the time half of the same value. The stored value is one ISO
+// string; this is the whole of the adapter. A zone suffix (`Z`, `+01:00`) is not the picker's — it
+// holds local date-times — so it is set aside on the way in and put back on the way out.
+const ZONE = /(Z|[+-]\d{2}:\d{2})$/;
 
-function toDateValues(date: string): DateValue[] {
-  if (!date) return [];
+function toValue(iso: string | null): DateValue[] {
+  if (!iso) return [];
   try {
-    return [parseDate(date)];
+    return [parseDateTime(iso.replace(ZONE, ""))];
   } catch {
     return [];
   }
@@ -41,50 +40,44 @@ function toDateValues(date: string): DateValue[] {
 
 export default function Example() {
   const [iso, setIso] = useState<string | null>("2026-03-14T18:30");
-  const { date, time } = split(iso);
-
-  const commit = (nextDate: string, nextTime: string) =>
-    setIso(nextDate ? `${nextDate}T${nextTime || "00:00"}` : null);
+  const value = useMemo(() => toValue(iso), [iso]);
+  const zone = ZONE.exec(iso ?? "")?.[0] ?? "";
 
   return (
     <div className="flex w-80 flex-col gap-3">
       <Field>
         <FieldLabel>Departs</FieldLabel>
-        <div className="flex gap-2">
-          <DatePicker
-            className="flex-1"
-            onValueChange={(details) => commit(details.valueAsString[0] ?? "", time)}
-            positioning={{ placement: "bottom-end" }}
-            value={toDateValues(date)}
-          >
-            <DatePickerInput />
-            <DatePickerContent>
-              <CalendarView view="day">
-                <CalendarViewControl>
-                  <CalendarPrevTrigger />
-                  <CalendarMonthSelect />
-                  <CalendarYearSelect />
-                  <CalendarNextTrigger />
-                </CalendarViewControl>
-                <CalendarTable>
-                  <CalendarWeekDays />
-                  <CalendarTableDays />
-                </CalendarTable>
-              </CalendarView>
-            </DatePickerContent>
-          </DatePicker>
-          {/* `DatePickerTimer` hands `id` to its input and everything else to the group around it,
-              so the label points at the id. */}
-          <label className="sr-only" htmlFor="departs-time">
-            Time
-          </label>
-          <DatePickerTimer
-            className="w-32"
-            id="departs-time"
-            onChange={(event) => commit(date, event.target.value)}
-            value={time}
-          />
-        </div>
+        <DatePicker
+          granularity="minute"
+          onValueChange={({ value }) => {
+            const [picked] = value;
+            setIso(picked ? `${picked.toString().slice(0, 16)}${zone}` : null);
+          }}
+          positioning={{ placement: "bottom-start" }}
+          value={value}
+        >
+          <DatePickerInput />
+          <DatePickerContent>
+            <CalendarView view="day">
+              <CalendarViewControl>
+                <CalendarPrevTrigger />
+                <CalendarMonthSelect />
+                <CalendarYearSelect />
+                <CalendarNextTrigger />
+              </CalendarViewControl>
+              <CalendarTable>
+                <CalendarWeekDays />
+                <CalendarTableDays />
+              </CalendarTable>
+            </CalendarView>
+            <div className="mt-3 flex items-center gap-2 border-t pt-3">
+              <DatePickerTimer aria-label="Time" />
+              <CalendarClearTrigger asChild>
+                <Button variant="ghost">Clear</Button>
+              </CalendarClearTrigger>
+            </div>
+          </DatePickerContent>
+        </DatePicker>
       </Field>
 
       <p className="text-muted-foreground text-sm">

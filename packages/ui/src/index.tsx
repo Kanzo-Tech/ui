@@ -154,10 +154,10 @@ export { useFilter } from "@ark-ui/react/locale";
 // and nothing else in the barrel can build one. `DateField` used to be the only ISO-string
 // adapter and it was cut, which left the machine unusable without a direct
 // `@internationalized/date` dependency — an implementation detail of Ark's date machine, not
-// something a consumer of `Button` should have to install. `parseDate` (`"2026-07-31"`) and the
-// value type are exactly what that adapter needed; nothing more is re-exported until a second
+// something a consumer of `Button` should have to install. `parseDate` (`"2026-07-31"`), `parseDateTime` (`"2026-07-31T18:30"`, for a picker with a
+// `granularity`) and the value type are exactly what that adapter needed; nothing more is re-exported until a second
 // caller asks for it.
-export { parseDate } from "@internationalized/date";
+export { parseDate, parseDateTime } from "@internationalized/date";
 export type { DateValue } from "@internationalized/date";
 
 // ── simples — adopted from Shark UI (flat compound API) ──────────────────────
