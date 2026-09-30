@@ -38,9 +38,13 @@ importing the fragment; it cannot drift by writing `h-8`.
 - **A control inside a group follows the group.** The `<input>` in an `InputGroup` has no height of
   its own — it stretches to the group's — and a button in an addon is 24px, which leaves a 32px group
   4px of inset around it.
-- **Not a box, not the height.** A `Switch`, a `Checkbox` and a `RadioGroupItem` are indicators, 16 to
-  20px, and centre on their row; a `Badge` is a status chip whose 20 to 26px is a smaller scale on
-  purpose; a `Slider` is a track. None of them is asked to be an input.
+- **A labelled row is one control tall.** A `Switch`, a `Checkbox` or a `RadioGroupItem` with its
+  words is 32px at rest, the indicator centred in it, so it lines up with an input beside it and with
+  the rows above and below. **Alone — no children, a cell in a table — it is the indicator and
+  nothing else**, 16 to 20px, and the height is not asked of it. The row is `md`; there is no
+  `size` on these.
+- **Not a box.** A `Badge` is a status chip whose 20 to 26px is a smaller scale on purpose, and a
+  `Slider` is a track. Neither is asked to be an input.
 - **One measured exception.** A button is 24 CSS pixels, not `1.5rem`, because WCAG 2.5.8 states
   pixels and a rem is 21px at compact density. An `sm` group holding one — a `Combobox`, a
   `DatePicker` — is therefore 26px at compact, not 24.5. Every other cell of the table is exact.

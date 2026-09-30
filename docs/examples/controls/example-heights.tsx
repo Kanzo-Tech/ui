@@ -37,6 +37,8 @@ import {
   PinInput,
   PinInputControl,
   PinInputInput,
+  RadioGroup,
+  RadioGroupItem,
   SegmentGroup,
   Select,
   SelectContent,
@@ -183,6 +185,9 @@ function Controls({ size }: { size: Size }) {
       <Textarea className="resize-none" placeholder="Textarea, minimum" rows={1} />
       <Switch>Switch</Switch>
       <Checkbox>Checkbox</Checkbox>
+      <RadioGroup defaultValue="a">
+        <RadioGroupItem value="a">Radio</RadioGroupItem>
+      </RadioGroup>
       <Badge asChild size={size}>
         <button type="button">Badge</button>
       </Badge>
@@ -192,12 +197,20 @@ function Controls({ size }: { size: Size }) {
 
 export default function Example() {
   return (
-    <div className="flex flex-col gap-10" data-heights-example>
+    <div className="flex min-w-0 max-w-full flex-col gap-10" data-heights-example>
       {SIZES.map((size) => (
-        <section className="flex flex-col gap-4" data-size-group={size} key={size}>
+        <section className="flex min-w-0 flex-col gap-4" data-size-group={size} key={size}>
           <h4 className="font-semibold text-sm">{size}</h4>
           <div className="flex w-72 flex-col gap-2" data-layout="column">
             <Controls size={size} />
+          </div>
+          <div className="flex flex-wrap items-start gap-x-4 gap-y-2" data-layout="form-row">
+            <Input className="w-40" placeholder="Input" size={size} />
+            <Switch>Switch</Switch>
+            <Checkbox>Checkbox</Checkbox>
+            <RadioGroup defaultValue="a">
+              <RadioGroupItem value="a">Radio</RadioGroupItem>
+            </RadioGroup>
           </div>
           <div className="overflow-x-auto pb-2">
             <div

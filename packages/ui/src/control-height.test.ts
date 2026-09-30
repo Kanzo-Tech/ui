@@ -52,6 +52,9 @@ const BOXES = [
   "simples/password-input.tsx",
 ];
 
+/** Files whose labelled row (an indicator and its words) is one control tall. */
+const ROWS = ["simples/checkbox.tsx", "simples/switch.tsx", "simples/radio-group.tsx"];
+
 /** Files whose control is another recipe's box, and what they must build it from. */
 const BUILT_ON: Record<string, RegExp> = {
   "simples/select.tsx": /inputVariants\(/,
@@ -102,6 +105,14 @@ describe("control height", () => {
     expect(source, `${path} is no longer built on the recipe it should be`).toMatch(uses);
     // `h-`/`min-h-` only: `size-4` on an icon is not the control's box.
     expect(source.match(HEIGHT_ONLY) ?? [], `${path} declares its own height`).toEqual([]);
+  });
+
+  it.each(ROWS)("%s: a labelled row is one control tall, and a lone indicator is not", (path) => {
+    const source = read(path);
+    expect(source).toMatch(/labelled: \{ true: \[controlSizes\.md, controlMinHeight\] \}/);
+    expect(source, `${path} asks the height of an indicator with no label`).toMatch(
+      /labelled: (?:children != null|children !== undefined)/,
+    );
   });
 
   it("no box declares a fixed height in a size variant", () => {
