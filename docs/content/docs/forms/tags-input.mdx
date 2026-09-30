@@ -84,6 +84,16 @@ with a plain form; it is not rendered for you.
 
 <ComponentPreview componentName="tags-input" fileName="example-with-field" />
 
+## A string list in state
+
+`value` and `onValueChange` bind it to a `string[]`, and `max` stops the machine accepting at a
+limit. That composition is the whole of a "keywords field", and there is no `TagsInput` that
+takes `values` and draws the items for you: a component that flattens this compound into an array
+is the compound with fewer capabilities — no `className` on an item, no custom preview, no
+`asChild` — so it is written out where it is used, as below.
+
+<ComponentPreview componentName="tags-input" fileName="example-controlled" />
+
 ## Keyboard
 
 | Key | Does |
