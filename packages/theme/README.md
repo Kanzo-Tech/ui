@@ -24,7 +24,7 @@ types.
   --primary: #1f6feb;     --primary-foreground: #ffffff;
   /* …nineteen more, then the shape knobs and the fonts… */
   --radius-box: 0.75rem;  --radius-field: 0.5rem;  --radius-selector: 0.25rem;
-  --stroke: 1px;          --depth: 0;
+  --stroke: 1px;          --relief: 0;
 }
 ```
 

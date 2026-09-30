@@ -17,7 +17,7 @@ import { sourceFiles } from "./guard-corpus";
  * So every knob has to be reachable from a consumer, by one of the two routes this library
  * actually uses — and both count, because they are the same claim made in two syntaxes:
  *
- * · **Read directly.** `var(--depth)` in `tailwind.css`, where a recipe does the arithmetic itself.
+ * · **Read directly.** `var(--relief)` in `tailwind.css`, where a recipe does the arithmetic itself.
  * · **Bound in the bridge.** `tokens.css` maps `--radius-box` into Tailwind's scale, which is what
  *   makes `rounded-box` exist — so the knob is read by every class that uses it. A binding with no
  *   user is not enough: the utility has to appear in the library's own source, or the knob reaches
@@ -25,7 +25,7 @@ import { sourceFiles } from "./guard-corpus";
  *
  * ## What this cannot prove
  *
- * - **That the knob does the right thing.** `var(--depth)` multiplied into a rule that is never
+ * - **That the knob does the right thing.** `var(--relief)` multiplied into a rule that is never
  *   painted would pass. This asks whether the wire is connected, not what runs down it.
  * - **That a consumer's own components read it.** The corpus is ours.
  * - **Anything about colour.** Colour is a use of the twenty-one and is bridged wholesale;
@@ -78,7 +78,7 @@ describe("every shape knob is read by something", () => {
     // A parse that silently returned nothing would make the assertion below vacuous, and this is
     // exactly the shape of guard that fails that way — the block it reads is delimited by a comment.
     expect(all.length).toBeGreaterThan(5);
-    expect(all).toContain("--depth");
+    expect(all).toContain("--relief");
     expect(all).toContain("--noise");
   });
 

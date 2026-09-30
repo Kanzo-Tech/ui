@@ -6,8 +6,8 @@ const hall = HALLS[0];
 /**
  * The first escape hatch: move a token, and everything under it re-skins.
  *
- * `--radius` is set on the wrapper, so it inherits down to the card, the button and the badge at
- * once — none of which is told anything. This is a custom property cascading normally, not a theme:
+ * `--radius-box` and `--radius-field` are set on the wrapper, so they inherit down to the card, the
+ * button and the badge at once — none of which is told anything. This is a custom property cascading normally, not a theme:
  * the five user axes are attributes on `<html>` because Ark's overlays portal to `document.body`
  * and would escape a wrapper. A token that only styles what is inside it has no such problem.
  */
@@ -24,7 +24,7 @@ export default function Example() {
         </CardContent>
       </Card>
 
-      <div className="flex-1" style={{ "--radius": "0px" } as React.CSSProperties}>
+      <div className="flex-1" style={{ "--radius-box": "0px", "--radius-field": "0px" } as React.CSSProperties}>
         <Card>
           <CardHeader>
             <CardTitle>{hall.short}</CardTitle>

@@ -105,7 +105,7 @@
   --color-sidebar-primary: var(--primary);
   --color-sidebar-primary-foreground: var(--primary-foreground);
   --color-sidebar-accent: var(--accent);
-  --color-sidebar-accent-foreground: var(--accent-foreground);
+  --color-sidebar-accent-foreground: var(--accent-foreground, var(--foreground));
   --color-sidebar-ring: var(--ring);
 
   /* ── The categorical set ──────────────────────────────────────────────────────
@@ -279,7 +279,7 @@
      utilities now answer to `--radius-field` — `rounded-lg` sits on a button far more often than
      on a card. */
   --stroke: 1px;
-  --depth: 0;
+  --relief: 0;
   --size-field: 0.25rem;
   --size-selector: 0.25rem;
 
@@ -297,9 +297,9 @@
      3px — a 19px content in a 16px box, visible in `app-shell` and `job-studio` and in no test.
      `theme-tokens.test.ts` is the guard that makes the next deletion fail out loud.
 
-     `CodeEditor` reads two of these with a literal fallback and so kept rendering — at 14px and
-     12px rather than 13px and 11px. That is the same defect wearing a fallback, and it is the
-     reason a fallback is not the fix here. */
+     `CodeEditor` read two of these with a literal fallback and so kept rendering — at 14px and
+     12px rather than 13px and 11px. That is the same defect wearing a fallback, so the fallbacks
+     are gone and the guard now rejects one on any name that is always declared. */
   --kanzo-font-size-base: 0.8125rem;   /* 13px — IDE base (below Tailwind text-xs) */
   --kanzo-font-size-small: 0.6875rem;  /* 11px */
   --kanzo-font-size-xs: 0.625rem;      /* 10px — `obligations.ts` grades this one */

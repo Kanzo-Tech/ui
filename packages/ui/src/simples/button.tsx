@@ -36,18 +36,18 @@ export const buttonVariants = tv({
     // that assigns `--btn-bd`, while all six assign the fill and the ink. A default for those two
     // would be a line that is overwritten every single render.
     "[--btn-bd:transparent]",
-    // Derived, never assigned by a variant. `--depth: 0` collapses the edge and the lift to
+    // Derived, never assigned by a variant. `--relief: 0` collapses the edge and the lift to
     // nothing, which is what the library looks like today; `1` gives it relief. Same classes.
     //
     // daisyUI darkens a fill with `color-mix(in oklab, var(--btn-bg), #000 5%)`. Mixing toward
     // `--foreground` instead is a divergence taken on a reason: `black` is only "darker" in a light
     // theme, and on a dark one the hover of a pale button should move toward white. One formula
     // reads as "push this fill away from the page and toward the ink" in both, and it follows a
-    // tenant's document instead of a constant — which is also why `--depth` can be a single number.
+    // tenant's document instead of a constant — which is also why `--relief` can be a single number.
     // Their half-pixel inset gloss needs a colour that is toward the light side in both modes and
     // neither `--foreground` nor `--background` is that, so it waits for a reason to exist.
-    "[--btn-edge:color-mix(in_oklab,var(--btn-bd),var(--foreground)_calc(var(--depth)*8%))]",
-    "[--btn-lift:color-mix(in_oklab,var(--btn-bg)_calc(var(--depth)*30%),transparent)]",
+    "[--btn-edge:color-mix(in_oklab,var(--btn-bd),var(--foreground)_calc(var(--relief)*8%))]",
+    "[--btn-lift:color-mix(in_oklab,var(--btn-bg)_calc(var(--relief)*30%),transparent)]",
     "bg-(--btn-bg) text-(--btn-fg)",
     // The grain, and the whole of the conditional that switches it off: at `--noise: 0` the layer
     // is sized to zero and never painted, at `1` it tiles. No variant — which is the property that
@@ -61,7 +61,7 @@ export const buttonVariants = tv({
     // caller. An arbitrary value is in a group the merge does know.
     "border-[length:var(--stroke)] border-(--btn-edge) rounded-[var(--radius-field)]",
     // As `shadow-*` rather than a raw `box-shadow`, so it composes with `focus-visible:ring-[3px]`
-    // through Tailwind's shadow chain instead of being replaced by it. At `--depth: 0` the lift is
+    // through Tailwind's shadow chain instead of being replaced by it. At `--relief: 0` the lift is
     // transparent and nothing is drawn either way, which is why that was invisible before.
     "shadow-[0_3px_2px_-2px_var(--btn-lift),0_4px_3px_-2px_var(--btn-lift)]",
     // One hover and one active for every variant, solid and transparent alike — and the transparent
@@ -99,7 +99,7 @@ export const buttonVariants = tv({
       outline: [
         "[--btn-bg:transparent]",
         "[--btn-fg:var(--foreground)]",
-        "[--btn-bd:var(--input)]",
+        "[--btn-bd:var(--input,var(--border))]",
         "focus-visible:border-primary",
       ],
       destructive: [
@@ -111,7 +111,7 @@ export const buttonVariants = tv({
       ],
       secondary: [
         "[--btn-bg:var(--secondary)]",
-        "[--btn-fg:var(--secondary-foreground)]",
+        "[--btn-fg:var(--secondary-foreground,var(--foreground))]",
         "focus-visible:border-primary",
       ],
       ghost: [

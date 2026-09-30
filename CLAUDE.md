@@ -43,7 +43,9 @@
   summary of it** — each carries its own reasoning, and each says what it cannot prove.
   `packages/ui/src/guard-corpus.ts` is what "repo-wide" means: the six appearance and boundary
   guards scan every package that declares `tailwind-variants` (`ui` and `ai` today) and report
-  `<package>/<path under src>`. Widen that corpus; never copy a guard into a second package.
+  `<package>/<path under src>`. A second population, `READERS` (every published package's `src/`
+  plus `docs/`), is what `theme-tokens.test.ts` checks: every token read resolves in every theme.
+  Widen that corpus; never copy a guard into a second package.
   **They are the `*.test.ts` files beside the source they scan** — `packages/ui/src` and
   `packages/theme/src` — and there is deliberately no list of them here. The one that used to be
   here rotted: it named `alpha-steps.test.ts` and `packages/theme/src/{boundary,palettes}.test.ts`,

@@ -67,7 +67,7 @@ const External = Annotation.define<boolean>();
  * There were thirteen `--syntax-*` tokens; six of them were duplicating a tint the ramp
  * already publishes.
  *
- * The seven that remain are derived per tenant and graded against `--editor-active-line`, so a
+ * The seven that remain are authored per theme and graded against the active line (`--muted`), so a
  * palette finally repaints keywords: Dracula's pink, Nord's purple, Catppuccin's mauve. Every
  * document used to declare Kanzo's.
  */
@@ -79,7 +79,7 @@ export const kanzoHighlightStyle = HighlightStyle.define([
   // as plain text mid-string. `t.escape`'s parent is `literal`, which was unmapped.
   { tag: [t.escape, t.special(t.brace)], color: "var(--syntax-number)" },
   { tag: [t.number, t.integer, t.float, t.unit], color: "var(--syntax-number)" },
-  { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: "var(--faint)", fontStyle: "italic" },
+  { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: "var(--faint, var(--muted-foreground))", fontStyle: "italic" },
   // Object keys and attribute names. These used to be grouped with `variableName`, which
   // resolved to a token byte-identical to --foreground — so every key in a JSON document
   // rendered as unstyled text and the whole sample looked near-monochrome.
@@ -90,7 +90,7 @@ export const kanzoHighlightStyle = HighlightStyle.define([
   { tag: [t.operator, t.derefOperator, t.arithmeticOperator, t.logicOperator, t.bitwiseOperator, t.compareOperator, t.updateOperator], color: "var(--foreground)" },
   { tag: [t.punctuation, t.separator, t.bracket, t.angleBracket, t.squareBracket, t.paren, t.brace], color: "var(--muted-foreground)" },
   { tag: [t.typeName, t.className, t.namespace, t.tagName, t.labelName], color: "var(--syntax-type)" },
-  { tag: [t.meta, t.annotation, t.processingInstruction, t.documentMeta], color: "var(--faint)" },
+  { tag: [t.meta, t.annotation, t.processingInstruction, t.documentMeta], color: "var(--faint, var(--muted-foreground))" },
   { tag: [t.url, t.link], color: "var(--syntax-function)", textDecoration: "underline" },
   // Markdown: only `heading` was mapped, so prose rendered flat.
   { tag: t.heading, color: "var(--syntax-keyword)", fontWeight: "bold" },
@@ -98,7 +98,7 @@ export const kanzoHighlightStyle = HighlightStyle.define([
   { tag: t.strong, fontWeight: "bold" },
   { tag: t.strikethrough, textDecoration: "line-through" },
   { tag: [t.monospace, t.list], color: "var(--syntax-string)" },
-  { tag: t.quote, color: "var(--faint)" },
+  { tag: t.quote, color: "var(--faint, var(--muted-foreground))" },
   // Diff.
   { tag: t.inserted, color: "var(--success)" },
   { tag: t.deleted, color: "var(--destructive)" },
@@ -168,7 +168,7 @@ const baseTheme = EditorView.theme({
   // at content height and the field's extra `min-height` showed as dead space below the last
   // line. As a flex child of the flex-column surface it fills the field; `min-height: 0` lets it
   // shrink so `.cm-scroller` scrolls once content passes `max-height`.
-  "&": { fontSize: "var(--kanzo-font-size-base, 14px)", backgroundColor: "transparent", flex: "1 1 auto", minHeight: 0 },
+  "&": { fontSize: "var(--kanzo-font-size-base)", backgroundColor: "transparent", flex: "1 1 auto", minHeight: 0 },
   // NO PADDING AT ALL any more, and that is the fix for a gap somebody could see: the vertical
   // padding used to live here, and `.cm-line` sits INSIDE it — so the active-line highlight on the
   // first line started half a rem below the top of the field and read as a bar floating in a
@@ -248,7 +248,7 @@ const baseTheme = EditorView.theme({
     // low — verified back when the padding was on `.cm-content`: a constant 9px below its line.
     background: "var(--muted)",
     border: "none",
-    color: "var(--faint)",
+    color: "var(--faint, var(--muted-foreground))",
   },
   // Line numbers: tabular figures (no jitter across 9→10→100), right-aligned with breathing
   // room from the border edge, and a comfortable minimum width.
@@ -266,7 +266,7 @@ const baseTheme = EditorView.theme({
   // Quieter than the active line on purpose: this is a hover affordance, and at equal
   // strength the two read as the same state and the column flickers as the pointer moves.
   ".cm-lineNumbers .cm-gutterElement:hover": {
-    backgroundColor: "color-mix(in srgb, var(--editor-active-line, var(--muted)) 60%, transparent)",
+    backgroundColor: "color-mix(in oklab, var(--muted) 60%, transparent)",
     color: "var(--foreground)",
   },
   ".cm-foldGutter .cm-gutterElement:hover": { color: "var(--foreground)" },
@@ -282,8 +282,8 @@ const baseTheme = EditorView.theme({
   // the moment an editor is more than a text box, that is where the theme visibly
   // breaks. These read from the same tokens as `popover` / `menu`.
   ".cm-tooltip": {
-    background: "var(--popover)",
-    color: "var(--popover-foreground)",
+    background: "var(--popover, var(--card))",
+    color: "var(--foreground)",
     border: "1px solid var(--border)",
     borderRadius: "var(--radius-md)",
     boxShadow: "0 4px 12px rgb(0 0 0 / 0.08)",
@@ -295,9 +295,9 @@ const baseTheme = EditorView.theme({
   // covers a light page. Found by `codemirror-dark-parity.test.ts`, not by looking.
   ".cm-tooltip-section:not(:first-child)": { borderTop: "1px solid var(--border)" },
   ".cm-tooltip .cm-tooltip-arrow:before": { borderTopColor: "var(--border)" },
-  ".cm-tooltip .cm-tooltip-arrow:after": { borderTopColor: "var(--popover)" },
+  ".cm-tooltip .cm-tooltip-arrow:after": { borderTopColor: "var(--popover, var(--card))" },
   ".cm-tooltip-autocomplete > ul": {
-    fontFamily: "var(--font-mono, ui-monospace, monospace)",
+    fontFamily: "var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)",
     maxHeight: "16rem",
   },
   ".cm-tooltip-autocomplete > ul > li": {
@@ -306,7 +306,7 @@ const baseTheme = EditorView.theme({
   },
   ".cm-tooltip-autocomplete > ul > li[aria-selected]": {
     background: "var(--accent)",
-    color: "var(--accent-foreground)",
+    color: "var(--accent-foreground, var(--foreground))",
   },
   ".cm-completionLabel": { color: "inherit" },
   ".cm-completionMatchedText": {
@@ -323,7 +323,7 @@ const baseTheme = EditorView.theme({
 
   ".cm-panels": {
     background: "var(--card)",
-    color: "var(--card-foreground)",
+    color: "var(--foreground)",
     borderColor: "var(--border)",
   },
   ".cm-panels.cm-panels-top": { borderBottom: "1px solid var(--border)" },
@@ -352,7 +352,7 @@ const baseTheme = EditorView.theme({
   ".cm-textfield": {
     background: "var(--background)",
     color: "var(--foreground)",
-    border: "1px solid var(--input)",
+    border: "1px solid var(--input, var(--border))",
     borderRadius: "var(--radius-sm)",
     padding: "0.125rem 0.375rem",
     outline: "none",
@@ -363,7 +363,7 @@ const baseTheme = EditorView.theme({
   },
   ".cm-button": {
     background: "var(--secondary)",
-    color: "var(--secondary-foreground)",
+    color: "var(--secondary-foreground, var(--foreground))",
     border: "1px solid transparent",
     borderRadius: "var(--radius-sm)",
     backgroundImage: "none",
@@ -372,7 +372,7 @@ const baseTheme = EditorView.theme({
   },
   ".cm-button:hover": { background: "var(--accent)" },
   ".cm-button:active": { backgroundImage: "none" },
-  ".cm-dialog": { padding: "0.375rem 0.5rem", fontSize: "var(--kanzo-font-size-small, 12px)" },
+  ".cm-dialog": { padding: "0.375rem 0.5rem", fontSize: "var(--kanzo-font-size-small)" },
   ".cm-dialog label": { display: "inline-flex", alignItems: "center", gap: "0.375rem" },
   ".cm-dialog-close": { color: "var(--muted-foreground)", cursor: "pointer" },
   ".cm-dialog-close:hover": { color: "var(--foreground)" },
@@ -380,12 +380,12 @@ const baseTheme = EditorView.theme({
   // Search hits: the current one is the primary-tinted anchor, the rest are quieter so
   // "where am I" stays readable at a glance.
   ".cm-searchMatch": {
-    backgroundColor: "var(--warning-a5)",
+    backgroundColor: "color-mix(in oklab, var(--warning) 17%, transparent)",
     outline: "1px solid var(--border)",
     borderRadius: "2px",
   },
   ".cm-searchMatch.cm-searchMatch-selected": {
-    backgroundColor: "var(--warning-a8)",
+    backgroundColor: "color-mix(in oklab, var(--warning) 60%, transparent)",
     outline: "1px solid var(--warning)",
   },
 
@@ -394,7 +394,7 @@ const baseTheme = EditorView.theme({
     padding: "0.25rem 0.5rem",
     borderInlineStartWidth: "3px",
     borderInlineStartStyle: "solid",
-    fontFamily: "var(--font-sans)",
+    fontFamily: "var(--font-sans, ui-sans-serif, system-ui, sans-serif)",
   },
   ".cm-diagnostic-error": { borderInlineStartColor: "var(--destructive)" },
   ".cm-diagnostic-warning": { borderInlineStartColor: "var(--warning)" },
@@ -427,13 +427,13 @@ const baseTheme = EditorView.theme({
   // lavender applied in dark mode too. It is driven from the appearance now, which moves the
   // default to `&dark`'s — a different stock colour, still not ours, still covered by this rule.
   "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground": {
-    backgroundColor: "var(--brand-a5)",
+    backgroundColor: "color-mix(in oklab, var(--primary) 17%, transparent)",
   },
   // **A selection must not repaint the text, and ours repainted all of it.** `tokens.css` sets a
   // document-wide `::selection { bg-primary/80 text-primary-foreground }`, which is right
   // everywhere prose is selected and wrong inside an editor: `drawSelection` suppresses the native
   // selection's *background* and not its `color`, so the fill came from `.cm-selectionBackground`
-  // — `--brand-a5`, black at 12% — while every glyph inside it took `--primary-foreground`.
+  // — a 17% wash of `--primary` — while every glyph inside it took `--primary-foreground`.
   //
   // Measured on `/docs/forms/code-editor`: #fafafa text on a #dcdcdc block. Keys, strings and
   // numbers all flattened to one near-white, so selecting seven lines of JSON erased the
@@ -443,30 +443,31 @@ const baseTheme = EditorView.theme({
   // `currentColor` is the fix, and it has to be `currentColor` and not a token: a fixed colour
   // flattens the tokens just as thoroughly, one shade later.
   ".cm-selectionBackground, .cm-content ::selection": {
-    backgroundColor: "var(--brand-a5)",
+    backgroundColor: "color-mix(in oklab, var(--primary) 17%, transparent)",
     color: "currentColor",
   },
-  ".cm-activeLine": { backgroundColor: "var(--editor-active-line, var(--muted))" },
+  ".cm-activeLine": { backgroundColor: "var(--muted)" },
   // The active line's gutter cell is emphasised beyond the row: stronger tint, full-strength
   // ink and a weight bump so the current line number stands out from the dim column.
   ".cm-activeLineGutter": {
-    backgroundColor: "var(--editor-active-line, var(--muted))",
+    backgroundColor: "var(--muted)",
     color: "var(--foreground)",
     fontWeight: "600",
   },
-  ".cm-matchingBracket, &.cm-focused .cm-matchingBracket": { backgroundColor: "var(--brand-a5)", outline: "1px solid var(--primary)" },
-  ".cm-nonmatchingBracket": { backgroundColor: "var(--destructive-a4)" },
-  // **A neutral tint, because it is not a search hit.** This wore `--warning-a5`, byte for byte
+  ".cm-matchingBracket, &.cm-focused .cm-matchingBracket": { backgroundColor: "color-mix(in oklab, var(--primary) 17%, transparent)", outline: "1px solid var(--primary)" },
+  ".cm-nonmatchingBracket, &.cm-focused .cm-nonmatchingBracket": { backgroundColor: "color-mix(in oklab, var(--destructive) 14%, transparent)" },
+  // **A neutral tint, because it is not a search hit.** This wore the warning wash, byte for byte
   // what `.cm-searchMatch` wears — so the other occurrences of the word under your caret were
   // indistinguishable from the hits of a query you actually typed, and the two co-occur constantly:
   // open the find panel while a word is selected and every match looks like the same kind of thing.
   //
   // They are not. A search hit is something you asked for; this is the editor noticing a
   // repetition. Every editor that draws both separates them the same way — the query keeps the
-  // colour, the passive one goes neutral — and `--base-a5` is the house's neutral wash. It also
-  // takes the collision off `--warning-a5`, which `Highlight` uses for a search-term mark in prose.
-  ".cm-selectionMatch": { backgroundColor: "var(--base-a5)" },
-  ".cm-foldGutter .cm-gutterElement": { cursor: "pointer", color: "var(--faint)" },
+  // colour, the passive one goes neutral — and `--foreground` at 17% is the house's neutral wash
+  // (`bg-foreground/17`, a selected table row). It also takes the collision off `bg-warning/17`,
+  // which `Highlight` uses for a search-term mark in prose.
+  ".cm-selectionMatch": { backgroundColor: "color-mix(in oklab, var(--foreground) 17%, transparent)" },
+  ".cm-foldGutter .cm-gutterElement": { cursor: "pointer", color: "var(--faint, var(--muted-foreground))" },
   ".cm-foldPlaceholder": { background: "var(--muted)", border: "1px solid var(--border)", color: "var(--muted-foreground)", borderRadius: "var(--radius-sm)", padding: "0 4px" },
 });
 

@@ -50,7 +50,7 @@ import { CircleAlertIcon, CircleCheckIcon, InfoIcon, TriangleAlertIcon } from "l
  *
  * ## Every group answers a control
  *
- * `Buttons` for the brand fills and their inks, and for `--depth`, `--stroke` and the field radius
+ * `Buttons` for the brand fills and their inks, and for `--relief`, `--stroke` and the field radius
  * doing real work at three sizes. `Status` for all four families in both of their jobs — the fill
  * with `-content` on it, and the same family read on the page. `Fields` for `--field`, `--input`
  * and the selector radius, which nothing else on the page shows. `Surfaces` for the three grounds
@@ -83,7 +83,7 @@ export function ThemeSampler() {
     // the hole a two-column grid of unequal cards always leaves.
     <div className="@container">
       <div className="gap-4 @4xl:columns-2 [&>*]:mb-4 [&>*]:break-inside-avoid">
-        <Group title="Buttons" doc="the brand fills, the field radius, --stroke and --depth">
+        <Group title="Buttons" doc="the brand fills, the field radius, --stroke and --relief">
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm">Claim</Button>
             <Button size="sm" variant="secondary">

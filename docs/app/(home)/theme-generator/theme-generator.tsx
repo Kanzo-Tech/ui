@@ -313,7 +313,7 @@ const SHAPE = [
   ...RADII.map((r) => r.name),
   ...SIZES.map((r) => r.name),
   "--stroke",
-  "--depth",
+  "--relief",
   "--noise",
 ] as const;
 const TYPE = ["--font-sans", "--font-heading"] as const;
@@ -728,25 +728,25 @@ export function ThemeGenerator() {
 
             <section className="flex flex-col gap-3">
               <SectionHead doc="relief and grain, over every fill" title="Effects" />
-              {/* Three named steps rather than a slider: `--depth` reads as a *material*, and a
+              {/* Three named steps rather than a slider: `--relief` reads as a *material*, and a
                   number between Soft and Raised is not a decision anybody is making. The reference
                   offers two — a checkbox, on or off — and the middle step is our one divergence
-                  here, because `--depth` multiplies into a `calc()` and 0.5 is a real value. */}
+                  here, because `--relief` multiplies into a `calc()` and 0.5 is a real value. */}
               <div className="flex flex-col gap-1.5">
                 <Legend doc="relief — a number, not a switch" label="Depth" />
                 <div className="flex gap-1.5">
                   {DEPTHS.map((step) => (
                     <button
-                      aria-pressed={theme["--depth"] === step.value}
+                      aria-pressed={theme["--relief"] === step.value}
                       className={cn(
                         "flex-1 rounded-field border px-2 py-1.5 text-xs transition-colors",
                         "outline-none focus-visible:ring-[3px] focus-visible:ring-ring",
-                        theme["--depth"] === step.value
+                        theme["--relief"] === step.value
                           ? "border-primary bg-primary/10 font-medium"
                           : "border-border hover:bg-foreground/6",
                       )}
                       key={step.value}
-                      onClick={() => set("--depth", step.value)}
+                      onClick={() => set("--relief", step.value)}
                       type="button"
                     >
                       {step.label}

@@ -296,7 +296,7 @@ const slotTheme = EditorView.theme({
     border: "1px dashed var(--border)",
     background: "color-mix(in srgb, var(--muted) 60%, transparent)",
     color: "var(--muted-foreground)",
-    fontFamily: "var(--font-sans)",
+    fontFamily: "var(--font-sans, ui-sans-serif, system-ui, sans-serif)",
     fontSize: "0.75rem",
     lineHeight: "1.25rem",
     cursor: "pointer",

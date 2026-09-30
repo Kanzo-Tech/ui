@@ -138,7 +138,7 @@ export const dialogContentVariants = tv({
         "max-sm:max-h-[calc(100svh-3rem)]",
         "max-sm:max-w-none",
         "max-sm:rounded-none max-sm:rounded-t-2xl max-sm:border-x-0 max-sm:border-t max-sm:border-b-0",
-        "max-sm:opacity-[calc(1-min(var(--nested-dialogs),1))]",
+        "max-sm:opacity-[calc(1-min(var(--nested-layer-count),1))]",
         "max-sm:data-[state=closed]:slide-out-to-bottom-5 max-sm:data-[state=open]:slide-in-from-bottom-5",
         "max-sm:data-[state=closed]:zoom-out-100 max-sm:data-[state=open]:zoom-in-100",
       ],

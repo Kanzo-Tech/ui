@@ -21,7 +21,7 @@ export interface GraphCanvasProps extends React.ComponentProps<"div"> {
   children?: ReactNode;
 }
 
-const WASH = "var(--brand-a5)";
+const WASH = "color-mix(in oklab, var(--primary) 17%, transparent)";
 
 /**
  * The biggest `budget` surviving vertices by the ramp, the focused one first. One pass, keeping the

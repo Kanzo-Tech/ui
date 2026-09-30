@@ -100,7 +100,7 @@ describe("MenuArrow", () => {
     const arrow = document.querySelector("[data-slot=menu-arrow]") as HTMLElement;
 
     expect(arrow).not.toBeNull();
-    expect(arrow.style.getPropertyValue("--arrow-background")).toBe("var(--popover)");
+    expect(arrow.style.getPropertyValue("--arrow-background")).toBe("var(--popover, var(--card))");
   });
 
   // Shark's version writes `left: "20px"` after the caller's `style`, which discards the offset the
@@ -116,7 +116,7 @@ describe("MenuArrow", () => {
 
     expect(style).not.toHaveProperty("left");
     expect(style).not.toHaveProperty("top");
-    expect(style["--arrow-background"]).toBe("var(--popover)");
+    expect(style["--arrow-background"]).toBe("var(--popover, var(--card))");
   });
 
   it("is not drawn unless a caller places it", async () => {

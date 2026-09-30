@@ -122,7 +122,7 @@ background-size: calc(var(--noise, 0) * 100%);
 
 At `0` the layer is sized to nothing and never drawn; at `1` it tiles. **One rule, no variant, no
 conditional** — which is what makes texture a value a tenant sets rather than a look somebody has to
-write, exactly as `--depth` does for relief. The grain itself is a constant in the library's sheet:
+write, exactly as `--relief` does for relief. The grain itself is a constant in the library's sheet:
 a theme says how much it wants, never what it is.
 
 No shipped theme declares it, so `var(--noise, 0)` is where "off" lives. A theme that wants texture
@@ -140,10 +140,10 @@ writes the line; one that does not says nothing, which is the same rule the colo
 | `--radius-box` / `--radius-field` / `--radius-selector` | card and dialog / button, input and tab / checkbox and badge |
 | `--size-field` / `--size-selector` | the unit a control's height is a multiple of |
 | `--stroke` | line weight |
-| `--depth` | relief, `0`–`1`, multiplied into the shadow and the fill's edge |
+| `--relief` | relief, `0`–`1`, multiplied into the shadow and the fill's edge |
 
-`--depth` is a **number, not a branch**: the recipes already contain
-`calc(var(--depth) * 30%)`, so `0` collapses the shadow to nothing and `1` gives it relief, from one
+`--relief` is a **number, not a branch**: the recipes already contain
+`calc(var(--relief) * 30%)`, so `0` collapses the shadow to nothing and `1` gives it relief, from one
 stylesheet with no conditional in it.
 
 ## The user axes
