@@ -562,7 +562,7 @@ function Shell() {
               </div>
 
               <div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-                <section className="min-w-0 space-y-3">
+                <SectionRoot fill={false} className="min-w-0 gap-3">
                   <SectionHeader>
                     <SectionTitleGroup>
                       <SectionTitle level={2}>Pipeline runs</SectionTitle>
@@ -663,7 +663,7 @@ function Shell() {
                       <Badge size="xs">Coming soon</Badge>
                     </Float>
                   </div>
-                </section>
+                </SectionRoot>
 
                 <div className="min-w-0 space-y-6">
                   <Card>
