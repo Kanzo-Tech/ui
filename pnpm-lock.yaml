@@ -85,8 +85,8 @@ importers:
         specifier: ^3.4.0
         version: 3.4.0
       '@fossil-lang/corpus':
-        specifier: ^0.3.0-alpha.13
-        version: 0.3.0-alpha.13
+        specifier: ^0.3.0-alpha.14
+        version: 0.3.0-alpha.14
       '@internationalized/date':
         specifier: ^3.12.2
         version: 3.12.2
@@ -295,8 +295,8 @@ importers:
         specifier: ^3.4.0
         version: 3.4.0
       '@fossil-lang/corpus':
-        specifier: ^0.3.0-alpha.13
-        version: 0.3.0-alpha.13
+        specifier: ^0.3.0-alpha.14
+        version: 0.3.0-alpha.14
       '@kanzo-tech/mosaic':
         specifier: workspace:*
         version: link:../mosaic
@@ -1149,14 +1149,14 @@ packages:
   '@floating-ui/utils@0.2.12':
     resolution: {integrity: sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==}
 
-  '@fossil-lang/corpus@0.3.0-alpha.13':
-    resolution: {integrity: sha512-vaO9AwPkYlPblOewli59QqqG/dgnMp6yEYCviiVUeLi53zINo5qHKbGaMd2xC3PZTU4A9DP6Gfzxqb0HOEPETQ==}
+  '@fossil-lang/corpus@0.3.0-alpha.14':
+    resolution: {integrity: sha512-mw/UAM8so+IBqVt8g8ELfT+TNCw201zjsvnxwXDtOvMJPgVmNjyzL4Cry0TOX/34QmfkfZg1q6oMBKpZjqslVA==}
 
-  '@fossil-lang/storage@0.3.0-alpha.13':
-    resolution: {integrity: sha512-gmLAVqarQFUdbX6qUDSwKWERJwuYdQOV2YsRIQ2EpnwmQpG38La3Mn+3uQENvhnicOvEvwXA/yT8hM4uK2bsdw==}
+  '@fossil-lang/storage@0.3.0-alpha.14':
+    resolution: {integrity: sha512-pNpuBBfoaLKRO7n5eiuZUI5f0Jy5OUjNg4p7HR8g89FaQ2wwefa+DxKXCGo6krb5447bLuqBZ5aqnM2L8xcHsA==}
 
-  '@fossil-lang/types@0.3.0-alpha.13':
-    resolution: {integrity: sha512-hawY8BMzrVPW5y4VAyDwMz6RAZP9Hda3+JIugcFcTO3du6xTN0YEpTZUZRidv7CIyt0M4cVB9MDuYYldUq8U+A==}
+  '@fossil-lang/types@0.3.0-alpha.14':
+    resolution: {integrity: sha512-+SPTojW9vEYLDUAiEm5t4T8L7Z/eIICPLwwn1i3/i06h2e67TFEKwK0doKnlpm2Q3BM4N3Jcn4DGFbAlGwGVQw==}
 
   '@fumadocs/tailwind@0.0.5':
     resolution: {integrity: sha512-ENKPWUDRmriccsrUDE4bDBq3FNr/ms3BP2rWlsAEMV1yP23pcCaan+ceGfeBUsAQjw7sj9Q3R4Kl3g/TCStPzQ==}
@@ -6211,16 +6211,16 @@ snapshots:
 
   '@floating-ui/utils@0.2.12': {}
 
-  '@fossil-lang/corpus@0.3.0-alpha.13':
+  '@fossil-lang/corpus@0.3.0-alpha.14':
     dependencies:
-      '@fossil-lang/storage': 0.3.0-alpha.13
-      '@fossil-lang/types': 0.3.0-alpha.13
+      '@fossil-lang/storage': 0.3.0-alpha.14
+      '@fossil-lang/types': 0.3.0-alpha.14
 
-  '@fossil-lang/storage@0.3.0-alpha.13':
+  '@fossil-lang/storage@0.3.0-alpha.14':
     dependencies:
-      '@fossil-lang/types': 0.3.0-alpha.13
+      '@fossil-lang/types': 0.3.0-alpha.14
 
-  '@fossil-lang/types@0.3.0-alpha.13': {}
+  '@fossil-lang/types@0.3.0-alpha.14': {}
 
   '@fumadocs/tailwind@0.0.5(@tailwindcss/oxide@4.3.3)(tailwindcss@4.3.2)':
     optionalDependencies:
