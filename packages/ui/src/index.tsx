@@ -108,6 +108,12 @@ export type {
   QuestionnaireActionsProps,
 } from "./composites/Questionnaire.js";
 
+// A `Combobox` that knows what a language tag is: names in their own language, and what counts as
+// one. Not a `simples/` file — Shark has none, and this is not a fixed arrangement of Combobox
+// parts but a vocabulary over them.
+export { LanguagePicker } from "./composites/language-picker.js";
+export type { LanguagePickerProps, LanguagePickerTranslations } from "./composites/language-picker.js";
+
 // ── Utilities ────────────────────────────────────────────────────────────────
 export { cn } from "./lib/cn.js";
 

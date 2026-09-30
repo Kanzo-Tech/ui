@@ -34,6 +34,7 @@ drop to the primitive when you need to rearrange the parts. The rule in full is 
 | [`Select`](/docs/forms/select) | A listbox in a popover, driven by a collection. | `multiple` | The options need to look like more than plain text: icons, descriptions, groups. |
 | [`Listbox`](/docs/forms/listbox) | That same listbox with **no popover of its own** — you place it. | `selectionMode` | The list must live somewhere `Select` cannot put it: inline in a panel, or in a popover you own. |
 | [`Combobox`](/docs/forms/combobox) | A text input **plus** that same listbox — typing filters the collection. | `multiple` | The list is long enough that typing beats scrolling. |
+| [`LanguagePicker`](/docs/forms/language-picker) | A `Combobox` over BCP 47 tags, each named in its own language; closed when given a list, open otherwise. | no | The value is a language tag. |
 | [`FacetFilter`](/docs/forms/facet-filter) | A `Listbox` in a popover behind a trigger that counts what is picked. | `multiple` | Narrowing a table or a dashboard, where the options are data and carry counts. |
 | [`TagsInput`](/docs/forms/tags-input) | A list of removable tokens with **no option collection** — the user invents the values. | always | The values do not exist beforehand: free-form tags, keywords, addresses. |
 | [`RadioGroup`](/docs/forms/radio-group) | A few options, all visible at once. | no | One of a few, no popover. |

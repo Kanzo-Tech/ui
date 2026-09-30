@@ -18,6 +18,7 @@
     "select",
     "listbox",
     "combobox",
+    "language-picker",
     "facet-filter",
     "radio-group",
     "segment-group",

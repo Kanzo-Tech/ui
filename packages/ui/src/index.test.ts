@@ -108,6 +108,14 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.parseDate("2026-07-31").toString()).toBe("2026-07-31");
   });
 
+  it("exposes LanguagePicker, which is a vocabulary over Combobox and not a pre-arrangement of it", () => {
+    // `DateField` was tombstoned for being `DatePicker` plus a fixed arrangement of its parts and
+    // strictly less capable. This is the other side of the rule ("a convenience earns the name by
+    // being *more capable* than the composition"): it owns endonyms, the default set, what a tag is
+    // and a closed/open switch, none of which the parts have.
+    expect(UI.LanguagePicker).toBeTypeOf("function");
+  });
+
   it("exposes the two hooks for a control whose owner is elsewhere", () => {
     // `useAsyncCollection` is Ark's `useAsyncList` plus the pause, the collection and the labels a
     // Combobox needs; `useDebouncedCommit` is the draft a text control keeps while its owner is
