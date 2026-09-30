@@ -199,6 +199,7 @@ export * from "./simples/item.js";
 export * from "./simples/json-tree-view.js";
 export * from "./simples/kbd.js";
 export * from "./simples/listbox.js";
+export * from "./simples/locale.js";
 export * from "./simples/menu.js";
 export * from "./simples/native-select.js";
 export * from "./simples/number-input.js";

@@ -1,0 +1,54 @@
+---
+title: Internationalisation
+description: Two things, kept apart — the locale Ark's machines format by, and the words a component draws, which are props.
+---
+
+<ComponentPreview componentName="i18n" />
+
+A component here has two ways of being in a language, and they are not the same mechanism.
+
+## The locale
+
+`LocaleProvider` sets the `locale` (and `dir`) that every machine below it formats and orders by:
+`FormatNumber`, `FormatByte`, `DatePicker`'s months and weekdays, `useFilter`'s collation, the
+number and date inputs. Put one at the root of a product that is not in `en-US`; nest one to give a
+region another. `useLocale()` reads it.
+
+```tsx
+import { LocaleProvider, useLocale } from "@kanzo-tech/ui";
+```
+
+```tsx
+<LocaleProvider locale="es-ES">
+  <App />
+</LocaleProvider>
+```
+
+It renders no element, so it costs no DOM node and sits anywhere. `useLocale` is Ark's
+`useLocaleContext`, under the name Shark UI gives it.
+
+It translates nothing. A `DatePicker` that says "junio" is formatting, and that comes from here.
+The word "Add" on a `FieldArray` is not formatting, and it does not.
+
+## The words
+
+Every word a component draws is a prop on it, with an English default and no catalogue behind it:
+
+| Component | Props |
+| --- | --- |
+| [`FieldArray`](/docs/forms/field-array) | `addLabel`, `removeLabel` |
+| [`ComboboxEmpty`](/docs/forms/combobox) | its children |
+| [`LanguagePicker`](/docs/forms/language-picker) | `translations` |
+| `SuggestMark`, `CompleteMark` ([`@kanzo-tech/ai`](/docs/ai)) | `label`, `offeringLabel` |
+| `CompleteRoot`, `CompleteKeys` (`@kanzo-tech/ai`) | `announcement`; `acceptLabel`, `dismissLabel` |
+| [`FieldRequiredIndicator`](/docs/forms/field) | `fallback` |
+| [`Questionnaire`](/docs/forms/questionnaire) buttons | their children |
+
+The host owns the words because it is the only place that knows the language, the register and the
+product's own vocabulary — and because a catalogue inside a library is one more thing a product has
+to keep in step with its own. Where the words are one phrase (`LanguagePicker`) they are an object
+named `translations`, the way Ark's own machines take theirs; where they are one word, they are a
+prop.
+
+**What would reverse it:** a third product needing the same forty phrases translated the same way,
+which would make a shared catalogue cheaper than each host writing them.

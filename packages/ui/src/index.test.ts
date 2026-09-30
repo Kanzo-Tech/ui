@@ -116,6 +116,14 @@ describe("@kanzo-tech/ui public surface", () => {
     expect(UI.LanguagePicker).toBeTypeOf("function");
   });
 
+  it("exposes the locale provider Shark ships, under Shark's names", () => {
+    // Reversed: `LocaleProvider` was withheld for having "no forcing consumer", which is a house
+    // rule applied where the reference speaks. Shark's `locale.tsx` exports it and `useLocale`, so
+    // the names are ours; the words a component draws are still props, not a catalogue.
+    expect(UI.LocaleProvider).toBeTypeOf("function");
+    expect(UI.useLocale).toBeTypeOf("function");
+  });
+
   it("exposes the two hooks for a control whose owner is elsewhere", () => {
     // `useAsyncCollection` is Ark's `useAsyncList` plus the pause, the collection and the labels a
     // Combobox needs; `useDebouncedCommit` is the draft a text control keeps while its owner is

@@ -75,7 +75,6 @@ export const UNADOPTED: Readonly<Record<string, string>> = {
   "input-otp":
     "Not adopted under this name. We ship `PinInput` over Ark's pin-input machine; Shark solves the same problem with `input-otp` and exports no hook for it, which is exactly why `usePinInput` is ours to decide rather than the reference's.",
   "link-overlay": "Not built. No renderer in the library or the docs.",
-  locale: "Not built as a component. `useFilter` from `@ark-ui/react/locale` is re-exported from the barrel because `Combobox` cannot be used without it; Ark's `LocaleProvider` has no such forcing consumer.",
   marquee: "Not built. No renderer in the library or the docs.",
   presence: "Not built. Ark's presence primitive is used inside the components that need it, never composed by a caller here.",
   "qr-code": "Not built. No renderer in the library or the docs.",
