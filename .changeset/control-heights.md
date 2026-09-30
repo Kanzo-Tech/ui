@@ -14,6 +14,7 @@ and `Button` always were). What moved, at the default density:
 | `SegmentGroup` | `default` 34 → 32, `solid` 44 → 32, at `md`; it takes a new `size` prop |
 | `NativeSelect` | its wrapper `sm` 29 → 28 (an inline gap under the select) |
 | `Switch`, `Checkbox` and `RadioGroupItem` **with a label** | 18–28 → 32 (the indicator is unchanged, centred in the row); with no children they are unchanged |
+| `Checkbox` and `RadioGroupItem` labels | 16 → 14px, the size the `Switch` label always was |
 | `InputGroupButton` (`sm`, `icon-sm`), the combobox and calendar triggers | 32 → 24px. It is 24 CSS pixels, the WCAG 2.5.8 floor, so it is the same at every density. |
 
 `Input`, `Select`, `NumberInput`, `PinInput`, `Toggle` and `Button` did not change height. If you sized
