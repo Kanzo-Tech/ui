@@ -151,6 +151,9 @@ describe("the parts' props", () => {
   const SRC = dirname(fileURLToPath(import.meta.url));
   const ROOT_PROPS = new Set(["GraphRootProps", "GraphRootProviderProps", "UseGraphProps"]);
 
+  // A whole program through the checker: about a second here and past vitest's 5 s default on a
+  // CI runner, which is how v0.11.0's first publish failed. The budget is for the checker, not the
+  // assertion.
   it("carry no callback but the root's", () => {
     const program = ts.createProgram([join(SRC, "index.ts")], {
       jsx: ts.JsxEmit.ReactJSX,
@@ -186,5 +189,5 @@ describe("the parts' props", () => {
       }
     }
     expect(offenders, "a part's callback is a second home for the host's policy").toEqual([]);
-  });
+  }, 60_000);
 });
