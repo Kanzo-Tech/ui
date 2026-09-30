@@ -42,7 +42,7 @@ What to edit:
   removed. cosmos.gl's `getNeighboringPointIndices` is the neighbourhood.
 
 `@kanzo-tech/mosaic` and `@fossil-lang/corpus` are required peers now, and the corpus release must be
-one whose `scan(…).read` and `edges` take a list of addresses: the tiles a camera move needs are
+`0.3.0-alpha.13` or later, the first whose `scan(…).read` and `edges` take a list of addresses: the tiles a camera move needs are
 read as one batch, and fossil reads each run of consecutive tiles in one statement. A far view draws a coarser
 zoom of the corpus's cell pyramid rather than a sample, and the page's crossfilter filters what is
 read rather than greying what is drawn; a clause the graph cannot express reaches `onFailure`.
