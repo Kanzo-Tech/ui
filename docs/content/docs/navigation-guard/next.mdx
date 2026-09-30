@@ -26,7 +26,7 @@ Anything else cancels the click there and then, and `proceed` re-issues the navi
 `router.push` or `router.replace` with the same `scroll`. The re-issued navigation does not carry
 `useLinkStatus`'s pending state.
 
-It works as the `asChild` child of `SidebarMenuButton`, `BreadcrumbLink` and `MenuItem` exactly as
+It works as the `asChild` child of `Link`, `SidebarMenuButton`, `BreadcrumbLink` and `MenuItem` exactly as
 `next/link` does, because those parts never navigate — they hand navigation to their child.
 
 ## `useRouter`
