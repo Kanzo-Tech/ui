@@ -82,7 +82,7 @@
    inherited value. Pointing the variable at `--popover` is also why this is CSS and not JS — the
    token already flips with the theme, so nothing has to re-resolve anything. */
 [data-slot="chart"] [class*="plot-"] {
-  --plot-background: var(--popover);
+  --plot-background: var(--popover, var(--card));
 }
 
 /* Prose, re-tokenised. The typography plugin ships its own grey palette, which would make

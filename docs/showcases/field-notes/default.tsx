@@ -203,7 +203,7 @@ function Sheet({ className, crop, shot }: { className?: string; crop: Crop; shot
           insetBlockStart: `${crop.y * 100}%`,
           width: `${crop.w * 100}%`,
           height: `${crop.h * 100}%`,
-          backgroundColor: "var(--brand-a3)",
+          backgroundColor: "color-mix(in oklab, var(--primary) 7%, transparent)",
         }}
       />
     </div>
@@ -1036,9 +1036,9 @@ export function FieldNotesShowcase() {
                             className={cn(
                               "rounded-none border-0 [&_td]:p-0 [&_td]:align-middle",
                               marking === "unread" &&
-                                "[&_td:has([data-unread])]:bg-warning-a3 [&_td:has([data-unread])]:ring-1 [&_td:has([data-unread])]:ring-warning-a6 [&_td:has([data-unread])]:ring-inset",
+                                "[&_td:has([data-unread])]:bg-warning/7 [&_td:has([data-unread])]:ring-1 [&_td:has([data-unread])]:ring-warning/30 [&_td:has([data-unread])]:ring-inset",
                               marking === "violations" &&
-                                "[&_td:has([aria-invalid=true])]:bg-destructive-a3 [&_td:has([aria-invalid=true])]:ring-1 [&_td:has([aria-invalid=true])]:ring-destructive-a6 [&_td:has([aria-invalid=true])]:ring-inset",
+                                "[&_td:has([aria-invalid=true])]:bg-destructive/7 [&_td:has([aria-invalid=true])]:ring-1 [&_td:has([aria-invalid=true])]:ring-destructive/30 [&_td:has([aria-invalid=true])]:ring-inset",
                             )}
                             empty="Nothing read yet."
                             onRowClick={(row) => table.setRowSelection({ [row.id]: true })}

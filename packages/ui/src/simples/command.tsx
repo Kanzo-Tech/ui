@@ -248,7 +248,7 @@ export const CommandFooter = (props: React.ComponentProps<"div">) => {
         "flex items-center justify-between gap-2",
         "-m-2 mt-2 px-4 py-3",
         "text-muted-foreground text-xs",
-        "rounded-b-[calc(var(--radius-2xl,1rem)-1px)] border-t",
+        "rounded-b-[calc(var(--radius-2xl)-1px)] border-t",
         className
       )}
       {...rest}

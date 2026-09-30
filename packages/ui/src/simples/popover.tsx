@@ -243,7 +243,7 @@ export const PopoverArrow = (
     <ArkPopover.Arrow
       style={
         {
-          "--arrow-background": "var(--popover)",
+          "--arrow-background": "var(--popover, var(--card))",
           "--arrow-size": "calc(1.5 * var(--spacing))",
           ...style,
         } as React.CSSProperties

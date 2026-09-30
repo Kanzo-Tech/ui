@@ -148,6 +148,33 @@ describe("a theme resolves through the bridge", () => {
     expect(dangling).toEqual([]);
   });
 
+  it("lands every name the bridge reads, in every theme", () => {
+    // The pairs above are a chosen subset; this is every `--color-*` binding. A binding with no
+    // comma is a promise that every theme declares the target, and `--color-sidebar-accent-foreground:
+    // var(--accent-foreground)` broke it in all twenty-nine: none of them authors
+    // `--accent-foreground`, so the sidebar's active and hovered items lost their ink and inherited
+    // `--sidebar-foreground` instead. `:root` counts — it is where the categorical default lives.
+    const tokens = readFileSync(join(PKG, "tokens.css"), "utf8");
+    const root = new Set(
+      [...tokens.slice(tokens.search(/^:root\s*\{/m)).matchAll(/^\s*(--[a-z0-9-]+):/gm)].map((m) => m[1]),
+    );
+    // Each binding is judged by ITS OWN chain, not by the name it reads: `--color-accent-foreground`
+    // carries a fallback for `--accent-foreground`, and resolving by name would lend it to the
+    // sidebar binding that does not — which is how the defect above passed `FALLBACKS`.
+    const bindings = [...tokens.matchAll(/^\s*(--color-[a-z0-9-]+):\s*(var\([^;]+);/gm)].map((m) => ({
+      name: m[1] as string,
+      chain: [...(m[2] as string).matchAll(/--[a-z0-9-]+/g)].map((t) => t[0]),
+    }));
+    expect(bindings.length).toBeGreaterThan(20);
+    const dangling: string[] = [];
+    for (const theme of THEMES) {
+      for (const { name, chain } of bindings) {
+        if (!chain.some((t) => theme.declared.has(t) || root.has(t))) dangling.push(`${theme.name}: ${name} → ${chain.join(" → ")}`);
+      }
+    }
+    expect(dangling).toEqual([]);
+  });
+
   it("keeps every pair at AA once resolved", () => {
     const short: string[] = [];
     for (const theme of THEMES) {

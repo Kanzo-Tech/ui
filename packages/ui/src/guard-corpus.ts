@@ -65,7 +65,8 @@ import { fileURLToPath } from "node:url";
  * - **It reads `src/`, and only `.ts`/`.tsx` under it.** A `tailwind.css` in either package is passed
  *   over by a filter rather than by a decision — see the note each guard carries about its own.
  * - **It cannot see a package that is not in `packages/`.** The workspace globs are `packages/*` and
- *   `docs`; `docs` is not a library and has never been in scope for these rules.
+ *   `docs`; `docs` is not a library and is not in scope for the idiom rules. It IS in {@link READERS},
+ *   the wider population below, and the reason is on that constant.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -84,17 +85,21 @@ const IDIOM = "tailwind-variants";
 
 const rejected: string[] = [];
 
+interface Published extends Root {
+  readonly dependencies: Record<string, string>;
+}
+
 /**
- * Every package the scans cover, derived from the workspace rather than hard-coded to two paths.
+ * Every shipped package with a `src/`, before the idiom filter.
  *
  * `packages/*` is one of the two globs in `pnpm-workspace.yaml`, read here as a directory listing:
  * the other is `docs`, which is not a library.
  */
-export const ROOTS: readonly Root[] = readdirSync(join(REPO, "packages"), { withFileTypes: true })
+const PUBLISHED: readonly Published[] = readdirSync(join(REPO, "packages"), { withFileTypes: true })
   .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
   .sort()
-  .flatMap((name): Root[] => {
+  .flatMap((name): Published[] => {
     const dir = join(REPO, "packages", name);
     const manifest = join(dir, "package.json");
     if (!existsSync(manifest)) {
@@ -109,17 +114,45 @@ export const ROOTS: readonly Root[] = readdirSync(join(REPO, "packages"), { with
       rejected.push(`${name}: private, so nothing it contains is shipped`);
       return [];
     }
-    if (!(IDIOM in (pkg.dependencies ?? {}))) {
-      rejected.push(`${name}: does not depend on ${IDIOM}, so it writes no recipe`);
-      return [];
-    }
     const src = join(dir, "src");
     if (!existsSync(src)) {
       rejected.push(`${name}: has no src/`);
       return [];
     }
-    return [{ name, src }];
+    return [{ name, src, dependencies: pkg.dependencies ?? {} }];
   });
+
+/** Every package the idiom scans cover, derived from the workspace rather than hard-coded. */
+export const ROOTS: readonly Root[] = PUBLISHED.filter((root) => {
+  if (IDIOM in root.dependencies) return true;
+  rejected.push(`${root.name}: does not depend on ${IDIOM}, so it writes no recipe`);
+  return false;
+}).map(({ name, src }) => ({ name, src }));
+
+/**
+ * The population for the one rule that is not about the idiom: **a custom property that is read
+ * has to exist.** Every shipped package's `src/`, and `docs/`.
+ *
+ * The idiom filter above is right for the rules about how a recipe is written and wrong for this
+ * one, and the failure that proved it is the reason this constant exists: `graph-canvas.tsx`
+ * filled the lasso with `var(--brand-a5)`, a token the theme refoundation deleted, and it drew
+ * BLACK in keasy — an undefined property makes an SVG `fill` invalid, and `fill`'s initial value is
+ * black. `graph` writes no `tv()` recipe, so no guard read a line of it. What a file reads from the
+ * theme does not depend on how it spells its classes.
+ *
+ * **`docs` is in, and only here.** The showcases and examples are what a consumer copies, and two of
+ * them were teaching deleted names (`bg-base-a5`, `var(--brand-a3)`) — a page that paints nothing
+ * is a defect whether or not it ships in a tarball. It stays out of {@link ROOTS}: a showcase
+ * deliberately hand-rolls what a recipe would own, and the idiom rules would be arguing with the
+ * one place that is allowed to.
+ *
+ * `theme` is in as well, although it declares the vocabulary: its `src/` is TypeScript that READS
+ * names (`categoricalColor` returns `var(--chart-N)`), and a read there resolves like any other.
+ */
+export const READERS: readonly Root[] = [
+  ...PUBLISHED.map(({ name, src }) => ({ name, src })),
+  { name: "docs", src: join(REPO, "docs") },
+];
 
 /**
  * A glob that silently matches nothing is worse than the two hard-coded paths it replaced, because
@@ -144,10 +177,15 @@ if (ROOTS.length < 2) {
 if (!ROOTS.some((root) => root.name === "ui")) {
   throw new Error("packages/ui is not in the guard corpus — the derivation is broken, not the tree");
 }
+for (const needed of ["ui", "graph", "docs"]) {
+  if (!READERS.some((root) => root.name === needed)) {
+    throw new Error(`${needed} is not among the READERS — the derivation is broken, not the tree`);
+  }
+}
 
 /** `/Users/…/packages/ai/src/message.tsx` → `ai/message.tsx`. Throws rather than guessing. */
 export function label(file: string): string {
-  const root = ROOTS.find((r) => file === r.src || file.startsWith(r.src + sep));
+  const root = READERS.find((r) => file === r.src || file.startsWith(r.src + sep));
   if (!root) throw new Error(`${file} is outside every scanned root — it cannot be reported`);
   return `${root.name}/${relative(root.src, file)}`;
 }
@@ -155,15 +193,18 @@ export function label(file: string): string {
 /** The inverse, so a pinned list in a guard is spelled the way that guard's failures are. */
 export function resolvePath(reported: string): string {
   const [name = "", ...rest] = reported.split("/");
-  const root = ROOTS.find((r) => r.name === name);
+  const root = READERS.find((r) => r.name === name);
   if (!root) {
     throw new Error(
-      `"${reported}" names package "${name}", which is not in the corpus (${ROOTS.map((r) => r.name).join(", ")}).\n` +
+      `"${reported}" names package "${name}", which is not in the corpus (${READERS.map((r) => r.name).join(", ")}).\n` +
         `A pinned entry that resolves to no root is an assertion about a file nobody is reading.`,
     );
   }
   return join(root.src, ...rest);
 }
+
+/** Build output and installed code, never source. The last three only occur under `docs/`. */
+const SKIPPED = new Set(["node_modules", "dist", ".next", "out", ".source"]);
 
 /**
  * Every source file in the corpus, absolute, ordered by the path a failure would report.
@@ -171,17 +212,17 @@ export function resolvePath(reported: string): string {
  * Tests are excluded: they quote the very spellings the rules ban, on purpose, and several of them
  * assemble one at runtime to keep it out of Tailwind's scan.
  */
-export function sourceFiles(extensions = /\.tsx?$/): string[] {
+export function sourceFiles(extensions = /\.tsx?$/, roots: readonly Root[] = ROOTS): string[] {
   const out: string[] = [];
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (entry.name === "node_modules" || entry.name === "dist") continue;
+      if (SKIPPED.has(entry.name)) continue;
       const path = join(dir, entry.name);
       if (entry.isDirectory()) walk(path);
       else if (extensions.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)) out.push(path);
     }
   };
-  for (const root of ROOTS) walk(root.src);
+  for (const root of roots) walk(root.src);
   return out.sort((a, b) => (label(a) < label(b) ? -1 : 1));
 }
 

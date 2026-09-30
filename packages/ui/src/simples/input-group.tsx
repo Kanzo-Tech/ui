@@ -72,7 +72,7 @@ const inputGroupAddonVariants = tv({
     "select-none font-medium text-muted-foreground text-sm",
     "cursor-text",
     "group-data-[disabled=true]/input-group:opacity-64",
-    "[&>kbd]:rounded-[calc(var(--radius)-5px)]",
+    "[&>kbd]:rounded-[calc(var(--radius-lg)-5px)]",
     "[&_svg:not([class*='size-'])]:size-4",
   ],
   variants: {
