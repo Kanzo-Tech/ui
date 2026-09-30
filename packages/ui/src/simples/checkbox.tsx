@@ -31,7 +31,7 @@ export const CheckboxGroup = (
  * nothing else, and the height is not asked of it.
  */
 const checkboxRowVariants = tv({
-  base: ["inline-flex items-center gap-2", "data-disabled:opacity-64"],
+  base: ["inline-flex items-center gap-2", "text-sm", "data-disabled:opacity-64"],
   variants: { labelled: { true: [controlSizes.md, controlMinHeight] } },
 });
 
