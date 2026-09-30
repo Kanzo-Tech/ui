@@ -14,7 +14,7 @@ import {
   MosaicProvider,
   engine,
 } from "@kanzo-tech/ui/analytics";
-import type { BoundedSample } from "./measure-bounded";
+import type { ViewerSample } from "./measure-viewer";
 import type { Sample } from "./measure";
 
 /**
@@ -38,8 +38,8 @@ import type { Sample } from "./measure";
  * The provider exists because `ChartRoot` reads a coordinator from context — but nothing here
  * queries: every mark carries its own `data`, so the rows are the samples this tab already has.
  *
- * It is handed **`engine()`'s coordinator**, the same per-document instance the bounded harness runs its
- * sweep through. A second coordinator on one page is how vgplot's global gets fought over; there is
+ * It is handed **`engine()`'s coordinator**, the same per-document instance the viewer sweep opens
+ * its corpora on. A second coordinator on one page is how vgplot's global gets fought over; there is
  * one here, and this borrows it rather than building another.
  */
 function useBenchCoordinator(): Coordinator | null {
@@ -63,17 +63,10 @@ interface Point {
   series: string;
 }
 
-/**
- * Two series, and they are the trade rather than a pair of measurements.
- *
- * `First paint` is what the bounded path bought; `Pan` is what it cost. Both are milliseconds of
- * wall clock at the same magnitude, which is what makes them legitimately one chart — and putting
- * them together is the honest framing, because a first paint that stops following N is only good
- * news if the per-move cost stays flat beside it.
- */
-const BOUNDED_SERIES: ChartConfig = {
-  paint: { label: "First paint" },
-  pan: { label: "Pan" },
+/** Each side's p95 frame interval over the same camera path: the gap between them is the finding. */
+const VIEWER_SERIES: ChartConfig = {
+  raw: { label: "cosmos.gl alone" },
+  viewer: { label: "GraphRoot" },
 };
 
 /** One series, so no legend box — the card's title names it. */
@@ -82,28 +75,28 @@ const ENGINE_SERIES: ChartConfig = {
 };
 
 export function ResultsChart(props: {
-  layer: "engine" | "bounded";
+  layer: "engine" | "viewer";
   samples: Sample[];
-  bounded: BoundedSample[];
+  viewer: ViewerSample[];
 }) {
-  const { bounded, layer, samples } = props;
+  const { layer, samples, viewer } = props;
   const coordinator = useBenchCoordinator();
 
   const { config, data } = useMemo(() => {
     if (layer !== "engine") {
       const rows: Point[] = [];
-      for (const s of bounded) {
+      for (const s of viewer) {
         if (s.failure) continue;
-        rows.push({ nodes: s.pointCount, ms: s.firstPaintMs, series: "paint" });
-        rows.push({ nodes: s.pointCount, ms: s.panMs, series: "pan" });
+        rows.push({ nodes: s.pointCount, ms: s.rawP95, series: "raw" });
+        rows.push({ nodes: s.pointCount, ms: s.viewerP95, series: "viewer" });
       }
-      return { config: BOUNDED_SERIES, data: rows };
+      return { config: VIEWER_SERIES, data: rows };
     }
     const rows: Point[] = samples
       .filter((s) => !s.failure)
       .map((s) => ({ nodes: s.pointCount, ms: s.stepMs, series: "step" }));
     return { config: ENGINE_SERIES, data: rows };
-  }, [bounded, layer, samples]);
+  }, [layer, samples, viewer]);
 
   // Two points make a line; one makes a dot pretending to be a trend. Below that the stat tiles are
   // the honest form, and they are already on screen.
@@ -114,12 +107,12 @@ export function ResultsChart(props: {
     <MosaicProvider coordinator={coordinator}>
       <div className="rounded-lg border p-4">
         <p className="font-medium text-sm">
-          {layer === "engine" ? "Simulation cost against corpus" : "Cost against corpus"}
+          {layer === "engine" ? "Simulation cost against corpus" : "p95 frame interval against corpus"}
         </p>
         <p className="mb-3 text-muted-foreground text-xs">
           {layer === "engine"
             ? "A live layout is finished by about 200,000 points, and this is the curve that says so."
-            : "First paint should stay flat as the corpus grows — that flatness is the finding. Pan is the cost that did not exist before."}
+            : "The viewer should stay within 15% of cosmos.gl alone at every size."}
         </p>
 
         {/* A legend for two series, none for one — identity is never colour alone, and a title

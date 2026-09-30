@@ -63,15 +63,7 @@ import {
   type Shape,
   visible,
 } from "./measure";
-import {
-  BOUNDED_SIZES,
-  BOUNDED_LIMIT,
-  BOUNDED_STRESS_SIZES,
-  type BoundedSample,
-  measureBounded,
-} from "./measure-bounded";
-// Registers `window.measureViewer`, the viewer against cosmos.gl alone; driven from the console.
-import "./measure-viewer";
+import { measureViewer, VIEWER_SIZES, type ViewerSample } from "./measure-viewer";
 import { ResultsChart } from "./results-chart";
 
 /**
@@ -91,7 +83,7 @@ declare global {
   interface Window {
     __graphBench?: {
       samples: Sample[];
-      bounded: BoundedSample[];
+      viewer: ViewerSample[];
       running: boolean;
       done: boolean;
     };
@@ -99,66 +91,24 @@ declare global {
 }
 
 /**
- * Which ceiling is being asked about.
- *
- * Both layers render with cosmos.gl. **There is no engine of ours** — these were labelled "Engine"
- * and "Our stack", which read to a reader as though we had written a second renderer.
- *
- * `engine` is cosmos.gl fed typed arrays straight from a generator: the most the GPU can do with
- * nothing of ours in the way. `bounded` is the same graph arriving as a real one does, through a
- * corpus fossil opens and `GraphRoot` draws, a tile read per camera move.
- *
- * **There used to be a third, and its absence is the result.** `+ our pipeline` measured `load()`:
- * the whole relation into typed arrays, every id, an id→index map. ADR-0001 deleted that path, and a
- * benchmark cannot measure code that is gone — keeping it alive to be measured is the shim the
- * repository's own rule forbids. Its numbers stay on `/docs/graph/benchmarks`, dated and attributed to the
- * machine that produced them, which is what a record is for. The comparison they justified is
- * settled; what is still worth running is whether the surviving path holds its shape.
+ * Which ceiling is being asked about. Both layers render with cosmos.gl: `engine` is cosmos.gl fed
+ * typed arrays straight from a generator, and `viewer` is `GraphRoot` drawing a whole corpus against
+ * cosmos.gl alone on the same positions and the same camera path.
  */
-type Layer = "engine" | "bounded";
+type Layer = "engine" | "viewer";
 
 const LAYERS: { id: Layer; label: string; hint: string }[] = [
-  // Not variants of each other, and not a menu. `bounded` is **the** path: a window asked of a
-  // GraphAr tree fossil compiled, holding nothing. `engine` is the control it is measured against —
-  // the same renderer fed the whole graph as typed arrays — and a benchmark needs exactly one of
-  // those. A third entry used to sit between them running the same code over a corpus built in this
-  // tab; it measured nothing the first does not, more slowly, so it is gone.
-  { id: "bounded", label: "Bounded", hint: "asks for the window, holds nothing" },
+  { id: "viewer", label: "GraphRoot", hint: "the whole corpus through our viewer" },
   { id: "engine", label: "cosmos.gl alone", hint: "the GPU with nothing of ours in the way" },
 ];
 
-/**
- * What holding the whole corpus cost, at 200,000 nodes, on the machine `/docs/graph/benchmarks` names.
- *
- * A number rather than a column, because the path that produced it was deleted by ADR-0001 and a
- * benchmark cannot run code that is gone. It is here so the bounded figure has something to be
- * measured *against* — a first paint means nothing on its own, and "105 ms" only becomes an argument
- * beside the 1,225 ms it replaced.
- */
-const HELD_FIRST_PAINT_MS = 1_225;
+const GATE = 1.15;
 
-/**
- * The recorded run, at 200,000 nodes — 2026-08-15, through `corpusSource`.
- *
- * Shown before a sweep has been run, because a benchmark page that opens saying nothing until you
- * wait two minutes for it has buried its own finding. These are labelled as recorded rather than
- * measured, and the moment this tab produces its own numbers they are replaced by them: a reader
- * should be able to tell "what we found" from "what your machine just did", and the difference
- * between those two is most of what a benchmark is for.
- *
- * **They were rebaselined, and the old ones were not merely older.** The figures here read 105 ms of
- * first paint and 30 ms of pan, from 2026-07-31 — a corpus written at a tile size fossil has since
- * retired, read by a source that handed DuckDB every chunk URL and pruned with a `WHERE`. Both sides
- * of that changed, so the numbers described a system that no longer exists while sitting beside live
- * ones that did. the benchmark record (`git show 441257a:BENCHMARKS.md`) keeps them where a superseded measurement belongs.
- */
-const RECORDED = {
-  firstPaintMs: 299,
-  panMs: 73,
-  shown: 20_000,
-  matched: 200_000,
-  atNodes: 200_000,
-} as const;
+function median(values: number[]): number {
+  if (values.length === 0) return Number.NaN;
+  const sorted = [...values].sort((x, y) => x - y);
+  return sorted[Math.floor(sorted.length / 2)] as number;
+}
 
 /** The same recorded run, for the control condition. `/docs/graph/benchmarks`, the engine table, 200,000 nodes. */
 const RECORDED_ENGINE = {
@@ -168,94 +118,38 @@ const RECORDED_ENGINE = {
   atNodes: 200_000,
 } as const;
 
-/**
- * The claim, before the evidence.
- *
- * A benchmark page that opens with a table asks a reader to derive the finding from seven columns.
- * The finding is one sentence — *first paint follows the window rather than the corpus* — and it is
- * a statement about a **shape**, so the tile carries the series as a sparkline and the number as the
- * headline. Nothing here is computed differently from the table below it; it is the same samples,
- * read the way the argument is made.
- */
+/** The last size's figures, and the trend across the sizes measured so far. */
 function Headline(props: {
   layer: Layer;
   samples: Sample[];
-  bounded: BoundedSample[];
+  viewer: ViewerSample[];
 }) {
-  const { bounded, layer, samples } = props;
+  const { layer, samples, viewer } = props;
 
   if (layer !== "engine") {
-    const done = bounded.filter((sample) => !sample.failure);
+    const done = viewer.filter((sample) => !sample.failure);
     const last = done.at(-1);
-    if (!last) {
-      return (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <StatRoot>
-            <StatLabel>First paint at {compact(RECORDED.atNodes)} · recorded</StatLabel>
-            <StatValue>{RECORDED.firstPaintMs} ms</StatValue>
-            <StatDelta
-              goodWhenUp={false}
-              unit="%"
-              value={Math.round(
-                ((RECORDED.firstPaintMs - HELD_FIRST_PAINT_MS) / HELD_FIRST_PAINT_MS) * 100,
-              )}
-            >
-              vs held at {compact(RECORDED.atNodes)}
-            </StatDelta>
-          </StatRoot>
-          <StatRoot>
-            <StatLabel>Updates per second · recorded</StatLabel>
-            <StatValue>{format(1000 / RECORDED.panMs, 1)} /s</StatValue>
-          </StatRoot>
-          <StatRoot>
-            <StatLabel>Shown of matched · recorded</StatLabel>
-            <StatValue>
-              {compact(RECORDED.shown)} / {compact(RECORDED.matched)}
-            </StatValue>
-          </StatRoot>
-        </div>
-      );
-    }
-    const paint = done.map((s) => s.firstPaintMs);
-    const first = paint.at(-1) ?? 0;
+    if (!last) return null;
     return (
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <StatRoot>
           <StatLabel>First paint at {compact(last.pointCount)}</StatLabel>
-          <StatValue>{format(first, 0)} ms</StatValue>
-          <StatTrend values={paint} />
-          {/* Down is the good direction here, which is not the delta's default — a first paint that
-              grew would be the whole argument failing.
-
-              The comparison names its own basis, because the compiled sweep ends at a million while
-              the held figure is a 200,000 one. An unlabelled percentage there would read as
-              like-for-like and be understating itself by a factor of five. */}
-          <StatDelta
-            goodWhenUp={false}
-            unit="%"
-            value={Math.round(((first - HELD_FIRST_PAINT_MS) / HELD_FIRST_PAINT_MS) * 100)}
-          >
-            vs held at {compact(RECORDED.atNodes)}
+          <StatValue>{format(median(last.viewer.map((run) => run.firstPaintMs)), 0)} ms</StatValue>
+          <StatTrend values={done.map((s) => median(s.viewer.map((run) => run.firstPaintMs)))} />
+        </StatRoot>
+        <StatRoot>
+          <StatLabel>p95 frame interval</StatLabel>
+          <StatValue>
+            {format(last.viewerP95, 1)} / {format(last.rawP95, 1)} ms
+          </StatValue>
+          <StatTrend values={done.map((s) => s.viewerP95)} />
+        </StatRoot>
+        <StatRoot>
+          <StatLabel>Viewer against cosmos.gl alone</StatLabel>
+          <StatValue>×{format(last.ratio, 2)}</StatValue>
+          <StatDelta goodWhenUp={false} unit="%" value={Math.round((last.ratio - GATE) * 100)}>
+            vs the ×{GATE} gate
           </StatDelta>
-        </StatRoot>
-        <StatRoot>
-          <StatLabel>Pan</StatLabel>
-          <StatValue>{format(last.panMs, 0)} ms</StatValue>
-          <StatTrend values={done.map((s) => s.panMs)} />
-        </StatRoot>
-        <StatRoot>
-          <StatLabel>Per pan</StatLabel>
-          <StatValue>
-            {format(last.readsPerPan, 1)} reads · {bytes(last.bytesPerPan)}
-          </StatValue>
-          <StatTrend values={done.map((s) => s.bytesPerPan ?? 0)} />
-        </StatRoot>
-        <StatRoot>
-          <StatLabel>Frames while panning</StatLabel>
-          <StatValue>
-            {last.fpsPanning === null ? "tab hidden" : `${format(last.fpsPanning, 0)} fps`}
-          </StatValue>
-          <StatTrend values={done.map((s) => s.fpsPanning ?? 0)} />
         </StatRoot>
       </div>
     );
@@ -321,11 +215,6 @@ const SHAPES: { id: Shape; label: string; hint: string }[] = [
  *
  * The sweep reaches 500k and 1M because it hands the loop back between stages. The preview does not,
  * and the honest ceiling is where a reader stops waiting rather than where the GPU stops coping.
- *
- * **The real answer is not to build the corpus here at all.** A Parquet corpus written once by
- * fossil and read by address never generates anything in the browser — which is exactly the
- * larger-than-RAM half ADR-0001 records as unmeasured, and what would make a million nodes cost the
- * same as two thousand. The superseded bounded table on `/docs/graph/benchmarks` is that measurement: 253 ms at a million.
  */
 const PREVIEW_SIZES = [2_000, 10_000, 50_000, 200_000];
 
@@ -380,41 +269,24 @@ function format(value: number, digits = 1): string {
   });
 }
 
-function bytes(value: number | null): string {
-  if (value === null) return "—";
-  if (value >= 1_048_576) return `${format(value / 1_048_576, 1)} MB`;
-  if (value >= 1_024) return `${format(value / 1_024, 0)} kB`;
-  return `${format(value, 0)} B`;
-}
-
 function compact(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(value % 1_000_000 ? 1 : 0)}M`;
   if (value >= 1_000) return `${(value / 1_000).toFixed(value % 1_000 ? 1 : 0)}k`;
   return String(value);
 }
 
-/**
- * The bounded path as a host runs it: fossil's `open`, then `GraphRoot` and `GraphCanvas`. `First
- * paint` is mount to a quiet canvas; `Reads` and `Bytes` are what it took. `Pan` is the cost that did
- * not exist before — a camera move is tile reads — so it stays beside its reads and bytes. `Zoom` is
- * the pyramid level drawn at first paint and after zooming in, of how many there are.
- */
-function BoundedTable(props: {
-  sizes: number[];
-  samples: BoundedSample[];
-  running: boolean;
-  stage: string | null;
-}) {
-  const { running, samples, sizes, stage } = props;
+/** Per size: first paint through `GraphRoot`, and each side's p95 frame interval over one camera path. */
+function ViewerTable(props: { samples: ViewerSample[]; running: boolean; stage: string | null }) {
+  const { running, samples, stage } = props;
   return (
     <Show
       when={samples.length > 0 || running}
       fallback={
         <p className="px-4 py-6 text-sm text-muted-foreground">
-          Run the sweep to open {sizes.map(compact).join(" · ")} with fossil and draw each with{" "}
-          <code>GraphRoot</code> at {compact(BOUNDED_LIMIT)} marks — first paint, then a zoom into a
-          window and six pans across the extent, counting every tile read and every byte DuckDB
-          fetched. Nothing is built in this tab: the corpus is Parquet over HTTP.
+          Run the sweep to open {VIEWER_SIZES.map(compact).join(" · ")} and draw each with cosmos.gl alone
+          and with <code>GraphRoot</code>, over the same wheel trajectory. The corpora under{" "}
+          <code>/bench</code> have to be <code>fossil/1</code>, which they are once fossil&apos;s writer
+          emits it and <code>corpus/build-corpus.mjs</code> is re-run.
         </p>
       }
     >
@@ -422,66 +294,42 @@ function BoundedTable(props: {
         <TableHeader>
           <TableRow>
             <TableHead>Nodes</TableHead>
-            <TableHead className="text-right">Open</TableHead>
+            <TableHead>Links</TableHead>
             <TableHead className="text-right">First paint</TableHead>
-            <TableHead className="text-right">Reads</TableHead>
-            <TableHead className="text-right">Bytes</TableHead>
-            <TableHead className="text-right">Zoom in</TableHead>
-            <TableHead className="text-right">Pan</TableHead>
-            <TableHead className="text-right">Reads/pan</TableHead>
-            <TableHead className="text-right">Bytes/pan</TableHead>
-            <TableHead className="text-right">Marks</TableHead>
-            <TableHead className="text-right">Zoom</TableHead>
-            <TableHead className="text-right">Frames</TableHead>
+            <TableHead className="text-right">cosmos.gl p95</TableHead>
+            <TableHead className="text-right">Viewer p95</TableHead>
+            <TableHead className="text-right">Ratio</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {samples.map((sample) => (
             <TableRow key={sample.pointCount}>
               <TableCell className="font-medium">{compact(sample.pointCount)}</TableCell>
+              <TableCell>{compact(sample.linkCount)}</TableCell>
               <Show
                 when={!sample.failure}
                 fallback={
-                  <TableCell colSpan={11} className="text-destructive">
+                  <TableCell colSpan={4} className="text-destructive">
                     {sample.failure}
                   </TableCell>
                 }
               >
-                <TableCell className="text-right tabular-nums text-muted-foreground">
-                  {format(sample.openMs, 0)} ms
-                </TableCell>
-                <TableCell className="text-right font-medium tabular-nums">
-                  {format(sample.firstPaintMs, 0)} ms
-                </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {sample.reads} + {sample.edgeReads}
+                  {format(median(sample.viewer.map((run) => run.firstPaintMs)), 0)} ms
                 </TableCell>
-                <TableCell className="text-right tabular-nums">{bytes(sample.bytes)}</TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {format(sample.zoomIn.ms, 0)} ms
-                </TableCell>
+                <TableCell className="text-right tabular-nums">{format(sample.rawP95, 1)} ms</TableCell>
+                <TableCell className="text-right tabular-nums">{format(sample.viewerP95, 1)} ms</TableCell>
                 <TableCell className="text-right font-medium tabular-nums">
-                  {format(sample.panMs, 0)} ms
-                </TableCell>
-                <TableCell className="text-right tabular-nums">{format(sample.readsPerPan, 1)}</TableCell>
-                <TableCell className="text-right tabular-nums">{bytes(sample.bytesPerPan)}</TableCell>
-                <TableCell className="text-right tabular-nums text-muted-foreground">
-                  {compact(sample.marks)} / {compact(sample.represented)}
-                </TableCell>
-                <TableCell className="text-right tabular-nums text-muted-foreground">
-                  {sample.z ?? "—"} → {sample.zoomIn.z ?? "—"} / {sample.zooms - 1}
-                </TableCell>
-                <TableCell className="text-right tabular-nums text-muted-foreground">
-                  <Show when={sample.fpsIdle !== null} fallback={<span>tab hidden</span>}>
-                    {format(sample.fpsIdle ?? 0, 0)} / {format(sample.fpsPanning ?? 0, 0)} fps
+                  <Show when={sample.ratio <= GATE} fallback={<span className="text-destructive">×{format(sample.ratio, 2)}</span>}>
+                    ×{format(sample.ratio, 2)}
                   </Show>
                 </TableCell>
               </Show>
             </TableRow>
           ))}
-          <Show when={running && samples.length < sizes.length}>
+          <Show when={running && samples.length < VIEWER_SIZES.length}>
             <TableRow>
-              <TableCell colSpan={12} className="text-muted-foreground">
+              <TableCell colSpan={6} className="text-muted-foreground">
                 <span className="inline-flex items-center gap-2">
                   <Spinner className="size-3" /> {stage ?? "measuring"}…
                 </span>
@@ -496,12 +344,10 @@ function BoundedTable(props: {
 
 export function GraphBenchShowcase() {
   const [shape, setShape] = useState<Shape>("hyperbolic");
-  // Opens on the architecture rather than on the control condition: `bounded` is the claim this
-  // page exists to make, and `cosmos.gl alone` is what it is measured against.
-  const [layer, setLayer] = useState<Layer>("bounded");
+  const [layer, setLayer] = useState<Layer>("viewer");
   const [previewSize, setPreviewSize] = useState(PREVIEW_SIZES[1] as number);
   const [samples, setSamples] = useState<Sample[]>([]);
-  const [boundedSamples, setBoundedSamples] = useState<BoundedSample[]>([]);
+  const [viewerSamples, setViewerSamples] = useState<ViewerSample[]>([]);
   const [running, setRunning] = useState(false);
   const [current, setCurrent] = useState<number | null>(null);
   /** Which stage of the sweep is in flight, so a stall says what it is stalled on. */
@@ -658,13 +504,13 @@ export function GraphBenchShowcase() {
 
   // One object, both layers, so the headless runner reads a single place and can tell which sweep
   // produced what without inferring it from the shape of the rows.
-  const published = useRef<{ samples: Sample[]; bounded: BoundedSample[] }>({
+  const published = useRef<{ samples: Sample[]; viewer: ViewerSample[] }>({
     samples: [],
-    bounded: [],
+    viewer: [],
   });
   const publish = useCallback(
     (
-      next: Partial<{ samples: Sample[]; bounded: BoundedSample[] }>,
+      next: Partial<{ samples: Sample[]; viewer: ViewerSample[] }>,
       isRunning: boolean,
       done: boolean,
     ) => {
@@ -732,38 +578,35 @@ export function GraphBenchShowcase() {
     }
   }, [publish, shape, stress]);
 
-  const runBounded = useCallback(async () => {
+  const runViewer = useCallback(async () => {
     stop.current = false;
     setRunning(true);
-    setBoundedSamples([]);
+    setViewerSamples([]);
     setPreviewLive(false);
-    publish({ bounded: [] }, true, false);
-    const collected: BoundedSample[] = [];
+    publish({ viewer: [] }, true, false);
+    const collected: ViewerSample[] = [];
     try {
-      const sizes = stress ? [...BOUNDED_SIZES, ...BOUNDED_STRESS_SIZES] : BOUNDED_SIZES;
-      for (const size of sizes) {
+      for (const size of VIEWER_SIZES) {
         if (stop.current) break;
         setCurrent(size);
+        setStageLabel(`measuring ${compact(size)}`);
         for (let i = 0; i < 3; i++) await nextFrame();
-        const sample = await measureBounded({ pointCount: size, onStage: setStageLabel });
+        const sample = await measureViewer(size);
         collected.push(sample);
-        setBoundedSamples([...collected]);
-        publish({ bounded: [...collected] }, true, false);
-        if (sample.failure && sample.failure !== "cancelled") break;
+        setViewerSamples([...collected]);
+        publish({ viewer: [...collected] }, true, false);
+        if (sample.failure) break;
       }
     } finally {
       setCurrent(null);
       setStageLabel(null);
       setRunning(false);
       setPreviewLive(true);
-      publish({ bounded: collected }, false, true);
+      publish({ viewer: collected }, false, true);
     }
-    // No `shape`: the bounded sweep reads a corpus fossil compiled offline, so the generator's
-    // shape toggle does not reach it. The dependency was left over from when this layer built its
-    // own graph in the tab.
-  }, [publish, stress]);
+  }, [publish]);
 
-  const run = layer === "engine" ? runEngine : runBounded;
+  const run = layer === "engine" ? runEngine : runViewer;
 
   /** The one control cluster, in the rail where a showcase puts its controls. */
   /**
@@ -791,7 +634,7 @@ export function GraphBenchShowcase() {
         <RadioGroup
           className="gap-2"
           disabled={running}
-          onValueChange={(details) => setLayer((details.value as Layer) ?? "bounded")}
+          onValueChange={(details) => setLayer((details.value as Layer) ?? "viewer")}
           value={layer}
         >
           {LAYERS.map((option) => (
@@ -843,13 +686,13 @@ export function GraphBenchShowcase() {
         />
       </div>
 
-      <Show when={!running}>
+      <Show when={!running && layer === "engine"}>
         <label className="flex items-center gap-2 text-muted-foreground text-xs">
           <Checkbox
             checked={stress}
             onCheckedChange={(details) => setStress(details.checked === true)}
           />
-          {layer === "bounded" ? "add 5M (must be built)" : "past 200k"}
+          past 200k
         </label>
       </Show>
     </div>
@@ -927,7 +770,7 @@ export function GraphBenchShowcase() {
               <SectionDescription>
                 {layer === "engine"
                   ? "The renderer fed typed arrays straight from a generator: the most the GPU can do with nothing of ours in the way."
-                  : "Ask for the window, not the corpus, over a GraphAr tree fossil compiled. Nothing is built in this tab, so the sweep reaches five million — which is also where the claim stops being flat."}
+                  : "GraphRoot drawing the whole corpus against cosmos.gl alone on the same positions and camera path; the gate is a p95 frame interval within 15%. The /bench corpora must be fossil/1, which fossil's writer does not emit yet."}
               </SectionDescription>
             </SectionTitleGroup>
           </SectionHeader>
@@ -997,8 +840,8 @@ export function GraphBenchShowcase() {
               <SectionRoot fill={false} className="min-w-0 gap-3">
                 {/* The summary, the shape, and the rows are one answer, so they share a tab —
                     read in that order, because each is the previous one at more resolution. */}
-                <Headline bounded={boundedSamples} layer={layer} samples={samples} />
-                <ResultsChart bounded={boundedSamples} layer={layer} samples={samples} />
+                <Headline layer={layer} samples={samples} viewer={viewerSamples} />
+                <ResultsChart layer={layer} samples={samples} viewer={viewerSamples} />
 
                 <SectionHeader>
                   <SectionTitleGroup>
@@ -1012,12 +855,7 @@ export function GraphBenchShowcase() {
 
                 <div className="overflow-x-auto rounded-lg border">
         <Show when={layer !== "engine"}>
-          <BoundedTable
-            sizes={stress ? [...BOUNDED_SIZES, ...BOUNDED_STRESS_SIZES] : BOUNDED_SIZES}
-            running={running}
-            samples={boundedSamples}
-            stage={stageLabel}
-          />
+          <ViewerTable running={running} samples={viewerSamples} stage={stageLabel} />
         </Show>
         <Show
           when={layer === "engine" && (samples.length > 0 || running)}
@@ -1111,7 +949,7 @@ export function GraphBenchShowcase() {
           <span className="ms-auto tabular-nums">
             {layer === "engine"
               ? `${(stress ? STRESS_SIZES : SIZES).map(compact).join(" · ")} nodes`
-              : `${(stress ? [...BOUNDED_SIZES, ...BOUNDED_STRESS_SIZES] : BOUNDED_SIZES).map(compact).join(" · ")} nodes`}
+              : `${VIEWER_SIZES.map(compact).join(" · ")} nodes`}
           </span>
       </ShellFooter>
     </div>

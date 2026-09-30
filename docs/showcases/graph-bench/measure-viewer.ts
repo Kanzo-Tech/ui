@@ -3,19 +3,22 @@
 import { createElement, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { Graph } from "@cosmos.gl/graph";
-import { open, PAYLOAD_ADDRESS, PAYLOAD_COORDINATES, type Box, type Corpus } from "@fossil-lang/corpus";
 import { GraphCanvas, GraphRoot, useGraphContext, type GraphApi } from "@kanzo-tech/graph";
 import { engine } from "@kanzo-tech/ui/analytics";
+import { open, type Corpus } from "@/lib/fossil-corpus";
 import { host, nextFrame, visible } from "./measure";
 
 /**
  * Our viewer against cosmos.gl alone, on the same positions and the same camera path.
  *
- * The raw half reads the corpus's payload level once, builds the typed arrays cosmos.gl takes and
- * draws them with nothing of ours in the way. The viewer half mounts `<GraphRoot><GraphCanvas/>`
- * over the same corpus with a `limit` of every vertex, so it draws the payload too. Both then
- * follow one trajectory, a camera change every frame, and the page records the interval between
- * frames. The gate is the median over the repeats of the viewer's p95 against the raw one's.
+ * The raw half reads every drawn table once, builds the typed arrays cosmos.gl takes and draws them
+ * with nothing of ours in the way. The viewer half mounts `<GraphRoot><GraphCanvas/>` over the same
+ * corpus. Both then follow one trajectory — the same wheel events on each canvas, a camera change
+ * every frame, through cosmos.gl's own d3-zoom and nothing else — and the page records the interval
+ * between frames. The gate is the median over the repeats of the viewer's p95 against the raw one's.
+ *
+ * The corpora at `/bench/<n>` have to be `fossil/1`, which fossil's writer does not emit yet: this
+ * runs the day `corpus/build-corpus.mjs` is re-run with a writer that does.
  *
  * `idleFrames` counts `requestAnimationFrame` calls from anyone on the page during a second of
  * nothing: a loop that does not idle shows up here and nowhere else.
@@ -46,12 +49,12 @@ export interface ViewerSample {
 
 export const VIEWER_SIZES = [200_000, 1_000_000];
 
-const KEY = PAYLOAD_ADDRESS[0] as string;
-const [X, Y] = PAYLOAD_COORDINATES as [string, string];
 const ZOOM_FRAMES = 60;
 const PAN_FRAMES = 180;
 const IDLE_MS = 1_000;
 const SETTLE_TIMEOUT = 120_000;
+
+type Box = { x: number; y: number; w: number; h: number };
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 const corners = (box: Box) => [box.x, box.y, box.x + box.w, box.y + box.h];
@@ -64,31 +67,38 @@ function percentile(values: number[], p: number): number {
 
 const median = (values: number[]) => percentile(values, 0.5);
 
-/** From the whole extent into a sixteenth of it, then across it and back. */
-function trajectory(extent: Box): Box[] {
-  const boxes: Box[] = [];
-  const cx = extent.x + extent.w / 2;
-  const cy = extent.y + extent.h / 2;
-  const w = extent.w / 4;
-  const h = extent.h / 4;
-  for (let i = 1; i <= ZOOM_FRAMES; i++) {
-    const t = i / ZOOM_FRAMES;
-    const bw = extent.w + (w - extent.w) * t;
-    const bh = extent.h + (h - extent.h) * t;
-    boxes.push({ x: cx - bw / 2, y: cy - bh / 2, w: bw, h: bh });
-  }
-  for (let i = 0; i < PAN_FRAMES; i++) {
-    const t = Math.sin((i / PAN_FRAMES) * Math.PI * 2);
-    boxes.push({ x: cx - w / 2 + t * (extent.w - w) / 2, y: cy - h / 2, w, h });
-  }
-  return boxes;
+/** A wheel event at a point of the canvas, as a fraction of its size. */
+interface Step {
+  fx: number;
+  fy: number;
+  deltaY: number;
 }
 
-async function drive(boxes: Box[], move: (box: Box) => void): Promise<Pick<Run, "frames" | "p50" | "p95">> {
+/**
+ * Into a quarter of the extent at the centre, then zooming in and out at a point that sweeps across
+ * and back — so every frame moves the camera and the net zoom stays put. d3-zoom turns a `deltaY`
+ * of −16.7 into ×2^(1/30), so the first leg is ×4.
+ */
+function trajectory(): Step[] {
+  const steps: Step[] = [];
+  for (let i = 0; i < ZOOM_FRAMES; i++) steps.push({ fx: 0.5, fy: 0.5, deltaY: -1000 / ZOOM_FRAMES });
+  for (let i = 0; i < PAN_FRAMES; i++) {
+    const t = 0.5 + 0.4 * Math.sin((i / PAN_FRAMES) * Math.PI * 2);
+    steps.push({ fx: t, fy: 0.5, deltaY: i % 2 === 0 ? -30 : 30 });
+  }
+  return steps;
+}
+
+async function drive(element: HTMLElement, steps: Step[]): Promise<Pick<Run, "frames" | "p50" | "p95">> {
+  const canvas = element.querySelector("canvas");
+  if (!canvas) throw new Error("no canvas to drive");
+  const box = canvas.getBoundingClientRect();
   const intervals: number[] = [];
   let last = await new Promise<number>((resolve) => requestAnimationFrame(resolve));
-  for (const box of boxes) {
-    move(box);
+  for (const { deltaY, fx, fy } of steps) {
+    const clientX = box.left + fx * box.width;
+    const clientY = box.top + fy * box.height;
+    canvas.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, clientX, clientY, deltaY, view: window }));
     const now = await new Promise<number>((resolve) => requestAnimationFrame(resolve));
     intervals.push(now - last);
     last = now;
@@ -118,41 +128,44 @@ interface Payload {
   total: number;
 }
 
-/** The payload level, read once: positions indexed by row, links between rows of this type. */
+/** Every drawn table read once: positions indexed by `dense_id`, links between drawn tables. */
 async function payloadOf(corpus: Corpus): Promise<Payload> {
-  const type = corpus.types.vertices.find((t) => t.geometry)?.type;
-  if (!type) throw new Error("the corpus has no vertex type with a position");
-  const matrix = corpus.tileMatrix(type);
-  const top = matrix.tileMatrices.at(-1);
-  if (!top || !matrix.extent) throw new Error(`${type} publishes no payload level or no extent`);
-  const addresses = top.tiles.map((tile) => ({ type, z: top.z, tile: tile.tile }));
-  const batches = await corpus.scan({ type, select: [KEY, X, Y] }).read(addresses);
-  const total = batches.reduce((sum, batch) => sum + batch.numRows, 0);
-  const positions = new Float32Array(total * 2);
-  const index = new Map<number, number>();
-  let n = 0;
-  for (const batch of batches) {
-    const keys = batch.getChild(KEY)?.toArray() ?? [];
-    const xs = batch.getChild(X)?.toArray() ?? [];
-    const ys = batch.getChild(Y)?.toArray() ?? [];
-    for (let i = 0; i < batch.numRows; i++, n++) {
-      index.set(Number(keys[i]), n);
-      positions[n * 2] = Number(xs[i]);
-      positions[n * 2 + 1] = Number(ys[i]);
-    }
-  }
-  const links: number[] = [];
-  for (const answer of await corpus.edges({ from: addresses, direction: "src" })) {
-    for (const batch of answer.batches) {
-      if (batch.srcType !== type || batch.dstType !== type) continue;
-      for (let e = 0; e < batch.src.length; e++) {
-        const a = index.get(Number(batch.src[e]));
-        const b = index.get(Number(batch.dst[e]));
-        if (a !== undefined && b !== undefined && a !== b) links.push(a, b);
+  const readAll = async (params: Parameters<Corpus["scan"]>[0]) => {
+    const scan = corpus.scan(params);
+    return scan.read(scan.plan());
+  };
+  const tables = corpus.manifest.vertex_tables.filter((table) => table.position);
+  if (tables.length === 0) throw new Error("the corpus has no vertex type with a position");
+  const total = tables.reduce((sum, table) => sum + table.record_count, 0);
+  const positions = new Float32Array(total * 2).fill(Number.NaN);
+  let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];
+  for (const table of tables) {
+    const { x, y } = table.position as { x: string; y: string };
+    for (const batch of await readAll({ table: table.name, select: [table.key, x, y] })) {
+      const keys = batch.getChild(table.key)?.toArray() ?? [];
+      const xs = batch.getChild(x)?.toArray() ?? [];
+      const ys = batch.getChild(y)?.toArray() ?? [];
+      for (let i = 0; i < batch.numRows; i++) {
+        const id = Number(keys[i]);
+        const px = Number(xs[i]);
+        const py = Number(ys[i]);
+        positions[id * 2] = px;
+        positions[id * 2 + 1] = py;
+        [x0, y0, x1, y1] = [Math.min(x0, px), Math.min(y0, py), Math.max(x1, px), Math.max(y1, py)];
       }
     }
   }
-  return { positions, links: Float32Array.from(links), extent: matrix.extent, total };
+  const drawn = new Set(tables.map((table) => table.name));
+  const links: number[] = [];
+  for (const edge of corpus.manifest.edge_tables) {
+    if (!drawn.has(edge.source.references) || !drawn.has(edge.destination.references)) continue;
+    for (const batch of await readAll({ table: edge.name, select: [edge.source.key, edge.destination.key] })) {
+      const src = batch.getChild(edge.source.key)?.toArray() ?? [];
+      const dst = batch.getChild(edge.destination.key)?.toArray() ?? [];
+      for (let e = 0; e < batch.numRows; e++) links.push(Number(src[e]), Number(dst[e]));
+    }
+  }
+  return { positions, links: Float32Array.from(links), extent: { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, total };
 }
 
 /** cosmos.gl configured as the renderer configures it, minus everything of ours. */
@@ -179,7 +192,7 @@ async function rawRun(payload: Payload): Promise<Run> {
     graph.getPointPositions();
     const firstPaintMs = performance.now() - started;
     const idle = await idleFrames();
-    const moved = await drive(trajectory(payload.extent), (box) => graph.fitViewByPointPositions(corners(box), 0, 0));
+    const moved = await drive(element, trajectory());
     return { firstPaintMs, idleFrames: idle, ...moved };
   } finally {
     graph.destroy();
@@ -194,7 +207,7 @@ function Hold({ into }: { into: (api: GraphApi) => void }) {
   return null;
 }
 
-async function viewerRun(corpus: Corpus, payload: Payload): Promise<Run> {
+async function viewerRun(corpus: Corpus): Promise<Run> {
   const element = host();
   const root = createRoot(element);
   let api: GraphApi | null = null;
@@ -204,7 +217,7 @@ async function viewerRun(corpus: Corpus, payload: Payload): Promise<Run> {
     root.render(
       createElement(
         GraphRoot,
-        { corpus, limit: payload.total, onFailure: (message: string) => void (failure ??= message) },
+        { corpus, onFailure: (message: string) => void (failure ??= message) },
         createElement(GraphCanvas),
         createElement(Hold, { into: (held: GraphApi) => void (api = held) }),
       ),
@@ -216,9 +229,8 @@ async function viewerRun(corpus: Corpus, payload: Payload): Promise<Run> {
       await sleep(4);
     }
     const firstPaintMs = performance.now() - started;
-    const ready = api as unknown as GraphApi;
     const idle = await idleFrames();
-    const moved = await drive(trajectory(payload.extent), (box) => ready.frameBox(box, { duration: 0, padding: 0 }));
+    const moved = await drive(element, trajectory());
     return { firstPaintMs, idleFrames: idle, ...moved };
   } finally {
     root.unmount();
@@ -240,7 +252,7 @@ export async function measureViewer(pointCount: number, { repeats = 3 } = {}): P
     sample.linkCount = payload.links.length / 2;
     for (let i = 0; i < repeats; i++) {
       sample.raw.push(await rawRun(payload));
-      sample.viewer.push(await viewerRun(corpus, payload));
+      sample.viewer.push(await viewerRun(corpus));
     }
     sample.rawP95 = median(sample.raw.map((run) => run.p95));
     sample.viewerP95 = median(sample.viewer.map((run) => run.p95));
