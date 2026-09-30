@@ -17,6 +17,12 @@ export interface RendererEvents {
   onFrame?: () => void;
   /** A new composition was uploaded. */
   onComposed?: (composition: Composition) => void;
+  /**
+   * Where the hovered point is, in space, as cosmos.gl reports it: on the hover, on every tick of a
+   * running layout and on every step of a drag. The card follows this rather than a tracked point,
+   * which would cost a GPU readback per hover.
+   */
+  onHover?: (position: [number, number] | null) => void;
 }
 
 export interface Renderer extends GraphCommands {
@@ -122,24 +128,31 @@ export function createRenderer(host: HTMLDivElement, store: GraphStore, events: 
       },
       onSimulationPause: () => store.report("paused"),
       onSimulationUnpause: () => store.report("running"),
-      onSimulationTick: () => {
+      onSimulationTick: (_alpha, index, position) => {
         progress(graph.progress);
+        if (index !== undefined && position) events.onHover?.(position);
         events.onFrame?.();
       },
       onZoom: () => {
         observe();
         events.onFrame?.();
       },
-      onPointMouseOver: (index) => {
+      onPointMouseOver: (index, position) => {
         hovering = index;
+        events.onHover?.(position);
         store.hover(resident().at(index) ?? null);
       },
       onPointMouseOut: () => {
         hovering = null;
+        events.onHover?.(null);
         store.hover(null);
       },
       onDragStart: () => {
         dragging = hovering;
+      },
+      onDrag: (event) => {
+        events.onHover?.(graph.screenToSpacePosition([event.x, event.y]));
+        events.onFrame?.();
       },
       onDragEnd: () => {
         const vertex = dragging === null ? undefined : resident().at(dragging);

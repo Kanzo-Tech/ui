@@ -4,6 +4,7 @@ import { categoricalCapacity, cn, Show, useThemeTick } from "@kanzo-tech/ui";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { nameOf } from "../core/categories";
 import { denseOf, type VertexId } from "../core/resident";
+import type { GraphOptions } from "../core/state";
 import { useGraphContext } from "../react/graph-root";
 import { internalsOf } from "../react/use-graph";
 import { useGraphState } from "../react/use-graph-state";
@@ -61,7 +62,6 @@ const WAITING: Partial<Record<string, string>> = {
 export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasProps) {
   const api = useGraphContext();
   const { attach, renderer } = internalsOf(api);
-  const hovered = useGraphState((s) => s.hovered);
   const focus = useGraphState((s) => s.focus);
   const tool = useGraphState((s) => s.tool);
   const options = useGraphState((s) => s.options);
@@ -70,15 +70,15 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
   const look = useMemo(() => resolveLook(options.look), [options.look]);
   const getGraph = useCallback(() => renderer()?.graph ?? null, [renderer]);
   const overlays = useOverlays({ getGraph, getResident: api.getResident });
-  const { cardRef, gridRef, hostRef, labelRef, schedule, setHovered, setLabelOrder, track } = overlays;
+  const { cardRef, gridRef, hostRef, hoverAt, labelRef, schedule, setHovered, setLabelOrder, track } = overlays;
   const surfaceRef = useRef<HTMLDivElement>(null);
   const [composition, setComposition] = useState<Composition | null>(null);
 
   useEffect(() => {
     const surface = surfaceRef.current;
     if (!surface) return;
-    return attach(surface, { onFrame: schedule, onComposed: setComposition });
-  }, [attach, schedule]);
+    return attach(surface, { onFrame: schedule, onComposed: setComposition, onHover: hoverAt });
+  }, [attach, hoverAt, schedule]);
 
   const themeTick = useThemeTick();
   useEffect(() => {
@@ -91,10 +91,9 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
   );
   useEffect(() => {
     setLabelOrder(labels.map((label) => label.vertex));
-    setHovered(hovered);
     track();
     schedule();
-  }, [hovered, labels, schedule, setHovered, setLabelOrder, track, look.grid]);
+  }, [labels, schedule, setLabelOrder, track, look.grid]);
 
   const gesture = useGesture({
     getGraph,
@@ -108,18 +107,6 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
 
   const capacity = hostRef.current ? categoricalCapacity(hostRef.current) : undefined;
   const scale = useMemo(() => scaleOf(options, capacity), [options, capacity]);
-  const card = useMemo(() => {
-    if (hovered === null || !composition) return null;
-    const index = composition.resident.indexOf(hovered);
-    if (index === undefined) return null;
-    const rank = composition.categories[index] ?? 0;
-    const bound = options.fill !== undefined || options.symbol !== undefined;
-    return {
-      rank,
-      title: composition.titles?.[index] || `#${denseOf(hovered)}`,
-      category: bound && rank < domain.length ? nameOf(domain[rank], options.categories) : null,
-    };
-  }, [composition, domain, hovered, options]);
 
   return (
     <div
@@ -152,17 +139,15 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
             {label.text}
           </span>
         ))}
-        {card && (
-          <div
-            className="absolute top-0 left-0 flex w-max max-w-60 items-center gap-2 rounded-lg border bg-popover px-2.5 py-2 opacity-0 shadow-lg"
-            data-slot="graph-canvas-card"
-            ref={cardRef}
-          >
-            <ShapeGlyph className="size-2.5 shrink-0" color={scale.color(card.rank)} shape={scale.shape(card.rank)} />
-            <span className="truncate font-medium text-popover-foreground text-sm leading-none">{card.title}</span>
-            {card.category !== null && <span className="text-muted-foreground text-xs">{card.category}</span>}
-          </div>
-        )}
+        <HoverCard
+          cardRef={cardRef}
+          composition={composition}
+          domain={domain}
+          options={options}
+          scale={scale}
+          schedule={schedule}
+          setHovered={setHovered}
+        />
       </div>
       <Show when={active !== null}>
         <div className="absolute inset-0 cursor-crosshair" data-slot="graph-canvas-gesture" {...gesture.handlers}>
@@ -210,6 +195,46 @@ export function GraphCanvas({ children, className, slot, ...rest }: GraphCanvasP
         </p>
       </Show>
       {children}
+    </div>
+  );
+}
+
+interface HoverCardProps {
+  cardRef: React.RefObject<HTMLDivElement | null>;
+  composition: Composition | null;
+  domain: readonly unknown[];
+  options: GraphOptions;
+  scale: ReturnType<typeof scaleOf>;
+  schedule: () => void;
+  setHovered: (vertex: VertexId | null) => void;
+}
+
+/** The only part that re-renders on a hover: the canvas and its labels do not. */
+function HoverCard({ cardRef, composition, domain, options, scale, schedule, setHovered }: HoverCardProps) {
+  const hovered = useGraphState((s) => s.hovered);
+  useEffect(() => {
+    setHovered(hovered);
+    schedule();
+  }, [hovered, schedule, setHovered]);
+
+  const index = hovered === null ? undefined : composition?.resident.indexOf(hovered);
+  if (hovered === null || !composition || index === undefined) return null;
+  const rank = composition.categories[index] ?? 0;
+  const bound = options.fill !== undefined || options.symbol !== undefined;
+  const category = bound && rank < domain.length ? nameOf(domain[rank], options.categories) : null;
+  return (
+    <div
+      className="absolute top-0 left-0 flex w-max max-w-60 items-center gap-2 rounded-lg border bg-popover px-2.5 py-2 opacity-0 shadow-lg"
+      data-slot="graph-canvas-card"
+      ref={cardRef}
+    >
+      <ShapeGlyph className="size-2.5 shrink-0" color={scale.color(rank)} shape={scale.shape(rank)} />
+      <span className="truncate font-medium text-popover-foreground text-sm leading-none">
+        {composition.titles?.[index] || `#${denseOf(hovered)}`}
+      </span>
+      <Show when={category !== null}>
+        <span className="text-muted-foreground text-xs">{category}</span>
+      </Show>
     </div>
   );
 }
